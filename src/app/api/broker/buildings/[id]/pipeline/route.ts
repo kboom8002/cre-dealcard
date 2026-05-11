@@ -22,7 +22,7 @@ const BodySchema = z.object({
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,7 +46,7 @@ export async function POST(
   const { data: current } = await supabase
     .from('deal_pipeline_states')
     .select('id, stage, entered_at, metadata')
-    .eq('building_ssot_lite_id', params.id)
+    .eq('building_ssot_lite_id', (await params).id)
     .eq('broker_id', user.id)
     .order('entered_at', { ascending: false })
     .limit(1)
@@ -85,7 +85,7 @@ export async function POST(
   const { data: newState, error: insertErr } = await supabase
     .from('deal_pipeline_states')
     .insert({
-      building_ssot_lite_id: params.id,
+      building_ssot_lite_id: (await params).id,
       broker_id: user.id,
       stage: toStage,
       metadata: mergedMeta,
@@ -99,7 +99,7 @@ export async function POST(
 
   // Activity event
   await supabase.from('activity_events').insert({
-    building_ssot_lite_id: params.id,
+    building_ssot_lite_id: (await params).id,
     broker_id: user.id,
     event_type: 'pipeline_advanced',
     metadata: {

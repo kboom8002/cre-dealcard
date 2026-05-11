@@ -12,7 +12,7 @@ import { findSimilarDeals } from '@/domain/graph/deal-semantic-search';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,7 +27,7 @@ export async function GET(
   const { data: building } = await supabase
     .from('building_ssot_lite')
     .select('id, area_signal, asset_type, price_band')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .eq('broker_id', user.id)
     .single();
   if (!building) return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
@@ -35,8 +35,8 @@ export async function GET(
   try {
     // Run in parallel
     const [features, networkRecs, similarDeals] = await Promise.all([
-      extractDealFeatures(params.id),
-      getNetworkRecommendations(params.id, 5),
+      extractDealFeatures((await params).id),
+      getNetworkRecommendations((await params).id, 5),
       findSimilarDeals({
         areaSignal: building.area_signal,
         assetType:  building.asset_type,
@@ -49,7 +49,7 @@ export async function GET(
     if (features) {
       conversion = await predictDealConversion(features);
       // Save snapshot async (non-blocking)
-      snapshotDealFeatures(params.id).catch((e) => console.warn('[snapshot]', e));
+      snapshotDealFeatures((await params).id).catch((e) => console.warn('[snapshot]', e));
     }
 
     return NextResponse.json({

@@ -28,7 +28,9 @@ interface FormState {
   memo: string;
 }
 
-export default function ExpertNoteRequestPage() {
+import { Suspense } from "react";
+
+function ExpertNoteRequestContent() {
   const searchParams = useSearchParams();
   const buildingId = searchParams.get("building");
   const readinessId = searchParams.get("readiness");
@@ -260,5 +262,13 @@ export default function ExpertNoteRequestPage() {
         </p>
       </form>
     </main>
+  );
+}
+
+export default function ExpertNoteRequestPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+      <ExpertNoteRequestContent />
+    </Suspense>
   );
 }

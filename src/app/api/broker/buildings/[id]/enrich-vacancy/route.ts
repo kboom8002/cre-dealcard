@@ -10,7 +10,7 @@ import { computePromotionScore } from '@/domain/promotion/promotion-ranker';
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,7 +29,7 @@ export async function POST(
   const { data: building } = await supabase
     .from('building_ssot_lite')
     .select('id, matched_buyer_count, created_at')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .eq('broker_id', user.id)
     .single();
 
@@ -38,13 +38,13 @@ export async function POST(
   }
 
   // Enrich
-  const enrichResult = await enrichFromVacancyData(params.id);
+  const enrichResult = await enrichFromVacancyData((await params).id);
 
   // Recalculate promotion score with fresh vacancy data
   const { data: cardRow } = await supabase
     .from('building_signal_cards')
     .select('deal_curiosity_score')
-    .eq('building_id', params.id)
+    .eq('building_id', (await params).id)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -63,7 +63,7 @@ export async function POST(
       promotion_score: promoResult.score,
       promotion_updated_at: new Date().toISOString(),
     })
-    .eq('id', params.id);
+    .eq('id', (await params).id);
 
   return NextResponse.json({
     ok: true,

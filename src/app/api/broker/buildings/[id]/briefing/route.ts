@@ -8,7 +8,7 @@ import { generateDealBriefing } from '@/domain/briefing/deal-briefing-generator'
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,7 +27,7 @@ export async function GET(
   const { data: building } = await supabase
     .from('building_ssot_lite')
     .select('id')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .eq('broker_id', user.id)
     .single();
 
@@ -36,7 +36,7 @@ export async function GET(
   }
 
   try {
-    const briefing = await generateDealBriefing(params.id, user.id);
+    const briefing = await generateDealBriefing((await params).id, user.id);
     return NextResponse.json({ ok: true, briefing });
   } catch (err) {
     console.error('[briefing] error', err);
