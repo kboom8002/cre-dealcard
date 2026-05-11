@@ -21,7 +21,7 @@ describe('DC-L2 Domain Logic', () => {
       },
       intent: {
         buyerType: '개인 투자자',
-        budgetRange: '50억-100억',
+        budgetRange: { min: 50, max: 100, display: '50억-100억' },
         preferredRegions: ['강남구', '서초구'],
         assetTypes: ['근린상가', '오피스'],
         purchasePurpose: '수익형 투자',

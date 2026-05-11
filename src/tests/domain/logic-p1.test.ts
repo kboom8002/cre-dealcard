@@ -29,7 +29,7 @@ describe('DC-L2 Domain Logic (P1)', () => {
       imReadinessScore: 85
     };
 
-    const prediction = await predictDealConversion(mockFeatures);
+    const prediction = await predictDealConversion(mockFeatures as any);
     expect(prediction.probability).toBeGreaterThan(0.5);
     expect(prediction.confidence).toBeDefined();
     expect(prediction.topFactors.length).toBeGreaterThan(0);

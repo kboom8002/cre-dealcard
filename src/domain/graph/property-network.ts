@@ -68,7 +68,7 @@ export async function getRelatedBuildingsByBuyerOverlap(
 
   for (const m of otherMatches) {
     const bid = m.building_ssot_lite_id;
-    const b   = m.building_ssot_lite as { area_signal: string; asset_type: string; price_band: string | null };
+    const b   = m.building_ssot_lite as unknown as { area_signal: string; asset_type: string; price_band: string | null };
     if (!agg[bid]) {
       agg[bid] = { building: b, sharedBuyers: 0, grades: [] };
     }

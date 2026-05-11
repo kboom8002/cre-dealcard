@@ -242,13 +242,13 @@ export async function runBuyerClustering(): Promise<ClusteringResult> {
     const { label, weightProfile } = await labelCluster(members);
 
     const budgets = members.map((m) => (m.budget_range as { min?: number; max?: number }) ?? {});
-    const avgMin  = budgets.map((b) => b.min).filter(Boolean).reduce((s, v, _, a) => s! + v! / a.length, 0) as number | null;
-    const avgMax  = budgets.map((b) => b.max).filter(Boolean).reduce((s, v, _, a) => s! + v! / a.length, 0) as number | null;
+    const avgMin  = budgets.map((b) => b.min).filter((v): v is number => typeof v === 'number').reduce((s, v, _, a) => s + v / a.length, 0) || null;
+    const avgMax  = budgets.map((b) => b.max).filter((v): v is number => typeof v === 'number').reduce((s, v, _, a) => s + v / a.length, 0) || null;
     const allRegions = members.flatMap((m) => m.preferred_regions as string[] ?? []);
-    const regionFreq  = allRegions.reduce((acc, r) => { acc[r] = (acc[r] ?? 0) + 1; return acc; }, {} as Record<string, number>);
-    const topRegions  = Object.entries(regionFreq).sort(([, a], [, b]) => b - a).slice(0, 3).map(([r]) => r);
-    const purposeFreq = members.reduce((acc, m) => { const p = (m.inferred_purpose ?? 'unknown') as string; acc[p] = (acc[p] ?? 0) + 1; return acc; }, {} as Record<string, number>);
-    const topPurposes = Object.entries(purposeFreq).sort(([, a], [, b]) => b - a).slice(0, 2).map(([p]) => p);
+    const regionFreq  = allRegions.reduce((acc, r) => { acc[r] = ((acc[r] as number | undefined) ?? 0) + 1; return acc; }, {} as Record<string, number>);
+    const topRegions  = Object.entries(regionFreq).sort(([, a], [, b]) => (b as number) - (a as number)).slice(0, 3).map(([r]) => r);
+    const purposeFreq = members.reduce((acc, m) => { const p = (m.inferred_purpose ?? 'unknown') as string; acc[p] = ((acc[p] as number | undefined) ?? 0) + 1; return acc; }, {} as Record<string, number>);
+    const topPurposes = Object.entries(purposeFreq).sort(([, a], [, b]) => (b as number) - (a as number)).slice(0, 2).map(([p]) => p);
 
     clusters.push({ id: c, label, weightProfile, memberCount: members.length, avgBudgetMin: avgMin, avgBudgetMax: avgMax, topRegions, topPurposes });
 

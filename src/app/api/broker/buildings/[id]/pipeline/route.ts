@@ -17,7 +17,7 @@ const BodySchema = z.object({
     'memo_input','deal_card_created','gate_requested',
     'im_created','buyer_meeting','loi','contract','closed','failed',
   ]),
-  metadata: z.record(z.unknown()).optional().default({}),
+  metadata: z.record(z.string(), z.unknown()).optional().default({}),
 });
 
 export async function POST(

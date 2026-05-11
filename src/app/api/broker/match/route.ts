@@ -192,9 +192,12 @@ export async function POST(req: NextRequest) {
   }).catch((e) => console.warn('[graph] edge create failed', e));
 
   // G-D: Generate CasePack embedding (non-blocking)
-  if (casePack && (casePack as { id?: string }).id) {
-    generateCasePackEmbedding((casePack as { id: string }).id)
-      .catch((e) => console.warn('[graph] casepack embed failed', e));
+  if (casePack) {
+    const cp = casePack as unknown as { id: string };
+    if (cp.id) {
+      generateCasePackEmbedding(cp.id)
+        .catch((e) => console.warn('[graph] casepack embed failed', e));
+    }
   }
 
   // P-D2: Classify buyer into cluster (non-blocking)
