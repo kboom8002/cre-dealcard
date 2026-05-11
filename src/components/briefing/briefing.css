@@ -1,0 +1,285 @@
+/* ============================================================
+   Briefing Card & Pipeline Status Bar — Phase 3 UI Styles
+   ============================================================ */
+
+/* ── Briefing Card ─────────────────────────────────────────── */
+
+.briefing-card {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 24px;
+  color: #e2e8f0;
+  font-family: 'Pretendard', 'Noto Sans KR', sans-serif;
+}
+
+.briefing-card--loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0.6;
+  font-size: 14px;
+}
+
+.briefing-card__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(99, 102, 241, 0.4);
+  border-top-color: #818cf8;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.briefing-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.briefing-card__icon {
+  font-size: 20px;
+}
+
+.briefing-card__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #818cf8;
+  margin: 0;
+}
+
+.briefing-card__section {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.briefing-card__section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.briefing-card__section--warn {
+  background: rgba(251, 191, 36, 0.08);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 8px 0;
+  border-bottom: none;
+}
+
+.briefing-card__section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.briefing-card__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.briefing-card__row--sub {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.briefing-card__badge {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.briefing-card__badge--green {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.briefing-card__text {
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.briefing-card__text--muted {
+  color: #64748b;
+}
+
+.briefing-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.briefing-card__action-btn {
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.briefing-card__action-btn--primary {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: white;
+}
+
+.briefing-card__action-btn--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.briefing-card__action-btn--secondary {
+  background: rgba(255,255,255,0.06);
+  color: #94a3b8;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.briefing-card__action-btn--secondary:hover {
+  background: rgba(255,255,255,0.10);
+  color: #e2e8f0;
+}
+
+/* ── Pipeline Status Bar ───────────────────────────────────── */
+
+.pipeline-bar {
+  background: #0f172a;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.pipeline-bar__steps {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.pipeline-bar__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 72px;
+  position: relative;
+}
+
+.pipeline-bar__step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: rgba(255,255,255,0.1);
+  z-index: 0;
+}
+
+.pipeline-bar__step--done::after {
+  background: #4f46e5;
+}
+
+.pipeline-bar__dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  border: 2px solid rgba(255,255,255,0.15);
+  z-index: 1;
+  position: relative;
+}
+
+.pipeline-bar__step--active .pipeline-bar__dot {
+  background: #4f46e5;
+  border-color: #818cf8;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.25);
+}
+
+.pipeline-bar__step--done .pipeline-bar__dot {
+  background: #4f46e5;
+  border-color: #4f46e5;
+}
+
+.pipeline-bar__label {
+  font-size: 10px;
+  text-align: center;
+  margin-top: 6px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.pipeline-bar__step--active .pipeline-bar__label {
+  color: #818cf8;
+  font-weight: 700;
+}
+
+.pipeline-bar__step--done .pipeline-bar__label {
+  color: #475569;
+}
+
+.pipeline-bar__warning {
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #fbbf24;
+  margin-top: 12px;
+}
+
+.pipeline-bar__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.pipeline-bar__advance-btn {
+  flex: 1;
+  min-width: 140px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pipeline-bar__advance-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.pipeline-bar__advance-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pipeline-bar__error {
+  font-size: 12px;
+  color: #f87171;
+  margin-top: 8px;
+}

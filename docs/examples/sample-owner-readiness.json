@@ -1,0 +1,33 @@
+{
+  "input": {
+    "hasBuildingRegister": true,
+    "hasRegistry": false,
+    "hasLandUsePlan": true,
+    "hasRentRoll": false,
+    "hasPhotos": true,
+    "hasFloorPlan": false,
+    "hasRepairHistory": false,
+    "hasVacancyInfo": true,
+    "hasAskingPrice": true,
+    "hasDisclosurePreference": false,
+    "userGoal": "sell"
+  },
+  "expectedOutput": {
+    "readinessScore": 48,
+    "currentPossibleOutputs": [
+      "deal_curiosity_report",
+      "blind_teaser",
+      "snapshot_draft"
+    ],
+    "missingRequiredData": [
+      "등기부등본",
+      "임대차 요약표",
+      "도면",
+      "수선 이력",
+      "공개 가능/불가 정보"
+    ],
+    "recommendedNextAction": "request_expert_note",
+    "ownerMessage": "현재 자료 상태로는 블라인드 티저와 Snapshot 초안은 가능하지만, Buyer-ready Full IM을 만들기에는 임대차 요약표와 등기부 등 핵심 자료가 부족합니다.",
+    "boundaryNote": "본 결과는 매각 준비도 예비 점검이며, 가격·법률·세무·대출 가능성을 확정하지 않습니다."
+  }
+}

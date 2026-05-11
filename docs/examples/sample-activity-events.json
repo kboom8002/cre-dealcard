@@ -1,0 +1,53 @@
+[
+  {
+    "event_type": "broker_memo_submitted",
+    "actor_role": "broker",
+    "entity_type": "building_ssot_lite",
+    "metadata": {
+      "input_type": "broker_memo"
+    }
+  },
+  {
+    "event_type": "building_ssot_lite_created",
+    "actor_role": "broker",
+    "entity_type": "building_ssot_lite",
+    "metadata": {
+      "source": "broker_memo",
+      "hidden_fields_count": 4
+    }
+  },
+  {
+    "event_type": "blind_teaser_generated",
+    "actor_role": "broker",
+    "entity_type": "document_object",
+    "metadata": {
+      "document_type": "blind_teaser",
+      "visibility": "public_blind",
+      "disclosure_checked": true
+    }
+  },
+  {
+    "event_type": "buyer_intent_created",
+    "actor_role": "broker",
+    "entity_type": "buyer_intent_lite",
+    "metadata": {
+      "source": "buyer_memo"
+    }
+  },
+  {
+    "event_type": "buyer_memo_generated",
+    "actor_role": "broker",
+    "entity_type": "document_object",
+    "metadata": {
+      "document_type": "buyer_fit_memo"
+    }
+  },
+  {
+    "event_type": "gate_request_created",
+    "actor_role": "broker",
+    "entity_type": "gate_request_lite",
+    "metadata": {
+      "requested_level": "G3_SNAPSHOT_OR_IM_LITE"
+    }
+  }
+]

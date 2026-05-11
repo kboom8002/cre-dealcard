@@ -1,0 +1,25 @@
+{
+  "request": {
+    "buildingId": "bsl_sample_001",
+    "requesterRole": "broker",
+    "requestedLevel": "G3_SNAPSHOT_OR_IM_LITE",
+    "requestedFields": [
+      "approx_location_detail",
+      "lease_summary",
+      "building_photos",
+      "owner_approved_snapshot"
+    ],
+    "reason": "Buyer is considering owner-use HQ plus partial rental income and wants to check lease maturity and parking conditions."
+  },
+  "expectedPolicy": {
+    "exactAddressVisibleBeforeApproval": false,
+    "tenantNameVisibleBeforeApproval": false,
+    "unitRentVisibleBeforeApproval": false,
+    "sellerMotivationVisibleBeforeApproval": false,
+    "status": "submitted"
+  },
+  "expectedActivityEvent": {
+    "eventType": "gate_request_created",
+    "entityType": "gate_request_lite"
+  }
+}

@@ -1,0 +1,252 @@
+/* ============================================================
+   Conversion Intel Card — P-X · G-S · G-D Styles
+   ============================================================ */
+
+.intel-card {
+  background: linear-gradient(135deg, #0a0f1e 0%, #0f172a 100%);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 20px;
+  padding: 22px;
+  margin-top: 24px;
+  color: #e2e8f0;
+  font-family: 'Pretendard', 'Noto Sans KR', sans-serif;
+}
+
+.intel-card--loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.intel-card__spinner {
+  width: 16px; height: 16px;
+  border: 2px solid rgba(99,102,241,0.3);
+  border-top-color: #818cf8;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.intel-card__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.intel-card__icon { font-size: 22px; }
+
+.intel-card__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #818cf8;
+  margin: 0;
+  flex: 1;
+}
+
+.intel-card__tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.intel-card__tab {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.intel-card__tab--active {
+  background: rgba(99,102,241,0.2);
+  border-color: rgba(99,102,241,0.4);
+  color: #818cf8;
+}
+
+/* Gauge */
+.intel-card__gauge-wrap {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.intel-card__gauge {
+  position: relative;
+  width: 120px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.intel-card__gauge-svg { width: 120px; }
+
+.intel-card__gauge-label {
+  position: absolute;
+  bottom: 4px;
+  left: 0; right: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #e2e8f0;
+}
+
+.intel-card__gauge-sub {
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.intel-card__gauge-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.intel-card__mode {
+  font-size: 11px;
+  color: #475569;
+}
+
+/* Badges */
+.intel-card__badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 99px;
+}
+
+.intel-card__badge--high {
+  background: rgba(34,197,94,0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34,197,94,0.25);
+}
+
+.intel-card__badge--medium {
+  background: rgba(251,191,36,0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251,191,36,0.25);
+}
+
+.intel-card__badge--low {
+  background: rgba(248,113,113,0.15);
+  color: #f87171;
+  border: 1px solid rgba(248,113,113,0.25);
+}
+
+.intel-card__badge--indigo {
+  background: rgba(99,102,241,0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99,102,241,0.25);
+}
+
+/* Factors */
+.intel-card__section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+
+.intel-card__factors { margin-bottom: 16px; }
+
+.intel-card__factor-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 13px;
+}
+
+.intel-card__factor-name { color: #94a3b8; }
+
+.intel-card__factor-impact {
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.intel-card__factor-impact--pos { color: #4ade80; }
+.intel-card__factor-impact--neg { color: #f87171; }
+
+/* Action banner */
+.intel-card__action-banner {
+  background: rgba(99,102,241,0.1);
+  border: 1px solid rgba(99,102,241,0.2);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #a5b4fc;
+  margin-bottom: 10px;
+}
+
+.intel-card__boundary {
+  font-size: 10px;
+  color: #334155;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Network tab */
+.intel-card__network-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.intel-card__network-info { display: flex; gap: 8px; font-size: 13px; }
+.intel-card__network-area { color: #e2e8f0; font-weight: 600; }
+.intel-card__network-asset { color: #94a3b8; }
+.intel-card__network-price { color: #818cf8; }
+
+/* Deals tab */
+.intel-card__deal-row {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.intel-card__deal-task {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 4px;
+}
+
+.intel-card__deal-knowledge {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.intel-card__deal-warning {
+  font-size: 12px;
+  color: #fbbf24;
+  margin-bottom: 4px;
+}
+
+.intel-card__similarity {
+  font-size: 10px;
+  color: #475569;
+  background: rgba(255,255,255,0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.intel-card__empty {
+  font-size: 13px;
+  color: #475569;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.intel-card__body { min-height: 160px; }
