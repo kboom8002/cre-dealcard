@@ -1,0 +1,40 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    name: Run Unit & Domain Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run Type Check
+      run: npm run typecheck
+
+    - name: Run Vitest (Domain Logic & Fallback APIs)
+      run: npm run test
+      env:
+        # Mock env vars to pass the build without real keys
+        NEXT_PUBLIC_SUPABASE_URL: "https://mock.supabase.co"
+        SUPABASE_SERVICE_ROLE_KEY: "mock-key"
+        APP_BASE_URL: "http://localhost:3000"
+        TEST_AUTH_TOKEN: "dummy-token"
+
+  # Note: Vercel handles the actual deployment automatically
+  # when pushed to the main branch if the repo is connected.
