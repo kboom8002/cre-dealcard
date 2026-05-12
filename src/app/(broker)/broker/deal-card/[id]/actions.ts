@@ -18,7 +18,9 @@ export async function createMobileIMAction(buildingId: string) {
   }, userId);
 
   // Call Full IM Studio API to generate Mobile IM
-  const fullImApiUrl = process.env.FULL_IM_STUDIO_URL ?? "https://cre-fullim.vercel.app";
+  const fullImApiUrl = process.env.NODE_ENV === "production"
+    ? "https://cre-fullim.vercel.app"
+    : (process.env.FULL_IM_STUDIO_URL ?? "http://localhost:3001");
   const res = await fetch(`${fullImApiUrl}/api/mobile-im/create`, {
     method: "POST",
     headers: {

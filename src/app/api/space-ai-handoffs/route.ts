@@ -43,8 +43,9 @@ export async function POST(req: Request) {
     const input = SpaceAIHandoffRequest.parse(json);
 
     const supabase = createServiceClient();
-    const spaceAiBaseUrl =
-      process.env.SPACE_AI_PAGE_URL || "https://cre-aipage.vercel.app";
+    const spaceAiBaseUrl = process.env.NODE_ENV === "production"
+      ? "https://cre-aipage.vercel.app"
+      : (process.env.SPACE_AI_PAGE_URL || "http://localhost:3003");
 
     // 1. Persist handoff intent on MVP side
     const { data: handoffRow, error: insertErr } = await supabase
