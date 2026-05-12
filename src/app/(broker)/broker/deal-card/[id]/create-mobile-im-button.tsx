@@ -11,9 +11,15 @@ export function CreateMobileImButton({ buildingId }: { buildingId: string }) {
       onClick={async () => {
         setLoading(true);
         try {
-          await createMobileIMAction(buildingId);
-        } catch {
-          alert("모바일 투자설명서 생성 중 오류가 발생했습니다.\n잠시 후 다시 시도해 주세요.");
+          const res = await createMobileIMAction(buildingId);
+          if (res.success && res.url) {
+            window.location.href = res.url;
+          } else {
+            alert(`모바일 투자설명서 생성 중 오류가 발생했습니다.\n상세: ${res.error}`);
+            setLoading(false);
+          }
+        } catch (err: any) {
+          alert(`서버 요청 중 오류가 발생했습니다.\n${err?.message}`);
           setLoading(false);
         }
       }}

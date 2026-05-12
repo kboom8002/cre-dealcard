@@ -1,14 +1,13 @@
 const token = "73b7ea41a9075237a13fef70efbbedd75616a60a936dfafbe8e95d31f8e0fb71";
-const mvpBaseUrl = "https://cre-dealcard.vercel.app";
 
-async function testFetch() {
+async function testImport() {
   try {
-    const res = await fetch(`${mvpBaseUrl}/api/full-im-handoffs/${token}`, {
-      method: "GET",
+    const res = await fetch("https://cre-fullim.vercel.app/api/im-projects/import-from-handoff", {
+      method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-service-api-key": "mock-inter-service-key",
       },
+      body: JSON.stringify({ handoff_token: token }),
     });
     console.log("Status:", res.status);
     const text = await res.text();
@@ -18,4 +17,4 @@ async function testFetch() {
   }
 }
 
-testFetch();
+testImport();
