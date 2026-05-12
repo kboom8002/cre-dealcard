@@ -26,7 +26,7 @@ export interface CreateBuyerIntentResult {
 
 export async function createBuyerIntentFromMemo(
   input: CreateBuyerIntentInput,
-  userId: string,
+  userId: string | null,
 ): Promise<CreateBuyerIntentResult> {
   const supabase = createServiceClient();
   const startTime = Date.now();
@@ -36,25 +36,28 @@ export async function createBuyerIntentFromMemo(
   try {
     aiResult = await runBuyerIntentNormalizer(input.memo);
   } catch (aiErr) {
-    await supabase.from("ai_runs").insert({
-      user_id: userId,
-      run_type: "buyer_intent_normalizer",
-      input_ref: {},
-      output_ref: {},
-      model: process.env.AI_DEFAULT_MODEL || "gpt-4o",
-      prompt_version: "prompt_buyer_intent_normalizer_v1",
-      status: "failed",
-      latency_ms: Date.now() - startTime,
-      error: aiErr instanceof Error ? aiErr.message : "Unknown error",
-    });
+    // Only log ai_run if userId is not null (FK constraint)
+    if (userId) {
+      await supabase.from("ai_runs").insert({
+        user_id: userId,
+        run_type: "buyer_intent_normalizer",
+        input_ref: {},
+        output_ref: {},
+        model: process.env.AI_DEFAULT_MODEL || "gpt-4o",
+        prompt_version: "prompt_buyer_intent_normalizer_v1",
+        status: "failed",
+        latency_ms: Date.now() - startTime,
+        error: aiErr instanceof Error ? aiErr.message : "Unknown error",
+      });
 
-    await recordEvent(supabase, {
-      actorId: userId,
-      actorRole: "broker",
-      eventType: "ai_run_failed",
-      entityType: "session",
-      metadata: { run_type: "buyer_intent_normalizer" },
-    });
+      await recordEvent(supabase, {
+        actorId: userId,
+        actorRole: "broker",
+        eventType: "ai_run_failed",
+        entityType: "session",
+        metadata: { run_type: "buyer_intent_normalizer" },
+      });
+    }
 
     throw aiErr;
   }
@@ -62,11 +65,11 @@ export async function createBuyerIntentFromMemo(
   const latencyMs = Date.now() - startTime;
   const { intent } = aiResult;
 
-  // 2. Create buyer_intent_lite row
+  // 2. Create buyer_intent_lite row (owner_id allows null)
   const { data: buyerIntent, error: intentErr } = await supabase
     .from("buyer_intent_lite")
     .insert({
-      owner_id: userId,
+      owner_id: userId ?? null,
       raw_input: input.memo,
       buyer_type: intent.buyerType,
       budget_min: intent.budgetRange.min,
@@ -79,10 +82,14 @@ export async function createBuyerIntentFromMemo(
       nice_to_have: intent.niceToHave,
       risk_tolerance: intent.riskTolerance,
       financing_note: intent.financingNote,
-      visibility: "private",
+      visibility: "anonymous_matchable",
       normalized: {
         missingQuestions: intent.missingQuestions,
-        privacyNotes: intent.privacyNotes,
+        privacyNotes: Array.isArray(intent.privacyNotes)
+          ? intent.privacyNotes
+          : typeof intent.privacyNotes === "string"
+            ? [intent.privacyNotes]
+            : [],
       },
     })
     .select("id")
@@ -92,36 +99,38 @@ export async function createBuyerIntentFromMemo(
     throw new Error(`Failed to create buyer_intent_lite: ${intentErr?.message}`);
   }
 
-  // 3. Log AI run
-  await supabase.from("ai_runs").insert({
-    user_id: userId,
-    run_type: "buyer_intent_normalizer",
-    input_ref: { buyer_intent_id: buyerIntent.id },
-    output_ref: { buyer_type: intent.buyerType },
-    model: aiResult.model,
-    prompt_version: aiResult.promptVersion,
-    status: "completed",
-    token_usage: { total_tokens: aiResult.usage?.totalTokens ?? 0 },
-    latency_ms: latencyMs,
-  });
+  // 3. Log AI run (only if authenticated user)
+  if (userId) {
+    await supabase.from("ai_runs").insert({
+      user_id: userId,
+      run_type: "buyer_intent_normalizer",
+      input_ref: { buyer_intent_id: buyerIntent.id },
+      output_ref: { buyer_type: intent.buyerType },
+      model: aiResult.model,
+      prompt_version: aiResult.promptVersion,
+      status: "completed",
+      token_usage: { total_tokens: aiResult.usage?.totalTokens ?? 0 },
+      latency_ms: latencyMs,
+    });
 
-  // 4. Log event
-  await recordEvent(supabase, {
-    actorId: userId,
-    actorRole: "broker",
-    eventType: "buyer_intent_created",
-    entityType: "buyer_intent_lite",
-    entityId: buyerIntent.id,
-    metadata: {
-      budget_display: intent.budgetRange.display,
-      preferred_regions: intent.preferredRegions,
-    },
-  });
+    // 4. Log event
+    await recordEvent(supabase, {
+      actorId: userId,
+      actorRole: "broker",
+      eventType: "buyer_intent_created",
+      entityType: "buyer_intent_lite",
+      entityId: buyerIntent.id,
+      metadata: {
+        budget_display: intent.budgetRange.display,
+        preferred_regions: intent.preferredRegions,
+      },
+    });
+  }
 
   // 5. Auto-match with existing buildings
   try {
     const { runAutoMatchForBuyer } = await import("@/domain/matching/auto-matcher");
-    await runAutoMatchForBuyer(buyerIntent.id, userId);
+    await runAutoMatchForBuyer(buyerIntent.id, userId ?? "system");
   } catch (autoMatchErr) {
     console.warn("[buyer-intent] Auto-match failed", autoMatchErr);
   }
