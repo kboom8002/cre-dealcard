@@ -7,13 +7,12 @@ import { redirect } from "next/navigation";
 
 export async function createMobileIMAction(buildingId: string) {
   const supabase = createServiceClient();
-  // We use a mock user ID for the broker in this demo context
   const { data: auth } = await supabase.auth.getUser();
-  const userId = auth?.user?.id || "00000000-0000-0000-0000-000000000001";
+  const userId = auth?.user?.id || null;
 
   const handoff = await createHandoff({
     sourceBuildingSsotLiteId: buildingId,
-    requestedOutput: "mobile_im",
+    requestedOutput: "im_lite",
     actorRole: "broker",
     sourceVisibilityLevel: "public_blind",
   }, userId);

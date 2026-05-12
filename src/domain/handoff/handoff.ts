@@ -59,7 +59,7 @@ export interface HandoffPayload {
 
 export async function createHandoff(
   input: CreateHandoffInput,
-  userId: string,
+  userId: string | null,
 ): Promise<CreateHandoffResult> {
   const supabase = createServiceClient();
 

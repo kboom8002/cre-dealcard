@@ -33,8 +33,8 @@ export async function POST(req: Request) {
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Demo fallback: use 박팀장's ID if not logged in
-    const userId = user?.id || "00000000-0000-0000-0000-000000000001";
+    // Fallback to null if not logged in
+    const userId = user?.id || null;
 
     const json = await req.json();
     const input = CreateHandoffSchema.parse(json);
