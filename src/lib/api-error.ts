@@ -24,6 +24,7 @@ interface ApiError {
 
 export function toApiError(err: unknown): Response {
   if (err instanceof ZodError) {
+    console.error("[API ZodError]", JSON.stringify(err.issues, null, 2));
     return Response.json(
       {
         ok: false,
