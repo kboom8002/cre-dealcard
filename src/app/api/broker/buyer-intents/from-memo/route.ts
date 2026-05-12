@@ -14,14 +14,20 @@ const BuyerIntentFromMemoRequest = z.object({
   memo: z.string().min(5),
 });
 
+import { createClient } from "@/lib/supabase/server";
+
 export async function POST(req: Request) {
   try {
     const json = await req.json();
     const input = BuyerIntentFromMemoRequest.parse(json);
 
+    const supabase = await createClient();
+    const { data: userAuth } = await supabase.auth.getUser();
+    const actorId = userAuth?.user?.id || "2d48fdba-b4aa-438a-8970-ac2316688fc3";
+
     const result = await createBuyerIntentFromMemo(
       { memo: input.memo },
-      "00000000-0000-0000-0000-000000000001", // Placeholder — production uses auth session (박팀장)
+      actorId,
     );
 
     return Response.json({ ok: true, data: result });
