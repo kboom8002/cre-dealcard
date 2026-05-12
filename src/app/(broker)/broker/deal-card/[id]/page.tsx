@@ -6,7 +6,10 @@ import Link from "next/link";
 import { CopyKakaoButton } from "./copy-kakao-button";
 import { GateRequestForm } from "@/components/gate/gate-request-form";
 import { CreateMobileImButton } from "./create-mobile-im-button";
+import { FullIMHandoffButton } from "./full-im-handoff-button";
 import { SpaceAIHandoffButton } from "@/components/space-ai/space-ai-handoff-button";
+import { MatchedBuyersSection } from "./matched-buyers-section";
+import { DealPredictionSection } from "./deal-prediction-section";
 
 
 export const metadata: Metadata = {
@@ -258,6 +261,12 @@ export default async function BrokerDealCardResultPage({
           </span>
         </div>
 
+        {/* P0-1: Matched Buyers */}
+        <MatchedBuyersSection buildingId={id} />
+
+        {/* P1-1: Deal Prediction */}
+        <DealPredictionSection buildingId={id} />
+
         {/* Gate Request Form */}
         <div className="rounded-xl border border-border bg-card p-5">
           <GateRequestForm
@@ -271,6 +280,10 @@ export default async function BrokerDealCardResultPage({
       <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border px-4 py-3 safe-bottom">
         <div className="max-w-md mx-auto space-y-2">
           <CopyKakaoButton text={kakaoText} variant="primary" />
+          <FullIMHandoffButton
+            buildingId={id}
+            documentId={(teaserDoc as { id?: string })?.id}
+          />
           <CreateMobileImButton buildingId={id} />
           <SpaceAIHandoffButton
             buildingId={id}
@@ -278,15 +291,22 @@ export default async function BrokerDealCardResultPage({
           />
           <div className="grid grid-cols-2 gap-2 mt-2">
             <Link
-              href="/broker/buyer-intents/new"
+              href="/broker/buyer-intents"
               className="inline-flex items-center justify-center rounded-xl bg-secondary px-3 py-2.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-secondary/80"
               id="cta-connect-buyer"
             >
-              🎯 매수자 조건 확인
+              🎯 매수자 전체 보기
+            </Link>
+            <Link
+              href={`/broker/buildings/${id}/owner-report`}
+              className="inline-flex items-center justify-center rounded-xl bg-secondary px-3 py-2.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-secondary/80"
+              id="cta-owner-report"
+            >
+              📊 건물주 리포트
             </Link>
             <Link
               href={`/expert-note/request?building=${id}`}
-              className="inline-flex items-center justify-center rounded-xl bg-secondary px-3 py-2.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-secondary/80"
+              className="col-span-2 inline-flex items-center justify-center rounded-xl bg-secondary px-3 py-2.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-secondary/80"
               id="cta-expert-note"
             >
               ✨ 전문가 코멘트 받기

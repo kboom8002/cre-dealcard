@@ -14,6 +14,8 @@ export interface PromotionInput {
   createdAt: string;            // building_ssot_lite.created_at
   isUrgent?: boolean;           // seller urgency flag
   marketHeat?: number;          // 0-1, placeholder for real market data
+  iotFootfall?: number | null;
+  iotEfficiency?: number | null;
 }
 
 export interface PromotionResult {
@@ -46,6 +48,8 @@ export function computePromotionScore(input: PromotionInput): PromotionResult {
     createdAt,
     isUrgent = false,
     marketHeat = 0.5,
+    iotFootfall,
+    iotEfficiency,
   } = input;
 
   const daysSince = (Date.now() - new Date(createdAt).getTime()) / 86_400_000;
@@ -58,13 +62,27 @@ export function computePromotionScore(input: PromotionInput): PromotionResult {
   const vacancyBoost    = vacancyDemandVerified ? 1.0 : (inquiryCount > 0 ? 0.6 : 0.2);
   const urgencyMult     = isUrgent ? 1.3 : 1.0;
 
-  const raw =
-    WEIGHTS.curiosity * curiosityFactor +
-    WEIGHTS.demand    * demandFactor    +
-    WEIGHTS.inquiry   * inquiryFactor   +
-    WEIGHTS.recency   * recencyBoost    +
-    WEIGHTS.vacancy   * vacancyBoost    +
-    WEIGHTS.market    * marketHeat;
+  const hasIot = !!iotFootfall;
+
+  const weights = hasIot ? {
+    curiosity: 0.20, demand: 0.15, inquiry: 0.10,
+    recency:   0.05, vacancy: 0.10, market: 0.10,
+    iotFootfall:   0.15,
+    iotEfficiency: 0.15,
+  } : WEIGHTS;
+
+  const iotFootfallFactor   = Math.min((iotFootfall ?? 0) / 500, 1);
+  const iotEfficiencyFactor = iotEfficiency ?? 0.5;
+
+  const raw = hasIot
+    ? weights.curiosity * curiosityFactor + weights.demand * demandFactor +
+      weights.inquiry * inquiryFactor     + weights.recency * recencyBoost +
+      weights.vacancy * vacancyBoost      + weights.market * marketHeat +
+      (weights as any).iotFootfall * iotFootfallFactor +
+      (weights as any).iotEfficiency * iotEfficiencyFactor
+    : weights.curiosity * curiosityFactor + weights.demand * demandFactor +
+      weights.inquiry * inquiryFactor     + weights.recency * recencyBoost +
+      weights.vacancy * vacancyBoost      + weights.market * marketHeat;
 
   const score = Math.min(raw * urgencyMult, 1);
 

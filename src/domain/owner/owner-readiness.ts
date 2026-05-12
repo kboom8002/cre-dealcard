@@ -103,7 +103,11 @@ export async function checkOwnerReadiness(
   checklist: ReadinessChecklist,
   buildingId: string | null,
   userId: string | null,
+  iotSignal?: { floorOccupancy?: Record<string, number> | null }
 ): Promise<OwnerReadinessResult> {
+  if (iotSignal?.floorOccupancy && !checklist.vacancyStatus) {
+    checklist = { ...checklist, vacancyStatus: true };
+  }
   const supabase = createServiceClient();
 
   // Calculate weighted score

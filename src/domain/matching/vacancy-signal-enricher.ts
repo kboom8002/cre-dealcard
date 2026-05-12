@@ -72,7 +72,18 @@ export async function enrichFromVacancyData(
     }
   }
 
-  const demandVerified = inquiryCount >= 2 && (avgFitScore ?? 0) >= 65;
+  const { data: building } = await supabase
+    .from('building_ssot_lite')
+    .select('iot_daily_footfall, iot_avg_dwell_minutes')
+    .eq('id', buildingId)
+    .single();
+
+  const iotFootfall = building?.iot_daily_footfall as number | null;
+  const iotDwell = building?.iot_avg_dwell_minutes as number | null;
+
+  const demandVerified = 
+    (inquiryCount >= 2 && (avgFitScore ?? 0) >= 65) ||
+    (!!iotFootfall && iotFootfall >= 200 && (iotDwell ?? 0) >= 5);
 
   // 4. Update building_ssot_lite
   await supabase

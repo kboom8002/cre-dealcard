@@ -33,12 +33,8 @@ export async function POST(req: Request) {
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) {
-      return Response.json(
-        { ok: false, error: { code: "UNAUTHORIZED", message: "로그인이 필요합니다." } },
-        { status: 401 },
-      );
-    }
+    // Demo fallback: use 박팀장's ID if not logged in
+    const userId = user?.id || "00000000-0000-0000-0000-000000000001";
 
     const json = await req.json();
     const input = CreateHandoffSchema.parse(json);
@@ -54,7 +50,7 @@ export async function POST(req: Request) {
         packageIntent: input.package_intent,
         fullImStudioBaseUrl: input.full_im_studio_base_url,
       },
-      user.id,
+      userId,
     );
 
     return Response.json({ ok: true, data: result });

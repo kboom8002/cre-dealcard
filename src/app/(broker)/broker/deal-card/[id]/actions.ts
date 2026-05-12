@@ -9,7 +9,7 @@ export async function createMobileIMAction(buildingId: string) {
   const supabase = createServiceClient();
   // We use a mock user ID for the broker in this demo context
   const { data: auth } = await supabase.auth.getUser();
-  const userId = auth?.user?.id || "00000000-0000-0000-0000-000000000000";
+  const userId = auth?.user?.id || "00000000-0000-0000-0000-000000000001";
 
   const handoff = await createHandoff({
     sourceBuildingSsotLiteId: buildingId,
@@ -19,7 +19,7 @@ export async function createMobileIMAction(buildingId: string) {
   }, userId);
 
   // Call Full IM Studio API to generate Mobile IM
-  const fullImApiUrl = process.env.FULL_IM_STUDIO_URL ?? "http://localhost:3005";
+  const fullImApiUrl = process.env.FULL_IM_STUDIO_URL ?? "https://cre-fullim.vercel.app";
   const res = await fetch(`${fullImApiUrl}/api/mobile-im/create`, {
     method: "POST",
     headers: {

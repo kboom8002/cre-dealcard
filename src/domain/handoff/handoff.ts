@@ -63,7 +63,7 @@ export async function createHandoff(
 ): Promise<CreateHandoffResult> {
   const supabase = createServiceClient();
 
-  const fullImBaseUrl = input.fullImStudioBaseUrl ?? process.env.FULL_IM_STUDIO_URL ?? "http://localhost:3005";
+  const fullImBaseUrl = input.fullImStudioBaseUrl ?? process.env.FULL_IM_STUDIO_URL ?? "https://cre-fullim.vercel.app";
 
   const { data: handoff, error } = await supabase
     .from("full_im_handoffs")

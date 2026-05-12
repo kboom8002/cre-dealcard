@@ -61,6 +61,18 @@ export default async function BuyerIntentResultPage({
     .limit(1)
     .single();
 
+  // P2-3: 이 매수자와 매칭된 매물 이력 조회
+  const { data: matchHistory } = await supabase
+    .from("match_results")
+    .select(
+      `id, grade, score, reasoning, created_at,
+       building_ssot_lite_id,
+       building_ssot_lite (id, area_signal, asset_type, price_band)`
+    )
+    .eq("buyer_intent_lite_id", id)
+    .order("score", { ascending: false })
+    .limit(10);
+
   return (
     <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-32">
       <div className="w-full max-w-md mx-auto space-y-6">
@@ -197,6 +209,62 @@ export default async function BuyerIntentResultPage({
           buildings={buildings || []}
           existingMemo={existingMemo}
         />
+
+        {/* P2-3: 매칭된 매물 이력 */}
+        {matchHistory && matchHistory.length > 0 && (
+          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+            <h2 className="text-base font-semibold flex items-center gap-2">
+              <span>🏆</span> 매칭된 매물
+              <span className="ml-auto text-xs font-normal text-muted-foreground">
+                {matchHistory.length}건
+              </span>
+            </h2>
+            <div className="space-y-3">
+              {matchHistory.map((m) => {
+                const b = Array.isArray(m.building_ssot_lite)
+                  ? m.building_ssot_lite[0]
+                  : m.building_ssot_lite;
+                const gradeColors: Record<string, string> = {
+                  S: "bg-purple-100 text-purple-800",
+                  A: "bg-green-100 text-green-800",
+                  B: "bg-blue-100 text-blue-800",
+                  C: "bg-gray-100 text-gray-600",
+                };
+                const colorClass = gradeColors[m.grade] ?? gradeColors["C"];
+                return (
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-3 rounded-lg border border-border px-3 py-2.5"
+                  >
+                    <span
+                      className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold ${colorClass}`}
+                    >
+                      {m.grade}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {(b as {area_signal?: string})?.area_signal ?? "권역 미상"}{" "}
+                        {(b as {asset_type?: string})?.asset_type ?? ""}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {(b as {price_band?: string})?.price_band ?? "가격 미확인"} ·{" "}
+                        {Math.round(m.score * 100)}점
+                      </p>
+                    </div>
+                    {(b as {id?: string})?.id && (
+                      <a
+                        href={`/broker/deal-card/${(b as {id: string}).id}`}
+                        className="shrink-0 text-xs text-primary hover:underline"
+                      >
+                        보기 →
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Date */}
         <div className="flex items-center justify-center">

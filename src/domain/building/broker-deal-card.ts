@@ -267,6 +267,14 @@ export async function brokerDealCardFromMemo(
     console.warn("[broker-deal-card] Promotion score init failed", promoErr);
   }
 
+  // 10. Auto-match buyers
+  try {
+    const { runAutoMatch } = await import("@/domain/matching/auto-matcher");
+    await runAutoMatch(building.id, userId);
+  } catch (autoMatchErr) {
+    console.warn("[broker-deal-card] Auto-match failed", autoMatchErr);
+  }
+
   return {
     buildingId: building.id,
     signalCardId: signalCard.id,

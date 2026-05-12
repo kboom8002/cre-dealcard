@@ -21,7 +21,7 @@ export async function POST(req: Request) {
 
     const result = await createBuyerIntentFromMemo(
       { memo: input.memo },
-      "00000000-0000-0000-0000-000000000000", // Placeholder — production uses auth session
+      "00000000-0000-0000-0000-000000000001", // Placeholder — production uses auth session (박팀장)
     );
 
     return Response.json({ ok: true, data: result });
