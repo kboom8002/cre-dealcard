@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { requireBroker } from '@/lib/auth-guard';
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+
   const { id } = await params
   
   if (!id) {

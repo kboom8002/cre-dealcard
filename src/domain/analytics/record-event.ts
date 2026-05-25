@@ -30,7 +30,18 @@ export type MvpEventType =
   | "expert_note_requested"
   | "expert_note_completed"
   | "ai_run_completed"
-  | "ai_run_failed";
+  | "ai_run_failed"
+  | "building_lease_roll_updated"
+  | "building_evidence_uploaded"
+  | "building_disclosure_updated"
+  | "building_snapshot_generated"
+  | "im_lite_generated"
+  | "pipeline_stage_transitioned"
+  | "match_failure_recorded"
+  | "price_negotiation_logged"
+  | "market_indicator_computed"
+  | "lease_pipeline_transitioned"
+  | "funding_project_created";
 
 /** Known entity types */
 export type MvpEntityType =
@@ -44,7 +55,12 @@ export type MvpEntityType =
   | "expert_note_request"
   | "evidence_file"
   | "ai_run"
-  | "session";
+  | "session"
+  | "pipeline_transition"
+  | "match_failure"
+  | "market_indicator"
+  | "funding_project"
+  | "investor_profile";
 
 export interface RecordEventInput {
   actorId?: string | null;

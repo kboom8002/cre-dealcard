@@ -13,6 +13,7 @@ import { computePromotionScore } from '@/domain/promotion/promotion-ranker';
 import { onMatchResultCreated } from '@/domain/graph/knowledge-graph';
 import { generateCasePackEmbedding } from '@/domain/graph/deal-semantic-search';
 import { classifyNewBuyer } from '@/domain/prediction/buyer-clustering';
+import { requireBroker } from '@/lib/auth-guard';
 
 const BodySchema = z.object({
   buildingId:     z.string().uuid(),
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     .from('building_ssot_lite')
     .select('*')
     .eq('id', buildingId)
-    .eq('broker_id', user.id)
+    .eq('broker_id', user!.id)
     .single();
 
   if (bErr || !building) {
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
     .from('buyer_intent_lite')
     .select('*')
     .eq('id', buyerIntentId)
-    .eq('broker_id', user.id)
+    .eq('broker_id', user!.id)
     .single();
 
   if (iErr || !intent) {
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
   const matchInput: MatchInput = {
     buildingSsotLiteId: buildingId,
     buyerIntentLiteId:  buyerIntentId,
-    brokerId:           user.id,
+    brokerId:           user!.id,
     building: {
       areaSignal:         building.area_signal,
       assetType:          building.asset_type,
@@ -117,7 +118,7 @@ export async function POST(req: NextRequest) {
     .insert({
       building_ssot_lite_id: buildingId,
       buyer_intent_lite_id:  buyerIntentId,
-      broker_id:             user.id,
+      broker_id:             user!.id,
       grade:                 matchResult.grade,
       score:                 matchResult.score,
       stage1_passed:         matchResult.stage1Passed,
@@ -136,7 +137,7 @@ export async function POST(req: NextRequest) {
   // Save CasePack
   const casePack = extractMatchCasePack({
     buildingId,
-    brokerId:      user.id,
+    brokerId:      user!.id,
     buildingLabel: `${building.area_signal} ${building.asset_type}`,
     matchGrade:    matchResult.grade,
     matchScore:    matchResult.score,
@@ -173,7 +174,7 @@ export async function POST(req: NextRequest) {
   // Activity event
   await supabase.from('activity_events').insert({
     building_ssot_lite_id: buildingId,
-    broker_id:             user.id,
+    broker_id:             user!.id,
     event_type:            'match_computed',
     metadata: {
       match_id:   savedMatch?.id,

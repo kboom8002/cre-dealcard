@@ -1,0 +1,233 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
+import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
+
+interface PipelineDeal {
+  id: string;
+  building_ssot_lite_id: string;
+  current_stage: string;
+  entered_at: string;
+  metadata: Record<string, unknown>;
+  building_area?: string;
+  building_asset_type?: string;
+  building_price?: string;
+  matched_buyer_count?: number;
+}
+
+const STAGES = [
+  { key: 'memo_input', label: '메모 입력', emoji: '📝' },
+  { key: 'deal_card_created', label: '딜카드', emoji: '📋' },
+  { key: 'gate_requested', label: 'Gate', emoji: '🔒' },
+  { key: 'im_created', label: 'IM 작성', emoji: '📄' },
+  { key: 'buyer_meeting', label: '미팅', emoji: '🤝' },
+  { key: 'loi', label: 'LOI', emoji: '✍️' },
+  { key: 'contract', label: '계약', emoji: '📜' },
+  { key: 'closed', label: '완료', emoji: '✅' },
+] as const;
+
+const HOLD_WARNING_DAYS: Record<string, number> = {
+  memo_input: 1,
+  deal_card_created: 7,
+  gate_requested: 7,
+  im_created: 14,
+  buyer_meeting: 14,
+  loi: 21,
+  contract: 30,
+  closed: 999,
+};
+
+export default function PipelinePage() {
+  const [deals, setDeals] = useState<PipelineDeal[]>([]);
+  const [buildings, setBuildings] = useState<PipelineDeal[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPipeline = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      );
+
+      // Fetch deal_pipeline_states
+      const { data: pipelineData } = await supabase
+        .from('deal_pipeline_states')
+        .select('*')
+        .order('entered_at', { ascending: false });
+
+      if (pipelineData && pipelineData.length > 0) {
+        const buildingIds = [...new Set(pipelineData.map((p: Record<string, string>) => p.building_ssot_lite_id))];
+        const { data: buildingData } = await supabase
+          .from('building_ssot_lite')
+          .select('id, area_signal, asset_type, price_band, matched_buyer_count')
+          .in('id', buildingIds);
+
+        const buildingMap = new Map((buildingData ?? []).map((b: Record<string, unknown>) => [b.id, b]));
+
+        const enriched = pipelineData.map((p: Record<string, unknown>) => {
+          const b = buildingMap.get(p.building_ssot_lite_id as string) as Record<string, unknown> | undefined;
+          return {
+            ...p,
+            building_area: (b?.area_signal as string) ?? '미확인',
+            building_asset_type: (b?.asset_type as string) ?? '',
+            building_price: (b?.price_band as string) ?? '',
+            matched_buyer_count: (b?.matched_buyer_count as number) ?? 0,
+          };
+        });
+
+        setDeals(enriched as PipelineDeal[]);
+      } else {
+        // Fallback: create pseudo pipeline from buildings
+        const { data: buildingData } = await supabase
+          .from('building_ssot_lite')
+          .select('id, area_signal, asset_type, price_band, matched_buyer_count, status, created_at')
+          .order('created_at', { ascending: false });
+
+        const pseudoPipeline = (buildingData ?? []).map((b: Record<string, unknown>) => ({
+          id: b.id as string,
+          building_ssot_lite_id: b.id as string,
+          current_stage: b.status === 'draft' ? 'memo_input' : 'deal_card_created',
+          entered_at: b.created_at as string,
+          metadata: {},
+          building_area: (b.area_signal as string) ?? '미확인',
+          building_asset_type: (b.asset_type as string) ?? '',
+          building_price: (b.price_band as string) ?? '',
+          matched_buyer_count: (b.matched_buyer_count as number) ?? 0,
+        }));
+
+        setBuildings(pseudoPipeline as PipelineDeal[]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPipeline();
+  }, [fetchPipeline]);
+
+  const allDeals = deals.length > 0 ? deals : buildings;
+
+  // Group by stage
+  const stageGroups = STAGES.map((stage) => ({
+    ...stage,
+    deals: allDeals.filter((d) => d.current_stage === stage.key),
+  }));
+
+  // Count active (non-closed, non-failed)
+  const activeCount = allDeals.filter(
+    (d) => d.current_stage !== 'closed' && d.current_stage !== 'failed'
+  ).length;
+
+  return (
+    <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-24">
+      <div className="w-full max-w-lg mx-auto space-y-5">
+        {/* Header */}
+        <div className="pt-4">
+          <h1 className="text-xl font-bold">딜 파이프라인</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            진행 중 {activeCount}건 · 총 {allDeals.length}건
+          </p>
+        </div>
+
+        {/* Pipeline Stages */}
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-20 bg-muted rounded-xl animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {stageGroups.map((stage) => {
+              const count = stage.deals.length;
+              if (count === 0 && stage.key === 'closed') return null;
+
+              return (
+                <div
+                  key={stage.key}
+                  className="rounded-xl border border-border bg-card overflow-hidden"
+                >
+                  {/* Stage Header */}
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-muted/30 border-b border-border">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">{stage.emoji}</span>
+                      <span className="text-sm font-semibold">{stage.label}</span>
+                    </div>
+                    <span className={`inline-flex items-center justify-center min-w-[1.5rem] h-6 rounded-full text-xs font-bold ${
+                      count > 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {count}
+                    </span>
+                  </div>
+
+                  {/* Deal Cards in Stage */}
+                  {count > 0 ? (
+                    <div className="divide-y divide-border">
+                      {stage.deals.map((deal) => {
+                        const holdDays = Math.floor(
+                          (Date.now() - new Date(deal.entered_at).getTime()) / 86_400_000
+                        );
+                        const warnDays = HOLD_WARNING_DAYS[stage.key] ?? 14;
+                        const isWarning = holdDays >= warnDays;
+
+                        return (
+                          <Link
+                            key={deal.id}
+                            href={`/broker/deal-card/${deal.building_ssot_lite_id}`}
+                            className="flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors"
+                            id={`pipeline-deal-${deal.id}`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium truncate">
+                                  {deal.building_area} {deal.building_asset_type}
+                                </p>
+                                {isWarning && (
+                                  <span className="shrink-0 inline-flex items-center rounded-full bg-destructive/10 text-destructive border border-destructive/20 px-1.5 py-0.5 text-[10px] font-medium">
+                                    ⚠️ {holdDays}일
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-xs text-muted-foreground">
+                                  {deal.building_price}
+                                </span>
+                                {(deal.matched_buyer_count ?? 0) > 0 && (
+                                  <span className="text-xs text-primary font-medium">
+                                    🎯 {deal.matched_buyer_count}명
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-[10px] text-muted-foreground">
+                                {holdDays}일 경과
+                              </p>
+                              <span className="text-xs text-muted-foreground">→</span>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="px-4 py-3">
+                      <p className="text-xs text-muted-foreground">
+                        이 단계에 있는 딜이 없어요.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <BrokerBottomNav />
+    </main>
+  );
+}

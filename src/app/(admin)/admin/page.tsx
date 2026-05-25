@@ -15,6 +15,20 @@ const ADMIN_SECTIONS = [
     id: "link-admin-analytics",
   },
   {
+    href: "/admin/pipeline",
+    emoji: "🔍",
+    title: "파이프라인 분석",
+    desc: "미완료 거래 분석, 이탈 및 평균 체류일수",
+    id: "link-admin-pipeline-analytics",
+  },
+  {
+    href: "/admin/market",
+    emoji: "📈",
+    title: "시장 선행 지표",
+    desc: "권역별 수요/공급 스냅샷 및 시세 저항선 분석",
+    id: "link-admin-market-indicators",
+  },
+  {
     href: "/admin/gate-requests",
     emoji: "🔐",
     title: "Gate 요청 관리",

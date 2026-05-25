@@ -9,26 +9,28 @@ import { extractDealFeatures, snapshotDealFeatures } from '@/domain/prediction/d
 import { predictDealConversion } from '@/domain/prediction/deal-conversion-predictor';
 import { getNetworkRecommendations } from '@/domain/graph/property-network';
 import { findSimilarDeals } from '@/domain/graph/deal-semantic-search';
+import { requireBroker } from '@/lib/auth-guard';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const { user } = guard;
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } },
   );
-  const authHeader = req.headers.get('authorization') ?? '';
-  const { data: { user }, error: authErr } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
-  if (authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   // Verify ownership
   const { data: building } = await supabase
     .from('building_ssot_lite')
     .select('id, area_signal, asset_type, price_band')
     .eq('id', (await params).id)
-    .eq('broker_id', user.id)
+    .eq('broker_id', user!.id)
     .single();
   if (!building) return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
 

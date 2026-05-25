@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { promotionScoreLabel } from '@/domain/promotion/promotion-ranker';
+import { requireBroker } from '@/lib/auth-guard';
 
 export async function GET(req: NextRequest) {
   const supabase = createClient(
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
         entered_at
       )
     `)
-    .eq('broker_id', user.id)
+    .eq('broker_id', user!.id)
     .eq('is_active', true)
     .order('promotion_score', { ascending: false })
     .limit(50);

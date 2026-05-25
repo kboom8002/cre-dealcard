@@ -10,6 +10,7 @@ import { z } from "zod/v4";
 import { createBuyerIntentFromMemo } from "@/domain/buyer/buyer-intent";
 import { toApiError } from "@/lib/api-error";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireBroker } from '@/lib/auth-guard';
 
 const BuyerIntentFromMemoRequest = z.object({
   memo: z.string().min(5),

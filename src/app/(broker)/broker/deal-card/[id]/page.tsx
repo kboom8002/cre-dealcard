@@ -10,6 +10,7 @@ import { FullIMHandoffButton } from "./full-im-handoff-button";
 import { SpaceAIHandoffButton } from "@/components/space-ai/space-ai-handoff-button";
 import { MatchedBuyersSection } from "./matched-buyers-section";
 import { DealPredictionSection } from "./deal-prediction-section";
+import { DealCardPipelineContainer } from "./DealCardPipelineContainer";
 
 
 export const metadata: Metadata = {
@@ -115,6 +116,9 @@ export default async function BrokerDealCardResultPage({
           </p>
         </div>
 
+        {/* Pipeline State Machine Progress */}
+        <DealCardPipelineContainer buildingId={id} />
+
         {/* Extracted Info Card */}
         <div className="rounded-xl border border-border bg-card p-5 space-y-3">
           <h2 className="text-base font-semibold flex items-center gap-2">
@@ -162,13 +166,13 @@ export default async function BrokerDealCardResultPage({
 
         {/* Hidden Fields Card */}
         {hiddenFields.length > 0 && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 space-y-3">
-            <h2 className="text-base font-semibold flex items-center gap-2 text-amber-900">
+          <div className="rounded-xl border border-warning/30 bg-warning/10 p-5 space-y-3">
+            <h2 className="text-base font-semibold flex items-center gap-2 text-warning">
               <span>🔒</span> 숨긴 정보
             </h2>
             <div className="space-y-1">
               {hiddenFields.map((field) => (
-                <p key={field} className="text-sm text-amber-800 flex gap-2">
+                <p key={field} className="text-sm text-warning/90 flex gap-2">
                   <span>•</span>
                   <span>{hiddenFieldLabels[field] || field}</span>
                 </p>
@@ -191,7 +195,7 @@ export default async function BrokerDealCardResultPage({
           {/* Deal Points */}
           {dealPoints.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-green-700">딜 포인트</p>
+              <p className="text-sm font-semibold text-success">딜 포인트</p>
               <ul className="space-y-1">
                 {dealPoints.map((p, i) => (
                   <li key={i} className="text-sm flex gap-2">
@@ -206,7 +210,7 @@ export default async function BrokerDealCardResultPage({
           {/* Caution Points */}
           {cautionPoints.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-amber-700">주의</p>
+              <p className="text-sm font-semibold text-warning">주의</p>
               <ul className="space-y-1">
                 {cautionPoints.map((p, i) => (
                   <li key={i} className="text-sm flex gap-2">
@@ -238,14 +242,14 @@ export default async function BrokerDealCardResultPage({
           <h2 className="text-base font-semibold flex items-center gap-2">
             <span>💬</span> 카톡 문구
           </h2>
-          <div className="rounded-lg bg-secondary/50 px-4 py-3 text-sm whitespace-pre-line leading-relaxed">
+          <div className="rounded-lg bg-muted/60 dark:bg-muted/40 px-4 py-3 text-sm whitespace-pre-line leading-relaxed">
             {kakaoText}
           </div>
           <CopyKakaoButton text={kakaoText} />
         </div>
 
         {/* Boundary Note */}
-        <div className="rounded-xl bg-secondary/50 border border-border px-4 py-3">
+        <div className="rounded-xl bg-muted/60 dark:bg-muted/40 border border-border px-4 py-3">
           <p className="text-xs text-muted-foreground leading-relaxed">
             {boundaryNote}
           </p>
@@ -253,7 +257,7 @@ export default async function BrokerDealCardResultPage({
 
         {/* Document Status */}
         <div className="flex items-center justify-center gap-2">
-          <span className="inline-flex items-center rounded-md bg-amber-100 text-amber-800 px-2.5 py-0.5 text-xs font-medium">
+          <span className="inline-flex items-center rounded-md bg-warning/10 text-warning border border-warning/20 px-2.5 py-0.5 text-xs font-medium">
             AI 초안
           </span>
           <span className="text-xs text-muted-foreground">

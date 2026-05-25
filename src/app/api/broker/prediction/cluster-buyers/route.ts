@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { runBuyerClustering } from '@/domain/prediction/buyer-clustering';
+import { requireBroker } from '@/lib/auth-guard';
 
 export async function POST(req: NextRequest) {
   const supabase = createClient(

@@ -44,10 +44,10 @@ export async function DealPredictionSection({
   const probColor =
     probPercent !== null
       ? probPercent >= 70
-        ? "text-green-600"
+        ? "text-success"
         : probPercent >= 40
-        ? "text-amber-600"
-        : "text-red-500"
+        ? "text-warning"
+        : "text-destructive"
       : "";
 
   const keyFactors = Array.isArray(convPred?.key_factors)
@@ -66,15 +66,15 @@ export async function DealPredictionSection({
       <div className="grid grid-cols-2 gap-3">
         {/* 거래가 예측 */}
         {pricePred && (
-          <div className="rounded-lg bg-blue-50 border border-blue-100 p-3 space-y-1">
-            <p className="text-xs text-blue-600 font-medium">예측 거래가</p>
-            <p className="text-sm font-bold text-blue-900">
+          <div className="rounded-lg bg-primary/10 border border-primary/20 p-3 space-y-1">
+            <p className="text-xs text-primary font-medium">예측 거래가</p>
+            <p className="text-sm font-bold text-foreground">
               {formatPrice(pricePred.predicted_low)}
-              <span className="font-normal text-blue-600 mx-1">~</span>
+              <span className="font-normal text-primary/70 mx-1">~</span>
               {formatPrice(pricePred.predicted_high)}
             </p>
             {pricePred.confidence_level && (
-              <p className="text-xs text-blue-500">
+              <p className="text-xs text-primary/80">
                 신뢰도 {Math.round(pricePred.confidence_level * 100)}%
               </p>
             )}
@@ -83,21 +83,21 @@ export async function DealPredictionSection({
 
         {/* 성사 확률 */}
         {convPred && probPercent !== null && (
-          <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 space-y-1">
-            <p className="text-xs text-amber-600 font-medium">딜 성사 확률</p>
+          <div className="rounded-lg bg-warning/10 border border-warning/20 p-3 space-y-1">
+            <p className="text-xs text-warning font-medium">딜 성사 확률</p>
             <p className={`text-2xl font-bold ${probColor}`}>
               {probPercent}
               <span className="text-sm font-normal text-muted-foreground">%</span>
             </p>
             {/* 확률 게이지 */}
-            <div className="w-full h-1.5 bg-amber-200 rounded-full overflow-hidden">
+            <div className="w-full h-1.5 bg-warning/20 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${
                   probPercent >= 70
-                    ? "bg-green-500"
+                    ? "bg-success"
                     : probPercent >= 40
-                    ? "bg-amber-500"
-                    : "bg-red-400"
+                    ? "bg-warning"
+                    : "bg-destructive"
                 }`}
                 style={{ width: `${probPercent}%` }}
               />
@@ -109,11 +109,11 @@ export async function DealPredictionSection({
       {/* 핵심 긍정 요소 */}
       {keyFactors.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-xs font-medium text-green-700">✅ 성사 기여 요인</p>
+          <p className="text-xs font-medium text-success">✅ 성사 기여 요인</p>
           <ul className="space-y-1">
             {keyFactors.slice(0, 3).map((factor, i) => (
               <li key={i} className="text-xs flex gap-1.5 text-muted-foreground">
-                <span className="text-green-500 shrink-0">•</span>
+                <span className="text-success shrink-0">•</span>
                 <span>{factor}</span>
               </li>
             ))}
@@ -124,11 +124,11 @@ export async function DealPredictionSection({
       {/* 리스크 요인 */}
       {riskFactors.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-xs font-medium text-red-600">⚠️ 리스크 요인</p>
+          <p className="text-xs font-medium text-destructive">⚠️ 리스크 요인</p>
           <ul className="space-y-1">
             {riskFactors.slice(0, 2).map((factor, i) => (
               <li key={i} className="text-xs flex gap-1.5 text-muted-foreground">
-                <span className="text-amber-500 shrink-0">•</span>
+                <span className="text-warning shrink-0">•</span>
                 <span>{factor}</span>
               </li>
             ))}

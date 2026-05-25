@@ -15,6 +15,8 @@ import type {
   WeightProfile,
 } from './matching-types';
 import { PURPOSE_WEIGHTS } from './matching-types';
+import { matchRegion } from './region-hierarchy';
+import { matchAssetType } from './asset-type-taxonomy';
 
 const openai = new OpenAI();
 
@@ -36,12 +38,8 @@ export function runHardFilter(input: MatchInput): Stage1Result {
 
   // Region check: areaSignal vs preferredRegions
   if (intent.preferredRegions.length > 0) {
-    const regionMatch = intent.preferredRegions.some(
-      (r) =>
-        building.areaSignal.includes(r) ||
-        r.includes(building.areaSignal.slice(0, 2)),
-    );
-    if (!regionMatch) {
+    const regionResult = matchRegion(building.areaSignal, intent.preferredRegions);
+    if (!regionResult.matched) {
       failReasons.push(
         `지역 불일치: ${building.areaSignal} ∉ [${intent.preferredRegions.join(', ')}]`,
       );
@@ -50,11 +48,7 @@ export function runHardFilter(input: MatchInput): Stage1Result {
 
   // Asset type check
   if (intent.assetTypes.length > 0) {
-    const assetMatch = intent.assetTypes.some(
-      (t) =>
-        building.assetType.includes(t) ||
-        t.includes(building.assetType.slice(0, 2)),
-    );
+    const assetMatch = matchAssetType(building.assetType, intent.assetTypes);
     if (!assetMatch) {
       failReasons.push(
         `자산 유형 불일치: ${building.assetType} ∉ [${intent.assetTypes.join(', ')}]`,

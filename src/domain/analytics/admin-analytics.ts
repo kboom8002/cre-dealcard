@@ -20,6 +20,12 @@ export interface EventCountMap {
   expert_note_requested: number;
   owner_readiness_checked: number;
   ai_run_failed: number;
+  pipeline_stage_transitioned?: number;
+  match_failure_recorded?: number;
+  price_negotiation_logged?: number;
+  market_indicator_computed?: number;
+  lease_pipeline_transitioned?: number;
+  funding_project_created?: number;
 }
 
 export interface RecentEvent {
@@ -66,6 +72,12 @@ export async function getAdminAnalytics(): Promise<AdminAnalyticsData> {
     expert_note_requested: 0,
     owner_readiness_checked: 0,
     ai_run_failed: 0,
+    pipeline_stage_transitioned: 0,
+    match_failure_recorded: 0,
+    price_negotiation_logged: 0,
+    market_indicator_computed: 0,
+    lease_pipeline_transitioned: 0,
+    funding_project_created: 0,
   };
 
   for (const event of events) {
@@ -122,6 +134,17 @@ export function computeFunnelRates(counts: EventCountMap) {
       counts.buyer_memo_generated,
       counts.buyer_intent_created,
     ),
+  };
+}
+
+export function computePipelineFunnelRates(counts: EventCountMap) {
+  const safe = (a: number, b: number) =>
+    b === 0 ? null : Math.round((a / b) * 100);
+
+  return {
+    memoToCard: safe(counts.blind_teaser_generated || 0, counts.broker_memo_submitted || 1),
+    cardToGate: safe(counts.gate_request_created || 0, counts.blind_teaser_generated || 1),
+    gateToIm: safe(counts.gate_request_reviewed || 0, counts.gate_request_created || 1),
   };
 }
 
@@ -184,5 +207,35 @@ export const EVENT_DISPLAY: Record<
     label: "AI 실패",
     emoji: "⚠️",
     category: "system",
+  },
+  pipeline_stage_transitioned: {
+    label: "파이프라인 단계 전환",
+    emoji: "🔄",
+    category: "pipeline",
+  },
+  match_failure_recorded: {
+    label: "매칭 실패 기록됨",
+    emoji: "❌",
+    category: "analytics",
+  },
+  price_negotiation_logged: {
+    label: "가격 조정 기록됨",
+    emoji: "💵",
+    category: "analytics",
+  },
+  market_indicator_computed: {
+    label: "시장 선행 지표 산출",
+    emoji: "📉",
+    category: "system",
+  },
+  lease_pipeline_transitioned: {
+    label: "임대차 파이프라인 전환",
+    emoji: "🔁",
+    category: "pipeline",
+  },
+  funding_project_created: {
+    label: "펀딩 프로젝트 생성",
+    emoji: "🪙",
+    category: "funding",
   },
 };

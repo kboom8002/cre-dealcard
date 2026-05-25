@@ -7,30 +7,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { enrichFromVacancyData } from '@/domain/matching/vacancy-signal-enricher';
 import { computePromotionScore } from '@/domain/promotion/promotion-ranker';
+import { requireBroker } from '@/lib/auth-guard';
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const { user } = guard;
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } },
   );
 
-  const authHeader = req.headers.get('authorization') ?? '';
-  const token = authHeader.replace('Bearer ', '');
-  const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-  if (authErr || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   // Verify ownership
   const { data: building } = await supabase
     .from('building_ssot_lite')
     .select('id, matched_buyer_count, created_at')
     .eq('id', (await params).id)
-    .eq('broker_id', user.id)
+    .eq('broker_id', user!.id)
     .single();
 
   if (!building) {

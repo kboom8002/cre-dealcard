@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod/v4';
 import { estimatePriceRange } from '@/domain/prediction/price-prediction';
+import { requireBroker } from '@/lib/auth-guard';
 
 const BodySchema = z.object({
   areaSignal:   z.string(),

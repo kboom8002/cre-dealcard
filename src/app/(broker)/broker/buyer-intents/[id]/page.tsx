@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { BuyerMemoSection } from "./buyer-memo-section";
+import { BuyerIntentDetailContainer } from "./buyer-intent-detail-container";
 
 export const metadata: Metadata = {
-  title: "매수자 조건 요약 | JS 1분 딜카드",
-  description: "AI가 정리한 매수자 조건을 확인하세요.",
+  title: "매수자 요건 정밀 분석 및 매칭 | JS 1분 딜카드",
+  description: "AI가 실시간 매칭 접합도를 연산하고 분석한 매수자 의향서 상세 정보 페이지입니다.",
 };
 
 interface BuyerIntentResultPageProps {
@@ -29,21 +30,6 @@ export default async function BuyerIntentResultPage({
 
   if (!intent) return notFound();
 
-  const normalized = (intent.normalized || {}) as Record<string, unknown>;
-  const missingQuestions = Array.isArray(normalized.missingQuestions)
-    ? normalized.missingQuestions
-    : [];
-  const privacyNotes = Array.isArray(normalized.privacyNotes)
-    ? normalized.privacyNotes
-    : [];
-
-  const riskLabels: Record<string, string> = {
-    low: "낮음 (보수적)",
-    medium: "중간",
-    high: "높음 (적극적)",
-    unknown: "미확인",
-  };
-
   // Fetch available buildings for buyer memo generation
   const { data: buildings } = await supabase
     .from("building_ssot_lite")
@@ -54,14 +40,14 @@ export default async function BuyerIntentResultPage({
   // Fetch existing buyer memo for this intent
   const { data: existingMemo } = await supabase
     .from("document_objects")
-    .select("id, title, body, status, created_at")
+    .select("id, title, body, status, markdown, created_at")
     .eq("source_id", id)
     .eq("document_type", "buyer_fit_memo")
     .order("created_at", { ascending: false })
     .limit(1)
     .single();
 
-  // P2-3: 이 매수자와 매칭된 매물 이력 조회
+  // Fetch match history
   const { data: matchHistory } = await supabase
     .from("match_results")
     .select(
@@ -73,206 +59,22 @@ export default async function BuyerIntentResultPage({
     .order("score", { ascending: false })
     .limit(10);
 
+  const buyerMemoSectionComponent = (
+    <BuyerMemoSection
+      buyerIntentId={id}
+      buildings={buildings || []}
+      existingMemo={existingMemo}
+      intentNormalized={intent.normalized}
+    />
+  );
+
   return (
-    <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-32">
-      <div className="w-full max-w-md mx-auto space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2 pt-4">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
-            매수자 조건 요약
-          </p>
-          <h1 className="text-xl font-bold">
-            매수자 조건이 정리됐습니다
-          </h1>
-        </div>
-
-        {/* Summary Card */}
-        <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-          <h2 className="text-base font-semibold flex items-center gap-2">
-            <span>🎯</span> 조건 요약
-          </h2>
-          <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-sm">
-            <div>
-              <p className="text-xs text-muted-foreground">매수자 유형</p>
-              <p className="font-medium">{intent.buyer_type || "미확인"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">예산</p>
-              <p className="font-medium">{intent.budget_display || "미확인"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">선호 지역</p>
-              <p className="font-medium">
-                {(intent.preferred_regions as string[])?.join(", ") || "미확인"}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">매입 목적</p>
-              <p className="font-medium">
-                {intent.purchase_purpose || "미확인"}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">리스크 성향</p>
-              <p className="font-medium">
-                {riskLabels[intent.risk_tolerance || "unknown"]}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">선호 자산</p>
-              <p className="font-medium">
-                {(intent.asset_types as string[])?.join(", ") || "미확인"}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Must Have / Nice to Have */}
-        <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-          {(intent.must_have as string[])?.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-red-600 flex items-center gap-1">
-                <span>🔴</span> 필수 조건
-              </p>
-              <ul className="space-y-1">
-                {(intent.must_have as string[]).map((item, i) => (
-                  <li key={i} className="text-sm flex gap-2">
-                    <span className="text-muted-foreground">•</span>
-                    <span>{String(item)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {(intent.nice_to_have as string[])?.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-blue-600 flex items-center gap-1">
-                <span>🔵</span> 우대 조건
-              </p>
-              <ul className="space-y-1">
-                {(intent.nice_to_have as string[]).map((item, i) => (
-                  <li key={i} className="text-sm flex gap-2">
-                    <span className="text-muted-foreground">•</span>
-                    <span>{String(item)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        {/* Financing Note */}
-        {intent.financing_note && (
-          <div className="rounded-xl border border-border bg-card p-5 space-y-2">
-            <p className="text-sm font-semibold flex items-center gap-2">
-              <span>💰</span> 대출 메모
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {intent.financing_note}
-            </p>
-          </div>
-        )}
-
-        {/* Missing Questions */}
-        {missingQuestions.length > 0 && (
-          <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-            <h2 className="text-base font-semibold flex items-center gap-2">
-              <span>❓</span> 추가 확인 필요
-            </h2>
-            <ol className="space-y-1">
-              {missingQuestions.map((q, i) => (
-                <li key={i} className="text-sm flex gap-2">
-                  <span className="text-muted-foreground font-medium shrink-0">
-                    {i + 1}.
-                  </span>
-                  <span>{String(q)}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
-
-        {/* Privacy Note */}
-        {privacyNotes.length > 0 && (
-          <div className="rounded-xl bg-secondary/50 border border-border px-4 py-3">
-            {privacyNotes.map((note, i) => (
-              <p key={i} className="text-xs text-muted-foreground">
-                🔒 {String(note)}
-              </p>
-            ))}
-          </div>
-        )}
-
-        {/* Buyer Memo Section — client component for generating memo */}
-        <BuyerMemoSection
-          buyerIntentId={id}
-          buildings={buildings || []}
-          existingMemo={existingMemo}
-        />
-
-        {/* P2-3: 매칭된 매물 이력 */}
-        {matchHistory && matchHistory.length > 0 && (
-          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-            <h2 className="text-base font-semibold flex items-center gap-2">
-              <span>🏆</span> 매칭된 매물
-              <span className="ml-auto text-xs font-normal text-muted-foreground">
-                {matchHistory.length}건
-              </span>
-            </h2>
-            <div className="space-y-3">
-              {matchHistory.map((m) => {
-                const b = Array.isArray(m.building_ssot_lite)
-                  ? m.building_ssot_lite[0]
-                  : m.building_ssot_lite;
-                const gradeColors: Record<string, string> = {
-                  S: "bg-purple-100 text-purple-800",
-                  A: "bg-green-100 text-green-800",
-                  B: "bg-blue-100 text-blue-800",
-                  C: "bg-gray-100 text-gray-600",
-                };
-                const colorClass = gradeColors[m.grade] ?? gradeColors["C"];
-                return (
-                  <div
-                    key={m.id}
-                    className="flex items-center gap-3 rounded-lg border border-border px-3 py-2.5"
-                  >
-                    <span
-                      className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold ${colorClass}`}
-                    >
-                      {m.grade}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {(b as {area_signal?: string})?.area_signal ?? "권역 미상"}{" "}
-                        {(b as {asset_type?: string})?.asset_type ?? ""}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {(b as {price_band?: string})?.price_band ?? "가격 미확인"} ·{" "}
-                        {Math.round(m.score * 100)}점
-                      </p>
-                    </div>
-                    {(b as {id?: string})?.id && (
-                      <a
-                        href={`/broker/deal-card/${(b as {id: string}).id}`}
-                        className="shrink-0 text-xs text-primary hover:underline"
-                      >
-                        보기 →
-                      </a>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Date */}
-        <div className="flex items-center justify-center">
-          <span className="text-xs text-muted-foreground">
-            {new Date(intent.created_at).toLocaleDateString("ko-KR")}
-          </span>
-        </div>
-      </div>
+    <main className="flex flex-col items-center min-h-screen bg-[#09090b] text-[#fafafa] px-4 py-12 pb-32 overflow-x-hidden">
+      <BuyerIntentDetailContainer
+        intent={intent}
+        matchHistory={matchHistory as any}
+        buyerMemoSectionComponent={buyerMemoSectionComponent}
+      />
     </main>
   );
 }

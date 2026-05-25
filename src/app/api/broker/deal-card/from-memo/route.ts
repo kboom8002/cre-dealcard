@@ -9,26 +9,30 @@
 import { z } from "zod/v4";
 import { brokerDealCardFromMemo } from "@/domain/building/broker-deal-card";
 import { toApiError } from "@/lib/api-error";
+import { requireBroker } from "@/lib/auth-guard";
+import { NextRequest } from "next/server";
 
 const BrokerDealCardFromMemoRequest = z.object({
   memo: z.string().min(5),
   visibilityPreference: z.enum(["blind", "internal"]).default("blind"),
 });
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  // Require broker or admin role
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const { user } = guard;
+
   try {
     const json = await req.json();
     const input = BrokerDealCardFromMemoRequest.parse(json);
 
-    // MVP: use anonymous user flow for simplicity
-    // In production, extract user session from Supabase auth
     const result = await brokerDealCardFromMemo(
       {
         memo: input.memo,
         visibilityPreference: input.visibilityPreference,
       },
-      // Placeholder replaced with valid U1 UUID
-      "f5365a14-bfe4-4f67-9b03-846d0163e5bc",
+      user!.id,
     );
 
     return Response.json({

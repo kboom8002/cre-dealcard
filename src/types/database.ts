@@ -39,7 +39,9 @@ export type DocumentType =
   | "buyer_fit_memo"
   | "owner_prep_memo"
   | "missing_data_checklist"
-  | "gate_request_note";
+  | "gate_request_note"
+  | "building_snapshot_draft"
+  | "im_lite_draft";
 
 export type SourceType =
   | "building_ssot_lite"
@@ -77,6 +79,65 @@ export type EvidenceVisibility =
   | "public_redacted";
 
 export type AiRunStatus = "started" | "completed" | "failed";
+
+export type LayerCategory =
+  | "building_register"
+  | "registry_docs"
+  | "land_use_plan"
+  | "rent_roll"
+  | "photos"
+  | "floor_plan"
+  | "repair_history"
+  | "vacancy_docs"
+  | "asking_price"
+  | "disclosure_policy"
+  | "other";
+
+// ---- v0.2 Layer Structures ----
+
+export interface LeaseTenant {
+  floor: string;
+  area_sqm: number;
+  tenant_type: string; // e.g. 'office', 'retail', 'food', 'vacant', 'other'
+  monthly_rent: number | null;   // 민감 - private_truth
+  deposit: number | null;        // 민감 - private_truth
+  contract_end: string | null;   // YYYY-MM
+  is_anchor: boolean;
+  tenant_name: string | null;    // 민감 - private_truth
+}
+
+export interface LeaseSummaryLayer {
+  tenants: LeaseTenant[];
+  walt_months: number | null;
+  vacancy_rate: number | null;     // 0-100
+  gross_income_estimate: number | null;
+}
+
+export interface LayerScores {
+  building_register:  number; // 0-20
+  registry_docs:      number; // 0-15
+  land_use_plan:      number; // 0-10
+  rent_roll:          number; // 0-25
+  photos:             number; // 0-10
+  floor_plan:         number; // 0-10
+  repair_history:     number; // 0-5
+  vacancy_docs:       number; // 0-5
+  asking_price:       number; // 0-5
+  disclosure_policy:  number; // 0-5
+  total:              number; // 0-100
+}
+
+export interface DisclosurePrefs {
+  show_area_signal:   boolean;
+  show_asset_type:    boolean;
+  show_price_band:    boolean;
+  show_tenant_count:  boolean;
+  show_walt:          boolean;
+  show_vacancy_rate:  boolean;
+  hide_exact_address: boolean;
+  hide_tenant_names:  boolean;
+  hide_unit_rent:     boolean;
+}
 
 // ---- Row Types ----
 
@@ -120,6 +181,12 @@ export interface BuildingSsotLite {
   confidence: Record<string, unknown>;
   disclosure: Record<string, unknown>;
   status: BuildingSsotStatus;
+  lease_summary: LeaseSummaryLayer | null;
+  floor_plan_url: string | null;
+  repair_history: Record<string, unknown> | null;
+  disclosure_prefs: DisclosurePrefs | null;
+  layer_scores: LayerScores | null;
+  completeness_score: number;
   created_at: string;
   updated_at: string;
 }
@@ -235,6 +302,12 @@ export interface EvidenceFile {
   visibility: EvidenceVisibility;
   contains_sensitive_data: boolean;
   training_allowed: boolean;
+  file_name: string | null;
+  file_size_bytes: number | null;
+  mime_type: string | null;
+  layer_category: LayerCategory | null;
+  is_verified: boolean;
+  verified_at: string | null;
   created_at: string;
 }
 

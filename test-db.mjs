@@ -7,11 +7,16 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function check() {
   const { data, error } = await supabase
-    .from('buyer_intent_lite')
-    .select('id, buyer_type, budget_display, created_at');
+    .from('building_ssot_lite')
+    .select('id')
+    .eq('broker_id', '00000000-0000-0000-0000-000000000000')
+    .limit(1);
 
-  if (error) console.error(error);
-  else console.log(JSON.stringify(data, null, 2));
+  if (error) {
+    console.error("Query error:", error.message, error.code);
+  } else {
+    console.log("Query succeeded! Data:", data);
+  }
 }
 
 check();

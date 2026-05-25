@@ -1,3 +1,6 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap");
+
 @import "tailwindcss";
 
 :root {
@@ -20,6 +23,27 @@
   --radius: 0.75rem;
   --success: #22c55e;
   --warning: #f59e0b;
+
+  /* CRE Domain & Grade Colors */
+  --deal-hot: #f43f5e;
+  --deal-warm: #f59e0b;
+  --deal-cold: #3b82f6;
+  --grade-s: #d97706;
+  --grade-a: #059669;
+  --grade-b: #2563eb;
+  --grade-c: #475569;
+
+  /* Spacing and Borders */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+
+  /* Elevation Shadows */
+  --shadow-elevation-1: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-elevation-2: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.08);
+  --shadow-elevation-3: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --shadow-elevation-4: 0 20px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.12);
 }
 
 @theme inline {
@@ -41,8 +65,31 @@
   --color-ring: var(--ring);
   --color-success: var(--success);
   --color-warning: var(--warning);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  /* CRE Theme Mapping */
+  --color-deal-hot: var(--deal-hot);
+  --color-deal-warm: var(--deal-warm);
+  --color-deal-cold: var(--deal-cold);
+  --color-grade-s: var(--grade-s);
+  --color-grade-a: var(--grade-a);
+  --color-grade-b: var(--grade-b);
+  --color-grade-c: var(--grade-c);
+
+  /* Typography */
+  --font-sans: "Pretendard", var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", var(--font-geist-mono), monospace;
+
+  /* Radius mapping */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+
+  /* Shadows mapping */
+  --shadow-elevation-1: var(--shadow-elevation-1);
+  --shadow-elevation-2: var(--shadow-elevation-2);
+  --shadow-elevation-3: var(--shadow-elevation-3);
+  --shadow-elevation-4: var(--shadow-elevation-4);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -65,13 +112,39 @@
     --ring: #3b82f6;
     --success: #16a34a;
     --warning: #d97706;
+
+    /* CRE Domain & Grade Colors - Dark Theme Adjustments */
+    --deal-hot: #fb7185;
+    --deal-warm: #fbbf24;
+    --deal-cold: #60a5fa;
+    --grade-s: #fbbf24;
+    --grade-a: #34d399;
+    --grade-b: #60a5fa;
+    --grade-c: #94a3b8;
+
+    /* Dark Shadows */
+    --shadow-elevation-1: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+    --shadow-elevation-2: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+    --shadow-elevation-3: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
+    --shadow-elevation-4: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  font-family: "Pretendard", var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+}
+
+/* Base style overrides */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--foreground);
+}
+
+p {
+  line-height: 1.6;
 }
 
 /* Utility classes for the design system */
@@ -80,4 +153,54 @@ body {
   color: var(--card-foreground);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-elevation-1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-elevation-2);
+}
+
+/* Scrollbar adjustments */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* Print Utilities */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: #ffffff !important;
+    color: #18181b !important;
+  }
+
+  .print-card {
+    border: 1px solid #e4e4e7 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #18181b !important;
+    break-inside: avoid;
+  }
+
+  .print-title {
+    color: #18181b !important;
+  }
+
+  .print-muted {
+    color: #71717a !important;
+  }
 }

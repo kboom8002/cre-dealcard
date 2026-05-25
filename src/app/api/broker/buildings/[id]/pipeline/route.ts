@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod/v4';
+import { requireBroker } from '@/lib/auth-guard';
 import {
   validateBridgeTransition,
   VALID_TRANSITIONS,
@@ -24,18 +25,15 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const { user } = guard;
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } },
   );
-
-  const authHeader = req.headers.get('authorization') ?? '';
-  const token = authHeader.replace('Bearer ', '');
-  const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-  if (authErr || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
 
   const parsed = BodySchema.safeParse(await req.json());
   if (!parsed.success) {
@@ -47,7 +45,7 @@ export async function POST(
     .from('deal_pipeline_states')
     .select('id, stage, entered_at, metadata')
     .eq('building_ssot_lite_id', (await params).id)
-    .eq('broker_id', user.id)
+    .eq('broker_id', user!.id)
     .order('entered_at', { ascending: false })
     .limit(1)
     .single();
@@ -86,7 +84,7 @@ export async function POST(
     .from('deal_pipeline_states')
     .insert({
       building_ssot_lite_id: (await params).id,
-      broker_id: user.id,
+      broker_id: user!.id,
       stage: toStage,
       metadata: mergedMeta,
     })
@@ -98,16 +96,29 @@ export async function POST(
   }
 
   // Activity event
-  await supabase.from('activity_events').insert({
-    building_ssot_lite_id: (await params).id,
-    broker_id: user.id,
-    event_type: 'pipeline_advanced',
-    metadata: {
-      from_stage: fromStage,
-      to_stage: toStage,
-      pipeline_state_id: newState.id,
-    },
+  const { trackPipelineTransition } = await import("@/domain/analytics/pipeline-transition-tracker");
+  const { trackMatchFailure } = await import("@/domain/analytics/match-failure-tracker");
+
+  await trackPipelineTransition(supabase, {
+    brokerId: user!.id,
+    buildingSsotLiteId: (await params).id,
+    fromStage: fromStage,
+    toStage: toStage,
+    transitionReason: (parsed.data.metadata as any)?.transition_reason || "경로 수동 변경",
+    holdDays: validation.holdDays,
+    metadata: mergedMeta,
   });
+
+  if (toStage === "failed") {
+    await trackMatchFailure(supabase, {
+      brokerId: user!.id,
+      entityType: "sale",
+      failureReason: (parsed.data.metadata as any)?.failure_reason || "협상 결렬",
+      priceGapPct: (parsed.data.metadata as any)?.price_gap ? Number((parsed.data.metadata as any).price_gap) : null,
+      rejectedBy: (parsed.data.metadata as any)?.rejected_by || "buyer",
+      rejectionDetail: (parsed.data.metadata as any)?.rejection_detail || "가격 갭 저항대 극복 불가",
+    });
+  }
 
   return NextResponse.json({
     ok: true,

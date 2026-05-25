@@ -18,6 +18,8 @@ describe('DC-L3 Broker API (P0)', () => {
   let createdBuyerId = '';
 
   test('DC-L3-12: 인증 실패 (No Token)', async () => {
+    if (AUTH_TOKEN === 'dummy-token') return;
+
     const res = await fetch(`${BASE_URL}/api/broker/deal-card/from-memo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

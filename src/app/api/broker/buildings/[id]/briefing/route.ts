@@ -5,30 +5,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { generateDealBriefing } from '@/domain/briefing/deal-briefing-generator';
+import { requireBroker } from '@/lib/auth-guard';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const guard = await requireBroker(req);
+  if (guard.error) return guard.error;
+  const { user } = guard;
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } },
   );
 
-  const authHeader = req.headers.get('authorization') ?? '';
-  const token = authHeader.replace('Bearer ', '');
-  const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-  if (authErr || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   // Verify ownership
   const { data: building } = await supabase
     .from('building_ssot_lite')
     .select('id')
     .eq('id', (await params).id)
-    .eq('broker_id', user.id)
+    .eq('broker_id', user!.id)
     .single();
 
   if (!building) {
@@ -36,7 +34,7 @@ export async function GET(
   }
 
   try {
-    const briefing = await generateDealBriefing((await params).id, user.id);
+    const briefing = await generateDealBriefing((await params).id, user!.id);
     return NextResponse.json({ ok: true, briefing });
   } catch (err) {
     console.error('[briefing] error', err);

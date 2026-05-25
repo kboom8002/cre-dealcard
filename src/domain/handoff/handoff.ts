@@ -55,6 +55,7 @@ export interface HandoffPayload {
   created_at: string;
   // Enriched building_ssot_lite data (for Full IM to use)
   building_ssot_lite?: Record<string, unknown>;
+  source_documents?: Record<string, unknown>[];
 }
 
 export async function createHandoff(
@@ -131,7 +132,8 @@ export async function getHandoffByToken(token: string): Promise<HandoffPayload |
       building_ssot_lite:source_building_ssot_lite_id (
         id, area_signal, asset_type, price_band, size_signal,
         current_use_signal, vacancy_signal, fit_summary, caution_summary,
-        hidden_fields, status, disclosure, confidence
+        hidden_fields, status, disclosure, confidence,
+        layers, source_refs, evidence_refs
       )
     `)
     .eq("handoff_token", token)
@@ -145,6 +147,16 @@ export async function getHandoffByToken(token: string): Promise<HandoffPayload |
       .from("full_im_handoffs")
       .update({ status: "pending_import" })
       .eq("id", handoff.id);
+  }
+
+  // Fetch actual document contents
+  let sourceDocs: any[] = [];
+  if (handoff.source_document_ids && handoff.source_document_ids.length > 0) {
+    const { data: docs } = await supabase
+      .from("document_objects")
+      .select("*")
+      .in("id", handoff.source_document_ids);
+    sourceDocs = docs ?? [];
   }
 
   return {
@@ -168,6 +180,7 @@ export async function getHandoffByToken(token: string): Promise<HandoffPayload |
     expires_at: handoff.expires_at,
     created_at: handoff.created_at,
     building_ssot_lite: (handoff.building_ssot_lite as unknown as Record<string, unknown>) ?? undefined,
+    source_documents: sourceDocs,
   };
 }
 
