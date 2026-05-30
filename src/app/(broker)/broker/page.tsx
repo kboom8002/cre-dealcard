@@ -283,6 +283,19 @@ export default async function BrokerPage() {
               </div>
             </Link>
           </div>
+
+          {/* ── AI Leasing Studio ── */}
+          <Link
+            href="/broker/leasing"
+            className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3.5 transition-all hover:border-emerald-500/40 hover:bg-emerald-500/10 active:scale-[0.98] mt-2"
+          >
+            <span className="text-xl">🏪</span>
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-emerald-300">AI 리싱 스튜디오</p>
+              <p className="text-[10px] text-muted-foreground">사진 분류 → 적합성 분석 → 리싱 페이지 생성</p>
+            </div>
+            <span className="text-xs text-emerald-400 font-medium">관리 →</span>
+          </Link>
         </div>
 
         {/* ── 최근 임대차 딜카드 ─────────────────────────────────── */}

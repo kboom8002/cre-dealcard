@@ -29,6 +29,7 @@ import {
   BLIND_TEASER_USER_TEMPLATE,
   BLIND_TEASER_PROMPT_ID,
 } from "@/ai/prompts/broker-deal-card";
+import { rewriteUnsafeText } from "@/domain/guardrails/safe-language";
 
 const openai = new OpenAI();
 
@@ -134,10 +135,19 @@ export async function runBrokerDealCard(
     JSON.parse(restoredTeaserContent),
   );
 
+  // Apply safe-language guardrails to public-facing text
+  const guardedTeaser = { ...blindTeaser };
+  if (guardedTeaser.title) {
+    guardedTeaser.title = rewriteUnsafeText(guardedTeaser.title).safeText;
+  }
+  if (guardedTeaser.shortSummary) {
+    guardedTeaser.shortSummary = rewriteUnsafeText(guardedTeaser.shortSummary).safeText;
+  }
+
   return {
     parsedMemo,
     buildingTruth,
-    blindTeaser,
+    blindTeaser: guardedTeaser,
     model,
     promptVersions: {
       memoParser: MEMO_PARSER_PROMPT_ID,
@@ -147,3 +157,4 @@ export async function runBrokerDealCard(
     usage: { totalTokens },
   };
 }
+

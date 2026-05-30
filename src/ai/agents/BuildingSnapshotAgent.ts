@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { SnapshotDraftSchema, type SnapshotDraft } from "@/ai/schemas/snapshot-schema";
 import { SNAPSHOT_AGENT_PROMPT_ID, SNAPSHOT_AGENT_SYSTEM, SNAPSHOT_AGENT_USER_TEMPLATE } from "@/ai/prompts/snapshot-agent";
+import { rewriteUnsafeText } from "@/domain/guardrails/safe-language";
 
 const openai = new OpenAI();
 
@@ -50,8 +51,16 @@ export async function runBuildingSnapshotAgent(
   const parsed = JSON.parse(content);
   const snapshot = SnapshotDraftSchema.parse(parsed);
 
+  // Apply safe-language guardrails to public-facing text
+  const guarded: SnapshotDraft = {
+    ...snapshot,
+    headline: rewriteUnsafeText(snapshot.headline).safeText,
+    deal_thesis: rewriteUnsafeText(snapshot.deal_thesis).safeText,
+    risk_summary: rewriteUnsafeText(snapshot.risk_summary).safeText,
+  };
+
   return {
-    snapshot,
+    snapshot: guarded,
     model,
     promptVersion: SNAPSHOT_AGENT_PROMPT_ID,
     usage: response.usage

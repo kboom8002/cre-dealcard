@@ -279,6 +279,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap] Failed to fetch oiticles:", err);
   }
 
+  /* ── 9. Leasing pages (/leasing/[slug]) ────────────────────── */
+  let leasingPages: MetadataRoute.Sitemap = [];
+  try {
+    const supabase = createServiceClient();
+    const { data: lPages } = await supabase
+      .from("leasing_pages")
+      .select("slug, updated_at")
+      .eq("status", "published")
+      .order("updated_at", { ascending: false })
+      .limit(2000);
+
+    if (lPages) {
+      leasingPages = lPages.map((p) => ({
+        url: `${BASE_URL}/leasing/${p.slug}`,
+        lastModified: p.updated_at ? new Date(p.updated_at) : now,
+        changeFrequency: "weekly" as const,
+        priority: 0.75,
+      }));
+    }
+  } catch (err) {
+    console.error("[sitemap] Failed to fetch leasing pages:", err);
+  }
+
   return [
     ...staticPages,
     ...agoraCategoryPages,
@@ -291,5 +314,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...serviceCardPages,
     ...pulsePages,
     ...oiticlePages,
+    ...leasingPages,
   ];
 }
