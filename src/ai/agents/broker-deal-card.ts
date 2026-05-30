@@ -7,6 +7,7 @@
  * Source: docs/09-ai-agent-contracts.md sections 7-10
  */
 import OpenAI from "openai";
+import { sanitizeMemo, desanitizeOutput } from "@/ai/sanitizer/memo-sanitizer";
 import {
   MemoParserOutputSchema,
   BlindTeaserOutputSchema,
@@ -84,16 +85,23 @@ export async function runBrokerDealCard(
   const model = process.env.AI_DEFAULT_MODEL || "gpt-4o";
   let totalTokens = 0;
 
-  // Step 1: Parse memo
-  const memoPrompt = MEMO_PARSER_USER_TEMPLATE.replace("{memo}", input.memo);
+  // Apply PII Sanitization
+  const sanitizationMap = sanitizeMemo(input.memo);
+  const { sanitizedText } = sanitizationMap;
+
+  // Step 1: Parse memo using sanitized input
+  const memoPrompt = MEMO_PARSER_USER_TEMPLATE.replace("{memo}", sanitizedText);
   const memoResult = await callOpenAI(MEMO_PARSER_SYSTEM, memoPrompt, model);
   totalTokens += memoResult.tokens;
-  const parsedMemo = MemoParserOutputSchema.parse(JSON.parse(memoResult.content));
+  
+  // Desanitize response before Zod parsing
+  const restoredMemoContent = desanitizeOutput(memoResult.content, sanitizationMap);
+  const parsedMemo = MemoParserOutputSchema.parse(JSON.parse(restoredMemoContent));
 
-  // Step 2: Build Mini Truth
+  // Step 2: Build Mini Truth using sanitized raw memo
   const truthPrompt = BUILDING_MINI_TRUTH_USER_TEMPLATE.replace(
     "{raw_memo}",
-    input.memo,
+    sanitizedText,
   ).replace("{parsed_memo}", JSON.stringify(parsedMemo, null, 2));
   const truthResult = await callOpenAI(
     BUILDING_MINI_TRUTH_SYSTEM,
@@ -101,8 +109,11 @@ export async function runBrokerDealCard(
     model,
   );
   totalTokens += truthResult.tokens;
+  
+  // Desanitize response before Zod parsing
+  const restoredTruthContent = desanitizeOutput(truthResult.content, sanitizationMap);
   const buildingTruth = BuildingMiniTruthOutputSchema.parse(
-    JSON.parse(truthResult.content),
+    JSON.parse(restoredTruthContent),
   );
 
   // Step 3: Generate Blind Teaser
@@ -116,8 +127,11 @@ export async function runBrokerDealCard(
     model,
   );
   totalTokens += teaserResult.tokens;
+  
+  // Desanitize teaser output to restore any placeholders
+  const restoredTeaserContent = desanitizeOutput(teaserResult.content, sanitizationMap);
   const blindTeaser = BlindTeaserOutputSchema.parse(
-    JSON.parse(teaserResult.content),
+    JSON.parse(restoredTeaserContent),
   );
 
   return {

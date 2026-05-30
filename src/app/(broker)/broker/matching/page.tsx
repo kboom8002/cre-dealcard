@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
+import { MatchStageBreakdown } from '@/components/matching/MatchStageBreakdown';
 
 interface MatchResult {
   id: string;
@@ -13,6 +14,10 @@ interface MatchResult {
   reasoning: string;
   purpose_weight_profile: string;
   created_at: string;
+  stage1_passed?: boolean;
+  stage1_details?: any;
+  stage2_similarity?: number;
+  stage3_weights?: any;
   // joined
   building_area?: string;
   building_asset_type?: string;
@@ -23,16 +28,17 @@ interface MatchResult {
 }
 
 const GRADE_STYLES: Record<string, { bg: string; text: string; label: string; border: string }> = {
-  S: { bg: 'bg-grade-s/10', text: 'text-grade-s', border: 'border-grade-s/30', label: 'S — 최우선' },
-  A: { bg: 'bg-grade-a/10', text: 'text-grade-a', border: 'border-grade-a/30', label: 'A — 높은 적합도' },
-  B: { bg: 'bg-grade-b/10', text: 'text-grade-b', border: 'border-grade-b/30', label: 'B — 참고 가능' },
-  C: { bg: 'bg-grade-c/10', text: 'text-grade-c', border: 'border-grade-c/30', label: 'C — 매칭 미흡' },
+  S: { bg: 'bg-emerald-50 dark:bg-emerald-950/20', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-900/50', label: 'S — 최우선' },
+  A: { bg: 'bg-blue-50 dark:bg-blue-950/20', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-200 dark:border-blue-900/50', label: 'A — 높은 적합도' },
+  B: { bg: 'bg-amber-50 dark:bg-amber-950/20', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-900/50', label: 'B — 참고 가능' },
+  C: { bg: 'bg-rose-50 dark:bg-rose-950/20', text: 'text-rose-600 dark:text-rose-400', border: 'border-rose-200 dark:border-rose-900/50', label: 'C — 매칭 미흡' },
 };
 
 export default function MatchingBoardPage() {
   const [matches, setMatches] = useState<MatchResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [gradeFilter, setGradeFilter] = useState<'all' | 'S' | 'A' | 'B' | 'C'>('all');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const fetchMatches = useCallback(async () => {
     setLoading(true);
@@ -59,7 +65,8 @@ export default function MatchingBoardPage() {
           .from('match_results')
           .select(`
             id, building_ssot_lite_id, buyer_intent_lite_id, 
-            grade, score, reasoning, purpose_weight_profile, created_at
+            grade, score, reasoning, purpose_weight_profile, created_at,
+            stage1_passed, stage1_details, stage2_similarity, stage3_weights
           `)
           .order('created_at', { ascending: false })
           .limit(50);
@@ -164,11 +171,14 @@ export default function MatchingBoardPage() {
           <div className="space-y-2">
             {filteredMatches.map((match) => {
               const style = GRADE_STYLES[match.grade];
+              const isExpanded = expandedId === match.id;
+              
               return (
                 <div
                   key={match.id}
-                  className={`rounded-xl border bg-card p-4 space-y-2 ${style.border}`}
+                  className={`rounded-xl border bg-card p-4 space-y-3 cursor-pointer hover:shadow-sm transition-all ${style.border}`}
                   id={`match-${match.id}`}
+                  onClick={() => setExpandedId(isExpanded ? null : match.id)}
                 >
                   {/* Grade + Score */}
                   <div className="flex items-center justify-between">
@@ -204,12 +214,34 @@ export default function MatchingBoardPage() {
                   </div>
 
                   {/* Reasoning */}
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    {match.reasoning}
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      {match.reasoning}
+                    </p>
+                    {!isExpanded && (
+                      <p className="text-[10px] text-primary/70 font-semibold flex items-center gap-0.5 animate-pulse mt-1">
+                        <span>🔍</span> 3단계 매칭 정밀 보고서 열기
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Breakdown 시각화 컴포넌트 탑재 */}
+                  {isExpanded && (
+                    <div className="pt-2 animate-fadeIn" onClick={(e) => e.stopPropagation()}>
+                      <MatchStageBreakdown
+                        stage1Passed={match.stage1_passed ?? true}
+                        stage1Details={match.stage1_details ?? { region: true, budget: true, asset: true }}
+                        stage2Similarity={match.stage2_similarity ?? (match.score / 100)}
+                        stage3Score={match.score}
+                        stage3Weights={match.stage3_weights ?? {}}
+                        grade={match.grade}
+                        matchId={match.id}
+                      />
+                    </div>
+                  )}
 
                   {/* Actions */}
-                  <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center justify-between pt-1" onClick={(e) => e.stopPropagation()}>
                     <span className="text-[10px] text-muted-foreground">
                       {new Date(match.created_at).toLocaleDateString('ko-KR')}
                     </span>

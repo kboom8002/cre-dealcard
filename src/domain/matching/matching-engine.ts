@@ -25,11 +25,16 @@ const openai = new OpenAI();
 export function runHardFilter(input: MatchInput): Stage1Result {
   const { building, intent } = input;
   const failReasons: string[] = [];
+  
+  let budget = true;
+  let region = true;
+  let asset = true;
 
   // Budget check: priceBand vs budgetRange
   if (intent.budgetRange.max !== null && building.priceBand) {
     const priceNum = extractPriceNumber(building.priceBand);
     if (priceNum !== null && priceNum > intent.budgetRange.max * 1.2) {
+      budget = false;
       failReasons.push(
         `가격대 불일치: ${building.priceBand} > 예산 상한 ${intent.budgetRange.display} × 1.2`,
       );
@@ -40,6 +45,7 @@ export function runHardFilter(input: MatchInput): Stage1Result {
   if (intent.preferredRegions.length > 0) {
     const regionResult = matchRegion(building.areaSignal, intent.preferredRegions);
     if (!regionResult.matched) {
+      region = false;
       failReasons.push(
         `지역 불일치: ${building.areaSignal} ∉ [${intent.preferredRegions.join(', ')}]`,
       );
@@ -50,13 +56,18 @@ export function runHardFilter(input: MatchInput): Stage1Result {
   if (intent.assetTypes.length > 0) {
     const assetMatch = matchAssetType(building.assetType, intent.assetTypes);
     if (!assetMatch) {
+      asset = false;
       failReasons.push(
         `자산 유형 불일치: ${building.assetType} ∉ [${intent.assetTypes.join(', ')}]`,
       );
     }
   }
 
-  return { passed: failReasons.length === 0, failReasons };
+  return { 
+    passed: failReasons.length === 0, 
+    failReasons, 
+    details: { region, budget, asset } 
+  };
 }
 
 // ─── Stage 2: Semantic Similarity ─────────────────────────────────────
@@ -141,7 +152,7 @@ export function resolveWeightProfile(purchasePurpose: string, inferred?: string)
 
 export async function runMatchingEngine(input: MatchInput): Promise<MatchResult> {
   // Stage 1
-  const { passed, failReasons } = runHardFilter(input);
+  const { passed, failReasons, details } = runHardFilter(input);
   if (!passed) {
     return {
       grade: 'C',
@@ -151,6 +162,8 @@ export async function runMatchingEngine(input: MatchInput): Promise<MatchResult>
       stage3Score: 0,
       reasoning: `Stage 1 필터 탈락: ${failReasons.join(' / ')}`,
       purposeWeightProfile: 'default',
+      stage1Details: details || { region: false, budget: false, asset: false },
+      stage3Weights: {},
     };
   }
 
@@ -187,6 +200,8 @@ export async function runMatchingEngine(input: MatchInput): Promise<MatchResult>
     stage3Score: Math.round(stage3Score * 100) / 100,
     reasoning: `[${grade}] ${gradeLabel[grade]} | 시맨틱 유사도 ${(similarity * 100).toFixed(1)}% | 목적 프로파일: ${profile}`,
     purposeWeightProfile: profile,
+    stage1Details: details || { region: true, budget: true, asset: true },
+    stage3Weights: weights,
   };
 }
 

@@ -3,6 +3,9 @@ import Link from "next/link";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
+import { calculateBrokerMonthlyRoi } from "@/domain/analytics/roi-calculator";
+import { RoiCard } from "@/components/dashboard/RoiCard";
+import { AntifragileMode } from "@/components/dashboard/AntifragileMode";
 
 export const metadata: Metadata = {
   title: "JS 1분 딜카드 | 중개인 코크핏",
@@ -40,6 +43,8 @@ export default async function BrokerPage() {
     { count: totalClients },
     { data: matchResults },
     { data: leaseMatchResults },
+    roiMetrics,
+    marketIndicatorRes,
   ] = await Promise.all([
     supabase
       .from("building_ssot_lite")
@@ -92,6 +97,13 @@ export default async function BrokerPage() {
     supabase
       .from("lease_match_results")
       .select("grade"), // RLS restricts to broker's spaces
+    calculateBrokerMonthlyRoi(supabase, user.id),
+    supabase
+      .from("market_leading_indicators")
+      .select("*")
+      .order("computed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const sMatchCount = (matchResults?.filter((m) => m.grade === "S").length ?? 0) + (leaseMatchResults?.filter((m) => m.grade === "S").length ?? 0);
@@ -102,6 +114,20 @@ export default async function BrokerPage() {
     draft: { label: "초안", color: "bg-warning/10 text-warning border border-warning/20" },
     archived: { label: "보관", color: "bg-muted text-muted-foreground border border-border" },
     pending: { label: "검토중", color: "bg-primary/10 text-primary border border-primary/20" },
+  };
+
+  // ── Antifragile Mode Indicator Fallback ──
+  const trend = marketIndicatorRes?.data as any;
+  const antifragileMetrics = {
+    trendDirection: (trend?.trend_direction ?? "down") as "up" | "flat" | "down",
+    region: trend?.region ?? "강남 GBD",
+    assetType: trend?.asset_type ?? "오피스빌딩",
+    demandScore: Number(trend?.demand_score ?? 42),
+    supplyScore: Number(trend?.supply_score ?? 78),
+    avgHoldDays: Number(trend?.avg_hold_days ?? 28.5),
+    priceResistanceBand: trend?.price_resistance_band
+      ? (trend.price_resistance_band as { min: number; max: number })
+      : { min: 0.08, max: 0.15 },
   };
 
   return (
@@ -122,6 +148,12 @@ export default async function BrokerPage() {
             👤
           </Link>
         </div>
+
+        {/* ── 안티프래질 시장 선행 분석 모드 (Phase 4: F12) ── */}
+        <AntifragileMode {...antifragileMetrics} />
+
+        {/* ── 실시간 ROI 가치 지표 표시 (Growth Flywheel) ── */}
+        <RoiCard metrics={roiMetrics} />
 
         {/* ── KPI Cards ────────────────────────────────────────── */}
         <div className="space-y-2">

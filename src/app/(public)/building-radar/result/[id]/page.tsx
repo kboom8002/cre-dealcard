@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { DealCuriosityReportSchema } from "@/ai/schemas/deal-curiosity-report";
 import Link from "next/link";
+import { ReverseOnboardingForm } from "@/components/onboarding/ReverseOnboardingForm";
 
 export const metadata: Metadata = {
   title: "딜 리포트 | 이 건물, 딜 될까?",
@@ -258,6 +259,13 @@ export default async function BuildingRadarResultPage({
             {boundaryNote}
           </p>
         </div>
+
+        {/* Reverse Onboarding Form (Phase 4: F13-3) */}
+        <ReverseOnboardingForm
+          buildingId={building.id}
+          buildingArea={building.area_signal || "서울"}
+          buildingAssetType={building.asset_type || "오피스빌딩"}
+        />
 
         {/* Document Status Badge */}
         <div className="flex items-center justify-center gap-2">

@@ -41,11 +41,14 @@ export interface MatchResult {
   stage3Score: number;
   reasoning: string;
   purposeWeightProfile: WeightProfile;
+  stage1Details?: Record<string, boolean>;
+  stage3Weights?: Record<string, number>;
 }
 
 export interface Stage1Result {
   passed: boolean;
   failReasons: string[];
+  details?: { region: boolean; budget: boolean; asset: boolean };
 }
 
 // Purpose weights: market(시장), financial(재무), vacancy(공실), semantic(시맨틱)

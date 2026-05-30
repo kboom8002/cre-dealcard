@@ -87,8 +87,10 @@ export async function runAutoMatch(buildingId: string, brokerId: string) {
           grade: matchResult.grade,
           score: matchResult.score,
           stage1_passed: matchResult.stage1Passed,
+          stage1_details: matchResult.stage1Details ?? {},
           stage2_similarity: matchResult.stage2Similarity,
           stage3_score: matchResult.stage3Score,
+          stage3_weights: matchResult.stage3Weights ?? {},
           reasoning: matchResult.reasoning,
           purpose_weight_profile: matchResult.purposeWeightProfile,
         })
@@ -214,8 +216,10 @@ export async function runAutoMatchForBuyer(buyerIntentId: string, brokerId: stri
           grade: matchResult.grade,
           score: matchResult.score,
           stage1_passed: matchResult.stage1Passed,
+          stage1_details: matchResult.stage1Details ?? {},
           stage2_similarity: matchResult.stage2Similarity,
           stage3_score: matchResult.stage3Score,
+          stage3_weights: matchResult.stage3Weights ?? {},
           reasoning: matchResult.reasoning,
           purpose_weight_profile: matchResult.purposeWeightProfile,
         })

@@ -11,6 +11,7 @@ import { brokerDealCardFromMemo } from "@/domain/building/broker-deal-card";
 import { toApiError } from "@/lib/api-error";
 import { requireBroker } from "@/lib/auth-guard";
 import { NextRequest } from "next/server";
+import { validateMemoQuality } from "@/domain/building/memo-quality-gate";
 
 const BrokerDealCardFromMemoRequest = z.object({
   memo: z.string().min(5),
@@ -26,6 +27,20 @@ export async function POST(req: NextRequest) {
   try {
     const json = await req.json();
     const input = BrokerDealCardFromMemoRequest.parse(json);
+
+    // Memo Quality Gate validation
+    const quality = validateMemoQuality(input.memo);
+    if (!quality.pass) {
+      return Response.json(
+        {
+          ok: false,
+          code: "MEMO_QUALITY_INSUFFICIENT",
+          message: quality.suggestion,
+          details: quality,
+        },
+        { status: 422 }
+      );
+    }
 
     const result = await brokerDealCardFromMemo(
       {
