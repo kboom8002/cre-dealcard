@@ -24,6 +24,7 @@ interface LeaseSpaceDetail {
     is_marketplace_listed: boolean;
     hidden_fields: string[];
     created_at: string;
+    aipage_space_id?: string | null;
     building?: {
       area_signal: string;
       fit_summary: string;
@@ -74,6 +75,21 @@ export default function LeaseCardDetailPage({
   const [copied, setCopied] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [boosting, setBoosting] = useState(false);
+
+  const handleBoost = async () => {
+    if (boosting) return;
+    setBoosting(true);
+    try {
+      const res = await fetch(`/api/broker/lease-card/${id}/boost`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || "부스트 실패");
+      router.push(json.redirect);
+    } catch (err: any) {
+      alert(err.message || "AI 리싱 부스트에 실패했습니다.");
+      setBoosting(false);
+    }
+  };
 
   useEffect(() => {
     fetchDetail();
@@ -218,6 +234,45 @@ export default function LeaseCardDetailPage({
               }`}
             />
           </button>
+        </div>
+
+        {/* ── AI Leasing Boost ── */}
+        <div className="bg-[#131b2e] border border-emerald-500/20 rounded-2xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <h2 className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
+                🚀 AI 리싱 스튜디오
+              </h2>
+              <p className="text-[10px] text-slate-400">
+                사진 기반 적합성 분석 + 공개 리싱 페이지 + 채널별 마케팅 카피
+              </p>
+            </div>
+          </div>
+          {space.aipage_space_id ? (
+            <div className="flex gap-2">
+              <button
+                onClick={() => router.push(`/broker/leasing/${space.aipage_space_id}`)}
+                className="flex-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold rounded-xl py-2.5 transition-all"
+              >
+                AI 리싱 관리 →
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleBoost}
+              disabled={boosting}
+              className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 hover:opacity-90 disabled:opacity-40 text-white text-sm font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+            >
+              {boosting ? (
+                <>
+                  <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  변환 중...
+                </>
+              ) : (
+                "🚀 AI 리싱 페이지 만들기"
+              )}
+            </button>
+          )}
         </div>
 
         {/* Derived representation (Blind Teaser UI) */}
