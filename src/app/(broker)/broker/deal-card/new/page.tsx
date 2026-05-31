@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
+import { createClient } from "@/lib/supabase/client";
+
 const LOADING_STEPS = [
   "메모에서 매물 정보 추출 중",
   "건물 기본 신호 생성 중",
@@ -22,6 +24,7 @@ export default function BrokerDealCardNewPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const supabase = createClient();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,9 +42,15 @@ export default function BrokerDealCardNewPage() {
     }, 2000);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       const res = await fetch("/api/broker/deal-card/from-memo", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           memo: memo.trim(),
           visibilityPreference: "blind",

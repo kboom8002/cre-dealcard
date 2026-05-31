@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
+import { createClient } from "@/lib/supabase/client";
+
 const SAMPLE_MEMO =
   "김대표님 조건. 예산은 50억에서 80억 정도.\n성수나 강남 쪽 선호. 사옥으로 일부 쓰고 나머지는 임대수익 있으면 좋겠다고 함.\n주차는 꼭 필요하고, 너무 노후된 건물은 부담스러워함.\n대출은 50% 정도까지는 생각하지만 확정 아님.\n기존 임차인 만기가 언제인지 중요하게 봄.";
 
@@ -21,6 +23,7 @@ export default function BuyerIntentNewPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const supabase = createClient();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,9 +40,15 @@ export default function BuyerIntentNewPage() {
     }, 1500);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       const res = await fetch("/api/broker/buyer-intents/from-memo", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ memo: memo.trim() }),
       });
 

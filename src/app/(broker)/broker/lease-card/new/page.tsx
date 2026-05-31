@@ -4,12 +4,15 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 
+import { createClient } from "@/lib/supabase/client";
+
 export default function NewLeaseCardPage() {
   const router = useRouter();
   const [memo, setMemo] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<string>("");
+  const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,9 +33,15 @@ export default function NewLeaseCardPage() {
 
       setStep("3. 안전한 블라인드 티저 작성 및 저장 중...");
       
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
       const res = await fetch("/api/broker/lease-card/from-memo", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ memo }),
       });
 

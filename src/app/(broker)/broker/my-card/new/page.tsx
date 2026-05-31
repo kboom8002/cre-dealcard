@@ -16,6 +16,8 @@ const CARD_TYPES = [
   { value: "owner",   icon: "🏗️", label: "건물주 관리용", desc: "자산 관리 역량과 월간 리포트 서비스를 어필합니다." },
 ] as const;
 
+import { createClient } from "@/lib/supabase/client";
+
 export default function BrokerMyCardNewPage() {
   const [step, setStep] = useState(1);
   const [selectedType, setSelectedType] = useState("");
@@ -23,27 +25,43 @@ export default function BrokerMyCardNewPage() {
   const [card, setCard] = useState<BrokerCardContent | null>(null);
   const [loading, setLoading] = useState(false);
   const [statsLoading, setStatsLoading] = useState(true);
+  const supabase = createClient();
 
   // Load broker stats on mount (for name suggestion)
   useEffect(() => {
-    fetch("/api/broker/profile/stats")
-      .then((r) => r.json())
-      .then((d) => {
+    async function loadStats() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        const r = await fetch("/api/broker/profile/stats", {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const d = await r.json();
         if (d.ok && d.data) {
           // Pre-fill broker name if available from stats
           setStatsLoading(false);
         }
-      })
-      .catch(() => setStatsLoading(false));
+      } catch {
+        setStatsLoading(false);
+      }
+    }
+    loadStats();
   }, []);
 
   const handleGenerate = async () => {
     if (!selectedType || !brokerName.trim()) return;
     setLoading(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       const res = await fetch("/api/broker/my-card/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ type: selectedType, brokerName: brokerName.trim() }),
       });
       const json = await res.json();

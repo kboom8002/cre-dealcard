@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { updateBuyerMemo, updateBuyerIntent } from "./actions";
 
+import { createClient } from "@/lib/supabase/client";
+
 interface Building {
   id: string;
   area_signal: string | null;
@@ -36,6 +38,7 @@ export function BuyerMemoSection({
   const [selectedBuildingId, setSelectedBuildingId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const supabase = createClient();
 
   // Memo result state (either fetched or newly generated)
   const [memoResult, setMemoResult] = useState<{
@@ -99,9 +102,15 @@ export function BuyerMemoSection({
     setError(null);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       const res = await fetch("/api/broker/buyer-memo/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           buildingId: selectedBuildingId,
           buyerIntentId,

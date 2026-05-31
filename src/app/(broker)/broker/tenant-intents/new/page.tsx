@@ -10,6 +10,8 @@ interface Client {
   company: string | null;
 }
 
+import { createClient } from "@/lib/supabase/client";
+
 export default function NewTenantIntentPage() {
   const router = useRouter();
   const [memo, setMemo] = useState("");
@@ -18,6 +20,7 @@ export default function NewTenantIntentPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState("");
+  const supabase = createClient();
 
   useEffect(() => {
     fetchClients();
@@ -25,7 +28,12 @@ export default function NewTenantIntentPage() {
 
   const fetchClients = async () => {
     try {
-      const res = await fetch("/api/broker/clients");
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const res = await fetch("/api/broker/clients", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const json = await res.json();
       if (res.ok && json.data) {
         setClients(json.data);
@@ -47,9 +55,15 @@ export default function NewTenantIntentPage() {
     setStep("임차인의 요구사항 정형 분석 중...");
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       const res = await fetch("/api/broker/tenant-intents/from-memo", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           memo,
           clientId: clientId ? clientId : null,
