@@ -6,7 +6,8 @@
  * 공개 리싱 페이지 콘텐츠를 자동 생성합니다.
  */
 
-import OpenAI from "openai";
+import { z } from "zod/v4";
+import { callLLM } from "@/ai/llm-client";
 import { rewriteUnsafeText } from "@/domain/guardrails/safe-language";
 import {
   LEASING_PAGE_WRITER_SYSTEM,
@@ -25,31 +26,33 @@ export interface LeasingPageWriterInput {
   visual_albums?: Record<string, unknown>[];
 }
 
-export interface LeasingPageWriterOutput {
-  title: string;
-  subtitle: string;
-  answer_hero: string;
-  sections: Array<{
-    section_type: string;
-    title: string;
-    sort_order: number;
-    markdown: string;
-    content_json?: Record<string, unknown>;
-    linked_album_ids?: string[];
-    linked_visual_asset_ids?: string[];
-    visibility?: string;
-  }>;
-  seo: {
-    meta_title: string;
-    meta_description: string;
-    noindex?: boolean;
-  };
-  boundary_note: string;
-}
+export const LeasingPageWriterOutputSchema = z.object({
+  title: z.string(),
+  subtitle: z.string(),
+  answer_hero: z.string(),
+  sections: z.array(
+    z.object({
+      section_type: z.string(),
+      title: z.string(),
+      sort_order: z.number(),
+      markdown: z.string(),
+      content_json: z.record(z.string(), z.unknown()).optional(),
+      linked_album_ids: z.array(z.string()).optional(),
+      linked_visual_asset_ids: z.array(z.string()).optional(),
+      visibility: z.string().optional(),
+    })
+  ),
+  seo: z.object({
+    meta_title: z.string(),
+    meta_description: z.string(),
+    noindex: z.boolean().optional(),
+  }),
+  boundary_note: z.string(),
+});
+
+export type LeasingPageWriterOutput = z.infer<typeof LeasingPageWriterOutputSchema>;
 
 // ── Agent Runner ─────────────────────────────────────────────────
-
-const openai = new OpenAI();
 
 export async function runLeasingPageWriterAgent(
   input: LeasingPageWriterInput,
@@ -79,21 +82,16 @@ export async function runLeasingPageWriterAgent(
     );
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await callLLM({
       model,
-      messages: [
-        { role: "system", content: LEASING_PAGE_WRITER_SYSTEM },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
+      systemPrompt: LEASING_PAGE_WRITER_SYSTEM,
+      userPrompt,
+      responseFormat: "json_object",
       temperature: 0.2,
-      max_tokens: 4096,
+      maxTokens: 4096,
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) throw new Error("AI returned empty response");
-
-    const parsed: LeasingPageWriterOutput = JSON.parse(content);
+    const parsed = LeasingPageWriterOutputSchema.parse(JSON.parse(response.content));
 
     // ── Guardrail: answer_hero 안전 언어 치환 ──
     const warnings: string[] = [];

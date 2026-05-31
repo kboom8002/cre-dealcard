@@ -3,18 +3,8 @@
  * Generates embeddings for deal_casepacks and queries similar deals.
  * Falls back to text search when embeddings < 30.
  */
-import OpenAI from 'openai';
-import { createClient } from '@supabase/supabase-js';
-
-const openai = new OpenAI();
-
-function getClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  );
-}
+import { embedText } from '@/ai/llm-client';
+import { createServiceClient } from '@/lib/supabase/service';
 
 export interface SimilarDeal {
   id: string;
@@ -29,7 +19,7 @@ export interface SimilarDeal {
 // ─── Embedding generation ──────────────────────────────────────────────
 
 export async function generateCasePackEmbedding(casePackId: string): Promise<void> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
 
   const { data: cp } = await supabase
     .from('deal_casepacks')
@@ -44,15 +34,12 @@ export async function generateCasePackEmbedding(casePackId: string): Promise<voi
     .join(' ')
     .slice(0, 8000);
 
-  const resp = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
-    input: text,
-  });
+  const embedding = await embedText(text);
 
   await supabase
     .from('deal_casepacks')
     .update({
-      embedding: resp.data[0].embedding,
+      embedding,
       embedding_updated_at: new Date().toISOString(),
     })
     .eq('id', casePackId);
@@ -61,7 +48,7 @@ export async function generateCasePackEmbedding(casePackId: string): Promise<voi
 // ─── Count embedded records ────────────────────────────────────────────
 
 async function countEmbedded(): Promise<number> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
   const { count } = await supabase
     .from('deal_casepacks')
     .select('id', { count: 'exact', head: true })
@@ -76,15 +63,12 @@ async function semanticSearch(
   excludeId?: string,
   limit = 5,
 ): Promise<SimilarDeal[]> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
 
-  const resp = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
-    input: queryText.slice(0, 8000),
-  });
+  const embedding = await embedText(queryText.slice(0, 8000));
 
   const { data } = await supabase.rpc('search_similar_deals', {
-    query_embedding:  resp.data[0].embedding,
+    query_embedding:  embedding,
     match_threshold:  0.68,
     match_count:      limit,
     exclude_id:       excludeId ?? null,
@@ -109,7 +93,7 @@ async function textFallbackSearch(
   excludeId?: string,
   limit = 5,
 ): Promise<SimilarDeal[]> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
 
   let query = supabase
     .from('deal_casepacks')
@@ -151,7 +135,7 @@ export async function findSimilarDeals(params: {
 // ─── Batch embedding generation ────────────────────────────────────────
 
 export async function backfillCasePackEmbeddings(batchSize = 20): Promise<number> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
 
   const { data: unembedded } = await supabase
     .from('deal_casepacks')

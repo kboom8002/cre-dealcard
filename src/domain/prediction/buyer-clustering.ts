@@ -1,23 +1,6 @@
-/**
- * Buyer Clustering — P-D2
- * K-Means clustering of buyer_intent_lite records.
- * Maps clusters to PURPOSE_WEIGHTS profiles for matching engine.
- *
- * Dependencies: ml-kmeans (npm install ml-kmeans)
- */
-import OpenAI from 'openai';
-import { createClient } from '@supabase/supabase-js';
+import { callLLM } from '@/ai/llm-client';
+import { createServiceClient } from '@/lib/supabase/service';
 import type { WeightProfile } from '@/domain/matching/matching-types';
-
-const openai = new OpenAI();
-
-function getClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  );
-}
 
 export interface BuyerCluster {
   id: number;
@@ -113,15 +96,27 @@ function approxSilhouette(vectors: number[][], assignments: number[], k: number)
   return total / sample.length;
 }
 
-// ─── Simple K-Means (no external dep) ─────────────────────────────────
+// ─── Seeded Random for Deterministic K-Means ────────────────────────────
+
+function createSeededRandom(seed: number) {
+  let current = seed;
+  return function() {
+    current = (current * 9301 + 49297) % 233280;
+    return current / 233280;
+  };
+}
+
+// ─── Simple K-Means (Deterministic Seeded) ─────────────────────────────
 
 function kMeans(vectors: number[][], k: number, maxIter = 50): { assignments: number[]; centroids: number[][] } {
-  // Initialize centroids with k-means++
-  const centroids: number[][] = [vectors[Math.floor(Math.random() * vectors.length)]];
+  const random = createSeededRandom(42);
+
+  // Initialize centroids with k-means++ using seeded random
+  const centroids: number[][] = [vectors[Math.floor(random() * vectors.length)]];
   while (centroids.length < k) {
     const distances = vectors.map((v) => Math.min(...centroids.map((c) => euclidean(v, c))));
     const total = distances.reduce((s, d) => s + d, 0);
-    let rand = Math.random() * total;
+    let rand = random() * total;
     for (let i = 0; i < distances.length; i++) {
       rand -= distances[i];
       if (rand <= 0) { centroids.push(vectors[i]); break; }
@@ -154,7 +149,7 @@ function kMeans(vectors: number[][], k: number, maxIter = 50): { assignments: nu
   return { assignments, centroids };
 }
 
-// ─── Auto-label cluster using OpenAI ──────────────────────────────────
+// ─── Auto-label cluster using OpenAI via centralized callLLM ───────────
 
 async function labelCluster(
   members: Array<Record<string, unknown>>,
@@ -168,22 +163,17 @@ async function labelCluster(
   }));
 
   try {
-    const resp = await openai.chat.completions.create({
+    const resp = await callLLM({
       model: 'gpt-4o-mini',
-      messages: [{
-        role: 'system',
-        content: `한국 상업부동산 매수자 클러스터를 분석하여 3-5자 한글 레이블과 weightProfile을 반환하세요.
+      systemPrompt: `한국 상업부동산 매수자 클러스터를 분석하여 3-5자 한글 레이블과 weightProfile을 반환하세요.
 weightProfile은 반드시 "사옥", "투자", "증여", "default" 중 하나.
 JSON: { "label": "강남 사옥 법인", "weightProfile": "사옥" }`,
-      }, {
-        role: 'user',
-        content: `클러스터 샘플: ${JSON.stringify(sample)}`,
-      }],
-      response_format: { type: 'json_object' },
-      max_tokens: 200,
+      userPrompt: `클러스터 샘플: ${JSON.stringify(sample)}`,
+      responseFormat: 'json_object',
+      maxTokens: 200,
     });
 
-    const parsed = JSON.parse(resp.choices[0]?.message?.content ?? '{}');
+    const parsed = JSON.parse(resp.content ?? '{}');
     return {
       label:         parsed.label || '매수자 그룹',
       weightProfile: (['사옥', '투자', '증여', 'default'].includes(parsed.weightProfile)
@@ -195,14 +185,14 @@ JSON: { "label": "강남 사옥 법인", "weightProfile": "사옥" }`,
   }
 }
 
-// ─── Main clustering function ──────────────────────────────────────────
+// ─── Main clustering function (Bulk Upsert) ────────────────────────────
 
 export async function runBuyerClustering(): Promise<ClusteringResult> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
 
   const { data: buyers } = await supabase
     .from('buyer_intent_lite')
-    .select('id, buyer_type, budget_range, preferred_regions, purchase_purpose, inferred_purpose, risk_tolerance, urgency');
+    .select('*');
 
   if (!buyers || buyers.length < 10) {
     throw new Error(`매수자 데이터 부족: ${buyers?.length ?? 0}건 (최소 10건 필요)`);
@@ -256,11 +246,18 @@ export async function runBuyerClustering(): Promise<ClusteringResult> {
     await supabase.from('buyer_clusters').upsert({ id: c, label, weight_profile: weightProfile, centroid: { values: centroids[c] }, member_count: members.length, avg_budget_min: avgMin, avg_budget_max: avgMax, top_regions: topRegions, top_purposes: topPurposes, updated_at: new Date().toISOString() }, { onConflict: 'id' });
   }
 
-  // Assign cluster_id to each buyer
-  for (let i = 0; i < buyers.length; i++) {
+  // Bulk assign cluster_id to each buyer
+  const updatedBuyers = buyers.map((b, i) => {
     const cluster = clusters[assignments[i]];
-    await supabase.from('buyer_intent_lite').update({ cluster_id: assignments[i], cluster_label: cluster.label, cluster_updated_at: new Date().toISOString() }).eq('id', buyers[i].id);
-  }
+    return {
+      ...b,
+      cluster_id: assignments[i],
+      cluster_label: cluster.label,
+      cluster_updated_at: new Date().toISOString(),
+    };
+  });
+
+  await supabase.from('buyer_intent_lite').upsert(updatedBuyers);
 
   return { k: bestK, silhouetteScore: bestScore, clusters, assignedCount: buyers.length };
 }
@@ -270,7 +267,7 @@ export async function runBuyerClustering(): Promise<ClusteringResult> {
 export async function classifyNewBuyer(
   buyerId: string,
 ): Promise<{ clusterId: number; clusterLabel: string; weightProfile: WeightProfile } | null> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
 
   const [{ data: buyer }, { data: clusters }] = await Promise.all([
     supabase.from('buyer_intent_lite').select('*').eq('id', buyerId).single(),

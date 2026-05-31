@@ -1,6 +1,4 @@
-import OpenAI from "openai";
-
-const openai = new OpenAI();
+import { embedText } from "@/ai/llm-client";
 
 export interface FundingProjectMatchInput {
   project: {
@@ -169,14 +167,6 @@ export async function runFundingMatchingEngine(
     stage2Similarity: Math.round(similarity * 100000) / 100000,
     reasoning: `[${grade}] ${gradeLabels[grade]} | 시맨틱 매칭 ${(similarity * 100).toFixed(1)}% | 연 예상수익률 ${project.expectedReturnPct}% | 위험도 등급 ${project.riskLevel}/5`,
   };
-}
-
-async function embedText(text: string): Promise<number[]> {
-  const resp = await openai.embeddings.create({
-    model: "text-embedding-3-small",
-    input: text.slice(0, 8000),
-  });
-  return resp.data[0].embedding;
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {

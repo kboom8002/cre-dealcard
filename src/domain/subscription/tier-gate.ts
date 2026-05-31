@@ -69,8 +69,8 @@ export async function checkFeatureAccess(
       tier: 'free',
       currentCount: 0,
       maxLimit: 3,
-      hasAccess: true,
-      estimatedSavingsMoney: 175000,
+      hasAccess: false,
+      estimatedSavingsMoney: 0,
     };
   }
 }

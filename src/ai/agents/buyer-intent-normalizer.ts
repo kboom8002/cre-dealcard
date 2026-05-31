@@ -4,7 +4,7 @@
  *
  * Source: docs/09-ai-agent-contracts.md section 12
  */
-import OpenAI from "openai";
+import { callLLM } from "@/ai/llm-client";
 import {
   BuyerIntentLiteOutputSchema,
   type BuyerIntentLiteOutput,
@@ -14,8 +14,6 @@ import {
   BUYER_INTENT_USER_TEMPLATE,
   BUYER_INTENT_PROMPT_ID,
 } from "@/ai/prompts/buyer-intent";
-
-const openai = new OpenAI();
 
 export interface BuyerIntentNormalizerResult {
   intent: BuyerIntentLiteOutput;
@@ -30,26 +28,21 @@ export async function runBuyerIntentNormalizer(
   const model = process.env.AI_DEFAULT_MODEL || "gpt-4o";
   const userPrompt = BUYER_INTENT_USER_TEMPLATE.replace("{memo}", memo);
 
-  const response = await openai.chat.completions.create({
+  const response = await callLLM({
     model,
-    messages: [
-      { role: "system", content: BUYER_INTENT_SYSTEM },
-      { role: "user", content: userPrompt },
-    ],
-    response_format: { type: "json_object" },
+    systemPrompt: BUYER_INTENT_SYSTEM,
+    userPrompt,
+    responseFormat: "json_object",
     temperature: 0.7,
-    max_tokens: 4096,
+    maxTokens: 4096,
   });
 
-  const content = response.choices[0]?.message?.content;
-  if (!content) throw new Error("AI returned empty response");
-
-  const intent = BuyerIntentLiteOutputSchema.parse(JSON.parse(content));
+  const intent = BuyerIntentLiteOutputSchema.parse(JSON.parse(response.content));
 
   return {
     intent,
     model,
     promptVersion: BUYER_INTENT_PROMPT_ID,
-    usage: { totalTokens: response.usage?.total_tokens },
+    usage: { totalTokens: response.tokens },
   };
 }

@@ -2,17 +2,9 @@
  * Price Prediction ETL + Feature Engineering — P-D
  * Fetches data from 국토부 실거래가 API and stores in external_transactions.
  */
-import { createClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/service';
 
-function getClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  );
-}
-
-const MOLIT_API_KEY = process.env.MOLIT_API_KEY ?? '';
+const MOLIT_API_KEY = process.env.MOLIT_API_KEY || process.env.DATA_GO_KR_API_KEY || '';
 const MOLIT_BASE_URL = 'https://apis.data.go.kr/1613000/RTMSOBJSvc';
 
 // 서울 25개 구 코드 (법정동 코드 앞 5자리)
@@ -41,6 +33,18 @@ export interface MolitTransaction {
 
 // ─── Fetch from 국토부 API ─────────────────────────────────────────────
 
+function parseXmlTag(xml: string, tag: string): string {
+  const cdataRegex = new RegExp(`<${tag}>\\s*<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>\\s*</${tag}>`, 'i');
+  const cdataMatch = xml.match(cdataRegex);
+  if (cdataMatch) return cdataMatch[1].trim();
+
+  const standardRegex = new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, 'i');
+  const standardMatch = xml.match(standardRegex);
+  if (standardMatch) return standardMatch[1].trim();
+
+  return '';
+}
+
 export async function fetchMolitTransactions(
   districtCode: string,
   yearMonth: string, // YYYYMM
@@ -60,13 +64,13 @@ export async function fetchMolitTransactions(
 
   const text = await resp.text();
 
-  // Parse XML (simplified)
+  // Parse XML using robust CDATA-aware tag-extractor
   const items: MolitTransaction[] = [];
   const itemMatches = text.matchAll(/<item>([\s\S]*?)<\/item>/g);
 
   for (const match of itemMatches) {
     const item = match[1];
-    const get  = (tag: string) => item.match(new RegExp(`<${tag}>(.*?)</${tag}>`))?.[1]?.trim() ?? '';
+    const get  = (tag: string) => parseXmlTag(item, tag);
 
     const priceStr = get('거래금액').replace(/,/g, '');
     const price    = parseInt(priceStr) * 10_000; // 만원 → 원
@@ -96,7 +100,7 @@ export async function fetchMolitTransactions(
 // ─── Batch ETL for all Seoul districts ────────────────────────────────
 
 export async function runMolitETL(months = 12): Promise<{ fetched: number; stored: number }> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
   let totalFetched = 0;
   let totalStored  = 0;
 
@@ -162,7 +166,7 @@ export async function estimatePriceRange(params: {
   confidence: 'data_based' | 'insufficient';
   boundaryNote: string;
 } | null> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
 
   // Map area_signal → district name
   const districtKeyword = params.areaSignal.split(' ')[0]; // "성수동" → "성수"

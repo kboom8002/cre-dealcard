@@ -1,10 +1,8 @@
-import OpenAI from "openai";
+import { callLLM } from "@/ai/llm-client";
 import {
   InvestorProfileOutputSchema,
   type InvestorProfileOutput,
 } from "@/ai/schemas/funding-project";
-
-const openai = new OpenAI();
 
 export interface InvestorProfileNormalizerResult {
   profile: InvestorProfileOutput;
@@ -32,20 +30,15 @@ ${rawText}
 
 JSON으로 응답해주세요.`;
 
-  const response = await openai.chat.completions.create({
+  const response = await callLLM({
     model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    response_format: { type: "json_object" },
+    systemPrompt,
+    userPrompt,
+    responseFormat: "json_object",
     temperature: 0.2,
   });
 
-  const content = response.choices[0]?.message?.content;
-  if (!content) throw new Error("AI returned empty response");
-
-  const profile = InvestorProfileOutputSchema.parse(JSON.parse(content));
+  const profile = InvestorProfileOutputSchema.parse(JSON.parse(response.content));
 
   return {
     profile,

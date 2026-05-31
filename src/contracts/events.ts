@@ -7,7 +7,7 @@
  * Ported from cre-aipage contracts/events.ts → Zod v4
  */
 
-import { z } from "zod";
+import { z } from "zod/v4";
 
 // ── AI Run Statuses ──────────────────────────────────────────────
 

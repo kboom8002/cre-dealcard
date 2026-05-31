@@ -5,14 +5,7 @@
  * - Graph traversal queries (2-hop recommendations)
  * - comparable_to batch computation
  */
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-function getClient(): SupabaseClient {
-  return createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
-}
+import { createServiceClient } from '@/lib/supabase/service';
 
 // ─── Edge Creation ─────────────────────────────────────────────────────
 
@@ -25,7 +18,7 @@ export async function createEdge(params: {
   weight?:  number;
   metadata?: Record<string, unknown>;
 }): Promise<void> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
   await supabase
     .from('knowledge_edges')
     .upsert(
@@ -103,7 +96,7 @@ export async function onGateRequestCreated(params: {
 // ─── comparable_to batch (same district + asset type) ──────────────────
 
 export async function buildComparableEdges(brokerId: string): Promise<number> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
 
   const { data: buildings } = await supabase
     .from('building_ssot_lite')
@@ -146,7 +139,7 @@ export async function getRelatedBuildings(
   buildingId: string,
   limit = 5,
 ): Promise<Array<{ buildingId: string; sharedBuyers: number; topGrade: string }>> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
 
   // 2-hop: building → buyer → other_building
   const { data: rows } = await supabase.rpc('get_related_buildings', {
@@ -164,7 +157,7 @@ export async function getGraphStats(brokerId: string): Promise<{
   edgeCount: number;
   edgesByType: Record<string, number>;
 }> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
 
   const { data: edges } = await supabase
     .from('knowledge_edges')

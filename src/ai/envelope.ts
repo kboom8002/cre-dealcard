@@ -13,23 +13,17 @@
  * for the cre-dealcard Zod v4 ecosystem.
  */
 
-import { z } from "zod";
+import { z } from "zod/v4";
 
 // ── Confidence Levels ────────────────────────────────────────────
 
-export const CONFIDENCE_LEVELS = [
-  "unknown",
-  "memo_based_inference",
-  "photo_based_inference",
-  "broker_verified",
-  "owner_verified",
-  "expert_verified",
-  "govt_data_verified",
-] as const;
-
-export type ConfidenceLevel = (typeof CONFIDENCE_LEVELS)[number];
-
-export const ConfidenceLevelSchema = z.enum(CONFIDENCE_LEVELS);
+import {
+  CONFIDENCE_LEVELS,
+  ConfidenceLevelSchema,
+} from "@/contracts/enums";
+import type { ConfidenceLevel } from "@/contracts/enums";
+export { CONFIDENCE_LEVELS, ConfidenceLevelSchema };
+export type { ConfidenceLevel };
 
 // ── Agent Status ─────────────────────────────────────────────────
 

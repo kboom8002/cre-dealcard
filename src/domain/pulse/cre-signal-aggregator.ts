@@ -80,13 +80,21 @@ export class CRESignalAggregator {
     eventType: string,
     start: string,
     end: string,
+    region?: string,
   ): Promise<number> {
-    const { count } = await this.supabase
+    let query = this.supabase
       .from("activity_events")
       .select("id", { count: "exact", head: true })
       .eq("event_type", eventType)
       .gte("created_at", start)
       .lte("created_at", end);
+
+    if (region) {
+      // metadata JSONB 내부의 region 또는 area_signal 필터를 적용
+      query = query.or(`metadata->>region.eq.${region},metadata->>area_signal.eq.${region}`);
+    }
+
+    const { count } = await query;
     return count ?? 0;
   }
 
@@ -97,16 +105,18 @@ export class CRESignalAggregator {
     lastWeek: { start: string; end: string },
   ) {
     const [gates, gatesPrev, buyers, buyersPrev] = await Promise.all([
-      this.countEvents("gate_request_created", thisWeek.start, thisWeek.end),
-      this.countEvents("gate_request_created", lastWeek.start, lastWeek.end),
-      this.countEvents("buyer_intent_created", thisWeek.start, thisWeek.end),
-      this.countEvents("buyer_intent_created", lastWeek.start, lastWeek.end),
+      this.countEvents("gate_request_created", thisWeek.start, thisWeek.end, region),
+      this.countEvents("gate_request_created", lastWeek.start, lastWeek.end, region),
+      this.countEvents("buyer_intent_created", thisWeek.start, thisWeek.end, region),
+      this.countEvents("buyer_intent_created", lastWeek.start, lastWeek.end, region),
     ]);
 
+    // match_results 테이블에서 해당 region(building_ssot_lite의 area_signal)에 속하는 S등급 매칭 수 카운트
     const { count: sCount } = await this.supabase
       .from("match_results")
-      .select("id", { count: "exact", head: true })
-      .eq("grade", "S");
+      .select("id, building_ssot_lite!inner(area_signal)", { count: "exact", head: true })
+      .eq("grade", "S")
+      .eq("building_ssot_lite.area_signal", region);
 
     const delta = (curr: number, prev: number) =>
       prev === 0 ? (curr > 0 ? 100 : 0) : Math.round(((curr - prev) / prev) * 100);
@@ -127,19 +137,21 @@ export class CRESignalAggregator {
     lastWeek: { start: string; end: string },
   ) {
     const [newCards, newCardsPrev] = await Promise.all([
-      this.countEvents("building_ssot_lite_created", thisWeek.start, thisWeek.end),
-      this.countEvents("building_ssot_lite_created", lastWeek.start, lastWeek.end),
+      this.countEvents("building_ssot_lite_created", thisWeek.start, thisWeek.end, region),
+      this.countEvents("building_ssot_lite_created", lastWeek.start, lastWeek.end, region),
     ]);
 
     const { count: activeCards } = await this.supabase
       .from("building_ssot_lite")
       .select("id", { count: "exact", head: true })
-      .eq("status", "public_signal_ready");
+      .eq("status", "public_signal_ready")
+      .eq("area_signal", region);
 
     const { count: leaseSpaces } = await this.supabase
       .from("lease_spaces")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "active");
+      .select("id, building:building_id!inner(area_signal)", { count: "exact", head: true })
+      .eq("status", "active")
+      .eq("building.area_signal", region);
 
     const delta = (curr: number, prev: number) =>
       prev === 0 ? (curr > 0 ? 100 : 0) : Math.round(((curr - prev) / prev) * 100);

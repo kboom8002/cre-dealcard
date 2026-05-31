@@ -4,16 +4,8 @@
  * Model coefficients are stored in DB and updated offline.
  * Falls back to heuristic scoring when < 80 training samples.
  */
-import { createClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/service';
 import type { DealFeatureVector } from './deal-feature-extractor';
-
-function getClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  );
-}
 
 export interface ConversionPrediction {
   probability:      number;       // 0-1
@@ -62,7 +54,7 @@ function heuristicScore(f: DealFeatureVector): number {
 function sigmoid(x: number): number { return 1 / (1 + Math.exp(-x)); }
 
 async function modelScore(f: DealFeatureVector): Promise<number | null> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
   const { data: coeffs } = await supabase
     .from('prediction_model_coefficients')
     .select('feature_name, coefficient')
@@ -155,7 +147,7 @@ function recommendedAction(f: DealFeatureVector, prob: number): string {
 export async function predictDealConversion(
   features: DealFeatureVector,
 ): Promise<ConversionPrediction> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
 
   // Check training data count
   const { count: trainingCount } = await supabase

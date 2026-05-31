@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 const IotPayloadSchema = z.object({
   device_id: z.string(),

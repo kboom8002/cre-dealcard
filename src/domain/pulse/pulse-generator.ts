@@ -9,6 +9,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CRESignalAggregator, getWeekLabel } from "./cre-signal-aggregator";
 import type { CRESignalSnapshot } from "./cre-signal-aggregator";
+import { callLLM as centralCallLLM } from "@/ai/llm-client";
 
 const REGIONS = ["gbd", "ybd", "cbd", "seongsu", "pangyo", "mapo", "jongno", "hongdae"] as const;
 
@@ -50,9 +51,17 @@ async function callLLM(prompt: string): Promise<{
   keyFindings: string[];
   seoTitle: string;
 }> {
-  const apiKey = process.env.OPENAI_API_KEY ?? process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    // Fallback: 템플릿 기반 생성
+  try {
+    const result = await centralCallLLM({
+      systemPrompt: "당신은 한국 상업용 부동산 시장 분석가입니다. 주간 시그널 데이터를 요약해야 합니다.",
+      userPrompt: prompt,
+      model: "gpt-4o-mini",
+      responseFormat: "json_object",
+      temperature: 0.7,
+    });
+    return JSON.parse(result.content);
+  } catch (e) {
+    console.error("[PulseGenerator] LLM call failed, using fallback:", e);
     return {
       summary: "이번 주 시장 펄스 분석이 준비되었습니다. 상세 시그널은 본문을 확인하세요.",
       keyFindings: [
@@ -61,52 +70,6 @@ async function callLLM(prompt: string): Promise<{
         "상세 트렌드 방향 확인 필요",
       ],
       seoTitle: "CRE 주간 시장 펄스",
-    };
-  }
-
-  try {
-    const isGemini = !!process.env.GEMINI_API_KEY;
-
-    if (isGemini) {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, responseMimeType: "application/json" },
-          }),
-        },
-      );
-      const json = await res.json();
-      const text = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-      return JSON.parse(text);
-    }
-
-    // OpenAI
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
-        response_format: { type: "json_object" },
-      }),
-    });
-    const json = await res.json();
-    const text = json?.choices?.[0]?.message?.content ?? "{}";
-    return JSON.parse(text);
-  } catch (e) {
-    console.error("[PulseGenerator] LLM call failed:", e);
-    return {
-      summary: "시장 펄스 요약 생성 중 오류가 발생했습니다.",
-      keyFindings: ["데이터 확인 필요"],
-      seoTitle: "CRE 주간 펄스",
     };
   }
 }

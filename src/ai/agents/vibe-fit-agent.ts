@@ -6,7 +6,8 @@
  * 정량화하고, 대상 임차인 유형과의 분위기 정렬도를 평가합니다.
  */
 
-import OpenAI from "openai";
+import { z } from "zod/v4";
+import { callLLM } from "@/ai/llm-client";
 import { rewriteUnsafeText } from "@/domain/guardrails/safe-language";
 import {
   VIBE_FIT_SYSTEM,
@@ -24,23 +25,29 @@ export interface VibeFitAgentInput {
   target_tenant_types: string[];
 }
 
-export interface VibeFitAgentOutput {
-  vibe_summary: string;
-  vibe_tags: string[];
-  vad: { valence: string; arousal: string; dominance: string };
-  tenant_vibe_alignment: Array<{
-    tenant_type: string;
-    alignment_level: string;
-    reason: string;
-  }>;
-  mixed_signal_risks: string[];
-  retrofit_vibe_opportunities: string[];
-  missing_evidence: string[];
-}
+export const VibeFitAgentOutputSchema = z.object({
+  vibe_summary: z.string(),
+  vibe_tags: z.array(z.string()),
+  vad: z.object({
+    valence: z.string(),
+    arousal: z.string(),
+    dominance: z.string(),
+  }),
+  tenant_vibe_alignment: z.array(
+    z.object({
+      tenant_type: z.string(),
+      alignment_level: z.string(),
+      reason: z.string(),
+    })
+  ),
+  mixed_signal_risks: z.array(z.string()),
+  retrofit_vibe_opportunities: z.array(z.string()),
+  missing_evidence: z.array(z.string()),
+});
+
+export type VibeFitAgentOutput = z.infer<typeof VibeFitAgentOutputSchema>;
 
 // ── Agent Runner ─────────────────────────────────────────────────
-
-const openai = new OpenAI();
 
 export async function runVibeFitAgent(
   input: VibeFitAgentInput,
@@ -62,21 +69,16 @@ export async function runVibeFitAgent(
     );
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await callLLM({
       model,
-      messages: [
-        { role: "system", content: VIBE_FIT_SYSTEM },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
+      systemPrompt: VIBE_FIT_SYSTEM,
+      userPrompt,
+      responseFormat: "json_object",
       temperature: 0.2,
-      max_tokens: 4096,
+      maxTokens: 4096,
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) throw new Error("AI returned empty response");
-
-    const parsed: VibeFitAgentOutput = JSON.parse(content);
+    const parsed = VibeFitAgentOutputSchema.parse(JSON.parse(response.content));
 
     // ── Guardrail: vibe_summary 안전 언어 치환 ──
     const rewritten = rewriteUnsafeText(parsed.vibe_summary);

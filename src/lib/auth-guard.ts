@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { env } from '@/lib/env';
 
 type AllowedRole = 'broker' | 'admin' | 'expert' | 'public_user';
 
@@ -27,13 +28,14 @@ export interface AuthGuardSuccess extends AuthGuardResult {
  */
 export async function verifyAuth(req: NextRequest): Promise<AuthGuardResult> {
   const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     { auth: { persistSession: false } },
   );
 
   const authHeader = req.headers.get('authorization') ?? '';
   const token = authHeader.replace('Bearer ', '');
+
 
   const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
   if (authErr || !user) {

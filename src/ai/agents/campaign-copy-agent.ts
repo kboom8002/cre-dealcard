@@ -1,21 +1,12 @@
-/**
- * ai/agents/campaign-copy-agent.ts
- *
- * CampaignCopyAgent — 채널별 마케팅 카피 생성.
- * KakaoTalk, Naver, SMS, Instagram 등 채널 맞춤 톤.
- */
-
-import OpenAI from "openai";
+import { z } from "zod/v4";
+import { callLLM } from "@/ai/llm-client";
 import { rewriteUnsafeText } from "@/domain/guardrails/safe-language";
 import {
   CAMPAIGN_COPY_SYSTEM,
   CAMPAIGN_COPY_USER_TEMPLATE,
-  CAMPAIGN_COPY_PROMPT_ID,
 } from "@/ai/prompts/campaign-copy";
 import type { AgentOutputEnvelope } from "@/ai/envelope";
 import { createSuccessEnvelope, createErrorEnvelope } from "@/ai/envelope";
-
-const openai = new OpenAI();
 
 // ── Input / Output ───────────────────────────────────────────────
 
@@ -28,17 +19,21 @@ export interface CampaignCopyAgentInput {
   page_url?: string;
 }
 
-export interface CampaignCopyItem {
-  copy_type: string;
-  target_tenant_type?: string;
-  title: string;
-  body: string;
-  boundary_note_short: string;
-}
+export const CampaignCopyItemSchema = z.object({
+  copy_type: z.string(),
+  target_tenant_type: z.string().optional(),
+  title: z.string(),
+  body: z.string(),
+  boundary_note_short: z.string(),
+});
 
-export interface CampaignCopyAgentOutput {
-  copies: CampaignCopyItem[];
-}
+export type CampaignCopyItem = z.infer<typeof CampaignCopyItemSchema>;
+
+export const CampaignCopyAgentOutputSchema = z.object({
+  copies: z.array(CampaignCopyItemSchema),
+});
+
+export type CampaignCopyAgentOutput = z.infer<typeof CampaignCopyAgentOutputSchema>;
 
 // ── Agent ────────────────────────────────────────────────────────
 
@@ -56,21 +51,16 @@ export async function runCampaignCopyAgent(
     .replace("{page_url}", input.page_url || "(링크 미정)");
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await callLLM({
       model,
-      messages: [
-        { role: "system", content: CAMPAIGN_COPY_SYSTEM },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
+      systemPrompt: CAMPAIGN_COPY_SYSTEM,
+      userPrompt,
+      responseFormat: "json_object",
       temperature: 0.3,
-      max_tokens: 4096,
+      maxTokens: 4096,
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) throw new Error("AI returned empty response");
-
-    const parsed = JSON.parse(content) as CampaignCopyAgentOutput;
+    const parsed = CampaignCopyAgentOutputSchema.parse(JSON.parse(response.content));
 
     // Safe-language guardrails on each copy
     if (parsed.copies) {

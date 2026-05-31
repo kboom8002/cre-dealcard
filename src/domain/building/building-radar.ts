@@ -14,6 +14,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { runDealCuriosityWriter } from "@/ai/agents/deal-curiosity-writer";
 import { recordEvent } from "@/domain/analytics/record-event";
 import type { PublicRadarGenerateReq } from "@/ai/schemas/api-building-radar";
+import { resolveAddressToComponents } from "@/domain/verification/address-resolver";
+import { fetchBuildingRegister } from "@/domain/verification/govt-api-client";
 
 export interface BuildingRadarGenerateResult {
   buildingId: string;
@@ -115,6 +117,43 @@ export async function generateBuildingRadar(
       status: "public_signal_ready",
     })
     .eq("id", building.id);
+
+  // 4-b. 공공데이터 보강 — 주소 → 법정동코드 → 건축물대장 조회 (fire-and-forget)
+  const addressInput = input.input || aiResult.report.dealPoints?.[0] || "";
+  if (addressInput) {
+    resolveAddressToComponents(addressInput)
+      .then(async (comps) => {
+        if (!comps) return;
+        const govtInfo = await fetchBuildingRegister(
+          comps.sigunguCd,
+          comps.bjdongCd,
+          comps.bun,
+          comps.ji,
+        );
+        if (!govtInfo.exists) return;
+
+        // 건축물대장 데이터로 building_ssot_lite 보강
+        await supabase
+          .from("building_ssot_lite")
+          .update({
+            verification_status: "verified",
+            verification_result: {
+              govtAddress: govtInfo.address,
+              govtPurpose: govtInfo.mainPurpose,
+              govtArea: govtInfo.totalFloorArea,
+              govtFloors: govtInfo.floors,
+              govtBuildYear: govtInfo.buildYear,
+              govtStructure: govtInfo.mainStructure,
+              govtCoverageRatio: govtInfo.buildingCoverageRatio,
+              govtFloorAreaRatio: govtInfo.floorAreaRatio,
+            } as unknown as Record<string, unknown>,
+          })
+          .eq("id", building.id);
+      })
+      .catch((enrichErr) => {
+        console.warn("[building-radar] Public data enrichment failed:", enrichErr);
+      });
+  }
 
   // 5. Log successful AI run
   const { data: aiRun } = await supabase

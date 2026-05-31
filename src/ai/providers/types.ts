@@ -5,6 +5,7 @@ export interface LLMChatParams {
   responseFormat?: 'json_object' | 'text';
   temperature?: number;
   maxTokens?: number;
+  signal?: AbortSignal;
 }
 
 export interface LLMChatResult {
@@ -18,4 +19,6 @@ export interface LLMChatResult {
 export interface LLMProvider {
   name: string;
   chat(params: LLMChatParams): Promise<LLMChatResult>;
+  embed?(text: string): Promise<number[]>;
 }
+

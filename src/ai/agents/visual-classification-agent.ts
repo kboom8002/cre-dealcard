@@ -1,19 +1,12 @@
-/**
- * VisualClassificationAgent
- * 공간 사진 자산을 분류하고, 촬영 범위·품질·태그·임차 적합성 등을 추론합니다.
- * 이미지 기반 예비 분류이며, 실제 시설 상태는 현장 확인이 필요합니다.
- */
-import OpenAI from "openai";
+import { z } from "zod/v4";
+import { callLLM } from "@/ai/llm-client";
 import { rewriteUnsafeText } from "@/domain/guardrails/safe-language";
 import {
   VISUAL_CLASSIFICATION_SYSTEM,
   VISUAL_CLASSIFICATION_USER_TEMPLATE,
-  VISUAL_CLASSIFICATION_PROMPT_ID,
 } from "@/ai/prompts/visual-classification";
 import type { AgentOutputEnvelope } from "@/ai/envelope";
 import { createSuccessEnvelope, createErrorEnvelope } from "@/ai/envelope";
-
-const openai = new OpenAI();
 
 // ── Input ────────────────────────────────────────────────────────
 
@@ -31,35 +24,41 @@ export interface VisualClassificationInput {
 
 // ── Output ───────────────────────────────────────────────────────
 
-export interface ClassifiedAsset {
-  visual_asset_id: string;
-  capture_scope: string;
-  capture_subject: string;
-  quality: {
-    quality_score: number;
-    blur: string;
-    brightness: string;
-    recommended_use: string;
-  };
-  tags: string[];
-  facility_tags: string[];
-  risk_tags: string[];
-  vibe_tags: string[];
-  tenant_relevance: string[];
-  answers_questions: string[];
-  visibility_recommendation: string;
-  confidence: string;
-  needs_review: boolean;
-}
+export const ClassifiedAssetSchema = z.object({
+  visual_asset_id: z.string(),
+  capture_scope: z.string(),
+  capture_subject: z.string(),
+  quality: z.object({
+    quality_score: z.number(),
+    blur: z.string(),
+    brightness: z.string(),
+    recommended_use: z.string(),
+  }),
+  tags: z.array(z.string()),
+  facility_tags: z.array(z.string()),
+  risk_tags: z.array(z.string()),
+  vibe_tags: z.array(z.string()),
+  tenant_relevance: z.array(z.string()),
+  answers_questions: z.array(z.string()),
+  visibility_recommendation: z.string(),
+  confidence: z.string(),
+  needs_review: z.boolean(),
+});
 
-export interface VisualClassificationOutput {
-  classified_assets: ClassifiedAsset[];
-  global_missing_shot_requests: Array<{
-    field: string;
-    reason: string;
-    priority: string;
-  }>;
-}
+export type ClassifiedAsset = z.infer<typeof ClassifiedAssetSchema>;
+
+export const VisualClassificationOutputSchema = z.object({
+  classified_assets: z.array(ClassifiedAssetSchema),
+  global_missing_shot_requests: z.array(
+    z.object({
+      field: z.string(),
+      reason: z.string(),
+      priority: z.string(),
+    })
+  ),
+});
+
+export type VisualClassificationOutput = z.infer<typeof VisualClassificationOutputSchema>;
 
 // ── Agent ────────────────────────────────────────────────────────
 
@@ -74,21 +73,16 @@ export async function runVisualClassificationAgent(
     .replace("{photo_list}", JSON.stringify(input.visual_assets, null, 2));
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await callLLM({
       model,
-      messages: [
-        { role: "system", content: VISUAL_CLASSIFICATION_SYSTEM },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
+      systemPrompt: VISUAL_CLASSIFICATION_SYSTEM,
+      userPrompt,
+      responseFormat: "json_object",
       temperature: 0.2,
-      max_tokens: 4096,
+      maxTokens: 4096,
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) throw new Error("AI returned empty response");
-
-    const parsed: VisualClassificationOutput = JSON.parse(content);
+    const parsed = VisualClassificationOutputSchema.parse(JSON.parse(response.content));
 
     // answers_questions 텍스트에 safe-language 가드레일 적용
     const guardedAssets = parsed.classified_assets.map((asset) => ({

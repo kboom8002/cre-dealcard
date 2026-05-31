@@ -4,7 +4,7 @@
  *
  * Source: docs/09-ai-agent-contracts.md section 13
  */
-import OpenAI from "openai";
+import { callLLM } from "@/ai/llm-client";
 import {
   BuyerMemoOutputSchema,
   type BuyerMemoOutput,
@@ -14,8 +14,6 @@ import {
   BUYER_MEMO_USER_TEMPLATE,
   BUYER_MEMO_PROMPT_ID,
 } from "@/ai/prompts/buyer-intent";
-
-const openai = new OpenAI();
 
 export interface BuyerMemoWriterInput {
   building: {
@@ -72,27 +70,20 @@ export async function runBuyerMemoWriter(
     .replace("{financing_note}", input.buyerIntent.financingNote || "없음")
     .replace("{tone}", input.tone || "kakao");
 
-  const response = await openai.chat.completions.create({
+  const response = await callLLM({
     model,
-    messages: [
-      { role: "system", content: BUYER_MEMO_SYSTEM },
-      { role: "user", content: userPrompt },
-    ],
-    response_format: { type: "json_object" },
+    systemPrompt: BUYER_MEMO_SYSTEM,
+    userPrompt,
+    responseFormat: "json_object",
     temperature: 0.7,
-    max_tokens: 4096,
+    maxTokens: 4096,
   });
-
-  const content = response.choices[0]?.message?.content;
-  if (!content) throw new Error("AI returned empty response");
-
-  console.log("Raw LLM Output for Buyer Memo:", content);
 
   let parsedJson;
   try {
-    parsedJson = JSON.parse(content);
+    parsedJson = JSON.parse(response.content);
   } catch (e) {
-    console.error("JSON parse failed:", content);
+    console.error("JSON parse failed:", response.content);
     throw e;
   }
 
@@ -102,6 +93,6 @@ export async function runBuyerMemoWriter(
     memo,
     model,
     promptVersion: BUYER_MEMO_PROMPT_ID,
-    usage: { totalTokens: response.usage?.total_tokens },
+    usage: { totalTokens: response.tokens },
   };
 }

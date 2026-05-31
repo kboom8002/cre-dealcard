@@ -63,6 +63,10 @@ export default function ClientDetailPage() {
   const [showContactForm, setShowContactForm] = useState(false);
   const [contactType, setContactType] = useState('phone');
   const [contactSummary, setContactSummary] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [curation, setCuration] = useState<any>(null);
+  const [curationLoading, setCurationLoading] = useState(true);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [savingContact, setSavingContact] = useState(false);
 
   const fetchClient = useCallback(async () => {
@@ -82,6 +86,33 @@ export default function ClientDetailPage() {
   useEffect(() => {
     fetchClient();
   }, [fetchClient]);
+
+  useEffect(() => {
+    const fetchCuration = async () => {
+      try {
+        const res = await fetch(`/api/broker/clients/${params.id}/curation`, {
+          headers: { Authorization: `Bearer ${await getToken()}` },
+        });
+        if (res.ok) {
+          const { data } = await res.json();
+          setCuration(data);
+        }
+      } finally {
+        setCurationLoading(false);
+      }
+    };
+    fetchCuration();
+  }, [params.id]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleCopyKakao = async (prop: any, type: 'sale' | 'lease') => {
+    const text = type === 'sale'
+      ? `[블라인드 매물 안내]\n\n📍 ${prop.area_signal} ${prop.asset_type}\n💰 ${prop.price_band}\n\n관심 있으시면 연락 부탁드립니다.\n자세한 내용은 직접 안내드리겠습니다.`
+      : `[임대 공간 안내]\n\n🔑 ${prop.floor || ''} ${prop.space_type === 'office' ? '오피스' : '상가'} ${prop.area_pyeong}평\n💰 보증금 ${prop.deposit}만 / 월 ${prop.monthly_rent}만\n\n관심 있으시면 연락 부탁드립니다.`;
+    await navigator.clipboard.writeText(text);
+    setCopiedId(prop.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const handleAddContact = async () => {
     if (!contactSummary.trim()) return;
@@ -225,6 +256,88 @@ export default function ClientDetailPage() {
             </div>
           </section>
         )}
+
+        {/* 🎁 AI 추천 매물 */}
+        <section className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+          <h2 className="text-xs font-semibold text-primary uppercase tracking-wide flex items-center gap-1">
+            🎁 이 고객에게 추천할 매물
+          </h2>
+
+          {curationLoading ? (
+            <div className="space-y-2">
+              <div className="h-16 bg-muted rounded-lg animate-pulse" />
+              <div className="h-16 bg-muted rounded-lg animate-pulse" />
+            </div>
+          ) : curation && (curation.saleProperties.length > 0 || curation.leaseProperties.length > 0) ? (
+            <div className="space-y-3">
+              {curation.saleProperties.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] text-muted-foreground font-medium">매매 추천 ({curation.saleProperties.length}건)</p>
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {curation.saleProperties.map((prop: any) => (
+                    <div key={prop.id} className="flex items-center gap-2 rounded-lg bg-card border border-border px-3 py-2.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-medium">{prop.area_signal} {prop.asset_type}</span>
+                          <span className="text-xs text-muted-foreground">{prop.price_band}</span>
+                          {prop.is_cross && (
+                            <span className="text-[9px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded-full font-medium">CROSS</span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {prop.reasons.join(' · ')}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[10px] font-bold text-primary">{prop.relevance}%</span>
+                        <button
+                          onClick={() => handleCopyKakao(prop, 'sale')}
+                          className="text-[10px] bg-primary/10 text-primary px-2 py-1 rounded-md hover:bg-primary/20 transition-colors"
+                        >
+                          {copiedId === prop.id ? '✓ 복사됨' : '📋 카톡'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {curation.leaseProperties.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] text-muted-foreground font-medium">임대 추천 ({curation.leaseProperties.length}건)</p>
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {curation.leaseProperties.map((prop: any) => (
+                    <div key={prop.id} className="flex items-center gap-2 rounded-lg bg-card border border-border px-3 py-2.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-medium">
+                            {prop.floor || ''} {prop.space_type === 'office' ? '오피스' : '상가'} {prop.area_pyeong}평
+                          </span>
+                          {prop.is_cross && (
+                            <span className="text-[9px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded-full font-medium">CROSS</span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          보증금 {prop.deposit}만 / 월 {prop.monthly_rent}만
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleCopyKakao(prop, 'lease')}
+                        className="text-[10px] bg-primary/10 text-primary px-2 py-1 rounded-md hover:bg-primary/20 transition-colors shrink-0"
+                      >
+                        {copiedId === prop.id ? '✓ 복사됨' : '📋 카톡'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-2">
+              매수 의향서를 연결하면 AI가 맞춤 매물을 추천합니다.
+            </p>
+          )}
+        </section>
 
         {/* 연락 이력 */}
         <section className="rounded-xl border border-border bg-card p-4 space-y-3">

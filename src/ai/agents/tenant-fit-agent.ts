@@ -1,19 +1,12 @@
-/**
- * TenantFitAgent
- * 공간 SSoT와 시각 요약 데이터를 기반으로 대상 업종별 적합도를 평가합니다.
- * 실제 임차 가능성은 법규 및 현장 확인 후 달라집니다.
- */
-import OpenAI from "openai";
+import { z } from "zod/v4";
+import { callLLM } from "@/ai/llm-client";
 import { rewriteUnsafeText } from "@/domain/guardrails/safe-language";
 import {
   TENANT_FIT_SYSTEM,
   TENANT_FIT_USER_TEMPLATE,
-  TENANT_FIT_PROMPT_ID,
 } from "@/ai/prompts/tenant-fit";
 import type { AgentOutputEnvelope } from "@/ai/envelope";
 import { createSuccessEnvelope, createErrorEnvelope } from "@/ai/envelope";
-
-const openai = new OpenAI();
 
 // ── Input ────────────────────────────────────────────────────────
 
@@ -25,22 +18,26 @@ export interface TenantFitAgentInput {
 
 // ── Output ───────────────────────────────────────────────────────
 
-export interface TenantFitResult {
-  target_tenant_type: string;
-  fit_level: string;
-  fit_score: number;
-  strengths: string[];
-  check_needed: string[];
-  weaker_points: string[];
-  required_facility_checks: string[];
-  legal_or_permit_checks: string[];
-  safe_summary: string;
-  boundary_note: string;
-}
+export const TenantFitResultSchema = z.object({
+  target_tenant_type: z.string(),
+  fit_level: z.string(),
+  fit_score: z.number(),
+  strengths: z.array(z.string()),
+  check_needed: z.array(z.string()),
+  weaker_points: z.array(z.string()).optional().default([]),
+  required_facility_checks: z.array(z.string()).optional().default([]),
+  legal_or_permit_checks: z.array(z.string()).optional().default([]),
+  safe_summary: z.string(),
+  boundary_note: z.string(),
+});
 
-export interface TenantFitAgentOutput {
-  tenant_fit_results: TenantFitResult[];
-}
+export type TenantFitResult = z.infer<typeof TenantFitResultSchema>;
+
+export const TenantFitAgentOutputSchema = z.object({
+  tenant_fit_results: z.array(TenantFitResultSchema),
+});
+
+export type TenantFitAgentOutput = z.infer<typeof TenantFitAgentOutputSchema>;
 
 // ── Agent ────────────────────────────────────────────────────────
 
@@ -62,21 +59,16 @@ export async function runTenantFitAgent(
     );
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await callLLM({
       model,
-      messages: [
-        { role: "system", content: TENANT_FIT_SYSTEM },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
+      systemPrompt: TENANT_FIT_SYSTEM,
+      userPrompt,
+      responseFormat: "json_object",
       temperature: 0.2,
-      max_tokens: 4096,
+      maxTokens: 4096,
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) throw new Error("AI returned empty response");
-
-    const parsed: TenantFitAgentOutput = JSON.parse(content);
+    const parsed = TenantFitAgentOutputSchema.parse(JSON.parse(response.content));
 
     // safe_summary에 safe-language 가드레일 적용
     const guardedResults = parsed.tenant_fit_results.map((result) => ({

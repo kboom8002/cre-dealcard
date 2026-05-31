@@ -6,7 +6,7 @@ This folder contains domain services for JS Building SSoT MVP v0.1.
 
 - `building/` — building_ssot_lite, building_signal_card
 - `buyer-intent/` — buyer_intent_lite
-- `owner-readiness/` — owner_readiness_checks
+- `owner/` — owner_readiness_checks
 - `documents/` — document_objects (deal curiosity report, blind teaser, buyer memo, etc.)
 - `gates/` — gate_requests, expert_note_requests
 - `analytics/` — activity_events

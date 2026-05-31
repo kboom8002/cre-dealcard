@@ -14,6 +14,47 @@ export type ApiErrorCode =
   | "RATE_LIMITED"
   | "INTERNAL_ERROR";
 
+export class BaseApiError extends Error {
+  constructor(
+    public code: ApiErrorCode,
+    message: string,
+    public status = 500
+  ) {
+    super(message);
+    this.name = this.constructor.name;
+  }
+}
+
+export class AiGenerationError extends BaseApiError {
+  constructor(message = "이번 생성은 완료하지 못했습니다. 입력 내용을 조금 더 추가해 다시 시도해주세요.") {
+    super("AI_GENERATION_FAILED", message, 500);
+  }
+}
+
+export class UnauthorizedError extends BaseApiError {
+  constructor(message = "인증이 필요합니다.") {
+    super("UNAUTHORIZED", message, 401);
+  }
+}
+
+export class ForbiddenError extends BaseApiError {
+  constructor(message = "권한이 없습니다.") {
+    super("FORBIDDEN", message, 403);
+  }
+}
+
+export class NotFoundError extends BaseApiError {
+  constructor(message = "요청한 리소스를 찾을 수 없습니다.") {
+    super("NOT_FOUND", message, 404);
+  }
+}
+
+export class ValidationError extends BaseApiError {
+  constructor(message = "입력값을 확인해주세요.") {
+    super("VALIDATION_ERROR", message, 400);
+  }
+}
+
 interface ApiError {
   ok: false;
   error: {
@@ -23,6 +64,20 @@ interface ApiError {
 }
 
 export function toApiError(err: unknown): Response {
+  if (err instanceof BaseApiError) {
+    console.error(`[API BaseApiError] ${err.code}: ${err.message}`);
+    return Response.json(
+      {
+        ok: false,
+        error: {
+          code: err.code,
+          message: err.message,
+        },
+      } satisfies ApiError,
+      { status: err.status },
+    );
+  }
+
   if (err instanceof ZodError) {
     console.error("[API ZodError]", JSON.stringify(err.issues, null, 2));
     return Response.json(
@@ -38,11 +93,13 @@ export function toApiError(err: unknown): Response {
   }
 
   if (err instanceof Error) {
-    // AI-specific errors
+    // AI-specific errors fallback
     if (
       err.message.includes("AI") ||
       err.message.includes("openai") ||
-      err.message.includes("parse")
+      err.name === "APIConnectionError" ||
+      err.name === "APIStatusError" ||
+      err.name === "RateLimitError"
     ) {
       return Response.json(
         {

@@ -12,6 +12,8 @@ import { runBrokerDealCard } from "@/ai/agents/broker-deal-card";
 import { recordEvent } from "@/domain/analytics/record-event";
 import { extractDealCardCasePack } from "@/domain/casepack/casepack-extractor";
 import { computePromotionScore } from "@/domain/promotion/promotion-ranker";
+import { verifyAgainstPublicData } from "@/domain/verification/public-data-verifier";
+import { SupabaseBuildingRepository } from "./building-repository.supabase";
 
 export interface BrokerDealCardFromMemoInput {
   memo: string;
@@ -70,34 +72,27 @@ export async function brokerDealCardFromMemo(
   const latencyMs = Date.now() - startTime;
   const { buildingTruth, blindTeaser } = aiResult;
 
-  // 2. Create building_ssot_lite
-  const { data: building, error: buildingErr } = await supabase
-    .from("building_ssot_lite")
-    .insert({
-      owner_id: userId,
-      created_by_role: "broker",
-      input_type: "broker_memo",
-      raw_input: input.memo,
-      area_signal: buildingTruth.areaSignal,
-      asset_type: buildingTruth.assetType,
-      price_band: buildingTruth.priceBand,
-      size_signal: buildingTruth.sizeSignal,
-      current_use_signal: buildingTruth.currentUseSignal,
-      vacancy_signal: buildingTruth.vacancySignal,
-      fit_summary: buildingTruth.fitSummary,
-      caution_summary: buildingTruth.cautionSummary,
-      hidden_fields: buildingTruth.hiddenFields,
-      layers: {},
-      confidence: buildingTruth.confidence as unknown as Record<string, unknown>,
-      disclosure: { guard_checked: true },
-      status: "public_signal_ready",
-    })
-    .select("id")
-    .single();
-
-  if (buildingErr || !building) {
-    throw new Error(`Failed to create building_ssot_lite: ${buildingErr?.message}`);
-  }
+  // 2. Create building_ssot_lite (via Repository Pattern)
+  const buildingRepo = new SupabaseBuildingRepository(supabase);
+  const building = await buildingRepo.createBuildingSsotLite({
+    owner_id: userId,
+    created_by_role: "broker",
+    input_type: "broker_memo",
+    raw_input: input.memo,
+    area_signal: buildingTruth.areaSignal,
+    asset_type: buildingTruth.assetType,
+    price_band: buildingTruth.priceBand,
+    size_signal: buildingTruth.sizeSignal,
+    current_use_signal: buildingTruth.currentUseSignal,
+    vacancy_signal: buildingTruth.vacancySignal,
+    fit_summary: buildingTruth.fitSummary,
+    caution_summary: buildingTruth.cautionSummary,
+    hidden_fields: buildingTruth.hiddenFields,
+    layers: {},
+    confidence: buildingTruth.confidence as unknown as Record<string, unknown>,
+    disclosure: { guard_checked: true },
+    status: "public_signal_ready",
+  });
 
   // 3. Create building_signal_card
   const visibility =
@@ -177,52 +172,51 @@ export async function brokerDealCardFromMemo(
   }
 
   // 6. Log activity events
-  await recordEvent(supabase, {
-    actorId: userId,
-    actorRole: "broker",
-    eventType: "broker_memo_submitted",
-    entityType: "building_ssot_lite",
-    entityId: building.id,
-    metadata: { source: "broker_deal_card_new" },
-  });
-
-  await recordEvent(supabase, {
-    actorId: userId,
-    actorRole: "broker",
-    eventType: "building_ssot_lite_created",
-    entityType: "building_ssot_lite",
-    entityId: building.id,
-    metadata: {
-      input_type: "broker_memo",
-      hidden_fields: buildingTruth.hiddenFields,
-    },
-  });
-
-  await recordEvent(supabase, {
-    actorId: userId,
-    actorRole: "broker",
-    eventType: "building_signal_card_created",
-    entityType: "building_signal_card",
-    entityId: signalCard.id,
-    metadata: {
-      building_id: building.id,
-      visibility,
-    },
-  });
-
-  await recordEvent(supabase, {
-    actorId: userId,
-    actorRole: "broker",
-    eventType: "blind_teaser_generated",
-    entityType: "document_object",
-    entityId: teaserDoc.id,
-    metadata: {
-      building_id: building.id,
-      signal_card_id: signalCard.id,
-      document_type: "blind_teaser",
-      prompt_version: aiResult.promptVersions.blindTeaser,
-    },
-  });
+  await Promise.all([
+    recordEvent(supabase, {
+      actorId: userId,
+      actorRole: "broker",
+      eventType: "broker_memo_submitted",
+      entityType: "building_ssot_lite",
+      entityId: building.id,
+      metadata: { source: "broker_deal_card_new" },
+    }),
+    recordEvent(supabase, {
+      actorId: userId,
+      actorRole: "broker",
+      eventType: "building_ssot_lite_created",
+      entityType: "building_ssot_lite",
+      entityId: building.id,
+      metadata: {
+        input_type: "broker_memo",
+        hidden_fields: buildingTruth.hiddenFields,
+      },
+    }),
+    recordEvent(supabase, {
+      actorId: userId,
+      actorRole: "broker",
+      eventType: "building_signal_card_created",
+      entityType: "building_signal_card",
+      entityId: signalCard.id,
+      metadata: {
+        building_id: building.id,
+        visibility,
+      },
+    }),
+    recordEvent(supabase, {
+      actorId: userId,
+      actorRole: "broker",
+      eventType: "blind_teaser_generated",
+      entityType: "document_object",
+      entityId: teaserDoc.id,
+      metadata: {
+        building_id: building.id,
+        signal_card_id: signalCard.id,
+        document_type: "blind_teaser",
+        prompt_version: aiResult.promptVersions.blindTeaser,
+      },
+    }),
+  ]);
 
   // 7. CasePack extraction (Phase 2 ④)
   try {
@@ -273,6 +267,27 @@ export async function brokerDealCardFromMemo(
     await runAutoMatch(building.id, userId);
   } catch (autoMatchErr) {
     console.warn("[broker-deal-card] Auto-match failed", autoMatchErr);
+  }
+
+  // 11. 공공데이터 교차검증 (건축물대장 API) — fire-and-forget
+  if (buildingTruth.areaSignal || buildingTruth.assetType) {
+    verifyAgainstPublicData(
+      buildingTruth.areaSignal || "",
+      buildingTruth.assetType || "",
+      buildingTruth.sizeSignal || "",
+    )
+      .then(async (verificationResult) => {
+        await supabase
+          .from("building_ssot_lite")
+          .update({
+            verification_status: verificationResult.status,
+            verification_result: verificationResult as unknown as Record<string, unknown>,
+          })
+          .eq("id", building.id);
+      })
+      .catch((verifyErr) => {
+        console.warn("[broker-deal-card] Public data verification failed:", verifyErr);
+      });
   }
 
   return {

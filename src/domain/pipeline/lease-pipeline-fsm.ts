@@ -14,6 +14,47 @@ export interface LeaseTransitionContract {
   holdWarningDays: number;
 }
 
+export interface TransitionResult {
+  valid: boolean;
+  missing: string[];
+  holdWarning: boolean;
+  holdDays: number;
+}
+
+// ─── Lease Contracts ──────────────────────────────────────────────────
+export const LEASE_CONTRACTS: LeaseTransitionContract[] = [
+  {
+    from: "listing_created",
+    to: "matching",
+    requiredFields: ["lease_space_id"],
+    holdWarningDays: 7,
+  },
+  {
+    from: "matching",
+    to: "viewing",
+    requiredFields: ["tenant_intent_id", "match_grade"],
+    holdWarningDays: 14,
+  },
+  {
+    from: "viewing",
+    to: "negotiation",
+    requiredFields: ["viewing_date", "tenant_reaction"],
+    holdWarningDays: 10,
+  },
+  {
+    from: "negotiation",
+    to: "contract",
+    requiredFields: ["agreed_deposit", "agreed_monthly_rent"],
+    holdWarningDays: 14,
+  },
+  {
+    from: "contract",
+    to: "active",
+    requiredFields: ["contract_date", "deposit_confirmed"],
+    holdWarningDays: 15,
+  },
+];
+
 export const LEASE_STAGE_LABELS: Record<LeaseStage, string> = {
   listing_created: "임대물건 등록됨",
   matching: "임차인 매칭 중",
@@ -49,17 +90,52 @@ export function validateLeaseTransition(
   to: LeaseStage,
   metadata: Record<string, unknown>,
   enteredAt: string
-) {
+): TransitionResult {
   const allowed = LEASE_VALID_TRANSITIONS[from] || [];
   const isValidStage = allowed.includes(to);
 
+  if (!isValidStage) {
+    return {
+      valid: false,
+      missing: [],
+      holdWarning: false,
+      holdDays: 0,
+    };
+  }
+
+  // 만약 만료(expired) 상태로 전이할 때는 별도 필수 계약 필드가 없음
+  if (to === "expired") {
+    const holdDays = Math.floor(
+      (Date.now() - new Date(enteredAt).getTime()) / 86_400_000
+    );
+    return {
+      valid: true,
+      missing: [],
+      holdWarning: false,
+      holdDays,
+    };
+  }
+
+  const contract = LEASE_CONTRACTS.find((c) => c.from === from && c.to === to);
+  if (!contract) {
+    return {
+      valid: false,
+      missing: [],
+      holdWarning: false,
+      holdDays: 0,
+    };
+  }
+
+  const missing = contract.requiredFields.filter((f) => !metadata[f]);
   const holdDays = Math.floor(
     (Date.now() - new Date(enteredAt).getTime()) / 86_400_000
   );
+  const holdWarning = holdDays >= contract.holdWarningDays;
 
   return {
-    valid: isValidStage,
+    valid: missing.length === 0,
+    missing,
+    holdWarning,
     holdDays,
-    holdWarning: holdDays >= 14, // Generic default warning at 14 days
   };
 }

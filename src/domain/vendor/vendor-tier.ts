@@ -20,7 +20,7 @@ export interface VendorTierConfig {
   tier: VendorTier;
   label: string;
   monthlyFee: number;           // 원/월
-  maxServiceCards: number;
+  maxServiceCards: number | null; // null = 무제한
   maxMonthlyLeads: number | null; // null = 무제한
   agoraExpertBadge: boolean;
   featuredPlacement: boolean;
@@ -58,7 +58,7 @@ export const VENDOR_TIER_CONFIGS: Record<VendorTier, VendorTierConfig> = {
     tier: "premium",
     label: "Premium",
     monthlyFee: 790000,
-    maxServiceCards: Infinity,
+    maxServiceCards: null,
     maxMonthlyLeads: null,
     agoraExpertBadge: true,
     featuredPlacement: true,
@@ -91,7 +91,7 @@ export function canCreateServiceCard(
   currentCardCount: number
 ): { allowed: boolean; reason?: string } {
   const config = VENDOR_TIER_CONFIGS[tier];
-  if (currentCardCount >= config.maxServiceCards) {
+  if (config.maxServiceCards !== null && currentCardCount >= config.maxServiceCards) {
     return {
       allowed: false,
       reason: `${config.label} 등급은 서비스 카드 ${config.maxServiceCards}개까지 등록 가능합니다. 업그레이드를 고려해 주세요.`,

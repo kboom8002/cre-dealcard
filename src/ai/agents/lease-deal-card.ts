@@ -4,7 +4,7 @@
  * 2. LeaseMiniTruth → create Lease SSoT Lite
  * 3. LeaseBlindTeaser → create safe shareable leasing card
  */
-import OpenAI from "openai";
+import { callLLM } from "@/ai/llm-client";
 import {
   LeaseMemoParserOutputSchema,
   LeaseMiniTruthOutputSchema,
@@ -24,8 +24,6 @@ import {
   LEASE_BLIND_TEASER_USER_TEMPLATE,
   LEASE_BLIND_TEASER_PROMPT_ID,
 } from "@/ai/prompts/lease-deal-card";
-
-const openai = new OpenAI();
 
 export interface LeaseBrokerDealCardInput {
   memo: string;
@@ -51,25 +49,18 @@ async function callOpenAI(
   userPrompt: string,
   model: string,
 ): Promise<{ content: string; tokens: number }> {
-  const response = await openai.chat.completions.create({
+  const result = await callLLM({
     model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    response_format: { type: "json_object" },
+    systemPrompt,
+    userPrompt,
+    responseFormat: "json_object",
     temperature: 0.7,
-    max_tokens: 4096,
+    maxTokens: 4096,
   });
 
-  const content = response.choices[0]?.message?.content;
-  if (!content) throw new Error("AI returned empty response");
-
-  console.log("Raw Lease LLM Output:", content);
-
   return {
-    content,
-    tokens: response.usage?.total_tokens ?? 0,
+    content: result.content,
+    tokens: result.tokens,
   };
 }
 

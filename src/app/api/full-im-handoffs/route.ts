@@ -4,7 +4,7 @@
  * Auth: required (broker or admin)
  * Source: docs/06-handoff-api-contract.md §4.1
  */
-import { z } from "zod";
+import { z } from "zod/v4";
 import { createHandoff } from "@/domain/handoff/handoff";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 

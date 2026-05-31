@@ -6,7 +6,7 @@
  *
  * Source: docs/09-ai-agent-contracts.md sections 7-10
  */
-import OpenAI from "openai";
+import { callLLM } from "@/ai/llm-client";
 import { sanitizeMemo, desanitizeOutput } from "@/ai/sanitizer/memo-sanitizer";
 import {
   MemoParserOutputSchema,
@@ -30,8 +30,6 @@ import {
   BLIND_TEASER_PROMPT_ID,
 } from "@/ai/prompts/broker-deal-card";
 import { rewriteUnsafeText } from "@/domain/guardrails/safe-language";
-
-const openai = new OpenAI();
 
 export interface BrokerDealCardInput {
   memo: string;
@@ -58,25 +56,18 @@ async function callOpenAI(
   userPrompt: string,
   model: string,
 ): Promise<{ content: string; tokens: number }> {
-  const response = await openai.chat.completions.create({
+  const result = await callLLM({
     model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    response_format: { type: "json_object" },
+    systemPrompt,
+    userPrompt,
+    responseFormat: "json_object",
     temperature: 0.7,
-    max_tokens: 4096,
+    maxTokens: 4096,
   });
 
-  const content = response.choices[0]?.message?.content;
-  if (!content) throw new Error("AI returned empty response");
-
-  console.log("Raw LLM Output:", content);
-
   return {
-    content,
-    tokens: response.usage?.total_tokens ?? 0,
+    content: result.content,
+    tokens: result.tokens,
   };
 }
 

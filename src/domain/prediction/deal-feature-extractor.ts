@@ -1,17 +1,4 @@
-/**
- * Deal Feature Extractor — P-X
- * Extracts 28 features from DB for deal conversion prediction.
- * Saves snapshot to deal_conversion_features for training.
- */
-import { createClient } from '@supabase/supabase-js';
-
-function getClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  );
-}
+import { createServiceClient } from "@/lib/supabase/service";
 
 export interface DealFeatureVector {
   // Identity
@@ -93,22 +80,64 @@ function daysSince(dateStr: string): number {
 export async function extractDealFeatures(
   buildingId: string,
 ): Promise<DealFeatureVector | null> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
 
-  // Base building data
-  const { data: building } = await supabase
-    .from('building_ssot_lite')
-    .select('*')
-    .eq('id', buildingId)
-    .single();
+  // 1. Fetch independent DB queries in parallel to eliminate N+1 latency
+  const [
+    buildingRes,
+    matchesRes,
+    pipelineRes,
+    events7dRes,
+    events30dRes,
+    gateCountRes,
+    casepacksRes,
+    imHandoffRes,
+    spaceHandoffRes,
+    cardRes,
+    topBuyerMatchRes
+  ] = await Promise.all([
+    supabase.from('building_ssot_lite').select('*').eq('id', buildingId).maybeSingle(),
+    supabase.from('match_results').select('grade, score').eq('building_ssot_lite_id', buildingId),
+    supabase.from('deal_pipeline_states').select('stage, entered_at').eq('building_ssot_lite_id', buildingId).order('entered_at', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('activity_events').select('id', { count: 'exact', head: true }).eq('building_ssot_lite_id', buildingId).gte('created_at', new Date(Date.now() - 7 * 86_400_000).toISOString()),
+    supabase.from('activity_events').select('id', { count: 'exact', head: true }).eq('building_ssot_lite_id', buildingId).gte('created_at', new Date(Date.now() - 30 * 86_400_000).toISOString()),
+    supabase.from('gate_requests').select('id', { count: 'exact', head: true }).eq('building_ssot_lite_id', buildingId),
+    supabase.from('deal_casepacks').select('warning').eq('building_ssot_lite_id', buildingId),
+    supabase.from('full_im_handoffs').select('im_project_id').eq('building_ssot_lite_id', buildingId).limit(1).maybeSingle(),
+    supabase.from('space_ai_handoffs').select('id').eq('building_ssot_lite_id', buildingId).limit(1).maybeSingle(),
+    supabase.from('building_signal_cards').select('deal_curiosity_score').eq('building_id', buildingId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('match_results').select('buyer_intent_lite_id, grade').eq('building_ssot_lite_id', buildingId).eq('grade', 'S').limit(1).maybeSingle()
+  ]);
+
+  const building = buildingRes.data;
   if (!building) return null;
 
-  // Match data
-  const { data: matches } = await supabase
-    .from('match_results')
-    .select('grade, score')
-    .eq('building_ssot_lite_id', buildingId);
+  const matches = matchesRes.data;
+  const pipeline = pipelineRes.data;
+  const events7d = events7dRes.count;
+  const events30d = events30dRes.count;
+  const gateCount = gateCountRes.count;
+  const casepacks = casepacksRes.data;
+  const imHandoff = imHandoffRes.data;
+  const spaceHandoff = spaceHandoffRes.data;
+  const card = cardRes.data;
+  const topBuyerMatch = topBuyerMatchRes.data;
 
+  // 2. Fetch dependent DB queries in parallel
+  const [imProjectRes, bIntentRes] = await Promise.all([
+    imHandoff?.im_project_id
+      ? supabase.from('im_projects').select('readiness_score').eq('id', imHandoff.im_project_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    topBuyerMatch
+      ? supabase.from('buyer_intent_lite').select('cluster_id').eq('id', topBuyerMatch.buyer_intent_lite_id).maybeSingle()
+      : Promise.resolve({ data: null })
+  ]);
+
+  const imProject = imProjectRes.data;
+  const bIntent = bIntentRes.data;
+  const buyerClusterId = bIntent?.cluster_id ?? -1;
+
+  // Matches processing
   const gradeScore: Record<string, number> = { S: 4, A: 3, B: 2, C: 1 };
   const bestGrade  = matches?.length
     ? Math.max(...matches.map((m) => gradeScore[m.grade] ?? 0)) : 0;
@@ -116,94 +145,14 @@ export async function extractDealFeatures(
     ? matches.reduce((s, m) => s + m.score, 0) / matches.length : 0;
   const sCount     = matches?.filter((m) => m.grade === 'S').length ?? 0;
 
-  // Pipeline data
-  const { data: pipeline } = await supabase
-    .from('deal_pipeline_states')
-    .select('stage, entered_at')
-    .eq('building_ssot_lite_id', buildingId)
-    .order('entered_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
+  // Pipeline processing
   const stageOrd    = STAGE_ORD[pipeline?.stage ?? 'memo_input'] ?? 0;
   const holdDays    = pipeline ? daysSince(pipeline.entered_at) : 0;
 
-  // Activity events
-  const { data: events7d } = await supabase
-    .from('activity_events')
-    .select('id', { count: 'exact', head: true })
-    .eq('building_ssot_lite_id', buildingId)
-    .gte('created_at', new Date(Date.now() - 7 * 86_400_000).toISOString());
-
-  const { data: events30d } = await supabase
-    .from('activity_events')
-    .select('id', { count: 'exact', head: true })
-    .eq('building_ssot_lite_id', buildingId)
-    .gte('created_at', new Date(Date.now() - 30 * 86_400_000).toISOString());
-
-  // Gate requests
-  const { count: gateCount } = await supabase
-    .from('gate_requests')
-    .select('id', { count: 'exact', head: true })
-    .eq('building_ssot_lite_id', buildingId);
-
-  // CasePacks
-  const { data: casepacks } = await supabase
-    .from('deal_casepacks')
-    .select('warning')
-    .eq('building_ssot_lite_id', buildingId);
-
+  // CasePacks processing
   const warningLen = casepacks?.reduce((s, cp) => s + (cp.warning?.length ?? 0), 0) ?? 0;
 
-  // IM
-  const { data: imHandoff } = await supabase
-    .from('full_im_handoffs')
-    .select('im_project_id')
-    .eq('building_ssot_lite_id', buildingId)
-    .limit(1)
-    .maybeSingle();
-
-  const { data: imProject } = imHandoff?.im_project_id
-    ? await supabase.from('im_projects').select('readiness_score').eq('id', imHandoff.im_project_id).single()
-    : { data: null };
-
-  // Space AI
-  const { data: spaceHandoff } = await supabase
-    .from('space_ai_handoffs')
-    .select('id')
-    .eq('building_ssot_lite_id', buildingId)
-    .limit(1)
-    .maybeSingle();
-
-  // Signal card (curiosity score)
-  const { data: card } = await supabase
-    .from('building_signal_cards')
-    .select('deal_curiosity_score')
-    .eq('building_id', buildingId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  // Buyer cluster (from best match)
-  const { data: topBuyerMatch } = await supabase
-    .from('match_results')
-    .select('buyer_intent_lite_id, grade')
-    .eq('building_ssot_lite_id', buildingId)
-    .eq('grade', 'S')
-    .limit(1)
-    .maybeSingle();
-
-  let buyerClusterId = -1;
-  if (topBuyerMatch) {
-    const { data: bIntent } = await supabase
-      .from('buyer_intent_lite')
-      .select('cluster_id')
-      .eq('id', topBuyerMatch.buyer_intent_lite_id)
-      .maybeSingle();
-    buyerClusterId = bIntent?.cluster_id ?? -1;
-  }
-
-  // Determine target
+  // Determine target status
   const hasClosed = pipeline?.stage === 'closed';
   const hasFailed = pipeline?.stage === 'failed';
   const converted = hasClosed ? true : hasFailed ? false : null;
@@ -224,8 +173,8 @@ export async function extractDealFeatures(
     promotionScore:         building.promotion_score ?? 0,
     vacancyDemandVerified:  building.vacancy_demand_verified ? 1 : 0,
     vacancyInquiryCount:    building.vacancy_inquiry_count ?? 0,
-    eventCount7d:           (events7d as unknown as { count?: number })?.count ?? 0,
-    eventCount30d:          (events30d as unknown as { count?: number })?.count ?? 0,
+    eventCount7d:           events7d ?? 0,
+    eventCount30d:          events30d ?? 0,
     gateRequestCount:       gateCount ?? 0,
     buyerMemoCount:         0, // derived from activity_events if needed
     casepacksCount:         casepacks?.length ?? 0,
@@ -249,7 +198,7 @@ export async function snapshotDealFeatures(buildingId: string): Promise<void> {
   const features = await extractDealFeatures(buildingId);
   if (!features) return;
 
-  const supabase = getClient();
+  const supabase = createServiceClient();
   await supabase.from('deal_conversion_features').insert({
     building_ssot_lite_id:    features.buildingId,
     broker_id:                features.brokerId,
@@ -279,3 +228,4 @@ export async function snapshotDealFeatures(buildingId: string): Promise<void> {
     snapshot_at:              new Date().toISOString(),
   });
 }
+

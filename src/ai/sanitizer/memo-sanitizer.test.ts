@@ -80,4 +80,20 @@ describe("PII Memo Sanitizer", () => {
     const restored = desanitizeOutput(sanitizedText, { sanitizedText, tokens });
     expect(restored).toBe(original);
   });
+
+  it("should sanitize and desanitize landlines, emails, and resident registration numbers (RRN)", () => {
+    const original = "담당자 이메일은 test.user@gmail.com 이며, 사무실 번호는 02-3456-7890, 대표자 주민번호는 851105-1234567 입니다.";
+    const { sanitizedText, tokens } = sanitizeMemo(original);
+
+    expect(sanitizedText).toContain("[EMAIL_A]");
+    expect(sanitizedText).toContain("[PHONE_A]");
+    expect(sanitizedText).toContain("[RRN_A]");
+
+    expect(sanitizedText).not.toContain("test.user@gmail.com");
+    expect(sanitizedText).not.toContain("02-3456-7890");
+    expect(sanitizedText).not.toContain("851105-1234567");
+
+    const restored = desanitizeOutput(sanitizedText, { sanitizedText, tokens });
+    expect(restored).toBe(original);
+  });
 });

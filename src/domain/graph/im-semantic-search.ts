@@ -3,18 +3,8 @@
  * Generates embeddings for im_projects and retrieves similar IMs.
  * Used to inject success/failure patterns into SectionPlanner.
  */
-import OpenAI from 'openai';
-import { createClient } from '@supabase/supabase-js';
-
-const openai = new OpenAI();
-
-function getClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  );
-}
+import { embedText } from '@/ai/llm-client';
+import { createServiceClient } from '@/lib/supabase/service';
 
 export interface SimilarIM {
   id: string;
@@ -66,17 +56,14 @@ export async function generateImEmbedding(
   imProjectId: string,
   embeddingText: string,
 ): Promise<void> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
 
-  const resp = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
-    input: embeddingText.slice(0, 8000),
-  });
+  const embedding = await embedText(embeddingText.slice(0, 8000));
 
   await supabase
     .from('im_projects')
     .update({
-      embedding:             resp.data[0].embedding,
+      embedding:             embedding,
       embedding_updated_at:  new Date().toISOString(),
     })
     .eq('id', imProjectId);
@@ -88,7 +75,7 @@ export async function findSimilarIMs(
   embeddingText: string,
   limit = 3,
 ): Promise<{ success: SimilarIM[]; failure: SimilarIM[] }> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
 
   const { count: embeddedCount } = await supabase
     .from('im_projects')
@@ -99,11 +86,7 @@ export async function findSimilarIMs(
     return { success: [], failure: [] };
   }
 
-  const resp = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
-    input: embeddingText.slice(0, 8000),
-  });
-  const embedding = resp.data[0].embedding;
+  const embedding = await embedText(embeddingText.slice(0, 8000));
 
   const [{ data: successRows }, { data: failureRows }] = await Promise.all([
     supabase.rpc('search_similar_ims', {

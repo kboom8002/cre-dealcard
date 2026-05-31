@@ -7,7 +7,7 @@
  * Ported from cre-aipage contracts/handoff.ts → Zod v4
  */
 
-import { z } from "zod";
+import { z } from "zod/v4";
 import { TenantTypeSchema } from "./enums";
 
 // ── Handoff Statuses ─────────────────────────────────────────────

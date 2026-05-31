@@ -1,6 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { validateMemoQuality } from "@/domain/building/memo-quality-gate";
-import { sanitizeMemo, desanitizeOutput } from "@/ai/sanitizer/memo-sanitizer";
+import { sanitizeMemo } from "@/ai/sanitizer/memo-sanitizer";
 import { runBrokerDealCard } from "@/ai/agents/broker-deal-card";
 
 export interface ImportSummary {
@@ -64,6 +64,8 @@ export async function importPortfolioMemos(
       // 2) AI DealCard 파이프라인 가동 (PII 토크나이징 F3 자동 내장됨)
       // runBrokerDealCard 내부에서 supabase에 insert하는지 확인이 필요하지만, 
       // API 라우트 로직과 동일하게 빌딩 SSoT 레코드를 삽입해 줍니다.
+      const sanitizationMap = sanitizeMemo(memo);
+      const { sanitizedText } = sanitizationMap;
       const dealResult = await runBrokerDealCard({ memo });
       
       if (!dealResult || !dealResult.buildingTruth) {
@@ -84,7 +86,7 @@ export async function importPortfolioMemos(
           fit_summary: truth.fitSummary,
           deal_points: [truth.fitSummary],
           caution_points: [truth.cautionSummary],
-          raw_input: memo, // 비식별화 이전 원본은 소유주 계정 내 로컬 보관
+          raw_input: sanitizedText, // 비식별화된 메모를 DB에 안전하게 보관
           status: "active",
         })
         .select("id")
@@ -108,12 +110,13 @@ export async function importPortfolioMemos(
         buildingId: newBuilding.id,
       });
       successCount++;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       results.push({
         index: i + 1,
         memoSnippet: snippet,
         success: false,
-        errorReason: err.message || "알 수 없는 시스템 오류가 발생했습니다.",
+        errorReason: errMsg || "알 수 없는 시스템 오류가 발생했습니다.",
       });
       failCount++;
     }

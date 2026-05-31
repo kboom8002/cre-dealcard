@@ -2,13 +2,11 @@
  * TenantIntentNormalizerAgent
  * Normalizes raw tenant leasing conditions (Kakao memo) into structured Tenant Intent.
  */
-import OpenAI from "openai";
+import { callLLM } from "@/ai/llm-client";
 import {
   TenantIntentOutputSchema,
   type TenantIntentOutput,
 } from "@/ai/schemas/tenant-intent";
-
-const openai = new OpenAI();
 
 export const TENANT_INTENT_SYSTEM = `You are a Korean commercial real estate leasing intent parser.
 Your task is to take an unstructured Kakao-style memo expressing a tenant's leasing requirements and normalize it into a structured JSON object.
@@ -58,27 +56,21 @@ export async function runTenantIntentNormalizer(
   const model = process.env.AI_DEFAULT_MODEL || "gpt-4o";
   const userPrompt = TENANT_INTENT_USER_TEMPLATE.replace("{memo}", memo);
 
-  const response = await openai.chat.completions.create({
+  const response = await callLLM({
     model,
-    messages: [
-      { role: "system", content: TENANT_INTENT_SYSTEM },
-      { role: "user", content: userPrompt },
-    ],
-    response_format: { type: "json_object" },
+    systemPrompt: TENANT_INTENT_SYSTEM,
+    userPrompt,
+    responseFormat: "json_object",
     temperature: 0.7,
-    max_tokens: 4096,
+    maxTokens: 4096,
   });
 
-  const content = response.choices[0]?.message?.content;
-  if (!content) throw new Error("AI returned empty response");
-
-  console.log("Raw Tenant Intent LLM Output:", content);
-  const intent = TenantIntentOutputSchema.parse(JSON.parse(content));
+  const intent = TenantIntentOutputSchema.parse(JSON.parse(response.content));
 
   return {
     intent,
     model,
     promptVersion: "prompt_tenant_intent_normalizer_v1",
-    usage: { totalTokens: response.usage?.total_tokens },
+    usage: { totalTokens: response.tokens },
   };
 }

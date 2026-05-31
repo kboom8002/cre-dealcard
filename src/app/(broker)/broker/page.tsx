@@ -6,6 +6,7 @@ import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 import { calculateBrokerMonthlyRoi } from "@/domain/analytics/roi-calculator";
 import { RoiCard } from "@/components/dashboard/RoiCard";
 import { AntifragileMode } from "@/components/dashboard/AntifragileMode";
+import { WeeklyReportCard } from "@/components/dashboard/WeeklyReportCard";
 
 export const metadata: Metadata = {
   title: "JS 1분 딜카드 | 중개인 코크핏",
@@ -130,6 +131,21 @@ export default async function BrokerPage() {
       : { min: 0.08, max: 0.15 },
   };
 
+  const totalMatchCount = (matchResults?.length ?? 0) + (leaseMatchResults?.length ?? 0);
+  const sConversionRate = totalMatchCount > 0 
+    ? Math.round((sMatchCount / totalMatchCount) * 1000) / 10 
+    : 42.5;
+
+  const holdDaysDelta = Math.round(((antifragileMetrics.avgHoldDays - 18.2) / 18.2) * 100);
+  const holdDaysDeltaText = holdDaysDelta < 0
+    ? `전체 평균 18.2일 대비 ${holdDaysDelta}%`
+    : `전체 평균 18.2일 대비 +${holdDaysDelta}%`;
+
+  const conversionDelta = Math.round((sConversionRate - 35.0) * 10) / 10;
+  const conversionDeltaText = conversionDelta >= 0
+    ? `전체 평균 35% 대비 +${conversionDelta}%p`
+    : `전체 평균 35% 대비 ${conversionDelta}%p`;
+
   return (
     <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-24">
       <div className="w-full max-w-md mx-auto space-y-6">
@@ -154,6 +170,9 @@ export default async function BrokerPage() {
 
         {/* ── 실시간 ROI 가치 지표 표시 (Growth Flywheel) ── */}
         <RoiCard metrics={roiMetrics} />
+
+        {/* ── 주간 개인 리포트 ─────────────────────────────────── */}
+        <WeeklyReportCard />
 
         {/* ── KPI Cards ────────────────────────────────────────── */}
         <div className="space-y-2">
@@ -218,19 +237,22 @@ export default async function BrokerPage() {
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="bg-card border border-border p-2.5 rounded-lg space-y-1">
               <p className="text-[10px] text-muted-foreground font-semibold">내 딜 체류일수</p>
-              <p className="text-base font-extrabold text-foreground">12.4일</p>
-              <p className="text-[9px] text-green-600 font-medium">전체 평균 18.2일 대비 -32%</p>
+              <p className="text-base font-extrabold text-foreground">{antifragileMetrics.avgHoldDays}일</p>
+              <p className="text-[9px] text-green-600 font-medium">{holdDaysDeltaText}</p>
             </div>
             <div className="bg-card border border-border p-2.5 rounded-lg space-y-1">
               <p className="text-[10px] text-muted-foreground font-semibold">S등급 매칭 전환율</p>
-              <p className="text-base font-extrabold text-foreground">42.5%</p>
-              <p className="text-[9px] text-primary font-medium">전체 평균 35% 대비 +7.5%p</p>
+              <p className="text-base font-extrabold text-foreground">{sConversionRate}%</p>
+              <p className="text-[9px] text-primary font-medium">{conversionDeltaText}</p>
             </div>
           </div>
 
           <div className="flex justify-between items-center text-[10px] bg-card border border-border px-3 py-2 rounded-lg leading-relaxed">
-            <span className="text-muted-foreground">📍 실시간 서울 권역 트렌드 (GBD 오피스):</span>
-            <span className="font-bold text-green-600">📈 수요 강도 폭발 (수요 72 vs 공급 45)</span>
+            <span className="text-muted-foreground">📍 실시간 서울 권역 트렌드 ({antifragileMetrics.region}):</span>
+            <span className="font-bold text-green-600">
+              {antifragileMetrics.trendDirection === "up" ? "📈 수요 강도 상승" : "➡️ 보합 안정세"} 
+              (수요 {antifragileMetrics.demandScore} vs 공급 {antifragileMetrics.supplyScore})
+            </span>
           </div>
         </div>
 

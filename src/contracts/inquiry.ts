@@ -10,7 +10,7 @@
  * Ported from cre-aipage contracts/inquiry.ts → Zod v4
  */
 
-import { z } from "zod";
+import { z } from "zod/v4";
 import { InquiryStatusSchema, TenantTypeSchema } from "./enums";
 
 // ── Fit Estimates ────────────────────────────────────────────────

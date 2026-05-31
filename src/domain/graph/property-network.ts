@@ -2,15 +2,7 @@
  * Property Network — G-S
  * Cross-building recommendation via buyer_overlap and comparable_to edges
  */
-import { createClient } from '@supabase/supabase-js';
-
-function getClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  );
-}
+import { createServiceClient } from '@/lib/supabase/service';
 
 export interface RelatedBuilding {
   buildingId:   string;
@@ -31,7 +23,7 @@ export async function getRelatedBuildingsByBuyerOverlap(
   buildingId: string,
   limit = 5,
 ): Promise<RelatedBuilding[]> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
 
   // Direct SQL via match_results (no pgvector needed)
   const { data } = await supabase
@@ -104,7 +96,7 @@ export async function getNetworkRecommendations(
   buildingId: string,
   limit = 5,
 ): Promise<RelatedBuilding[]> {
-  const supabase = getClient();
+  const supabase = createServiceClient();
 
   const [buyerOverlap, comparableEdges] = await Promise.all([
     getRelatedBuildingsByBuyerOverlap(buildingId, limit * 2),

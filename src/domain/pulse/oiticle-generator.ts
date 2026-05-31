@@ -12,52 +12,22 @@ import {
   type OiticleTypeCode,
   type OiticleAuthorType,
 } from "./oiticle-types";
+import { callLLM as centralCallLLM } from "@/ai/llm-client";
 
 // ── LLM 호출 (pulse-generator와 동일 패턴) ─────────────────────
 async function callLLM(prompt: string): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY ?? process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return "LLM API 키가 설정되지 않아 콘텐츠를 생성할 수 없습니다. OPENAI_API_KEY 또는 GEMINI_API_KEY를 설정하세요.";
-  }
-
   try {
-    const isGemini = !!process.env.GEMINI_API_KEY;
-
-    if (isGemini) {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
-          }),
-        },
-      );
-      const json = await res.json();
-      return json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-    }
-
-    // OpenAI
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
-        max_tokens: 4096,
-      }),
+    const result = await centralCallLLM({
+      systemPrompt: "당신은 한국 상업용 부동산 시장 분석가이며, 유능한 콘텐츠 에디터입니다.",
+      userPrompt: prompt,
+      model: "gpt-4o-mini",
+      temperature: 0.7,
+      maxTokens: 4096,
     });
-    const json = await res.json();
-    return json?.choices?.[0]?.message?.content ?? "";
+    return result.content;
   } catch (e) {
     console.error("[OiticleGenerator] LLM call failed:", e);
-    return "";
+    return "LLM 호출 중 오류가 발생하여 콘텐츠를 생성할 수 없습니다.";
   }
 }
 

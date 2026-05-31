@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { callLLM } from "@/ai/llm-client";
 import {
   FundingProjectOutputSchema,
   FundingBlindTeaserOutputSchema,
@@ -11,8 +11,6 @@ import {
   FUNDING_BLIND_TEASER_SYSTEM,
   FUNDING_BLIND_TEASER_USER,
 } from "@/ai/prompts/funding-project";
-
-const openai = new OpenAI();
 
 export interface FundingProjectCardResult {
   projectData: FundingProjectOutput;
@@ -27,20 +25,15 @@ export async function runFundingProjectCard(
 
   // Step 1: Parse unstructured text into structured project info
   const parseUserPrompt = FUNDING_PROJECT_PARSER_USER.replace("{rawText}", rawText);
-  const parseResponse = await openai.chat.completions.create({
+  const parseResponse = await callLLM({
     model,
-    messages: [
-      { role: "system", content: FUNDING_PROJECT_PARSER_SYSTEM },
-      { role: "user", content: parseUserPrompt },
-    ],
-    response_format: { type: "json_object" },
+    systemPrompt: FUNDING_PROJECT_PARSER_SYSTEM,
+    userPrompt: parseUserPrompt,
+    responseFormat: "json_object",
     temperature: 0.2, // lower temp for strict data extraction
   });
 
-  const parseContent = parseResponse.choices[0]?.message?.content;
-  if (!parseContent) throw new Error("AI failed to parse project memo");
-
-  const projectData = FundingProjectOutputSchema.parse(JSON.parse(parseContent));
+  const projectData = FundingProjectOutputSchema.parse(JSON.parse(parseResponse.content));
 
   // Step 2: Compose blind teaser using parsed info
   const teaserUserPrompt = FUNDING_BLIND_TEASER_USER
@@ -54,20 +47,15 @@ export async function runFundingProjectCard(
     .replace("{tokenType}", projectData.tokenType)
     .replace("{descriptionMemo}", projectData.descriptionMemo || "");
 
-  const teaserResponse = await openai.chat.completions.create({
+  const teaserResponse = await callLLM({
     model,
-    messages: [
-      { role: "system", content: FUNDING_BLIND_TEASER_SYSTEM },
-      { role: "user", content: teaserUserPrompt },
-    ],
-    response_format: { type: "json_object" },
+    systemPrompt: FUNDING_BLIND_TEASER_SYSTEM,
+    userPrompt: teaserUserPrompt,
+    responseFormat: "json_object",
     temperature: 0.7, // slightly higher temp for engaging writing
   });
 
-  const teaserContent = teaserResponse.choices[0]?.message?.content;
-  if (!teaserContent) throw new Error("AI failed to generate blind teaser");
-
-  const blindTeaser = FundingBlindTeaserOutputSchema.parse(JSON.parse(teaserContent));
+  const blindTeaser = FundingBlindTeaserOutputSchema.parse(JSON.parse(teaserResponse.content));
 
   return {
     projectData,

@@ -6,7 +6,7 @@
  *
  * Source: docs/09-ai-agent-contracts.md section 11
  */
-import OpenAI from "openai";
+import { callLLM } from "@/ai/llm-client";
 import {
   DealCuriosityReportSchema,
   type DealCuriosityReport,
@@ -16,8 +16,6 @@ import {
   USER_PROMPT_TEMPLATE,
   PROMPT_ID,
 } from "@/ai/prompts/deal-curiosity-report";
-
-const openai = new OpenAI();
 
 export interface DealCuriosityWriterInput {
   rawInput: string;
@@ -30,8 +28,6 @@ export interface DealCuriosityWriterResult {
   model: string;
   promptVersion: string;
   usage?: {
-    promptTokens?: number;
-    completionTokens?: number;
     totalTokens?: number;
   };
 }
@@ -45,36 +41,25 @@ export async function runDealCuriosityWriter(
 
   const model = process.env.AI_DEFAULT_MODEL || "gpt-4o";
 
-  const response = await openai.chat.completions.create({
+  const response = await callLLM({
     model,
-    messages: [
-      { role: "system", content: SYSTEM_INSTRUCTION },
-      { role: "user", content: userPrompt },
-    ],
-    response_format: { type: "json_object" },
+    systemPrompt: SYSTEM_INSTRUCTION,
+    userPrompt,
+    responseFormat: "json_object",
     temperature: 0.7,
-    max_tokens: 4096,
+    maxTokens: 4096,
   });
 
-  const content = response.choices[0]?.message?.content;
-  if (!content) {
-    throw new Error("AI returned empty response");
-  }
-
   // Parse and validate with Zod
-  const parsed = JSON.parse(content);
+  const parsed = JSON.parse(response.content);
   const report = DealCuriosityReportSchema.parse(parsed);
 
   return {
     report,
     model,
     promptVersion: PROMPT_ID,
-    usage: response.usage
-      ? {
-          promptTokens: response.usage.prompt_tokens,
-          completionTokens: response.usage.completion_tokens,
-          totalTokens: response.usage.total_tokens,
-        }
-      : undefined,
+    usage: {
+      totalTokens: response.tokens,
+    },
   };
 }

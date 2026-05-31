@@ -31,13 +31,15 @@ export async function getMonthlyUsage(
 
   try {
     // 1. usage_counters 테이블 조회
-    let { data: counter, error } = await supabase
+    const { data: fetchedCounter, error } = await supabase
       .from("usage_counters")
       .select("current_count, max_limit")
       .eq("user_id", userId)
       .eq("feature_name", featureName)
       .eq("billing_month", billingMonth)
       .maybeSingle();
+
+    let counter = fetchedCounter;
 
     // 2. 레코드가 존재하지 않는 경우 자동 초기화 생성
     if (!counter && !error) {
@@ -69,8 +71,9 @@ export async function getMonthlyUsage(
       maxLimit,
       hasAccess,
     };
-  } catch (err: any) {
-    console.error("[usage-tracker] Unexpected error during usage fetch:", err.message);
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error("[usage-tracker] Unexpected error during usage fetch:", errMsg);
     return {
       currentCount: 0,
       maxLimit: tierLimit,
@@ -90,8 +93,22 @@ export async function incrementUsage(
   const billingMonth = getCurrentBillingMonth();
 
   try {
-    // Supabase RPC나 단순 update를 통해 아토믹하게 증가시킵니다.
-    // 여기서는 단순 select & update 대신 수려하게 upsert 처리합니다.
+    // 1. Try atomic increment via RPC
+    const { error: rpcError } = await supabase.rpc("increment_usage_counter", {
+      p_user_id: userId,
+      p_feature_name: featureName,
+      p_billing_month: billingMonth,
+    });
+
+    if (!rpcError) {
+      return true;
+    }
+
+    // If RPC fails (e.g. function does not exist), fall back to select-and-upsert
+    console.warn(
+      `[usage-tracker] RPC increment failed, falling back to non-atomic upsert: ${rpcError.message}`
+    );
+
     const { data: currentCounter } = await supabase
       .from("usage_counters")
       .select("current_count")
@@ -115,13 +132,15 @@ export async function incrementUsage(
       });
 
     if (upsertError) {
-      console.error("[usage-tracker] Failed to increment usage counter:", upsertError.message);
+      console.error("[usage-tracker] Failed to increment usage counter via fallback:", upsertError.message);
       return false;
     }
 
     return true;
-  } catch (err: any) {
-    console.error("[usage-tracker] Failed during incrementUsage:", err.message);
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error("[usage-tracker] Failed during incrementUsage:", errMsg);
     return false;
   }
 }
+

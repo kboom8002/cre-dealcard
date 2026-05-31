@@ -8,7 +8,7 @@
  * Ported from cre-aipage contracts/enums.ts → Zod v4
  */
 
-import { z } from "zod";
+import { z } from "zod/v4";
 
 // ── Tenant Types ─────────────────────────────────────────────────
 

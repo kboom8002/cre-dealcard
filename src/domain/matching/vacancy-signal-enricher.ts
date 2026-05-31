@@ -5,16 +5,7 @@
  *
  * Uses same Supabase project (unified schema via 00007_aipage_schema_merge).
  */
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey  = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-function getServiceClient() {
-  return createClient(supabaseUrl, supabaseKey, {
-    auth: { persistSession: false },
-  });
-}
+import { createServiceClient } from '@/lib/supabase/service';
 
 export interface VacancyEnrichResult {
   buildingId: string;
@@ -31,7 +22,7 @@ export interface VacancyEnrichResult {
 export async function enrichFromVacancyData(
   buildingId: string,
 ): Promise<VacancyEnrichResult> {
-  const supabase = getServiceClient();
+  const supabase = createServiceClient();
 
   // 1. Find space_ai_handoff for this building
   const { data: handoffs } = await supabase
@@ -111,7 +102,7 @@ export async function enrichFromVacancyData(
 export async function batchEnrichBrokerBuildings(
   brokerId: string,
 ): Promise<VacancyEnrichResult[]> {
-  const supabase = getServiceClient();
+  const supabase = createServiceClient();
 
   const { data: buildings } = await supabase
     .from('building_ssot_lite')

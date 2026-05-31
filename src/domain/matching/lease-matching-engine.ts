@@ -2,10 +2,8 @@
  * Lease Matching Engine
  * 3-Stage pipeline: Hard Filter → Semantic Cosine Similarity → Ensemble Scoring
  */
-import OpenAI from "openai";
+import { embedText } from "@/ai/llm-client";
 import { matchRegion } from "./region-hierarchy";
-
-const openai = new OpenAI();
 
 export interface LeaseSpaceMatchInput {
   id: string;
@@ -257,21 +255,6 @@ export async function runLeaseMatchingEngine(input: LeaseMatchInput): Promise<Le
     stage3Score: Math.round(stage3Score * 100) / 100,
     reasoning: `[${grade}] ${gradeLabels[grade]} | 시맨틱 일치율 ${(similarity * 100).toFixed(1)}% | 선호층 부합: ${floorMatched ? "예" : "아니오"} | 렌트 조건 점수 ${(incentivesBenefitScore * 100).toFixed(0)}점`,
   };
-}
-
-// ─── Embed Helpers ────────────────────────────────────────────────────
-
-async function embedText(text: string): Promise<number[]> {
-  try {
-    const resp = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: text.slice(0, 8000),
-    });
-    return resp.data[0].embedding;
-  } catch (err) {
-    console.error("Embedding generation failed, returning zero vector:", err);
-    return new Array(1536).fill(0);
-  }
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {

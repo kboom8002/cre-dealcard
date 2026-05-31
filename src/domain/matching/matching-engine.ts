@@ -6,7 +6,7 @@
  * Stage 2: OpenAI text-embedding-3-small cosine similarity
  * Stage 3: Purpose-weighted ensemble → final grade S/A/B/C
  */
-import OpenAI from 'openai';
+import { embedText } from '@/ai/llm-client';
 import type {
   MatchInput,
   MatchResult,
@@ -17,8 +17,6 @@ import type {
 import { PURPOSE_WEIGHTS } from './matching-types';
 import { matchRegion } from './region-hierarchy';
 import { matchAssetType } from './asset-type-taxonomy';
-
-const openai = new OpenAI();
 
 // ─── Stage 1: Hard Filter ──────────────────────────────────────────────
 
@@ -203,16 +201,6 @@ export async function runMatchingEngine(input: MatchInput): Promise<MatchResult>
     stage1Details: details || { region: true, budget: true, asset: true },
     stage3Weights: weights,
   };
-}
-
-// ─── Helpers ───────────────────────────────────────────────────────────
-
-async function embedText(text: string): Promise<number[]> {
-  const resp = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
-    input: text.slice(0, 8000),
-  });
-  return resp.data[0].embedding;
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {

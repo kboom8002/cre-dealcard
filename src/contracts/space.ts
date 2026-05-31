@@ -7,7 +7,7 @@
  * Ported from cre-aipage contracts/space.ts → Zod v4
  */
 
-import { z } from "zod";
+import { z } from "zod/v4";
 import {
   ConfidenceLevelSchema,
   SpaceStatusSchema,
@@ -65,11 +65,8 @@ export const MarketingSchema = z.object({
   target_pitch: z.string().optional(),
 });
 
-export const MissingDataItemSchema = z.object({
-  field: z.string(),
-  reason: z.string(),
-  priority: z.enum(["low", "medium", "high"]),
-});
+import { MissingDataItemSchema } from "@/ai/envelope";
+export { MissingDataItemSchema };
 
 export const RiskNoteSchema = z.object({
   category: z.string(),
@@ -126,5 +123,5 @@ export const SpaceSSoTSchema = z.object({
 export type SpaceSSoT = z.infer<typeof SpaceSSoTSchema>;
 export type SpaceIdentity = z.infer<typeof SpaceIdentitySchema>;
 export type LeaseTerms = z.infer<typeof LeaseTermsSchema>;
-export type MissingDataItem = z.infer<typeof MissingDataItemSchema>;
+export type { MissingDataItem } from "@/ai/envelope";
 export type RiskNote = z.infer<typeof RiskNoteSchema>;

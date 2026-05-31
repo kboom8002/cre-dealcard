@@ -6,10 +6,26 @@ export interface SanitizationMap {
 export function sanitizeMemo(memo: string): SanitizationMap {
   const tokens = new Map<string, string>();
   let sanitizedText = memo;
-  const counters: Record<string, number> = { PHONE: 0, ADDR_DETAIL: 0, BLDG_NAME: 0, TENANT: 0, OWNER: 0 };
+  const counters: Record<string, number> = { PHONE: 0, EMAIL: 0, RRN: 0, ADDR_DETAIL: 0, BLDG_NAME: 0, TENANT: 0, OWNER: 0 };
 
-  // 1. Phone 마스킹 (가장 명확하므로 최우선 적용)
-  sanitizedText = sanitizedText.replace(/01[0-9]-?\d{3,4}-?\d{4}/g, (match) => {
+  // 1. 주민등록번호 (RRN) 마스킹 (민감도가 가장 높으므로 최우선 적용)
+  sanitizedText = sanitizedText.replace(/\b\d{6}-?[1-4]\d{6}\b/g, (match) => {
+    counters.RRN++;
+    const token = `[RRN_${String.fromCharCode(64 + counters.RRN)}]`;
+    tokens.set(token, match);
+    return token;
+  });
+
+  // 2. Email 마스킹
+  sanitizedText = sanitizedText.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, (match) => {
+    counters.EMAIL++;
+    const token = `[EMAIL_${String.fromCharCode(64 + counters.EMAIL)}]`;
+    tokens.set(token, match);
+    return token;
+  });
+
+  // 3. Phone 마스킹 (모바일 + 유선전화 + 인터넷전화 + 전국대표번호)
+  sanitizedText = sanitizedText.replace(/(?:01[0-9]|02|0[3-6][1-9]|070|15\d{2}|16\d{2}|18\d{2})-?\d{3,4}-?\d{4}/g, (match) => {
     counters.PHONE++;
     const token = `[PHONE_${String.fromCharCode(64 + counters.PHONE)}]`;
     tokens.set(token, match);

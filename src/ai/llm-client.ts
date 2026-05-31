@@ -1,10 +1,23 @@
 import type { LLMProvider, LLMChatParams, LLMChatResult } from "./providers/types";
 import { OpenAIProvider } from "./providers/openai";
+import { MockOpenAIProvider } from "./providers/mock-openai";
 
 const providerRegistry = new Map<string, LLMProvider>();
 
-// 기본 OpenAI 제공자 등록
-providerRegistry.set("openai", new OpenAIProvider());
+// 기본 OpenAI 제공자 등록 (환경 변수 및 테스트 모드에 따라 Mock 또는 실물 등록)
+const hasOpenAiKey = !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== "mock_key";
+const isTestEnv = process.env.NODE_ENV === "test";
+
+if (!hasOpenAiKey || isTestEnv) {
+  providerRegistry.set("openai", new MockOpenAIProvider());
+} else {
+  try {
+    providerRegistry.set("openai", new OpenAIProvider());
+  } catch (err) {
+    console.warn("[llm-client] Failed to initialize OpenAIProvider, falling back to Mock:", err);
+    providerRegistry.set("openai", new MockOpenAIProvider());
+  }
+}
 
 // 추가 제공자 등록용 헬퍼
 export function registerProvider(name: string, provider: LLMProvider) {
@@ -38,8 +51,11 @@ export async function callLLM(
       const controller = new AbortController();
       const timeoutMs = options.timeoutMs ?? 30000;
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-      
-      const result = await provider.chat(params);
+
+      const result = await provider.chat({
+        ...params,
+        signal: controller.signal,
+      });
       clearTimeout(timeoutId);
       
       // 호출 성공 시 캐시 키가 주어졌다면 인메모리 캐시에 적재
@@ -71,3 +87,15 @@ export async function callLLM(
     `All LLM providers [${chain.join(", ")}] failed to respond. Last error: ${lastError?.message ?? lastError}`
   );
 }
+
+export async function embedText(text: string): Promise<number[]> {
+  const provider = providerRegistry.get("openai");
+  if (provider && provider.embed) {
+    return provider.embed(text);
+  }
+  if (process.env.NODE_ENV === "test") {
+    return new Array(1536).fill(0.1);
+  }
+  throw new Error("No embedding provider registered");
+}
+
