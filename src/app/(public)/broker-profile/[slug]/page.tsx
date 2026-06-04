@@ -26,14 +26,32 @@ export default async function BrokerProfilePage({ params }: PageProps) {
   const decodedSlug = decodeURIComponent(slug);
   const supabase = createServiceClient();
 
-  // Find broker profile
-  const { data: profile } = await supabase
+  // Find broker profile by slug first, or fallback to name ilike / id matches
+  let profileId: string | null = null;
+  const { data: bpBySlug } = await supabase
+    .from("broker_profiles")
+    .select("user_id")
+    .eq("slug", decodedSlug)
+    .limit(1)
+    .maybeSingle();
+
+  if (bpBySlug) {
+    profileId = bpBySlug.user_id;
+  }
+
+  let query = supabase
     .from("profiles")
     .select("id, display_name, role")
-    .eq("role", "broker")
-    .ilike("display_name", `%${decodedSlug}%`)
-    .limit(1)
-    .single();
+    .eq("role", "broker");
+
+  if (profileId) {
+    query = query.eq("id", profileId);
+  } else {
+    const nameFromSlug = decodedSlug.replace(/-/g, " ");
+    query = query.or(`id.eq.${decodedSlug},display_name.ilike.%${decodedSlug}%,display_name.ilike.%${nameFromSlug}%`);
+  }
+
+  const { data: profile } = await query.limit(1).single();
 
   if (!profile) return notFound();
 
