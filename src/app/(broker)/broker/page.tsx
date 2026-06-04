@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 
 /**
  * Broker Cockpit v2 — 간소화된 데일리 허브
- * 인사 + 핵심 KPI + 알림 피드 + 안티프래질 분석 + 주간 리포트 + 모닝 인텔리전스 (탭화)
+ * 인사 + 핵심 KPI + 알림 피드 + 시장 대응 전략 분석 + 주간 리포트 + 모닝 인텔리전스 (탭화)
  */
 export default async function BrokerPage() {
   const hour = new Date().getHours();

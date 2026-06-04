@@ -30,7 +30,7 @@ async function getVibeCardData(slug: string) {
   const { data: bp } = await supabase
     .from("broker_profiles")
     .select(
-      "specialty_regions, specialty_assets, bio, is_verified, vibe_vector, vibe_vti, vibe_complement, vibe_template_id, vibe_valence, vibe_trust, vibe_analyzed_at",
+      "specialty_regions, specialty_assets, bio, is_verified, vibe_vector, vibe_vti, vibe_complement, vibe_template_id, vibe_valence, vibe_trust, vibe_analyzed_at, license_number, career_start_year, total_deal_count_self, deal_size_range, deal_specialty, buyer_types, preferred_price_range, fee_policy, consult_methods, response_time_hours, kakao_channel, naver_blog_url, youtube_url, linkedin_url, seo_summary, office_district, languages",
     )
     .eq("user_id", profile.id)
     .single();
@@ -39,14 +39,14 @@ async function getVibeCardData(slug: string) {
   const { count: dealCount } = await supabase
     .from("building_ssot_lite")
     .select("id", { count: "exact", head: true })
-    .eq("broker_id", profile.id);
+    .eq("owner_id", profile.id);
 
   // 4. Active deal count
   const { count: activeCount } = await supabase
     .from("building_ssot_lite")
     .select("id", { count: "exact", head: true })
-    .eq("broker_id", profile.id)
-    .eq("status", "active");
+    .eq("owner_id", profile.id)
+    .eq("status", "public_signal_ready");
 
   // 5. Resolve VTI metadata
   const vtiMeta = bp?.vibe_vti
@@ -104,6 +104,24 @@ async function getVibeCardData(slug: string) {
           css: template.css,
         }
       : null,
+    professional: bp ? {
+      licenseNumber: bp.license_number as string | null,
+      careerStartYear: bp.career_start_year as number | null,
+      totalDealCount: bp.total_deal_count_self as number | null,
+      dealSizeRange: bp.deal_size_range as string | null,
+      dealSpecialty: (bp.deal_specialty as string[]) ?? [],
+      buyerTypes: (bp.buyer_types as string[]) ?? [],
+      feePolicy: bp.fee_policy as string | null,
+      consultMethods: (bp.consult_methods as string[]) ?? [],
+      responseTimeHours: bp.response_time_hours as number | null,
+      kakaoChannel: bp.kakao_channel as string | null,
+      naverBlogUrl: bp.naver_blog_url as string | null,
+      youtubeUrl: bp.youtube_url as string | null,
+      linkedinUrl: bp.linkedin_url as string | null,
+      seoSummary: bp.seo_summary as string | null,
+      officeDistrict: bp.office_district as string | null,
+      languages: (bp.languages as string[]) ?? ['한국어'],
+    } : null,
     stats: {
       dealCount: dealCount ?? 0,
       activeCount: activeCount ?? 0,
@@ -122,21 +140,42 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: "Broker Not Found — DealCard" };
   }
 
-  const { profile, vibe } = data;
-  const vtiLabel = vibe?.vtiMeta?.label ?? "CRE Professional";
-  const title = `${profile.displayName} — ${vtiLabel} | DealCard Vibe Card`;
-  const description = vibe
-    ? `${profile.displayName}의 Vibe AI 명함. ${vibe.vtiMeta?.emoji ?? ""} ${vibe.vtiMeta?.labelKo ?? ""} — DealCard에서 확인하세요.`
-    : `${profile.displayName} 중개인의 Vibe AI 명함을 확인하세요. DealCard 검증 프로필.`;
+  const { profile, broker, professional, vibe } = data;
+  const regions = broker?.specialtyRegions ?? [];
+  const assets = broker?.specialtyAssets ?? [];
+  const title = `${profile.displayName} 공인중개사 | ${regions[0] ?? ""} ${assets[0] ?? "상업용 부동산"} 전문 | DealCard`;
+  const careerYears = professional?.careerStartYear ? `${new Date().getFullYear() - professional.careerStartYear}년 경력` : "";
+  const dealInfo = professional?.totalDealCount ? `, 누적 거래 ${professional.totalDealCount}건` : "";
+  const trustInfo = vibe?.trust ? `, Vibe 신뢰도 ${Math.round(vibe.trust * 100)}%` : "";
+  const description = professional?.seoSummary ?? broker?.bio ?? `${profile.displayName} 공인중개사의 ${regions[0] ?? ""} ${assets[0] ?? "상업용 부동산"} 전문 프로필. ${careerYears}${dealInfo}${trustInfo}.`;
 
   return {
     title,
     description,
+    keywords: [
+      `${profile.displayName} 공인중개사`,
+      `${regions[0] ?? ""} 상업용 부동산`,
+      `${assets[0] ?? "상업용 부동산"} 전문 중개`,
+      "DealCard",
+      "딜카드",
+      "Vibe AI 명함",
+    ],
+    alternates: {
+      canonical: `https://dealcard.kr/vibe-card/${slug}`,
+    },
     openGraph: {
       title,
       description,
       type: "profile",
-      images: [`/api/og/vibe-card/${slug}`],
+      url: `https://dealcard.kr/vibe-card/${slug}`,
+      images: [
+        {
+          url: `/api/og/vibe-card/${slug}`,
+          width: 1200,
+          height: 630,
+          alt: `${profile.displayName} 공인중개사 명함`,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",

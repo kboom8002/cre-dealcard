@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect, useCallback, useTransition } from "react";
 import Link from "next/link";
-import { Search, Building2, Store, BarChart3, MapPin, ArrowRight, Filter } from "lucide-react";
+import { Search, Building2, Store, BarChart3, MapPin, ArrowRight, Filter, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Tab = "deal" | "space" | "market";
+type Tab = "deal" | "space" | "market" | "broker";
 type Region = string;
 
 const REGIONS = [
@@ -20,10 +20,11 @@ const REGIONS = [
   { slug: "hongdae", label: "홍대", emoji: "🎵" },
 ] as const;
 
-const TABS: { id: Tab; label: string; icon: typeof Building2; desc: string; color: string }[] = [
+const TABS: { id: Tab; label: string; icon: any; desc: string; color: string }[] = [
   { id: "deal", label: "매매", icon: Building2, desc: "블라인드 딜카드", color: "text-blue-400" },
   { id: "space", label: "임대", icon: Store, desc: "즉시 입주 공간", color: "text-emerald-400" },
   { id: "market", label: "시세", icon: BarChart3, desc: "AI 시세 리포트", color: "text-purple-400" },
+  { id: "broker", label: "중개인", icon: UserCheck, desc: "전문 중개인", color: "text-amber-400" },
 ];
 
 const REGION_MAP: Record<string, string> = {
@@ -67,7 +68,24 @@ interface MarketResult {
   seo_slug: string;
 }
 
-type AnyResult = DealResult | SpaceResult | MarketResult;
+interface BrokerResult {
+  id: string;
+  displayName: string;
+  company: string | null;
+  photoUrl: string | null;
+  tagline: string | null;
+  slug: string;
+  specialtyRegions: string[];
+  specialtyAssets: string[];
+  bio: string | null;
+  vibeVti: string | null;
+  vibeTrust: number | null;
+  totalDealCount: number;
+  isVerified: boolean | null;
+  seoSummary: string | null;
+}
+
+type AnyResult = DealResult | SpaceResult | MarketResult | BrokerResult;
 
 function isDeal(r: AnyResult): r is DealResult {
   return "price_band" in r;
@@ -77,6 +95,9 @@ function isSpace(r: AnyResult): r is SpaceResult {
 }
 function isMarket(r: AnyResult): r is MarketResult {
   return "pulse_score" in r;
+}
+function isBroker(r: AnyResult): r is BrokerResult {
+  return "displayName" in r;
 }
 
 export default function ExploreUnifiedPage() {
@@ -94,7 +115,7 @@ export default function ExploreUnifiedPage() {
       if (currentRegion && currentRegion !== "all") params.set("region", currentRegion);
       if (q.trim()) params.set("q", q.trim());
 
-      const res = await fetch(`/api/public/explore/search?${params}`);
+      const res = await fetch(`/api/public/search?${params}`);
       if (!res.ok) throw new Error("검색 실패");
       const json = await res.json();
       setResults(json.data ?? []);
@@ -118,7 +139,8 @@ export default function ExploreUnifiedPage() {
   const regionHref = (r: string) => {
     if (tab === "deal") return r === "all" ? "/deal/gbd" : `/deal/${r}`;
     if (tab === "space") return r === "all" ? "/space/gbd" : `/space/${r}`;
-    return r === "all" ? "/market/gbd" : `/market/${r}`;
+    if (tab === "market") return r === "all" ? "/market/gbd" : `/market/${r}`;
+    return `/search?type=broker&region=${r}`;
   };
 
   return (
@@ -294,6 +316,33 @@ export default function ExploreUnifiedPage() {
                       <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">{r.summary_ko}</p>
                     </div>
                     <span className="text-xs font-bold text-purple-400 shrink-0">{r.pulse_score}</span>
+                  </Link>
+                );
+              }
+              if (isBroker(r)) {
+                return (
+                  <Link
+                    key={r.id}
+                    href={`/vibe-card/${r.slug}`}
+                    className="flex items-center gap-3 bg-[#131b2e] border border-slate-800 rounded-2xl px-4 py-3.5 hover:border-amber-500/30 transition-all group"
+                  >
+                    <UserCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-semibold text-white truncate group-hover:text-amber-400 transition-colors">
+                          {r.displayName} 중개사
+                        </p>
+                        {r.isVerified && (
+                          <span className="text-[8px] bg-emerald-500/10 text-emerald-400 font-medium px-1 rounded shrink-0">
+                            인증됨
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+                        {r.company || "소속 공인중개사"} · {r.tagline || r.seoSummary || "상업용 부동산 전문"}
+                      </p>
+                    </div>
+                    <ArrowRight className="w-3.5 h-3.5 text-slate-600 shrink-0" />
                   </Link>
                 );
               }

@@ -41,7 +41,7 @@ export default async function BrokerProfilePage({ params }: PageProps) {
   const { data: buildings } = await supabase
     .from("building_ssot_lite")
     .select("id, area_signal, asset_type, price_band, status, created_at")
-    .eq("broker_id", profile.id)
+    .eq("owner_id", profile.id)
     .order("created_at", { ascending: false })
     .limit(6);
 
@@ -51,7 +51,7 @@ export default async function BrokerProfilePage({ params }: PageProps) {
   const { count: dealCount } = await supabase
     .from("building_ssot_lite")
     .select("*", { count: "exact", head: true })
-    .eq("broker_id", profile.id);
+    .eq("owner_id", profile.id);
 
   // Compute specialty regions
   const regions = [...new Set(deals.map((d) => d.area_signal).filter(Boolean))];

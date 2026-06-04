@@ -28,7 +28,7 @@ export function AntifragileMode({
     switch (trendDirection) {
       case "down":
         return {
-          title: "🚨 안티프래질 침체기 모드 활성화",
+          title: "🚨 리스크 전환 모드 활성화",
           desc: "매매 시장이 둔화 국면에 진입했습니다. 리스크 방어 및 임대 전환 전략을 추천합니다.",
           gradient: "from-amber-600/20 via-rose-600/10 to-purple-600/10 border-rose-500/30",
           badgeColor: "bg-rose-500/20 text-rose-300 border-rose-500/40",
@@ -36,7 +36,7 @@ export function AntifragileMode({
         };
       case "up":
         return {
-          title: "🚀 불마켓 성장 가속 모드",
+          title: "🚀 상승장 모멘텀 가속 모드",
           desc: "매매 시장이 강력한 상승 기류를 타고 있습니다. 적극적인 매칭 및 거래 종결 전략을 추천합니다.",
           gradient: "from-emerald-600/20 via-teal-600/10 to-indigo-600/10 border-emerald-500/30",
           badgeColor: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
@@ -147,7 +147,7 @@ export function AntifragileMode({
           {/* Antifragile Actions */}
           <div className="space-y-2 pt-1">
             <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">
-              💡 안티프래질 행동 강령
+              💡 시장 대응 행동 지침
             </h4>
 
             {trendDirection === "down" ? (
@@ -156,7 +156,7 @@ export function AntifragileMode({
                 <div className="flex items-start gap-2.5 bg-gradient-to-r from-purple-500/10 to-indigo-500/5 p-3 rounded-xl border border-purple-500/20">
                   <span className="text-base mt-0.5">🔑</span>
                   <div className="flex-1">
-                    <p className="text-xs font-bold text-foreground">안티프래질 임대차 전환 가속화</p>
+                    <p className="text-xs font-bold text-foreground">침체기 임대차 전환 전략 가동</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">
                       매매 둔화기에는 임대 수요가 증가합니다. 기존 매매물건 중 일부 호실을 <strong>임대차 딜카드</strong>로 분할 등록하고, 임차 매칭을 가동해보세요.
                     </p>

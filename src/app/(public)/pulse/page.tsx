@@ -35,14 +35,36 @@ const TABS: { id: Tab; label: string; emoji: string }[] = [
 
 async function getLatestPulses() {
   const supabase = createServiceClient();
-  const { data } = await supabase
+  const { data: pulses } = await supabase
     .from("cre_pulses")
     .select("id, region, period_type, period_label, pulse_score, trend, summary_ko, key_findings, seo_slug, created_at")
     .eq("status", "published")
     .eq("period_type", "weekly")
     .order("created_at", { ascending: false })
     .limit(16);
-  return data ?? [];
+
+  if (!pulses || pulses.length === 0) return [];
+
+  const regions = Array.from(new Set(pulses.map(p => p.region)));
+  const periodLabels = Array.from(new Set(pulses.map(p => p.period_label)));
+
+  const { data: stats } = await supabase
+    .from("broker_sentiment_stats")
+    .select("region, period_label, sentiment_index")
+    .in("region", regions)
+    .in("period_label", periodLabels);
+
+  const statsMap = new Map<string, number | null>();
+  if (stats) {
+    for (const s of stats) {
+      statsMap.set(`${s.region}_${s.period_label}`, s.sentiment_index);
+    }
+  }
+
+  return pulses.map(p => ({
+    ...p,
+    sentimentIndex: statsMap.get(`${p.region}_${p.period_label}`) ?? null
+  }));
 }
 
 async function getOiticles(type?: string, authorType?: string) {
@@ -186,6 +208,7 @@ export default async function PulseMainPage({
                         summaryKo={pulse.summary_ko}
                         keyFindings={pulse.key_findings}
                         seoSlug={pulse.seo_slug}
+                        sentimentIndex={pulse.sentimentIndex}
                       />
                     );
                   })}

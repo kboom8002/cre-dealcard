@@ -62,6 +62,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     },
     {
+      url: `${BASE_URL}/search`,
+      lastModified: now,
+      changeFrequency: "daily",
+      priority: 0.85,
+    },
+    {
       url: `${BASE_URL}/building-radar`,
       lastModified: now,
       changeFrequency: "weekly",
@@ -162,27 +168,41 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap] Failed to fetch buildings:", err);
   }
 
-  /* ── 4. Broker profile pages ──────────────────────────────────── */
+  /* ── 4. Broker profile and vibe-card pages ────────────────────── */
   let brokerPages: MetadataRoute.Sitemap = [];
   try {
     const supabase = createServiceClient();
     const { data: brokers } = await supabase
       .from("profiles")
-      .select("id, display_name, created_at")
+      .select(`
+        id,
+        created_at,
+        broker_profiles!inner (
+          slug,
+          is_public
+        )
+      `)
       .eq("role", "broker")
+      .eq("broker_profiles.is_public", true)
       .limit(1000);
 
     if (brokers) {
-      brokerPages = brokers.map((b) => {
-        const slug = b.display_name
-          ? b.display_name.replace(/\s+/g, "-").toLowerCase()
-          : b.id;
-        return {
-          url: `${BASE_URL}/broker-profile/${slug}`,
-          lastModified: b.created_at ? new Date(b.created_at) : now,
-          changeFrequency: "monthly" as const,
-          priority: 0.5,
-        };
+      brokerPages = brokers.flatMap((b: any) => {
+        const slug = b.broker_profiles?.slug || b.id;
+        return [
+          {
+            url: `${BASE_URL}/broker-profile/${slug}`,
+            lastModified: b.created_at ? new Date(b.created_at) : now,
+            changeFrequency: "monthly" as const,
+            priority: 0.5,
+          },
+          {
+            url: `${BASE_URL}/vibe-card/${slug}`,
+            lastModified: b.created_at ? new Date(b.created_at) : now,
+            changeFrequency: "daily" as const,
+            priority: 0.8, // highlight redesigned visual business cards
+          }
+        ];
       });
     }
   } catch (err) {

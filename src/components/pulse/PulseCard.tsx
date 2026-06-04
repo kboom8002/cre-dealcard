@@ -11,6 +11,7 @@ interface Props {
   summaryKo: string;
   keyFindings: string[];
   seoSlug: string | null;
+  sentimentIndex?: number | null;
 }
 
 const REGION_LABELS: Record<string, string> = {
@@ -31,7 +32,7 @@ function scoreColor(score: number) {
 }
 
 export default function PulseCard({
-  id, region, periodLabel, pulseScore, trend, summaryKo, keyFindings, seoSlug,
+  id, region, periodLabel, pulseScore, trend, summaryKo, keyFindings, seoSlug, sentimentIndex,
 }: Props) {
   const t = trendDisplay(trend);
   const href = seoSlug ? `/pulse/${region}/${periodLabel}` : `/pulse/${region}/${periodLabel}`;
@@ -50,6 +51,11 @@ export default function PulseCard({
           <span className="text-[9px] text-slate-600">{periodLabel}</span>
         </div>
         <div className="flex items-center gap-1.5">
+          {sentimentIndex !== undefined && sentimentIndex !== null && (
+            <span className="text-[9px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded flex items-center gap-0.5" title="현장 체감 지수">
+              💬 {sentimentIndex}
+            </span>
+          )}
           <span className={`text-xs font-bold ${scoreColor(pulseScore)}`}>
             {pulseScore}
           </span>

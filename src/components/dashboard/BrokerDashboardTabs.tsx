@@ -21,7 +21,7 @@ export default function BrokerDashboardTabs({
   const tabs = [
     { id: "overview", label: "오늘의 현황" },
     { id: "intelligence", label: "🌅 모닝 정보" },
-    { id: "antifragile", label: "🛡️ 안티프래질" },
+    { id: "antifragile", label: "📈 시장 대응 전략" },
     { id: "reports", label: "📊 리포트" },
   ] as const;
 

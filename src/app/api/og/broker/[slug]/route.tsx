@@ -51,7 +51,7 @@ export async function GET(
       const { count } = await supabase
         .from("building_ssot_lite")
         .select("id", { count: "exact", head: true })
-        .eq("broker_id", profile.id);
+        .eq("owner_id", profile.id);
 
       dealCount = count ?? 0;
     }

@@ -1,28 +1,158 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 
+// ── Types ────────────────────────────────────────────
+interface DealItem {
+  id: string;
+  title: string;
+  area: string;
+  assetType: string;
+  priceBand: string;
+}
+
+interface LeadItem {
+  name: string;
+  score: number;
+  status: string;
+  lastActive: string;
+}
+
+interface StudioStats {
+  sentCount: number;
+  openCount: number;
+  gateRequests: number;
+  coBrokerDeals: number;
+}
+
+// ── Section IDs for accordion ────────────────────────
+type SectionId = "newsletter" | "ai-comment" | "whitelabel" | "co-broker" | "stats" | "leads" | "vendor";
+
+// ── Helper: get auth token ───────────────────────────
+async function getToken(): Promise<string> {
+  try {
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    );
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ?? "";
+  } catch {
+    return "";
+  }
+}
+
+// ── Component ────────────────────────────────────────
 export default function BrokerStudioPage() {
-  // State for Curation Editor
-  const [selectedNews, setSelectedNews] = useState<string[]>([]);
+  // Accordion state — multiple sections can be open on desktop, one at a time on mobile
+  const [openSections, setOpenSections] = useState<Set<SectionId>>(new Set(["newsletter", "ai-comment"]));
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Data state
+  const [deals, setDeals] = useState<DealItem[]>([]);
+  const [stats, setStats] = useState<StudioStats>({ sentCount: 0, openCount: 0, gateRequests: 0, coBrokerDeals: 0 });
+  const [leads, setLeads] = useState<LeadItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Newsletter state
   const [selectedDeals, setSelectedDeals] = useState<string[]>([]);
+  const [selectedNews, setSelectedNews] = useState<string[]>([]);
+
+  // AI Comment state (F6 — actually works)
   const [customComment, setCustomComment] = useState("");
   const [aiExpandedComment, setAiExpandedComment] = useState("");
   const [isExpanding, setIsExpanding] = useState(false);
 
-  // State for White-Label Link
-  const [brokerSubdomain, setBrokerSubdomain] = useState("kim-broker");
-  const [themeColor, setThemeColor] = useState("#6366f1"); // Indigo
+  // White-label state
+  const [brokerSubdomain, setBrokerSubdomain] = useState("");
+  const [themeColor, setThemeColor] = useState("#6366f1");
   const [generatedLink, setGeneratedLink] = useState("");
+  const [linkCopied, setLinkCopied] = useState(false);
 
-  // State for Co-Brokerage (D1)
-  const [coBrokerMessage, setCoBrokerMessage] = useState("");
+  // Co-brokerage state
   const [commissionSplit, setCommissionSplit] = useState("50:50 공동중개");
+  const [coBrokerTarget, setCoBrokerTarget] = useState("전체 브로커 공개 제안");
+  const [coBrokerMessage, setCoBrokerMessage] = useState("");
 
-  // Simulated AI Commenting (F6) -> Real AI implementation
+  // Bottom sheet for mobile navigation
+  const [showBottomNav, setShowBottomNav] = useState(false);
+
+  // ── Responsive detection ─────────────────────────
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // ── Fetch real data ──────────────────────────────
+  const fetchData = useCallback(async () => {
+    try {
+      const token = await getToken();
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      // Fetch broker's deals via rank endpoint
+      const dealsRes = await fetch("/api/broker/buildings/rank", { headers });
+      if (dealsRes.ok) {
+        const dealsJson = await dealsRes.json();
+        const items = ((dealsJson.buildings || []) as any[]).slice(0, 6).map((b: any) => ({
+          id: b.id,
+          title: `${b.areaSignal || "서울"} ${b.assetType || "빌딩"} ${b.priceBand || ""}`.trim(),
+          area: b.areaSignal || "서울",
+          assetType: b.assetType || "빌딩",
+          priceBand: b.priceBand || "비공개",
+        }));
+        setDeals(items);
+        // Derive stats from buildings data
+        const all = dealsJson.buildings || [];
+        const active = all.filter((b: any) => b.currentStage !== "closed");
+        const totalMatches = all.reduce((s: number, b: any) => s + (b.matchedBuyerCount ?? 0), 0);
+        setStats({
+          sentCount: all.length,
+          openCount: active.length,
+          gateRequests: totalMatches,
+          coBrokerDeals: 0,
+        });
+        // Build lead scores from buildings with matches
+        const leadData: LeadItem[] = all
+          .filter((b: any) => b.matchedBuyerCount > 0)
+          .slice(0, 3)
+          .map((b: any, i: number) => ({
+            name: `매수 후보 #${i + 1} (${b.areaSignal ?? "서울"})`,
+            score: Math.min(99, Math.round((b.vacancyAvgFitScore ?? 0.5) * 100)),
+            status: `${b.matchedBuyerCount}명 매칭 · ${b.assetType}`,
+            lastActive: "최근",
+          }));
+        setLeads(leadData);
+      } else {
+        // Fallback to profile stats
+        const statsRes = await fetch("/api/broker/profile/stats", { headers });
+        if (statsRes.ok) {
+          const statsJson = await statsRes.json();
+          const d = statsJson.data || {};
+          setStats({
+            sentCount: d.totalBuildings ?? 0,
+            openCount: d.activeBuildings ?? 0,
+            gateRequests: d.matchCount ?? 0,
+            coBrokerDeals: d.casepacks ?? 0,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Studio data fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // ── AI Comment (F6 — REAL) ───────────────────────
   const handleAiExpand = async () => {
-    if (!customComment) return;
+    if (!customComment.trim()) return;
     setIsExpanding(true);
     try {
       const res = await fetch("/api/broker/studio/ai-comment", {
@@ -34,294 +164,515 @@ export default function BrokerStudioPage() {
       if (!res.ok || !json.ok) throw new Error(json.error || "AI 생성 실패");
       setAiExpandedComment(json.data);
     } catch (err: any) {
+      setAiExpandedComment("");
       alert(err.message || "AI 생성 중 오류가 발생했습니다.");
     } finally {
       setIsExpanding(false);
     }
   };
 
-  // Generate White-Label Share Page (F4)
+  // ── White-label link generation (F4 — demo) ──────
   const generateShareLink = () => {
-    setGeneratedLink(`https://${brokerSubdomain}.dealcard.kr/share/seongsu-80b-valuable`);
+    const subdomain = brokerSubdomain.trim() || "my-broker";
+    setGeneratedLink(`https://${subdomain}.dealcard.kr/share`);
+    setLinkCopied(false);
   };
 
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(generatedLink);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      // Fallback for mobile
+      const textarea = document.createElement("textarea");
+      textarea.value = generatedLink;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    }
+  };
+
+  // ── Toggle section ───────────────────────────────
+  const toggleSection = (id: SectionId) => {
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        if (isMobile) next.clear(); // Accordion: one at a time on mobile
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // ── Scroll to section on mobile bottom nav ──────
+  const scrollToSection = (id: SectionId) => {
+    setShowBottomNav(false);
+    // Open the section
+    setOpenSections(new Set([id]));
+    // Scroll with delay for render
+    setTimeout(() => {
+      document.getElementById(`section-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  };
+
+  // ── Completeness for newsletter ──────────────────
+  const newsletterReady = selectedDeals.length > 0 || selectedNews.length > 0;
+
+  // ── News items (curated — later can be fetched from RSS) ──
+  const newsItems = useMemo(() => [
+    { id: "news-1", source: "한경", title: "강남 오피스 공실률 역대 최저... 임대료 상승세", date: "오늘" },
+    { id: "news-2", source: "매경", title: "성수동 IT밸리 꼬마빌딩 거래량 전분기比 30%↑", date: "오늘" },
+    { id: "news-3", source: "조선비즈", title: "판교 R&D센터 투자수익률 6%대 안정 수요", date: "어제" },
+  ], []);
+
+  // ── Section Header component ─────────────────────
+  const SectionHeader = ({ id, emoji, title, badge, badgeColor }: { id: SectionId; emoji: string; title: string; badge?: string; badgeColor?: string }) => (
+    <button
+      type="button"
+      onClick={() => toggleSection(id)}
+      className="w-full flex items-center justify-between p-4 md:p-5 active:bg-white/[0.02] transition-colors"
+      id={`section-${id}`}
+    >
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span className="text-lg flex-shrink-0">{emoji}</span>
+        <h2 className="text-sm font-bold text-white truncate">{title}</h2>
+        {badge && (
+          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${badgeColor || "bg-indigo-500/15 text-indigo-400"}`}>
+            {badge}
+          </span>
+        )}
+      </div>
+      <svg
+        className={`w-4 h-4 text-slate-500 transition-transform flex-shrink-0 ${openSections.has(id) ? "rotate-180" : ""}`}
+        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+      </svg>
+    </button>
+  );
+
+  // ── Render ───────────────────────────────────────
   return (
-    <main className="min-h-screen bg-[#0b0f19] text-slate-100 font-sans pb-12">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-[#0d1424]/90 backdrop-blur-md border-b border-slate-800 px-6 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-base font-extrabold text-white flex items-center gap-2">
-            🎨 브로커 콘텐츠 스튜디오 & 생태계 (⑥ & ④)
-          </h1>
-          <p className="text-[10px] text-slate-400">
-            나만의 뉴스레터 큐레이션 · AI 화법 비서 · 화이트라벨 공유 · 공동중개 허브
-          </p>
+    <main className="min-h-screen bg-[#0b0f19] text-slate-100 font-sans pb-24 md:pb-12">
+      {/* Header — compact for mobile */}
+      <header className="sticky top-0 z-40 bg-[#0d1424]/95 backdrop-blur-md border-b border-slate-800 px-4 md:px-6 py-3 md:py-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="min-w-0">
+            <h1 className="text-sm md:text-base font-extrabold text-white flex items-center gap-1.5 truncate">
+              🎨 콘텐츠 스튜디오
+            </h1>
+            <p className="text-[10px] text-slate-500 truncate hidden md:block">
+              뉴스레터 큐레이션 · AI 화법 비서 · 화이트라벨 공유 · 공동중개
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Mobile menu trigger */}
+            <button
+              type="button"
+              onClick={() => setShowBottomNav(true)}
+              className="md:hidden p-2 rounded-lg bg-slate-800/50 text-slate-400 active:bg-slate-700/50"
+              aria-label="메뉴"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <Link href="/broker" className="text-xs text-slate-400 hover:text-white transition-colors">
+              ← 홈
+            </Link>
+          </div>
         </div>
-        <Link href="/broker" className="text-xs text-slate-400 hover:text-white">← Broker Home</Link>
       </header>
 
-      <div className="max-w-4xl mx-auto px-6 py-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-
-        {/* Column 1 & 2: Editor & Studio */}
-        <div className="md:col-span-2 space-y-6">
-
-          {/* F1: 뉴스레터 큐레이션 편집기 */}
-          <section className="bg-[#131b2e] border border-slate-800 rounded-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">📰</span>
-                <h2 className="text-sm font-bold text-white">나만의 브로커 뉴스레터 큐레이션 (F1)</h2>
-              </div>
-              <span className="text-[9px] text-indigo-400 font-semibold">드래그 & 드롭 선택식</span>
+      {/* Stats bar — always visible, horizontally scrollable on mobile */}
+      <div className="sticky top-[53px] md:top-[61px] z-30 bg-[#0d1424]/95 backdrop-blur-md border-b border-slate-800/50">
+        <div className="max-w-4xl mx-auto px-4 py-2.5 flex gap-2 overflow-x-auto scrollbar-hide">
+          {[
+            { label: "총 딜카드", value: loading ? "–" : `${stats.sentCount}건`, color: "text-white" },
+            { label: "활성 딜", value: loading ? "–" : `${stats.openCount}건`, color: "text-emerald-400" },
+            { label: "매칭", value: loading ? "–" : `${stats.gateRequests}건`, color: "text-indigo-400" },
+            { label: "딜팩", value: loading ? "–" : `${stats.coBrokerDeals}건`, color: "text-amber-400" },
+          ].map((s, i) => (
+            <div key={i} className="flex-shrink-0 bg-slate-900/60 rounded-lg px-3 py-1.5 text-center min-w-[72px]">
+              <p className={`text-sm font-extrabold tabular-nums ${s.color}`}>{s.value}</p>
+              <p className="text-[9px] text-slate-500">{s.label}</p>
             </div>
+          ))}
+        </div>
+      </div>
 
-            <div className="space-y-3">
-              <label className="text-[10px] text-slate-400 block">① 포함할 딜카드 / 매물 선택</label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: "deal-1", title: "성수동 2가 80억 근생빌딩" },
-                  { id: "deal-2", title: "서초역 대로변 120억 오피스" }
-                ].map((deal) => (
-                  <div
-                    key={deal.id}
-                    onClick={() => {
-                      setSelectedDeals(prev =>
-                        prev.includes(deal.id) ? prev.filter(x => x !== deal.id) : [...prev, deal.id]
-                      );
-                    }}
-                    className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${
-                      selectedDeals.includes(deal.id)
-                        ? "bg-indigo-950/30 border-indigo-500"
-                        : "bg-slate-950 border-slate-800 hover:border-slate-700"
-                    }`}
-                  >
-                    🏢 {deal.title}
-                  </div>
-                ))}
-              </div>
-            </div>
+      {/* Main content — single column on mobile, 2 columns on desktop */}
+      <div className="max-w-4xl mx-auto px-4 md:px-6 py-4 space-y-3 md:space-y-4">
 
-            <div className="space-y-3">
-              <label className="text-[10px] text-slate-400 block">② 포함할 오늘의 부동산 뉴스 큐레이션</label>
+        {/* ═══ F1: 뉴스레터 큐레이션 ═══ */}
+        <section className="bg-[#131b2e] border border-slate-800 rounded-2xl overflow-hidden">
+          <SectionHeader id="newsletter" emoji="📰" title="뉴스레터 큐레이션" badge={`${selectedDeals.length + selectedNews.length}개 선택`} />
+          {openSections.has("newsletter") && (
+            <div className="px-4 md:px-5 pb-4 md:pb-5 space-y-4">
+              {/* Deal selection */}
               <div className="space-y-2">
-                {[
-                  { id: "news-1", source: "한경", title: "성수동 IT밸리 평당 1억 5천 돌파" },
-                  { id: "news-2", source: "매경", title: "테헤란로 오피스 공실률 2%대 철옹성" }
-                ].map((news) => (
-                  <div
-                    key={news.id}
-                    onClick={() => {
-                      setSelectedNews(prev =>
-                        prev.includes(news.id) ? prev.filter(x => x !== news.id) : [...prev, news.id]
-                      );
-                    }}
-                    className={`p-2.5 rounded-xl border text-xs cursor-pointer flex justify-between items-center transition-all ${
-                      selectedNews.includes(news.id)
-                        ? "bg-indigo-950/30 border-indigo-500"
-                        : "bg-slate-950 border-slate-800 hover:border-slate-700"
-                    }`}
-                  >
-                    <span>🗞️ <strong className="text-indigo-400">[{news.source}]</strong> {news.title}</span>
-                    <span className="text-[10px] text-slate-500">{selectedNews.includes(news.id) ? "✓ 담김" : "+ 추가"}</span>
-                  </div>
-                ))}
+                <label className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                  <span className="text-indigo-400">①</span> 포함할 딜카드 선택
+                </label>
+                {deals.length === 0 && !loading && (
+                  <p className="text-[11px] text-slate-500 italic py-2">등록된 딜카드가 없습니다.</p>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {deals.map((deal) => (
+                    <button
+                      key={deal.id}
+                      type="button"
+                      onClick={() => setSelectedDeals((prev) =>
+                        prev.includes(deal.id) ? prev.filter((x) => x !== deal.id) : [...prev, deal.id]
+                      )}
+                      className={`w-full text-left p-3 rounded-xl border text-xs transition-all active:scale-[0.98] ${
+                        selectedDeals.includes(deal.id)
+                          ? "bg-indigo-950/30 border-indigo-500/60"
+                          : "bg-slate-950/50 border-slate-800 active:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="truncate">🏢 {deal.title}</span>
+                        <span className={`text-[9px] ml-2 flex-shrink-0 ${selectedDeals.includes(deal.id) ? "text-indigo-400" : "text-slate-600"}`}>
+                          {selectedDeals.includes(deal.id) ? "✓" : "+"}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* F6: AI 말투 코멘터 */}
-            <div className="space-y-3 pt-3 border-t border-slate-800/80">
-              <label className="text-[10px] text-slate-400 block">③ AI 코멘터 어시스턴트 (F6)</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
+              {/* News selection */}
+              <div className="space-y-2">
+                <label className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                  <span className="text-indigo-400">②</span> 포함할 뉴스 큐레이션
+                </label>
+                <div className="space-y-1.5">
+                  {newsItems.map((news) => (
+                    <button
+                      key={news.id}
+                      type="button"
+                      onClick={() => setSelectedNews((prev) =>
+                        prev.includes(news.id) ? prev.filter((x) => x !== news.id) : [...prev, news.id]
+                      )}
+                      className={`w-full text-left p-2.5 rounded-xl border text-xs flex justify-between items-center transition-all active:scale-[0.98] ${
+                        selectedNews.includes(news.id)
+                          ? "bg-indigo-950/30 border-indigo-500/60"
+                          : "bg-slate-950/50 border-slate-800 active:border-slate-700"
+                      }`}
+                    >
+                      <span className="truncate">
+                        🗞️ <strong className="text-indigo-400">[{news.source}]</strong> {news.title}
+                      </span>
+                      <span className={`text-[9px] ml-2 flex-shrink-0 ${selectedNews.includes(news.id) ? "text-indigo-400" : "text-slate-600"}`}>
+                        {selectedNews.includes(news.id) ? "✓ 담김" : "추가"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Send newsletter button */}
+              <button
+                type="button"
+                disabled={!newsletterReady}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs py-3 rounded-xl transition-all active:scale-[0.98]"
+              >
+                {newsletterReady
+                  ? `📧 뉴스레터 발송하기 (${selectedDeals.length}딜 + ${selectedNews.length}뉴스)`
+                  : "딜 또는 뉴스를 선택하세요"}
+              </button>
+            </div>
+          )}
+        </section>
+
+        {/* ═══ F6: AI 코멘트 (실제 작동) ═══ */}
+        <section className="bg-[#131b2e] border border-slate-800 rounded-2xl overflow-hidden">
+          <SectionHeader id="ai-comment" emoji="🤖" title="AI 코멘트 비서" badge="실시간" badgeColor="bg-emerald-500/15 text-emerald-400" />
+          {openSections.has("ai-comment") && (
+            <div className="px-4 md:px-5 pb-4 md:pb-5 space-y-3">
+              <p className="text-[10px] text-slate-400">
+                핵심 아이디어를 입력하면 AI가 전문 브로커 화법으로 확장합니다.
+              </p>
+
+              {/* Input area — stacked on mobile */}
+              <div className="space-y-2">
+                <textarea
                   placeholder="예: '성수동 리모델링 매물 강추합니다'"
                   value={customComment}
                   onChange={(e) => setCustomComment(e.target.value)}
-                  className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                  rows={2}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-colors"
                 />
                 <button
+                  type="button"
                   onClick={handleAiExpand}
-                  disabled={isExpanding}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] px-4 py-2 rounded-xl transition-all"
+                  disabled={isExpanding || !customComment.trim()}
+                  className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition-all active:scale-[0.98]"
                 >
-                  {isExpanding ? "AI 가공 중..." : "AI 말투 생성"}
+                  {isExpanding ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      AI 가공 중...
+                    </span>
+                  ) : "✨ AI 말투 생성"}
                 </button>
               </div>
 
+              {/* AI result */}
               {aiExpandedComment && (
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs leading-relaxed text-slate-300 relative whitespace-pre-wrap">
-                  <span className="absolute top-2 right-2 text-[8px] bg-indigo-500/20 text-indigo-400 px-1.5 py-0.5 rounded">AI 말투 완료</span>
-                  {aiExpandedComment}
+                <div className="bg-slate-950 border border-indigo-500/20 rounded-xl p-3.5 text-xs leading-relaxed text-slate-300 relative whitespace-pre-wrap">
+                  <div className="absolute top-2 right-2 flex gap-1.5">
+                    <span className="text-[8px] bg-indigo-500/20 text-indigo-400 px-1.5 py-0.5 rounded">AI 작성</span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(aiExpandedComment);
+                      }}
+                      className="text-[8px] bg-slate-700 text-slate-300 hover:bg-slate-600 px-1.5 py-0.5 rounded transition-colors active:scale-95"
+                    >
+                      복사
+                    </button>
+                  </div>
+                  <div className="pt-4">{aiExpandedComment}</div>
                 </div>
               )}
             </div>
-          </section>
+          )}
+        </section>
 
-          {/* F4: 화이트라벨 공유 링크 빌더 */}
-          <section className="bg-[#131b2e] border border-slate-800 rounded-2xl p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🔗</span>
-              <h2 className="text-sm font-bold text-white">나만의 화이트라벨 모바일 공유 도구 (F4)</h2>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-[10px] text-slate-400 block mb-1">내 서브도메인 설정</label>
-                <input
-                  type="text"
-                  value={brokerSubdomain}
-                  onChange={(e) => setBrokerSubdomain(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
-                />
+        {/* ═══ F4: 화이트라벨 공유 ═══ */}
+        <section className="bg-[#131b2e] border border-slate-800 rounded-2xl overflow-hidden">
+          <SectionHeader id="whitelabel" emoji="🔗" title="화이트라벨 공유" badge="데모" badgeColor="bg-amber-500/15 text-amber-400" />
+          {openSections.has("whitelabel") && (
+            <div className="px-4 md:px-5 pb-4 md:pb-5 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-slate-400 block">서브도메인</label>
+                  <input
+                    type="text"
+                    value={brokerSubdomain}
+                    onChange={(e) => setBrokerSubdomain(e.target.value)}
+                    placeholder="kim-broker"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-slate-400 block">테마 색상</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={themeColor}
+                      onChange={(e) => setThemeColor(e.target.value)}
+                      className="w-10 h-10 bg-transparent border border-slate-800 rounded-lg cursor-pointer"
+                    />
+                    <span className="text-[10px] text-slate-500 font-mono">{themeColor}</span>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="text-[10px] text-slate-400 block mb-1">시그니처 테마 색상</label>
-                <input
-                  type="color"
-                  value={themeColor}
-                  onChange={(e) => setThemeColor(e.target.value)}
-                  className="w-full h-8 bg-slate-950 border border-slate-800 rounded-xl px-1 py-1 cursor-pointer"
-                />
-              </div>
+              <button
+                type="button"
+                onClick={generateShareLink}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-3 rounded-xl transition-all active:scale-[0.98]"
+              >
+                🔗 화이트라벨 링크 생성
+              </button>
+
+              {generatedLink && (
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
+                  <p className="text-[10px] text-indigo-400 font-mono break-all select-all">{generatedLink}</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCopyLink}
+                      className={`flex-1 text-[10px] font-bold py-2 rounded-lg transition-all active:scale-[0.98] ${
+                        linkCopied
+                          ? "bg-emerald-600/20 text-emerald-400 border border-emerald-600/30"
+                          : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                      }`}
+                    >
+                      {linkCopied ? "✓ 복사됨" : "📋 복사"}
+                    </button>
+                    <button
+                      type="button"
+                      className="flex-1 text-[10px] font-bold py-2 rounded-lg bg-[#FEE500] text-[#3C1E1E] active:scale-[0.98]"
+                    >
+                      💬 카톡 공유
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
+          )}
+        </section>
 
-            <button
-              onClick={generateShareLink}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2.5 rounded-xl transition-all"
-            >
-              화이트라벨 모바일 페이지 생성
-            </button>
-
-            {generatedLink && (
-              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex justify-between items-center">
-                <span className="text-[10px] text-indigo-400 font-mono select-all truncate">{generatedLink}</span>
-                <span className="text-[9px] bg-indigo-500 text-white px-2 py-1 rounded cursor-pointer hover:bg-indigo-400">카톡 발송</span>
-              </div>
-            )}
-          </section>
-
-          {/* D1: 공동중개 제안 시스템 */}
-          <section className="bg-[#131b2e] border border-slate-800 rounded-2xl p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🤝</span>
-              <h2 className="text-sm font-bold text-white">JS 공동중개 파트너 매칭 & 제안 허브 (D1)</h2>
-            </div>
-
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] text-slate-400 block mb-1">수수료 공동분배 기준</label>
+        {/* ═══ D1: 공동중개 제안 ═══ */}
+        <section className="bg-[#131b2e] border border-slate-800 rounded-2xl overflow-hidden">
+          <SectionHeader id="co-broker" emoji="🤝" title="공동중개 제안" badge="데모" badgeColor="bg-amber-500/15 text-amber-400" />
+          {openSections.has("co-broker") && (
+            <div className="px-4 md:px-5 pb-4 md:pb-5 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-slate-400 block">수수료 분배</label>
                   <select
                     value={commissionSplit}
                     onChange={(e) => setCommissionSplit(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white appearance-none"
                   >
                     <option>50:50 공동중개</option>
                     <option>60:40 (매수우위)</option>
                     <option>40:60 (매도우위)</option>
                   </select>
                 </div>
-
-                <div>
-                  <label className="text-[10px] text-slate-400 block mb-1">수신 공동중개사 지정</label>
-                  <select className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
-                    <option>제이에스부동산 꼬마빌딩 전담팀</option>
-                    <option>용산구 연합 파트너 브로커</option>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-slate-400 block">수신 대상</label>
+                  <select
+                    value={coBrokerTarget}
+                    onChange={(e) => setCoBrokerTarget(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white appearance-none"
+                  >
                     <option>전체 브로커 공개 제안</option>
+                    <option>같은 권역 파트너 브로커</option>
+                    <option>즐겨찾기 브로커만</option>
                   </select>
                 </div>
               </div>
 
-              <div>
-                <label className="text-[10px] text-slate-400 block mb-1">공동중개 매칭 제안 메시지</label>
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-slate-400 block">제안 메시지</label>
                 <textarea
-                  placeholder="예: '성수동 2가 80억 매수 희망 법인 확보 중입니다. 리모델링 가능한 근생 건물 보유하신 중개사분 매칭 요청드립니다.'"
                   value={coBrokerMessage}
                   onChange={(e) => setCoBrokerMessage(e.target.value)}
-                  className="w-full h-16 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                  placeholder="예: '성수동 2가 80억 매수 희망 법인 확보 중입니다. 리모델링 가능한 근생 건물 보유하신 중개사분 매칭 요청드립니다.'"
+                  rows={3}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white resize-none focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
                 />
               </div>
 
-              <button className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2.5 rounded-xl transition-all">
-                공동중개 제안 등록 (매칭 알림 즉시 발송)
+              <button
+                type="button"
+                disabled={!coBrokerMessage.trim()}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs py-3 rounded-xl transition-all active:scale-[0.98]"
+              >
+                🤝 공동중개 제안 등록
               </button>
             </div>
-          </section>
+          )}
+        </section>
 
-        </div>
 
-        {/* Column 3: Stats & CRM */}
-        <div className="space-y-6">
-
-          {/* F5: 콘텐츠 마케팅 성과 대시보드 */}
-          <section className="bg-[#131b2e] border border-slate-800 rounded-2xl p-5 space-y-4">
-            <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">📊 이번 주 큐레이션 성과 (F5)</p>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-slate-950 border border-slate-800/80 rounded-xl p-3 text-center">
-                <span className="text-[9px] text-slate-500 block">발송 건수</span>
-                <span className="text-base font-extrabold text-white">18 건</span>
-              </div>
-              <div className="bg-slate-950 border border-slate-800/80 rounded-xl p-3 text-center">
-                <span className="text-[9px] text-slate-500 block">고객 열람</span>
-                <span className="text-base font-extrabold text-emerald-400">12 건 (66%)</span>
-              </div>
-              <div className="bg-slate-950 border border-slate-800/80 rounded-xl p-3 text-center">
-                <span className="text-[9px] text-slate-500 block">Gate 추가 요청</span>
-                <span className="text-base font-extrabold text-indigo-400">3 건</span>
-              </div>
-              <div className="bg-slate-950 border border-slate-800/80 rounded-xl p-3 text-center">
-                <span className="text-[9px] text-slate-500 block">공동중개 체결</span>
-                <span className="text-base font-extrabold text-amber-400">1 건</span>
-              </div>
-            </div>
-          </section>
-
-          {/* F3: 실시간 고객 관심도 순위 (Lead Scoring) */}
-          <section className="bg-[#131b2e] border border-slate-800 rounded-2xl p-5 space-y-3">
-            <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">🔥 실시간 매수자 관심 점수 (F3)</p>
-            <div className="space-y-2">
-              {[
-                { name: "김*우 대표 (성수사옥)", score: 95, status: "Gate 상세 요청 완료" },
-                { name: "이*혜 회장 (증여용)", score: 82, status: "뉴스레터 3회 중복 열람" },
-                { name: "박*준 자산가 (강남오피스)", score: 48, status: "딜카드 1회 열람" }
-              ].map((lead, idx) => (
-                <div key={idx} className="bg-slate-950 border border-slate-800/80 rounded-xl p-3 flex justify-between items-center">
-                  <div>
-                    <span className="text-xs font-semibold text-white block">{lead.name}</span>
-                    <span className="text-[9px] text-slate-500">{lead.status}</span>
+        {/* ═══ F3: 리드 스코어링 ═══ */}
+        <section className="bg-[#131b2e] border border-slate-800 rounded-2xl overflow-hidden">
+          <SectionHeader id="leads" emoji="🔥" title="매수자 관심 점수" badge={leads.length > 0 ? `${leads.length}명` : "매칭 없음"} badgeColor={leads.length > 0 ? "bg-rose-500/15 text-rose-400" : "bg-slate-800 text-slate-500"} />
+          {openSections.has("leads") && (
+            <div className="px-4 md:px-5 pb-4 md:pb-5 space-y-2">
+              {leads.length === 0 ? (
+                <p className="text-[11px] text-slate-500 italic py-2">
+                  매칭된 매수자가 없습니다. 딜카드를 등록하면 자동 매칭됩니다.
+                </p>
+              ) : (
+                leads.map((lead, idx) => (
+                  <div key={idx} className="bg-slate-950/50 border border-slate-800/80 rounded-xl p-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="text-xs font-semibold text-white block truncate">{lead.name}</span>
+                      <span className="text-[9px] text-slate-500">{lead.status}</span>
+                    </div>
+                    <div className="flex-shrink-0 text-center">
+                      <span className={`text-sm font-black tabular-nums block ${
+                        lead.score >= 80 ? "text-rose-400" : lead.score >= 60 ? "text-amber-400" : "text-slate-400"
+                      }`}>{lead.score}</span>
+                      <span className="text-[8px] text-slate-600">점</span>
+                    </div>
                   </div>
-                  <span className="text-xs font-black text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded">
-                    {lead.score}점
-                  </span>
-                </div>
-              ))}
+                ))
+              )}
             </div>
-          </section>
+          )}
+        </section>
 
-          {/* D3: 상업용 Vendor 평점/리뷰 */}
-          <section className="bg-[#131b2e] border border-slate-800 rounded-2xl p-5 space-y-3">
-            <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">👷 상업용 협력 Vendor 리뷰 (D3)</p>
-            <div className="space-y-2">
+        {/* ═══ D3: 벤더 리뷰 ═══ */}
+        <section className="bg-[#131b2e] border border-slate-800 rounded-2xl overflow-hidden">
+          <SectionHeader id="vendor" emoji="👷" title="협력 벤더 리뷰" />
+          {openSections.has("vendor") && (
+            <div className="px-4 md:px-5 pb-4 md:pb-5 space-y-2">
               {[
-                { name: "JS 건축설계사무소 (꼬마빌딩 증축 전문)", rating: "⭐️ 4.9", review: "기획설계 검토 피드백이 하루 만에 전달되어 미팅 수월했습니다." },
-                { name: "바른 법무법인 (CRE 양도세 특화)", rating: "⭐️ 4.7", review: "법인 전환 증여 케이스 양도세 계산 피드백이 신속합니다." }
+                { name: "JS 건축설계사무소", spec: "꼬마빌딩 증축 전문", rating: "4.9", review: "기획설계 검토 피드백이 하루 만에 전달되어 미팅 수월했습니다." },
+                { name: "바른 법무법인", spec: "CRE 양도세 특화", rating: "4.7", review: "법인 전환 증여 케이스 양도세 계산 피드백이 신속합니다." },
               ].map((vendor, idx) => (
-                <div key={idx} className="bg-slate-950 border border-slate-800/80 rounded-xl p-3 space-y-1">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-bold text-white">{vendor.name}</span>
-                    <span className="text-amber-400 font-semibold">{vendor.rating}</span>
+                <div key={idx} className="bg-slate-950/50 border border-slate-800/80 rounded-xl p-3.5 space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-white block truncate">{vendor.name}</span>
+                      <span className="text-[9px] text-slate-500">{vendor.spec}</span>
+                    </div>
+                    <span className="text-xs text-amber-400 font-bold flex-shrink-0">⭐️ {vendor.rating}</span>
                   </div>
-                  <p className="text-[9px] text-slate-400 leading-relaxed">{vendor.review}</p>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">{vendor.review}</p>
                 </div>
               ))}
             </div>
-          </section>
-
-        </div>
-
+          )}
+        </section>
       </div>
+
+      {/* ═══ Mobile Bottom Navigation Sheet ═══ */}
+      {showBottomNav && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-50 bg-black/60 md:hidden"
+            onClick={() => setShowBottomNav(false)}
+          />
+          {/* Sheet */}
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#131b2e] border-t border-slate-700 rounded-t-2xl p-5 pb-8 md:hidden animate-slide-up">
+            <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto mb-4" />
+            <h3 className="text-xs font-bold text-slate-400 mb-3">빠른 이동</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: "newsletter" as SectionId, emoji: "📰", label: "뉴스레터" },
+                { id: "ai-comment" as SectionId, emoji: "🤖", label: "AI 코멘트" },
+                { id: "whitelabel" as SectionId, emoji: "🔗", label: "화이트라벨" },
+                { id: "co-broker" as SectionId, emoji: "🤝", label: "공동중개" },
+                { id: "leads" as SectionId, emoji: "🔥", label: "리드 점수" },
+                { id: "vendor" as SectionId, emoji: "👷", label: "벤더 리뷰" },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => scrollToSection(item.id)}
+                  className="flex items-center gap-2 p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white active:bg-slate-800 transition-colors"
+                >
+                  <span>{item.emoji}</span>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Global mobile animation style */}
+      <style>{`
+        @keyframes slide-up {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        .animate-slide-up {
+          animation: slide-up 0.3s ease-out;
+        }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </main>
   );
 }

@@ -14,7 +14,70 @@ const ProfileUpdateSchema = z.object({
   specialty_regions: z.array(z.string()).max(10).optional(),
   specialty_assets: z.array(z.string()).max(10).optional(),
   bio: z.string().max(500).optional(),
+
+  // 자격/등록
+  license_number: z.string().max(30).optional(),
+  office_reg_number: z.string().max(30).optional(),
+  association: z.string().max(50).optional(),
+  career_start_year: z.number().min(1980).max(2026).optional(),
+
+  // 거래 실적
+  total_deal_count_self: z.number().min(0).optional(),
+  deal_size_range: z.string().optional(),
+  deal_specialty: z.array(z.string()).max(5).optional(),
+  buyer_types: z.array(z.string()).max(5).optional(),
+  preferred_price_range: z.string().optional(),
+  languages: z.array(z.string()).max(5).optional(),
+
+  // 서비스 정책
+  fee_policy: z.string().optional(),
+  consult_methods: z.array(z.string()).optional(),
+  response_time_hours: z.number().min(1).max(168).optional(),
+
+  // 소셜
+  kakao_channel: z.string().max(100).optional(),
+  naver_blog_url: z.string().max(200).optional(),
+  youtube_url: z.string().max(200).optional(),
+  linkedin_url: z.string().max(200).optional(),
+
+  // SEO
+  seo_summary: z.string().max(500).optional(),
+  is_public: z.boolean().optional(),
+
+  // GEO
+  office_address: z.string().max(200).optional(),
+  office_district: z.string().max(20).optional(),
 });
+
+/** broker_profiles 테이블에서 조회할 v2 확장 컬럼 목록 */
+const BROKER_PROFILE_COLUMNS = [
+  'specialty_regions', 'specialty_assets', 'bio', 'is_verified', 'created_at',
+  // v2 자격/등록
+  'license_number', 'office_reg_number', 'association', 'career_start_year',
+  // v2 거래 실적
+  'total_deal_count_self', 'deal_size_range', 'deal_specialty', 'buyer_types',
+  'preferred_price_range', 'languages',
+  // v2 서비스 정책
+  'fee_policy', 'consult_methods', 'response_time_hours',
+  // v2 소셜
+  'kakao_channel', 'naver_blog_url', 'youtube_url', 'linkedin_url',
+  // v2 SEO
+  'seo_summary', 'is_public',
+  // v2 GEO
+  'office_address', 'office_district',
+].join(', ');
+
+/** broker_profiles 테이블에 upsert 할 v2 필드 키 목록 */
+const BROKER_UPSERT_KEYS = [
+  'specialty_regions', 'specialty_assets', 'bio',
+  'license_number', 'office_reg_number', 'association', 'career_start_year',
+  'total_deal_count_self', 'deal_size_range', 'deal_specialty', 'buyer_types',
+  'preferred_price_range', 'languages',
+  'fee_policy', 'consult_methods', 'response_time_hours',
+  'kakao_channel', 'naver_blog_url', 'youtube_url', 'linkedin_url',
+  'seo_summary', 'is_public',
+  'office_address', 'office_district',
+] as const;
 
 export async function GET(req: NextRequest) {
   const guard = await requireBroker(req);
@@ -35,7 +98,7 @@ export async function GET(req: NextRequest) {
 
   const { data: brokerProfile } = await supabase
     .from('broker_profiles')
-    .select('specialty_regions, specialty_assets, bio, is_verified, created_at')
+    .select(BROKER_PROFILE_COLUMNS)
     .eq('user_id', user!.id)
     .single();
 
@@ -60,7 +123,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { display_name, phone, company, specialty_regions, specialty_assets, bio } = parsed.data;
+  const { display_name, phone, company } = parsed.data;
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -82,11 +145,12 @@ export async function PUT(req: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Upsert broker_profiles table
+  // Upsert broker_profiles table (v2 확장 필드 포함)
   const brokerUpdate: Record<string, unknown> = { user_id: user!.id };
-  if (specialty_regions !== undefined) brokerUpdate.specialty_regions = specialty_regions;
-  if (specialty_assets !== undefined) brokerUpdate.specialty_assets = specialty_assets;
-  if (bio !== undefined) brokerUpdate.bio = bio;
+  for (const key of BROKER_UPSERT_KEYS) {
+    const value = parsed.data[key];
+    if (value !== undefined) brokerUpdate[key] = value;
+  }
 
   if (Object.keys(brokerUpdate).length > 1) {
     const { error } = await supabase

@@ -37,4 +37,17 @@ describe('DC-L1 DB Migrations & Tables', () => {
     const { data, error } = await supabase.from('building_ssot_lite').select('promotion_score, matched_buyer_count, vacancy_demand_verified').limit(1);
     expect(error?.code).not.toBe('42703'); // undefined_column
   });
+
+  test('DC-L1-05: broker_sentiment_votes and broker_sentiment_stats exist', async () => {
+    const { error: errTable } = await supabase.from('broker_sentiment_votes').select('id').limit(1);
+    expect(errTable?.code).not.toBe('42P01');
+
+    const { error: errView } = await supabase.from('broker_sentiment_stats').select('vote_count').limit(1);
+    expect(errView?.code).not.toBe('42P01');
+  });
+
+  test('DC-L1-06: broker_profiles v2 columns exist', async () => {
+    const { error } = await supabase.from('broker_profiles').select('license_number, career_start_year, association').limit(1);
+    expect(error?.code).not.toBe('42703'); // undefined_column
+  });
 });

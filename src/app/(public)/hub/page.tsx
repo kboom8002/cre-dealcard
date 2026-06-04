@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { HubHeroClient } from "@/components/hub/HubHeroClient";
 import { HubCategoryGrid } from "@/components/hub/HubCategoryGrid";
+import { HubBrokerShowcase } from "@/components/hub/HubBrokerShowcase";
+import { brokerItemList } from "@/lib/schema-org";
 
 export const metadata: Metadata = {
   title: "DealCard Hub | 상업용 부동산의 새로운 기준",
@@ -47,6 +49,7 @@ async function fetchHubData() {
       { data: recentDeals },
       { data: latestPulse },
       { data: latestInsight },
+      { data: featuredBrokers },
     ] = await Promise.all([
       supabase
         .from("building_ssot_lite")
@@ -62,7 +65,7 @@ async function fetchHubData() {
       supabase
         .from("building_ssot_lite")
         .select("id, area_signal, asset_type, price_band, status, created_at")
-        .eq("status", "active")
+        .eq("status", "public_signal_ready")
         .order("created_at", { ascending: false })
         .limit(3),
       supabase
@@ -77,7 +80,54 @@ async function fetchHubData() {
         .eq("status", "published")
         .order("published_at", { ascending: false })
         .limit(1),
+      supabase
+        .from("profiles")
+        .select(`
+          id,
+          display_name,
+          company,
+          photo_url,
+          tagline,
+          broker_profiles!inner (
+            slug,
+            specialty_regions,
+            specialty_assets,
+            bio,
+            vibe_vti,
+            vibe_trust,
+            vibe_valence,
+            is_public,
+            seo_summary,
+            total_deal_count_self,
+            is_verified
+          )
+        `)
+        .eq("role", "broker")
+        .eq("broker_profiles.is_public", true)
+        .limit(3),
     ]);
+
+    const formattedBrokers = (featuredBrokers ?? []).map((p: any) => {
+      const bp = p.broker_profiles || {};
+      return {
+        id: p.id,
+        displayName: p.display_name,
+        company: p.company,
+        photoUrl: p.photo_url,
+        tagline: p.tagline,
+        slug: bp.slug,
+        specialtyRegions: bp.specialty_regions || [],
+        specialtyAssets: bp.specialty_assets || [],
+        bio: bp.bio,
+        vibeVti: bp.vibe_vti,
+        vibeTrust: bp.vibe_trust,
+        vibeValence: bp.vibe_valence,
+        totalDealCount: bp.total_deal_count_self || 0,
+        isVerified: bp.is_verified,
+        seoSummary: bp.seo_summary
+      };
+    });
+
     return {
       deals: deals ?? 0,
       brokers: brokers ?? 0,
@@ -85,12 +135,14 @@ async function fetchHubData() {
       recentDeals: recentDeals ?? [],
       latestPulse: latestPulse ?? [],
       latestInsight: latestInsight?.[0] ?? null,
+      featuredBrokers: formattedBrokers,
     };
   } catch (err) {
     console.error("Error fetching Hub data:", err);
-    return { deals: 0, brokers: 0, newThisWeek: 0, recentDeals: [], latestPulse: [], latestInsight: null };
+    return { deals: 0, brokers: 0, newThisWeek: 0, recentDeals: [], latestPulse: [], latestInsight: null, featuredBrokers: [] };
   }
 }
+
 
 const QUICK_TOOLS = [
   {
@@ -273,9 +325,32 @@ export default async function HubPage() {
         </section>
       )}
 
+      {/* ── Schema.org Broker ItemList ── */}
+      {data.featuredBrokers.length > 0 && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(
+              brokerItemList(
+                data.featuredBrokers.map((b) => ({
+                  id: b.slug,
+                  display_name: b.displayName,
+                  company: b.company,
+                  specialty_regions: b.specialtyRegions,
+                  bio: b.seoSummary || b.bio,
+                }))
+              )
+            ),
+          }}
+        />
+      )}
+
+      {/* ── 전문 중개인 쇼케이스 (NEW) ── */}
+      <HubBrokerShowcase brokers={data.featuredBrokers} />
+
       {/* ── 오늘의 인사이트 ── */}
       {data.latestInsight && (
-        <section className="max-w-2xl mx-auto px-4 pb-5">
+        <section className="max-w-2xl mx-auto px-4 pb-5 pt-4">
           <div className="flex items-center justify-between mb-2.5">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
               오늘의 인사이트

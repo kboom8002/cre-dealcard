@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { CRESignalSnapshot } from "@/domain/pulse/cre-signal-aggregator";
 import { breadcrumb } from "@/lib/schema-org";
+import SentimentVoteWidget from "@/components/pulse/SentimentVoteWidget";
 
 export const revalidate = 3600;
 
@@ -272,32 +273,7 @@ export default async function PulseDetailPage({ params }: { params: Params }) {
         </div>
 
         {/* B4 & G7: Market Broker Sentiment Index Poll */}
-        <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-bold text-cyan-400 uppercase">💬 현장 중개사 경기 체감 투표 (G7)</p>
-              <p className="text-[9px] text-slate-500 mt-0.5">이번 주 내가 느끼는 상업용 부동산 시장 분위기는?</p>
-            </div>
-            <span className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
-              체감 지수 68 (Bullish)
-            </span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <button className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-xl p-3 text-center transition-all">
-              <span className="block text-base">🔥</span>
-              <span className="text-[10px] font-bold text-emerald-400 mt-1 block">뜨거움</span>
-            </button>
-            <button className="bg-slate-800/50 hover:bg-slate-800 border border-slate-800 rounded-xl p-3 text-center transition-all">
-              <span className="block text-base">⚖️</span>
-              <span className="text-[10px] font-bold text-slate-400 mt-1 block">보합</span>
-            </button>
-            <button className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl p-3 text-center transition-all">
-              <span className="block text-base">❄️</span>
-              <span className="text-[10px] font-bold text-red-400 mt-1 block">차가움</span>
-            </button>
-          </div>
-        </div>
+        <SentimentVoteWidget region={region} period={period} pulseScore={score} />
 
         {/* B6/C6: Report Subscription Widget */}
         <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-5 flex items-center justify-between">

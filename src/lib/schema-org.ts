@@ -332,7 +332,7 @@ export function website() {
       "@type": "SearchAction",
       target: {
         "@type": "EntryPoint",
-        urlTemplate: `${BASE_URL}/explore?q={search_term_string}`,
+        urlTemplate: `${BASE_URL}/search?q={search_term_string}`,
       },
       "query-input": "required name=search_term_string",
     },
@@ -360,3 +360,36 @@ export function breadcrumb(steps: BreadcrumbStep[]) {
     })),
   };
 }
+
+/* ── 11. SearchResultsPage & BrokerItemList ─────────────────────── */
+
+export function searchResultsPage(query: string, totalResults: number) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "SearchResultsPage",
+    name: `"${query}" 검색 결과 | DealCard`,
+    description: `"${query}"에 대한 상업용 부동산 매물, 임대 공간, 시장 시세 및 전문 중개인 검색 결과 총 ${totalResults}건입니다.`,
+    url: `${BASE_URL}/search?q=${encodeURIComponent(query)}`,
+  };
+}
+
+export function brokerItemList(brokers: BrokerForSchema[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "상업용 부동산 전문 중개인 목록",
+    numberOfItems: brokers.length,
+    itemListElement: brokers.map((b, idx) => ({
+      "@type": "ListItem",
+      position: idx + 1,
+      item: {
+        "@type": "RealEstateAgent",
+        name: b.display_name,
+        telephone: b.phone ?? undefined,
+        description: b.bio ?? undefined,
+        url: `${BASE_URL}/vibe-card/${b.id}`, // b.id should be the slug
+      },
+    })),
+  };
+}
+

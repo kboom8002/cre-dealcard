@@ -32,6 +32,9 @@ export async function GET(
   let subtextColor = "#94a3b8";
   let accentColor = "#8b5cf6";
   let photoUrl = "";
+  let trust = 0.8;
+  let valence = 0.75;
+  let isVerified = false;
 
   try {
     const supabase = createServiceClient();
@@ -54,19 +57,22 @@ export async function GET(
       // Fetch broker_profiles with vibe data
       const { data: bp } = await supabase
         .from("broker_profiles")
-        .select("specialty_regions, vibe_vti, vibe_template_id")
+        .select("specialty_regions, vibe_vti, vibe_template_id, vibe_valence, vibe_trust, is_verified")
         .eq("user_id", profile.id)
         .single();
 
       if (bp) {
         specialtyRegions = (bp.specialty_regions as string[]) ?? [];
+        isVerified = !!bp.is_verified;
+        trust = bp.vibe_trust ?? 0.8;
+        valence = bp.vibe_valence ?? 0.75;
 
         if (bp.vibe_vti) {
           vtiType = bp.vibe_vti;
           const proto = VTI_PROTOTYPES.find((p) => p.meta.type === bp.vibe_vti);
           if (proto) {
             vtiEmoji = proto.meta.emoji;
-            vtiLabel = proto.meta.label_en;
+            vtiLabel = proto.meta.label_ko; // Use Korean VTI label
             vtiColor = proto.meta.color;
           }
         }
@@ -87,7 +93,7 @@ export async function GET(
       const { count } = await supabase
         .from("building_ssot_lite")
         .select("id", { count: "exact", head: true })
-        .eq("broker_id", profile.id);
+        .eq("owner_id", profile.id);
       dealCount = count ?? 0;
     }
   } catch {
@@ -98,6 +104,9 @@ export async function GET(
     specialtyRegions.length > 0 ? specialtyRegions.join(" · ") : "서울 전역";
   const initial = brokerName.charAt(0);
 
+  const trustPct = Math.round(trust * 100);
+  const valencePct = Math.round(valence * 100);
+
   return new ImageResponse(
     (
       <div
@@ -107,171 +116,247 @@ export async function GET(
           display: "flex",
           background: bgGradient,
           fontFamily: "sans-serif",
-          padding: "0",
+          padding: "50px 60px",
+          alignItems: "center",
+          justifyContent: "space-between",
+          position: "relative",
         }}
       >
-        {/* Left panel — avatar with VTI ring */}
+        {/* Decorative background grid pattern */}
         <div
           style={{
-            width: "420px",
-            height: "100%",
+            position: "absolute",
+            inset: 0,
+            opacity: 0.05,
+            backgroundImage: `radial-gradient(circle, ${accentColor} 1px, transparent 1px)`,
+            backgroundSize: "20px 20px",
+          }}
+        />
+
+        {/* Left Side: Business Card Miniature */}
+        <div
+          style={{
+            width: "400px",
+            height: "530px",
+            background: "rgba(15, 23, 42, 0.45)",
+            backdropFilter: "blur(20px)",
+            borderRadius: "32px",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            boxShadow: `0 30px 60px -15px rgba(0,0,0,0.5), 0 0 50px -10px ${accentColor}30`,
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
+            flexDirection: "column",
+            justifyContent: "space-between",
+            padding: "36px 30px",
+            overflow: "hidden",
+            position: "relative",
           }}
         >
-          {/* Ring */}
+          {/* Card Shine Effect */}
           <div
             style={{
-              width: "260px",
-              height: "260px",
-              borderRadius: "50%",
-              background: `conic-gradient(${ringColor}, ${accentColor}, ${ringColor})`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: `0 0 48px ${ringColor}40`,
+              position: "absolute",
+              top: "-50%",
+              left: "-50%",
+              width: "200%",
+              height: "200%",
+              background: `radial-gradient(circle at 30% 30%, rgba(255,255,255,0.08) 0%, transparent 60%)`,
+              pointerEvents: "none",
             }}
-          >
-            {/* Inner circle */}
+          />
+
+          {/* Card Top: Photo + Badge */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
+            {/* Ring */}
             <div
               style={{
-                width: "236px",
-                height: "236px",
+                width: "120px",
+                height: "120px",
                 borderRadius: "50%",
-                background: photoUrl
-                  ? `url(${photoUrl})`
-                  : `linear-gradient(135deg, ${ringColor}30, ${accentColor}30)`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
+                background: `conic-gradient(${ringColor}, ${accentColor}, ${ringColor})`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: photoUrl ? "0" : "96px",
-                fontWeight: 700,
-                color: textColor,
+                boxShadow: `0 0 24px ${ringColor}30`,
               }}
             >
-              {!photoUrl && initial}
+              <div
+                style={{
+                  width: "108px",
+                  height: "108px",
+                  borderRadius: "50%",
+                  background: photoUrl
+                    ? `url(${photoUrl})`
+                    : `linear-gradient(135deg, ${ringColor}30, ${accentColor}30)`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: photoUrl ? "0" : "44px",
+                  fontWeight: 700,
+                  color: textColor,
+                }}
+              >
+                {!photoUrl && initial}
+              </div>
+            </div>
+
+            <div style={{ marginTop: "16px", fontSize: 24, fontWeight: 700, color: textColor }}>
+              {brokerName}
+            </div>
+            {company && (
+              <div style={{ marginTop: "4px", fontSize: 14, color: subtextColor, fontWeight: 500 }}>
+                {company}
+              </div>
+            )}
+            {vtiLabel && (
+              <div
+                style={{
+                  marginTop: "12px",
+                  background: `${vtiColor}16`,
+                  border: `1px solid ${vtiColor}30`,
+                  borderRadius: "20px",
+                  padding: "4px 12px",
+                  fontSize: 12,
+                  color: vtiColor,
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <span>{vtiEmoji}</span>
+                <span>{vtiLabel}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Card Bottom: Scores */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%" }}>
+            {/* Trust Score */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 600, color: subtextColor }}>
+                <span>신뢰 지수</span>
+                <span style={{ color: ringColor, fontWeight: 700 }}>{trustPct}%</span>
+              </div>
+              <div style={{ width: "100%", height: "6px", borderRadius: "3px", background: "rgba(255,255,255,0.1)", overflow: "hidden", display: "flex" }}>
+                <div style={{ width: `${trustPct}%`, height: "100%", background: ringColor, borderRadius: "3px" }} />
+              </div>
+            </div>
+
+            {/* Valence Score */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 600, color: subtextColor }}>
+                <span>호감 지수</span>
+                <span style={{ color: accentColor, fontWeight: 700 }}>{valencePct}%</span>
+              </div>
+              <div style={{ width: "100%", height: "6px", borderRadius: "3px", background: "rgba(255,255,255,0.1)", overflow: "hidden", display: "flex" }}>
+                <div style={{ width: `${valencePct}%`, height: "100%", background: accentColor, borderRadius: "3px" }} />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Right panel — info */}
+        {/* Right Side: Information Panels */}
         <div
           style={{
-            flex: 1,
+            width: "620px",
+            height: "530px",
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
-            padding: "60px 60px 60px 20px",
-            gap: "20px",
+            paddingLeft: "30px",
+            gap: "28px",
           }}
         >
-          {/* VTI badge */}
-          {vtiType && (
+          {/* Tag / Badge */}
+          <div style={{ display: "flex", gap: "8px" }}>
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-              }}
-            >
-              <div
-                style={{
-                  background: `${vtiColor}20`,
-                  border: `1px solid ${vtiColor}60`,
-                  borderRadius: "20px",
-                  padding: "6px 16px",
-                  fontSize: 18,
-                  color: vtiColor,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                }}
-              >
-                {vtiEmoji} {vtiLabel}
-              </div>
-            </div>
-          )}
-
-          {/* Name */}
-          <div
-            style={{
-              fontSize: 52,
-              fontWeight: 700,
-              color: textColor,
-              display: "flex",
-              lineHeight: 1.1,
-            }}
-          >
-            {brokerName}
-          </div>
-
-          {/* Company */}
-          {company && (
-            <div
-              style={{
-                fontSize: 22,
-                color: subtextColor,
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: "30px",
+                padding: "6px 14px",
+                fontSize: 13,
+                fontWeight: 600,
+                color: accentColor,
                 display: "flex",
               }}
             >
-              {company}
+              ✨ DealCard AI Vibe
             </div>
-          )}
-
-          {/* Stats */}
-          <div style={{ display: "flex", gap: "36px", marginTop: "8px" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            {isVerified && (
               <div
                 style={{
-                  fontSize: 14,
-                  color: subtextColor,
-                  display: "flex",
-                  opacity: 0.7,
-                }}
-              >
-                등록 딜
-              </div>
-              <div
-                style={{
-                  fontSize: 28,
-                  fontWeight: 700,
+                  background: `${accentColor}12`,
+                  border: `1px solid ${accentColor}25`,
+                  borderRadius: "30px",
+                  padding: "6px 14px",
+                  fontSize: 13,
+                  fontWeight: 600,
                   color: accentColor,
                   display: "flex",
                 }}
               >
-                {dealCount}건
+                ✓ 인증 공인중개사
               </div>
+            )}
+          </div>
+
+          {/* Headline */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <span style={{ fontSize: 50, fontWeight: 800, color: textColor, lineHeight: 1.25 }}>
+              {brokerName} 중개사
+            </span>
+            <span style={{ fontSize: 22, fontWeight: 500, color: subtextColor }}>
+              {regionsText} 상업용 부동산 전문 중개
+            </span>
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: "100%", height: "1px", background: "rgba(255,255,255,0.08)" }} />
+
+          {/* Highlight Stats Blocks */}
+          <div style={{ display: "flex", gap: "24px" }}>
+            {/* Stat Item 1 */}
+            <div
+              style={{
+                flex: 1,
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(255, 255, 255, 0.05)",
+                borderRadius: "20px",
+                padding: "16px 20px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "4px",
+              }}
+            >
+              <span style={{ fontSize: 13, color: subtextColor, opacity: 0.6 }}>진행 중인 딜</span>
+              <span style={{ fontSize: 28, fontWeight: 700, color: accentColor }}>{dealCount}건</span>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <div
-                style={{
-                  fontSize: 14,
-                  color: subtextColor,
-                  display: "flex",
-                  opacity: 0.7,
-                }}
-              >
-                전문 권역
-              </div>
-              <div
-                style={{
-                  fontSize: 20,
-                  fontWeight: 600,
-                  color: textColor,
-                  display: "flex",
-                }}
-              >
-                {regionsText}
-              </div>
+
+            {/* Stat Item 2 */}
+            <div
+              style={{
+                flex: 1,
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(255, 255, 255, 0.05)",
+                borderRadius: "20px",
+                padding: "16px 20px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "4px",
+              }}
+            >
+              <span style={{ fontSize: 13, color: subtextColor, opacity: 0.6 }}>주요 전문 지역</span>
+              <span style={{ fontSize: 22, fontWeight: 700, color: textColor, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {specialtyRegions[0] || "서울"}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Bottom branding bar */}
+        {/* Absolute branding bottom banner */}
         <div
           style={{
             position: "absolute",
@@ -283,30 +368,29 @@ export async function GET(
             alignItems: "center",
             justifyContent: "space-between",
             padding: "0 60px",
-            background: "rgba(0,0,0,0.3)",
+            background: "rgba(0,0,0,0.25)",
+            borderTop: "1px solid rgba(255,255,255,0.05)",
           }}
         >
           <div
             style={{
-              fontSize: 22,
-              fontWeight: 700,
-              background: `linear-gradient(90deg, ${accentColor}, ${ringColor})`,
-              backgroundClip: "text",
-              color: "transparent",
+              fontSize: 20,
+              fontWeight: 800,
+              color: textColor,
               display: "flex",
             }}
           >
-            DealCard
+            DealCard <span style={{ color: accentColor, marginLeft: "4px" }}>Vibe AI</span>
           </div>
           <div
             style={{
-              fontSize: 14,
+              fontSize: 13,
               color: subtextColor,
               display: "flex",
               opacity: 0.6,
             }}
           >
-            Vibe AI Business Card · dealcard.kr
+            dealcard.kr
           </div>
         </div>
       </div>
