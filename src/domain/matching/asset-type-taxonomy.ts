@@ -60,6 +60,25 @@ export const ASSET_CATEGORIES: Record<string, string[]> = {
   ]
 };
 
+/**
+ * 목적 기반 용어 → 복수 카테고리 매핑
+ * 매수자의 의도/목적 키워드가 여러 자산 유형과 매칭될 수 있도록 허용
+ */
+export const PURPOSE_CROSS_CATEGORIES: Record<string, string[]> = {
+  '사옥':     ['오피스', '꼬마빌딩'],
+  '임대':     ['꼬마빌딩', '오피스', '상가'],
+  '임대수익': ['꼬마빌딩', '오피스', '상가'],
+  '수익형':   ['꼬마빌딩', '오피스', '상가'],
+  '상업용':   ['꼬마빌딩', '오피스', '상가'],
+  '투자':     ['꼬마빌딩', '오피스', '상가', '공장/창고'],
+};
+
+// PURPOSE_CROSS_CATEGORIES 를 정규화 키로 변환
+const NORMALIZED_PURPOSE_MAP: Record<string, string[]> = {};
+for (const [term, categories] of Object.entries(PURPOSE_CROSS_CATEGORIES)) {
+  NORMALIZED_PURPOSE_MAP[normalizeAssetType(term)] = categories.map(normalizeAssetType);
+}
+
 // Normalized lookup dictionary mapping each clean synonym to its canonical category
 const CANONICAL_MAP: Record<string, string> = {};
 
@@ -100,12 +119,18 @@ export function matchAssetType(propertyType: string, buyerTypes: string[]): bool
       return true;
     }
 
-    // 2. Direct string equality of normalized names
+    // 2. 목적 기반 크로스 카테고리 매칭
+    const crossCategories = NORMALIZED_PURPOSE_MAP[normBuyer];
+    if (crossCategories && crossCategories.includes(propCategory)) {
+      return true;
+    }
+
+    // 3. Direct string equality of normalized names
     if (normProp === normBuyer) {
       return true;
     }
 
-    // 3. Substring fallback match for robust custom variations
+    // 4. Substring fallback match for robust custom variations
     if (
       normProp.length >= 2 &&
       normBuyer.length >= 2 &&

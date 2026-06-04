@@ -42,6 +42,32 @@ describe('Asset Type Taxonomy Matching (P0-2)', () => {
     const res = matchAssetType('오피스빌딩', ['꼬마빌딩', '오피스']);
     expect(res).toBe(true);
   });
+
+  // 목적 기반 크로스 카테고리 매칭 (PURPOSE_CROSS_CATEGORIES)
+  test('Scenario 9: "사옥" buyer vs "꼬마빌딩" building → Match (사옥은 꼬마빌딩도 가능)', () => {
+    const res = matchAssetType('꼬마빌딩', ['사옥']);
+    expect(res).toBe(true);
+  });
+
+  test('Scenario 10: "임대" buyer vs "꼬마빌딩" building → Match (임대수익 목적)', () => {
+    const res = matchAssetType('꼬마빌딩', ['임대']);
+    expect(res).toBe(true);
+  });
+
+  test('Scenario 11: "임대수익" buyer vs "오피스빌딩" building → Match (임대수익 → 오피스)', () => {
+    const res = matchAssetType('오피스빌딩', ['임대수익']);
+    expect(res).toBe(true);
+  });
+
+  test('Scenario 12: "수익형" buyer vs "상가" building → Match (수익형 → 상가)', () => {
+    const res = matchAssetType('상가', ['수익형']);
+    expect(res).toBe(true);
+  });
+
+  test('Scenario 13: "투자" buyer vs "근생 건물" building → Match (투자 → 꼬마빌딩 카테고리)', () => {
+    const res = matchAssetType('근생 건물', ['투자']);
+    expect(res).toBe(true);
+  });
 });
 
 describe('matching-engine runHardFilter asset type integration (P0-2)', () => {

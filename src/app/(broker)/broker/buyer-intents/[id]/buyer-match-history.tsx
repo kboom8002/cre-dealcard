@@ -83,7 +83,7 @@ export function BuyerMatchHistory({ matchHistory }: BuyerMatchHistoryProps) {
             };
 
             const style = gradeStyles[m.grade] ?? gradeStyles["C"];
-            const matchPercentage = Math.round(m.score * 100);
+            const matchPercentage = Math.round(m.score);
 
             return (
               <div

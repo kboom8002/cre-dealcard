@@ -38,7 +38,7 @@ export async function updateBuyerIntent(
       .from("buyer_intent_lite")
       .update(fields)
       .eq("id", buyerIntentId)
-      .eq("broker_id", userId);
+      .eq("owner_id", userId);
 
     if (error) {
       throw error;
@@ -130,7 +130,7 @@ export async function triggerReMatching(buyerIntentId: string) {
       .from("buyer_intent_lite")
       .select("*")
       .eq("id", buyerIntentId)
-      .eq("broker_id", userId)
+      .eq("owner_id", userId)
       .single();
 
     if (iErr || !intent) {
@@ -141,7 +141,7 @@ export async function triggerReMatching(buyerIntentId: string) {
     const { data: buildings, error: bErr } = await supabase
       .from("building_ssot_lite")
       .select("*")
-      .eq("broker_id", userId);
+      .eq("owner_id", userId);
 
     if (bErr || !buildings || buildings.length === 0) {
       return { success: false, error: "매칭할 매물이 존재하지 않습니다." };
@@ -155,7 +155,7 @@ export async function triggerReMatching(buyerIntentId: string) {
       const { data: cardRow } = await supabase
         .from("building_signal_cards")
         .select("deal_curiosity_score")
-        .eq("building_ssot_lite_id", building.id)
+        .eq("building_id", building.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -249,7 +249,7 @@ export async function triggerReMatching(buyerIntentId: string) {
       const { data: existingCP } = await supabase
         .from("deal_casepacks")
         .select("id")
-        .eq("source_building_ssot_lite_id", building.id)
+        .eq("building_ssot_lite_id", building.id)
         .eq("match_grade", matchResult.grade)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -285,9 +285,11 @@ export async function triggerReMatching(buyerIntentId: string) {
 
       // Activity event
       await supabase.from("activity_events").insert({
-        building_ssot_lite_id: building.id,
-        broker_id:             userId,
-        event_type:            "match_computed",
+        actor_id:    userId,
+        actor_role:  "broker",
+        event_type:  "match_computed",
+        entity_type: "building_ssot_lite",
+        entity_id:   building.id,
         metadata: {
           match_id:   savedMatchId,
           grade:      matchResult.grade,
