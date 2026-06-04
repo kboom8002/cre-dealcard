@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
         incentives,
         restrictions,
         building:building_id (
+          id,
           area_signal,
           fit_summary,
           caution_summary
@@ -95,6 +96,7 @@ export async function GET(req: NextRequest) {
       const b = Array.isArray(space.building) ? space.building[0] : space.building;
       return {
         id: space.id,
+        building_id: b?.id || null,
         floor: space.floor,
         area_sqm: space.area_sqm,
         space_type: space.space_type,

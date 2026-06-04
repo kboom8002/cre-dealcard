@@ -1,18 +1,21 @@
 /**
- * GET /api/full-im-handoffs/[token]
- * Fetch handoff payload by token — callable by Full IM Studio server.
+ * GET /api/full-im-handoffs/[id]
+ * Fetch handoff payload by id or token — callable by Full IM Studio server.
  * Auth: required (service-role or admin)
  * Source: docs/06-handoff-api-contract.md §4.2
+ *
+ * Note: Previously at [token]/route.ts — merged to [id] to avoid
+ * Next.js dynamic segment naming conflict.
  */
 import { getHandoffByToken } from "@/domain/handoff/handoff";
 import { validateInterServiceRequest } from "@/lib/inter-service-auth";
 
 export async function GET(
   _req: Request,
-  { params }: { params: Promise<{ token: string }> },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { token } = await params;
+    const { id } = await params;
 
     // 1. Inter-service key validation
     if (!validateInterServiceRequest(_req)) {
@@ -24,14 +27,15 @@ export async function GET(
       }
     }
 
-    if (!token || typeof token !== "string") {
+    if (!id || typeof id !== "string") {
       return Response.json(
         { ok: false, error: { code: "VALIDATION_ERROR", message: "토큰이 필요합니다." } },
         { status: 400 },
       );
     }
 
-    const handoff = await getHandoffByToken(token);
+    // id may be a UUID or a token string — getHandoffByToken accepts both
+    const handoff = await getHandoffByToken(id);
 
     if (!handoff) {
       return Response.json(
@@ -70,7 +74,7 @@ export async function GET(
 
     return Response.json({ ok: true, data: handoff });
   } catch (err) {
-    console.error("[GET /api/full-im-handoffs/:token]", err);
+    console.error("[GET /api/full-im-handoffs/:id]", err);
     return Response.json(
       { ok: false, error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } },
       { status: 500 },

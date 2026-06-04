@@ -112,6 +112,27 @@ export default async function BrokerProfilePage({ params }: PageProps) {
           </div>
         </div>
 
+        {/* Vibe AI 명함 연결 */}
+        <Link
+          href={`/vibe-card/${slug}`}
+          className="block bg-gradient-to-r from-cyan-600/10 to-purple-600/10 border border-cyan-500/20 hover:border-cyan-500/40 rounded-xl p-4 transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-lg">✨</span>
+              <div>
+                <p className="text-xs font-semibold text-white group-hover:text-cyan-300 transition-colors">
+                  Vibe AI 명함 보기
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  데이터 기반 신뢰 프로필 카드
+                </p>
+              </div>
+            </div>
+            <span className="text-slate-500 group-hover:text-cyan-400 transition-colors text-xs">→</span>
+          </div>
+        </Link>
+
         {/* Stats Grid */}
         <div className="grid grid-cols-3 gap-2.5">
           {[

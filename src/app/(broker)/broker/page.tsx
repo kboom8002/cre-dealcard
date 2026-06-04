@@ -7,6 +7,9 @@ import { calculateBrokerMonthlyRoi } from "@/domain/analytics/roi-calculator";
 import { RoiCard } from "@/components/dashboard/RoiCard";
 import { AntifragileMode } from "@/components/dashboard/AntifragileMode";
 import { WeeklyReportCard } from "@/components/dashboard/WeeklyReportCard";
+import { Bell, TrendingUp, Users, Building2, Target } from "lucide-react";
+import BrokerDashboardTabs from "@/components/dashboard/BrokerDashboardTabs";
+import MorningIntelligence from "@/components/dashboard/MorningIntelligence";
 
 export const metadata: Metadata = {
   title: "JS 1분 딜카드 | 중개인 코크핏",
@@ -14,8 +17,8 @@ export const metadata: Metadata = {
 };
 
 /**
- * Broker Cockpit — 중개인 메인 대시보드
- * KPI 카드 + 빠른 작업 + 파이프라인 미니 현황 + 알림 + 최근 데이터
+ * Broker Cockpit v2 — 간소화된 데일리 허브
+ * 인사 + 핵심 KPI + 알림 피드 + 안티프래질 분석 + 주간 리포트 + 모닝 인텔리전스 (탭화)
  */
 export default async function BrokerPage() {
   const hour = new Date().getHours();
@@ -27,16 +30,11 @@ export default async function BrokerPage() {
         : "수고하셨어요";
 
   const supabase = await createServerSupabaseClient();
-
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  if (!user) redirect("/login");
 
-  // ── KPI 데이터 병렬 조회 ─────────────────────────────────────
+  // ── KPI 데이터 병렬 조회 ──
   const [
-    { data: recentDeals },
-    { data: recentLeases },
-    { data: recentBuyers },
-    { data: recentTenants },
     { count: totalBuildings },
     { count: totalLeaseSpaces },
     { count: totalBuyers },
@@ -46,31 +44,8 @@ export default async function BrokerPage() {
     { data: leaseMatchResults },
     roiMetrics,
     marketIndicatorRes,
+    activityEventsRes,
   ] = await Promise.all([
-    supabase
-      .from("building_ssot_lite")
-      .select("id, area_signal, asset_type, price_band, matched_buyer_count, status, created_at")
-      .eq("owner_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(3),
-    supabase
-      .from("lease_spaces")
-      .select("id, floor, area_sqm, space_type, deposit, monthly_rent, status, created_at")
-      .eq("broker_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(3),
-    supabase
-      .from("buyer_intent_lite")
-      .select("id, buyer_type, budget_display, preferred_regions, purchase_purpose, created_at")
-      .eq("broker_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(3),
-    supabase
-      .from("tenant_intent")
-      .select("id, business_type, preferred_regions, budget_monthly_max, created_at")
-      .eq("broker_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(3),
     supabase
       .from("building_ssot_lite")
       .select("id", { count: "exact", head: true })
@@ -97,7 +72,7 @@ export default async function BrokerPage() {
       .eq("broker_id", user.id),
     supabase
       .from("lease_match_results")
-      .select("grade"), // RLS restricts to broker's spaces
+      .select("grade"),
     calculateBrokerMonthlyRoi(supabase, user.id),
     supabase
       .from("market_leading_indicators")
@@ -105,55 +80,210 @@ export default async function BrokerPage() {
       .order("computed_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from("activity_events")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(5),
   ]);
 
-  const sMatchCount = (matchResults?.filter((m) => m.grade === "S").length ?? 0) + (leaseMatchResults?.filter((m) => m.grade === "S").length ?? 0);
-  const aMatchCount = (matchResults?.filter((m) => m.grade === "A").length ?? 0) + (leaseMatchResults?.filter((m) => m.grade === "A").length ?? 0);
+  const sMatchCount =
+    (matchResults?.filter((m) => m.grade === "S").length ?? 0) +
+    (leaseMatchResults?.filter((m) => m.grade === "S").length ?? 0);
+  const aMatchCount =
+    (matchResults?.filter((m) => m.grade === "A").length ?? 0) +
+    (leaseMatchResults?.filter((m) => m.grade === "A").length ?? 0);
 
-  const statusLabels: Record<string, { label: string; color: string }> = {
-    active: { label: "활성", color: "bg-success/10 text-success border border-success/20" },
-    draft: { label: "초안", color: "bg-warning/10 text-warning border border-warning/20" },
-    archived: { label: "보관", color: "bg-muted text-muted-foreground border border-border" },
-    pending: { label: "검토중", color: "bg-primary/10 text-primary border border-primary/20" },
-  };
-
-  // ── Antifragile Mode Indicator Fallback ──
   const trend = marketIndicatorRes?.data as any;
   const antifragileMetrics = {
-    trendDirection: (trend?.trend_direction ?? "down") as "up" | "flat" | "down",
-    region: trend?.region ?? "강남 GBD",
-    assetType: trend?.asset_type ?? "오피스빌딩",
-    demandScore: Number(trend?.demand_score ?? 42),
-    supplyScore: Number(trend?.supply_score ?? 78),
-    avgHoldDays: Number(trend?.avg_hold_days ?? 28.5),
+    trendDirection: (trend?.trend_direction ?? "flat") as "up" | "flat" | "down",
+    region: trend?.region ?? "성동구 성수동",
+    assetType: trend?.asset_type ?? "근린생활시설",
+    demandScore: Number(trend?.demand_score ?? 55),
+    supplyScore: Number(trend?.supply_score ?? 40),
+    avgHoldDays: Number(trend?.avg_hold_days ?? 39.0),
     priceResistanceBand: trend?.price_resistance_band
       ? (trend.price_resistance_band as { min: number; max: number })
       : { min: 0.08, max: 0.15 },
   };
 
-  const totalMatchCount = (matchResults?.length ?? 0) + (leaseMatchResults?.length ?? 0);
-  const sConversionRate = totalMatchCount > 0 
-    ? Math.round((sMatchCount / totalMatchCount) * 1000) / 10 
-    : 42.5;
+  const totalMatchCount =
+    (matchResults?.length ?? 0) + (leaseMatchResults?.length ?? 0);
+  const sConversionRate =
+    totalMatchCount > 0
+      ? Math.round((sMatchCount / totalMatchCount) * 1000) / 10
+      : 42.5;
 
-  const holdDaysDelta = Math.round(((antifragileMetrics.avgHoldDays - 18.2) / 18.2) * 100);
-  const holdDaysDeltaText = holdDaysDelta < 0
-    ? `전체 평균 18.2일 대비 ${holdDaysDelta}%`
-    : `전체 평균 18.2일 대비 +${holdDaysDelta}%`;
+  const holdDaysDelta = Math.round(
+    ((antifragileMetrics.avgHoldDays - 18.2) / 18.2) * 100
+  );
 
-  const conversionDelta = Math.round((sConversionRate - 35.0) * 10) / 10;
-  const conversionDeltaText = conversionDelta >= 0
-    ? `전체 평균 35% 대비 +${conversionDelta}%p`
-    : `전체 평균 35% 대비 ${conversionDelta}%p`;
+  // Query activity_events table for real notification feed
+  const rawEvents = activityEventsRes?.data || [];
+  const notifications = rawEvents.map((evt) => {
+    let icon = "🔔";
+    let text = `${evt.event_type} 이벤트가 발생했습니다.`;
+    let href = "/broker";
+    let color = "text-slate-300";
+
+    switch (evt.event_type) {
+      case "gate_request_created":
+        icon = "🔒";
+        text = `신규 Gate 상세 주소 요청 접수`;
+        href = "/admin/gate-requests";
+        color = "text-primary";
+        break;
+      case "gate_request_reviewed":
+        const isApproved = (evt.metadata as any)?.decision === "approved";
+        icon = "📋";
+        text = `Gate 요청 검토 완료: ${isApproved ? "승인" : "거절"}`;
+        href = "/admin/gate-requests";
+        color = isApproved ? "text-emerald-400" : "text-rose-400";
+        break;
+      case "expert_note_requested":
+        icon = "📝";
+        text = "전문가 노트 작성 요청 접수";
+        href = "/admin/expert-notes";
+        color = "text-amber-400";
+        break;
+      case "buyer_intent_created":
+        icon = "🎯";
+        text = "신규 매수 고객 의향서 등록";
+        href = "/broker/buyer-intents";
+        color = "text-emerald-400";
+        break;
+      case "pipeline_stage_transitioned":
+        icon = "📈";
+        text = "딜 파이프라인 단계 변경됨";
+        href = "/broker/pipeline";
+        color = "text-indigo-400";
+        break;
+      case "broker_memo_submitted":
+        icon = "✏️";
+        text = "브로커 한줄 메모 등록 완료";
+        href = "/broker";
+        color = "text-slate-400";
+        break;
+      default:
+        if (evt.event_type.includes("created")) {
+          icon = "➕";
+          text = `신규 데이터 생성: ${evt.entity_type || "레코드"}`;
+        } else if (evt.event_type.includes("updated")) {
+          icon = "🔄";
+          text = `데이터 업데이트: ${evt.entity_type || "레코드"}`;
+        }
+        break;
+    }
+
+    const timeAgo = (dateStr: string) => {
+      const diffMs = new Date().getTime() - new Date(dateStr).getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      if (diffMins < 1) return "방금";
+      if (diffMins < 60) return `${diffMins}분 전`;
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours < 24) return `${diffHours}시간 전`;
+      return `${Math.floor(diffHours / 24)}일 전`;
+    };
+
+    return {
+      icon,
+      text,
+      href,
+      time: timeAgo(evt.created_at),
+      color,
+    };
+  });
+
+  // Overview Tab Panel Content
+  const overviewContent = (
+    <div className="space-y-5 animate-fadeIn">
+      {/* ── 핵심 KPI 스크롤 카드 ── */}
+      <div>
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">오늘의 주요 지표</p>
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {[
+            { label: "매매물건", value: totalBuildings ?? 0, icon: Building2, color: "text-blue-400", href: "/broker/buildings" },
+            { label: "임대물건", value: totalLeaseSpaces ?? 0, icon: Building2, color: "text-primary", href: "/broker/buildings" },
+            { label: "S/A 매칭", value: sMatchCount + aMatchCount, icon: Target, color: "text-amber-400", href: "/broker/matching" },
+            { label: "관리 고객", value: totalClients ?? 0, icon: Users, color: "text-emerald-400", href: "/broker/clients" },
+            { label: "매수 고객", value: totalBuyers ?? 0, icon: TrendingUp, color: "text-rose-400", href: "/broker/buyer-intents" },
+          ].map(({ label, value, icon: Icon, color, href }) => (
+            <Link
+              key={label}
+              href={href}
+              className="shrink-0 rounded-xl border border-border bg-card px-4 py-3 text-center hover:border-primary/30 transition-all min-w-[76px]"
+            >
+              <Icon className={`w-4 h-4 mx-auto mb-1 ${color}`} strokeWidth={2} />
+              <p className="text-lg font-bold">{value}</p>
+              <p className="text-[10px] text-muted-foreground">{label}</p>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* ── 알림 피드 ── */}
+      {notifications.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+              <Bell className="w-3 h-3" /> 최근 알림 피드
+            </p>
+            <Link href="/broker/matching" className="text-[10px] text-primary hover:underline">
+              전체 보기
+            </Link>
+          </div>
+          <div className="space-y-1.5">
+            {notifications.map((n, i) => (
+              <Link
+                key={i}
+                href={n.href}
+                className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5 hover:border-primary/30 transition-all"
+              >
+                <span className="text-base shrink-0">{n.icon}</span>
+                <p className={`text-xs font-medium flex-1 line-clamp-1 ${n.color}`}>{n.text}</p>
+                <span className="text-[10px] text-muted-foreground shrink-0">{n.time}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 실시간 ROI ── */}
+      <RoiCard metrics={roiMetrics} />
+
+      {/* ── 핵심 성과 지표 미니 ── */}
+      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+        <h2 className="text-xs font-bold text-primary">📈 내 파이프라인 성과 요약</h2>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="bg-card border border-border p-2.5 rounded-lg">
+            <p className="text-[10px] text-muted-foreground">내 딜 평균 체류일수</p>
+            <p className="text-base font-extrabold">{antifragileMetrics.avgHoldDays}일</p>
+            <p className="text-[9px] text-green-600">
+              평균 18.2일 대비{" "}
+              {holdDaysDelta < 0 ? holdDaysDelta : `+${holdDaysDelta}`}%
+            </p>
+          </div>
+          <div className="bg-card border border-border p-2.5 rounded-lg">
+            <p className="text-[10px] text-muted-foreground">S등급 매칭 전환율</p>
+            <p className="text-base font-extrabold">{sConversionRate}%</p>
+            <p className="text-[9px] text-primary">평균 35% 대비 +{Math.round((sConversionRate - 35) * 10) / 10}%p</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
-    <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-24">
-      <div className="w-full max-w-md mx-auto space-y-6">
-        {/* ── Greeting ─────────────────────────────────────────── */}
+    <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-28">
+      <div className="w-full max-w-md mx-auto space-y-5">
+
+        {/* ── 인사 & 날짜 ── */}
         <div className="flex items-start justify-between pt-4">
           <div className="space-y-1">
             <h1 className="text-2xl font-bold">{greeting}, 중개인님.</h1>
-            <p className="text-sm text-muted-foreground">매매와 임대차 계약을 스마트하게 관리하세요</p>
+            <p className="text-sm text-muted-foreground">
+              {new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" })}
+            </p>
           </div>
           <Link
             href="/broker/profile"
@@ -165,344 +295,17 @@ export default async function BrokerPage() {
           </Link>
         </div>
 
-        {/* ── 안티프래질 시장 선행 분석 모드 (Phase 4: F12) ── */}
-        <AntifragileMode {...antifragileMetrics} />
+        {/* ── 탭 레이아웃 연동 ── */}
+        <BrokerDashboardTabs
+          overviewContent={overviewContent}
+          antifragileContent={<AntifragileMode {...antifragileMetrics} />}
+          weeklyReportContent={<WeeklyReportCard />}
+          morningIntelligenceContent={<MorningIntelligence />}
+        />
 
-        {/* ── 실시간 ROI 가치 지표 표시 (Growth Flywheel) ── */}
-        <RoiCard metrics={roiMetrics} />
-
-        {/* ── 주간 개인 리포트 ─────────────────────────────────── */}
-        <WeeklyReportCard />
-
-        {/* ── KPI Cards ────────────────────────────────────────── */}
-        <div className="space-y-2">
-          <div className="grid grid-cols-4 gap-2">
-            <Link
-              href="/broker/buildings"
-              className="rounded-xl border border-border bg-card p-2 text-center transition-all hover:border-primary/30 active:scale-[0.97]"
-            >
-              <p className="text-xl font-bold text-foreground">{totalBuildings ?? 0}</p>
-              <p className="text-[10px] text-muted-foreground font-medium mt-0.5">매매물건</p>
-            </Link>
-            <Link
-              href="/broker/lease-card"
-              className="rounded-xl border border-border bg-card p-2 text-center transition-all hover:border-primary/30 active:scale-[0.97]"
-            >
-              <p className="text-xl font-bold text-primary">{totalLeaseSpaces ?? 0}</p>
-              <p className="text-[10px] text-muted-foreground font-medium mt-0.5">임대물건</p>
-            </Link>
-            <Link
-              href="/broker/buyer-intents"
-              className="rounded-xl border border-border bg-card p-2 text-center transition-all hover:border-primary/30 active:scale-[0.97]"
-            >
-              <p className="text-xl font-bold text-foreground">{totalBuyers ?? 0}</p>
-              <p className="text-[10px] text-muted-foreground font-medium mt-0.5">매수고객</p>
-            </Link>
-            <Link
-              href="/broker/tenant-intents"
-              className="rounded-xl border border-border bg-card p-2 text-center transition-all hover:border-primary/30 active:scale-[0.97]"
-            >
-              <p className="text-xl font-bold text-primary">{totalTenants ?? 0}</p>
-              <p className="text-[10px] text-muted-foreground font-medium mt-0.5">임차고객</p>
-            </Link>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-2">
-            <Link
-              href="/broker/matching"
-              className="rounded-xl border border-border bg-card p-2.5 text-center flex justify-between items-center transition-all hover:border-primary/30"
-            >
-              <span className="text-[11px] text-muted-foreground font-medium">S/A 매칭</span>
-              <span className="text-lg font-bold text-grade-s">{sMatchCount + aMatchCount} 건</span>
-            </Link>
-            <Link
-              href="/broker/clients"
-              className="rounded-xl border border-border bg-card p-2.5 text-center flex justify-between items-center transition-all hover:border-primary/30"
-            >
-              <span className="text-[11px] text-muted-foreground font-medium">관리 고객</span>
-              <span className="text-lg font-bold text-foreground">{totalClients ?? 0} 명</span>
-            </Link>
-          </div>
-        </div>
-
-        {/* ── 파이프라인 분석 & 시장 선행 지표 위젯 (Phase 6) ── */}
-        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4.5 space-y-3">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xs font-bold text-primary flex items-center gap-1">
-              📈 실시간 시장 분석 & KPI (Phase 6)
-            </h2>
-            <span className="text-[9px] bg-primary/20 text-primary font-bold px-2 py-0.5 rounded">특허 P4</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="bg-card border border-border p-2.5 rounded-lg space-y-1">
-              <p className="text-[10px] text-muted-foreground font-semibold">내 딜 체류일수</p>
-              <p className="text-base font-extrabold text-foreground">{antifragileMetrics.avgHoldDays}일</p>
-              <p className="text-[9px] text-green-600 font-medium">{holdDaysDeltaText}</p>
-            </div>
-            <div className="bg-card border border-border p-2.5 rounded-lg space-y-1">
-              <p className="text-[10px] text-muted-foreground font-semibold">S등급 매칭 전환율</p>
-              <p className="text-base font-extrabold text-foreground">{sConversionRate}%</p>
-              <p className="text-[9px] text-primary font-medium">{conversionDeltaText}</p>
-            </div>
-          </div>
-
-          <div className="flex justify-between items-center text-[10px] bg-card border border-border px-3 py-2 rounded-lg leading-relaxed">
-            <span className="text-muted-foreground">📍 실시간 서울 권역 트렌드 ({antifragileMetrics.region}):</span>
-            <span className="font-bold text-green-600">
-              {antifragileMetrics.trendDirection === "up" ? "📈 수요 강도 상승" : "➡️ 보합 안정세"} 
-              (수요 {antifragileMetrics.demandScore} vs 공급 {antifragileMetrics.supplyScore})
-            </span>
-          </div>
-        </div>
-
-        {/* ── Quick Actions ────────────────────────────────────── */}
-        <div className="space-y-2">
-          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">빠른 딜카드 작성</h2>
-          <div className="grid grid-cols-2 gap-2">
-            <Link
-              href="/broker/deal-card/new"
-              className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/40 active:scale-[0.98]"
-            >
-              <span className="text-2xl">🏢</span>
-              <div>
-                <p className="text-xs font-semibold">매매 딜카드 생성</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">카톡메모 → 매매 딜카드</p>
-              </div>
-            </Link>
-            
-            <Link
-              href="/broker/lease-card/new"
-              className="flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4 transition-all hover:border-primary/40 active:scale-[0.98]"
-            >
-              <span className="text-2xl">🔑</span>
-              <div>
-                <p className="text-xs font-semibold text-primary">임대차 딜카드 생성</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">카톡메모 → 임대 딜카드</p>
-              </div>
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <Link
-              href="/broker/buyer-intents/new"
-              className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-all hover:border-primary/40 active:scale-[0.98]"
-            >
-              <span className="text-lg">🎯</span>
-              <div>
-                <p className="text-xs font-semibold">매수 의향서 등록</p>
-                <p className="text-[10px] text-muted-foreground">매매 매칭용</p>
-              </div>
-            </Link>
-            <Link
-              href="/broker/tenant-intents/new"
-              className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-all hover:border-primary/40 active:scale-[0.98]"
-            >
-              <span className="text-lg">🏷️</span>
-              <div>
-                <p className="text-xs font-semibold">임차 의향서 등록</p>
-                <p className="text-[10px] text-muted-foreground">임대 매칭용</p>
-              </div>
-            </Link>
-          </div>
-
-          {/* ── AI Leasing Studio ── */}
-          <Link
-            href="/broker/leasing"
-            className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3.5 transition-all hover:border-emerald-500/40 hover:bg-emerald-500/10 active:scale-[0.98] mt-2"
-          >
-            <span className="text-xl">🏪</span>
-            <div className="flex-1">
-              <p className="text-xs font-semibold text-emerald-300">AI 리싱 스튜디오</p>
-              <p className="text-[10px] text-muted-foreground">사진 분류 → 적합성 분석 → 리싱 페이지 생성</p>
-            </div>
-            <span className="text-xs text-emerald-400 font-medium">관리 →</span>
-          </Link>
-        </div>
-
-        {/* ── 최근 임대차 딜카드 ─────────────────────────────────── */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-muted-foreground">최근 임대차 딜카드</h2>
-            <Link
-              href="/broker/lease-card"
-              className="text-xs text-primary hover:underline"
-            >
-              목록 보기
-            </Link>
-          </div>
-
-          {recentLeases && recentLeases.length > 0 ? (
-            <div className="space-y-2">
-              {recentLeases.map((space) => {
-                const st = statusLabels[space.status ?? "active"] ?? statusLabels["active"];
-                return (
-                  <Link
-                    key={space.id}
-                    href={`/broker/lease-card/${space.id}`}
-                    className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-all hover:border-primary/30 active:scale-[0.98]"
-                  >
-                    <span className="text-xl">🔑</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium truncate">
-                          {space.floor ? `${space.floor} ` : ""}{space.space_type === "office" ? "오피스" : "상가"}
-                        </p>
-                        <span
-                          className={`shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium ${st.color}`}
-                        >
-                          {st.label}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 mt-0.5">
-                        <p className="text-xs text-muted-foreground">
-                          {space.area_sqm ? `${Math.round(space.area_sqm / 3.3058)}평 ` : ""} · 보증금 {space.deposit || 0}만 / 월 {space.monthly_rent || 0}만
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(space.created_at).toLocaleDateString("ko-KR", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </p>
-                      <span className="text-xs text-muted-foreground">→</span>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-border bg-card p-5 text-center">
-              <p className="text-sm text-muted-foreground">
-                아직 만든 임대차 딜카드가 없어요.
-              </p>
-              <Link
-                href="/broker/lease-card/new"
-                className="inline-flex items-center justify-center mt-3 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                첫 임대 딜카드 만들기
-              </Link>
-            </div>
-          )}
-        </div>
-
-        {/* ── 최근 매매 딜카드 ──────────────────────────────────── */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-muted-foreground">최근 매매 딜카드</h2>
-            <Link
-              href="/broker/buildings"
-              className="text-xs text-primary hover:underline"
-            >
-              전체 보기
-            </Link>
-          </div>
-
-          {recentDeals && recentDeals.length > 0 ? (
-            <div className="space-y-2">
-              {recentDeals.map((deal) => {
-                const st = statusLabels[deal.status ?? "draft"] ?? statusLabels["draft"];
-                const matchCount = deal.matched_buyer_count ?? 0;
-                return (
-                  <Link
-                    key={deal.id}
-                    href={`/broker/deal-card/${deal.id}`}
-                    className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-all hover:border-primary/30 active:scale-[0.98]"
-                  >
-                    <span className="text-xl">🏢</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium truncate">
-                          {deal.area_signal ?? "권역 미상"}{" "}
-                          {deal.asset_type ?? ""}
-                        </p>
-                        <span
-                          className={`shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium ${st.color}`}
-                        >
-                          {st.label}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 mt-0.5">
-                        <p className="text-xs text-muted-foreground">
-                          {deal.price_band ?? "가격 미상"}
-                        </p>
-                        {matchCount > 0 && (
-                          <span className="text-xs text-primary font-medium">
-                            🎯 {matchCount}명 매칭
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(deal.created_at).toLocaleDateString("ko-KR", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </p>
-                      <span className="text-xs text-muted-foreground">→</span>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-border bg-card p-4 text-center">
-              <p className="text-sm text-muted-foreground">아직 매매 딜카드가 없어요.</p>
-            </div>
-          )}
-        </div>
-
-        {/* ── 최근 임차 의향서 ──────────────────────────────────── */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-muted-foreground">등록된 임차고객 (의향서)</h2>
-            <Link
-              href="/broker/tenant-intents"
-              className="text-xs text-primary hover:underline"
-            >
-              전체 보기
-            </Link>
-          </div>
-
-          {recentTenants && recentTenants.length > 0 ? (
-            <div className="space-y-2">
-              {recentTenants.map((tenant) => {
-                const regions = Array.isArray(tenant.preferred_regions)
-                  ? (tenant.preferred_regions as string[]).slice(0, 2).join(", ")
-                  : "미확인";
-                return (
-                  <Link
-                    key={tenant.id}
-                    href={`/broker/tenant-intents/${tenant.id}`}
-                    className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-all hover:border-primary/30 active:scale-[0.98]"
-                  >
-                    <span className="text-xl">🎯</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {tenant.business_type || "임차고객"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        월세 상한 {tenant.budget_monthly_max ? `${tenant.budget_monthly_max}만` : "미확인"} · {regions}
-                      </p>
-                    </div>
-                    <span className="text-xs text-muted-foreground shrink-0">→</span>
-                  </Link>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-border bg-card px-4 py-3 text-center">
-              <p className="text-sm text-muted-foreground">등록된 임차 의향서가 없어요.</p>
-            </div>
-          )}
-        </div>
       </div>
 
       <BrokerBottomNav />
     </main>
   );
 }
-

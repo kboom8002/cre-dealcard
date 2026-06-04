@@ -72,7 +72,14 @@ export function GateRequestForm({
       });
 
       const json = await res.json();
-      if (!json.ok) throw new Error(json.error?.message || "요청에 실패했습니다.");
+      if (!json.ok) {
+        const errorMsg =
+          json.error?.message ||
+          (typeof json.error === "string" ? json.error : null) ||
+          json.message ||
+          "요청에 실패했습니다.";
+        throw new Error(errorMsg);
+      }
 
       setSubmitted({
         gateRequestId: json.data.gateRequestId,

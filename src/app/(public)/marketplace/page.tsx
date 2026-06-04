@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 
 interface ListedSpace {
   id: string;
+  building_id: string | null;
   floor: string | null;
   area_sqm: number | null;
   space_type: string;
@@ -78,15 +79,32 @@ export default function MarketplaceSearchPortal() {
       return;
     }
 
+    if (!selectedSpace || !selectedSpace.building_id) {
+      alert("건물 정보를 확인할 수 없습니다.");
+      return;
+    }
+
     setGateSubmitting(true);
     try {
-      // Simulate G1/G2 Lead Generation Gate request
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const res = await fetch("/api/gate-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          buildingId: selectedSpace.building_id,
+          requestedLevel: "G1",
+          requestedFields: ["area_signal", "fit_summary", "caution_summary"],
+          reason: `성함/기업명: ${contactName}, 연락처: ${contactPhone}`,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || "문의 접수 실패");
+      }
       setGateSuccess(true);
       setContactName("");
       setContactPhone("");
-    } catch (err) {
-      alert("문의 등록 실패");
+    } catch (err: any) {
+      alert(err.message || "문의 등록 실패");
     } finally {
       setGateSubmitting(false);
     }

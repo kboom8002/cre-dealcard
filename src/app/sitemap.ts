@@ -102,10 +102,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ];
 
-  /* ── 1d. Pulse + Insight static pages ─────────────────────── */
+  /* ── 1d. Pulse + sub-tabs (insight moved to /pulse?tab=insight) ── */
   const pulseStaticPages: MetadataRoute.Sitemap = [
-    { url: `${BASE_URL}/pulse`, lastModified: now, changeFrequency: "daily" as const, priority: 0.85 },
-    { url: `${BASE_URL}/insight`, lastModified: now, changeFrequency: "daily" as const, priority: 0.85 },
+    { url: `${BASE_URL}/pulse`, lastModified: now, changeFrequency: "daily" as const, priority: 0.9 },
+    { url: `${BASE_URL}/pulse?tab=insight`, lastModified: now, changeFrequency: "daily" as const, priority: 0.8 },
+    { url: `${BASE_URL}/pulse?tab=expert`, lastModified: now, changeFrequency: "daily" as const, priority: 0.75 },
+    { url: `${BASE_URL}/building-radar`, lastModified: now, changeFrequency: "weekly" as const, priority: 0.85 },
+    { url: `${BASE_URL}/owner-readiness`, lastModified: now, changeFrequency: "weekly" as const, priority: 0.8 },
   ];
 
   /* ── 2. Region index pages (deal / space / market) ────────────── */

@@ -18,11 +18,29 @@ export async function GET(
   );
 
   const authHeader = req.headers.get('authorization') ?? '';
-  const token = authHeader.replace('Bearer ', '');
+  const token = authHeader.replace('Bearer ', '').trim();
   let userId: string | null = null;
+
   if (token) {
     const { data: { user } } = await supabase.auth.getUser(token);
     userId = user?.id ?? null;
+  }
+
+  if (!userId) {
+    // Cookie-based auth fallback
+    const { createServerClient } = await import('@supabase/ssr');
+    const supabaseCookie = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return req.cookies.getAll(); },
+          setAll() {},
+        },
+      },
+    );
+    const { data } = await supabaseCookie.auth.getUser();
+    userId = data?.user?.id ?? null;
   }
 
   // Fetch building

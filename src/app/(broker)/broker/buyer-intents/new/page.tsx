@@ -55,7 +55,12 @@ export default function BuyerIntentNewPage() {
       const json = await res.json();
 
       if (!json.ok) {
-        throw new Error(json.error?.message || "매수자 조건 정리에 실패했습니다.");
+        const errorMsg =
+          json.error?.message ||
+          (typeof json.error === "string" ? json.error : null) ||
+          json.message ||
+          "매수자 조건 정리에 실패했습니다.";
+        throw new Error(errorMsg);
       }
 
       clearInterval(interval);

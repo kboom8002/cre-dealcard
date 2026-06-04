@@ -60,7 +60,12 @@ export default function BrokerDealCardNewPage() {
       const json = await res.json();
 
       if (!json.ok) {
-        throw new Error(json.error?.message || "딜카드 생성에 실패했습니다.");
+        const errorMsg =
+          json.error?.message ||
+          (typeof json.error === "string" ? json.error : null) ||
+          json.message ||
+          "딜카드 생성에 실패했습니다.";
+        throw new Error(errorMsg);
       }
 
       clearInterval(interval);

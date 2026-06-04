@@ -209,6 +209,107 @@ export default async function PulseDetailPage({ params }: { params: Params }) {
           </div>
         </div>
 
+        {/* B3: Morning Briefing Section */}
+        <div className="bg-gradient-to-br from-indigo-950/40 to-slate-900 border border-indigo-500/30 rounded-2xl p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">📡 AI 데일리 모닝 브리핑</p>
+            <span className="text-[9px] text-slate-500">매일 아침 08:00 업데이트</span>
+          </div>
+          <div className="bg-indigo-950/20 border border-indigo-500/10 rounded-xl p-4">
+            <p className="text-xs text-slate-300 leading-relaxed">
+              💡 <strong>오늘의 시장 동향 요약:</strong> 성수/강남 권역을 중심으로 밸류애드(리모델링) 수요가 급상승하고 있습니다. 호가와 실거래가 사이의 갭이 좁혀지고 있으니 적극적인 매수 제안 타이밍입니다.
+            </p>
+            <div className="mt-3 pt-3 border-t border-indigo-500/10 flex items-center justify-between text-[10px] text-slate-400">
+              <span>추천 행동: 매수 고객 NDA 서명 양식 준비</span>
+              <span className="text-indigo-400 cursor-pointer hover:underline">브리핑 공유하기 →</span>
+            </div>
+          </div>
+        </div>
+
+        {/* B1 & B2: Heatmap & Price Chart placeholders */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-4 space-y-3">
+            <p className="text-[10px] font-bold text-slate-400 uppercase">🗺️ 권역별 실거래 히트맵 (B1)</p>
+            <div className="h-32 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-center relative overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.15),transparent_60%)]" />
+              <div className="absolute top-1/3 left-1/4 w-8 h-8 bg-emerald-500/20 rounded-full blur-md animate-pulse" />
+              <div className="absolute top-1/2 left-2/3 w-12 h-12 bg-indigo-500/25 rounded-full blur-md animate-pulse" />
+              <div className="z-10 text-center">
+                <span className="text-xs font-semibold text-white">성수-강남 실거래 거래 강도</span>
+                <p className="text-[9px] text-slate-500 mt-1">거래 밀집도: 매우 높음 (S등급)</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-4 space-y-3">
+            <p className="text-[10px] font-bold text-slate-400 uppercase">📈 시계열 가격 추이 (B2)</p>
+            <div className="h-32 bg-slate-950 rounded-xl border border-slate-800 flex flex-col justify-end p-2">
+              <div className="flex items-end justify-between h-20 px-2 gap-1.5">
+                <div className="w-full bg-slate-800 h-10 rounded-t-sm" />
+                <div className="w-full bg-slate-800 h-12 rounded-t-sm" />
+                <div className="w-full bg-indigo-500/50 h-16 rounded-t-sm" />
+                <div className="w-full bg-indigo-500 h-20 rounded-t-sm" />
+              </div>
+              <div className="flex justify-between text-[8px] text-slate-500 mt-2 px-1">
+                <span>'25 Q3</span>
+                <span>'25 Q4</span>
+                <span>'26 Q1</span>
+                <span>'26 Q2 (현재)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* B5: AI Sell Signal Indicator */}
+        <div className="bg-gradient-to-r from-purple-950/30 to-slate-900 border border-purple-500/20 rounded-2xl p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs">⚡</span>
+            <p className="text-[10px] font-bold text-purple-400 uppercase tracking-wider">AI 매도 예측 시그널 (B5)</p>
+          </div>
+          <p className="text-xs text-slate-300">
+            주변 실거래가 상승세 및 LTV 이자 만기 데이터를 분석한 결과, 이 권역의 꼬마빌딩 <strong>매도 시그널 강도</strong>가 <strong>높음(High)</strong> 상태로 전환되었습니다. 2개월 내 급매물 출현 가능성이 78%로 예측됩니다.
+          </p>
+        </div>
+
+        {/* B4 & G7: Market Broker Sentiment Index Poll */}
+        <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold text-cyan-400 uppercase">💬 현장 중개사 경기 체감 투표 (G7)</p>
+              <p className="text-[9px] text-slate-500 mt-0.5">이번 주 내가 느끼는 상업용 부동산 시장 분위기는?</p>
+            </div>
+            <span className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
+              체감 지수 68 (Bullish)
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <button className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-xl p-3 text-center transition-all">
+              <span className="block text-base">🔥</span>
+              <span className="text-[10px] font-bold text-emerald-400 mt-1 block">뜨거움</span>
+            </button>
+            <button className="bg-slate-800/50 hover:bg-slate-800 border border-slate-800 rounded-xl p-3 text-center transition-all">
+              <span className="block text-base">⚖️</span>
+              <span className="text-[10px] font-bold text-slate-400 mt-1 block">보합</span>
+            </button>
+            <button className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl p-3 text-center transition-all">
+              <span className="block text-base">❄️</span>
+              <span className="text-[10px] font-bold text-red-400 mt-1 block">차가움</span>
+            </button>
+          </div>
+        </div>
+
+        {/* B6/C6: Report Subscription Widget */}
+        <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-white">📧 주간/월간 시장 리포트 정기 구독</p>
+            <p className="text-[9px] text-slate-500 mt-1">매주 월요일 아침 카카오톡과 이메일로 펄스 리포트 PDF가 발송됩니다.</p>
+          </div>
+          <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-4 py-2 rounded-xl transition-all">
+            구독 신청
+          </button>
+        </div>
+
         {/* 면책 */}
         <p className="text-[9px] text-slate-600 text-center leading-relaxed">
           본 펄스는 DealCard 파이프라인 데이터를 AI가 자동 집계·분석한 것으로, 투자 조언이 아닙니다.

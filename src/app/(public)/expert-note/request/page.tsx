@@ -74,7 +74,14 @@ function ExpertNoteRequestContent() {
       });
 
       const json = await res.json();
-      if (!json.ok) throw new Error(json.error?.message || "제출에 실패했습니다.");
+      if (!json.ok) {
+        const errorMsg =
+          json.error?.message ||
+          (typeof json.error === "string" ? json.error : null) ||
+          json.message ||
+          "제출에 실패했습니다.";
+        throw new Error(errorMsg);
+      }
 
       setRequestId(json.data.requestId);
       setIsSubmitted(true);
