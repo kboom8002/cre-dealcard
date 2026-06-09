@@ -34,9 +34,92 @@ const GRADE_STYLES: Record<string, { bg: string; text: string; label: string; bo
   C: { bg: 'bg-rose-50 dark:bg-rose-950/20', text: 'text-rose-600 dark:text-rose-400', border: 'border-rose-200 dark:border-rose-900/50', label: 'C — 매칭 미흡' },
 };
 
+// 데모 폴백 데이터 — DB가 비어있을 때 자동 사용
+const DEMO_MATCHES: MatchResult[] = [
+  {
+    id: 'demo-s-001',
+    building_ssot_lite_id: 'aaaaaaaa-0000-0000-0000-000000000001',
+    buyer_intent_lite_id: 'cccccccc-0000-0000-0000-000000000001',
+    grade: 'S',
+    score: 89,
+    stage1_passed: true,
+    stage2_similarity: 0.91,
+    stage3_score: 87,
+    reasoning: '예산(70~85억)·지역(성동구)·자산유형(꼬마빌딩/근생) 3개 조건 완벽 일치. 1층 카페 임차 선호 조건까지 충족. 엘리베이터 없음도 무관하다고 명시. 시맨틱 유사도 0.91로 최고 수준. 즉시 연락 권장.',
+    purpose_weight_profile: '투자',
+    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    building_area: '성수동',
+    building_asset_type: '꼬마빌딩(근생+사무)',
+    building_price: '70억~78억',
+    buyer_type: '개인 투자자 (홍○○)',
+    buyer_budget: '70억~85억',
+    buyer_purpose: '임대수익 투자',
+  },
+  {
+    id: 'demo-a-002',
+    building_ssot_lite_id: 'aaaaaaaa-0000-0000-0000-000000000001',
+    buyer_intent_lite_id: 'cccccccc-0000-0000-0000-000000000002',
+    grade: 'A',
+    score: 76,
+    stage1_passed: true,
+    stage2_similarity: 0.74,
+    stage3_score: 78,
+    reasoning: '예산(65~75억) 하단 — 매물 가격(70~78억)과 부분 겹침. 성동구 포함으로 지역 일치. 사옥 목적이라 엘리베이터 없음이 약점이나 주차 3대 확보로 보완. 대지 150평으로 120평 이상 조건 충족.',
+    purpose_weight_profile: '사옥',
+    created_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+    building_area: '성수동',
+    building_asset_type: '꼬마빌딩(근생+사무)',
+    building_price: '70억~78억',
+    buyer_type: '법인 (김○○ 대표)',
+    buyer_budget: '65억~75억',
+    buyer_purpose: '사옥 + 일부 임대',
+  },
+  {
+    id: 'demo-b-003',
+    building_ssot_lite_id: 'aaaaaaaa-0000-0000-0000-000000000001',
+    buyer_intent_lite_id: 'cccccccc-0000-0000-0000-000000000003',
+    grade: 'B',
+    score: 54,
+    stage1_passed: true,
+    stage2_similarity: 0.58,
+    stage3_score: 51,
+    reasoning: '예산(75~80억) 범위 내에 있으나 완전 임차 상태 필수 조건에서 2~4층 공실로 인해 감점. 지역도 마포/은평/서대문으로 성동구와 다소 거리 있음. 추가 상담 후 지역 범위 조정 가능성 있음.',
+    purpose_weight_profile: '투자',
+    created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+    building_area: '성수동',
+    building_asset_type: '꼬마빌딩(근생+사무)',
+    building_price: '70억~78억',
+    buyer_type: '개인 투자자 (이○○)',
+    buyer_budget: '75억~80억',
+    buyer_purpose: '임대수익',
+  },
+  {
+    id: 'demo-c-004',
+    building_ssot_lite_id: 'aaaaaaaa-0000-0000-0000-000000000001',
+    buyer_intent_lite_id: 'cccccccc-0000-0000-0000-000000000004',
+    grade: 'C',
+    score: 32,
+    stage1_passed: false,
+    stage2_similarity: 0.31,
+    stage3_score: 32,
+    reasoning: 'Stage 1 탈락: 예산(55~65억)이 매물 호가(70억~78억)보다 5~15억 부족. 지역도 성동구와 불일치. 현재 조건으로는 매칭 성사 어려움. 예산 재조정 상담 필요.',
+    purpose_weight_profile: '투자',
+    created_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+    building_area: '성수동',
+    building_asset_type: '꼬마빌딩(근생+사무)',
+    building_price: '70억~78억',
+    buyer_type: '개인 (박○○)',
+    buyer_budget: '55억~65억',
+    buyer_purpose: '임대수익',
+  },
+];
+
+
+
 export default function MatchingBoardPage() {
   const [matches, setMatches] = useState<MatchResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDemo, setIsDemo] = useState(false);
   const [gradeFilter, setGradeFilter] = useState<'all' | 'S' | 'A' | 'B' | 'C'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -52,7 +135,12 @@ export default function MatchingBoardPage() {
 
       if (res.ok) {
         const { data } = await res.json();
-        setMatches(data ?? []);
+        if (data && data.length > 0) {
+          setMatches(data);
+        } else {
+          // API 응답은 ok지만 데이터 없음 → Supabase 직접 조회로 넘어감
+          throw new Error('empty');
+        }
       } else {
         // Fallback: fetch directly from supabase client
         const { createClient } = await import('@supabase/supabase-js');
@@ -104,6 +192,10 @@ export default function MatchingBoardPage() {
           });
 
           setMatches(enriched);
+        } else {
+          // 최종 폴백: 데모 데이터 사용
+          setMatches(DEMO_MATCHES);
+          setIsDemo(true);
         }
       }
     } finally {
@@ -136,6 +228,16 @@ export default function MatchingBoardPage() {
             총 {matches.length}건의 매칭 결과
           </p>
         </div>
+
+        {/* 데모 배너 */}
+        {isDemo && (
+          <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+            <span className="text-sm">🎬</span>
+            <p className="text-[11px] text-amber-400 font-medium">
+              데모 데이터 표시 중 — 성수동 꼬마빌딩 매칭 시연 (S/A/B/C 등급)
+            </p>
+          </div>
+        )}
 
         {/* Grade Summary Cards */}
         <div className="grid grid-cols-4 gap-2">
