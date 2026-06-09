@@ -295,6 +295,54 @@ export default async function BrokerPage() {
           </Link>
         </div>
 
+        {/* ── 퀵액션 버튼 ── */}
+        <div className="grid grid-cols-2 gap-2">
+          <Link
+            href="/broker/deal-card/new"
+            id="quick-action-new-dealcard"
+            className="flex items-center gap-2.5 rounded-xl border border-primary/40 bg-primary/10 px-4 py-3 hover:bg-primary/20 active:scale-95 transition-all"
+          >
+            <span className="text-xl">📝</span>
+            <div>
+              <p className="text-xs font-bold text-primary leading-tight">30초 딜카드</p>
+              <p className="text-[10px] text-muted-foreground">카톡 메모 붙여넣기</p>
+            </div>
+          </Link>
+          <Link
+            href="/broker/buyer-intents/new"
+            id="quick-action-new-buyer"
+            className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 hover:bg-emerald-500/20 active:scale-95 transition-all"
+          >
+            <span className="text-xl">🎯</span>
+            <div>
+              <p className="text-xs font-bold text-emerald-400 leading-tight">매수자 등록</p>
+              <p className="text-[10px] text-muted-foreground">조건 메모 붙여넣기</p>
+            </div>
+          </Link>
+          <Link
+            href="/broker/matching"
+            id="quick-action-matching"
+            className="flex items-center gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 hover:bg-amber-500/20 active:scale-95 transition-all"
+          >
+            <span className="text-xl">⚡</span>
+            <div>
+              <p className="text-xs font-bold text-amber-400 leading-tight">매칭 센터</p>
+              <p className="text-[10px] text-muted-foreground">AI 매칭 결과 확인</p>
+            </div>
+          </Link>
+          <Link
+            href="/broker/my-card/new"
+            id="quick-action-vibe-card"
+            className="flex items-center gap-2.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 hover:bg-purple-500/20 active:scale-95 transition-all"
+          >
+            <span className="text-xl">✨</span>
+            <div>
+              <p className="text-xs font-bold text-purple-400 leading-tight">Vibe 명함</p>
+              <p className="text-[10px] text-muted-foreground">내 브로커 프로필</p>
+            </div>
+          </Link>
+        </div>
+
         {/* ── 탭 레이아웃 연동 ── */}
         <BrokerDashboardTabs
           overviewContent={overviewContent}
