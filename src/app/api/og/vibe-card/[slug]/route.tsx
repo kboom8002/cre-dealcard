@@ -6,8 +6,9 @@
  */
 import { ImageResponse } from "next/og";
 import { createServiceClient } from "@/lib/supabase/service";
-import { VTI_PROTOTYPES } from "@/lib/vibe/vibe-vector";
-import { getTemplateById } from "@/lib/vibe/vibe-templates";
+import { VTI_PROTOTYPES, type Vibe7D } from "@/lib/vibe/vibe-vector";
+import { getTemplateById, ALL_VIBE_TEMPLATES } from "@/lib/vibe/vibe-templates";
+import { matchTemplates } from "@/lib/vibe/vibe-complement";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,7 @@ export async function GET(
   let vtiLabel = "";
   let vtiColor = "#8b5cf6";
   let bgGradient = "linear-gradient(135deg, #0b0f19 0%, #1a2333 50%, #0f1729 100%)";
+  let bgImageUrl = "";
   let ringColor = "#8b5cf6";
   let textColor = "#f1f5f9";
   let subtextColor = "#94a3b8";
@@ -76,7 +78,7 @@ export async function GET(
       // Fetch broker_profiles with vibe data
       const { data: bp } = await supabase
         .from("broker_profiles")
-        .select("specialty_regions, vibe_vti, vibe_template_id, vibe_valence, vibe_trust, is_verified")
+        .select("specialty_regions, vibe_vti, vibe_template_id, vibe_valence, vibe_trust, is_verified, vibe_vector, vibe_complement")
         .eq("user_id", profile.id)
         .single();
 
@@ -96,15 +98,24 @@ export async function GET(
           }
         }
 
-        if (bp.vibe_template_id) {
-          const tmpl = getTemplateById(bp.vibe_template_id);
-          if (tmpl) {
-            bgGradient = tmpl.css.bgGradient;
-            ringColor = tmpl.css.ringColor;
-            textColor = tmpl.css.textColor;
-            subtextColor = tmpl.css.subtextColor;
-            accentColor = tmpl.css.accentColor;
+        let tmpl = bp.vibe_template_id ? getTemplateById(bp.vibe_template_id) : null;
+
+        if (!tmpl && bp.vibe_vector && bp.vibe_complement) {
+          const photoVibe = bp.vibe_vector as Vibe7D;
+          const complementVibe = bp.vibe_complement as Vibe7D;
+          const matches = matchTemplates(photoVibe, complementVibe, ALL_VIBE_TEMPLATES, 1);
+          if (matches[0]) {
+            tmpl = matches[0].template;
           }
+        }
+
+        if (tmpl) {
+          bgGradient = tmpl.css.bgGradient;
+          bgImageUrl = tmpl.css.bgImageUrl || "";
+          ringColor = tmpl.css.ringColor;
+          textColor = tmpl.css.textColor;
+          subtextColor = tmpl.css.subtextColor;
+          accentColor = tmpl.css.accentColor;
         }
       }
 
@@ -141,6 +152,21 @@ export async function GET(
           position: "relative",
         }}
       >
+        {/* Preset Background Image */}
+        {bgImageUrl && (
+          <img
+            src={bgImageUrl}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "1200px",
+              height: "630px",
+              opacity: 0.35,
+            }}
+          />
+        )}
+
         {/* Decorative background grid pattern */}
         <div
           style={{

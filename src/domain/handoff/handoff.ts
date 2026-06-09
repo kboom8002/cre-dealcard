@@ -133,7 +133,7 @@ export async function getHandoffByToken(token: string): Promise<HandoffPayload |
         id, area_signal, asset_type, price_band, size_signal,
         current_use_signal, vacancy_signal, fit_summary, caution_summary,
         hidden_fields, status, disclosure, confidence,
-        layers, source_refs, evidence_refs
+        layers, completeness_score
       )
     `)
     .eq("handoff_token", token)

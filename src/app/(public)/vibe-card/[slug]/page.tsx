@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
-import { VTI_PROTOTYPES } from "@/lib/vibe/vibe-vector";
-import { getTemplateById } from "@/lib/vibe/vibe-templates";
+import { VTI_PROTOTYPES, type Vibe7D } from "@/lib/vibe/vibe-vector";
+import { getTemplateById, ALL_VIBE_TEMPLATES } from "@/lib/vibe/vibe-templates";
+import { matchTemplates } from "@/lib/vibe/vibe-complement";
 import { VibeCardView } from "./vibe-card-view";
 
 interface PageProps {
@@ -73,9 +74,18 @@ async function getVibeCardData(slug: string) {
     : null;
 
   // 6. Resolve template
-  const template = bp?.vibe_template_id
+  let template = bp?.vibe_template_id
     ? getTemplateById(bp.vibe_template_id) ?? null
     : null;
+
+  if (!template && bp?.vibe_vector && bp?.vibe_complement) {
+    const photoVibe = bp.vibe_vector as Vibe7D;
+    const complementVibe = bp.vibe_complement as Vibe7D;
+    const matches = matchTemplates(photoVibe, complementVibe, ALL_VIBE_TEMPLATES, 1);
+    if (matches[0]) {
+      template = matches[0].template;
+    }
+  }
 
   return {
     profile: {

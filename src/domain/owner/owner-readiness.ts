@@ -60,20 +60,23 @@ const CHECKLIST_LABELS: Record<keyof ReadinessChecklist, string> = {
 };
 
 // Readiness states based on score
+// Thresholds aligned with layer-score-engine.ts (canonical source):
+// ≥20=deal_curiosity, ≥40=blind_teaser, ≥60=snapshot, ≥80=im_lite, =100=full_im
 function getReadinessState(score: number): string {
-  if (score >= 90) return "full_im_candidate";
-  if (score >= 70) return "snapshot_draft_ready";
-  if (score >= 50) return "teaser_ready";
+  if (score >= 100) return "full_im_candidate";
+  if (score >= 80) return "im_lite_ready";
+  if (score >= 60) return "snapshot_draft_ready";
+  if (score >= 40) return "teaser_ready";
   if (score >= 20) return "public_report_only";
   return "not_ready";
 }
 
 function getAvailableOutputs(score: number): string[] {
   const outputs: string[] = ["deal_curiosity_report"];
-  if (score >= 20) outputs.push("blind_teaser");
-  if (score >= 50) outputs.push("building_snapshot_draft");
-  if (score >= 70) outputs.push("im_lite_candidate");
-  if (score >= 90) outputs.push("full_im");
+  if (score >= 40) outputs.push("blind_teaser");
+  if (score >= 60) outputs.push("building_snapshot_draft");
+  if (score >= 80) outputs.push("im_lite"); // aligned with layer-score-engine
+  if (score === 100) outputs.push("full_im_candidate");
   return outputs;
 }
 
@@ -87,13 +90,13 @@ function getNextRecommendedAction(
   if (!checklist.rentRoll) {
     return "임대차 현황 요약표를 준비하면 블라인드 티저 생성이 가능합니다.";
   }
-  if (score < 50) {
+  if (score < 60) {
     return "사진, 평면도를 추가하면 Snapshot 초안 작성이 가능합니다.";
   }
-  if (score < 70) {
-    return "수선 이력과 공실 현황을 보완하면 Snapshot 초안 작성이 가능합니다.";
+  if (score < 80) {
+    return "수선 이력과 공실 현황을 보완하면 IM Lite 작성이 가능합니다.";
   }
-  if (score < 90) {
+  if (score < 100) {
     return "희망 매각가와 공개 범위를 결정하면 Full IM 작성이 가능합니다.";
   }
   return "전문가 검토 후 Full IM 초안 작성을 진행할 수 있습니다.";

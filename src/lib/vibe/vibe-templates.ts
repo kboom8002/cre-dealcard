@@ -10,6 +10,17 @@ import type { Vibe7D, VibeVtiType } from "./vibe-vector";
 
 export interface VibeTemplateCssVars {
   bgGradient: string;
+  bgImageUrl?: string;
+  /** CSS mix-blend-mode for the preset background image layer */
+  bgImageBlendMode?: string;
+  /** Opacity for the preset background image layer (0–1) */
+  bgImageOpacity?: number;
+  /**
+   * For light-background templates: opacity of an accent-color tint layer
+   * rendered beneath the image so multiply blend has a non-white base.
+   * 0 = no tint (dark templates).
+   */
+  bgImageTintOpacity?: number;
   accentColor: string;
   textColor: string;
   subtextColor: string;
@@ -453,9 +464,38 @@ const RA: VibeTemplate[] = [
 
 // ── 전체 템플릿 내보내기 ─────────────────────────────
 
+/**
+ * Parse the first #rrggbb color from a CSS gradient string and return
+ * a perceived-luminance value in [0, 1].  Values > 0.5 = light background.
+ */
+function _bgLuminance(bgGradient: string): number {
+  const hex = bgGradient.match(/#([0-9a-fA-F]{6})/)?.[1];
+  if (!hex) return 0;
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
 export const ALL_VIBE_TEMPLATES: VibeTemplate[] = [
   ...CC, ...CP, ...FC, ...PS, ...BF, ...HT, ...RA,
-];
+].map(t => {
+  const isLight = _bgLuminance(t.css.bgGradient) > 0.5;
+  return {
+    ...t,
+    css: {
+      ...t.css,
+      bgImageUrl: `https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/vibe-backgrounds/${t.id.toLowerCase().replace("-", "_")}.png?v=20260604b`,
+      // Light backgrounds → multiply shows texture beautifully on white/cream
+      // Dark backgrounds  → luminosity adds glowing highlights on dark gradients
+      bgImageBlendMode: isLight ? "multiply" : "luminosity",
+      bgImageOpacity:   isLight ? 0.65 : 0.30,
+      // For light (near-white) backgrounds, add a subtle accent tint so
+      // the multiply blend has a non-white base to work against.
+      bgImageTintOpacity: isLight ? 0.10 : 0,
+    },
+  };
+});
 
 export function getTemplateById(id: string): VibeTemplate | undefined {
   return ALL_VIBE_TEMPLATES.find((t) => t.id === id);

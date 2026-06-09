@@ -11,6 +11,28 @@ import {
   VibeShareSheet,
 } from "@/components/vibe-card";
 
+// Demo broker slug → building ID + label mapping
+const DEMO_IM_LISTINGS: Record<string, { buildingId: string; label: string; priceBand: string; assetType: string }> = {
+  "hong-gildong": {
+    buildingId: "f1111111-1111-1111-1111-111111111111",
+    label: "강남구 GBD *** 오피스 빌딩",
+    priceBand: "450억",
+    assetType: "오피스 빌딩",
+  },
+  "kim-chulsoo": {
+    buildingId: "f2222222-2222-2222-2222-111111111111",
+    label: "영등포구 YBD *** 프라임 오피스",
+    priceBand: "보증금 15억 / 월 1.2억",
+    assetType: "프라임 오피스 (임대)",
+  },
+  "lee-younghee": {
+    buildingId: "f3333333-3333-3333-3333-111111111111",
+    label: "중구 CBD *** 지식산업센터",
+    priceBand: "580억",
+    assetType: "지식산업센터",
+  },
+};
+
 // ── Types ────────────────────────────────────────────
 
 interface VibeCardProfile {
@@ -186,7 +208,53 @@ export function VibeCardView({ data }: { data: VibeCardData }) {
           />
         </section>
 
-        {/* ── 3. Footer Branding ── */}
+        {/* ── 3. IM Lite Demo Listing (demo brokers only) ── */}
+        {DEMO_IM_LISTINGS[slug] && (() => {
+          const listing = DEMO_IM_LISTINGS[slug];
+          return (
+            <section>
+              <div
+                className="rounded-2xl border p-4"
+                style={{
+                  borderColor: `${css.accentColor}25`,
+                  background: `linear-gradient(135deg, ${css.accentColor}08, transparent)`,
+                }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-lg">📄</span>
+                  <span
+                    className="text-xs font-bold uppercase tracking-wider"
+                    style={{ color: css.subtextColor }}
+                  >
+                    대표 매물 IM Lite
+                  </span>
+                </div>
+                <p className="text-sm font-semibold mb-0.5" style={{ color: css.textColor }}>
+                  {listing.label}
+                </p>
+                <p className="text-xs mb-3" style={{ color: css.subtextColor }}>
+                  {listing.assetType} · {listing.priceBand}
+                </p>
+                <Link
+                  href={`/im-lite/${listing.buildingId}`}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl transition-all hover:opacity-90"
+                  style={{
+                    background: `${css.accentColor}20`,
+                    color: css.accentColor,
+                    border: `1px solid ${css.accentColor}30`,
+                  }}
+                >
+                  투자설명서 보기 (7섹션)
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+            </section>
+          );
+        })()}
+
+        {/* ── 4. Footer Branding ── */}
         <footer className="text-center pt-8 pb-4 space-y-1">
           <p
             className="text-xs font-bold tracking-wider"

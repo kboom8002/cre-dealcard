@@ -12,19 +12,20 @@ VALUES
   ('e3c12345-1234-1234-1234-123456789abc', '00000000-0000-0000-0000-000000000000', 'lee.demo@dealcard.kr', '', now(), '{"provider":"email","providers":["email"]}', '{"display_name":"이영희"}', now(), now(), 'authenticated', 'authenticated')
 ON CONFLICT (id) DO NOTHING;
 
--- 2. Ensure profiles exist for these user IDs and set role, company, phone, tagline
-INSERT INTO public.profiles (id, role, display_name, company, phone, tagline)
+-- 2. Ensure profiles exist for these user IDs and set role, company, phone, tagline, photo_url
+INSERT INTO public.profiles (id, role, display_name, company, phone, tagline, photo_url)
 VALUES
-  ('e1a12345-1234-1234-1234-123456789abc', 'broker', '홍길동', '한국상업부동산중개', '010-1234-5678', '성공적인 빌딩 매매를 위한 최적의 파트너'),
-  ('e2b12345-1234-1234-1234-123456789abc', 'broker', '김철수', '대박빌딩파트너스', '010-8765-4321', '강남 오피스 빌딩 임대차 시장의 핵심 리더'),
-  ('e3c12345-1234-1234-1234-123456789abc', 'broker', '이영희', '가온부동산투자자문', '010-5555-9999', '데이터 기반 분석으로 도출하는 중소형 빌딩 밸류업 솔루션')
+  ('e1a12345-1234-1234-1234-123456789abc', 'broker', '홍길동', '한국상업부동산중개', '010-1234-5678', '성공적인 빌딩 매매를 위한 최적의 파트너', 'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/broker-avatars/demo/hong-gildong.png'),
+  ('e2b12345-1234-1234-1234-123456789abc', 'broker', '김철수', '대박빌딩파트너스', '010-8765-4321', '강남 오피스 빌딩 임대차 시장의 핵심 리더', 'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/broker-avatars/demo/kim-chulsoo.png'),
+  ('e3c12345-1234-1234-1234-123456789abc', 'broker', '이영희', '가온부동산투자자문', '010-5555-9999', '데이터 기반 분석으로 도출하는 중소형 빌딩 밸류업 솔루션', 'https://vwbmaulavgjwezffbxgi.supabase.co/storage/v1/object/public/broker-avatars/demo/lee-younghee.png')
 ON CONFLICT (id) DO UPDATE
 SET
   role = EXCLUDED.role,
   display_name = EXCLUDED.display_name,
   company = EXCLUDED.company,
   phone = EXCLUDED.phone,
-  tagline = EXCLUDED.tagline;
+  tagline = EXCLUDED.tagline,
+  photo_url = EXCLUDED.photo_url;
 
 -- Ensure corresponding broker_profiles rows exist
 INSERT INTO public.broker_profiles (user_id)

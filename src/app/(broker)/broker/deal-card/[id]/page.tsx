@@ -11,6 +11,7 @@ import { SpaceAIHandoffButton } from "@/components/space-ai/space-ai-handoff-but
 import { MatchedBuyersSection } from "./matched-buyers-section";
 import { DealPredictionSection } from "./deal-prediction-section";
 import { DealCardPipelineContainer } from "./DealCardPipelineContainer";
+import { IdealBuyerPersonaSection } from "./ideal-buyer-persona-section";
 
 
 export const metadata: Metadata = {
@@ -32,12 +33,21 @@ export default async function BrokerDealCardResultPage({
   const { data: building } = await supabase
     .from("building_ssot_lite")
     .select(
-      "id, area_signal, asset_type, price_band, current_use_signal, vacancy_signal, fit_summary, caution_summary, hidden_fields, status",
+      "id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, fit_summary, caution_summary, hidden_fields, status",
     )
     .eq("id", id)
     .single();
 
   if (!building) return notFound();
+
+  // Fetch signal card (for curiosity score or other signals)
+  const { data: signalCard } = await supabase
+    .from("building_signal_cards")
+    .select("deal_curiosity_score")
+    .eq("building_id", id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   // Signal card data is available via building_signal_cards table
   // but the teaser body already contains all display data
@@ -265,11 +275,24 @@ export default async function BrokerDealCardResultPage({
           </span>
         </div>
 
-        {/* P0-1: Matched Buyers */}
+        {/* P0-3: Matched Buyers */}
         <MatchedBuyersSection buildingId={id} />
 
         {/* P1-1: Deal Prediction */}
         <DealPredictionSection buildingId={id} />
+
+        {/* AI Ideal Buyer Persona Section */}
+        <IdealBuyerPersonaSection
+          buildingId={id}
+          areaSignal={building.area_signal || ""}
+          assetType={building.asset_type || ""}
+          priceBand={building.price_band || ""}
+          sizeSignal={building.size_signal || ""}
+          vacancyStatus={building.vacancy_signal || ""}
+          fitSummary={building.fit_summary || ""}
+          cautionSummary={building.caution_summary || ""}
+          curiosityScore={signalCard?.deal_curiosity_score ?? 50}
+        />
 
         {/* Gate Request Form */}
         <div className="rounded-xl border border-border bg-card p-5">

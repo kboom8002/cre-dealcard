@@ -348,6 +348,88 @@ export default async function HubPage() {
       {/* ── 전문 중개인 쇼케이스 (NEW) ── */}
       <HubBrokerShowcase brokers={data.featuredBrokers} />
 
+      {/* ── 모바일 IM Lite 데모 ── */}
+      <section className="max-w-2xl mx-auto px-4 pb-5">
+        <div className="flex items-center justify-between mb-2.5">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+            📄 AI 투자설명서 데모
+          </p>
+          <span className="text-[10px] text-primary/70 font-medium px-2 py-0.5 bg-primary/10 rounded-full border border-primary/20">
+            킬러 기능
+          </span>
+        </div>
+        <p className="text-[10px] text-muted-foreground mb-2.5 leading-relaxed">
+          중개인이 매물 정보를 입력하면 AI가 7섹션 모바일 투자설명서를 2분 안에 자동 생성합니다.
+        </p>
+        <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
+          {[
+            {
+              buildingId: "f1111111-1111-1111-1111-111111111111",
+              blindName: "강남구 GBD *** 오피스 빌딩",
+              assetType: "오피스 빌딩",
+              priceBand: "450억",
+              brokerName: "홍길동",
+              sections: 7,
+              color: "text-violet-400",
+              bg: "bg-violet-500/10",
+              border: "border-violet-500/20",
+              hoverBorder: "hover:border-violet-500/40",
+            },
+            {
+              buildingId: "f2222222-2222-2222-2222-111111111111",
+              blindName: "영등포구 YBD *** 프라임 오피스",
+              assetType: "프라임 오피스 (임대)",
+              priceBand: "보증금 15억",
+              brokerName: "김철수",
+              sections: 5,
+              color: "text-sky-400",
+              bg: "bg-sky-500/10",
+              border: "border-sky-500/20",
+              hoverBorder: "hover:border-sky-500/40",
+            },
+            {
+              buildingId: "f3333333-3333-3333-3333-111111111111",
+              blindName: "중구 CBD *** 지식산업센터",
+              assetType: "지식산업센터",
+              priceBand: "580억",
+              brokerName: "이영희",
+              sections: 7,
+              color: "text-emerald-400",
+              bg: "bg-emerald-500/10",
+              border: "border-emerald-500/20",
+              hoverBorder: "hover:border-emerald-500/40",
+            },
+          ].map((item) => (
+            <Link
+              key={item.buildingId}
+              href={`/im-lite/${item.buildingId}`}
+              className={`shrink-0 w-52 bg-card border ${item.border} ${item.hoverBorder} rounded-2xl p-4 transition-all hover:scale-[1.02] active:scale-[0.97]`}
+            >
+              <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold ${item.bg} ${item.color} mb-2`}>
+                📄 IM Lite
+              </div>
+              <p className={`text-xs font-bold ${item.color} mb-0.5 line-clamp-1`}>
+                {item.priceBand}
+              </p>
+              <p className="text-[11px] font-semibold text-foreground line-clamp-2 leading-snug mb-1.5">
+                {item.blindName}
+              </p>
+              <p className="text-[9px] text-muted-foreground line-clamp-1 mb-2">
+                {item.assetType}
+              </p>
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] text-muted-foreground">
+                  👤 {item.brokerName}
+                </span>
+                <span className={`text-[9px] font-bold ${item.color}`}>
+                  {item.sections}섹션 →
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       {/* ── 오늘의 인사이트 ── */}
       {data.latestInsight && (
         <section className="max-w-2xl mx-auto px-4 pb-5 pt-4">

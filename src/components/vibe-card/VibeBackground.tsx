@@ -26,6 +26,41 @@ export function VibeBackground({ css, children, className }: VibeBackgroundProps
         isolation: "isolate",
       }}
     >
+      {/* ── Accent tint for light-bg templates (gives multiply a non-white base) ── */}
+      {(css.bgImageTintOpacity ?? 0) > 0 && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundColor: css.accentColor,
+            opacity: css.bgImageTintOpacity,
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+      )}
+
+      {/* ── Preset background image layer ── */}
+      {css.bgImageUrl && (
+        <img
+          src={css.bgImageUrl}
+          alt=""
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            opacity: css.bgImageOpacity ?? 0.35,
+            mixBlendMode: (css.bgImageBlendMode ?? "luminosity") as React.CSSProperties["mixBlendMode"],
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+      )}
+
       {/* ── Noise texture overlay ── */}
       <div
         aria-hidden
