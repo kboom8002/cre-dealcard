@@ -17,6 +17,7 @@ interface MatchResult {
   stage1_passed?: boolean;
   stage1_details?: any;
   stage2_similarity?: number;
+  stage3_score?: number;
   stage3_weights?: any;
   // joined
   building_area?: string;
