@@ -164,7 +164,7 @@ async function labelCluster(
 
   try {
     const resp = await callLLM({
-      model: 'gpt-4o-mini',
+      model: 'gpt-5.4',
       systemPrompt: `한국 상업부동산 매수자 클러스터를 분석하여 3-5자 한글 레이블과 weightProfile을 반환하세요.
 weightProfile은 반드시 "사옥", "투자", "증여", "default" 중 하나.
 JSON: { "label": "강남 사옥 법인", "weightProfile": "사옥" }`,

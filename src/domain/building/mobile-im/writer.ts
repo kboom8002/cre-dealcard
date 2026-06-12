@@ -8,7 +8,7 @@
 // v2 — flat DB 구조 직접 지원 + value-add-engine 통합
 //
 // [Claude 전환 가이드]
-// 1. callLLM({ model: "gpt-4o", ... }) → callLLM({ model: "claude-sonnet-4-5", ... })
+// 1. callLLM({ model: "gpt-5.4", ... }) → callLLM({ model: "claude-sonnet-4-5", ... })
 // 2. 프롬프트 내 XML 태그 구조로 변환 (narrative-prompt.ts 수정)
 // 3. 환경변수: AI_IM_MODEL=claude-sonnet-4-5
 
@@ -45,7 +45,7 @@ export interface MobileIMWriterOutput {
 }
 
 /** AI 모델 설정 — 환경변수로 교체 가능 */
-const IM_AI_MODEL = process.env.AI_IM_MODEL || process.env.AI_DEFAULT_MODEL || "gpt-4o";
+const IM_AI_MODEL = process.env.AI_IM_MODEL || process.env.AI_DEFAULT_MODEL || "gpt-5.4";
 
 // ─── Flat 구조 → 중첩 구조 정규화 ──────────────────────────────────────────
 /**

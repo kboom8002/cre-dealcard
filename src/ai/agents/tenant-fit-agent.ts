@@ -44,7 +44,7 @@ export type TenantFitAgentOutput = z.infer<typeof TenantFitAgentOutputSchema>;
 export async function runTenantFitAgent(
   input: TenantFitAgentInput,
 ): Promise<AgentOutputEnvelope<TenantFitAgentOutput>> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-4o";
+  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
 
   // 프롬프트 템플릿에 입력 데이터 삽입
   const userPrompt = TENANT_FIT_USER_TEMPLATE

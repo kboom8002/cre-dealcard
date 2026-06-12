@@ -57,7 +57,7 @@ export type LeasingPageWriterOutput = z.infer<typeof LeasingPageWriterOutputSche
 export async function runLeasingPageWriterAgent(
   input: LeasingPageWriterInput,
 ): Promise<AgentOutputEnvelope<LeasingPageWriterOutput>> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-4o";
+  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
 
   // 프롬프트 조립 – 선택 필드는 빈 값 표기
   const userPrompt = LEASING_PAGE_WRITER_USER_TEMPLATE

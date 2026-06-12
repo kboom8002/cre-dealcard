@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       const aiRes = await callLLM({
         systemPrompt,
         userPrompt,
-        model: "gpt-4o-mini",
+        model: "gpt-5.4",
         temperature: 0.7,
         maxTokens: 500
       });

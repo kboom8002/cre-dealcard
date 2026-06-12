@@ -8,7 +8,7 @@ const publicEnvSchema = z.object({
 const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
   OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is required"),
-  AI_DEFAULT_MODEL: z.string().default("gpt-4o"),
+  AI_DEFAULT_MODEL: z.string().default("gpt-5.4"),
   APP_BASE_URL: z.string().url().default("http://localhost:3000"),
   // 공공데이터 API — optional (미설정 시 mock 폴백)
   DATA_GO_KR_API_KEY: z.string().optional(),
@@ -47,7 +47,7 @@ export function getServerEnv() {
   const payload = {
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || (isTestOrBuild ? "mock-service-role-key" : undefined),
     OPENAI_API_KEY: process.env.OPENAI_API_KEY || (isTestOrBuild ? "mock-openai-key" : undefined),
-    AI_DEFAULT_MODEL: process.env.AI_DEFAULT_MODEL || "gpt-4o",
+    AI_DEFAULT_MODEL: process.env.AI_DEFAULT_MODEL || "gpt-5.4",
     APP_BASE_URL: process.env.APP_BASE_URL || "http://localhost:3000",
   };
 

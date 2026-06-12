@@ -5,7 +5,7 @@ export class MockOpenAIProvider implements LLMProvider {
 
   async chat(params: LLMChatParams): Promise<LLMChatResult> {
     const startTime = Date.now();
-    const model = params.model || "gpt-4o";
+    const model = params.model || "gpt-5.4";
 
     console.warn(`[MockOpenAIProvider]process.env.OPENAI_API_KEY is missing or in test environment. Returning mock JSON response.`);
     

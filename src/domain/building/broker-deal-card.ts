@@ -48,7 +48,7 @@ export async function brokerDealCardFromMemo(
       run_type: "broker_deal_card",
       input_ref: {},
       output_ref: {},
-      model: process.env.AI_DEFAULT_MODEL || "gpt-4o",
+      model: process.env.AI_DEFAULT_MODEL || "gpt-5.4",
       prompt_version: "prompt_memo_parser_v1",
       status: "failed",
       latency_ms: Date.now() - startTime,

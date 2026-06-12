@@ -40,7 +40,7 @@ export async function translateIMSections(
     {
       systemPrompt: TRANSLATION_SYSTEM,
       userPrompt: `Translate the following Korean real estate IM sections to ${targetLang}.\nReturn ONLY the translated sections in the same === SECTION N: title === format.\n\n${sectionsText}`,
-      model: process.env.AI_IM_MODEL || 'gpt-4o',
+      model: process.env.AI_IM_MODEL || 'gpt-5.4',
       temperature: 0.1,
       maxTokens: 4000,
     },

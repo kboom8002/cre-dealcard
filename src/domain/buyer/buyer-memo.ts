@@ -93,7 +93,7 @@ export async function generateBuyerMemo(
         buyer_intent_id: input.buyerIntentId,
       },
       output_ref: {},
-      model: process.env.AI_DEFAULT_MODEL || "gpt-4o",
+      model: process.env.AI_DEFAULT_MODEL || "gpt-5.4",
       prompt_version: "prompt_buyer_memo_v1",
       status: "failed",
       latency_ms: Date.now() - startTime,

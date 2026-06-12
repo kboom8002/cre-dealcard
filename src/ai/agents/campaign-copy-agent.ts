@@ -40,7 +40,7 @@ export type CampaignCopyAgentOutput = z.infer<typeof CampaignCopyAgentOutputSche
 export async function runCampaignCopyAgent(
   input: CampaignCopyAgentInput,
 ): Promise<AgentOutputEnvelope<CampaignCopyAgentOutput>> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-4o";
+  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
 
   const userPrompt = CAMPAIGN_COPY_USER_TEMPLATE
     .replace("{space_summary}", JSON.stringify(input.space_summary, null, 2))

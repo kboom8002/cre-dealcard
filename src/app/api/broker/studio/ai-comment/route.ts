@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     const result = await callLLM({
       systemPrompt,
       userPrompt,
-      model: "gpt-4o-mini",
+      model: "gpt-5.4",
       temperature: 0.7,
     });
 

@@ -74,7 +74,7 @@ async function callOpenAI(
 export async function runBrokerDealCard(
   input: BrokerDealCardInput,
 ): Promise<BrokerDealCardResult> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-4o";
+  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
   let totalTokens = 0;
 
   // Apply PII Sanitization

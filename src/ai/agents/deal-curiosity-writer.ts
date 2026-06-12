@@ -39,7 +39,7 @@ export async function runDealCuriosityWriter(
     .replace("{input_type}", input.inputType)
     .replace("{user_purpose}", input.userPurpose);
 
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-4o";
+  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
 
   const response = await callLLM({
     model,

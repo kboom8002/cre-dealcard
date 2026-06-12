@@ -21,7 +21,7 @@ export interface FundingProjectCardResult {
 export async function runFundingProjectCard(
   rawText: string,
 ): Promise<FundingProjectCardResult> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-4o-mini";
+  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
 
   // Step 1: Parse unstructured text into structured project info
   const parseUserPrompt = FUNDING_PROJECT_PARSER_USER.replace("{rawText}", rawText);

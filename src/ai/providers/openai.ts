@@ -15,7 +15,7 @@ export class OpenAIProvider implements LLMProvider {
 
   async chat(params: LLMChatParams): Promise<LLMChatResult> {
     const startTime = Date.now();
-    const model = params.model || "gpt-4o";
+    const model = params.model || "gpt-5.4";
 
     try {
       const response = await this.openai.chat.completions.create(

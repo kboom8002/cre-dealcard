@@ -101,7 +101,7 @@ vi.mock('@/ai/agents/BuildingSnapshotAgent', () => {
         boundary_disclaimer: '본 자료는 중개인이 제공한 참고용 정보로, 투자 권유나 법적 확약이 아닙니다. 상세 실사 및 전문가 검토가 필요합니다.',
         document_version: 'v0.3-snapshot',
       },
-      model: 'gpt-4o',
+      model: 'gpt-5.4',
       promptVersion: 'v0.3-snapshot-prompt',
     }),
   };

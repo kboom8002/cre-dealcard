@@ -55,7 +55,7 @@ async function callLLM(prompt: string): Promise<{
     const result = await centralCallLLM({
       systemPrompt: "당신은 한국 상업용 부동산 시장 분석가입니다. 주간 시그널 데이터를 요약해야 합니다.",
       userPrompt: prompt,
-      model: "gpt-4o-mini",
+      model: "gpt-5.4",
       responseFormat: "json_object",
       temperature: 0.7,
     });

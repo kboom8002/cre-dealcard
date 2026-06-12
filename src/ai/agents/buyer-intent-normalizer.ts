@@ -25,7 +25,7 @@ export interface BuyerIntentNormalizerResult {
 export async function runBuyerIntentNormalizer(
   memo: string,
 ): Promise<BuyerIntentNormalizerResult> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-4o";
+  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
   const userPrompt = BUYER_INTENT_USER_TEMPLATE.replace("{memo}", memo);
 
   const response = await callLLM({

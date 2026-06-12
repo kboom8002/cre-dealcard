@@ -39,7 +39,7 @@ describe("LLM Abstraction & Fallback Cache", () => {
     const result = await callLLM({
       systemPrompt: "sys",
       userPrompt: "user",
-      model: "gpt-4o",
+      model: "gpt-5.4",
     }, {
       providers: ["openai"],
     });
@@ -77,7 +77,7 @@ describe("LLM Abstraction & Fallback Cache", () => {
     const okResult = await callLLM({
       systemPrompt: "sys",
       userPrompt: "user",
-      model: "gpt-4o",
+      model: "gpt-5.4",
     }, {
       providers: ["openai"],
       cacheKey,
@@ -96,7 +96,7 @@ describe("LLM Abstraction & Fallback Cache", () => {
     const fallbackResult = await callLLM({
       systemPrompt: "sys",
       userPrompt: "user",
-      model: "gpt-4o",
+      model: "gpt-5.4",
     }, {
       providers: ["broken"],
       cacheKey, // 동일한 캐시 키

@@ -39,7 +39,7 @@ export async function createTenantIntentFromMemo(
       run_type: "tenant_intent_normalizer",
       input_ref: {},
       output_ref: {},
-      model: process.env.AI_DEFAULT_MODEL || "gpt-4o",
+      model: process.env.AI_DEFAULT_MODEL || "gpt-5.4",
       prompt_version: "prompt_tenant_intent_normalizer_v1",
       status: "failed",
       latency_ms: Date.now() - startTime,

@@ -20,7 +20,7 @@ async function callLLM(prompt: string): Promise<string> {
     const result = await centralCallLLM({
       systemPrompt: "당신은 한국 상업용 부동산 시장 분석가이며, 유능한 콘텐츠 에디터입니다.",
       userPrompt: prompt,
-      model: "gpt-4o-mini",
+      model: "gpt-5.4",
       temperature: 0.7,
       maxTokens: 4096,
     });

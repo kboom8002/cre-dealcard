@@ -36,7 +36,7 @@ export const aiClient: AiModelClient = {
     schema: z.ZodType<T>;
   }): Promise<AiRunResult<T>> {
     const { schemaName, promptVersion, input, schema } = args;
-    const model = process.env.AI_DEFAULT_MODEL || "gpt-4o";
+    const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
 
     // input 타입에 따라 프롬프트 추출
     let systemPrompt = "You are a helpful CRE assistant. Respond only in valid JSON.";

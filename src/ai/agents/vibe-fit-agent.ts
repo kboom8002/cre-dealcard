@@ -52,7 +52,7 @@ export type VibeFitAgentOutput = z.infer<typeof VibeFitAgentOutputSchema>;
 export async function runVibeFitAgent(
   input: VibeFitAgentInput,
 ): Promise<AgentOutputEnvelope<VibeFitAgentOutput>> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-4o";
+  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
 
   // 프롬프트 조립
   const userPrompt = VIBE_FIT_USER_TEMPLATE

@@ -65,7 +65,7 @@ export type VisualClassificationOutput = z.infer<typeof VisualClassificationOutp
 export async function runVisualClassificationAgent(
   input: VisualClassificationInput,
 ): Promise<AgentOutputEnvelope<VisualClassificationOutput>> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-4o";
+  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
 
   // 사진 목록을 JSON으로 직렬화하여 프롬프트에 삽입
   const userPrompt = VISUAL_CLASSIFICATION_USER_TEMPLATE

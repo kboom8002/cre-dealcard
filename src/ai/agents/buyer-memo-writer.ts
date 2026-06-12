@@ -49,7 +49,7 @@ export interface BuyerMemoWriterResult {
 export async function runBuyerMemoWriter(
   input: BuyerMemoWriterInput,
 ): Promise<BuyerMemoWriterResult> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-4o";
+  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
 
   const userPrompt = BUYER_MEMO_USER_TEMPLATE
     .replace("{area_signal}", input.building.areaSignal || "미확인")

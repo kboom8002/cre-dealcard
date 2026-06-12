@@ -12,7 +12,7 @@ export interface InvestorProfileNormalizerResult {
 export async function runInvestorProfileNormalizer(
   rawText: string,
 ): Promise<InvestorProfileNormalizerResult> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-4o-mini";
+  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
 
   const systemPrompt = `You are a Korean financial analyst specialized in crowdfunding and STO investor matching.
 Extract investor preferences from raw broker notes or client inputs and structure them into valid JSON matching InvestorProfileOutputSchema.

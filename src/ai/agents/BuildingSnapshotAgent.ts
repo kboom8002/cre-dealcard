@@ -26,7 +26,7 @@ export async function runBuildingSnapshotAgent(
     .replace("{lease_data}", JSON.stringify(input.leaseSummary || {}, null, 2))
     .replace("{evidence_layers}", JSON.stringify(input.availableEvidenceLayers || [], null, 2));
 
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-4o";
+  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
 
   const response = await callLLM({
     model,

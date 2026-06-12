@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       {
         systemPrompt: SYSTEM_PROMPT,
         userPrompt,
-        model: 'gpt-4o',
+        model: 'gpt-5.4',
         temperature: 0.7,
         maxTokens: 600,
       },

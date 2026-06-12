@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-4o";
+  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
 
   try {
     // ─── Step 1: PII 마스킹 ────────────────────────────────────────────────
