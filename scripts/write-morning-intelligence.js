@@ -1,4 +1,11 @@
-"use client";
+// Script: Write new premium MorningIntelligence component
+const fs = require('fs');
+const path = require('path');
+
+const root = path.join(__dirname, '..');
+const filePath = path.join(root, 'src/components/dashboard/MorningIntelligence.tsx');
+
+const content = `"use client";
 
 import React, { useState, useEffect, useCallback } from "react";
 import {
@@ -34,22 +41,22 @@ const REGIONS = [
 
 // ── AI 브리핑 텍스트를 리치 포맷으로 파싱 ─────────────────────────────────────
 function RichBriefing({ text }: { text: string }) {
-  const paragraphs = text.split(/\n{1,2}/).filter(Boolean);
+  const paragraphs = text.split(/\\n{1,2}/).filter(Boolean);
   return (
     <div className="space-y-3">
       {paragraphs.map((para, i) => {
         // 헤딩 감지 (이모지로 시작하거나 **로 감싼 경우)
         const isHeading = /^[🏢📊⚡🔥💡📍🌐📰🏗️💰🎯]/.test(para) ||
-                          /^\*\*.*\*\*$/.test(para.trim());
+                          /^\\*\\*.*\\*\\*$/.test(para.trim());
         // 숫자 목록 감지
-        const isList = /^[\d]+\./.test(para.trim()) || /^[•·▶→·-]/.test(para.trim());
+        const isList = /^[\\d]+\\./.test(para.trim()) || /^[•·▶→·-]/.test(para.trim());
         // 핵심 수치 감지
-        const hasMetric = /[\d,.]+%(|[억만원])/.test(para);
+        const hasMetric = /[\\d,.]+%(|[억만원])/.test(para);
 
         const formattedText = para
-          .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
-          .replace(/(\d[\d,.]+%)/g, '<span class="text-indigo-300 font-bold font-mono">$1</span>')
-          .replace(/(\d[\d,.]+억)/g, '<span class="text-emerald-300 font-bold">$1</span>');
+          .replace(/\\*\\*(.*?)\\*\\*/g, '<strong class="text-white font-bold">$1</strong>')
+          .replace(/(\\d[\\d,.]+%)/g, '<span class="text-indigo-300 font-bold font-mono">$1</span>')
+          .replace(/(\\d[\\d,.]+억)/g, '<span class="text-emerald-300 font-bold">$1</span>');
 
         if (isHeading) {
           return (
@@ -72,7 +79,7 @@ function RichBriefing({ text }: { text: string }) {
         }
         return (
           <p key={i}
-             className={`text-[12px] leading-relaxed ${hasMetric ? "text-slate-100" : "text-slate-300"}`}
+             className={\`text-[12px] leading-relaxed \${hasMetric ? "text-slate-100" : "text-slate-300"}\`}
              dangerouslySetInnerHTML={{ __html: formattedText }} />
         );
       })}
@@ -91,7 +98,7 @@ function CircleGauge({ value, max = 10, color, label }: { value: number; max?: n
         <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
           <circle cx="32" cy="32" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
           <circle cx="32" cy="32" r={r} fill="none" stroke={color} strokeWidth="6"
-            strokeDasharray={`${dash} ${c}`} strokeLinecap="round"
+            strokeDasharray={\`\${dash} \${c}\`} strokeLinecap="round"
             style={{ transition: "stroke-dasharray 1.2s ease" }} />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
@@ -109,7 +116,7 @@ function MiniBar({ label, value, max, color, unit }: { label: string; value: num
     <div className="flex items-center gap-2 text-[11px]">
       <span className="text-slate-400 w-16 shrink-0 font-medium">{label}</span>
       <div className="flex-1 bg-white/5 rounded-full h-1.5 overflow-hidden">
-        <motion.div initial={{ width: 0 }} animate={{ width: `${(value / max) * 100}%` }}
+        <motion.div initial={{ width: 0 }} animate={{ width: \`\${(value / max) * 100}%\` }}
           transition={{ duration: 1, ease: "easeOut" }}
           className="h-full rounded-full" style={{ background: color }} />
       </div>
@@ -129,7 +136,7 @@ function Badge({ children, variant = "default" }: { children: React.ReactNode; v
     rose:     "bg-rose-500/15 text-rose-300 border-rose-500/25",
   };
   return (
-    <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border ${styles[variant]}`}>
+    <span className={\`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border \${styles[variant]}\`}>
       {children}
     </span>
   );
@@ -138,8 +145,8 @@ function Badge({ children, variant = "default" }: { children: React.ReactNode; v
 // ── 카드 래퍼 ──────────────────────────────────────────────────────────────────
 function Card({ children, className = "", accent }: { children: React.ReactNode; className?: string; accent?: string }) {
   return (
-    <div className={`relative rounded-2xl border border-white/8 bg-white/3 backdrop-blur-sm p-4 overflow-hidden ${className}`}
-         style={accent ? { boxShadow: `0 0 40px -12px ${accent}30`, borderColor: `${accent}20` } : {}}>
+    <div className={\`relative rounded-2xl border border-white/8 bg-white/3 backdrop-blur-sm p-4 overflow-hidden \${className}\`}
+         style={accent ? { boxShadow: \`0 0 40px -12px \${accent}30\`, borderColor: \`\${accent}20\` } : {}}>
       {accent && (
         <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full blur-3xl pointer-events-none opacity-20"
              style={{ background: accent }} />
@@ -184,7 +191,7 @@ export default function MorningIntelligence() {
   const fetchIntelligence = useCallback(async (selectedRegion: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/broker/morning-intelligence?region=${selectedRegion}`);
+      const res = await fetch(\`/api/broker/morning-intelligence?region=\${selectedRegion}\`);
       if (res.ok) {
         const json = await res.json();
         setData(json.data);
@@ -204,7 +211,7 @@ export default function MorningIntelligence() {
     try { await navigator.clipboard.writeText(text); setCopiedScript(type); setTimeout(() => setCopiedScript(null), 2500); } catch { }
   };
   const handleShareLink = async () => {
-    try { await navigator.clipboard.writeText(`${window.location.origin}${sharingUrl}`); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2500); } catch { }
+    try { await navigator.clipboard.writeText(\`\${window.location.origin}\${sharingUrl}\`); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2500); } catch { }
   };
   const triggerCrawl = async () => {
     setRefreshing(true);
@@ -272,11 +279,11 @@ export default function MorningIntelligence() {
               <div className="flex bg-white/5 backdrop-blur p-1 rounded-2xl border border-white/10 gap-0.5">
                 {REGIONS.map((r) => (
                   <button key={r.id} onClick={() => setRegion(r.id)}
-                    className={`text-[11px] px-3.5 py-2 rounded-xl font-bold transition-all duration-300 cursor-pointer flex items-center gap-1 ${
+                    className={\`text-[11px] px-3.5 py-2 rounded-xl font-bold transition-all duration-300 cursor-pointer flex items-center gap-1 \${
                       region === r.id
                         ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/30"
                         : "text-slate-400 hover:text-white hover:bg-white/8"
-                    }`}>
+                    }\`}>
                     <span>{r.emoji}</span> {r.label}
                   </button>
                 ))}
@@ -295,7 +302,7 @@ export default function MorningIntelligence() {
                 <motion.button whileTap={{ scale: 0.95 }} onClick={triggerCrawl} disabled={refreshing}
                   className="p-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/12 text-slate-400 hover:text-white transition-all duration-300 disabled:opacity-40"
                   title="시장 데이터 갱신">
-                  <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+                  <RefreshCw className={\`w-4 h-4 \${refreshing ? "animate-spin" : ""}\`} />
                 </motion.button>
               </div>
             </div>
@@ -317,7 +324,7 @@ export default function MorningIntelligence() {
               </div>
 
               {/* 리치 브리핑 텍스트 */}
-              <div className={`relative overflow-hidden transition-all duration-700 ${briefingExpanded ? "max-h-none" : "max-h-52"}`}>
+              <div className={\`relative overflow-hidden transition-all duration-700 \${briefingExpanded ? "max-h-none" : "max-h-52"}\`}>
                 <div className="bg-white/3 border border-white/8 rounded-xl p-4">
                   <RichBriefing text={data.briefing} />
                 </div>
@@ -327,7 +334,7 @@ export default function MorningIntelligence() {
               </div>
               <button onClick={() => setBriefingExpanded(!briefingExpanded)}
                 className="text-[11px] text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1 transition-colors">
-                <ArrowRight className={`w-3.5 h-3.5 transition-transform duration-300 ${briefingExpanded ? "rotate-90" : ""}`} />
+                <ArrowRight className={\`w-3.5 h-3.5 transition-transform duration-300 \${briefingExpanded ? "rotate-90" : ""}\`} />
                 {briefingExpanded ? "접기" : "전체 브리핑 보기"}
               </button>
 
@@ -427,11 +434,11 @@ export default function MorningIntelligence() {
                   {data.yesterdayTransactions.map((tx, idx) => (
                     <motion.div key={idx} initial={{ x: 8, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
                       transition={{ delay: 0.15 + idx * 0.06 }}
-                      className={`rounded-xl p-3 text-[11px] border transition-all duration-200 hover:scale-[1.01] ${
+                      className={\`rounded-xl p-3 text-[11px] border transition-all duration-200 hover:scale-[1.01] \${
                         tx.isMyArea
                           ? "bg-rose-500/5 border-rose-500/20"
                           : "bg-white/3 border-white/8"
-                      }`}>
+                      }\`}>
                       <div className="flex justify-between font-bold text-white mb-1">
                         <span className="line-clamp-1 flex items-center gap-1">
                           {tx.isMyArea && <Flame className="w-3 h-3 text-rose-400 shrink-0" />}
@@ -484,7 +491,7 @@ export default function MorningIntelligence() {
               <Card>
                 <SectionHead
                   icon={<span className="text-base">📊</span>}
-                  title={`${regionInfo.emoji} ${regionInfo.label} 임대 & 공실`}
+                  title={\`\${regionInfo.emoji} \${regionInfo.label} 임대 & 공실\`}
                 />
                 <div className="space-y-3">
                   {data.rentalMarket.map((r, idx) => {
@@ -495,7 +502,7 @@ export default function MorningIntelligence() {
                         <div className="flex justify-between items-center">
                           <span className="text-[11px] font-bold text-white">{r.type}</span>
                           <div className="flex items-center gap-2">
-                            <span className={`text-[10px] font-bold ${vacancy < 3 ? "text-emerald-400" : vacancy < 6 ? "text-amber-400" : "text-rose-400"}`}>
+                            <span className={\`text-[10px] font-bold \${vacancy < 3 ? "text-emerald-400" : vacancy < 6 ? "text-amber-400" : "text-rose-400"}\`}>
                               공실 {r.vacancy}
                             </span>
                           </div>
@@ -531,11 +538,11 @@ export default function MorningIntelligence() {
                     </div>
                     {/* 그라디언트 게이지 바 */}
                     <div className="relative w-full bg-white/5 h-3 rounded-full overflow-hidden mb-3">
-                      <motion.div initial={{ width: 0 }} animate={{ width: `${data.sentiment.score}%` }}
+                      <motion.div initial={{ width: 0 }} animate={{ width: \`\${data.sentiment.score}%\` }}
                         transition={{ duration: 1.2, ease: "easeOut" }}
-                        className={`h-full rounded-full bg-gradient-to-r ${getSentimentGradient(data.sentiment.score)}`} />
+                        className={\`h-full rounded-full bg-gradient-to-r \${getSentimentGradient(data.sentiment.score)}\`} />
                       {/* 마커 */}
-                      <motion.div initial={{ left: 0 }} animate={{ left: `calc(${data.sentiment.score}% - 4px)` }}
+                      <motion.div initial={{ left: 0 }} animate={{ left: \`calc(\${data.sentiment.score}% - 4px)\` }}
                         transition={{ duration: 1.2, ease: "easeOut" }}
                         className="absolute top-1/2 -translate-y-1/2 w-2 h-5 bg-white rounded-full shadow-lg shadow-white/40" />
                     </div>
@@ -564,9 +571,9 @@ export default function MorningIntelligence() {
                   </div>
                   <div className="flex justify-center gap-10">
                     <CircleGauge value={data.commercialDistrict.salesIndex} max={10}
-                      color="#6366f1" label={"외식업\n매출지수"} />
+                      color="#6366f1" label={"외식업\\n매출지수"} />
                     <CircleGauge value={data.commercialDistrict.footfallIndex} max={10}
-                      color="#10b981" label={"유동인구\n지수"} />
+                      color="#10b981" label={"유동인구\\n지수"} />
                   </div>
                 </div>
               </Card>
@@ -594,7 +601,7 @@ export default function MorningIntelligence() {
                     </div>
                     <div className="text-right">
                       <span className="block text-[10px] text-slate-500 mb-0.5">전년 대비</span>
-                      <span className={`text-2xl font-extrabold ${data.landPriceTrend.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                      <span className={\`text-2xl font-extrabold \${data.landPriceTrend.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}\`}>
                         {data.landPriceTrend.changePct >= 0 ? "+" : ""}{data.landPriceTrend.changePct}%
                       </span>
                     </div>
@@ -602,9 +609,9 @@ export default function MorningIntelligence() {
                   {/* 미니 추세 바 */}
                   <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                     <motion.div initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, 50 + data.landPriceTrend.changePct * 3)}%` }}
+                      animate={{ width: \`\${Math.min(100, 50 + data.landPriceTrend.changePct * 3)}%\` }}
                       transition={{ duration: 1 }}
-                      className={`h-full rounded-full ${data.landPriceTrend.changePct >= 0 ? "bg-emerald-500" : "bg-rose-500"}`} />
+                      className={\`h-full rounded-full \${data.landPriceTrend.changePct >= 0 ? "bg-emerald-500" : "bg-rose-500"}\`} />
                   </div>
                 </div>
               </Card>
@@ -694,3 +701,7 @@ export default function MorningIntelligence() {
     </div>
   );
 }
+`;
+
+fs.writeFileSync(filePath, content, 'utf8');
+console.log('Written:', path.relative(root, filePath));
