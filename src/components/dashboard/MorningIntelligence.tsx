@@ -204,7 +204,23 @@ export default function MorningIntelligence() {
     try { await navigator.clipboard.writeText(text); setCopiedScript(type); setTimeout(() => setCopiedScript(null), 2500); } catch { }
   };
   const handleShareLink = async () => {
-    try { await navigator.clipboard.writeText(`${window.location.origin}${sharingUrl}`); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2500); } catch { }
+    const today = new Date().toISOString().slice(0, 10);
+    // brokerSlug from sharingUrl or pathname
+    const brokerSlug = sharingUrl
+      ? sharingUrl.split("/").filter(Boolean).find((s: string) => s !== "vibe-card" && s !== "pulse" && s !== "magazine") ?? "demo"
+      : "demo";
+    const magazineUrl = `${window.location.origin}/magazine/${brokerSlug}/${today}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `CRE 데일리 매거진 | ${today}`,
+          text: `꼬마빌딩 시장 AI 브리핑— 오늘 부동산 인텔리전스를 확인하세요.`,
+          url: magazineUrl,
+        });
+        return;
+      } catch { /* fallback */ }
+    }
+    try { await navigator.clipboard.writeText(magazineUrl); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2500); } catch { }
   };
   const triggerCrawl = async () => {
     setRefreshing(true);
@@ -284,14 +300,12 @@ export default function MorningIntelligence() {
 
               {/* 액션 버튼 */}
               <div className="flex items-center gap-2">
-                {sharingUrl && (
-                  <motion.button whileTap={{ scale: 0.95 }} onClick={handleShareLink}
-                    className="flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 transition-all duration-300">
-                    {linkCopied
-                      ? <><Check className="w-3.5 h-3.5 text-emerald-400" /><span>복사됨!</span></>
-                      : <><Share2 className="w-3.5 h-3.5" /><span>공유 링크</span></>}
-                  </motion.button>
-                )}
+                <motion.button whileTap={{ scale: 0.95 }} onClick={handleShareLink}
+                  className="flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 transition-all duration-300">
+                  {linkCopied
+                    ? <><Check className="w-3.5 h-3.5 text-emerald-400" /><span>매거진 복사!</span></>
+                    : <><Share2 className="w-3.5 h-3.5" /><span>매거진 공유</span></>}
+                </motion.button>
                 <motion.button whileTap={{ scale: 0.95 }} onClick={triggerCrawl} disabled={refreshing}
                   className="p-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/12 text-slate-400 hover:text-white transition-all duration-300 disabled:opacity-40"
                   title="시장 데이터 갱신">
