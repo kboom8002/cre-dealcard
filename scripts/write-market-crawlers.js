@@ -1,4 +1,11 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+// Script: Update market-crawlers.ts to wire in Naver + YouTube real crawlers
+const fs = require('fs');
+const path = require('path');
+
+const root = path.join(__dirname, '..');
+const filePath = path.join(root, 'src/domain/external/market-crawlers.ts');
+
+const content = `import type { SupabaseClient } from "@supabase/supabase-js";
 import { callLLM } from "@/ai/llm-client";
 import { trackNaverCommunity, crawlNaverCRENews } from "./naver-search";
 import { crawlYoutubeTrends } from "./youtube-crawler";
@@ -17,26 +24,26 @@ const CRE_RSS_FEEDS = [
 const BIGKINDS_API_URL = "https://tools.kinds.or.kr:8443/search/news";
 const BIGKINDS_ACCESS_KEY = process.env.BIGKINDS_ACCESS_KEY || "";
 const BIGKINDS_KEYWORDS = [
-  "\uAF2C\uB9C8\uBE4C\uB529",             // 꼬마빌딩
-  "\uC0C1\uC5C5\uC6A9 \uBD80\uB3D9\uC0B0", // 상업용 부동산
-  "\uBE4C\uB529 \uB9E4\uB9E4",             // 빌딩 매매
-  "\uC624\uD53C\uC2A4 \uACF5\uC2E4\uB960", // 오피스 공실률
-  "\uADFC\uC0DD \uAC74\uBB3C",             // 근생 건물
+  "\\uAF2C\\uB9C8\\uBE4C\\uB529",             // 꼬마빌딩
+  "\\uC0C1\\uC5C5\\uC6A9 \\uBD80\\uB3D9\\uC0B0", // 상업용 부동산
+  "\\uBE4C\\uB529 \\uB9E4\\uB9E4",             // 빌딩 매매
+  "\\uC624\\uD53C\\uC2A4 \\uACF5\\uC2E4\\uB960", // 오피스 공실률
+  "\\uADFC\\uC0DD \\uAC74\\uBB3C",             // 근생 건물
 ];
 
 // ─── RSS XML 파싱 헬퍼 ──────────────────────────────────────────────────────────
 function parseRSSItems(xml: string): { title: string; link: string; description: string }[] {
   const items: { title: string; link: string; description: string }[] = [];
-  const itemRegex = /<item[\s>]([\s\S]*?)<\/item>/gi;
+  const itemRegex = /<item[\\s>]([\\s\\S]*?)<\\/item>/gi;
   let match;
   while ((match = itemRegex.exec(xml)) !== null) {
     const block = match[1];
-    const title = (block.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/) ||
-                   block.match(/<title>(.*?)<\/title>/))?.[1]?.trim() || "";
-    const link  = (block.match(/<link>(.*?)<\/link>/) ||
-                   block.match(/<link\s[^>]*href="([^"]+)"/))?.[1]?.trim() || "";
-    const desc  = (block.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/) ||
-                   block.match(/<description>(.*?)<\/description>/))?.[1]?.replace(/<[^>]+>/g, " ").slice(0, 500).trim() || "";
+    const title = (block.match(/<title><!\\[CDATA\\[(.*?)\\]\\]><\\/title>/) ||
+                   block.match(/<title>(.*?)<\\/title>/))?.[1]?.trim() || "";
+    const link  = (block.match(/<link>(.*?)<\\/link>/) ||
+                   block.match(/<link\\s[^>]*href="([^"]+)"/))?.[1]?.trim() || "";
+    const desc  = (block.match(/<description><!\\[CDATA\\[(.*?)\\]\\]><\\/description>/) ||
+                   block.match(/<description>(.*?)<\\/description>/))?.[1]?.replace(/<[^>]+>/g, " ").slice(0, 500).trim() || "";
     if (title && link) items.push({ title, link, description: desc });
   }
   return items.slice(0, 5);
@@ -75,13 +82,13 @@ async function fetchBigKindsNews(): Promise<{ title: string; link: string; descr
         for (const doc of docs) {
           results.push({
             title: doc.title || "",
-            link: doc.news_url || `https://www.bigkinds.or.kr/v2/news/search.do?query=${encodeURIComponent(keyword)}`,
+            link: doc.news_url || \`https://www.bigkinds.or.kr/v2/news/search.do?query=\${encodeURIComponent(keyword)}\`,
             description: (doc.content || "").slice(0, 300),
           });
         }
       }
     } catch (err) {
-      console.warn(`[BigKinds] keyword failed:`, err);
+      console.warn(\`[BigKinds] keyword failed:\`, err);
     }
   }
   return results;
@@ -103,14 +110,14 @@ export async function crawlCreNews(supabase: SupabaseClient): Promise<any[]> {
       const items = parseRSSItems(xml);
 
       for (const item of items) {
-        const isRelevant = /\uBE4C\uB529|\uC0C1\uAC00|\uC624\uD53C\uC2A4|\uACF5\uC2E4|\uC784\uB300|\uB9E4\uB9E4|\uBD84\uC591|\uACBD\uB9E4|\uB9AC\uBAA8\uB378|\uC9C0\uC0B0|\uADFC\uC0DD|\uC0C1\uC5C5\uC6A9|\uD3C9\uB2F9|\uC218\uC775\uB960/.test(item.title + item.description);
+        const isRelevant = /\\uBE4C\\uB529|\\uC0C1\\uAC00|\\uC624\\uD53C\\uC2A4|\\uACF5\\uC2E4|\\uC784\\uB300|\\uB9E4\\uB9E4|\\uBD84\\uC591|\\uACBD\\uB9E4|\\uB9AC\\uBAA8\\uB378|\\uC9C0\\uC0B0|\\uADFC\\uC0DD|\\uC0C1\\uC5C5\\uC6A9|\\uD3C9\\uB2F9|\\uC218\\uC775\\uB960/.test(item.title + item.description);
         if (!isRelevant) continue;
 
         let summary = item.description.slice(0, 200);
         try {
           const aiRes = await callLLM({
-            systemPrompt: "\uAF2C\uB9C8\uBE4C\uB529 \uC911\uAC1C \uBE0C\uB85C\uCEE4 \uAD00\uC810\uC5D0\uC11C 1\uC904(40\uC790 \uC774\uB0B4) \uD575\uC2EC \uC694\uC57D.",
-            userPrompt: `Title: ${item.title}\nContent: ${item.description}`,
+            systemPrompt: "\\uAF2C\\uB9C8\\uBE4C\\uB529 \\uC911\\uAC1C \\uBE0C\\uB85C\\uCEE4 \\uAD00\\uC810\\uC5D0\\uC11C 1\\uC904(40\\uC790 \\uC774\\uB0B4) \\uD575\\uC2EC \\uC694\\uC57D.",
+            userPrompt: \`Title: \${item.title}\\nContent: \${item.description}\`,
             model: "gpt-5.4",
             temperature: 0.2,
             maxTokens: 80,
@@ -118,8 +125,8 @@ export async function crawlCreNews(supabase: SupabaseClient): Promise<any[]> {
           summary = aiRes.content.trim();
         } catch { /* */ }
 
-        const sentiment = item.title.match(/\uAE09\uC99D|\uC0C1\uC2B9|\uB3CC\uD30C|\uAC15\uC138/) ? "bullish"
-          : item.title.match(/\uD558\uB77D|\uC704\uCD95|\uACF5\uC2E4|\uC720\uCC30|\uCE68\uCCB4/) ? "bearish" : "neutral";
+        const sentiment = item.title.match(/\\uAE09\\uC99D|\\uC0C1\\uC2B9|\\uB3CC\\uD30C|\\uAC15\\uC138/) ? "bullish"
+          : item.title.match(/\\uD558\\uB77D|\\uC704\\uCD95|\\uACF5\\uC2E4|\\uC720\\uCC30|\\uCE68\\uCCB4/) ? "bearish" : "neutral";
 
         const { data, error } = await supabase
           .from("external_news")
@@ -128,7 +135,7 @@ export async function crawlCreNews(supabase: SupabaseClient): Promise<any[]> {
         if (!error && data) results.push(data);
       }
     } catch (err) {
-      console.warn(`[crawlCreNews] Feed ${feed.name} failed:`, err);
+      console.warn(\`[crawlCreNews] Feed \${feed.name} failed:\`, err);
     }
   }
 
@@ -140,19 +147,19 @@ export async function crawlCreNews(supabase: SupabaseClient): Promise<any[]> {
         let summary = item.description.slice(0, 200);
         try {
           const aiRes = await callLLM({
-            systemPrompt: "\uAF2C\uB9C8\uBE4C\uB529 \uBE0C\uB85C\uCEE4 \uAD00\uC810\uC5D0\uC11C 1\uC904(40\uC790 \uC774\uB0B4) \uD575\uC2EC \uC694\uC57D.",
-            userPrompt: `Title: ${item.title}\nContent: ${item.description}`,
+            systemPrompt: "\\uAF2C\\uB9C8\\uBE4C\\uB529 \\uBE0C\\uB85C\\uCEE4 \\uAD00\\uC810\\uC5D0\\uC11C 1\\uC904(40\\uC790 \\uC774\\uB0B4) \\uD575\\uC2EC \\uC694\\uC57D.",
+            userPrompt: \`Title: \${item.title}\\nContent: \${item.description}\`,
             model: "gpt-5.4",
             temperature: 0.2,
             maxTokens: 80,
           });
           summary = aiRes.content.trim();
         } catch { /* */ }
-        const sentiment = item.title.match(/\uAE09\uC99D|\uC0C1\uC2B9|\uB3CC\uD30C/) ? "bullish"
-          : item.title.match(/\uD558\uB77D|\uC704\uCD95|\uACF5\uC2E4/) ? "bearish" : "neutral";
+        const sentiment = item.title.match(/\\uAE09\\uC99D|\\uC0C1\\uC2B9|\\uB3CC\\uD30C/) ? "bullish"
+          : item.title.match(/\\uD558\\uB77D|\\uC704\\uCD95|\\uACF5\\uC2E4/) ? "bearish" : "neutral";
         const { data, error } = await supabase
           .from("external_news")
-          .upsert({ url: item.link, title: `[BigKinds] ${item.title}`, source: "BigKinds", summary, content: item.description.slice(0, 500), sentiment }, { onConflict: "url" })
+          .upsert({ url: item.link, title: \`[BigKinds] \${item.title}\`, source: "BigKinds", summary, content: item.description.slice(0, 500), sentiment }, { onConflict: "url" })
           .select().single();
         if (!error && data) results.push(data);
       }
@@ -172,9 +179,9 @@ export async function crawlCreNews(supabase: SupabaseClient): Promise<any[]> {
   // 모든 소스 실패 시 더미
   if (results.length === 0) {
     const dummies = [
-      { url: `https://news.cre-dummy.kr/seongsu-${Date.now()}`, title: "\uC131\uC218\uB3D9 \uAF2C\uB9C8\uBE4C\uB529 \uAC70\uB798 \uAE09\uC99D", source: "Hankyung RE", summary: "\uC131\uC218 \uADFC\uC0DD \uD3C9\uB2F9 1.5\uC5B5 \uB3CC\uD30C", content: "seongsu surge", sentiment: "bullish" },
-      { url: `https://news.cre-dummy.kr/gangnam-${Date.now()}`, title: "\uAC15\uB0A8 \uC624\uD53C\uC2A4 \uACF5\uC2E4\uB960 2%\uB300", source: "MK Estate", summary: "\uAC15\uB0A8 GBD 2.1% \uACF5\uC2E4", content: "gangnam low vacancy", sentiment: "bullish" },
-      { url: `https://news.cre-dummy.kr/market-${Date.now()}`, title: "\uC0C1\uAC00 \uBD84\uC591 \uC2DC\uC7A5 \uC704\uCD95", source: "ChosunBiz", summary: "\uB099\uCC30\uAC00\uC728 \uD558\uB77D", content: "retail slump", sentiment: "bearish" },
+      { url: \`https://news.cre-dummy.kr/seongsu-\${Date.now()}\`, title: "\\uC131\\uC218\\uB3D9 \\uAF2C\\uB9C8\\uBE4C\\uB529 \\uAC70\\uB798 \\uAE09\\uC99D", source: "Hankyung RE", summary: "\\uC131\\uC218 \\uADFC\\uC0DD \\uD3C9\\uB2F9 1.5\\uC5B5 \\uB3CC\\uD30C", content: "seongsu surge", sentiment: "bullish" },
+      { url: \`https://news.cre-dummy.kr/gangnam-\${Date.now()}\`, title: "\\uAC15\\uB0A8 \\uC624\\uD53C\\uC2A4 \\uACF5\\uC2E4\\uB960 2%\\uB300", source: "MK Estate", summary: "\\uAC15\\uB0A8 GBD 2.1% \\uACF5\\uC2E4", content: "gangnam low vacancy", sentiment: "bullish" },
+      { url: \`https://news.cre-dummy.kr/market-\${Date.now()}\`, title: "\\uC0C1\\uAC00 \\uBD84\\uC591 \\uC2DC\\uC7A5 \\uC704\\uCD95", source: "ChosunBiz", summary: "\\uB099\\uCC30\\uAC00\\uC728 \\uD558\\uB77D", content: "retail slump", sentiment: "bearish" },
     ];
     for (const d of dummies) {
       const { data } = await supabase.from("external_news").upsert(d, { onConflict: "url" }).select().single();
@@ -214,9 +221,9 @@ export async function trackYoutubeTrends(supabase: SupabaseClient): Promise<any[
 // ─── E6: 법원 경매·캠코 공매 크롤러 ─────────────────────────────────────────────
 export async function crawlAuctions(supabase: SupabaseClient): Promise<any[]> {
   const auctions = [
-    { case_number: "2026\uD0C0\uACBD10045", court: "\uC11C\uC6B8\uC911\uC559\uC9C0\uBC29\uBC95\uC6D0", address: "\uC11C\uC6B8 \uC11C\uCD08\uAD6C \uC11C\uCD08\uB3D9 1500-12", appraised_value: 12500000000, minimum_bid: 10000000000, status: "\uC720\uCC30 1\uD68C", auction_date: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10) },
-    { case_number: "2026\uD0C0\uACBD50431", court: "\uC11C\uC6B8\uB3D9\uBD80\uC9C0\uBC29\uBC95\uC6D0", address: "\uC11C\uC6B8 \uC131\uB3D9\uAD6C \uC131\uC218\uB3D92\uAC00 310-45", appraised_value: 8500000000, minimum_bid: 8500000000, status: "\uC2E0\uAC74", auction_date: new Date(Date.now() + 21 * 86400000).toISOString().slice(0, 10) },
-    { case_number: "2026\uD0C0\uACBD30289", court: "\uC11C\uC6B8\uB0A8\uBD80\uC9C0\uBC29\uBC95\uC6D0", address: "\uC11C\uC6B8 \uC601\uB4F1\uD3EC\uAD6C \uC5EC\uC758\uB3C4\uB3D9 23-4", appraised_value: 15000000000, minimum_bid: 12000000000, status: "\uC720\uCC30 2\uD68C", auction_date: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) },
+    { case_number: "2026\\uD0C0\\uACBD10045", court: "\\uC11C\\uC6B8\\uC911\\uC559\\uC9C0\\uBC29\\uBC95\\uC6D0", address: "\\uC11C\\uC6B8 \\uC11C\\uCD08\\uAD6C \\uC11C\\uCD08\\uB3D9 1500-12", appraised_value: 12500000000, minimum_bid: 10000000000, status: "\\uC720\\uCC30 1\\uD68C", auction_date: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10) },
+    { case_number: "2026\\uD0C0\\uACBD50431", court: "\\uC11C\\uC6B8\\uB3D9\\uBD80\\uC9C0\\uBC29\\uBC95\\uC6D0", address: "\\uC11C\\uC6B8 \\uC131\\uB3D9\\uAD6C \\uC131\\uC218\\uB3D92\\uAC00 310-45", appraised_value: 8500000000, minimum_bid: 8500000000, status: "\\uC2E0\\uAC74", auction_date: new Date(Date.now() + 21 * 86400000).toISOString().slice(0, 10) },
+    { case_number: "2026\\uD0C0\\uACBD30289", court: "\\uC11C\\uC6B8\\uB0A8\\uBD80\\uC9C0\\uBC29\\uBC95\\uC6D0", address: "\\uC11C\\uC6B8 \\uC601\\uB4F1\\uD3EC\\uAD6C \\uC5EC\\uC758\\uB3C4\\uB3D9 23-4", appraised_value: 15000000000, minimum_bid: 12000000000, status: "\\uC720\\uCC30 2\\uD68C", auction_date: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) },
   ];
   const results: any[] = [];
   for (const a of auctions) {
@@ -243,3 +250,7 @@ export async function computeRentalMarketRates(supabase: SupabaseClient): Promis
   }
   return results;
 }
+`;
+
+fs.writeFileSync(filePath, content, 'utf8');
+console.log('Written:', path.relative(root, filePath));
