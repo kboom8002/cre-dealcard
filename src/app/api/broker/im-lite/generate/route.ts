@@ -108,10 +108,31 @@ export async function POST(req: NextRequest) {
 
   // ─── 공공데이터 수집 (fault-tolerant) ──────────────────────────────────────
   let externalData = null;
-  // layers.location.address 또는 raw_input에서 주소 추출 시도
+
+  // 주소 추출 다중 경로:
+  // 1순위: layers.location.address (구조화된 주소)
+  // 2순위: layers.location.neighborhood (행정동)
+  // 3순위: raw_input 텍스트에서 주소 패턴 추출
   const layers = (ssotRow.layers ?? {}) as Record<string, any>;
-  const rawAddress = layers?.location?.address ?? layers?.location?.neighborhood ?? null;
-  if (rawAddress && rawAddress.length > 4) {
+  let rawAddress: string | null =
+    layers?.location?.address ??
+    layers?.location?.neighborhood ??
+    null;
+
+  if (!rawAddress && ssotRow.raw_input) {
+    // raw_input에서 "서울시 X구 Y동" 또는 "XX동" 패턴 추출
+    const addrMatch = String(ssotRow.raw_input).match(
+      /([가-힣]{2,4}[시도]\s*[가-힣]{2,4}[시군구]\s*[가-힣]{2,6}[읍면동](?:\s*\d+[가-힣]?)?)/
+    ) ?? String(ssotRow.raw_input).match(/([가-힣]{2,6}[동로길]\s*\d+)/);
+    if (addrMatch) rawAddress = addrMatch[1];
+  }
+
+  // 권역 신호도 폴백으로 활용 (예: "성수동" → 공공데이터 조회 시도)
+  if (!rawAddress && ssotRow.area_signal) {
+    rawAddress = `서울시 ${ssotRow.area_signal}`;
+  }
+
+  if (rawAddress && rawAddress.length > 3) {
     try {
       externalData = await enrichBuildingData(rawAddress, ssotRow.id);
     } catch (err) {

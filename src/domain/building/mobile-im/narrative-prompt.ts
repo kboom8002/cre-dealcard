@@ -58,20 +58,23 @@ export function buildNarrativeUserPrompt(
   supplemental: MobileIMSupplementalInput,
   marketIndicators?: MarketIndicators
 ): string {
+  // v2: flat 구조(DB 컨럼 직접) + legacy 중첩 양쪽 지원
   const assetIdentity  = (bssotLite.asset_identity  ?? {}) as Record<string, unknown>;
   const physicalFact   = (bssotLite.physical_fact   ?? {}) as Record<string, unknown>;
   const marketLocation = (bssotLite.market_location ?? {}) as Record<string, unknown>;
   const buyerFit       = (bssotLite.buyer_fit       ?? {}) as Record<string, unknown>;
 
   const bssotCtx = JSON.stringify({
-    asset_type:        assetIdentity.asset_type,
-    area_signal:       assetIdentity.area_signal,
-    price_band:        assetIdentity.price_band,
-    size_signal:       physicalFact.size_signal,
-    vacancy_signal:    physicalFact.vacancy_signal,
-    location_analysis: marketLocation.location_analysis,
-    fit_summary:       buyerFit.fit_summary,
-    purchase_price:    bssotLite.purchase_price || bssotLite.deal_amount,
+    asset_type:        bssotLite.asset_type     ?? assetIdentity.asset_type,
+    area_signal:       bssotLite.area_signal    ?? assetIdentity.area_signal,
+    price_band:        bssotLite.price_band     ?? assetIdentity.price_band,
+    size_signal:       bssotLite.size_signal    ?? physicalFact.size_signal ?? assetIdentity.size_signal,
+    vacancy_signal:    bssotLite.vacancy_signal ?? physicalFact.vacancy_signal,
+    current_use:       bssotLite.current_use_signal ?? physicalFact.current_use,
+    location_analysis: bssotLite.location_analysis ?? marketLocation.location_analysis,
+    fit_summary:       bssotLite.fit_summary    ?? buyerFit.fit_summary,
+    caution_summary:   bssotLite.caution_summary ?? buyerFit.caution_summary,
+    raw_input:         typeof bssotLite.raw_input === 'string' ? bssotLite.raw_input?.slice(0, 300) : undefined,
   });
 
   const extCtx = externalData ? JSON.stringify({
