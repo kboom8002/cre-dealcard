@@ -306,8 +306,17 @@ export default async function BrokerDealCardResultPage({
         <div className="max-w-md mx-auto space-y-2">
           {/* 1순위: 카톡으로 전송 (문구 + 딜카드 링크) */}
           <KakaoShareButton text={kakaoText} buildingId={id} variant="primary" />
-          {/* 2순위: 모바일 투자설명서 */}
-          <CreateMobileImButton buildingId={id} />
+          {/* 2순위: 모바일 투자설명서 (딜카드 데이터 직접 전달 — 무마찰) */}
+          <CreateMobileImButton
+            buildingId={id}
+            areaSignal={building.area_signal ?? undefined}
+            assetType={building.asset_type ?? undefined}
+            priceBand={building.price_band ?? undefined}
+            sizeSignal={building.size_signal ?? undefined}
+            vacancySignal={building.vacancy_signal ?? undefined}
+            fitSummary={building.fit_summary ?? undefined}
+            cautionSummary={building.caution_summary ?? undefined}
+          />
           {/* 3순위: 매수자 보기 / 건물주 리포트 */}
           <div className="grid grid-cols-2 gap-2">
             <Link
