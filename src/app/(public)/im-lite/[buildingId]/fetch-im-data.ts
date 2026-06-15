@@ -73,7 +73,28 @@ export async function fetchIMData(
         sizeSignal: ssotSummary.size_signal || "",
         completenessScore: document.body.readiness_score ?? 0,
         broker: buildBrokerObject(brokerProfile),
-        sections: document.body.sections,
+        sections: (document.body.sections || []).map((s: any) => {
+          if ("content" in s) return s;
+          let icon = "📄";
+          if (s.section_type === "overview") icon = "🏢";
+          if (s.section_type === "location") icon = "📍";
+          if (s.section_type === "tenant") icon = "📋";
+          if (s.section_type === "financial") icon = "💰";
+          if (s.section_type === "risk") icon = "⚠️";
+          if (s.section_type === "buyer_fit") icon = "🎯";
+          if (s.section_type === "next_steps") icon = "🚀";
+
+          return {
+            sectionId: s.section_type || `section_${s.section_order}`,
+            title: s.title || "섹션",
+            icon,
+            content: s.markdown || "",
+            dataSource: s.confidence === "inferred" ? "AI 분석" : "SSoT 데이터",
+            aiRole: s.confidence === "inferred" ? "ai_generated" : "auto",
+            locked: false,
+            boundaryNote: s.boundary_note,
+          };
+        }),
         generatedAt: document.body.generated_at || document.created_at || new Date().toISOString(),
         disclaimer: "본 자료는 매도인 및 제3자(AI 분석 포함)로부터 제공받은 정보에 기반하여 작성되었으며, 참고용으로만 제공됩니다. 크리딜 및 중개법인은 자료의 정확성, 완전성을 보장하지 않으며 법적 책임을 지지 않습니다. 거래 전 반드시 직접 검증하시기 바랍니다.",
         fullImUpgradeCta: {

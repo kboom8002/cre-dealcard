@@ -396,7 +396,7 @@ function SectionCard({
             prose-li:text-neutral-300 prose-li:text-sm
             prose-blockquote:text-neutral-400 prose-blockquote:border-l-primary/50 prose-blockquote:bg-primary/5 prose-blockquote:rounded-r-lg prose-blockquote:py-1 prose-blockquote:px-3
           ">
-            <MarkdownRenderer content={section.content} />
+            <MarkdownRenderer content={section.content || (section as any).markdown || ""} />
           </div>
 
           {section.boundaryNote && (
@@ -417,6 +417,7 @@ function SectionCard({
 // Renders markdown to JSX without a full markdown library dependency
 
 function MarkdownRenderer({ content }: { content: string }) {
+  if (!content) return null;
   const lines = content.split("\n");
   const elements: React.ReactNode[] = [];
   let tableBuffer: string[] = [];
