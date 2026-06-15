@@ -14,6 +14,9 @@ interface Props {
   params: Promise<{ buildingId: string }>;
 }
 
+// Allow dynamic (non-demo) building IDs to be server-rendered at runtime
+export const dynamicParams = true;
+
 export async function generateStaticParams() {
   return DEMO_BUILDING_IDS.map((id) => ({ buildingId: id }));
 }
