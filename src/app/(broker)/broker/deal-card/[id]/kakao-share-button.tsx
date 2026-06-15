@@ -5,6 +5,8 @@ import { useState, useEffect } from "react";
 interface KakaoShareButtonProps {
   text: string;
   buildingId: string;
+  dealTitle?: string;
+  brokerSlug?: string;
   variant?: "primary" | "secondary";
 }
 
@@ -23,6 +25,8 @@ declare global {
 export function KakaoShareButton({
   text,
   buildingId,
+  dealTitle = "블라인드 딜카드",
+  brokerSlug,
   variant = "secondary",
 }: KakaoShareButtonProps) {
   const [shared, setShared] = useState(false);
@@ -54,6 +58,12 @@ export function KakaoShareButton({
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
   const dealUrl = `${siteUrl}/broker/deal-card/${buildingId}`;
+  // 딜카드별 동적 OG 이미지: /api/og/deal/[id]
+  // 브로커 바이브카드 이미지는 보조 fallback
+  const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}`;
+  const vibeCardOgUrl = brokerSlug
+    ? `${siteUrl}/api/og/vibe-card/${brokerSlug}`
+    : `${siteUrl}/api/og/vibe-card/js-realty`;
 
   function handleShare() {
     // 카카오 SDK 사용 가능한 경우
@@ -62,9 +72,9 @@ export function KakaoShareButton({
         window.Kakao.Share.sendDefault({
           objectType: "feed",
           content: {
-            title: "🏢 블라인드 딜카드 — JS부동산",
+            title: `🏢 ${dealTitle}`,
             description: text.slice(0, 120) + (text.length > 120 ? "..." : ""),
-            imageUrl: `${siteUrl}/api/og/vibe-card/js-realty`,
+            imageUrl: ogImageUrl,
             link: {
               mobileWebUrl: dealUrl,
               webUrl: dealUrl,
@@ -76,6 +86,13 @@ export function KakaoShareButton({
               link: {
                 mobileWebUrl: dealUrl,
                 webUrl: dealUrl,
+              },
+            },
+            {
+              title: "브로커 프로필",
+              link: {
+                mobileWebUrl: `${siteUrl}/vibe-card/${brokerSlug ?? "js-realty"}`,
+                webUrl: `${siteUrl}/vibe-card/${brokerSlug ?? "js-realty"}`,
               },
             },
           ],

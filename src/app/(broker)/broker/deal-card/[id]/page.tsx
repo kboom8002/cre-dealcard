@@ -31,12 +31,23 @@ export default async function BrokerDealCardResultPage({
   const { data: building } = await supabase
     .from("building_ssot_lite")
     .select(
-      "id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, fit_summary, caution_summary, hidden_fields, status",
+      "id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, fit_summary, caution_summary, hidden_fields, status, owner_id",
     )
     .eq("id", id)
     .single();
 
   if (!building) return notFound();
+
+  // Fetch broker slug for OG image
+  const brokerSlug = await (async () => {
+    if (!building.owner_id) return "js-realty";
+    const { data: bp } = await supabase
+      .from("broker_profiles")
+      .select("slug")
+      .eq("user_id", building.owner_id)
+      .maybeSingle();
+    return bp?.slug ?? "js-realty";
+  })();
 
   // Fetch signal card (for curiosity score or other signals)
   const { data: signalCard } = await supabase
@@ -253,7 +264,7 @@ export default async function BrokerDealCardResultPage({
           <div className="rounded-lg bg-muted/60 dark:bg-muted/40 px-4 py-3 text-sm whitespace-pre-line leading-relaxed">
             {kakaoText}
           </div>
-          <KakaoShareButton text={kakaoText} buildingId={id} />
+          <KakaoShareButton text={kakaoText} buildingId={id} dealTitle={title} brokerSlug={brokerSlug} />
         </div>
 
         {/* Boundary Note */}
@@ -305,7 +316,7 @@ export default async function BrokerDealCardResultPage({
       <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border px-4 py-3 safe-bottom">
         <div className="max-w-md mx-auto space-y-2">
           {/* 1순위: 카톡으로 전송 (문구 + 딜카드 링크) */}
-          <KakaoShareButton text={kakaoText} buildingId={id} variant="primary" />
+          <KakaoShareButton text={kakaoText} buildingId={id} dealTitle={title} brokerSlug={brokerSlug} variant="primary" />
           {/* 2순위: 모바일 투자설명서 (딜카드 데이터 직접 전달 — 무마찰) */}
           <CreateMobileImButton
             buildingId={id}
