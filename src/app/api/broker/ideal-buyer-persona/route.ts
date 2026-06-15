@@ -26,7 +26,17 @@ const RequestSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const input = RequestSchema.parse(body);
+
+    let input;
+    try {
+      input = RequestSchema.parse(body);
+    } catch (validationError) {
+      console.error("[IdealBuyerPersona] Input validation error:", validationError);
+      return NextResponse.json(
+        { success: false, error: "매물 정보가 부족합니다. 딜카드를 먼저 생성해주세요." },
+        { status: 400 },
+      );
+    }
 
     const result = await runIdealBuyerPersona(input);
 
@@ -42,15 +52,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[IdealBuyerPersona] Error:", error);
 
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, error: "매물 정보가 부족합니다. 딜카드를 먼저 생성해주세요.", details: error.issues },
-        { status: 400 },
-      );
-    }
+    const message = error instanceof Error ? error.message : "AI 페르소나 생성 중 오류가 발생했습니다.";
 
     return NextResponse.json(
-      { success: false, error: "Failed to generate buyer personas" },
+      { success: false, error: `AI 응답 처리 실패: ${message}` },
       { status: 500 },
     );
   }
