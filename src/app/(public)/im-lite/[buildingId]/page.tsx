@@ -12,6 +12,7 @@ import { MobileIMViewer } from "./mobile-im-viewer";
 
 interface Props {
   params: Promise<{ buildingId: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 // Allow dynamic (non-demo) building IDs to be server-rendered at runtime
@@ -21,8 +22,10 @@ export async function generateStaticParams() {
   return DEMO_BUILDING_IDS.map((id) => ({ buildingId: id }));
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { buildingId } = await params;
+  const searchParamsObj = await searchParams;
+  const docId = typeof searchParamsObj.doc === "string" ? searchParamsObj.doc : "";
   const demo = getDemoMobileIM(buildingId);
 
   if (demo) {
@@ -51,8 +54,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   // For real buildings: try to fetch document data for OG tags
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.credeal.net";
+  const query = docId ? `?doc=${docId}` : "";
   try {
-    const res = await fetch(`${baseUrl}/api/public/im-lite/${buildingId}`, {
+    const res = await fetch(`${baseUrl}/api/public/im-lite/${buildingId}${query}`, {
       next: { revalidate: 3600 },
     });
     if (res.ok) {
@@ -94,16 +98,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function MobileIMLitePage({ params }: Props) {
+export default async function MobileIMLitePage({ params, searchParams }: Props) {
   const { buildingId } = await params;
+  const searchParamsObj = await searchParams;
+  const docId = typeof searchParamsObj.doc === "string" ? searchParamsObj.doc : "";
   const demo = getDemoMobileIM(buildingId);
 
   if (!demo) {
     // For non-demo buildings, fetch from API (SSR)
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.credeal.net";
+    const query = docId ? `?doc=${docId}` : "";
     try {
-      const res = await fetch(`${baseUrl}/api/public/im-lite/${buildingId}`, {
+      const res = await fetch(`${baseUrl}/api/public/im-lite/${buildingId}${query}`, {
         next: { revalidate: 3600 },
       });
       if (!res.ok) notFound();

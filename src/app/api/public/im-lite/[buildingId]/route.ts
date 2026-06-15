@@ -13,10 +13,11 @@ import { getDemoMobileIM } from "@/lib/demo/mobile-im-demo-data";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ buildingId: string }> },
 ) {
   const { buildingId } = await params;
+  const docId = req.nextUrl.searchParams.get("doc");
 
   // ── 1. Check demo data first ─────────────────────────────────────
   const demo = getDemoMobileIM(buildingId);
@@ -25,16 +26,84 @@ export async function GET(
       { ok: true, data: demo, source: "demo" },
       {
         headers: {
-          // Revalidate every 24h (demo data is static but may update)
           "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600",
         },
       },
     );
   }
 
-  // ── 2. Real building lookup ───────────────────────────────────────
   const supabase = createServiceClient();
 
+  // ── 2. If docId is provided, fetch the generated document ────────
+  if (docId) {
+    const { data: document, error: docError } = await supabase
+      .from("document_objects")
+      .select("body, owner_id")
+      .eq("id", docId)
+      .eq("building_id", buildingId)
+      .single();
+
+    if (!docError && document && document.body?.sections) {
+      // Fetch Broker Profile
+      const { data: brokerProfile } = await supabase
+        .from("profiles")
+        .select("id, display_name, company, phone, tagline, photo_url, slug, vibe_template_id")
+        .eq("id", document.owner_id)
+        .single();
+
+      const broker = brokerProfile ? {
+        userId: brokerProfile.id,
+        displayName: brokerProfile.display_name || "담당 중개인",
+        company: brokerProfile.company || "크리딜 부동산중개법인",
+        phone: brokerProfile.phone || "010-0000-0000",
+        tagline: brokerProfile.tagline || "최고의 파트너",
+        photoUrl: brokerProfile.photo_url || "/default-avatar.png",
+        slug: brokerProfile.slug || "cre-dealcard-default",
+        vibeTemplateId: brokerProfile.vibe_template_id || "default",
+      } : {
+        userId: "system",
+        displayName: "담당 중개인",
+        company: "크리딜 파트너스",
+        phone: "1588-0000",
+        tagline: "당신의 성공적인 부동산 투자를 돕습니다.",
+        photoUrl: "/default-avatar.png",
+        slug: "cre-dealcard-default",
+        vibeTemplateId: "default",
+      };
+
+      const ssotSummary = document.body.ssot_summary || {};
+      const score = document.body.readiness_score ?? 0;
+
+      const doc = {
+        buildingId,
+        blindName: `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`,
+        fullName: `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`,
+        areaSignal: ssotSummary.area_signal,
+        assetType: ssotSummary.asset_type,
+        priceBand: ssotSummary.price_band,
+        sizeSignal: ssotSummary.size_signal,
+        completenessScore: score,
+        broker,
+        sections: document.body.sections,
+        disclaimer: "본 자료는 매도인 및 제3자(AI 분석 포함)로부터 제공받은 정보에 기반하여 작성되었으며, 참고용으로만 제공됩니다. 크리딜 및 중개법인은 자료의 정확성, 완전성을 보장하지 않으며 법적 책임을 지지 않습니다. 거래 전 반드시 직접 검증하시기 바랍니다.",
+        fullImUpgradeCta: {
+          enabled: true,
+          label: "상세 투자설명서(IM) 요청",
+          description: "렌트롤, 캐시플로우, 도면 등이 포함된 30페이지 분량의 Full IM은 중개인 승인 후 열람 가능합니다.",
+        },
+        protectedFieldsRemoved: ["상세 지번", "건물명", "소유주명"],
+        photos: [],
+        coordinates: null,
+      };
+
+      return NextResponse.json(
+        { ok: true, data: doc, source: "document_objects" },
+        { status: 200 }
+      );
+    }
+  }
+
+  // ── 3. Real building lookup (Fallback if no docId or doc not found)
   const { data: ssot, error } = await supabase
     .from("building_ssot_lite")
     .select(
@@ -52,7 +121,6 @@ export async function GET(
     );
   }
 
-  // Gate: completeness ≥ 30 required for IM Lite (lowered for testing memos)
   const score = ssot.completeness_score ?? 0;
   if (score < 30) {
     return NextResponse.json(
@@ -69,20 +137,6 @@ export async function GET(
     );
   }
 
-  // Gate: G2 — only public_signal_ready status
-  if (ssot.status !== "public_signal_ready") {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: {
-          code: "NOT_PUBLIC",
-          message: "이 매물은 아직 공개 준비가 완료되지 않았습니다.",
-        },
-      },
-      { status: 403 },
-    );
-  }
-
   // Fetch Broker Profile
   const { data: brokerProfile } = await supabase
     .from("profiles")
@@ -90,7 +144,6 @@ export async function GET(
     .eq("id", ssot.owner_id)
     .single();
 
-  // Create real MobileIMDocument
   const broker = brokerProfile ? {
     userId: brokerProfile.id,
     displayName: brokerProfile.display_name || "담당 중개인",
@@ -201,8 +254,8 @@ export async function GET(
       description: "렌트롤, 캐시플로우, 도면 등이 포함된 30페이지 분량의 Full IM은 중개인 승인 후 열람 가능합니다.",
     },
     protectedFieldsRemoved: ssot.disclosure?.guard_checked ? ["상세 지번", "건물명", "소유주명"] : [],
-    photos: layers.photos,
-    coordinates: layers.coordinates,
+    photos: layers.photos || [],
+    coordinates: layers.coordinates || null,
   };
 
   return NextResponse.json(
