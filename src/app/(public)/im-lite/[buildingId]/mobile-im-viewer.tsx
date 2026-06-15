@@ -291,11 +291,12 @@ function SectionCard({
   isOpen: boolean;
   onToggle: () => void;
 }) {
-  const aiRoleBadge = {
+  const aiRoleBadgeMap: Record<string, { label: string; color: string }> = {
     auto: { label: "SSoT 자동", color: "text-sky-400 bg-sky-400/10 border-sky-400/20" },
     ai_generated: { label: "AI 생성", color: "text-violet-400 bg-violet-400/10 border-violet-400/20" },
     static: { label: "정적", color: "text-neutral-400 bg-neutral-400/10 border-neutral-400/20" },
-  }[section.aiRole];
+  };
+  const aiRoleBadge = aiRoleBadgeMap[section.aiRole] ?? aiRoleBadgeMap.static;
 
   return (
     <div
