@@ -4,11 +4,15 @@
  * Public mobile-first IM Lite (7-section) viewer.
  * Accessible without login. Demo buildings show rich content.
  * Based on im-ai-methodology.md §2 Mobile IM 7-section spec.
+ *
+ * Data is fetched directly from Supabase (not self-fetch) to avoid
+ * Vercel serverless deadlock issues.
  */
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getDemoMobileIM, DEMO_BUILDING_IDS } from "@/lib/demo/mobile-im-demo-data";
+import { DEMO_BUILDING_IDS } from "@/lib/demo/mobile-im-demo-data";
 import { MobileIMViewer } from "./mobile-im-viewer";
+import { fetchIMData } from "./fetch-im-data";
 
 interface Props {
   params: Promise<{ buildingId: string }>;
@@ -24,21 +28,22 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { buildingId } = await params;
-  const searchParamsObj = await searchParams;
-  const docId = typeof searchParamsObj.doc === "string" ? searchParamsObj.doc : "";
-  const demo = getDemoMobileIM(buildingId);
+  const sp = await searchParams;
+  const docId = typeof sp.doc === "string" ? sp.doc : undefined;
 
-  if (demo) {
+  const data = await fetchIMData(buildingId, docId);
+
+  if (data) {
     return {
-      title: `${demo.blindName} — 모바일 IM Lite`,
-      description: `${demo.areaSignal} ${demo.assetType} ${demo.priceBand}. AI 자동 생성 투자설명서 (7섹션). 담당 중개인: ${demo.broker.displayName}`,
+      title: `${data.blindName} — 모바일 IM Lite | 크리딜`,
+      description: `${data.priceBand} | ${data.areaSignal} | AI 자동 생성 투자설명서`,
       openGraph: {
-        title: `${demo.blindName} — 투자설명서 (IM Lite)`,
-        description: `${demo.priceBand} | ${demo.areaSignal} | ${demo.assetType}`,
+        title: `${data.blindName} — 투자설명서 (IM Lite)`,
+        description: `${data.priceBand} | ${data.areaSignal} | ${data.assetType}`,
         type: "article",
         images: [
           {
-            url: `/api/og/vibe-card/${demo.broker.slug}`,
+            url: `/api/og/vibe-card/${data.broker.slug}`,
             width: 1200,
             height: 630,
           },
@@ -46,50 +51,10 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
       },
       twitter: {
         card: "summary_large_image",
-        title: `${demo.blindName} IM Lite`,
-        description: `${demo.priceBand} | ${demo.areaSignal}`,
+        title: `${data.blindName} IM Lite`,
+        description: `${data.priceBand} | ${data.areaSignal}`,
       },
     };
-  }
-
-  // For real buildings: try to fetch document data for OG tags
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.credeal.net";
-  const query = docId ? `?doc=${docId}` : "";
-  try {
-    const res = await fetch(`${baseUrl}/api/public/im-lite/${buildingId}${query}`, {
-      next: { revalidate: 3600 },
-    });
-    if (res.ok) {
-      const { data } = await res.json();
-      if (data) {
-        const areaSignal = data.areaSignal || "";
-        const assetType = data.assetType || "";
-        const priceBand = data.priceBand || "";
-        return {
-          title: `${areaSignal} ${assetType} — 모바일 IM Lite | 크리딜`,
-          description: `${priceBand} | ${areaSignal} | AI 자동 생성 투자설명서`,
-          openGraph: {
-            title: `${areaSignal} ${assetType} — IM Lite`,
-            description: `${priceBand} | ${areaSignal}`,
-            type: "article",
-            images: [
-              {
-                url: `/api/og/vibe-card/cre-dealcard-default`,
-                width: 1200,
-                height: 630,
-              },
-            ],
-          },
-          twitter: {
-            card: "summary_large_image",
-            title: `${areaSignal} ${assetType} IM Lite`,
-            description: priceBand,
-          },
-        };
-      }
-    }
-  } catch {
-    // ignore
   }
 
   return {
@@ -100,27 +65,14 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
 export default async function MobileIMLitePage({ params, searchParams }: Props) {
   const { buildingId } = await params;
-  const searchParamsObj = await searchParams;
-  const docId = typeof searchParamsObj.doc === "string" ? searchParamsObj.doc : "";
-  const demo = getDemoMobileIM(buildingId);
+  const sp = await searchParams;
+  const docId = typeof sp.doc === "string" ? sp.doc : undefined;
 
-  if (!demo) {
-    // For non-demo buildings, fetch from API (SSR)
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.credeal.net";
-    const query = docId ? `?doc=${docId}` : "";
-    try {
-      const res = await fetch(`${baseUrl}/api/public/im-lite/${buildingId}${query}`, {
-        next: { revalidate: 3600 },
-      });
-      if (!res.ok) notFound();
-      const { data } = await res.json();
-      // Real buildings now receive a dynamically generated MobileIMDocument
-      return <MobileIMViewer document={data} buildingId={buildingId} />;
-    } catch {
-      notFound();
-    }
+  const data = await fetchIMData(buildingId, docId);
+
+  if (!data) {
+    notFound();
   }
 
-  return <MobileIMViewer document={demo} buildingId={buildingId} />;
+  return <MobileIMViewer document={data} buildingId={buildingId} />;
 }
