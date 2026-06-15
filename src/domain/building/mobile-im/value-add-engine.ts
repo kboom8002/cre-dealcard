@@ -33,7 +33,7 @@ export function computeValueAddScenarios(inputs: ValueAddInputs): ValueAddOutput
   // ── Scenario 1: 공실 해소
   if (currentVacancyPct > 0) {
     const additionalMonthlyRent = currentMonthlyRentKrw * (currentVacancyPct / Math.max(100 - currentVacancyPct, 1));
-    const additionalAnnualNoi = additionalMonthlyRent * 12 * 0.82;
+    const additionalAnnualNoi = additionalMonthlyRent * 12 * 0.85;
     const noiImprovementPct = currentNoi > 0 ? (additionalAnnualNoi / currentNoi) * 100 : 0;
     scenarios.push({
       name: '① 공실 해소',
@@ -47,7 +47,7 @@ export function computeValueAddScenarios(inputs: ValueAddInputs): ValueAddOutput
   }
 
   // ── Scenario 2: 임대료 현실화 (+5%)
-  const rentIncreaseAnnualNoi = currentMonthlyRentKrw * 12 * 0.05 * 0.82;
+  const rentIncreaseAnnualNoi = currentMonthlyRentKrw * 12 * 0.05 * 0.85;
   scenarios.push({
     name: '② 임대료 현실화 (+5%)',
     description: '차기 갱신 시 시장가 기준 5% 증액',
@@ -63,7 +63,7 @@ export function computeValueAddScenarios(inputs: ValueAddInputs): ValueAddOutput
     const remodelCostPerSqm = 300_000;
     const remodelCost = totalAreaSqm * remodelCostPerSqm;
     const rentLiftPct = 0.08;
-    const remodelNoiIncrease = currentMonthlyRentKrw * 12 * rentLiftPct * 0.82;
+    const remodelNoiIncrease = currentMonthlyRentKrw * 12 * rentLiftPct * 0.85;
     scenarios.push({
       name: '③ 리모델링 후 임대료 상승',
       description: `경량 리모델링 후 임대료 ${(rentLiftPct * 100).toFixed(0)}% 상승 가정`,

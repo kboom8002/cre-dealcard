@@ -25,10 +25,14 @@ import {
   buildNarrativeUserPrompt,
   MOBILE_IM_NARRATIVE_SYSTEM,
   type MarketIndicators,
+  type SectionContext,
 } from "./narrative-prompt";
 import { runRiskBoundaryCheck, runDisclosureGuard, MOBILE_IM_STANDARD_DISCLAIMER } from "./guardrails";
 import { calculateFinancials, formatFinancialsMarkdown } from "./financials";
 import { computeValueAddScenarios } from "./value-add-engine";
+import { judgeIMSection, shouldJudgeByConfidence } from "./im-judge";
+import { runCREQualityGate } from "./cre-quality-gate";
+import { extractKeyFacts, updateNumericalAnchors, runCrossValidation } from "./cross-validator";
 
 export interface MobileIMWriterInput {
   building_ssot_lite: Record<string, unknown>;
@@ -195,6 +199,19 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     }
   }
 
+  // ── 상태 머신 맥락 초기화 (SOTA: 섹션 간 맥락 전파) ────────────────────
+  const sectionCtx: SectionContext = {
+    keyFacts: [],
+    sectionSummaries: {},
+    numericalAnchors: {
+      totalAreaSqm: totalAreaForGuard || undefined,
+      vacancyPct: vacancyPct || undefined,
+      monthlyRentKrw: supplemental.monthly_rent_total_krw || undefined,
+      capRateBase: undefined,
+      buildingAge: undefined,
+    },
+  };
+
   // ── 섹션 루프 ──────────────────────────────────────────────────────────────
   for (let i = 0; i < MOBILE_IM_SECTIONS_7.length; i++) {
     const sectionType = MOBILE_IM_SECTIONS_7[i];
@@ -216,6 +233,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
           purchasePriceKrw: purchasePriceForGuard,
           landPricePerSqm:  external_data?.landPrice?.pricePerSqm,
           totalAreaSqm:     totalAreaForGuard || undefined,
+          platAreaSqm:      external_data?.buildingRegister?.platArea ?? undefined,
           assetType:        String(assetIdentity.asset_type ?? ""),
         });
         sectionMarketIndicators = { financialsMarkdown: formatFinancialsMarkdown(fin) };
@@ -227,13 +245,14 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     // ── AI 생성 시도 ───────────────────────────────────────────────────────
     let generatedByAi = false;
     try {
-      // AI 프롬프트에도 정규화된 구조 전달
+      // AI 프롬프트에 정규화된 구조 + 이전 섹션 맥락 전달
       const userPrompt = buildNarrativeUserPrompt(
         sectionType,
         normalizedForProvenance,
         external_data || null,
         supplemental,
-        sectionMarketIndicators
+        sectionMarketIndicators,
+        i > 0 ? sectionCtx : undefined  // 첫 섹션에는 맥락 없음
       );
 
       const result = await callLLM(
@@ -256,9 +275,32 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         if (halluCheck.anomaly) {
           console.warn(`[mobile-im-writer] Hallucination in ${sectionType}: ${halluCheck.reason} → template fallback`);
         } else {
-          markdown = rawText;
-          generatedByAi = true;
-          aiUsed = true;
+          // SOTA: LLM-as-Judge 의미론적 검증 (confidence 기반 확률적 샘플링)
+          let judgeRejected = false;
+          if (shouldJudgeByConfidence(confidence)) {
+            try {
+              const judgeResult = await judgeIMSection({
+                sectionMarkdown: rawText,
+                sectionType,
+                bssotData: normalizedForProvenance,
+                externalData: (external_data as Record<string, unknown>) || null,
+                supplementalData: supplemental as unknown as Record<string, unknown>,
+                financialsMarkdown: sectionMarketIndicators?.financialsMarkdown,
+              });
+              if (judgeResult && judgeResult.overall < 3.0) {
+                console.warn(`[im-judge] Section ${sectionType} score ${judgeResult.overall.toFixed(1)} → template fallback`);
+                judgeRejected = true;
+              }
+            } catch (judgeErr) {
+              console.warn(`[im-judge] Judge failed for ${sectionType}, skipping:`, judgeErr);
+            }
+          }
+
+          if (!judgeRejected) {
+            markdown = rawText;
+            generatedByAi = true;
+            aiUsed = true;
+          }
         }
       }
     } catch (err) {
@@ -288,9 +330,25 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       markdown += `\n\n![입지 지도](${external_data.mapImageUrl})`;
     }
 
-    // Risk Boundary 가드레일
+    // Risk Boundary 가드레일 (Regex 기반)
     const riskCheck = runRiskBoundaryCheck(markdown, sectionType);
     if (riskCheck.safe_text) markdown = riskCheck.safe_text;
+
+    // SOTA: LLM 기반 Quality Gate (Regex가 놓친 패러프레이징 감지)
+    if (generatedByAi) {
+      try {
+        const gateResult = await runCREQualityGate(markdown, sectionType);
+        if (!gateResult.passed && gateResult.riskLevel === 'high') {
+          console.warn(`[cre-quality-gate] Section ${sectionType} BLOCKED → template fallback`);
+          markdown = generatePremiumTemplate(
+            sectionType, assetIdentity, physicalFact, marketLocation,
+            buyerFit, supplemental, external_data || null
+          );
+        }
+      } catch (gateErr) {
+        console.warn(`[cre-quality-gate] Gate failed for ${sectionType}, skipping:`, gateErr);
+      }
+    }
 
     // Disclosure Guard
     const disclosureCheck = runDisclosureGuard(markdown);
@@ -317,6 +375,34 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       boundary_note: "본 섹션의 내용은 예비 검토용입니다.",
       provenance:    sectionProvenance,
     });
+
+    // SOTA: 섹션 생성 후 맥락 업데이트 (다음 섹션에 전파)
+    try {
+      const newFacts = extractKeyFacts(markdown, sectionType);
+      sectionCtx.keyFacts.push(...newFacts);
+      sectionCtx.sectionSummaries[sectionType] = markdown.slice(0, 200);
+      updateNumericalAnchors(sectionCtx.numericalAnchors, markdown, sectionType);
+    } catch {
+      // 맥락 추출 실패는 무시
+    }
+  }
+
+  // ── SOTA: 섹션 간 교차 검증 ────────────────────────────────────────────
+  try {
+    const crossValResult = runCrossValidation(sections, sectionCtx.numericalAnchors);
+    if (!crossValResult.passed) {
+      for (const issue of crossValResult.inconsistencies) {
+        if (issue.severity === 'critical') {
+          const idx = sections.findIndex(s => s.section_type === issue.section2.type);
+          if (idx >= 0) {
+            sections[idx].confidence = 'needs_check';
+            console.warn(`[cross-validator] Inconsistency: ${issue.field} between ${issue.section1.type} and ${issue.section2.type}`);
+          }
+        }
+      }
+    }
+  } catch {
+    // 교차 검증 실패는 무시
   }
 
   return {

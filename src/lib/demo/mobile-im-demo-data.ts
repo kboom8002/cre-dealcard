@@ -26,6 +26,7 @@ export interface MobileIMSection {
   /** im-ai-methodology.md data source label */
   dataSource: string;
   aiRole: "auto" | "ai_generated" | "static";
+  confidence?: "confirmed" | "inferred" | "needs_check";
   /** Whether this section is locked due to missing data */
   locked: boolean;
   /** Short reason shown on locked sections */
@@ -59,6 +60,8 @@ export interface MobileIMDocument {
   broker: MobileIMBroker;
   sections: MobileIMSection[];
   generatedAt: string;
+  status: string;
+  approvedAt?: string;
   /** HANDOFF_REDACTION_RULES.always_remove 적용된 필드 목록 */
   protectedFieldsRemoved: string[];
   disclaimer: string;
@@ -84,6 +87,7 @@ export interface MobileIMDocument {
 // ─── Demo Building 1: 테헤란로 랜드마크 오피스 (홍길동) ──────────────────
 
 const HONG_GILDONG_DEMO: MobileIMDocument = {
+  status: "published",
   buildingId: "f1111111-1111-1111-1111-111111111111",
   blindName: "강남구 GBD *** 오피스 빌딩",
   fullName: "테헤란로 랜드마크 오피스 빌딩",
@@ -308,6 +312,7 @@ Full IM (투자등급 정식 투자설명서)은 18개 섹션, 전문가 검토 
 // ─── Demo Building 2: 여의도 국제금융로 프라임 오피스 (김철수) — 부분 잠금 ──
 
 const KIM_CHULSOO_DEMO: MobileIMDocument = {
+  status: "published",
   buildingId: "f2222222-2222-2222-2222-111111111111",
   // Photo/map data
   coordinates: { lat: 37.5256, lng: 126.9256 },
@@ -490,6 +495,7 @@ const KIM_CHULSOO_DEMO: MobileIMDocument = {
 // ─── Demo Building 3: 종로 우정국로 지식산업센터 (이영희) ──────────────────
 
 const LEE_YOUNGHEE_DEMO: MobileIMDocument = {
+  status: "published",
   buildingId: "f3333333-3333-3333-3333-111111111111",
   // Photo/map data
   coordinates: { lat: 37.5704, lng: 126.9921 },
@@ -718,6 +724,7 @@ const LEE_YOUNGHEE_DEMO: MobileIMDocument = {
 // Supabase migration 00042와 동일한 데이터 — API 키 없는 환경에서도 /im-lite/demo-gbd-office-hongildong 라우트가 동작합니다.
 
 const PIPELINE_DEMO_GBD_OFFICE: MobileIMDocument = {
+  status: "published",
   // f1111111과 동일 빌딩이나 파이프라인 생성 버전임을 명시 (slug 라우팅용)
   buildingId: "demo-gbd-office-hongildong",
   // Photo/map data + public data sources

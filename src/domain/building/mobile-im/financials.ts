@@ -17,6 +17,8 @@ export interface FinancialInputs {
   landPricePerSqm?: number;
   /** 건물 연면적 (㎡) */
   totalAreaSqm?: number;
+  /** 대지면적 (㎡) — 대지 가치 비중 계산용 */
+  platAreaSqm?: number;
   /** 자산 유형 — 한국어 포함 */
   assetType?: string;
 }
@@ -87,6 +89,7 @@ export function calculateFinancials(inputs: FinancialInputs): FinancialOutputs {
     rentGrowthPctPerYear = 2,
     landPricePerSqm,
     totalAreaSqm,
+    platAreaSqm,
     assetType,
   } = inputs;
 
@@ -149,8 +152,10 @@ export function calculateFinancials(inputs: FinancialInputs): FinancialOutputs {
   const pricePerPyeong = pricePerSqm ? Math.round(pricePerSqm * 3.30578) : null;
 
   // 대지 가치 비중 (공시지가 × 대지면적 / 매매가)
-  const landValueRatio = (landPricePerSqm && totalAreaSqm && purchasePriceKrw > 0)
-    ? parseFloat(((landPricePerSqm * totalAreaSqm / purchasePriceKrw) * 100).toFixed(1))
+  // BUG FIX: totalAreaSqm(건물 연면적)이 아닌 platAreaSqm(대지면적) 사용
+  const effectiveLandArea = platAreaSqm ?? totalAreaSqm;
+  const landValueRatio = (landPricePerSqm && effectiveLandArea && purchasePriceKrw > 0)
+    ? parseFloat(((landPricePerSqm * effectiveLandArea / purchasePriceKrw) * 100).toFixed(1))
     : null;
 
   // 총 수익률 (Gross Yield)

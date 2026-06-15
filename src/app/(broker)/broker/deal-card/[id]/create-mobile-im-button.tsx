@@ -57,7 +57,7 @@ export function CreateMobileImButton({
         setProgress(`✅ ${res.sections_count ?? 7}섹션 생성 완료!`);
         // 1.5초 후 이동
         setTimeout(() => {
-          window.location.href = res.url!;
+          window.location.href = res.reviewUrl ?? res.url!;
         }, 1500);
       } else {
         setState("error");

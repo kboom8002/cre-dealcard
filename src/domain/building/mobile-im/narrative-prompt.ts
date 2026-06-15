@@ -36,6 +36,9 @@ export const MOBILE_IM_NARRATIVE_SYSTEM = `당신은 한국 상업용 부동산 
 5. 마크다운: 불릿 포인트 목록보다는 읽기 쉬운 줄글 위주로 쓰고, 강조할 핵심 키워드는 **두껍게** 표시하세요.
 6. 언어: 반드시 한국어로 작성하세요.
 7. 테이블 스타일: 수익분석·투자포인트 섹션은 아래 참고 예시와 같이 마크다운 테이블을 반드시 포함하세요.
+8. 데이터 경계: 제공된 데이터에 없는 정보는 절대 창작하지 마세요. 모르는 항목은 반드시 "실사 단계에서 확인 필요" 또는 "데이터 미확보"로 표기하세요.
+9. 출처 표기: 공공데이터 기반 수치 뒤에는 "건축물대장 기준", "공시지가 기준" 등 출처를 병기하세요. AI가 추론한 내용에는 "(AI 추정)" 레이블을 붙이세요.
+10. 교차 검증: [이전 섹션 맥락]이 제공되면 그 수치(공실률, 면적, 연식 등)를 반드시 일관되게 사용하세요. 이전 섹션과 모순되는 주장을 하지 마세요.
 
 [참고 예시 — Golden IM 스타일]
 ${GOLDEN_IM_EXAMPLES}`;
@@ -51,12 +54,26 @@ export interface MarketIndicators {
 }
 
 // ─── 유저 프롬프트 빌더 ──────────────────────────────────────────────────────
+/** 이전 섹션 맥락 (상태 머신에서 전달) */
+export interface SectionContext {
+  keyFacts: string[];                      // 이전 섹션에서 추출된 핵심 사실
+  sectionSummaries: Record<string, string>; // 각 섹션 200자 요약
+  numericalAnchors: {
+    totalAreaSqm?: number;
+    vacancyPct?: number;
+    monthlyRentKrw?: number;
+    capRateBase?: number;
+    buildingAge?: number;
+  };
+}
+
 export function buildNarrativeUserPrompt(
   sectionType: MobileIMSectionType,
   bssotLite: Record<string, unknown>,
   externalData: ExternalDataSnapshot | null,
   supplemental: MobileIMSupplementalInput,
-  marketIndicators?: MarketIndicators
+  marketIndicators?: MarketIndicators,
+  sectionContext?: SectionContext
 ): string {
   // v2: flat 구조(DB 컨럼 직접) + legacy 중첩 양쪽 지원
   const assetIdentity  = (bssotLite.asset_identity  ?? {}) as Record<string, unknown>;
@@ -141,6 +158,29 @@ export function buildNarrativeUserPrompt(
 예비 관심 매수자가 상세 검토를 진행하기 위해 **현장 방문(방문 예약)이나 Full IM(상세 설명서) 열람 등 구체적인 후속 액션**을 취하도록 정중하고 신뢰감 있게 안내하세요.`,
   };
 
+  // 이전 섹션 맥락 (상태 머신에서 전달)
+  let contextBlock = '';
+  if (sectionContext) {
+    const { keyFacts, sectionSummaries, numericalAnchors } = sectionContext;
+    if (keyFacts.length > 0) {
+      contextBlock += `\n\n[이전 섹션 맥락 — 아래 수치와 일관되게 작성하세요]\n${keyFacts.map(f => `- ${f}`).join('\n')}`;
+    }
+    const anchorLines: string[] = [];
+    if (numericalAnchors.totalAreaSqm) anchorLines.push(`연면적: ${numericalAnchors.totalAreaSqm.toLocaleString()}㎡`);
+    if (numericalAnchors.vacancyPct != null) anchorLines.push(`공실률: ${numericalAnchors.vacancyPct}%`);
+    if (numericalAnchors.buildingAge) anchorLines.push(`건물 연식: ${numericalAnchors.buildingAge}년`);
+    if (numericalAnchors.capRateBase) anchorLines.push(`Cap Rate(base): ${numericalAnchors.capRateBase}%`);
+    if (anchorLines.length > 0) {
+      contextBlock += `\n[수치 앵커 — 이 수치를 정확히 사용하세요]\n${anchorLines.join(' | ')}`;
+    }
+    // 이전 섹션 요약
+    const summaryEntries = Object.entries(sectionSummaries);
+    if (summaryEntries.length > 0) {
+      const lastTwo = summaryEntries.slice(-2);
+      contextBlock += `\n[이전 섹션 요약]\n${lastTwo.map(([k, v]) => `- ${k}: ${v}`).join('\n')}`;
+    }
+  }
+
   return `
 [섹션 정보]
 섹션 유형: ${sectionType}
@@ -153,7 +193,7 @@ ${bssotCtx}
 ${extCtx}
 
 3. 브로커 수동 입력 보강 데이터:
-${suppCtx}${marketCtx}
+${suppCtx}${marketCtx}${contextBlock}
 
 [개별 미션]
 ${sectionMission[sectionType]}

@@ -49,7 +49,7 @@ export async function createMobileIMAction(
         broker_highlight: options?.broker_highlight,
         estimated_yield_pct: options?.estimated_yield_pct,
         direct_data: options?.direct_data,
-        skip_approval: true, // v2: 초안 즉시 공개 (브로커가 이미 딜카드를 작성했으므로)
+        skip_approval: false, // v2: 리뷰 페이지를 거치도록 false로 변경
       }),
     });
 
@@ -70,6 +70,7 @@ export async function createMobileIMAction(
     return {
       success: true,
       url: data.url,
+      reviewUrl: data.im_lite_id ? `/broker/im-approval/${data.im_lite_id}` : data.url,
       im_lite_id: data.im_lite_id,
       ai_used: data.ai_used,
       sections_count: data.sections_count,

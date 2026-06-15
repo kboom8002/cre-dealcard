@@ -352,6 +352,14 @@ function SectionCard({
               {aiRoleBadge.label}
             </span>
           )}
+          {!section.locked && section.confidence === 'confirmed' && (
+            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+              확인됨
+            </span>
+          )}
           {!section.locked && (
             <svg
               className={`w-4 h-4 text-neutral-400 transition-transform duration-200 ${
@@ -816,6 +824,13 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
 
   return (
     <div className="min-h-screen bg-neutral-950">
+      {/* Draft Warning Banner */}
+      {doc.status !== "published" && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 text-amber-400 px-4 py-2 text-center text-xs font-bold">
+          ⚠️ 현재 검토 중인 초안 문서입니다. (외부 공개 전)
+        </div>
+      )}
+
       {/* ── Sticky Top Bar ── */}
       <div className="sticky top-0 z-40 bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800/50">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
@@ -863,6 +878,23 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
           <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight mb-2">
             {doc.blindName}
           </h1>
+
+          {/* Verification Badge */}
+          {doc.status === "published" && (
+            <div className="flex items-center gap-1.5 mb-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-bold">
+                <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                전문 중개인 검증 완료
+              </span>
+              {doc.approvedAt && (
+                <span className="text-[10px] text-neutral-500 font-medium">
+                  {new Date(doc.approvedAt).toLocaleDateString("ko-KR")}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Price band */}
           <p className="text-3xl font-black text-primary mb-4">
