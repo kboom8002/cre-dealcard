@@ -1,9 +1,22 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { Link2, MessageCircle, Download, QrCode, X, Check } from "lucide-react";
+
+/* ── 카카오 SDK 전역 타입 ── */
+declare global {
+  interface Window {
+    Kakao?: {
+      isInitialized: () => boolean;
+      init: (key: string) => void;
+      Share: {
+        sendDefault: (options: Record<string, unknown>) => void;
+      };
+    };
+  }
+}
 
 interface VibeShareSheetProps {
   slug: string;
@@ -23,13 +36,42 @@ interface ShareOption {
 export function VibeShareSheet({ slug, cardTitle, isOpen, onClose }: VibeShareSheetProps) {
   const [copied, setCopied] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
+  const [kakaoReady, setKakaoReady] = useState(false);
 
-  const cardUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/vibe-card/${slug}`
-    : `/vibe-card/${slug}`;
+  /* ── 카카오 SDK 로드 ── */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
 
+    const initKakao = () => {
+      const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+      if (window.Kakao && !window.Kakao.isInitialized() && appKey) {
+        window.Kakao.init(appKey);
+      }
+      setKakaoReady(!!(window.Kakao?.isInitialized()));
+    };
+
+    if (window.Kakao) {
+      initKakao();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js";
+    script.async = true;
+    script.onload = initKakao;
+    document.head.appendChild(script);
+  }, []);
+
+  const siteUrl =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "https://credeal.net";
+
+  const cardUrl = `${siteUrl}/vibe-card/${slug}`;
+  const ogImageUrl = `${siteUrl}/api/og/vibe-card/${slug}`;
   const kakaoText = `[DealCard 명함]\n\n${cardTitle}\n\n🔗 ${cardUrl}\n\n📊 Vibe AI가 분석한 전문 중개인 프로필을 확인하세요.`;
 
+  /* ── 클립보드 복사 ── */
   const copyToClipboard = useCallback(
     async (text: string, id: string) => {
       try {
@@ -48,6 +90,78 @@ export function VibeShareSheet({ slug, cardTitle, isOpen, onClose }: VibeShareSh
     [],
   );
 
+  /* ── 카카오 SDK 공유 ── */
+  const shareViaKakaoSDK = useCallback(() => {
+    if (!kakaoReady || !window.Kakao?.Share) return false;
+    try {
+      window.Kakao.Share.sendDefault({
+        objectType: "feed",
+        content: {
+          title: `🏡 ${cardTitle}`,
+          description: "Vibe AI가 분석한 전문 중개인 프로필을 확인하세요.",
+          imageUrl: ogImageUrl,
+          link: {
+            mobileWebUrl: cardUrl,
+            webUrl: cardUrl,
+          },
+        },
+        buttons: [
+          {
+            title: "명함 보기",
+            link: {
+              mobileWebUrl: cardUrl,
+              webUrl: cardUrl,
+            },
+          },
+        ],
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }, [kakaoReady, cardTitle, ogImageUrl, cardUrl]);
+
+  /* ── 액션 핸들러 ── */
+  const handleAction = useCallback(
+    (id: string) => {
+      switch (id) {
+        case "url":
+          copyToClipboard(cardUrl, "url");
+          break;
+
+        case "kakao":
+          // SDK 사용 가능 → 리치 공유 팝업
+          if (kakaoReady && shareViaKakaoSDK()) {
+            setCopied("kakao");
+            setTimeout(() => setCopied(null), 2000);
+          } else {
+            // SDK 없을 때 → Web Share API → 클립보드 복사 순서로 fallback
+            if (navigator.share) {
+              navigator
+                .share({
+                  title: cardTitle,
+                  text: "Vibe AI가 분석한 전문 중개인 프로필을 확인하세요.",
+                  url: cardUrl,
+                })
+                .catch(() => copyToClipboard(kakaoText, "kakao"));
+            } else {
+              copyToClipboard(kakaoText, "kakao");
+            }
+          }
+          break;
+
+        case "download":
+          window.print();
+          break;
+
+        case "qr":
+          setShowQr((p) => !p);
+          break;
+      }
+    },
+    [cardUrl, kakaoText, cardTitle, kakaoReady, shareViaKakaoSDK, copyToClipboard],
+  );
+
   const options: ShareOption[] = [
     {
       id: "url",
@@ -58,9 +172,13 @@ export function VibeShareSheet({ slug, cardTitle, isOpen, onClose }: VibeShareSh
     },
     {
       id: "kakao",
-      label: "카카오톡 문구 복사",
-      description: "전문 소개 문구를 복사합니다",
-      icon: <MessageCircle size={20} />,
+      label: kakaoReady ? "카카오톡 공유" : "카톡 문구 복사",
+      description: kakaoReady ? "카카오톡 공유 팝업 열기" : "전문 소개 문구를 복사합니다",
+      icon: (
+        <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor">
+          <path d="M12 3C6.48 3 2 6.58 2 11c0 2.77 1.7 5.22 4.29 6.73L5.14 21l4.27-2.24A11.5 11.5 0 0 0 12 19c5.52 0 10-3.58 10-8S17.52 3 12 3z" />
+        </svg>
+      ),
       color: "#fbbf24",
     },
     {
@@ -78,26 +196,6 @@ export function VibeShareSheet({ slug, cardTitle, isOpen, onClose }: VibeShareSh
       color: "#8b5cf6",
     },
   ];
-
-  const handleAction = useCallback(
-    (id: string) => {
-      switch (id) {
-        case "url":
-          copyToClipboard(cardUrl, "url");
-          break;
-        case "kakao":
-          copyToClipboard(kakaoText, "kakao");
-          break;
-        case "download":
-          window.print();
-          break;
-        case "qr":
-          setShowQr((p) => !p);
-          break;
-      }
-    },
-    [cardUrl, kakaoText, copyToClipboard],
-  );
 
   return (
     <AnimatePresence>
@@ -146,6 +244,16 @@ export function VibeShareSheet({ slug, cardTitle, isOpen, onClose }: VibeShareSh
                 </button>
               </div>
 
+              {/* ── SDK 상태 뱃지 ── */}
+              {kakaoReady && (
+                <div className="px-6 pb-3">
+                  <div className="inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 px-2.5 py-1 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    카카오 SDK 연결됨 — 리치 공유 활성
+                  </div>
+                </div>
+              )}
+
               {/* ── Share Options Grid ── */}
               <div className="px-6 pb-4 grid grid-cols-2 gap-3">
                 {options.map((opt) => {
@@ -160,6 +268,10 @@ export function VibeShareSheet({ slug, cardTitle, isOpen, onClose }: VibeShareSh
                         "hover:border-zinc-200 dark:hover:border-zinc-700",
                         "transition-all duration-200 active:scale-[0.97]",
                         "bg-zinc-50/50 dark:bg-zinc-800/50",
+                        // 카카오 버튼 강조
+                        opt.id === "kakao" && kakaoReady
+                          ? "border-amber-200 dark:border-amber-700/40 bg-amber-50/50 dark:bg-amber-900/10"
+                          : "",
                       )}
                       whileHover={{ y: -2 }}
                       whileTap={{ scale: 0.97 }}
@@ -172,7 +284,7 @@ export function VibeShareSheet({ slug, cardTitle, isOpen, onClose }: VibeShareSh
                       </div>
                       <div className="text-center">
                         <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                          {isCopied ? "복사됨! ✓" : opt.label}
+                          {isCopied ? "완료! ✓" : opt.label}
                         </p>
                         <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
                           {opt.description}
@@ -195,16 +307,14 @@ export function VibeShareSheet({ slug, cardTitle, isOpen, onClose }: VibeShareSh
                   >
                     <div className="bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-100
                                     dark:border-zinc-700 p-6 flex flex-col items-center gap-3">
-                      {/* Simple text QR placeholder */}
-                      <div
-                        className="w-32 h-32 rounded-xl border-2 border-dashed border-zinc-300
-                                   dark:border-zinc-600 flex items-center justify-center"
-                      >
-                        <div className="text-center">
-                          <QrCode size={40} className="mx-auto text-zinc-400 dark:text-zinc-500 mb-1" />
-                          <p className="text-[9px] text-zinc-400 dark:text-zinc-500">QR Code</p>
-                        </div>
-                      </div>
+                      {/* QR 이미지: Google Charts API (외부 라이브러리 없이) */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(cardUrl)}&choe=UTF-8`}
+                        alt="QR Code"
+                        className="w-32 h-32 rounded-xl"
+                        loading="lazy"
+                      />
                       <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center break-all max-w-[220px]">
                         {cardUrl}
                       </p>
