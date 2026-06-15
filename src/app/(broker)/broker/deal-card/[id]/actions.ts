@@ -1,6 +1,6 @@
 "use server";
 
-import { createServiceClient } from "@/lib/supabase/service";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 
 /**
@@ -22,10 +22,10 @@ export async function createMobileIMAction(
   }
 ) {
   try {
-    const supabase = createServiceClient();
-    const { data: auth } = await supabase.auth.getUser();
+    const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!auth?.user) {
+    if (!user) {
       return { success: false, error: "인증이 필요합니다." };
     }
 
