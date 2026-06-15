@@ -9,12 +9,12 @@ import { createServiceClient } from '@/lib/supabase/service';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ buildingId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const guard = await requireBroker(req);
   if (guard.error) return guard.error;
 
-  const { buildingId } = await params;
+  const { id: buildingId } = await params;
   const supabase = createServiceClient();
 
   const { data: events, error } = await supabase
