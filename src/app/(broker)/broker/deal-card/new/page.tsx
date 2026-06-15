@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,7 +26,20 @@ export default function BrokerDealCardNewPage() {
   const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
+  const [handoffSuccess, setHandoffSuccess] = useState(false);
   const supabase = createClient();
+
+  useEffect(() => {
+    const transferred = sessionStorage.getItem("memo_transfer");
+    if (transferred) {
+      setMemo(transferred);
+      setHandoffSuccess(true);
+      sessionStorage.removeItem("memo_transfer");
+      
+      // 알림 배너 3초 후 자동 제거
+      setTimeout(() => setHandoffSuccess(false), 3000);
+    }
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -161,6 +174,11 @@ export default function BrokerDealCardNewPage() {
       >
         {/* Header */}
         <div className="space-y-2 pt-4">
+          {handoffSuccess && (
+            <div className="mb-4 bg-emerald-50 text-emerald-600 border border-emerald-200 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+              <span>📋</span> 유니버설 메모에서 텍스트가 자동 전달되었습니다.
+            </div>
+          )}
           <h1 className="text-2xl font-bold">
             카톡 매물 설명을 붙여넣으세요
           </h1>

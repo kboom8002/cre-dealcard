@@ -16,6 +16,7 @@ import {
   Bell,
   BookOpen,
   ChevronRight,
+  StickyNote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,14 @@ const SECTIONS = [
   {
     label: "업무 도구",
     items: [
+      {
+        href: "/broker/memos",
+        icon: StickyNote,
+        title: "메모함",
+        desc: "저장된 유니버설 메모 관리",
+        color: "text-amber-400",
+        bg: "bg-amber-500/10",
+      },
       {
         href: "/broker/clients",
         icon: Users,

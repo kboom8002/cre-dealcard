@@ -21,24 +21,37 @@ export async function POST(req: Request) {
     // AI 라우팅 실행
     const routingResult = await routeMemo(memo);
 
-    // TODO: 라우팅 결과에 따라 각 파이프라인으로 넘기는 로직을 프론트엔드가 하거나 여기서 직접 호출
-    // 현재는 라우팅 결과만 프론트엔드에 반환하여, 프론트엔드가 적절한 엔드포인트로 리디렉션하거나 API를 쏘도록 함
-    // (보안 및 확장성 측면에서 프론트엔드에게 위임)
-    
-    // 단순 메모일 경우 DB에 저장
-    if (routingResult.type === "general_note" || routingResult.type === "update_building") {
-       await supabase.from("activity_events").insert({
-         user_id: user.id,
-         event_type: "memo_added",
-         event_data: { memo, routingResult },
-       });
+    // 모든 메모를 broker_memos 또는 activity_events 에 저장
+    let memoId = null;
+    const { data: memoData, error: memoError } = await supabase
+      .from("broker_memos")
+      .insert({
+        user_id: user.id,
+        memo_text: memo,
+        routing_type: routingResult.type,
+        routing_summary: routingResult.summary,
+        status: 'saved'
+      })
+      .select('id')
+      .single();
+
+    if (memoError && memoError.code === '42P01') {
+      const { data: fallbackData } = await supabase.from("activity_events").insert({
+        actor_id: user.id,
+        event_type: "memo_saved",
+        metadata: { memoText: memo, routingType: routingResult.type, routingSummary: routingResult.summary },
+      }).select('id').single();
+      if (fallbackData) memoId = fallbackData.id;
+    } else if (memoData) {
+      memoId = memoData.id;
     }
 
     return NextResponse.json({
       ok: true,
       data: {
         originalMemo: memo,
-        routing: routingResult
+        routing: routingResult,
+        memoId
       }
     });
 

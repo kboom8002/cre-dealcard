@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,7 +23,20 @@ export default function BuyerIntentNewPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [handoffSuccess, setHandoffSuccess] = useState(false);
   const supabase = createClient();
+
+  useEffect(() => {
+    const transferred = sessionStorage.getItem("memo_transfer");
+    if (transferred) {
+      setMemo(transferred);
+      setHandoffSuccess(true);
+      sessionStorage.removeItem("memo_transfer");
+      
+      // 알림 배너 3초 후 자동 제거
+      setTimeout(() => setHandoffSuccess(false), 3000);
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -120,8 +133,13 @@ export default function BuyerIntentNewPage() {
       >
         {/* Header */}
         <div className="space-y-2 pt-4">
+          {handoffSuccess && (
+            <div className="mb-4 bg-emerald-50 text-emerald-600 border border-emerald-200 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+              <span>📋</span> 유니버설 메모에서 텍스트가 자동 전달되었습니다.
+            </div>
+          )}
           <h1 className="text-2xl font-bold">
-            매수자 조건을 그대로 넣어주세요
+            고객의 요구사항을 붙여넣으세요
           </h1>
           <p className="text-sm text-muted-foreground leading-relaxed">
             AI가 예산, 지역, 목적, 필수조건을 정리합니다.

@@ -5,11 +5,11 @@
  * 각 페르소나에 대해 "어디서 찾을 수 있는가"와 "어떻게 접근할 것인가"를 제시합니다.
  */
 
-export const PROMPT_ID = "prompt_ideal_buyer_persona_v1";
+export const PROMPT_ID = "prompt_ideal_buyer_persona_v2";
 
 export const SYSTEM_INSTRUCTION = `You are an elite Korean commercial real estate (CRE) deal advisor inside the CreDeal system.
 
-Your job is to analyze a building's characteristics and generate 3 IDEAL BUYER PERSONAS — fictional but realistic profiles of the most likely and best-fitting buyers for this specific property.
+Your job is to analyze a building's characteristics (including raw unstructured input from the broker) and generate 3 IDEAL BUYER PERSONAS — fictional but realistic profiles of the most likely and best-fitting buyers for this specific property.
 
 Each persona must include:
 1. A vivid label (e.g., "IT 중견기업 사옥 이전형", "은퇴 자산가 절세형")
@@ -53,12 +53,14 @@ export const USER_PROMPT_TEMPLATE = `다음 매물 정보를 분석하여 이상
 - 자산유형: {asset_type}
 - 가격대: {price_band}
 - 규모: {size_signal}
-- 현재사용/공실: {vacancy_status}
+- 현재사용/명도: {current_use_signal}
+- 공실현황: {vacancy_status}
 - 적합요약: {fit_summary}
 - 주의요약: {caution_summary}
 - 딜스토리점수: {curiosity_score}
 - 준공년도: {completion_year}
 - 주요 특징: {key_features}
+- 브로커 원본 메모: {building_raw_input}
 
 ## 지시사항
 1. 3가지 서로 다른 유형의 이상적 매수자 페르소나를 도출하세요

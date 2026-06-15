@@ -3,13 +3,14 @@ import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { BlindTeaserOutputSchema } from "@/ai/schemas/broker-deal-card";
 import Link from "next/link";
-import { KakaoShareButton } from "./kakao-share-button";
-import { GateRequestForm } from "@/components/gate/gate-request-form";
-import { CreateMobileImButton } from "./create-mobile-im-button";
 import { MatchedBuyersSection } from "./matched-buyers-section";
 import { DealPredictionSection } from "./deal-prediction-section";
+import { KakaoPreviewSection } from "./KakaoPreviewSection";
+import { GateRequestsInbox } from "./GateRequestsInbox";
 import { DealCardPipelineContainer } from "./DealCardPipelineContainer";
 import { IdealBuyerPersonaSection } from "./ideal-buyer-persona-section";
+import { KakaoShareButton } from "./kakao-share-button";
+import { CreateMobileImButton } from "./create-mobile-im-button";
 
 
 export const metadata: Metadata = {
@@ -31,7 +32,7 @@ export default async function BrokerDealCardResultPage({
   const { data: building } = await supabase
     .from("building_ssot_lite")
     .select(
-      "id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, fit_summary, caution_summary, hidden_fields, status, owner_id",
+      "id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, fit_summary, caution_summary, hidden_fields, status, owner_id, raw_input",
     )
     .eq("id", id)
     .single();
@@ -256,16 +257,13 @@ export default async function BrokerDealCardResultPage({
           )}
         </div>
 
-        {/* Kakao Message Preview */}
-        <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-          <h2 className="text-base font-semibold flex items-center gap-2">
-            <span>💬</span> 카톡 문구
-          </h2>
-          <div className="rounded-lg bg-muted/60 dark:bg-muted/40 px-4 py-3 text-sm whitespace-pre-line leading-relaxed">
-            {kakaoText}
-          </div>
-          <KakaoShareButton text={kakaoText} buildingId={id} dealTitle={title} brokerSlug={brokerSlug} />
-        </div>
+        {/* Kakao Message Preview (Editable) */}
+        <KakaoPreviewSection
+          initialText={kakaoText}
+          buildingId={id}
+          dealTitle={title}
+          brokerSlug={brokerSlug}
+        />
 
         {/* Boundary Note */}
         <div className="rounded-xl bg-muted/60 dark:bg-muted/40 border border-border px-4 py-3">
@@ -298,18 +296,15 @@ export default async function BrokerDealCardResultPage({
           priceBand={building.price_band || ""}
           sizeSignal={building.size_signal || ""}
           vacancyStatus={building.vacancy_signal || ""}
+          currentUseSignal={building.current_use_signal || ""}
+          rawInput={building.raw_input || ""}
           fitSummary={building.fit_summary || ""}
           cautionSummary={building.caution_summary || ""}
           curiosityScore={signalCard?.deal_curiosity_score ?? 50}
         />
 
-        {/* Gate Request Form */}
-        <div className="rounded-xl border border-border bg-card p-5">
-          <GateRequestForm
-            buildingId={id}
-            buildingLabel={`${building.area_signal ?? ""} ${building.asset_type ?? ""} ${building.price_band ?? ""}`}
-          />
-        </div>
+        {/* Gate Requests Inbox (Replaces Request Form in Broker View) */}
+        <GateRequestsInbox buildingId={id} />
       </div>
 
       {/* Sticky CTA Bar */}

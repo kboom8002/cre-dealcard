@@ -9,11 +9,13 @@ import { runIdealBuyerPersona } from "@/ai/agents/ideal-buyer-persona";
 import { z } from "zod/v4";
 
 const RequestSchema = z.object({
-  areaSignal: z.string().min(1),
-  assetType: z.string().min(1),
-  priceBand: z.string().min(1),
-  sizeSignal: z.string().min(1),
+  areaSignal: z.string().default("미확인"),
+  assetType: z.string().default("미확인"),
+  priceBand: z.string().default("미확인"),
+  sizeSignal: z.string().default("미확인"),
   vacancyStatus: z.string().optional(),
+  currentUseSignal: z.string().optional(),
+  rawInput: z.string().optional(),
   fitSummary: z.string().optional(),
   cautionSummary: z.string().optional(),
   curiosityScore: z.number().optional(),
@@ -42,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { success: false, error: "Invalid input", details: error.issues },
+        { success: false, error: "매물 정보가 부족합니다. 딜카드를 먼저 생성해주세요.", details: error.issues },
         { status: 400 },
       );
     }

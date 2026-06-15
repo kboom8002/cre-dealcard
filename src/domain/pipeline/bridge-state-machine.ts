@@ -138,6 +138,19 @@ export const STAGE_HOLD_WARNINGS: Record<DealStage, string> = {
   failed:            '',
 };
 
+// 전환 버튼용 액션 레이블 (UX 개선)
+export const STAGE_ACTION_LABELS: Record<DealStage, string> = {
+  memo_input:        '메모 입력 완료',
+  deal_card_created: '딜카드 생성',
+  gate_requested:    '📩 자료 요청 접수 처리',
+  im_created:        '📝 IM 작성 시작',
+  buyer_meeting:     '🤝 매수자 미팅 진행',
+  loi:               '✍️ LOI 수취',
+  contract:          '📑 계약 진행',
+  closed:            '🎉 거래 완료 (클로징)',
+  failed:            '❌ 딜 무산 처리',
+};
+
 // ─── Allowed transitions ───────────────────────────────────────────────
 
 export const VALID_TRANSITIONS: Record<DealStage, DealStage[]> = {

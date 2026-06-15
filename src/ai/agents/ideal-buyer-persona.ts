@@ -24,6 +24,8 @@ export interface PersonaAgentInput {
   priceBand: string;
   sizeSignal: string;
   vacancyStatus?: string;
+  currentUseSignal?: string;
+  rawInput?: string;
   fitSummary?: string;
   cautionSummary?: string;
   curiosityScore?: number;
@@ -48,20 +50,22 @@ export async function runIdealBuyerPersona(
     .replace("{asset_type}", input.assetType)
     .replace("{price_band}", input.priceBand)
     .replace("{size_signal}", input.sizeSignal)
-    .replace("{vacancy_status}", input.vacancyStatus ?? "확인 필요")
-    .replace("{fit_summary}", input.fitSummary ?? "분석 중")
-    .replace("{caution_summary}", input.cautionSummary ?? "확인 필요 사항 없음")
+    .replace("{vacancy_status}", input.vacancyStatus || "확인 필요")
+    .replace("{current_use_signal}", input.currentUseSignal || "확인 필요")
+    .replace("{building_raw_input}", input.rawInput || "확인 필요")
+    .replace("{fit_summary}", input.fitSummary || "분석 중")
+    .replace("{caution_summary}", input.cautionSummary || "확인 필요 사항 없음")
     .replace("{curiosity_score}", String(input.curiosityScore ?? 50))
-    .replace("{completion_year}", input.completionYear ?? "미확인")
-    .replace("{key_features}", input.keyFeatures ?? "추가 정보 없음");
+    .replace("{completion_year}", input.completionYear || "미확인")
+    .replace("{key_features}", input.keyFeatures || "추가 정보 없음");
 
   const result = await callLLM({
     model,
     systemPrompt: SYSTEM_INSTRUCTION,
     userPrompt,
     responseFormat: "json_object",
-    temperature: 0.8, // Slightly higher for creative persona generation
-    maxTokens: 4096,
+    temperature: 0.6, // Balanced: 현실적이면서도 다양한 결과
+    maxTokens: 3000,
   });
 
   const parsed = JSON.parse(result.content);
@@ -74,3 +78,4 @@ export async function runIdealBuyerPersona(
     tokens: result.tokens,
   };
 }
+

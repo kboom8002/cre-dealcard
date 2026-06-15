@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import {
   STAGE_LABELS,
+  STAGE_ACTION_LABELS,
   STAGE_HOLD_WARNINGS,
   VALID_TRANSITIONS,
   type DealStage,
@@ -40,6 +41,10 @@ export function PipelineStatusBar({
   const holdWarning = holdDays >= 14 ? STAGE_HOLD_WARNINGS[currentStage] : null;
 
   async function advanceTo(toStage: DealStage) {
+    if (!window.confirm(`파이프라인 단계를 '${STAGE_LABELS[toStage]}'로 전환하시겠습니까?`)) {
+      return;
+    }
+    
     setAdvancing(true);
     setError(null);
     try {
@@ -111,7 +116,7 @@ export function PipelineStatusBar({
               onClick={() => advanceTo(next)}
               type="button"
             >
-              {advancing ? '처리 중...' : `→ ${STAGE_LABELS[next]}`}
+              {advancing ? '처리 중...' : STAGE_ACTION_LABELS[next] || `→ ${STAGE_LABELS[next]}`}
             </button>
           ))}
         </div>

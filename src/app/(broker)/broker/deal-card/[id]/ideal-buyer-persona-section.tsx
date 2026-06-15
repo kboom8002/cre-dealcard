@@ -10,6 +10,8 @@ interface IdealBuyerPersonaSectionProps {
   priceBand: string;
   sizeSignal: string;
   vacancyStatus?: string;
+  currentUseSignal?: string;
+  rawInput?: string;
   fitSummary?: string;
   cautionSummary?: string;
   curiosityScore?: number;
@@ -30,6 +32,8 @@ export function IdealBuyerPersonaSection({
   priceBand,
   sizeSignal,
   vacancyStatus,
+  currentUseSignal,
+  rawInput,
   fitSummary,
   cautionSummary,
   curiosityScore,
@@ -72,11 +76,13 @@ export function IdealBuyerPersonaSection({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          areaSignal,
-          assetType,
-          priceBand,
+          areaSignal: areaSignal || "미확인",
+          assetType: assetType || "미확인",
+          priceBand: priceBand || "미확인",
           sizeSignal: sizeSignal || "연면적 미확인",
           vacancyStatus: vacancyStatus || "확인 필요",
+          currentUseSignal,
+          rawInput,
           fitSummary: fitSummary || "분석 중",
           cautionSummary: cautionSummary || "특이사항 없음",
           curiosityScore: curiosityScore ?? 50,
@@ -308,13 +314,20 @@ export function IdealBuyerPersonaSection({
               매물 SSoT 데이터를 AI 에이전트가 분석하여 가장 적합한 3가지 가상 매수자 프로파일과 전략을 도출합니다.
             </p>
           </div>
-          <button
-            onClick={handleGenerate}
-            className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/95"
-            id="cta-generate-buyer-personas"
-          >
-            ✨ AI 매수자 페르소나 도출
-          </button>
+          <div className="relative group inline-block">
+            <button
+              onClick={handleGenerate}
+              className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/95"
+              id="cta-generate-buyer-personas"
+            >
+              ✨ AI 매수자 페르소나 도출
+            </button>
+            {(!areaSignal || !assetType || !priceBand) && (
+               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-black/80 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                 일부 핵심 정보가 부족하여 추정 결과가 포함될 수 있습니다.
+               </div>
+            )}
+          </div>
         </div>
       )}
 

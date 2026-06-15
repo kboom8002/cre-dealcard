@@ -10,6 +10,7 @@ import { WeeklyReportCard } from "@/components/dashboard/WeeklyReportCard";
 import { Bell, TrendingUp, Users, Building2, Target } from "lucide-react";
 import BrokerDashboardTabs from "@/components/dashboard/BrokerDashboardTabs";
 import MorningIntelligence from "@/components/dashboard/MorningIntelligence";
+import { GreetingHeader } from "@/components/dashboard/GreetingHeader";
 
 import { UniversalMemoFAB } from "@/components/memo/UniversalMemoFAB";
 
@@ -23,17 +24,11 @@ export const metadata: Metadata = {
  * 인사 + 핵심 KPI + 알림 피드 + 시장 대응 전략 분석 + 주간 리포트 + 모닝 인텔리전스 (탭화)
  */
 export default async function BrokerPage() {
-  const hour = new Date().getHours();
-  const greeting =
-    hour < 12
-      ? "좋은 아침이에요"
-      : hour < 18
-        ? "좋은 오후예요"
-        : "수고하셨어요";
-
   const supabase = await createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const userName = user.user_metadata?.full_name || user.email?.split("@")[0] || "중개인";
 
   // ── KPI 데이터 병렬 조회 ──
   const [
@@ -279,23 +274,8 @@ export default async function BrokerPage() {
     <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-28">
       <div className="w-full max-w-md mx-auto space-y-5">
 
-        {/* ── 인사 & 날짜 ── */}
-        <div className="flex items-start justify-between pt-4">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-bold">{greeting}, 중개인님.</h1>
-            <p className="text-sm text-muted-foreground">
-              {new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" })}
-            </p>
-          </div>
-          <Link
-            href="/broker/profile"
-            className="flex items-center justify-center w-10 h-10 rounded-full bg-muted hover:bg-muted/80 text-lg transition-colors shrink-0"
-            id="nav-profile"
-            title="프로필 관리"
-          >
-            👤
-          </Link>
-        </div>
+        {/* ── 인사 & 날짜 & 로그인 상태 ── */}
+        <GreetingHeader userName={userName} />
 
         {/* ── 퀵액션 버튼 ── */}
         <div className="grid grid-cols-2 gap-2">

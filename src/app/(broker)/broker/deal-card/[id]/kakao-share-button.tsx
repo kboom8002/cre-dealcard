@@ -8,6 +8,7 @@ interface KakaoShareButtonProps {
   dealTitle?: string;
   brokerSlug?: string;
   variant?: "primary" | "secondary";
+  showEditForm?: boolean;
 }
 
 declare global {
@@ -28,9 +29,17 @@ export function KakaoShareButton({
   dealTitle = "블라인드 딜카드",
   brokerSlug,
   variant = "secondary",
+  showEditForm = false,
 }: KakaoShareButtonProps) {
   const [shared, setShared] = useState(false);
   const [kakaoReady, setKakaoReady] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedText, setEditedText] = useState(text);
+
+  // Sync initial text to editedText if text prop changes
+  useEffect(() => {
+    setEditedText(text);
+  }, [text]);
 
   // 카카오 SDK 로드
   useEffect(() => {
@@ -66,6 +75,10 @@ export function KakaoShareButton({
     : `${siteUrl}/api/og/vibe-card/js-realty`;
 
   function handleShare() {
+    const finalText = typeof window !== 'undefined' 
+      ? sessionStorage.getItem(`kakao_text_${buildingId}`) || editedText 
+      : editedText;
+
     // 카카오 SDK 사용 가능한 경우
     if (kakaoReady && window.Kakao?.Share) {
       try {
@@ -73,7 +86,7 @@ export function KakaoShareButton({
           objectType: "feed",
           content: {
             title: `🏢 ${dealTitle}`,
-            description: text.slice(0, 120) + (text.length > 120 ? "..." : ""),
+            description: finalText.slice(0, 120) + (finalText.length > 120 ? "..." : ""),
             imageUrl: ogImageUrl,
             link: {
               mobileWebUrl: dealUrl,
@@ -106,7 +119,7 @@ export function KakaoShareButton({
     }
 
     // 폴백: 카톡 문구 + 링크를 클립보드에 복사 후 카카오 앱 열기
-    const fullText = `${text}\n\n🔗 딜카드 링크: ${dealUrl}`;
+    const fullText = `${finalText}\n\n🔗 딜카드 링크: ${dealUrl}`;
     navigator.clipboard
       .writeText(fullText)
       .then(() => {
@@ -125,25 +138,113 @@ export function KakaoShareButton({
   const label = shared ? "✅ 전송 완료!" : "🟡 카톡으로 전송";
   const readyClass = kakaoReady ? "" : "opacity-80";
 
-  if (variant === "primary") {
+  const handleSaveText = () => {
+    sessionStorage.setItem(`kakao_text_${buildingId}`, editedText);
+    window.dispatchEvent(new Event(`kakao_update_${buildingId}`));
+    setIsEditing(false);
+  };
+
+  const handleEditClick = () => {
+    const currentStorageText = sessionStorage.getItem(`kakao_text_${buildingId}`);
+    if (currentStorageText) setEditedText(currentStorageText);
+    setIsEditing(true);
+  };
+
+  if (isEditing && showEditForm) {
     return (
-      <button
-        onClick={handleShare}
-        className={`inline-flex items-center justify-center w-full rounded-xl bg-[#FEE500] text-[#3C1E1E] px-6 py-3.5 text-base font-bold shadow-sm transition-all hover:bg-[#FEE500]/90 active:scale-[0.98] ${readyClass}`}
-        id="cta-kakao-share-primary"
-      >
-        {label}
-      </button>
+      <div className="space-y-3 w-full">
+        <textarea
+          value={editedText}
+          onChange={(e) => setEditedText(e.target.value)}
+          className="w-full min-h-[160px] p-3 text-sm rounded-lg border border-border bg-background focus:ring-1 focus:ring-primary outline-none"
+        />
+        <div className="flex gap-2">
+          <button
+            onClick={() => setIsEditing(false)}
+            className="flex-1 py-2 text-sm font-medium rounded-lg border border-border bg-muted/50 hover:bg-muted"
+          >
+            취소
+          </button>
+          <button
+            onClick={handleSaveText}
+            className="flex-1 py-2 text-sm font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            수정 완료
+          </button>
+        </div>
+      </div>
     );
   }
 
+  if (variant === "primary") {
+    return (
+      <>
+        <div className="flex w-full gap-1.5">
+          <button
+            onClick={handleShare}
+            className={`flex-1 flex items-center justify-center rounded-xl bg-[#FEE500] text-[#3C1E1E] px-4 py-3.5 text-base font-bold shadow-sm transition-all hover:bg-[#FEE500]/90 active:scale-[0.98] ${readyClass}`}
+            id="cta-kakao-share-primary"
+          >
+            {label}
+          </button>
+          <button
+            onClick={handleEditClick}
+            className={`w-14 shrink-0 flex flex-col items-center justify-center rounded-xl bg-[#FEE500]/20 text-[#a08000] dark:text-[#FEE500] hover:bg-[#FEE500]/30 transition-all active:scale-[0.98]`}
+            aria-label="카톡 문구 수정"
+          >
+            <span className="text-lg">✏️</span>
+            <span className="text-[10px] font-bold mt-0.5">수정</span>
+          </button>
+        </div>
+
+        {/* Edit Modal (used when sticky primary CTA triggers edit but showEditForm isn't true here, so we show a modal) */}
+        {isEditing && !showEditForm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in">
+            <div className="bg-card w-full max-w-sm rounded-xl p-5 space-y-4 shadow-xl">
+              <h3 className="text-base font-semibold">카톡 문구 수정</h3>
+              <textarea
+                value={editedText}
+                onChange={(e) => setEditedText(e.target.value)}
+                className="w-full min-h-[160px] p-3 text-sm rounded-lg border border-border bg-background focus:ring-1 focus:ring-primary outline-none"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="flex-1 py-2.5 text-sm font-medium rounded-lg border border-border bg-muted/50 hover:bg-muted"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleSaveText}
+                  className="flex-1 py-2.5 text-sm font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  수정 및 저장
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // Secondary Button Layout (Inside Preview)
   return (
-    <button
-      onClick={handleShare}
-      className={`inline-flex items-center justify-center w-full rounded-lg bg-[#FEE500]/20 text-[#a08000] dark:text-[#FEE500] px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[#FEE500]/30 active:scale-[0.98] ${readyClass}`}
-      id="cta-kakao-share"
-    >
-      {label}
-    </button>
+    <div className="flex w-full gap-2">
+      <button
+        onClick={handleShare}
+        className={`flex-1 inline-flex items-center justify-center rounded-lg bg-[#FEE500]/20 text-[#a08000] dark:text-[#FEE500] px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[#FEE500]/30 active:scale-[0.98] ${readyClass}`}
+        id="cta-kakao-share"
+      >
+        {label}
+      </button>
+      <button
+        onClick={handleEditClick}
+        className={`shrink-0 inline-flex items-center justify-center rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted active:scale-[0.98]`}
+        title="문구 수정"
+      >
+        ✏️ 수정
+      </button>
+    </div>
   );
 }

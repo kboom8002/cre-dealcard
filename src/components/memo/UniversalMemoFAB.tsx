@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Mic, Keyboard } from "lucide-react";
+import { Plus, Mic, Keyboard, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { VoiceRecorder } from "./VoiceRecorder";
@@ -52,13 +52,14 @@ export function UniversalMemoFAB() {
 
   return (
     <>
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed bottom-[100px] right-4 z-[45]">
         <Button
           size="icon"
-          className="h-14 w-14 rounded-full shadow-xl bg-primary hover:bg-primary/90 hover:scale-105 transition-all duration-300 group"
+          className="h-13 w-13 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 hover:scale-105 transition-all duration-300 group border border-amber-400/20"
           onClick={() => handleOpenChange(true)}
         >
-          <Plus className="h-6 w-6 text-primary-foreground group-hover:rotate-90 transition-transform duration-300" />
+          <div className="absolute inset-0 rounded-full animate-ping bg-amber-500/20" />
+          <StickyNote className="h-5 w-5 text-white relative z-10 group-hover:scale-110 transition-transform duration-300" />
         </Button>
       </div>
 

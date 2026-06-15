@@ -32,10 +32,14 @@ export function MemoResultSheet({ result, originalText, onClose }: MemoResultShe
         break;
       case "general_note":
       default:
-        // Already saved in DB, just close
         onClose();
         break;
     }
+  };
+
+  const handleSaveOnly = () => {
+    // API에서 이미 저장했으므로 닫기만 하면 됨
+    onClose();
   };
 
   const config = {
@@ -86,14 +90,17 @@ export function MemoResultSheet({ result, originalText, onClose }: MemoResultShe
         {result.summary}
       </div>
 
-      <div className="flex space-x-3 pt-4">
-        <Button variant="outline" className="flex-1" onClick={onClose}>
+      <div className="flex space-x-2 pt-4">
+        <Button variant="outline" className="flex-1 text-xs" onClick={onClose}>
           취소
         </Button>
-        <Button className="flex-1" onClick={handleAction}>
+        <Button variant="secondary" className="flex-1 text-xs" onClick={handleSaveOnly}>
+          저장만 하기
+        </Button>
+        <Button className="flex-1 text-xs" onClick={handleAction}>
           {config.buttonText}
           {(result.type === "new_deal" || result.type === "buyer_condition") && (
-            <ArrowRight className="w-4 h-4 ml-2" />
+            <ArrowRight className="w-3 h-3 ml-1" />
           )}
         </Button>
       </div>
