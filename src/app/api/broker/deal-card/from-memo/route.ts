@@ -10,12 +10,13 @@ import { z } from "zod/v4";
 import { brokerDealCardFromMemo } from "@/domain/building/broker-deal-card";
 import { toApiError } from "@/lib/api-error";
 import { requireBroker } from "@/lib/auth-guard";
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { validateMemoQuality } from "@/domain/building/memo-quality-gate";
 
 const BrokerDealCardFromMemoRequest = z.object({
   memo: z.string().min(5),
   visibilityPreference: z.enum(["blind", "internal"]).default("blind"),
+  photoUrls: z.array(z.string().url()).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -46,9 +47,20 @@ export async function POST(req: NextRequest) {
       {
         memo: input.memo,
         visibilityPreference: input.visibilityPreference,
+        photoUrls: input.photoUrls,
       },
       user!.id,
     );
+
+    // 이벤트 트리거 매칭: 백그라운드에서 매칭 엔진 실행 (응답 차단 안함)
+    after(async () => {
+      try {
+        const { runAutoMatch } = await import("@/domain/matching/auto-matcher");
+        await runAutoMatch(result.buildingId, user!.id);
+      } catch (err) {
+        console.error("Background auto-match failed:", err);
+      }
+    });
 
     return Response.json({
       ok: true,

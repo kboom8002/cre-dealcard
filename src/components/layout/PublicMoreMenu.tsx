@@ -22,6 +22,19 @@ interface PublicMoreMenuProps {
 
 const SECTIONS = [
   {
+    label: "중개인 전용",
+    items: [
+      {
+        href: "/",
+        icon: Building2,
+        title: "중개인 포털 홈",
+        desc: "내 파이프라인 및 AI 매칭 관리",
+        color: "text-primary",
+        bg: "bg-primary/10",
+      },
+    ],
+  },
+  {
     label: "딜 도구",
     items: [
       {

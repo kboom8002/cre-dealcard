@@ -11,6 +11,8 @@ import { Bell, TrendingUp, Users, Building2, Target } from "lucide-react";
 import BrokerDashboardTabs from "@/components/dashboard/BrokerDashboardTabs";
 import MorningIntelligence from "@/components/dashboard/MorningIntelligence";
 
+import { UniversalMemoFAB } from "@/components/memo/UniversalMemoFAB";
+
 export const metadata: Metadata = {
   title: "JS 1분 딜카드 | 중개인 코크핏",
   description: "중개인 전용 대시보드 — 고객 관리, 매칭, 파이프라인을 한눈에.",
@@ -353,6 +355,7 @@ export default async function BrokerPage() {
 
       </div>
 
+      <UniversalMemoFAB />
       <BrokerBottomNav />
     </main>
   );

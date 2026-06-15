@@ -127,14 +127,6 @@ export async function createBuyerIntentFromMemo(
     });
   }
 
-  // 5. Auto-match with existing buildings
-  try {
-    const { runAutoMatchForBuyer } = await import("@/domain/matching/auto-matcher");
-    await runAutoMatchForBuyer(buyerIntent.id, userId ?? "system");
-  } catch (autoMatchErr) {
-    console.warn("[buyer-intent] Auto-match failed", autoMatchErr);
-  }
-
   return {
     buyerIntentId: buyerIntent.id,
     summary: {

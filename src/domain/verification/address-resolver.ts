@@ -207,3 +207,44 @@ function fallbackParseAddress(address: string): AddressComponents | null {
 
   return null;
 }
+
+/**
+ * 카카오 로컬 API를 사용해 주소를 위경도(WGS84)로 변환합니다.
+ * @param address 검색할 주소
+ * @returns { lat: number, lng: number } 또는 null
+ */
+export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  const kakaoAppKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+  if (!kakaoAppKey || !address) return null;
+
+  try {
+    const params = new URLSearchParams({ query: address });
+    const res = await fetch(`https://dapi.kakao.com/v2/local/search/address.json?${params}`, {
+      headers: {
+        Authorization: `KakaoAK ${kakaoAppKey}`,
+      },
+      next: { revalidate: 86400 * 30 }, // 30일 캐싱
+    });
+
+    if (!res.ok) {
+      console.warn(`[geocodeAddress] Kakao API HTTP Error: ${res.status}`);
+      return null;
+    }
+
+    const json = await res.json();
+    const documents = json?.documents;
+
+    if (!documents || documents.length === 0) {
+      return null;
+    }
+
+    const bestMatch = documents[0];
+    return {
+      lat: parseFloat(bestMatch.y),
+      lng: parseFloat(bestMatch.x),
+    };
+  } catch (error) {
+    console.error("[geocodeAddress] Failed to geocode:", error);
+    return null;
+  }
+}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 
 import { createClient } from "@/lib/supabase/client";
 
@@ -24,7 +25,14 @@ export default function BrokerDealCardNewPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const supabase = createClient();
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFiles(Array.from(e.target.files));
+    }
+  };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,6 +53,25 @@ export default function BrokerDealCardNewPage() {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
+      // Upload photos to Supabase Storage first
+      const photoUrls: string[] = [];
+      if (files.length > 0) {
+        for (const file of files) {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('building_photos')
+            .upload(fileName, file);
+
+          if (!uploadError && uploadData) {
+            const { data: publicUrlData } = supabase.storage
+              .from('building_photos')
+              .getPublicUrl(fileName);
+            photoUrls.push(publicUrlData.publicUrl);
+          }
+        }
+      }
+
       const res = await fetch("/api/broker/deal-card/from-memo", {
         method: "POST",
         headers: {
@@ -54,6 +81,7 @@ export default function BrokerDealCardNewPage() {
         body: JSON.stringify({
           memo: memo.trim(),
           visibilityPreference: "blind",
+          photoUrls,
         }),
       });
 
@@ -167,6 +195,28 @@ export default function BrokerDealCardNewPage() {
               예시 메모 사용
             </button>
           </div>
+        </div>
+
+        {/* Photo Upload */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">건물 사진 첨부 (선택)</label>
+          <Input
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={handleFileChange}
+            className="text-sm file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+          />
+          {files.length > 0 && (
+            <div className="flex gap-2 mt-2 overflow-x-auto pb-2 scrollbar-hide">
+              {files.map((file, idx) => (
+                <div key={idx} className="relative w-16 h-16 shrink-0 rounded-md overflow-hidden border border-border">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={URL.createObjectURL(file)} alt="preview" className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Disclosure Notice */}

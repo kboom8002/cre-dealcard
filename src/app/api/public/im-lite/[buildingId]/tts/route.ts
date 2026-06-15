@@ -142,7 +142,21 @@ export async function GET(
   }
 
   // Load IM data
-  const doc = getDemoMobileIM(buildingId);
+  let doc: MobileIMDocument | null = getDemoMobileIM(buildingId) || null;
+  
+  if (!doc) {
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.credeal.net";
+    try {
+      const res = await fetch(`${baseUrl}/api/public/im-lite/${buildingId}`);
+      if (res.ok) {
+        const { data } = await res.json();
+        doc = data as MobileIMDocument;
+      }
+    } catch {
+      // Ignore fetch error
+    }
+  }
+
   if (!doc) {
     return NextResponse.json(
       { error: "Building not found or IM not generated" },

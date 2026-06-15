@@ -105,8 +105,8 @@ export default async function MobileIMLitePage({ params }: Props) {
       });
       if (!res.ok) notFound();
       const { data } = await res.json();
-      // Real buildings show a limited view — pass data to viewer
-      return <MobileIMViewer document={null} buildingId={buildingId} ssotData={data} />;
+      // Real buildings now receive a dynamically generated MobileIMDocument
+      return <MobileIMViewer document={data} buildingId={buildingId} />;
     } catch {
       notFound();
     }

@@ -11,6 +11,7 @@ import { createBuyerIntentFromMemo } from "@/domain/buyer/buyer-intent";
 import { toApiError } from "@/lib/api-error";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { requireBroker } from '@/lib/auth-guard';
+import { after } from "next/server";
 
 const BuyerIntentFromMemoRequest = z.object({
   memo: z.string().min(5),
@@ -35,6 +36,16 @@ export async function POST(req: Request) {
       { memo: input.memo },
       actorId,
     );
+
+    // 이벤트 트리거 매칭: 백그라운드에서 매칭 엔진 실행 (응답 차단 안함)
+    after(async () => {
+      try {
+        const { runAutoMatchForBuyer } = await import("@/domain/matching/auto-matcher");
+        await runAutoMatchForBuyer(result.buyerIntentId, actorId ?? "system");
+      } catch (err) {
+        console.error("Background auto-match for buyer failed:", err);
+      }
+    });
 
     return Response.json({ ok: true, data: result });
   } catch (error) {

@@ -14,10 +14,12 @@ import { extractDealCardCasePack } from "@/domain/casepack/casepack-extractor";
 import { computePromotionScore } from "@/domain/promotion/promotion-ranker";
 import { verifyAgainstPublicData } from "@/domain/verification/public-data-verifier";
 import { SupabaseBuildingRepository } from "./building-repository.supabase";
+import { geocodeAddress } from "@/domain/verification/address-resolver";
 
 export interface BrokerDealCardFromMemoInput {
   memo: string;
   visibilityPreference: "blind" | "internal";
+  photoUrls?: string[];
 }
 
 export interface BrokerDealCardFromMemoResult {
@@ -72,6 +74,23 @@ export async function brokerDealCardFromMemo(
   const latencyMs = Date.now() - startTime;
   const { buildingTruth, blindTeaser } = aiResult;
 
+  // 1.5. Geocoding
+  const addressQuery = aiResult.parsedMemo.extractedFacts.exactAddressCandidate || aiResult.parsedMemo.extractedFacts.region;
+  let coordinates = null;
+  if (addressQuery) {
+    coordinates = await geocodeAddress(addressQuery);
+  }
+
+  const layersData: Record<string, any> = {};
+  if (coordinates) layersData.coordinates = coordinates;
+  if (input.photoUrls && input.photoUrls.length > 0) {
+    layersData.photos = input.photoUrls.map((url, i) => ({
+      url,
+      type: i === 0 ? "exterior" : "interior",
+      label: i === 0 ? "건물 외관" : "기타",
+    }));
+  }
+
   // 2. Create building_ssot_lite (via Repository Pattern)
   const buildingRepo = new SupabaseBuildingRepository(supabase);
   const building = await buildingRepo.createBuildingSsotLite({
@@ -88,7 +107,7 @@ export async function brokerDealCardFromMemo(
     fit_summary: buildingTruth.fitSummary,
     caution_summary: buildingTruth.cautionSummary,
     hidden_fields: buildingTruth.hiddenFields,
-    layers: {},
+    layers: layersData,
     confidence: buildingTruth.confidence as unknown as Record<string, unknown>,
     disclosure: { guard_checked: true },
     status: "public_signal_ready",
@@ -259,14 +278,6 @@ export async function brokerDealCardFromMemo(
       .eq("id", building.id);
   } catch (promoErr) {
     console.warn("[broker-deal-card] Promotion score init failed", promoErr);
-  }
-
-  // 10. Auto-match buyers
-  try {
-    const { runAutoMatch } = await import("@/domain/matching/auto-matcher");
-    await runAutoMatch(building.id, userId);
-  } catch (autoMatchErr) {
-    console.warn("[broker-deal-card] Auto-match failed", autoMatchErr);
   }
 
   // 11. 공공데이터 교차검증 (건축물대장 API) — fire-and-forget

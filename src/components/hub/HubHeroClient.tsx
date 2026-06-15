@@ -39,6 +39,18 @@ export function HubHeroClient({ deals, brokers }: HubHeroClientProps) {
       <div className="absolute top-16 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-primary/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute top-32 right-0 w-64 h-64 bg-purple-600/5 rounded-full blur-3xl pointer-events-none" />
 
+      {/* Top Right Broker Portal Link */}
+      <div className="absolute top-4 right-4 z-50">
+        <Link
+          href="/"
+          onClick={() => haptic.light()}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[11px] font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-all backdrop-blur-sm"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          중개인 포털
+        </Link>
+      </div>
+
       <div className="relative max-w-2xl mx-auto px-6 pt-14 pb-10 text-center">
 
         {/* Status pill with count-up */}
