@@ -6,6 +6,7 @@
  */
 import { createServiceClient } from "@/lib/supabase/service";
 import { getDemoMobileIM } from "@/lib/demo/mobile-im-demo-data";
+import { computeDataQualityBadge } from "@/domain/building/mobile-im/data-quality-badge";
 import type { MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
 
 function buildBrokerObject(profile: any) {
@@ -107,6 +108,13 @@ export async function fetchIMData(
         },
         protectedFieldsRemoved: ["상세 지번", "건물명", "소유주명"],
         photos: [],
+        dataQualityBadge: computeDataQualityBadge({
+          hasAddress: !!(document.body.external_data || ssotSummary.address || ssotSummary.raw_address),
+          hasPublicData: !!document.body.external_data?.hasPublicData,
+          hasMonthlyRent: !!ssotSummary.monthly_rent_total_krw || !!ssotSummary.monthly_rent_total,
+          hasVacancy: !!ssotSummary.vacancy_signal || !!ssotSummary.vacancy_pct,
+          hasPhotos: false, // TODO: Load photos from DB
+        }),
       };
     }
   }

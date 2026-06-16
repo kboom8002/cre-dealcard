@@ -19,6 +19,9 @@ export async function createMobileIMAction(
     estimated_yield_pct?: number;
     // v2: 딜카드에서 직접 전달하는 보강 데이터
     direct_data?: Record<string, unknown>;
+    vacancy_pct?: number;
+    resolved_address?: string;
+    resolved_pnu?: string;
   }
 ) {
   try {
@@ -45,6 +48,9 @@ export async function createMobileIMAction(
         building_id: buildingId,
         monthly_rent_total_krw: options?.monthly_rent_total_krw,
         vacancy_status: options?.vacancy_status,
+        vacancy_pct: options?.vacancy_pct,
+        resolved_address: options?.resolved_address,
+        resolved_pnu: options?.resolved_pnu,
         photo_urls: options?.photo_urls ?? [],
         broker_highlight: options?.broker_highlight,
         estimated_yield_pct: options?.estimated_yield_pct,

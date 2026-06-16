@@ -73,11 +73,16 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
   const cleanAddr = rawAddress.trim();
   const jibunMatch = cleanAddr.match(/(?:동|로|길)\s+(\d+)(?:-(\d+))?/);
 
-  let bun = "0823";
-  let ji = "0021";
+  let bun: string = "";
+  let ji: string = "0000";
   if (jibunMatch) {
     bun = padNumber(jibunMatch[1]);
     ji = padNumber(jibunMatch[2] || "0");
+  }
+
+  if (!bun) {
+    console.warn("[address-resolver] No jibun found in:", cleanAddr);
+    return null;
   }
 
   const legalDongCode = getMockLegalDongCode(cleanAddr);

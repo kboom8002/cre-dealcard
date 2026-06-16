@@ -42,9 +42,14 @@ export interface MobileIMProject {
 export interface MobileIMSupplementalInput {
   monthly_rent_total_krw?: number;   // 월세 총액
   vacancy_status?: string;           // 공실 현황 간단 입력
+  vacancy_pct?: number;              // 정확한 공실률 (%)
   photo_urls?: string[];             // 대표 사진 3~5장
   broker_highlight?: string;         // 브로커 한줄 코멘트
   estimated_yield_pct?: number;      // 예상 수익률
+  resolved_address?: string;         // 확정 주소 (지번)
+  resolved_pnu?: string;             // 확정 PNU
+  total_floor_count?: number;        // 총 층수 (브로커 수동)
+  building_age_years?: number;       // 건물 연식 (브로커 수동)
 }
 
 export interface MobileIMSection {

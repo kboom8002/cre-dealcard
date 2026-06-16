@@ -879,22 +879,34 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
             {doc.blindName}
           </h1>
 
-          {/* Verification Badge */}
-          {doc.status === "published" && (
-            <div className="flex items-center gap-1.5 mb-3">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-bold">
-                <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                전문 중개인 검증 완료
-              </span>
-              {doc.approvedAt && (
-                <span className="text-[10px] text-neutral-500 font-medium">
-                  {new Date(doc.approvedAt).toLocaleDateString("ko-KR")}
+          {/* Verification & Quality Badges */}
+          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+            {doc.status === "published" && (
+              <>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-bold">
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  전문 중개인 검증 완료
                 </span>
-              )}
-            </div>
-          )}
+                {doc.approvedAt && (
+                  <span className="text-[10px] text-neutral-500 font-medium">
+                    {new Date(doc.approvedAt).toLocaleDateString("ko-KR")}
+                  </span>
+                )}
+              </>
+            )}
+            {doc.dataQualityBadge && (
+              <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border ${
+                doc.dataQualityBadge.tier === 'verified' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                doc.dataQualityBadge.tier === 'partial' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                doc.dataQualityBadge.tier === 'reference' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
+                'bg-rose-500/10 text-rose-400 border-rose-500/20'
+              }`}>
+                {doc.dataQualityBadge.emoji} {doc.dataQualityBadge.label} ({doc.dataQualityBadge.score}점)
+              </span>
+            )}
+          </div>
 
           {/* Price band */}
           <p className="text-3xl font-black text-primary mb-4">
