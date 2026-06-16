@@ -27,7 +27,7 @@ export class OpenAIProvider implements LLMProvider {
           ],
           response_format: params.responseFormat === "json_object" ? { type: "json_object" } : undefined,
           temperature: params.temperature ?? 0.7,
-          max_tokens: params.maxTokens ?? 4096,
+          max_completion_tokens: params.maxTokens ?? 4096,
         },
         {
           signal: params.signal,

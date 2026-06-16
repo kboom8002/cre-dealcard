@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Mic, Keyboard, StickyNote } from "lucide-react";
+import { Plus, Mic, Keyboard, StickyNote, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { VoiceRecorder } from "./VoiceRecorder";
@@ -73,7 +73,16 @@ export function UniversalMemoFAB() {
           
           {/* Content */}
           <div className="relative bg-background rounded-t-2xl px-4 py-6 shadow-2xl h-[85vh] overflow-y-auto">
-            <div className="mx-auto w-12 h-1.5 rounded-full bg-muted mb-6" />
+            <div className="flex items-center justify-between mb-6">
+              <div className="w-8" />
+              <div className="w-12 h-1.5 rounded-full bg-muted" />
+              <button 
+                onClick={() => handleOpenChange(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
+              >
+                <X className="w-5 h-5 text-muted-foreground" />
+              </button>
+            </div>
             <div className="text-center mb-6">
               <h2 className="text-lg font-semibold">
                 {mode === "select" && "어떤 정보를 기록할까요?"}
@@ -115,6 +124,15 @@ export function UniversalMemoFAB() {
                     onTranscriptionComplete={submitMemo} 
                     onError={(err) => alert(err)} 
                   />
+                  <div className="mt-8 flex justify-center">
+                    <Button
+                      variant="outline"
+                      className="w-full max-w-[200px] h-12 text-base"
+                      onClick={() => setMode("select")}
+                    >
+                      이전
+                    </Button>
+                  </div>
                 </div>
               )}
 

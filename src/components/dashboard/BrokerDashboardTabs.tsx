@@ -5,23 +5,23 @@ import { motion, AnimatePresence } from "motion/react";
 
 interface BrokerDashboardTabsProps {
   overviewContent: React.ReactNode;
-  antifragileContent: React.ReactNode;
+  breakthroughContent: React.ReactNode;
   weeklyReportContent: React.ReactNode;
   morningIntelligenceContent: React.ReactNode;
 }
 
 export default function BrokerDashboardTabs({
   overviewContent,
-  antifragileContent,
+  breakthroughContent,
   weeklyReportContent,
   morningIntelligenceContent,
 }: BrokerDashboardTabsProps) {
-  const [activeTab, setActiveTab] = useState<"overview" | "intelligence" | "antifragile" | "reports">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "intelligence" | "breakthrough" | "reports">("overview");
 
   const tabs = [
     { id: "overview", label: "오늘의 현황" },
     { id: "intelligence", label: "🌅 모닝 정보" },
-    { id: "antifragile", label: "📈 시장 대응 전략" },
+    { id: "breakthrough", label: "📈 시장 돌파 전략" },
     { id: "reports", label: "📊 리포트" },
   ] as const;
 
@@ -65,7 +65,7 @@ export default function BrokerDashboardTabs({
           >
             {activeTab === "overview" && overviewContent}
             {activeTab === "intelligence" && morningIntelligenceContent}
-            {activeTab === "antifragile" && antifragileContent}
+            {activeTab === "breakthrough" && breakthroughContent}
             {activeTab === "reports" && weeklyReportContent}
           </motion.div>
         </AnimatePresence>

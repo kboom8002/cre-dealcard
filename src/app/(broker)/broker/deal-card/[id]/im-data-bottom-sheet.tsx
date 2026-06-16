@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createMobileIMAction } from "./actions";
 
 interface ImDataBottomSheetProps {
@@ -17,6 +17,16 @@ interface ImDataBottomSheetProps {
 }
 
 type BottomSheetState = "idle" | "loading" | "success" | "error";
+
+interface AddressResult {
+  roadAddr?: string;
+  jibunAddr?: string;
+  zipNo?: string;
+  pnu?: string;
+  bdNm?: string;
+  // Additional fields from address-resolver
+  [key: string]: unknown;
+}
 
 export function ImDataBottomSheet({
   buildingId,
@@ -40,6 +50,13 @@ export function ImDataBottomSheet({
   const [monthlyRent, setMonthlyRent] = useState(""); // 만원 단위
   const [vacancyPct, setVacancyPct] = useState<number | "">("");
   const [brokerHighlight, setBrokerHighlight] = useState("");
+
+  // Address search states
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [searchResults, setSearchResults] = useState<AddressResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [readinessScore, setReadinessScore] = useState(0);
 
@@ -103,22 +120,58 @@ export function ImDataBottomSheet({
     }
   }
 
-  // 주소 검색 (간이 Mock)
-  const handleAddressSearch = () => {
-    // 실제로는 카카오 주소 API 팝업을 띄워야 하지만 임시로 prompt 사용
-    const input = window.prompt("건물 지번 또는 도로명 주소를 입력하세요 (예: 강남구 역삼동 823-4)");
-    if (input && input.trim()) {
-      setAddress(input.trim());
-      // 임시 PNU 매핑 (역삼동 823-4 -> 1168010100108230004)
-      if (input.includes("역삼") && input.includes("823")) {
-         setPnu("1168010100108230004");
+  // 주소 검색 (실제 API 호출)
+  const handleAddressSearch = async () => {
+    const keyword = searchKeyword.trim();
+    if (!keyword || keyword.length < 2) {
+      setSearchResults([]);
+      setShowResults(false);
+      return;
+    }
+
+    setIsSearching(true);
+    setShowResults(true);
+    
+    try {
+      const res = await fetch(`/api/public/address?keyword=${encodeURIComponent(keyword)}`);
+      if (!res.ok) {
+        throw new Error("주소 검색 실패");
       }
+      const data = await res.json();
+      // data can be an array or { results: [...] }
+      const results: AddressResult[] = Array.isArray(data) ? data : (data.results ?? data.juso ?? []);
+      setSearchResults(results);
+    } catch (err) {
+      console.error("Address search failed:", err);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // 주소 결과 선택
+  const selectAddress = (result: AddressResult) => {
+    const displayAddr = result.roadAddr || result.jibunAddr || "";
+    setAddress(displayAddr);
+    setSearchKeyword(displayAddr);
+    // PNU: bdMgtSn(건물관리번호, 25자리) 또는 admCd(행정동코드)로 구성
+    const resolvedPnu = (result.bdMgtSn as string) || (result.admCd as string) || "";
+    setPnu(resolvedPnu);
+    setShowResults(false);
+    setSearchResults([]);
+  };
+
+  // Enter 키로 검색
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddressSearch();
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-background rounded-t-2xl w-full max-w-md mx-auto shadow-2xl p-5 animate-in slide-in-from-bottom duration-300">
+      <div className="bg-background rounded-t-2xl w-full max-w-md mx-auto shadow-2xl p-5 animate-in slide-in-from-bottom duration-300 max-h-[85vh] overflow-y-auto">
         
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
@@ -134,27 +187,85 @@ export function ImDataBottomSheet({
         {/* Form Fields */}
         <div className="space-y-4 mb-6">
           {/* Address */}
-          <div>
+          <div className="relative">
             <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
               🏠 정확한 건물 주소 <span className="text-rose-500">*</span>
             </label>
             <div className="flex gap-2">
               <input
                 type="text"
-                readOnly
-                value={address}
-                placeholder="주소를 검색해주세요"
-                className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none"
-                onClick={handleAddressSearch}
+                value={searchKeyword}
+                onChange={(e) => {
+                  setSearchKeyword(e.target.value);
+                  // 기존 선택을 초기화
+                  if (address) {
+                    setAddress("");
+                    setPnu("");
+                  }
+                }}
+                onKeyDown={handleSearchKeyDown}
+                placeholder="동/도로명 입력 후 검색 (예: 상도동 477)"
+                className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
               <button 
                 onClick={handleAddressSearch}
-                className="bg-primary text-primary-foreground px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+                disabled={isSearching || searchKeyword.trim().length < 2}
+                className="bg-primary text-primary-foreground px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 shrink-0"
               >
-                검색
+                {isSearching ? "..." : "검색"}
               </button>
             </div>
-            {pnu && <p className="text-[10px] text-emerald-500 mt-1">✅ 주소 확인 완료 (PNU: {pnu})</p>}
+
+            {/* 검색 결과 드롭다운 */}
+            {showResults && (
+              <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-background border border-border rounded-lg shadow-2xl max-h-48 overflow-y-auto">
+                {isSearching ? (
+                  <div className="p-3 text-center text-xs text-muted-foreground">
+                    <svg className="animate-spin h-4 w-4 mx-auto mb-1" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    검색 중...
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <div className="p-3 text-center text-xs text-muted-foreground">
+                    검색 결과가 없습니다. 다른 키워드로 시도해 주세요.
+                  </div>
+                ) : (
+                  searchResults.map((result, i) => (
+                    <button
+                      key={i}
+                      onClick={() => selectAddress(result)}
+                      className="w-full text-left px-3 py-2.5 hover:bg-secondary/50 border-b border-border/50 last:border-0 transition-colors"
+                    >
+                      <p className="text-xs font-medium text-foreground truncate">
+                        {result.roadAddr || result.jibunAddr}
+                      </p>
+                      {result.jibunAddr && result.roadAddr && (
+                        <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+                          {result.jibunAddr}
+                        </p>
+                      )}
+                      {result.bdNm && (
+                        <p className="text-[10px] text-primary/70 mt-0.5">{result.bdNm}</p>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* 선택된 주소 + PNU 표시 */}
+            {address && (
+              <div className="mt-1.5 flex items-center gap-2">
+                <span className="text-[10px] text-emerald-500">✅ 주소 확인 완료</span>
+                {pnu && (
+                  <span className="text-[10px] text-emerald-500/70 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                    PNU: {pnu}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Monthly Rent */}

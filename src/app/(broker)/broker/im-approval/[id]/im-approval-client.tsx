@@ -21,7 +21,9 @@ interface Props {
 }
 
 export function IMApprovalClient({ docId, title, content, status: initialStatus, buildingId, createdAt }: Props) {
-  const [sections, setSections] = useState<IMSection[]>(((content?.sections ?? []) as IMSection[]));
+  // content.sections가 배열인지 안전하게 확인
+  const rawSections = Array.isArray(content?.sections) ? content.sections : [];
+  const [sections, setSections] = useState<IMSection[]>(rawSections as IMSection[]);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState('');
   
@@ -161,6 +163,31 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
             AI가 작성한 초안입니다. 각 섹션을 확인하고 필요한 부분을 수정한 뒤 '확인'을 체크하세요. 모든 섹션이 확인되어야 공개할 수 있습니다.
           </p>
         </div>
+
+        {/* Empty State */}
+        {sections.length === 0 && actionStatus !== 'done' && (
+          <div className="text-center py-16 px-6">
+            <div className="text-5xl mb-4">📄</div>
+            <h2 className="text-lg font-bold text-white mb-2">섹션 데이터를 불러올 수 없습니다</h2>
+            <p className="text-sm text-neutral-400 mb-6">
+              AI 투자설명서가 아직 생성 중이거나, 데이터가 저장되지 않았을 수 있습니다.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <a
+                href={`/broker/deal-card/${buildingId}`}
+                className="inline-block px-6 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-medium rounded-xl transition-colors"
+              >
+                ← 딜카드로 돌아가기
+              </a>
+              <button
+                onClick={() => window.location.reload()}
+                className="inline-block px-6 py-2.5 bg-primary hover:bg-primary/90 text-white text-sm font-bold rounded-xl transition-colors"
+              >
+                🔄 다시 불러오기
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Result message */}
         {actionStatus === 'done' && (

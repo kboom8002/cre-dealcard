@@ -121,6 +121,26 @@ export class MockOpenAIProvider implements LLMProvider {
         missingData: ["sizeSignal"],
         boundaryNote: "본 자료는 실거래 통계 기반 참고치입니다.",
 
+        // BuyerIntentLiteOutput
+        buyerType: "법인 사옥형",
+        budgetRange: { min: 50, max: 80, display: "50억~80억" },
+        preferredRegions: ["강남", "성수"],
+        assetTypes: ["꼬마빌딩", "사옥용"],
+        purchasePurpose: "사옥용 매입",
+        mustHave: ["초역세권", "주차"],
+        niceToHave: ["테라스", "루프탑"],
+        riskTolerance: "medium",
+        financingNote: "자본금 50% 준비",
+        missingQuestions: ["구체적인 입주 시기가 언제인가요?", "선호하는 수익률이 있나요?"],
+        privacyNotes: ["연락처 비공개"],
+        
+        // BuyerMemoOutput
+        fitReasons: ["매수자 예산(50-80억)에 부합하는 매물입니다.", "요청하신 성수/강남 권역에 해당합니다."],
+        cautionReasons: ["요청한 용도와 달리 명도 협의가 다소 필요합니다."],
+        recommendedNextAction: "현장 답사 제안",
+        kakaoMessage: "안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.",
+
+
         // BlindTeaserOutput
         title: "강남 역삼역 초역세권 오피스 사옥용 빌딩 매각",
         shortSummary: "역삼역 도보 5분 거리의 준신축급 대형 오피스빌딩입니다.",

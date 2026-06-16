@@ -5,6 +5,18 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
+declare global {
+  interface Window {
+    Kakao?: {
+      isInitialized: () => boolean;
+      init: (key: string) => void;
+      Share: {
+        sendDefault: (options: Record<string, unknown>) => void;
+      };
+    };
+  }
+}
+
 // Checklist item definition
 interface ChecklistItem {
   key: string;
@@ -288,7 +300,7 @@ function LargeReadinessGauge({ score }: { score: number }) {
 
   return (
     <div className="relative w-36 h-36 flex flex-col items-center justify-center mx-auto select-none">
-      <svg className="w-36 h-36 transform -rotate-90">
+      <svg className="w-36 h-36 transform -rotate-90" viewBox="0 0 144 144">
         <circle
           cx="72"
           cy="72"
@@ -412,9 +424,37 @@ function OwnerReadinessContent() {
   // Handoff state
   const [handoffLoading, setHandoffLoading] = useState(false);
 
-  // Fetch building list
+  // Kakao & Share states
+  const [kakaoReady, setKakaoReady] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Load Kakao SDK
   useEffect(() => {
-    async function loadBuildings() {
+    if (typeof window === "undefined") return;
+    if (window.Kakao) {
+      if (!window.Kakao.isInitialized()) {
+        const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+        if (appKey) window.Kakao.init(appKey);
+      }
+      setKakaoReady(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js";
+    script.async = true;
+    script.onload = () => {
+      if (window.Kakao && !window.Kakao.isInitialized()) {
+        const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+        if (appKey) window.Kakao.init(appKey);
+      }
+      setKakaoReady(true);
+    };
+    document.head.appendChild(script);
+  }, []);
+
+  // Fetch building list & load result by resultId if present
+  useEffect(() => {
+    async function loadData() {
       const { data } = await supabase
         .from("building_ssot_lite")
         .select("id, area_signal, asset_type, price_band")
@@ -444,16 +484,52 @@ function OwnerReadinessContent() {
 
       setBuildings(currentBuildings);
 
-      if (currentBuildings.length > 0) {
-        const paramId = searchParams.get("buildingId");
-        if (paramId && currentBuildings.some((b) => b.id === paramId)) {
-          setSelectedBuildingId(paramId);
-        } else {
-          setSelectedBuildingId(currentBuildings[0].id);
+      // Determine building ID
+      const paramId = searchParams.get("buildingId");
+      const resultId = searchParams.get("resultId");
+
+      let finalBuildingId = "";
+      if (paramId && currentBuildings.some((b) => b.id === paramId)) {
+        finalBuildingId = paramId;
+      } else if (currentBuildings.length > 0) {
+        finalBuildingId = currentBuildings[0].id;
+      }
+      setSelectedBuildingId(finalBuildingId);
+
+      // Load previous check if resultId is provided
+      if (resultId) {
+        setIsLoading(true);
+        try {
+          const { data: checkData, error: checkError } = await supabase
+            .from("owner_readiness_checks")
+            .select("*")
+            .eq("id", resultId)
+            .single();
+
+          if (checkData && !checkError) {
+            if (checkData.checklist) {
+              setChecklist(checkData.checklist);
+            }
+            setResult({
+              readinessCheckId: checkData.id,
+              readinessScore: checkData.readiness_score,
+              readinessState: checkData.readiness_score >= 100 ? "full_im_candidate" : checkData.readiness_score >= 80 ? "im_lite_ready" : checkData.readiness_score >= 60 ? "snapshot_draft_ready" : checkData.readiness_score >= 40 ? "teaser_ready" : checkData.readiness_score >= 20 ? "public_report_only" : "not_ready",
+              availableOutputs: checkData.available_outputs || [],
+              missingData: checkData.missing_data || [],
+              nextRecommendedAction: checkData.next_recommended_action || "",
+            });
+            if (checkData.building_id) {
+              setSelectedBuildingId(checkData.building_id);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to load owner readiness check:", err);
+        } finally {
+          setIsLoading(false);
         }
       }
     }
-    loadBuildings();
+    loadData();
   }, [searchParams]);
 
   // Live score calculation
@@ -542,6 +618,78 @@ function OwnerReadinessContent() {
       setHandoffLoading(false);
     }
   }
+
+  const selectedBuilding = buildings.find((b) => b.id === selectedBuildingId);
+  const buildingLabel = selectedBuilding
+    ? `${selectedBuilding.area_signal || "권역 미상"} ${selectedBuilding.asset_type || "건물"} (${selectedBuilding.price_band || "가격 미상"})`
+    : "선택된 건물";
+
+  const handleKakaoShare = () => {
+    if (!result) return;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
+    const shareUrl = `${siteUrl}/owner-readiness?buildingId=${selectedBuildingId}&resultId=${result.readinessCheckId}`;
+    const title = `🏢 [매각준비도] ${buildingLabel}`;
+    const desc = `진단 점수: ${result.readinessScore}점 (${stateInfo?.label || ''})\n\n추천 액션: ${result.nextRecommendedAction}`;
+    const ogImageUrl = `${siteUrl}/api/og/vibe-card/js-realty`;
+
+    if (kakaoReady && window.Kakao?.Share) {
+      try {
+        window.Kakao.Share.sendDefault({
+          objectType: "feed",
+          content: {
+            title: title,
+            description: desc.slice(0, 120) + (desc.length > 120 ? "..." : ""),
+            imageUrl: ogImageUrl,
+            link: {
+              mobileWebUrl: shareUrl,
+              webUrl: shareUrl,
+            },
+          },
+          buttons: [
+            {
+              title: "진단 리포트 보기",
+              link: {
+                mobileWebUrl: shareUrl,
+                webUrl: shareUrl,
+              },
+            },
+          ],
+        });
+        return;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    handleCopyLink();
+  };
+
+  const handleCopyLink = () => {
+    if (!result) return;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
+    const shareUrl = `${siteUrl}/owner-readiness?buildingId=${selectedBuildingId}&resultId=${result.readinessCheckId}`;
+    const fullText = `🏢 [매각준비도 진단] ${buildingLabel}\n진단 점수: ${result.readinessScore}점 (${stateInfo?.label || ''})\n\n🔗 진단 리포트 링크: ${shareUrl}`;
+    
+    navigator.clipboard.writeText(fullText).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      alert(`진단 리포트 링크:\n${shareUrl}`);
+    });
+  };
+
+  const handleSmsShare = () => {
+    if (!result) return;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
+    const shareUrl = `${siteUrl}/owner-readiness?buildingId=${selectedBuildingId}&resultId=${result.readinessCheckId}`;
+    const fullText = `[매각준비도] ${buildingLabel} 진단 결과: ${result.readinessScore}점. 링크: ${shareUrl}`;
+    
+    if (typeof window !== "undefined" && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
+      window.location.href = `sms:?body=${encodeURIComponent(fullText)}`;
+    } else {
+      handleCopyLink();
+    }
+  };
 
   const liveScoreColor =
     liveScore >= 70
@@ -692,6 +840,37 @@ function OwnerReadinessContent() {
                   </span>
                   <h2 className="text-xl font-bold">자료 매각 준비 상태</h2>
                   <p className="text-sm text-muted-foreground leading-relaxed">{stateInfo.desc}</p>
+                </div>
+              </div>
+
+              {/* 공유 및 링크 복사 액션 */}
+              <div className="rounded-xl border border-border bg-card p-4 shadow-elevation-1 flex flex-col sm:flex-row items-center justify-between gap-3 bg-gradient-to-r from-teal-500/5 to-primary/5">
+                <div className="space-y-0.5 text-center sm:text-left">
+                  <h4 className="text-xs font-bold text-foreground">🔗 소유주에게 진단 결과 공유</h4>
+                  <p className="text-[10px] text-muted-foreground font-medium">이 진단 결과를 카카오톡이나 SMS, 링크로 건물주에게 바로 전송할 수 있습니다.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={handleKakaoShare}
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#FEE500] hover:bg-[#FEE500]/90 text-[#191919] px-3.5 py-2 text-xs font-bold shadow-sm transition-all active:scale-[0.98]"
+                  >
+                    💬 카톡 전송
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopyLink}
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground px-3.5 py-2 text-xs font-semibold shadow-sm transition-all active:scale-[0.98]"
+                  >
+                    {copied ? "✅ 복사 완료" : "📋 링크 복사"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSmsShare}
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground px-3.5 py-2 text-xs font-semibold shadow-sm transition-all active:scale-[0.98]"
+                  >
+                    📱 SMS 전송
+                  </button>
                 </div>
               </div>
 

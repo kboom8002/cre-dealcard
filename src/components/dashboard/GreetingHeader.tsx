@@ -42,10 +42,10 @@ export function GreetingHeader({ userName }: GreetingHeaderProps) {
       <div className="flex items-center gap-3">
         <button
           onClick={handleLogout}
-          className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-          title="로그아웃"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-full transition-colors"
         >
-          <LogOut className="w-5 h-5" />
+          <LogOut className="w-4 h-4" />
+          <span>로그아웃</span>
         </button>
         <Link href="/broker/profile" title="프로필">
           <UserCircle className="w-8 h-8 text-muted-foreground hover:text-foreground transition-colors" />

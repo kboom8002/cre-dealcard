@@ -163,6 +163,67 @@ function VoiceBriefingPlayer({ buildingId }: { buildingId: string }) {
   );
 }
 
+// ─── Kakao Static Map Component ────────────────────────────────────────────
+function KakaoStaticMap({ lat, lng, name }: { lat: number; lng: number; name: string }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+    if (!appKey || !mapRef.current) return;
+
+    const initMap = () => {
+      const kakao = (window as any).kakao;
+      if (!kakao || !kakao.maps || !mapRef.current) return;
+      const options = {
+        center: new kakao.maps.LatLng(lat, lng),
+        level: 4,
+        draggable: false,
+        scrollwheel: false,
+        disableDoubleClickZoom: true,
+      };
+      const map = new kakao.maps.Map(mapRef.current, options);
+      const marker = new kakao.maps.Marker({
+        position: new kakao.maps.LatLng(lat, lng),
+      });
+      marker.setMap(map);
+    };
+
+    const kakao = (window as any).kakao;
+    if (kakao && kakao.maps && kakao.maps.load) {
+      kakao.maps.load(initMap);
+    } else {
+      const script = document.createElement("script");
+      script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false`;
+      script.async = true;
+      script.onload = () => {
+        (window as any).kakao.maps.load(initMap);
+      };
+      document.head.appendChild(script);
+    }
+  }, [lat, lng]);
+
+  return (
+    <div className="relative w-full h-full bg-neutral-800">
+      <div ref={mapRef} className="absolute inset-0 z-0" />
+      <div className="absolute inset-0 z-10 bg-black/10 flex flex-col items-center justify-center pointer-events-none transition-colors duration-300">
+        <div className="pointer-events-auto mt-auto mb-4">
+          <a
+            href={`https://map.kakao.com/link/map/${encodeURIComponent(name)},${lat},${lng}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-black/70 backdrop-blur-md text-white text-xs font-bold rounded-xl hover:bg-black/90 transition-colors border border-white/20 shadow-lg"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            카카오맵 앱에서 열기
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Photo Gallery ─────────────────────────────────────────────────────────
 
 function PhotoGallery({ photos, coordinates, blindName }: {
@@ -212,25 +273,7 @@ function PhotoGallery({ photos, coordinates, blindName }: {
             {/* Map embed or photo */}
             {item.type === 'map' && coordinates ? (
               <div className="relative w-full aspect-[2/1] bg-neutral-800">
-                {/* Kakao Map iframe fallback */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-neutral-800 to-neutral-900">
-                  <div className="text-4xl mb-2">🗺️</div>
-                  <p className="text-sm font-bold text-white mb-1">{blindName}</p>
-                  <p className="text-xs text-neutral-400">
-                    {coordinates.lat.toFixed(4)}, {coordinates.lng.toFixed(4)}
-                  </p>
-                  <a
-                    href={`https://map.kakao.com/link/map/${encodeURIComponent(blindName)},${coordinates.lat},${coordinates.lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/20 text-primary text-xs font-medium rounded-lg hover:bg-primary/30 transition-colors"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                    카카오맵에서 보기
-                  </a>
-                </div>
+                <KakaoStaticMap lat={coordinates.lat} lng={coordinates.lng} name={blindName} />
               </div>
             ) : (
               <div className="relative w-full aspect-[2/1] bg-neutral-800">

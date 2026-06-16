@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 // ── Types ────────────────────────────────────────────
 interface DealItem {
@@ -27,7 +29,7 @@ interface StudioStats {
 }
 
 // ── Section IDs for accordion ────────────────────────
-type SectionId = "newsletter" | "ai-comment" | "whitelabel" | "co-broker" | "stats" | "leads" | "vendor";
+type SectionId = "newsletter" | "ai-comment" | "whitelabel" | "co-broker" | "stats" | "leads" | "vendor" | "owner-readiness";
 
 // ── Helper: get auth token ───────────────────────────
 async function getToken(): Promise<string> {
@@ -46,6 +48,7 @@ async function getToken(): Promise<string> {
 
 // ── Component ────────────────────────────────────────
 export default function BrokerStudioPage() {
+  const router = useRouter();
   // Accordion state — multiple sections can be open on desktop, one at a time on mobile
   const [openSections, setOpenSections] = useState<Set<SectionId>>(new Set(["newsletter", "ai-comment"]));
   const [isMobile, setIsMobile] = useState(false);
@@ -78,6 +81,82 @@ export default function BrokerStudioPage() {
 
   // Bottom sheet for mobile navigation
   const [showBottomNav, setShowBottomNav] = useState(false);
+
+  // Supabase & Readiness state variables
+  const supabase = createClient();
+  const [readinessBuildings, setReadinessBuildings] = useState<any[]>([]);
+  const [selectedReadinessBuildingId, setSelectedReadinessBuildingId] = useState<string>("");
+  const [readinessCheck, setReadinessCheck] = useState<any | null>(null);
+  const [readinessComment, setReadinessComment] = useState("");
+  const [readinessKakaoReady, setReadinessKakaoReady] = useState(false);
+  const [readinessCopied, setReadinessCopied] = useState(false);
+  const [readinessLoading, setReadinessLoading] = useState(false);
+
+  // Fetch buildings for Owner Readiness section
+  useEffect(() => {
+    async function loadReadinessBuildings() {
+      const { data } = await supabase
+        .from("building_ssot_lite")
+        .select("id, area_signal, asset_type, price_band")
+        .order("created_at", { ascending: false });
+      if (data && data.length > 0) {
+        setReadinessBuildings(data);
+        setSelectedReadinessBuildingId(data[0].id);
+      }
+    }
+    loadReadinessBuildings();
+  }, []);
+
+  // Fetch latest check when building changes
+  useEffect(() => {
+    if (!selectedReadinessBuildingId) return;
+    async function loadLatestCheck() {
+      setReadinessLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("owner_readiness_checks")
+          .select("*")
+          .eq("building_id", selectedReadinessBuildingId)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (data && data.length > 0 && !error) {
+          setReadinessCheck(data[0]);
+        } else {
+          setReadinessCheck(null);
+        }
+      } catch (err) {
+        console.error("Failed to load readiness check:", err);
+      } finally {
+        setReadinessLoading(false);
+      }
+    }
+    loadLatestCheck();
+  }, [selectedReadinessBuildingId]);
+
+  // Load Kakao SDK
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.Kakao) {
+      if (!window.Kakao.isInitialized()) {
+        const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+        if (appKey) window.Kakao.init(appKey);
+      }
+      setReadinessKakaoReady(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js";
+    script.async = true;
+    script.onload = () => {
+      if (window.Kakao && !window.Kakao.isInitialized()) {
+        const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+        if (appKey) window.Kakao.init(appKey);
+      }
+      setReadinessKakaoReady(true);
+    };
+    document.head.appendChild(script);
+  }, []);
 
   // ── Responsive detection ─────────────────────────
   useEffect(() => {
@@ -139,6 +218,7 @@ export default function BrokerStudioPage() {
             gateRequests: d.matchCount ?? 0,
             coBrokerDeals: d.casepacks ?? 0,
           });
+          setBrokerSubdomain(d.broker?.slug || "");
         }
       }
     } catch (err) {
@@ -171,11 +251,27 @@ export default function BrokerStudioPage() {
     }
   };
 
-  // ── White-label link generation (F4 — demo) ──────
-  const generateShareLink = () => {
+  // ── White-label link generation (F4 — integrated) ──────
+  const generateShareLink = async () => {
     const subdomain = brokerSubdomain.trim() || "my-broker";
-    setGeneratedLink(`https://${subdomain}.dealcard.kr/share`);
-    setLinkCopied(false);
+    
+    try {
+      // Save the slug to the backend
+      const res = await fetch("/api/broker/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: subdomain }),
+      });
+      if (!res.ok) throw new Error("슬러그 저장 실패");
+      
+      const today = new Date().toISOString().split("T")[0];
+      const origin = typeof window !== "undefined" ? window.location.origin : "https://www.credeal.net";
+      setGeneratedLink(`${origin}/magazine/${subdomain}/${today}`);
+      setLinkCopied(false);
+      alert("매거진 고유 주소(슬러그)가 저장되었습니다.");
+    } catch (err: any) {
+      alert(err.message || "오류가 발생했습니다.");
+    }
   };
 
   const handleCopyLink = async () => {
@@ -194,6 +290,115 @@ export default function BrokerStudioPage() {
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
     }
+  };
+
+  const handleWhitelabelKakaoShare = () => {
+    if (!generatedLink) return;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
+    const title = `📰 [맞춤 매거진] 브로커 추천 자산 소식`;
+    const desc = `${brokerSubdomain} 중개사의 화이트라벨 매거진입니다. 엄선된 최신 CRE 자산 및 거래 트렌드 소식을 확인해 보세요.`;
+    const ogImageUrl = `${siteUrl}/api/og/vibe-card/${brokerSubdomain || "js-realty"}`;
+
+    if (readinessKakaoReady && window.Kakao?.Share) {
+      try {
+        window.Kakao.Share.sendDefault({
+          objectType: "feed",
+          content: {
+            title: title,
+            description: desc,
+            imageUrl: ogImageUrl,
+            link: {
+              mobileWebUrl: generatedLink,
+              webUrl: generatedLink,
+            },
+          },
+          buttons: [
+            {
+              title: "매거진 보기",
+              link: {
+                mobileWebUrl: generatedLink,
+                webUrl: generatedLink,
+              },
+            },
+          ],
+        });
+        return;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    navigator.clipboard.writeText(generatedLink);
+    alert("링크가 복사되었습니다. 카카오톡에 붙여넣기 하세요.");
+  };
+
+  const selectedReadinessBuilding = readinessBuildings.find((b) => b.id === selectedReadinessBuildingId);
+  const readinessBuildingLabel = selectedReadinessBuilding
+    ? `${selectedReadinessBuilding.area_signal || "권역 미상"} ${selectedReadinessBuilding.asset_type || "건물"} (${selectedReadinessBuilding.price_band || "가격 미상"})`
+    : "선택된 건물";
+
+  const handleReadinessKakaoShare = () => {
+    if (!readinessCheck) return;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
+    const shareUrl = `${siteUrl}/owner-readiness?buildingId=${selectedReadinessBuildingId}&resultId=${readinessCheck.id}`;
+    const title = `🏢 [매각준비도] ${readinessBuildingLabel}`;
+    
+    let desc = `진단 점수: ${readinessCheck.readiness_score}점\n\n`;
+    if (readinessComment.trim()) {
+      desc += `💬 브로커 코멘트: ${readinessComment}\n\n`;
+    }
+    desc += `추천 액션: ${readinessCheck.next_recommended_action}`;
+
+    const ogImageUrl = `${siteUrl}/api/og/vibe-card/js-realty`;
+
+    if (readinessKakaoReady && window.Kakao?.Share) {
+      try {
+        window.Kakao.Share.sendDefault({
+          objectType: "feed",
+          content: {
+            title: title,
+            description: desc.slice(0, 120) + (desc.length > 120 ? "..." : ""),
+            imageUrl: ogImageUrl,
+            link: {
+              mobileWebUrl: shareUrl,
+              webUrl: shareUrl,
+            },
+          },
+          buttons: [
+            {
+              title: "리포트 보기",
+              link: {
+                mobileWebUrl: shareUrl,
+                webUrl: shareUrl,
+              },
+            },
+          ],
+        });
+        return;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    handleReadinessCopyLink();
+  };
+
+  const handleReadinessCopyLink = () => {
+    if (!readinessCheck) return;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
+    const shareUrl = `${siteUrl}/owner-readiness?buildingId=${selectedReadinessBuildingId}&resultId=${readinessCheck.id}`;
+    let fullText = `🏢 [매각준비도 진단] ${readinessBuildingLabel}\n진단 점수: ${readinessCheck.readiness_score}점\n`;
+    if (readinessComment.trim()) {
+      fullText += `💬 브로커 코멘트: ${readinessComment}\n`;
+    }
+    fullText += `\n🔗 진단 리포트 링크: ${shareUrl}`;
+    
+    navigator.clipboard.writeText(fullText).then(() => {
+      setReadinessCopied(true);
+      setTimeout(() => setReadinessCopied(false), 2000);
+    }).catch(() => {
+      alert(`진단 리포트 링크:\n${shareUrl}`);
+    });
   };
 
   // ── Toggle section ───────────────────────────────
@@ -382,6 +587,12 @@ export default function BrokerStudioPage() {
               <button
                 type="button"
                 disabled={!newsletterReady}
+                onClick={() => {
+                  const query = new URLSearchParams();
+                  if (selectedDeals.length > 0) query.set("deals", selectedDeals.join(","));
+                  if (selectedNews.length > 0) query.set("news", selectedNews.join(","));
+                  router.push(`/broker/magazine-editor?${query.toString()}`);
+                }}
                 className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs py-3 rounded-xl transition-all active:scale-[0.98]"
               >
                 {newsletterReady
@@ -452,12 +663,12 @@ export default function BrokerStudioPage() {
 
         {/* ═══ F4: 화이트라벨 공유 ═══ */}
         <section className="bg-[#131b2e] border border-slate-800 rounded-2xl overflow-hidden">
-          <SectionHeader id="whitelabel" emoji="🔗" title="화이트라벨 공유" badge="데모" badgeColor="bg-amber-500/15 text-amber-400" />
+          <SectionHeader id="whitelabel" emoji="🔗" title="화이트라벨 매거진 주소" badge="연동완료" badgeColor="bg-indigo-500/15 text-indigo-400" />
           {openSections.has("whitelabel") && (
             <div className="px-4 md:px-5 pb-4 md:pb-5 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-400 block">서브도메인</label>
+                  <label className="text-[10px] text-slate-400 block">고유 주소 (Slug)</label>
                   <input
                     type="text"
                     value={brokerSubdomain}
@@ -485,7 +696,7 @@ export default function BrokerStudioPage() {
                 onClick={generateShareLink}
                 className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-3 rounded-xl transition-all active:scale-[0.98]"
               >
-                🔗 화이트라벨 링크 생성
+                🔗 내 매거진 링크 생성 및 저장
               </button>
 
               {generatedLink && (
@@ -505,11 +716,111 @@ export default function BrokerStudioPage() {
                     </button>
                     <button
                       type="button"
+                      onClick={handleWhitelabelKakaoShare}
                       className="flex-1 text-[10px] font-bold py-2 rounded-lg bg-[#FEE500] text-[#3C1E1E] active:scale-[0.98]"
                     >
                       💬 카톡 공유
                     </button>
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* ═══ F8: 매각준비도 큐레이션 및 전송 ═══ */}
+        <section className="bg-[#131b2e] border border-slate-800 rounded-2xl overflow-hidden">
+          <SectionHeader id="owner-readiness" emoji="📋" title="매각준비도 발송" badge={readinessCheck ? "점검완료" : "미점검 자산"} badgeColor={readinessCheck ? "bg-indigo-500/15 text-indigo-400" : "bg-slate-800 text-slate-500"} />
+          {openSections.has("owner-readiness") && (
+            <div className="px-4 md:px-5 pb-4 md:pb-5 space-y-4">
+              <p className="text-[10px] text-slate-400">
+                건물 소유주에게 보낼 자산을 선택하고, 맞춤형 의견과 함께 진단 결과를 공유해 보세요.
+              </p>
+
+              {/* Building selector */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-slate-400 block">자산 선택</label>
+                {readinessBuildings.length > 0 ? (
+                  <select
+                    value={selectedReadinessBuildingId}
+                    onChange={(e) => setSelectedReadinessBuildingId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none"
+                  >
+                    {readinessBuildings.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        🏢 {b.area_signal || "권역 미상"} {b.asset_type || "건물"} ({b.price_band || "가격 미상"})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="text-xs text-slate-500">불러올 수 있는 자산이 없습니다.</div>
+                )}
+              </div>
+
+              {readinessLoading ? (
+                <div className="text-xs text-slate-500 text-center py-4">진단 데이터 불러오는 중...</div>
+              ) : readinessCheck ? (
+                <div className="space-y-4">
+                  {/* Readiness Score Card */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-[9px] text-slate-500 uppercase tracking-wider">최근 진단 점수</p>
+                      <p className="text-2xl font-black text-white mt-1">
+                        {readinessCheck.readiness_score}
+                        <span className="text-xs text-slate-500 font-normal"> / 100점</span>
+                      </p>
+                    </div>
+                    <Link
+                      href={`/owner-readiness?buildingId=${selectedReadinessBuildingId}&resultId=${readinessCheck.id}`}
+                      className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
+                    >
+                      상세 분석 리포트 보기 →
+                    </Link>
+                  </div>
+
+                  {/* Comment Input */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-slate-400 block">소유주 전달용 코멘트 입력</label>
+                    <textarea
+                      placeholder="예: '임대차 현황 요약표가 준비되어 블라인드 티저 생성이 가능합니다. 추가 자료 보완 시 Full IM 제작도 가능하니 편하신 시간에 말씀해 주세요.'"
+                      value={readinessComment}
+                      onChange={(e) => setReadinessComment(e.target.value)}
+                      rows={3}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                    />
+                  </div>
+
+                  {/* Share buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleReadinessKakaoShare}
+                      className="flex-1 text-[10px] font-bold py-2.5 rounded-lg bg-[#FEE500] text-[#3C1E1E] hover:bg-[#FEE500]/90 transition-all active:scale-[0.98]"
+                    >
+                      💬 카톡으로 전송
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleReadinessCopyLink}
+                      className={`flex-1 text-[10px] font-bold py-2.5 rounded-lg transition-all active:scale-[0.98] ${
+                        readinessCopied
+                          ? "bg-emerald-600/20 text-emerald-400 border border-emerald-600/30"
+                          : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                      }`}
+                    >
+                      {readinessCopied ? "✓ 복사됨" : "📋 링크 복사"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-800 p-6 text-center space-y-3">
+                  <p className="text-xs text-slate-500">아직 이 자산의 매각 준비도 진단 이력이 없습니다.</p>
+                  <Link
+                    href={`/owner-readiness?buildingId=${selectedReadinessBuildingId}`}
+                    className="inline-flex items-center justify-center rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 text-xs font-bold transition-all active:scale-[0.98]"
+                  >
+                    📋 자산 진단 시작하기
+                  </Link>
                 </div>
               )}
             </div>
@@ -642,6 +953,7 @@ export default function BrokerStudioPage() {
                 { id: "newsletter" as SectionId, emoji: "📰", label: "뉴스레터" },
                 { id: "ai-comment" as SectionId, emoji: "🤖", label: "AI 코멘트" },
                 { id: "whitelabel" as SectionId, emoji: "🔗", label: "화이트라벨" },
+                { id: "owner-readiness" as SectionId, emoji: "📋", label: "매각준비도" },
                 { id: "co-broker" as SectionId, emoji: "🤝", label: "공동중개" },
                 { id: "leads" as SectionId, emoji: "🔥", label: "리드 점수" },
                 { id: "vendor" as SectionId, emoji: "👷", label: "벤더 리뷰" },

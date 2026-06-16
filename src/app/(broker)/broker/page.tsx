@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 import { calculateBrokerMonthlyRoi } from "@/domain/analytics/roi-calculator";
 import { RoiCard } from "@/components/dashboard/RoiCard";
-import { AntifragileMode } from "@/components/dashboard/AntifragileMode";
+import { MarketBreakthroughMode } from "@/components/dashboard/AntifragileMode";
 import { WeeklyReportCard } from "@/components/dashboard/WeeklyReportCard";
 import { Bell, TrendingUp, Users, Building2, Target } from "lucide-react";
 import BrokerDashboardTabs from "@/components/dashboard/BrokerDashboardTabs";
@@ -92,7 +92,7 @@ export default async function BrokerPage() {
     (leaseMatchResults?.filter((m) => m.grade === "A").length ?? 0);
 
   const trend = marketIndicatorRes?.data as any;
-  const antifragileMetrics = {
+  const breakthroughMetrics = {
     trendDirection: (trend?.trend_direction ?? "flat") as "up" | "flat" | "down",
     region: trend?.region ?? "성동구 성수동",
     assetType: trend?.asset_type ?? "근린생활시설",
@@ -112,7 +112,7 @@ export default async function BrokerPage() {
       : 42.5;
 
   const holdDaysDelta = Math.round(
-    ((antifragileMetrics.avgHoldDays - 18.2) / 18.2) * 100
+    ((breakthroughMetrics.avgHoldDays - 18.2) / 18.2) * 100
   );
 
   // Query activity_events table for real notification feed
@@ -254,7 +254,7 @@ export default async function BrokerPage() {
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="bg-card border border-border p-2.5 rounded-lg">
             <p className="text-[10px] text-muted-foreground">내 딜 평균 체류일수</p>
-            <p className="text-base font-extrabold">{antifragileMetrics.avgHoldDays}일</p>
+            <p className="text-base font-extrabold">{breakthroughMetrics.avgHoldDays}일</p>
             <p className="text-[9px] text-green-600">
               평균 18.2일 대비{" "}
               {holdDaysDelta < 0 ? holdDaysDelta : `+${holdDaysDelta}`}%
@@ -313,6 +313,28 @@ export default async function BrokerPage() {
             </div>
           </Link>
           <Link
+            href="/broker/studio"
+            id="quick-action-studio"
+            className="flex items-center gap-2.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 hover:bg-indigo-500/20 active:scale-95 transition-all"
+          >
+            <span className="text-xl">🎬</span>
+            <div>
+              <p className="text-xs font-bold text-indigo-400 leading-tight">콘텐츠 스튜디오</p>
+              <p className="text-[10px] text-muted-foreground">매거진 & 카톡 공유</p>
+            </div>
+          </Link>
+          <Link
+            href="/owner-readiness"
+            id="quick-action-owner-readiness"
+            className="flex items-center gap-2.5 rounded-xl border border-teal-500/30 bg-teal-500/10 px-4 py-3 hover:bg-teal-500/20 active:scale-95 transition-all"
+          >
+            <span className="text-xl">📋</span>
+            <div>
+              <p className="text-xs font-bold text-teal-400 leading-tight">매각준비도 진단</p>
+              <p className="text-[10px] text-muted-foreground">소유주 자가진단</p>
+            </div>
+          </Link>
+          <Link
             href="/broker/my-card/new"
             id="quick-action-vibe-card"
             className="flex items-center gap-2.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 hover:bg-purple-500/20 active:scale-95 transition-all"
@@ -328,7 +350,7 @@ export default async function BrokerPage() {
         {/* ── 탭 레이아웃 연동 ── */}
         <BrokerDashboardTabs
           overviewContent={overviewContent}
-          antifragileContent={<AntifragileMode {...antifragileMetrics} />}
+          breakthroughContent={<MarketBreakthroughMode {...breakthroughMetrics} />}
           weeklyReportContent={<WeeklyReportCard />}
           morningIntelligenceContent={<MorningIntelligence />}
         />

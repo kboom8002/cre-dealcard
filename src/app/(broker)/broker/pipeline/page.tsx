@@ -3,6 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
+import { VALID_TRANSITIONS, DealStage } from '@/domain/pipeline/bridge-state-machine';
+import { StageTransitionModal } from '@/components/pipeline/StageTransitionModal';
+import { GateRequestReviewModal } from '@/components/gate/GateRequestReviewModal';
+import { ChevronRight, ShieldCheck } from 'lucide-react';
 
 interface PipelineDeal {
   id: string;
@@ -42,6 +46,14 @@ export default function PipelinePage() {
   const [deals, setDeals] = useState<PipelineDeal[]>([]);
   const [buildings, setBuildings] = useState<PipelineDeal[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Modal state
+  const [transitionTarget, setTransitionTarget] = useState<{
+    dealId: string;
+    buildingId: string;
+    fromStage: DealStage;
+    toStage: DealStage;
+  } | null>(null);
 
   const fetchPipeline = useCallback(async () => {
     setLoading(true);
@@ -173,17 +185,18 @@ export default function PipelinePage() {
                         );
                         const warnDays = HOLD_WARNING_DAYS[stage.key] ?? 14;
                         const isWarning = holdDays >= warnDays;
+                        const currentStageKey = deal.current_stage as DealStage;
+                        const nextStages = VALID_TRANSITIONS[currentStageKey]?.filter(s => s !== 'failed') || [];
 
                         return (
-                          <Link
-                            key={deal.id}
-                            href={`/broker/deal-card/${deal.building_ssot_lite_id}`}
-                            className="flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors"
-                            id={`pipeline-deal-${deal.id}`}
-                          >
-                            <div className="flex-1 min-w-0">
+                          <div key={deal.id} className="flex flex-col sm:flex-row sm:items-center px-4 py-3 hover:bg-muted/10 transition-colors gap-3">
+                            <Link
+                              href={`/broker/deal-card/${deal.building_ssot_lite_id}`}
+                              className="flex-1 min-w-0"
+                              id={`pipeline-deal-${deal.id}`}
+                            >
                               <div className="flex items-center gap-2">
-                                <p className="text-sm font-medium truncate">
+                                <p className="text-sm font-medium truncate text-foreground">
                                   {deal.building_area} {deal.building_asset_type}
                                 </p>
                                 {isWarning && (
@@ -197,19 +210,51 @@ export default function PipelinePage() {
                                   {deal.building_price}
                                 </span>
                                 {(deal.matched_buyer_count ?? 0) > 0 && (
-                                  <span className="text-xs text-primary font-medium">
-                                    🎯 {deal.matched_buyer_count}명
+                                  <span className="text-[11px] text-primary font-medium bg-primary/10 px-1.5 py-0.5 rounded-sm">
+                                    매칭 {deal.matched_buyer_count}명
                                   </span>
                                 )}
                               </div>
-                            </div>
-                            <div className="text-right shrink-0">
-                              <p className="text-[10px] text-muted-foreground">
+                            </Link>
+
+                            {/* Actions */}
+                            <div className="flex items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-none border-border">
+                              <span className="text-[10px] text-muted-foreground sm:hidden">
                                 {holdDays}일 경과
-                              </p>
-                              <span className="text-xs text-muted-foreground">→</span>
+                              </span>
+                              
+                              <div className="flex gap-2">
+                                {currentStageKey === 'gate_requested' ? (
+                                  <button
+                                    onClick={() => setTransitionTarget({
+                                      dealId: deal.id,
+                                      buildingId: deal.building_ssot_lite_id,
+                                      fromStage: currentStageKey,
+                                      toStage: 'im_created' // Used as dummy, the modal handles the actual routing
+                                    })}
+                                    className="text-[11px] font-bold px-2.5 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1 shadow-sm whitespace-nowrap"
+                                  >
+                                    응대 수락 (리뷰) <ShieldCheck className="w-3 h-3" />
+                                  </button>
+                                ) : (
+                                  nextStages.map(nextStage => (
+                                    <button
+                                      key={nextStage}
+                                      onClick={() => setTransitionTarget({
+                                        dealId: deal.id,
+                                        buildingId: deal.building_ssot_lite_id,
+                                        fromStage: currentStageKey,
+                                        toStage: nextStage
+                                      })}
+                                      className="text-[11px] font-bold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 flex items-center gap-1 shadow-sm whitespace-nowrap"
+                                    >
+                                      다음 단계 <ChevronRight className="w-3 h-3" />
+                                    </button>
+                                  ))
+                                )}
+                              </div>
                             </div>
-                          </Link>
+                          </div>
                         );
                       })}
                     </div>
@@ -226,6 +271,35 @@ export default function PipelinePage() {
           </div>
         )}
       </div>
+
+      {/* Transition Modal */}
+      {transitionTarget && transitionTarget.fromStage === 'gate_requested' ? (
+        <GateRequestReviewModal
+          dealId={transitionTarget.dealId}
+          buildingId={transitionTarget.buildingId}
+          buyerType="법인 사옥 매수자 (주식회사 테스트)"
+          buyerBudget="100억 ~ 150억"
+          buyerPurpose="IT 기업 사옥 이전"
+          ndaSigned={true}
+          onClose={() => setTransitionTarget(null)}
+          onSuccess={() => {
+            setTransitionTarget(null);
+            fetchPipeline(); // Refresh
+          }}
+        />
+      ) : transitionTarget ? (
+        <StageTransitionModal
+          dealId={transitionTarget.dealId}
+          buildingId={transitionTarget.buildingId}
+          fromStage={transitionTarget.fromStage}
+          toStage={transitionTarget.toStage}
+          onClose={() => setTransitionTarget(null)}
+          onSuccess={() => {
+            setTransitionTarget(null);
+            fetchPipeline(); // Refresh
+          }}
+        />
+      ) : null}
 
       <BrokerBottomNav />
     </main>

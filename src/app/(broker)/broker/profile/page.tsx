@@ -49,6 +49,7 @@ interface ProfileData {
     specialty_regions: string[] | null;
     specialty_assets: string[] | null;
     bio: string | null;
+    slug: string | null;
     is_verified: boolean;
     license_number: string | null;
     office_reg_number: string | null;
@@ -290,25 +291,58 @@ export default function BrokerProfilePage() {
           Authorization: `Bearer ${await getToken()}`,
         },
         body: JSON.stringify({
-          display_name: displayName,
+          name: displayName,
           company,
-          license_number: licenseNumber,
-          career_start_year: careerStartYear || null,
-          specialty_regions: selectedRegions,
-          specialty_assets: selectedAssets,
-          total_deal_count_self: totalDealCount || null,
-          deal_size_range: dealSizeRange || null,
-          deal_specialty: dealSpecialty,
-          buyer_types: buyerTypes,
-          fee_policy: feePolicy || null,
-          consult_methods: consultMethods,
-          languages,
+          licenseNumber: licenseNumber,
+          careerStartYear: careerStartYear || undefined,
+          regions: selectedRegions,
+          assets: selectedAssets,
+          dealCount: totalDealCount || undefined,
+          dealSizeRange: dealSizeRange || undefined,
+          dealSpecialty: dealSpecialty,
+          buyerTypes: buyerTypes,
         }),
       });
       if (!res.ok) throw new Error('AI 자기소개 생성에 실패했습니다.');
       const { data } = await res.json();
       if (data?.bio) {
         setBio(data.bio);
+        // 즉시 프로필 저장 (Auto-save)
+        const token = await getToken();
+        await fetch('/api/broker/profile', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            display_name: displayName,
+            phone,
+            company,
+            specialty_regions: selectedRegions,
+            specialty_assets: selectedAssets,
+            bio: data.bio, // 새로 생성된 바이오 반영
+            license_number: licenseNumber,
+            office_reg_number: officeRegNumber,
+            association,
+            career_start_year: careerStartYear || null,
+            total_deal_count_self: totalDealCount || null,
+            deal_size_range: dealSizeRange || null,
+            deal_specialty: dealSpecialty,
+            buyer_types: buyerTypes,
+            preferred_price_range: preferredPriceRange || null,
+            fee_policy: feePolicy || null,
+            consult_methods: consultMethods,
+            response_time_hours: responseTimeHours || null,
+            languages,
+            kakao_channel: kakaoChannel,
+            naver_blog_url: naverBlogUrl,
+            youtube_url: youtubeUrl,
+            linkedin_url: linkedinUrl,
+          }),
+        });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
       }
     } catch (e: any) {
       setError(e.message);
@@ -371,16 +405,41 @@ export default function BrokerProfilePage() {
     <main className="flex flex-col items-center min-h-screen px-4 py-8">
       <div className="w-full max-w-md mx-auto space-y-6">
         {/* Header */}
-        <div className="space-y-1 pt-4">
-          <h1 className="text-2xl font-bold">내 프로필</h1>
-          <p className="text-sm text-muted-foreground">
-            {profile?.email}
-            {profile?.broker?.is_verified && (
-              <span className="ml-2 inline-flex items-center rounded-full bg-success/10 text-success border border-success/20 px-2 py-0.5 text-xs font-medium">
-                ✓ 인증됨
-              </span>
-            )}
-          </p>
+        <div className="flex items-center justify-between pt-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold">내 프로필</h1>
+            <p className="text-sm text-muted-foreground">
+              {profile?.email}
+              {profile?.broker?.is_verified && (
+                <span className="ml-2 inline-flex items-center rounded-full bg-success/10 text-success border border-success/20 px-2 py-0.5 text-xs font-medium">
+                  ✓ 인증됨
+                </span>
+              )}
+            </p>
+          </div>
+          
+          {profile?.broker?.slug && (
+            <a
+              href={`/vibe-card/${profile.broker.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all shadow-sm border"
+              style={{
+                background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
+                color: '#fff',
+                borderColor: 'rgba(255,255,255,0.1)',
+              }}
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <circle cx="8.5" cy="11.5" r="2.5"></circle>
+                <path d="M12.5 17.5v-1a2.5 2.5 0 0 0-2.5-2.5h-3A2.5 2.5 0 0 0 4.5 16.5v1"></path>
+                <path d="M14 10h5"></path>
+                <path d="M14 14h5"></path>
+              </svg>
+              내 Vibe Card 보기
+            </a>
+          )}
         </div>
 
         {/* Error / Success */}

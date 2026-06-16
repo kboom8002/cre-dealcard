@@ -16,7 +16,8 @@ const TIER_EMOJI: Record<string, string> = { vip: '⭐', normal: '', potential: 
 export function WeeklyReportCard() {
   const [report, setReport] = useState<WeeklyReport | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchReport = async () => {
@@ -26,9 +27,17 @@ export function WeeklyReportCard() {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
-          const { data } = await res.json();
-          setReport(data);
+          const json = await res.json();
+          if (json && json.data) {
+            setReport(json.data);
+          } else {
+            setError('데이터가 없습니다.');
+          }
+        } else {
+          setError(`데이터를 불러오지 못했습니다. (코드: ${res.status})`);
         }
+      } catch (err: any) {
+        setError(err?.message || '네트워크 오류가 발생했습니다.');
       } finally {
         setLoading(false);
       }
@@ -49,7 +58,29 @@ export function WeeklyReportCard() {
     );
   }
 
-  if (!report) return null;
+  if (error || !report) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6 text-center space-y-4">
+        <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-xl">
+          📊
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold text-foreground">주간 리포트</h3>
+          <p className="text-xs text-muted-foreground max-w-[280px] mx-auto leading-normal">
+            {error || '활동 데이터가 아직 없거나 리포트를 구성하지 못했습니다. 새로운 매물을 등록하거나 고객 매칭을 시작해 보세요.'}
+          </p>
+        </div>
+        <div className="pt-2 flex justify-center gap-2">
+          <a
+            href="/broker/deal-card/new"
+            className="inline-flex items-center justify-center rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            ➕ 30초 딜카드 등록
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   const periodLabel = `${report.period.start.slice(5)} ~ ${report.period.end.slice(5)}`;
   const totalWeek = report.thisWeek.dealCards + report.thisWeek.leaseCards +
@@ -94,6 +125,17 @@ export function WeeklyReportCard() {
       {/* Expanded detail */}
       {expanded && (
         <div className="px-4 pb-4 space-y-4 border-t border-border pt-3">
+          {/* Market Pulse Link */}
+          <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/5 rounded-xl p-3 border border-indigo-500/20 flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-xs font-bold text-indigo-300">📡 시장 Pulse (Market Pulse)</span>
+              <span className="text-[10px] text-muted-foreground mt-0.5">권역별 거시적 시장 분석 및 심층 리포트</span>
+            </div>
+            <a href="/pulse/cbd/2026-W23" target="_blank" className="text-[10px] font-bold text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 px-3 py-1.5 rounded-lg transition-colors">
+              리포트 열기 &rarr;
+            </a>
+          </div>
+
           {/* This week activity */}
           <div className="grid grid-cols-4 gap-1.5">
             {[

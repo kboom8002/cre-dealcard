@@ -65,7 +65,7 @@ export function KakaoShareButton({
     document.head.appendChild(script);
   }, []);
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
+  const siteUrl = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.credeal.net");
   const dealUrl = `${siteUrl}/broker/deal-card/${buildingId}`;
   // 딜카드별 동적 OG 이미지: /api/og/deal/[id]
   // 브로커 바이브카드 이미지는 보조 fallback

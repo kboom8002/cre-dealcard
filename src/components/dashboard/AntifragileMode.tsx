@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 
-export interface AntifragileModeProps {
+export interface MarketBreakthroughModeProps {
   trendDirection: "up" | "flat" | "down";
   region: string;
   assetType: string;
@@ -13,7 +13,7 @@ export interface AntifragileModeProps {
   priceResistanceBand: { min: number; max: number };
 }
 
-export function AntifragileMode({
+export function MarketBreakthroughMode({
   trendDirection,
   region,
   assetType,
@@ -21,14 +21,14 @@ export function AntifragileMode({
   supplyScore,
   avgHoldDays,
   priceResistanceBand,
-}: AntifragileModeProps) {
+}: MarketBreakthroughModeProps) {
   const [isOpen, setIsOpen] = useState(trendDirection === "down");
 
   const getTrendConfig = () => {
     switch (trendDirection) {
       case "down":
         return {
-          title: "🚨 리스크 전환 모드 활성화",
+          title: "🚨 침체기 돌파 모드 활성화",
           desc: "매매 시장이 둔화 국면에 진입했습니다. 리스크 방어 및 임대 전환 전략을 추천합니다.",
           gradient: "from-amber-600/20 via-rose-600/10 to-purple-600/10 border-rose-500/30",
           badgeColor: "bg-rose-500/20 text-rose-300 border-rose-500/40",
@@ -36,7 +36,7 @@ export function AntifragileMode({
         };
       case "up":
         return {
-          title: "🚀 상승장 모멘텀 가속 모드",
+          title: "🚀 상승장 선점 모드",
           desc: "매매 시장이 강력한 상승 기류를 타고 있습니다. 적극적인 매칭 및 거래 종결 전략을 추천합니다.",
           gradient: "from-emerald-600/20 via-teal-600/10 to-indigo-600/10 border-emerald-500/30",
           badgeColor: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
@@ -44,7 +44,7 @@ export function AntifragileMode({
         };
       default:
         return {
-          title: "⚖️ 안정적 보합세 모드",
+          title: "⚖️ 보합기 역전 준비 모드",
           desc: "시장이 보합세를 유지하고 있습니다. 물건 정밀화와 대기 고객 매칭 고도화에 집중하세요.",
           gradient: "from-slate-600/20 via-indigo-600/10 to-purple-600/10 border-slate-500/30",
           badgeColor: "bg-slate-500/20 text-slate-300 border-slate-500/40",

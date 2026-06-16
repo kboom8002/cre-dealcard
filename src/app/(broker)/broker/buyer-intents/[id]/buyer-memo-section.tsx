@@ -250,6 +250,33 @@ export function BuyerMemoSection({
     }
   }
 
+  function handleKakaoShare() {
+    if (typeof window === "undefined" || !window.Kakao) return;
+    
+    // In production, use the actual domain.
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://credeal.net";
+    const shareUrl = `${baseUrl}/im-lite/${selectedBuildingId}`;
+    
+    // Attempt to use a dynamic OG image if available, else a fallback
+    const imageUrl = `${baseUrl}/api/og/deal/${selectedBuildingId}`;
+
+    window.Kakao.Share.sendDefault({
+      objectType: "feed",
+      content: {
+        title: "JS 1분 딜카드 분석 리포트",
+        description: editedKakaoMessage || "맞춤형 딜카드 안내입니다.",
+        imageUrl: imageUrl,
+        link: { mobileWebUrl: shareUrl, webUrl: shareUrl },
+      },
+      buttons: [
+        { 
+          title: "⚡ 1분 딜카드 상세 분석 확인", 
+          link: { mobileWebUrl: shareUrl, webUrl: shareUrl } 
+        }
+      ],
+    });
+  }
+
   const selectedBuilding = buildings.find((b) => b.id === selectedBuildingId);
 
   return (
@@ -527,20 +554,18 @@ export function BuyerMemoSection({
 
                     {/* Kakao sharing CTA button template */}
                     <div className="pt-2.5 border-t border-black/10 space-y-1.5">
-                      <a
-                        href="#"
-                        onClick={(e) => e.preventDefault()}
-                        className="block text-center bg-[#1E1E1E] text-white hover:bg-black font-extrabold text-[10px] rounded-lg py-2.5 shadow-sm active:scale-[0.98] transition-all"
+                      <button
+                        onClick={handleKakaoShare}
+                        className="w-full block text-center bg-[#1E1E1E] text-white hover:bg-black font-extrabold text-[10px] rounded-lg py-2.5 shadow-sm active:scale-[0.98] transition-all"
                       >
-                        ⚡ 1분 딜카드 상세 분석 확인
-                      </a>
-                      <a
-                        href="#"
+                        💬 카카오톡으로 고객에게 전송
+                      </button>
+                      <button
                         onClick={(e) => e.preventDefault()}
-                        className="block text-center bg-white/40 hover:bg-white/60 font-bold text-[9px] text-[#1E1E1E] rounded-lg py-2"
+                        className="w-full block text-center bg-white/40 hover:bg-white/60 font-bold text-[9px] text-[#1E1E1E] rounded-lg py-2"
                       >
                         📞 담당 중개사 직통 유선 연결
-                      </a>
+                      </button>
                     </div>
                   </div>
 

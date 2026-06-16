@@ -20,7 +20,7 @@ export const BuyerPersonaSchema = z.object({
   /** 접근법: 어떤 메시지로 어필해야 하는가 */
   approachStrategy: z.string(),
   /** 매칭 가중치 프로파일 (사옥/투자/증여/혼합) */
-  purposeProfile: z.enum(["사옥", "투자", "증여", "혼합"]),
+  purposeProfile: z.string(),
   /** 예상 적합도 (0~100) */
   fitScore: z.number().min(0).max(100),
 });

@@ -45,6 +45,7 @@ interface DealResult {
   price_band: string;
   status: string;
   created_at: string;
+  source?: string;
 }
 
 interface SpaceResult {
@@ -269,17 +270,24 @@ export default function ExploreUnifiedPage() {
                 return (
                   <Link
                     key={r.id}
-                    href={`/deal/${r.area_signal?.toLowerCase().replace(/[·\s]/g, "").slice(0, 4) || "gbd"}/${r.id}`}
-                    className="flex items-center gap-3 bg-[#131b2e] border border-slate-800 rounded-2xl px-4 py-3.5 hover:border-blue-500/30 transition-all"
+                    href={r.status === "molit_transaction" ? "#" : `/deal/${r.area_signal?.toLowerCase().replace(/[·\s]/g, "").slice(0, 4) || "gbd"}/${r.id}`}
+                    className={`flex items-center gap-3 bg-[#131b2e] border ${r.status === "molit_transaction" ? "border-amber-500/30" : "border-slate-800"} rounded-2xl px-4 py-3.5 hover:border-blue-500/30 transition-all cursor-${r.status === "molit_transaction" ? "default" : "pointer"}`}
                   >
-                    <Building2 className="w-4 h-4 text-blue-400 shrink-0" />
+                    <Building2 className={`w-4 h-4 shrink-0 ${r.status === "molit_transaction" ? "text-amber-400" : "text-blue-400"}`} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-white truncate">
-                        {r.area_signal} {r.asset_type}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-semibold text-white truncate">
+                          {r.area_signal} {r.asset_type}
+                        </p>
+                        {r.source && (
+                          <span className="shrink-0 text-[8px] px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-400">
+                            {r.source}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] text-slate-500 mt-0.5">{r.price_band}</p>
                     </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                    {r.status !== "molit_transaction" && <ArrowRight className="w-3.5 h-3.5 text-slate-600 shrink-0" />}
                   </Link>
                 );
               }

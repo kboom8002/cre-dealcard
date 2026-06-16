@@ -44,7 +44,25 @@ APPROACH STRATEGY GUIDANCE:
 - 밸류업형: "개발 포텐셜", "용적률 여유", "입지 프리미엄" 강조
 
 OUTPUT FORMAT:
-Return valid JSON matching IdealBuyerPersonasOutputSchema. All text must be in Korean.`;
+Return valid JSON matching the following structure. All text must be in Korean.
+{
+  "propertySummary": "매물 한줄 요약",
+  "personas": [
+    {
+      "label": "페르소나 라벨",
+      "buyerType": "매수자 유형",
+      "budgetRange": "추정 예산 범위",
+      "motivation": "매입 동기",
+      "coreNeeds": ["니즈1", "니즈2"],
+      "whereToFind": ["어디서1", "어디서2"],
+      "approachStrategy": "접근법",
+      "purposeProfile": "사옥|투자|증여|혼합",
+      "fitScore": 85
+    }
+  ],
+  "brokerActionPlan": ["액션1", "액션2"],
+  "boundaryNote": "면책문구"
+}`;
 
 export const USER_PROMPT_TEMPLATE = `다음 매물 정보를 분석하여 이상적 매수자 페르소나 3명을 도출해주세요.
 

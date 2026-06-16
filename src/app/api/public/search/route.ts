@@ -54,9 +54,40 @@ export async function GET(req: NextRequest) {
 
       const { data, error, count } = await query;
       if (error) throw error;
+      
+      let finalData = data ?? [];
+      let finalCount = count ?? finalData.length ?? 0;
+      
+      // Fallback to MOLIT external transactions if no internal deal cards
+      if (finalData.length === 0) {
+        let molitQuery = supabase
+          .from("external_transactions")
+          .select("id, address, district, dong, usage_type, transaction_price, transaction_date")
+          .order("transaction_date", { ascending: false })
+          .limit(limit);
+          
+        if (q) {
+          molitQuery = molitQuery.or(`address.ilike.%${q}%,district.ilike.%${q}%,dong.ilike.%${q}%,usage_type.ilike.%${q}%`);
+        }
+        
+        const { data: molitData, error: molitError } = await molitQuery;
+        if (!molitError && molitData && molitData.length > 0) {
+          finalData = molitData.map((t: any) => ({
+            id: `molit-${t.id}`,
+            area_signal: `${t.district || ""} ${t.dong || ""}`.trim() || t.address,
+            asset_type: t.usage_type || "상업용",
+            price_band: t.transaction_price ? `${Math.round(t.transaction_price / 10000)}억 (실거래)` : "비공개",
+            status: "molit_transaction",
+            created_at: t.transaction_date,
+            source: "MOLIT (국토교통부)",
+          }));
+          finalCount = finalData.length;
+        }
+      }
+
       return NextResponse.json({ 
-        data: data ?? [], 
-        total: count ?? data?.length ?? 0, 
+        data: finalData, 
+        total: finalCount, 
         page, 
         limit 
       });

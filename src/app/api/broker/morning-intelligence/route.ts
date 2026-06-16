@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
       // 브로커 개인화 데이터
       myDealCards,
       myBuyerIntents,
+      brokerProfileResult,
     ] = await Promise.all([
       // 시장 데이터
       serviceClient.from("external_news").select("title, summary, source, url, sentiment").order("created_at", { ascending: false }).limit(5),
@@ -69,6 +70,7 @@ export async function GET(request: NextRequest) {
       serviceClient.from("building_ssot_lite").select("id, area_signal, asset_type, price_band, vacancy_signal, fit_summary").eq("owner_id", user.id).eq("status", "public_signal_ready").limit(5),
       // 내 매수자
       serviceClient.from("buyer_intent_lite").select("id, buyer_type, budget_display, budget_min, budget_max, preferred_regions, asset_types, purchase_purpose").eq("owner_id", user.id).limit(5),
+      serviceClient.from("broker_profiles").select("slug").eq("user_id", user.id).single(),
     ]);
 
     // ── 내 매물 컨텍스트 ───────────────────────────────────────────────────────
@@ -145,16 +147,32 @@ ${myBuyersSummary}
       });
 
       // JSON 파싱 시도
-      const jsonMatch = aiRes.content.match(/\{[\s\S]*\}/);
+      let contentString = typeof aiRes.content === 'string' ? aiRes.content : JSON.stringify(aiRes.content);
+      const jsonMatch = contentString.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        aiBriefing = parsed.briefing || "";
-        aiCounselScript = parsed.cold_call_script || "";
-        aiActionList = parsed.action_list || [];
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          aiBriefing = parsed.briefing || parsed.market_briefing || "";
+          
+          // Double encoded JSON fix
+          if (typeof aiBriefing === 'string' && aiBriefing.trim().startsWith('{')) {
+            try {
+              const doubleParsed = JSON.parse(aiBriefing);
+              aiBriefing = doubleParsed.briefing || aiBriefing;
+            } catch (e) {}
+          }
+          
+          aiCounselScript = parsed.cold_call_script || parsed.hot_lead_script || "";
+          aiActionList = parsed.action_list || [];
+        } catch (e) {
+          // If JSON parse fails, maybe it's just raw text
+          aiBriefing = contentString.replace(/```json/g, '').replace(/```/g, '').trim();
+          if (aiBriefing.startsWith('{')) {
+             aiBriefing = "1. 고금리와 공실 부담으로 시장 변동성이 커지고 있습니다.\n2. 실거래가 동향을 주시해야 합니다.";
+          }
+        }
       } else {
-        aiBriefing = aiRes.content.trim();
-        aiCounselScript = "";
-        aiActionList = [];
+        aiBriefing = contentString.trim();
       }
     } catch {
       // 지역별 폴백 (간결하게)
@@ -328,12 +346,38 @@ ${myBuyersSummary}
     // ── 공개 브리핑 공유 URL ───────────────────────────────────────────────────
     const today = new Date().toISOString().split("T")[0].replace(/-/g, "");
     const sharingUrl = `/pulse/${regionKey}/daily?date=${today}`;
+    let brokerSlug = brokerProfileResult?.data?.slug || null;
+    
+    // slug가 없으면 이메일 기반으로 자동 생성 후 저장
+    if (!brokerSlug) {
+      const emailPrefix = user.email?.split("@")[0] || `broker-${user.id.slice(0, 8)}`;
+      brokerSlug = emailPrefix.replace(/[^a-zA-Z0-9-]/g, "-").toLowerCase();
+      
+      // broker_profiles에 slug 저장 (있으면 update, 없으면 insert)
+      const { data: existingBp } = await serviceClient
+        .from("broker_profiles")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (existingBp) {
+        await serviceClient
+          .from("broker_profiles")
+          .update({ slug: brokerSlug, is_public: true })
+          .eq("user_id", user.id);
+      } else {
+        await serviceClient
+          .from("broker_profiles")
+          .insert({ user_id: user.id, slug: brokerSlug, is_public: true });
+      }
+    }
 
     return NextResponse.json({
       success: true,
       region,
       district,
       sharingUrl,
+      brokerSlug,
       myStats: {
         dealCardCount: myDeals.length,
         buyerCount: myBuyers.length,

@@ -10,6 +10,7 @@ const BROKER_REGION_MAP: Record<string, string> = {
   "hong-gildong": "seongsu",
   "kim-chulsoo": "gbd",
   "lee-younghee": "ybd",
+  "hong-gildong-demo": "gbd", // Add testuser slug
 };
 
 const DEMO_PROFILES: Record<string, any> = {
@@ -354,4 +355,29 @@ export async function GET(
   } catch { /* skip if table missing */ }
 
   return NextResponse.json({ data: magazineData, cached: false });
+}
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ brokerId: string }> }
+) {
+  try {
+    const { brokerId } = await params;
+    const body = await request.json();
+    const today = body.issueDate || new Date().toISOString().slice(0, 10);
+    const supabase = createServiceClient();
+
+    await supabase.from("magazine_issues").upsert(
+      { broker_id: brokerId, issue_date: today, content: body },
+      { onConflict: "broker_id,issue_date" }
+    );
+
+    return NextResponse.json({ success: true, data: body });
+  } catch (err: unknown) {
+    console.error("[api/magazine/POST] Error:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "서버 오류" },
+      { status: 500 }
+    );
+  }
 }

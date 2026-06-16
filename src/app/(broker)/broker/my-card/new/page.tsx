@@ -23,8 +23,10 @@ export default function BrokerMyCardNewPage() {
   const [selectedType, setSelectedType] = useState("");
   const [brokerName, setBrokerName] = useState("");
   const [card, setCard] = useState<BrokerCardContent | null>(null);
+  const [vibeSlug, setVibeSlug] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
   const supabase = createClient();
 
   // Load broker stats on mount (for name suggestion)
@@ -67,6 +69,7 @@ export default function BrokerMyCardNewPage() {
       const json = await res.json();
       if (json.ok && json.data) {
         setCard(json.data);
+        setVibeSlug(json.slug || null);
         setStep(3);
       }
     } catch (err) {
@@ -74,6 +77,17 @@ export default function BrokerMyCardNewPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const vibeCardUrl = vibeSlug
+    ? `${typeof window !== 'undefined' ? window.location.origin : 'https://www.credeal.net'}/vibe-card/${vibeSlug}`
+    : null;
+
+  const handleCopyUrl = () => {
+    const url = vibeCardUrl || `${window.location.origin}/broker-profile/${encodeURIComponent(brokerName)}`;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -208,19 +222,28 @@ export default function BrokerMyCardNewPage() {
           {/* Card Preview */}
           <BrokerCardTemplate card={card} brokerName={brokerName} type={selectedType} />
 
+          {/* Vibe Card Link — 프리미엄 바이브카드가 존재하면 우선 표시 */}
+          {vibeSlug && (
+            <a
+              href={`/vibe-card/${vibeSlug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full text-center bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold rounded-xl py-3.5 text-sm shadow-lg shadow-violet-500/20 hover:opacity-95 transition-all active:scale-[0.98]"
+            >
+              ✨ 프리미엄 Vibe 명함 보기
+            </a>
+          )}
+
           {/* Share Actions */}
           <div className="space-y-3">
             <BrokerCardKakaoCopy kakaoText={card.kakaoText} />
 
             <button
-              onClick={() => {
-                const url = `${window.location.origin}/broker-profile/${encodeURIComponent(brokerName)}`;
-                navigator.clipboard.writeText(url);
-              }}
+              onClick={handleCopyUrl}
               className="w-full flex items-center justify-center gap-2 bg-slate-100 text-slate-700 font-semibold rounded-xl py-3 text-sm hover:bg-slate-200 transition-colors"
               id="btn-copy-url"
             >
-              🔗 프로필 URL 복사
+              {copied ? "✅ 복사 완료!" : vibeSlug ? "🔗 Vibe 명함 URL 복사" : "🔗 프로필 URL 복사"}
             </button>
           </div>
 
