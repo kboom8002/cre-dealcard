@@ -62,11 +62,11 @@ export function ScheduleSection({ buildingId }: ScheduleSectionProps) {
       </div>
 
       <div className="flex gap-4">
-        <div className="flex-1 bg-white dark:bg-zinc-900 rounded-lg p-3 border border-border/50 text-center">
+        <div className="flex-1 bg-card rounded-lg p-3 border border-border/50 text-center shadow-sm">
           <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">예약 대기/확정</p>
           <p className="text-xl font-black text-foreground mt-1">{bookingsCount}건</p>
         </div>
-        <div className="flex-1 bg-white dark:bg-zinc-900 rounded-lg p-3 border border-border/50 text-center">
+        <div className="flex-1 bg-card rounded-lg p-3 border border-border/50 text-center shadow-sm">
           <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">오픈된 슬롯</p>
           <p className="text-xl font-black text-foreground mt-1">{slotsCount}개</p>
         </div>
