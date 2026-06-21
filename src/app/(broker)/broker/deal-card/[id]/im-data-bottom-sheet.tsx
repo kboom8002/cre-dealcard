@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import { createMobileIMAction } from "./actions";
 import { createClient } from "@/lib/supabase/client";
 import { RentRollImporter } from "@/components/broker/rent-roll-importer";
@@ -252,12 +251,12 @@ export function ImDataBottomSheet({
 
         {/* Scrollable Form Area */}
         <div className="flex-1 overflow-y-auto pr-2 space-y-6 mb-6 pb-10">
-          {/* Address */}
           <div>
             <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
               🏠 정확한 건물 주소
             </label>
-            <div ref={dropdownAnchorRef} className="flex gap-2">
+          <div ref={dropdownAnchorRef} className="relative">
+            <div className="flex gap-2">
               <input
                 ref={searchInputRef}
                 type="text"
@@ -287,48 +286,38 @@ export function ImDataBottomSheet({
               </div>
             )}
 
-            {/* 검색 결과 드롭다운 — fixed portal로 overflow 문제 해결 */}
-            {showResults && dropdownRect && typeof document !== 'undefined' && createPortal(
+            {/* 검색 결과 드롭다운 — 인라인 absolute로 겹침 문제 해결 */}
+            {showResults && searchResults.length > 0 && (
               <div
-                style={{
-                  position: 'fixed',
-                  top: dropdownRect.bottom + 4,
-                  left: dropdownRect.left,
-                  width: dropdownRect.width,
-                  zIndex: 9999,
-                }}
-                className="bg-background border border-border rounded-xl shadow-2xl max-h-52 overflow-y-auto"
+                className="absolute left-0 right-0 top-full mt-1 bg-background border border-border rounded-xl shadow-2xl max-h-52 overflow-y-auto z-50"
               >
-                {isSearching ? (
-                  <div className="p-4 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
-                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    검색 중...
-                  </div>
-                ) : searchResults.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-muted-foreground">검색 결과가 없습니다.</div>
-                ) : (
-                  searchResults.map((result, i) => (
-                    <button
-                      key={i}
-                      onClick={() => selectAddress(result)}
-                      className="w-full text-left px-4 py-3 hover:bg-secondary/50 border-b border-border/50 last:border-0 transition-colors"
-                    >
-                      <p className="text-sm font-medium text-foreground">{result.roadAddr || result.jibunAddr}</p>
-                      {result.jibunAddr && result.roadAddr && (
-                        <p className="text-xs text-muted-foreground mt-0.5">{result.jibunAddr}</p>
-                      )}
-                      {result.bdNm && (
-                        <p className="text-xs text-primary/70 mt-0.5">{result.bdNm}</p>
-                      )}
-                    </button>
-                  ))
-                )}
-              </div>,
-              document.body
+                {searchResults.map((result, i) => (
+                  <button
+                    key={i}
+                    onClick={() => selectAddress(result)}
+                    className="w-full text-left px-4 py-3 hover:bg-secondary/50 border-b border-border/50 last:border-0 transition-colors"
+                  >
+                    <p className="text-sm font-medium text-foreground">{result.roadAddr || result.jibunAddr}</p>
+                    {result.jibunAddr && result.roadAddr && (
+                      <p className="text-xs text-muted-foreground mt-0.5">{result.jibunAddr}</p>
+                    )}
+                    {result.bdNm && (
+                      <p className="text-xs text-primary/70 mt-0.5">{result.bdNm}</p>
+                    )}
+                  </button>
+                ))}
+              </div>
             )}
+            {showResults && isSearching && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-background border border-border rounded-xl shadow-2xl z-50 p-4 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                검색 중...
+              </div>
+            )}
+          </div>
           </div>
 
             {/* Rent Roll Import */}

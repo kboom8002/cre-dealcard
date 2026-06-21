@@ -173,10 +173,26 @@ export function RentRollImporter({ onImport }: RentRollImporterProps) {
 
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: "array" });
+      // xlsx@0.18.5에서 .xlsx 파일은 Uint8Array로 변환해야 안정적으로 파싱됨
+      const uint8 = new Uint8Array(arrayBuffer);
+      const workbook = XLSX.read(uint8, { type: "array" });
+      
+      if (!workbook.SheetNames.length) {
+        throw new Error("시트를 찾을 수 없습니다. 파일이 비어있는지 확인해주세요.");
+      }
+
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
+      
+      if (!worksheet) {
+        throw new Error(`시트 '${firstSheetName}'를 읽을 수 없습니다.`);
+      }
+
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+      if (!jsonData || jsonData.length === 0) {
+        throw new Error("시트에 데이터가 없습니다. 다른 시트나 파일을 확인해주세요.");
+      }
 
       const parsed = parseRentRollData(jsonData);
 
