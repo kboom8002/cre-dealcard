@@ -3,7 +3,7 @@ import { callLLM } from "@/ai/llm-client";
 import { MEMO_ROUTER_SYSTEM, MEMO_ROUTER_USER_TEMPLATE } from "@/ai/prompts/memo-router";
 
 export const MemoRouterOutputSchema = z.object({
-  type: z.enum(["new_deal", "update_building", "buyer_condition", "general_note"]),
+  type: z.enum(["new_deal", "update_building", "buyer_condition", "general_note", "schedule_event"]),
   confidence: z.number().min(0).max(1),
   summary: z.string(),
   extracted_data: z.object({

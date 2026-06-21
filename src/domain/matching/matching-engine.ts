@@ -13,6 +13,8 @@ import type {
   MatchGrade,
   Stage1Result,
   WeightProfile,
+  ScheduleMatchInput,
+  AvailableSlotSummary,
 } from './matching-types';
 import { PURPOSE_WEIGHTS } from './matching-types';
 import { matchRegion } from './region-hierarchy';
@@ -61,10 +63,40 @@ export function runHardFilter(input: MatchInput): Stage1Result {
     }
   }
 
+  // ── 🆕 Schedule check (if ScheduleMatchInput) ──
+  let schedule = true;
+  const schedInput = input as unknown as ScheduleMatchInput;
+  if (schedInput.clientSchedule) {
+    if (schedInput.clientSchedule.preferredDates.length > 0) {
+      const hasOverlap = schedInput.vendor.availableSlots?.some(slot =>
+        schedInput.clientSchedule.preferredDates.some(range =>
+          slot.date >= range.start && slot.date <= range.end &&
+          slot.status === 'available'
+        )
+      );
+
+      if (!hasOverlap) {
+        schedule = false;
+        failReasons.push(`일정 불일치: 고객 선호 기간에 가용 슬롯 없음`);
+      }
+    }
+
+    if (schedInput.clientSchedule.blackoutDates.length > 0) {
+      const allBlackout = schedInput.vendor.availableSlots
+        ?.filter(s => s.status === 'available')
+        .every(slot => schedInput.clientSchedule.blackoutDates.includes(slot.date));
+
+      if (allBlackout && (schedInput.vendor.availableSlots?.length || 0) > 0) {
+        schedule = false;
+        failReasons.push(`모든 가용 슬롯이 고객 불가 날짜에 해당`);
+      }
+    }
+  }
+
   return { 
     passed: failReasons.length === 0, 
     failReasons, 
-    details: { region, budget, asset } 
+    details: { region, budget, asset, schedule } 
   };
 }
 
@@ -110,9 +142,10 @@ export function computeEnsembleScore(params: {
   similarity: number;
   dealCuriosityScore: number; // 0-100 from DealCuriosityWriter
   vacancyDemandVerified: boolean;
+  scheduleFitScore?: number;  // 0-1 from computeScheduleFitScore
   purposeWeights: Record<string, number>;
 }): number {
-  const { similarity, dealCuriosityScore, vacancyDemandVerified, purposeWeights } = params;
+  const { similarity, dealCuriosityScore, vacancyDemandVerified, scheduleFitScore = 0, purposeWeights } = params;
 
   // Normalize sub-scores to 0-1
   const semanticScore = similarity;                           // already 0-1
@@ -122,10 +155,11 @@ export function computeEnsembleScore(params: {
 
   const w = purposeWeights;
   return (
-    (w.market    ?? 0.25) * marketScore   +
-    (w.financial ?? 0.30) * financialScore +
-    (w.vacancy   ?? 0.20) * vacancyScore  +
-    (w.semantic  ?? 0.25) * semanticScore
+    (w.market    ?? 0) * marketScore   +
+    (w.financial ?? 0) * financialScore +
+    (w.vacancy   ?? 0) * vacancyScore  +
+    (w.semantic  ?? 0) * semanticScore +
+    (w.schedule  ?? 0) * scheduleFitScore
   ) * 100; // scale to 0-100
 }
 
@@ -174,10 +208,16 @@ export async function runMatchingEngine(input: MatchInput): Promise<MatchResult>
     input.intent.inferredPurpose,
   );
   const weights = PURPOSE_WEIGHTS[profile];
+  const schedInput = input as unknown as ScheduleMatchInput;
+  const scheduleFitScore = schedInput.clientSchedule 
+    ? computeScheduleFitScore(schedInput.vendor.availableSlots, schedInput.clientSchedule)
+    : 0;
+
   const stage3Score = computeEnsembleScore({
     similarity,
     dealCuriosityScore: input.building.dealCuriosityScore ?? 50,
     vacancyDemandVerified: false, // enriched separately
+    scheduleFitScore,
     purposeWeights: weights,
   });
 
@@ -221,4 +261,38 @@ function extractPriceNumber(priceBand: string): number | null {
   const match = priceBand.match(/(\d+(?:\.\d+)?)\s*억/);
   if (!match) return null;
   return parseFloat(match[1]) * 100_000_000;
+}
+
+export function computeScheduleFitScore(
+  availableSlots: AvailableSlotSummary[],
+  clientSchedule: ScheduleMatchInput['clientSchedule']
+): number {
+  if (!availableSlots || availableSlots.length === 0) return 0;
+
+  const availableCount = availableSlots.filter(s => s.status === 'available').length;
+  const matchingSlots = availableSlots.filter(slot =>
+    clientSchedule.preferredDates.some(range =>
+      slot.date >= range.start && slot.date <= range.end
+    ) &&
+    !clientSchedule.blackoutDates.includes(slot.date)
+  );
+
+  // Base match rate
+  let score = matchingSlots.length / Math.max(availableCount, 1);
+
+  // Flexibility bonus/penalty
+  if (clientSchedule.flexibility === 'flexible') score *= 1.15;
+  if (clientSchedule.flexibility === 'strict') score *= 0.85;
+
+  // Urgency penalty
+  if (clientSchedule.urgency === 'immediate') {
+    const today = new Date().toISOString().split('T')[0];
+    const nearSlots = matchingSlots.filter(s => {
+      const diff = (new Date(s.date).getTime() - new Date(today).getTime()) / (1000 * 3600 * 24);
+      return diff <= 7;
+    });
+    if (nearSlots.length === 0) score *= 0.5;
+  }
+
+  return Math.min(Math.max(score, 0), 1.0);
 }

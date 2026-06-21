@@ -108,6 +108,23 @@ export async function runAutoMatch(buildingId: string, brokerId: string) {
           purposeProfile: matchResult.purposeWeightProfile,
         });
         await supabase.from("deal_casepacks").insert(casePack);
+
+        if (matchResult.grade === 'S' || matchResult.grade === 'A') {
+          await supabase.from("activity_events").insert({
+            actor_id: brokerId,
+            actor_role: 'system',
+            event_type: 'deal_card.matched',
+            entity_type: 'match_result',
+            entity_id: savedMatch.id,
+            metadata: {
+              building_id: buildingId,
+              buyer_intent_id: intent.id,
+              grade: matchResult.grade,
+              score: matchResult.score,
+              reasoning: matchResult.reasoning?.slice(0, 200),
+            },
+          });
+        }
       }
     } catch (e) {
       console.warn(`[auto-match] Failed for intent ${intent.id}`, e);
@@ -237,6 +254,23 @@ export async function runAutoMatchForBuyer(buyerIntentId: string, brokerId: stri
           purposeProfile: matchResult.purposeWeightProfile,
         });
         await supabase.from("deal_casepacks").insert(casePack);
+
+        if (matchResult.grade === 'S' || matchResult.grade === 'A') {
+          await supabase.from("activity_events").insert({
+            actor_id: brokerId,
+            actor_role: 'system',
+            event_type: 'deal_card.matched',
+            entity_type: 'match_result',
+            entity_id: savedMatch.id,
+            metadata: {
+              building_id: building.id,
+              buyer_intent_id: intent.id,
+              grade: matchResult.grade,
+              score: matchResult.score,
+              reasoning: matchResult.reasoning?.slice(0, 200),
+            },
+          });
+        }
       }
     } catch (e) {
       console.warn(`[auto-match] Failed for building ${building.id}`, e);

@@ -145,7 +145,7 @@ export async function GET(
   let doc: MobileIMDocument | null = getDemoMobileIM(buildingId) || null;
   
   if (!doc) {
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.credeal.net";
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
     try {
       const res = await fetch(`${baseUrl}/api/public/im-lite/${buildingId}`);
       if (res.ok) {

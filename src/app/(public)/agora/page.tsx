@@ -66,7 +66,7 @@ export default async function AgoraMainPage() {
             "@type": "CollectionPage",
             name: "상업용 부동산 Q&A 아고라",
             description: "상업용 부동산 매매·임대·투자·법률·세무 전문 Q&A 커뮤니티",
-            url: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://dealcard.kr"}/agora`,
+            url: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net"}/agora`,
             about: { "@type": "Thing", name: "상업용 부동산" },
           }),
         }}

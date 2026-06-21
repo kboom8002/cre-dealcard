@@ -13,6 +13,11 @@ export interface BuildingRegisterData {
   bcRat: number;              // 건폐율 (%)
   vlRat: number;              // 용적률 (%)
   buildingName?: string;      // 건물명
+  archArea?: number;          // 건축면적 (㎡)
+  elevatorCount?: number;     // 승강기 수 (대)
+  parkingCount?: number;      // 주차 대수 (대)
+  heatMethod?: string;        // 난방 방식
+  _isFallback?: boolean;
 }
 
 export async function fetchBuildingRegister(
@@ -25,8 +30,9 @@ export async function fetchBuildingRegister(
 
   if (apiKey && apiKey !== "") {
     try {
-      const url = `http://apis.data.go.kr/1613000/BldRgstService_v2/getBrTitleInfo?ServiceKey=${apiKey}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`;
+      const url = `https://apis.data.go.kr/1613000/BldRgstService_v2/getBrTitleInfo?ServiceKey=${apiKey}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`;
       const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`);
       const data = await res.json();
 
       const item = data?.response?.body?.items?.item;
@@ -66,5 +72,67 @@ export async function fetchBuildingRegister(
     bcRat: isLarge ? 58.4 : 59.8,
     vlRat: isLarge ? 598.2 : 249.5,
     buildingName: isLarge ? "강남 센트럴타워" : "테헤란 팰리스",
+    _isFallback: true,
+  };
+}
+
+export interface BuildingRecapData {
+  archArea: number;           // 건축면적 (㎡)
+  rideUseElvtCnt: number;     // 승용 승강기 수
+  emgenUseElvtCnt: number;    // 비상용 승강기 수
+  indrAutoUtcnt: number;      // 옥내 기계식 주차 대수
+  oudrAutoUtcnt: number;      // 옥외 주차 대수
+  indrMechUtcnt: number;      // 옥내 자주식 주차 대수
+  heatMethodNm: string;       // 난방 방식
+  _isFallback?: boolean;
+}
+
+export async function fetchBuildingRecap(
+  sigunguCd: string,
+  bjdongCd: string,
+  bun: string,
+  ji: string
+): Promise<BuildingRecapData | null> {
+  const apiKey = process.env.DATA_GO_KR_API_KEY;
+
+  if (apiKey && apiKey !== "") {
+    try {
+      const url = `https://apis.data.go.kr/1613000/BldRgstService_v2/getBrRecapTitleInfo?ServiceKey=${apiKey}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`);
+      const data = await res.json();
+
+      const item = data?.response?.body?.items?.item;
+      const row = Array.isArray(item) ? item[0] : item;
+
+      if (row) {
+        return {
+          archArea: parseFloat(row.archArea || "0"),
+          rideUseElvtCnt: parseInt(row.rideUseElvtCnt || "0", 10),
+          emgenUseElvtCnt: parseInt(row.emgenUseElvtCnt || "0", 10),
+          indrAutoUtcnt: parseInt(row.indrAutoUtcnt || "0", 10),
+          oudrAutoUtcnt: parseInt(row.oudrAutoUtcnt || "0", 10),
+          indrMechUtcnt: parseInt(row.indrMechUtcnt || "0", 10),
+          heatMethodNm: String(row.heatMthdCdNm || ""),
+        };
+      }
+    } catch (err) {
+      console.warn("[building-register-api] Recap API failed:", err);
+    }
+  }
+
+  // DETERMINISTIC FALLBACK
+  const seed = parseInt(bun + ji, 10) || 1234;
+  const isLarge = seed % 2 === 0;
+
+  return {
+    archArea: isLarge ? 283.5 : 167.8,
+    rideUseElvtCnt: isLarge ? 2 : 1,
+    emgenUseElvtCnt: isLarge ? 1 : 0,
+    indrAutoUtcnt: 0,
+    oudrAutoUtcnt: isLarge ? 10 : 4,
+    indrMechUtcnt: isLarge ? 20 : 6,
+    heatMethodNm: "개별난방",
+    _isFallback: true,
   };
 }

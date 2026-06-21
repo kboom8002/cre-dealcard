@@ -24,7 +24,7 @@ export default function BrokerMemosPage() {
 
   const fetchMemos = async () => {
     try {
-      const res = await fetch("/api/broker/memo/save");
+      const res = await fetch("/api/broker/memo/save", { cache: 'no-store' });
       const json = await res.json();
       if (json.ok && json.data) {
         setMemos(json.data);
@@ -48,10 +48,23 @@ export default function BrokerMemosPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!confirm("정말 이 메모를 삭제하시겠습니까?")) return;
+    
     // Optimistic UI
     setMemos((prev) => prev.filter((m) => m.id !== id));
-    // Optionally implement DELETE /api/broker/memo/save?id=...
-    // We haven't built the DELETE endpoint but optimistic UI is enough for demo
+    
+    try {
+      const res = await fetch(`/api/broker/memo/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        // revert if failed
+        fetchMemos();
+      }
+    } catch (err) {
+      console.error(err);
+      fetchMemos();
+    }
   };
 
   const getTypeInfo = (type: string) => {

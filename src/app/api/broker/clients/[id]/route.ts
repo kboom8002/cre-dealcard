@@ -77,11 +77,30 @@ export async function GET(
     .order('created_at', { ascending: false })
     .limit(20);
 
+  // Fetch bookings linked to the client's buyer intents
+  let bookings: unknown[] = [];
+  if (client.linked_buyer_intent_ids?.length > 0) {
+    const { data } = await supabase
+      .from('bookings')
+      .select(`
+        id, status, created_at,
+        slot:availability_slots(
+          slot_start,
+          building:building_ssot_lite(id, area_signal)
+        )
+      `)
+      .in('buyer_intent_id', client.linked_buyer_intent_ids)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    bookings = data ?? [];
+  }
+
   return NextResponse.json({
     data: {
       ...client,
       buildings,
       buyerIntents,
+      bookings,
       contacts: contacts ?? [],
     },
   });

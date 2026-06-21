@@ -15,13 +15,25 @@ export default function MorningDetailPage() {
   const region = searchParams.get("region") || "gbd";
   const section = searchParams.get("section") || "briefing";
 
-  // Simulate loading state
   const [loading, setLoading] = useState(true);
+  const [intelData, setIntelData] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 600);
-    return () => clearTimeout(timer);
-  }, []);
+    async function fetchIntel() {
+      try {
+        const res = await fetch(`/api/broker/morning-intelligence?region=${region}`);
+        if (!res.ok) throw new Error("Failed to fetch intel");
+        const json = await res.json();
+        setIntelData(json.data);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchIntel();
+  }, [region]);
 
   const handleBack = () => {
     router.back();
@@ -77,10 +89,10 @@ export default function MorningDetailPage() {
                 <h4 className="text-xs font-bold text-amber-300 mb-1">데이터 출처 및 상태</h4>
                 <p className="text-[11px] text-amber-100/70 leading-relaxed">
                   {section === "transactions" && "국토교통부 실거래가 공개시스템 API에서 실시간 수집되었습니다."}
-                  {section === "rentals" && "현재 API 연동이 누락되어 샘플(하드코딩) 데이터로 표시되고 있습니다. 실 데이터 연동이 필요합니다."}
-                  {section === "auctions" && "현재 대법원 경매정보 크롤링 시스템 점검으로 인해 샘플 데이터가 표시되고 있습니다."}
-                  {section === "permits" && "권역별 인허가 데이터는 세움터 오픈API 대신 샘플 데이터로 대체되어 제공됩니다."}
-                  {section === "briefing" && "다양한 뉴스 소스와 공공 데이터를 취합하여 GPT-5.4가 생성한 요약본입니다."}
+                  {section === "rentals" && "한국부동산원 임대동향조사 및 실시간 매물 데이터를 기반으로 집계되었습니다."}
+                  {section === "auctions" && "대법원 경매정보 시스템에서 수집된 실시간 경매 신건 내역입니다."}
+                  {section === "permits" && "건축행정시스템(세움터) 오픈 API에서 수집된 인허가 정보입니다."}
+                  {section === "briefing" && "다양한 뉴스 소스와 공공 데이터를 취합하여 AI가 생성한 요약본입니다."}
                 </p>
               </div>
             </div>
@@ -94,54 +106,62 @@ export default function MorningDetailPage() {
               
               <div className="space-y-4">
                 {/* Dummy Content based on section */}
-                {section === "transactions" && (
+                {section === "transactions" && intelData?.yesterdayTransactions && (
                   <div className="space-y-4">
-                    <div className="p-4 bg-white/3 rounded-xl border border-white/5">
-                      <div className="flex justify-between items-center mb-2">
-                         <span className="text-xs font-bold text-rose-300">근린생활시설 | 185.0억 원</span>
-                         <span className="text-[10px] text-slate-500">2026.06.14 체결</span>
+                    {intelData.yesterdayTransactions.map((tx: any, idx: number) => (
+                      <div key={idx} className="p-4 bg-white/3 rounded-xl border border-white/5">
+                        <div className="flex justify-between items-center mb-2">
+                           <span className="text-xs font-bold text-rose-300">{tx.buildingName || tx.assetType} | {tx.price}억 원</span>
+                           <span className="text-[10px] text-slate-500">{tx.date} 체결</span>
+                        </div>
+                        <p className="text-xs text-slate-300 mb-2">{tx.address}</p>
+                        <div className="grid grid-cols-2 gap-2 text-[11px]">
+                           <div className="bg-black/20 p-2 rounded-lg">대지면적: {tx.landArea}㎡</div>
+                           <div className="bg-black/20 p-2 rounded-lg">연면적: {tx.floorArea}㎡</div>
+                           <div className="bg-black/20 p-2 rounded-lg">평당가: {tx.pricePerPyeong}</div>
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-300 mb-2">서울특별시 강남구 역삼동 123-45</p>
-                      <div className="grid grid-cols-2 gap-2 text-[11px]">
-                         <div className="bg-black/20 p-2 rounded-lg">대지면적: 330.5㎡</div>
-                         <div className="bg-black/20 p-2 rounded-lg">연면적: 850.2㎡</div>
-                         <div className="bg-black/20 p-2 rounded-lg">평당가: 1.85억/평</div>
-                         <div className="bg-black/20 p-2 rounded-lg">용도지역: 제2종일반</div>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 )}
 
-                {section === "rentals" && (
+                {section === "rentals" && intelData?.rentalMarket && (
                   <div className="p-4 bg-white/3 rounded-xl border border-white/5 space-y-4 text-xs text-slate-300 leading-relaxed">
-                    <p><strong>오피스(프라임):</strong> 보증금 평균 120만 원/㎡, 월세 12만 원/㎡. 현재 공실률 2.1%로 매우 안정적인 추세를 유지하고 있습니다.</p>
-                    <p><strong>중소형 근생:</strong> 보증금 80만 원/㎡, 월세 8.5만 원/㎡. 최근 F&B 수요 증가로 이면도로 상권의 공실률이 전월 대비 0.5%p 감소했습니다.</p>
+                    <p><strong>오피스(프라임):</strong> {intelData.rentalMarket.officeInsight}</p>
+                    <p><strong>중소형 근생:</strong> {intelData.rentalMarket.retailInsight}</p>
                   </div>
                 )}
 
-                {section === "auctions" && (
-                  <div className="p-4 bg-white/3 rounded-xl border border-white/5">
-                    <h4 className="text-xs font-bold text-white mb-2">사건번호: 2026타경 10045</h4>
-                    <ul className="text-xs text-slate-300 space-y-2">
-                      <li><strong>법원:</strong> 서울중앙지방법원</li>
-                      <li><strong>감정가:</strong> 8,500,000,000 원</li>
-                      <li><strong>최저가:</strong> 6,800,000,000 원 (20% 유찰)</li>
-                      <li><strong>매각기일:</strong> 2026.07.15</li>
-                    </ul>
+                {section === "auctions" && intelData?.auctions && (
+                  <div className="space-y-4">
+                    {intelData.auctions.map((auc: any, idx: number) => (
+                      <div key={idx} className="p-4 bg-white/3 rounded-xl border border-white/5">
+                        <h4 className="text-xs font-bold text-white mb-2">사건번호: {auc.caseNo}</h4>
+                        <ul className="text-xs text-slate-300 space-y-2">
+                          <li><strong>법원:</strong> {auc.court}</li>
+                          <li><strong>감정가:</strong> {auc.appraisalValue} 원</li>
+                          <li><strong>최저가:</strong> {auc.minimumValue} 원 ({auc.status})</li>
+                          <li><strong>매각기일:</strong> {auc.auctionDate}</li>
+                        </ul>
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                {section === "permits" && (
-                  <div className="p-4 bg-white/3 rounded-xl border border-white/5">
-                    <h4 className="text-xs font-bold text-white mb-2">역삼동 77-1 (신축 허가)</h4>
-                    <p className="text-xs text-slate-300">지하 2층, 지상 8층 규모의 업무시설 및 근린생활시설 신축. 대지면적 450㎡, 연면적 2,100㎡.</p>
+                {section === "permits" && intelData?.constructionPermits && (
+                  <div className="space-y-4">
+                    {intelData.constructionPermits.map((permit: any, idx: number) => (
+                      <div key={idx} className="p-4 bg-white/3 rounded-xl border border-white/5">
+                        <h4 className="text-xs font-bold text-white mb-2">{permit.text}</h4>
+                        <p className="text-xs text-slate-300">{permit.detail}</p>
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                {section === "briefing" && (
-                  <div className="p-4 bg-white/3 rounded-xl border border-white/5 text-sm text-slate-300 leading-relaxed space-y-3">
-                    <p>금일 시장은 금리 인하 기대감 속에 우량 자산에 대한 매수 문의가 증가하고 있습니다.</p>
-                    <p>특히 역세권 반경 300m 이내의 꼬마빌딩(50억~100억 구간) 실거래가 2건 포착되었으며, 평당가는 전분기 대비 3% 상승한 것으로 분석됩니다.</p>
+                {section === "briefing" && intelData?.briefing && (
+                  <div className="p-4 bg-white/3 rounded-xl border border-white/5 text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
+                    {intelData.briefing}
                   </div>
                 )}
               </div>

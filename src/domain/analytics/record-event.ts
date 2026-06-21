@@ -41,7 +41,9 @@ export type MvpEventType =
   | "price_negotiation_logged"
   | "market_indicator_computed"
   | "lease_pipeline_transitioned"
-  | "funding_project_created";
+  | "funding_project_created"
+  | "booking_hold_created"
+  | "slot_hold_expired";
 
 /** Known entity types */
 export type MvpEntityType =
@@ -58,8 +60,12 @@ export type MvpEntityType =
   | "session"
   | "pipeline_transition"
   | "match_failure"
+  | "price_negotiation"
   | "market_indicator"
+  | "lease_pipeline_entry"
   | "funding_project"
+  | "booking"
+  | "availability_slot"
   | "investor_profile";
 
 export interface RecordEventInput {

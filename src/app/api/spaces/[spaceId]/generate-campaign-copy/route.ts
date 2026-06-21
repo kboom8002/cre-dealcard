@@ -38,7 +38,7 @@ export async function POST(
       .maybeSingle();
 
     const pageUrl = leasingPage?.slug
-      ? `${process.env.NEXT_PUBLIC_SITE_URL || "https://dealcard.kr"}/leasing/${leasingPage.slug}`
+      ? `${process.env.NEXT_PUBLIC_SITE_URL || "https://credeal.net"}/leasing/${leasingPage.slug}`
       : undefined;
 
     const result = await runCampaignCopyAgent({

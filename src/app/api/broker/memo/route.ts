@@ -42,6 +42,8 @@ export async function POST(req: Request) {
         metadata: { memoText: memo, routingType: routingResult.type, routingSummary: routingResult.summary },
       }).select('id').single();
       if (fallbackData) memoId = fallbackData.id;
+    } else if (memoError) {
+      console.error("broker_memos insert error:", memoError);
     } else if (memoData) {
       memoId = memoData.id;
     }

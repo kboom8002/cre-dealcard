@@ -1,11 +1,11 @@
 // src/domain/building/mobile-im/readiness.ts
 // Mobile IM 생성 가능 여부를 판단하는 Readiness 체커.
-// 7개 데이터포인트에 가중 점수를 부여하여 합산 55점 이상이면 생성 가능.
-// v2 — flat 구조 (DB 컬럼명 직접 사용) + 중첩 구조 양쪽 모두 지원 + 55점 게이팅 강화
+// 7개 데이터포인트에 가중 점수를 부여하여 합산 40점 이상이면 생성 가능 (MOBILE_IM_READINESS_THRESHOLD).
+// v2 — flat 구조 (DB 컬럼명 직접 사용) + 중첩 구조 양쪽 모두 지원
 
 import type { MobileIMSupplementalInput, ExternalDataSnapshot } from "./types";
 
-export const MOBILE_IM_READINESS_THRESHOLD = 55;
+export const MOBILE_IM_READINESS_THRESHOLD = 40;
 
 export const MOBILE_IM_DATA_POINTS = [
   { key: "address",      points: 25, label: "정확한 주소 (지번)", tier: "critical" },

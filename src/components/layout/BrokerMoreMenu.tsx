@@ -17,6 +17,7 @@ import {
   BookOpen,
   ChevronRight,
   StickyNote,
+  CalendarCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +39,14 @@ const SECTIONS = [
         bg: "bg-amber-500/10",
       },
       {
+        href: "/broker/schedule",
+        icon: CalendarCheck,
+        title: "임장 일정 관리",
+        desc: "가용 슬롯 · 예약 현황 · 대기열",
+        color: "text-orange-400",
+        bg: "bg-orange-500/10",
+      },
+      {
         href: "/broker/clients",
         icon: Users,
         title: "고객 CRM",
@@ -52,6 +61,22 @@ const SECTIONS = [
         desc: "8단계 딜 진행 현황",
         color: "text-purple-400",
         bg: "bg-purple-500/10",
+      },
+      {
+        href: "/broker/funnel",
+        icon: GitBranch,
+        title: "행동 퍼널 분석",
+        desc: "딜카드 열람부터 계약까지 전환율 시각화",
+        color: "text-rose-400",
+        bg: "bg-rose-500/10",
+      },
+      {
+        href: "/broker/campaign",
+        icon: FileText,
+        title: "캠페인 카피 AI",
+        desc: "인스타그램, 블로그, 문자용 홍보 문구 자동 생성",
+        color: "text-emerald-400",
+        bg: "bg-emerald-500/10",
       },
       {
         href: "/broker/studio",

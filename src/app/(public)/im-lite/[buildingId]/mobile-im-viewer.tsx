@@ -252,9 +252,7 @@ function PhotoGallery({ photos, coordinates, blindName }: {
 
   if (!items || items.length === 0) return null;
 
-  // Use Kakao Static Map API for map type items
-  const getMapImageUrl = (lat: number, lng: number) =>
-    `https://dapi.kakao.com/v2/maps/staticMap?appkey=DEMO&center=${lng},${lat}&level=3&w=800&h=400&format=png`;
+
 
   return (
     <div className="mb-5">
@@ -525,6 +523,14 @@ function MarkdownRenderer({ content }: { content: string }) {
           <InlineMarkdown text={line.slice(2)} />
         </li>,
       );
+    } else if (/^\d+\.\s/.test(line)) {
+      flush();
+      const text = line.replace(/^\d+\.\s/, "");
+      elements.push(
+        <li key={key++} className="text-neutral-300 text-sm leading-relaxed ml-4 list-decimal">
+          <InlineMarkdown text={text} />
+        </li>,
+      );
     } else if (line.startsWith("> ")) {
       flush();
       elements.push(
@@ -555,7 +561,21 @@ function MarkdownRenderer({ content }: { content: string }) {
 }
 
 function InlineMarkdown({ text }: { text: string }) {
-  // Handle **bold** and *italic*
+  // [text](url) → clickable link
+  let processed = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline">$1</a>');
+
+  // If links were found, render via dangerouslySetInnerHTML for the link tags,
+  // but we still need bold/italic. Process **bold** and *italic* as HTML too.
+  processed = processed.replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-semibold">$1</strong>');
+  processed = processed.replace(/\*([^*]+)\*/g, '<em class="italic text-neutral-200">$1</em>');
+
+  // If any HTML was injected, use dangerouslySetInnerHTML
+  if (processed !== text) {
+    return <span dangerouslySetInnerHTML={{ __html: processed }} />;
+  }
+
+  // Fallback: no special syntax, render as plain text with bold/italic via React
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
   return (
     <>
@@ -663,16 +683,43 @@ function BottomShareBar({ title, buildingId, docId }: { title: string; buildingI
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
   const handleKakao = async () => {
-    const url = shareUrl;
+    // Kakao JS SDK를 사용한 카카오톡 공유
+    if (typeof window !== "undefined" && (window as any).Kakao) {
+      const Kakao = (window as any).Kakao;
+      if (!Kakao.isInitialized()) {
+        const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+        if (appKey) Kakao.init(appKey);
+      }
+      if (Kakao.isInitialized()) {
+        try {
+          Kakao.Share.sendDefault({
+            objectType: "feed",
+            content: {
+              title: title || "투자 매물",
+              description: `AI 자동 생성 모바일 투자설명서`,
+              imageUrl: `${window.location.origin}/api/og/deal/${buildingId}`,
+              link: { mobileWebUrl: shareUrl, webUrl: shareUrl },
+            },
+            buttons: [
+              { title: "투자설명서 보기", link: { mobileWebUrl: shareUrl, webUrl: shareUrl } },
+            ],
+          });
+          return;
+        } catch {
+          // Kakao SDK 실패 시 폴백
+        }
+      }
+    }
+    // Kakao SDK 미로드 시 Web Share API → 클립보드 폴백
     if (navigator.share) {
       try {
-        await navigator.share({ title, url });
+        await navigator.share({ title, url: shareUrl });
         return;
       } catch {
         // Fall through to clipboard
       }
     }
-    await navigator.clipboard.writeText(url);
+    await navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -1082,7 +1129,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
             {doc.disclaimer}
           </p>
           <p className="text-[10px] text-neutral-700 mt-2">
-            보호된 필드: {doc.protectedFieldsRemoved.join(", ")}
+            {doc.protectedFieldsRemoved.length > 0 && `보호된 필드: ${doc.protectedFieldsRemoved.join(", ")}`}
           </p>
         </div>
       </div>

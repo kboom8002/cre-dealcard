@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { createMobileIMAction } from "./actions";
+import { createClient } from "@/lib/supabase/client";
+import { RentRollImporter } from "@/components/broker/rent-roll-importer";
 
 interface ImDataBottomSheetProps {
   buildingId: string;
@@ -48,6 +51,10 @@ export function ImDataBottomSheet({
   const [address, setAddress] = useState("");
   const [pnu, setPnu] = useState("");
   const [monthlyRent, setMonthlyRent] = useState(""); // 만원 단위
+  const [totalDeposit, setTotalDeposit] = useState(""); // 보증금 (만원)
+  const [mgmtFeeTotal, setMgmtFeeTotal] = useState(""); // 관리비 (만원)
+  const [loanAmount, setLoanAmount] = useState(""); // 융자 (만원)
+  const [askingPrice, setAskingPrice] = useState(""); // 매매가 (만원)
   const [vacancyPct, setVacancyPct] = useState<number | "">("");
   const [brokerHighlight, setBrokerHighlight] = useState("");
 
@@ -57,6 +64,19 @@ export function ImDataBottomSheet({
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const monthlyRentRef = useRef<HTMLInputElement>(null);
+  const totalDepositRef = useRef<HTMLInputElement>(null);
+  const mgmtFeeTotalRef = useRef<HTMLInputElement>(null);
+  const loanAmountRef = useRef<HTMLInputElement>(null);
+  const askingPriceRef = useRef<HTMLInputElement>(null);
+  const dropdownAnchorRef = useRef<HTMLDivElement>(null);
+  const [dropdownRect, setDropdownRect] = useState<DOMRect | null>(null);
+
+  // Photo states
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [photoPreviewUrls, setPhotoPreviewUrls] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [readinessScore, setReadinessScore] = useState(0);
 
@@ -70,10 +90,18 @@ export function ImDataBottomSheet({
     if (monthlyRent && Number(monthlyRent) > 0) score += 20;
     if (vacancyPct !== "" || vacancySignal) score += 10;
     if (brokerHighlight) score += 5;
+    if (photoFiles.length > 0) score += 10;
     
     // Max 100
     setReadinessScore(Math.min(score, 100));
-  }, [areaSignal, priceBand, assetType, address, pnu, monthlyRent, vacancyPct, vacancySignal, brokerHighlight]);
+  }, [areaSignal, priceBand, assetType, address, pnu, monthlyRent, vacancyPct, vacancySignal, brokerHighlight, photoFiles]);
+
+  // 드롭다운 위치 계산 (portal용)
+  const updateDropdownRect = () => {
+    if (dropdownAnchorRef.current) {
+      setDropdownRect(dropdownAnchorRef.current.getBoundingClientRect());
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -90,16 +118,39 @@ export function ImDataBottomSheet({
       if (fitSummary) directData.fit_summary = fitSummary;
       if (cautionSummary) directData.caution_summary = cautionSummary;
 
+      let uploadedPhotoUrls: string[] = [];
+      if (photoFiles.length > 0) {
+        setProgress("사진 업로드 중...");
+        const supabase = createClient();
+        for (const file of photoFiles) {
+          const fileName = `${buildingId}/${Date.now()}_${file.name}`;
+          const { data, error } = await supabase.storage
+            .from("building-photos")
+            .upload(fileName, file, { upsert: true });
+          if (data && !error) {
+            const { data: urlData } = supabase.storage
+              .from("building-photos")
+              .getPublicUrl(data.path);
+            uploadedPhotoUrls.push(urlData.publicUrl);
+          }
+        }
+      }
+
       setProgress("AI 투자설명서 생성 중... (약 15~30초)");
 
       const res = await createMobileIMAction(buildingId, {
         vacancy_status: vacancySignal,
         vacancy_pct: vacancyPct !== "" ? Number(vacancyPct) : undefined,
         monthly_rent_total_krw: monthlyRent ? Number(monthlyRent) * 10000 : undefined,
+        total_deposit_manwon: totalDeposit ? Number(totalDeposit) : undefined,
+        mgmt_fee_total_manwon: mgmtFeeTotal ? Number(mgmtFeeTotal) : undefined,
+        loan_amount_manwon: loanAmount ? Number(loanAmount) : undefined,
+        asking_price_manwon: askingPrice ? Number(askingPrice) : undefined,
         resolved_address: address || undefined,
         resolved_pnu: pnu || undefined,
         broker_highlight: brokerHighlight || undefined,
         direct_data: Object.keys(directData).length > 0 ? directData : undefined,
+        photo_urls: uploadedPhotoUrls.length > 0 ? uploadedPhotoUrls : undefined,
       });
 
       if (res.success && res.url) {
@@ -161,7 +212,7 @@ export function ImDataBottomSheet({
     setSearchResults([]);
   };
 
-  // Enter 키로 검색
+  // Enter 키로 검색 (주소)
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -169,119 +220,251 @@ export function ImDataBottomSheet({
     }
   };
 
+  const handleEnterKey = (e: React.KeyboardEvent, nextRef: React.RefObject<HTMLInputElement | null> | null) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (nextRef && nextRef.current) {
+        nextRef.current.focus();
+      } else {
+        const vacancyBtns = document.querySelectorAll('[data-vacancy-btn]');
+        if (vacancyBtns.length > 0) (vacancyBtns[0] as HTMLElement).focus();
+      }
+    }
+  };
+
+  // 서버 기준점: 55점이지만 UI에서 직접 제공되는 area/asset/price로 최소 30점 보장.
+  // 주소+월세 없이도 시도 가능하도록 UI 임계값을 40점으로 완화
+  const canGenerate = readinessScore >= 40;
+
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-background rounded-t-2xl w-full max-w-md mx-auto shadow-2xl p-5 animate-in slide-in-from-bottom duration-300 max-h-[85vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[100] flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-2 sm:p-4">
+      <div className="bg-background rounded-2xl sm:rounded-t-2xl w-full max-w-lg mx-auto shadow-2xl p-5 pb-[calc(env(safe-area-inset-bottom)+2rem)] animate-in slide-in-from-bottom duration-300 max-h-[95dvh] flex flex-col">
         
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 shrink-0">
           <h2 className="text-lg font-bold text-foreground">📊 투자설명서 데이터 보강</h2>
           <button onClick={onClose} className="p-2 -mr-2 text-muted-foreground hover:text-foreground">
             ✕
           </button>
         </div>
-        <p className="text-sm text-muted-foreground mb-6">
+        <p className="text-sm text-muted-foreground mb-4 shrink-0">
           데이터가 많을수록 IM 품질과 정확도가 월등히 높아집니다.
         </p>
 
-        {/* Form Fields */}
-        <div className="space-y-4 mb-6">
+        {/* Scrollable Form Area */}
+        <div className="flex-1 overflow-y-auto pr-2 space-y-6 mb-6 pb-10">
           {/* Address */}
-          <div className="relative">
+          <div>
             <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
-              🏠 정확한 건물 주소 <span className="text-rose-500">*</span>
+              🏠 정확한 건물 주소
             </label>
-            <div className="flex gap-2">
+            <div ref={dropdownAnchorRef} className="flex gap-2">
               <input
+                ref={searchInputRef}
                 type="text"
                 value={searchKeyword}
                 onChange={(e) => {
                   setSearchKeyword(e.target.value);
-                  // 기존 선택을 초기화
-                  if (address) {
-                    setAddress("");
-                    setPnu("");
-                  }
+                  if (address) { setAddress(""); setPnu(""); }
                 }}
                 onKeyDown={handleSearchKeyDown}
+                onFocus={updateDropdownRect}
                 placeholder="동/도로명 입력 후 검색 (예: 상도동 477)"
-                className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
               <button 
-                onClick={handleAddressSearch}
+                onClick={() => { updateDropdownRect(); handleAddressSearch(); }}
                 disabled={isSearching || searchKeyword.trim().length < 2}
-                className="bg-primary text-primary-foreground px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 shrink-0"
+                className="bg-primary text-primary-foreground px-4 py-2.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 shrink-0"
               >
-                {isSearching ? "..." : "검색"}
+                {isSearching ? "…" : "검색"}
               </button>
             </div>
 
-            {/* 검색 결과 드롭다운 */}
-            {showResults && (
-              <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-background border border-border rounded-lg shadow-2xl max-h-48 overflow-y-auto">
+            {/* 주소 확인 배지 */}
+            {address && (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-xs text-emerald-500 font-medium">✅ {address}</span>
+              </div>
+            )}
+
+            {/* 검색 결과 드롭다운 — fixed portal로 overflow 문제 해결 */}
+            {showResults && dropdownRect && typeof document !== 'undefined' && createPortal(
+              <div
+                style={{
+                  position: 'fixed',
+                  top: dropdownRect.bottom + 4,
+                  left: dropdownRect.left,
+                  width: dropdownRect.width,
+                  zIndex: 9999,
+                }}
+                className="bg-background border border-border rounded-xl shadow-2xl max-h-52 overflow-y-auto"
+              >
                 {isSearching ? (
-                  <div className="p-3 text-center text-xs text-muted-foreground">
-                    <svg className="animate-spin h-4 w-4 mx-auto mb-1" fill="none" viewBox="0 0 24 24">
+                  <div className="p-4 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
                     검색 중...
                   </div>
                 ) : searchResults.length === 0 ? (
-                  <div className="p-3 text-center text-xs text-muted-foreground">
-                    검색 결과가 없습니다. 다른 키워드로 시도해 주세요.
-                  </div>
+                  <div className="p-4 text-center text-xs text-muted-foreground">검색 결과가 없습니다.</div>
                 ) : (
                   searchResults.map((result, i) => (
                     <button
                       key={i}
                       onClick={() => selectAddress(result)}
-                      className="w-full text-left px-3 py-2.5 hover:bg-secondary/50 border-b border-border/50 last:border-0 transition-colors"
+                      className="w-full text-left px-4 py-3 hover:bg-secondary/50 border-b border-border/50 last:border-0 transition-colors"
                     >
-                      <p className="text-xs font-medium text-foreground truncate">
-                        {result.roadAddr || result.jibunAddr}
-                      </p>
+                      <p className="text-sm font-medium text-foreground">{result.roadAddr || result.jibunAddr}</p>
                       {result.jibunAddr && result.roadAddr && (
-                        <p className="text-[10px] text-muted-foreground truncate mt-0.5">
-                          {result.jibunAddr}
-                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{result.jibunAddr}</p>
                       )}
                       {result.bdNm && (
-                        <p className="text-[10px] text-primary/70 mt-0.5">{result.bdNm}</p>
+                        <p className="text-xs text-primary/70 mt-0.5">{result.bdNm}</p>
                       )}
                     </button>
                   ))
                 )}
-              </div>
-            )}
-
-            {/* 선택된 주소 + PNU 표시 */}
-            {address && (
-              <div className="mt-1.5 flex items-center gap-2">
-                <span className="text-[10px] text-emerald-500">✅ 주소 확인 완료</span>
-                {pnu && (
-                  <span className="text-[10px] text-emerald-500/70 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                    PNU: {pnu}
-                  </span>
-                )}
-              </div>
+              </div>,
+              document.body
             )}
           </div>
 
-          {/* Monthly Rent */}
+            {/* Rent Roll Import */}
+            <RentRollImporter 
+              onImport={(data) => {
+                setMonthlyRent(data.monthlyRent.toString());
+                setTotalDeposit(data.totalDeposit.toString());
+                setMgmtFeeTotal(data.mgmtFeeTotal.toString());
+                setVacancyPct(data.vacancyPct);
+              }}
+            />
+
+            {/* Monthly Rent */}
           <div>
             <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
-              💰 월 임대료 총액 <span className="text-rose-500">*</span>
+              💰 월 임대료 총액
             </label>
             <div className="relative">
               <input
+                ref={monthlyRentRef}
                 type="number"
+                inputMode="numeric"
+                min="0"
                 value={monthlyRent}
                 onChange={(e) => setMonthlyRent(e.target.value)}
+                onKeyDown={(e) => handleEnterKey(e, totalDepositRef)}
                 placeholder="예: 1500"
-                className="w-full bg-secondary/50 border border-border rounded-lg pl-3 pr-10 py-2 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                className="w-full bg-secondary/50 border border-border rounded-lg pl-4 pr-14 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">만원</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">만원</span>
+            </div>
+            {monthlyRent && Number(monthlyRent) > 0 && (
+              <p className="text-xs text-emerald-500 mt-1.5">✅ 월 {Number(monthlyRent).toLocaleString()}만원 ({Math.round(Number(monthlyRent) * 10000 / 100000000 * 10) / 10}억원/년)</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* Total Deposit */}
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+                🔒 보증금 총액
+              </label>
+              <div className="relative">
+                <input
+                  ref={totalDepositRef}
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={totalDeposit}
+                  onChange={(e) => setTotalDeposit(e.target.value)}
+                  onKeyDown={(e) => handleEnterKey(e, mgmtFeeTotalRef)}
+                  placeholder="예: 30000"
+                  className="w-full bg-secondary/50 border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
+              </div>
+            </div>
+
+            {/* Mgmt Fee */}
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+                🧹 관리비 총액
+              </label>
+              <div className="relative">
+                <input
+                  ref={mgmtFeeTotalRef}
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={mgmtFeeTotal}
+                  onChange={(e) => setMgmtFeeTotal(e.target.value)}
+                  onKeyDown={(e) => handleEnterKey(e, askingPriceRef)}
+                  placeholder="예: 50"
+                  className="w-full bg-secondary/50 border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
+              </div>
+            </div>
+
+            {/* Asking Price */}
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="block text-xs font-semibold text-muted-foreground">
+                  🏷️ 매매 호가
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const rent = Number(monthlyRent) || 0;
+                    const deposit = Number(totalDeposit) || 0;
+                    if (rent > 0) {
+                      // Cap rate 4% 가정
+                      const estimatedPrice = Math.round(((rent * 12) / 0.04) + deposit);
+                      setAskingPrice(estimatedPrice.toString());
+                    }
+                  }}
+                  className="text-[10px] text-primary hover:underline"
+                >
+                  수익률 4% 역산
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  ref={askingPriceRef}
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={askingPrice}
+                  onChange={(e) => setAskingPrice(e.target.value)}
+                  onKeyDown={(e) => handleEnterKey(e, loanAmountRef)}
+                  placeholder="예: 250000"
+                  className="w-full bg-secondary/50 border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
+              </div>
+            </div>
+
+            {/* Loan Amount */}
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+                🏦 대출금 (채권최고액)
+              </label>
+              <div className="relative">
+                <input
+                  ref={loanAmountRef}
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={loanAmount}
+                  onChange={(e) => setLoanAmount(e.target.value)}
+                  onKeyDown={(e) => handleEnterKey(e, null)}
+                  placeholder="예: 100000"
+                  className="w-full bg-secondary/50 border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
+              </div>
             </div>
           </div>
 
@@ -290,21 +473,80 @@ export function ImDataBottomSheet({
             <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
               📊 현재 공실률
             </label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {[0, 10, 20, 30].map((pct) => (
                 <button
                   key={pct}
-                  onClick={() => setVacancyPct(pct)}
-                  className={`flex-1 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                  data-vacancy-btn
+                  onClick={() => setVacancyPct(pct === vacancyPct ? "" : pct)}
+                  className={`py-2.5 text-sm font-semibold rounded-xl border-2 transition-all ${
                     vacancyPct === pct 
-                      ? "bg-primary text-primary-foreground border-primary" 
-                      : "bg-background text-muted-foreground border-border hover:bg-secondary"
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm" 
+                      : "bg-background text-muted-foreground border-border hover:border-primary/40 hover:bg-secondary"
                   }`}
                 >
                   {pct === 0 ? "만실" : `~${pct}%`}
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Photos */}
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground mb-1.5 flex justify-between items-center">
+              <span>📸 건물 대표 사진 (최대 5장)</span>
+              <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">점수 +10</span>
+            </label>
+            <div className="flex gap-2 overflow-x-auto pb-2 snap-x">
+              {photoPreviewUrls.map((url, idx) => (
+                <div key={idx} className="relative shrink-0 snap-start">
+                  <img src={url} alt={`Preview ${idx}`} className="w-20 h-20 object-cover rounded-lg border border-border" />
+                  <button
+                    onClick={() => {
+                      const newFiles = [...photoFiles];
+                      newFiles.splice(idx, 1);
+                      setPhotoFiles(newFiles);
+                      const newUrls = [...photoPreviewUrls];
+                      URL.revokeObjectURL(newUrls[idx]);
+                      newUrls.splice(idx, 1);
+                      setPhotoPreviewUrls(newUrls);
+                    }}
+                    className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              {photoFiles.length < 5 && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-20 h-20 shrink-0 snap-start rounded-lg border-2 border-dashed border-border/60 hover:border-primary/50 flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors bg-secondary/30"
+                >
+                  <span className="text-xl leading-none mb-1">+</span>
+                  <span className="text-[10px]">추가</span>
+                </button>
+              )}
+            </div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (!e.target.files?.length) return;
+                const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+                const validFiles = Array.from(e.target.files).filter(f => f.size <= MAX_FILE_SIZE);
+                if (validFiles.length < e.target.files.length) {
+                  alert("10MB 이상의 파일은 제외되었습니다.");
+                }
+                const files = validFiles.slice(0, 5 - photoFiles.length);
+                setPhotoFiles((prev) => [...prev, ...files]);
+                const newUrls = files.map((f) => URL.createObjectURL(f));
+                setPhotoPreviewUrls((prev) => [...prev, ...newUrls]);
+                e.target.value = "";
+              }}
+            />
           </div>
 
           {/* Comment */}
@@ -322,26 +564,35 @@ export function ImDataBottomSheet({
           </div>
         </div>
 
-        {/* Readiness Bar */}
-        <div className="bg-secondary/30 rounded-lg p-3 mb-6 border border-border">
-          <div className="flex justify-between items-center mb-1.5">
-            <span className="text-xs font-medium text-foreground">데이터 충실도</span>
-            <span className={`text-xs font-bold ${readinessScore >= 55 ? "text-emerald-500" : "text-amber-500"}`}>
-              {readinessScore >= 55 ? "🟢" : "🟠"} {readinessScore} / 100
-            </span>
-          </div>
-          <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-            <div 
-              className={`h-full transition-all duration-500 ${readinessScore >= 55 ? "bg-emerald-500" : "bg-amber-500"}`}
-              style={{ width: `${readinessScore}%` }}
-            />
-          </div>
-          <p className="text-[10px] text-muted-foreground mt-2 text-center">
-            {readinessScore >= 55 
-              ? "✅ AI가 고품질 투자설명서를 작성할 준비가 되었습니다." 
-              : "⚠️ 주소와 월세를 입력해야 생성할 수 있습니다."}
-          </p>
         </div>
+
+        {/* Footer actions - Fixed at bottom */}
+        <div className="shrink-0 pt-4 border-t border-border/40 mt-auto bg-background">
+          <div className={`rounded-xl p-4 mb-4 border-2 transition-colors ${
+            canGenerate ? "bg-emerald-500/5 border-emerald-500/30" : "bg-amber-500/5 border-amber-500/20"
+          }`}>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-semibold text-foreground">데이터 충실도</span>
+              <span className={`text-sm font-bold ${canGenerate ? "text-emerald-500" : "text-amber-500"}`}>
+                {canGenerate ? "🟢" : "🟠"} {readinessScore} / 100
+              </span>
+            </div>
+            <div className="h-2.5 w-full bg-secondary rounded-full overflow-hidden">
+              <div 
+                className={`h-full rounded-full transition-all duration-700 ${
+                  readinessScore >= 70 ? "bg-emerald-500" : readinessScore >= 40 ? "bg-amber-500" : "bg-rose-500"
+                }`}
+                style={{ width: `${readinessScore}%` }}
+              />
+            </div>
+            <p className={`text-xs mt-2 font-medium ${
+              canGenerate ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+            }`}>
+              {canGenerate 
+                ? "✅ AI 투자설명서를 작성할 수 있습니다. (주소/월세 입력 시 품질↑)" 
+                : "⚠️ 기본 정보가 부족합니다. 주소 또는 월세를 추가 입력해 주세요."}
+            </p>
+          </div>
 
         {/* Footer actions */}
         {state === "error" && (
@@ -355,8 +606,8 @@ export function ImDataBottomSheet({
         ) : (
           <button
             onClick={handleCreate}
-            disabled={state === "loading" || readinessScore < 55}
-            className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl py-3 text-sm font-bold shadow-md disabled:opacity-50 disabled:from-secondary disabled:to-secondary disabled:text-muted-foreground transition-all hover:opacity-90 active:scale-[0.98] flex items-center justify-center gap-2"
+            disabled={state === "loading" || !canGenerate}
+            className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl py-3.5 text-sm font-bold shadow-md disabled:opacity-50 disabled:from-secondary disabled:to-secondary disabled:text-muted-foreground transition-all hover:opacity-90 active:scale-[0.98] flex items-center justify-center gap-2"
           >
             {state === "loading" ? (
               <>

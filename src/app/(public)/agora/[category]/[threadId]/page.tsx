@@ -104,7 +104,7 @@ export default async function AgoraThreadPage({ params }: { params: Params }) {
   const meta = CATEGORY_META[category as AgoraCategory];
   const regionLabel = thread.region ? REGION_LABELS[thread.region] : null;
 
-  const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dealcard.kr";
+  const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
 
   // Schema.org QAPage + FAQPage 이중 마크업
   const schemaData = {

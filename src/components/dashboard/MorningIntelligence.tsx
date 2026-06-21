@@ -5,7 +5,7 @@ import {
   Sparkles, Building2, Hammer, TrendingUp, MapPin, Flame,
   Zap, BookOpen, ArrowRight, Copy, Check, RefreshCw, Share2,
   PhoneCall, AlertTriangle, CheckCircle2, ChevronRight,
-  BarChart2, Globe, Eye, Clock, Edit3, Activity,
+  BarChart2, Globe, Eye, Clock, Edit3, Activity, Calendar,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
@@ -310,6 +310,10 @@ export default function MorningIntelligence() {
 
             {/* 액션 버튼 */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none sm:ml-auto">
+              <Link href={`/broker/schedule`} 
+                className="flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-2 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 transition-all duration-300 whitespace-nowrap shrink-0">
+                <Calendar className="w-3.5 h-3.5" /><span>오늘의 임장</span>
+              </Link>
               <Link href={`/broker/magazine-editor`} 
                 className="flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 transition-all duration-300 whitespace-nowrap shrink-0">
                 <Edit3 className="w-3.5 h-3.5" /><span>매거진 편집</span>

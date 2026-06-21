@@ -13,6 +13,9 @@
 import { z } from "zod/v4";
 import { reviewGateRequest } from "@/domain/gate/gate-request";
 import { toApiError } from "@/lib/api-error";
+import { requireBroker } from "@/lib/auth-guard";
+import { NextRequest, NextResponse } from "next/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 const GateRequestReviewSchema = z.object({
   decision: z.enum(["approved", "rejected"]),
@@ -23,18 +26,41 @@ interface ReviewRouteParams {
   params: Promise<{ id: string }>;
 }
 
-export async function PATCH(req: Request, { params }: ReviewRouteParams) {
+export async function PATCH(req: NextRequest, { params }: ReviewRouteParams) {
   try {
+    const guard = await requireBroker(req);
+    if (guard.error) return guard.error;
+
     const { id } = await params;
     const json = await req.json();
     const input = GateRequestReviewSchema.parse(json);
 
-    // MVP placeholder reviewer ID — production uses session.user.id
-    const ADMIN_REVIEWER_ID = "00000000-0000-0000-0000-000000000001";
+    const supabase = createServiceClient();
+    
+    // Verify ownership: the reviewer must be the owner of the building
+    const { data: gateReq, error: fetchErr } = await supabase
+      .from("gate_requests")
+      .select("building_id")
+      .eq("id", id)
+      .single();
+      
+    if (fetchErr || !gateReq) {
+      return NextResponse.json({ error: "Gate request not found" }, { status: 404 });
+    }
 
-    const result = await reviewGateRequest(id, input, ADMIN_REVIEWER_ID);
+    const { data: building, error: bldgErr } = await supabase
+      .from("building_ssot_lite")
+      .select("owner_id")
+      .eq("id", gateReq.building_id)
+      .single();
 
-    return Response.json({ ok: true, data: result });
+    if (bldgErr || !building || building.owner_id !== guard.user!.id) {
+      return NextResponse.json({ error: "Forbidden: not your building" }, { status: 403 });
+    }
+
+    const result = await reviewGateRequest(id, input, guard.user!.id);
+
+    return NextResponse.json({ ok: true, data: result });
   } catch (error) {
     return toApiError(error);
   }

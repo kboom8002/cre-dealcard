@@ -73,7 +73,9 @@ export function buildNarrativeUserPrompt(
   externalData: ExternalDataSnapshot | null,
   supplemental: MobileIMSupplementalInput,
   marketIndicators?: MarketIndicators,
-  sectionContext?: SectionContext
+  sectionContext?: SectionContext,
+  ragContext?: string,
+  fewShotBlock?: string
 ): string {
   // v2: flat 구조(DB 컨럼 직접) + legacy 중첩 양쪽 지원
   const assetIdentity  = (bssotLite.asset_identity  ?? {}) as Record<string, unknown>;
@@ -92,6 +94,7 @@ export function buildNarrativeUserPrompt(
     fit_summary:       bssotLite.fit_summary    ?? buyerFit.fit_summary,
     caution_summary:   bssotLite.caution_summary ?? buyerFit.caution_summary,
     raw_input:         typeof bssotLite.raw_input === 'string' ? bssotLite.raw_input?.slice(0, 300) : undefined,
+    lease_summary:     bssotLite.lease_summary,
   });
 
   const extCtx = externalData ? JSON.stringify({
@@ -99,6 +102,7 @@ export function buildNarrativeUserPrompt(
     land_price: externalData.landPrice,
     land_use:   externalData.landUsePlan,
     poi:        externalData.locationPoi,
+    commercial_district: externalData.commercialDistrict,
     comparable_transactions_count: externalData.comparableTransactions?.length || 0,
     comparable_avg_pyeong_price: externalData.comparableTransactions?.length
       ? Math.round(
@@ -173,11 +177,13 @@ export function buildNarrativeUserPrompt(
     if (anchorLines.length > 0) {
       contextBlock += `\n[수치 앵커 — 이 수치를 정확히 사용하세요]\n${anchorLines.join(' | ')}`;
     }
-    // 이전 섹션 요약
+    // 이전 섹션 요약 — 항상 첫 섹션(자산 개요) 포함하여 핵심 데이터 일관성 유지
     const summaryEntries = Object.entries(sectionSummaries);
     if (summaryEntries.length > 0) {
-      const lastTwo = summaryEntries.slice(-2);
-      contextBlock += `\n[이전 섹션 요약]\n${lastTwo.map(([k, v]) => `- ${k}: ${v}`).join('\n')}`;
+      const firstEntry = summaryEntries.find(([key]) => key === "property_overview");
+      const otherEntries = summaryEntries.filter(([key]) => key !== "property_overview").slice(-2);
+      const contextEntries = firstEntry ? [firstEntry, ...otherEntries] : otherEntries;
+      contextBlock += `\n[이전 섹션 요약]\n${contextEntries.map(([k, v]) => `- ${k}: ${v}`).join('\n')}`;
     }
   }
 
@@ -193,7 +199,13 @@ ${bssotCtx}
 ${extCtx}
 
 3. 브로커 수동 입력 보강 데이터:
-${suppCtx}${marketCtx}${contextBlock}
+${suppCtx}${marketCtx}
+
+4. RAG 관련 유사 사례 컨텍스트:
+${ragContext || "관련 유사사례 없음"}
+
+5. 승인된 Golden IM 예시 (Few-shot 참조):
+${fewShotBlock || "지정된 Few-shot 없음 (시스템 프롬프트의 기본 Golden IM 참고)"}${contextBlock}
 
 [개별 미션]
 ${sectionMission[sectionType]}

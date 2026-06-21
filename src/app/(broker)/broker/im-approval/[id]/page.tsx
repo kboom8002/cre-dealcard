@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   description: 'AI 생성 IM을 검토하고 승인하거나 수정을 요청합니다.',
 };
 
+export const dynamic = 'force-dynamic';
+
 interface Props {
   params: Promise<{ id: string }>;
 }

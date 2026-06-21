@@ -27,7 +27,7 @@ export async function PUT(
 
   const { data: doc, error: fetchErr } = await supabase
     .from('document_objects')
-    .select('id, broker_id, content')
+    .select('id, owner_id, broker_id, content')
     .eq('id', id)
     .maybeSingle();
 
@@ -35,7 +35,8 @@ export async function PUT(
     return NextResponse.json({ error: 'Document not found' }, { status: 404 });
   }
 
-  if (doc.broker_id !== guard.user!.id) {
+  const ownerId = doc.broker_id ?? doc.owner_id;
+  if (ownerId !== guard.user!.id) {
     return NextResponse.json({ error: 'Forbidden: not your document' }, { status: 403 });
   }
 

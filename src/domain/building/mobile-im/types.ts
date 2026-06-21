@@ -38,6 +38,20 @@ export interface MobileIMProject {
   published_at?: string;
 }
 
+/** 층별 임대차 입력 데이터 */
+export interface FloorLeaseInput {
+  floor: string;              // "B1", "1F", "2F", ... 또는 "3F~4F" (병합)
+  tenant_type?: string;       // 업종/업체명 (e.g. "약국", "이비인후과")
+  area_pyeong?: number;       // 전용면적 (평)
+  deposit_manwon?: number;    // 보증금 (만원)
+  rent_manwon?: number;       // 월 임대료 (만원)
+  mgmt_fee_manwon?: number;   // 관리비 (만원)
+  lease_start?: string;       // 계약 시작일 (YYYY-MM-DD)
+  lease_end?: string;         // 계약 종료일 (YYYY-MM-DD)
+  note?: string;              // 참고 (임대료 인상 조건 등)
+  is_vacant?: boolean;        // 공실 여부
+}
+
 /** 브로커가 딜카드 이후 추가로 입력하는 보강 정보 */
 export interface MobileIMSupplementalInput {
   monthly_rent_total_krw?: number;   // 월세 총액
@@ -50,6 +64,16 @@ export interface MobileIMSupplementalInput {
   resolved_pnu?: string;             // 확정 PNU
   total_floor_count?: number;        // 총 층수 (브로커 수동)
   building_age_years?: number;       // 건물 연식 (브로커 수동)
+
+  // ── 층별 임대 데이터 ──
+  floor_leases?: FloorLeaseInput[];
+
+  // ── 추가 금액 정보 ──
+  total_deposit_manwon?: number;    // 보증금 합계 (만원)
+  mgmt_fee_total_manwon?: number;   // 관리비 합계 (만원)
+  loan_amount_manwon?: number;      // 융자(채권최고액) (만원)
+  loan_bank?: string;               // 융자 은행
+  asking_price_manwon?: number;     // 매매가 (만원)
 }
 
 export interface MobileIMSection {
@@ -77,11 +101,18 @@ export interface ExternalDataSnapshot {
     totalArea?: number; platArea?: number; useAprDay?: string;
     mainPurpose?: string; structure?: string; floorsAbove?: number;
     floorsBelow?: number; bcRat?: number; vlRat?: number; buildingName?: string;
+    // 총괄표제부 데이터
+    archArea?: number;          // 건축면적
+    elevatorCount?: number;     // 승강기 수 (승용+비상)
+    parkingCount?: number;      // 주차 대수 (옥내+옥외)
+    heatMethod?: string;        // 난방 방식
+    _isFallback?: boolean;
   } | null;
-  landPrice?: { pricePerSqm?: number; baseYear?: string } | null;
+  landPrice?: { pricePerSqm?: number; baseYear?: string; _isFallback?: boolean } | null;
   landUsePlan?: {
     zoningDistrict?: string; zoningOverlap?: string[];
     buildingCoverageMax?: number; floorAreaRatioMax?: number;
+    _isFallback?: boolean;
   } | null;
   comparableTransactions?: Array<{
     pricePerPyeong: number; address: string; dealYear: number;
@@ -97,6 +128,8 @@ export interface ExternalDataSnapshot {
   mapImageUrl?: string | null;
   /** 등기정보광장 API 결과 */
   registryData?: import('../../../lib/external/registry-api').RegistryData | null;
+  /** 상권 분석 API (SEMAS) 결과 */
+  commercialDistrict?: import('../../../lib/external/semas-commercial-api').CommercialDistrictAnalysis | null;
 }
 
 /** 데이터 출처 포인트 (section 내 출처 배지 표시용) */

@@ -65,8 +65,10 @@ export function KakaoShareButton({
     document.head.appendChild(script);
   }, []);
 
-  const siteUrl = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.credeal.net");
-  const dealUrl = `${siteUrl}/broker/deal-card/${buildingId}`;
+  // 카카오 SDK은 등록된 도메인에서만 작동함 → 항상 www.credeal.net 사용
+  const siteUrl = "https://www.credeal.net";
+  // 공유 대상 페이지: /im-lite/[buildingId] (공개 접근 가능)
+  const dealUrl = `${siteUrl}/im-lite/${buildingId}`;
   // 딜카드별 동적 OG 이미지: /api/og/deal/[id]
   // 브로커 바이브카드 이미지는 보조 fallback
   const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}`;
@@ -88,6 +90,8 @@ export function KakaoShareButton({
             title: `🏢 ${dealTitle}`,
             description: finalText.slice(0, 120) + (finalText.length > 120 ? "..." : ""),
             imageUrl: ogImageUrl,
+            imageWidth: 1200,
+            imageHeight: 630,
             link: {
               mobileWebUrl: dealUrl,
               webUrl: dealUrl,

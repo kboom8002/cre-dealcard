@@ -1,5 +1,7 @@
+import { NextRequest } from 'next/server';
 import { z } from 'zod/v4';
-import { createClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/service';
+import { requireBroker } from '@/lib/auth-guard';
 import { DealStage, validateBridgeTransition } from '@/domain/pipeline/bridge-state-machine';
 
 const TransitionSchema = z.object({
@@ -10,27 +12,30 @@ const TransitionSchema = z.object({
   metadata: z.record(z.string(), z.any()),
 });
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const guard = await requireBroker(req);
+    if (guard.error) return guard.error;
+    const { user } = guard;
+
     const json = await req.json();
     const input = TransitionSchema.parse(json);
 
-    // TODO: Verify Authorization (skipping for MVP)
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = createServiceClient();
 
     // 1. Fetch current pipeline state
     const { data: currentState, error: fetchError } = await supabase
       .from('deal_pipeline_states')
-      .select('current_stage, entered_at, metadata')
+      .select('current_stage, entered_at, metadata, broker_id')
       .eq('id', input.dealId)
       .single();
 
     if (fetchError) {
       return Response.json({ error: 'Deal not found' }, { status: 404 });
+    }
+
+    if (currentState.broker_id && currentState.broker_id !== user!.id) {
+      return Response.json({ error: 'Forbidden: Not your deal' }, { status: 403 });
     }
 
     if (currentState.current_stage !== input.from) {

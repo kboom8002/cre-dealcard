@@ -2,6 +2,8 @@
 // Ported from cre-fullim — resolves Korean address strings into PNU codes,
 // coordinates, and building management numbers for downstream public API calls.
 
+import { FALLBACK_DONG_MAP, geocodeAddress } from "@/domain/verification/address-resolver";
+
 export interface ResolvedAddress {
   pnu: string;                    // 19자리 필지고유번호
   legalDongCode: string;          // 법정동 10자리
@@ -23,12 +25,9 @@ function padNumber(numStr: string | number): string {
 }
 
 function getMockLegalDongCode(address: string): string {
-  if (address.includes("역삼동") || address.includes("역삼")) return "1168010100";
-  if (address.includes("삼성동") || address.includes("삼성")) return "1168010500";
-  if (address.includes("서초동") || address.includes("서초")) return "1165010100";
-  if (address.includes("성수동") || address.includes("성수")) return "1120065000";
-  if (address.includes("마포") || address.includes("합정")) return "1144010700";
-  if (address.includes("용산")) return "1117069000";
+  for (const [key, codes] of Object.entries(FALLBACK_DONG_MAP)) {
+    if (address.includes(key)) return codes.sigunguCd + codes.bjdongCd;
+  }
   return "1168010100"; // 기본 역삼동
 }
 
@@ -57,10 +56,18 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
 
         let lat = 37.50085;
         let lng = 127.03698;
-        if (rawAddress.includes("삼성")) { lat = 37.5088; lng = 127.0631; }
-        else if (rawAddress.includes("서초")) { lat = 37.4876; lng = 127.0174; }
-        else if (rawAddress.includes("성수")) { lat = 37.5447; lng = 127.0562; }
-        else if (rawAddress.includes("마포") || rawAddress.includes("합정")) { lat = 37.5500; lng = 126.9099; }
+        try {
+          const geo = await geocodeAddress(rawAddress);
+          if (geo) { lat = geo.lat; lng = geo.lng; }
+          else applyFallbackCoords();
+        } catch { applyFallbackCoords(); }
+
+        function applyFallbackCoords() {
+          if (rawAddress.includes("삼성")) { lat = 37.5088; lng = 127.0631; }
+          else if (rawAddress.includes("서초")) { lat = 37.4876; lng = 127.0174; }
+          else if (rawAddress.includes("성수")) { lat = 37.5447; lng = 127.0562; }
+          else if (rawAddress.includes("마포") || rawAddress.includes("합정")) { lat = 37.5500; lng = 126.9099; }
+        }
 
         return { pnu, legalDongCode, sigunguCd, bjdongCd, bun, ji, roadAddress, jibunAddress, lat, lng, buildingMgtNo };
       }
@@ -92,10 +99,18 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
 
   let lat = 37.50085;
   let lng = 127.03698;
-  if (cleanAddr.includes("삼성")) { lat = 37.5088; lng = 127.0631; }
-  else if (cleanAddr.includes("서초")) { lat = 37.4876; lng = 127.0174; }
-  else if (cleanAddr.includes("성수")) { lat = 37.5447; lng = 127.0562; }
-  else if (cleanAddr.includes("마포") || cleanAddr.includes("합정")) { lat = 37.5500; lng = 126.9099; }
+  try {
+    const geo = await geocodeAddress(cleanAddr);
+    if (geo) { lat = geo.lat; lng = geo.lng; }
+    else applyFallbackCoords2();
+  } catch { applyFallbackCoords2(); }
+
+  function applyFallbackCoords2() {
+    if (cleanAddr.includes("삼성")) { lat = 37.5088; lng = 127.0631; }
+    else if (cleanAddr.includes("서초")) { lat = 37.4876; lng = 127.0174; }
+    else if (cleanAddr.includes("성수")) { lat = 37.5447; lng = 127.0562; }
+    else if (cleanAddr.includes("마포") || cleanAddr.includes("합정")) { lat = 37.5500; lng = 126.9099; }
+  }
 
   return {
     pnu,

@@ -29,7 +29,7 @@ const UNAVAILABLE_FALLBACK: RegistryData = {
   mortgages: [],
   attachments: [],
   encumbranceRisk: 'unavailable',
-  displayMessage: '등기 정보를 자동으로 조회하지 못했습니다. 계약 전 반드시 직접 등기부등본을 확인하세요.',
+  displayMessage: '⚠️ 등기부등본 자동 조회가 설정되지 않았습니다. 근저당·가압류 확인을 위해 직접 등기부등본을 발급받아 확인해 주세요. (인터넷등기소 iros.go.kr)',
 };
 
 export async function fetchRegistryData(

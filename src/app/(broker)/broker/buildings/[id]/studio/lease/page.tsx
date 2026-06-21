@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { StudioTabs } from '@/components/studio/StudioTabs';
+import { LeaseFileImport } from './components/lease-file-import';
+import { LeasePhotoOcr } from './components/lease-photo-ocr';
 
 interface TenantRow {
   floor: string;
@@ -174,13 +176,17 @@ export default function StudioLeasePage() {
                 층별 임대 내역을 정확하게 기입해주세요. 개인정보 보호를 위해 임차인명, 상세 금액 정보 등은 대외 공개 시 자동으로 가림(Blind) 처리됩니다.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={addRow}
-              className="px-4 py-2 bg-neutral-800 hover:bg-neutral-750 text-white rounded-xl text-xs font-bold transition-all border border-neutral-700 active:scale-[0.98] shrink-0 cursor-pointer"
-            >
-              ➕ 임차인(층) 추가
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+              <LeaseFileImport onImport={(newTenants) => setTenants([...tenants.filter(t => t.floor || t.tenant_name), ...newTenants])} />
+              <LeasePhotoOcr onImport={(newTenants) => setTenants([...tenants.filter(t => t.floor || t.tenant_name), ...newTenants])} />
+              <button
+                type="button"
+                onClick={addRow}
+                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-750 text-white rounded-xl text-xs font-bold transition-all border border-neutral-700 active:scale-[0.98] shrink-0 cursor-pointer"
+              >
+                ➕ 임차인(층) 추가
+              </button>
+            </div>
           </div>
 
           {error && (

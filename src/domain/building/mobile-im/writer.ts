@@ -33,12 +33,18 @@ import { computeValueAddScenarios } from "./value-add-engine";
 import { judgeIMSection, shouldJudgeByConfidence } from "./im-judge";
 import { runCREQualityGate } from "./cre-quality-gate";
 import { extractKeyFacts, updateNumericalAnchors, runCrossValidation } from "./cross-validator";
+import { generateRAGContext } from "./cre-rag-service";
+import { CrePromptRegistry } from "./cre-prompt-registry";
+import { indexIMSections } from "./im-embedding-indexer";
+import { createServiceClient } from "@/lib/supabase/service";
+import { buildIMFewShotBlock } from "./golden-im-manager";
 
 export interface MobileIMWriterInput {
   building_ssot_lite: Record<string, unknown>;
   supplemental: MobileIMSupplementalInput;
   readiness: { score: number; missing: string[] };
   external_data?: ExternalDataSnapshot | null;
+  onProgress?: (section: MobileIMSection) => void;
 }
 
 export interface MobileIMWriterOutput {
@@ -176,7 +182,10 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   // ── value-add 사전 계산 (공실 또는 월세 데이터 있을 때) ──────────────────
   let valueAddMarkdown: string | null = null;
   const vacancyStr = String(physicalFact.vacancy_signal ?? supplemental.vacancy_status ?? "");
-  const vacancyPct = vacancyStr.includes("완전") ? 0
+  const vacancyPct = vacancyStr.includes("완전") || vacancyStr.includes("만실") ? 0
+    : vacancyStr.includes("거의 만실") ? 5
+    : vacancyStr.includes("반공실") ? 50
+    : vacancyStr.includes("전체 공실") || vacancyStr.includes("올공실") ? 100
     : vacancyStr.includes("공실") ? 30
     : vacancyStr.match(/(\d+)\s*%/) ? parseInt(vacancyStr.match(/(\d+)\s*%/)![1], 10)
     : 0;
@@ -190,7 +199,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         purchasePriceKrw: purchasePriceForGuard,
         currentVacancyPct: vacancyPct,
         currentMonthlyRentKrw: monthlyRent,
-        totalAreaSqm: totalAreaForGuard || 500,
+        totalAreaSqm: totalAreaForGuard > 0 ? totalAreaForGuard : 500,
         assetType: String(assetIdentity.asset_type ?? ""),
       });
       valueAddMarkdown = vaResult.markdownTable;
@@ -211,6 +220,27 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       buildingAge: undefined,
     },
   };
+
+  // ── RAG 컨텍스트 사전 조회 (루프 밖으로 호이스팅 — B-4 수정) ────────────
+  let ragCtx = "";
+  try {
+    const sb = createServiceClient();
+    ragCtx = await generateRAGContext(
+      sb as any,
+      String(assetIdentity.asset_type ?? ""),
+      String(marketLocation.address ?? ""),
+      String(external_data?.buildingRegister?.buildingName ?? "")
+    );
+  } catch (e) {
+    console.warn("[mobile-im-writer] RAG context failed:", e);
+  }
+
+  // ── 프롬프트 레지스트리 사전 선택 (루프 밖 — A/B 일관성 보장) ─────────
+  const registry = CrePromptRegistry.getInstance();
+  const activeSysPrompt = registry.getActivePrompt("writer_system");
+  const sysPromptText = activeSysPrompt ? activeSysPrompt.systemPrompt : MOBILE_IM_NARRATIVE_SYSTEM;
+  const promptVariantId = activeSysPrompt?.id ?? "default";
+  console.info(`[mobile-im-writer] Prompt variant: ${promptVariantId} (v${activeSysPrompt?.version ?? "0"})`);
 
   // ── 섹션 루프 ──────────────────────────────────────────────────────────────
   for (let i = 0; i < MOBILE_IM_SECTIONS_7.length; i++) {
@@ -235,6 +265,9 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
           totalAreaSqm:     totalAreaForGuard || undefined,
           platAreaSqm:      external_data?.buildingRegister?.platArea ?? undefined,
           assetType:        String(assetIdentity.asset_type ?? ""),
+          totalDepositManwon: supplemental.total_deposit_manwon,
+          mgmtFeeTotalManwon: supplemental.mgmt_fee_total_manwon,
+          loanAmountManwon:   supplemental.loan_amount_manwon,
         });
         sectionMarketIndicators = { financialsMarkdown: formatFinancialsMarkdown(fin) };
       } catch {
@@ -245,19 +278,33 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     // ── AI 생성 시도 ───────────────────────────────────────────────────────
     let generatedByAi = false;
     try {
-      // AI 프롬프트에 정규화된 구조 + 이전 섹션 맥락 전달
+      let fewShotBlock = "";
+      try {
+        const assetTypeStr = String(assetIdentity.asset_type ?? "");
+        // priceBand could be determined here, or pass empty string for now
+        fewShotBlock = await buildIMFewShotBlock(assetTypeStr, "", sectionType as MobileIMSectionType);
+      } catch(e) {
+        // fail silently for few-shot
+      }
+
+      // AI 프롬프트에 정규화된 구조 + 이전 섹션 맥락 + RAG 컨텍스트 전달
       const userPrompt = buildNarrativeUserPrompt(
         sectionType,
         normalizedForProvenance,
         external_data || null,
         supplemental,
         sectionMarketIndicators,
-        i > 0 ? sectionCtx : undefined  // 첫 섹션에는 맥락 없음
+        i > 0 ? sectionCtx : undefined, // 첫 섹션에는 맥락 없음
+        ragCtx,
+        fewShotBlock
       );
+
+      const sectionSpecificPrompt = registry.getActivePrompt(`section_${sectionType}`);
+      const effectiveSysPrompt = sectionSpecificPrompt ? sectionSpecificPrompt.systemPrompt : sysPromptText;
 
       const result = await callLLM(
         {
-          systemPrompt: MOBILE_IM_NARRATIVE_SYSTEM,
+          systemPrompt: effectiveSysPrompt,
           userPrompt,
           model: IM_AI_MODEL,
           temperature: 0.3,
@@ -270,7 +317,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       );
 
       const rawText = result.content.trim();
-      if (rawText.length > 50) {
+      if (rawText.length > 120) { // 한국어 2~3문장 기준
         const halluCheck = detectHallucination(rawText, purchasePriceForGuard, totalAreaForGuard);
         if (halluCheck.anomaly) {
           console.warn(`[mobile-im-writer] Hallucination in ${sectionType}: ${halluCheck.reason} → template fallback`);
@@ -316,7 +363,8 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         marketLocation,
         buyerFit,
         supplemental,
-        external_data || null
+        external_data || null,
+        building_ssot_lite
       );
     }
 
@@ -342,7 +390,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
           console.warn(`[cre-quality-gate] Section ${sectionType} BLOCKED → template fallback`);
           markdown = generatePremiumTemplate(
             sectionType, assetIdentity, physicalFact, marketLocation,
-            buyerFit, supplemental, external_data || null
+            buyerFit, supplemental, external_data || null, building_ssot_lite
           );
         }
       } catch (gateErr) {
@@ -366,7 +414,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       confidence = hasNeedsCheck ? "needs_check" : allConfirmed ? "confirmed" : "inferred";
     }
 
-    sections.push({
+    const finalSection: MobileIMSection = {
       section_type:  sectionType,
       section_order: i + 1,
       title:         getSectionTitle(sectionType),
@@ -374,7 +422,13 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       confidence,
       boundary_note: "본 섹션의 내용은 예비 검토용입니다.",
       provenance:    sectionProvenance,
-    });
+    };
+
+    sections.push(finalSection);
+    
+    if (input.onProgress) {
+      input.onProgress(finalSection);
+    }
 
     // SOTA: 섹션 생성 후 맥락 업데이트 (다음 섹션에 전파)
     try {
@@ -403,6 +457,22 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     }
   } catch {
     // 교차 검증 실패는 무시
+  }
+
+  // ── RAG 인덱싱: 생성된 IM을 벡터 DB에 저장 (B-1 수정) ────────────────
+  try {
+    const sb = createServiceClient();
+    const buildingId = String(building_ssot_lite.id ?? building_ssot_lite.building_ssot_lite_id ?? "");
+    if (buildingId) {
+      await indexIMSections(sb as any, buildingId, sections, {
+        assetType: String(assetIdentity.asset_type ?? ""),
+        address: String(marketLocation.address ?? ""),
+        promptVariant: promptVariantId,
+        generatedAt: new Date().toISOString(),
+      });
+    }
+  } catch (indexErr) {
+    console.warn("[mobile-im-writer] IM indexing failed (non-blocking):", indexErr);
   }
 
   return {
@@ -435,7 +505,8 @@ function generatePremiumTemplate(
   marketLocation: Record<string, unknown>,
   buyerFit: Record<string, unknown>,
   supplemental: MobileIMSupplementalInput,
-  externalData: ExternalDataSnapshot | null
+  externalData: ExternalDataSnapshot | null,
+  buildingSsotLite?: Record<string, unknown>
 ): string {
   const br   = externalData?.buildingRegister;
   const lu   = externalData?.landUsePlan;
@@ -447,10 +518,10 @@ function generatePremiumTemplate(
   const platArea    = br?.platArea     || 0;
   const floorsAbove = br?.floorsAbove  || 0;
   const floorsBelow = br?.floorsBelow  || 0;
-  const zoningDistrict = lu?.zoningDistrict || "일반상업지역";
-  const useAprDay  = br?.useAprDay    || "20150601";
-  const structure  = br?.structure    || "철근콘크리트구조";
-  const mainPurpose = br?.mainPurpose || "업무시설";
+  const zoningDistrict = lu?.zoningDistrict || "확인 필요";
+  const useAprDay  = br?.useAprDay    || "";
+  const structure  = br?.structure    || "확인 필요";
+  const mainPurpose = br?.mainPurpose || "확인 필요";
   const useAprYear = useAprDay.substring(0, 4);
   const buildingAge = new Date().getFullYear() - parseInt(useAprYear, 10);
   const purchasePrice = parsePriceBandKrw(assetIdentity.price_band);
@@ -466,6 +537,22 @@ function generatePremiumTemplate(
       const assetType   = String(assetIdentity.asset_type  ?? "상업용 건물");
       const sizeSignal  = String(assetIdentity.size_signal ?? physicalFact.size_signal ?? "");
 
+      // 대표 사진 삽입
+      let photoGallery = "";
+      if (supplemental.photo_urls && supplemental.photo_urls.length > 0) {
+        photoGallery = "\n\n### 건물 사진\n" +
+          supplemental.photo_urls.slice(0, 5).map((url, i) =>
+            `![건물 사진 ${i + 1}](${url})`
+          ).join("\n");
+      }
+
+      // 폴백 데이터 경고
+      const hasFallback = br?._isFallback || lu?._isFallback || lp?._isFallback;
+      let fallbackWarning = "";
+      if (hasFallback) {
+        fallbackWarning = "\n\n> ⚠️ **주의**: 국토부 공공데이터 API 서버 지연으로 인해 일부 데이터가 임시 추정치로 제공되었습니다. 향후 다시 시도하거나 직접 확인하시기 바랍니다.\n";
+      }
+
       return `**${areaStr}** 소재 **${assetType}** 물건입니다.
 
 | 항목 | 내용 |
@@ -474,12 +561,16 @@ function generatePremiumTemplate(
 | **용도** | ${mainPurpose} |
 | **연면적** | ${totalArea > 0 ? `${totalArea.toLocaleString()}㎡ (${totalPyeong})` : sizeSignal || "-"} |
 | **대지면적** | ${platArea > 0 ? `${platArea.toLocaleString()}㎡ (${platPyeong})` : "-"} |
+| **건축면적** | ${br?.archArea ? `${br.archArea.toLocaleString()}㎡ (약 ${(br.archArea * 0.3025).toFixed(0)}평)` : "-"} |
 | **층수** | ${floorsAbove > 0 ? `지하 ${floorsBelow}층 / 지상 ${floorsAbove}층` : "-"} |
-| **준공연도** | ${br ? `${useAprYear}년 (${buildingAge}년 경과)` : "-"} |
+| **승강기** | ${br?.elevatorCount ? `${br.elevatorCount}대` : "-"} |
+| **주차** | ${br?.parkingCount ? `${br.parkingCount}대` : "-"} |
+| **냉난방** | ${br?.heatMethod || "-"} |
+| **준공연도** | ${useAprDay ? `${useAprYear}년 (${buildingAge}년 경과)` : "확인 필요"} |
 | **구조** | ${structure} |
 | **매각가** | ${priceStr} |
 
-> 본 매물은 ${areaStr} 핵심 입지의 안정적인 수익형 자산입니다.`;
+> 본 매물은 ${areaStr} 핵심 입지의 안정적인 수익형 자산입니다.${photoGallery}${fallbackWarning}`;
     }
 
     // ─── 섹션 2: 입지·상권 ──────────────────────────────────────────────────
@@ -519,6 +610,15 @@ ${infra}
         return `> 🔒 **임대차 상세 현황 자료가 아직 확보되지 않았습니다.**\n>\n> 담당 브로커에게 문의하시면 임대 현황 자료를 제공해 드립니다.`;
       }
 
+      let rentRollTable = "";
+      const tenants = (buildingSsotLite?.lease_summary as any)?.tenants || [];
+      const hasTenants = Array.isArray(tenants) && tenants.length > 0;
+      
+      if (hasTenants) {
+        rentRollTable = `\n### 층별 임대 현황\n| 층수 | 업종 | 전용면적 | 보증금 | 월 임대료 | 만기일 |\n|------|------|----------|--------|--------|--------|\n` +
+          tenants.map(t => `| ${t.floor || "-"} | ${t.tenant_type === 'vacant' ? '공실' : (t.tenant_type === 'office' ? '오피스' : t.tenant_type === 'retail' ? '리테일' : t.tenant_type === 'food' ? 'F&B' : t.tenant_type || "-")} | ${t.area_pyeong ? `${t.area_pyeong}평` : (t.area_sqm ? `${t.area_sqm}㎡` : "-")} | ${t.deposit_manwon ? `${t.deposit_manwon}만원` : (t.deposit ? `${(t.deposit/10000).toLocaleString()}억` : "-")} | ${t.rent_manwon ? `${t.rent_manwon}만원` : (t.monthly_rent ? `${(t.monthly_rent/10000).toLocaleString()}만` : "-")} | ${t.lease_end || t.contract_end || "-"} |`).join("\n");
+      }
+
       return `현재 **${vacancy || "임대 운영 중"}** 상태입니다.${currentUse ? ` ${currentUse}` : ""}
 
 ### 임대 구성 요약
@@ -528,8 +628,8 @@ ${infra}
 | **월 임대료 합계** | ${monthlyRent > 0 ? `약 ${(monthlyRent / 10000).toFixed(0)}만 원/월 (추정)` : "확인 필요"} |
 | **연 임대 수입** | ${annualRent > 0 ? `약 ${(annualRent / 100000000).toFixed(1)}억 원/년 (추정)` : "확인 필요"} |
 | **임차인 정보** | NDA 체결 후 공개 |
-
-> ⚠️ 임차인명 및 호실별 임대료는 공개 제한 사항으로 실사 단계에서 공개됩니다.`;
+${rentRollTable}
+> ⚠️ 임차인명 및 상세 정보는 개인정보 보호를 위해 비공개 처리되었습니다.`;
     }
 
     // ─── 섹션 4: 수익 분석 ──────────────────────────────────────────────────
@@ -552,8 +652,14 @@ ${infra}
             landPricePerSqm:  landPricePerSqm || undefined,
             totalAreaSqm:     totalAreaForGuardFromExternal(externalData) || undefined,
             assetType:        String(assetIdentity.asset_type ?? ""),
+            totalDepositManwon: supplemental.total_deposit_manwon,
+            mgmtFeeTotalManwon: supplemental.mgmt_fee_total_manwon,
+            loanAmountManwon: supplemental.loan_amount_manwon,
           });
           let finMd = formatFinancialsMarkdown(fin);
+          if (supplemental.asking_price_manwon) {
+            finMd += `\n| **매매 호가** | **${(supplemental.asking_price_manwon / 10000).toLocaleString()}억 원** | 브로커 제공 |`;
+          }
           if (landPricePerSqm > 0) {
             finMd += `\n| **공시지가** | ㎡당 ${landPricePerSqm.toLocaleString()}원 (평당 ${pricePerPyeong.toLocaleString()}원) | ${lp?.baseYear || "2025"}년 기준 |`;
           }
@@ -598,7 +704,7 @@ ${tableRows}
       const vlRat      = br?.vlRat         || 0;
       const bcMax      = lu?.buildingCoverageMax || 60;
       const vlMax      = lu?.floorAreaRatioMax   || 800;
-      const overlap    = lu?.zoningOverlap?.join(", ") || "방화지구";
+      const overlap    = lu?.zoningOverlap?.join(", ") || "";
       const vlRemainder = vlMax - vlRat;
       const cautionSummary = String(buyerFit.caution_summary ?? "");
 
@@ -618,7 +724,7 @@ ${bcRat > 0
 
 ### 임대차·권리관계
 - 🔶 **임대차계약서 원본 확인**: 갱신 조건, 조기 해지 위약금, 임대료 증액 조항
-- 🔵 **근저당·가압류 여부**: 등기부등본 최신 확인 필수
+- ${externalData?.registryData?.encumbranceRisk === 'unavailable' ? `⚠️ **등기부등본 미확인**: ${externalData.registryData.displayMessage}` : `🔵 **근저당·가압류 여부**: 등기부등본 최신 확인 필수`}
 
 > 🔶 우선 확인 | 🔵 일반 확인 | 공법 규제 세부 내용은 관할 관청 및 전문가 확인이 필요합니다.`;
     }

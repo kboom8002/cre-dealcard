@@ -37,7 +37,7 @@ export interface AddressComponents {
 
 // ── 하드코딩 폴백 매핑 (API 미연결 시 데모용) ────────────────────────────
 
-const FALLBACK_DONG_MAP: Record<string, { sigunguCd: string; bjdongCd: string }> = {
+export const FALLBACK_DONG_MAP: Record<string, { sigunguCd: string; bjdongCd: string }> = {
   "역삼":   { sigunguCd: "11680", bjdongCd: "10100" },
   "삼성":   { sigunguCd: "11680", bjdongCd: "10200" },
   "대치":   { sigunguCd: "11680", bjdongCd: "10300" },

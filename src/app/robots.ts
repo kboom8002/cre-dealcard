@@ -8,7 +8,7 @@
 import type { MetadataRoute } from "next";
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://dealcard.kr";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://credeal.net";
 
 export default function robots(): MetadataRoute.Robots {
   return {

@@ -140,6 +140,7 @@ function getFieldLabel(field: string): string {
     readiness_score: '준비도 점수',
     buyer_intent_lite_id: '매수자 의향서 ID',
     match_grade: '매칭 등급 (S/A/B)',
+    meeting_schedule: '미팅/임장 일정 (YYYY-MM-DD HH:MM)',
     buyer_reaction: '매수자 미팅 반응',
     price_gap: '가격 차이 (호가 vs 희망가)',
     agreed_price: '제안/합의 가격',

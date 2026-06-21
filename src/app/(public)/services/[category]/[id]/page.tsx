@@ -82,7 +82,7 @@ export default async function ServiceCardDetailPage({ params }: { params: Params
   const vendor = card.vendor_profiles;
   const tierLabel = vendor.vendor_tier === "premium" ? "Premium" : vendor.vendor_tier === "pro" ? "Pro" : null;
 
-  const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dealcard.kr";
+  const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
 
   function renderStars(rating: number | null) {
     if (!rating) return "평점 없음";

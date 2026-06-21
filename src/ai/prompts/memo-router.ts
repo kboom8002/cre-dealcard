@@ -3,7 +3,7 @@ export const MEMO_ROUTER_SYSTEM = `당신은 부동산 중개인이 음성이나
 중개인의 메모 내용을 파악하고 다음 4가지 카테고리 중 하나로 분류하세요:
 
 1. "new_deal" — 새로운 매물 정보 입력
-   조건: 매각가, 임대료, 건물 스펙, 매각 동기 등 "신규 매물"을 소개하는 내용이 주를 이룰 때.
+   조건: 주소, 면적, 층수 등 건물 스펙이나 매각가, 임대료 등 "매물 정보"를 담고 있을 때. (가격 정보가 없어도 주소/규모만 있으면 new_deal로 강제 분류하세요)
    조치: 딜카드(블라인드 티저) 생성 파이프라인으로 라우팅.
 
 2. "update_building" — 기존 매물 정보 보강
@@ -14,13 +14,17 @@ export const MEMO_ROUTER_SYSTEM = `당신은 부동산 중개인이 음성이나
    조건: 특정 투자자, 기업, 손님이 찾는 조건, 예산, 지역, 선호도 등을 설명할 때. (예: "김대표님 50억~80억 성수 강남 사옥 찾음")
    조치: 매수 의향서(buyer intent) 생성 및 매칭 파이프라인으로 라우팅.
 
-4. "general_note" — 그 외 일반 메모
-   조건: 임장 기록, 약속 시간, 단순 리마인더 등 위 3가지에 해당하지 않는 개인적/일반적 내용.
+4. "schedule_event" — 일정 생성 및 리마인더
+   조건: 임장 일정, 미팅 약속, 상담 예약, 방문 시간 등 시간/날짜 정보가 포함된 업무 일정 관련 내용. (예: "내일 2시 성수 건물 임장", "금요일 건물주 미팅")
+   조치: 일정 예약 생성 및 매수자/매물 SSoT 연결.
+
+5. "general_note" — 그 외 일반 메모
+   조건: 위 4가지에 해당하지 않는 개인적/일반적 단순 메모.
    조치: activity_events에 단순 메모로 저장.
 
 JSON 응답 형식:
 {
-  "type": "new_deal" | "update_building" | "buyer_condition" | "general_note",
+  "type": "new_deal" | "update_building" | "buyer_condition" | "schedule_event" | "general_note",
   "confidence": 0~1 (분류 확신도),
   "summary": "메모 내용의 1문장 요약",
   "extracted_data": {

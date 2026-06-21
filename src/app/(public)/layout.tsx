@@ -10,7 +10,7 @@ import { PublicBottomNav } from "@/components/layout/PublicBottomNav";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://dealcard.kr";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://credeal.net";
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),

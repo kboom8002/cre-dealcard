@@ -2,6 +2,8 @@
 // 모바일 IM용 고급 재무 계산 엔진.
 // NOI · Cap Rate · IRR(5년) · 평당가 · 대지가치비중 · Gross Yield 산출.
 
+import { generateDCFSensitivity, calculateWACC, calculateIRR, type DCFOutputs } from "./dcf-sensitivity";
+
 export interface FinancialInputs {
   monthlyRentKrw: number;
   purchasePriceKrw: number;
@@ -21,6 +23,9 @@ export interface FinancialInputs {
   platAreaSqm?: number;
   /** 자산 유형 — 한국어 포함 */
   assetType?: string;
+  totalDepositManwon?: number;
+  mgmtFeeTotalManwon?: number;
+  loanAmountManwon?: number;
 }
 
 export interface FinancialOutputs {
@@ -31,6 +36,12 @@ export interface FinancialOutputs {
   pricePerPyeong: number | null;
   landValueRatio: number | null;
   yieldOnCost: number | null;
+  totalDepositBil: number | null;
+  loanAmountBil: number | null;
+  equityRequired: number | null;
+  leveragedYield: number | null;
+  dcf10Year: DCFOutputs | null;
+  wacc: number | null;
   disclaimer: string;
 }
 
@@ -49,32 +60,7 @@ function getOpexRatio(assetType?: string): number {
   return 0.18;
 }
 
-/**
- * Newton-Raphson 반복법으로 IRR을 근사 계산
- * cash_flows = [-price, NOI_y1, NOI_y2, ..., NOI_yn + exit_value]
- * @returns IRR in percentage (e.g. 8.5 for 8.5%), or null if diverged
- */
-function calculateIRR(cashFlows: number[]): number | null {
-  let rate = 0.08; // 초기 추정치 8%
-  for (let iter = 0; iter < 150; iter++) {
-    let npv = 0;
-    let dnpv = 0;
-    for (let t = 0; t < cashFlows.length; t++) {
-      const pv = cashFlows[t] / Math.pow(1 + rate, t);
-      npv += pv;
-      dnpv -= (t * pv) / (1 + rate);
-    }
-    if (Math.abs(npv) < 1) {
-      // 소수점 1자리 %
-      return Math.round(rate * 1000) / 10;
-    }
-    if (Math.abs(dnpv) < 0.001) break;
-    const next = rate - npv / dnpv;
-    if (next < -0.99 || next > 20) return null; // 발산
-    rate = next;
-  }
-  return null;
-}
+// calculateIRR is imported from dcf-sensitivity.ts (DRY — B-6 수정)
 
 /**
  * 고급 재무 지표를 계산합니다.
@@ -91,6 +77,9 @@ export function calculateFinancials(inputs: FinancialInputs): FinancialOutputs {
     totalAreaSqm,
     platAreaSqm,
     assetType,
+    totalDepositManwon,
+    mgmtFeeTotalManwon,
+    loanAmountManwon,
   } = inputs;
 
   const opexRatio = inputs.opexRatioPct != null
@@ -99,15 +88,22 @@ export function calculateFinancials(inputs: FinancialInputs): FinancialOutputs {
   const vacancyRate = vacancyRatePct / 100;
   const rentGrowth = rentGrowthPctPerYear / 100;
 
+  // 관리비를 연간 운영비에 반영 (만원 → 원)
+  const annualMgmtFee = (mgmtFeeTotalManwon ?? 0) * 10000 * 12;
+
   const annualGross = monthlyRentKrw * 12;
 
-  // NOI 시나리오 (80% 신뢰구간)
-  // 최적: 공실 0%, 운영비 -2pp
-  // 기본: 입력 공실률, 기본 운영비
-  // 최악: 공실 최대 20%, 운영비 +3pp
-  const noiBest  = annualGross * 1.0 * (1 - Math.max(0, opexRatio - 0.02));
-  const noiBase  = annualGross * (1 - vacancyRate) * (1 - opexRatio);
-  const noiWorst = annualGross * (1 - Math.min(0.20, vacancyRate * 2)) * (1 - (opexRatio + 0.03));
+  // 관리비가 입력된 경우, opex 대신 실제 관리비 사용
+  const effectiveOpex = annualMgmtFee > 0
+    ? annualMgmtFee
+    : annualGross * opexRatio;
+  const effectiveOpexHigh = annualMgmtFee > 0
+    ? annualMgmtFee * 1.15  // 관리비 15% 증가 시나리오
+    : annualGross * (opexRatio + 0.03);
+
+  const noiBest  = annualGross - (annualMgmtFee > 0 ? annualMgmtFee * 0.9 : annualGross * Math.max(0, opexRatio - 0.02));
+  const noiBase  = annualGross * (1 - vacancyRate) - effectiveOpex;
+  const noiWorst = annualGross * (1 - Math.min(0.20, vacancyRate * 2)) - effectiveOpexHigh;
 
   // Cap Rate
   let capRate: { best: number; base: number; worst: number } | null = null;
@@ -122,7 +118,8 @@ export function calculateFinancials(inputs: FinancialInputs): FinancialOutputs {
   // 5년 IRR (진입 Cap Rate로 매각가 추정)
   let irr5Year: { best: number; base: number; worst: number } | null = null;
   if (purchasePriceKrw > 0 && noiBase > 0) {
-    const exitCapRate = capRate ? capRate.base / 100 : 0.035;
+    // Exit cap rate: entry cap + 50bp spread (시장 관행 반영)
+    const exitCapRate = capRate ? (capRate.base + 0.5) / 100 : 0.04;
     const buildCFs = (startNoi: number, growth: number): number[] => {
       const cfs = [-purchasePriceKrw];
       for (let y = 1; y <= holdYears; y++) {
@@ -152,16 +149,53 @@ export function calculateFinancials(inputs: FinancialInputs): FinancialOutputs {
   const pricePerPyeong = pricePerSqm ? Math.round(pricePerSqm * 3.30578) : null;
 
   // 대지 가치 비중 (공시지가 × 대지면적 / 매매가)
-  // BUG FIX: totalAreaSqm(건물 연면적)이 아닌 platAreaSqm(대지면적) 사용
-  const effectiveLandArea = platAreaSqm ?? totalAreaSqm;
-  const landValueRatio = (landPricePerSqm && effectiveLandArea && purchasePriceKrw > 0)
-    ? parseFloat(((landPricePerSqm * effectiveLandArea / purchasePriceKrw) * 100).toFixed(1))
+  // platAreaSqm(대지면적)이 없으면 산정 불가 (연면적으로 폴백 시 과대산정 방지)
+  const landPriceTotal = platAreaSqm && landPricePerSqm
+    ? platAreaSqm * landPricePerSqm
+    : 0;
+  const landValueRatio = (purchasePriceKrw > 0 && landPriceTotal > 0 && platAreaSqm)
+    ? parseFloat(((landPriceTotal / purchasePriceKrw) * 100).toFixed(1))
     : null;
 
   // 총 수익률 (Gross Yield)
   const yieldOnCost = (purchasePriceKrw > 0 && monthlyRentKrw > 0)
     ? parseFloat(((annualGross / purchasePriceKrw) * 100).toFixed(2))
     : null;
+
+  // 보증금/융자 기반 레버리지 분석
+  const depositKrw = (totalDepositManwon ?? 0) * 10000;
+  const loanKrw = (loanAmountManwon ?? 0) * 10000;
+  const totalDepositBil = depositKrw > 0 ? parseFloat((depositKrw / 1e8).toFixed(1)) : null;
+  const loanAmountBil = loanKrw > 0 ? parseFloat((loanKrw / 1e8).toFixed(1)) : null;
+  const equityKrw = purchasePriceKrw - depositKrw - loanKrw;
+  const equityRequired = equityKrw > 0 ? parseFloat((equityKrw / 1e8).toFixed(1)) : null;
+  const leveragedYield = (equityKrw > 0 && noiBase > 0)
+    ? parseFloat(((noiBase / equityKrw) * 100).toFixed(2))
+    : null;
+
+  // WACC 산출 (자기자본비용 8%, 타인자본비용 5%, 법인세 22% 가정)
+  // B-9 수정: debtRatio가 1을 초과하지 않도록 클램핑 (과도 레버리지 방어)
+  let wacc: number | null = null;
+  const rawDebtRatio = purchasePriceKrw > 0 ? (loanKrw + depositKrw) / purchasePriceKrw : 0;
+  const debtRatio = Math.min(Math.max(rawDebtRatio, 0), 1);
+  const equityRatio = Math.max(1 - debtRatio, 0);
+  if (purchasePriceKrw > 0) {
+    wacc = calculateWACC(equityRatio, 0.08, debtRatio, 0.05, 0.22);
+  }
+
+  // 10년 DCF 모델과 민감도 분석
+  let dcf10Year: DCFOutputs | null = null;
+  if (purchasePriceKrw > 0 && noiBase > 0 && wacc !== null) {
+    const exitCapRate = capRate ? (capRate.base + 0.5) / 100 : 0.045;
+    dcf10Year = generateDCFSensitivity({
+      purchasePriceKrw,
+      initialNoiKrw: noiBase,
+      holdYears: 10,
+      rentGrowthRate: rentGrowth,
+      baseExitCapRate: exitCapRate,
+      baseDiscountRate: wacc,
+    });
+  }
 
   return {
     annualNoi: {
@@ -175,6 +209,12 @@ export function calculateFinancials(inputs: FinancialInputs): FinancialOutputs {
     pricePerPyeong,
     landValueRatio,
     yieldOnCost,
+    totalDepositBil,
+    loanAmountBil,
+    equityRequired,
+    leveragedYield,
+    dcf10Year,
+    wacc,
     disclaimer: 'AI 추정값 (참고용). 실제 수익은 임대차 조건·공실률·세금에 따라 상이합니다.',
   };
 }
@@ -204,6 +244,24 @@ export function formatFinancialsMarkdown(f: FinancialOutputs): string {
   }
   if (f.landValueRatio !== null) {
     rows.push(`| **대지 지분 가치 비중** | **${f.landValueRatio}%** | 하방 경직성 지표 |`);
+  }
+  if (f.totalDepositBil !== null) {
+    rows.push(`| **보증금 합계** | **${f.totalDepositBil}억 원** | 브로커 제공 |`);
+  }
+  if (f.loanAmountBil !== null) {
+    rows.push(`| **융자(채권최고액)** | **${f.loanAmountBil}억 원** | 브로커 제공 |`);
+  }
+  if (f.equityRequired !== null) {
+    rows.push(`| **자기자본 소요 추정** | **약 ${f.equityRequired}억 원** | AI 추정 |`);
+  }
+  if (f.wacc !== null) {
+    rows.push(`| **추정 WACC(자본비용)** | **${pct(f.wacc * 100)}** | LTV 반영 |`);
+  }
+  if (f.dcf10Year) {
+    rows.push(`| **10년 DCF (NPV)** | **${f.dcf10Year.npvBase > 0 ? '+' : ''}${bil(f.dcf10Year.npvBase)}** | 기준 시나리오 |`);
+  }
+  if (f.leveragedYield !== null) {
+    rows.push(`| **레버리지 수익률** | **${f.leveragedYield}%** | NOI/자기자본, AI 추정 |`);
   }
 
   if (rows.length === 0) return '';

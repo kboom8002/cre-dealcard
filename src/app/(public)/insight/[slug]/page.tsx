@@ -84,7 +84,7 @@ export default async function InsightDetailPage({ params }: { params: Params }) 
   const typeDef = OITICLE_TYPES[oiticle.oiticle_type as OiticleTypeCode];
   const authorMeta = AUTHOR_TYPE_META[oiticle.author_type as OiticleAuthorType];
 
-  const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dealcard.kr";
+  const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
 
   const schemaData = {
     "@context": "https://schema.org",

@@ -56,7 +56,7 @@ export const BRIDGE_CONTRACTS: BridgeTransition[] = [
   {
     from: 'im_created',
     to: 'buyer_meeting',
-    requiredFields: ['buyer_intent_lite_id', 'match_grade'],
+    requiredFields: ['buyer_intent_lite_id', 'match_grade', 'meeting_schedule'],
     holdWarningDays: 14,
   },
   {

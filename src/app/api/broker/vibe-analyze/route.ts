@@ -51,6 +51,24 @@ async function analyzeWithGemini(photoUrl: string): Promise<Vibe7D> {
   }
 
   try {
+    let base64 = "";
+    let mimeType = "image/jpeg";
+    
+    try {
+      const imgRes = await fetch(photoUrl);
+      if (imgRes.ok) {
+        const buffer = await imgRes.arrayBuffer();
+        base64 = Buffer.from(buffer).toString('base64');
+        mimeType = imgRes.headers.get("content-type") || "image/jpeg";
+      }
+    } catch (e) {
+      console.warn("[vibe-analyze] Failed to fetch image:", e);
+    }
+
+    if (!base64) {
+      return fallbackVibeFromUrl(photoUrl);
+    }
+
     const model = "gemini-2.5-flash-preview-05-20";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
@@ -63,12 +81,13 @@ async function analyzeWithGemini(photoUrl: string): Promise<Vibe7D> {
             parts: [
               { text: GEMINI_PROMPT },
               {
-                inline_data: undefined,
-                file_data: undefined,
-                // Use image_url for URL-based images
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64
+                }
               },
               {
-                text: `Image URL: ${photoUrl}\nPlease analyze this person's photo. If you cannot access the URL, infer a reasonable professional vibe.`,
+                text: `Please analyze this person's photo.`,
               },
             ],
           },

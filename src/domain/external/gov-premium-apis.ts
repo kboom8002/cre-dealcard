@@ -1,22 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { xmlText, xmlAll } from "@/lib/utils/xml-parser";
+import { fetchLandPrice } from "@/lib/external/land-price-api";
 
 // ─── 환경변수 ───────────────────────────────────────────────────────────────────
 const MOLIT_API_KEY = process.env.MOLIT_API_KEY || process.env.DATA_GO_KR_API_KEY || "";
 const SEMAS_API_KEY = process.env.SEMAS_API_KEY || process.env.DATA_GO_KR_API_KEY || "";
 const ENERGY_API_KEY = process.env.ENERGY_API_KEY || process.env.DATA_GO_KR_API_KEY || "";
-
-// ─── XML 파싱 헬퍼 ──────────────────────────────────────────────────────────────
-function xmlText(xml: string, tag: string): string {
-  const m = xml.match(new RegExp(`<${tag}[^>]*>([^<]*)<\/${tag}>`));
-  return m ? m[1].trim() : "";
-}
-function xmlAll(xml: string, tag: string): string[] {
-  const re = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\/${tag}>`, "g");
-  const results: string[] = [];
-  let m;
-  while ((m = re.exec(xml)) !== null) results.push(m[1]);
-  return results;
-}
 
 // ─── 권역별 법정동 코드 ─────────────────────────────────────────────────────────
 const REGION_LAWD: Record<string, string[]> = {
@@ -241,27 +230,8 @@ export async function fetchCommercialDistrict(supabase: SupabaseClient, district
 // ─── A6: 개별공시지가 API (국토부) ─────────────────────────────────────────────
 // https://apis.data.go.kr/1611000/nsdi/EnsIdvLandPriceService/wgs84/getEnsIdvLandPriceInfos
 export async function fetchOfficialLandPrice(supabase: SupabaseClient, pnu: string, year: number): Promise<any> {
-  const fallbackPrices: Record<string, number> = {
-    "1168010100101230045": 34200000, // GBD
-    "1120011400100450012": 8800000,  // 성수
-    "1156011000100340001": 18500000, // 여의도
-  };
-
-  let pricePerSqm = fallbackPrices[pnu] || 10000000;
-
-  if (MOLIT_API_KEY) {
-    try {
-      const url = `https://apis.data.go.kr/1611000/nsdi/EnsIdvLandPriceService/wgs84/getEnsIdvLandPriceInfos?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&pnu=${pnu}&ldDongCode=${pnu.slice(0, 10)}&pageNo=1&numOfRows=1`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      if (res.ok) {
-        const xml = await res.text();
-        const priceStr = xmlText(xml, "pblntfPclnd");
-        if (priceStr) pricePerSqm = parseInt(priceStr.replace(/,/g, ""), 10);
-      }
-    } catch (err) {
-      console.warn(`[LandPrice] PNU ${pnu}/${year} failed:`, err);
-    }
-  }
+  const result = await fetchLandPrice(pnu);
+  const pricePerSqm = result?.pricePerSqm ?? 10000000;
 
   const price = { pnu, year, price_per_sqm: pricePerSqm };
   const { data, error } = await supabase.from("official_land_prices").upsert(price, { onConflict: "pnu,year" }).select().single();

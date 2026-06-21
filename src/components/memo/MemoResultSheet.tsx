@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Search, Edit3, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Building2, Search, Edit3, ArrowRight, CheckCircle2, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MemoRouterOutput } from "@/ai/agents/memo-router-agent";
 import { useRouter } from "next/navigation";
@@ -29,6 +29,9 @@ export function MemoResultSheet({ result, originalText, onClose }: MemoResultShe
         // In a real app, we might search for the building or route to an update page.
         // For now, route to dashboard or building list.
         router.push("/broker");
+        break;
+      case "schedule_event":
+        router.push("/broker/schedule");
         break;
       case "general_note":
       default:
@@ -71,6 +74,13 @@ export function MemoResultSheet({ result, originalText, onClose }: MemoResultShe
       color: "bg-slate-50 text-slate-700 border-slate-200",
       buttonText: "닫기",
     },
+    schedule_event: {
+      title: "일정이 감지되었습니다",
+      desc: "임장 또는 미팅 일정을 확인하고 예약으로 확정하세요.",
+      icon: <Calendar className="w-8 h-8 text-amber-500" />,
+      color: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30",
+      buttonText: "예약 생성하기",
+    },
   }[result.type];
 
   return (
@@ -99,7 +109,7 @@ export function MemoResultSheet({ result, originalText, onClose }: MemoResultShe
         </Button>
         <Button className="flex-1 text-xs" onClick={handleAction}>
           {config.buttonText}
-          {(result.type === "new_deal" || result.type === "buyer_condition") && (
+          {(result.type === "new_deal" || result.type === "buyer_condition" || result.type === "schedule_event") && (
             <ArrowRight className="w-3 h-3 ml-1" />
           )}
         </Button>

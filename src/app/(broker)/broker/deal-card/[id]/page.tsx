@@ -11,12 +11,34 @@ import { DealCardPipelineContainer } from "./DealCardPipelineContainer";
 import { IdealBuyerPersonaSection } from "./ideal-buyer-persona-section";
 import { KakaoShareButton } from "./kakao-share-button";
 import { CreateMobileImButton } from "./create-mobile-im-button";
+import { BlindTeaserPreviewSection } from "./BlindTeaserPreviewSection";
+import { ScheduleSection } from "./ScheduleSection";
 
 
-export const metadata: Metadata = {
-  title: "딜카드 결과 | JS 1분 딜카드",
-  description: "생성된 블라인드 딜카드를 확인하세요.",
-};
+export async function generateMetadata({ params }: DealCardResultPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const supabase = createServiceClient();
+  const { data: building } = await supabase
+    .from("building_ssot_lite")
+    .select("area_signal, asset_type, price_band")
+    .eq("id", id)
+    .single();
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
+  const title = building
+    ? `${building.area_signal} ${building.asset_type} ${building.price_band ?? ""} 딜카드`
+    : "딜카드 결과";
+
+  return {
+    title: `${title} | DealCard`,
+    description: "AI 기반 블라인드 딜카드 — 상업용 부동산 투자 기회",
+    openGraph: {
+      title,
+      description: "AI가 분석한 상업용 부동산 딜카드",
+      images: [{ url: `${siteUrl}/api/og/deal/${id}`, width: 1200, height: 630 }],
+    },
+  };
+}
 
 interface DealCardResultPageProps {
   params: Promise<{ id: string }>;
@@ -202,60 +224,13 @@ export default async function BrokerDealCardResultPage({
         )}
 
         {/* Blind Teaser Preview */}
-        <div className="rounded-xl border-2 border-primary/20 bg-card p-5 space-y-4">
-          <div className="flex items-center gap-2 text-xs text-primary font-medium">
-            <span className="inline-block w-2 h-2 rounded-full bg-primary" />
-            블라인드 티저 미리보기
-          </div>
-          <h3 className="text-lg font-bold">{title}</h3>
-          {shortSummary && (
-            <p className="text-sm text-muted-foreground">{shortSummary}</p>
-          )}
-
-          {/* Deal Points */}
-          {dealPoints.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-success">딜 포인트</p>
-              <ul className="space-y-1">
-                {dealPoints.map((p, i) => (
-                  <li key={i} className="text-sm flex gap-2">
-                    <span className="text-muted-foreground">•</span>
-                    <span>{String(p)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Caution Points */}
-          {cautionPoints.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-warning">주의</p>
-              <ul className="space-y-1">
-                {cautionPoints.map((p, i) => (
-                  <li key={i} className="text-sm flex gap-2">
-                    <span className="text-muted-foreground">•</span>
-                    <span>{String(p)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Hidden Info Notice */}
-          {hiddenInfoNotice.length > 0 && (
-            <div className="text-xs text-muted-foreground italic space-y-0.5 pt-1 border-t border-border">
-              {hiddenInfoNotice.map((notice, i) => (
-                <p key={i} className="pt-1">{String(notice)}</p>
-              ))}
-            </div>
-          )}
-
-          {/* Gate Message */}
-          {gateMessage && (
-            <p className="text-xs text-primary/80 pt-1">{gateMessage}</p>
-          )}
-        </div>
+        <BlindTeaserPreviewSection
+          buildingId={id}
+          initialTitle={title}
+          initialSummary={shortSummary}
+          initialDealPoints={dealPoints.map(String)}
+          initialCautionPoints={cautionPoints.map(String)}
+        />
 
         {/* Kakao Message Preview (Editable) */}
         <KakaoPreviewSection
@@ -284,6 +259,9 @@ export default async function BrokerDealCardResultPage({
 
         {/* P0-3: Matched Buyers */}
         <MatchedBuyersSection buildingId={id} />
+
+        {/* Schedule Section */}
+        <ScheduleSection buildingId={id} />
 
         {/* P1-1: Deal Prediction */}
         <DealPredictionSection buildingId={id} />

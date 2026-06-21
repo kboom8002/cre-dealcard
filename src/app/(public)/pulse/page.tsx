@@ -116,7 +116,7 @@ export default async function PulseMainPage({
             "@type": "CollectionPage",
             name: "CRE 시장 인텔리전스",
             description: "상업용 부동산 시장 펄스·인사이트·전문가 기고",
-            url: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://dealcard.kr"}/pulse`,
+            url: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net"}/pulse`,
           }),
         }}
       />

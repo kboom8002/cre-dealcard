@@ -17,6 +17,7 @@ export function KakaoPreviewSection({
   brokerSlug,
 }: KakaoPreviewSectionProps) {
   const [currentText, setCurrentText] = useState(initialText);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     // Check initial
@@ -48,6 +49,17 @@ export function KakaoPreviewSection({
         brokerSlug={brokerSlug} 
         showEditForm 
       />
+      <button
+        onClick={async () => {
+          await navigator.clipboard.writeText(currentText);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }}
+        className="w-full py-2.5 rounded-lg border border-border text-sm font-medium
+                   hover:bg-muted/60 transition-colors flex items-center justify-center gap-2"
+      >
+        {copied ? "✅ 복사 완료!" : "📋 카톡 문구 복사"}
+      </button>
     </div>
   );
 }

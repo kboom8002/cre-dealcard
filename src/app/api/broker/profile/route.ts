@@ -48,6 +48,9 @@ const ProfileUpdateSchema = z.object({
   // GEO
   office_address: z.string().max(200).optional(),
   office_district: z.string().max(20).optional(),
+
+  // Avatar
+  avatar_url: z.string().url().max(1000).optional(),
 });
 
 /** broker_profiles 테이블에서 조회할 v2 확장 컬럼 목록 */
@@ -66,6 +69,8 @@ const BROKER_PROFILE_COLUMNS = [
   'seo_summary', 'is_public',
   // v2 GEO
   'office_address', 'office_district',
+  // Avatar
+  'avatar_url',
 ].join(', ');
 
 /** broker_profiles 테이블에 upsert 할 v2 필드 키 목록 */
@@ -78,6 +83,7 @@ const BROKER_UPSERT_KEYS = [
   'kakao_channel', 'naver_blog_url', 'youtube_url', 'linkedin_url',
   'seo_summary', 'is_public',
   'office_address', 'office_district',
+  'avatar_url',
 ] as const;
 
 export async function GET(req: NextRequest) {

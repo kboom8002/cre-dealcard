@@ -6,6 +6,7 @@ export interface LandUsePlanData {
   zoningOverlap: string[];        // 기타 용도지구 (예: 방화지구)
   buildingCoverageMax: number;    // 법정 건폐율 상한 (%)
   floorAreaRatioMax: number;      // 법정 용적률 상한 (%)
+  _isFallback?: boolean;
 }
 
 export async function fetchLandUsePlan(pnu: string): Promise<LandUsePlanData | null> {
@@ -13,8 +14,9 @@ export async function fetchLandUsePlan(pnu: string): Promise<LandUsePlanData | n
 
   if (apiKey && apiKey !== "") {
     try {
-      const url = `http://apis.data.go.kr/1611000/LandUseInfoService/getLandUseInfoAttr?ServiceKey=${apiKey}&pnu=${pnu}&numOfRows=1&pageNo=1&_type=json`;
+      const url = `https://apis.data.go.kr/1611000/LandUseInfoService/getLandUseInfoAttr?ServiceKey=${apiKey}&pnu=${pnu}&numOfRows=1&pageNo=1&_type=json`;
       const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`);
       const data = await res.json();
 
       const item = data?.response?.body?.items?.item;
@@ -22,14 +24,22 @@ export async function fetchLandUsePlan(pnu: string): Promise<LandUsePlanData | n
 
       if (targetItem) {
         const zoningDistrict = String(targetItem.prposAreaDstrcCodeNm || "일반상업지역");
-        const zoningOverlap = targetItem.etcCodeNm ? [String(targetItem.etcCodeNm)] : ["방화지구"];
+        const zoningOverlap = targetItem.etcCodeNm ? [String(targetItem.etcCodeNm)] : [];
 
-        let buildingCoverageMax = 60;
-        let floorAreaRatioMax = 250;
-        if (zoningDistrict.includes("상업")) { buildingCoverageMax = 60; floorAreaRatioMax = 800; }
-        else if (zoningDistrict.includes("준주거")) { buildingCoverageMax = 60; floorAreaRatioMax = 400; }
-        else if (zoningDistrict.includes("3종")) { buildingCoverageMax = 50; floorAreaRatioMax = 250; }
-        else if (zoningDistrict.includes("2종")) { buildingCoverageMax = 60; floorAreaRatioMax = 200; }
+        // LURIS API: ldCdBldgCovRt (건폐율), ldCdFlrArRt (용적률) 우선, 폴백으로 기존 필드
+        const apiCoverage = parseFloat(targetItem.ldCdBldgCovRt || targetItem.cnflcAt || "0");
+        const apiFloorRatio = parseFloat(targetItem.ldCdFlrArRt || targetItem.flrArRt || "0");
+
+        let buildingCoverageMax = apiCoverage > 0 ? apiCoverage : 60;
+        let floorAreaRatioMax = apiFloorRatio > 0 ? apiFloorRatio : 250;
+
+        // API 값이 없을 때만 용도지역명 기반 폴백
+        if (apiCoverage <= 0 || apiFloorRatio <= 0) {
+          if (zoningDistrict.includes("상업")) { buildingCoverageMax = buildingCoverageMax || 60; floorAreaRatioMax = floorAreaRatioMax || 800; }
+          else if (zoningDistrict.includes("준주거")) { buildingCoverageMax = buildingCoverageMax || 60; floorAreaRatioMax = floorAreaRatioMax || 400; }
+          else if (zoningDistrict.includes("3종")) { buildingCoverageMax = buildingCoverageMax || 50; floorAreaRatioMax = floorAreaRatioMax || 250; }
+          else if (zoningDistrict.includes("2종")) { buildingCoverageMax = buildingCoverageMax || 60; floorAreaRatioMax = floorAreaRatioMax || 200; }
+        }
 
         return { zoningDistrict, zoningOverlap, buildingCoverageMax, floorAreaRatioMax };
       }
@@ -48,6 +58,7 @@ export async function fetchLandUsePlan(pnu: string): Promise<LandUsePlanData | n
       zoningOverlap: ["방화지구", "중심지미관지구"],
       buildingCoverageMax: 60,
       floorAreaRatioMax: 800,
+      _isFallback: true,
     };
   }
   return {
@@ -55,5 +66,6 @@ export async function fetchLandUsePlan(pnu: string): Promise<LandUsePlanData | n
     zoningOverlap: ["시가지경관지구"],
     buildingCoverageMax: 50,
     floorAreaRatioMax: 250,
+    _isFallback: true,
   };
 }

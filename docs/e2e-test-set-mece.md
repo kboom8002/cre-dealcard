@@ -16,7 +16,7 @@ L5. UI/UX            — 컴포넌트 렌더링·인터랙션
 
 ---
 
-## 시스템 1: cre-dealcard (36 테스트)
+## 시스템 1: cre-dealcard (48 테스트)
 
 ### L1. DB 마이그레이션 (7)
 
@@ -29,6 +29,8 @@ L5. UI/UX            — 컴포넌트 렌더링·인터랙션
 | DC-L1-05 | buyer_intent_lite cluster 컬럼 | cluster_id, cluster_label, cluster_updated_at 컬럼 존재 | P1 |
 | DC-L1-06 | deal_casepacks embedding 컬럼 | embedding vector(1536) 컬럼 존재 | P1 |
 | DC-L1-07 | knowledge_edges unique 인덱스 | 중복 엣지 삽입 시 upsert 동작 확인 | P1 |
+| DC-L1-08 | 00052 scheduling 테이블 존재 | availability_slots, bookings 테이블 생성됨 | P0 |
+| DC-L1-09 | bookings booked_by 컨럼 | booked_by (uuid, nullable) 컨럼 존재, proxy booking RLS 허용 | P0 |
 
 ### L2. 도메인 로직 (10)
 
@@ -44,6 +46,11 @@ L5. UI/UX            — 컴포넌트 렌더링·인터랙션
 | DC-L2-08 | K-Means 클러스터링 | buyer-clustering.ts | k=3-6 자동 선택, 실루엣 스코어 > 0 | P1 |
 | DC-L2-09 | 가격 추정 구간 | price-prediction.ts | lower80 < median < upper80, confidence 반환 | P1 |
 | DC-L2-10 | 지식그래프 엣지 생성 | knowledge-graph.ts | matched_with 양방향 엣지, weight 0-1 범위 | P1 |
+| DC-L2-11 | 예약 오케스트레이터 | booking-orchestrator.ts | CAS 패턴 hold → booking 생성, 실패 시 롤백 | P0 |
+| DC-L2-12 | 동시 예약 방어 | booking-orchestrator.ts | 동일 슬롯 2개 요청 시 1개만 성공 (concurrent_booking) | P0 |
+| DC-L2-13 | 도메인별 Hold 타임아웃 | booking-orchestrator.ts | default=24h, wedding=72h, consulting=48h, counseling=30m | P1 |
+| DC-L2-14 | hold-expiry-cron | hold-expiry-cron.ts | 만료된 hold → cancelled, 슬롯 available 복원 | P1 |
+| DC-L2-15 | 카카오 웹훅 시뮬레이션 | kakao-webhook.ts | 이벤트 로깅 + 성공 응답 반환 | P1 |
 
 ### L3. API 엔드포인트 (12)
 
@@ -61,6 +68,8 @@ L5. UI/UX            — 컴포넌트 렌더링·인터랙션
 | DC-L3-10 | 가격 추정 | POST /api/broker/prediction/price | 200 + priceRange.median 반환 | P1 |
 | DC-L3-11 | MOLIT ETL (admin) | POST /api/admin/etl/molit | 403 (비관리자), 200 (관리자) | P2 |
 | DC-L3-12 | 인증 실패 | 모든 broker/* | Authorization 없을 때 401 | P0 |
+| DC-L3-13 | ICS 캘린더 내보내기 | GET /api/broker/schedule/export | 200 + text/calendar + VCALENDAR/VEVENT 포맷 | P1 |
+| DC-L3-14 | ICS 인증 필수 | GET /api/broker/schedule/export | 미인증 시 401 | P0 |
 
 ### L5. UI 컴포넌트 (7)
 
@@ -73,6 +82,11 @@ L5. UI/UX            — 컴포넌트 렌더링·인터랙션
 | DC-L5-05 | ConversionIntelCard 팩터 | ConversionIntelCard | topFactors 표시, +/- 색상 분기 | P2 |
 | DC-L5-06 | ConversionIntelCard 네트워크 | ConversionIntelCard | networkRecommendations 매물 목록 표시 | P2 |
 | DC-L5-07 | ConversionIntelCard 로딩 | ConversionIntelCard | loading 상태 스피너 표시 | P2 |
+| DC-L5-08 | BookingFlow 3단계 | BookingFlow | 날짜→시간→확인 플로우, 데이터 바인딩 | P0 |
+| DC-L5-09 | CalendarPicker 렌더 | CalendarPicker | 가용 날짜 하이라이트, 빈 상태 안내 | P1 |
+| DC-L5-10 | ScheduleSection 위젯 | ScheduleSection | 예약/슬롯 카운트, CTA 링크, 스켈레톤 로딩 | P1 |
+| DC-L5-11 | BrokerScheduleClient | BrokerScheduleClient | 오버뷰 카드, 슬롯 생성 모달, 예약 목록 | P1 |
+| DC-L5-12 | 퍼널 6단계 확장 | FunnelPage | 임장 예약 단계 표시 + 전환율 계산 | P1 |
 
 ---
 
@@ -181,10 +195,10 @@ L5. UI/UX            — 컴포넌트 렌더링·인터랙션
 
 | 우선순위 | 개수 | 설명 |
 |---|---|---|
-| **P0** | 25 | 핵심 플로우 — 실패 시 시스템 사용 불가 |
-| **P1** | 27 | 고도화 기능 — 실패 시 차별화 기능 작동 안 함 |
-| **P2** | 13 | UI 폴리시/부가 기능 — 실패 시 UX 저하 |
-| **합계** | **65** | |
+| **P0** | 29 | 핵심 플로우 — 실패 시 시스템 사용 불가 |
+| **P1** | 33 | 고도화 기능 — 실패 시 차별화 기능 작동 안 함 |
+| **P2** | 15 | UI 폴리시/부가 기능 — 실패 시 UX 저하 |
+| **합계** | **77** | |
 
 ### P0 최우선 실행 테스트 (25개)
 

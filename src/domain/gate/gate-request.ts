@@ -66,6 +66,13 @@ export async function createGateRequest(
     throw new Error(`Gate request 생성에 실패했습니다: ${error?.message}`);
   }
 
+  // Fetch building owner for metadata tracking
+  const { data: bldg } = await supabase
+    .from("building_ssot_lite")
+    .select("owner_id")
+    .eq("id", input.buildingId)
+    .single();
+
   await recordEvent(supabase, {
     actorId: requesterId ?? undefined,
     actorRole: requesterId ? "authenticated" : "anonymous",
@@ -76,6 +83,7 @@ export async function createGateRequest(
       building_id: input.buildingId,
       requested_level: input.requestedLevel,
       requested_fields: input.requestedFields,
+      broker_id: bldg?.owner_id,
     },
   });
 

@@ -7,7 +7,8 @@ import { calculateBrokerMonthlyRoi } from "@/domain/analytics/roi-calculator";
 import { RoiCard } from "@/components/dashboard/RoiCard";
 import { MarketBreakthroughMode } from "@/components/dashboard/AntifragileMode";
 import { WeeklyReportCard } from "@/components/dashboard/WeeklyReportCard";
-import { Bell, TrendingUp, Users, Building2, Target } from "lucide-react";
+import { MonthlyReportCard } from "@/components/dashboard/MonthlyReportCard";
+import { Bell, TrendingUp, Users, Building2, Target, Calendar } from "lucide-react";
 import BrokerDashboardTabs from "@/components/dashboard/BrokerDashboardTabs";
 import MorningIntelligence from "@/components/dashboard/MorningIntelligence";
 import { GreetingHeader } from "@/components/dashboard/GreetingHeader";
@@ -42,6 +43,7 @@ export default async function BrokerPage() {
     roiMetrics,
     marketIndicatorRes,
     activityEventsRes,
+    todayBookingsRes,
   ] = await Promise.all([
     supabase
       .from("building_ssot_lite")
@@ -82,6 +84,23 @@ export default async function BrokerPage() {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(5),
+    supabase
+      .from("bookings")
+      .select(`
+        id,
+        status,
+        requester_id,
+        requester:profiles!bookings_requester_id_fkey(full_name, phone_number),
+        slot:availability_slots!inner(
+          slot_start,
+          slot_end,
+          slot_date,
+          building:building_ssot_lite(id, address, area_signal)
+        )
+      `)
+      .in("status", ["hold", "confirmed"])
+      .eq("slot.slot_date", new Date(new Date().getTime() + 9 * 60 * 60 * 1000).toISOString().split("T")[0])
+      .order("slot.slot_start", { ascending: true })
   ]);
 
   const sMatchCount =
@@ -132,9 +151,10 @@ export default async function BrokerPage() {
         break;
       case "gate_request_reviewed":
         const isApproved = (evt.metadata as any)?.decision === "approved";
-        icon = "📋";
-        text = `Gate 요청 검토 완료: ${isApproved ? "승인" : "거절"}`;
-        href = "/admin/gate-requests";
+        const buildingId = (evt.metadata as any)?.building_id;
+        icon = isApproved ? "📅" : "📋";
+        text = isApproved ? "Gate 승인 완료! 바로 임장 예약하세요" : "Gate 요청 검토 완료: 거절";
+        href = isApproved && buildingId ? `/buildings/${buildingId}/schedule` : "/admin/gate-requests";
         color = isApproved ? "text-emerald-400" : "text-rose-400";
         break;
       case "expert_note_requested":
@@ -148,6 +168,13 @@ export default async function BrokerPage() {
         text = "신규 매수 고객 의향서 등록";
         href = "/broker/buyer-intents";
         color = "text-emerald-400";
+        break;
+      case "deal_card.matched":
+        const grade = (evt.metadata as any)?.grade || 'S';
+        icon = "✨";
+        text = `[${grade}급 매칭] 신규 자동 매칭 발생`;
+        href = "/broker/matching";
+        color = "text-amber-400";
         break;
       case "pipeline_stage_transitioned":
         icon = "📈";
@@ -191,9 +218,43 @@ export default async function BrokerPage() {
     };
   });
 
+  const todayBookings = todayBookingsRes?.data || [];
+
   // Overview Tab Panel Content
   const overviewContent = (
     <div className="space-y-5 animate-fadeIn">
+      {/* ── 오늘의 일정 ── */}
+      {todayBookings.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+              <Calendar className="w-3 h-3" /> 오늘의 일정 ({todayBookings.length}건)
+            </p>
+            <Link href="/broker/schedule" className="text-[10px] text-primary hover:underline">전체 보기</Link>
+          </div>
+          <div className="space-y-2">
+            {todayBookings.map((bk: any) => {
+              const start = new Date(bk.slot.slot_start).toLocaleTimeString("ko-KR", { hour: '2-digit', minute: '2-digit' });
+              return (
+                <Link
+                  key={bk.id}
+                  href={`/broker/deal-card/${bk.slot.building.id}`}
+                  className="flex flex-col gap-1 rounded-xl border border-border bg-card p-3 hover:border-primary/30 transition-all"
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-bold text-white">{start} · {bk.slot.building.address || bk.slot.building.area_signal} 임장</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${bk.status === "confirmed" ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"}`}>
+                      {bk.status === "confirmed" ? "예약 확정" : "승인 대기"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-400">매수자: {(bk.requester as any)?.full_name || "고객"}</p>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── 핵심 KPI 스크롤 카드 ── */}
       <div>
         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">오늘의 주요 지표</p>
@@ -351,7 +412,12 @@ export default async function BrokerPage() {
         <BrokerDashboardTabs
           overviewContent={overviewContent}
           breakthroughContent={<MarketBreakthroughMode {...breakthroughMetrics} />}
-          weeklyReportContent={<WeeklyReportCard />}
+          weeklyReportContent={
+            <div className="space-y-4">
+              <WeeklyReportCard />
+              <MonthlyReportCard />
+            </div>
+          }
           morningIntelligenceContent={<MorningIntelligence />}
         />
 

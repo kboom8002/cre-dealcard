@@ -27,6 +27,7 @@ export default function BrokerDealCardNewPage() {
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [handoffSuccess, setHandoffSuccess] = useState(false);
+  const [createdBuildingId, setCreatedBuildingId] = useState<string | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -101,6 +102,20 @@ export default function BrokerDealCardNewPage() {
       const json = await res.json();
 
       if (!json.ok) {
+        // Quality Gate 실패 시 구체적인 부족 정보 전달
+        if (json.code === "MEMO_QUALITY_INSUFFICIENT" && json.details) {
+          const missing = json.details.missingFields || [];
+          const fieldLabels: Record<string, string> = {
+            location: '📍 위치(지역명, 역명, 주소)',
+            asset_type: '🏢 자산 유형(오피스, 빌딩, 상가 등)',
+            numeric: '💰 가격 또는 면적 수치',
+            deal_type: '📋 거래 유형(매각, 임대 등)',
+          };
+          const missingLabels = missing.map((f: string) => fieldLabels[f] || f).join('\n');
+          throw new Error(
+            `다음 정보가 부족합니다. 메모에 추가해주세요:\n${missingLabels}`
+          );
+        }
         const errorMsg =
           json.error?.message ||
           (typeof json.error === "string" ? json.error : null) ||
@@ -110,7 +125,8 @@ export default function BrokerDealCardNewPage() {
       }
 
       clearInterval(interval);
-      router.push(`/broker/deal-card/${json.data.buildingId}`);
+      setCreatedBuildingId(json.data.buildingId);
+      setIsLoading(false);
     } catch (err) {
       clearInterval(interval);
       setError(
@@ -124,6 +140,37 @@ export default function BrokerDealCardNewPage() {
 
   function handleUseSample() {
     setMemo(SAMPLE_MEMO);
+  }
+
+  if (createdBuildingId) {
+    return (
+      <main className="flex flex-col items-center justify-center min-h-screen px-4 py-12 animate-in fade-in zoom-in duration-500">
+        <div className="w-full max-w-md mx-auto text-center space-y-6 bg-card border rounded-2xl p-8 shadow-xl">
+          <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-200 dark:border-emerald-500/30">
+            <span className="text-3xl">✨</span>
+          </div>
+          <h1 className="text-2xl font-bold text-foreground">딜카드가 생성되었습니다!</h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            이제 매수자가 바로 임장 예약을 할 수 있도록<br />가용 일정을 등록하시겠습니까?
+          </p>
+          <div className="flex gap-3 pt-6">
+            <Button 
+              variant="outline" 
+              className="flex-1"
+              onClick={() => router.push(`/broker/deal-card/${createdBuildingId}`)}
+            >
+              나중에 하기
+            </Button>
+            <Button 
+              className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold"
+              onClick={() => router.push(`/broker/schedule?buildingId=${createdBuildingId}&setup=true`)}
+            >
+              임장 시간 등록하기
+            </Button>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   if (isLoading) {
@@ -257,7 +304,7 @@ export default function BrokerDealCardNewPage() {
 
         {/* Error */}
         {error && (
-          <div className="rounded-xl bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
+          <div className="rounded-xl bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive whitespace-pre-wrap">
             {error}
           </div>
         )}

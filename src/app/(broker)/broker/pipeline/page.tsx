@@ -137,12 +137,46 @@ export default function PipelinePage() {
   return (
     <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-24">
       <div className="w-full max-w-lg mx-auto space-y-5">
-        {/* Header */}
-        <div className="pt-4">
-          <h1 className="text-xl font-bold">딜 파이프라인</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            진행 중 {activeCount}건 · 총 {allDeals.length}건
-          </p>
+        {/* Header & KPI Dashboard */}
+        <div className="pt-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-bold">딜 파이프라인</h1>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-center items-center">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">진행 중인 딜</p>
+              <p className="text-2xl font-bold text-primary">{activeCount}<span className="text-sm font-medium text-muted-foreground ml-1">건</span></p>
+            </div>
+            <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-center items-center">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">총 누적 딜</p>
+              <p className="text-2xl font-bold text-foreground">{allDeals.length}<span className="text-sm font-medium text-muted-foreground ml-1">건</span></p>
+            </div>
+          </div>
+
+          {/* Visual Bar Chart */}
+          {!loading && allDeals.length > 0 && (
+            <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+              <h2 className="text-xs font-bold text-foreground mb-2">단계별 분포</h2>
+              <div className="space-y-2">
+                {stageGroups.filter(s => s.deals.length > 0).map(stage => {
+                  const percentage = Math.max(5, (stage.deals.length / allDeals.length) * 100);
+                  return (
+                    <div key={stage.key} className="flex items-center gap-2">
+                      <div className="w-16 text-[10px] text-muted-foreground truncate">{stage.label}</div>
+                      <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-primary/80 rounded-full transition-all duration-500" 
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                      <div className="w-6 text-right text-[10px] font-bold">{stage.deals.length}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Pipeline Stages */}

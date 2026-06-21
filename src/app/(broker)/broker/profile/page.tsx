@@ -68,6 +68,7 @@ interface ProfileData {
     naver_blog_url: string | null;
     youtube_url: string | null;
     linkedin_url: string | null;
+    avatar_url: string | null;
   } | null;
 }
 
@@ -98,6 +99,7 @@ export default function BrokerProfilePage() {
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
   const [company, setCompany] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
 
   // Section 2: 자격/등록 정보
   const [licenseNumber, setLicenseNumber] = useState('');
@@ -146,8 +148,9 @@ export default function BrokerProfilePage() {
     const hasSocialLink = kakaoChannel.trim() || naverBlogUrl.trim() || youtubeUrl.trim() || linkedinUrl.trim();
     if (hasSocialLink) score += 10;
     if (dealSizeRange) score += 10;
+    if (avatarUrl) score += 10;
     return score;
-  }, [displayName, phone, licenseNumber, careerStartYear, selectedRegions, selectedAssets, totalDealCount, bio, kakaoChannel, naverBlogUrl, youtubeUrl, linkedinUrl, dealSizeRange]);
+  }, [displayName, phone, licenseNumber, careerStartYear, selectedRegions, selectedAssets, totalDealCount, bio, kakaoChannel, naverBlogUrl, youtubeUrl, linkedinUrl, dealSizeRange, avatarUrl]);
 
   const completenessColor =
     completeness < 40 ? 'bg-red-500' : completeness < 70 ? 'bg-amber-500' : 'bg-green-500';
@@ -186,6 +189,7 @@ export default function BrokerProfilePage() {
       setDisplayName(data.display_name ?? '');
       setPhone(data.phone ?? '');
       setCompany(data.company ?? '');
+      setAvatarUrl(data.broker?.avatar_url ?? '');
 
       // Existing tags
       setSelectedRegions(data.broker?.specialty_regions ?? []);
@@ -266,6 +270,7 @@ export default function BrokerProfilePage() {
           naver_blog_url: naverBlogUrl,
           youtube_url: youtubeUrl,
           linkedin_url: linkedinUrl,
+          avatar_url: avatarUrl || null,
         }),
       });
       if (!res.ok) throw new Error('저장에 실패했습니다.');
@@ -339,6 +344,7 @@ export default function BrokerProfilePage() {
             naver_blog_url: naverBlogUrl,
             youtube_url: youtubeUrl,
             linkedin_url: linkedinUrl,
+            avatar_url: avatarUrl || null,
           }),
         });
         setSaved(true);
@@ -480,7 +486,54 @@ export default function BrokerProfilePage() {
         <section className={sectionClass}>
           <h2 className={sectionTitleClass}>기본 정보</h2>
 
-          <div className="space-y-1.5">
+          <div className="flex items-center gap-4 py-2">
+            <div className="relative w-20 h-20 rounded-full bg-muted border overflow-hidden flex-shrink-0 group">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground text-3xl">
+                  👤
+                </div>
+              )}
+              <label className="absolute inset-0 bg-black/50 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+                <span className="text-[10px] font-medium">사진 변경</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    
+                    try {
+                      const res = await fetch("/api/broker/profile/avatar", {
+                        method: "POST",
+                        body: formData,
+                        // Not sending Content-Type since it's FormData
+                      });
+                      const data = await res.json();
+                      if (data.url) {
+                        setAvatarUrl(data.url);
+                      } else {
+                        throw new Error(data.error || "업로드 실패");
+                      }
+                    } catch (err: any) {
+                      setError(err.message);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p>신뢰를 주는 프로필 사진을 등록해보세요.</p>
+              <p className="text-xs">권장: 정방형 500x500 픽셀</p>
+            </div>
+          </div>
+
+          <div className="space-y-1.5 mt-2">
             <label className="block text-sm font-medium">이름</label>
             <input
               type="text"

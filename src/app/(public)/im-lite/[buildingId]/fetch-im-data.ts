@@ -107,13 +107,18 @@ export async function fetchIMData(
           description: "렌트롤, 캐시플로우, 도면 등이 포함된 30페이지 분량의 Full IM은 중개인 승인 후 열람 가능합니다.",
         },
         protectedFieldsRemoved: ["상세 지번", "건물명", "소유주명"],
-        photos: [],
+        photos: (document.body.photo_urls || []).map((url: string, i: number) => ({
+          url,
+          type: i === 0 ? 'exterior' : 'interior',
+          label: i === 0 ? '건물 외관' : `건물 사진 ${i + 1}`,
+        })),
+        coordinates: document.body.coordinates || undefined,
         dataQualityBadge: computeDataQualityBadge({
           hasAddress: !!(document.body.external_data || ssotSummary.address || ssotSummary.raw_address),
           hasPublicData: !!document.body.external_data?.hasPublicData,
           hasMonthlyRent: !!ssotSummary.monthly_rent_total_krw || !!ssotSummary.monthly_rent_total,
           hasVacancy: !!ssotSummary.vacancy_signal || !!ssotSummary.vacancy_pct,
-          hasPhotos: false, // TODO: Load photos from DB
+          hasPhotos: (document.body.photo_urls || []).length > 0,
         }),
       };
     }
@@ -235,7 +240,18 @@ export async function fetchIMData(
       description: "렌트롤, 캐시플로우, 도면 등이 포함된 30페이지 분량의 Full IM은 중개인 승인 후 열람 가능합니다.",
     },
     protectedFieldsRemoved: ssot.disclosure?.guard_checked ? ["상세 지번", "건물명", "소유주명"] : [],
-    photos: layers.photos || [],
+    photos: Array.isArray(layers.photos)
+      ? layers.photos
+          .filter((p: any) => p && typeof p.url === "string")
+          .map((p: any) => ({ url: p.url, type: p.type || "exterior", label: p.label || "건물 사진" }))
+      : [],
     coordinates: layers.coordinates || undefined,
+    dataQualityBadge: computeDataQualityBadge({
+      hasAddress: !!(ssot.layers as any)?.asset_identity?.address || !!(ssot.layers as any)?.asset_identity?.raw_address,
+      hasPublicData: !!(ssot.layers as any)?.public_data,
+      hasMonthlyRent: !!(ssot.layers as any)?.rent_roll?.monthly_rent_total_krw || !!(ssot.layers as any)?.rent_roll?.monthly_rent_total,
+      hasVacancy: !!ssot.vacancy_signal,
+      hasPhotos: Array.isArray(layers.photos) && layers.photos.length > 0,
+    }),
   };
 }

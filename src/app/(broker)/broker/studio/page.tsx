@@ -429,12 +429,37 @@ export default function BrokerStudioPage() {
   // ── Completeness for newsletter ──────────────────
   const newsletterReady = selectedDeals.length > 0 || selectedNews.length > 0;
 
-  // ── News items (curated — later can be fetched from RSS) ──
-  const newsItems = useMemo(() => [
-    { id: "news-1", source: "한경", title: "강남 오피스 공실률 역대 최저... 임대료 상승세", date: "오늘" },
-    { id: "news-2", source: "매경", title: "성수동 IT밸리 꼬마빌딩 거래량 전분기比 30%↑", date: "오늘" },
-    { id: "news-3", source: "조선비즈", title: "판교 R&D센터 투자수익률 6%대 안정 수요", date: "어제" },
-  ], []);
+  const [newsItems, setNewsItems] = useState<Array<{ id: string; source: string; title: string; date: string; url?: string }>>([]);
+
+  useEffect(() => {
+    async function fetchNews() {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from("external_news")
+          .select("id, title, source, url, created_at")
+          .order("created_at", { ascending: false })
+          .limit(5);
+
+        if (data) {
+          setNewsItems(data.map(n => {
+            const diffDays = Math.floor((Date.now() - new Date(n.created_at).getTime()) / 86400000);
+            const dateStr = diffDays === 0 ? "오늘" : diffDays === 1 ? "어제" : `${diffDays}일 전`;
+            return {
+              id: n.id,
+              source: n.source,
+              title: n.title,
+              url: n.url,
+              date: dateStr,
+            };
+          }));
+        }
+      } catch {
+        // Fallback or empty state
+      }
+    }
+    fetchNews();
+  }, []);
 
   // ── Section Header component ─────────────────────
   const SectionHeader = ({ id, emoji, title, badge, badgeColor }: { id: SectionId; emoji: string; title: string; badge?: string; badgeColor?: string }) => (
@@ -572,12 +597,19 @@ export default function BrokerStudioPage() {
                           : "bg-slate-950/50 border-slate-800 active:border-slate-700"
                       }`}
                     >
-                      <span className="truncate">
-                        🗞️ <strong className="text-indigo-400">[{news.source}]</strong> {news.title}
-                      </span>
-                      <span className={`text-[9px] ml-2 flex-shrink-0 ${selectedNews.includes(news.id) ? "text-indigo-400" : "text-slate-600"}`}>
-                        {selectedNews.includes(news.id) ? "✓ 담김" : "추가"}
-                      </span>
+                      <div className="flex items-center justify-between w-full min-w-0">
+                        <div className="flex-1 truncate mr-2 flex items-center gap-1 group">
+                          <span>🗞️ <strong className="text-indigo-400">[{news.source}]</strong> {news.title}</span>
+                          {news.url && (
+                            <a href={news.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-slate-500 hover:text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                              🔗
+                            </a>
+                          )}
+                        </div>
+                        <span className={`text-[9px] flex-shrink-0 ${selectedNews.includes(news.id) ? "text-indigo-400" : "text-slate-600"}`}>
+                          {selectedNews.includes(news.id) ? "✓ 담김" : "추가"}
+                        </span>
+                      </div>
                     </button>
                   ))}
                 </div>

@@ -16,7 +16,7 @@
  */
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://dealcard.kr";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://credeal.net";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 

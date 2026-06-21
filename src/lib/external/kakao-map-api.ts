@@ -15,6 +15,7 @@ export interface LocationPoiData {
     restaurant: number;
     convenience: number;
   };
+  _isFallback?: boolean;
 }
 
 export async function fetchLocationPoi(lat: number, lng: number): Promise<LocationPoiData> {
@@ -39,10 +40,11 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
       }
 
       const counts: Record<string, number> = {
-        subway: stations.length, busStop: 3, cafe: 5, parking: 2, restaurant: 12, convenience: 4,
+        subway: stations.length, busStop: 0, cafe: 0, parking: 0, restaurant: 0, convenience: 0,
       };
 
       const categories = [
+        { key: "busStop", code: "BZ2" },
         { key: "cafe", code: "CE7" },
         { key: "parking", code: "PK6" },
         { key: "restaurant", code: "FD6" },
@@ -78,30 +80,34 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
   }
 
   // DETERMINISTIC FALLBACK (coordinate-based)
-  const isGangnam = Math.abs(lat - 37.50085) < 0.02;
-  const isSamsung = Math.abs(lat - 37.5088) < 0.02;
-  const isSeongsu = Math.abs(lat - 37.5447) < 0.02;
+  const isSeongsu = Math.abs(lat - 37.5447) < 0.01 && Math.abs(lng - 127.0565) < 0.01;
+  const isSamsung = Math.abs(lat - 37.5088) < 0.008 && Math.abs(lng - 127.0630) < 0.008;
+  const isGangnam = Math.abs(lat - 37.4979) < 0.008 && Math.abs(lng - 127.0276) < 0.008;
 
   if (isSeongsu) {
     return {
       nearestStation: { name: "성수역 (2호선)", distanceM: 280, walkMinutes: 4 },
       poiCounts: { subway: 2, busStop: 5, cafe: 22, parking: 4, restaurant: 31, convenience: 9 },
+      _isFallback: true,
     };
   }
   if (isSamsung) {
     return {
       nearestStation: { name: "삼성역 (2호선)", distanceM: 450, walkMinutes: 6 },
       poiCounts: { subway: 1, busStop: 4, cafe: 18, parking: 5, restaurant: 35, convenience: 10 },
+      _isFallback: true,
     };
   }
   if (isGangnam) {
     return {
       nearestStation: { name: "역삼역 (2호선)", distanceM: 320, walkMinutes: 4 },
       poiCounts: { subway: 2, busStop: 6, cafe: 14, parking: 3, restaurant: 28, convenience: 8 },
+      _isFallback: true,
     };
   }
   return {
     nearestStation: { name: "서초역 (2호선)", distanceM: 520, walkMinutes: 7 },
     poiCounts: { subway: 1, busStop: 3, cafe: 8, parking: 2, restaurant: 18, convenience: 5 },
+    _isFallback: true,
   };
 }

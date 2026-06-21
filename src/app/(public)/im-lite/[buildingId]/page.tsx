@@ -21,6 +21,7 @@ interface Props {
 
 // Allow dynamic (non-demo) building IDs to be server-rendered at runtime
 export const dynamicParams = true;
+export const dynamic = 'force-dynamic';
 
 export async function generateStaticParams() {
   return DEMO_BUILDING_IDS.map((id) => ({ buildingId: id }));
@@ -43,7 +44,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
         type: "article",
         images: [
           {
-            url: `/api/og/vibe-card/${data.broker.slug}`,
+            url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.co.kr'}/api/og/deal/${buildingId}`,
             width: 1200,
             height: 630,
           },
@@ -74,5 +75,5 @@ export default async function MobileIMLitePage({ params, searchParams }: Props) 
     notFound();
   }
 
-  return <MobileIMViewer document={data} buildingId={buildingId} />;
+  return <MobileIMViewer document={data} buildingId={buildingId} docId={docId} />;
 }

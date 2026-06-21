@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
 import { MatchStageBreakdown } from '@/components/matching/MatchStageBreakdown';
-import { Share, MessageSquare, Briefcase, User, Sparkles, Building2 } from 'lucide-react';
+import { Share, MessageSquare, Briefcase, User, Sparkles, Building2, Calendar } from 'lucide-react';
 
 interface MatchResult {
   id: string;
@@ -376,10 +376,19 @@ export default function MatchingBoardPage() {
                         <MatchCard key={match.id} match={match} type="buyer" />
                       ))}
 
-                      <div className="pt-2 px-1 pb-1">
+                      <div className="pt-2 px-1 pb-1 flex gap-2">
+                        {group.matches.some(m => m.grade === 'S' || m.grade === 'A') && (
+                          <Link 
+                            href={`/buildings/${group.buildingId}/schedule`}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm transition-colors"
+                          >
+                            <Calendar className="w-3.5 h-3.5" />
+                            바로 임장 잡기
+                          </Link>
+                        )}
                         <Link 
                           href={`/broker/deal-card/${group.buildingId}`}
-                          className="w-full flex items-center justify-center gap-1.5 py-3 rounded-lg bg-zinc-900 dark:bg-white text-zinc-50 dark:text-zinc-900 font-bold text-xs shadow-sm hover:opacity-90 transition-opacity"
+                          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-lg bg-zinc-900 dark:bg-white text-zinc-50 dark:text-zinc-900 font-bold text-xs shadow-sm hover:opacity-90 transition-opacity"
                         >
                           <Share className="w-3.5 h-3.5" />
                           매수자에게 이 딜카드 전송하기
@@ -522,7 +531,12 @@ function MatchCard({ match, type }: { match: MatchResult, type: 'buyer' | 'deal'
             grade={match.grade}
             matchId={match.id}
           />
-          <div className="mt-3 flex justify-end">
+          <div className="mt-3 flex justify-end gap-2">
+             {(match.grade === 'S' || match.grade === 'A') && (
+                <Link href={`/buildings/${match.building_ssot_lite_id}/schedule`} className="text-[10px] px-3 py-1.5 rounded-md bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors flex items-center gap-1">
+                  <Calendar className="w-3 h-3" /> 일정 조율
+                </Link>
+             )}
              {type === 'buyer' ? (
                 <Link href={`/broker/buyer-intents/${match.buyer_intent_lite_id}`} className="text-[10px] px-3 py-1.5 rounded-md bg-zinc-100 dark:bg-zinc-800 font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
                   매수자 프로필 이동 →

@@ -16,7 +16,7 @@ import type { MetadataRoute } from "next";
 import { createServiceClient } from "@/lib/supabase/service";
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://dealcard.kr";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://credeal.net";
 
 /** Canonical Korean CRE region slugs */
 const REGIONS = [

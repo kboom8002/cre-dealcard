@@ -35,6 +35,18 @@ interface ClientDetail {
     summary: string;
     created_at: string;
   }>;
+  bookings: Array<{
+    id: string;
+    status: string;
+    created_at: string;
+    slot: {
+      slot_start: string;
+      building: {
+        id: string;
+        area_signal: string;
+      };
+    };
+  }>;
   created_at: string;
 }
 
@@ -67,6 +79,12 @@ export default function ClientDetailPage() {
   const [curation, setCuration] = useState<any>(null);
   const [curationLoading, setCurationLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Edit states
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const [editContactType, setEditContactType] = useState<string>('note');
+  const [editSummary, setEditSummary] = useState<string>('');
+  const [isEditingContact, setIsEditingContact] = useState(false);
   const [savingContact, setSavingContact] = useState(false);
 
   const fetchClient = useCallback(async () => {
@@ -136,6 +154,47 @@ export default function ClientDetailPage() {
       }
     } finally {
       setSavingContact(false);
+    }
+  };
+
+  const handleEditSubmit = async (contactId: string) => {
+    if (!editSummary.trim()) return;
+    setIsEditingContact(true);
+    try {
+      const res = await fetch(`/api/broker/clients/${params.id}/contacts/${contactId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${await getToken()}`,
+        },
+        body: JSON.stringify({
+          contact_type: editContactType,
+          summary: editSummary.trim(),
+        }),
+      });
+      if (res.ok) {
+        setEditingContactId(null);
+        fetchClient();
+      }
+    } finally {
+      setIsEditingContact(false);
+    }
+  };
+
+  const handleDeleteContact = async (contactId: string) => {
+    if (!confirm('정말 이 연락 이력을 삭제하시겠습니까?')) return;
+    try {
+      const res = await fetch(`/api/broker/clients/${params.id}/contacts/${contactId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${await getToken()}`,
+        },
+      });
+      if (res.ok) {
+        fetchClient();
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -339,6 +398,36 @@ export default function ClientDetailPage() {
           )}
         </section>
 
+        {/* 예약 이력 */}
+        {client.bookings && client.bookings.length > 0 && (
+          <section className="rounded-xl border border-border bg-card p-4 space-y-2">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between">
+              <span>📅 임장/미팅 예약 ({client.bookings.length}건)</span>
+            </h2>
+            <div className="space-y-1.5">
+              {client.bookings.map((booking) => {
+                const date = new Date(booking.slot.slot_start);
+                const dateStr = date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                return (
+                  <div key={booking.id} className="flex flex-col gap-1 rounded-lg bg-muted/50 px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium">{booking.slot.building.area_signal} 임장</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                        booking.status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-500' :
+                        booking.status === 'hold' ? 'bg-amber-500/10 text-amber-500' :
+                        'bg-zinc-500/10 text-zinc-500'
+                      }`}>
+                        {booking.status === 'confirmed' ? '확정' : booking.status === 'hold' ? '대기' : '취소/완료'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">{dateStr}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* 연락 이력 */}
         <section className="rounded-xl border border-border bg-card p-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -393,23 +482,88 @@ export default function ClientDetailPage() {
             <div className="space-y-2">
               {client.contacts.map((c) => {
                 const ct = CONTACT_TYPE_LABELS[c.contact_type] ?? CONTACT_TYPE_LABELS.note;
+                const isEditing = editingContactId === c.id;
+
+                if (isEditing) {
+                  return (
+                    <div key={c.id} className="space-y-2 p-3 bg-muted/30 rounded-lg border border-border">
+                      <div className="flex gap-1.5 flex-wrap">
+                        {Object.entries(CONTACT_TYPE_LABELS).map(([key, { emoji, label }]) => (
+                          <button
+                            key={key}
+                            onClick={() => setEditContactType(key)}
+                            className={`px-2 py-1 rounded-full text-[10px] font-medium border transition-all ${
+                              editContactType === key
+                                ? 'bg-primary/10 text-primary border-primary/40'
+                                : 'bg-background text-muted-foreground border-border'
+                            }`}
+                          >
+                            {emoji} {label}
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        value={editSummary}
+                        onChange={(e) => setEditSummary(e.target.value)}
+                        rows={2}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors resize-none"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={() => setEditingContactId(null)}
+                          className="px-3 py-1.5 rounded-lg text-xs text-muted-foreground hover:bg-muted"
+                        >
+                          취소
+                        </button>
+                        <button
+                          onClick={() => handleEditSubmit(c.id)}
+                          disabled={isEditingContact || !editSummary.trim()}
+                          className="px-3 py-1.5 rounded-lg text-xs bg-primary text-primary-foreground disabled:opacity-60"
+                        >
+                          {isEditingContact ? '저장 중...' : '저장'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
-                  <div key={c.id} className="flex gap-2.5 text-sm">
+                  <div key={c.id} className="flex gap-2.5 text-sm group">
                     <div className="flex flex-col items-center">
                       <span className="text-base">{ct.emoji}</span>
                       <div className="w-px flex-1 bg-border mt-1" />
                     </div>
                     <div className="flex-1 pb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium">{ct.label}</span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {new Date(c.created_at).toLocaleDateString('ko-KR', {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium">{ct.label}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(c.created_at).toLocaleDateString('ko-KR', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => {
+                              setEditingContactId(c.id);
+                              setEditContactType(c.contact_type);
+                              setEditSummary(c.summary || '');
+                            }}
+                            className="text-[10px] text-slate-400 hover:text-primary px-1"
+                          >
+                            수정
+                          </button>
+                          <button
+                            onClick={() => handleDeleteContact(c.id)}
+                            className="text-[10px] text-slate-400 hover:text-rose-400 px-1"
+                          >
+                            삭제
+                          </button>
+                        </div>
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{c.summary}</p>
                     </div>

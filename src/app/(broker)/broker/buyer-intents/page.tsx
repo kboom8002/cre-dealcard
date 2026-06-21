@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "등록된 매수자 조건 | JS 1분 딜카드",
@@ -12,6 +13,9 @@ export const metadata: Metadata = {
  * buyer_intent_lite 테이블의 전체 목록을 조회하여 카드로 표시.
  */
 export default async function BuyerIntentsPage() {
+  const supabaseAuth = await createServerSupabaseClient();
+  const { data: { user } } = await supabaseAuth.auth.getUser();
+
   const supabase = createServiceClient();
 
   const { data: intents } = await supabase
@@ -19,6 +23,7 @@ export default async function BuyerIntentsPage() {
     .select(
       "id, buyer_type, budget_display, budget_min, budget_max, preferred_regions, asset_types, purchase_purpose, risk_tolerance, created_at"
     )
+    .eq("broker_id", user?.id)
     .order("created_at", { ascending: false });
 
   // 각 의향서별 매칭 건수 조회
