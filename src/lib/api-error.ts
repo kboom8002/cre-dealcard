@@ -26,7 +26,7 @@ export class BaseApiError extends Error {
 }
 
 export class AiGenerationError extends BaseApiError {
-  constructor(message = "이번 생성은 완료하지 못했습니다. 입력 내용을 조금 더 추가해 다시 시도해주세요.") {
+  constructor(message = "AI 처리 중 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.") {
     super("AI_GENERATION_FAILED", message, 500);
   }
 }
@@ -107,7 +107,7 @@ export function toApiError(err: unknown): Response {
           error: {
             code: "AI_GENERATION_FAILED",
             message:
-              "이번 생성은 완료하지 못했습니다. 입력 내용을 조금 더 추가해 다시 시도해주세요.",
+              `AI 처리 중 오류가 발생했습니다: ${err.message}. 잠시 후 다시 시도해주세요.`,
           },
         } satisfies ApiError,
         { status: 500 },

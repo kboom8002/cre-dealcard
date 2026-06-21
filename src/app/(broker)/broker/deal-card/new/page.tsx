@@ -99,9 +99,15 @@ export default function BrokerDealCardNewPage() {
         }),
       });
 
-      const json = await res.json();
+      // 서버 응답이 실패인 경우 안전하게 에러 추출
+      let json: any;
+      try {
+        json = await res.json();
+      } catch {
+        throw new Error(`서버 오류가 발생했습니다 (HTTP ${res.status}). 잠시 후 다시 시도해주세요.`);
+      }
 
-      if (!json.ok) {
+      if (!res.ok || !json.ok) {
         // Quality Gate 실패 시 구체적인 부족 정보 전달
         if (json.code === "MEMO_QUALITY_INSUFFICIENT" && json.details) {
           const missing = json.details.missingFields || [];
@@ -120,7 +126,7 @@ export default function BrokerDealCardNewPage() {
           json.error?.message ||
           (typeof json.error === "string" ? json.error : null) ||
           json.message ||
-          "딜카드 생성에 실패했습니다.";
+          "딜카드 생성에 실패했습니다. 잠시 후 다시 시도해주세요.";
         throw new Error(errorMsg);
       }
 
@@ -129,11 +135,13 @@ export default function BrokerDealCardNewPage() {
       setIsLoading(false);
     } catch (err) {
       clearInterval(interval);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "이번 생성은 완료하지 못했습니다.",
-      );
+      let errorMessage = "이번 생성은 완료하지 못했습니다.";
+      if (err instanceof Error && err.message) {
+        errorMessage = err.message;
+      } else if (typeof err === "string") {
+        errorMessage = err;
+      }
+      setError(errorMessage);
       setIsLoading(false);
     }
   }
