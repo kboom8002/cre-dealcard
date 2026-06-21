@@ -29,23 +29,46 @@ export async function GET(
 
   // Fetch building data
   let building: Record<string, string | null> | null = null;
+  let teaser: Record<string, any> | null = null;
   try {
     const supabase = createServiceClient();
-    const { data } = await supabase
+    
+    // Fetch building info
+    const { data: bData } = await supabase
       .from("building_ssot_lite")
       .select("id, area_signal, asset_type, price_band")
       .eq("id", id)
       .single();
-    building = data;
+    building = bData;
+
+    // Fetch teaser document
+    const { data: tData } = await supabase
+      .from("document_objects")
+      .select("body")
+      .eq("building_id", id)
+      .eq("document_type", "blind_teaser")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+      
+    if (tData?.body && typeof tData.body === "object") {
+      teaser = tData.body;
+    }
   } catch {
     // Fall back to generic image
   }
 
   const region = building?.area_signal ?? "서울";
-  const regionLabel =
-    REGION_LABELS[region.toLowerCase()] ?? region;
-  const assetType = building?.asset_type ?? "상업용 부동산";
+  const regionLabel = REGION_LABELS[region.toLowerCase()] ?? region;
   const priceBand = building?.price_band ?? "";
+  
+  // Use teaser title or fallback to assetType
+  const displayTitle = teaser?.title || building?.asset_type || "상업용 부동산";
+  
+  // Use teaser summary or a default
+  const displaySubtitle = teaser?.shortSummary 
+    ? teaser.shortSummary 
+    : `${regionLabel} · ${priceBand || "가격 비공개"} · 투자 검토 가능`;
 
   return new ImageResponse(
     (
@@ -101,18 +124,24 @@ export async function GET(
         </div>
 
         {/* Center: main content */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          <div style={{ fontSize: 52, fontWeight: 700, lineHeight: 1.2, display: "flex" }}>
-            {assetType}
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <div style={{ 
+            fontSize: displayTitle.length > 30 ? 42 : 52, 
+            fontWeight: 700, 
+            lineHeight: 1.3, 
+            display: "flex" 
+          }}>
+            {displayTitle}
           </div>
           <div
             style={{
-              fontSize: 28,
-              color: "rgba(255, 255, 255, 0.7)",
+              fontSize: 26,
+              color: "rgba(255, 255, 255, 0.8)",
               display: "flex",
+              lineHeight: 1.4,
             }}
           >
-            {regionLabel} · {priceBand || "가격 비공개"} · 투자 검토 가능
+            {displaySubtitle}
           </div>
           <div
             style={{
