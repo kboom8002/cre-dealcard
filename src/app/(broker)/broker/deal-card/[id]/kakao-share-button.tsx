@@ -83,38 +83,13 @@ export function KakaoShareButton({
       ? sessionStorage.getItem(`kakao_text_${buildingId}`) || editedText 
       : editedText;
 
-    // 카카오 SDK 사용 가능한 경우
+    // 카카오 SDK 사용 가능한 경우 — sendScrap 방식으로 카카오 서버가 URL의 OG를 크롤링
     if (kakaoReady && window.Kakao?.Share) {
       try {
-        window.Kakao.Share.sendDefault({
-          objectType: "feed",
-          content: {
-            title: `🏢 ${dealTitle}`,
-            description: finalText.slice(0, 120) + (finalText.length > 120 ? "..." : ""),
-            imageUrl: ogImageUrl,
-            imageWidth: 1200,
-            imageHeight: 630,
-            link: {
-              mobileWebUrl: dealUrl,
-              webUrl: dealUrl,
-            },
-          },
-          buttons: [
-            {
-              title: "딜카드 보기",
-              link: {
-                mobileWebUrl: dealUrl,
-                webUrl: dealUrl,
-              },
-            },
-            {
-              title: "브로커 프로필",
-              link: {
-                mobileWebUrl: `${siteUrl}/vibe-card/${brokerSlug ?? "js-realty"}`,
-                webUrl: `${siteUrl}/vibe-card/${brokerSlug ?? "js-realty"}`,
-              },
-            },
-          ],
+        // sendScrap: 카카오 서버가 dealUrl의 OG 메타를 크롤링하여 카드 생성
+        // 타입 선언 충돌 방지를 위해 as any 사용
+        (window.Kakao.Share as any).sendScrap({
+          requestUrl: dealUrl,
         });
         setShared(true);
         setTimeout(() => setShared(false), 3000);

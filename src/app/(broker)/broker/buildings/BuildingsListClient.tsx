@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 
 interface Building {
   id: string;
@@ -398,6 +399,7 @@ export function BuildingsListClient({ initialBuildings }: BuildingsListClientPro
         </div>
       </div>
     )}
+    <BrokerBottomNav />
   </>
   );
 }
