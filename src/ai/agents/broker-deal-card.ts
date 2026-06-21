@@ -88,7 +88,13 @@ export async function runBrokerDealCard(
   
   // Desanitize response before Zod parsing
   const restoredMemoContent = desanitizeOutput(memoResult.content, sanitizationMap);
-  const parsedMemo = MemoParserOutputSchema.parse(JSON.parse(restoredMemoContent));
+  let parsedMemo: MemoParserOutput;
+  try {
+    parsedMemo = MemoParserOutputSchema.parse(JSON.parse(restoredMemoContent));
+  } catch (parseErr) {
+    console.error("[broker-deal-card] MemoParser output parse failed:", parseErr, "\nRaw:", restoredMemoContent.slice(0, 500));
+    throw new Error("AI가 메모를 분석하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+  }
 
   // Step 2: Build Mini Truth using sanitized raw memo
   const truthPrompt = BUILDING_MINI_TRUTH_USER_TEMPLATE.replace(
@@ -104,9 +110,15 @@ export async function runBrokerDealCard(
   
   // Desanitize response before Zod parsing
   const restoredTruthContent = desanitizeOutput(truthResult.content, sanitizationMap);
-  const buildingTruth = BuildingMiniTruthOutputSchema.parse(
-    JSON.parse(restoredTruthContent),
-  );
+  let buildingTruth: BuildingMiniTruthOutput;
+  try {
+    buildingTruth = BuildingMiniTruthOutputSchema.parse(
+      JSON.parse(restoredTruthContent),
+    );
+  } catch (parseErr) {
+    console.error("[broker-deal-card] BuildingMiniTruth output parse failed:", parseErr, "\nRaw:", restoredTruthContent.slice(0, 500));
+    throw new Error("AI가 건물 정보를 구성하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+  }
 
   // Step 3: Generate Blind Teaser
   const teaserPrompt = BLIND_TEASER_USER_TEMPLATE.replace(
@@ -122,9 +134,15 @@ export async function runBrokerDealCard(
   
   // Desanitize teaser output to restore any placeholders
   const restoredTeaserContent = desanitizeOutput(teaserResult.content, sanitizationMap);
-  const blindTeaser = BlindTeaserOutputSchema.parse(
-    JSON.parse(restoredTeaserContent),
-  );
+  let blindTeaser: BlindTeaserOutput;
+  try {
+    blindTeaser = BlindTeaserOutputSchema.parse(
+      JSON.parse(restoredTeaserContent),
+    );
+  } catch (parseErr) {
+    console.error("[broker-deal-card] BlindTeaser output parse failed:", parseErr, "\nRaw:", restoredTeaserContent.slice(0, 500));
+    throw new Error("AI가 딜카드를 생성하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+  }
 
   // Apply safe-language guardrails to public-facing text
   const guardedTeaser = { ...blindTeaser };
