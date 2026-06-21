@@ -13,6 +13,8 @@ import { KakaoShareButton } from "./kakao-share-button";
 import { CreateMobileImButton } from "./create-mobile-im-button";
 import { BlindTeaserPreviewSection } from "./BlindTeaserPreviewSection";
 import { ScheduleSection } from "./ScheduleSection";
+import { DealCardActionsMenu } from "./DealCardActionsMenu";
+import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 
 
 export async function generateMetadata({ params }: DealCardResultPageProps): Promise<Metadata> {
@@ -145,8 +147,20 @@ export default async function BrokerDealCardResultPage({
   return (
     <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-40">
       <div className="w-full max-w-md mx-auto space-y-6">
+        {/* Top nav bar: Back + Actions */}
+        <div className="flex items-center justify-between pt-2">
+          <Link
+            href="/broker/buildings"
+            className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            내 딜카드
+          </Link>
+          <DealCardActionsMenu buildingId={id} />
+        </div>
+
         {/* Top Message */}
-        <div className="text-center space-y-2 pt-4">
+        <div className="text-center space-y-2">
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
             블라인드 딜카드
           </p>
@@ -286,7 +300,7 @@ export default async function BrokerDealCardResultPage({
       </div>
 
       {/* Sticky CTA Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border px-4 py-3 safe-bottom">
+      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border px-4 pt-3 safe-bottom">
         <div className="max-w-md mx-auto space-y-2">
           {/* 1순위: 카톡으로 전송 (문구 + 딜카드 링크) */}
           <KakaoShareButton text={kakaoText} buildingId={id} dealTitle={title} brokerSlug={brokerSlug} areaSignal={building.area_signal ?? undefined} variant="primary" />
@@ -319,6 +333,7 @@ export default async function BrokerDealCardResultPage({
             </Link>
           </div>
         </div>
+        <BrokerBottomNav />
       </div>
     </main>
   );

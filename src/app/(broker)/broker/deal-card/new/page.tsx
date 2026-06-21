@@ -176,6 +176,12 @@ export default function BrokerDealCardNewPage() {
               임장 시간 등록하기
             </Button>
           </div>
+          <button
+            onClick={() => router.push("/broker/buildings")}
+            className="w-full text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors pt-1"
+          >
+            📋 내 딜카드 목록 보기
+          </button>
         </div>
       </main>
     );

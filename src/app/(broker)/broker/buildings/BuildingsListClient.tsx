@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Building {
   id: string;
@@ -20,9 +21,30 @@ interface BuildingsListClientProps {
 }
 
 export function BuildingsListClient({ initialBuildings }: BuildingsListClientProps) {
+  const [buildings, setBuildings] = useState<Building[]>(initialBuildings);
   const [filterType, setFilterType] = useState<"all" | "office" | "retail">("all");
   const [sortBy, setSortBy] = useState<"score-desc" | "score-asc" | "created-desc">("score-desc");
   const [searchQuery, setSearchQuery] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function handleDelete(id: string) {
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/broker/deal-card/${id}/delete`, { method: "DELETE" });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error ?? "삭제 실패");
+      }
+      setBuildings((prev) => prev.filter((b) => b.id !== id));
+    } catch (err: any) {
+      alert(`삭제 중 오류: ${err.message}`);
+    } finally {
+      setDeletingId(null);
+      setConfirmDeleteId(null);
+    }
+  }
 
   const PIPELINE_STAGES: { key: string; label: string; emoji: string }[] = [
     { key: "draft", label: "입력 완료", emoji: "📋" },
@@ -34,7 +56,7 @@ export function BuildingsListClient({ initialBuildings }: BuildingsListClientPro
 
   // Filter and Sort buildings
   const filteredAndSortedBuildings = useMemo(() => {
-    let result = [...initialBuildings];
+    let result = [...buildings];
 
     // Filter by asset type
     if (filterType === "office") {
@@ -90,7 +112,11 @@ export function BuildingsListClient({ initialBuildings }: BuildingsListClientPro
     };
   }, [filteredAndSortedBuildings]);
 
+  // Update totalBuildings count based on current (non-deleted) buildings
+  const totalCount = buildings.length;
+
   return (
+    <>
     <div className="space-y-6">
       {/* Top Professional KPI Board */}
       <div className="grid grid-cols-2 gap-3.5">
@@ -202,7 +228,7 @@ export function BuildingsListClient({ initialBuildings }: BuildingsListClientPro
                   : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/40"
               }`}
             >
-              전체 자산 ({initialBuildings.length})
+              전체 자산 ({totalCount})
             </button>
             <button
               onClick={() => setFilterType("office")}
@@ -259,49 +285,68 @@ export function BuildingsListClient({ initialBuildings }: BuildingsListClientPro
             const hasVacancy = b.vacancy_signal === "있음" || b.vacancy_signal === "부분";
 
             return (
-              <Link
-                key={b.id}
-                href={`/broker/deal-card/${b.id}`}
-                className="flex items-center justify-between rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-4.5 hover:border-neutral-700/80 active:scale-[0.99] transition-all hover:scale-[1.01] shadow-sm"
-                id={`building-item-${b.id}`}
-              >
-                {/* Information content */}
-                <div className="flex-1 min-w-0 pr-4 space-y-1.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-sm font-bold text-white tracking-tight truncate">
-                      {b.area_signal ?? "권역 미상"} {b.asset_type ?? ""}
-                    </h3>
-                    {hasVacancy && (
-                      <span className="shrink-0 inline-flex items-center rounded-full bg-amber-500/10 text-amber-400 border border-amber-550/20 px-2 py-0.5 text-[10px] font-bold">
-                        공실 신호
-                      </span>
-                    )}
-                    {b.status && (
-                      <span className="shrink-0 inline-flex items-center rounded-full bg-neutral-800 text-neutral-450 border border-neutral-700 px-2 py-0.5 text-[9.5px] font-bold uppercase">
-                        {PIPELINE_STAGES.find((s) => s.key === b.status)?.label ?? b.status}
-                      </span>
-                    )}
+              <div key={b.id} className="relative group">
+                <Link
+                  href={`/broker/deal-card/${b.id}`}
+                  className="flex items-center justify-between rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-4 hover:border-neutral-700/80 active:scale-[0.99] transition-all hover:scale-[1.01] shadow-sm"
+                  id={`building-item-${b.id}`}
+                >
+                  {/* Information content */}
+                  <div className="flex-1 min-w-0 pr-4 space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-sm font-bold text-white tracking-tight truncate">
+                        {b.area_signal ?? "권역 미상"} {b.asset_type ?? ""}
+                      </h3>
+                      {hasVacancy && (
+                        <span className="shrink-0 inline-flex items-center rounded-full bg-amber-500/10 text-amber-400 border border-amber-550/20 px-2 py-0.5 text-[10px] font-bold">
+                          공실 신호
+                        </span>
+                      )}
+                      {b.status && (
+                        <span className="shrink-0 inline-flex items-center rounded-full bg-neutral-800 text-neutral-450 border border-neutral-700 px-2 py-0.5 text-[9.5px] font-bold uppercase">
+                          {PIPELINE_STAGES.find((s) => s.key === b.status)?.label ?? b.status}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="text-neutral-400 font-semibold">{b.price_band ?? "가격 미확정"}</span>
+                      {matchCount > 0 && (
+                        <span className="text-primary font-bold flex items-center gap-0.5">
+                          🎯 {matchCount}명 매칭
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-3 text-xs">
-                    <span className="text-neutral-400 font-semibold">{b.price_band ?? "가격 미확정"}</span>
-                    {matchCount > 0 && (
-                      <span className="text-primary font-bold flex items-center gap-0.5">
-                        🎯 {matchCount}명 매칭
-                      </span>
-                    )}
+                  {/* score badge */}
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center ${scoreColor}`}>
+                      <span className="text-lg font-black leading-none">{score || "-"}</span>
+                      <span className="text-[9px] font-semibold opacity-70 mt-0.5">점</span>
+                    </div>
+                    <span className="text-neutral-600 text-sm font-bold">→</span>
                   </div>
-                </div>
+                </Link>
 
-                {/* score badge */}
-                <div className="flex items-center gap-3 shrink-0">
-                  <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center ${scoreColor}`}>
-                    <span className="text-lg font-black leading-none">{score || "-"}</span>
-                    <span className="text-[9px] font-semibold opacity-70 mt-0.5">점</span>
-                  </div>
-                  <span className="text-neutral-600 text-sm font-bold">→</span>
-                </div>
-              </Link>
+                {/* Delete button — visible on hover */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmDeleteId(b.id);
+                  }}
+                  className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-500 hover:text-rose-400 hover:border-rose-500/50 hover:bg-rose-500/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                  title="딜카드 삭제"
+                  aria-label="딜카드 삭제"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6l-1 14H6L5 6" />
+                    <path d="M10 11v6M14 11v6" />
+                    <path d="M9 6V4h6v2" />
+                  </svg>
+                </button>
+              </div>
             );
           })}
         </div>
@@ -310,17 +355,49 @@ export function BuildingsListClient({ initialBuildings }: BuildingsListClientPro
           <p className="text-4xl">🔍</p>
           <p className="text-sm font-bold text-neutral-300">일치하는 등록 매물이 없습니다.</p>
           <p className="text-xs text-neutral-400 leading-relaxed">
-            필터 조건을 변경하거나 새로운 상업용 자산을 등록해 매수자 AI 매칭을 시작해보세요.
+            필터 조건을 변경하거나 다른 검색어를 입력해보세요.
           </p>
-          <Link
-            href="/broker/deal-card/new"
-            className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
-            id="cta-first-building"
-          >
-            + 첫 자산 딜카드 등록
-          </Link>
         </div>
       )}
     </div>
+
+    {/* 삭제 확인 모달 */}
+    {confirmDeleteId && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="bg-neutral-900 w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl border border-neutral-800">
+          <div className="space-y-1.5">
+            <h3 className="text-base font-bold text-white">딜카드를 삭제하시겠습니까?</h3>
+            <p className="text-sm text-neutral-400 leading-relaxed">
+              이 딜카드와 관련된 <strong className="text-neutral-200">투자설명서, 딜 신호 카드</strong>도 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+            </p>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => setConfirmDeleteId(null)}
+              disabled={!!deletingId}
+              className="flex-1 py-2.5 text-sm font-medium rounded-xl border border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700 transition-colors disabled:opacity-50"
+            >
+              취소
+            </button>
+            <button
+              onClick={() => handleDelete(confirmDeleteId)}
+              disabled={!!deletingId}
+              className="flex-1 py-2.5 text-sm font-bold rounded-xl bg-rose-600 text-white hover:bg-rose-500 transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
+            >
+              {deletingId === confirmDeleteId ? (
+                <>
+                  <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  삭제 중...
+                </>
+              ) : "삭제"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 }
