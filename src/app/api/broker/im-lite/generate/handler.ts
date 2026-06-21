@@ -46,14 +46,15 @@ export async function generateMobileIMHandler(
   // ─── SSoT Lite 로드 (PK = id)
   const { data: ssotRow, error: ssotError } = await supabase
     .from("building_ssot_lite")
-    .select("id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, fit_summary, caution_summary, hidden_fields, layers, raw_input, lease_summary, status")
+    .select("id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, fit_summary, caution_summary, hidden_fields, layers, raw_input, status")
     .eq("id", buildingId)
     .maybeSingle();
 
   if (ssotError || !ssotRow) {
+    console.error("[im-handler] SSoT Error:", ssotError);
     return {
       ok: false,
-      error: "SSoT 데이터를 찾을 수 없습니다. 딜카드를 먼저 생성해 주세요.",
+      error: `SSoT 데이터를 찾을 수 없습니다. 딜카드를 먼저 생성해 주세요. ${ssotError ? JSON.stringify(ssotError) : '(no row)'}`,
       statusCode: 404,
     };
   }
@@ -70,7 +71,6 @@ export async function generateMobileIMHandler(
     caution_summary: ssotRow.caution_summary,
     raw_input: ssotRow.raw_input,
     layers: ssotRow.layers,
-    lease_summary: ssotRow.lease_summary,
     ...(directData ?? {}),
   };
 
