@@ -118,19 +118,25 @@ export function BlindTeaserPreviewSection({
         </div>
       )}
 
-      {/* Caution Points */}
+      {/* Caution Points (내부 참고용 - 공유 시 비공개) */}
       {cautionPointsStr && (
-        <div className="space-y-2">
-          <p className="text-sm font-semibold text-warning">확인 필요 사항</p>
-          <ul className="space-y-1">
+        <details className="group/caution">
+          <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground flex items-center gap-1.5 py-1">
+            <span className="text-[10px] transition-transform group-open/caution:rotate-90">▶</span>
+            🔒 내부 참고용 확인 사항 ({cautionPointsStr.split("\n").filter(Boolean).length}건)
+          </summary>
+          <div className="mt-2 pl-4 border-l-2 border-muted space-y-1">
             {cautionPointsStr.split("\n").filter(Boolean).map((p, i) => (
-              <li key={i} className="text-sm flex gap-2">
-                <span className="text-muted-foreground">•</span>
+              <p key={i} className="text-xs text-muted-foreground flex gap-2">
+                <span>•</span>
                 <span>{p}</span>
-              </li>
+              </p>
             ))}
-          </ul>
-        </div>
+            <p className="text-[10px] text-muted-foreground/60 mt-2 italic">
+              ※ 이 내용은 카카오 공유 시 포함되지 않습니다.
+            </p>
+          </div>
+        </details>
       )}
     </div>
   );

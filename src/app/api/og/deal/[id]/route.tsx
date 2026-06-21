@@ -108,11 +108,21 @@ export async function GET(
           <div
             style={{
               fontSize: 28,
-              color: "rgba(255, 255, 255, 0.6)",
+              color: "rgba(255, 255, 255, 0.7)",
               display: "flex",
             }}
           >
-            {regionLabel} 권역 딜카드
+            {regionLabel} · {priceBand || "가격 비공개"} · 투자 검토 가능
+          </div>
+          <div
+            style={{
+              fontSize: 22,
+              color: "rgba(255, 255, 255, 0.5)",
+              display: "flex",
+              marginTop: "8px",
+            }}
+          >
+            💡 상세 자료는 중개사에게 요청하세요
           </div>
         </div>
 

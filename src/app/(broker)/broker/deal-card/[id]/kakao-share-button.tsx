@@ -65,8 +65,8 @@ export function KakaoShareButton({
     document.head.appendChild(script);
   }, []);
 
-  // 카카오 SDK은 등록된 도메인에서만 작동함 → 항상 www.credeal.net 사용
-  const siteUrl = "https://www.credeal.net";
+  // 카카오 SDK은 등록된 도메인에서만 작동함 → 항상 credeal.net 사용
+  const siteUrl = "https://credeal.net";
   // 공유 대상 페이지: /im-lite/[buildingId] (공개 접근 가능)
   const dealUrl = `${siteUrl}/im-lite/${buildingId}`;
   // 딜카드별 동적 OG 이미지: /api/og/deal/[id]
