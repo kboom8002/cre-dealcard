@@ -29,7 +29,7 @@ export default async function IMApprovalPage({ params }: Props) {
   const supabase = createServiceClient();
   const { data: doc, error } = await supabase
     .from('document_objects')
-    .select('id, title, body, status, created_at, building_id, metadata')
+    .select('id, title, body, status, created_at, building_id')
     .eq('id', id)
     .maybeSingle();
 
