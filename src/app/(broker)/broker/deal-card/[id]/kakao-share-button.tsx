@@ -69,9 +69,8 @@ export function KakaoShareButton({
 
   // 카카오 SDK은 등록된 도메인에서만 작동함 → 항상 credeal.net 사용
   const siteUrl = "https://credeal.net";
-  // 공유 대상 페이지: /deal/[region]/[id] (공개 딜카드 페이지 — 항상 접근 가능)
-  const region = (areaSignal || "all").toLowerCase().replace(/\s+/g, "-");
-  const dealUrl = `${siteUrl}/deal/${region}/${buildingId}`;
+  // 공유 대상 페이지: /dc/[id] (공개 딜카드 단축 페이지 — 한글 없이 안정적 접근)
+  const dealUrl = `${siteUrl}/dc/${buildingId}`;
   // 딜카드별 동적 OG 이미지: /api/og/deal/[id]
   // 브로커 바이브카드 이미지는 보조 fallback
   const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}`;
