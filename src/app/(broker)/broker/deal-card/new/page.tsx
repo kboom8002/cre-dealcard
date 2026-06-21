@@ -159,21 +159,23 @@ export default function BrokerDealCardNewPage() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">딜카드가 생성되었습니다!</h1>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            이제 매수자가 바로 임장 예약을 할 수 있도록<br />가용 일정을 등록하시겠습니까?
+            카톡으로 바로 공유하거나, 렌트롤·투자설명서를<br />추가하여 딜카드를 보강할 수 있습니다.
           </p>
           <div className="flex flex-col gap-3 pt-6">
+            {/* 1순위: 딜카드 상세 확인 + 카톡 공유 */}
             <Button 
-              className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold h-12"
+              className="w-full bg-[#FEE500] hover:bg-[#FEE500]/90 text-[#3C1E1E] font-bold h-12 text-base"
+              onClick={() => router.push(`/broker/deal-card/${createdBuildingId}`)}
+            >
+              🟡 딜카드 확인 및 카톡 공유
+            </Button>
+            {/* 2순위: 임장 스케줄 설정 */}
+            <Button 
+              variant="outline"
+              className="w-full h-12 border-amber-500/30 hover:bg-amber-500/5 text-amber-600 dark:text-amber-400"
               onClick={() => router.push(`/broker/schedule?buildingId=${createdBuildingId}&setup=true`)}
             >
               📅 임장 스케줄 설정하기
-            </Button>
-            <Button 
-              variant="outline" 
-              className="w-full h-12 border-primary/30 hover:bg-primary/5 text-primary"
-              onClick={() => router.push(`/broker/deal-card/${createdBuildingId}`)}
-            >
-              📊 렌트롤 / 투자설명서 추가하기
             </Button>
           </div>
           <button

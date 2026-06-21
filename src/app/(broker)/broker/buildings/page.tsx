@@ -8,6 +8,9 @@ export const metadata: Metadata = {
   description: "등록된 전체 매물의 노출 점수와 딜 파이프라인 현황을 확인하세요.",
 };
 
+// 새로 생성된 딜카드가 즉시 반영되도록 항상 최신 데이터를 조회
+export const dynamic = "force-dynamic";
+
 export default async function BuildingsPage() {
   const supabase = createServiceClient();
 
