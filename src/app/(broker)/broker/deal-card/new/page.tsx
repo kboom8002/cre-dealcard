@@ -161,24 +161,24 @@ export default function BrokerDealCardNewPage() {
           <p className="text-sm text-muted-foreground leading-relaxed">
             이제 매수자가 바로 임장 예약을 할 수 있도록<br />가용 일정을 등록하시겠습니까?
           </p>
-          <div className="flex gap-3 pt-6">
+          <div className="flex flex-col gap-3 pt-6">
             <Button 
-              variant="outline" 
-              className="flex-1"
-              onClick={() => router.push(`/broker/deal-card/${createdBuildingId}`)}
-            >
-              나중에 하기
-            </Button>
-            <Button 
-              className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold"
+              className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold h-12"
               onClick={() => router.push(`/broker/schedule?buildingId=${createdBuildingId}&setup=true`)}
             >
-              임장 시간 등록하기
+              📅 임장 스케줄 설정하기
+            </Button>
+            <Button 
+              variant="outline" 
+              className="w-full h-12 border-primary/30 hover:bg-primary/5 text-primary"
+              onClick={() => router.push(`/broker/deal-card/${createdBuildingId}`)}
+            >
+              📊 렌트롤 / 투자설명서 추가하기
             </Button>
           </div>
           <button
             onClick={() => router.push("/broker/buildings")}
-            className="w-full text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors pt-1"
+            className="w-full text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors pt-2"
           >
             📋 내 딜카드 목록 보기
           </button>

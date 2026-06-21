@@ -24,9 +24,9 @@ export default async function BuildingsPage() {
         {/* Header */}
         <div className="flex items-center justify-between pt-4">
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">상업용 자산 매물 현황</h1>
+            <h1 className="text-xl font-bold text-white tracking-tight">내 딜카드 목록</h1>
             <p className="text-xs text-neutral-400 mt-0.5">
-              총 {buildings?.length ?? 0}개의 상용 자산 딜카드가 등록되어 있습니다.
+              총 {buildings?.length ?? 0}개의 딜카드가 생성되어 있습니다.
             </p>
           </div>
           <Link
@@ -34,7 +34,7 @@ export default async function BuildingsPage() {
             className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
             id="cta-new-deal-card-from-buildings"
           >
-            + 신규 자산 등록
+            + 새 딜카드 만들기
           </Link>
         </div>
 

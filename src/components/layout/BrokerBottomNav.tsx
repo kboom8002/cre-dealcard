@@ -27,9 +27,9 @@ const NAV_ITEMS = [
   {
     href: "/broker/buildings",
     icon: Building2,
-    label: "매물",
+    label: "딜카드",
     id: "nav-buildings",
-    ariaLabel: "매물 목록 (매매+임대)",
+    ariaLabel: "내 딜카드 목록",
     exact: false,
   },
   // Center slot is occupied by the FAB — skip index 2

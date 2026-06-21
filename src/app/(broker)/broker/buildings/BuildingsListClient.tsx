@@ -353,7 +353,7 @@ export function BuildingsListClient({ initialBuildings }: BuildingsListClientPro
       ) : (
         <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-8 text-center space-y-4">
           <p className="text-4xl">🔍</p>
-          <p className="text-sm font-bold text-neutral-300">일치하는 등록 매물이 없습니다.</p>
+          <p className="text-sm font-bold text-neutral-300">일치하는 딜카드가 없습니다.</p>
           <p className="text-xs text-neutral-400 leading-relaxed">
             필터 조건을 변경하거나 다른 검색어를 입력해보세요.
           </p>
