@@ -35,7 +35,7 @@ export async function POST(
   // Ensure the document belongs to this broker
   const { data: doc, error: fetchErr } = await supabase
     .from('document_objects')
-    .select('id, owner_id, broker_id, status, metadata')
+    .select('id, owner_id, status')
     .eq('id', id)
     .maybeSingle();
 
@@ -43,23 +43,16 @@ export async function POST(
     return NextResponse.json({ error: 'Document not found' }, { status: 404 });
   }
 
-  const ownerId = doc.broker_id ?? doc.owner_id;
-  if (ownerId !== guard.user!.id) {
+  if (doc.owner_id !== guard.user!.id) {
     return NextResponse.json({ error: 'Forbidden: not your document' }, { status: 403 });
   }
 
-  const newStatus = action === 'approve' ? 'published' : 'revision_needed';
+  const newStatus = action === 'approve' ? 'broker_reviewed' : 'draft';
 
   const { error: updateErr } = await supabase
     .from('document_objects')
     .update({
       status: newStatus,
-      metadata: {
-        ...((doc.metadata as Record<string, unknown>) ?? {}),
-        broker_notes: brokerNotes ?? null,
-        approved_at: action === 'approve' ? new Date().toISOString() : null,
-        reviewed_by: guard.user!.id,
-      },
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);

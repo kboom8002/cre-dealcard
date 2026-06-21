@@ -511,7 +511,7 @@ function generatePremiumTemplate(
   const br   = externalData?.buildingRegister;
   const lu   = externalData?.landUsePlan;
   const lp   = externalData?.landPrice;
-  const poi  = externalData?.locationPoi;
+  const poi  = externalData?.locationPoi?._isFallback ? null : externalData?.locationPoi;
   const comps = externalData?.comparableTransactions;
 
   const totalArea   = br?.totalArea    || 0;

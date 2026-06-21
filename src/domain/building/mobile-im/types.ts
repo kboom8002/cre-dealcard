@@ -121,6 +121,7 @@ export interface ExternalDataSnapshot {
   locationPoi?: {
     nearestStation?: { name: string; distanceM: number; walkMinutes: number } | null;
     poiCounts?: { subway: number; busStop: number; cafe: number; parking: number; restaurant: number; convenience: number };
+    _isFallback?: boolean;
   } | null;
   enrichedAt?: string;
   errors?: { api: string; message: string }[];

@@ -51,7 +51,7 @@ export async function fetchIMData(
   if (docId) {
     const { data: document, error: docError } = await supabase
       .from("document_objects")
-      .select("body, owner_id, created_at, status, metadata")
+      .select("body, owner_id, created_at, status")
       .eq("id", docId)
       .eq("building_id", buildingId)
       .single();
@@ -99,7 +99,7 @@ export async function fetchIMData(
         }),
         generatedAt: document.body.generated_at || document.created_at || new Date().toISOString(),
         status: document.status || "draft",
-        approvedAt: document.metadata?.approved_at,
+        approvedAt: undefined,
         disclaimer: "본 자료는 매도인 및 제3자(AI 분석 포함)로부터 제공받은 정보에 기반하여 작성되었으며, 참고용으로만 제공됩니다. 크리딜 및 중개법인은 자료의 정확성, 완전성을 보장하지 않으며 법적 책임을 지지 않습니다. 거래 전 반드시 직접 검증하시기 바랍니다.",
         fullImUpgradeCta: {
           enabled: true,

@@ -18,7 +18,7 @@ export interface LocationPoiData {
   _isFallback?: boolean;
 }
 
-export async function fetchLocationPoi(lat: number, lng: number): Promise<LocationPoiData> {
+export async function fetchLocationPoi(lat: number, lng: number): Promise<LocationPoiData | null> {
   const restKey = process.env.KAKAO_REST_API_KEY;
 
   if (restKey && restKey !== "") {
@@ -105,9 +105,7 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
       _isFallback: true,
     };
   }
-  return {
-    nearestStation: { name: "서초역 (2호선)", distanceM: 520, walkMinutes: 7 },
-    poiCounts: { subway: 1, busStop: 3, cafe: 8, parking: 2, restaurant: 18, convenience: 5 },
-    _isFallback: true,
-  };
+  // 알려지지 않은 좌표 → 가짜 데이터를 생성하지 않고 null 반환
+  // AI가 잘못된 교통 정보를 생성하는 것을 방지
+  return null;
 }
