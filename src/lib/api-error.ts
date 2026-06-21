@@ -107,7 +107,7 @@ export function toApiError(err: unknown): Response {
           error: {
             code: "AI_GENERATION_FAILED",
             message:
-              `AI 처리 중 오류가 발생했습니다: ${err.message}. 잠시 후 다시 시도해주세요.`,
+              `AI 처리 중 오류가 발생했습니다: ${err.message}`,
           },
         } satisfies ApiError,
         { status: 500 },

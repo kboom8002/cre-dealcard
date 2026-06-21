@@ -8,17 +8,17 @@ import { z } from "zod/v4";
 
 export const MemoParserOutputSchema = z.object({
   extractedFacts: z.object({
-    region: z.string().nullable(),
-    exactAddressCandidate: z.string().nullable(),
-    assetType: z.string().nullable(),
-    priceText: z.string().nullable(),
-    sizeText: z.string().nullable(),
-    currentUse: z.string().nullable(),
-    leaseSignal: z.string().nullable(),
-    vacancySignal: z.string().nullable(),
+    region: z.string().nullable().default(null),
+    exactAddressCandidate: z.string().nullable().default(null),
+    assetType: z.string().nullable().default(null),
+    priceText: z.string().nullable().default(null),
+    sizeText: z.string().nullable().default(null),
+    currentUse: z.string().nullable().default(null),
+    leaseSignal: z.string().nullable().default(null),
+    vacancySignal: z.string().nullable().default(null),
     tenantNames: z.array(z.string()).default([]),
     unitRentTexts: z.array(z.string()).default([]),
-    sellerMotivationText: z.string().nullable(),
+    sellerMotivationText: z.string().nullable().default(null),
     brokerNotes: z.array(z.string()).default([]),
   }),
   detectedSensitiveFields: z.array(
@@ -31,7 +31,7 @@ export const MemoParserOutputSchema = z.object({
       "owner_identity",
       "buyer_identity",
     ]),
-  ),
+  ).default([]),
   ambiguousFields: z.array(z.string()).default([]),
   warnings: z.array(z.string()).default([]),
 });
@@ -62,13 +62,13 @@ export type SignalComposerOutput = z.infer<typeof SignalComposerOutputSchema>;
 
 export const BlindTeaserOutputSchema = z.object({
   title: z.string(),
-  shortSummary: z.string(),
-  dealPoints: z.array(z.string()).min(2).max(7),
-  cautionPoints: z.array(z.string()).min(1).max(7),
-  hiddenInfoNotice: z.array(z.string()),
-  gateMessage: z.string(),
+  shortSummary: z.string().default(""),
+  dealPoints: z.array(z.string()).min(1).max(10),
+  cautionPoints: z.array(z.string()).min(1).max(10),
+  hiddenInfoNotice: z.array(z.string()).default([]),
+  gateMessage: z.string().default(""),
   kakaoText: z.string(),
-  boundaryNote: z.string(),
+  boundaryNote: z.string().default(""),
 });
 
 export type BlindTeaserOutput = z.infer<typeof BlindTeaserOutputSchema>;
