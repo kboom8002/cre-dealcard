@@ -172,10 +172,15 @@ export function RentRollImporter({ onImport }: RentRollImporterProps) {
     setIsError(false);
 
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      // xlsx@0.18.5에서 .xlsx 파일은 Uint8Array로 변환해야 안정적으로 파싱됨
-      const uint8 = new Uint8Array(arrayBuffer);
-      const workbook = XLSX.read(uint8, { type: "array" });
+      // xlsx@0.18.5 — readAsBinaryString + type:'binary'가 .xlsx 파싱에 가장 안정적
+      const binaryStr = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error("파일을 읽을 수 없습니다."));
+        reader.readAsBinaryString(file);
+      });
+
+      const workbook = XLSX.read(binaryStr, { type: "binary" });
       
       if (!workbook.SheetNames.length) {
         throw new Error("시트를 찾을 수 없습니다. 파일이 비어있는지 확인해주세요.");

@@ -83,13 +83,29 @@ export function KakaoShareButton({
       ? sessionStorage.getItem(`kakao_text_${buildingId}`) || editedText 
       : editedText;
 
-    // 카카오 SDK 사용 가능한 경우 — sendScrap 방식으로 카카오 서버가 URL의 OG를 크롤링
+    // 카카오 SDK 사용 가능한 경우 — sendDefault(Feed) 방식
     if (kakaoReady && window.Kakao?.Share) {
       try {
-        // sendScrap: 카카오 서버가 dealUrl의 OG 메타를 크롤링하여 카드 생성
-        // 타입 선언 충돌 방지를 위해 as any 사용
-        (window.Kakao.Share as any).sendScrap({
-          requestUrl: dealUrl,
+        (window.Kakao.Share as any).sendDefault({
+          objectType: "feed",
+          content: {
+            title: dealTitle || "블라인드 딜카드",
+            description: finalText.slice(0, 200),
+            imageUrl: ogImageUrl,
+            link: {
+              webUrl: dealUrl,
+              mobileWebUrl: dealUrl,
+            },
+          },
+          buttons: [
+            {
+              title: "딜카드 보기",
+              link: {
+                webUrl: dealUrl,
+                mobileWebUrl: dealUrl,
+              },
+            },
+          ],
         });
         setShared(true);
         setTimeout(() => setShared(false), 3000);

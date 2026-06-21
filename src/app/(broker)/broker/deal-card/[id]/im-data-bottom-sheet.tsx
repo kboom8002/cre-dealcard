@@ -236,8 +236,8 @@ export function ImDataBottomSheet({
   const canGenerate = readinessScore >= 40;
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-2 sm:p-4">
-      <div className="bg-background rounded-2xl sm:rounded-t-2xl w-full max-w-lg mx-auto shadow-2xl p-5 pb-[calc(env(safe-area-inset-bottom)+2rem)] animate-in slide-in-from-bottom duration-300 max-h-[95dvh] flex flex-col">
+    <div className="fixed inset-0 z-[100] flex flex-col justify-end sm:justify-center sm:items-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-2 sm:p-6">
+      <div className="bg-background rounded-2xl w-full max-w-lg mx-auto shadow-2xl p-5 pb-[calc(env(safe-area-inset-bottom)+2rem)] sm:pb-6 animate-in slide-in-from-bottom duration-300 max-h-[90dvh] sm:max-h-[85vh] flex flex-col overflow-hidden">
         
         <div className="flex items-center justify-between mb-4 shrink-0">
           <h2 className="text-lg font-bold text-foreground">📊 투자설명서 데이터 보강</h2>
