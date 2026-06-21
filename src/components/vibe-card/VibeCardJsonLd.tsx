@@ -77,7 +77,7 @@ export function VibeCardJsonLd({
 }: VibeCardJsonLdProps) {
   const name = profile.displayName;
   const companyName = profile.company || `${name} 공인중개사무소`;
-  const pageUrl = `https://dealcard.kr/vibe-card/${slug}`;
+  const pageUrl = `https://credeal.net/vibe-card/${slug}`;
   const description = professional?.seoSummary || broker?.bio || `${name} 공인중개사의 DealCard Vibe 프로필입니다.`;
 
   // 1. SameAs URLs array

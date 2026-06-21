@@ -190,13 +190,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       "Vibe AI 명함",
     ],
     alternates: {
-      canonical: `https://dealcard.kr/vibe-card/${slug}`,
+      canonical: `https://credeal.net/vibe-card/${slug}`,
     },
     openGraph: {
       title,
       description,
       type: "profile",
-      url: `https://dealcard.kr/vibe-card/${slug}`,
+      url: `https://credeal.net/vibe-card/${slug}`,
       images: [
         {
           url: `/api/og/vibe-card/${slug}`,

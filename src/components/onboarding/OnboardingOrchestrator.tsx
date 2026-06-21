@@ -168,9 +168,9 @@ function OrchestratorInner() {
     void trackOnboardingEvent('onboard_share_pre_login', data.sessionToken);
     const vibeResult = data.vibeResult;
     if (!vibeResult) return;
-    const shareText = `🏢 DealCard Vibe 분석\n${vibeResult.vtiResult.meta.label_ko} 타입\nTrust ${Math.round(vibeResult.afterScores.trust * 100)}\n\n나도 해보기 → dealcard.kr/onboarding`;
+    const shareText = `🏢 DealCard Vibe 분석\n${vibeResult.vtiResult.meta.label_ko} 타입\nTrust ${Math.round(vibeResult.afterScores.trust * 100)}\n\n나도 해보기 → credeal.net/onboarding`;
     if (navigator.share) {
-      void navigator.share({ text: shareText, url: 'https://dealcard.kr/onboarding' }).catch(() => {});
+      void navigator.share({ text: shareText, url: 'https://credeal.net/onboarding' }).catch(() => {});
     } else {
       void navigator.clipboard.writeText(shareText).catch(() => {});
     }

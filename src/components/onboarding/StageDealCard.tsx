@@ -83,9 +83,9 @@ export function StageDealCard({ prefillAddress, onComplete, onSkip }: StageDealC
   };
 
   const handleShare = async () => {
-    const shareText = `[딜카드] ${preview?.blindTitle ?? '블라인드 매물장'}\n📊 ${preview?.capRate ?? ''}\n🏢 ${preview?.area ?? ''}\n\n상세 문의: dealcard.kr`;
+    const shareText = `[딜카드] ${preview?.blindTitle ?? '블라인드 매물장'}\n📊 ${preview?.capRate ?? ''}\n🏢 ${preview?.area ?? ''}\n\n상세 문의: credeal.net`;
     if (navigator.share) {
-      await navigator.share({ text: shareText, url: 'https://dealcard.kr' }).catch(() => {});
+      await navigator.share({ text: shareText, url: 'https://credeal.net' }).catch(() => {});
     } else {
       await navigator.clipboard.writeText(shareText).catch(() => {});
     }

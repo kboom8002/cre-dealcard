@@ -209,7 +209,7 @@ export async function GET(
               display: "flex",
             }}
           >
-            dealcard.kr
+            credeal.net
           </div>
         </div>
       </div>

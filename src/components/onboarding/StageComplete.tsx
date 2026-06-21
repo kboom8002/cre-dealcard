@@ -47,11 +47,11 @@ export function StageComplete({ onGoToDashboard }: StageCompleteProps) {
       ? regionLabel(data.region)
       : '서울';
 
-    const shareText = `🏢 DealCard Vibe 명함\n\n${data.userName ?? '홍길동'} | ${vtiLabel}\nTrust Score ${trust} · ${region} 전문\n\n나도 만들기 → dealcard.kr/onboarding`;
+    const shareText = `🏢 DealCard Vibe 명함\n\n${data.userName ?? '홍길동'} | ${vtiLabel}\nTrust Score ${trust} · ${region} 전문\n\n나도 만들기 → credeal.net/onboarding`;
 
     try {
       if (navigator.share) {
-        await navigator.share({ text: shareText, url: 'https://dealcard.kr/onboarding' });
+        await navigator.share({ text: shareText, url: 'https://credeal.net/onboarding' });
       } else {
         await navigator.clipboard.writeText(shareText);
       }

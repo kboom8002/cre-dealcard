@@ -435,7 +435,7 @@ export async function GET(
               opacity: 0.6,
             }}
           >
-            dealcard.kr
+            credeal.net
           </div>
         </div>
       </div>

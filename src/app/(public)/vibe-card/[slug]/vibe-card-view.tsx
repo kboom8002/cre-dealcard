@@ -270,7 +270,7 @@ export function VibeCardView({ data }: { data: VibeCardData }) {
             className="text-[9px]"
             style={{ color: css.subtextColor, opacity: 0.5 }}
           >
-            Powered by Vibe AI · dealcard.kr
+            Powered by Vibe AI · credeal.net
           </p>
         </footer>
       </div>

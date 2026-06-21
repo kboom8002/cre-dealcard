@@ -62,7 +62,7 @@ export async function generateMetadata({
       title,
       description,
       type: "article",
-      url: `https://dealcard.kr/magazine/${brokerId}/${date}`,
+      url: `https://credeal.net/magazine/${brokerId}/${date}`,
       images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title }],
       publishedTime: date,
     },
