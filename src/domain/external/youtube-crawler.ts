@@ -103,17 +103,8 @@ export async function crawlYoutubeTrends(supabase: SupabaseClient): Promise<any[
   return results;
 }
 
-async function insertDummyVideos(supabase: SupabaseClient): Promise<any[]> {
-  const dummies = [
-    { video_id: `yt_bilsanam_${Date.now()}`, title: "성수동 꼬마빌딩 80억 실제 수익률 공개", channel_title: "빌사남", view_count: 45000, like_count: 2400, published_at: new Date(Date.now() - 3 * 86400000).toISOString(), summary: "성수 근생 빌딩 실투자금 대비 수익률 분석" },
-    { video_id: `yt_guhae_${Date.now()}`, title: "공실률 폭탄 가산 지산 탈출 전략", channel_title: "구해줘빌딩", view_count: 82000, like_count: 3900, published_at: new Date(Date.now() - 5 * 86400000).toISOString(), summary: "지산 분할임대 용도전환 전략" },
-    { video_id: `yt_crestudy_${Date.now()}`, title: "2026 하반기 꼬마빌딩 투자 전략", channel_title: "상업부동산 스터디", view_count: 32000, like_count: 1800, published_at: new Date(Date.now() - 2 * 86400000).toISOString(), summary: "H2 2026 small building strategy" },
-    { video_id: `yt_king_${Date.now()}`, title: "강남 꼬마빌딩 vs 미국 리츠 2026", channel_title: "부동산 킹메이커", view_count: 55000, like_count: 2800, published_at: new Date(Date.now() - 7 * 86400000).toISOString(), summary: "강남 오피스 과열 vs 해외 대체 투자처" },
-  ];
-  const results: any[] = [];
-  for (const d of dummies) {
-    const { data, error } = await supabase.from("youtube_trends").upsert(d, { onConflict: "video_id" }).select().single();
-    if (!error && data) results.push(data);
-  }
-  return results;
+async function insertDummyVideos(_supabase: SupabaseClient): Promise<any[]> {
+  console.warn("[YouTube] No real video data available — returning empty");
+  return [];
 }
+

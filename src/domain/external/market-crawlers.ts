@@ -169,33 +169,72 @@ export async function crawlCreNews(supabase: SupabaseClient): Promise<any[]> {
     console.warn("[crawlCreNews] Naver news failed:", err);
   }
 
-  // 모든 소스 실패 시 더미
+  // 모든 소스 실패 시 빈 배열 반환 (더미 데이터 없음)
   if (results.length === 0) {
-    const dummies = [
-      { url: `https://news.cre-dummy.kr/seongsu-${Date.now()}`, title: "\uC131\uC218\uB3D9 \uAF2C\uB9C8\uBE4C\uB529 \uAC70\uB798 \uAE09\uC99D", source: "Hankyung RE", summary: "\uC131\uC218 \uADFC\uC0DD \uD3C9\uB2F9 1.5\uC5B5 \uB3CC\uD30C", content: "seongsu surge", sentiment: "bullish" },
-      { url: `https://news.cre-dummy.kr/gangnam-${Date.now()}`, title: "\uAC15\uB0A8 \uC624\uD53C\uC2A4 \uACF5\uC2E4\uB960 2%\uB300", source: "MK Estate", summary: "\uAC15\uB0A8 GBD 2.1% \uACF5\uC2E4", content: "gangnam low vacancy", sentiment: "bullish" },
-      { url: `https://news.cre-dummy.kr/market-${Date.now()}`, title: "\uC0C1\uAC00 \uBD84\uC591 \uC2DC\uC7A5 \uC704\uCD95", source: "ChosunBiz", summary: "\uB099\uCC30\uAC00\uC728 \uD558\uB77D", content: "retail slump", sentiment: "bearish" },
-    ];
-    for (const d of dummies) {
-      const { data } = await supabase.from("external_news").upsert(d, { onConflict: "url" }).select().single();
-      if (data) results.push(data);
-    }
+    console.warn("[crawlCreNews] All news sources returned empty — no dummy fallback");
   }
   return results;
 }
 
-// ─── E3: 리서치 리포트 (CBRE, Cushman, 부동산플래닛, 알스퀘어) ─────────────────────
+// ─── E3: 리서치 리포트 — 네이버뉴스 "부동산 리포트" 실제 검색 ─────────────────────
 export async function ingestGlobalReports(supabase: SupabaseClient): Promise<any[]> {
-  const reports: any[] = [
-    { institution: "CBRE Korea", title: "2026 Q1 Seoul Office Market Report", url: "https://www.cbre.co.kr/insights/reports/seoul-office-q1-2026", published_date: "2026-04-15", summary: "A-grade vacancy 2.8%. Cap Rate 4.2~4.8%.", structured_data: { vacancyRate: 2.8, capRateRange: [4.2, 4.8] } },
-    { institution: "Cushman & Wakefield", title: "2026 Q1 Seoul Retail Market", url: "https://www.cushmanwakefield.com/ko-kr/korea/insights/seoul-retail-q1-2026", published_date: "2026-04-20", summary: "Seongsu 1.2% vs Myeongdong 8.5% vacancy.", structured_data: { seongsuVacancy: 1.2, rentGrowthPct: 3.5 } },
-    { institution: "BDS Planet", title: "2026-05 Seoul CRE Transaction Report", url: "https://www.bdsplanet.com/report/2026-05-seoul-cre", published_date: "2026-05-30", summary: "Small building deals +18% MoM. Avg 85B KRW.", structured_data: { totalDeals: 142, avgPriceKrw: 8500000000 } },
-    { institution: "R-Square Analytics", title: "2026 Seoul CRE Quarterly", url: "https://www.rsquare.co.kr/analytics/2026-q1-seoul", published_date: "2026-04-25", summary: "Small buildings active, large buildings cautious.", structured_data: { smallBuildingGrowth: 18 } },
-  ];
+  const NAVER_ID = process.env.NAVER_CLIENT_ID || "";
+  const NAVER_SECRET = process.env.NAVER_CLIENT_SECRET || "";
+  if (!NAVER_ID || !NAVER_SECRET) {
+    console.warn("[ingestGlobalReports] Naver API credentials missing");
+    return [];
+  }
+
+  const keywords = ["CBRE 오피스 리포트", "쿠시먼 부동산", "부동산플래닛 거래", "알스퀘어 오피스"];
   const results: any[] = [];
-  for (const r of reports) {
-    const { data, error } = await supabase.from("external_reports").upsert(r, { onConflict: "url" }).select().single();
-    if (!error && data) results.push(data);
+
+  for (const keyword of keywords) {
+    try {
+      const url = new URL("https://openapi.naver.com/v1/search/news.json");
+      url.searchParams.set("query", keyword);
+      url.searchParams.set("display", "2");
+      url.searchParams.set("sort", "date");
+      const res = await fetch(url.toString(), {
+        headers: { "X-Naver-Client-Id": NAVER_ID, "X-Naver-Client-Secret": NAVER_SECRET },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) continue;
+      const json = await res.json();
+
+      for (const item of (json.items || []).slice(0, 1)) {
+        const title = (item.title || "").replace(/<[^>]+>/g, "");
+        const desc = (item.description || "").replace(/<[^>]+>/g, "").slice(0, 300);
+        // 기관명 추출
+        const institution = keyword.includes("CBRE") ? "CBRE Korea"
+          : keyword.includes("쿠시먼") ? "Cushman & Wakefield"
+          : keyword.includes("부동산플래닛") ? "부동산플래닛"
+          : "알스퀘어";
+
+        let summary = desc.slice(0, 150);
+        try {
+          const aiRes = await callLLM({
+            systemPrompt: "부동산 리포트 뉴스를 1줄(50자 이내)로 핵심 수치 중심 요약.",
+            userPrompt: `${title}: ${desc}`,
+            model: "gpt-5.4",
+            temperature: 0.2,
+            maxTokens: 80,
+          });
+          summary = aiRes.content.trim();
+        } catch { /* */ }
+
+        const { data, error } = await supabase.from("external_reports").upsert({
+          institution,
+          title,
+          url: item.link || item.originallink || `https://naver-report-${Date.now()}`,
+          summary,
+          published_date: new Date().toISOString().split("T")[0],
+        }, { onConflict: "url" }).select().single();
+        if (!error && data) results.push(data);
+      }
+      await new Promise(r => setTimeout(r, 120));
+    } catch (err) {
+      console.warn(`[ingestGlobalReports] "${keyword}" failed:`, err);
+    }
   }
   return results;
 }
@@ -211,35 +250,140 @@ export async function trackYoutubeTrends(supabase: SupabaseClient): Promise<any[
   return crawlYoutubeTrends(supabase);
 }
 
-// ─── E6: 법원 경매·캠코 공매 크롤러 ─────────────────────────────────────────────
+// ─── E6: 경매·공매 — 네이버뉴스 경매 검색 + AI 구조화 ─────────────────────────────
 export async function crawlAuctions(supabase: SupabaseClient): Promise<any[]> {
-  const auctions = [
-    { case_number: "2026\uD0C0\uACBD10045", court: "\uC11C\uC6B8\uC911\uC559\uC9C0\uBC29\uBC95\uC6D0", address: "\uC11C\uC6B8 \uC11C\uCD08\uAD6C \uC11C\uCD08\uB3D9 1500-12", appraised_value: 12500000000, minimum_bid: 10000000000, status: "\uC720\uCC30 1\uD68C", auction_date: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10) },
-    { case_number: "2026\uD0C0\uACBD50431", court: "\uC11C\uC6B8\uB3D9\uBD80\uC9C0\uBC29\uBC95\uC6D0", address: "\uC11C\uC6B8 \uC131\uB3D9\uAD6C \uC131\uC218\uB3D92\uAC00 310-45", appraised_value: 8500000000, minimum_bid: 8500000000, status: "\uC2E0\uAC74", auction_date: new Date(Date.now() + 21 * 86400000).toISOString().slice(0, 10) },
-    { case_number: "2026\uD0C0\uACBD30289", court: "\uC11C\uC6B8\uB0A8\uBD80\uC9C0\uBC29\uBC95\uC6D0", address: "\uC11C\uC6B8 \uC601\uB4F1\uD3EC\uAD6C \uC5EC\uC758\uB3C4\uB3D9 23-4", appraised_value: 15000000000, minimum_bid: 12000000000, status: "\uC720\uCC30 2\uD68C", auction_date: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) },
-  ];
+  const NAVER_ID = process.env.NAVER_CLIENT_ID || "";
+  const NAVER_SECRET = process.env.NAVER_CLIENT_SECRET || "";
+  if (!NAVER_ID || !NAVER_SECRET) {
+    console.warn("[crawlAuctions] Naver API credentials missing");
+    return [];
+  }
+
+  const keywords = ["빌딩 경매 낙찰", "상업용 부동산 경매", "꼬마빌딩 공매"];
   const results: any[] = [];
-  for (const a of auctions) {
-    const { data, error } = await supabase.from("auction_listings").upsert(a, { onConflict: "case_number" }).select().single();
-    if (!error && data) results.push(data);
+
+  for (const keyword of keywords) {
+    try {
+      const url = new URL("https://openapi.naver.com/v1/search/news.json");
+      url.searchParams.set("query", keyword);
+      url.searchParams.set("display", "3");
+      url.searchParams.set("sort", "date");
+      const res = await fetch(url.toString(), {
+        headers: { "X-Naver-Client-Id": NAVER_ID, "X-Naver-Client-Secret": NAVER_SECRET },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) continue;
+      const json = await res.json();
+
+      for (const item of (json.items || []).slice(0, 2)) {
+        const title = (item.title || "").replace(/<[^>]+>/g, "");
+        const desc = (item.description || "").replace(/<[^>]+>/g, "").slice(0, 500);
+
+        // AI로 경매 구조화 데이터 추출
+        try {
+          const aiRes = await callLLM({
+            systemPrompt: `경매 뉴스에서 다음 JSON을 추출하세요. 정보가 없으면 null:
+{"case_number":"사건번호","court":"법원명","address":"소재지","appraised_value":감정가(원),"minimum_bid":최저가(원),"status":"진행상태","auction_date":"YYYY-MM-DD"}`,
+            userPrompt: `${title}\n${desc}`,
+            model: "gpt-5.4",
+            temperature: 0.1,
+            maxTokens: 200,
+          });
+          const jsonMatch = aiRes.content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.case_number && parsed.address) {
+              const { data, error } = await supabase.from("auction_listings").upsert({
+                case_number: parsed.case_number,
+                court: parsed.court || "미확인",
+                address: parsed.address,
+                appraised_value: parsed.appraised_value || 0,
+                minimum_bid: parsed.minimum_bid || 0,
+                status: parsed.status || "미확인",
+                auction_date: parsed.auction_date || new Date().toISOString().slice(0, 10),
+              }, { onConflict: "case_number" }).select().single();
+              if (!error && data) results.push(data);
+            }
+          }
+        } catch { /* AI 파싱 실패 시 스킵 */ }
+      }
+      await new Promise(r => setTimeout(r, 120));
+    } catch (err) {
+      console.warn(`[crawlAuctions] "${keyword}" failed:`, err);
+    }
   }
   return results;
 }
 
-// ─── E7: 임대시장 데이터 (3개 권역) ──────────────────────────────────────────────
+// ─── E7: 임대시장 — 네이버뉴스 임대 시세 크롤링 + AI 구조화 ──────────────────────
 export async function computeRentalMarketRates(supabase: SupabaseClient): Promise<any[]> {
-  const rentals = [
-    { region: "gbd",     building_type: "office_prime", deposit_avg: 1500000, monthly_rent_avg: 158000, vacancy_rate: 2.1, source: "MOLIT/CBRE" },
-    { region: "gbd",     building_type: "retail",       deposit_avg: 1100000, monthly_rent_avg: 112000, vacancy_rate: 3.8, source: "Local Broker" },
-    { region: "seongsu", building_type: "retail",       deposit_avg: 1200000, monthly_rent_avg: 120000, vacancy_rate: 1.2, source: "MOLIT/Local" },
-    { region: "seongsu", building_type: "office_prime", deposit_avg: 1500000, monthly_rent_avg: 150000, vacancy_rate: 1.8, source: "CBRE" },
-    { region: "ybd",     building_type: "office_prime", deposit_avg: 1300000, monthly_rent_avg: 130000, vacancy_rate: 2.8, source: "MOLIT/Cushman" },
-    { region: "ybd",     building_type: "retail",       deposit_avg: 1000000, monthly_rent_avg: 105000, vacancy_rate: 4.2, source: "CBRE" },
+  const NAVER_ID = process.env.NAVER_CLIENT_ID || "";
+  const NAVER_SECRET = process.env.NAVER_CLIENT_SECRET || "";
+  if (!NAVER_ID || !NAVER_SECRET) {
+    console.warn("[computeRentalMarketRates] Naver API credentials missing");
+    return [];
+  }
+
+  const regionKeywords = [
+    { region: "gbd", keyword: "강남 오피스 임대 공실률" },
+    { region: "seongsu", keyword: "성수 상가 임대 시세" },
+    { region: "ybd", keyword: "여의도 오피스 공실률" },
   ];
   const results: any[] = [];
-  for (const r of rentals) {
-    const { data, error } = await supabase.from("rental_market_data").insert(r).select().single();
-    if (!error && data) results.push(data);
+
+  for (const rk of regionKeywords) {
+    try {
+      const url = new URL("https://openapi.naver.com/v1/search/news.json");
+      url.searchParams.set("query", rk.keyword);
+      url.searchParams.set("display", "3");
+      url.searchParams.set("sort", "date");
+      const res = await fetch(url.toString(), {
+        headers: { "X-Naver-Client-Id": NAVER_ID, "X-Naver-Client-Secret": NAVER_SECRET },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) continue;
+      const json = await res.json();
+      const articles = (json.items || []).slice(0, 3);
+      const articleTexts = articles.map((a: any) => {
+        const t = (a.title || "").replace(/<[^>]+>/g, "");
+        const d = (a.description || "").replace(/<[^>]+>/g, "");
+        return `${t}: ${d}`;
+      }).join("\n");
+
+      if (!articleTexts.trim()) continue;
+
+      // AI로 임대 시세 구조화
+      try {
+        const aiRes = await callLLM({
+          systemPrompt: `부동산 뉴스에서 임대시장 데이터를 추출하세요. JSON 배열로 출력:
+[{"building_type":"office_prime 또는 retail","deposit_avg":보증금(원/평),"monthly_rent_avg":월세(원/평),"vacancy_rate":공실률(%),"source":"출처"}]
+정보가 부족하면 빈 배열 []을 출력하세요.`,
+          userPrompt: `권역: ${rk.region}\n\n뉴스:\n${articleTexts}`,
+          model: "gpt-5.4",
+          temperature: 0.1,
+          maxTokens: 300,
+        });
+        const arrMatch = aiRes.content.match(/\[[\s\S]*\]/);
+        if (arrMatch) {
+          const parsed = JSON.parse(arrMatch[0]);
+          for (const rental of parsed) {
+            if (!rental.building_type) continue;
+            const { data, error } = await supabase.from("rental_market_data").insert({
+              region: rk.region,
+              building_type: rental.building_type,
+              deposit_avg: rental.deposit_avg || 0,
+              monthly_rent_avg: rental.monthly_rent_avg || 0,
+              vacancy_rate: rental.vacancy_rate || 0,
+              source: rental.source || "네이버뉴스",
+            }).select().single();
+            if (!error && data) results.push(data);
+          }
+        }
+      } catch { /* AI 파싱 실패 */ }
+      await new Promise(r => setTimeout(r, 120));
+    } catch (err) {
+      console.warn(`[computeRentalMarketRates] ${rk.region} failed:`, err);
+    }
   }
   return results;
 }

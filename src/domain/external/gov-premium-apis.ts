@@ -75,17 +75,8 @@ export async function fetchCommercialTransactions(
 // ─── A1b: 한국부동산원 임대동향 (공공데이터포털) ──────────────────────────────────
 export async function fetchRentalTrend(supabase: SupabaseClient, region: string): Promise<any> {
   if (!MOLIT_API_KEY) {
-    // Fallback 더미
-    const dummyTrends: Record<string, any> = {
-      gbd:     { region: "gbd",     quarter: "2026 Q1", vacancy_rate: 2.1, rental_index: 104.5 },
-      seongsu: { region: "seongsu", quarter: "2026 Q1", vacancy_rate: 1.2, rental_index: 112.1 },
-      ybd:     { region: "ybd",     quarter: "2026 Q1", vacancy_rate: 2.8, rental_index: 99.8 },
-    };
-    const trend = dummyTrends[region] || { region, quarter: "2026 Q1", vacancy_rate: 4.0, rental_index: 100.0 };
-    await supabase.from("rental_trend_data").delete().eq("region", trend.region).eq("quarter", trend.quarter);
-    const { data, error } = await supabase.from("rental_trend_data").insert(trend).select().single();
-    if (error) throw error;
-    return data;
+    console.warn("[RentalTrend] MOLIT_API_KEY missing — skipping");
+    return null;
   }
 
   // Real: 한국부동산원 오피스시장동향 API
@@ -109,17 +100,9 @@ export async function fetchRentalTrend(supabase: SupabaseClient, region: string)
     console.warn(`[RentalTrend] ${region} API failed:`, err);
   }
 
-  // API 실패 시 더미 폴백
-  const fallback: Record<string, any> = {
-    gbd:     { region: "gbd",     quarter: "2026 Q1", vacancy_rate: 2.1, rental_index: 104.5 },
-    seongsu: { region: "seongsu", quarter: "2026 Q1", vacancy_rate: 1.2, rental_index: 112.1 },
-    ybd:     { region: "ybd",     quarter: "2026 Q1", vacancy_rate: 2.8, rental_index: 99.8 },
-  };
-  const trend = fallback[region] || { region, quarter: "2026 Q1", vacancy_rate: 4.0, rental_index: 100.0 };
-  await supabase.from("rental_trend_data").delete().eq("region", trend.region).eq("quarter", trend.quarter);
-  const { data, error } = await supabase.from("rental_trend_data").insert(trend).select().single();
-  if (error) throw error;
-  return data;
+  // API 실패 시 null 반환 (더미 fallback 없음)
+  console.warn(`[RentalTrend] ${region} — no data available`);
+  return null;
 }
 
 // ─── A2: 토지이음 용도지역 (공간정보 플랫폼) ──────────────────────────────────────
@@ -231,10 +214,65 @@ export async function fetchCommercialDistrict(supabase: SupabaseClient, district
 // https://apis.data.go.kr/1611000/nsdi/EnsIdvLandPriceService/wgs84/getEnsIdvLandPriceInfos
 export async function fetchOfficialLandPrice(supabase: SupabaseClient, pnu: string, year: number): Promise<any> {
   const result = await fetchLandPrice(pnu);
-  const pricePerSqm = result?.pricePerSqm ?? 10000000;
+  const pricePerSqm = result?.pricePerSqm ?? 0;
+  if (!pricePerSqm) {
+    console.warn(`[OfficialLandPrice] No data for PNU ${pnu} year ${year}`);
+    return null;
+  }
 
   const price = { pnu, year, price_per_sqm: pricePerSqm };
   const { data, error } = await supabase.from("official_land_prices").upsert(price, { onConflict: "pnu,year" }).select().single();
   if (error) throw error;
   return data;
+}
+
+// ─── A7: 건축허가 API (국토부 건축물대장) ────────────────────────────────────────
+// https://apis.data.go.kr/1613000/ArchPmsService/getApBrPermitInfo
+export async function fetchConstructionPermits(
+  supabase: SupabaseClient,
+  region: string,
+): Promise<any[]> {
+  if (!MOLIT_API_KEY) {
+    console.warn("[ConstructionPermits] MOLIT_API_KEY missing — skipping");
+    return [];
+  }
+
+  const REGION_SIGUNGU: Record<string, { code: string; name: string }> = {
+    gbd:     { code: "11680", name: "강남구" },
+    seongsu: { code: "11200", name: "성동구" },
+    ybd:     { code: "11560", name: "영등포구" },
+  };
+  const regionInfo = REGION_SIGUNGU[region] || REGION_SIGUNGU.gbd;
+  const results: any[] = [];
+
+  try {
+    const url = `https://apis.data.go.kr/1613000/ArchPmsService/getApBrPermitInfo?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&sigunguCd=${regionInfo.code}&numOfRows=5&pageNo=1`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) return [];
+    const xml = await res.text();
+    const items = xmlAll(xml, "item");
+
+    for (const item of items) {
+      const purposeRaw = xmlText(item, "mainPurpsCdNm") || xmlText(item, "etcPurps") || "";
+      // 업무/근생 용도만 필터
+      if (!/업무|근린|상업|판매/.test(purposeRaw)) continue;
+
+      const text = `${regionInfo.name} ${xmlText(item, "platPlc") || ""} ${xmlText(item, "bldNm") || purposeRaw} 건축허가`;
+      const totalArea = parseFloat(xmlText(item, "totArea") || "0");
+      const floorCnt = xmlText(item, "grndFlrCnt") || "?";
+      const ugFloorCnt = xmlText(item, "ugrndFlrCnt") || "0";
+      const detail = `${purposeRaw} | 연면적 ${totalArea.toLocaleString()}㎡ | 지하${ugFloorCnt}층~지상${floorCnt}층`;
+
+      const { data, error } = await supabase.from("construction_permits").upsert({
+        text,
+        detail,
+        district: regionInfo.name,
+        region,
+      }, { onConflict: "text" }).select().single();
+      if (!error && data) results.push(data);
+    }
+  } catch (err) {
+    console.warn(`[ConstructionPermits] ${region} failed:`, err);
+  }
+  return results;
 }

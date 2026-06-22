@@ -187,19 +187,7 @@ export async function crawlNaverCRENews(supabase: SupabaseClient): Promise<any[]
   return results;
 }
 
-async function insertDummySentiment(supabase: SupabaseClient): Promise<any[]> {
-  const today = new Date().toISOString().slice(0, 10);
-  const dummies = [
-    { keyword: "꼬마빌딩 매매", source: "부동산스터디 카페", sentiment_score: 68.5, mention_count: 342, analysis_date: today },
-    { keyword: "지산 공실", source: "빌딩부자들 카페", sentiment_score: 22.0, mention_count: 185, analysis_date: today },
-    { keyword: "성수 상가 임대", source: "꼬마빌딩투자클럽", sentiment_score: 75.2, mention_count: 94, analysis_date: today },
-    { keyword: "강남 빌딩 투자", source: "상업용부동산중개 카페", sentiment_score: 62.0, mention_count: 128, analysis_date: today },
-    { keyword: "빌딩 경매 낙찰", source: "부동산스터디 카페", sentiment_score: 55.0, mention_count: 76, analysis_date: today },
-  ];
-  const results: any[] = [];
-  for (const d of dummies) {
-    const { data, error } = await supabase.from("social_sentiment").insert(d).select().single();
-    if (!error && data) results.push(data);
-  }
-  return results;
+async function insertDummySentiment(_supabase: SupabaseClient): Promise<any[]> {
+  console.warn("[Naver] No real sentiment data available — returning empty");
+  return [];
 }

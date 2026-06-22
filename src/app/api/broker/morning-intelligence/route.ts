@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
     // ── AI 브리핑 생성 (강화된 꼬마빌딩 브로커 맥락) ──────────────────────────
     const newsSummaryText = (newsData.data || []).length > 0
       ? (newsData.data || []).map(n => `[${n.source}] ${n.title}: ${n.summary}`).join("\n")
-      : "성수동 근생 꼬마빌딩 거래 급증, 평당 1억5천 돌파\n강남 테헤란로 대형 오피스 공실률 2%대 유지\n상가 분양 시장 고금리 장기화로 낙찰가율 하락";
+      : "최근 수집된 뉴스 없음 — 현재 보유 매물 기반으로 브리핑을 작성하세요.";
 
     const txSummary = myAreaTransactions.length > 0
       ? myAreaTransactions.map(tx => `${tx.dong || ""} ${tx.address || ""} ${tx.usage_type || ""} ${(Number(tx.transaction_price) / 1e8).toFixed(1)}억원`).join(", ")
@@ -114,7 +114,8 @@ export async function GET(request: NextRequest) {
 3. 실거래 체결 뉴스 → 내 매물 시세 포지셔닝에 즉시 연결
 4. 경매 낙찰가율 → 시장 과열/냉각 온도계로 해석
 5. 공실률 변동 → 임대 전략 또는 매각 타이밍으로 전환
-6. 출력 형식: JSON (briefing, action_list, cold_call_script, hot_lead_script, risk_note)`;
+6. **데이터가 "없음"이면 솔직하게 "수집된 정보 없음"이라고 말하세요. 절대 없는 데이터를 지어내지 마세요.**
+7. 출력 형식: JSON (briefing, action_list, cold_call_script, hot_lead_script, risk_note)`;
 
       const userPrompt = `
 [오늘 시장 뉴스]
@@ -175,28 +176,10 @@ ${myBuyersSummary}
         aiBriefing = contentString.trim();
       }
     } catch {
-      // 지역별 폴백 (간결하게)
-      const fallbacks: Record<string, { briefing: string; counsel: string; actions: string[] }> = {
-        seongsu: {
-          briefing: `🌅 성수 권역 모닝 브리핑:\n1. 성수동 근생 꼬마빌딩 평당 1억5천 돌파 — 내 매물 가격 재검토 기회\n2. IT밸리 인근 리모델링 밸류애드 매수세 지속\n3. F&B 공실률 1.2% — 임대 경쟁력 높은 시장\n4. 팝업 스토어 수요로 단기 임대 문의 급증\n5. 권역 대지 평당 시세 상승 지속`,
-          counsel: "대표님, 어제 성수동 근생 건물이 평당 1.5억에 체결됐습니다. 대표님 예산대 물건이 곧 움직일 것 같아서요, 오늘 잠깐 통화 가능하실까요?",
-          actions: ["성수동 관심 매수자에게 실거래 뉴스 전달", "내 매물 시세 포지셔닝 재검토", "팝업 임차 수요 연결 시도"],
-        },
-        ybd: {
-          briefing: `🌅 여의도 권역 모닝 브리핑:\n1. YBD 프라임 오피스 공실률 2.8% — 안정 임대 수요 유지\n2. 금융사·핀테크 확장 임차 경쟁 지속\n3. Cap Rate 4.3%대 금리 인하 선반영\n4. 소형 오피스 수요가 증가하는 추세\n5. 개인 임차 문의 증가 — 1인 사무실 수요`,
-          counsel: "대표님, 여의도 권역 오피스 공실률이 2%대 후반입니다. 핀테크사들 공간 확충 경쟁 중이라 신규 매입 기회 있을 것 같아서요, 언제 시간 되세요?",
-          actions: ["여의도 관심 법인 매수자 팔로업", "임대 문의 응대 강화", "경쟁 매물 시세 확인"],
-        },
-        gbd: {
-          briefing: `🌅 강남 GBD 모닝 브리핑:\n1. GBD 오피스 공실률 2.1% 최저치 — 프라임 매물 희소성 극대화\n2. 법인 사옥용 대기 매수세 강건\n3. 구분 상가 위축 vs 통빌딩 업무시설 거래 확대\n4. 테헤란로 임대료 고공행진 지속\n5. 금리 부담 완화 기대감으로 매수 심리 개선`,
-          counsel: "김 대표님, 강남 오피스 공실률이 2.1%로 사상 최저입니다. 대기 사옥 매수세가 두터워서 좋은 물건은 빠르게 선점해야 할 것 같습니다, 잠깐 통화 가능하세요?",
-          actions: ["법인 사옥 매수 대기자 우선 연락", "테헤란로 임대 물건 시세 업데이트", "매도 의향 물건주 팔로업"],
-        },
-      };
-      const fb = fallbacks[regionKey] || fallbacks.gbd;
-      aiBriefing = fb.briefing;
-      aiCounselScript = fb.counsel;
-      aiActionList = fb.actions;
+      // AI 호출 실패 시 — 더미 데이터 없이 에러 메시지 표시
+      aiBriefing = `⚠️ ${district} 권역 AI 브리핑 생성에 일시적 오류가 발생했습니다. 잠시 후 다시 시도해주세요.`;
+      aiCounselScript = "";
+      aiActionList = ["모닝 인텔리전스 새로고침", "직접 시장 뉴스 확인"];
     }
 
     // ── 실거래 체결 데이터 ─────────────────────────────────────────────────────
@@ -208,10 +191,7 @@ ${myBuyersSummary}
           tag: "국토부",
           isMyArea: areaSignals.some(sig => (tx.dong || "").includes(sig) || (tx.address || "").includes(sig)),
         }))
-      : [
-          { title: `실거래: ${district} 근생 빌딩`, desc: `근린생활시설 | 185.0억 원 | 평당 1억6천만 원`, date: new Date(Date.now() - 86400000).toISOString().split("T")[0], tag: "국토부", isMyArea: true },
-          { title: `실거래: ${district} 업무시설`, desc: `업무시설 | 72.0억 원 | 대지 평당 1억2천만 원`, date: new Date(Date.now() - 172800000).toISOString().split("T")[0], tag: "국토부", isMyArea: false },
-        ];
+      : [];
 
     // ── 내 매물 vs 실거래 비교 ─────────────────────────────────────────────────
     const myDealsVsMarket = myDeals.slice(0, 3).map(deal => {
@@ -238,9 +218,7 @@ ${myBuyersSummary}
             ? Math.round((1 - Number(a.minimum_bid) / Number(a.appraised_value)) * 100)
             : 0,
         }))
-      : [
-          { title: "🔨 2026타경10045", desc: `서초구 서초동 1500-12 | 감정가 125.0억 | 최저가 100.0억 (유찰 1회)`, date: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0], tag: "서울중앙지법", discountPct: 20 },
-        ];
+      : [];
 
     // ── 임대/공실 ──────────────────────────────────────────────────────────────
     const rentalMarket = (dbRentals.data || []).length > 0
@@ -249,22 +227,9 @@ ${myBuyersSummary}
           deposit: `${(Number(r.deposit_avg) / 10000).toFixed(0)}만 원`,
           rent: `${(Number(r.monthly_rent_avg) / 10000).toFixed(1)}만 원`,
           vacancy: `${r.vacancy_rate}%`,
-          source: r.source || "한국부동산원",
+          source: r.source || "수집 데이터",
         }))
-      : regionKey === "seongsu"
-        ? [
-            { type: "중소형 리테일", deposit: "120만 원", rent: "12.0만 원", vacancy: "1.2%", source: "MOLIT" },
-            { type: "오피스(프라임)", deposit: "150만 원", rent: "15.0만 원", vacancy: "1.8%", source: "CBRE" },
-          ]
-        : regionKey === "ybd"
-          ? [
-              { type: "오피스(프라임)", deposit: "130만 원", rent: "13.0만 원", vacancy: "2.8%", source: "MOLIT" },
-              { type: "중소형 리테일", deposit: "100만 원", rent: "10.5만 원", vacancy: "4.2%", source: "CBRE" },
-            ]
-          : [
-              { type: "오피스(프라임)", deposit: "150만 원", rent: "15.8만 원", vacancy: "2.1%", source: "MOLIT/CBRE" },
-              { type: "중소형 리테일", deposit: "110만 원", rent: "11.2만 원", vacancy: "3.8%", source: "Local Broker" },
-            ];
+      : [];
 
     // ── 투자자 심리 ────────────────────────────────────────────────────────────
     const sentimentArr = dbSentiment.data || [];
@@ -287,38 +252,22 @@ ${myBuyersSummary}
       const prev = Number(landPriceArr[1].price_per_sqm);
       const pct = ((latest - prev) / prev) * 100;
       landPriceTrend = { pnu, latestYear: landPriceArr[0].year, latestPrice: latest, prevPrice: prev, changePct: Math.round(pct * 10) / 10 };
-    } else {
-      landPriceTrend = regionKey === "seongsu"
-        ? { pnu, latestYear: 2026, latestPrice: 8800000, prevPrice: 8050000, changePct: 9.3 }
-        : regionKey === "ybd"
-          ? { pnu, latestYear: 2026, latestPrice: 18500000, prevPrice: 17900000, changePct: 3.4 }
-          : { pnu, latestYear: 2026, latestPrice: 34200000, prevPrice: 32800000, changePct: 4.2 };
     }
 
     // ── 상권 분석 ──────────────────────────────────────────────────────────────
     const commercialDistrict = cdData.data
-      ? { name: cdData.data.district_name, salesIndex: Number(cdData.data.sales_volume_index || 5.0), footfallIndex: Number(cdData.data.footfall_index || 5.0) }
-      : regionKey === "seongsu"
-        ? { name: "성수역 카페거리", salesIndex: 8.5, footfallIndex: 9.2 }
-        : regionKey === "ybd"
-          ? { name: "여의도 IFC몰 상권", salesIndex: 7.8, footfallIndex: 8.1 }
-          : { name: "강남역 테헤란로", salesIndex: 9.4, footfallIndex: 9.8 };
+      ? { name: cdData.data.district_name, salesIndex: Number(cdData.data.sales_volume_index || 0), footfallIndex: Number(cdData.data.footfall_index || 0) }
+      : null;
 
     // ── 신축/리모델링 ──────────────────────────────────────────────────────────
-    const constructionPermits = regionKey === "seongsu"
-      ? [
-          { text: "성수동 2가 지식산업센터 신축 허가 승인", detail: "연면적 14,876㎡, 지하 5층~지상 15층 규모 공급 시그널" },
-          { text: "성수동 1가 리모델링 신고 완료 2건", detail: "노후 주택 대수선 후 F&B 매장 용도 변경 예정" },
-        ]
-      : regionKey === "ybd"
-        ? [
-            { text: "여의도 국제금융로 노후 오피스 리모델링 착공", detail: "연면적 8,200㎡, 전층 임대 리포지셔닝 추진" },
-            { text: "영등포구 소규모 근생 신축 허가 3건", detail: "소형 사무실 수요 대응 신축 프로젝트" },
-          ]
-        : [
-            { text: "역삼동 테헤란로 이면 노후 상가 대수선 허가 3건", detail: "사옥용 근생 리모델링 및 엘리베이터 신설" },
-            { text: "대치동 업무시설 신축 착공 신고", detail: "IT 법인 사옥용 통빌딩 신축 프로젝트" },
-          ];
+    // 신축/리모델링: DB에서 조회 (construction_permits 테이블)
+    const { data: dbPermits } = await serviceClient
+      .from("construction_permits")
+      .select("text, detail")
+      .ilike("text", `%${district}%`)
+      .order("created_at", { ascending: false })
+      .limit(3);
+    const constructionPermits = (dbPermits || []).map(p => ({ text: p.text, detail: p.detail }));
 
     // ── ESG/에너지 ────────────────────────────────────────────────────────────
     const energyRating = (energyList.data || [])[0]?.rating || "1++등급 (우수)";
@@ -333,15 +282,10 @@ ${myBuyersSummary}
       ? (dbReports.data || []).map(r => ({
           institution: r.institution,
           title: r.title,
-          summary: r.summary || (r.title.includes("오피스")
-            ? `오피스 공실률 ${r.structured_data?.vacancyRate || 2.8}%, Cap Rate ${(r.structured_data?.capRateRange || [4.2, 4.8]).join("~")}%`
-            : `성수동 공실률 ${r.structured_data?.seongsuVacancy || 1.2}%, 임대료 상승 ${r.structured_data?.rentGrowthPct || 3.5}%`),
+          summary: r.summary || "",
           url: r.url,
         }))
-      : [
-          { institution: "CBRE Korea", title: "2026년 Q1 서울 오피스 시장 보고서", summary: "A급 오피스 공실률 2.8% 견조한 수요. Cap Rate 4.2~4.8% 보합.", url: "https://www.cbre.co.kr/insights/reports/seoul-office-q1-2026" },
-          { institution: "Cushman & Wakefield", title: "2026년 1분기 서울 리테일 시장 동향", summary: "명동 8.5% vs 성수 1.2% 공실률. 팝업·해외 브랜드 플래그십 진입 지속.", url: "https://www.cushmanwakefield.com/ko-kr/korea/insights/seoul-retail-q1-2026" },
-        ];
+      : [];
 
     // ── 공개 브리핑 공유 URL ───────────────────────────────────────────────────
     const today = new Date().toISOString().split("T")[0].replace(/-/g, "");

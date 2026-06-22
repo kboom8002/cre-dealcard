@@ -13,6 +13,7 @@ import {
   fetchEnergyRating,
   fetchCommercialDistrict,
   fetchOfficialLandPrice,
+  fetchConstructionPermits,
 } from "@/domain/external/gov-premium-apis";
 
 /**
@@ -62,6 +63,10 @@ export async function GET(request: NextRequest) {
       fetchOfficialLandPrice(supabase, "1168010100101230045", 2025),
       fetchOfficialLandPrice(supabase, "1120011400100450012", 2025),
       fetchOfficialLandPrice(supabase, "1156011000100340001", 2025),
+      // 건축허가 3개 권역
+      fetchConstructionPermits(supabase, "gbd"),
+      fetchConstructionPermits(supabase, "seongsu"),
+      fetchConstructionPermits(supabase, "ybd"),
     ]);
 
     const elapsedMs = Date.now() - startedAt;
