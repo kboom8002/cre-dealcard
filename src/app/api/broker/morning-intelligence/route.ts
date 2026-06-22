@@ -91,14 +91,34 @@ export async function GET(request: NextRequest) {
       areaSignals.some(sig => tx.dong?.includes(sig) || tx.address?.includes(sig))
     );
 
-    // ── AI 브리핑 생성 (강화된 꼬마빌딩 브로커 맥락) ──────────────────────────
+    // ── AI 브리핑 생성 (전체 데이터 소스 균형 배분) ─────────────────────────
     const newsSummaryText = (newsData.data || []).length > 0
       ? (newsData.data || []).map(n => `[${n.source}] ${n.title}: ${n.summary}`).join("\n")
-      : "최근 수집된 뉴스 없음 — 현재 보유 매물 기반으로 브리핑을 작성하세요.";
+      : "수집된 뉴스 없음";
 
     const txSummary = myAreaTransactions.length > 0
-      ? myAreaTransactions.map(tx => `${tx.dong || ""} ${tx.address || ""} ${tx.usage_type || ""} ${(Number(tx.transaction_price) / 1e8).toFixed(1)}억원`).join(", ")
+      ? myAreaTransactions.map(tx => `${tx.dong || ""} ${tx.address || ""} ${tx.usage_type || ""} ${(Number(tx.transaction_price) / 1e8).toFixed(1)}억원`).join("\n")
       : "실거래 데이터 없음";
+
+    // 경매 데이터 요약
+    const auctionSummary = (dbAuctions.data || []).length > 0
+      ? (dbAuctions.data || []).map(a => `${a.case_number} | ${a.address} | 감정가 ${(Number(a.appraised_value) / 1e8).toFixed(1)}억 → 최저가 ${(Number(a.minimum_bid) / 1e8).toFixed(1)}억 | ${a.status}`).join("\n")
+      : "경매 데이터 없음";
+
+    // 임대시장 데이터 요약
+    const rentalSummary = (dbRentals.data || []).length > 0
+      ? (dbRentals.data || []).map(r => `${r.building_type} | 보증금 ${r.deposit_avg} | 월세 ${r.monthly_rent_avg} | 공실률 ${r.vacancy_rate} | 출처: ${r.source}`).join("\n")
+      : "임대시장 데이터 없음";
+
+    // 리서치 리포트 요약
+    const reportsSummary = (dbReports.data || []).length > 0
+      ? (dbReports.data || []).map(r => `[${r.institution}] ${r.title}: ${r.summary || "요약 없음"}`).join("\n")
+      : "리서치 리포트 없음";
+
+    // 공시지가 추이
+    const landPriceInfo = (landPrices.data || []).length >= 2
+      ? `최근 ${(landPrices.data || [])[0]?.year}년 ㎡당 ${((landPrices.data || [])[0]?.price_per_sqm || 0).toLocaleString()}원 (전년 ${((landPrices.data || [])[1]?.price_per_sqm || 0).toLocaleString()}원)`
+      : "공시지가 데이터 없음";
 
     let aiBriefing = "";
     let aiCounselScript = "";
@@ -110,55 +130,77 @@ export async function GET(request: NextRequest) {
       const systemPrompt = `당신은 한국 꼬마빌딩·상업용 부동산 전문 "1인 브로커 모닝 에디터"입니다.
 매일 아침 8시, 현장에서 일하는 1인 브로커에게 오늘 영업에 직결되는 인사이트를 브리핑합니다.
 
-[핵심 원칙]
-1. 추상적 시장 뉴스가 아니라 "오늘 누구에게 먼저 전화할지", "내 매물 가격 협상에 어떤 영향인지" 직결로 연결
-2. 꼬마빌딩(50억 미만~200억) 매도·임대·매입 중개 관점에서 해석
-3. 실거래 체결 → 내 매물 시세 포지셔닝에 즉시 연결
-4. 경매 낙찰가율 → 시장 과열/냉각 온도계로 해석
-5. 공실률 변동 → 임대 전략 또는 매각 타이밍으로 전환
+[브리핑 작성 구조 — 소스별 균형 배분 필수]
+아래 6가지 데이터 소스를 **균형 있게** 활용하여 5~7줄 브리핑을 작성합니다.
+데이터가 있는 소스만 사용하고, "없음"인 소스는 건너뜁니다.
+
+① 📰 시장 뉴스 → 거시 트렌드, 정책 변화, 심리 영향
+② 📊 실거래 → 내 매물 시세 포지셔닝, 가격 추세
+③ 🔨 경매/공매 → 시장 온도 (낙찰가율, 유찰률), 투자 기회
+④ 🏢 임대시장 → 공실률, 임대료 동향, 임대 전략
+⑤ 📑 리서치 → 기관 전망, 트렌드 분석
+⑥ 🏠 내 매물·매수자 → 개인화 연결 (항상 마지막에 "따라서 오늘은..." 형태로)
+
+[각 브리핑 포인트 형식]
+**[소스태그]** 핵심 내용 → 브로커 액션 임플리케이션
+
+예시:
+**[📰 뉴스]** 서울 오피스 공실률 2.1%로 하락 (한국부동산원) → 임대 협상에서 임대료 인상 여력 확보
+**[📊 실거래]** 성수동 근생 80.2억 체결 (국토부) → 내 매물 85억과 비교하면 5% 내 가격 조정 여력
+**[🔨 경매]** 상업용 10건 중 8건 유찰 (대법원 경매) → 매수 심리 위축, 급매 물건 모니터링 기회
 
 [할루시네이션 방지 — 절대 규칙]
-- **모든 수치에 출처를 괄호로 표시하세요**: (국토부 실거래), (네이버뉴스), (내 매물), (경매 데이터) 등
+- 입력 데이터에 있는 수치만 사용하세요
+- "데이터 없음"인 소스의 수치를 지어내지 마세요
 - 출처가 불분명한 수치/주소/금액은 절대 넣지 마세요
-- 데이터가 "없음"이면 솔직하게 "수집된 정보 없음"이라고 말하세요
-- 입력에 없는 건물명/주소/금액을 지어내면 브로커가 잘못된 정보로 영업합니다
 
-[콜드 팔로업 전화 멘트 작성 규칙]
-- 30초 이내의 자연스러운 한국어 구어체
-- "대표님, 안녕하세요" 시작 → 오늘 시장 뉴스 1가지 핵심 → 상대 니즈에 연결 → 통화 제안
-- 내 매물이나 매수자 정보를 자연스럽게 언급
+[콜드 팔로업 전화 멘트]
+- 30초 이내, "대표님 안녕하세요" 시작
+- 오늘 브리핑에서 가장 임팩트 있는 수치 1개 언급 → 상대 니즈 연결 → 통화 제안
+- 내 매물/매수자 정보 자연스럽게 언급
 
-[카톡 문구 작성 규칙]
-- 3줄 이내, 이모지 1~2개 적절히 사용
-- 핵심 수치 1개 + 관심 유도 + "자세한 내용은 통화로" 클로징
-- 너무 공식적이지 않은 톤
+[카톡 문구]
+- 3줄 이내, 이모지 1~2개
+- 핵심 수치 1개 + 관심 유도 + "자세한 내용은 통화로"
 
-[액션 리스트 규칙]
-- 2~5개 (데이터에 맞게 동적으로)
-- 각 액션은 "누구에게 + 무슨 액션을 + 왜" 구조로 작성
-- 가장 긴급하고 수익성 높은 것을 첫 번째로
+[액션 리스트]
+- 2~5개, 데이터 기반 동적 생성
+- "누구에게 + 무슨 액션 + 왜(데이터 근거)" 구조
+- 가장 긴급한 것 먼저
 
-출력: 반드시 아래 JSON만 출력 (코드블록 없이)`;
+출력: 아래 JSON만 출력 (코드블록 없이)`;
 
       const userPrompt = `
-[오늘 시장 뉴스]
+[📰 오늘 시장 뉴스]
 ${newsSummaryText}
 
-[${district}(${regionKey.toUpperCase()}) 최근 실거래]
+[📊 ${district}(${regionKey.toUpperCase()}) 최근 실거래]
 ${txSummary}
 
-[이 브로커의 현재 보유 매물 ${myDeals.length}건]
+[🔨 ${district} 경매/공매 동향]
+${auctionSummary}
+
+[🏢 ${district} 임대시장]
+${rentalSummary}
+
+[📑 리서치 리포트]
+${reportsSummary}
+
+[💰 공시지가 추이]
+${landPriceInfo}
+
+[🏠 이 브로커의 보유 매물 ${myDeals.length}건]
 ${myDealsSummary}
 
-[이 브로커의 활성 매수자 ${myBuyers.length}명]
+[👤 이 브로커의 활성 매수자 ${myBuyers.length}명]
 ${myBuyersSummary}
 
 출력 JSON:
 {
-  "briefing": "시장 동향 5줄 핵심 요약 (각 수치에 출처 괄호 필수, 내 매물/매수자 맥락 연결)",
-  "action_list": ["(우선순위 높은 순) 누구에게 + 무슨 액션 + 이유"],
-  "cold_call_script": "콜드 팔로업 전화 멘트 (30초 이내, 구어체)",
-  "hot_lead_script": "관심 매수자에게 보낼 카톡 문구 (3줄 이내)",
+  "briefing": "[소스태그] 포인트 형식으로 5~7줄 (데이터 있는 소스만, 균형 배분)",
+  "action_list": ["누구에게 + 무슨 액션 + 왜(데이터 근거)"],
+  "cold_call_script": "콜드 팔로업 전화 멘트",
+  "hot_lead_script": "카톡 문구 (3줄 이내)",
   "risk_note": "오늘 주의해야 할 시장 위험 신호 1줄"
 }`;
 
