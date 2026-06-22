@@ -4,8 +4,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { BuildingsListClient } from "./BuildingsListClient";
 
 export const metadata: Metadata = {
-  title: "매물 현황 | JS 1분 딜카드",
-  description: "등록된 전체 매물의 노출 점수와 딜 파이프라인 현황을 확인하세요.",
+  title: "딜카드 & IM 보관함 | CRE DealCard",
+  description: "등록된 전체 매물의 딜카드와 모바일 IM을 확인하세요.",
 };
 
 // 새로 생성된 딜카드가 즉시 반영되도록 항상 최신 데이터를 조회
@@ -21,15 +21,37 @@ export default async function BuildingsPage() {
     )
     .order("promotion_score", { ascending: false, nullsFirst: false });
 
+  // 모바일 IM 문서 목록 조회
+  const { data: imDocs } = await supabase
+    .from("document_objects")
+    .select("id, building_id, status, created_at, updated_at")
+    .in("document_type", ["im_lite_draft", "mobile_im"])
+    .order("created_at", { ascending: false });
+
+  // IM 데이터에 빌딩 정보 매핑
+  const buildingMap = new Map(
+    (buildings ?? []).map((b) => [b.id, b])
+  );
+  const imList = (imDocs ?? []).map((doc) => ({
+    docId: doc.id,
+    buildingId: doc.building_id,
+    status: doc.status || "draft",
+    createdAt: doc.created_at,
+    updatedAt: doc.updated_at,
+    areaSignal: buildingMap.get(doc.building_id)?.area_signal || "알 수 없음",
+    assetType: buildingMap.get(doc.building_id)?.asset_type || "",
+    priceBand: buildingMap.get(doc.building_id)?.price_band || "",
+  }));
+
   return (
     <main className="flex flex-col items-center min-h-screen bg-neutral-950 text-neutral-100 px-4 py-8 pb-24">
       <div className="w-full max-w-xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between pt-4">
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">내 딜카드 목록</h1>
+            <h1 className="text-xl font-bold text-white tracking-tight">딜카드 & IM 보관함</h1>
             <p className="text-xs text-neutral-400 mt-0.5">
-              총 {buildings?.length ?? 0}개의 딜카드가 생성되어 있습니다.
+              딜카드 {buildings?.length ?? 0}개 · 모바일 IM {imList.length}개
             </p>
           </div>
           <Link
@@ -42,7 +64,7 @@ export default async function BuildingsPage() {
         </div>
 
         {/* Client Interactive List Wrapper */}
-        <BuildingsListClient initialBuildings={buildings ?? []} />
+        <BuildingsListClient initialBuildings={buildings ?? []} imList={imList} />
       </div>
     </main>
   );

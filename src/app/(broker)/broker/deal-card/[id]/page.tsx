@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { BlindTeaserOutputSchema } from "@/ai/schemas/broker-deal-card";
 import Link from "next/link";
+import Image from "next/image";
 import { MatchedBuyersSection } from "./matched-buyers-section";
 import { DealPredictionSection } from "./deal-prediction-section";
 import { GateRequestsInbox } from "./GateRequestsInbox";
@@ -55,7 +56,7 @@ export default async function BrokerDealCardResultPage({
   const { data: building } = await supabase
     .from("building_ssot_lite")
     .select(
-      "id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, fit_summary, caution_summary, hidden_fields, status, owner_id, raw_input",
+      "id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, fit_summary, caution_summary, hidden_fields, status, owner_id, raw_input, layers, photo_urls",
     )
     .eq("id", id)
     .single();
@@ -85,7 +86,7 @@ export default async function BrokerDealCardResultPage({
   // Signal card data is available via building_signal_cards table
   // but the teaser body already contains all display data
 
-  // Fetch blind teaser document
+  // Fetch blind teaser document (optional — may not exist yet)
   const { data: teaserDoc } = await supabase
     .from("document_objects")
     .select("id, title, body, markdown, status, created_at")
@@ -93,39 +94,43 @@ export default async function BrokerDealCardResultPage({
     .eq("document_type", "blind_teaser")
     .order("created_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
-  if (!teaserDoc) return notFound();
-
-  // Parse teaser body
-  let teaser;
+  // Parse teaser body with robust fallback
+  const body = (teaserDoc?.body ?? {}) as Record<string, unknown>;
+  let teaser: Record<string, any>;
   try {
-    teaser = BlindTeaserOutputSchema.parse(teaserDoc.body);
+    teaser = BlindTeaserOutputSchema.parse(body) as Record<string, any>;
   } catch {
-    teaser = teaserDoc.body as Record<string, unknown>;
+    teaser = body as Record<string, any>;
   }
 
-  const title =
-    typeof teaser.title === "string" ? teaser.title : "블라인드 딜카드";
-  const shortSummary =
-    typeof teaser.shortSummary === "string" ? teaser.shortSummary : "";
-  const dealPoints = Array.isArray(teaser.dealPoints) ? teaser.dealPoints : [];
-  const cautionPoints = Array.isArray(teaser.cautionPoints)
-    ? teaser.cautionPoints
+  // snake_case / camelCase 양방향 지원
+  const pick = (camel: string, snake: string, fallback: string = "") => {
+    const v = teaser[camel] ?? teaser[snake] ?? body[camel] ?? body[snake];
+    return typeof v === "string" ? v : fallback;
+  };
+  const pickArr = (camel: string, snake: string): string[] => {
+    const v = teaser[camel] ?? teaser[snake] ?? body[camel] ?? body[snake];
+    return Array.isArray(v) ? v.map(String) : [];
+  };
+
+  const title = pick("title", "title", `${building.area_signal || ""} ${building.asset_type || ""} 딜카드`.trim() || "블라인드 딜카드");
+  const shortSummary = pick("shortSummary", "short_summary", building.fit_summary || "");
+  const dealPoints = pickArr("dealPoints", "deal_points");
+  const cautionPoints = pickArr("cautionPoints", "caution_points");
+  const hiddenInfoNotice = pickArr("hiddenInfoNotice", "hidden_info_notice");
+  const gateMessage = pick("gateMessage", "gate_message");
+  const kakaoText = pick("kakaoText", "kakao_text", teaserDoc?.markdown || "");
+  const boundaryNote = pick("boundaryNote", "boundary_note", "이 자료는 공개 데이터와 입력 정보를 바탕으로 한 예비 검토 자료입니다.");
+
+  // 사진 데이터
+  const layers = (building.layers as Record<string, any>) || {};
+  const photoUrls: string[] = Array.isArray(layers.photos)
+    ? layers.photos.filter((p: any) => p?.url).map((p: any) => p.url)
+    : Array.isArray(building.photo_urls)
+    ? building.photo_urls
     : [];
-  const hiddenInfoNotice = Array.isArray(teaser.hiddenInfoNotice)
-    ? teaser.hiddenInfoNotice
-    : [];
-  const gateMessage =
-    typeof teaser.gateMessage === "string" ? teaser.gateMessage : "";
-  const kakaoText =
-    typeof teaser.kakaoText === "string"
-      ? teaser.kakaoText
-      : teaserDoc.markdown || "";
-  const boundaryNote =
-    typeof teaser.boundaryNote === "string"
-      ? teaser.boundaryNote
-      : "이 자료는 공개 데이터와 입력 정보를 바탕으로 한 예비 검토 자료입니다.";
 
   const hiddenFields = Array.isArray(building.hidden_fields)
     ? (building.hidden_fields as string[])
@@ -170,6 +175,28 @@ export default async function BrokerDealCardResultPage({
             주소와 민감정보는 숨겼어요.
           </p>
         </div>
+
+        {/* Photo Gallery */}
+        {photoUrls.length > 0 && (
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="px-4 py-2 bg-muted/30 border-b border-border">
+              <h2 className="text-xs font-semibold text-muted-foreground">📷 매물 사진 ({photoUrls.length}장)</h2>
+            </div>
+            <div className="flex gap-2 overflow-x-auto p-3 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+              {photoUrls.map((url: string, i: number) => (
+                <div key={i} className="relative shrink-0 w-40 h-28 rounded-lg overflow-hidden border border-border bg-muted">
+                  <Image
+                    src={url}
+                    alt={`매물 사진 ${i + 1}`}
+                    fill
+                    className="object-cover"
+                    sizes="160px"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Pipeline State Machine Progress */}
         <DealCardPipelineContainer buildingId={id} />
@@ -259,7 +286,7 @@ export default async function BrokerDealCardResultPage({
             AI 초안
           </span>
           <span className="text-xs text-muted-foreground">
-            {new Date(teaserDoc.created_at).toLocaleDateString("ko-KR")}
+            {teaserDoc ? new Date(teaserDoc.created_at).toLocaleDateString("ko-KR") : ""}
           </span>
         </div>
 

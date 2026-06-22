@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 
 interface Building {
@@ -17,11 +17,26 @@ interface Building {
   created_at: string;
 }
 
-interface BuildingsListClientProps {
-  initialBuildings: Building[];
+interface IMDocument {
+  docId: string;
+  buildingId: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string | null;
+  areaSignal: string;
+  assetType: string;
+  priceBand: string;
 }
 
-export function BuildingsListClient({ initialBuildings }: BuildingsListClientProps) {
+interface BuildingsListClientProps {
+  initialBuildings: Building[];
+  imList?: IMDocument[];
+}
+
+export function BuildingsListClient({ initialBuildings, imList = [] }: BuildingsListClientProps) {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab") === "im" ? "im" : "dealcard";
+  const [activeTab, setActiveTab] = useState<"dealcard" | "im">(initialTab);
   const [buildings, setBuildings] = useState<Building[]>(initialBuildings);
   const [filterType, setFilterType] = useState<"all" | "office" | "retail">("all");
   const [sortBy, setSortBy] = useState<"score-desc" | "score-asc" | "created-desc">("score-desc");
@@ -118,6 +133,81 @@ export function BuildingsListClient({ initialBuildings }: BuildingsListClientPro
 
   return (
     <>
+    {/* Tab Navigation */}
+    <div className="flex gap-1 p-1 bg-neutral-900/80 rounded-xl border border-neutral-800">
+      <button
+        onClick={() => setActiveTab("dealcard")}
+        className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
+          activeTab === "dealcard"
+            ? "bg-primary text-white shadow-lg shadow-primary/20"
+            : "text-neutral-400 hover:text-white hover:bg-neutral-800"
+        }`}
+      >
+        📄 딜카드 <span className="text-[10px] opacity-70">({buildings.length})</span>
+      </button>
+      <button
+        onClick={() => setActiveTab("im")}
+        className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
+          activeTab === "im"
+            ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20"
+            : "text-neutral-400 hover:text-white hover:bg-neutral-800"
+        }`}
+      >
+        📱 모바일 IM <span className="text-[10px] opacity-70">({imList.length})</span>
+      </button>
+    </div>
+
+    {/* IM Tab Content */}
+    {activeTab === "im" && (
+      <div className="space-y-3">
+        {imList.length === 0 ? (
+          <div className="text-center py-16 space-y-3">
+            <div className="text-4xl">📱</div>
+            <p className="text-sm text-neutral-400">아직 생성된 모바일 IM이 없습니다</p>
+            <p className="text-xs text-neutral-500">딜카드에서 &apos;모바일 투자설명서 만들기&apos; 버튼을 눌러 생성하세요</p>
+          </div>
+        ) : (
+          imList.map((doc) => (
+            <Link
+              key={doc.docId}
+              href={`/im-lite/${doc.buildingId}?doc=${doc.docId}`}
+              className="block rounded-xl border border-neutral-800 bg-neutral-900/60 hover:bg-neutral-800/60 hover:border-neutral-700 p-4 transition-all group"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                      doc.status === "approved"
+                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                        : doc.status === "published"
+                        ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                        : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                    }`}>
+                      {doc.status === "approved" ? "승인됨" : doc.status === "published" ? "공개" : "초안"}
+                    </span>
+                    <span className="text-[10px] text-neutral-500">
+                      {new Date(doc.createdAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold text-white truncate">
+                    {doc.areaSignal} {doc.assetType}
+                  </p>
+                  {doc.priceBand && (
+                    <p className="text-xs text-neutral-400 mt-0.5">{doc.priceBand}</p>
+                  )}
+                </div>
+                <svg className="w-4 h-4 text-neutral-600 group-hover:text-primary transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </Link>
+          ))
+        )}
+      </div>
+    )}
+
+    {/* Deal Card Tab Content */}
+    {activeTab === "dealcard" && (
     <div className="space-y-6">
       {/* Top Professional KPI Board */}
       <div className="grid grid-cols-2 gap-3.5">
@@ -361,8 +451,9 @@ export function BuildingsListClient({ initialBuildings }: BuildingsListClientPro
         </div>
       )}
     </div>
+    )}
 
-    {/* 삭제 확인 모달 */}
+    {/* 삭제 확인 모달 (전역) */}
     {confirmDeleteId && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
         <div className="bg-neutral-900 w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl border border-neutral-800">

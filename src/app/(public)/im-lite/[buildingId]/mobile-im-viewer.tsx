@@ -1010,13 +1010,13 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
       <div className="sticky top-0 z-40 bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800/50">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <Link
-            href="/hub"
+            href="/broker/buildings?tab=im"
             className="flex items-center gap-1 text-xs text-neutral-400 hover:text-white transition-colors shrink-0"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Hub
+            IM 보관함
           </Link>
 
           <div className="flex items-center gap-2 min-w-0">
