@@ -23,8 +23,8 @@ interface MagazineViewProps {
 
 function fmt(price: number): string {
   if (!price) return "-";
-  if (price >= 100000000) return `${(price / 100000000).toFixed(1)}\uC5B5`;
-  if (price >= 10000) return `${(price / 10000).toFixed(0)}\uB9CC`;
+  if (price >= 100000000) return `${(price / 100000000).toFixed(1)}억`;
+  if (price >= 10000) return `${(price / 10000).toFixed(0)}만`;
   return price.toLocaleString();
 }
 
@@ -67,7 +67,7 @@ function RichBriefing({ text }: { text: string }) {
             '<span class="text-indigo-300 font-bold font-mono">$1</span>'
           )
           .replace(
-            /(\d[\d,.]+\uC5B5)/g,
+            /(\d[\d,.]+억)/g,
             '<span class="text-emerald-300 font-bold">$1</span>'
           );
 
@@ -103,20 +103,12 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
   const [copied, setCopied] = useState(false);
   const broker = (data.broker as Record<string, any>) ?? {};
   const [y, m, d] = date.split("-");
-  const dateLabel = `${y}\uB144 ${m}\uC6D4 ${d}\uC77C`;
-  const weekdays = [
-    "\uC77C",
-    "\uC6D4",
-    "\uD654",
-    "\uC218",
-    "\uBAA9",
-    "\uAE08",
-    "\uD1A0",
-  ];
+  const dateLabel = `${y}년 ${m}월 ${d}일`;
+  const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
   const weekday = weekdays[new Date(date).getDay()];
   const sentiment = (data.sentiment as any) ?? {
     score: 62,
-    status: "\ud0d0\uc695 \uc6b0\uc138",
+    status: "탐욕 우세",
   };
   const sc = sentimentColor(sentiment.score);
 
@@ -129,10 +121,10 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `[${broker.name}] CRE \ub370\uc77c\ub9ac \ub9e4\uac70\uc9c4 ${dateLabel}`,
+          title: `[${broker.name}] CRE 데일리 매거진 ${dateLabel}`,
           text:
             (data.headline as string | undefined) ??
-            "\uc624\ub298\uc758 \uaf2c\ub9c8\ube4c\ub529 \uc2dc\uc7a5 AI \uc778\ud154\ub9ac\uc804\uc2a4",
+            "오늘의 꼬마빌딩 시장 AI 인텔리전스",
           url: shareUrl,
         });
         return;
@@ -195,7 +187,7 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
             <div className="ml-auto flex items-center gap-1 bg-indigo-500/15 border border-indigo-500/25 px-2.5 py-1 rounded-full">
               <Sparkles className="w-2.5 h-2.5 text-indigo-400" />
               <span className="text-[9px] font-bold text-indigo-300">
-                AI \uAC1C\uC778\uD654
+                AI 개인화
               </span>
             </div>
           </motion.div>
@@ -207,10 +199,10 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
             transition={{ delay: 0.08 }}
           >
             <p className="text-[12px] text-slate-500 mb-1.5">
-              {dateLabel} {weekday}\uC694\uC77C
+              {dateLabel} {weekday}요일
             </p>
             <h1 className="text-[26px] font-extrabold text-white leading-tight tracking-tight mb-2">
-              CRE \uB370\uC77C\uB9AC \uB9E4\uAC70\uC9C4
+              CRE 데일리 매거진
             </h1>
             <div className="flex flex-wrap gap-1.5 mt-2">
               {((broker.specialtyRegions as string[] | undefined) ?? []).map(
@@ -274,7 +266,7 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
               <div className="px-4 py-3 border-b border-white/5 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                 <span className="text-[11px] font-bold text-indigo-300">
-                  AI \uB9C8\uCF13 \uC5D0\uB514\uD130 \uBE0C\uB9AC\uD551
+                  AI 마켓 에디터 브리핑
                 </span>
               </div>
               {data.headline && (
@@ -298,10 +290,10 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
                   <div className="flex items-center gap-1.5">
                     <Building2 className="w-3.5 h-3.5 text-rose-400" />
                     <h3 className="text-[12px] font-bold text-white">
-                      \uAD00\uB9AC \uB9E4\uBB3C \uD558\uC774\uB77C\uC774\uD2B8
+                      관리 매물 하이라이트
                     </h3>
                     <span className="ml-auto text-[10px] font-bold text-rose-300 bg-rose-500/12 border border-rose-500/20 px-2 py-0.5 rounded-full">
-                      \uD65C\uC131 {data.dealHighlights.length}\uAC74
+                      활성 {data.dealHighlights.length}건
                     </span>
                   </div>
                   <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory">
@@ -331,7 +323,7 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
                             </span>
                             {deal.buyerInterestCount > 0 && (
                               <span className="text-[9px] font-bold text-rose-300 bg-rose-500/25 border border-rose-500/30 px-1.5 py-0.5 rounded-lg">
-                                \uAD00\uC2EC {deal.buyerInterestCount}\uBA85
+                                관심 {deal.buyerInterestCount}명
                               </span>
                             )}
                           </div>
@@ -364,7 +356,7 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
                 <div className="flex items-center gap-1.5">
                   <span className="text-base">🌡️</span>
                   <h3 className="text-[12px] font-bold text-white">
-                    CRE \uD22C\uC790\uC790 \uC2EC\uB9AC \uC9C0\uC218
+                    CRE 투자자 심리 지수
                   </h3>
                 </div>
                 <span className={`text-[11px] font-bold ${sc.text}`}>
@@ -398,9 +390,9 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
                   />
                 </div>
                 <div className="flex justify-between text-[9px] text-slate-600">
-                  <span>\uADF9\uB2E8 \uACF5\uD3EC</span>
-                  <span>\uC911\uB9BD 50</span>
-                  <span>\uADF9\uB2E8 \uD0D0\uC695</span>
+                  <span>극단 공포</span>
+                  <span>중립 50</span>
+                  <span>극단 탐욕</span>
                 </div>
               </div>
             </div>
@@ -413,7 +405,7 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
                 <div className="flex items-center gap-1.5 mb-3">
                   <Newspaper className="w-3.5 h-3.5 text-slate-400" />
                   <h3 className="text-[12px] font-bold text-white">
-                    \uC624\uB298\uC758 CRE \uB274\uC2A4
+                    오늘의 CRE 뉴스
                   </h3>
                 </div>
                 {(data.topNews as any[]).slice(0, 4).map((n, i) => (
@@ -455,10 +447,10 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
                 <div className="flex items-center gap-1.5 mb-3">
                   <Hammer className="w-3.5 h-3.5 text-amber-400" />
                   <h3 className="text-[12px] font-bold text-white">
-                    \uC774 \uC8FC\uC758 \uACBD\uB9E4 \uD53D
+                    이 주의 경매 픽
                   </h3>
                   <span className="ml-auto text-[9px] font-bold text-amber-300 bg-amber-500/12 border border-amber-500/20 px-2 py-0.5 rounded-full">
-                    NPL \uC18C\uC2F1
+                    NPL 소싱
                   </span>
                 </div>
                 {(data.auctionPicks as any[]).map((a, i) => (
@@ -479,7 +471,7 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
                     </div>
                     <div className="flex items-center gap-3 text-[10px] text-slate-400 flex-wrap">
                       <span>
-                        \uCD5C\uC800\uC785\uCC30\uAC00 {fmt(a.minimumBid)}
+                        최저입찰가 {fmt(a.minimumBid)}
                       </span>
                       <span>·</span>
                       <span className="text-amber-400 font-bold">
@@ -533,20 +525,20 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
                 <div className="grid grid-cols-3 gap-2 mb-4">
                   {[
                     {
-                      label: "\uB204\uC801 \uAC70\uB798",
-                      value: `${broker.totalDeals}\uAC74`,
+                      label: "누적 거래",
+                      value: `${broker.totalDeals}건`,
                       color: "text-indigo-300",
                     },
                     {
-                      label: "\uD65C\uC131 \uB9E4\uBB3C",
-                      value: `${broker.activeDeals}\uAC74`,
+                      label: "활성 매물",
+                      value: `${broker.activeDeals}건`,
                       color: "text-emerald-300",
                     },
                     {
-                      label: "\uC804\uBB38 \uC790\uC0B0",
+                      label: "전문 자산",
                       value:
                         (broker.specialtyAssets as string[] | undefined)?.[0] ??
-                        "\uAF2C\uB9C8\uBE4C\uB529",
+                        "꼬마빌딩",
                       color: "text-amber-300",
                     },
                   ].map((s, i) => (
@@ -574,7 +566,7 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
                     }}
                   >
                     <Phone className="w-4 h-4" />
-                    {broker.phone} \uC0C1\uB2F4\uD558\uAE30
+                    {broker.phone} 상담하기
                   </button>
                 )}
               </div>
@@ -588,7 +580,7 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
                 <div className="flex items-center gap-1.5 mb-3">
                   <Globe className="w-3.5 h-3.5 text-indigo-400" />
                   <h3 className="text-[12px] font-bold text-white">
-                    \uC804\uBB38 \uB9AC\uC11C\uCE58 \uB9AC\uD3EC\uD2B8
+                    전문 리서치 리포트
                   </h3>
                 </div>
                 {(data.reports as any[]).map((r, i) => (
@@ -641,7 +633,7 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
               }}
             >
               <Phone className="w-4 h-4" />
-              {broker.phone} \uC0C1\uB2F4
+              {broker.phone} 상담
             </button>
           )}
           <button
@@ -652,14 +644,12 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
             {copied ? (
               <>
                 <Check className="w-4 h-4 text-emerald-400" />
-                <span className="text-emerald-400">
-                  \uBCF5\uC0AC\uB428
-                </span>
+                <span className="text-emerald-400">복사됨</span>
               </>
             ) : (
               <>
                 <Share2 className="w-4 h-4" />
-                <span>\uACF5\uC720</span>
+                <span>공유</span>
               </>
             )}
           </button>

@@ -17,20 +17,38 @@ const DEMO_PROFILES: Record<string, any> = {
   demo: {
     profile: {
       id: "demo",
-      display_name: "\uae40\ucca0\uc218 \ub300\ud45c",
-      company: "JS \ubd80\ub3d9\uc0b0",
+      display_name: "김철수 대표",
+      company: "JS 부동산",
       phone: "010-1234-5678",
       photo_url: null,
-      tagline: "\uc131\uc218\u00b7\uac15\ub0a8 \uaf2c\ub9c8\ube4c\ub529 10\ub144 \uc804\ubb38\uac00",
+      tagline: "성수·강남 꼬마빌딩 10년 전문가",
     },
     broker: {
-      specialty_regions: ["\uc131\uc218\ub3d9", "\uac15\ub0a8 GBD"],
-      specialty_assets: ["\uaf2c\ub9c8\ube4c\ub529", "\uadfc\uc0dd"],
-      bio: "10\ub144 \uacbd\ub825\uc758 \uaf2c\ub9c8\ube4c\ub529 \uc804\ubb38 \uc911\uac1c\uc778\uc785\ub2c8\ub2e4.",
+      specialty_regions: ["성수동", "강남 GBD"],
+      specialty_assets: ["꼬마빌딩", "근생"],
+      bio: "10년 경력의 꼬마빌딩 전문 중개인입니다.",
       total_deal_count_self: 47,
-      deal_size_range: "30\uc5b5~150\uc5b5",
+      deal_size_range: "30억~150억",
     },
     activeDealCount: 3,
+  },
+  "hong-gildong-demo": {
+    profile: {
+      id: "hong-gildong-demo",
+      display_name: "testuser",
+      company: "CRE DealCard",
+      phone: "010-1234-5678",
+      photo_url: null,
+      tagline: "강남·서초 꼬마빌딩 전문 중개인",
+    },
+    broker: {
+      specialty_regions: ["강남구 GBD", "서초구 GBD"],
+      specialty_assets: ["꼬마빌딩", "근생"],
+      bio: "강남·서초 권역 상업용 부동산 전문 중개인입니다.",
+      total_deal_count_self: 12,
+      deal_size_range: "20억~100억",
+    },
+    activeDealCount: 2,
   },
 };
 
@@ -111,9 +129,10 @@ async function getMarketIntelligence(supabase: any, _region: string) {
     await Promise.all([
       supabase
         .from("external_news")
-        .select("title, summary, source, sentiment")
+        .select("title, summary, source, sentiment, importance_score, topic")
+        .order("importance_score", { ascending: false })
         .order("created_at", { ascending: false })
-        .limit(5),
+        .limit(8),
       supabase
         .from("social_sentiment")
         .select("keyword, sentiment_score, mention_count, analysis_date")
@@ -168,31 +187,40 @@ async function composeMagazineBriefing(
     .slice(0, 4)
     .map((n: any) => `[${n.source}] ${n.title}: ${n.summary}`)
     .join("\n");
-  const regionLabel = regions[0] ?? "\uac15\ub0a8\u00b7\uc131\uc218";
+  const regionLabel = regions[0] ?? "강남·성수";
   const sentimentLabel =
     avgSentiment >= 70
-      ? "\uacfc\uc5f4 \uc8fc\uc758"
+      ? "과열 주의"
       : avgSentiment >= 55
-      ? "\ud0d0\uc695 \uc6b0\uc138"
+      ? "탐욕 우세"
       : avgSentiment >= 40
-      ? "\uc911\ub9bd \uad00\ub9dd"
-      : "\uacf5\ud3ec \uc800\uc810";
+      ? "중립 관망"
+      : "공포 저점";
 
   try {
     const res = await callLLM({
-      systemPrompt: `\ub2f9\uc2e0\uc740 \uaf2c\ub9c8\ube4c\ub529 \uc804\ubb38 \ubd80\ub3d9\uc0b0 \ub9e4\uac70\uc9c4 \uc5d0\ub514\ud130\uc785\ub2c8\ub2e4.
-\ube0c\ub85c\ucee4 ${brokerName} (\uc804\ubb38: ${regionLabel} ${assets[0] ?? "\uaf2c\ub9c8\ube4c\ub529"})\ub97c \uc704\ud55c
-\uc624\ub298\uc758 \uac1c\uc778\ud654 CRE \ub370\uc77c\ub9ac \ub9e4\uac70\uc9c4 \ube0c\ub9ac\ud551\uc744 \uc791\uc131\ud558\uc138\uc694.
+      systemPrompt: `당신은 꼬마빌딩 전문 부동산 매거진 에디터입니다.
+브로커 ${brokerName} (전문: ${regionLabel} ${assets[0] ?? "꼬마빌딩"})를 위한
+오늘의 개인화 CRE 데일리 매거진 브리핑을 작성하세요.
 
-\ud615\uc2dd \uaddc\uce59:
-- \uc81c\ubaa9(\ud5e4\ub4dc\ub77c\uc778): 15-25\uc790, \uc624\ub298 \uc2dc\uc7a5\uc758 \ud575\uc2ec \ud55c \ubb38\uc7a5
-- \ubcf8\ubb38: 3-4 \ub2e8\ub77d, \uac01 \ub2e8\ub77d 2-3\uc904
-- \ub2e8\ub77d \uc2dc\uc791\uc5d0 \uc774\ubaa8\uc9c0 \uc139\uc158 \ud5e4\ub529 (\ud65c\uc6a9: \uD83C\uDFE2 \uc2dc\uc7a5 \ub3d9\ud5a5 / \uD83D\uDCCA \ud575\uc2ec \uc218\uce58 / \u26A1 \uc624\ub298\uc758 \uae30\ud68c / \uD83D\uDCCD ${regionLabel} \ud3ec\ucee4\uc2a4)
-- **\uad75\uc740 \uae00\uc528**\ub85c \ud575\uc2ec \uc218\uce58 \uac15\uc870
-- \ube0c\ub85c\ucee4\uc758 \uc804\ubb38 \uad8c\uc5ed\uacfc \uc790\uc0b0\uc720\ud615\uc5d0 \ub9de\uac8c \uac1c\uc778\ud654
-- \ud1a4: \uc804\ubb38\uc801\uc774\ub418 \uc77d\uae30 \uc26c\uc6b4 \ub9e4\uac70\uc9c4 \ubb38\uccb4
-\uacb0\uacfc\ub97c JSON\uc73c\ub85c \ubc18\ud658: {"headline": "...", "briefing": "..."}`,
-      userPrompt: `\uc624\ub298 \ub274\uc2a4: ${newsText}\n\n\ud22c\uc790\uc790 \uc2ec\ub9ac: ${avgSentiment}/100 (${sentimentLabel})\n\ube0c\ub85c\ucee4 \ud65c\uc131 \ub9e4\ubb3c: ${dealCount}\uac74`,
+■ 이 매거진은 브로커가 고객(투자자/자산관리자)에게 배포하는 콘텐츠입니다.
+■ 독자는 꼬마빌딩·상업용 부동산에 관심 있는 전문 투자자입니다.
+
+형식 규칙:
+- 제목(헤드라인): 15-25자, 오늘 시장의 핵심 한 문장
+- 본문: 3-4 단락, 각 단락 2-3줄
+- 단락 시작에 이모지 섹션 헤딩 (활용: 🏢 시장 동향 / 📊 핵심 수치 / ⚡ 오늘의 기회 / 📍 ${regionLabel} 포커스)
+- **굵은 글씨**로 핵심 수치 강조
+- 브로커의 전문 권역과 자산유형에 맞게 개인화
+
+톤앤매너 규칙:
+- 전문적이면서도 읽기 쉬운 매거진 문체 (존댓말 사용)
+- 과장하지 말고 데이터에 근거한 팩트 중심
+- "~합니다", "~습니다" 존경체 사용 ("~임", "~함" 사용 금지)
+- 고객이 신뢰할 수 있는 인사이트 제공
+- 출처가 있는 뉴스의 경우 출처 명시
+결과를 JSON으로 반환: {"headline": "...", "briefing": "..."}`,
+      userPrompt: `오늘 뉴스:\n${newsText}\n\n투자자 심리: ${avgSentiment}/100 (${sentimentLabel})\n브로커 활성 매물: ${dealCount}건`,
       model: "gpt-5.4",
       temperature: 0.7,
       maxTokens: 600,
@@ -210,11 +238,11 @@ async function composeMagazineBriefing(
     }
 
     const headline =
-      parsed?.headline ?? `${regionLabel} \uc2dc\uc7a5, \uc624\ub298 \uc8fc\ubaa9\ud560 \ubcc0\ud654`;
+      parsed?.headline ?? `${regionLabel} 시장, 오늘 주목할 변화`;
     const briefing = parsed?.briefing ?? res.content;
     const keyStats = [
       {
-        label: "\ud22c\uc790\uc790 \uc2ec\ub9ac",
+        label: "투자자 심리",
         value: `${avgSentiment}/100`,
         accent:
           avgSentiment >= 60
@@ -223,22 +251,22 @@ async function composeMagazineBriefing(
             ? "amber"
             : "rose",
       },
-      { label: "\ud65c\uc131 \ub9e4\ubb3c", value: `${dealCount}\uac74`, accent: "indigo" },
-      { label: "\uc2dc\uc7a5 \uc0c1\ud0dc", value: sentimentLabel, accent: "slate" },
+      { label: "활성 매물", value: `${dealCount}건`, accent: "indigo" },
+      { label: "시장 상태", value: sentimentLabel, accent: "slate" },
     ];
 
     return { headline, briefing, keyStats };
   } catch {
     return {
-      headline: `${regionLabel} \uc2dc\uc7a5, \uc624\ub298 \uc8fc\ubaa9\ud560 \ubcc0\ud654`,
+      headline: `${regionLabel} 시장, 오늘 주목할 변화`,
       briefing: newsItems
         .slice(0, 2)
-        .map((n: any) => `\uD83C\uDFE2 ${n.title}\n${n.summary}`)
+        .map((n: any) => `🏢 ${n.title}\n${n.summary}`)
         .join("\n\n"),
       keyStats: [
-        { label: "\ud22c\uc790\uc790 \uc2ec\ub9ac", value: `${avgSentiment}/100`, accent: "emerald" },
-        { label: "\ud65c\uc131 \ub9e4\ubb3c", value: `${dealCount}\uac74`, accent: "indigo" },
-        { label: "\uc2dc\uc7a5 \uc0c1\ud0dc", value: sentimentLabel, accent: "slate" },
+        { label: "투자자 심리", value: `${avgSentiment}/100`, accent: "emerald" },
+        { label: "활성 매물", value: `${dealCount}건`, accent: "indigo" },
+        { label: "시장 상태", value: sentimentLabel, accent: "slate" },
       ],
     };
   }
@@ -274,7 +302,7 @@ export async function GET(
 
   // 4. AI 편집
   const { headline, briefing, keyStats } = await composeMagazineBriefing(
-    brokerData.profile.display_name ?? "\ube0c\ub85c\ucee4",
+    brokerData.profile.display_name ?? "브로커",
     brokerData.broker.specialty_regions ?? [],
     brokerData.broker.specialty_assets ?? [],
     marketData.news,
@@ -310,12 +338,12 @@ export async function GET(
       score: marketData.avgSentiment,
       status:
         marketData.avgSentiment >= 70
-          ? "\uacfc\uc5f4 \uc8fc\uc758"
+          ? "과열 주의"
           : marketData.avgSentiment >= 55
-          ? "\ud0d0\uc695 \uc6b0\uc138"
+          ? "탐욕 우세"
           : marketData.avgSentiment >= 40
-          ? "\uc911\ub9bd \uad00\ub9dd"
-          : "\uacf5\ud3ec \uc800\uc810",
+          ? "중립 관망"
+          : "공포 저점",
       items: marketData.sentiment,
     },
     auctionPicks: marketData.auctions.slice(0, 2).map((a: any) => ({
