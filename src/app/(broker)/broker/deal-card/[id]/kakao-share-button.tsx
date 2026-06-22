@@ -83,8 +83,22 @@ export function KakaoShareButton({
       ? sessionStorage.getItem(`kakao_text_${buildingId}`) || editedText 
       : editedText;
 
-    // 카카오 SDK 사용 가능한 경우 — sendDefault(Feed) 방식
+    // 카카오 SDK 사용 가능한 경우
     if (kakaoReady && window.Kakao?.Share) {
+      // 1차 시도: sendScrap — 카카오 서버가 dealUrl의 OG 메타를 크롤링
+      // 도메인이 [카카오 링크] > [도메인]에 등록되어 있으면 클릭 가능한 링크 생성
+      try {
+        (window.Kakao.Share as any).sendScrap({
+          requestUrl: dealUrl,
+        });
+        setShared(true);
+        setTimeout(() => setShared(false), 3000);
+        return;
+      } catch {
+        // sendScrap 실패 → sendDefault 시도
+      }
+
+      // 2차 시도: sendDefault(Feed) — OG 이미지/링크를 직접 지정
       try {
         (window.Kakao.Share as any).sendDefault({
           objectType: "feed",
@@ -111,7 +125,7 @@ export function KakaoShareButton({
         setTimeout(() => setShared(false), 3000);
         return;
       } catch {
-        // SDK 실패 시 fallback
+        // sendDefault도 실패 → clipboard fallback
       }
     }
 
