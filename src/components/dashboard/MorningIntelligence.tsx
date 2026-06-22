@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Sparkles, Building2, Hammer, TrendingUp, MapPin, Flame,
   Zap, BookOpen, ArrowRight, Copy, Check, RefreshCw, Share2,
   PhoneCall, AlertTriangle, CheckCircle2, ChevronRight,
   BarChart2, Globe, Eye, Clock, Edit3, Activity, Calendar,
+  ClipboardPaste, Wand2, Combine, Send, Loader2, FileText, Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
@@ -185,6 +186,20 @@ export default function MorningIntelligence() {
   const [briefingExpanded, setBriefingExpanded] = useState(false);
   const [pulseData, setPulseData] = useState<any>(null);
 
+  // ── 3탭 모드 상태 ────────────────────────────────────────────────────────
+  const [intelMode, setIntelMode] = useState<"hq" | "my" | "custom">("hq");
+  // 마이 인텔리전스
+  const [myIntelText, setMyIntelText] = useState("");
+  const [myIntelProcessing, setMyIntelProcessing] = useState(false);
+  const [myIntelResult, setMyIntelResult] = useState<any>(null);
+  const [myIntelHistory, setMyIntelHistory] = useState<any[]>([]);
+  // 커스텀 결합
+  const [combineProcessing, setCombineProcessing] = useState(false);
+  const [combineResult, setCombineResult] = useState<any>(null);
+  const [combineEditing, setCombineEditing] = useState(false);
+  const [combineEditText, setCombineEditText] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   const fetchIntelligence = useCallback(async (selectedRegion: string) => {
     setLoading(true);
     try {
@@ -236,6 +251,66 @@ export default function MorningIntelligence() {
   const triggerCrawl = async () => {
     setRefreshing(true);
     try { await fetch("/api/public/market-intelligence?action=crawl"); await fetchIntelligence(region); } catch { } finally { setRefreshing(false); }
+  };
+
+  // ── 마이 인텔리전스: AI 정리 ──────────────────────────────────────────────
+  const handleMyIntelProcess = async () => {
+    if (!myIntelText.trim()) return;
+    setMyIntelProcessing(true);
+    try {
+      // 줄바꿈/번호 기준으로 자료 분리
+      const rawInputs = myIntelText
+        .split(/\n(?=\d+[.\)\-]|\[|■|●|▶|━)/)
+        .map(s => s.trim())
+        .filter(s => s.length > 10);
+      const inputs = rawInputs.length > 0 ? rawInputs : [myIntelText.trim()];
+
+      const res = await fetch("/api/broker/morning-intelligence/custom", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ region, rawInputs: inputs.slice(0, 10) }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setMyIntelResult(json.aiSummary);
+      }
+    } catch (err) {
+      console.error("My intel process failed:", err);
+    } finally {
+      setMyIntelProcessing(false);
+    }
+  };
+
+  // ── 커스텀 결합: AI 브리핑 생성 ────────────────────────────────────────────
+  const handleCombine = async () => {
+    setCombineProcessing(true);
+    try {
+      const hqBriefingText = data?.briefing || "";
+      const myItems = myIntelResult?.items?.map((item: any) => ({
+        summary: item.summary,
+        implication: item.implication,
+      })) || [];
+
+      const res = await fetch("/api/broker/morning-intelligence/combine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          region,
+          hqBriefingText,
+          hqSelectedSections: ["briefing", "transactions", "auctions"],
+          myIntelItems: myItems,
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setCombineResult(json);
+        setCombineEditText(json.briefing || "");
+      }
+    } catch (err) {
+      console.error("Combine failed:", err);
+    } finally {
+      setCombineProcessing(false);
+    }
   };
 
   const now = new Date();
@@ -338,7 +413,233 @@ export default function MorningIntelligence() {
           </div>
       </motion.div>
 
-      {data ? (
+      {/* ── 3탭 모드 전환 ─────────────────────────────────────────────────── */}
+      <div className="flex bg-white/5 backdrop-blur p-1 rounded-2xl border border-white/10 gap-0.5">
+        {[
+          { id: "hq" as const, label: "🏢 HQ 브리핑", desc: "자동 수집" },
+          { id: "my" as const, label: "📋 마이 인텔", desc: "자료 복붙" },
+          { id: "custom" as const, label: "🔗 커스텀", desc: "결합 편집" },
+        ].map((tab) => (
+          <button key={tab.id} onClick={() => setIntelMode(tab.id)}
+            className={`flex-1 text-center py-2.5 px-2 rounded-xl font-bold transition-all duration-300 cursor-pointer ${
+              intelMode === tab.id
+                ? "bg-indigo-500/20 text-indigo-200 border border-indigo-500/30"
+                : "text-slate-500 hover:text-slate-300 hover:bg-white/5 border border-transparent"
+            }`}>
+            <div className="text-[12px]">{tab.label}</div>
+            <div className="text-[9px] opacity-60 mt-0.5">{tab.desc}</div>
+          </button>
+        ))}
+      </div>
+
+      {/* ── 마이 인텔리전스 패널 ───────────────────────────────────────────── */}
+      {intelMode === "my" && (
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+          <Card accent="#059669" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-[12px] font-bold text-emerald-300">
+                <ClipboardPaste className="w-4 h-4" /> 자료 복붙 → AI 정리
+              </span>
+              <span className="text-[10px] text-slate-500">최대 10건</span>
+            </div>
+
+            <textarea
+              ref={textareaRef}
+              value={myIntelText}
+              onChange={(e) => setMyIntelText(e.target.value)}
+              placeholder={"뉴스 기사, 시장 정보, 메모 등을 복붙하세요...\n\n예시:\n1. 강남 테헤란로 이면 근생 빌딩 85억 거래 체결\n2. 성수 F&B 공실률 1.8%로 하락, 임대 수요 지속\n3. 한국부동산원 발표: 서울 오피스 공실률 2.3%"}
+              className="w-full h-44 bg-white/3 border border-white/10 rounded-xl p-4 text-[12px] text-slate-200 placeholder-slate-600 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 transition-all"
+            />
+
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-500">
+                {myIntelText.split(/\n/).filter(l => l.trim().length > 10).length}건 감지됨
+              </span>
+              <div className="flex gap-2">
+                {myIntelText && (
+                  <button onClick={() => { setMyIntelText(""); setMyIntelResult(null); }}
+                    className="flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-lg bg-white/5 text-slate-400 hover:bg-white/10 transition-all">
+                    <Trash2 className="w-3 h-3" /> 초기화
+                  </button>
+                )}
+                <button onClick={handleMyIntelProcess} disabled={myIntelProcessing || !myIntelText.trim()}
+                  className="flex items-center gap-1.5 text-[11px] font-bold px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all disabled:opacity-40">
+                  {myIntelProcessing
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> AI 정리 중...</>
+                    : <><Wand2 className="w-3.5 h-3.5" /> AI 정리</>}
+                </button>
+              </div>
+            </div>
+          </Card>
+
+          {/* AI 정리 결과 */}
+          {myIntelResult && (
+            <Card accent="#10b981" className="space-y-4">
+              <div className="flex items-center gap-1.5 text-[12px] font-bold text-emerald-300">
+                <CheckCircle2 className="w-4 h-4" /> AI 정리 결과
+              </div>
+
+              {/* 항목별 카드 */}
+              <div className="space-y-2.5">
+                {(myIntelResult.items || []).map((item: any, i: number) => (
+                  <div key={i} className="bg-white/3 border border-white/8 rounded-xl p-3 space-y-1.5">
+                    <div className="flex items-start gap-2">
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded-md font-bold shrink-0">{i + 1}</span>
+                      <div>
+                        <p className="text-[12px] font-bold text-white">{item.summary}</p>
+                        <p className="text-[11px] text-slate-400 mt-1">→ {item.implication}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* 종합 인사이트 */}
+              {myIntelResult.overallInsight && (
+                <div className="bg-emerald-500/5 border border-emerald-500/15 rounded-xl p-3.5">
+                  <p className="text-[11px] font-bold text-emerald-300 mb-1.5">📊 종합 인사이트</p>
+                  <p className="text-[12px] text-slate-200 leading-relaxed">{myIntelResult.overallInsight}</p>
+                </div>
+              )}
+
+              {/* 액션 아이템 */}
+              {myIntelResult.actionItems && myIntelResult.actionItems.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-bold text-amber-300">🎯 액션 아이템</p>
+                  {myIntelResult.actionItems.map((action: string, i: number) => (
+                    <div key={i} className="flex items-center gap-2 text-[11px] text-slate-300">
+                      <ChevronRight className="w-3 h-3 text-amber-400 shrink-0" />
+                      {action}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 커스텀 결합으로 이동 */}
+              <button onClick={() => setIntelMode("custom")}
+                className="w-full flex items-center justify-center gap-2 text-[11px] font-bold py-2.5 rounded-xl bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all">
+                <Combine className="w-3.5 h-3.5" /> HQ 브리핑과 결합하기 →
+              </button>
+            </Card>
+          )}
+        </motion.div>
+      )}
+
+      {/* ── 커스텀 결합 패널 ───────────────────────────────────────────────── */}
+      {intelMode === "custom" && (
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+          <Card accent="#d97706" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-[12px] font-bold text-amber-300">
+                <Combine className="w-4 h-4" /> HQ + 마이 인텔 결합
+              </span>
+            </div>
+
+            {/* 소스 상태 표시 */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className={`rounded-xl p-3 border ${
+                data?.briefing ? "bg-indigo-500/5 border-indigo-500/20" : "bg-white/3 border-white/10"
+              }`}>
+                <p className="text-[10px] text-indigo-300 font-bold mb-1">🏢 HQ 브리핑</p>
+                <p className="text-[11px] text-slate-400">
+                  {data?.briefing ? "✅ 준비됨" : "⏳ 로딩 중..."}
+                </p>
+              </div>
+              <div className={`rounded-xl p-3 border ${
+                myIntelResult ? "bg-emerald-500/5 border-emerald-500/20" : "bg-white/3 border-white/10"
+              }`}>
+                <p className="text-[10px] text-emerald-300 font-bold mb-1">📋 마이 인텔</p>
+                <p className="text-[11px] text-slate-400">
+                  {myIntelResult ? `✅ ${myIntelResult.items?.length || 0}건` : "미작성"}
+                </p>
+                {!myIntelResult && (
+                  <button onClick={() => setIntelMode("my")} className="text-[10px] text-emerald-400 mt-1 hover:underline">
+                    → 마이 인텔 작성하기
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <button onClick={handleCombine}
+              disabled={combineProcessing || (!data?.briefing && !myIntelResult)}
+              className="w-full flex items-center justify-center gap-2 text-[12px] font-bold py-3 rounded-xl bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition-all disabled:opacity-40">
+              {combineProcessing
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> AI 결합 브리핑 생성 중...</>
+                : <><Wand2 className="w-4 h-4" /> ✨ AI 커스텀 브리핑 생성</>}
+            </button>
+          </Card>
+
+          {/* 결합 결과 */}
+          {combineResult && (
+            <Card accent="#f59e0b" className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] font-extrabold text-white">
+                  {combineResult.title || "커스텀 브리핑"}
+                </span>
+                <button onClick={() => { setCombineEditing(!combineEditing); }}
+                  className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg bg-white/5 text-slate-400 hover:bg-white/10 transition-all">
+                  <Edit3 className="w-3 h-3" /> {combineEditing ? "미리보기" : "편집"}
+                </button>
+              </div>
+
+              {combineEditing ? (
+                <textarea
+                  value={combineEditText}
+                  onChange={(e) => setCombineEditText(e.target.value)}
+                  className="w-full h-48 bg-white/3 border border-white/10 rounded-xl p-4 text-[12px] text-slate-200 resize-none focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
+                />
+              ) : (
+                <div className="bg-white/3 border border-white/8 rounded-xl p-4">
+                  <RichBriefing text={combineEditText || combineResult.briefing} />
+                </div>
+              )}
+
+              {/* 액션 리스트 */}
+              {combineResult.actionList && combineResult.actionList.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-bold text-emerald-300">🎯 오늘의 액션</p>
+                  {combineResult.actionList.map((action: string, i: number) => (
+                    <div key={i} className="flex items-center gap-2 text-[11px] text-slate-300">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                      {action}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 전화 멘트 */}
+              {combineResult.callScript && (
+                <div className="bg-indigo-500/5 border border-indigo-500/15 rounded-xl p-3.5">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-bold text-indigo-300">📞 전화 멘트</span>
+                    <button onClick={() => { navigator.clipboard.writeText(combineResult.callScript); }}
+                      className="text-[9px] px-2 py-0.5 rounded bg-white/5 text-slate-400 hover:bg-white/10">
+                      복사
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">{combineResult.callScript}</p>
+                </div>
+              )}
+
+              {/* 공유 버튼 */}
+              <div className="flex gap-2">
+                <button onClick={() => { navigator.clipboard.writeText(combineEditText || combineResult.briefing); }}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold py-2.5 rounded-xl bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 transition-all">
+                  <Copy className="w-3.5 h-3.5" /> 브리핑 복사
+                </button>
+                <button onClick={handleShareLink}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold py-2.5 rounded-xl bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all">
+                  <Share2 className="w-3.5 h-3.5" /> 매거진 발행
+                </button>
+              </div>
+            </Card>
+          )}
+        </motion.div>
+      )}
+
+      {/* ── HQ 브리핑 (기존 콘텐츠) ──────────────────────────────────────────── */}
+
+      {intelMode === "hq" && data ? (
         <div className="space-y-4">
 
           {/* ── CARD 1: AI 브리핑 (리치 포맷) ────────────────────────────────── */}
