@@ -144,13 +144,37 @@ export async function runBrokerDealCard(
   // Desanitize teaser output to restore any placeholders
   const restoredTeaserContent = desanitizeOutput(teaserResult.content, sanitizationMap);
   let blindTeaser: BlindTeaserOutput;
+  const cleanedJson = extractJsonString(restoredTeaserContent);
+  let parsedObj: Record<string, unknown>;
   try {
-    blindTeaser = BlindTeaserOutputSchema.parse(
-      JSON.parse(extractJsonString(restoredTeaserContent)),
-    );
-  } catch (parseErr) {
-    console.error("[broker-deal-card] BlindTeaser output parse failed:", parseErr, "\nRaw:", restoredTeaserContent.slice(0, 500));
-    throw new Error("AI가 딜카드를 생성하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+    parsedObj = JSON.parse(cleanedJson);
+  } catch (jsonErr) {
+    console.error("[broker-deal-card] BlindTeaser JSON.parse failed. Raw (first 800 chars):", restoredTeaserContent.slice(0, 800));
+    throw new Error("AI 응답이 유효한 JSON이 아닙니다. 잠시 후 다시 시도해주세요.");
+  }
+  
+  const zodResult = BlindTeaserOutputSchema.safeParse(parsedObj);
+  if (zodResult.success) {
+    blindTeaser = zodResult.data;
+  } else {
+    console.error("[broker-deal-card] BlindTeaser Zod validation failed:", JSON.stringify(zodResult.error.issues, null, 2), "\nParsed keys:", Object.keys(parsedObj));
+    // Zod 실패 시, 가능한 필드를 수동으로 채워서 복구 시도
+    blindTeaser = {
+      title: String(parsedObj.title || "블라인드 딜카드"),
+      shortSummary: String(parsedObj.shortSummary || parsedObj.short_summary || ""),
+      dealPoints: Array.isArray(parsedObj.dealPoints || parsedObj.deal_points)
+        ? (parsedObj.dealPoints || parsedObj.deal_points) as string[]
+        : ["투자 매력 포인트"],
+      cautionPoints: Array.isArray(parsedObj.cautionPoints || parsedObj.caution_points)
+        ? (parsedObj.cautionPoints || parsedObj.caution_points) as string[]
+        : ["실사 확인 필요"],
+      hiddenInfoNotice: Array.isArray(parsedObj.hiddenInfoNotice || parsedObj.hidden_info_notice)
+        ? (parsedObj.hiddenInfoNotice || parsedObj.hidden_info_notice) as string[]
+        : [],
+      gateMessage: String(parsedObj.gateMessage || parsedObj.gate_message || ""),
+      kakaoText: String(parsedObj.kakaoText || parsedObj.kakao_text || ""),
+      boundaryNote: String(parsedObj.boundaryNote || parsedObj.boundary_note || ""),
+    };
   }
 
   // Apply safe-language guardrails to public-facing text
