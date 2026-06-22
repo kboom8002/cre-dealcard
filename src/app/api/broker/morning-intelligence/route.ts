@@ -102,6 +102,8 @@ export async function GET(request: NextRequest) {
 
     let aiBriefing = "";
     let aiCounselScript = "";
+    let aiHotLeadScript = "";
+    let aiRiskNote = "";
     let aiActionList: string[] = [];
 
     try {
@@ -111,11 +113,32 @@ export async function GET(request: NextRequest) {
 [핵심 원칙]
 1. 추상적 시장 뉴스가 아니라 "오늘 누구에게 먼저 전화할지", "내 매물 가격 협상에 어떤 영향인지" 직결로 연결
 2. 꼬마빌딩(50억 미만~200억) 매도·임대·매입 중개 관점에서 해석
-3. 실거래 체결 뉴스 → 내 매물 시세 포지셔닝에 즉시 연결
+3. 실거래 체결 → 내 매물 시세 포지셔닝에 즉시 연결
 4. 경매 낙찰가율 → 시장 과열/냉각 온도계로 해석
 5. 공실률 변동 → 임대 전략 또는 매각 타이밍으로 전환
-6. **데이터가 "없음"이면 솔직하게 "수집된 정보 없음"이라고 말하세요. 절대 없는 데이터를 지어내지 마세요.**
-7. 출력 형식: JSON (briefing, action_list, cold_call_script, hot_lead_script, risk_note)`;
+
+[할루시네이션 방지 — 절대 규칙]
+- **모든 수치에 출처를 괄호로 표시하세요**: (국토부 실거래), (네이버뉴스), (내 매물), (경매 데이터) 등
+- 출처가 불분명한 수치/주소/금액은 절대 넣지 마세요
+- 데이터가 "없음"이면 솔직하게 "수집된 정보 없음"이라고 말하세요
+- 입력에 없는 건물명/주소/금액을 지어내면 브로커가 잘못된 정보로 영업합니다
+
+[콜드 팔로업 전화 멘트 작성 규칙]
+- 30초 이내의 자연스러운 한국어 구어체
+- "대표님, 안녕하세요" 시작 → 오늘 시장 뉴스 1가지 핵심 → 상대 니즈에 연결 → 통화 제안
+- 내 매물이나 매수자 정보를 자연스럽게 언급
+
+[카톡 문구 작성 규칙]
+- 3줄 이내, 이모지 1~2개 적절히 사용
+- 핵심 수치 1개 + 관심 유도 + "자세한 내용은 통화로" 클로징
+- 너무 공식적이지 않은 톤
+
+[액션 리스트 규칙]
+- 2~5개 (데이터에 맞게 동적으로)
+- 각 액션은 "누구에게 + 무슨 액션을 + 왜" 구조로 작성
+- 가장 긴급하고 수익성 높은 것을 첫 번째로
+
+출력: 반드시 아래 JSON만 출력 (코드블록 없이)`;
 
       const userPrompt = `
 [오늘 시장 뉴스]
@@ -130,12 +153,12 @@ ${myDealsSummary}
 [이 브로커의 활성 매수자 ${myBuyers.length}명]
 ${myBuyersSummary}
 
-[미션] 아래 JSON 형식으로 정확히 출력하세요:
+출력 JSON:
 {
-  "briefing": "시장 동향 5줄 핵심 요약 (내 매물/매수자 맥락 연결 필수)",
-  "action_list": ["오늘 할 일 1", "오늘 할 일 2", "오늘 할 일 3"],
-  "cold_call_script": "콜드 팔로업용 전화 멘트 (30초 이내, 자연스러운 구어체)",
-  "hot_lead_script": "관심 있는 매수자에게 보낼 카톡 문구",
+  "briefing": "시장 동향 5줄 핵심 요약 (각 수치에 출처 괄호 필수, 내 매물/매수자 맥락 연결)",
+  "action_list": ["(우선순위 높은 순) 누구에게 + 무슨 액션 + 이유"],
+  "cold_call_script": "콜드 팔로업 전화 멘트 (30초 이내, 구어체)",
+  "hot_lead_script": "관심 매수자에게 보낼 카톡 문구 (3줄 이내)",
   "risk_note": "오늘 주의해야 할 시장 위험 신호 1줄"
 }`;
 
@@ -143,12 +166,14 @@ ${myBuyersSummary}
         systemPrompt,
         userPrompt,
         model: "gpt-5.4",
-        temperature: 0.4,
-        maxTokens: 900,
+        temperature: 0.2,
+        maxTokens: 1500,
       });
 
-      // JSON 파싱 시도
+      // JSON 파싱
       let contentString = typeof aiRes.content === 'string' ? aiRes.content : JSON.stringify(aiRes.content);
+      // 코드블록 제거
+      contentString = contentString.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
       const jsonMatch = contentString.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
@@ -160,26 +185,27 @@ ${myBuyersSummary}
             try {
               const doubleParsed = JSON.parse(aiBriefing);
               aiBriefing = doubleParsed.briefing || aiBriefing;
-            } catch (e) {}
+            } catch {}
           }
           
-          aiCounselScript = parsed.cold_call_script || parsed.hot_lead_script || "";
-          aiActionList = parsed.action_list || [];
-        } catch (e) {
-          // If JSON parse fails, maybe it's just raw text
-          aiBriefing = contentString.replace(/```json/g, '').replace(/```/g, '').trim();
-          if (aiBriefing.startsWith('{')) {
-             aiBriefing = "1. 고금리와 공실 부담으로 시장 변동성이 커지고 있습니다.\n2. 실거래가 동향을 주시해야 합니다.";
-          }
+          aiCounselScript = parsed.cold_call_script || "";
+          aiHotLeadScript = parsed.hot_lead_script || "";
+          aiRiskNote = parsed.risk_note || "";
+          aiActionList = Array.isArray(parsed.action_list) ? parsed.action_list : [];
+        } catch {
+          // JSON 파싱 실패 시 — 원문 텍스트 그대로 사용 (하드코딩 없음)
+          aiBriefing = contentString;
         }
       } else {
-        aiBriefing = contentString.trim();
+        aiBriefing = contentString;
       }
     } catch {
-      // AI 호출 실패 시 — 더미 데이터 없이 에러 메시지 표시
+      // AI 호출 실패 시 — 에러 메시지 표시
       aiBriefing = `⚠️ ${district} 권역 AI 브리핑 생성에 일시적 오류가 발생했습니다. 잠시 후 다시 시도해주세요.`;
       aiCounselScript = "";
-      aiActionList = ["모닝 인텔리전스 새로고침", "직접 시장 뉴스 확인"];
+      aiHotLeadScript = "";
+      aiRiskNote = "";
+      aiActionList = ["모닝 인텔리전스 새로고침"];
     }
 
     // ── 실거래 체결 데이터 ─────────────────────────────────────────────────────
@@ -329,6 +355,8 @@ ${myBuyersSummary}
       data: {
         briefing: aiBriefing,
         counselScript: aiCounselScript,
+        hotLeadScript: aiHotLeadScript,
+        riskNote: aiRiskNote,
         actionList: aiActionList,
         yesterdayTransactions,
         myDealsVsMarket,

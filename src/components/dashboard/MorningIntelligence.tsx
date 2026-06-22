@@ -18,7 +18,7 @@ interface Auction { title: string; desc: string; date: string; tag: string; disc
 interface RentalMarket { type: string; deposit: string; rent: string; vacancy: string; source: string; }
 interface MyDealVsMarket { dealId: string; areaSignal: string; assetType: string; priceBand: string; nearbyTxDesc: string | null; action: string | null; }
 interface IntelligenceData {
-  briefing: string; counselScript: string; actionList: string[];
+  briefing: string; counselScript: string; hotLeadScript?: string; riskNote?: string; actionList: string[];
   yesterdayTransactions: Transaction[]; myDealsVsMarket: MyDealVsMarket[];
   auctions: Auction[]; rentalMarket: RentalMarket[];
   sentiment: { score: number; status: string; description: string };
@@ -708,6 +708,43 @@ export default function MorningIntelligence() {
                   </p>
                 </div>
               </div>
+
+              {/* 카톡 문구 (핫 리드) */}
+              {data.hotLeadScript && (
+                <div className="pt-3 border-t border-white/8">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold text-emerald-300 flex items-center gap-1.5">
+                      <Send className="w-3.5 h-3.5" /> 매수자 카톡 문구
+                    </span>
+                    <motion.button whileTap={{ scale: 0.92 }}
+                      onClick={() => handleCopyScript(data.hotLeadScript || "", "hot")}
+                      className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-emerald-300 border border-white/12 bg-white/5 hover:bg-emerald-500/10 px-2.5 py-1.5 rounded-lg transition-all duration-300">
+                      {copiedScript === "hot"
+                        ? <><Check className="w-3 h-3 text-emerald-400" /><span className="text-emerald-400">복사됨</span></>
+                        : <><Copy className="w-3 h-3" /><span>복사</span></>}
+                    </motion.button>
+                  </div>
+                  <div className="relative bg-emerald-500/5 border border-emerald-500/15 rounded-xl px-4 py-3">
+                    <div className="absolute left-0 top-3 bottom-3 w-0.5 bg-emerald-500/40 rounded-full ml-3" />
+                    <p className="text-[12px] text-slate-200 leading-relaxed pl-3 whitespace-pre-line">
+                      {data.hotLeadScript}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* 리스크 노트 */}
+              {data.riskNote && (
+                <div className="pt-3 border-t border-white/8">
+                  <div className="flex items-start gap-2 bg-amber-500/8 border border-amber-500/20 rounded-xl px-3.5 py-2.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="text-[10px] font-bold text-amber-300">⚠️ 오늘의 리스크 신호</span>
+                      <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">{data.riskNote}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </Card>
           </motion.div>
 
