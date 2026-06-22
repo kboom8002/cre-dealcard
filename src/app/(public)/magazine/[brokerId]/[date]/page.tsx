@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
-import { MagazineView } from "./magazine-view";
+import { MagazineView, type MagazineData } from "./magazine-view";
 
 interface PageProps {
   params: Promise<{ brokerId: string; date: string }>;
 }
 
-async function getMagazineData(brokerId: string, date: string) {
+async function getMagazineData(brokerId: string, date: string): Promise<MagazineData | null> {
   try {
     const supabase = createServiceClient();
     const { data: cached } = await supabase
@@ -17,7 +17,7 @@ async function getMagazineData(brokerId: string, date: string) {
       .eq("issue_date", date)
       .maybeSingle();
 
-    if (cached?.content) return cached.content as Record<string, any>;
+    if (cached?.content) return cached.content as MagazineData;
 
     // 실시간 생성
     const BASE = process.env.APP_BASE_URL ?? "http://localhost:3000";
@@ -26,7 +26,7 @@ async function getMagazineData(brokerId: string, date: string) {
     });
     if (!res.ok) return null;
     const json = await res.json();
-    return (json.data as Record<string, any>) ?? null;
+    return (json.data as MagazineData) ?? null;
   } catch {
     return null;
   }
@@ -38,22 +38,22 @@ export async function generateMetadata({
   const { brokerId, date } = await params;
   const data = await getMagazineData(brokerId, date);
 
-  if (!data) return { title: "CRE \ub370\uc77c\ub9ac \ub9e4\uac70\uc9c4 | DealCard" };
+  if (!data) return { title: "CRE 데일리 매거진 | DealCard" };
 
-  const broker = data.broker as any;
-  const title = `[${date}] ${broker.name}\uc758 CRE \ub370\uc77c\ub9ac \ub9e4\uac70\uc9c4 | ${broker.specialtyRegions?.[0] ?? ""} \uaf2c\ub9c8\ube4c\ub529`;
+  const broker = data.broker;
+  const title = `[${date}] ${broker.name}의 CRE 데일리 매거진 | ${broker.specialtyRegions?.[0] ?? ""} 꼬마빌딩`;
   const description =
-    (data.headline as string | undefined) ??
-    `${broker.name} \uc911\uac1c\uc0ac\uc758 \uc624\ub298 \uaf2c\ub9c8\ube4c\ub529 \uc2dc\uc7a5 AI \ub9de\uc2a4\ud2b8 \ube0c\ub9ac\ud551`;
+    data.headline ??
+    `${broker.name} 중개사의 오늘 꼬마빌딩 시장 AI 맞춤 브리핑`;
   const ogImageUrl = `/api/og/magazine/route?brokerId=${brokerId}&date=${date}`;
 
   return {
     title,
     description,
     keywords: [
-      "\uaf2c\ub9c8\ube4c\ub529 \ub9e4\uac70\uc9c4",
-      "CRE \ub370\uc77c\ub9ac",
-      "\ubd80\ub3d9\uc0b0 \uc2dc\uc7a5 \ube0c\ub9ac\ud551",
+      "꼬마빌딩 매거진",
+      "CRE 데일리",
+      "부동산 시장 브리핑",
       broker.name,
       ...(broker.specialtyRegions ?? []),
       "DealCard",

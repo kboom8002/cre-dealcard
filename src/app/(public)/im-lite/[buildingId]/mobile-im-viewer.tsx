@@ -166,60 +166,145 @@ function VoiceBriefingPlayer({ buildingId }: { buildingId: string }) {
 // ─── Kakao Static Map Component ────────────────────────────────────────────
 function KakaoStaticMap({ lat, lng, name }: { lat: number; lng: number; name: string }) {
   const mapRef = useRef<HTMLDivElement>(null);
+  const [mapError, setMapError] = useState(false);
+  const [mapLoading, setMapLoading] = useState(true);
 
   useEffect(() => {
     const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
-    if (!appKey || !mapRef.current) return;
+    if (!appKey || !mapRef.current) {
+      setMapError(true);
+      setMapLoading(false);
+      return;
+    }
+
+    let timeout: ReturnType<typeof setTimeout>;
 
     const initMap = () => {
       const kakao = (window as any).kakao;
-      if (!kakao || !kakao.maps || !mapRef.current) return;
-      const options = {
-        center: new kakao.maps.LatLng(lat, lng),
-        level: 4,
-        draggable: false,
-        scrollwheel: false,
-        disableDoubleClickZoom: true,
-      };
-      const map = new kakao.maps.Map(mapRef.current, options);
-      const marker = new kakao.maps.Marker({
-        position: new kakao.maps.LatLng(lat, lng),
-      });
-      marker.setMap(map);
+      if (!kakao || !kakao.maps || !mapRef.current) {
+        setMapError(true);
+        setMapLoading(false);
+        return;
+      }
+      try {
+        const options = {
+          center: new kakao.maps.LatLng(lat, lng),
+          level: 4,
+          draggable: false,
+          scrollwheel: false,
+          disableDoubleClickZoom: true,
+        };
+        const map = new kakao.maps.Map(mapRef.current, options);
+        const marker = new kakao.maps.Marker({
+          position: new kakao.maps.LatLng(lat, lng),
+        });
+        marker.setMap(map);
+        setMapLoading(false);
+      } catch {
+        setMapError(true);
+        setMapLoading(false);
+      }
     };
+
+    // SDK 로드 타임아웃
+    timeout = setTimeout(() => {
+      if (mapLoading) {
+        setMapError(true);
+        setMapLoading(false);
+      }
+    }, 8000);
 
     const kakao = (window as any).kakao;
     if (kakao && kakao.maps && kakao.maps.load) {
       kakao.maps.load(initMap);
     } else {
-      const script = document.createElement("script");
-      script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false`;
-      script.async = true;
-      script.onload = () => {
-        (window as any).kakao.maps.load(initMap);
-      };
-      document.head.appendChild(script);
+      // 이미 스크립트가 추가되어 있는지 확인
+      const existingScript = document.querySelector(
+        `script[src*="dapi.kakao.com"]`
+      );
+      if (existingScript) {
+        // 이미 로딩 중 — 재시도
+        const retry = setInterval(() => {
+          const k = (window as any).kakao;
+          if (k && k.maps && k.maps.load) {
+            clearInterval(retry);
+            k.maps.load(initMap);
+          }
+        }, 500);
+        setTimeout(() => clearInterval(retry), 7000);
+      } else {
+        const script = document.createElement("script");
+        script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false`;
+        script.async = true;
+        script.onload = () => {
+          (window as any).kakao.maps.load(initMap);
+        };
+        script.onerror = () => {
+          setMapError(true);
+          setMapLoading(false);
+        };
+        document.head.appendChild(script);
+      }
     }
+
+    return () => clearTimeout(timeout);
   }, [lat, lng]);
+
+  const mapLink = `https://map.kakao.com/link/map/${encodeURIComponent(name)},${lat},${lng}`;
 
   return (
     <div className="relative w-full h-full bg-neutral-800">
       <div ref={mapRef} className="absolute inset-0 z-0" />
-      <div className="absolute inset-0 z-10 bg-black/10 flex flex-col items-center justify-center pointer-events-none transition-colors duration-300">
-        <div className="pointer-events-auto mt-auto mb-4">
-          <a
-            href={`https://map.kakao.com/link/map/${encodeURIComponent(name)},${lat},${lng}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-black/70 backdrop-blur-md text-white text-xs font-bold rounded-xl hover:bg-black/90 transition-colors border border-white/20 shadow-lg"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-            카카오맵 앱에서 열기
-          </a>
+
+      {/* 로딩 상태 */}
+      {mapLoading && !mapError && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-neutral-800">
+          <div className="text-center">
+            <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-2" />
+            <p className="text-xs text-neutral-400">지도 로딩 중...</p>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* 에러 폴백 */}
+      {mapError && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-neutral-800/90">
+          <div className="text-center px-4">
+            <svg className="w-8 h-8 text-neutral-500 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <p className="text-xs text-neutral-400 mb-3">지도를 불러올 수 없습니다</p>
+            <a
+              href={mapLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary/20 text-primary text-xs font-bold rounded-xl hover:bg-primary/30 transition-colors border border-primary/30"
+            >
+              카카오맵에서 보기 →
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* 성공 시 오버레이 */}
+      {!mapLoading && !mapError && (
+        <div className="absolute inset-0 z-10 bg-black/10 flex flex-col items-center justify-center pointer-events-none transition-colors duration-300">
+          <div className="pointer-events-auto mt-auto mb-4">
+            <a
+              href={mapLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-black/70 backdrop-blur-md text-white text-xs font-bold rounded-xl hover:bg-black/90 transition-colors border border-white/20 shadow-lg"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              카카오맵 앱에서 열기
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

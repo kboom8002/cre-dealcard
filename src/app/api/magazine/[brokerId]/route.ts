@@ -124,15 +124,15 @@ async function getActiveDeals(supabase: any, brokerId: string) {
   }
 }
 
-async function getMarketIntelligence(supabase: any, _region: string) {
-  const [{ data: news }, { data: sentiment }, { data: auctions }, { data: reports }] =
+async function getMarketIntelligence(supabase: any, region: string) {
+  const [{ data: news }, { data: sentiment }, { data: auctions }, { data: reports }, { data: realTxs }, { data: rentalTrend }, { data: commercialDistrict }] =
     await Promise.all([
       supabase
         .from("external_news")
-        .select("title, summary, source, sentiment, importance_score, topic")
+        .select("id, title, summary, source, sentiment, importance_score, topic")
         .order("importance_score", { ascending: false })
         .order("created_at", { ascending: false })
-        .limit(8),
+        .limit(10),
       supabase
         .from("social_sentiment")
         .select("keyword, sentiment_score, mention_count, analysis_date")
@@ -150,6 +150,24 @@ async function getMarketIntelligence(supabase: any, _region: string) {
         .select("institution, title, summary, url")
         .order("published_date", { ascending: false })
         .limit(2),
+      // 실거래 데이터
+      supabase
+        .from("external_transactions")
+        .select("address, dong, transaction_price, usage_type, building_area, transaction_date")
+        .order("transaction_date", { ascending: false })
+        .limit(5),
+      // 임대 동향
+      supabase
+        .from("rental_trend_data")
+        .select("region, quarter, vacancy_rate, rental_index")
+        .eq("region", region)
+        .order("quarter", { ascending: false })
+        .limit(1),
+      // 상권 분석
+      supabase
+        .from("commercial_district")
+        .select("district_name, sales_volume_index, footfall_index")
+        .maybeSingle(),
     ]);
 
   const avgSentiment =
@@ -167,6 +185,9 @@ async function getMarketIntelligence(supabase: any, _region: string) {
     sentiment: sentiment ?? [],
     auctions: auctions ?? [],
     reports: reports ?? [],
+    realTxs: realTxs ?? [],
+    rentalTrend: rentalTrend?.[0] ?? null,
+    commercialDistrict: commercialDistrict ?? null,
     avgSentiment,
   };
 }
@@ -328,11 +349,13 @@ export async function GET(
     headline,
     briefing,
     keyStats,
-    topNews: marketData.news.slice(0, 4).map((n: any) => ({
+    topNews: marketData.news.slice(0, 6).map((n: any) => ({
+      id: n.id,
       title: n.title,
       summary: n.summary,
       source: n.source,
       sentiment: n.sentiment,
+      topic: n.topic,
     })),
     sentiment: {
       score: marketData.avgSentiment,
@@ -357,7 +380,7 @@ export async function GET(
           ? Math.round((1 - a.minimum_bid / a.appraised_value) * 100)
           : 0,
     })),
-    dealHighlights: deals.slice(0, 3).map((d: any) => ({
+    dealHighlights: deals.slice(0, 5).map((d: any) => ({
       id: d.id,
       address: d.address,
       areaSignal: d.area_signal,
@@ -372,6 +395,19 @@ export async function GET(
       summary: r.summary,
       url: r.url,
     })),
+    // 신규 데이터
+    brokerComment: null,
+    recentTransactions: marketData.realTxs.slice(0, 5).map((tx: any) => ({
+      address: tx.address,
+      dong: tx.dong,
+      transaction_price: tx.transaction_price,
+      usage_type: tx.usage_type,
+      building_area: tx.building_area,
+      transaction_date: tx.transaction_date,
+    })),
+    rentalTrend: marketData.rentalTrend,
+    commercialDistrict: marketData.commercialDistrict,
+    themeColor: "#6366f1",
   };
 
   // 6. 캐싱

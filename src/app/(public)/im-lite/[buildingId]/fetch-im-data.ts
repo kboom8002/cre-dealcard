@@ -15,23 +15,60 @@ function buildBrokerObject(profile: any) {
       userId: "system",
       displayName: "담당 중개인",
       company: "크리딜 파트너스",
-      phone: "1588-0000",
-      tagline: "당신의 성공적인 부동산 투자를 돕습니다.",
+      phone: "",
+      tagline: "",
       photoUrl: "/default-avatar.png",
       slug: "cre-dealcard-default",
       vibeTemplateId: "default",
     };
   }
   return {
-    userId: profile.id,
-    displayName: profile.display_name || "담당 중개인",
+    userId: profile.id || profile.user_id || "system",
+    displayName: profile.display_name || profile.name || "담당 중개인",
     company: profile.company || "크리딜 부동산중개법인",
-    phone: profile.phone || "010-0000-0000",
-    tagline: profile.tagline || "최고의 파트너",
+    phone: profile.phone || "",
+    tagline: profile.tagline || "",
     photoUrl: profile.photo_url || "/default-avatar.png",
     slug: profile.slug || "cre-dealcard-default",
     vibeTemplateId: profile.vibe_template_id || "default",
   };
+}
+
+/**
+ * owner_id로 프로필을 조회. profiles → broker_profiles 순서로 폴백.
+ */
+async function fetchBrokerProfile(supabase: any, ownerId: string) {
+  // 1차: profiles 테이블
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, display_name, company, phone, tagline, photo_url, slug, vibe_template_id")
+    .eq("id", ownerId)
+    .single();
+
+  if (profile && (profile.display_name || profile.company)) return profile;
+
+  // 2차: broker_profiles 테이블 (user_id로 조회)
+  const { data: brokerProfile } = await supabase
+    .from("broker_profiles")
+    .select("user_id, name, company, phone, tagline, photo_url, slug")
+    .eq("user_id", ownerId)
+    .single();
+
+  if (brokerProfile) {
+    return {
+      id: brokerProfile.user_id,
+      display_name: brokerProfile.name,
+      company: brokerProfile.company,
+      phone: brokerProfile.phone,
+      tagline: brokerProfile.tagline,
+      photo_url: brokerProfile.photo_url,
+      slug: brokerProfile.slug,
+      vibe_template_id: "default",
+    };
+  }
+
+  // 3차: profiles가 있긴 하지만 불완전한 경우
+  return profile || null;
 }
 
 /**
@@ -57,11 +94,7 @@ export async function fetchIMData(
       .single();
 
     if (!docError && document?.body?.sections) {
-      const { data: brokerProfile } = await supabase
-        .from("profiles")
-        .select("id, display_name, company, phone, tagline, photo_url, slug, vibe_template_id")
-        .eq("id", document.owner_id)
-        .single();
+      const brokerProfile = await fetchBrokerProfile(supabase, document.owner_id);
 
       const ssotSummary = document.body.ssot_summary || {};
       return {
@@ -130,7 +163,7 @@ export async function fetchIMData(
     .select(
       `id, owner_id, area_signal, asset_type, price_band, size_signal,
        vacancy_signal, lease_summary, fit_summary, caution_summary, completeness_score,
-       layers, disclosure, status, confidence`
+       layers, disclosure, status, confidence, photo_urls`
     )
     .eq("id", buildingId)
     .single();
@@ -140,11 +173,7 @@ export async function fetchIMData(
   const score = ssot.completeness_score ?? 0;
   if (score < 30) return null;
 
-  const { data: brokerProfile } = await supabase
-    .from("profiles")
-    .select("id, display_name, company, phone, tagline, photo_url, slug, vibe_template_id")
-    .eq("id", ssot.owner_id)
-    .single();
+  const brokerProfile = await fetchBrokerProfile(supabase, ssot.owner_id);
 
   const sections = [
     {
@@ -240,10 +269,16 @@ export async function fetchIMData(
       description: "렌트롤, 캐시플로우, 도면 등이 포함된 30페이지 분량의 Full IM은 중개인 승인 후 열람 가능합니다.",
     },
     protectedFieldsRemoved: ssot.disclosure?.guard_checked ? ["상세 지번", "건물명", "소유주명"] : [],
-    photos: Array.isArray(layers.photos)
+    photos: Array.isArray(layers.photos) && layers.photos.length > 0
       ? layers.photos
           .filter((p: any) => p && typeof p.url === "string")
           .map((p: any) => ({ url: p.url, type: p.type || "exterior", label: p.label || "건물 사진" }))
+      : Array.isArray(ssot.photo_urls) && ssot.photo_urls.length > 0
+      ? ssot.photo_urls.map((url: string, i: number) => ({
+          url,
+          type: i === 0 ? "exterior" : "interior",
+          label: i === 0 ? "건물 외관" : `건물 사진 ${i + 1}`,
+        }))
       : [],
     coordinates: layers.coordinates || undefined,
     dataQualityBadge: computeDataQualityBadge({
@@ -251,7 +286,7 @@ export async function fetchIMData(
       hasPublicData: !!(ssot.layers as any)?.public_data,
       hasMonthlyRent: !!(ssot.layers as any)?.rent_roll?.monthly_rent_total_krw || !!(ssot.layers as any)?.rent_roll?.monthly_rent_total,
       hasVacancy: !!ssot.vacancy_signal,
-      hasPhotos: Array.isArray(layers.photos) && layers.photos.length > 0,
+      hasPhotos: (Array.isArray(layers.photos) && layers.photos.length > 0) || (Array.isArray(ssot.photo_urls) && ssot.photo_urls.length > 0),
     }),
   };
 }

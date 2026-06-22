@@ -615,7 +615,7 @@ export default function BrokerStudioPage() {
                 </div>
               </div>
 
-              {/* Send newsletter button */}
+              {/* Send to magazine editor button */}
               <button
                 type="button"
                 disabled={!newsletterReady}
@@ -623,12 +623,13 @@ export default function BrokerStudioPage() {
                   const query = new URLSearchParams();
                   if (selectedDeals.length > 0) query.set("deals", selectedDeals.join(","));
                   if (selectedNews.length > 0) query.set("news", selectedNews.join(","));
+                  if (aiExpandedComment) query.set("comment", aiExpandedComment);
                   router.push(`/broker/magazine-editor?${query.toString()}`);
                 }}
                 className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs py-3 rounded-xl transition-all active:scale-[0.98]"
               >
                 {newsletterReady
-                  ? `📧 뉴스레터 발송하기 (${selectedDeals.length}딜 + ${selectedNews.length}뉴스)`
+                  ? `📰 매거진 편집으로 이동 (${selectedDeals.length}딜 + ${selectedNews.length}뉴스)`
                   : "딜 또는 뉴스를 선택하세요"}
               </button>
             </div>

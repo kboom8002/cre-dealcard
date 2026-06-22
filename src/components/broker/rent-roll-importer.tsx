@@ -256,6 +256,15 @@ export function RentRollImporter({ onImport }: RentRollImporterProps) {
           >
             ?
           </button>
+          {/* Template download button */}
+          <a
+            href="/api/broker/excel-template"
+            download="rent-roll-template.xlsx"
+            className="border border-primary/30 text-primary px-2.5 py-1.5 rounded-md text-xs font-medium hover:bg-primary/10 transition-colors whitespace-nowrap"
+            title="파싱 호환 빈 엑셀 양식 다운로드"
+          >
+            📥 빈 양식
+          </a>
           {/* Upload button */}
           <button
             onClick={() => fileInputRef.current?.click()}
