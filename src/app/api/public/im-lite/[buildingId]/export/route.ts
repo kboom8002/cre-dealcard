@@ -61,9 +61,13 @@ function buildHtmlExport(doc: {
     .broker-card strong { display: block; font-size: 11pt; font-weight: 700; }
     .no-print { display: block; background: #c8ff00; color: #000; font-weight: 700; padding: 12px 24px; text-align: center; cursor: pointer; border: none; font-size: 12pt; width: 100%; margin-bottom: 20px; border-radius: 8px; }
     @media print {
+      @page { size: A4; margin: 15mm 10mm; }
       .no-print { display: none !important; }
-      body { font-size: 10pt; }
-      .page { padding: 10mm 10mm; }
+      body { font-size: 10pt; margin: 0; padding: 0; }
+      .page { padding: 0; max-width: none; }
+      .im-section { page-break-inside: avoid; page-break-after: auto; }
+      .section-content table { page-break-inside: avoid; }
+      .footer { page-break-inside: avoid; }
     }
   </style>
 </head>
@@ -96,6 +100,12 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+function inlineMarkdown(text: string): string {
+  return escapeHtml(text)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>');
+}
+
 function markdownToHtml(md: string): string {
   const lines = md.split('\n');
   const out: string[] = [];
@@ -110,10 +120,10 @@ function markdownToHtml(md: string): string {
     const parseRow = (r: string) => r.split('|').slice(1, -1).map((c) => c.trim());
     const headers = parseRow(header);
     out.push('<table>');
-    out.push('<thead><tr>' + headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('') + '</tr></thead>');
+    out.push('<thead><tr>' + headers.map((h) => `<th>${inlineMarkdown(h)}</th>`).join('') + '</tr></thead>');
     out.push('<tbody>');
     body.forEach((row) => {
-      out.push('<tr>' + parseRow(row).map((c) => `<td>${escapeHtml(c)}</td>`).join('') + '</tr>');
+      out.push('<tr>' + parseRow(row).map((c) => `<td>${inlineMarkdown(c)}</td>`).join('') + '</tr>');
     });
     out.push('</tbody></table>');
     inTable = false; tableLines = [];
@@ -124,10 +134,10 @@ function markdownToHtml(md: string): string {
     if (inTable) flushTable();
     if (line.startsWith('### ')) { out.push(`<h3>${escapeHtml(line.slice(4))}</h3>`); }
     else if (line.startsWith('## ')) { out.push(`<h2>${escapeHtml(line.slice(3))}</h2>`); }
-    else if (line.startsWith('> ')) { out.push(`<blockquote>${escapeHtml(line.slice(2))}</blockquote>`); }
-    else if (line.startsWith('- ') || line.startsWith('* ')) { out.push(`<li>${escapeHtml(line.slice(2))}</li>`); }
+    else if (line.startsWith('> ')) { out.push(`<blockquote>${inlineMarkdown(line.slice(2))}</blockquote>`); }
+    else if (line.startsWith('- ') || line.startsWith('* ')) { out.push(`<li>${inlineMarkdown(line.slice(2))}</li>`); }
     else if (line.trim() === '') { out.push('<br>'); }
-    else { out.push(`<p>${escapeHtml(line).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>')}</p>`); }
+    else { out.push(`<p>${inlineMarkdown(line)}</p>`); }
   }
   if (inTable) flushTable();
   return out.join('\n');
@@ -148,7 +158,7 @@ export async function GET(
   const supabase = createServiceClient();
   const { data: doc, error } = await supabase
     .from('document_objects')
-    .select('id, title, content, created_at')
+    .select('id, title, body, created_at')
     .eq('id', docId)
     .eq('building_id', buildingId)
     .maybeSingle();
@@ -157,7 +167,7 @@ export async function GET(
     return NextResponse.json({ error: 'Document not found' }, { status: 404 });
   }
 
-  const content = doc.content as Record<string, unknown>;
+  const content = doc.body as Record<string, unknown>;
   const sections = (content?.sections ?? []) as Array<{ title: string; markdown: string }>;
 
   const html = buildHtmlExport({

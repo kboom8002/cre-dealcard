@@ -147,8 +147,15 @@ export async function generateMobileIMHandler(
     external_data: externalData,
   });
 
-  // ─── document_objects 저장
-  const title = `${ssotRow.area_signal || "핵심 입지"} ${ssotRow.asset_type || "상업용 자산"} — Mobile IM`;
+  // IM 제목: 권역 + 자산유형 (간결하게)
+  const areaLabel = ssotRow.area_signal || "핵심 입지";
+  // asset_type에서 "~로 추정되는", "~으로 추정되는" 등 불필요한 수식 제거
+  const rawAssetType = ssotRow.asset_type || "상업용 자산";
+  const cleanAssetType = rawAssetType
+    .replace(/(으로|로)\s*추정되는\s*/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const title = `${areaLabel} ${cleanAssetType} 투자설명서`;
 
   const imDocPayload = {
     owner_id: userId,
@@ -190,6 +197,8 @@ export async function generateMobileIMHandler(
         : null,
       coordinates: externalData?.resolvedAddress
         ? { lat: externalData.resolvedAddress.lat, lng: externalData.resolvedAddress.lng }
+        : (ssotRow.layers as Record<string, any>)?.coordinates
+        ? { lat: (ssotRow.layers as Record<string, any>).coordinates.lat, lng: (ssotRow.layers as Record<string, any>).coordinates.lng }
         : null,
       photo_urls: supplemental.photo_urls ?? [],
     },
