@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { createMobileIMAction } from "./actions";
 import { createClient } from "@/lib/supabase/client";
 import { RentRollImporter } from "@/components/broker/rent-roll-importer";
@@ -235,9 +236,13 @@ export function ImDataBottomSheet({
   // 주소+월세 없이도 시도 가능하도록 UI 임계값을 40점으로 완화
   const canGenerate = readinessScore >= 40;
 
-  return (
-    <div className="fixed inset-0 z-[100] flex flex-col justify-end sm:justify-center sm:items-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-2 sm:p-6">
-      <div className="bg-background rounded-2xl w-full max-w-lg mx-auto shadow-2xl p-5 pb-[calc(env(safe-area-inset-bottom)+2rem)] sm:pb-6 animate-in slide-in-from-bottom duration-300 max-h-[90dvh] sm:max-h-[85vh] flex flex-col overflow-hidden">
+  // Portal을 사용하여 document.body에 직접 렌더링
+  // 부모 요소의 transform/filter CSS가 fixed 포지셔닝을 깨뜨리는 문제 방지
+  if (typeof window === 'undefined') return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+      <div className="bg-background rounded-2xl w-full max-w-lg shadow-2xl p-5 animate-in slide-in-from-bottom duration-300 max-h-[85vh] flex flex-col">
         
         <div className="flex items-center justify-between mb-4 shrink-0">
           <h2 className="text-lg font-bold text-foreground">📊 투자설명서 데이터 보강</h2>
@@ -612,6 +617,7 @@ export function ImDataBottomSheet({
           </button>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
