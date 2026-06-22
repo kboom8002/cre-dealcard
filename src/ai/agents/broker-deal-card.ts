@@ -31,6 +31,15 @@ import {
 } from "@/ai/prompts/broker-deal-card";
 import { rewriteUnsafeText } from "@/domain/guardrails/safe-language";
 
+/** AI 응답에서 ```json ... ``` 코드블록을 제거하여 순수 JSON 문자열 추출 */
+function extractJsonString(raw: string): string {
+  let s = raw.trim();
+  // Remove markdown code fences: ```json ... ``` or ``` ... ```
+  const fenceMatch = s.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/);
+  if (fenceMatch) s = fenceMatch[1].trim();
+  return s;
+}
+
 export interface BrokerDealCardInput {
   memo: string;
   visibilityPreference?: "blind" | "internal";
@@ -90,7 +99,7 @@ export async function runBrokerDealCard(
   const restoredMemoContent = desanitizeOutput(memoResult.content, sanitizationMap);
   let parsedMemo: MemoParserOutput;
   try {
-    parsedMemo = MemoParserOutputSchema.parse(JSON.parse(restoredMemoContent));
+    parsedMemo = MemoParserOutputSchema.parse(JSON.parse(extractJsonString(restoredMemoContent)));
   } catch (parseErr) {
     console.error("[broker-deal-card] MemoParser output parse failed:", parseErr, "\nRaw:", restoredMemoContent.slice(0, 500));
     throw new Error("AI가 메모를 분석하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
@@ -113,7 +122,7 @@ export async function runBrokerDealCard(
   let buildingTruth: BuildingMiniTruthOutput;
   try {
     buildingTruth = BuildingMiniTruthOutputSchema.parse(
-      JSON.parse(restoredTruthContent),
+      JSON.parse(extractJsonString(restoredTruthContent)),
     );
   } catch (parseErr) {
     console.error("[broker-deal-card] BuildingMiniTruth output parse failed:", parseErr, "\nRaw:", restoredTruthContent.slice(0, 500));
@@ -137,7 +146,7 @@ export async function runBrokerDealCard(
   let blindTeaser: BlindTeaserOutput;
   try {
     blindTeaser = BlindTeaserOutputSchema.parse(
-      JSON.parse(restoredTeaserContent),
+      JSON.parse(extractJsonString(restoredTeaserContent)),
     );
   } catch (parseErr) {
     console.error("[broker-deal-card] BlindTeaser output parse failed:", parseErr, "\nRaw:", restoredTeaserContent.slice(0, 500));
