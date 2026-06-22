@@ -87,11 +87,118 @@ async function fetchBigKindsNews(): Promise<{ title: string; link: string; descr
   return results;
 }
 
-// ─── E2: RSS + BigKinds + 네이버뉴스 통합 크롤러 ─────────────────────────────────
+// ─── E2: RSS + BigKinds + 네이버뉴스 통합 크롤러 (LLM 기반 고도화) ──────────────
+interface RawNewsItem {
+  title: string;
+  link: string;
+  description: string;
+  feedSource: string;
+}
+
+interface ScoredNews {
+  title: string;
+  link: string;
+  description: string;
+  feedSource: string;
+  score: number;
+  regions: string[];
+  topic: string;
+  sentiment: string;
+  summary: string;
+}
+
+// LLM 배치: 수집된 뉴스에 CRE 적합성 점수 + 권역 + 토픽 + 감성을 한 번에 부여
+async function scoreNewsBatch(items: RawNewsItem[]): Promise<ScoredNews[]> {
+  if (items.length === 0) return [];
+
+  const newsListText = items.map((item, i) => 
+    `[${i}] ${item.title}\n    ${item.description.slice(0, 200)}`
+  ).join("\n");
+
+  try {
+    const aiRes = await callLLM({
+      systemPrompt: `당신은 상업용 부동산(CRE) 꼬마빌딩 전문 브로커의 뉴스 에디터입니다.
+아래 뉴스 목록을 분석하여, 각 뉴스의 CRE 적합성을 평가하세요.
+
+■ 판단 기준:
+- 직접 CRE (빌딩 매매/임대/경매/공실/개발) → 8~10점
+- 간접 CRE (금리/LTV/DSR/세제/도시계획/재개발/인프라/교통) → 6~8점
+- 관련 경제 (GDP/물가/건설경기/부동산시장 전반) → 4~6점
+- 무관 (주거/아파트/전원주택/연예/스포츠) → 1~3점
+
+■ 권역 판단: 뉴스 내용이 특정 권역과 관련되면 해당 코드 사용
+- gbd: 강남/서초/송파/GBD 권역
+- seongsu: 성수/성동/왕십리/뚝섬
+- ybd: 여의도/영등포/마포/YBD 권역
+- 전국/일반적 내용이면 all
+
+■ 토픽 분류: market_trend, transaction, auction, rental, policy, development, finance, regulation 중 1개
+
+■ 감성 판단: 상업용 부동산 시장 관점에서
+- bullish: 시장에 호재 (금리인하, 공실률 하락, 거래량 증가 등)
+- bearish: 시장에 악재 (금리인상, 공실률 상승, 규제 강화 등)
+- neutral: 중립
+
+반드시 아래 JSON 배열만 출력 (설명 없이):
+[{"idx":0,"score":8,"regions":["gbd"],"topic":"transaction","sentiment":"bullish"}]`,
+      userPrompt: newsListText,
+      model: "gpt-5.4",
+      temperature: 0.15,
+      maxTokens: 800,
+    });
+
+    const arrMatch = aiRes.content.match(/\[[\s\S]*\]/);
+    if (!arrMatch) return items.map(item => ({
+      ...item, score: 5, regions: ["all"], topic: "market_trend", sentiment: "neutral", summary: item.description.slice(0, 150),
+    }));
+
+    const scored: { idx: number; score: number; regions: string[]; topic: string; sentiment: string }[] = JSON.parse(arrMatch[0]);
+    const scoredMap = new Map(scored.map(s => [s.idx, s]));
+
+    return items.map((item, i) => {
+      const s = scoredMap.get(i);
+      return {
+        ...item,
+        score: s?.score ?? 5,
+        regions: s?.regions ?? ["all"],
+        topic: s?.topic ?? "market_trend",
+        sentiment: s?.sentiment ?? "neutral",
+        summary: item.description.slice(0, 150),
+      };
+    });
+  } catch (err) {
+    console.warn("[scoreNewsBatch] LLM scoring failed:", err);
+    return items.map(item => ({
+      ...item, score: 5, regions: ["all"], topic: "market_trend", sentiment: "neutral", summary: item.description.slice(0, 150),
+    }));
+  }
+}
+
+// LLM 강화 요약: 1줄 40자 → 3줄 브로커 관점 요약
+async function enhancedSummarize(title: string, content: string): Promise<string> {
+  try {
+    const aiRes = await callLLM({
+      systemPrompt: `꼬마빌딩 중개 브로커 관점에서 뉴스를 3줄로 요약하세요:
+1줄: 핵심 팩트 (수치 반드시 포함)
+2줄: 브로커 임플리케이션 (내 매물/매수자에 어떤 영향?)
+3줄: 추천 액션 (매수자 접촉, 임대조건 조정 등)
+총 150자 이내. 줄바꿈은 | 로 구분.`,
+      userPrompt: `제목: ${title}\n내용: ${content}`,
+      model: "gpt-5.4",
+      temperature: 0.2,
+      maxTokens: 200,
+    });
+    return aiRes.content.trim();
+  } catch {
+    return content.slice(0, 150);
+  }
+}
+
 export async function crawlCreNews(supabase: SupabaseClient): Promise<any[]> {
   const results: any[] = [];
+  const rawItems: RawNewsItem[] = [];
 
-  // Phase 1: RSS 피드 (6개 언론사)
+  // Phase 1: RSS 피드 수집 (6개 언론사, 각 최대 8건)
   for (const feed of CRE_RSS_FEEDS) {
     try {
       const res = await fetch(feed.url, {
@@ -101,31 +208,8 @@ export async function crawlCreNews(supabase: SupabaseClient): Promise<any[]> {
       if (!res.ok) continue;
       const xml = await res.text();
       const items = parseRSSItems(xml);
-
       for (const item of items) {
-        const isRelevant = /\uBE4C\uB529|\uC0C1\uAC00|\uC624\uD53C\uC2A4|\uACF5\uC2E4|\uC784\uB300|\uB9E4\uB9E4|\uBD84\uC591|\uACBD\uB9E4|\uB9AC\uBAA8\uB378|\uC9C0\uC0B0|\uADFC\uC0DD|\uC0C1\uC5C5\uC6A9|\uD3C9\uB2F9|\uC218\uC775\uB960/.test(item.title + item.description);
-        if (!isRelevant) continue;
-
-        let summary = item.description.slice(0, 200);
-        try {
-          const aiRes = await callLLM({
-            systemPrompt: "\uAF2C\uB9C8\uBE4C\uB529 \uC911\uAC1C \uBE0C\uB85C\uCEE4 \uAD00\uC810\uC5D0\uC11C 1\uC904(40\uC790 \uC774\uB0B4) \uD575\uC2EC \uC694\uC57D.",
-            userPrompt: `Title: ${item.title}\nContent: ${item.description}`,
-            model: "gpt-5.4",
-            temperature: 0.2,
-            maxTokens: 80,
-          });
-          summary = aiRes.content.trim();
-        } catch { /* */ }
-
-        const sentiment = item.title.match(/\uAE09\uC99D|\uC0C1\uC2B9|\uB3CC\uD30C|\uAC15\uC138/) ? "bullish"
-          : item.title.match(/\uD558\uB77D|\uC704\uCD95|\uACF5\uC2E4|\uC720\uCC30|\uCE68\uCCB4/) ? "bearish" : "neutral";
-
-        const { data, error } = await supabase
-          .from("external_news")
-          .upsert({ url: item.link, title: item.title, source: feed.name, summary, content: item.description.slice(0, 500), sentiment }, { onConflict: "url" })
-          .select().single();
-        if (!error && data) results.push(data);
+        rawItems.push({ ...item, feedSource: feed.name });
       }
     } catch (err) {
       console.warn(`[crawlCreNews] Feed ${feed.name} failed:`, err);
@@ -137,31 +221,14 @@ export async function crawlCreNews(supabase: SupabaseClient): Promise<any[]> {
     try {
       const bkNews = await fetchBigKindsNews();
       for (const item of bkNews) {
-        let summary = item.description.slice(0, 200);
-        try {
-          const aiRes = await callLLM({
-            systemPrompt: "\uAF2C\uB9C8\uBE4C\uB529 \uBE0C\uB85C\uCEE4 \uAD00\uC810\uC5D0\uC11C 1\uC904(40\uC790 \uC774\uB0B4) \uD575\uC2EC \uC694\uC57D.",
-            userPrompt: `Title: ${item.title}\nContent: ${item.description}`,
-            model: "gpt-5.4",
-            temperature: 0.2,
-            maxTokens: 80,
-          });
-          summary = aiRes.content.trim();
-        } catch { /* */ }
-        const sentiment = item.title.match(/\uAE09\uC99D|\uC0C1\uC2B9|\uB3CC\uD30C/) ? "bullish"
-          : item.title.match(/\uD558\uB77D|\uC704\uCD95|\uACF5\uC2E4/) ? "bearish" : "neutral";
-        const { data, error } = await supabase
-          .from("external_news")
-          .upsert({ url: item.link, title: `[BigKinds] ${item.title}`, source: "BigKinds", summary, content: item.description.slice(0, 500), sentiment }, { onConflict: "url" })
-          .select().single();
-        if (!error && data) results.push(data);
+        rawItems.push({ ...item, feedSource: "BigKinds" });
       }
     } catch (err) {
       console.warn("[crawlCreNews] BigKinds failed:", err);
     }
   }
 
-  // Phase 3: 네이버뉴스 (네이버 API 키 있을 때)
+  // Phase 3: 네이버뉴스
   try {
     const naverNews = await crawlNaverCRENews(supabase);
     results.push(...naverNews);
@@ -169,7 +236,39 @@ export async function crawlCreNews(supabase: SupabaseClient): Promise<any[]> {
     console.warn("[crawlCreNews] Naver news failed:", err);
   }
 
-  // 모든 소스 실패 시 빈 배열 반환 (더미 데이터 없음)
+  // ── LLM 배치 적합성 판단 ─────────────────────────────────────────────────
+  const scoredItems = await scoreNewsBatch(rawItems);
+
+  // CRE 적합성 4점 이상만 저장 (주거/무관 뉴스 제외)
+  const relevantItems = scoredItems.filter(item => item.score >= 4);
+  // 점수 높은 순 정렬, 최대 15건
+  relevantItems.sort((a, b) => b.score - a.score);
+  const topItems = relevantItems.slice(0, 15);
+
+  // ── 상위 뉴스 강화 요약 + DB 저장 ────────────────────────────────────────
+  for (const item of topItems) {
+    // 점수 7 이상은 강화 요약, 나머지는 기본 요약
+    const summary = item.score >= 7
+      ? await enhancedSummarize(item.title, item.description)
+      : item.summary;
+
+    const { data, error } = await supabase
+      .from("external_news")
+      .upsert({
+        url: item.link,
+        title: item.feedSource === "BigKinds" ? `[BigKinds] ${item.title}` : item.title,
+        source: item.feedSource,
+        summary,
+        content: item.description.slice(0, 500),
+        sentiment: item.sentiment,
+        importance_score: item.score,
+        regions: item.regions,
+        topic: item.topic,
+      }, { onConflict: "url" })
+      .select().single();
+    if (!error && data) results.push(data);
+  }
+
   if (results.length === 0) {
     console.warn("[crawlCreNews] All news sources returned empty — no dummy fallback");
   }

@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       brokerProfileResult,
     ] = await Promise.all([
       // 시장 데이터
-      serviceClient.from("external_news").select("title, summary, source, url, sentiment").order("created_at", { ascending: false }).limit(5),
+      serviceClient.from("external_news").select("title, summary, source, url, sentiment, importance_score, regions, topic").order("importance_score", { ascending: false }).order("created_at", { ascending: false }).limit(10),
       serviceClient.from("external_transactions").select("address, dong, transaction_price, usage_type, building_area, transaction_date, area_signal").eq("district", district).order("transaction_date", { ascending: false }).limit(5),
       serviceClient.from("auction_listings").select("case_number, court, address, appraised_value, minimum_bid, status, auction_date").ilike("address", `%${district}%`).limit(3),
       serviceClient.from("rental_market_data").select("building_type, deposit_avg, monthly_rent_avg, vacancy_rate, source").eq("region", regionKey).limit(3),
@@ -95,8 +95,23 @@ export async function GET(request: NextRequest) {
     );
 
     // ── AI 브리핑 생성 (전체 데이터 소스 균형 배분) ─────────────────────────
-    const newsSummaryText = (newsData.data || []).length > 0
-      ? (newsData.data || []).map(n => `[${n.source}] ${n.title}: ${n.summary}`).join("\n")
+    // 뉴스를 토픽별로 그룹핑하여 AI에 전달
+    const newsItems = newsData.data || [];
+    const topicGroups: Record<string, typeof newsItems> = {};
+    for (const n of newsItems) {
+      const t = n.topic || "market_trend";
+      if (!topicGroups[t]) topicGroups[t] = [];
+      topicGroups[t].push(n);
+    }
+    const topicLabels: Record<string, string> = {
+      market_trend: "📈 시장동향", transaction: "💰 거래", auction: "🔨 경매",
+      rental: "🏢 임대", policy: "📋 정책", development: "🏗️ 개발",
+      finance: "💹 금융", regulation: "⚖️ 규제",
+    };
+    const newsSummaryText = newsItems.length > 0
+      ? Object.entries(topicGroups).map(([topic, items]) =>
+          `[${topicLabels[topic] || topic}]\n${items.map(n => `  - [${n.source}] ${n.title}: ${n.summary}`).join("\n")}`
+        ).join("\n\n")
       : "수집된 뉴스 없음";
 
     const txSummary = myAreaTransactions.length > 0
