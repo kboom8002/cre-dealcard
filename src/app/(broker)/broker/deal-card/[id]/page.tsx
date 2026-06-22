@@ -5,13 +5,12 @@ import { BlindTeaserOutputSchema } from "@/ai/schemas/broker-deal-card";
 import Link from "next/link";
 import { MatchedBuyersSection } from "./matched-buyers-section";
 import { DealPredictionSection } from "./deal-prediction-section";
-import { KakaoPreviewSection } from "./KakaoPreviewSection";
 import { GateRequestsInbox } from "./GateRequestsInbox";
 import { DealCardPipelineContainer } from "./DealCardPipelineContainer";
 import { IdealBuyerPersonaSection } from "./ideal-buyer-persona-section";
 import { KakaoShareButton } from "./kakao-share-button";
 import { CreateMobileImButton } from "./create-mobile-im-button";
-import { BlindTeaserPreviewSection } from "./BlindTeaserPreviewSection";
+import { DealCardEditor } from "./DealCardEditor";
 import { ScheduleSection } from "./ScheduleSection";
 import { DealCardActionsMenu } from "./DealCardActionsMenu";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
@@ -237,21 +236,14 @@ export default async function BrokerDealCardResultPage({
           </div>
         )}
 
-        {/* Blind Teaser Preview */}
-        <BlindTeaserPreviewSection
+        {/* Unified Deal Card Editor */}
+        <DealCardEditor
           buildingId={id}
           initialTitle={title}
           initialSummary={shortSummary}
           initialDealPoints={dealPoints.map(String)}
           initialCautionPoints={cautionPoints.map(String)}
-        />
-
-        {/* Kakao Message Preview (Editable) */}
-        <KakaoPreviewSection
-          initialText={kakaoText}
-          buildingId={id}
-          dealTitle={title}
-          brokerSlug={brokerSlug}
+          initialKakaoText={kakaoText}
         />
 
         {/* Boundary Note */}
