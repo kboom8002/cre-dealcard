@@ -135,32 +135,36 @@ export async function fetchRegisterSummary(buildingId: string): Promise<any> {
 // ─── A4: 건물에너지효율등급 API (한국에너지공단) ───────────────────────────────────
 // https://apis.data.go.kr/1611000/BldrgEnergyRatingService/getBldrgEnergyRatingInfo
 export async function fetchEnergyRating(supabase: SupabaseClient, buildingId: string): Promise<any> {
-  const rating = {
-    building_id: buildingId,
-    rating: "1++등급 (우수)",
-    annual_energy_consumption: 145.2,
-    updated_at: new Date().toISOString(),
-  };
-  // API 키 있을 때 실제 조회 시도
-  if (ENERGY_API_KEY) {
-    try {
-      const url = `https://apis.data.go.kr/1611000/BldrgEnergyRatingService/getBldrgEnergyRatingInfo?serviceKey=${encodeURIComponent(ENERGY_API_KEY)}&buildingId=${buildingId}&numOfRows=1`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      if (res.ok) {
-        const xml = await res.text();
-        const grade = xmlText(xml, "energyRatingGrade");
-        if (grade) rating.rating = grade;
-        const energy = parseFloat(xmlText(xml, "primaryEnergyConsumption") || "0");
-        if (energy > 0) rating.annual_energy_consumption = energy;
-      }
-    } catch (err) {
-      console.warn("[EnergyRating] API failed, using dummy:", err);
-    }
+  if (!ENERGY_API_KEY) {
+    console.warn("[EnergyRating] API key missing — skipping");
+    return null;
   }
-  await supabase.from("energy_ratings").delete().eq("building_id", buildingId);
-  const { data, error } = await supabase.from("energy_ratings").insert(rating).select().single();
-  if (error) throw error;
-  return data;
+
+  try {
+    const url = `https://apis.data.go.kr/1611000/BldrgEnergyRatingService/getBldrgEnergyRatingInfo?serviceKey=${encodeURIComponent(ENERGY_API_KEY)}&buildingId=${buildingId}&numOfRows=1`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    
+    const xml = await res.text();
+    const grade = xmlText(xml, "energyRatingGrade");
+    if (!grade) return null;
+    
+    const energy = parseFloat(xmlText(xml, "primaryEnergyConsumption") || "0");
+    const rating = {
+      building_id: buildingId,
+      rating: grade,
+      annual_energy_consumption: energy || 0,
+      updated_at: new Date().toISOString(),
+    };
+    
+    await supabase.from("energy_ratings").delete().eq("building_id", buildingId);
+    const { data, error } = await supabase.from("energy_ratings").insert(rating).select().single();
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.warn("[EnergyRating] API failed:", err);
+    return null;
+  }
 }
 
 // ─── A5: 소상공인 상권분석 API (SEMAS) ─────────────────────────────────────────

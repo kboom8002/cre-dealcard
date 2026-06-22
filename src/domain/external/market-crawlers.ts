@@ -259,7 +259,12 @@ export async function crawlAuctions(supabase: SupabaseClient): Promise<any[]> {
     return [];
   }
 
-  const keywords = ["빌딩 경매 낙찰", "상업용 부동산 경매", "꼬마빌딩 공매"];
+  const keywords = [
+    "빌딩 경매 낙찰가율",
+    "상업용 부동산 경매 낙찰",
+    "꼬마빌딩 경공매",
+    "상가 경매 유찰률",
+  ];
   const results: any[] = [];
 
   for (const keyword of keywords) {
@@ -325,9 +330,11 @@ export async function computeRentalMarketRates(supabase: SupabaseClient): Promis
   }
 
   const regionKeywords = [
-    { region: "gbd", keyword: "강남 오피스 임대 공실률" },
-    { region: "seongsu", keyword: "성수 상가 임대 시세" },
-    { region: "ybd", keyword: "여의도 오피스 공실률" },
+    { region: "gbd", keyword: "강남 오피스 공실률 임대료" },
+    { region: "seongsu", keyword: "성수 상가 임대 시세 공실" },
+    { region: "ybd", keyword: "여의도 오피스 공실률 임대" },
+    { region: "gbd", keyword: "서울 오피스 임대시장 동향 2026" },
+    { region: "seongsu", keyword: "성동구 근생 임대료 월세" },
   ];
   const results: any[] = [];
 

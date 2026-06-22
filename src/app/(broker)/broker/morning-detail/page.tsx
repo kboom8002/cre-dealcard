@@ -125,10 +125,48 @@ export default function MorningDetailPage() {
                   </div>
                 )}
 
-                {section === "rentals" && intelData?.rentalMarket && (
-                  <div className="p-4 bg-white/3 rounded-xl border border-white/5 space-y-4 text-xs text-slate-300 leading-relaxed">
-                    <p><strong>오피스(프라임):</strong> {intelData.rentalMarket.officeInsight}</p>
-                    <p><strong>중소형 근생:</strong> {intelData.rentalMarket.retailInsight}</p>
+                {section === "rentals" && (
+                  <div className="space-y-4">
+                    {/* 한국부동산원 공식 임대동향 */}
+                    {intelData?.rentalTrend && (
+                      <div className="p-4 bg-indigo-500/5 rounded-xl border border-indigo-500/15">
+                        <h4 className="text-xs font-bold text-indigo-300 mb-3 flex items-center gap-1.5">
+                          <Building2 className="w-3.5 h-3.5" /> 한국부동산원 공식 임대동향
+                          <span className="text-[9px] text-slate-500 ml-auto">{intelData.rentalTrend.quarter}</span>
+                        </h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-black/20 p-3 rounded-lg text-center">
+                            <div className="text-[10px] text-slate-400 mb-1">공실률</div>
+                            <div className="text-lg font-bold text-rose-400">{intelData.rentalTrend.vacancyRate}%</div>
+                          </div>
+                          <div className="bg-black/20 p-3 rounded-lg text-center">
+                            <div className="text-[10px] text-slate-400 mb-1">임대가격지수</div>
+                            <div className="text-lg font-bold text-emerald-400">{intelData.rentalTrend.rentalIndex}</div>
+                          </div>
+                        </div>
+                        <p className="text-[9px] text-slate-500 mt-2">출처: {intelData.rentalTrend.source}</p>
+                      </div>
+                    )}
+                    {/* 네이버뉴스 기반 임대시세 */}
+                    {intelData?.rentalMarket && intelData.rentalMarket.length > 0 ? (
+                      intelData.rentalMarket.map((r: any, idx: number) => (
+                        <div key={idx} className="p-4 bg-white/3 rounded-xl border border-white/5">
+                          <h4 className="text-xs font-bold text-white mb-2">{r.type}</h4>
+                          <div className="grid grid-cols-3 gap-2 text-[11px]">
+                            <div className="bg-black/20 p-2 rounded-lg">보증금: {r.deposit}</div>
+                            <div className="bg-black/20 p-2 rounded-lg">월세: {r.rent}</div>
+                            <div className="bg-black/20 p-2 rounded-lg">공실률: {r.vacancy}</div>
+                          </div>
+                          <p className="text-[9px] text-slate-500 mt-2">출처: {r.source}</p>
+                        </div>
+                      ))
+                    ) : !intelData?.rentalTrend && (
+                      <div className="p-4 bg-amber-500/5 rounded-xl border border-amber-500/15 text-center">
+                        <AlertTriangle className="w-5 h-5 text-amber-400 mx-auto mb-2" />
+                        <p className="text-xs text-slate-400">임대시장 데이터를 수집 중입니다.</p>
+                        <p className="text-[10px] text-slate-500 mt-1">Cron 작업이 실행되면 자동으로 채워집니다.</p>
+                      </div>
+                    )}
                   </div>
                 )}
 

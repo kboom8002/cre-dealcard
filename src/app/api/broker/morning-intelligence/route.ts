@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
       realTxs,
       dbAuctions,
       dbRentals,
+      dbRentalTrend,
       dbSentiment,
       landPrices,
       cdData,
@@ -61,6 +62,8 @@ export async function GET(request: NextRequest) {
       serviceClient.from("external_transactions").select("address, dong, transaction_price, usage_type, building_area, transaction_date, area_signal").eq("district", district).order("transaction_date", { ascending: false }).limit(5),
       serviceClient.from("auction_listings").select("case_number, court, address, appraised_value, minimum_bid, status, auction_date").ilike("address", `%${district}%`).limit(3),
       serviceClient.from("rental_market_data").select("building_type, deposit_avg, monthly_rent_avg, vacancy_rate, source").eq("region", regionKey).limit(3),
+      // 한국부동산원 공식 임대동향 (파이프라인 복구)
+      serviceClient.from("rental_trend_data").select("region, quarter, vacancy_rate, rental_index").eq("region", regionKey).order("quarter", { ascending: false }).limit(1),
       serviceClient.from("social_sentiment").select("keyword, sentiment_score, mention_count"),
       serviceClient.from("official_land_prices").select("year, price_per_sqm").eq("pnu", pnu).order("year", { ascending: false }).limit(2),
       serviceClient.from("commercial_district").select("district_name, sales_volume_index, footfall_index").eq("district_code", districtCode).maybeSingle(),
@@ -105,10 +108,15 @@ export async function GET(request: NextRequest) {
       ? (dbAuctions.data || []).map(a => `${a.case_number} | ${a.address} | 감정가 ${(Number(a.appraised_value) / 1e8).toFixed(1)}억 → 최저가 ${(Number(a.minimum_bid) / 1e8).toFixed(1)}억 | ${a.status}`).join("\n")
       : "경매 데이터 없음";
 
-    // 임대시장 데이터 요약
-    const rentalSummary = (dbRentals.data || []).length > 0
+    // 임대시장 데이터 요약 (네이버 뉴스 기반 + 한국부동산원 공식)
+    const rentalFromNews = (dbRentals.data || []).length > 0
       ? (dbRentals.data || []).map(r => `${r.building_type} | 보증금 ${r.deposit_avg} | 월세 ${r.monthly_rent_avg} | 공실률 ${r.vacancy_rate} | 출처: ${r.source}`).join("\n")
-      : "임대시장 데이터 없음";
+      : "";
+    const rentalFromGov = (dbRentalTrend.data || [])[0];
+    const rentalGovText = rentalFromGov
+      ? `[한국부동산원 ${rentalFromGov.quarter}] 공실률 ${rentalFromGov.vacancy_rate}% | 임대가격지수 ${rentalFromGov.rental_index}`
+      : "";
+    const rentalSummary = [rentalFromNews, rentalGovText].filter(Boolean).join("\n") || "임대시장 데이터 없음";
 
     // 리서치 리포트 요약
     const reportsSummary = (dbReports.data || []).length > 0
@@ -299,6 +307,15 @@ ${myBuyersSummary}
         }))
       : [];
 
+    // ── 한국부동산원 공식 임대동향 (rental_trend_data) ─────────────────────────
+    const rentalTrendRow = (dbRentalTrend.data || [])[0];
+    const rentalTrend = rentalTrendRow ? {
+      quarter: rentalTrendRow.quarter,
+      vacancyRate: rentalTrendRow.vacancy_rate,
+      rentalIndex: rentalTrendRow.rental_index,
+      source: "한국부동산원",
+    } : null;
+
     // ── 투자자 심리 ────────────────────────────────────────────────────────────
     const sentimentArr = dbSentiment.data || [];
     const averageSentiment = sentimentArr.length > 0
@@ -404,6 +421,7 @@ ${myBuyersSummary}
         myDealsVsMarket,
         auctions,
         rentalMarket,
+        rentalTrend,
         sentiment: { score: averageSentiment, status: sentimentStatus, description: sentimentDescription },
         landPriceTrend,
         commercialDistrict,
