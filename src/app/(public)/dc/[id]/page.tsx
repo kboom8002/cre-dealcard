@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
+import GateRequestForm from "./GateRequestForm";
 
 interface PageProps { params: Promise<{ id: string }> }
 
@@ -22,11 +23,10 @@ function getStatusDisplay(status: string | null) {
 async function getDealCardData(id: string) {
   const supabase = createServiceClient();
 
-  // building_ssot_lite + signal_cards 병렬 조회
   const [buildingRes, signalCardRes] = await Promise.all([
     supabase
       .from("building_ssot_lite")
-      .select("id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, status, layers, fit_summary")
+      .select("id, owner_id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, status, layers, fit_summary")
       .eq("id", id)
       .single(),
     supabase
@@ -38,9 +38,20 @@ async function getDealCardData(id: string) {
       .maybeSingle(),
   ]);
 
+  let brokerSlug = "cre-dealcard-default";
+  if (buildingRes.data?.owner_id) {
+    const brokerRes = await supabase
+      .from("broker_profiles")
+      .select("slug")
+      .eq("user_id", buildingRes.data.owner_id)
+      .maybeSingle();
+    if (brokerRes.data?.slug) brokerSlug = brokerRes.data.slug;
+  }
+
   return {
     building: buildingRes.data,
     signalCard: signalCardRes.data,
+    brokerSlug,
   };
 }
 
@@ -74,7 +85,7 @@ export const revalidate = 3600;
 
 export default async function DealCardShortPage({ params }: PageProps) {
   const { id } = await params;
-  const { building, signalCard } = await getDealCardData(id);
+  const { building, signalCard, brokerSlug } = await getDealCardData(id);
 
   if (!building) return notFound();
 
@@ -145,11 +156,15 @@ export default async function DealCardShortPage({ params }: PageProps) {
         ) : coordinates ? (
           <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-neutral-900">
             <div className="w-full aspect-[16/9] relative">
-              <iframe
-                src={`https://map.kakao.com/link/map/${encodeURIComponent(building.area_signal || "위치")},${coordinates.lat},${coordinates.lng}`}
-                className="absolute inset-0 w-full h-full border-0"
-                loading="lazy"
-              />
+              <a 
+                href={`https://map.kakao.com/link/map/${encodeURIComponent(building.area_signal || "위치")},${coordinates.lat},${coordinates.lng}`}
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="absolute inset-0 w-full h-full flex flex-col items-center justify-center text-neutral-500 hover:text-white hover:bg-white/5 transition-colors"
+              >
+                <span className="text-3xl mb-2">🗺️</span>
+                <span className="text-sm font-medium">카카오맵에서 위치 보기</span>
+              </a>
             </div>
           </div>
         ) : null}
@@ -243,29 +258,7 @@ export default async function DealCardShortPage({ params }: PageProps) {
         <div className="bg-[#131b2e] border border-primary/20 rounded-2xl p-5 space-y-4">
           <h2 className="text-sm font-bold text-white">📞 상세 정보 요청</h2>
           <p className="text-[11px] text-slate-400 leading-relaxed">{gateMessage}</p>
-          <form className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="text"
-                placeholder="성함 또는 기업명"
-                className="bg-[#0b0f19] border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-primary/50 transition-colors"
-                id="gate-name"
-              />
-              <input
-                type="text"
-                placeholder="연락처"
-                className="bg-[#0b0f19] border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-primary/50 transition-colors"
-                id="gate-contact"
-              />
-            </div>
-            <button
-              type="button"
-              className="w-full bg-primary hover:bg-primary/90 text-black font-bold py-3 rounded-xl text-xs transition-colors active:scale-[0.98]"
-              id="cta-deal-gate-request"
-            >
-              🔒 NDA 기반 상세자료 요청 (무료)
-            </button>
-          </form>
+          <GateRequestForm buildingId={id} />
         </div>
 
         {/* ── 8. 면책문구 ── */}
@@ -278,7 +271,7 @@ export default async function DealCardShortPage({ params }: PageProps) {
         {/* ── 9. 하단 CTA ── */}
         <div className="text-center pb-4">
           <Link
-            href="/hub"
+            href={brokerSlug !== "cre-dealcard-default" ? `/vibe-card/${brokerSlug}` : "/hub"}
             className="text-xs text-primary hover:underline"
           >
             🔍 다른 매물도 살펴보기 →

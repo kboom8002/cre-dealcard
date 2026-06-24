@@ -319,12 +319,13 @@ function PhotoGallery({ photos, coordinates, blindName }: {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
 
-  // Build display items: photos first, then static map fallback
-  const items = photos && photos.length > 0
-    ? photos
-    : coordinates
-    ? [{ url: `https://map.kakao.com/link/map/${encodeURIComponent(blindName)},${coordinates.lat},${coordinates.lng}`, type: 'map' as const, label: '위치 지도' }]
-    : null;
+  // Build display items: photos and map
+  const items = [
+    ...(photos || []),
+    ...(coordinates
+      ? [{ url: `https://map.kakao.com/link/map/${encodeURIComponent(blindName)},${coordinates.lat},${coordinates.lng}`, type: 'map' as const, label: '위치 지도' }]
+      : [])
+  ];
 
   const handleScroll = useCallback(() => {
     if (!scrollRef.current) return;
@@ -767,6 +768,22 @@ function BottomShareBar({ title, buildingId, docId }: { title: string; buildingI
 
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if ((window as any).Kakao) return;
+
+    const script = document.createElement("script");
+    script.src = "https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js";
+    script.async = true;
+    script.onload = () => {
+      if ((window as any).Kakao && !(window as any).Kakao.isInitialized()) {
+        const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+        if (appKey) (window as any).Kakao.init(appKey);
+      }
+    };
+    document.head.appendChild(script);
+  }, []);
+
   const handleKakao = async () => {
     // Kakao JS SDK를 사용한 카카오톡 공유
     if (typeof window !== "undefined" && (window as any).Kakao) {
@@ -1147,15 +1164,24 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
                 <p className="text-xs text-neutral-400 leading-relaxed mb-3">
                   {doc.fullImUpgradeCta.description}
                 </p>
-                <Link
-                  href={`/vibe-card/${doc.broker.slug}`}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-black text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors"
-                >
-                  중개인에게 문의하기
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
+                {doc.broker.slug !== "cre-dealcard-default" ? (
+                  <Link
+                    href={`/vibe-card/${doc.broker.slug}`}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-black text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors"
+                  >
+                    중개인에게 문의하기
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => alert("담당 중개인이 아직 프로필을 개통하지 않았습니다.")}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-neutral-800 text-neutral-400 text-xs font-bold rounded-lg transition-colors cursor-not-allowed"
+                  >
+                    중개인 프로필 미등록
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1168,13 +1194,19 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
           </h2>
           <div className="flex items-center gap-4 mb-4">
             <div className="relative w-14 h-14 rounded-full overflow-hidden border-2 border-primary/30 shrink-0">
-              <Image
-                src={doc.broker.photoUrl}
-                alt={doc.broker.displayName}
-                fill
-                className="object-cover"
-                sizes="56px"
-              />
+              {doc.broker.photoUrl && doc.broker.photoUrl !== "/default-avatar.png" ? (
+                <Image
+                  src={doc.broker.photoUrl}
+                  alt={doc.broker.displayName}
+                  fill
+                  className="object-cover"
+                  sizes="56px"
+                />
+              ) : (
+                <div className="w-full h-full bg-neutral-800 flex items-center justify-center text-2xl">
+                  👤
+                </div>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-bold text-white text-base">{doc.broker.displayName}</p>
@@ -1195,15 +1227,24 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
               </svg>
               전화
             </a>
-            <Link
-              href={`/vibe-card/${doc.broker.slug}`}
-              className="flex items-center justify-center gap-2 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium rounded-xl border border-primary/20 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              프로필 보기
-            </Link>
+            {doc.broker.slug !== "cre-dealcard-default" ? (
+              <Link
+                href={`/vibe-card/${doc.broker.slug}`}
+                className="flex items-center justify-center gap-2 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium rounded-xl border border-primary/20 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                프로필 보기
+              </Link>
+            ) : (
+              <button
+                onClick={() => alert("담당 중개인이 아직 프로필을 개통하지 않았습니다.")}
+                className="flex items-center justify-center gap-2 py-2.5 bg-neutral-800 text-neutral-500 text-sm font-medium rounded-xl transition-colors cursor-not-allowed"
+              >
+                프로필 미등록
+              </button>
+            )}
           </div>
         </div>
 

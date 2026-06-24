@@ -125,11 +125,11 @@ export function ImDataBottomSheet({
         for (const file of photoFiles) {
           const fileName = `${buildingId}/${Date.now()}_${file.name}`;
           const { data, error } = await supabase.storage
-            .from("building-photos")
+            .from("building_photos")
             .upload(fileName, file, { upsert: true });
           if (data && !error) {
             const { data: urlData } = supabase.storage
-              .from("building-photos")
+              .from("building_photos")
               .getPublicUrl(data.path);
             uploadedPhotoUrls.push(urlData.publicUrl);
           }

@@ -25,7 +25,7 @@ export default async function BuildingsPage() {
   const { data: imDocs } = await supabase
     .from("document_objects")
     .select("id, building_id, status, created_at, updated_at")
-    .in("document_type", ["im_lite_draft", "mobile_im"])
+    .in("document_type", ["im_lite_draft", "mobile_im", "blind_teaser"])
     .order("created_at", { ascending: false });
 
   // IM 데이터에 빌딩 정보 매핑
