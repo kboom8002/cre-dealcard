@@ -56,7 +56,7 @@ export default async function BrokerDealCardResultPage({
   const { data: building } = await supabase
     .from("building_ssot_lite")
     .select(
-      "id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, fit_summary, caution_summary, hidden_fields, status, owner_id, raw_input, layers, photo_urls",
+      "id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, fit_summary, caution_summary, hidden_fields, status, owner_id, raw_input, layers",
     )
     .eq("id", id)
     .single();
@@ -128,8 +128,6 @@ export default async function BrokerDealCardResultPage({
   const layers = (building.layers as Record<string, any>) || {};
   const photoUrls: string[] = Array.isArray(layers.photos)
     ? layers.photos.filter((p: any) => p?.url).map((p: any) => p.url)
-    : Array.isArray(building.photo_urls)
-    ? building.photo_urls
     : [];
 
   const hiddenFields = Array.isArray(building.hidden_fields)
