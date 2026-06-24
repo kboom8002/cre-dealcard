@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
         entered_at
       )
     `)
-    .eq('broker_id', user!.id)
+    .or(`broker_id.eq.${user!.id},owner_id.eq.${user!.id}`)
     .eq('is_active', true)
     .order('promotion_score', { ascending: false })
     .limit(50);

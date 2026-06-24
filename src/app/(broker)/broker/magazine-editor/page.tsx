@@ -60,6 +60,9 @@ function MagazineEditorInner() {
   const [allDeals, setAllDeals] = useState<any[]>([]);
   const [themeColor, setThemeColor] = useState("#6366f1");
   const [brokerSlug, setBrokerSlug] = useState<string | null>(null);
+  const [magazineTitle, setMagazineTitle] = useState("");
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [kakaoReady, setKakaoReady] = useState(false);
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
@@ -75,12 +78,14 @@ function MagazineEditorInner() {
 
         const { data: profile } = await supabase
           .from("broker_profiles")
-          .select("slug")
+          .select("slug, magazine_title, magazine_theme_color")
           .eq("user_id", user.id)
           .single();
 
         const slug = profile?.slug || "demo";
         setBrokerSlug(slug);
+        setMagazineTitle(profile?.magazine_title || "");
+        if (profile?.magazine_theme_color) setThemeColor(profile.magazine_theme_color);
 
         // 매거진 데이터 가져오기
         const res = await fetch(`/api/magazine/${slug}`);
@@ -146,6 +151,24 @@ function MagazineEditorInner() {
       }
     }
     loadData();
+  }, []);
+
+  // ── Kakao SDK 로딩 ──
+  useEffect(() => {
+    if (typeof window !== "undefined" && !window.Kakao) {
+      const script = document.createElement("script");
+      script.src = "https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js";
+      script.async = true;
+      script.onload = () => {
+        if (window.Kakao && !window.Kakao.isInitialized() && process.env.NEXT_PUBLIC_KAKAO_APP_KEY) {
+          window.Kakao.init(process.env.NEXT_PUBLIC_KAKAO_APP_KEY);
+          setKakaoReady(true);
+        }
+      };
+      document.head.appendChild(script);
+    } else if (typeof window !== "undefined" && window.Kakao) {
+      setKakaoReady(true);
+    }
   }, []);
 
   // ── URL 쿼리 파라미터에서 선택 항목 초기화 ──
@@ -262,19 +285,31 @@ function MagazineEditorInner() {
     });
   }, []);
 
-  // ── 저장 ──
-  const handleSave = useCallback(async () => {
+  // ── 저장 및 공유 모달 열기 ──
+  const handlePublishAndShare = useCallback(async () => {
     if (!brokerSlug || !previewData) return;
     setSaving(true);
     try {
+      // 1. 매거진 데이터 저장
       const res = await fetch(`/api/magazine/${brokerSlug}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(previewData),
       });
-      if (res.ok) {
+      // 2. 제목/테마/슬러그 저장
+      const profileRes = await fetch("/api/broker/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug: brokerSlug,
+          magazine_title: magazineTitle,
+          magazine_theme_color: themeColor,
+        }),
+      });
+
+      if (res.ok && profileRes.ok) {
         setMagazineData(previewData);
-        alert("매거진이 성공적으로 저장되었습니다!");
+        setShowShareModal(true);
       } else {
         alert("저장에 실패했습니다.");
       }
@@ -284,7 +319,46 @@ function MagazineEditorInner() {
     } finally {
       setSaving(false);
     }
-  }, [brokerSlug, previewData]);
+  }, [brokerSlug, previewData, magazineTitle, themeColor]);
+
+  const handleMagazineKakaoShare = () => {
+    if (!brokerSlug) return;
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://www.credeal.net";
+    const magazineUrl = `${origin}/magazine/${brokerSlug}/${today}`;
+    const ogImageUrl = `${origin}/api/og/magazine?brokerId=${brokerSlug}&date=${today}`;
+    
+    if (kakaoReady && window.Kakao?.Share) {
+      try {
+        window.Kakao.Share.sendDefault({
+          objectType: "feed",
+          content: {
+            title: magazineTitle || `${today} CRE 데일리 매거진`,
+            description: briefing.slice(0, 80) + "...",
+            imageUrl: ogImageUrl,
+            link: { mobileWebUrl: magazineUrl, webUrl: magazineUrl },
+          },
+          buttons: [
+            { title: "매거진 보기", link: { mobileWebUrl: magazineUrl, webUrl: magazineUrl } },
+          ],
+        });
+        return;
+      } catch (e) {
+        console.error("Kakao share error", e);
+      }
+    }
+    
+    // fallback
+    navigator.clipboard.writeText(magazineUrl);
+    alert("링크가 복사되었습니다. 카카오톡에 붙여넣기 하세요.");
+  };
+
+  const handleCopyLink = () => {
+    if (!brokerSlug) return;
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://www.credeal.net";
+    const magazineUrl = `${origin}/magazine/${brokerSlug}/${today}`;
+    navigator.clipboard.writeText(magazineUrl);
+    alert("링크가 복사되었습니다.");
+  };
 
   // ── 가격 포맷 ──
   function fmt(price: number): string {
@@ -656,7 +730,7 @@ function MagazineEditorInner() {
             {/* 매거진 발행 */}
             <motion.button
               whileTap={{ scale: 0.95 }}
-              onClick={handleSave}
+              onClick={handlePublishAndShare}
               disabled={saving}
               className="w-full flex items-center justify-center gap-2 text-sm font-bold px-4 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 transition-all shadow-lg shadow-indigo-500/25"
             >
@@ -696,7 +770,7 @@ function MagazineEditorInner() {
           </div>
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={handleSave}
+            onClick={handlePublishAndShare}
             disabled={saving}
             className="flex items-center gap-1.5 text-[11px] font-bold px-4 py-2 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
           >
@@ -763,16 +837,16 @@ function MagazineEditorInner() {
           </Link>
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={handleSave}
+            onClick={handlePublishAndShare}
             disabled={saving}
             className="w-full flex items-center justify-center gap-2 text-[11px] font-bold px-4 py-2.5 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
           >
             {saving ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
-              <Save className="w-3.5 h-3.5" />
+              <Send className="w-3.5 h-3.5" />
             )}
-            💾 저장
+            매거진 발행 및 공유
           </motion.button>
         </div>
       </div>
@@ -806,6 +880,57 @@ function MagazineEditorInner() {
           </div>
         </div>
       </div>
+
+      {/* ── 공유 모달 ── */}
+      <AnimatePresence>
+        {showShareModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="bg-slate-900 border border-slate-800 p-6 rounded-2xl w-full max-w-sm shadow-2xl relative"
+            >
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="absolute top-4 right-4 text-slate-500 hover:text-slate-300"
+              >
+                ✕
+              </button>
+              
+              <div className="text-center mb-6">
+                <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Check className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-1">매거진 발행 완료!</h3>
+                <p className="text-[12px] text-slate-400">고객들에게 오늘의 매거진을 공유해보세요.</p>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={handleMagazineKakaoShare}
+                  className="w-full flex items-center justify-center gap-2 bg-[#FEE500] hover:bg-[#FEE500]/90 text-[#3C1E1E] font-bold text-sm py-3.5 rounded-xl transition-all"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  카카오톡으로 공유
+                </button>
+                <button
+                  onClick={handleCopyLink}
+                  className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm py-3.5 rounded-xl transition-all border border-slate-700"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  링크 복사하기
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

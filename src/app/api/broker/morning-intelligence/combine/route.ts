@@ -21,11 +21,13 @@ export async function POST(request: NextRequest) {
       hqBriefingText = "",
       hqSelectedSections = [],
       myIntelItems = [],
+      myIntelContext = { overallInsight: "", actionItems: [] },
     } = body as {
       region: string;
       hqBriefingText: string;
       hqSelectedSections: string[];
       myIntelItems: { summary: string; implication: string }[];
+      myIntelContext?: { overallInsight: string; actionItems: string[] };
     };
 
     if (!hqBriefingText && myIntelItems.length === 0) {
@@ -39,11 +41,21 @@ export async function POST(request: NextRequest) {
       combinedInput += `[본사 브리핑 (선택 항목: ${hqSelectedSections.join(", ")})]\n${hqBriefingText}\n\n`;
     }
 
-    if (myIntelItems.length > 0) {
-      combinedInput += `[브로커 자체 수집 인텔리전스]\n`;
+    if (myIntelItems.length > 0 || myIntelContext?.overallInsight) {
+      combinedInput += `[브로커 자체 수집 인텔리전스 (마이 인텔)]\n`;
+      if (myIntelContext?.overallInsight) {
+        combinedInput += `종합 인사이트: ${myIntelContext.overallInsight}\n\n`;
+      }
       myIntelItems.forEach((item, i) => {
         combinedInput += `${i + 1}. ${item.summary} — ${item.implication}\n`;
       });
+      if (myIntelContext?.actionItems && myIntelContext.actionItems.length > 0) {
+        combinedInput += `\n권장 액션:\n`;
+        myIntelContext.actionItems.forEach((action, i) => {
+          combinedInput += `- ${action}\n`;
+        });
+      }
+      combinedInput += `\n`;
     }
 
     const aiRes = await callLLM({
@@ -52,9 +64,9 @@ export async function POST(request: NextRequest) {
 오늘 영업에 즉시 활용할 수 있는 통합 브리핑을 작성합니다.
 
 [작성 규칙]
-1. 본사 데이터와 브로커 자체 데이터를 자연스럽게 결합
+1. 본사 데이터와 브로커 자체 데이터를 자연스럽게 결합하되, **브로커 자체 수집 인텔리전스(마이 인텔)의 내용을 브리핑 본문에 반드시 2~3줄 이상 명시적으로 포함**할 것.
 2. 중복 내용은 하나로 통합, 상충 내용은 양측 시각 병기
-3. 브로커 자체 수집 정보에 더 높은 가중치 부여 (현장감 반영)
+3. 브로커 자체 수집 정보(종합 인사이트, 개별 항목)에 더 높은 가중치 부여 (현장감 최우선 반영)
 4. 5~7줄 핵심 브리핑 + 오늘의 액션 3개 + 매수자/매도자 전화 멘트 1개
 5. **없는 정보를 지어내지 마세요**
 

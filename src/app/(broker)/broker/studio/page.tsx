@@ -62,14 +62,16 @@ export default function BrokerStudioPage() {
   // Newsletter state
   const [selectedDeals, setSelectedDeals] = useState<string[]>([]);
   const [selectedNews, setSelectedNews] = useState<string[]>([]);
+  const [newsTopic, setNewsTopic] = useState("전체");
 
   // AI Comment state (F6 — actually works)
   const [customComment, setCustomComment] = useState("");
   const [aiExpandedComment, setAiExpandedComment] = useState("");
   const [isExpanding, setIsExpanding] = useState(false);
 
-  // White-label state
+  // ── White-label share (F4) ───────────────────────
   const [brokerSubdomain, setBrokerSubdomain] = useState("");
+  const [magazineTitle, setMagazineTitle] = useState("");
   const [themeColor, setThemeColor] = useState("#6366f1");
   const [generatedLink, setGeneratedLink] = useState("");
   const [linkCopied, setLinkCopied] = useState(false);
@@ -219,6 +221,8 @@ export default function BrokerStudioPage() {
             coBrokerDeals: d.casepacks ?? 0,
           });
           setBrokerSubdomain(d.broker?.slug || "");
+          setMagazineTitle(d.broker?.magazine_title || "");
+          if (d.broker?.magazine_theme_color) setThemeColor(d.broker.magazine_theme_color);
         }
       }
     } catch (err) {
@@ -256,11 +260,15 @@ export default function BrokerStudioPage() {
     const subdomain = brokerSubdomain.trim() || "my-broker";
     
     try {
-      // Save the slug to the backend
+      // Save the slug, title, theme to the backend
       const res = await fetch("/api/broker/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug: subdomain }),
+        body: JSON.stringify({ 
+          slug: subdomain, 
+          magazine_title: magazineTitle, 
+          magazine_theme_color: themeColor 
+        }),
       });
       if (!res.ok) throw new Error("슬러그 저장 실패");
       
@@ -293,11 +301,11 @@ export default function BrokerStudioPage() {
   };
 
   const handleWhitelabelKakaoShare = () => {
-    if (!generatedLink) return;
+    const today = new Date().toISOString().split("T")[0];
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
-    const title = `📰 [맞춤 매거진] 브로커 추천 자산 소식`;
+    const title = magazineTitle || `📰 [맞춤 매거진] 브로커 추천 자산 소식`;
     const desc = `${brokerSubdomain} 중개사의 화이트라벨 매거진입니다. 엄선된 최신 CRE 자산 및 거래 트렌드 소식을 확인해 보세요.`;
-    const ogImageUrl = `${siteUrl}/api/og/vibe-card/${brokerSubdomain || "js-realty"}`;
+    const ogImageUrl = `${siteUrl}/api/og/magazine?brokerId=${brokerSubdomain || "js-realty"}&date=${today}`;
 
     if (readinessKakaoReady && window.Kakao?.Share) {
       try {
@@ -429,17 +437,24 @@ export default function BrokerStudioPage() {
   // ── Completeness for newsletter ──────────────────
   const newsletterReady = selectedDeals.length > 0 || selectedNews.length > 0;
 
-  const [newsItems, setNewsItems] = useState<Array<{ id: string; source: string; title: string; date: string; url?: string }>>([]);
+  const [newsItems, setNewsItems] = useState<Array<{ id: string; source: string; title: string; date: string; url?: string; topic?: string }>>([]);
 
   useEffect(() => {
     async function fetchNews() {
       try {
         const supabase = createClient();
-        const { data } = await supabase
+        let query = supabase
           .from("external_news")
-          .select("id, title, source, url, created_at")
+          .select("id, title, source, url, created_at, topic");
+          
+        if (newsTopic !== "전체") {
+          query = query.eq("topic", newsTopic);
+        }
+
+        const { data } = await query
+          .order("importance_score", { ascending: false, nullsFirst: false })
           .order("created_at", { ascending: false })
-          .limit(5);
+          .limit(15);
 
         if (data) {
           setNewsItems(data.map(n => {
@@ -451,6 +466,7 @@ export default function BrokerStudioPage() {
               title: n.title,
               url: n.url,
               date: dateStr,
+              topic: n.topic,
             };
           }));
         }
@@ -459,7 +475,7 @@ export default function BrokerStudioPage() {
       }
     }
     fetchNews();
-  }, []);
+  }, [newsTopic]);
 
   // ── Section Header component ─────────────────────
   const SectionHeader = ({ id, emoji, title, badge, badgeColor }: { id: SectionId; emoji: string; title: string; badge?: string; badgeColor?: string }) => (
@@ -580,10 +596,25 @@ export default function BrokerStudioPage() {
 
               {/* News selection */}
               <div className="space-y-2">
-                <label className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
-                  <span className="text-indigo-400">②</span> 포함할 뉴스 큐레이션
-                </label>
-                <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                    <span className="text-indigo-400">②</span> 포함할 뉴스 큐레이션
+                  </label>
+                  <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+                    {["전체", "시장동향", "거래", "정책", "경매", "임대"].map(topic => (
+                      <button
+                        key={topic}
+                        onClick={() => setNewsTopic(topic)}
+                        className={`px-2 py-0.5 rounded-full text-[9px] font-medium transition-colors whitespace-nowrap ${
+                          newsTopic === topic ? "bg-indigo-500/20 text-indigo-400" : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                        }`}
+                      >
+                        {topic}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
                   {newsItems.map((news) => (
                     <button
                       key={news.id}
@@ -711,6 +742,16 @@ export default function BrokerStudioPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
+                  <label className="text-[10px] text-slate-400 block">매거진 제목</label>
+                  <input
+                    type="text"
+                    value={magazineTitle}
+                    onChange={(e) => setMagazineTitle(e.target.value)}
+                    placeholder="김중개의 CRE 데일리"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                  />
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
                   <label className="text-[10px] text-slate-400 block">테마 색상</label>
                   <div className="flex items-center gap-2">
                     <input

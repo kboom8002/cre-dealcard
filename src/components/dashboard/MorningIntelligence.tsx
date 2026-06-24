@@ -185,6 +185,8 @@ export default function MorningIntelligence() {
   const [brokerProfileSlug, setBrokerProfileSlug] = useState("demo");
   const [briefingExpanded, setBriefingExpanded] = useState(false);
   const [pulseData, setPulseData] = useState<any>(null);
+  const [kakaoReady, setKakaoReady] = useState(false);
+  const [copiedBriefing, setCopiedBriefing] = useState(false);
 
   // ── 3탭 모드 상태 ────────────────────────────────────────────────────────
   const [intelMode, setIntelMode] = useState<"hq" | "my" | "custom">("hq");
@@ -230,11 +232,35 @@ export default function MorningIntelligence() {
 
   useEffect(() => { fetchIntelligence(region); }, [region, fetchIntelligence]);
 
+  // 카카오 SDK 로드
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if ((window as any).Kakao) {
+      if (!(window as any).Kakao.isInitialized()) {
+        const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+        if (appKey) (window as any).Kakao.init(appKey);
+      }
+      setKakaoReady(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js";
+    script.async = true;
+    script.onload = () => {
+      if ((window as any).Kakao && !(window as any).Kakao.isInitialized()) {
+        const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+        if (appKey) (window as any).Kakao.init(appKey);
+      }
+      setKakaoReady(true);
+    };
+    document.head.appendChild(script);
+  }, []);
+
   const handleCopyScript = async (text: string, type: "cold" | "hot") => {
     try { await navigator.clipboard.writeText(text); setCopiedScript(type); setTimeout(() => setCopiedScript(null), 2500); } catch { }
   };
   const handleShareLink = async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     const magazineUrl = `${window.location.origin}/magazine/${brokerProfileSlug}/${today}`;
     if (navigator.share) {
       try {
@@ -247,6 +273,45 @@ export default function MorningIntelligence() {
       } catch { /* fallback */ }
     }
     try { await navigator.clipboard.writeText(magazineUrl); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2500); } catch { }
+  };
+
+  const handleKakaoShare = () => {
+    if (!kakaoReady || !(window as any).Kakao) {
+      alert("카카오톡 공유 기능을 불러오고 있습니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const magazineUrl = `${window.location.origin}/magazine/${brokerProfileSlug}/${today}`;
+    const origin = window.location.origin;
+    const ogImageUrl = `${origin}/api/og/magazine?brokerId=${brokerProfileSlug}&date=${today}`;
+
+    try {
+      (window as any).Kakao.Share.sendDefault({
+        objectType: "feed",
+        content: {
+          title: `${today} CRE 모닝 브리핑`,
+          description: combineResult?.briefing?.slice(0, 80) + "..." || "오늘의 주요 부동산 인텔리전스를 확인하세요.",
+          imageUrl: ogImageUrl,
+          link: {
+            mobileWebUrl: magazineUrl,
+            webUrl: magazineUrl,
+          },
+        },
+        buttons: [
+          {
+            title: "브리핑 보기",
+            link: {
+              mobileWebUrl: magazineUrl,
+              webUrl: magazineUrl,
+            },
+          },
+        ],
+      });
+    } catch (err) {
+      console.error("Kakao share error:", err);
+      handleShareLink();
+    }
   };
   const triggerCrawl = async () => {
     setRefreshing(true);
@@ -291,6 +356,11 @@ export default function MorningIntelligence() {
         implication: item.implication,
       })) || [];
 
+      const myIntelContext = {
+        overallInsight: myIntelResult?.overallInsight || "",
+        actionItems: myIntelResult?.actionItems || [],
+      };
+
       const res = await fetch("/api/broker/morning-intelligence/combine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -299,6 +369,7 @@ export default function MorningIntelligence() {
           hqBriefingText,
           hqSelectedSections: ["briefing", "transactions", "auctions"],
           myIntelItems: myItems,
+          myIntelContext,
         }),
       });
       if (res.ok) {

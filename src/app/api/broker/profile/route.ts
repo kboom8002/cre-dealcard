@@ -15,6 +15,8 @@ const ProfileUpdateSchema = z.object({
   specialty_assets: z.array(z.string()).max(10).optional(),
   bio: z.string().max(500).optional(),
   slug: z.string().max(50).optional(),
+  magazine_title: z.string().max(100).optional(),
+  magazine_theme_color: z.string().max(20).optional(),
 
   // 자격/등록
   license_number: z.string().max(30).optional(),
@@ -55,7 +57,7 @@ const ProfileUpdateSchema = z.object({
 
 /** broker_profiles 테이블에서 조회할 v2 확장 컬럼 목록 */
 const BROKER_PROFILE_COLUMNS = [
-  'specialty_regions', 'specialty_assets', 'bio', 'slug', 'is_verified', 'created_at',
+  'specialty_regions', 'specialty_assets', 'bio', 'slug', 'magazine_title', 'magazine_theme_color', 'is_verified', 'created_at',
   // v2 자격/등록
   'license_number', 'office_reg_number', 'association', 'career_start_year',
   // v2 거래 실적
@@ -75,7 +77,7 @@ const BROKER_PROFILE_COLUMNS = [
 
 /** broker_profiles 테이블에 upsert 할 v2 필드 키 목록 */
 const BROKER_UPSERT_KEYS = [
-  'specialty_regions', 'specialty_assets', 'bio', 'slug',
+  'specialty_regions', 'specialty_assets', 'bio', 'slug', 'magazine_title', 'magazine_theme_color',
   'license_number', 'office_reg_number', 'association', 'career_start_year',
   'total_deal_count_self', 'deal_size_range', 'deal_specialty', 'buyer_types',
   'preferred_price_range', 'languages',

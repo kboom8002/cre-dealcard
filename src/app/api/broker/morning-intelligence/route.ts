@@ -190,6 +190,7 @@ export async function GET(request: NextRequest) {
 - 2~5개, 데이터 기반 동적 생성
 - "누구에게 + 무슨 액션 + 왜(데이터 근거)" 구조
 - 가장 긴급한 것 먼저
+- **주의: 내 매수자에게 보낼 맞춤형 매물 추천 액션을 반드시 1개 이상 포함하세요.**
 
 출력: 아래 JSON만 출력 (코드블록 없이)`;
 
@@ -208,9 +209,6 @@ ${rentalSummary}
 
 [📑 리서치 리포트]
 ${reportsSummary}
-
-[💰 공시지가 추이]
-${landPriceInfo}
 
 [🏠 이 브로커의 보유 매물 ${myDeals.length}건]
 ${myDealsSummary}
