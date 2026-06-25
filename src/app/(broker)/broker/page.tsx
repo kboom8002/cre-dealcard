@@ -71,7 +71,8 @@ export default async function BrokerPage() {
       .eq("broker_id", user.id),
     supabase
       .from("lease_match_results")
-      .select("grade"),
+      .select("grade")
+      .eq("broker_id", user.id),
     calculateBrokerMonthlyRoi(supabase, user.id),
     supabase
       .from("market_leading_indicators")

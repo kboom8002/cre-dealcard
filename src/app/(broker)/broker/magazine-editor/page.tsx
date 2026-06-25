@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, Suspense } from "reac
 import { MagazineView } from "@/app/(public)/magazine/[brokerId]/[date]/magazine-view";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import Script from "next/script";
 import { motion, AnimatePresence } from "motion/react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -30,8 +31,22 @@ import {
 } from "lucide-react";
 
 // ─── 탭 정의 ──────────────────────────────────────────────────────
+const SECTIONS_DEF = [
+  { id: "ai_briefing", label: "AI 마켓 브리핑" },
+  { id: "broker_comment", label: "브로커 코멘트" },
+  { id: "action_list", label: "오늘의 추천 액션" },
+  { id: "market_data", label: "시장 데이터" },
+  { id: "deal_highlights", label: "관리 매물 하이라이트" },
+  { id: "sentiment_index", label: "CRE 투자자 심리 지수" },
+  { id: "news", label: "오늘의 CRE 뉴스" },
+  { id: "auction_picks", label: "이 주의 경매 픽" },
+  { id: "call_script", label: "추천 상담 멘트" },
+  { id: "reports", label: "전문 리서치 리포트" },
+  { id: "broker_profile", label: "브로커 프로필" }
+];
+
 const TABS = [
-  { key: "edit" as const, label: "편집", icon: Pencil },
+  { key: "edit" as const, label: "섹션 관리", icon: Pencil },
   { key: "news" as const, label: "뉴스 📰", icon: Newspaper },
   { key: "deals" as const, label: "딜카드 🏢", icon: Building2 },
   { key: "settings" as const, label: "설정 ⚙️", icon: Settings },
@@ -63,6 +78,13 @@ function MagazineEditorInner() {
   const [magazineTitle, setMagazineTitle] = useState("");
   const [showShareModal, setShowShareModal] = useState(false);
   const [kakaoReady, setKakaoReady] = useState(false);
+  const [sectionOrder, setSectionOrder] = useState<string[]>(SECTIONS_DEF.map(s => s.id));
+  const [sectionVisibility, setSectionVisibility] = useState<Record<string, boolean>>(
+    SECTIONS_DEF.reduce((acc, s) => ({ ...acc, [s.id]: true }), {})
+  );
+  const [actionList, setActionList] = useState<string[]>([]);
+  const [callScript, setCallScript] = useState<string>("");
+
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
@@ -94,6 +116,12 @@ function MagazineEditorInner() {
           if (json.data) {
             setMagazineData(json.data);
             setHeadline(json.data.headline || "");
+            setBriefing(json.data.briefing || "");
+            if (json.data.brokerComment) setBrokerComment(json.data.brokerComment);
+            if (json.data.actionList) setActionList(json.data.actionList);
+            if (json.data.callScript) setCallScript(json.data.callScript);
+            if (json.data.sectionOrder) setSectionOrder(json.data.sectionOrder);
+            if (json.data.sectionVisibility) setSectionVisibility(json.data.sectionVisibility);
             setBriefing(json.data.briefing || "");
 
             // 딜카드 (dealHighlights)
@@ -153,23 +181,22 @@ function MagazineEditorInner() {
     loadData();
   }, []);
 
-  // ── Kakao SDK 로딩 ──
+  
   useEffect(() => {
-    if (typeof window !== "undefined" && !window.Kakao) {
-      const script = document.createElement("script");
-      script.src = "https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js";
-      script.async = true;
-      script.onload = () => {
-        if (window.Kakao && !window.Kakao.isInitialized() && process.env.NEXT_PUBLIC_KAKAO_APP_KEY) {
-          window.Kakao.init(process.env.NEXT_PUBLIC_KAKAO_APP_KEY);
-          setKakaoReady(true);
-        }
-      };
-      document.head.appendChild(script);
-    } else if (typeof window !== "undefined" && window.Kakao) {
-      setKakaoReady(true);
+    const saved = sessionStorage.getItem("magazine_briefing_data");
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        if (data.title) setHeadline(data.title);
+        if (data.briefing) setBriefing(data.briefing);
+        if (data.actionList) setActionList(data.actionList);
+        if (data.callScript) setCallScript(data.callScript);
+        sessionStorage.removeItem("magazine_briefing_data");
+      } catch(e) {}
     }
   }, []);
+
+
 
   // ── URL 쿼리 파라미터에서 선택 항목 초기화 ──
   useEffect(() => {
@@ -218,6 +245,8 @@ function MagazineEditorInner() {
       headline,
       briefing,
       brokerComment: aiExpandedComment || (brokerComment.trim() ? brokerComment : null),
+      actionList,
+      callScript,
       themeColor,
       topNews: filteredNews.map((n: any) => ({
         title: n.title,
@@ -227,8 +256,10 @@ function MagazineEditorInner() {
         topic: n.topic,
       })),
       dealHighlights: filteredDeals,
+      sectionOrder,
+      sectionVisibility,
     };
-  }, [magazineData, headline, briefing, brokerComment, aiExpandedComment, themeColor, allNews, allDeals, selectedNewsIds, selectedDealIds]);
+  }, [magazineData, headline, briefing, brokerComment, aiExpandedComment, actionList, callScript, themeColor, allNews, allDeals, selectedNewsIds, selectedDealIds, sectionOrder, sectionVisibility]);
 
   // ── AI 코멘트 확장 ──
   const handleAiExpand = useCallback(async () => {

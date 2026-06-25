@@ -166,9 +166,10 @@ export async function requireRole(
 
 /**
  * Convenience: require broker or admin role.
+ * TEMP: treating public_user as broker since we only allow brokers for now.
  */
 export function requireBroker(req: NextRequest) {
-  return requireRole(req, ['broker', 'admin']);
+  return requireRole(req, ['broker', 'admin', 'public_user']);
 }
 
 /**

@@ -219,7 +219,10 @@ export default function MorningDetailPage() {
 
             {/* 하단 매거진 작성 CTA */}
             <div className="pt-6 pb-10">
-              <Button className="w-full h-14 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2">
+              <Button 
+                onClick={() => router.push('/broker/magazine-editor')}
+                className="w-full h-14 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2"
+              >
                 <PenTool className="w-4 h-4" />
                 이 소식으로 매거진 작성하기
               </Button>

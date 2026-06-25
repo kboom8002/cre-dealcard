@@ -45,7 +45,7 @@ export async function generateMetadata({
   const description =
     data.headline ??
     `${broker.name} 중개사의 오늘 꼬마빌딩 시장 AI 맞춤 브리핑`;
-  const ogImageUrl = `/api/og/magazine/route?brokerId=${brokerId}&date=${date}`;
+  const ogImageUrl = `/api/og/magazine?brokerId=${brokerId}&date=${date}`;
 
   return {
     title,

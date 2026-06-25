@@ -1,117 +1,47 @@
-"use client";
+import fs from 'fs';
+import path from 'path';
 
-import React, { useState, useRef } from "react";
-import { motion, useInView } from "motion/react";
-import {
-  Phone, Share2, Check, Building2, Hammer, Globe, BookOpen, ArrowRight,
-  Sparkles, Newspaper, ChevronDown, MessageSquare, TrendingUp, BarChart3,
-  Copy,
-} from "lucide-react";
+const file = path.join(process.cwd(), 'src/app/(public)/magazine/[brokerId]/[date]/magazine-view.tsx');
+let content = fs.readFileSync(file, 'utf8');
 
-interface MagazineViewProps {
-  data: Record<string, any>;
-  brokerId: string;
-  date: string;
-}
+// Find the start of the sections
+const startMarker = '<div className="space-y-5">';
+const startIdx = content.indexOf(startMarker);
 
-export type MagazineData = Record<string, any>;
-
-function fmt(price: number): string {
-  if (!price) return "-";
-  if (price >= 100000000) return `${(price / 100000000).toFixed(1)}억`;
-  if (price >= 10000) return `${(price / 10000).toFixed(0)}만`;
-  return price.toLocaleString();
-}
-
-function Section({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-60px" });
-  return (
-    <motion.div ref={ref} initial={{ opacity: 0, y: 20 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] }}>
-      {children}
-    </motion.div>
-  );
-}
-
-function RichBriefing({ text }: { text: string }) {
-  const paras = text.split(/\n{1,2}/).filter(Boolean);
-  return (
-    <div className="space-y-3">
-      {paras.map((para, i) => {
-        const isHeading = /^[\u{1F300}-\u{1FFFF}\u{2600}-\u{27FF}]/u.test(para) || /^\*\*.*\*\*$/.test(para.trim());
-        const html = para
-          .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
-          .replace(/(\d[\d,.]+%)/g, '<span class="text-indigo-300 font-bold font-mono">$1</span>')
-          .replace(/(\d[\d,.]+억)/g, '<span class="text-emerald-300 font-bold">$1</span>');
-        if (isHeading) return <p key={i} className="text-[14px] font-extrabold text-white leading-snug pt-1" dangerouslySetInnerHTML={{ __html: html }} />;
-        return <p key={i} className="text-[12px] text-slate-300 leading-relaxed" dangerouslySetInnerHTML={{ __html: html }} />;
-      })}
-    </div>
-  );
-}
-
-function DataBadge({ type }: { type: "ai" | "public" | "realtime" }) {
-  const config = {
-    ai: { label: "🟣 AI 분석", cls: "text-violet-400 bg-violet-500/10 border-violet-500/20" },
-    public: { label: "🔵 공공데이터", cls: "text-sky-400 bg-sky-500/10 border-sky-500/20" },
-    realtime: { label: "🟢 실시간", cls: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
-  };
-  const c = config[type];
-  return <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-md border ${c.cls}`}>{c.label}</span>;
-}
-
-function SectionCard({ title, icon, badge, children, defaultOpen = false }: {
-  title: string; icon: React.ReactNode; badge?: React.ReactNode; children: React.ReactNode; defaultOpen?: boolean;
-}) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-  return (
-    <div className={`rounded-2xl border overflow-hidden transition-all duration-300 ${isOpen ? "border-white/12 bg-white/[0.03]" : "border-white/6 bg-white/[0.02]"}`}>
-      <button type="button" onClick={() => setIsOpen(!isOpen)} className="w-full flex items-center gap-2 px-4 py-3 text-left">
-        {icon}
-        <span className="text-[12px] font-bold text-white flex-1">{title}</span>
-        {badge}
-        <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
-      </button>
-      {isOpen && <div className="px-4 pb-4 space-y-3">{children}</div>}
-    </div>
-  );
-}
-
-function sentimentColor(score: number) {
-  if (score >= 70) return { bar: "from-orange-500 to-rose-500", text: "text-rose-400" };
-  if (score >= 50) return { bar: "from-emerald-500 to-teal-400", text: "text-emerald-400" };
-  return { bar: "from-blue-600 to-cyan-400", text: "text-blue-400" };
-}
-
-export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
-  const [copied, setCopied] = useState(false);
-  const broker = (data.broker as Record<string, any>) ?? {};
-  const [y, m, d] = date.split("-");
-  const dateLabel = `${y}년 ${m}월 ${d}일`;
-  const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
-  const weekday = weekdays[new Date(date).getDay()];
-  const sentiment = (data.sentiment as any) ?? { score: 62, status: "탐욕 우세" };
-  const sc = sentimentColor(sentiment.score);
-  const accent = (data.themeColor as string | undefined) || "#6366f1";
-
-  const handleShare = async () => {
-    const shareUrl = typeof window !== "undefined" ? window.location.href : `/magazine/${brokerId}/${date}`;
-    if (navigator.share) {
-      try { await navigator.share({ title: `[${broker.name}] CRE 데일리 매거진 ${dateLabel}`, text: (data.headline as string) ?? "오늘의 꼬마빌딩 시장 AI 인텔리전스", url: shareUrl }); return; } catch { /* fallback */ }
+// Find the end of space-y-5 div
+let endIdx = startIdx + startMarker.length;
+let divCount = 1;
+while(divCount > 0 && endIdx < content.length) {
+    if(content.slice(endIdx, endIdx+4) === '<div') {
+        divCount++;
+    } else if(content.slice(endIdx, endIdx+5) === '</div') {
+        divCount--;
     }
-    await navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
-  };
+    endIdx++;
+}
 
-  const handleCallBroker = () => { if (broker.phone) window.location.href = `tel:${String(broker.phone).replace(/[^0-9]/g, "")}`; };
+// Ensure we include the >
+endIdx = content.indexOf('>', endIdx) + 1;
 
-  const recentTxs = Array.isArray(data.recentTransactions) ? data.recentTransactions : [];
-  const rentalTrend = data.rentalTrend as any;
-  const commercialDistrict = data.commercialDistrict as any;
-  const brokerComment = data.brokerComment as string | null | undefined;
-  const hasMarketData = recentTxs.length > 0 || rentalTrend || commercialDistrict;
+const originalSections = content.slice(startIdx + startMarker.length, content.lastIndexOf('</div>', endIdx-2));
 
+const replacement = `
+        {/* ── 섹션들 ────────────────────────────────────────── */}
+        <div className="space-y-5">
+          {sectionOrder.map((sectionId) => {
+            if (!sectionVisibility[sectionId]) return null;
+            const Component = sectionComponents[sectionId as keyof typeof sectionComponents];
+            return Component ? <React.Fragment key={sectionId}>{Component()}</React.Fragment> : null;
+          })}
+        </div>`;
+
+// Insert the sections definitions before the return statement inside MagazineView
+const componentMarker = 'export function MagazineView';
+const componentIdx = content.indexOf(componentMarker);
+const returnMarker = 'return (';
+const returnIdx = content.indexOf(returnMarker, componentIdx);
+
+const sectionDefs = `
   const sectionOrder: string[] = Array.isArray(data.sectionOrder) ? data.sectionOrder : [
     "ai_briefing", "broker_comment", "action_list", "market_data", 
     "deal_highlights", "sentiment_index", "news", "auction_picks", "call_script", "reports", "broker_profile"
@@ -253,7 +183,7 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
           <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory">
             {(data.dealHighlights as any[]).map((deal, i) => (
               <div key={i} className="shrink-0 w-[260px] snap-start rounded-2xl border border-white/8 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>
-                <div className="w-full h-[130px] relative" style={{ background: deal.photoUrl ? `url('${deal.photoUrl}') center/cover` : "linear-gradient(135deg, #1e1b4b, #312e81)" }}>
+                <div className="w-full h-[130px] relative" style={{ background: deal.photoUrl ? \`url('\${deal.photoUrl}') center/cover\` : "linear-gradient(135deg, #1e1b4b, #312e81)" }}>
                   {!deal.photoUrl && <div className="w-full h-full flex items-center justify-center"><Building2 className="w-8 h-8 text-indigo-400/40" /></div>}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   <div className="absolute bottom-2 left-2.5 right-2.5 flex justify-between items-end">
@@ -280,7 +210,7 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
               <span className="text-base">🌡️</span>
               <h3 className="text-[12px] font-bold text-white">CRE 투자자 심리 지수</h3>
             </div>
-            <span className={`text-[11px] font-bold ${sc.text}`}>{sentiment.status}</span>
+            <span className={\`text-[11px] font-bold \${sc.text}\`}>{sentiment.status}</span>
           </div>
           <div className="space-y-2">
             <div className="flex justify-between items-center">
@@ -288,8 +218,8 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
               <span className="text-[18px] font-extrabold text-white">{sentiment.score}<span className="text-[12px] font-normal text-slate-500">/100</span></span>
             </div>
             <div className="relative h-2.5 bg-white/5 rounded-full overflow-hidden">
-              <motion.div initial={{ width: 0 }} animate={{ width: `${sentiment.score}%` }} transition={{ duration: 1.2, ease: "easeOut" }} className={`h-full rounded-full bg-gradient-to-r ${sc.bar}`} />
-              <motion.div initial={{ left: 0 }} animate={{ left: `calc(${sentiment.score}% - 4px)` }} transition={{ duration: 1.2, ease: "easeOut" }} className="absolute top-1/2 -translate-y-1/2 w-2 h-4 bg-white rounded-full shadow-lg shadow-white/30" />
+              <motion.div initial={{ width: 0 }} animate={{ width: \`\${sentiment.score}%\` }} transition={{ duration: 1.2, ease: "easeOut" }} className={\`h-full rounded-full bg-gradient-to-r \${sc.bar}\`} />
+              <motion.div initial={{ left: 0 }} animate={{ left: \`calc(\${sentiment.score}% - 4px)\` }} transition={{ duration: 1.2, ease: "easeOut" }} className="absolute top-1/2 -translate-y-1/2 w-2 h-4 bg-white rounded-full shadow-lg shadow-white/30" />
             </div>
             <div className="flex justify-between text-[9px] text-slate-600">
               <span>극단 공포</span><span>중립 50</span><span>극단 탐욕</span>
@@ -308,9 +238,9 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
           </div>
           {(data.topNews as any[]).slice(0, 6).map((n, i) => (
             <div key={i} className="flex items-start gap-3 p-3 rounded-xl border border-white/6" style={{ background: "rgba(255,255,255,0.025)" }}>
-              <div className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${n.sentiment === "bullish" ? "bg-emerald-400" : n.sentiment === "bearish" ? "bg-rose-400" : "bg-slate-400"}`} />
+              <div className={\`mt-1 w-1.5 h-1.5 rounded-full shrink-0 \${n.sentiment === "bullish" ? "bg-emerald-400" : n.sentiment === "bearish" ? "bg-rose-400" : "bg-slate-400"}\`} />
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-bold text-white leading-snug mb-0.5 line-clamp-2">{String(n.title ?? "").replace(/^\[.*?\]\s*/, "")}</p>
+                <p className="text-[11px] font-bold text-white leading-snug mb-0.5 line-clamp-2">{String(n.title ?? "").replace(/^\[.*?\]\\s*/, "")}</p>
                 <p className="text-[10px] text-slate-500 line-clamp-1">{n.summary}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <p className="text-[9px] text-slate-600">{n.source}</p>
@@ -343,7 +273,7 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
                     <span>감정가 {fmt(a.appraisedValue)}</span>
                   </div>
                   <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full" style={{ width: `${100 - a.discountPct}%` }} />
+                    <div className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full" style={{ width: \`\${100 - a.discountPct}%\` }} />
                   </div>
                 </div>
               )}
@@ -372,11 +302,11 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
     ) : null,
     broker_profile: () => (
       <Section delay={0.35}>
-        <div className="rounded-2xl overflow-hidden border border-white/8" style={{ background: `linear-gradient(135deg, ${accent}12, rgba(15,15,35,0.9))` }}>
+        <div className="rounded-2xl overflow-hidden border border-white/8" style={{ background: \`linear-gradient(135deg, \${accent}12, rgba(15,15,35,0.9))\` }}>
           <div className="p-4">
             <p className="text-[10px] font-bold tracking-wider mb-3" style={{ color: accent }}>BROKER PROFILE</p>
             <div className="flex items-start gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full border-2 flex items-center justify-center shrink-0" style={{ borderColor: `${accent}44`, background: `linear-gradient(135deg, ${accent}, #8b5cf6)` }}>
+              <div className="w-12 h-12 rounded-full border-2 flex items-center justify-center shrink-0" style={{ borderColor: \`\${accent}44\`, background: \`linear-gradient(135deg, \${accent}, #8b5cf6)\` }}>
                 <span className="text-white font-extrabold text-lg">{String(broker.name ?? "B").charAt(0)}</span>
               </div>
               <div>
@@ -386,15 +316,15 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2 mb-4">
-              {[{ label: "누적 거래", value: `${broker.totalDeals || 0}건`, color: "text-indigo-300" }, { label: "활성 매물", value: `${broker.activeDeals || 0}건`, color: "text-emerald-300" }, { label: "전문 자산", value: (broker.specialtyAssets as string[])?.[0] ?? "꼬마빌딩", color: "text-amber-300" }].map((s, i) => (
+              {[{ label: "누적 거래", value: \`\${broker.totalDeals}건\`, color: "text-indigo-300" }, { label: "활성 매물", value: \`\${broker.activeDeals}건\`, color: "text-emerald-300" }, { label: "전문 자산", value: (broker.specialtyAssets as string[])?.[0] ?? "꼬마빌딩", color: "text-amber-300" }].map((s, i) => (
                 <div key={i} className="text-center bg-white/4 border border-white/8 rounded-xl py-2">
-                  <p className={`text-[14px] font-extrabold ${s.color}`}>{s.value}</p>
+                  <p className={\`text-[14px] font-extrabold \${s.color}\`}>{s.value}</p>
                   <p className="text-[9px] text-slate-500 mt-0.5">{s.label}</p>
                 </div>
               ))}
             </div>
             {broker.phone && (
-              <button onClick={handleCallBroker} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-[13px] text-white transition-all duration-300 active:scale-95" style={{ background: `linear-gradient(135deg, ${accent}, #8b5cf6)` }}>
+              <button onClick={handleCallBroker} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-[13px] text-white transition-all duration-300 active:scale-95" style={{ background: \`linear-gradient(135deg, \${accent}, #8b5cf6)\` }}>
                 <Phone className="w-4 h-4" />{broker.phone} 상담하기
               </button>
             )}
@@ -424,73 +354,7 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
       </Section>
     ) : null,
   };
+`;
 
-  return (
-    <div className="min-h-screen w-full" style={{ background: "linear-gradient(180deg, #050510 0%, #0a0a1a 40%, #080814 100%)", "--accent": accent } as React.CSSProperties}>
-      <div className="max-w-[440px] mx-auto px-4 pb-28">
-
-        {/* ── HERO ─────────────────────────────────────────── */}
-        <div className="relative pt-10 pb-8 px-1" style={{ background: `linear-gradient(160deg, ${accent}18 0%, transparent 55%)` }}>
-          <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl opacity-20 pointer-events-none" style={{ background: `radial-gradient(circle, ${accent}, transparent)` }} />
-
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2.5 mb-6">
-            <div className="w-10 h-10 rounded-full border-2 flex items-center justify-center shrink-0" style={{ borderColor: `${accent}66`, background: `linear-gradient(135deg, ${accent}, #8b5cf6)` }}>
-              <span className="text-white font-extrabold text-base">{String(broker.name ?? "B").charAt(0)}</span>
-            </div>
-            <div>
-              <p className="text-[13px] font-bold text-white">{broker.name}</p>
-              <p className="text-[10px] text-slate-500">{broker.company}</p>
-            </div>
-            <div className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-full" style={{ background: `${accent}18`, border: `1px solid ${accent}33` }}>
-              <Sparkles className="w-2.5 h-2.5" style={{ color: accent }} />
-              <span className="text-[9px] font-bold" style={{ color: accent }}>AI 개인화</span>
-            </div>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
-            <p className="text-[12px] text-slate-500 mb-1.5">{dateLabel} {weekday}요일</p>
-            <h1 className="text-[26px] font-extrabold text-white leading-tight tracking-tight mb-2">CRE 데일리 매거진</h1>
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {((broker.specialtyRegions as string[]) ?? []).map((r: string, i: number) => (
-                <span key={i} className="text-[10px] font-bold px-2.5 py-0.5 rounded-full" style={{ color: accent, background: `${accent}15`, border: `1px solid ${accent}30` }}>{r}</span>
-              ))}
-            </div>
-          </motion.div>
-
-          {data.keyStats && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="mt-5 grid grid-cols-3 gap-2">
-              {(data.keyStats as any[]).map((stat, i) => {
-                const cls: Record<string, string> = { emerald: "text-emerald-400 border-emerald-500/20 bg-emerald-500/8", indigo: "text-indigo-400 border-indigo-500/20 bg-indigo-500/8", rose: "text-rose-400 border-rose-500/20 bg-rose-500/8", amber: "text-amber-400 border-amber-500/20 bg-amber-500/8", slate: "text-slate-400 border-slate-500/20 bg-slate-500/8" };
-                const c = cls[stat.accent] ?? "text-slate-400 border-white/10 bg-white/4";
-                return (<div key={i} className={`border rounded-xl p-2.5 text-center ${c}`}><div className="text-[15px] font-extrabold leading-none mb-1">{stat.value}</div><div className="text-[9px] opacity-70">{stat.label}</div></div>);
-              })}
-            </motion.div>
-          )}
-        </div>
-
-        {/* ── 섹션들 ────────────────────────────────────────── */}
-        <div className="space-y-5">
-          {sectionOrder.map((sectionId) => {
-            if (!sectionVisibility[sectionId]) return null;
-            const Component = sectionComponents[sectionId as keyof typeof sectionComponents];
-            return Component ? <React.Fragment key={sectionId}>{Component()}</React.Fragment> : null;
-          })}
-        </div>
-      </div>
-
-      {/* ── 고정 하단 바 ──────────────────────────────────── */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 px-4 py-3" style={{ background: "linear-gradient(to top, rgba(8,8,20,0.98) 0%, rgba(8,8,20,0.9) 70%, transparent 100%)", backdropFilter: "blur(12px)" }}>
-        <div className="max-w-[440px] mx-auto flex gap-2">
-          {broker.phone && (
-            <button onClick={handleCallBroker} className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-[13px] text-white transition-all duration-300 active:scale-95" style={{ background: `linear-gradient(135deg, ${accent}, #8b5cf6)`, boxShadow: `0 4px 20px ${accent}66` }}>
-              <Phone className="w-4 h-4" />{broker.phone} 상담
-            </button>
-          )}
-          <button onClick={handleShare} className="flex items-center justify-center gap-1.5 px-4 py-3.5 rounded-2xl border border-white/15 font-bold text-[12px] text-white transition-all duration-300 active:scale-95" style={{ background: "rgba(255,255,255,0.06)" }}>
-            {copied ? (<><Check className="w-4 h-4 text-emerald-400" /><span className="text-emerald-400">복사됨</span></>) : (<><Share2 className="w-4 h-4" /><span>공유</span></>)}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+content = content.slice(0, returnIdx) + sectionDefs + "\n  " + content.slice(returnIdx, startIdx) + replacement + content.slice(endIdx);
+fs.writeFileSync(file, content);

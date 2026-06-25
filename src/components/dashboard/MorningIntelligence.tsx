@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PulseSignalRadar } from "@/components/pulse/PulseSignalRadar";
 
 // ── 타입 정의 ──────────────────────────────────────────────────────────────────
@@ -174,6 +175,7 @@ function getSentimentGradient(score: number) {
 
 // ── 메인 컴포넌트 ──────────────────────────────────────────────────────────────
 export default function MorningIntelligence() {
+  const router = useRouter();
   const [region, setRegion] = useState("seongsu");
   const [data, setData] = useState<IntelligenceData | null>(null);
   const [sharingUrl, setSharingUrl] = useState<string>("");
@@ -260,7 +262,7 @@ export default function MorningIntelligence() {
     try { await navigator.clipboard.writeText(text); setCopiedScript(type); setTimeout(() => setCopiedScript(null), 2500); } catch { }
   };
   const handleShareLink = async () => {
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const today = new Date().toISOString().slice(0, 10);
     const magazineUrl = `${window.location.origin}/magazine/${brokerProfileSlug}/${today}`;
     if (navigator.share) {
       try {
@@ -281,7 +283,7 @@ export default function MorningIntelligence() {
       return;
     }
 
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const today = new Date().toISOString().slice(0, 10);
     const magazineUrl = `${window.location.origin}/magazine/${brokerProfileSlug}/${today}`;
     const origin = window.location.origin;
     const ogImageUrl = `${origin}/api/og/magazine?brokerId=${brokerProfileSlug}&date=${today}`;
@@ -460,10 +462,15 @@ export default function MorningIntelligence() {
                 className="flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-2 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 transition-all duration-300 whitespace-nowrap shrink-0">
                 <Calendar className="w-3.5 h-3.5" /><span>오늘의 임장</span>
               </Link>
-              <Link href={`/broker/magazine-editor`} 
+              <button onClick={() => {
+                  if (combineResult) {
+                    sessionStorage.setItem("magazine_briefing_data", JSON.stringify(combineResult));
+                  }
+                  router.push("/broker/magazine-editor?source=custom_briefing");
+                }}
                 className="flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 transition-all duration-300 whitespace-nowrap shrink-0">
                 <Edit3 className="w-3.5 h-3.5" /><span>매거진 편집</span>
-              </Link>
+              </button>
               <Link href={`/magazine/${brokerProfileSlug}/${new Date().toISOString().slice(0, 10)}`} target="_blank"
                 className="flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-2 rounded-xl border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 transition-all duration-300 whitespace-nowrap shrink-0">
                 <Eye className="w-3.5 h-3.5" /><span>미리보기</span>
@@ -698,9 +705,19 @@ export default function MorningIntelligence() {
                   className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold py-2.5 rounded-xl bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 transition-all">
                   <Copy className="w-3.5 h-3.5" /> 브리핑 복사
                 </button>
-                <button onClick={handleShareLink}
+                <button onClick={() => {
+                  if (combineResult) {
+                    sessionStorage.setItem("magazine_briefing_data", JSON.stringify({
+                      title: combineResult.title,
+                      briefing: combineEditText || combineResult.briefing,
+                      actionList: combineResult.actionList,
+                      callScript: combineResult.callScript
+                    }));
+                  }
+                  router.push("/broker/magazine-editor?source=custom_briefing");
+                }}
                   className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold py-2.5 rounded-xl bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all">
-                  <Share2 className="w-3.5 h-3.5" /> 매거진 발행
+                  <Edit3 className="w-3.5 h-3.5" /> 매거진 편집하기
                 </button>
               </div>
             </Card>
