@@ -3,7 +3,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import Script from "next/script";
 import type { MobileIMDocument, MobileIMSection } from "@/lib/demo/mobile-im-demo-data";
+
+// 카카오 SDK 초기화 헬퍼 함수
+const initKakao = () => {
+  if (typeof window !== "undefined" && (window as any).kakao) {
+    // Kakao Map SDK는 별도의 초기화 없이 객체 사용 가능
+  }
+};
 
 // ─── Voice Briefing Player ─────────────────────────────────────────────────
 
@@ -769,23 +777,13 @@ function BottomShareBar({ title, buildingId, docId }: { title: string; buildingI
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if ((window as any).Kakao) return;
-
-    const script = document.createElement("script");
-    script.src = "https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js";
-    script.async = true;
-    script.onload = () => {
-      if ((window as any).Kakao && !(window as any).Kakao.isInitialized()) {
-        const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
-        if (appKey) (window as any).Kakao.init(appKey);
-      }
-    };
-    document.head.appendChild(script);
+    if (typeof window !== "undefined" && (window as any).Kakao && !(window as any).Kakao.isInitialized()) {
+      const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+      if (appKey) (window as any).Kakao.init(appKey);
+    }
   }, []);
 
   const handleKakao = async () => {
-    // Kakao JS SDK를 사용한 카카오톡 공유
     if (typeof window !== "undefined" && (window as any).Kakao) {
       const Kakao = (window as any).Kakao;
       if (!Kakao.isInitialized()) {
@@ -794,16 +792,24 @@ function BottomShareBar({ title, buildingId, docId }: { title: string; buildingI
       }
       if (Kakao.isInitialized()) {
         try {
+          // Vercel Preview 등 미등록 도메인에서 공유 시 카카오 API가 거부하므로 프로덕션 도메인으로 강제 변환
+          const baseUrl = window.location.hostname.includes("vercel.app") 
+            ? "https://www.credeal.net" 
+            : window.location.origin;
+          
+          const canonicalShareUrl = shareUrl.replace(window.location.origin, baseUrl);
+          const canonicalImageUrl = `${baseUrl}/api/og/deal/${buildingId}`;
+
           Kakao.Share.sendDefault({
             objectType: "feed",
             content: {
               title: title || "투자 매물",
               description: `AI 자동 생성 모바일 투자설명서`,
-              imageUrl: `${window.location.origin}/api/og/deal/${buildingId}`,
-              link: { mobileWebUrl: shareUrl, webUrl: shareUrl },
+              imageUrl: canonicalImageUrl,
+              link: { mobileWebUrl: canonicalShareUrl, webUrl: canonicalShareUrl },
             },
             buttons: [
-              { title: "투자설명서 보기", link: { mobileWebUrl: shareUrl, webUrl: shareUrl } },
+              { title: "투자설명서 보기", link: { mobileWebUrl: canonicalShareUrl, webUrl: canonicalShareUrl } },
             ],
           });
           return;
@@ -845,8 +851,19 @@ function BottomShareBar({ title, buildingId, docId }: { title: string; buildingI
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-neutral-950/95 backdrop-blur-md border-t border-neutral-800 px-4 py-3 safe-area-bottom">
-      <div className="max-w-2xl mx-auto">
+    <>
+      <Script 
+        src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"
+        strategy="lazyOnload"
+        onLoad={() => {
+          if (typeof window !== "undefined" && (window as any).Kakao && !(window as any).Kakao.isInitialized()) {
+            const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+            if (appKey) (window as any).Kakao.init(appKey);
+          }
+        }}
+      />
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-neutral-950/95 backdrop-blur-md border-t border-neutral-800 px-4 py-3 safe-area-bottom">
+        <div className="max-w-2xl mx-auto">
         <p className="text-[10px] text-neutral-600 text-center mb-2">공유 또는 저장</p>
         <div className="flex gap-2">
           {/* KakaoTalk */}

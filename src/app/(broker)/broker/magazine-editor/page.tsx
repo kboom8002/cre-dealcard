@@ -354,27 +354,39 @@ function MagazineEditorInner() {
 
   const handleMagazineKakaoShare = () => {
     if (!brokerSlug) return;
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://www.credeal.net";
-    const magazineUrl = `${origin}/magazine/${brokerSlug}/${today}`;
-    const ogImageUrl = `${origin}/api/og/magazine?brokerId=${brokerSlug}&date=${today}`;
     
-    if (kakaoReady && window.Kakao?.Share) {
-      try {
-        window.Kakao.Share.sendDefault({
-          objectType: "feed",
-          content: {
-            title: magazineTitle || `${today} CRE 데일리 매거진`,
-            description: briefing.slice(0, 80) + "...",
-            imageUrl: ogImageUrl,
-            link: { mobileWebUrl: magazineUrl, webUrl: magazineUrl },
-          },
-          buttons: [
-            { title: "매거진 보기", link: { mobileWebUrl: magazineUrl, webUrl: magazineUrl } },
-          ],
-        });
-        return;
-      } catch (e) {
-        console.error("Kakao share error", e);
+    const baseUrl = typeof window !== "undefined" && window.location.hostname.includes("vercel.app")
+      ? "https://www.credeal.net"
+      : typeof window !== "undefined" ? window.location.origin : "https://www.credeal.net";
+      
+    const magazineUrl = `${baseUrl}/magazine/${brokerSlug}/${today}`;
+    const ogImageUrl = `${baseUrl}/api/og/magazine?brokerId=${brokerSlug}&date=${today}`;
+    
+    if (typeof window !== "undefined" && (window as any).Kakao) {
+      const Kakao = (window as any).Kakao;
+      if (!Kakao.isInitialized()) {
+        const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+        if (appKey) Kakao.init(appKey);
+      }
+      
+      if (Kakao.isInitialized()) {
+        try {
+          Kakao.Share.sendDefault({
+            objectType: "feed",
+            content: {
+              title: magazineTitle || `${today} CRE 데일리 매거진`,
+              description: briefing.slice(0, 80) + "...",
+              imageUrl: ogImageUrl,
+              link: { mobileWebUrl: magazineUrl, webUrl: magazineUrl },
+            },
+            buttons: [
+              { title: "매거진 보기", link: { mobileWebUrl: magazineUrl, webUrl: magazineUrl } },
+            ],
+          });
+          return;
+        } catch (e) {
+          console.error("Kakao share error", e);
+        }
       }
     }
     
@@ -969,14 +981,26 @@ function MagazineEditorInner() {
 // ─── 페이지 export (Suspense로 useSearchParams 감싸기) ────────────────
 export default function MagazineEditorPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex h-screen items-center justify-center bg-[#0B1120]">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-        </div>
-      }
-    >
-      <MagazineEditorInner />
-    </Suspense>
+    <>
+      <Script 
+        src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"
+        strategy="lazyOnload"
+        onLoad={() => {
+          if (typeof window !== "undefined" && (window as any).Kakao && !(window as any).Kakao.isInitialized()) {
+            const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+            if (appKey) (window as any).Kakao.init(appKey);
+          }
+        }}
+      />
+      <Suspense
+        fallback={
+          <div className="flex h-screen items-center justify-center bg-[#0B1120]">
+            <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+          </div>
+        }
+      >
+        <MagazineEditorInner />
+      </Suspense>
+    </>
   );
 }
