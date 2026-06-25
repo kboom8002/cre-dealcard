@@ -926,6 +926,7 @@ function BottomShareBar({ title, buildingId, docId }: { title: string; buildingI
         </div>
       </div>
     </div>
+    </>
   );
 }
 
