@@ -128,11 +128,14 @@ export default async function BrokerPage() {
   const sConversionRate =
     totalMatchCount > 0
       ? Math.round((sMatchCount / totalMatchCount) * 1000) / 10
-      : 42.5;
+      : 0;
 
-  const holdDaysDelta = Math.round(
-    ((breakthroughMetrics.avgHoldDays - 18.2) / 18.2) * 100
-  );
+  const myTotalDeals = (totalBuildings ?? 0) + (totalLeaseSpaces ?? 0);
+  const displayAvgHoldDays = myTotalDeals > 0 ? breakthroughMetrics.avgHoldDays : 0;
+  
+  const holdDaysDelta = myTotalDeals > 0 
+    ? Math.round(((displayAvgHoldDays - 18.2) / 18.2) * 100)
+    : 0;
 
   // Query activity_events table for real notification feed
   const rawEvents = activityEventsRes?.data || [];
@@ -315,16 +318,26 @@ export default async function BrokerPage() {
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="bg-card border border-border p-2.5 rounded-lg">
             <p className="text-[10px] text-muted-foreground">내 딜 평균 체류일수</p>
-            <p className="text-base font-extrabold">{breakthroughMetrics.avgHoldDays}일</p>
-            <p className="text-[9px] text-green-600">
-              평균 18.2일 대비{" "}
-              {holdDaysDelta < 0 ? holdDaysDelta : `+${holdDaysDelta}`}%
-            </p>
+            <p className="text-base font-extrabold">{displayAvgHoldDays}일</p>
+            {myTotalDeals > 0 ? (
+              <p className="text-[9px] text-green-600">
+                평균 18.2일 대비{" "}
+                {holdDaysDelta < 0 ? holdDaysDelta : `+${holdDaysDelta}`}%
+              </p>
+            ) : (
+              <p className="text-[9px] text-muted-foreground">
+                데이터 부족
+              </p>
+            )}
           </div>
           <div className="bg-card border border-border p-2.5 rounded-lg">
             <p className="text-[10px] text-muted-foreground">S등급 매칭 전환율</p>
             <p className="text-base font-extrabold">{sConversionRate}%</p>
-            <p className="text-[9px] text-primary">평균 35% 대비 +{Math.round((sConversionRate - 35) * 10) / 10}%p</p>
+            {totalMatchCount > 0 ? (
+              <p className="text-[9px] text-primary">평균 35% 대비 {sConversionRate - 35 >= 0 ? '+' : ''}{Math.round((sConversionRate - 35) * 10) / 10}%p</p>
+            ) : (
+              <p className="text-[9px] text-muted-foreground">데이터 부족</p>
+            )}
           </div>
         </div>
       </div>

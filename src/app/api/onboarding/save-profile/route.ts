@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 3. Update profiles table ────────────────────────────────────────────
-    const profileUpdates: Record<string, unknown> = {};
+    const profileUpdates: Record<string, unknown> = { role: 'broker' };
     if (body.specialty) profileUpdates['specialty'] = body.specialty;
     if (body.region) profileUpdates['region'] = body.region;
     if (body.user_name) profileUpdates['display_name'] = body.user_name;
