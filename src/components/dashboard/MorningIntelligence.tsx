@@ -981,9 +981,181 @@ export default function MorningIntelligence() {
               </Card>
             </motion.div>
 
+            {/* CARD 6: 투자자 심리 지수 */}
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+              <Card>
+                <SectionHead
+                  icon={<span className="text-base">🌡️</span>}
+                  title="CRE 투자자 심리 지수"
+                  badge={<Badge variant={data.sentiment.score >= 70 ? "red" : data.sentiment.score <= 40 ? "indigo" : "default"}>
+                    {data.sentiment.status}
+                  </Badge>}
+                />
+                <div className="space-y-3">
+                  <div className="bg-white/3 border border-white/8 rounded-xl p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[11px] text-slate-400 font-medium">CRE 시장 심리 지수</span>
+                      <span className="text-2xl font-extrabold text-white">{data.sentiment.score}
+                        <span className="text-[13px] text-slate-500 font-normal"> / 100</span>
+                      </span>
+                    </div>
+                    {/* 그라디언트 게이지 바 */}
+                    <div className="relative w-full bg-white/5 h-3 rounded-full overflow-hidden mb-3">
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${data.sentiment.score}%` }}
+                        transition={{ duration: 1.2, ease: "easeOut" }}
+                        className={`h-full rounded-full bg-gradient-to-r ${getSentimentGradient(data.sentiment.score)}`} />
+                      {/* 마커 */}
+                      <motion.div initial={{ left: 0 }} animate={{ left: `calc(${data.sentiment.score}% - 4px)` }}
+                        transition={{ duration: 1.2, ease: "easeOut" }}
+                        className="absolute top-1/2 -translate-y-1/2 w-2 h-5 bg-white rounded-full shadow-lg shadow-white/40" />
+                    </div>
+                    <div className="flex justify-between text-[9px] text-slate-600 font-medium">
+                      <span>극단적 위축 0</span>
+                      <span>중립 50</span>
+                      <span>극단적 과열 100</span>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed px-1">{data.sentiment.description}</p>
+                </div>
+              </Card>
+            </motion.div>
 
+            {/* CARD 7: 상권 분석 (원형 게이지) */}
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+              <Card accent="#f43f5e">
+                <SectionHead
+                  icon={<MapPin className="w-3.5 h-3.5 text-rose-400" />}
+                  title="상권 분석 · 소상공인 빅데이터"
+                />
+                <div className="bg-white/3 border border-white/8 rounded-xl p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400 font-medium">대상 상권</span>
+                    <span className="text-[12px] font-bold text-white">{data.commercialDistrict.name}</span>
+                  </div>
+                  <div className="flex justify-center gap-10">
+                    <CircleGauge value={data.commercialDistrict.salesIndex} max={10}
+                      color="#6366f1" label={"외식업\n매출지수"} />
+                    <CircleGauge value={data.commercialDistrict.footfallIndex} max={10}
+                      color="#10b981" label={"유동인구\n지수"} />
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
 
+            {/* CARD 8: 공시지가 */}
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
+              <Card accent="#10b981">
+                <SectionHead
+                  icon={<TrendingUp className="w-3.5 h-3.5 text-emerald-400" />}
+                  title="대표 필지 공시지가 변동"
+                />
+                <div className="bg-white/3 border border-white/8 rounded-xl p-4 space-y-3">
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className="text-slate-500 font-medium">PNU</span>
+                    <span className="font-mono text-slate-400">{data.landPriceTrend.pnu}</span>
+                  </div>
+                  <div className="border-t border-white/5 pt-3 flex justify-between items-end">
+                    <div>
+                      <span className="block text-[10px] text-slate-500 mb-0.5">{data.landPriceTrend.latestYear}년 공시지가</span>
+                      <span className="text-2xl font-extrabold text-white">
+                        {(data.landPriceTrend.latestPrice / 10000).toLocaleString("ko-KR")}
+                        <span className="text-sm font-normal text-slate-400 ml-1">만원/㎡</span>
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="block text-[10px] text-slate-500 mb-0.5">전년 대비</span>
+                      <span className={`text-2xl font-extrabold ${data.landPriceTrend.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {data.landPriceTrend.changePct >= 0 ? "+" : ""}{data.landPriceTrend.changePct}%
+                      </span>
+                    </div>
+                  </div>
+                  {/* 미니 추세 바 */}
+                  <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <motion.div initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, 50 + data.landPriceTrend.changePct * 3)}%` }}
+                      transition={{ duration: 1 }}
+                      className={`h-full rounded-full ${data.landPriceTrend.changePct >= 0 ? "bg-emerald-500" : "bg-rose-500"}`} />
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
 
+            {/* CARD 9: ESG & 에너지 */}
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+              <Card accent="#f59e0b">
+                <SectionHead
+                  icon={<Zap className="w-3.5 h-3.5 text-amber-400" />}
+                  title="에너지 등급 & ESG 밸류업"
+                  badge={<Badge variant="amber">{data.esgValueUp.grade}</Badge>}
+                />
+                <div className="space-y-3">
+                  <div className="bg-amber-500/5 border border-amber-500/12 rounded-xl p-3.5">
+                    <div className="flex items-start gap-2.5">
+                      <div className="p-1.5 rounded-lg bg-amber-500/15 shrink-0">
+                        <Zap className="w-3.5 h-3.5 text-amber-400" />
+                      </div>
+                      <div>
+                        <span className="block text-[11px] font-bold text-white mb-0.5">밸류업 기회</span>
+                        <span className="text-[11px] text-slate-300 leading-relaxed">{data.esgValueUp.opportunity}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-white/3 border border-white/8 rounded-xl px-3.5 py-3 text-[11px] text-slate-400">
+                    <strong className="text-slate-200">ESG 혜택:</strong> {data.esgValueUp.benefit}
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* CARD 10: 신축/리모델링 인허가 */}
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+              <Card>
+                <SectionHead icon={<span className="text-base">🏗️</span>} title="신축 & 리모델링 인허가 동향" />
+                <div className="space-y-2">
+                  {data.constructionPermits.map((item, idx) => (
+                    <Link key={idx} href={`/broker/morning-detail?region=${region}&section=permits`} className="block bg-white/3 border border-white/8 rounded-xl p-3 hover:bg-white/5 hover:border-indigo-500/30 transition-colors cursor-pointer group">
+                      <p className="text-[12px] font-bold text-white flex items-center gap-1.5 mb-1 group-hover:text-indigo-200 transition-colors">
+                        <ArrowRight className="w-3 h-3 text-indigo-400 shrink-0" /> {item.text}
+                      </p>
+                      <p className="text-[10px] text-slate-400 leading-relaxed pl-4">{item.detail}</p>
+                      <span className="text-[10px] text-indigo-400 mt-2 ml-4 flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                        상세 내역 확인 <ArrowRight className="w-2.5 h-2.5" />
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* CARD 11: 글로벌 리포트 (full-width) */}
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+              className="md:col-span-2">
+              <Card accent="#6366f1">
+                <SectionHead
+                  icon={<Globe className="w-3.5 h-3.5 text-indigo-400" />}
+                  title="글로벌 CRE 리서치 리포트"
+                  badge={<Badge variant="indigo"><BookOpen className="w-2.5 h-2.5" /> CBRE · Cushman · 부동산플래닛</Badge>}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {data.globalReports.map((r, idx) => (
+                    <a key={idx} href={r.url} target="_blank" rel="noreferrer"
+                      className="group flex flex-col bg-white/3 border border-white/8 hover:border-indigo-500/30 rounded-xl p-4 hover:bg-indigo-500/5 transition-all duration-300">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-[10px] font-bold text-indigo-400">{r.institution}</span>
+                        <BookOpen className="w-3.5 h-3.5 text-slate-600 group-hover:text-indigo-400 transition-colors" />
+                      </div>
+                      <h4 className="text-[12px] font-bold text-white group-hover:text-indigo-200 transition-colors mb-1.5 leading-snug">
+                        {r.title}
+                      </h4>
+                      <p className="text-[10px] text-slate-400 leading-relaxed flex-1">{r.summary}</p>
+                      <div className="mt-2.5 flex items-center gap-1 text-[10px] text-indigo-400 font-bold group-hover:gap-2 transition-all">
+                        <span>리포트 보기</span> <ArrowRight className="w-3 h-3" />
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </Card>
+            </motion.div>
 
           </div>{/* /grid */}
         </div>

@@ -565,7 +565,7 @@ export function ImDataBottomSheet({
           {/* Comment */}
           <div>
             <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
-              📝 브로커 한줄 코멘트
+              📝 중개인 한줄 코멘트
             </label>
             <input
               type="text"

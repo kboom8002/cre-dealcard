@@ -482,8 +482,19 @@ export const generateWeeklyMagazine = async (params: {
     brokerCtx.broker.specialty_regions?.[0] ?? '강남·성수';
   const editionTitle = `${regionLabel} 주간 CRE 매거진 — ${label}`;
 
+  // sentiment status 계산
+  const sentimentScore = sentimentData.avgSentiment;
+  const sentimentStatus = sentimentScore >= 70 ? '과열' : sentimentScore >= 55 ? '낙관' : sentimentScore >= 45 ? '중립' : sentimentScore >= 30 ? '위축' : '침체';
+
+  // briefing 첫 줄을 headline으로 추출
+  const briefingText = llmContent.ai_briefing ?? '';
+  const headlineLine = briefingText.split('\n').find((l: string) => l.trim().length > 5)?.replace(/^[#*\-\s>]+/, '').trim() ?? `${regionLabel} CRE 주간 브리핑`;
+
   const contentPayload = {
-    ai_briefing: llmContent.ai_briefing,
+    // view가 기대하는 키명: briefing, headline (ai_briefing 대신)
+    briefing: briefingText,
+    headline: headlineLine,
+    ai_briefing: briefingText, // 하위호환
     broker: {
       name: brokerCtx.profile.display_name ?? '',
       company: brokerCtx.profile.company ?? '',
@@ -505,7 +516,8 @@ export const generateWeeklyMagazine = async (params: {
     })),
     recentTransactions: transactions.slice(0, 5),
     sentiment: {
-      score: sentimentData.avgSentiment,
+      score: sentimentScore,
+      status: sentimentStatus,
       items: sentimentData.items,
     },
     dealHighlights: deals.slice(0, 5).map((d) => ({
@@ -516,6 +528,12 @@ export const generateWeeklyMagazine = async (params: {
       price: d.price,
       photoUrl: d.photo_urls?.[0] ?? null,
     })),
+    // cover 메타 (view에서 직접 참조)
+    market_temp: llmContent.market_temp,
+    cover_keywords: llmContent.cover_keywords,
+    cover_image_url: brokerCtx.broker.magazine_cover_image,
+    theme_title: theme.themeTitle,
+    theme_body_md: theme.themeBodyMd,
   };
 
   const editionRow = {
@@ -548,6 +566,24 @@ export const generateWeeklyMagazine = async (params: {
 
   if (error) {
     throw new Error(`매거진 에디션 저장 실패: ${error.message}`);
+  }
+
+  // 8. magazine_issues 듀얼 쓰기 — public 페이지 호환
+  //    page.tsx는 magazine_issues(broker_id, issue_date, content)에서 읽음
+  const issueDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  try {
+    await supabase
+      .from('magazine_issues')
+      .upsert({
+        broker_id: brokerId,
+        issue_date: issueDate,
+        content: contentPayload,
+      }, {
+        onConflict: 'broker_id,issue_date',
+      });
+  } catch (issueErr) {
+    // 듀얼 쓰기 실패는 non-blocking
+    console.warn('[weekly-magazine] magazine_issues 듀얼 쓰기 실패 (non-blocking):', issueErr);
   }
 
   return data as MagazineEdition;

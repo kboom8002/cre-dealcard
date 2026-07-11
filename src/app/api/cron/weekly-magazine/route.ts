@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     try {
       await generateWeeklyMagazine({
         supabase,
-        brokerId: broker.user_id,
+        brokerId: broker.slug,
         editionType: "weekly",
         editionLabel,
       });

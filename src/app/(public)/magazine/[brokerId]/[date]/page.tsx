@@ -19,6 +19,18 @@ async function getMagazineData(brokerId: string, date: string): Promise<Magazine
 
     if (cached?.content) return cached.content as MagazineData;
 
+    // 폴백: magazine_editions (주간 매거진 테이블)에서도 조회
+    const { data: edition } = await supabase
+      .from("magazine_editions")
+      .select("content")
+      .eq("broker_id", brokerId)
+      .eq("status", "draft")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (edition?.content) return edition.content as MagazineData;
+
     // 실시간 생성
     const BASE = process.env.APP_BASE_URL ?? "http://localhost:3000";
     const res = await fetch(`${BASE}/api/magazine/${brokerId}`, {
