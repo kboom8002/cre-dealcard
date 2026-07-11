@@ -12,6 +12,7 @@ import { toApiError } from "@/lib/api-error";
 import { aggregateBrokerStats } from "@/domain/broker-card/broker-stats-aggregator";
 import { generateBrokerCard } from "@/domain/broker-card/broker-card-generator";
 import { createServiceClient } from "@/lib/supabase/service";
+import { runVibeAnalysis } from "@/lib/vibe/run-vibe-analysis";
 
 const GenerateCardRequest = z.object({
   type: z.enum(["seller", "buyer", "tenant", "network", "owner"]),
@@ -87,6 +88,28 @@ export async function POST(req: NextRequest) {
           .insert({ user_id: user!.id, slug: autoSlug, is_public: true });
       }
       slug = autoSlug;
+    }
+
+    // ── Vibe 분석 자동 실행 (사진이 있고 아직 분석되지 않은 경우) ──
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("photo_url")
+        .eq("id", user!.id)
+        .maybeSingle();
+
+      const { data: bpVibe } = await supabase
+        .from("broker_profiles")
+        .select("vibe_analyzed_at")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+
+      if (profile?.photo_url && !bpVibe?.vibe_analyzed_at) {
+        await runVibeAnalysis(user!.id, profile.photo_url);
+      }
+    } catch (vibeErr) {
+      // Vibe 분석 실패는 카드 생성을 차단하지 않음
+      console.warn("[my-card/generate] Vibe auto-analysis skipped:", vibeErr);
     }
 
     return Response.json({

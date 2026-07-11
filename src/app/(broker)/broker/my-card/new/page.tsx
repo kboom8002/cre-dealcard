@@ -162,7 +162,7 @@ export default function BrokerMyCardNewPage() {
           <h2 className="text-base font-semibold text-slate-800">카드에 표시할 이름</h2>
 
           <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-500">브로커 이름</label>
+            <label className="text-xs font-medium text-slate-500">중개인 성명</label>
             <input
               type="text"
               value={brokerName}

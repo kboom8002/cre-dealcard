@@ -76,7 +76,7 @@ export default function InquiryForm({ spaceId, leasingPageId, slug }: InquiryFor
       <div className="text-center space-y-3 py-6">
         <div className="text-4xl">✅</div>
         <h3 className="text-base font-bold text-white">문의가 접수되었습니다</h3>
-        <p className="text-xs text-slate-400">브로커가 곧 연락드립니다.</p>
+        <p className="text-xs text-slate-400">담당 중개인이 곧 연락드립니다.</p>
       </div>
     );
   }

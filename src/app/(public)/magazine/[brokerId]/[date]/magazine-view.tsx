@@ -127,7 +127,7 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
   const dateLabel = `${y}년 ${m}월 ${d}일`;
   const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
   const weekday = weekdays[new Date(date).getDay()];
-  const sentiment = (data.sentiment as any) ?? { score: 62, status: "탐욕 우세" };
+  const sentiment = (data.sentiment as any) ?? { score: 50, status: "중립 관망" };
   const sc = sentimentColor(sentiment.score);
   const accent = (data.themeColor as string | undefined) || (data.theme_color as string | undefined) || "#6366f1";
 
@@ -265,7 +265,7 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
                 <div className="flex items-start gap-2">
                   <span className="text-base shrink-0">💡</span>
                   <div>
-                    <p className="text-[10px] font-bold text-violet-400 mb-0.5">브로커 한마디</p>
+                    <p className="text-[10px] font-bold text-violet-400 mb-0.5">중개인 한마디</p>
                     <p className="text-[13px] text-white font-bold leading-relaxed">{fieldNote.comment}</p>
                   </div>
                 </div>
@@ -595,7 +595,7 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
         <SectionCard title="CRE 투자자 심리 지수" icon={<span className="text-base">🌡️</span>} badge={<span className={`text-[11px] font-bold ${sc.text}`}>{sentiment.status}</span>} defaultOpen={false}>
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-[11px] text-slate-400">Fear &amp; Greed</span>
+              <span className="text-[11px] text-slate-400">CRE 시장 심리</span>
               <span className="text-[18px] font-extrabold text-white">{sentiment.score}<span className="text-[12px] font-normal text-slate-500">/100</span></span>
             </div>
             <div className="relative h-2.5 bg-white/5 rounded-full overflow-hidden">
@@ -603,7 +603,7 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
               <motion.div initial={{ left: 0 }} animate={{ left: `calc(${sentiment.score}% - 4px)` }} transition={{ duration: 1.2, ease: "easeOut" }} className="absolute top-1/2 -translate-y-1/2 w-2 h-4 bg-white rounded-full shadow-lg shadow-white/30" />
             </div>
             <div className="flex justify-between text-[9px] text-slate-600">
-              <span>극단 공포</span><span>중립 50</span><span>극단 탐욕</span>
+              <span>극단 위축</span><span>중립 50</span><span>극단 과열</span>
             </div>
           </div>
         </SectionCard>

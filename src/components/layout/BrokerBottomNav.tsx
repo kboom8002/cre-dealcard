@@ -21,7 +21,7 @@ const NAV_ITEMS = [
     icon: LayoutDashboard,
     label: "홈",
     id: "nav-home",
-    ariaLabel: "브로커 대시보드 홈",
+    ariaLabel: "중개인 대시보드 홈",
     exact: true,
   },
   {
@@ -58,7 +58,7 @@ export default function BrokerBottomNav() {
 
       <nav
         role="navigation"
-        aria-label="브로커 메인 탐색"
+        aria-label="중개인 메인 탐색"
         id="broker-bottom-nav"
         className="fixed bottom-0 left-0 right-0 z-40 glass-medium border-t border-white/10 pb-[env(safe-area-inset-bottom,0px)]"
       >

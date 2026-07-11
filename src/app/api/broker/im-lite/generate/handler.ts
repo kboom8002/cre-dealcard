@@ -201,6 +201,9 @@ export async function generateMobileIMHandler(
         ? { lat: (ssotRow.layers as Record<string, any>).coordinates.lat, lng: (ssotRow.layers as Record<string, any>).coordinates.lng }
         : null,
       photo_urls: supplemental.photo_urls ?? [],
+      // 신규 writer 출력: heroCard, photos (기존 writer 미지원 시 undefined → JSON에서 제외)
+      heroCard: writerResult.heroCard ?? undefined,
+      photos: writerResult.photos ?? undefined,
     },
   };
 

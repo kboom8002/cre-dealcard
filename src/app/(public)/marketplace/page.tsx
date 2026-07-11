@@ -375,7 +375,7 @@ export default function MarketplaceSearchPortal() {
                       disabled={gateSubmitting}
                       className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-semibold py-3 rounded-xl text-xs transition-colors"
                     >
-                      {gateSubmitting ? "문의 전송 중..." : "🔒 담당 브로커에게 상세 주소/정보 요청 (무료)"}
+                      {gateSubmitting ? "문의 전송 중..." : "🔒 담당 중개인에게 상세 주소/정보 요청 (무료)"}
                     </button>
                   </form>
                 )}

@@ -105,7 +105,7 @@ export function BuyerIntentEditForm({
         <h2 className="text-lg font-bold flex items-center gap-2">
           <span className="text-indigo-400">✏️</span> 조건 실시간 인라인 편집
         </h2>
-        <span className="text-xs text-muted-foreground">브로커 권한</span>
+        <span className="text-xs text-muted-foreground">중개인 권한</span>
       </div>
 
       {editError && (

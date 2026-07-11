@@ -22,7 +22,7 @@ export default function BuildingSchedulePage({ params }: { params: { id: string 
             방문 예약
           </h1>
           <p className="text-zinc-400 text-lg mb-8 leading-relaxed">
-            건물주와 조율된 가용 시간에만 방문이 가능합니다. 원하시는 시간을 선택해 주시면 담당 브로커가 빠르게 확정해 드립니다.
+            건물주와 조율된 가용 시간에만 방문이 가능합니다. 원하시는 시간을 선택해 주시면 담당 중개인이 빠르게 확정해 드립니다.
           </p>
 
           <div className="mb-10">

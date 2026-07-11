@@ -98,7 +98,7 @@ const FIELD_NOTE_FIELDS: {
     key: "marketJudgment",
     label: "시장 판단",
     placeholder: "본인의 시장 판단은? (온도, 방향성, 기회/리스크)",
-    tooltip: "브로커로서의 전문적인 시장 진단을 공유하세요.",
+    tooltip: "중개인으로서의 전문적인 시장 진단을 공유하세요.",
   },
   {
     key: "comment",
@@ -1056,7 +1056,7 @@ function MagazineEditorInner() {
             <div className="space-y-3 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
               <div className="flex items-center gap-2">
                 <Info className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-xs font-bold text-slate-200">브로커 정보</span>
+                <span className="text-xs font-bold text-slate-200">중개인 정보</span>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">

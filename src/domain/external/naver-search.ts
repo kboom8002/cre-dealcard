@@ -61,7 +61,7 @@ async function scoreSentiment(articles: NaverSearchItem[], keyword: string): Pro
 
   try {
     const res = await callLLM({
-      systemPrompt: "한국 꼬마빌딩 부동산 커뮤니티 글들의 투자 감성을 분석하세요. 0(극단적 공포)~100(극단적 탐욕) 점수를 숫자만 출력하세요.",
+      systemPrompt: "한국 꼬마빌딩 부동산 커뮤니티 글들의 투자 감성을 분석하세요. 0(극단적 위축)~100(극단적 과열) 점수를 숫자만 출력하세요.",
       userPrompt: `키워드: ${keyword}\n\n글 샘플:\n${sampleTexts}`,
       model: "gpt-5.4",
       temperature: 0.1,

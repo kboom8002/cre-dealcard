@@ -188,7 +188,7 @@ export default async function BrokerPage() {
         break;
       case "broker_memo_submitted":
         icon = "✏️";
-        text = "브로커 한줄 메모 등록 완료";
+        text = "중개인 한줄 메모 등록 완료";
         href = "/broker";
         color = "text-slate-400";
         break;

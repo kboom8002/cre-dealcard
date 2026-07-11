@@ -22,7 +22,7 @@ const STATUS_CONFIG: Record<
     border: "border-primary/20",
   },
   broker_review: {
-    label: "브로커 검토 중",
+    label: "중개인 검토 중",
     bg: "bg-warning/10",
     text: "text-warning",
     dot: "bg-warning/80",

@@ -22,7 +22,7 @@ const LOADING_STEPS = [
   "가중치 매칭 프로파일 계산 중...",
   "매수 동기 및 니즈 시나리오 도출 중...",
   "어필 메시지 및 접근 전략 생성 중...",
-  "브로커 액션 플랜 수립 중...",
+  "중개인 액션 플랜 수립 중...",
 ];
 
 export function IdealBuyerPersonaSection({

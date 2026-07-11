@@ -154,8 +154,28 @@ export async function fetchIMData(
           hasVacancy: !!ssotSummary.vacancy_signal || !!ssotSummary.vacancy_pct,
           hasPhotos: (document.body.photo_urls || []).length > 0,
         }),
-        // [C1] Hero Card
-        heroCard: document.body.heroCard ?? undefined,
+        // [C1] Hero Card — 기존 IM에 heroCard가 없으면 SSoT에서 동적 합성
+        heroCard: document.body.heroCard ?? (() => {
+          const s = ssotSummary;
+          const sections = document.body.sections || [];
+          const investSection = sections.find((sec: any) => sec.section_type === 'investment_thesis' || sec.section_type === 'buyer_fit');
+          const riskSection = sections.find((sec: any) => sec.section_type === 'risk_check');
+          const finSection = sections.find((sec: any) => sec.section_type === 'income_analysis');
+          // Extract first sentence from section markdown as summary
+          const firstLine = (md: string | undefined) => md?.split('\n').find(l => l.trim().length > 10)?.replace(/^[#*\-\s>]+/, '').trim() || '';
+          return {
+            assetType: s.asset_type || '꺼마빌딩',
+            askingPriceDisplay: s.price_band || '',
+            capRateBase: null,
+            noiBaseBil: null,
+            keyInvestmentPoint: firstLine(investSection?.markdown) || s.fit_summary || '투자 포인트는 IM 본문을 참조하세요.',
+            keyRisk: firstLine(riskSection?.markdown) || s.caution_summary || '리스크 요인은 IM 본문을 참조하세요.',
+            equityRequiredBil: null,
+            leveragedYieldPct: null,
+            readinessScore: document.body.readiness_score ?? 0,
+            dcf10YearNpvBil: null,
+          };
+        })(),
         // [C2] DCF 10년 민감도
         dcf10Year: document.body.dcf10Year ?? undefined,
         // [C4] 레버리지 자금 구조

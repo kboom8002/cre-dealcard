@@ -23,7 +23,7 @@ type GateRow = {
 };
 
 const FIELD_LABELS: Record<string, string> = {
-  broker_contact_request: "브로커 연결",
+  broker_contact_request: "중개인 연결",
   lease_summary_request: "임대차 요약",
   exact_address_request: "정확한 주소",
   snapshot_request: "Snapshot",

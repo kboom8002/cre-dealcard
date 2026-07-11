@@ -213,10 +213,10 @@ async function composeMagazineBriefing(
     avgSentiment >= 70
       ? "과열 주의"
       : avgSentiment >= 55
-      ? "탐욕 우세"
+      ? "매수 과열"
       : avgSentiment >= 40
       ? "중립 관망"
-      : "공포 저점";
+      : "위축 저점";
 
   try {
     const res = await callLLM({
@@ -363,10 +363,10 @@ export async function GET(
         marketData.avgSentiment >= 70
           ? "과열 주의"
           : marketData.avgSentiment >= 55
-          ? "탐욕 우세"
+          ? "매수 과열"
           : marketData.avgSentiment >= 40
           ? "중립 관망"
-          : "공포 저점",
+          : "위축 저점",
       items: marketData.sentiment,
     },
     auctionPicks: marketData.auctions.slice(0, 2).map((a: any) => ({

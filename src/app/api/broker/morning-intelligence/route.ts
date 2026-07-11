@@ -335,7 +335,7 @@ ${myBuyersSummary}
       ? Math.round(sentimentArr.reduce((acc, curr) => acc + Number(curr.sentiment_score || 50), 0) / sentimentArr.length)
       : regionKey === "seongsu" ? 72 : regionKey === "ybd" ? 48 : 58;
 
-    const sentimentStatus = averageSentiment >= 70 ? "탐욕 (Greed)" : averageSentiment <= 40 ? "공포 (Fear)" : "보합 (Neutral)";
+    const sentimentStatus = averageSentiment >= 70 ? "과열 (Overheated)" : averageSentiment <= 40 ? "위축 (Contracted)" : "보합 (Neutral)";
     const sentimentDescription = averageSentiment >= 70
       ? "매도호가가 상승하고 리모델링 목적의 선매수 문의가 가열되는 국면입니다."
       : averageSentiment <= 40
