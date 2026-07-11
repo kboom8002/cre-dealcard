@@ -46,20 +46,36 @@ export async function sendKakaoAlimtalk(payload: NotificationPayload): Promise<b
       country: "82", // 대한민국
     };
 
-    // 알림톡 치환 변수 (Solapi v4는 양식에 맞춰 변수를 지정해야 함)
-    // Solapi v4에서는 variables 필드가 아니라 text에 치환 결과를 넣거나 templateId와 매칭해서 변형해야 합니다.
-    // Solapi v4 알림톡 가이드: 알림톡 템플릿의 변수를 채워 'text' 필드에 그대로 제공해야 발송됩니다.
-    // 예: "안녕하세요 #{name}님" 이라면 text: "안녕하세요 홍길동님" 으로 변수를 수동 치환해서 보내야 합니다.
-    let text = payload.fallbackSms || "";
-    // 기본 변수 치환 로직 (templateId와 치환 문구 결합)
-    // (보통 Solapi는 알림톡 발송 시 text 필드 내용과 템플릿 양식이 완전히 일치해야 발송 성공합니다.)
-    if (payload.fallbackSms) {
-      let replaced = payload.fallbackSms;
-      for (const [key, value] of Object.entries(payload.variables)) {
-        replaced = replaced.replaceAll(key, value);
-      }
-      text = replaced;
+    // ── 알림톡 템플릿 원본 텍스트 매핑 (Solapi 심사용 일치율 확보) ──
+    const TEMPLATE_TEXTS: Record<string, string> = {
+      TPL_HOT_LEAD: 
+`[CRE Deal] 🔥 Hot Lead 감지
+#{brokerName} 중개인님, 리드 스코어 #{leadScore} 고객이 감지되었습니다.
+접촉 채널: #{channels}
+조회 매물수: #{buildingCount}
+상세 정보는 아래 대시보드에서 확인해 주세요.
+👉 #{dashboardUrl}`,
+
+      TPL_IM_VIEW_ALERT:
+`[CRE Deal] 👀 IM 열람 알림
+#{brokerName} 중개인님, 등록하신 [#{buildingName}] 매물의 IM Lite를 고객이 #{dwellTime} 동안 집중 검토하였습니다.
+👉 열람 정보: #{viewUrl}`,
+
+      TPL_MAGAZINE_NEW_ISSUE:
+`[CRE Deal] 📰 신규 주간 매거진 발행
+#{subscriberName}님, #{brokerName} 중개인이 발행한 위클리 CRE 시장 인사이트 매거진이 도착했습니다.
+이번 주 핵심 매물 정보와 시장 동향을 확인해 보세요!
+👉 #{magazineUrl}
+수신 거부: #{unsubscribeUrl}`
+    };
+
+    let text = TEMPLATE_TEXTS[payload.templateId] || payload.fallbackSms || "";
+
+    // variables 기반으로 템플릿 텍스트 치환 수행
+    for (const [key, value] of Object.entries(payload.variables)) {
+      text = text.replaceAll(key, value);
     }
+    
     message.text = text;
 
     const res = await fetch("https://api.solapi.com/messages/v4/send-many", {

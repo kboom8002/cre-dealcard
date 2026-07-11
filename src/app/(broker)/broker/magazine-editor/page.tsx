@@ -247,18 +247,42 @@ function MagazineEditorInner() {
           .order("updated_at", { ascending: false })
           .limit(10);
 
-        if (deals && deals.length > 0) {
-          setAllDeals(
-            deals.map((d: any) => ({
-              id: d.id,
-              address: d.address,
-              areaSignal: d.area_signal,
-              assetType: d.asset_type,
-              price: d.price,
-              photoUrl: (d.photo_urls as string[] | null)?.[0] ?? null,
-              buyerInterestCount: d.buyer_interest_count ?? 0,
-            }))
-          );
+        // 4.5. IM 브릿지 추천 매물 조회
+        const { data: profileDeals } = await supabase
+          .from("broker_profiles")
+          .select("pending_magazine_deals")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        const pendingDeals = (profileDeals?.pending_magazine_deals || []) as any[];
+
+        const mappedDeals = (deals || []).map((d: any) => ({
+          id: d.id,
+          address: d.address,
+          areaSignal: d.area_signal,
+          assetType: d.asset_type,
+          price: d.price,
+          photoUrl: (d.photo_urls as string[] | null)?.[0] ?? null,
+          buyerInterestCount: d.buyer_interest_count ?? 0,
+        }));
+
+        // pendingDeals를 mappedDeals에 병합 (중복 제거)
+        pendingDeals.forEach((pd: any) => {
+          if (!mappedDeals.some(md => md.id === pd.buildingId)) {
+            mappedDeals.push({
+              id: pd.buildingId,
+              address: pd.blindName || "미공개 매물",
+              areaSignal: pd.blindName || "추천 매물",
+              assetType: pd.assetType || "매물",
+              price: pd.priceBand || "",
+              photoUrl: pd.photoUrl,
+              buyerInterestCount: 0,
+            });
+          }
+        });
+
+        if (mappedDeals.length > 0) {
+          setAllDeals(mappedDeals);
         }
       } catch (err) {
         console.error("Failed to load magazine data", err);

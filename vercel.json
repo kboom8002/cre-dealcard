@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/weekly-magazine",
       "schedule": "0 22 * * 0"
+    },
+    {
+      "path": "/api/cron/hold-expiry",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

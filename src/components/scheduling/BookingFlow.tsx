@@ -75,23 +75,28 @@ export function BookingFlow({ buildingId, proxyBuyerId, onBookingComplete }: Boo
     // In a real app, user should be logged in or we ask for contact info
     const { data: { user } } = await supabase.auth.getUser();
     
-    // Insert booking
-    const { error } = await supabase.from('bookings').insert({
-      slot_id: slotId,
-      requester_id: user ? user.id : null,
-      status: 'hold',
-      booked_by: proxyBuyerId ? user?.id : undefined, // Proxy booking tracking
-      buyer_intent_id: proxyBuyerId, // Associate with buyer intent if proxy
-    });
+    // API 호출로 CAS 락 확보
+    try {
+      const res = await fetch("/api/broker/schedule/book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slotId,
+          requesterId: user ? user.id : null,
+          matchResultId: proxyBuyerId || undefined,
+        }),
+      });
 
-    if (!error) {
-      // Update slot status
-      await supabase.from('availability_slots').update({ status: 'booked' }).eq('id', slotId);
-      setSelectedSlot(slotId);
-      setStep("confirm");
-      onBookingComplete?.();
-    } else {
-      alert("예약에 실패했습니다.");
+      if (res.ok) {
+        setSelectedSlot(slotId);
+        setStep("confirm");
+        onBookingComplete?.();
+      } else {
+        const errData = await res.json();
+        alert(errData.error || "예약에 실패했습니다. 이미 다른 사용자가 선점 중인 시간대일 수 있습니다.");
+      }
+    } catch (err: any) {
+      alert("예약 요청 중 서버 오류가 발생했습니다.");
     }
     
     setSubmitting(false);
