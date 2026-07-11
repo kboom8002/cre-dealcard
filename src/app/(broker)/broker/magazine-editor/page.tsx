@@ -16,10 +16,8 @@ import {
   Newspaper,
   Building2,
   Settings,
-  Sparkles,
   Plus,
   Check,
-  Pencil,
   Send,
   ExternalLink,
   Palette,
@@ -28,63 +26,132 @@ import {
   ToggleLeft,
   ToggleRight,
   MessageSquare,
+  PenLine,
+  Target,
+  BookOpen,
+  Upload,
+  X,
 } from "lucide-react";
+import {
+  MARKET_TEMP_CONFIG,
+  WEEKLY_SECTIONS_MVP,
+  getWeekLabel,
+  type MarketTemperature,
+  type BrokerFieldNote,
+  type MagazineEdition,
+  type EditionStatus,
+  type EditionType,
+} from "@/domain/magazine/types";
 
 // ─── 탭 정의 ──────────────────────────────────────────────────────
-const SECTIONS_DEF = [
-  { id: "ai_briefing", label: "AI 마켓 브리핑" },
-  { id: "broker_comment", label: "브로커 코멘트" },
-  { id: "action_list", label: "오늘의 추천 액션" },
-  { id: "market_data", label: "시장 데이터" },
-  { id: "deal_highlights", label: "관리 매물 하이라이트" },
-  { id: "sentiment_index", label: "CRE 투자자 심리 지수" },
-  { id: "news", label: "오늘의 CRE 뉴스" },
-  { id: "auction_picks", label: "이 주의 경매 픽" },
-  { id: "call_script", label: "추천 상담 멘트" },
-  { id: "reports", label: "전문 리서치 리포트" },
-  { id: "broker_profile", label: "브로커 프로필" }
-];
-
 const TABS = [
-  { key: "edit" as const, label: "섹션 관리", icon: Pencil },
-  { key: "news" as const, label: "뉴스 📰", icon: Newspaper },
-  { key: "deals" as const, label: "딜카드 🏢", icon: Building2 },
-  { key: "settings" as const, label: "설정 ⚙️", icon: Settings },
+  { key: "cover" as const, label: "커버", icon: Newspaper },
+  { key: "field_note" as const, label: "필드노트", icon: PenLine },
+  { key: "theme_deals" as const, label: "테마&매물", icon: Target },
+  { key: "news" as const, label: "뉴스큐레이션", icon: BookOpen },
+  { key: "publish" as const, label: "발행설정", icon: Settings },
 ];
 
 type TabKey = (typeof TABS)[number]["key"];
+
+const MARKET_TEMPS: MarketTemperature[] = [
+  "적극 매수",
+  "선별 매수",
+  "관망",
+  "조정 대기",
+  "위기 경계",
+];
+
+const EMPTY_FIELD_NOTE: BrokerFieldNote = {
+  question: "",
+  buyerReaction: "",
+  sellerReaction: "",
+  marketJudgment: "",
+  comment: "",
+};
+
+const FIELD_NOTE_FIELDS: {
+  key: keyof BrokerFieldNote;
+  label: string;
+  placeholder: string;
+  tooltip: string;
+}[] = [
+  {
+    key: "question",
+    label: "주간 시장 요약",
+    placeholder: "이번 주 시장을 한 문장으로 요약하면?",
+    tooltip: "독자가 가장 먼저 읽는 문장입니다. 핵심을 간결하게 전달하세요.",
+  },
+  {
+    key: "buyerReaction",
+    label: "매수자 반응",
+    placeholder: "이번 주 매수자들의 반응은? (문의 건수, 주요 관심 유형 등)",
+    tooltip: "실제 현장에서 느낀 매수자 분위기를 공유하세요.",
+  },
+  {
+    key: "sellerReaction",
+    label: "매도자 반응",
+    placeholder: "이번 주 매도자들의 반응은? (호가 변동, 급매 여부 등)",
+    tooltip: "매도자 심리와 호가 변화를 전달하세요.",
+  },
+  {
+    key: "marketJudgment",
+    label: "시장 판단",
+    placeholder: "본인의 시장 판단은? (온도, 방향성, 기회/리스크)",
+    tooltip: "브로커로서의 전문적인 시장 진단을 공유하세요.",
+  },
+  {
+    key: "comment",
+    label: "독자에게 한마디",
+    placeholder: "독자(투자자)에게 한마디",
+    tooltip: "구독자에게 직접 전하는 메시지입니다.",
+  },
+];
 
 // ─── 메인 컴포넌트 ──────────────────────────────────────────────────
 function MagazineEditorInner() {
   const searchParams = useSearchParams();
 
   // ── 상태 관리 ──
-  const [activeTab, setActiveTab] = useState<TabKey>("edit");
+  const [activeTab, setActiveTab] = useState<TabKey>("cover");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
 
-  const [magazineData, setMagazineData] = useState<any>(null);
+  // Edition state
+  const [editionId, setEditionId] = useState<string | null>(null);
+  const [editionLabel, setEditionLabel] = useState(getWeekLabel());
+  const [editionType, setEditionType] = useState<EditionType>("weekly");
+  const [editionStatus, setEditionStatus] = useState<EditionStatus>("draft");
+
+  // Cover
   const [headline, setHeadline] = useState("");
   const [briefing, setBriefing] = useState("");
-  const [brokerComment, setBrokerComment] = useState("");
-  const [aiExpandedComment, setAiExpandedComment] = useState("");
-  const [selectedNewsIds, setSelectedNewsIds] = useState<Set<string>>(new Set());
+  const [marketTemp, setMarketTemp] = useState<MarketTemperature | null>(null);
+  const [coverKeywords, setCoverKeywords] = useState<string[]>(["", "", ""]);
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+
+  // Field note
+  const [fieldNote, setFieldNote] = useState<BrokerFieldNote>(EMPTY_FIELD_NOTE);
+
+  // Theme & Deals
+  const [themeTitle, setThemeTitle] = useState("");
+  const [themeBodyMd, setThemeBodyMd] = useState("");
   const [selectedDealIds, setSelectedDealIds] = useState<Set<string>>(new Set());
-  const [allNews, setAllNews] = useState<any[]>([]);
   const [allDeals, setAllDeals] = useState<any[]>([]);
+
+  // News
+  const [selectedNewsIds, setSelectedNewsIds] = useState<Set<string>>(new Set());
+  const [allNews, setAllNews] = useState<any[]>([]);
+
+  // Settings
   const [themeColor, setThemeColor] = useState("#6366f1");
   const [brokerSlug, setBrokerSlug] = useState<string | null>(null);
   const [magazineTitle, setMagazineTitle] = useState("");
   const [showShareModal, setShowShareModal] = useState(false);
-  const [kakaoReady, setKakaoReady] = useState(false);
-  const [sectionOrder, setSectionOrder] = useState<string[]>(SECTIONS_DEF.map(s => s.id));
-  const [sectionVisibility, setSectionVisibility] = useState<Record<string, boolean>>(
-    SECTIONS_DEF.reduce((acc, s) => ({ ...acc, [s.id]: true }), {})
-  );
-  const [actionList, setActionList] = useState<string[]>([]);
-  const [callScript, setCallScript] = useState<string>("");
+  const [magazineData, setMagazineData] = useState<any>(null);
 
+  // Tooltip
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
@@ -109,34 +176,55 @@ function MagazineEditorInner() {
         setMagazineTitle(profile?.magazine_title || "");
         if (profile?.magazine_theme_color) setThemeColor(profile.magazine_theme_color);
 
-        // 매거진 데이터 가져오기
-        const res = await fetch(`/api/magazine/${slug}`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.data) {
-            setMagazineData(json.data);
-            setHeadline(json.data.headline || "");
-            setBriefing(json.data.briefing || "");
-            if (json.data.brokerComment) setBrokerComment(json.data.brokerComment);
-            if (json.data.actionList) setActionList(json.data.actionList);
-            if (json.data.callScript) setCallScript(json.data.callScript);
-            if (json.data.sectionOrder) setSectionOrder(json.data.sectionOrder);
-            if (json.data.sectionVisibility) setSectionVisibility(json.data.sectionVisibility);
-            setBriefing(json.data.briefing || "");
-
-            // 딜카드 (dealHighlights)
-            if (Array.isArray(json.data.dealHighlights)) {
-              setAllDeals(json.data.dealHighlights);
+        // 1. 최신 에디션 가져오기
+        const edRes = await fetch(
+          `/api/magazine/editions?broker_id=${slug}&type=weekly&limit=1`
+        );
+        if (edRes.ok) {
+          const edJson = await edRes.json();
+          if (edJson.editions && edJson.editions.length > 0) {
+            const ed: MagazineEdition = edJson.editions[0];
+            setEditionId(ed.id);
+            setEditionLabel(ed.edition_label);
+            setEditionType(ed.edition_type);
+            setEditionStatus(ed.status);
+            setHeadline(ed.title || "");
+            setMarketTemp(ed.market_temp);
+            setCoverKeywords(
+              ed.cover_keywords?.length
+                ? [...ed.cover_keywords, "", "", ""].slice(0, 3)
+                : ["", "", ""]
+            );
+            setCoverImageUrl(ed.cover_image_url);
+            if (ed.field_note && Object.keys(ed.field_note).length > 0) {
+              setFieldNote(ed.field_note as BrokerFieldNote);
             }
-
-            // 뉴스 (topNews)
-            if (Array.isArray(json.data.topNews)) {
-              setAllNews(json.data.topNews);
+            setThemeTitle(ed.theme_title || "");
+            setThemeBodyMd(ed.theme_body_md || "");
+            if (ed.featured_deal_ids?.length) {
+              setSelectedDealIds(new Set(ed.featured_deal_ids));
+            }
+            if (ed.theme_color) setThemeColor(ed.theme_color);
+            // Store content for preview
+            if (ed.content) {
+              setMagazineData({ ...ed.content, themeColor: ed.theme_color });
+              if ((ed.content as any).briefing) setBriefing((ed.content as any).briefing);
             }
           }
         }
 
-        // 뉴스 전체 목록을 외부 테이블에서 가져오기
+        // 2. 기존 매거진 데이터도 불러오기 (backward compat)
+        const res = await fetch(`/api/magazine/${slug}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data) {
+            if (!magazineData) setMagazineData(json.data);
+            if (!headline && json.data.headline) setHeadline(json.data.headline);
+            if (!briefing && json.data.briefing) setBriefing(json.data.briefing);
+          }
+        }
+
+        // 3. 뉴스 목록
         const { data: externalNews } = await supabase
           .from("external_news")
           .select("id, title, summary, source, sentiment, importance_score, topic")
@@ -148,7 +236,7 @@ function MagazineEditorInner() {
           setAllNews(externalNews);
         }
 
-        // 딜카드 전체 목록
+        // 4. 딜카드 목록
         const { data: deals } = await supabase
           .from("building_ssot_lite")
           .select(
@@ -179,9 +267,10 @@ function MagazineEditorInner() {
       }
     }
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  
+  // ── sessionStorage에서 브리핑 데이터 복원 ──
   useEffect(() => {
     const saved = sessionStorage.getItem("magazine_briefing_data");
     if (saved) {
@@ -189,20 +278,17 @@ function MagazineEditorInner() {
         const data = JSON.parse(saved);
         if (data.title) setHeadline(data.title);
         if (data.briefing) setBriefing(data.briefing);
-        if (data.actionList) setActionList(data.actionList);
-        if (data.callScript) setCallScript(data.callScript);
         sessionStorage.removeItem("magazine_briefing_data");
-      } catch(e) {}
+      } catch (e) {
+        /* ignore */
+      }
     }
   }, []);
-
-
 
   // ── URL 쿼리 파라미터에서 선택 항목 초기화 ──
   useEffect(() => {
     const dealsParam = searchParams.get("deals");
     const newsParam = searchParams.get("news");
-    const commentParam = searchParams.get("comment");
 
     if (dealsParam) {
       setSelectedDealIds(new Set(dealsParam.split(",")));
@@ -210,13 +296,9 @@ function MagazineEditorInner() {
     if (newsParam) {
       setSelectedNewsIds(new Set(newsParam.split(",")));
     }
-    if (commentParam) {
-      setBrokerComment(commentParam);
-      setAiExpandedComment(commentParam);
-    }
   }, [searchParams]);
 
-  // ── 선택된 뉴스/딜이 없으면 전부 선택 ──
+  // ── 선택된 뉴스/딜이 없으면 기본 선택 ──
   useEffect(() => {
     if (allNews.length > 0 && selectedNewsIds.size === 0 && !searchParams.get("news")) {
       setSelectedNewsIds(new Set(allNews.slice(0, 4).map((n: any) => n.id ?? n.title)));
@@ -231,7 +313,7 @@ function MagazineEditorInner() {
 
   // ── 실시간 미리보기 데이터 ──
   const previewData = useMemo(() => {
-    if (!magazineData) return null;
+    const base = magazineData || {};
 
     const filteredNews = allNews.filter((n: any) =>
       selectedNewsIds.has(n.id ?? n.title)
@@ -241,13 +323,17 @@ function MagazineEditorInner() {
     );
 
     return {
-      ...magazineData,
+      ...base,
       headline,
       briefing,
-      brokerComment: aiExpandedComment || (brokerComment.trim() ? brokerComment : null),
-      actionList,
-      callScript,
       themeColor,
+      market_temp: marketTemp,
+      cover_keywords: coverKeywords.filter(Boolean),
+      cover_image_url: coverImageUrl,
+      field_note: fieldNote,
+      theme_title: themeTitle,
+      theme_body_md: themeBodyMd,
+      featured_deal_ids: Array.from(selectedDealIds),
       topNews: filteredNews.map((n: any) => ({
         title: n.title,
         summary: n.summary,
@@ -256,39 +342,23 @@ function MagazineEditorInner() {
         topic: n.topic,
       })),
       dealHighlights: filteredDeals,
-      sectionOrder,
-      sectionVisibility,
     };
-  }, [magazineData, headline, briefing, brokerComment, aiExpandedComment, actionList, callScript, themeColor, allNews, allDeals, selectedNewsIds, selectedDealIds, sectionOrder, sectionVisibility]);
-
-  // ── AI 코멘트 확장 ──
-  const handleAiExpand = useCallback(async () => {
-    if (!brokerComment.trim()) return;
-    setAiLoading(true);
-    try {
-      const res = await fetch("/api/broker/studio/ai-comment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment: brokerComment }),
-      });
-      const json = await res.json();
-      if (json.ok && json.data) {
-        setAiExpandedComment(json.data);
-      }
-    } catch (err) {
-      console.error("AI expand failed", err);
-    } finally {
-      setAiLoading(false);
-    }
-  }, [brokerComment]);
-
-  // ── 브리핑에 삽입 ──
-  const insertCommentToBriefing = useCallback(() => {
-    if (!aiExpandedComment) return;
-    setBriefing((prev) => prev + "\n\n💬 브로커 코멘트\n" + aiExpandedComment);
-    setAiExpandedComment("");
-    setBrokerComment("");
-  }, [aiExpandedComment]);
+  }, [
+    magazineData,
+    headline,
+    briefing,
+    themeColor,
+    marketTemp,
+    coverKeywords,
+    coverImageUrl,
+    fieldNote,
+    themeTitle,
+    themeBodyMd,
+    allNews,
+    allDeals,
+    selectedNewsIds,
+    selectedDealIds,
+  ]);
 
   // ── 뉴스 토글 ──
   const toggleNews = useCallback((newsId: string) => {
@@ -316,18 +386,59 @@ function MagazineEditorInner() {
     });
   }, []);
 
+  // ── 필드노트 업데이트 ──
+  const updateFieldNote = useCallback((key: keyof BrokerFieldNote, value: string) => {
+    setFieldNote((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  // ── 키워드 업데이트 ──
+  const updateKeyword = useCallback((index: number, value: string) => {
+    setCoverKeywords((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  }, []);
+
   // ── 저장 및 공유 모달 열기 ──
   const handlePublishAndShare = useCallback(async () => {
     if (!brokerSlug || !previewData) return;
     setSaving(true);
     try {
-      // 1. 매거진 데이터 저장
+      // 1. 에디션 PATCH (editions API)
+      if (editionId) {
+        const patchRes = await fetch("/api/magazine/editions", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: editionId,
+            title: headline,
+            market_temp: marketTemp,
+            cover_keywords: coverKeywords.filter(Boolean),
+            cover_image_url: coverImageUrl,
+            field_note: fieldNote,
+            theme_title: themeTitle,
+            theme_body_md: themeBodyMd,
+            featured_deal_ids: Array.from(selectedDealIds),
+            theme_color: themeColor,
+            content: previewData,
+            status: "published",
+          }),
+        });
+        if (!patchRes.ok) {
+          const err = await patchRes.json();
+          console.error("Edition PATCH failed", err);
+        }
+      }
+
+      // 2. 기존 daily API에도 저장 (backward compat)
       const res = await fetch(`/api/magazine/${brokerSlug}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(previewData),
       });
-      // 2. 제목/테마/슬러그 저장
+
+      // 3. 프로필 저장
       const profileRes = await fetch("/api/broker/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -340,6 +451,7 @@ function MagazineEditorInner() {
 
       if (res.ok && profileRes.ok) {
         setMagazineData(previewData);
+        setEditionStatus("published");
         setShowShareModal(true);
       } else {
         alert("저장에 실패했습니다.");
@@ -350,37 +462,58 @@ function MagazineEditorInner() {
     } finally {
       setSaving(false);
     }
-  }, [brokerSlug, previewData, magazineTitle, themeColor]);
+  }, [
+    brokerSlug,
+    previewData,
+    magazineTitle,
+    themeColor,
+    editionId,
+    headline,
+    marketTemp,
+    coverKeywords,
+    coverImageUrl,
+    fieldNote,
+    themeTitle,
+    themeBodyMd,
+    selectedDealIds,
+  ]);
 
+  // ── 카카오 공유 ──
   const handleMagazineKakaoShare = () => {
     if (!brokerSlug) return;
-    
-    const baseUrl = typeof window !== "undefined" && window.location.hostname.includes("vercel.app")
-      ? "https://www.credeal.net"
-      : typeof window !== "undefined" ? window.location.origin : "https://www.credeal.net";
-      
+
+    const baseUrl =
+      typeof window !== "undefined" && window.location.hostname.includes("vercel.app")
+        ? "https://www.credeal.net"
+        : typeof window !== "undefined"
+        ? window.location.origin
+        : "https://www.credeal.net";
+
     const magazineUrl = `${baseUrl}/magazine/${brokerSlug}/${today}`;
     const ogImageUrl = `${baseUrl}/api/og/magazine?brokerId=${brokerSlug}&date=${today}`;
-    
+
     if (typeof window !== "undefined" && (window as any).Kakao) {
       const Kakao = (window as any).Kakao;
       if (!Kakao.isInitialized()) {
         const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
         if (appKey) Kakao.init(appKey);
       }
-      
+
       if (Kakao.isInitialized()) {
         try {
           Kakao.Share.sendDefault({
             objectType: "feed",
             content: {
-              title: magazineTitle || `${today} CRE 데일리 매거진`,
+              title: magazineTitle || `${today} CRE 위클리 매거진`,
               description: briefing.slice(0, 80) + "...",
               imageUrl: ogImageUrl,
               link: { mobileWebUrl: magazineUrl, webUrl: magazineUrl },
             },
             buttons: [
-              { title: "매거진 보기", link: { mobileWebUrl: magazineUrl, webUrl: magazineUrl } },
+              {
+                title: "매거진 보기",
+                link: { mobileWebUrl: magazineUrl, webUrl: magazineUrl },
+              },
             ],
           });
           return;
@@ -389,7 +522,7 @@ function MagazineEditorInner() {
         }
       }
     }
-    
+
     // fallback
     navigator.clipboard.writeText(magazineUrl);
     alert("링크가 복사되었습니다. 카카오톡에 붙여넣기 하세요.");
@@ -397,7 +530,8 @@ function MagazineEditorInner() {
 
   const handleCopyLink = () => {
     if (!brokerSlug) return;
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://www.credeal.net";
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : "https://www.credeal.net";
     const magazineUrl = `${origin}/magazine/${brokerSlug}/${today}`;
     navigator.clipboard.writeText(magazineUrl);
     alert("링크가 복사되었습니다.");
@@ -411,6 +545,26 @@ function MagazineEditorInner() {
     return price.toLocaleString();
   }
 
+  // ── 상태 뱃지 색상 ──
+  function statusBadge(status: EditionStatus) {
+    const map: Record<EditionStatus, { label: string; cls: string }> = {
+      draft: { label: "초안", cls: "text-slate-400 bg-slate-500/12 border-slate-500/20" },
+      editing: { label: "편집중", cls: "text-amber-300 bg-amber-500/12 border-amber-500/20" },
+      review: { label: "검토", cls: "text-blue-300 bg-blue-500/12 border-blue-500/20" },
+      scheduled: { label: "예약", cls: "text-purple-300 bg-purple-500/12 border-purple-500/20" },
+      published: { label: "발행됨", cls: "text-emerald-300 bg-emerald-500/12 border-emerald-500/20" },
+      archived: { label: "보관", cls: "text-slate-500 bg-slate-600/12 border-slate-600/20" },
+    };
+    const s = map[status] || map.draft;
+    return (
+      <span
+        className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${s.cls}`}
+      >
+        {s.label}
+      </span>
+    );
+  }
+
   // ── 로딩 ──
   if (loading) {
     return (
@@ -420,31 +574,77 @@ function MagazineEditorInner() {
     );
   }
 
-  if (!magazineData) {
-    return (
-      <div className="flex h-screen flex-col items-center justify-center bg-[#0B1120] text-slate-300">
-        <p>오늘의 매거진 데이터를 불러오지 못했습니다.</p>
-        <Link href="/broker" className="mt-4 text-indigo-400 hover:underline">
-          브로커 홈으로 돌아가기
-        </Link>
-      </div>
-    );
-  }
-
   // ─── 탭 콘텐츠 렌더링 ───────────────────────────────────────────────
   const renderTabContent = () => {
     switch (activeTab) {
-      // ━━━ 편집 탭 ━━━
-      case "edit":
+      // ━━━ 커버 탭 ━━━
+      case "cover":
         return (
           <div className="space-y-5">
             {/* 안내 */}
             <div className="flex items-start gap-2 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
               <Info className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
               <p className="text-[11px] text-indigo-200/80 leading-relaxed">
-                AI가 작성한 초안을 고객의 성향에 맞게 직접 다듬을 수 있습니다. 변경사항은 실시간으로
-                우측 미리보기에 반영됩니다.
+                매거진 커버를 구성합니다. 시장 온도, 키워드, AI 브리핑을 설정하세요.
+                변경사항은 실시간으로 우측 미리보기에 반영됩니다.
               </p>
+            </div>
+
+            {/* 시장 온도 */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-300">
+                시장 온도
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {MARKET_TEMPS.map((temp) => {
+                  const cfg = MARKET_TEMP_CONFIG[temp];
+                  const isActive = marketTemp === temp;
+                  return (
+                    <motion.button
+                      key={temp}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setMarketTemp(isActive ? null : temp)}
+                      className={`flex items-center gap-1.5 text-[11px] font-bold px-3 py-2 rounded-xl border transition-all ${
+                        isActive
+                          ? "border-white/30 bg-white/10 text-white shadow-lg"
+                          : "border-slate-700 bg-slate-800/30 text-slate-400 hover:border-slate-600"
+                      }`}
+                      style={isActive ? { borderColor: cfg.color + "60", backgroundColor: cfg.color + "18" } : {}}
+                    >
+                      <span className="text-sm">{cfg.emoji}</span>
+                      {temp}
+                    </motion.button>
+                  );
+                })}
+              </div>
+              {marketTemp && (
+                <motion.p
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-[10px] text-slate-500 leading-relaxed pl-1"
+                >
+                  {MARKET_TEMP_CONFIG[marketTemp].description}
+                </motion.p>
+              )}
+            </div>
+
+            {/* 키워드 뱃지 */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-300">
+                키워드 뱃지 (최대 3개)
+              </label>
+              <div className="flex gap-2">
+                {coverKeywords.map((kw, idx) => (
+                  <input
+                    key={idx}
+                    value={kw}
+                    onChange={(e) => updateKeyword(idx, e.target.value)}
+                    maxLength={12}
+                    className="flex-1 bg-[#0f1523] border border-slate-700 rounded-lg px-3 py-2 text-[12px] text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
+                    placeholder={`키워드 ${idx + 1}`}
+                  />
+                ))}
+              </div>
             </div>
 
             {/* 헤드라인 */}
@@ -469,76 +669,209 @@ function MagazineEditorInner() {
               />
             </div>
 
-            {/* 브로커 코멘트 */}
-            <div className="space-y-3 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-xs font-bold text-slate-200">💬 브로커 코멘트</span>
+            {/* 커버 이미지 */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-300">
+                커버 배경 이미지
+              </label>
+              <div className="flex items-center gap-3">
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    const url = prompt("이미지 URL을 입력하세요:");
+                    if (url) setCoverImageUrl(url);
+                  }}
+                  className="flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-2 rounded-lg border border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition-all"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  이미지 URL 설정
+                </motion.button>
+                {coverImageUrl && (
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="text-[10px] text-indigo-300 truncate flex-1">
+                      {coverImageUrl}
+                    </span>
+                    <button
+                      onClick={() => setCoverImageUrl(null)}
+                      className="text-slate-500 hover:text-slate-300 flex-shrink-0"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
-
-              <textarea
-                value={brokerComment}
-                onChange={(e) => setBrokerComment(e.target.value)}
-                className="w-full h-20 bg-[#0f1523] border border-slate-700 rounded-lg px-3 py-2.5 text-[12px] text-slate-300 leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none placeholder:text-slate-600"
-                placeholder="간단한 코멘트를 입력하세요"
-              />
-
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={handleAiExpand}
-                disabled={aiLoading || !brokerComment.trim()}
-                className="flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              >
-                {aiLoading ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  <Sparkles className="w-3 h-3" />
-                )}
-                ✨ AI 확장
-              </motion.button>
-
-              {/* AI 확장 결과 */}
-              <AnimatePresence>
-                {aiExpandedComment && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="p-3 bg-indigo-500/8 border border-indigo-500/20 rounded-lg space-y-2">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <Sparkles className="w-3 h-3 text-indigo-400" />
-                        <span className="text-[10px] font-bold text-indigo-300">
-                          AI 확장 결과
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap">
-                        {aiExpandedComment}
-                      </p>
-                      <motion.button
-                        whileTap={{ scale: 0.95 }}
-                        onClick={insertCommentToBriefing}
-                        className="flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/30 transition-all"
-                      >
-                        <Plus className="w-3 h-3" />
-                        브리핑에 삽입
-                      </motion.button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </div>
           </div>
         );
 
-      // ━━━ 뉴스 탭 ━━━
+      // ━━━ 필드노트 탭 ━━━
+      case "field_note":
+        return (
+          <div className="space-y-4">
+            <div className="flex items-start gap-2 p-3 bg-amber-500/8 border border-amber-500/15 rounded-xl">
+              <PenLine className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+              <p className="text-[11px] text-amber-200/80 leading-relaxed">
+                현장 전문가로서 이번 주 시장에 대한 직접 분석을 작성하세요.
+                독자들이 가장 신뢰하는 섹션입니다.
+              </p>
+            </div>
+
+            {FIELD_NOTE_FIELDS.map((field) => (
+              <div key={field.key} className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-semibold text-slate-300">
+                    {field.label}
+                  </label>
+                  <button
+                    onClick={() =>
+                      setActiveTooltip(
+                        activeTooltip === field.key ? null : field.key
+                      )
+                    }
+                    className="text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    <Info className="w-3 h-3" />
+                  </button>
+                </div>
+                <AnimatePresence>
+                  {activeTooltip === field.key && (
+                    <motion.p
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="text-[10px] text-slate-500 leading-relaxed pl-1 overflow-hidden"
+                    >
+                      {field.tooltip}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+                <textarea
+                  value={fieldNote[field.key]}
+                  onChange={(e) => updateFieldNote(field.key, e.target.value)}
+                  className="w-full h-20 bg-[#0f1523] border border-slate-700 rounded-xl px-4 py-3 text-[12px] text-slate-300 leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none placeholder:text-slate-600"
+                  placeholder={field.placeholder}
+                />
+              </div>
+            ))}
+          </div>
+        );
+
+      // ━━━ 테마&매물 탭 ━━━
+      case "theme_deals":
+        return (
+          <div className="space-y-5">
+            {/* 테마 섹션 */}
+            <div className="space-y-3 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
+              <div className="flex items-center gap-2">
+                <Target className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="text-xs font-bold text-slate-200">금주의 테마</span>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-semibold text-slate-400">
+                  테마 제목
+                </label>
+                <input
+                  value={themeTitle}
+                  onChange={(e) => setThemeTitle(e.target.value)}
+                  className="w-full bg-[#0f1523] border border-slate-700 rounded-lg px-3 py-2.5 text-[12px] text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
+                  placeholder="예: 강남 오피스 공실률 반전의 신호"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-semibold text-slate-400">
+                  테마 본문 (마크다운)
+                </label>
+                <textarea
+                  value={themeBodyMd}
+                  onChange={(e) => setThemeBodyMd(e.target.value)}
+                  className="w-full h-32 bg-[#0f1523] border border-slate-700 rounded-lg px-3 py-2.5 text-[12px] text-slate-300 leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none placeholder:text-slate-600 font-mono"
+                  placeholder="테마에 대한 심층 분석을 작성하세요...&#10;&#10;마크다운 형식을 지원합니다."
+                />
+              </div>
+            </div>
+
+            {/* 매물 선택 */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-semibold text-slate-300">
+                  주목 매물 ({selectedDealIds.size}/{allDeals.length})
+                </p>
+                <span className="text-[10px] text-slate-500">
+                  테마와 연계할 매물을 선택하세요
+                </span>
+              </div>
+
+              {allDeals.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                  <Building2 className="w-8 h-8 mb-2 opacity-40" />
+                  <p className="text-xs">등록된 매물이 없습니다.</p>
+                </div>
+              ) : (
+                allDeals.map((deal: any, idx: number) => {
+                  const dealId = deal.id;
+                  const isSelected = selectedDealIds.has(dealId);
+                  return (
+                    <motion.button
+                      key={dealId ?? idx}
+                      onClick={() => toggleDeal(dealId)}
+                      whileTap={{ scale: 0.98 }}
+                      className={`w-full text-left p-3 rounded-xl border transition-all duration-200 ${
+                        isSelected
+                          ? "bg-rose-500/8 border-rose-500/25"
+                          : "bg-slate-800/20 border-slate-700/40 opacity-60"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 flex-shrink-0">
+                          {isSelected ? (
+                            <Check className="w-4 h-4 text-rose-400 bg-rose-500/20 rounded-md p-0.5" />
+                          ) : (
+                            <div className="w-4 h-4 border border-slate-600 rounded-md" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-bold text-white mb-0.5 line-clamp-1">
+                            {deal.assetType || deal.asset_type || "매물"}
+                          </p>
+                          <p className="text-[10px] text-slate-500 line-clamp-1 mb-1.5">
+                            {deal.address}
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {(deal.areaSignal || deal.area_signal) && (
+                              <span className="text-[9px] font-medium text-slate-300 bg-slate-700/60 px-1.5 py-0.5 rounded">
+                                {deal.areaSignal || deal.area_signal}
+                              </span>
+                            )}
+                            {deal.price > 0 && (
+                              <span className="text-[10px] font-extrabold text-indigo-300">
+                                {fmt(deal.price)}
+                              </span>
+                            )}
+                            {deal.buyerInterestCount > 0 && (
+                              <span className="text-[9px] text-rose-300 bg-rose-500/12 px-1.5 py-0.5 rounded-full">
+                                관심 {deal.buyerInterestCount}명
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        );
+
+      // ━━━ 뉴스큐레이션 탭 ━━━
       case "news":
         return (
           <div className="space-y-3">
             <div className="flex items-center justify-between mb-1">
               <p className="text-xs font-semibold text-slate-300">
-                뉴스 선택 ({selectedNewsIds.size}/{allNews.length})
+                뉴스 큐레이션 ({selectedNewsIds.size}/{allNews.length})
               </p>
               <span className="text-[10px] text-slate-500">
                 토글하여 매거진에 포함할 뉴스를 선택하세요
@@ -577,9 +910,12 @@ function MagazineEditorInner() {
                         <p className="text-[11px] font-bold text-white leading-snug line-clamp-2 mb-1">
                           {news.title}
                         </p>
-                        <p className="text-[10px] text-slate-500 line-clamp-1 mb-1.5">
-                          {news.summary}
-                        </p>
+                        {/* AI summary inline */}
+                        {news.summary && (
+                          <p className="text-[10px] text-slate-400 leading-relaxed mb-1.5 line-clamp-3">
+                            {news.summary}
+                          </p>
+                        )}
                         <div className="flex items-center gap-2 flex-wrap">
                           {news.importance_score != null && (
                             <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-300 bg-amber-500/12 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
@@ -624,82 +960,60 @@ function MagazineEditorInner() {
           </div>
         );
 
-      // ━━━ 딜카드 탭 ━━━
-      case "deals":
-        return (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-semibold text-slate-300">
-                딜카드 선택 ({selectedDealIds.size}/{allDeals.length})
-              </p>
-              <span className="text-[10px] text-slate-500">매거진에 포함할 매물</span>
-            </div>
-
-            {allDeals.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-                <Building2 className="w-8 h-8 mb-2 opacity-40" />
-                <p className="text-xs">등록된 매물이 없습니다.</p>
-              </div>
-            ) : (
-              allDeals.map((deal: any, idx: number) => {
-                const dealId = deal.id;
-                const isSelected = selectedDealIds.has(dealId);
-                return (
-                  <motion.button
-                    key={dealId ?? idx}
-                    onClick={() => toggleDeal(dealId)}
-                    whileTap={{ scale: 0.98 }}
-                    className={`w-full text-left p-3 rounded-xl border transition-all duration-200 ${
-                      isSelected
-                        ? "bg-rose-500/8 border-rose-500/25"
-                        : "bg-slate-800/20 border-slate-700/40 opacity-60"
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 flex-shrink-0">
-                        {isSelected ? (
-                          <Check className="w-4 h-4 text-rose-400 bg-rose-500/20 rounded-md p-0.5" />
-                        ) : (
-                          <div className="w-4 h-4 border border-slate-600 rounded-md" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-white mb-0.5 line-clamp-1">
-                          {deal.assetType || deal.asset_type || "매물"}
-                        </p>
-                        <p className="text-[10px] text-slate-500 line-clamp-1 mb-1.5">
-                          {deal.address}
-                        </p>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {(deal.areaSignal || deal.area_signal) && (
-                            <span className="text-[9px] font-medium text-slate-300 bg-slate-700/60 px-1.5 py-0.5 rounded">
-                              {deal.areaSignal || deal.area_signal}
-                            </span>
-                          )}
-                          {deal.price > 0 && (
-                            <span className="text-[10px] font-extrabold text-indigo-300">
-                              {fmt(deal.price)}
-                            </span>
-                          )}
-                          {deal.buyerInterestCount > 0 && (
-                            <span className="text-[9px] text-rose-300 bg-rose-500/12 px-1.5 py-0.5 rounded-full">
-                              관심 {deal.buyerInterestCount}명
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </motion.button>
-                );
-              })
-            )}
-          </div>
-        );
-
-      // ━━━ 설정 탭 ━━━
-      case "settings":
+      // ━━━ 발행설정 탭 ━━━
+      case "publish":
         return (
           <div className="space-y-5">
+            {/* 에디션 정보 */}
+            <div className="space-y-3 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
+              <div className="flex items-center gap-2">
+                <Info className="w-3.5 h-3.5 text-slate-400" />
+                <span className="text-xs font-bold text-slate-200">에디션 정보</span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500">에디션 타입</span>
+                  <div className="flex gap-1.5">
+                    {(["daily", "weekly"] as EditionType[]).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setEditionType(t)}
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg transition-all ${
+                          editionType === t
+                            ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                            : "bg-slate-800 text-slate-500 border border-slate-700 hover:text-slate-300"
+                        }`}
+                      >
+                        {t === "daily" ? "데일리" : "위클리"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500">에디션 라벨</span>
+                  <span className="text-[11px] text-white font-mono bg-slate-800 px-2 py-0.5 rounded">
+                    {editionLabel}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500">상태</span>
+                  <div className="flex items-center gap-2">
+                    {statusBadge(editionStatus)}
+                    <select
+                      value={editionStatus}
+                      onChange={(e) => setEditionStatus(e.target.value as EditionStatus)}
+                      className="text-[10px] bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="draft">초안</option>
+                      <option value="editing">편집중</option>
+                      <option value="review">검토</option>
+                      <option value="published">발행</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* 테마 컬러 */}
             <div className="space-y-3 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
               <div className="flex items-center gap-2">
@@ -762,13 +1076,25 @@ function MagazineEditorInner() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-slate-500">선택된 딜카드</span>
+                  <span className="text-[11px] text-slate-500">선택된 매물</span>
                   <span className="text-[11px] text-rose-300 font-bold">
                     {selectedDealIds.size}건
                   </span>
                 </div>
               </div>
             </div>
+
+            {/* 에디션 아카이브 링크 */}
+            {brokerSlug && (
+              <Link
+                href={`/magazine/${brokerSlug}`}
+                className="flex items-center justify-center gap-2 text-[11px] font-semibold px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition-all"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                지난 에디션 보기
+                <ChevronRight className="w-3 h-3 opacity-50" />
+              </Link>
+            )}
 
             {/* 매거진 발행 */}
             <motion.button
@@ -808,7 +1134,12 @@ function MagazineEditorInner() {
             </Link>
             <div>
               <h1 className="text-sm font-bold text-slate-200">Content Studio</h1>
-              <p className="text-[10px] text-slate-500">{today} 발행본</p>
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] text-slate-500">
+                  {editionLabel} · {editionType === "weekly" ? "위클리" : "데일리"}
+                </p>
+                {statusBadge(editionStatus)}
+              </div>
             </div>
           </div>
           <motion.button
@@ -902,7 +1233,9 @@ function MagazineEditorInner() {
             <Eye className="w-3.5 h-3.5" />
             <span className="text-[11px] font-medium">실시간 미리보기</span>
             <ChevronRight className="w-3 h-3" />
-            <span className="text-[10px] text-slate-600">iPhone 14 Pro (375×812)</span>
+            <span className="text-[10px] text-slate-600">
+              iPhone 14 Pro (375×812)
+            </span>
           </div>
 
           {/* 폰 목업 */}
@@ -945,13 +1278,17 @@ function MagazineEditorInner() {
               >
                 ✕
               </button>
-              
+
               <div className="text-center mb-6">
                 <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Check className="w-6 h-6" />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-1">매거진 발행 완료!</h3>
-                <p className="text-[12px] text-slate-400">고객들에게 오늘의 매거진을 공유해보세요.</p>
+                <h3 className="text-lg font-bold text-white mb-1">
+                  매거진 발행 완료!
+                </h3>
+                <p className="text-[12px] text-slate-400">
+                  고객들에게 이번 주 매거진을 공유해보세요.
+                </p>
               </div>
 
               <div className="space-y-3">
@@ -982,11 +1319,15 @@ function MagazineEditorInner() {
 export default function MagazineEditorPage() {
   return (
     <>
-      <Script 
+      <Script
         src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"
         strategy="lazyOnload"
         onLoad={() => {
-          if (typeof window !== "undefined" && (window as any).Kakao && !(window as any).Kakao.isInitialized()) {
+          if (
+            typeof window !== "undefined" &&
+            (window as any).Kakao &&
+            !(window as any).Kakao.isInitialized()
+          ) {
             const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
             if (appKey) (window as any).Kakao.init(appKey);
           }

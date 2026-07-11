@@ -51,3 +51,28 @@ export function calculateBenchmarkMetrics(
     competitivenessStatus
   };
 }
+
+/**
+ * [E1] 벤치마킹 지표를 모바일 IM용 마크다운 테이블로 포맷팅합니다.
+ */
+export function formatBenchmarkMarkdown(metrics: BenchmarkMetrics, compsCount: number): string {
+  const statusEmoji =
+    metrics.competitivenessStatus === "Highly Competitive" ? "🟢"
+    : metrics.competitivenessStatus === "Overpriced" ? "🔴"
+    : "🟡";
+  const premiumLabel = metrics.premiumPct > 0
+    ? `+${metrics.premiumPct.toFixed(1)}% 프리미엄`
+    : `${metrics.premiumPct.toFixed(1)}% 디스카운트`;
+
+  return `### 권역 시세 벤치마킹 (실거래 분석)
+| 항목 | 수치 |
+|------|------|
+| **본 자산 ㎡당 단가** | ${Math.round(metrics.targetPricePerSqm).toLocaleString()}원/㎡ |
+| **권역 평균 ㎡당 단가** | ${Math.round(metrics.avgComparablePricePerSqm).toLocaleString()}원/㎡ |
+| **시세 대비 포지션** | ${statusEmoji} **${premiumLabel}** |
+| **경쟁력 판정** | ${metrics.competitivenessStatus === "Highly Competitive" ? "**저평가 — 매력적 진입 가격**" : metrics.competitivenessStatus === "Overpriced" ? "**고평가 — 협상 여지 검토**" : "**시세 적정 수준**"} |
+| **비교 사례 수** | ${compsCount}건 |
+
+> 최근 인근 실거래 기준. 개별 물건 조건(층수, 임차인, 리모델링 이력)에 따라 차이가 있습니다.`;
+}
+

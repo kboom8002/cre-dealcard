@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import Script from "next/script";
 import type { MobileIMDocument, MobileIMSection } from "@/lib/demo/mobile-im-demo-data";
+import { getTemplateById } from "@/lib/vibe/vibe-templates";
+import { SubscribeCard } from "@/components/magazine/SubscribeCard";
+import { HeroCard } from "./hero-card";
+import { DCFHeatmap } from "./dcf-heatmap";
+import { LeverageChart } from "./leverage-chart";
 
 // 카카오 SDK 초기화 헬퍼 함수
 const initKakao = () => {
@@ -326,14 +331,27 @@ function PhotoGallery({ photos, coordinates, blindName }: {
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIdx, setLightboxIdx] = useState(0);
+  const touchStartX = useRef(0);
 
-  // Build display items: photos and map
-  const items = [
-    ...(photos || []),
-    ...(coordinates
-      ? [{ url: `https://map.kakao.com/link/map/${encodeURIComponent(blindName)},${coordinates.lat},${coordinates.lng}`, type: 'map' as const, label: '위치 지도' }]
-      : [])
-  ];
+  // Build and sort: map first → order-based → rest (max 12 photos)
+  const sortedItems = useMemo(() => {
+    const raw = [
+      ...(photos || []),
+      ...(coordinates
+        ? [{ url: `https://map.kakao.com/link/map/${encodeURIComponent(blindName)},${coordinates.lat},${coordinates.lng}`, type: 'map' as const, label: '위치 지도', caption: undefined as string | undefined, order: undefined as number | undefined }]
+        : [])
+    ];
+    const mapItems = raw.filter(i => i.type === 'map');
+    const photoItems = raw
+      .filter(i => i.type !== 'map')
+      .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+    return [...mapItems, ...photoItems.slice(0, 12)];
+  }, [photos, coordinates, blindName]);
+
+  const totalOriginal = (photos?.length ?? 0) + (coordinates ? 1 : 0);
+  const overflowCount = Math.max(0, totalOriginal - sortedItems.length);
 
   const handleScroll = useCallback(() => {
     if (!scrollRef.current) return;
@@ -344,65 +362,189 @@ function PhotoGallery({ photos, coordinates, blindName }: {
     setActiveIdx(idx);
   }, []);
 
-  if (!items || items.length === 0) return null;
+  const openLightbox = (idx: number) => {
+    setLightboxIdx(idx);
+    setLightboxOpen(true);
+  };
 
+  const closeLightbox = () => setLightboxOpen(false);
 
+  const navigateLightbox = (dir: -1 | 1) => {
+    setLightboxIdx(prev => {
+      const next = prev + dir;
+      if (next < 0) return sortedItems.length - 1;
+      if (next >= sortedItems.length) return 0;
+      return next;
+    });
+  };
+
+  // Touch swipe handlers for lightbox
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) navigateLightbox(diff > 0 ? 1 : -1);
+  };
+
+  if (sortedItems.length === 0) return null;
 
   return (
-    <div className="mb-5">
-      {/* Horizontal scroll gallery */}
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      >
-        {items.map((item, i) => (
-          <div
-            key={i}
-            className="relative shrink-0 w-[85%] sm:w-[75%] snap-center rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-900"
-          >
-            {/* Map embed or photo */}
-            {item.type === 'map' && coordinates ? (
-              <div className="relative w-full aspect-[2/1] bg-neutral-800">
-                <KakaoStaticMap lat={coordinates.lat} lng={coordinates.lng} name={blindName} />
-              </div>
-            ) : (
-              <div className="relative w-full aspect-[2/1] bg-neutral-800">
-                <Image
-                  src={item.url}
-                  alt={item.label}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 768px) 85vw, 75vw"
-                />
-              </div>
-            )}
-
-            {/* Type badge overlay */}
-            <div className="absolute top-3 left-3">
-              <span className="px-2 py-1 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold rounded-lg border border-white/10">
-                {item.label}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Dot indicators */}
-      {items.length > 1 && (
-        <div className="flex justify-center gap-1.5 mt-2">
-          {items.map((_, i) => (
+    <>
+      <div className="mb-5">
+        {/* Horizontal scroll gallery */}
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {sortedItems.map((item, i) => (
             <div
               key={i}
-              className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
-                i === activeIdx ? 'bg-primary w-4' : 'bg-neutral-700'
-              }`}
-            />
+              className="relative shrink-0 w-[85%] sm:w-[75%] snap-center rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-900 cursor-pointer"
+              onClick={() => item.type !== 'map' && openLightbox(i)}
+            >
+              {/* Map embed or photo */}
+              {item.type === 'map' && coordinates ? (
+                <div className="relative w-full aspect-[2/1] bg-neutral-800">
+                  <KakaoStaticMap lat={coordinates.lat} lng={coordinates.lng} name={blindName} />
+                </div>
+              ) : (
+                <div className="relative w-full aspect-[2/1] bg-neutral-800">
+                  <Image
+                    src={item.url}
+                    alt={item.label}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 85vw, 75vw"
+                    loading="lazy"
+                  />
+                </div>
+              )}
+
+              {/* Type badge (top-left) */}
+              <div className="absolute top-3 left-3">
+                <span className="px-2 py-1 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold rounded-lg border border-white/10">
+                  {item.label}
+                </span>
+              </div>
+
+              {/* Counter (top-right) */}
+              <div className="absolute top-3 right-3">
+                <span className="px-2 py-1 bg-black/60 backdrop-blur-sm text-white text-[10px] font-medium rounded-lg border border-white/10">
+                  {i + 1} / {sortedItems.length}
+                </span>
+              </div>
+
+              {/* Caption overlay (bottom) */}
+              {item.caption && (
+                <div className="absolute bottom-0 left-0 right-0 px-3 py-2.5 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+                  <p className="text-white text-xs leading-snug line-clamp-2">{item.caption}</p>
+                </div>
+              )}
+
+              {/* Overflow indicator on last item */}
+              {i === sortedItems.length - 1 && overflowCount > 0 && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                  <span className="text-white text-lg font-bold">+{overflowCount}장 더보기</span>
+                </div>
+              )}
+            </div>
           ))}
         </div>
+
+        {/* Dot indicators */}
+        {sortedItems.length > 1 && (
+          <div className="flex justify-center gap-1.5 mt-2">
+            {sortedItems.map((_, i) => (
+              <div
+                key={i}
+                className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
+                  i === activeIdx ? 'bg-primary w-4' : 'bg-neutral-700'
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Fullscreen Lightbox ── */}
+      {lightboxOpen && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center"
+          onClick={closeLightbox}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          {/* Close button */}
+          <button
+            onClick={closeLightbox}
+            className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white text-xl transition-colors"
+            aria-label="닫기"
+          >
+            ✕
+          </button>
+
+          {/* Counter */}
+          <div className="absolute top-4 left-4 z-10 px-3 py-1.5 bg-white/10 rounded-full text-white text-sm font-medium">
+            {lightboxIdx + 1} / {sortedItems.length}
+          </div>
+
+          {/* Navigation arrows */}
+          {sortedItems.length > 1 && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); navigateLightbox(-1); }}
+                className="absolute left-2 sm:left-4 z-10 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white text-lg transition-colors"
+                aria-label="이전 사진"
+              >
+                ‹
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); navigateLightbox(1); }}
+                className="absolute right-2 sm:right-4 z-10 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white text-lg transition-colors"
+                aria-label="다음 사진"
+              >
+                ›
+              </button>
+            </>
+          )}
+
+          {/* Image */}
+          <div
+            className="relative w-full h-full max-w-4xl max-h-[80vh] mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {sortedItems[lightboxIdx]?.type === 'map' && coordinates ? (
+              <div className="w-full h-full flex items-center justify-center">
+                <div className="w-full max-w-2xl aspect-[2/1] rounded-xl overflow-hidden">
+                  <KakaoStaticMap lat={coordinates.lat} lng={coordinates.lng} name={blindName} />
+                </div>
+              </div>
+            ) : (
+              <Image
+                src={sortedItems[lightboxIdx]?.url || ''}
+                alt={sortedItems[lightboxIdx]?.label || ''}
+                fill
+                className="object-contain"
+                sizes="100vw"
+                priority
+              />
+            )}
+          </div>
+
+          {/* Caption in lightbox */}
+          {sortedItems[lightboxIdx]?.caption && (
+            <div className="absolute bottom-4 left-4 right-4 z-10 text-center">
+              <p className="inline-block px-4 py-2 bg-black/70 backdrop-blur-sm rounded-xl text-white text-sm leading-relaxed max-w-lg">
+                {sortedItems[lightboxIdx].caption}
+              </p>
+            </div>
+          )}
+        </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -950,9 +1092,22 @@ function CompletenessBar({ score }: { score: number }) {
 // ─── Main Viewer ───────────────────────────────────────────────────────────
 
 export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: Props) {
+  const vibeTemplate = useMemo(() => {
+    return doc?.broker.vibeTemplateId ? getTemplateById(doc.broker.vibeTemplateId) : null;
+  }, [doc?.broker.vibeTemplateId]);
+  const vibeCss = vibeTemplate?.css;
+  const accentColor = vibeCss?.accentColor || '#60a5fa';
+
   const [openSections, setOpenSections] = useState<Set<string>>(
     new Set(["01_overview"]), // First section open by default
   );
+  // [D1] 현재 화면에 보이는 섹션 인덱스
+  const [activeSection, setActiveSection] = useState(0);
+  // [D4] 언어 전환 (영문 1-Pager)
+  const [language, setLanguage] = useState<'ko' | 'en'>('ko');
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [enSections, setEnSections] = useState<MobileIMSection[] | null>(null);
+
   const viewedSectionsRef = useRef<Set<string>>(new Set());
   const sectionRefsMap = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -968,6 +1123,30 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
     });
   };
 
+  // [D2] PWA Service Worker 등록
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw-im.js").catch(() => {});
+    }
+  }, []);
+
+  // ── Dwell time and unload tracking ──
+  useEffect(() => {
+    if (!doc) return;
+    const start = Date.now();
+    const handleUnload = () => {
+      const dwellSeconds = Math.round((Date.now() - start) / 1000);
+      const blob = new Blob([JSON.stringify({
+        dwell_seconds: dwellSeconds,
+        blind_name: doc.blindName || doc.fullName,
+        referrer: document.referrer,
+      })], { type: 'application/json' });
+      navigator.sendBeacon(`/api/public/im-lite/${buildingId}/view`, blob);
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, [buildingId, doc]);
+
   // ── View tracking on mount ──────────────────────────────────────────────
   useEffect(() => {
     const controller = new AbortController();
@@ -980,7 +1159,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
     return () => controller.abort();
   }, [buildingId]);
 
-  // ── Section intersection observer ─────────────────────────────────────
+  // ── Section intersection observer — 조회 추적 + [D1] activeSection 갱신
   const setRef = useCallback((sectionId: string) => (el: HTMLDivElement | null) => {
     if (el) sectionRefsMap.current.set(sectionId, el);
     else sectionRefsMap.current.delete(sectionId);
@@ -1000,14 +1179,17 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
                 body: JSON.stringify({ section_viewed: sectionId }),
               }).catch(() => {});
             }
+            // [D1] 현재 화면 상 섹션 인덱스 계산
+            const idx = doc?.sections.findIndex((s) => s.sectionId === sectionId) ?? -1;
+            if (idx >= 0) setActiveSection(idx);
           }
         });
       },
-      { threshold: 0.5 }
+      { threshold: 0.4 }
     );
     sectionRefsMap.current.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [buildingId]);
+  }, [buildingId, doc?.sections]);
 
   // Coming-soon state for real buildings
   if (!doc) {
@@ -1064,6 +1246,32 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
           </div>
 
           <ShareButton title={`${doc.blindName} — 모바일 IM Lite`} />
+        </div>
+
+        {/* [D1] 섹션 Progress Dots */}
+        <div
+          className="flex items-center justify-center gap-1.5 py-1.5 overflow-x-auto"
+          role="navigation"
+          aria-label="IM 섹션 탐색"
+        >
+          {doc.sections.map((section, i) => (
+            <button
+              key={section.sectionId}
+              onClick={() => {
+                const el = sectionRefsMap.current.get(section.sectionId);
+                el?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+              className={`transition-all duration-300 rounded-full ${
+                i === activeSection
+                  ? "w-5 h-1.5 bg-primary"
+                  : i < activeSection
+                  ? "w-1.5 h-1.5 bg-primary/40"
+                  : "w-1.5 h-1.5 bg-neutral-700"
+              }`}
+              aria-label={`섹션 ${i + 1}`}
+              aria-current={i === activeSection ? "step" : undefined}
+            />
+          ))}
         </div>
       </div>
 
@@ -1143,6 +1351,9 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
         {/* ── Voice Briefing Player ── */}
         <VoiceBriefingPlayer buildingId={buildingId} />
 
+        {/* [C1] Hero Card — 핵심 투자 지표 요약 */}
+        {doc.heroCard && <HeroCard data={doc.heroCard} />}
+
         {/* ── Photo Gallery / Map ── */}
         <PhotoGallery
           photos={doc.photos}
@@ -1150,9 +1361,48 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
           blindName={doc.blindName}
         />
 
+        {/* [D4] 언어 전환 탭 */}
+        <div className="flex gap-2 mb-4 p-1 bg-neutral-900 rounded-xl">
+          <button
+            id="tab-lang-ko"
+            onClick={() => setLanguage('ko')}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+              language === 'ko' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-white'
+            }`}
+          >
+            한국어
+          </button>
+          <button
+            id="tab-lang-en"
+            onClick={async () => {
+              if (!enSections) {
+                setIsTranslating(true);
+                try {
+                  const res = await fetch(`/api/public/im-lite/${buildingId}/translate`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ language: "en" }),
+                  });
+                  if (res.ok) {
+                    const data = await res.json();
+                    setEnSections(data.sections ?? null);
+                  }
+                } catch {}
+                setIsTranslating(false);
+              }
+              setLanguage('en');
+            }}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+              language === 'en' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-white'
+            }`}
+          >
+            {isTranslating ? '번역 중…' : 'English'}
+          </button>
+        </div>
+
         {/* ── Section Cards ── */}
         <div className="space-y-3 mb-8">
-          {doc.sections.map((section, index) => (
+          {(language === 'en' && enSections ? enSections : doc.sections).map((section: MobileIMSection, index: number) => (
             <div
               key={section.sectionId}
               data-section-id={section.sectionId}
@@ -1164,6 +1414,54 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
                 isOpen={openSections.has(section.sectionId)}
                 onToggle={() => toggleSection(section.sectionId)}
               />
+              {/* [C2][C4] 수익 분석 섹션 다음에 DCF 히트맵 + 레버리지 차트 삽입 */}
+              {section.sectionId?.includes('income') && (
+                <>
+                  {doc.dcf10Year && doc.financials?.waccPct != null && (
+                    <div className="mt-3">
+                      <DCFHeatmap dcfOutputs={doc.dcf10Year} waccBase={doc.financials.waccPct / 100} />
+                    </div>
+                  )}
+                  {doc.financials && (doc.financials.equityRequiredBil != null || doc.financials.totalDepositBil != null || doc.financials.loanAmountBil != null) && (
+                    <div className="mt-3">
+                      <LeverageChart
+                        equityBil={doc.financials.equityRequiredBil ?? 0}
+                        depositBil={doc.financials.totalDepositBil ?? 0}
+                        loanBil={doc.financials.loanAmountBil ?? 0}
+                        leveragedYieldPct={doc.financials.leveragedYieldPct}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+              {/* [B4] 더블 트랙 CTA — 마지막 섹션 하단에 삽입 */}
+              {index === doc.sections.length - 1 && (
+                <div className="mt-4 grid grid-cols-1 gap-3">
+                  <button
+                    id="cta-private-im-download"
+                    onClick={() => {
+                      const brokerSlug = doc.broker.slug;
+                      if (brokerSlug && brokerSlug !== "cre-dealcard-default") {
+                        window.location.href = `/vibe-card/${brokerSlug}?ref=im-cta&buildingId=${buildingId}`;
+                      } else {
+                        alert("담당 중개인에게 문의하시면 프라이빗 투자설명서(IM)를 제공해 드립니다.");
+                      }
+                    }}
+                    className="w-full py-3.5 bg-primary text-black text-sm font-black rounded-2xl hover:bg-primary/90 active:scale-95 transition-all"
+                  >
+                    📄 프라이빗 투자설명서(IM) 신청
+                  </button>
+                  {doc.broker.phone && (
+                    <a
+                      id="cta-phone-consult"
+                      href={`tel:${doc.broker.phone}`}
+                      className="w-full py-3 text-center bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-bold rounded-2xl border border-neutral-700 transition-colors block"
+                    >
+                      📞 {doc.broker.displayName} 즉시 상담
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -1205,13 +1503,23 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
           </div>
         )}
 
+        {/* ── Weekly Magazine Subscribe CTA ── */}
+        {doc.broker.slug && doc.broker.slug !== "cre-dealcard-default" && (
+          <div className="mb-8">
+            <SubscribeCard brokerId={doc.broker.slug} source="im" accentColor={accentColor} />
+          </div>
+        )}
+
         {/* ── Broker Profile Card ── */}
         <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5 mb-8">
           <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4">
             담당 중개인
           </h2>
           <div className="flex items-center gap-4 mb-4">
-            <div className="relative w-14 h-14 rounded-full overflow-hidden border-2 border-primary/30 shrink-0">
+            <div
+              className="relative w-14 h-14 rounded-full overflow-hidden border-2 shrink-0"
+              style={{ borderColor: accentColor, boxShadow: vibeCss?.ringGlow }}
+            >
               {doc.broker.photoUrl && doc.broker.photoUrl !== "/default-avatar.png" ? (
                 <Image
                   src={doc.broker.photoUrl}
@@ -1248,7 +1556,12 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
             {doc.broker.slug !== "cre-dealcard-default" ? (
               <Link
                 href={`/vibe-card/${doc.broker.slug}`}
-                className="flex items-center justify-center gap-2 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium rounded-xl border border-primary/20 transition-colors"
+                className="flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-xl border transition-colors"
+                style={{
+                  background: `${accentColor}10`,
+                  color: accentColor,
+                  borderColor: `${accentColor}20`,
+                }}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />

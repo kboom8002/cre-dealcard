@@ -504,3 +504,74 @@ export function runCrossValidation(
     inconsistencies,
   };
 }
+
+// ─── [B2] Narrative ↔ Financials 교차 검증 ──────────────────────────────────
+
+/**
+ * AI가 서술한 income_analysis 섹션의 수치와 financials.ts 계산 결과를 직접 비교합니다.
+ *
+ * 문제: AI는 LLM context로 전달된 financialsMarkdown을 참조하지만,
+ *       때로는 자체 추론으로 다른 수치를 서술하여 inconsistency 발생.
+ *
+ * 감지 대상:
+ * - Cap Rate (critical: ±0.5%p 초과)
+ * - 연 임대 수입 (warning: ±15% 초과)
+ *
+ * @param incomeMarkdown - income_analysis 섹션의 마크다운 텍스트
+ * @param calculatedCapRate - financials.ts의 capRate.base 값 (%)
+ * @param calculatedAnnualNoi - financials.ts의 annualNoi.base 값 (원)
+ * @returns 발견된 불일치 목록
+ */
+export function runFinancialsNarrativeValidation(
+  incomeMarkdown: string,
+  calculatedCapRate: number | null,
+  calculatedAnnualNoi: number | null
+): CrossValidationInconsistency[] {
+  const issues: CrossValidationInconsistency[] = [];
+
+  // Cap Rate 교차 검증
+  if (calculatedCapRate !== null) {
+    const capRatePattern = /(?:Cap\s*Rate|캡레이트|환원이율|수익률)[\s:약]*([0-9]+(?:\.[0-9]+)?)\s*%/gi;
+    const matches = [...incomeMarkdown.matchAll(capRatePattern)];
+    for (const match of matches) {
+      const narrativeCapRate = parseFloat(match[1]);
+      if (!isNaN(narrativeCapRate)) {
+        const diff = Math.abs(narrativeCapRate - calculatedCapRate);
+        if (diff > 0.5) {
+          issues.push({
+            field: "cap_rate_narrative_vs_calc",
+            section1: { type: "financials_engine",          value: `${calculatedCapRate.toFixed(2)}%` },
+            section2: { type: "income_analysis_narrative",  value: `${narrativeCapRate}%` },
+            severity: "critical",
+          });
+          break; // 첫 번째 불일치만 보고
+        }
+      }
+    }
+  }
+
+  // 연 임대 수입 교차 검증 (억원 단위 매칭)
+  if (calculatedAnnualNoi !== null && calculatedAnnualNoi > 0) {
+    const calcBil = calculatedAnnualNoi / 100_000_000;
+    const noiPattern = /(?:연\s*임대\s*수입|NOI|순영업소득)[\s:약]*([0-9]+(?:\.[0-9]+)?)\s*억/gi;
+    const matches = [...incomeMarkdown.matchAll(noiPattern)];
+    for (const match of matches) {
+      const narrativeNoi = parseFloat(match[1]);
+      if (!isNaN(narrativeNoi) && calcBil > 0) {
+        const relativeDiff = Math.abs(narrativeNoi - calcBil) / calcBil;
+        if (relativeDiff > 0.15) {
+          issues.push({
+            field: "noi_narrative_vs_calc",
+            section1: { type: "financials_engine",         value: `${calcBil.toFixed(2)}억` },
+            section2: { type: "income_analysis_narrative", value: `${narrativeNoi}억` },
+            severity: "warning",
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  return issues;
+}
+

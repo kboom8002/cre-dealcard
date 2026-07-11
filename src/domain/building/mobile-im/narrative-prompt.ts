@@ -5,7 +5,13 @@
 import type { MobileIMSectionType, MobileIMSupplementalInput, ExternalDataSnapshot } from "./types";
 
 // ─── Golden IM 예시 (Few-shot, token 절약 압축본) ─────────────────────────────
-export const GOLDEN_IM_EXAMPLES = `[참고 예시 — 수익분석 섹션]
+export const GOLDEN_IM_EXAMPLES = `[참고 예시 — 자산 개요 섹션]
+**강남구 GBD 핵심 입지**에 위치한 2010년 준공 **연면적 약 3,300㎡(약 1,000평)** 규모의 오피스 빌딩입니다.
+지하 2층~지상 10층 구조이며, 전 층 엘리베이터 2기와 기계식 주차 20대를 갖추고 있습니다.
+건물 관리 상태는 양호하며, 최근 외벽 리모델링이 완료되어 시각적 가치가 향상되었습니다.
+> 📋 *건축물대장 기준 | 외관 상태 AI 추정*
+
+[참고 예시 — 수익분석 섹션]
 아래 수치는 AI 추정값으로 참고용입니다.
 ### 수익 지표 (추정)
 | 항목 | 추정값 | 비고 |
@@ -15,6 +21,16 @@ export const GOLDEN_IM_EXAMPLES = `[참고 예시 — 수익분석 섹션]
 | **IRR (5년 보유)** | **8.2%–11.4%** | 시나리오 추정, 참고용 |
 > ⚠️ 면책: 실제 수익은 임대차 조건에 따라 달라집니다.
 
+[참고 예시 — 임대차 현황 섹션]
+현재 총 **8개 임차인**이 입주 중이며 **공실률 약 5%** 수준으로, 안정적인 임대 운영이 이루어지고 있습니다.
+주요 임차인으로 A사(3~5층, 월 임대료 1,200만원), B사(6~7층, 월 900만원)가 있으며, 가중평균 잔여 임대기간(WALE)은 **약 2.8년**입니다.
+### 임차인 요약
+| 임차인 | 층 | 월 임대료 | 잔여기간 |
+|--------|-----|----------|----------|
+| A사 | 3~5F | 1,200만원 | 3.2년 |
+| B사 | 6~7F | 900만원 | 2.1년 |
+> 📋 *임대차계약서 요약 기반 | 실사 확인 필요*
+
 [참고 예시 — 투자포인트 섹션]
 본 자산의 핵심 투자 가치와 예상 매수자 유형 분석입니다.
 ### 예상 매수자 유형 (AI 분석)
@@ -22,7 +38,13 @@ export const GOLDEN_IM_EXAMPLES = `[참고 예시 — 수익분석 섹션]
 |------|--------|------|
 | **자산운용사 (임대형 펀드)** | ⭐⭐⭐⭐⭐ | 완전임대 + Cap Rate |
 | **법인 자가사용** | ⭐⭐⭐⭐ | GBD 브랜드 가치 |
-| **고액 자산가 그룹** | ⭐⭐⭐ | 규모 협업 필요 |`;
+| **고액 자산가 그룹** | ⭐⭐⭐ | 규모 협업 필요 |
+
+[참고 예시 — 리스크 섹션]
+⚠️ **용도지역**: 제3종 일반주거지역으로, 근린생활시설 용도 전환 시 허가 제한이 있을 수 있습니다 (건축법 확인 필요).
+⚠️ **건물 연식**: 준공 후 15년 경과, 주요 설비(냉난방기, 엘리베이터) 교체 시기 도래 가능성이 있어 **자본적 지출(CAPEX) 예산 반영**이 권장됩니다.
+⚠️ **임대차 집중도**: 단일 임차인(A사) 비중이 전체 임대 면적의 40%로, 이탈 시 공실 리스크에 유의해야 합니다.
+> ⚠️ *공법 규제 및 건물 상태 기반 AI 리스크 분석 | 실사 단계 확인 필수*`;
 
 // ─── 시스템 프롬프트 ──────────────────────────────────────────────────────────
 export const MOBILE_IM_NARRATIVE_SYSTEM = `당신은 한국 상업용 부동산 전문 라이터이자 투자 전략가입니다.
@@ -119,11 +141,23 @@ export function buildNarrativeUserPrompt(
       : null,
   }) : '없음';
 
+  // [A3] AI 프롬프트에 레버리지 분석 필수 데이터 전달
+  // 배우려: narrative가 이 데이터 없이 수익 옵션 서술 시 환각 발생
   const suppCtx = JSON.stringify({
     monthly_rent_total_krw: supplemental.monthly_rent_total_krw,
     vacancy_status:         supplemental.vacancy_status,
+    vacancy_pct:            supplemental.vacancy_pct,
     estimated_yield_pct:    supplemental.estimated_yield_pct,
     broker_highlight:       supplemental.broker_highlight,
+    // 레버리지 분석 �심 (수익률 분석 셀션에 필수)
+    total_deposit_manwon:   supplemental.total_deposit_manwon,
+    mgmt_fee_total_manwon:  supplemental.mgmt_fee_total_manwon,
+    loan_amount_manwon:     supplemental.loan_amount_manwon,
+    loan_bank:              supplemental.loan_bank,
+    asking_price_manwon:    supplemental.asking_price_manwon,
+    // 물리적 표표제원으로 AI에 전달
+    building_age_years:     supplemental.building_age_years,
+    total_floor_count:      supplemental.total_floor_count,
   });
 
   // 시장 지표 + 재무 사전계산값
@@ -182,14 +216,18 @@ export function buildNarrativeUserPrompt(
     if (numericalAnchors.vacancyPct != null) anchorLines.push(`공실률: ${numericalAnchors.vacancyPct}%`);
     if (numericalAnchors.buildingAge) anchorLines.push(`건물 연식: ${numericalAnchors.buildingAge}년`);
     if (numericalAnchors.capRateBase) anchorLines.push(`Cap Rate(base): ${numericalAnchors.capRateBase}%`);
+    // [B5] monthlyRentKrw 앙커도 전달 — AI가 임대료 수치를 일관되게 사용하도록
+    if (numericalAnchors.monthlyRentKrw) anchorLines.push(`월세 총액: 약 ${Math.round(numericalAnchors.monthlyRentKrw / 10_000).toLocaleString()}만원/월`);
     if (anchorLines.length > 0) {
       contextBlock += `\n[수치 앵커 — 이 수치를 정확히 사용하세요]\n${anchorLines.join(' | ')}`;
     }
     // 이전 섹션 요약 — 항상 첫 섹션(자산 개요) 포함하여 핵심 데이터 일관성 유지
+    // [B5] Context 전파 확장: 모든 이전 섹션 요약을 전달
+    // 기존 코드는 property_overview + 최근 2개만 전달하여 6~7번째 섹션이 중간 섹션과 일관성을 잏는 문제 있음
     const summaryEntries = Object.entries(sectionSummaries);
     if (summaryEntries.length > 0) {
       const firstEntry = summaryEntries.find(([key]) => key === "property_overview");
-      const otherEntries = summaryEntries.filter(([key]) => key !== "property_overview").slice(-2);
+      const otherEntries = summaryEntries.filter(([key]) => key !== "property_overview");
       const contextEntries = firstEntry ? [firstEntry, ...otherEntries] : otherEntries;
       contextBlock += `\n[이전 섹션 요약]\n${contextEntries.map(([k, v]) => `- ${k}: ${v}`).join('\n')}`;
     }

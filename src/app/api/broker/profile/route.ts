@@ -146,6 +146,13 @@ export async function PUT(req: NextRequest) {
   if (phone !== undefined) profileUpdate.phone = phone;
   if (company !== undefined) profileUpdate.company = company;
 
+  // ─── Fix: avatar_url → profiles.photo_url 동기화 ───────────
+  // Vibe Card (/vibe-card/[slug])가 profiles.photo_url을 읽으므로
+  // 프로필 저장 시 avatar_url이 포함되면 photo_url도 함께 갱신
+  if (parsed.data.avatar_url) {
+    profileUpdate.photo_url = parsed.data.avatar_url;
+  }
+
   if (Object.keys(profileUpdate).length > 0) {
     const { error } = await supabase
       .from('profiles')

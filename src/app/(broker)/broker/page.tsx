@@ -192,6 +192,24 @@ export default async function BrokerPage() {
         href = "/broker";
         color = "text-slate-400";
         break;
+      case "im_view_alert_sent":
+        icon = "🔒";
+        text = `투자설명서(IM) 정밀 열람 감지 및 알림 발송`;
+        href = "/broker/buildings?tab=im";
+        color = "text-amber-400";
+        break;
+      case "hot_lead_alert_sent":
+        icon = "🔥";
+        text = `Hot Lead 감지! (교차 채널 스코어 80점+)`;
+        href = "/broker/funnel";
+        color = "text-rose-400";
+        break;
+      case "magazine_subscribe":
+        icon = "🔔";
+        text = `매거진 신규 구독자 신청 접수`;
+        href = "/broker/clients";
+        color = "text-emerald-400";
+        break;
       default:
         if (evt.event_type.includes("created")) {
           icon = "➕";

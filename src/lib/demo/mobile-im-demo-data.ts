@@ -75,8 +75,12 @@ export interface MobileIMDocument {
   /** 건물 사진 갤러리 */
   photos?: Array<{
     url: string;
-    type: 'exterior' | 'aerial' | 'interior' | 'lobby' | 'floor_plan' | 'map';
+    type: 'exterior' | 'aerial' | 'interior' | 'lobby' | 'floor_plan' | 'map'
+        | 'rooftop' | 'parking' | 'entrance' | 'corridor' | 'mechanical'
+        | 'signage' | 'surroundings' | 'tenant_space';
     label: string;
+    caption?: string;
+    order?: number;
   }>;
   /** 건물 좌표 (Static Map 폴백용) */
   coordinates?: { lat: number; lng: number };
@@ -88,6 +92,37 @@ export interface MobileIMDocument {
     label: string;
     emoji: string;
     score: number;
+  };
+  /** [C1] Hero Card 핵심 투자 지표 */
+  heroCard?: import("@/domain/building/mobile-im/types").HeroCardData;
+  /** [C2] DCF 10년 민감도 분석 */
+  dcf10Year?: import("@/domain/building/mobile-im/dcf-sensitivity").DCFOutputs;
+  /** [C4] 자금 구조 (레버리지) */
+  financials?: {
+    equityRequiredBil: number | null;
+    totalDepositBil: number | null;
+    loanAmountBil: number | null;
+    leveragedYieldPct: number | null;
+    waccPct: number | null;
+  };
+  logistics?: {
+    ceiling_height_m?: number;
+    dock_count?: number;
+    dock_leveler_count?: number;
+    max_vehicle_ton?: number;
+    floor_load_ton_m2?: number;
+    cold_storage_area_pyeong?: number;
+    cold_storage_type?: 'frozen' | 'chilled' | 'both' | 'none';
+    loading_area_pyeong?: number;
+    vehicle_access_type?: 'ramp' | 'dock' | 'both';
+    fire_rating?: string;
+    sprinkler?: boolean;
+    column_span_m?: string;
+    power_capacity_kw?: number;
+    has_office_space?: boolean;
+    office_area_pyeong?: number;
+    distance_to_ic_km?: number;
+    ic_name?: string;
   };
 }
 

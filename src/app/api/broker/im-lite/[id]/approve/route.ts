@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { requireBroker } from '@/lib/auth-guard';
+import { markAsGoldenIM } from '@/domain/building/mobile-im/golden-im-manager';
 import { createServiceClient } from '@/lib/supabase/service';
 
 export async function POST(
@@ -59,6 +60,33 @@ export async function POST(
 
   if (updateErr) {
     return NextResponse.json({ error: updateErr.message }, { status: 500 });
+  }
+
+  // ── Golden Set 자동 등록 (승인 시에만, non-blocking) ──
+  if (action === 'approve') {
+    try {
+      const { data: fullDoc } = await supabase
+        .from('document_objects')
+        .select('body, building_id')
+        .eq('id', id)
+        .single();
+
+      if (fullDoc?.body?.sections) {
+        const ssot = fullDoc.body.ssot_summary || {};
+        const goldenCount = await markAsGoldenIM(
+          id,
+          fullDoc.building_id || '',
+          ssot.asset_type || '',
+          ssot.price_band || '',
+          fullDoc.body.sections,
+          undefined,
+          fullDoc.body.judge_score,
+        );
+        console.info(`[approve] Golden Set: ${goldenCount} sections registered`);
+      }
+    } catch (goldenErr) {
+      console.warn('[approve] Golden set registration failed (non-blocking):', goldenErr);
+    }
   }
 
   return NextResponse.json({

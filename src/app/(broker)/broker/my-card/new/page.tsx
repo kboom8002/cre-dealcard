@@ -6,6 +6,7 @@ import {
   BrokerCardKakaoCopy,
   type BrokerCardContent,
 } from "@/components/broker-card/BrokerCardTemplates";
+import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 
 // ── Card type definitions ───────────────────────────────────────────
 const CARD_TYPES = [
@@ -90,8 +91,8 @@ export default function BrokerMyCardNewPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  return (
-    <main className="max-w-lg mx-auto px-4 py-8 space-y-8">
+  return (<>
+    <main className="max-w-lg mx-auto px-4 py-8 pb-24 space-y-8">
       {/* ── Header ── */}
       <div className="space-y-1">
         <h1 className="text-xl font-bold text-slate-900">💼 나의 브로커 카드 만들기</h1>
@@ -262,8 +263,17 @@ export default function BrokerMyCardNewPage() {
               🔄 다시 생성
             </button>
           </div>
+
+          {/* 프로필 수정 링크 */}
+          <a
+            href="/broker/profile"
+            className="block w-full text-center text-sm text-muted-foreground hover:text-foreground py-2 transition-colors"
+          >
+            ✏️ 프로필 정보 수정하기
+          </a>
         </div>
       )}
     </main>
-  );
+    <BrokerBottomNav />
+  </>);
 }

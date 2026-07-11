@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { logout } from '@/app/actions/auth';
+import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
 
 /* ─── Tag option constants ─── */
 
@@ -132,6 +133,7 @@ export default function BrokerProfilePage() {
 
   // Section 6: 자기소개
   const [bio, setBio] = useState('');
+  const [vibeStatus, setVibeStatus] = useState<'uploading' | 'analyzing' | 'done' | null>(null);
 
   /* ─── Profile completeness calculation ─── */
 
@@ -407,8 +409,8 @@ export default function BrokerProfilePage() {
 
   /* ─── Render ─── */
 
-  return (
-    <main className="flex flex-col items-center min-h-screen px-4 py-8">
+  return (<>
+    <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-24">
       <div className="w-full max-w-md mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between pt-4">
@@ -424,7 +426,7 @@ export default function BrokerProfilePage() {
             </p>
           </div>
           
-          {profile?.broker?.slug && (
+          {profile?.broker?.slug ? (
             <a
               href={`/vibe-card/${profile.broker.slug}`}
               target="_blank"
@@ -444,6 +446,13 @@ export default function BrokerProfilePage() {
                 <path d="M14 14h5"></path>
               </svg>
               내 Vibe Card 보기
+            </a>
+          ) : (
+            <a
+              href="/broker/my-card/new"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all shadow-sm border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100"
+            >
+              ✨ Vibe 명함 만들기
             </a>
           )}
         </div>
@@ -507,21 +516,29 @@ export default function BrokerProfilePage() {
                     
                     const formData = new FormData();
                     formData.append("file", file);
+                    setVibeStatus('uploading');
                     
                     try {
                       const res = await fetch("/api/broker/profile/avatar", {
                         method: "POST",
                         body: formData,
-                        // Not sending Content-Type since it's FormData
                       });
                       const data = await res.json();
                       if (data.url) {
                         setAvatarUrl(data.url);
+                        setVibeStatus('analyzing');
+                        // Vibe 재분석은 avatar API에서 비동기 트리거됨
+                        // 3초 후 완료 표시 (실제 분석 시간에 근사)
+                        setTimeout(() => {
+                          setVibeStatus('done');
+                          setTimeout(() => setVibeStatus(null), 4000);
+                        }, 3000);
                       } else {
                         throw new Error(data.error || "업로드 실패");
                       }
                     } catch (err: any) {
                       setError(err.message);
+                      setVibeStatus(null);
                     }
                   }}
                 />
@@ -530,6 +547,16 @@ export default function BrokerProfilePage() {
             <div className="text-sm text-muted-foreground space-y-1">
               <p>신뢰를 주는 프로필 사진을 등록해보세요.</p>
               <p className="text-xs">권장: 정방형 500x500 픽셀</p>
+              {/* ─── Vibe 분석 피드백 ─── */}
+              {vibeStatus === 'uploading' && (
+                <p className="text-xs text-blue-500 animate-pulse">📤 사진 업로드 중...</p>
+              )}
+              {vibeStatus === 'analyzing' && (
+                <p className="text-xs text-violet-500 animate-pulse">🤖 AI가 사진을 분석하고 있습니다...</p>
+              )}
+              {vibeStatus === 'done' && (
+                <p className="text-xs text-emerald-500 font-medium">✅ Vibe AI 분석 완료! 명함에 반영됩니다.</p>
+              )}
             </div>
           </div>
 
@@ -869,7 +896,8 @@ export default function BrokerProfilePage() {
         </form>
       </div>
     </main>
-  );
+    <BrokerBottomNav />
+  </>);
 }
 
 // Helper to get Supabase session token from cookie via client

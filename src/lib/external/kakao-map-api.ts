@@ -75,37 +75,13 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
         },
       };
     } catch (err) {
-      console.warn("[kakao-map-api] API failed, using deterministic fallback:", err);
+      console.warn("[kakao-map-api] API failed, returning null to prevent hallucination:", err);
     }
   }
 
-  // DETERMINISTIC FALLBACK (coordinate-based)
-  const isSeongsu = Math.abs(lat - 37.5447) < 0.01 && Math.abs(lng - 127.0565) < 0.01;
-  const isSamsung = Math.abs(lat - 37.5088) < 0.008 && Math.abs(lng - 127.0630) < 0.008;
-  const isGangnam = Math.abs(lat - 37.4979) < 0.008 && Math.abs(lng - 127.0276) < 0.008;
-
-  if (isSeongsu) {
-    return {
-      nearestStation: { name: "성수역 (2호선)", distanceM: 280, walkMinutes: 4 },
-      poiCounts: { subway: 2, busStop: 5, cafe: 22, parking: 4, restaurant: 31, convenience: 9 },
-      _isFallback: true,
-    };
-  }
-  if (isSamsung) {
-    return {
-      nearestStation: { name: "삼성역 (2호선)", distanceM: 450, walkMinutes: 6 },
-      poiCounts: { subway: 1, busStop: 4, cafe: 18, parking: 5, restaurant: 35, convenience: 10 },
-      _isFallback: true,
-    };
-  }
-  if (isGangnam) {
-    return {
-      nearestStation: { name: "역삼역 (2호선)", distanceM: 320, walkMinutes: 4 },
-      poiCounts: { subway: 2, busStop: 6, cafe: 14, parking: 3, restaurant: 28, convenience: 8 },
-      _isFallback: true,
-    };
-  }
+  // [A4] API 실패 시 하드코딩 지역별 폴백 완전 제거
+  // 기존: 성수/삼성/강남 좌표별로 가짜 POI 데이터 반환 (hallucination 발생한 실질 있음)
+  // 변경: null 반환 일관화 → narrative-prompt의 "POI 없으면 교통 정보 창작 금지" 지시와 일치
   // 알려지지 않은 좌표 → 가짜 데이터를 생성하지 않고 null 반환
-  // AI가 잘못된 교통 정보를 생성하는 것을 방지
   return null;
 }

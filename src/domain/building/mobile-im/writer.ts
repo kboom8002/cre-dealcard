@@ -19,6 +19,7 @@ import {
   type MobileIMSection,
   type MobileIMSupplementalInput,
   type ExternalDataSnapshot,
+  type HeroCardData,
 } from "./types";
 import { buildProvenanceMap, getSectionProvenance } from "./data-provenance";
 import {
@@ -28,7 +29,7 @@ import {
   type SectionContext,
 } from "./narrative-prompt";
 import { runRiskBoundaryCheck, runDisclosureGuard, MOBILE_IM_STANDARD_DISCLAIMER } from "./guardrails";
-import { calculateFinancials, formatFinancialsMarkdown } from "./financials";
+import { calculateFinancials, formatFinancialsMarkdown, type FinancialOutputs } from "./financials";
 import { computeValueAddScenarios } from "./value-add-engine";
 import { judgeIMSection, shouldJudgeByConfidence } from "./im-judge";
 import { runCREQualityGate } from "./cre-quality-gate";
@@ -38,6 +39,19 @@ import { CrePromptRegistry } from "./cre-prompt-registry";
 import { indexIMSections } from "./im-embedding-indexer";
 import { createServiceClient } from "@/lib/supabase/service";
 import { buildIMFewShotBlock } from "./golden-im-manager";
+import { logFewShotUsage, updateFewShotResultScore, promoteToGoldenCandidate } from "./fewshot-tracker";
+// [A5] FloorLease 어댑터
+import { normalizeFloorLeases, formatRentRollMarkdown } from "./lease-adapter";
+// [B3] 용어 정규화
+import { normalizeTerminologyAsync } from "./terminology-normalizer";
+import { transformPhotoUrls, type TransformedPhoto } from "./photo-url-transformer";
+// [B1] WALE 산쳙
+import { calculateWALE } from "./wale-calculator";
+// [E1] 권역 벤치마킹
+import { calculateBenchmarkMetrics, formatBenchmarkMarkdown } from "./comparable-benchmark";
+// [E3] 공실률 상대 포지셔닝
+import { computeVacancyPositioning, formatVacancyPositioningRow } from "./vacancy-positioning";
+import { getLogisticsPromptOverlay } from "./logistics-im-prompt";
 
 export interface MobileIMWriterInput {
   building_ssot_lite: Record<string, unknown>;
@@ -52,6 +66,8 @@ export interface MobileIMWriterOutput {
   boundary_note: string;
   generated_at: string;
   ai_used: boolean;
+  heroCard?: HeroCardData;
+  photos?: TransformedPhoto[];
 }
 
 /** AI 모델 설정 — 환경변수로 교체 가능 */
@@ -147,11 +163,32 @@ function detectHallucination(
   return { anomaly: false };
 }
 
+async function deepNormalizeStringsAsync<T>(obj: T): Promise<T> {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string') {
+    const res = await normalizeTerminologyAsync(obj);
+    return res.text as any;
+  }
+  if (Array.isArray(obj)) {
+    return Promise.all(obj.map(item => deepNormalizeStringsAsync(item))) as any;
+  }
+  if (typeof obj === 'object') {
+    const res: any = {};
+    for (const key of Object.keys(obj)) {
+      res[key] = await deepNormalizeStringsAsync((obj as any)[key]);
+    }
+    return res;
+  }
+  return obj;
+}
+
 // ─── 메인 생성 함수 ───────────────────────────────────────────────────────────
 export async function generateMobileIM(input: MobileIMWriterInput): Promise<MobileIMWriterOutput> {
-  const { building_ssot_lite, supplemental, external_data } = input;
+  const { building_ssot_lite, external_data } = input;
+  const supplemental = await deepNormalizeStringsAsync(input.supplemental);
   const sections: MobileIMSection[] = [];
   let aiUsed = false;
+  const generationId = 'gen_' + Math.random().toString(36).substring(2, 15) + '_' + Date.now();
 
   // v2: flat → 정규화
   const { assetIdentity, physicalFact, marketLocation, buyerFit } = normalizeSsotLite(building_ssot_lite);
@@ -238,20 +275,33 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   // ── 프롬프트 레지스트리 사전 선택 (루프 밖 — A/B 일관성 보장) ─────────
   const registry = CrePromptRegistry.getInstance();
   const activeSysPrompt = registry.getActivePrompt("writer_system");
-  const sysPromptText = activeSysPrompt ? activeSysPrompt.systemPrompt : MOBILE_IM_NARRATIVE_SYSTEM;
+  
+  const assetType = String(assetIdentity.asset_type ?? "").toLowerCase();
+  const isLogistics = /물류|창고|warehouse|logistics/.test(assetType);
+  let logisticsOverlay = "";
+  if (isLogistics && supplemental.logistics) {
+    logisticsOverlay = getLogisticsPromptOverlay(supplemental.logistics);
+  }
+
+  const sysPromptText = (activeSysPrompt ? activeSysPrompt.systemPrompt : MOBILE_IM_NARRATIVE_SYSTEM) + "\n" + logisticsOverlay;
   const promptVariantId = activeSysPrompt?.id ?? "default";
-  console.info(`[mobile-im-writer] Prompt variant: ${promptVariantId} (v${activeSysPrompt?.version ?? "0"})`);
+  console.info(`[mobile-im-writer] Prompt variant: ${promptVariantId} (v${activeSysPrompt?.version ?? "0"}), isLogistics=${isLogistics}`);
+
+  // ── Hero Card용 재무 데이터 캐시 (루프 밖에서 접근) ────────────────────
+  let cachedFinancials: FinancialOutputs | null = null;
 
   // ── 섹션 루프 ──────────────────────────────────────────────────────────────
   for (let i = 0; i < MOBILE_IM_SECTIONS_7.length; i++) {
     const sectionType = MOBILE_IM_SECTIONS_7[i];
     let markdown = "";
     let confidence: "confirmed" | "inferred" | "needs_check" = "inferred";
+    let finalSectionJudgeScore: number | undefined;
 
     const sectionProvenance = getSectionProvenance(sectionType, provenanceMap);
 
-    // income_analysis 섹션: 사전 재무 계산
+    // income_analysis 섹션: 사전 재무 계산 + [B2] 수치 캐싱
     let sectionMarketIndicators: MarketIndicators | undefined;
+    let financialsOutput: FinancialOutputs | null = null; // [B2] 교차 검증용 캐싱
     if (
       sectionType === "income_analysis" &&
       supplemental.monthly_rent_total_krw &&
@@ -269,6 +319,8 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
           mgmtFeeTotalManwon: supplemental.mgmt_fee_total_manwon,
           loanAmountManwon:   supplemental.loan_amount_manwon,
         });
+        financialsOutput = fin; // [B2] 나중 교차 검증에 사용
+        cachedFinancials = fin;  // Hero Card용 캐시
         sectionMarketIndicators = { financialsMarkdown: formatFinancialsMarkdown(fin) };
       } catch {
         // 무시
@@ -279,13 +331,24 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     let generatedByAi = false;
     try {
       let fewShotBlock = "";
+      let usedGoldenIds: string[] = [];
       try {
         const assetTypeStr = String(assetIdentity.asset_type ?? "");
-        // priceBand could be determined here, or pass empty string for now
-        fewShotBlock = await buildIMFewShotBlock(assetTypeStr, "", sectionType as MobileIMSectionType);
+        const priceBandStr = String(assetIdentity.price_band ?? "");
+        const fsResult = await buildIMFewShotBlock(assetTypeStr, priceBandStr, sectionType as MobileIMSectionType);
+        fewShotBlock = fsResult.formatted;
+        usedGoldenIds = fsResult.usedIds;
       } catch(e) {
         // fail silently for few-shot
       }
+
+      // 퓨샷 사용 로그 기록 (비동기)
+      logFewShotUsage({
+        generationId,
+        sectionType,
+        goldenIdsUsed: usedGoldenIds,
+        hardcodedUsed: !fewShotBlock,
+      }).catch(() => {});
 
       // AI 프롬프트에 정규화된 구조 + 이전 섹션 맥락 + RAG 컨텍스트 전달
       const userPrompt = buildNarrativeUserPrompt(
@@ -300,7 +363,14 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       );
 
       const sectionSpecificPrompt = registry.getActivePrompt(`section_${sectionType}`);
-      const effectiveSysPrompt = sectionSpecificPrompt ? sectionSpecificPrompt.systemPrompt : sysPromptText;
+      let effectiveSysPrompt = sectionSpecificPrompt ? sectionSpecificPrompt.systemPrompt : sysPromptText;
+      if (fewShotBlock && !sectionSpecificPrompt) {
+        // Strip hardcoded examples from the default system prompt
+        effectiveSysPrompt = effectiveSysPrompt.replace(
+          /\[참고 예시 — Golden IM 스타일\][\s\S]*$/,
+          "[참고 예시는 유저 프롬프트의 5번 '승인된 Golden IM 예시 (Few-shot 참조)' 섹션에서 제공됩니다. 해당 스타일을 따르세요.]"
+        );
+      }
 
       const result = await callLLM(
         {
@@ -334,9 +404,13 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
                 supplementalData: supplemental as unknown as Record<string, unknown>,
                 financialsMarkdown: sectionMarketIndicators?.financialsMarkdown,
               });
-              if (judgeResult && judgeResult.overall < 3.0) {
-                console.warn(`[im-judge] Section ${sectionType} score ${judgeResult.overall.toFixed(1)} → template fallback`);
-                judgeRejected = true;
+              if (judgeResult) {
+                finalSectionJudgeScore = judgeResult.overall;
+                updateFewShotResultScore(generationId, sectionType, judgeResult.overall).catch(() => {});
+                if (judgeResult.overall < 3.0) {
+                  console.warn(`[im-judge] Section ${sectionType} score ${judgeResult.overall.toFixed(1)} → template fallback`);
+                  judgeRejected = true;
+                }
               }
             } catch (judgeErr) {
               console.warn(`[im-judge] Judge failed for ${sectionType}, skipping:`, judgeErr);
@@ -376,6 +450,13 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     // ── 카카오 지도 이미지 추가 (location_access 섹션) ────────────────────
     if (sectionType === "location_access" && external_data?.mapImageUrl) {
       markdown += `\n\n![입지 지도](${external_data.mapImageUrl})`;
+    }
+
+    // [B3] 구어체 → 전문 용어 정규화 (가드레일 적용 전 실행)
+    const normResult = await normalizeTerminologyAsync(markdown);
+    if (normResult.replaced.length > 0) {
+      markdown = normResult.text;
+      console.info(`[terminology-normalizer] ${sectionType}: ${normResult.replaced.length}개 용어 정규화`);
     }
 
     // Risk Boundary 가드레일 (Regex 기반)
@@ -422,6 +503,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       confidence,
       boundary_note: "본 섹션의 내용은 예비 검토용입니다.",
       provenance:    sectionProvenance,
+      judge_score:   finalSectionJudgeScore,
     };
 
     sections.push(finalSection);
@@ -475,11 +557,34 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     console.warn("[mobile-im-writer] IM indexing failed (non-blocking):", indexErr);
   }
 
+  // ── Hero Card 구축 (C1) ──────────────────────────────────────────────────
+  // cachedFinancials는 income_analysis 섹션 루프에서 계산된 캐시 값
+  const heroCard: HeroCardData = {
+    assetType: String(assetIdentity.asset_type ?? ''),
+    areaSignal: String(assetIdentity.area_signal ?? ''),
+    askingPriceDisplay: String(assetIdentity.price_band ?? ''),
+    capRateBase: cachedFinancials?.capRate?.base ?? null,
+    noiBaseBil: cachedFinancials?.annualNoi?.base ? parseFloat((cachedFinancials.annualNoi.base / 1e8).toFixed(1)) : null,
+    keyInvestmentPoint: String(buyerFit.fit_summary ?? `${assetIdentity.area_signal} 핵심 입지 안정적 수익 자산`),
+    keyRisk: String(buyerFit.caution_summary ?? '실사 단계에서 확인 필요'),
+    equityRequiredBil: cachedFinancials?.equityRequired ?? null,
+    leveragedYieldPct: cachedFinancials?.leveragedYield ?? null,
+    readinessScore: input.readiness.score,
+    dcf10YearNpvBil: cachedFinancials?.dcf10Year?.npvBase ? parseFloat((cachedFinancials.dcf10Year.npvBase / 1e8).toFixed(1)) : null,
+  };
+
+  // ── 사진 변환 (B3) ──────────────────────────────────────────────────────
+  const photos = supplemental.photo_urls
+    ? transformPhotoUrls(supplemental.photo_urls, supplemental.photo_captions)
+    : undefined;
+
   return {
     sections,
     boundary_note: MOBILE_IM_STANDARD_DISCLAIMER,
     generated_at:  new Date().toISOString(),
     ai_used:       aiUsed,
+    heroCard,
+    photos,
   };
 }
 
@@ -605,18 +710,60 @@ ${infra}
       const vacancy = String(physicalFact.vacancy_signal ?? supplemental.vacancy_status ?? "");
       const currentUse = String(physicalFact.current_use ?? "");
       const annualRent = monthlyRent > 0 ? monthlyRent * 12 : 0;
+      // 임대 현황 변수들
+      let rentRollTable = "";
+      const tenants = (supplemental as Record<string, unknown>).tenants as Array<Record<string, unknown>> | undefined;
+      const hasTenants = tenants && tenants.length > 0;
+      // 공실률 수치 추출 (퍼센트)
+      const vacancyMatch = vacancy.match(/(\d+(?:\.\d+)?)\s*%/);
+      const vacancyPct = vacancyMatch ? parseFloat(vacancyMatch[1]) : -1;
 
       if (!vacancy && !monthlyRent) {
         return `> 🔒 **임대차 상세 현황 자료가 아직 확보되지 않았습니다.**\n>\n> 담당 브로커에게 문의하시면 임대 현황 자료를 제공해 드립니다.`;
       }
 
-      let rentRollTable = "";
-      const tenants = (buildingSsotLite?.lease_summary as any)?.tenants || [];
-      const hasTenants = Array.isArray(tenants) && tenants.length > 0;
-      
-      if (hasTenants) {
+      // [B1] WALE 연동: 임대차 데이터 있으면 WALE 수치 + Rollover 경고 삽입
+      if (supplemental.floor_leases && supplemental.floor_leases.length > 0) {
+        try {
+          const normalizedLeases = normalizeFloorLeases(supplemental.floor_leases);
+          // [A5] 어댑터로 정규화된 Rent Roll 삽입
+          rentRollTable = "\n" + formatRentRollMarkdown(normalizedLeases);
+
+          // [B1] WALE 계산
+          const waleUnits = normalizedLeases
+            .filter(l => !l.isVacant && l.leaseEnd)
+            .map(l => ({
+              tenantName: l.tenantType,
+              rentAmount: l.monthlyRentKrw,
+              areaSqm:    l.areaSqm,
+              leaseEndDate: l.leaseEnd,
+            }));
+          if (waleUnits.length > 0) {
+            const wale = calculateWALE(waleUnits);
+            const rolloverFlag = wale.atRiskRentPct12m > 30
+              ? "🔴 **12개월 내 만기 집중 위험** — 임대차 갱신 협상 조기 시작 권고"
+              : wale.atRiskRentPct12m > 15
+              ? "🟡 12개월 내 만기 화입 제공 좌약 없음 — 계약 현황 확인 권장"
+              : "🟢 단기 만기 위험 낙음";
+            rentRollTable += `\n### 임대 안정성 지표 (AI 산쳙)\n| 지표 | 값 | 비고 |\n|------|-----|------|\n| **WALE (임대료 가중)** | **${wale.waleByRentYears.toFixed(1)}년** | 가중평균 임대만료기간 |\n| **WALE (면적 가중)** | **${wale.waleByAreaYears.toFixed(1)}년** | 면적 기준 |\n| **12개월 내 만기 비중** | **${wale.atRiskRentPct12m.toFixed(0)}%** | ${rolloverFlag} |`;
+          }
+        } catch (e) {
+          console.warn("[writer] WALE/lease-adapter failed:", e);
+        }
+      } else if (hasTenants) {
+        // legacy tenants 데이터 (어댑터 없이 간단 렌더링)
         rentRollTable = `\n### 층별 임대 현황\n| 층수 | 업종 | 전용면적 | 보증금 | 월 임대료 | 만기일 |\n|------|------|----------|--------|--------|--------|\n` +
-          tenants.map(t => `| ${t.floor || "-"} | ${t.tenant_type === 'vacant' ? '공실' : (t.tenant_type === 'office' ? '오피스' : t.tenant_type === 'retail' ? '리테일' : t.tenant_type === 'food' ? 'F&B' : t.tenant_type || "-")} | ${t.area_pyeong ? `${t.area_pyeong}평` : (t.area_sqm ? `${t.area_sqm}㎡` : "-")} | ${t.deposit_manwon ? `${t.deposit_manwon}만원` : (t.deposit ? `${(t.deposit/10000).toLocaleString()}억` : "-")} | ${t.rent_manwon ? `${t.rent_manwon}만원` : (t.monthly_rent ? `${(t.monthly_rent/10000).toLocaleString()}만` : "-")} | ${t.lease_end || t.contract_end || "-"} |`).join("\n");
+          tenants.map((t: any) => `| ${t.floor || "-"} | ${t.tenant_type === 'vacant' ? '공실' : (t.tenant_type === 'office' ? '오피스' : t.tenant_type === 'retail' ? '리테일' : t.tenant_type === 'food' ? 'F&B' : t.tenant_type || "-")} | ${t.area_pyeong ? `${t.area_pyeong}평` : (t.area_sqm ? `${t.area_sqm}㎡` : "-")} | ${t.deposit_manwon ? `${t.deposit_manwon}만원` : (t.deposit ? `${(t.deposit/10000).toLocaleString()}억` : "-")} | ${t.rent_manwon ? `${t.rent_manwon}만원` : (t.monthly_rent ? `${(t.monthly_rent/10000).toLocaleString()}만` : "-")} | ${t.lease_end || t.contract_end || "-"} |`).join("\n");
+      }
+
+      // [E3] 공실률 상대 포지셔닝
+      let vacancyPositioningRow = "";
+      if (vacancyPct >= 0) {
+        const areaSignalStr = String(assetIdentity.area_signal ?? "");
+        const vacPos = computeVacancyPositioning(vacancyPct, areaSignalStr);
+        if (vacPos) {
+          vacancyPositioningRow = "\n" + formatVacancyPositioningRow(vacPos);
+        }
       }
 
       return `현재 **${vacancy || "임대 운영 중"}** 상태입니다.${currentUse ? ` ${currentUse}` : ""}
@@ -627,7 +774,7 @@ ${infra}
 | **공실 현황** | ${vacancy || "상세 확인 필요"} |
 | **월 임대료 합계** | ${monthlyRent > 0 ? `약 ${(monthlyRent / 10000).toFixed(0)}만 원/월 (추정)` : "확인 필요"} |
 | **연 임대 수입** | ${annualRent > 0 ? `약 ${(annualRent / 100000000).toFixed(1)}억 원/년 (추정)` : "확인 필요"} |
-| **임차인 정보** | NDA 체결 후 공개 |
+| **임차인 정보** | NDA 체결 후 공개 |${vacancyPositioningRow}
 ${rentRollTable}
 > ⚠️ 임차인명 및 상세 정보는 개인정보 보호를 위해 비공개 처리되었습니다.`;
     }
@@ -759,6 +906,29 @@ ${bcRat > 0
         buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **개인 자산가 (임대수익)** | ⭐⭐⭐⭐⭐ | 소형 빌딩 안정 수익 최적 |\n| **법인 사옥 이전** | ⭐⭐⭐⭐ | ${areaSignal} 직주근접 |\n| **소규모 개발업체** | ⭐⭐⭐ | 밸류업 후 매각 시나리오 |`;
       }
 
+      // [E1] 권역 시세 벤치마킹 삽입
+      let benchmarkBlock = "";
+      if (compsCount > 0 && purchasePrice > 0 && totalArea > 0) {
+        try {
+          // comparableTransactions → ComparableListing 변환
+          const compsAsListings = comps!.map(c => ({
+            source: "기타" as const,
+            title: c.address,
+            priceKrw: c.pricePerPyeong * c.area / 3.30578, // 평당가 × 면적(㎡→평 보정) 역산
+            pricePerSqmKrw: c.pricePerPyeong / 3.30578,
+            areaSqm: c.area,
+            distanceKm: 0,
+            listedDate: `${c.dealYear}-${String(c.dealMonth).padStart(2, '0')}-01`,
+          }));
+          const metrics = calculateBenchmarkMetrics(purchasePrice, totalArea, compsAsListings);
+          if (metrics.avgComparablePricePerSqm > 0) {
+            benchmarkBlock = "\n\n" + formatBenchmarkMarkdown(metrics, compsCount);
+          }
+        } catch (e) {
+          console.warn("[writer] benchmark failed:", e);
+        }
+      }
+
       return `본 자산의 **핵심 투자 가치**와 예상 매수자 유형 분석입니다.
 
 ### 이 건물을 사야 하는 이유
@@ -768,7 +938,7 @@ ${fitSummary || `${areaSignal} 권역의 핵심 입지에 위치한 자산으로
 ${compsLine}
 **② 공법 여유를 활용한 밸류업 가능성**
 현행 공법 범위 내에서 리모델링 또는 증축 시나리오 검토가 가능하여, 보유 기간 중 자산 가치 제고 기회를 내포하고 있습니다.
-
+${benchmarkBlock}
 ### 예상 매수자 유형 (AI 분석)
 ${buyerTable}`;
     }

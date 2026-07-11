@@ -10,6 +10,7 @@ import {
   VibeCardJsonLd,
   VibeShareSheet,
 } from "@/components/vibe-card";
+import { SubscribeCard } from "@/components/magazine/SubscribeCard";
 
 // Demo broker slug → building ID + label mapping
 const DEMO_IM_LISTINGS: Record<string, { buildingId: string; label: string; priceBand: string; assetType: string }> = {
@@ -107,6 +108,18 @@ export interface VibeCardData {
   template: VibeCardTemplate | null;
   professional: VibeCardProfessional | null;
   stats: VibeCardStats;
+  imListings?: Array<{
+    buildingId: string;
+    label: string;
+    priceBand: string;
+    assetType: string;
+    photoUrl?: string | null;
+  }>;
+  latestMagazine?: {
+    date: string;
+    title: string;
+    url: string;
+  } | null;
   slug: string;
 }
 
@@ -118,11 +131,11 @@ export function VibeCardView({ data }: { data: VibeCardData }) {
   const css = useMemo(() => {
     return template?.css ?? {
       bgGradient: "linear-gradient(135deg, #0b0f19 0%, #1a2333 50%, #0f1729 100%)",
-      accentColor: "#8b5cf6",
-      textColor: "#f1f5f9",
+      textColor: "#f8fafc",
       subtextColor: "#94a3b8",
-      ringColor: "#8b5cf6",
-      ringGlow: "0 0 24px rgba(139,92,246,0.25)",
+      accentColor: "#8b5cf6",
+      ringColor: "#c084fc",
+      ringGlow: "0 0 25px rgba(139, 92, 246, 0.4)",
       badgeBg: "rgba(139,92,246,0.12)",
       cardBg: "#0f172a",
       fontFamily: "'Pretendard', sans-serif",
@@ -131,13 +144,9 @@ export function VibeCardView({ data }: { data: VibeCardData }) {
 
   return (
     <main
-      className="min-h-screen flex flex-col items-center pb-12"
-      style={{
-        background: css.bgGradient,
-        fontFamily: css.fontFamily,
-      }}
+      className="min-h-screen px-4 py-8 flex flex-col items-center select-none"
+      style={{ background: css.bgGradient, fontFamily: css.fontFamily }}
     >
-      {/* 3종 JSON-LD 구조화 데이터 삽입 */}
       <VibeCardJsonLd
         profile={profile}
         broker={broker}
@@ -147,45 +156,31 @@ export function VibeCardView({ data }: { data: VibeCardData }) {
         slug={slug}
       />
 
-      {/* Header */}
-      <header className="w-full max-w-md mx-auto flex items-center justify-between px-6 py-4">
-        <Link
-          href="/hub"
-          className="text-xs font-semibold hover:opacity-85 transition-opacity py-1.5 px-3 rounded-xl bg-white/5 border border-white/5"
-          style={{ color: css.subtextColor }}
-        >
-          ← Hub
-        </Link>
-
-        <div className="flex items-center gap-2">
-          {broker?.isVerified && (
-            <span
-              className="text-[10px] px-2.5 py-1 rounded-full font-bold border leading-none bg-white/5"
-              style={{
-                color: css.accentColor,
-                borderColor: `${css.accentColor}30`,
-              }}
-            >
-              ✓ 인증 중개사
-            </span>
-          )}
+      <div className="w-full max-w-sm space-y-6">
+        {/* Header Actions */}
+        <div className="flex justify-between items-center px-1">
+          <p
+            className="text-[10px] font-bold uppercase tracking-widest"
+            style={{ color: css.subtextColor, opacity: 0.6 }}
+          >
+            Vibe AI Business Card
+          </p>
           <button
             onClick={() => setShareOpen(true)}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 transition-all text-xs font-semibold flex items-center gap-1"
-            style={{ color: css.textColor }}
-            aria-label="명함 공유"
+            className="p-2 rounded-xl transition-all active:scale-95 border"
+            style={{
+              borderColor: `${css.accentColor}20`,
+              background: `${css.accentColor}08`,
+              color: css.accentColor,
+            }}
+            id="btn-open-share"
           >
-            <Share2 size={13} />
-            공유
+            <Share2 className="w-4 h-4" />
           </button>
         </div>
-      </header>
 
-      {/* Main Content Body */}
-      <div className="w-full max-w-md mx-auto px-4 space-y-6">
-        
         {/* ── 1. Hero Zone (3D Tilt & Flip Card) ── */}
-        <section className="pt-2">
+        <section>
           <VibeCardHero
             profile={profile}
             broker={broker}
@@ -208,51 +203,101 @@ export function VibeCardView({ data }: { data: VibeCardData }) {
           />
         </section>
 
-        {/* ── 3. IM Lite Demo Listing (demo brokers only) ── */}
-        {DEMO_IM_LISTINGS[slug] && (() => {
-          const listing = DEMO_IM_LISTINGS[slug];
-          return (
-            <section>
-              <div
-                className="rounded-2xl border p-4"
-                style={{
-                  borderColor: `${css.accentColor}25`,
-                  background: `linear-gradient(135deg, ${css.accentColor}08, transparent)`,
-                }}
+        {/* ── 3. IM Lite Listings (actual active listings) ── */}
+        {data.imListings && data.imListings.length > 0 && (
+          <section className="space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <span className="text-sm">📄</span>
+              <span
+                className="text-xs font-bold uppercase tracking-wider"
+                style={{ color: css.subtextColor }}
               >
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-lg">📄</span>
-                  <span
-                    className="text-xs font-bold uppercase tracking-wider"
-                    style={{ color: css.subtextColor }}
-                  >
-                    대표 매물 IM Lite
-                  </span>
-                </div>
-                <p className="text-sm font-semibold mb-0.5" style={{ color: css.textColor }}>
-                  {listing.label}
-                </p>
-                <p className="text-xs mb-3" style={{ color: css.subtextColor }}>
-                  {listing.assetType} · {listing.priceBand}
-                </p>
-                <Link
-                  href={`/im-lite/${listing.buildingId}`}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl transition-all hover:opacity-90"
+                보유 매물 IM Lite ({data.imListings.length})
+              </span>
+            </div>
+            <div className="space-y-3">
+              {data.imListings.map((listing, i) => (
+                <div
+                  key={i}
+                  className="rounded-2xl border p-4 transition-all"
                   style={{
-                    background: `${css.accentColor}20`,
-                    color: css.accentColor,
-                    border: `1px solid ${css.accentColor}30`,
+                    borderColor: `${css.accentColor}25`,
+                    background: `linear-gradient(135deg, ${css.accentColor}08, transparent)`,
                   }}
                 >
-                  투자설명서 보기 (7섹션)
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
+                  <p className="text-sm font-semibold mb-0.5" style={{ color: css.textColor }}>
+                    {listing.label}
+                  </p>
+                  <p className="text-xs mb-3" style={{ color: css.subtextColor }}>
+                    {listing.assetType} · {listing.priceBand}
+                  </p>
+                  <Link
+                    href={`/im-lite/${listing.buildingId}`}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl transition-all hover:opacity-90"
+                    style={{
+                      background: `${css.accentColor}20`,
+                      color: css.accentColor,
+                      border: `1px solid ${css.accentColor}30`,
+                    }}
+                  >
+                    투자설명서 보기 (7섹션)
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── 3.5. Latest Weekly Magazine Section ── */}
+        {data.latestMagazine && (
+          <section>
+            <div
+              className="rounded-2xl border p-4 transition-all"
+              style={{
+                borderColor: `${css.accentColor}25`,
+                background: `linear-gradient(135deg, ${css.accentColor}08, transparent)`,
+              }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-lg">📰</span>
+                <span
+                  className="text-xs font-bold uppercase tracking-wider"
+                  style={{ color: css.subtextColor }}
+                >
+                  최신 매거진
+                </span>
               </div>
-            </section>
-          );
-        })()}
+              <p className="text-sm font-semibold mb-0.5" style={{ color: css.textColor }}>
+                {data.latestMagazine.title}
+              </p>
+              <p className="text-xs mb-3" style={{ color: css.subtextColor }}>
+                발행일: {data.latestMagazine.date}
+              </p>
+              <Link
+                href={data.latestMagazine.url}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl transition-all hover:opacity-90"
+                style={{
+                  background: `${css.accentColor}20`,
+                  color: css.accentColor,
+                  border: `1px solid ${css.accentColor}30`,
+                }}
+              >
+                시장 인사이트 읽기
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+          </section>
+        )}
+
+        {/* ── 3.8. Weekly Magazine Subscribe CTA ── */}
+        <section>
+          <SubscribeCard brokerId={slug} source="vibe_card" accentColor={css.accentColor} />
+        </section>
 
         {/* ── 4. Footer Branding ── */}
         <footer className="text-center pt-8 pb-4 space-y-1">

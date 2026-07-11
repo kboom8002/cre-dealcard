@@ -43,7 +43,19 @@ export type MvpEventType =
   | "lease_pipeline_transitioned"
   | "funding_project_created"
   | "booking_hold_created"
-  | "slot_hold_expired";
+  | "slot_hold_expired"
+  | "vibe_card_view"
+  | "vibe_to_im_click"
+  | "vibe_to_magazine_click"
+  | "im_to_vibe_click"
+  | "magazine_to_im_click"
+  | "magazine_to_vibe_click"
+  | "magazine_view"
+  | "magazine_subscribe"
+  | "magazine_distributed"
+  | "im_view_alert_sent"
+  | "hot_lead_detected"
+  | "hot_lead_alert_sent";
 
 /** Known entity types */
 export type MvpEntityType =

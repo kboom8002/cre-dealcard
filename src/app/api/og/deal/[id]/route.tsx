@@ -2,7 +2,10 @@
  * GET /api/og/deal/[id]
  *
  * Dynamic Open Graph image for deal cards.
- * Renders a 1200×630 PNG with building info + DealCard branding.
+ * Renders a 1200×630 PNG with building info + key metrics + DealCard branding.
+ *
+ * Enhanced (C3): includes Cap Rate, WALE, asset type, data quality badge
+ * sourced from the latest mobile_im document.
  */
 import { ImageResponse } from "next/og";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -21,18 +24,33 @@ const REGION_LABELS: Record<string, string> = {
   hongdae: "홍대",
 };
 
+/** Data quality tier → display info */
+function qualityBadge(tier?: string): { label: string; bg: string; fg: string } {
+  switch (tier) {
+    case "verified":
+      return { label: "✅ 검증 완료", bg: "rgba(16, 185, 129, 0.25)", fg: "#6ee7b7" };
+    case "partial":
+      return { label: "🔶 부분 검증", bg: "rgba(245, 158, 11, 0.25)", fg: "#fbbf24" };
+    case "reference":
+      return { label: "📋 참고용", bg: "rgba(59, 130, 246, 0.25)", fg: "#93c5fd" };
+    default:
+      return { label: "📝 초안", bg: "rgba(163, 163, 163, 0.2)", fg: "#a3a3a3" };
+  }
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
 
-  // Fetch building data
+  // Fetch building data + latest IM doc
   let building: Record<string, string | null> | null = null;
   let teaser: Record<string, any> | null = null;
+  let imBody: Record<string, any> | null = null;
   try {
     const supabase = createServiceClient();
-    
+
     // Fetch building info
     const { data: bData } = await supabase
       .from("building_ssot_lite")
@@ -50,9 +68,23 @@ export async function GET(
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-      
+
     if (tData?.body && typeof tData.body === "object") {
       teaser = tData.body;
+    }
+
+    // Fetch latest mobile_im document for rich metrics
+    const { data: imDoc } = await supabase
+      .from("document_objects")
+      .select("body")
+      .eq("building_id", id)
+      .eq("document_type", "mobile_im")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (imDoc?.body && typeof imDoc.body === "object") {
+      imBody = imDoc.body;
     }
   } catch {
     // Fall back to generic image
@@ -61,14 +93,31 @@ export async function GET(
   const region = building?.area_signal ?? "서울";
   const regionLabel = REGION_LABELS[region.toLowerCase()] ?? region;
   const priceBand = building?.price_band ?? "";
-  
+  const assetType = building?.asset_type ?? "";
+
   // Use teaser title or fallback to assetType
-  const displayTitle = teaser?.title || building?.asset_type || "상업용 부동산";
-  
+  const displayTitle = teaser?.title || assetType || "상업용 부동산";
+
   // Use teaser summary or a default
-  const displaySubtitle = teaser?.shortSummary 
-    ? teaser.shortSummary 
+  const displaySubtitle = teaser?.shortSummary
+    ? teaser.shortSummary
     : `${regionLabel} · ${priceBand || "가격 비공개"} · 투자 검토 가능`;
+
+  // Extract metrics from IM document (heroCard or ssot_summary)
+  const heroCard = imBody?.heroCard as Record<string, any> | undefined;
+  const ssotSummary = (imBody?.ssot_summary ?? {}) as Record<string, any>;
+  const capRate = heroCard?.capRateBase ?? null;
+  const readinessScore = imBody?.readiness_score ?? ssotSummary?.readiness_score ?? 0;
+
+  // Data quality badge
+  const dqTier = (imBody?.data_quality_badge?.tier ?? ssotSummary?.data_quality_tier ?? "draft") as string;
+  const badge = qualityBadge(dqTier);
+
+  // Metric pills for the bottom section
+  const metricPills: { label: string; value: string }[] = [];
+  if (assetType) metricPills.push({ label: "유형", value: assetType });
+  if (capRate !== null) metricPills.push({ label: "Cap Rate", value: `${capRate}%` });
+  if (heroCard?.noiBaseBil) metricPills.push({ label: "NOI", value: `${heroCard.noiBaseBil}억` });
 
   return new ImageResponse(
     (
@@ -85,7 +134,7 @@ export async function GET(
           fontFamily: "sans-serif",
         }}
       >
-        {/* Top: badge */}
+        {/* Top: badges */}
         <div
           style={{
             display: "flex",
@@ -121,15 +170,30 @@ export async function GET(
               💰 {priceBand}
             </div>
           )}
+          {/* Data quality badge */}
+          <div
+            style={{
+              background: badge.bg,
+              border: `1px solid ${badge.fg}40`,
+              borderRadius: "8px",
+              padding: "8px 16px",
+              fontSize: 18,
+              color: badge.fg,
+              display: "flex",
+              marginLeft: "auto",
+            }}
+          >
+            {badge.label}
+          </div>
         </div>
 
         {/* Center: main content */}
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          <div style={{ 
-            fontSize: displayTitle.length > 30 ? 42 : 52, 
-            fontWeight: 700, 
-            lineHeight: 1.3, 
-            display: "flex" 
+          <div style={{
+            fontSize: displayTitle.length > 30 ? 42 : 52,
+            fontWeight: 700,
+            lineHeight: 1.3,
+            display: "flex",
           }}>
             {displayTitle}
           </div>
@@ -143,19 +207,35 @@ export async function GET(
           >
             {displaySubtitle}
           </div>
-          <div
-            style={{
-              fontSize: 22,
-              color: "rgba(255, 255, 255, 0.5)",
-              display: "flex",
-              marginTop: "8px",
-            }}
-          >
-            💡 상세 자료는 중개사에게 요청하세요
-          </div>
+
+          {/* Metric pills row */}
+          {metricPills.length > 0 && (
+            <div style={{ display: "flex", gap: "16px", marginTop: "8px" }}>
+              {metricPills.map((pill) => (
+                <div
+                  key={pill.label}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    background: "rgba(255, 255, 255, 0.06)",
+                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    borderRadius: "12px",
+                    padding: "12px 20px",
+                  }}
+                >
+                  <span style={{ fontSize: 14, color: "rgba(255, 255, 255, 0.5)", display: "flex" }}>
+                    {pill.label}
+                  </span>
+                  <span style={{ fontSize: 24, fontWeight: 700, color: "#e0e7ff", display: "flex" }}>
+                    {pill.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Bottom: branding */}
+        {/* Bottom: branding + readiness */}
         <div
           style={{
             display: "flex",
@@ -175,14 +255,27 @@ export async function GET(
           >
             DealCard
           </div>
-          <div
-            style={{
-              fontSize: 18,
-              color: "rgba(255, 255, 255, 0.4)",
-              display: "flex",
-            }}
-          >
-            credeal.net
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            {readinessScore > 0 && (
+              <div
+                style={{
+                  fontSize: 16,
+                  color: readinessScore >= 80 ? "#6ee7b7" : readinessScore >= 50 ? "#fbbf24" : "#a3a3a3",
+                  display: "flex",
+                }}
+              >
+                완성도 {readinessScore}%
+              </div>
+            )}
+            <div
+              style={{
+                fontSize: 18,
+                color: "rgba(255, 255, 255, 0.4)",
+                display: "flex",
+              }}
+            >
+              credeal.net
+            </div>
           </div>
         </div>
       </div>

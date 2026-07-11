@@ -68,7 +68,7 @@ function parseRentRollData(data: any[][]): ParseResult {
 
   // ── 컬럼 인덱스 자동 매칭
   const findCol = (keywords: string[]) =>
-    header.findIndex((h) => keywords.some((k) => h.includes(k)));
+    header.findIndex((h) => h && keywords.some((k) => h.includes(k)));
 
   const rentIdx = findCol(["월임대료", "월세", "임대료", "rent", "월차임"]);
   const depositIdx = findCol(["보증금", "임대보증금", "deposit"]);

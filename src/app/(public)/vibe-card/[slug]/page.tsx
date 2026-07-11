@@ -22,7 +22,7 @@ async function getVibeCardData(slug: string) {
 
   const { data: bpBySlug } = await supabase
     .from("broker_profiles")
-    .select("user_id")
+    .select("user_id, slug")
     .eq("slug", decodedSlug)
     .limit(1)
     .maybeSingle();
@@ -68,12 +68,30 @@ async function getVibeCardData(slug: string) {
     .eq("owner_id", profile.id)
     .eq("status", "public_signal_ready");
 
-  // 5. Resolve VTI metadata
+  // 5. 브로커의 활성 IM 매물 목록 (최대 3건)
+  const { data: imListings } = await supabase
+    .from("building_ssot_lite")
+    .select("id, address, area_signal, asset_type, price_band, photo_urls")
+    .eq("owner_id", profile.id)
+    .in("status", ["public_signal_ready", "active"])
+    .order("updated_at", { ascending: false })
+    .limit(3);
+
+  // 6. 최신 매거진 이슈
+  const { data: latestMag } = await supabase
+    .from("magazine_issues")
+    .select("issue_date, content")
+    .eq("broker_id", bpBySlug?.slug ?? slug)
+    .order("issue_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // 7. Resolve VTI metadata
   const vtiMeta = bp?.vibe_vti
     ? VTI_PROTOTYPES.find((p) => p.meta.type === bp.vibe_vti)?.meta ?? null
     : null;
 
-  // 6. Resolve template
+  // 8. Resolve template
   let template = bp?.vibe_template_id
     ? getTemplateById(bp.vibe_template_id) ?? null
     : null;
@@ -155,6 +173,20 @@ async function getVibeCardData(slug: string) {
       dealCount: dealCount ?? 0,
       activeCount: activeCount ?? 0,
     },
+    imListings: (imListings ?? []).map(b => ({
+      buildingId: b.id,
+      label: b.area_signal
+        ? `${b.area_signal} *** ${b.asset_type || '빌딩'}`
+        : b.address?.replace(/\d+-?\d*/g, '***') || '비공개 매물',
+      priceBand: b.price_band || '가격 비공개',
+      assetType: b.asset_type || '상업용 부동산',
+      photoUrl: b.photo_urls?.[0] || null,
+    })),
+    latestMagazine: latestMag ? {
+      date: latestMag.issue_date,
+      title: (latestMag.content as any)?.headline || '주간 시장 리포트',
+      url: `/magazine/${bpBySlug?.slug ?? slug}/${latestMag.issue_date}`,
+    } : null,
     slug,
   };
 }

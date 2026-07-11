@@ -57,7 +57,8 @@ export interface MobileIMSupplementalInput {
   monthly_rent_total_krw?: number;   // 월세 총액
   vacancy_status?: string;           // 공실 현황 간단 입력
   vacancy_pct?: number;              // 정확한 공실률 (%)
-  photo_urls?: string[];             // 대표 사진 3~5장
+  photo_urls?: string[];             // 대표 사진 최대 12장
+  photo_captions?: Record<number, string>; // 사진별 캡션 (인덱스→설명)
   broker_highlight?: string;         // 브로커 한줄 코멘트
   estimated_yield_pct?: number;      // 예상 수익률
   resolved_address?: string;         // 확정 주소 (지번)
@@ -74,6 +75,27 @@ export interface MobileIMSupplementalInput {
   loan_amount_manwon?: number;      // 융자(채권최고액) (만원)
   loan_bank?: string;               // 융자 은행
   asking_price_manwon?: number;     // 매매가 (만원)
+
+  // ── 물류센터 전용 필드 ──
+  logistics?: {
+    ceiling_height_m?: number;           // 천장고 (m)
+    dock_count?: number;                 // 도크(접안구) 수
+    dock_leveler_count?: number;         // 도크 레벨러 수
+    max_vehicle_ton?: number;            // 접안 가능 최대 차량 (톤)
+    floor_load_ton_m2?: number;          // 바닥 하중 (톤/㎡)
+    cold_storage_area_pyeong?: number;   // 냉동/냉장 면적 (평)
+    cold_storage_type?: 'frozen' | 'chilled' | 'both' | 'none';
+    loading_area_pyeong?: number;        // 하역장 면적 (평)
+    vehicle_access_type?: 'ramp' | 'dock' | 'both';    // 차량 접근 방식
+    fire_rating?: string;                // 내화등급
+    sprinkler?: boolean;                 // 스프링클러 유무
+    column_span_m?: string;              // 기둥 간격 (예: "10x12")
+    power_capacity_kw?: number;          // 전기 용량 (kW)
+    has_office_space?: boolean;          // 사무공간 유무
+    office_area_pyeong?: number;         // 사무공간 면적 (평)
+    distance_to_ic_km?: number;          // 최근접 IC 거리 (km)
+    ic_name?: string;                    // IC명
+  };
 }
 
 export interface MobileIMSection {
@@ -84,6 +106,7 @@ export interface MobileIMSection {
   confidence: "confirmed" | "inferred" | "needs_check";
   boundary_note: string;
   provenance?: DataPointProvenance[];
+  judge_score?: number;
 }
 
 export interface MobileIMLiteGateResult {
@@ -131,6 +154,21 @@ export interface ExternalDataSnapshot {
   registryData?: import('../../../lib/external/registry-api').RegistryData | null;
   /** 상권 분석 API (SEMAS) 결과 */
   commercialDistrict?: import('../../../lib/external/semas-commercial-api').CommercialDistrictAnalysis | null;
+}
+
+/** Hero Card: 핵심 투자 지표 요약 (IM 상단 표시용) */
+export interface HeroCardData {
+  assetType: string;
+  areaSignal: string;
+  askingPriceDisplay: string;   // e.g. "120억 원"
+  capRateBase: number | null;   // % (e.g. 4.2)
+  noiBaseBil: number | null;    // 억원
+  keyInvestmentPoint: string;   // 핵심 투자 포인트 1줄
+  keyRisk: string;              // 핵심 리스크 1줄
+  equityRequiredBil: number | null; // 자기자본 소요 (억원)
+  leveragedYieldPct: number | null; // 레버리지 수익률 (%)
+  readinessScore: number;       // SSoT 완성도 (0-100)
+  dcf10YearNpvBil: number | null; // 10년 DCF NPV (억원)
 }
 
 /** 데이터 출처 포인트 (section 내 출처 배지 표시용) */

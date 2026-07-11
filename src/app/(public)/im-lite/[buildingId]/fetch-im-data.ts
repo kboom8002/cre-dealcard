@@ -140,11 +140,12 @@ export async function fetchIMData(
           description: "렌트롤, 캐시플로우, 도면 등이 포함된 30페이지 분량의 Full IM은 중개인 승인 후 열람 가능합니다.",
         },
         protectedFieldsRemoved: ["상세 지번", "건물명", "소유주명"],
-        photos: (document.body.photo_urls || []).map((url: string, i: number) => ({
-          url,
-          type: i === 0 ? 'exterior' : 'interior',
-          label: i === 0 ? '건물 외관' : `건물 사진 ${i + 1}`,
-        })),
+        photos: document.body.photos
+          ?? (document.body.photo_urls || []).map((url: string, i: number) => ({
+            url,
+            type: i === 0 ? 'exterior' as const : 'interior' as const,
+            label: i === 0 ? '건물 외관' : `건물 사진 ${i + 1}`,
+          })),
         coordinates: document.body.coordinates || undefined,
         dataQualityBadge: computeDataQualityBadge({
           hasAddress: !!(document.body.external_data || ssotSummary.address || ssotSummary.raw_address),
@@ -153,6 +154,18 @@ export async function fetchIMData(
           hasVacancy: !!ssotSummary.vacancy_signal || !!ssotSummary.vacancy_pct,
           hasPhotos: (document.body.photo_urls || []).length > 0,
         }),
+        // [C1] Hero Card
+        heroCard: document.body.heroCard ?? undefined,
+        // [C2] DCF 10년 민감도
+        dcf10Year: document.body.dcf10Year ?? undefined,
+        // [C4] 레버리지 자금 구조
+        financials: document.body.financials ? {
+          equityRequiredBil: document.body.financials.equityRequired ?? null,
+          totalDepositBil: document.body.financials.totalDepositBil ?? null,
+          loanAmountBil: document.body.financials.loanAmountBil ?? null,
+          leveragedYieldPct: document.body.financials.leveragedYield ?? null,
+          waccPct: document.body.financials.wacc ? parseFloat((document.body.financials.wacc * 100).toFixed(1)) : null,
+        } : undefined,
       };
     }
   }

@@ -76,6 +76,7 @@ export function ImDataBottomSheet({
   // Photo states
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [photoPreviewUrls, setPhotoPreviewUrls] = useState<string[]>([]);
+  const [photoCaptions, setPhotoCaptions] = useState<Record<number, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [readinessScore, setReadinessScore] = useState(0);
@@ -151,6 +152,7 @@ export function ImDataBottomSheet({
         broker_highlight: brokerHighlight || undefined,
         direct_data: Object.keys(directData).length > 0 ? directData : undefined,
         photo_urls: uploadedPhotoUrls.length > 0 ? uploadedPhotoUrls : undefined,
+        photo_captions: Object.keys(photoCaptions).length > 0 ? photoCaptions : undefined,
       });
 
       if (res.success && res.url) {
@@ -488,30 +490,47 @@ export function ImDataBottomSheet({
           {/* Photos */}
           <div>
             <label className="block text-xs font-semibold text-muted-foreground mb-1.5 flex justify-between items-center">
-              <span>📸 건물 대표 사진 (최대 5장)</span>
+              <span>📸 건물 대표 사진 (최대 12장)</span>
               <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">점수 +10</span>
             </label>
             <div className="flex gap-2 overflow-x-auto pb-2 snap-x">
               {photoPreviewUrls.map((url, idx) => (
-                <div key={idx} className="relative shrink-0 snap-start">
-                  <img src={url} alt={`Preview ${idx}`} className="w-20 h-20 object-cover rounded-lg border border-border" />
-                  <button
-                    onClick={() => {
-                      const newFiles = [...photoFiles];
-                      newFiles.splice(idx, 1);
-                      setPhotoFiles(newFiles);
-                      const newUrls = [...photoPreviewUrls];
-                      URL.revokeObjectURL(newUrls[idx]);
-                      newUrls.splice(idx, 1);
-                      setPhotoPreviewUrls(newUrls);
-                    }}
-                    className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow"
-                  >
-                    ×
-                  </button>
+                <div key={idx} className="shrink-0 snap-start flex flex-col items-center gap-1">
+                  <div className="relative">
+                    <img src={url} alt={`Preview ${idx}`} className="w-20 h-20 object-cover rounded-lg border border-border" />
+                    <button
+                      onClick={() => {
+                        const newFiles = [...photoFiles];
+                        newFiles.splice(idx, 1);
+                        setPhotoFiles(newFiles);
+                        const newUrls = [...photoPreviewUrls];
+                        URL.revokeObjectURL(newUrls[idx]);
+                        newUrls.splice(idx, 1);
+                        setPhotoPreviewUrls(newUrls);
+                        // Reindex captions
+                        const newCaptions: Record<number, string> = {};
+                        Object.entries(photoCaptions).forEach(([k, v]) => {
+                          const ki = parseInt(k);
+                          if (ki < idx) newCaptions[ki] = v;
+                          else if (ki > idx) newCaptions[ki - 1] = v;
+                        });
+                        setPhotoCaptions(newCaptions);
+                      }}
+                      className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="설명"
+                    value={photoCaptions[idx] || ''}
+                    onChange={(e) => setPhotoCaptions(prev => ({ ...prev, [idx]: e.target.value }))}
+                    className="w-20 text-[10px] px-1 py-0.5 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
+                  />
                 </div>
               ))}
-              {photoFiles.length < 5 && (
+              {photoFiles.length < 12 && (
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="w-20 h-20 shrink-0 snap-start rounded-lg border-2 border-dashed border-border/60 hover:border-primary/50 flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors bg-secondary/30"

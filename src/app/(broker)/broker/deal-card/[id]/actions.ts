@@ -25,6 +25,7 @@ export async function createMobileIMAction(
     mgmt_fee_total_manwon?: number;
     loan_amount_manwon?: number;
     asking_price_manwon?: number;
+    photo_captions?: Record<number, string>;
   }
 ) {
   try {
@@ -43,6 +44,7 @@ export async function createMobileIMAction(
       resolved_address: options?.resolved_address,
       resolved_pnu: options?.resolved_pnu,
       photo_urls: options?.photo_urls ?? [],
+      photo_captions: options?.photo_captions,
       broker_highlight: options?.broker_highlight,
       estimated_yield_pct: options?.estimated_yield_pct,
       total_deposit_manwon: options?.total_deposit_manwon,

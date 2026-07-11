@@ -35,6 +35,8 @@ export interface FinancialOutputs {
   pricePerSqm: number | null;
   pricePerPyeong: number | null;
   landValueRatio: number | null;
+  /** landValueRatio가 null인 경우 표시할 안내 문구 (대지면적 미확보 시) */
+  landValueRatioNote: string | null;
   yieldOnCost: number | null;
   totalDepositBil: number | null;
   loanAmountBil: number | null;
@@ -115,24 +117,29 @@ export function calculateFinancials(inputs: FinancialInputs): FinancialOutputs {
     };
   }
 
-  // 5년 IRR (진입 Cap Rate로 매각가 추정)
+  // 5년 IRR — 시나리오별 Exit Cap Rate 차등 적용 (시장 관행 보수 반영)
+  // Best: Entry+25bp (낙관 / 유동성 프리미엄 시장), Base: Entry+50bp, Worst: Entry+100bp (침체기)
   let irr5Year: { best: number; base: number; worst: number } | null = null;
   if (purchasePriceKrw > 0 && noiBase > 0) {
-    // Exit cap rate: entry cap + 50bp spread (시장 관행 반영)
-    const exitCapRate = capRate ? (capRate.base + 0.5) / 100 : 0.04;
-    const buildCFs = (startNoi: number, growth: number): number[] => {
+    const entryCapBase = capRate ? capRate.base / 100 : 0.04;
+    const exitCapBest  = entryCapBase + 0.0025; // +25bp
+    const exitCapBase  = entryCapBase + 0.005;  // +50bp
+    const exitCapWorst = entryCapBase + 0.01;   // +100bp
+
+    // A2: exitCap을 파라미터로 받도록 수정 (시나리오별 독립 계산)
+    const buildCFs = (startNoi: number, growth: number, exitCap: number): number[] => {
       const cfs = [-purchasePriceKrw];
       for (let y = 1; y <= holdYears; y++) {
         const periodNoi = startNoi * Math.pow(1 + growth, y - 1);
-        const exitValue = y === holdYears ? periodNoi / exitCapRate : 0;
+        const exitValue = y === holdYears ? periodNoi / exitCap : 0;
         cfs.push(periodNoi + exitValue);
       }
       return cfs;
     };
 
-    const irrBase  = calculateIRR(buildCFs(noiBase,  rentGrowth));
-    const irrBest  = calculateIRR(buildCFs(noiBest,  rentGrowth + 0.01));
-    const irrWorst = calculateIRR(buildCFs(noiWorst, Math.max(0, rentGrowth - 0.01)));
+    const irrBase  = calculateIRR(buildCFs(noiBase,  rentGrowth,          exitCapBase));
+    const irrBest  = calculateIRR(buildCFs(noiBest,  rentGrowth + 0.01,   exitCapBest));
+    const irrWorst = calculateIRR(buildCFs(noiWorst, Math.max(0, rentGrowth - 0.01), exitCapWorst));
 
     if (irrBase !== null) {
       irr5Year = {
@@ -149,12 +156,21 @@ export function calculateFinancials(inputs: FinancialInputs): FinancialOutputs {
   const pricePerPyeong = pricePerSqm ? Math.round(pricePerSqm * 3.30578) : null;
 
   // 대지 가치 비중 (공시지가 × 대지면적 / 매매가)
-  // platAreaSqm(대지면적)이 없으면 산정 불가 (연면적으로 폴백 시 과대산정 방지)
+  // [A1] platAreaSqm(대지면적)이 없으면 산정 불가 — 연면적 폴백 완전 금지
+  // 다층 건물에서 연면적 > 대지면적이므로 폴백 시 수백억 원 과대산정 발생
   const landPriceTotal = platAreaSqm && landPricePerSqm
     ? platAreaSqm * landPricePerSqm
     : 0;
   const landValueRatio = (purchasePriceKrw > 0 && landPriceTotal > 0 && platAreaSqm)
     ? parseFloat(((landPriceTotal / purchasePriceKrw) * 100).toFixed(1))
+    : null;
+  // landValueRatio가 null인 경우 UI에 표시할 안내 문구
+  const landValueRatioNote: string | null = landValueRatio === null
+    ? !platAreaSqm
+      ? "대지가치 미산출 — 대지면적(공부 확인 필요)"
+      : !landPricePerSqm
+        ? "대지가치 미산출 — 공시지가 데이터 확인 필요"
+        : null
     : null;
 
   // 총 수익률 (Gross Yield)
@@ -208,6 +224,7 @@ export function calculateFinancials(inputs: FinancialInputs): FinancialOutputs {
     pricePerSqm,
     pricePerPyeong,
     landValueRatio,
+    landValueRatioNote,
     yieldOnCost,
     totalDepositBil,
     loanAmountBil,
@@ -244,6 +261,9 @@ export function formatFinancialsMarkdown(f: FinancialOutputs): string {
   }
   if (f.landValueRatio !== null) {
     rows.push(`| **대지 지분 가치 비중** | **${f.landValueRatio}%** | 하방 경직성 지표 |`);
+  } else if (f.landValueRatioNote) {
+    // [A1] 대지면적 미확보 시 빈칸 대신 명시적 안내 표시
+    rows.push(`| **대지 지분 가치 비중** | ⚠️ ${f.landValueRatioNote} | 공부 원본 확인 후 산출 |`);
   }
   if (f.totalDepositBil !== null) {
     rows.push(`| **보증금 합계** | **${f.totalDepositBil}억 원** | 브로커 제공 |`);
