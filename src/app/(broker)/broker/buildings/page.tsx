@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { createServiceClient } from "@/lib/supabase/service";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { BuildingsListClient } from "./BuildingsListClient";
 
 export const metadata: Metadata = {
@@ -12,20 +12,32 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function BuildingsPage() {
-  const supabase = createServiceClient();
+  const supabase = await createServerSupabaseClient();
+
+  // 현재 로그인한 사용자 확인
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return (
+      <main className="flex items-center justify-center min-h-screen bg-neutral-950 text-neutral-100">
+        <p>로그인이 필요합니다.</p>
+      </main>
+    );
+  }
 
   const { data: buildings } = await supabase
     .from("building_ssot_lite")
     .select(
       "id, area_signal, asset_type, price_band, status, matched_buyer_count, promotion_score, vacancy_signal, created_at"
     )
+    .eq("owner_id", user.id)
     .order("promotion_score", { ascending: false, nullsFirst: false });
 
-  // 모바일 IM 문서 목록 조회
+  // 모바일 IM 문서 목록 조회 — 로그인한 중개인 것만
   const { data: imDocs } = await supabase
     .from("document_objects")
     .select("id, building_id, status, created_at, updated_at")
     .in("document_type", ["im_lite_draft", "mobile_im", "blind_teaser"])
+    .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
 
   // IM 데이터에 빌딩 정보 매핑
