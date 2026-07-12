@@ -29,31 +29,38 @@ export async function fetchBuildingRegister(
   const apiKey = process.env.DATA_GO_KR_API_KEY;
 
   if (apiKey && apiKey !== "") {
-    try {
-      const url = `https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo?ServiceKey=${apiKey}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=0&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-      if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`);
-      const data = await res.json();
+    // 두 엔드포인트 시도: HubService(신규) → v2(기존) fallback
+    const endpoints = [
+      `https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo?ServiceKey=${apiKey}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=0&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`,
+      `https://apis.data.go.kr/1613000/BldRgstService_v2/getBrTitleInfo?ServiceKey=${apiKey}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`,
+    ];
 
-      const item = data?.response?.body?.items?.item;
-      const targetItem = Array.isArray(item) ? item[0] : item;
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        if (!res.ok) continue;
+        const data = await res.json();
 
-      if (targetItem) {
-        return {
-          totalArea: parseFloat(targetItem.totArea || "0"),
-          platArea: parseFloat(targetItem.platArea || "0"),
-          useAprDay: String(targetItem.useAprDay || "20150601"),
-          mainPurpose: String(targetItem.mainPurpsCdNm || "업무시설"),
-          structure: String(targetItem.strctCdNm || "철근콘크리트구조"),
-          floorsAbove: parseInt(targetItem.grndFlrCnt || "0", 10),
-          floorsBelow: parseInt(targetItem.ugrndFlrCnt || "0", 10),
-          bcRat: parseFloat(targetItem.bcRat || "0"),
-          vlRat: parseFloat(targetItem.vlRat || "0"),
-          buildingName: targetItem.bldNm || "",
-        };
+        const item = data?.response?.body?.items?.item;
+        const targetItem = Array.isArray(item) ? item[0] : item;
+
+        if (targetItem && targetItem.totArea) {
+          return {
+            totalArea: parseFloat(targetItem.totArea || "0"),
+            platArea: parseFloat(targetItem.platArea || "0"),
+            useAprDay: String(targetItem.useAprDay || "20150601"),
+            mainPurpose: String(targetItem.mainPurpsCdNm || "업무시설"),
+            structure: String(targetItem.strctCdNm || "철근콘크리트구조"),
+            floorsAbove: parseInt(targetItem.grndFlrCnt || "0", 10),
+            floorsBelow: parseInt(targetItem.ugrndFlrCnt || "0", 10),
+            bcRat: parseFloat(targetItem.bcRat || "0"),
+            vlRat: parseFloat(targetItem.vlRat || "0"),
+            buildingName: targetItem.bldNm || "",
+          };
+        }
+      } catch (err) {
+        console.warn("[building-register-api] endpoint failed, trying next:", err);
       }
-    } catch (err) {
-      console.warn("[building-register-api] API failed, using deterministic fallback:", err);
     }
   }
 
@@ -80,28 +87,34 @@ export async function fetchBuildingRecap(
   const apiKey = process.env.DATA_GO_KR_API_KEY;
 
   if (apiKey && apiKey !== "") {
-    try {
-      const url = `https://apis.data.go.kr/1613000/BldRgstHubService/getBrRecapTitleInfo?ServiceKey=${apiKey}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=0&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-      if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`);
-      const data = await res.json();
+    const endpoints = [
+      `https://apis.data.go.kr/1613000/BldRgstHubService/getBrRecapTitleInfo?ServiceKey=${apiKey}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=0&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`,
+      `https://apis.data.go.kr/1613000/BldRgstService_v2/getBrRecapTitleInfo?ServiceKey=${apiKey}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`,
+    ];
 
-      const item = data?.response?.body?.items?.item;
-      const row = Array.isArray(item) ? item[0] : item;
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        if (!res.ok) continue;
+        const data = await res.json();
 
-      if (row) {
-        return {
-          archArea: parseFloat(row.archArea || "0"),
-          rideUseElvtCnt: parseInt(row.rideUseElvtCnt || "0", 10),
-          emgenUseElvtCnt: parseInt(row.emgenUseElvtCnt || "0", 10),
-          indrAutoUtcnt: parseInt(row.indrAutoUtcnt || "0", 10),
-          oudrAutoUtcnt: parseInt(row.oudrAutoUtcnt || "0", 10),
-          indrMechUtcnt: parseInt(row.indrMechUtcnt || "0", 10),
-          heatMethodNm: String(row.heatMthdCdNm || ""),
-        };
+        const item = data?.response?.body?.items?.item;
+        const row = Array.isArray(item) ? item[0] : item;
+
+        if (row && row.archArea) {
+          return {
+            archArea: parseFloat(row.archArea || "0"),
+            rideUseElvtCnt: parseInt(row.rideUseElvtCnt || "0", 10),
+            emgenUseElvtCnt: parseInt(row.emgenUseElvtCnt || "0", 10),
+            indrAutoUtcnt: parseInt(row.indrAutoUtcnt || "0", 10),
+            oudrAutoUtcnt: parseInt(row.oudrAutoUtcnt || "0", 10),
+            indrMechUtcnt: parseInt(row.indrMechUtcnt || "0", 10),
+            heatMethodNm: String(row.heatMthdCdNm || ""),
+          };
+        }
+      } catch (err) {
+        console.warn("[building-register-api] Recap endpoint failed, trying next:", err);
       }
-    } catch (err) {
-      console.warn("[building-register-api] Recap API failed:", err);
     }
   }
 
