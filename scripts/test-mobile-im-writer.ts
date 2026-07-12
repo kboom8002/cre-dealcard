@@ -83,10 +83,12 @@ async function runTest() {
         distanceM: 520,
       },
       poiCounts: {
-        food: 234,
+        subway: 1,
+        busStop: 5,
         cafe: 156,
+        parking: 8,
+        restaurant: 234,
         convenience: 45,
-        bank: 12,
       },
     },
     resolvedAddress: {

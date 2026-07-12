@@ -95,10 +95,10 @@ const SECTIONS = [
         bg: "bg-emerald-500/10",
       },
       {
-        href: "/broker/my-card",
+        href: "/broker/profile",
         icon: CreditCard,
         title: "Vibe AI 명함",
-        desc: "프로필 사진 Vibe 분석 → 상보 배경 명함 생성",
+        desc: "내 Vibe 명함 보기 · 프로필 편집",
         color: "text-cyan-400",
         bg: "bg-cyan-500/10",
       },

@@ -69,6 +69,7 @@ export default async function BrokerPage() {
     marketIndicatorRes,
     activityEventsRes,
     todayBookingsRes,
+    { data: brokerProfileData },
   ] = await Promise.all([
     supabase
       .from("building_ssot_lite")
@@ -126,7 +127,13 @@ export default async function BrokerPage() {
       `)
       .in("status", ["hold", "confirmed"])
       .eq("slot.slot_date", new Date(new Date().getTime() + 9 * 60 * 60 * 1000).toISOString().split("T")[0])
-      .order("slot.slot_start", { ascending: true })
+      .order("slot.slot_start", { ascending: true }),
+    // Vibe Card slug 조회
+    supabase
+      .from("broker_profiles")
+      .select("slug")
+      .eq("user_id", user.id)
+      .maybeSingle(),
   ]);
 
   const sMatchCount =
@@ -453,14 +460,14 @@ export default async function BrokerPage() {
             </div>
           </Link>
           <Link
-            href="/broker/my-card/new"
+            href={brokerProfileData?.slug ? `/vibe-card/${brokerProfileData.slug}` : "/broker/profile"}
             id="quick-action-vibe-card"
             className="flex items-center gap-2.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 hover:bg-purple-500/20 active:scale-95 transition-all"
           >
             <span className="text-xl">✨</span>
             <div>
               <p className="text-xs font-bold text-purple-400 leading-tight">Vibe 명함</p>
-              <p className="text-[10px] text-muted-foreground">내 중개인 프로필</p>
+              <p className="text-[10px] text-muted-foreground">{brokerProfileData?.slug ? "내 Vibe 명함 보기" : "프로필 설정하기"}</p>
             </div>
           </Link>
         </div>
