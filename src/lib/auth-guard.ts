@@ -166,10 +166,30 @@ export async function requireRole(
 
 /**
  * Convenience: require broker or admin role.
- * TEMP: treating public_user as broker since we only allow brokers for now.
+ * ALPHA: 알파 테스트 기간 동안 인증된 모든 사용자 허용.
+ * role이 null이거나 프로파일이 없는 경우 broker로 자동 업그레이드.
  */
-export function requireBroker(req: NextRequest) {
-  return requireRole(req, ['broker', 'admin', 'public_user']);
+export async function requireBroker(req: NextRequest): Promise<AuthGuardResult> {
+  const result = await verifyAuth(req);
+  if (result.error) return result; // 미인증만 차단
+
+  // ALPHA: role이 없거나 null이면 자동으로 broker 업그레이드
+  if (!result.role || !['broker', 'admin', 'public_user', 'expert'].includes(result.role)) {
+    console.warn(`[auth-guard][ALPHA] Auto-upgrading user ${result.user?.id} from role=${result.role} to broker`);
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const { env } = await import('@/lib/env');
+    if (serviceKey && result.user?.id) {
+      const serviceClient = createClient(env.NEXT_PUBLIC_SUPABASE_URL, serviceKey, { auth: { persistSession: false } });
+      // upsert: 프로파일이 없으면 생성, 있으면 role 업데이트
+      await serviceClient.from('profiles')
+        .upsert({ id: result.user.id, role: 'broker', display_name: result.user.email?.split('@')[0] ?? 'user' })
+        .eq('id', result.user.id);
+    }
+    // 업그레이드 후 허용
+    return { ...result, role: 'broker', error: null };
+  }
+
+  return result;
 }
 
 /**

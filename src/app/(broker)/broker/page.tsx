@@ -36,19 +36,19 @@ export default async function BrokerPage() {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "admin") {
-    const { data: onboardingSession } = await supabase
-      .from("onboarding_sessions")
-      .select("completed_at")
-      .eq("user_id", user.id)
-      .not("completed_at", "is", null)
-      .limit(1)
-      .maybeSingle();
-
-    if (!onboardingSession) {
-      redirect("/onboarding");
-    }
-  }
+  // ALPHA: \uc54c\ud30c \ud14c\uc2a4\ud2b8 \uae30\uac04 \ub3d9\uc548 \uc628\ubcf4\ub529 \uac8c\uc774\ud2b8 \ube44\ud65c\uc131\ud654
+  // if (profile?.role !== "admin") {
+  //   const { data: onboardingSession } = await supabase
+  //     .from("onboarding_sessions")
+  //     .select("completed_at")
+  //     .eq("user_id", user.id)
+  //     .not("completed_at", "is", null)
+  //     .limit(1)
+  //     .maybeSingle();
+  //   if (!onboardingSession) {
+  //     redirect("/onboarding");
+  //   }
+  // }
 
   const userName = user.user_metadata?.full_name || user.email?.split("@")[0] || "중개인";
 
