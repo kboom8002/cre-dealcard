@@ -90,7 +90,24 @@ export interface VibeCardHeroProps {
   logoPartnerUrl?: string;
   /** 이메일 주소 */
   email?: string;
+  /** 최신 매거진 (카드 뒷면에 표시) */
+  latestMagazine?: {
+    date: string;
+    headline: string;
+    url: string;
+    marketTemp?: string;
+  } | null;
 }
+
+// ── Market Temperature Config ────────────────────────
+
+const MARKET_TEMP_MAP: Record<string, { emoji: string; color: string; label: string }> = {
+  '적극 매수': { emoji: '🔥', color: '#ef4444', label: '적극 매수' },
+  '선별 매수': { emoji: '📈', color: '#f59e0b', label: '선별 매수' },
+  '관망':      { emoji: '⏸️', color: '#6b7280', label: '관망' },
+  '조정 대기': { emoji: '📉', color: '#3b82f6', label: '조정 대기' },
+  '위기 경계': { emoji: '🚨', color: '#dc2626', label: '위기 경계' },
+};
 
 // ── Contact Row ──────────────────────────────────────
 
@@ -148,6 +165,7 @@ export function VibeCardHero({
   logoCompanyUrl,
   logoPartnerUrl,
   email,
+  latestMagazine,
 }: VibeCardHeroProps) {
   // Use template CSS or default dark theme
   const css = useMemo(() => {
@@ -400,8 +418,118 @@ export function VibeCardHero({
     </VibeBackground>
   );
 
-  // Card Back Face — Professional Details
-  const renderBack = () => (
+  // Card Back Face — Magazine Cover or Professional Details
+  const renderMagazineBack = () => (
+    <VibeBackground
+      css={css}
+      className="relative rounded-3xl overflow-hidden shadow-2xl border border-white/5 flex flex-col justify-between min-h-[520px]"
+    >
+      {/* Hologram Reflection Overlay */}
+      <motion.div
+        className="absolute inset-0 pointer-events-none mix-blend-color-dodge z-10"
+        style={{
+          background: useTransform(
+            [sheenX, sheenY],
+            ([sx, sy]) =>
+              `radial-gradient(circle at ${sx}% ${sy}%, rgba(255, 255, 255, 0.12) 0%, transparent 60%),
+               linear-gradient(${sx}deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0) 70%)`
+          ),
+        }}
+      />
+
+      {/* ── 1. Header ── */}
+      <div className="pt-8 pb-3 px-6 text-center">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-wide" style={{ backgroundColor: `${css.accentColor}15`, color: css.accentColor }}>
+          📰 주간 CRE 리포트
+        </div>
+        <h2 className="mt-3 text-lg font-bold" style={{ color: css.textColor }}>
+          {profile.displayName}의 마켓 인사이트
+        </h2>
+      </div>
+
+      {/* ── 2. Market Temperature Badge ── */}
+      {latestMagazine?.marketTemp && MARKET_TEMP_MAP[latestMagazine.marketTemp] && (
+        <div className="px-6 pb-2 flex justify-center">
+          <div
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border backdrop-blur-md"
+            style={{
+              backgroundColor: `${MARKET_TEMP_MAP[latestMagazine.marketTemp].color}10`,
+              borderColor: `${MARKET_TEMP_MAP[latestMagazine.marketTemp].color}30`,
+            }}
+          >
+            <span className="text-lg">{MARKET_TEMP_MAP[latestMagazine.marketTemp].emoji}</span>
+            <span className="text-xs font-bold" style={{ color: MARKET_TEMP_MAP[latestMagazine.marketTemp].color }}>
+              시장 온도: {MARKET_TEMP_MAP[latestMagazine.marketTemp].label}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ── 3. Headline ── */}
+      <div className="px-6 pb-3 flex-1">
+        <div
+          className="rounded-2xl p-5 border border-white/5 backdrop-blur-md"
+          style={{ backgroundColor: "rgba(0, 0, 0, 0.15)" }}
+        >
+          <p className="text-sm font-bold leading-relaxed line-clamp-3" style={{ color: css.textColor }}>
+            &ldquo;{latestMagazine!.headline}&rdquo;
+          </p>
+          <p className="mt-3 text-[10px] font-medium opacity-60" style={{ color: css.subtextColor }}>
+            📅 {latestMagazine!.date}
+          </p>
+        </div>
+
+        {/* CTA Button */}
+        <a
+          href={latestMagazine!.url}
+          className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90"
+          style={{
+            background: `linear-gradient(135deg, ${css.accentColor}, ${css.ringColor || css.accentColor})`,
+            color: "#fff",
+            boxShadow: `0 4px 16px ${css.accentColor}40`,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          📖 매거진 읽기
+        </a>
+      </div>
+
+      {/* ── 4. Logo Overlay ── */}
+      <div className="px-6 pt-2 pb-4 flex items-end justify-between relative z-20">
+        <div className="w-[80px] h-[36px] relative opacity-70">
+          <Image
+            src={companyLogo}
+            alt="회사 로고"
+            fill
+            className="object-contain object-left"
+            sizes="80px"
+          />
+        </div>
+        <div className="w-[80px] h-[36px] relative opacity-70">
+          <Image
+            src={partnerLogo}
+            alt="제휴사 로고"
+            fill
+            className="object-contain object-right"
+            sizes="80px"
+          />
+        </div>
+      </div>
+
+      {/* ── 5. Footer ── */}
+      <div
+        className="px-6 py-2.5 flex items-center justify-center text-[9px] font-medium tracking-wide"
+        style={{ borderTop: `1px solid ${css.accentColor}10` }}
+      >
+        <span className="opacity-40">
+          Powered by <span className="font-bold" style={{ color: css.textColor }}>DealCard</span>
+        </span>
+      </div>
+    </VibeBackground>
+  );
+
+  // Card Back Face — Professional Details (Fallback)
+  const renderProfessionalBack = () => (
     <VibeBackground
       css={css}
       className="relative rounded-3xl overflow-hidden shadow-2xl border border-white/5 flex flex-col justify-between min-h-[520px]"
@@ -596,6 +724,9 @@ export function VibeCardHero({
       </div>
     </VibeBackground>
   );
+
+  // Choose back face based on magazine availability
+  const renderBack = () => latestMagazine ? renderMagazineBack() : renderProfessionalBack();
 
   return (
     <div className="w-full max-w-sm mx-auto">

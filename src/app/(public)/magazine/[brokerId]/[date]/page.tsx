@@ -95,5 +95,19 @@ export default async function MagazinePage({ params }: PageProps) {
 
   if (!data) return notFound();
 
-  return <MagazineView data={data} brokerId={brokerId} date={date} />;
+  // Fetch broker vibe/logo data for VibeCardHero
+  let brokerVibe: Record<string, any> | null = null;
+  try {
+    const supabase = createServiceClient();
+    const { data: bp } = await supabase
+      .from("broker_profiles")
+      .select("slug, vibe_vector, vibe_vti, vibe_complement, vibe_template_id, vibe_valence, vibe_trust, vibe_analyzed_at, logo_company_url, logo_partner_url, specialty_regions, specialty_assets, bio")
+      .eq("slug", brokerId)
+      .maybeSingle();
+    brokerVibe = bp;
+  } catch {
+    // non-blocking
+  }
+
+  return <MagazineView data={data} brokerId={brokerId} date={date} brokerVibe={brokerVibe} />;
 }

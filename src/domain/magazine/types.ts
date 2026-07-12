@@ -52,6 +52,7 @@ export type EditionStatus =
   | 'draft'
   | 'editing'
   | 'review'
+  | 'needs_review'
   | 'scheduled'
   | 'published'
   | 'archived';

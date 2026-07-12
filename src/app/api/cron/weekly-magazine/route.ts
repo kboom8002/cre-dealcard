@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { generateWeeklyMagazine } from "@/domain/magazine/weekly-generator";
+import { distributeMagazine } from "@/domain/magazine/distribute-magazine";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,23 +54,39 @@ export async function GET(request: NextRequest) {
   }
 
   // ── 브로커별 매거진 생성 ──
-  const results: { broker_id: string; slug: string; success: boolean; error?: string }[] = [];
+  const results: { broker_id: string; slug: string; success: boolean; error?: string; distributed?: { sent: number; failed: number } }[] = [];
 
   for (const broker of brokers) {
     try {
-      await generateWeeklyMagazine({
+      const edition = await generateWeeklyMagazine({
         supabase,
         brokerId: broker.slug,
         editionType: "weekly",
         editionLabel,
       });
-      results.push({ broker_id: broker.user_id, slug: broker.slug, success: true });
+
+      // 생성 후 구독자에게 배포
+      let distResult = { sent: 0, failed: 0 };
+      try {
+        distResult = await distributeMagazine(supabase, broker.slug, {
+          title: edition.title ?? `${editionLabel} 주간 리포트`,
+          date: new Date().toISOString().slice(0, 10),
+          headline: (edition.content as any)?.headline,
+        });
+      } catch (distErr: unknown) {
+        const msg = distErr instanceof Error ? distErr.message : 'unknown';
+        console.warn(`[cron] 배포 실패 (non-blocking): ${broker.slug}`, msg);
+      }
+
+      results.push({
+        broker_id: broker.user_id,
+        slug: broker.slug,
+        success: true,
+        distributed: distResult,
+      });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "알 수 없는 오류";
-      console.error(
-        `[cron/weekly-magazine] 브로커 ${broker.slug} 실패:`,
-        message,
-      );
+      console.error(`[cron/weekly-magazine] 브로커 ${broker.slug} 실패:`, message);
       results.push({
         broker_id: broker.user_id,
         slug: broker.slug,

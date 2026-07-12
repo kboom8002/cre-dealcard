@@ -7,6 +7,8 @@ import Script from "next/script";
 import type { MobileIMDocument, MobileIMSection } from "@/lib/demo/mobile-im-demo-data";
 import { getTemplateById } from "@/lib/vibe/vibe-templates";
 import { SubscribeCard } from "@/components/magazine/SubscribeCard";
+import { VibeCardHero } from "@/components/vibe-card/VibeCardHero";
+import { VTI_PROTOTYPES } from "@/lib/vibe/vibe-vector";
 import { HeroCard } from "./hero-card";
 import { DCFHeatmap } from "./dcf-heatmap";
 import { LeverageChart } from "./leverage-chart";
@@ -1534,74 +1536,81 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
           </div>
         )}
 
-        {/* ── Broker Profile Card ── */}
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5 mb-8">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4">
-            담당 중개인
-          </h2>
-          <div className="flex items-center gap-4 mb-4">
-            <div
-              className="relative w-14 h-14 rounded-full overflow-hidden border-2 shrink-0"
-              style={{ borderColor: accentColor, boxShadow: vibeCss?.ringGlow }}
-            >
-              {doc.broker.photoUrl && doc.broker.photoUrl !== "/default-avatar.png" ? (
-                <Image
-                  src={doc.broker.photoUrl}
-                  alt={doc.broker.displayName}
-                  fill
-                  className="object-cover"
-                  sizes="56px"
-                />
-              ) : (
-                <div className="w-full h-full bg-neutral-800 flex items-center justify-center text-2xl">
-                  👤
-                </div>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-white text-base">{doc.broker.displayName}</p>
-              <p className="text-sm text-neutral-400 truncate">{doc.broker.company}</p>
-              <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2 leading-snug">
-                {doc.broker.tagline}
-              </p>
-            </div>
+        {/* ── Broker Vibe Card ── */}
+        {doc.broker.slug !== "cre-dealcard-default" ? (
+          <div className="mb-8">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4 px-1">
+              담당 중개인
+            </h2>
+            <VibeCardHero
+              profile={{
+                id: doc.broker.userId,
+                displayName: doc.broker.displayName,
+                company: doc.broker.company,
+                phone: doc.broker.phone,
+                photoUrl: doc.broker.photoUrl,
+                tagline: doc.broker.tagline,
+              }}
+              broker={{
+                specialtyRegions: doc.broker.specialtyRegions ?? [],
+                specialtyAssets: doc.broker.specialtyAssets ?? [],
+                bio: doc.broker.bio ?? null,
+                isVerified: null,
+              }}
+              vibe={doc.broker.vibeVector ? (() => {
+                const _meta = VTI_PROTOTYPES.find(p => p.meta.type === doc.broker.vibeVti)?.meta;
+                return {
+                vector: doc.broker.vibeVector!,
+                vti: (doc.broker.vibeVti as any) ?? "strategist",
+                vtiMeta: _meta ? {
+                  type: _meta.type,
+                  label: _meta.label_en,
+                  labelKo: _meta.label_ko,
+                  emoji: _meta.emoji,
+                  color: _meta.color,
+                  description: _meta.description,
+                } : null,
+                complement: doc.broker.vibeComplement ?? null,
+                templateId: doc.broker.vibeTemplateId ?? null,
+                valence: doc.broker.vibeValence ?? null,
+                trust: doc.broker.vibeTrust ?? null,
+                analyzedAt: doc.broker.vibeAnalyzedAt ?? null,
+              }; })() : null}
+              template={vibeTemplate ? {
+                id: vibeTemplate.id,
+                name: vibeTemplate.name_en,
+                nameKo: vibeTemplate.name_ko,
+                css: vibeTemplate.css,
+              } : null}
+              professional={null}
+              stats={{ dealCount: 0, activeCount: 0 }}
+              logoCompanyUrl={doc.broker.logoCompanyUrl || undefined}
+              logoPartnerUrl={doc.broker.logoPartnerUrl || undefined}
+              latestMagazine={doc.broker.latestMagazine}
+            />
           </div>
-
-          <div className="grid grid-cols-2 gap-2">
+        ) : (
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5 mb-8">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4">
+              담당 중개인
+            </h2>
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-neutral-800 flex items-center justify-center text-2xl">
+                👤
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-white text-base">{doc.broker.displayName}</p>
+                <p className="text-sm text-neutral-400 truncate">{doc.broker.company}</p>
+              </div>
+            </div>
             <a
               href={`tel:${doc.broker.phone}`}
-              className="flex items-center justify-center gap-2 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-medium rounded-xl transition-colors"
+              className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-medium rounded-xl transition-colors"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.948V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-              </svg>
-              전화
+              📞 전화 상담
             </a>
-            {doc.broker.slug !== "cre-dealcard-default" ? (
-              <Link
-                href={`/vibe-card/${doc.broker.slug}`}
-                className="flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-xl border transition-colors"
-                style={{
-                  background: `${accentColor}10`,
-                  color: accentColor,
-                  borderColor: `${accentColor}20`,
-                }}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                프로필 보기
-              </Link>
-            ) : (
-              <button
-                onClick={() => alert("담당 중개인이 아직 프로필을 개통하지 않았습니다.")}
-                className="flex items-center justify-center gap-2 py-2.5 bg-neutral-800 text-neutral-500 text-sm font-medium rounded-xl transition-colors cursor-not-allowed"
-              >
-                프로필 미등록
-              </button>
-            )}
           </div>
-        </div>
+        )}
 
         {/* ── Disclaimer ── */}
         <div className="rounded-xl bg-neutral-900/50 border border-neutral-800/50 p-4 mb-4">

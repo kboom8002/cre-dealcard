@@ -10,6 +10,9 @@ import {
 } from "lucide-react";
 import { useMagazineAnalytics } from "@/hooks/use-magazine-analytics";
 import { SubscribeCard } from "@/components/magazine/SubscribeCard";
+import { VibeCardHero } from "@/components/vibe-card/VibeCardHero";
+import { VTI_PROTOTYPES } from "@/lib/vibe/vibe-vector";
+import { getTemplateById } from "@/lib/vibe/vibe-templates";
 
 // ── Inline MARKET_TEMP_CONFIG (avoid server/client boundary import) ──
 const MARKET_TEMP_CONFIG: Record<string, { emoji: string; color: string; description: string }> = {
@@ -25,6 +28,7 @@ interface MagazineViewProps {
   data: Record<string, any>;
   brokerId: string;
   date: string;
+  brokerVibe?: Record<string, any> | null;
 }
 
 export type MagazineData = Record<string, any>;
@@ -105,7 +109,9 @@ function SectionCard({ title, icon, badge, children, defaultOpen = false }: {
 }
 
 // ── Main Component ───────────────────────────────────────────────────
-export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
+export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewProps) {
+  // Inject brokerVibe into data for renderBrokerProfile
+  if (brokerVibe) (data as any).__brokerVibe = brokerVibe;
   const { trackSectionView, trackClick } = useMagazineAnalytics({
     editionId: data.id ?? `${brokerId}-${date}`,
     brokerId,
@@ -413,54 +419,97 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
     </div>
   );
 
-  const renderBrokerProfile = () => (
-    <div data-section-id="broker_profile" ref={sectionRef('broker_profile')}>
-      <Section delay={0.35}>
-        <div className="rounded-2xl overflow-hidden border border-white/8" style={{ background: `linear-gradient(135deg, ${accent}12, rgba(15,15,35,0.9))` }}>
-          <div className="p-4">
-            <p className="text-[10px] font-bold tracking-wider mb-3" style={{ color: accent }}>BROKER PROFILE</p>
-            <div className="flex items-start gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full border-2 flex items-center justify-center shrink-0" style={{ borderColor: `${accent}44`, background: `linear-gradient(135deg, ${accent}, #8b5cf6)` }}>
-                <span className="text-white font-extrabold text-lg">{String(broker.name ?? "B").charAt(0)}</span>
-              </div>
-              <div>
-                <p className="text-[14px] font-extrabold text-white">{broker.name}</p>
-                <p className="text-[11px] text-slate-400">{broker.company}</p>
-                {broker.tagline && <p className="text-[11px] text-slate-500 mt-0.5 italic">&ldquo;{broker.tagline}&rdquo;</p>}
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 mb-4">
-              {[{ label: "누적 거래", value: `${broker.totalDeals || 0}건`, color: "text-indigo-300" }, { label: "활성 매물", value: `${broker.activeDeals || 0}건`, color: "text-emerald-300" }, { label: "전문 자산", value: (broker.specialtyAssets as string[])?.[0] ?? "꼬마빌딩", color: "text-amber-300" }].map((s, i) => (
-                <div key={i} className="text-center bg-white/4 border border-white/8 rounded-xl py-2">
-                  <p className={`text-[14px] font-extrabold ${s.color}`}>{s.value}</p>
-                  <p className="text-[9px] text-slate-500 mt-0.5">{s.label}</p>
+  const renderBrokerProfile = () => {
+    // Build VibeCardHero props from brokerVibe (DB) + broker (magazine content)
+    const bv = (data as any).__brokerVibe;
+    const vibeTemplate = bv?.vibe_template_id ? getTemplateById(bv.vibe_template_id) : null;
+    const vtiMeta = bv?.vibe_vti ? VTI_PROTOTYPES.find(p => p.meta.type === bv.vibe_vti)?.meta ?? null : null;
+
+    return (
+      <div data-section-id="broker_profile" ref={sectionRef('broker_profile')}>
+        <Section delay={0.35}>
+          {bv ? (
+            <VibeCardHero
+              profile={{
+                id: bv.slug ?? brokerId,
+                displayName: broker.name ?? '중개인',
+                company: broker.company ?? null,
+                phone: broker.phone ?? null,
+                photoUrl: broker.photoUrl ?? null,
+                tagline: broker.tagline ?? null,
+              }}
+              broker={{
+                specialtyRegions: (bv.specialty_regions as string[]) ?? (broker.specialtyRegions as string[]) ?? [],
+                specialtyAssets: (bv.specialty_assets as string[]) ?? (broker.specialtyAssets as string[]) ?? [],
+                bio: (bv.bio as string) ?? null,
+                isVerified: null,
+              }}
+              vibe={bv.vibe_vector ? {
+                vector: bv.vibe_vector as Record<string, number>,
+                vti: (bv.vibe_vti as any) ?? 'strategist',
+                vtiMeta: vtiMeta ? {
+                  type: vtiMeta.type,
+                  label: vtiMeta.label_en,
+                  labelKo: vtiMeta.label_ko,
+                  emoji: vtiMeta.emoji,
+                  color: vtiMeta.color,
+                  description: vtiMeta.description,
+                } : null,
+                complement: bv.vibe_complement as Record<string, number> | null,
+                templateId: bv.vibe_template_id as string | null,
+                valence: bv.vibe_valence as number | null,
+                trust: bv.vibe_trust as number | null,
+                analyzedAt: bv.vibe_analyzed_at as string | null,
+              } : null}
+              template={vibeTemplate ? {
+                id: vibeTemplate.id,
+                name: vibeTemplate.name_en,
+                nameKo: vibeTemplate.name_ko,
+                css: vibeTemplate.css,
+              } : null}
+              professional={null}
+              stats={{ dealCount: broker.totalDeals ?? 0, activeCount: broker.activeDeals ?? 0 }}
+              logoCompanyUrl={(bv.logo_company_url as string) || undefined}
+              logoPartnerUrl={(bv.logo_partner_url as string) || undefined}
+            />
+          ) : (
+            /* Fallback: simple broker card (no vibe data) */
+            <div className="rounded-2xl overflow-hidden border border-white/8" style={{ background: `linear-gradient(135deg, ${accent}12, rgba(15,15,35,0.9))` }}>
+              <div className="p-4">
+                <p className="text-[10px] font-bold tracking-wider mb-3" style={{ color: accent }}>BROKER PROFILE</p>
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-full border-2 flex items-center justify-center shrink-0" style={{ borderColor: `${accent}44`, background: `linear-gradient(135deg, ${accent}, #8b5cf6)` }}>
+                    <span className="text-white font-extrabold text-lg">{String(broker.name ?? "B").charAt(0)}</span>
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-extrabold text-white">{broker.name}</p>
+                    <p className="text-[11px] text-slate-400">{broker.company}</p>
+                  </div>
                 </div>
-              ))}
+                <div className="flex gap-2.5">
+                  <a
+                    href={`/vibe-card/${brokerId}`}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-[12px] text-white transition-all duration-300 active:scale-95 border border-white/10"
+                    style={{ background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)' }}
+                  >
+                    🎴 Vibe 명함 보기
+                  </a>
+                  {broker.phone && (
+                    <button
+                      onClick={handleCallBroker}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-[12px] text-white transition-all duration-300 active:scale-95 bg-emerald-600 hover:bg-emerald-500"
+                    >
+                      <Phone className="w-3.5 h-3.5" /> 전화 상담
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="flex gap-2.5">
-              <a
-                href={`/vibe-card/${brokerId}`}
-                data-track-click="broker_vibe_card"
-                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-[12px] text-white transition-all duration-300 active:scale-95 border border-white/10"
-                style={{ background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)' }}
-              >
-                🎴 Vibe 명함 보기
-              </a>
-              {broker.phone && (
-                <button
-                  onClick={handleCallBroker}
-                  data-track-click="broker_call"
-                  className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-[12px] text-white transition-all duration-300 active:scale-95 bg-emerald-600 hover:bg-emerald-500"
-                >
-                  <Phone className="w-3.5 h-3.5" /> 전화 상담
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </Section>
-    </div>
-  );
+          )}
+        </Section>
+      </div>
+    );
+  };
 
   // ═══════════════════════════════════════════════════════════════════
   //  EXTRA SECTIONS (Collapsed)

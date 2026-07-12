@@ -11,9 +11,11 @@ import { callLLM } from '@/ai/llm-client';
 import {
   type MarketTemperature,
   type MagazineEdition,
+  type EditionStatus,
   getWeekLabel,
   MARKET_TEMP_CONFIG,
 } from './types';
+import { runMagazineQualityGate } from './quality-gate';
 
 // ── 타입 정의 ──────────────────────────────────────────────────────
 
@@ -497,6 +499,7 @@ export const generateWeeklyMagazine = async (params: {
     ai_briefing: briefingText, // 하위호환
     broker: {
       name: brokerCtx.profile.display_name ?? '',
+      slug: brokerCtx.broker.slug ?? brokerId,
       company: brokerCtx.profile.company ?? '',
       phone: brokerCtx.profile.phone ?? '',
       photoUrl: brokerCtx.profile.photo_url,
@@ -536,6 +539,15 @@ export const generateWeeklyMagazine = async (params: {
     theme_body_md: theme.themeBodyMd,
   };
 
+  // 6.5. Quality Gate 검증
+  const qgResult = runMagazineQualityGate(
+    contentPayload.briefing ?? '',
+    { news: news, transactions: transactions }
+  );
+  if (!qgResult.passed) {
+    console.warn(`[weekly-magazine] QG 불합격 (score: ${qgResult.score}):`, qgResult.issues.slice(0, 3));
+  }
+
   const editionRow = {
     broker_id: brokerId,
     edition_type: 'weekly' as const,
@@ -550,7 +562,7 @@ export const generateWeeklyMagazine = async (params: {
     content: contentPayload,
     featured_deal_ids: theme.matchedDealIds,
     target_segments: ['all'],
-    status: 'draft' as const,
+    status: (qgResult.passed ? 'draft' : 'needs_review') as EditionStatus,
     theme_color: '#6366f1',
     version: 1,
   };

@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 // PATCH /api/broker/magazine/subscribers/[id] - 구독자 상태 변경
 export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -14,8 +16,7 @@ export async function PATCH(
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
-    const { id } = params;
-    const body = await request.json();
+    const body = await req.json();
     const { status } = body; // active, paused, unsubscribed
 
     if (!status || !["active", "paused", "unsubscribed"].includes(status)) {
@@ -51,18 +52,17 @@ export async function PATCH(
 
 // DELETE /api/broker/magazine/subscribers/[id] - 구독자 완전 삭제 (하드 삭제)
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
-
-    const { id } = params;
 
     const { error } = await supabase
       .from("magazine_subscribers")

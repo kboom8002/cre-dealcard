@@ -5,52 +5,6 @@ import { callLLM } from "@/ai/llm-client";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const BROKER_REGION_MAP: Record<string, string> = {
-  demo: "seongsu",
-  "hong-gildong": "seongsu",
-  "kim-chulsoo": "gbd",
-  "lee-younghee": "ybd",
-  "hong-gildong-demo": "gbd", // Add testuser slug
-};
-
-const DEMO_PROFILES: Record<string, any> = {
-  demo: {
-    profile: {
-      id: "demo",
-      display_name: "김철수 대표",
-      company: "JS 부동산",
-      phone: "010-1234-5678",
-      photo_url: null,
-      tagline: "성수·강남 꼬마빌딩 10년 전문가",
-    },
-    broker: {
-      specialty_regions: ["성수동", "강남 GBD"],
-      specialty_assets: ["꼬마빌딩", "근생"],
-      bio: "10년 경력의 꼬마빌딩 전문 중개인입니다.",
-      total_deal_count_self: 47,
-      deal_size_range: "30억~150억",
-    },
-    activeDealCount: 3,
-  },
-  "hong-gildong-demo": {
-    profile: {
-      id: "hong-gildong-demo",
-      display_name: "testuser",
-      company: "CRE DealCard",
-      phone: "010-1234-5678",
-      photo_url: null,
-      tagline: "강남·서초 꼬마빌딩 전문 중개인",
-    },
-    broker: {
-      specialty_regions: ["강남구 GBD", "서초구 GBD"],
-      specialty_assets: ["꼬마빌딩", "근생"],
-      bio: "강남·서초 권역 상업용 부동산 전문 중개인입니다.",
-      total_deal_count_self: 12,
-      deal_size_range: "20억~100억",
-    },
-    activeDealCount: 2,
-  },
-};
 
 async function getCachedMagazine(supabase: any, brokerId: string, date: string) {
   try {
@@ -307,12 +261,10 @@ export async function GET(
 
   // 2. 브로커 프로필
   let brokerData = await getBrokerProfile(supabase, brokerId);
-  if (!brokerData && DEMO_PROFILES[brokerId]) brokerData = DEMO_PROFILES[brokerId];
   if (!brokerData)
     return NextResponse.json({ error: "Broker not found" }, { status: 404 });
 
   const region =
-    BROKER_REGION_MAP[brokerId] ??
     (brokerData.broker.specialty_regions?.[0] ?? "seongsu").toLowerCase();
 
   // 3. 병렬 수집

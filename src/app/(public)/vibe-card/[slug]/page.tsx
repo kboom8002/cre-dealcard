@@ -186,8 +186,9 @@ async function getVibeCardData(slug: string) {
     })),
     latestMagazine: latestMag ? {
       date: latestMag.issue_date,
-      title: (latestMag.content as any)?.headline || '주간 시장 리포트',
+      headline: (latestMag.content as any)?.headline || '주간 시장 리포트',
       url: `/magazine/${bpBySlug?.slug ?? slug}/${latestMag.issue_date}`,
+      marketTemp: (latestMag.content as any)?.market_temp ?? undefined,
     } : null,
     slug,
   };

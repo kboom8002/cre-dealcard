@@ -20,6 +20,18 @@ function buildBrokerObject(profile: any) {
       photoUrl: "/default-avatar.png",
       slug: "cre-dealcard-default",
       vibeTemplateId: "default",
+      specialtyRegions: [] as string[],
+      specialtyAssets: [] as string[],
+      bio: null as string | null,
+      vibeVector: null as Record<string, number> | null,
+      vibeVti: null as string | null,
+      vibeComplement: null as Record<string, number> | null,
+      vibeValence: null as number | null,
+      vibeTrust: null as number | null,
+      vibeAnalyzedAt: null as string | null,
+      logoCompanyUrl: null as string | null,
+      logoPartnerUrl: null as string | null,
+      latestMagazine: null as { date: string; headline: string; url: string; marketTemp?: string } | null,
     };
   }
   return {
@@ -31,6 +43,18 @@ function buildBrokerObject(profile: any) {
     photoUrl: profile.photo_url || "/default-avatar.png",
     slug: profile.slug || "cre-dealcard-default",
     vibeTemplateId: profile.vibe_template_id || "default",
+    specialtyRegions: (profile.specialty_regions as string[]) ?? [],
+    specialtyAssets: (profile.specialty_assets as string[]) ?? [],
+    bio: (profile.bio as string) ?? null,
+    vibeVector: (profile.vibe_vector as Record<string, number>) ?? null,
+    vibeVti: (profile.vibe_vti as string) ?? null,
+    vibeComplement: (profile.vibe_complement as Record<string, number>) ?? null,
+    vibeValence: (profile.vibe_valence as number) ?? null,
+    vibeTrust: (profile.vibe_trust as number) ?? null,
+    vibeAnalyzedAt: (profile.vibe_analyzed_at as string) ?? null,
+    logoCompanyUrl: (profile.logo_company_url as string) ?? null,
+    logoPartnerUrl: (profile.logo_partner_url as string) ?? null,
+    latestMagazine: null as { date: string; headline: string; url: string; marketTemp?: string } | null,
   };
 }
 
@@ -47,7 +71,7 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
       .single(),
     supabase
       .from("broker_profiles")
-      .select("user_id, name, company, phone, tagline, photo_url, slug, vibe_template_id, avatar_url")
+      .select("user_id, name, company, phone, tagline, photo_url, slug, vibe_template_id, avatar_url, specialty_regions, specialty_assets, bio, vibe_vector, vibe_vti, vibe_complement, vibe_valence, vibe_trust, vibe_analyzed_at, logo_company_url, logo_partner_url")
       .eq("user_id", ownerId)
       .single(),
   ]);
@@ -79,7 +103,47 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
     photo_url: profile?.photo_url || brokerProfile?.avatar_url || brokerProfile?.photo_url || "/default-avatar.png",
     slug: slug || "cre-dealcard-default",
     vibe_template_id: brokerProfile?.vibe_template_id || "default",
+    // Vibe & professional data
+    specialty_regions: brokerProfile?.specialty_regions ?? null,
+    specialty_assets: brokerProfile?.specialty_assets ?? null,
+    bio: brokerProfile?.bio ?? null,
+    vibe_vector: brokerProfile?.vibe_vector ?? null,
+    vibe_vti: brokerProfile?.vibe_vti ?? null,
+    vibe_complement: brokerProfile?.vibe_complement ?? null,
+    vibe_valence: brokerProfile?.vibe_valence ?? null,
+    vibe_trust: brokerProfile?.vibe_trust ?? null,
+    vibe_analyzed_at: brokerProfile?.vibe_analyzed_at ?? null,
+    // Logo URLs
+    logo_company_url: brokerProfile?.logo_company_url ?? null,
+    logo_partner_url: brokerProfile?.logo_partner_url ?? null,
   };
+}
+
+/**
+ * 브로커의 최신 매거진을 조회하여 broker 객체에 주입합니다.
+ */
+async function injectLatestMagazine(supabase: any, brokerObj: ReturnType<typeof buildBrokerObject>) {
+  if (brokerObj.slug === "cre-dealcard-default") return;
+  try {
+    const { data: latestMag } = await supabase
+      .from("magazine_issues")
+      .select("issue_date, content")
+      .eq("broker_id", brokerObj.slug)
+      .order("issue_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestMag) {
+      brokerObj.latestMagazine = {
+        date: latestMag.issue_date,
+        headline: (latestMag.content as any)?.headline || '주간 시장 리포트',
+        url: `/magazine/${brokerObj.slug}/${latestMag.issue_date}`,
+        marketTemp: (latestMag.content as any)?.market_temp ?? undefined,
+      };
+    }
+  } catch {
+    // non-blocking
+  }
 }
 
 /**
@@ -108,6 +172,8 @@ export async function fetchIMData(
       const brokerProfile = await fetchBrokerProfile(supabase, document.owner_id);
 
       const ssotSummary = document.body.ssot_summary || {};
+      const brokerObj = buildBrokerObject(brokerProfile);
+      await injectLatestMagazine(supabase, brokerObj);
       return {
         buildingId,
         blindName: `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`,
@@ -117,7 +183,7 @@ export async function fetchIMData(
         priceBand: ssotSummary.price_band || "",
         sizeSignal: ssotSummary.size_signal || "",
         completenessScore: document.body.readiness_score ?? 0,
-        broker: buildBrokerObject(brokerProfile),
+        broker: brokerObj,
         sections: (document.body.sections || []).map((s: any) => {
           if ("content" in s) return s;
           let icon = "📄";
@@ -297,6 +363,9 @@ export async function fetchIMData(
 
   const layers = (ssot.layers as Record<string, any>) || {};
 
+  const brokerObj2 = buildBrokerObject(brokerProfile);
+  await injectLatestMagazine(supabase, brokerObj2);
+
   return {
     buildingId: ssot.id,
     blindName: `${ssot.area_signal} ${ssot.asset_type}`,
@@ -306,7 +375,7 @@ export async function fetchIMData(
     priceBand: ssot.price_band,
     sizeSignal: ssot.size_signal,
     completenessScore: score,
-    broker: buildBrokerObject(brokerProfile),
+    broker: brokerObj2,
     sections,
     generatedAt: new Date().toISOString(),
     status: ssot.status || "draft",

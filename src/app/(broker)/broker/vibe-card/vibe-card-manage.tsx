@@ -38,6 +38,12 @@ interface VibeManageData {
   stats: VibeCardHeroProps["stats"];
   logoCompanyUrl?: string | null;
   logoPartnerUrl?: string | null;
+  latestMagazine?: {
+    date: string;
+    headline: string;
+    url: string;
+    marketTemp?: string;
+  } | null;
 }
 
 interface Props {
@@ -292,6 +298,7 @@ export function VibeCardManage({ data }: Props) {
                 stats={data.stats}
                 logoCompanyUrl={data.logoCompanyUrl || undefined}
                 logoPartnerUrl={data.logoPartnerUrl || undefined}
+                latestMagazine={data.latestMagazine}
               />
             </Link>
             <p className="text-center text-[10px] text-neutral-500 mt-2">

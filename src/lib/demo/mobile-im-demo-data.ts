@@ -44,6 +44,26 @@ export interface MobileIMBroker {
   photoUrl: string;
   slug: string;
   vibeTemplateId: string;
+  /** Vibe & professional data for VibeCardHero */
+  specialtyRegions?: string[];
+  specialtyAssets?: string[];
+  bio?: string | null;
+  vibeVector?: Record<string, number> | null;
+  vibeVti?: string | null;
+  vibeComplement?: Record<string, number> | null;
+  vibeValence?: number | null;
+  vibeTrust?: number | null;
+  vibeAnalyzedAt?: string | null;
+  /** Logo overlay URLs */
+  logoCompanyUrl?: string | null;
+  logoPartnerUrl?: string | null;
+  /** Latest magazine (for card back face) */
+  latestMagazine?: {
+    date: string;
+    headline: string;
+    url: string;
+    marketTemp?: string;
+  } | null;
 }
 
 export interface MobileIMDocument {

@@ -575,6 +575,7 @@ function MagazineEditorInner() {
       draft: { label: "초안", cls: "text-slate-400 bg-slate-500/12 border-slate-500/20" },
       editing: { label: "편집중", cls: "text-amber-300 bg-amber-500/12 border-amber-500/20" },
       review: { label: "검토", cls: "text-blue-300 bg-blue-500/12 border-blue-500/20" },
+      needs_review: { label: "검토필요", cls: "text-orange-300 bg-orange-500/12 border-orange-500/20" },
       scheduled: { label: "예약", cls: "text-purple-300 bg-purple-500/12 border-purple-500/20" },
       published: { label: "발행됨", cls: "text-emerald-300 bg-emerald-500/12 border-emerald-500/20" },
       archived: { label: "보관", cls: "text-slate-500 bg-slate-600/12 border-slate-600/20" },

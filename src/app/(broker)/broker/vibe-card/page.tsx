@@ -143,5 +143,25 @@ export default async function VibeCardManagePage() {
     logoPartnerUrl: (bp?.logo_partner_url as string) || null,
   };
 
+  // 8. Latest magazine (for card back face preview)
+  if (slug) {
+    const { data: latestMag } = await svc
+      .from("magazine_issues")
+      .select("issue_date, content")
+      .eq("broker_id", slug)
+      .order("issue_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestMag) {
+      (data as any).latestMagazine = {
+        date: latestMag.issue_date,
+        headline: (latestMag.content as any)?.headline || '주간 시장 리포트',
+        url: `/magazine/${slug}/${latestMag.issue_date}`,
+        marketTemp: (latestMag.content as any)?.market_temp ?? undefined,
+      };
+    }
+  }
+
   return <VibeCardManage data={data} />;
 }

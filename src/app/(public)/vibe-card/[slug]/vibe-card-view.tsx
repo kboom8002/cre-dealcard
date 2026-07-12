@@ -117,8 +117,9 @@ export interface VibeCardData {
   }>;
   latestMagazine?: {
     date: string;
-    title: string;
+    headline: string;
     url: string;
+    marketTemp?: string;
   } | null;
   slug: string;
   logoCompanyUrl?: string | null;
@@ -192,6 +193,7 @@ export function VibeCardView({ data }: { data: VibeCardData }) {
             stats={stats}
             logoCompanyUrl={data.logoCompanyUrl || undefined}
             logoPartnerUrl={data.logoPartnerUrl || undefined}
+            latestMagazine={data.latestMagazine}
           />
         </section>
 
@@ -275,7 +277,7 @@ export function VibeCardView({ data }: { data: VibeCardData }) {
                 </span>
               </div>
               <p className="text-sm font-semibold mb-0.5" style={{ color: css.textColor }}>
-                {data.latestMagazine.title}
+                {data.latestMagazine.headline}
               </p>
               <p className="text-xs mb-3" style={{ color: css.subtextColor }}>
                 발행일: {data.latestMagazine.date}
