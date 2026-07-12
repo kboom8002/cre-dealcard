@@ -204,7 +204,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { profile, broker, professional, vibe } = data;
   const regions = broker?.specialtyRegions ?? [];
   const assets = broker?.specialtyAssets ?? [];
-  const title = `${profile.displayName} 공인중개사 | ${regions[0] ?? ""} ${assets[0] ?? "상업용 부동산"} 전문 | DealCard`;
+  const title = profile.tagline || `${profile.displayName} 공인중개사 | ${regions[0] ?? ""} ${assets[0] ?? "상업용 부동산"} 전문 | DealCard`;
   const careerYears = professional?.careerStartYear ? `${new Date().getFullYear() - professional.careerStartYear}년 경력` : "";
   const dealInfo = professional?.totalDealCount ? `, 누적 거래 ${professional.totalDealCount}건` : "";
   const trustInfo = vibe?.trust ? `, Vibe 신뢰도 ${Math.round(vibe.trust * 100)}%` : "";

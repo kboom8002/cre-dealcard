@@ -14,6 +14,7 @@ import {
   fetchCommercialDistrict,
   fetchOfficialLandPrice,
   fetchConstructionPermits,
+  fetchCommercialTransactions,
 } from "@/domain/external/gov-premium-apis";
 
 /**
@@ -67,6 +68,10 @@ export async function GET(request: NextRequest) {
       fetchConstructionPermits(supabase, "gbd"),
       fetchConstructionPermits(supabase, "seongsu"),
       fetchConstructionPermits(supabase, "ybd"),
+      // 실거래 ETL — 3개 권역 (당월)
+      fetchCommercialTransactions(supabase, "gbd"),
+      fetchCommercialTransactions(supabase, "seongsu"),
+      fetchCommercialTransactions(supabase, "ybd"),
     ]);
 
     const elapsedMs = Date.now() - startedAt;
@@ -84,6 +89,7 @@ export async function GET(request: NextRequest) {
         auctionsFetched: auctions.length,
         rentalsFetched: rentals.length,
         govApisTriggered: true,
+        transactionsFetched: true,
       },
     });
   } catch (err: unknown) {

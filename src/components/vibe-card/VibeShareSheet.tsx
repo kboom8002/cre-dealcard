@@ -18,9 +18,10 @@ declare global {
   }
 }
 
-interface VibeShareSheetProps {
+export interface VibeShareSheetProps {
   slug: string;
   cardTitle: string;
+  cardDescription?: string;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -33,7 +34,7 @@ interface ShareOption {
   color: string;
 }
 
-export function VibeShareSheet({ slug, cardTitle, isOpen, onClose }: VibeShareSheetProps) {
+export function VibeShareSheet({ slug, cardTitle, cardDescription, isOpen, onClose }: VibeShareSheetProps) {
   const [copied, setCopied] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
   const [kakaoReady, setKakaoReady] = useState(false);
@@ -69,7 +70,8 @@ export function VibeShareSheet({ slug, cardTitle, isOpen, onClose }: VibeShareSh
 
   const cardUrl = `${siteUrl}/vibe-card/${slug}`;
   const ogImageUrl = `${siteUrl}/api/og/vibe-card/${slug}`;
-  const kakaoText = `[DealCard 명함]\n\n${cardTitle}\n\n🔗 ${cardUrl}\n\n📊 Vibe AI가 분석한 전문 중개인 프로필을 확인하세요.`;
+  const fallbackDesc = cardDescription || "Vibe AI가 분석한 전문 중개인 프로필을 확인하세요.";
+  const kakaoText = `[DealCard 명함]\n\n${cardTitle}\n\n🔗 ${cardUrl}\n\n📊 ${fallbackDesc}`;
 
   /* ── 클립보드 복사 ── */
   const copyToClipboard = useCallback(
@@ -97,8 +99,8 @@ export function VibeShareSheet({ slug, cardTitle, isOpen, onClose }: VibeShareSh
       window.Kakao.Share.sendDefault({
         objectType: "feed",
         content: {
-          title: `🏡 ${cardTitle}`,
-          description: "Vibe AI가 분석한 전문 중개인 프로필을 확인하세요.",
+          title: cardTitle,
+          description: fallbackDesc,
           imageUrl: ogImageUrl,
           link: {
             mobileWebUrl: cardUrl,
@@ -140,7 +142,7 @@ export function VibeShareSheet({ slug, cardTitle, isOpen, onClose }: VibeShareSh
               navigator
                 .share({
                   title: cardTitle,
-                  text: "Vibe AI가 분석한 전문 중개인 프로필을 확인하세요.",
+                  text: fallbackDesc,
                   url: cardUrl,
                 })
                 .catch(() => copyToClipboard(kakaoText, "kakao"));

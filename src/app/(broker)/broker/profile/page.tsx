@@ -46,6 +46,7 @@ interface ProfileData {
   display_name: string | null;
   phone: string | null;
   company: string | null;
+  tagline: string | null;
   broker?: {
     specialty_regions: string[] | null;
     specialty_assets: string[] | null;
@@ -100,6 +101,7 @@ export default function BrokerProfilePage() {
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
   const [company, setCompany] = useState('');
+  const [tagline, setTagline] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
 
   // Section 2: 자격/등록 정보
@@ -191,6 +193,7 @@ export default function BrokerProfilePage() {
       setDisplayName(data.display_name ?? '');
       setPhone(data.phone ?? '');
       setCompany(data.company ?? '');
+      setTagline(data.tagline ?? '');
       setAvatarUrl(data.broker?.avatar_url ?? '');
 
       // Existing tags
@@ -252,6 +255,7 @@ export default function BrokerProfilePage() {
           display_name: displayName,
           phone,
           company,
+          tagline,
           specialty_regions: selectedRegions,
           specialty_assets: selectedAssets,
           bio,
@@ -594,6 +598,21 @@ export default function BrokerProfilePage() {
               placeholder="JS 부동산 중개법인"
               id="profile-company"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium">공유 타이틀 (OG Title)</label>
+            <input
+              type="text"
+              value={tagline}
+              onChange={(e) => setTagline(e.target.value)}
+              className={inputClass}
+              placeholder="상업용 부동산 전문 중개사"
+              id="profile-tagline"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              카카오톡 등에 명함을 공유할 때 제목으로 표시됩니다.
+            </p>
           </div>
         </section>
 

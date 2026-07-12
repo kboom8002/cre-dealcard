@@ -8,6 +8,7 @@ import { trackOnboardingEvent } from '@/lib/onboarding/onboarding-tracker';
 import { hapticCelebrate } from './HapticFeedback';
 import { ConfettiEffect } from './ConfettiEffect';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 
 interface StageCompleteProps {
   onGoToDashboard: () => void;
@@ -47,11 +48,17 @@ export function StageComplete({ onGoToDashboard }: StageCompleteProps) {
       ? regionLabel(data.region)
       : '서울';
 
-    const shareText = `🏢 DealCard Vibe 명함\n\n${data.userName ?? '홍길동'} | ${vtiLabel}\nTrust Score ${trust} · ${region} 전문\n\n나도 만들기 → credeal.net/onboarding`;
+    const supabase = createClient();
+    const { data: userData } = await supabase.auth.getUser();
+    const shareUrl = userData?.user?.id 
+      ? `https://credeal.net/vibe-card/${userData.user.id}`
+      : 'https://credeal.net/onboarding';
+
+    const shareText = `🏢 DealCard Vibe 명함\n\n${data.userName ?? '홍길동'} | ${vtiLabel}\nTrust Score ${trust} · ${region} 전문\n\n나도 만들기 → ${shareUrl}`;
 
     try {
       if (navigator.share) {
-        await navigator.share({ text: shareText, url: 'https://credeal.net/onboarding' });
+        await navigator.share({ text: shareText, url: shareUrl });
       } else {
         await navigator.clipboard.writeText(shareText);
       }

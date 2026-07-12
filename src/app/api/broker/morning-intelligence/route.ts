@@ -40,6 +40,12 @@ export async function GET(request: NextRequest) {
     }
     const serviceClient = createServiceClient();
 
+    // ── 날짜 범위 (복합 심리 지수 거래량 계산용) ──────────────────────────────
+    const now30 = new Date(); now30.setDate(now30.getDate() - 30);
+    const now60 = new Date(); now60.setDate(now60.getDate() - 60);
+    const thirtyDaysAgo = now30.toISOString().split("T")[0];
+    const sixtyDaysAgo = now60.toISOString().split("T")[0];
+
     // ── 병렬 데이터 수집 ──────────────────────────────────────────────────────
     const [
       newsData,
@@ -47,11 +53,10 @@ export async function GET(request: NextRequest) {
       dbAuctions,
       dbRentals,
       dbRentalTrend,
-      dbSentiment,
+      recentTxCount,
+      prevTxCount,
       landPrices,
       cdData,
-      energyList,
-      dbReports,
       // 브로커 개인화 데이터
       myDealCards,
       myBuyerIntents,
@@ -59,16 +64,17 @@ export async function GET(request: NextRequest) {
     ] = await Promise.all([
       // 시장 데이터
       serviceClient.from("external_news").select("title, summary, source, url, sentiment, importance_score, regions, topic").order("importance_score", { ascending: false }).order("created_at", { ascending: false }).limit(10),
-      serviceClient.from("external_transactions").select("address, dong, transaction_price, usage_type, building_area, transaction_date, area_signal").eq("district", district).order("transaction_date", { ascending: false }).limit(5),
-      serviceClient.from("auction_listings").select("case_number, court, address, appraised_value, minimum_bid, status, auction_date").ilike("address", `%${district}%`).limit(3),
+      serviceClient.from("external_transactions").select("address, dong, transaction_price, usage_type, building_area, transaction_date").eq("district", district).order("transaction_date", { ascending: false }).limit(5),
+      serviceClient.from("auction_listings").select("case_number, court, address, appraised_value, minimum_bid, status, auction_date").ilike("address", `%${district}%`).limit(5),
       serviceClient.from("rental_market_data").select("building_type, deposit_avg, monthly_rent_avg, vacancy_rate, source").eq("region", regionKey).limit(3),
-      // 한국부동산원 공식 임대동향 (파이프라인 복구)
+      // 한국부동산원 공식 임대동향
       serviceClient.from("rental_trend_data").select("region, quarter, vacancy_rate, rental_index").eq("region", regionKey).order("quarter", { ascending: false }).limit(1),
-      serviceClient.from("social_sentiment").select("keyword, sentiment_score, mention_count"),
+      // 복합 심리 지수용 거래량 (최근 30일)
+      serviceClient.from("external_transactions").select("id", { count: "exact", head: true }).eq("district", district).gte("transaction_date", thirtyDaysAgo),
+      // 복합 심리 지수용 거래량 (이전 30일: 30~60일 전)
+      serviceClient.from("external_transactions").select("id", { count: "exact", head: true }).eq("district", district).gte("transaction_date", sixtyDaysAgo).lt("transaction_date", thirtyDaysAgo),
       serviceClient.from("official_land_prices").select("year, price_per_sqm").eq("pnu", pnu).order("year", { ascending: false }).limit(2),
       serviceClient.from("commercial_district").select("district_name, sales_volume_index, footfall_index").eq("district_code", districtCode).maybeSingle(),
-      serviceClient.from("energy_ratings").select("rating, annual_energy_consumption").limit(1),
-      serviceClient.from("external_reports").select("institution, title, url, structured_data, summary").order("created_at", { ascending: false }).limit(2),
       // 내 매물 (owner_id = 브로커 user.id)
       serviceClient.from("building_ssot_lite").select("id, area_signal, asset_type, price_band, vacancy_signal, fit_summary").eq("owner_id", user.id).eq("status", "public_signal_ready").limit(5),
       // 내 매수자
@@ -133,18 +139,12 @@ export async function GET(request: NextRequest) {
       : "";
     const rentalSummary = [rentalFromNews, rentalGovText].filter(Boolean).join("\n") || "임대시장 데이터 없음";
 
-    // 리서치 리포트 요약
-    const reportsSummary = (dbReports.data || []).length > 0
-      ? (dbReports.data || []).map(r => `[${r.institution}] ${r.title}: ${r.summary || "요약 없음"}`).join("\n")
-      : "리서치 리포트 없음";
-
     // 공시지가 추이
     const landPriceInfo = (landPrices.data || []).length >= 2
       ? `최근 ${(landPrices.data || [])[0]?.year}년 ㎡당 ${((landPrices.data || [])[0]?.price_per_sqm || 0).toLocaleString()}원 (전년 ${((landPrices.data || [])[1]?.price_per_sqm || 0).toLocaleString()}원)`
       : "공시지가 데이터 없음";
 
     let aiBriefing = "";
-    let aiCounselScript = "";
     let aiHotLeadScript = "";
     let aiRiskNote = "";
     let aiActionList: string[] = [];
@@ -154,15 +154,14 @@ export async function GET(request: NextRequest) {
 매일 아침 8시, 현장에서 일하는 1인 브로커에게 오늘 영업에 직결되는 인사이트를 브리핑합니다.
 
 [브리핑 작성 구조 — 소스별 균형 배분 필수]
-아래 6가지 데이터 소스를 **균형 있게** 활용하여 5~7줄 브리핑을 작성합니다.
+아래 5가지 데이터 소스를 **균형 있게** 활용하여 5~7줄 브리핑을 작성합니다.
 데이터가 있는 소스만 사용하고, "없음"인 소스는 건너뜁니다.
 
 ① 📰 시장 뉴스 → 거시 트렌드, 정책 변화, 심리 영향
 ② 📊 실거래 → 내 매물 시세 포지셔닝, 가격 추세
-③ 🔨 경매/공매 → 시장 온도 (낙찰가율, 유찰률), 투자 기회
+③ 🔨 경매/공매 → 시장 온도 (최저가율, 유찰률), 투자 기회
 ④ 🏢 임대시장 → 공실률, 임대료 동향, 임대 전략
-⑤ 📑 리서치 → 기관 전망, 트렌드 분석
-⑥ 🏠 내 매물·매수자 → 개인화 연결 (항상 마지막에 "따라서 오늘은..." 형태로)
+⑤ 🏠 내 매물·매수자 → 개인화 연결 (항상 마지막에 "따라서 오늘은..." 형태로)
 
 [각 브리핑 포인트 형식]
 **[소스태그]** 핵심 내용 → 브로커 액션 임플리케이션
@@ -176,11 +175,6 @@ export async function GET(request: NextRequest) {
 - 입력 데이터에 있는 수치만 사용하세요
 - "데이터 없음"인 소스의 수치를 지어내지 마세요
 - 출처가 불분명한 수치/주소/금액은 절대 넣지 마세요
-
-[콜드 팔로업 전화 멘트]
-- 30초 이내, "대표님 안녕하세요" 시작
-- 오늘 브리핑에서 가장 임팩트 있는 수치 1개 언급 → 상대 니즈 연결 → 통화 제안
-- 내 매물/매수자 정보 자연스럽게 언급
 
 [카톡 문구]
 - 3줄 이내, 이모지 1~2개
@@ -207,9 +201,6 @@ ${auctionSummary}
 [🏢 ${district} 임대시장]
 ${rentalSummary}
 
-[📑 리서치 리포트]
-${reportsSummary}
-
 [🏠 이 브로커의 보유 매물 ${myDeals.length}건]
 ${myDealsSummary}
 
@@ -220,7 +211,6 @@ ${myBuyersSummary}
 {
   "briefing": "[소스태그] 포인트 형식으로 5~7줄 (데이터 있는 소스만, 균형 배분)",
   "action_list": ["누구에게 + 무슨 액션 + 왜(데이터 근거)"],
-  "cold_call_script": "콜드 팔로업 전화 멘트",
   "hot_lead_script": "카톡 문구 (3줄 이내)",
   "risk_note": "오늘 주의해야 할 시장 위험 신호 1줄"
 }`;
@@ -242,7 +232,7 @@ ${myBuyersSummary}
         try {
           const parsed = JSON.parse(jsonMatch[0]);
           aiBriefing = parsed.briefing || parsed.market_briefing || "";
-          
+
           // Double encoded JSON fix
           if (typeof aiBriefing === 'string' && aiBriefing.trim().startsWith('{')) {
             try {
@@ -250,8 +240,7 @@ ${myBuyersSummary}
               aiBriefing = doubleParsed.briefing || aiBriefing;
             } catch {}
           }
-          
-          aiCounselScript = parsed.cold_call_script || "";
+
           aiHotLeadScript = parsed.hot_lead_script || "";
           aiRiskNote = parsed.risk_note || "";
           aiActionList = Array.isArray(parsed.action_list) ? parsed.action_list : [];
@@ -265,7 +254,6 @@ ${myBuyersSummary}
     } catch {
       // AI 호출 실패 시 — 에러 메시지 표시
       aiBriefing = `⚠️ ${district} 권역 AI 브리핑 생성에 일시적 오류가 발생했습니다. 잠시 후 다시 시도해주세요.`;
-      aiCounselScript = "";
       aiHotLeadScript = "";
       aiRiskNote = "";
       aiActionList = ["모닝 인텔리전스 새로고침"];
@@ -329,11 +317,40 @@ ${myBuyersSummary}
       source: "한국부동산원",
     } : null;
 
-    // ── 투자자 심리 ────────────────────────────────────────────────────────────
-    const sentimentArr = dbSentiment.data || [];
-    const averageSentiment = sentimentArr.length > 0
-      ? Math.round(sentimentArr.reduce((acc, curr) => acc + Number(curr.sentiment_score || 50), 0) / sentimentArr.length)
-      : regionKey === "seongsu" ? 72 : regionKey === "ybd" ? 48 : 58;
+    // ── 복합 투자자 심리 지수 ────────────────────────────────────────────────
+    // (A) 뉴스 심리 40%: bullish=80 / neutral=50 / bearish=20
+    const newsSentimentMap: Record<string, number> = { bullish: 80, neutral: 50, bearish: 20 };
+    const newsScores = newsItems
+      .filter(n => n.sentiment)
+      .map(n => newsSentimentMap[n.sentiment as string] ?? 50);
+    const newsSentiment = newsScores.length > 0
+      ? newsScores.reduce((a, b) => a + b, 0) / newsScores.length
+      : 50;
+
+    // (B) 경매 최저가율 30%: minimum_bid / appraised_value (낙찰가율 프록시)
+    const auctionRatios = (dbAuctions.data || [])
+      .filter(a => Number(a.appraised_value) > 0)
+      .map(a => Math.min(100, (Number(a.minimum_bid) / Number(a.appraised_value)) * 100));
+    const auctionSentiment = auctionRatios.length > 0
+      ? auctionRatios.reduce((a, b) => a + b, 0) / auctionRatios.length
+      : 50;
+
+    // (C) 거래량 변화율 30%: 최근 30일 vs 이전 30일
+    const recentCount = recentTxCount?.count ?? 0;
+    const prevCount = prevTxCount?.count ?? 0;
+    const volumeChange = prevCount > 0 ? ((recentCount / prevCount) - 1) * 100 : 0;
+    const volumeSentiment = Math.min(100, Math.max(0, 50 + volumeChange));
+
+    // 복합 지수 (0~100)
+    const averageSentiment = Math.round(
+      newsSentiment * 0.4 + auctionSentiment * 0.3 + volumeSentiment * 0.3
+    );
+    const sentimentDataPoints = {
+      newsCount: newsScores.length,
+      auctionCount: auctionRatios.length,
+      recentTxCount: recentCount,
+      prevTxCount: prevCount,
+    };
 
     const sentimentStatus = averageSentiment >= 70 ? "과열 (Overheated)" : averageSentiment <= 40 ? "위축 (Contracted)" : "보합 (Neutral)";
     const sentimentDescription = averageSentiment >= 70
@@ -358,7 +375,6 @@ ${myBuyersSummary}
       : null;
 
     // ── 신축/리모델링 ──────────────────────────────────────────────────────────
-    // 신축/리모델링: DB에서 조회 (construction_permits 테이블)
     const { data: dbPermits } = await serviceClient
       .from("construction_permits")
       .select("text, detail")
@@ -367,35 +383,15 @@ ${myBuyersSummary}
       .limit(3);
     const constructionPermits = (dbPermits || []).map(p => ({ text: p.text, detail: p.detail }));
 
-    // ── ESG/에너지 ────────────────────────────────────────────────────────────
-    const energyRating = (energyList.data || [])[0]?.rating || "1++등급 (우수)";
-    const esgValueUp = {
-      grade: energyRating,
-      opportunity: "노후 빌딩 에너지 리모델링(그린리모델링) 대상 선정 가능",
-      benefit: "창호 교체·외벽 단열 보강 시 연간 관리비 약 22% 절감. 국토부 이자 지원(최대 3%) 적용 가능.",
-    };
-
-    // ── 글로벌 리포트 ──────────────────────────────────────────────────────────
-    const globalReports = (dbReports.data || []).length > 0
-      ? (dbReports.data || []).map(r => ({
-          institution: r.institution,
-          title: r.title,
-          summary: r.summary || "",
-          url: r.url,
-        }))
-      : [];
-
     // ── 공개 브리핑 공유 URL ───────────────────────────────────────────────────
     const today = new Date().toISOString().split("T")[0].replace(/-/g, "");
     const sharingUrl = `/pulse/${regionKey}/daily?date=${today}`;
     let brokerSlug = brokerProfileResult?.data?.slug || null;
     
-    // slug가 없으면 이메일 기반으로 자동 생성 후 저장
     if (!brokerSlug) {
       const emailPrefix = user.email?.split("@")[0] || `broker-${user.id.slice(0, 8)}`;
       brokerSlug = emailPrefix.replace(/[^a-zA-Z0-9-]/g, "-").toLowerCase();
       
-      // broker_profiles에 slug 저장 (있으면 update, 없으면 insert)
       const { data: existingBp } = await serviceClient
         .from("broker_profiles")
         .select("user_id")
@@ -426,7 +422,6 @@ ${myBuyersSummary}
       },
       data: {
         briefing: aiBriefing,
-        counselScript: aiCounselScript,
         hotLeadScript: aiHotLeadScript,
         riskNote: aiRiskNote,
         actionList: aiActionList,
@@ -435,12 +430,15 @@ ${myBuyersSummary}
         auctions,
         rentalMarket,
         rentalTrend,
-        sentiment: { score: averageSentiment, status: sentimentStatus, description: sentimentDescription },
+        sentiment: {
+          score: averageSentiment,
+          status: sentimentStatus,
+          description: sentimentDescription,
+          dataPoints: sentimentDataPoints,
+        },
         landPriceTrend,
         commercialDistrict,
         constructionPermits,
-        esgValueUp,
-        globalReports,
       },
       timestamp: new Date().toISOString(),
     });

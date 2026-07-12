@@ -32,7 +32,7 @@ export async function fetchCommercialTransactions(
 
   for (const lawd of lawdCodes) {
     try {
-      const url = `https://apis.data.go.kr/1613000/RTMSDataSvcSh/getRTMSDataSvcSh?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&LAWD_CD=${lawd}&DEAL_YMD=${ym}&numOfRows=10&pageNo=1`;
+      const url = `https://apis.data.go.kr/1613000/RTMSDataSvcSh/getRTMSDataSvcSh?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&LAWD_CD=${lawd}&DEAL_YMD=${ym}&numOfRows=100&pageNo=1`;
       const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
       if (!res.ok) continue;
       const xml = await res.text();
@@ -55,12 +55,11 @@ export async function fetchCommercialTransactions(
             address,
             dong,
             district: lawdCodes.includes("11680") ? "강남구" : lawdCodes.includes("11200") ? "성동구" : "영등포구",
-            area_signal: region,
             usage_type: usageType || "상업용",
             transaction_price: price,
             building_area: area,
             transaction_date: txDate,
-          }, { onConflict: "address,transaction_date,transaction_price" })
+          }, { onConflict: "address,transaction_date,transaction_price", ignoreDuplicates: true })
           .select().single();
 
         if (!error && data) results.push(data);

@@ -17,6 +17,7 @@ const ProfileUpdateSchema = z.object({
   slug: z.string().max(50).optional(),
   magazine_title: z.string().max(100).optional(),
   magazine_theme_color: z.string().max(20).optional(),
+  tagline: z.string().max(100).optional(),
 
   // 자격/등록
   license_number: z.string().max(30).optional(),
@@ -101,7 +102,7 @@ export async function GET(req: NextRequest) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, role, display_name, phone, company, created_at')
+    .select('id, role, display_name, phone, company, tagline, created_at')
     .eq('id', user!.id)
     .single();
 
@@ -145,6 +146,7 @@ export async function PUT(req: NextRequest) {
   if (display_name !== undefined) profileUpdate.display_name = display_name;
   if (phone !== undefined) profileUpdate.phone = phone;
   if (company !== undefined) profileUpdate.company = company;
+  if (parsed.data.tagline !== undefined) profileUpdate.tagline = parsed.data.tagline;
 
   // ─── Fix: avatar_url → profiles.photo_url 동기화 ───────────
   // Vibe Card (/vibe-card/[slug])가 profiles.photo_url을 읽으므로

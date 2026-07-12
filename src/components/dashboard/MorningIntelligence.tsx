@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Sparkles, Building2, Hammer, TrendingUp, MapPin, Flame,
-  Zap, BookOpen, ArrowRight, Copy, Check, RefreshCw, Share2,
-  PhoneCall, AlertTriangle, CheckCircle2, ChevronRight,
-  BarChart2, Globe, Eye, Clock, Edit3, Activity, Calendar,
+  ArrowRight, Copy, Check, RefreshCw, Share2,
+  AlertTriangle, CheckCircle2, ChevronRight,
+  BarChart2, Eye, Clock, Edit3, Activity, Calendar,
   ClipboardPaste, Wand2, Combine, Send, Loader2, FileText, Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -19,15 +19,13 @@ interface Auction { title: string; desc: string; date: string; tag: string; disc
 interface RentalMarket { type: string; deposit: string; rent: string; vacancy: string; source: string; }
 interface MyDealVsMarket { dealId: string; areaSignal: string; assetType: string; priceBand: string; nearbyTxDesc: string | null; action: string | null; }
 interface IntelligenceData {
-  briefing: string; counselScript: string; hotLeadScript?: string; riskNote?: string; actionList: string[];
+  briefing: string; hotLeadScript?: string; riskNote?: string; actionList: string[];
   yesterdayTransactions: Transaction[]; myDealsVsMarket: MyDealVsMarket[];
   auctions: Auction[]; rentalMarket: RentalMarket[];
-  sentiment: { score: number; status: string; description: string };
+  sentiment: { score: number; status: string; description: string; dataPoints?: { newsCount: number; auctionCount: number; recentTxCount: number; prevTxCount: number } };
   landPriceTrend: { pnu: string; latestYear: number; latestPrice: number; prevPrice: number; changePct: number };
   commercialDistrict: { name: string; salesIndex: number; footfallIndex: number };
   constructionPermits: { text: string; detail: string }[];
-  esgValueUp: { grade: string; opportunity: string; benefit: string };
-  globalReports: { institution: string; title: string; summary: string; url: string }[];
 }
 
 const REGIONS = [
@@ -181,7 +179,7 @@ export default function MorningIntelligence() {
   const [sharingUrl, setSharingUrl] = useState<string>("");
   const [myStats, setMyStats] = useState<{ dealCardCount: number; buyerCount: number } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copiedScript, setCopiedScript] = useState<"cold" | "hot" | null>(null);
+  const [copiedScript, setCopiedScript] = useState<"hot" | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [brokerProfileSlug, setBrokerProfileSlug] = useState("demo");
@@ -258,7 +256,7 @@ export default function MorningIntelligence() {
     document.head.appendChild(script);
   }, []);
 
-  const handleCopyScript = async (text: string, type: "cold" | "hot") => {
+  const handleCopyScript = async (text: string, type: "hot") => {
     try { await navigator.clipboard.writeText(text); setCopiedScript(type); setTimeout(() => setCopiedScript(null), 2500); } catch { }
   };
   const handleShareLink = async () => {
@@ -423,8 +421,8 @@ export default function MorningIntelligence() {
           {/* 제목 영역 — 항상 전체 너비 사용 */}
           <div className="mb-4">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <span className="text-2xl">🌅</span>
-              <h2 className="text-xl font-extrabold text-white tracking-tight whitespace-nowrap">모닝 인텔리전스</h2>
+              <span className="text-2xl">📋</span>
+              <h2 className="text-xl font-extrabold text-white tracking-tight whitespace-nowrap">오늘의 인텔리전스</h2>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 flex items-center gap-1 shrink-0">
                 <Sparkles className="w-2.5 h-2.5" /> AI 큐레이션
               </span>
@@ -775,28 +773,6 @@ export default function MorningIntelligence() {
                 </div>
               )}
 
-              {/* 상담 화법 */}
-              <div className="pt-3 border-t border-white/8">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-bold text-indigo-300 flex items-center gap-1.5">
-                    <PhoneCall className="w-3.5 h-3.5" /> 콜드 팔로업 상담 멘트
-                  </span>
-                  <motion.button whileTap={{ scale: 0.92 }}
-                    onClick={() => handleCopyScript(data.counselScript, "cold")}
-                    className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-indigo-300 border border-white/12 bg-white/5 hover:bg-indigo-500/10 px-2.5 py-1.5 rounded-lg transition-all duration-300">
-                    {copiedScript === "cold"
-                      ? <><Check className="w-3 h-3 text-emerald-400" /><span className="text-emerald-400">복사됨</span></>
-                      : <><Copy className="w-3 h-3" /><span>복사</span></>}
-                  </motion.button>
-                </div>
-                <div className="relative bg-indigo-500/5 border border-indigo-500/15 rounded-xl px-4 py-3">
-                  <div className="absolute left-0 top-3 bottom-3 w-0.5 bg-indigo-500/40 rounded-full ml-3" />
-                  <p className="text-[12px] italic text-slate-200 leading-relaxed pl-3">
-                    &ldquo;{data.counselScript}&rdquo;
-                  </p>
-                </div>
-              </div>
-
               {/* 카톡 문구 (핫 리드) */}
               {data.hotLeadScript && (
                 <div className="pt-3 border-t border-white/8">
@@ -1016,6 +992,20 @@ export default function MorningIntelligence() {
                     </div>
                   </div>
                   <p className="text-[11px] text-slate-400 leading-relaxed px-1">{data.sentiment.description}</p>
+                  {/* 복합 지수 근거 표시 */}
+                  {data.sentiment.dataPoints && (
+                    <div className="flex flex-wrap gap-1.5 px-1">
+                      <span className="text-[9px] text-slate-500 bg-white/5 border border-white/8 rounded-full px-2 py-0.5">
+                        📰 뉴스 {data.sentiment.dataPoints.newsCount}건
+                      </span>
+                      <span className="text-[9px] text-slate-500 bg-white/5 border border-white/8 rounded-full px-2 py-0.5">
+                        🔨 경매 {data.sentiment.dataPoints.auctionCount}건
+                      </span>
+                      <span className="text-[9px] text-slate-500 bg-white/5 border border-white/8 rounded-full px-2 py-0.5">
+                        📊 최근거래 {data.sentiment.dataPoints.recentTxCount}건 (전월 {data.sentiment.dataPoints.prevTxCount}건)
+                      </span>
+                    </div>
+                  )}
                 </div>
               </Card>
             </motion.div>
@@ -1080,35 +1070,8 @@ export default function MorningIntelligence() {
               </Card>
             </motion.div>
 
-            {/* CARD 9: ESG & 에너지 */}
+            {/* CARD 9: 신축/리모델링 인허가 */}
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-              <Card accent="#f59e0b">
-                <SectionHead
-                  icon={<Zap className="w-3.5 h-3.5 text-amber-400" />}
-                  title="에너지 등급 & ESG 밸류업"
-                  badge={<Badge variant="amber">{data.esgValueUp.grade}</Badge>}
-                />
-                <div className="space-y-3">
-                  <div className="bg-amber-500/5 border border-amber-500/12 rounded-xl p-3.5">
-                    <div className="flex items-start gap-2.5">
-                      <div className="p-1.5 rounded-lg bg-amber-500/15 shrink-0">
-                        <Zap className="w-3.5 h-3.5 text-amber-400" />
-                      </div>
-                      <div>
-                        <span className="block text-[11px] font-bold text-white mb-0.5">밸류업 기회</span>
-                        <span className="text-[11px] text-slate-300 leading-relaxed">{data.esgValueUp.opportunity}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-white/3 border border-white/8 rounded-xl px-3.5 py-3 text-[11px] text-slate-400">
-                    <strong className="text-slate-200">ESG 혜택:</strong> {data.esgValueUp.benefit}
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-
-            {/* CARD 10: 신축/리모델링 인허가 */}
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
               <Card>
                 <SectionHead icon={<span className="text-base">🏗️</span>} title="신축 & 리모델링 인허가 동향" />
                 <div className="space-y-2">
@@ -1122,36 +1085,6 @@ export default function MorningIntelligence() {
                         상세 내역 확인 <ArrowRight className="w-2.5 h-2.5" />
                       </span>
                     </Link>
-                  ))}
-                </div>
-              </Card>
-            </motion.div>
-
-            {/* CARD 11: 글로벌 리포트 (full-width) */}
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-              className="md:col-span-2">
-              <Card accent="#6366f1">
-                <SectionHead
-                  icon={<Globe className="w-3.5 h-3.5 text-indigo-400" />}
-                  title="글로벌 CRE 리서치 리포트"
-                  badge={<Badge variant="indigo"><BookOpen className="w-2.5 h-2.5" /> CBRE · Cushman · 부동산플래닛</Badge>}
-                />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {data.globalReports.map((r, idx) => (
-                    <a key={idx} href={r.url} target="_blank" rel="noreferrer"
-                      className="group flex flex-col bg-white/3 border border-white/8 hover:border-indigo-500/30 rounded-xl p-4 hover:bg-indigo-500/5 transition-all duration-300">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-[10px] font-bold text-indigo-400">{r.institution}</span>
-                        <BookOpen className="w-3.5 h-3.5 text-slate-600 group-hover:text-indigo-400 transition-colors" />
-                      </div>
-                      <h4 className="text-[12px] font-bold text-white group-hover:text-indigo-200 transition-colors mb-1.5 leading-snug">
-                        {r.title}
-                      </h4>
-                      <p className="text-[10px] text-slate-400 leading-relaxed flex-1">{r.summary}</p>
-                      <div className="mt-2.5 flex items-center gap-1 text-[10px] text-indigo-400 font-bold group-hover:gap-2 transition-all">
-                        <span>리포트 보기</span> <ArrowRight className="w-3 h-3" />
-                      </div>
-                    </a>
                   ))}
                 </div>
               </Card>

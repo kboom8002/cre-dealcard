@@ -22,10 +22,7 @@ export function WeeklyReportCard() {
   useEffect(() => {
     const fetchReport = async () => {
       try {
-        const token = await getToken();
-        const res = await fetch('/api/broker/weekly-report', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch('/api/broker/weekly-report');
         if (res.ok) {
           const json = await res.json();
           if (json && json.data) {
@@ -231,16 +228,3 @@ export function WeeklyReportCard() {
   );
 }
 
-async function getToken(): Promise<string> {
-  try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token ?? '';
-  } catch {
-    return '';
-  }
-}

@@ -323,7 +323,8 @@ export function VibeCardView({ data }: { data: VibeCardData }) {
       {/* Share Bottom Sheet */}
       <VibeShareSheet
         slug={slug}
-        cardTitle={`${profile.displayName} 공인중개사 명함`}
+        cardTitle={profile.tagline || `${profile.displayName} 공인중개사 명함`}
+        cardDescription={professional?.seoSummary ?? broker?.bio ?? ""}
         isOpen={shareOpen}
         onClose={() => setShareOpen(false)}
       />

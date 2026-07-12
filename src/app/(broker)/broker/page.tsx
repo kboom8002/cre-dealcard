@@ -29,6 +29,27 @@ export default async function BrokerPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // ── [C2] 최초 접속 (온보딩 미완료)인 경우 /onboarding으로 자동 리다이렉트 ──
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.role !== "admin") {
+    const { data: onboardingSession } = await supabase
+      .from("onboarding_sessions")
+      .select("completed_at")
+      .eq("user_id", user.id)
+      .not("completed_at", "is", null)
+      .limit(1)
+      .maybeSingle();
+
+    if (!onboardingSession) {
+      redirect("/onboarding");
+    }
+  }
+
   const userName = user.user_metadata?.full_name || user.email?.split("@")[0] || "중개인";
 
   // ── KPI 데이터 병렬 조회 ──

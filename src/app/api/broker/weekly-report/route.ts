@@ -3,20 +3,17 @@
  * 중개인 개인 주간 리포트 — 이번 주 활동 요약 + 매칭 시그널 + 수요 집중 권역 + 미연락 고객
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { requireBroker } from '@/lib/auth-guard';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 
 export async function GET(req: NextRequest) {
-  const auth = await requireBroker(req);
-  if (auth.error) return auth.error;
+  const serverClient = await createServerSupabaseClient();
+  const { data: { user } } = await serverClient.auth.getUser();
+  if (!user) return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  );
+  const supabase = createServiceClient();
 
-  const userId = auth.user!.id;
+  const userId = user.id;
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();

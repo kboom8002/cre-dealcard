@@ -47,9 +47,13 @@ export function GreetingHeader({ userName }: GreetingHeaderProps) {
           <LogOut className="w-4 h-4" />
           <span>로그아웃</span>
         </button>
-        <Link href="/broker/profile" title="프로필">
-          <UserCircle className="w-8 h-8 text-muted-foreground hover:text-foreground transition-colors" />
-        </Link>
+        <a
+          href="/broker/profile"
+          className="flex items-center justify-center p-1.5 rounded-full hover:bg-neutral-800 text-muted-foreground hover:text-foreground transition-colors"
+          title="프로필"
+        >
+          <UserCircle className="w-8 h-8" />
+        </a>
       </div>
     </div>
   );
