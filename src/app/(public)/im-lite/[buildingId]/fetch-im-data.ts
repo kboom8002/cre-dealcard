@@ -54,6 +54,21 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
 
   if (!profile && !brokerProfile) return null;
 
+  // slug가 없으면 자동 생성 (기존 사용자 마이그레이션)
+  let slug = brokerProfile?.slug || null;
+  if (brokerProfile && !slug) {
+    const baseName = (profile?.display_name || brokerProfile?.name || ownerId.substring(0, 8)) as string;
+    const slugBase = baseName.toLowerCase().replace(/[^a-z0-9\uAC00-\uD7A3]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    slug = `${slugBase}-${ownerId.substring(0, 6)}`;
+    
+    // DB에 저장 (비블로킹)
+    supabase
+      .from("broker_profiles")
+      .update({ slug })
+      .eq("user_id", ownerId)
+      .then(() => {});
+  }
+
   // broker_profiles의 slug/vibe 데이터를 우선 사용하되, profiles의 기본 정보로 보강
   return {
     id: ownerId,
@@ -62,7 +77,7 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
     phone: profile?.phone || brokerProfile?.phone || "",
     tagline: profile?.tagline || brokerProfile?.tagline || "",
     photo_url: profile?.photo_url || brokerProfile?.avatar_url || brokerProfile?.photo_url || "/default-avatar.png",
-    slug: brokerProfile?.slug || "cre-dealcard-default",
+    slug: slug || "cre-dealcard-default",
     vibe_template_id: brokerProfile?.vibe_template_id || "default",
   };
 }
