@@ -35,40 +35,36 @@ function buildBrokerObject(profile: any) {
 }
 
 /**
- * owner_id로 프로필을 조회. profiles → broker_profiles 순서로 폴백.
+ * owner_id로 프로필을 조회. profiles + broker_profiles를 병합하여 slug/vibe를 확보.
  */
 async function fetchBrokerProfile(supabase: any, ownerId: string) {
-  // 1차: profiles 테이블
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, display_name, company, phone, tagline, photo_url, slug, vibe_template_id")
-    .eq("id", ownerId)
-    .single();
+  // 두 테이블을 동시에 조회
+  const [{ data: profile }, { data: brokerProfile }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, display_name, company, phone, tagline, photo_url")
+      .eq("id", ownerId)
+      .single(),
+    supabase
+      .from("broker_profiles")
+      .select("user_id, name, company, phone, tagline, photo_url, slug, vibe_template_id, avatar_url")
+      .eq("user_id", ownerId)
+      .single(),
+  ]);
 
-  if (profile && (profile.display_name || profile.company)) return profile;
+  if (!profile && !brokerProfile) return null;
 
-  // 2차: broker_profiles 테이블 (user_id로 조회)
-  const { data: brokerProfile } = await supabase
-    .from("broker_profiles")
-    .select("user_id, name, company, phone, tagline, photo_url, slug")
-    .eq("user_id", ownerId)
-    .single();
-
-  if (brokerProfile) {
-    return {
-      id: brokerProfile.user_id,
-      display_name: brokerProfile.name,
-      company: brokerProfile.company,
-      phone: brokerProfile.phone,
-      tagline: brokerProfile.tagline,
-      photo_url: brokerProfile.photo_url,
-      slug: brokerProfile.slug,
-      vibe_template_id: "default",
-    };
-  }
-
-  // 3차: profiles가 있긴 하지만 불완전한 경우
-  return profile || null;
+  // broker_profiles의 slug/vibe 데이터를 우선 사용하되, profiles의 기본 정보로 보강
+  return {
+    id: ownerId,
+    display_name: profile?.display_name || brokerProfile?.name || "담당 중개인",
+    company: profile?.company || brokerProfile?.company || "",
+    phone: profile?.phone || brokerProfile?.phone || "",
+    tagline: profile?.tagline || brokerProfile?.tagline || "",
+    photo_url: profile?.photo_url || brokerProfile?.avatar_url || brokerProfile?.photo_url || "/default-avatar.png",
+    slug: brokerProfile?.slug || "cre-dealcard-default",
+    vibe_template_id: brokerProfile?.vibe_template_id || "default",
+  };
 }
 
 /**

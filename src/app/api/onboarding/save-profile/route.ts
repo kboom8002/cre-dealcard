@@ -84,21 +84,45 @@ export async function POST(req: NextRequest) {
 
     // ── 2. Upsert broker_profiles with vibe data ────────────────────────────
     if (session.vibe_vector) {
+      // slug가 없으면 자동 생성 (vibe card URL용)
+      let existingSlug: string | null = null;
+      const { data: existingBP } = await supabase
+        .from('broker_profiles')
+        .select('slug')
+        .eq('user_id', user.id)
+        .single();
+      existingSlug = existingBP?.slug || null;
+
+      if (!existingSlug) {
+        // 이름 기반 slug 생성 (없으면 user.id 앞 8자리 사용)
+        const baseName = body.user_name || user.id.substring(0, 8);
+        const slugBase = baseName.toLowerCase().replace(/[^a-z0-9가-힣]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+        existingSlug = `${slugBase}-${user.id.substring(0, 6)}`;
+      }
+
+      const brokerUpsertData: Record<string, unknown> = {
+        user_id: user.id,
+        slug: existingSlug,
+        vibe_vector: session.vibe_vector,
+        vibe_vti: session.vti_type,
+        vibe_complement: session.complement_vector,
+        vibe_template_id: session.matched_template_id,
+        vibe_valence: (session.before_scores as { valence?: number } | null)?.valence ?? null,
+        vibe_trust: (session.before_scores as { trust?: number } | null)?.trust ?? null,
+        vibe_analyzed_at: new Date().toISOString(),
+      };
+      // 온보딩 사진을 broker_profiles.avatar_url에도 저장
+      if (session.photo_url) {
+        brokerUpsertData['avatar_url'] = session.photo_url;
+      }
+      // 이름도 저장
+      if (body.user_name) {
+        brokerUpsertData['name'] = body.user_name;
+      }
+
       const { error: profileErr } = await supabase
         .from('broker_profiles')
-        .upsert(
-          {
-            user_id: user.id,
-            vibe_vector: session.vibe_vector,
-            vibe_vti: session.vti_type,
-            vibe_complement: session.complement_vector,
-            vibe_template_id: session.matched_template_id,
-            vibe_valence: (session.before_scores as { valence?: number } | null)?.valence ?? null,
-            vibe_trust: (session.before_scores as { trust?: number } | null)?.trust ?? null,
-            vibe_analyzed_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id' },
-        );
+        .upsert(brokerUpsertData, { onConflict: 'user_id' });
 
       if (profileErr) {
         console.error('[save-profile] broker_profiles upsert error:', profileErr);
@@ -111,6 +135,8 @@ export async function POST(req: NextRequest) {
     if (body.region) profileUpdates['region'] = body.region;
     if (body.user_name) profileUpdates['display_name'] = body.user_name;
     if (body.user_phone) profileUpdates['phone'] = body.user_phone;
+    // 온보딩 사진이 있으면 profiles.photo_url에도 저장
+    if (session.photo_url) profileUpdates['photo_url'] = session.photo_url;
 
     if (Object.keys(profileUpdates).length > 0) {
       const { error: profileUpdateErr } = await supabase
