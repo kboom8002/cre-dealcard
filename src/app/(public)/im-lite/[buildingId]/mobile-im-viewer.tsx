@@ -965,7 +965,9 @@ function BottomShareBar({ title, buildingId, docId, areaSignal, blindName, price
           Kakao.Share.sendDefault({
             objectType: "feed",
             content: {
-              title: `[${areaSignal || ''}] ${blindName || title || '투자 매물'}`,
+              title: areaSignal && blindName && !blindName.includes(areaSignal)
+                ? `[${areaSignal}] ${blindName}`
+                : blindName || title || '투자 매물',
               description: heroCard?.capRateBase
                 ? `매각 희망가 ${priceBand || ''} · Cap Rate ${heroCard.capRateBase}% · 크리딜 프리미엄 투자설명서`
                 : `${priceBand || ''} · ${areaSignal || ''} · 크리딜 프리미엄 투자설명서`,

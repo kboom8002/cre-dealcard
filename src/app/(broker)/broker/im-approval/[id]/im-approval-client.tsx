@@ -26,6 +26,8 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   const [sections, setSections] = useState<IMSection[]>(rawSections as IMSection[]);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState('');
+  const [editableTitle, setEditableTitle] = useState(title);
+  const [isTitleEditing, setIsTitleEditing] = useState(false);
   
   // Track which sections have been verified by the broker
   const initialVerified = new Set(
@@ -67,7 +69,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
       await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sections: newSections }),
+        body: JSON.stringify({ sections: newSections, title: editableTitle }),
       });
     } catch (err) {
       console.error("Save failed", err);
@@ -106,6 +108,14 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   const handleApprove = async () => {
     setActionStatus('loading');
     try {
+      // Save title if changed
+      if (editableTitle !== title) {
+        await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sections, title: editableTitle }),
+        });
+      }
       const res = await fetch(`/api/broker/im-lite/${docId}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -140,7 +150,20 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
             ← 딜카드
           </Link>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-white truncate max-w-xs">{title}</span>
+            {isTitleEditing ? (
+              <input
+                autoFocus
+                value={editableTitle}
+                onChange={(e) => setEditableTitle(e.target.value)}
+                onBlur={() => setIsTitleEditing(false)}
+                onKeyDown={(e) => { if (e.key === 'Enter') setIsTitleEditing(false); }}
+                className="text-sm font-bold text-white bg-neutral-800 border border-primary rounded px-2 py-0.5 max-w-xs focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            ) : (
+              <button onClick={() => setIsTitleEditing(true)} className="text-sm font-bold text-white truncate max-w-xs hover:text-primary transition-colors" title="클릭하여 제목 편집">
+                {editableTitle} ✏️
+              </button>
+            )}
             <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${statusBadge.color}`}>
               {statusBadge.label}
             </span>

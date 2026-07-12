@@ -128,7 +128,7 @@ export async function GET(
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          padding: "60px",
+          padding: "36px 44px",
           background: "linear-gradient(135deg, #0b0f19 0%, #1a1f33 50%, #0f1729 100%)",
           color: "white",
           fontFamily: "sans-serif",
@@ -139,16 +139,16 @@ export async function GET(
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "12px",
+            gap: "10px",
           }}
         >
           <div
             style={{
               background: "rgba(59, 130, 246, 0.2)",
               border: "1px solid rgba(59, 130, 246, 0.4)",
-              borderRadius: "8px",
-              padding: "8px 16px",
-              fontSize: 20,
+              borderRadius: "6px",
+              padding: "5px 12px",
+              fontSize: 15,
               color: "#93c5fd",
               display: "flex",
             }}
@@ -160,9 +160,9 @@ export async function GET(
               style={{
                 background: "rgba(16, 185, 129, 0.2)",
                 border: "1px solid rgba(16, 185, 129, 0.4)",
-                borderRadius: "8px",
-                padding: "8px 16px",
-                fontSize: 20,
+                borderRadius: "6px",
+                padding: "5px 12px",
+                fontSize: 15,
                 color: "#6ee7b7",
                 display: "flex",
               }}
@@ -175,9 +175,9 @@ export async function GET(
             style={{
               background: badge.bg,
               border: `1px solid ${badge.fg}40`,
-              borderRadius: "8px",
-              padding: "8px 16px",
-              fontSize: 18,
+              borderRadius: "6px",
+              padding: "5px 12px",
+              fontSize: 14,
               color: badge.fg,
               display: "flex",
               marginLeft: "auto",
@@ -188,9 +188,9 @@ export async function GET(
         </div>
 
         {/* Center: main content */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           <div style={{
-            fontSize: displayTitle.length > 30 ? 42 : 52,
+            fontSize: displayTitle.length > 30 ? 28 : 34,
             fontWeight: 700,
             lineHeight: 1.3,
             display: "flex",
@@ -199,7 +199,7 @@ export async function GET(
           </div>
           <div
             style={{
-              fontSize: 26,
+              fontSize: 18,
               color: "rgba(255, 255, 255, 0.8)",
               display: "flex",
               lineHeight: 1.4,
@@ -210,7 +210,7 @@ export async function GET(
 
           {/* Metric pills row */}
           {metricPills.length > 0 && (
-            <div style={{ display: "flex", gap: "16px", marginTop: "8px" }}>
+            <div style={{ display: "flex", gap: "12px", marginTop: "4px" }}>
               {metricPills.map((pill) => (
                 <div
                   key={pill.label}
@@ -219,14 +219,14 @@ export async function GET(
                     flexDirection: "column",
                     background: "rgba(255, 255, 255, 0.06)",
                     border: "1px solid rgba(255, 255, 255, 0.12)",
-                    borderRadius: "12px",
-                    padding: "12px 20px",
+                    borderRadius: "8px",
+                    padding: "8px 14px",
                   }}
                 >
-                  <span style={{ fontSize: 14, color: "rgba(255, 255, 255, 0.5)", display: "flex" }}>
+                  <span style={{ fontSize: 11, color: "rgba(255, 255, 255, 0.5)", display: "flex" }}>
                     {pill.label}
                   </span>
-                  <span style={{ fontSize: 24, fontWeight: 700, color: "#e0e7ff", display: "flex" }}>
+                  <span style={{ fontSize: 18, fontWeight: 700, color: "#e0e7ff", display: "flex" }}>
                     {pill.value}
                   </span>
                 </div>
@@ -245,7 +245,7 @@ export async function GET(
         >
           <div
             style={{
-              fontSize: 32,
+              fontSize: 24,
               fontWeight: 700,
               background: "linear-gradient(90deg, #3b82f6, #8b5cf6)",
               backgroundClip: "text",
@@ -255,11 +255,11 @@ export async function GET(
           >
             DealCard
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             {readinessScore > 0 && (
               <div
                 style={{
-                  fontSize: 16,
+                  fontSize: 13,
                   color: readinessScore >= 80 ? "#6ee7b7" : readinessScore >= 50 ? "#fbbf24" : "#a3a3a3",
                   display: "flex",
                 }}
@@ -269,7 +269,7 @@ export async function GET(
             )}
             <div
               style={{
-                fontSize: 18,
+                fontSize: 14,
                 color: "rgba(255, 255, 255, 0.4)",
                 display: "flex",
               }}
@@ -281,8 +281,9 @@ export async function GET(
       </div>
     ),
     {
-      width: 1200,
-      height: 630,
+      width: 800,
+      height: 400,
     },
   );
 }
+

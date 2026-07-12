@@ -619,7 +619,7 @@ export function ImDataBottomSheet({
                 if (validFiles.length < e.target.files.length) {
                   alert("10MB 이상의 파일은 제외되었습니다.");
                 }
-                const files = validFiles.slice(0, 5 - photoFiles.length);
+                const files = validFiles.slice(0, 12 - photoFiles.length);
                 setPhotoFiles((prev) => [...prev, ...files]);
                 const newUrls = files.map((f) => URL.createObjectURL(f));
                 setPhotoPreviewUrls((prev) => [...prev, ...newUrls]);

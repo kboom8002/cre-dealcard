@@ -12,10 +12,12 @@ export async function PUT(
 
   const { id } = await params;
   let sections: MobileIMSection[];
+  let newTitle: string | undefined;
 
   try {
     const body = await req.json();
     sections = body.sections;
+    newTitle = body.title;
     if (!sections || !Array.isArray(sections)) {
       return NextResponse.json({ error: "Invalid 'sections' payload" }, { status: 400 });
     }
@@ -46,6 +48,7 @@ export async function PUT(
   const updatedContent = {
     ...content,
     sections: sections,
+    ...(newTitle ? { title: newTitle } : {}),
   };
 
   const { error: updateErr } = await supabase
