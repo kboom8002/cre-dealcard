@@ -438,9 +438,7 @@ export default function BrokerProfilePage() {
           
           {profile?.broker?.slug ? (
             <a
-              href={`/vibe-card/${profile.broker.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/broker/vibe-card"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all shadow-sm border"
               style={{
                 background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
@@ -455,11 +453,11 @@ export default function BrokerProfilePage() {
                 <path d="M14 10h5"></path>
                 <path d="M14 14h5"></path>
               </svg>
-              내 Vibe Card 보기
+              ✨ Vibe 명함 관리
             </a>
           ) : (
             <a
-              href="/onboarding"
+              href="/broker/vibe-card"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all shadow-sm border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100"
             >
               ✨ Vibe 명함 만들기
