@@ -66,16 +66,16 @@ export async function POST(req: NextRequest) {
       // 비치명적 — 업로드 자체는 성공했으므로 계속 진행
     }
 
-    // ─── Fix #2: broker_profiles.avatar_url도 즉시 동기화 ────
+    // ─── Fix #2: broker_profiles.photo_url도 즉시 동기화 ────
     const { error: bpSyncError } = await supabase
       .from("broker_profiles")
       .upsert(
-        { user_id: user!.id, avatar_url: publicUrl },
+        { user_id: user!.id, photo_url: publicUrl },
         { onConflict: "user_id" }
       );
 
     if (bpSyncError) {
-      console.warn("[Avatar] broker_profiles.avatar_url sync failed:", bpSyncError.message);
+      console.warn("[Avatar] broker_profiles.photo_url sync failed:", bpSyncError.message);
     }
 
     // ─── Fix #3: Vibe AI 재분석 비동기 트리거 ────────────────
