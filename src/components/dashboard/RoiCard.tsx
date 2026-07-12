@@ -55,10 +55,10 @@ export function RoiCard({ metrics, loading = false }: RoiCardProps) {
       <div className="space-y-1.5 pt-2 border-t border-white/10 text-xs">
         <div className="flex justify-between items-center text-[10px] text-indigo-100/80 mb-1">
           <span>작업 건수 분석</span>
-          <span>총 {(metrics.breakdown.dealCardsCount + metrics.breakdown.buyerIntentsCount + metrics.breakdown.matchesCount + metrics.breakdown.imCount)}건 처리</span>
+          <span>총 {(metrics.breakdown.dealCardsCount + metrics.breakdown.buyerIntentsCount + metrics.breakdown.matchesCount + metrics.breakdown.imCount + metrics.breakdown.magazineCount)}건 처리</span>
         </div>
         
-        <div className="grid grid-cols-4 gap-1.5 text-center">
+        <div className="grid grid-cols-5 gap-1.5 text-center">
           <div className="bg-white/10 hover:bg-white/15 transition-all p-1.5 rounded-lg">
             <p className="font-bold text-[13px]">{metrics.breakdown.dealCardsCount}건</p>
             <p className="text-[9px] text-indigo-100/70">딜카드</p>
@@ -74,6 +74,10 @@ export function RoiCard({ metrics, loading = false }: RoiCardProps) {
           <div className="bg-white/10 hover:bg-white/15 transition-all p-1.5 rounded-lg">
             <p className="font-bold text-[13px]">{metrics.breakdown.imCount}건</p>
             <p className="text-[9px] text-indigo-100/70">Full IM</p>
+          </div>
+          <div className="bg-white/10 hover:bg-white/15 transition-all p-1.5 rounded-lg">
+            <p className={`font-bold text-[13px] ${metrics.breakdown.magazineCount === 0 ? 'text-white/40' : ''}`}>{metrics.breakdown.magazineCount}건</p>
+            <p className="text-[9px] text-indigo-100/70">매거진</p>
           </div>
         </div>
       </div>

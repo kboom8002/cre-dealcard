@@ -8,7 +8,7 @@ import { RoiCard } from "@/components/dashboard/RoiCard";
 import { MarketBreakthroughMode } from "@/components/dashboard/AntifragileMode";
 import { WeeklyReportCard } from "@/components/dashboard/WeeklyReportCard";
 import { MonthlyReportCard } from "@/components/dashboard/MonthlyReportCard";
-import { Bell, TrendingUp, Users, Building2, Target, Calendar } from "lucide-react";
+import { Bell, TrendingUp, Users, Building2, Target, Calendar, Newspaper } from "lucide-react";
 import BrokerDashboardTabs from "@/components/dashboard/BrokerDashboardTabs";
 import MorningIntelligence from "@/components/dashboard/MorningIntelligence";
 import { GreetingHeader } from "@/components/dashboard/GreetingHeader";
@@ -70,6 +70,9 @@ export default async function BrokerPage() {
     activityEventsRes,
     todayBookingsRes,
     { data: brokerProfileData },
+    dealDatesRes,
+    subscriberCountRes,
+    magazineViewsRes,
   ] = await Promise.all([
     supabase
       .from("building_ssot_lite")
@@ -134,6 +137,24 @@ export default async function BrokerPage() {
       .select("slug")
       .eq("user_id", user.id)
       .maybeSingle(),
+    // 내 딜 체류일 계산용 created_at 목록
+    supabase
+      .from("building_ssot_lite")
+      .select("created_at")
+      .eq("owner_id", user.id),
+    // 매거진 활성 구독자 수
+    supabase
+      .from("magazine_subscribers")
+      .select("id", { count: "exact", head: true })
+      .eq("broker_id", user.id)
+      .eq("status", "active"),
+    // 이달 매거진 열람 수 (activity_events에서 magazine_view 카운트)
+    supabase
+      .from("activity_events")
+      .select("id", { count: "exact", head: true })
+      .eq("event_type", "magazine_view")
+      .eq("actor_id", user.id)
+      .gte("created_at", new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
   ]);
 
   const sMatchCount =
@@ -164,11 +185,26 @@ export default async function BrokerPage() {
       : 0;
 
   const myTotalDeals = (totalBuildings ?? 0) + (totalLeaseSpaces ?? 0);
-  const displayAvgHoldDays = myTotalDeals > 0 ? breakthroughMetrics.avgHoldDays : 0;
-  
-  const holdDaysDelta = myTotalDeals > 0 
-    ? Math.round(((displayAvgHoldDays - 18.2) / 18.2) * 100)
+
+  // 내 딜 실 평균 체류일 계산 (building_ssot_lite.created_at 기반)
+  const dealCreatedDates = (dealDatesRes as any)?.data || [];
+  const myAvgHoldDays = dealCreatedDates.length > 0
+    ? Math.round(
+        dealCreatedDates.reduce((sum: number, d: any) => {
+          const days = Math.max(0, (Date.now() - new Date(d.created_at).getTime()) / 86400000);
+          return sum + days;
+        }, 0) / dealCreatedDates.length * 10
+      ) / 10
     : 0;
+  const displayAvgHoldDays = myAvgHoldDays;
+  const marketAvgHoldDays = breakthroughMetrics.avgHoldDays || 18.2;
+  const holdDaysDelta = myTotalDeals > 0 
+    ? Math.round(((displayAvgHoldDays - marketAvgHoldDays) / marketAvgHoldDays) * 100)
+    : 0;
+
+  // 매거진 KPI
+  const magazineSubscribers = (subscriberCountRes as any)?.count ?? 0;
+  const magazineViews = (magazineViewsRes as any)?.count ?? 0;
 
   // Query activity_events table for real notification feed
   const rawEvents = activityEventsRes?.data || [];
@@ -371,8 +407,8 @@ export default async function BrokerPage() {
             <p className="text-[10px] text-muted-foreground">내 딜 평균 체류일수</p>
             <p className="text-base font-extrabold">{displayAvgHoldDays}일</p>
             {myTotalDeals > 0 ? (
-              <p className="text-[9px] text-green-600">
-                평균 18.2일 대비{" "}
+              <p className={`text-[9px] ${holdDaysDelta <= 0 ? 'text-green-500' : 'text-rose-400'}`}>
+                시장 {marketAvgHoldDays}일 대비{" "}
                 {holdDaysDelta < 0 ? holdDaysDelta : `+${holdDaysDelta}`}%
               </p>
             ) : (
@@ -389,6 +425,16 @@ export default async function BrokerPage() {
             ) : (
               <p className="text-[9px] text-muted-foreground">데이터 부족</p>
             )}
+          </div>
+          <div className="bg-card border border-border p-2.5 rounded-lg">
+            <p className="text-[10px] text-muted-foreground">매거진 구독자</p>
+            <p className="text-base font-extrabold">{magazineSubscribers}명</p>
+            <p className="text-[9px] text-orange-400">활성 구독자</p>
+          </div>
+          <div className="bg-card border border-border p-2.5 rounded-lg">
+            <p className="text-[10px] text-muted-foreground">이달 매거진 열람</p>
+            <p className="text-base font-extrabold">{magazineViews}회</p>
+            <p className="text-[9px] text-indigo-400">page view 기준</p>
           </div>
         </div>
       </div>
@@ -449,14 +495,14 @@ export default async function BrokerPage() {
             </div>
           </Link>
           <Link
-            href="/owner-readiness"
-            id="quick-action-owner-readiness"
-            className="flex items-center gap-2.5 rounded-xl border border-teal-500/30 bg-teal-500/10 px-4 py-3 hover:bg-teal-500/20 active:scale-95 transition-all"
+            href="/broker/magazine-editor?tab=analytics"
+            id="quick-action-magazine"
+            className="flex items-center gap-2.5 rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 hover:bg-orange-500/20 active:scale-95 transition-all"
           >
-            <span className="text-xl">📋</span>
+            <span className="text-xl">📰</span>
             <div>
-              <p className="text-xs font-bold text-teal-400 leading-tight">매각준비도 진단</p>
-              <p className="text-[10px] text-muted-foreground">소유주 자가진단</p>
+              <p className="text-xs font-bold text-orange-400 leading-tight">매거진 관리</p>
+              <p className="text-[10px] text-muted-foreground">발행 이력 · 편집 · 성과</p>
             </div>
           </Link>
           <Link

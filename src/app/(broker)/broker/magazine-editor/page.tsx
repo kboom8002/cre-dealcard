@@ -31,6 +31,7 @@ import {
   BookOpen,
   Upload,
   X,
+  BarChart3,
 } from "lucide-react";
 import {
   MARKET_TEMP_CONFIG,
@@ -50,6 +51,7 @@ const TABS = [
   { key: "theme_deals" as const, label: "테마&매물", icon: Target },
   { key: "news" as const, label: "뉴스큐레이션", icon: BookOpen },
   { key: "publish" as const, label: "발행설정", icon: Settings },
+  { key: "analytics" as const, label: "성과", icon: BarChart3 },
 ];
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -113,7 +115,8 @@ function MagazineEditorInner() {
   const searchParams = useSearchParams();
 
   // ── 상태 관리 ──
-  const [activeTab, setActiveTab] = useState<TabKey>("cover");
+  const initialTab = (searchParams.get("tab") as TabKey) || "cover";
+  const [activeTab, setActiveTab] = useState<TabKey>(TABS.some(t => t.key === initialTab) ? initialTab : "cover");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -149,6 +152,14 @@ function MagazineEditorInner() {
   const [magazineTitle, setMagazineTitle] = useState("");
   const [showShareModal, setShowShareModal] = useState(false);
   const [magazineData, setMagazineData] = useState<any>(null);
+
+  // Analytics
+  const [editionHistory, setEditionHistory] = useState<any[]>([]);
+  const [analyticsData, setAnalyticsData] = useState<{
+    subscriberCount: number;
+    lastDistribution: { date: string; sentCount: number; failedCount: number; totalCount: number } | null;
+    viewStats: { totalViews: number; uniqueVisitors: number; avgDwellSeconds: number; completionRate: number };
+  } | null>(null);
 
   // Tooltip
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
@@ -283,6 +294,22 @@ function MagazineEditorInner() {
 
         if (mappedDeals.length > 0) {
           setAllDeals(mappedDeals);
+        }
+
+        // 5. 매거진 성과 데이터 로드
+        try {
+          const analyticsRes = await fetch("/api/broker/magazine/analytics");
+          if (analyticsRes.ok) {
+            const analyticsJson = await analyticsRes.json();
+            setAnalyticsData({
+              subscriberCount: analyticsJson.subscriberCount,
+              lastDistribution: analyticsJson.lastDistribution,
+              viewStats: analyticsJson.viewStats,
+            });
+            setEditionHistory(analyticsJson.editions || []);
+          }
+        } catch (analyticsErr) {
+          console.warn("[magazine-editor] Analytics load failed (non-blocking):", analyticsErr);
         }
       } catch (err) {
         console.error("Failed to load magazine data", err);
@@ -1033,6 +1060,8 @@ function MagazineEditorInner() {
                       <option value="editing">편집중</option>
                       <option value="review">검토</option>
                       <option value="published">발행</option>
+                      <option value="needs_review">검토 필요</option>
+                      <option value="archived">보관</option>
                     </select>
                   </div>
                 </div>
@@ -1135,6 +1164,148 @@ function MagazineEditorInner() {
               )}
               매거진 발행 및 공유
             </motion.button>
+          </div>
+        );
+
+      // ━━━ 성과 탭 ━━━
+      case "analytics":
+        return (
+          <div className="space-y-4 pb-6">
+            {/* ── 배포 성과 서머리 ── */}
+            <div className="rounded-xl border border-orange-500/20 bg-gradient-to-br from-orange-950/30 to-amber-950/20 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-orange-400" />
+                <span className="text-xs font-bold text-orange-300">매거진 배포 현황</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-black/20 border border-white/5 rounded-lg p-3 text-center">
+                  <p className="text-lg font-black text-white">{analyticsData?.subscriberCount ?? 0}</p>
+                  <p className="text-[10px] text-orange-200/60">활성 구독자</p>
+                </div>
+                <div className="bg-black/20 border border-white/5 rounded-lg p-3 text-center">
+                  <p className="text-lg font-black text-white">{analyticsData?.lastDistribution?.sentCount ?? 0}</p>
+                  <p className="text-[10px] text-orange-200/60">발송 성공</p>
+                </div>
+                <div className="bg-black/20 border border-white/5 rounded-lg p-3 text-center">
+                  <p className="text-lg font-black text-white">
+                    {analyticsData?.lastDistribution
+                      ? `${Math.round((analyticsData.lastDistribution.sentCount / Math.max(analyticsData.lastDistribution.totalCount, 1)) * 100)}%`
+                      : "—"}
+                  </p>
+                  <p className="text-[10px] text-orange-200/60">발송률</p>
+                </div>
+              </div>
+              {analyticsData?.lastDistribution?.date && (
+                <p className="text-[10px] text-orange-200/40 text-center">
+                  📅 최근 배포: {analyticsData.lastDistribution.date}
+                </p>
+              )}
+            </div>
+
+            {/* ── 열람 통계 ── */}
+            <div className="rounded-xl border border-indigo-500/20 bg-gradient-to-br from-indigo-950/30 to-purple-950/20 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4 text-indigo-400" />
+                <span className="text-xs font-bold text-indigo-300">최근 30일 열람 통계</span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                <div className="bg-black/20 border border-white/5 rounded-lg p-2.5 text-center">
+                  <p className="text-base font-black text-white">{analyticsData?.viewStats.totalViews ?? 0}</p>
+                  <p className="text-[9px] text-indigo-200/60">총 열람</p>
+                </div>
+                <div className="bg-black/20 border border-white/5 rounded-lg p-2.5 text-center">
+                  <p className="text-base font-black text-white">{analyticsData?.viewStats.uniqueVisitors ?? 0}</p>
+                  <p className="text-[9px] text-indigo-200/60">방문자</p>
+                </div>
+                <div className="bg-black/20 border border-white/5 rounded-lg p-2.5 text-center">
+                  <p className="text-base font-black text-white">{analyticsData?.viewStats.avgDwellSeconds ?? 0}<span className="text-[9px] font-normal">초</span></p>
+                  <p className="text-[9px] text-indigo-200/60">평균 체류</p>
+                </div>
+                <div className="bg-black/20 border border-white/5 rounded-lg p-2.5 text-center">
+                  <p className="text-base font-black text-white">{analyticsData?.viewStats.completionRate ?? 0}<span className="text-[9px] font-normal">%</span></p>
+                  <p className="text-[9px] text-indigo-200/60">완독률</p>
+                </div>
+              </div>
+            </div>
+
+            {/* ── 발행 이력 ── */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 mb-1">
+                <Newspaper className="w-3.5 h-3.5 text-slate-400" />
+                <span className="text-xs font-bold text-slate-200">발행 이력</span>
+                <span className="text-[10px] text-slate-500 ml-auto">{editionHistory.length}건</span>
+              </div>
+              {editionHistory.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/50 p-6 text-center">
+                  <Newspaper className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                  <p className="text-xs text-slate-500">아직 발행된 매거진이 없습니다</p>
+                  <p className="text-[10px] text-slate-600 mt-1">커버 탭에서 첫 매거진을 만들어보세요!</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5 max-h-[400px] overflow-y-auto scrollbar-none">
+                  {editionHistory.map((ed: any) => {
+                    const statusColors: Record<string, string> = {
+                      published: "bg-emerald-500/10 text-emerald-400",
+                      draft: "bg-slate-500/10 text-slate-400",
+                      editing: "bg-blue-500/10 text-blue-400",
+                      review: "bg-amber-500/10 text-amber-400",
+                      needs_review: "bg-rose-500/10 text-rose-400",
+                      archived: "bg-zinc-500/10 text-zinc-400",
+                    };
+                    const statusLabels: Record<string, string> = {
+                      published: "발행됨",
+                      draft: "초안",
+                      editing: "편집중",
+                      review: "검토중",
+                      needs_review: "검토필요",
+                      archived: "보관",
+                    };
+                    const tempEmoji: Record<string, string> = {
+                      "적극 매수": "🔥",
+                      "선별 매수": "📈",
+                      "관망": "⏸️",
+                      "조정 대기": "📉",
+                      "위기 경계": "🚨",
+                    };
+                    return (
+                      <a
+                        key={ed.id}
+                        href={`/magazine/${ed.broker_id}/${(ed.published_at || ed.created_at)?.slice(0, 10)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2.5 hover:border-indigo-500/30 hover:bg-slate-800/50 transition-all group"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-slate-500">
+                              📅 {(ed.published_at || ed.created_at)?.slice(0, 10)}
+                            </span>
+                            <span className="text-[10px] text-slate-600">{ed.edition_label}</span>
+                          </div>
+                          <p className="text-xs font-semibold text-white truncate mt-0.5">
+                            {ed.title || "제목 없음"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {ed.market_temp && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                              {tempEmoji[ed.market_temp] || "🌡️"} {ed.market_temp}
+                            </span>
+                          )}
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${statusColors[ed.status] || statusColors.draft}`}>
+                            {statusLabels[ed.status] || ed.status}
+                          </span>
+                          {(ed.view_count ?? 0) > 0 && (
+                            <span className="text-[10px] text-slate-500">👁️ {ed.view_count}</span>
+                          )}
+                        </div>
+                        <ExternalLink className="w-3 h-3 text-slate-600 group-hover:text-indigo-400 transition-colors shrink-0" />
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         );
 
