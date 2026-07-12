@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "motion/react";
 import {
   Camera,
@@ -14,6 +15,8 @@ import {
   FileText,
   Newspaper,
   ChevronLeft,
+  Upload,
+  Trash2,
 } from "lucide-react";
 import type { VibeTemplateCssVars } from "@/lib/vibe/vibe-templates";
 import {
@@ -33,10 +36,115 @@ interface VibeManageData {
   template: VibeCardHeroProps["template"];
   professional: VibeCardHeroProps["professional"];
   stats: VibeCardHeroProps["stats"];
+  logoCompanyUrl?: string | null;
+  logoPartnerUrl?: string | null;
 }
 
 interface Props {
   data: VibeManageData;
+}
+
+// ── Logo Upload Card ─────────────────────────────────
+
+function LogoUploadCard({
+  label,
+  logoUrl,
+  defaultUrl,
+  type,
+  accentColor,
+  onUploaded,
+}: {
+  label: string;
+  logoUrl: string | null | undefined;
+  defaultUrl: string;
+  type: "company" | "partner";
+  accentColor: string;
+  onUploaded: () => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const currentLogo = logoUrl || defaultUrl;
+  const isCustom = !!logoUrl;
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", type);
+
+      const res = await fetch("/api/broker/profile/logo", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("업로드 실패");
+      onUploaded();
+    } catch {
+      alert("로고 업로드에 실패했습니다. 다시 시도해주세요.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    try {
+      const res = await fetch(`/api/broker/profile/logo?type=${type}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("삭제 실패");
+      onUploaded();
+    } catch {
+      alert("로고 삭제에 실패했습니다.");
+    }
+  };
+
+  return (
+    <div className="flex-1 text-center">
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/webp,image/svg+xml"
+        className="hidden"
+        onChange={handleUpload}
+      />
+      <p className="text-[10px] font-bold text-neutral-500 mb-2">{label}</p>
+      <div
+        className="h-[60px] rounded-xl border border-neutral-700 bg-neutral-800/50 flex items-center justify-center mb-2 overflow-hidden"
+      >
+        <Image
+          src={currentLogo}
+          alt={label}
+          width={80}
+          height={40}
+          className="object-contain opacity-80"
+        />
+      </div>
+      <div className="flex gap-1.5 justify-center">
+        <button
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-neutral-800 hover:bg-neutral-700 transition-colors disabled:opacity-50"
+        >
+          <Upload className="w-3 h-3" style={{ color: accentColor }} />
+          {uploading ? "..." : "변경"}
+        </button>
+        {isCustom && (
+          <button
+            onClick={handleRemove}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-neutral-800 hover:bg-neutral-700 text-red-400 transition-colors"
+          >
+            <Trash2 className="w-3 h-3" />
+            제거
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ── Component ─────────────────────────────────────────
@@ -61,7 +169,6 @@ export function VibeCardManage({ data }: Props) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // fallback
       const ta = document.createElement("textarea");
       ta.value = vibeCardUrl;
       document.body.appendChild(ta);
@@ -93,12 +200,11 @@ export function VibeCardManage({ data }: Props) {
       if (!res.ok) throw new Error("업로드 실패");
 
       setRegenStatus("✨ Vibe AI 분석 중...");
-      // 분석은 서버에서 비동기 처리됨 (약 5~10초)
       await new Promise((r) => setTimeout(r, 6000));
       setRegenStatus("✅ 분석 완료! 새로고침합니다...");
       await new Promise((r) => setTimeout(r, 1500));
       window.location.reload();
-    } catch (err) {
+    } catch {
       setRegenStatus("❌ 업로드 실패. 다시 시도해주세요.");
       setTimeout(() => {
         setRegenerating(false);
@@ -118,7 +224,6 @@ export function VibeCardManage({ data }: Props) {
       });
 
       if (!res.ok) {
-        // PUT 미지원 시 단순 새로고침
         setRegenStatus("✨ 새로고침합니다...");
         await new Promise((r) => setTimeout(r, 1500));
         window.location.reload();
@@ -136,6 +241,8 @@ export function VibeCardManage({ data }: Props) {
       window.location.reload();
     }
   }, []);
+
+  const handleLogoUploaded = () => window.location.reload();
 
   const hasVibe = !!data.vibe;
 
@@ -183,6 +290,8 @@ export function VibeCardManage({ data }: Props) {
                 template={data.template}
                 professional={data.professional}
                 stats={data.stats}
+                logoCompanyUrl={data.logoCompanyUrl || undefined}
+                logoPartnerUrl={data.logoPartnerUrl || undefined}
               />
             </Link>
             <p className="text-center text-[10px] text-neutral-500 mt-2">
@@ -269,6 +378,32 @@ export function VibeCardManage({ data }: Props) {
           </Link>
         </div>
 
+        {/* ── Logo Settings ── */}
+        <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5">
+          <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold mb-4">로고 설정</p>
+          <div className="flex gap-4">
+            <LogoUploadCard
+              label="회사 로고 (좌측)"
+              logoUrl={data.logoCompanyUrl}
+              defaultUrl="/logos/default-company-logo.png"
+              type="company"
+              accentColor={accentColor}
+              onUploaded={handleLogoUploaded}
+            />
+            <LogoUploadCard
+              label="제휴사 로고 (우측)"
+              logoUrl={data.logoPartnerUrl}
+              defaultUrl="/logos/default-partner-logo.png"
+              type="partner"
+              accentColor={accentColor}
+              onUploaded={handleLogoUploaded}
+            />
+          </div>
+          <p className="text-[9px] text-neutral-600 mt-3 text-center">
+            투명 PNG 권장 · 최대 2MB · 명함 하단에 표시됩니다
+          </p>
+        </div>
+
         {/* ── Public URL ── */}
         {data.slug && (
           <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">
@@ -287,7 +422,7 @@ export function VibeCardManage({ data }: Props) {
           </div>
         )}
 
-        {/* ── Vibe Analysis Results ── */}
+        {/* ── Vibe Analysis Results (Internal) ── */}
         {data.vibe && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -295,7 +430,7 @@ export function VibeCardManage({ data }: Props) {
             transition={{ delay: 0.2 }}
             className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5"
           >
-            <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold mb-3">Vibe AI 분석 결과</p>
+            <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold mb-3">Vibe AI 분석 결과 (내부용)</p>
             <div className="space-y-3">
               {data.vibe.vtiMeta && (
                 <div className="flex items-center gap-3">

@@ -121,6 +121,8 @@ export interface VibeCardData {
     url: string;
   } | null;
   slug: string;
+  logoCompanyUrl?: string | null;
+  logoPartnerUrl?: string | null;
 }
 
 export function VibeCardView({ data }: { data: VibeCardData }) {
@@ -188,6 +190,8 @@ export function VibeCardView({ data }: { data: VibeCardData }) {
             template={template}
             professional={professional}
             stats={stats}
+            logoCompanyUrl={data.logoCompanyUrl || undefined}
+            logoPartnerUrl={data.logoPartnerUrl || undefined}
           />
         </section>
 
