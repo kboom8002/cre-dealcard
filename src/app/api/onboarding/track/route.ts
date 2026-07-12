@@ -62,6 +62,20 @@ export async function POST(req: NextRequest) {
     if (error) {
       console.error('[onboarding/track] DB insert error:', error);
     }
+
+    // 온보딩 완료 이벤트 수신 시 onboarding_sessions.completed_at 업데이트 (안전망)
+    // save-profile이 호출되지 않은 경우를 대비한 보조 경로
+    if (eventName === 'onboard_complete' && sessionId) {
+      await supabase
+        .from('onboarding_sessions')
+        .update({
+          completed_at: new Date().toISOString(),
+          current_stage: 'complete',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', sessionId)
+        .is('completed_at', null); // 이미 완료된 경우 덮어쓰지 않음
+    }
   } catch (err) {
     // Never let analytics break the caller
     console.error('[onboarding/track] Unexpected error:', err);

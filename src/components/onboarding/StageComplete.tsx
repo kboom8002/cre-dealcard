@@ -69,8 +69,29 @@ export function StageComplete({ onGoToDashboard }: StageCompleteProps) {
     }
   };
 
-  const handleDashboard = () => {
+  const handleDashboard = async () => {
     void trackOnboardingEvent('onboard_complete', data.sessionToken);
+
+    // 온보딩 완료를 DB에 저장 (session_token이 있을 때만)
+    // 로그인 단계를 건너뀐고 직접 가입한 유저를 위한 안전망
+    if (data.sessionToken) {
+      try {
+        await fetch('/api/onboarding/save-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_token: data.sessionToken,
+            specialty: data.specialty ?? undefined,
+            region: data.region ?? undefined,
+            role: data.role ?? 'expert',
+            user_name: data.userName ?? undefined,
+          }),
+        });
+      } catch {
+        // 네트워크 오류 시에도 대시보드로 진행
+      }
+    }
+
     onGoToDashboard();
     router.push('/broker');
   };

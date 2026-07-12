@@ -36,19 +36,23 @@ export default async function BrokerPage() {
     .eq("id", user.id)
     .single();
 
-  // ALPHA: \uc54c\ud30c \ud14c\uc2a4\ud2b8 \uae30\uac04 \ub3d9\uc548 \uc628\ubcf4\ub529 \uac8c\uc774\ud2b8 \ube44\ud65c\uc131\ud654
-  // if (profile?.role !== "admin") {
-  //   const { data: onboardingSession } = await supabase
-  //     .from("onboarding_sessions")
-  //     .select("completed_at")
-  //     .eq("user_id", user.id)
-  //     .not("completed_at", "is", null)
-  //     .limit(1)
-  //     .maybeSingle();
-  //   if (!onboardingSession) {
-  //     redirect("/onboarding");
-  //   }
-  // }
+  // ALPHA: 온보딩 완료 여부 확인 (admin 제외)
+  // ALPHA: profile.role이 이미 broker인 직접 가입/관리자 배정 유저는 통과
+  if (profile?.role !== 'admin') {
+    const { data: onboardingSession } = await supabase
+      .from('onboarding_sessions')
+      .select('completed_at')
+      .eq('user_id', user.id)
+      .not('completed_at', 'is', null)
+      .limit(1)
+      .maybeSingle();
+
+    // 온보딩 미완료 AND 직접 broker 배정도 아닌 경우에만 온보딩으로 리다이렉트
+    // (알파: broker role이 이미 있으면 통과 — 관리자가 직접 배정한 경우)
+    if (!onboardingSession && profile?.role !== 'broker') {
+      redirect('/onboarding');
+    }
+  }
 
   const userName = user.user_metadata?.full_name || user.email?.split("@")[0] || "중개인";
 
