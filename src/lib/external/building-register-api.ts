@@ -30,7 +30,7 @@ export async function fetchBuildingRegister(
 
   if (apiKey && apiKey !== "") {
     try {
-      const url = `https://apis.data.go.kr/1613000/BldRgstService_v2/getBrTitleInfo?ServiceKey=${apiKey}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`;
+      const url = `https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo?ServiceKey=${apiKey}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=0&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`;
       const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
       if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`);
       const data = await res.json();
@@ -81,7 +81,7 @@ export async function fetchBuildingRecap(
 
   if (apiKey && apiKey !== "") {
     try {
-      const url = `https://apis.data.go.kr/1613000/BldRgstService_v2/getBrRecapTitleInfo?ServiceKey=${apiKey}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`;
+      const url = `https://apis.data.go.kr/1613000/BldRgstHubService/getBrRecapTitleInfo?ServiceKey=${apiKey}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=0&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`;
       const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
       if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`);
       const data = await res.json();

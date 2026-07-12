@@ -5,7 +5,7 @@
  * 문서: https://www.data.go.kr/data/15044713/openapi.do
  */
 
-const GOVT_API_BASE = "https://apis.data.go.kr/1613000/BldRgstService_v2";
+const GOVT_API_BASE = "https://apis.data.go.kr/1613000/BldRgstHubService";
 
 export interface GovtBuildingInfo {
   exists: boolean;
