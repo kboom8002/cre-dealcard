@@ -23,20 +23,20 @@ const ProfileUpdateSchema = z.object({
   license_number: z.string().max(30).optional(),
   office_reg_number: z.string().max(30).optional(),
   association: z.string().max(50).optional(),
-  career_start_year: z.number().min(1980).max(2026).optional(),
+  career_start_year: z.number().min(1980).max(2026).nullable().optional(),
 
   // 거래 실적
-  total_deal_count_self: z.number().min(0).optional(),
-  deal_size_range: z.string().optional(),
+  total_deal_count_self: z.number().min(0).nullable().optional(),
+  deal_size_range: z.string().nullable().optional(),
   deal_specialty: z.array(z.string()).max(5).optional(),
   buyer_types: z.array(z.string()).max(5).optional(),
-  preferred_price_range: z.string().optional(),
+  preferred_price_range: z.string().nullable().optional(),
   languages: z.array(z.string()).max(5).optional(),
 
   // 서비스 정책
-  fee_policy: z.string().optional(),
+  fee_policy: z.string().nullable().optional(),
   consult_methods: z.array(z.string()).optional(),
-  response_time_hours: z.number().min(1).max(168).optional(),
+  response_time_hours: z.number().min(1).max(168).nullable().optional(),
 
   // 소셜
   kakao_channel: z.string().max(100).optional(),
@@ -53,7 +53,7 @@ const ProfileUpdateSchema = z.object({
   office_district: z.string().max(20).optional(),
 
   // Avatar
-  avatar_url: z.string().url().max(1000).optional(),
+  avatar_url: z.string().url().max(1000).nullable().optional(),
 });
 
 /** broker_profiles 테이블에서 조회할 v2 확장 컬럼 목록 */
