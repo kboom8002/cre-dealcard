@@ -43,7 +43,7 @@ const NAV_ITEMS = [
   },
 ] as const;
 
-export default function BrokerBottomNav() {
+export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
   const pathname = usePathname();
   const haptic = useHaptic();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -54,7 +54,7 @@ export default function BrokerBottomNav() {
       <BrokerCreateFAB />
 
       {/* More menu sheet */}
-      <BrokerMoreMenu open={moreOpen} onClose={() => setMoreOpen(false)} />
+      <BrokerMoreMenu open={moreOpen} onClose={() => setMoreOpen(false)} userEmail={userEmail} />
 
       <nav
         role="navigation"

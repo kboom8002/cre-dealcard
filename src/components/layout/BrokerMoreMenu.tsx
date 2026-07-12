@@ -18,12 +18,14 @@ import {
   ChevronRight,
   StickyNote,
   CalendarCheck,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BrokerMoreMenuProps {
   open: boolean;
   onClose: () => void;
+  userEmail?: string;
 }
 
 const SECTIONS = [
@@ -156,7 +158,25 @@ const SECTIONS = [
   },
 ] as const;
 
-export function BrokerMoreMenu({ open, onClose }: BrokerMoreMenuProps) {
+const SUPER_ADMIN_EMAILS = ["kboom8002@gmail.com"];
+
+const ADMIN_SECTION = {
+  label: "Super Admin",
+  items: [
+    {
+      href: "/broker/golden-admin",
+      icon: Shield,
+      title: "Golden Set / Glossary",
+      desc: "Golden Set, Prompt, Few-shot, Terminology",
+      color: "text-red-400",
+      bg: "bg-red-500/10",
+    },
+  ],
+};
+
+export function BrokerMoreMenu({ open, onClose, userEmail }: BrokerMoreMenuProps) {
+  const isSuperAdmin = userEmail && SUPER_ADMIN_EMAILS.includes(userEmail);
+  const allSections = isSuperAdmin ? [...SECTIONS, ADMIN_SECTION] : SECTIONS;
   return (
     <AnimatePresence>
       {open && (
@@ -201,7 +221,7 @@ export function BrokerMoreMenu({ open, onClose }: BrokerMoreMenuProps) {
             </div>
 
             <div className="px-4 pb-2 space-y-5">
-              {SECTIONS.map((section) => (
+              {allSections.map((section) => (
                 <div key={section.label}>
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1 mb-2">
                     {section.label}

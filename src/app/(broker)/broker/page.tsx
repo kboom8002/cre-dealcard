@@ -488,7 +488,7 @@ export default async function BrokerPage() {
       </div>
 
       <UniversalMemoFAB />
-      <BrokerBottomNav />
+      <BrokerBottomNav userEmail={user.email} />
     </main>
   );
 }
