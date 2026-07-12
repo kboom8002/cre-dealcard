@@ -110,7 +110,21 @@ export async function GET(req: NextRequest) {
     .from('broker_profiles')
     .select(BROKER_PROFILE_COLUMNS)
     .eq('user_id', user!.id)
-    .single();
+    .single() as { data: any };
+
+  // slug가 없으면 자동 생성 (기존 사용자 마이그레이션)
+  if (brokerProfile && !brokerProfile.slug) {
+    const baseName = (profile?.display_name || user!.id.substring(0, 8)) as string;
+    const slugBase = baseName.toLowerCase().replace(/[^a-z0-9\uAC00-\uD7A3]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    const autoSlug = `${slugBase}-${user!.id.substring(0, 6)}`;
+    
+    await supabase
+      .from('broker_profiles')
+      .update({ slug: autoSlug })
+      .eq('user_id', user!.id);
+    
+    brokerProfile.slug = autoSlug;
+  }
 
   return NextResponse.json({
     ok: true,

@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
       if (!existingSlug) {
         // 이름 기반 slug 생성 (없으면 user.id 앞 8자리 사용)
         const baseName = body.user_name || user.id.substring(0, 8);
-        const slugBase = baseName.toLowerCase().replace(/[^a-z0-9가-힣]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+        const slugBase = baseName.toLowerCase().replace(/[^a-z0-9\uAC00-\uD7A3]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
         existingSlug = `${slugBase}-${user.id.substring(0, 6)}`;
       }
 
