@@ -401,7 +401,7 @@ export function ImDataBottomSheet({
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">만원</span>
             </div>
             {monthlyRent && Number(monthlyRent) > 0 && (
-              <p className="text-xs text-emerald-500 mt-1.5">✅ 월 {Number(monthlyRent).toLocaleString()}만원 ({Math.round(Number(monthlyRent) * 10000 / 100000000 * 10) / 10}억원/년)</p>
+              <p className="text-xs text-emerald-500 mt-1.5">✅ 월 {Number(monthlyRent).toLocaleString()}만원 ({Math.round(Number(monthlyRent) * 12 / 10000 * 10) / 10}억원/년)</p>
             )}
           </div>
 
@@ -514,13 +514,13 @@ export function ImDataBottomSheet({
               📊 현재 공실률
             </label>
             <div className="grid grid-cols-4 gap-2">
-              {[0, 10, 20, 30].map((pct) => (
+              {[0, 10, 20].map((pct) => (
                 <button
                   key={pct}
                   data-vacancy-btn
                   onClick={() => setVacancyPct(pct === vacancyPct ? "" : pct)}
                   className={`py-2.5 text-sm font-semibold rounded-xl border-2 transition-all ${
-                    vacancyPct === pct 
+                    vacancyPct === pct && typeof vacancyPct === 'number'
                       ? "bg-primary text-primary-foreground border-primary shadow-sm" 
                       : "bg-background text-muted-foreground border-border hover:border-primary/40 hover:bg-secondary"
                   }`}
@@ -528,7 +528,29 @@ export function ImDataBottomSheet({
                   {pct === 0 ? "만실" : `~${pct}%`}
                 </button>
               ))}
+              <div className="relative">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  placeholder="직접"
+                  value={typeof vacancyPct === 'number' && ![0, 10, 20].includes(vacancyPct) ? vacancyPct : ''}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setVacancyPct(v === '' ? '' : Math.min(100, Math.max(0, Number(v))));
+                  }}
+                  className={`w-full py-2 text-sm font-semibold rounded-xl border-2 text-center transition-all ${
+                    typeof vacancyPct === 'number' && ![0, 10, 20].includes(vacancyPct)
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-background text-muted-foreground border-border hover:border-primary/40 hover:bg-secondary"
+                  }`}
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">%</span>
+              </div>
             </div>
+            {typeof vacancyPct === 'number' && vacancyPct > 0 && (
+              <p className="text-xs text-amber-500 mt-1.5">⚠️ 공실률 {vacancyPct}% 반영</p>
+            )}
           </div>
 
           {/* Photos */}
