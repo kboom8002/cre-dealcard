@@ -55,6 +55,7 @@ export async function POST(
     .update({
       status: newStatus,
       updated_at: new Date().toISOString(),
+      ...(action === 'approve' ? { published_at: new Date().toISOString() } : {}),
     })
     .eq('id', id);
 

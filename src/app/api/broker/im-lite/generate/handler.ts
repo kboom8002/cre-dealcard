@@ -204,6 +204,9 @@ export async function generateMobileIMHandler(
       // 신규 writer 출력: heroCard, photos (기존 writer 미지원 시 undefined → JSON에서 제외)
       heroCard: writerResult.heroCard ?? undefined,
       photos: writerResult.photos ?? undefined,
+      // DCF 감응도 매트릭스 + 레버리지 자금 구조 (뷰어 DCFHeatmap/LeverageChart용)
+      dcf10Year: writerResult.dcf10Year ?? undefined,
+      financials: writerResult.financials ?? undefined,
     },
   };
 

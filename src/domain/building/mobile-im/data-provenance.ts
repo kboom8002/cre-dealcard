@@ -81,13 +81,13 @@ export function formatProvenanceBadge(provenance: DataPointProvenance): {
   icon: string; label: string; color: string;
 } {
   switch (provenance.source) {
-    case "public_data":     return { icon: "✓", label: "공공데이터", color: "emerald" };
+    case "public_data":     return { icon: "✓", label: "공부 확인", color: "emerald" };
     case "expert_verified": return { icon: "★", label: "전문가 검증", color: "blue" };
-    case "broker_input":    return { icon: "👤", label: "브로커 등록", color: "amber" };
+    case "broker_input":    return { icon: "👤", label: "중개인 입력", color: "amber" };
     case "ai_inferred":
     default:
       if (provenance.confidence === "needs_check") return { icon: "⚠", label: "확인 필요", color: "red" };
-      return { icon: "⚙", label: "AI 계산", color: "indigo" };
+      return { icon: "⚙", label: "AI 추정", color: "indigo" };
   }
 }
 

@@ -614,6 +614,26 @@ function SectionCard({
               {section.title}
             </span>
           </div>
+          {/* Provenance badges */}
+          {(section as any).provenance && (section as any).provenance.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-1.5 mb-2">
+              {Array.from(new Set((section as any).provenance.map((p: any) => p.source))).map((source: any) => (
+                <span key={source} className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                  source === 'public_data' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                  source === 'broker_input' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                  source === 'ai_inferred' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
+                  source === 'expert_verified' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                  'bg-neutral-500/10 text-neutral-400 border-neutral-500/20'
+                }`}>
+                  {source === 'public_data' ? '✓ 공부 확인' :
+                   source === 'broker_input' ? '👤 중개인 입력' :
+                   source === 'ai_inferred' ? '⚙ AI 추정' :
+                   source === 'expert_verified' ? '★ 전문가 검증' :
+                   source}
+                </span>
+              ))}
+            </div>
+          )}
           {section.locked && section.lockedReason && (
             <p className="text-xs text-neutral-600 mt-0.5 line-clamp-1">
               {section.lockedReason}
@@ -913,7 +933,7 @@ function ShareButton({ title }: { title: string }) {
 }
 
 /** 카카오톡·LINE·링크복사 공유 버튼 모음 */
-function BottomShareBar({ title, buildingId, docId }: { title: string; buildingId: string; docId?: string }) {
+function BottomShareBar({ title, buildingId, docId, areaSignal, blindName, priceBand, heroCard }: { title: string; buildingId: string; docId?: string; areaSignal?: string; blindName?: string; priceBand?: string; heroCard?: { capRateBase?: number } }) {
   const [copied, setCopied] = useState(false);
 
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
@@ -945,13 +965,15 @@ function BottomShareBar({ title, buildingId, docId }: { title: string; buildingI
           Kakao.Share.sendDefault({
             objectType: "feed",
             content: {
-              title: title || "투자 매물",
-              description: `AI 자동 생성 모바일 투자설명서`,
+              title: `[${areaSignal || ''}] ${blindName || title || '투자 매물'}`,
+              description: heroCard?.capRateBase
+                ? `매각 희망가 ${priceBand || ''} · Cap Rate ${heroCard.capRateBase}% · 크리딜 프리미엄 투자설명서`
+                : `${priceBand || ''} · ${areaSignal || ''} · 크리딜 프리미엄 투자설명서`,
               imageUrl: canonicalImageUrl,
               link: { mobileWebUrl: canonicalShareUrl, webUrl: canonicalShareUrl },
             },
             buttons: [
-              { title: "투자설명서 보기", link: { mobileWebUrl: canonicalShareUrl, webUrl: canonicalShareUrl } },
+              { title: "투자설명서 즉시 열람", link: { mobileWebUrl: canonicalShareUrl, webUrl: canonicalShareUrl } },
             ],
           });
           return;
@@ -1596,6 +1618,10 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
         title={`${doc.blindName} — 모바일 IM Lite`}
         buildingId={buildingId}
         docId={docId}
+        areaSignal={doc.areaSignal}
+        blindName={doc.blindName}
+        priceBand={doc.priceBand}
+        heroCard={doc.heroCard ? { capRateBase: doc.heroCard.capRateBase ?? undefined } : undefined}
       />
     </div>
   );

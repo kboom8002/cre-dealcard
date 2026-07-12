@@ -33,16 +33,5 @@ export async function fetchLandPrice(pnu: string): Promise<LandPriceData | null>
     }
   }
 
-  // DETERMINISTIC FALLBACK
-  const seed = parseInt(pnu.substring(11, 15), 10) || 500;
-  const isGangnam = pnu.startsWith("11680");
-
-  return {
-    pricePerSqm: isGangnam
-      ? 25000000 + (seed % 10) * 1500000
-      : 8000000 + (seed % 10) * 500000,
-    baseYear: "2025",
-    landCategory: "대",
-    _isFallback: true,
-  };
+  return null;
 }

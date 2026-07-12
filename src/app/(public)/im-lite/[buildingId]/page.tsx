@@ -36,11 +36,11 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
   if (data) {
     return {
-      title: `${data.blindName} — 모바일 IM Lite | 크리딜`,
-      description: `${data.priceBand} | ${data.areaSignal} | AI 자동 생성 투자설명서`,
+      title: `${data.blindName} — ${data.priceBand} 프리미엄 투자설명서 | 크리딜`,
+      description: `${data.areaSignal} 핵심 입지 · ${data.assetType} · 투자 검토 자료`,
       openGraph: {
-        title: `${data.blindName} — 투자설명서 (IM Lite)`,
-        description: `${data.priceBand} | ${data.areaSignal} | ${data.assetType}`,
+        title: `${data.blindName} — ${data.priceBand} 투자설명서`,
+        description: `${data.areaSignal} 핵심 입지 · ${data.assetType} · 투자 검토 자료`,
         type: "article",
         images: [
           {
@@ -52,7 +52,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
       },
       twitter: {
         card: "summary_large_image",
-        title: `${data.blindName} IM Lite`,
+        title: `${data.blindName} 투자설명서`,
         description: `${data.priceBand} | ${data.areaSignal}`,
       },
     };

@@ -77,60 +77,8 @@ export async function fetchComparableTransactions(
     }
   }
 
-  // DETERMINISTIC MOCK DATA
-  const isGangnam = sigunguCd === "11680";
-
-  if (isGangnam) {
-    return [
-      {
-        address: "서울특별시 강남구 역삼동 824-2",
-        dealYear: 2025, dealMonth: 8, dealDay: 12,
-        dealAmount: 38500000000, area: 2450,
-        pricePerSqm: 15714285, pricePerPyeong: 51948051,
-        buildingUse: "업무시설", floors: 8,
-        transactionType: "매매",
-        _isFallback: true,
-      },
-      {
-        address: "서울특별시 강남구 역삼동 736-4",
-        dealYear: 2025, dealMonth: 6, dealDay: 24,
-        dealAmount: 29000000000, area: 1820,
-        pricePerSqm: 15934065, pricePerPyeong: 52674311,
-        buildingUse: "근린생활시설", floors: 6,
-        transactionType: "매매",
-        _isFallback: true,
-      },
-      {
-        address: "서울특별시 강남구 삼성동 143-12",
-        dealYear: 2025, dealMonth: 5, dealDay: 30,
-        dealAmount: 42000000000, area: 2750,
-        pricePerSqm: 15272727, pricePerPyeong: 50487012,
-        buildingUse: "업무시설", floors: 9,
-        transactionType: "매매",
-        _isFallback: true,
-      },
-    ];
-  }
-  return [
-    {
-      address: "서울특별시 서초구 서초동 1308-4",
-      dealYear: 2025, dealMonth: 9, dealDay: 15,
-      dealAmount: 18500000000, area: 1250,
-      pricePerSqm: 14800000, pricePerPyeong: 48925586,
-      buildingUse: "근린생활시설", floors: 5,
-      transactionType: "매매",
-      _isFallback: true,
-    },
-    {
-      address: "서울특별시 서초구 서초동 1321-2",
-      dealYear: 2025, dealMonth: 7, dealDay: 11,
-      dealAmount: 22000000000, area: 1500,
-      pricePerSqm: 14666666, pricePerPyeong: 48484814,
-      buildingUse: "업무시설", floors: 6,
-      transactionType: "매매",
-      _isFallback: true,
-    },
-  ];
+  // 실거래 데이터 없음
+  return [];
 }
 
 /** 현재 월 기준 직전 N개월의 YYYYMM 배열 반환 */

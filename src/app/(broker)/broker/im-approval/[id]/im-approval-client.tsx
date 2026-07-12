@@ -208,6 +208,20 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
           </div>
         )}
 
+        {/* 사진 프리뷰 */}
+        {(Array.isArray(content?.photos) && content.photos.length > 0 || Array.isArray(content?.photo_urls) && (content.photo_urls as string[]).length > 0) && (
+          <div className="mb-4">
+            <h3 className="text-xs font-semibold text-neutral-400 mb-2">📷 사진 ({(content.photos as any[])?.length || (content.photo_urls as string[])?.length}장)</h3>
+            <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+              {(Array.isArray(content.photos) ? content.photos : (content.photo_urls as string[])?.map((url: string, i: number) => ({ url, label: `사진 ${i+1}` }))).map((photo: any, i: number) => (
+                <div key={i} className="shrink-0 w-24 h-16 rounded-lg overflow-hidden border border-neutral-800 bg-neutral-900">
+                  <img src={photo.url} alt={photo.label || `사진 ${i+1}`} className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Section editor */}
         <div className="space-y-4 mb-8">
           {sections.map((section, idx) => {

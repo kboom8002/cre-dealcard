@@ -30,6 +30,7 @@ import {
 } from "./narrative-prompt";
 import { runRiskBoundaryCheck, runDisclosureGuard, MOBILE_IM_STANDARD_DISCLAIMER } from "./guardrails";
 import { calculateFinancials, formatFinancialsMarkdown, type FinancialOutputs } from "./financials";
+import type { DCFOutputs } from "./dcf-sensitivity";
 import { computeValueAddScenarios } from "./value-add-engine";
 import { judgeIMSection, shouldJudgeByConfidence } from "./im-judge";
 import { runCREQualityGate } from "./cre-quality-gate";
@@ -68,6 +69,14 @@ export interface MobileIMWriterOutput {
   ai_used: boolean;
   heroCard?: HeroCardData;
   photos?: TransformedPhoto[];
+  dcf10Year?: DCFOutputs;
+  financials?: {
+    equityRequired: number | null;
+    totalDepositBil: number | null;
+    loanAmountBil: number | null;
+    leveragedYield: number | null;
+    wacc: number | null;
+  };
 }
 
 /** AI 모델 설정 — 환경변수로 교체 가능 */
@@ -407,6 +416,17 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
               if (judgeResult) {
                 finalSectionJudgeScore = judgeResult.overall;
                 updateFewShotResultScore(generationId, sectionType, judgeResult.overall).catch(() => {});
+                if (judgeResult.overall >= 4.5) {
+                  promoteToGoldenCandidate(
+                    generationId,
+                    String(building_ssot_lite.id ?? building_ssot_lite.building_ssot_lite_id ?? ""),
+                    String(assetIdentity.asset_type ?? ""),
+                    String(assetIdentity.price_band ?? ""),
+                    sectionType,
+                    rawText,
+                    judgeResult.overall
+                  ).catch(() => {});
+                }
                 if (judgeResult.overall < 3.0) {
                   console.warn(`[im-judge] Section ${sectionType} score ${judgeResult.overall.toFixed(1)} → template fallback`);
                   judgeRejected = true;
@@ -585,6 +605,14 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     ai_used:       aiUsed,
     heroCard,
     photos,
+    dcf10Year: cachedFinancials?.dcf10Year ?? undefined,
+    financials: cachedFinancials ? {
+      equityRequired: cachedFinancials.equityRequired,
+      totalDepositBil: cachedFinancials.totalDepositBil,
+      loanAmountBil: cachedFinancials.loanAmountBil,
+      leveragedYield: cachedFinancials.leveragedYield,
+      wacc: cachedFinancials.wacc,
+    } : undefined,
   };
 }
 

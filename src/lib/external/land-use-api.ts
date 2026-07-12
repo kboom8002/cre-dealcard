@@ -48,24 +48,5 @@ export async function fetchLandUsePlan(pnu: string): Promise<LandUsePlanData | n
     }
   }
 
-  // DETERMINISTIC FALLBACK
-  const seed = parseInt(pnu.substring(11, 15), 10) || 500;
-  const isCommercial = seed % 3 !== 0;
-
-  if (isCommercial) {
-    return {
-      zoningDistrict: "일반상업지역",
-      zoningOverlap: ["방화지구", "중심지미관지구"],
-      buildingCoverageMax: 60,
-      floorAreaRatioMax: 800,
-      _isFallback: true,
-    };
-  }
-  return {
-    zoningDistrict: "제3종일반주거지역",
-    zoningOverlap: ["시가지경관지구"],
-    buildingCoverageMax: 50,
-    floorAreaRatioMax: 250,
-    _isFallback: true,
-  };
+  return null;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useMemo, useCallback } from "react";
+import Script from "next/script";
 import { motion, useInView } from "motion/react";
 import {
   Phone, Share2, Check, Building2, Hammer, Globe, BookOpen, ArrowRight,
@@ -178,6 +179,30 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
   // ── Share ──
   const handleShare = async () => {
     const shareUrl = typeof window !== "undefined" ? window.location.href : `/magazine/${brokerId}/${date}`;
+    // Try Kakao first
+    if (typeof window !== 'undefined' && (window as any).Kakao) {
+      const Kakao = (window as any).Kakao;
+      if (!Kakao.isInitialized()) {
+        const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+        if (appKey) Kakao.init(appKey);
+      }
+      if (Kakao.isInitialized()) {
+        try {
+          const baseUrl = window.location.hostname.includes('vercel.app') ? 'https://www.credeal.net' : window.location.origin;
+          Kakao.Share.sendDefault({
+            objectType: 'feed',
+            content: {
+              title: `[${broker.name}] 주간 부동산 AI 매거진`,
+              description: (data.headline as string) ?? '주간 꼬마빌딩 시장 AI 인텔리전스',
+              imageUrl: `${baseUrl}/api/og/magazine/${broker.slug}`,
+              link: { mobileWebUrl: shareUrl.replace(window.location.origin, baseUrl), webUrl: shareUrl.replace(window.location.origin, baseUrl) },
+            },
+            buttons: [{ title: '매거진 열람', link: { mobileWebUrl: shareUrl.replace(window.location.origin, baseUrl), webUrl: shareUrl.replace(window.location.origin, baseUrl) } }],
+          });
+          return;
+        } catch { /* fallback */ }
+      }
+    }
     if (navigator.share) {
       try { await navigator.share({ title: `[${broker.name}] CRE 위클리 매거진 ${dateLabel}`, text: (data.headline as string) ?? "주간 꼬마빌딩 시장 AI 인텔리전스", url: shareUrl }); return; } catch { /* fallback */ }
     }
@@ -776,6 +801,9 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
         </div>
       </div>
 
+      {/* ── Kakao SDK ── */}
+      <Script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" strategy="afterInteractive" />
+
       {/* ── FIXED BOTTOM BAR ─────────────────────────────────── */}
       <div className="fixed bottom-0 left-0 right-0 z-50 px-4 py-3" style={{ background: "linear-gradient(to top, rgba(8,8,20,0.98) 0%, rgba(8,8,20,0.9) 70%, transparent 100%)", backdropFilter: "blur(12px)" }}>
         <div className="max-w-[440px] mx-auto flex gap-2">
@@ -784,6 +812,15 @@ export function MagazineView({ data, brokerId, date }: MagazineViewProps) {
               <Phone className="w-4 h-4" />{broker.phone} 상담
             </button>
           )}
+          <button
+            onClick={() => {
+              const slug = broker.slug;
+              if (slug) window.location.href = `/vibe-card/${slug}?ref=magazine-cta`;
+            }}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-primary text-black text-xs font-bold rounded-xl hover:bg-primary/90 active:scale-95 transition-all"
+          >
+            📄 IM 열람 신청
+          </button>
           <button onClick={handleShare} data-track-click="share" className="flex items-center justify-center gap-1.5 px-4 py-3.5 rounded-2xl border border-white/15 font-bold text-[12px] text-white transition-all duration-300 active:scale-95" style={{ background: "rgba(255,255,255,0.06)" }}>
             {copied ? (<><Check className="w-4 h-4 text-emerald-400" /><span className="text-emerald-400">복사됨</span></>) : (<><Share2 className="w-4 h-4" /><span>공유</span></>)}
           </button>

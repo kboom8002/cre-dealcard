@@ -853,6 +853,17 @@ export function ImDataBottomSheet({
                 ? "✅ AI 투자설명서를 작성할 수 있습니다. (주소/월세 입력 시 품질↑)" 
                 : "⚠️ 기본 정보가 부족합니다. 주소 또는 월세를 추가 입력해 주세요."}
             </p>
+            {/* 등급 승급 안내 */}
+            {!askingPrice && (
+              <p className="text-[10px] text-indigo-400 mt-1">
+                💡 매각 희망가를 입력하면 A등급(투자 검토 가능)으로 승급됩니다
+              </p>
+            )}
+            {askingPrice && !loanAmount && (
+              <p className="text-[10px] text-indigo-400 mt-1">
+                💡 대출 잔액을 입력하면 레버리지 분석이 추가됩니다
+              </p>
+            )}
           </div>
 
         {/* Footer actions */}

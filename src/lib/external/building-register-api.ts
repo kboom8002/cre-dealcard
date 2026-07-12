@@ -57,23 +57,7 @@ export async function fetchBuildingRegister(
     }
   }
 
-  // DETERMINISTIC FALLBACK (seed-based, consistent per address)
-  const seed = parseInt(bun + ji, 10) || 1234;
-  const isLarge = seed % 2 === 0;
-
-  return {
-    totalArea: isLarge ? 4850.5 : 1850.2,
-    platArea: isLarge ? 550.8 : 280.5,
-    useAprDay: isLarge ? "20180425" : "20121015",
-    mainPurpose: isLarge ? "업무시설 (사무소)" : "근린생활시설",
-    structure: "철근콘크리트조",
-    floorsAbove: isLarge ? 10 : 5,
-    floorsBelow: isLarge ? 3 : 1,
-    bcRat: isLarge ? 58.4 : 59.8,
-    vlRat: isLarge ? 598.2 : 249.5,
-    buildingName: isLarge ? "강남 센트럴타워" : "테헤란 팰리스",
-    _isFallback: true,
-  };
+  return null;
 }
 
 export interface BuildingRecapData {
@@ -121,18 +105,5 @@ export async function fetchBuildingRecap(
     }
   }
 
-  // DETERMINISTIC FALLBACK
-  const seed = parseInt(bun + ji, 10) || 1234;
-  const isLarge = seed % 2 === 0;
-
-  return {
-    archArea: isLarge ? 283.5 : 167.8,
-    rideUseElvtCnt: isLarge ? 2 : 1,
-    emgenUseElvtCnt: isLarge ? 1 : 0,
-    indrAutoUtcnt: 0,
-    oudrAutoUtcnt: isLarge ? 10 : 4,
-    indrMechUtcnt: isLarge ? 20 : 6,
-    heatMethodNm: "개별난방",
-    _isFallback: true,
-  };
+  return null;
 }
