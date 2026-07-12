@@ -175,7 +175,7 @@ export default async function AdminAnalyticsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <MetricCard
                   emoji="📋"
-                  label="브로커 메모 제출"
+                  label="중개인 메모 제출"
                   value={counts.broker_memo_submitted}
                 />
                 <MetricCard
@@ -249,7 +249,7 @@ export default async function AdminAnalyticsPage() {
                     rate={funnel.gateRequestFromTeaser}
                   />
                   <FunnelRow
-                    from="브로커 메모"
+                    from="중개인 메모"
                     to="블라인드 티저"
                     rate={funnel.dealCardConversion}
                   />

@@ -33,7 +33,7 @@ export function HubBrokerShowcase({ brokers }: HubBrokerShowcaseProps) {
               검증된 파트너 중개사
             </h2>
             <p className="text-xs text-muted-foreground mt-1 max-w-md">
-              AI가 매수 성향과 전문 권역을 분석하여 고객님에게 최적화된 탑 브로커를 매칭해 드립니다.
+              AI가 매수 성향과 전문 권역을 분석하여 고객님에게 최적화된 최고의 전문 중개인을 매칭해 드립니다.
             </p>
           </div>
 

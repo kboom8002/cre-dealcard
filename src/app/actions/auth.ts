@@ -14,7 +14,8 @@ const SignupSchema = z.object({
     .string()
     .min(8, '비밀번호는 8자 이상이어야 합니다.')
     .max(72),
-  role: z.enum(['public_user', 'broker']).default('public_user'),
+  // ALPHA: 알파 테스트 기간 동안 모든 신규 가입자에게 broker 권한 부여
+  role: z.enum(['public_user', 'broker']).default('broker'),
 });
 
 const LoginSchema = z.object({
@@ -65,15 +66,13 @@ export async function signup(
     return { message: `회원가입 오류: ${error.message}` };
   }
 
-  // If broker requested, update profile role after signup
-  if (role === 'broker') {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase
-        .from('profiles')
-        .update({ role: 'broker', display_name: displayName })
-        .eq('id', user.id);
-    }
+  // ALPHA: 모든 신규 가입자에게 즉시 broker 권한 부여
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    await supabase
+      .from('profiles')
+      .update({ role: 'broker', display_name: displayName })
+      .eq('id', user.id);
   }
 
   redirect('/broker');

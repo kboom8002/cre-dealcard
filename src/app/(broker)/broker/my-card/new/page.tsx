@@ -95,7 +95,7 @@ export default function BrokerMyCardNewPage() {
     <main className="max-w-lg mx-auto px-4 py-8 pb-24 space-y-8">
       {/* ── Header ── */}
       <div className="space-y-1">
-        <h1 className="text-xl font-bold text-slate-900">💼 나의 브로커 카드 만들기</h1>
+        <h1 className="text-xl font-bold text-slate-900">💼 나의 중개인 카드 만들기</h1>
         <p className="text-sm text-slate-500">
           상황과 대상에 맞는 디지털 명함을 3단계로 생성합니다.
         </p>

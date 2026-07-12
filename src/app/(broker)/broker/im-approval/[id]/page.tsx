@@ -9,7 +9,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { IMApprovalClient } from './im-approval-client';
 
 export const metadata: Metadata = {
-  title: 'IM 승인 — 크리딜 브로커',
+  title: 'IM 승인 — 크리딜 중개인',
   description: 'AI 생성 IM을 검토하고 승인하거나 수정을 요청합니다.',
 };
 

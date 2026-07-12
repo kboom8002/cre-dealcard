@@ -78,7 +78,7 @@ export default function BrokerStudioPage() {
 
   // Co-brokerage state
   const [commissionSplit, setCommissionSplit] = useState("50:50 공동중개");
-  const [coBrokerTarget, setCoBrokerTarget] = useState("전체 브로커 공개 제안");
+  const [coBrokerTarget, setCoBrokerTarget] = useState("전체 중개인 공개 제안");
   const [coBrokerMessage, setCoBrokerMessage] = useState("");
 
   // Bottom sheet for mobile navigation
@@ -303,8 +303,8 @@ export default function BrokerStudioPage() {
   const handleWhitelabelKakaoShare = () => {
     const today = new Date().toISOString().split("T")[0];
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
-    const title = magazineTitle || `📰 [맞춤 매거진] 브로커 추천 자산 소식`;
-    const desc = `${brokerSubdomain} 중개사의 화이트라벨 매거진입니다. 엄선된 최신 CRE 자산 및 거래 트렌드 소식을 확인해 보세요.`;
+    const title = magazineTitle || `📰 [맞캔 매거진] 중개인 추천 자산 소식`;
+    const desc = `${brokerSubdomain} 중개인의 화이트라벨 매거진입니다. 엄선된 최신 CRE 자산 및 거래 트렌드 소식을 확인해 보세요.`;
     const ogImageUrl = `${siteUrl}/api/og/magazine?brokerId=${brokerSubdomain || "js-realty"}&date=${today}`;
 
     if (readinessKakaoReady && window.Kakao?.Share) {
@@ -353,7 +353,7 @@ export default function BrokerStudioPage() {
     
     let desc = `진단 점수: ${readinessCheck.readiness_score}점\n\n`;
     if (readinessComment.trim()) {
-      desc += `💬 브로커 코멘트: ${readinessComment}\n\n`;
+      desc += `💬 중개인 코멘트: ${readinessComment}\n\n`;
     }
     desc += `추천 액션: ${readinessCheck.next_recommended_action}`;
 
@@ -397,7 +397,7 @@ export default function BrokerStudioPage() {
     const shareUrl = `${siteUrl}/owner-readiness?buildingId=${selectedReadinessBuildingId}&resultId=${readinessCheck.id}`;
     let fullText = `🏢 [매각준비도 진단] ${readinessBuildingLabel}\n진단 점수: ${readinessCheck.readiness_score}점\n`;
     if (readinessComment.trim()) {
-      fullText += `💬 브로커 코멘트: ${readinessComment}\n`;
+      fullText += `💬 중개인 코멘트: ${readinessComment}\n`;
     }
     fullText += `\n🔗 진단 리포트 링크: ${shareUrl}`;
     
@@ -673,7 +673,7 @@ export default function BrokerStudioPage() {
           {openSections.has("ai-comment") && (
             <div className="px-4 md:px-5 pb-4 md:pb-5 space-y-3">
               <p className="text-[10px] text-slate-400">
-                핵심 아이디어를 입력하면 AI가 전문 브로커 화법으로 확장합니다.
+                핵심 아이디어를 입력하면 AI가 전문 중개인 화법으로 확장합니다.
               </p>
 
               {/* Input area — stacked on mobile */}
@@ -926,9 +926,9 @@ export default function BrokerStudioPage() {
                     onChange={(e) => setCoBrokerTarget(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white appearance-none"
                   >
-                    <option>전체 브로커 공개 제안</option>
-                    <option>같은 권역 파트너 브로커</option>
-                    <option>즐겨찾기 브로커만</option>
+                    <option>전체 중개인 공개 제안</option>
+                    <option>같은 권역 파트너 중개인</option>
+                    <option>즐겨찾기 중개인만</option>
                   </select>
                 </div>
               </div>

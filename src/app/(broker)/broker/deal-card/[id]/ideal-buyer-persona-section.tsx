@@ -268,7 +268,7 @@ export function IdealBuyerPersonaSection({
 
                   {/* Approach Strategy */}
                   <div className="mt-2 pt-2 border-t border-border/40 space-y-1 text-[12px] bg-primary/5 p-2.5 rounded-lg border border-primary/10">
-                    <span className="text-primary font-bold">💬 브로커 어필 및 접근 전략:</span>
+                    <span className="text-primary font-bold">💬 중개인 어필 및 접근 전략:</span>
                     <p className="text-foreground leading-relaxed">
                       {persona.approachStrategy}
                     </p>
@@ -281,7 +281,7 @@ export function IdealBuyerPersonaSection({
           {/* Action Plan */}
           <div className="rounded-lg border border-border p-4 bg-muted/20 space-y-2">
             <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-              <span>📋</span> 브로커 실행 추천 플랜
+              <span>📋</span> 중개인 실행 추천 플랜
             </p>
             <ul className="space-y-1.5 pl-4 list-decimal text-xs text-muted-foreground">
               {personas.brokerActionPlan.map((action, idx) => (

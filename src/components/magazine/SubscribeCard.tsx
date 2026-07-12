@@ -59,7 +59,7 @@ export function SubscribeCard({ brokerId, source, accentColor = '#6366f1' }: Sub
           <span>📰</span> 주간 매거진 구독하기
         </h4>
         <p className="text-xs text-slate-400">
-          브로커가 엄선한 최신 꼬마빌딩/CRE 정보 및 리포트를 매주 카카오톡으로 받아보세요.
+          중개인이 엄선한 최신 꼬마빌딩/CRE 정보 및 리포트를 매주 카카오톡으로 받아보세요.
         </p>
       </div>
 

@@ -456,7 +456,7 @@ export default async function BrokerPage() {
             <span className="text-xl">✨</span>
             <div>
               <p className="text-xs font-bold text-purple-400 leading-tight">Vibe 명함</p>
-              <p className="text-[10px] text-muted-foreground">내 브로커 프로필</p>
+              <p className="text-[10px] text-muted-foreground">내 중개인 프로필</p>
             </div>
           </Link>
         </div>
