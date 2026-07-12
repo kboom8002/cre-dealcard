@@ -96,6 +96,7 @@ export function ImDataBottomSheet({
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [photoPreviewUrls, setPhotoPreviewUrls] = useState<string[]>([]);
   const [photoCaptions, setPhotoCaptions] = useState<Record<number, string>>({});
+  const [floorLeases, setFloorLeases] = useState<Array<{ floor: string; tenant_type?: string; deposit_manwon?: number; rent_manwon?: number; mgmt_fee_manwon?: number; is_vacant?: boolean; }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [readinessScore, setReadinessScore] = useState(0);
@@ -193,6 +194,7 @@ export function ImDataBottomSheet({
         direct_data: Object.keys(directData).length > 0 ? directData : undefined,
         photo_urls: uploadedPhotoUrls.length > 0 ? uploadedPhotoUrls : undefined,
         photo_captions: Object.keys(photoCaptions).length > 0 ? photoCaptions : undefined,
+        floor_leases: floorLeases.length > 0 ? floorLeases : undefined,
         logistics,
       });
 
@@ -375,6 +377,7 @@ export function ImDataBottomSheet({
                 setTotalDeposit(data.totalDeposit.toString());
                 setMgmtFeeTotal(data.mgmtFeeTotal.toString());
                 setVacancyPct(data.vacancyPct);
+                setFloorLeases(data.floorLeases || []);
               }}
             />
 

@@ -181,6 +181,11 @@ export async function generateMobileIMHandler(
         vacancy_signal: ssotRow.vacancy_signal,
         fit_summary: ssotRow.fit_summary,
         caution_summary: ssotRow.caution_summary,
+        monthly_rent_total_krw: supplemental.monthly_rent_total_krw,
+        asking_price_manwon: supplemental.asking_price_manwon,
+        loan_amount_manwon: supplemental.loan_amount_manwon,
+        total_deposit_manwon: supplemental.total_deposit_manwon,
+        vacancy_pct: supplemental.vacancy_pct,
       },
       external_data: externalData
         ? {

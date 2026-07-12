@@ -27,6 +27,7 @@ export async function createMobileIMAction(
     asking_price_manwon?: number;
     photo_captions?: Record<number, string>;
     logistics?: MobileIMSupplementalInput["logistics"];
+    floor_leases?: Array<{ floor: string; tenant_type?: string; deposit_manwon?: number; rent_manwon?: number; mgmt_fee_manwon?: number; is_vacant?: boolean; }>;
   }
 ) {
   try {
@@ -53,6 +54,7 @@ export async function createMobileIMAction(
       loan_amount_manwon: options?.loan_amount_manwon,
       asking_price_manwon: options?.asking_price_manwon,
       logistics: options?.logistics,
+      floor_leases: options?.floor_leases,
     };
 
     const result = await generateMobileIMHandler({

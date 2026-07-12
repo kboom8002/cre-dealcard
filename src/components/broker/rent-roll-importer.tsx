@@ -9,6 +9,14 @@ interface RentRollImporterProps {
     totalDeposit: number;
     mgmtFeeTotal: number;
     vacancyPct: number;
+    floorLeases: Array<{
+      floor: string;
+      tenant_type?: string;
+      deposit_manwon?: number;
+      rent_manwon?: number;
+      mgmt_fee_manwon?: number;
+      is_vacant?: boolean;
+    }>;
   }) => void;
 }
 
@@ -21,6 +29,7 @@ interface ParseResult {
   vacantCount: number;
   detectedHeaderRow: number;
   unitDetected: "manwon" | "won";
+  parsedRows: Array<{ floor: string; tenant_type?: string; deposit_manwon?: number; rent_manwon?: number; mgmt_fee_manwon?: number; is_vacant?: boolean; }>;
 }
 
 /**
@@ -83,6 +92,8 @@ function parseRentRollData(data: any[][]): ParseResult {
   let rowCount = 0;
   let unitDetected: "won" | "manwon" = "manwon";
 
+  const parsedRows: Array<{ floor: string; tenant_type?: string; deposit_manwon?: number; rent_manwon?: number; mgmt_fee_manwon?: number; is_vacant?: boolean; }> = [];
+
   for (let i = headerRowIdx + 1; i < lines.length; i++) {
     const cols = lines[i];
     if (!cols || cols.length < 2) continue;
@@ -131,6 +142,18 @@ function parseRentRollData(data: any[][]): ParseResult {
       if (bizVal === "" || bizVal === "-" || bizVal === "공실") isVacant = true;
     }
     if (isVacant) vacantCount++;
+
+    // Accumulate per-row data
+    const floorVal = cols[0] != null ? String(cols[0]).trim() : `${rowCount}F`;
+    const bizVal = bizTypeIdx >= 0 && cols[bizTypeIdx] != null ? String(cols[bizTypeIdx]).trim() : undefined;
+    parsedRows.push({
+      floor: floorVal,
+      tenant_type: bizVal || undefined,
+      deposit_manwon: convertedDeposit || undefined,
+      rent_manwon: convertedRent || undefined,
+      mgmt_fee_manwon: convertedMgmt || undefined,
+      is_vacant: isVacant || undefined,
+    });
   }
 
   const vacancyPct = rowCount > 0 ? Math.round((vacantCount / rowCount) * 100) : 0;
@@ -144,6 +167,7 @@ function parseRentRollData(data: any[][]): ParseResult {
     vacantCount,
     detectedHeaderRow: headerRowIdx + 1,
     unitDetected,
+    parsedRows,
   };
 }
 
@@ -206,6 +230,7 @@ export function RentRollImporter({ onImport }: RentRollImporterProps) {
         totalDeposit: parsed.totalDeposit,
         mgmtFeeTotal: parsed.mgmtFeeTotal,
         vacancyPct: parsed.vacancyPct,
+        floorLeases: parsed.parsedRows,
       });
 
       const unitLabel = parsed.unitDetected === "won" ? "(원→만원 자동변환)" : "(만원 단위)";

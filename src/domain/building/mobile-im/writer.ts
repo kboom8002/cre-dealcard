@@ -216,8 +216,12 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     supplemental
   );
 
-  // 매매가 추출 (KRW)
+  // 매매가 추출 (KRW) — 바텀시트 입력값 우선, SSoT price_band 폴백
+  const askingPriceKrw = supplemental.asking_price_manwon
+    ? supplemental.asking_price_manwon * 10000
+    : 0;
   const purchasePriceForGuard =
+    askingPriceKrw ||
     parsePriceBandKrw(assetIdentity.price_band) ||
     Number(assetIdentity.price_band_krw ?? 0);
 
@@ -253,6 +257,8 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       console.warn("[mobile-im-writer] value-add computation failed:", e);
     }
   }
+  // value-add 없이도 기본 수입 분석용 NOI는 계산
+  // (purchasePriceForGuard 없어도 월세만으로 기본 분석 가능)
 
   // ── 상태 머신 맥락 초기화 (SOTA: 섹션 간 맥락 전파) ────────────────────
   const sectionCtx: SectionContext = {
@@ -313,26 +319,38 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     let financialsOutput: FinancialOutputs | null = null; // [B2] 교차 검증용 캐싱
     if (
       sectionType === "income_analysis" &&
-      supplemental.monthly_rent_total_krw &&
-      purchasePriceForGuard > 0
+      supplemental.monthly_rent_total_krw
     ) {
-      try {
-        const fin = calculateFinancials({
-          monthlyRentKrw:   supplemental.monthly_rent_total_krw,
-          purchasePriceKrw: purchasePriceForGuard,
-          landPricePerSqm:  external_data?.landPrice?.pricePerSqm,
-          totalAreaSqm:     totalAreaForGuard || undefined,
-          platAreaSqm:      external_data?.buildingRegister?.platArea ?? undefined,
-          assetType:        String(assetIdentity.asset_type ?? ""),
-          totalDepositManwon: supplemental.total_deposit_manwon,
-          mgmtFeeTotalManwon: supplemental.mgmt_fee_total_manwon,
-          loanAmountManwon:   supplemental.loan_amount_manwon,
-        });
-        financialsOutput = fin; // [B2] 나중 교차 검증에 사용
-        cachedFinancials = fin;  // Hero Card용 캐시
-        sectionMarketIndicators = { financialsMarkdown: formatFinancialsMarkdown(fin) };
-      } catch {
-        // 무시
+      if (purchasePriceForGuard > 0) {
+        // Full 재무 분석: Cap Rate, IRR, DCF 포함
+        try {
+          const fin = calculateFinancials({
+            monthlyRentKrw:   supplemental.monthly_rent_total_krw,
+            purchasePriceKrw: purchasePriceForGuard,
+            landPricePerSqm:  external_data?.landPrice?.pricePerSqm,
+            totalAreaSqm:     totalAreaForGuard || undefined,
+            platAreaSqm:      external_data?.buildingRegister?.platArea ?? undefined,
+            assetType:        String(assetIdentity.asset_type ?? ""),
+            totalDepositManwon: supplemental.total_deposit_manwon,
+            mgmtFeeTotalManwon: supplemental.mgmt_fee_total_manwon,
+            loanAmountManwon:   supplemental.loan_amount_manwon,
+          });
+          financialsOutput = fin; // [B2] 나중 교차 검증에 사용
+          cachedFinancials = fin;  // Hero Card용 캐시
+          sectionMarketIndicators = { financialsMarkdown: formatFinancialsMarkdown(fin) };
+        } catch {
+          // 무시
+        }
+      } else {
+        // 기본 수입 분석: 월세/공실률만으로 연 수입, NOI 산출
+        const mRent = supplemental.monthly_rent_total_krw;
+        const annualGross = mRent * 12;
+        const vPct = supplemental.vacancy_pct ?? vacancyPct;
+        const effectiveGross = annualGross * (1 - vPct / 100);
+        const estimatedNoi = effectiveGross * 0.85;
+        sectionMarketIndicators = {
+          financialsMarkdown: formatBasicIncomeMarkdown(annualGross, effectiveGross, estimatedNoi, vPct)
+        };
       }
     }
 
@@ -619,13 +637,13 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
 // ─── 섹션 타이틀 매핑 ─────────────────────────────────────────────────────────
 function getSectionTitle(sectionType: MobileIMSectionType): string {
   const titles: Record<MobileIMSectionType, string> = {
-    property_overview: "🏢 자산 개요 및 제원",
-    location_access:   "📍 입지 및 대중교통 분석",
-    lease_status:      "📊 임대차 현황 및 공실 상태",
-    income_analysis:   "💸 수익률 및 공시지가 분석",
-    risk_check:        "⚖️ 공법 규제 및 리스크 진단",
-    investment_thesis: "🎯 핵심 투자 메리트",
-    next_steps:        "📅 향후 검토 및 진행 절차",
+    property_overview: "🏢 이 건물, 어떤 자산인가?",
+    location_access:   "📍 이 입지, 투자할 만한 곳인가?",
+    lease_status:      "📊 임대 현황과 공실, 실제로 어떤가?",
+    income_analysis:   "💰 수익률이 진짜로 나오는 딜인가?",
+    risk_check:        "⚠️ 숨은 리스크는 없는가?",
+    investment_thesis: "🎯 왜 지금 이 매물을 사야 하는가?",
+    next_steps:        "📋 검토 후 다음 단계는?",
   };
   return titles[sectionType];
 }
@@ -657,7 +675,9 @@ function generatePremiumTemplate(
   const mainPurpose = br?.mainPurpose || "확인 필요";
   const useAprYear = useAprDay.substring(0, 4);
   const buildingAge = new Date().getFullYear() - parseInt(useAprYear, 10);
-  const purchasePrice = parsePriceBandKrw(assetIdentity.price_band);
+  const templateAskingKrw = supplemental.asking_price_manwon
+    ? supplemental.asking_price_manwon * 10000 : 0;
+  const purchasePrice = templateAskingKrw || parsePriceBandKrw(assetIdentity.price_band);
   const monthlyRent   = supplemental.monthly_rent_total_krw || 0;
 
   switch (sectionType) {
@@ -686,24 +706,33 @@ function generatePremiumTemplate(
         fallbackWarning = "\n\n> ⚠️ **주의**: 국토부 공공데이터 API 서버 지연으로 인해 일부 데이터가 임시 추정치로 제공되었습니다. 향후 다시 시도하거나 직접 확인하시기 바랍니다.\n";
       }
 
+      // 빈값("-") 행 숨김: 데이터 있는 행만 표시
+      const overviewRows = [
+        `| **소재지** | ${areaStr} |`,
+        mainPurpose !== "확인 필요" ? `| **용도** | ${mainPurpose} |` : null,
+        totalArea > 0 ? `| **연면적** | ${totalArea.toLocaleString()}㎡ (${totalPyeong}) |` : (sizeSignal ? `| **연면적** | ${sizeSignal} |` : null),
+        platArea > 0 ? `| **대지면적** | ${platArea.toLocaleString()}㎡ (${platPyeong}) |` : null,
+        br?.archArea ? `| **건축면적** | ${br.archArea.toLocaleString()}㎡ (약 ${(br.archArea * 0.3025).toFixed(0)}평) |` : null,
+        floorsAbove > 0 ? `| **층수** | 지하 ${floorsBelow}층 / 지상 ${floorsAbove}층 |` : null,
+        br?.elevatorCount ? `| **승강기** | ${br.elevatorCount}대 |` : null,
+        br?.parkingCount ? `| **주차** | ${br.parkingCount}대 |` : null,
+        br?.heatMethod ? `| **냉난방** | ${br.heatMethod} |` : null,
+        useAprDay ? `| **준공연도** | ${useAprYear}년 (${buildingAge}년 경과) |` : null,
+        structure !== "확인 필요" ? `| **구조** | ${structure} |` : null,
+        priceStr !== "-" && priceStr !== "확인 필요" ? `| **매각가** | ${priceStr} |` : null,
+      ].filter((r): r is string => r !== null);
+
+      const publicDataNote = !br
+        ? "\n\n> 🔍 **건축물대장 조회 미완료** — 공공데이터 API 응답을 받지 못했습니다. 추후 업데이트 시 자동 반영됩니다."
+        : "";
+
       return `**${areaStr}** 소재 **${assetType}** 물건입니다.
 
 | 항목 | 내용 |
 |------|------|
-| **소재지** | ${areaStr} |
-| **용도** | ${mainPurpose} |
-| **연면적** | ${totalArea > 0 ? `${totalArea.toLocaleString()}㎡ (${totalPyeong})` : sizeSignal || "-"} |
-| **대지면적** | ${platArea > 0 ? `${platArea.toLocaleString()}㎡ (${platPyeong})` : "-"} |
-| **건축면적** | ${br?.archArea ? `${br.archArea.toLocaleString()}㎡ (약 ${(br.archArea * 0.3025).toFixed(0)}평)` : "-"} |
-| **층수** | ${floorsAbove > 0 ? `지하 ${floorsBelow}층 / 지상 ${floorsAbove}층` : "-"} |
-| **승강기** | ${br?.elevatorCount ? `${br.elevatorCount}대` : "-"} |
-| **주차** | ${br?.parkingCount ? `${br.parkingCount}대` : "-"} |
-| **냉난방** | ${br?.heatMethod || "-"} |
-| **준공연도** | ${useAprDay ? `${useAprYear}년 (${buildingAge}년 경과)` : "확인 필요"} |
-| **구조** | ${structure} |
-| **매각가** | ${priceStr} |
+${overviewRows.join("\n")}
 
-> 본 매물은 ${areaStr} 핵심 입지의 안정적인 수익형 자산입니다.${photoGallery}${fallbackWarning}`;
+> 본 매물은 ${areaStr} 핵심 입지의 안정적인 수익형 자산입니다.${publicDataNote}${photoGallery}${fallbackWarning}`;
     }
 
     // ─── 섹션 2: 입지·상권 ──────────────────────────────────────────────────
@@ -994,4 +1023,12 @@ Full IM (투자등급 정식 투자설명서)은 18개 섹션, 전문가 검토 
 // income_analysis 내부 헬퍼
 function totalAreaForGuardFromExternal(externalData: ExternalDataSnapshot | null): number {
   return externalData?.buildingRegister?.totalArea ?? 0;
+}
+
+// ── 기본 수입 분석 마크다운 (매각가 없이 월세/공실만으로 생성) ───────────────────
+function formatBasicIncomeMarkdown(
+  annualGross: number, effectiveGross: number,
+  estimatedNoi: number, vacPct: number
+): string {
+  return `### 기본 수입 분석\n| 항목 | 추정값 | 비고 |\n|------|--------|------|\n| **연 임대 수입(총액)** | **${(annualGross / 1e8).toFixed(1)}억 원** | 월세 × 12 |\n| **공실 반영 수입** | **${(effectiveGross / 1e8).toFixed(1)}억 원** | 공실률 ${vacPct}% 반영 |\n| **추정 NOI** | **${(estimatedNoi / 1e8).toFixed(1)}억 원** | 운영비 15% 추정 차감 |\n\n> 💡 매각 희망가를 추가 입력하면 Cap Rate, IRR, DCF 감응도 분석이 포함됩니다.`;
 }
