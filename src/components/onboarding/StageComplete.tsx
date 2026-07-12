@@ -40,27 +40,34 @@ export function StageComplete({ onGoToDashboard }: StageCompleteProps) {
   }, [data.sessionToken]);
 
   const handleShare = async () => {
-    const vtiLabel = data.vibeResult?.vtiResult?.meta?.label_ko ?? '전문가';
-    const trust = data.vibeResult
-      ? Math.round(data.vibeResult.afterScores.trust * 100)
-      : 80;
-    const region = data.region
-      ? regionLabel(data.region)
-      : '서울';
-
     const supabase = createClient();
     const { data: userData } = await supabase.auth.getUser();
-    const shareUrl = userData?.user?.id 
-      ? `https://credeal.net/vibe-card/${userData.user.id}`
-      : 'https://credeal.net/onboarding';
+    const userId = userData?.user?.id;
 
-    const shareText = `🏢 DealCard Vibe 명함\n\n${data.userName ?? '홍길동'} | ${vtiLabel}\nTrust Score ${trust} · ${region} 전문\n\n나도 만들기 → ${shareUrl}`;
+    // broker_profiles.slug 조회 → 올바른 공개 명함 URL 생성
+    let slug = userId;
+    if (userId) {
+      const { data: bp } = await supabase
+        .from("broker_profiles")
+        .select("slug")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (bp?.slug) slug = bp.slug;
+    }
+
+    const shareUrl = slug
+      ? `https://credeal.net/vibe-card/${slug}`
+      : 'https://credeal.net/onboarding';
 
     try {
       if (navigator.share) {
-        await navigator.share({ text: shareText, url: shareUrl });
+        // URL만 전송 → 카카오톡에서 OG 프리뷰 1개만 표시 (이중 메시지 방지)
+        await navigator.share({
+          title: `${data.userName ?? '공인중개사'} | DealCard Vibe 명함`,
+          url: shareUrl,
+        });
       } else {
-        await navigator.clipboard.writeText(shareText);
+        await navigator.clipboard.writeText(shareUrl);
       }
       setShared(true);
       await trackOnboardingEvent('onboard_share_final', data.sessionToken);

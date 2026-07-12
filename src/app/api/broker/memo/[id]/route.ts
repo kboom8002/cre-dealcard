@@ -17,7 +17,7 @@ export async function DELETE(
     // Verify ownership
     const { data: existing, error: fetchError } = await supabase
       .from("broker_memos")
-      .select("broker_id")
+      .select("user_id")
       .eq("id", id)
       .single();
 
@@ -25,7 +25,7 @@ export async function DELETE(
       return NextResponse.json({ error: "메모를 찾을 수 없습니다." }, { status: 404 });
     }
 
-    if (existing.broker_id !== user!.id) {
+    if (existing.user_id !== user!.id) {
       return NextResponse.json({ error: "삭제 권한이 없습니다." }, { status: 403 });
     }
 

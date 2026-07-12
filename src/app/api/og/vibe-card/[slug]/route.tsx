@@ -65,10 +65,15 @@ export async function GET(
     if (profileId) {
       query = query.eq("id", profileId);
     } else {
-      query = query.or(`id.eq.${slug},display_name.ilike.${nameFromSlug}`);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
+      if (isUuid) {
+        query = query.eq("id", slug);
+      } else {
+        query = query.ilike("display_name", nameFromSlug);
+      }
     }
 
-    const { data: profile } = await query.limit(1).single();
+    const { data: profile } = await query.limit(1).maybeSingle();
 
     if (profile) {
       brokerName = profile.display_name ?? slug;

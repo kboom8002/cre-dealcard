@@ -113,6 +113,14 @@ export async function brokerDealCardFromMemo(
     status: "public_signal_ready",
   });
 
+  // 2-b. photo_urls 칼럼 동기화 (IM, 매거진, Vibe 카드 등에서 참조)
+  if (input.photoUrls && input.photoUrls.length > 0) {
+    await supabase
+      .from("building_ssot_lite")
+      .update({ photo_urls: input.photoUrls })
+      .eq("id", building.id);
+  }
+
   // 3. Create building_signal_card
   const visibility =
     input.visibilityPreference === "internal" ? "internal_only" : "public_blind";
