@@ -252,34 +252,40 @@ export default function BrokerProfilePage() {
           Authorization: `Bearer ${await getToken()}`,
         },
         body: JSON.stringify({
-          display_name: displayName,
-          phone,
-          company,
-          tagline,
-          specialty_regions: selectedRegions,
-          specialty_assets: selectedAssets,
-          bio,
-          license_number: licenseNumber,
-          office_reg_number: officeRegNumber,
-          association,
-          career_start_year: careerStartYear || null,
-          total_deal_count_self: totalDealCount || null,
-          deal_size_range: dealSizeRange || null,
-          deal_specialty: dealSpecialty,
-          buyer_types: buyerTypes,
-          preferred_price_range: preferredPriceRange || null,
-          fee_policy: feePolicy || null,
-          consult_methods: consultMethods,
-          response_time_hours: responseTimeHours || null,
-          languages,
-          kakao_channel: kakaoChannel,
-          naver_blog_url: naverBlogUrl,
-          youtube_url: youtubeUrl,
-          linkedin_url: linkedinUrl,
-          avatar_url: avatarUrl || null,
+          display_name: displayName || undefined,
+          phone: phone || undefined,
+          company: company || undefined,
+          tagline: tagline || undefined,
+          specialty_regions: selectedRegions.length > 0 ? selectedRegions : undefined,
+          specialty_assets: selectedAssets.length > 0 ? selectedAssets : undefined,
+          bio: bio || undefined,
+          license_number: licenseNumber || undefined,
+          office_reg_number: officeRegNumber || undefined,
+          association: association || undefined,
+          career_start_year: careerStartYear ? Number(careerStartYear) : undefined,
+          total_deal_count_self: totalDealCount ? Number(totalDealCount) : undefined,
+          deal_size_range: dealSizeRange || undefined,
+          deal_specialty: dealSpecialty.length > 0 ? dealSpecialty : undefined,
+          buyer_types: buyerTypes.length > 0 ? buyerTypes : undefined,
+          preferred_price_range: preferredPriceRange || undefined,
+          fee_policy: feePolicy || undefined,
+          consult_methods: consultMethods.length > 0 ? consultMethods : undefined,
+          response_time_hours: responseTimeHours ? Number(responseTimeHours) : undefined,
+          languages: languages.length > 0 ? languages : undefined,
+          kakao_channel: kakaoChannel || undefined,
+          naver_blog_url: naverBlogUrl || undefined,
+          youtube_url: youtubeUrl || undefined,
+          linkedin_url: linkedinUrl || undefined,
+          avatar_url: avatarUrl || undefined,
         }),
       });
-      if (!res.ok) throw new Error('저장에 실패했습니다.');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        const detail = typeof errorData.error === 'string' 
+          ? errorData.error 
+          : JSON.stringify(errorData.error || errorData);
+        throw new Error(`저장 실패: ${detail || res.statusText}`);
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e: any) {
