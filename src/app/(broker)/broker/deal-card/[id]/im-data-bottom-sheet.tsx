@@ -449,7 +449,7 @@ export function ImDataBottomSheet({
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="block text-xs font-semibold text-muted-foreground">
-                  🏷️ 매매 호가
+                  💰 매각 희망가
                 </label>
                 <button
                   type="button"
@@ -486,7 +486,7 @@ export function ImDataBottomSheet({
             {/* Loan Amount */}
             <div>
               <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
-                🏦 대출금 (채권최고액)
+                🏦 선순위 대출 잔액
               </label>
               <div className="relative">
                 <input

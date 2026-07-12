@@ -266,10 +266,10 @@ export function formatFinancialsMarkdown(f: FinancialOutputs): string {
     rows.push(`| **대지 지분 가치 비중** | ⚠️ ${f.landValueRatioNote} | 공부 원본 확인 후 산출 |`);
   }
   if (f.totalDepositBil !== null) {
-    rows.push(`| **보증금 합계** | **${f.totalDepositBil}억 원** | 브로커 제공 |`);
+    rows.push(`| **보증금 합계** | **${f.totalDepositBil}억 원** | 중개인 제공 |`);
   }
   if (f.loanAmountBil !== null) {
-    rows.push(`| **융자(채권최고액)** | **${f.loanAmountBil}억 원** | 브로커 제공 |`);
+    rows.push(`| **선순위 대출 잔액** | **${f.loanAmountBil}억 원** | 중개인 제공 |`);
   }
   if (f.equityRequired !== null) {
     rows.push(`| **자기자본 소요 추정** | **약 ${f.equityRequired}억 원** | AI 추정 |`);

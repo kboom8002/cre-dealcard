@@ -805,7 +805,7 @@ ${rentRollTable}
           });
           let finMd = formatFinancialsMarkdown(fin);
           if (supplemental.asking_price_manwon) {
-            finMd += `\n| **매매 호가** | **${(supplemental.asking_price_manwon / 10000).toLocaleString()}억 원** | 브로커 제공 |`;
+            finMd += `\n| **매각 희망가** | **${(supplemental.asking_price_manwon / 10000).toLocaleString()}억 원** | 중개인 제공 |`;
           }
           if (landPricePerSqm > 0) {
             finMd += `\n| **공시지가** | ㎡당 ${landPricePerSqm.toLocaleString()}원 (평당 ${pricePerPyeong.toLocaleString()}원) | ${lp?.baseYear || "2025"}년 기준 |`;

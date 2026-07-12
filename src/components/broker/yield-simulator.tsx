@@ -50,7 +50,7 @@ export function YieldSimulator({
       <div className="space-y-4 mb-6">
         <div>
           <div className="flex justify-between text-sm mb-1">
-            <span className="font-medium text-muted-foreground">매매 호가 (만원)</span>
+            <span className="font-medium text-muted-foreground">매각 희망가 (만원)</span>
             <span className="font-bold text-primary">{price.toLocaleString()}</span>
           </div>
           <input 
