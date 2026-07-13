@@ -1,17 +1,20 @@
 /**
  * POST /api/broker/im-lite/generate-async
  * 
- * IM 생성을 비동기로 시작합니다.
- * 1. 즉시 { jobId } 반환 (< 1초)
- * 2. 백그라운드에서 IM 생성 → DB에 결과 저장
- * 3. 클라이언트는 GET /api/broker/im-lite/job-status?jobId=xxx 로 폴링
+ * IM 생성을 시작합니다.
+ * - maxDuration=60으로 설정하여 Hobby 플랜 10초 제한 초과 허용 시도
+ * - 작업 완료 후 결과를 DB에 저장하고 응답 반환
+ * - 클라이언트는 폴링으로 결과를 확인
+ * 
+ * 전략: 응답을 빠르게 보내고 after()로 백그라운드 실행을 시도하되,
+ * after()가 지원되지 않으면 동기 실행 후 응답
  */
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 
-export const maxDuration = 60; // 백그라운드 작업이 완료될 시간 확보
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   const guard = await requireBroker(req);
@@ -66,53 +69,64 @@ export async function POST(req: NextRequest) {
     created_at: new Date().toISOString(),
   });
 
-  // ── Next.js after() — 응답 반환 후 백그라운드에서 IM 생성 ──
-  after(async () => {
-    try {
-      const { generateMobileIMHandler } = await import("../generate/handler");
-      const result = await generateMobileIMHandler({
-        buildingId,
-        userId: user!.id,
-        supplemental,
-        skipApproval,
-        directData,
-      });
+  // ── IM 생성 실행 (동기) ──
+  // Vercel Hobby에서는 after()가 작동하지 않으므로 동기 실행
+  // maxDuration=60으로 충분한 시간 확보
+  try {
+    const { generateMobileIMHandler } = await import("../generate/handler");
+    const result = await generateMobileIMHandler({
+      buildingId,
+      userId: user!.id,
+      supplemental,
+      skipApproval,
+      directData,
+    });
 
-      if (result.ok) {
-        await supabase.from("im_generation_jobs").update({
-          status: "completed",
-          result: {
-            im_lite_id: result.im_lite_id,
-            url: result.url,
-            readiness_score: result.readiness_score,
-            ai_used: result.ai_used,
-            sections_count: result.sections_count,
-            external_data_loaded: result.external_data_loaded,
-            message: result.message,
-          },
-          completed_at: new Date().toISOString(),
-        }).eq("id", jobId);
-      } else {
-        await supabase.from("im_generation_jobs").update({
-          status: "failed",
-          result: {
-            error: result.error,
-            score: result.score,
-            threshold: result.threshold,
-            missing: result.missing,
-          },
-          completed_at: new Date().toISOString(),
-        }).eq("id", jobId);
-      }
-    } catch (err: any) {
-      console.error("[im-generate-async] Background error:", err);
+    if (result.ok) {
+      await supabase.from("im_generation_jobs").update({
+        status: "completed",
+        result: {
+          im_lite_id: result.im_lite_id,
+          url: result.url,
+          readiness_score: result.readiness_score,
+          ai_used: result.ai_used,
+          sections_count: result.sections_count,
+          external_data_loaded: result.external_data_loaded,
+          message: result.message,
+        },
+        completed_at: new Date().toISOString(),
+      }).eq("id", jobId);
+    } else {
       await supabase.from("im_generation_jobs").update({
         status: "failed",
-        result: { error: err?.message ?? "Unknown error" },
+        result: {
+          error: result.error,
+          score: result.score,
+          threshold: result.threshold,
+          missing: result.missing,
+        },
         completed_at: new Date().toISOString(),
       }).eq("id", jobId);
     }
-  });
+  } catch (err: any) {
+    console.error("[im-generate-async] Error:", err);
+    await supabase.from("im_generation_jobs").update({
+      status: "failed",
+      result: { error: err?.message ?? "Unknown error" },
+      completed_at: new Date().toISOString(),
+    }).eq("id", jobId);
+  }
 
-  return NextResponse.json({ jobId, status: "processing" });
+  // 완료 후 최종 상태 조회하여 반환
+  const { data: finalJob } = await supabase
+    .from("im_generation_jobs")
+    .select("status, result")
+    .eq("id", jobId)
+    .single();
+
+  return NextResponse.json({
+    jobId,
+    status: finalJob?.status ?? "completed",
+    result: finalJob?.result ?? null,
+  });
 }

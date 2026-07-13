@@ -90,21 +90,36 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
       .single(),
     supabase
       .from("broker_profiles")
-      .select("user_id, name, company, phone, tagline, photo_url, slug, vibe_template_id, avatar_url, specialty_regions, specialty_assets, bio, vibe_vector, vibe_vti, vibe_complement, vibe_valence, vibe_trust, vibe_analyzed_at, logo_company_url, logo_partner_url")
+      .select("user_id, name, slug, vibe_template_id, avatar_url, photo_url, specialty_regions, specialty_assets, bio, vibe_vector, vibe_vti, vibe_complement, vibe_valence, vibe_trust, vibe_analyzed_at, logo_company_url, logo_partner_url")
       .eq("user_id", ownerId)
       .single(),
   ]);
 
   if (!profile && !brokerProfile) return null;
 
-  // slug가 없으면 자동 생성 (기존 사용자 마이그레이션)
+  // broker_profiles가 없으면 profiles 정보로 자동 생성 (비블로킹)
   let slug = brokerProfile?.slug || null;
-  if (brokerProfile && !slug) {
+  if (!brokerProfile && profile) {
+    const baseName = (profile.display_name || ownerId.substring(0, 8)) as string;
+    const slugBase = baseName.toLowerCase().replace(/[^a-z0-9\uAC00-\uD7A3]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    slug = `${slugBase}-${ownerId.substring(0, 6)}`;
+    
+    // broker_profiles 자동 생성 (비블로킹)
+    supabase
+      .from("broker_profiles")
+      .upsert({
+        user_id: ownerId,
+        name: profile.display_name || "중개인",
+        slug,
+        photo_url: profile.photo_url || null,
+      }, { onConflict: "user_id" })
+      .then(() => {});
+  } else if (brokerProfile && !slug) {
+    // broker_profiles는 있지만 slug가 없는 경우
     const baseName = (profile?.display_name || brokerProfile?.name || ownerId.substring(0, 8)) as string;
     const slugBase = baseName.toLowerCase().replace(/[^a-z0-9\uAC00-\uD7A3]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
     slug = `${slugBase}-${ownerId.substring(0, 6)}`;
     
-    // DB에 저장 (비블로킹)
     supabase
       .from("broker_profiles")
       .update({ slug })
@@ -112,13 +127,13 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
       .then(() => {});
   }
 
-  // broker_profiles의 slug/vibe 데이터를 우선 사용하되, profiles의 기본 정보로 보강
+  // profiles + broker_profiles 병합 (phone, company, tagline은 profiles에서)
   return {
     id: ownerId,
     display_name: profile?.display_name || brokerProfile?.name || "담당 중개인",
-    company: profile?.company || brokerProfile?.company || "",
-    phone: profile?.phone || brokerProfile?.phone || "",
-    tagline: profile?.tagline || brokerProfile?.tagline || "",
+    company: profile?.company || "",
+    phone: profile?.phone || "",
+    tagline: profile?.tagline || "",
     photo_url: profile?.photo_url || brokerProfile?.avatar_url || brokerProfile?.photo_url || "/default-avatar.png",
     slug: slug || "cre-dealcard-default",
     vibe_template_id: brokerProfile?.vibe_template_id || "default",

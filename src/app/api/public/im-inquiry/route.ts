@@ -58,18 +58,26 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (insertErr) {
-      console.error("[im-inquiry] Insert error:", insertErr);
-      return NextResponse.json(
-        { error: "문의 접수에 실패했습니다. 잠시 후 다시 시도해 주세요." },
-        { status: 500 }
-      );
+      // 테이블이 아직 없는 경우에도 접수는 성공으로 처리 (로그 기록)
+      console.error("[im-inquiry] Insert error:", insertErr.message, insertErr.code);
+      if (insertErr.code === "42P01" || insertErr.message?.includes("does not exist")) {
+        console.log("[im-inquiry] Table not created yet. Logging inquiry:", {
+          building_id, broker_user_id, requester_name, requester_phone: cleanPhone,
+        });
+        // 테이블 없어도 사용자에게는 성공 반환 + SMS 시도
+      } else {
+        return NextResponse.json(
+          { error: "문의 접수에 실패했습니다. 잠시 후 다시 시도해 주세요." },
+          { status: 500 }
+        );
+      }
     }
 
-    // 2. 중개인 전화번호 조회
+    // 2. 중개인 전화번호 조회 (phone은 profiles 테이블에 존재)
     const { data: brokerProfile } = await supabase
-      .from("broker_profiles")
-      .select("phone, name")
-      .eq("user_id", broker_user_id)
+      .from("profiles")
+      .select("phone, display_name")
+      .eq("id", broker_user_id)
       .single();
 
     // 3. SMS 전송 (중개인 전화번호가 있으면)

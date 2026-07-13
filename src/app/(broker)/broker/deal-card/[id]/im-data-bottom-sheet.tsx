@@ -198,8 +198,8 @@ export function ImDataBottomSheet({
         logistics,
       };
 
-      // ── 비동기 생성 (타임아웃 없음) ──
-      // 1단계: 작업 시작 → jobId 즉시 반환
+      // ── 비동기 생성 ──
+      // 서버에서 동기 실행 후 결과 포함하여 응답
       const startRes = await fetch("/api/broker/im-lite/generate-async", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -211,10 +211,28 @@ export function ImDataBottomSheet({
         throw new Error(errData.error ?? "IM 생성 시작 실패");
       }
 
-      const { jobId } = await startRes.json();
+      const startData = await startRes.json();
+
+      // 서버에서 동기 실행 완료 → 즉시 결과 처리
+      if (startData.status === "completed" && startData.result) {
+        setState("success");
+        setProgress(`✅ ${startData.result.sections_count ?? 7}섹션 생성 완료!`);
+        const reviewUrl = startData.result.im_lite_id
+          ? `/broker/im-approval/${startData.result.im_lite_id}`
+          : startData.result.url;
+        setTimeout(() => { window.location.href = reviewUrl; }, 1500);
+        return;
+      } else if (startData.status === "failed") {
+        setState("error");
+        setErrorMsg(startData.result?.error ?? "IM 생성 실패");
+        setProgress("");
+        return;
+      }
+
+      // Fallback: 폴링 (서버가 아직 processing인 경우)
+      const jobId = startData.jobId;
       if (!jobId) throw new Error("작업 ID를 받지 못했습니다");
 
-      // 2단계: 폴링으로 결과 대기 (3초 간격, 최대 120초)
       const MAX_POLL_MS = 120_000;
       const POLL_INTERVAL = 3_000;
       const startTime = Date.now();
@@ -246,14 +264,12 @@ export function ImDataBottomSheet({
             setProgress("");
             return;
           }
-          // status === "processing" → 계속 폴링
         } catch {
-          // 네트워크 일시 오류 → 다음 폴링에서 재시도
           continue;
         }
       }
 
-      // 타임아웃 (120초 초과)
+      // 타임아웃
       setState("error");
       setErrorMsg("생성 시간이 초과되었습니다. 잠시 후 IM 보관함에서 확인해 주세요.");
       setProgress("");
