@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { ChevronDown, Award, Briefcase, HelpCircle, Share2, Sparkles, Languages } from "lucide-react";
+import { ChevronDown, Award, HelpCircle, Share2, Sparkles, Languages } from "lucide-react";
 import type { VibeTemplateCssVars } from "@/lib/vibe/vibe-templates";
 
 // ── Types ─────────────────────────────────────────────
@@ -293,56 +293,6 @@ export function VibeCardDetails({
         </AccordionItem>
       )}
 
-      {/* ── 2. 거래 실적 ── */}
-      <AccordionItem
-        title="거래 실적 및 요약"
-        icon={<Briefcase size={18} />}
-        isOpen={openSection === "deals"}
-        onClick={() => toggleSection("deals")}
-        css={css}
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-xl bg-white/5 border border-white/5 text-center">
-              <span className="text-xl">📊</span>
-              <p className="text-base font-bold mt-1" style={{ color: css.accentColor }}>
-                {stats.dealCount}건
-              </p>
-              <p className="text-[10px] opacity-50 font-medium">진행 중인 딜카드</p>
-            </div>
-            <div className="p-3 rounded-xl bg-white/5 border border-white/5 text-center">
-              <span className="text-xl">🔥</span>
-              <p className="text-base font-bold mt-1" style={{ color: css.ringColor }}>
-                {stats.activeCount}건
-              </p>
-              <p className="text-[10px] opacity-50 font-medium">활성 딜 (Active)</p>
-            </div>
-          </div>
-
-          <div className="space-y-2 text-[11px]">
-            {professional?.totalDealCount && (
-              <div className="flex justify-between py-1.5 border-b border-white/5">
-                <span className="opacity-60">총 누적 중개 거래건수</span>
-                <span className="font-bold">{professional.totalDealCount}건 이상</span>
-              </div>
-            )}
-            {professional?.dealSizeRange && (
-              <div className="flex justify-between py-1.5 border-b border-white/5">
-                <span className="opacity-60">주요 딜 규모</span>
-                <span className="font-bold">{professional.dealSizeRange}</span>
-              </div>
-            )}
-            {broker?.specialtyAssets && broker.specialtyAssets.length > 0 && (
-              <div className="flex justify-between py-1.5 border-b border-white/5">
-                <span className="opacity-60">주요 대상 자산</span>
-                <span className="font-bold truncate max-w-[180px]">
-                  {broker.specialtyAssets.join(", ")}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </AccordionItem>
 
       {/* ── 3. 서비스 안내 ── */}
       {professional && (

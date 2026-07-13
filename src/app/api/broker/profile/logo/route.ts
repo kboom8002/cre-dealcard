@@ -2,8 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
+async function ensureBucket(svc: ReturnType<typeof createServiceClient>, name: string) {
+  const { data: buckets } = await svc.storage.listBuckets();
+  if (!buckets?.find((b: { name: string }) => b.name === name)) {
+    await svc.storage.createBucket(name, { public: true, fileSizeLimit: 5 * 1024 * 1024 });
+  }
+}
+
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
-const ALLOWED_TYPES = ["image/png", "image/webp", "image/svg+xml"];
+const ALLOWED_TYPES = ["image/png", "image/webp", "image/svg+xml", "image/jpeg"];
 
 // ── POST: Upload logo ───────────────────────────────
 
@@ -44,6 +51,9 @@ export async function POST(request: NextRequest) {
     }
 
     const svc = createServiceClient();
+
+    // Ensure storage bucket exists
+    await ensureBucket(svc, "broker-assets");
 
     // Upload to Supabase Storage
     const ext = file.name.split(".").pop() || "png";

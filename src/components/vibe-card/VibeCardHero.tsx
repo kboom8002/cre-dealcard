@@ -109,6 +109,38 @@ const MARKET_TEMP_MAP: Record<string, { emoji: string; color: string; label: str
   '위기 경계': { emoji: '🚨', color: '#dc2626', label: '위기 경계' },
 };
 
+// ── Adaptive Contrast System ────────────────────────
+// 32개 템플릿 배경의 luminance를 계산하여 light/dark에 따라
+// text-shadow, overlay, logo pill 스타일을 자동 조정
+
+function getAdaptiveStyles(bgGradient: string) {
+  const hex = bgGradient.match(/#([0-9a-fA-F]{6})/)?.[1];
+  const lum = hex
+    ? (0.299 * parseInt(hex.slice(0, 2), 16) +
+       0.587 * parseInt(hex.slice(2, 4), 16) +
+       0.114 * parseInt(hex.slice(4, 6), 16)) / 255
+    : 0;
+  const isLight = lum > 0.5;
+  return {
+    isLight,
+    titleShadow: isLight
+      ? '0 1px 3px rgba(0,0,0,0.12), 0 0 8px rgba(255,255,255,0.5)'
+      : '0 1px 4px rgba(0,0,0,0.5), 0 0 12px rgba(0,0,0,0.25)',
+    bodyShadow: isLight
+      ? '0 1px 2px rgba(0,0,0,0.08)'
+      : '0 1px 3px rgba(0,0,0,0.35)',
+    contactBg: isLight
+      ? 'rgba(255, 255, 255, 0.5)'
+      : 'rgba(0, 0, 0, 0.25)',
+    contactBorder: isLight
+      ? 'rgba(0, 0, 0, 0.08)'
+      : 'rgba(255, 255, 255, 0.06)',
+    logoBg: isLight
+      ? 'rgba(255, 255, 255, 0.55)'
+      : 'rgba(0, 0, 0, 0.3)',
+  };
+}
+
 // ── Contact Row ──────────────────────────────────────
 
 function ContactRow({
@@ -119,6 +151,7 @@ function ContactRow({
   textColor,
   subtextColor,
   accentColor,
+  bodyShadow,
 }: {
   icon: typeof Phone;
   label: string;
@@ -127,18 +160,19 @@ function ContactRow({
   textColor: string;
   subtextColor: string;
   accentColor: string;
+  bodyShadow?: string;
 }) {
   const content = (
-    <div className="flex items-center gap-3 py-1.5">
+    <div className="flex items-center gap-3 py-2">
       <div
-        className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-        style={{ backgroundColor: `${accentColor}15` }}
+        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+        style={{ backgroundColor: `${accentColor}18` }}
       >
-        <Icon className="w-3.5 h-3.5" style={{ color: accentColor }} />
+        <Icon className="w-4 h-4" style={{ color: accentColor }} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[9px] font-medium opacity-50" style={{ color: subtextColor }}>{label}</p>
-        <p className="text-[12px] font-semibold truncate" style={{ color: textColor }}>{value}</p>
+        <p className="text-[11px] font-medium" style={{ color: subtextColor, textShadow: bodyShadow }}>{label}</p>
+        <p className="text-sm font-semibold truncate" style={{ color: textColor, textShadow: bodyShadow }}>{value}</p>
       </div>
     </div>
   );
@@ -181,6 +215,9 @@ export function VibeCardHero({
       fontFamily: "'Pretendard', sans-serif",
     };
   }, [template]);
+
+  // Adaptive styles based on background luminance
+  const adaptive = useMemo(() => getAdaptiveStyles(css.bgGradient), [css.bgGradient]);
 
   // Motion values for tilt & hologram
   const x = useMotionValue(0);
@@ -246,19 +283,19 @@ export function VibeCardHero({
           coherence={vibe?.trust ?? 0.7}
           size={100}
         />
-        <h2 className="mt-4 text-xl font-bold tracking-tight" style={{ color: css.textColor }}>
+        <h2 className="mt-4 text-2xl font-bold tracking-tight" style={{ color: css.textColor, textShadow: adaptive.titleShadow }}>
           {profile.displayName}
         </h2>
-        <p className="text-xs mt-0.5 font-medium" style={{ color: css.accentColor }}>
+        <p className="text-sm mt-0.5 font-semibold" style={{ color: css.accentColor, textShadow: adaptive.bodyShadow }}>
           공인중개사
         </p>
         {profile.company && (
-          <p className="text-[11px] mt-1 font-medium" style={{ color: css.subtextColor }}>
+          <p className="text-xs mt-1 font-medium" style={{ color: css.subtextColor, textShadow: adaptive.bodyShadow }}>
             {profile.company}
           </p>
         )}
         {profile.tagline && (
-          <p className="text-[11px] leading-relaxed mt-2 italic opacity-80 max-w-[260px]" style={{ color: css.subtextColor }}>
+          <p className="text-xs leading-relaxed mt-2 italic max-w-[260px]" style={{ color: css.subtextColor, textShadow: adaptive.bodyShadow }}>
             &ldquo;{profile.tagline}&rdquo;
           </p>
         )}
@@ -267,8 +304,13 @@ export function VibeCardHero({
       {/* ── 2. Contact Info Section ── */}
       <div className="px-6 space-y-0.5">
         <div
-          className="rounded-2xl px-4 py-2 border border-white/5 backdrop-blur-md"
-          style={{ backgroundColor: "rgba(0, 0, 0, 0.12)" }}
+          className="rounded-2xl px-4 py-2.5"
+          style={{
+            backgroundColor: adaptive.contactBg,
+            border: `1px solid ${adaptive.contactBorder}`,
+            backdropFilter: 'blur(16px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+          }}
         >
           {profile.phone && (
             <ContactRow
@@ -279,6 +321,7 @@ export function VibeCardHero({
               textColor={css.textColor}
               subtextColor={css.subtextColor}
               accentColor={css.accentColor}
+              bodyShadow={adaptive.bodyShadow}
             />
           )}
           {email && (
@@ -290,6 +333,7 @@ export function VibeCardHero({
               textColor={css.textColor}
               subtextColor={css.subtextColor}
               accentColor={css.accentColor}
+              bodyShadow={adaptive.bodyShadow}
             />
           )}
           {(broker?.specialtyRegions?.length ?? 0) > 0 && (
@@ -300,6 +344,7 @@ export function VibeCardHero({
               textColor={css.textColor}
               subtextColor={css.subtextColor}
               accentColor={css.accentColor}
+              bodyShadow={adaptive.bodyShadow}
             />
           )}
         </div>
@@ -307,29 +352,23 @@ export function VibeCardHero({
 
       {/* ── 3. Career Summary ── */}
       <div className="px-6 py-2">
-        <div className="flex items-center justify-center gap-4 text-[10px]" style={{ color: css.subtextColor }}>
-          {stats.dealCount > 0 && (
-            <span className="flex items-center gap-1">
-              <Briefcase className="w-3 h-3" style={{ color: css.accentColor }} />
-              거래 {stats.dealCount}건
-            </span>
-          )}
-          {professional?.totalDealCount && (
-            <span className="flex items-center gap-1">
-              <Briefcase className="w-3 h-3" style={{ color: css.accentColor }} />
-              누적 {professional.totalDealCount}건+
-            </span>
-          )}
+        <div className="flex items-center justify-center gap-4 text-xs" style={{ color: css.subtextColor, textShadow: adaptive.bodyShadow }}>
           {careerYears && careerYears > 0 && (
             <span className="flex items-center gap-1">
-              <Award className="w-3 h-3" style={{ color: css.accentColor }} />
+              <Award className="w-3.5 h-3.5" style={{ color: css.accentColor }} />
               경력 {careerYears}년
             </span>
           )}
           {professional?.licenseNumber && (
             <span className="flex items-center gap-1">
-              <Award className="w-3 h-3" style={{ color: css.accentColor }} />
+              <Award className="w-3.5 h-3.5" style={{ color: css.accentColor }} />
               자격증 보유
+            </span>
+          )}
+          {(broker?.specialtyAssets?.length ?? 0) > 0 && (
+            <span className="flex items-center gap-1">
+              <Briefcase className="w-3.5 h-3.5" style={{ color: css.accentColor }} />
+              {broker!.specialtyAssets[0]}
             </span>
           )}
         </div>
@@ -339,10 +378,11 @@ export function VibeCardHero({
       <div className="px-6 pt-1 space-y-2 relative z-20">
         <a
           href={`/expert-note/request?broker=${encodeURIComponent(profile.displayName)}`}
-          className="flex items-center justify-center gap-1.5 w-full rounded-2xl py-3 text-xs font-semibold shadow-lg hover:shadow-xl active:scale-[0.98] transition-all"
+          className="flex items-center justify-center gap-1.5 w-full rounded-2xl py-3.5 text-sm font-bold shadow-lg hover:shadow-xl active:scale-[0.98] transition-all"
           style={{
             background: `linear-gradient(135deg, ${css.accentColor}, ${css.ringColor})`,
             color: "#fff",
+            textShadow: '0 1px 2px rgba(0,0,0,0.2)',
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -385,33 +425,39 @@ export function VibeCardHero({
       </div>
 
       {/* ── 5. Logo Overlay ── */}
-      <div className="px-6 pt-3 pb-4 flex items-end justify-between relative z-20">
-        <div className="w-[80px] h-[36px] relative opacity-70">
+      <div className="px-6 pt-3 pb-3 flex items-end justify-between gap-3 relative z-20">
+        <div
+          className="flex-1 h-[48px] relative rounded-xl overflow-hidden"
+          style={{ background: adaptive.logoBg, backdropFilter: 'blur(8px)' }}
+        >
           <Image
             src={companyLogo}
             alt="회사 로고"
             fill
-            className="object-contain object-left"
-            sizes="80px"
+            className="object-contain p-1.5"
+            sizes="160px"
           />
         </div>
-        <div className="w-[80px] h-[36px] relative opacity-70">
+        <div
+          className="flex-1 h-[48px] relative rounded-xl overflow-hidden"
+          style={{ background: adaptive.logoBg, backdropFilter: 'blur(8px)' }}
+        >
           <Image
             src={partnerLogo}
             alt="제휴사 로고"
             fill
-            className="object-contain object-right"
-            sizes="80px"
+            className="object-contain p-1.5"
+            sizes="160px"
           />
         </div>
       </div>
 
       {/* ── 6. Footer ── */}
       <div
-        className="px-6 py-2.5 flex items-center justify-center text-[9px] font-medium tracking-wide"
-        style={{ borderTop: `1px solid ${css.accentColor}10` }}
+        className="px-6 py-2.5 flex items-center justify-center text-[10px] font-medium tracking-wide"
+        style={{ borderTop: `1px solid ${css.accentColor}15` }}
       >
-        <span className="opacity-40">
+        <span className="opacity-60" style={{ textShadow: adaptive.bodyShadow }}>
           Powered by <span className="font-bold" style={{ color: css.textColor }}>DealCard</span>
         </span>
       </div>
