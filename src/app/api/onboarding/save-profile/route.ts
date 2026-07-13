@@ -82,6 +82,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ── 온보딩 사진을 영구 버킷(broker-avatars)으로 복사 ──
+    let permanentPhotoUrl = session.photo_url as string | null;
+    if (session.photo_url && String(session.photo_url).includes('onboarding-temp')) {
+      try {
+        const photoRes = await fetch(session.photo_url as string);
+        if (photoRes.ok) {
+          const photoBlob = await photoRes.arrayBuffer();
+          const ext = String(session.photo_url).split('.').pop()?.split('?')[0] || 'jpg';
+          const destPath = `${user.id}/avatar-${Date.now()}.${ext}`;
+          const { data: uploadData, error: uploadErr } = await supabase.storage
+            .from('broker-avatars')
+            .upload(destPath, photoBlob, {
+              contentType: `image/${ext === 'png' ? 'png' : 'jpeg'}`,
+              upsert: true,
+            });
+          if (uploadData && !uploadErr) {
+            const { data: urlData } = supabase.storage
+              .from('broker-avatars')
+              .getPublicUrl(destPath);
+            permanentPhotoUrl = urlData.publicUrl;
+          } else {
+            console.warn('[save-profile] Photo copy to broker-avatars failed:', uploadErr);
+          }
+        }
+      } catch (copyErr) {
+        console.warn('[save-profile] Photo copy error (using temp URL):', copyErr);
+      }
+    }
+
     // ── 2. Upsert broker_profiles with vibe data ────────────────────────────
     if (session.vibe_vector) {
       // slug가 없으면 자동 생성 (vibe card URL용)
@@ -111,9 +140,10 @@ export async function POST(req: NextRequest) {
         vibe_trust: (session.before_scores as { trust?: number } | null)?.trust ?? null,
         vibe_analyzed_at: new Date().toISOString(),
       };
-      // 온보딩 사진을 broker_profiles.avatar_url에도 저장
-      if (session.photo_url) {
-        brokerUpsertData['avatar_url'] = session.photo_url;
+      // 사진 URL을 avatar_url과 photo_url 양쪽에 저장 (일관성 보장)
+      if (permanentPhotoUrl) {
+        brokerUpsertData['avatar_url'] = permanentPhotoUrl;
+        brokerUpsertData['photo_url'] = permanentPhotoUrl;
       }
       // 이름도 저장
       if (body.user_name) {
@@ -135,8 +165,8 @@ export async function POST(req: NextRequest) {
     if (body.region) profileUpdates['region'] = body.region;
     if (body.user_name) profileUpdates['display_name'] = body.user_name;
     if (body.user_phone) profileUpdates['phone'] = body.user_phone;
-    // 온보딩 사진이 있으면 profiles.photo_url에도 저장
-    if (session.photo_url) profileUpdates['photo_url'] = session.photo_url;
+    // 온보딩 사진이 있으면 profiles.photo_url에도 저장 (영구 URL 사용)
+    if (permanentPhotoUrl) profileUpdates['photo_url'] = permanentPhotoUrl;
 
     if (Object.keys(profileUpdates).length > 0) {
       const { error: profileUpdateErr } = await supabase
