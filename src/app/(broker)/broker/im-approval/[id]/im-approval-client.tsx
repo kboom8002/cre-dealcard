@@ -168,14 +168,6 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
               {statusBadge.label}
             </span>
           </div>
-          <a
-            href={`/im-lite/${buildingId}?doc=${docId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-neutral-300 transition-colors"
-          >
-            📄 미리보기
-          </a>
         </div>
       </div>
 

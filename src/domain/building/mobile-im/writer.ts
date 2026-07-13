@@ -607,8 +607,20 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     askingPriceDisplay: String(assetIdentity.price_band ?? ''),
     capRateBase: cachedFinancials?.capRate?.base ?? null,
     noiBaseBil: cachedFinancials?.annualNoi?.base ? parseFloat((cachedFinancials.annualNoi.base / 1e8).toFixed(1)) : null,
-    keyInvestmentPoint: String(buyerFit.fit_summary ?? `${assetIdentity.area_signal} 핵심 입지 안정적 수익 자산`),
-    keyRisk: String(buyerFit.caution_summary ?? '실사 단계에서 확인 필요'),
+    keyInvestmentPoint: String(buyerFit.fit_summary ?? (() => {
+      const area = assetIdentity.area_signal ? `${assetIdentity.area_signal} 권역 내` : '';
+      const asset = assetIdentity.asset_type ? `${assetIdentity.asset_type}로 추정되는 상가건물` : '상업용 자산';
+      const vacancy = assetIdentity.vacancy_signal ? `, 공실률 ${assetIdentity.vacancy_signal}` : '';
+      const price = assetIdentity.price_band ? `, 매각 희망가 ${assetIdentity.price_band}` : '';
+      return `${area} ${asset}${vacancy}${price}. 입지·임대차 현황을 감안할 때 투자 검토 가치가 있는 물건입니다.`;
+    })()),
+    keyRisk: String(buyerFit.caution_summary ?? (() => {
+      const parts: string[] = [];
+      if (!assetIdentity.vacancy_signal) parts.push('공실률 미확인');
+      if (!assetIdentity.price_band) parts.push('매각가 미공개');
+      parts.push('등기·건축물대장 현장 실사 필요');
+      return parts.join(', ') + '. 투자 결정 전 반드시 직접 검증하시기 바랍니다.';
+    })()),
     equityRequiredBil: cachedFinancials?.equityRequired ?? null,
     leveragedYieldPct: cachedFinancials?.leveragedYield ?? null,
     readinessScore: input.readiness.score,

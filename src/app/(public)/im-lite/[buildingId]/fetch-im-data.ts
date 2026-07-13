@@ -9,6 +9,25 @@ import { getDemoMobileIM } from "@/lib/demo/mobile-im-demo-data";
 import { computeDataQualityBadge } from "@/domain/building/mobile-im/data-quality-badge";
 import type { MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
 
+// ─── Geocode: 주소 → 좌표 변환 (서버사이드, Nominatim 무료 API) ──────────
+async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  if (!address) return null;
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=kr`,
+      { headers: { 'User-Agent': 'credeal.net/1.0' } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data?.[0]?.lat && data?.[0]?.lon) {
+      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function buildBrokerObject(profile: any) {
   if (!profile) {
     return {
@@ -224,7 +243,12 @@ export async function fetchIMData(
             type: i === 0 ? 'exterior' as const : 'interior' as const,
             label: i === 0 ? '건물 외관' : `건물 사진 ${i + 1}`,
           })),
-        coordinates: document.body.coordinates || undefined,
+        coordinates: document.body.coordinates || await (async () => {
+          // 좌표가 없으면 주소에서 자동 변환
+          const addr = document.body.external_data?.address || ssotSummary.address || ssotSummary.raw_address;
+          if (addr) return geocodeAddress(String(addr));
+          return undefined;
+        })(),
         dataQualityBadge: computeDataQualityBadge({
           hasAddress: !!(document.body.external_data || ssotSummary.address || ssotSummary.raw_address),
           hasPublicData: !!document.body.external_data?.hasPublicData,

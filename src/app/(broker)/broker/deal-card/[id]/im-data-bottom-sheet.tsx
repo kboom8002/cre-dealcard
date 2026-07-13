@@ -323,7 +323,7 @@ export function ImDataBottomSheet({
 
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-0 sm:p-4">
-      <div className="bg-background rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl p-5 animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 max-h-[90vh] flex flex-col pb-[env(safe-area-inset-bottom,20px)]">
+      <div className="bg-background rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl p-5 animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 max-h-[90vh] sm:max-h-[85vh] flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom,20px)]">
         
         <div className="flex items-center justify-between mb-4 shrink-0">
           <h2 className="text-lg font-bold text-foreground">📊 투자설명서 데이터 보강</h2>
@@ -336,7 +336,7 @@ export function ImDataBottomSheet({
         </p>
 
         {/* Scrollable Form Area */}
-        <div className="flex-1 overflow-y-auto pr-2 space-y-6 mb-6 pb-10">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-6 mb-6 pb-10">
           <div>
             <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
               🏠 정확한 건물 주소
