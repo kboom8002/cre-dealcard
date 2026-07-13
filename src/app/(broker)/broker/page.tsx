@@ -376,7 +376,7 @@ export default async function BrokerPage() {
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
               <Bell className="w-3 h-3" /> 최근 알림 피드
             </p>
-            <Link href="/broker/matching" className="text-[10px] text-primary hover:underline">
+            <Link href="/broker/inbox" className="text-[10px] text-primary hover:underline">
               전체 보기
             </Link>
           </div>
