@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { createMobileIMAction } from "./actions";
 import { createClient } from "@/lib/supabase/client";
 import { RentRollImporter } from "@/components/broker/rent-roll-importer";
 
@@ -180,29 +179,38 @@ export function ImDataBottomSheet({
         ic_name: icName || undefined,
       } : undefined;
 
-      const res = await createMobileIMAction(buildingId, {
-        vacancy_status: vacancySignal,
-        vacancy_pct: vacancyPct !== "" ? Number(vacancyPct) : undefined,
-        monthly_rent_total_krw: monthlyRent ? Number(monthlyRent) * 10000 : undefined,
-        total_deposit_manwon: totalDeposit ? Number(totalDeposit) : undefined,
-        mgmt_fee_total_manwon: mgmtFeeTotal ? Number(mgmtFeeTotal) : undefined,
-        loan_amount_manwon: loanAmount ? Number(loanAmount) : undefined,
-        asking_price_manwon: askingPrice ? Number(askingPrice) : undefined,
-        resolved_address: address || undefined,
-        resolved_pnu: pnu || undefined,
-        broker_highlight: brokerHighlight || undefined,
-        direct_data: Object.keys(directData).length > 0 ? directData : undefined,
-        photo_urls: uploadedPhotoUrls.length > 0 ? uploadedPhotoUrls : undefined,
-        photo_captions: Object.keys(photoCaptions).length > 0 ? photoCaptions : undefined,
-        floor_leases: floorLeases.length > 0 ? floorLeases : undefined,
-        logistics,
+      // API Route 호출 (maxDuration=120s 적용됨 — Server Action은 Vercel 타임아웃 미지원)
+      const apiRes = await fetch("/api/broker/im-lite/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          building_id: buildingId,
+          vacancy_status: vacancySignal,
+          vacancy_pct: vacancyPct !== "" ? Number(vacancyPct) : undefined,
+          monthly_rent_total_krw: monthlyRent ? Number(monthlyRent) * 10000 : undefined,
+          total_deposit_manwon: totalDeposit ? Number(totalDeposit) : undefined,
+          mgmt_fee_total_manwon: mgmtFeeTotal ? Number(mgmtFeeTotal) : undefined,
+          loan_amount_manwon: loanAmount ? Number(loanAmount) : undefined,
+          asking_price_manwon: askingPrice ? Number(askingPrice) : undefined,
+          resolved_address: address || undefined,
+          resolved_pnu: pnu || undefined,
+          broker_highlight: brokerHighlight || undefined,
+          direct_data: Object.keys(directData).length > 0 ? directData : undefined,
+          photo_urls: uploadedPhotoUrls.length > 0 ? uploadedPhotoUrls : undefined,
+          photo_captions: Object.keys(photoCaptions).length > 0 ? photoCaptions : undefined,
+          floor_leases: floorLeases.length > 0 ? floorLeases : undefined,
+          logistics,
+        }),
       });
 
-      if (res.success && res.url) {
+      const res = await apiRes.json();
+
+      if (apiRes.ok && res.ok && res.url) {
         setState("success");
         setProgress(`✅ ${res.sections_count ?? 7}섹션 생성 완료!`);
+        const reviewUrl = res.im_lite_id ? `/broker/im-approval/${res.im_lite_id}` : res.url;
         setTimeout(() => {
-          window.location.href = res.reviewUrl ?? res.url!;
+          window.location.href = reviewUrl;
         }, 1500);
       } else {
         setState("error");

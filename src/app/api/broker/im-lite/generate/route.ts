@@ -10,6 +10,9 @@ import { requireBroker } from "@/lib/auth-guard";
 import { generateMobileIMHandler } from "./handler";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 
+// IM 생성은 7섹션 AI 생성 + 외부 데이터 수집 + Judge 검증으로 60초 이상 소요 가능
+export const maxDuration = 120;
+
 export async function POST(req: NextRequest) {
   const guard = await requireBroker(req);
   if (guard.error) return guard.error;
