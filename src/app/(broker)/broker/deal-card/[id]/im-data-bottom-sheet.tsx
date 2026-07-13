@@ -156,7 +156,7 @@ export function ImDataBottomSheet({
         }
       }
 
-      setProgress("AI 투자설명서 생성 중... (약 20~40초)");
+      setProgress("AI 투자설명서 생성 중...");
 
       const isLogistics = assetType?.includes("물류") || assetType?.toLowerCase().includes("logistics");
       const logistics = isLogistics ? {
@@ -198,52 +198,64 @@ export function ImDataBottomSheet({
         logistics,
       };
 
-      // 자동 재시도 로직 (최대 2회 재시도)
-      let lastError = "";
-      for (let attempt = 1; attempt <= 3; attempt++) {
+      // ── 비동기 생성 (타임아웃 없음) ──
+      // 1단계: 작업 시작 → jobId 즉시 반환
+      const startRes = await fetch("/api/broker/im-lite/generate-async", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!startRes.ok) {
+        const errData = await startRes.json().catch(() => ({}));
+        throw new Error(errData.error ?? "IM 생성 시작 실패");
+      }
+
+      const { jobId } = await startRes.json();
+      if (!jobId) throw new Error("작업 ID를 받지 못했습니다");
+
+      // 2단계: 폴링으로 결과 대기 (3초 간격, 최대 120초)
+      const MAX_POLL_MS = 120_000;
+      const POLL_INTERVAL = 3_000;
+      const startTime = Date.now();
+      let dotCount = 0;
+
+      while (Date.now() - startTime < MAX_POLL_MS) {
+        await new Promise(r => setTimeout(r, POLL_INTERVAL));
+        dotCount = (dotCount + 1) % 4;
+        const dots = ".".repeat(dotCount + 1);
+        const elapsed = Math.round((Date.now() - startTime) / 1000);
+        setProgress(`AI 분석 중${dots} (${elapsed}초 경과)`);
+
         try {
-          if (attempt > 1) {
-            setProgress(`재시도 중... (${attempt}/3)`);
-            await new Promise(r => setTimeout(r, 1000)); // 1초 대기 후 재시도
-          }
+          const pollRes = await fetch(`/api/broker/im-lite/job-status?jobId=${encodeURIComponent(jobId)}`);
+          if (!pollRes.ok) continue;
+          const job = await pollRes.json();
 
-          const apiRes = await fetch("/api/broker/im-lite/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(requestBody),
-          });
-
-          // 서버 응답 받음 (타임아웃 아님)
-          const res = await apiRes.json();
-
-          if (apiRes.ok && res.ok && res.url) {
+          if (job.status === "completed" && job.result) {
             setState("success");
-            setProgress(`✅ ${res.sections_count ?? 7}섹션 생성 완료!`);
-            const reviewUrl = res.im_lite_id ? `/broker/im-approval/${res.im_lite_id}` : res.url;
-            setTimeout(() => {
-              window.location.href = reviewUrl;
-            }, 1500);
-            return; // 성공 → 종료
-          } else {
-            lastError = res.error ?? "알 수 없는 오류";
-            // 서버 에러 (non-retryable) → 바로 표시
+            setProgress(`✅ ${job.result.sections_count ?? 7}섹션 생성 완료!`);
+            const reviewUrl = job.result.im_lite_id
+              ? `/broker/im-approval/${job.result.im_lite_id}`
+              : job.result.url;
+            setTimeout(() => { window.location.href = reviewUrl; }, 1500);
+            return;
+          } else if (job.status === "failed") {
             setState("error");
-            setErrorMsg(lastError);
+            setErrorMsg(job.result?.error ?? "IM 생성 실패");
             setProgress("");
             return;
           }
-        } catch (fetchErr: any) {
-          // Safari "Load failed" / Chrome "Failed to fetch" = 네트워크/타임아웃 에러
-          lastError = fetchErr?.message ?? "서버 연결 실패";
-          console.warn(`[IM Generate] Attempt ${attempt}/3 failed:`, lastError);
-          // 마지막 시도가 아니면 재시도
-          if (attempt < 3) continue;
+          // status === "processing" → 계속 폴링
+        } catch {
+          // 네트워크 일시 오류 → 다음 폴링에서 재시도
+          continue;
         }
       }
 
-      // 3회 모두 실패
+      // 타임아웃 (120초 초과)
       setState("error");
-      setErrorMsg("서버 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.");
+      setErrorMsg("생성 시간이 초과되었습니다. 잠시 후 IM 보관함에서 확인해 주세요.");
       setProgress("");
     } catch (err: any) {
       setState("error");

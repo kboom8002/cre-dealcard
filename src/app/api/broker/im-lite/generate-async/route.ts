@@ -6,13 +6,12 @@
  * 2. 백그라운드에서 IM 생성 → DB에 결과 저장
  * 3. 클라이언트는 GET /api/broker/im-lite/job-status?jobId=xxx 로 폴링
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 
-// 이 엔드포인트 자체는 빠르게 반환하므로 maxDuration 불필요
-export const maxDuration = 10;
+export const maxDuration = 60; // 백그라운드 작업이 완료될 시간 확보
 
 export async function POST(req: NextRequest) {
   const guard = await requireBroker(req);
@@ -67,9 +66,8 @@ export async function POST(req: NextRequest) {
     created_at: new Date().toISOString(),
   });
 
-  // ── 백그라운드에서 IM 생성 (waitUntil 패턴) ──
-  // Edge/Node runtime에서 응답 후에도 실행 계속
-  const backgroundWork = (async () => {
+  // ── Next.js after() — 응답 반환 후 백그라운드에서 IM 생성 ──
+  after(async () => {
     try {
       const { generateMobileIMHandler } = await import("../generate/handler");
       const result = await generateMobileIMHandler({
@@ -114,17 +112,7 @@ export async function POST(req: NextRequest) {
         completed_at: new Date().toISOString(),
       }).eq("id", jobId);
     }
-  })();
-
-  // Vercel waitUntil — 응답 반환 후에도 백그라운드 작업 계속 실행
-  // @ts-expect-error: waitUntil is available in Vercel runtime
-  if (typeof globalThis.waitUntil === "function") {
-    // @ts-expect-error
-    globalThis.waitUntil(backgroundWork);
-  } else {
-    // 로컬 개발 환경: fire-and-forget (프로세스 종료 전에 완료됨)
-    backgroundWork.catch(console.error);
-  }
+  });
 
   return NextResponse.json({ jobId, status: "processing" });
 }
