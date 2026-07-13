@@ -73,7 +73,14 @@ Do not invent facts. If a field is unclear, mark it as null or needs_verificatio
 
 Always identify hidden fields that must not appear in public or blind documents.
 Fit summary must be framed as a hypothesis.
-Caution summary must focus on what needs verification.
+Caution summary rules:
+- Focus ONLY on items that genuinely need verification based on the provided data.
+- DO NOT speculate or include unverified assumptions.
+- DO NOT contradict information explicitly provided in the broker memo.
+- If the memo states a fact (e.g., "1층 약국"), treat it as given — do not question it unless there is conflicting data.
+- Keep it concise: 1-2 sentences maximum.
+- Example good: "등기부등본 및 건축물대장 확인 필요. 실제 공실 현황 현장 실사 권장."
+- Example bad: "1층은 약국/89평 공실로 해석되나 원문 구두점이 불명확해 재확인이 필요합니다." (← 메모 데이터를 자의적으로 재해석)
 
 Always include this boundary note:
 "이 자료는 공개 데이터와 입력 정보를 바탕으로 한 예비 검토 자료입니다. 가격, 수익률, 법률, 세무, 대출 가능성을 확정하지 않습니다."
@@ -97,7 +104,7 @@ Required output JSON keys:
 - "currentUseSignal": 사용현황 신호 문자열
 - "vacancySignal": 공실 신호 문자열
 - "fitSummary": 매수자 관점 검토 가설 문자열
-- "cautionSummary": 확인 필요 사항 문자열
+- "cautionSummary": 확인 필요 사항 (메모에 명시된 사실과 모순되지 않도록 작성. 추측 금지. 실사 필요 항목만 간결하게.)
 - "hiddenFields": 공개 불가 필드 배열 (반드시 다음 중 선택: "exact_address", "tenant_name", "unit_rent", "seller_motivation", "negotiation_memo", "owner_identity", "buyer_identity", "registry_detail", "lease_contract_raw_text")
 - "confidence": { "areaSignal": "confirmed" | "user_provided" | "public_data_inferred" | "ai_hypothesis" | "needs_verification" | "unknown", "assetType": "confirmed" | "user_provided" | "public_data_inferred" | "ai_hypothesis" | "needs_verification" | "unknown", "priceBand": "confirmed" | "user_provided" | "public_data_inferred" | "ai_hypothesis" | "needs_verification" | "unknown", "fitSummary": "ai_hypothesis" | "needs_verification" }
 - "missingData": 부족한 자료 배열
