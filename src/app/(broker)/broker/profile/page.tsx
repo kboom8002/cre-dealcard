@@ -194,7 +194,7 @@ export default function BrokerProfilePage() {
       setPhone(data.phone ?? '');
       setCompany(data.company ?? '');
       setTagline(data.tagline ?? '');
-      setAvatarUrl(data.broker?.avatar_url ?? '');
+      setAvatarUrl(data.broker?.avatar_url ?? data.broker?.photo_url ?? data.photo_url ?? '');
 
       // Existing tags
       setSelectedRegions(data.broker?.specialty_regions ?? []);

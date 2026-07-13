@@ -32,7 +32,7 @@ export default async function BrokerPage() {
   // ── [C2] 최초 접속 (온보딩 미완료)인 경우 /onboarding으로 자동 리다이렉트 ──
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, display_name, photo_url")
     .eq("id", user.id)
     .single();
 
@@ -54,7 +54,8 @@ export default async function BrokerPage() {
     }
   }
 
-  const userName = user.user_metadata?.full_name || user.email?.split("@")[0] || "중개인";
+  const userName = profile?.display_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "중개인";
+  const userPhotoUrl = profile?.photo_url || null;
 
   // ── KPI 데이터 병렬 조회 ──
   const [
@@ -446,7 +447,7 @@ export default async function BrokerPage() {
       <div className="w-full max-w-md mx-auto space-y-5">
 
         {/* ── 인사 & 날짜 & 로그인 상태 ── */}
-        <GreetingHeader userName={userName} />
+        <GreetingHeader userName={userName} userPhotoUrl={userPhotoUrl} />
 
         {/* ── 퀵액션 버튼 ── */}
         <div className="grid grid-cols-2 gap-2">

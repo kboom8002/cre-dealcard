@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { UserCircle, LogOut, Bell } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 interface GreetingHeaderProps {
   userName: string;
+  userPhotoUrl?: string | null;
 }
 
-export function GreetingHeader({ userName }: GreetingHeaderProps) {
+export function GreetingHeader({ userName, userPhotoUrl }: GreetingHeaderProps) {
   const [greeting, setGreeting] = useState("좋은 하루예요");
   const [unreadCount, setUnreadCount] = useState(0);
   const router = useRouter();
@@ -68,10 +70,20 @@ export function GreetingHeader({ userName }: GreetingHeaderProps) {
         </button>
         <a
           href="/broker/profile"
-          className="flex items-center justify-center p-1.5 rounded-full hover:bg-neutral-800 text-muted-foreground hover:text-foreground transition-colors"
+          className="flex items-center justify-center p-1 rounded-full hover:bg-neutral-800 transition-colors overflow-hidden"
           title="프로필"
         >
-          <UserCircle className="w-8 h-8" />
+          {userPhotoUrl ? (
+            <Image
+              src={userPhotoUrl}
+              alt={userName}
+              width={32}
+              height={32}
+              className="w-8 h-8 rounded-full object-cover"
+            />
+          ) : (
+            <UserCircle className="w-8 h-8 text-muted-foreground" />
+          )}
         </a>
       </div>
     </div>
