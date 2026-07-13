@@ -38,6 +38,7 @@ interface VibeManageData {
   stats: VibeCardHeroProps["stats"];
   logoCompanyUrl?: string | null;
   logoPartnerUrl?: string | null;
+  email?: string;
   latestMagazine?: {
     date: string;
     headline: string;
@@ -352,6 +353,7 @@ export function VibeCardManage({ data }: Props) {
                 stats={data.stats}
                 logoCompanyUrl={data.logoCompanyUrl || undefined}
                 logoPartnerUrl={data.logoPartnerUrl || undefined}
+                email={data.email}
                 latestMagazine={data.latestMagazine}
               />
             </Link>
@@ -402,6 +404,27 @@ export function VibeCardManage({ data }: Props) {
                   placeholder="CRE 투자 전문가"
                 />
                 <p className="text-[10px] text-neutral-600 mt-1">예: 공인중개사, CRE 투자 전문가, 상업용 부동산 컨설턴트</p>
+              </div>
+              <div>
+                <label className="text-[11px] text-neutral-400 mb-1 block">이메일 (명함에 표시)</label>
+                <input
+                  defaultValue={data.email || ""}
+                  onBlur={async (e) => {
+                    const val = e.target.value.trim();
+                    if (val === (data.email || "")) return;
+                    try {
+                      await fetch("/api/broker/profile", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ contact_email: val || null }),
+                      });
+                      window.location.reload();
+                    } catch { /* silent */ }
+                  }}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-violet-500/50 transition-colors"
+                  placeholder="hong@example.com"
+                />
+                <p className="text-[10px] text-neutral-600 mt-1">비워두면 가입 이메일이 사용됩니다</p>
               </div>
             </div>
           </motion.div>

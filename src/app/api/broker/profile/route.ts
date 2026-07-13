@@ -58,13 +58,14 @@ const ProfileUpdateSchema = z.object({
   // Vibe Card 커스텀
   card_name: z.string().max(30).optional(),
   card_title: z.string().max(50).optional(),
+  contact_email: z.string().email().max(200).optional(),
 });
 
 /** broker_profiles 테이블에서 조회할 v2 확장 컬럼 목록 */
 const BROKER_PROFILE_COLUMNS = [
   'specialty_regions', 'specialty_assets', 'bio', 'slug', 'magazine_title', 'magazine_theme_color', 'is_verified', 'created_at',
   // 프로필 사진/이름
-  'avatar_url', 'photo_url', 'name', 'card_name', 'card_title',
+  'avatar_url', 'photo_url', 'name', 'card_name', 'card_title', 'contact_email',
   // v2 자격/등록
   'license_number', 'office_reg_number', 'association', 'career_start_year',
   // v2 거래 실적
@@ -83,7 +84,7 @@ const BROKER_PROFILE_COLUMNS = [
 /** broker_profiles 테이블에 upsert 할 v2 필드 키 목록 */
 const BROKER_UPSERT_KEYS = [
   'specialty_regions', 'specialty_assets', 'bio', 'slug', 'magazine_title', 'magazine_theme_color',
-  'avatar_url', 'card_name', 'card_title',
+  'avatar_url', 'card_name', 'card_title', 'contact_email',
   'license_number', 'office_reg_number', 'association', 'career_start_year',
   'total_deal_count_self', 'deal_size_range', 'deal_specialty', 'buyer_types',
   'preferred_price_range', 'languages',

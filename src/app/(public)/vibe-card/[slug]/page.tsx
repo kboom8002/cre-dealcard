@@ -56,7 +56,7 @@ async function getVibeCardData(slug: string) {
   const { data: bp } = await supabase
     .from("broker_profiles")
     .select(
-      "specialty_regions, specialty_assets, bio, is_verified, vibe_vector, vibe_vti, vibe_complement, vibe_template_id, vibe_valence, vibe_trust, vibe_analyzed_at, license_number, career_start_year, total_deal_count_self, deal_size_range, deal_specialty, buyer_types, preferred_price_range, fee_policy, consult_methods, response_time_hours, kakao_channel, naver_blog_url, youtube_url, linkedin_url, seo_summary, office_district, languages, logo_company_url, logo_partner_url, card_name, card_title",
+      "specialty_regions, specialty_assets, bio, is_verified, vibe_vector, vibe_vti, vibe_complement, vibe_template_id, vibe_valence, vibe_trust, vibe_analyzed_at, license_number, career_start_year, total_deal_count_self, deal_size_range, deal_specialty, buyer_types, preferred_price_range, fee_policy, consult_methods, response_time_hours, kakao_channel, naver_blog_url, youtube_url, linkedin_url, seo_summary, office_district, languages, logo_company_url, logo_partner_url, card_name, card_title, contact_email",
     )
     .eq("user_id", profile.id)
     .single();
@@ -182,6 +182,7 @@ async function getVibeCardData(slug: string) {
     },
     logoCompanyUrl: (bp?.logo_company_url as string) || null,
     logoPartnerUrl: (bp?.logo_partner_url as string) || null,
+    email: (bp?.contact_email as string) || undefined,
     imListings: (imListings ?? []).map(b => ({
       buildingId: b.id,
       label: b.area_signal

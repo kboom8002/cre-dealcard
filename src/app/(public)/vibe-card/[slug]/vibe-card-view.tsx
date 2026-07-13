@@ -125,6 +125,7 @@ export interface VibeCardData {
   slug: string;
   logoCompanyUrl?: string | null;
   logoPartnerUrl?: string | null;
+  email?: string;
 }
 
 export function VibeCardView({ data }: { data: VibeCardData }) {
@@ -194,6 +195,7 @@ export function VibeCardView({ data }: { data: VibeCardData }) {
             stats={stats}
             logoCompanyUrl={data.logoCompanyUrl || undefined}
             logoPartnerUrl={data.logoPartnerUrl || undefined}
+            email={data.email}
             latestMagazine={data.latestMagazine}
           />
         </section>
