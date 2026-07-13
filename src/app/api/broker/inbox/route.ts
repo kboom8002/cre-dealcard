@@ -178,17 +178,45 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // ── 3. 통합 & 정렬 ──
-  const allItems = [...gateItems, ...viewItems]
+  // ── 3. 인앱 알림 (프라이빗 IM 신청 등) ──
+  let notifItems: any[] = [];
+  try {
+    const { data: notifications } = await supabase
+      .from("in_app_notifications")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    notifItems = (notifications || []).map((n: any) => ({
+      id: n.id,
+      type: "notification" as const,
+      notification_type: n.type,
+      icon: n.type === "im_inquiry" ? "📄" : n.type === "im_viewed" ? "🔥" : "🔔",
+      label: n.title,
+      sub_label: n.body?.substring(0, 80) || "",
+      link: n.link,
+      building_id: n.metadata?.building_id || null,
+      is_unread: !n.is_read,
+      created_at: n.created_at,
+    }));
+  } catch {
+    // 테이블 미존재 시 무시
+  }
+
+  // ── 4. 통합 & 정렬 ──
+  const allItems = [...gateItems, ...viewItems, ...notifItems]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(offset, offset + limit);
 
-  // 미확인 건수
-  const unreadCount = gateItems.filter((i) => i.is_unread).length;
+  // 미확인 건수 (gate_requests + 인앱 알림)
+  const unreadCount = 
+    gateItems.filter((i) => i.is_unread).length + 
+    notifItems.filter((i) => i.is_unread).length;
 
   return NextResponse.json({
     items: allItems,
-    total: gateItems.length + viewItems.length,
+    total: gateItems.length + viewItems.length + notifItems.length,
     unread_count: unreadCount,
   });
 }

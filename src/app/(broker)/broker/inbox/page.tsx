@@ -9,7 +9,7 @@ type InboxFilter = "all" | "requests" | "views";
 
 interface InboxItem {
   id: string;
-  type: "gate_request" | "view";
+  type: "gate_request" | "view" | "notification";
   // gate_request fields
   status?: string;
   building_id?: string;
@@ -26,6 +26,9 @@ interface InboxItem {
   label?: string;
   sub_label?: string;
   viewer_info?: string;
+  // notification fields
+  notification_type?: string;
+  link?: string;
   // common
   created_at: string;
 }
@@ -279,6 +282,34 @@ export default function InboxPage() {
                       </div>
                     )}
                   </div>
+                ) : item.type === "notification" ? (
+                  // ── In-App Notification Card ──
+                  <Link
+                    href={item.link || (item.building_id ? `/broker/deal-card/${item.building_id}` : "/broker")}
+                    className="block space-y-1.5"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        {item.is_unread && (
+                          <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0 animate-pulse" />
+                        )}
+                        <span className="text-base shrink-0">{item.icon || "🔔"}</span>
+                        <div>
+                          <p className="text-sm font-bold text-foreground">
+                            {item.label}
+                          </p>
+                          {item.sub_label && (
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                              {item.sub_label}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {timeAgo(item.created_at)}
+                      </span>
+                    </div>
+                  </Link>
                 ) : (
                   // ── View Event Card ──
                   <Link

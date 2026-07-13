@@ -3,11 +3,11 @@
  * 
  * 프라이빗 IM 문의 접수 (비로그인 사용자도 접근 가능)
  * - 신청자 정보를 DB에 저장
- * - 담당 중개인에게 SMS 알림 전송 (Phase 2)
+ * - 담당 중개인에게 인앱 알림 전송
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { sendSMS } from "@/lib/sms/send-sms";
+import { createNotification } from "@/lib/notifications/in-app";
 
 export async function POST(req: NextRequest) {
   try {
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
         console.log("[im-inquiry] Table not created yet. Logging inquiry:", {
           building_id, broker_user_id, requester_name, requester_phone: cleanPhone,
         });
-        // 테이블 없어도 사용자에게는 성공 반환 + SMS 시도
+        // 테이블 없어도 사용자에게는 성공 반환 + 인앱 알림 시도
       } else {
         return NextResponse.json(
           { error: "문의 접수에 실패했습니다. 잠시 후 다시 시도해 주세요." },
@@ -73,33 +73,45 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. 중개인 전화번호 조회 (phone은 profiles 테이블에 존재)
-    const { data: brokerProfile } = await supabase
-      .from("profiles")
-      .select("phone, display_name")
-      .eq("id", broker_user_id)
+    // 2. 건물 정보 조회 (알림에 표시할 건물명)
+    const { data: buildingInfo } = await supabase
+      .from("building_ssot_lite")
+      .select("area_signal, asset_type, address")
+      .eq("id", building_id)
       .single();
 
-    // 3. SMS 전송 (중개인 전화번호가 있으면)
-    let smsSent = false;
-    if (brokerProfile?.phone) {
-      const smsMessage = `[크리딜] 프라이빗 IM 신청이 도착했습니다.\n신청자: ${requester_name} (${cleanPhone})\n${message ? `메시지: ${message.substring(0, 50)}` : ""}\ncredeal.net 에서 확인하세요.`;
-      
-      smsSent = await sendSMS(brokerProfile.phone, smsMessage);
+    const buildingLabel = buildingInfo
+      ? `${buildingInfo.area_signal || ""} ${buildingInfo.asset_type || "매물"}`.trim()
+      : "매물";
 
-      // SMS 전송 결과 업데이트
-      if (inquiry?.id) {
-        await supabase
-          .from("im_inquiry_requests")
-          .update({ sms_sent: smsSent })
-          .eq("id", inquiry.id);
-      }
+    // 3. 인앱 알림 전송 (담당 중개인에게)
+    const notifSent = await createNotification({
+      user_id: broker_user_id,
+      type: "im_inquiry",
+      title: "📄 프라이빗 IM 신청 도착",
+      body: `${requester_name}님이 [${buildingLabel}]에 대한 프라이빗 IM을 신청했습니다.${message ? `\n메시지: ${message.substring(0, 100)}` : ""}\n연락처: ${cleanPhone}${requester_email ? ` / ${requester_email}` : ""}`,
+      link: `/broker/deal-card/${building_id}`,
+      metadata: {
+        inquiry_id: inquiry?.id,
+        building_id,
+        requester_name,
+        requester_phone: cleanPhone,
+        requester_email: requester_email || null,
+      },
+    });
+
+    // 알림 전송 결과 업데이트
+    if (inquiry?.id) {
+      await supabase
+        .from("im_inquiry_requests")
+        .update({ notification_sent: notifSent })
+        .eq("id", inquiry.id);
     }
 
     return NextResponse.json({
       ok: true,
       inquiry_id: inquiry?.id,
-      sms_sent: smsSent,
+      notification_sent: notifSent,
       message: "프라이빗 IM 신청이 접수되었습니다. 담당 중개인이 곧 연락드리겠습니다.",
     });
   } catch (err: any) {

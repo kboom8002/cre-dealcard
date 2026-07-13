@@ -24,11 +24,13 @@ export function GreetingHeader({ userName, userPhotoUrl }: GreetingHeaderProps) 
     else if (hour >= 18 && hour < 22) setGreeting("수고하셨어요");
     else setGreeting("밤 늦게까지 고생하시네요");
 
-    // Fetch unread count
-    fetch("/api/broker/inbox?filter=requests&limit=1")
-      .then((res) => res.json())
-      .then((data) => setUnreadCount(data.unread_count || 0))
-      .catch(() => {});
+    // 소통 관리함 미확인 + 인앱 알림 미읽음 합산
+    Promise.all([
+      fetch("/api/broker/inbox?filter=requests&limit=1").then(r => r.ok ? r.json() : { unread_count: 0 }).catch(() => ({ unread_count: 0 })),
+      fetch("/api/broker/notifications?limit=1").then(r => r.ok ? r.json() : { unread_count: 0 }).catch(() => ({ unread_count: 0 })),
+    ]).then(([inbox, notif]) => {
+      setUnreadCount((inbox.unread_count || 0) + (notif.unread_count || 0));
+    });
   }, []);
 
   const handleLogout = async () => {
@@ -48,7 +50,7 @@ export function GreetingHeader({ userName, userPhotoUrl }: GreetingHeaderProps) 
           오늘도 성공적인 딜을 응원합니다.
         </p>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <Link
           href="/broker/inbox"
           className="relative flex items-center justify-center w-9 h-9 rounded-full hover:bg-muted/30 transition-colors"
@@ -63,10 +65,10 @@ export function GreetingHeader({ userName, userPhotoUrl }: GreetingHeaderProps) 
         </Link>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-full transition-colors"
+          className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-muted/30 transition-colors"
+          title="로그아웃"
         >
-          <LogOut className="w-4 h-4" />
-          <span>로그아웃</span>
+          <LogOut className="w-4 h-4 text-muted-foreground" />
         </button>
         <a
           href="/broker/profile"
@@ -89,3 +91,4 @@ export function GreetingHeader({ userName, userPhotoUrl }: GreetingHeaderProps) 
     </div>
   );
 }
+
