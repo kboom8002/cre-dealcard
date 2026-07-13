@@ -82,6 +82,9 @@ export interface MobileIMWriterOutput {
 /** AI 모델 설정 — 환경변수로 교체 가능 */
 const IM_AI_MODEL = process.env.AI_IM_MODEL || process.env.AI_DEFAULT_MODEL || "gpt-5.4";
 
+/** Fast mode: Vercel 타임아웃 방어 — LLM 타임아웃 단축 + Judge/QualityGate 스킵 */
+const IM_FAST_MODE = process.env.IM_FAST_MODE !== "false"; // 기본 활성화
+
 // ─── Flat 구조 → 중첩 구조 정규화 ──────────────────────────────────────────
 /**
  * DB flat 컬럼 (area_signal, asset_type …) 또는 legacy 중첩 구조
@@ -409,7 +412,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         },
         {
           cacheKey: `mobile-im-${sectionType}-${String(assetIdentity.area_signal ?? "").slice(0, 20)}-${String(assetIdentity.asset_type ?? "").slice(0, 20)}`,
-          timeoutMs: 25000,
+          timeoutMs: IM_FAST_MODE ? 8000 : 25000,
         }
       );
 
@@ -421,7 +424,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         } else {
           // SOTA: LLM-as-Judge 의미론적 검증 (confidence 기반 확률적 샘플링)
           let judgeRejected = false;
-          if (shouldJudgeByConfidence(confidence)) {
+          if (!IM_FAST_MODE && shouldJudgeByConfidence(confidence)) {
             try {
               const judgeResult = await judgeIMSection({
                 sectionMarkdown: rawText,
@@ -502,7 +505,8 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     if (riskCheck.safe_text) markdown = riskCheck.safe_text;
 
     // SOTA: LLM 기반 Quality Gate (Regex가 놓친 패러프레이징 감지)
-    if (generatedByAi) {
+    // Fast mode에서는 스킵 — Vercel 타임아웃 방어
+    if (generatedByAi && !IM_FAST_MODE) {
       try {
         const gateResult = await runCREQualityGate(markdown, sectionType);
         if (!gateResult.passed && gateResult.riskLevel === 'high') {

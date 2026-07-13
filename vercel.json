@@ -1,4 +1,15 @@
 {
+  "functions": {
+    "src/app/api/broker/im-lite/generate/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/broker/im-lite/generate-async/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/sync-vibe/route.ts": {
+      "maxDuration": 300
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/morning-briefing",
@@ -18,3 +29,4 @@
     }
   ]
 }
+

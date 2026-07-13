@@ -156,7 +156,7 @@ export function ImDataBottomSheet({
         }
       }
 
-      setProgress("AI 투자설명서 생성 중... (약 15~30초)");
+      setProgress("AI 투자설명서 생성 중... (약 20~40초)");
 
       const isLogistics = assetType?.includes("물류") || assetType?.toLowerCase().includes("logistics");
       const logistics = isLogistics ? {
@@ -179,44 +179,72 @@ export function ImDataBottomSheet({
         ic_name: icName || undefined,
       } : undefined;
 
-      // API Route 호출 (maxDuration=120s 적용됨 — Server Action은 Vercel 타임아웃 미지원)
-      const apiRes = await fetch("/api/broker/im-lite/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          building_id: buildingId,
-          vacancy_status: vacancySignal,
-          vacancy_pct: vacancyPct !== "" ? Number(vacancyPct) : undefined,
-          monthly_rent_total_krw: monthlyRent ? Number(monthlyRent) * 10000 : undefined,
-          total_deposit_manwon: totalDeposit ? Number(totalDeposit) : undefined,
-          mgmt_fee_total_manwon: mgmtFeeTotal ? Number(mgmtFeeTotal) : undefined,
-          loan_amount_manwon: loanAmount ? Number(loanAmount) : undefined,
-          asking_price_manwon: askingPrice ? Number(askingPrice) : undefined,
-          resolved_address: address || undefined,
-          resolved_pnu: pnu || undefined,
-          broker_highlight: brokerHighlight || undefined,
-          direct_data: Object.keys(directData).length > 0 ? directData : undefined,
-          photo_urls: uploadedPhotoUrls.length > 0 ? uploadedPhotoUrls : undefined,
-          photo_captions: Object.keys(photoCaptions).length > 0 ? photoCaptions : undefined,
-          floor_leases: floorLeases.length > 0 ? floorLeases : undefined,
-          logistics,
-        }),
-      });
+      const requestBody = {
+        building_id: buildingId,
+        vacancy_status: vacancySignal,
+        vacancy_pct: vacancyPct !== "" ? Number(vacancyPct) : undefined,
+        monthly_rent_total_krw: monthlyRent ? Number(monthlyRent) * 10000 : undefined,
+        total_deposit_manwon: totalDeposit ? Number(totalDeposit) : undefined,
+        mgmt_fee_total_manwon: mgmtFeeTotal ? Number(mgmtFeeTotal) : undefined,
+        loan_amount_manwon: loanAmount ? Number(loanAmount) : undefined,
+        asking_price_manwon: askingPrice ? Number(askingPrice) : undefined,
+        resolved_address: address || undefined,
+        resolved_pnu: pnu || undefined,
+        broker_highlight: brokerHighlight || undefined,
+        direct_data: Object.keys(directData).length > 0 ? directData : undefined,
+        photo_urls: uploadedPhotoUrls.length > 0 ? uploadedPhotoUrls : undefined,
+        photo_captions: Object.keys(photoCaptions).length > 0 ? photoCaptions : undefined,
+        floor_leases: floorLeases.length > 0 ? floorLeases : undefined,
+        logistics,
+      };
 
-      const res = await apiRes.json();
+      // 자동 재시도 로직 (최대 2회 재시도)
+      let lastError = "";
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          if (attempt > 1) {
+            setProgress(`재시도 중... (${attempt}/3)`);
+            await new Promise(r => setTimeout(r, 1000)); // 1초 대기 후 재시도
+          }
 
-      if (apiRes.ok && res.ok && res.url) {
-        setState("success");
-        setProgress(`✅ ${res.sections_count ?? 7}섹션 생성 완료!`);
-        const reviewUrl = res.im_lite_id ? `/broker/im-approval/${res.im_lite_id}` : res.url;
-        setTimeout(() => {
-          window.location.href = reviewUrl;
-        }, 1500);
-      } else {
-        setState("error");
-        setErrorMsg(res.error ?? "알 수 없는 오류");
-        setProgress("");
+          const apiRes = await fetch("/api/broker/im-lite/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody),
+          });
+
+          // 서버 응답 받음 (타임아웃 아님)
+          const res = await apiRes.json();
+
+          if (apiRes.ok && res.ok && res.url) {
+            setState("success");
+            setProgress(`✅ ${res.sections_count ?? 7}섹션 생성 완료!`);
+            const reviewUrl = res.im_lite_id ? `/broker/im-approval/${res.im_lite_id}` : res.url;
+            setTimeout(() => {
+              window.location.href = reviewUrl;
+            }, 1500);
+            return; // 성공 → 종료
+          } else {
+            lastError = res.error ?? "알 수 없는 오류";
+            // 서버 에러 (non-retryable) → 바로 표시
+            setState("error");
+            setErrorMsg(lastError);
+            setProgress("");
+            return;
+          }
+        } catch (fetchErr: any) {
+          // Safari "Load failed" / Chrome "Failed to fetch" = 네트워크/타임아웃 에러
+          lastError = fetchErr?.message ?? "서버 연결 실패";
+          console.warn(`[IM Generate] Attempt ${attempt}/3 failed:`, lastError);
+          // 마지막 시도가 아니면 재시도
+          if (attempt < 3) continue;
+        }
       }
+
+      // 3회 모두 실패
+      setState("error");
+      setErrorMsg("서버 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.");
+      setProgress("");
     } catch (err: any) {
       setState("error");
       setErrorMsg(err?.message ?? "서버 요청 실패");
