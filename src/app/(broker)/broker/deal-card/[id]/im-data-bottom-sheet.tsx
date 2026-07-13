@@ -523,15 +523,17 @@ export function ImDataBottomSheet({
                   onClick={() => {
                     const rent = Number(monthlyRent) || 0;
                     const deposit = Number(totalDeposit) || 0;
-                    if (rent > 0) {
-                      // Cap rate 4% 가정
-                      const estimatedPrice = Math.round(((rent * 12) / 0.04) + deposit);
+                    if (rent <= 0) return;
+                    const capRateStr = prompt("역산에 사용할 수익률(%)을 입력하세요:", "4");
+                    const capRate = parseFloat(capRateStr || "0");
+                    if (capRate > 0 && capRate < 100) {
+                      const estimatedPrice = Math.round(((rent * 12) / (capRate / 100)) + deposit);
                       setAskingPrice(estimatedPrice.toString());
                     }
                   }}
                   className="text-[10px] text-primary hover:underline"
                 >
-                  수익률 4% 역산
+                  수익률로 역산
                 </button>
               </div>
               <div className="relative">
@@ -548,6 +550,13 @@ export function ImDataBottomSheet({
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
               </div>
+              {/* 자동 계산된 수익률 표시 */}
+              {Number(monthlyRent) > 0 && Number(askingPrice) > 0 && (
+                <p className="mt-1 text-[11px] text-primary/80">
+                  📊 예상 Cap Rate: <strong>{((Number(monthlyRent) * 12 / Number(askingPrice)) * 100).toFixed(1)}%</strong>
+                  <span className="text-muted-foreground ml-1">(월세×12 ÷ 매각가)</span>
+                </p>
+              )}
             </div>
 
             {/* Loan Amount */}
