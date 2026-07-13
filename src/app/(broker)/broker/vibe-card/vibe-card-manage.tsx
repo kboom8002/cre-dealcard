@@ -205,8 +205,20 @@ export function VibeCardManage({ data }: Props) {
 
       if (!res.ok) throw new Error("업로드 실패");
 
+      const { url } = await res.json();
+
       setRegenStatus("✨ Vibe AI 분석 중...");
-      await new Promise((r) => setTimeout(r, 6000));
+
+      // 동기적으로 vibe-analyze 호출 (비동기 trigger의 race condition 방지)
+      const analyzeRes = await fetch("/api/broker/vibe-analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photo_url: url }),
+      });
+      if (!analyzeRes.ok) {
+        console.warn("Vibe analyze failed, but photo was uploaded. Reloading...");
+      }
+
       setRegenStatus("✅ 분석 완료! 새로고침합니다...");
       await new Promise((r) => setTimeout(r, 1500));
       window.location.reload();
@@ -225,28 +237,37 @@ export function VibeCardManage({ data }: Props) {
     setRegenStatus("🔄 Vibe AI 재분석 요청 중...");
 
     try {
-      const res = await fetch("/api/broker/profile/avatar", {
-        method: "PUT",
-      });
-
-      if (!res.ok) {
-        setRegenStatus("✨ 새로고침합니다...");
-        await new Promise((r) => setTimeout(r, 1500));
-        window.location.reload();
+      const photoUrl = data.profile.photoUrl;
+      if (!photoUrl) {
+        setRegenStatus("❌ 프로필 사진이 없습니다. 먼저 사진을 업로드해주세요.");
+        setTimeout(() => {
+          setRegenerating(false);
+          setRegenStatus(null);
+        }, 3000);
         return;
       }
 
       setRegenStatus("✨ Vibe AI 분석 중...");
-      await new Promise((r) => setTimeout(r, 6000));
+
+      const res = await fetch("/api/broker/vibe-analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photo_url: photoUrl }),
+      });
+
+      if (!res.ok) throw new Error("재분석 실패");
+
       setRegenStatus("✅ 분석 완료!");
       await new Promise((r) => setTimeout(r, 1500));
       window.location.reload();
     } catch {
-      setRegenStatus("페이지를 새로고침합니다...");
-      await new Promise((r) => setTimeout(r, 1000));
-      window.location.reload();
+      setRegenStatus("❌ 재분석 실패. 다시 시도해주세요.");
+      setTimeout(() => {
+        setRegenerating(false);
+        setRegenStatus(null);
+      }, 3000);
     }
-  }, []);
+  }, [data.profile.photoUrl]);
 
   const handleLogoUploaded = () => window.location.reload();
 
@@ -507,16 +528,28 @@ export function VibeCardManage({ data }: Props) {
             </Link>
           )}
 
-          <Link
-            href={`/magazine/${data.slug}/latest`}
-            className="flex items-center gap-3 p-3 rounded-xl border border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800/50 transition-colors"
-          >
-            <Newspaper className="w-4 h-4 text-rose-400" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold">주간 매거진</p>
-              <p className="text-[10px] text-neutral-500">Vibe 명함이 매거진 하단에 자동 연동됩니다</p>
+          {data.latestMagazine?.url ? (
+            <Link
+              href={data.latestMagazine.url}
+              className="flex items-center gap-3 p-3 rounded-xl border border-neutral-800 bg-neutral-900/50 hover:bg-neutral-800/50 transition-colors"
+            >
+              <Newspaper className="w-4 h-4 text-rose-400" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold">주간 매거진</p>
+                <p className="text-[10px] text-neutral-500">{data.latestMagazine.headline}</p>
+              </div>
+            </Link>
+          ) : (
+            <div
+              className="flex items-center gap-3 p-3 rounded-xl border border-neutral-800 bg-neutral-900/50 opacity-50 cursor-not-allowed"
+            >
+              <Newspaper className="w-4 h-4 text-rose-400" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold">주간 매거진</p>
+                <p className="text-[10px] text-neutral-500">아직 발행된 매거진이 없습니다</p>
+              </div>
             </div>
-          </Link>
+          )}
         </div>
       </div>
 

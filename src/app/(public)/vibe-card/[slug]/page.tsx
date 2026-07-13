@@ -256,7 +256,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export const revalidate = 1800; // 30 minutes
+export const revalidate = 60; // 1 minute – vibe updates should reflect quickly
 
 // ── Page Component ───────────────────────────────────
 

@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Calendar, Plus, Clock, MapPin, User, ChevronRight, X } from 'lucide-react';
+import { Calendar, Plus, Clock, MapPin, User, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import Link from 'next/link';
 
 interface Building {
   id: string;
@@ -99,14 +98,17 @@ export function BrokerScheduleClient({ initialBuildingId, isSetup, buildings }: 
     <div className="p-4 space-y-6">
       {/* Overview Cards */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex flex-col items-center justify-center">
-          <p className="text-xs font-bold text-amber-600 dark:text-amber-500 mb-1">예약 확정/대기</p>
-          <p className="text-2xl font-black">{activeBookings.length}</p>
+        <div className="bg-card border border-border rounded-xl p-4 flex flex-col items-center justify-center">
+          <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider mb-1.5">예약 확정/대기</p>
+          <p className="text-3xl font-black text-foreground">{activeBookings.length}</p>
         </div>
-        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer hover:bg-emerald-500/20 transition-colors" onClick={() => setShowModal(true)}>
-          <p className="text-xs font-bold text-emerald-600 dark:text-emerald-500 mb-1">오픈된 슬롯</p>
-          <p className="text-2xl font-black">{availableSlots.length}</p>
-          <div className="mt-2 text-[10px] bg-emerald-500 text-white px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+        <div
+          className="bg-card border border-border rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all active:scale-[0.98]"
+          onClick={() => setShowModal(true)}
+        >
+          <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1.5">오픈된 슬롯</p>
+          <p className="text-3xl font-black text-foreground">{availableSlots.length}</p>
+          <div className="mt-2 text-[10px] bg-emerald-500 text-white px-3 py-1 rounded-full font-bold flex items-center gap-1">
             <Plus className="w-3 h-3" /> 슬롯 추가
           </div>
         </div>
@@ -114,11 +116,13 @@ export function BrokerScheduleClient({ initialBuildingId, isSetup, buildings }: 
 
       {/* Bookings List */}
       <section className="space-y-3">
-        <h2 className="text-sm font-bold flex items-center gap-2">
+        <h2 className="text-sm font-bold flex items-center gap-2 text-foreground">
           <User className="w-4 h-4 text-primary" /> 예약 내역
         </h2>
         {activeBookings.length === 0 ? (
-          <p className="text-xs text-muted-foreground bg-muted/50 p-4 rounded-xl text-center">예약 내역이 없습니다.</p>
+          <div className="bg-card border border-border rounded-xl p-5 text-center">
+            <p className="text-xs text-muted-foreground">예약 내역이 없습니다.</p>
+          </div>
         ) : (
           <div className="space-y-2">
             {activeBookings.map((b) => {
@@ -126,22 +130,24 @@ export function BrokerScheduleClient({ initialBuildingId, isSetup, buildings }: 
               if (!slot) return null;
               const date = new Date(slot.slot_start);
               return (
-                <div key={b.id} className="bg-card border border-border rounded-xl p-3 flex flex-col gap-2 shadow-sm">
+                <div key={b.id} className="bg-card border border-border rounded-xl p-3.5 flex flex-col gap-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+                      <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                       {date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                      b.status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'
+                    <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold ${
+                      b.status === 'confirmed'
+                        ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                        : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
                     }`}>
                       {b.status === 'confirmed' ? '확정' : '대기중'}
                     </span>
                   </div>
-                  <p className="text-sm font-medium flex items-center gap-1">
+                  <p className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
                     <MapPin className="w-3.5 h-3.5 text-primary" /> {slot.building?.area_signal || '건물 미지정'} 임장
                   </p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
                     <User className="w-3 h-3" /> 매수자: {b.requester?.full_name || '고객'}
                   </p>
                 </div>
@@ -153,26 +159,43 @@ export function BrokerScheduleClient({ initialBuildingId, isSetup, buildings }: 
 
       {/* Slots List */}
       <section className="space-y-3 pb-8">
-        <h2 className="text-sm font-bold flex items-center gap-2">
+        <h2 className="text-sm font-bold flex items-center gap-2 text-foreground">
           <Calendar className="w-4 h-4 text-emerald-500" /> 오픈된 가용 슬롯
         </h2>
         {availableSlots.length === 0 ? (
-          <div className="bg-muted/50 p-6 rounded-xl text-center space-y-3">
-            <p className="text-xs text-muted-foreground">오픈된 슬롯이 없습니다.<br/>매수자가 예약할 수 있도록 슬롯을 열어주세요.</p>
-            <Button size="sm" onClick={() => setShowModal(true)}>슬롯 추가하기</Button>
+          <div className="bg-card border border-dashed border-border rounded-xl p-8 text-center space-y-4">
+            <div className="w-12 h-12 mx-auto rounded-xl bg-muted flex items-center justify-center">
+              <Calendar className="w-6 h-6 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground mb-1">오픈된 슬롯이 없습니다</p>
+              <p className="text-xs text-muted-foreground">매수자가 예약할 수 있도록 슬롯을 열어주세요.</p>
+            </div>
+            <Button size="sm" onClick={() => setShowModal(true)} className="gap-1.5">
+              <Plus className="w-3.5 h-3.5" />
+              슬롯 추가하기
+            </Button>
           </div>
         ) : (
           <div className="space-y-2">
             {availableSlots.map((s) => {
               const date = new Date(s.slot_start);
               return (
-                <div key={s.id} className="bg-card border border-border rounded-xl p-3 flex flex-col gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
-                  <p className="text-sm font-bold">
-                    {date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {s.building?.area_signal || '건물 미지정'}
-                  </p>
+                <div key={s.id} className="bg-card border border-border rounded-xl p-3.5 flex items-center gap-3 hover:border-primary/30 transition-colors">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                    <Clock className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-foreground">
+                      {date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {s.building?.area_signal || '건물 미지정'}
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
+                    오픈
+                  </span>
                 </div>
               );
             })}
@@ -183,17 +206,17 @@ export function BrokerScheduleClient({ initialBuildingId, isSetup, buildings }: 
       {/* Modal Overlay */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-zinc-900 w-full max-w-md rounded-2xl p-5 shadow-2xl relative">
-            <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 p-1 text-muted-foreground hover:text-foreground">
+          <div className="bg-card w-full max-w-md rounded-2xl p-5 shadow-2xl relative border border-border">
+            <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
               <X className="w-5 h-5" />
             </button>
-            <h2 className="text-lg font-bold mb-4">새로운 임장 슬롯 오픈</h2>
+            <h2 className="text-lg font-bold mb-5 text-foreground">새로운 임장 슬롯 오픈</h2>
             
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-muted-foreground">대상 매물</label>
                 <select 
-                  className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary"
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
                   value={selectedBuilding}
                   onChange={e => setSelectedBuilding(e.target.value)}
                 >
@@ -209,7 +232,7 @@ export function BrokerScheduleClient({ initialBuildingId, isSetup, buildings }: 
                   <label className="text-xs font-bold text-muted-foreground">날짜</label>
                   <input 
                     type="date" 
-                    className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
                     value={slotDate}
                     onChange={e => setSlotDate(e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
@@ -219,7 +242,7 @@ export function BrokerScheduleClient({ initialBuildingId, isSetup, buildings }: 
                   <label className="text-xs font-bold text-muted-foreground">시간</label>
                   <input 
                     type="time" 
-                    className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
                     value={slotTime}
                     onChange={e => setSlotTime(e.target.value)}
                   />

@@ -16,10 +16,10 @@ export default async function BrokerSchedulePage(props: { searchParams: Promise<
     .select('id, area_signal, asset_type');
 
   return (
-    <main className="flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24">
-      <div className="flex-1 w-full max-w-md mx-auto bg-white dark:bg-black border-x border-border shadow-sm min-h-screen relative">
-        <header className="sticky top-0 z-10 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-border px-4 py-3 flex items-center justify-between">
-          <h1 className="font-bold text-lg">임장 일정 관리</h1>
+    <main className="flex flex-col min-h-screen bg-background pb-24">
+      <div className="flex-1 w-full max-w-md mx-auto bg-card border-x border-border min-h-screen relative">
+        <header className="sticky top-0 z-10 bg-card/80 backdrop-blur-md border-b border-border px-4 py-3 flex items-center justify-between">
+          <h1 className="font-bold text-lg text-foreground">임장 일정 관리</h1>
         </header>
 
         <BrokerScheduleClient 
