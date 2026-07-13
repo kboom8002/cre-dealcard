@@ -27,16 +27,33 @@ export default async function VibeCardManagePage() {
     .eq("id", user.id)
     .single();
 
-  // 2. broker_profiles
-  const { data: bp } = await svc
-    .from("broker_profiles")
-    .select(
-      "slug, specialty_regions, specialty_assets, bio, is_verified, vibe_vector, vibe_vti, vibe_complement, vibe_template_id, vibe_valence, vibe_trust, vibe_analyzed_at, license_number, career_start_year, total_deal_count_self, deal_size_range, deal_specialty, buyer_types, preferred_price_range, fee_policy, consult_methods, response_time_hours, kakao_channel, naver_blog_url, youtube_url, linkedin_url, seo_summary, office_district, languages, photo_url, logo_company_url, logo_partner_url"
-    )
-    .eq("user_id", user.id)
-    .single();
+  // 2. broker_profiles (없으면 자동 생성)
+  const bpSelect = "slug, specialty_regions, specialty_assets, bio, is_verified, vibe_vector, vibe_vti, vibe_complement, vibe_template_id, vibe_valence, vibe_trust, vibe_analyzed_at, license_number, career_start_year, total_deal_count_self, deal_size_range, deal_specialty, buyer_types, preferred_price_range, fee_policy, consult_methods, response_time_hours, kakao_channel, naver_blog_url, youtube_url, linkedin_url, seo_summary, office_district, languages, photo_url, logo_company_url, logo_partner_url";
 
-  // 3. slug 자동 생성 (없으면)
+  let { data: bp } = await svc
+    .from("broker_profiles")
+    .select(bpSelect)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  // broker_profiles 행이 없으면 자동 생성 (slug 포함)
+  if (!bp) {
+    const baseName = (profile?.display_name || user.id.substring(0, 8)) as string;
+    const slugBase = baseName.toLowerCase().replace(/[^a-z0-9\uAC00-\uD7A3]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    const newSlug = `${slugBase}-${user.id.substring(0, 6)}`;
+    await svc.from("broker_profiles").insert({
+      user_id: user.id,
+      slug: newSlug,
+    });
+    // 재조회
+    ({ data: bp } = await svc
+      .from("broker_profiles")
+      .select(bpSelect)
+      .eq("user_id", user.id)
+      .maybeSingle());
+  }
+
+  // 3. slug 자동 생성 (행은 있는데 slug만 없는 경우)
   let slug = bp?.slug || null;
   if (bp && !slug) {
     const baseName = (profile?.display_name || user.id.substring(0, 8)) as string;

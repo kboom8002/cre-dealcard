@@ -216,7 +216,8 @@ export function VibeCardManage({ data }: Props) {
         body: JSON.stringify({ photo_url: url }),
       });
       if (!analyzeRes.ok) {
-        console.warn("Vibe analyze failed, but photo was uploaded. Reloading...");
+        const errData = await analyzeRes.json().catch(() => ({}));
+        throw new Error(errData?.error?.message || "Vibe AI 분석에 실패했습니다.");
       }
 
       setRegenStatus("✅ 분석 완료! 새로고침합니다...");
@@ -262,6 +263,38 @@ export function VibeCardManage({ data }: Props) {
       window.location.reload();
     } catch {
       setRegenStatus("❌ 재분석 실패. 다시 시도해주세요.");
+      setTimeout(() => {
+        setRegenerating(false);
+        setRegenStatus(null);
+      }, 3000);
+    }
+  }, [data.profile.photoUrl]);
+
+  // ── Analyze existing profile photo ──
+  const handleAnalyzeExistingPhoto = useCallback(async () => {
+    const photoUrl = data.profile.photoUrl;
+    if (!photoUrl) return;
+
+    setRegenerating(true);
+    setRegenStatus("✨ 기존 사진으로 Vibe AI 분석 중...");
+
+    try {
+      const res = await fetch("/api/broker/vibe-analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photo_url: photoUrl }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData?.error?.message || "Vibe 분석에 실패했습니다.");
+      }
+
+      setRegenStatus("✅ 분석 완료! 새로고침합니다...");
+      await new Promise((r) => setTimeout(r, 1500));
+      window.location.reload();
+    } catch (err: any) {
+      setRegenStatus(`❌ ${err.message || "분석 실패. 다시 시도해주세요."}`);
       setTimeout(() => {
         setRegenerating(false);
         setRegenStatus(null);
@@ -334,16 +367,28 @@ export function VibeCardManage({ data }: Props) {
           >
             <p className="text-4xl mb-3">📸</p>
             <p className="text-sm font-bold text-neutral-300 mb-1">아직 Vibe 분석이 없습니다</p>
-            <p className="text-xs text-neutral-500 mb-4">
-              프로필 사진을 업로드하면 AI가 자동으로 분석합니다
+            <p className="text-xs text-neutral-500 mb-5">
+              사진을 업로드하면 AI가 자동으로 분석합니다
             </p>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all"
-              style={{ background: accentColor, color: "#000" }}
-            >
-              📸 사진 업로드하기
-            </button>
+            <div className="flex flex-col items-center gap-3">
+              {data.profile.photoUrl && (
+                <button
+                  onClick={handleAnalyzeExistingPhoto}
+                  disabled={regenerating}
+                  className="w-full max-w-[240px] px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
+                  style={{ background: accentColor, color: "#000" }}
+                >
+                  ✨ 기존 프로필 사진으로 분석
+                </button>
+              )}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={regenerating}
+                className="w-full max-w-[240px] px-5 py-2.5 rounded-xl text-sm font-bold transition-all border border-neutral-700 hover:bg-neutral-800 disabled:opacity-50"
+              >
+                📷 새 사진 업로드하기
+              </button>
+            </div>
           </motion.div>
         )}
 
