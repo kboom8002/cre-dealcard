@@ -647,7 +647,7 @@ export function VibeCardManage({ data }: Props) {
       {/* Share Sheet */}
       <VibeShareSheet
         slug={data.slug}
-        cardTitle={`${data.profile.displayName} 공인중개사 | Vibe 명함`}
+        cardTitle={`${data.profile.displayName} — ${data.profile.cardTitle || '공인중개사'}`}
         cardDescription={data.broker?.bio || data.profile.tagline || ""}
         isOpen={shareOpen}
         onClose={() => setShareOpen(false)}

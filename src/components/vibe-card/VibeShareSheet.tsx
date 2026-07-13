@@ -70,7 +70,7 @@ export function VibeShareSheet({ slug, cardTitle, cardDescription, isOpen, onClo
 
   const cardUrl = `${siteUrl}/vibe-card/${slug}`;
   const ogImageUrl = `${siteUrl}/api/og/vibe-card/${slug}`;
-  const fallbackDesc = cardDescription || "Vibe AI가 분석한 전문 중개인 프로필을 확인하세요.";
+  const fallbackDesc = cardDescription || "DealCard Vibe AI 명함 — 전문 중개인 프로필";
   const kakaoText = `[DealCard 명함]\n\n${cardTitle}\n\n🔗 ${cardUrl}\n\n📊 ${fallbackDesc}`;
 
   /* ── 클립보드 복사 ── */
