@@ -6,7 +6,7 @@ import Image from "next/image";
 import Script from "next/script";
 import type { MobileIMDocument, MobileIMSection } from "@/lib/demo/mobile-im-demo-data";
 import { getTemplateById } from "@/lib/vibe/vibe-templates";
-import { SubscribeCard } from "@/components/magazine/SubscribeCard";
+// SubscribeCard removed — consolidated into VibeCardHero
 import { VibeCardHero } from "@/components/vibe-card/VibeCardHero";
 import { VTI_PROTOTYPES } from "@/lib/vibe/vibe-vector";
 import { HeroCard } from "./hero-card";
@@ -173,6 +173,154 @@ function VoiceBriefingPlayer({ buildingId }: { buildingId: string }) {
             </p>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+// ─── IM Inquiry Bottom Sheet ───────────────────────────────────────────────
+function IMInquiryBottomSheet({
+  buildingId, docId, brokerUserId, brokerName, blindName, onClose,
+}: {
+  buildingId: string;
+  docId?: string;
+  brokerUserId: string;
+  brokerName: string;
+  blindName: string;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState(`${blindName} 건물에 관심이 있습니다. 프라이빗 IM을 요청합니다.`);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async () => {
+    if (!name.trim() || !phone.trim()) {
+      setError("이름과 연락처는 필수입니다.");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/public/im-inquiry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          building_id: buildingId,
+          doc_id: docId,
+          broker_user_id: brokerUserId,
+          requester_name: name.trim(),
+          requester_phone: phone.trim(),
+          requester_email: email.trim() || undefined,
+          message: message.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setSubmitted(true);
+      } else {
+        setError(data.error || "접수에 실패했습니다.");
+      }
+    } catch {
+      setError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-neutral-900 rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[85vh] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
+          <h2 className="text-base font-bold text-white">📄 프라이빗 IM 신청</h2>
+          <button onClick={onClose} className="p-2 -mr-2 text-neutral-400 hover:text-white">✕</button>
+        </div>
+
+        {submitted ? (
+          /* 성공 화면 */
+          <div className="px-5 pb-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center text-3xl">✅</div>
+            <h3 className="text-lg font-bold text-white mb-2">신청이 접수되었습니다</h3>
+            <p className="text-sm text-neutral-400 mb-6">
+              {brokerName} 중개인이 곧 연락드리겠습니다.
+            </p>
+            <button onClick={onClose} className="px-6 py-2.5 bg-primary text-black text-sm font-bold rounded-xl">
+              확인
+            </button>
+          </div>
+        ) : (
+          /* 입력 폼 */
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5">
+            <p className="text-xs text-neutral-500 mb-4">
+              아래 정보를 입력하시면 <span className="text-primary font-semibold">{brokerName}</span> 중개인에게 전달됩니다.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-neutral-400 mb-1">이름 *</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="홍길동"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-neutral-400 mb-1">연락처 *</label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="010-1234-5678"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-neutral-400 mb-1">이메일</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="email@example.com"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-neutral-400 mb-1">메시지</label>
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  rows={3}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none"
+                />
+              </div>
+            </div>
+
+            {error && (
+              <p className="mt-3 text-xs text-red-400">{error}</p>
+            )}
+
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="mt-4 w-full py-3 bg-primary text-black text-sm font-black rounded-xl hover:bg-primary/90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitting ? "접수 중..." : "📨 신청서 보내기"}
+            </button>
+
+            <p className="mt-3 text-[10px] text-neutral-600 text-center">
+              입력하신 정보는 담당 중개인에게만 전달되며, 투자 상담 목적으로만 사용됩니다.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1133,6 +1281,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
   const [language, setLanguage] = useState<'ko' | 'en'>('ko');
   const [isTranslating, setIsTranslating] = useState(false);
   const [enSections, setEnSections] = useState<MobileIMSection[] | null>(null);
+  const [showInquiry, setShowInquiry] = useState(false);
 
   const viewedSectionsRef = useRef<Set<string>>(new Set());
   const sectionRefsMap = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -1460,81 +1609,23 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
                   )}
                 </>
               )}
-              {/* [B4] 더블 트랙 CTA — 마지막 섹션 하단에 삽입 */}
+              {/* [B4] 프라이빗 IM 신청 CTA */}
               {index === doc.sections.length - 1 && (
-                <div className="mt-4 grid grid-cols-1 gap-3">
+                <div className="mt-4">
                   <button
-                    id="cta-private-im-download"
-                    onClick={() => {
-                      const brokerSlug = doc.broker.slug;
-                      if (brokerSlug && brokerSlug !== "cre-dealcard-default") {
-                        window.location.href = `/vibe-card/${brokerSlug}?ref=im-cta&buildingId=${buildingId}`;
-                      } else {
-                        alert("담당 중개인에게 문의하시면 프라이빗 투자설명서(IM)를 제공해 드립니다.");
-                      }
-                    }}
+                    id="cta-private-im-request"
+                    onClick={() => setShowInquiry(true)}
                     className="w-full py-3.5 bg-primary text-black text-sm font-black rounded-2xl hover:bg-primary/90 active:scale-95 transition-all"
                   >
                     📄 프라이빗 투자설명서(IM) 신청
                   </button>
-                  {doc.broker.phone && (
-                    <a
-                      id="cta-phone-consult"
-                      href={`tel:${doc.broker.phone}`}
-                      className="w-full py-3 text-center bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-bold rounded-2xl border border-neutral-700 transition-colors block"
-                    >
-                      📞 {doc.broker.displayName} 즉시 상담
-                    </a>
-                  )}
                 </div>
               )}
             </div>
           ))}
         </div>
 
-        {/* ── Full IM Upgrade CTA ── */}
-        {doc.fullImUpgradeCta.enabled && (
-          <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 to-violet-500/5 p-5 mb-8">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center text-xl shrink-0">
-                📊
-              </div>
-              <div className="flex-1 min-w-0">
-                <h2 className="text-sm font-bold text-white mb-1">
-                  {doc.fullImUpgradeCta.label}
-                </h2>
-                <p className="text-xs text-neutral-400 leading-relaxed mb-3">
-                  {doc.fullImUpgradeCta.description}
-                </p>
-                {doc.broker.slug !== "cre-dealcard-default" ? (
-                  <Link
-                    href={`/vibe-card/${doc.broker.slug}`}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-black text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors"
-                  >
-                    중개인에게 문의하기
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </Link>
-                ) : (
-                  <button
-                    onClick={() => alert("담당 중개인이 아직 프로필을 개통하지 않았습니다.")}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-neutral-800 text-neutral-400 text-xs font-bold rounded-lg transition-colors cursor-not-allowed"
-                  >
-                    중개인 프로필 미등록
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Weekly Magazine Subscribe CTA ── */}
-        {doc.broker.slug && doc.broker.slug !== "cre-dealcard-default" && (
-          <div className="mb-8">
-            <SubscribeCard brokerId={doc.broker.slug} source="im" accentColor={accentColor} />
-          </div>
-        )}
+        {/* Full IM CTA + Magazine Subscribe CTA removed — consolidated into VibeCardHero */}
 
         {/* ── Broker Vibe Card ── */}
         {doc.broker.slug !== "cre-dealcard-default" ? (
@@ -1583,7 +1674,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
                 css: vibeTemplate.css,
               } : null}
               professional={null}
-              stats={{ dealCount: 0, activeCount: 0 }}
+              stats={{ dealCount: (doc.broker as any).dealCount ?? 0, activeCount: (doc.broker as any).activeCount ?? 0 }}
               logoCompanyUrl={doc.broker.logoCompanyUrl || undefined}
               logoPartnerUrl={doc.broker.logoPartnerUrl || undefined}
               latestMagazine={doc.broker.latestMagazine}
@@ -1610,6 +1701,18 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
               📞 전화 상담
             </a>
           </div>
+        )}
+
+        {/* ── Inquiry Bottom Sheet ── */}
+        {showInquiry && (
+          <IMInquiryBottomSheet
+            buildingId={buildingId}
+            docId={docId}
+            brokerUserId={doc.broker.userId}
+            brokerName={doc.broker.displayName}
+            blindName={doc.blindName}
+            onClose={() => setShowInquiry(false)}
+          />
         )}
 
         {/* ── Disclaimer ── */}

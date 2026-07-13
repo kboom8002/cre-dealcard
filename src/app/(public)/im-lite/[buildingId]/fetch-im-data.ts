@@ -166,6 +166,31 @@ async function injectLatestMagazine(supabase: any, brokerObj: ReturnType<typeof 
 }
 
 /**
+ * 브로커의 딜카드 통계를 조회하여 broker 객체에 주입합니다.
+ */
+async function injectBrokerStats(supabase: any, brokerObj: ReturnType<typeof buildBrokerObject>) {
+  if (brokerObj.slug === "cre-dealcard-default") return;
+  try {
+    const [{ count: totalCount }, { count: activeCount }] = await Promise.all([
+      supabase
+        .from("deal_cards")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_id", brokerObj.userId),
+      supabase
+        .from("deal_cards")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_id", brokerObj.userId)
+        .in("status", ["active", "published"]),
+    ]);
+    (brokerObj as any).dealCount = totalCount ?? 0;
+    (brokerObj as any).activeCount = activeCount ?? 0;
+  } catch {
+    // non-blocking — default to 0
+  }
+}
+
+
+/**
  * Fetch IM Lite data for a building. Returns null if not found.
  */
 export async function fetchIMData(
@@ -193,6 +218,7 @@ export async function fetchIMData(
       const ssotSummary = document.body.ssot_summary || {};
       const brokerObj = buildBrokerObject(brokerProfile);
       await injectLatestMagazine(supabase, brokerObj);
+      await injectBrokerStats(supabase, brokerObj);
       return {
         buildingId,
         blindName: `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`,
@@ -389,6 +415,7 @@ export async function fetchIMData(
 
   const brokerObj2 = buildBrokerObject(brokerProfile);
   await injectLatestMagazine(supabase, brokerObj2);
+  await injectBrokerStats(supabase, brokerObj2);
 
   return {
     buildingId: ssot.id,
