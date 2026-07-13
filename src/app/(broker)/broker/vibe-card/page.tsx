@@ -28,7 +28,7 @@ export default async function VibeCardManagePage() {
     .single();
 
   // 2. broker_profiles (없으면 자동 생성)
-  const bpSelect = "slug, specialty_regions, specialty_assets, bio, is_verified, vibe_vector, vibe_vti, vibe_complement, vibe_template_id, vibe_valence, vibe_trust, vibe_analyzed_at, license_number, career_start_year, total_deal_count_self, deal_size_range, deal_specialty, buyer_types, preferred_price_range, fee_policy, consult_methods, response_time_hours, kakao_channel, naver_blog_url, youtube_url, linkedin_url, seo_summary, office_district, languages, photo_url, logo_company_url, logo_partner_url";
+  const bpSelect = "slug, specialty_regions, specialty_assets, bio, is_verified, vibe_vector, vibe_vti, vibe_complement, vibe_template_id, vibe_valence, vibe_trust, vibe_analyzed_at, license_number, career_start_year, total_deal_count_self, deal_size_range, deal_specialty, buyer_types, preferred_price_range, fee_policy, consult_methods, response_time_hours, kakao_channel, naver_blog_url, youtube_url, linkedin_url, seo_summary, office_district, languages, photo_url, logo_company_url, logo_partner_url, card_name, card_title";
 
   let { data: bp } = await svc
     .from("broker_profiles")
@@ -99,7 +99,8 @@ export default async function VibeCardManagePage() {
     slug: slug || "",
     profile: {
       id: user.id,
-      displayName: profile?.display_name ?? "중개인",
+      displayName: (bp?.card_name as string) || profile?.display_name || "중개인",
+      cardTitle: (bp?.card_title as string) || "공인중개사",
       company: profile?.company ?? null,
       phone: profile?.phone ?? null,
       photoUrl: profile?.photo_url ?? bp?.photo_url ?? null,

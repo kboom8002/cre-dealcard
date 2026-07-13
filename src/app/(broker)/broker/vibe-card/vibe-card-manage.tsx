@@ -358,6 +358,52 @@ export function VibeCardManage({ data }: Props) {
             <p className="text-center text-[10px] text-neutral-500 mt-2">
               카드를 탭하면 공개 페이지로 이동합니다
             </p>
+
+            {/* ── 명함 이름/타이틀 편집 ── */}
+            <div className="mt-4 rounded-xl border border-neutral-800 bg-neutral-900/50 p-4 space-y-3">
+              <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">명함 표시 정보</p>
+              <div>
+                <label className="text-[11px] text-neutral-400 mb-1 block">이름 (명함에 표시)</label>
+                <input
+                  defaultValue={data.profile.displayName}
+                  onBlur={async (e) => {
+                    const val = e.target.value.trim();
+                    if (!val || val === data.profile.displayName) return;
+                    try {
+                      await fetch("/api/broker/profile", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ card_name: val }),
+                      });
+                      window.location.reload();
+                    } catch { /* silent */ }
+                  }}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-violet-500/50 transition-colors"
+                  placeholder="홍길동"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-neutral-400 mb-1 block">타이틀 (직함 · 전문 분야)</label>
+                <input
+                  defaultValue={data.profile.cardTitle}
+                  onBlur={async (e) => {
+                    const val = e.target.value.trim();
+                    if (!val || val === data.profile.cardTitle) return;
+                    try {
+                      await fetch("/api/broker/profile", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ card_title: val }),
+                      });
+                      window.location.reload();
+                    } catch { /* silent */ }
+                  }}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-violet-500/50 transition-colors"
+                  placeholder="CRE 투자 전문가"
+                />
+                <p className="text-[10px] text-neutral-600 mt-1">예: 공인중개사, CRE 투자 전문가, 상업용 부동산 컨설턴트</p>
+              </div>
+            </div>
           </motion.div>
         ) : (
           <motion.div

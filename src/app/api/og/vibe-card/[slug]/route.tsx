@@ -21,6 +21,7 @@ export async function GET(
   // Defaults
   let brokerName = slug.replace(/-/g, " ");
   let company = "";
+  let cardTitle = "공인중개사";
   let specialtyRegions: string[] = [];
   let dealCount = 0;
   let vtiType = "";
@@ -83,11 +84,13 @@ export async function GET(
       // Fetch broker_profiles with vibe data
       const { data: bp } = await supabase
         .from("broker_profiles")
-        .select("specialty_regions, vibe_vti, vibe_template_id, vibe_valence, vibe_trust, is_verified, vibe_vector, vibe_complement")
+        .select("specialty_regions, vibe_vti, vibe_template_id, vibe_valence, vibe_trust, is_verified, vibe_vector, vibe_complement, card_title, card_name")
         .eq("user_id", profile.id)
         .single();
 
       if (bp) {
+        if (bp.card_title) cardTitle = bp.card_title as string;
+        if (bp.card_name) brokerName = bp.card_name as string;
         specialtyRegions = (bp.specialty_regions as string[]) ?? [];
         isVerified = !!bp.is_verified;
         trust = bp.vibe_trust ?? 0.8;
@@ -356,10 +359,10 @@ export async function GET(
           {/* Headline */}
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             <span style={{ fontSize: 50, fontWeight: 800, color: textColor, lineHeight: 1.25 }}>
-              {brokerName} 중개사
+              {brokerName}
             </span>
             <span style={{ fontSize: 22, fontWeight: 500, color: subtextColor }}>
-              {regionsText} 상업용 부동산 전문 중개
+              {cardTitle} · {regionsText}
             </span>
           </div>
 
@@ -381,8 +384,8 @@ export async function GET(
                 gap: "4px",
               }}
             >
-              <span style={{ fontSize: 13, color: subtextColor, opacity: 0.6 }}>진행 중인 딜</span>
-              <span style={{ fontSize: 28, fontWeight: 700, color: accentColor }}>{dealCount}건</span>
+              <span style={{ fontSize: 13, color: subtextColor, opacity: 0.6 }}>전문 분야</span>
+              <span style={{ fontSize: 28, fontWeight: 700, color: accentColor }}>{specialtyRegions[0] || "CRE"}</span>
             </div>
 
             {/* Stat Item 2 */}

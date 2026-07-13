@@ -56,7 +56,7 @@ async function getVibeCardData(slug: string) {
   const { data: bp } = await supabase
     .from("broker_profiles")
     .select(
-      "specialty_regions, specialty_assets, bio, is_verified, vibe_vector, vibe_vti, vibe_complement, vibe_template_id, vibe_valence, vibe_trust, vibe_analyzed_at, license_number, career_start_year, total_deal_count_self, deal_size_range, deal_specialty, buyer_types, preferred_price_range, fee_policy, consult_methods, response_time_hours, kakao_channel, naver_blog_url, youtube_url, linkedin_url, seo_summary, office_district, languages, logo_company_url, logo_partner_url",
+      "specialty_regions, specialty_assets, bio, is_verified, vibe_vector, vibe_vti, vibe_complement, vibe_template_id, vibe_valence, vibe_trust, vibe_analyzed_at, license_number, career_start_year, total_deal_count_self, deal_size_range, deal_specialty, buyer_types, preferred_price_range, fee_policy, consult_methods, response_time_hours, kakao_channel, naver_blog_url, youtube_url, linkedin_url, seo_summary, office_district, languages, logo_company_url, logo_partner_url, card_name, card_title",
     )
     .eq("user_id", profile.id)
     .single();
@@ -114,7 +114,8 @@ async function getVibeCardData(slug: string) {
   return {
     profile: {
       id: profile.id,
-      displayName: profile.display_name ?? nameFromSlug,
+      displayName: (bp?.card_name as string) || profile.display_name || nameFromSlug,
+      cardTitle: (bp?.card_title as string) || "공인중개사",
       company: profile.company ?? null,
       phone: profile.phone ?? null,
       photoUrl: profile.photo_url ?? null,
@@ -213,14 +214,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { profile, broker, professional, vibe } = data;
   const regions = broker?.specialtyRegions ?? [];
   const assets = broker?.specialtyAssets ?? [];
-  const title = profile.tagline || `${profile.displayName} 공인중개사 | ${regions[0] ?? ""} ${assets[0] ?? "상업용 부동산"} 전문 | DealCard`;
-  const careerYears = professional?.careerStartYear ? `${new Date().getFullYear() - professional.careerStartYear}년 경력` : "";
-  const dealInfo = professional?.totalDealCount ? `, 누적 거래 ${professional.totalDealCount}건` : "";
-  const trustInfo = vibe?.trust ? `, Vibe 신뢰도 ${Math.round(vibe.trust * 100)}%` : "";
-  const description = professional?.seoSummary ?? broker?.bio ?? `${profile.displayName} 공인중개사의 ${regions[0] ?? ""} ${assets[0] ?? "상업용 부동산"} 전문 프로필. ${careerYears}${dealInfo}${trustInfo}.`;
+  const cardTitle = data.profile.cardTitle || "공인중개사";
+  const ogTitle = `${profile.displayName} — ${cardTitle}`;
+  const careerYears = professional?.careerStartYear ? `경력 ${new Date().getFullYear() - professional.careerStartYear}년` : "";
+  const descParts: string[] = [];
+  if (regions.length > 0) descParts.push(`${regions.slice(0, 2).join('·')} 전문`);
+  if (assets.length > 0) descParts.push(assets.slice(0, 2).join('·'));
+  if (careerYears) descParts.push(careerYears);
+  if (profile.company) descParts.push(profile.company);
+  const description = professional?.seoSummary ?? broker?.bio ?? (
+    descParts.length > 0
+      ? `${descParts.join(' | ')} — DealCard Vibe AI 명함`
+      : `${profile.displayName}의 전문 중개인 Vibe AI 명함 — DealCard`
+  );
 
   return {
-    title,
+    title: ogTitle,
     description,
     keywords: [
       `${profile.displayName} 공인중개사`,
@@ -234,13 +243,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       canonical: `https://credeal.net/vibe-card/${slug}`,
     },
     openGraph: {
-      title,
+      title: ogTitle,
       description,
       type: "profile",
       url: `https://credeal.net/vibe-card/${slug}`,
       images: [
         {
-          url: `/api/og/vibe-card/${slug}`,
+          url: `https://credeal.net/api/og/vibe-card/${slug}`,
           width: 1200,
           height: 630,
           alt: `${profile.displayName} 공인중개사 명함`,
@@ -249,9 +258,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     },
     twitter: {
       card: "summary_large_image",
-      title,
+      title: ogTitle,
       description,
-      images: [`/api/og/vibe-card/${slug}`],
+      images: [`https://credeal.net/api/og/vibe-card/${slug}`],
     },
   };
 }

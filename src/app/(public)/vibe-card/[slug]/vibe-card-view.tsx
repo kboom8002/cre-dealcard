@@ -39,6 +39,7 @@ const DEMO_IM_LISTINGS: Record<string, { buildingId: string; label: string; pric
 interface VibeCardProfile {
   id: string;
   displayName: string;
+  cardTitle?: string;
   company: string | null;
   phone: string | null;
   photoUrl: string | null;

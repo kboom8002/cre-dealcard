@@ -10,6 +10,7 @@ import type { VibeTemplateCssVars } from "@/lib/vibe/vibe-templates";
 interface VibeCardProfile {
   id: string;
   displayName: string;
+  cardTitle?: string;
   company: string | null;
   phone: string | null;
   photoUrl: string | null;

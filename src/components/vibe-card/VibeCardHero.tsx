@@ -15,6 +15,7 @@ import { VibeCardFlip } from "./VibeCardFlip";
 interface VibeCardProfile {
   id: string;
   displayName: string;
+  cardTitle?: string;
   company: string | null;
   phone: string | null;
   photoUrl: string | null;
@@ -286,8 +287,8 @@ export function VibeCardHero({
         <h2 className="mt-4 text-2xl font-bold tracking-tight" style={{ color: css.textColor, textShadow: adaptive.titleShadow }}>
           {profile.displayName}
         </h2>
-        <p className="text-sm mt-0.5 font-semibold" style={{ color: css.accentColor, textShadow: adaptive.bodyShadow }}>
-          공인중개사
+        <p className="text-base font-bold mt-1" style={{ color: css.textColor, textShadow: adaptive.titleShadow, opacity: 0.85 }}>
+          {profile.cardTitle || '공인중개사'}
         </p>
         {profile.company && (
           <p className="text-xs mt-1 font-medium" style={{ color: css.subtextColor, textShadow: adaptive.bodyShadow }}>
