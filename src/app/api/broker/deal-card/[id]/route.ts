@@ -39,10 +39,10 @@ export async function PATCH(
       .eq("document_type", "blind_teaser")
       .order("created_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    if (fetchError || !teaserDoc) {
-      return NextResponse.json({ error: "Teaser document not found" }, { status: 404 });
+    if (fetchError) {
+      return NextResponse.json({ error: fetchError.message }, { status: 400 });
     }
 
     // Verify ownership
@@ -56,7 +56,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden: not your building" }, { status: 403 });
     }
 
-    const currentBody = teaserDoc.body as Record<string, any>;
+    const currentBody = teaserDoc?.body ? (teaserDoc.body as Record<string, any>) : {};
     const updatedBody = { ...currentBody };
 
     if (updateData.title !== undefined) updatedBody.title = updateData.title;
@@ -69,14 +69,32 @@ export async function PATCH(
     // Update document_objects (body + markdown for kakaoText)
     const docUpdate: Record<string, unknown> = { body: updatedBody };
     if (updateData.kakaoText !== undefined) docUpdate.markdown = updateData.kakaoText;
+    if (updateData.title !== undefined) docUpdate.title = updateData.title;
 
-    const { error: updateError } = await serviceClient
-      .from("document_objects")
-      .update(docUpdate)
-      .eq("building_id", params.id)
-      .eq("document_type", "blind_teaser");
-
-    if (updateError) throw updateError;
+    if (teaserDoc) {
+      const { error: updateError } = await serviceClient
+        .from("document_objects")
+        .update(docUpdate)
+        .eq("building_id", params.id)
+        .eq("document_type", "blind_teaser");
+      if (updateError) throw updateError;
+    } else {
+      const { error: insertError } = await serviceClient
+        .from("document_objects")
+        .insert({
+          owner_id: guard.user!.id,
+          source_type: "building_ssot_lite",
+          source_id: params.id,
+          building_id: params.id,
+          document_type: "blind_teaser",
+          title: updatedBody.title || "블라인드 티저",
+          body: updatedBody,
+          markdown: updateData.kakaoText || "",
+          visibility: "public_blind",
+          status: "draft"
+        });
+      if (insertError) throw insertError;
+    }
 
     // Sync building_signal_cards
     const signalCardUpdate: Record<string, unknown> = {};

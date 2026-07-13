@@ -285,9 +285,9 @@ export function ImDataBottomSheet({
   // 부모 요소의 transform/filter CSS가 fixed 포지셔닝을 깨뜨리는 문제 방지
   if (typeof window === 'undefined') return null;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
-      <div className="bg-background rounded-2xl w-full max-w-lg shadow-2xl p-5 animate-in slide-in-from-bottom duration-300 max-h-[85vh] flex flex-col">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-0 sm:p-4">
+      <div className="bg-background rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl p-5 animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 max-h-[90vh] flex flex-col pb-[env(safe-area-inset-bottom,20px)]">
         
         <div className="flex items-center justify-between mb-4 shrink-0">
           <h2 className="text-lg font-bold text-foreground">📊 투자설명서 데이터 보강</h2>
@@ -850,77 +850,66 @@ export function ImDataBottomSheet({
           </div>
         </div>
 
-        </div>
-
         {/* Footer actions - Fixed at bottom */}
-        <div className="shrink-0 pt-4 border-t border-border/40 mt-auto bg-background">
-          <div className={`rounded-xl p-4 mb-4 border-2 transition-colors ${
+        <div className="shrink-0 pt-3 border-t border-border/40 mt-auto bg-background">
+          <div className={`rounded-xl p-3 mb-3 border-2 transition-colors flex items-center justify-between ${
             canGenerate ? "bg-emerald-500/5 border-emerald-500/30" : "bg-amber-500/5 border-amber-500/20"
           }`}>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-semibold text-foreground">데이터 충실도</span>
-              <span className={`text-sm font-bold ${canGenerate ? "text-emerald-500" : "text-amber-500"}`}>
-                {canGenerate ? "🟢" : "🟠"} {readinessScore} / 100
-              </span>
-            </div>
-            <div className="h-2.5 w-full bg-secondary rounded-full overflow-hidden">
-              <div 
-                className={`h-full rounded-full transition-all duration-700 ${
-                  readinessScore >= 70 ? "bg-emerald-500" : readinessScore >= 40 ? "bg-amber-500" : "bg-rose-500"
-                }`}
-                style={{ width: `${readinessScore}%` }}
-              />
-            </div>
-            <p className={`text-xs mt-2 font-medium ${
-              canGenerate ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
-            }`}>
-              {canGenerate 
-                ? "✅ AI 투자설명서를 작성할 수 있습니다. (주소/월세 입력 시 품질↑)" 
-                : "⚠️ 기본 정보가 부족합니다. 주소 또는 월세를 추가 입력해 주세요."}
-            </p>
-            {/* 등급 승급 안내 */}
-            {!askingPrice && (
-              <p className="text-[10px] text-indigo-400 mt-1">
-                💡 매각 희망가를 입력하면 A등급(투자 검토 가능)으로 승급됩니다
+            <div className="flex-1">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[11px] font-semibold text-foreground">데이터 충실도</span>
+                <span className={`text-xs font-bold ${canGenerate ? "text-emerald-500" : "text-amber-500"}`}>
+                  {canGenerate ? "🟢" : "🟠"} {readinessScore}점
+                </span>
+              </div>
+              <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-700 ${
+                    readinessScore >= 70 ? "bg-emerald-500" : readinessScore >= 40 ? "bg-amber-500" : "bg-rose-500"
+                  }`}
+                  style={{ width: `${readinessScore}%` }}
+                />
+              </div>
+              <p className={`text-[10px] mt-1.5 font-medium ${
+                canGenerate ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+              }`}>
+                {canGenerate ? "✅ 투자설명서 작성 가능" : "⚠️ 주소/월세 추가 입력 필요"}
               </p>
-            )}
-            {askingPrice && !loanAmount && (
-              <p className="text-[10px] text-indigo-400 mt-1">
-                💡 대출 잔액을 입력하면 레버리지 분석이 추가됩니다
-              </p>
-            )}
+            </div>
           </div>
 
-        {/* Footer actions */}
-        {state === "error" && (
-          <p className="text-xs text-rose-500 text-center mb-3">⚠️ {errorMsg}</p>
-        )}
-        
-        {state === "success" ? (
-          <button disabled className="w-full bg-emerald-600 text-white rounded-xl py-3 text-sm font-bold">
-            ✅ {progress}
-          </button>
-        ) : (
-          <button
-            onClick={handleCreate}
-            disabled={state === "loading" || !canGenerate}
-            className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl py-3.5 text-sm font-bold shadow-md disabled:opacity-50 disabled:from-secondary disabled:to-secondary disabled:text-muted-foreground transition-all hover:opacity-90 active:scale-[0.98] flex items-center justify-center gap-2"
-          >
-            {state === "loading" ? (
-              <>
-                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                <span className="truncate">{progress}</span>
-              </>
-            ) : (
-              "🚀 프리미엄 투자설명서 만들기"
-            )}
-          </button>
-        )}
+          {/* Error & CTA */}
+          {state === "error" && (
+            <p className="text-xs text-rose-500 text-center mb-2">⚠️ {errorMsg}</p>
+          )}
+          
+          {state === "success" ? (
+            <button disabled className="w-full bg-emerald-600 text-white rounded-xl py-3 text-sm font-bold">
+              ✅ {progress}
+            </button>
+          ) : (
+            <button
+              onClick={handleCreate}
+              disabled={state === "loading" || !canGenerate}
+              className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl py-3 text-sm font-bold shadow-md disabled:opacity-50 transition-all hover:opacity-90 active:scale-[0.98] flex items-center justify-center gap-2"
+            >
+              {state === "loading" ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  <span className="truncate">{progress}</span>
+                </>
+              ) : (
+                "🚀 프리미엄 투자설명서 만들기"
+              )}
+            </button>
+          )}
+        </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
+
+  return createPortal(modalContent, document.body);
 }

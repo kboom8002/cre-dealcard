@@ -147,7 +147,7 @@ export default async function BrokerDealCardResultPage({
   };
 
   return (
-    <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-40">
+    <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-60">
       <div className="w-full max-w-md mx-auto space-y-6">
         {/* Top nav bar: Back + Actions */}
         <div className="flex items-center justify-between pt-2">
@@ -317,7 +317,7 @@ export default async function BrokerDealCardResultPage({
       </div>
 
       {/* Sticky CTA Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border px-4 pt-3 safe-bottom">
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t border-border px-4 pt-3 pb-[calc(70px+env(safe-area-inset-bottom,0px))]">
         <div className="max-w-md mx-auto space-y-2">
           {/* 1순위: 카톡으로 전송 (문구 + 딜카드 링크) */}
           <KakaoShareButton text={kakaoText} buildingId={id} dealTitle={title} brokerSlug={brokerSlug} areaSignal={building.area_signal ?? undefined} variant="primary" />
