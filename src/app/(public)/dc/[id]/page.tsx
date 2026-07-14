@@ -39,6 +39,7 @@ async function getDealCardData(id: string) {
   ]);
 
   let brokerSlug = "cre-dealcard-default";
+  let brokerName: string | null = null;
   if (buildingRes.data?.owner_id) {
     const brokerRes = await supabase
       .from("broker_profiles")
@@ -46,12 +47,20 @@ async function getDealCardData(id: string) {
       .eq("user_id", buildingRes.data.owner_id)
       .maybeSingle();
     if (brokerRes.data?.slug) brokerSlug = brokerRes.data.slug;
+
+    const profileRes = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", buildingRes.data.owner_id)
+      .maybeSingle();
+    brokerName = profileRes.data?.display_name || null;
   }
 
   return {
     building: buildingRes.data,
     signalCard: signalCardRes.data,
     brokerSlug,
+    brokerName,
   };
 }
 
@@ -85,7 +94,7 @@ export const revalidate = 3600;
 
 export default async function DealCardShortPage({ params }: PageProps) {
   const { id } = await params;
-  const { building, signalCard, brokerSlug } = await getDealCardData(id);
+  const { building, signalCard, brokerSlug, brokerName } = await getDealCardData(id);
 
   if (!building) return notFound();
 
@@ -111,9 +120,13 @@ export default async function DealCardShortPage({ params }: PageProps) {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[#0d1424]/80 backdrop-blur-md border-b border-slate-800 px-4 py-3">
         <div className="max-w-lg mx-auto flex items-center justify-between">
-          <Link href="/hub" className="text-xs text-slate-400 hover:text-white transition-colors">
-            ← 돌아가기
-          </Link>
+          {brokerSlug && brokerSlug !== 'cre-dealcard-default' ? (
+            <Link href={`/vibe-card/${brokerSlug}`} className="text-xs text-slate-400 hover:text-white transition-colors flex items-center gap-1">
+              <span>✨</span> {brokerName || '중개사'} 명함 보기
+            </Link>
+          ) : (
+            <span className="text-xs text-slate-500">DealCard</span>
+          )}
           <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-full font-bold tracking-wide">
             Blind DealCard
           </span>

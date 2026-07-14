@@ -129,6 +129,12 @@ export function ImDataBottomSheet({
     setState("loading");
     setProgress("데이터 검증 및 수집 중...");
 
+    if (!buildingId) {
+      setState("error");
+      setErrorMsg("건물 ID가 누락되었습니다. 페이지를 새로고침해주세요.");
+      return;
+    }
+
     try {
       const directData: Record<string, unknown> = {};
       if (areaSignal) directData.area_signal = areaSignal;
@@ -208,7 +214,7 @@ export function ImDataBottomSheet({
 
       if (!startRes.ok) {
         const errData = await startRes.json().catch(() => ({}));
-        throw new Error(errData.error ?? "IM 생성 시작 실패");
+        throw new Error(errData.error ?? `IM 생성 시작 실패 (status: ${startRes.status})`);
       }
 
       const startData = await startRes.json();
@@ -975,7 +981,7 @@ export function ImDataBottomSheet({
                   <span className="truncate">{progress}</span>
                 </>
               ) : (
-                "🚀 프리미엄 투자설명서 만들기"
+                "📱 투자설명서 만들기"
               )}
             </button>
           )}

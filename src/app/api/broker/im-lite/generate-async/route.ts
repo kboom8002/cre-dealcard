@@ -21,6 +21,10 @@ export async function POST(req: NextRequest) {
   if (guard.error) return guard.error;
   const { user } = guard;
 
+  if (!user?.id) {
+    return NextResponse.json({ error: "인증 정보가 유효하지 않습니다. 다시 로그인해주세요." }, { status: 401 });
+  }
+
   let buildingId: string;
   let supplemental: MobileIMSupplementalInput;
   let skipApproval = false;
@@ -52,6 +56,11 @@ export async function POST(req: NextRequest) {
     if (!buildingId) {
       return NextResponse.json({ error: "building_id is required" }, { status: 400 });
     }
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(buildingId)) {
+      return NextResponse.json({ error: `유효하지 않은 building_id: ${buildingId}` }, { status: 400 });
+    }
   } catch {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
@@ -63,7 +72,7 @@ export async function POST(req: NextRequest) {
   await supabase.from("im_generation_jobs").upsert({
     id: jobId,
     building_id: buildingId,
-    user_id: user!.id,
+    user_id: user.id,
     status: "processing",
     input_payload: { supplemental, skipApproval, directData },
     created_at: new Date().toISOString(),
@@ -76,7 +85,7 @@ export async function POST(req: NextRequest) {
     const { generateMobileIMHandler } = await import("../generate/handler");
     const result = await generateMobileIMHandler({
       buildingId,
-      userId: user!.id,
+      userId: user.id,
       supplemental,
       skipApproval,
       directData,
