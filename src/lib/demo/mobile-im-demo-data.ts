@@ -108,6 +108,8 @@ export interface MobileIMDocument {
   hiddenSections?: string[];
   /** 공공데이터 출처 목록 */
   publicDataSources?: string[];
+  ogTitle?: string | null;
+  ogDescription?: string | null;
   /** 데이터 충실도 뱃지 */
   dataQualityBadge?: {
     tier: 'verified' | 'partial' | 'reference' | 'draft';

@@ -77,16 +77,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { id } = await params;
   const { building, signalCard, teaserDoc } = await getDealCardData(id);
 
-  // signal card에서 AI 생성 제목/설명 우선 사용
+  // Read body and potential custom OG fields
   const body = (signalCard?.body || {}) as Record<string, unknown>;
-  const title = (signalCard?.title as string)
+  const imBodyOg = (teaserDoc?.body ?? {}) as Record<string, any>;
+
+  const ogTitle = imBodyOg.ogTitle 
+    || (signalCard?.title as string)
     || `${building?.area_signal || "상업용 부동산"} ${building?.asset_type || ""} 매각`;
-  const description = (body.shortSummary as string)
+  
+  const ogDescription = imBodyOg.ogDescription 
+    || (body.shortSummary as string)
     || `${building?.area_signal || ""} 권역 블라인드 매각 매물`;
 
   // OG 이미지: 건물 사진이 있으면 그것 사용, 없으면 동적 OG
   const layerPhotosOg = ((building?.layers as Record<string, unknown>)?.photos as Array<{ url: string }>) || [];
-  const imBodyOg = (teaserDoc?.body ?? {}) as Record<string, any>;
   const imPhotosOg: Array<{ url: string }> = Array.isArray(imBodyOg.photos)
     ? imBodyOg.photos.filter((p: any) => p?.url)
     : Array.isArray(imBodyOg.photo_urls) && imBodyOg.photo_urls.length > 0
@@ -95,13 +99,23 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const ogPhotos = layerPhotosOg.length > 0 ? layerPhotosOg : imPhotosOg;
   const ogImage = ogPhotos.length > 0 ? ogPhotos[0].url : `/api/og/deal/${id}`;
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net';
+  const absoluteOgImage = ogImage.startsWith("http") ? ogImage : `${siteUrl}${ogImage}`;
+
   return {
-    title: `${title} | 크리딜 DealCard`,
-    description,
+    title: `${ogTitle} | 크리딜 DealCard`,
+    description: ogDescription,
     openGraph: {
-      title,
-      description,
-      images: [ogImage],
+      title: ogTitle,
+      description: ogDescription,
+      type: "article",
+      images: [
+        {
+          url: absoluteOgImage,
+          width: 1200,
+          height: 630,
+        }
+      ],
     },
   };
 }

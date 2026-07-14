@@ -254,32 +254,65 @@ export async function fetchIMData(
   const supabase = createServiceClient();
 
   // 2. Document from document_objects (generated IM)
+  let document: any = null;
+  let docError: any = null;
+
   if (docId) {
-    const { data: document, error: docError } = await supabase
+    const res = await supabase
       .from("document_objects")
       .select("body, owner_id, created_at, status, updated_at")
       .eq("id", docId)
       .eq("building_id", buildingId)
       .single();
+    document = res.data;
+    docError = res.error;
+  } else {
+    // If no docId is specified, fetch the latest published/reviewed IM document for this building
+    const res = await supabase
+      .from("document_objects")
+      .select("body, owner_id, created_at, status, updated_at")
+      .eq("building_id", buildingId)
+      .eq("document_type", "blind_teaser")
+      .in("status", ["published", "broker_reviewed"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    document = res.data;
+    
+    // Fallback: fetch any latest teaser document
+    if (!document) {
+      const res2 = await supabase
+        .from("document_objects")
+        .select("body, owner_id, created_at, status, updated_at")
+        .eq("building_id", buildingId)
+        .eq("document_type", "blind_teaser")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      document = res2.data;
+    }
+  }
 
-    if (!docError && document?.body?.sections) {
-      const brokerProfile = await fetchBrokerProfile(supabase, document.owner_id);
+  if (document?.body?.sections) {
+    const brokerProfile = await fetchBrokerProfile(supabase, document.owner_id);
 
-      const ssotSummary = document.body.ssot_summary || {};
-      const brokerObj = buildBrokerObject(brokerProfile);
-      await injectLatestMagazine(supabase, brokerObj);
-      await injectBrokerStats(supabase, brokerObj);
-      return {
-        buildingId,
-        blindName: `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`,
-        fullName: `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`,
-        areaSignal: ssotSummary.area_signal || "",
-        assetType: ssotSummary.asset_type || "",
-        priceBand: ssotSummary.price_band || "",
-        sizeSignal: ssotSummary.size_signal || "",
-        completenessScore: document.body.readiness_score ?? 0,
-        broker: brokerObj,
-        sections: (document.body.sections || []).map((s: any) => {
+    const ssotSummary = document.body.ssot_summary || {};
+    const brokerObj = buildBrokerObject(brokerProfile);
+    await injectLatestMagazine(supabase, brokerObj);
+    await injectBrokerStats(supabase, brokerObj);
+    return {
+      buildingId,
+      blindName: `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`,
+      fullName: `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`,
+      areaSignal: ssotSummary.area_signal || "",
+      assetType: ssotSummary.asset_type || "",
+      priceBand: ssotSummary.price_band || "",
+      sizeSignal: ssotSummary.size_signal || "",
+      completenessScore: document.body.readiness_score ?? 0,
+      broker: brokerObj,
+      ogTitle: document.body.ogTitle || null,
+      ogDescription: document.body.ogDescription || null,
+      sections: (document.body.sections || []).map((s: any) => {
           if ("content" in s) return s;
           let icon = "📄";
           if (s.section_type === "overview") icon = "🏢";
@@ -374,7 +407,6 @@ export async function fetchIMData(
         } : undefined,
       };
     }
-  }
 
   // 3. Fallback: SSoT Lite
   const { data: ssot, error } = await supabase

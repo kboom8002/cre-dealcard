@@ -35,16 +35,20 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const data = await fetchIMData(buildingId, docId);
 
   if (data) {
+    const ogTitle = data.ogTitle || `${data.blindName} — ${data.priceBand} 투자설명서`;
+    const ogDesc = data.ogDescription || `${data.areaSignal} 핵심 입지 · ${data.assetType} · 투자 검토 자료`;
+    const ogImageUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net'}/api/og/deal/${buildingId}`;
+
     return {
-      title: `${data.blindName} — ${data.priceBand} 프리미엄 투자설명서 | 크리딜`,
-      description: `${data.areaSignal} 핵심 입지 · ${data.assetType} · 투자 검토 자료`,
+      title: `${ogTitle} | 크리딜`,
+      description: ogDesc,
       openGraph: {
-        title: `${data.blindName} — ${data.priceBand} 투자설명서`,
-        description: `${data.areaSignal} 핵심 입지 · ${data.assetType} · 투자 검토 자료`,
+        title: ogTitle,
+        description: ogDesc,
         type: "article",
         images: [
           {
-            url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net'}/api/og/deal/${buildingId}`,
+            url: ogImageUrl,
             width: 1200,
             height: 630,
           },
@@ -52,8 +56,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
       },
       twitter: {
         card: "summary_large_image",
-        title: `${data.blindName} 투자설명서`,
-        description: `${data.priceBand} | ${data.areaSignal}`,
+        title: ogTitle,
+        description: ogDesc,
       },
     };
   }
