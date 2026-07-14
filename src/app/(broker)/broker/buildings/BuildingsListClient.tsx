@@ -216,12 +216,13 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
                   >
                     ✏️
                   </span>
-                  <span
+                  <button
+                    type="button"
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeletingImId(doc.docId); }}
-                    className="text-[10px] px-2 py-1 rounded bg-neutral-800 text-red-400 hover:bg-red-900/30 cursor-pointer"
+                    className="text-xs min-w-[36px] min-h-[36px] px-2 py-1.5 rounded bg-neutral-800 text-red-400 hover:bg-red-900/30 flex items-center justify-center"
                   >
                     🗑
-                  </span>
+                  </button>
                 </div>
               </div>
             </Link>

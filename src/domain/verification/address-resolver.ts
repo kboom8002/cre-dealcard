@@ -223,7 +223,7 @@ function fallbackParseAddress(address: string): AddressComponents | null {
  * @returns { lat: number, lng: number } 또는 null
  */
 export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
-  const kakaoAppKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+  const kakaoAppKey = process.env.KAKAO_REST_API_KEY || process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
   if (!kakaoAppKey || !address) return null;
 
   try {

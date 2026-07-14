@@ -220,8 +220,12 @@ export async function enrichBuildingDataByPNU(
   try {
     const geo = await geocodeAddress(rawAddress);
     if (geo) { lat = geo.lat; lng = geo.lng; }
-    else { applyFallbackCoords(); }
-  } catch {
+    else {
+      console.warn(`[enrich-by-pnu] geocodeAddress returned null for "${rawAddress}" → using fallback`);
+      applyFallbackCoords();
+    }
+  } catch (geoErr: any) {
+    console.warn(`[enrich-by-pnu] geocodeAddress error for "${rawAddress}": ${geoErr?.message} → using fallback`);
     applyFallbackCoords();
   }
 
@@ -230,6 +234,16 @@ export async function enrichBuildingDataByPNU(
     else if (rawAddress.includes("서초")) { lat = 37.4876; lng = 127.0174; }
     else if (rawAddress.includes("성수")) { lat = 37.5447; lng = 127.0562; }
     else if (rawAddress.includes("마포") || rawAddress.includes("합정")) { lat = 37.5500; lng = 126.9099; }
+    else if (rawAddress.includes("천안")) { lat = 36.8151; lng = 127.1139; }
+    else if (rawAddress.includes("대전")) { lat = 36.3504; lng = 127.3845; }
+    else if (rawAddress.includes("대구")) { lat = 35.8714; lng = 128.6014; }
+    else if (rawAddress.includes("부산")) { lat = 35.1796; lng = 129.0756; }
+    else if (rawAddress.includes("광주")) { lat = 35.1595; lng = 126.8526; }
+    else if (rawAddress.includes("수원")) { lat = 37.2636; lng = 127.0286; }
+    else if (rawAddress.includes("인천")) { lat = 37.4563; lng = 126.7052; }
+    else if (rawAddress.includes("세종")) { lat = 36.4800; lng = 127.2551; }
+    else if (rawAddress.includes("울산")) { lat = 35.5384; lng = 129.3114; }
+    else if (rawAddress.includes("제주")) { lat = 33.4996; lng = 126.5312; }
   }
 
   const resolvedAddress: ResolvedAddress = {

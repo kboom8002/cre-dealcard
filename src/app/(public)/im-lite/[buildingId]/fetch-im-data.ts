@@ -94,6 +94,7 @@ function buildBrokerObject(profile: any) {
     vibeAnalyzedAt: (profile.vibe_analyzed_at as string) ?? null,
     logoCompanyUrl: (profile.logo_company_url as string) ?? null,
     logoPartnerUrl: (profile.logo_partner_url as string) ?? null,
+    contactEmail: (profile.contact_email as string) ?? null,
     latestMagazine: null as { date: string; headline: string; url: string; marketTemp?: string } | null,
   };
 }
@@ -111,7 +112,7 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
       .single(),
     supabase
       .from("broker_profiles")
-      .select("user_id, name, slug, vibe_template_id, avatar_url, photo_url, specialty_regions, specialty_assets, bio, vibe_vector, vibe_vti, vibe_complement, vibe_valence, vibe_trust, vibe_analyzed_at, logo_company_url, logo_partner_url")
+      .select("user_id, name, slug, vibe_template_id, avatar_url, photo_url, specialty_regions, specialty_assets, bio, vibe_vector, vibe_vti, vibe_complement, vibe_valence, vibe_trust, vibe_analyzed_at, logo_company_url, logo_partner_url, contact_email")
       .eq("user_id", ownerId)
       .single(),
   ]);
@@ -171,6 +172,8 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
     // Logo URLs
     logo_company_url: brokerProfile?.logo_company_url ?? null,
     logo_partner_url: brokerProfile?.logo_partner_url ?? null,
+    // Contact email
+    contact_email: (brokerProfile as any)?.contact_email ?? null,
   };
 }
 

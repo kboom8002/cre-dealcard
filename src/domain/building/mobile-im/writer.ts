@@ -402,13 +402,23 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         );
       }
 
+      const SECTION_MAX_TOKENS: Record<string, number> = {
+        property_overview: 1000,
+        location_access: 1500,
+        income_analysis: 1800,
+        investment_highlights: 1200,
+        risk_considerations: 1200,
+        comparable_market: 1000,
+        executive_summary: 1000,
+      };
+
       const result = await callLLM(
         {
           systemPrompt: effectiveSysPrompt,
           userPrompt,
           model: IM_AI_MODEL,
           temperature: 0.3,
-          maxTokens: 900,
+          maxTokens: SECTION_MAX_TOKENS[sectionType] ?? 1000,
         },
         {
           cacheKey: `mobile-im-${sectionType}-${String(assetIdentity.area_signal ?? "").slice(0, 20)}-${String(assetIdentity.asset_type ?? "").slice(0, 20)}`,

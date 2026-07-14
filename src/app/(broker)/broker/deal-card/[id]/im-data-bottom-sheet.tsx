@@ -148,6 +148,8 @@ export function ImDataBottomSheet({
       if (photoFiles.length > 0) {
         setProgress("사진 업로드 중...");
         const supabase = createClient();
+        let uploadFailCount = 0;
+        let lastUploadError = "";
         for (const file of photoFiles) {
           const fileName = `${buildingId}/${Date.now()}_${file.name}`;
           const { data, error } = await supabase.storage
@@ -158,7 +160,17 @@ export function ImDataBottomSheet({
               .from("building_photos")
               .getPublicUrl(data.path);
             uploadedPhotoUrls.push(urlData.publicUrl);
+          } else {
+            uploadFailCount++;
+            lastUploadError = error?.message || "unknown error";
+            console.error(`[Photo Upload] Failed: ${file.name}`, error?.message, error);
           }
+        }
+        if (uploadFailCount > 0 && uploadedPhotoUrls.length === 0) {
+          // 모든 사진 업로드 실패
+          alert(`사진 ${uploadFailCount}장 업로드 실패: ${lastUploadError}\nSupabase Storage 버킷(building_photos)을 확인해주세요.`);
+        } else if (uploadFailCount > 0) {
+          alert(`${uploadFailCount}장 업로드 실패 (${uploadedPhotoUrls.length}장 성공). 성공한 사진으로 계속합니다.`);
         }
       }
 

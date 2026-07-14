@@ -1507,6 +1507,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
                 photoUrl: doc.broker.photoUrl,
                 tagline: doc.broker.tagline,
               }}
+              email={(doc.broker as any).contactEmail || undefined}
               broker={{
                 specialtyRegions: doc.broker.specialtyRegions ?? [],
                 specialtyAssets: doc.broker.specialtyAssets ?? [],

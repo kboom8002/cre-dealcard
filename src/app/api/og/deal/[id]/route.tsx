@@ -191,7 +191,7 @@ export async function GET(
         {/* Center: main content */}
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           <div style={{
-            fontSize: displayTitle.length > 20 ? 32 : displayTitle.length > 12 ? 38 : 44,
+            fontSize: displayTitle.length > 25 ? 28 : displayTitle.length > 20 ? 32 : displayTitle.length > 12 ? 38 : 44,
             fontWeight: 700,
             lineHeight: 1.35,
             display: "flex",
