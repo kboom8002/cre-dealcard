@@ -186,11 +186,13 @@ export async function generateMobileIMHandler(
         loan_amount_manwon: supplemental.loan_amount_manwon,
         total_deposit_manwon: supplemental.total_deposit_manwon,
         vacancy_pct: supplemental.vacancy_pct,
+        address: supplemental.resolved_address || null,
       },
       external_data: externalData
         ? {
             enrichedAt: externalData.enrichedAt,
             hasPublicData: !!(externalData.buildingRegister || externalData.landUsePlan),
+            address: supplemental.resolved_address || null,
             errors: externalData.errors,
             fallbackStatus: {
               buildingRegister: externalData.buildingRegister?._isFallback ?? null,

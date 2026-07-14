@@ -309,7 +309,10 @@ export async function fetchIMData(
         hiddenSections: Array.isArray(document.body.hidden_sections) ? document.body.hidden_sections : [],
         coordinates: document.body.coordinates || await (async () => {
           // 좌표가 없으면 주소에서 자동 변환
-          const addr = document.body.external_data?.address || ssotSummary.address || ssotSummary.raw_address;
+          const addr = document.body.external_data?.address
+            || ssotSummary.address
+            || document.body.ssot_summary?.address
+            || ssotSummary.raw_address;
           if (addr) return geocodeAddress(String(addr));
           return undefined;
         })(),

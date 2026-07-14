@@ -318,6 +318,24 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
               }`}>{qualityBadge.emoji} {qualityBadge.label}</p>
             </div>
           </div>
+          {/* 등급 판정 체크리스트 */}
+          <div className="mt-3 space-y-1">
+            <p className="text-[10px] font-semibold text-neutral-500 mb-1.5">등급 판정 기준 (A등급 = 주소 + 공공데이터 + 임대료 + 매각가)</p>
+            {[
+              { ok: !!(ssotSummary?.area_signal), label: '주소', detail: ssotSummary?.area_signal ? String(ssotSummary.area_signal) : '바텀시트에서 주소 검색' },
+              { ok: !!(externalData?.hasPublicData), label: '공공데이터', detail: externalData?.hasPublicData ? '건축물대장/토지이용계획 연동됨' : 'PNU 기반 연동 필요' },
+              { ok: !!(ssotSummary?.monthly_rent_total_krw), label: '월 임대료', detail: ssotSummary?.monthly_rent_total_krw ? `${(Number(ssotSummary.monthly_rent_total_krw) / 10000).toLocaleString()}만원` : '바텀시트에서 입력' },
+              { ok: !!(ssotSummary?.asking_price_manwon), label: '매각 희망가', detail: ssotSummary?.asking_price_manwon ? `${Number(ssotSummary.asking_price_manwon).toLocaleString()}만원` : '바텀시트에서 입력' },
+              { ok: !!(ssotSummary?.vacancy_signal || ssotSummary?.vacancy_pct), label: '공실 현황', detail: ssotSummary?.vacancy_signal ? String(ssotSummary.vacancy_signal) : '바텀시트에서 입력' },
+              { ok: photos.length > 0, label: '건물 사진', detail: photos.length > 0 ? `${photos.length}장` : '바텀시트에서 첨부' },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-2 text-[10px]">
+                <span className={item.ok ? 'text-emerald-400' : 'text-rose-400'}>{item.ok ? '✅' : '❌'}</span>
+                <span className={item.ok ? 'text-neutral-300' : 'text-rose-300 font-semibold'}>{item.label}</span>
+                <span className="text-neutral-600 ml-auto truncate max-w-[180px]">{item.detail}</span>
+              </div>
+            ))}
+          </div>
           <div className="mt-2 text-[10px] text-neutral-500">숨김 섹션: {hiddenSections.size}개</div>
         </div>
 

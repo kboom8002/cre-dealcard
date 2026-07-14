@@ -33,7 +33,7 @@ export async function PUT(
 
   const { data: doc, error: fetchErr } = await supabase
     .from('document_objects')
-    .select('id, owner_id, broker_id, content')
+    .select('id, owner_id, broker_id, body')
     .eq('id', id)
     .maybeSingle();
 
@@ -46,7 +46,7 @@ export async function PUT(
     return NextResponse.json({ error: 'Forbidden: not your document' }, { status: 403 });
   }
 
-  const content = (doc.content as Record<string, unknown>) || {};
+  const content = (doc.body as Record<string, unknown>) || {};
   
   // Merge the updated sections back into the content
   const updatedContent = {
@@ -61,7 +61,7 @@ export async function PUT(
     .from('document_objects')
     .update({
       ...(newTitle ? { title: newTitle } : {}),
-      content: updatedContent,
+      body: updatedContent,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);

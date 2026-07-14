@@ -20,9 +20,10 @@ const UpdateSchema = z.object({
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const guard = await requireBroker(req);
     if (guard.error) return guard.error;
 
@@ -35,7 +36,7 @@ export async function PATCH(
     const { data: teaserDoc, error: fetchError } = await serviceClient
       .from("document_objects")
       .select("body")
-      .eq("building_id", params.id)
+      .eq("building_id", id)
       .eq("document_type", "blind_teaser")
       .order("created_at", { ascending: false })
       .limit(1)
@@ -49,7 +50,7 @@ export async function PATCH(
     const { data: building } = await serviceClient
       .from("building_ssot_lite")
       .select("owner_id")
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (!building || building.owner_id !== guard.user!.id) {
@@ -75,7 +76,7 @@ export async function PATCH(
       const { error: updateError } = await serviceClient
         .from("document_objects")
         .update(docUpdate)
-        .eq("building_id", params.id)
+        .eq("building_id", id)
         .eq("document_type", "blind_teaser");
       if (updateError) throw updateError;
     } else {
@@ -84,8 +85,8 @@ export async function PATCH(
         .insert({
           owner_id: guard.user!.id,
           source_type: "building_ssot_lite",
-          source_id: params.id,
-          building_id: params.id,
+          source_id: id,
+          building_id: id,
           document_type: "blind_teaser",
           title: updatedBody.title || "블라인드 티저",
           body: updatedBody,
@@ -106,7 +107,7 @@ export async function PATCH(
       await serviceClient
         .from("building_signal_cards")
         .update(signalCardUpdate)
-        .eq("building_id", params.id);
+        .eq("building_id", id);
     }
 
     return NextResponse.json({ success: true, body: updatedBody });
