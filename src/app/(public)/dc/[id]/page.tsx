@@ -23,7 +23,7 @@ function getStatusDisplay(status: string | null) {
 async function getDealCardData(id: string) {
   const supabase = createServiceClient();
 
-  const [buildingRes, signalCardRes] = await Promise.all([
+  const [buildingRes, signalCardRes, teaserDocRes] = await Promise.all([
     supabase
       .from("building_ssot_lite")
       .select("id, owner_id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, status, layers, fit_summary")
@@ -33,6 +33,14 @@ async function getDealCardData(id: string) {
       .from("building_signal_cards")
       .select("id, title, area_signal, asset_type, price_band, deal_points, body, status")
       .eq("building_id", id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("document_objects")
+      .select("body")
+      .eq("building_id", id)
+      .eq("document_type", "blind_teaser")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -59,6 +67,7 @@ async function getDealCardData(id: string) {
   return {
     building: buildingRes.data,
     signalCard: signalCardRes.data,
+    teaserDoc: teaserDocRes.data,
     brokerSlug,
     brokerName,
   };
@@ -66,7 +75,7 @@ async function getDealCardData(id: string) {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const { building, signalCard } = await getDealCardData(id);
+  const { building, signalCard, teaserDoc } = await getDealCardData(id);
 
   // signal card에서 AI 생성 제목/설명 우선 사용
   const body = (signalCard?.body || {}) as Record<string, unknown>;
@@ -76,8 +85,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     || `${building?.area_signal || ""} 권역 블라인드 매각 매물`;
 
   // OG 이미지: 건물 사진이 있으면 그것 사용, 없으면 동적 OG
-  const photos = ((building?.layers as Record<string, unknown>)?.photos as Array<{ url: string }>) || [];
-  const ogImage = photos.length > 0 ? photos[0].url : `/api/og/deal/${id}`;
+  const layerPhotosOg = ((building?.layers as Record<string, unknown>)?.photos as Array<{ url: string }>) || [];
+  const imBodyOg = (teaserDoc?.body ?? {}) as Record<string, any>;
+  const imPhotosOg: Array<{ url: string }> = Array.isArray(imBodyOg.photos)
+    ? imBodyOg.photos.filter((p: any) => p?.url)
+    : Array.isArray(imBodyOg.photo_urls) && imBodyOg.photo_urls.length > 0
+    ? imBodyOg.photo_urls.map((url: string) => ({ url }))
+    : [];
+  const ogPhotos = layerPhotosOg.length > 0 ? layerPhotosOg : imPhotosOg;
+  const ogImage = ogPhotos.length > 0 ? ogPhotos[0].url : `/api/og/deal/${id}`;
 
   return {
     title: `${title} | 크리딜 DealCard`,
@@ -94,14 +110,23 @@ export const revalidate = 3600;
 
 export default async function DealCardShortPage({ params }: PageProps) {
   const { id } = await params;
-  const { building, signalCard, brokerSlug, brokerName } = await getDealCardData(id);
+  const { building, signalCard, teaserDoc, brokerSlug, brokerName } = await getDealCardData(id);
 
   if (!building) return notFound();
 
   // ── 데이터 추출 ──
   const body = (signalCard?.body || {}) as Record<string, unknown>;
   const layers = (building.layers || {}) as Record<string, unknown>;
-  const photos = (layers.photos as Array<{ url: string; label: string }>) || [];
+  const imBody = (teaserDoc?.body ?? {}) as Record<string, any>;
+
+  // photos: layers.photos → IM body.photos → IM body.photo_urls (3-source fallback)
+  const layerPhotos = (layers.photos as Array<{ url: string; label: string }>) || [];
+  const imPhotos: Array<{ url: string; label: string }> = Array.isArray(imBody.photos)
+    ? imBody.photos.filter((p: any) => p?.url).map((p: any) => ({ url: p.url, label: p.label || "건물 사진" }))
+    : Array.isArray(imBody.photo_urls) && imBody.photo_urls.length > 0
+    ? imBody.photo_urls.map((url: string, i: number) => ({ url, label: `건물 사진 ${i + 1}` }))
+    : [];
+  const photos = layerPhotos.length > 0 ? layerPhotos : imPhotos;
   const coordinates = layers.coordinates as { lat: number; lng: number } | undefined;
 
   const title = (signalCard?.title as string)
