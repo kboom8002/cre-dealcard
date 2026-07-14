@@ -2,7 +2,7 @@
  * POST /api/broker/im-lite/generate-async
  * 
  * IM 생성을 시작합니다.
- * - maxDuration=60으로 설정하여 Hobby 플랜 10초 제한 초과 허용 시도
+ * - maxDuration=300으로 설정 (Vercel Pro 플랜)
  * - 작업 완료 후 결과를 DB에 저장하고 응답 반환
  * - 클라이언트는 폴링으로 결과를 확인
  * 
@@ -14,7 +14,7 @@ import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 
-export const maxDuration = 60;
+export const maxDuration = 300; // Vercel Pro: 최대 300초
 
 export async function POST(req: NextRequest) {
   const guard = await requireBroker(req);
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 
   // ── IM 생성 실행 (동기) ──
   // Vercel Hobby에서는 after()가 작동하지 않으므로 동기 실행
-  // maxDuration=60으로 충분한 시간 확보
+  // maxDuration=300 (Vercel Pro)
   try {
     const { generateMobileIMHandler } = await import("../generate/handler");
     const result = await generateMobileIMHandler({
