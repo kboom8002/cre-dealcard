@@ -45,8 +45,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
         images: [
           {
             url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net'}/api/og/deal/${buildingId}`,
-            width: 800,
-            height: 400,
+            width: 1200,
+            height: 630,
           },
         ],
       },

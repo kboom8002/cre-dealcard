@@ -318,10 +318,10 @@ export async function fetchIMData(
         })(),
         dataQualityBadge: computeDataQualityBadge({
           hasAddress: !!(document.body.external_data || ssotSummary.address || ssotSummary.raw_address),
-          hasPublicData: !!document.body.external_data?.hasPublicData,
+          hasPublicData: !!(document.body.external_data?.hasPublicData || document.body.external_data?.fallbackStatus || document.body.external_data?.enrichedAt),
           hasMonthlyRent: !!ssotSummary.monthly_rent_total_krw || !!ssotSummary.monthly_rent_total,
           hasVacancy: !!ssotSummary.vacancy_signal || !!ssotSummary.vacancy_pct,
-          hasPhotos: (document.body.photo_urls || []).length > 0,
+          hasPhotos: (document.body.photos || document.body.photo_urls || []).length > 0,
           hasAskingPrice: !!(document.body.heroCard?.askingPriceBil || ssotSummary.asking_price_manwon),
           hasLoanAmount: !!(document.body.financials?.loanAmountBil || ssotSummary.loan_amount_manwon),
           hasFloorLeases: !!(document.body.heroCard?.waleTotalYears),

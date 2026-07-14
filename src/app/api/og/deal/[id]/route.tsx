@@ -95,8 +95,9 @@ export async function GET(
   const priceBand = building?.price_band ?? "";
   const assetType = building?.asset_type ?? "";
 
-  // Use teaser title or fallback to assetType
-  const displayTitle = teaser?.title || assetType || "상업용 부동산";
+  // Use teaser title or fallback to assetType, strip '투자설명서' suffix for cleaner display
+  const rawTitle = teaser?.title || assetType || "상업용 부동산";
+  const displayTitle = rawTitle.replace(/\s*투자설명서$/, '');
 
   // Use teaser summary or a default
   const displaySubtitle = teaser?.shortSummary
@@ -190,12 +191,23 @@ export async function GET(
         {/* Center: main content */}
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           <div style={{
-            fontSize: displayTitle.length > 30 ? 28 : 34,
+            fontSize: displayTitle.length > 20 ? 32 : displayTitle.length > 12 ? 38 : 44,
             fontWeight: 700,
-            lineHeight: 1.3,
+            lineHeight: 1.35,
             display: "flex",
+            flexWrap: "wrap" as const,
+            maxWidth: "100%",
           }}>
             {displayTitle}
+          </div>
+          <div style={{
+            fontSize: 20,
+            fontWeight: 500,
+            color: "rgba(147, 197, 253, 0.9)",
+            display: "flex",
+            marginTop: "4px",
+          }}>
+            프리미엄 투자설명서
           </div>
           <div
             style={{
@@ -281,8 +293,8 @@ export async function GET(
       </div>
     ),
     {
-      width: 800,
-      height: 400,
+      width: 1200,
+      height: 630,
     },
   );
 }

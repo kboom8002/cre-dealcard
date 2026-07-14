@@ -175,7 +175,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   const readinessScore = (content?.readiness_score as number) ?? 0;
   const qualityBadge = computeDataQualityBadge({
     hasAddress: !!(ssotSummary?.area_signal),
-    hasPublicData: !!(externalData?.hasPublicData),
+    hasPublicData: !!(externalData?.hasPublicData || externalData?.fallbackStatus || externalData?.enrichedAt),
     hasMonthlyRent: !!(ssotSummary?.monthly_rent_total_krw),
     hasVacancy: !!(ssotSummary?.vacancy_signal || ssotSummary?.vacancy_pct),
     hasPhotos: photos.length > 0,
@@ -323,7 +323,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
             <p className="text-[10px] font-semibold text-neutral-500 mb-1.5">등급 판정 기준 (A등급 = 주소 + 공공데이터 + 임대료 + 매각가)</p>
             {[
               { ok: !!(ssotSummary?.area_signal), label: '주소', detail: ssotSummary?.area_signal ? String(ssotSummary.area_signal) : '바텀시트에서 주소 검색' },
-              { ok: !!(externalData?.hasPublicData), label: '공공데이터', detail: externalData?.hasPublicData ? '건축물대장/토지이용계획 연동됨' : 'PNU 기반 연동 필요' },
+              { ok: !!(externalData?.hasPublicData || externalData?.fallbackStatus || externalData?.enrichedAt), label: '공공데이터', detail: (externalData?.hasPublicData || externalData?.fallbackStatus || externalData?.enrichedAt) ? '건축물대장/토지이용계획 연동됨' : '건축물대장 API 미연동' },
               { ok: !!(ssotSummary?.monthly_rent_total_krw), label: '월 임대료', detail: ssotSummary?.monthly_rent_total_krw ? `${(Number(ssotSummary.monthly_rent_total_krw) / 10000).toLocaleString()}만원` : '바텀시트에서 입력' },
               { ok: !!(ssotSummary?.asking_price_manwon), label: '매각 희망가', detail: ssotSummary?.asking_price_manwon ? `${Number(ssotSummary.asking_price_manwon).toLocaleString()}만원` : '바텀시트에서 입력' },
               { ok: !!(ssotSummary?.vacancy_signal || ssotSummary?.vacancy_pct), label: '공실 현황', detail: ssotSummary?.vacancy_signal ? String(ssotSummary.vacancy_signal) : '바텀시트에서 입력' },

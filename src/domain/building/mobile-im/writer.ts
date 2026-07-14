@@ -488,10 +488,8 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       markdown += `\n\n${valueAddMarkdown}`;
     }
 
-    // ── 카카오 지도 이미지 추가 (location_access 섹션) ────────────────────
-    if (sectionType === "location_access" && external_data?.mapImageUrl) {
-      markdown += `\n\n![입지 지도](${external_data.mapImageUrl})`;
-    }
+    // 카카오 지도 이미지: 뷰어의 KakaoStaticMap 컴포넌트가 렌더링하므로 마크다운에 삽입하지 않음
+    // (API 키 노출 방지 + 편집기 시인성 개선)
 
     // [B3] 구어체 → 전문 용어 정규화 (가드레일 적용 전 실행)
     const normResult = await normalizeTerminologyAsync(markdown);
@@ -707,13 +705,8 @@ function generatePremiumTemplate(
       const sizeSignal  = String(assetIdentity.size_signal ?? physicalFact.size_signal ?? "");
 
       // 대표 사진 삽입
-      let photoGallery = "";
-      if (supplemental.photo_urls && supplemental.photo_urls.length > 0) {
-        photoGallery = "\n\n### 건물 사진\n" +
-          supplemental.photo_urls.slice(0, 5).map((url, i) =>
-            `![건물 사진 ${i + 1}](${url})`
-          ).join("\n");
-      }
+      // 건물 사진: 뷰어의 PhotoGallery 컴포넌트가 body.photos에서 렌더링하므로 마크다운에 삽입하지 않음
+      const photoGallery = "";
 
       // 폴백 데이터 경고
       const hasFallback = br?._isFallback || lu?._isFallback || lp?._isFallback;

@@ -56,7 +56,7 @@ export default async function BrokerDealCardResultPage({
   const { data: building } = await supabase
     .from("building_ssot_lite")
     .select(
-      "id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, fit_summary, caution_summary, hidden_fields, status, owner_id, raw_input, layers",
+      "id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, fit_summary, caution_summary, hidden_fields, status, owner_id, raw_input, layers, photo_urls",
     )
     .eq("id", id)
     .single();
@@ -124,11 +124,29 @@ export default async function BrokerDealCardResultPage({
   const kakaoText = pick("kakaoText", "kakao_text", teaserDoc?.markdown || "");
   const boundaryNote = pick("boundaryNote", "boundary_note", "이 자료는 공개 데이터와 입력 정보를 바탕으로 한 예비 검토 자료입니다.");
 
-  // 사진 데이터
+  // 사진 데이터: 여러 출처에서 fallback
   const layers = (building.layers as Record<string, any>) || {};
-  const photoUrls: string[] = Array.isArray(layers.photos)
+  const layerPhotos: string[] = Array.isArray(layers.photos)
     ? layers.photos.filter((p: any) => p?.url).map((p: any) => p.url)
     : [];
+
+  // IM 문서에서 사진 가져오기 (body.photos 또는 body.photo_urls)
+  const imBody = (teaserDoc?.body ?? {}) as Record<string, any>;
+  const imPhotos: string[] = Array.isArray(imBody.photos)
+    ? imBody.photos.filter((p: any) => p?.url).map((p: any) => p.url)
+    : Array.isArray(imBody.photo_urls) && imBody.photo_urls.length > 0
+    ? imBody.photo_urls
+    : [];
+
+  // SSoT photo_urls
+  const ssotPhotoUrls: string[] = Array.isArray((building as any).photo_urls)
+    ? (building as any).photo_urls
+    : [];
+
+  // 우선순위: layers.photos → IM body.photos → SSoT photo_urls
+  const photoUrls: string[] = layerPhotos.length > 0 ? layerPhotos
+    : imPhotos.length > 0 ? imPhotos
+    : ssotPhotoUrls;
 
   const hiddenFields = Array.isArray(building.hidden_fields)
     ? (building.hidden_fields as string[])
