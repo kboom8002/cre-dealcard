@@ -1201,9 +1201,6 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
   // [D1] 현재 화면에 보이는 섹션 인덱스
   const [activeSection, setActiveSection] = useState(0);
   // [D4] 언어 전환 (영문 1-Pager)
-  const [language, setLanguage] = useState<'ko' | 'en'>('ko');
-  const [isTranslating, setIsTranslating] = useState(false);
-  const [enSections, setEnSections] = useState<MobileIMSection[] | null>(null);
   const [showInquiry, setShowInquiry] = useState(false);
 
   const viewedSectionsRef = useRef<Set<string>>(new Set());
@@ -1412,16 +1409,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
                 )}
               </>
             )}
-            {doc.dataQualityBadge && (
-              <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border ${
-                doc.dataQualityBadge.tier === 'verified' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                doc.dataQualityBadge.tier === 'partial' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                doc.dataQualityBadge.tier === 'reference' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                'bg-rose-500/10 text-rose-400 border-rose-500/20'
-              }`}>
-                {doc.dataQualityBadge.emoji} {doc.dataQualityBadge.label} ({doc.dataQualityBadge.score}점)
-              </span>
-            )}
+
           </div>
 
           {/* Price band */}
@@ -1429,16 +1417,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
             {doc.priceBand}
           </p>
 
-          {/* Completeness bar */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs text-neutral-500 font-medium">SSoT 완성도</span>
-              <span className="text-xs text-neutral-500">
-                {unlockedCount}/{doc.sections.length} 섹션 공개
-              </span>
-            </div>
-            <CompletenessBar score={doc.completenessScore} />
-          </div>
+
 
           {/* Generation timestamp */}
           <p className="text-[10px] text-neutral-600">
@@ -1459,48 +1438,11 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
           blindName={doc.blindName}
         />
 
-        {/* [D4] 언어 전환 탭 */}
-        <div className="flex gap-2 mb-4 p-1 bg-neutral-900 rounded-xl">
-          <button
-            id="tab-lang-ko"
-            onClick={() => setLanguage('ko')}
-            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${
-              language === 'ko' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-white'
-            }`}
-          >
-            한국어
-          </button>
-          <button
-            id="tab-lang-en"
-            onClick={async () => {
-              if (!enSections) {
-                setIsTranslating(true);
-                try {
-                  const res = await fetch(`/api/public/im-lite/${buildingId}/translate`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ language: "en" }),
-                  });
-                  if (res.ok) {
-                    const data = await res.json();
-                    setEnSections(data.sections ?? null);
-                  }
-                } catch {}
-                setIsTranslating(false);
-              }
-              setLanguage('en');
-            }}
-            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${
-              language === 'en' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-white'
-            }`}
-          >
-            {isTranslating ? '번역 중…' : 'English'}
-          </button>
-        </div>
+
 
         {/* ── Section Cards ── */}
         <div className="space-y-3 mb-8">
-          {(language === 'en' && enSections ? enSections : doc.sections).map((section: MobileIMSection, index: number) => (
+          {doc.sections.filter((s: MobileIMSection) => !(doc as any).hiddenSections?.includes(s.sectionId)).map((section: MobileIMSection, index: number) => (
             <div
               key={section.sectionId}
               data-section-id={section.sectionId}

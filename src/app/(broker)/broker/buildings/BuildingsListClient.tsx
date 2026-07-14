@@ -38,11 +38,13 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
   const initialTab = searchParams.get("tab") === "im" ? "im" : "dealcard";
   const [activeTab, setActiveTab] = useState<"dealcard" | "im">(initialTab);
   const [buildings, setBuildings] = useState<Building[]>(initialBuildings);
+  const [imListState, setImListState] = useState<IMDocument[]>(imList);
   const [filterType, setFilterType] = useState<"all" | "office" | "retail">("all");
   const [sortBy, setSortBy] = useState<"score-desc" | "score-asc" | "created-desc">("score-desc");
   const [searchQuery, setSearchQuery] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingImId, setDeletingImId] = useState<string | null>(null);
   const router = useRouter();
 
   async function handleDelete(id: string) {
@@ -61,6 +63,17 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
       setConfirmDeleteId(null);
     }
   }
+
+  const handleDeleteIM = async (docId: string) => {
+    try {
+      const res = await fetch(`/api/broker/im-lite/${docId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed');
+      setImListState(prev => prev.filter(d => d.docId !== docId));
+      setDeletingImId(null);
+    } catch {
+      alert('삭제에 실패했습니다.');
+    }
+  };
 
   const PIPELINE_STAGES: { key: string; label: string; emoji: string }[] = [
     { key: "draft", label: "입력 완료", emoji: "📋" },
@@ -153,21 +166,21 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
             : "text-neutral-400 hover:text-white hover:bg-neutral-800"
         }`}
       >
-        📱 모바일 IM <span className="text-[10px] opacity-70">({imList.length})</span>
+        📱 모바일 IM <span className="text-[10px] opacity-70">({imListState.length})</span>
       </button>
     </div>
 
     {/* IM Tab Content */}
     {activeTab === "im" && (
       <div className="space-y-3">
-        {imList.length === 0 ? (
+        {imListState.length === 0 ? (
           <div className="text-center py-16 space-y-3">
             <div className="text-4xl">📱</div>
             <p className="text-sm text-neutral-400">아직 생성된 모바일 IM이 없습니다</p>
             <p className="text-xs text-neutral-500">딜카드에서 &apos;모바일 투자설명서 만들기&apos; 버튼을 눌러 생성하세요</p>
           </div>
         ) : (
-          imList.map((doc) => (
+          imListState.map((doc) => (
             <Link
               key={doc.docId}
               href={`/im-lite/${doc.buildingId}?doc=${doc.docId}`}
@@ -196,9 +209,20 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
                     <p className="text-xs text-neutral-400 mt-0.5">{doc.priceBand}</p>
                   )}
                 </div>
-                <svg className="w-4 h-4 text-neutral-600 group-hover:text-primary transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+                <div className="flex items-center gap-1 shrink-0">
+                  <span
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `/broker/im-approval/${doc.docId}`; }}
+                    className="text-[10px] px-2 py-1 rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700 cursor-pointer"
+                  >
+                    ✏️
+                  </span>
+                  <span
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeletingImId(doc.docId); }}
+                    className="text-[10px] px-2 py-1 rounded bg-neutral-800 text-red-400 hover:bg-red-900/30 cursor-pointer"
+                  >
+                    🗑
+                  </span>
+                </div>
               </div>
             </Link>
           ))
@@ -451,6 +475,20 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
         </div>
       )}
     </div>
+    )}
+
+    {/* IM 삭제 확인 모달 */}
+    {deletingImId && (
+      <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setDeletingImId(null)}>
+        <div className="bg-neutral-900 border border-neutral-700 rounded-2xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+          <h3 className="text-lg font-bold text-white mb-2">IM 삭제</h3>
+          <p className="text-sm text-neutral-400 mb-6">이 투자설명서를 삭제하시겠습니까? 삭제된 IM은 복구할 수 없습니다.</p>
+          <div className="flex gap-3">
+            <button onClick={() => setDeletingImId(null)} className="flex-1 py-2.5 bg-neutral-800 text-white text-sm font-medium rounded-xl">취소</button>
+            <button onClick={() => handleDeleteIM(deletingImId)} className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white text-sm font-bold rounded-xl">삭제</button>
+          </div>
+        </div>
+      </div>
     )}
 
     {/* 삭제 확인 모달 (전역) */}

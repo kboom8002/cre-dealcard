@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
+import { computeDataQualityBadge } from '@/domain/building/mobile-im/data-quality-badge';
 
 interface IMSection {
   section_type: string;
@@ -38,6 +39,22 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   const [actionStatus, setActionStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [resultMsg, setResultMsg] = useState('');
   const [docStatus, setDocStatus] = useState(initialStatus);
+  const [editorTab, setEditorTab] = useState<'edit' | 'preview'>('edit');
+
+  // 섹션 숨김
+  const initialHidden = new Set<string>(
+    Array.isArray((content as any)?.hidden_sections) ? (content as any).hidden_sections : []
+  );
+  const [hiddenSections, setHiddenSections] = useState<Set<string>>(initialHidden);
+
+  // 사진 캡션
+  const [photos, setPhotos] = useState<Array<{ url: string; caption?: string; order?: number }>>(
+    Array.isArray(content?.photos)
+      ? (content.photos as any[])
+      : Array.isArray(content?.photo_urls)
+      ? (content.photo_urls as string[]).map((url, i) => ({ url, caption: '', order: i }))
+      : []
+  );
 
   const startEdit = (idx: number) => {
     setEditingIdx(idx);
@@ -69,7 +86,12 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
       await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sections: newSections, title: editableTitle }),
+        body: JSON.stringify({
+          sections: newSections,
+          title: editableTitle,
+          hidden_sections: Array.from(hiddenSections),
+          photos,
+        }),
       });
     } catch (err) {
       console.error("Save failed", err);
@@ -92,18 +114,74 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
     setSections(newSections);
 
     if (!isVerified) {
-      // Auto-save to DB when verifying
       try {
         await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sections: newSections }),
+          body: JSON.stringify({
+            sections: newSections,
+            hidden_sections: Array.from(hiddenSections),
+            photos,
+          }),
         });
       } catch (err) {
         console.error("Save failed", err);
       }
     }
   };
+
+  const toggleHideSection = useCallback(async (idx: number) => {
+    const sectionId = sections[idx]?.section_type;
+    if (!sectionId) return;
+    const newHidden = new Set(hiddenSections);
+    if (newHidden.has(sectionId)) {
+      newHidden.delete(sectionId);
+    } else {
+      newHidden.add(sectionId);
+    }
+    setHiddenSections(newHidden);
+    try {
+      await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sections,
+          hidden_sections: Array.from(newHidden),
+          photos,
+        }),
+      });
+    } catch {}
+  }, [sections, hiddenSections, docId, photos]);
+
+  const updatePhotoCaption = (idx: number, caption: string) => {
+    const newPhotos = [...photos];
+    newPhotos[idx] = { ...newPhotos[idx], caption };
+    setPhotos(newPhotos);
+  };
+
+  const savePhotoCaptions = async () => {
+    try {
+      await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sections, photos, hidden_sections: Array.from(hiddenSections) }),
+      });
+    } catch {}
+  };
+
+  // 데이터 품질 계산
+  const ssotSummary = content?.ssot_summary as Record<string, unknown> | undefined;
+  const externalData = content?.external_data as Record<string, unknown> | undefined;
+  const readinessScore = (content?.readiness_score as number) ?? 0;
+  const qualityBadge = computeDataQualityBadge({
+    hasAddress: !!(ssotSummary?.area_signal),
+    hasPublicData: !!(externalData?.hasPublicData),
+    hasMonthlyRent: !!(ssotSummary?.monthly_rent_total_krw),
+    hasVacancy: !!(ssotSummary?.vacancy_signal || ssotSummary?.vacancy_pct),
+    hasPhotos: photos.length > 0,
+    hasAskingPrice: !!(ssotSummary?.asking_price_manwon),
+    hasLoanAmount: !!(ssotSummary?.loan_amount_manwon),
+  });
 
   const handleApprove = async () => {
     setActionStatus('loading');
@@ -223,14 +301,43 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
           </div>
         )}
 
-        {/* 사진 프리뷰 */}
-        {(Array.isArray(content?.photos) && content.photos.length > 0 || Array.isArray(content?.photo_urls) && (content.photo_urls as string[]).length > 0) && (
+        {/* 📊 데이터 품질 모니터링 */}
+        <div className="mb-6 p-4 rounded-xl border border-neutral-800 bg-neutral-900/50">
+          <h3 className="text-xs font-bold text-neutral-400 mb-3">📊 데이터 품질 모니터링 (편집자 전용)</h3>
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div className="p-3 rounded-lg bg-neutral-950">
+              <span className="text-neutral-500">Readiness</span>
+              <p className="text-lg font-bold text-primary">{readinessScore}점</p>
+            </div>
+            <div className="p-3 rounded-lg bg-neutral-950">
+              <span className="text-neutral-500">Data Quality</span>
+              <p className={`text-lg font-bold ${
+                qualityBadge.tier === 'verified' ? 'text-emerald-400' :
+                qualityBadge.tier === 'partial' ? 'text-amber-400' :
+                qualityBadge.tier === 'reference' ? 'text-orange-400' : 'text-rose-400'
+              }`}>{qualityBadge.emoji} {qualityBadge.label}</p>
+            </div>
+          </div>
+          <div className="mt-2 text-[10px] text-neutral-500">숨김 섹션: {hiddenSections.size}개</div>
+        </div>
+
+        {/* 사진 프리뷰 + 캡션 편집 */}
+        {photos.length > 0 && (
           <div className="mb-4">
-            <h3 className="text-xs font-semibold text-neutral-400 mb-2">📷 사진 ({(content.photos as any[])?.length || (content.photo_urls as string[])?.length}장)</h3>
-            <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
-              {(Array.isArray(content.photos) ? content.photos : (content.photo_urls as string[])?.map((url: string, i: number) => ({ url, label: `사진 ${i+1}` }))).map((photo: any, i: number) => (
-                <div key={i} className="shrink-0 w-24 h-16 rounded-lg overflow-hidden border border-neutral-800 bg-neutral-900">
-                  <img src={photo.url} alt={photo.label || `사진 ${i+1}`} className="w-full h-full object-cover" />
+            <h3 className="text-xs font-semibold text-neutral-400 mb-2">📷 사진 ({photos.length}장) — 캡션을 입력하면 공개 IM에 표시됩니다</h3>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {photos.map((photo, i) => (
+                <div key={i} className="space-y-1">
+                  <div className="w-full aspect-square rounded-lg overflow-hidden border border-neutral-800 bg-neutral-900">
+                    <img src={photo.url} alt={photo.caption || `사진 ${i+1}`} className="w-full h-full object-cover" />
+                  </div>
+                  <input
+                    value={photo.caption || ''}
+                    onChange={(e) => updatePhotoCaption(i, e.target.value)}
+                    onBlur={savePhotoCaptions}
+                    placeholder={`사진 ${i+1} 캡션`}
+                    className="w-full text-[10px] bg-neutral-950 border border-neutral-800 rounded px-1.5 py-1 text-neutral-300 placeholder-neutral-600 focus:outline-none focus:border-primary/50"
+                  />
                 </div>
               ))}
             </div>
@@ -252,14 +359,25 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
               badgeUI = <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">🟡 AI 추론 — 검토 권장</span>;
             }
 
+            const isHidden = hiddenSections.has(section.section_type);
+
             return (
-              <div key={section.section_type ?? idx} className={`rounded-2xl border transition-colors ${isVerified ? 'border-neutral-800 bg-neutral-900/30' : 'border-neutral-700 bg-neutral-900/80'} overflow-hidden`}>
+              <div key={section.section_type ?? idx} className={`rounded-2xl border transition-colors ${isHidden ? 'border-red-900/30 bg-neutral-900/20 opacity-50' : isVerified ? 'border-neutral-800 bg-neutral-900/30' : 'border-neutral-700 bg-neutral-900/80'} overflow-hidden`}>
                 <div className="p-4 flex items-center justify-between border-b border-neutral-800/50">
                   <div className="flex items-center gap-3">
                     <span className="text-base font-bold text-white">{idx + 1}. {section.title}</span>
                     {badgeUI}
                   </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => toggleHideSection(idx)}
+                      className={`text-xs px-2 py-1.5 rounded-lg transition-colors ${
+                        isHidden ? 'bg-red-500/20 text-red-400' : 'bg-neutral-800 text-neutral-400 hover:text-white'
+                      }`}
+                      title={isHidden ? '섹션 숨김 해제' : '공개 IM에서 이 섹션 숨기기'}
+                    >
+                      {isHidden ? '👁‍🗨 숨김' : '👁'}
+                    </button>
                     {!isEditing && (
                       <button
                         onClick={() => toggleVerify(idx)}
@@ -282,19 +400,33 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                 </div>
                 
                 {isEditing ? (
-                  <div className="flex flex-col md:flex-row border-t border-neutral-800 divide-y md:divide-y-0 md:divide-x divide-neutral-800 h-[400px]">
-                    <div className="w-full md:w-1/2 flex flex-col">
-                      <div className="px-4 py-2 bg-neutral-950 text-xs text-neutral-500 font-medium">마크다운 편집기</div>
-                      <textarea
-                        value={editDraft}
-                        onChange={(e) => setEditDraft(e.target.value)}
-                        className="w-full flex-1 bg-neutral-950 p-4 text-sm text-neutral-300 font-mono resize-none focus:outline-none focus:ring-1 focus:ring-primary/50"
-                      />
+                  <div className="border-t border-neutral-800">
+                    {/* 모바일: 탭 전환 */}
+                    <div className="flex md:hidden border-b border-neutral-800">
+                      <button onClick={() => setEditorTab('edit')}
+                        className={`flex-1 px-4 py-2 text-xs font-bold transition-colors ${editorTab === 'edit' ? 'bg-neutral-800 text-white' : 'text-neutral-500'}`}>
+                        ✏️ 편집
+                      </button>
+                      <button onClick={() => setEditorTab('preview')}
+                        className={`flex-1 px-4 py-2 text-xs font-bold transition-colors ${editorTab === 'preview' ? 'bg-neutral-800 text-white' : 'text-neutral-500'}`}>
+                        👁 미리보기
+                      </button>
                     </div>
-                    <div className="w-full md:w-1/2 flex flex-col bg-neutral-900/50">
-                      <div className="px-4 py-2 bg-neutral-950 text-xs text-neutral-500 font-medium">실시간 미리보기</div>
-                      <div className="flex-1 p-4 overflow-y-auto">
-                        <MarkdownRenderer content={editDraft} />
+                    <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-neutral-800">
+                      <div className={`w-full md:w-1/2 flex flex-col ${editorTab === 'preview' ? 'hidden md:flex' : ''}`}>
+                        <div className="px-4 py-2 bg-neutral-950 text-xs text-neutral-500 font-medium hidden md:block">마크다운 편집기</div>
+                        <textarea
+                          value={editDraft}
+                          onChange={(e) => setEditDraft(e.target.value)}
+                          className="w-full bg-neutral-950 p-4 text-sm text-neutral-300 font-mono resize-none focus:outline-none focus:ring-1 focus:ring-primary/50 min-h-[300px] md:min-h-0 md:h-[400px]"
+                          rows={15}
+                        />
+                      </div>
+                      <div className={`w-full md:w-1/2 flex flex-col bg-neutral-900/50 ${editorTab === 'edit' ? 'hidden md:flex' : ''}`}>
+                        <div className="px-4 py-2 bg-neutral-950 text-xs text-neutral-500 font-medium hidden md:block">실시간 미리보기</div>
+                        <div className="p-4 overflow-y-auto min-h-[300px] md:h-[400px]">
+                          <MarkdownRenderer content={editDraft} />
+                        </div>
                       </div>
                     </div>
                   </div>

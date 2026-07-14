@@ -9,9 +9,32 @@ import { getDemoMobileIM } from "@/lib/demo/mobile-im-demo-data";
 import { computeDataQualityBadge } from "@/domain/building/mobile-im/data-quality-badge";
 import type { MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
 
-// ─── Geocode: 주소 → 좌표 변환 (서버사이드, Nominatim 무료 API) ──────────
+// ─── Geocode: 주소 → 좌표 변환 (Kakao Local API, 한국 주소 정확도 높음) ────────
 async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
   if (!address) return null;
+  const KAKAO_KEY = process.env.KAKAO_REST_API_KEY;
+  if (KAKAO_KEY) {
+    try {
+      const res = await fetch(
+        `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`,
+        { headers: { Authorization: `KakaoAK ${KAKAO_KEY}` }, signal: AbortSignal.timeout(3000) }
+      );
+      const data = await res.json();
+      if (data.documents?.[0]) {
+        return { lat: parseFloat(data.documents[0].y), lng: parseFloat(data.documents[0].x) };
+      }
+      // 주소 검색 실패 시 키워드 검색 fallback
+      const res2 = await fetch(
+        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(address)}`,
+        { headers: { Authorization: `KakaoAK ${KAKAO_KEY}` }, signal: AbortSignal.timeout(3000) }
+      );
+      const data2 = await res2.json();
+      if (data2.documents?.[0]) {
+        return { lat: parseFloat(data2.documents[0].y), lng: parseFloat(data2.documents[0].x) };
+      }
+    } catch {}
+  }
+  // Kakao 실패 시 Nominatim fallback
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=kr`,
@@ -22,10 +45,8 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
     if (data?.[0]?.lat && data?.[0]?.lon) {
       return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
     }
-    return null;
-  } catch {
-    return null;
-  }
+  } catch {}
+  return null;
 }
 
 function buildBrokerObject(profile: any) {
@@ -283,7 +304,9 @@ export async function fetchIMData(
             url,
             type: i === 0 ? 'exterior' as const : 'interior' as const,
             label: i === 0 ? '건물 외관' : `건물 사진 ${i + 1}`,
+            caption: undefined as string | undefined,
           })),
+        hiddenSections: Array.isArray(document.body.hidden_sections) ? document.body.hidden_sections : [],
         coordinates: document.body.coordinates || await (async () => {
           // 좌표가 없으면 주소에서 자동 변환
           const addr = document.body.external_data?.address || ssotSummary.address || ssotSummary.raw_address;

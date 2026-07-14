@@ -104,6 +104,8 @@ export interface MobileIMDocument {
   }>;
   /** 건물 좌표 (Static Map 폴백용) */
   coordinates?: { lat: number; lng: number };
+  /** 공개 IM에서 숨길 섹션 ID 목록 */
+  hiddenSections?: string[];
   /** 공공데이터 출처 목록 */
   publicDataSources?: string[];
   /** 데이터 충실도 뱃지 */

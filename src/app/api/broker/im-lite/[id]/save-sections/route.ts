@@ -13,11 +13,15 @@ export async function PUT(
   const { id } = await params;
   let sections: MobileIMSection[];
   let newTitle: string | undefined;
+  let hiddenSections: string[] | undefined;
+  let photos: Array<{ url: string; caption?: string; order?: number }> | undefined;
 
   try {
     const body = await req.json();
     sections = body.sections;
     newTitle = body.title;
+    hiddenSections = body.hidden_sections;
+    photos = body.photos;
     if (!sections || !Array.isArray(sections)) {
       return NextResponse.json({ error: "Invalid 'sections' payload" }, { status: 400 });
     }
@@ -49,11 +53,14 @@ export async function PUT(
     ...content,
     sections: sections,
     ...(newTitle ? { title: newTitle } : {}),
+    ...(hiddenSections !== undefined ? { hidden_sections: hiddenSections } : {}),
+    ...(photos !== undefined ? { photos } : {}),
   };
 
   const { error: updateErr } = await supabase
     .from('document_objects')
     .update({
+      ...(newTitle ? { title: newTitle } : {}),
       content: updatedContent,
       updated_at: new Date().toISOString(),
     })
