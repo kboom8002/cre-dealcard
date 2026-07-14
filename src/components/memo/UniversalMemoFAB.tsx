@@ -14,6 +14,7 @@ export function UniversalMemoFAB() {
   const [textMemo, setTextMemo] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<MemoRouterOutput | null>(null);
+  const [memoId, setMemoId] = useState<string | null>(null);
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
@@ -22,6 +23,7 @@ export function UniversalMemoFAB() {
         setMode("select");
         setTextMemo("");
         setResult(null);
+        setMemoId(null);
       }, 300);
     }
   };
@@ -41,6 +43,7 @@ export function UniversalMemoFAB() {
       if (!json.ok) throw new Error(json.error);
       
       setResult(json.data.routing);
+      setMemoId(json.data.memoId || null);
       setTextMemo(memo);
       setMode("result");
     } catch (err) {
@@ -168,6 +171,7 @@ export function UniversalMemoFAB() {
                 <MemoResultSheet
                   result={result}
                   originalText={textMemo}
+                  memoId={memoId}
                   onClose={() => handleOpenChange(false)}
                 />
               )}

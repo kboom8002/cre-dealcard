@@ -8,15 +8,33 @@ import { useRouter } from "next/navigation";
 interface MemoResultSheetProps {
   result: MemoRouterOutput;
   originalText: string;
+  memoId?: string | null;
   onClose: () => void;
 }
 
-export function MemoResultSheet({ result, originalText, onClose }: MemoResultSheetProps) {
+export function MemoResultSheet({ result, originalText, memoId, onClose }: MemoResultSheetProps) {
   const router = useRouter();
 
-  const handleAction = () => {
+  const markConverted = async () => {
+    if (!memoId) return;
+    try {
+      await fetch(`/api/broker/memo/${memoId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "converted" }),
+      });
+    } catch {
+      // 전환 표시 실패해도 네비게이션은 진행
+    }
+  };
+  const handleAction = async () => {
     // Store original text in session storage to prepopulate
     sessionStorage.setItem("memo_transfer", originalText);
+
+    // Mark memo as converted for actionable types
+    if (result.type === "new_deal" || result.type === "buyer_condition") {
+      await markConverted();
+    }
 
     switch (result.type) {
       case "new_deal":
