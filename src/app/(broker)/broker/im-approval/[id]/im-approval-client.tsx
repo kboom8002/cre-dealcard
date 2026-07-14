@@ -41,6 +41,39 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   const [docStatus, setDocStatus] = useState(initialStatus);
   const [editorTab, setEditorTab] = useState<'edit' | 'preview'>('edit');
 
+  // OG Meta States
+  const [ogTitle, setOgTitle] = useState((content as any)?.ogTitle || '');
+  const [ogDescription, setOgDescription] = useState((content as any)?.ogDescription || '');
+  const [ogTimestamp, setOgTimestamp] = useState(Date.now());
+  const [isOgSaving, setIsOgSaving] = useState(false);
+  const [isOgMetaDirty, setIsOgMetaDirty] = useState(false);
+
+  const saveOgMeta = async () => {
+    setIsOgSaving(true);
+    try {
+      const res = await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sections,
+          title: editableTitle,
+          hidden_sections: Array.from(hiddenSections),
+          photos,
+          ogTitle,
+          ogDescription,
+        }),
+      });
+      if (res.ok) {
+        setOgTimestamp(Date.now());
+        setIsOgMetaDirty(false);
+      }
+    } catch (err) {
+      console.error("Failed to save OG meta", err);
+    } finally {
+      setIsOgSaving(false);
+    }
+  };
+
   // 섹션 숨김
   const initialHidden = new Set<string>(
     Array.isArray((content as any)?.hidden_sections) ? (content as any).hidden_sections : []
@@ -361,6 +394,70 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
             </div>
           </div>
         )}
+
+        {/* 🖼️ 공유 OG 메타 및 이미지 관리 */}
+        <div className="mb-6 p-4 rounded-xl border border-neutral-800 bg-neutral-900/30 space-y-4">
+          <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
+            <h3 className="text-xs font-bold text-neutral-400">🖼️ 공유 OG 메타 및 이미지 관리</h3>
+            {isOgMetaDirty && (
+              <span className="text-[10px] text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded font-bold">
+                ⚠️ 저장되지 않음
+              </span>
+            )}
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Preview */}
+            <div className="space-y-2">
+              <label className="text-[10px] text-neutral-500 font-semibold uppercase tracking-wider block">
+                OG 이미지 미리보기 (실시간)
+              </label>
+              <div className="relative rounded-lg overflow-hidden border border-neutral-800 aspect-[1.91/1] bg-neutral-950 flex items-center justify-center">
+                <img
+                  src={`/api/og/deal/${buildingId}?t=${ogTimestamp}`}
+                  alt="OG Preview"
+                  className="w-full h-full object-cover"
+                  key={ogTimestamp}
+                />
+              </div>
+            </div>
+            {/* Inputs */}
+            <div className="space-y-3 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-neutral-500 font-semibold uppercase tracking-wider block">
+                    OG 타이틀 (카톡 공유 제목)
+                  </label>
+                  <input
+                    type="text"
+                    value={ogTitle}
+                    onChange={(e) => { setOgTitle(e.target.value); setIsOgMetaDirty(true); }}
+                    placeholder={editableTitle || "투자설명서 제목"}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary/50 text-neutral-300 placeholder-neutral-600"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-neutral-500 font-semibold uppercase tracking-wider block">
+                    OG 설명 (카톡 공유 설명)
+                  </label>
+                  <textarea
+                    value={ogDescription}
+                    onChange={(e) => { setOgDescription(e.target.value); setIsOgMetaDirty(true); }}
+                    placeholder={title || "투자설명서 요약 설명"}
+                    rows={3}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary/50 text-neutral-300 placeholder-neutral-600 resize-none"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={saveOgMeta}
+                disabled={isOgSaving || !isOgMetaDirty}
+                className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-xs font-bold rounded-lg disabled:opacity-40 transition-all text-neutral-300 hover:text-white"
+              >
+                {isOgSaving ? "OG 저장 중..." : "💾 OG 정보 저장"}
+              </button>
+            </div>
+          </div>
+        </div>
 
         {/* Section editor */}
         <div className="space-y-4 mb-8">

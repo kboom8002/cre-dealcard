@@ -38,6 +38,17 @@ function qualityBadge(tier?: string): { label: string; bg: string; fg: string } 
   }
 }
 
+let fontBuffer: ArrayBuffer | null = null;
+
+async function getFontData() {
+  if (!fontBuffer) {
+    const res = await fetch("https://fonts.gstatic.com/s/notosanskr/v36/PbyxFmXiEBPT4ITbgNA5Cgms3VYcOA4.woff");
+    if (!res.ok) throw new Error("Failed to fetch font data");
+    fontBuffer = await res.arrayBuffer();
+  }
+  return fontBuffer;
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -95,14 +106,16 @@ export async function GET(
   const priceBand = building?.price_band ?? "";
   const assetType = building?.asset_type ?? "";
 
+  // Prioritize custom ogTitle/ogDescription from teaser or imBody
+  const customOgTitle = imBody?.ogTitle || teaser?.ogTitle;
+  const customOgDescription = imBody?.ogDescription || teaser?.ogDescription;
+
   // Use teaser title or fallback to assetType, strip '투자설명서' suffix for cleaner display
-  const rawTitle = teaser?.title || assetType || "상업용 부동산";
+  const rawTitle = customOgTitle || teaser?.title || assetType || "상업용 부동산";
   const displayTitle = rawTitle.replace(/\s*투자설명서$/, '');
 
   // Use teaser summary or a default
-  const displaySubtitle = teaser?.shortSummary
-    ? teaser.shortSummary
-    : `${regionLabel} · ${priceBand || "가격 비공개"} · 투자 검토 가능`;
+  const displaySubtitle = customOgDescription || teaser?.shortSummary || `${regionLabel} · ${priceBand || "가격 비공개"} · 투자 검토 가능`;
 
   // Extract metrics from IM document (heroCard or ssot_summary)
   const heroCard = imBody?.heroCard as Record<string, any> | undefined;
@@ -120,6 +133,13 @@ export async function GET(
   if (capRate !== null) metricPills.push({ label: "Cap Rate", value: `${capRate}%` });
   if (heroCard?.noiBaseBil) metricPills.push({ label: "NOI", value: `${heroCard.noiBaseBil}억` });
 
+  let fontData: ArrayBuffer | null = null;
+  try {
+    fontData = await getFontData();
+  } catch (err) {
+    console.error("Font loading failed:", err);
+  }
+
   return new ImageResponse(
     (
       <div
@@ -132,7 +152,7 @@ export async function GET(
           padding: "36px 44px",
           background: "linear-gradient(135deg, #0b0f19 0%, #1a1f33 50%, #0f1729 100%)",
           color: "white",
-          fontFamily: "sans-serif",
+          fontFamily: fontData ? "NotoSansKR" : "sans-serif",
         }}
       >
         {/* Top: badges */}
@@ -295,6 +315,19 @@ export async function GET(
     {
       width: 1200,
       height: 630,
+      fonts: fontData
+        ? [
+            {
+              name: "NotoSansKR",
+              data: fontData,
+              weight: 700,
+              style: "normal",
+            },
+          ]
+        : undefined,
+      headers: {
+        "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+      },
     },
   );
 }

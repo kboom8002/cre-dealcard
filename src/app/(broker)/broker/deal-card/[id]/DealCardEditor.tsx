@@ -10,6 +10,8 @@ interface DealCardEditorProps {
   initialDealPoints: string[];
   initialCautionPoints: string[];
   initialKakaoText: string;
+  initialOgTitle?: string;
+  initialOgDescription?: string;
 }
 
 type ToastType = "success" | "error" | null;
@@ -21,6 +23,8 @@ export function DealCardEditor({
   initialDealPoints,
   initialCautionPoints,
   initialKakaoText,
+  initialOgTitle = "",
+  initialOgDescription = "",
 }: DealCardEditorProps) {
   // ── State ──
   const [title, setTitle] = useState(initialTitle);
@@ -30,6 +34,9 @@ export function DealCardEditor({
   );
   const [cautionPoints, setCautionPoints] = useState<string[]>(initialCautionPoints);
   const [kakaoText, setKakaoText] = useState(initialKakaoText);
+  const [ogTitle, setOgTitle] = useState(initialOgTitle);
+  const [ogDescription, setOgDescription] = useState(initialOgDescription);
+  const [ogTimestamp, setOgTimestamp] = useState(Date.now());
 
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<{ type: ToastType; message: string }>({ type: null, message: "" });
@@ -42,9 +49,11 @@ export function DealCardEditor({
       summary !== initialSummary ||
       JSON.stringify(dealPoints.filter(Boolean)) !== JSON.stringify(initialDealPoints) ||
       JSON.stringify(cautionPoints.filter(Boolean)) !== JSON.stringify(initialCautionPoints) ||
-      kakaoText !== initialKakaoText
+      kakaoText !== initialKakaoText ||
+      ogTitle !== initialOgTitle ||
+      ogDescription !== initialOgDescription
     );
-  }, [title, summary, dealPoints, cautionPoints, kakaoText, initialTitle, initialSummary, initialDealPoints, initialCautionPoints, initialKakaoText]);
+  }, [title, summary, dealPoints, cautionPoints, kakaoText, ogTitle, ogDescription, initialTitle, initialSummary, initialDealPoints, initialCautionPoints, initialKakaoText, initialOgTitle, initialOgDescription]);
 
   // ── Toast auto-dismiss ──
   useEffect(() => {
@@ -79,10 +88,13 @@ export function DealCardEditor({
           dealPoints: dealPoints.filter(Boolean),
           cautionPoints: cautionPoints.filter(Boolean),
           kakaoText,
+          ogTitle,
+          ogDescription,
         }),
       });
       if (res.ok) {
         setToast({ type: "success", message: "딜카드가 저장되었습니다" });
+        setOgTimestamp(Date.now());
         // Update sessionStorage for KakaoShareButton
         sessionStorage.setItem(`kakao_text_${buildingId}`, kakaoText);
         window.dispatchEvent(new Event(`kakao_update_${buildingId}`));
@@ -204,6 +216,58 @@ export function DealCardEditor({
               className="w-full bg-muted/30 border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary focus:bg-transparent resize-y transition-all placeholder:text-muted-foreground/40 leading-relaxed"
               placeholder="카카오톡으로 공유할 때 함께 전송되는 문구"
             />
+          </div>
+
+          {/* ── 공유 OG 메타 및 이미지 관리 ── */}
+          <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                🖼️ 공유 OG 메타 및 이미지 관리
+              </span>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Preview */}
+              <div className="space-y-2">
+                <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
+                  OG 이미지 미리보기 (실시간)
+                </label>
+                <div className="relative rounded-lg overflow-hidden border border-border aspect-[1.91/1] bg-neutral-900 flex items-center justify-center">
+                  <img
+                    src={`/api/og/deal/${buildingId}?t=${ogTimestamp}`}
+                    alt="OG Preview"
+                    className="w-full h-full object-cover"
+                    key={ogTimestamp}
+                  />
+                </div>
+              </div>
+              {/* Inputs */}
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
+                    OG 타이틀 (카톡 공유 제목)
+                  </label>
+                  <input
+                    type="text"
+                    value={ogTitle}
+                    onChange={(e) => setOgTitle(e.target.value)}
+                    placeholder={title || "투자설명서 제목"}
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
+                    OG 설명 (카톡 공유 설명)
+                  </label>
+                  <textarea
+                    value={ogDescription}
+                    onChange={(e) => setOgDescription(e.target.value)}
+                    placeholder={summary || "투자설명서 요약 설명"}
+                    rows={3}
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary resize-none"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* ── 내부 참고용 (접이식) ── */}

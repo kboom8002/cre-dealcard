@@ -12,6 +12,8 @@ interface CreateMobileImButtonProps {
   vacancySignal?: string;
   fitSummary?: string;
   cautionSummary?: string;
+  existingPhotoUrls?: string[];
+  initialAddress?: string;
 }
 
 export function CreateMobileImButton({
@@ -23,6 +25,8 @@ export function CreateMobileImButton({
   vacancySignal,
   fitSummary,
   cautionSummary,
+  existingPhotoUrls,
+  initialAddress,
 }: CreateMobileImButtonProps) {
   const [showBottomSheet, setShowBottomSheet] = useState(false);
 
@@ -47,6 +51,8 @@ export function CreateMobileImButton({
         vacancySignal={vacancySignal}
         fitSummary={fitSummary}
         cautionSummary={cautionSummary}
+        existingPhotoUrls={existingPhotoUrls}
+        initialAddress={initialAddress}
       />
     </>
   );

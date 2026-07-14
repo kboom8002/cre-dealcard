@@ -141,6 +141,10 @@ export default async function BrokerDealCardResultPage({
   // 우선순위: layers.photos → IM body.photos
   const photoUrls: string[] = layerPhotos.length > 0 ? layerPhotos : imPhotos;
 
+  const extractedAddress = layers?.location?.address
+    || (building.raw_input?.match(/([가-힣]{2,4}[시도]\s*[가-힣]{2,4}[시군구]\s*[가-힣]{2,6}[읍면동](?:\s*\d+[가-힣]?)?)/) || [])[1]
+    || "";
+
   const hiddenFields = Array.isArray(building.hidden_fields)
     ? (building.hidden_fields as string[])
     : [];
@@ -280,6 +284,8 @@ export default async function BrokerDealCardResultPage({
           initialDealPoints={dealPoints.map(String)}
           initialCautionPoints={cautionPoints.map(String)}
           initialKakaoText={kakaoText}
+          initialOgTitle={(teaserDoc?.body as any)?.ogTitle || ""}
+          initialOgDescription={(teaserDoc?.body as any)?.ogDescription || ""}
         />
 
         {/* Boundary Note */}
@@ -342,6 +348,8 @@ export default async function BrokerDealCardResultPage({
             vacancySignal={building.vacancy_signal ?? undefined}
             fitSummary={building.fit_summary ?? undefined}
             cautionSummary={building.caution_summary ?? undefined}
+            existingPhotoUrls={photoUrls}
+            initialAddress={extractedAddress}
           />
           {/* 3순위: 매수자 보기 / 건물주 리포트 */}
           <div className="grid grid-cols-2 gap-2">

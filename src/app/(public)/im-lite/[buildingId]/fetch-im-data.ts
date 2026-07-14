@@ -173,7 +173,18 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
     logo_company_url: brokerProfile?.logo_company_url ?? null,
     logo_partner_url: brokerProfile?.logo_partner_url ?? null,
     // Contact email
-    contact_email: (brokerProfile as any)?.contact_email ?? null,
+    contact_email: await (async () => {
+      const emailVal = (brokerProfile as any)?.contact_email;
+      if (emailVal) return emailVal;
+      if (!ownerId) return null;
+      try {
+        const { data: { user } } = await supabase.auth.admin.getUserById(ownerId);
+        return user?.email ?? null;
+      } catch (err) {
+        console.error("[fetch-im-data] Failed to fetch auth email fallback:", err);
+        return null;
+      }
+    })(),
   };
 }
 

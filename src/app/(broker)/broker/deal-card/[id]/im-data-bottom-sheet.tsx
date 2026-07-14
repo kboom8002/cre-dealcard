@@ -16,6 +16,8 @@ interface ImDataBottomSheetProps {
   vacancySignal?: string;
   fitSummary?: string;
   cautionSummary?: string;
+  existingPhotoUrls?: string[];
+  initialAddress?: string;
 }
 
 type BottomSheetState = "idle" | "loading" | "success" | "error";
@@ -41,6 +43,8 @@ export function ImDataBottomSheet({
   vacancySignal,
   fitSummary,
   cautionSummary,
+  existingPhotoUrls,
+  initialAddress,
 }: ImDataBottomSheetProps) {
   const [state, setState] = useState<BottomSheetState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -77,7 +81,7 @@ export function ImDataBottomSheet({
   const [icName, setIcName] = useState<string>("");
 
   // Address search states
-  const [searchKeyword, setSearchKeyword] = useState("");
+  const [searchKeyword, setSearchKeyword] = useState(initialAddress || "");
   const [searchResults, setSearchResults] = useState<AddressResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
@@ -92,6 +96,7 @@ export function ImDataBottomSheet({
   const [dropdownRect, setDropdownRect] = useState<DOMRect | null>(null);
 
   // Photo states
+  const [existingUrls, setExistingUrls] = useState<string[]>(existingPhotoUrls || []);
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [photoPreviewUrls, setPhotoPreviewUrls] = useState<string[]>([]);
   const [photoCaptions, setPhotoCaptions] = useState<Record<number, string>>({});
@@ -99,6 +104,25 @@ export function ImDataBottomSheet({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [readinessScore, setReadinessScore] = useState(0);
+
+  // Sync props when opening/changing
+  useEffect(() => {
+    if (existingPhotoUrls) {
+      setExistingUrls(existingPhotoUrls);
+    }
+  }, [existingPhotoUrls]);
+
+  useEffect(() => {
+    if (isOpen && initialAddress) {
+      setSearchKeyword(initialAddress);
+      if (!address) {
+        const timer = setTimeout(() => {
+          handleAddressSearch(initialAddress);
+        }, 100);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [initialAddress, isOpen]);
 
   // 간이 Readiness 계산 로직 (바텀시트 내부 표시용)
   useEffect(() => {
@@ -110,11 +134,11 @@ export function ImDataBottomSheet({
     if (monthlyRent && Number(monthlyRent) > 0) score += 20;
     if (vacancyPct !== "" || vacancySignal) score += 10;
     if (brokerHighlight) score += 5;
-    if (photoFiles.length > 0) score += 10;
+    if (existingUrls.length > 0 || photoFiles.length > 0) score += 10;
     
     // Max 100
     setReadinessScore(Math.min(score, 100));
-  }, [areaSignal, priceBand, assetType, address, pnu, monthlyRent, vacancyPct, vacancySignal, brokerHighlight, photoFiles]);
+  }, [areaSignal, priceBand, assetType, address, pnu, monthlyRent, vacancyPct, vacancySignal, brokerHighlight, existingUrls, photoFiles]);
 
   // 드롭다운 위치 계산 (portal용)
   const updateDropdownRect = () => {
@@ -210,7 +234,7 @@ export function ImDataBottomSheet({
         resolved_pnu: pnu || undefined,
         broker_highlight: brokerHighlight || undefined,
         direct_data: Object.keys(directData).length > 0 ? directData : undefined,
-        photo_urls: uploadedPhotoUrls.length > 0 ? uploadedPhotoUrls : undefined,
+        photo_urls: [...existingUrls, ...uploadedPhotoUrls].length > 0 ? [...existingUrls, ...uploadedPhotoUrls] : undefined,
         photo_captions: Object.keys(photoCaptions).length > 0 ? photoCaptions : undefined,
         floor_leases: floorLeases.length > 0 ? floorLeases : undefined,
         logistics,
@@ -299,8 +323,8 @@ export function ImDataBottomSheet({
   }
 
   // 주소 검색 (실제 API 호출)
-  const handleAddressSearch = async () => {
-    const keyword = searchKeyword.trim();
+  const handleAddressSearch = async (overrideKeyword?: string) => {
+    const keyword = (overrideKeyword !== undefined ? overrideKeyword : searchKeyword).trim();
     if (!keyword || keyword.length < 2) {
       setSearchResults([]);
       setShowResults(false);
@@ -651,11 +675,34 @@ export function ImDataBottomSheet({
               <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">점수 +10</span>
             </label>
             <div className="flex gap-2 overflow-x-auto pb-2 snap-x">
+              {/* Existing Photos */}
+              {existingUrls.map((url, idx) => (
+                <div key={`existing-${idx}`} className="shrink-0 snap-start flex flex-col items-center gap-1">
+                  <div className="relative">
+                    <img src={url} alt={`Existing ${idx}`} className="w-20 h-20 object-cover rounded-lg border border-border" />
+                    <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[8px] px-1 rounded font-bold">기존</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExistingUrls(prev => prev.filter((_, i) => i !== idx));
+                      }}
+                      className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="h-5" />
+                </div>
+              ))}
+
+              {/* Newly Uploaded Photos */}
               {photoPreviewUrls.map((url, idx) => (
-                <div key={idx} className="shrink-0 snap-start flex flex-col items-center gap-1">
+                <div key={`new-${idx}`} className="shrink-0 snap-start flex flex-col items-center gap-1">
                   <div className="relative">
                     <img src={url} alt={`Preview ${idx}`} className="w-20 h-20 object-cover rounded-lg border border-border" />
+                    <span className="absolute bottom-1 left-1 bg-indigo-600/80 text-white text-[8px] px-1 rounded font-bold">신규</span>
                     <button
+                      type="button"
                       onClick={() => {
                         const newFiles = [...photoFiles];
                         newFiles.splice(idx, 1);
@@ -687,8 +734,10 @@ export function ImDataBottomSheet({
                   />
                 </div>
               ))}
-              {photoFiles.length < 12 && (
+
+              {(existingUrls.length + photoFiles.length) < 12 && (
                 <button
+                  type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="w-20 h-20 shrink-0 snap-start rounded-lg border-2 border-dashed border-border/60 hover:border-primary/50 flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors bg-secondary/30"
                 >
@@ -710,7 +759,7 @@ export function ImDataBottomSheet({
                 if (validFiles.length < e.target.files.length) {
                   alert("10MB 이상의 파일은 제외되었습니다.");
                 }
-                const files = validFiles.slice(0, 12 - photoFiles.length);
+                const files = validFiles.slice(0, 12 - (existingUrls.length + photoFiles.length));
                 setPhotoFiles((prev) => [...prev, ...files]);
                 const newUrls = files.map((f) => URL.createObjectURL(f));
                 setPhotoPreviewUrls((prev) => [...prev, ...newUrls]);

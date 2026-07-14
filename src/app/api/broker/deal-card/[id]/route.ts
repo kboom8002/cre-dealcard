@@ -16,6 +16,8 @@ const UpdateSchema = z.object({
     maintenanceFee: z.number().optional(),
   }).optional(),
   curiosityScore: z.number().optional(),
+  ogTitle: z.string().optional(),
+  ogDescription: z.string().optional(),
 });
 
 export async function PATCH(
@@ -66,6 +68,8 @@ export async function PATCH(
     if (updateData.cautionPoints !== undefined) updatedBody.cautionPoints = updateData.cautionPoints;
     if (updateData.kakaoText !== undefined) updatedBody.kakaoText = updateData.kakaoText;
     if (updateData.pricing !== undefined) updatedBody.pricing = updateData.pricing;
+    if (updateData.ogTitle !== undefined) updatedBody.ogTitle = updateData.ogTitle;
+    if (updateData.ogDescription !== undefined) updatedBody.ogDescription = updateData.ogDescription;
 
     // Update document_objects (body + markdown for kakaoText)
     const docUpdate: Record<string, unknown> = { body: updatedBody };

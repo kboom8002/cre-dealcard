@@ -15,6 +15,8 @@ export async function PUT(
   let newTitle: string | undefined;
   let hiddenSections: string[] | undefined;
   let photos: Array<{ url: string; caption?: string; order?: number }> | undefined;
+  let ogTitle: string | undefined;
+  let ogDescription: string | undefined;
 
   try {
     const body = await req.json();
@@ -22,6 +24,8 @@ export async function PUT(
     newTitle = body.title;
     hiddenSections = body.hidden_sections;
     photos = body.photos;
+    ogTitle = body.ogTitle;
+    ogDescription = body.ogDescription;
     if (!sections || !Array.isArray(sections)) {
       return NextResponse.json({ error: "Invalid 'sections' payload" }, { status: 400 });
     }
@@ -48,13 +52,14 @@ export async function PUT(
 
   const content = (doc.body as Record<string, unknown>) || {};
   
-  // Merge the updated sections back into the content
   const updatedContent = {
     ...content,
     sections: sections,
     ...(newTitle ? { title: newTitle } : {}),
     ...(hiddenSections !== undefined ? { hidden_sections: hiddenSections } : {}),
     ...(photos !== undefined ? { photos } : {}),
+    ...(ogTitle !== undefined ? { ogTitle } : {}),
+    ...(ogDescription !== undefined ? { ogDescription } : {}),
   };
 
   const { error: updateErr } = await supabase

@@ -83,6 +83,9 @@ export async function brokerDealCardFromMemo(
 
   const layersData: Record<string, any> = {};
   if (coordinates) layersData.coordinates = coordinates;
+  if (addressQuery) {
+    layersData.location = { address: addressQuery };
+  }
   if (input.photoUrls && input.photoUrls.length > 0) {
     layersData.photos = input.photoUrls.map((url, i) => ({
       url,
