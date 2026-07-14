@@ -50,10 +50,12 @@ async function getFontData() {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const { searchParams } = new URL(request.url);
+  const type = searchParams.get("type") || "deal";
 
   // Fetch building data + latest IM doc
   let building: Record<string, string | null> | null = null;
@@ -144,8 +146,8 @@ export async function GET(
     (
       <div
         style={{
-          width: "100%",
-          height: "100%",
+          width: "1200px",
+          height: "630px",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
@@ -227,7 +229,7 @@ export async function GET(
             display: "flex",
             marginTop: "4px",
           }}>
-            프리미엄 투자설명서
+            {type === "im" ? "프리미엄 투자설명서" : "프리미엄 딜카드"}
           </div>
           <div
             style={{
@@ -285,7 +287,7 @@ export async function GET(
               display: "flex",
             }}
           >
-            DealCard
+            {type === "im" ? "Mobile IM" : "DealCard"}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             {readinessScore > 0 && (

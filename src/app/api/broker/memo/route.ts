@@ -35,15 +35,20 @@ export async function POST(req: Request) {
       .select('id')
       .single();
 
-    if (memoError && memoError.code === '42P01') {
-      const { data: fallbackData } = await supabase.from("activity_events").insert({
-        actor_id: user.id,
-        event_type: "memo_saved",
-        metadata: { memoText: memo, routingType: routingResult.type, routingSummary: routingResult.summary },
-      }).select('id').single();
-      if (fallbackData) memoId = fallbackData.id;
-    } else if (memoError) {
-      console.error("broker_memos insert error:", memoError);
+    if (memoError) {
+      // PostgREST returns PGRST205 when table doesn't exist in schema cache
+      // PostgreSQL returns 42P01 for "relation does not exist"
+      console.warn("broker_memos insert failed:", memoError.code, memoError.message);
+      try {
+        const { data: fallbackData } = await supabase.from("activity_events").insert({
+          actor_id: user.id,
+          event_type: "memo_saved",
+          metadata: { memoText: memo, routingType: routingResult.type, routingSummary: routingResult.summary },
+        }).select('id').single();
+        if (fallbackData) memoId = fallbackData.id;
+      } catch (fallbackErr) {
+        console.error("activity_events fallback also failed:", fallbackErr);
+      }
     } else if (memoData) {
       memoId = memoData.id;
     }

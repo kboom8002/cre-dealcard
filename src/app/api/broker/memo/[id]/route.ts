@@ -14,14 +14,28 @@ export async function DELETE(
 
     const supabase = createServiceClient();
 
-    // Verify ownership
+    // Try broker_memos first
     const { data: existing, error: fetchError } = await supabase
       .from("broker_memos")
       .select("user_id")
       .eq("id", id)
       .single();
 
-    if (fetchError || !existing) {
+    if (fetchError) {
+      // Table might not exist — try deleting from activity_events fallback
+      const { error: aeDeleteErr } = await supabase
+        .from("activity_events")
+        .delete()
+        .eq("id", id)
+        .eq("actor_id", user!.id);
+
+      if (aeDeleteErr) {
+        return NextResponse.json({ error: "메모를 찾을 수 없습니다." }, { status: 404 });
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    if (!existing) {
       return NextResponse.json({ error: "메모를 찾을 수 없습니다." }, { status: 404 });
     }
 

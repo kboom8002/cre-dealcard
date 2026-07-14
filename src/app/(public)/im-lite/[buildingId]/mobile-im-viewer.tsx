@@ -1033,7 +1033,7 @@ function BottomShareBar({ title, buildingId, docId, areaSignal, blindName, price
             : window.location.origin;
           
           const canonicalShareUrl = shareUrl.replace(window.location.origin, baseUrl);
-          const canonicalImageUrl = `${baseUrl}/api/og/deal/${buildingId}`;
+          const canonicalImageUrl = `${baseUrl}/api/og/deal/${buildingId}?type=im`;
 
           Kakao.Share.sendDefault({
             objectType: "feed",
@@ -1311,12 +1311,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
 
   return (
     <div className="min-h-screen bg-neutral-950">
-      {/* Draft Warning Banner */}
-      {doc.status !== "published" && (
-        <div className="bg-amber-500/10 border-b border-amber-500/20 text-amber-400 px-4 py-2 text-center text-xs font-bold">
-          ⚠️ 현재 검토 중인 초안 문서입니다. (외부 공개 전)
-        </div>
-      )}
+      {/* Draft Warning Banner removed */}
 
       {/* ── Sticky Top Bar ── */}
       <div className="sticky top-0 z-40 bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800/50">

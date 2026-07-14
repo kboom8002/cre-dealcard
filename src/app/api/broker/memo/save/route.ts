@@ -32,15 +32,17 @@ export async function POST(req: Request) {
       .single();
 
     if (memoError) {
-      if (memoError.code === '42P01') { // table does not exist
-         await supabase.from("activity_events").insert({
-           actor_id: user.id,
-           event_type: "memo_saved",
-           metadata: { memoText, routingType, routingSummary },
-         });
-         return NextResponse.json({ ok: true, data: { fallback: true } });
+      console.warn("broker_memos insert failed:", memoError.code, memoError.message);
+      try {
+        await supabase.from("activity_events").insert({
+          actor_id: user.id,
+          event_type: "memo_saved",
+          metadata: { memoText, routingType, routingSummary },
+        });
+        return NextResponse.json({ ok: true, data: { fallback: true } });
+      } catch (fallbackErr) {
+        console.error("activity_events fallback also failed:", fallbackErr);
       }
-      console.error("broker_memos insert error:", memoError);
       return NextResponse.json({ ok: false, error: memoError.message }, { status: 500 });
     }
 
@@ -72,26 +74,24 @@ export async function GET(req: Request) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      if (error.code === '42P01') {
-         // Fallback query from activity_events
-         const { data: fallbackData } = await supabase
-            .from("activity_events")
-            .select("*")
-            .eq("actor_id", user.id)
-            .eq("event_type", "memo_saved")
-            .order("created_at", { ascending: false });
-         
-         const mapped = (fallbackData || []).map(evt => ({
-            id: evt.id,
-            user_id: evt.actor_id,
-            memo_text: evt.metadata.memoText,
-            routing_type: evt.metadata.routingType,
-            routing_summary: evt.metadata.routingSummary,
-            created_at: evt.created_at
-         }));
-         return NextResponse.json({ ok: true, data: mapped });
-      }
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      console.warn("broker_memos select failed:", error.code, error.message);
+      // Fallback query from activity_events
+      const { data: fallbackData } = await supabase
+        .from("activity_events")
+        .select("*")
+        .eq("actor_id", user.id)
+        .eq("event_type", "memo_saved")
+        .order("created_at", { ascending: false });
+      
+      const mapped = (fallbackData || []).map((evt: any) => ({
+        id: evt.id,
+        user_id: evt.actor_id,
+        memo_text: evt.metadata?.memoText || '',
+        routing_type: evt.metadata?.routingType || 'general_note',
+        routing_summary: evt.metadata?.routingSummary || '',
+        created_at: evt.created_at
+      }));
+      return NextResponse.json({ ok: true, data: mapped });
     }
 
     return NextResponse.json({ ok: true, data });

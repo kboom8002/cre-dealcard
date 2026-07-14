@@ -37,7 +37,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   if (data) {
     const ogTitle = data.ogTitle || `${data.blindName} — ${data.priceBand} 투자설명서`;
     const ogDesc = data.ogDescription || `${data.areaSignal} 핵심 입지 · ${data.assetType} · 투자 검토 자료`;
-    const ogImageUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net'}/api/og/deal/${buildingId}`;
+    const ogImageUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net'}/api/og/deal/${buildingId}?type=im`;
 
     return {
       title: `${ogTitle} | 크리딜`,

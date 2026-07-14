@@ -413,7 +413,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
               </label>
               <div className="relative rounded-lg overflow-hidden border border-neutral-800 aspect-[1.91/1] bg-neutral-950 flex items-center justify-center">
                 <img
-                  src={`/api/og/deal/${buildingId}?t=${ogTimestamp}`}
+                  src={`/api/og/deal/${buildingId}?type=im&t=${ogTimestamp}`}
                   alt="OG Preview"
                   className="w-full h-full object-cover"
                   key={ogTimestamp}
