@@ -89,18 +89,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     || (body.shortSummary as string)
     || `${building?.area_signal || ""} 권역 블라인드 매각 매물`;
 
-  // OG 이미지: 건물 사진이 있으면 그것 사용, 없으면 동적 OG
-  const layerPhotosOg = ((building?.layers as Record<string, unknown>)?.photos as Array<{ url: string }>) || [];
-  const imPhotosOg: Array<{ url: string }> = Array.isArray(imBodyOg.photos)
-    ? imBodyOg.photos.filter((p: any) => p?.url)
-    : Array.isArray(imBodyOg.photo_urls) && imBodyOg.photo_urls.length > 0
-    ? imBodyOg.photo_urls.map((url: string) => ({ url }))
-    : [];
-  const ogPhotos = layerPhotosOg.length > 0 ? layerPhotosOg : imPhotosOg;
-  const ogImage = ogPhotos.length > 0 ? ogPhotos[0].url : `/api/og/deal/${id}`;
-
+  // OG 이미지: 항상 정규 1200×630 OG 이미지 사용 (건물 사진은 비정형 크기라 카카오톡 등에서 잘림)
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net';
-  const absoluteOgImage = ogImage.startsWith("http") ? ogImage : `${siteUrl}${ogImage}`;
+  const absoluteOgImage = `${siteUrl}/api/og/deal/${id}`;
 
   return {
     title: `${ogTitle} | 크리딜 DealCard`,

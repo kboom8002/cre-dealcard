@@ -147,15 +147,16 @@ export async function generateMobileIMHandler(
     external_data: externalData,
   });
 
-  // IM 제목: 권역 + 자산유형 (간결하게)
+  // IM 제목: CRE IM 업계 표준 문체 적용 (골든셋 참조: @/lib/ai/im-title-golden-set)
   const areaLabel = ssotRow.area_signal || "핵심 입지";
-  // asset_type에서 "~로 추정되는", "~으로 추정되는" 등 불필요한 수식 제거
+  // asset_type에서 불필요한 수식/추정 표현 제거
   const rawAssetType = ssotRow.asset_type || "상업용 자산";
   const cleanAssetType = rawAssetType
-    .replace(/(으로|로)\s*추정되는\s*/g, "")
+    .replace(/(으로|로)\s*추정(되는|됨|)\s*/g, "")
+    .replace(/\s*또는\s+[^\s]+\s*(계열로|계열)\s*(추정|)/g, "")  // "또는 다가구·상가주택 계열로 추정" 제거
     .replace(/\s+/g, " ")
     .trim();
-  const title = `${areaLabel} ${cleanAssetType} 투자설명서`;
+  const title = `${areaLabel} ${cleanAssetType} 매각`;
 
   const imDocPayload = {
     owner_id: userId,

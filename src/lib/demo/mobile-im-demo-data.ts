@@ -110,6 +110,8 @@ export interface MobileIMDocument {
   publicDataSources?: string[];
   ogTitle?: string | null;
   ogDescription?: string | null;
+  /** 서브제목 — 핵심 투자 하이라이트 헤드카피 */
+  heroSubtitle?: string | null;
   /** 데이터 충실도 뱃지 */
   dataQualityBadge?: {
     tier: 'verified' | 'partial' | 'reference' | 'draft';

@@ -20,163 +20,8 @@ const initKakao = () => {
   }
 };
 
-// ─── Voice Briefing Player ─────────────────────────────────────────────────
+// ─── Voice Briefing Player — 제거됨 (TTS 안정화 전까지 비활성) ─────────────
 
-function VoiceBriefingPlayer({ buildingId }: { buildingId: string }) {
-  const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'playing' | 'paused' | 'error'>('idle');
-  const [progress, setProgress] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const formatTime = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const handlePlay = async () => {
-    if (state === 'playing') {
-      audioRef.current?.pause();
-      setState('paused');
-      return;
-    }
-    if (state === 'paused' && audioRef.current) {
-      audioRef.current.play();
-      setState('playing');
-      return;
-    }
-
-    // Load audio
-    setState('loading');
-    try {
-      const audio = new Audio(`/api/public/im-lite/${buildingId}/tts`);
-      audioRef.current = audio;
-
-      audio.addEventListener('loadedmetadata', () => {
-        setDuration(audio.duration);
-        setState('ready');
-        audio.play();
-        setState('playing');
-      });
-
-      audio.addEventListener('canplay', () => {
-        if (state === 'loading') {
-          setDuration(audio.duration || 60);
-          audio.play();
-          setState('playing');
-        }
-      });
-
-      audio.addEventListener('timeupdate', () => {
-        setCurrentTime(audio.currentTime);
-        if (audio.duration > 0) {
-          setProgress((audio.currentTime / audio.duration) * 100);
-        }
-      });
-
-      audio.addEventListener('ended', () => {
-        setState('idle');
-        setProgress(0);
-        setCurrentTime(0);
-      });
-
-      audio.addEventListener('error', () => {
-        setState('error');
-      });
-
-      audio.load();
-    } catch {
-      setState('error');
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      audioRef.current?.pause();
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-    };
-  }, []);
-
-  if (state === 'error') {
-    return (
-      <div className="rounded-2xl bg-red-500/5 border border-red-500/20 p-3 mb-4">
-        <p className="text-xs text-red-400 text-center">음성 브리핑 생성에 실패했습니다</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-2xl bg-gradient-to-r from-violet-500/10 via-primary/10 to-indigo-500/10 border border-white/10 backdrop-blur-sm p-4 mb-5">
-      <div className="flex items-center gap-3">
-        {/* Play/Pause Button */}
-        <button
-          onClick={handlePlay}
-          disabled={state === 'loading'}
-          className={`relative w-12 h-12 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${
-            state === 'loading'
-              ? 'bg-primary/20 animate-pulse'
-              : state === 'playing'
-              ? 'bg-gradient-to-br from-violet-500 to-primary shadow-lg shadow-primary/25'
-              : 'bg-gradient-to-br from-violet-500/80 to-primary/80 hover:from-violet-500 hover:to-primary hover:shadow-lg hover:shadow-primary/25'
-          }`}
-          aria-label={state === 'playing' ? '일시정지' : '음성 브리핑 재생'}
-        >
-          {state === 'loading' ? (
-            <svg className="w-5 h-5 text-white animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          ) : state === 'playing' ? (
-            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <rect x="6" y="4" width="4" height="16" rx="1" />
-              <rect x="14" y="4" width="4" height="16" rx="1" />
-            </svg>
-          ) : (
-            <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          )}
-        </button>
-
-        {/* Info + Progress */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-sm font-bold text-white">🎧 음성 브리핑</span>
-            <span className="text-[10px] px-1.5 py-0.5 bg-primary/20 text-primary rounded-full font-medium">
-              ~1분
-            </span>
-            {state === 'loading' && (
-              <span className="text-[10px] text-neutral-500 animate-pulse">AI 음성 생성 중...</span>
-            )}
-          </div>
-
-          {/* Progress bar */}
-          <div className="flex items-center gap-2">
-            <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-violet-500 to-primary rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            {(state === 'playing' || state === 'paused') && (
-              <span className="text-[10px] tabular-nums text-neutral-500 shrink-0">
-                {formatTime(currentTime)} / {formatTime(duration)}
-              </span>
-            )}
-          </div>
-
-          {state === 'idle' && (
-            <p className="text-[10px] text-neutral-600 mt-1">
-              AI가 매물 핵심 정보를 요약해 읽어드립니다
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 // ─── IM Inquiry Bottom Sheet ───────────────────────────────────────────────
 function IMInquiryBottomSheet({
   buildingId, docId, brokerUserId, brokerName, blindName, onClose,
@@ -1006,7 +851,7 @@ function ShareButton({ title }: { title: string }) {
 }
 
 /** 카카오톡·LINE·링크복사 공유 버튼 모음 */
-function BottomShareBar({ title, buildingId, docId, areaSignal, blindName, priceBand, heroCard }: { title: string; buildingId: string; docId?: string; areaSignal?: string; blindName?: string; priceBand?: string; heroCard?: { capRateBase?: number } }) {
+function BottomShareBar({ title, buildingId, docId, areaSignal, blindName, priceBand, heroCard, ogTitle, ogDescription }: { title: string; buildingId: string; docId?: string; areaSignal?: string; blindName?: string; priceBand?: string; heroCard?: { capRateBase?: number }; ogTitle?: string | null; ogDescription?: string | null }) {
   const [copied, setCopied] = useState(false);
 
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
@@ -1038,12 +883,16 @@ function BottomShareBar({ title, buildingId, docId, areaSignal, blindName, price
           Kakao.Share.sendDefault({
             objectType: "feed",
             content: {
-              title: areaSignal && blindName && !blindName.includes(areaSignal)
-                ? `[${areaSignal}] ${blindName}`
-                : blindName || title || '투자 매물',
-              description: heroCard?.capRateBase
-                ? `매각 희망가 ${priceBand || ''} · Cap Rate ${heroCard.capRateBase}% · 크리딜 프리미엄 투자설명서`
-                : `${priceBand || ''} · ${areaSignal || ''} · 크리딜 프리미엄 투자설명서`,
+              title: ogTitle || (
+                areaSignal && blindName && !blindName.includes(areaSignal)
+                  ? `[${areaSignal}] ${blindName}`
+                  : blindName || title || '투자 매물'
+              ),
+              description: ogDescription || (
+                heroCard?.capRateBase
+                  ? `매각 희망가 ${priceBand || ''} · Cap Rate ${heroCard.capRateBase}% · 크리딜 프리미엄 투자설명서`
+                  : `${priceBand || ''} · ${areaSignal || ''} · 크리딜 프리미엄 투자설명서`
+              ),
               imageUrl: canonicalImageUrl,
               link: { mobileWebUrl: canonicalShareUrl, webUrl: canonicalShareUrl },
             },
@@ -1408,9 +1257,16 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
           </div>
 
           {/* Price band */}
-          <p className="text-3xl font-black text-primary mb-4">
+          <p className="text-3xl font-black text-primary mb-2">
             {doc.priceBand}
           </p>
+
+          {/* Subtitle — 핵심 투자 하이라이트 헤드카피 */}
+          {(doc as any).heroSubtitle && (
+            <p className="text-sm font-bold text-emerald-400/90 mb-4 leading-snug">
+              {(doc as any).heroSubtitle}
+            </p>
+          )}
 
 
 
@@ -1420,8 +1276,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
           </p>
         </div>
 
-        {/* ── Voice Briefing Player ── */}
-        <VoiceBriefingPlayer buildingId={buildingId} />
+        {/* ── Voice Briefing removed (TTS 안정화 전까지 비활성) ── */}
 
         {/* [C1] Hero Card — 핵심 투자 지표 요약 */}
         {doc.heroCard && <HeroCard data={doc.heroCard} />}
@@ -1597,6 +1452,8 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
         blindName={doc.blindName}
         priceBand={doc.priceBand}
         heroCard={doc.heroCard ? { capRateBase: doc.heroCard.capRateBase ?? undefined } : undefined}
+        ogTitle={doc.ogTitle}
+        ogDescription={doc.ogDescription}
       />
     </div>
   );

@@ -48,6 +48,15 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   const [isOgSaving, setIsOgSaving] = useState(false);
   const [isOgMetaDirty, setIsOgMetaDirty] = useState(false);
 
+  // Hero Content States
+  const [heroTitle, setHeroTitle] = useState((content as any)?.heroTitle || title || '');
+  const [heroSubtitle, setHeroSubtitle] = useState((content as any)?.heroSubtitle || '');
+  const [heroKeyPoint, setHeroKeyPoint] = useState(
+    (content as any)?.heroCard?.keyInvestmentPoint || (content as any)?.keyInvestmentPoint || ''
+  );
+  const [isHeroSaving, setIsHeroSaving] = useState(false);
+  const [isHeroDirty, setIsHeroDirty] = useState(false);
+
   const saveOgMeta = async () => {
     setIsOgSaving(true);
     try {
@@ -71,6 +80,33 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
       console.error("Failed to save OG meta", err);
     } finally {
       setIsOgSaving(false);
+    }
+  };
+
+  const saveHeroContent = async () => {
+    setIsHeroSaving(true);
+    try {
+      const res = await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sections,
+          title: heroTitle,
+          hidden_sections: Array.from(hiddenSections),
+          photos,
+          heroTitle,
+          heroSubtitle,
+          keyInvestmentPoint: heroKeyPoint,
+        }),
+      });
+      if (res.ok) {
+        setEditableTitle(heroTitle);
+        setIsHeroDirty(false);
+      }
+    } catch (err) {
+      console.error('Failed to save hero content', err);
+    } finally {
+      setIsHeroSaving(false);
     }
   };
 
@@ -394,6 +430,74 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
             </div>
           </div>
         )}
+
+        {/* 📋 투자 요약 편집 (Hero Content) */}
+        <div className="mb-6 p-4 rounded-xl border border-neutral-800 bg-neutral-900/30 space-y-4">
+          <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
+            <h3 className="text-xs font-bold text-neutral-400">📋 투자 요약 편집</h3>
+            {isHeroDirty && (
+              <span className="text-[10px] text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded font-bold">
+                ⚠️ 저장되지 않음
+              </span>
+            )}
+          </div>
+
+          {/* IM 뷰어 스타일 미리보기 + 편집 */}
+          <div className="rounded-xl bg-neutral-950 border border-neutral-800 p-5 space-y-4">
+            {/* 제목 */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-neutral-500 font-semibold uppercase tracking-wider block">
+                IM 제목 (공유 화면에 표시)
+              </label>
+              <input
+                type="text"
+                value={heroTitle}
+                onChange={(e) => { setHeroTitle(e.target.value); setIsHeroDirty(true); }}
+                placeholder="예: 강남역 초역세권 프라임 오피스 매각"
+                className="w-full bg-transparent border-b-2 border-neutral-700 focus:border-primary/70 text-xl font-black text-white placeholder-neutral-600 pb-2 outline-none transition-colors"
+              />
+            </div>
+
+            {/* 서브제목 — 핵심 투자 하이라이트 헤드카피 */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-neutral-500 font-semibold uppercase tracking-wider block">
+                서브제목 (핵심 투자 하이라이트 헤드카피)
+              </label>
+              <input
+                type="text"
+                value={heroSubtitle}
+                onChange={(e) => { setHeroSubtitle(e.target.value); setIsHeroDirty(true); }}
+                placeholder="예: 연 수익률 6.4% · 공실 Zero · 우량 임차 기반 안정 수익형"
+                className="w-full bg-transparent border-b-2 border-neutral-700 focus:border-emerald-500/70 text-lg font-bold text-primary placeholder-neutral-600 pb-2 outline-none transition-colors"
+              />
+            </div>
+
+            {/* 핵심 투자 포인트 */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-neutral-500 font-semibold uppercase tracking-wider block">
+                💡 핵심 투자 포인트
+              </label>
+              <div className="rounded-xl bg-gradient-to-r from-amber-500/5 via-yellow-500/5 to-orange-500/5 border border-amber-500/10 p-3">
+                <textarea
+                  value={heroKeyPoint}
+                  onChange={(e) => { setHeroKeyPoint(e.target.value); setIsHeroDirty(true); }}
+                  placeholder="예: 강남 핵심 상권 내 대로변 코너 입지로, 안정적인 임대 수익과 향후 개발 잠재력을 동시에 갖춘 투자 적격 자산입니다."
+                  rows={3}
+                  className="w-full bg-transparent text-xs text-neutral-300 placeholder-neutral-600 outline-none resize-none leading-relaxed"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 저장 버튼 */}
+          <button
+            onClick={saveHeroContent}
+            disabled={isHeroSaving || !isHeroDirty}
+            className="w-full py-2.5 bg-gradient-to-r from-violet-600/80 to-primary/80 hover:from-violet-600 hover:to-primary text-xs font-bold rounded-lg disabled:opacity-40 transition-all text-white"
+          >
+            {isHeroSaving ? '저장 중...' : '💾 투자 요약 저장'}
+          </button>
+        </div>
 
         {/* 🖼️ 공유 OG 메타 및 이미지 관리 */}
         <div className="mb-6 p-4 rounded-xl border border-neutral-800 bg-neutral-900/30 space-y-4">

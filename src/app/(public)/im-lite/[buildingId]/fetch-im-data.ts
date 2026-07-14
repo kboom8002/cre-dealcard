@@ -300,10 +300,11 @@ export async function fetchIMData(
     const brokerObj = buildBrokerObject(brokerProfile);
     await injectLatestMagazine(supabase, brokerObj);
     await injectBrokerStats(supabase, brokerObj);
+    const defaultBlindName = `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`;
     return {
       buildingId,
-      blindName: `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`,
-      fullName: `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`,
+      blindName: document.body.heroTitle || defaultBlindName,
+      fullName: defaultBlindName,
       areaSignal: ssotSummary.area_signal || "",
       assetType: ssotSummary.asset_type || "",
       priceBand: ssotSummary.price_band || "",
@@ -312,6 +313,7 @@ export async function fetchIMData(
       broker: brokerObj,
       ogTitle: document.body.ogTitle || null,
       ogDescription: document.body.ogDescription || null,
+      heroSubtitle: document.body.heroSubtitle || null,
       sections: (document.body.sections || []).map((s: any) => {
           if ("content" in s) return s;
           let icon = "📄";

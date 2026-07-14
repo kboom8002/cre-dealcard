@@ -112,9 +112,13 @@ export async function GET(
   const customOgTitle = imBody?.ogTitle || teaser?.ogTitle;
   const customOgDescription = imBody?.ogDescription || teaser?.ogDescription;
 
-  // Use teaser title or fallback to assetType, strip '투자설명서' suffix for cleaner display
+  // Use teaser title or fallback to assetType, clean up awkward analysis patterns
   const rawTitle = customOgTitle || teaser?.title || assetType || "상업용 부동산";
-  const displayTitle = rawTitle.replace(/\s*투자설명서$/, '');
+  const displayTitle = rawTitle
+    .replace(/\s*투자설명서$/, '')
+    .replace(/\s*또는\s+[^\s]+\s*(계열로|계열)\s*(추정|)/g, '')  // "또는 다가구·상가주택 계열로 추정" 제거
+    .replace(/(으로|로)\s*추정(되는|됨|)\s*/g, '')
+    .trim();
 
   // Use teaser summary or a default
   const displaySubtitle = customOgDescription || teaser?.shortSummary || `${regionLabel} · ${priceBand || "가격 비공개"} · 투자 검토 가능`;

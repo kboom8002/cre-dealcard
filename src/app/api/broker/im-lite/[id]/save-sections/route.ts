@@ -17,6 +17,9 @@ export async function PUT(
   let photos: Array<{ url: string; caption?: string; order?: number }> | undefined;
   let ogTitle: string | undefined;
   let ogDescription: string | undefined;
+  let heroTitle: string | undefined;
+  let heroSubtitle: string | undefined;
+  let keyInvestmentPoint: string | undefined;
 
   try {
     const body = await req.json();
@@ -26,6 +29,9 @@ export async function PUT(
     photos = body.photos;
     ogTitle = body.ogTitle;
     ogDescription = body.ogDescription;
+    heroTitle = body.heroTitle;
+    heroSubtitle = body.heroSubtitle;
+    keyInvestmentPoint = body.keyInvestmentPoint;
     if (!sections || !Array.isArray(sections)) {
       return NextResponse.json({ error: "Invalid 'sections' payload" }, { status: 400 });
     }
@@ -60,6 +66,9 @@ export async function PUT(
     ...(photos !== undefined ? { photos } : {}),
     ...(ogTitle !== undefined ? { ogTitle } : {}),
     ...(ogDescription !== undefined ? { ogDescription } : {}),
+    ...(heroTitle !== undefined ? { heroTitle } : {}),
+    ...(heroSubtitle !== undefined ? { heroSubtitle } : {}),
+    ...(keyInvestmentPoint !== undefined ? { heroCard: { ...((content as Record<string, any>).heroCard || {}), keyInvestmentPoint } } : {}),
   };
 
   const { error: updateErr } = await supabase
