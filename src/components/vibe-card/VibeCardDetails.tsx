@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { ChevronDown, Award, HelpCircle, Share2, Sparkles, Languages } from "lucide-react";
+import { ChevronDown, Award, HelpCircle, Share2, Sparkles } from "lucide-react";
 import type { VibeTemplateCssVars } from "@/lib/vibe/vibe-templates";
 
 // ── Types ─────────────────────────────────────────────
@@ -294,48 +294,6 @@ export function VibeCardDetails({
         </AccordionItem>
       )}
 
-
-      {/* ── 3. 서비스 안내 ── */}
-      {professional && (
-        <AccordionItem
-          title="서비스 안내 및 요율"
-          icon={<Languages size={18} />}
-          isOpen={openSection === "services"}
-          onClick={() => toggleSection("services")}
-          css={css}
-        >
-          <div className="space-y-3.5">
-            <div className="space-y-2.5 text-[11px]">
-              {professional.feePolicy && (
-                <div className="flex justify-between py-1.5 border-b border-white/5">
-                  <span className="opacity-60">수수료 정책</span>
-                  <span className="font-bold text-right max-w-[200px]">{professional.feePolicy}</span>
-                </div>
-              )}
-              {professional.consultMethods.length > 0 && (
-                <div className="flex justify-between py-1.5 border-b border-white/5">
-                  <span className="opacity-60">가능한 상담 형태</span>
-                  <span className="font-bold">{professional.consultMethods.join(" · ")}</span>
-                </div>
-              )}
-              {professional.responseTimeHours && (
-                <div className="flex justify-between py-1.5 border-b border-white/5">
-                  <span className="opacity-60">예상 응답 대기시간</span>
-                  <span className="font-bold" style={{ color: css.accentColor }}>
-                    {professional.responseTimeHours}시간 내 응답
-                  </span>
-                </div>
-              )}
-              {professional.languages.length > 0 && (
-                <div className="flex justify-between py-1.5 border-b border-white/5">
-                  <span className="opacity-60">상담 가능한 외국어</span>
-                  <span className="font-bold">{professional.languages.join(" · ")}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </AccordionItem>
-      )}
 
       {/* ── 4. 소셜 채널 ── */}
       {professional && (professional.naverBlogUrl || professional.youtubeUrl || professional.linkedinUrl) && (

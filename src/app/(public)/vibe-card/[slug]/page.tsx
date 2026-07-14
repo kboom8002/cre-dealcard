@@ -111,6 +111,13 @@ async function getVibeCardData(slug: string) {
     }
   }
 
+  // 가입 이메일 fallback
+  let authEmail: string | undefined;
+  if (!bp?.contact_email && profile?.id) {
+    const { data: { user: authUser } } = await supabase.auth.admin.getUserById(profile.id);
+    authEmail = authUser?.email || undefined;
+  }
+
   return {
     profile: {
       id: profile.id,
@@ -182,7 +189,7 @@ async function getVibeCardData(slug: string) {
     },
     logoCompanyUrl: (bp?.logo_company_url as string) || null,
     logoPartnerUrl: (bp?.logo_partner_url as string) || null,
-    email: (bp?.contact_email as string) || undefined,
+    email: (bp?.contact_email as string) || authEmail || undefined,
     imListings: (imListings ?? []).map(b => ({
       buildingId: b.id,
       label: b.area_signal

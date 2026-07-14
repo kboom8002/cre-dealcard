@@ -60,6 +60,13 @@ export default function LoginPage() {
           )}
         </div>
 
+        {/* Forgot Password */}
+        <div className="text-right -mt-2">
+          <Link href="/reset-password" className="text-xs text-neutral-500 hover:text-primary transition-colors">
+            비밀번호를 잊으셨나요?
+          </Link>
+        </div>
+
         {/* Submit */}
         <button
           type="submit"
