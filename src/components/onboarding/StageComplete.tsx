@@ -92,6 +92,7 @@ export function StageComplete({ onGoToDashboard }: StageCompleteProps) {
             region: data.region ?? undefined,
             role: data.role ?? 'expert',
             user_name: data.userName ?? undefined,
+            user_phone: data.userPhone ?? undefined,
           }),
         });
       } catch {

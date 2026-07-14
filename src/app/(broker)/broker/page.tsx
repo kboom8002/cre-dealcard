@@ -54,8 +54,10 @@ export default async function BrokerPage() {
     }
   }
 
-  const userName = profile?.display_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "중개인";
-  const userPhotoUrl = profile?.photo_url || null;
+  // brokerProfileData는 아래 Promise.all에서 조회됨 — 여기서는 임시 변수만 선언
+  // (실제 값은 Promise.all 이후에 설정)
+  let userName = "중개인";
+  let userPhotoUrl: string | null = null;
 
   // ── KPI 데이터 병렬 조회 ──
   const [
@@ -135,7 +137,7 @@ export default async function BrokerPage() {
     // Vibe Card slug 조회
     supabase
       .from("broker_profiles")
-      .select("slug")
+      .select("slug, name, avatar_url, photo_url")
       .eq("user_id", user.id)
       .maybeSingle(),
     // 내 딜 체류일 계산용 created_at 목록
@@ -157,6 +159,17 @@ export default async function BrokerPage() {
       .eq("actor_id", user.id)
       .gte("created_at", new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
   ]);
+
+  // ── 이름/사진 fallback 체인 (profiles → broker_profiles → auth metadata → email) ──
+  userName = profile?.display_name
+    || (brokerProfileData?.name as string | null)
+    || user.user_metadata?.full_name
+    || user.email?.split("@")[0]
+    || "중개인";
+  userPhotoUrl = profile?.photo_url
+    || (brokerProfileData?.avatar_url as string | null)
+    || (brokerProfileData?.photo_url as string | null)
+    || null;
 
   const sMatchCount =
     (matchResults?.filter((m) => m.grade === "S").length ?? 0) +

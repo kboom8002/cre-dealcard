@@ -111,8 +111,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── 2. Upsert broker_profiles with vibe data ────────────────────────────
-    if (session.vibe_vector) {
+    // ── 2. Upsert broker_profiles ────────────────────────────────────────────
+    {
       // slug가 없으면 자동 생성 (vibe card URL용)
       let existingSlug: string | null = null;
       const { data: existingBP } = await supabase
@@ -132,14 +132,19 @@ export async function POST(req: NextRequest) {
       const brokerUpsertData: Record<string, unknown> = {
         user_id: user.id,
         slug: existingSlug,
-        vibe_vector: session.vibe_vector,
-        vibe_vti: session.vti_type,
-        vibe_complement: session.complement_vector,
-        vibe_template_id: session.matched_template_id,
-        vibe_valence: (session.before_scores as { valence?: number } | null)?.valence ?? null,
-        vibe_trust: (session.before_scores as { trust?: number } | null)?.trust ?? null,
-        vibe_analyzed_at: new Date().toISOString(),
       };
+
+      // Vibe 데이터 (사진 분석 결과가 있을 때만)
+      if (session.vibe_vector) {
+        brokerUpsertData['vibe_vector'] = session.vibe_vector;
+        brokerUpsertData['vibe_vti'] = session.vti_type;
+        brokerUpsertData['vibe_complement'] = session.complement_vector;
+        brokerUpsertData['vibe_template_id'] = session.matched_template_id;
+        brokerUpsertData['vibe_valence'] = (session.before_scores as { valence?: number } | null)?.valence ?? null;
+        brokerUpsertData['vibe_trust'] = (session.before_scores as { trust?: number } | null)?.trust ?? null;
+        brokerUpsertData['vibe_analyzed_at'] = new Date().toISOString();
+      }
+
       // 사진 URL을 avatar_url과 photo_url 양쪽에 저장 (일관성 보장)
       if (permanentPhotoUrl) {
         brokerUpsertData['avatar_url'] = permanentPhotoUrl;
@@ -148,6 +153,18 @@ export async function POST(req: NextRequest) {
       // 이름도 저장
       if (body.user_name) {
         brokerUpsertData['name'] = body.user_name;
+      }
+      // 온보딩 전문분야/지역을 broker_profiles에 매핑
+      if (body.region) {
+        const REGION_LABEL_MAP: Record<string, string> = {
+          seongsu_seongdong: '성수/성동',
+          gangnam_seocho: '강남/서초',
+          yeouido_mapo: '여의도/마포',
+          cbd: 'CBD',
+          pangyo: '판교/분당',
+          other: '기타',
+        };
+        brokerUpsertData['specialty_regions'] = [REGION_LABEL_MAP[body.region] || body.region];
       }
 
       const { error: profileErr } = await supabase
@@ -160,9 +177,9 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 3. Update profiles table ────────────────────────────────────────────
+    // NOTE: specialty/region은 profiles 테이블에 컬럼이 없으므로 제외
+    // (onboarding_sessions에 이미 저장됨, broker_profiles에는 specialty_regions으로 매핑)
     const profileUpdates: Record<string, unknown> = { role: 'broker' };
-    if (body.specialty) profileUpdates['specialty'] = body.specialty;
-    if (body.region) profileUpdates['region'] = body.region;
     if (body.user_name) profileUpdates['display_name'] = body.user_name;
     if (body.user_phone) profileUpdates['phone'] = body.user_phone;
     // 온보딩 사진이 있으면 profiles.photo_url에도 저장 (영구 URL 사용)

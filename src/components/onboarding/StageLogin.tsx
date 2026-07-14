@@ -86,40 +86,55 @@ export function StageLogin({ onComplete, onSkip }: StageLoginProps) {
     setIsSubmitting(true);
     setPhase('submitting');
 
-    try {
-      // Save profile via API
-      const res = await fetch('/api/onboarding/save-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session_token: data.sessionToken,
-          specialty: finalSpecialty,
-          region: finalRegion,
-          role: data.role ?? 'expert',
-          user_name: name.trim() || undefined,
-          user_phone: phone.trim() || undefined,
-        }),
-      });
+    const savePayload = {
+      session_token: data.sessionToken,
+      specialty: finalSpecialty,
+      region: finalRegion,
+      role: data.role ?? 'expert',
+      user_name: name.trim() || undefined,
+      user_phone: phone.trim() || undefined,
+    };
 
-      if (res.ok) {
-        await trackOnboardingEvent('onboard_profile_done', data.sessionToken, {
-          specialty: finalSpecialty,
-          region: finalRegion,
+    let saveSuccess = false;
+
+    // 1차 시도 + 실패 시 1회 재시도
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch('/api/onboarding/save-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(savePayload),
         });
-        setStage('radar');
-        onComplete();
-      } else {
-        // Even if save fails, continue (non-blocking)
-        setStage('radar');
-        onComplete();
+
+        if (res.ok) {
+          const result = await res.json();
+          if (result.ok) {
+            saveSuccess = true;
+            break;
+          }
+        }
+      } catch {
+        // 네트워크 오류 — 재시도
       }
-    } catch {
-      // Network error — still continue
-      setStage('radar');
-      onComplete();
-    } finally {
-      setIsSubmitting(false);
+
+      // 재시도 전 잠시 대기
+      if (attempt === 0) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     }
+
+    if (!saveSuccess) {
+      console.warn('[StageLogin] save-profile 실패 — 대시보드에서 프로필을 확인해주세요.');
+    }
+
+    await trackOnboardingEvent('onboard_profile_done', data.sessionToken, {
+      specialty: finalSpecialty,
+      region: finalRegion,
+      saveSuccess,
+    });
+    setStage('radar');
+    onComplete();
+    setIsSubmitting(false);
   };
 
   return (
