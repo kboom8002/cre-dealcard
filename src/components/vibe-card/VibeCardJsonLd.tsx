@@ -66,6 +66,7 @@ export interface VibeCardJsonLdProps {
     activeCount: number;
   };
   slug: string;
+  faqItems?: Array<{q: string; a: string}>;
 }
 
 export function VibeCardJsonLd({
@@ -75,6 +76,7 @@ export function VibeCardJsonLd({
   professional,
   stats,
   slug,
+  faqItems,
 }: VibeCardJsonLdProps) {
   const name = profile.displayName;
   const companyName = profile.company || `${name} 공인중개사무소`;
@@ -146,61 +148,22 @@ export function VibeCardJsonLd({
     },
   };
 
-  // 4. FAQ Schema
-  const region = broker?.specialtyRegions[0] || "서울 주요 권역";
-  const assets = broker?.specialtyAssets.join(", ") || "상업용 부동산";
-  const experience = professional?.careerStartYear
-    ? `${new Date().getFullYear() - professional.careerStartYear}년`
-    : null;
-  const vtiName = vibe?.vtiMeta?.labelKo || "Vibe AI 분석";
+  // 4. FAQ Schema — only render when user has defined FAQ items
+  const validFaq = (faqItems || []).filter(item => item.q?.trim() && item.a?.trim());
 
-  const faqSchema = {
+  const faqSchema = validFaq.length > 0 ? {
     "@context": "https://schema.org",
     "@type": "FAQPage",
     "@id": `${pageUrl}#faq`,
-    "mainEntity": [
-      {
-        "@type": "Question",
-        "name": `${name} 공인중개사의 주요 전문 분야와 권역은 어디인가요?`,
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": `${name} 공인중개사는 ${region} 지역을 중심으로 ${assets} 임대 및 매매 거래를 전문으로 진행하고 있습니다.${
-            experience ? ` 해당 분야에서 약 ${experience}의 풍부한 실무 경력을 보유하고 있습니다.` : ""
-          } 최근 DealCard 플랫폼에서 총 ${stats.dealCount}건의 딜카드를 관리 중입니다.`,
-        },
+    "mainEntity": validFaq.map(item => ({
+      "@type": "Question",
+      "name": item.q,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": item.a,
       },
-      {
-        "@type": "Question",
-        "name": "상담 및 수수료 정책은 어떻게 되나요?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": `${
-            professional?.consultMethods && professional.consultMethods.length > 0
-              ? `${professional.consultMethods.join(" 및 ")}을 통해 상담이 가능하며, `
-              : ""
-          }${
-            professional?.feePolicy
-              ? `수수료는 '${professional.feePolicy}' 정책을 따르고 있습니다.`
-              : "구체적인 수수료 및 계약 조건은 개별 상담 시 상세하게 안내해 드립니다."
-          }${
-            professional?.responseTimeHours
-              ? ` 문의 시 보통 ${professional.responseTimeHours}시간 이내에 신속하게 회신을 드립니다.`
-              : ""
-          }`,
-        },
-      },
-      {
-        "@type": "Question",
-        "name": "중개사의 VTI 스타일 분석 결과는 무엇을 의미하나요?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": `DealCard Vibe AI가 중개사의 실제 사진과 프로필 데이터를 기반으로 시각적/전문적 스타일을 분석한 결과입니다. ${name} 중개사는 '${vtiName}' 유형으로 분류되었으며, 분석 결과 ${
-            vibe?.trust ? `신뢰 지수 ${Math.round(vibe.trust * 100)}%` : ""
-          }${vibe?.valence ? `, 호감도 ${Math.round(vibe.valence * 100)}%` : ""}의 고유한 Vibe 템플릿과 상보적 비주얼이 자동 적용되어 있습니다.`,
-        },
-      },
-    ],
-  };
+    })),
+  } : null;
 
   return (
     <>
@@ -212,10 +175,12 @@ export function VibeCardJsonLd({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(agentSchema) }}
       />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
-      />
+      {faqSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+        />
+      )}
     </>
   );
 }

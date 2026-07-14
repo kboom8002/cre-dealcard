@@ -59,6 +59,12 @@ const ProfileUpdateSchema = z.object({
   card_name: z.string().max(30).optional(),
   card_title: z.string().max(50).optional(),
   contact_email: z.string().email().max(200).optional(),
+
+  // FAQ (최대 7개 Q&A)
+  faq_items: z.array(z.object({
+    q: z.string().max(200),
+    a: z.string().max(1000),
+  })).max(7).optional(),
 });
 
 /** broker_profiles 테이블에서 조회할 v2 확장 컬럼 목록 */
@@ -79,6 +85,8 @@ const BROKER_PROFILE_COLUMNS = [
   'seo_summary', 'is_public',
   // v2 GEO
   'office_address', 'office_district',
+  // FAQ
+  'faq_items',
 ].join(', ');
 
 /** broker_profiles 테이블에 upsert 할 v2 필드 키 목록 */
@@ -92,6 +100,7 @@ const BROKER_UPSERT_KEYS = [
   'kakao_channel', 'naver_blog_url', 'youtube_url', 'linkedin_url',
   'seo_summary', 'is_public',
   'office_address', 'office_district',
+  'faq_items',
 ] as const;
 
 export async function GET(req: NextRequest) {
@@ -197,4 +206,9 @@ export async function PUT(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+// PATCH is an alias for PUT (for partial updates like FAQ)
+export async function PATCH(req: NextRequest) {
+  return PUT(req);
 }

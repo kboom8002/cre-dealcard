@@ -17,6 +17,9 @@ import {
   ChevronLeft,
   Upload,
   Trash2,
+  HelpCircle,
+  Plus,
+  X,
 } from "lucide-react";
 import type { VibeTemplateCssVars } from "@/lib/vibe/vibe-templates";
 import {
@@ -45,6 +48,7 @@ interface VibeManageData {
     url: string;
     marketTemp?: string;
   } | null;
+  faqItems?: Array<{q: string; a: string}>;
 }
 
 interface Props {
@@ -162,6 +166,23 @@ export function VibeCardManage({ data }: Props) {
   const [regenerating, setRegenerating] = useState(false);
   const [regenStatus, setRegenStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // FAQ state
+  const FAQ_PLACEHOLDERS = [
+    "주요 전문 분야와 활동 권역은 어디인가요?",
+    "상담 및 수수료 정책은 어떻게 되나요?",
+    "매물 임장이나 현장 방문이 가능한가요?",
+    "계약 진행 절차는 어떻게 되나요?",
+    "법인 대상 투자자문도 하시나요?",
+    "매물 정보는 얼마나 자주 업데이트되나요?",
+    "긴급 상담이나 야간 연락도 가능한가요?",
+  ];
+  const initFaq = (data.faqItems && data.faqItems.length > 0)
+    ? data.faqItems.map(item => ({ q: item.q || "", a: item.a || "" }))
+    : [{ q: "", a: "" }];
+  const [faqItems, setFaqItems] = useState<Array<{q: string; a: string}>>(initFaq);
+  const [faqSaving, setFaqSaving] = useState(false);
+  const [faqSaved, setFaqSaved] = useState(false);
 
   const siteUrl = typeof window !== "undefined" ? window.location.origin : "https://www.credeal.net";
   const vibeCardUrl = `${siteUrl}/vibe-card/${data.slug}`;
@@ -613,6 +634,98 @@ export function VibeCardManage({ data }: Props) {
             </div>
           </motion.div>
         )}
+
+        {/* ── FAQ Editor ── */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <HelpCircle className="w-4 h-4" style={{ color: accentColor }} />
+              <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">자주 묻는 질문 (FAQ)</p>
+            </div>
+            <button
+              onClick={async () => {
+                setFaqSaving(true);
+                try {
+                  const validItems = faqItems.filter(item => item.q.trim() || item.a.trim());
+                  const res = await fetch("/api/broker/profile", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ faq_items: validItems }),
+                  });
+                  if (!res.ok) throw new Error();
+                  setFaqSaved(true);
+                  setTimeout(() => setFaqSaved(false), 2000);
+                } catch {
+                  alert("FAQ 저장에 실패했습니다.");
+                } finally {
+                  setFaqSaving(false);
+                }
+              }}
+              disabled={faqSaving}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-colors"
+              style={{
+                backgroundColor: faqSaved ? '#22c55e20' : `${accentColor}15`,
+                color: faqSaved ? '#22c55e' : accentColor,
+              }}
+            >
+              {faqSaved ? <><Check className="w-3 h-3" /> 저장됨</> : faqSaving ? "저장 중..." : "저장"}
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {faqItems.map((item, idx) => (
+              <div key={idx} className="p-3 rounded-xl border border-neutral-800 bg-neutral-900/50 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold" style={{ color: accentColor }}>Q{idx + 1}</span>
+                  {faqItems.length > 1 && (
+                    <button
+                      onClick={() => setFaqItems(prev => prev.filter((_, i) => i !== idx))}
+                      className="p-0.5 rounded hover:bg-neutral-700 text-neutral-500 hover:text-red-400 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={item.q}
+                  onChange={(e) => {
+                    const updated = [...faqItems];
+                    updated[idx] = { ...updated[idx], q: e.target.value };
+                    setFaqItems(updated);
+                  }}
+                  placeholder={FAQ_PLACEHOLDERS[idx] || "질문을 입력하세요"}
+                  className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-3 py-2 text-xs text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors"
+                />
+                <textarea
+                  value={item.a}
+                  onChange={(e) => {
+                    const updated = [...faqItems];
+                    updated[idx] = { ...updated[idx], a: e.target.value };
+                    setFaqItems(updated);
+                  }}
+                  placeholder="답변을 입력하세요"
+                  rows={2}
+                  className="w-full bg-neutral-800/50 border border-neutral-700 rounded-lg px-3 py-2 text-xs text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:border-neutral-500 transition-colors resize-none"
+                />
+              </div>
+            ))}
+          </div>
+
+          {faqItems.length < 7 && (
+            <button
+              onClick={() => setFaqItems(prev => [...prev, { q: "", a: "" }])}
+              className="w-full flex items-center justify-center gap-1.5 p-2.5 rounded-xl border border-dashed border-neutral-700 text-neutral-500 hover:text-neutral-300 hover:border-neutral-500 transition-colors text-[11px] font-medium"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              질문 추가 (남은: {7 - faqItems.length}개)
+            </button>
+          )}
+
+          <p className="text-[10px] text-neutral-600 px-1">
+            💡 입력하지 않은 FAQ는 명함에 표시되지 않습니다.
+          </p>
+        </div>
 
         {/* ── Quick Links ── */}
         <div className="space-y-2">

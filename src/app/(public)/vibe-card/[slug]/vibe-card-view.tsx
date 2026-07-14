@@ -126,6 +126,7 @@ export interface VibeCardData {
   logoCompanyUrl?: string | null;
   logoPartnerUrl?: string | null;
   email?: string;
+  faqItems?: Array<{q: string; a: string}>;
 }
 
 export function VibeCardView({ data }: { data: VibeCardData }) {
@@ -159,6 +160,7 @@ export function VibeCardView({ data }: { data: VibeCardData }) {
         professional={professional}
         stats={stats}
         slug={slug}
+        faqItems={data.faqItems}
       />
 
       <div className="w-full max-w-sm space-y-6">
@@ -209,6 +211,7 @@ export function VibeCardView({ data }: { data: VibeCardData }) {
             template={template}
             professional={professional}
             stats={stats}
+            faqItems={data.faqItems}
           />
         </section>
 

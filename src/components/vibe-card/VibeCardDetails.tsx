@@ -80,6 +80,7 @@ interface VibeCardDetailsProps {
   template: VibeCardTemplate | null;
   professional: VibeCardProfessional | null;
   stats: VibeCardStats;
+  faqItems?: Array<{q: string; a: string}>;
 }
 
 // ── Accordion Item Component ──────────────────────────
@@ -161,6 +162,7 @@ export function VibeCardDetails({
   template,
   professional,
   stats,
+  faqItems,
 }: VibeCardDetailsProps) {
   const [openSection, setOpenSection] = useState<string | null>("professional");
 
@@ -182,47 +184,10 @@ export function VibeCardDetails({
     setOpenSection((prev) => (prev === section ? null : section));
   };
 
-  // Generate dynamic FAQs for SEO/AEO
-  const faqList = useMemo(() => {
-    const name = profile.displayName;
-    const region = broker?.specialtyRegions[0] || "서울 주요 권역";
-    const assets = broker?.specialtyAssets.join(", ") || "상업용 부동산";
-    const experience = professional?.careerStartYear
-      ? `${new Date().getFullYear() - professional.careerStartYear}년`
-      : null;
-    const vtiName = vibe?.vtiMeta?.labelKo || "Vibe AI 분석";
-
-    return [
-      {
-        question: `${name} 공인중개사의 주요 전문 분야와 권역은 어디인가요?`,
-        answer: `${name} 공인중개사는 ${region} 지역을 중심으로 ${assets} 임대 및 매매 거래를 전문으로 진행하고 있습니다.${
-          experience ? ` 해당 분야에서 약 ${experience}의 풍부한 실무 경력을 보유하고 있습니다.` : ""
-        }`,
-      },
-      {
-        question: "상담 및 수수료 정책은 어떻게 되나요?",
-        answer: `${
-          professional?.consultMethods && professional.consultMethods.length > 0
-            ? `${professional.consultMethods.join(" 및 ")}을 통해 상담이 가능하며, `
-            : ""
-        }${
-          professional?.feePolicy
-            ? `수수료는 '${professional.feePolicy}' 정책을 따르고 있습니다.`
-            : "구체적인 수수료 및 계약 조건은 개별 상담 시 상세하게 안내해 드립니다."
-        }${
-          professional?.responseTimeHours
-            ? ` 문의 시 보통 ${professional.responseTimeHours}시간 이내에 신속하게 회신을 드립니다.`
-            : ""
-        }`,
-      },
-      {
-        question: "중개사의 VTI 스타일 분석 결과는 무엇을 의미하나요?",
-        answer: `DealCard Vibe AI가 중개사의 실제 사진과 프로필 데이터를 기반으로 시각적/전문적 스타일을 분석한 결과입니다. ${name} 중개사는 '${vtiName}' 유형으로 분류되었으며, 분석 결과 ${
-          vibe?.trust ? `신뢰 지수 ${Math.round(vibe.trust * 100)}%` : ""
-        }${vibe?.valence ? `, 호감도 ${Math.round(vibe.valence * 100)}%` : ""}의 고유한 Vibe 템플릿과 상보적 비주얼이 자동 적용되어 있습니다.`,
-      },
-    ];
-  }, [profile, broker, professional, vibe]);
+  // Filter out empty FAQ items (both q and a must be filled)
+  const validFaqItems = (faqItems || []).filter(
+    (item) => item.q?.trim() && item.a?.trim()
+  );
 
   return (
     <div className="w-full space-y-3">
@@ -354,28 +319,30 @@ export function VibeCardDetails({
         </AccordionItem>
       )}
 
-      {/* ── 5. 자주 묻는 질문 (FAQ - SEO/AEO/GEO 최적화) ── */}
-      <AccordionItem
-        title="자주 묻는 질문 (FAQ)"
-        icon={<HelpCircle size={18} />}
-        isOpen={openSection === "faq"}
-        onClick={() => toggleSection("faq")}
-        css={css}
-      >
-        <div className="space-y-4">
-          {faqList.map((faq, idx) => (
-            <div key={idx} className="space-y-1.5 p-3 rounded-xl bg-white/5 border border-white/5">
-              <p className="font-bold flex items-start gap-1.5" style={{ color: css.accentColor }}>
-                <span className="font-mono text-sm leading-none">Q.</span>
-                <span className="tracking-tight">{faq.question}</span>
-              </p>
-              <p className="opacity-90 pl-4 leading-relaxed tracking-tight text-[11px]">
-                {faq.answer}
-              </p>
-            </div>
-          ))}
-        </div>
-      </AccordionItem>
+      {/* ── 5. 자주 묻는 질문 (FAQ) — 사용자 입력 항목만 표시 ── */}
+      {validFaqItems.length > 0 && (
+        <AccordionItem
+          title="자주 묻는 질문 (FAQ)"
+          icon={<HelpCircle size={18} />}
+          isOpen={openSection === "faq"}
+          onClick={() => toggleSection("faq")}
+          css={css}
+        >
+          <div className="space-y-4">
+            {validFaqItems.map((faq, idx) => (
+              <div key={idx} className="space-y-1.5 p-3 rounded-xl bg-white/5 border border-white/5">
+                <p className="font-bold flex items-start gap-1.5" style={{ color: css.accentColor }}>
+                  <span className="font-mono text-sm leading-none">Q.</span>
+                  <span className="tracking-tight">{faq.q}</span>
+                </p>
+                <p className="opacity-90 pl-4 leading-relaxed tracking-tight text-[11px]">
+                  {faq.a}
+                </p>
+              </div>
+            ))}
+          </div>
+        </AccordionItem>
+      )}
     </div>
   );
 }
