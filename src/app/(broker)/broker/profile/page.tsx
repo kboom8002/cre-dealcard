@@ -317,6 +317,8 @@ export default function BrokerProfilePage() {
       if (formattedPhone && formattedPhone !== phone) {
         setPhone(formattedPhone);
       }
+      // 저장 후 서버 데이터로 동기화하여 필드 초기화 방지
+      await fetchProfile();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e: any) {

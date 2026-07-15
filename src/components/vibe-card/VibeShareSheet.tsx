@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
-import { Link2, MessageCircle, Download, QrCode, X, Check } from "lucide-react";
+import { Link2, MessageCircle, Download, QrCode, X, Check, Loader2 } from "lucide-react";
 
 /* ── 카카오 SDK 전역 타입 ── */
 declare global {
@@ -24,6 +24,7 @@ export interface VibeShareSheetProps {
   cardDescription?: string;
   isOpen: boolean;
   onClose: () => void;
+  cardRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 interface ShareOption {
@@ -34,10 +35,13 @@ interface ShareOption {
   color: string;
 }
 
-export function VibeShareSheet({ slug, cardTitle, cardDescription, isOpen, onClose }: VibeShareSheetProps) {
+export function VibeShareSheet({ slug, cardTitle, cardDescription, isOpen, onClose, cardRef }: VibeShareSheetProps) {
   const [copied, setCopied] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
   const [kakaoReady, setKakaoReady] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const qrGeneratedRef = useRef(false);
 
   /* ── 카카오 SDK 로드 ── */
   useEffect(() => {
@@ -72,6 +76,34 @@ export function VibeShareSheet({ slug, cardTitle, cardDescription, isOpen, onClo
   const ogImageUrl = `${siteUrl}/api/og/vibe-card/${slug}`;
   const fallbackDesc = cardDescription || "DealCard Vibe AI 명함 — 전문 중개인 프로필";
   const kakaoText = `[DealCard 명함]\n\n${cardTitle}\n\n🔗 ${cardUrl}\n\n📊 ${fallbackDesc}`;
+
+  /* ── QR 코드 로컬 생성 ── */
+  useEffect(() => {
+    if (!showQr || qrGeneratedRef.current) return;
+    qrGeneratedRef.current = true;
+
+    (async () => {
+      try {
+        const QRCode = (await import('qrcode')).default;
+        const dataUrl = await QRCode.toDataURL(cardUrl, {
+          width: 200,
+          margin: 2,
+          color: { dark: '#000000', light: '#ffffff' },
+        });
+        setQrDataUrl(dataUrl);
+      } catch (err) {
+        console.error('QR code generation failed:', err);
+      }
+    })();
+  }, [showQr, cardUrl]);
+
+  // showQr가 false가 되면 ref 리셋
+  useEffect(() => {
+    if (!showQr) {
+      qrGeneratedRef.current = false;
+      setQrDataUrl(null);
+    }
+  }, [showQr]);
 
   /* ── 클립보드 복사 ── */
   const copyToClipboard = useCallback(
@@ -123,6 +155,44 @@ export function VibeShareSheet({ slug, cardTitle, cardDescription, isOpen, onClo
     }
   }, [kakaoReady, cardTitle, ogImageUrl, cardUrl]);
 
+  /* ── 이미지 저장 (html2canvas) ── */
+  const handleImageSave = useCallback(async () => {
+    if (!cardRef?.current || downloading) return;
+    setDownloading(true);
+    try {
+      const el = cardRef.current;
+      // 캡처 전 3D transform 임시 비활성화
+      const origTransform = el.style.transform;
+      const origTransition = el.style.transition;
+      el.style.transform = 'none';
+      el.style.transition = 'none';
+
+      const { default: html2canvas } = await import('html2canvas');
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        backgroundColor: '#09090b',
+        useCORS: true,
+        logging: false,
+        allowTaint: true,
+      });
+
+      // transform 복원
+      el.style.transform = origTransform;
+      el.style.transition = origTransition;
+
+      const link = document.createElement('a');
+      link.download = `vibe-card-${slug}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      console.error('Image save failed:', err);
+      // fallback으로 print 사용
+      window.print();
+    } finally {
+      setDownloading(false);
+    }
+  }, [cardRef, slug, downloading]);
+
   /* ── 액션 핸들러 ── */
   const handleAction = useCallback(
     (id: string) => {
@@ -153,7 +223,7 @@ export function VibeShareSheet({ slug, cardTitle, cardDescription, isOpen, onClo
           break;
 
         case "download":
-          window.print();
+          handleImageSave();
           break;
 
         case "qr":
@@ -161,7 +231,7 @@ export function VibeShareSheet({ slug, cardTitle, cardDescription, isOpen, onClo
           break;
       }
     },
-    [cardUrl, kakaoText, cardTitle, kakaoReady, shareViaKakaoSDK, copyToClipboard],
+    [cardUrl, kakaoText, cardTitle, kakaoReady, shareViaKakaoSDK, copyToClipboard, handleImageSave],
   );
 
   const options: ShareOption[] = [
@@ -185,9 +255,9 @@ export function VibeShareSheet({ slug, cardTitle, cardDescription, isOpen, onClo
     },
     {
       id: "download",
-      label: "이미지 저장",
+      label: downloading ? "저장 중..." : "이미지 저장",
       description: "명함 카드를 이미지로 저장합니다",
-      icon: <Download size={20} />,
+      icon: downloading ? <Loader2 size={20} className="animate-spin" /> : <Download size={20} />,
       color: "#10b981",
     },
     {
@@ -264,12 +334,14 @@ export function VibeShareSheet({ slug, cardTitle, cardDescription, isOpen, onClo
                     <motion.button
                       key={opt.id}
                       onClick={() => handleAction(opt.id)}
+                      disabled={opt.id === "download" && downloading}
                       className={cn(
                         "flex flex-col items-center gap-2 p-4 rounded-2xl",
                         "border border-zinc-100 dark:border-zinc-800",
                         "hover:border-zinc-200 dark:hover:border-zinc-700",
                         "transition-all duration-200 active:scale-[0.97]",
                         "bg-zinc-50/50 dark:bg-zinc-800/50",
+                        "disabled:opacity-60 disabled:cursor-not-allowed",
                         // 카카오 버튼 강조
                         opt.id === "kakao" && kakaoReady
                           ? "border-amber-200 dark:border-amber-700/40 bg-amber-50/50 dark:bg-amber-900/10"
@@ -297,7 +369,7 @@ export function VibeShareSheet({ slug, cardTitle, cardDescription, isOpen, onClo
                 })}
               </div>
 
-              {/* ── QR Code Display ── */}
+              {/* ── QR Code Display (로컬 생성) ── */}
               <AnimatePresence>
                 {showQr && (
                   <motion.div
@@ -309,14 +381,18 @@ export function VibeShareSheet({ slug, cardTitle, cardDescription, isOpen, onClo
                   >
                     <div className="bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-100
                                     dark:border-zinc-700 p-6 flex flex-col items-center gap-3">
-                      {/* QR 이미지: Google Charts API (외부 라이브러리 없이) */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={`https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(cardUrl)}&choe=UTF-8`}
-                        alt="QR Code"
-                        className="w-32 h-32 rounded-xl"
-                        loading="lazy"
-                      />
+                      {qrDataUrl ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={qrDataUrl}
+                          alt="QR Code"
+                          className="w-32 h-32 rounded-xl"
+                        />
+                      ) : (
+                        <div className="w-32 h-32 rounded-xl bg-zinc-100 dark:bg-zinc-700 flex items-center justify-center">
+                          <Loader2 size={24} className="animate-spin text-zinc-400" />
+                        </div>
+                      )}
                       <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center break-all max-w-[220px]">
                         {cardUrl}
                       </p>

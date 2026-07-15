@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { Share2 } from "lucide-react";
 import type { VibeTemplateCssVars } from "@/lib/vibe/vibe-templates";
@@ -132,6 +132,7 @@ export interface VibeCardData {
 export function VibeCardView({ data }: { data: VibeCardData }) {
   const { profile, broker, vibe, template, professional, stats, slug } = data;
   const [shareOpen, setShareOpen] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   // Use template CSS or default dark theme
   const css = useMemo(() => {
@@ -187,7 +188,7 @@ export function VibeCardView({ data }: { data: VibeCardData }) {
         </div>
 
         {/* ── 1. Hero Zone (3D Tilt & Flip Card) ── */}
-        <section>
+        <section ref={cardRef}>
           <VibeCardHero
             profile={profile}
             broker={broker}
@@ -339,6 +340,7 @@ export function VibeCardView({ data }: { data: VibeCardData }) {
         cardDescription={professional?.seoSummary ?? broker?.bio ?? ""}
         isOpen={shareOpen}
         onClose={() => setShareOpen(false)}
+        cardRef={cardRef}
       />
     </main>
   );

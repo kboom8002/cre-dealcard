@@ -166,6 +166,7 @@ export function VibeCardManage({ data }: Props) {
   const [regenerating, setRegenerating] = useState(false);
   const [regenStatus, setRegenStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   // FAQ state
   const FAQ_PLACEHOLDERS = [
@@ -360,6 +361,7 @@ export function VibeCardManage({ data }: Props) {
         {/* ── Vibe Card Preview ── */}
         {hasVibe ? (
           <motion.div
+            ref={cardRef}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
@@ -787,6 +789,7 @@ export function VibeCardManage({ data }: Props) {
         cardDescription={data.broker?.bio || data.profile.tagline || ""}
         isOpen={shareOpen}
         onClose={() => setShareOpen(false)}
+        cardRef={cardRef}
       />
 
       <BrokerBottomNav />
