@@ -29,7 +29,7 @@ const ProfileUpdateSchema = z.object({
   total_deal_count_self: z.number().min(0).nullable().optional(),
   deal_size_range: z.string().nullable().optional(),
   deal_specialty: z.array(z.string()).max(5).optional(),
-  buyer_types: z.array(z.string()).max(5).optional(),
+  buyer_types: z.array(z.string()).max(6).optional(),
   preferred_price_range: z.string().nullable().optional(),
   languages: z.array(z.string()).max(5).optional(),
 

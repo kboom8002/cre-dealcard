@@ -124,17 +124,20 @@ function getAdaptiveStyles(bgGradient: string) {
   const isLight = lum > 0.5;
   return {
     isLight,
+    // light 배경에서 텍스트 대비를 강제 오버라이드하여 가독성 확보
+    textColorOverride: isLight ? '#1e293b' : null,      // slate-800
+    subtextColorOverride: isLight ? '#475569' : null,    // slate-600
     titleShadow: isLight
-      ? '0 1px 3px rgba(0,0,0,0.12), 0 0 8px rgba(255,255,255,0.5)'
+      ? '0 1px 3px rgba(0,0,0,0.15), 0 0 8px rgba(255,255,255,0.5)'
       : '0 1px 4px rgba(0,0,0,0.5), 0 0 12px rgba(0,0,0,0.25)',
     bodyShadow: isLight
-      ? '0 1px 2px rgba(0,0,0,0.08)'
+      ? '0 1px 2px rgba(0,0,0,0.12)'
       : '0 1px 3px rgba(0,0,0,0.35)',
     contactBg: isLight
-      ? 'rgba(255, 255, 255, 0.5)'
+      ? 'rgba(255, 255, 255, 0.6)'
       : 'rgba(0, 0, 0, 0.25)',
     contactBorder: isLight
-      ? 'rgba(0, 0, 0, 0.08)'
+      ? 'rgba(0, 0, 0, 0.12)'
       : 'rgba(255, 255, 255, 0.06)',
     logoBg: isLight
       ? 'rgba(255, 255, 255, 0.55)'
@@ -319,8 +322,8 @@ export function VibeCardHero({
               label="전화"
               value={profile.phone}
               href={`tel:${profile.phone}`}
-              textColor={css.textColor}
-              subtextColor={css.subtextColor}
+              textColor={adaptive.textColorOverride || css.textColor}
+              subtextColor={adaptive.subtextColorOverride || css.subtextColor}
               accentColor={css.accentColor}
               bodyShadow={adaptive.bodyShadow}
             />
@@ -331,8 +334,8 @@ export function VibeCardHero({
               label="이메일"
               value={email}
               href={`mailto:${email}`}
-              textColor={css.textColor}
-              subtextColor={css.subtextColor}
+              textColor={adaptive.textColorOverride || css.textColor}
+              subtextColor={adaptive.subtextColorOverride || css.subtextColor}
               accentColor={css.accentColor}
               bodyShadow={adaptive.bodyShadow}
             />
@@ -342,8 +345,8 @@ export function VibeCardHero({
               icon={MapPin}
               label="전문 지역"
               value={broker!.specialtyRegions.slice(0, 3).join(" · ")}
-              textColor={css.textColor}
-              subtextColor={css.subtextColor}
+              textColor={adaptive.textColorOverride || css.textColor}
+              subtextColor={adaptive.subtextColorOverride || css.subtextColor}
               accentColor={css.accentColor}
               bodyShadow={adaptive.bodyShadow}
             />
@@ -353,7 +356,7 @@ export function VibeCardHero({
 
       {/* ── 3. Career Summary ── */}
       <div className="px-6 py-2">
-        <div className="flex items-center justify-center gap-4 text-xs" style={{ color: css.subtextColor, textShadow: adaptive.bodyShadow }}>
+        <div className="flex items-center justify-center gap-4 text-xs" style={{ color: adaptive.subtextColorOverride || css.subtextColor, textShadow: adaptive.bodyShadow }}>
           {careerYears && careerYears > 0 && (
             <span className="flex items-center gap-1">
               <Award className="w-3.5 h-3.5" style={{ color: css.accentColor }} />
@@ -388,7 +391,7 @@ export function VibeCardHero({
           onClick={(e) => e.stopPropagation()}
         >
           <MessageSquare size={14} />
-          전문가 상담 요청
+          의뢰하기
         </a>
 
         <div className="flex gap-2">
@@ -611,7 +614,7 @@ export function VibeCardHero({
             className="rounded-2xl p-4 border border-white/5 backdrop-blur-md"
             style={{ backgroundColor: "rgba(0, 0, 0, 0.12)" }}
           >
-            <p className="text-[11px] leading-relaxed" style={{ color: css.textColor }}>
+            <p className="text-[11px] leading-relaxed" style={{ color: css.textColor, whiteSpace: 'pre-wrap' }}>
               {broker.bio}
             </p>
           </div>

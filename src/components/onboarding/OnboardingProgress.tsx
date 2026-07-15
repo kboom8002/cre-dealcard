@@ -9,7 +9,6 @@ const PROGRESS_STAGES: OnboardingStage[] = [
   "role_select",
   "analyzing",
   "reveal",
-  "radar",
   "complete",
 ];
 
@@ -18,7 +17,6 @@ const EXPERT_STAGES: OnboardingStage[] = [
   "role_select",
   "analyzing",
   "reveal",
-  "radar",
   "complete",
 ];
 
@@ -34,7 +32,6 @@ const STAGE_LABELS: Partial<Record<OnboardingStage, string>> = {
   role_select: "역할",
   analyzing: "분석",
   reveal: "결과",
-  radar: "상세",
   complete: "완료",
 };
 
@@ -106,7 +103,7 @@ export function OnboardingProgress({
   // Map any sub-stage (login, dealcard, agora, profile_complete) to its visual parent
   const visualStage: OnboardingStage =
     currentStage === 'login' || currentStage === 'profile_complete' ? 'reveal' :
-    currentStage === 'dealcard' || currentStage === 'agora' ? 'radar' :
+    currentStage === 'dealcard' || currentStage === 'agora' || currentStage === 'radar' ? 'complete' :
     (PROGRESS_STAGES.includes(currentStage) ? currentStage : 'role_select');
   const currentIndex = stages.indexOf(visualStage);
 

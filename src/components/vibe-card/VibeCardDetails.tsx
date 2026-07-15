@@ -202,7 +202,7 @@ export function VibeCardDetails({
         >
           <div className="space-y-3.5">
             {broker?.bio && (
-              <div className="text-xs opacity-90 leading-relaxed border-l-2 pl-3" style={{ borderColor: css.accentColor }}>
+              <div className="text-xs opacity-90 leading-relaxed border-l-2 pl-3" style={{ borderColor: css.accentColor, whiteSpace: 'pre-wrap' }}>
                 {broker.bio}
               </div>
             )}

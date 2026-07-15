@@ -245,6 +245,15 @@ export default function BrokerProfilePage() {
     setSaved(false);
     setError(null);
     try {
+      // 전화번호 자동 포맷팅: 하이픈 없이 입력해도 정상 저장되도록
+      let formattedPhone = phone;
+      if (phone) {
+        const digits = phone.replace(/[^\d]/g, '');
+        if (digits.length === 11 && digits.startsWith('010')) {
+          formattedPhone = `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+        }
+      }
+
       const res = await fetch('/api/broker/profile', {
         method: 'PUT',
         headers: {
@@ -253,7 +262,7 @@ export default function BrokerProfilePage() {
         },
         body: JSON.stringify({
           display_name: displayName || undefined,
-          phone: phone || undefined,
+          phone: formattedPhone || undefined,
           company: company || undefined,
           tagline: tagline || undefined,
           specialty_regions: selectedRegions.length > 0 ? selectedRegions : undefined,
@@ -281,10 +290,32 @@ export default function BrokerProfilePage() {
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
+        // 사용자 친화적 에러 메시지 변환
+        if (errorData.error?.fieldErrors) {
+          const fieldErrors = errorData.error.fieldErrors;
+          const messages: string[] = [];
+          for (const [field, errs] of Object.entries(fieldErrors)) {
+            const fieldLabels: Record<string, string> = {
+              buyer_types: '매수자 유형',
+              deal_specialty: '딜 유형 전문성',
+              languages: '소통 언어',
+              phone: '연락처',
+              display_name: '이름',
+              bio: '자기소개',
+            };
+            const label = fieldLabels[field] || field;
+            messages.push(`${label}: ${(errs as string[]).join(', ')}`);
+          }
+          throw new Error(`저장 실패: ${messages.join(' | ')}`);
+        }
         const detail = typeof errorData.error === 'string' 
           ? errorData.error 
-          : JSON.stringify(errorData.error || errorData);
-        throw new Error(`저장 실패: ${detail || res.statusText}`);
+          : '알 수 없는 오류가 발생했습니다';
+        throw new Error(`저장 실패: ${detail}`);
+      }
+      // 포맷팅된 전화번호를 UI에도 반영
+      if (formattedPhone && formattedPhone !== phone) {
+        setPhone(formattedPhone);
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -631,7 +662,7 @@ export default function BrokerProfilePage() {
               value={licenseNumber}
               onChange={(e) => setLicenseNumber(e.target.value)}
               className={inputClass}
-              placeholder="제12345호"
+              placeholder="2024-11-05432"
               id="profile-license-number"
             />
           </div>
@@ -643,7 +674,7 @@ export default function BrokerProfilePage() {
               value={officeRegNumber}
               onChange={(e) => setOfficeRegNumber(e.target.value)}
               className={inputClass}
-              placeholder="서울강남-2024-00123"
+              placeholder="제 11680-2025-00123 호"
               id="profile-office-reg-number"
             />
           </div>

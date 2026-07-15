@@ -202,7 +202,7 @@ export default async function BrokerProfilePage({ params }: PageProps) {
             className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl px-6 py-3 text-sm transition-colors active:scale-[0.98]"
             id="cta-contact-broker"
           >
-            💬 전문가 상담 요청
+            💬 의뢰하기
           </Link>
         </div>
       </div>

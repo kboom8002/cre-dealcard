@@ -178,7 +178,8 @@ function OrchestratorInner() {
 
   const handleLoginComplete = useCallback(() => {
     void trackOnboardingEvent('onboard_login_done', data.sessionToken);
-    setStage('radar');
+    // 빌딩분석(radar)/딜카드(dealcard) 단계를 건너뛰고 바로 완료로 이동
+    setStage('complete');
   }, [setStage, data.sessionToken]);
 
   const handleRadarContinue = useCallback((address: string) => {
