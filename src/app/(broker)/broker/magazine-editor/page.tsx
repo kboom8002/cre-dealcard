@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } from "react";
 import { MagazineView } from "@/app/(public)/magazine/[brokerId]/[date]/magazine-view";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import Script from "next/script";
-import { motion, AnimatePresence } from "motion/react";
 import { useSearchParams } from "next/navigation";
+import { motion, AnimatePresence } from "motion/react";
+import { EditorAiAssistTab } from "@/components/magazine-editor/EditorAiAssistTab";
+import { EditorOutreachTab } from "@/components/magazine-editor/EditorOutreachTab";
+import { NewsCurationPanel } from "@/components/magazine-editor/NewsCurationPanel";
 import {
   Save,
   Eye,
@@ -32,6 +35,10 @@ import {
   Upload,
   X,
   BarChart3,
+  Wand2,
+  Users,
+  Link2,
+  Flame,
 } from "lucide-react";
 import {
   MARKET_TEMP_CONFIG,
@@ -49,7 +56,9 @@ const TABS = [
   { key: "cover" as const, label: "커버", icon: Newspaper },
   { key: "field_note" as const, label: "필드노트", icon: PenLine },
   { key: "theme_deals" as const, label: "테마&매물", icon: Target },
-  { key: "news" as const, label: "뉴스큐레이션", icon: BookOpen },
+  { key: "news" as const, label: "뉴스", icon: BookOpen },
+  { key: "ai_assist" as const, label: "AI비서", icon: Wand2 },
+  { key: "outreach" as const, label: "아웃리치", icon: Users },
   { key: "publish" as const, label: "발행설정", icon: Settings },
   { key: "analytics" as const, label: "성과", icon: BarChart3 },
 ];
@@ -119,6 +128,9 @@ function MagazineEditorInner() {
   const [activeTab, setActiveTab] = useState<TabKey>(TABS.some(t => t.key === initialTab) ? initialTab : "cover");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Edition state
   const [editionId, setEditionId] = useState<string | null>(null);
@@ -321,48 +333,6 @@ function MagazineEditorInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── sessionStorage에서 브리핑 데이터 복원 ──
-  useEffect(() => {
-    const saved = sessionStorage.getItem("magazine_briefing_data");
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        if (data.title) setHeadline(data.title);
-        if (data.briefing) setBriefing(data.briefing);
-        sessionStorage.removeItem("magazine_briefing_data");
-      } catch (e) {
-        /* ignore */
-      }
-    }
-  }, []);
-
-  // ── URL 쿼리 파라미터에서 선택 항목 초기화 ──
-  useEffect(() => {
-    const dealsParam = searchParams.get("deals");
-    const newsParam = searchParams.get("news");
-
-    if (dealsParam) {
-      setSelectedDealIds(new Set(dealsParam.split(",")));
-    }
-    if (newsParam) {
-      setSelectedNewsIds(new Set(newsParam.split(",")));
-    }
-  }, [searchParams]);
-
-  // ── 선택된 뉴스/딜이 없으면 기본 선택 ──
-  useEffect(() => {
-    if (allNews.length > 0 && selectedNewsIds.size === 0 && !searchParams.get("news")) {
-      setSelectedNewsIds(new Set(allNews.slice(0, 4).map((n: any) => n.id ?? n.title)));
-    }
-  }, [allNews, searchParams, selectedNewsIds.size]);
-
-  useEffect(() => {
-    if (allDeals.length > 0 && selectedDealIds.size === 0 && !searchParams.get("deals")) {
-      setSelectedDealIds(new Set(allDeals.slice(0, 3).map((d: any) => d.id)));
-    }
-  }, [allDeals, searchParams, selectedDealIds.size]);
-
-  // ── 실시간 미리보기 데이터 ──
   const previewData = useMemo(() => {
     const base = magazineData || {};
 
@@ -410,6 +380,82 @@ function MagazineEditorInner() {
     selectedNewsIds,
     selectedDealIds,
   ]);
+  // ── 30초 자동 저장 ──
+  useEffect(() => {
+    if (editionStatus === 'published') return; // 발행 완료 시 자동 저장 비활성
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    
+    autoSaveTimerRef.current = setTimeout(async () => {
+      if (!editionId || !brokerSlug) return;
+      setSaveStatus('saving');
+      try {
+        await fetch("/api/magazine/editions", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: editionId,
+            title: headline,
+            market_temp: marketTemp,
+            cover_keywords: coverKeywords.filter(Boolean),
+            field_note: fieldNote,
+            theme_title: themeTitle,
+            theme_body_md: themeBodyMd,
+            featured_deal_ids: Array.from(selectedDealIds),
+            theme_color: themeColor,
+            content: previewData,
+            status: editionStatus === 'draft' ? 'editing' : editionStatus,
+          }),
+        });
+        setSaveStatus('saved');
+        setLastSavedAt(new Date());
+        setTimeout(() => setSaveStatus('idle'), 3000);
+      } catch {
+        setSaveStatus('error');
+      }
+    }, 30_000);
+    
+    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
+  }, [headline, briefing, marketTemp, coverKeywords, fieldNote, themeTitle, themeBodyMd, selectedDealIds, themeColor, selectedNewsIds, editionId, brokerSlug, editionStatus, previewData]);
+
+  // ── 드래프트 블록에서 브리핑 데이터 자동 로드 ──
+  useEffect(() => {
+    if (editionId && previewData?.draft_blocks) {
+      const briefingBlock = previewData.draft_blocks.find(
+        (b: any) => b.type === 'briefing'
+      );
+      if (briefingBlock && !briefing) {
+        setBriefing(briefingBlock.data.text as string);
+      }
+    }
+  }, [editionId, previewData, briefing]);
+
+  // ── URL 쿼리 파라미터에서 선택 항목 초기화 ──
+  useEffect(() => {
+    const dealsParam = searchParams.get("deals");
+    const newsParam = searchParams.get("news");
+
+    if (dealsParam) {
+      setSelectedDealIds(new Set(dealsParam.split(",")));
+    }
+    if (newsParam) {
+      setSelectedNewsIds(new Set(newsParam.split(",")));
+    }
+  }, [searchParams]);
+
+  // ── 선택된 뉴스/딜이 없으면 기본 선택 ──
+  useEffect(() => {
+    if (allNews.length > 0 && selectedNewsIds.size === 0 && !searchParams.get("news")) {
+      setSelectedNewsIds(new Set(allNews.slice(0, 4).map((n: any) => n.id ?? n.title)));
+    }
+  }, [allNews, searchParams, selectedNewsIds.size]);
+
+  useEffect(() => {
+    if (allDeals.length > 0 && selectedDealIds.size === 0 && !searchParams.get("deals")) {
+      setSelectedDealIds(new Set(allDeals.slice(0, 3).map((d: any) => d.id)));
+    }
+  }, [allDeals, searchParams, selectedDealIds.size]);
+
+  // ── 실시간 미리보기 데이터 ──
 
   // ── 뉴스 토글 ──
   const toggleNews = useCallback((newsId: string) => {
@@ -920,97 +966,20 @@ function MagazineEditorInner() {
       // ━━━ 뉴스큐레이션 탭 ━━━
       case "news":
         return (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-semibold text-slate-300">
-                뉴스 큐레이션 ({selectedNewsIds.size}/{allNews.length})
-              </p>
-              <span className="text-[10px] text-slate-500">
-                토글하여 매거진에 포함할 뉴스를 선택하세요
-              </span>
-            </div>
-
-            {allNews.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-                <Newspaper className="w-8 h-8 mb-2 opacity-40" />
-                <p className="text-xs">뉴스를 불러오는 중이거나 뉴스가 없습니다.</p>
-              </div>
-            ) : (
-              allNews.map((news: any, idx: number) => {
-                const newsId = news.id ?? news.title;
-                const isSelected = selectedNewsIds.has(newsId);
-                return (
-                  <motion.button
-                    key={newsId ?? idx}
-                    onClick={() => toggleNews(newsId)}
-                    whileTap={{ scale: 0.98 }}
-                    className={`w-full text-left p-3 rounded-xl border transition-all duration-200 ${
-                      isSelected
-                        ? "bg-indigo-500/10 border-indigo-500/30"
-                        : "bg-slate-800/20 border-slate-700/40 opacity-60"
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="mt-1 flex-shrink-0">
-                        {isSelected ? (
-                          <ToggleRight className="w-5 h-5 text-indigo-400" />
-                        ) : (
-                          <ToggleLeft className="w-5 h-5 text-slate-600" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-white leading-snug line-clamp-2 mb-1">
-                          {news.title}
-                        </p>
-                        {/* AI summary inline */}
-                        {news.summary && (
-                          <p className="text-[10px] text-slate-400 leading-relaxed mb-1.5 line-clamp-3">
-                            {news.summary}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {news.importance_score != null && (
-                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-300 bg-amber-500/12 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
-                              <Star className="w-2.5 h-2.5" />
-                              {news.importance_score}
-                            </span>
-                          )}
-                          {news.topic && (
-                            <span className="text-[9px] font-medium text-indigo-300 bg-indigo-500/12 border border-indigo-500/20 px-1.5 py-0.5 rounded-full">
-                              {news.topic}
-                            </span>
-                          )}
-                          {news.source && (
-                            <span className="text-[9px] text-slate-500">
-                              {news.source}
-                            </span>
-                          )}
-                          {news.sentiment && (
-                            <span
-                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                                news.sentiment === "bullish"
-                                  ? "text-emerald-300 bg-emerald-500/12"
-                                  : news.sentiment === "bearish"
-                                  ? "text-rose-300 bg-rose-500/12"
-                                  : "text-slate-400 bg-slate-500/12"
-                              }`}
-                            >
-                              {news.sentiment === "bullish"
-                                ? "긍정"
-                                : news.sentiment === "bearish"
-                                ? "부정"
-                                : "중립"}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </motion.button>
-                );
-              })
-            )}
-          </div>
+          <NewsCurationPanel
+            allNews={allNews}
+            selectedNewsIds={selectedNewsIds}
+            toggleNews={toggleNews}
+          />
         );
+        
+      // ━━━ AI 비서 탭 ━━━
+      case "ai_assist":
+        return <EditorAiAssistTab />;
+        
+      // ━━━ 아웃리치 탭 ━━━
+      case "outreach":
+        return <EditorOutreachTab />;
 
       // ━━━ 발행설정 탭 ━━━
       case "publish":
@@ -1106,34 +1075,35 @@ function MagazineEditorInner() {
               </div>
             </div>
 
-            {/* 브로커 정보 */}
+            {/* 화이트라벨 매거진 설정 */}
             <div className="space-y-3 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
               <div className="flex items-center gap-2">
-                <Info className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-xs font-bold text-slate-200">중개인 정보</span>
+                <Link2 className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="text-xs font-bold text-slate-200">화이트라벨 매거진 설정</span>
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-slate-500">슬러그</span>
-                  <span className="text-[11px] text-white font-mono bg-slate-800 px-2 py-0.5 rounded">
-                    {brokerSlug || "-"}
-                  </span>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-slate-400 block">매거진 주소 (Slug)</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-slate-500">credeal.net/magazine/</span>
+                    <input
+                      type="text"
+                      value={brokerSlug || ""}
+                      onChange={(e) => setBrokerSlug(e.target.value)}
+                      placeholder="slug"
+                      className="flex-1 bg-slate-900 border border-slate-700 text-xs text-white p-1.5 rounded focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-slate-500">발행일</span>
-                  <span className="text-[11px] text-white">{today}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-slate-500">선택된 뉴스</span>
-                  <span className="text-[11px] text-indigo-300 font-bold">
-                    {selectedNewsIds.size}건
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-slate-500">선택된 매물</span>
-                  <span className="text-[11px] text-rose-300 font-bold">
-                    {selectedDealIds.size}건
-                  </span>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-slate-400 block">매거진 제목</label>
+                  <input
+                    type="text"
+                    value={magazineTitle}
+                    onChange={(e) => setMagazineTitle(e.target.value)}
+                    placeholder="예: 김성공 중개사의 부동산 인사이트"
+                    className="w-full bg-slate-900 border border-slate-700 text-xs text-white p-1.5 rounded focus:outline-none focus:border-indigo-500"
+                  />
                 </div>
               </div>
             </div>
@@ -1225,6 +1195,32 @@ function MagazineEditorInner() {
                   <p className="text-base font-black text-white">{analyticsData?.viewStats.completionRate ?? 0}<span className="text-[9px] font-normal">%</span></p>
                   <p className="text-[9px] text-indigo-200/60">완독률</p>
                 </div>
+              </div>
+            </div>
+
+            {/* ── 매수자 관심 점수 ── */}
+            <div className="space-y-3 p-4 border border-rose-500/20 bg-gradient-to-br from-rose-950/30 to-pink-950/20 rounded-xl">
+              <div className="flex items-center gap-2">
+                <Flame className="w-4 h-4 text-rose-400" />
+                <span className="text-xs font-bold text-rose-300">매수자 관심 점수 (가상 데이터)</span>
+                <span className="ml-auto text-[10px] bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full">3명</span>
+              </div>
+              <div className="space-y-2">
+                {[
+                  { name: "김*진", score: 95, action: "최근 3일 연속 매거진 열람" },
+                  { name: "박*호", score: 82, action: "특정 매물(강남 빌딩) 2회 조회" },
+                  { name: "이*영", score: 78, action: "링크 클릭 후 3분 체류" }
+                ].map((lead, idx) => (
+                  <div key={idx} className="flex items-center justify-between bg-black/20 p-2 rounded-lg border border-white/5">
+                    <div>
+                      <p className="text-[11px] font-bold text-slate-200">{lead.name}</p>
+                      <p className="text-[9px] text-slate-400">{lead.action}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs font-black text-rose-400">{lead.score}점</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -1330,11 +1326,21 @@ function MagazineEditorInner() {
             </Link>
             <div>
               <h1 className="text-sm font-bold text-slate-200">Content Studio</h1>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 mt-0.5">
                 <p className="text-[10px] text-slate-500">
                   {editionLabel} · {editionType === "weekly" ? "위클리" : "데일리"}
                 </p>
                 {statusBadge(editionStatus)}
+                {saveStatus === 'saving' && (
+                  <span className="flex items-center gap-1 text-[9px] text-amber-400">
+                    <Loader2 className="w-2.5 h-2.5 animate-spin" /> 저장 중...
+                  </span>
+                )}
+                {saveStatus === 'saved' && (
+                  <span className="flex items-center gap-1 text-[9px] text-emerald-400">
+                    <Check className="w-2.5 h-2.5" /> 저장됨
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -1354,7 +1360,7 @@ function MagazineEditorInner() {
         </div>
 
         {/* 탭 네비게이션 */}
-        <div className="flex border-b border-slate-800 flex-shrink-0 bg-[#111827]">
+        <div className="flex border-b border-slate-800 flex-shrink-0 bg-[#111827] overflow-x-auto scrollbar-hide">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;

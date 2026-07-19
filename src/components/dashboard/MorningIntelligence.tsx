@@ -12,6 +12,8 @@ import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PulseSignalRadar } from "@/components/pulse/PulseSignalRadar";
+import { useMagazineDraft } from "@/hooks/useMagazineDraft";
+import { MagazineInsightCard } from "@/components/dashboard/MagazineInsightCard";
 
 // ── 타입 정의 ──────────────────────────────────────────────────────────────────
 interface Transaction { title: string; desc: string; date: string; tag: string; isMyArea?: boolean; }
@@ -174,10 +176,11 @@ function getSentimentGradient(score: number) {
 // ── 메인 컴포넌트 ──────────────────────────────────────────────────────────────
 export default function MorningIntelligence() {
   const router = useRouter();
+  const { addContentBlock, blocks: draftBlocks } = useMagazineDraft("morning-intel-user");
   const [region, setRegion] = useState("seongsu");
   const [data, setData] = useState<IntelligenceData | null>(null);
   const [sharingUrl, setSharingUrl] = useState<string>("");
-  const [myStats, setMyStats] = useState<{ dealCardCount: number; buyerCount: number } | null>(null);
+  const [myStats, setMyStats] = useState<{ dealCardCount: number; buyerCount: number; magazineStats?: { viewCount: number; subscriberCount: number; lastPublishDate?: string; } } | null>(null);
   const [loading, setLoading] = useState(true);
   const [copiedScript, setCopiedScript] = useState<"hot" | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -462,12 +465,20 @@ export default function MorningIntelligence() {
               </Link>
               <button onClick={() => {
                   if (combineResult) {
-                    sessionStorage.setItem("magazine_briefing_data", JSON.stringify(combineResult));
+                    addContentBlock('news', {
+                      content: { items: [combineResult] },
+                      metadata: { source: 'custom_briefing' }
+                    });
                   }
-                  router.push("/broker/magazine-editor?source=custom_briefing");
+                  router.push("/broker/magazine-editor?tab=cover");
                 }}
-                className="flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 transition-all duration-300 whitespace-nowrap shrink-0">
+                className="flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 transition-all duration-300 whitespace-nowrap shrink-0 relative">
                 <Edit3 className="w-3.5 h-3.5" /><span>매거진 편집</span>
+                {draftBlocks.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-indigo-500 text-white rounded-full flex items-center justify-center text-[9px] font-bold shadow-lg">
+                    {draftBlocks.length}
+                  </span>
+                )}
               </button>
               <Link href={`/magazine/${brokerProfileSlug}/${new Date().toISOString().slice(0, 10)}`} target="_blank"
                 className="flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-2 rounded-xl border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 transition-all duration-300 whitespace-nowrap shrink-0">
@@ -705,14 +716,17 @@ export default function MorningIntelligence() {
                 </button>
                 <button onClick={() => {
                   if (combineResult) {
-                    sessionStorage.setItem("magazine_briefing_data", JSON.stringify({
-                      title: combineResult.title,
-                      briefing: combineEditText || combineResult.briefing,
-                      actionList: combineResult.actionList,
-                      callScript: combineResult.callScript
-                    }));
+                    addContentBlock('news', {
+                      content: { items: [{
+                        title: combineResult.title,
+                        briefing: combineEditText || combineResult.briefing,
+                        actionList: combineResult.actionList,
+                        callScript: combineResult.callScript
+                      }] },
+                      metadata: { source: 'custom_briefing' }
+                    });
                   }
-                  router.push("/broker/magazine-editor?source=custom_briefing");
+                  router.push("/broker/magazine-editor?tab=cover");
                 }}
                   className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold py-2.5 rounded-xl bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all">
                   <Edit3 className="w-3.5 h-3.5" /> 매거진 편집하기
@@ -812,6 +826,17 @@ export default function MorningIntelligence() {
             </Card>
           </motion.div>
 
+          {/* ── CARD 1.5: 매거진 성과 (피드백 루프) ────────────────────────────── */}
+          {myStats?.magazineStats && (
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.03 }}>
+              <MagazineInsightCard
+                viewCount={myStats.magazineStats.viewCount}
+                subscriberCount={myStats.magazineStats.subscriberCount}
+                lastPublishDate={myStats.magazineStats.lastPublishDate}
+              />
+            </motion.div>
+          )}
+
           {/* ── 2-COL GRID ────────────────────────────────────────────────────── */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -877,8 +902,19 @@ export default function MorningIntelligence() {
                         <span className="text-[9px] text-slate-500 shrink-0 ml-2">{tx.date}</span>
                       </div>
                       <p className="text-slate-400 text-[10px] leading-relaxed">{tx.desc}</p>
-                      <div className="mt-1.5">
+                      <div className="mt-1.5 flex items-center justify-between">
                         <Badge variant={tx.tag === "급매" ? "red" : "default"}>{tx.tag}</Badge>
+                        <button
+                          onClick={() => {
+                            addContentBlock('deal', {
+                              content: { items: [tx] },
+                              metadata: { source: 'morning-intel' }
+                            });
+                          }}
+                          className="flex items-center gap-1 text-[9px] font-bold text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-2 py-1 rounded border border-indigo-500/20 transition-all"
+                        >
+                          📰 매거진 추가
+                        </button>
                       </div>
                     </motion.div>
                   ))}
@@ -909,9 +945,22 @@ export default function MorningIntelligence() {
                         )}
                       </div>
                       <p className="text-slate-400 text-[10px] mb-1.5 leading-relaxed">{a.desc}</p>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Badge variant="amber">매각기일 {a.date}</Badge>
-                        <Badge>{a.tag}</Badge>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Badge variant="amber">매각기일 {a.date}</Badge>
+                          <Badge>{a.tag}</Badge>
+                        </div>
+                        <button
+                          onClick={() => {
+                            addContentBlock('deal', {
+                              content: { items: [a] },
+                              metadata: { source: 'morning-intel-auction' }
+                            });
+                          }}
+                          className="flex items-center gap-1 text-[9px] font-bold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-1 rounded border border-amber-500/20 transition-all"
+                        >
+                          📰 매거진 추가
+                        </button>
                       </div>
                     </div>
                   ))}

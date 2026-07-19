@@ -81,10 +81,10 @@ const SECTIONS = [
         bg: "bg-emerald-500/10",
       },
       {
-        href: "/broker/studio",
+        href: "/broker/magazine-editor",
         icon: Palette,
         title: "콘텐츠 스튜디오",
-        desc: "뉴스레터 큐레이션 · AI 화법 · 화이트라벨",
+        desc: "매거진 편집 · AI 화법 · 발행 · 성과",
         color: "text-amber-400",
         bg: "bg-amber-500/10",
       },

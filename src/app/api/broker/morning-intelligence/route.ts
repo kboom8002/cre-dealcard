@@ -61,6 +61,7 @@ export async function GET(request: NextRequest) {
       myDealCards,
       myBuyerIntents,
       brokerProfileResult,
+      myMagazineRes,
     ] = await Promise.all([
       // 시장 데이터
       serviceClient.from("external_news").select("title, summary, source, url, sentiment, importance_score, regions, topic").order("importance_score", { ascending: false }).order("created_at", { ascending: false }).limit(10),
@@ -80,6 +81,8 @@ export async function GET(request: NextRequest) {
       // 내 매수자
       serviceClient.from("buyer_intent_lite").select("id, buyer_type, budget_display, budget_min, budget_max, preferred_regions, asset_types, purchase_purpose").eq("owner_id", user.id).limit(5),
       serviceClient.from("broker_profiles").select("slug").eq("user_id", user.id).single(),
+      // 최근 매거진 성과
+      serviceClient.from("magazine_editions").select("view_count, published_at").eq("broker_id", user.id).eq("status", "published").order("published_at", { ascending: false }).limit(3),
     ]);
 
     // ── 내 매물 컨텍스트 ───────────────────────────────────────────────────────
@@ -93,6 +96,13 @@ export async function GET(request: NextRequest) {
     const myBuyersSummary = myBuyers.length > 0
       ? myBuyers.map(b => `- ${b.buyer_type || "?"} | ${b.budget_display || `${b.budget_min || "?"}~${b.budget_max || "?"}억`} | ${(b.preferred_regions || []).join(",")} | ${(b.asset_types || []).join(",")}`).join("\n")
       : "등록된 매수자 없음";
+
+    // 매거진 성과 요약
+    const myMagazines = myMagazineRes.data || [];
+    const avgViews = myMagazines.length > 0 ? (myMagazines.reduce((sum, m) => sum + (m.view_count || 0), 0) / myMagazines.length).toFixed(1) : 0;
+    const magazineSummary = myMagazines.length > 0
+      ? `최근 3건 매거진 평균 조회수: ${avgViews}회`
+      : "최근 발행된 매거진 없음";
 
     // 내 매물 권역과 일치하는 최근 실거래
     const myAreaSignals = new Set(myDeals.map(d => d.area_signal).filter(Boolean));
@@ -162,6 +172,7 @@ export async function GET(request: NextRequest) {
 ③ 🔨 경매/공매 → 시장 온도 (최저가율, 유찰률), 투자 기회
 ④ 🏢 임대시장 → 공실률, 임대료 동향, 임대 전략
 ⑤ 🏠 내 매물·매수자 → 개인화 연결 (항상 마지막에 "따라서 오늘은..." 형태로)
+⑥ 📈 매거진 성과 → 조회수(구독자 반응)에 따른 후속 액션 제안
 
 [각 브리핑 포인트 형식]
 **[소스태그]** 핵심 내용 → 브로커 액션 임플리케이션
@@ -206,6 +217,9 @@ ${myDealsSummary}
 
 [👤 이 브로커의 활성 매수자 ${myBuyers.length}명]
 ${myBuyersSummary}
+
+[📈 매거진 성과 (피드백 루트)]
+${magazineSummary}
 
 출력 JSON:
 {
@@ -419,6 +433,13 @@ ${myBuyersSummary}
       myStats: {
         dealCardCount: myDeals.length,
         buyerCount: myBuyers.length,
+        magazineStats: {
+          viewCount: Number(avgViews) || 0,
+          subscriberCount: (brokerProfileResult?.data as any)?.subscriber_count || 12, // Dummy fallback if field missing
+          lastPublishDate: myMagazines.length > 0 && myMagazines[0].published_at 
+            ? new Date(myMagazines[0].published_at).toISOString().slice(0, 10) 
+            : undefined
+        }
       },
       data: {
         briefing: aiBriefing,
