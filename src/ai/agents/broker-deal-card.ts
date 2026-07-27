@@ -98,11 +98,45 @@ export async function runBrokerDealCard(
   // Desanitize response before Zod parsing
   const restoredMemoContent = desanitizeOutput(memoResult.content, sanitizationMap);
   let parsedMemo: MemoParserOutput;
+  const cleanedMemoJson = extractJsonString(restoredMemoContent);
+  let parsedMemoObj: Record<string, unknown>;
   try {
-    parsedMemo = MemoParserOutputSchema.parse(JSON.parse(extractJsonString(restoredMemoContent)));
-  } catch (parseErr) {
-    console.error("[broker-deal-card] MemoParser output parse failed:", parseErr, "\nRaw:", restoredMemoContent.slice(0, 500));
+    parsedMemoObj = JSON.parse(cleanedMemoJson);
+  } catch (jsonErr) {
+    console.error("[broker-deal-card] MemoParser JSON.parse failed. Raw (first 800 chars):", restoredMemoContent.slice(0, 800));
     throw new Error("AI가 메모를 분석하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+  }
+
+  const memoZodResult = MemoParserOutputSchema.safeParse(parsedMemoObj);
+  if (memoZodResult.success) {
+    parsedMemo = memoZodResult.data;
+  } else {
+    console.warn("[broker-deal-card] MemoParser Zod validation failed, recovering from raw fields:", JSON.stringify(memoZodResult.error.issues, null, 2), "\nParsed keys:", Object.keys(parsedMemoObj));
+    // Zod 실패 시, 가능한 필드를 수동으로 복구 (안티프래질 폴백)
+    const rawFacts = (parsedMemoObj.extractedFacts || parsedMemoObj.extracted_facts || {}) as Record<string, unknown>;
+    parsedMemo = {
+      extractedFacts: {
+        region: rawFacts.region != null ? String(rawFacts.region) : null,
+        exactAddressCandidate: rawFacts.exactAddressCandidate != null ? String(rawFacts.exactAddressCandidate) : (rawFacts.exact_address_candidate != null ? String(rawFacts.exact_address_candidate) : null),
+        assetType: rawFacts.assetType != null ? String(rawFacts.assetType) : (rawFacts.asset_type != null ? String(rawFacts.asset_type) : null),
+        priceText: rawFacts.priceText != null ? String(rawFacts.priceText) : (rawFacts.price_text != null ? String(rawFacts.price_text) : null),
+        sizeText: rawFacts.sizeText != null ? String(rawFacts.sizeText) : (rawFacts.size_text != null ? String(rawFacts.size_text) : null),
+        currentUse: rawFacts.currentUse != null ? String(rawFacts.currentUse) : (rawFacts.current_use != null ? String(rawFacts.current_use) : null),
+        leaseSignal: rawFacts.leaseSignal != null ? String(rawFacts.leaseSignal) : (rawFacts.lease_signal != null ? String(rawFacts.lease_signal) : null),
+        vacancySignal: rawFacts.vacancySignal != null ? String(rawFacts.vacancySignal) : (rawFacts.vacancy_signal != null ? String(rawFacts.vacancy_signal) : null),
+        tenantNames: Array.isArray(rawFacts.tenantNames || rawFacts.tenant_names) ? (rawFacts.tenantNames || rawFacts.tenant_names) as string[] : [],
+        unitRentTexts: Array.isArray(rawFacts.unitRentTexts || rawFacts.unit_rent_texts) ? (rawFacts.unitRentTexts || rawFacts.unit_rent_texts) as string[] : [],
+        sellerMotivationText: rawFacts.sellerMotivationText != null ? String(rawFacts.sellerMotivationText) : (rawFacts.seller_motivation_text != null ? String(rawFacts.seller_motivation_text) : null),
+        brokerNotes: Array.isArray(rawFacts.brokerNotes || rawFacts.broker_notes) ? (rawFacts.brokerNotes || rawFacts.broker_notes) as string[] : [],
+      },
+      detectedSensitiveFields: Array.isArray(parsedMemoObj.detectedSensitiveFields || parsedMemoObj.detected_sensitive_fields)
+        ? ((parsedMemoObj.detectedSensitiveFields || parsedMemoObj.detected_sensitive_fields) as string[]).filter(f => ["exact_address", "tenant_name", "unit_rent", "seller_motivation", "negotiation_memo", "owner_identity", "buyer_identity"].includes(f)) as MemoParserOutput["detectedSensitiveFields"]
+        : [],
+      ambiguousFields: Array.isArray(parsedMemoObj.ambiguousFields || parsedMemoObj.ambiguous_fields)
+        ? (parsedMemoObj.ambiguousFields || parsedMemoObj.ambiguous_fields) as string[]
+        : [],
+      warnings: Array.isArray(parsedMemoObj.warnings) ? parsedMemoObj.warnings as string[] : [],
+    };
   }
 
   // Step 2: Build Mini Truth using sanitized raw memo
@@ -120,13 +154,46 @@ export async function runBrokerDealCard(
   // Desanitize response before Zod parsing
   const restoredTruthContent = desanitizeOutput(truthResult.content, sanitizationMap);
   let buildingTruth: BuildingMiniTruthOutput;
+  const cleanedTruthJson = extractJsonString(restoredTruthContent);
+  let parsedTruthObj: Record<string, unknown>;
   try {
-    buildingTruth = BuildingMiniTruthOutputSchema.parse(
-      JSON.parse(extractJsonString(restoredTruthContent)),
-    );
-  } catch (parseErr) {
-    console.error("[broker-deal-card] BuildingMiniTruth output parse failed:", parseErr, "\nRaw:", restoredTruthContent.slice(0, 500));
+    parsedTruthObj = JSON.parse(cleanedTruthJson);
+  } catch (jsonErr) {
+    console.error("[broker-deal-card] BuildingMiniTruth JSON.parse failed. Raw (first 800 chars):", restoredTruthContent.slice(0, 800));
     throw new Error("AI가 건물 정보를 구성하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+  }
+
+  const truthZodResult = BuildingMiniTruthOutputSchema.safeParse(parsedTruthObj);
+  if (truthZodResult.success) {
+    buildingTruth = truthZodResult.data;
+  } else {
+    console.warn("[broker-deal-card] BuildingMiniTruth Zod validation failed, recovering from raw fields:", JSON.stringify(truthZodResult.error.issues, null, 2), "\nParsed keys:", Object.keys(parsedTruthObj));
+    // Zod 실패 시, 가능한 필드를 수동으로 채워서 복구 시도 (BlindTeaser와 동일한 안티프래질 패턴)
+    const validHiddenFields = ["exact_address", "tenant_name", "unit_rent", "seller_motivation", "negotiation_memo", "owner_identity", "buyer_identity", "registry_detail", "lease_contract_raw_text"];
+    const rawHidden = Array.isArray(parsedTruthObj.hiddenFields || parsedTruthObj.hidden_fields)
+      ? (parsedTruthObj.hiddenFields || parsedTruthObj.hidden_fields) as string[]
+      : [];
+    buildingTruth = {
+      areaSignal: String(parsedTruthObj.areaSignal || parsedTruthObj.area_signal || parsedMemo.extractedFacts.region || ""),
+      assetType: String(parsedTruthObj.assetType || parsedTruthObj.asset_type || parsedMemo.extractedFacts.assetType || ""),
+      priceBand: parsedTruthObj.priceBand != null ? String(parsedTruthObj.priceBand) : (parsedTruthObj.price_band != null ? String(parsedTruthObj.price_band) : null),
+      sizeSignal: parsedTruthObj.sizeSignal != null ? String(parsedTruthObj.sizeSignal) : (parsedTruthObj.size_signal != null ? String(parsedTruthObj.size_signal) : null),
+      currentUseSignal: parsedTruthObj.currentUseSignal != null ? String(parsedTruthObj.currentUseSignal) : (parsedTruthObj.current_use_signal != null ? String(parsedTruthObj.current_use_signal) : null),
+      vacancySignal: parsedTruthObj.vacancySignal != null ? String(parsedTruthObj.vacancySignal) : (parsedTruthObj.vacancy_signal != null ? String(parsedTruthObj.vacancy_signal) : null),
+      fitSummary: String(parsedTruthObj.fitSummary || parsedTruthObj.fit_summary || ""),
+      cautionSummary: String(parsedTruthObj.cautionSummary || parsedTruthObj.caution_summary || ""),
+      hiddenFields: rawHidden.filter((f): f is typeof validHiddenFields[number] => validHiddenFields.includes(f)) as BuildingMiniTruthOutput["hiddenFields"],
+      confidence: {
+        areaSignal: "ai_hypothesis",
+        assetType: "ai_hypothesis",
+        priceBand: "needs_verification",
+        fitSummary: "ai_hypothesis",
+      },
+      missingData: Array.isArray(parsedTruthObj.missingData || parsedTruthObj.missing_data)
+        ? (parsedTruthObj.missingData || parsedTruthObj.missing_data) as string[]
+        : [],
+      boundaryNote: String(parsedTruthObj.boundaryNote || parsedTruthObj.boundary_note || "이 자료는 공개 데이터와 입력 정보를 바탕으로 한 예비 검토 자료입니다."),
+    };
   }
 
   // Step 3: Generate Blind Teaser
