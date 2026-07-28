@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { calculateFinancials, type FinancialInputs, type FinancialOutputs } from "@/domain/building/mobile-im/financials";
+import { calculateNOI, calculateCapRate } from '@/domain/building/financials';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
 
 export interface YieldSimulatorProps {
@@ -36,6 +37,14 @@ export function YieldSimulator({
       vacancyRatePct: 5,
     };
     const outputs = calculateFinancials(inputs);
+
+    // v3 Cross-validation via centralized financials
+    const v3Noi = calculateNOI(rent * 10000 * 12, 10, 5);
+    const v3CapRate = calculateCapRate(v3Noi.value, price * 10000);
+    if (v3CapRate.value !== null && (v3CapRate.value < 2 || v3CapRate.value > 15)) {
+      console.warn('[YieldSimulator] Abnormal Cap Rate detected:', v3CapRate.value);
+    }
+
     setResults(outputs);
   }, [price, rent, deposit, loan, initialMgmtFee]);
 

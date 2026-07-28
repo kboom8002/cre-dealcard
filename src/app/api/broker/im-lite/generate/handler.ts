@@ -10,6 +10,10 @@ import { generateMobileIM } from "@/domain/building/mobile-im/writer";
 import { enrichBuildingData } from "@/lib/external/external-data-orchestrator";
 import { enrichBuildingDataByPNU } from "@/lib/external/enrich-by-pnu";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
+import { sanitizeComplianceText } from '@/domain/building/guardrails';
+import { computeDataGrade } from '@/domain/building/grade-engine';
+import { calculateNOI, calculateCapRate } from '@/domain/building/financials';
+import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite } from '@/lib/ssot-adapter';
 
 export interface GenerateMobileIMInput {
   buildingId: string;
@@ -28,6 +32,8 @@ export interface GenerateMobileIMResult {
   sections_count?: number;
   external_data_loaded?: boolean;
   message?: string;
+  dataGrade?: string;
+  financialWarnings?: string[];
   // Error cases
   error?: string;
   score?: number;
@@ -93,6 +99,40 @@ export async function generateMobileIMHandler(
     };
   }
 
+  // ─── v3 Data Grade Gating ───
+  const gradeAttrs = buildAttrsFromSsotLite({
+    ...ssotRow,
+    lease_summary: supplemental,
+    layers: ssotRow.layers,
+  });
+  const gradeProvenance = buildProvenanceFromSsotLite({
+    ...ssotRow,
+    lease_summary: supplemental,
+  });
+  const gradeResult = computeDataGrade(gradeAttrs, gradeProvenance);
+
+  // Grade D: Block IM generation entirely
+  if (gradeResult.grade === 'D') {
+    return {
+      ok: false,
+      error: '데이터 등급 D: IM 생성이 차단됩니다. 최소 Grade C 이상의 데이터를 입력해 주세요.',
+      statusCode: 422,
+    };
+  }
+
+  // ─── v3 Financial Validation ───
+  const monthlyRent = supplemental.monthly_rent_total_krw ?? 0;
+  const askingPrice = (supplemental.asking_price_manwon ?? 0) * 10000;
+  let financialWarnings: string[] = [];
+  if (monthlyRent > 0 && askingPrice > 0) {
+    const noiResult = calculateNOI(monthlyRent * 12, 10, 5);
+    const capRateResult = calculateCapRate(noiResult.value, askingPrice);
+    if (capRateResult.value !== null) {
+      if (capRateResult.value < 2) financialWarnings.push(`Cap Rate ${capRateResult.value.toFixed(1)}%: 권역 평균 대비 매우 낮음`);
+      if (capRateResult.value > 15) financialWarnings.push(`Cap Rate ${capRateResult.value.toFixed(1)}%: 비정상적으로 높음 — 데이터 확인 필요`);
+    }
+  }
+
   // ─── 공공데이터 수집 (fault-tolerant)
   let externalData = null;
 
@@ -146,6 +186,27 @@ export async function generateMobileIMHandler(
     readiness,
     external_data: externalData,
   });
+
+  // ─── v3 Guardrails: Sanitize all generated sections ───
+  if (writerResult.sections) {
+    for (const section of writerResult.sections) {
+      if (section.markdown && typeof section.markdown === 'string') {
+        section.markdown = sanitizeComplianceText(section.markdown);
+      }
+    }
+  }
+
+  // Grade C: Mask Cap Rate in sections
+  if (gradeResult.grade === 'C' && writerResult.sections) {
+    for (const section of writerResult.sections) {
+      if (section.markdown && typeof section.markdown === 'string') {
+        section.markdown = section.markdown.replace(
+          /Cap\s*Rate[^.]*\d+\.?\d*\s*%/gi,
+          'Cap Rate: 검증 중'
+        );
+      }
+    }
+  }
 
   // IM 제목: CRE IM 업계 표준 문체 적용 (골든셋 참조: @/lib/ai/im-title-golden-set)
   const areaLabel = ssotRow.area_signal || "핵심 입지";
@@ -209,6 +270,8 @@ export async function generateMobileIMHandler(
         ? { lat: (ssotRow.layers as Record<string, any>).coordinates.lat, lng: (ssotRow.layers as Record<string, any>).coordinates.lng }
         : null,
       photo_urls: supplemental.photo_urls ?? [],
+      dataGrade: gradeResult.grade,
+      financialWarnings,
       // 신규 writer 출력: heroCard, photos (기존 writer 미지원 시 undefined → JSON에서 제외)
       heroCard: writerResult.heroCard ?? undefined,
       photos: writerResult.photos ?? undefined,
@@ -277,6 +340,8 @@ export async function generateMobileIMHandler(
     ai_used: writerResult.ai_used,
     sections_count: writerResult.sections.length,
     external_data_loaded: !!externalData,
-    message: `Mobile IM 생성 완료 (${writerResult.sections.length}섹션${writerResult.ai_used ? ", AI 서사" : ", 템플릿"})`,
+    message: `Mobile IM 생성 완료 (${writerResult.sections.length}섹션${writerResult.ai_used ? ", AI 서사" : ", 템플릿"}, Grade ${gradeResult.grade})`,
+    dataGrade: gradeResult.grade,
+    financialWarnings,
   };
 }

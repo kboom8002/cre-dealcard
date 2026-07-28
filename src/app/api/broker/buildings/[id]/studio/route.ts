@@ -6,6 +6,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { computeLayerScore, getEligibleOutputs } from '@/domain/building/layer-score-engine';
 import { requireBroker } from '@/lib/auth-guard';
+import { computeDataGrade } from '@/domain/building/grade-engine';
+import { computeFinancialSummary, calculateNOI, calculateCapRate } from '@/domain/building/financials';
+import { validateAssetConstraints } from '@/domain/building/constraint-validator';
+import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, buildFinancialInputsFromSsotLite } from '@/lib/ssot-adapter';
 
 export async function GET(
   req: NextRequest,
@@ -70,6 +74,30 @@ export async function GET(
   const computedScores = computeLayerScore(checklist);
   const eligibleOutputs = getEligibleOutputs(computedScores.total);
 
+  // ─── v3 Domain Module Integration ───
+  const attrs = buildAttrsFromSsotLite(building);
+  const provenanceMap = buildProvenanceFromSsotLite(building);
+
+  // Data Grade (A~D)
+  const gradeResult = computeDataGrade(attrs, provenanceMap);
+
+  // Financial Summary (gated by grade)
+  const finInputs = buildFinancialInputsFromSsotLite(building);
+  let financialSummary = null;
+  if (finInputs.grossAnnualIncomeKrw > 0 && finInputs.askingPriceKrw > 0) {
+    const noiResult = calculateNOI(finInputs.grossAnnualIncomeKrw, finInputs.opexRatioPct, finInputs.vacancyReservePct);
+    const capRateResult = calculateCapRate(noiResult.value, finInputs.askingPriceKrw);
+    financialSummary = {
+      noi: noiResult,
+      capRate: capRateResult,
+      grade: gradeResult.grade,
+      isDcfEligible: gradeResult.grade === 'A',
+    };
+  }
+
+  // Constraint Validation (C01~C12)
+  const constraintResult = validateAssetConstraints(attrs);
+
   // Update building_ssot_lite if there's any discrepancy
   if (
     building.completeness_score !== computedScores.total ||
@@ -93,5 +121,10 @@ export async function GET(
     eligibleOutputs,
     disclosurePrefs: building.disclosure_prefs || {},
     leaseSummary: building.lease_summary || {},
+    // v3 Domain Module Results
+    dataGrade: gradeResult.grade,
+    gradeDetails: gradeResult,
+    financialSummary,
+    constraints: constraintResult,
   });
 }

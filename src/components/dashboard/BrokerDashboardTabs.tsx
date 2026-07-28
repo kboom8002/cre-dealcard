@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface BrokerDashboardTabsProps {
+  actionQueueContent?: React.ReactNode;
   overviewContent: React.ReactNode;
   breakthroughContent: React.ReactNode;
   weeklyReportContent: React.ReactNode;
@@ -11,14 +12,16 @@ interface BrokerDashboardTabsProps {
 }
 
 export default function BrokerDashboardTabs({
+  actionQueueContent,
   overviewContent,
   breakthroughContent,
   weeklyReportContent,
   morningIntelligenceContent,
 }: BrokerDashboardTabsProps) {
-  const [activeTab, setActiveTab] = useState<"overview" | "intelligence" | "breakthrough" | "reports">("overview");
+  const [activeTab, setActiveTab] = useState<"actionQueue" | "overview" | "intelligence" | "breakthrough" | "reports">("actionQueue");
 
   const tabs = [
+    { id: "actionQueue", label: "⚡ 지금 처리" },
     { id: "overview", label: "오늘의 현황" },
     { id: "intelligence", label: "📋 오늘의 정보" },
     { id: "breakthrough", label: "📈 시장 돌파 전략" },
@@ -63,6 +66,7 @@ export default function BrokerDashboardTabs({
             transition={{ duration: 0.2 }}
             className="w-full"
           >
+            {activeTab === "actionQueue" && actionQueueContent}
             {activeTab === "overview" && overviewContent}
             {activeTab === "intelligence" && morningIntelligenceContent}
             {activeTab === "breakthrough" && breakthroughContent}

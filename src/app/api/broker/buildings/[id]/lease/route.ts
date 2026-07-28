@@ -7,6 +7,8 @@ import { createClient } from '@supabase/supabase-js';
 import { buildLeaseSummaryFromInput } from '@/domain/building/lease-normalizer';
 import { computeLayerScore, getEligibleOutputs } from '@/domain/building/layer-score-engine';
 import { recordEvent } from '@/domain/analytics/record-event';
+import { validateAssetConstraints } from '@/domain/building/constraint-validator';
+import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
 import { requireBroker } from '@/lib/auth-guard';
 
 export async function POST(
@@ -51,6 +53,21 @@ export async function POST(
 
   // Normalize and calculate vacancy/WALT/income
   const normalizedSummary = buildLeaseSummaryFromInput(tenantsInput);
+
+  // ─── v3 Constraint Validation on updated lease data ───
+  const updatedBuilding = { ...building, lease_summary: normalizedSummary.privateLayer };
+  const attrs = buildAttrsFromSsotLite(updatedBuilding);
+  const constraintResult = validateAssetConstraints(attrs);
+  const criticalViolations = constraintResult.violations?.filter(
+    (v: any) => ['C01', 'C03'].includes(v.code)
+  ) || [];
+
+  if (criticalViolations.length > 0) {
+    return NextResponse.json({
+      error: '치명적 데이터 무결성 위반이 감지되었습니다',
+      violations: criticalViolations,
+    }, { status: 422 });
+  }
 
   // Update building_ssot_lite with public and private layers
   const updatedLayers = {
@@ -122,5 +139,6 @@ export async function POST(
     ok: true,
     newCompletenessScore: computedScores.total,
     leaseSummary: normalizedSummary.privateLayer,
+    constraintWarnings: constraintResult.violations || [],
   });
 }

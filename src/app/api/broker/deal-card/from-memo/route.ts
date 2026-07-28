@@ -12,6 +12,11 @@ import { toApiError } from "@/lib/api-error";
 import { requireBroker } from "@/lib/auth-guard";
 import { NextRequest, after } from "next/server";
 import { validateMemoQuality } from "@/domain/building/memo-quality-gate";
+import { sanitizeComplianceText, validateColdModePitchGuard } from '@/domain/building/guardrails';
+import { classifyDealArchetype } from '@/domain/building/archetype-classifier';
+import { validateAssetConstraints } from '@/domain/building/constraint-validator';
+import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
+import { createServiceClient } from '@/lib/supabase/service';
 
 const BrokerDealCardFromMemoRequest = z.object({
   memo: z.string().min(5),
@@ -43,14 +48,54 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ─── v3 Guardrails: Sanitize compliance text ───
+    const sanitizedMemo = sanitizeComplianceText(input.memo);
+
+    // Cold Mode pitch guard (blind visibility = no mandate)
+    if (input.visibilityPreference === 'blind') {
+      const pitchGuard = validateColdModePitchGuard({
+        mode: 'cold',
+        hasOwnerMandate: false,
+        promptOrText: sanitizedMemo,
+      });
+      if (!pitchGuard.passed) {
+        return Response.json(
+          { ok: false, code: 'GUARDRAIL_VIOLATION', message: pitchGuard.violations.join('; '), violations: pitchGuard.violations },
+          { status: 422 }
+        );
+      }
+    }
+
     const result = await brokerDealCardFromMemo(
       {
-        memo: input.memo,
+        memo: sanitizedMemo,
         visibilityPreference: input.visibilityPreference,
         photoUrls: input.photoUrls,
       },
       user!.id,
     );
+
+    // ─── v3 Post-processing: Archetype Classification & Constraint Validation ───
+    const serviceClient = createServiceClient();
+    const { data: createdBuilding } = await serviceClient
+      .from('building_ssot_lite')
+      .select('*')
+      .eq('id', result.buildingId)
+      .single();
+
+    let archetypes: string[] = [];
+    let constraintWarnings: any[] = [];
+    if (createdBuilding) {
+      const attrs = buildAttrsFromSsotLite(createdBuilding);
+
+      // Archetype classification
+      const archetypeResult = classifyDealArchetype(attrs);
+      archetypes = [archetypeResult.primaryArchetype, ...archetypeResult.secondaryArchetypes];
+
+      // Constraint validation
+      const constraintResult = validateAssetConstraints(attrs);
+      constraintWarnings = constraintResult.violations || [];
+    }
 
     // 이벤트 트리거 매칭: 백그라운드에서 매칭 엔진 실행 (응답 차단 안함)
     after(async () => {
@@ -65,6 +110,8 @@ export async function POST(req: NextRequest) {
     return Response.json({
       ok: true,
       data: result,
+      archetypes,
+      constraintWarnings,
     });
   } catch (error) {
     console.error("Deal Card Route Error:", error);
