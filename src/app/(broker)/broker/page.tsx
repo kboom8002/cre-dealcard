@@ -12,6 +12,8 @@ import { Bell, TrendingUp, Users, Building2, Target, Calendar, Newspaper } from 
 import BrokerDashboardTabs from "@/components/dashboard/BrokerDashboardTabs";
 import MorningIntelligence from "@/components/dashboard/MorningIntelligence";
 import { GreetingHeader } from "@/components/dashboard/GreetingHeader";
+import { ActionQueue, type ActionItem } from "@/components/dashboard/ActionQueue";
+import { PipelineSnapshot } from "@/components/dashboard/PipelineSnapshot";
 
 import { UniversalMemoFAB } from "@/components/memo/UniversalMemoFAB";
 
@@ -324,6 +326,69 @@ export default async function BrokerPage() {
 
   const todayBookings = todayBookingsRes?.data || [];
 
+  // ── ActionQueue 실데이터 생성 ──
+  const actionQueueItems: ActionItem[] = [];
+
+  // Hot Lead: hot_lead_alert_sent 이벤트
+  rawEvents
+    .filter(evt => evt.event_type === 'hot_lead_alert_sent')
+    .forEach(evt => {
+      actionQueueItems.push({
+        id: `hot-${evt.id}`,
+        type: 'hot_lead',
+        title: `Hot Lead 감지 (스코어 80+)`,
+        subtitle: (evt.metadata as any)?.area_signal || '매수 의향 고객',
+        dealId: (evt.metadata as any)?.building_id,
+        createdAt: evt.created_at,
+      });
+    });
+
+  // Gate 요청: gate_request_created 이벤트 (pending)
+  rawEvents
+    .filter(evt => evt.event_type === 'gate_request_created')
+    .forEach(evt => {
+      actionQueueItems.push({
+        id: `gate-${evt.id}`,
+        type: 'pro_request',
+        title: `Pro IM 접근 요청`,
+        subtitle: (evt.metadata as any)?.requester_name || '매수 희망 고객',
+        dealId: (evt.metadata as any)?.building_id,
+        createdAt: evt.created_at,
+      });
+    });
+
+  // 정체 딜: 14일 이상 업데이트 없는 딜
+  const stagnantDeals = dealCreatedDates.filter((d: any) => {
+    const days = (Date.now() - new Date(d.created_at).getTime()) / 86400000;
+    return days > 14;
+  });
+  if (stagnantDeals.length > 0) {
+    actionQueueItems.push({
+      id: `stagnant-summary`,
+      type: 'stagnant',
+      title: `${stagnantDeals.length}건의 딜이 14일 이상 정체`,
+      subtitle: '다음 액션을 취해 파이프라인을 활성화하세요',
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  // ── PipelineSnapshot 데이터 ──
+  const pipelineStages = [
+    { stage: 'memo_input', label: '메모 입력', count: totalBuildings ?? 0, stagnant: stagnantDeals.length },
+    { stage: 'deal_card_created', label: '딜카드', count: myTotalDeals, stagnant: 0 },
+    { stage: 'im_created', label: 'IM 발행', count: 0, stagnant: 0 },
+    { stage: 'buyer_meeting', label: '바이어 미팅', count: todayBookings.length, stagnant: 0 },
+    { stage: 'closed', label: '성사', count: 0, stagnant: 0 },
+  ];
+
+  // ── ActionQueue Tab Content ──
+  const actionQueueContent = (
+    <div className="space-y-5 animate-fadeIn">
+      <PipelineSnapshot stages={pipelineStages} />
+      <ActionQueue items={actionQueueItems} />
+    </div>
+  );
+
   // Overview Tab Panel Content
   const overviewContent = (
     <div className="space-y-5 animate-fadeIn">
@@ -358,30 +423,6 @@ export default async function BrokerPage() {
           </div>
         </div>
       )}
-
-      {/* ── 핵심 KPI 스크롤 카드 ── */}
-      <div>
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">오늘의 주요 지표</p>
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {[
-            { label: "매매물건", value: totalBuildings ?? 0, icon: Building2, color: "text-blue-400", href: "/broker/buildings" },
-            { label: "임대물건", value: totalLeaseSpaces ?? 0, icon: Building2, color: "text-primary", href: "/broker/buildings" },
-            { label: "S/A 매칭", value: sMatchCount + aMatchCount, icon: Target, color: "text-amber-400", href: "/broker/matching" },
-            { label: "관리 고객", value: totalClients ?? 0, icon: Users, color: "text-emerald-400", href: "/broker/clients" },
-            { label: "매수 고객", value: totalBuyers ?? 0, icon: TrendingUp, color: "text-rose-400", href: "/broker/buyer-intents" },
-          ].map(({ label, value, icon: Icon, color, href }) => (
-            <Link
-              key={label}
-              href={href}
-              className="shrink-0 rounded-xl border border-border bg-card px-4 py-3 text-center hover:border-primary/30 transition-all min-w-[76px]"
-            >
-              <Icon className={`w-4 h-4 mx-auto mb-1 ${color}`} strokeWidth={2} />
-              <p className="text-lg font-bold">{value}</p>
-              <p className="text-[10px] text-muted-foreground">{label}</p>
-            </Link>
-          ))}
-        </div>
-      </div>
 
       {/* ── 알림 피드 ── */}
       {notifications.length > 0 && (
@@ -489,31 +530,53 @@ export default async function BrokerPage() {
           </Link>
 
           <Link
-            href="/broker/magazine-editor?tab=analytics"
-            id="quick-action-magazine"
-            className="flex items-center gap-2.5 rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 hover:bg-orange-500/20 active:scale-95 transition-all"
+            href="/broker/tenant-intents/new"
+            id="quick-action-buyer-intent"
+            className="flex items-center gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 hover:bg-rose-500/20 active:scale-95 transition-all"
           >
-            <span className="text-xl">📰</span>
+            <span className="text-xl">🎯</span>
             <div>
-              <p className="text-xs font-bold text-orange-400 leading-tight">매거진 관리</p>
-              <p className="text-[10px] text-muted-foreground">발행 이력 · 편집 · 성과</p>
+              <p className="text-xs font-bold text-rose-400 leading-tight">매수 조건 등록</p>
+              <p className="text-[10px] text-muted-foreground">고객 매수 의향 입력</p>
             </div>
           </Link>
           <Link
-            href="/broker/vibe-card"
-            id="quick-action-vibe-card"
-            className="flex items-center gap-2.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 hover:bg-purple-500/20 active:scale-95 transition-all"
+            href="/broker/pipeline"
+            id="quick-action-pipeline"
+            className="flex items-center gap-2.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 hover:bg-indigo-500/20 active:scale-95 transition-all"
           >
-            <span className="text-xl">✨</span>
+            <span className="text-xl">📋</span>
             <div>
-              <p className="text-xs font-bold text-purple-400 leading-tight">Vibe 명함</p>
-              <p className="text-[10px] text-muted-foreground">명함 관리 · 재생성 · 공유</p>
+              <p className="text-xs font-bold text-indigo-400 leading-tight">파이프라인</p>
+              <p className="text-[10px] text-muted-foreground">딜 진행 현황 관리</p>
             </div>
           </Link>
         </div>
 
+        {/* ── KPI 스크롤 카드 (항상 표시) ── */}
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {[
+            { label: "매매물건", value: totalBuildings ?? 0, icon: Building2, color: "text-blue-400", href: "/broker/buildings" },
+            { label: "임대물건", value: totalLeaseSpaces ?? 0, icon: Building2, color: "text-primary", href: "/broker/buildings" },
+            { label: "S/A 매칭", value: sMatchCount + aMatchCount, icon: Target, color: "text-amber-400", href: "/broker/matching" },
+            { label: "관리 고객", value: totalClients ?? 0, icon: Users, color: "text-emerald-400", href: "/broker/clients" },
+            { label: "매수 고객", value: totalBuyers ?? 0, icon: TrendingUp, color: "text-rose-400", href: "/broker/buyer-intents" },
+          ].map(({ label, value, icon: Icon, color, href }) => (
+            <Link
+              key={label}
+              href={href}
+              className="shrink-0 rounded-xl border border-border bg-card px-4 py-3 text-center hover:border-primary/30 transition-all min-w-[76px]"
+            >
+              <Icon className={`w-4 h-4 mx-auto mb-1 ${color}`} strokeWidth={2} />
+              <p className="text-lg font-bold">{value}</p>
+              <p className="text-[10px] text-muted-foreground">{label}</p>
+            </Link>
+          ))}
+        </div>
+
         {/* ── 탭 레이아웃 연동 ── */}
         <BrokerDashboardTabs
+          actionQueueContent={actionQueueContent}
           overviewContent={overviewContent}
           breakthroughContent={<MarketBreakthroughMode {...breakthroughMetrics} />}
           weeklyReportContent={

@@ -18,14 +18,12 @@ export default function BrokerDashboardTabs({
   weeklyReportContent,
   morningIntelligenceContent,
 }: BrokerDashboardTabsProps) {
-  const [activeTab, setActiveTab] = useState<"actionQueue" | "overview" | "intelligence" | "breakthrough" | "reports">("actionQueue");
+  const [activeTab, setActiveTab] = useState<"actionQueue" | "overview" | "intelligence">("actionQueue");
 
   const tabs = [
     { id: "actionQueue", label: "⚡ 지금 처리" },
-    { id: "overview", label: "오늘의 현황" },
-    { id: "intelligence", label: "📋 오늘의 정보" },
-    { id: "breakthrough", label: "📈 시장 돌파 전략" },
-    { id: "reports", label: "📊 리포트" },
+    { id: "overview", label: "📊 현황" },
+    { id: "intelligence", label: "📈 인텔리전스" },
   ] as const;
 
   return (
@@ -68,9 +66,13 @@ export default function BrokerDashboardTabs({
           >
             {activeTab === "actionQueue" && actionQueueContent}
             {activeTab === "overview" && overviewContent}
-            {activeTab === "intelligence" && morningIntelligenceContent}
-            {activeTab === "breakthrough" && breakthroughContent}
-            {activeTab === "reports" && weeklyReportContent}
+            {activeTab === "intelligence" && (
+              <div className="space-y-6">
+                {morningIntelligenceContent}
+                {breakthroughContent}
+                {weeklyReportContent}
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
