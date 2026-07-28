@@ -54,14 +54,15 @@ describe("Usage Tracker & Tier Gate", () => {
     it("should integrate with tier limitations and dynamic ROI values", async () => {
       // 1. 유저 티어 조회 (free)
       // 2. 당월 누적 사용량 조회 (2건)
-      // 3. 당월 누적 절약 금액(ROI) 조회 (2 * 3.5시간 = 7.0시간 -> ₩350,000)
+      // 3. 당월 누적 절약 금액(ROI) 조회 (2 * 1.5시간 = 3.0시간 -> ₩105,000)
       const mockQueryData = [
         { tier: "free" },                                  // 1회차: user_subscriptions tier 조회
         { current_count: 2, max_limit: 3 },                // 2회차: usage_counters 조회
-        { count: 2, data: [], error: null },               // 3회차 (ROI): deal_card_creation 횟수 조회
-        { count: 0, data: [], error: null },               // 4회차 (ROI): buyer_intent_created 조회
-        { count: 0, data: [], error: null },               // 5회차 (ROI): match_results 조회
-        { count: 0, data: [], error: null },               // 6회차 (ROI): im_lite_generated 조회
+        { data: null, error: null },                       // 3회차 (ROI): broker_profiles 조회
+        { count: 2, data: [], error: null },               // 4회차 (ROI): deal_card_creation 횟수 조회
+        { count: 0, data: [], error: null },               // 5회차 (ROI): buyer_intent_created 조회
+        { count: 0, data: [], error: null },               // 6회차 (ROI): match_results 조회
+        { count: 0, data: [], error: null },               // 7회차 (ROI): im_lite_generated 조회
       ];
       
       let queryIdx = 0;
@@ -88,8 +89,8 @@ describe("Usage Tracker & Tier Gate", () => {
       expect(result.maxLimit).toBe(3);
       expect(result.hasAccess).toBe(true); // 2 < 3 이므로 허용
       
-      // 2건의 딜카드 생성 * 3.5시간 * 50,000 = ₩350,000 절약 가치 연동 성공!
-      expect(result.estimatedSavingsMoney).toBe(350000);
+      // 2건의 딜카드 생성 * 1.5시간 * ₩35,000 = ₩105,000 절약 가치 연동 성공!
+      expect(result.estimatedSavingsMoney).toBe(105000);
     });
   });
 });

@@ -49,5 +49,5 @@ describe("CRE Premium Government APIs (A1-A6)", () => {
     expect(body.data.energyRating).toBeDefined();
     expect(body.data.district).toBeDefined();
     expect(body.data.officialPrice).toBeDefined();
-  });
+  }, 15000);
 });

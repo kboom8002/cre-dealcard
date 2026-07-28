@@ -1,0 +1,413 @@
+# =============================================================
+# CREDEAL Asset Ontology v0.1
+# 상업용 부동산 자산 온톨로지 — 구현용 스키마
+# 대상: 꼬마빌딩(smallBuilding) · 물류센터(logisticsCenter) · 개발부지(landSite)
+# 원칙: "온톨로지적으로 사고하고, 관계형으로 구현한다"
+#        (트리플스토어 불필요 — Zod/Postgres enum + 계층 테이블 + 규칙 함수로 구현)
+# 주의: 법정 상한값은 국토계획법 시행령 기준 참고치이며 지자체 조례가 우선한다.
+#        조례값은 zoning_ordinance 테이블에서 지자체별로 로드할 것.
+# =============================================================
+
+meta:
+  version: "0.1.0"
+  date: "2026-07-23"
+  provenance_tiers:            # 데이터 출처 4-tier (기존 data-provenance.ts 확장)
+    - public_data              # ✓ 공부 확인 (건축물대장·토지이음·공시지가 API)
+    - expert_verified          # ★ 전문가 검증 (감정평가사·법무사 등)
+    - broker_input             # 👤 중개인 입력
+    - ai_inferred              # ⚙ AI 추정·계산 (반드시 '가정' 배지 표기)
+  grade_policy:                # 데이터 품질 등급 = 자산군별 필드 커버리지
+    A: "required + enhanced 필드 90%+ 충족 → DCF·민감도 노출 허용"
+    B: "required 100% + enhanced 50%+ → 기본 수익률만"
+    C: "required 필드만 → 물건 개요 수준"
+    D: "required 미충족 → 생성 보류·보강 유도"
+
+# =============================================================
+# 1. ENUMS (코드 사전)
+# =============================================================
+enums:
+
+  zoningRegion:                # 용도지역 (국토계획법 시행령 §84 건폐율·§85 용적률 상한)
+    source: "토지이용계획 API (LURIS/토지이음) — 필지당 1개 (functional 제약)"
+    note: "max값은 시행령 상한(%). 실제 상한은 지자체 조례 우선 — ordinance 테이블 참조"
+    values:
+      R1E:  { ko: 제1종전용주거지역, bcr_max: 50, far_max: 100 }
+      R2E:  { ko: 제2종전용주거지역, bcr_max: 50, far_max: 150 }
+      R1G:  { ko: 제1종일반주거지역, bcr_max: 60, far_max: 200 }
+      R2G:  { ko: 제2종일반주거지역, bcr_max: 60, far_max: 250 }
+      R3G:  { ko: 제3종일반주거지역, bcr_max: 50, far_max: 300 }
+      RSEMI: { ko: 준주거지역,       bcr_max: 70, far_max: 500 }
+      CCEN: { ko: 중심상업지역,     bcr_max: 90, far_max: 1500 }
+      CGEN: { ko: 일반상업지역,     bcr_max: 80, far_max: 1300 }
+      CNEI: { ko: 근린상업지역,     bcr_max: 70, far_max: 900 }
+      CDIS: { ko: 유통상업지역,     bcr_max: 80, far_max: 1100 }
+      IEXC: { ko: 전용공업지역,     bcr_max: 70, far_max: 300 }
+      IGEN: { ko: 일반공업지역,     bcr_max: 70, far_max: 350 }
+      ISEMI: { ko: 준공업지역,      bcr_max: 70, far_max: 400 }
+      GCON: { ko: 보전녹지지역,     bcr_max: 20, far_max: 80 }
+      GPRO: { ko: 생산녹지지역,     bcr_max: 20, far_max: 100 }
+      GNAT: { ko: 자연녹지지역,     bcr_max: 20, far_max: 100 }
+      MCON: { ko: 보전관리지역,     bcr_max: 20, far_max: 80 }
+      MPRO: { ko: 생산관리지역,     bcr_max: 20, far_max: 80 }
+      MPLA: { ko: 계획관리지역,     bcr_max: 40, far_max: 100 }
+      AGRI: { ko: 농림지역,         bcr_max: 20, far_max: 80 }
+      NENV: { ko: 자연환경보전지역, bcr_max: 20, far_max: 80 }
+
+  roadContactType:             # 도로접면 12분류 (표준지공시지가 조사·평가 기준 준용)
+    source: "표준지 토지특성 조사 항목 / 감정평가 실무"
+    note: "weight = 중로한면 100 기준 상대 가격 가중치. 예외결합: 광대·중로·소로 + 세로(불) 동시 접면은 각지로 보지 않고 우세도로 한면으로 평가"
+    values:
+      BROAD_ONE:    { ko: 광대한면,  desc: "폭 25m 이상 도로 1면 접함", weight: 110 }
+      BROAD_SMALL:  { ko: 광대소각,  desc: "광대로 + 소로(8~12m) 이상 접한 코너", weight: 115 }
+      BROAD_NARROW: { ko: 광대세각,  desc: "광대로 + 차량통행 가능 세로 접한 코너", weight: 112 }
+      MED_ONE:      { ko: 중로한면,  desc: "폭 12~25m 도로 1면 접함 (기준지표)", weight: 100 }
+      MED_CORNER:   { ko: 중로각지,  desc: "중로 + 중로·소로·세로(가) 접한 코너", weight: 105 }
+      SMALL_ONE:    { ko: 소로한면,  desc: "폭 8~12m 도로 1면 접함", weight: 90 }
+      SMALL_CORNER: { ko: 소로각지,  desc: "소로 + 소로·세로(가) 접한 코너", weight: 95 }
+      NARROW_ONE:   { ko: "세로(가)", desc: "차량통행 가능 폭 8m 미만 도로 1면", weight: 80 }
+      NARROW_CORNER: { ko: "세각(가)", desc: "차량통행 가능 세로 2면 이상 코너", weight: 85 }
+      NARROW_NO:    { ko: "세로(불)", desc: "차량통행 불가·보행 가능 도로 접함", weight: 70 }
+      NARROW_NO_CORNER: { ko: "세각(불)", desc: "차량통행 불가 세로 2면 이상 코너", weight: 73 }
+      BLIND:        { ko: 맹지,      desc: "도로 미접 — 진입로 확보 전 개발 불가", weight: 60 }
+
+  landCategory:                # 지목 28종 (공간정보관리법 시행령 §58)
+    source: "토지(임야)대장 / 토지이음"
+    note: "부호는 두문자, 예외 4종: 공장용지(장)·주차장(차)·하천(천)·유원지(원)"
+    values:
+      DAE:   { ko: 대,        code: 대 }
+      JEON:  { ko: 전,        code: 전 }
+      DAP:   { ko: 답,        code: 답 }
+      GWA:   { ko: 과수원,    code: 과 }
+      MOK:   { ko: 목장용지,  code: 목 }
+      IM:    { ko: 임야,      code: 임 }
+      GWANG: { ko: 광천지,    code: 광 }
+      YEOM:  { ko: 염전,      code: 염 }
+      JANG:  { ko: 공장용지,  code: 장 }
+      HAK:   { ko: 학교용지,  code: 학 }
+      CHA:   { ko: 주차장,    code: 차 }
+      JU:    { ko: 주유소용지, code: 주 }
+      CHANG: { ko: 창고용지,  code: 창 }
+      DO:    { ko: 도로,      code: 도 }
+      CHEOL: { ko: 철도용지,  code: 철 }
+      JE:    { ko: 제방,      code: 제 }
+      CHEON: { ko: 하천,      code: 천 }
+      GU:    { ko: 구거,      code: 구 }
+      YUJI:  { ko: 유지,      code: 유 }
+      YANG:  { ko: 양어장,    code: 양 }
+      SU:    { ko: 수도용지,  code: 수 }
+      GONG:  { ko: 공원,      code: 공 }
+      CHE:   { ko: 체육용지,  code: 체 }
+      WON:   { ko: 유원지,    code: 원 }
+      JONG:  { ko: 종교용지,  code: 종 }
+      SA:    { ko: 사적지,    code: 사 }
+      MYO:   { ko: 묘지,      code: 묘 }
+      JAP:   { ko: 잡종지,    code: 잡 }
+
+  landShape:                   # 토지 형상 (감정평가 토지특성 분류)
+    values:
+      SQUARE:     { ko: 정방형 }
+      OBLONG_W:   { ko: 가로장방형 }
+      OBLONG_D:   { ko: 세로장방형 }
+      TRAPEZOID:  { ko: 사다리형 }
+      IRREGULAR:  { ko: 부정형 }
+      FLAG:       { ko: 자루형 }     # 진입부가 좁은 깃대형
+
+  landSlope:                   # 토지 고저 (감정평가 토지특성 분류)
+    values: { LOW: {ko: 저지}, FLAT: {ko: 평지}, GENTLE: {ko: 완경사}, STEEP: {ko: 급경사}, HIGH: {ko: 고지} }
+
+  evictionStatus:              # 명도 진행 상태
+    values:
+      VACATED:     { ko: 명도 완료, risk: LOW }
+      AGREED:      { ko: 명도 합의 완료(이행 전), risk: LOW }
+      IN_PROGRESS: { ko: 협의 진행 중, risk: MEDIUM }
+      OCCUPIED:    { ko: 명도 전(점유 중), risk: HIGH }
+
+  evictionCondition:           # 거래 조건으로서의 명도
+    values:
+      FULL:    { ko: 전체 명도 조건(매도인 책임) }
+      PARTIAL: { ko: 부분 명도 조건 }
+      AS_IS:   { ko: 현상태 인수 }
+
+  occupantType:                # 점유자 유형 → 명도 리스크 등급
+    values:
+      OWNER_OCCUPIED:     { ko: 소유자 본인 점유,    risk: HIGH }
+      PROTECTED_TENANT:   { ko: 대항력 있는 임차인,  risk: MEDIUM }
+      UNPROTECTED_TENANT: { ko: 대항력 없는 임차인,  risk: LOW }
+      ILLEGAL_OCCUPANT:   { ko: 무단 점유자,        risk: HIGH }
+
+  parkingType:
+    values: { FLAT: {ko: 자주식}, MECHANICAL: {ko: 기계식}, MIXED: {ko: 혼합식} }
+
+  rampStructure:               # 물류 차량 접근 구조
+    values:
+      DIRECT_RAMP: { ko: 직접 접안형(전층 램프) }
+      SPIRAL_RAMP: { ko: 회전식 램프 }
+      DOCK_ONLY:   { ko: 1층 도크 전용 }
+      CARGO_ELEV:  { ko: 화물엘리베이터식 }
+
+  storageTemperature:
+    values: { AMBIENT: {ko: 상온}, COLD: {ko: 저온(냉장)}, FROZEN: {ko: 냉동}, MIXED: {ko: 복합} }
+
+  permittingStatus:            # 개발 인허가 단계
+    values:
+      NONE:            { ko: 인허가 미진행 }
+      PRE_REVIEW:      { ko: 사전 검토·심의 준비 }
+      REVIEW_DONE:     { ko: 건축심의 완료 }
+      PERMIT_APPLIED:  { ko: 건축허가(개발행위) 신청 중 }
+      PERMIT_DONE:     { ko: 건축허가 완료 }
+      STARTED:         { ko: 착공 }
+
+  dealArchetype:               # 투자 아키타입 (규칙 엔진 출력 — §4 참조)
+    values:
+      STABLE_INCOME:    { ko: 초안정 수익형 }
+      VALUE_ADD:        { ko: 밸류애드(증축·리모델링)형 }
+      HQ_READY:         { ko: 사옥 신축 적합 }
+      INSTITUTIONAL_LOGI: { ko: 기관 투자 적합 물류 }
+      COLD_CHAIN_HUB:   { ko: 프리미엄 콜드체인 }
+      FAST_TRACK_DEV:   { ko: 쾌속 개발 부지 }
+      UNDERPRICED_CORNER: { ko: 저평가 코너 자산 }
+      PARKING_PREMIUM_HQ: { ko: 자주식 주차 사옥 }
+      HIGH_RISK_EVICTION: { ko: 명도 고위험(주의) }
+      SAFE_EVICTION_DEV:  { ko: 명도 안전 개발 후보 }
+
+  region:                      # 권역 (계층 테이블과 병용: 동 → 구 → 시 → 권역)
+    office_retail: [GBD, CBD, YBD, SEONGSU, PANGYO, HONGDAE_MAPO, JAMSIL_SONGPA, ETC_SEOUL, GYEONGGI, ETC]
+    logistics: [SE_GYEONGGI_ICHEON_YONGIN, S_GYEONGGI_ANSEONG_PYEONGTAEK, W_INCHEON_BUCHEON, N_GYEONGGI, ETC]
+
+# =============================================================
+# 2. 공통 코어 속성 (모든 자산군)
+# =============================================================
+common_properties:
+  identity:
+    - { id: pnu,            ko: 필지고유번호(PNU),  type: string,  source: [public_data], note: "vworld/토지대장 키 — 모든 공공 API 조인 키" }
+    - { id: address,        ko: 소재지(지번),       type: string,  source: [broker_input, public_data], blind: true }
+    - { id: roadAddress,    ko: 도로명주소,         type: string,  source: [public_data], blind: true }
+    - { id: regionCode,     ko: 권역 코드,          type: enum:region, source: [ai_inferred], note: "행정구역 계층 테이블에서 자동 파생" }
+  land:
+    - { id: landArea,       ko: 대지면적,   type: float, unit: m2,  source: [public_data] }
+    - { id: landCategory,   ko: 지목,       type: enum:landCategory, source: [public_data] }
+    - { id: zoningRegion,   ko: 용도지역,   type: enum:zoningRegion, source: [public_data], constraint: functional }
+    - { id: officialLandPrice, ko: 개별공시지가, type: int, unit: 원/m2, source: [public_data] }
+    - { id: roadContactType, ko: 도로접면,  type: enum:roadContactType, source: [public_data, broker_input] }
+    - { id: accessRoadWidth, ko: 진입도로 폭, type: float, unit: m, source: [broker_input, public_data] }
+  transaction:
+    - { id: askingPriceKrw,  ko: 매각 희망가, type: int, unit: 만원, source: [broker_input], required: true }
+    - { id: targetPriceKrw,  ko: 제안(협의) 가격, type: int, unit: 만원, source: [broker_input] }
+    - { id: seniorLoanKrw,   ko: 선순위 대출 잔액, type: int, unit: 만원, source: [broker_input, public_data], note: "등기 OCR 파생 가능" }
+    - { id: evictionStatus,  ko: 명도 상태, type: enum:evictionStatus, source: [broker_input] }
+    - { id: evictionCondition, ko: 명도 조건, type: enum:evictionCondition, source: [broker_input] }
+    - { id: occupantType,    ko: 점유자 유형, type: enum:occupantType, source: [broker_input] }
+  financial_derived:           # 재무 엔진 산출 (LLM 생성 금지 — 주입 전용)
+    - { id: noiKrw,          ko: 순영업소득(NOI), type: int, unit: 원/년, source: [ai_inferred], formula: "연간 임대수입 × (1-공실률) - OPEX" }
+    - { id: capRatePct,      ko: 자본환원율(Cap Rate), type: float, unit: "%", source: [ai_inferred], formula: "NOI ÷ 매각가 × 100" }
+    - { id: waltYears,       ko: 가중평균 잔여임대기간(WALT), type: float, unit: 년, source: [ai_inferred] }
+    - { id: equityKrw,       ko: 자기자본 소요, type: int, unit: 만원, source: [ai_inferred], formula: "매각가 - 대출 - 보증금" }
+
+# =============================================================
+# 3. 자산군별 속성 마스터
+# =============================================================
+asset_types:
+
+  smallBuilding:               # 꼬마빌딩 (근린생활시설·상가주택 포함, 30~200억대)
+    physical:
+      - { id: totalFloorArea,  ko: 연면적, type: float, unit: m2, source: [public_data], required: true }
+      - { id: bcrPct,          ko: 건폐율, type: float, unit: "%", source: [public_data] }
+      - { id: farPct,          ko: 용적률, type: float, unit: "%", source: [public_data] }
+      - { id: farHeadroomPp,   ko: 용적률 여유분, type: float, unit: "%p", source: [ai_inferred], formula: "조례 상한 - 현재 용적률", note: "밸류애드 판정 핵심" }
+      - { id: floorsAbove,     ko: 지상 층수, type: int, source: [public_data] }
+      - { id: floorsBelow,     ko: 지하 층수, type: int, source: [public_data] }
+      - { id: approvalDate,    ko: 사용승인일, type: date, source: [public_data] }
+      - { id: remodelingYear,  ko: 리모델링 연도, type: int, source: [broker_input], note: "전면 대수선 기준" }
+      - { id: parkingType,     ko: 주차 방식, type: enum:parkingType, source: [broker_input, public_data] }
+      - { id: parkingCapacity, ko: 주차 대수, type: int, unit: 대, source: [public_data, broker_input] }
+      - { id: elevatorCount,   ko: 승강기 수, type: int, unit: 대, source: [public_data] }
+    location:
+      - { id: subwayWalkMin,   ko: 역세권 도보시간, type: int, unit: 분, source: [ai_inferred], note: "카카오 POI 파생" }
+    lease:                     # 렌트롤 — 계약서 OCR·음성 입력 우선
+      - { id: rentRoll,        ko: 층별 임대차, type: "array<LeaseUnit>", source: [broker_input], required_for_grade: A }
+      - { id: vacancyPct,      ko: 공실률, type: float, unit: "%", source: [broker_input], required: true }
+      - { id: depositTotalKrw, ko: 보증금 합계, type: int, unit: 만원, source: [broker_input] }
+      - { id: monthlyRentKrw,  ko: 월 임대료 합계, type: int, unit: 만원, source: [broker_input], required: true }
+      - { id: tiLcBudgetKrw,   ko: TI/LC 예산, type: int, unit: 만원, source: [broker_input] }
+
+  logisticsCenter:             # 물류센터
+    physical:
+      - { id: totalFloorArea,  ko: 연면적, type: float, unit: m2, source: [public_data], required: true }
+      - { id: clearHeightM,    ko: 유효층고, type: float, unit: m, source: [broker_input], required_for_grade: A, sanity: [4, 15], note: "바닥~보(Beam) 하단" }
+      - { id: floorLoadTonM2,  ko: 바닥하중, type: float, unit: "t/m2", source: [broker_input], required_for_grade: A, sanity: [0.5, 6] }
+      - { id: dockCount,       ko: 접안 도크 수, type: int, unit: 개, source: [broker_input], required_for_grade: A }
+      - { id: dockLeveler,     ko: 도크레벨러 유무, type: bool, source: [broker_input] }
+      - { id: rampStructure,   ko: 램프 구조, type: enum:rampStructure, source: [broker_input] }
+      - { id: yardWidthM,      ko: 야드 폭, type: float, unit: m, source: [broker_input], note: "트레일러 회전·접안 공간" }
+      - { id: coldRatioPct,    ko: 저온 비율, type: float, unit: "%", source: [broker_input] }
+      - { id: storageTemp,     ko: 보관 온도 구성, type: enum:storageTemperature, source: [broker_input] }
+      - { id: powerCapacityKw, ko: 수전 전력 용량, type: int, unit: kW, source: [broker_input], note: "저온 설비 핵심 — 통상 22.9kV 수전" }
+      - { id: truckAccessTon,  ko: 접안 가능 최대 차량, type: int, unit: 톤, source: [broker_input] }
+      - { id: fireClass,       ko: 소방 등급·스프링클러, type: string, source: [broker_input] }
+      - { id: columnSpacingM,  ko: 기둥 간격, type: float, unit: m, source: [broker_input] }
+    location:
+      - { id: nearestIc,       ko: 최근접 IC, type: string, source: [broker_input, ai_inferred] }
+      - { id: icDistanceKm,    ko: IC 주행거리, type: float, unit: km, source: [ai_inferred], required_for_grade: A }
+    lease:
+      - { id: masterLease,     ko: 마스터리스 여부, type: bool, source: [broker_input] }
+      - { id: tenantCredit,    ko: 임차인 신용도, type: string, source: [broker_input, expert_verified] }
+      - { id: rentRoll,        ko: 임대차 현황, type: "array<LeaseUnit>", source: [broker_input], required_for_grade: A }
+      - { id: waltYears,       ko: WALT, type: float, unit: 년, source: [ai_inferred] }
+
+  landSite:                    # 대지·개발부지
+    physical:
+      - { id: landShape,       ko: 토지 형상, type: enum:landShape, source: [public_data, broker_input] }
+      - { id: landSlope,       ko: 토지 고저, type: enum:landSlope, source: [public_data, broker_input] }
+      - { id: demolitionNeeded, ko: 철거 대상 건물 유무, type: bool, source: [broker_input] }
+    regulatory:
+      - { id: landUsePermitZone, ko: 토지거래허가구역 여부, type: bool, source: [public_data], required: true }
+      - { id: permittingStatus,  ko: 인허가 단계, type: enum:permittingStatus, source: [broker_input] }
+      - { id: donationRatioPct,  ko: 기부채납 비율, type: float, unit: "%", source: [broker_input, expert_verified] }
+      - { id: districtPlan,      ko: 지구단위계획 저촉, type: bool, source: [public_data] }
+    pricing:
+      - { id: askingPricePerPyung, ko: 평당 희망가, type: int, unit: "원/3.3m2", source: [ai_inferred], formula: "희망가 ÷ (대지면적/3.3058)" }
+    development:               # 규모검토 연계 (외부 PDF 업로드 파싱 포함)
+      - { id: massingSource,   ko: 규모검토 출처, type: string, source: [broker_input], note: "디스코·밸류맵 등 외부 산출물 업로드 허용" }
+      - { id: buildableFloorArea, ko: 신축 가능 연면적, type: float, unit: m2, source: [expert_verified, ai_inferred] }
+      - { id: devProforma,     ko: 개발 사업수지 요약, type: object, source: [ai_inferred], note: "신축 임대수익 추정 → 개발 마진 — A등급에서만 노출" }
+
+  # 렌트롤 단위 객체
+  LeaseUnit:
+    fields:
+      - { id: floor,        ko: 층, type: string, required: true }   # "1F","B1"
+      - { id: tenantSector, ko: 업종, type: string, note: "임차인 실명은 Disclosure Guard 마스킹 대상" }
+      - { id: areaPyung,    ko: 전용면적, type: float, unit: 평 }
+      - { id: depositKrw,   ko: 보증금, type: int, unit: 만원 }
+      - { id: monthlyRentKrw, ko: 월세, type: int, unit: 만원 }
+      - { id: mgmtFeeKrw,   ko: 관리비, type: int, unit: 만원 }
+      - { id: leaseStart,   ko: 계약 시작, type: date }
+      - { id: leaseEnd,     ko: 계약 종료, type: date }
+      - { id: opposingPower, ko: 대항력 여부, type: bool, source: [expert_verified, broker_input] }
+
+# =============================================================
+# 4. 제약·검증 규칙 (SHACL식 — constraint-validator.ts 구현 대상)
+# =============================================================
+constraints:
+  - id: C01_capRate_consistency
+    rule: "abs(capRatePct - noiKrw/askingPriceKrw*100) < 0.05"
+    severity: error
+    message: "Cap Rate가 NOI÷매각가 계산과 불일치"
+  - id: C02_far_within_zoning
+    rule: "farPct <= zoning_ordinance.far_max(pnu)"     # 조례 테이블 우선, 없으면 시행령 상한
+    severity: warning
+    message: "현재 용적률이 용도지역 상한 초과 — 대장·입력 확인 필요"
+  - id: C03_bcr_within_zoning
+    rule: "bcrPct <= zoning_ordinance.bcr_max(pnu)"
+    severity: warning
+  - id: C04_capital_structure
+    rule: "seniorLoanKrw + depositTotalKrw < askingPriceKrw * 1.1"
+    severity: warning
+    message: "대출+보증금이 매각가의 110% 초과 — 역전(깡통) 구조 확인"
+  - id: C05_date_sanity
+    rule: "approvalDate <= today AND leaseEnd > leaseStart"
+    severity: error
+  - id: C06_vacancy_range
+    rule: "0 <= vacancyPct <= 100"
+    severity: error
+  - id: C07_capRate_regional_outlier
+    rule: "abs(capRatePct - regional_avg_capRate(regionCode)) <= 2.0"
+    severity: info
+    message: "권역 평균 대비 Cap Rate 이탈 — 강조 표현 재고 권장"
+  - id: C08_logistics_sanity
+    rule: "4 <= clearHeightM <= 15 AND 0.5 <= floorLoadTonM2 <= 6"
+    severity: warning
+  - id: C09_blind_land_dev
+    rule: "IF roadContactType == BLIND THEN permittingStatus == NONE 경고"
+    severity: warning
+    message: "맹지 — 진입로 확보 전 건축허가 불가"
+  - id: C10_zoning_functional
+    rule: "count(zoningRegion per pnu) == 1"
+    severity: error
+    message: "필지당 용도지역은 1개 (데이터 모순)"
+  - id: C11_dcf_grade_gate
+    rule: "IF dataGrade < A THEN suppress(DCF, NPV, sensitivity)"
+    severity: policy
+  - id: C12_assumption_badge
+    rule: "opexRatio·리모델링단가·WACC 등 가정값은 ai_inferred 배지 + '가정' 표기 필수"
+    severity: policy
+
+# =============================================================
+# 5. 투자 아키타입 규칙 (SWRL식 — archetype-classifier.ts 구현 대상)
+# =============================================================
+archetype_rules:
+  - id: R01_stable_income
+    if: "assetType==smallBuilding AND regionCode IN [GBD] AND subwayWalkMin<=5 AND vacancyPct<3 AND waltYears>=2.5"
+    then: STABLE_INCOME
+  - id: R02_value_add
+    if: "assetType==smallBuilding AND buildingAge>=25 AND farHeadroomPp>=40"
+    then: VALUE_ADD
+  - id: R03_hq_ready
+    if: "assetType==landSite AND evictionStatus==VACATED AND roadContactType!=BLIND AND accessRoadWidth>=8"
+    then: HQ_READY
+  - id: R04_institutional_logi
+    if: "assetType==logisticsCenter AND masterLease==true AND waltYears>=5 AND tenantCredit>='AA-' AND capRatePct>=5.5"
+    then: INSTITUTIONAL_LOGI
+  - id: R05_cold_chain
+    if: "assetType==logisticsCenter AND coldRatioPct>=60 AND clearHeightM>=10 AND powerCapacityKw>=2500"
+    then: COLD_CHAIN_HUB
+  - id: R06_fast_track_dev
+    if: "assetType==landSite AND landUsePermitZone==false AND zoningRegion==CGEN AND donationRatioPct<10"
+    then: FAST_TRACK_DEV
+  - id: R07_underpriced_corner
+    if: "roadContactType IN [BROAD_SMALL, MED_CORNER] AND pricePerPyung <= neighborAvgPerPyung*1.02"
+    then: UNDERPRICED_CORNER
+  - id: R08_parking_premium
+    if: "assetType==smallBuilding AND parkingType==FLAT AND parkingCapacity>=12 AND accessRoadWidth>=6"
+    then: PARKING_PREMIUM_HQ
+  - id: R09_high_risk_eviction
+    if: "occupantType==OWNER_OCCUPIED AND evictionCondition==AS_IS"
+    then: HIGH_RISK_EVICTION      # 매칭 감점 + 리스크 섹션 강조
+  - id: R10_safe_eviction_dev
+    if: "EXISTS tenant WHERE opposingPower==false AND NOT EXISTS tenant WHERE opposingPower==true"
+    then: SAFE_EVICTION_DEV
+
+# =============================================================
+# 6. 관계·공리 (계층 테이블·코드로 구현)
+# =============================================================
+relations:
+  isLocatedIn:  { property: transitive,  impl: "location_hierarchy 테이블 (동→구→시→권역) 재귀 조회" }
+  hasZoning:    { property: functional,  impl: "C10 제약으로 구현" }
+  adjacentTo:   { property: symmetric,   impl: "양방향 row 저장 또는 정규화 뷰" }
+  hasAccessRoad: { property: irreflexive, impl: "맹지 판정 모듈 — 자기참조 금지 검증" }
+
+# =============================================================
+# 7. B2B/B2C 어휘 축 (NLG 마스크 렌더링 프로파일 — 샘플 6종)
+#    전체 사전은 term_normalization_rules 테이블에 register 축 추가로 확장
+# =============================================================
+lexicon_samples:
+  capRatePct:
+    b2b: "세전 자본환원율(Cap Rate) {v}% — 권역 평균 대비 {delta}bp {direction}"
+    b2c: "실제 매입 금액 대비 연 {v}%의 월세 수익이 들어오는 구조입니다"
+  noiKrw:
+    b2b: "운영비용(OPEX) 공제 후 연간 순영업소득(NOI) {v}억 원"
+    b2c: "세금·관리비를 다 빼고 임대인에게 실제로 남는 1년 순수익은 약 {v}억 원입니다"
+  waltYears:
+    b2b: "가중평균 잔여임대기간(WALT) {v}년 — 만기 도래 리스크 방어"
+    b2c: "세입자들의 남은 계약 기간이 평균 {v}년으로 안정적입니다"
+  clearHeightM:
+    b2b: "보 하단 기준 유효층고 {v}m — 하이랙 적재 효율 확보"
+    b2c: "천장 아래 실제 쓸 수 있는 높이가 {v}m라 물건을 높게 쌓아도 넉넉합니다"
+  roadContactType:
+    b2b: "감정평가 기준 도로접면 {ko} 등급 — 기준 대비 가중치 {weight}"
+    b2c_corner: "사거리 코너 자리라 멀리서도 간판이 잘 보이는 입지입니다"
+  evictionCondition:
+    b2b: "거래 종결 전 매도인 책임 하 전체 명도({v}) 확약 조건"
+    b2c_full: "잔금 전까지 세입자를 모두 내보낸 빈 건물 상태로 넘겨받는 조건입니다"
+
+# =============================================================
+# 8. 데이터 소스 매핑 (충전 파이프라인)
+# =============================================================
+data_sources:
+  - { api: "국토부 건축물대장 API(표제부·층별개요)", fields: [totalFloorArea, landArea, bcrPct, farPct, floorsAbove, floorsBelow, approvalDate, parkingCapacity, elevatorCount, 구조, 주용도] }
+  - { api: "토지이용계획 API(토지이음/LURIS)", fields: [zoningRegion, districtPlan, landUsePermitZone, 행위제한] }
+  - { api: "vworld 토지특성/개별공시지가 (PNU 키)", fields: [officialLandPrice, landCategory, landShape, landSlope, roadContactType] }
+  - { api: "실거래가 API", fields: [비교사례, neighborAvgPerPyung, regional_avg_capRate] }
+  - { api: "카카오 로컬/POI", fields: [지오코딩, subwayWalkMin, nearestIc] }
+  - { input: "임대차계약서·등기부 OCR", fields: [rentRoll, seniorLoanKrw, opposingPower] }
+  - { input: "음성 메모 (MemoParser 슬롯 매핑)", fields: [askingPriceKrw, vacancyPct, evictionStatus, 매도사유, 한줄포인트] }
+  - { input: "외부 규모검토 PDF", fields: [buildableFloorArea, massingSource] }

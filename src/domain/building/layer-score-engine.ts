@@ -1,5 +1,17 @@
+/**
+ * @module LayerScoreEngine
+ * @description CREDEAL v3 Document Completeness Scoring Engine
+ * 
+ * Computes a readiness score out of 100 based on the presence of various
+ * CRE property documents across 10 categories. Maps score thresholds to eligible outputs.
+ * @see SDD §4 S1-T2 Document completeness scoring
+ */
 import { LayerScores } from '@/types/database';
 
+/**
+ * Pre-defined weights for each document category.
+ * The total weight sums up to 100 for a perfect completeness score.
+ */
 export const LAYER_WEIGHTS = {
   building_register:  20,
   registry_docs:      15,
@@ -13,19 +25,43 @@ export const LAYER_WEIGHTS = {
   disclosure_policy:  5,
 } as const;
 
+/**
+ * Input format for the document completeness checklist.
+ * True indicates the document or information is present.
+ */
 export interface ChecklistInput {
+  /** 건축물대장 (Building Register) presence */
   buildingRegister?: boolean;
+  /** 등기부등본 (Registry Documents) presence */
   registry?: boolean;
+  /** 토지이용계획 (Land Use Plan) presence */
   landUsePlan?: boolean;
+  /** 렌트롤 (Rent Roll) presence */
   rentRoll?: boolean;
+  /** 사진 (Photos) presence */
   photos?: boolean;
+  /** 도면 (Floor Plan) presence */
   floorPlan?: boolean;
+  /** 수선이력 (Repair History) presence */
   repairHistory?: boolean;
+  /** 공실현황 (Vacancy Status documents) presence */
   vacancyStatus?: boolean;
+  /** 호가 (Asking Price/Offer) presence */
   askingPrice?: boolean;
+  /** 정보공개정책 (Disclosure Policy) presence */
   disclosurePolicy?: boolean;
 }
 
+/**
+ * Computes the layer score based on the provided document checklist.
+ * Sums the configured weights for each present document, capping at 100.
+ * 
+ * @param {ChecklistInput} checklist - The boolean checklist indicating which documents are present.
+ * @returns {LayerScores} An object containing the breakdown of scores per layer and the total score.
+ * @example
+ * const score = computeLayerScore({ buildingRegister: true, registry: true });
+ * // score.total === 35
+ */
 export function computeLayerScore(checklist: ChecklistInput): LayerScores {
   const building_register = checklist.buildingRegister ? LAYER_WEIGHTS.building_register : 0;
   const registry_docs = checklist.registry ? LAYER_WEIGHTS.registry_docs : 0;
@@ -67,6 +103,16 @@ export function computeLayerScore(checklist: ChecklistInput): LayerScores {
   };
 }
 
+/**
+ * Determines which types of outputs (e.g., reports, IMs) the asset is eligible for
+ * based on its total completeness score.
+ * 
+ * @param {number} score - The computed total layer score (0-100).
+ * @returns {string[]} An array of eligible output identifiers.
+ * @example
+ * const eligible = getEligibleOutputs(65);
+ * // returns ['deal_curiosity_report', 'blind_teaser', 'building_snapshot_draft']
+ */
 export function getEligibleOutputs(score: number): string[] {
   const outputs: string[] = [];
   if (score >= 20) outputs.push('deal_curiosity_report');

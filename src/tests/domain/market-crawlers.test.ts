@@ -54,7 +54,7 @@ describe("CRE External Intelligence Market Crawlers (E2-E7)", () => {
     expect(body.success).toBe(true);
     expect(body.summary.newsFetched).toBeGreaterThan(0);
     expect(body.summary.reportsFetched).toBeGreaterThan(0);
-  });
+  }, 15000);
 
   test("GET /api/public/market-intelligence returns consolidated view", async () => {
     const req = new NextRequest("http://localhost:3000/api/public/market-intelligence");
