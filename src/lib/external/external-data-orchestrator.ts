@@ -13,7 +13,22 @@ import type { CommercialDistrictAnalysis } from "./semas-commercial-api";
 import { createServiceClient } from "@/lib/supabase/service";
 import { reconstructFromCache, enrichBuildingDataCore } from "./enrich-by-pnu";
 
-const CACHE_TTL_DAYS = 30;
+/** Source-specific cache TTL (days). SDD S1-T16 */
+const CACHE_TTL_BY_SOURCE: Record<string, number> = {
+  building_register: 90,   // 건축물대장 — rarely changes
+  land_price: 365,         // 공시지가 — annual update
+  land_use_plan: 180,      // 토지이용계획 — semi-annual
+  comparable_tx: 30,       // 실거래가 — monthly update
+  location_poi: 90,        // POI — quarterly
+  registry: 7,             // 등기부등본 — frequent changes (ownership transfers)
+  commercial_district: 60, // 상권분석 — bimonthly
+};
+const CACHE_TTL_DAYS = 30; // default fallback
+
+/** Returns the cache TTL in days for a given data source */
+function getCacheTtl(source: string): number {
+  return CACHE_TTL_BY_SOURCE[source] ?? CACHE_TTL_DAYS;
+}
 
 export interface ExternalDataEnrichmentResult {
   resolvedAddress: ResolvedAddress;

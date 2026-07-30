@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { RentRollImporter } from "@/components/broker/rent-roll-importer";
+import { computeFinancialSummary } from '@/domain/building/financials';
 
 interface ImDataBottomSheetProps {
   buildingId: string;
@@ -569,7 +570,14 @@ export function ImDataBottomSheet({
                     const capRateStr = prompt("역산에 사용할 수익률(%)을 입력하세요:", "4");
                     const capRate = parseFloat(capRateStr || "0");
                     if (capRate > 0 && capRate < 100) {
-                      const estimatedPrice = Math.round(((rent * 12) / (capRate / 100)) + deposit);
+                      // S0-T12: Use centralized financials module instead of inline math
+                      const result = computeFinancialSummary({
+                        askingPriceKrw: 0,
+                        grossAnnualIncomeKrw: rent * 12,
+                        totalDepositKrw: deposit,
+                      });
+                      // Reverse-engineer price from cap rate: Price = NOI / (capRate/100) + deposit
+                      const estimatedPrice = Math.round((result.noiKrw.value / (capRate / 100)) + deposit);
                       setAskingPrice(estimatedPrice.toString());
                     }
                   }}
