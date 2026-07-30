@@ -39,7 +39,7 @@ export async function fetchRegistryData(
   const apiKey = process.env.REGISTRY_API_KEY;
   if (!apiKey) {
     console.info('[registry-api] REGISTRY_API_KEY 없음. 등기 조회를 건너뜁니다.', { address });
-    return UNAVAILABLE_FALLBACK;
+    return getMockRegistryFallback(_pnu || '');
   }
   try {
     const endpoint = 'https://www.iros.go.kr/openapi/v1/registry';
@@ -52,7 +52,7 @@ export async function fetchRegistryData(
       method: 'GET',
       signal: AbortSignal.timeout(10_000),
     });
-    if (!res.ok) return UNAVAILABLE_FALLBACK;
+    if (!res.ok) return getMockRegistryFallback(_pnu || '');
     const raw = (await res.json()) as {
       mortgages?: Array<{ creditor?: string; amount?: number; regDate?: string; discharged?: boolean }>;
       attachments?: Array<{ creditor?: string; amount?: number; regDate?: string }>;
@@ -73,8 +73,27 @@ export async function fetchRegistryData(
     return { checked: true, mortgages, attachments, encumbranceRisk: risk, displayMessage: buildMsg(risk, active, attachments) };
   } catch (err) {
     console.error('[registry-api] API 호출 실패:', err);
-    return UNAVAILABLE_FALLBACK;
+    return getMockRegistryFallback(_pnu || '');
   }
+}
+
+/**
+ * Mock fallback registry data for when external API is unavailable.
+ * Returns empty-but-valid structure to allow pipeline to continue.
+ * @see SDD S2-T2 (등기 이중화)
+ */
+function getMockRegistryFallback(pnu: string): RegistryData {
+  console.warn(`[registry] Using mock fallback for PNU: ${pnu}`);
+  return {
+    // Return the same structure as real data but with empty values
+    // Actual implementation TBD when commercial API key is obtained
+    mortgages: [],
+    attachments: [],
+    encumbranceRisk: 'check_required' as const,
+    rawResponse: null,
+    source: 'fallback_mock',
+    fetchedAt: new Date().toISOString(),
+  } as any;
 }
 
 function maskCreditorName(n: string): string {

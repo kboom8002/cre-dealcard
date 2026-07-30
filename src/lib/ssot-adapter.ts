@@ -1,3 +1,5 @@
+import type { Asset, Deal, LeaseUnit } from '@/types/database';
+
 /**
  * @module SSoT Adapter
  * @description Bridges the legacy `building_ssot_lite` flat schema
@@ -139,4 +141,61 @@ function parsePriceBand(priceBand: string | null | undefined): number {
   // If the number seems like 만원 units (common in building_ssot_lite)
   if (num > 100 && !priceBand.includes('원')) return num * 10_000;
   return num;
+}
+
+/**
+ * Converts a building_ssot_lite row into an Asset entity.
+ * Used for progressive migration from flat table to relational schema.
+ * @see dev-spec-v2
+ */
+export function buildAssetFromSsotLite(row: Record<string, unknown>): Partial<Asset> {
+  const attrs = buildAttrsFromSsotLite(row);
+  const provenance = buildProvenanceFromSsotLite(row);
+  return {
+    id: String(row.id || ''),
+    asset_type: String(row.asset_type || attrs.assetType || 'office'),
+    pnu: String(row.pnu || attrs.pnu || ''),
+    region_code: String(attrs.regionCode || ''),
+    zoning_region: String(attrs.zoningRegion || ''),
+    attrs,
+    provenance,
+    data_grade: String(attrs.dataGrade || ''),
+    created_at: String(row.created_at || new Date().toISOString()),
+    updated_at: String(row.updated_at || new Date().toISOString()),
+  };
+}
+
+/**
+ * Converts a building_ssot_lite row into a Deal entity.
+ */
+export function buildDealFromSsotLite(row: Record<string, unknown>): Partial<Deal> {
+  const attrs = buildAttrsFromSsotLite(row);
+  return {
+    id: String(row.id || ''),
+    broker_id: String(row.broker_id || ''),
+    asset_id: String(row.id || ''), // same ID for migration
+    pipeline_stage: String(row.pipeline_stage || row.status || 'memo_input'),
+    mandate_type: String(row.mandate_type || 'exclusive'),
+    asking_price_krw: Number(attrs.askingPriceKrw || 0),
+    created_at: String(row.created_at || new Date().toISOString()),
+  };
+}
+
+/**
+ * Extracts lease units from rent roll data embedded in building_ssot_lite.
+ */
+export function buildLeaseUnitsFromSsotLite(row: Record<string, unknown>, assetId: string): Partial<LeaseUnit>[] {
+  const layers = (row.layers || {}) as Record<string, unknown>;
+  const rentRoll = (layers.rent_roll || []) as Array<Record<string, unknown>>;
+  
+  return rentRoll.map((unit, idx) => ({
+    asset_id: assetId,
+    floor: String(unit.floor || unit.층 || `${idx + 1}F`),
+    tenant_sector: String(unit.tenant_sector || unit.업종 || ''),
+    area_pyung: Number(unit.area_pyung || unit.면적 || 0),
+    deposit_krw: Number(unit.deposit_krw || unit.보증금 || 0),
+    monthly_rent_krw: Number(unit.monthly_rent_krw || unit.월세 || 0),
+    mgmt_fee_krw: Number(unit.mgmt_fee_krw || unit.관리비 || 0),
+    source_tier: 'broker_input',
+  }));
 }

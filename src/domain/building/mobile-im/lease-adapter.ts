@@ -7,6 +7,7 @@
 // 해결: 단위 정규화 어댑터를 도입하여 데이터 계층과 렌더링 계층을 분리
 
 import type { FloorLeaseInput } from "./types";
+import { createServiceClient } from '@/lib/supabase/service';
 
 export interface NormalizedLease {
   floor: string;
@@ -105,4 +106,53 @@ export function formatRentRollMarkdown(leases: NormalizedLease[]): string {
     return `| ${l.floor} | ${tenantLabel} | ${areaPyeong} | ${depositStr} | ${rentStr} | ${mgmtStr} | ${l.leaseEnd || "미정"} |`;
   });
   return `${header}\n${rows.join("\n")}`;
+}
+
+/**
+ * Persists normalized lease units to the lease_units database table.
+ * Upserts based on asset_id + floor combination.
+ * @see SDD S2-T11
+ */
+export async function persistLeaseUnits(
+  assetId: string,
+  units: Array<{
+    floor: string;
+    tenant_sector?: string;
+    area_pyung?: number;
+    deposit_krw?: number;
+    monthly_rent_krw?: number;
+    mgmt_fee_krw?: number;
+    lease_start?: string;
+    lease_end?: string;
+    source_tier?: string;
+  }>
+): Promise<{ inserted: number; errors: string[] }> {
+  const supabase = createServiceClient();
+  const errors: string[] = [];
+  let inserted = 0;
+
+  for (const unit of units) {
+    const { error } = await supabase
+      .from('lease_units')
+      .upsert({
+        asset_id: assetId,
+        floor: unit.floor,
+        tenant_sector: unit.tenant_sector || null,
+        area_pyung: unit.area_pyung || null,
+        deposit_krw: unit.deposit_krw || null,
+        monthly_rent_krw: unit.monthly_rent_krw || null,
+        mgmt_fee_krw: unit.mgmt_fee_krw || 0,
+        lease_start: unit.lease_start || null,
+        lease_end: unit.lease_end || null,
+        source_tier: unit.source_tier || 'broker_input',
+      }, { onConflict: 'asset_id,floor' });
+
+    if (error) {
+      errors.push(`Floor ${unit.floor}: ${error.message}`);
+    } else {
+      inserted++;
+    }
+  }
+
+  return { inserted, errors };
 }

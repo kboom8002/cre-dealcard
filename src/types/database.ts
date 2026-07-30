@@ -418,3 +418,80 @@ export type OwnerReadinessCheckInsert = Omit<
   created_at?: string;
   updated_at?: string;
 };
+
+// ═══ dev-spec-v2 Entity Types ═══
+
+export interface Deal {
+  id: string;
+  broker_id: string;
+  asset_id: string | null;
+  pipeline_stage: string;
+  mandate_type?: string;
+  archetypes?: string[];
+  lost_reason?: string;
+  lost_reason_note?: string;
+  asking_price_krw?: number;
+  outcome_price_krw?: number;
+  created_at: string;
+  closed_at?: string;
+}
+
+export interface Asset {
+  id: string;
+  asset_type: string;
+  pnu?: string;
+  region_code?: string;
+  zoning_region?: string;
+  attrs: Record<string, unknown>;
+  provenance: Record<string, { tier: string; updated_at?: string }>;
+  data_grade?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeaseUnit {
+  id: string;
+  asset_id: string;
+  floor?: string;
+  tenant_sector?: string;
+  area_pyung?: number;
+  deposit_krw?: number;
+  monthly_rent_krw?: number;
+  mgmt_fee_krw?: number;
+  lease_start?: string;
+  lease_end?: string;
+  opposing_power?: boolean;
+  source_tier: string;
+}
+
+export interface DealParty {
+  id: string;
+  deal_id: string;
+  role: string;
+  profession?: string;
+  user_id?: string;
+  client_id?: string;
+  permissions?: Record<string, boolean>;
+}
+
+export interface ZoningOrdinance {
+  id: string;
+  region_code: string;
+  ordinance_type: string;
+  max_far_pct?: number;
+  max_bcr_pct?: number;
+  max_height_m?: number;
+  effective_date?: string;
+  source_url?: string;
+}
+
+export interface LocationHierarchy {
+  id: string;
+  region_code: string;
+  sido: string;
+  sigungu: string;
+  eupmyeondong?: string;
+  ri?: string;
+  parent_code?: string;
+  level: number;
+}
