@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireBroker } from '@/lib/auth-guard';
 import { markAsGoldenIM } from '@/domain/building/mobile-im/golden-im-manager';
 import { createServiceClient } from '@/lib/supabase/service';
+import { simulateReidentification } from '@/domain/deal/teaser/reident-simulator';
+import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
 
 export async function POST(
   req: NextRequest,
@@ -36,7 +38,7 @@ export async function POST(
   // Ensure the document belongs to this broker
   const { data: doc, error: fetchErr } = await supabase
     .from('document_objects')
-    .select('id, owner_id, status')
+    .select('id, owner_id, status, building_id')
     .eq('id', id)
     .maybeSingle();
 
@@ -46,6 +48,30 @@ export async function POST(
 
   if (doc.owner_id !== guard.user!.id) {
     return NextResponse.json({ error: 'Forbidden: not your document' }, { status: 403 });
+  }
+
+  if (action === 'approve' && doc.building_id) {
+    const { data: building } = await supabase
+      .from('building_ssot_lite')
+      .select('*')
+      .eq('id', doc.building_id)
+      .single();
+
+    if (building) {
+      // v3: K-Anonymity re-identification check before publishing
+      const attrs = buildAttrsFromSsotLite(building);
+      const district = String(attrs.address || '').match(/([\uac00-\ud7a3]+(?:\uad6c|\uc2dc|\uad70))/)?.[1] || '';
+      const reidentResult = await simulateReidentification(attrs, district);
+      if (!reidentResult.passed) {
+        return NextResponse.json({
+          ok: false,
+          error: 'K-익명성 검증 실패',
+          suggestion: reidentResult.suggestion,
+          candidateCount: reidentResult.candidateCount,
+          kThreshold: reidentResult.kThreshold,
+        }, { status: 422 });
+      }
+    }
   }
 
   const newStatus = action === 'approve' ? 'published' : 'draft';

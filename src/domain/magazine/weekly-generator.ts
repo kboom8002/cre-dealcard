@@ -16,6 +16,7 @@ import {
   MARKET_TEMP_CONFIG,
 } from './types';
 import { runMagazineQualityGate } from './quality-gate';
+import { generateMagazineTeaserCards } from './magazine-teaser-cards';
 
 // ── 타입 정의 ──────────────────────────────────────────────────────
 
@@ -492,6 +493,11 @@ export const generateWeeklyMagazine = async (params: {
   const briefingText = llmContent.ai_briefing ?? '';
   const headlineLine = briefingText.split('\n').find((l: string) => l.trim().length > 5)?.replace(/^[#*\-\s>]+/, '').trim() ?? `${regionLabel} CRE 주간 브리핑`;
 
+  // v3: Generate teaser cards using teaser-projector (replaces legacy DealSnippet)
+  const teaserCards = generateMagazineTeaserCards(
+    deals.map((d: any) => ({ id: d.id, attrs: d.attrs || {} }))
+  );
+
   const contentPayload = {
     // view가 기대하는 키명: briefing, headline (ai_briefing 대신)
     briefing: briefingText,
@@ -531,6 +537,7 @@ export const generateWeeklyMagazine = async (params: {
       price: d.price,
       photoUrl: d.photo_urls?.[0] ?? null,
     })),
+    teaserCards,
     // cover 메타 (view에서 직접 참조)
     market_temp: llmContent.market_temp,
     cover_keywords: llmContent.cover_keywords,

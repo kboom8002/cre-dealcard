@@ -4,6 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import GateRequestForm from "./GateRequestForm";
+import { projectToTeaser } from '@/domain/deal/teaser/teaser-projector';
+import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
 
 interface PageProps { params: Promise<{ id: string }> }
 
@@ -119,6 +121,10 @@ export default async function DealCardShortPage({ params }: PageProps) {
 
   if (!building) return notFound();
 
+  // v3: Project SSoT data through teaser-projector for safe banded display
+  const attrs = buildAttrsFromSsotLite(building || {});
+  const teaserView = projectToTeaser(attrs);
+
   // ── 데이터 추출 ──
   const body = (signalCard?.body || {}) as Record<string, unknown>;
   const layers = (building.layers || {}) as Record<string, unknown>;
@@ -135,7 +141,8 @@ export default async function DealCardShortPage({ params }: PageProps) {
   const coordinates = layers.coordinates as { lat: number; lng: number } | undefined;
 
   const title = (signalCard?.title as string)
-    || `${building.area_signal || "비공개 권역"} ${building.asset_type || "빌딩"} 매각`;
+    || teaserView.hookCopy
+    || `${teaserView.region || "비공개 권역"} ${building.asset_type || "빌딩"} 매각`;
   const shortSummary = body.shortSummary as string || body.short_summary as string || "";
   const dealPoints = (body.dealPoints || body.deal_points || signalCard?.deal_points || []) as string[];
   const hiddenInfoNotice = (body.hiddenInfoNotice || body.hidden_info_notice || []) as string[];
@@ -143,7 +150,7 @@ export default async function DealCardShortPage({ params }: PageProps) {
   const boundaryNote = (body.boundaryNote || body.boundary_note || "") as string;
 
   const statusDisplay = getStatusDisplay(building.status);
-  const sizeSignal = building.size_signal || "";
+  const sizeSignal = teaserView.bandedArea || building.size_signal || "";
 
   return (
     <main className="min-h-screen bg-[#0b0f19] text-slate-100">
@@ -179,13 +186,18 @@ export default async function DealCardShortPage({ params }: PageProps) {
               />
               {/* 블라인드 오버레이 */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-              <div className="absolute bottom-3 left-3 flex gap-1.5">
+              <div className="absolute bottom-3 left-3 flex gap-1.5 flex-wrap max-w-[80%]">
                 <span className="px-2 py-0.5 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold rounded-lg border border-white/10">
-                  📍 {building.area_signal || "비공개"}
+                  📍 {teaserView.region || "비공개"}
                 </span>
                 <span className="px-2 py-0.5 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold rounded-lg border border-white/10">
                   🏢 {building.asset_type || "상업용"}
                 </span>
+                {teaserView.structuralSignals?.map((sig, i) => (
+                  <span key={i} className="px-2 py-0.5 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold rounded-lg border border-white/10">
+                    {sig}
+                  </span>
+                ))}
               </div>
             </div>
             {photos.length > 1 && (
@@ -219,11 +231,16 @@ export default async function DealCardShortPage({ params }: PageProps) {
             {!photos.length && (
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] bg-white/10 border border-white/10 px-2 py-0.5 rounded-full font-medium">
-                  📍 {building.area_signal || "비공개"}
+                  📍 {teaserView.region || "비공개"}
                 </span>
                 <span className="text-[10px] bg-white/10 border border-white/10 px-2 py-0.5 rounded-full font-medium">
                   🏢 {building.asset_type || "상업용"}
                 </span>
+                {teaserView.structuralSignals?.map((sig, i) => (
+                  <span key={i} className="text-[10px] bg-white/10 border border-white/10 px-2 py-0.5 rounded-full font-medium">
+                    {sig}
+                  </span>
+                ))}
               </div>
             )}
 
@@ -234,8 +251,13 @@ export default async function DealCardShortPage({ params }: PageProps) {
 
             {/* 가격 + 상태 */}
             <div className="flex items-center gap-3">
-              {building.price_band && (
-                <span className="text-base font-bold text-primary">{building.price_band}</span>
+              {(teaserView.bandedPrice || building.price_band) && (
+                <span className="text-base font-bold text-primary">{teaserView.bandedPrice || building.price_band}</span>
+              )}
+              {teaserView.bandedCapRate && (
+                <span className="text-xs font-medium text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded">
+                  수익률 {teaserView.bandedCapRate}
+                </span>
               )}
               <span className={`text-xs font-semibold ${statusDisplay.color}`}>
                 {statusDisplay.label}

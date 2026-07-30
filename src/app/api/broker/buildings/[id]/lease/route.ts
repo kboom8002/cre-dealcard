@@ -9,6 +9,7 @@ import { computeLayerScore, getEligibleOutputs } from '@/domain/building/layer-s
 import { recordEvent } from '@/domain/analytics/record-event';
 import { validateAssetConstraints } from '@/domain/building/constraint-validator';
 import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
+import { persistLeaseUnits } from '@/domain/building/mobile-im/lease-adapter';
 import { requireBroker } from '@/lib/auth-guard';
 
 export async function POST(
@@ -118,6 +119,25 @@ export async function POST(
 
   if (updateErr) {
     return NextResponse.json({ error: '임대차 정보 업데이트 중 오류가 발생했습니다: ' + updateErr.message }, { status: 500 });
+  }
+
+  // v3: Persist normalized lease units to dedicated table (S2-T11)
+  try {
+    const leaseUnits = (normalizedSummary.privateLayer?.tenants || []).map((t: any, idx: number) => ({
+      floor: t.floor || `${idx + 1}F`,
+      tenant_sector: t.sector || t.업종 || '',
+      area_pyung: Number(t.area_pyung || t.면적 || 0),
+      deposit_krw: Number(t.deposit_krw || t.보증금 || 0),
+      monthly_rent_krw: Number(t.monthly_rent_krw || t.월세 || 0),
+      mgmt_fee_krw: Number(t.mgmt_fee_krw || t.관리비 || 0),
+      source_tier: 'broker_input',
+    }));
+    if (leaseUnits.length > 0) {
+      const persistResult = await persistLeaseUnits(id, leaseUnits);
+      console.info(`[lease] Persisted ${persistResult.inserted} units to lease_units table`);
+    }
+  } catch (err) {
+    console.warn('[lease] Failed to persist lease units:', err);
   }
 
   // Record activity event

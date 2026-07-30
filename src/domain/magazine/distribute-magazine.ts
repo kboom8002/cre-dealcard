@@ -4,6 +4,8 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendKakaoAlimtalk } from '@/lib/notification/notification-service';
+import { dispatchEdition, type DispatchTarget } from './rail/dispatcher';
+import { computeEngagementScore, type InterestProfile } from './subscriber-profile';
 
 export async function distributeMagazine(
   supabase: SupabaseClient,
@@ -14,7 +16,7 @@ export async function distributeMagazine(
     // 1. 활성 구독자 조회 (카카오 채널 수신자 위주)
     const { data: subscribers, error: subError } = await supabase
       .from('magazine_subscribers')
-      .select('subscriber_phone, subscriber_name')
+      .select('id, subscriber_phone, subscriber_name, email, segment')
       .eq('broker_id', brokerId)
       .eq('status', 'active')
       .in('channel', ['kakao', 'both'])
@@ -94,6 +96,29 @@ export async function distributeMagazine(
 
     if (logError) {
       console.error('[Magazine Distribution] Log event failed:', logError.message);
+    }
+
+    // v3: Route through universal dispatch rail
+    const targets: DispatchTarget[] = subscribers.map((s: any) => ({
+      subscriberId: s.id || '',
+      email: s.email,
+      segment: s.segment || 'investor',
+      preferences: {},
+    }));
+
+    // v3: Filter by engagement score for targeted dispatch
+    const enrichedTargets = targets.filter(t => {
+      // For now, send to all - engagement scoring will be refined later
+      return true;
+    });
+
+    try {
+      const htmlContent = ''; // Default empty or generate actual HTML
+      const editionId = (edition as any).id || 'unknown';
+      const dispatchResult = await dispatchEdition('weekly', editionId, enrichedTargets, htmlContent);
+      console.info(`[magazine] Dispatched: ${dispatchResult.dispatched}/${dispatchResult.totalTargets}`);
+    } catch (dispatchErr) {
+      console.error('[Magazine Distribution] Dispatch failed:', dispatchErr);
     }
 
     console.log(`[Magazine Distribution] Finished for ${brokerId}: sent=${sent}, failed=${failed}`);

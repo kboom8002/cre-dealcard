@@ -197,14 +197,18 @@ export async function enrichBuildingDataByPNU(
       .maybeSingle();
 
     if (cached && cached.updated_at) {
-      const age = Date.now() - new Date(cached.updated_at).getTime();
-      const shortestTtl = Math.min(...Object.values(CACHE_TTL_BY_SOURCE));
-      const ttlMs = shortestTtl * 24 * 60 * 60 * 1000;
-      if (age < ttlMs) {
-        console.info(`[external-data] Cache hit (${Math.round(age / 86400000)}d old)`);
+      // v3: Per-source cache staleness detection
+      const cacheAge = Date.now() - new Date(cached.updated_at).getTime();
+      const staleSourcesInfo = Object.entries(CACHE_TTL_BY_SOURCE)
+        .filter(([_, ttlDays]) => cacheAge > (ttlDays as number) * 86400000)
+        .map(([source, ttlDays]) => ({ source, ttlDays, stale: true }));
+
+      if (staleSourcesInfo.length > 0) {
+        console.info(`[enrich-by-pnu] ${staleSourcesInfo.length} sources stale:`, staleSourcesInfo.map(s => s.source).join(', '));
+      } else {
+        console.info(`[external-data] Cache hit (${Math.round(cacheAge / 86400000)}d old)`);
         return reconstructFromCache(cached);
       }
-      console.info(`[external-data] Cache expired (${Math.round(age / 86400000)}d)`);
     }
   } catch { /* 캐시 조회 실패 시 정상 진행 */ }
 
