@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { realEstateListing, breadcrumb } from "@/lib/schema-org";
+import { readWithMigration } from "@/lib/ssot-adapter";
 
 const REGION_MAP: Record<string, string> = {
   gbd: "GBD (강남권역)", ybd: "YBD (여의도권역)", cbd: "CBD (종로/을지로)",
@@ -14,12 +15,8 @@ interface PageProps { params: Promise<{ region: string; id: string }> }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { region, id } = await params;
-  const supabase = createServiceClient();
-  const { data } = await supabase
-    .from("building_ssot_lite")
-    .select("area_signal, asset_type, price_band")
-    .eq("id", id)
-    .single();
+  const result = await readWithMigration(id);
+  const data = result.data as Record<string, any>;
 
   const label = data?.area_signal || REGION_MAP[region] || region;
   const asset = data?.asset_type || "상업용 부동산";
@@ -40,18 +37,13 @@ export const revalidate = 3600;
 
 export default async function DealDetailPage({ params }: PageProps) {
   const { region, id } = await params;
-  const supabase = createServiceClient();
-
-  const { data: building } = await supabase
-    .from("building_ssot_lite")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const result = await readWithMigration(id);
+  const building = result.data as any;
 
   if (!building) return notFound();
 
   const regionLabel = REGION_MAP[region] || region;
-  const schemaData = realEstateListing(building);
+  const schemaData = realEstateListing(building as any);
   const breadcrumbSteps = [
     { name: "Hub", item: "/hub" },
     { name: "매매 딜카드", item: `/deal/${region}` },

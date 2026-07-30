@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { createServiceClient } from '@/lib/supabase/service';
+import { readWithMigration } from '@/lib/ssot-adapter';
 
 export const metadata: Metadata = {
   title: 'B-SSoT Studio Pro | JS 딜카드',
@@ -17,11 +18,8 @@ export default async function StudioLayout({ children, params }: StudioLayoutPro
   const { id } = await params;
   const supabase = createServiceClient();
 
-  const { data: building } = await supabase
-    .from('building_ssot_lite')
-    .select('id, area_signal, asset_type, price_band, completeness_score')
-    .eq('id', id)
-    .single();
+  const { data: _building } = await readWithMigration(id);
+  const building = _building as any;
 
   if (!building) return notFound();
 

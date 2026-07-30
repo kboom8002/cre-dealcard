@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import ReportActions from "./ReportActions";
+import { readWithMigration } from '@/lib/ssot-adapter';
 
 export const metadata: Metadata = {
   title: "건물주 공실 리포트 | JS 딜카드",
@@ -18,13 +19,8 @@ export default async function OwnerReportPage({ params }: OwnerReportPageProps) 
   const supabase = createServiceClient();
 
   // Fetch building data from building_ssot_lite
-  const { data: building } = await supabase
-    .from("building_ssot_lite")
-    .select(
-      "id, area_signal, asset_type, price_band, vacancy_signal, matched_buyer_count, promotion_score, created_at"
-    )
-    .eq("id", id)
-    .single();
+  const { data: _building } = await readWithMigration(id);
+  const building = _building as any;
 
   if (!building) return notFound();
 

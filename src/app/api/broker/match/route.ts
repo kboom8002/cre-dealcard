@@ -5,6 +5,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { readWithMigration } from '@/lib/ssot-adapter';
 import { z } from 'zod/v4';
 import { runMatchingEngine } from '@/domain/matching/matching-engine';
 import type { MatchInput } from '@/domain/matching/matching-types';
@@ -44,12 +45,13 @@ export async function POST(req: NextRequest) {
   const { buildingId, buyerIntentId } = parsed.data;
 
   // Fetch building SSoT Lite
-  const { data: building, error: bErr } = await supabase
-    .from('building_ssot_lite')
-    .select('*')
-    .eq('id', buildingId)
-    .eq('broker_id', user!.id)
-    .single();
+  const result = await readWithMigration(buildingId);
+  const building = result.data as any;
+  const bErr = Object.keys(building || {}).length === 0 ? new Error("Not found") : null;
+
+  if (building && building.broker_id && building.broker_id !== user!.id) {
+    return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
+  }
 
   if (bErr || !building) {
     return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });

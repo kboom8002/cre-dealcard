@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { readWithMigration } from "@/lib/ssot-adapter";
 
 export async function DELETE(
   _req: Request,
@@ -26,11 +27,9 @@ export async function DELETE(
   const service = createServiceClient();
 
   // 소유권 확인
-  const { data: building, error: fetchError } = await service
-    .from("building_ssot_lite")
-    .select("id, owner_id")
-    .eq("id", id)
-    .maybeSingle();
+  const result = await readWithMigration(id);
+  const building = result.data as any;
+  const fetchError = Object.keys(building || {}).length === 0 ? new Error("Not found") : null;
 
   if (fetchError || !building) {
     return NextResponse.json({ error: "딜카드를 찾을 수 없습니다." }, { status: 404 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
+import { readWithMigration } from "@/lib/ssot-adapter";
 import { z } from "zod/v4";
 
 const UpdateSchema = z.object({
@@ -49,13 +50,10 @@ export async function PATCH(
     }
 
     // Verify ownership
-    const { data: building } = await serviceClient
-      .from("building_ssot_lite")
-      .select("owner_id")
-      .eq("id", id)
-      .single();
+    const result = await readWithMigration(id);
+    const building = result.data as any;
 
-    if (!building || building.owner_id !== guard.user!.id) {
+    if (!building || Object.keys(building).length === 0 || building.owner_id !== guard.user!.id) {
       return NextResponse.json({ error: "Forbidden: not your building" }, { status: 403 });
     }
 

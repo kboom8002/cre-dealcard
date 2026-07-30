@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { readWithMigration } from '@/lib/ssot-adapter';
 import { requireBroker } from '@/lib/auth-guard';
 
 export async function PATCH(
@@ -25,11 +26,9 @@ export async function PATCH(
     const supabase = createServiceClient()
     
     // Fetch current ssot lite
-    const { data: building, error: fetchErr } = await supabase
-      .from('building_ssot_lite')
-      .select('*')
-      .eq('id', id)
-      .single()
+    const result = await readWithMigration(id);
+    const building = result.data as any;
+    const fetchErr = Object.keys(building || {}).length === 0 ? new Error("Not found") : null;
       
     if (fetchErr || !building) {
       return NextResponse.json({ ok: false, error: 'Building not found' }, { status: 404 })

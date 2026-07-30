@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { createServiceClient } from '@/lib/supabase/service';
 import { computeDataGrade } from '@/domain/building/grade-engine';
 import { classifyDealArchetype } from '@/domain/building/archetype-classifier';
-import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite } from '@/lib/ssot-adapter';
+import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 
 export const metadata: Metadata = {
   title: 'Deal Workspace | CREDEAL',
@@ -19,11 +19,8 @@ export default async function DealWorkspaceLayout({ children, params }: DealLayo
   const { id } = await params;
   const supabase = createServiceClient();
 
-  const { data: building } = await supabase
-    .from('building_ssot_lite')
-    .select('*')
-    .eq('id', id)
-    .single();
+  const { data: _building } = await readWithMigration(id);
+  const building = _building as any;
 
   if (!building) return notFound();
 

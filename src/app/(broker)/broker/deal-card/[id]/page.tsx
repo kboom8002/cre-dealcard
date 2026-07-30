@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
+import { readWithMigration } from '@/lib/ssot-adapter';
 import { BlindTeaserOutputSchema } from "@/ai/schemas/broker-deal-card";
 import Link from "next/link";
 import Image from "next/image";
@@ -20,11 +21,8 @@ import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 export async function generateMetadata({ params }: DealCardResultPageProps): Promise<Metadata> {
   const { id } = await params;
   const supabase = createServiceClient();
-  const { data: building } = await supabase
-    .from("building_ssot_lite")
-    .select("area_signal, asset_type, price_band")
-    .eq("id", id)
-    .single();
+  const { data: _building } = await readWithMigration(id);
+  const building = _building as any;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
   const title = building
@@ -53,13 +51,8 @@ export default async function BrokerDealCardResultPage({
   const supabase = createServiceClient();
 
   // Fetch building
-  const { data: building } = await supabase
-    .from("building_ssot_lite")
-    .select(
-      "id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, fit_summary, caution_summary, hidden_fields, status, owner_id, raw_input, layers",
-    )
-    .eq("id", id)
-    .single();
+  const { data: _building2 } = await readWithMigration(id);
+  const building = _building2 as any;
 
   if (!building) return notFound();
 

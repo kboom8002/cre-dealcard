@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
+import { readWithMigration } from "@/lib/ssot-adapter";
 import { DealCuriosityReportSchema } from "@/ai/schemas/deal-curiosity-report";
 import Link from "next/link";
 import { ReverseOnboardingForm } from "@/components/onboarding/ReverseOnboardingForm";
@@ -21,11 +22,8 @@ export default async function BuildingRadarResultPage({
   const supabase = createServiceClient();
 
   // Fetch building (public-safe fields only)
-  const { data: building } = await supabase
-    .from("building_ssot_lite")
-    .select("id, area_signal, asset_type, price_band, status")
-    .eq("id", id)
-    .single();
+  const result = await readWithMigration(id);
+  const building = result.data as Record<string, any>;
 
   if (!building) return notFound();
 

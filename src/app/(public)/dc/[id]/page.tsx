@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import GateRequestForm from "./GateRequestForm";
 import { projectToTeaser } from '@/domain/deal/teaser/teaser-projector';
-import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
+import { buildAttrsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { TeaserEventTracker } from '@/components/teaser/TeaserEventTracker';
 
 interface PageProps { params: Promise<{ id: string }> }
@@ -27,11 +27,7 @@ async function getDealCardData(id: string) {
   const supabase = createServiceClient();
 
   const [buildingRes, signalCardRes, teaserDocRes] = await Promise.all([
-    supabase
-      .from("building_ssot_lite")
-      .select("id, owner_id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, status, layers, fit_summary")
-      .eq("id", id)
-      .single(),
+    readWithMigration(id),
     supabase
       .from("building_signal_cards")
       .select("id, title, area_signal, asset_type, price_band, deal_points, body, status")
@@ -68,7 +64,7 @@ async function getDealCardData(id: string) {
   }
 
   return {
-    building: buildingRes.data,
+    building: buildingRes.data as Record<string, any>,
     signalCard: signalCardRes.data,
     teaserDoc: teaserDocRes.data,
     brokerSlug,

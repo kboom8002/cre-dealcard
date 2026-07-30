@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { readWithMigration } from '@/lib/ssot-adapter';
 import { computeCompletenessAfterUpload } from '@/domain/building/evidence-upload';
 import { computeLayerScore } from '@/domain/building/layer-score-engine';
 import { recordEvent } from '@/domain/analytics/record-event';
@@ -27,14 +28,11 @@ export async function POST(
   );
 
   // Verify ownership
-  const { data: building, error: bErr } = await supabase
-    .from('building_ssot_lite')
-    .select('*')
-    .eq('id', id)
-    .eq('owner_id', user!.id)
-    .single();
+  const result = await readWithMigration(id);
+  const building = result.data as any;
+  const bErr = Object.keys(building || {}).length === 0 ? new Error("Not found") : null;
 
-  if (bErr || !building) {
+  if (bErr || !building || (building.owner_id && building.owner_id !== user!.id)) {
     return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
   }
 
