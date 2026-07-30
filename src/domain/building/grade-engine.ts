@@ -7,6 +7,7 @@
 
 import { getGradeWeights, type AssetType } from './asset-ontology';
 import { isFeatureEnabled } from './feature-flags';
+import { lintProvenance } from './provenance-lint';
 
 /**
  * Data grade for an asset based on slot coverage.
@@ -75,6 +76,14 @@ export function computeDataGrade(
 ): DataGradeResult {
   // Use asset-type-specific weights from ontology if available
   const weights = (assetType && isFeatureEnabled('ff_s1_ontology_loader')) ? getGradeWeights(assetType) : null;
+
+  // v3: Run provenance lint (S1-T4)
+  if (provenanceMap) {
+    const lintResult = lintProvenance(attrs, provenanceMap);
+    if (lintResult.overallHealth === 'major_conflicts') {
+      console.warn('[grade-engine] Major provenance conflicts detected:', lintResult.conflicts.length);
+    }
+  }
 
   const missingRequired: string[] = [];
   let requiredCount = 0;

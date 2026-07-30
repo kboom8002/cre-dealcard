@@ -13,7 +13,7 @@ import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/type
 import { sanitizeComplianceText } from '@/domain/building/guardrails';
 import { computeDataGrade } from '@/domain/building/grade-engine';
 import { calculateNOI, calculateCapRate } from '@/domain/building/financials';
-import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite } from '@/lib/ssot-adapter';
+import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { getIMDisclaimers } from '@/domain/building/legal-copy';
 
 export interface GenerateMobileIMInput {
@@ -51,17 +51,14 @@ export async function generateMobileIMHandler(
   const supabase = createServiceClient();
 
   // ─── SSoT Lite 로드 (PK = id)
-  const { data: ssotRow, error: ssotError } = await supabase
-    .from("building_ssot_lite")
-    .select("id, area_signal, asset_type, price_band, size_signal, current_use_signal, vacancy_signal, fit_summary, caution_summary, hidden_fields, layers, raw_input, status")
-    .eq("id", buildingId)
-    .maybeSingle();
+  const result = await readWithMigration(buildingId);
+  const ssotRow = result.data as any;
 
-  if (ssotError || !ssotRow) {
-    console.error("[im-handler] SSoT Error:", ssotError);
+  if (!ssotRow || Object.keys(ssotRow).length === 0) {
+    console.error("[im-handler] SSoT Error: Not found");
     return {
       ok: false,
-      error: `SSoT 데이터를 찾을 수 없습니다. 딜카드를 먼저 생성해 주세요. ${ssotError ? JSON.stringify(ssotError) : '(no row)'}`,
+      error: `SSoT 데이터를 찾을 수 없습니다. 딜카드를 먼저 생성해 주세요.`,
       statusCode: 404,
     };
   }

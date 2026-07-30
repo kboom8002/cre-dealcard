@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { readWithMigration } from '@/lib/ssot-adapter';
 
 export async function GET(
   req: NextRequest,
@@ -44,11 +45,9 @@ export async function GET(
   }
 
   // Fetch building
-  const { data: building, error: bErr } = await supabase
-    .from('building_ssot_lite')
-    .select('id, owner_id')
-    .eq('id', id)
-    .single();
+  const { data: buildingData } = await readWithMigration(id);
+  const building = buildingData as any;
+  const bErr = !building || !building.id ? new Error('Not found') : null;
 
   if (bErr || !building) {
     return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });

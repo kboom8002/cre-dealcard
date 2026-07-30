@@ -9,6 +9,7 @@ import { extractDealFeatures, snapshotDealFeatures } from '@/domain/prediction/d
 import { predictDealConversion } from '@/domain/prediction/deal-conversion-predictor';
 import { getNetworkRecommendations } from '@/domain/graph/property-network';
 import { findSimilarDeals } from '@/domain/graph/deal-semantic-search';
+import { readWithMigration } from '@/lib/ssot-adapter';
 import { requireBroker } from '@/lib/auth-guard';
 
 export async function GET(
@@ -26,12 +27,8 @@ export async function GET(
   );
 
   // Verify ownership
-  const { data: building } = await supabase
-    .from('building_ssot_lite')
-    .select('id, area_signal, asset_type, price_band')
-    .eq('id', (await params).id)
-    .eq('broker_id', user!.id)
-    .single();
+  const { data: buildingData } = await readWithMigration((await params).id);
+  const building = (buildingData?.id && buildingData.broker_id === user!.id ? buildingData : null) as any;
   if (!building) return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
 
   try {

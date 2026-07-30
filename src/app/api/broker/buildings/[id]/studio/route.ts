@@ -9,7 +9,7 @@ import { requireBroker } from '@/lib/auth-guard';
 import { computeDataGrade } from '@/domain/building/grade-engine';
 import { computeFinancialSummary, calculateNOI, calculateCapRate } from '@/domain/building/financials';
 import { validateAssetConstraints } from '@/domain/building/constraint-validator';
-import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, buildFinancialInputsFromSsotLite } from '@/lib/ssot-adapter';
+import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, buildFinancialInputsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { computeDerivedFields } from '@/domain/building/derived-enricher';
 
 export async function GET(
@@ -29,14 +29,10 @@ export async function GET(
   );
 
   // Verify ownership using correct DB column owner_id
-  const { data: building, error: bErr } = await supabase
-    .from('building_ssot_lite')
-    .select('*')
-    .eq('id', id)
-    .eq('owner_id', user!.id)
-    .single();
+  const result = await readWithMigration(id);
+  const building = result.data as any;
 
-  if (bErr || !building) {
+  if (!building || Object.keys(building).length === 0 || building.owner_id !== user!.id) {
     return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
   }
 

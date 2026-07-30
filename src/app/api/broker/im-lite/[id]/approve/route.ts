@@ -9,7 +9,7 @@ import { requireBroker } from '@/lib/auth-guard';
 import { markAsGoldenIM } from '@/domain/building/mobile-im/golden-im-manager';
 import { createServiceClient } from '@/lib/supabase/service';
 import { simulateReidentification } from '@/domain/deal/teaser/reident-simulator';
-import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
+import { buildAttrsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 
 export async function POST(
   req: NextRequest,
@@ -51,13 +51,10 @@ export async function POST(
   }
 
   if (action === 'approve' && doc.building_id) {
-    const { data: building } = await supabase
-      .from('building_ssot_lite')
-      .select('*')
-      .eq('id', doc.building_id)
-      .single();
+    const result = await readWithMigration(doc.building_id);
+    const building = result.data as any;
 
-    if (building) {
+    if (building && Object.keys(building).length > 0) {
       // v3: K-Anonymity re-identification check before publishing
       const attrs = buildAttrsFromSsotLite(building);
       const district = String(attrs.address || '').match(/([\uac00-\ud7a3]+(?:\uad6c|\uc2dc|\uad70))/)?.[1] || '';

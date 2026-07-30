@@ -15,7 +15,7 @@ import { validateMemoQuality } from "@/domain/building/memo-quality-gate";
 import { sanitizeComplianceText, validateColdModePitchGuard } from '@/domain/building/guardrails';
 import { classifyDealArchetype } from '@/domain/building/archetype-classifier';
 import { validateAssetConstraints } from '@/domain/building/constraint-validator';
-import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
+import { buildAttrsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { createServiceClient } from '@/lib/supabase/service';
 import { extractSlotsFromMemo } from '@/domain/building/memo-slot-mapper';
 
@@ -81,16 +81,12 @@ export async function POST(req: NextRequest) {
     );
 
     // ─── v3 Post-processing: Archetype Classification & Constraint Validation ───
-    const serviceClient = createServiceClient();
-    const { data: createdBuilding } = await serviceClient
-      .from('building_ssot_lite')
-      .select('*')
-      .eq('id', result.buildingId)
-      .single();
+    const res = await readWithMigration(result.buildingId);
+    const createdBuilding = res.data as any;
 
     let archetypes: string[] = [];
     let constraintWarnings: any[] = [];
-    if (createdBuilding) {
+    if (createdBuilding && Object.keys(createdBuilding).length > 0) {
       const attrs = buildAttrsFromSsotLite(createdBuilding);
 
       // Archetype classification

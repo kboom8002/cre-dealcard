@@ -1,3 +1,4 @@
+import { createServiceClient } from '@/lib/supabase/service';
 import type { Asset, Deal, LeaseUnit } from '@/types/database';
 
 /**
@@ -198,4 +199,74 @@ export function buildLeaseUnitsFromSsotLite(row: Record<string, unknown>, assetI
     mgmt_fee_krw: Number(unit.mgmt_fee_krw || unit.관리비 || 0),
     source_tier: 'broker_input',
   }));
+}
+
+/**
+ * Read-through migration middleware.
+ * Tries the new `assets` table first; if not found, reads from `building_ssot_lite`,
+ * converts, lazy-writes to `assets`, and returns the result.
+ * This enables gradual migration without a big-bang cutover.
+ * @see SDD S1-T3
+ */
+export async function readWithMigration(buildingId: string): Promise<{
+  source: 'assets' | 'building_ssot_lite';
+  data: Record<string, unknown>;
+  migrated: boolean;
+}> {
+  const supabase = createServiceClient();
+  
+  // 1. Try new table first
+  const { data: asset } = await supabase
+    .from('assets')
+    .select('*')
+    .eq('id', buildingId)
+    .maybeSingle();
+  
+  if (asset) {
+    return { source: 'assets', data: asset, migrated: false };
+  }
+  
+  // 2. Fall back to legacy table
+  const { data: legacy } = await supabase
+    .from('building_ssot_lite')
+    .select('*')
+    .eq('id', buildingId)
+    .single();
+  
+  if (!legacy) {
+    return { source: 'building_ssot_lite', data: {}, migrated: false };
+  }
+  
+  // 3. Convert and lazy-write to new table
+  const converted = buildAssetFromSsotLite(legacy);
+  const { error } = await supabase
+    .from('assets')
+    .upsert(converted, { onConflict: 'id' })
+    .select()
+    .single();
+  
+  if (error) {
+    console.warn(`[ssot-adapter] Lazy migration failed for ${buildingId}:`, error.message);
+  }
+  
+  return { source: 'building_ssot_lite', data: legacy, migrated: !error };
+}
+
+/**
+ * Batch read-through migration for multiple buildings.
+ */
+export async function readManyWithMigration(buildingIds: string[]): Promise<{
+  results: Array<{ id: string; source: string; data: Record<string, unknown> }>;
+  migratedCount: number;
+}> {
+  const results = [];
+  let migratedCount = 0;
+  
+  for (const id of buildingIds) {
+    const result = await readWithMigration(id);
+    results.push({ id, source: result.source, data: result.data });
+    if (result.migrated) migratedCount++;
+  }
+  
+  return { results, migratedCount };
 }

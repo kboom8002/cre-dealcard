@@ -6,6 +6,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import GateRequestForm from "./GateRequestForm";
 import { projectToTeaser } from '@/domain/deal/teaser/teaser-projector';
 import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
+import { TeaserEventTracker } from '@/components/teaser/TeaserEventTracker';
 
 interface PageProps { params: Promise<{ id: string }> }
 
@@ -154,6 +155,7 @@ export default async function DealCardShortPage({ params }: PageProps) {
 
   return (
     <main className="min-h-screen bg-[#0b0f19] text-slate-100">
+      <TeaserEventTracker teaserConfigId={building?.id || id} />
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[#0d1424]/80 backdrop-blur-md border-b border-slate-800 px-4 py-3">
         <div className="max-w-lg mx-auto flex items-center justify-between">

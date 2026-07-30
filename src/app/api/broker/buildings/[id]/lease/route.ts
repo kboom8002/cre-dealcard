@@ -8,7 +8,7 @@ import { buildLeaseSummaryFromInput } from '@/domain/building/lease-normalizer';
 import { computeLayerScore, getEligibleOutputs } from '@/domain/building/layer-score-engine';
 import { recordEvent } from '@/domain/analytics/record-event';
 import { validateAssetConstraints } from '@/domain/building/constraint-validator';
-import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
+import { buildAttrsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { persistLeaseUnits } from '@/domain/building/mobile-im/lease-adapter';
 import { requireBroker } from '@/lib/auth-guard';
 
@@ -29,14 +29,10 @@ export async function POST(
   );
 
   // Verify ownership
-  const { data: building, error: bErr } = await supabase
-    .from('building_ssot_lite')
-    .select('*')
-    .eq('id', id)
-    .eq('owner_id', user!.id)
-    .single();
+  const result = await readWithMigration(id);
+  const building = result.data as any;
 
-  if (bErr || !building) {
+  if (!building || Object.keys(building).length === 0 || building.owner_id !== user!.id) {
     return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
   }
 

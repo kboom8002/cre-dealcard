@@ -22,12 +22,12 @@
 | ID | 태스크 | 의존 | 플래그 | 상태 |
 |----|--------|------|--------|------|
 | S0-T1 | NOI 공식 단일화 | — | — | ✅ done |
-| S0-T2 | assumptions 테이블·연동 | T1 | ff_s0_assumptions | ⚠️ partial (module created, wiring in progress) |
+| S0-T2 | assumptions 테이블·연동 | T1 | ff_s0_assumptions | ✅ done |
 | S0-T3 | DCF A등급 게이트 | T5 | ff_s0_dcf_grade_gate | ✅ done |
 | S0-T4 | constraint-validator (C01~12) | — | ff_s0_constraint_gate | ✅ done |
-| S0-T5 | grade 임시 산정 | — | — | ⚠️ partial |
-| S0-T6 | RAG 인덱싱 위생 | DDL 0100 | ff_s0_rag_hygiene | ⚠️ partial |
-| S0-T7 | 발행 단일 플로우 | T4 | ff_s0_publish_unified | ⚠️ partial |
+| S0-T5 | grade 임시 산정 | — | — | ✅ done |
+| S0-T6 | RAG 인덱싱 위생 | DDL 0100 | ff_s0_rag_hygiene | ✅ done |
+| S0-T7 | 발행 단일 플로우 | T4 | ff_s0_publish_unified | ✅ done |
 | S0-T8 | 법정 문구 가드레일 | — | — | ✅ done |
 | S0-T9 | Vibe 선택화 | — | ff_s0_vibe_optional | ✅ done |
 | S0-T10 | 이벤트·플래그·롤백 | 전체 | — | ✅ done |
@@ -39,10 +39,10 @@
 | ID | 태스크 | 의존 | 플래그 | 상태 |
 |----|--------|------|--------|------|
 | S1-T0 | grade 가중치 확정 → YAML v0.1.1 (GAP-2) | — | — | ✅ done |
-| S1-T1 | 온톨로지 로더 + CI | T0 | — | ⚠️ partial |
+| S1-T1 | 온톨로지 로더 + CI | T0 | — | ✅ done |
 | S1-T2 | Stage1 DDL·RLS (0110) | T1 | — | ✅ done |
 | S1-T3 | ssot-lite 어댑터 (lazy 이관) | T2 | — | ⬜ todo |
-| S1-T4 | provenance 서비스·lint | T2 | — | ⬜ todo |
+| S1-T4 | provenance 서비스·lint | T2 | — | ✅ done |
 | S1-T5 | 공공데이터 온톨로지 어댑터 — **기존 7 API 재사용** + 매핑표 (GAP-1, v1.1 개정) | T4 | ff_s1_public_enrich | ✅ done |
 | S1-T6 | derived-enricher | T5, T8 | — | ✅ done |
 | S1-T7 | grade-engine (readiness 치환) | T1 | ff_s1_grade_engine | ✅ done |
@@ -60,7 +60,7 @@
 
 | ID | 태스크 | 의존 | 플래그 | 상태 |
 |----|--------|------|--------|------|
-| S2-T1 | 렌트롤 3채널 통합 — 엑셀 1차·OCR 보완 (v1.1 개정) | S1-T4, T11 | ff_s2_ocr_leases | ⚠️ partial |
+| S2-T1 | 렌트롤 3채널 통합 — 엑셀 1차·OCR 보완 (v1.1 개정) | S1-T4, T11 | ff_s2_ocr_leases | ✅ done |
 | S2-T2 | 등기 이중화 — API 1차·OCR 보완 (v1.1 개정) | T1 | ff_s2_ocr_registry | ✅ done |
 | S2-T3 | memo-slot-mapper (확인 칩) | S1-T1 | ff_s2_memo_slots | ✅ done |
 | S2-T4 | massing-pdf-parser | S1-T4 | ff_s2_massing_pdf | ✅ done |
@@ -80,10 +80,10 @@
 | S3-T2 | writer 마스크 결합 | T1 | — | ✅ done |
 | S3-T3 | cross-validator 격하 | T2 | — | ✅ done |
 | S3-T4 | im-renderer (Basic/Pro 이원화) | T1 | ff_s3_im_tiering | ✅ done |
-| S3-T5 | 동의 체인 (8상태·SLA) | DDL 0130 | ff_s3_consent_chain | ⚠️ partial |
-| S3-T6 | Pro 열람 제어 (grant·워터마크) | T5 | — | ⚠️ partial |
-| S3-T7 | Pro 개인화 모듈 | T4, S0-T2 | ff_s3_pro_personalization | ⚠️ partial |
-| S3-T8 | 티저 프로젝터·밴딩 | S1-T1 | ff_s3_teaser_v2 | ⚠️ partial |
+| S3-T5 | 동의 체인 (8상태·SLA) | DDL 0130 | ff_s3_consent_chain | ✅ done |
+| S3-T6 | Pro 열람 제어 (grant·워터마크) | T5 | — | ✅ done |
+| S3-T7 | Pro 개인화 모듈 | T4, S0-T2 | ff_s3_pro_personalization | ✅ done |
+| S3-T8 | 티저 프로젝터·밴딩 | S1-T1 | ff_s3_teaser_v2 | ✅ done |
 | S3-T9 | 재식별 시뮬레이터 (발행 게이트) | T8, S1-T5 | ff_s3_reident_gate | ✅ done |
 | S3-T10 | photo-safety | — | — | ✅ done |
 | S3-T11 | 티저 v2 뷰어 (슬라이더·퀵폼) | T8~T10 | ff_s3_teaser_slider | ✅ done |
@@ -100,7 +100,7 @@
 
 | ID | 태스크 | 의존 | 상태 |
 |----|--------|------|------|
-| MG-A1 | 매물 카드 티저 표준화 (+맵 tier 준수) | S3-T8/T9/**T18** | ⚠️ partial |
+| MG-A1 | 매물 카드 티저 표준화 (+맵 tier 준수) | S3-T8/T9/**T18** | ✅ done |
 | MG-A2 | broker_id UUID 정합 | — | ✅ done |
 | MG-A3 | issues 캐시 단일화 | A2 | ✅ done |
 | MG-A4 | visitor_fp 소비 전환 (신규 구현 없음) | **S3-T19** | ✅ done |

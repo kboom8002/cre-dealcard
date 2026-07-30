@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { getIMRenderPolicy } from '@/domain/building/im-render-policy';
+import { readWithMigration } from '@/lib/ssot-adapter';
 
 export async function GET(
   req: NextRequest,
@@ -52,11 +53,8 @@ export async function GET(
   const policy = getIMRenderPolicy('pro', true);
 
   // Fetch building data
-  const { data: building } = await supabase
-    .from('building_ssot_lite')
-    .select('*')
-    .eq('id', grant.deals?.asset_id || '')
-    .single();
+  const { data: buildingData } = await readWithMigration(grant.deals?.asset_id || '');
+  const building = buildingData as any;
 
   // Fetch IM document
   const { data: imDoc } = await supabase

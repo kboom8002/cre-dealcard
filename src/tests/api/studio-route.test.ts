@@ -17,7 +17,9 @@ class MockSupabaseQuery {
   select() { return this; }
   eq() { return this; }
   single() { return this; }
+  maybeSingle() { return this; }
   insert() { return this; }
+  upsert(row?: any, opts?: any) { return this; }
   update() { return this; }
   limit() { return this; }
 
@@ -41,6 +43,9 @@ vi.mock('@supabase/supabase-js', () => {
           }),
         },
         from: (table: string) => {
+          if (table === 'assets') {
+            return new MockSupabaseQuery(() => null);
+          }
           if (table === 'building_ssot_lite') {
             return new MockSupabaseQuery(() => mockBuildingData);
           }

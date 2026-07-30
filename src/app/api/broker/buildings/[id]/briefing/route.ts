@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { generateDealBriefing } from '@/domain/briefing/deal-briefing-generator';
+import { readWithMigration } from '@/lib/ssot-adapter';
 import { requireBroker } from '@/lib/auth-guard';
 
 export async function GET(
@@ -22,12 +23,8 @@ export async function GET(
   );
 
   // Verify ownership
-  const { data: building } = await supabase
-    .from('building_ssot_lite')
-    .select('id')
-    .eq('id', (await params).id)
-    .eq('broker_id', user!.id)
-    .single();
+  const { data: buildingData } = await readWithMigration((await params).id);
+  const building = (buildingData?.id && buildingData.broker_id === user!.id ? buildingData : null) as any;
 
   if (!building) {
     return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });

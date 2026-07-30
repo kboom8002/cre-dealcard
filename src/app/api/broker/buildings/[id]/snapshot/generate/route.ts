@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { runBuildingSnapshotAgent } from '@/ai/agents/BuildingSnapshotAgent';
+import { readWithMigration } from '@/lib/ssot-adapter';
 import { validateSnapshotOutput } from '@/domain/building/snapshot-generator';
 import { recordEvent } from '@/domain/analytics/record-event';
 import { requireBroker } from '@/lib/auth-guard';
@@ -26,11 +27,9 @@ export async function POST(
   );
 
   // Fetch building
-  const { data: building, error: bErr } = await supabase
-    .from('building_ssot_lite')
-    .select('*')
-    .eq('id', id)
-    .single();
+  const { data: buildingData } = await readWithMigration(id);
+  const building = buildingData as any;
+  const bErr = !building || !building.id ? new Error('Not found') : null;
 
   if (bErr || !building) {
     return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
