@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, use } from 'react';
+import { checkConsentGate, getRequiredConsentTier } from '@/domain/building/consent-chain';
 
 interface ProIMData {
   ok: boolean;
@@ -63,7 +64,10 @@ export default function ProIMViewerPage({ params }: { params: Promise<{ grantId:
   }
 
   // NDA Gate
-  if (showNDAGate || data?.requiresNDA) {
+  const requiredTier = getRequiredConsentTier('pro');
+  const isConsentCleared = data ? checkConsentGate(data.requiresNDA ? 'anonymous' : 'nda_signed', requiredTier).allowed : true;
+
+  if (showNDAGate || data?.requiresNDA || !isConsentCleared) {
     return (
       <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-neutral-900 border border-neutral-800 rounded-2xl p-6 space-y-5">

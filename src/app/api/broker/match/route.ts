@@ -14,6 +14,7 @@ import { onMatchResultCreated } from '@/domain/graph/knowledge-graph';
 import { generateCasePackEmbedding } from '@/domain/graph/deal-semantic-search';
 import { classifyNewBuyer } from '@/domain/prediction/buyer-clustering';
 import { requireBroker } from '@/lib/auth-guard';
+import { generatePitchSnippet, formatPitchMessage } from '@/domain/building/pitch-warmup';
 
 const BodySchema = z.object({
   buildingId:     z.string().uuid(),
@@ -205,10 +206,23 @@ export async function POST(req: NextRequest) {
   classifyNewBuyer(buyerIntentId)
     .catch((e) => console.warn('[cluster] classify failed', e));
 
+  // Generate pitch warmup for top matches
+  let pitchMessage = null;
+  if (matchResult.grade === 'S' || matchResult.grade === 'A') {
+    const snippet = generatePitchSnippet({
+      archetype: 'STABLE_INCOME', // Default fallback
+      areaSignal: building.area_signal,
+      assetType: building.asset_type,
+      buyerName: intent.buyer_type,
+    });
+    pitchMessage = formatPitchMessage(snippet);
+  }
+
   return NextResponse.json({
     ok: true,
     matchId: savedMatch?.id,
     result: matchResult,
     promotionScore: promoResult.score,
+    pitchMessage,
   });
 }

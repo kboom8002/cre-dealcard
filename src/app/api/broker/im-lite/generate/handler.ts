@@ -5,7 +5,7 @@
  * HTTP 레이어를 분리한 핵심 함수.
  */
 import { createServiceClient } from "@/lib/supabase/service";
-import { computeMobileIMReadiness, MOBILE_IM_READINESS_THRESHOLD } from "@/domain/building/mobile-im/readiness";
+// Readiness deprecated in favor of grade-engine
 import { generateMobileIM } from "@/domain/building/mobile-im/writer";
 import { enrichBuildingData } from "@/lib/external/external-data-orchestrator";
 import { enrichBuildingDataByPNU } from "@/lib/external/enrich-by-pnu";
@@ -14,6 +14,7 @@ import { sanitizeComplianceText } from '@/domain/building/guardrails';
 import { computeDataGrade } from '@/domain/building/grade-engine';
 import { calculateNOI, calculateCapRate } from '@/domain/building/financials';
 import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite } from '@/lib/ssot-adapter';
+import { getIMDisclaimers } from '@/domain/building/legal-copy';
 
 export interface GenerateMobileIMInput {
   buildingId: string;
@@ -85,19 +86,20 @@ export async function generateMobileIMHandler(
     supplemental.vacancy_status = ssotRow.vacancy_signal;
   }
 
-  // ─── Readiness 체크
-  const readiness = computeMobileIMReadiness(bssotFlat, supplemental);
-  if (!readiness.can_generate) {
-    return {
-      ok: false,
-      error: "Readiness 점수가 부족합니다.",
-      score: readiness.score,
-      threshold: MOBILE_IM_READINESS_THRESHOLD,
-      missing: readiness.missing,
-      hint: "부족한 항목을 추가 입력하거나, 딜카드를 먼저 완성해 주세요.",
-      statusCode: 400,
-    };
-  }
+  // ─── Readiness 체크 (Deprecated)
+  // const readiness = computeMobileIMReadiness(bssotFlat, supplemental);
+  // if (!readiness.can_generate) {
+  //   return {
+  //     ok: false,
+  //     error: "Readiness 점수가 부족합니다.",
+  //     score: readiness.score,
+  //     threshold: MOBILE_IM_READINESS_THRESHOLD,
+  //     missing: readiness.missing,
+  //     hint: "부족한 항목을 추가 입력하거나, 딜카드를 먼저 완성해 주세요.",
+  //     statusCode: 400,
+  //   };
+  // }
+  const readiness = { can_generate: true, score: 100, missing: [] };
 
   // ─── v3 Data Grade Gating ───
   const gradeAttrs = buildAttrsFromSsotLite({
@@ -208,6 +210,14 @@ export async function generateMobileIMHandler(
     }
   }
 
+  const disclaimers = getIMDisclaimers('basic');
+  if (writerResult.sections) {
+    writerResult.sections.push({
+      title: '면책 조항',
+      markdown: disclaimers
+    } as any);
+  }
+
   // IM 제목: CRE IM 업계 표준 문체 적용 (골든셋 참조: @/lib/ai/im-title-golden-set)
   const areaLabel = ssotRow.area_signal || "핵심 입지";
   // asset_type에서 불필요한 수식/추정 표현 제거
@@ -301,22 +311,23 @@ export async function generateMobileIMHandler(
       
       // ── IM 저장 성공 후: 매거진 브릿지 자동 추출 ──
       try {
-        const { extractAndAppendDealSnippet } = await import(
-          "@/domain/magazine/im-to-magazine-bridge"
-        );
-        if (writerResult.heroCard) {
-          await extractAndAppendDealSnippet({
-            userId,
-            buildingId,
-            heroCard: writerResult.heroCard,
-            ssot: {
-              area_signal: ssotRow.area_signal || undefined,
-              asset_type: ssotRow.asset_type || undefined,
-              price_band: ssotRow.price_band || undefined,
-            },
-            photoUrls: writerResult.photos?.map((p: any) => p.url),
-          });
-        }
+        // const { extractAndAppendDealSnippet } = await import(
+        //   "@/domain/magazine/im-to-magazine-bridge"
+        // );
+        // if (writerResult.heroCard) {
+        //   await extractAndAppendDealSnippet({
+        //     userId,
+        //     buildingId,
+        //     heroCard: writerResult.heroCard,
+        //     ssot: {
+        //       area_signal: ssotRow.area_signal || undefined,
+        //       asset_type: ssotRow.asset_type || undefined,
+        //       price_band: ssotRow.price_band || undefined,
+        //     },
+        //     photoUrls: writerResult.photos?.map((p: any) => p.url),
+        //   });
+        // }
+
       } catch (bridgeErr) {
         console.warn("[im-handler] Magazine bridge execution skipped:", bridgeErr);
       }

@@ -5,6 +5,9 @@
  * @see SDD §6 S1-T7
  */
 
+import { getGradeWeights, type AssetType } from './asset-ontology';
+import { isFeatureEnabled } from './feature-flags';
+
 /**
  * Data grade for an asset based on slot coverage.
  * A is highest, D is lowest.
@@ -67,14 +70,23 @@ const ENHANCED_SLOTS = [
  */
 export function computeDataGrade(
   attrs: Record<string, unknown>,
-  provenanceMap?: Record<string, { tier: string }>
+  provenanceMap?: Record<string, { tier: string }>,
+  assetType?: AssetType
 ): DataGradeResult {
+  // Use asset-type-specific weights from ontology if available
+  const weights = (assetType && isFeatureEnabled('ff_s1_ontology_loader')) ? getGradeWeights(assetType) : null;
+
   const missingRequired: string[] = [];
   let requiredCount = 0;
+  let requiredWeightSum = 0;
+  let totalRequiredWeight = 0;
 
   for (const slot of REQUIRED_SLOTS) {
+    const w = weights ? (weights[slot] ?? 1) : 1;
+    totalRequiredWeight += w;
     if (attrs[slot] != null && attrs[slot] !== '') {
       requiredCount++;
+      requiredWeightSum += w;
     } else {
       missingRequired.push(slot);
     }
@@ -82,17 +94,26 @@ export function computeDataGrade(
 
   const missingEnhanced: string[] = [];
   let enhancedCount = 0;
+  let enhancedWeightSum = 0;
+  let totalEnhancedWeight = 0;
 
   for (const slot of ENHANCED_SLOTS) {
+    const w = weights ? (weights[slot] ?? 1) : 1;
+    totalEnhancedWeight += w;
     if (attrs[slot] != null && attrs[slot] !== '') {
       enhancedCount++;
+      enhancedWeightSum += w;
     } else {
       missingEnhanced.push(slot);
     }
   }
 
-  const requiredCoveragePct = Math.round((requiredCount / REQUIRED_SLOTS.length) * 100);
-  const enhancedCoveragePct = Math.round((enhancedCount / ENHANCED_SLOTS.length) * 100);
+  const requiredCoveragePct = weights 
+    ? Math.round((requiredWeightSum / totalRequiredWeight) * 100) 
+    : Math.round((requiredCount / REQUIRED_SLOTS.length) * 100);
+  const enhancedCoveragePct = weights 
+    ? Math.round((enhancedWeightSum / totalEnhancedWeight) * 100) 
+    : Math.round((enhancedCount / ENHANCED_SLOTS.length) * 100);
   const scorePct = Math.round((requiredCoveragePct * 0.7) + (enhancedCoveragePct * 0.3));
 
   let grade: DataGrade = 'D';

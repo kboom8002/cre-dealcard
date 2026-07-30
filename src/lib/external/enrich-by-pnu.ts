@@ -8,7 +8,7 @@ import { fetchLocationPoi, type LocationPoiData } from "./kakao-map-api";
 import { fetchRegistryData, type RegistryData } from "./registry-api";
 import { buildKakaoStaticMapUrl } from "./kakao-static-map";
 import { createServiceClient } from "@/lib/supabase/service";
-import type { ExternalDataEnrichmentResult } from "./external-data-orchestrator";
+import { CACHE_TTL_BY_SOURCE, type ExternalDataEnrichmentResult } from "./external-data-orchestrator";
 import type { ResolvedAddress } from "./address-resolver";
 import { geocodeAddress } from "@/domain/verification/address-resolver";
 import { fetchCommercialDistrictFull, type CommercialDistrictAnalysis } from "./semas-commercial-api";
@@ -198,7 +198,8 @@ export async function enrichBuildingDataByPNU(
 
     if (cached && cached.updated_at) {
       const age = Date.now() - new Date(cached.updated_at).getTime();
-      const ttlMs = CACHE_TTL_DAYS * 24 * 60 * 60 * 1000;
+      const shortestTtl = Math.min(...Object.values(CACHE_TTL_BY_SOURCE));
+      const ttlMs = shortestTtl * 24 * 60 * 60 * 1000;
       if (age < ttlMs) {
         console.info(`[external-data] Cache hit (${Math.round(age / 86400000)}d old)`);
         return reconstructFromCache(cached);

@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
-import { VALID_TRANSITIONS, DealStage } from '@/domain/pipeline/bridge-state-machine';
 import { StageTransitionModal } from '@/components/pipeline/StageTransitionModal';
 import { GateRequestReviewModal } from '@/components/gate/GateRequestReviewModal';
 import { ChevronRight, ShieldCheck } from 'lucide-react';
+import { getAllStagesOrdered, getNextStages, type DealStage } from '@/domain/building/deal-transition';
 
 interface PipelineDeal {
   id: string;
@@ -20,26 +20,25 @@ interface PipelineDeal {
   matched_buyer_count?: number;
 }
 
-const STAGES = [
-  { key: 'memo_input', label: '메모 입력', emoji: '📝' },
-  { key: 'deal_card_created', label: '딜카드', emoji: '📋' },
-  { key: 'gate_requested', label: 'Gate', emoji: '🔒' },
-  { key: 'im_created', label: 'IM 작성', emoji: '📄' },
-  { key: 'buyer_meeting', label: '미팅', emoji: '🤝' },
-  { key: 'loi', label: 'LOI', emoji: '✍️' },
-  { key: 'contract', label: '계약', emoji: '📜' },
-  { key: 'closed', label: '완료', emoji: '✅' },
-] as const;
+const STAGES = getAllStagesOrdered().map(s => ({
+  key: s.stage,
+  label: s.label,
+  emoji: s.icon
+}));
 
-const HOLD_WARNING_DAYS: Record<string, number> = {
+const HOLD_WARNING_DAYS: Record<DealStage, number> = {
   memo_input: 1,
   deal_card_created: 7,
-  gate_requested: 7,
-  im_created: 14,
+  data_enriching: 7,
+  im_draft: 14,
+  im_published: 14,
+  buyer_matching: 14,
   buyer_meeting: 14,
-  loi: 21,
-  contract: 30,
+  loi_submitted: 21,
+  due_diligence: 21,
+  closing: 30,
   closed: 999,
+  dead: 999,
 };
 
 export default function PipelinePage() {
@@ -220,7 +219,7 @@ export default function PipelinePage() {
                         const warnDays = HOLD_WARNING_DAYS[stage.key] ?? 14;
                         const isWarning = holdDays >= warnDays;
                         const currentStageKey = deal.current_stage as DealStage;
-                        const nextStages = VALID_TRANSITIONS[currentStageKey]?.filter(s => s !== 'failed') || [];
+                        const nextStages = getNextStages(currentStageKey).filter(s => s !== 'dead');
 
                         return (
                           <div key={deal.id} className="flex flex-col sm:flex-row sm:items-center px-4 py-3 hover:bg-muted/10 transition-colors gap-3">
@@ -258,20 +257,20 @@ export default function PipelinePage() {
                               </span>
                               
                               <div className="flex gap-2">
-                                {currentStageKey === 'gate_requested' ? (
+                                {currentStageKey === 'buyer_matching' ? (
                                   <button
                                     onClick={() => setTransitionTarget({
                                       dealId: deal.id,
                                       buildingId: deal.building_ssot_lite_id,
                                       fromStage: currentStageKey,
-                                      toStage: 'im_created' // Used as dummy, the modal handles the actual routing
+                                      toStage: 'buyer_meeting'
                                     })}
                                     className="text-[11px] font-bold px-2.5 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1 shadow-sm whitespace-nowrap"
                                   >
                                     응대 수락 (리뷰) <ShieldCheck className="w-3 h-3" />
                                   </button>
                                 ) : (
-                                  nextStages.map(nextStage => (
+                                  nextStages.map((nextStage: DealStage) => (
                                     <button
                                       key={nextStage}
                                       onClick={() => setTransitionTarget({
@@ -307,7 +306,7 @@ export default function PipelinePage() {
       </div>
 
       {/* Transition Modal */}
-      {transitionTarget && transitionTarget.fromStage === 'gate_requested' ? (
+      {transitionTarget && transitionTarget.fromStage === 'buyer_matching' ? (
         <GateRequestReviewModal
           dealId={transitionTarget.dealId}
           buildingId={transitionTarget.buildingId}
@@ -325,8 +324,8 @@ export default function PipelinePage() {
         <StageTransitionModal
           dealId={transitionTarget.dealId}
           buildingId={transitionTarget.buildingId}
-          fromStage={transitionTarget.fromStage}
-          toStage={transitionTarget.toStage}
+          fromStage={transitionTarget.fromStage as any}
+          toStage={transitionTarget.toStage as any}
           onClose={() => setTransitionTarget(null)}
           onSuccess={() => {
             setTransitionTarget(null);

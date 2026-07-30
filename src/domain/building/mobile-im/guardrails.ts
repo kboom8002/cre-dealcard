@@ -98,6 +98,38 @@ const FORBIDDEN_PATTERNS: ForbiddenPattern[] = [
     message: "허가 가능 확정 표현은 허용되지 않습니다.",
     recommended_text: "용도변경 및 증축 가능 여부는 관할 관청 확인이 필요합니다.",
   },
+  // High: 임차인 안정성 확정
+  {
+    pattern: /임차인\s*(이|가)?\s*안정|임대차\s*문제\s*없|공실\s*위험\s*없/,
+    issue_type: "tenant_certainty",
+    severity: "high",
+    message: "임차인 안정성 확정 표현은 허용되지 않습니다.",
+    recommended_text: "임차인 현황 및 계약 조건은 별도 확인이 필요합니다.",
+  },
+  // High: 환경/안전 확정
+  {
+    pattern: /환경\s*문제\s*없|토양\s*오염\s*없|안전\s*점검\s*통과/,
+    issue_type: "environmental_certainty",
+    severity: "high",
+    message: "환경/안전 확정 표현은 허용되지 않습니다.",
+    recommended_text: "환경 및 안전 사항은 전문기관 평가가 필요합니다.",
+  },
+  // Medium: 개발호재 확정
+  {
+    pattern: /지하철\s*개통\s*확정|교통\s*호재|개발\s*예정/,
+    issue_type: "development_certainty",
+    severity: "medium",
+    message: "개발호재 확정 표현 사용 시 출처를 명시해야 합니다.",
+    recommended_text: "관련 개발 계획은 관할 기관의 공식 발표를 확인해 주세요.",
+  },
+  // Medium: 시세 확정
+  {
+    pattern: /시세\s*대비\s*\d+%\s*저렴|시세보다\s*낮/,
+    issue_type: "market_price_certainty",
+    severity: "medium",
+    message: "시세 대비 확정 표현은 근거가 필요합니다.",
+    recommended_text: "주변 거래사례 및 공시가격을 종합적으로 검토하시기 바랍니다.",
+  },
 ];
 
 // ─── runRiskBoundaryCheck ──────────────────────────────────────────────────

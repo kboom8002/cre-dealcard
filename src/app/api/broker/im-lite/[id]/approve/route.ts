@@ -48,7 +48,7 @@ export async function POST(
     return NextResponse.json({ error: 'Forbidden: not your document' }, { status: 403 });
   }
 
-  const newStatus = action === 'approve' ? 'broker_reviewed' : 'draft';
+  const newStatus = action === 'approve' ? 'published' : 'draft';
 
   const { error: updateErr } = await supabase
     .from('document_objects')

@@ -10,6 +10,7 @@ import { computeDataGrade } from '@/domain/building/grade-engine';
 import { computeFinancialSummary, calculateNOI, calculateCapRate } from '@/domain/building/financials';
 import { validateAssetConstraints } from '@/domain/building/constraint-validator';
 import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, buildFinancialInputsFromSsotLite } from '@/lib/ssot-adapter';
+import { computeDerivedFields } from '@/domain/building/derived-enricher';
 
 export async function GET(
   req: NextRequest,
@@ -77,6 +78,8 @@ export async function GET(
   // ─── v3 Domain Module Integration ───
   const attrs = buildAttrsFromSsotLite(building);
   const provenanceMap = buildProvenanceFromSsotLite(building);
+  
+  const derived = computeDerivedFields(attrs);
 
   // Data Grade (A~D)
   const gradeResult = computeDataGrade(attrs, provenanceMap);
@@ -126,5 +129,6 @@ export async function GET(
     gradeDetails: gradeResult,
     financialSummary,
     constraints: constraintResult,
+    derivedFields: derived,
   });
 }

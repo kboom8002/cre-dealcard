@@ -17,6 +17,8 @@ export async function indexIMSections(
     return;
   }
 
+  if (metadata.status !== 'published' || !metadata.brokerApproved) return;
+
   // 전체 IM 텍스트 하나로 병합하거나 섹션별로 처리
   // 여기서는 섹션 전체를 하나의 문서로 묶어서 인덱싱합니다.
   const fullContent = sections.map(s => `[${s.title}]\n${s.markdown}`).join("\n\n");

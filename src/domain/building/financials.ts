@@ -7,6 +7,9 @@
  * @see SDD §5 S0-T2
  */
 
+import { getAssumptions } from './assumptions';
+import { isFeatureEnabled } from './feature-flags';
+
 /**
  * Inputs for financial calculations.
  */
@@ -73,19 +76,23 @@ export interface FinancialSummary {
  */
 export function calculateNOI(
   grossAnnualIncomeKrw: number,
-  opexRatioPct: number = 10,
-  vacancyReservePct: number = 5
+  opexRatioPct?: number,
+  vacancyReservePct?: number
 ): CalculationResult<number> {
-  const egi = grossAnnualIncomeKrw * (1 - vacancyReservePct / 100);
-  const opex = egi * (opexRatioPct / 100);
+  const defaults = isFeatureEnabled('ff_s0_assumptions') ? getAssumptions() : { opexRatioPct: 10, vacancyReservePct: 5 };
+  const finalOpexPct = opexRatioPct ?? defaults.opexRatioPct;
+  const finalVacancyPct = vacancyReservePct ?? defaults.vacancyReservePct;
+
+  const egi = grossAnnualIncomeKrw * (1 - finalVacancyPct / 100);
+  const opex = egi * (finalOpexPct / 100);
   const noi = Math.max(0, egi - opex);
 
-  const isAssumption = opexRatioPct === 10 || vacancyReservePct === 5;
+  const isAssumption = opexRatioPct === undefined || vacancyReservePct === undefined;
   return {
     value: Math.round(noi),
     isAssumption,
     provenanceTier: isAssumption ? 'ai_inferred' : 'broker_input',
-    badgeText: isAssumption ? '가정 (표준 OPEX 10% / 공실 5% 적용)' : '확인됨',
+    badgeText: isAssumption ? `가정 (표준 OPEX ${defaults.opexRatioPct}% / 공실 ${defaults.vacancyReservePct}% 적용)` : '확인됨',
   };
 }
 
@@ -155,8 +162,9 @@ export function calculateEquityRequired(
  * @see SDD §5 S0-T6
  */
 export function computeFinancialSummary(inputs: FinancialInputs): FinancialSummary {
-  const opexPct = inputs.opexRatioPct ?? 10;
-  const vacancyPct = inputs.vacancyReservePct ?? 5;
+  const defaults = isFeatureEnabled('ff_s0_assumptions') ? getAssumptions() : { opexRatioPct: 10, vacancyReservePct: 5 };
+  const opexPct = inputs.opexRatioPct ?? defaults.opexRatioPct;
+  const vacancyPct = inputs.vacancyReservePct ?? defaults.vacancyReservePct;
 
   const noiResult = calculateNOI(inputs.grossAnnualIncomeKrw, opexPct, vacancyPct);
   const egi = inputs.grossAnnualIncomeKrw * (1 - vacancyPct / 100);
@@ -174,15 +182,15 @@ export function computeFinancialSummary(inputs: FinancialInputs): FinancialSumma
   return {
     effectiveGrossIncomeKrw: {
       value: Math.round(egi),
-      isAssumption: vacancyPct === 5,
-      provenanceTier: vacancyPct === 5 ? 'ai_inferred' : 'broker_input',
-      badgeText: vacancyPct === 5 ? '가정 (공실 5%)' : '확인됨',
+      isAssumption: inputs.vacancyReservePct === undefined,
+      provenanceTier: inputs.vacancyReservePct === undefined ? 'ai_inferred' : 'broker_input',
+      badgeText: inputs.vacancyReservePct === undefined ? `가정 (공실 ${defaults.vacancyReservePct}%)` : '확인됨',
     },
     opexKrw: {
       value: Math.round(opex),
-      isAssumption: opexPct === 10,
-      provenanceTier: opexPct === 10 ? 'ai_inferred' : 'broker_input',
-      badgeText: opexPct === 10 ? '가정 (OPEX 10%)' : '확인됨',
+      isAssumption: inputs.opexRatioPct === undefined,
+      provenanceTier: inputs.opexRatioPct === undefined ? 'ai_inferred' : 'broker_input',
+      badgeText: inputs.opexRatioPct === undefined ? `가정 (OPEX ${defaults.opexRatioPct}%)` : '확인됨',
     },
     noiKrw: noiResult,
     capRatePct: capRateResult,

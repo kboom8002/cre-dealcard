@@ -17,6 +17,7 @@ import { classifyDealArchetype } from '@/domain/building/archetype-classifier';
 import { validateAssetConstraints } from '@/domain/building/constraint-validator';
 import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
 import { createServiceClient } from '@/lib/supabase/service';
+import { extractSlotsFromMemo } from '@/domain/building/memo-slot-mapper';
 
 const BrokerDealCardFromMemoRequest = z.object({
   memo: z.string().min(5),
@@ -50,6 +51,10 @@ export async function POST(req: NextRequest) {
 
     // ─── v3 Guardrails: Sanitize compliance text ───
     const sanitizedMemo = sanitizeComplianceText(input.memo);
+
+    // S2-T3: Extract structured slots from broker memo
+    const memoSlots = extractSlotsFromMemo(sanitizedMemo || '');
+    console.info(`[memo-mapper] Extracted ${memoSlots.slots.length} slots (${memoSlots.extractionRate}% coverage)`);
 
     // Cold Mode pitch guard (blind visibility = no mandate)
     if (input.visibilityPreference === 'blind') {
