@@ -5,7 +5,7 @@
  * 딜카드 생성 시 SSoT에 저장된 데이터를 IM 생성에 필요한 supplemental 형태로 변환.
  */
 
-import type { MobileIMSupplementalInput } from './types';
+import type { MobileIMSupplementalInput, AncillaryIncomeItem, FloorLeaseInput } from './types';
 
 export interface DealCardToIMBridgeInput {
   // building_ssot_lite fields
@@ -19,6 +19,10 @@ export interface DealCardToIMBridgeInput {
     caution_summary?: string;
     layers?: Record<string, any>;
     lease_summary?: Record<string, any>;
+    /** 비임대 부가수입 (통신장비, 주차 등) */
+    ancillary_incomes?: AncillaryIncomeItem[];
+    /** 층별 임대차 데이터 (변동임대 포함) */
+    floor_leases?: FloorLeaseInput[];
   };
   // v3 teaser view fields (from teaser-projector)
   teaserView?: {
@@ -95,6 +99,12 @@ export function bridgeDealCardToIM(input: DealCardToIMBridgeInput): DealCardToIM
   // Broker highlight from blindTeaser or fit_summary
   const brokerHighlight = blindTeaser?.hookCopy || ssot.fit_summary || undefined;
 
+  // Bridge ancillary incomes from SSoT
+  const ancillaryIncomes = ssot.ancillary_incomes || undefined;
+
+  // Bridge floor leases (including variable rent types)
+  const floorLeases = ssot.floor_leases || undefined;
+
   // Build supplemental
   const supplemental: Partial<MobileIMSupplementalInput> = {
     resolved_address: address,
@@ -108,6 +118,8 @@ export function bridgeDealCardToIM(input: DealCardToIMBridgeInput): DealCardToIM
     asking_price_manwon: askingPrice,
     broker_highlight: brokerHighlight,
     photo_urls: photoUrls,
+    ancillary_incomes: ancillaryIncomes,
+    floor_leases: floorLeases,
   };
 
   // Determine grade-up items
@@ -130,6 +142,23 @@ export function bridgeDealCardToIM(input: DealCardToIMBridgeInput): DealCardToIM
   }
   if (!photoUrls || photoUrls.length === 0) {
     gradeUpItems.push({ field: 'photos', label: '건물 대표 사진', gradeContribution: '품질 향상' });
+  }
+  if (!floorLeases || floorLeases.length === 0) {
+    gradeUpItems.push({ field: 'floorLeases', label: '층별 임대차 현황', gradeContribution: 'A등급 필수' });
+  }
+  if (!ancillaryIncomes || ancillaryIncomes.length === 0) {
+    gradeUpItems.push({ field: 'ancillaryIncomes', label: '부가수입 (통신장비, 주차 등)', gradeContribution: 'NOI 정밀도 향상' });
+  }
+  // Check for variable rent floors needing estimate range
+  const variableFloorsNoEstimate = (floorLeases || []).filter(
+    l => l.rent_type && l.rent_type !== 'fixed' && !l.estimated_rent_range
+  );
+  if (variableFloorsNoEstimate.length > 0) {
+    gradeUpItems.push({
+      field: 'variableRentEstimate',
+      label: `매출연동 추정 범위 (${variableFloorsNoEstimate.map(l => l.floor).join(', ')})`,
+      gradeContribution: '수익 시나리오 정밀도',
+    });
   }
 
   return {
