@@ -188,15 +188,102 @@ export default function ProIMViewerPage({ params }: { params: Promise<{ grantId:
           </div>
         )}
 
+        {/* Data Grade */}
+        {data.imDocument?.dataGrade && (
+          <div className="flex items-center gap-2 mb-4">
+            <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+              data.imDocument.dataGrade === 'A' ? 'bg-emerald-500/20 text-emerald-300' :
+              data.imDocument.dataGrade === 'B' ? 'bg-blue-500/20 text-blue-300' :
+              'bg-amber-500/20 text-amber-300'
+            }`}>
+              데이터 등급 {data.imDocument.dataGrade}
+            </span>
+            {data.imDocument.dcfEligible && (
+              <span className="text-[10px] text-emerald-400">DCF 분석 포함</span>
+            )}
+          </div>
+        )}
+
+        {/* Granular Rent Roll (Pro exclusive) */}
+        {building?.leaseSummary?.tenants && building.leaseSummary.tenants.length > 0 && (
+          <div className="bg-neutral-900/60 border border-purple-500/20 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="text-sm font-bold text-white">📋 호실별 렌트롤 (프로 전용)</h2>
+              <span className="text-[9px] bg-purple-500/30 text-purple-300 px-1.5 py-0.5 rounded">PRO</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-neutral-700 text-neutral-400">
+                    <th className="text-left py-2">층</th>
+                    <th className="text-left py-2">업종</th>
+                    <th className="text-right py-2">보증금</th>
+                    <th className="text-right py-2">월세</th>
+                    <th className="text-center py-2">상태</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {building.leaseSummary.tenants.map((t: any, i: number) => (
+                    <tr key={i} className="border-b border-neutral-800/50">
+                      <td className="py-1.5 text-white">{t.floor || `${i+1}F`}</td>
+                      <td className="py-1.5 text-neutral-300">{t.tenant_type || t.industry || '-'}</td>
+                      <td className="py-1.5 text-right text-white">{t.deposit_manwon?.toLocaleString() || '-'}</td>
+                      <td className="py-1.5 text-right text-white">{t.rent_manwon?.toLocaleString() || '-'}</td>
+                      <td className="py-1.5 text-center">{t.is_vacant ? '🟥' : '🟩'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* IM Sections */}
         {sections.map((section: any, i: number) => (
           <div key={i} className="bg-neutral-900/40 border border-neutral-800/50 rounded-xl p-4">
-            <h2 className="text-sm font-bold text-white mb-2">{section.title}</h2>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-bold text-white">{section.title}</h2>
+              {section.provenance && (
+                <span className="text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded">
+                  출처: {section.provenance}
+                </span>
+              )}
+            </div>
             <div className="text-sm text-neutral-300 leading-relaxed whitespace-pre-wrap">
               {section.markdown}
             </div>
           </div>
         ))}
+
+        {/* DCF Heatmap Section */}
+        {data.imDocument?.dcf10Year && (
+          <div className="bg-neutral-900/40 border border-neutral-800/50 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="text-sm font-bold text-white">📊 10년 DCF 분석 (프로 전용)</h2>
+              <span className="text-[9px] bg-purple-500/30 text-purple-300 px-1.5 py-0.5 rounded">PRO</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-neutral-700 text-neutral-400">
+                    <th className="text-left py-2">Year</th>
+                    <th className="text-right py-2">NOI</th>
+                    <th className="text-right py-2">Cash Flow</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.imDocument.dcf10Year.map((row: any, i: number) => (
+                    <tr key={i} className="border-b border-neutral-800/50">
+                      <td className="py-1.5 text-white">Year {row.year}</td>
+                      <td className="py-1.5 text-right text-white">{row.noi?.toLocaleString() || '-'}</td>
+                      <td className="py-1.5 text-right text-emerald-400">{row.cash_flow?.toLocaleString() || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Disclaimer */}
         <div className="bg-neutral-800/30 rounded-xl p-4 text-[10px] text-neutral-500 space-y-1">

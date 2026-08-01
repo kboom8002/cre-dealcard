@@ -237,19 +237,36 @@ export async function readWithMigration(buildingId: string): Promise<{
     return { source: 'building_ssot_lite', data: {}, migrated: false };
   }
   
-  // 3. Convert and lazy-write to new table
-  const converted = buildAssetFromSsotLite(legacy);
-  const { error } = await supabase
+  // 3. Convert and lazy-write to new tables
+  const convertedAsset = buildAssetFromSsotLite(legacy);
+  const { error: assetError } = await supabase
     .from('assets')
-    .upsert(converted, { onConflict: 'id' })
+    .upsert(convertedAsset, { onConflict: 'id' })
     .select()
     .single();
   
-  if (error) {
-    console.warn(`[ssot-adapter] Lazy migration failed for ${buildingId}:`, error.message);
+  if (assetError) {
+    console.warn(`[ssot-adapter] Lazy migration failed for asset ${buildingId}:`, assetError.message);
+  } else {
+    // 3a. Lazy-write to deals table
+    const convertedDeal = buildDealFromSsotLite(legacy);
+    if (convertedDeal.broker_id) {
+      const { error: dealError } = await supabase
+        .from('deals')
+        .upsert(convertedDeal, { onConflict: 'id' });
+      if (dealError) console.warn(`[ssot-adapter] Lazy migration failed for deal ${buildingId}:`, dealError.message);
+    }
+    
+    // 3b. Lazy-write to lease_units table
+    const units = buildLeaseUnitsFromSsotLite(legacy, buildingId);
+    if (units.length > 0) {
+      await supabase.from('lease_units').delete().eq('asset_id', buildingId);
+      const { error: leaseError } = await supabase.from('lease_units').insert(units);
+      if (leaseError) console.warn(`[ssot-adapter] Lazy migration failed for lease_units ${buildingId}:`, leaseError.message);
+    }
   }
   
-  return { source: 'building_ssot_lite', data: legacy, migrated: !error };
+  return { source: 'building_ssot_lite', data: legacy, migrated: !assetError };
 }
 
 /**

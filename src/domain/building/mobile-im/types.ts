@@ -107,6 +107,7 @@ export interface MobileIMSection {
   boundary_note: string;
   provenance?: DataPointProvenance[];
   judge_score?: number;
+  min_tier?: 'public' | 'premium' | 'grade_a';
 }
 
 export interface MobileIMLiteGateResult {

@@ -87,5 +87,7 @@ export async function GET(
     } : null,
     imDocument: imDoc?.body || null,
     watermarkSeed,
+    dcfEligible: imDoc?.body?.dcfEligible ?? false,
+    dataGrade: imDoc?.body?.dataGrade ?? null,
   });
 }

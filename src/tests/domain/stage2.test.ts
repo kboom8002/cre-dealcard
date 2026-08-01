@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseDocumentOCR, confirmOCRResult } from '@/domain/building/ocr-parser';
-import { recordTacitLabel } from '@/domain/building/tacit-label-service';
+import { recordTacitLabel } from '@/domain/tacit/tacit-label-service';
 import { computeEditDiff } from '@/domain/building/edit-diff-collector';
 
 describe('OCR Contract & Registry Parser (S2-T1)', () => {

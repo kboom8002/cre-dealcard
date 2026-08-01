@@ -5,7 +5,7 @@
  * @see SDD §6 S1-T13
  */
 
-import type { DealArchetype } from './archetype-classifier';
+import type { DealArchetype } from '../deal/archetype-classifier';
 
 export interface PitchContext {
   archetype: string;

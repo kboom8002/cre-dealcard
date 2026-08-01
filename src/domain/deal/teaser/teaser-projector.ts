@@ -5,7 +5,9 @@
  * @see docs/credal_v3/specs/teaser.md
  */
 
-import { bandPrice, bandArea, bandCapRate } from './banding';
+import { bandPrice, bandArea, bandCapRate, bandBuildingEra, bandFarHeadroom, bandRoadContact } from './banding';
+import { classifyDealArchetype } from '../../deal/archetype-classifier';
+import { computeDataQualityBadge } from '../../building/mobile-im/data-quality-badge';
 
 export interface TeaserView {
   region: string;
@@ -20,6 +22,13 @@ export interface TeaserView {
   curiositySlot: string;
   photoCount: number;
   disclosureTier: 'public' | 'gated' | 'never';
+  dataGrade?: 'A' | 'B' | 'C' | 'D';
+  archetypeResult?: { primaryArchetype: string; secondaryArchetypes: string[]; confidenceScore: number; reasons: string[] };
+  vacancyLabel?: string;
+  bandedBuildingEra?: string;
+  bandedFarHeadroom?: string | null;
+  reidentResult?: { candidateCount: number; kThreshold: number; passed: boolean; riskLevel: string; suggestion?: string } | null;
+  roadContactLabel?: string;
 }
 
 export interface TeaserConfig {
@@ -67,6 +76,33 @@ export function projectToTeaser(
 
   const hookCopy = config?.hookCopyOverride || generateHookCopy(archetype, region, assetType);
 
+  const archetypeResult = classifyDealArchetype(attrs);
+  const dataQuality = computeDataQualityBadge({
+    hasAddress: !!attrs.address,
+    hasPublicData: !!attrs.approvalDate,
+    hasMonthlyRent: !!attrs.monthlyRentKrw,
+    hasVacancy: attrs.vacancyPct !== undefined,
+    hasPhotos: !!attrs.photoCount,
+    hasAskingPrice: !!attrs.askingPriceKrw,
+    hasLoanAmount: !!attrs.loanAmountKrw,
+    hasFloorLeases: !!attrs.floorLeases,
+  });
+
+  let dataGrade: 'A' | 'B' | 'C' | 'D' = 'D';
+  if (dataQuality.tier === 'verified') dataGrade = 'A';
+  else if (dataQuality.tier === 'partial') dataGrade = 'B';
+  else if (dataQuality.tier === 'reference') dataGrade = 'C';
+
+  const approvalYear = attrs.approvalDate ? new Date(String(attrs.approvalDate)).getFullYear() : 0;
+  const bandedBuildingEra = bandBuildingEra(approvalYear);
+  const bandedFarHeadroom = attrs.farHeadroomPp !== undefined ? bandFarHeadroom(Number(attrs.farHeadroomPp)) : null;
+  const roadContactLabel = bandRoadContact(String(attrs.roadContactType || ''));
+
+  const vacancyPct = Number(attrs.vacancyPct || 0);
+  const evictionStatus = String(attrs.evictionStatus || '');
+  let vacancyLabel = `공실 ${vacancyPct}%`;
+  if (evictionStatus) vacancyLabel += ` (${evictionStatus})`;
+
   return {
     region,
     assetType,
@@ -80,6 +116,12 @@ export function projectToTeaser(
     curiositySlot,
     photoCount: Number(attrs.photoCount || 0),
     disclosureTier: 'public',
+    dataGrade,
+    archetypeResult,
+    vacancyLabel,
+    bandedBuildingEra,
+    bandedFarHeadroom,
+    roadContactLabel,
   };
 }
 

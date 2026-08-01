@@ -279,6 +279,10 @@ export default async function BrokerDealCardResultPage({
           initialKakaoText={kakaoText}
           initialOgTitle={(teaserDoc?.body as any)?.ogTitle || ""}
           initialOgDescription={(teaserDoc?.body as any)?.ogDescription || ""}
+          initialHookCopy={teaser?.hookCopy || ""}
+          initialStructureChips={teaser?.structureChips || []}
+          initialVacancyLabel={teaser?.vacancyLabel || ""}
+          initialCuriosityHook={teaser?.curiosityHook || ""}
         />
 
         {/* Boundary Note */}

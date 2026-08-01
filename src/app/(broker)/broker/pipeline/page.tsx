@@ -6,7 +6,7 @@ import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
 import { StageTransitionModal } from '@/components/pipeline/StageTransitionModal';
 import { GateRequestReviewModal } from '@/components/gate/GateRequestReviewModal';
 import { ChevronRight, ShieldCheck } from 'lucide-react';
-import { getAllStagesOrdered, getNextStages, type DealStage } from '@/domain/building/deal-transition';
+import { getAllStagesOrdered, getNextStages, type DealStage } from '@/domain/deal/deal-transition';
 
 interface PipelineDeal {
   id: string;

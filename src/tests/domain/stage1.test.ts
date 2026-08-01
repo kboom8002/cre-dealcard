@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { computeDataGrade } from '@/domain/building/grade-engine';
-import { validateAssetConstraints } from '@/domain/building/constraint-validator';
-import { classifyDealArchetype } from '@/domain/building/archetype-classifier';
+import { computeDataGrade } from '@/domain/asset/grade-engine';
+import { validateAssetConstraints } from '@/domain/asset/constraint-validator';
+import { classifyDealArchetype } from '@/domain/deal/archetype-classifier';
 
 describe('Data Grade Engine (S1-T4)', () => {
   it('computes Grade A when all required and 80%+ enhanced slots exist', () => {

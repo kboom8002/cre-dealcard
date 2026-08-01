@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import { buildLeaseSummaryFromInput } from '@/domain/building/lease-normalizer';
 import { computeLayerScore, getEligibleOutputs } from '@/domain/building/layer-score-engine';
 import { recordEvent } from '@/domain/analytics/record-event';
-import { validateAssetConstraints } from '@/domain/building/constraint-validator';
+import { validateAssetConstraints } from '@/domain/asset/constraint-validator';
 import { buildAttrsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { persistLeaseUnits } from '@/domain/building/mobile-im/lease-adapter';
 import { requireBroker } from '@/lib/auth-guard';
@@ -116,6 +116,17 @@ export async function POST(
   if (updateErr) {
     return NextResponse.json({ error: '임대차 정보 업데이트 중 오류가 발생했습니다: ' + updateErr.message }, { status: 500 });
   }
+
+  // Sync to v3 assets table if it exists
+  const updatedAttrs = {
+    ...attrs,
+    leaseSummary: normalizedSummary.privateLayer,
+    layerScores: computedScores,
+  };
+  await supabase
+    .from('assets')
+    .update({ attrs: updatedAttrs })
+    .eq('id', id);
 
   // v3: Persist normalized lease units to dedicated table (S2-T11)
   try {

@@ -11,7 +11,7 @@ import { enrichBuildingData } from "@/lib/external/external-data-orchestrator";
 import { enrichBuildingDataByPNU } from "@/lib/external/enrich-by-pnu";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 import { sanitizeComplianceText } from '@/domain/building/guardrails';
-import { computeDataGrade } from '@/domain/building/grade-engine';
+import { computeDataGrade } from '@/domain/asset/grade-engine';
 import { calculateNOI, calculateCapRate } from '@/domain/building/financials';
 import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { getIMDisclaimers } from '@/domain/building/legal-copy';
@@ -119,6 +119,9 @@ export async function generateMobileIMHandler(
     };
   }
 
+  // Grade B: Strictly block DCF/NPV/Sensitivity (prevents over-precision)
+  const dcfEligible = gradeResult.grade === 'A';
+
   // ─── v3 Financial Validation ───
   const monthlyRent = supplemental.monthly_rent_total_krw ?? 0;
   const askingPrice = (supplemental.asking_price_manwon ?? 0) * 10000;
@@ -184,6 +187,7 @@ export async function generateMobileIMHandler(
     supplemental,
     readiness,
     external_data: externalData,
+    dcfEligible,
   });
 
   // ─── v3 Guardrails: Sanitize all generated sections ───
@@ -279,6 +283,7 @@ export async function generateMobileIMHandler(
       photo_urls: supplemental.photo_urls ?? [],
       dataGrade: gradeResult.grade,
       financialWarnings,
+      dcfEligible,
       // 신규 writer 출력: heroCard, photos (기존 writer 미지원 시 undefined → JSON에서 제외)
       heroCard: writerResult.heroCard ?? undefined,
       photos: writerResult.photos ?? undefined,

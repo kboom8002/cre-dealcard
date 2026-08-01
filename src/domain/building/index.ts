@@ -22,26 +22,26 @@ export {
 export type { FinancialInputs, CalculationResult, FinancialSummary } from './financials';
 
 // ─── L1: Data Grading & Validation (등급 평가 · 제약 검증) ──────────────
-export { computeDataGrade } from './grade-engine';
-export type { DataGrade, DataGradeResult } from './grade-engine';
+export { computeDataGrade } from '../asset/grade-engine';
+export type { DataGrade, DataGradeResult } from '../asset/grade-engine';
 
-export { validateAssetConstraints } from './constraint-validator';
-export type { ConstraintViolation, ConstraintValidationResult } from './constraint-validator';
+export { validateAssetConstraints } from '../asset/constraint-validator';
+export type { ConstraintViolation, ConstraintValidationResult } from '../asset/constraint-validator';
 
 export { computeLayerScore, getEligibleOutputs, LAYER_WEIGHTS } from './layer-score-engine';
 export type { ChecklistInput } from './layer-score-engine';
 
 // ─── L1: Deal Classification (딜 아키타입 분류) ─────────────────────────
-export { classifyDealArchetype } from './archetype-classifier';
-export type { DealArchetype, ArchetypeClassificationResult } from './archetype-classifier';
+export { classifyDealArchetype } from '../deal/archetype-classifier';
+export type { DealArchetype, ArchetypeClassificationResult } from '../deal/archetype-classifier';
 
 // ─── L1: Legal Guardrails (법적 가드레일) ───────────────────────────────
 export { validateColdModePitchGuard, sanitizeComplianceText } from './guardrails';
 export type { PitchGenerationContext, GuardrailCheckResult } from './guardrails';
 
 // ─── L2: Tacit Knowledge Capture (암묵지 수집) ──────────────────────────
-export { recordTacitLabel } from './tacit-label-service';
-export type { TacitLabelCategory, TacitLabelEntry } from './tacit-label-service';
+export { recordTacitLabel } from '../tacit/tacit-label-service';
+export type { TacitLabelCategory, TacitLabelEntry } from '../tacit/tacit-label-service';
 
 export { computeEditDiff } from './edit-diff-collector';
 export type { EditDiffPayload, EditDiffRecord } from './edit-diff-collector';

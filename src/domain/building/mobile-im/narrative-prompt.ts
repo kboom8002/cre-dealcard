@@ -4,6 +4,56 @@
 
 import type { MobileIMSectionType, MobileIMSupplementalInput, ExternalDataSnapshot } from "./types";
 
+/** v3 B2B/B2C 렉시콘 프로필 */
+export type LexiconProfile = 'b2b' | 'b2c';
+
+/** B2B 전용 용어 매핑 */
+const B2B_LEXICON: Record<string, string> = {
+  '월세': '월 임대료',
+  '세입자': '임차인',
+  '집주인': '소유자/임대인',
+  '돈이 나오는': 'Cash Flow 창출',
+  '매달 들어오는': '월간 수익',
+  '들어가는 돈': '총 투자금',
+  '남는 돈': '순영업수익(NOI)',
+  '수익률': 'Cap Rate',
+  '빌렸다': '대출 실행',
+  '로또': '레버리지 수익',
+};
+
+/** B2C 전용 용어 매핑 */
+const B2C_LEXICON: Record<string, string> = {
+  'NOI': '남는 돈(NOI)',
+  'Cap Rate': '수익률(Cap Rate)',
+  'DCF': 'DCF(미래 수익 현재가치)',
+  'IRR': 'IRR(투자 수익률)',
+  'DSCR': 'DSCR(대출 걸림 없는 정도)',
+  'LTV': 'LTV(대출 비율)',
+  'WALE': '평균 잔여 임대 기간(WALE)',
+  'OPEX': '운영비(OPEX)',
+  'EGI': '유효총수입(EGI)',
+  'NPV': '현재가치(NPV)',
+  '임차인': '세입자',
+  '임대인': '집주인',
+};
+
+/**
+ * 텍스트에 렉시콘 프로필을 적용합니다.
+ * B2B: 구어체를 전문 용어로 변환
+ * B2C: 전문 용어에 쉼운 설명을 병기
+ */
+export function applyLexiconProfile(text: string, profile: LexiconProfile): string {
+  const lexicon = profile === 'b2b' ? B2B_LEXICON : B2C_LEXICON;
+  let result = text;
+  for (const [from, to] of Object.entries(lexicon)) {
+    // 이미 변환된 경우 중복 적용 방지
+    if (!result.includes(to)) {
+      result = result.replace(new RegExp(from, 'g'), to);
+    }
+  }
+  return result;
+}
+
 // ─── Golden IM 예시 (Few-shot, token 절약 압축본) ─────────────────────────────
 export const GOLDEN_IM_EXAMPLES = `[참고 예시 — 자산 개요 섹션]
 **강남구 GBD 핵심 입지**에 위치한 2010년 준공 **연면적 약 3,300㎡(약 1,000평)** 규모의 오피스 빌딩입니다.
@@ -104,7 +154,8 @@ export function buildNarrativeUserPrompt(
   marketIndicators?: MarketIndicators,
   sectionContext?: SectionContext,
   ragContext?: string,
-  fewShotBlock?: string
+  fewShotBlock?: string,
+  lexiconProfile?: LexiconProfile
 ): string {
   // v2: flat 구조(DB 컨럼 직접) + legacy 중첩 양쪽 지원
   const assetIdentity  = (bssotLite.asset_identity  ?? {}) as Record<string, unknown>;
@@ -233,7 +284,7 @@ export function buildNarrativeUserPrompt(
     }
   }
 
-  return `
+  let prompt = `
 [섹션 정보]
 섹션 유형: ${sectionType}
 
@@ -256,4 +307,16 @@ ${fewShotBlock || "지정된 Few-shot 없음 (시스템 프롬프트의 기본 G
 [개별 미션]
 ${sectionMission[sectionType]}
 `;
+
+  if (lexiconProfile === 'b2b') {
+    prompt += `\n\n[B2B 프로필 적용]
+전문 투자자 대상 어투. CRE 업계 표준 영어 용어를 그대로 사용하고, 구어체를 피하세요.
+예시: '월세' → '월 임대료', '수익률' → 'Cap Rate', '세입자' → '임차인', '남는 돈' → 'NOI'`;
+  } else if (lexiconProfile === 'b2c') {
+    prompt += `\n\n[B2C 프로필 적용]
+개인 소액 투자자 대상 어투. 전문 용어에는 괄호 안에 쉼운 설명을 병기하세요.
+예시: 'Cap Rate' → '수익률(Cap Rate)', 'NOI' → '남는 돈(NOI)', 'DCF' → 'DCF(미래 수익 현재가치)'`;
+  }
+
+  return prompt;
 }

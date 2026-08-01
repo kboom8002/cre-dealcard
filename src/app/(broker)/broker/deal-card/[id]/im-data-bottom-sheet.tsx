@@ -19,6 +19,15 @@ interface ImDataBottomSheetProps {
   cautionSummary?: string;
   existingPhotoUrls?: string[];
   initialAddress?: string;
+  // v3: Deal card auto-supply data
+  prefillMonthlyRent?: number; // 만원 단위
+  prefillTotalDeposit?: number; // 만원 단위
+  prefillMgmtFee?: number; // 만원 단위
+  prefillAskingPrice?: number; // 만원 단위
+  prefillLoanAmount?: number; // 만원 단위
+  prefillVacancyPct?: number;
+  currentDataGrade?: string; // A/B/C/D
+  gradeUpItems?: Array<{ field: string; label: string; gradeContribution: string }>;
 }
 
 type BottomSheetState = "idle" | "loading" | "success" | "error";
@@ -46,6 +55,14 @@ export function ImDataBottomSheet({
   cautionSummary,
   existingPhotoUrls,
   initialAddress,
+  prefillMonthlyRent,
+  prefillTotalDeposit,
+  prefillMgmtFee,
+  prefillAskingPrice,
+  prefillLoanAmount,
+  prefillVacancyPct,
+  currentDataGrade,
+  gradeUpItems,
 }: ImDataBottomSheetProps) {
   const [state, setState] = useState<BottomSheetState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -124,6 +141,18 @@ export function ImDataBottomSheet({
       }
     }
   }, [initialAddress, isOpen]);
+
+  // v3: Auto-prefill from deal card data
+  useEffect(() => {
+    if (isOpen) {
+      if (prefillMonthlyRent && !monthlyRent) setMonthlyRent(String(prefillMonthlyRent));
+      if (prefillTotalDeposit && !totalDeposit) setTotalDeposit(String(prefillTotalDeposit));
+      if (prefillMgmtFee && !mgmtFeeTotal) setMgmtFeeTotal(String(prefillMgmtFee));
+      if (prefillAskingPrice && !askingPrice) setAskingPrice(String(prefillAskingPrice));
+      if (prefillLoanAmount && !loanAmount) setLoanAmount(String(prefillLoanAmount));
+      if (prefillVacancyPct != null && vacancyPct === '') setVacancyPct(prefillVacancyPct);
+    }
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 간이 Readiness 계산 로직 (바텀시트 내부 표시용)
   useEffect(() => {
@@ -510,6 +539,9 @@ export function ImDataBottomSheet({
             {monthlyRent && Number(monthlyRent) > 0 && (
               <p className="text-xs text-emerald-500 mt-1.5">✅ 월 {Number(monthlyRent).toLocaleString()}만원 ({Math.round(Number(monthlyRent) * 12 / 10000 * 10) / 10}억원/년)</p>
             )}
+            {prefillMonthlyRent && monthlyRent === String(prefillMonthlyRent) && (
+              <span className="text-[10px] text-blue-400 ml-1">📋 딜카드에서 자동 입력</span>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -532,6 +564,9 @@ export function ImDataBottomSheet({
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
               </div>
+              {prefillTotalDeposit && totalDeposit === String(prefillTotalDeposit) && (
+                <span className="text-[10px] text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
+              )}
             </div>
 
             {/* Mgmt Fee */}
@@ -607,6 +642,9 @@ export function ImDataBottomSheet({
                   <span className="text-muted-foreground ml-1">(월세×12 ÷ 매각가)</span>
                 </p>
               )}
+              {prefillAskingPrice && askingPrice === String(prefillAskingPrice) && (
+                <span className="text-[10px] text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
+              )}
             </div>
 
             {/* Loan Amount */}
@@ -628,6 +666,9 @@ export function ImDataBottomSheet({
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
               </div>
+              {prefillLoanAmount && loanAmount === String(prefillLoanAmount) && (
+                <span className="text-[10px] text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
+              )}
             </div>
           </div>
 
@@ -1000,30 +1041,44 @@ export function ImDataBottomSheet({
 
         {/* Footer actions - Fixed at bottom */}
         <div className="shrink-0 pt-3 border-t border-border/40 mt-auto bg-background">
-          <div className={`rounded-xl p-3 mb-3 border-2 transition-colors flex items-center justify-between ${
-            canGenerate ? "bg-emerald-500/5 border-emerald-500/30" : "bg-amber-500/5 border-amber-500/20"
+          {/* v3: Data Grade Progress */}
+          <div className={`rounded-xl p-3 mb-3 border-2 transition-colors ${
+            canGenerate ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-500/30" : "bg-amber-50 dark:bg-amber-950/30 border-amber-500/30"
           }`}>
-            <div className="flex-1">
-              <div className="flex justify-between items-center mb-1.5">
-                <span className="text-[11px] font-semibold text-foreground">데이터 충실도</span>
-                <span className={`text-xs font-bold ${canGenerate ? "text-emerald-500" : "text-amber-500"}`}>
-                  {canGenerate ? "🟢" : "🟠"} {readinessScore}점
-                </span>
-              </div>
-              <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
-                <div 
-                  className={`h-full rounded-full transition-all duration-700 ${
-                    readinessScore >= 70 ? "bg-emerald-500" : readinessScore >= 40 ? "bg-amber-500" : "bg-rose-500"
-                  }`}
-                  style={{ width: `${readinessScore}%` }}
-                />
-              </div>
-              <p className={`text-[10px] mt-1.5 font-medium ${
-                canGenerate ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-foreground">데이터 등급</span>
+              <span className={`text-sm font-bold ${
+                currentDataGrade === 'A' ? 'text-emerald-500' :
+                currentDataGrade === 'B' ? 'text-blue-500' :
+                currentDataGrade === 'C' ? 'text-amber-500' : 'text-red-500'
               }`}>
-                {canGenerate ? "✅ 투자설명서 작성 가능" : "⚠️ 주소/월세 추가 입력 필요"}
-              </p>
+                {currentDataGrade ? `${currentDataGrade}등급` : `${readinessScore}점`}
+              </span>
             </div>
+            <div className="w-full bg-secondary rounded-full h-2 mb-2">
+              <div
+                className={`h-2 rounded-full transition-all duration-500 ${
+                  currentDataGrade === 'A' ? 'bg-emerald-500' :
+                  currentDataGrade === 'B' ? 'bg-blue-500' :
+                  currentDataGrade === 'C' ? 'bg-amber-500' : 'bg-red-500'
+                }`}
+                style={{ width: `${currentDataGrade === 'A' ? 100 : currentDataGrade === 'B' ? 75 : currentDataGrade === 'C' ? 50 : readinessScore}%` }}
+              />
+            </div>
+            {gradeUpItems && gradeUpItems.length > 0 && (
+              <div className="space-y-1 mt-2">
+                <p className="text-[10px] text-muted-foreground font-medium">등급 업을 위해 필요한 항목:</p>
+                {gradeUpItems.map((item, i) => (
+                  <div key={i} className="flex items-center justify-between text-[10px]">
+                    <span className="text-amber-600 dark:text-amber-400">⚠️ {item.label}</span>
+                    <span className="text-muted-foreground bg-secondary/80 px-1.5 py-0.5 rounded text-[9px]">{item.gradeContribution}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {currentDataGrade === 'D' && (
+              <p className="text-[10px] text-red-500 mt-1">⚠ 데이터 등급 D: IM 생성이 차단됩니다. 최소 Grade C 이상의 데이터를 입력해 주세요.</p>
+            )}
           </div>
 
           {/* Error & CTA */}

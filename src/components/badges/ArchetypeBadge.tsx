@@ -10,7 +10,10 @@ type DealArchetype =
   | 'RETAIL_STREET'
   | 'OFFICE_REPOSITIONING'
   | 'MIXED_USE'
-  | 'LAND_BANKING';
+  | 'LAND_BANKING'
+  | 'OWNER_OCCUPIED'
+  | 'DISTRESSED'
+  | 'REPOSITIONING';
 
 const ARCHETYPE_CONFIG: Record<DealArchetype, { label: string; icon: string; color: string }> = {
   STABLE_INCOME: { label: '안정 수익형', icon: '💰', color: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
@@ -23,6 +26,9 @@ const ARCHETYPE_CONFIG: Record<DealArchetype, { label: string; icon: string; col
   OFFICE_REPOSITIONING: { label: '오피스 리포지셔닝', icon: '🏢', color: 'bg-violet-500/15 text-violet-300 border-violet-500/30' },
   MIXED_USE: { label: '복합용도', icon: '🏛️', color: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
   LAND_BANKING: { label: '토지 뱅킹', icon: '🌾', color: 'bg-lime-500/15 text-lime-300 border-lime-500/30' },
+  OWNER_OCCUPIED: { label: '사옥용', icon: '🔑', color: 'bg-purple-500/15 text-purple-300 border-purple-500/30' },
+  DISTRESSED: { label: '부실자산', icon: '🚨', color: 'bg-rose-500/15 text-rose-300 border-rose-500/30' },
+  REPOSITIONING: { label: '리포지셔닝', icon: '🔄', color: 'bg-violet-500/15 text-violet-300 border-violet-500/30' },
 };
 
 interface ArchetypeBadgeProps {

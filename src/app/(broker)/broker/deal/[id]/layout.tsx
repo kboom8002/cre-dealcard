@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createServiceClient } from '@/lib/supabase/service';
-import { computeDataGrade } from '@/domain/building/grade-engine';
-import { classifyDealArchetype } from '@/domain/building/archetype-classifier';
+import { computeDataGrade } from '@/domain/asset/grade-engine';
+import { classifyDealArchetype } from '@/domain/deal/archetype-classifier';
 import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 
 export const metadata: Metadata = {

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { recordTacitLabel, COMMON_REASON_CODES } from '@/domain/building/tacit-label-service';
+import { recordTacitLabel, COMMON_REASON_CODES } from '@/domain/tacit/tacit-label-service';
 
 interface TacitLabelModalProps {
   isOpen: boolean;

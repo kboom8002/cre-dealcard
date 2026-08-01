@@ -60,6 +60,7 @@ export interface MobileIMWriterInput {
   readiness: { score: number; missing: string[] };
   external_data?: ExternalDataSnapshot | null;
   onProgress?: (section: MobileIMSection) => void;
+  dcfEligible?: boolean;
 }
 
 export interface MobileIMWriterOutput {
@@ -340,6 +341,10 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
           });
           financialsOutput = fin; // [B2] 나중 교차 검증에 사용
           cachedFinancials = fin;  // Hero Card용 캐시
+          // v3 Grade gating: Strip DCF from non-Grade-A
+          if (!input.dcfEligible && fin.dcf10Year) {
+            fin.dcf10Year = undefined as any;
+          }
           sectionMarketIndicators = { financialsMarkdown: formatFinancialsMarkdown(fin) };
         } catch {
           // 무시
@@ -354,6 +359,12 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         sectionMarketIndicators = {
           financialsMarkdown: formatBasicIncomeMarkdown(annualGross, effectiveGross, estimatedNoi, vPct)
         };
+      }
+      
+      // v3 Grade C: Mask Cap Rate at generation level
+      if (sectionMarketIndicators?.financialsMarkdown && !input.dcfEligible) {
+        // Keep NOI but don't expose DCF sensitivity in markdown
+        // (Cap Rate masking is handled by handler.ts post-processing)
       }
     }
 
@@ -554,6 +565,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       boundary_note: "본 섹션의 내용은 예비 검토용입니다.",
       provenance:    sectionProvenance,
       judge_score:   finalSectionJudgeScore,
+      min_tier: 'public' as const, // v3: all 7 core sections are public tier
     };
 
     sections.push(finalSection);

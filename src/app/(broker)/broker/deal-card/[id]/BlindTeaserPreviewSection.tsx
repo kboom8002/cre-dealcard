@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { PenTool } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { TeaserHeroHeader } from "@/components/teaser/TeaserHeroHeader";
+import { StructureChips } from "@/components/teaser/StructureChips";
 
 interface BlindTeaserPreviewSectionProps {
   buildingId: string;
@@ -10,6 +12,10 @@ interface BlindTeaserPreviewSectionProps {
   initialSummary: string;
   initialDealPoints: string[];
   initialCautionPoints: string[];
+  initialHookCopy?: string;
+  initialStructureChips?: string[];
+  initialVacancyLabel?: string;
+  initialCuriosityHook?: string;
 }
 
 export function BlindTeaserPreviewSection({
@@ -18,6 +24,10 @@ export function BlindTeaserPreviewSection({
   initialSummary,
   initialDealPoints,
   initialCautionPoints,
+  initialHookCopy = "",
+  initialStructureChips = [],
+  initialVacancyLabel = "",
+  initialCuriosityHook = "",
 }: BlindTeaserPreviewSectionProps) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
@@ -98,10 +108,17 @@ export function BlindTeaserPreviewSection({
         <span className="inline-block w-2 h-2 rounded-full bg-primary" />
         블라인드 티저 미리보기
       </div>
-      <h3 className="text-lg font-bold">{title}</h3>
-      {summary && (
-        <p className="text-sm text-muted-foreground">{summary}</p>
-      )}
+
+      <TeaserHeroHeader
+        regionLabel={title}
+        bandedPrice={"가격 확인 중"}
+        bandedCapRate={"수익률 확인 중"}
+        bandedArea={"면적 확인 중"}
+        hookCopy={initialHookCopy}
+        vacancyLabel={initialVacancyLabel}
+      />
+
+      <StructureChips chips={initialStructureChips} />
 
       {/* Deal Points */}
       {dealPointsStr && (

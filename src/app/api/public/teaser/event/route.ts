@@ -42,6 +42,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, intent });
     }
 
+    if (eventType === 'magazine_read' || eventType === 'article_read') {
+      // If the client passed an interest profile in the event data, use it
+      if (eventData.profile) {
+        const { generateAutoIntents } = await import('@/domain/magazine/subscriber-profile');
+        const intents = generateAutoIntents(eventData.profile);
+        
+        // Example: Log or store intents
+        console.info('[teaser-event] Generated auto intents:', intents);
+        
+        return NextResponse.json({ ok: true, intents });
+      }
+    }
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error('[teaser-event] Error:', err);

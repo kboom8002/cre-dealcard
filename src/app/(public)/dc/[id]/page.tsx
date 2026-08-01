@@ -3,24 +3,22 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
-import GateRequestForm from "./GateRequestForm";
 import { projectToTeaser } from '@/domain/deal/teaser/teaser-projector';
 import { buildAttrsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { TeaserEventTracker } from '@/components/teaser/TeaserEventTracker';
+import { classifyDealArchetype } from "@/domain/deal/archetype-classifier";
+import { computeDataQualityBadge } from "@/domain/building/mobile-im/data-quality-badge";
+
+// New v3 components
+import { TeaserHeroHeader } from '@/components/teaser/TeaserHeroHeader';
+import { StructureChips } from '@/components/teaser/StructureChips';
+import { HookCopyCard } from '@/components/teaser/HookCopyCard';
+import { BudgetSlider } from '@/components/teaser/BudgetSlider';
+import { CuriosityLock } from '@/components/teaser/CuriosityLock';
+import { CTALadder } from '@/components/teaser/CTALadder';
+import { TrustLine } from '@/components/teaser/TrustLine';
 
 interface PageProps { params: Promise<{ id: string }> }
-
-// ── Status 한국어 라벨 ──
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  active: { label: "매각 진행중", color: "text-green-400" },
-  public_signal_ready: { label: "검토 가능", color: "text-blue-400" },
-  draft: { label: "준비중", color: "text-amber-400" },
-  archived: { label: "종료", color: "text-slate-500" },
-};
-
-function getStatusDisplay(status: string | null) {
-  return STATUS_LABELS[status || ""] || { label: status || "검토중", color: "text-slate-400" };
-}
 
 // ── 데이터 조회 ──
 async function getDealCardData(id: string) {
@@ -45,29 +43,29 @@ async function getDealCardData(id: string) {
       .maybeSingle(),
   ]);
 
-  let brokerSlug = "cre-dealcard-default";
+  let brokerProfile = null;
   let brokerName: string | null = null;
   if (buildingRes.data?.owner_id) {
-    const brokerRes = await supabase
+    const { data: profile } = await supabase
       .from("broker_profiles")
-      .select("slug")
+      .select("display_name, specialty, response_guarantee_hours, closed_deals, is_licensed, slug, phone")
       .eq("user_id", buildingRes.data.owner_id)
       .maybeSingle();
-    if (brokerRes.data?.slug) brokerSlug = brokerRes.data.slug;
+    brokerProfile = profile;
 
     const profileRes = await supabase
       .from("profiles")
       .select("display_name")
       .eq("id", buildingRes.data.owner_id)
       .maybeSingle();
-    brokerName = profileRes.data?.display_name || null;
+    brokerName = profileRes.data?.display_name || brokerProfile?.display_name || null;
   }
 
   return {
     building: buildingRes.data as Record<string, any>,
     signalCard: signalCardRes.data,
     teaserDoc: teaserDocRes.data,
-    brokerSlug,
+    brokerProfile,
     brokerName,
   };
 }
@@ -80,15 +78,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const body = (signalCard?.body || {}) as Record<string, unknown>;
   const imBodyOg = (teaserDoc?.body ?? {}) as Record<string, any>;
 
-  const ogTitle = imBodyOg.ogTitle 
+  const ogTitle = imBodyOg.kakaoOgTitle
+    || imBodyOg.ogTitle 
     || (signalCard?.title as string)
     || `${building?.area_signal || "상업용 부동산"} ${building?.asset_type || ""} 매각`;
   
-  const ogDescription = imBodyOg.ogDescription 
+  const ogDescription = imBodyOg.kakaoOgDescription
+    || imBodyOg.ogDescription 
     || (body.shortSummary as string)
     || `${building?.area_signal || ""} 권역 블라인드 매각 매물`;
 
-  // OG 이미지: 항상 정규 1200×630 OG 이미지 사용 (건물 사진은 비정형 크기라 카카오톡 등에서 잘림)
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net';
   const absoluteOgImage = `${siteUrl}/api/og/deal/${id}`;
 
@@ -114,20 +113,52 @@ export const revalidate = 3600;
 
 export default async function DealCardShortPage({ params }: PageProps) {
   const { id } = await params;
-  const { building, signalCard, teaserDoc, brokerSlug, brokerName } = await getDealCardData(id);
+  const { building, signalCard, teaserDoc, brokerProfile, brokerName } = await getDealCardData(id);
 
   if (!building) return notFound();
 
-  // v3: Project SSoT data through teaser-projector for safe banded display
   const attrs = buildAttrsFromSsotLite(building || {});
   const teaserView = projectToTeaser(attrs);
+  
+  // Use badge computation to handle missing fields explicitly if teaserView doesn't return grade directly
+  const TIER_TO_GRADE: Record<string, 'A' | 'B' | 'C' | 'D'> = {
+    verified: 'A', partial: 'B', reference: 'C', draft: 'D'
+  };
+  const dataGrade = teaserView.dataGrade || (() => {
+    const badge = computeDataQualityBadge({
+      hasAddress: !!building.area_signal,
+      hasPublicData: !!(building.layers as Record<string, unknown>)?.public_data,
+      hasMonthlyRent: !!(building.lease_summary as Record<string, unknown>)?.monthlyRentTotal,
+      hasVacancy: !!building.vacancy_signal,
+      hasPhotos: !!(building.layers as Record<string, unknown>)?.photos,
+      hasAskingPrice: !!building.price_band,
+    });
+    return TIER_TO_GRADE[badge.tier] || 'D';
+  })();
+  
+  if (dataGrade === 'D') {
+    return (
+      <main className="min-h-screen bg-[#0b0f19] text-slate-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-[#131b2e] border border-slate-800 rounded-2xl p-6 text-center space-y-4">
+          <div className="text-4xl">🚧</div>
+          <h1 className="text-lg font-bold text-white">데이터 보강 필요</h1>
+          <p className="text-sm text-slate-400">
+            해당 매물은 아직 필수 데이터가 충분히 입력되지 않아 딜카드를 생성할 수 없습니다. 
+            중개사님의 추가 정보 입력이 필요합니다.
+          </p>
+        </div>
+      </main>
+    );
+  }
 
-  // ── 데이터 추출 ──
   const body = (signalCard?.body || {}) as Record<string, unknown>;
   const layers = (building.layers || {}) as Record<string, unknown>;
   const imBody = (teaserDoc?.body ?? {}) as Record<string, any>;
 
-  // photos: layers.photos → IM body.photos → IM body.photo_urls (3-source fallback)
+  const hookCopy = imBody.hookCopy || body.hookCopy || teaserView.hookCopy || `${teaserView.region || "비공개 권역"} ${building.asset_type || "빌딩"} 매각`;
+  const structureChips = imBody.structureChips || body.structureChips || teaserView.structuralSignals || [];
+  const boundaryNote = (body.boundaryNote || body.boundary_note || "매도자 보호를 위해 일부 정보가 블라인드 처리되었습니다.") as string;
+
   const layerPhotos = (layers.photos as Array<{ url: string; label: string }>) || [];
   const imPhotos: Array<{ url: string; label: string }> = Array.isArray(imBody.photos)
     ? imBody.photos.filter((p: any) => p?.url).map((p: any) => ({ url: p.url, label: p.label || "건물 사진" }))
@@ -135,210 +166,94 @@ export default async function DealCardShortPage({ params }: PageProps) {
     ? imBody.photo_urls.map((url: string, i: number) => ({ url, label: `건물 사진 ${i + 1}` }))
     : [];
   const photos = layerPhotos.length > 0 ? layerPhotos : imPhotos;
-  const coordinates = layers.coordinates as { lat: number; lng: number } | undefined;
-
-  const title = (signalCard?.title as string)
-    || teaserView.hookCopy
-    || `${teaserView.region || "비공개 권역"} ${building.asset_type || "빌딩"} 매각`;
-  const shortSummary = body.shortSummary as string || body.short_summary as string || "";
-  const dealPoints = (body.dealPoints || body.deal_points || signalCard?.deal_points || []) as string[];
-  const hiddenInfoNotice = (body.hiddenInfoNotice || body.hidden_info_notice || []) as string[];
-  const gateMessage = (body.gateMessage || body.gate_message || "연락처를 남겨주시면 담당 중개사가 NDA 체결 후 상세 자료를 전달합니다.") as string;
-  const boundaryNote = (body.boundaryNote || body.boundary_note || "") as string;
-
-  const statusDisplay = getStatusDisplay(building.status);
-  const sizeSignal = teaserView.bandedArea || building.size_signal || "";
 
   return (
-    <main className="min-h-screen bg-[#0b0f19] text-slate-100">
+    <main className="min-h-screen bg-[#0b0f19] text-slate-100 pb-20">
       <TeaserEventTracker teaserConfigId={building?.id || id} />
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-[#0d1424]/80 backdrop-blur-md border-b border-slate-800 px-4 py-3">
-        <div className="max-w-lg mx-auto flex items-center justify-between">
-          {brokerSlug && brokerSlug !== 'cre-dealcard-default' ? (
-            <Link href={`/vibe-card/${brokerSlug}`} className="text-xs text-slate-400 hover:text-white transition-colors flex items-center gap-1">
-              <span>✨</span> {brokerName || '중개사'} 명함 보기
-            </Link>
-          ) : (
-            <span className="text-xs text-slate-500">DealCard</span>
+
+      <div className="max-w-lg mx-auto">
+        {/* ① TeaserHeroHeader */}
+        <TeaserHeroHeader
+          archetype={teaserView.archetypeResult?.primaryArchetype}
+          dataGrade={dataGrade}
+          regionLabel={teaserView.region || "비공개 권역"}
+          bandedPrice={teaserView.bandedPrice || "가격 미공개"}
+          bandedCapRate={teaserView.bandedCapRate || "수익률 확인 중"}
+          bandedArea={teaserView.bandedArea || "면적 미공개"}
+          vacancyLabel={teaserView.vacancyLabel || (body.vacancyLabel as string | undefined)}
+          hookCopy={hookCopy}
+        />
+
+        <div className="px-4 space-y-5 mt-5">
+          {/* ② Photo Gallery */}
+          {photos.length > 0 && (
+            <div className="relative rounded-2xl overflow-hidden border border-slate-800">
+              <div className="relative w-full aspect-[16/9] bg-neutral-900">
+                <Image
+                  src={photos[0].url}
+                  alt={photos[0].label || "건물 외관"}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 520px"
+                  priority
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                {photos.length > 1 && (
+                  <div className="absolute top-3 right-3">
+                    <span className="px-2 py-0.5 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold rounded-lg">
+                      +{photos.length - 1}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
-          <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-full font-bold tracking-wide">
-            Blind DealCard
-          </span>
-        </div>
-      </header>
 
-      <div className="max-w-lg mx-auto px-4 py-5 space-y-4">
+          {/* ③ StructureChips */}
+          <StructureChips chips={structureChips} />
 
-        {/* ── 1. 사진 갤러리 또는 지도 ── */}
-        {photos.length > 0 ? (
-          <div className="relative rounded-2xl overflow-hidden border border-slate-800">
-            <div className="relative w-full aspect-[16/9] bg-neutral-900">
-              <Image
-                src={photos[0].url}
-                alt={photos[0].label || "건물 외관"}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 520px"
-                priority
-              />
-              {/* 블라인드 오버레이 */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-              <div className="absolute bottom-3 left-3 flex gap-1.5 flex-wrap max-w-[80%]">
-                <span className="px-2 py-0.5 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold rounded-lg border border-white/10">
-                  📍 {teaserView.region || "비공개"}
-                </span>
-                <span className="px-2 py-0.5 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold rounded-lg border border-white/10">
-                  🏢 {building.asset_type || "상업용"}
-                </span>
-                {teaserView.structuralSignals?.map((sig, i) => (
-                  <span key={i} className="px-2 py-0.5 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold rounded-lg border border-white/10">
-                    {sig}
-                  </span>
-                ))}
-              </div>
-            </div>
-            {photos.length > 1 && (
-              <div className="absolute top-3 right-3">
-                <span className="px-2 py-0.5 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold rounded-lg">
-                  +{photos.length - 1}
-                </span>
-              </div>
-            )}
-          </div>
-        ) : coordinates ? (
-          <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-neutral-900">
-            <div className="w-full aspect-[16/9] relative">
-              <a 
-                href={`https://map.kakao.com/link/map/${encodeURIComponent(building.area_signal || "위치")},${coordinates.lat},${coordinates.lng}`}
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="absolute inset-0 w-full h-full flex flex-col items-center justify-center text-neutral-500 hover:text-white hover:bg-white/5 transition-colors"
-              >
-                <span className="text-3xl mb-2">🗺️</span>
-                <span className="text-sm font-medium">카카오맵에서 위치 보기</span>
-              </a>
-            </div>
-          </div>
-        ) : null}
+          {/* ④ HookCopyCard */}
+          <HookCopyCard hookCopy={hookCopy} />
 
-        {/* ── 2. 메인 카드: 제목 + 가격 ── */}
-        <div className="bg-[#131b2e] border border-slate-800 rounded-2xl overflow-hidden">
-          <div className="px-5 py-5 space-y-3">
-            {/* 태그 */}
-            {!photos.length && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] bg-white/10 border border-white/10 px-2 py-0.5 rounded-full font-medium">
-                  📍 {teaserView.region || "비공개"}
-                </span>
-                <span className="text-[10px] bg-white/10 border border-white/10 px-2 py-0.5 rounded-full font-medium">
-                  🏢 {building.asset_type || "상업용"}
-                </span>
-                {teaserView.structuralSignals?.map((sig, i) => (
-                  <span key={i} className="text-[10px] bg-white/10 border border-white/10 px-2 py-0.5 rounded-full font-medium">
-                    {sig}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* 제목 */}
-            <h1 className="text-lg font-bold text-white leading-snug">
-              {title}
-            </h1>
-
-            {/* 가격 + 상태 */}
-            <div className="flex items-center gap-3">
-              {(teaserView.bandedPrice || building.price_band) && (
-                <span className="text-base font-bold text-primary">{teaserView.bandedPrice || building.price_band}</span>
-              )}
-              {teaserView.bandedCapRate && (
-                <span className="text-xs font-medium text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded">
-                  수익률 {teaserView.bandedCapRate}
-                </span>
-              )}
-              <span className={`text-xs font-semibold ${statusDisplay.color}`}>
-                {statusDisplay.label}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* ── 3. 딜 개요 ── */}
-        {shortSummary && (
-          <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-5 space-y-2">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">📋 딜 개요</h2>
-            <p className="text-sm text-slate-200 leading-relaxed">{shortSummary}</p>
-          </div>
-        )}
-
-        {/* ── 4. 핵심 딜 포인트 ── */}
-        {dealPoints.length > 0 && (
-          <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-5 space-y-3">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">🔑 핵심 딜 포인트</h2>
-            <ul className="space-y-2.5">
-              {dealPoints.map((point, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm text-slate-200">
-                  <span className="mt-0.5 w-5 h-5 flex items-center justify-center bg-primary/15 text-primary text-[10px] font-bold rounded-full shrink-0">
-                    {i + 1}
-                  </span>
-                  <span className="leading-relaxed">{point}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* ── 5. 매물 규모 ── */}
-        {sizeSignal && (
-          <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-5 space-y-2">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">📐 매물 규모</h2>
-            <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">{sizeSignal}</p>
-          </div>
-        )}
-
-        {/* ── 6. 블라인드 처리 안내 ── */}
-        <div className="bg-[#0b0f19] border border-slate-800 rounded-2xl p-4 space-y-2">
-          <p className="text-xs font-semibold text-white flex items-center gap-1">🔒 블라인드 처리 안내</p>
-          {hiddenInfoNotice.length > 0 ? (
-            <ul className="space-y-1">
-              {hiddenInfoNotice.map((notice, i) => (
-                <li key={i} className="text-[11px] text-slate-400 leading-relaxed flex items-start gap-1.5">
-                  <span className="text-slate-600 mt-0.5">•</span>
-                  {notice}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              매도자 보호를 위해 정확한 건물 주소, 호실, 소유자 정보는 비공개 처리되어 있습니다.
-              하단 연락처 제출 후 NDA 기반으로 상세 정보를 제공합니다.
-            </p>
+          {/* ⑤ BudgetSlider (only A or B) */}
+          {(dataGrade === 'A' || dataGrade === 'B') && (
+            <BudgetSlider
+              defaultBudgetEok={Number(building.price_band?.toString().replace(/[^\d]/g, '')) || 100}
+              maxBudgetEok={Math.max(Number(building.price_band?.toString().replace(/[^\d]/g, '')) * 2 || 500, 500)}
+              teaserConfigId={building?.id || id}
+            />
           )}
-        </div>
 
-        {/* ── 7. Gate CTA ── */}
-        <div className="bg-[#131b2e] border border-primary/20 rounded-2xl p-5 space-y-4">
-          <h2 className="text-sm font-bold text-white">📞 상세 정보 요청</h2>
-          <p className="text-[11px] text-slate-400 leading-relaxed">{gateMessage}</p>
-          <GateRequestForm buildingId={id} />
-        </div>
+          {/* ⑥ CuriosityLock */}
+          <CuriosityLock
+            curiositySlot={body.curiosityHook as string || teaserView.reidentResult?.suggestion || "정밀 호가·위치는 상세 요청 후 공개됩니다"}
+            candidateCount={teaserView.reidentResult?.candidateCount}
+            passed={teaserView.reidentResult?.passed}
+          />
 
-        {/* ── 8. 면책문구 ── */}
-        {boundaryNote && (
-          <div className="text-center px-4 py-3">
-            <p className="text-[9px] text-slate-600 leading-relaxed">{boundaryNote}</p>
-          </div>
-        )}
+          {/* ⑦ CTALadder */}
+          <CTALadder
+            buildingId={id}
+            teaserConfigId={building?.id || id}
+            brokerPhone={brokerProfile?.phone as string | undefined}
+          />
 
-        {/* ── 9. 하단 CTA ── */}
-        <div className="text-center pb-4">
-          <Link
-            href={brokerSlug !== "cre-dealcard-default" ? `/vibe-card/${brokerSlug}` : "/hub"}
-            className="text-xs text-primary hover:underline"
-          >
-            🔍 다른 매물도 살펴보기 →
-          </Link>
+          {/* ⑧ TrustLine */}
+          <TrustLine
+            brokerName={brokerProfile?.display_name as string || "담당 중개사"}
+            brokerSlug={brokerProfile?.slug as string | undefined}
+            specialty={brokerProfile?.specialty as string | undefined}
+            responseGuaranteeHours={brokerProfile?.response_guarantee_hours as number | undefined}
+            closedDeals={brokerProfile?.closed_deals as number | undefined}
+            isLicensed={brokerProfile?.is_licensed as boolean | undefined}
+          />
+
+          {/* Disclaimer */}
+          {boundaryNote && (
+            <div className="text-center px-4 pt-4 border-t border-slate-800/50 mt-8">
+              <p className="text-[10px] text-slate-500 leading-relaxed">{boundaryNote}</p>
+            </div>
+          )}
         </div>
       </div>
     </main>

@@ -241,6 +241,17 @@ export async function runBrokerDealCard(
       gateMessage: String(parsedObj.gateMessage || parsedObj.gate_message || ""),
       kakaoText: String(parsedObj.kakaoText || parsedObj.kakao_text || ""),
       boundaryNote: String(parsedObj.boundaryNote || parsedObj.boundary_note || ""),
+      // v3 확장 필드 폴백
+      hookCopy: parsedObj.hookCopy != null ? String(parsedObj.hookCopy) : (parsedObj.hook_copy != null ? String(parsedObj.hook_copy) : undefined),
+      regionLabel: parsedObj.regionLabel != null ? String(parsedObj.regionLabel) : (parsedObj.region_label != null ? String(parsedObj.region_label) : undefined),
+      assetTypeLabel: parsedObj.assetTypeLabel != null ? String(parsedObj.assetTypeLabel) : (parsedObj.asset_type_label != null ? String(parsedObj.asset_type_label) : undefined),
+      vacancyLabel: parsedObj.vacancyLabel != null ? String(parsedObj.vacancyLabel) : (parsedObj.vacancy_label != null ? String(parsedObj.vacancy_label) : undefined),
+      structureChips: Array.isArray(parsedObj.structureChips || parsedObj.structure_chips)
+        ? (parsedObj.structureChips || parsedObj.structure_chips) as string[]
+        : undefined,
+      curiosityHook: parsedObj.curiosityHook != null ? String(parsedObj.curiosityHook) : (parsedObj.curiosity_hook != null ? String(parsedObj.curiosity_hook) : undefined),
+      kakaoOgTitle: parsedObj.kakaoOgTitle != null ? String(parsedObj.kakaoOgTitle) : (parsedObj.kakao_og_title != null ? String(parsedObj.kakao_og_title) : undefined),
+      kakaoOgDescription: parsedObj.kakaoOgDescription != null ? String(parsedObj.kakaoOgDescription) : (parsedObj.kakao_og_description != null ? String(parsedObj.kakao_og_description) : undefined),
     };
   }
 

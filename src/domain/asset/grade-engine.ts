@@ -5,9 +5,9 @@
  * @see SDD §6 S1-T7
  */
 
-import { getGradeWeights, type AssetType } from './asset-ontology';
-import { isFeatureEnabled } from './feature-flags';
-import { lintProvenance } from './provenance-lint';
+import { getGradeWeights, type AssetType } from '../building/asset-ontology';
+import { isFeatureEnabled } from '../building/feature-flags';
+import { lintProvenance } from '../building/provenance-lint';
 
 /**
  * Data grade for an asset based on slot coverage.

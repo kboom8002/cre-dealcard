@@ -114,10 +114,10 @@ JSON으로 응답해주세요.`;
 
 // ---- Blind Teaser ----
 
-export const BLIND_TEASER_PROMPT_ID = "prompt_blind_teaser_v1";
+export const BLIND_TEASER_PROMPT_ID = "prompt_blind_teaser_v2";
 
-export const BLIND_TEASER_SYSTEM = `당신은 한국 상업용부동산(CRE) 전문 중개인입니다. 블라인드 딜카드(티저)를 작성합니다.
-블라인드 티저는 잠재 매수자의 관심을 유도하는 마케팅 문서입니다.
+export const BLIND_TEASER_SYSTEM = `당신은 한국 상업용부동산(CRE) 전문 중개인입니다. v3 블라인드 딜카드(티저)를 작성합니다.
+블라인드 티저는 잠재 매수자의 관심을 유도하는 구조화된 마케팅 카드입니다.
 
 ${GLOBAL_SAFETY}
 
@@ -156,7 +156,7 @@ ${GLOBAL_SAFETY}
 
 BlindTeaserOutputSchema에 맞는 JSON으로 응답하세요.`;
 
-export const BLIND_TEASER_USER_TEMPLATE = `다음 Building SSoT Lite로 블라인드 티저를 생성해주세요.
+export const BLIND_TEASER_USER_TEMPLATE = `다음 Building SSoT Lite로 v3 블라인드 딜카드를 생성해주세요.
 
 ## Building SSoT Lite
 {building_truth}
@@ -166,6 +166,8 @@ export const BLIND_TEASER_USER_TEMPLATE = `다음 Building SSoT Lite로 블라�
 
 ## 지시사항
 JSON 키별 작성 요령:
+
+### 기존 필드
 - "title": 권역 + 자산유형 + 핵심 매력 한 가지 (예: "천안 동남권역 대로변 상가빌딩 · 의원 안정임차"). 과장 금지.
 - "shortSummary": 2~3문장. 건물 기본 스펙(권역, 규모, 용도)과 핵심 매력을 간결하게. 번역체 금지.
 - "dealPoints": 실제 장점 3~5개. 공실/리스업을 장점으로 넣지 마세요. 입지·임차안정성·건물상태·주차·가시성 등 사실 기반.
@@ -174,5 +176,35 @@ JSON 키별 작성 요령:
 - "gateMessage": 상세자료 요청 안내 문구
 - "kakaoText": 카톡 전송용 2~3줄. 실제 중개인이 쓰는 것처럼 간결하게. 마지막 줄: "관심 있으시면 블라인드 기준 추가 설명드리겠습니다."
 - "boundaryNote": "본 자료는 공개 데이터 기반 예비 검토 자료이며, 실제 거래 조건은 실사 확인이 필요합니다."
+
+### v3 구조화 필드 (반드시 포함)
+- "hookCopy": 한 줄 소구. 매물의 핵심 투자 매력을 1문장으로 압축. 아키타입별 소구 문법 적용:
+  · 안정 수익형: 수익/안정성 강조 (예: "만실 운영 중 · 연 수익률 4%대")
+  · 밸류애드형: 증축/리모델링 여지 강조 (예: "용적률 여유 100%p+ · 증축 가능 구조")
+  · 개발 사이트: 토지/개발 잠재력 강조 (예: "대지 400평+ · 상업지역 개발 적지")
+  · 일반: 입지+규모 조합 (예: "역삼 코너 입지 · 전 층 임대 운영")
+
+- "regionLabel": 권역 라벨만 (예: "역삼권", "성수권", "천안 동남권역"). 절대로 동·번지 노출 금지.
+
+- "assetTypeLabel": B2C 자산유형 라벨 (예: "근린생활시설", "오피스빌딩", "상가빌딩", "물류센터")
+
+- "vacancyLabel": 공실 + 명도 상태 결합 라벨:
+  · 공실률 0%: "만실 · 명도 불요"
+  · 공실률 1~10%: "소규모 공실 · 리스업 여지"
+  · 공실률 11~30%: "부분 공실 · 밸류애드 기회"
+  · 공실률 31%+: "다수 공실 · 리스업 필요"
+  · 공실 정보 없음: "공실 현황 확인 중"
+
+- "structureChips": 구조 신호 3~4개 칩. 다음 중 해당하는 것만 선택:
+  · 도로접면: "각지(코너)", "대로변", "이면도로", "맹지" 중 택1 (B2C 어휘 사용)
+  · 용적률 여유: "용적률 여유 N%p+" (20%p 단위로 밴딩, 여유 있을 때만)
+  · 준공연대: "NNNN년대 초/후반 준공" (5년 밴딩)
+  · 주차: "주차 N대" (있을 때만)
+  · 층수: "지하N층~지상N층" (있을 때만)
+
+- "curiosityHook": 궁금증을 자극하는 잠금 문구 (예: "정밀 호가·위치는 상세 요청 후 공개됩니다")
+
+- "kakaoOgTitle": 카카오 OG 카드 제목 (35자 이내, 권역+자산유형+핵심 한 가지)
+- "kakaoOgDescription": 카카오 OG 카드 설명 (50자 이내, 가격대+핵심 매력)
 
 JSON으로 응답해주세요.`;

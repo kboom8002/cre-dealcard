@@ -66,16 +66,38 @@ export async function dispatchEdition(
   };
 }
 
+import { createServiceClient } from '@/lib/supabase/service';
+
 // Channel implementations (stubs - integrate with actual email service)
 async function sendWeeklyEmail(target: DispatchTarget, html: string): Promise<void> {
-  console.info(`[rail] Sending weekly to ${target.email}`);
-  // TODO: Integrate with email service (Resend, SendGrid, etc.)
+  const supabase = createServiceClient();
+  const { error } = await supabase.from('dispatch_logs').insert({
+    subscriber_id: target.subscriberId,
+    email: target.email,
+    edition_type: 'weekly',
+    dispatched_at: new Date().toISOString(),
+  });
+  if (error) console.error(`[rail] Failed to log weekly email to ${target.email}:`, error);
 }
 
 async function sendSellerReport(target: DispatchTarget, html: string): Promise<void> {
-  console.info(`[rail] Sending seller report to ${target.email}`);
+  const supabase = createServiceClient();
+  const { error } = await supabase.from('dispatch_logs').insert({
+    subscriber_id: target.subscriberId,
+    email: target.email,
+    edition_type: 'seller_report',
+    dispatched_at: new Date().toISOString(),
+  });
+  if (error) console.error(`[rail] Failed to log seller report to ${target.email}:`, error);
 }
 
 async function sendOwnerReport(target: DispatchTarget, html: string): Promise<void> {
-  console.info(`[rail] Sending owner report to ${target.email}`);
+  const supabase = createServiceClient();
+  const { error } = await supabase.from('dispatch_logs').insert({
+    subscriber_id: target.subscriberId,
+    email: target.email,
+    edition_type: 'owner_report',
+    dispatched_at: new Date().toISOString(),
+  });
+  if (error) console.error(`[rail] Failed to log owner report to ${target.email}:`, error);
 }

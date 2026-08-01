@@ -12,13 +12,13 @@ export interface BandingConfig {
 }
 
 const DEFAULT_BANDS: Record<string, BandingConfig> = {
-  small: { priceUnit: 1_0000_0000, areaUnit: 50, capRateUnit: 1 },   // <10억
-  medium: { priceUnit: 10_0000_0000, areaUnit: 100, capRateUnit: 0.5 }, // 10~100억
-  large: { priceUnit: 50_0000_0000, areaUnit: 500, capRateUnit: 0.5 },  // 100억+
+  small: { priceUnit: 5_0000_0000, areaUnit: 20, capRateUnit: 0.5 },   // <30억
+  medium: { priceUnit: 10_0000_0000, areaUnit: 20, capRateUnit: 0.5 }, // 30~100억
+  large: { priceUnit: 30_0000_0000, areaUnit: 20, capRateUnit: 0.5 },  // 100억+
 };
 
 function getBandConfig(priceKrw: number): BandingConfig {
-  if (priceKrw < 10_0000_0000) return DEFAULT_BANDS.small;
+  if (priceKrw < 30_0000_0000) return DEFAULT_BANDS.small;
   if (priceKrw < 100_0000_0000) return DEFAULT_BANDS.medium;
   return DEFAULT_BANDS.large;
 }
@@ -50,8 +50,35 @@ export function bandArea(exactPyung: number): string {
 /** Bands cap rate to a range string like "4~5%대" */
 export function bandCapRate(exactPct: number): string {
   if (exactPct <= 0) return '수익률 미정';
-  const unit = exactPct < 3 ? 0.5 : 1;
+  const unit = 0.5;
   const lower = Math.floor(exactPct / unit) * unit;
   const upper = lower + unit;
   return `${lower.toFixed(1)}~${upper.toFixed(1)}%대`;
+}
+
+/** Bands building era to a 5-year unit like "2010년대 초 준공" */
+export function bandBuildingEra(approvalYear: number): string {
+  if (approvalYear <= 0) return '준공연도 미상';
+  const decade = Math.floor(approvalYear / 10) * 10;
+  const yearInDecade = approvalYear % 10;
+  const part = yearInDecade < 5 ? '초' : '후반';
+  return `${decade}년대 ${part} 준공`;
+}
+
+/** Bands FAR headroom to a 20%p unit like "용적률 여유 100%p+" */
+export function bandFarHeadroom(headroomPp: number): string {
+  if (headroomPp <= 0) return '용적률 여유 없음';
+  const unit = 20;
+  const lower = Math.floor(headroomPp / unit) * unit;
+  return `용적률 여유 ${lower}%p+`;
+}
+
+/** Translates road contact type into B2C Korean labels */
+export function bandRoadContact(roadContactType: string): string {
+  const type = roadContactType.toUpperCase();
+  if (type.includes('WIDE_CORNER') || type.includes('MED_CORNER')) return '각지(코너)';
+  if (type.includes('WIDE_ONE') || type.includes('MED_ONE')) return '대로변';
+  if (type.includes('NARROW_ONE')) return '이면도로';
+  if (type.includes('DEAD_END')) return '막다른 도로';
+  return '도로접면 확인 필요';
 }

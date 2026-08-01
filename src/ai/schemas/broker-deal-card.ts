@@ -59,8 +59,10 @@ export const SignalComposerOutputSchema = z.object({
 export type SignalComposerOutput = z.infer<typeof SignalComposerOutputSchema>;
 
 // ---- Blind Teaser Output (prompt 8) ----
+// v3: 구조화된 딜카드 필드 확장 (기존 필드 하위 호환 유지)
 
 export const BlindTeaserOutputSchema = z.object({
+  // 기존 필드 (v1 호환)
   title: z.string(),
   shortSummary: z.string().default(""),
   dealPoints: z.array(z.string()).min(1).max(10),
@@ -69,6 +71,16 @@ export const BlindTeaserOutputSchema = z.object({
   gateMessage: z.string().default(""),
   kakaoText: z.string(),
   boundaryNote: z.string().default(""),
+
+  // v3 확장 — 구조화 딜카드 슬롯
+  hookCopy: z.string().optional(),              // copy-grammar 기반 한 줄 소구
+  regionLabel: z.string().optional(),           // 권역 라벨 (동/지번 금지, 예: "역삼권")
+  assetTypeLabel: z.string().optional(),        // B2C 자산유형 라벨 (예: "근린생활시설")
+  vacancyLabel: z.string().optional(),          // 공실+명도 결합 라벨 (예: "만실 · 명도 불요")
+  structureChips: z.array(z.string()).max(4).optional(), // 구조 신호 칩 (도로접면, 용적률 여유, 준공연대 등)
+  curiosityHook: z.string().optional(),         // 궁금증 갭 문구
+  kakaoOgTitle: z.string().optional(),          // 카카오 OG 카드 제목
+  kakaoOgDescription: z.string().optional(),    // 카카오 OG 카드 설명
 });
 
 export type BlindTeaserOutput = z.infer<typeof BlindTeaserOutputSchema>;

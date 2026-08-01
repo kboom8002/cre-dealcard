@@ -19,6 +19,10 @@ const UpdateSchema = z.object({
   curiosityScore: z.number().optional(),
   ogTitle: z.string().optional(),
   ogDescription: z.string().optional(),
+  hookCopy: z.string().optional(),
+  structureChips: z.array(z.string()).optional(),
+  vacancyLabel: z.string().optional(),
+  curiosityHook: z.string().optional(),
 });
 
 export async function PATCH(
@@ -68,6 +72,10 @@ export async function PATCH(
     if (updateData.pricing !== undefined) updatedBody.pricing = updateData.pricing;
     if (updateData.ogTitle !== undefined) updatedBody.ogTitle = updateData.ogTitle;
     if (updateData.ogDescription !== undefined) updatedBody.ogDescription = updateData.ogDescription;
+    if (updateData.hookCopy !== undefined) updatedBody.hookCopy = updateData.hookCopy;
+    if (updateData.structureChips !== undefined) updatedBody.structureChips = updateData.structureChips;
+    if (updateData.vacancyLabel !== undefined) updatedBody.vacancyLabel = updateData.vacancyLabel;
+    if (updateData.curiosityHook !== undefined) updatedBody.curiosityHook = updateData.curiosityHook;
 
     // Update document_objects (body + markdown for kakaoText)
     const docUpdate: Record<string, unknown> = { body: updatedBody };
@@ -104,6 +112,7 @@ export async function PATCH(
     if (updateData.title !== undefined) signalCardUpdate.title = updateData.title;
     if (updateData.dealPoints !== undefined) signalCardUpdate.deal_points = updateData.dealPoints;
     if (updateData.curiosityScore !== undefined) signalCardUpdate.deal_curiosity_score = updateData.curiosityScore;
+    if (updateData.hookCopy !== undefined) signalCardUpdate.hook_copy = updateData.hookCopy;
 
     if (Object.keys(signalCardUpdate).length > 0) {
       await serviceClient

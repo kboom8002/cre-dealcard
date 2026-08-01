@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateAssetConstraints } from '@/domain/building/constraint-validator';
+import { validateAssetConstraints } from '@/domain/asset/constraint-validator';
 
 describe('Constraint Validator — Extended Rules C05-C13', () => {
   // C05: Cap Rate reasonability

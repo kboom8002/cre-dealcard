@@ -68,3 +68,43 @@ export function getIMRenderPolicy(tier: IMTier, isNDASigned: boolean = false): I
     requiresNDA: false,
   };
 }
+
+/** Section-level visibility slot */
+export type SlotVisibility = 'public' | 'gated';
+
+/** Per-section render policy */
+export interface IMSectionSlot {
+  sectionType: string;
+  visibility: SlotVisibility;
+  proOnlyFields?: string[]; // Fields only exposed in Pro
+}
+
+/** v3 Section slot definitions */
+export const IM_SECTION_SLOTS: IMSectionSlot[] = [
+  { sectionType: 'property_overview', visibility: 'public' },
+  { sectionType: 'location_access', visibility: 'public' },
+  { sectionType: 'lease_status', visibility: 'public', proOnlyFields: ['rentRollDetail', 'tenantNames'] },
+  { sectionType: 'income_analysis', visibility: 'public', proOnlyFields: ['dcf10Year', 'sensitivityMatrix'] },
+  { sectionType: 'risk_check', visibility: 'public', proOnlyFields: ['granularRights', 'enforcementHistory'] },
+  { sectionType: 'investment_thesis', visibility: 'public' },
+  { sectionType: 'next_steps', visibility: 'public' },
+  // Pro-only sections (Phase M4.5)
+  { sectionType: 'loan_simulation', visibility: 'gated' },
+  { sectionType: 'tax_scenarios', visibility: 'gated' },
+  { sectionType: 'massing_yield', visibility: 'gated' },
+];
+
+/** Check if a section is visible for the given tier */
+export function isSectionVisibleForTier(sectionType: string, tier: IMTier): boolean {
+  const slot = IM_SECTION_SLOTS.find(s => s.sectionType === sectionType);
+  if (!slot) return true; // Unknown sections default to visible
+  if (slot.visibility === 'gated' && tier === 'basic') return false;
+  return true;
+}
+
+/** Get pro-only fields for a section */
+export function getProOnlyFields(sectionType: string): string[] {
+  const slot = IM_SECTION_SLOTS.find(s => s.sectionType === sectionType);
+  return slot?.proOnlyFields || [];
+}
+

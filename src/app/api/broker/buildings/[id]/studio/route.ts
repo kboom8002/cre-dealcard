@@ -6,9 +6,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { computeLayerScore, getEligibleOutputs } from '@/domain/building/layer-score-engine';
 import { requireBroker } from '@/lib/auth-guard';
-import { computeDataGrade } from '@/domain/building/grade-engine';
+import { computeDataGrade } from '@/domain/asset/grade-engine';
 import { computeFinancialSummary, calculateNOI, calculateCapRate } from '@/domain/building/financials';
-import { validateAssetConstraints } from '@/domain/building/constraint-validator';
+import { validateAssetConstraints } from '@/domain/asset/constraint-validator';
 import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, buildFinancialInputsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { computeDerivedFields } from '@/domain/building/derived-enricher';
 

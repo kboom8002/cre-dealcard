@@ -12,6 +12,11 @@ interface DealCardEditorProps {
   initialKakaoText: string;
   initialOgTitle?: string;
   initialOgDescription?: string;
+  // v3 fields
+  initialHookCopy?: string;
+  initialStructureChips?: string[];
+  initialVacancyLabel?: string;
+  initialCuriosityHook?: string;
 }
 
 type ToastType = "success" | "error" | null;
@@ -25,6 +30,10 @@ export function DealCardEditor({
   initialKakaoText,
   initialOgTitle = "",
   initialOgDescription = "",
+  initialHookCopy = "",
+  initialStructureChips = [],
+  initialVacancyLabel = "",
+  initialCuriosityHook = "",
 }: DealCardEditorProps) {
   // ── State ──
   const [title, setTitle] = useState(initialTitle);
@@ -37,6 +46,10 @@ export function DealCardEditor({
   const [ogTitle, setOgTitle] = useState(initialOgTitle);
   const [ogDescription, setOgDescription] = useState(initialOgDescription);
   const [ogTimestamp, setOgTimestamp] = useState(Date.now());
+  const [hookCopy, setHookCopy] = useState(initialHookCopy);
+  const [structureChips, setStructureChips] = useState(initialStructureChips.join(", "));
+  const [vacancyLabel, setVacancyLabel] = useState(initialVacancyLabel);
+  const [curiosityHook, setCuriosityHook] = useState(initialCuriosityHook);
 
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<{ type: ToastType; message: string }>({ type: null, message: "" });
@@ -51,9 +64,13 @@ export function DealCardEditor({
       JSON.stringify(cautionPoints.filter(Boolean)) !== JSON.stringify(initialCautionPoints) ||
       kakaoText !== initialKakaoText ||
       ogTitle !== initialOgTitle ||
-      ogDescription !== initialOgDescription
+      ogDescription !== initialOgDescription ||
+      hookCopy !== initialHookCopy ||
+      structureChips !== initialStructureChips.join(", ") ||
+      vacancyLabel !== initialVacancyLabel ||
+      curiosityHook !== initialCuriosityHook
     );
-  }, [title, summary, dealPoints, cautionPoints, kakaoText, ogTitle, ogDescription, initialTitle, initialSummary, initialDealPoints, initialCautionPoints, initialKakaoText, initialOgTitle, initialOgDescription]);
+  }, [title, summary, dealPoints, cautionPoints, kakaoText, ogTitle, ogDescription, hookCopy, structureChips, vacancyLabel, curiosityHook, initialTitle, initialSummary, initialDealPoints, initialCautionPoints, initialKakaoText, initialOgTitle, initialOgDescription, initialHookCopy, initialStructureChips, initialVacancyLabel, initialCuriosityHook]);
 
   // ── Toast auto-dismiss ──
   useEffect(() => {
@@ -90,6 +107,10 @@ export function DealCardEditor({
           kakaoText,
           ogTitle,
           ogDescription,
+          hookCopy,
+          structureChips: structureChips.split(",").map(s => s.trim()).filter(Boolean),
+          vacancyLabel,
+          curiosityHook,
         }),
       });
       if (res.ok) {
@@ -149,6 +170,20 @@ export function DealCardEditor({
               onChange={(e) => setTitle(e.target.value)}
               className="w-full bg-transparent border-b-2 border-border hover:border-primary/30 focus:border-primary px-0 py-2 text-lg font-bold focus:outline-none transition-colors placeholder:text-muted-foreground/40"
               placeholder="투자 포인트를 강조하는 제목"
+            />
+          </div>
+
+          {/* ── 한 줄 소구 ── */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+              🎯 한 줄 소구 (Hook Copy)
+            </label>
+            <input
+              type="text"
+              value={hookCopy}
+              onChange={(e) => setHookCopy(e.target.value)}
+              className="w-full bg-transparent border-b-2 border-border hover:border-primary/30 focus:border-primary px-0 py-2 text-sm focus:outline-none transition-colors placeholder:text-muted-foreground/40"
+              placeholder="예: 3년 만에 나온 대로변 급매"
             />
           </div>
 
@@ -215,6 +250,48 @@ export function DealCardEditor({
               rows={4}
               className="w-full bg-muted/30 border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary focus:bg-transparent resize-y transition-all placeholder:text-muted-foreground/40 leading-relaxed"
               placeholder="카카오톡으로 공유할 때 함께 전송되는 문구"
+            />
+          </div>
+
+          {/* ── 구조 신호 칩 ── */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+              📌 구조 신호 칩
+            </label>
+            <input
+              type="text"
+              value={structureChips}
+              onChange={(e) => setStructureChips(e.target.value)}
+              className="w-full bg-muted/30 border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary focus:bg-transparent transition-all placeholder:text-muted-foreground/40"
+              placeholder="쉼표(,)로 구분하여 입력 (예: 코너건물, 올근생, 100억대)"
+            />
+          </div>
+
+          {/* ── 공실/명도 라벨 ── */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+              🏠 공실/명도 라벨
+            </label>
+            <input
+              type="text"
+              value={vacancyLabel}
+              onChange={(e) => setVacancyLabel(e.target.value)}
+              className="w-full bg-muted/30 border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary focus:bg-transparent transition-all placeholder:text-muted-foreground/40"
+              placeholder="예: 명도 100% 완료"
+            />
+          </div>
+
+          {/* ── 궁금증 갭 문구 ── */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+              🔒 궁금증 갭 문구
+            </label>
+            <input
+              type="text"
+              value={curiosityHook}
+              onChange={(e) => setCuriosityHook(e.target.value)}
+              className="w-full bg-muted/30 border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary focus:bg-transparent transition-all placeholder:text-muted-foreground/40"
+              placeholder="예: 건물주의 급한 사정으로..."
             />
           </div>
 
