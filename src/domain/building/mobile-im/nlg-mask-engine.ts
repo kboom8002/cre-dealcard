@@ -274,4 +274,48 @@ export const MASK_TEMPLATES: NLGMaskTemplate[] = [
     requiredBindings: ['violationStatus'],
     lexiconProfile: 'both',
   },
+
+  // ── 매출연동 면책 (Grade C+) ──
+  {
+    id: 'income_variable_rent_disclaimer',
+    category: 'income_basic',
+    minGrade: 'C',
+    template: '※ {variableFloorLabel}의 임대료는 매출의 {revLinkedPct}로 연동됩니다. 보수적 추정 월 {lowEstManwon} ~ 낙관적 {highEstManwon} 범위에서 실제 수입이 변동됩니다.',
+    requiredBindings: ['variableFloorLabel', 'revLinkedPct'],
+    lexiconProfile: 'both',
+  },
+  {
+    id: 'income_ancillary_summary',
+    category: 'income_basic',
+    minGrade: 'C',
+    template: '비임대 부가수입으로 연간 {ancillaryTotalKrw}{ancillaryTotal_Badge}이 추가 발생합니다. ({ancillaryDetail})',
+    requiredBindings: ['ancillaryTotalKrw', 'ancillaryDetail'],
+    lexiconProfile: 'both',
+  },
+  {
+    id: 'income_scenario_comparison',
+    category: 'income_basic',
+    minGrade: 'B',
+    template: '매출연동 임대료 포함 시 보수적 Cap Rate {lowCapPct} ~ 낙관적 {highCapPct} 범위입니다. 기본 시나리오 기준 NOI {midNoiKrw}, Cap Rate {midCapPct}입니다.',
+    requiredBindings: ['lowCapPct', 'midCapPct', 'highCapPct', 'midNoiKrw'],
+    lexiconProfile: 'both',
+  },
+
+  // ── 미확인 데이터 경고 (Grade D+) ──
+  {
+    id: 'absence_loan_warning',
+    category: 'risk',
+    minGrade: 'D',
+    template: '⚠️ 대출(근저당) 정보가 미확인입니다. 자기자본 {equityKrw}은 대출 미반영 수치이며, 등기부등본 확인 후 정확한 자기자본이 산출됩니다.',
+    requiredBindings: ['equityKrw'],
+    lexiconProfile: 'both',
+  },
+  {
+    id: 'absence_vacancy_warning',
+    category: 'risk',
+    minGrade: 'D',
+    template: '공실률이 미확인되어 보수적 {vacancyPct} 가정을 적용했습니다. 실제 공실 현황은 현장 실사 시 확인이 필요합니다.',
+    requiredBindings: ['vacancyPct'],
+    lexiconProfile: 'both',
+  },
 ];

@@ -50,6 +50,41 @@ export interface FloorLeaseInput {
   lease_end?: string;         // 계약 종료일 (YYYY-MM-DD)
   note?: string;              // 참고 (임대료 인상 조건 등)
   is_vacant?: boolean;        // 공실 여부
+
+  /** 임대료 유형 */
+  rent_type?: 'fixed'            // 고정 임대료 (기본)
+    | 'revenue_linked'           // 매출연동 (매출의 N%)
+    | 'stepped'                  // 단계적 인상
+    | 'base_plus_percentage';    // 기본+매출연동
+
+  /** 매출연동 비율 (%) — rent_type이 revenue_linked/base_plus_percentage일 때 */
+  revenue_linked_pct?: number;
+
+  /** 기본 임대료 (만원) — rent_type이 base_plus_percentage일 때 */
+  base_rent_manwon?: number;
+
+  /** 매출연동 추정 월 수입 범위 (만원) */
+  estimated_rent_range?: {
+    low: number;     // 보수적 추정
+    mid: number;     // 중간 추정
+    high: number;    // 낙관적 추정
+  };
+}
+
+/** 비임대 부가수입 항목 */
+export interface AncillaryIncomeItem {
+  type: 'telecom_antenna'   // 통신장비 임대
+    | 'telecom_electric'    // 통신장비 전기료
+    | 'parking'             // 주차 수입
+    | 'signage'             // 간판/옥외광고
+    | 'vending'             // 자판기
+    | 'rooftop_solar'       // 태양광
+    | 'ev_charging'         // 전기차 충전
+    | 'other';              // 기타
+  label: string;            // 표시명 (예: "통신장비 임대료")
+  annualAmountKrw: number;  // 연간 수입 (원)
+  provenance: 'broker_input' | 'document_verified' | 'ai_estimated';
+  note?: string;            // 참고 (계약 조건 등)
 }
 
 /** 브로커가 딜카드 이후 추가로 입력하는 보강 정보 */
@@ -75,6 +110,9 @@ export interface MobileIMSupplementalInput {
   loan_amount_manwon?: number;      // 융자(채권최고액) (만원)
   loan_bank?: string;               // 융자 은행
   asking_price_manwon?: number;     // 매매가 (만원)
+
+  /** 비임대 부가수입 항목 */
+  ancillary_incomes?: AncillaryIncomeItem[];
 
   // ── 물류센터 전용 필드 ──
   logistics?: {

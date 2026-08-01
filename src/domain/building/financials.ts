@@ -26,6 +26,8 @@ export interface FinancialInputs {
   totalDepositKrw?: number;
   /** Loan amount in KRW (대출금) */
   loanAmountKrw?: number;
+  /** Annual ancillary income in KRW (연간 부가수입) - telecom, parking, etc. */
+  ancillaryIncomeKrw?: number;
   /** Data grade of the asset */
   dataGrade?: 'A' | 'B' | 'C' | 'D';
 }
@@ -62,6 +64,17 @@ export interface FinancialSummary {
   dcfEligible: boolean;
   /** Reason string explaining DCF eligibility status */
   dcfReason?: string;
+  /** 미확인 데이터로 인한 경고 목록 */
+  absenceWarnings?: AbsenceWarning[];
+}
+
+/** 미확인 데이터로 인한 경고 */
+export interface AbsenceWarning {
+  field: string;
+  level: 'info' | 'caution' | 'critical';
+  message: string;
+  /** 미확인으로 인한 수익률 오차 범위 */
+  impactRange?: { lowPct: number; highPct: number };
 }
 
 /**
@@ -71,21 +84,24 @@ export interface FinancialSummary {
  * @param grossAnnualIncomeKrw - Gross annual income in KRW
  * @param opexRatioPct - Operating expense ratio percentage (default: 10)
  * @param vacancyReservePct - Vacancy reserve percentage (default: 5)
+ * @param ancillaryIncomeKrw - Annual ancillary income in KRW
  * @returns Calculation result containing the NOI value and provenance
  * @see SDD §5 S0-T2
  */
 export function calculateNOI(
   grossAnnualIncomeKrw: number,
   opexRatioPct?: number,
-  vacancyReservePct?: number
+  vacancyReservePct?: number,
+  ancillaryIncomeKrw?: number
 ): CalculationResult<number> {
   const defaults = isFeatureEnabled('ff_s0_assumptions') ? getAssumptions() : { opexRatioPct: 10, vacancyReservePct: 5 };
   const finalOpexPct = opexRatioPct ?? defaults.opexRatioPct;
   const finalVacancyPct = vacancyReservePct ?? defaults.vacancyReservePct;
 
   const egi = grossAnnualIncomeKrw * (1 - finalVacancyPct / 100);
-  const opex = egi * (finalOpexPct / 100);
-  const noi = Math.max(0, egi - opex);
+  const egiWithAncillary = egi + (ancillaryIncomeKrw ?? 0);
+  const opex = egiWithAncillary * (finalOpexPct / 100);
+  const noi = Math.max(0, egiWithAncillary - opex);
 
   const isAssumption = opexRatioPct === undefined || vacancyReservePct === undefined;
   return {

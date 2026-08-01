@@ -75,6 +75,8 @@ export function ImDataBottomSheet({
   const [totalDeposit, setTotalDeposit] = useState(""); // 보증금 (만원)
   const [mgmtFeeTotal, setMgmtFeeTotal] = useState(""); // 관리비 (만원)
   const [loanAmount, setLoanAmount] = useState(""); // 융자 (만원)
+  const [loanStatus, setLoanStatus] = useState<string>("unknown");
+  const [ancillaryIncomes, setAncillaryIncomes] = useState<any[]>([]);
   const [askingPrice, setAskingPrice] = useState(""); // 매매가 (만원)
   const [vacancyPct, setVacancyPct] = useState<number | "">("");
   const [brokerHighlight, setBrokerHighlight] = useState("");
@@ -149,7 +151,10 @@ export function ImDataBottomSheet({
       if (prefillTotalDeposit && !totalDeposit) setTotalDeposit(String(prefillTotalDeposit));
       if (prefillMgmtFee && !mgmtFeeTotal) setMgmtFeeTotal(String(prefillMgmtFee));
       if (prefillAskingPrice && !askingPrice) setAskingPrice(String(prefillAskingPrice));
-      if (prefillLoanAmount && !loanAmount) setLoanAmount(String(prefillLoanAmount));
+      if (prefillLoanAmount && !loanAmount) {
+        setLoanAmount(String(prefillLoanAmount));
+        setLoanStatus("confirmed");
+      }
       if (prefillVacancyPct != null && vacancyPct === '') setVacancyPct(prefillVacancyPct);
     }
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -258,7 +263,9 @@ export function ImDataBottomSheet({
         monthly_rent_total_krw: monthlyRent ? Number(monthlyRent) * 10000 : undefined,
         total_deposit_manwon: totalDeposit ? Number(totalDeposit) : undefined,
         mgmt_fee_total_manwon: mgmtFeeTotal ? Number(mgmtFeeTotal) : undefined,
-        loan_amount_manwon: loanAmount ? Number(loanAmount) : undefined,
+        loan_amount_manwon: loanStatus === 'confirmed' && loanAmount ? Number(loanAmount) : undefined,
+        loan_status: loanStatus,
+        ancillary_incomes: ancillaryIncomes.length > 0 ? ancillaryIncomes : undefined,
         asking_price_manwon: askingPrice ? Number(askingPrice) : undefined,
         resolved_address: address || undefined,
         resolved_pnu: pnu || undefined,
@@ -648,27 +655,111 @@ export function ImDataBottomSheet({
             </div>
 
             {/* Loan Amount */}
-            <div>
+            <div className="col-span-2">
               <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
-                🏦 선순위 대출 잔액
+                🏦 대출 현황
               </label>
-              <div className="relative">
-                <input
-                  ref={loanAmountRef}
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
-                  value={loanAmount}
-                  onChange={(e) => setLoanAmount(e.target.value)}
-                  onKeyDown={(e) => handleEnterKey(e, null)}
-                  placeholder="예: 100000"
-                  className="w-full bg-secondary/50 border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
+              <div className="flex gap-2">
+                {[
+                  { value: 'confirmed', label: '대출 있음', icon: '💰' },
+                  { value: 'no_loan', label: '무대출 확인', icon: '✅' },
+                  { value: 'unknown', label: '미확인', icon: '❓' },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setLoanStatus(opt.value)}
+                    className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
+                      loanStatus === opt.value
+                        ? 'bg-primary/20 border-primary/50 text-primary border'
+                        : 'bg-secondary/50 border-border text-muted-foreground border hover:border-primary/40'
+                    }`}
+                  >
+                    {opt.icon} {opt.label}
+                  </button>
+                ))}
               </div>
-              {prefillLoanAmount && loanAmount === String(prefillLoanAmount) && (
+              {loanStatus === 'confirmed' && (
+                <div className="relative mt-2">
+                  <input
+                    ref={loanAmountRef}
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    value={loanAmount}
+                    onChange={(e) => setLoanAmount(e.target.value)}
+                    onKeyDown={(e) => handleEnterKey(e, null)}
+                    placeholder="예: 100000"
+                    className="w-full bg-secondary/50 border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
+                </div>
+              )}
+              {loanStatus === 'unknown' && (
+                <p className="mt-2 text-[10px] text-amber-500">
+                  ⚠️ 등기부등본 미열람 — 자기자본 산출 시 대출 미반영 안내가 IM에 표시됩니다
+                </p>
+              )}
+              {prefillLoanAmount && loanAmount === String(prefillLoanAmount) && loanStatus === 'confirmed' && (
                 <span className="text-[10px] text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
               )}
+            </div>
+
+            {/* 부가수입 섹션 */}
+            <div className="col-span-2 mt-2 border-t border-border/40 pt-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-semibold text-muted-foreground">📡 비임대 부가수입</label>
+                <span className="text-[9px] text-muted-foreground/70">통신장비, 주차, 간판 등</span>
+              </div>
+              {ancillaryIncomes.map((item: any, idx: number) => (
+                <div key={idx} className="flex gap-2 mb-2">
+                  <select
+                    className="flex-1 bg-secondary/50 border border-border rounded px-2 py-1 text-xs text-foreground focus:outline-none focus:border-primary"
+                    value={item.type || 'other'}
+                    onChange={(e) => {
+                      const updated = [...ancillaryIncomes];
+                      updated[idx] = { ...item, type: e.target.value };
+                      setAncillaryIncomes(updated);
+                    }}
+                  >
+                    <option value="telecom_antenna">통신장비 임대</option>
+                    <option value="telecom_electric">통신장비 전기료</option>
+                    <option value="parking">주차 수입</option>
+                    <option value="signage">간판/광고</option>
+                    <option value="rooftop_solar">태양광</option>
+                    <option value="ev_charging">전기차 충전</option>
+                    <option value="other">기타</option>
+                  </select>
+                  <input
+                    type="number"
+                    placeholder="연간 수입(만원)"
+                    className="w-28 bg-secondary/50 border border-border rounded px-2 py-1 text-xs text-foreground text-right focus:outline-none focus:border-primary"
+                    value={item.annualAmountKrw ? Math.round(item.annualAmountKrw / 10000) : ''}
+                    onChange={(e) => {
+                      const updated = [...ancillaryIncomes];
+                      updated[idx] = { ...item, annualAmountKrw: Number(e.target.value) * 10000 };
+                      setAncillaryIncomes(updated);
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      const updated = ancillaryIncomes.filter((_: any, i: number) => i !== idx);
+                      setAncillaryIncomes(updated);
+                    }}
+                    className="text-red-400 text-xs hover:text-red-500"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => {
+                  const updated = [...ancillaryIncomes, { type: 'other', label: '', annualAmountKrw: 0, provenance: 'broker_input' }];
+                  setAncillaryIncomes(updated);
+                }}
+                className="text-xs text-primary hover:text-primary/80"
+              >
+                + 부가수입 추가
+              </button>
             </div>
           </div>
 
