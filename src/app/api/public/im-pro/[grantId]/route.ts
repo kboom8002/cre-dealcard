@@ -75,6 +75,7 @@ export async function GET(
       id: grant.id,
       requesterName: grant.requester_name,
       expiresAt: grant.expires_at,
+      pdfExportAllowed: grant.pdf_export_allowed !== false,
     },
     renderPolicy: policy,
     building: building ? {

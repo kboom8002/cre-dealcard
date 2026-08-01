@@ -5,7 +5,7 @@ import { checkConsentGate, getRequiredConsentTier } from '@/domain/building/cons
 
 interface ProIMData {
   ok: boolean;
-  grant: { id: string; requesterName: string; expiresAt: string };
+  grant: { id: string; requesterName: string; expiresAt: string; pdfExportAllowed?: boolean };
   renderPolicy: any;
   building: any;
   imDocument: any;
@@ -160,11 +160,24 @@ export default function ProIMViewerPage({ params }: { params: Promise<{ grantId:
               {building?.areaSignal || ''} {building?.assetType || '매물'}
             </h1>
           </div>
-          {hoursLeft !== null && (
-            <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-1 rounded-full">
-              ⏳ {hoursLeft}h 남음
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {data.grant.pdfExportAllowed && (
+              <button
+                onClick={() => window.open(`/api/public/im-pro/${grantId}/export`, '_blank')}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg text-sm font-medium transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                워터마크 PDF 다운로드
+              </button>
+            )}
+            {hoursLeft !== null && (
+              <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-1 rounded-full">
+                ⏳ {hoursLeft}h 남음
+              </span>
+            )}
+          </div>
         </div>
       </header>
 
