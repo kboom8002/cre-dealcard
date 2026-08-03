@@ -13,26 +13,13 @@ export interface ParcelData {
   transactions?: any[];
 }
 
-export type FetcherFunction<T> = (parcel: ParcelRef) => Promise<T>;
-
-export const FETCHERS: Record<string, FetcherFunction<any>> = {
-  landLedger: async (parcel) => {
-    // Stub implementation
-    return { area: 100, jimok: '대' };
-  },
-  buildingLedger: async (parcel) => {
-    return { totalFloorArea: 200, structure: '철근콘크리트' };
-  },
-  landUsePlan: async (parcel) => {
-    return { zoning: '일반상업지역' };
-  },
-  officialPrice: async (parcel) => {
-    return { pricePerSqm: 10000000 };
-  },
-  transactions: async (parcel) => {
-    return [{ date: '2023-01-01', price: 5000000000 }];
-  }
-};
+export const FETCHERS = {
+  landLedger:    { api: '토지대장',          timeout: 8_000,  retries: 2, ttlDays: 90 },
+  buildingLedger:{ api: '건축물대장',        timeout: 12_000, retries: 2, ttlDays: 90 },
+  landUsePlan:   { api: '토지이용계획확인원', timeout: 10_000, retries: 2, ttlDays: 30 },
+  officialPrice: { api: '개별공시지가',      timeout: 6_000,  retries: 1, ttlDays: 180 },
+  transactions:  { api: '실거래가',            timeout: 10_000, retries: 1, ttlDays: 7 },
+} as const;
 
 export async function fetchAllPublicData(parcels: ParcelRef[]): Promise<FetchResult> {
   const result: FetchResult = {
@@ -45,15 +32,16 @@ export async function fetchAllPublicData(parcels: ParcelRef[]): Promise<FetchRes
     const data: ParcelData = {};
     const errs: string[] = [];
 
-    const fetchKeys = Object.keys(FETCHERS) as Array<keyof ParcelData>;
+    const fetchKeys = Object.keys(FETCHERS) as Array<keyof typeof FETCHERS>;
     
     // Parallel fetch with partial failure tolerance
     await Promise.allSettled(
       fetchKeys.map(async (key) => {
         try {
-          const fetcher = FETCHERS[key];
-          if (fetcher) {
-            data[key] = await fetcher(parcel);
+          const config = FETCHERS[key];
+          if (config) {
+            // Simulated fetch referencing config.timeout and config.retries
+            data[key as keyof ParcelData] = { api: config.api, timeout: config.timeout, retries: config.retries };
           }
         } catch (e: any) {
           errs.push(`Failed to fetch ${key}: ${e.message}`);

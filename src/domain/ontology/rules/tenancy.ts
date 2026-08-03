@@ -74,10 +74,13 @@ export function evaluateTenancy(
 ): TenancyResult {
   const violations: string[] = [];
 
-  const deposit = 'depositKrw' in unit ? unit.depositKrw : unit.deposit;
-  const monthlyRent = 'monthlyRentKrw' in unit ? unit.monthlyRentKrw : unit.monthlyRent;
-  const startDateStr = 'leaseStartDate' in unit ? unit.leaseStartDate : undefined;
-  const startDateObj = 'startDate' in unit ? unit.startDate : undefined;
+  const unitAny = unit as any;
+  const deposit = unit.depositKrw;
+  const monthlyRent = unit.monthlyRentKrw;
+  
+  // Try to find the start date
+  const startDateStr = unitAny.firstContractDate || unitAny.leaseStartDate || unitAny.currentStartDate;
+  const startDateObj = unitAny.startDate;
 
   // T01: 환산보증금
   const convertedDeposit = deposit + monthlyRent * 100;
@@ -86,8 +89,8 @@ export function evaluateTenancy(
 
   // T02: 대항력 — 기본값 true
   let opposingPower = true;
-  const override = 'opposingPowerOverride' in unit ? unit.opposingPowerOverride : undefined;
-  const evidence = 'opposingPowerEvidence' in unit ? unit.opposingPowerEvidence : undefined;
+  const override = unitAny.opposingPowerOverride;
+  const evidence = unitAny.opposingPowerEvidence;
   if (override === false) {
     if (!evidence) {
       violations.push(
@@ -100,7 +103,9 @@ export function evaluateTenancy(
 
   // T03: 계약갱신요구권 — 최초 계약일부터 10년
   let renewalRightRemaining: number | null = null;
-  const actualStartDate = startDateObj || (startDateStr ? new Date(startDateStr) : undefined);
+  const actualStartDate = (startDateObj && typeof startDateObj.getTime === 'function') 
+    ? startDateObj 
+    : (startDateStr ? new Date(startDateStr) : undefined);
   if (actualStartDate) {
     const yearsElapsed = (Date.now() - actualStartDate.getTime()) / (365.25 * 86400000);
     renewalRightRemaining = Math.max(0, 10 - yearsElapsed);
@@ -118,8 +123,8 @@ export function evaluateTenancy(
 
   // increaseHeadroom 계산
   let increaseHeadroom: number | null = null;
-  const marketRent = 'marketRent' in unit ? unit.marketRent : undefined;
-  if (marketRent !== undefined && marketRent > monthlyRent) {
+  const marketRent = unitAny.marketRent;
+  if (typeof marketRent === 'number' && marketRent > monthlyRent) {
     if (isProtected) {
       const maxRent = monthlyRent * 1.05;
       increaseHeadroom = Math.min(marketRent, maxRent) - monthlyRent;

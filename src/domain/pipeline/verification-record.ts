@@ -1,30 +1,21 @@
 export interface VerificationRecord {
-  id: string;
-  authoringId: string;
-  verifierId: string;
-  isApproved: boolean;
-  comments?: string;
+  dealId: string;
+  brokerId: string;
+  slotGroups: string[];
   signedAt: string;
-  signature: string;
+  ipHash: string;
+  statement: string;  // 고정 문구 — 임의 변경 불가
 }
 
-export function signVerification(
-  authoringId: string,
-  verifierId: string,
-  isApproved: boolean,
-  comments?: string
-): VerificationRecord {
-  const signedAt = new Date().toISOString();
-  // Simple signature simulation
-  const signature = `SIG-${authoringId}-${verifierId}-${signedAt}`;
-  
+export const VERIFICATION_STATEMENT = '본인은 위 사항이 사실과 다르지 않음을 확인합니다.';
+
+export function signVerification(dealId: string, brokerId: string, slotGroups: string[], ipHash: string): VerificationRecord {
   return {
-    id: crypto.randomUUID(),
-    authoringId,
-    verifierId,
-    isApproved,
-    comments,
-    signedAt,
-    signature,
+    dealId,
+    brokerId,
+    slotGroups,
+    signedAt: new Date().toISOString(),
+    ipHash,
+    statement: VERIFICATION_STATEMENT,
   };
 }

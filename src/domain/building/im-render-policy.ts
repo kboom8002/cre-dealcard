@@ -31,7 +31,7 @@ export interface IMRenderPolicy {
   showDcfSensitivity: boolean;
   requiresWatermark: boolean;
   requiresNDA: boolean;
-  disclosurePolicy: DisclosurePolicy;
+  disclosure: DisclosurePolicy;
 }
 
 /**
@@ -57,7 +57,7 @@ export function getIMRenderPolicy(tier: IMTier, isNDASigned: boolean = false): I
       showDcfSensitivity: true,
       requiresWatermark: true,
       requiresNDA: true,
-      disclosurePolicy: DISCLOSURE_DEFAULT['pro'],
+      disclosure: DISCLOSURE_DEFAULT['pro'],
     };
   }
 
@@ -71,7 +71,7 @@ export function getIMRenderPolicy(tier: IMTier, isNDASigned: boolean = false): I
     showDcfSensitivity: false,       // Gated
     requiresWatermark: false,
     requiresNDA: false,
-    disclosurePolicy: DISCLOSURE_DEFAULT['basic'],
+    disclosure: DISCLOSURE_DEFAULT['basic'],
   };
 }
 

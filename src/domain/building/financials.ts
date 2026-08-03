@@ -44,9 +44,13 @@ export interface CapRateResult {
 }
 
 export interface AcquisitionCostInput {
-  brokerFeePct: number;
-  acquisitionTaxPct: number;
-  legalFeeKrw: number;
+  price: number;                      // 매매가 (KRW)
+  acquisitionTax: number;             // 취득세 (표준 4.6%)
+  registrationLegal: number;          // 등록면허세 · 법무비
+  brokerageFee: number;               // 중개보수
+  appraisalDueDiligence: number;      // 실사·감평비
+  vatRefundEstimate: number;          // 건물분 부가세 환급 예상
+  other: number;
 }
 
 export interface AcquisitionCostResult {
@@ -178,13 +182,15 @@ export function calculateAcquisitionCost(
   priceKrw: number,
   options?: Partial<AcquisitionCostInput>
 ): AcquisitionCostResult {
-  const brokerFeePct = options?.brokerFeePct ?? 0.9;
-  const acquisitionTaxPct = options?.acquisitionTaxPct ?? 4.6;
-  const legalFeeKrw = options?.legalFeeKrw ?? 2000000;
+  const brokerFeeKrw = options?.brokerageFee ?? (priceKrw * 0.009);
+  const acquisitionTaxKrw = options?.acquisitionTax ?? (priceKrw * 0.046);
+  const legalFeeKrw = options?.registrationLegal ?? 2000000;
+  
+  const appraisalDueDiligence = options?.appraisalDueDiligence ?? 0;
+  const vatRefundEstimate = options?.vatRefundEstimate ?? 0;
+  const other = options?.other ?? 0;
 
-  const brokerFeeKrw = priceKrw * (brokerFeePct / 100);
-  const acquisitionTaxKrw = priceKrw * (acquisitionTaxPct / 100);
-  const totalCostKrw = priceKrw + brokerFeeKrw + acquisitionTaxKrw + legalFeeKrw;
+  const totalCostKrw = priceKrw + brokerFeeKrw + acquisitionTaxKrw + legalFeeKrw + appraisalDueDiligence - vatRefundEstimate + other;
 
   return { totalCostKrw, brokerFeeKrw, acquisitionTaxKrw, legalFeeKrw };
 }

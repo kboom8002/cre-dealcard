@@ -1,4 +1,4 @@
-export type LocationAspect = 'transport' | 'commercial' | 'education' | 'environment' | 'development';
+export type LocationAspect = 'legal' | 'appraisal' | 'accessibility';
 
 export interface LocationItem {
   id: string;
@@ -17,7 +17,7 @@ export interface LocationSection {
 export function buildLocationSections(data: Record<string, unknown>, tier: 'basic' | 'pro'): LocationSection[] {
   const sections: LocationSection[] = [];
   
-  const aspects: LocationAspect[] = ['transport', 'commercial', 'education', 'environment', 'development'];
+  const aspects: LocationAspect[] = ['legal', 'appraisal', 'accessibility'];
   
   for (const aspect of aspects) {
     if (data[aspect] && Array.isArray(data[aspect])) {

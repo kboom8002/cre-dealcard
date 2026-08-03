@@ -1,16 +1,24 @@
-export type BuyerPurpose = 'development' | 'value-add' | 'core' | 'owner-occupier' | 'investment';
+export type BuyerPurpose = 'self_use' | 'rental_income' | 'value_add' | 'development' | 'allocation';
 
 export interface ZoningItem {
-  id: string;
+  category: 'use_area' | 'use_district' | 'use_zone' | 'other_law';
   name: string;
-  relevance: BuyerPurpose[];
-  description?: string;
-  isRestrictive?: boolean;
+  relevance: Record<BuyerPurpose, 'high' | 'medium' | 'low'>;
+  impactNote: string | null;
 }
 
-export function filterZoningByPurpose(items: ZoningItem[], purpose: BuyerPurpose): ZoningItem[] {
-  if (!purpose) {
-    return items;
-  }
-  return items.filter(item => item.relevance.includes(purpose));
+export interface ZoningFilterResult {
+  mainItems: ZoningItem[];     // high
+  foldedItems: ZoningItem[];   // medium
+  appendixItems: ZoningItem[]; // low
+}
+
+export function filterZoningByPurpose(
+  items: ZoningItem[],
+  purpose: BuyerPurpose,
+): ZoningFilterResult {
+  const mainItems = items.filter(i => i.relevance[purpose] === 'high');
+  const foldedItems = items.filter(i => i.relevance[purpose] === 'medium');
+  const appendixItems = items.filter(i => i.relevance[purpose] === 'low');
+  return { mainItems, foldedItems, appendixItems };
 }

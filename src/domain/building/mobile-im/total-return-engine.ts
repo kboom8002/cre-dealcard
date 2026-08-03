@@ -1,16 +1,23 @@
 import { FinancialInputs, calculateNOI, calculateAcquisitionCost } from '../financials';
 
 export interface ValueGrowthInput {
-  annualGrowthRatePct: number;
-  holdingPeriodYears: number;
+  landRatio: number;                   // 토지 가치 비중 (0~1)
+  scenarios: {
+    downside: number;                  // 기본 -2.0%
+    base: number;                      // 동 단위 공시지가 3년 평균
+    upside: number;                    // 5년 최고
+  };
+  source: 'gongsi_dong_3y' | 'gongsi_dong_5y' | 'transaction_based' | 'manual';
+  buildingDepreciation: number | null;
 }
 
 export interface TotalReturnResult {
-  scenarioName: string;
-  totalReturnKrw: number;
-  irrPct: number;
-  equityMultiple: number;
-  isDownside: boolean;
+  label: string;                       // '하락', '보수', '기준', '낙관'
+  landGrowthPct: number;
+  cocPct: number;                      // Cash on Cash
+  capitalGainPct: number;
+  totalReturnPct: number;
+  leveragedTotalReturnPct: number | null;
 }
 
 export interface LoanScenario {
@@ -31,48 +38,43 @@ export function calculateTotalReturn(
   ).value;
   
   const initialCost = calculateAcquisitionCost(financials.askingPriceKrw).totalCostKrw;
-  const holdYears = valueGrowth.holdingPeriodYears;
 
   const results: TotalReturnResult[] = [];
 
-  const addScenario = (scenarioName: string, growthPct: number, isDownside: boolean) => {
+  const addScenario = (label: string, landGrowthPct: number) => {
     const loan = loanScenarios && loanScenarios.length > 0 ? loanScenarios[0] : { amountKrw: 0, interestRatePct: 0 };
     const equity = Math.max(0, initialCost - loan.amountKrw);
-    if (equity <= 0) return;
-
-    let totalCashFlow = 0;
+    
+    const landValue = financials.askingPriceKrw * valueGrowth.landRatio;
+    const buildingValue = financials.askingPriceKrw * (1 - valueGrowth.landRatio);
+    const depreciation = valueGrowth.buildingDepreciation ?? 0;
+    
+    const newLandValue = landValue * (1 + landGrowthPct / 100);
+    const newBuildingValue = buildingValue * (1 - depreciation / 100);
+    
+    const capitalGain = (newLandValue + newBuildingValue) - financials.askingPriceKrw;
+    
     const annualInterest = loan.amountKrw * (loan.interestRatePct / 100);
     
-    for (let i = 0; i < holdYears; i++) {
-      totalCashFlow += (noi - annualInterest);
-    }
-
-    const exitValue = financials.askingPriceKrw * Math.pow(1 + growthPct / 100, holdYears);
-    const exitCost = exitValue * 0.01; // Assume 1% exit cost
-    const exitProceeds = exitValue - exitCost - loan.amountKrw;
+    const coc = equity > 0 ? ((noi - annualInterest) / equity) * 100 : 0;
+    const capitalGainPct = initialCost > 0 ? (capitalGain / initialCost) * 100 : 0;
+    const totalReturnPct = initialCost > 0 ? ((noi + capitalGain) / initialCost) * 100 : 0;
     
-    const totalReturnKrw = totalCashFlow + (exitProceeds - equity);
-    const equityMultiple = (totalCashFlow + exitProceeds) / equity;
-    
-    // Very simple IRR approximation for the sake of the exercise
-    const irrPct = (Math.pow(equityMultiple, 1 / holdYears) - 1) * 100;
+    const leveragedTotalReturnPct = equity > 0 ? ((noi - annualInterest + capitalGain) / equity) * 100 : null;
 
     results.push({
-      scenarioName,
-      totalReturnKrw,
-      irrPct,
-      equityMultiple,
-      isDownside
+      label,
+      landGrowthPct,
+      cocPct: coc,
+      capitalGainPct,
+      totalReturnPct,
+      leveragedTotalReturnPct
     });
   };
 
-  addScenario('Base Case', valueGrowth.annualGrowthRatePct, false);
-  addScenario('Downside (-2% Growth)', valueGrowth.annualGrowthRatePct - 2, true);
-  
-  const hasDownside = results.some(r => r.isDownside);
-  if (!hasDownside) {
-    addScenario('Forced Downside (-5% Growth)', -5, true);
-  }
+  addScenario('하락', valueGrowth.scenarios.downside);
+  addScenario('기준', valueGrowth.scenarios.base);
+  addScenario('낙관', valueGrowth.scenarios.upside);
 
   return results;
 }

@@ -16,9 +16,15 @@ import { lintProvenance } from '../building/provenance-lint';
 export type DataGrade = 'A' | 'B' | 'C' | 'D';
 
 export interface GradeAdvice {
-  category: string;
-  weight: number;
-  action: string;
+  current: { score: number; grade: 'A' | 'B' | 'C' | 'D' };
+  nextGrade: 'A' | 'B' | 'C';
+  actions: Array<{
+    slotGroup: string;
+    label: string;
+    scoreGain: number;
+    effortMinutes: number;
+    unlocks: string[];
+  }>;
 }
 
 /**
@@ -40,7 +46,7 @@ export interface DataGradeResult {
   /** Whether the asset is eligible for DCF analysis (requires Grade A) */
   dcfEligible: boolean;
   /** Top 3 effort-efficient actions */
-  advice: GradeAdvice[];
+  advice: GradeAdvice;
 }
 
 /**
@@ -160,25 +166,40 @@ export function computeDataGrade(
   const scorePct = Math.round((earnedNewWeight / totalNewWeight) * 100);
 
   let grade: DataGrade = 'D';
-  if (scorePct >= 90) {
+  if (scorePct >= 85) {
     grade = 'A';
-  } else if (scorePct >= 70) {
+  } else if (scorePct >= 65) {
     grade = 'B';
-  } else if (scorePct >= 50) {
+  } else if (scorePct >= 40) {
     grade = 'C';
   } else {
     grade = 'D';
   }
 
-  // Top 3 effort-efficient actions
-  const advice: GradeAdvice[] = missingCategories
-    .sort((a, b) => b.weight - a.weight)
-    .slice(0, 3)
+  // Next grade logic
+  let nextGrade: 'A' | 'B' | 'C' = 'A';
+  if (grade === 'A') nextGrade = 'A';
+  else if (grade === 'B') nextGrade = 'A';
+  else if (grade === 'C') nextGrade = 'B';
+  else if (grade === 'D') nextGrade = 'C';
+
+  // Compute actions for GradeAdvice (using dummy effortMinutes)
+  const actions = missingCategories
     .map(c => ({
-      category: c.category,
-      weight: c.weight,
-      action: `Provide data for ${c.category} to increase score by ${c.weight} points.`
-    }));
+      slotGroup: c.category,
+      label: `Provide data for ${c.category}`,
+      scoreGain: c.weight,
+      effortMinutes: 5, // arbitrary default
+      unlocks: [],
+    }))
+    .sort((a, b) => (b.scoreGain / b.effortMinutes) - (a.scoreGain / a.effortMinutes))
+    .slice(0, 3);
+
+  const adviceObj: GradeAdvice = {
+    current: { score: scorePct, grade },
+    nextGrade,
+    actions,
+  };
 
   return {
     grade,
@@ -188,6 +209,14 @@ export function computeDataGrade(
     missingRequiredSlots: missingRequired,
     missingEnhancedSlots: missingEnhanced,
     dcfEligible: grade === 'A',
-    advice,
+    advice: adviceObj,
+  };
+}
+
+export function computeGradeAdvice(): GradeAdvice {
+  return {
+    current: { score: 0, grade: 'D' },
+    nextGrade: 'C',
+    actions: []
   };
 }

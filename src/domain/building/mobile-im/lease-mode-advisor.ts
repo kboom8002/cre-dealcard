@@ -4,7 +4,7 @@ export function suggestPreciseMode(deal: {
   purpose?: string;
 }): boolean {
   // If there are many lease units, precise mode is recommended
-  if (deal.leaseUnitCount >= 5) {
+  if (deal.leaseUnitCount >= 4 && deal.purpose !== 'development') {
     return true;
   }
   

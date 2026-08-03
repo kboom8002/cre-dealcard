@@ -1,24 +1,29 @@
 export interface ProduceRequest {
-  id: string;
   dealId: string;
-  requestedBy: string;
-  ontologyVersion: string; // Pinning ontology version
-  targetFormat: 'pdf' | 'web';
-  requestedAt: string;
+  dealVersion: number;
+  tier: 'basic' | 'pro';
+  ontologyVersion: string;        // 'v0.2.0' — Pin 필수
+  disclosure: import('../building/mobile-im/disclosure-policy').DisclosurePolicy;
+  leaseMode: 'standard' | 'precise';
+  grade: { score: number; grade: 'A' | 'B' | 'C' | 'D' };
 }
 
 export function createProduceRequest(
   dealId: string,
-  requestedBy: string,
-  targetFormat: 'pdf' | 'web',
-  ontologyVersion: string
+  dealVersion: number,
+  tier: 'basic' | 'pro',
+  ontologyVersion: string,
+  disclosure: import('../building/mobile-im/disclosure-policy').DisclosurePolicy,
+  leaseMode: 'standard' | 'precise',
+  grade: { score: number; grade: 'A' | 'B' | 'C' | 'D' }
 ): ProduceRequest {
   return {
-    id: crypto.randomUUID(),
     dealId,
-    requestedBy,
+    dealVersion,
+    tier,
     ontologyVersion,
-    targetFormat,
-    requestedAt: new Date().toISOString(),
+    disclosure,
+    leaseMode,
+    grade,
   };
 }
