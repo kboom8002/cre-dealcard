@@ -6,6 +6,9 @@
  * @see SDD §8 S3-T4
  */
 
+import { DisclosurePolicy, DISCLOSURE_DEFAULT } from './mobile-im/disclosure-policy';
+
+
 /**
  * Represents the two tiers of Information Memorandum (IM) available to users.
  * - 'basic': Public view with masked address and fuzzy coordinates.
@@ -28,6 +31,7 @@ export interface IMRenderPolicy {
   showDcfSensitivity: boolean;
   requiresWatermark: boolean;
   requiresNDA: boolean;
+  disclosurePolicy: DisclosurePolicy;
 }
 
 /**
@@ -53,6 +57,7 @@ export function getIMRenderPolicy(tier: IMTier, isNDASigned: boolean = false): I
       showDcfSensitivity: true,
       requiresWatermark: true,
       requiresNDA: true,
+      disclosurePolicy: DISCLOSURE_DEFAULT['pro'],
     };
   }
 
@@ -66,6 +71,7 @@ export function getIMRenderPolicy(tier: IMTier, isNDASigned: boolean = false): I
     showDcfSensitivity: false,       // Gated
     requiresWatermark: false,
     requiresNDA: false,
+    disclosurePolicy: DISCLOSURE_DEFAULT['basic'],
   };
 }
 

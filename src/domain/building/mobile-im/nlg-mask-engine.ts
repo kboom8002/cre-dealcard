@@ -229,6 +229,14 @@ export const MASK_TEMPLATES: NLGMaskTemplate[] = [
     requiredBindings: ['irr5YearPct', 'irr10YearPct', 'discountRatePct'],
     lexiconProfile: 'b2b',
   },
+  {
+    id: 'income_dcf_term_explanations',
+    category: 'income_dcf',
+    minGrade: 'A',
+    template: '※ NPV(순현재가치)는 미래 수익을 현재 가치로 환산한 금액, IRR(내부수익률)은 투자 기간 동안의 연평균 수익률, 할인율은 미래 가치를 현재로 할인하는 비율, Exit Cap은 매각 시점의 예상 자본환원율을 의미합니다.',
+    requiredBindings: [],
+    lexiconProfile: 'both',
+  },
 
   // ── 자산 개요 (Grade C+) ──
   {

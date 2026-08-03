@@ -21,6 +21,12 @@ export interface EditDiffPayload {
   editedBrokerContent: string;
 }
 
+export type DiffImpact = 'cosmetic' | 'material' | 'critical';
+
+export interface VersionDiff extends EditDiffRecord {
+  impact: DiffImpact;
+}
+
 /**
  * Persistent record of character diffs for prompt calibration.
  */
@@ -44,15 +50,19 @@ export interface EditDiffRecord {
  * Used to collect metrics for offline LLM prompt calibration.
  * 
  * @param {EditDiffPayload} payload - The payload containing original and edited texts.
- * @returns {EditDiffRecord} The computed record including the character diff count.
+ * @returns {VersionDiff} The computed record including the character diff count and impact.
  * @example
  * const diff = computeEditDiff({ dealId: 'd1', sectionKey: 'summary', originalAiContent: 'Short', editedBrokerContent: 'Longer' });
  * // diff.char_diff_count === 1
  */
-export function computeEditDiff(payload: EditDiffPayload): EditDiffRecord {
+export function computeEditDiff(payload: EditDiffPayload): VersionDiff {
   const origLen = payload.originalAiContent.length;
   const editLen = payload.editedBrokerContent.length;
   const charDiffCount = Math.abs(origLen - editLen);
+  
+  let impact: DiffImpact = 'cosmetic';
+  if (charDiffCount > 50) impact = 'material';
+  if (charDiffCount > 200) impact = 'critical';
 
   return {
     deal_id: payload.dealId,
@@ -60,6 +70,7 @@ export function computeEditDiff(payload: EditDiffPayload): EditDiffRecord {
     original_ai_content: payload.originalAiContent,
     edited_broker_content: payload.editedBrokerContent,
     char_diff_count: charDiffCount,
+    impact,
     created_at: new Date().toISOString(),
   };
 }

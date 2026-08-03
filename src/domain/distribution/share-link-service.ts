@@ -153,3 +153,18 @@ function mapShareLink(row: any): ShareLink {
     createdAt: row.created_at,
   };
 }
+
+/**
+ * 치명적인 변경(critical impact) 발생 시 해당 Deal의 모든 공유 링크 권한을 폐기합니다.
+ */
+export async function revokeGrantsOnCriticalChange(dealId: string): Promise<boolean> {
+  const supabase = createServiceClient();
+
+  const { error } = await supabase
+    .from('share_link')
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('deal_id', dealId)
+    .is('revoked_at', null);
+
+  return !error;
+}

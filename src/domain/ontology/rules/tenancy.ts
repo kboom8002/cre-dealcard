@@ -21,6 +21,8 @@ export function getThreshold(region: Region): number {
   }
 }
 
+import { LeaseUnitPrecise } from '../../building/mobile-im/lease-precise';
+
 // ── 임대차 단위 입력 ──────────────────────────────────────────────
 export interface LeaseUnitInput {
   floor: string;
@@ -50,6 +52,8 @@ export interface TenancyResult {
   rentCapApplied: boolean;
   /** T06: 권리금 회수기회 보호 */
   premiumProtection: boolean;
+  /** 상임법 보호 시/비보호 시에 따른 인상 여력 (마켓렌트 대비) */
+  increaseHeadroom: number | null;
   /** 위반/경고 메시지 */
   violations: string[];
 }
@@ -65,24 +69,30 @@ export interface TenancyResult {
  * T06: 권리금 회수기회 보호 — 환산보증금 무관 적용
  */
 export function evaluateTenancy(
-  unit: LeaseUnitInput,
+  unit: LeaseUnitInput | LeaseUnitPrecise,
   region: Region = 'seoul',
 ): TenancyResult {
   const violations: string[] = [];
 
+  const deposit = 'depositKrw' in unit ? unit.depositKrw : unit.deposit;
+  const monthlyRent = 'monthlyRentKrw' in unit ? unit.monthlyRentKrw : unit.monthlyRent;
+  const startDateStr = 'leaseStartDate' in unit ? unit.leaseStartDate : undefined;
+  const startDateObj = 'startDate' in unit ? unit.startDate : undefined;
+
   // T01: 환산보증금
-  const convertedDeposit = unit.depositKrw + unit.monthlyRentKrw * 100;
+  const convertedDeposit = deposit + monthlyRent * 100;
   const threshold = getThreshold(region);
   const isProtected = convertedDeposit <= threshold;
 
   // T02: 대항력 — 기본값 true
   let opposingPower = true;
-  if (unit.opposingPowerOverride === false) {
-    if (!unit.opposingPowerEvidence) {
+  const override = 'opposingPowerOverride' in unit ? unit.opposingPowerOverride : undefined;
+  const evidence = 'opposingPowerEvidence' in unit ? unit.opposingPowerEvidence : undefined;
+  if (override === false) {
+    if (!evidence) {
       violations.push(
         '[T02] 대항력 부정 표기에는 근거가 필요합니다 (사업자등록 미신청 등).'
       );
-      opposingPower = true; // 근거 없으면 true 유지
     } else {
       opposingPower = false;
     }
@@ -90,9 +100,9 @@ export function evaluateTenancy(
 
   // T03: 계약갱신요구권 — 최초 계약일부터 10년
   let renewalRightRemaining: number | null = null;
-  if (unit.leaseStartDate) {
-    const startDate = new Date(unit.leaseStartDate);
-    const yearsElapsed = (Date.now() - startDate.getTime()) / (365.25 * 86400000);
+  const actualStartDate = startDateObj || (startDateStr ? new Date(startDateStr) : undefined);
+  if (actualStartDate) {
+    const yearsElapsed = (Date.now() - actualStartDate.getTime()) / (365.25 * 86400000);
     renewalRightRemaining = Math.max(0, 10 - yearsElapsed);
     renewalRightRemaining = parseFloat(renewalRightRemaining.toFixed(1));
   }
@@ -106,6 +116,18 @@ export function evaluateTenancy(
   // T06: 권리금 회수기회 보호 — 환산보증금 무관 적용
   const premiumProtection = true;
 
+  // increaseHeadroom 계산
+  let increaseHeadroom: number | null = null;
+  const marketRent = 'marketRent' in unit ? unit.marketRent : undefined;
+  if (marketRent !== undefined && marketRent > monthlyRent) {
+    if (isProtected) {
+      const maxRent = monthlyRent * 1.05;
+      increaseHeadroom = Math.min(marketRent, maxRent) - monthlyRent;
+    } else {
+      increaseHeadroom = marketRent - monthlyRent;
+    }
+  }
+
   return {
     convertedDeposit,
     isProtected,
@@ -114,6 +136,7 @@ export function evaluateTenancy(
     priorityRepayment,
     rentCapApplied,
     premiumProtection,
+    increaseHeadroom,
     violations,
   };
 }
@@ -123,7 +146,7 @@ export function evaluateTenancy(
  * 상임법 적용 범위를 판정합니다.
  */
 export function evaluateAllTenancy(
-  units: LeaseUnitInput[],
+  units: (LeaseUnitInput | LeaseUnitPrecise)[],
   region: Region = 'seoul',
 ): {
   results: TenancyResult[];

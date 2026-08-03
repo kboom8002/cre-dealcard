@@ -32,6 +32,31 @@ export interface FinancialInputs {
   dataGrade?: 'A' | 'B' | 'C' | 'D';
 }
 
+export type CapRateBasis = 'broker_equity' | 'broker_price' | 'noi_price' | 'noi_total_cost';
+
+export interface CapRateResult {
+  basis: CapRateBasis;
+  value: number;
+  numeratorKrw: number;
+  denominatorKrw: number;
+  label: string;
+  caveat: string;
+}
+
+export interface AcquisitionCostInput {
+  brokerFeePct: number;
+  acquisitionTaxPct: number;
+  legalFeeKrw: number;
+}
+
+export interface AcquisitionCostResult {
+  totalCostKrw: number;
+  brokerFeeKrw: number;
+  acquisitionTaxKrw: number;
+  legalFeeKrw: number;
+}
+
+
 /**
  * Result of a financial calculation including provenance.
  */
@@ -141,6 +166,74 @@ export function calculateCapRate(
     provenanceTier: 'broker_input',
     badgeText: '산출됨',
   };
+}
+
+/**
+ * 3 Critical caveats for financial calculations:
+ * 1. 감가상각을 NOI에서 빼지 않는다
+ * 2. 부가세는 건물분만 환급 대상
+ * 3. CapEx 충당금은 NOI 아래
+ */
+export function calculateAcquisitionCost(
+  priceKrw: number,
+  options?: Partial<AcquisitionCostInput>
+): AcquisitionCostResult {
+  const brokerFeePct = options?.brokerFeePct ?? 0.9;
+  const acquisitionTaxPct = options?.acquisitionTaxPct ?? 4.6;
+  const legalFeeKrw = options?.legalFeeKrw ?? 2000000;
+
+  const brokerFeeKrw = priceKrw * (brokerFeePct / 100);
+  const acquisitionTaxKrw = priceKrw * (acquisitionTaxPct / 100);
+  const totalCostKrw = priceKrw + brokerFeeKrw + acquisitionTaxKrw + legalFeeKrw;
+
+  return { totalCostKrw, brokerFeeKrw, acquisitionTaxKrw, legalFeeKrw };
+}
+
+export function calculateAllCapRates(input: FinancialInputs): CapRateResult[] {
+  const noi = calculateNOI(
+    input.grossAnnualIncomeKrw,
+    input.opexRatioPct,
+    input.vacancyReservePct,
+    input.ancillaryIncomeKrw
+  ).value;
+  const price = input.askingPriceKrw;
+  const equity = Math.max(0, price - (input.loanAmountKrw ?? 0) - (input.totalDepositKrw ?? 0));
+  const totalCost = calculateAcquisitionCost(price).totalCostKrw;
+
+  return [
+    {
+      basis: 'broker_equity',
+      value: equity > 0 ? ((input.grossAnnualIncomeKrw - (input.loanAmountKrw ?? 0) * 0.05) / equity) * 100 : 0,
+      numeratorKrw: input.grossAnnualIncomeKrw - (input.loanAmountKrw ?? 0) * 0.05,
+      denominatorKrw: equity,
+      label: '투자금 대비 수익률 (단순)',
+      caveat: '대출 이자 임의 가정, 취등록세 미포함',
+    },
+    {
+      basis: 'broker_price',
+      value: price > 0 ? (input.grossAnnualIncomeKrw / price) * 100 : 0,
+      numeratorKrw: input.grossAnnualIncomeKrw,
+      denominatorKrw: price,
+      label: '매매가 대비 총수익률',
+      caveat: '비용(공실, OPEX) 미공제',
+    },
+    {
+      basis: 'noi_price',
+      value: price > 0 ? (noi / price) * 100 : 0,
+      numeratorKrw: noi,
+      denominatorKrw: price,
+      label: 'NOI / 매매가',
+      caveat: '취등록세 및 부대비용 미포함',
+    },
+    {
+      basis: 'noi_total_cost',
+      value: totalCost > 0 ? (noi / totalCost) * 100 : 0,
+      numeratorKrw: noi,
+      denominatorKrw: totalCost,
+      label: 'NOI / 총취득원가',
+      caveat: '표준 부대비용 적용',
+    }
+  ];
 }
 
 /**

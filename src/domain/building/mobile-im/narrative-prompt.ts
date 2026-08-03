@@ -130,6 +130,8 @@ export interface MarketIndicators {
   marketNote?: string;
   /** income_analysis 섹션에 삽입할 사전 계산된 재무 마크다운 */
   financialsMarkdown?: string;
+  capRateResults?: any[];
+  totalReturnResults?: any[];
 }
 
 // ─── 유저 프롬프트 빌더 ──────────────────────────────────────────────────────
@@ -220,6 +222,12 @@ export function buildNarrativeUserPrompt(
     }
     if (financialsMarkdown) {
       marketCtx += `\n\n5. 사전 계산된 수익 지표 (이 테이블을 그대로 활용하고 수치를 변경하지 마세요):\n${financialsMarkdown}`;
+    }
+    if (restIndicators.capRateResults) {
+      marketCtx += `\n\n6. Cap Rate 분석 결과:\n${JSON.stringify(restIndicators.capRateResults)}`;
+    }
+    if (restIndicators.totalReturnResults) {
+      marketCtx += `\n\n7. Total Return 시나리오 분석 결과:\n${JSON.stringify(restIndicators.totalReturnResults)}`;
     }
   }
 

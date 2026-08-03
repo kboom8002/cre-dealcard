@@ -11,6 +11,7 @@ export type IMGenStage =
   | 'property_overview'   // 섹션 1
   | 'location_analysis'   // 섹션 2
   | 'lease_status'        // 섹션 3
+  | 'lease_precise'       // 임대차 정밀 분석
   | 'income_analysis'     // 섹션 4
   | 'risk_check'          // 섹션 5
   | 'investment_thesis'   // 섹션 6
@@ -24,7 +25,8 @@ const IM_TRANSITIONS: Record<IMGenStage, IMGenStage[]> = {
   data_collection:   ['property_overview'],
   property_overview: ['location_analysis'],
   location_analysis: ['lease_status'],
-  lease_status:      ['income_analysis'],
+  lease_status:      ['lease_precise', 'income_analysis'],
+  lease_precise:     ['income_analysis'],
   income_analysis:   ['risk_check'],
   risk_check:        ['investment_thesis'],
   investment_thesis: ['next_steps'],
@@ -41,6 +43,7 @@ const STAGE_HINTS: Record<IMGenStage, string> = {
   property_overview: '자산 개요: 물리적 제원과 프리미엄 가치를 부각하세요.',
   location_analysis: '입지 분석: 교통 접근성과 주변 인프라를 생생하게 묘사하세요.',
   lease_status:      '임대차 현황: 공실률과 임차인 구성의 안정성을 스토리로 만드세요.',
+  lease_precise:     '임대차 정밀 분석: 상임법 보호 여부, 환산보증금, 대항력 등을 상세히 분석하세요.',
   income_analysis:   '수익 분석: 사전 계산된 재무 지표를 활용하세요. 이전 섹션의 공실률과 일관되게 작성하세요.',
   risk_check:        '리스크 진단: 용적률 한도, 건물 연식, 공법 규제를 객관적으로 짚어주세요.',
   investment_thesis: '투자 논거: 이전 모든 섹션의 핵심 사실을 종합하여 가치제안을 도출하세요.',
@@ -101,6 +104,7 @@ export function sectionTypeToStage(sectionType: string): IMGenStage | null {
     property_overview: 'property_overview',
     location_access:   'location_analysis',
     lease_status:      'lease_status',
+    lease_precise:     'lease_precise',
     income_analysis:   'income_analysis',
     risk_check:        'risk_check',
     investment_thesis: 'investment_thesis',
@@ -117,6 +121,7 @@ export function isGenerationStage(stage: IMGenStage): boolean {
     'property_overview',
     'location_analysis',
     'lease_status',
+    'lease_precise',
     'income_analysis',
     'risk_check',
     'investment_thesis',

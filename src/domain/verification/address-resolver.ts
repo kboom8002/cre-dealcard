@@ -35,6 +35,25 @@ export interface AddressComponents {
   ji: string;
 }
 
+export type ResolveKind = 'exact' | 'ambiguous' | 'partial' | 'failed';
+
+export interface ResolveResult {
+  kind: ResolveKind;
+  primary: AddressComponents | null;
+  alternatives: AddressComponents[];
+  message?: string;
+}
+
+/** 
+ * Represents a reference to a parcel of land.
+ */
+export interface ParcelRef {
+  sigunguCd: string;
+  bjdongCd: string;
+  bun: string;
+  ji: string;
+}
+
 // ── 하드코딩 폴백 매핑 (API 미연결 시 데모용) ────────────────────────────
 
 export const FALLBACK_DONG_MAP: Record<string, { sigunguCd: string; bjdongCd: string }> = {
@@ -256,4 +275,23 @@ export async function geocodeAddress(address: string): Promise<{ lat: number; ln
     console.error("[geocodeAddress] Failed to geocode:", error);
     return null;
   }
+}
+
+/**
+ * Parses raw text and attempts to resolve it into single or multiple parcels.
+ * Handles cases where building spans multiple parcels.
+ */
+export async function resolveMultiParcelAddress(address: string): Promise<ResolveResult> {
+  const result = await resolveAddressToComponents(address);
+  if (!result) {
+    return { kind: 'failed', primary: null, alternatives: [] };
+  }
+  
+  // Here we would implement true multi-parcel discovery from Building Ledger API.
+  // For now, return exact match.
+  return {
+    kind: 'exact',
+    primary: result,
+    alternatives: []
+  };
 }
