@@ -15,6 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ grantId: string }> }
 ) {
   const { grantId } = await params;
+  const preset = req.nextUrl.searchParams.get('preset') || undefined;
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -96,8 +97,9 @@ export async function GET(
     const timestamp = new Date().toISOString().slice(0, 16);
 
     const result = await renderer.render({
-      buildingId: grant.building_id,
+      buildingId,
       tier: 'pro',
+      preset,
       doc: {
         title: doc.title || doc.body?.buildingName || 'Mobile IM Pro',
         body: doc.body,

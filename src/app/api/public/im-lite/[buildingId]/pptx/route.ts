@@ -19,6 +19,7 @@ export async function GET(
 ) {
   const { buildingId } = await params;
   const docId = req.nextUrl.searchParams.get('doc_id');
+  const preset = req.nextUrl.searchParams.get('preset') || undefined;
 
   // Create Supabase client (same pattern as existing export route)
   const supabase = createClient(
@@ -70,6 +71,7 @@ export async function GET(
     const result = await renderer.render({
       buildingId,
       tier: 'basic',
+      preset,
       doc: {
         title: doc.title || doc.body?.buildingName || 'Mobile IM',
         body: doc.body,
