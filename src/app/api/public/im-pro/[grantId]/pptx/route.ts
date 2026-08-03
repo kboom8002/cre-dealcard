@@ -47,7 +47,7 @@ export async function GET(
     .from('document_objects')
     .select('*')
     .eq('building_id', grant.building_id)
-    .in('document_type', ['mobile_im_lite', 'im_lite_draft'])
+    .in('document_type', ['mobile_im', 'im_lite_draft'])
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
