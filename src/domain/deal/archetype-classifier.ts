@@ -1,6 +1,6 @@
 /**
  * @module ArchetypeClassifier
- * @description Classifies a deal into 1 of 10 Deal Archetypes based on property attributes (R01-R10).
+ * @description Classifies a deal into 1 of 10 Deal Archetypes based on property attributes (R01-R10, v0.2 rules applied).
  * @see SDD §6 S1-T9
  */
 
@@ -41,6 +41,9 @@ export interface ArchetypeClassificationResult {
  * - R03: DEVELOPMENT_SITE (land or high FAR headroom)
  * - R04: SAFE_EVICTION_DEV (eviction secured, dev potential)
  * - R05: INSTITUTIONAL_LOGI (large logistics asset)
+ * - R06: OWNER_OCCUPIED (owner-occupied asset)
+ * - R07: DISTRESSED (high vacancy or delinquency)
+ * - R08: MIXED_USE (mixed use asset)
  * - R09: RETAIL_STREET (retail asset)
  * 
  * @param attrs - The key-value map of asset attributes
@@ -77,9 +80,10 @@ export function classifyDealArchetype(attrs: Record<string, unknown>): Archetype
     archetypes.push({ archetype: 'DEVELOPMENT_SITE', score: 0.85, reason: '용적률 여유 60% 이상 개발 부지' });
   }
 
-  // R02: VALUE_ADD
-  if (buildingAge >= 25 && farHeadroom >= 30) {
-    archetypes.push({ archetype: 'VALUE_ADD', score: 0.80, reason: '25년 이상 노후 건물 및 용적률 여유 보유' });
+  // R02: VALUE_ADD — v0.2: 유효 용적률 기준으로 변경
+  const effectiveFarHeadroom = Number(attrs.effectiveFARHeadroomPp ?? attrs.farHeadroomPp ?? 0);
+  if (buildingAge >= 20 && effectiveFarHeadroom >= 50) {
+    archetypes.push({ archetype: 'VALUE_ADD', score: 0.80, reason: `건물연령 ${buildingAge}년 ≥20년, 유효 용적률 여유 ${effectiveFarHeadroom.toFixed(1)}%p ≥50%p` });
   }
 
   // R01: STABLE_INCOME
@@ -87,14 +91,30 @@ export function classifyDealArchetype(attrs: Record<string, unknown>): Archetype
     archetypes.push({ archetype: 'STABLE_INCOME', score: 0.85, reason: '공실률 5% 이하 안정적 임대수익형 자산' });
   }
 
+  // R06: OWNER_OCCUPIED — 자가 사용 목적
+  if (String(attrs.purpose || '').includes('사옥') || String(attrs.purpose || '').includes('자가')) {
+    archetypes.push({ archetype: 'OWNER_OCCUPIED', score: 0.75, reason: '자가 사용(사옥) 목적 자산' });
+  }
+
+  // R07: DISTRESSED — 부실 자산
+  const delinquencyRate = Number(attrs.delinquencyRatePct || 0);
+  if (vacancyPct >= 30 || delinquencyRate >= 20) {
+    archetypes.push({ archetype: 'DISTRESSED', score: 0.85, reason: `공실률 ${vacancyPct}% 또는 연체율 ${delinquencyRate}% — 부실 자산` });
+  }
+
+  // R08: MIXED_USE — 복합 용도
+  if (assetType.includes('mixed') || assetType.includes('복합')) {
+    archetypes.push({ archetype: 'MIXED_USE', score: 0.70, reason: '복합 용도 자산' });
+  }
+
   // R09: RETAIL_STREET
   if (assetType.includes('상가') || assetType.includes(' retail')) {
     archetypes.push({ archetype: 'RETAIL_STREET', score: 0.75, reason: '리테일 상권 중심 자산' });
   }
 
-  // Fallback default: REPOSITIONING or STABLE_INCOME
+  // Fallback: R10 REPOSITIONING is deprecated in v0.2 (moved to T rules)
   if (archetypes.length === 0) {
-    archetypes.push({ archetype: 'REPOSITIONING', score: 0.60, reason: '리포지셔닝 / 용도변경 검토 자산' });
+    archetypes.push({ archetype: 'STABLE_INCOME', score: 0.50, reason: '기본 분류 — 안정 수익형 (v0.2: R10 폐기)' });
   }
 
   // Sort by score descending

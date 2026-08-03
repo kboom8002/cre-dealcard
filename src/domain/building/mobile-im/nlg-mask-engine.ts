@@ -34,7 +34,8 @@ export interface NLGMaskBinding {
 /** NLG 템플릿 정의 */
 export interface NLGMaskTemplate {
   id: string;
-  category: 'income_basic' | 'income_dcf' | 'property_overview' | 'location' | 'risk' | 'investment';
+  category: 'income_basic' | 'income_dcf' | 'property_overview' | 'location' | 'risk' | 'investment'
+    | 'income_leverage' | 'lease_legal' | 'land' | 'zoning' | 'meta';  // v0.2 추가
   minGrade: DataGrade; // 이 등급 이상에서만 사용 가능
   template: string; // 예: "연간 순영업수익(NOI)은 {noiKrw}이며, 이는 {noiBadge}에 기반합니다."
   requiredBindings: string[]; // 필수 변수명 목록
@@ -316,6 +317,104 @@ export const MASK_TEMPLATES: NLGMaskTemplate[] = [
     minGrade: 'D',
     template: '공실률이 미확인되어 보수적 {vacancyPct} 가정을 적용했습니다. 실제 공실 현황은 현장 실사 시 확인이 필요합니다.',
     requiredBindings: ['vacancyPct'],
+    lexiconProfile: 'both',
+  },
+
+  // ── v0.2 NLG 마스크 (M13~M24) ──────────────────────────────────
+  {
+    id: 'M13_cap_rate_basis_compare',
+    category: 'income_basic',
+    minGrade: 'B',
+    template: '{basisLabel} 기준으로 {capPct}%입니다. {otherLabel} 기준으로는 {otherCapPct}%이며, 차이는 {reason}에서 발생합니다.',
+    requiredBindings: ['basisLabel', 'capPct', 'otherLabel', 'otherCapPct', 'reason'],
+    lexiconProfile: 'both',
+  },
+  {
+    id: 'M14_total_return_leverage',
+    category: 'income_leverage',
+    minGrade: 'A',
+    template: '지가가 연 {rate} 변동한다고 가정하면, 자기자본 대비 연 {totalPct}의 수익이 됩니다. 이 중 임대 현금흐름은 {cocPct}, 자산가치 변동 기여는 {gainPct}입니다.',
+    requiredBindings: ['rate', 'totalPct', 'cocPct', 'gainPct'],
+    lexiconProfile: 'both',
+  },
+  {
+    id: 'M15_leverage_risk_warning',
+    category: 'risk',
+    minGrade: 'B',
+    template: '대출을 활용하면 지가 상승 시 수익이 커지지만, 하락 시 손실도 같은 배수로 커집니다.',
+    requiredBindings: [],
+    lexiconProfile: 'both',
+  },
+  {
+    id: 'M16_converted_deposit',
+    category: 'lease_legal',
+    minGrade: 'C',
+    template: '환산보증금 {convDeposit}으로 {region} 기준({threshold})을 {overUnder}하여, {application} 적용 대상입니다.',
+    requiredBindings: ['convDeposit', 'region', 'threshold', 'overUnder', 'application'],
+    lexiconProfile: 'both',
+  },
+  {
+    id: 'M17_tenancy_rights',
+    category: 'lease_legal',
+    minGrade: 'C',
+    template: '이 호실은 대항력이 있으며, 최초 계약일로부터 계약갱신요구권이 {remainingYears}년 남아 있습니다.',
+    requiredBindings: ['remainingYears'],
+    lexiconProfile: 'both',
+  },
+  {
+    id: 'M18_no_priority_repayment',
+    category: 'lease_legal',
+    minGrade: 'C',
+    template: '우선변제권과 차임 인상률 5% 상한은 적용되지 않아, 갱신 시 시세 수준으로 조정할 여지가 있습니다.',
+    requiredBindings: [],
+    lexiconProfile: 'both',
+  },
+  {
+    id: 'M19_land_exclusion',
+    category: 'land',
+    minGrade: 'C',
+    template: '대장상 대지면적은 {ledgerArea}이나, {exclusionKinds}로 {excludedArea}가 제외되어 유효 대지면적은 {effectiveArea}입니다.',
+    requiredBindings: ['ledgerArea', 'exclusionKinds', 'excludedArea', 'effectiveArea'],
+    lexiconProfile: 'both',
+  },
+  {
+    id: 'M20_effective_far',
+    category: 'land',
+    minGrade: 'C',
+    template: '유효 대지면적 기준 용적률은 {effectiveFarPct}%이며, 조례 상한 대비 여유는 {headroomPp}%p입니다.',
+    requiredBindings: ['effectiveFarPct', 'headroomPp'],
+    lexiconProfile: 'both',
+  },
+  {
+    id: 'M21_zoning_relevance',
+    category: 'zoning',
+    minGrade: 'C',
+    template: '{purpose} 목적에서는 {items}가 주요 확인 사항입니다. 그 밖의 지역·지구 지정은 부록에 전체 게재했습니다.',
+    requiredBindings: ['purpose', 'items'],
+    lexiconProfile: 'both',
+  },
+  {
+    id: 'M22_grade_upgrade',
+    category: 'meta',
+    minGrade: 'D',
+    template: '자료가 보강되어 등급이 {beforeGrade}에서 {afterGrade}로 상승했습니다. 이제 {unlockedFeatures}를 제공할 수 있습니다.',
+    requiredBindings: ['beforeGrade', 'afterGrade', 'unlockedFeatures'],
+    lexiconProfile: 'both',
+  },
+  {
+    id: 'M23_provenance_weakest',
+    category: 'meta',
+    minGrade: 'C',
+    template: '{metric}은 {source} 기준이며, 가장 신뢰도가 낮은 입력은 {weakest}입니다.',
+    requiredBindings: ['metric', 'source', 'weakest'],
+    lexiconProfile: 'both',
+  },
+  {
+    id: 'M24_scenario_disclaimer',
+    category: 'meta',
+    minGrade: 'D',
+    template: '본 수치는 미래 시나리오 가정에 기반하며 확정 값이 아닙니다.',
+    requiredBindings: [],
     lexiconProfile: 'both',
   },
 ];

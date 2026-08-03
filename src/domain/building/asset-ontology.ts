@@ -1,9 +1,11 @@
+import type { ProvenanceTier } from '@/domain/ontology/provenance';
+
 /**
  * @module AssetOntology
  * @description CREDEAL v3 Asset Ontology Loader.
- * Provides typed access to ontology definitions (slots, constraints, enums).
- * Currently loads from embedded definitions; future: parse YAML at build time.
- * @see SDD §6 S1-T1, ontology/credeal-ontology-v0.1.yaml
+ * v0.2: 5-tier provenance, seller 등급 분리, 슬롯 배열화.
+ * Full v0.2 slot catalog: see @/domain/ontology/slots.ts
+ * @see ONTOLOGY_V0.2_SPEC.md, SDD §6 S1-T1
  */
 
 export type AssetType =
@@ -28,8 +30,9 @@ export interface OntologySlot {
   label: string;
   type: 'string' | 'number' | 'boolean' | 'date' | 'enum';
   required: boolean;
-  source?: string; // e.g., '건축물대장', 'broker_input', 'derived'
-  provenance?: 'public_api' | 'broker_input' | 'ocr' | 'derived';
+  source?: string;
+  /** v0.2: 5-tier provenance */
+  provenance?: ProvenanceTier;
 }
 
 export interface OntologyDefinition {
@@ -41,16 +44,16 @@ export interface OntologyDefinition {
 
 /** Core slots required for ALL asset types */
 const UNIVERSAL_SLOTS: OntologySlot[] = [
-  { key: 'address', label: '주소', type: 'string', required: true, source: 'broker_input' },
-  { key: 'askingPriceKrw', label: '매각 희망가', type: 'number', required: true, source: 'broker_input' },
-  { key: 'totalFloorAreaPyung', label: '연면적(평)', type: 'number', required: true, source: '건축물대장', provenance: 'public_api' },
-  { key: 'buildYear', label: '건축년도', type: 'number', required: true, source: '건축물대장', provenance: 'public_api' },
-  { key: 'zoningRegion', label: '용도지역', type: 'enum', required: true, source: '토지이용계획', provenance: 'public_api' },
-  { key: 'floorsAboveGround', label: '지상층수', type: 'number', required: true, source: '건축물대장', provenance: 'public_api' },
-  { key: 'grossAnnualIncomeKrw', label: '연간 총수입', type: 'number', required: true, source: 'broker_input' },
-  { key: 'monthlyRentKrw', label: '월 임대료', type: 'number', required: true, source: 'broker_input' },
-  { key: 'totalDepositKrw', label: '총 보증금', type: 'number', required: false, source: 'broker_input' },
-  { key: 'loanAmountKrw', label: '선순위 대출금', type: 'number', required: false, source: 'broker_input' },
+  { key: 'address', label: '주소', type: 'string', required: true, source: '건축물대장', provenance: 'public' },
+  { key: 'askingPriceKrw', label: '매각 희망가', type: 'number', required: true, source: 'seller', provenance: 'seller' },
+  { key: 'totalFloorAreaPyung', label: '연면적(평)', type: 'number', required: true, source: '건축물대장', provenance: 'public' },
+  { key: 'buildYear', label: '건축년도', type: 'number', required: true, source: '건축물대장', provenance: 'public' },
+  { key: 'zoningRegion', label: '용도지역', type: 'enum', required: true, source: '토지이용계획', provenance: 'public' },
+  { key: 'floorsAboveGround', label: '지상층수', type: 'number', required: true, source: '건축물대장', provenance: 'public' },
+  { key: 'grossAnnualIncomeKrw', label: '연간 총수입', type: 'number', required: true, source: 'broker', provenance: 'broker' },
+  { key: 'monthlyRentKrw', label: '월 임대료', type: 'number', required: true, source: 'broker', provenance: 'broker' },
+  { key: 'totalDepositKrw', label: '총 보증금', type: 'number', required: false, source: 'broker', provenance: 'broker' },
+  { key: 'loanAmountKrw', label: '선순위 대출금', type: 'number', required: false, source: 'seller', provenance: 'seller' },
 ];
 
 /** Asset-type-specific grade weights for grade-engine */
