@@ -42,11 +42,25 @@ export async function GET(
     return NextResponse.json({ error: 'Grant expired' }, { status: 410 });
   }
 
-  // 2. Fetch IM document
+  // 2. Resolve building_id from deal_id -> deals.asset_id (or direct building_id if available)
+  let buildingId: string | null = grant.building_id || null;
+  if (!buildingId && grant.deal_id) {
+    const { data: deal } = await supabase
+      .from('deals')
+      .select('asset_id')
+      .eq('id', grant.deal_id)
+      .maybeSingle();
+    buildingId = deal?.asset_id || null;
+  }
+  if (!buildingId) {
+    return NextResponse.json({ error: 'Cannot resolve building from grant' }, { status: 404 });
+  }
+
+  // 3. Fetch IM document
   const { data: doc } = await supabase
     .from('document_objects')
     .select('*')
-    .eq('building_id', grant.building_id)
+    .eq('building_id', buildingId)
     .in('document_type', ['mobile_im', 'im_lite_draft'])
     .order('created_at', { ascending: false })
     .limit(1)
@@ -56,11 +70,11 @@ export async function GET(
     return NextResponse.json({ error: 'IM document not found' }, { status: 404 });
   }
 
-  // 3. Fetch building + broker
+  // 4. Fetch building + broker
   const { data: building } = await supabase
     .from('building_ssot_lite')
     .select('owner_id, area_signal, asset_type, price_band')
-    .eq('id', grant.building_id)
+    .eq('id', buildingId)
     .maybeSingle();
 
   let broker = null;
