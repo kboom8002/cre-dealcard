@@ -157,7 +157,9 @@ export function buildNarrativeUserPrompt(
   sectionContext?: SectionContext,
   ragContext?: string,
   fewShotBlock?: string,
-  lexiconProfile?: LexiconProfile
+  lexiconProfile?: LexiconProfile,
+  posture?: string,
+  archetype?: string | null
 ): string {
   // v2: flat 구조(DB 컨럼 직접) + legacy 중첩 양쪽 지원
   const assetIdentity  = (bssotLite.asset_identity  ?? {}) as Record<string, unknown>;
@@ -324,6 +326,13 @@ ${sectionMission[sectionType]}
     prompt += `\n\n[B2C 프로필 적용]
 개인 소액 투자자 대상 어투. 전문 용어에는 괄호 안에 쉼운 설명을 병기하세요.
 예시: 'Cap Rate' → '수익률(Cap Rate)', 'NOI' → '남는 돈(NOI)', 'DCF' → 'DCF(미래 수익 현재가치)'`;
+  }
+
+  if (posture && posture !== 'income') {
+    prompt += `\n\n### 6. 투자 관점 (Investment Posture)\n- 본 IM은 **${posture}** 관점에서 작성합니다.\n`;
+    if (archetype) {
+      prompt += `- 아키타입: **${archetype}**\n`;
+    }
   }
 
   return prompt;

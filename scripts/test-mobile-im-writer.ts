@@ -168,8 +168,9 @@ async function runTest() {
     // === DCF 검증 ===
     console.log("\n=== TC-03: DCF 검증 ===");
     if (result.dcf10Year) {
-      console.log(`  [✅] DCF 10년 NPV 기본: ${(result.dcf10Year.npvBase / 1e8).toFixed(1)}억`);
-      console.log(`  [${result.dcf10Year.sensitivityMatrix?.length === 9 ? "✅" : "❌"}] 감응도 매트릭스 9셀: ${result.dcf10Year.sensitivityMatrix?.length}`);
+      const dcf = result.dcf10Year as any;
+      console.log(`  [✅] DCF 10년 NPV 기본: ${(dcf.npvBase / 1e8).toFixed(1)}억`);
+      console.log(`  [${dcf.sensitivityMatrix?.length === 9 ? "✅" : "❌"}] 감응도 매트릭스 9셀: ${dcf.sensitivityMatrix?.length}`);
     } else {
       console.log("  [❌] DCF 10년 데이터 없음!");
     }

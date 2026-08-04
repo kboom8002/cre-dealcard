@@ -253,3 +253,93 @@ export const MOBILE_IM_STANDARD_DISCLAIMER =
   "본 자료는 제공자료와 공개정보를 바탕으로 한 예비 검토 자료이며, " +
   "투자 권유, 감정평가, 법률·세무·대출 가능성 판단을 목적으로 하지 않습니다. " +
   "실제 거래 여부는 별도 실사와 전문가 검토를 통해 판단해야 합니다.";
+
+// ── AUTH-07.1: NLG Facts-Only 제약 ──────────────────────────────────────
+
+/** NLG 요청 구조 */
+export interface NLGRequest {
+  facts: ReadonlyArray<{ key: string; value: string | number; source: string }>;
+  mask: string;
+  archetype: string;
+  forbidden: string[];
+}
+
+/** 기본 금지어 목록 */
+export const NLG_FORBIDDEN_TERMS = [
+  '확실', '보장', '반드시', '절대', '무조건',
+  '급등', '폭등', '대박', '100%',
+];
+
+/** Fact 위반 결과 */
+export interface FactViolation {
+  position: number;
+  snippet: string;
+  reason: string;
+}
+
+/**
+ * AUTH-07.1: 생성된 텍스트가 facts 범위를 벗어나지 않는지 검증
+ * - 금지어 탐지
+ * - facts에 없는 수치 탐지 (AUTH-06.1 FAR 이중 표기 포함)
+ */
+export function validateFactsOnly(
+  generated: string,
+  facts: NLGRequest['facts'],
+  forbidden?: string[],
+): FactViolation[] {
+  const violations: FactViolation[] = [];
+  const forbiddenList = forbidden ?? NLG_FORBIDDEN_TERMS;
+
+  // 금지어 검사
+  for (const term of forbiddenList) {
+    const idx = generated.indexOf(term);
+    if (idx >= 0) {
+      violations.push({
+        position: idx,
+        snippet: generated.slice(Math.max(0, idx - 20), idx + term.length + 20),
+        reason: `금지어 '${term}' 사용`,
+      });
+    }
+  }
+
+  // AUTH-06.1: FAR(용적률) 이중 표기 검증
+  const farMatches = generated.match(/용적률\s*[:\s]*[\d,.]+%/g) ?? [];
+  if (farMatches.length > 0) {
+    // 전체 연면적 기준과 지상 연면적 기준 구분 확인
+    const hasTotal = /전체.*용적률|용적률.*전체/i.test(generated);
+    const hasAbove = /지상.*용적률|용적률.*지상/i.test(generated);
+    if (farMatches.length >= 2 && !hasTotal && !hasAbove) {
+      violations.push({
+        position: 0,
+        snippet: farMatches.join(' / '),
+        reason: 'FAR 이중 표기 시 전체/지상 구분 필요 (AUTH-06.1)',
+      });
+    }
+  }
+
+  // Facts에 없는 수치 탐지
+  const factValues = new Set(facts.map(f => String(f.value)));
+  const numberPattern = /(?:약\s*)?([\d,]+(?:\.\d+)?(?:억|만|%|㎡|평|원|층))/g;
+  let match;
+  while ((match = numberPattern.exec(generated)) !== null) {
+    const numStr = match[1].replace(/[억만%㎡평원층,]/g, '');
+    if (numStr && !factValues.has(numStr) && parseFloat(numStr) > 0) {
+      // Allow common formatting variations
+      const numVal = parseFloat(numStr);
+      const isKnownFact = facts.some(f => {
+        const fv = typeof f.value === 'number' ? f.value : parseFloat(String(f.value));
+        return Math.abs(fv - numVal) / Math.max(fv, 1) < 0.05; // 5% tolerance
+      });
+      if (!isKnownFact && numVal > 100) {
+        // Only flag large numbers to reduce false positives
+        violations.push({
+          position: match.index,
+          snippet: match[0],
+          reason: 'Facts에 없는 수치',
+        });
+      }
+    }
+  }
+
+  return violations;
+}

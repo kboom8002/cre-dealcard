@@ -239,7 +239,7 @@ export function calculateFinancials(inputs: FinancialInputs): FinancialOutputs {
 /**
  * 재무 지표를 IM income_analysis 섹션용 마크다운 테이블로 포맷합니다.
  */
-export function formatFinancialsMarkdown(f: FinancialOutputs): string {
+export function formatFinancialsMarkdown(f: FinancialOutputs, grade?: string): string {
   const bil = (n: number) => `약 ${(n / 100_000_000).toFixed(1)}억 원`;
   const pct = (n: number) => `${n.toFixed(1)}%`;
   const rows: string[] = [];
@@ -286,10 +286,26 @@ export function formatFinancialsMarkdown(f: FinancialOutputs): string {
 
   if (rows.length === 0) return '';
 
-  return `### 수익 지표 (AI 추정)
+  let markdown = `### 수익 지표 (AI 추정)
 | 항목 | 추정값 | 비고 |
 |------|--------|------|
 ${rows.join('\n')}
 
 > ⚠️ **면책**: ${f.disclaimer}`;
+
+  // F18: grade === 'B' → suppress DCF
+  if (grade === 'B' && f.dcf10Year) {
+    f.dcf10Year = undefined as any;
+    // Add banner
+    markdown += '\n\n> ⚠️ **B등급 데이터**: DCF 분석은 A등급 이상에서 제공됩니다. 데이터를 보강하여 등급을 높여주세요.';
+  }
+  
+  // F19: grade === 'C' → suppress total return
+  if (grade === 'C' || grade === 'D') {
+    // Remove total return rows
+    markdown = markdown.replace(/\|.*총수익률.*\|.*\|.*\|\n?/g, '');
+    markdown += '\n\n> ⚠️ **C등급 데이터**: 총수익률 분석은 B등급 이상에서 제공됩니다.';
+  }
+
+  return markdown;
 }

@@ -21,3 +21,29 @@ export function suggestPreciseMode(deal: {
   
   return false;
 }
+
+/** AUTH-04.3: Precise mode 필요성 판단 (v0.4 강화) */
+export function suggestPreciseModeV2(params: {
+  posture?: string;
+  unitCount: number;
+  vacatePlanned?: boolean;
+  currentGrade?: string;
+}): { needed: boolean; reason: string } | null {
+  // operating → 렌트롤 불필요
+  if (params.posture === 'operating') {
+    return null;
+  }
+  // development + 명도 계획 → 불필요
+  if (params.posture === 'development' && params.vacatePlanned) {
+    return null;
+  }
+  // 호실 < 4 → 표준으로 충분
+  if (params.unitCount < 4) {
+    return null;
+  }
+  // 그 외: precise 권장
+  return {
+    needed: true,
+    reason: `호실 ${params.unitCount}개 — Precise 모드 시 WALE·만기 분석 활성화`,
+  };
+}

@@ -1,9 +1,14 @@
 /**
- * tenancy.ts — T 규칙군 (임대차 법적 지위)
- * Spec: ONTOLOGY_V0.2_SPEC.md §5.3
- * 
- * v0.2에서 R10을 폐기하고 T01~T06으로 재편.
- * 임대차의 법적 지위를 아키타입 판정에서 분리합니다.
+ * tenancy.ts — T-C 규칙군 (상가 임대차 법적 지위)
+ * Spec: ONTOLOGY_V0.4_SPEC.md §2 · CATALOG_RULES.md §2.1
+ *
+ * v0.2의 T01~T06 → v0.4에서 T-C-01~06으로 개명.
+ * 상가건물임대차보호법 전용. 주택(T-R)은 tenancy-residential.ts.
+ * 로직은 v0.2에서 검증 완료되었으므로 그대로 유지합니다.
+ *
+ * 주요 차이 (상가 vs 주택):
+ * - T-C: 환산보증금으로 적용 여부 분기 / 갱신요구권 10년
+ * - T-R: 전 호실 보호 / 갱신요구권 1회·2년 (max 4년)
  */
 
 // ── 서울 기준 환산보증금 기준액 (2026년) ──────────────────────────
@@ -38,19 +43,19 @@ export interface LeaseUnitInput {
 
 // ── T 규칙 결과 ──────────────────────────────────────────────────
 export interface TenancyResult {
-  /** T01: 환산보증금 */
+  /** T-C-01: 환산보증금 */
   convertedDeposit: number;
-  /** T01: 상임법 적용 여부 */
+  /** T-C-01: 상임법 적용 여부 */
   isProtected: boolean;
-  /** T02: 대항력 */
+  /** T-C-02: 대항력 */
   opposingPower: boolean;
-  /** T03: 계약갱신요구권 잔여 년수 */
+  /** T-C-03: 계약갱신요구권 잔여 년수 (10년 기준) */
   renewalRightRemaining: number | null;
-  /** T04: 우선변제권 */
+  /** T-C-04: 우선변제권 */
   priorityRepayment: boolean;
-  /** T05: 차임 인상률 5% 상한 적용 */
+  /** T-C-05: 차임 인상률 5% 상한 적용 */
   rentCapApplied: boolean;
-  /** T06: 권리금 회수기회 보호 */
+  /** T-C-06: 권리금 회수기회 보호 */
   premiumProtection: boolean;
   /** 상임법 보호 시/비보호 시에 따른 인상 여력 (마켓렌트 대비) */
   increaseHeadroom: number | null;
@@ -59,14 +64,14 @@ export interface TenancyResult {
 }
 
 /**
- * T01~T06을 일괄 평가합니다.
- * 
- * T01: 환산보증금 = 보증금 + 월세 × 100
- * T02: 대항력 — 기본값 true (부정 시 근거 필수)
- * T03: 계약갱신요구권 — 최초 계약일부터 10년, 잔여 산출
- * T04: 우선변제권 — 환산보증금 이하 + 확정일자
- * T05: 차임 인상률 5% 상한 — 환산보증금 이하만
- * T06: 권리금 회수기회 보호 — 환산보증금 무관 적용
+ * T-C-01~06을 일괄 평가합니다 (상가건물임대차보호법).
+ *
+ * T-C-01: 환산보증금 = 보증금 + 월세 × 100
+ * T-C-02: 대항력 — 기본값 true (부정 시 근거 필수)
+ * T-C-03: 계약갱신요구권 — 최초 계약일부터 10년, 잔여 산출
+ * T-C-04: 우선변제권 — 환산보증금 이하 + 확정일자
+ * T-C-05: 차임 인상률 5% 상한 — 환산보증금 이하만
+ * T-C-06: 권리금 회수기회 보호 — 환산보증금 무관 적용
  */
 export function evaluateTenancy(
   unit: LeaseUnitInput | LeaseUnitPrecise,

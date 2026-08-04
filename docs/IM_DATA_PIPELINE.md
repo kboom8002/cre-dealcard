@@ -337,17 +337,21 @@ export interface VerificationRecord {
 
 ### 4.4 표준 ↔ 정밀 모드 전환
 
-정밀 모드는 상가 수익형에서 필수지만 입력이 18개 필드로 늘어납니다. **전환 시점을 시스템이 제안**합니다.
+정밀 모드는 상가 수익형에서 필수지만 입력이 18개 필드로 늘어납니다. **전환 시점을 시스템이 제안**합니다. 제안하되 강제하지 않습니다 — 표준 모드로도 IM은 나오고, 등급이 낮을 뿐입니다.
 
-```ts
-export function suggestPreciseMode(deal: DealFacts): boolean {
-  return deal.leaseUnits.length >= 4
-      && deal.assetType === 'retail_building'
-      && deal.purpose !== 'development';
-}
-```
+> **v0.4 이관.** 제안 로직은 3축(`posture` · `assetType`)을 조건으로 쓰므로 **`IM_AUTHORING_SPEC.md` §4.3이 소유**합니다. v0.3의 `assetType === 'retail_building'` · `purpose` 기반 판정은 폐기되었습니다.
 
-제안하되 강제하지 않습니다. 표준 모드로도 IM은 나오고, 등급이 낮을 뿐입니다.
+### 4.5 작성 화면 명세의 소유 이전 🆕
+
+**중개인이 화면에서 무엇을 보고 무엇을 누르는가는 `IM_AUTHORING_SPEC.md`가 소유합니다.** 이 문서(§4)는 워크플로우 상태 기계와 결손 표시 원칙만 소유합니다.
+
+| 이 문서 소유 | `IM_AUTHORING_SPEC.md` 소유 |
+|---|---|
+| 상태 전이 (`draft`~`published`) | 3축 분류 화면 · 조합 검증 |
+| 결손 표시 원칙 | 관점별 질문 구성 |
+| 검수 서명 · 책임 이전 | 메모 파싱 · 입력 보조 |
+| 등급 엔진 · `GradeAdvice` 산출 | `GradeAdvice`의 **화면 표현** |
+| 재발행 diff 판정 | 미리보기 · 게이트 표시 · 복수 관점 variant |
 
 ---
 

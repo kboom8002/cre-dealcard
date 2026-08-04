@@ -2,6 +2,16 @@
 // Mobile IM Lite 7섹션 타입 정의
 // Full IM 18섹션에서 꼬마빌딩 매수자가 실제로 묻는 7가지만 추출
 
+import type { BuildingUse, AssetType, InvestmentPosture } from '@/domain/ontology';
+import type { ArchetypeCode } from './archetype-registry';
+
+/** 3축 자산 식별자 (v0.4) */
+export interface AssetIdentity {
+  buildingUse?: BuildingUse;
+  assetType?: AssetType;
+  investmentPosture?: InvestmentPosture;
+}
+
 export const MOBILE_IM_SECTIONS_7 = [
   "property_overview",        // Full IM: property_fact_sheet
   "location_access",          // Full IM: location_access
@@ -114,6 +124,12 @@ export interface MobileIMSupplementalInput {
   /** 비임대 부가수입 항목 */
   ancillary_incomes?: AncillaryIncomeItem[];
 
+  // ── v0.4: posture / archetype ──
+  /** 투자 관점 (5 posture) */
+  investmentPosture?: InvestmentPosture;
+  /** 중개인 아키타입 오버라이드 */
+  archetype_override?: ArchetypeCode;
+
   // ── 물류센터 전용 필드 ──
   logistics?: {
     ceiling_height_m?: number;           // 천장고 (m)
@@ -218,4 +234,34 @@ export interface DataPointProvenance {
   sourceDetail: string;
   confidence: "confirmed" | "inferred" | "needs_check";
   lastVerifiedAt: string;
+}
+
+/** Mobile IM Writer 입력 (writer.ts에서 이동 — 순환 참조 방지) */
+export interface MobileIMWriterInput {
+  building_ssot_lite: Record<string, unknown>;
+  /** v0.4: 3축 자산 식별 */
+  identity?: AssetIdentity;
+  supplemental: MobileIMSupplementalInput;
+  readiness: { score: number; missing: string[] };
+  external_data?: ExternalDataSnapshot | null;
+  onProgress?: (section: MobileIMSection) => void;
+  dcfEligible?: boolean;
+}
+
+/** Mobile IM Writer 출력 */
+export interface MobileIMWriterOutput {
+  sections: MobileIMSection[];
+  boundary_note: string;
+  generated_at: string;
+  ai_used: boolean;
+  heroCard?: HeroCardData;
+  photos?: Array<{ url: string; caption?: string; width?: number; height?: number }>;
+  dcf10Year?: Record<string, unknown>;
+  financials?: {
+    equityRequired: number | null;
+    totalDepositBil: number | null;
+    loanAmountBil: number | null;
+    leveragedYield: number | null;
+    wacc: number | null;
+  };
 }

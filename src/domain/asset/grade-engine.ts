@@ -8,6 +8,7 @@
 import { getGradeWeights, type AssetType } from '../building/asset-ontology';
 import { isFeatureEnabled } from '../building/feature-flags';
 import { lintProvenance } from '../building/provenance-lint';
+import { gradeProfile, effectiveWeights } from '@/domain/ontology';
 
 /**
  * Data grade for an asset based on slot coverage.
@@ -47,6 +48,12 @@ export interface DataGradeResult {
   dcfEligible: boolean;
   /** Top 3 effort-efficient actions */
   advice: GradeAdvice;
+  /** Gate: D < 40 blocks publish */
+  blockPublish?: boolean;
+  /** Gate: C 40-65 suppresses total return */
+  suppressTotalReturn?: boolean;
+  /** Gate: B 65-85 suppresses DCF */
+  suppressDcf?: boolean;
 }
 
 /**
@@ -86,21 +93,60 @@ const NEW_WEIGHTS: Record<string, number> = {
   market_comp: 5
 };
 
+const PROVENANCE_COEFF: Record<string, number> = {
+  public_data: 1.0,
+  expert_verified: 0.95,
+  seller_declared: 0.65,
+  broker_input: 0.60,
+  ai_inferred: 0.30,
+  assumed: 0.30,
+};
+
 /**
  * Computes the data grade for an asset based on provided attributes.
  * 
- * @param attrs - Key-value map of asset attributes
- * @param provenanceMap - Optional map of attribute provenances
+ * @param attrsOrSlots - Key-value map of asset attributes or slots with filled/provenance
+ * @param identityOrProvenance - Optional map of attribute provenances or identity object
  * @returns Data grade result containing the grade and missing slots
  * @see SDD §6 S1-T7
  */
 export function computeDataGrade(
-  attrs: Record<string, unknown>,
-  provenanceMap?: Record<string, { tier: string }>,
-  assetType?: AssetType
+  attrsOrSlots: Record<string, any>,
+  identityOrProvenance?: any,
+  legacyAssetType?: AssetType
 ): DataGradeResult {
-  // Use asset-type-specific weights from ontology if available
-  const weights = (assetType && isFeatureEnabled('ff_s1_ontology_loader')) ? getGradeWeights(assetType) : null;
+  let attrs: Record<string, any> = {};
+  let identity: { assetType?: string; investmentPosture?: string } | undefined;
+  let provenanceMap: Record<string, { tier: string }> | undefined;
+  let assetType: AssetType | undefined = legacyAssetType;
+
+  // Determine if arg1 is slots or attrs
+  const isSlots = Object.values(attrsOrSlots).some(v => v && typeof v === 'object' && 'filled' in v);
+  if (isSlots) {
+    for (const [k, v] of Object.entries(attrsOrSlots)) {
+      attrs[k] = v.filled ? 'filled' : '';
+    }
+  } else {
+    attrs = attrsOrSlots;
+  }
+
+  // Determine arg2
+  if (identityOrProvenance) {
+    if ('assetType' in identityOrProvenance || 'investmentPosture' in identityOrProvenance) {
+      identity = identityOrProvenance;
+      assetType = identity?.assetType as AssetType;
+    } else {
+      provenanceMap = identityOrProvenance;
+    }
+  }
+
+  let weights = (assetType && isFeatureEnabled('ff_s1_ontology_loader')) ? getGradeWeights(assetType) : null;
+  
+  if (identity && identity.assetType && identity.investmentPosture) {
+    const profile = gradeProfile(identity.assetType as any, identity.investmentPosture as any);
+    const notApplicableGroups: string[] = [];
+    weights = effectiveWeights(profile, notApplicableGroups);
+  }
 
   // v3: Run provenance lint (S1-T4)
   if (provenanceMap) {
@@ -154,16 +200,24 @@ export function computeDataGrade(
   let earnedNewWeight = 0;
   const missingCategories: Array<{category: string, weight: number}> = [];
 
-  for (const [category, w] of Object.entries(NEW_WEIGHTS)) {
+  const baseWeights = weights || NEW_WEIGHTS;
+
+  for (const [category, w] of Object.entries(baseWeights)) {
     totalNewWeight += w;
-    if (attrs[category] != null && attrs[category] !== '' && attrs[category] !== false) {
-      earnedNewWeight += w;
+    const hasData = isSlots ? (attrsOrSlots[category]?.filled) : (attrs[category] != null && attrs[category] !== '' && attrs[category] !== false);
+    
+    if (hasData) {
+      let provCoeff = 1.0;
+      if (isSlots && attrsOrSlots[category]?.provenance) {
+        provCoeff = PROVENANCE_COEFF[attrsOrSlots[category].provenance] ?? 1.0;
+      }
+      earnedNewWeight += (w * provCoeff);
     } else {
       missingCategories.push({ category, weight: w });
     }
   }
 
-  const scorePct = Math.round((earnedNewWeight / totalNewWeight) * 100);
+  const scorePct = totalNewWeight > 0 ? Math.round((earnedNewWeight / totalNewWeight) * 100) : 0;
 
   let grade: DataGrade = 'D';
   if (scorePct >= 85) {
@@ -201,6 +255,11 @@ export function computeDataGrade(
     actions,
   };
 
+  // Grade-based feature gating
+  const blockPublish = scorePct < 40;
+  const suppressTotalReturn = scorePct >= 40 && scorePct < 65;
+  const suppressDcf = scorePct >= 65 && scorePct < 85;
+
   return {
     grade,
     scorePct,
@@ -210,13 +269,22 @@ export function computeDataGrade(
     missingEnhancedSlots: missingEnhanced,
     dcfEligible: grade === 'A',
     advice: adviceObj,
+    blockPublish,
+    suppressTotalReturn,
+    suppressDcf,
   };
 }
 
-export function computeGradeAdvice(): GradeAdvice {
-  return {
-    current: { score: 0, grade: 'D' },
-    nextGrade: 'C',
-    actions: []
-  };
+export function computeGradeAdvice(unfilledSlots: Array<{key: string, weight: number}>) {
+  // Sort unfilled slots by weight descending, return top 3
+  const advice = unfilledSlots
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, 3)
+    .map(slot => ({
+      slotKey: slot.key,
+      scoreGain: slot.weight * 100,
+      effortMinutes: slot.key.includes('lease') ? 30 : slot.key.includes('photo') ? 10 : 15,
+      action: `'${slot.key}' 데이터를 입력하면 등급이 약 ${(slot.weight * 100).toFixed(0)}점 상승합니다.`,
+    }));
+  return advice;
 }

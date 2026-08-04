@@ -156,3 +156,63 @@ export async function persistLeaseUnits(
 
   return { inserted, errors };
 }
+
+// ── AUTH-04: T-C/T-R 법령 분기 통합 ──────────────────────────────────────
+
+import { dispatchTenancy, type TenancyResult } from '@/domain/ontology';
+import type { AssetIdentity } from './types';
+
+/** 호실별 법령 분기 결과 */
+export interface LeaseLegalDispatch {
+  floor: string;
+  regime: 'T-C' | 'T-R';
+  maxTerm: number;
+  renewalRight: boolean | 'unknown';
+  note: string;
+}
+
+/** 물건의 혼합 용도 여부 */
+export interface MixedUseResult {
+  isMixed: boolean;
+  dispatches: LeaseLegalDispatch[];
+  conservativeRegime: 'T-C' | 'T-R';
+}
+
+/**
+ * AUTH-04: buildingUse 기반 임대차 법령 자동 분기
+ * - 상가 → T-C (상임법 10년)
+ * - 주거 → T-R (주임법 4년)
+ * - 혼합 → 호실별 분기 + 보수적 적용 (AUTH-04.1)
+ */
+export function adaptLeases(
+  units: Array<{ floor: string; buildingUse?: string; renewalRight?: boolean | 'unknown' }>,
+  identity?: AssetIdentity,
+): MixedUseResult {
+  const dispatches: LeaseLegalDispatch[] = units.map(u => {
+    const use = u.buildingUse ?? identity?.buildingUse ?? 'commercial';
+    const isResidential = use === 'residential' || use === 'multi_family' || use === 'officetel_residential';
+    const regime = isResidential ? 'T-R' as const : 'T-C' as const;
+    
+    // AUTH-04.2: 갱신요구권 "모름" → '확인 필요'
+    const renewalRight = u.renewalRight ?? 'unknown';
+    const note = renewalRight === 'unknown' 
+      ? '갱신요구권 확인 필요 (AUTH-04.2)'
+      : '';
+
+    return {
+      floor: u.floor,
+      regime,
+      maxTerm: regime === 'T-R' ? 4 : 10,
+      renewalRight,
+      note,
+    };
+  });
+
+  const regimes = new Set(dispatches.map(d => d.regime));
+  const isMixed = regimes.size > 1;
+
+  // AUTH-04.1: 모호한 경우 주택(4년) 보수적 적용
+  const conservativeRegime = isMixed ? 'T-R' as const : (dispatches[0]?.regime ?? 'T-C');
+
+  return { isMixed, dispatches, conservativeRegime };
+}

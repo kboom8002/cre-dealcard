@@ -74,3 +74,73 @@ export function computeEditDiff(payload: EditDiffPayload): VersionDiff {
     created_at: new Date().toISOString(),
   };
 }
+
+// ─── PIPE-06.1: 슬롯 기반 재발행 diff ──────────────────────────────────────
+
+/** critical 변경으로 간주되는 슬롯 키 */
+const CRITICAL_SLOTS = new Set([
+  'asking_price', 'price_band_krw', 'total_area_sqm', 'plat_area_sqm',
+  'pnu', 'address', 'encumbrance', 'lien', 'lease_rights',
+]);
+
+/** material 변경으로 간주되는 슬롯 키 */
+const MATERIAL_SLOTS = new Set([
+  'vacancy_pct', 'monthly_rent_total_krw', 'asset_type',
+  'investment_posture', 'cap_rate', 'floor_leases',
+]);
+
+/** 슬롯 수준 변경 사항 */
+export interface SlotChange {
+  slot: string;
+  before: unknown;
+  after: unknown;
+  impact: DiffImpact;
+}
+
+/** 버전 간 전체 변경 보고 */
+export interface VersionDiffReport {
+  from: number;
+  to: number;
+  changes: SlotChange[];
+  hasCritical: boolean;
+  hasMaterial: boolean;
+  /** critical 변경 시 기존 Pro 권한 자동 무효화 필요 여부 */
+  shouldInvalidateProAccess: boolean;
+}
+
+/**
+ * 두 딜 버전의 슬롯 값을 비교하여 diff 보고서 생성
+ * PIPE-06.1: critical → Pro 무효화, material → 재발행 경고
+ */
+export function computeSlotDiff(
+  fromVersion: number,
+  toVersion: number,
+  beforeSlots: Record<string, unknown>,
+  afterSlots: Record<string, unknown>,
+): VersionDiffReport {
+  const changes: SlotChange[] = [];
+  const allKeys = new Set([...Object.keys(beforeSlots), ...Object.keys(afterSlots)]);
+
+  for (const key of allKeys) {
+    const before = beforeSlots[key];
+    const after = afterSlots[key];
+    if (JSON.stringify(before) !== JSON.stringify(after)) {
+      let impact: DiffImpact = 'cosmetic';
+      if (CRITICAL_SLOTS.has(key)) impact = 'critical';
+      else if (MATERIAL_SLOTS.has(key)) impact = 'material';
+      changes.push({ slot: key, before, after, impact });
+    }
+  }
+
+  const hasCritical = changes.some(c => c.impact === 'critical');
+  const hasMaterial = changes.some(c => c.impact === 'material');
+
+  return {
+    from: fromVersion,
+    to: toVersion,
+    changes,
+    hasCritical,
+    hasMaterial,
+    shouldInvalidateProAccess: hasCritical,
+  };
+}

@@ -164,3 +164,39 @@ export const VALID_TRANSITIONS: Record<DealStage, DealStage[]> = {
   closed:            [],
   failed:            [],
 };
+
+// ── PIPE-04.1: v0.4 6단계 상태 머신 ──────────────────────────────────────
+
+export type IMLifecycleStageV2 = 
+  | 'draft' 
+  | 'collecting' 
+  | 'authoring' 
+  | 'verifying' 
+  | 'ready' 
+  | 'published';
+
+export interface IMLifecycleTransitionV2 {
+  from: IMLifecycleStageV2;
+  to: IMLifecycleStageV2;
+  guard?: string;
+}
+
+export const IM_LIFECYCLE_TRANSITIONS_V2: IMLifecycleTransitionV2[] = [
+  { from: 'draft', to: 'collecting' },
+  { from: 'collecting', to: 'authoring' },
+  { from: 'authoring', to: 'collecting' },  // 양방향
+  { from: 'authoring', to: 'verifying' },
+  { from: 'verifying', to: 'ready', guard: 'runPublishGates' },
+  { from: 'verifying', to: 'authoring' },   // 게이트 실패 시
+  { from: 'ready', to: 'published' },
+  { from: 'published', to: 'ready' },        // critical diff 롤백
+];
+
+export function canTransitionV2(from: IMLifecycleStageV2, to: IMLifecycleStageV2): boolean {
+  return IM_LIFECYCLE_TRANSITIONS_V2.some(t => t.from === from && t.to === to);
+}
+
+export function getTransitionGuard(from: IMLifecycleStageV2, to: IMLifecycleStageV2): string | undefined {
+  const t = IM_LIFECYCLE_TRANSITIONS_V2.find(t => t.from === from && t.to === to);
+  return t?.guard;
+}

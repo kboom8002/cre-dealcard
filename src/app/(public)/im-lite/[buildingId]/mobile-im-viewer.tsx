@@ -1160,7 +1160,37 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
 
   return (
     <div className="min-h-screen bg-neutral-950">
-      {/* Draft Warning Banner removed */}
+      {/* Draft / Blocked Warning Banner */}
+      {doc.status === 'draft' && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2.5 text-center">
+          <p className="text-xs font-bold text-amber-400">
+            ⚠️ 초안 상태 — 중개인 검수 전 자료이며, 최종 확인이 필요합니다.
+          </p>
+        </div>
+      )}
+
+      {/* Grade-based Suppression Banners */}
+      {doc.dataQualityBadge?.tier === 'draft' && (
+        <div className="bg-red-500/10 border-b border-red-500/30 px-4 py-2">
+          <p className="text-[11px] text-red-400 text-center">
+            🔴 D등급 데이터 — 발행 차단 상태입니다. 핵심 데이터를 보강해 주세요.
+          </p>
+        </div>
+      )}
+      {doc.dataQualityBadge?.tier === 'reference' && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2">
+          <p className="text-[11px] text-amber-400 text-center">
+            ⚠️ C등급 데이터 — 총수익률 분석이 제한됩니다. 데이터를 보강하면 더 상세한 분석이 가능합니다.
+          </p>
+        </div>
+      )}
+      {doc.dataQualityBadge?.tier === 'partial' && !doc.dcf10Year && (
+        <div className="bg-blue-500/10 border-b border-blue-500/20 px-4 py-2">
+          <p className="text-[11px] text-blue-400 text-center">
+            ℹ️ B등급 데이터 — DCF 분석은 A등급 이상에서 제공됩니다. 데이터를 보강해 주세요.
+          </p>
+        </div>
+      )}
 
       {/* ── Sticky Top Bar ── */}
       <div className="sticky top-0 z-40 bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800/50">
@@ -1252,6 +1282,18 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
                   </span>
                 )}
               </>
+            )}
+
+            {/* Data Quality Badge */}
+            {doc.dataQualityBadge && (
+              <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border ${
+                doc.dataQualityBadge.tier === 'verified' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                doc.dataQualityBadge.tier === 'partial' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                doc.dataQualityBadge.tier === 'reference' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                'bg-red-500/10 text-red-400 border-red-500/20'
+              }`}>
+                {doc.dataQualityBadge.emoji} {doc.dataQualityBadge.label}
+              </span>
             )}
 
           </div>

@@ -15,6 +15,7 @@ import { computeDataGrade } from '@/domain/asset/grade-engine';
 import { calculateNOI, calculateCapRate } from '@/domain/building/financials';
 import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { getIMDisclaimers } from '@/domain/building/legal-copy';
+import { validateCombination } from '@/domain/ontology';
 
 export interface GenerateMobileIMInput {
   buildingId: string;
@@ -22,6 +23,11 @@ export interface GenerateMobileIMInput {
   supplemental: MobileIMSupplementalInput;
   skipApproval?: boolean;
   directData?: Record<string, unknown> | null;
+  identity?: {
+    buildingUse?: string;
+    assetType?: string;
+    investmentPosture?: string;
+  };
 }
 
 export interface GenerateMobileIMResult {
@@ -47,8 +53,15 @@ export interface GenerateMobileIMResult {
 export async function generateMobileIMHandler(
   input: GenerateMobileIMInput
 ): Promise<GenerateMobileIMResult> {
-  const { buildingId, userId, supplemental, skipApproval = false, directData = null } = input;
+  const { buildingId, userId, supplemental, skipApproval = false, directData = null, identity } = input;
   const supabase = createServiceClient();
+
+  if (identity?.assetType && identity?.investmentPosture) {
+    const combo = validateCombination(identity.assetType as any, identity.investmentPosture as any);
+    if (combo.status === 'blocked') {
+      return { ok: false, error: `Invalid combination: ${combo.message}`, statusCode: 400 };
+    }
+  }
 
   // ─── SSoT Lite 로드 (PK = id)
   const result = await readWithMigration(buildingId);
@@ -188,6 +201,11 @@ export async function generateMobileIMHandler(
     readiness,
     external_data: externalData,
     dcfEligible,
+    identity: identity ?? {
+      buildingUse: undefined,
+      assetType: String(bssotFlat.asset_type ?? ''),
+      investmentPosture: (supplemental as any).investmentPosture ?? 'income',
+    } as any,
   });
 
   // ─── v3 Guardrails: Sanitize all generated sections ───

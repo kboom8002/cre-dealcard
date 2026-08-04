@@ -23,12 +23,14 @@ export async function POST(req: NextRequest) {
   let supplemental: MobileIMSupplementalInput;
   let skipApproval = false;
   let directData: Record<string, unknown> | null = null;
+  let identity: { assetType?: string; investmentPosture?: string; buildingUse?: string } | undefined;
 
   try {
     const body = await req.json();
     buildingId = body.building_id;
     skipApproval = body.skip_approval === true;
     directData = body.direct_data ?? null;
+    identity = body.identity;
     supplemental = {
       monthly_rent_total_krw: body.monthly_rent_total_krw,
       vacancy_status: body.vacancy_status,
@@ -58,6 +60,7 @@ export async function POST(req: NextRequest) {
     supplemental,
     skipApproval,
     directData,
+    identity,
   });
 
   if (!result.ok) {

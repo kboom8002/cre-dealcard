@@ -1,10 +1,12 @@
 /**
- * provenance.ts — 온톨로지 v0.2 Provenance 5-Tier 시스템
- * Spec: ONTOLOGY_V0.2_SPEC.md §1
- * 
+ * provenance.ts — 온톨로지 Provenance 5-Tier 시스템
+ * Spec: ONTOLOGY_V0.2_SPEC.md §1 · ONTOLOGY_V0.4_SPEC.md §4 (유지 확인)
+ *
  * v0.1의 4-tier에서 'seller' 등급을 추가하여 5-tier로 확장.
  * 매도인 진술(seller)과 중개인 입력(broker)의 책임 소재를 분리합니다.
  * 파생값에 대한 합성 규칙(additive, ratio, scenario)을 신설합니다.
+ *
+ * v0.4 감사에서 구현 적합이 확인되었습니다. 로직 변경 없음.
  */
 
 // ── 5-Tier Provenance ──────────────────────────────────────────────
