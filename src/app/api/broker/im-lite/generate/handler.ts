@@ -125,7 +125,7 @@ export async function generateMobileIMHandler(
   console.log('[im-handler] gradeResult:', gradeResult.grade, gradeResult.scorePct, 'directData present:', !!directData);
 
   if (directData?.qualityGrade) {
-    gradeResult.grade = directData.qualityGrade as string;
+    gradeResult.grade = directData.qualityGrade as 'A' | 'B' | 'C' | 'D';
     console.log('[im-handler] Overriding grade with directData.qualityGrade:', gradeResult.grade);
   }
 

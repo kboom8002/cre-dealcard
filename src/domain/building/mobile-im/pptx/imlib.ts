@@ -8,6 +8,7 @@
  * 단위: 인치 (pptxgenjs 기본)
  */
 import type PptxGenJS from 'pptxgenjs';
+import type { PptxThemeTokens } from './pptx-theme';
 
 // ════════════════════════════════════════
 // §2 기하
@@ -25,10 +26,15 @@ export const col = (n: number, gap: number): number => (CW - gap * (n - 1)) / n;
 export const colX = (i: number, w: number, gap: number): number => M + i * (w + gap);
 
 // ════════════════════════════════════════
-// §3 색 팔레트
+// §3 색 팔레트 (테마 동적 주입 — setActiveTheme)
 // ════════════════════════════════════════
 
-export const C = {
+/**
+ * C: 라이트 슬라이드 색상 팔레트.
+ * 기본값은 golden_institutional. setActiveTheme() 호출 시 프리셋별 값으로 교체됩니다.
+ * ⚠️ 반드시 `as const` 제거 — Object.assign으로 런타임 교체 가능해야 함.
+ */
+export const C: Record<string, string> = {
   // 무채 — 지배색
   ink:   '10161F',
   ink2:  '1B2531',
@@ -42,7 +48,7 @@ export const C = {
   bg:    'FFFFFF',
   tint:  'F5F7F9',
 
-  // 액센트 — 황동 (유일한 장식색)
+  // 액센트 — 프리셋에 따라 황동/네온그린/에메랄드/시안/골드
   brass:  'B98A2E',
   brassD: '8E6A20',
   brassL: 'F2E7CF',
@@ -59,11 +65,11 @@ export const C = {
   blueL:   'E9EEF3',
   violet:  '6D4AA8',
   violetL: 'EDE7F6',
-} as const;
+};
 
-/** 다크 슬라이드 전용 색상 */
-export const CD = {
-  card:          C.ink2,
+/** 다크 슬라이드 전용 색상 — setActiveTheme()에 의해 교체 */
+export const CD: Record<string, string> = {
+  card:          '1B2531',
   block:         '232F3C',
   border:        '2A3644',
   body:          'A8B2BC',
@@ -72,14 +78,101 @@ export const CD = {
   accentBg:      '2A1F12',
   accentBorder:  '5C4620',
   accentText:    'D3C6AC',
-} as const;
+};
 
 // ════════════════════════════════════════
 // §4 타이포
 // ════════════════════════════════════════
 
-export const KR = '맑은 고딕';
-export const NUM = 'Arial';
+export let KR = '맑은 고딕';
+export let NUM = 'Arial';
+
+// ════════════════════════════════════════
+// §3.1 테마 동적 주입
+// ════════════════════════════════════════
+
+/** 활성 테마 메타데이터 (coverStyle 등 비-색상 속성) */
+export const THEME_META: {
+  coverStyle: string;
+  companyName: string;
+  companyTagline: string;
+  presetId: string;
+} = {
+  coverStyle: 'institutional_masses',
+  companyName: '크리딜',
+  companyTagline: '상업용 부동산 투자 플랫폼',
+  presetId: 'golden_institutional',
+};
+
+/**
+ * 활성 테마를 설정합니다.
+ * pptx-renderer에서 렌더링 전에 호출하면,
+ * 이후 모든 아키타입/imlib 함수가 해당 프리셋의 색상을 사용합니다.
+ */
+export function setActiveTheme(theme: PptxThemeTokens): void {
+  // ── 라이트 팔레트 ──
+  Object.assign(C, {
+    ink:     theme.ink,
+    ink2:    theme.ink2,
+    ink3:    theme.ink3,
+    slate:   theme.slate,
+    body:    theme.body,
+    mute:    theme.mute,
+    mute2:   theme.mute2,
+    line:    theme.line,
+    line2:   theme.line2,
+    bg:      theme.bg,
+    tint:    theme.tint,
+    // 액센트: theme.accent → C.brass (모든 아키타입이 brass로 참조)
+    brass:   theme.accent,
+    brassD:  theme.accentD,
+    brassL:  theme.accentL,
+    brassT:  theme.accentT,
+    // 의미색
+    green:   theme.green,
+    greenL:  theme.greenL,
+    red:     theme.red,
+    redL:    theme.redL,
+    amber:   theme.amber,
+    amberL:  theme.amberL,
+    blue:    theme.blue,
+    blueL:   theme.blueL,
+    violet:  theme.violet,
+    violetL: theme.violetL,
+  });
+
+  // ── 다크 팔레트 ──
+  Object.assign(CD, {
+    card:          theme.darkCard,
+    block:         theme.darkBlock,
+    border:        theme.darkBorder,
+    body:          theme.darkBody,
+    mute:          theme.darkMute,
+    faint:         theme.darkFaint,
+    accentBg:      theme.darkAccentBg,
+    accentBorder:  theme.darkAccentBorder,
+    accentText:    theme.darkAccentText,
+  });
+
+  // ── 타이포 ──
+  KR = theme.bodyFont || '맑은 고딕';
+  // NUM은 항상 Arial (숫자/라틴 전용)
+
+  // ── 메타 ──
+  Object.assign(THEME_META, {
+    coverStyle:     theme.coverStyle,
+    companyName:    theme.companyName,
+    companyTagline: theme.companyTagline,
+    presetId:       theme.presetId,
+  });
+
+  // ── PV (provenance 배지) 색상 갱신 ──
+  PV.pub = ['✓ 공부확인',    C.green,  C.greenL ];
+  PV.exp = ['★ 전문가검증',  C.amber,  C.amberL ];
+  PV.sel = ['▲ 매도인고지',  C.violet, C.violetL];
+  PV.brk = ['● 중개인입력',  C.blue,   C.blueL  ];
+  PV.ai  = ['◇ AI추정·가정', C.mute,   C.line2  ];
+}
 
 // ════════════════════════════════════════
 // §10 provenance 배지

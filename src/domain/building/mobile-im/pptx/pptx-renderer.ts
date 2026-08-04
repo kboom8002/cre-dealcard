@@ -15,7 +15,7 @@ import type { ProvenanceKind } from './imlib';
 import type { InvestmentPosture } from '@/domain/ontology';
 
 import { stripMarkdown } from './data-binder';
-import { M, CW, KR, NUM, C } from './imlib';
+import { M, CW, KR, NUM, C, setActiveTheme } from './imlib';
 
 /**
  * 아키타입 빌더가 본문을 렌더링하지 못한 경우의 고품질 폴백.
@@ -234,6 +234,9 @@ export class MobileImPptxRenderer {
     const theme: PptxThemeTokens = getPptxTheme(
       input.preset ?? 'credeal_signature'
     );
+
+    // ★ 핵심: 테마 토큰을 C/CD/KR에 주입 — 이후 모든 아키타입이 프리셋 색상 사용
+    setActiveTheme(theme);
 
     try {
       // ── 1. 덱 시퀀스 결정 ──
