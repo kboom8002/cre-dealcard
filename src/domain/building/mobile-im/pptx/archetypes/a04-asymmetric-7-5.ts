@@ -25,48 +25,77 @@ export function buildA04Asymmetric75(input: ArchetypeInput): ArchetypeOutput {
   
   const lw = 7.5;
   const gap = 0.393;
-  const rw = 4.2;
+  const rw = CW - lw - gap;
   const rx = M + lw + gap;
   
   const left = input.data.left || {};
+  
+  // 좌측: 부제
   if (left.sub) {
-    L.sub(slide, M, 1.62, lw, left.sub);
-    // Subtitle font size 15 is slightly overriding L.sub standard which is 11, so let's draw it manually or modify L.sub? We'll just draw it:
-    slide.addText(left.sub, { x: M, y: 1.62, w: lw, h: 0.3, fontFace: KR, fontSize: 15, bold: true, color: C.ink, margin: 0 });
+    L.sub(slide, M, 1.50, lw, left.sub);
   }
   
+  // 좌측: rows → L.rows() (key-value 쌍)
   if (left.rows && left.rows.length > 0) {
-    const colCount = Math.max(...left.rows.map((r: any[]) => r.length));
-    const colW = Array(colCount).fill(lw / colCount);
-    const styledRows = left.rows.map((r: any[]) => r.map((c: any) => typeof c === 'string' ? { t: c } : c));
-    L.table(slide, M, 1.96, lw, [], styledRows, colW, { rh: 0.38, bfs: 11 });
-  } else if (left.text) {
-    slide.addText(left.text, { x: M, y: 1.96, w: lw, h: 4.0, fontFace: KR, fontSize: 11, color: C.body, valign: 'top' });
+    // left.rows는 2D array: [['label', 'value'], ...] → RowEntry 튜플로 변환
+    const rowEntries: [string, string][] = left.rows.map((r: any[]) => {
+      if (Array.isArray(r) && r.length >= 2) {
+        return [String(r[0] || ''), String(r[1] || '')] as [string, string];
+      }
+      return [String(r[0] || ''), ''] as [string, string];
+    });
+    L.rows(slide, M, 1.86, lw, rowEntries, { rh: 0.38, fs: 12 });
+  } else if (input.data.content) {
+    // 테이블 데이터 없으면 content에서 추출하여 rows로 렌더링
+    const lines = String(input.data.content).split('\n')
+      .map((l: string) => l.trim())
+      .filter((l: string) => l.length > 0 && !l.startsWith('#') && !l.startsWith('|'));
+    const contentRows: [string, string][] = [];
+    for (const line of lines) {
+      const stripped = line.replace(/\*\*(.*?)\*\*/g, '$1').replace(/[`\[\]]/g, '');
+      const parts = stripped.split(/[：:]/);
+      if (parts.length >= 2) {
+        contentRows.push([parts[0].trim(), parts.slice(1).join(':').trim()]);
+      } else if (stripped.startsWith('-') || stripped.startsWith('•')) {
+        contentRows.push([stripped.replace(/^[-•·]\s*/, ''), '']);
+      }
+    }
+    if (contentRows.length > 0) {
+      L.rows(slide, M, 1.86, lw, contentRows.slice(0, 12), { rh: 0.38, fs: 12 });
+    }
   }
   
-  // Brass divider
-  slide.addShape('line' as any, { x: M + lw + gap / 2, y: 1.62, w: 0, h: 5.0, line: { color: C.brass, width: 0.5 } });
+  // Brass 수직 구분선
+  slide.addShape('line' as any, {
+    x: M + lw + gap / 2, y: 1.50, w: 0, h: 5.2,
+    line: { color: C.brass, width: 0.7 },
+  });
   
+  // 우측: 부제
   const right = input.data.right || {};
   if (right.sub) {
-    slide.addText(right.sub, { x: rx, y: 1.62, w: rw, h: 0.3, fontFace: KR, fontSize: 15, bold: true, color: C.ink, margin: 0 });
+    L.sub(slide, rx, 1.50, rw, right.sub);
   }
   
-  let rightY = 1.96;
-  if (right.rows && right.rows.length > 0) {
-    const colCount = Math.max(...right.rows.map((r: any[]) => r.length));
-    const colW = Array(colCount).fill(rw / colCount);
-    const styledRows = right.rows.map((r: any[]) => r.map((c: any) => typeof c === 'string' ? { t: c } : c));
-    rightY = L.table(slide, rx, 1.96, rw, [], styledRows, colW, { rh: 0.38, bfs: 11 });
-  }
-  
+  // 우측: callouts
+  let cy = 1.86;
   const rightCallouts = input.data.right?.callouts ?? [];
-  let cy = rightY + 0.2;
-  rightCallouts.forEach((c: any) => {
-    const ch = Math.max(1.2, 0.55 + Math.ceil((c.body?.length ?? 0) / 30) * 0.29);
-    L.callout(slide, rx, cy, rw, ch, c.kind ?? 'info', c.title ?? '', c.body ?? '');
-    cy += ch + 0.14;
-  });
+  if (rightCallouts.length > 0) {
+    rightCallouts.forEach((c: any) => {
+      const ch = Math.max(1.2, 0.55 + Math.ceil((c.body?.length ?? 0) / 25) * 0.29);
+      L.callout(slide, rx, cy, rw, ch, c.kind ?? 'info', c.title ?? '', c.body ?? '');
+      cy += ch + 0.18;
+    });
+  } else if (right.rows && right.rows.length > 0) {
+    // callout 없으면 right.rows 렌더링
+    const rowEntries: [string, string][] = right.rows.map((r: any[]) => {
+      if (Array.isArray(r) && r.length >= 2) {
+        return [String(r[0] || ''), String(r[1] || '')] as [string, string];
+      }
+      return [String(r[0] || ''), ''] as [string, string];
+    });
+    L.rows(slide, rx, cy, rw, rowEntries.slice(0, 8), { rh: 0.38, fs: 11 });
+  }
   
   if (input.watermarkText) L.watermark(slide, input.watermarkText, false);
   L.foot(slide, input.slideNum, input.docno);
