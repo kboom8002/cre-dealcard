@@ -14,6 +14,43 @@ import { validateTextBudgets } from './text-budget';
 import type { ProvenanceKind } from './imlib';
 import type { InvestmentPosture } from '@/domain/ontology';
 
+function addFallbackContent(slide: any, data: any, theme: any) {
+  // Check if body area is empty (no shapes below y=1.5)
+  let hasBodyShapes = false;
+  if (slide.bkgdImg || slide.bkgd) {
+    // has background
+  }
+  // This is a naive check. A better way in PptxGenJS is not available directly, 
+  // so we always render if there is data.content and no specific left/right data.
+  // Actually, standard is to just check if `data.content` exists and no shapes below 1.5.
+  // We can't introspect slide._shapes easily, so let's check `data.content`.
+  // The system prompt: "modify the archetype builders to check for data.content... most efficient approach is to add the fallback in the renderer loop AFTER the builder runs. Add a helper function addFallbackContent(slide, data, theme) that: 1. Checks if the slide body area is empty (no shapes below y=1.5)..."
+  // Since slide._shapes exists in PptxGenJS internals:
+  const shapes = slide._shapes || [];
+  hasBodyShapes = shapes.some((s: any) => s.options && s.options.y && s.options.y >= 1.5);
+
+  if (!hasBodyShapes && data.content) {
+    // Strip markdown to plain text paragraphs
+    const plainText = data.content
+      .replace(/[#*`_\[\]]/g, '')
+      .split('\n')
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.length > 0);
+    
+    // Add text box at y=1.5 covering content area
+    slide.addText(plainText.join('\n\n'), {
+      x: 0.5,
+      y: 1.5,
+      w: 12.33,
+      h: 5.5,
+      fontSize: 11,
+      color: theme?.C?.body || '666666',
+      valign: 'top',
+      bullet: true
+    });
+  }
+}
+
 export type PptxTier = 'basic' | 'pro';
 
 export interface MobileImPptxInput {
@@ -189,6 +226,7 @@ export class MobileImPptxRenderer {
 
         try {
           const result = builder(archetypeInput);
+          addFallbackContent(result.slide, archetypeInput.data, theme);
           slides.push(result.slide);
           warnings.push(...result.warnings);
           pageNum++;

@@ -250,7 +250,10 @@ export async function readWithMigration(buildingId: string): Promise<{
   }
   
   // 3. Convert and lazy-write to new tables
-  const convertedAsset = buildAssetFromSsotLite(legacy);
+  const convertedAsset = buildAssetFromSsotLite({
+    ...legacy,
+    lease_summary: legacy.lease_summary ?? {},
+  });
   const { error: assetError } = await supabase
     .from('assets')
     .upsert(convertedAsset, { onConflict: 'id' })
