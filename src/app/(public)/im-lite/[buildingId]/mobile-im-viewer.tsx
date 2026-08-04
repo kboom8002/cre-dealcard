@@ -850,171 +850,76 @@ function ShareButton({ title }: { title: string }) {
   );
 }
 
-/** 카카오톡·LINE·링크복사 공유 버튼 모음 */
-function BottomShareBar({ title, buildingId, docId, areaSignal, blindName, priceBand, heroCard, ogTitle, ogDescription }: { title: string; buildingId: string; docId?: string; areaSignal?: string; blindName?: string; priceBand?: string; heroCard?: { capRateBase?: number }; ogTitle?: string | null; ogDescription?: string | null }) {
+function FloatingActionBar({ title, buildingId, docId, tier = 'basic' }: { title: string; buildingId: string; docId?: string; tier?: 'basic' | 'pro' }) {
   const [copied, setCopied] = useState(false);
+  const [requestingPro, setRequestingPro] = useState(false);
 
-  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && (window as any).Kakao && !(window as any).Kakao.isInitialized()) {
-      const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
-      if (appKey) (window as any).Kakao.init(appKey);
-    }
-  }, []);
-
-  const handleKakao = async () => {
-    if (typeof window !== "undefined" && (window as any).Kakao) {
-      const Kakao = (window as any).Kakao;
-      if (!Kakao.isInitialized()) {
-        const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
-        if (appKey) Kakao.init(appKey);
-      }
-      if (Kakao.isInitialized()) {
-        try {
-          // Vercel Preview 등 미등록 도메인에서 공유 시 카카오 API가 거부하므로 프로덕션 도메인으로 강제 변환
-          const baseUrl = window.location.hostname.includes("vercel.app") 
-            ? "https://www.credeal.net" 
-            : window.location.origin;
-          
-          const canonicalShareUrl = shareUrl.replace(window.location.origin, baseUrl);
-          const canonicalImageUrl = `${baseUrl}/api/og/deal/${buildingId}?type=im`;
-
-          Kakao.Share.sendDefault({
-            objectType: "feed",
-            content: {
-              title: ogTitle || (
-                areaSignal && blindName && !blindName.includes(areaSignal)
-                  ? `[${areaSignal}] ${blindName}`
-                  : blindName || title || '투자 매물'
-              ),
-              description: ogDescription || (
-                heroCard?.capRateBase
-                  ? `매각 희망가 ${priceBand || ''} · Cap Rate ${heroCard.capRateBase}% · 크리딜 프리미엄 투자설명서`
-                  : `${priceBand || ''} · ${areaSignal || ''} · 크리딜 프리미엄 투자설명서`
-              ),
-              imageUrl: canonicalImageUrl,
-              link: { mobileWebUrl: canonicalShareUrl, webUrl: canonicalShareUrl },
-            },
-            buttons: [
-              { title: "투자설명서 즉시 열람", link: { mobileWebUrl: canonicalShareUrl, webUrl: canonicalShareUrl } },
-            ],
-          });
-          return;
-        } catch {
-          // Kakao SDK 실패 시 폴백
-        }
-      }
-    }
-    // Kakao SDK 미로드 시 Web Share API → 클립보드 폴백
+  const handleShare = async () => {
+    const url = typeof window !== 'undefined' ? window.location.href : '';
     if (navigator.share) {
       try {
-        await navigator.share({ title, url: shareUrl });
+        await navigator.share({ title, url });
         return;
       } catch {
-        // Fall through to clipboard
+        // Fall through
       }
     }
-    await navigator.clipboard.writeText(shareUrl);
+    await navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleLine = () => {
-    const url = encodeURIComponent(shareUrl);
-    const text = encodeURIComponent(title);
-    window.open(`https://social-plugins.line.me/lineit/share?url=${url}&text=${text}`, "_blank", "noopener,noreferrer");
+  const handlePdf = () => {
+    window.open(`/api/public/im-lite/${buildingId}/export${docId ? `?doc_id=${docId}&tier=${tier}` : `?tier=${tier}`}`, "_blank", "noopener");
   };
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handlePptx = () => {
+    window.open(`/api/public/im-lite/${buildingId}/pptx${docId ? `?doc_id=${docId}&tier=${tier}` : `?tier=${tier}`}`, "_blank", "noopener");
   };
 
-  const handleExport = () => {
-    if (docId) {
-      window.open(`/api/public/im-lite/${buildingId}/export?doc_id=${docId}`, "_blank", "noopener");
+  const handleProRequest = async () => {
+    if (requestingPro) return;
+    setRequestingPro(true);
+    try {
+      await fetch('/api/public/teaser/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType: 'intent.pro_request',
+          buildingId,
+          docId
+        })
+      });
+      alert('Pro 버전 요청이 접수되었습니다.');
+    } catch (e) {
+      alert('요청 중 오류가 발생했습니다.');
+    } finally {
+      setRequestingPro(false);
     }
   };
 
   return (
-    <>
-      <Script 
-        src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"
-        strategy="lazyOnload"
-        onLoad={() => {
-          if (typeof window !== "undefined" && (window as any).Kakao && !(window as any).Kakao.isInitialized()) {
-            const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
-            if (appKey) (window as any).Kakao.init(appKey);
-          }
-        }}
-      />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-neutral-950/95 backdrop-blur-md border-t border-neutral-800 px-4 py-3 safe-area-bottom">
-        <div className="max-w-2xl mx-auto">
-        <p className="text-[10px] text-neutral-600 text-center mb-2">공유 또는 저장</p>
-        <div className="flex gap-2">
-          {/* KakaoTalk */}
-          <button
-            id="share-kakao-btn"
-            onClick={handleKakao}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-[#FEE500] hover:bg-[#ffd900] text-[#3C1E1E] text-xs font-bold rounded-xl transition-colors"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 3C6.477 3 2 6.582 2 11c0 2.756 1.591 5.187 4.018 6.702L4.985 21l3.705-2.137A11.7 11.7 0 0 0 12 19c5.523 0 10-3.582 10-8S17.523 3 12 3Z"/>
-            </svg>
-            카카오톡
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-neutral-900/95 backdrop-blur border-t border-neutral-800 safe-area-bottom">
+      {tier === 'basic' && (
+        <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-b border-amber-500/20 px-4 py-2.5 flex items-center justify-between">
+          <p className="text-[11px] font-medium text-amber-400">🏆 더 상세한 투자설명서가 필요하신가요?</p>
+          <button onClick={handleProRequest} disabled={requestingPro} className="px-3 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 text-[10px] font-bold rounded-lg transition-colors whitespace-nowrap ml-2 border border-amber-500/30">
+            Pro 버전 요청
           </button>
-          {/* LINE */}
-          <button
-            id="share-line-btn"
-            onClick={handleLine}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-[#06C755] hover:bg-[#05b34d] text-white text-xs font-bold rounded-xl transition-colors"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.494.255l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
-            </svg>
-            LINE
-          </button>
-          {/* Copy link */}
-          <button
-            id="share-copy-btn"
-            onClick={handleCopy}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl transition-colors"
-          >
-            {copied ? (
-              <>
-                <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-green-400">복사됨</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                링크복사
-              </>
-            )}
-          </button>
-          {/* PDF export (only when docId available) */}
-          {docId && (
-            <button
-              id="export-pdf-btn"
-              onClick={handleExport}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              PDF 저장
-            </button>
-          )}
         </div>
+      )}
+      <div className="px-4 py-3 flex gap-2 max-w-2xl mx-auto">
+        <button onClick={handlePdf} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl transition-colors">
+          📄 PDF
+        </button>
+        <button onClick={handlePptx} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl transition-colors">
+          📊 PPTX
+        </button>
+        <button onClick={handleShare} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-primary text-black hover:bg-primary/90 text-xs font-bold rounded-xl transition-colors">
+          {copied ? "✅ 복사됨" : "🔗 공유"}
+        </button>
       </div>
     </div>
-    </>
   );
 }
 
@@ -1486,16 +1391,11 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
       </div>
 
       {/* ── Bottom Share Bar ── */}
-      <BottomShareBar
+      <FloatingActionBar
         title={`${doc.blindName} — 모바일 IM Lite`}
         buildingId={buildingId}
         docId={docId}
-        areaSignal={doc.areaSignal}
-        blindName={doc.blindName}
-        priceBand={doc.priceBand}
-        heroCard={doc.heroCard ? { capRateBase: doc.heroCard.capRateBase ?? undefined } : undefined}
-        ogTitle={doc.ogTitle}
-        ogDescription={doc.ogDescription}
+        tier={doc.tier}
       />
     </div>
   );

@@ -28,6 +28,8 @@ interface ImDataBottomSheetProps {
   prefillVacancyPct?: number;
   currentDataGrade?: string; // A/B/C/D
   gradeUpItems?: Array<{ field: string; label: string; gradeContribution: string }>;
+  initialStage?: 'basic' | 'pro';
+  targetTier?: 'basic' | 'pro';
 }
 
 type BottomSheetState = "idle" | "loading" | "success" | "error";
@@ -63,7 +65,10 @@ export function ImDataBottomSheet({
   prefillVacancyPct,
   currentDataGrade,
   gradeUpItems,
+  initialStage,
+  targetTier = 'basic',
 }: ImDataBottomSheetProps) {
+  const [stage, setStage] = useState<'basic' | 'pro'>(initialStage || targetTier);
   const [state, setState] = useState<BottomSheetState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [progress, setProgress] = useState("");
@@ -147,6 +152,7 @@ export function ImDataBottomSheet({
   // v3: Auto-prefill from deal card data
   useEffect(() => {
     if (isOpen) {
+      if (initialStage) setStage(initialStage);
       if (prefillMonthlyRent && !monthlyRent) setMonthlyRent(String(prefillMonthlyRent));
       if (prefillTotalDeposit && !totalDeposit) setTotalDeposit(String(prefillTotalDeposit));
       if (prefillMgmtFee && !mgmtFeeTotal) setMgmtFeeTotal(String(prefillMgmtFee));
@@ -157,7 +163,7 @@ export function ImDataBottomSheet({
       }
       if (prefillVacancyPct != null && vacancyPct === '') setVacancyPct(prefillVacancyPct);
     }
-  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, initialStage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 간이 Readiness 계산 로직 (바텀시트 내부 표시용)
   useEffect(() => {
@@ -275,6 +281,7 @@ export function ImDataBottomSheet({
         photo_captions: Object.keys(photoCaptions).length > 0 ? photoCaptions : undefined,
         floor_leases: floorLeases.length > 0 ? floorLeases : undefined,
         logistics,
+        tier: targetTier,
       };
 
       // ── 비동기 생성 ──
@@ -420,9 +427,9 @@ export function ImDataBottomSheet({
     }
   };
 
-  // 서버 기준점: 55점이지만 UI에서 직접 제공되는 area/asset/price로 최소 30점 보장.
   // 주소+월세 없이도 시도 가능하도록 UI 임계값을 40점으로 완화
-  const canGenerate = readinessScore >= 40;
+  const isProValid = currentDataGrade === 'A' || currentDataGrade === 'B' || readinessScore >= 75;
+  const canGenerate = stage === 'basic' ? true : isProValid;
 
   // Portal을 사용하여 document.body에 직접 렌더링
   // 부모 요소의 transform/filter CSS가 fixed 포지셔닝을 깨뜨리는 문제 방지
@@ -433,21 +440,32 @@ export function ImDataBottomSheet({
       <div className="bg-background rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl p-5 animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 max-h-[90vh] sm:max-h-[85vh] flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom,20px)]">
         
         <div className="flex items-center justify-between mb-4 shrink-0">
-          <h2 className="text-lg font-bold text-foreground">📊 투자설명서 데이터 보강</h2>
+          <h2 className="text-lg font-bold text-foreground">
+            {stage === 'basic' ? '📊 Basic IM 만들기' : '📊 투자설명서 데이터 보강'}
+          </h2>
           <button onClick={onClose} className="p-2 -mr-2 text-muted-foreground hover:text-foreground">
             ✕
           </button>
         </div>
+        {stage === 'pro' && (
+          <button onClick={() => setStage('basic')} className="text-sm text-primary underline mb-4 shrink-0 text-left">
+            ← Basic으로 돌아가기
+          </button>
+        )}
         <p className="text-sm text-muted-foreground mb-4 shrink-0">
-          데이터가 많을수록 IM 품질과 정확도가 월등히 높아집니다.
+          {stage === 'basic' 
+            ? '필수 항목만 입력하여 3초 만에 모바일용 투자설명서를 완성하세요.' 
+            : '데이터가 많을수록 IM 품질과 정확도가 월등히 높아집니다.'}
         </p>
 
         {/* Scrollable Form Area */}
         <div className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-6 mb-6 pb-10">
-          <div>
-            <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
-              🏠 정확한 건물 주소
-            </label>
+          {stage === 'pro' && (
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+                  🏠 정확한 건물 주소
+                </label>
           <div ref={dropdownAnchorRef} className="relative">
             <div className="flex gap-2">
               <input
@@ -550,13 +568,16 @@ export function ImDataBottomSheet({
               <span className="text-[10px] text-blue-400 ml-1">📋 딜카드에서 자동 입력</span>
             )}
           </div>
+          </>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             {/* Total Deposit */}
-            <div>
-              <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
-                🔒 보증금 총액
-              </label>
+            {stage === 'pro' && (
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+                  🔒 보증금 총액
+                </label>
               <div className="relative">
                 <input
                   ref={totalDepositRef}
@@ -575,8 +596,10 @@ export function ImDataBottomSheet({
                 <span className="text-[10px] text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
               )}
             </div>
+            )}
 
             {/* Mgmt Fee */}
+            {stage === 'pro' && (
             <div>
               <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
                 🧹 관리비 총액
@@ -596,9 +619,10 @@ export function ImDataBottomSheet({
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
               </div>
             </div>
+            )}
 
             {/* Asking Price */}
-            <div>
+            <div className={stage === 'basic' ? 'col-span-2' : ''}>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="block text-xs font-semibold text-muted-foreground">
                   💰 매각 희망가
@@ -655,6 +679,7 @@ export function ImDataBottomSheet({
             </div>
 
             {/* Loan Amount */}
+            {stage === 'pro' && (
             <div className="col-span-2">
               <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
                 🏦 대출 현황
@@ -703,8 +728,10 @@ export function ImDataBottomSheet({
                 <span className="text-[10px] text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
               )}
             </div>
+            )}
 
             {/* 부가수입 섹션 */}
+            {stage === 'pro' && (
             <div className="col-span-2 mt-2 border-t border-border/40 pt-4">
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-xs font-semibold text-muted-foreground">📡 비임대 부가수입</label>
@@ -761,9 +788,11 @@ export function ImDataBottomSheet({
                 + 부가수입 추가
               </button>
             </div>
+            )}
           </div>
 
           {/* Vacancy */}
+          {stage === 'pro' && (
           <div>
             <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
               📊 현재 공실률
@@ -807,8 +836,10 @@ export function ImDataBottomSheet({
               <p className="text-xs text-amber-500 mt-1.5">⚠️ 공실률 {vacancyPct}% 반영</p>
             )}
           </div>
+          )}
 
           {/* Photos */}
+          {stage === 'pro' && (
           <div>
             <label className="block text-xs font-semibold text-muted-foreground mb-1.5 flex justify-between items-center">
               <span>📸 건물 대표 사진 (최대 12장)</span>
@@ -907,9 +938,10 @@ export function ImDataBottomSheet({
               }}
             />
           </div>
+          )}
 
           {/* Logistics Fields */}
-          {(assetType?.includes("물류") || assetType?.toLowerCase().includes("logistics")) && (
+          {stage === 'pro' && (assetType?.includes("물류") || assetType?.toLowerCase().includes("logistics")) && (
             <div className="border border-border/80 rounded-xl p-4 bg-secondary/20 space-y-4">
               <div className="flex justify-between items-center border-b border-border/60 pb-2">
                 <span className="text-xs font-bold text-foreground">🏗️ 물류센터 상세 스펙</span>
@@ -1167,8 +1199,8 @@ export function ImDataBottomSheet({
                 ))}
               </div>
             )}
-            {currentDataGrade === 'D' && (
-              <p className="text-[10px] text-red-500 mt-1">⚠ 데이터 등급 D: IM 생성이 차단됩니다. 최소 Grade C 이상의 데이터를 입력해 주세요.</p>
+            {stage === 'pro' && currentDataGrade === 'D' && (
+              <p className="text-[10px] text-red-500 mt-1">⚠ 데이터 등급 D: Pro IM 생성이 차단됩니다. 최소 Grade C 이상의 데이터를 입력해 주세요.</p>
             )}
           </div>
 
@@ -1182,23 +1214,33 @@ export function ImDataBottomSheet({
               ✅ {progress}
             </button>
           ) : (
-            <button
-              onClick={handleCreate}
-              disabled={state === "loading" || !canGenerate}
-              className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl py-3 text-sm font-bold shadow-md disabled:opacity-50 transition-all hover:opacity-90 active:scale-[0.98] flex items-center justify-center gap-2"
-            >
-              {state === "loading" ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  <span className="truncate">{progress}</span>
-                </>
-              ) : (
-                "📱 투자설명서 만들기"
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleCreate}
+                disabled={state === "loading" || !canGenerate}
+                className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl py-3 text-sm font-bold shadow-md disabled:opacity-50 transition-all hover:opacity-90 active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                {state === "loading" ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <span className="truncate">{progress}</span>
+                  </>
+                ) : (
+                  stage === 'basic' ? "⚡ Basic IM 만들기 (D등급 OK, 3초 생성)" : "🏆 Pro IM 생성"
+                )}
+              </button>
+              {stage === 'basic' && (
+                <button 
+                  onClick={() => setStage('pro')}
+                  className="text-xs text-primary/80 hover:text-primary underline text-center w-full mt-1"
+                >
+                  🏆 Pro로 업그레이드하면 DCF·렌트롤·비교사례 포함
+                </button>
               )}
-            </button>
+            </div>
           )}
         </div>
       </div>

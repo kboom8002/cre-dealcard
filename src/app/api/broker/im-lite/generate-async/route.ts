@@ -29,12 +29,14 @@ export async function POST(req: NextRequest) {
   let supplemental: MobileIMSupplementalInput;
   let skipApproval = false;
   let directData: Record<string, unknown> | null = null;
+  let tier: 'basic' | 'pro' = 'basic';
 
   try {
     const body = await req.json();
     buildingId = body.building_id;
     skipApproval = body.skip_approval === true;
     directData = body.direct_data ?? null;
+    tier = body.tier || 'basic';
     supplemental = {
       monthly_rent_total_krw: body.monthly_rent_total_krw,
       vacancy_status: body.vacancy_status,
@@ -74,7 +76,7 @@ export async function POST(req: NextRequest) {
     building_id: buildingId,
     user_id: user.id,
     status: "processing",
-    input_payload: { supplemental, skipApproval, directData },
+    input_payload: { supplemental, skipApproval, directData, tier },
     created_at: new Date().toISOString(),
   });
 
@@ -89,6 +91,7 @@ export async function POST(req: NextRequest) {
       supplemental,
       skipApproval,
       directData,
+      tier,
     });
 
     if (result.ok) {

@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
   let skipApproval = false;
   let directData: Record<string, unknown> | null = null;
   let identity: { assetType?: string; investmentPosture?: string; buildingUse?: string } | undefined;
+  let tier: 'basic' | 'pro' = 'basic';
 
   try {
     const body = await req.json();
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
     skipApproval = body.skip_approval === true;
     directData = body.direct_data ?? null;
     identity = body.identity;
+    tier = body.tier || 'basic';
     supplemental = {
       monthly_rent_total_krw: body.monthly_rent_total_krw,
       vacancy_status: body.vacancy_status,
@@ -61,6 +63,7 @@ export async function POST(req: NextRequest) {
     skipApproval,
     directData,
     identity,
+    tier,
   });
 
   if (!result.ok) {

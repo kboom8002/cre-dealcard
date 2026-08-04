@@ -54,3 +54,36 @@ export function computeDataQualityBadge(params: {
   // D등급: 데이터 보충 필요
   return { tier: 'draft', label: 'D등급 — 데이터 보충 필요', emoji: '🔴', score, missingItems };
 }
+
+// ── Basic/Pro tier 게이트 ──
+
+export type ImTier = 'basic' | 'pro';
+export type DataGrade = 'A' | 'B' | 'C' | 'D';
+
+/** 해당 등급에서 사용 가능한 최소 tier */
+export function minimumTierForGrade(grade: DataGrade): ImTier {
+  // 모든 등급에서 Basic 가능 (D등급 포함)
+  return 'basic';
+}
+
+/** Pro IM 생성 가능 여부 (B등급 이상) */
+export function isProEligible(grade: DataGrade): boolean {
+  return grade === 'A' || grade === 'B';
+}
+
+/** 등급에 따른 Basic IM 최소 필수 데이터 확인 */
+export function hasMinimumBasicData(params: {
+  hasAskingPrice?: boolean;
+}): boolean {
+  return !!params.hasAskingPrice;
+}
+
+/** DataQualityTier → DataGrade 변환 */
+export function tierToGrade(tier: DataQualityTier): DataGrade {
+  switch (tier) {
+    case 'verified': return 'A';
+    case 'partial': return 'B';
+    case 'reference': return 'C';
+    case 'draft': return 'D';
+  }
+}

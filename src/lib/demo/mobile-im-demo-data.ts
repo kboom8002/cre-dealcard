@@ -67,6 +67,7 @@ export interface MobileIMBroker {
 }
 
 export interface MobileIMDocument {
+  tier?: 'basic' | 'pro';
   buildingId: string;
   /** 한국어 블라인드 명칭 (주소 비공개) */
   blindName: string;

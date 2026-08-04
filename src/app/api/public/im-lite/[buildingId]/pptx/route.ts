@@ -18,7 +18,7 @@ export async function GET(
   const searchParams = req.nextUrl.searchParams;
   const docId = searchParams.get('doc_id');
   const tier = (searchParams.get('tier') ?? 'basic') as 'basic' | 'pro';
-  const preset = searchParams.get('preset') || undefined;
+  const preset = searchParams.get('preset') || 'credeal_signature';
 
   // Create Supabase client
   const supabase = createClient(

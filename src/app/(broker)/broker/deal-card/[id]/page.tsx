@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
-import { readWithMigration } from '@/lib/ssot-adapter';
+import { readWithMigration, buildAttrsFromSsotLite, buildProvenanceFromSsotLite } from '@/lib/ssot-adapter';
+import { computeDataGrade } from '@/domain/asset/grade-engine';
 import { BlindTeaserOutputSchema } from "@/ai/schemas/broker-deal-card";
 import Link from "next/link";
 import Image from "next/image";
@@ -12,6 +13,7 @@ import { DealCardPipelineContainer } from "./DealCardPipelineContainer";
 import { IdealBuyerPersonaSection } from "./ideal-buyer-persona-section";
 import { KakaoShareButton } from "./kakao-share-button";
 import { CreateMobileImButton } from "./create-mobile-im-button";
+import { ImManagementPanel } from "./im-management-panel";
 import { DealCardEditor } from "./DealCardEditor";
 import { ScheduleSection } from "./ScheduleSection";
 import { DealCardActionsMenu } from "./DealCardActionsMenu";
@@ -154,6 +156,19 @@ export default async function BrokerDealCardResultPage({
     lease_contract_raw_text: "임대차 원문",
   };
 
+  const gradeAttrs = buildAttrsFromSsotLite({
+    ...building,
+    lease_summary: {},
+    layers: building.layers,
+  });
+  const gradeProvenance = buildProvenanceFromSsotLite({
+    ...building,
+    lease_summary: {},
+  });
+  const gradeResult = computeDataGrade(gradeAttrs, gradeProvenance);
+  const currentGrade = gradeResult.grade as 'A' | 'B' | 'C' | 'D';
+  const currentScore = gradeResult.scorePct;
+
   return (
     <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-60">
       <div className="w-full max-w-md mx-auto space-y-6">
@@ -285,6 +300,13 @@ export default async function BrokerDealCardResultPage({
           initialCuriosityHook={teaser?.curiosityHook || ""}
         />
 
+        {/* IM Management Panel */}
+        <ImManagementPanel
+          buildingId={id}
+          currentGrade={currentGrade}
+          currentScore={currentScore}
+        />
+
         {/* Boundary Note */}
         <div className="rounded-xl bg-muted/60 dark:bg-muted/40 border border-border px-4 py-3">
           <p className="text-xs text-muted-foreground leading-relaxed">
@@ -347,6 +369,7 @@ export default async function BrokerDealCardResultPage({
             cautionSummary={building.caution_summary ?? undefined}
             existingPhotoUrls={photoUrls}
             initialAddress={extractedAddress}
+            currentGrade={currentGrade}
           />
           {/* 3순위: 매수자 보기 / 건물주 리포트 */}
           <div className="grid grid-cols-2 gap-2">

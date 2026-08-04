@@ -29,8 +29,15 @@ export interface DeckSequenceInput {
 }
 
 export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
+  // D등급: Pro는 빈 시퀀스(차단), Basic은 최소 3슬라이드
   if (input.grade === 'D') {
-    return [];
+    if (input.tier === 'pro') return [];
+    // Basic 최소 덱: 표지 + 핵심요약 + 면책
+    return [
+      { archetype: 'A01', kicker: 'BASIC IM', title: '표지', dataKey: 'cover' },
+      { archetype: 'A02', kicker: 'Summary', title: '핵심요약', dataKey: 'summary' },
+      { archetype: 'A13', kicker: 'Disclaimer', title: '면책', dataKey: 'closing' },
+    ];
   }
 
   const sequence: SlideSpec[] = [];

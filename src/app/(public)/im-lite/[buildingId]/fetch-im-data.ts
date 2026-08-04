@@ -408,6 +408,7 @@ export async function fetchIMData(
           leveragedYieldPct: document.body.financials.leveragedYield ?? null,
           waccPct: document.body.financials.wacc ? parseFloat((document.body.financials.wacc * 100).toFixed(1)) : null,
         } : undefined,
+        tier: document.body.tier || 'basic',
       };
     }
 

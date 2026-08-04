@@ -28,6 +28,7 @@ export interface GenerateMobileIMInput {
     assetType?: string;
     investmentPosture?: string;
   };
+  tier?: 'basic' | 'pro';
 }
 
 export interface GenerateMobileIMResult {
@@ -53,7 +54,7 @@ export interface GenerateMobileIMResult {
 export async function generateMobileIMHandler(
   input: GenerateMobileIMInput
 ): Promise<GenerateMobileIMResult> {
-  const { buildingId, userId, supplemental, skipApproval = false, directData = null, identity } = input;
+  const { buildingId, userId, supplemental, skipApproval = false, directData = null, identity, tier = 'basic' } = input;
   const supabase = createServiceClient();
 
   if (identity?.assetType && identity?.investmentPosture) {
@@ -129,14 +130,26 @@ export async function generateMobileIMHandler(
     console.log('[im-handler] Overriding grade with directData.qualityGrade:', gradeResult.grade);
   }
 
-  // Grade D: Block IM generation entirely
-  if (gradeResult.grade === 'D') {
-    console.log('[im-handler] Blocked by Grade D:', JSON.stringify({gradeAttrs, missing: gradeResult.missingRequiredSlots}));
-    return {
-      ok: false,
-      error: '데이터 등급 D: IM 생성이 차단됩니다. 최소 Grade C 이상의 데이터를 입력해 주세요.',
-      statusCode: 422,
-    };
+  // ─── Tier-based Gating ───
+  if (tier === 'pro') {
+    if (gradeResult.grade === 'C' || gradeResult.grade === 'D' || (gradeResult.scorePct !== undefined && gradeResult.scorePct < 60)) {
+      console.log('[im-handler] Blocked by Pro Tier requirements:', JSON.stringify({grade: gradeResult.grade, scorePct: gradeResult.scorePct}));
+      return {
+        ok: false,
+        error: 'Pro IM은 B등급(완성도 60%) 이상의 데이터가 필요합니다.',
+        statusCode: 422,
+      };
+    }
+  } else {
+    // Basic tier
+    if (!supplemental.asking_price_manwon) {
+      return {
+        ok: false,
+        error: 'Basic IM은 매각 희망가 입력이 필수입니다.',
+        statusCode: 422,
+      };
+    }
+    // Basic allows D-grade, no threshold block
   }
 
   // Grade B: Strictly block DCF/NPV/Sensitivity (prevents over-precision)
@@ -266,6 +279,7 @@ export async function generateMobileIMHandler(
     title,
     body: {
       im_type: "mobile_im_lite",
+      tier,
       sections: writerResult.sections,
       boundary_note: writerResult.boundary_note,
       generated_at: writerResult.generated_at,

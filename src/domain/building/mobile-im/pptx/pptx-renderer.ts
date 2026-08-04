@@ -222,9 +222,9 @@ export class MobileImPptxRenderer {
   async render(input: MobileImPptxInput): Promise<MobileImPptxOutput> {
     const warnings: string[] = [];
 
-    // D등급: 발행 차단
-    if (input.grade === 'D') {
-      throw new Error('D등급(40점 미만) 자료는 PPTX 발행이 차단됩니다.');
+    // D등급: Pro만 차단, Basic은 허용
+    if (input.grade === 'D' && input.tier === 'pro') {
+      throw new Error('Pro IM은 B등급 이상 데이터가 필요합니다. 데이터를 보강해주세요.');
     }
 
     const pres = new PptxGenJS();
