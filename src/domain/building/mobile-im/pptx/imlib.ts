@@ -101,10 +101,12 @@ export const PV: Record<ProvenanceKind, [string, string, string]> = {
 
 type Slide = ReturnType<PptxGenJS['addSlide']>;
 
-/** 밝은 슬라이드 생성 */
+/** 밝은 슬라이드 생성 — 미묘한 틴트 배경 + 상단 brass 스트라이프 */
 export function light(pres: PptxGenJS): Slide {
   const s = pres.addSlide();
-  s.background = { fill: C.bg };
+  s.background = { fill: C.tint };  // F5F7F9 — 순백 대신 미묘한 웜그레이
+  // 상단 brass 스트라이프 (3px)
+  s.addShape('rect' as any, { x: 0, y: 0, w: W, h: 0.04, fill: { color: C.brass } });
   return s;
 }
 
@@ -161,6 +163,12 @@ export function head(
       fontFace: KR, margin: 0,
     });
   }
+
+  // 제목 아래 brass 구분선
+  s.addShape('line' as any, {
+    x: M, y: 1.42, w: CW, h: 0,
+    line: { color: C.brassL, width: 0.8 },
+  });
 }
 
 /** §5 어두운 슬라이드 제목 블록 */
@@ -375,9 +383,18 @@ export function rows(
     const ry = y + i * rh;
     const [label, value, badge, valCol] = row;
 
+    // 교대 행 배경 (zebra)
+    const rowBg = opt.onDark
+      ? (i % 2 === 0 ? C.ink2 : CD.block)
+      : (i % 2 === 0 ? C.bg : C.tint);
+    s.addShape('rect' as any, {
+      x, y: ry, w, h: rh,
+      fill: { color: rowBg },
+    });
+
     // 라벨
     s.addText(label, {
-      x, y: ry, w: w * 0.45, h: rh,
+      x: x + 0.12, y: ry, w: w * 0.42, h: rh,
       fontSize: fs, color: labColor, fontFace: KR,
       valign: 'middle', margin: 0,
     });
@@ -405,13 +422,11 @@ export function rows(
       });
     }
 
-    // 구분선
-    if (i < list.length - 1) {
-      s.addShape('line' as any, {
-        x, y: ry + rh, w, h: 0,
-        line: { color: opt.onDark ? CD.border : C.line, width: 0.3 },
-      });
-    }
+    // 하단 구분선
+    s.addShape('line' as any, {
+      x, y: ry + rh, w, h: 0,
+      line: { color: opt.onDark ? CD.border : C.line, width: 0.3 },
+    });
   });
 
   return y + list.length * rh;
