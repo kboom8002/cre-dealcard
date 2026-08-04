@@ -335,7 +335,8 @@ export class MobileImPptxRenderer {
           data: {
             ...(dataMap[spec.dataKey] ?? {}),
             kicker: spec.kicker,
-            title: spec.title,
+            // cover/closing은 dataMap에 실제 제목(건물명, 마감 제목)이 있으므로 우선 사용
+            title: (dataMap[spec.dataKey] as any)?.title || spec.title,
           },
           grade: (input.grade ?? 'B') as 'A' | 'B' | 'C',
           provenance: input.provenance ?? {},

@@ -36,7 +36,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   const sequence: SlideSpec[] = [];
 
   // ── 1. 공통 골격 ──
-  sequence.push({ archetype: 'A01', kicker: 'Intro', title: '표지', dataKey: 'cover' });
+  sequence.push({ archetype: 'A01', kicker: 'INVESTMENT MEMORANDUM', title: '표지', dataKey: 'cover' });
   sequence.push({ archetype: 'A02', kicker: 'Summary', title: '핵심요약', dataKey: 'summary' });
   sequence.push({ archetype: 'A06', kicker: 'Location', title: '입지', dataKey: 'location' });
   sequence.push({ archetype: 'A04', kicker: 'Land', title: '토지', dataKey: 'land' });
