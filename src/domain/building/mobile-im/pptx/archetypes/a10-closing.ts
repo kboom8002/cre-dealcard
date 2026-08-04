@@ -1,6 +1,6 @@
 import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
-import { C, M, CW, W, H, col, colX, KR, NUM, CD } from '../imlib';
+import { C, M, CW, KR, NUM, CD } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 
 export interface ArchetypeInput {
@@ -18,32 +18,83 @@ export interface ArchetypeOutput {
   warnings: string[];
 }
 
+/**
+ * A10 — 마감 · 표기 기준 (dark)
+ * §7 A10 스펙 정확 구현
+ */
 export function buildA10Closing(input: ArchetypeInput): ArchetypeOutput {
-  const slide = input.pres.addSlide({ masterName: 'A10' });
+  const slide = L.dark(input.pres);
   const warnings: string[] = [];
-  L.headD(slide, input.slideNum, input.data.kicker || 'SECTION', input.data.title || '제목');
+  L.headD(slide, input.slideNum, input.data.kicker || 'DISCLAIMER', input.data.title || '표기 기준 및 면책');
   
-  slide.addText(input.data.sub || '', { x: M, y: 1.66, w: 6.0, h: 0.3, fontFace: KR, fontSize: 14, color: 'FFFFFF' });
+  // ── 좌측: provenance 배지 리스트 ──
+  L.sub(slide, M, 1.66, 6.0, '데이터 출처 표기', true);
   
   const badges = input.data.badges || [];
   badges.forEach((b: any, i: number) => {
     const by = 2.02 + i * 0.62;
-    slide.addShape('roundRect' as any, { x: M, y: by, w: 1.55, h: 0.32, fill: { color: '232F3C' } });
-    slide.addText(b.label || '', { x: M, y: by, w: 1.55, h: 0.32, align: 'center', fontFace: KR, fontSize: 10, color: 'FFFFFF' });
-    slide.addText(b.description || '', { x: M+1.72, y: by-0.06, w: 3.90, h: 0.44, fontFace: KR, fontSize: 10, color: 'CCCCCC' });
-    slide.addText(b.score || '', { x: M+5.66, y: by, w: 1.0, h: 0.32, align: 'right', fontFace: NUM, fontSize: 12, color: 'FFFFFF' });
+    
+    // 배지 라운드 사각형
+    slide.addShape('roundRect' as any, {
+      x: M, y: by, w: 1.55, h: 0.32,
+      rectRadius: 0.04,
+      fill: { color: CD.block },
+    });
+    slide.addText(b.label || '', {
+      x: M, y: by, w: 1.55, h: 0.32,
+      align: 'center', valign: 'middle',
+      fontFace: KR, fontSize: 9.5, bold: true, color: 'FFFFFF', margin: 0,
+    });
+    
+    // 설명
+    slide.addText(b.description || '', {
+      x: M + 1.72, y: by - 0.06, w: 3.90, h: 0.44,
+      fontFace: KR, fontSize: 10, color: CD.body, margin: 0,
+      valign: 'middle',
+    });
+    
+    // 점수
+    if (b.score) {
+      slide.addText(b.score, {
+        x: M + 5.66, y: by, w: 1.0, h: 0.32,
+        align: 'right', valign: 'middle',
+        fontFace: NUM, fontSize: 12, bold: true, color: 'FFFFFF', margin: 0,
+      });
+    }
   });
   
+  // ── 우측: 면책 박스 ──
   const rx = 7.10;
   const rw = 5.61;
-  slide.addShape('rect' as any, { x: rx, y: 2.02, w: rw, h: 2.86, fill: { color: '333333' } });
+  
+  L.sub(slide, rx, 1.66, rw, '면책 조항', true);
+  
+  // 면책 배경 카드
+  slide.addShape('roundRect' as any, {
+    x: rx, y: 2.02, w: rw, h: 2.86,
+    rectRadius: 0.04,
+    fill: { color: C.ink2 },
+  });
+  
   if (input.data.disclaimer) {
-    slide.addText(input.data.disclaimer, { x: rx+0.2, y: 2.22, w: rw-0.4, h: 2.4, fontFace: KR, fontSize: 9, color: 'AAAAAA' });
+    slide.addText(input.data.disclaimer, {
+      x: rx + 0.24, y: 2.20, w: rw - 0.48, h: 2.50,
+      fontFace: KR, fontSize: 9.3, color: CD.mute,
+      lineSpacingMultiple: 1.28, margin: 0, valign: 'top',
+    });
   }
   
-  slide.addShape('rect' as any, { x: M, y: 5.72, w: CW, h: 0.70, fill: { color: '2A1F12' } });
+  // ── 하단 푸터 바 ──
+  slide.addShape('rect' as any, {
+    x: M, y: 5.72, w: CW, h: 0.70,
+    fill: { color: CD.accentBg },
+  });
   if (input.data.footerText) {
-    slide.addText(input.data.footerText, { x: M+0.2, y: 5.82, w: CW-0.4, h: 0.5, fontFace: KR, fontSize: 10, color: 'FFFFFF' });
+    slide.addText(input.data.footerText, {
+      x: M + 0.24, y: 5.82, w: CW - 0.48, h: 0.50,
+      fontFace: KR, fontSize: 10, color: CD.accentText, margin: 0,
+      valign: 'middle',
+    });
   }
   
   if (input.watermarkText) L.watermark(slide, input.watermarkText, true);

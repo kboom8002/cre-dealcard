@@ -29,7 +29,7 @@ function addFallbackContent(slide: any, data: any, _theme: any) {
   const shapes = slide._slideObjects || slide._shapes || [];
   const hasBodyShapes = shapes.some((s: any) => {
     const y = s?.options?.y ?? s?.y ?? 0;
-    return y >= 1.5;
+    return y >= 2.0;
   });
 
   if (hasBodyShapes || !data.content) return;
