@@ -29,6 +29,10 @@ export interface TeaserView {
   bandedFarHeadroom?: string | null;
   reidentResult?: { candidateCount: number; kThreshold: number; passed: boolean; riskLevel: string; suggestion?: string } | null;
   roadContactLabel?: string;
+  posture: string;
+  postureLabel: string;
+  postureHeroTiles: Array<{ emoji: string; label: string; value: string }>;
+  sliderAxis2?: { label: string; min: number; max: number; step: number; unit: string };
 }
 
 export interface TeaserConfig {
@@ -50,6 +54,7 @@ export function projectToTeaser(
   const capRate = Number(attrs.capRatePct || 0);
   const buildYear = Number(attrs.buildYear || 0);
   const currentYear = new Date().getFullYear();
+  const posture = String(attrs.investmentPosture || 'income');
 
   // Extract region (구/동 level only, never exact address)
   const address = String(attrs.address || '');
@@ -69,12 +74,6 @@ export function projectToTeaser(
   if (attrs.floorsAboveGround) signals.push(`지상 ${attrs.floorsAboveGround}층`);
   if (attrs.roadContactType) signals.push(`${attrs.roadContactType}`);
   if (attrs.parkingCapacity) signals.push(`주차 ${attrs.parkingCapacity}대`);
-
-  // Curiosity slot (the locked info that drives CTA)
-  const curiosityKey = config?.curiositySlotKey || 'exactCapRate';
-  const curiositySlot = `🔒 ${curiosityKey === 'exactCapRate' ? '정확한 수익률' : '상세 정보'}을 확인하려면 관심 등록하세요`;
-
-  const hookCopy = config?.hookCopyOverride || generateHookCopy(archetype, region, assetType);
 
   const archetypeResult = classifyDealArchetype(attrs);
   const dataQuality = computeDataQualityBadge({
@@ -103,12 +102,55 @@ export function projectToTeaser(
   let vacancyLabel = `공실 ${vacancyPct}%`;
   if (evictionStatus) vacancyLabel += ` (${evictionStatus})`;
 
+  const bandedPrice = bandPrice(price);
+  const bandedCapRate = bandCapRate(capRate);
+  const bandedArea = bandArea(area);
+
+  let postureLabel = '임대수익형';
+  let slot2 = { emoji: '📊', label: '예상 수익률', value: bandedCapRate };
+  let slot4 = { emoji: '🏠', label: '명도/공실', value: vacancyLabel || '정보 없음' };
+  let curiositySlot = "🔒 임대료 상승 여력을 확인하세요";
+  let sliderAxis2 = { label: '대출활용 LTV', min: 0, max: 80, step: 5, unit: '%' };
+
+  if (posture === 'development') {
+    postureLabel = '개발형';
+    slot2 = { emoji: '🏗️', label: '용적률 여유', value: bandedFarHeadroom || '확인 필요' };
+    slot4 = { emoji: '🏚️', label: '현재 용도', value: attrs.currentUseSignal ? String(attrs.currentUseSignal) : '나대지' };
+    curiositySlot = attrs.farHeadroomPp ? `🔒 지금보다 ${attrs.farHeadroomPp}%p 더 지을 수 있는 여유` : "🔒 추가 용적률을 확인하세요";
+    sliderAxis2 = { label: '목표 용적률', min: 200, max: 800, step: 50, unit: '%' };
+  } else if (posture === 'owner_occupied') {
+    postureLabel = '자가사용형';
+    slot2 = { emoji: '🏢', label: '가용 면적', value: bandedArea };
+    slot4 = { emoji: '🔑', label: '입주 여부', value: evictionStatus || '입주 가능' };
+    curiositySlot = "🔒 지금 내시는 임차료로 이 건물을 살 수 있는지 계산해 보십시오";
+    sliderAxis2 = { label: '필요 면적', min: 50, max: 500, step: 10, unit: '평' };
+  } else if (posture === 'operating') {
+    postureLabel = '운영형';
+    const rc = Number(attrs.roomCount) || 0;
+    const ppr = rc > 0 ? (price / 100000000 / rc).toFixed(1) + '억' : '확인 필요';
+    slot2 = { emoji: '🛏️', label: '객실 단가', value: rc > 0 ? `${rc}실 (당 ${ppr})` : '확인 필요' };
+    slot4 = { emoji: '🧑‍💼', label: '운영 방식', value: attrs.operationType ? String(attrs.operationType) : '직영' };
+    curiositySlot = attrs.pricePerRoomEok ? `🔒 객실당 ${attrs.pricePerRoomEok}억대입니다` : "🔒 객실당 단가를 확인하세요";
+  } else if (posture === 'trading') {
+    postureLabel = '단기매매형';
+    slot2 = { emoji: '📈', label: '평당가 (vs 평균)', value: attrs.pricePerPyung ? String(attrs.pricePerPyung) : '확인 필요' };
+    slot4 = { emoji: '🔄', label: '거래 동향', value: '거래 활발' };
+    curiositySlot = attrs.priceVsAvgPct ? `🔒 권역 평균 대비 ${attrs.priceVsAvgPct}% 수준입니다` : "🔒 권역 평균 대비 가격 경쟁력을 확인하세요";
+  } else {
+    // income
+    if (attrs.rentGapPct) {
+      curiositySlot = `🔒 임대료가 주변보다 ${attrs.rentGapPct}% 낮게 묶여 있습니다`;
+    }
+  }
+
+  const hookCopy = config?.hookCopyOverride || generateHookCopy(archetype, region, assetType);
+
   return {
     region,
     assetType,
-    bandedPrice: bandPrice(price),
-    bandedCapRate: bandCapRate(capRate),
-    bandedArea: bandArea(area),
+    bandedPrice,
+    bandedCapRate,
+    bandedArea,
     buildingAge,
     archetype,
     hookCopy,
@@ -122,6 +164,15 @@ export function projectToTeaser(
     bandedBuildingEra,
     bandedFarHeadroom,
     roadContactLabel,
+    posture,
+    postureLabel,
+    postureHeroTiles: [
+      { emoji: '💰', label: '매각가', value: bandedPrice },
+      slot2,
+      { emoji: '📐', label: '규모', value: bandedArea },
+      slot4
+    ],
+    sliderAxis2
   };
 }
 
@@ -135,3 +186,4 @@ function generateHookCopy(archetype: string, region: string, assetType: string):
   };
   return hooks[archetype] || `${region} ${assetType} 매물`;
 }
+

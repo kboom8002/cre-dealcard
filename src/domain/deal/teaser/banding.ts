@@ -82,3 +82,21 @@ export function bandRoadContact(roadContactType: string): string {
   if (type.includes('DEAD_END')) return '막다른 도로';
   return '도로접면 확인 필요';
 }
+
+export interface Band {
+  label: string;
+  lo: number;
+  hi: number;
+}
+
+export function assertBandContains(band: Band, actual: number): void {
+  if (actual < band.lo || actual > band.hi) {
+    throw new Error(`밴드 위반 — ${band.label}에 실제값 ${actual} 없음 (범위: ${band.lo}~${band.hi})`);
+  }
+}
+
+export function parseBandRange(bandString: string): Band | null {
+  const match = bandString.match(/(\d+)~(\d+)/);
+  if (!match) return null;
+  return { label: bandString, lo: Number(match[1]), hi: Number(match[2]) };
+}

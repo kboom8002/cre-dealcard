@@ -7,23 +7,48 @@ interface BudgetSliderProps {
   defaultBudgetEok: number;
   maxBudgetEok: number;
   teaserConfigId: string;
+  posture?: string;
+  sliderAxis2Config?: { label: string; min: number; max: number; step: number; unit: string };
 }
 
-export function BudgetSlider({ defaultBudgetEok, maxBudgetEok, teaserConfigId }: BudgetSliderProps) {
+export function BudgetSlider({ defaultBudgetEok, maxBudgetEok, teaserConfigId, posture = 'income', sliderAxis2Config }: BudgetSliderProps) {
   const [budget, setBudget] = useState(defaultBudgetEok);
-  const [ltv, setLtv] = useState(30);
+  
+  const defaultAxis2 = sliderAxis2Config?.min ?? 30;
+  const [axis2, setAxis2] = useState(defaultAxis2);
+
+  const axis2Config = sliderAxis2Config || { label: '대출활용 LTV', min: 0, max: 80, step: 5, unit: '%' };
 
   // debouncing
   useEffect(() => {
     const handler = setTimeout(() => {
       const fp = typeof window !== 'undefined' ? localStorage.getItem('visitorFp') || 'anon' : 'anon';
-      trackTeaserCta(teaserConfigId, fp, 'slider_interact', { budget, ltv });
+      trackTeaserCta(teaserConfigId, fp, 'slider_interact', { budget, axis2 });
     }, 300);
     return () => clearTimeout(handler);
-  }, [budget, ltv, teaserConfigId]);
+  }, [budget, axis2, teaserConfigId]);
 
-  const equity = Math.round(budget * (1 - ltv / 100));
-  const estimatedCapRate = (3.5 + (ltv * 0.02)).toFixed(1);
+  let equityStr = '';
+  let estimatedValueStr = '';
+  let estimatedLabel = '참고 결과';
+
+  if (posture === 'development') {
+    equityStr = `${Math.round(budget * 0.5)}~${Math.round(budget * 0.7)}억 내외`;
+    estimatedLabel = '예상 연면적';
+    estimatedValueStr = `${Math.round((budget / 10) * (axis2 / 100))}평 내외`;
+  } else if (posture === 'owner_occupied') {
+    equityStr = `${Math.round(budget * 0.3)}~${Math.round(budget * 0.4)}억 내외`;
+    estimatedLabel = '총 예산 필요액';
+    estimatedValueStr = `${Math.round(axis2 * 1.5)}~${Math.round(axis2 * 2.5)}억 내외`;
+  } else {
+    // income, operating, trading
+    const ltv = axis2;
+    const equity = Math.round(budget * (1 - ltv / 100));
+    equityStr = `${Math.max(0, equity - 5)}~${equity + 5}억 내외`;
+    estimatedLabel = '참고 수익률';
+    const cap = (3.5 + (ltv * 0.02)).toFixed(1);
+    estimatedValueStr = `${(Number(cap) - 0.2).toFixed(1)}~${(Number(cap) + 0.2).toFixed(1)}%대`;
+  }
 
   return (
     <div className="bg-[#141A21] border border-[#252E39] rounded-2xl p-5 space-y-5">
@@ -35,7 +60,15 @@ export function BudgetSlider({ defaultBudgetEok, maxBudgetEok, teaserConfigId }:
         <div>
           <div className="flex justify-between text-xs mb-2">
             <span className="text-slate-400">예산 상한</span>
-            <span className="text-white font-medium">{budget}억</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={budget}
+                onChange={(e) => setBudget(Number(e.target.value))}
+                className="bg-transparent border border-[#252E39] rounded px-2 py-0.5 text-white w-16 text-right"
+              />
+              <span className="text-white font-medium">억</span>
+            </div>
           </div>
           <input
             type="range"
@@ -50,16 +83,24 @@ export function BudgetSlider({ defaultBudgetEok, maxBudgetEok, teaserConfigId }:
 
         <div>
           <div className="flex justify-between text-xs mb-2">
-            <span className="text-slate-400">대출 활용 (LTV)</span>
-            <span className="text-white font-medium">{ltv}%</span>
+            <span className="text-slate-400">{axis2Config.label}</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={axis2}
+                onChange={(e) => setAxis2(Number(e.target.value))}
+                className="bg-transparent border border-[#252E39] rounded px-2 py-0.5 text-white w-16 text-right"
+              />
+              <span className="text-white font-medium">{axis2Config.unit}</span>
+            </div>
           </div>
           <input
             type="range"
-            min="0"
-            max="60"
-            step="5"
-            value={ltv}
-            onChange={(e) => setLtv(Number(e.target.value))}
+            min={axis2Config.min}
+            max={axis2Config.max}
+            step={axis2Config.step}
+            value={axis2}
+            onChange={(e) => setAxis2(Number(e.target.value))}
             className="w-full accent-amber-500"
           />
         </div>
@@ -70,13 +111,13 @@ export function BudgetSlider({ defaultBudgetEok, maxBudgetEok, teaserConfigId }:
           <span className="text-[11px] text-slate-400 flex items-center gap-1">
             <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[9px]">⚙ 가정</span> 실투자금
           </span>
-          <span className="text-sm font-bold text-emerald-400">{equity}억 내외</span>
+          <span className="text-sm font-bold text-emerald-400">{equityStr}</span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-[11px] text-slate-400 flex items-center gap-1">
-            <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[9px]">⚙ 가정</span> 참고 수익률
+            <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[9px]">⚙ 가정</span> {estimatedLabel}
           </span>
-          <span className="text-sm font-bold text-white">{estimatedCapRate}%대</span>
+          <span className="text-sm font-bold text-white">{estimatedValueStr}</span>
         </div>
       </div>
 

@@ -10,48 +10,73 @@ interface CTALadderProps {
 }
 
 export function CTALadder({ buildingId, teaserConfigId, brokerPhone }: CTALadderProps) {
-  const [showInterestForm, setShowInterestForm] = useState(false);
-  const [contact, setContact] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [showQuestionForm, setShowQuestionForm] = useState(false);
+  const [question, setQuestion] = useState('');
+  const [isQuestionSubmitting, setIsQuestionSubmitting] = useState(false);
+  const [questionSubmitted, setQuestionSubmitted] = useState(false);
+
+  const [isInterestActive, setIsInterestActive] = useState(false);
+  
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsInterestActive(localStorage.getItem(`interest_${buildingId}`) === 'true');
+    }
+  }, [buildingId]);
 
   const fp = typeof window !== 'undefined' ? localStorage.getItem('visitorFp') || 'anon' : 'anon';
 
   const handleCall = () => {
-    trackTeaserCta(teaserConfigId, fp, 'cta_click', { action: 'call' });
-    if (brokerPhone) {
-      window.location.href = `tel:${brokerPhone}`;
-    } else {
-      alert("연락처 정보가 없습니다.");
-    }
+    trackTeaserCta(teaserConfigId, fp, 'cta_click', { action: 'question_open' });
+    setShowQuestionForm(!showQuestionForm);
   };
 
-  const handleInterest = () => {
-    trackTeaserCta(teaserConfigId, fp, 'cta_click', { action: 'interest_open' });
-    setShowInterestForm(!showInterestForm);
-  };
-
-  const submitInterest = async () => {
-    if (!contact) return;
-    setIsSubmitting(true);
+  const submitQuestion = async () => {
+    if (!question.trim()) return;
+    setIsQuestionSubmitting(true);
     try {
-      await fetch('/api/gate-requests', {
+      await fetch('/api/public/teaser/event', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          eventType: 'intent.question',
           buildingId,
-          requestedLevel: 'interest',
-          reason: JSON.stringify({ contact })
+          payload: { question }
         })
       });
-      trackTeaserCta(teaserConfigId, fp, 'gate_request', { level: 'interest' });
-      setSubmitted(true);
+      setQuestionSubmitted(true);
     } catch (e) {
       console.error(e);
     } finally {
-      setIsSubmitting(false);
+      setIsQuestionSubmitting(false);
     }
   };
+
+  const handleInterest = async () => {
+    const newState = !isInterestActive;
+    setIsInterestActive(newState);
+    if (newState) {
+      localStorage.setItem(`interest_${buildingId}`, 'true');
+    } else {
+      localStorage.removeItem(`interest_${buildingId}`);
+    }
+    
+    try {
+      await fetch('/api/public/teaser/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType: 'intent.watch',
+          buildingId,
+          payload: { active: newState }
+        })
+      });
+      trackTeaserCta(teaserConfigId, fp, 'cta_click', { action: newState ? 'interest_add' : 'interest_remove' });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+
 
   const handleFullRequest = () => {
     trackTeaserCta(teaserConfigId, fp, 'cta_click', { action: 'full_request' });
@@ -76,7 +101,7 @@ export function CTALadder({ buildingId, teaserConfigId, brokerPhone }: CTALadder
           onClick={handleInterest}
           className="bg-slate-800 hover:bg-slate-700 text-white text-[11px] font-medium py-3 rounded-xl transition-colors"
         >
-          ⭐ 관심 등록
+          {isInterestActive ? '★ 관심 등록' : '⭐ 관심 등록'}
         </button>
         <button 
           onClick={handleFullRequest}
@@ -86,28 +111,28 @@ export function CTALadder({ buildingId, teaserConfigId, brokerPhone }: CTALadder
         </button>
       </div>
 
-      {showInterestForm && !submitted && (
+      {showQuestionForm && !questionSubmitted && (
         <div className="bg-[#141A21] border border-[#252E39] p-3 rounded-xl flex gap-2">
           <input
             type="text"
-            placeholder="연락처를 남겨주세요"
+            placeholder="궁금한 점을 남겨주세요 (익명)"
             className="flex-1 bg-[#0b0f19] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
-            value={contact}
-            onChange={(e) => setContact(e.target.value)}
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
           />
           <button 
-            onClick={submitInterest}
-            disabled={isSubmitting}
+            onClick={submitQuestion}
+            disabled={isQuestionSubmitting}
             className="bg-slate-700 hover:bg-slate-600 text-white text-xs px-4 rounded-lg font-medium"
           >
-            등록
+            질문
           </button>
         </div>
       )}
 
-      {submitted && (
+      {questionSubmitted && (
         <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs text-center p-3 rounded-xl">
-          관심 등록이 완료되었습니다.
+          질문이 전달되었습니다.
         </div>
       )}
     </div>

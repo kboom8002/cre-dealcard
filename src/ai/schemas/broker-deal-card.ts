@@ -79,6 +79,9 @@ export const BlindTeaserOutputSchema = z.object({
   vacancyLabel: z.string().optional(),          // 공실+명도 결합 라벨 (예: "만실 · 명도 불요")
   structureChips: z.array(z.string()).max(4).optional(), // 구조 신호 칩 (도로접면, 용적률 여유, 준공연대 등)
   curiosityHook: z.string().optional(),         // 궁금증 갭 문구
+  investmentPosture: z.enum(['income', 'owner_occupied', 'development', 'operating', 'trading'])
+    .describe('투자 관점. 브로커 메모의 매물 특성에서 자동 분류. income=임대수익형, owner_occupied=자가사용형(사옥), development=개발형, operating=운영형(호텔/물류 자가운영), trading=단기매매형')
+    .optional(),
   kakaoOgTitle: z.string().optional(),          // 카카오 OG 카드 제목
   kakaoOgDescription: z.string().optional(),    // 카카오 OG 카드 설명
 });

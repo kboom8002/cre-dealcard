@@ -35,6 +35,9 @@ export const BuildingMiniTruthOutputSchema = z.object({
   fitSummary: z.string().default(""),
   cautionSummary: z.string().default(""),
   hiddenFields: z.array(HiddenFieldEnum).default([]),
+  investmentPosture: z.enum(['income', 'owner_occupied', 'development', 'operating', 'trading'])
+    .describe('투자 관점. 브로커 메모의 매물 특성에서 자동 분류. income=임대수익형, owner_occupied=자가사용형(사옥), development=개발형, operating=운영형(호텔/물류 자가운영), trading=단기매매형')
+    .optional(),
   confidence: z.object({
     areaSignal: ConfidenceLevelEnum.default("ai_hypothesis"),
     assetType: ConfidenceLevelEnum.default("ai_hypothesis"),

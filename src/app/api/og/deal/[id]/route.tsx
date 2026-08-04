@@ -24,20 +24,6 @@ const REGION_LABELS: Record<string, string> = {
   hongdae: "홍대",
 };
 
-/** Data quality tier → display info */
-function qualityBadge(tier?: string): { label: string; bg: string; fg: string } {
-  switch (tier) {
-    case "verified":
-      return { label: "✅ 검증 완료", bg: "rgba(16, 185, 129, 0.25)", fg: "#6ee7b7" };
-    case "partial":
-      return { label: "🔶 부분 검증", bg: "rgba(245, 158, 11, 0.25)", fg: "#fbbf24" };
-    case "reference":
-      return { label: "📋 참고용", bg: "rgba(59, 130, 246, 0.25)", fg: "#93c5fd" };
-    default:
-      return { label: "📝 초안", bg: "rgba(163, 163, 163, 0.2)", fg: "#a3a3a3" };
-  }
-}
-
 let fontBuffer: ArrayBuffer | null = null;
 
 async function getFontData() {
@@ -51,7 +37,7 @@ async function getFontData() {
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
   const { searchParams } = new URL(request.url);
@@ -116,28 +102,18 @@ export async function GET(
   const rawTitle = customOgTitle || teaser?.title || assetType || "상업용 부동산";
   const displayTitle = rawTitle
     .replace(/\s*투자설명서$/, '')
-    .replace(/\s*또는\s+[^\s]+\s*(계열로|계열)\s*(추정|)/g, '')  // "또는 다가구·상가주택 계열로 추정" 제거
+    .replace(/\s*또는\s+[^\s]+\s*(계열로|계열)\s*(추정|)/g, '')
     .replace(/(으로|로)\s*추정(되는|됨|)\s*/g, '')
     .trim();
 
   // Use teaser summary or a default
   const displaySubtitle = customOgDescription || teaser?.shortSummary || `${regionLabel} · ${priceBand || "가격 비공개"} · 투자 검토 가능`;
-
-  // Extract metrics from IM document (heroCard or ssot_summary)
-  const heroCard = imBody?.heroCard as Record<string, any> | undefined;
-  const ssotSummary = (imBody?.ssot_summary ?? {}) as Record<string, any>;
-  const capRate = heroCard?.capRateBase ?? null;
-  const readinessScore = imBody?.readiness_score ?? ssotSummary?.readiness_score ?? 0;
-
-  // Data quality badge
-  const dqTier = (imBody?.data_quality_badge?.tier ?? ssotSummary?.data_quality_tier ?? "draft") as string;
-  const badge = qualityBadge(dqTier);
-
+  
   // Metric pills for the bottom section
   const metricPills: { label: string; value: string }[] = [];
   if (assetType) metricPills.push({ label: "유형", value: assetType });
-  if (capRate !== null) metricPills.push({ label: "Cap Rate", value: `${capRate}%` });
-  if (heroCard?.noiBaseBil) metricPills.push({ label: "NOI", value: `${heroCard.noiBaseBil}억` });
+  
+  const hookCopy = teaser?.hookCopy;
 
   let fontData: ArrayBuffer | null = null;
   try {
@@ -180,9 +156,9 @@ export async function GET(
               display: "flex",
             }}
           >
-            📍 {regionLabel}
+            {`📍 ${regionLabel}`}
           </div>
-          {priceBand && (
+          {priceBand ? (
             <div
               style={{
                 background: "rgba(16, 185, 129, 0.2)",
@@ -194,24 +170,9 @@ export async function GET(
                 display: "flex",
               }}
             >
-              💰 {priceBand}
+              {`💰 ${priceBand}`}
             </div>
-          )}
-          {/* Data quality badge */}
-          <div
-            style={{
-              background: badge.bg,
-              border: `1px solid ${badge.fg}40`,
-              borderRadius: "6px",
-              padding: "5px 12px",
-              fontSize: 14,
-              color: badge.fg,
-              display: "flex",
-              marginLeft: "auto",
-            }}
-          >
-            {badge.label}
-          </div>
+          ) : null}
         </div>
 
         {/* Center: main content */}
@@ -221,7 +182,7 @@ export async function GET(
             fontWeight: 700,
             lineHeight: 1.35,
             display: "flex",
-            flexWrap: "wrap" as const,
+            flexWrap: "wrap",
             maxWidth: "100%",
           }}>
             {displayTitle}
@@ -235,6 +196,17 @@ export async function GET(
           }}>
             {type === "im" ? "프리미엄 투자설명서" : "프리미엄 딜카드"}
           </div>
+          {hookCopy ? (
+            <div style={{
+              fontSize: 24,
+              fontWeight: 600,
+              color: "#fbbf24",
+              display: "flex",
+              marginTop: "4px",
+            }}>
+              {`"${hookCopy}"`}
+            </div>
+          ) : null}
           <div
             style={{
               fontSize: 18,
@@ -247,7 +219,7 @@ export async function GET(
           </div>
 
           {/* Metric pills row */}
-          {metricPills.length > 0 && (
+          {metricPills.length > 0 ? (
             <div style={{ display: "flex", gap: "12px", marginTop: "4px" }}>
               {metricPills.map((pill) => (
                 <div
@@ -270,7 +242,7 @@ export async function GET(
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Bottom: branding + readiness */}
@@ -294,17 +266,6 @@ export async function GET(
             {type === "im" ? "Mobile IM" : "DealCard"}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            {readinessScore > 0 && (
-              <div
-                style={{
-                  fontSize: 13,
-                  color: readinessScore >= 80 ? "#6ee7b7" : readinessScore >= 50 ? "#fbbf24" : "#a3a3a3",
-                  display: "flex",
-                }}
-              >
-                완성도 {readinessScore}%
-              </div>
-            )}
             <div
               style={{
                 fontSize: 14,
@@ -334,7 +295,7 @@ export async function GET(
       headers: {
         "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
       },
-    },
+    }
   );
 }
 
