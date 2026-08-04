@@ -180,10 +180,28 @@ function buildA06Props(markdown: string, tables: ParsedTable[], lines: string[])
   const bulletItems = extractBulletItems(lines);
   const calloutItem = lines.find(l => l.startsWith('>'));
   
-  const rows = bulletItems.map(b => ({
-    label: b.title || b.body.split(/[：:]/)[0] || '',
-    value: b.body.split(/[：:]/)[1]?.trim() || b.body,
-  }));
+  // L.rows()는 RowEntry 튜플 [label, value] 형태를 기대
+  let rows: [string, string][] = bulletItems.map(b => {
+    const parts = (b.title ? `${b.title}: ${b.body}` : b.body).split(/[：:]/);
+    return [stripMarkdown(parts[0] || ''), stripMarkdown(parts.slice(1).join(':').trim() || parts[0])] as [string, string];
+  });
+  
+  // 불릿이 없으면 테이블 행에서 추출
+  if (rows.length === 0 && tables.length > 0) {
+    for (const t of tables) {
+      for (const row of t.rows) {
+        if (row.length >= 2) {
+          rows.push([stripMarkdown(row[0]), stripMarkdown(row[1])]);
+        }
+      }
+    }
+  }
+  
+  // 그래도 없으면 bold key-value에서 추출
+  if (rows.length === 0) {
+    const boldKVs = extractBoldKeyValues(lines);
+    rows = boldKVs.map(bv => [bv.key, bv.value] as [string, string]);
+  }
   
   return {
     left: { sub: stripMarkdown(sub), source: '' },
