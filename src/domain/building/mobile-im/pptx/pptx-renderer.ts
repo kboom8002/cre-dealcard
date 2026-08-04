@@ -232,7 +232,7 @@ export class MobileImPptxRenderer {
     pres.layout = 'LAYOUT_WIDE';
 
     const theme: PptxThemeTokens = getPptxTheme(
-      input.preset ?? 'golden_institutional'
+      input.preset ?? 'credeal_signature'
     );
 
     try {
