@@ -60,6 +60,18 @@ export function buildAttrsFromSsotLite(
     vacancyReservePct: layers?.financial_assumptions?.vacancy_reserve_pct ?? 5,
     loanAmountKrw: (leaseSummary?.loan_amount_manwon ?? 0) * 10000,
     totalDepositKrw: (leaseSummary?.total_deposit_manwon ?? 0) * 10000,
+
+    // ── Category-level filled markers for grade-engine NEW_WEIGHTS ──
+    // grade-engine iterates baseWeights keys (lease_roll, building_basic, ...)
+    // and checks attrs[category] != null. Without these, score is always 0% = Grade D.
+    building_basic: (totalFloorAreaPyung || layers?.building_register) ? true : null,
+    land_parcel: (landAreaPyung || layers?.land_use_plan) ? true : null,
+    zoning: (layers?.land_use_plan?.zoning || building.area_signal) ? true : null,
+    road_access: (layers?.road_contact_type || layers?.parking_capacity) ? true : null,
+    lease_roll: (grossAnnualIncomeKrw > 0 || leaseSummary?.tenants) ? true : null,
+    financial_input: (askingPriceKrw && askingPriceKrw > 0) ? true : null,
+    title_encumbrance: layers?.title_encumbrance ? true : null,
+    market_comp: layers?.market_comp ? true : null,
   };
 }
 
