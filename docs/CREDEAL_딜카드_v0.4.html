@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CREDEAL 딜카드 v0.4 — 투자 관점별 블라인드 티저</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Helvetica Neue",sans-serif;
+     background:#F4F6F8;color:#1B222B;padding:34px 20px 60px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto}
+.doc-hd{max-width:780px;margin:0 auto 30px;text-align:center}
+.doc-hd h1{font-size:25px;font-weight:800;letter-spacing:-.4px;margin-bottom:9px}
+.doc-hd h1 em{font-style:normal;color:#B45309}
+.doc-hd p{font-size:13px;color:#6B7987;line-height:1.85}
+.ont{display:inline-block;margin-top:13px;font-size:11px;color:#B45309;background:#FEF6E7;
+     border:1px solid #F5DFA8;border-radius:7px;padding:7px 13px;line-height:1.7}
+.warnbox{margin:16px auto 0;max-width:780px;font-size:11.5px;color:#7A5210;background:#FFFBEB;
+     border:1px solid #FDE68A;border-radius:8px;padding:10px 13px;line-height:1.75;text-align:left}
+
+.sect{margin-top:38px;border-top:2px solid #E2E7EC;padding-top:24px}
+.sect-hd{max-width:1080px;margin:0 auto 18px}
+.sect-hd h2{font-size:18px;font-weight:800;letter-spacing:-.3px}
+.sect-hd p{font-size:12px;color:#6B7987;margin-top:5px;line-height:1.75}
+.row{display:table;width:100%;max-width:1080px;margin:0 auto;border-spacing:22px 0}
+.col-ph{display:table-cell;width:410px;vertical-align:top}
+.col-nt{display:table-cell;vertical-align:top}
+
+.phone{width:392px;background:#0B0F14;border-radius:34px;border:9px solid #1A2028;
+       overflow:hidden;box-shadow:0 14px 40px rgba(15,23,42,.22)}
+.sbar{display:table;width:100%;padding:11px 20px 5px;font-size:11.5px;color:#9AA7B5;font-weight:600}
+.sbar .l{display:table-cell;text-align:left}.sbar .r{display:table-cell;text-align:right}
+.scr{color:#E7ECF2}
+.nav{display:table;width:100%;padding:9px 16px 11px;border-bottom:1px solid #1B222B}
+.nav span{display:table-cell;vertical-align:middle}
+.nav .bk{width:22px;font-size:16px;color:#9AA7B5}
+.nav .ti{font-size:12.5px;font-weight:700;text-align:center}
+.nav .ic{width:22px;font-size:14px;color:#9AA7B5;text-align:right}
+.pad{padding:14px 16px 20px}
+
+.arch{display:table;width:100%;border-radius:11px;padding:11px 12px;margin-bottom:11px}
+.arch.vio{background:#1B1733;border:1px solid #4C3B84}
+.arch.amb{background:#2A2113;border:1px solid #7A5A1E}
+.arch.grn{background:#132318;border:1px solid #2C5C3C}
+.arch .ai{display:table-cell;width:26px;font-size:15px;vertical-align:middle}
+.arch .at{display:table-cell;vertical-align:middle}
+.arch .at b{display:block;font-size:13px;font-weight:700}
+.arch .at span{display:block;font-size:10.4px;color:#9AA7B5;margin-top:3px;line-height:1.6}
+
+.hero{background:#1A2333;border:1px solid #252E39;border-radius:15px;padding:16px;margin-bottom:11px}
+.hero .lbl{font-size:10.2px;color:#6B7987;font-weight:600;letter-spacing:.3px}
+.hero .big{font-size:19px;font-weight:800;line-height:1.42;margin-top:7px;letter-spacing:-.3px}
+.hero .sub{font-size:11.4px;color:#9AA7B5;margin-top:8px;line-height:1.7}
+
+.g2{display:table;width:100%;border-spacing:7px 0;margin:0 -7px 7px;width:calc(100% + 14px)}
+.g2 .c{display:table-cell;width:50%}
+.mini{background:#141A21;border:1px solid #252E39;border-radius:11px;padding:11px 12px}
+.mini .m1{font-size:9.8px;color:#6B7987;font-weight:600}
+.mini .m2{font-size:16.5px;font-weight:800;margin-top:4px;letter-spacing:-.3px}
+.mini .m3{font-size:9.8px;color:#9AA7B5;margin-top:4px;line-height:1.55}
+.mini .m4{font-size:8.8px;color:#5C6875;margin-top:3px}
+
+.chip{display:inline-block;font-size:10.2px;background:#141A21;border:1px solid #252E39;
+      border-radius:20px;padding:5px 10px;margin:0 5px 5px 0;color:#C3CBD4}
+.card{background:#141A21;border:1px solid #252E39;border-radius:13px;padding:14px;margin-bottom:11px}
+.card.acc{background:#181F2A;border-color:#2E3A48}
+.sec{font-size:11px;font-weight:700;color:#9AA7B5;margin:14px 0 8px;letter-spacing:.3px}
+.bdg{display:inline-block;font-size:9.2px;font-weight:700;padding:2px 5px;border-radius:4px;margin-left:4px}
+.b-pub{background:#132318;color:#4ADE80;border:1px solid #2C5C3C}
+.b-ai{background:#22201A;color:#B08A3E;border:1px solid #4A3D22}
+
+.sld{margin:9px 0}
+.sl{display:table;width:100%;font-size:11.4px;margin-bottom:5px}
+.sl .a{display:table-cell;color:#9AA7B5}
+.sl .b{display:table-cell;text-align:right;font-weight:700}
+.trk{height:5px;background:#1E262F;border-radius:3px;overflow:hidden}
+.trk i{display:block;height:5px;background:#4A6B8A;border-radius:3px}
+.note{font-size:9.6px;color:#5C6875;line-height:1.7;margin-top:9px}
+.lock{background:#141A21;border:1px dashed #3A4653;border-radius:12px;padding:13px;margin:11px 0}
+.lock .lh{font-size:11.6px;font-weight:700;color:#C3CBD4}
+.lock .lb{font-size:10.6px;color:#9AA7B5;line-height:1.75;margin-top:6px}
+.lock .lc{font-size:13px;font-weight:800;color:#E7ECF2;margin-top:7px}
+.reg{background:#221B12;border:1px solid #55431F;border-radius:12px;padding:12px;margin:11px 0}
+.reg .rh{font-size:11.6px;font-weight:700;color:#E0B75C}
+.reg .rb{font-size:10.4px;color:#B4A283;line-height:1.72;margin-top:5px}
+
+.btn3{display:table;width:calc(100% + 12px);border-spacing:6px 0;margin:12px 0 0 -6px}
+.btn3 a{display:table-cell;width:33.3%;text-align:center;font-size:11.6px;font-weight:700;
+        padding:12px 0;border-radius:10px;text-decoration:none}
+.b1{background:#141A21;border:1px solid #2E3A48;color:#C3CBD4}
+.b2{background:#141A21;border:1px solid #2E3A48;color:#C3CBD4}
+.b3{background:#B98A2E;border:1px solid #B98A2E;color:#12161C}
+.prof{display:table;width:100%;background:#141A21;border:1px solid #252E39;border-radius:12px;padding:12px;margin-top:11px}
+.prof .pi{display:table-cell;width:38px;vertical-align:middle}
+.prof .pi i{display:block;width:32px;height:32px;border-radius:50%;background:#2A3644;
+            font-style:normal;font-size:13px;line-height:32px;text-align:center;color:#C3CBD4}
+.prof .pt{display:table-cell;vertical-align:middle}
+.prof .pt b{display:block;font-size:12px}
+.prof .pt span{display:block;font-size:9.8px;color:#9AA7B5;margin-top:3px;line-height:1.6}
+
+.note-card{background:#fff;border:1px solid #E2E7EC;border-radius:12px;padding:17px 19px}
+.note-card h3{font-size:13.5px;font-weight:800;margin-bottom:11px}
+.nt{display:table;width:100%;font-size:11.8px;line-height:1.72;border-bottom:1px solid #EEF1F4;padding:8px 0}
+.nt:last-child{border-bottom:0}
+.nt .k{display:table-cell;width:118px;color:#6B7987;font-weight:600;vertical-align:top}
+.nt .v{display:table-cell;color:#2B3440;vertical-align:top}
+.nt .v b{color:#0F1720}
+.del{color:#A33A3D;text-decoration:line-through}
+.add{color:#2E7D4F;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="doc-hd">
+  <h1>CREDEAL <em>딜카드 v0.4</em> — 투자 관점별 블라인드 티저</h1>
+  <p>같은 화면 틀에서 <b>투자 관점(investmentPosture)</b>이 히어로 항목과 유도 문장을 바꿉니다.<br>
+     가상 목업(실물건 아님) · 정적판 (스크립트 없음)</p>
+  <div class="ont">온톨로지 v0.4 — 3축 분류 · 아키타입 R-INC-01~04 · 밴딩 · 재식별 게이트 G6 · 가정 표기 C22</div>
+  <div class="warnbox">
+    <b>기준판 대비 제거된 것</b> — <span class="del">B등급 배지</span>(자료등급은 내부 발행 게이트 지표),
+    <span class="del">R02 판정 코드</span>(내부 규칙 식별자), <span class="del">∧ 논리기호</span>.
+    근거 문장은 매수자가 판단에 쓰므로 <span class="add">유지</span>합니다.
+  </div>
+</div>
+
+<!-- ══════ ① income · 임대료 정상화형 ══════ -->
+<div class="sect">
+  <div class="sect-hd">
+    <h2>① 임대수익형 — 임대료 정상화 (R-INC-02)</h2>
+    <p>연남동 상가주택 · 근생 2실 + 주택 2실 · 층별 구분등기</p>
+  </div>
+  <div class="row">
+    <div class="col-ph">
+      <div class="phone">
+        <div class="sbar"><span class="l">9:41</span><span class="r">LTE ▮▮▮ 87%</span></div>
+        <div class="scr">
+          <div class="nav"><span class="bk">←</span><span class="ti">딜카드 · 블라인드 티저</span><span class="ic">⋯</span></div>
+          <div class="pad">
+
+            <div class="arch amb">
+              <span class="ai">📈</span>
+              <span class="at"><b>임대료 정상화형</b><span>임대 3실 전부 주변 시세보다 낮음 · 갱신 도래 2.7년</span></span>
+            </div>
+
+            <div class="hero">
+              <div class="lbl">DC-2608-0071 · 연남권</div>
+              <div class="big">연남 상권 상가주택<br>임대료 여지가 남은 물건</div>
+              <div class="sub">제2종일반주거지역 · 2면 접도 · 2000년대 초 준공</div>
+            </div>
+
+            <div class="g2">
+              <div class="c"><div class="mini"><div class="m1">매각가 밴드</div><div class="m2">40억대</div><div class="m3">협의 여지 있음</div></div></div>
+              <div class="c"><div class="mini"><div class="m1">임대수익률</div><div class="m2">1%대 후반</div><div class="m3">정상화 시 2%대</div><div class="m4">실투자금 기준</div></div></div>
+            </div>
+            <div class="g2">
+              <div class="c"><div class="mini"><div class="m1">대지</div><div class="m2">80~90평</div><div class="m3">연면적 200~220평</div></div></div>
+              <div class="c"><div class="mini"><div class="m1">공실</div><div class="m2">1개층</div><div class="m3">임대차 승계 조건</div></div></div>
+            </div>
+
+            <div style="margin-top:11px">
+              <span class="chip">🔹 1·2층 상가 + 3·4층 주택</span><span class="chip">🔹 층별 구분등기</span>
+              <span class="chip">🔹 소유자 2인 (전원 동의)</span><span class="chip">🔹 위반건축물 확인 중</span>
+            </div>
+
+            <div class="card acc" style="margin-top:11px">
+              <div style="font-size:12.6px;line-height:1.9">
+                "임대 중인 세 곳 모두 <b>주변 시세보다 19% 낮게</b> 묶여 있습니다.
+                지하 한 개 층도 비어 있어, 채우고 조정하면 수익률이 달라지는 자리입니다."
+              </div>
+            </div>
+
+            <h4 class="sec">내 조건으로 보기</h4>
+            <div class="card">
+              <div class="sld">
+                <div class="sl"><span class="a">예산 상한</span><span class="b">42억</span></div>
+                <div class="trk"><i style="width:64%"></i></div>
+              </div>
+              <div class="sld">
+                <div class="sl"><span class="a">대출 활용</span><span class="b">40%</span></div>
+                <div class="trk"><i style="width:40%"></i></div>
+              </div>
+              <div style="font-size:12px;line-height:1.85;color:#9AA7B5;margin-top:10px;padding-top:10px;border-top:1px solid #252E39">
+                → 이 조건이면 <b style="color:#E7ECF2">실투자금 약 20억대 초반</b>,<br>
+                &nbsp;&nbsp;&nbsp;참고 수익률 범위 <b style="color:#E7ECF2">연 1~2%대</b> <span class="bdg b-ai">⚙가정</span>
+              </div>
+              <div class="note">※ 일반적 조건 가정 시 참고 범위이며, 실제 한도·금리는 금융기관 심사에 따릅니다.</div>
+            </div>
+
+            <div class="lock">
+              <div class="lh">🔒 공개 정책</div>
+              <div class="lb">재식별 게이트 통과</div>
+              <div class="lc">이 조건으로 특정 가능한 후보 필지 <b>37개</b></div>
+              <div class="lb">정밀 호가·지번·호실별 조건은 상세 요청 후 공개됩니다</div>
+            </div>
+
+            <div class="btn3">
+              <a class="b1" href="#">💬 질문</a><a class="b2" href="#">⭐ 관심</a><a class="b3" href="#">🔑 상세 요청</a>
+            </div>
+
+            <div class="prof">
+              <span class="pi"><i>차</i></span>
+              <span class="pt"><b>차상혁 팀장 <span class="bdg b-pub">✓공인중개사</span></b>
+              <span>마포·연남 CRE 9년 · 응답 보장 3시간 · 제이에스부동산중개(주)</span></span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-nt">
+      <div class="note-card">
+        <h3>이 관점에서만 나오는 것</h3>
+        <div class="nt"><span class="k">히어로 2칸</span><span class="v"><b>임대수익률</b> — 개발형·운영형에는 나오지 않습니다</span></div>
+        <div class="nt"><span class="k">기준 표기</span><span class="v">"실투자금 기준" 4번째 줄에 고정. 밴드여도 기준은 밝힙니다 <b>(G10)</b></span></div>
+        <div class="nt"><span class="k">curiosity</span><span class="v">임대료 갭 <b>19%</b> — 정상화형 골격. 숫자 하나가 반드시 들어갑니다</span></div>
+        <div class="nt"><span class="k">슬라이더</span><span class="v">예산 · 대출 활용 (income 기본축)</span></div>
+        <div class="nt"><span class="k">혼합 용도</span><span class="v">"1·2층 상가 + 3·4층 주택"만 노출.<br><b>상임법/주임법 구분은 넣지 않습니다</b> — 티저 단계 판단 사항이 아님</span></div>
+        <div class="nt"><span class="k">구분등기</span><span class="v"><b>전원 동의 요건은 노출</b> — 매수 진행 자체를 좌우.<br>소유자 이름·지분은 비노출</span></div>
+        <div class="nt"><span class="k">결손</span><span class="v">"위반건축물 확인 중" — 있는 그대로. 없는 것처럼 쓰지 않습니다</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ ② development ══════ -->
+<div class="sect">
+  <div class="sect-hd">
+    <h2>② 개발형 — 나대지 · 신축 부지</h2>
+    <p>구리 수택동 3필지 · 나대지 · 상업지역</p>
+  </div>
+  <div class="row">
+    <div class="col-ph">
+      <div class="phone">
+        <div class="sbar"><span class="l">9:41</span><span class="r">LTE ▮▮▮ 87%</span></div>
+        <div class="scr">
+          <div class="nav"><span class="bk">←</span><span class="ti">딜카드 · 블라인드 티저</span><span class="ic">⋯</span></div>
+          <div class="pad">
+
+            <div class="arch vio">
+              <span class="ai">🔧</span>
+              <span class="at"><b>신축 부지</b><span>나대지 · 삼면 접도 · 상업지역</span></span>
+            </div>
+
+            <div class="hero">
+              <div class="lbl">DC-2608-0088 · 구리 역세권</div>
+              <div class="big">역세권 삼면 접도 나대지<br>바로 착공 가능한 자리</div>
+              <div class="sub">도시지역 상업지역 · 3면 접도 · 건물 없음</div>
+            </div>
+
+            <div class="g2">
+              <div class="c"><div class="mini"><div class="m1">매각가 밴드</div><div class="m2">80억대</div><div class="m3">협의 여지 있음</div></div></div>
+              <div class="c"><div class="mini"><div class="m1">개발 가능 규모</div><div class="m2">2,400평대</div><div class="m3">지구단위계획 수립 시</div><div class="m4">⚙ 확정 아님</div></div></div>
+            </div>
+            <div class="g2">
+              <div class="c"><div class="mini"><div class="m1">대지</div><div class="m2">190~210평</div><div class="m3">3필지 합산</div></div></div>
+              <div class="c"><div class="mini"><div class="m1">현황</div><div class="m2">나대지</div><div class="m3">명도 부담 없음</div></div></div>
+            </div>
+
+            <div style="margin-top:11px">
+              <span class="chip">🔹 삼면 접도 (12m·6m·4m)</span><span class="chip">🔹 상업지역</span>
+              <span class="chip">🔹 역 도보 5분</span><span class="chip">🔹 인근 개발 선례</span>
+            </div>
+
+            <div class="card acc" style="margin-top:11px">
+              <div style="font-size:12.6px;line-height:1.9">
+                "역까지 380m, 삼면이 도로에 접한 나대지입니다.
+                <b>건물이 없어 매입 직후 바로 설계에 들어갈 수 있는</b> 자리가
+                이 권역에 흔치 않습니다."
+              </div>
+            </div>
+
+            <h4 class="sec">내 조건으로 보기</h4>
+            <div class="card">
+              <div class="sld">
+                <div class="sl"><span class="a">예산 상한</span><span class="b">89억</span></div>
+                <div class="trk"><i style="width:59%"></i></div>
+              </div>
+              <div class="sld">
+                <div class="sl"><span class="a">목표 용적률</span><span class="b">1,000%</span></div>
+                <div class="trk"><i style="width:52%"></i></div>
+              </div>
+              <div style="font-size:12px;line-height:1.85;color:#9AA7B5;margin-top:10px;padding-top:10px;border-top:1px solid #252E39">
+                → 이 조건이면 <b style="color:#E7ECF2">연면적 1,900평대</b>,<br>
+                &nbsp;&nbsp;&nbsp;토지비 부담 <b style="color:#E7ECF2">평당 450만원대</b> <span class="bdg b-ai">⚙가정</span>
+              </div>
+              <div class="note">※ 용적률은 지구단위계획 수립 결과에 따라 달라지며, 기부채납 조건이 붙을 수 있습니다.</div>
+            </div>
+
+            <div class="reg">
+              <div class="rh">🏛 인허가 확인 필요</div>
+              <div class="rb">목표 용적률 확보에는 <b>지구단위계획 수립</b>이 전제됩니다 (약 18개월 예상).<br>
+                연면적 2,500평 이상이면 교통영향평가 대상입니다.</div>
+              <div class="note">※ 공부 기반 참고용 스크리닝이며 법률 자문이 아닙니다.</div>
+            </div>
+
+            <div class="lock">
+              <div class="lh">🔒 공개 정책</div>
+              <div class="lb">재식별 게이트 통과</div>
+              <div class="lc">이 조건으로 특정 가능한 후보 필지 <b>52개</b></div>
+              <div class="lb">필지별 면적·지번·저촉 여부는 상세 요청 후 공개됩니다</div>
+            </div>
+
+            <div class="btn3">
+              <a class="b1" href="#">💬 질문</a><a class="b2" href="#">⭐ 관심</a><a class="b3" href="#">🔑 상세 요청</a>
+            </div>
+
+            <div class="prof">
+              <span class="pi"><i>차</i></span>
+              <span class="pt"><b>차상혁 팀장 <span class="bdg b-pub">✓공인중개사</span></b>
+              <span>구리·남양주 개발부지 9년 · 응답 보장 3시간 · 제이에스부동산중개(주)</span></span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-nt">
+      <div class="note-card">
+        <h3>개발형에서 달라지는 것</h3>
+        <div class="nt"><span class="k">히어로 2칸</span><span class="v"><b>개발 가능 규모</b>로 교체. 수익률은 <b>표시하지 않습니다</b> — 임대차가 사실상 없는 물건에 Cap Rate를 띄우면 오독을 부릅니다</span></div>
+        <div class="nt"><span class="k">전제 표기</span><span class="v">"지구단위계획 수립 시" + <b>⚙ 확정 아님</b> 배지.<br>수택동 원본 IM은 "1,260% 허가 필 2,500평"으로만 적어 확정처럼 읽혔습니다</span></div>
+        <div class="nt"><span class="k">슬라이더 축2</span><span class="v">대출 활용 → <b>목표 용적률</b>. 개발형 매수자의 관심축</span></div>
+        <div class="nt"><span class="k">산출값</span><span class="v">토지비 부담(원/연면적평) — 개발형의 주 가치 지표. 평단가가 아닙니다</span></div>
+        <div class="nt"><span class="k">인허가 블록</span><span class="v">토허 블록 자리를 <b>인허가 리스크</b>가 대체. 소요 기간을 숫자로</span></div>
+        <div class="nt"><span class="k">curiosity</span><span class="v">"바로 설계에 들어갈 수 있는" — 개발형은 <b>시간</b>이 관심사</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ ③ operating ══════ -->
+<div class="sect">
+  <div class="sect-hd">
+    <h2>③ 운영형 — 숙박시설</h2>
+    <p>서대문 이대권 비즈니스호텔 · 94실 · 위탁 운영</p>
+  </div>
+  <div class="row">
+    <div class="col-ph">
+      <div class="phone">
+        <div class="sbar"><span class="l">9:41</span><span class="r">LTE ▮▮▮ 87%</span></div>
+        <div class="scr">
+          <div class="nav"><span class="bk">←</span><span class="ti">딜카드 · 블라인드 티저</span><span class="ic">⋯</span></div>
+          <div class="pad">
+
+            <div class="arch grn">
+              <span class="ai">🏨</span>
+              <span class="at"><b>운영 자산</b><span>위탁 운영 · 브랜드 체인 · 대학가 배후</span></span>
+            </div>
+
+            <div class="hero">
+              <div class="lbl">DC-2608-0104 · 신촌·이대권</div>
+              <div class="big">이대역 도보권<br>94실 비즈니스호텔</div>
+              <div class="sub">일반상업지역 · 지하 2층~지상 12층 · 2010년대 중반 준공</div>
+            </div>
+
+            <div class="g2">
+              <div class="c"><div class="mini"><div class="m1">매각가 밴드</div><div class="m2">300억대</div><div class="m3">협의 여지 있음</div></div></div>
+              <div class="c"><div class="mini"><div class="m1">객실 · 객실당</div><div class="m2">94실</div><div class="m3">객실당 3억대</div></div></div>
+            </div>
+            <div class="g2">
+              <div class="c"><div class="mini"><div class="m1">연면적</div><div class="m2">1,100평대</div><div class="m3">대지 140~160평</div></div></div>
+              <div class="c"><div class="mini"><div class="m1">운영 형태</div><div class="m2">위탁</div><div class="m3">운영사 계약 승계</div></div></div>
+            </div>
+
+            <div style="margin-top:11px">
+              <span class="chip">🔹 역 도보 3분</span><span class="chip">🔹 일반상업지역</span>
+              <span class="chip">🔹 브랜드 체인</span><span class="chip">🔹 관광호텔업 등록</span>
+            </div>
+
+            <div class="card acc" style="margin-top:11px">
+              <div style="font-size:12.6px;line-height:1.9">
+                "<b>객실당 3억대</b>입니다. 서울 비즈니스호텔이 통상 2~4억 사이에서
+                거래되니, 권역 평균과 비교해 보실 만한 자리입니다."
+              </div>
+            </div>
+
+            <h4 class="sec">내 조건으로 보기</h4>
+            <div class="card">
+              <div class="sld">
+                <div class="sl"><span class="a">예산 상한</span><span class="b">300억</span></div>
+                <div class="trk"><i style="width:62%"></i></div>
+              </div>
+              <div class="sld">
+                <div class="sl"><span class="a">대출 활용</span><span class="b">50%</span></div>
+                <div class="trk"><i style="width:50%"></i></div>
+              </div>
+              <div style="font-size:12px;line-height:1.85;color:#9AA7B5;margin-top:10px;padding-top:10px;border-top:1px solid #252E39">
+                → 이 조건이면 <b style="color:#E7ECF2">실투자금 약 150억대</b>,<br>
+                &nbsp;&nbsp;&nbsp;객실당 실투자 <b style="color:#E7ECF2">1억대 중반</b> <span class="bdg b-ai">⚙가정</span>
+              </div>
+              <div class="note">※ 운영 실적에 따른 수익률은 상세 자료에서 산정 기준과 함께 제시됩니다.</div>
+            </div>
+
+            <div class="lock">
+              <div class="lh">🔒 공개 정책</div>
+              <div class="lb">재식별 게이트 통과</div>
+              <div class="lc">이 조건으로 특정 가능한 후보 <b>28개</b></div>
+              <div class="lb">운영 지표·객실 구성·운영사 계약 조건은 상세 요청 후 공개됩니다</div>
+            </div>
+
+            <div class="btn3">
+              <a class="b1" href="#">💬 질문</a><a class="b2" href="#">⭐ 관심</a><a class="b3" href="#">🔑 상세 요청</a>
+            </div>
+
+            <div class="prof">
+              <span class="pi"><i>차</i></span>
+              <span class="pt"><b>차상혁 팀장 <span class="bdg b-pub">✓공인중개사</span></b>
+              <span>숙박·운영자산 6년 · 응답 보장 3시간 · 제이에스부동산중개(주)</span></span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-nt">
+      <div class="note-card">
+        <h3>운영형에서 달라지는 것</h3>
+        <div class="nt"><span class="k">히어로 2칸</span><span class="v"><b>객실 수 · 객실당 단가</b>. 이 자산군의 통용 비교 단위입니다</span></div>
+        <div class="nt"><span class="k">비노출</span><span class="v"><b>ADR · OCC · GOP는 넣지 않습니다.</b><br>밴드로 뭉개도 오독 위험이 크고, GOP 기준임을 설명할 지면이 없습니다 <b>(C31)</b></span></div>
+        <div class="nt"><span class="k">수익률</span><span class="v">티저에 <b>표시하지 않습니다.</b> 임대차 NOI 기준과 성격이 달라 나란히 놓으면 같은 지표로 읽힙니다</span></div>
+        <div class="nt"><span class="k">산출값</span><span class="v">객실당 실투자 — 운영형 매수자가 실제로 비교하는 값</span></div>
+        <div class="nt"><span class="k">curiosity</span><span class="v">"통상 2~4억 사이" — 비교 기준을 주어 판단을 유도</span></div>
+        <div class="nt"><span class="k">공개 정책</span><span class="v">감춘 항목을 <b>구체적으로 열거</b>. 무엇을 얻는지 알아야 요청합니다</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ 공통 규칙 ══════ -->
+<div class="sect">
+  <div class="sect-hd">
+    <h2>관점과 무관하게 고정되는 것</h2>
+    <p>화면 틀·순서·정책은 바뀌지 않습니다. 바뀌는 것은 히어로 2칸·슬라이더 축2·curiosity 문장뿐입니다.</p>
+  </div>
+  <div class="row">
+    <div class="col-ph" style="width:auto">
+      <div class="note-card">
+        <h3>블록 순서 (고정)</h3>
+        <div class="nt"><span class="k">① 아키타입</span><span class="v">의미 + 근거. <b>코드·등급 없음</b></span></div>
+        <div class="nt"><span class="k">②~⑤ 헤더</span><span class="v">딜번호 · 권역 · 물건명 · 한 줄 요약 · 특징 라인</span></div>
+        <div class="nt"><span class="k">⑥ 히어로 4칸</span><span class="v">1·3칸 고정(가격·면적) / <b>2·4칸이 관점별</b></span></div>
+        <div class="nt"><span class="k">⑦ 특징 칩</span><span class="v">4개 내외. B2C 어휘만</span></div>
+        <div class="nt"><span class="k">⑧ curiosity</span><span class="v">한 문장 · 숫자 하나 필수</span></div>
+        <div class="nt"><span class="k">⑨ 슬라이더</span><span class="v">축1 예산 고정 / <b>축2가 관점별</b></span></div>
+        <div class="nt"><span class="k">⑩ 규제</span><span class="v">토허 또는 인허가. 해당 없으면 블록 생략</span></div>
+        <div class="nt"><span class="k">⑪ 공개 정책</span><span class="v">CTA 직전 고정</span></div>
+        <div class="nt"><span class="k">⑫ CTA 3단</span><span class="v">질문 · 관심 무마찰 / 상세 요청만 정보 수집</span></div>
+        <div class="nt"><span class="k">⑬ 프로필</span><span class="v">응답 보장 시간 · 자격 · 소속</span></div>
+      </div>
+    </div>
+    <div class="col-nt">
+      <div class="note-card">
+        <h3>⑧이 ⑨보다 앞에 오는 이유</h3>
+        <div style="font-size:12.2px;line-height:1.9;color:#2B3440">
+          궁금해진 상태에서 자기 조건을 넣어야 몰입이 생깁니다.
+          순서를 바꾸면 슬라이더가 <b>계산기</b>가 되고, 계산기는 이탈을 부릅니다.
+        </div>
+        <h3 style="margin-top:18px">⑪이 ⑫보다 앞에 오는 이유</h3>
+        <div style="font-size:12.2px;line-height:1.9;color:#2B3440">
+          "왜 안 보여주는지"를 먼저 납득해야 [상세 요청]을 누릅니다.
+          정보를 감추는 화면에서 감춘 이유를 숫자로 밝히면 <b>감춤이 성의로 읽힙니다.</b>
+        </div>
+        <h3 style="margin-top:18px">밴드가 거짓이 되지 않게</h3>
+        <div style="font-size:12.2px;line-height:1.9;color:#2B3440">
+          "40억대"라고 해놓고 실제가 52억이면 상세 열람 시점에 신뢰를 잃습니다.
+          밴드는 <b>실제 값을 포함해야</b> 하며, 빌드 시 검사합니다.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

@@ -94,11 +94,13 @@ export let NUM = 'Arial';
 /** 활성 테마 메타데이터 (coverStyle 등 비-색상 속성) */
 export const THEME_META: {
   coverStyle: string;
+  layoutStyle: string;
   companyName: string;
   companyTagline: string;
   presetId: string;
 } = {
   coverStyle: 'institutional_masses',
+  layoutStyle: 'classic',
   companyName: '크리딜',
   companyTagline: '상업용 부동산 투자 플랫폼',
   presetId: 'golden_institutional',
@@ -161,6 +163,7 @@ export function setActiveTheme(theme: PptxThemeTokens): void {
   // ── 메타 ──
   Object.assign(THEME_META, {
     coverStyle:     theme.coverStyle,
+    layoutStyle:    theme.layoutStyle,
     companyName:    theme.companyName,
     companyTagline: theme.companyTagline,
     presetId:       theme.presetId,
@@ -208,7 +211,7 @@ export function dark(pres: PptxGenJS): Slide {
   return s;
 }
 
-/** §5 밝은 슬라이드 제목 블록 */
+/** §5 밝은 슬라이드 제목 블록 — layoutStyle 분기 */
 export function head(
   s: Slide,
   num: number | string,
@@ -217,42 +220,180 @@ export function head(
   sub?: string,
 ): void {
   const numStr = typeof num === 'number' ? String(num).padStart(2, '0') : num;
+  const style = THEME_META.layoutStyle;
 
-  // 황동 원
-  if (numStr) {
-    s.addShape('ellipse' as any, {
-      x: M, y: 0.50, w: 0.42, h: 0.42,
-      fill: { color: C.brass },
-    });
-    s.addText(numStr, {
-      x: M, y: 0.50, w: 0.42, h: 0.42,
-      align: 'center', valign: 'middle',
-      fontSize: 13, bold: true, color: 'FFFFFF',
-      fontFace: NUM, margin: 0,
-    });
-  }
+  switch (style) {
+    // ── modern: 액센트 언더라인 바 + 좌정렬, 번호 원 없음 ──
+    case 'modern': {
+      // 좌측 액센트 세로 바
+      s.addShape('rect' as any, {
+        x: M, y: 0.42, w: 0.05, h: 0.80,
+        fill: { color: C.brass },
+      });
+      s.addText(`${numStr}  ${kicker}`, {
+        x: M + 0.22, y: 0.42, w: CW - 0.22, h: 0.22,
+        fontSize: 9.5, bold: true, color: C.brass,
+        fontFace: NUM, charSpacing: 2, margin: 0,
+      });
+      s.addText(title, {
+        x: M + 0.22, y: 0.64, w: CW - 0.22, h: 0.42,
+        fontSize: 22, bold: true, color: C.ink,
+        fontFace: KR, margin: 0,
+      });
+      // 하단 액센트 라인 (콘텐츠 폭)
+      s.addShape('line' as any, {
+        x: M, y: 1.22, w: CW, h: 0,
+        line: { color: C.brass, width: 1.5 },
+      });
+      if (sub) {
+        s.addText(sub, {
+          x: M + 0.22, y: 1.08, w: CW - 0.22, h: 0.22,
+          fontSize: 10.5, color: C.mute, fontFace: KR, margin: 0,
+        });
+      }
+      break;
+    }
 
-  // kicker
-  s.addText(kicker, {
-    x: M + 0.62, y: 0.50, w: CW - 0.62, h: 0.20,
-    fontSize: 9.5, bold: true, color: C.brass,
-    fontFace: NUM, charSpacing: 2, margin: 0,
-  });
+    // ── executive: 중앙 정렬 + 상하 골드 라인 ──
+    case 'executive': {
+      // 상단 가는 라인
+      s.addShape('line' as any, {
+        x: M, y: 0.38, w: CW, h: 0,
+        line: { color: C.brass, width: 0.5 },
+      });
+      // 중앙 정렬 kicker
+      s.addText(`${numStr}  ·  ${kicker}`, {
+        x: M, y: 0.48, w: CW, h: 0.22,
+        fontSize: 9, bold: true, color: C.brass,
+        fontFace: NUM, charSpacing: 3, margin: 0, align: 'center',
+      });
+      // 중앙 정렬 title
+      s.addText(title, {
+        x: M, y: 0.68, w: CW, h: 0.46,
+        fontSize: 26, bold: true, color: C.ink,
+        fontFace: KR, margin: 0, align: 'center',
+      });
+      // 하단 골드 라인
+      s.addShape('line' as any, {
+        x: M + CW * 0.3, y: 1.20, w: CW * 0.4, h: 0,
+        line: { color: C.brass, width: 1 },
+      });
+      if (sub) {
+        s.addText(sub, {
+          x: M, y: 1.10, w: CW, h: 0.22,
+          fontSize: 11, color: C.mute, fontFace: KR, margin: 0, align: 'center',
+        });
+      }
+      break;
+    }
 
-  // title
-  s.addText(title, {
-    x: M + 0.62, y: 0.70, w: CW - 0.62, h: 0.40,
-    fontSize: 23, bold: true, color: C.ink,
-    fontFace: KR, margin: 0,
-  });
+    // ── minimal: 깔끔한 좌정렬 + 얇은 구분선 ──
+    case 'minimal': {
+      // 작은 번호 (원 없이)
+      if (numStr) {
+        s.addText(numStr, {
+          x: M, y: 0.48, w: 0.36, h: 0.24,
+          fontSize: 10, bold: true, color: C.mute2,
+          fontFace: NUM, margin: 0,
+        });
+      }
+      s.addText(kicker, {
+        x: M + 0.40, y: 0.48, w: CW - 0.40, h: 0.20,
+        fontSize: 8.5, bold: true, color: C.mute,
+        fontFace: NUM, charSpacing: 1.5, margin: 0,
+      });
+      s.addText(title, {
+        x: M, y: 0.72, w: CW, h: 0.38,
+        fontSize: 21, bold: true, color: C.ink,
+        fontFace: KR, margin: 0,
+      });
+      // 미니멀 구분선
+      s.addShape('line' as any, {
+        x: M, y: 1.16, w: 2.5, h: 0,
+        line: { color: C.brass, width: 1.5 },
+      });
+      if (sub) {
+        s.addText(sub, {
+          x: M, y: 1.08, w: CW, h: 0.22,
+          fontSize: 10.5, color: C.mute, fontFace: KR, margin: 0,
+        });
+      }
+      break;
+    }
 
-  // sub (선택)
-  if (sub) {
-    s.addText(sub, {
-      x: M + 0.62, y: 1.10, w: CW - 0.62, h: 0.26,
-      fontSize: 11, color: C.mute,
-      fontFace: KR, margin: 0,
-    });
+    // ── dramatic: 전폭 액센트 그라데이션 스트립 ──
+    case 'dramatic': {
+      // 전폭 다크 스트립
+      s.addShape('rect' as any, {
+        x: 0, y: 0.30, w: W, h: 1.00,
+        fill: { color: C.ink },
+      });
+      // 좌측 액센트 블록
+      s.addShape('rect' as any, {
+        x: 0, y: 0.30, w: 0.12, h: 1.00,
+        fill: { color: C.brass },
+      });
+      // 큰 번호
+      if (numStr) {
+        s.addText(numStr, {
+          x: M, y: 0.36, w: 0.60, h: 0.50,
+          fontSize: 28, bold: true, color: C.brass,
+          fontFace: NUM, margin: 0,
+        });
+      }
+      s.addText(kicker, {
+        x: M + 0.70, y: 0.36, w: CW - 0.70, h: 0.22,
+        fontSize: 9, bold: true, color: C.brass,
+        fontFace: NUM, charSpacing: 2.5, margin: 0,
+      });
+      s.addText(title, {
+        x: M + 0.70, y: 0.58, w: CW - 0.70, h: 0.44,
+        fontSize: 24, bold: true, color: 'FFFFFF',
+        fontFace: KR, margin: 0,
+      });
+      if (sub) {
+        s.addText(sub, {
+          x: M + 0.70, y: 1.02, w: CW - 0.70, h: 0.22,
+          fontSize: 10, color: CD.mute, fontFace: KR, margin: 0,
+        });
+      }
+      break;
+    }
+
+    // ── classic: 황동 원 + 좌정렬 (기본값) ──
+    case 'classic':
+    default: {
+      if (numStr) {
+        s.addShape('ellipse' as any, {
+          x: M, y: 0.50, w: 0.42, h: 0.42,
+          fill: { color: C.brass },
+        });
+        s.addText(numStr, {
+          x: M, y: 0.50, w: 0.42, h: 0.42,
+          align: 'center', valign: 'middle',
+          fontSize: 13, bold: true, color: 'FFFFFF',
+          fontFace: NUM, margin: 0,
+        });
+      }
+      s.addText(kicker, {
+        x: M + 0.62, y: 0.50, w: CW - 0.62, h: 0.20,
+        fontSize: 9.5, bold: true, color: C.brass,
+        fontFace: NUM, charSpacing: 2, margin: 0,
+      });
+      s.addText(title, {
+        x: M + 0.62, y: 0.70, w: CW - 0.62, h: 0.40,
+        fontSize: 23, bold: true, color: C.ink,
+        fontFace: KR, margin: 0,
+      });
+      if (sub) {
+        s.addText(sub, {
+          x: M + 0.62, y: 1.10, w: CW - 0.62, h: 0.26,
+          fontSize: 11, color: C.mute,
+          fontFace: KR, margin: 0,
+        });
+      }
+      break;
+    }
   }
 }
 
@@ -300,7 +441,7 @@ export function headD(
   }
 }
 
-/** §5 푸터 */
+/** §5 푸터 — layoutStyle 분기 */
 export function foot(
   s: Slide,
   page: number,
@@ -308,15 +449,80 @@ export function foot(
   onDark?: boolean,
 ): void {
   const textColor = onDark ? CD.faint : C.mute;
-  s.addText(`CREDEAL · 제이에스부동산중개(주)   |   ${docno}`, {
-    x: M, y: 6.98, w: 8, h: 0.24,
-    fontSize: 8, color: textColor, fontFace: KR, margin: 0,
-  });
-  s.addText(String(page), {
-    x: W - M - 1.0, y: 6.98, w: 1.0, h: 0.24,
-    align: 'right', fontSize: 9, bold: true, color: C.brass,
-    fontFace: NUM, margin: 0,
-  });
+  const style = THEME_META.layoutStyle;
+
+  switch (style) {
+    case 'modern': {
+      // 중앙 도트 구분 + 액센트 페이지 번호
+      const footText = `${THEME_META.companyName}  ·  ${docno}  ·  ${page}`;
+      s.addText(footText, {
+        x: M, y: 7.02, w: CW, h: 0.22,
+        align: 'center', fontSize: 7.5, color: textColor, fontFace: KR, margin: 0,
+      });
+      // 하단 얇은 액센트 라인
+      s.addShape('line' as any, {
+        x: M + CW * 0.35, y: 6.98, w: CW * 0.3, h: 0,
+        line: { color: C.brass, width: 0.5 },
+      });
+      break;
+    }
+    case 'executive': {
+      // 중앙 정렬 + 상단 라인
+      s.addShape('line' as any, {
+        x: M, y: 6.94, w: CW, h: 0,
+        line: { color: C.brass, width: 0.3 },
+      });
+      s.addText(`${docno}`, {
+        x: M, y: 7.00, w: CW * 0.5, h: 0.22,
+        fontSize: 7.5, color: textColor, fontFace: KR, margin: 0,
+      });
+      s.addText(String(page), {
+        x: W - M - 0.6, y: 7.00, w: 0.6, h: 0.22,
+        align: 'right', fontSize: 8, bold: true, color: C.brass, fontFace: NUM, margin: 0,
+      });
+      break;
+    }
+    case 'minimal': {
+      // 페이지 번호만 우측
+      s.addText(String(page), {
+        x: W - M - 0.6, y: 7.02, w: 0.6, h: 0.22,
+        align: 'right', fontSize: 8, color: C.mute2, fontFace: NUM, margin: 0,
+      });
+      break;
+    }
+    case 'dramatic': {
+      // 전폭 액센트 바 + 흰 텍스트
+      s.addShape('rect' as any, {
+        x: 0, y: 7.08, w: W, h: 0.42,
+        fill: { color: C.ink },
+      });
+      s.addShape('rect' as any, {
+        x: 0, y: 7.08, w: 0.12, h: 0.42,
+        fill: { color: C.brass },
+      });
+      s.addText(`${docno}`, {
+        x: M, y: 7.12, w: 8, h: 0.20,
+        fontSize: 7, color: onDark ? CD.faint : CD.mute, fontFace: KR, margin: 0,
+      });
+      s.addText(String(page), {
+        x: W - M - 0.8, y: 7.12, w: 0.8, h: 0.20,
+        align: 'right', fontSize: 9, bold: true, color: C.brass, fontFace: NUM, margin: 0,
+      });
+      break;
+    }
+    case 'classic':
+    default: {
+      s.addText(`CREDEAL · 제이에스부동산중개(주)   |   ${docno}`, {
+        x: M, y: 6.98, w: 8, h: 0.24,
+        fontSize: 8, color: textColor, fontFace: KR, margin: 0,
+      });
+      s.addText(String(page), {
+        x: W - M - 1.0, y: 6.98, w: 1.0, h: 0.24,
+        align: 'right', fontSize: 9, bold: true, color: C.brass, fontFace: NUM, margin: 0,
+      });
+      break;
+    }
+  }
 }
 
 /** Pro 워터마크 */
@@ -686,7 +892,7 @@ export function tag(
   });
 }
 
-/** 빈 카드 (직접 채울 때) */
+/** 빈 카드 (직접 채울 때) — layoutStyle 분기 */
 export function card(
   s: Slide,
   x: number,
@@ -697,12 +903,64 @@ export function card(
 ): void {
   const fill = opt?.fill ?? (opt?.onDark ? CD.card : C.tint);
   const lineCol = opt?.lineCol ?? (opt?.onDark ? CD.border : C.line);
-  s.addShape('roundRect' as any, {
-    x, y, w, h,
-    rectRadius: opt?.radius ?? 0.06,
-    fill: { color: fill },
-    line: { color: lineCol, width: 0.5 },
-  });
+  const style = THEME_META.layoutStyle;
+
+  switch (style) {
+    case 'modern': {
+      // 직각 + 상단 액센트 바
+      s.addShape('rect' as any, {
+        x, y, w, h,
+        fill: { color: fill },
+        line: { color: lineCol, width: 0.3 },
+      });
+      s.addShape('rect' as any, {
+        x, y, w, h: 0.04,
+        fill: { color: C.brass },
+      });
+      break;
+    }
+    case 'executive': {
+      // 큰 라운드 + 두꺼운 보더
+      s.addShape('roundRect' as any, {
+        x, y, w, h,
+        rectRadius: 0.10,
+        fill: { color: fill },
+        line: { color: lineCol, width: 1 },
+      });
+      break;
+    }
+    case 'minimal': {
+      // 보더 없음 + 미묘한 배경
+      s.addShape('rect' as any, {
+        x, y, w, h,
+        fill: { color: fill },
+      });
+      break;
+    }
+    case 'dramatic': {
+      // 직각 + 좌측 액센트 바
+      s.addShape('rect' as any, {
+        x, y, w, h,
+        fill: { color: fill },
+        line: { color: lineCol, width: 0.3 },
+      });
+      s.addShape('rect' as any, {
+        x, y, w: 0.05, h,
+        fill: { color: C.brass },
+      });
+      break;
+    }
+    case 'classic':
+    default: {
+      s.addShape('roundRect' as any, {
+        x, y, w, h,
+        rectRadius: opt?.radius ?? 0.06,
+        fill: { color: fill },
+        line: { color: lineCol, width: 0.5 },
+      });
+      break;
+    }
+  }
 }
 
 // ════════════════════════════════════════

@@ -51,6 +51,9 @@ export interface PptxThemeTokens {
   // 커버
   coverStyle: 'institutional_masses' | 'split' | 'hero_dark' | 'corporate_card' | 'obsidian_glow';
 
+  // 본문 레이아웃 스타일 (프리셋별 슬라이드 레이아웃 차별화)
+  layoutStyle: 'classic' | 'modern' | 'executive' | 'minimal' | 'dramatic';
+
   // 브랜딩
   companyName: string;
   companyTagline: string;
@@ -101,6 +104,7 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     titleFont: '맑은 고딕',
     bodyFont: '맑은 고딕',
     coverStyle: 'institutional_masses',
+    layoutStyle: 'classic',
     companyName: '크리딜',
     companyTagline: '상업용 부동산 투자 플랫폼'
   },
@@ -148,6 +152,7 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     titleFont: '맑은 고딕',
     bodyFont: '맑은 고딕',
     coverStyle: 'split',
+    layoutStyle: 'modern',
     companyName: '크리딜',
     companyTagline: '상업용 부동산 투자 플랫폼'
   },
@@ -195,6 +200,7 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     titleFont: '맑은 고딕',
     bodyFont: '맑은 고딕',
     coverStyle: 'hero_dark',
+    layoutStyle: 'executive',
     companyName: '크리딜',
     companyTagline: '상업용 부동산 투자 플랫폼'
   },
@@ -242,6 +248,7 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     titleFont: '맑은 고딕',
     bodyFont: '맑은 고딕',
     coverStyle: 'corporate_card',
+    layoutStyle: 'minimal',
     companyName: '크리딜',
     companyTagline: '상업용 부동산 투자 플랫폼'
   },
@@ -289,6 +296,7 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     titleFont: '맑은 고딕',
     bodyFont: '맑은 고딕',
     coverStyle: 'obsidian_glow',
+    layoutStyle: 'dramatic',
     companyName: '크리딜',
     companyTagline: '상업용 부동산 투자 플랫폼'
   }
