@@ -137,7 +137,7 @@ export async function GET(
         'Cache-Control': 'no-store',
         'X-Slide-Count': String(result.slideCount),
         'X-File-Size': String(result.fileSizeBytes),
-        'X-Warnings': JSON.stringify(result.warnings.slice(0, 10)),
+        'X-Warnings': encodeURIComponent(JSON.stringify(result.warnings.slice(0, 10))),
       },
     });
   } catch (err: any) {
