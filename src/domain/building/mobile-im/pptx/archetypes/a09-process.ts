@@ -1,6 +1,6 @@
 import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
-import { C, M, CW, W, H, col, colX, KR, NUM, CD } from '../imlib';
+import { C, M, CW, KR, NUM } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 
 export interface ArchetypeInput {
@@ -19,28 +19,57 @@ export interface ArchetypeOutput {
 }
 
 export function buildA09Process(input: ArchetypeInput): ArchetypeOutput {
-  const slide = input.pres.addSlide({ masterName: 'A9' });
+  const slide = L.light(input.pres);
   const warnings: string[] = [];
   L.head(slide, input.slideNum, input.data.kicker || 'SECTION', input.data.title || '제목');
   
-  const w = 3.80;
-  const gap = 0.34;
-  const y = 1.72;
-  const h = 2.52;
-  
   const steps = input.data.steps || [];
+  const n = Math.min(steps.length || 3, 4);
+  const gap = 0.4;
+  const w = L.col(n, gap);
+  const y = 1.72;
+  const h = 3.5;
+  
   steps.forEach((s: any, i: number) => {
-    if (i > 2) return;
-    const x = M + i * (w + gap);
-    slide.addShape('rect' as any, { x, y, w, h, fill: { color: 'F4F4F4' } });
-    slide.addText(s.stepNum || `STEP ${i+1}`, { x: x+0.24, y: y+0.18, w: w-0.48, h: 0.2, fontFace: NUM, fontSize: 9.5, bold: true });
-    slide.addText(s.title || '', { x: x+0.24, y: y+0.46, w: w-0.48, h: 0.4, fontFace: KR, fontSize: 14, bold: true });
-    slide.addText(s.description || '', { x: x+0.24, y: y+1.08, w: w-0.48, h: 0.8, fontFace: KR, fontSize: 9.8 });
-    if (s.tag) slide.addShape('rect' as any, { x: x+0.24, y: y+2.04, w: 1.45, h: 0.28, fill: { color: 'DDDDDD' } });
+    if (i >= n) return;
+    const x = L.colX(i, w, gap);
+    
+    // Card background
+    L.card(slide, x, y, w, h);
+    
+    // Brass numbered circle
+    const cx = x + 0.24;
+    const cy = y + 0.24;
+    slide.addShape('ellipse' as any, { x: cx, y: cy, w: 0.42, h: 0.42, fill: { color: C.brass } });
+    const numStr = s.stepNum || String(i+1).padStart(2, '0');
+    slide.addText(numStr, { x: cx, y: cy, w: 0.42, h: 0.42, align: 'center', valign: 'middle', fontSize: 13, bold: true, color: 'FFFFFF', fontFace: NUM, margin: 0 });
+    
+    // Title
+    slide.addText(s.title || '', { x: x + 0.24, y: y + 0.8, w: w - 0.48, h: 0.4, fontFace: KR, fontSize: 16, bold: true, color: C.ink });
+    
+    // Description
+    slide.addText(s.description || '', { x: x + 0.24, y: y + 1.3, w: w - 0.48, h: h - 1.5, fontFace: KR, fontSize: 11, color: C.body, valign: 'top' });
+    
+    // Tag
+    if (s.tag) {
+      L.tag(slide, x + 0.24, y + h - 0.5, 1.45, 0.28, s.tag, C.ink, C.line2, 9);
+    }
+    
+    // Arrow between steps
+    if (i < n - 1) {
+      slide.addShape('rightArrow' as any, {
+        x: x + w + 0.1,
+        y: y + h / 2 - 0.15,
+        w: 0.2,
+        h: 0.3,
+        fill: { color: C.line },
+        line: { color: C.mute, width: 0.5 }
+      });
+    }
   });
   
   if (input.data.bottomInfo) {
-    slide.addText(input.data.bottomInfo, { x: M, y: 4.52, w: CW, h: 0.5, fontFace: KR, fontSize: 11 });
+    slide.addText(input.data.bottomInfo, { x: M, y: y + h + 0.3, w: CW, h: 0.5, fontFace: KR, fontSize: 11, color: C.mute });
   }
   
   if (input.watermarkText) L.watermark(slide, input.watermarkText, false);
