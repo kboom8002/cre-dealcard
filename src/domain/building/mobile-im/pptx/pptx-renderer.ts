@@ -14,40 +14,157 @@ import { validateTextBudgets } from './text-budget';
 import type { ProvenanceKind } from './imlib';
 import type { InvestmentPosture } from '@/domain/ontology';
 
-function addFallbackContent(slide: any, data: any, theme: any) {
-  // Check if body area is empty (no shapes below y=1.5)
-  let hasBodyShapes = false;
-  if (slide.bkgdImg || slide.bkgd) {
-    // has background
-  }
-  // This is a naive check. A better way in PptxGenJS is not available directly, 
-  // so we always render if there is data.content and no specific left/right data.
-  // Actually, standard is to just check if `data.content` exists and no shapes below 1.5.
-  // We can't introspect slide._shapes easily, so let's check `data.content`.
-  // The system prompt: "modify the archetype builders to check for data.content... most efficient approach is to add the fallback in the renderer loop AFTER the builder runs. Add a helper function addFallbackContent(slide, data, theme) that: 1. Checks if the slide body area is empty (no shapes below y=1.5)..."
-  // Since slide._shapes exists in PptxGenJS internals:
-  const shapes = slide._shapes || [];
-  hasBodyShapes = shapes.some((s: any) => s.options && s.options.y && s.options.y >= 1.5);
+import { stripMarkdown } from './data-binder';
+import { M, CW, KR, NUM, C } from './imlib';
 
-  if (!hasBodyShapes && data.content) {
-    // Strip markdown to plain text paragraphs
-    const plainText = data.content
-      .replace(/[#*`_\[\]]/g, '')
-      .split('\n')
-      .map((line: string) => line.trim())
-      .filter((line: string) => line.length > 0);
-    
-    // Add text box at y=1.5 covering content area
-    slide.addText(plainText.join('\n\n'), {
-      x: 0.5,
-      y: 1.5,
-      w: 12.33,
-      h: 5.5,
-      fontSize: 11,
-      color: theme?.C?.body || '666666',
-      valign: 'top',
-      bullet: true
-    });
+/**
+ * 아키타입 빌더가 본문을 렌더링하지 못한 경우의 고품질 폴백.
+ * 
+ * markdown을 파싱하여:
+ * - 테이블 → PptxGenJS addTable로 렌더링
+ * - 불릿 리스트 → 구조화된 텍스트 블록
+ * - 일반 텍스트 → 정돈된 단락
+ */
+function addFallbackContent(slide: any, data: any, _theme: any) {
+  const shapes = slide._slideObjects || slide._shapes || [];
+  const hasBodyShapes = shapes.some((s: any) => {
+    const y = s?.options?.y ?? s?.y ?? 0;
+    return y >= 1.5;
+  });
+
+  if (hasBodyShapes || !data.content) return;
+
+  const markdown: string = data.content;
+  const lines = markdown.split('\n');
+  let curY = 1.62;
+  const maxY = 6.8;
+  const bodyW = CW;
+  const bodyX = M;
+
+  // 그룹화: 테이블 블록 vs 텍스트 블록
+  const blocks: Array<{type: 'table'; headers: string[]; rows: string[][]} | {type: 'text'; lines: string[]}> = [];
+  let textBuf: string[] = [];
+  let tableHeaders: string[] | null = null;
+  let tableRows: string[][] = [];
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line.startsWith('|')) {
+      // 테이블 행
+      const cells = line.split('|').map(c => c.trim()).filter((_, i, a) => i > 0 && i < a.length - 1);
+      if (cells.every(c => /^[-:]+$/.test(c))) continue; // 구분선
+      if (!tableHeaders) {
+        // 텍스트 버퍼 플러시
+        if (textBuf.length > 0) { blocks.push({type: 'text', lines: [...textBuf]}); textBuf = []; }
+        tableHeaders = cells;
+      } else {
+        tableRows.push(cells);
+      }
+    } else {
+      // 테이블 종료
+      if (tableHeaders) {
+        blocks.push({type: 'table', headers: tableHeaders, rows: [...tableRows]});
+        tableHeaders = null;
+        tableRows = [];
+      }
+      if (line.length > 0) textBuf.push(line);
+    }
+  }
+  // 잔여 플러시
+  if (tableHeaders) blocks.push({type: 'table', headers: tableHeaders, rows: tableRows});
+  if (textBuf.length > 0) blocks.push({type: 'text', lines: textBuf});
+
+  for (const block of blocks) {
+    if (curY >= maxY) break;
+
+    if (block.type === 'table') {
+      const tableData = [
+        block.headers.map(h => stripMarkdown(h)),
+        ...block.rows.map(r => r.map(c => stripMarkdown(c)))
+      ];
+      const rowH = 0.32;
+      const tableH = tableData.length * rowH;
+      if (curY + tableH > maxY) continue;
+
+      slide.addTable(tableData, {
+        x: bodyX, y: curY, w: bodyW,
+        rowH,
+        fontFace: KR, fontSize: 9.5,
+        border: { type: 'solid', pt: 0.5, color: 'DDE3E8' },
+        colW: Array(tableData[0].length).fill(bodyW / tableData[0].length),
+        autoPage: false,
+      });
+      // 헤더 행 스타일링 (첫 행)
+      curY += tableH + 0.2;
+    } else {
+      // 텍스트 블록: 헤더, 불릿, 일반 텍스트를 구분하여 렌더링
+      for (const line of block.lines) {
+        if (curY >= maxY) break;
+
+        // 헤더 (### 또는 ##)
+        if (line.startsWith('#')) {
+          const level = (line.match(/^#+/) || [''])[0].length;
+          const text = stripMarkdown(line.replace(/^#+\s*/, ''));
+          if (!text) continue;
+          const fontSize = level <= 2 ? 14 : 12;
+          slide.addText(text, {
+            x: bodyX, y: curY, w: bodyW, h: 0.36,
+            fontFace: KR, fontSize, bold: true, color: C.ink,
+            margin: 0,
+          });
+          curY += 0.40;
+          continue;
+        }
+
+        // 불릿 아이템
+        if (line.startsWith('-') || line.startsWith('•') || line.startsWith('·')) {
+          const text = stripMarkdown(line.replace(/^[-•·]\s*/, ''));
+          if (!text) continue;
+          const lineH = Math.max(0.28, Math.ceil(text.length / 70) * 0.22);
+          slide.addText(text, {
+            x: bodyX + 0.3, y: curY, w: bodyW - 0.3, h: lineH,
+            fontFace: KR, fontSize: 10, color: C.body,
+            bullet: { type: 'bullet', char: '•' },
+            margin: 0, valign: 'top',
+          });
+          curY += lineH + 0.04;
+          continue;
+        }
+
+        // blockquote (> ...)
+        if (line.startsWith('>')) {
+          const text = stripMarkdown(line.replace(/^>\s*/, ''));
+          if (!text) continue;
+          const lineH = Math.max(0.36, Math.ceil(text.length / 60) * 0.22);
+          slide.addShape('rect' as any, {
+            x: bodyX, y: curY, w: bodyW, h: lineH + 0.12,
+            fill: { color: C.brassT }, 
+          });
+          slide.addShape('rect' as any, {
+            x: bodyX, y: curY, w: 0.05, h: lineH + 0.12,
+            fill: { color: C.brass },
+          });
+          slide.addText(text, {
+            x: bodyX + 0.2, y: curY + 0.06, w: bodyW - 0.4, h: lineH,
+            fontFace: KR, fontSize: 10, color: C.ink3,
+            margin: 0, valign: 'top',
+          });
+          curY += lineH + 0.20;
+          continue;
+        }
+
+        // 일반 텍스트
+        const text = stripMarkdown(line);
+        if (!text || text.length < 3) continue;
+        const lineH = Math.max(0.26, Math.ceil(text.length / 70) * 0.20);
+        slide.addText(text, {
+          x: bodyX, y: curY, w: bodyW, h: lineH,
+          fontFace: KR, fontSize: 10.5, color: C.body,
+          margin: 0, valign: 'top',
+        });
+        curY += lineH + 0.06;
+      }
+    }
   }
 }
 
