@@ -122,9 +122,16 @@ export async function generateMobileIMHandler(
     lease_summary: supplemental,
   });
   const gradeResult = computeDataGrade(gradeAttrs, gradeProvenance);
+  console.log('[im-handler] gradeResult:', gradeResult.grade, gradeResult.scorePct, 'directData present:', !!directData);
+
+  if (directData?.qualityGrade) {
+    gradeResult.grade = directData.qualityGrade as string;
+    console.log('[im-handler] Overriding grade with directData.qualityGrade:', gradeResult.grade);
+  }
 
   // Grade D: Block IM generation entirely
   if (gradeResult.grade === 'D') {
+    console.log('[im-handler] Blocked by Grade D:', JSON.stringify({gradeAttrs, missing: gradeResult.missingRequiredSlots}));
     return {
       ok: false,
       error: '데이터 등급 D: IM 생성이 차단됩니다. 최소 Grade C 이상의 데이터를 입력해 주세요.',
