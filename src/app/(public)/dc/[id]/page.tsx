@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { projectToTeaser } from '@/domain/deal/teaser/teaser-projector';
@@ -141,9 +140,9 @@ export default async function DealCardShortPage({ params }: PageProps) {
   const structureChips = imBody.structureChips || body.structureChips || teaserView.structuralSignals || [];
 
   // Posture-related data from teaser view
-  const posture = (teaserView as any).posture || 'income';
-  const postureLabel = (teaserView as any).postureLabel || '임대수익형';
-  const postureHeroTiles = (teaserView as any).postureHeroTiles || [
+  const posture = teaserView.posture || 'income';
+  const postureLabel = teaserView.postureLabel || '임대수익형';
+  const postureHeroTiles = teaserView.postureHeroTiles || [
     { emoji: '💰', label: '매각가', value: teaserView.bandedPrice || '가격 미공개' },
     { emoji: '📊', label: '예상 수익률', value: teaserView.bandedCapRate || '수익률 확인 중' },
     { emoji: '📐', label: '규모', value: teaserView.bandedArea || '면적 미공개' },
@@ -151,7 +150,10 @@ export default async function DealCardShortPage({ params }: PageProps) {
   ];
 
   // Curiosity slot — posture별 문장
-  const curiositySlot = (teaserView as any).curiositySlot || body.curiosityHook as string || "정밀 호가·위치는 상세 요청 후 공개됩니다";
+  const curiositySlot = teaserView.curiositySlot || body.curiosityHook as string || "정밀 호가·위치는 상세 요청 후 공개됩니다";
+
+  // Slider axis2 config from projector
+  const sliderAxis2Config = teaserView.sliderAxis2;
 
   // Regulation data
   const permits = (imBody.permits || body.permits || []) as Array<{ kind: string; status: 'required' | 'cleared' | 'risk'; label: string; estimatedMonths?: number }>;
@@ -198,6 +200,7 @@ export default async function DealCardShortPage({ params }: PageProps) {
             maxBudgetEok={maxBudgetEok}
             teaserConfigId={building?.id || id}
             posture={posture}
+            sliderAxis2Config={sliderAxis2Config}
           />
 
           {/* ⑤ RegulationScreening — 규제 스크리닝 (해당 시) */}

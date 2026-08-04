@@ -12,7 +12,6 @@ interface TeaserHeroHeaderProps {
   bandedCapRate?: string;
   bandedArea?: string;
   vacancyLabel?: string;
-  dataGrade?: string;
 }
 
 export function TeaserHeroHeader({
