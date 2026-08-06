@@ -2,8 +2,7 @@
  * Shock & Awe Onboarding v2 — TypeScript Type Definitions
  */
 
-import type { Vibe7D, VtiMeta } from '@/lib/vibe/vibe-vector';
-import type { CompositeScores } from '@/lib/vibe/vibe-complement';
+
 
 // ── Core Enum Types ──────────────────────────────────────────────────────────
 
@@ -42,12 +41,12 @@ export type Region =
 // ── Vibe Analysis Result ─────────────────────────────────────────────────────
 
 export interface VibeAnalysisResult {
-  photoVibe: Vibe7D;
-  complementVibe: Vibe7D;
-  vtiResult: { meta: VtiMeta; confidence: number };
+  photoVibe: any;
+  complementVibe: any;
+  vtiResult: { meta: any; confidence: number };
   matchedTemplateId: string;
   beforeScores: { trust: number; valence: number };
-  afterScores: CompositeScores;
+  afterScores: any;
   description: string;
 }
 

@@ -74,9 +74,9 @@ export function KakaoShareButton({
   // 딜카드별 동적 OG 이미지: /api/og/deal/[id]
   // 브로커 바이브카드 이미지는 보조 fallback
   const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}`;
-  const vibeCardOgUrl = brokerSlug
-    ? `${siteUrl}/api/og/vibe-card/${brokerSlug}`
-    : `${siteUrl}/api/og/vibe-card/js-realty`;
+  const brokerOgUrl = brokerSlug
+    ? `${siteUrl}/api/og/broker-profile/${brokerSlug}`
+    : `${siteUrl}/api/og/deal/${buildingId}`;
 
   function handleShare() {
     const finalText = typeof window !== 'undefined' 

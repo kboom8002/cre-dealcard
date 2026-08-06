@@ -469,33 +469,7 @@ export default function BrokerProfilePage() {
             </p>
           </div>
           
-          {profile?.broker?.slug ? (
-            <a
-              href="/broker/vibe-card"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all shadow-sm border"
-              style={{
-                background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
-                color: '#fff',
-                borderColor: 'rgba(255,255,255,0.1)',
-              }}
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                <circle cx="8.5" cy="11.5" r="2.5"></circle>
-                <path d="M12.5 17.5v-1a2.5 2.5 0 0 0-2.5-2.5h-3A2.5 2.5 0 0 0 4.5 16.5v1"></path>
-                <path d="M14 10h5"></path>
-                <path d="M14 14h5"></path>
-              </svg>
-              ✨ Vibe 명함 관리
-            </a>
-          ) : (
-            <a
-              href="/broker/vibe-card"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all shadow-sm border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100"
-            >
-              ✨ Vibe 명함 만들기
-            </a>
-          )}
+
         </div>
 
         {/* Error / Success */}

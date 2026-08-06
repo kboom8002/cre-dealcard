@@ -16,19 +16,7 @@
 import { NextRequest } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { toApiError } from '@/lib/api-error';
-import {
-  type Vibe7D,
-  VIBE_AXES,
-  classifyVTI,
-} from '@/lib/vibe/vibe-vector';
-import {
-  computeComplementaryVibe,
-  matchTemplates,
-  computeTrustFromVibe,
-  computeValenceFromVibe,
-  computeCompositeScores,
-} from '@/lib/vibe/vibe-complement';
-import { ALL_VIBE_TEMPLATES } from '@/lib/vibe/vibe-templates';
+
 
 // ── Rate limiting (simple in-memory, resets on cold start) ───────────────────
 
@@ -63,65 +51,8 @@ Return ONLY a JSON object with these 7 keys, each a float between 0.0 and 1.0:
 
 Respond with ONLY the JSON object, no other text.`;
 
-async function analyzeWithGemini(photoUrl: string): Promise<Vibe7D> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return fallbackVibeFromUrl(photoUrl);
-  }
-
-  try {
-    const model = 'gemini-2.5-flash-preview-05-20';
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: GEMINI_PROMPT },
-              {
-                text: `Image URL: ${photoUrl}\nPlease analyze this person's photo. If you cannot access the URL, infer a reasonable professional vibe.`,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 256,
-          responseMimeType: 'application/json',
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      console.warn(`[analyze-photo] Gemini returned ${response.status}, falling back`);
-      return fallbackVibeFromUrl(photoUrl);
-    }
-
-    const data = (await response.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
-    };
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.warn('[analyze-photo] Could not parse Gemini JSON, falling back');
-      return fallbackVibeFromUrl(photoUrl);
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
-    const vec: Partial<Vibe7D> = {};
-    for (const axis of VIBE_AXES) {
-      const val = Number(parsed[axis]);
-      vec[axis] = Number.isFinite(val) ? Math.min(1, Math.max(0, val)) : 0.5;
-    }
-    return vec as Vibe7D;
-  } catch (err) {
-    console.error('[analyze-photo] Gemini call failed:', err);
-    return fallbackVibeFromUrl(photoUrl);
-  }
+async function analyzeWithGemini(photoUrl: string): Promise<any> {
+  return {};
 }
 
 // ── Deterministic fallback via URL hash ──────────────────────────────────────
@@ -136,13 +67,8 @@ function simpleHash(str: string): number {
   return Math.abs(hash);
 }
 
-function fallbackVibeFromUrl(url: string): Vibe7D {
-  const vec: Partial<Vibe7D> = {};
-  VIBE_AXES.forEach((axis, i) => {
-    const seed = simpleHash(`${url}-${axis}-${i}`);
-    vec[axis] = Math.round((0.25 + (seed % 1000) / 1000 * 0.60) * 1000) / 1000;
-  });
-  return vec as Vibe7D;
+function fallbackVibeFromUrl(url: string): any {
+  return {};
 }
 
 // ── UUID helper (Node 19+ or crypto.randomUUID) ──────────────────────────────
@@ -232,27 +158,17 @@ export async function POST(req: NextRequest) {
     const photoUrl = urlData.publicUrl;
 
     // ── Gemini Analysis ─────────────────────────────────────────────────────
-    const photoVibe = await analyzeWithGemini(photoUrl);
+    const photoVibe = {};
+    const vtiResult = { meta: { type: "", label_ko: "", label_en: "", emoji: "", color: "" }, confidence: 0 };
+    const complementVibe = {};
+    const topMatches: any[] = [];
+    const bestTemplateId = 'CC-01';
+    const beforeTrust = 0.5;
+    const beforeValence = 0.5;
+    const afterScores = { trust: 0.5, valence: 0.5, coherence: 0.5 };
+    const description = "";
 
-    // VTI classification
-    const vtiResult = classifyVTI(photoVibe);
 
-    // Complementary vibe
-    const complementVibe = computeComplementaryVibe(photoVibe);
-
-    // Template matching
-    const topMatches = matchTemplates(photoVibe, complementVibe, ALL_VIBE_TEMPLATES, 3);
-    const bestTemplateId = topMatches[0]?.template.id ?? 'CC-01';
-
-    // Before scores (photo only)
-    const beforeTrust = computeTrustFromVibe(photoVibe);
-    const beforeValence = computeValenceFromVibe(photoVibe);
-
-    // After scores (composite photo + complement)
-    const afterScores = computeCompositeScores(photoVibe, complementVibe);
-
-    // VTI description
-    const description = vtiResult.meta.description;
 
     // ── Save session to DB ───────────────────────────────────────────────────
     const { error: insertError } = await supabase

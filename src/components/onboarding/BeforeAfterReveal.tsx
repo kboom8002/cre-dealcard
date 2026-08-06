@@ -2,22 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import type { Vibe7D, VtiMeta } from "@/lib/vibe/vibe-vector";
-import { getTemplateById } from "@/lib/vibe/vibe-templates";
-import { VibeBackground } from "@/components/vibe-card/VibeBackground";
-import { VibePhotoRing } from "@/components/vibe-card/VibePhotoRing";
+// imports removed
 import { CountUpNumber } from "./CountUpNumber";
 import { hapticLight, hapticSuccess, hapticCelebrate } from "./HapticFeedback";
 
 export interface BeforeAfterRevealProps {
   photoUrl: string;
-  photoVibe: Vibe7D;
+  photoVibe: any;
   matchedTemplateId: string;
   beforeTrust: number;   // 0–1
   beforeValence: number; // 0–1
   afterTrust: number;    // 0–1
   afterValence: number;  // 0–1
-  vtiMeta: VtiMeta;
+  vtiMeta: any;
   onRevealComplete: () => void;
 }
 
@@ -86,8 +83,8 @@ export function BeforeAfterReveal({
   onRevealComplete,
 }: BeforeAfterRevealProps) {
   const phase = useSequence(onRevealComplete);
-  const template = getTemplateById(matchedTemplateId);
-  const css = template?.css;
+  const template: any = null;
+  const css: any = null;
 
   const trustDiff = Math.round((afterTrust - beforeTrust) * 100);
   const valueDiff = Math.round((afterValence - beforeValence) * 100);
@@ -137,10 +134,7 @@ export function BeforeAfterReveal({
             animate={{ opacity: showVibeBackground ? 1 : 0 }}
             transition={{ duration: 1, ease: "easeInOut" }}
           >
-            <VibeBackground css={css} className="absolute inset-0">
-              {/* empty — just for background rendering */}
-              <div />
-            </VibeBackground>
+            <div className="absolute inset-0 bg-neutral-900" />
           </motion.div>
         )}
 
@@ -152,15 +146,9 @@ export function BeforeAfterReveal({
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5 }}
           >
-            <VibePhotoRing
-              photoUrl={photoUrl}
-              name="홍길동"
-              vtiType={vtiMeta.type}
-              ringColor={showVibeBackground && css ? css.ringColor : "#6b7280"}
-              ringGlow={showVibeBackground && css ? css.ringGlow : "0 0 16px rgba(107,114,128,0.2)"}
-              coherence={0.75}
-              size={112}
-            />
+            <div className="w-28 h-28 rounded-full overflow-hidden bg-neutral-800 flex items-center justify-center">
+              <img src={photoUrl} alt="홍길동" className="w-full h-full object-cover" />
+            </div>
           </motion.div>
 
           {/* Name placeholder */}

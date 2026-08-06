@@ -5,10 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import Script from "next/script";
 import type { MobileIMDocument, MobileIMSection } from "@/lib/demo/mobile-im-demo-data";
-import { getTemplateById } from "@/lib/vibe/vibe-templates";
-// SubscribeCard removed — consolidated into VibeCardHero
-import { VibeCardHero } from "@/components/vibe-card/VibeCardHero";
-import { VTI_PROTOTYPES } from "@/lib/vibe/vibe-vector";
+import { FlatProfileCard } from "@/components/broker/flat-profile-card";
 import { HeroCard } from "./hero-card";
 import { DCFHeatmap } from "./dcf-heatmap";
 import { LeverageChart } from "./leverage-chart";
@@ -938,11 +935,7 @@ function CompletenessBar({ score }: { score: number }) {
 // ─── Main Viewer ───────────────────────────────────────────────────────────
 
 export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: Props) {
-  const vibeTemplate = useMemo(() => {
-    return doc?.broker.vibeTemplateId ? getTemplateById(doc.broker.vibeTemplateId) : null;
-  }, [doc?.broker.vibeTemplateId]);
-  const vibeCss = vibeTemplate?.css;
-  const accentColor = vibeCss?.accentColor || '#60a5fa';
+  const accentColor = '#60a5fa';
 
   const [openSections, setOpenSections] = useState<Set<string>>(
     new Set(["01_overview"]), // First section open by default
@@ -1337,60 +1330,23 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
           ))}
         </div>
 
-        {/* Full IM CTA + Magazine Subscribe CTA removed — consolidated into VibeCardHero */}
-
-        {/* ── Broker Vibe Card ── */}
+        {/* ── 담당 중개인 프로필 카드 ── */}
         {doc.broker.slug !== "cre-dealcard-default" ? (
           <div className="mb-8">
             <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-4 px-1">
               담당 중개인
             </h2>
-            <VibeCardHero
-              profile={{
-                id: doc.broker.userId,
-                displayName: doc.broker.displayName,
-                company: doc.broker.company,
-                phone: doc.broker.phone,
-                photoUrl: doc.broker.photoUrl,
-                tagline: doc.broker.tagline,
-              }}
-              email={(doc.broker as any).contactEmail || undefined}
-              broker={{
-                specialtyRegions: doc.broker.specialtyRegions ?? [],
-                specialtyAssets: doc.broker.specialtyAssets ?? [],
-                bio: doc.broker.bio ?? null,
-                isVerified: null,
-              }}
-              vibe={doc.broker.vibeVector ? (() => {
-                const _meta = VTI_PROTOTYPES.find(p => p.meta.type === doc.broker.vibeVti)?.meta;
-                return {
-                vector: doc.broker.vibeVector!,
-                vti: (doc.broker.vibeVti as any) ?? "strategist",
-                vtiMeta: _meta ? {
-                  type: _meta.type,
-                  label: _meta.label_en,
-                  labelKo: _meta.label_ko,
-                  emoji: _meta.emoji,
-                  color: _meta.color,
-                  description: _meta.description,
-                } : null,
-                complement: doc.broker.vibeComplement ?? null,
-                templateId: doc.broker.vibeTemplateId ?? null,
-                valence: doc.broker.vibeValence ?? null,
-                trust: doc.broker.vibeTrust ?? null,
-                analyzedAt: doc.broker.vibeAnalyzedAt ?? null,
-              }; })() : null}
-              template={vibeTemplate ? {
-                id: vibeTemplate.id,
-                name: vibeTemplate.name_en,
-                nameKo: vibeTemplate.name_ko,
-                css: vibeTemplate.css,
-              } : null}
-              professional={null}
-              stats={{ dealCount: (doc.broker as any).dealCount ?? 0, activeCount: (doc.broker as any).activeCount ?? 0 }}
-              logoCompanyUrl={doc.broker.logoCompanyUrl || undefined}
-              logoPartnerUrl={doc.broker.logoPartnerUrl || undefined}
-              latestMagazine={doc.broker.latestMagazine}
+            <FlatProfileCard
+              name={doc.broker.displayName}
+              company={doc.broker.company}
+              specialty={[...(doc.broker.specialtyRegions ?? []), ...(doc.broker.specialtyAssets ?? [])].join(' · ')}
+              photoUrl={doc.broker.photoUrl}
+              phone={doc.broker.phone}
+              email={(doc.broker as any).contactEmail}
+              slug={doc.broker.slug}
+              dealCount={(doc.broker as any).dealCount ?? 0}
+              listingCount={(doc.broker as any).activeCount ?? 0}
+              variant="compact"
             />
           </div>
         ) : (

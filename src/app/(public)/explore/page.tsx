@@ -331,7 +331,7 @@ export default function ExploreUnifiedPage() {
                 return (
                   <Link
                     key={r.id}
-                    href={`/vibe-card/${r.slug}`}
+                    href={`/broker-profile/${r.slug}`}
                     className="flex items-center gap-3 bg-[#131b2e] border border-slate-800 rounded-2xl px-4 py-3.5 hover:border-amber-500/30 transition-all group"
                   >
                     <UserCheck className="w-4 h-4 text-amber-400 shrink-0" />

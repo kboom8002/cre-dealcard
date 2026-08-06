@@ -4,9 +4,8 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Share2, ArrowRight } from "lucide-react";
 import type { VibeAnalysisResult } from "@/lib/onboarding/onboarding-types";
-import { VIBE_AXES, type Vibe7D } from "@/lib/vibe/vibe-vector";
-import { getTemplateById } from "@/lib/vibe/vibe-templates";
-import { VibeCard } from "@/components/vibe-card/VibeCard";
+const VIBE_AXES = ["warmth", "energy", "polish", "authentic", "heritage", "futuristic", "playful"] as const;
+type Vibe7D = Record<typeof VIBE_AXES[number], number>;
 import { BeforeAfterReveal } from "./BeforeAfterReveal";
 
 // ── Korean axis labels & bar theming ─────────────────
@@ -94,8 +93,8 @@ export function StageReveal({
   const { vtiResult, matchedTemplateId, beforeScores, afterScores, photoVibe, description } =
     vibeResult;
 
-  const template = getTemplateById(matchedTemplateId);
-  const css = template?.css;
+  const template: any = null;
+  const css: any = null;
 
   function handleRevealComplete() {
     setRevealDone(true);
@@ -133,19 +132,14 @@ export function StageReveal({
               <p className="text-xs text-white/40 text-center mb-3 uppercase tracking-widest font-semibold">
                 당신의 Vibe 명함
               </p>
-              <VibeCard
-                brokerName="홍길동"
-                company="(이름 추가 후 완성)"
-                photoUrl={photoUrl}
-                templateId={matchedTemplateId}
-                vibeVti={vtiResult.meta.type}
-                vibeScores={{
-                  trust: afterScores.trust,
-                  valence: afterScores.valence,
-                  coherence: afterScores.coherence,
-                }}
-                tagline={description}
-              />
+              <div className="bg-neutral-800 rounded-xl p-6 flex flex-col items-center">
+                <div className="w-24 h-24 rounded-full overflow-hidden mb-4">
+                  <img src={photoUrl} alt="홍길동" className="w-full h-full object-cover" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-1">홍길동</h3>
+                <p className="text-sm text-neutral-400 mb-4">(이름 추가 후 완성)</p>
+                <p className="text-sm text-neutral-300 text-center">{description}</p>
+              </div>
             </div>
 
             {/* ── 7D Radar bars ── */}

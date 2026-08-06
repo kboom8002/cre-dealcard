@@ -168,7 +168,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap] Failed to fetch buildings:", err);
   }
 
-  /* ── 4. Broker profile and vibe-card pages ────────────────────── */
+  /* ── 4. Broker profile pages ────────────────────── */
   let brokerPages: MetadataRoute.Sitemap = [];
   try {
     const supabase = createServiceClient();
@@ -195,12 +195,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             lastModified: b.created_at ? new Date(b.created_at) : now,
             changeFrequency: "monthly" as const,
             priority: 0.5,
-          },
-          {
-            url: `${BASE_URL}/vibe-card/${slug}`,
-            lastModified: b.created_at ? new Date(b.created_at) : now,
-            changeFrequency: "daily" as const,
-            priority: 0.8, // highlight redesigned visual business cards
           }
         ];
       });

@@ -96,14 +96,7 @@ const SECTIONS = [
         color: "text-emerald-400",
         bg: "bg-emerald-500/10",
       },
-      {
-        href: "/broker/vibe-card",
-        icon: CreditCard,
-        title: "Vibe AI 명함",
-        desc: "내 Vibe 명함 관리 · 재생성 · 공유",
-        color: "text-cyan-400",
-        bg: "bg-cyan-500/10",
-      },
+
     ],
   },
   {

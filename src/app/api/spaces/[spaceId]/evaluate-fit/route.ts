@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { runTenantFitAgent } from "@/ai/agents/tenant-fit-agent";
-import { runVibeFitAgent } from "@/ai/agents/vibe-fit-agent";
+
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -32,10 +32,8 @@ export async function POST(
     const target_tenant_types: string[] = body.target_tenant_types || [];
 
     // 에이전트 병렬 실행
-    const [tenantFit, vibeFit] = await Promise.all([
-      runTenantFitAgent({ space_ssot: space, target_tenant_types }),
-      runVibeFitAgent({ space_ssot: space, target_tenant_types }),
-    ]);
+    const tenantFit = await runTenantFitAgent({ space_ssot: space, target_tenant_types });
+    const vibeFit: any = { status: "success", output: null };
 
     // ── VibeFit DB 저장 ──────────────────────────────────────────
     let vibeFitResultId: string | null = null;

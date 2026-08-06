@@ -630,7 +630,7 @@ function OwnerReadinessContent() {
     const shareUrl = `${siteUrl}/owner-readiness?buildingId=${selectedBuildingId}&resultId=${result.readinessCheckId}`;
     const title = `🏢 [매각준비도] ${buildingLabel}`;
     const desc = `진단 점수: ${result.readinessScore}점 (${stateInfo?.label || ''})\n\n추천 액션: ${result.nextRecommendedAction}`;
-    const ogImageUrl = `${siteUrl}/api/og/vibe-card/js-realty`;
+    const ogImageUrl = `${siteUrl}/api/og/deal/default`;
 
     if (kakaoReady && window.Kakao?.Share) {
       try {

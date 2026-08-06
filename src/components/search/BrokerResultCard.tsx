@@ -4,7 +4,7 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { Award, Building2, Calendar, MapPin, Sparkles, User, ArrowRight } from "lucide-react";
 import { useHaptic } from "@/hooks/useHaptic";
-import { VTI_PROTOTYPES } from "@/lib/vibe/vibe-vector";
+
 
 export interface BrokerCardData {
   id: string;
@@ -32,9 +32,7 @@ export function BrokerResultCard({ broker }: BrokerResultCardProps) {
   const haptic = useHaptic();
 
   // Resolve VTI metadata
-  const vtiMeta = broker.vibeVti
-    ? VTI_PROTOTYPES.find((p) => p.meta.type === broker.vibeVti)?.meta ?? null
-    : null;
+  const vtiMeta: any = null;
 
   // Initials for avatar fallback
   const initials = broker.displayName

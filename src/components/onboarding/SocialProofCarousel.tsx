@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { getTemplateById } from "@/lib/vibe/vibe-templates";
+
 
 interface DummyCard {
   name: string;
@@ -25,7 +25,7 @@ interface MiniCardProps {
 }
 
 function MiniCard({ card }: MiniCardProps) {
-  const template = getTemplateById(card.templateId);
+  const template: any = null;
   const css = template?.css;
 
   return (

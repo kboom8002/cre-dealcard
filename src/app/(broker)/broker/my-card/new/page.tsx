@@ -80,12 +80,12 @@ export default function BrokerMyCardNewPage() {
     }
   };
 
-  const vibeCardUrl = vibeSlug
-    ? `${typeof window !== 'undefined' ? window.location.origin : 'https://www.credeal.net'}/vibe-card/${vibeSlug}`
+  const profileUrl = vibeSlug
+    ? `${typeof window !== 'undefined' ? window.location.origin : 'https://www.credeal.net'}/broker-profile/${vibeSlug}`
     : null;
 
   const handleCopyUrl = () => {
-    const url = vibeCardUrl || `${window.location.origin}/broker-profile/${encodeURIComponent(brokerName)}`;
+    const url = profileUrl || `${window.location.origin}/broker-profile/${encodeURIComponent(brokerName)}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -223,15 +223,15 @@ export default function BrokerMyCardNewPage() {
           {/* Card Preview */}
           <BrokerCardTemplate card={card} brokerName={brokerName} type={selectedType} />
 
-          {/* Vibe Card Link — 프리미엄 바이브카드가 존재하면 우선 표시 */}
+          {/* Broker Profile Link */}
           {vibeSlug && (
             <a
-              href={`/vibe-card/${vibeSlug}`}
+              href={`/broker-profile/${vibeSlug}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="block w-full text-center bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold rounded-xl py-3.5 text-sm shadow-lg shadow-violet-500/20 hover:opacity-95 transition-all active:scale-[0.98]"
+              className="block w-full text-center bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl py-3.5 text-sm shadow-lg transition-all active:scale-[0.98]"
             >
-              ✨ 프리미엄 Vibe 명함 보기
+              👤 브로커 프로필 보기
             </a>
           )}
 
