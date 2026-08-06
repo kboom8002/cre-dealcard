@@ -246,6 +246,21 @@ export default function ProIMViewerPage({ params }: { params: Promise<{ grantId:
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-neutral-600">
+                    <td className="py-2 text-xs font-bold text-white">합계</td>
+                    <td className="py-2 text-xs text-neutral-400">{building.leaseSummary.tenants.length}건</td>
+                    <td className="py-2 text-right text-xs font-bold text-white">
+                      {building.leaseSummary.tenants.reduce((s: number, t: any) => s + (t.deposit_manwon || 0), 0).toLocaleString()}
+                    </td>
+                    <td className="py-2 text-right text-xs font-bold text-emerald-400">
+                      {building.leaseSummary.tenants.reduce((s: number, t: any) => s + (t.rent_manwon || 0), 0).toLocaleString()}
+                    </td>
+                    <td className="py-2 text-center text-xs text-neutral-400">
+                      {building.leaseSummary.tenants.filter((t: any) => t.is_vacant).length}실 공실
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>

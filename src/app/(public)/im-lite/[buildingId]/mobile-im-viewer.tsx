@@ -42,8 +42,8 @@ function IMInquiryBottomSheet({
   const [error, setError] = useState("");
 
   const handleSubmit = async () => {
-    if (!name.trim() || !phone.trim()) {
-      setError("이름과 연락처는 필수입니다.");
+    if (!name.trim() || (!phone.trim() && !email.trim())) {
+      setError("이름과 연락처 또는 이메일 중 하나는 필수입니다.");
       return;
     }
     setSubmitting(true);
@@ -58,7 +58,7 @@ function IMInquiryBottomSheet({
           doc_id: docId,
           broker_user_id: brokerUserId,
           requester_name: name.trim(),
-          requester_phone: phone.trim(),
+          requester_phone: phone.trim() || undefined,
           requester_email: email.trim() || undefined,
           message: message.trim() || undefined,
         }),
@@ -102,66 +102,61 @@ function IMInquiryBottomSheet({
           </div>
         ) : (
           /* 입력 폼 */
-          <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5">
-            <p className="text-xs text-neutral-500 mb-4">
+          <div className="flex-1 overflow-y-auto px-5 pb-6 space-y-3">
+            <p className="text-xs text-neutral-500">
               아래 정보를 입력하시면 <span className="text-primary font-semibold">{brokerName}</span> 중개인에게 전달됩니다.
             </p>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-neutral-400 mb-1">이름 *</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="홍길동"
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-neutral-400 mb-1">연락처 *</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="010-1234-5678"
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-neutral-400 mb-1">이메일</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="email@example.com"
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-neutral-400 mb-1">메시지</label>
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  rows={3}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-medium text-neutral-400 mb-1">이름 <span className="text-red-400">*</span></label>
+              <input
+                type="text"
+                placeholder="홍길동"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-neutral-400 mb-1">연락처 <span className="text-neutral-600 text-[10px]">(전화 또는 이메일 필수)</span></label>
+              <input
+                type="tel"
+                placeholder="010-XXXX-XXXX (선택)"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+              />
+            </div>
+            <div>
+              <input
+                type="email"
+                placeholder="이메일 (선택)"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+              />
+            </div>
+            <div>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                rows={3}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors resize-none"
+              />
             </div>
 
             {error && (
-              <p className="mt-3 text-xs text-red-400">{error}</p>
+              <p className="text-xs text-red-400">{error}</p>
             )}
 
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="mt-4 w-full py-3 bg-primary text-black text-sm font-black rounded-xl hover:bg-primary/90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-primary text-black text-sm font-black rounded-xl hover:bg-primary/90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? "접수 중..." : "📨 신청서 보내기"}
             </button>
 
-            <p className="mt-3 text-[10px] text-neutral-600 text-center">
+            <p className="text-[10px] text-neutral-600 text-center">
               입력하신 정보는 담당 중개인에게만 전달되며, 투자 상담 목적으로만 사용됩니다.
             </p>
           </div>
@@ -1200,7 +1195,6 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
                 {doc.dataQualityBadge.emoji} {doc.dataQualityBadge.label}
               </span>
             )}
-
           </div>
 
           {/* Price band */}
@@ -1214,8 +1208,6 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
               {(doc as any).heroSubtitle}
             </p>
           )}
-
-
 
           {/* Generation timestamp */}
           <p className="text-[10px] text-neutral-600">
@@ -1234,8 +1226,6 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
           coordinates={doc.coordinates}
           blindName={doc.blindName}
         />
-
-
 
         {/* ── Section Cards ── */}
         <div className="space-y-3 mb-8">
@@ -1271,9 +1261,41 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
                   )}
                 </>
               )}
-              {/* [B4] 프라이빗 IM 신청 CTA */}
+
+              {/* [P2] 중간 CTA — 3번째 섹션 다음에 삽입 */}
+              {index === 2 && (
+                <div className="mt-3 rounded-2xl bg-gradient-to-r from-primary/10 to-blue-500/10 border border-primary/20 p-4">
+                  <p className="text-xs font-bold text-primary mb-3">💬 이 매물에 관심이 있으시나요?</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        try {
+                          await fetch('/api/public/teaser/event', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ eventType: 'intent.interest_tap', buildingId, docId })
+                          });
+                        } catch {}
+                        const btn = document.activeElement as HTMLButtonElement;
+                        if (btn) { btn.textContent = '✅ 관심 표시 완료'; btn.disabled = true; }
+                      }}
+                      className="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl transition-colors border border-neutral-700"
+                    >
+                      👍 1-tap 관심
+                    </button>
+                    <button
+                      onClick={() => setShowInquiry(true)}
+                      className="flex-1 py-2.5 bg-primary text-black text-xs font-black rounded-xl hover:bg-primary/90 transition-colors"
+                    >
+                      📄 상세 자료 요청
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* [B4] 프라이빗 IM 신청 CTA — 마지막 섹션 다음 */}
               {index === doc.sections.length - 1 && (
-                <div className="mt-4">
+                <div className="mt-4 space-y-3">
                   <button
                     id="cta-private-im-request"
                     onClick={() => setShowInquiry(true)}
@@ -1281,6 +1303,34 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
                   >
                     📄 프라이빗 투자설명서(IM) 신청
                   </button>
+
+                  {/* [P3] Basic 티어에서 Pro 콘텐츠 blur 프리뷰 */}
+                  {doc.tier === 'basic' && (
+                    <div className="relative rounded-2xl border border-purple-500/30 bg-purple-500/5 overflow-hidden">
+                      <div className="absolute inset-0 backdrop-blur-sm bg-neutral-950/60 z-10 flex flex-col items-center justify-center gap-3 p-4">
+                        <span className="text-2xl">🔓</span>
+                        <p className="text-sm font-bold text-white text-center">Pro IM에서 더 상세한 데이터를 확인하세요</p>
+                        <p className="text-xs text-neutral-400 text-center">호실별 렌트롤 · 10년 DCF · 대출 세부 · 관리비</p>
+                        <button
+                          onClick={() => setShowInquiry(true)}
+                          className="px-5 py-2 bg-purple-500 hover:bg-purple-400 text-white text-xs font-black rounded-xl transition-colors"
+                        >
+                          🏆 Pro IM 요청하기
+                        </button>
+                      </div>
+                      <div className="p-4 select-none">
+                        <p className="text-xs font-bold text-purple-400 mb-2">📋 호실별 렌트롤 (Pro 전용)</p>
+                        <div className="space-y-1.5">
+                          {['최하층 커피', '2F 사무실', '3F 공실'].map((label, i) => (
+                            <div key={i} className="flex justify-between text-[11px] text-neutral-400 py-1 border-b border-neutral-800/30">
+                              <span>{label}</span>
+                              <span>————만원</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -81,12 +81,22 @@ export function HeroCard({ data }: HeroCardProps) {
         )}
 
         {/* Investment Point */}
-        <div className="mb-3 rounded-lg bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 px-4 py-3">
+        <div className="mb-2 rounded-lg bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 px-4 py-3">
           <p className="text-xs text-neutral-500 mb-1">💡 핵심 투자 포인트</p>
           <p className="text-sm font-medium text-neutral-200 leading-relaxed">
             {data.keyInvestmentPoint}
           </p>
         </div>
+
+        {/* Key Risk */}
+        {data.keyRisk && (
+          <div className="mb-3 rounded-lg bg-gradient-to-r from-red-500/10 to-orange-500/5 border border-red-500/20 px-4 py-3">
+            <p className="text-xs text-neutral-500 mb-1">⚠️ 핵심 리스크</p>
+            <p className="text-sm font-medium text-red-300/90 leading-relaxed">
+              {data.keyRisk}
+            </p>
+          </div>
+        )}
 
         {/* Bottom row: NPV badge + readiness */}
         <div className="flex items-center justify-between">
