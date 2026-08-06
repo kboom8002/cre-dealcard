@@ -312,3 +312,50 @@ export function getPptxTheme(presetId?: string): PptxThemeTokens {
 }
 
 export const CREDEAL_PPTX_THEME = PPTX_PRESET_TEMPLATES.credeal_signature;
+
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+/**
+ * 커스텀 프리셋을 포함한 비동기 테마 조회.
+ * 1차: 내장 프리셋 확인 (golden_institutional 등 5개)
+ * 2차: UUID 형식이면 DB에서 커스텀 프리셋 조회
+ * 3차: 기본값(golden_institutional) 반환
+ */
+export async function getPptxThemeAsync(
+  presetId?: string,
+  supabase?: SupabaseClient,
+): Promise<PptxThemeTokens> {
+  // 1. 내장 프리셋 (빠른 경로)
+  if (presetId && PPTX_PRESET_TEMPLATES[presetId]) {
+    return PPTX_PRESET_TEMPLATES[presetId];
+  }
+
+  // 2. UUID 형식 → DB에서 커스텀 프리셋 조회
+  if (presetId && supabase && /^[0-9a-f-]{36}$/.test(presetId)) {
+    try {
+      const { data } = await supabase
+        .from('pptx_custom_presets')
+        .select('tokens, cover_style, layout_style, company_name, company_tagline')
+        .eq('id', presetId)
+        .maybeSingle();
+
+      if (data?.tokens) {
+        // 내장 기본값 위에 커스텀 토큰을 머지
+        const base = PPTX_PRESET_TEMPLATES[DEFAULT_PPTX_PRESET];
+        return {
+          ...base,
+          ...(data.tokens as Partial<PptxThemeTokens>),
+          presetId,
+          coverStyle: (data.cover_style as PptxThemeTokens['coverStyle']) ?? base.coverStyle,
+          layoutStyle: (data.layout_style as PptxThemeTokens['layoutStyle']) ?? base.layoutStyle,
+          companyName: data.company_name ?? base.companyName,
+          companyTagline: data.company_tagline ?? base.companyTagline,
+        } as PptxThemeTokens;
+      }
+    } catch (err) {
+      console.warn('[getPptxThemeAsync] DB lookup failed, using default:', err);
+    }
+  }
+
+  return PPTX_PRESET_TEMPLATES[DEFAULT_PPTX_PRESET];
+}

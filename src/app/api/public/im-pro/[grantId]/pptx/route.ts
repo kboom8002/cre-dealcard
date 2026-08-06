@@ -120,6 +120,7 @@ export async function GET(
         phoneLast4,
         timestamp,
       },
+      supabase,
     });
 
     // 5. Upload to storage

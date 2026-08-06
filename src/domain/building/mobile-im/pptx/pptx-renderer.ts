@@ -6,7 +6,8 @@
  * imlib.ts 컴포넌트 + 아키타입 레지스트리 + 덱 시퀀서로 동작.
  */
 import PptxGenJS from 'pptxgenjs';
-import { getPptxTheme, type PptxThemeTokens } from './pptx-theme';
+import { getPptxTheme, getPptxThemeAsync, type PptxThemeTokens } from './pptx-theme';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { ARCHETYPE_REGISTRY, type ArchetypeInput } from './archetypes';
 import { buildDeckSequence, type DeckSequenceInput, type SlideSpec } from './deck-sequencer';
 import { bindSectionData } from './data-binder';
@@ -208,6 +209,7 @@ export interface MobileImPptxInput {
     timestamp: string;
   };
   provenance?: Record<string, ProvenanceKind>;
+  supabase?: SupabaseClient;
 }
 
 export interface MobileImPptxOutput {
@@ -231,8 +233,9 @@ export class MobileImPptxRenderer {
     // §2 — 반드시 슬라이드 추가 전에 설정
     pres.layout = 'LAYOUT_WIDE';
 
-    const theme: PptxThemeTokens = getPptxTheme(
-      input.preset ?? 'credeal_signature'
+    const theme: PptxThemeTokens = await getPptxThemeAsync(
+      input.preset ?? 'credeal_signature',
+      input.supabase
     );
 
     // ★ 핵심: 테마 토큰을 C/CD/KR에 주입 — 이후 모든 아키타입이 프리셋 색상 사용

@@ -102,6 +102,7 @@ export async function GET(
           }
         : undefined,
       provenance: body.provenance ?? {},
+      supabase,
     });
 
     // 5. Upload to Supabase Storage (Direct-to-Storage 패턴)

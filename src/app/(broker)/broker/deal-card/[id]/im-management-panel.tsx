@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 interface ImManagementPanelProps {
   buildingId: string;
@@ -23,6 +24,7 @@ export function ImManagementPanel({
   const [docs, setDocs] = useState<ImDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPreset, setSelectedPreset] = useState("credeal_signature");
+  const [presets, setPresets] = useState<any[]>([]);
   
   useEffect(() => {
     async function fetchDocs() {
@@ -46,7 +48,21 @@ export function ImManagementPanel({
         setIsLoading(false);
       }
     }
+
+    async function fetchPresets() {
+      try {
+        const res = await fetch('/api/broker/pptx-preset');
+        if (res.ok) {
+          const data = await res.json();
+          setPresets(data.presets || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch presets", err);
+      }
+    }
+
     fetchDocs();
+    fetchPresets();
   }, [buildingId]);
 
   const basicDoc = docs.find(d => d.tier === 'basic');
@@ -166,7 +182,16 @@ export function ImManagementPanel({
             <option value="classic_dark">Classic Dark</option>
             <option value="warm_earth">Warm Earth</option>
             <option value="blueprint">Blueprint</option>
+            {presets.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
           </select>
+          <Link 
+            href={`/broker/deal-card/${buildingId}/pptx-editor`}
+            className="text-xs text-amber-400 hover:text-amber-300 border border-amber-400/30 hover:border-amber-400/60 px-2 py-1 rounded transition-colors"
+          >
+            ✏️ 템플릿 편집
+          </Link>
         </div>
         
         {/* We can use either basic or pro for download here if they exist. Default to basic if only basic exists, else pro. 
