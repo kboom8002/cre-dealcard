@@ -2,6 +2,7 @@ import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, KR, NUM, CD } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
+import { optimizeImageForPptx } from '../utils/image-optimizer';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -22,7 +23,7 @@ export interface ArchetypeOutput {
  * A10 — 마감 · 표기 기준 (dark)
  * §7 A10 스펙 정확 구현
  */
-export function buildA10Closing(input: ArchetypeInput): ArchetypeOutput {
+export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeOutput> {
   const slide = L.dark(input.pres);
   const warnings: string[] = [];
   L.headD(slide, input.slideNum, input.data.kicker || 'DISCLAIMER', input.data.title || '표기 기준 및 면책');
@@ -97,6 +98,23 @@ export function buildA10Closing(input: ArchetypeInput): ArchetypeOutput {
     });
   }
   
+  // Phase 4: 로고 이미지 삽입 (푸터 바 우측)
+  if (input.data?.logoUrl) {
+    try {
+      const logo = await optimizeImageForPptx(input.data.logoUrl as string, 200, 90);
+      if (logo) {
+        slide.addImage({
+          data: logo.base64,
+          x: M + CW - 1.44, y: 5.78,
+          w: 1.20, h: 0.40,
+          sizing: { type: 'contain', w: 1.20, h: 0.40 },
+        });
+      }
+    } catch {
+      warnings.push('로고 이미지 로딩 실패 (closing)');
+    }
+  }
+
   if (input.watermarkText) L.watermark(slide, input.watermarkText, true);
   L.foot(slide, input.slideNum, input.docno, true);
   return { slide, warnings };

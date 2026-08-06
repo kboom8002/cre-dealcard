@@ -210,6 +210,7 @@ export interface MobileImPptxInput {
   };
   provenance?: Record<string, ProvenanceKind>;
   supabase?: SupabaseClient;
+  logoUrl?: string;  // Phase 4: 중개법인 로고 URL (Supabase Storage)
 }
 
 export interface MobileImPptxOutput {
@@ -278,6 +279,7 @@ export class MobileImPptxRenderer {
         companyName,
         tags: [input.building?.asset_type, input.building?.price_band].filter(Boolean),
         docno,
+        logoUrl: input.logoUrl,
       } as any;
 
       // 면책 조항과 provenance 배지 설명은 법적 고정 텍스트 (§10, §18)
@@ -293,6 +295,7 @@ export class MobileImPptxRenderer {
         metrics: {},
         disclaimer: disclaimerText,
         footerText: companyName ? `${companyName} · ${docno}` : docno,
+        logoUrl: input.logoUrl,
         badges: input.doc.body?.provenanceBadges ?? [
           // §10 provenance 배지 — 법적 고정 라벨
           { label: '✓ 공부확인', description: '등기부·대장 등 공적 장부 직접 확인', score: '1.00' },

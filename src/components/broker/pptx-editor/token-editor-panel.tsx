@@ -12,6 +12,9 @@ interface TokenEditorPanelProps {
   onSave: () => Promise<void>;
   onDownloadPreview: () => void;
   isSaving: boolean;
+  logoUrl?: string;
+  onLogoUpload?: (file: File) => void;
+  onLogoRemove?: () => void;
 }
 
 const PRESETS = [
@@ -39,6 +42,9 @@ export function TokenEditorPanel({
   onSave,
   onDownloadPreview,
   isSaving,
+  logoUrl,
+  onLogoUpload,
+  onLogoRemove,
 }: TokenEditorPanelProps) {
   const containerStyle: React.CSSProperties = {
     width: 280,
@@ -224,6 +230,68 @@ export function TokenEditorPanel({
             style={inputStyle}
           />
         </div>
+      </div>
+
+      {/* Logo Upload */}
+      <div style={sectionStyle}>
+        <h3 style={headingStyle}>로고 이미지</h3>
+        {logoUrl ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <img
+              src={logoUrl}
+              alt="로고"
+              style={{
+                width: 80, height: 32,
+                objectFit: 'contain',
+                background: '#1A2333',
+                borderRadius: 4,
+                border: '1px solid #2D3748',
+              }}
+            />
+            <button
+              type="button"
+              onClick={onLogoRemove}
+              style={{
+                padding: '3px 8px',
+                fontSize: 11,
+                color: '#EF4444',
+                background: 'transparent',
+                border: '1px solid #EF444433',
+                borderRadius: 4,
+                cursor: 'pointer',
+              }}
+            >
+              삭제
+            </button>
+          </div>
+        ) : (
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            padding: '10px 0',
+            border: '1px dashed #2D3748',
+            borderRadius: 6,
+            cursor: 'pointer',
+            color: '#6B7280',
+            fontSize: 12,
+          }}>
+            + 로고 이미지 업로드 (PNG/SVG)
+            <input
+              type="file"
+              accept="image/png,image/svg+xml,image/jpeg"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file && onLogoUpload) onLogoUpload(file);
+              }}
+              style={{ display: 'none' }}
+            />
+          </label>
+        )}
+        <p style={{ fontSize: 10, color: '#4A5568', marginTop: 4 }}>
+          카버 · 면책 슬라이드 좌상단/푸터에 로고 삽입
+        </p>
       </div>
     </div>
   );

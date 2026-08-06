@@ -290,5 +290,23 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
     }
   }
 
+  // Phase 4: 중개법인 로고 삽입 (좌상단 브랜딩)
+  if (input.data?.logoUrl) {
+    try {
+      const logo = await optimizeImageForPptx(input.data.logoUrl as string, 200, 90);
+      if (logo) {
+        // 로고: 좌상단 0.625" × 0.40" (표지 워드마크 위치)
+        slide.addImage({
+          data: logo.base64,
+          x: M, y: 0.40,
+          w: 1.20, h: 0.40,
+          sizing: { type: 'contain', w: 1.20, h: 0.40 },
+        });
+      }
+    } catch {
+      warnings.push('로고 이미지 로딩 실패');
+    }
+  }
+
   return { slide, warnings };
 }

@@ -82,7 +82,7 @@ export async function GET(
   if (building?.owner_id) {
     const { data: bp } = await supabase
       .from('broker_profiles')
-      .select('display_name, company_name, phone, specialty')
+      .select('display_name, company_name, phone, specialty, logo_url')
       .eq('user_id', building.owner_id)
       .maybeSingle();
     broker = bp;
@@ -121,6 +121,7 @@ export async function GET(
         timestamp,
       },
       supabase,
+      logoUrl: body.logoUrl ?? (broker as any)?.logo_url,
     });
 
     // 5. Upload to storage
