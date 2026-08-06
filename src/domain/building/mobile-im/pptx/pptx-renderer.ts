@@ -239,6 +239,12 @@ export class MobileImPptxRenderer {
       input.supabase
     );
 
+    // G5: 커스텀 프리셋의 logo_url을 input.logoUrl에 폴백 머지
+    const resolvedLogoUrl = input.logoUrl ?? (theme as any).logoUrl;
+    if (resolvedLogoUrl && !input.logoUrl) {
+      input = { ...input, logoUrl: resolvedLogoUrl };
+    }
+
     // ★ 핵심: 테마 토큰을 C/CD/KR에 주입 — 이후 모든 아키타입이 프리셋 색상 사용
     setActiveTheme(theme);
 

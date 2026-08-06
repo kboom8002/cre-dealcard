@@ -335,14 +335,14 @@ export async function getPptxThemeAsync(
     try {
       const { data } = await supabase
         .from('pptx_custom_presets')
-        .select('tokens, cover_style, layout_style, company_name, company_tagline')
+        .select('tokens, cover_style, layout_style, company_name, company_tagline, logo_url')
         .eq('id', presetId)
         .maybeSingle();
 
       if (data?.tokens) {
         // 내장 기본값 위에 커스텀 토큰을 머지
         const base = PPTX_PRESET_TEMPLATES[DEFAULT_PPTX_PRESET];
-        return {
+        const merged = {
           ...base,
           ...(data.tokens as Partial<PptxThemeTokens>),
           presetId,
@@ -350,7 +350,10 @@ export async function getPptxThemeAsync(
           layoutStyle: (data.layout_style as PptxThemeTokens['layoutStyle']) ?? base.layoutStyle,
           companyName: data.company_name ?? base.companyName,
           companyTagline: data.company_tagline ?? base.companyTagline,
-        } as PptxThemeTokens;
+        } as PptxThemeTokens & { logoUrl?: string };
+        // G1: logo_url을 별도 속성으로 전달 (PptxThemeTokens 인터페이스 외)
+        if (data.logo_url) (merged as any).logoUrl = data.logo_url;
+        return merged;
       }
     } catch (err) {
       console.warn('[getPptxThemeAsync] DB lookup failed, using default:', err);

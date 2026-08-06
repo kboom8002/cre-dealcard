@@ -179,11 +179,12 @@ export function ImManagementPanel({
             className="flex-1 h-8 rounded-md border border-border bg-background text-xs px-2 focus:ring-1 focus:ring-blue-500 outline-none"
           >
             <option value="credeal_signature">CRE Deal Signature (기본)</option>
-            <option value="classic_dark">Classic Dark</option>
-            <option value="warm_earth">Warm Earth</option>
-            <option value="blueprint">Blueprint</option>
-            {presets.map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
+            <option value="golden_institutional">Golden Institutional</option>
+            <option value="executive_gold">Executive Gold</option>
+            <option value="corporate_clean">Corporate Clean</option>
+            <option value="pro_dark_obsidian">Pro Dark Obsidian</option>
+            {presets.map((p: any) => (
+              <option key={p.id} value={p.id}>🎨 {p.preset_name ?? p.name} (커스텀)</option>
             ))}
           </select>
           <Link 
