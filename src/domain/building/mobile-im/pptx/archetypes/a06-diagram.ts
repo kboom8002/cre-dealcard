@@ -2,6 +2,7 @@ import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind, RowEntry } from '../imlib';
+import { generateStaticMapPlaceholder } from '../utils/image-optimizer';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -18,7 +19,7 @@ export interface ArchetypeOutput {
   warnings: string[];
 }
 
-export function buildA06Diagram(input: ArchetypeInput): ArchetypeOutput {
+export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeOutput> {
   const slide = L.light(input.pres);
   const warnings: string[] = [];
   L.head(slide, input.slideNum, input.data.kicker || 'SECTION', input.data.title || '제목');
@@ -51,6 +52,12 @@ export function buildA06Diagram(input: ArchetypeInput): ArchetypeOutput {
     L.note(slide, M, y + 0.1, CW, left.source);
   }
   
+  const areaOrAddress = (input.data?.left as any)?.source || input.data?.areaSignal || '서울';
+  const mapImg = await generateStaticMapPlaceholder(areaOrAddress, 560, 432);
+  if (mapImg) {
+    slide.addImage({ data: mapImg.base64, x: M, y: 1.62, w: 5.80, h: 4.50 });
+  }
+
   if (input.watermarkText) L.watermark(slide, input.watermarkText, false);
   L.foot(slide, input.slideNum, input.docno);
   return { slide, warnings };

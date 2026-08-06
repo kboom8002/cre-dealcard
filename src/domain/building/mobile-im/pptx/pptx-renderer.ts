@@ -124,7 +124,7 @@ function addFallbackContent(slide: any, data: any, _theme: any) {
           slide.addText(text, {
             x: bodyX + 0.3, y: curY, w: bodyW - 0.3, h: lineH,
             fontFace: KR, fontSize: 10, color: C.body,
-            bullet: { type: 'bullet', char: '•' },
+            bullet: { char: '•' },
             margin: 0, valign: 'top',
           });
           curY += lineH + 0.04;
@@ -346,7 +346,7 @@ export class MobileImPptxRenderer {
         };
 
         try {
-          const result = builder(archetypeInput);
+          const result = await Promise.resolve(builder(archetypeInput));
           addFallbackContent(result.slide, archetypeInput.data, theme);
           slides.push(result.slide);
           warnings.push(...result.warnings);

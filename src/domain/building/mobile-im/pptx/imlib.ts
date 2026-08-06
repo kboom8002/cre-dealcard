@@ -406,38 +406,57 @@ export function headD(
   sub?: string,
 ): void {
   const numStr = typeof num === 'number' ? String(num).padStart(2, '0') : num;
+  const style = THEME_META.layoutStyle;
 
-  if (numStr) {
-    s.addShape('ellipse' as any, {
-      x: M, y: 0.50, w: 0.42, h: 0.42,
-      fill: { color: C.brass },
-    });
-    s.addText(numStr, {
-      x: M, y: 0.50, w: 0.42, h: 0.42,
-      align: 'center', valign: 'middle',
-      fontSize: 13, bold: true, color: 'FFFFFF',
-      fontFace: NUM, margin: 0,
-    });
-  }
-
-  s.addText(kicker, {
-    x: M + 0.62, y: 0.50, w: CW - 0.62, h: 0.20,
-    fontSize: 9.5, bold: true, color: C.brass,
-    fontFace: NUM, charSpacing: 2, margin: 0,
-  });
-
-  s.addText(title, {
-    x: M + 0.62, y: 0.70, w: CW - 0.62, h: 0.40,
-    fontSize: 23, bold: true, color: 'FFFFFF',
-    fontFace: KR, margin: 0,
-  });
-
-  if (sub) {
-    s.addText(sub, {
-      x: M + 0.62, y: 1.10, w: CW - 0.62, h: 0.26,
-      fontSize: 11, color: CD.mute,
-      fontFace: KR, margin: 0,
-    });
+  switch (style) {
+    case 'modern': {
+      s.addShape('rect' as any, { x: M, y: 0.42, w: 0.05, h: 0.80, fill: { color: C.brass } });
+      s.addText(`${numStr}  ${kicker}`, { x: M + 0.22, y: 0.42, w: CW - 0.22, h: 0.22, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
+      s.addText(title, { x: M + 0.22, y: 0.64, w: CW - 0.22, h: 0.42, fontSize: 22, bold: true, color: 'FFFFFF', fontFace: KR, margin: 0 });
+      s.addShape('line' as any, { x: M, y: 1.22, w: CW, h: 0, line: { color: C.brass, width: 1.5 } });
+      if (sub) s.addText(sub, { x: M + 0.22, y: 1.08, w: CW - 0.22, h: 0.22, fontSize: 10.5, color: CD.mute, fontFace: KR, margin: 0 });
+      break;
+    }
+    case 'executive': {
+      s.addShape('line' as any, { x: M, y: 0.38, w: CW, h: 0, line: { color: C.brass, width: 0.5 } });
+      s.addText(`${numStr}  ·  ${kicker}`, { x: M, y: 0.48, w: CW, h: 0.22, fontSize: 9, bold: true, color: C.brass, fontFace: NUM, charSpacing: 3, margin: 0, align: 'center' });
+      s.addText(title, { x: M, y: 0.68, w: CW, h: 0.46, fontSize: 26, bold: true, color: 'FFFFFF', fontFace: KR, margin: 0, align: 'center' });
+      s.addShape('line' as any, { x: M + CW * 0.3, y: 1.20, w: CW * 0.4, h: 0, line: { color: C.brass, width: 1 } });
+      if (sub) s.addText(sub, { x: M, y: 1.10, w: CW, h: 0.22, fontSize: 11, color: CD.mute, fontFace: KR, margin: 0, align: 'center' });
+      break;
+    }
+    case 'minimal': {
+      if (numStr) s.addText(numStr, { x: M, y: 0.48, w: 0.36, h: 0.24, fontSize: 10, bold: true, color: CD.mute, fontFace: NUM, margin: 0 });
+      s.addText(kicker, { x: M + 0.40, y: 0.48, w: CW - 0.40, h: 0.20, fontSize: 8.5, bold: true, color: CD.mute, fontFace: NUM, charSpacing: 1.5, margin: 0 });
+      s.addText(title, { x: M, y: 0.72, w: CW, h: 0.38, fontSize: 21, bold: true, color: 'FFFFFF', fontFace: KR, margin: 0 });
+      s.addShape('line' as any, { x: M, y: 1.16, w: 2.5, h: 0, line: { color: C.brass, width: 1.5 } });
+      if (sub) s.addText(sub, { x: M, y: 1.08, w: CW, h: 0.22, fontSize: 10.5, color: CD.mute, fontFace: KR, margin: 0 });
+      break;
+    }
+    case 'dramatic': {
+      // Full-width dark strip + left brass accent
+      s.addShape('rect' as any, { x: 0, y: 0.30, w: W, h: 1.00, fill: { color: CD.block } });
+      s.addShape('rect' as any, { x: 0, y: 0.30, w: 0.12, h: 1.00, fill: { color: C.brass } });
+      if (numStr) {
+        s.addText(numStr, { x: M, y: 0.36, w: 0.60, h: 0.50, fontSize: 28, bold: true, color: C.brass, fontFace: NUM, margin: 0 });
+      }
+      s.addText(kicker, { x: M + 0.70, y: 0.36, w: CW - 0.70, h: 0.22, fontSize: 9, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2.5, margin: 0 });
+      s.addText(title, { x: M + 0.70, y: 0.58, w: CW - 0.70, h: 0.44, fontSize: 24, bold: true, color: 'FFFFFF', fontFace: KR, margin: 0 });
+      if (sub) s.addText(sub, { x: M + 0.70, y: 1.02, w: CW - 0.70, h: 0.22, fontSize: 10, color: CD.mute, fontFace: KR, margin: 0 });
+      break;
+    }
+    case 'classic':
+    default: {
+      // Original classic style (keep existing code)
+      if (numStr) {
+        s.addShape('ellipse' as any, { x: M, y: 0.50, w: 0.42, h: 0.42, fill: { color: C.brass } });
+        s.addText(numStr, { x: M, y: 0.50, w: 0.42, h: 0.42, align: 'center', valign: 'middle', fontSize: 13, bold: true, color: 'FFFFFF', fontFace: NUM, margin: 0 });
+      }
+      s.addText(kicker, { x: M + 0.62, y: 0.50, w: CW - 0.62, h: 0.20, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
+      s.addText(title, { x: M + 0.62, y: 0.70, w: CW - 0.62, h: 0.40, fontSize: 23, bold: true, color: 'FFFFFF', fontFace: KR, margin: 0 });
+      if (sub) s.addText(sub, { x: M + 0.62, y: 1.10, w: CW - 0.62, h: 0.26, fontSize: 11, color: CD.mute, fontFace: KR, margin: 0 });
+      break;
+    }
   }
 }
 
@@ -571,7 +590,7 @@ export function note(
   s.addText(text, {
     x, y, w, h: 0.42,
     fontSize: 7.8, color: onDark ? CD.faint : C.mute2,
-    fontFace: KR, margin: 0,
+    fontFace: KR, margin: 0, lineSpacingMultiple: 1.25,
   });
 }
 
@@ -678,14 +697,14 @@ export function rows(
     s.addText(label, {
       x, y: ry, w: w * 0.45, h: rh,
       fontSize: fs, color: labColor, fontFace: KR,
-      valign: 'middle', margin: 0,
+      valign: 'middle', margin: 0, lineSpacingMultiple: 1.20,
     });
 
     // 값
     s.addText(value, {
       x: x + w * 0.45, y: ry, w: w * 0.35, h: rh,
       fontSize: fs, bold: true, color: valCol ?? valColor, fontFace: KR,
-      valign: 'middle', margin: 0,
+      valign: 'middle', margin: 0, lineSpacingMultiple: 1.20,
     });
 
     // 배지 (선택)

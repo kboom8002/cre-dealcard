@@ -23,12 +23,17 @@ export function buildA11RoomSpec(input: ArchetypeInput): ArchetypeOutput {
   const warnings: string[] = [];
   L.head(slide, input.slideNum, input.data.kicker || 'SECTION', input.data.title || '제목');
   
-  slide.addText(input.data.sub ?? input.data.leftSub ?? '', { x: M, y: 1.66, w: 7.10, h: 0.3, fontFace: KR, fontSize: 14 });
+  const subText = input.data.sub ?? input.data.leftSub ?? '';
+  if (subText) L.sub(slide, M, 1.66, 7.10, subText);
+  let tableEnd = 1.98;
   if (input.data.roomTypes && input.data.roomTypes.length > 0) {
-    slide.addTable(input.data.roomTypes, { x: M, y: 1.98, w: 7.10, rowH: 0.33, fontFace: KR, fontSize: 10 });
+    const colCount = input.data.roomTypes[0].length || 1;
+    const colW = Array(colCount).fill(7.10 / colCount);
+    const headRow = input.data.roomTypes[0].map((c: any) => String(c?.text ?? c ?? ''));
+    const bodyRows = input.data.roomTypes.slice(1);
+    tableEnd = L.table(slide, M, 1.98, 7.10, headRow, bodyRows, colW, { rh: 0.33, bfs: 10, hfs: 10 });
   }
-  const tableEnd = 1.98 + (input.data.roomTypes ? input.data.roomTypes.length * 0.33 : 0);
-  slide.addText(input.data.note ?? '', { x: M, y: tableEnd + 0.07, w: 7.10, h: 0.2, fontFace: KR, fontSize: 9, color: '888888' });
+  if (input.data.note) L.note(slide, M, tableEnd + 0.07, 7.10, input.data.note);
   
   const rx = 8.08;
   const rw = 4.63;

@@ -2,6 +2,7 @@ import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, W, KR, NUM, CD, THEME_META } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
+import { optimizeImageForPptx } from '../utils/image-optimizer';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -245,7 +246,7 @@ function renderCommonCoverContent(
 // A1 — 표지 (dark) — coverStyle에 따라 레이아웃 분기
 // ═══════════════════════════════════════════════════════
 
-export function buildA01Cover(input: ArchetypeInput): ArchetypeOutput {
+export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOutput> {
   const slide = L.dark(input.pres);
   const warnings: string[] = [];
 
@@ -272,6 +273,22 @@ export function buildA01Cover(input: ArchetypeInput): ArchetypeOutput {
 
   if (input.watermarkText) L.watermark(slide, input.watermarkText, true);
   L.foot(slide, input.slideNum, input.docno, true);
+
+  if (input.data?.coverImageUrl) {
+    const img = await optimizeImageForPptx(input.data.coverImageUrl as string, 1280, 85);
+    if (img) {
+      const coverStyle = input.data?.coverStyle ?? THEME_META.coverStyle;
+      if (coverStyle === 'split') {
+        slide.addImage({ data: img.base64, x: 8.50, y: 0, w: 4.833, h: 7.5 });
+      } else if (coverStyle === 'hero_dark') {
+        // Full width background, placed behind other elements
+        slide.addImage({ data: img.base64, x: 0, y: 0, w: 13.333, h: 7.5 });
+      } else {
+        // Default: right side panel
+        slide.addImage({ data: img.base64, x: 8.50, y: 0, w: 4.833, h: 7.5 });
+      }
+    }
+  }
 
   return { slide, warnings };
 }

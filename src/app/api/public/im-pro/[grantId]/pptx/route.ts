@@ -96,14 +96,22 @@ export async function GET(
     const phoneLast4 = (grant.requester_phone || '0000').slice(-4);
     const timestamp = new Date().toISOString().slice(0, 16);
 
+    // doc.body에서 posture/grade 등 덱 시퀀스 분기 파라미터 추출
+    const body = doc.body ?? {};
     const result = await renderer.render({
       buildingId,
       tier: 'pro',
       preset,
+      posture: body.investmentPosture ?? body.posture ?? 'income',
+      grade: body.qualityGrade ?? body.grade ?? 'B',
+      incomeArchetype: body.incomeArchetype,
+      hasViolation: body.hasViolation ?? body.violationStatus === 'exists',
+      hasJointCollateral: body.hasJointCollateral ?? false,
+      docno: body.docno ?? `IM-${buildingId.substring(0, 6).toUpperCase()}`,
       doc: {
-        title: doc.title || doc.body?.buildingName || 'Mobile IM Pro',
-        body: doc.body,
-        sections: doc.body?.sections,
+        title: doc.title || body.buildingName || 'Mobile IM Pro',
+        body,
+        sections: body.sections,
       },
       building: building || undefined,
       broker: broker || undefined,

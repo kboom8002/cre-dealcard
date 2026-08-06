@@ -93,10 +93,16 @@ export function bindSectionData(
       if (!result['land']) result['land'] = { title: '토지', content: '', tables: [], metrics: {}, ...landProps };
     }
     
-    // income_analysis → capital에도 파생 데이터 제공
+    // income_analysis → capital, dcf, sensitivity, loan, tax에도 파생 데이터 제공
     if (sectionType === 'income_analysis') {
       const capitalProps = buildCapitalFromIncome(section.markdown, tables);
       if (!result['capital']) result['capital'] = { title: '자본구조', content: '', tables: [], metrics: {}, ...capitalProps };
+
+      // Pro 전용 파생 슬라이드 데이터 바인딩
+      if (!result['dcf']) result['dcf'] = { title: 'DCF 분석', content: '', tables: [], metrics: {}, ...buildDcfFromIncome(section.markdown, tables, doc.body) };
+      if (!result['sensitivity']) result['sensitivity'] = { title: '수익률 민감도', content: '', tables: [], metrics: {}, ...buildSensitivityFromDcf(doc.body) };
+      if (!result['loan']) result['loan'] = { title: '대출 구조', content: '', tables: [], metrics: {}, ...buildLoanFromIncome(section.markdown, tables, doc.body) };
+      if (!result['tax']) result['tax'] = { title: '세금 추정', content: '', tables: [], metrics: {}, ...buildTaxFromIncome(doc.body) };
     }
 
     // lease_status → stability에도 파생 데이터 제공
@@ -359,6 +365,159 @@ function buildCapitalFromIncome(markdown: string, tables: ParsedTable[]): Record
     table1: { sub: '자본구조', rows: rows1 },
     table2: { sub: '', rows: rows2 },
     callouts: [],
+  };
+}
+
+/**
+ * income_analysis → dcf 파생 (10년 DCF 분석 슬라이드용)
+ * doc.body.dcf10Year 또는 income 섹션 테이블/메트릭에서 추출
+ */
+function buildDcfFromIncome(
+  markdown: string,
+  tables: ParsedTable[],
+  body: Record<string, any>,
+): Record<string, any> {
+  const dcf = body?.dcf10Year ?? {};
+  const lines = markdown.split('\n').map(l => l.trim()).filter(Boolean);
+
+  // doc.body.dcf10Year가 있으면 우선 사용
+  if (dcf && Object.keys(dcf).length > 0) {
+    const rows1: string[][] = [
+      ['항목', '값'],
+      ...Object.entries(dcf).slice(0, 6).map(([k, v]) => [k, String(v)]),
+    ];
+    return {
+      table1: { sub: 'DCF 10년 분석', rows: rows1 },
+      table2: { sub: '', rows: [] },
+      callouts: [],
+    };
+  }
+
+  // 없으면 markdown 테이블에서 DCF 관련 행 추출
+  const dcfKeywords = ['현재가치', 'npv', 'irr', '내부수익률', '할인율', 'dcf', '10년', '투자회수'];
+  const dcfRows: string[][] = [];
+  for (const t of tables) {
+    for (const row of t.rows) {
+      const txt = row.join(' ').toLowerCase();
+      if (dcfKeywords.some(k => txt.includes(k))) {
+        dcfRows.push(row.map(stripMarkdown));
+      }
+    }
+  }
+
+  return {
+    table1: { sub: 'DCF 분석', rows: dcfRows.length > 0 ? [['항목', '값'], ...dcfRows] : [['항목', '값'], ['데이터 없음', '-']] },
+    table2: { sub: '', rows: [] },
+    callouts: [],
+  };
+}
+
+/**
+ * dcf → sensitivity 파생 (수익률 민감도 슬라이드용)
+ */
+function buildSensitivityFromDcf(body: Record<string, any>): Record<string, any> {
+  const sens = body?.sensitivityAnalysis ?? body?.sensitivity ?? {};
+  
+  if (sens && Object.keys(sens).length > 0) {
+    const rows: string[][] = Object.entries(sens)
+      .slice(0, 8)
+      .map(([k, v]) => [k, String(v)]);
+    return {
+      left: { sub: '수익률 민감도', rows: [['시나리오', '수익률'], ...rows] },
+      right: { sub: '', callouts: [] },
+    };
+  }
+
+  // 시나리오 3개 기본 플레이스홀더 반환
+  return {
+    left: {
+      sub: '수익률 민감도 분석',
+      rows: [
+        ['시나리오', '수익률'],
+        ['보수적 (-10% 임대)', '- %'],
+        ['기본', '- %'],
+        ['낙관적 (+10% 임대)', '- %'],
+      ],
+    },
+    right: {
+      sub: '',
+      callouts: [{ kind: 'info', title: '주의', body: '실제 민감도는 Pro IM 상세 정보 입력 후 산출됩니다.' }],
+    },
+  };
+}
+
+/**
+ * income_analysis → loan 파생 (대출구조 슬라이드용)
+ */
+function buildLoanFromIncome(
+  markdown: string,
+  tables: ParsedTable[],
+  body: Record<string, any>,
+): Record<string, any> {
+  const loan = body?.loanSimulation ?? body?.loan ?? {};
+  const lines = markdown.split('\n').map(l => l.trim()).filter(Boolean);
+
+  if (loan && Object.keys(loan).length > 0) {
+    const rows: string[][] = [
+      ['항목', '값'],
+      ...Object.entries(loan).slice(0, 8).map(([k, v]) => [k, String(v)]),
+    ];
+    return {
+      table1: { sub: '대출 구조', rows },
+      table2: { sub: '', rows: [] },
+      callouts: [],
+    };
+  }
+
+  const loanKeywords = ['대출', 'ltv', '이자율', '금리', '담보', '대환', '한도', 'dscr'];
+  const loanRows: string[][] = [];
+  for (const t of tables) {
+    for (const row of t.rows) {
+      const txt = row.join(' ').toLowerCase();
+      if (loanKeywords.some(k => txt.includes(k))) {
+        loanRows.push(row.map(stripMarkdown));
+      }
+    }
+  }
+
+  return {
+    table1: { sub: '대출 구조', rows: loanRows.length > 0 ? [['항목', '값'], ...loanRows] : [['항목', '값'], ['데이터 없음', '-']] },
+    table2: { sub: '', rows: [] },
+    callouts: [],
+  };
+}
+
+/**
+ * income_analysis → tax 파생 (세금 슬라이드용 — 취득세 / 양도세 추정)
+ */
+function buildTaxFromIncome(body: Record<string, any>): Record<string, any> {
+  const tax = body?.taxEstimate ?? body?.tax ?? {};
+
+  if (tax && Object.keys(tax).length > 0) {
+    const rows: string[][] = Object.entries(tax)
+      .slice(0, 8)
+      .map(([k, v]) => [k, String(v)]);
+    return {
+      left: { sub: '세금 추정', rows: [['항목', '금액'], ...rows] },
+      right: { sub: '', callouts: [] },
+    };
+  }
+
+  return {
+    left: {
+      sub: '세금 추정 (데이터 미입력)',
+      rows: [
+        ['항목', '금액'],
+        ['취득세 (추정)', '-'],
+        ['법인 취득세 중과', '-'],
+        ['양도소득세 (추정)', '-'],
+        ['종합부동산세 (연간 추정)', '-'],
+      ],
+    },
+    right: {
+      sub: '',
+      callouts: [{ kind: 'warn', title: '주의', body: '세금 추정액은 Pro IM 상세 입력 후 확정됩니다. 반드시 세무사와 협의하세요.' }],
+    },
   };
 }
 

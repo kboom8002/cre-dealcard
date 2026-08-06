@@ -24,14 +24,25 @@ export function buildA08DualTable(input: ArchetypeInput): ArchetypeOutput {
   L.head(slide, input.slideNum, input.data.kicker || 'SECTION', input.data.title || '제목');
   
   const t1 = input.data.table1 || {};
-  slide.addText(t1.sub || '', { x: M, y: 1.66, w: 7.30, h: 0.3, fontFace: KR, fontSize: 14 });
-  if (t1.rows && t1.rows.length > 0) slide.addTable(t1.rows, { x: M, y: 1.98, w: 7.30, rowH: 0.35, fontFace: KR, fontSize: 10 });
-  
-  const table1End = 1.98 + (t1.rows ? t1.rows.length * 0.35 : 0);
+  if (t1.sub) L.sub(slide, M, 1.66, 7.30, t1.sub);
+  let table1End = 1.98;
+  if (t1.rows && t1.rows.length > 0) {
+    const colCount = t1.rows[0].length || 1;
+    const colW = Array(colCount).fill(7.30 / colCount);
+    const headRow = t1.rows[0].map((c: any) => String(c?.text ?? c ?? ''));
+    const bodyRows = t1.rows.slice(1);
+    table1End = L.table(slide, M, 1.98, 7.30, headRow, bodyRows, colW, { rh: 0.35, bfs: 10, hfs: 10 });
+  }
   
   const t2 = input.data.table2 || {};
-  slide.addText(t2.sub || '', { x: M, y: table1End + 0.13, w: 7.30, h: 0.3, fontFace: KR, fontSize: 14 });
-  if (t2.rows && t2.rows.length > 0) slide.addTable(t2.rows, { x: M, y: table1End + 0.13 + 0.32, w: 7.30, rowH: 0.35, fontFace: KR, fontSize: 10 });
+  if (t2.sub) L.sub(slide, M, table1End + 0.13, 7.30, t2.sub);
+  if (t2.rows && t2.rows.length > 0) {
+    const colCount = t2.rows[0].length || 1;
+    const colW = Array(colCount).fill(7.30 / colCount);
+    const headRow = t2.rows[0].map((c: any) => String(c?.text ?? c ?? ''));
+    const bodyRows = t2.rows.slice(1);
+    L.table(slide, M, table1End + 0.13 + 0.32, 7.30, headRow, bodyRows, colW, { rh: 0.35, bfs: 10, hfs: 10 });
+  }
   
   const rx = 8.20;
   const rw = 4.51;
