@@ -40,9 +40,20 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     ];
   }
 
+  // Basic C등급+: 5슬라이드 (표지+요약+입지+건물+면책)
+  if (input.tier === 'basic') {
+    return [
+      { archetype: 'A01', kicker: 'BASIC IM', title: '표지', dataKey: 'cover' },
+      { archetype: 'A02', kicker: 'Summary', title: '핵심요약', dataKey: 'summary' },
+      { archetype: 'A06', kicker: 'Location', title: '입지', dataKey: 'location' },
+      { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
+      { archetype: 'A13', kicker: 'Disclaimer', title: '면책', dataKey: 'closing' },
+    ];
+  }
+
   const sequence: SlideSpec[] = [];
 
-  // ── 1. 공통 골격 ──
+  // ── 1. 공통 골격 (Pro) ──
   sequence.push({ archetype: 'A01', kicker: 'INVESTMENT MEMORANDUM', title: '표지', dataKey: 'cover' });
   sequence.push({ archetype: 'A02', kicker: 'Summary', title: '핵심요약', dataKey: 'summary' });
   sequence.push({ archetype: 'A06', kicker: 'Location', title: '입지', dataKey: 'location' });
@@ -131,11 +142,6 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   }
 
   const active = sequence.filter(s => !s.suppress);
-
-  // Basic: 10p 이하로 제한
-  if (input.tier === 'basic') {
-    return active.slice(0, 10);
-  }
 
   // Pro: 24p 이하로 제한
   return active.slice(0, 24);

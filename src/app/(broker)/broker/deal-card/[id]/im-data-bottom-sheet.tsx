@@ -454,14 +454,13 @@ export function ImDataBottomSheet({
         )}
         <p className="text-sm text-muted-foreground mb-4 shrink-0">
           {stage === 'basic' 
-            ? '필수 항목만 입력하여 3초 만에 모바일용 투자설명서를 완성하세요.' 
-            : '데이터가 많을수록 IM 품질과 정확도가 월등히 높아집니다.'}
+            ? '기본 정보를 입력하여 모바일 투자설명서를 생성하세요. 추가 데이터는 Pro에서.' 
+            : '상세 렌트롤·DCF·부가수입을 입력하여 프리미엄 IM을 완성하세요.'}
         </p>
 
         {/* Scrollable Form Area */}
         <div className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-6 mb-6 pb-10">
-          {stage === 'pro' && (
-            <>
+          {/* 주소 + 월세 + 렌트롤 — Basic에도 표시 */}
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
                   🏠 정확한 건물 주소
@@ -568,12 +567,10 @@ export function ImDataBottomSheet({
               <span className="text-[10px] text-blue-400 ml-1">📋 딜카드에서 자동 입력</span>
             )}
           </div>
-          </>
-          )}
 
           <div className="grid grid-cols-2 gap-4">
             {/* Total Deposit */}
-            {stage === 'pro' && (
+            {/* 보증금 — Basic에도 표시 */}
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
                   🔒 보증금 총액
@@ -596,7 +593,6 @@ export function ImDataBottomSheet({
                 <span className="text-[10px] text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
               )}
             </div>
-            )}
 
             {/* Mgmt Fee */}
             {stage === 'pro' && (
@@ -792,7 +788,7 @@ export function ImDataBottomSheet({
           </div>
 
           {/* Vacancy */}
-          {stage === 'pro' && (
+          {/* 공실률 — Basic에도 표시 */}
           <div>
             <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
               📊 현재 공실률
@@ -836,10 +832,9 @@ export function ImDataBottomSheet({
               <p className="text-xs text-amber-500 mt-1.5">⚠️ 공실률 {vacancyPct}% 반영</p>
             )}
           </div>
-          )}
 
           {/* Photos */}
-          {stage === 'pro' && (
+          {/* 사진 — Basic에도 표시 (기존 사진 + 업로드) */}
           <div>
             <label className="block text-xs font-semibold text-muted-foreground mb-1.5 flex justify-between items-center">
               <span>📸 건물 대표 사진 (최대 12장)</span>
@@ -938,7 +933,6 @@ export function ImDataBottomSheet({
               }}
             />
           </div>
-          )}
 
           {/* Logistics Fields */}
           {stage === 'pro' && (assetType?.includes("물류") || assetType?.toLowerCase().includes("logistics")) && (
@@ -1229,7 +1223,7 @@ export function ImDataBottomSheet({
                     <span className="truncate">{progress}</span>
                   </>
                 ) : (
-                  stage === 'basic' ? "⚡ Basic IM 만들기 (D등급 OK, 3초 생성)" : "🏆 Pro IM 생성"
+                  stage === 'basic' ? "⚡ Basic IM 생성" : "🏆 Pro IM 생성"
                 )}
               </button>
               {stage === 'basic' && (
@@ -1237,7 +1231,7 @@ export function ImDataBottomSheet({
                   onClick={() => setStage('pro')}
                   className="text-xs text-primary/80 hover:text-primary underline text-center w-full mt-1"
                 >
-                  🏆 Pro로 업그레이드하면 DCF·렌트롤·비교사례 포함
+                  🏆 상세 렌트롤·DCF·부가수입 추가 → Pro IM
                 </button>
               )}
             </div>
