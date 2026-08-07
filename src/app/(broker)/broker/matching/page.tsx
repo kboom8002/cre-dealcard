@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
 import { MatchStageBreakdown } from '@/components/matching/MatchStageBreakdown';
-import { Share, MessageSquare, Briefcase, User, Sparkles, Building2, Calendar } from 'lucide-react';
+import { Share, MessageSquare, Briefcase, User, Sparkles, Building2, Calendar, Users, ShieldCheck } from 'lucide-react';
 
 interface MatchResult {
   id: string;
@@ -135,7 +135,7 @@ const DEMO_MATCHES: MatchResult[] = [
   },
 ];
 
-type ViewMode = 'deal-centric' | 'buyer-centric';
+type ViewMode = 'deal-centric' | 'buyer-centric' | 'team-circle';
 
 interface DealGroup {
   buildingId: string;
@@ -300,7 +300,7 @@ export default function MatchingBoardPage() {
         )}
 
         {/* View Mode Toggle */}
-        <div className="bg-muted/50 p-1 rounded-xl flex">
+        <div className="bg-muted/50 p-1 rounded-xl flex gap-1">
           <button
             onClick={() => handleTabSwitch('deal-centric')}
             className={`flex-1 py-2 text-[13px] font-bold rounded-lg transition-all ${
@@ -321,6 +321,16 @@ export default function MatchingBoardPage() {
           >
             내 고객 기준
           </button>
+          <button
+            onClick={() => handleTabSwitch('team-circle')}
+            className={`flex-1 py-2 text-[13px] font-bold rounded-lg transition-all ${
+              viewMode === 'team-circle'
+                ? 'bg-amber-500/20 text-amber-300 shadow-sm font-extrabold border border-amber-500/30'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            🤝 팀 서클
+          </button>
         </div>
 
         {/* Content Body */}
@@ -329,6 +339,28 @@ export default function MatchingBoardPage() {
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-28 bg-muted rounded-xl animate-pulse" />
             ))}
+          </div>
+        ) : viewMode === 'team-circle' ? (
+          <div className="pt-2 space-y-4">
+            <div className="rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/15 via-slate-900 to-slate-950 p-6 space-y-4 shadow-xl">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-2xl">
+                🤝
+              </div>
+              <div>
+                <h3 className="text-[18px] font-extrabold text-slate-100">신뢰 동료와 크로스 팀 매칭</h3>
+                <p className="text-[13px] text-slate-300 mt-1 leading-relaxed">
+                  서클을 개설하고 물건·매수의향을 공유하면 AI가 2단계 프라이버시 원칙으로 팀 크로스 매칭을 탐색합니다.
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <Link href="/broker/circles">
+                  <button className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-[15px] rounded-xl shadow-lg transition-all">
+                    내 서클 대시보드로 이동 →
+                  </button>
+                </Link>
+              </div>
+            </div>
           </div>
         ) : viewMode === 'deal-centric' ? (
           <div className="space-y-4 pt-2">

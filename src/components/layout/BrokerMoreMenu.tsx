@@ -49,6 +49,14 @@ const SECTIONS = [
         bg: "bg-orange-500/10",
       },
       {
+        href: "/broker/circles",
+        icon: Users,
+        title: "내 서클 (팀 매칭)",
+        desc: "신뢰 동료 자산 공유 · 팀 AI 매칭",
+        color: "text-amber-300",
+        bg: "bg-amber-500/10",
+      },
+      {
         href: "/broker/clients",
         icon: Users,
         title: "고객 CRM",

@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 
 import { createClient } from "@/lib/supabase/client";
 
+import { ShareToCircleSheet } from "@/components/circle/ShareToCircleSheet";
+
 const LOADING_STEPS = [
   "메모에서 매물 정보 추출 중",
   "건물 기본 신호 생성 중",
@@ -28,6 +30,7 @@ export default function BrokerDealCardNewPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [handoffSuccess, setHandoffSuccess] = useState(false);
   const [createdBuildingId, setCreatedBuildingId] = useState<string | null>(null);
+  const [showShareSheet, setShowShareSheet] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -169,6 +172,14 @@ export default function BrokerDealCardNewPage() {
             >
               🟡 딜카드 확인 및 카톡 공유
             </Button>
+            {/* Zero-Config: 신뢰 서클에 자산 바로 공유 */}
+            <Button
+              variant="outline"
+              className="w-full h-12 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-bold text-base"
+              onClick={() => setShowShareSheet(true)}
+            >
+              🤝 신뢰 서클 동료에게 보내기 (팀 AI 매칭)
+            </Button>
             {/* 2순위: 임장 스케줄 설정 */}
             <Button 
               variant="outline"
@@ -178,6 +189,14 @@ export default function BrokerDealCardNewPage() {
               📅 임장 스케줄 설정하기
             </Button>
           </div>
+
+          {showShareSheet && (
+            <ShareToCircleSheet
+              assetType="building"
+              assetId={createdBuildingId}
+              onClose={() => setShowShareSheet(false)}
+            />
+          )}
           <button
             onClick={() => router.push("/broker/buildings")}
             className="w-full text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors pt-2"

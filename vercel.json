@@ -30,6 +30,10 @@
     {
       "path": "/api/cron/owner-reports",
       "schedule": "0 9 1 1,4,7,10 *"
+    },
+    {
+      "path": "/api/cron/circle-approval-timeout",
+      "schedule": "0 0 * * *"
     }
   ]
 }

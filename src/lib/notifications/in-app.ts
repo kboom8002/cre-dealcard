@@ -11,7 +11,13 @@ export type NotificationType =
   | "im_generated"     // IM 생성 완료
   | "im_viewed"        // IM 열람 (Hot Lead)
   | "deal_update"      // 딜카드 업데이트
-  | "system";          // 시스템 알림
+  | "system"           // 시스템 알림
+  | "circle_invite"    // 서클 초대
+  | "circle_match"     // 팀 매칭 발견
+  | "circle_approval"  // 승인 요청/완료
+  | "circle_revealed"  // 신원 공개 완료
+  | "circle_joined"    // 새 멤버 가입
+  | "circle_shared";   // 새 자산 공유
 
 export interface CreateNotificationInput {
   user_id: string;           // 수신자 (브로커 user id)
