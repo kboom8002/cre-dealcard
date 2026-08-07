@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ShareToCircleSheet } from "@/components/circle/ShareToCircleSheet";
 
 interface BuyerIntentHeaderProps {
+  intentId: string;
   isEditing: boolean;
   isMatching: boolean;
   matchingStatus: string | null;
@@ -12,6 +15,7 @@ interface BuyerIntentHeaderProps {
 }
 
 export function BuyerIntentHeader({
+  intentId,
   isEditing,
   isMatching,
   matchingStatus,
@@ -19,6 +23,8 @@ export function BuyerIntentHeader({
   onToggleEdit,
   onReMatch,
 }: BuyerIntentHeaderProps) {
+  const [showShareSheet, setShowShareSheet] = useState(false);
+
   return (
     <div className="relative rounded-2xl border border-white/5 bg-slate-950/40 backdrop-blur-xl p-6 md:p-8 overflow-hidden shadow-elevation-3">
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-transparent to-blue-500/5 -z-10" />
@@ -36,7 +42,15 @@ export function BuyerIntentHeader({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            onClick={() => setShowShareSheet(true)}
+            className="border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs h-9 font-bold"
+          >
+            🤝 서클에 공유
+          </Button>
+
           <Button
             variant="outline"
             onClick={onToggleEdit}
@@ -57,6 +71,14 @@ export function BuyerIntentHeader({
           </Button>
         </div>
       </div>
+
+      {showShareSheet && (
+        <ShareToCircleSheet
+          assetType="buyer_intent"
+          assetId={intentId}
+          onClose={() => setShowShareSheet(false)}
+        />
+      )}
 
       {/* Global messages (success/error) */}
       {matchingStatus && (

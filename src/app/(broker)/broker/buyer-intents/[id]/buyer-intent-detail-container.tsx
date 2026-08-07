@@ -185,6 +185,7 @@ export function BuyerIntentDetailContainer({
 
       {/* Header section */}
       <BuyerIntentHeader
+        intentId={intent.id}
         isEditing={isEditing}
         isMatching={isMatching}
         matchingStatus={matchingStatus}

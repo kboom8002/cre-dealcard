@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { ShareToCircleSheet } from "@/components/circle/ShareToCircleSheet";
+
 interface DealCardActionsMenuProps {
   buildingId: string;
 }
@@ -11,6 +13,7 @@ export function DealCardActionsMenu({ buildingId }: DealCardActionsMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showShareSheet, setShowShareSheet] = useState(false);
   const router = useRouter();
 
   async function handleDelete() {
@@ -54,7 +57,16 @@ export function DealCardActionsMenu({ buildingId }: DealCardActionsMenuProps) {
               onClick={() => setIsOpen(false)}
             />
             {/* Dropdown */}
-            <div className="absolute right-0 top-9 z-50 w-40 rounded-xl border border-border bg-card shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="absolute right-0 top-9 z-50 w-44 rounded-xl border border-border bg-card shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setShowShareSheet(true);
+                }}
+                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-amber-400 font-bold hover:bg-amber-500/10 transition-colors text-left border-b border-border/50"
+              >
+                🤝 서클에 공유
+              </button>
               <button
                 onClick={() => {
                   setIsOpen(false);
@@ -74,6 +86,14 @@ export function DealCardActionsMenu({ buildingId }: DealCardActionsMenuProps) {
           </>
         )}
       </div>
+
+      {showShareSheet && (
+        <ShareToCircleSheet
+          assetType="building"
+          assetId={buildingId}
+          onClose={() => setShowShareSheet(false)}
+        />
+      )}
 
       {/* 삭제 확인 모달 */}
       {showConfirm && (
