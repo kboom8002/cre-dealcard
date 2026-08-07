@@ -46,15 +46,17 @@
   --shadow-elevation-3: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
   --shadow-elevation-4: 0 20px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.12);
 
-  /* Typography Scale — 1.25 ratio */
-  --text-2xs: 0.625rem;
-  --text-xs: 0.75rem;
-  --text-sm: 0.875rem;
-  --text-base: 1rem;
-  --text-lg: 1.125rem;
-  --text-xl: 1.25rem;
-  --text-2xl: 1.5rem;
-  --text-3xl: 1.875rem;
+  /* Typography Scale — 한글 보정 적용 (Latin 대비 +1~2px optical)
+   * 한글은 동일 em-box에서 획이 복잡하여 Latin 대비 10~15% 작아 보임.
+   * 최소 가독 사이즈를 13px(0.8125rem)으로 상향. */
+  --text-2xs: 0.6875rem;  /* 11px (was 10px) */
+  --text-xs: 0.8125rem;   /* 13px (was 12px) */
+  --text-sm: 0.9375rem;   /* 15px (was 14px) */
+  --text-base: 1.0625rem; /* 17px (was 16px) */
+  --text-lg: 1.1875rem;   /* 19px (was 18px) */
+  --text-xl: 1.375rem;    /* 22px (was 20px) */
+  --text-2xl: 1.625rem;   /* 26px (was 24px) */
+  --text-3xl: 2rem;       /* 32px (was 30px) */
 
   /* Chart Colors */
   --chart-1: 217 91% 60%;
@@ -165,6 +167,10 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: "Pretendard", var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  font-size: 17px; /* 한글 기본 사이즈 보정: 16px → 17px */
+  letter-spacing: -0.01em; /* 한글 자간 미세 보정 */
+  word-break: keep-all; /* 한글 단어 단위 줄바꿈 */
+  overflow-wrap: break-word;
 }
 
 /* Base style overrides */
@@ -175,7 +181,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 p {
-  line-height: 1.6;
+  line-height: 1.7; /* CJK 텍스트는 ascender/descender 공간이 좁아 행간 확대 필요 */
 }
 
 /* Utility classes for the design system */

@@ -396,10 +396,10 @@ export default async function BrokerPage() {
       {todayBookings.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-              <Calendar className="w-3 h-3" /> 오늘의 일정 ({todayBookings.length}건)
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5" /> 오늘의 일정 ({todayBookings.length}건)
             </p>
-            <Link href="/broker/schedule" className="text-[10px] text-primary hover:underline">전체 보기</Link>
+            <Link href="/broker/schedule" className="text-[11px] text-primary hover:underline">전체 보기</Link>
           </div>
           <div className="space-y-2">
             {todayBookings.map((bk: any) => {
@@ -411,12 +411,12 @@ export default async function BrokerPage() {
                   className="flex flex-col gap-1 rounded-xl border border-border bg-card p-3 hover:border-primary/30 transition-all"
                 >
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-bold text-white">{start} · {bk.slot.building.address || bk.slot.building.area_signal} 임장</span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${bk.status === "confirmed" ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"}`}>
+                    <span className="text-[15px] font-bold text-white">{start} · {bk.slot.building.address || bk.slot.building.area_signal} 임장</span>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full ${bk.status === "confirmed" ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"}`}>
                       {bk.status === "confirmed" ? "예약 확정" : "승인 대기"}
                     </span>
                   </div>
-                  <p className="text-xs text-neutral-400">매수자: {(bk.requester as any)?.full_name || "고객"}</p>
+                  <p className="text-[13px] text-neutral-400">매수자: {(bk.requester as any)?.full_name || "고객"}</p>
                 </Link>
               );
             })}
@@ -428,10 +428,10 @@ export default async function BrokerPage() {
       {notifications.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-              <Bell className="w-3 h-3" /> 최근 알림 피드
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+              <Bell className="w-3.5 h-3.5" /> 최근 알림 피드
             </p>
-            <Link href="/broker/inbox" className="text-[10px] text-primary hover:underline">
+            <Link href="/broker/inbox" className="text-[11px] text-primary hover:underline">
               전체 보기
             </Link>
           </div>
@@ -443,8 +443,8 @@ export default async function BrokerPage() {
                 className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5 hover:border-primary/30 transition-all"
               >
                 <span className="text-base shrink-0">{n.icon}</span>
-                <p className={`text-xs font-medium flex-1 line-clamp-1 ${n.color}`}>{n.text}</p>
-                <span className="text-[10px] text-muted-foreground shrink-0">{n.time}</span>
+                <p className={`text-[13px] font-medium flex-1 line-clamp-1 ${n.color}`}>{n.text}</p>
+                <span className="text-[11px] text-muted-foreground shrink-0">{n.time}</span>
               </Link>
             ))}
           </div>
@@ -454,42 +454,42 @@ export default async function BrokerPage() {
       {/* ── 실시간 ROI ── */}
       <RoiCard metrics={roiMetrics} />
 
-      {/* ── 핵심 성과 지표 미니 ── */}
+      {/* ── 핵심 성과 지표 미니 (한글 보정 적용) ── */}
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
-        <h2 className="text-xs font-bold text-primary">📈 내 파이프라인 성과 요약</h2>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="bg-card border border-border p-2.5 rounded-lg">
-            <p className="text-[10px] text-muted-foreground">내 딜 평균 체류일수</p>
-            <p className="text-base font-extrabold">{displayAvgHoldDays}일</p>
+        <h2 className="text-[13px] font-bold text-primary">📈 내 파이프라인 성과 요약</h2>
+        <div className="grid grid-cols-2 gap-2 text-[13px]">
+          <div className="bg-card border border-border p-3 rounded-lg">
+            <p className="text-[11px] text-muted-foreground">내 딜 평균 체류일수</p>
+            <p className="text-[17px] font-extrabold">{displayAvgHoldDays}일</p>
             {myTotalDeals > 0 ? (
-              <p className={`text-[9px] ${holdDaysDelta <= 0 ? 'text-green-500' : 'text-rose-400'}`}>
+              <p className={`text-[11px] ${holdDaysDelta <= 0 ? 'text-green-500' : 'text-rose-400'}`}>
                 시장 {marketAvgHoldDays}일 대비{" "}
                 {holdDaysDelta < 0 ? holdDaysDelta : `+${holdDaysDelta}`}%
               </p>
             ) : (
-              <p className="text-[9px] text-muted-foreground">
+              <p className="text-[11px] text-muted-foreground">
                 데이터 부족
               </p>
             )}
           </div>
-          <div className="bg-card border border-border p-2.5 rounded-lg">
-            <p className="text-[10px] text-muted-foreground">S등급 매칭 전환율</p>
-            <p className="text-base font-extrabold">{sConversionRate}%</p>
+          <div className="bg-card border border-border p-3 rounded-lg">
+            <p className="text-[11px] text-muted-foreground">S등급 매칭 전환율</p>
+            <p className="text-[17px] font-extrabold">{sConversionRate}%</p>
             {totalMatchCount > 0 ? (
-              <p className="text-[9px] text-primary">평균 35% 대비 {sConversionRate - 35 >= 0 ? '+' : ''}{Math.round((sConversionRate - 35) * 10) / 10}%p</p>
+              <p className="text-[11px] text-primary">평균 35% 대비 {sConversionRate - 35 >= 0 ? '+' : ''}{Math.round((sConversionRate - 35) * 10) / 10}%p</p>
             ) : (
-              <p className="text-[9px] text-muted-foreground">데이터 부족</p>
+              <p className="text-[11px] text-muted-foreground">데이터 부족</p>
             )}
           </div>
-          <div className="bg-card border border-border p-2.5 rounded-lg">
-            <p className="text-[10px] text-muted-foreground">매거진 구독자</p>
-            <p className="text-base font-extrabold">{magazineSubscribers}명</p>
-            <p className="text-[9px] text-orange-400">활성 구독자</p>
+          <div className="bg-card border border-border p-3 rounded-lg">
+            <p className="text-[11px] text-muted-foreground">매거진 구독자</p>
+            <p className="text-[17px] font-extrabold">{magazineSubscribers}명</p>
+            <p className="text-[11px] text-orange-400">활성 구독자</p>
           </div>
-          <div className="bg-card border border-border p-2.5 rounded-lg">
-            <p className="text-[10px] text-muted-foreground">이달 매거진 열람</p>
-            <p className="text-base font-extrabold">{magazineViews}회</p>
-            <p className="text-[9px] text-indigo-400">page view 기준</p>
+          <div className="bg-card border border-border p-3 rounded-lg">
+            <p className="text-[11px] text-muted-foreground">이달 매거진 열람</p>
+            <p className="text-[17px] font-extrabold">{magazineViews}회</p>
+            <p className="text-[11px] text-indigo-400">page view 기준</p>
           </div>
         </div>
       </div>
@@ -503,65 +503,65 @@ export default async function BrokerPage() {
         {/* ── 인사 & 날짜 & 로그인 상태 ── */}
         <GreetingHeader userName={userName} userPhotoUrl={userPhotoUrl} />
 
-        {/* ── 퀵액션 버튼 (PB 웰스 럭셔리 디자인) ── */}
+        {/* ── 퀵액션 버튼 (PB 웰스 럭셔리 디자인 · 한글 보정 적용) ── */}
         <div className="grid grid-cols-2 gap-3">
           <Link
             href="/broker/deal-card/new"
             id="quick-action-new-dealcard"
-            className="flex items-center gap-3 rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/15 to-slate-900 px-4 py-3.5 hover:border-amber-400 hover:bg-amber-500/20 active:scale-95 transition-all shadow-md"
+            className="flex items-center gap-3 rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/15 to-slate-900 px-4 py-4 hover:border-amber-400 hover:bg-amber-500/20 active:scale-95 transition-all shadow-md"
           >
-            <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
-              <span className="text-amber-300 font-black text-sm">30s</span>
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
+              <span className="text-amber-300 font-black text-[15px]">30s</span>
             </div>
             <div>
-              <p className="text-sm font-extrabold text-amber-300 leading-tight">30초 딜카드</p>
-              <p className="text-xs font-medium text-slate-400 mt-0.5">카톡 메모 붙여넣기</p>
+              <p className="text-[15px] font-extrabold text-amber-300 leading-tight">딜카드 등록</p>
+              <p className="text-[13px] font-medium text-slate-400 mt-0.5">카톡 메모 붙여넣기</p>
             </div>
           </Link>
 
           <Link
-            href="/broker/matching"
-            id="quick-action-matching"
-            className="flex items-center gap-3 rounded-2xl border border-blue-500/40 bg-gradient-to-br from-blue-500/15 to-slate-900 px-4 py-3.5 hover:border-blue-400 hover:bg-blue-500/20 active:scale-95 transition-all shadow-md"
+            href="/broker/buildings"
+            id="quick-action-buildings"
+            className="flex items-center gap-3 rounded-2xl border border-blue-500/40 bg-gradient-to-br from-blue-500/15 to-slate-900 px-4 py-4 hover:border-blue-400 hover:bg-blue-500/20 active:scale-95 transition-all shadow-md"
           >
-            <div className="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0">
-              <span className="text-blue-300 text-base">⚡</span>
+            <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0">
+              <Building2 className="w-5 h-5 text-blue-300" strokeWidth={2.2} />
             </div>
             <div>
-              <p className="text-sm font-extrabold text-blue-300 leading-tight">매칭 센터</p>
-              <p className="text-xs font-medium text-slate-400 mt-0.5">AI 매칭 결과 확인</p>
+              <p className="text-[15px] font-extrabold text-blue-300 leading-tight">내 딜카드</p>
+              <p className="text-[13px] font-medium text-slate-400 mt-0.5">등록 물건 목록 확인</p>
             </div>
           </Link>
 
           <Link
-            href="/broker/tenant-intents/new"
-            id="quick-action-buyer-intent"
-            className="flex items-center gap-3 rounded-2xl border border-rose-500/40 bg-gradient-to-br from-rose-500/15 to-slate-900 px-4 py-3.5 hover:border-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all shadow-md"
+            href="/broker/inbox"
+            id="quick-action-inbox"
+            className="flex items-center gap-3 rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 to-slate-900 px-4 py-4 hover:border-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all shadow-md"
           >
-            <div className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
-              <span className="text-rose-300 text-base">🎯</span>
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0">
+              <Bell className="w-5 h-5 text-emerald-300" strokeWidth={2.2} />
             </div>
             <div>
-              <p className="text-sm font-extrabold text-rose-300 leading-tight">매수 조건 등록</p>
-              <p className="text-xs font-medium text-slate-400 mt-0.5">고객 매수 의향 입력</p>
+              <p className="text-[15px] font-extrabold text-emerald-300 leading-tight">소통 관리함</p>
+              <p className="text-[13px] font-medium text-slate-400 mt-0.5">인바운드 요청 확인</p>
             </div>
           </Link>
           <Link
-            href="/broker/pipeline"
-            id="quick-action-pipeline"
-            className="flex items-center gap-3 rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 to-slate-900 px-4 py-3.5 hover:border-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all shadow-md"
+            href="/broker/clients"
+            id="quick-action-clients"
+            className="flex items-center gap-3 rounded-2xl border border-rose-500/40 bg-gradient-to-br from-rose-500/15 to-slate-900 px-4 py-4 hover:border-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all shadow-md"
           >
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0">
-              <span className="text-emerald-300 text-base">📊</span>
+            <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
+              <Users className="w-5 h-5 text-rose-300" strokeWidth={2.2} />
             </div>
             <div>
-              <p className="text-sm font-extrabold text-emerald-300 leading-tight">파이프라인</p>
-              <p className="text-xs font-medium text-slate-400 mt-0.5">딜 진행 현황 관리</p>
+              <p className="text-[15px] font-extrabold text-rose-300 leading-tight">고객 관리</p>
+              <p className="text-[13px] font-medium text-slate-400 mt-0.5">매수·임차 고객 DB</p>
             </div>
           </Link>
         </div>
 
-        {/* ── KPI 스크롤 카드 (고대비 PB 럭셔리 스타일) ── */}
+        {/* ── KPI 스크롤 카드 (고대비 PB 럭셔리 스타일 · 한글 보정) ── */}
         <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none">
           {[
             { label: "매매물건", value: totalBuildings ?? 0, icon: Building2, color: "text-amber-300", border: "border-amber-500/30", href: "/broker/buildings" },
@@ -573,11 +573,11 @@ export default async function BrokerPage() {
             <Link
               key={label}
               href={href}
-              className={`shrink-0 rounded-2xl border ${border} bg-[#131b2e] px-4 py-3.5 text-center hover:bg-[#1a2540] transition-all min-w-[88px] shadow-sm`}
+              className={`shrink-0 rounded-2xl border ${border} bg-[#131b2e] px-4 py-4 text-center hover:bg-[#1a2540] transition-all min-w-[92px] shadow-sm`}
             >
               <Icon className={`w-5 h-5 mx-auto mb-1.5 ${color}`} strokeWidth={2.2} />
-              <p className="text-xl font-black text-slate-100 tabular-nums">{value}</p>
-              <p className="text-xs font-bold text-slate-400 mt-0.5">{label}</p>
+              <p className="text-[22px] font-black text-slate-100 tabular-nums leading-tight">{value}</p>
+              <p className="text-[13px] font-bold text-slate-400 mt-1">{label}</p>
             </Link>
           ))}
         </div>

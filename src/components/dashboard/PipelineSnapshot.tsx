@@ -31,11 +31,11 @@ export function PipelineSnapshot({ stages }: PipelineSnapshotProps) {
   return (
     <div className="bg-neutral-900/40 border border-neutral-800/50 rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+        <h3 className="text-[15px] font-bold text-white flex items-center gap-2">
           <span>📈</span> 파이프라인 ({total}건)
         </h3>
         {totalStagnant > 0 && (
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-300">
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-300">
             🔴 {totalStagnant}건 정체
           </span>
         )}
@@ -55,12 +55,12 @@ export function PipelineSnapshot({ stages }: PipelineSnapshotProps) {
       {/* Stage Labels */}
       <div className="flex flex-wrap gap-x-4 gap-y-1">
         {stages.map(stage => (
-          <div key={stage.stage} className="flex items-center gap-1.5 text-xs">
+          <div key={stage.stage} className="flex items-center gap-1.5 text-[13px]">
             <span className={`w-2 h-2 rounded-full ${STAGE_COLORS[stage.stage] || 'bg-neutral-600'}`} />
             <span className="text-neutral-400">{stage.label}</span>
             <span className="font-bold text-white">{stage.count}</span>
             {stage.stagnant > 0 && (
-              <span className="text-[10px] text-red-400">(🔴{stage.stagnant})</span>
+              <span className="text-[11px] text-red-400">(🔴{stage.stagnant})</span>
             )}
           </div>
         ))}

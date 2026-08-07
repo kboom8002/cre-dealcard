@@ -48,10 +48,10 @@ export function GreetingHeader({ userName, userPhotoUrl }: GreetingHeaderProps) 
             Private Partner
           </span>
         </div>
-        <h1 className="text-2xl font-extrabold text-slate-100 tracking-tight leading-tight">
+        <h1 className="text-[26px] font-extrabold text-slate-100 tracking-tight leading-tight">
           {greeting}, <span className="text-amber-300">{userName}</span> 님
         </h1>
-        <p className="text-sm font-medium text-slate-400 mt-1">
+        <p className="text-[15px] font-medium text-slate-400 mt-1 leading-relaxed">
           오늘의 자산 브리핑 및 파이프라인 관리 현황입니다.
         </p>
       </div>
@@ -63,7 +63,7 @@ export function GreetingHeader({ userName, userPhotoUrl }: GreetingHeaderProps) 
         >
           <Bell className="w-5 h-5 text-amber-300/90" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center shadow-lg animate-pulse">
+            <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 text-[11px] font-black rounded-full w-5 h-5 flex items-center justify-center shadow-lg animate-pulse">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}

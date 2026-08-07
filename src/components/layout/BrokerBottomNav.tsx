@@ -103,7 +103,7 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
                 />
                 <span
                   className={cn(
-                    "relative text-xs font-bold leading-none tracking-tight",
+                    "relative text-[13px] font-bold leading-none tracking-tight",
                     isActive ? "text-amber-300" : "text-slate-400"
                   )}
                 >
@@ -154,7 +154,7 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
                 />
                 <span
                   className={cn(
-                    "relative text-xs font-bold leading-none tracking-tight",
+                    "relative text-[13px] font-bold leading-none tracking-tight",
                     isActive ? "text-amber-300" : "text-slate-400"
                   )}
                 >
@@ -197,7 +197,7 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
             />
             <span
               className={cn(
-                "relative text-xs font-bold leading-none tracking-tight",
+                "relative text-[13px] font-bold leading-none tracking-tight",
                 moreOpen ? "text-amber-300" : "text-slate-400"
               )}
             >

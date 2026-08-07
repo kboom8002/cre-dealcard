@@ -36,7 +36,7 @@ export default function BrokerDashboardTabs({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`relative flex-1 text-center py-2 text-xs font-bold transition-colors duration-300 cursor-pointer ${
+              className={`relative flex-1 text-center py-2.5 text-[13px] font-bold transition-colors duration-300 cursor-pointer ${
                 isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
               }`}
             >
