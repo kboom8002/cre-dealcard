@@ -1,6 +1,6 @@
 import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
-import { C, M, CW, W, KR, NUM, CD, THEME_META } from '../imlib';
+import { C, M, CW, W, KR, TITLE_KR, NUM, CD, THEME_META } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 import { optimizeImageForPptx } from '../utils/image-optimizer';
 
@@ -184,7 +184,7 @@ function renderCommonCoverContent(
   slide.addText(input.data.title || '투자설명서', {
     x, y: kickerY + 0.30, w: titleW, h: 0.80,
     fontSize: 40, bold: true, color: 'FFFFFF',
-    fontFace: KR, margin: 0, align,
+    fontFace: TITLE_KR, margin: 0, align,
   });
 
   // 부제

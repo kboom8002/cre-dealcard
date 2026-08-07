@@ -69,10 +69,15 @@ export interface DealCardToIMBridgeOutput {
   gradeUpItems: { field: string; label: string; gradeContribution: string }[];
 }
 
+import type { InvestmentPosture } from '@/domain/ontology';
+
 /**
  * 딜카드/SSoT 데이터를 IM supplemental + 바텀시트 프리필 데이터로 변환.
  */
-export function bridgeDealCardToIM(input: DealCardToIMBridgeInput): DealCardToIMBridgeOutput {
+export function bridgeDealCardToIM(
+  input: DealCardToIMBridgeInput,
+  posture: InvestmentPosture = 'income'
+): DealCardToIMBridgeOutput {
   const { ssot, teaserView, blindTeaser } = input;
   const layers = ssot.layers || {};
   const lease = ssot.lease_summary || {};
@@ -122,43 +127,44 @@ export function bridgeDealCardToIM(input: DealCardToIMBridgeInput): DealCardToIM
     floor_leases: floorLeases,
   };
 
-  // Determine grade-up items
+  // Determine grade-up items (Posture별 최적화)
   const gradeUpItems: DealCardToIMBridgeOutput['gradeUpItems'] = [];
-  
+
   if (!address && !pnu) {
     gradeUpItems.push({ field: 'address', label: '정확한 주소', gradeContribution: 'D→C 필수' });
   }
-  if (!monthlyRent) {
-    gradeUpItems.push({ field: 'monthlyRent', label: '월 임대료 총액', gradeContribution: 'C→B 필수' });
+
+  if (posture === 'development') {
+    // 개발형: 대지면적, 용도지역이 핵심
+    if (!askingPrice) {
+      gradeUpItems.push({ field: 'askingPrice', label: '매각 희망가 (토지비)', gradeContribution: 'B→A 필수' });
+    }
+  } else if (posture === 'owner_occupied') {
+    // 사옥형: 매각가가 핵심
+    if (!askingPrice) {
+      gradeUpItems.push({ field: 'askingPrice', label: '매각 희망가', gradeContribution: 'C→B 필수' });
+    }
+  } else {
+    // income, operating, trading
+    if (!monthlyRent) {
+      gradeUpItems.push({ field: 'monthlyRent', label: '월 임대료 총액', gradeContribution: 'C→B 필수' });
+    }
+    if (!askingPrice) {
+      gradeUpItems.push({ field: 'askingPrice', label: '매각 희망가', gradeContribution: 'B→A 필수' });
+    }
+    if (vacancyPct == null) {
+      gradeUpItems.push({ field: 'vacancyPct', label: '공실률', gradeContribution: 'A등급 보강' });
+    }
+    if (!floorLeases || floorLeases.length === 0) {
+      gradeUpItems.push({ field: 'floorLeases', label: '층별 임대차 현황', gradeContribution: 'A등급 필수' });
+    }
   }
-  if (!askingPrice) {
-    gradeUpItems.push({ field: 'askingPrice', label: '매각 희망가', gradeContribution: 'B→A 필수' });
-  }
-  if (!loanAmount) {
+
+  if (!loanAmount && posture !== 'development' && posture !== 'owner_occupied') {
     gradeUpItems.push({ field: 'loanAmount', label: '선순위 대출 잔액', gradeContribution: 'A등급 보강' });
-  }
-  if (vacancyPct == null) {
-    gradeUpItems.push({ field: 'vacancyPct', label: '공실률', gradeContribution: 'A등급 보강' });
   }
   if (!photoUrls || photoUrls.length === 0) {
     gradeUpItems.push({ field: 'photos', label: '건물 대표 사진', gradeContribution: '품질 향상' });
-  }
-  if (!floorLeases || floorLeases.length === 0) {
-    gradeUpItems.push({ field: 'floorLeases', label: '층별 임대차 현황', gradeContribution: 'A등급 필수' });
-  }
-  if (!ancillaryIncomes || ancillaryIncomes.length === 0) {
-    gradeUpItems.push({ field: 'ancillaryIncomes', label: '부가수입 (통신장비, 주차 등)', gradeContribution: 'NOI 정밀도 향상' });
-  }
-  // Check for variable rent floors needing estimate range
-  const variableFloorsNoEstimate = (floorLeases || []).filter(
-    l => l.rent_type && l.rent_type !== 'fixed' && !l.estimated_rent_range
-  );
-  if (variableFloorsNoEstimate.length > 0) {
-    gradeUpItems.push({
-      field: 'variableRentEstimate',
-      label: `매출연동 추정 범위 (${variableFloorsNoEstimate.map(l => l.floor).join(', ')})`,
-      gradeContribution: '수익 시나리오 정밀도',
-    });
   }
 
   return {
@@ -179,3 +185,4 @@ export function bridgeDealCardToIM(input: DealCardToIMBridgeInput): DealCardToIM
     gradeUpItems,
   };
 }
+

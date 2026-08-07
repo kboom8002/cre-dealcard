@@ -405,38 +405,41 @@ export function DealCardEditor({
         </div>
       )}
 
-      {/* ── 미리보기 바텀시트 ── */}
+      {/* ── 스마트폰 디바이스 프레임 미리보기 모달 ── */}
       {showPreview && (
-        <div className="fixed inset-0 z-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/80 backdrop-blur-md"
             onClick={() => setShowPreview(false)}
           />
-          {/* Sheet */}
-          <div className="absolute bottom-0 left-0 right-0 bg-[#0b0f19] rounded-t-3xl overflow-hidden animate-in slide-in-from-bottom duration-300 max-h-[90vh] flex flex-col">
-            {/* Handle */}
-            <div className="flex justify-center py-3">
-              <div className="w-10 h-1 rounded-full bg-slate-600" />
-            </div>
-            {/* Header */}
-            <div className="px-5 pb-3 flex items-center justify-between border-b border-slate-800">
-              <span className="text-sm font-bold text-white">📱 공유 딜카드 미리보기</span>
+          {/* Mobile Phone Container */}
+          <div className="relative w-full max-w-[410px] h-[92vh] max-h-[850px] bg-[#0b0f19] rounded-[40px] border-[6px] border-slate-700 shadow-2xl overflow-hidden flex flex-col z-10 animate-in zoom-in-95 duration-200">
+            {/* Phone Top Notch / Speaker Bar */}
+            <div className="w-full bg-[#0b0f19] pt-3 pb-2 px-6 flex items-center justify-between border-b border-slate-800/80 shrink-0">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-700 inline-block" />
+                <span className="w-12 h-1.5 rounded-full bg-slate-800 inline-block" />
+              </div>
+              <span className="text-[11px] font-semibold text-slate-400">📱 매수자 공유 화면</span>
               <button
                 onClick={() => setShowPreview(false)}
-                className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-xs text-slate-400 hover:text-white font-bold px-2 py-0.5 rounded bg-slate-800/60 hover:bg-slate-700 transition-colors"
               >
-                닫기
+                ✕ 닫기
               </button>
             </div>
-            {/* Preview iframe */}
-            <div className="flex-1 overflow-auto">
+            {/* Preview iframe inside phone screen */}
+            <div className="flex-1 w-full bg-[#0B0F14] overflow-hidden relative">
               <iframe
                 src={`/dc/${buildingId}?preview=1&t=${Date.now()}`}
-                className="w-full border-0"
-                style={{ minHeight: "70vh" }}
-                title="딜카드 미리보기"
+                className="w-full h-full border-0"
+                title="공유 딜카드 미리보기"
               />
+            </div>
+            {/* Phone Bottom Indicator */}
+            <div className="w-full bg-[#0b0f19] py-2 flex justify-center shrink-0">
+              <div className="w-32 h-1 bg-slate-600 rounded-full" />
             </div>
           </div>
         </div>

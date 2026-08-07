@@ -33,7 +33,9 @@ export interface TeaserView {
   postureLabel: string;
   postureHeroTiles: Array<{ emoji: string; label: string; value: string }>;
   sliderAxis2?: { label: string; min: number; max: number; step: number; unit: string };
+  urgencyTag?: 'urgent' | 'reviewing' | 'flexible';
 }
+
 
 export interface TeaserConfig {
   curiositySlotKey?: string;
@@ -144,6 +146,7 @@ export function projectToTeaser(
   }
 
   const hookCopy = config?.hookCopyOverride || generateHookCopy(archetype, region, assetType);
+  const urgencyTag = (attrs.urgencyTag || attrs.urgency_tag) as 'urgent' | 'reviewing' | 'flexible' | undefined;
 
   return {
     region,
@@ -172,9 +175,11 @@ export function projectToTeaser(
       { emoji: '📐', label: '규모', value: bandedArea },
       slot4
     ],
-    sliderAxis2
+    sliderAxis2,
+    urgencyTag
   };
 }
+
 
 function generateHookCopy(archetype: string, region: string, assetType: string): string {
   const hooks: Record<string, string> = {

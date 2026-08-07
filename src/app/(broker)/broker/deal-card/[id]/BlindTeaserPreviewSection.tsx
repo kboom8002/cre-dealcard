@@ -16,6 +16,7 @@ interface BlindTeaserPreviewSectionProps {
   initialStructureChips?: string[];
   initialVacancyLabel?: string;
   initialCuriosityHook?: string;
+  initialUrgencyTag?: 'urgent' | 'reviewing' | 'flexible';
 }
 
 export function BlindTeaserPreviewSection({
@@ -28,11 +29,13 @@ export function BlindTeaserPreviewSection({
   initialStructureChips = [],
   initialVacancyLabel = "",
   initialCuriosityHook = "",
+  initialUrgencyTag,
 }: BlindTeaserPreviewSectionProps) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(initialTitle);
   const [summary, setSummary] = useState(initialSummary);
+  const [urgencyTag, setUrgencyTag] = useState<'urgent' | 'reviewing' | 'flexible' | undefined>(initialUrgencyTag);
   const [dealPointsStr, setDealPointsStr] = useState(initialDealPoints.join("\n"));
   const [cautionPointsStr, setCautionPointsStr] = useState(initialCautionPoints.join("\n"));
   const [isSaving, setIsSaving] = useState(false);
@@ -46,6 +49,7 @@ export function BlindTeaserPreviewSection({
         body: JSON.stringify({
           title,
           shortSummary: summary,
+          urgencyTag,
           dealPoints: dealPointsStr.split("\n").filter(Boolean),
           cautionPoints: cautionPointsStr.split("\n").filter(Boolean),
         }),
@@ -83,6 +87,19 @@ export function BlindTeaserPreviewSection({
             <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" />
           </div>
           <div>
+            <label className="text-[10px] text-slate-400">매각 긴급도 태그</label>
+            <select
+              value={urgencyTag || ''}
+              onChange={e => setUrgencyTag((e.target.value as any) || undefined)}
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary text-slate-200"
+            >
+              <option value="">일반 (태그 없음)</option>
+              <option value="urgent">🔥 급매물 (빠른 의사결정 필요)</option>
+              <option value="reviewing">⚡ 선순위 검토 진행 중</option>
+              <option value="flexible">🌱 여유 협상 가능</option>
+            </select>
+          </div>
+          <div>
             <label className="text-[10px] text-slate-400">한줄 요약</label>
             <textarea value={summary} onChange={e => setSummary(e.target.value)} rows={2} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary resize-none" />
           </div>
@@ -98,6 +115,7 @@ export function BlindTeaserPreviewSection({
       </div>
     );
   }
+
 
   return (
     <div className="rounded-xl border-2 border-primary/20 bg-card p-5 space-y-4 group relative">

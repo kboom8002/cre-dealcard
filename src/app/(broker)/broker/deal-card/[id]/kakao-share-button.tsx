@@ -131,6 +131,32 @@ export function KakaoShareButton({
       });
   }
 
+  const handleDownloadCardImage = async () => {
+    try {
+      const cardImgUrl = `/api/og/deal/${buildingId}/card`;
+      const res = await fetch(cardImgUrl);
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `deal_card_${buildingId}_teaser.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Card image download failed:", e);
+      alert("이미지 다운로드 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleCopyCardImageUrl = () => {
+    const cardImgUrl = `${siteUrl}/api/og/deal/${buildingId}/card`;
+    navigator.clipboard.writeText(cardImgUrl).then(() => {
+      alert("📸 1페이지 티저 이미지 링크가 클립보드에 복사되었습니다!\n카카오톡 대화방에 붙여넣기 하세요.");
+    });
+  };
+
   const label = shared ? "✅ 전송 완료!" : "🟡 카톡으로 전송";
   const readyClass = kakaoReady ? "" : "opacity-80";
 
@@ -174,7 +200,7 @@ export function KakaoShareButton({
 
   if (variant === "primary") {
     return (
-      <>
+      <div className="flex flex-col gap-2 w-full">
         <div className="flex w-full gap-1.5">
           <button
             onClick={handleShare}
@@ -193,7 +219,24 @@ export function KakaoShareButton({
           </button>
         </div>
 
-        {/* Edit Modal (used when sticky primary CTA triggers edit but showEditForm isn't true here, so we show a modal) */}
+        {/* 1-Page Teaser Image Action Sub-bar */}
+        <div className="flex gap-2 w-full">
+          <button
+            onClick={handleDownloadCardImage}
+            className="flex-1 py-2.5 px-3 bg-[#1F2937] hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 border border-slate-700 transition-colors shadow-sm"
+          >
+            <span>📸</span> 1페이지 티저 이미지 다운로드
+          </button>
+          <button
+            onClick={handleCopyCardImageUrl}
+            className="py-2.5 px-3 bg-[#1F2937] hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium flex items-center justify-center gap-1 border border-slate-700 transition-colors"
+            title="티저 이미지 URL 복사"
+          >
+            📋 URL 복사
+          </button>
+        </div>
+
+        {/* Edit Modal */}
         {isEditing && !showEditForm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in">
             <div className="bg-card w-full max-w-sm rounded-xl p-5 space-y-4 shadow-xl">
@@ -220,27 +263,45 @@ export function KakaoShareButton({
             </div>
           </div>
         )}
-      </>
+      </div>
     );
   }
 
   // Secondary Button Layout (Inside Preview)
   return (
-    <div className="flex w-full gap-2">
-      <button
-        onClick={handleShare}
-        className={`flex-1 inline-flex items-center justify-center rounded-lg bg-[#FEE500]/20 text-[#a08000] dark:text-[#FEE500] px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[#FEE500]/30 active:scale-[0.98] ${readyClass}`}
-        id="cta-kakao-share"
-      >
-        {label}
-      </button>
-      <button
-        onClick={handleEditClick}
-        className={`shrink-0 inline-flex items-center justify-center rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted active:scale-[0.98]`}
-        title="문구 수정"
-      >
-        ✏️ 수정
-      </button>
+    <div className="flex flex-col gap-2 w-full">
+      <div className="flex w-full gap-2">
+        <button
+          onClick={handleShare}
+          className={`flex-1 inline-flex items-center justify-center rounded-lg bg-[#FEE500]/20 text-[#a08000] dark:text-[#FEE500] px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[#FEE500]/30 active:scale-[0.98] ${readyClass}`}
+          id="cta-kakao-share"
+        >
+          {label}
+        </button>
+        <button
+          onClick={handleEditClick}
+          className={`shrink-0 inline-flex items-center justify-center rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted active:scale-[0.98]`}
+          title="문구 수정"
+        >
+          ✏️ 수정
+        </button>
+      </div>
+
+      <div className="flex gap-2 w-full">
+        <button
+          onClick={handleDownloadCardImage}
+          className="flex-1 py-2 px-3 bg-secondary/40 hover:bg-secondary text-secondary-foreground rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border border-border transition-colors"
+        >
+          <span>📸</span> 1페이지 이미지 저장 (스마트폰 앨범용)
+        </button>
+        <button
+          onClick={handleCopyCardImageUrl}
+          className="py-2 px-3 bg-secondary/20 hover:bg-secondary/40 text-secondary-foreground rounded-lg text-xs font-medium border border-border transition-colors"
+        >
+          📋 링크 복사
+        </button>
+      </div>
     </div>
   );
 }
+

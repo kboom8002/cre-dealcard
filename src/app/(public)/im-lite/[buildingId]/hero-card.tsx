@@ -57,26 +57,76 @@ export function HeroCard({ data }: HeroCardProps) {
         {/* 2×2 Metric Grid */}
         {hasMetrics && (
           <div className="grid grid-cols-2 gap-3 mb-4">
-            <MetricCell
-              label="Cap Rate"
-              value={fmt(data.capRateBase, "%")}
-              highlight={data.capRateBase !== null && data.capRateBase >= 4}
-            />
-            <MetricCell
-              label="NOI (연간)"
-              value={fmt(data.noiBaseBil, "억")}
-              highlight={false}
-            />
-            <MetricCell
-              label="자기자본"
-              value={fmt(data.equityRequiredBil, "억")}
-              highlight={false}
-            />
-            <MetricCell
-              label="레버리지 수익률"
-              value={fmt(data.leveragedYieldPct, "%")}
-              highlight={data.leveragedYieldPct !== null && data.leveragedYieldPct >= 6}
-            />
+            {data.posture === "development" ? (
+              <>
+                <MetricCell
+                  label="대지면적"
+                  value={data.landAreaM2 ? `${data.landAreaM2.toLocaleString()}㎡ (${(data.landAreaM2 / 3.3058).toFixed(1)}평)` : "—"}
+                  highlight={false}
+                />
+                <MetricCell
+                  label="용도지역"
+                  value={data.zoning || "—"}
+                  highlight={false}
+                />
+                <MetricCell
+                  label="토지/매각 희망가"
+                  value={data.askingPriceDisplay || "미정"}
+                  highlight={!!data.askingPriceDisplay}
+                />
+                <MetricCell
+                  label="건축 연면적"
+                  value={data.totalGrossAreaM2 ? `${data.totalGrossAreaM2.toLocaleString()}㎡` : "—"}
+                  highlight={false}
+                />
+              </>
+            ) : data.posture === "owner_occupied" ? (
+              <>
+                <MetricCell
+                  label="건축 연면적"
+                  value={data.totalGrossAreaM2 ? `${data.totalGrossAreaM2.toLocaleString()}㎡ (${(data.totalGrossAreaM2 / 3.3058).toFixed(1)}평)` : "—"}
+                  highlight={false}
+                />
+                <MetricCell
+                  label="매각 희망가"
+                  value={data.askingPriceDisplay || "—"}
+                  highlight={true}
+                />
+                <MetricCell
+                  label="자기자본 소요"
+                  value={fmt(data.equityRequiredBil, "억")}
+                  highlight={false}
+                />
+                <MetricCell
+                  label="대지면적"
+                  value={data.landAreaM2 ? `${data.landAreaM2.toLocaleString()}㎡` : "—"}
+                  highlight={false}
+                />
+              </>
+            ) : (
+              <>
+                <MetricCell
+                  label="Cap Rate"
+                  value={fmt(data.capRateBase, "%")}
+                  highlight={data.capRateBase !== null && data.capRateBase >= 4}
+                />
+                <MetricCell
+                  label="NOI (연간)"
+                  value={fmt(data.noiBaseBil, "억")}
+                  highlight={false}
+                />
+                <MetricCell
+                  label="자기자본"
+                  value={fmt(data.equityRequiredBil, "억")}
+                  highlight={false}
+                />
+                <MetricCell
+                  label="레버리지 수익률"
+                  value={fmt(data.leveragedYieldPct, "%")}
+                  highlight={data.leveragedYieldPct !== null && data.leveragedYieldPct >= 6}
+                />
+              </>
+            )}
           </div>
         )}
 

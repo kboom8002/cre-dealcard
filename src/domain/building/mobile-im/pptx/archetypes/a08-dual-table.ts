@@ -19,7 +19,7 @@ export interface ArchetypeOutput {
 }
 
 export function buildA08DualTable(input: ArchetypeInput): ArchetypeOutput {
-  const slide = input.pres.addSlide({ masterName: 'A8' });
+  const slide = L.light(input.pres);
   const warnings: string[] = [];
   L.head(slide, input.slideNum, input.data.kicker || 'SECTION', input.data.title || '제목');
   

@@ -85,6 +85,7 @@ export const CD: Record<string, string> = {
 // ════════════════════════════════════════
 
 export let KR = '맑은 고딕';
+export let TITLE_KR = '맑은 고딕';
 export let NUM = 'Arial';
 
 // ════════════════════════════════════════
@@ -158,6 +159,7 @@ export function setActiveTheme(theme: PptxThemeTokens): void {
 
   // ── 타이포 ──
   KR = theme.bodyFont || '맑은 고딕';
+  TITLE_KR = theme.titleFont || KR;
   // NUM은 항상 Arial (숫자/라틴 전용)
 
   // ── 메타 ──
@@ -238,7 +240,7 @@ export function head(
       s.addText(title, {
         x: M + 0.22, y: 0.64, w: CW - 0.22, h: 0.42,
         fontSize: 22, bold: true, color: C.ink,
-        fontFace: KR, margin: 0,
+        fontFace: TITLE_KR, margin: 0,
       });
       // 하단 액센트 라인 (콘텐츠 폭)
       s.addShape('line' as any, {
@@ -271,7 +273,7 @@ export function head(
       s.addText(title, {
         x: M, y: 0.68, w: CW, h: 0.46,
         fontSize: 26, bold: true, color: C.ink,
-        fontFace: KR, margin: 0, align: 'center',
+        fontFace: TITLE_KR, margin: 0, align: 'center',
       });
       // 하단 골드 라인
       s.addShape('line' as any, {
@@ -305,7 +307,7 @@ export function head(
       s.addText(title, {
         x: M, y: 0.72, w: CW, h: 0.38,
         fontSize: 21, bold: true, color: C.ink,
-        fontFace: KR, margin: 0,
+        fontFace: TITLE_KR, margin: 0,
       });
       // 미니멀 구분선
       s.addShape('line' as any, {
@@ -349,7 +351,7 @@ export function head(
       s.addText(title, {
         x: M + 0.70, y: 0.58, w: CW - 0.70, h: 0.44,
         fontSize: 24, bold: true, color: 'FFFFFF',
-        fontFace: KR, margin: 0,
+        fontFace: TITLE_KR, margin: 0,
       });
       if (sub) {
         s.addText(sub, {
@@ -383,7 +385,7 @@ export function head(
       s.addText(title, {
         x: M + 0.62, y: 0.70, w: CW - 0.62, h: 0.40,
         fontSize: 23, bold: true, color: C.ink,
-        fontFace: KR, margin: 0,
+        fontFace: TITLE_KR, margin: 0,
       });
       if (sub) {
         s.addText(sub, {
@@ -412,7 +414,7 @@ export function headD(
     case 'modern': {
       s.addShape('rect' as any, { x: M, y: 0.42, w: 0.05, h: 0.80, fill: { color: C.brass } });
       s.addText(`${numStr}  ${kicker}`, { x: M + 0.22, y: 0.42, w: CW - 0.22, h: 0.22, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
-      s.addText(title, { x: M + 0.22, y: 0.64, w: CW - 0.22, h: 0.42, fontSize: 22, bold: true, color: 'FFFFFF', fontFace: KR, margin: 0 });
+      s.addText(title, { x: M + 0.22, y: 0.64, w: CW - 0.22, h: 0.42, fontSize: 22, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
       s.addShape('line' as any, { x: M, y: 1.22, w: CW, h: 0, line: { color: C.brass, width: 1.5 } });
       if (sub) s.addText(sub, { x: M + 0.22, y: 1.08, w: CW - 0.22, h: 0.22, fontSize: 10.5, color: CD.mute, fontFace: KR, margin: 0 });
       break;
@@ -420,7 +422,7 @@ export function headD(
     case 'executive': {
       s.addShape('line' as any, { x: M, y: 0.38, w: CW, h: 0, line: { color: C.brass, width: 0.5 } });
       s.addText(`${numStr}  ·  ${kicker}`, { x: M, y: 0.48, w: CW, h: 0.22, fontSize: 9, bold: true, color: C.brass, fontFace: NUM, charSpacing: 3, margin: 0, align: 'center' });
-      s.addText(title, { x: M, y: 0.68, w: CW, h: 0.46, fontSize: 26, bold: true, color: 'FFFFFF', fontFace: KR, margin: 0, align: 'center' });
+      s.addText(title, { x: M, y: 0.68, w: CW, h: 0.46, fontSize: 26, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0, align: 'center' });
       s.addShape('line' as any, { x: M + CW * 0.3, y: 1.20, w: CW * 0.4, h: 0, line: { color: C.brass, width: 1 } });
       if (sub) s.addText(sub, { x: M, y: 1.10, w: CW, h: 0.22, fontSize: 11, color: CD.mute, fontFace: KR, margin: 0, align: 'center' });
       break;
@@ -428,7 +430,7 @@ export function headD(
     case 'minimal': {
       if (numStr) s.addText(numStr, { x: M, y: 0.48, w: 0.36, h: 0.24, fontSize: 10, bold: true, color: CD.mute, fontFace: NUM, margin: 0 });
       s.addText(kicker, { x: M + 0.40, y: 0.48, w: CW - 0.40, h: 0.20, fontSize: 8.5, bold: true, color: CD.mute, fontFace: NUM, charSpacing: 1.5, margin: 0 });
-      s.addText(title, { x: M, y: 0.72, w: CW, h: 0.38, fontSize: 21, bold: true, color: 'FFFFFF', fontFace: KR, margin: 0 });
+      s.addText(title, { x: M, y: 0.72, w: CW, h: 0.38, fontSize: 21, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
       s.addShape('line' as any, { x: M, y: 1.16, w: 2.5, h: 0, line: { color: C.brass, width: 1.5 } });
       if (sub) s.addText(sub, { x: M, y: 1.08, w: CW, h: 0.22, fontSize: 10.5, color: CD.mute, fontFace: KR, margin: 0 });
       break;
@@ -441,7 +443,7 @@ export function headD(
         s.addText(numStr, { x: M, y: 0.36, w: 0.60, h: 0.50, fontSize: 28, bold: true, color: C.brass, fontFace: NUM, margin: 0 });
       }
       s.addText(kicker, { x: M + 0.70, y: 0.36, w: CW - 0.70, h: 0.22, fontSize: 9, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2.5, margin: 0 });
-      s.addText(title, { x: M + 0.70, y: 0.58, w: CW - 0.70, h: 0.44, fontSize: 24, bold: true, color: 'FFFFFF', fontFace: KR, margin: 0 });
+      s.addText(title, { x: M + 0.70, y: 0.58, w: CW - 0.70, h: 0.44, fontSize: 24, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
       if (sub) s.addText(sub, { x: M + 0.70, y: 1.02, w: CW - 0.70, h: 0.22, fontSize: 10, color: CD.mute, fontFace: KR, margin: 0 });
       break;
     }
@@ -453,7 +455,7 @@ export function headD(
         s.addText(numStr, { x: M, y: 0.50, w: 0.42, h: 0.42, align: 'center', valign: 'middle', fontSize: 13, bold: true, color: 'FFFFFF', fontFace: NUM, margin: 0 });
       }
       s.addText(kicker, { x: M + 0.62, y: 0.50, w: CW - 0.62, h: 0.20, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
-      s.addText(title, { x: M + 0.62, y: 0.70, w: CW - 0.62, h: 0.40, fontSize: 23, bold: true, color: 'FFFFFF', fontFace: KR, margin: 0 });
+      s.addText(title, { x: M + 0.62, y: 0.70, w: CW - 0.62, h: 0.40, fontSize: 23, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
       if (sub) s.addText(sub, { x: M + 0.62, y: 1.10, w: CW - 0.62, h: 0.26, fontSize: 11, color: CD.mute, fontFace: KR, margin: 0 });
       break;
     }

@@ -87,7 +87,7 @@ export function ImManagementPanel({
         <div className="flex justify-between items-center">
           <div>
             <h3 className="font-semibold text-sm">Basic IM</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">매각 희망가 + 핵심 정보 (2필드 최소)</p>
+            <p className="text-xs text-muted-foreground mt-0.5">모바일 웹 IM 뷰어 + 7p 기본 PPTX/PDF 즉시 생성</p>
           </div>
           <div className="text-xs font-medium">
             {basicDoc ? (
@@ -124,7 +124,7 @@ export function ImManagementPanel({
         <div className="flex justify-between items-center">
           <div>
             <h3 className="font-semibold text-sm">Pro IM</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">B등급 이상 필수 (풀 데이터, NDA, 워터마크)</p>
+            <p className="text-xs text-muted-foreground mt-0.5">10년 DCF·수익률 민감도·대출/세금 분석 24p 정밀 IM (워터마크 보안)</p>
           </div>
           <div className="text-xs font-medium">
             {isProLocked ? (

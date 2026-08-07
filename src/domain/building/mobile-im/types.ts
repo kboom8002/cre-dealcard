@@ -224,6 +224,10 @@ export interface HeroCardData {
   leveragedYieldPct: number | null; // 레버리지 수익률 (%)
   readinessScore: number;       // SSoT 완성도 (0-100)
   dcf10YearNpvBil: number | null; // 10년 DCF NPV (억원)
+  posture?: string;
+  landAreaM2?: number | null;
+  totalGrossAreaM2?: number | null;
+  zoning?: string | null;
 }
 
 /** 데이터 출처 포인트 (section 내 출처 배지 표시용) */

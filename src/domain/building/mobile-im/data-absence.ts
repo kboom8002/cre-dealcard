@@ -109,41 +109,63 @@ export interface AbsenceCheckResult {
   dataReliabilityScore: number;
 }
 
+import type { InvestmentPosture } from '@/domain/ontology';
+
 /**
  * supplemental 데이터에서 미확인 필드를 검출하고
  * 경고 목록 및 면책 문구를 생성합니다.
  */
-export function checkDataAbsence(input: FieldCheckInput): AbsenceCheckResult {
+export function checkDataAbsence(
+  input: FieldCheckInput,
+  posture: InvestmentPosture = 'income'
+): AbsenceCheckResult {
   const missingFields: AbsencePolicy[] = [];
 
-  // 대출 현황
+  // 대출 현황 (owner_occupied, development는 대출 미확인이 critical이 아님)
   if (input.loan_status === 'unknown' || (input.loan_amount_manwon === undefined && input.loan_status !== 'no_loan')) {
-    const policy = ABSENCE_POLICIES.find(p => p.fieldKey === 'loan_amount')!;
-    missingFields.push(policy);
+    if (posture === 'income' || posture === 'trading') {
+      const policy = ABSENCE_POLICIES.find(p => p.fieldKey === 'loan_amount')!;
+      missingFields.push(policy);
+    }
   }
 
-  // 매각가
+  // 매각가 (development에서는 매각가가 critical이 아님)
   if (input.asking_price_manwon === undefined || input.asking_price_manwon === null) {
     const policy = ABSENCE_POLICIES.find(p => p.fieldKey === 'asking_price')!;
-    missingFields.push(policy);
+    if (posture === 'development') {
+      missingFields.push({
+        ...policy,
+        warningLevel: 'info',
+        displayText: '매각가 미기입 — 사업성 검토 기반 정보 제공',
+        disclaimerMarkdown: '> 매각가 결정 전 단계로, 대지/건물 스펙 기반 개발 가치를 분석합니다.',
+      });
+    } else {
+      missingFields.push(policy);
+    }
   }
 
-  // 공실률
+  // 공실률 (owner_occupied, development는 해당 없음)
   if ((input.vacancy_pct === undefined || input.vacancy_pct === null) && !input.vacancy_confirmed) {
-    const policy = ABSENCE_POLICIES.find(p => p.fieldKey === 'vacancy_pct')!;
-    missingFields.push(policy);
+    if (posture !== 'owner_occupied' && posture !== 'development') {
+      const policy = ABSENCE_POLICIES.find(p => p.fieldKey === 'vacancy_pct')!;
+      missingFields.push(policy);
+    }
   }
 
-  // 보증금
+  // 보증금 (owner_occupied, development는 해당 없음)
   if (input.total_deposit_manwon === undefined || input.total_deposit_manwon === null) {
-    const policy = ABSENCE_POLICIES.find(p => p.fieldKey === 'total_deposit')!;
-    missingFields.push(policy);
+    if (posture !== 'owner_occupied' && posture !== 'development') {
+      const policy = ABSENCE_POLICIES.find(p => p.fieldKey === 'total_deposit')!;
+      missingFields.push(policy);
+    }
   }
 
-  // 층별 임대차
+  // 층별 임대차 (owner_occupied, development는 해당 없음)
   if (!input.floor_leases || input.floor_leases.length === 0) {
-    const policy = ABSENCE_POLICIES.find(p => p.fieldKey === 'rent_roll')!;
-    missingFields.push(policy);
+    if (posture !== 'owner_occupied' && posture !== 'development') {
+      const policy = ABSENCE_POLICIES.find(p => p.fieldKey === 'rent_roll')!;
+      missingFields.push(policy);
+    }
   }
 
   // 건물 연식
@@ -163,9 +185,9 @@ export function checkDataAbsence(input: FieldCheckInput): AbsenceCheckResult {
     ? '### ⚠️ 데이터 미확인 안내\n\n' + disclaimers.join('\n\n')
     : '';
 
-  // 신뢰도 점수: 전체 7개 필드 중 확인된 비율
+  // 신뢰도 점수: 전체 필드 중 미확인 제외 비율
   const totalFields = ABSENCE_POLICIES.length;
-  const confirmedFields = totalFields - missingFields.length;
+  const confirmedFields = Math.max(0, totalFields - missingFields.length);
   const dataReliabilityScore = Math.round((confirmedFields / totalFields) * 100);
 
   return {

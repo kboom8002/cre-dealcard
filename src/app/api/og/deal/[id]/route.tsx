@@ -9,6 +9,7 @@
  */
 import { ImageResponse } from "next/og";
 import { createServiceClient } from "@/lib/supabase/service";
+import { readWithMigration } from "@/lib/ssot-adapter";
 
 export const runtime = "nodejs";
 
@@ -44,19 +45,16 @@ export async function GET(
   const type = searchParams.get("type") || "deal";
 
   // Fetch building data + latest IM doc
-  let building: Record<string, string | null> | null = null;
+  let building: Record<string, any> | null = null;
   let teaser: Record<string, any> | null = null;
   let imBody: Record<string, any> | null = null;
+
   try {
     const supabase = createServiceClient();
 
-    // Fetch building info
-    const { data: bData } = await supabase
-      .from("building_ssot_lite")
-      .select("id, area_signal, asset_type, price_band")
-      .eq("id", id)
-      .single();
-    building = bData;
+    // Fetch building info with migration fallback
+    const { data: bData } = await readWithMigration(id);
+    building = bData as Record<string, any>;
 
     // Fetch teaser document
     const { data: tData } = await supabase
@@ -69,7 +67,7 @@ export async function GET(
       .maybeSingle();
 
     if (tData?.body && typeof tData.body === "object") {
-      teaser = tData.body;
+      teaser = tData.body as Record<string, any>;
     }
 
     // Fetch latest mobile_im document for rich metrics
@@ -83,7 +81,7 @@ export async function GET(
       .maybeSingle();
 
     if (imDoc?.body && typeof imDoc.body === "object") {
-      imBody = imDoc.body;
+      imBody = imDoc.body as Record<string, any>;
     }
   } catch {
     // Fall back to generic image
@@ -92,14 +90,15 @@ export async function GET(
   const region = building?.area_signal ?? "서울";
   const regionLabel = REGION_LABELS[region.toLowerCase()] ?? region;
   const priceBand = building?.price_band ?? "";
-  const assetType = building?.asset_type ?? "";
+  const assetType = building?.asset_type ?? "상업용 부동산";
+  const fitSummary = building?.fit_summary ?? "";
 
   // Prioritize custom ogTitle/ogDescription from teaser or imBody
   const customOgTitle = imBody?.ogTitle || teaser?.ogTitle;
   const customOgDescription = imBody?.ogDescription || teaser?.ogDescription;
 
   // Use teaser title or fallback to assetType, clean up awkward analysis patterns
-  const rawTitle = customOgTitle || teaser?.title || assetType || "상업용 부동산";
+  const rawTitle = customOgTitle || teaser?.title || `${regionLabel} ${assetType} 매물`;
   const displayTitle = rawTitle
     .replace(/\s*투자설명서$/, '')
     .replace(/\s*또는\s+[^\s]+\s*(계열로|계열)\s*(추정|)/g, '')
@@ -107,13 +106,12 @@ export async function GET(
     .trim();
 
   // Use teaser summary or a default
-  const displaySubtitle = customOgDescription || teaser?.shortSummary || `${regionLabel} · ${priceBand || "가격 비공개"} · 투자 검토 가능`;
+  const displaySubtitle = customOgDescription || teaser?.shortSummary || fitSummary || `${regionLabel} 권역 블라인드 투자 검토 매물`;
   
-  // Metric pills for the bottom section
-  const metricPills: { label: string; value: string }[] = [];
-  if (assetType) metricPills.push({ label: "유형", value: assetType });
-  
-  const hookCopy = teaser?.hookCopy;
+  // Hook copy & structure chips
+  const hookCopy = imBody?.hookCopy || teaser?.hookCopy || "";
+  const rawChips = imBody?.structureChips || teaser?.structureChips || [];
+  const chips: string[] = Array.isArray(rawChips) ? rawChips.slice(0, 3) : [];
 
   let fontData: ArrayBuffer | null = null;
   try {
@@ -131,41 +129,72 @@ export async function GET(
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          padding: "36px 44px",
-          background: "linear-gradient(135deg, #0b0f19 0%, #1a1f33 50%, #0f1729 100%)",
+          padding: "44px 52px",
+          background: "linear-gradient(135deg, #070A0F 0%, #111827 60%, #0F172A 100%)",
           color: "white",
           fontFamily: fontData ? "NotoSansKR" : "sans-serif",
+          position: "relative",
         }}
       >
-        {/* Top: badges */}
+        {/* Top Gold Accent Bar */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: "6px",
+            background: "linear-gradient(90deg, #D4A853 0%, #F3EBDA 50%, #B98A2E 100%)",
+          }}
+        />
+
+        {/* Top Header Row: Badges */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "10px",
+            gap: "12px",
           }}
         >
           <div
             style={{
-              background: "rgba(59, 130, 246, 0.2)",
-              border: "1px solid rgba(59, 130, 246, 0.4)",
-              borderRadius: "6px",
-              padding: "5px 12px",
-              fontSize: 15,
-              color: "#93c5fd",
+              background: "rgba(185, 138, 46, 0.2)",
+              border: "1px solid rgba(212, 168, 83, 0.5)",
+              borderRadius: "8px",
+              padding: "6px 14px",
+              fontSize: 16,
+              fontWeight: 700,
+              color: "#F3EBDA",
               display: "flex",
             }}
           >
             {`📍 ${regionLabel}`}
           </div>
+          {assetType ? (
+            <div
+              style={{
+                background: "rgba(59, 130, 246, 0.15)",
+                border: "1px solid rgba(59, 130, 246, 0.4)",
+                borderRadius: "8px",
+                padding: "6px 14px",
+                fontSize: 16,
+                fontWeight: 600,
+                color: "#93c5fd",
+                display: "flex",
+              }}
+            >
+              {`🏢 ${assetType}`}
+            </div>
+          ) : null}
           {priceBand ? (
             <div
               style={{
-                background: "rgba(16, 185, 129, 0.2)",
+                background: "rgba(16, 185, 129, 0.15)",
                 border: "1px solid rgba(16, 185, 129, 0.4)",
-                borderRadius: "6px",
-                padding: "5px 12px",
-                fontSize: 15,
+                borderRadius: "8px",
+                padding: "6px 14px",
+                fontSize: 16,
+                fontWeight: 700,
                 color: "#6ee7b7",
                 display: "flex",
               }}
@@ -175,106 +204,94 @@ export async function GET(
           ) : null}
         </div>
 
-        {/* Center: main content */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        {/* Center Main Section */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          {/* Main Title */}
           <div style={{
-            fontSize: displayTitle.length > 25 ? 28 : displayTitle.length > 20 ? 32 : displayTitle.length > 12 ? 38 : 44,
+            fontSize: displayTitle.length > 25 ? 30 : displayTitle.length > 18 ? 36 : 42,
             fontWeight: 700,
-            lineHeight: 1.35,
+            lineHeight: 1.3,
+            color: "#FFFFFF",
             display: "flex",
-            flexWrap: "wrap",
-            maxWidth: "100%",
+            maxWidth: "1100px",
           }}>
             {displayTitle}
           </div>
-          <div style={{
-            fontSize: 20,
-            fontWeight: 500,
-            color: "rgba(147, 197, 253, 0.9)",
-            display: "flex",
-            marginTop: "4px",
-          }}>
-            {type === "im" ? "프리미엄 투자설명서" : "프리미엄 딜카드"}
-          </div>
+
+          {/* Hook Copy (Gold Banner) */}
           {hookCopy ? (
             <div style={{
-              fontSize: 24,
-              fontWeight: 600,
-              color: "#fbbf24",
+              background: "rgba(212, 168, 83, 0.12)",
+              borderLeft: "4px solid #D4A853",
+              borderRadius: "0 8px 8px 0",
+              padding: "8px 16px",
+              fontSize: 22,
+              fontWeight: 700,
+              color: "#F8F1E1",
               display: "flex",
-              marginTop: "4px",
+              width: "fit-content",
             }}>
-              {`"${hookCopy}"`}
+              {`🎯 "${hookCopy}"`}
             </div>
           ) : null}
+
+          {/* Subtitle / Fit summary */}
           <div
             style={{
-              fontSize: 18,
-              color: "rgba(255, 255, 255, 0.8)",
+              fontSize: 19,
+              color: "#A0AEC0",
               display: "flex",
-              lineHeight: 1.4,
+              lineHeight: 1.45,
+              maxWidth: "1050px",
             }}
           >
             {displaySubtitle}
           </div>
 
-          {/* Metric pills row */}
-          {metricPills.length > 0 ? (
-            <div style={{ display: "flex", gap: "12px", marginTop: "4px" }}>
-              {metricPills.map((pill) => (
-                <div
-                  key={pill.label}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    background: "rgba(255, 255, 255, 0.06)",
-                    border: "1px solid rgba(255, 255, 255, 0.12)",
-                    borderRadius: "8px",
-                    padding: "8px 14px",
-                  }}
-                >
-                  <span style={{ fontSize: 11, color: "rgba(255, 255, 255, 0.5)", display: "flex" }}>
-                    {pill.label}
-                  </span>
-                  <span style={{ fontSize: 18, fontWeight: 700, color: "#e0e7ff", display: "flex" }}>
-                    {pill.value}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : null}
+          {/* Chips & Metric Pills Row */}
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px" }}>
+            {chips.map((chip, i) => (
+              <div
+                key={i}
+                style={{
+                  background: "rgba(255, 255, 255, 0.08)",
+                  border: "1px solid rgba(255, 255, 255, 0.16)",
+                  borderRadius: "20px",
+                  padding: "4px 14px",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#E2E8F0",
+                  display: "flex",
+                }}
+              >
+                {`# ${chip}`}
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Bottom: branding + readiness */}
+        {/* Bottom Branding Row */}
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-end",
+            borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+            paddingTop: "16px",
           }}
         >
-          <div
-            style={{
-              fontSize: 24,
-              fontWeight: 700,
-              background: "linear-gradient(90deg, #3b82f6, #8b5cf6)",
-              backgroundClip: "text",
-              color: "transparent",
-              display: "flex",
-            }}
-          >
-            {type === "im" ? "Mobile IM" : "DealCard"}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: 22, fontWeight: 800, color: "#FFFFFF", display: "flex" }}>CRE</span>
+            <span style={{ fontSize: 22, fontWeight: 800, color: "#D4A853", display: "flex" }}>DEAL</span>
+            <span style={{ fontSize: 16, fontWeight: 600, color: "#718096", marginLeft: "8px", display: "flex" }}>
+              {type === "im" ? "· Mobile Investment Memorandum" : "· Premium Blind DealCard"}
+            </span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div
-              style={{
-                fontSize: 14,
-                color: "rgba(255, 255, 255, 0.4)",
-                display: "flex",
-              }}
-            >
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "#718096", display: "flex" }}>
               credeal.net
-            </div>
+            </span>
           </div>
         </div>
       </div>

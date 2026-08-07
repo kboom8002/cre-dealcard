@@ -19,7 +19,7 @@ export interface ArchetypeOutput {
 }
 
 export function buildA11RoomSpec(input: ArchetypeInput): ArchetypeOutput {
-  const slide = input.pres.addSlide({ masterName: 'A11' });
+  const slide = L.light(input.pres);
   const warnings: string[] = [];
   L.head(slide, input.slideNum, input.data.kicker || 'SECTION', input.data.title || '제목');
   
@@ -38,13 +38,13 @@ export function buildA11RoomSpec(input: ArchetypeInput): ArchetypeOutput {
   const rx = 8.08;
   const rw = 4.63;
   // stats
-  slide.addShape('rect' as any, { x: rx, y: 1.98, w: 2.24, h: 1.06, fill: { color: 'F9F9F9' } });
-  slide.addShape('rect' as any, { x: rx+2.24+0.15, y: 1.98, w: 2.24, h: 1.06, fill: { color: 'F9F9F9' } });
-  slide.addShape('rect' as any, { x: rx, y: 1.98+1.06+0.15, w: 2.24, h: 1.06, fill: { color: 'F9F9F9' } });
-  slide.addShape('rect' as any, { x: rx+2.24+0.15, y: 1.98+1.06+0.15, w: 2.24, h: 1.06, fill: { color: 'F9F9F9' } });
+  slide.addShape('rect' as any, { x: rx, y: 1.98, w: 2.24, h: 1.06, fill: { color: C.tint } });
+  slide.addShape('rect' as any, { x: rx+2.24+0.15, y: 1.98, w: 2.24, h: 1.06, fill: { color: C.tint } });
+  slide.addShape('rect' as any, { x: rx, y: 1.98+1.06+0.15, w: 2.24, h: 1.06, fill: { color: C.tint } });
+  slide.addShape('rect' as any, { x: rx+2.24+0.15, y: 1.98+1.06+0.15, w: 2.24, h: 1.06, fill: { color: C.tint } });
   
   if (input.data.violationNote) {
-    slide.addShape('rect' as any, { x: rx, y: 4.30, w: rw, h: 1.20, fill: { color: 'FFF3F3' } });
+    slide.addShape('rect' as any, { x: rx, y: 4.30, w: rw, h: 1.20, fill: { color: C.redL } });
     slide.addText(input.data.violationNote, { x: rx+0.1, y: 4.40, w: rw-0.2, h: 1.0, fontFace: KR, fontSize: 10 });
   }
   

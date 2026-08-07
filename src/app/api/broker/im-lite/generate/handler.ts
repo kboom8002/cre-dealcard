@@ -16,6 +16,7 @@ import { calculateNOI, calculateCapRate } from '@/domain/building/financials';
 import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { getIMDisclaimers } from '@/domain/building/legal-copy';
 import { validateCombination } from '@/domain/ontology';
+import { hasMinimumBasicData } from '@/domain/building/mobile-im/data-quality-badge';
 
 export interface GenerateMobileIMInput {
   buildingId: string;
@@ -141,15 +142,24 @@ export async function generateMobileIMHandler(
       };
     }
   } else {
-    // Basic tier
-    if (!supplemental.asking_price_manwon) {
+    // Basic tier — Posture별 최소 필수 데이터 검증
+    const posture = (identity?.investmentPosture || 'income') as any;
+    const hasBasicData = hasMinimumBasicData({
+      hasAskingPrice: !!supplemental.asking_price_manwon,
+      hasMonthlyRent: !!supplemental.monthly_rent_total_krw,
+      hasAddress: !!supplemental.resolved_address || !!ssotRow.area_signal,
+      hasPublicData: !!ssotRow.layers?.location?.pnu,
+    }, posture);
+
+    if (!hasBasicData) {
       return {
         ok: false,
-        error: 'Basic IM은 매각 희망가 입력이 필수입니다.',
+        error: posture === 'development'
+          ? '개발형 Basic IM 생성에 필요한 주소 또는 대지/건물 정보가 부족합니다.'
+          : 'Basic IM 생성을 위해 매각 희망가 또는 월 임대료 입력이 필요합니다.',
         statusCode: 422,
       };
     }
-    // Basic allows D-grade, no threshold block
   }
 
   // Grade B: Strictly block DCF/NPV/Sensitivity (prevents over-precision)

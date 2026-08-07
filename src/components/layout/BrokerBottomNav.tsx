@@ -60,7 +60,7 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
         role="navigation"
         aria-label="중개인 메인 탐색"
         id="broker-bottom-nav"
-        className="fixed bottom-0 left-0 right-0 z-40 glass-medium border-t border-white/10 pb-[env(safe-area-inset-bottom,0px)]"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-[#0f172a]/95 backdrop-blur-xl border-t border-amber-500/20 pb-[env(safe-area-inset-bottom,0px)] shadow-2xl"
       >
         <div className="max-w-lg mx-auto flex items-stretch justify-around px-1">
           {/* Left 2 items */}
@@ -79,32 +79,32 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
                 aria-current={isActive ? "page" : undefined}
                 onClick={() => haptic.light()}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-0.5",
-                  "min-h-[54px] min-w-[52px] flex-1 px-1 py-2 rounded-none",
+                  "relative flex flex-col items-center justify-center gap-1",
+                  "min-h-[58px] min-w-[56px] flex-1 px-1 py-2 rounded-none",
                   "transition-colors duration-150",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-inset",
                   isActive
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "text-amber-300 font-bold"
+                    : "text-slate-400 hover:text-slate-200"
                 )}
               >
                 {isActive && (
                   <motion.div
                     layoutId="broker-nav-active"
-                    className="absolute inset-x-1 inset-y-1 rounded-xl bg-primary/10"
+                    className="absolute inset-x-1 inset-y-1 rounded-xl bg-amber-500/10 border border-amber-500/20"
                     transition={{ type: "spring", stiffness: 420, damping: 36 }}
                   />
                 )}
                 <Icon
                   className={cn(
                     "relative transition-all duration-200",
-                    isActive ? "w-5 h-5 stroke-[2.2]" : "w-5 h-5 stroke-[1.7]"
+                    isActive ? "w-5 h-5 stroke-[2.4] text-amber-300" : "w-5 h-5 stroke-[1.8]"
                   )}
                 />
                 <span
                   className={cn(
-                    "relative text-[10px] font-medium leading-none",
-                    isActive && "font-semibold"
+                    "relative text-xs font-bold leading-none tracking-tight",
+                    isActive ? "text-amber-300" : "text-slate-400"
                   )}
                 >
                   {item.label}
@@ -114,7 +114,7 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
           })}
 
           {/* Center FAB placeholder slot (keeps spacing balanced) */}
-          <div className="min-w-[52px] flex-1" aria-hidden="true" />
+          <div className="min-w-[56px] flex-1" aria-hidden="true" />
 
           {/* Right 1 item (매칭) */}
           {NAV_ITEMS.slice(2).map((item) => {
@@ -130,32 +130,32 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
                 aria-current={isActive ? "page" : undefined}
                 onClick={() => haptic.light()}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-0.5",
-                  "min-h-[54px] min-w-[52px] flex-1 px-1 py-2 rounded-none",
+                  "relative flex flex-col items-center justify-center gap-1",
+                  "min-h-[58px] min-w-[56px] flex-1 px-1 py-2 rounded-none",
                   "transition-colors duration-150",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-inset",
                   isActive
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "text-amber-300 font-bold"
+                    : "text-slate-400 hover:text-slate-200"
                 )}
               >
                 {isActive && (
                   <motion.div
                     layoutId="broker-nav-active"
-                    className="absolute inset-x-1 inset-y-1 rounded-xl bg-primary/10"
+                    className="absolute inset-x-1 inset-y-1 rounded-xl bg-amber-500/10 border border-amber-500/20"
                     transition={{ type: "spring", stiffness: 420, damping: 36 }}
                   />
                 )}
                 <Icon
                   className={cn(
                     "relative transition-all duration-200",
-                    isActive ? "w-5 h-5 stroke-[2.2]" : "w-5 h-5 stroke-[1.7]"
+                    isActive ? "w-5 h-5 stroke-[2.4] text-amber-300" : "w-5 h-5 stroke-[1.8]"
                   )}
                 />
                 <span
                   className={cn(
-                    "relative text-[10px] font-medium leading-none",
-                    isActive && "font-semibold"
+                    "relative text-xs font-bold leading-none tracking-tight",
+                    isActive ? "text-amber-300" : "text-slate-400"
                   )}
                 >
                   {item.label}
@@ -173,32 +173,32 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
               setMoreOpen(true);
             }}
             className={cn(
-              "relative flex flex-col items-center justify-center gap-0.5",
-              "min-h-[54px] min-w-[52px] flex-1 px-1 py-2 rounded-none",
+              "relative flex flex-col items-center justify-center gap-1",
+              "min-h-[58px] min-w-[56px] flex-1 px-1 py-2 rounded-none",
               "transition-colors duration-150",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-inset",
               moreOpen
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
+                ? "text-amber-300 font-bold"
+                : "text-slate-400 hover:text-slate-200"
             )}
           >
             {moreOpen && (
               <motion.div
                 layoutId="broker-nav-active"
-                className="absolute inset-x-1 inset-y-1 rounded-xl bg-primary/10"
+                className="absolute inset-x-1 inset-y-1 rounded-xl bg-amber-500/10 border border-amber-500/20"
                 transition={{ type: "spring", stiffness: 420, damping: 36 }}
               />
             )}
             <MoreHorizontal
               className={cn(
                 "relative transition-all duration-200",
-                moreOpen ? "w-5 h-5 stroke-[2.2]" : "w-5 h-5 stroke-[1.7]"
+                moreOpen ? "w-5 h-5 stroke-[2.4] text-amber-300" : "w-5 h-5 stroke-[1.8]"
               )}
             />
             <span
               className={cn(
-                "relative text-[10px] font-medium leading-none",
-                moreOpen && "font-semibold"
+                "relative text-xs font-bold leading-none tracking-tight",
+                moreOpen ? "text-amber-300" : "text-slate-400"
               )}
             >
               더보기

@@ -375,7 +375,9 @@ export async function fetchIMData(
           hasAskingPrice: !!(document.body.heroCard?.askingPriceBil || ssotSummary.asking_price_manwon),
           hasLoanAmount: !!(document.body.financials?.loanAmountBil || ssotSummary.loan_amount_manwon),
           hasFloorLeases: !!(document.body.heroCard?.waleTotalYears),
-        }),
+          hasLandArea: !!(ssotSummary.land_area_m2 || document.body.external_data?.landUsePlan),
+          hasTotalGrossArea: !!(ssotSummary.total_gross_area_m2 || document.body.external_data?.buildingRegister),
+        }, (ssotSummary.investment_posture || document.body.identity?.investmentPosture || 'income') as any),
         // [C1] Hero Card — 기존 IM에 heroCard가 없으면 SSoT에서 동적 합성
         heroCard: document.body.heroCard ?? (() => {
           const s = ssotSummary;
@@ -386,8 +388,9 @@ export async function fetchIMData(
           // Extract first sentence from section markdown as summary
           const firstLine = (md: string | undefined) => md?.split('\n').find(l => l.trim().length > 10)?.replace(/^[#*\-\s>]+/, '').trim() || '';
           return {
-            assetType: s.asset_type || '꺼마빌딩',
-            askingPriceDisplay: s.price_band || '',
+            assetType: s.asset_type || '상업용 자산',
+            areaSignal: s.area_signal || '',
+            askingPriceDisplay: s.price_band || (s.asking_price_manwon ? `${(s.asking_price_manwon / 10000).toFixed(1)}억 원` : ''),
             capRateBase: null,
             noiBaseBil: null,
             keyInvestmentPoint: firstLine(investSection?.markdown) || s.fit_summary || '투자 포인트는 IM 본문을 참조하세요.',
@@ -396,6 +399,10 @@ export async function fetchIMData(
             leveragedYieldPct: null,
             readinessScore: document.body.readiness_score ?? 0,
             dcf10YearNpvBil: null,
+            posture: s.investment_posture || document.body.identity?.investmentPosture || 'income',
+            landAreaM2: s.land_area_m2 ?? document.body.external_data?.landUsePlan?.landAreaM2 ?? null,
+            totalGrossAreaM2: s.total_gross_area_m2 ?? document.body.external_data?.buildingRegister?.totalGrossAreaM2 ?? null,
+            zoning: s.zoning ?? document.body.external_data?.landUsePlan?.zoningName ?? null,
           };
         })(),
         // [C2] DCF 10년 민감도

@@ -503,73 +503,81 @@ export default async function BrokerPage() {
         {/* ── 인사 & 날짜 & 로그인 상태 ── */}
         <GreetingHeader userName={userName} userPhotoUrl={userPhotoUrl} />
 
-        {/* ── 퀵액션 버튼 ── */}
-        <div className="grid grid-cols-2 gap-2">
+        {/* ── 퀵액션 버튼 (PB 웰스 럭셔리 디자인) ── */}
+        <div className="grid grid-cols-2 gap-3">
           <Link
             href="/broker/deal-card/new"
             id="quick-action-new-dealcard"
-            className="flex items-center gap-2.5 rounded-xl border border-primary/40 bg-primary/10 px-4 py-3 hover:bg-primary/20 active:scale-95 transition-all"
+            className="flex items-center gap-3 rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/15 to-slate-900 px-4 py-3.5 hover:border-amber-400 hover:bg-amber-500/20 active:scale-95 transition-all shadow-md"
           >
-            <span className="text-xl">📝</span>
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
+              <span className="text-amber-300 font-black text-sm">30s</span>
+            </div>
             <div>
-              <p className="text-xs font-bold text-primary leading-tight">30초 딜카드</p>
-              <p className="text-[10px] text-muted-foreground">카톡 메모 붙여넣기</p>
+              <p className="text-sm font-extrabold text-amber-300 leading-tight">30초 딜카드</p>
+              <p className="text-xs font-medium text-slate-400 mt-0.5">카톡 메모 붙여넣기</p>
             </div>
           </Link>
 
           <Link
             href="/broker/matching"
             id="quick-action-matching"
-            className="flex items-center gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 hover:bg-amber-500/20 active:scale-95 transition-all"
+            className="flex items-center gap-3 rounded-2xl border border-blue-500/40 bg-gradient-to-br from-blue-500/15 to-slate-900 px-4 py-3.5 hover:border-blue-400 hover:bg-blue-500/20 active:scale-95 transition-all shadow-md"
           >
-            <span className="text-xl">⚡</span>
+            <div className="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0">
+              <span className="text-blue-300 text-base">⚡</span>
+            </div>
             <div>
-              <p className="text-xs font-bold text-amber-400 leading-tight">매칭 센터</p>
-              <p className="text-[10px] text-muted-foreground">AI 매칭 결과 확인</p>
+              <p className="text-sm font-extrabold text-blue-300 leading-tight">매칭 센터</p>
+              <p className="text-xs font-medium text-slate-400 mt-0.5">AI 매칭 결과 확인</p>
             </div>
           </Link>
 
           <Link
             href="/broker/tenant-intents/new"
             id="quick-action-buyer-intent"
-            className="flex items-center gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 hover:bg-rose-500/20 active:scale-95 transition-all"
+            className="flex items-center gap-3 rounded-2xl border border-rose-500/40 bg-gradient-to-br from-rose-500/15 to-slate-900 px-4 py-3.5 hover:border-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all shadow-md"
           >
-            <span className="text-xl">🎯</span>
+            <div className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
+              <span className="text-rose-300 text-base">🎯</span>
+            </div>
             <div>
-              <p className="text-xs font-bold text-rose-400 leading-tight">매수 조건 등록</p>
-              <p className="text-[10px] text-muted-foreground">고객 매수 의향 입력</p>
+              <p className="text-sm font-extrabold text-rose-300 leading-tight">매수 조건 등록</p>
+              <p className="text-xs font-medium text-slate-400 mt-0.5">고객 매수 의향 입력</p>
             </div>
           </Link>
           <Link
             href="/broker/pipeline"
             id="quick-action-pipeline"
-            className="flex items-center gap-2.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 hover:bg-indigo-500/20 active:scale-95 transition-all"
+            className="flex items-center gap-3 rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 to-slate-900 px-4 py-3.5 hover:border-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all shadow-md"
           >
-            <span className="text-xl">📋</span>
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0">
+              <span className="text-emerald-300 text-base">📊</span>
+            </div>
             <div>
-              <p className="text-xs font-bold text-indigo-400 leading-tight">파이프라인</p>
-              <p className="text-[10px] text-muted-foreground">딜 진행 현황 관리</p>
+              <p className="text-sm font-extrabold text-emerald-300 leading-tight">파이프라인</p>
+              <p className="text-xs font-medium text-slate-400 mt-0.5">딜 진행 현황 관리</p>
             </div>
           </Link>
         </div>
 
-        {/* ── KPI 스크롤 카드 (항상 표시) ── */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+        {/* ── KPI 스크롤 카드 (고대비 PB 럭셔리 스타일) ── */}
+        <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none">
           {[
-            { label: "매매물건", value: totalBuildings ?? 0, icon: Building2, color: "text-blue-400", href: "/broker/buildings" },
-            { label: "임대물건", value: totalLeaseSpaces ?? 0, icon: Building2, color: "text-primary", href: "/broker/buildings" },
-            { label: "S/A 매칭", value: sMatchCount + aMatchCount, icon: Target, color: "text-amber-400", href: "/broker/matching" },
-            { label: "관리 고객", value: totalClients ?? 0, icon: Users, color: "text-emerald-400", href: "/broker/clients" },
-            { label: "매수 고객", value: totalBuyers ?? 0, icon: TrendingUp, color: "text-rose-400", href: "/broker/buyer-intents" },
-          ].map(({ label, value, icon: Icon, color, href }) => (
+            { label: "매매물건", value: totalBuildings ?? 0, icon: Building2, color: "text-amber-300", border: "border-amber-500/30", href: "/broker/buildings" },
+            { label: "임대물건", value: totalLeaseSpaces ?? 0, icon: Building2, color: "text-blue-300", border: "border-blue-500/30", href: "/broker/buildings" },
+            { label: "S/A 매칭", value: sMatchCount + aMatchCount, icon: Target, color: "text-yellow-300", border: "border-yellow-500/30", href: "/broker/matching" },
+            { label: "관리 고객", value: totalClients ?? 0, icon: Users, color: "text-emerald-300", border: "border-emerald-500/30", href: "/broker/clients" },
+            { label: "매수 고객", value: totalBuyers ?? 0, icon: TrendingUp, color: "text-rose-300", border: "border-rose-500/30", href: "/broker/buyer-intents" },
+          ].map(({ label, value, icon: Icon, color, border, href }) => (
             <Link
               key={label}
               href={href}
-              className="shrink-0 rounded-xl border border-border bg-card px-4 py-3 text-center hover:border-primary/30 transition-all min-w-[76px]"
+              className={`shrink-0 rounded-2xl border ${border} bg-[#131b2e] px-4 py-3.5 text-center hover:bg-[#1a2540] transition-all min-w-[88px] shadow-sm`}
             >
-              <Icon className={`w-4 h-4 mx-auto mb-1 ${color}`} strokeWidth={2} />
-              <p className="text-lg font-bold">{value}</p>
-              <p className="text-[10px] text-muted-foreground">{label}</p>
+              <Icon className={`w-5 h-5 mx-auto mb-1.5 ${color}`} strokeWidth={2.2} />
+              <p className="text-xl font-black text-slate-100 tabular-nums">{value}</p>
+              <p className="text-xs font-bold text-slate-400 mt-0.5">{label}</p>
             </Link>
           ))}
         </div>
