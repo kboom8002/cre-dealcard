@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { predictFundingSuccess } from "@/domain/prediction/funding-success-predictor";
+import { toast } from 'sonner';
 
 interface Project {
   id: string;
@@ -89,7 +90,7 @@ export default function FundingProjectDetailPage({
         throw new Error(json.error || "매칭 실패");
       }
     } catch (e: any) {
-      alert(e.message);
+      toast.error(e.message);
     } finally {
       setMatchingLoading(false);
     }

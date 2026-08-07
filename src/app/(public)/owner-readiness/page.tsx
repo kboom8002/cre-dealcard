@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 
 declare global {
   interface Window {
@@ -598,7 +599,7 @@ function OwnerReadinessContent() {
       const json = await res.json();
 
       if (!res.ok || !json.ok) {
-        alert(json?.error?.message ?? "핸드오프 토큰 발급에 실패했습니다.");
+        toast.error(json?.error?.message ?? "핸드오프 토큰 발급에 실패했습니다.");
         return;
       }
 
@@ -613,7 +614,7 @@ function OwnerReadinessContent() {
       }
     } catch (err) {
       console.error("[OwnerReadiness Handoff]", err);
-      alert("핸드오프 생성 중 오류가 발생했습니다.");
+      toast.error("핸드오프 생성 중 오류가 발생했습니다.");
     } finally {
       setHandoffLoading(false);
     }
@@ -668,13 +669,13 @@ function OwnerReadinessContent() {
     if (!result) return;
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
     const shareUrl = `${siteUrl}/owner-readiness?buildingId=${selectedBuildingId}&resultId=${result.readinessCheckId}`;
-    const fullText = `🏢 [매각준비도 진단] ${buildingLabel}\n진단 점수: ${result.readinessScore}점 (${stateInfo?.label || ''})\n\n🔗 진단 리포트 링크: ${shareUrl}`;
     
-    navigator.clipboard.writeText(fullText).then(() => {
+    navigator.clipboard.writeText(shareUrl).then(() => {
       setCopied(true);
+      toast.success("링크가 복사되었습니다.");
       setTimeout(() => setCopied(false), 2000);
     }).catch(() => {
-      alert(`진단 리포트 링크:\n${shareUrl}`);
+      toast.error("링크 복사에 실패했습니다.");
     });
   };
 

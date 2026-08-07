@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 import { ShareToCircleSheet } from "@/components/circle/ShareToCircleSheet";
 
+import { toast } from "sonner";
+
 interface DealCardActionsMenuProps {
   buildingId: string;
 }
@@ -24,10 +26,11 @@ export function DealCardActionsMenu({ buildingId }: DealCardActionsMenuProps) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "삭제 실패");
+      toast.success("딜카드가 삭제되었습니다.");
       router.push("/broker/buildings");
       router.refresh();
     } catch (err: any) {
-      alert(`삭제 중 오류가 발생했습니다: ${err.message}`);
+      toast.error(`삭제 중 오류가 발생했습니다: ${err.message}`);
       setIsDeleting(false);
       setShowConfirm(false);
     }

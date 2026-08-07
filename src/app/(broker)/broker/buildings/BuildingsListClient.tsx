@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 
@@ -56,8 +57,9 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
         throw new Error(d.error ?? "삭제 실패");
       }
       setBuildings((prev) => prev.filter((b) => b.id !== id));
+      toast.success("딜카드가 삭제되었습니다.");
     } catch (err: any) {
-      alert(`삭제 중 오류: ${err.message}`);
+      toast.error(`삭제 중 오류: ${err.message}`);
     } finally {
       setDeletingId(null);
       setConfirmDeleteId(null);
@@ -70,8 +72,9 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
       if (!res.ok) throw new Error('Failed');
       setImListState(prev => prev.filter(d => d.docId !== docId));
       setDeletingImId(null);
+      toast.success("IM이 삭제되었습니다.");
     } catch {
-      alert('삭제에 실패했습니다.');
+      toast.error('삭제에 실패했습니다.');
     }
   };
 
@@ -83,9 +86,16 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
     { key: "closed", label: "계약 완료", emoji: "✅" },
   ];
 
+  const [stageFilter, setStageFilter] = useState<string | null>(null);
+
   // Filter and Sort buildings
   const filteredAndSortedBuildings = useMemo(() => {
     let result = [...buildings];
+
+    // Filter by stage
+    if (stageFilter) {
+      result = result.filter((b) => b.status === stageFilter);
+    }
 
     // Filter by asset type
     if (filterType === "office") {
@@ -115,7 +125,7 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
     }
 
     return result;
-  }, [initialBuildings, filterType, sortBy, searchQuery]);
+  }, [buildings, filterType, sortBy, searchQuery, stageFilter]);
 
   // Aggregate Metrics dynamically for active list
   const metrics = useMemo(() => {
@@ -274,8 +284,16 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
       {/* P1-3: Deal Pipeline Stage Counts */}
       <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold text-neutral-300 uppercase tracking-wider">
-            🔄 단계별 매물 파이프라인
+          <h3 className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-2">
+            <span>🔄 단계별 매물 파이프라인</span>
+            {stageFilter && (
+              <button
+                onClick={() => setStageFilter(null)}
+                className="text-[10px] text-amber-400 hover:underline font-normal normal-case"
+              >
+                ✕ 필터 해제
+              </button>
+            )}
           </h3>
           <span className="px-2 py-0.5 rounded bg-neutral-800 text-[10px] text-neutral-400 font-mono">
             LIVE STATS
@@ -285,9 +303,18 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
           {PIPELINE_STAGES.map((stage, idx) => {
             const count = metrics.stageCounts[stage.key] ?? 0;
             const isLast = idx === PIPELINE_STAGES.length - 1;
+            const isSelected = stageFilter === stage.key;
             return (
               <div key={stage.key} className="flex items-center shrink-0">
-                <div className="flex flex-col items-center gap-1 px-3">
+                <button
+                  type="button"
+                  onClick={() => setStageFilter(isSelected ? null : stage.key)}
+                  className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                    isSelected
+                      ? "bg-primary/20 border border-primary/40 text-primary font-bold"
+                      : "hover:bg-neutral-800/60 text-neutral-400"
+                  }`}
+                >
                   <span className="text-lg">{stage.emoji}</span>
                   <span
                     className={`text-sm font-black ${
@@ -296,12 +323,12 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
                   >
                     {count}
                   </span>
-                  <span className="text-[10.5px] text-neutral-400 font-medium whitespace-nowrap">
+                  <span className="text-[10.5px] font-medium whitespace-nowrap">
                     {stage.label}
                   </span>
-                </div>
+                </button>
                 {!isLast && (
-                  <span className="text-neutral-700 text-xs shrink-0 font-bold px-1">
+                  <span className="text-neutral-700 text-xs shrink-0 font-bold px-0.5">
                     →
                   </span>
                 )}
@@ -451,7 +478,7 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
                     e.stopPropagation();
                     setConfirmDeleteId(b.id);
                   }}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-500 hover:text-rose-400 hover:border-rose-500/50 hover:bg-rose-500/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                  className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-500 hover:text-rose-400 hover:border-rose-500/50 hover:bg-rose-500/10 flex items-center justify-center opacity-70 hover:opacity-100 transition-all"
                   title="딜카드 삭제"
                   aria-label="딜카드 삭제"
                 >

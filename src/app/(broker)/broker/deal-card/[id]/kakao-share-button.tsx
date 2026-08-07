@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 interface KakaoShareButtonProps {
   text: string;
@@ -127,7 +128,7 @@ export function KakaoShareButton({
         }
       })
       .catch(() => {
-        alert(`딜카드 링크:\n${dealUrl}\n\n카카오에 붙여넣기 하세요.`);
+        toast.error('딜카드 링크 복사에 실패했습니다.');
       });
   }
 
@@ -144,16 +145,17 @@ export function KakaoShareButton({
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
+      toast.success("📸 1페이지 티저 이미지가 저장되었습니다.");
     } catch (e) {
       console.error("Card image download failed:", e);
-      alert("이미지 다운로드 중 오류가 발생했습니다.");
+      toast.error("이미지 다운로드 중 오류가 발생했습니다.");
     }
   };
 
   const handleCopyCardImageUrl = () => {
     const cardImgUrl = `${siteUrl}/api/og/deal/${buildingId}/card`;
     navigator.clipboard.writeText(cardImgUrl).then(() => {
-      alert("📸 1페이지 티저 이미지 링크가 클립보드에 복사되었습니다!\n카카오톡 대화방에 붙여넣기 하세요.");
+      toast.success("📸 1페이지 티저 이미지 링크가 클립보드에 복사되었습니다!");
     });
   };
 

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { trackTeaserCta } from './TeaserEventTracker';
+import { toast } from "sonner";
 
 interface CTALadderProps {
   buildingId: string;
@@ -30,7 +31,7 @@ export function CTALadder({ buildingId, teaserConfigId, brokerPhone = '010-0000-
     if (cleanPhone) {
       window.location.href = `tel:${cleanPhone}`;
     } else {
-      alert("중개사 전화번호가 등록되지 않았습니다.");
+      toast.error("중개사 전화번호가 등록되지 않았습니다.");
     }
   };
 
@@ -91,7 +92,7 @@ export function CTALadder({ buildingId, teaserConfigId, brokerPhone = '010-0000-
     if (gateForm) {
       gateForm.scrollIntoView({ behavior: 'smooth' });
     } else {
-      alert("🔑 비밀유지약정(NDA) 체결 및 상세 자료 요청 페이지로 이동합니다.");
+      toast.info("🔑 비밀유지약정(NDA) 체결 및 상세 자료 요청 페이지로 이동합니다.");
     }
   };
 

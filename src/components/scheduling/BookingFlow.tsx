@@ -6,6 +6,7 @@ import { CalendarPicker } from "./CalendarPicker";
 import { TimeSlotSelector, SlotInfo } from "./TimeSlotSelector";
 import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 
 interface BookingFlowProps {
   buildingId: string;
@@ -93,13 +94,14 @@ export function BookingFlow({ buildingId, proxyBuyerId, onBookingComplete }: Boo
         onBookingComplete?.();
       } else {
         const errData = await res.json();
-        alert(errData.error || "예약에 실패했습니다. 이미 다른 사용자가 선점 중인 시간대일 수 있습니다.");
+        toast.error(errData.error || "예약에 실패했습니다. 이미 다른 사용자가 선점 중인 시간대일 수 있습니다.");
+        return;
       }
-    } catch (err: any) {
-      alert("예약 요청 중 서버 오류가 발생했습니다.");
+    } catch (error) {
+      toast.error("예약 요청 중 서버 오류가 발생했습니다.");
+    } finally {
+      setSubmitting(false);
     }
-    
-    setSubmitting(false);
   };
 
   const resetFlow = () => {
@@ -171,7 +173,7 @@ export function BookingFlow({ buildingId, proxyBuyerId, onBookingComplete }: Boo
                 slots={slotsByDate[selectedDate!] || []}
                 selectedSlotId={selectedSlot}
                 onSelectSlot={handleSlotSelect}
-                onJoinWaitlist={() => alert('대기열')}
+                onJoinWaitlist={() => toast.info('대기열')}
               />
             )}
           </motion.div>

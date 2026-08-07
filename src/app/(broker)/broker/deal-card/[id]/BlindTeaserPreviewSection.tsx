@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { PenTool } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { TeaserHeroHeader } from "@/components/teaser/TeaserHeroHeader";
 import { StructureChips } from "@/components/teaser/StructureChips";
 
@@ -56,10 +57,14 @@ export function BlindTeaserPreviewSection({
       });
       if (res.ok) {
         setIsEditing(false);
+        toast.success("티저 정보가 저장되었습니다.");
         router.refresh();
+      } else {
+        toast.error("저장에 실패했습니다.");
       }
     } catch (err) {
       console.error(err);
+      toast.error("네트워크 오류가 발생했습니다.");
     } finally {
       setIsSaving(false);
     }
@@ -119,8 +124,12 @@ export function BlindTeaserPreviewSection({
 
   return (
     <div className="rounded-xl border-2 border-primary/20 bg-card p-5 space-y-4 group relative">
-      <button onClick={() => setIsEditing(true)} className="absolute top-4 right-4 text-slate-400 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-        <PenTool className="w-4 h-4" />
+      <button 
+        onClick={() => setIsEditing(true)} 
+        className="absolute top-4 right-4 flex items-center gap-1 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg hover:bg-amber-500/20 transition-all"
+      >
+        <PenTool className="w-3.5 h-3.5" />
+        <span>편집</span>
       </button>
       <div className="flex items-center gap-2 text-xs text-primary font-medium">
         <span className="inline-block w-2 h-2 rounded-full bg-primary" />

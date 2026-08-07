@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { toast } from "sonner";
 
 interface ImManagementPanelProps {
   buildingId: string;
@@ -25,30 +26,34 @@ export function ImManagementPanel({
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPreset, setSelectedPreset] = useState("credeal_signature");
   const [presets, setPresets] = useState<any[]>([]);
-  
-  useEffect(() => {
-    async function fetchDocs() {
-      try {
-        const res = await fetch(`/api/broker/im-lite/${buildingId}`);
-        if (res.ok) {
-          const data = await res.json();
-          // Assume data.documents is returned from the API, mapping them here
-          // The API might just return all blind_teaser/mobile_im documents.
-          if (data.documents) {
-             setDocs(data.documents.map((d: any) => ({
-               id: d.id,
-               created_at: d.created_at,
-               tier: d.body?.tier || 'basic'
-             })));
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch IM docs", err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
 
+  // 비동기 생성 + 진행률 상태 (IM-1)
+  const [generationStatus, setGenerationStatus] = useState<
+    'idle' | 'analyzing' | 'writing' | 'validating' | 'complete' | 'error'
+  >('idle');
+  const [generationProgress, setGenerationProgress] = useState(0);
+
+  const fetchDocs = async () => {
+    try {
+      const res = await fetch(`/api/broker/im-lite/${buildingId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.documents) {
+          setDocs(data.documents.map((d: any) => ({
+            id: d.id,
+            created_at: d.created_at,
+            tier: d.body?.tier || 'basic'
+          })));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch IM docs", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     async function fetchPresets() {
       try {
         const res = await fetch('/api/broker/pptx-preset');
@@ -71,17 +76,158 @@ export function ImManagementPanel({
   const handleCopyLink = (tier: 'basic' | 'pro') => {
     const url = `${window.location.origin}/im-${tier === 'basic' ? 'lite' : 'pro'}/${buildingId}`;
     navigator.clipboard.writeText(url);
-    alert('링크가 복사되었습니다.');
+    toast.success('링크가 복사되었습니다.');
   };
 
-  const isProLocked = currentGrade === 'D' || currentGrade === 'C'; // Or wait, if grade < B means C, D are locked. So if currentGrade is 'C' or 'D'.
-  
+  // 비동기 IM 생성 핸들러 (IM-1 & IM-5)
+  const handleGenerateIM = async (tier: 'basic' | 'pro') => {
+    setGenerationStatus('analyzing');
+    setGenerationProgress(15);
+    try {
+      const res = await fetch('/api/broker/im-lite/generate-async', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buildingId, tier }),
+      });
+      if (!res.ok) throw new Error('Generation failed');
+      const { jobId } = await res.json();
+
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/broker/im-lite/job-status?jobId=${jobId}`);
+          if (!statusRes.ok) return;
+          const { status, progress } = await statusRes.json();
+          setGenerationProgress(progress || 50);
+
+          if (status === 'writing') setGenerationStatus('writing');
+          if (status === 'validating') setGenerationStatus('validating');
+          if (status === 'completed' || status === 'complete') {
+            setGenerationStatus('complete');
+            setGenerationProgress(100);
+            clearInterval(pollInterval);
+            toast.success(`${tier.toUpperCase()} IM 생성이 완료되었습니다.`);
+            await fetchDocs();
+            setTimeout(() => setGenerationStatus('idle'), 2500);
+          }
+          if (status === 'failed' || status === 'error') {
+            setGenerationStatus('error');
+            clearInterval(pollInterval);
+            toast.error('IM 생성 중 오류가 발생했습니다.');
+            setTimeout(() => setGenerationStatus('idle'), 3000);
+          }
+        } catch {
+          // Keep polling
+        }
+      }, 2000);
+    } catch {
+      setGenerationStatus('error');
+      toast.error('IM 생성 요청에 실패했습니다.');
+      setTimeout(() => setGenerationStatus('idle'), 3000);
+    }
+  };
+
+  // 내보내기 진행률 핸들러 (IM-3)
+  const handleExport = async (format: 'export' | 'pptx') => {
+    const tier = proDoc ? 'pro' : 'basic';
+    const ext = format === 'export' ? 'pdf' : 'pptx';
+    const toastId = toast.loading(`${ext.toUpperCase()} 문서를 생성 중입니다...`);
+    try {
+      const url = `/api/public/im-lite/${buildingId}/${format}?tier=${tier}&preset=${selectedPreset}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `IM_${buildingId}_${selectedPreset}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+      toast.success(`${ext.toUpperCase()} 다운로드가 완료되었습니다.`, { id: toastId });
+    } catch {
+      toast.error(`${ext.toUpperCase()} 생성 중 오류가 발생했습니다.`, { id: toastId });
+    }
+  };
+
+  const isProLocked = currentGrade === 'D' || currentGrade === 'C';
+
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-5 space-y-3 animate-pulse">
+        <div className="h-5 bg-muted rounded w-1/3" />
+        <div className="h-20 bg-muted/40 rounded-lg" />
+        <div className="h-20 bg-muted/40 rounded-lg" />
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-      <h2 className="text-base font-semibold flex items-center gap-2">
-        <span>📄</span> IM 관리 패널
+      <h2 className="text-base font-semibold flex items-center justify-between">
+        <span className="flex items-center gap-2">
+          <span>📄</span> IM 관리 패널
+        </span>
+        <span className="text-xs text-muted-foreground font-normal">
+          현재 {currentGrade}등급 ({currentScore}점)
+        </span>
       </h2>
-      
+
+      {/* 비동기 생성 진행률 바 (IM-1) */}
+      {generationStatus !== 'idle' && (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2.5 animate-fadeIn">
+          <div className="flex items-center justify-between text-xs font-medium">
+            <span className="flex items-center gap-2 text-primary font-bold">
+              {generationStatus !== 'complete' && generationStatus !== 'error' && (
+                <span className="animate-spin inline-block">⏳</span>
+              )}
+              {generationStatus === 'analyzing' && 'AI가 건물 데이터를 분석 중...'}
+              {generationStatus === 'writing' && 'IM 섹션 및 재무 모델을 작성 중...'}
+              {generationStatus === 'validating' && '품질 게이트 검증 중...'}
+              {generationStatus === 'complete' && '✅ IM 생성 완료!'}
+              {generationStatus === 'error' && '❌ 생성 실패'}
+            </span>
+            <span className="text-muted-foreground font-mono">{generationProgress}%</span>
+          </div>
+          <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                generationStatus === 'error' ? 'bg-rose-500' : 'bg-primary'
+              }`}
+              style={{ width: `${generationProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Basic/Pro IM 비교 인포카드 (IM-2) */}
+      <details className="rounded-lg border border-border/80 bg-muted/20 p-3 text-xs group">
+        <summary className="font-bold text-amber-400 cursor-pointer flex items-center justify-between">
+          <span>ℹ️ Basic IM vs Pro IM 기능 비교</span>
+          <span className="text-[10px] text-muted-foreground group-open:rotate-180 transition-transform">▼</span>
+        </summary>
+        <div className="mt-3 grid grid-cols-2 gap-3 text-muted-foreground pt-2 border-t border-border/40">
+          <div className="space-y-1">
+            <p className="font-bold text-foreground">📄 Basic IM (7p)</p>
+            <ul className="list-disc pl-3.5 space-y-0.5 text-[11px]">
+              <li>건물 신호 요약</li>
+              <li>입지 분석 &amp; 3D 레이더</li>
+              <li>임대 현황 (Rent Roll)</li>
+              <li>기본 투자 하이라이트</li>
+            </ul>
+          </div>
+          <div className="space-y-1">
+            <p className="font-bold text-foreground">📊 Pro IM (24p DCF)</p>
+            <ul className="list-disc pl-3.5 space-y-0.5 text-[11px]">
+              <li>10년 DCF 현금흐름 모델</li>
+              <li>수익률/가격 민감도 분석</li>
+              <li>대출 LTV &amp; 세금 시뮬레이션</li>
+              <li>NDA 워터마크 보안 링크</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+
       {/* Basic IM Card */}
       <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
         <div className="flex justify-between items-center">
@@ -98,24 +244,28 @@ export function ImManagementPanel({
           </div>
         </div>
         
-        {basicDoc && (
+        {basicDoc ? (
           <div className="flex flex-wrap gap-2 mt-2">
             <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => window.open(`/im-lite/${buildingId}`, '_blank')}>
               👁 열기
             </Button>
-            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => window.open(`/api/public/im-lite/${buildingId}/export?tier=basic`, '_blank')}>
+            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('export')}>
               📄 PDF
             </Button>
-            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => window.open(`/api/public/im-lite/${buildingId}/pptx?tier=basic`, '_blank')}>
+            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('pptx')}>
               📊 PPTX
             </Button>
             <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleCopyLink('basic')}>
               🔗 링크복사
             </Button>
-            <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => document.getElementById('cta-mobile-im-basic')?.click()}>
+            <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => handleGenerateIM('basic')}>
               ♻️ 재생성
             </Button>
           </div>
+        ) : (
+          <Button size="sm" className="mt-2 h-8 w-full bg-slate-800 hover:bg-slate-700 text-white" onClick={() => handleGenerateIM('basic')}>
+            ⚡ Basic IM 생성하기
+          </Button>
         )}
       </div>
 
@@ -138,33 +288,36 @@ export function ImManagementPanel({
         </div>
 
         {isProLocked ? (
-          <div className="mt-2 text-xs text-muted-foreground">
+          <div className="mt-2 text-xs text-muted-foreground space-y-2">
             <p>Pro IM을 생성하려면 데이터 등급을 B등급 이상으로 올려야 합니다.</p>
-            <Button size="sm" className="mt-2 h-8 w-full bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => document.getElementById('cta-mobile-im-pro')?.click()}>
-              Pro로 업그레이드
-            </Button>
+            <Link
+              href={`/broker/deal-card/${buildingId}`}
+              className="inline-flex items-center justify-center h-8 w-full rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 text-xs font-bold transition-colors"
+            >
+              ✏️ 부족한 빌딩 데이터 보강하러 가기
+            </Link>
           </div>
         ) : proDoc ? (
           <div className="flex flex-wrap gap-2 mt-2">
             <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => window.open(`/im-pro/${buildingId}`, '_blank')}>
               👁 열기
             </Button>
-            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => window.open(`/api/public/im-lite/${buildingId}/export?tier=pro`, '_blank')}>
+            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('export')}>
               📄 PDF
             </Button>
-            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => window.open(`/api/public/im-lite/${buildingId}/pptx?tier=pro`, '_blank')}>
+            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('pptx')}>
               📊 PPTX
             </Button>
             <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleCopyLink('pro')}>
               🔗 링크복사
             </Button>
-            <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => document.getElementById('cta-mobile-im-pro')?.click()}>
+            <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => handleGenerateIM('pro')}>
               ♻️ 재생성
             </Button>
           </div>
         ) : (
-          <Button size="sm" className="mt-2 h-8 w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:opacity-90 text-white" onClick={() => document.getElementById('cta-mobile-im-pro')?.click()}>
-            Pro IM 생성하기
+          <Button size="sm" className="mt-2 h-8 w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:opacity-90 text-white font-bold" onClick={() => handleGenerateIM('pro')}>
+            🚀 Pro IM 생성하기
           </Button>
         )}
       </div>
@@ -195,30 +348,22 @@ export function ImManagementPanel({
           </Link>
         </div>
         
-        {/* We can use either basic or pro for download here if they exist. Default to basic if only basic exists, else pro. 
-            Or just separate logic. Assuming export button uses basic unless pro exists. */}
         <div className="flex gap-2">
           <Button 
-            className="flex-1 text-xs h-9" 
+            className="flex-1 text-xs h-9 font-medium" 
             variant="outline"
             disabled={!basicDoc && !proDoc}
-            onClick={() => {
-              const tier = proDoc ? 'pro' : 'basic';
-              window.open(`/api/public/im-lite/${buildingId}/export?tier=${tier}&preset=${selectedPreset}`, '_blank');
-            }}
+            onClick={() => handleExport('export')}
           >
-            📄 현재 등급 PDF
+            📄 현재 등급 PDF 다운로드
           </Button>
           <Button 
-            className="flex-1 text-xs h-9" 
+            className="flex-1 text-xs h-9 font-medium" 
             variant="outline"
             disabled={!basicDoc && !proDoc}
-            onClick={() => {
-              const tier = proDoc ? 'pro' : 'basic';
-              window.open(`/api/public/im-lite/${buildingId}/pptx?tier=${tier}&preset=${selectedPreset}`, '_blank');
-            }}
+            onClick={() => handleExport('pptx')}
           >
-            📊 현재 등급 PPTX
+            📊 현재 등급 PPTX 다운로드
           </Button>
         </div>
       </div>

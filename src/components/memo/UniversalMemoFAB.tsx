@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { MemoResultSheet } from "./MemoResultSheet";
 import { MemoRouterOutput } from "@/ai/agents/memo-router-agent";
+import { toast } from "sonner";
 
 export function UniversalMemoFAB() {
   const [isOpen, setIsOpen] = useState(false);
@@ -47,7 +48,8 @@ export function UniversalMemoFAB() {
       setTextMemo(memo);
       setMode("result");
     } catch (err) {
-      alert("오류 발생: 메모 처리 중 문제가 발생했습니다.");
+      console.error(err);
+      toast.error("오류 발생: 메모 처리 중 문제가 발생했습니다.");
     } finally {
       setIsProcessing(false);
     }
@@ -125,7 +127,7 @@ export function UniversalMemoFAB() {
                 <div className="py-8">
                   <VoiceRecorder 
                     onTranscriptionComplete={submitMemo} 
-                    onError={(err) => alert(err)} 
+                    onError={(err) => { toast.error(err); }} 
                   />
                   <div className="mt-8 flex justify-center">
                     <Button

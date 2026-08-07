@@ -51,6 +51,8 @@ export default function BrokerDealCardNewPage() {
     }
   };
 
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!memo.trim()) return;
@@ -58,6 +60,16 @@ export default function BrokerDealCardNewPage() {
     setIsLoading(true);
     setError(null);
     setLoadingStep(0);
+
+    const controller = new AbortController();
+    setAbortController(controller);
+
+    // Timeout safety abort after 30 seconds
+    const timeoutTimer = setTimeout(() => {
+      controller.abort();
+      setError("생성 시간이 초과되었습니다 (30초 타임아웃). 네트워크 상태를 확인하거나 메모 내용을 수정한 후 다시 시도해 주세요.");
+      setIsLoading(false);
+    }, 30000);
 
     // Progressive loading steps
     const interval = setInterval(() => {
@@ -100,6 +112,7 @@ export default function BrokerDealCardNewPage() {
           visibilityPreference: "blind",
           photoUrls,
         }),
+        signal: controller.signal,
       });
 
       // 서버 응답이 실패인 경우 안전하게 에러 추출
@@ -111,18 +124,18 @@ export default function BrokerDealCardNewPage() {
       }
 
       if (!res.ok || !json.ok) {
-        // Quality Gate 실패 시 구체적인 부족 정보 전달
+        // Quality Gate 실패 시 구체적인 부족 정보 전달 (DC-3)
         if (json.code === "MEMO_QUALITY_INSUFFICIENT" && json.details) {
           const missing = json.details.missingFields || [];
           const fieldLabels: Record<string, string> = {
-            location: '📍 위치(지역명, 역명, 주소)',
-            asset_type: '🏢 자산 유형(오피스, 빌딩, 상가 등)',
-            numeric: '💰 가격 또는 면적 수치',
-            deal_type: '📋 거래 유형(매각, 임대 등)',
+            location: '📍 위치(지역명, 역명, 주소) — 예: "성수동", "서초대로"',
+            asset_type: '🏢 자산 유형(오피스, 빌딩, 상가 등) — 예: "근생 건물"',
+            numeric: '💰 가격 또는 면적 수치 — 예: "80억대", "2,500평"',
+            deal_type: '📋 거래 유형(매각, 임대 등) — 예: "매매"',
           };
-          const missingLabels = missing.map((f: string) => fieldLabels[f] || f).join('\n');
+          const missingLabels = missing.map((f: string) => fieldLabels[f] || f).join('\n• ');
           throw new Error(
-            `다음 정보가 부족합니다. 메모에 추가해주세요:\n${missingLabels}`
+            `다음 필수 정보가 부족하여 딜카드를 만들 수 없습니다:\n• ${missingLabels}`
           );
         }
         const errorMsg =
@@ -133,11 +146,14 @@ export default function BrokerDealCardNewPage() {
         throw new Error(errorMsg);
       }
 
+      clearTimeout(timeoutTimer);
       clearInterval(interval);
       setCreatedBuildingId(json.data.buildingId);
       setIsLoading(false);
-    } catch (err) {
+    } catch (err: any) {
+      clearTimeout(timeoutTimer);
       clearInterval(interval);
+      if (err.name === 'AbortError') return; // Cancelled
       let errorMessage = "이번 생성은 완료하지 못했습니다.";
       if (err instanceof Error && err.message) {
         errorMessage = err.message;
@@ -146,8 +162,18 @@ export default function BrokerDealCardNewPage() {
       }
       setError(errorMessage);
       setIsLoading(false);
+    } finally {
+      setAbortController(null);
     }
   }
+
+  const handleCancelLoading = () => {
+    if (abortController) {
+      abortController.abort();
+      setIsLoading(false);
+      setError("딜카드 생성이 취소되었습니다.");
+    }
+  };
 
   function handleUseSample() {
     setMemo(SAMPLE_MEMO);
@@ -165,14 +191,12 @@ export default function BrokerDealCardNewPage() {
             카톡으로 바로 공유하거나, 렌트롤·투자설명서를<br />추가하여 딜카드를 보강할 수 있습니다.
           </p>
           <div className="flex flex-col gap-3 pt-6">
-            {/* 1순위: 딜카드 상세 확인 + 카톡 공유 */}
             <Button 
               className="w-full bg-[#FEE500] hover:bg-[#FEE500]/90 text-[#3C1E1E] font-bold h-12 text-base"
               onClick={() => router.push(`/broker/deal-card/${createdBuildingId}`)}
             >
               🟡 딜카드 확인 및 카톡 공유
             </Button>
-            {/* Zero-Config: 신뢰 서클에 자산 바로 공유 */}
             <Button
               variant="outline"
               className="w-full h-12 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-bold text-base"
@@ -180,7 +204,6 @@ export default function BrokerDealCardNewPage() {
             >
               🤝 신뢰 서클 동료에게 보내기 (팀 AI 매칭)
             </Button>
-            {/* 2순위: 임장 스케줄 설정 */}
             <Button 
               variant="outline"
               className="w-full h-12 border-amber-500/30 hover:bg-amber-500/5 text-amber-600 dark:text-amber-400"
@@ -243,6 +266,15 @@ export default function BrokerDealCardNewPage() {
               }}
             />
           </div>
+
+          {/* DC-5: 생성 중 취소 버튼 */}
+          <button
+            type="button"
+            onClick={handleCancelLoading}
+            className="text-xs text-muted-foreground hover:text-foreground underline pt-2"
+          >
+            ✕ 생성 취소하고 메모 수정하기
+          </button>
         </div>
       </main>
     );

@@ -61,7 +61,7 @@ export async function DELETE(
     // 4. 메인 레코드 삭제
     const { error: deleteError } = await service
       .from("building_ssot_lite")
-      .delete()
+      .update({ archived_at: new Date().toISOString() })
       .eq("id", id);
 
     if (deleteError) {

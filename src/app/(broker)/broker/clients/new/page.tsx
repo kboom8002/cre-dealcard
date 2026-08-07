@@ -16,6 +16,7 @@ export default function NewClientPage() {
   const [email, setEmail] = useState('');
   const [tier, setTier] = useState<'vip' | 'normal' | 'potential'>('normal');
   const [notes, setNotes] = useState('');
+  const [subscribeMagazine, setSubscribeMagazine] = useState(false);
 
   const handleSubmit = async () => {
     if (!displayName.trim()) {
@@ -49,6 +50,28 @@ export default function NewClientPage() {
       }
 
       const { data } = await res.json();
+
+      if (subscribeMagazine && data?.id) {
+        try {
+          const { createBrowserClient } = await import('@supabase/ssr');
+          const supabase = createBrowserClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+          );
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await supabase.from('magazine_subscribers').insert({
+              broker_id: user.id,
+              email: email.trim(),
+              name: displayName.trim(),
+              source: 'crm_sync',
+            });
+          }
+        } catch (err) {
+          console.error('Magazine sync failed:', err);
+        }
+      }
+
       router.push(`/broker/clients/${data.id}`);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '등록에 실패했습니다.');
@@ -191,6 +214,14 @@ export default function NewClientPage() {
             id="client-notes"
           />
         </section>
+
+        {/* Magazine Sync */}
+        <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+          <input type="checkbox" checked={subscribeMagazine}
+            onChange={(e) => setSubscribeMagazine(e.target.checked)}
+            className="rounded border-border" />
+          이 고객을 매거진 구독자로도 등록
+        </label>
 
         {/* 저장 */}
         <button

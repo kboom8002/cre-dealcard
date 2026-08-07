@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } from "react";
+import { toast } from "sonner";
 import { MagazineView } from "@/app/(public)/magazine/[brokerId]/[date]/magazine-view";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
@@ -497,6 +498,80 @@ function MagazineEditorInner() {
     });
   }, []);
 
+  // ── 임시 저장 ──
+  const handleDraftSave = useCallback(async () => {
+    if (!brokerSlug || !previewData) return;
+    setSaving(true);
+    try {
+      if (editionId) {
+        const patchRes = await fetch("/api/magazine/editions", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: editionId,
+            title: headline,
+            market_temp: marketTemp,
+            cover_keywords: coverKeywords.filter(Boolean),
+            cover_image_url: coverImageUrl,
+            field_note: fieldNote,
+            theme_title: themeTitle,
+            theme_body_md: themeBodyMd,
+            featured_deal_ids: Array.from(selectedDealIds),
+            theme_color: themeColor,
+            content: previewData,
+            status: "draft",
+          }),
+        });
+        if (!patchRes.ok) {
+          console.error("Edition PATCH failed");
+        }
+      }
+
+      const res = await fetch(`/api/magazine/${brokerSlug}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(previewData),
+      });
+
+      const profileRes = await fetch("/api/broker/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug: brokerSlug,
+          magazine_title: magazineTitle,
+          magazine_theme_color: themeColor,
+        }),
+      });
+
+      if (res.ok && profileRes.ok) {
+        setMagazineData(previewData);
+        setEditionStatus("draft");
+        toast.success("임시 저장되었습니다");
+      } else {
+        toast.error("저장에 실패했습니다");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("오류가 발생했습니다");
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    brokerSlug,
+    previewData,
+    magazineTitle,
+    themeColor,
+    editionId,
+    headline,
+    marketTemp,
+    coverKeywords,
+    coverImageUrl,
+    fieldNote,
+    themeTitle,
+    themeBodyMd,
+    selectedDealIds,
+  ]);
+
   // ── 저장 및 공유 모달 열기 ──
   const handlePublishAndShare = useCallback(async () => {
     if (!brokerSlug || !previewData) return;
@@ -547,15 +622,27 @@ function MagazineEditorInner() {
       });
 
       if (res.ok && profileRes.ok) {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('activity_events').insert({
+            user_id: user.id,
+            event_type: 'magazine_distributed',
+            entity_type: 'magazine_edition',
+            entity_id: editionId,
+            metadata: { date: new Date().toISOString().slice(0, 10) },
+          });
+        }
+
         setMagazineData(previewData);
         setEditionStatus("published");
         setShowShareModal(true);
       } else {
-        alert("저장에 실패했습니다.");
+        toast.error("저장에 실패했습니다.");
       }
     } catch (err) {
       console.error(err);
-      alert("오류가 발생했습니다.");
+      toast.error("오류가 발생했습니다.");
     } finally {
       setSaving(false);
     }
@@ -622,7 +709,7 @@ function MagazineEditorInner() {
 
     // fallback
     navigator.clipboard.writeText(magazineUrl);
-    alert("링크가 복사되었습니다. 카카오톡에 붙여넣기 하세요.");
+    toast.success("링크가 복사되었습니다. 카카오톡에 붙여넣기 하세요.");
   };
 
   const handleCopyLink = () => {
@@ -631,7 +718,7 @@ function MagazineEditorInner() {
       typeof window !== "undefined" ? window.location.origin : "https://www.credeal.net";
     const magazineUrl = `${origin}/magazine/${brokerSlug}/${today}`;
     navigator.clipboard.writeText(magazineUrl);
-    alert("링크가 복사되었습니다.");
+    toast.success("링크가 복사되었습니다.");
   };
 
   // ── 가격 포맷 ──
@@ -773,6 +860,37 @@ function MagazineEditorInner() {
                 커버 배경 이미지
               </label>
               <div className="flex items-center gap-3">
+                <label className="flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-2 rounded-lg border border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition-all cursor-pointer">
+                  <Upload className="w-3.5 h-3.5" />
+                  파일 업로드
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const toastId = toast.loading("이미지 업로드 중...");
+                      try {
+                        const supabase = createClient();
+                        const fileExt = file.name.split('.').pop();
+                        const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+                        const filePath = `${Date.now()}-${fileName}`;
+                        const { error: uploadError } = await supabase.storage
+                          .from('magazine-covers')
+                          .upload(filePath, file);
+                        if (uploadError) throw uploadError;
+                        const { data: { publicUrl } } = supabase.storage
+                          .from('magazine-covers')
+                          .getPublicUrl(filePath);
+                        setCoverImageUrl(publicUrl);
+                        toast.success("업로드 완료", { id: toastId });
+                      } catch (err) {
+                        toast.error("업로드 실패", { id: toastId });
+                      }
+                    }}
+                  />
+                </label>
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
@@ -781,8 +899,8 @@ function MagazineEditorInner() {
                   }}
                   className="flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-2 rounded-lg border border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition-all"
                 >
-                  <Upload className="w-3.5 h-3.5" />
-                  이미지 URL 설정
+                  <Link2 className="w-3.5 h-3.5" />
+                  URL 입력
                 </motion.button>
                 {coverImageUrl && (
                   <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -1121,19 +1239,29 @@ function MagazineEditorInner() {
             )}
 
             {/* 매거진 발행 */}
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={handlePublishAndShare}
-              disabled={saving}
-              className="w-full flex items-center justify-center gap-2 text-sm font-bold px-4 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 transition-all shadow-lg shadow-indigo-500/25"
-            >
-              {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-              매거진 발행 및 공유
-            </motion.button>
+            <div className="flex gap-2">
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={handleDraftSave}
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-2 text-sm font-bold px-4 py-3.5 rounded-xl bg-slate-800 text-slate-200 hover:bg-slate-700 disabled:opacity-50 transition-all border border-slate-700"
+              >
+                💾 임시저장
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={handlePublishAndShare}
+                disabled={saving}
+                className="flex-[2] flex items-center justify-center gap-2 text-sm font-bold px-4 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 transition-all shadow-lg shadow-indigo-500/25"
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+                🚀 발행 및 공유
+              </motion.button>
+            </div>
           </div>
         );
 
@@ -1346,7 +1474,7 @@ function MagazineEditorInner() {
           </div>
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={handlePublishAndShare}
+            onClick={handleDraftSave}
             disabled={saving}
             className="flex items-center gap-1.5 text-[11px] font-bold px-4 py-2 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
           >
@@ -1411,19 +1539,29 @@ function MagazineEditorInner() {
             📱 실제 화면으로 보기
             <ExternalLink className="w-3 h-3 ml-1 opacity-50" />
           </Link>
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={handlePublishAndShare}
-            disabled={saving}
-            className="w-full flex items-center justify-center gap-2 text-[11px] font-bold px-4 py-2.5 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
-          >
-            {saving ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Send className="w-3.5 h-3.5" />
-            )}
-            매거진 발행 및 공유
-          </motion.button>
+          <div className="flex gap-2">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleDraftSave}
+              disabled={saving}
+              className="flex-1 flex items-center justify-center gap-2 text-[11px] font-bold px-4 py-2.5 rounded-xl bg-slate-800 text-slate-200 hover:bg-slate-700 disabled:opacity-50 transition-colors border border-slate-700"
+            >
+              💾 임시저장
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handlePublishAndShare}
+              disabled={saving}
+              className="flex-[2] flex items-center justify-center gap-2 text-[11px] font-bold px-4 py-2.5 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
+            >
+              {saving ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Send className="w-3.5 h-3.5" />
+              )}
+              🚀 발행 및 공유
+            </motion.button>
+          </div>
         </div>
       </div>
 

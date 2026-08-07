@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { PulseSignalRadar } from "@/components/pulse/PulseSignalRadar";
 import { useMagazineDraft } from "@/hooks/useMagazineDraft";
 import { MagazineInsightCard } from "@/components/dashboard/MagazineInsightCard";
+import { toast } from "sonner";
 
 // ── 타입 정의 ──────────────────────────────────────────────────────────────────
 interface Transaction { title: string; desc: string; date: string; tag: string; isMyArea?: boolean; }
@@ -279,8 +280,8 @@ export default function MorningIntelligence() {
   };
 
   const handleKakaoShare = () => {
-    if (!kakaoReady || !(window as any).Kakao) {
-      alert("카카오톡 공유 기능을 불러오고 있습니다. 잠시 후 다시 시도해주세요.");
+    if (!kakaoReady) {
+      toast.error("카카오톡 공유 기능을 불러오고 있습니다. 잠시 후 다시 시도해주세요.");
       return;
     }
 

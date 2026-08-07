@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Calendar, Plus, Clock, MapPin, User, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 interface Building {
   id: string;
@@ -87,7 +88,7 @@ export function BrokerScheduleClient({ initialBuildingId, isSetup, buildings }: 
       setShowModal(false);
       fetchData();
     } else {
-      alert('슬롯 생성 중 오류가 발생했습니다.');
+      toast.error('슬롯 생성 중 오류가 발생했습니다.');
     }
   };
 

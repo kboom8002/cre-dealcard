@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { toast } from "sonner";
 
 interface ReverseOnboardingFormProps {
   buildingId: string;
@@ -37,13 +38,13 @@ export function ReverseOnboardingForm({
         }),
       });
 
-      if (res.ok) {
-        setSubmitted(true);
+      if (!res.ok) {
+        toast.error("의향서 전송 중 오류가 발생했습니다. 다시 시도해 주세요.");
       } else {
-        alert("의향서 전송 중 오류가 발생했습니다. 다시 시도해 주세요.");
+        setSubmitted(true);
       }
-    } catch {
-      alert("네트워크 통신 오류가 발생했습니다.");
+    } catch (error) {
+      toast.error("네트워크 통신 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }

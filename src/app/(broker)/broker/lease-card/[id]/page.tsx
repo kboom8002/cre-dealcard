@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 
 interface LeaseSpaceDetail {
@@ -86,7 +87,7 @@ export default function LeaseCardDetailPage({
       if (!res.ok || !json.ok) throw new Error(json.error || "부스트 실패");
       router.push(json.redirect);
     } catch (err: any) {
-      alert(err.message || "AI 리싱 부스트에 실패했습니다.");
+      toast.error(err.message || "AI 리싱 부스트에 실패했습니다.");
       setBoosting(false);
     }
   };
@@ -141,7 +142,7 @@ export default function LeaseCardDetailPage({
         },
       });
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setToggling(false);
     }

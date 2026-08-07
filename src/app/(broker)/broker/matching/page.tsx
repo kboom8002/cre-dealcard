@@ -163,22 +163,25 @@ export default function MatchingBoardPage() {
   const fetchMatches = useCallback(async () => {
     setLoading(true);
     try {
-      const token = await getToken();
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
 
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      );
+      if (!user) {
+        setIsDemo(true);
+        setMatches(DEMO_MATCHES);
+        return;
+      }
 
-      // 본인 소유 데이터가 없거나 에러 날 수 있으니 바로 DB 조회
-      const { data: matchData } = await supabase
+      // 본인 소유 데이터 조회
+      const { data: matchData, error } = await supabase
         .from('match_results')
         .select(`
           id, building_ssot_lite_id, buyer_intent_lite_id, 
           grade, score, reasoning, purpose_weight_profile, created_at,
           stage1_passed, stage1_details, stage2_similarity, stage3_weights
         `)
+        .eq('broker_id', user.id)
         .order('created_at', { ascending: false })
         .limit(100);
 
@@ -583,18 +586,4 @@ function MatchCard({ match, type }: { match: MatchResult, type: 'buyer' | 'deal'
       )}
     </div>
   );
-}
-
-async function getToken(): Promise<string> {
-  try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token ?? '';
-  } catch {
-    return '';
-  }
 }

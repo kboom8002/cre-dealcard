@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { toast } from "sonner";
 
 interface UpgradeModalProps {
   isOpen: boolean;
@@ -27,9 +28,7 @@ export function UpgradeModal({
   }).format(estimatedSavingsMoney);
 
   const handleUpgrade = () => {
-    // 가상의 결제 연동 트리거 (console.log 기록)
-    console.log("[Subscription Upgrade Triggered] Directing to payment page...");
-    alert("Pro 요금제 구독 결제 페이지로 이동합니다. (데모 연동 완료)");
+    toast.info("Pro 요금제 구독 결제 페이지로 이동합니다. (데모 연동 완료)");
   };
 
   return (

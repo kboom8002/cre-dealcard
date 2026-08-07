@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { RentRollImporter } from "@/components/broker/rent-roll-importer";
 import { computeFinancialSummary } from '@/domain/building/financials';
+import { toast } from "sonner";
 
 interface ImDataBottomSheetProps {
   buildingId: string;
@@ -233,9 +234,9 @@ export function ImDataBottomSheet({
         }
         if (uploadFailCount > 0 && uploadedPhotoUrls.length === 0) {
           // 모든 사진 업로드 실패
-          alert(`사진 ${uploadFailCount}장 업로드 실패: ${lastUploadError}\nSupabase Storage 버킷(building_photos)을 확인해주세요.`);
+          toast.error(`사진 ${uploadFailCount}장 업로드 실패: ${lastUploadError}\nSupabase Storage 버킷(building_photos)을 확인해주세요.`);
         } else if (uploadFailCount > 0) {
-          alert(`${uploadFailCount}장 업로드 실패 (${uploadedPhotoUrls.length}장 성공). 성공한 사진으로 계속합니다.`);
+          toast.error(`${uploadFailCount}장 업로드 실패 (${uploadedPhotoUrls.length}장 성공). 성공한 사진으로 계속합니다.`);
         }
       }
 
@@ -923,7 +924,7 @@ export function ImDataBottomSheet({
                 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
                 const validFiles = Array.from(e.target.files).filter(f => f.size <= MAX_FILE_SIZE);
                 if (validFiles.length < e.target.files.length) {
-                  alert("10MB 이상의 파일은 제외되었습니다.");
+                  toast.error("10MB 이상의 파일은 제외되었습니다.");
                 }
                 const files = validFiles.slice(0, 12 - (existingUrls.length + photoFiles.length));
                 setPhotoFiles((prev) => [...prev, ...files]);

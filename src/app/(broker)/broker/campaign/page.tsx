@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Sparkles, Copy, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Copy, CheckCircle2, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export default function CampaignCopyPage() {
   const router = useRouter();
@@ -13,6 +14,26 @@ export default function CampaignCopyPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState("");
   const [copied, setCopied] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+
+  const fetchHistory = async () => {
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('campaign_copies')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (data) setHistory(data);
+    } catch (e) {
+      console.error('Failed to fetch history:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
 
   const handleGenerate = async () => {
     if (!keyPoints.trim()) return;
@@ -32,12 +53,25 @@ export default function CampaignCopyPage() {
       const data = await res.json();
       if (data.success && data.result) {
         setResult(data.result);
+        try {
+          const { createClient } = await import('@/lib/supabase/client');
+          const supabase = createClient();
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await supabase.from('campaign_copies').insert({
+              broker_id: user.id,
+              channel: format || 'general',
+              content: data.result,
+            });
+            fetchHistory();
+          }
+        } catch (e) { console.error('Failed to save copy history:', e); }
       } else {
-        alert(data.error || "생성에 실패했습니다.");
+        toast.error(data.error || "생성에 실패했습니다.");
       }
     } catch (err) {
       console.error(err);
-      alert("서버 통신 오류가 발생했습니다.");
+      toast.error("서버 통신 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
@@ -142,6 +176,38 @@ export default function CampaignCopyPage() {
             </div>
             <div className="bg-muted/50 p-4 rounded-xl text-sm whitespace-pre-wrap leading-relaxed text-foreground border border-border">
               {result}
+            </div>
+          </div>
+        )}
+
+        {/* History Area */}
+        {history.length > 0 && (
+          <div className="bg-card border rounded-2xl p-5 shadow-sm space-y-4 mt-8">
+            <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+              <History className="w-4 h-4" /> 최근 생성 기록
+            </h2>
+            <div className="space-y-3">
+              {history.map((item) => (
+                <div key={item.id} className="p-3 border rounded-lg bg-muted/30">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-semibold text-muted-foreground px-2 py-0.5 bg-muted rounded">
+                      {item.channel}
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(item.content);
+                        toast.success("복사되었습니다");
+                      }}
+                      className="text-xs text-primary font-medium flex items-center gap-1"
+                    >
+                      <Copy className="w-3 h-3" /> 복사
+                    </button>
+                  </div>
+                  <div className="text-xs text-foreground line-clamp-3">
+                    {item.content}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

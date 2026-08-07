@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { toast } from 'sonner';
 
 interface ListedSpace {
   id: string;
@@ -75,12 +76,12 @@ export default function MarketplaceSearchPortal() {
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!contactName || !contactPhone) {
-      alert("이름과 연락처를 입력해주세요.");
+      toast.error("이름과 연락처를 입력해주세요.");
       return;
     }
 
     if (!selectedSpace || !selectedSpace.building_id) {
-      alert("건물 정보를 확인할 수 없습니다.");
+      toast.error("건물 정보를 확인할 수 없습니다.");
       return;
     }
 
@@ -104,7 +105,7 @@ export default function MarketplaceSearchPortal() {
       setContactName("");
       setContactPhone("");
     } catch (err: any) {
-      alert(err.message || "문의 등록 실패");
+      toast.error(err.message || "문의 등록 실패");
     } finally {
       setGateSubmitting(false);
     }

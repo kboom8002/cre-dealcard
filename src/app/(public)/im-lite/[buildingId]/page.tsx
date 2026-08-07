@@ -76,7 +76,23 @@ export default async function MobileIMLitePage({ params, searchParams }: Props) 
   const data = await fetchIMData(buildingId, docId);
 
   if (!data) {
-    notFound();
+    return (
+      <main className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="text-center space-y-4 max-w-sm">
+          <div className="text-5xl">📋</div>
+          <h1 className="text-xl font-bold text-foreground">
+            투자보고서가 아직 준비 중입니다
+          </h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            이 물건의 Investment Memorandum은 현재 생성 중이거나
+            아직 발행되지 않았습니다.
+          </p>
+          <a href="/explore" className="inline-block text-sm text-primary underline">
+            다른 매물 둘러보기 →
+          </a>
+        </div>
+      </main>
+    );
   }
 
   return <MobileIMViewer document={data} buildingId={buildingId} docId={docId} />;

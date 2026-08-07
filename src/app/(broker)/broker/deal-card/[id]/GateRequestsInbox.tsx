@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 import { GateLevelBadge } from "@/components/gate/gate-level-badge";
 import { GateStatusBadge } from "@/components/gate/gate-status-badge";
 
@@ -56,21 +57,21 @@ export function GateRequestsInbox({ buildingId }: { buildingId: string }) {
         prev.map((req) => (req.id === id ? { ...req, status: newStatus } : req))
       );
     } catch (err) {
-      alert("상태 업데이트에 실패했습니다.");
+      toast.error("상태 업데이트에 실패했습니다.");
     }
   }
 
   function handleCopyIMLink(reqId: string) {
     const imUrl = `${window.location.origin}/im-lite/${buildingId}?doc=${reqId}`;
     navigator.clipboard.writeText(imUrl).then(() => {
-      alert("모바일 IM 링크가 복사되었습니다. 매수자에게 전달하세요.");
+      toast.success("모바일 IM 링크가 복사되었습니다. 매수자에게 전달하세요.");
     });
   }
 
   function handleCopyNDALink(reqId: string) {
     const ndaUrl = `${window.location.origin}/nda/${reqId}`;
     navigator.clipboard.writeText(ndaUrl).then(() => {
-      alert("NDA 서명 링크가 복사되었습니다. 매수자에게 전달하세요.");
+      toast.success("NDA 서명 링크가 복사되었습니다. 매수자에게 전달하세요.");
     });
   }
 

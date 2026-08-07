@@ -15,6 +15,7 @@ interface TokenEditorPanelProps {
   logoUrl?: string;
   onLogoUpload?: (file: File) => void;
   onLogoRemove?: () => void;
+  customPresets?: any[];
 }
 
 const PRESETS = [
@@ -45,6 +46,7 @@ export function TokenEditorPanel({
   logoUrl,
   onLogoUpload,
   onLogoRemove,
+  customPresets = [],
 }: TokenEditorPanelProps) {
   const containerStyle: React.CSSProperties = {
     width: 280,
@@ -157,6 +159,37 @@ export function TokenEditorPanel({
                 onChange={() => onBasePresetChange(preset.id)}
               />
               {preset.label}
+            </label>
+          ))}
+          {customPresets.map(preset => (
+            <label
+              key={preset.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 6px',
+                background: '#1A2333',
+                border: '1px solid #2D3748',
+                borderRadius: 4,
+                cursor: 'pointer',
+                fontSize: 11,
+              }}
+            >
+              <input
+                type="radio"
+                name="basePreset"
+                value={preset.id}
+                onChange={() => {
+                  // Apply custom preset tokens
+                  if (preset.tokens) {
+                    Object.entries(preset.tokens).forEach(([k, v]) => {
+                      onTokenChange(k as keyof PptxThemeTokens, v as string);
+                    });
+                  }
+                }}
+              />
+              {preset.preset_name} (Custom)
             </label>
           ))}
         </div>

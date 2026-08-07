@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Filter, Download } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface FunnelData {
   stage: string;
@@ -123,6 +124,28 @@ export default function BehaviorFunnelPage() {
     }
   };
 
+  const handleDownloadReport = () => {
+    if (!funnelData || funnelData.length === 0) {
+      toast.error("다운로드할 퍼널 데이터가 없습니다.");
+      return;
+    }
+    const csvHeader = "\ufeff단계,건수,이전단계 대비 전환율\n";
+    const maxVal = Math.max(...funnelData.map((d) => d.count), 1);
+    const csvRows = funnelData
+      .map((d) => `"${d.label}",${d.count},"${((d.count / maxVal) * 100).toFixed(1)}%"`)
+      .join("\n");
+    const blob = new Blob([csvHeader + csvRows], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `funnel_report_${period}days_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast.success("퍼널 분석 리포트(CSV)가 다운로드되었습니다.");
+  };
+
   const maxCount = Math.max(...funnelData.map(d => d.count), 1);
 
   return (
@@ -139,9 +162,9 @@ export default function BehaviorFunnelPage() {
             </button>
             <h1 className="text-2xl font-bold">행동 퍼널 분석</h1>
           </div>
-          <Button variant="outline" size="sm" className="h-8 gap-1.5">
+          <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleDownloadReport}>
             <Download className="w-3.5 h-3.5" />
-            <span>리포트</span>
+            <span>리포트 CSV</span>
           </Button>
         </div>
 
@@ -213,10 +236,10 @@ export default function BehaviorFunnelPage() {
                 <span>💡</span> AI 인사이트
               </h3>
               <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-4">
-                {funnelData[1].count > 0 && funnelData[2].count / Math.max(funnelData[1].count, 1) < 0.3 && (
+                {(funnelData?.[1]?.count ?? 0) > 0 && (funnelData?.[2]?.count ?? 0) / Math.max(funnelData?.[1]?.count ?? 1, 1) < 0.3 && (
                   <li>발송 대비 열람률이 낮습니다. 매력적인 제목이나 블라인드 티저를 보강해보세요.</li>
                 )}
-                {funnelData[2].count > 0 && funnelData[3].count / Math.max(funnelData[2].count, 1) < 0.1 && (
+                {(funnelData?.[2]?.count ?? 0) > 0 && (funnelData?.[3]?.count ?? 0) / Math.max(funnelData?.[2]?.count ?? 1, 1) < 0.1 && (
                   <li>열람은 많으나 Gate 통과(관심)가 적습니다. 가격 경쟁력이나 상세 정보를 재점검할 필요가 있습니다.</li>
                 )}
                 <li>퍼널 데이터를 기반으로 가장 반응이 좋은 고객군에게 유사 매물을 추천할 수 있습니다.</li>

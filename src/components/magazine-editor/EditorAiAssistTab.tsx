@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Wand2, Copy, Check, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
+import { toast } from "sonner";
 
 export function EditorAiAssistTab() {
   const [idea, setIdea] = useState("");
@@ -18,9 +19,9 @@ export function EditorAiAssistTab() {
       });
       if (!res.ok) throw new Error("Failed to generate");
       const json = await res.json();
-      setResult(json.result);
-    } catch (e) {
-      alert("생성 실패");
+      setResult(json.data.comment);
+    } catch (err) {
+      toast.error("생성 실패");
     } finally {
       setIsGenerating(false);
     }
@@ -65,7 +66,7 @@ export function EditorAiAssistTab() {
             <button
               onClick={() => {
                 navigator.clipboard.writeText(result);
-                alert("복사되었습니다");
+                toast.success("복사되었습니다");
               }}
               className="flex-1 py-2 bg-slate-800 text-slate-300 text-xs font-bold rounded-lg hover:bg-slate-700 transition-colors flex items-center justify-center gap-1.5"
             >

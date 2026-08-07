@@ -57,11 +57,8 @@ export default function PipelinePage() {
   const fetchPipeline = useCallback(async () => {
     setLoading(true);
     try {
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      );
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
 
       // Fetch deal_pipeline_states
       const { data: pipelineData } = await supabase
@@ -119,6 +116,10 @@ export default function PipelinePage() {
   useEffect(() => {
     fetchPipeline();
   }, [fetchPipeline]);
+
+  const activeModalDeal = transitionTarget
+    ? (deals.length > 0 ? deals : buildings).find(d => d.building_ssot_lite_id === transitionTarget.buildingId)
+    : null;
 
   const allDeals = deals.length > 0 ? deals : buildings;
 
@@ -310,9 +311,9 @@ export default function PipelinePage() {
         <GateRequestReviewModal
           dealId={transitionTarget.dealId}
           buildingId={transitionTarget.buildingId}
-          buyerType="법인 사옥 매수자 (주식회사 테스트)"
-          buyerBudget="100억 ~ 150억"
-          buyerPurpose="IT 기업 사옥 이전"
+          buyerType={activeModalDeal?.building_asset_type ? `${activeModalDeal.building_asset_type} 매수 희망자` : "사옥 매수 희망자"}
+          buyerBudget={activeModalDeal?.building_price || "예산 검토 중"}
+          buyerPurpose={`${activeModalDeal?.building_area || "서초/강남"} 지역 매수 검토`}
           ndaSigned={true}
           onClose={() => setTransitionTarget(null)}
           onSuccess={() => {

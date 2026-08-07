@@ -37,6 +37,12 @@ export default function ClientsPage() {
   const [filter, setFilter] = useState<'all' | 'seller' | 'buyer' | 'both'>('all');
   const [tierFilter, setTierFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const fetchClients = useCallback(async () => {
     setLoading(true);
@@ -44,7 +50,7 @@ export default function ClientsPage() {
       const params = new URLSearchParams();
       if (filter !== 'all') params.set('client_type', filter);
       if (tierFilter !== 'all') params.set('tier', tierFilter);
-      if (search) params.set('search', search);
+      if (debouncedSearch) params.set('search', debouncedSearch);
 
       const res = await fetch(`/api/broker/clients?${params}`, {
         headers: { Authorization: `Bearer ${await getToken()}` },
@@ -56,7 +62,7 @@ export default function ClientsPage() {
     } finally {
       setLoading(false);
     }
-  }, [filter, tierFilter, search]);
+  }, [filter, tierFilter, debouncedSearch]);
 
   useEffect(() => {
     fetchClients();

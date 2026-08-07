@@ -1,4 +1,6 @@
+"use client";
 import React from "react";
+import { toast } from 'sonner';
 import { BookingFlow } from "@/components/scheduling/BookingFlow";
 import { ScheduleAdvisorCard, RecommendedSlot } from "@/components/scheduling/ScheduleAdvisorCard";
 
@@ -29,8 +31,7 @@ export default function BuildingSchedulePage({ params }: { params: { id: string 
             <ScheduleAdvisorCard 
               recommendation={mockRecommendation}
               onSelect={(slotId) => {
-                // In a real implementation, this would trigger the BookingFlow
-                alert(`추천 슬롯 ${slotId} 선택됨`);
+                toast.success(`추천 슬롯 ${slotId} 선택됨`);
               }}
             />
           </div>

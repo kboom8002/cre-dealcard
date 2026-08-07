@@ -17,6 +17,7 @@ import { ImManagementPanel } from "./im-management-panel";
 import { DealCardEditor } from "./DealCardEditor";
 import { ScheduleSection } from "./ScheduleSection";
 import { DealCardActionsMenu } from "./DealCardActionsMenu";
+import { DealCardTabs } from "@/components/broker/deal-card/DealCardTabs";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 
 
@@ -170,8 +171,8 @@ export default async function BrokerDealCardResultPage({
   const currentScore = gradeResult.scorePct;
 
   return (
-    <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-60">
-      <div className="w-full max-w-md mx-auto space-y-6">
+    <main className="flex flex-col items-center min-h-screen px-4 py-6 pb-44">
+      <div className="w-full max-w-md mx-auto space-y-4">
         {/* Top nav bar: Back + Actions */}
         <div className="flex items-center justify-between pt-2">
           <Link
@@ -185,179 +186,189 @@ export default async function BrokerDealCardResultPage({
         </div>
 
         {/* Top Message */}
-        <div className="text-center space-y-2">
+        <div className="text-center space-y-1">
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
             블라인드 딜카드
           </p>
           <h1 className="text-xl font-bold">
-            딜카드가 준비됐습니다.
+            {title || "딜카드가 준비됐습니다."}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             주소와 민감정보는 숨겼어요.
           </p>
         </div>
 
-        {/* Photo Gallery */}
-        {photoUrls.length > 0 && (
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="px-4 py-2 bg-muted/30 border-b border-border">
-              <h2 className="text-xs font-semibold text-muted-foreground">📷 매물 사진 ({photoUrls.length}장)</h2>
-            </div>
-            <div className="flex gap-2 overflow-x-auto p-3 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
-              {photoUrls.map((url: string, i: number) => (
-                <div key={i} className="relative shrink-0 w-40 h-28 rounded-lg overflow-hidden border border-border bg-muted">
-                  <Image
-                    src={url}
-                    alt={`매물 사진 ${i + 1}`}
-                    fill
-                    className="object-cover"
-                    sizes="160px"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Pipeline State Machine Progress */}
         <DealCardPipelineContainer buildingId={id} />
 
-        {/* Extracted Info Card */}
-        <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-          <h2 className="text-base font-semibold flex items-center gap-2">
-            <span>🏢</span> 건물 신호 요약
-          </h2>
-          <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
-            <div>
-              <p className="text-xs text-muted-foreground">권역</p>
-              <p className="font-medium">
-                {building.area_signal || "확인 필요"}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">자산 유형</p>
-              <p className="font-medium">
-                {building.asset_type || "확인 필요"}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">가격대</p>
-              <p className="font-medium">
-                {building.price_band || "확인 필요"}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">현재 사용</p>
-              <p className="font-medium">
-                {building.current_use_signal || "확인 필요"}
-              </p>
-            </div>
-          </div>
-          {building.fit_summary && (
-            <p className="text-sm text-muted-foreground pt-1">
-              <span className="font-medium text-foreground">적합 매수자:</span>{" "}
-              {building.fit_summary}
-            </p>
-          )}
-          {building.caution_summary && (
-            <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">확인 필요:</span>{" "}
-              {building.caution_summary}
-            </p>
-          )}
-        </div>
+        {/* 4-Tab Content Router */}
+        <DealCardTabs
+          overviewContent={
+            <div className="space-y-6 pt-2">
+              {/* Photo Gallery */}
+              {photoUrls.length > 0 && (
+                <div className="rounded-xl border border-border bg-card overflow-hidden">
+                  <div className="px-4 py-2 bg-muted/30 border-b border-border">
+                    <h2 className="text-xs font-semibold text-muted-foreground">📷 매물 사진 ({photoUrls.length}장)</h2>
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto p-3 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+                    {photoUrls.map((url: string, i: number) => (
+                      <div key={i} className="relative shrink-0 w-40 h-28 rounded-lg overflow-hidden border border-border bg-muted">
+                        <Image
+                          src={url}
+                          alt={`매물 사진 ${i + 1}`}
+                          fill
+                          className="object-cover"
+                          sizes="160px"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-        {/* Hidden Fields Card */}
-        {hiddenFields.length > 0 && (
-          <div className="rounded-xl border border-warning/30 bg-warning/10 p-5 space-y-3">
-            <h2 className="text-base font-semibold flex items-center gap-2 text-warning">
-              <span>🔒</span> 숨긴 정보
-            </h2>
-            <div className="space-y-1">
-              {hiddenFields.map((field) => (
-                <p key={field} className="text-sm text-warning/90 flex gap-2">
-                  <span>•</span>
-                  <span>{hiddenFieldLabels[field] || field}</span>
+              {/* Extracted Info Card */}
+              <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+                <h2 className="text-base font-semibold flex items-center gap-2">
+                  <span>🏢</span> 건물 신호 요약
+                </h2>
+                <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">권역</p>
+                    <p className="font-medium">
+                      {building.area_signal || "확인 필요"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">자산 유형</p>
+                    <p className="font-medium">
+                      {building.asset_type || "확인 필요"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">가격대</p>
+                    <p className="font-medium">
+                      {building.price_band || "확인 필요"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">현재 사용</p>
+                    <p className="font-medium">
+                      {building.current_use_signal || "확인 필요"}
+                    </p>
+                  </div>
+                </div>
+                {building.fit_summary && (
+                  <p className="text-sm text-muted-foreground pt-1">
+                    <span className="font-medium text-foreground">적합 매수자:</span>{" "}
+                    {building.fit_summary}
+                  </p>
+                )}
+                {building.caution_summary && (
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">확인 필요:</span>{" "}
+                    {building.caution_summary}
+                  </p>
+                )}
+              </div>
+
+              {/* Hidden Fields Card */}
+              {hiddenFields.length > 0 && (
+                <div className="rounded-xl border border-warning/30 bg-warning/10 p-5 space-y-3">
+                  <h2 className="text-base font-semibold flex items-center gap-2 text-warning">
+                    <span>🔒</span> 숨긴 정보
+                  </h2>
+                  <div className="space-y-1">
+                    {hiddenFields.map((field) => (
+                      <p key={field} className="text-sm text-warning/90 flex gap-2">
+                        <span>•</span>
+                        <span>{hiddenFieldLabels[field] || field}</span>
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Unified Deal Card Editor */}
+              <DealCardEditor
+                buildingId={id}
+                initialTitle={title}
+                initialSummary={shortSummary}
+                initialDealPoints={dealPoints.map(String)}
+                initialCautionPoints={cautionPoints.map(String)}
+                initialKakaoText={kakaoText}
+                initialOgTitle={(teaserDoc?.body as any)?.ogTitle || ""}
+                initialOgDescription={(teaserDoc?.body as any)?.ogDescription || ""}
+                initialHookCopy={teaser?.hookCopy || ""}
+                initialStructureChips={teaser?.structureChips || []}
+                initialVacancyLabel={teaser?.vacancyLabel || ""}
+                initialCuriosityHook={teaser?.curiosityHook || ""}
+              />
+            </div>
+          }
+          imContent={
+            <div className="space-y-6 pt-2">
+              <ImManagementPanel
+                buildingId={id}
+                currentGrade={currentGrade}
+                currentScore={currentScore}
+              />
+              <div className="rounded-xl bg-muted/60 dark:bg-muted/40 border border-border px-4 py-3">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {boundaryNote}
                 </p>
-              ))}
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                <span className="inline-flex items-center rounded-md bg-warning/10 text-warning border border-warning/20 px-2.5 py-0.5 text-xs font-medium">
+                  AI 초안
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {teaserDoc ? new Date(teaserDoc.created_at).toLocaleDateString("ko-KR") : ""}
+                </span>
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* Unified Deal Card Editor */}
-        <DealCardEditor
-          buildingId={id}
-          initialTitle={title}
-          initialSummary={shortSummary}
-          initialDealPoints={dealPoints.map(String)}
-          initialCautionPoints={cautionPoints.map(String)}
-          initialKakaoText={kakaoText}
-          initialOgTitle={(teaserDoc?.body as any)?.ogTitle || ""}
-          initialOgDescription={(teaserDoc?.body as any)?.ogDescription || ""}
-          initialHookCopy={teaser?.hookCopy || ""}
-          initialStructureChips={teaser?.structureChips || []}
-          initialVacancyLabel={teaser?.vacancyLabel || ""}
-          initialCuriosityHook={teaser?.curiosityHook || ""}
+          }
+          buyersContent={
+            <div className="space-y-6 pt-2">
+              <MatchedBuyersSection buildingId={id} />
+              <GateRequestsInbox buildingId={id} />
+              <IdealBuyerPersonaSection
+                buildingId={id}
+                areaSignal={building.area_signal || ""}
+                assetType={building.asset_type || ""}
+                priceBand={building.price_band || ""}
+                sizeSignal={building.size_signal || ""}
+                vacancyStatus={building.vacancy_signal || ""}
+                currentUseSignal={building.current_use_signal || ""}
+                rawInput={building.raw_input || ""}
+                fitSummary={building.fit_summary || ""}
+                cautionSummary={building.caution_summary || ""}
+                curiosityScore={signalCard?.deal_curiosity_score ?? 50}
+              />
+            </div>
+          }
+          analyticsContent={
+            <div className="space-y-6 pt-2">
+              <DealPredictionSection buildingId={id} />
+              <ScheduleSection buildingId={id} />
+              <div className="rounded-xl border border-border bg-card p-4 text-center space-y-2">
+                <p className="text-xs text-muted-foreground">건물주 보고서 생성</p>
+                <Link
+                  href={`/broker/buildings/${id}/owner-report`}
+                  className="inline-flex items-center justify-center rounded-xl bg-secondary px-4 py-2 text-xs font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors"
+                >
+                  📊 건물주 보고서 이동
+                </Link>
+              </div>
+            </div>
+          }
         />
-
-        {/* IM Management Panel */}
-        <ImManagementPanel
-          buildingId={id}
-          currentGrade={currentGrade}
-          currentScore={currentScore}
-        />
-
-        {/* Boundary Note */}
-        <div className="rounded-xl bg-muted/60 dark:bg-muted/40 border border-border px-4 py-3">
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            {boundaryNote}
-          </p>
-        </div>
-
-        {/* Document Status */}
-        <div className="flex items-center justify-center gap-2">
-          <span className="inline-flex items-center rounded-md bg-warning/10 text-warning border border-warning/20 px-2.5 py-0.5 text-xs font-medium">
-            AI 초안
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {teaserDoc ? new Date(teaserDoc.created_at).toLocaleDateString("ko-KR") : ""}
-          </span>
-        </div>
-
-        {/* P0-3: Matched Buyers */}
-        <MatchedBuyersSection buildingId={id} />
-
-        {/* Schedule Section */}
-        <ScheduleSection buildingId={id} />
-
-        {/* P1-1: Deal Prediction */}
-        <DealPredictionSection buildingId={id} />
-
-        {/* AI Ideal Buyer Persona Section */}
-        <IdealBuyerPersonaSection
-          buildingId={id}
-          areaSignal={building.area_signal || ""}
-          assetType={building.asset_type || ""}
-          priceBand={building.price_band || ""}
-          sizeSignal={building.size_signal || ""}
-          vacancyStatus={building.vacancy_signal || ""}
-          currentUseSignal={building.current_use_signal || ""}
-          rawInput={building.raw_input || ""}
-          fitSummary={building.fit_summary || ""}
-          cautionSummary={building.caution_summary || ""}
-          curiosityScore={signalCard?.deal_curiosity_score ?? 50}
-        />
-
-        {/* Gate Requests Inbox (Replaces Request Form in Broker View) */}
-        <GateRequestsInbox buildingId={id} />
       </div>
 
-      {/* Sticky CTA Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t border-border px-4 pt-3 pb-[calc(70px+env(safe-area-inset-bottom,0px))]">
-        <div className="max-w-md mx-auto space-y-2">
-          {/* 1순위: 카톡으로 전송 (문구 + 딜카드 링크) */}
+      {/* Streamlined Sticky CTA Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t border-border px-4 pt-2.5 pb-[calc(65px+env(safe-area-inset-bottom,0px))]">
+        <div className="max-w-md mx-auto grid grid-cols-2 gap-2">
           <KakaoShareButton text={kakaoText} buildingId={id} dealTitle={title} brokerSlug={brokerSlug} areaSignal={building.area_signal ?? undefined} variant="primary" />
-          {/* 2순위: 모바일 투자설명서 (딜카드 데이터 직접 전달 — 무마찰) */}
           <CreateMobileImButton
             buildingId={id}
             areaSignal={building.area_signal ?? undefined}
@@ -371,23 +382,6 @@ export default async function BrokerDealCardResultPage({
             initialAddress={extractedAddress}
             currentGrade={currentGrade}
           />
-          {/* 3순위: 매수자 보기 / 건물주 리포트 */}
-          <div className="grid grid-cols-2 gap-2">
-            <Link
-              href="/broker/buyer-intents"
-              className="inline-flex items-center justify-center rounded-xl bg-secondary px-3 py-2.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-secondary/80"
-              id="cta-connect-buyer"
-            >
-              🎯 매수자 전체 보기
-            </Link>
-            <Link
-              href={`/broker/buildings/${id}/owner-report`}
-              className="inline-flex items-center justify-center rounded-xl bg-secondary px-3 py-2.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-secondary/80"
-              id="cta-owner-report"
-            >
-              📊 건물주 리포트
-            </Link>
-          </div>
         </div>
         <BrokerBottomNav />
       </div>

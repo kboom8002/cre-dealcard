@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -253,7 +254,7 @@ export default function GoldenAdminPage() {
 
   const handleExportFewShot = async () => {
     const res = await fetch('/api/admin/golden-sets/export?format=jsonl');
-    if (!res.ok) return alert('내보내기 실패');
+    if (!res.ok) { toast.error('내보내기 실패'); return; }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -265,7 +266,8 @@ export default function GoldenAdminPage() {
 
   const handleCreateGolden = async () => {
     if (!createForm.markdown || createForm.markdown.length < 50) {
-      return alert('마크다운은 최소 50자 이상이어야 합니다.');
+      toast.error('마크다운은 최소 50자 이상이어야 합니다.');
+      return;
     }
     setCreating(true);
     try {
@@ -336,7 +338,8 @@ export default function GoldenAdminPage() {
 
   const handleSaveTerm = async () => {
     if (!termForm.pattern || !termForm.replacement) {
-      return alert('패턴과 치환값을 입력해 주세요.');
+      toast.error('패턴과 치환값을 입력해 주세요.');
+      return;
     }
     setTermSaving(true);
     try {
@@ -364,14 +367,14 @@ export default function GoldenAdminPage() {
       const res = await fetch('/api/admin/terminology/seed', { method: 'POST' });
       const json = await res.json();
       if (res.ok) {
-        alert(`시딩 성공! ${json.inserted_count}개 규칙이 등록되었습니다.`);
+        toast.success(`시딩 성공! ${json.inserted_count}개 규칙이 등록되었습니다.`);
         fetchTerminologyRows();
         fetchStats();
       } else {
-        alert(`시딩 실패: ${json.error}`);
+        toast.error(`시딩 실패: ${json.error}`);
       }
     } catch (err: any) {
-      alert(`오류 발생: ${err.message}`);
+      toast.error(`오류 발생: ${err.message}`);
     }
   };
 

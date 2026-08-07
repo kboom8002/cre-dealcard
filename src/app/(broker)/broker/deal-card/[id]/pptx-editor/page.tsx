@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, use } from 'react';
+import { useState, use, useEffect } from 'react';
 import Link from 'next/link';
 import { createBrowserClient } from '@supabase/ssr';
-import { SlidePreviewSVG } from '@/components/broker/pptx-editor/slide-preview-svg';
+import { toast } from 'sonner';
+import { SlidePreviewSVG, BuildingPreviewData } from '@/components/broker/pptx-editor/slide-preview-svg';
 import { TokenEditorPanel } from '@/components/broker/pptx-editor/token-editor-panel';
 import { CoverStylePicker, LayoutStylePicker } from '@/components/broker/pptx-editor/style-pickers';
 import { PPTX_PRESET_TEMPLATES, PptxThemeTokens, DEFAULT_PPTX_PRESET } from '@/domain/building/mobile-im/pptx/pptx-theme';
@@ -15,11 +16,52 @@ export default function PptxEditorPage({ params }: { params: Promise<{ id: strin
   const [isSaving, setIsSaving] = useState(false);
   const [presetName, setPresetName] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
+  const [buildingData, setBuildingData] = useState<BuildingPreviewData | undefined>(undefined);
+  const [customPresets, setCustomPresets] = useState<any[]>([]);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   );
+
+  useEffect(() => {
+    async function fetchBuilding() {
+      try {
+        const res = await fetch(`/api/broker/deal-card/${id}`);
+        if (res.ok) {
+          const json = await res.json();
+          const b = json.data?.building || json.building;
+          if (b) {
+            setBuildingData({
+              title: json.data?.title || b.area_signal ? `${b.area_signal} 상업용 자산` : undefined,
+              subtitle: `${b.area_signal || ''} | ${b.asset_type || ''} | ${b.price_band || ''}`,
+              price: b.price_band,
+              area: b.size_signal,
+              vacancy: b.vacancy_signal,
+              leadSentence: b.fit_summary,
+            });
+          }
+        }
+      } catch {
+        // Fallback to sample data
+      }
+    }
+    fetchBuilding();
+  }, [id]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabaseClient = createClient();
+        const { data } = await supabaseClient
+          .from('pptx_presets')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (data) setCustomPresets(data);
+      } catch (e) { console.error(e); }
+    })();
+  }, []);
 
   const handleTokenChange = (key: keyof PptxThemeTokens, value: string) => {
     setTokens((prev) => ({ ...prev, [key]: value }));
@@ -32,10 +74,9 @@ export default function PptxEditorPage({ params }: { params: Promise<{ id: strin
     }
   };
 
-  // G3: 올바른 필드명 + 인증 헤더 + 전체 토큰 전달
   const handleSave = async () => {
     if (!presetName.trim()) {
-      alert('프리셋 이름을 입력하세요');
+      toast.error('프리셋 이름을 입력하세요.');
       return;
     }
     setIsSaving(true);
@@ -60,27 +101,35 @@ export default function PptxEditorPage({ params }: { params: Promise<{ id: strin
       });
       if (res.ok) {
         const result = await res.json();
-        alert(`프리셋 "${presetName}" 저장 완료!`);
-        // 저장된 UUID로 선택 업데이트
+        toast.success(`프리셋 "${presetName}" 저장 완료!`);
         if (result.preset?.id) setSelectedPresetId(result.preset.id);
       } else {
         const err = await res.json().catch(() => ({ error: '알 수 없는 오류' }));
-        alert(`저장 실패: ${err.error}`);
+        toast.error(`저장 실패: ${err.error}`);
       }
     } catch (e) {
       console.error(e);
-      alert('네트워크 오류 발생');
+      toast.error('네트워크 오류 발생');
     } finally {
       setIsSaving(false);
     }
   };
 
+  // PX-1: 라이브 토큰을 쿼리 파라미터로 직접 전달
   const handlePreviewDownload = () => {
-    const presetParam = selectedPresetId !== DEFAULT_PPTX_PRESET ? `&preset=${selectedPresetId}` : '';
-    window.open(`/api/public/im-lite/${id}/pptx?preview=true${presetParam}`, '_blank');
+    const params = new URLSearchParams({
+      preview: 'true',
+      preset: selectedPresetId,
+      accent: tokens.accent,
+      ink: tokens.ink,
+      bg: tokens.bg,
+      coverStyle: tokens.coverStyle,
+      layoutStyle: tokens.layoutStyle,
+      bodyFont: tokens.bodyFont,
+    }).toString();
+    window.open(`/api/public/im-lite/${id}/pptx?${params}`, '_blank');
   };
 
-  // G2: 로고 업로드 → Supabase Storage
   const handleLogoUpload = async (file: File) => {
     const ext = file.name.split('.').pop();
     const path = `pptx-logos/${Date.now()}.${ext}`;
@@ -89,11 +138,12 @@ export default function PptxEditorPage({ params }: { params: Promise<{ id: strin
       upsert: true,
     });
     if (error) {
-      alert('로고 업로드 실패: ' + error.message);
+      toast.error('로고 업로드 실패: ' + error.message);
       return;
     }
     const { data: { publicUrl } } = supabase.storage.from('broker-assets').getPublicUrl(path);
     setLogoUrl(publicUrl);
+    toast.success('로고 업로드 완료');
   };
 
   const handleLogoRemove = () => setLogoUrl(undefined);
@@ -122,6 +172,7 @@ export default function PptxEditorPage({ params }: { params: Promise<{ id: strin
             logoUrl={logoUrl}
             onLogoUpload={handleLogoUpload}
             onLogoRemove={handleLogoRemove}
+            customPresets={customPresets}
           />
         </div>
 
@@ -131,7 +182,7 @@ export default function PptxEditorPage({ params }: { params: Promise<{ id: strin
             <span>⚠</span> 미리보기는 SVG 렌더링에 의한 근사치이며, 실제 PPTX와 약간의 차이가 있을 수 있습니다
           </div>
 
-          <SlidePreviewSVG tokens={tokens} width={960} />
+          <SlidePreviewSVG tokens={tokens} width={960} buildingData={buildingData} />
 
           {/* G2: 표지/레이아웃 스타일 선택기 */}
           <div className="mt-8 w-full max-w-[960px] grid grid-cols-2 gap-6">

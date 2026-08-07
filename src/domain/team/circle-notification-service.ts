@@ -67,3 +67,41 @@ export async function notifyMatchParties(input: {
     )
   );
 }
+
+export async function notifyCircleMatch(match: {
+  circleId: string;
+  matchGrade: string;
+  circleName: string;
+  buildingName?: string;
+}) {
+  const supabase = createServiceClient();
+  
+  // 1. In-app notification
+  const { data: members } = await supabase
+    .from('circle_members')
+    .select('user_id, profiles(display_name, phone)')
+    .eq('circle_id', match.circleId);
+  
+  if (members) {
+    for (const member of members) {
+      await createNotification({
+        user_id: member.user_id,
+        type: 'circle_match' as any,
+        title: `${match.circleName}에 새 매칭이 등록되었습니다`,
+        body: `${match.buildingName || '새 매물'} - 매칭등급 ${match.matchGrade}`,
+        link: `/broker/circle/${match.circleId}`,
+        metadata: { circleId: match.circleId },
+      });
+    }
+  }
+  
+  // 2. Kakao alimtalk (best-effort)
+  try {
+    if (process.env.KAKAO_ALIMTALK_API_KEY) {
+      // Future integration point
+      console.log('[Circle] Kakao alimtalk integration pending:', match.circleName);
+    }
+  } catch (e) {
+    console.error('[Circle] Kakao notification failed:', e);
+  }
+}

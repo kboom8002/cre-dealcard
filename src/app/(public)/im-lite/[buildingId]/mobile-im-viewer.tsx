@@ -9,6 +9,7 @@ import { FlatProfileCard } from "@/components/broker/flat-profile-card";
 import { HeroCard } from "./hero-card";
 import { DCFHeatmap } from "./dcf-heatmap";
 import { LeverageChart } from "./leverage-chart";
+import { toast } from 'sonner';
 
 // 카카오 SDK 초기화 헬퍼 함수
 const initKakao = () => {
@@ -873,7 +874,7 @@ function FloatingActionBar({ title, buildingId, docId, tier = 'basic' }: { title
     if (requestingPro) return;
     setRequestingPro(true);
     try {
-      await fetch('/api/public/teaser/event', {
+      const res = await fetch('/api/public/teaser/event', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -882,9 +883,13 @@ function FloatingActionBar({ title, buildingId, docId, tier = 'basic' }: { title
           docId
         })
       });
-      alert('Pro 버전 요청이 접수되었습니다.');
+      if (res.ok) {
+        toast.success('Pro 버전 요청이 접수되었습니다.');
+      } else {
+        toast.error('요청 중 오류가 발생했습니다.');
+      }
     } catch (e) {
-      alert('요청 중 오류가 발생했습니다.');
+      toast.error('요청 중 오류가 발생했습니다.');
     } finally {
       setRequestingPro(false);
     }

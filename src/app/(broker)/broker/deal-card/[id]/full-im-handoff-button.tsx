@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 
 interface FullIMHandoffButtonProps {
   buildingId: string;
@@ -30,7 +31,7 @@ export function FullIMHandoffButton({ buildingId, documentId }: FullIMHandoffBut
       const json = await res.json();
 
       if (!res.ok || !json.ok) {
-        alert(json?.error?.message ?? "핸드오프 생성에 실패했습니다.");
+        toast.error(json?.error?.message ?? "핸드오프 생성에 실패했습니다.");
         return;
       }
 
@@ -42,7 +43,7 @@ export function FullIMHandoffButton({ buildingId, documentId }: FullIMHandoffBut
       window.open(`${fullImUrl}/im-projects/import?token=${token}`, "_blank");
     } catch (err) {
       console.error("[FullIMHandoffButton]", err);
-      alert("네트워크 오류가 발생했습니다.");
+      toast.error("네트워크 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }

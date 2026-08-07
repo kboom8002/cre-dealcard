@@ -24,7 +24,7 @@ async function getMagazineData(brokerId: string, date: string): Promise<Magazine
       .from("magazine_editions")
       .select("content")
       .eq("broker_id", brokerId)
-      .eq("status", "draft")
+      .eq("status", "published")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -93,7 +93,27 @@ export default async function MagazinePage({ params }: PageProps) {
   const { brokerId, date } = await params;
   const data = await getMagazineData(brokerId, date);
 
-  if (!data) return notFound();
+  if (!data) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="text-center space-y-4 max-w-md p-8 rounded-2xl border border-border bg-card shadow-xl">
+          <div className="text-5xl">📰</div>
+          <h1 className="text-xl font-bold text-foreground">
+            아직 발행되지 않은 매거진입니다
+          </h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            해당 날짜의 매거진 이슈가 아직 생성되지 않았거나 공개 발행 대기 중입니다.
+          </p>
+          <a
+            href="/explore"
+            className="inline-block px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors"
+          >
+            다른 부동산 매물 둘러보기 →
+          </a>
+        </div>
+      </main>
+    );
+  }
 
   // Fetch broker vibe/logo data for VibeCardHero
   let brokerVibe: Record<string, any> | null = null;

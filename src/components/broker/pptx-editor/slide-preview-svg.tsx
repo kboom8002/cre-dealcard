@@ -1,9 +1,20 @@
 import React, { useState } from 'react';
 import { PptxThemeTokens } from '@/domain/building/mobile-im/pptx/pptx-theme';
 
+export interface BuildingPreviewData {
+  title?: string;
+  subtitle?: string;
+  price?: string;
+  yield?: string;
+  area?: string;
+  vacancy?: string;
+  leadSentence?: string;
+}
+
 interface SlidePreviewSVGProps {
   tokens: PptxThemeTokens;
   width?: number; // CSS width in px, default 720
+  buildingData?: BuildingPreviewData;
 }
 
 const W = 1280;
@@ -91,8 +102,25 @@ const SAMPLE = {
 
 type Archetype = 'A01' | 'A02' | 'A03' | 'A04' | 'A07' | 'A10';
 
-export function SlidePreviewSVG({ tokens, width = 720 }: SlidePreviewSVGProps) {
+export function SlidePreviewSVG({ tokens, width = 720, buildingData }: SlidePreviewSVGProps) {
   const [activeArchetype, setActiveArchetype] = useState<Archetype>('A01');
+
+  const SAMPLE_DATA = {
+    title: buildingData?.title || SAMPLE.title,
+    subtitle: buildingData?.subtitle || SAMPLE.subtitle,
+    kicker: SAMPLE.kicker,
+    price: buildingData?.price || SAMPLE.price,
+    yield: buildingData?.yield || SAMPLE.yield,
+    area: buildingData?.area || SAMPLE.area,
+    vacancy: buildingData?.vacancy || SAMPLE.vacancy,
+    metrics: [
+      { label: '매각 희망가', value: buildingData?.price || SAMPLE.price, unit: '' },
+      { label: '수익률', value: buildingData?.yield || SAMPLE.yield, unit: '' },
+      { label: '연면적', value: buildingData?.area || SAMPLE.area, unit: '' },
+      { label: '공실률', value: buildingData?.vacancy || SAMPLE.vacancy, unit: '' },
+    ],
+    leadSentence: buildingData?.leadSentence || SAMPLE.leadSentence,
+  };
 
   const fontFamily = mapFont(tokens.bodyFont);
   const titleFontFamily = mapFont(tokens.titleFont);
@@ -106,11 +134,11 @@ export function SlidePreviewSVG({ tokens, width = 720 }: SlidePreviewSVGProps) {
             <rect x={W / 2} y={0} width={W / 2} height={H} fill={tokens.darkCard} />
             <rect x={W / 2 + 50} y={100} width={300} height={150} fill={tokens.accent} opacity="0.8" />
             <rect x={W / 2 + 50} y={280} width={400} height={200} fill={tokens.darkCard} opacity="0.9" />
-            <text x={M} y={H / 2 - 50} fill={tokens.accent} fontSize={pt(20)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE.kicker}</text>
-            <text x={M} y={H / 2} fill={tokens.ink} fontSize={pt(48)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE.title}</text>
-            <text x={M} y={H / 2 + 50} fill={tokens.mute} fontSize={pt(24)} fontFamily={fontFamily}>{SAMPLE.subtitle}</text>
+            <text x={M} y={H / 2 - 50} fill={tokens.accent} fontSize={pt(20)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE_DATA.kicker}</text>
+            <text x={M} y={H / 2} fill={tokens.ink} fontSize={pt(48)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE_DATA.title}</text>
+            <text x={M} y={H / 2 + 50} fill={tokens.mute} fontSize={pt(24)} fontFamily={fontFamily}>{SAMPLE_DATA.subtitle}</text>
             <rect x={M} y={H / 2 + 100} width={160} height={40} fill={tokens.accent} rx={4} />
-            <text x={M + 80} y={H / 2 + 126} fill={tokens.bg} fontSize={pt(18)} fontFamily={fontFamily} textAnchor="middle" fontWeight="bold">{SAMPLE.price}</text>
+            <text x={M + 80} y={H / 2 + 126} fill={tokens.bg} fontSize={pt(18)} fontFamily={fontFamily} textAnchor="middle" fontWeight="bold">{SAMPLE_DATA.price}</text>
           </>
         );
       case 'split':
@@ -118,22 +146,22 @@ export function SlidePreviewSVG({ tokens, width = 720 }: SlidePreviewSVGProps) {
           <>
             <rect x="0" y="0" width={W} height={H} fill={tokens.bg} />
             <polygon points={`${W / 2},0 ${W},0 ${W},${H} ${W / 2 - 200},${H}`} fill={tokens.darkCard} />
-            <text x={M} y={H / 2 - 50} fill={tokens.accent} fontSize={pt(20)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE.kicker}</text>
-            <text x={M} y={H / 2} fill={tokens.ink} fontSize={pt(48)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE.title}</text>
-            <text x={M} y={H / 2 + 50} fill={tokens.mute} fontSize={pt(24)} fontFamily={fontFamily}>{SAMPLE.subtitle}</text>
+            <text x={M} y={H / 2 - 50} fill={tokens.accent} fontSize={pt(20)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE_DATA.kicker}</text>
+            <text x={M} y={H / 2} fill={tokens.ink} fontSize={pt(48)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE_DATA.title}</text>
+            <text x={M} y={H / 2 + 50} fill={tokens.mute} fontSize={pt(24)} fontFamily={fontFamily}>{SAMPLE_DATA.subtitle}</text>
             <rect x={M} y={H / 2 + 100} width={160} height={40} fill={tokens.accent} rx={4} />
-            <text x={M + 80} y={H / 2 + 126} fill={tokens.bg} fontSize={pt(18)} fontFamily={fontFamily} textAnchor="middle" fontWeight="bold">{SAMPLE.price}</text>
+            <text x={M + 80} y={H / 2 + 126} fill={tokens.bg} fontSize={pt(18)} fontFamily={fontFamily} textAnchor="middle" fontWeight="bold">{SAMPLE_DATA.price}</text>
           </>
         );
       case 'hero_dark':
         return (
           <>
             <rect x="0" y="0" width={W} height={H} fill={tokens.darkCard} />
-            <text x={W / 2} y={H / 2 - 80} fill={tokens.accent} fontSize={pt(24)} fontFamily={titleFontFamily} fontWeight="bold" textAnchor="middle">{SAMPLE.kicker}</text>
-            <text x={W / 2} y={H / 2} fill={tokens.darkBody} fontSize={pt(54)} fontFamily={titleFontFamily} fontWeight="bold" textAnchor="middle">{SAMPLE.title}</text>
-            <text x={W / 2} y={H / 2 + 60} fill={tokens.mute} fontSize={pt(24)} fontFamily={fontFamily} textAnchor="middle">{SAMPLE.subtitle}</text>
+            <text x={W / 2} y={H / 2 - 80} fill={tokens.accent} fontSize={pt(24)} fontFamily={titleFontFamily} fontWeight="bold" textAnchor="middle">{SAMPLE_DATA.kicker}</text>
+            <text x={W / 2} y={H / 2} fill={tokens.darkBody} fontSize={pt(54)} fontFamily={titleFontFamily} fontWeight="bold" textAnchor="middle">{SAMPLE_DATA.title}</text>
+            <text x={W / 2} y={H / 2 + 60} fill={tokens.mute} fontSize={pt(24)} fontFamily={fontFamily} textAnchor="middle">{SAMPLE_DATA.subtitle}</text>
             <rect x={W / 2 - 80} y={H / 2 + 120} width={160} height={40} fill={tokens.accent} rx={4} />
-            <text x={W / 2} y={H / 2 + 146} fill={tokens.bg} fontSize={pt(18)} fontFamily={fontFamily} textAnchor="middle" fontWeight="bold">{SAMPLE.price}</text>
+            <text x={W / 2} y={H / 2 + 146} fill={tokens.bg} fontSize={pt(18)} fontFamily={fontFamily} textAnchor="middle" fontWeight="bold">{SAMPLE_DATA.price}</text>
           </>
         );
       case 'corporate_card':
@@ -141,11 +169,11 @@ export function SlidePreviewSVG({ tokens, width = 720 }: SlidePreviewSVGProps) {
           <>
             <rect x="0" y="0" width={W} height={H} fill={tokens.tint} />
             <rect x={M} y={M} width={CW} height={H - M * 2} fill={tokens.bg} rx={24} />
-            <text x={M * 2} y={H / 2 - 50} fill={tokens.accent} fontSize={pt(20)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE.kicker}</text>
-            <text x={M * 2} y={H / 2} fill={tokens.ink} fontSize={pt(48)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE.title}</text>
-            <text x={M * 2} y={H / 2 + 50} fill={tokens.mute} fontSize={pt(24)} fontFamily={fontFamily}>{SAMPLE.subtitle}</text>
+            <text x={M * 2} y={H / 2 - 50} fill={tokens.accent} fontSize={pt(20)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE_DATA.kicker}</text>
+            <text x={M * 2} y={H / 2} fill={tokens.ink} fontSize={pt(48)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE_DATA.title}</text>
+            <text x={M * 2} y={H / 2 + 50} fill={tokens.mute} fontSize={pt(24)} fontFamily={fontFamily}>{SAMPLE_DATA.subtitle}</text>
             <rect x={M * 2} y={H / 2 + 100} width={160} height={40} fill={tokens.accent} rx={4} />
-            <text x={M * 2 + 80} y={H / 2 + 126} fill={tokens.bg} fontSize={pt(18)} fontFamily={fontFamily} textAnchor="middle" fontWeight="bold">{SAMPLE.price}</text>
+            <text x={M * 2 + 80} y={H / 2 + 126} fill={tokens.bg} fontSize={pt(18)} fontFamily={fontFamily} textAnchor="middle" fontWeight="bold">{SAMPLE_DATA.price}</text>
           </>
         );
       case 'obsidian_glow':
@@ -154,11 +182,11 @@ export function SlidePreviewSVG({ tokens, width = 720 }: SlidePreviewSVGProps) {
           <>
             <rect x="0" y="0" width={W} height={H} fill={tokens.darkCard} />
             <ellipse cx={W - 200} cy={200} rx={300} ry={300} fill={tokens.accent} opacity="0.1" />
-            <text x={M} y={H / 2 - 50} fill={tokens.accent} fontSize={pt(20)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE.kicker}</text>
-            <text x={M} y={H / 2} fill={tokens.darkBody} fontSize={pt(48)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE.title}</text>
-            <text x={M} y={H / 2 + 50} fill={tokens.mute} fontSize={pt(24)} fontFamily={fontFamily}>{SAMPLE.subtitle}</text>
+            <text x={M} y={H / 2 - 50} fill={tokens.accent} fontSize={pt(20)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE_DATA.kicker}</text>
+            <text x={M} y={H / 2} fill={tokens.darkBody} fontSize={pt(48)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE_DATA.title}</text>
+            <text x={M} y={H / 2 + 50} fill={tokens.mute} fontSize={pt(24)} fontFamily={fontFamily}>{SAMPLE_DATA.subtitle}</text>
             <rect x={M} y={H / 2 + 100} width={160} height={40} fill={tokens.accent} rx={4} />
-            <text x={M + 80} y={H / 2 + 126} fill={tokens.bg} fontSize={pt(18)} fontFamily={fontFamily} textAnchor="middle" fontWeight="bold">{SAMPLE.price}</text>
+            <text x={M + 80} y={H / 2 + 126} fill={tokens.bg} fontSize={pt(18)} fontFamily={fontFamily} textAnchor="middle" fontWeight="bold">{SAMPLE_DATA.price}</text>
           </>
         );
     }
@@ -191,10 +219,10 @@ export function SlidePreviewSVG({ tokens, width = 720 }: SlidePreviewSVGProps) {
     <>
       <rect x="0" y="0" width={W} height={H} fill={tokens.bg} />
       {renderHeaderBlock()}
-      <text x={M} y={150} fill={tokens.ink} fontSize={pt(20)} fontFamily={fontFamily}>{SAMPLE.leadSentence}</text>
+      <text x={M} y={150} fill={tokens.ink} fontSize={pt(20)} fontFamily={fontFamily}>{SAMPLE_DATA.leadSentence}</text>
       <line x1={M} y1={180} x2={W - M} y2={180} stroke={tokens.accent} strokeWidth="2" />
       <g transform={`translate(${M}, 220)`}>
-        {SAMPLE.metrics.map((m, i) => (
+        {SAMPLE_DATA.metrics.map((m, i) => (
           <g key={i} transform={`translate(${(i % 2) * (CW / 2 + 20)}, ${Math.floor(i / 2) * 200})`}>
             <rect x={0} y={0} width={CW / 2 - 20} height={180} fill={tokens.tint} rx={8} />
             <text x={30} y={50} fill={tokens.mute} fontSize={pt(16)} fontFamily={fontFamily}>{m.label}</text>
@@ -238,7 +266,7 @@ export function SlidePreviewSVG({ tokens, width = 720 }: SlidePreviewSVGProps) {
       <g transform={`translate(${M}, 150)`}>
         {/* Left panel 7/13 */}
         <g>
-          {SAMPLE.metrics.map((m, i) => (
+          {SAMPLE_DATA.metrics.map((m, i) => (
             <g key={i} transform={`translate(0, ${i * 60})`}>
               <rect x={0} y={0} width={CW * (7/13) - 20} height={50} fill={tokens.tint} rx={4} />
               <text x={20} y={32} fill={tokens.mute} fontSize={pt(16)} fontFamily={fontFamily}>{m.label}</text>
@@ -251,7 +279,7 @@ export function SlidePreviewSVG({ tokens, width = 720 }: SlidePreviewSVGProps) {
         <g transform={`translate(${CW * (7/13) + 40}, 0)`}>
           <rect x={0} y={0} width={CW * (5/13)} height={200} fill={tokens.darkBlock} rx={8} />
           <text x={30} y={50} fill={tokens.accent} fontSize={pt(20)} fontFamily={titleFontFamily} fontWeight="bold">Key Highlight</text>
-          {wrapText(SAMPLE.leadSentence, 25, 30, 30, 100, tokens.darkBody, pt(16), 'normal', fontFamily)}
+          {wrapText(SAMPLE_DATA.leadSentence, 25, 30, 30, 100, tokens.darkBody, pt(16), 'normal', fontFamily)}
         </g>
       </g>
     </>
@@ -266,8 +294,8 @@ export function SlidePreviewSVG({ tokens, width = 720 }: SlidePreviewSVGProps) {
           <g key={i} transform={`translate(${i * (CW / 3 + 20)}, 0)`}>
             <rect x={0} y={0} width={CW / 3 - 20} height={400} fill={tokens.tint} rx={8} />
             <rect x={0} y={0} width={CW / 3 - 20} height={8} fill={tokens.accent} rx={4} />
-            <text x={30} y={60} fill={tokens.mute} fontSize={pt(16)} fontFamily={fontFamily}>{SAMPLE.metrics[i].label}</text>
-            <text x={30} y={120} fill={tokens.accent} fontSize={pt(36)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE.metrics[i].value}</text>
+            <text x={30} y={60} fill={tokens.mute} fontSize={pt(16)} fontFamily={fontFamily}>{SAMPLE_DATA.metrics[i].label}</text>
+            <text x={30} y={120} fill={tokens.accent} fontSize={pt(36)} fontFamily={titleFontFamily} fontWeight="bold">{SAMPLE_DATA.metrics[i].value}</text>
             {wrapText('이 항목에 대한 상세한 설명이 여기에 들어갑니다.', 15, 24, 30, 180, tokens.ink, pt(14), 'normal', fontFamily)}
           </g>
         ))}
