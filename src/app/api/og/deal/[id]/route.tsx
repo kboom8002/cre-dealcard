@@ -9,7 +9,8 @@
  */
 import { ImageResponse } from "next/og";
 import { createServiceClient } from "@/lib/supabase/service";
-import { readWithMigration } from "@/lib/ssot-adapter";
+import { readWithMigration, buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
+import { projectToTeaser } from "@/domain/deal/teaser/teaser-projector";
 
 export const runtime = "nodejs";
 
@@ -101,6 +102,7 @@ export async function GET(
   const rawTitle = customOgTitle || teaser?.title || `${regionLabel} ${assetType} 매물`;
   const displayTitle = rawTitle
     .replace(/\s*투자설명서$/, '')
+    .replace(/근린생활시설\s*또는\s*상업용\s*건물로\s*추정/g, '')
     .replace(/\s*또는\s+[^\s]+\s*(계열로|계열)\s*(추정|)/g, '')
     .replace(/(으로|로)\s*추정(되는|됨|)\s*/g, '')
     .trim();
@@ -108,10 +110,19 @@ export async function GET(
   // Use teaser summary or a default
   const displaySubtitle = customOgDescription || teaser?.shortSummary || fitSummary || `${regionLabel} 권역 블라인드 투자 검토 매물`;
   
-  // Hook copy & structure chips
+  // Hook copy
   const hookCopy = imBody?.hookCopy || teaser?.hookCopy || "";
-  const rawChips = imBody?.structureChips || teaser?.structureChips || [];
-  const chips: string[] = Array.isArray(rawChips) ? rawChips.slice(0, 3) : [];
+
+  // Metrics extraction
+  const safeBuilding = building || { id, area_signal: regionLabel, asset_type: assetType, price_band: priceBand };
+  const attrs = buildAttrsFromSsotLite(safeBuilding);
+  const teaserView = projectToTeaser(attrs);
+  const heroTiles = teaserView.postureHeroTiles || [
+    { emoji: "💰", label: "매각가", value: teaserView.bandedPrice || "가격 협의" },
+    { emoji: "📊", label: "예상 수익률", value: teaserView.bandedCapRate || "수익률 검토" },
+    { emoji: "📐", label: "규모", value: teaserView.bandedArea || "면적 확인 중" },
+    { emoji: "🏠", label: "명도/공실", value: teaserView.vacancyLabel || "입주 협의" },
+  ];
 
   let fontData: ArrayBuffer | null = null;
   try {
@@ -162,7 +173,7 @@ export async function GET(
               border: "1px solid rgba(212, 168, 83, 0.5)",
               borderRadius: "8px",
               padding: "6px 14px",
-              fontSize: 16,
+              fontSize: 24,
               fontWeight: 700,
               color: "#F3EBDA",
               display: "flex",
@@ -177,7 +188,7 @@ export async function GET(
                 border: "1px solid rgba(59, 130, 246, 0.4)",
                 borderRadius: "8px",
                 padding: "6px 14px",
-                fontSize: 16,
+                fontSize: 24,
                 fontWeight: 600,
                 color: "#93c5fd",
                 display: "flex",
@@ -186,59 +197,26 @@ export async function GET(
               {`🏢 ${assetType}`}
             </div>
           ) : null}
-          {priceBand ? (
-            <div
-              style={{
-                background: "rgba(16, 185, 129, 0.15)",
-                border: "1px solid rgba(16, 185, 129, 0.4)",
-                borderRadius: "8px",
-                padding: "6px 14px",
-                fontSize: 16,
-                fontWeight: 700,
-                color: "#6ee7b7",
-                display: "flex",
-              }}
-            >
-              {`💰 ${priceBand}`}
-            </div>
-          ) : null}
         </div>
 
         {/* Center Main Section */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          {/* Main Title */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          {/* Main Title / Hook Copy */}
           <div style={{
-            fontSize: displayTitle.length > 25 ? 30 : displayTitle.length > 18 ? 36 : 42,
-            fontWeight: 700,
+            fontSize: 48,
+            fontWeight: 900,
             lineHeight: 1.3,
             color: "#FFFFFF",
             display: "flex",
             maxWidth: "1100px",
           }}>
-            {displayTitle}
+            {hookCopy || displayTitle}
           </div>
-
-          {/* Hook Copy (Gold Banner) */}
-          {hookCopy ? (
-            <div style={{
-              background: "rgba(212, 168, 83, 0.12)",
-              borderLeft: "4px solid #D4A853",
-              borderRadius: "0 8px 8px 0",
-              padding: "8px 16px",
-              fontSize: 22,
-              fontWeight: 700,
-              color: "#F8F1E1",
-              display: "flex",
-              width: "fit-content",
-            }}>
-              {`🎯 "${hookCopy}"`}
-            </div>
-          ) : null}
 
           {/* Subtitle / Fit summary */}
           <div
             style={{
-              fontSize: 19,
+              fontSize: 28,
               color: "#A0AEC0",
               display: "flex",
               lineHeight: 1.45,
@@ -247,52 +225,36 @@ export async function GET(
           >
             {displaySubtitle}
           </div>
-
-          {/* Chips & Metric Pills Row */}
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px" }}>
-            {chips.map((chip, i) => (
-              <div
-                key={i}
-                style={{
-                  background: "rgba(255, 255, 255, 0.08)",
-                  border: "1px solid rgba(255, 255, 255, 0.16)",
-                  borderRadius: "20px",
-                  padding: "4px 14px",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: "#E2E8F0",
-                  display: "flex",
-                }}
-              >
-                {`# ${chip}`}
-              </div>
-            ))}
-          </div>
         </div>
 
-        {/* Bottom Branding Row */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-end",
-            borderTop: "1px solid rgba(255, 255, 255, 0.1)",
-            paddingTop: "16px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: 22, fontWeight: 800, color: "#FFFFFF", display: "flex" }}>CRE</span>
-            <span style={{ fontSize: 22, fontWeight: 800, color: "#D4A853", display: "flex" }}>DEAL</span>
-            <span style={{ fontSize: 16, fontWeight: 600, color: "#718096", marginLeft: "8px", display: "flex" }}>
-              {type === "im" ? "· Mobile Investment Memorandum" : "· Premium Blind DealCard"}
-            </span>
+        {/* Bottom Section: Metrics (Left) + Branding (Right) */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+          
+          {/* 2x2 Metrics Grid (Flex fallback for Satori) */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "24px", flex: 1 }}>
+            <div style={{ display: "flex", width: "100%", gap: "40px" }}>
+              {heroTiles.slice(0, 2).map((tile: any, i: number) => (
+                <div key={i} style={{ display: "flex", flexDirection: "column", gap: "8px", width: "240px" }}>
+                  <span style={{ fontSize: 24, color: "#9AA7B5", fontWeight: 600 }}>{tile.emoji} {tile.label}</span>
+                  <span style={{ fontSize: 36, fontWeight: 900, color: i === 0 ? "#5EEAD4" : "#FFFFFF" }}>{tile.value}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", width: "100%", gap: "40px" }}>
+              {heroTiles.slice(2, 4).map((tile: any, i: number) => (
+                <div key={i + 2} style={{ display: "flex", flexDirection: "column", gap: "8px", width: "240px" }}>
+                  <span style={{ fontSize: 24, color: "#9AA7B5", fontWeight: 600 }}>{tile.emoji} {tile.label}</span>
+                  <span style={{ fontSize: 36, fontWeight: 900, color: "#FFFFFF" }}>{tile.value}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#718096", display: "flex" }}>
-              credeal.net
-            </span>
+          {/* Bottom Branding */}
+          <div style={{ fontSize: 20, fontWeight: 600, color: "#718096", display: "flex", paddingBottom: "8px" }}>
+            CREDEAL · 블라인드 투자 티저
           </div>
+
         </div>
       </div>
     ),

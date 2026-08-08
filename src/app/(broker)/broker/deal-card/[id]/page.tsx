@@ -186,15 +186,16 @@ export default async function BrokerDealCardResultPage({
         </div>
 
         {/* Top Message */}
-        <div className="text-center space-y-1">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
-            블라인드 딜카드
-          </p>
-          <h1 className="text-xl font-bold">
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1">
+            <span className="inline-block w-2 h-2 rounded-full bg-primary" />
+            <span className="text-sm font-semibold text-primary">블라인드 딜카드</span>
+          </div>
+          <h1 className="text-2xl font-black leading-tight">
             {title || "딜카드가 준비됐습니다."}
           </h1>
-          <p className="text-xs text-muted-foreground">
-            주소와 민감정보는 숨겼어요.
+          <p className="text-sm text-muted-foreground">
+            주소와 민감정보는 매수자 보호를 위해 숨겨져 있습니다.
           </p>
         </div>
 
@@ -232,31 +233,20 @@ export default async function BrokerDealCardResultPage({
                 <h2 className="text-base font-semibold flex items-center gap-2">
                   <span>🏢</span> 건물 신호 요약
                 </h2>
-                <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
-                  <div>
-                    <p className="text-xs text-muted-foreground">권역</p>
-                    <p className="font-medium">
-                      {building.area_signal || "확인 필요"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">자산 유형</p>
-                    <p className="font-medium">
-                      {building.asset_type || "확인 필요"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">가격대</p>
-                    <p className="font-medium">
-                      {building.price_band || "확인 필요"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">현재 사용</p>
-                    <p className="font-medium">
-                      {building.current_use_signal || "확인 필요"}
-                    </p>
-                  </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  {[
+                    { label: "권역", value: building.area_signal },
+                    { label: "자산 유형", value: building.asset_type },
+                    { label: "가격대", value: building.price_band },
+                    { label: "현재 사용", value: building.current_use_signal },
+                  ].map((item) => (
+                    <div key={item.label} className={`rounded-lg p-2.5 ${item.value ? 'bg-muted/30' : 'bg-muted/10 border border-dashed border-muted-foreground/20'}`}>
+                      <p className="text-xs text-muted-foreground mb-0.5">{item.label}</p>
+                      <p className={`font-semibold ${item.value ? '' : 'text-muted-foreground/50 text-xs'}`}>
+                        {item.value || "미입력 ✏️"}
+                      </p>
+                    </div>
+                  ))}
                 </div>
                 {building.fit_summary && (
                   <p className="text-sm text-muted-foreground pt-1">
@@ -365,11 +355,12 @@ export default async function BrokerDealCardResultPage({
         />
       </div>
 
-      {/* Streamlined Sticky CTA Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t border-border px-4 pt-2.5 pb-[calc(65px+env(safe-area-inset-bottom,0px))]">
-        <div className="max-w-md mx-auto grid grid-cols-2 gap-2">
-          <KakaoShareButton text={kakaoText} buildingId={id} dealTitle={title} brokerSlug={brokerSlug} areaSignal={building.area_signal ?? undefined} variant="primary" />
-          <CreateMobileImButton
+      {/* Streamlined Sticky CTA Bar — Senior-friendly large buttons */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t border-border px-4 pt-3 pb-[calc(65px+env(safe-area-inset-bottom,0px))]">
+        <div className="max-w-md mx-auto space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <KakaoShareButton text={kakaoText} buildingId={id} dealTitle={title} brokerSlug={brokerSlug} areaSignal={building.area_signal ?? undefined} variant="primary" />
+            <CreateMobileImButton
             buildingId={id}
             areaSignal={building.area_signal ?? undefined}
             assetType={building.asset_type ?? undefined}
@@ -382,6 +373,7 @@ export default async function BrokerDealCardResultPage({
             initialAddress={extractedAddress}
             currentGrade={currentGrade}
           />
+          </div>
         </div>
         <BrokerBottomNav />
       </div>

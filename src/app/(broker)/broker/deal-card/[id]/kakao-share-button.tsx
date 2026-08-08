@@ -134,9 +134,20 @@ export function KakaoShareButton({
 
   const handleDownloadCardImage = async () => {
     try {
+      toast.info("📸 티저 이미지 생성 중...");
       const cardImgUrl = `/api/og/deal/${buildingId}/card`;
       const res = await fetch(cardImgUrl);
+      if (!res.ok) {
+        throw new Error(`이미지 생성 실패 (${res.status})`);
+      }
+      const contentType = res.headers.get('content-type');
+      if (!contentType?.includes('image')) {
+        throw new Error('이미지 응답이 아닙니다');
+      }
       const blob = await res.blob();
+      if (blob.size < 1000) {
+        throw new Error('이미지가 손상되었습니다');
+      }
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

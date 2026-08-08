@@ -85,13 +85,10 @@ export async function GET(
     qrDataUrl = await QRCode.toDataURL(landingUrl, {
       margin: 1,
       width: 240,
-      color: {
-        dark: "#0B0F14",
-        light: "#FFFFFF",
-      },
+      color: { dark: "#0B0F14", light: "#FFFFFF" },
     });
   } catch (err) {
-    console.error("Failed to generate QR code data URL", err);
+    console.warn("QR generation failed, will show URL text instead", err);
   }
 
   const fontData = await getFontData();
@@ -112,8 +109,7 @@ export async function GET(
     accentColor = "#F59E0B";
   }
 
-  return new ImageResponse(
-    (
+  const jsx = (
       <div
         style={{
           width: "1080px",
@@ -184,23 +180,15 @@ export async function GET(
           </div>
 
           {/* QR Code Container */}
-          {qrDataUrl && (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                background: "#FFFFFF",
-                padding: "16px",
-                borderRadius: "20px",
-                boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
-              }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+          {qrDataUrl ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "#FFFFFF", padding: "16px", borderRadius: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.4)" }}>
               <img src={qrDataUrl} width={150} height={150} alt="QR Code" />
-              <span style={{ fontSize: "14px", fontWeight: 700, color: "#0B0F14", marginTop: "8px" }}>
-                스캔 시 NDA/상세 열람
-              </span>
+              <span style={{ fontSize: "14px", fontWeight: 700, color: "#0B0F14", marginTop: "8px" }}>스캔 시 NDA/상세 열람</span>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(255,255,255,0.1)", padding: "16px 24px", borderRadius: "20px", border: "1px solid rgba(255,255,255,0.2)" }}>
+              <span style={{ fontSize: "18px", fontWeight: 700, color: "#FFFFFF" }}>credeal.net</span>
+              <span style={{ fontSize: "14px", color: "#9AA7B5", marginTop: "4px" }}>에서 상세 요청</span>
             </div>
           )}
         </div>
@@ -227,7 +215,7 @@ export async function GET(
 
           <h1
             style={{
-              fontSize: "52px",
+              fontSize: "64px",
               fontWeight: 900,
               lineHeight: 1.3,
               color: "#FFFFFF",
@@ -238,7 +226,7 @@ export async function GET(
             {hookCopy}
           </h1>
 
-          <p style={{ fontSize: "26px", color: "#9AA7B5", lineHeight: 1.5, margin: 0 }}>
+          <p style={{ fontSize: "28px", color: "#9AA7B5", lineHeight: 1.5, margin: 0 }}>
             매도자 요청으로 지번 및 소유자는 보호됩니다. 비밀유지약정(NDA) 체결 후 상세 자료가 공개됩니다.
           </p>
         </div>
@@ -267,12 +255,12 @@ export async function GET(
             >
               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
                 <span style={{ fontSize: "28px" }}>{tile.emoji}</span>
-                <span style={{ fontSize: "22px", color: "#9AA7B5", fontWeight: 600 }}>{tile.label}</span>
+                <span style={{ fontSize: "26px", color: "#9AA7B5", fontWeight: 600 }}>{tile.label}</span>
               </div>
 
               <div
                 style={{
-                  fontSize: i === 0 ? "40px" : "34px",
+                  fontSize: i === 0 ? "48px" : "44px",
                   fontWeight: 900,
                   color: i === 0 ? "#5EEAD4" : "#FFFFFF",
                 }}
@@ -302,8 +290,8 @@ export async function GET(
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
             {dealPoints.slice(0, 3).map((point: string, i: number) => (
               <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "14px" }}>
-                <span style={{ fontSize: "24px", color: accentColor }}>•</span>
-                <span style={{ fontSize: "24px", fontWeight: 600, color: "#E7ECF2", lineHeight: 1.4 }}>
+                <span style={{ fontSize: "30px", color: accentColor }}>•</span>
+                <span style={{ fontSize: "30px", fontWeight: 600, color: "#E7ECF2", lineHeight: 1.4 }}>
                   {point}
                 </span>
               </div>
@@ -327,10 +315,10 @@ export async function GET(
           <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
             <span style={{ fontSize: "32px" }}>🛡️</span>
             <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: "22px", fontWeight: 800, color: "#FFFFFF" }}>
+              <span style={{ fontSize: "26px", fontWeight: 800, color: "#FFFFFF" }}>
                 크리딜 검증 전담 공인중개사
               </span>
-              <span style={{ fontSize: "18px", color: "#9AA7B5" }}>
+              <span style={{ fontSize: "22px", color: "#9AA7B5" }}>
                 비밀유지약정(NDA) 체결 후 정밀 IM 수지분석서 제공
               </span>
             </div>
@@ -349,11 +337,14 @@ export async function GET(
           </div>
         </div>
       </div>
-    ),
-    {
-      width: 1080,
-      height: 1920,
-      fonts: fontsList,
-    }
   );
+
+  const imageResponse = new ImageResponse(jsx, { width: 1080, height: 1920, fonts: fontsList });
+  return new Response(imageResponse.body, {
+    headers: {
+      'Content-Type': 'image/png',
+      'Cache-Control': 'public, max-age=86400',
+      'Content-Disposition': `attachment; filename="deal_card_${id}_teaser.png"`,
+    },
+  });
 }

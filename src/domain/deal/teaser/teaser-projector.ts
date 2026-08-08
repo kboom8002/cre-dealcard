@@ -145,7 +145,7 @@ export function projectToTeaser(
     }
   }
 
-  const hookCopy = config?.hookCopyOverride || generateHookCopy(archetype, region, assetType);
+  const hookCopy = config?.hookCopyOverride || generateHookCopy(archetype, region, assetType, attrs);
   const urgencyTag = (attrs.urgencyTag || attrs.urgency_tag) as 'urgent' | 'reviewing' | 'flexible' | undefined;
 
   return {
@@ -181,14 +181,32 @@ export function projectToTeaser(
 }
 
 
-function generateHookCopy(archetype: string, region: string, assetType: string): string {
-  const hooks: Record<string, string> = {
-    STABLE_INCOME: `${region} 안정 수익형 ${assetType}`,
-    VALUE_ADD: `${region} 밸류애드 기회 ${assetType}`,
-    DEVELOPMENT_SITE: `${region} 개발 가능 부지`,
-    SAFE_EVICTION_DEV: `${region} 안전 명도 후 개발`,
-    INSTITUTIONAL_LOGI: `${region} 기관투자 적합 물류`,
-  };
-  return hooks[archetype] || `${region} ${assetType} 매물`;
+function generateHookCopy(archetype: string, region: string, assetType: string, attrs: Record<string, unknown>): string {
+  const use = attrs.currentUseSignal ? String(attrs.currentUseSignal) : '';
+  const vacancy = Number(attrs.vacancyPct || 0);
+  const road = String(attrs.roadContactType || '');
+  const roadLabel = road.includes('코너') || road.includes('각지') ? '코너 입지' 
+    : road.includes('대로') ? '대로변 입지' 
+    : '';
+
+  if (archetype === 'STABLE_INCOME') {
+    const stability = vacancy === 0 ? '만실 운영 중' : vacancy <= 10 ? '소규모 공실' : '';
+    const useInfo = use ? `${use} 임차` : '';
+    return [stability, useInfo, roadLabel, `${region} ${assetType}`].filter(Boolean).join(' · ');
+  }
+  if (archetype === 'VALUE_ADD') {
+    return [roadLabel || `${region} 입지`, '밸류애드 여력', assetType].filter(Boolean).join(' · ');
+  }
+  if (archetype === 'DEVELOPMENT_SITE') {
+    return [`${region} 개발 적지`, roadLabel, assetType].filter(Boolean).join(' · ');
+  }
+  if (archetype === 'SAFE_EVICTION_DEV') {
+    return [`${region} 명도 후 개발`, roadLabel, assetType].filter(Boolean).join(' · ');
+  }
+  if (archetype === 'INSTITUTIONAL_LOGI') {
+    return [`${region} 기관투자 적합`, '물류센터'].filter(Boolean).join(' · ');
+  }
+  // General fallback: use whatever info we have
+  return [roadLabel, use ? `${use} 운영` : '', `${region} ${assetType}`].filter(Boolean).join(' · ');
 }
 
