@@ -138,6 +138,7 @@ export default async function BrokerDealCardResultPage({
   const photoUrls: string[] = layerPhotos.length > 0 ? layerPhotos : imPhotos;
 
   const extractedAddress = layers?.location?.address
+    || building.area_signal
     || (building.raw_input?.match(/([가-힣]{2,4}[시도]\s*[가-힣]{2,4}[시군구]\s*[가-힣]{2,6}[읍면동](?:\s*\d+[가-힣]?)?)/) || [])[1]
     || "";
 

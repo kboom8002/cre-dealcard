@@ -64,11 +64,12 @@ export function buildAttrsFromSsotLite(
     // ── Category-level filled markers for grade-engine NEW_WEIGHTS ──
     // grade-engine iterates baseWeights keys (lease_roll, building_basic, ...)
     // and checks attrs[category] != null. Without these, score is always 0% = Grade D.
-    building_basic: (totalFloorAreaPyung || layers?.building_register) ? true : null,
-    land_parcel: (landAreaPyung || layers?.land_use_plan) ? true : null,
+    // Memo-parsed data (asset_type, size_signal, area_signal) should contribute to base grade.
+    building_basic: (totalFloorAreaPyung || layers?.building_register || building.asset_type || building.size_signal) ? true : null,
+    land_parcel: (landAreaPyung || layers?.land_use_plan || building.area_signal) ? true : null,
     zoning: (layers?.land_use_plan?.zoning || building.area_signal) ? true : null,
-    road_access: (layers?.road_contact_type || layers?.parking_capacity) ? true : null,
-    lease_roll: (grossAnnualIncomeKrw > 0 || leaseSummary?.tenants) ? true : null,
+    road_access: (layers?.road_contact_type || layers?.parking_capacity || building.current_use_signal) ? true : null,
+    lease_roll: (grossAnnualIncomeKrw > 0 || leaseSummary?.tenants || building.vacancy_signal) ? true : null,
     financial_input: (askingPriceKrw && askingPriceKrw > 0) ? true : null,
     title_encumbrance: layers?.title_encumbrance ? true : null,
     market_comp: layers?.market_comp ? true : null,

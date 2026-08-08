@@ -1194,8 +1194,8 @@ export function ImDataBottomSheet({
                 ))}
               </div>
             )}
-            {stage === 'pro' && currentDataGrade === 'D' && (
-              <p className="text-[10px] text-red-500 mt-1">⚠ 데이터 등급 D: Pro IM 생성이 차단됩니다. 최소 Grade C 이상의 데이터를 입력해 주세요.</p>
+            {stage === 'pro' && (currentDataGrade === 'D' || currentDataGrade === 'C') && (
+              <p className="text-[10px] text-red-500 mt-1">⚠ 현재 {currentDataGrade}등급: Pro IM은 B등급 이상부터 생성 가능합니다. 렌트롤·면적·가격 데이터를 입력하면 등급이 올라갑니다.</p>
             )}
           </div>
 

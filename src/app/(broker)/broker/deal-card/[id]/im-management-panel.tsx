@@ -168,9 +168,20 @@ export function ImManagementPanel({
         <span className="flex items-center gap-2">
           <span>📄</span> IM 관리 패널
         </span>
-        <span className="text-xs text-muted-foreground font-normal">
-          현재 {currentGrade}등급 ({currentScore}점)
-        </span>
+        <div className="flex flex-col items-end text-right">
+          <span className={`text-sm font-bold ${
+            currentGrade === 'A' ? 'text-emerald-500' :
+            currentGrade === 'B' ? 'text-blue-500' :
+            currentGrade === 'C' ? 'text-amber-500' : 'text-red-500'
+          }`}>
+            현재 {currentGrade}등급 ({currentScore}점)
+          </span>
+          {isProLocked && (
+            <span className="text-[10px] text-muted-foreground mt-0.5">
+              💡 렌트롤·면적·가격 입력 시 등급 상승
+            </span>
+          )}
+        </div>
       </h2>
 
       {/* 비동기 생성 진행률 바 (IM-1) */}
@@ -233,7 +244,7 @@ export function ImManagementPanel({
         <div className="flex justify-between items-center">
           <div>
             <h3 className="font-semibold text-sm">Basic IM</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">모바일 웹 IM 뷰어 + 7p 기본 PPTX/PDF 즉시 생성</p>
+            <p className="text-xs text-muted-foreground mt-0.5">주소 입력만으로 즉시 생성 · 모바일 웹 뷰어 + 7p PPTX/PDF</p>
           </div>
           <div className="text-xs font-medium">
             {basicDoc ? (
@@ -288,8 +299,14 @@ export function ImManagementPanel({
         </div>
 
         {isProLocked ? (
-          <div className="mt-2 text-xs text-muted-foreground space-y-2">
-            <p>Pro IM을 생성하려면 데이터 등급을 B등급 이상으로 올려야 합니다.</p>
+          <div className="mt-2 text-xs text-muted-foreground space-y-3">
+            <p>현재 <strong className="text-red-400">{currentGrade}등급</strong> → <strong className="text-blue-400">B등급</strong> 이상이면 Pro IM 생성이 가능합니다.</p>
+            <div className="bg-muted/50 rounded-lg p-2.5 space-y-1">
+              <p className="text-[10px] font-semibold text-foreground">📋 등급 올리는 방법:</p>
+              <p className="text-[10px]">1. 렌트롤 입력 (엑셀/수동) → +25점</p>
+              <p className="text-[10px]">2. 건물 면적·준공연도 → +15점</p>
+              <p className="text-[10px]">3. 매매가·월임대료 → +15점</p>
+            </div>
             <Link
               href={`/broker/deal-card/${buildingId}`}
               className="inline-flex items-center justify-center h-8 w-full rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 text-xs font-bold transition-colors"
