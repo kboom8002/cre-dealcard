@@ -286,7 +286,14 @@ export class MobileImPptxRenderer {
         tags: [input.building?.asset_type, input.building?.price_band].filter(Boolean),
         docno,
         logoUrl: input.logoUrl,
+        coverImageUrl: input.doc.body?.photo_urls?.[0]
+          ?? input.doc.body?.photos?.[0]?.url
+          ?? null,
       } as any;
+
+      if (dataMap['location']) {
+        (dataMap['location'] as any).coordinates = input.doc.body?.coordinates ?? null;
+      }
 
       // 면책 조항과 provenance 배지 설명은 법적 고정 텍스트 (§10, §18)
       // 사용자 입력이 있으면 우선 적용, 없으면 기본값 사용

@@ -610,16 +610,30 @@ function extractBoldValue(text: string): string {
   return match ? match[1] : '';
 }
 
-/** Markdown 서식 제거 */
+/** Markdown 서식 및 SSoT 내부 표기 정제 */
 export function stripMarkdown(text: string): string {
+  if (!text) return '';
   return text
     .replace(/\*\*(.*?)\*\*/g, '$1')
     .replace(/\*(.*?)\*/g, '$1')
     .replace(/`(.*?)`/g, '$1')
     .replace(/\[(.*?)\]\(.*?\)/g, '$1')
     .replace(/[🏢📍📊💰⚠️🎯📋✨🚇✓★▲●◇]/gu, '')
+    // ── SSoT 내부 표기 정제 ──
+    .replace(/\s*\(BSSoT\s*Lite[^)]*\)/gi, '')
+    .replace(/\s*\(기재\s*공란\)/g, ' (미확인)')
+    .replace(/근린생활시설\s*또는\s*상업용\s*건물로\s*추정\s*/g, '')
+    .replace(/건축물대장상\s*확인\s*필요/g, '확인 필요')
+    .replace(/(으로|로)\s*추정(되는|됨|)\s*/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/** 텍스트 길이 제한 (PPTX 셀 오버플로 방지) */
+export function truncate(text: string, maxLen: number): string {
+  const cleaned = stripMarkdown(text);
+  if (cleaned.length <= maxLen) return cleaned;
+  return cleaned.slice(0, maxLen - 1) + '…';
 }
 
 function parseMarkdownTable(markdown: string): ParsedTable[] {

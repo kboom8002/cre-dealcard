@@ -23,39 +23,45 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
   const slide = L.light(input.pres);
   const warnings: string[] = [];
   L.head(slide, input.slideNum, input.data.kicker || 'SECTION', input.data.title || '제목');
-  
+
+  const mapW = 5.60;
+  const gap = 0.40;
+  const textX = M + mapW + gap;
+  const textW = CW - mapW - gap;
+
+  // ── 좌측: 지도 ──
+  const coords = input.data?.coordinates ?? null;
+  const areaOrAddress = (input.data?.left as any)?.source || input.data?.areaSignal || '서울';
+  const mapImg = await generateStaticMapPlaceholder(areaOrAddress, 560, 450, coords);
+  if (mapImg) {
+    slide.addImage({ data: mapImg.base64, x: M, y: 1.62, w: mapW, h: 4.50 });
+  }
+
+  // ── 우측: 텍스트 데이터 ──
+  let y = 1.62;
   const left = input.data.left || {};
   const right = input.data.right || {};
-  
-  let y = 1.62;
-  
+
   const subText = left.sub || right.sub;
   if (subText) {
-    L.sub(slide, M, y, CW, subText);
+    L.sub(slide, textX, y, textW, subText);
     y += 0.35;
   }
-  
+
   const rightRows = right.rows ?? [];
   if (rightRows.length > 0) {
-    // Render full width L.rows
-    y = L.rows(slide, M, y, CW, rightRows as RowEntry[], { rh: 0.38, fs: 11 });
-    y += 0.3;
+    y = L.rows(slide, textX, y, textW, rightRows as RowEntry[], { rh: 0.38, fs: 11 });
+    y += 0.2;
   }
-  
+
   if (right.callout) {
     const c = right.callout;
-    L.callout(slide, M, y, CW, 1.4, c.kind ?? 'info', c.title ?? '', c.body ?? '');
+    L.callout(slide, textX, y, textW, 1.4, c.kind ?? 'info', c.title ?? '', c.body ?? '');
     y += 1.5;
   }
-  
+
   if (left.source) {
-    L.note(slide, M, y + 0.1, CW, left.source);
-  }
-  
-  const areaOrAddress = (input.data?.left as any)?.source || input.data?.areaSignal || '서울';
-  const mapImg = await generateStaticMapPlaceholder(areaOrAddress, 560, 432);
-  if (mapImg) {
-    slide.addImage({ data: mapImg.base64, x: M, y: 1.62, w: 5.80, h: 4.50 });
+    L.note(slide, textX, Math.min(y + 0.1, 6.2), textW, left.source);
   }
 
   if (input.watermarkText) L.watermark(slide, input.watermarkText, false);

@@ -336,7 +336,7 @@ export async function generateSingleSection(
   const finalSection: MobileIMSection = {
     section_type: sectionType,
     section_order: sectionIndex + 1,
-    title: getSectionTitle(sectionType),
+    title: getSectionTitle(sectionType, buildingSsotLite?.asset_type as string),
     markdown,
     confidence,
     boundary_note: "본 섹션의 내용은 예비 검토용입니다.",

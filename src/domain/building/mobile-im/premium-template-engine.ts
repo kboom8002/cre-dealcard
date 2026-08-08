@@ -12,14 +12,27 @@ import { calculateBenchmarkMetrics, formatBenchmarkMarkdown } from './comparable
 import { computeVacancyPositioning, formatVacancyPositioningRow } from './vacancy-positioning';
 import { parsePriceBandKrw } from './im-context-builder';
 
-export function getSectionTitle(sectionType: MobileIMSectionType): string {
+function resolveAssetLabel(assetType?: string): string {
+  if (!assetType) return '매물';
+  const t = assetType.toLowerCase();
+  if (t.includes('대지') || t.includes('토지') || t.includes('나대지')) return '대지';
+  if (t.includes('물류')) return '물류센터';
+  if (t.includes('호텔') || t.includes('숙박')) return '호텔';
+  if (t.includes('오피스') || t.includes('업무')) return '오피스';
+  if (t.includes('상가') || t.includes('근생')) return '건물';
+  if (t.includes('빌딩')) return '빌딩';
+  return '매물';
+}
+
+export function getSectionTitle(sectionType: MobileIMSectionType, assetType?: string): string {
+  const label = resolveAssetLabel(assetType);
   const titles: Record<MobileIMSectionType, string> = {
-    property_overview: "🏢 이 건물, 어떤 자산인가?",
+    property_overview: `🏢 이 ${label}, 어떤 자산인가?`,
     location_access:   "📍 이 입지, 투자할 만한 곳인가?",
     lease_status:      "📊 임대 현황과 공실, 실제로 어떤가?",
     income_analysis:   "💰 수익률이 진짜로 나오는 딜인가?",
     risk_check:        "⚠️ 숨은 리스크는 없는가?",
-    investment_thesis: "🎯 왜 지금 이 매물을 사야 하는가?",
+    investment_thesis: `🎯 왜 지금 이 ${label}을 사야 하는가?`,
     next_steps:        "📋 검토 후 다음 단계는?",
   };
   return titles[sectionType];

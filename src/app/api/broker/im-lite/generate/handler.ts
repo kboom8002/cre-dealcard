@@ -329,7 +329,18 @@ export async function generateMobileIMHandler(
         : (ssotRow.layers as Record<string, any>)?.coordinates
         ? { lat: (ssotRow.layers as Record<string, any>).coordinates.lat, lng: (ssotRow.layers as Record<string, any>).coordinates.lng }
         : null,
-      photo_urls: supplemental.photo_urls ?? [],
+      photo_urls: (() => {
+        const userPhotos = supplemental.photo_urls ?? [];
+        if (userPhotos.length > 0) return userPhotos;
+        const layerPhotos = (ssotRow.layers as any)?.photos;
+        if (Array.isArray(layerPhotos) && layerPhotos.length > 0) {
+          return layerPhotos.map((p: any) => p.url).filter((url: any): url is string => typeof url === 'string' && url.length > 0);
+        }
+        if (Array.isArray(ssotRow.photo_urls) && ssotRow.photo_urls.length > 0) {
+          return ssotRow.photo_urls;
+        }
+        return [];
+      })(),
       dataGrade: gradeResult.grade,
       financialWarnings,
       dcfEligible,
