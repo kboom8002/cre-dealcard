@@ -30,6 +30,8 @@ export async function POST(req: NextRequest) {
   let skipApproval = false;
   let directData: Record<string, unknown> | null = null;
   let tier: 'basic' | 'pro' = 'basic';
+  let hospitalitySpecInput: Record<string, any> | null = null;
+  let loanStatusInput: string | null = null;
 
   try {
     const body = await req.json();
@@ -54,6 +56,8 @@ export async function POST(req: NextRequest) {
       floor_leases: body.floor_leases,
       logistics: body.logistics,
     };
+    hospitalitySpecInput = body.hospitalitySpec ?? null;
+    loanStatusInput = body.loan_status ?? null;
 
     if (!buildingId) {
       return NextResponse.json({ error: "building_id is required" }, { status: 400 });
@@ -108,6 +112,54 @@ export async function POST(req: NextRequest) {
         },
         completed_at: new Date().toISOString(),
       }).eq("id", jobId);
+
+      // ── Phase B: SSoT 역류 — 바텀시트 데이터를 building_ssot_lite에 영속화 ──
+      try {
+        const { data: existing } = await supabase
+          .from("building_ssot_lite")
+          .select("layers, lease_summary")
+          .eq("id", buildingId)
+          .single();
+
+        if (existing) {
+          const existingLayers = (existing.layers ?? {}) as Record<string, any>;
+          const existingLease = (existing.lease_summary ?? {}) as Record<string, any>;
+
+          // layers 패치: 물류/운영 팩슬롯, 사진, 브로커 하이라이트
+          const layersPatch: Record<string, any> = { ...existingLayers };
+          if (supplemental.floor_leases) layersPatch.rent_roll = supplemental.floor_leases;
+          if (supplemental.logistics) {
+            layersPatch.pack_slots = { ...(existingLayers.pack_slots ?? {}), PhysicalSpec: supplemental.logistics };
+          }
+          if (hospitalitySpecInput) {
+            layersPatch.pack_slots = { ...(layersPatch.pack_slots ?? {}), HospitalitySpec: hospitalitySpecInput };
+          }
+          if (supplemental.broker_highlight) layersPatch.broker_highlight = supplemental.broker_highlight;
+          if (supplemental.photo_urls?.length) layersPatch.photos = supplemental.photo_urls;
+          if (supplemental.resolved_address) {
+            layersPatch.location = { ...(existingLayers.location ?? {}), address: supplemental.resolved_address };
+          }
+          if (supplemental.resolved_pnu) layersPatch.pnu = supplemental.resolved_pnu;
+
+          // lease_summary 패치
+          const leasePatch: Record<string, any> = { ...existingLease };
+          if (supplemental.monthly_rent_total_krw != null) leasePatch.monthly_rent_total_krw = supplemental.monthly_rent_total_krw;
+          if (supplemental.total_deposit_manwon != null) leasePatch.total_deposit_manwon = supplemental.total_deposit_manwon;
+          if (supplemental.mgmt_fee_total_manwon != null) leasePatch.mgmt_fee_total_manwon = supplemental.mgmt_fee_total_manwon;
+          if (supplemental.loan_amount_manwon != null) leasePatch.loan_amount_manwon = supplemental.loan_amount_manwon;
+          if (supplemental.asking_price_manwon != null) leasePatch.asking_price_manwon = supplemental.asking_price_manwon;
+          if (supplemental.vacancy_pct != null) leasePatch.vacancy_pct = supplemental.vacancy_pct;
+          if (loanStatusInput) leasePatch.loan_status = loanStatusInput;
+
+          await supabase.from("building_ssot_lite").update({
+            layers: layersPatch,
+            lease_summary: leasePatch,
+            updated_at: new Date().toISOString(),
+          }).eq("id", buildingId);
+        }
+      } catch (writebackErr: any) {
+        console.warn("[im-generate-async] SSoT writeback failed (non-blocking):", writebackErr?.message);
+      }
     } else {
       await supabase.from("im_generation_jobs").update({
         status: "failed",

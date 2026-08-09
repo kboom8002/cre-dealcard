@@ -67,6 +67,32 @@ export function buildAttrsFromSsotLite(
     comparableAvgPricePerPyung: layers?.comparable_avg_per_pyung || null,
     sigungu: layers?.location?.sigungu || null,
 
+    // ── Phase A: 누락 필드 매핑 복구 (teaser-projector 연결) ──
+    investmentPosture: building.investment_posture || layers?.investment_posture || null,
+    buildYear: layers?.building_register?.approval_date
+      ? new Date(String(layers.building_register.approval_date)).getFullYear()
+      : (layers?.building_register?.completion_era ? parseInt(String(layers.building_register.completion_era), 10) || null : null),
+    floorsAboveGround: layers?.building_register?.floors_above_ground
+      || layers?.building_register?.total_floors || null,
+    monthlyRentKrw: monthlyRentTotal || null,
+    vacancyPct: leaseSummary?.vacancy_pct ?? (leaseSummary?.vacancy_rate != null
+      ? Number(leaseSummary.vacancy_rate) * 100 : null),
+    capRatePct: (() => {
+      const income = monthlyRentTotal * 12;
+      return (askingPriceKrw && askingPriceKrw > 0 && income > 0)
+        ? Math.round((income / askingPriceKrw) * 10000) / 100 : null;
+    })(),
+    pricePerPyung: (() => {
+      return (askingPriceKrw && askingPriceKrw > 0 && totalFloorAreaPyung && totalFloorAreaPyung > 0)
+        ? Math.round(askingPriceKrw / totalFloorAreaPyung) : null;
+    })(),
+    photoCount: layers?.photos?.length ?? building?.photo_urls?.length ?? 0,
+    urgencyTag: building.urgency_tag || layers?.urgency_tag || null,
+    roomCount: layers?.pack_slots?.HospitalitySpec?.totalRoomCount
+      || layers?.hospitality_spec?.totalRoomCount || null,
+    operationType: layers?.pack_slots?.HospitalitySpec?.operatingModel
+      || layers?.hospitality_spec?.operatingModel || null,
+    floorLeases: leaseSummary?.tenants || layers?.rent_roll || null,
 
     // ── Category-level filled markers for grade-engine NEW_WEIGHTS ──
     // grade-engine iterates baseWeights keys (lease_roll, building_basic, ...)

@@ -47,7 +47,7 @@ export function projectToTeaser(
   const priceManwon = price > 0 ? price / 10000 : 0;
   const area = Number(attrs.totalFloorAreaPyung || 0);
   const capRate = Number(attrs.capRatePct || 0);
-  const buildYear = Number(attrs.buildYear || 0);
+  const buildYear = attrs.buildYear != null ? Number(attrs.buildYear) : null;
   const currentYear = new Date().getFullYear();
   const posture = String(attrs.investmentPosture || 'income');
 
@@ -69,9 +69,9 @@ export function projectToTeaser(
   const assetType = String(attrs.assetType || attrs.asset_type || '상업용 건물');
   const archetype = String(attrs.archetype || 'STABLE_INCOME');
 
-  // Building age banding
-  const age = buildYear > 0 ? currentYear - buildYear : 0;
-  const buildingAge = age <= 0 ? '신축' : age <= 5 ? '5년 이내' : age <= 10 ? '10년 이내' : age <= 20 ? '20년 이내' : `${Math.floor(age / 10) * 10}년+`;
+  // Building age banding (null-safe: missing buildYear → '정보 없음')
+  const age = (buildYear && buildYear > 1900) ? currentYear - buildYear : null;
+  const buildingAge = age == null ? '정보 없음' : age <= 0 ? '신축' : age <= 5 ? '5년 이내' : age <= 10 ? '10년 이내' : age <= 20 ? '20년 이내' : `${Math.floor(age / 10) * 10}년+`;
 
   // Structural signals (non-sensitive qualitative info)
   const signals: string[] = [];
@@ -102,10 +102,10 @@ export function projectToTeaser(
   const bandedFarHeadroom = attrs.farHeadroomPp !== undefined ? bandFarHeadroom(Number(attrs.farHeadroomPp)) : null;
   const roadContactLabel = bandRoadContact(String(attrs.roadContactType || ''));
 
-  const vacancyPct = Number(attrs.vacancyPct || 0);
+  const vacancyPct = attrs.vacancyPct != null ? Number(attrs.vacancyPct) : null;
   const evictionStatus = String(attrs.evictionStatus || '');
-  let vacancyLabel = `공실 ${vacancyPct}%`;
-  if (evictionStatus) vacancyLabel += ` (${evictionStatus})`;
+  let vacancyLabel = vacancyPct == null ? '공실 정보 없음' : `공실 ${vacancyPct}%`;
+  if (evictionStatus && vacancyPct != null) vacancyLabel += ` (${evictionStatus})`;
 
   const bandedPrice = bandPriceDisplay(priceManwon, config?.priceBandingMode || 'single');
   const bandedCapRate = bandCapRate(capRate);
@@ -228,14 +228,14 @@ export function projectToTeaser(
  */
 function generateHookCopy(archetype: string, region: string, assetType: string, attrs: Record<string, unknown>): string {
   const use = attrs.currentUseSignal ? String(attrs.currentUseSignal) : '';
-  const vacancy = Number(attrs.vacancyPct || 0);
+  const vacancy = attrs.vacancyPct != null ? Number(attrs.vacancyPct) : null;
   const road = String(attrs.roadContactType || '');
   const roadLabel = road.includes('코너') || road.includes('각지') ? '코너 입지' 
     : road.includes('대로') ? '대로변 입지' 
     : '';
 
   if (archetype === 'STABLE_INCOME') {
-    const stability = vacancy === 0 ? '만실 운영 중' : vacancy <= 10 ? '소규모 공실' : '';
+    const stability = vacancy === 0 ? '만실 운영 중' : (vacancy != null && vacancy <= 10) ? '소규모 공실' : '';
     const useInfo = use ? `${use} 임차` : '';
     return [stability, useInfo, roadLabel, `${region} ${assetType}`].filter(Boolean).join(' · ');
   }
