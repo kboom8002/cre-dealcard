@@ -9,7 +9,7 @@ interface KakaoShareButtonProps {
   dealTitle?: string;
   brokerSlug?: string;
   areaSignal?: string;
-  variant?: "primary" | "secondary";
+  variant?: "primary" | "secondary" | "compact" | "utility";
   showEditForm?: boolean;
 }
 
@@ -39,12 +39,10 @@ export function KakaoShareButton({
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState(text);
 
-  // Sync initial text to editedText if text prop changes
   useEffect(() => {
     setEditedText(text);
   }, [text]);
 
-  // 카카오 SDK 로드
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (window.Kakao) {
@@ -68,23 +66,15 @@ export function KakaoShareButton({
     document.head.appendChild(script);
   }, []);
 
-  // 카카오 SDK은 등록된 도메인에서만 작동함 → 항상 credeal.net 사용
   const siteUrl = "https://credeal.net";
-  // 공유 대상 페이지: /dc/[id] (공개 딜카드 단축 페이지 — 한글 없이 안정적 접근)
   const dealUrl = `${siteUrl}/dc/${buildingId}`;
-  // 딜카드별 동적 OG 이미지: /api/og/deal/[id]
-  // 브로커 바이브카드 이미지는 보조 fallback
   const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}`;
-  const brokerOgUrl = brokerSlug
-    ? `${siteUrl}/api/og/broker-profile/${brokerSlug}`
-    : `${siteUrl}/api/og/deal/${buildingId}`;
 
   function handleShare() {
     const finalText = typeof window !== 'undefined' 
       ? sessionStorage.getItem(`kakao_text_${buildingId}`) || editedText 
       : editedText;
 
-    // 카카오 SDK 사용 가능한 경우 → sendDefault 직접 사용
     if (kakaoReady && window.Kakao?.Share) {
       try {
         (window.Kakao.Share as any).sendDefault({
@@ -112,11 +102,10 @@ export function KakaoShareButton({
         setTimeout(() => setShared(false), 3000);
         return;
       } catch {
-        // sendDefault 실패 → clipboard fallback
+        // fallback
       }
     }
 
-    // 폴백: 카톡 문구 + 링크를 클립보드에 복사 후 카카오 앱 열기
     const fullText = `${finalText}\n\n🔗 딜카드 링크: ${dealUrl}`;
     navigator.clipboard
       .writeText(fullText)
@@ -185,102 +174,81 @@ export function KakaoShareButton({
     setIsEditing(true);
   };
 
-  if (isEditing && showEditForm) {
-    return (
-      <div className="space-y-3 w-full">
-        <textarea
-          value={editedText}
-          onChange={(e) => setEditedText(e.target.value)}
-          className="w-full min-h-[160px] p-3 text-sm rounded-lg border border-border bg-background focus:ring-1 focus:ring-primary outline-none"
-        />
-        <div className="flex gap-2">
-          <button
-            onClick={() => setIsEditing(false)}
-            className="flex-1 py-2 text-sm font-medium rounded-lg border border-border bg-muted/50 hover:bg-muted"
-          >
-            취소
-          </button>
-          <button
-            onClick={handleSaveText}
-            className="flex-1 py-2 text-sm font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            수정 완료
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (variant === "primary") {
-    return (
-      <div className="flex flex-col gap-2 w-full">
-        <div className="flex w-full gap-1.5">
-          <button
-            onClick={handleShare}
-            className={`flex-1 flex items-center justify-center rounded-xl bg-[#FEE500] text-[#3C1E1E] px-4 py-3.5 text-base font-bold shadow-sm transition-all hover:bg-[#FEE500]/90 active:scale-[0.98] ${readyClass}`}
-            id="cta-kakao-share-primary"
-          >
-            {label}
-          </button>
-          <button
-            onClick={handleEditClick}
-            className={`w-14 shrink-0 flex flex-col items-center justify-center rounded-xl bg-[#FEE500]/20 text-[#a08000] dark:text-[#FEE500] hover:bg-[#FEE500]/30 transition-all active:scale-[0.98]`}
-            aria-label="카톡 문구 수정"
-          >
-            <span className="text-lg">✏️</span>
-            <span className="text-[10px] font-bold mt-0.5">수정</span>
-          </button>
-        </div>
-
-        {/* 1-Page Teaser Image Action Sub-bar */}
-        <div className="flex gap-2 w-full">
-          <button
-            onClick={handleDownloadCardImage}
-            className="flex-1 py-2.5 px-3 bg-[#1F2937] hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 border border-slate-700 transition-colors shadow-sm"
-          >
-            <span>📸</span> 1페이지 티저 이미지 다운로드
-          </button>
-          <button
-            onClick={handleCopyCardImageUrl}
-            className="py-2.5 px-3 bg-[#1F2937] hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium flex items-center justify-center gap-1 border border-slate-700 transition-colors"
-            title="티저 이미지 URL 복사"
-          >
-            📋 URL 복사
-          </button>
-        </div>
-
-        {/* Edit Modal */}
-        {isEditing && !showEditForm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in">
-            <div className="bg-card w-full max-w-sm rounded-xl p-5 space-y-4 shadow-xl">
-              <h3 className="text-base font-semibold">카톡 문구 수정</h3>
-              <textarea
-                value={editedText}
-                onChange={(e) => setEditedText(e.target.value)}
-                className="w-full min-h-[160px] p-3 text-sm rounded-lg border border-border bg-background focus:ring-1 focus:ring-primary outline-none"
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setIsEditing(false)}
-                  className="flex-1 py-2.5 text-sm font-medium rounded-lg border border-border bg-muted/50 hover:bg-muted"
-                >
-                  취소
-                </button>
-                <button
-                  onClick={handleSaveText}
-                  className="flex-1 py-2.5 text-sm font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  수정 및 저장
-                </button>
-              </div>
-            </div>
+  const renderEditModal = () => (
+    isEditing && !showEditForm && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in">
+        <div className="bg-card w-full max-w-sm rounded-xl p-5 space-y-4 shadow-xl">
+          <h3 className="text-base font-semibold">카톡 문구 수정</h3>
+          <textarea
+            value={editedText}
+            onChange={(e) => setEditedText(e.target.value)}
+            className="w-full min-h-[160px] p-3 text-sm rounded-lg border border-border bg-background focus:ring-1 focus:ring-primary outline-none"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => setIsEditing(false)}
+              className="flex-1 py-2.5 text-sm font-medium rounded-lg border border-border bg-muted/50 hover:bg-muted"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleSaveText}
+              className="flex-1 py-2.5 text-sm font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              수정 완료
+            </button>
           </div>
-        )}
+        </div>
+      </div>
+    )
+  );
+
+  // Compact Variant (for Sticky Bottom CTA Bar)
+  if (variant === "compact") {
+    return (
+      <div className="flex w-full gap-1.5">
+        <button
+          onClick={handleShare}
+          className={`flex-1 flex items-center justify-center rounded-xl bg-[#FEE500] text-[#3C1E1E] px-3 py-2.5 text-sm font-bold shadow-sm transition-all hover:bg-[#FEE500]/90 active:scale-[0.98] ${readyClass}`}
+          id="cta-kakao-share-compact"
+        >
+          {label}
+        </button>
+        <button
+          onClick={handleEditClick}
+          className="w-10 shrink-0 flex items-center justify-center rounded-xl bg-[#FEE500]/20 text-[#a08000] dark:text-[#FEE500] hover:bg-[#FEE500]/30 transition-all text-sm font-bold"
+          aria-label="카톡 문구 수정"
+          title="카톡 문구 수정"
+        >
+          ✏️
+        </button>
+        {renderEditModal()}
       </div>
     );
   }
 
-  // Secondary Button Layout (Inside Preview)
+  // Utility Variant (for Scroll Area)
+  if (variant === "utility") {
+    return (
+      <div className="flex gap-2 w-full">
+        <button
+          onClick={handleDownloadCardImage}
+          className="flex-1 py-2.5 px-3 bg-secondary/60 hover:bg-secondary text-secondary-foreground rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 border border-border transition-colors shadow-sm"
+        >
+          <span>📸</span> 1페이지 티저 이미지 다운로드
+        </button>
+        <button
+          onClick={handleCopyCardImageUrl}
+          className="py-2.5 px-3 bg-secondary/40 hover:bg-secondary/70 text-secondary-foreground rounded-xl text-xs font-medium border border-border transition-colors"
+          title="티저 이미지 URL 복사"
+        >
+          📋 URL 복사
+        </button>
+      </div>
+    );
+  }
+
+  // Default Primary / Secondary
   return (
     <div className="flex flex-col gap-2 w-full">
       <div className="flex w-full gap-2">
@@ -314,7 +282,7 @@ export function KakaoShareButton({
           📋 링크 복사
         </button>
       </div>
+      {renderEditModal()}
     </div>
   );
 }
-

@@ -23,6 +23,12 @@ const GLOBAL_SAFETY = `
 - 한국 CRE 중개 실무 어휘를 사용하세요: 매물, 매도인, 매수인, 임대차, 공실률, 수익률, 실사, 리스업, 밸류애드, 캡레이트, 준공연도, 건축물대장, 토지이용계획 등
 - 번역체·외래어 남용 금지: "프리미엄 가치 제안" → "투자 포인트", "엣지" → "강점", "인사이트" → "분석"
 
+[확언형 표현 원칙 — "추정" 문구 절대 금지]
+- "~로 추정", "~로 추정됨", "~인 것으로 보임", "~일 가능성이 있음" 등의 표현을 절대 사용하지 마세요.
+- 불확실한 사실은 문장에 "추정"을 남발하지 말고 확정 어투로 작성하되, confidence 필드를 "needs_verification"으로 설정하세요.
+- BAD: "근린생활시설 또는 상업용 건물로 추정되는 상가건물"
+- GOOD: "근생빌딩" (confidence: { assetType: "ai_hypothesis" })
+
 [정보 보호 — 공개/블라인드 문서 기준]
 - 정확한 주소 → 권역 시그널 (예: "성수권역")
 - 임차인 상호 → 업종 표기 (예: "1층 F&B")
@@ -69,10 +75,11 @@ ${GLOBAL_SAFETY}
 
 Create a Building SSoT Lite draft. Your output is an internal truth candidate, not a public advertisement.
 Use only the provided parsed memo data and safe high-level inference.
-Do not invent facts. If a field is unclear, mark it as null or needs_verification.
+Do not invent facts. If a field is unclear, mark it as null and set its confidence to "needs_verification".
+NEVER use "추정", "으로 추정됨", "인 것으로 보임" in ANY text field.
+Write all text in definitive tone. Uncertainty is expressed ONLY via the confidence object.
 
 Always identify hidden fields that must not appear in public or blind documents.
-Fit summary must be framed as a hypothesis.
 Caution summary rules:
 - Focus ONLY on items that genuinely need verification based on the provided data.
 - DO NOT speculate or include unverified assumptions.
@@ -98,15 +105,29 @@ export const BUILDING_MINI_TRUTH_USER_TEMPLATE = `다음 파싱된 메모 데이
 ## 지시사항
 Required output JSON keys:
 - "areaSignal": 권역 신호 문자열
-- "assetType": 자산 유형 문자열
+- "assetType": 자산 유형 (반드시 다음 17종 중 하나로 선택):
+  "근생빌딩" | "상가빌딩" | "사무용빌딩" | "오피스텔" | "물류센터" | "공장" | "호텔" | "생활형숙박" | "다가구·다중주택" | "다세대·연립" | "지식산업센터" | "집합상가" | "나대지" | "임야·농지" | "주상복합" | "상가주택" | "기타"
+- "investmentPosture": 투자 관점 추론 (다음 5종 중 하나로 선택):
+  "income" | "owner_occupied" | "development" | "operating" | "trading"
+  · 임대차 현황/수익률 언급 → "income"
+  · "자가 사용", "사옥" → "owner_occupied"
+  · "신축", "철거", "나대지", "개발" → "development"
+  · "호텔 운영", "매출", "GOP" → "operating"
+  · 기타/단기 매매 → "trading"
 - "priceBand": 가격대 문자열
+- "askingPriceManwon": 매각 희망가 (만원 단위 숫자. "80억" → 800000, "35.5억" → 355000. 모르면 null)
 - "sizeSignal": 규모 신호 문자열
 - "currentUseSignal": 사용현황 신호 문자열
 - "vacancySignal": 공실 신호 문자열
-- "fitSummary": 매수자 관점 검토 가설 문자열
+- "fitSummary": 매수자 관점 핵심 장점 요약.
+  · 60대 자산가가 3초 안에 핵심을 파악할 수 있는 실용적 문장 1~2줄.
+  · 번역체/컨설팅 어투 절대 금지.
+  · "추정"/"가능성" 등 불확실 표현 금지 — 확정 어투로 작성.
+  · GOOD: "역세권 대로변 코너 입지. 의원 장기임차로 안정 수익."
+  · BAD: "임차 구성의 안정성과 역세권 접근성이 밸류애드 전략 수립에 유리한 구조입니다."
 - "cautionSummary": 확인 필요 사항 (메모에 명시된 사실과 모순되지 않도록 작성. 추측 금지. 실사 필요 항목만 간결하게.)
 - "hiddenFields": 공개 불가 필드 배열 (반드시 다음 중 선택: "exact_address", "tenant_name", "unit_rent", "seller_motivation", "negotiation_memo", "owner_identity", "buyer_identity", "registry_detail", "lease_contract_raw_text")
-- "confidence": { "areaSignal": "confirmed" | "user_provided" | "public_data_inferred" | "ai_hypothesis" | "needs_verification" | "unknown", "assetType": "confirmed" | "user_provided" | "public_data_inferred" | "ai_hypothesis" | "needs_verification" | "unknown", "priceBand": "confirmed" | "user_provided" | "public_data_inferred" | "ai_hypothesis" | "needs_verification" | "unknown", "fitSummary": "ai_hypothesis" | "needs_verification" }
+- "confidence": { "areaSignal": "confirmed" | "user_provided" | "public_data_inferred" | "ai_hypothesis" | "needs_verification" | "unknown", "assetType": "confirmed" | "user_provided" | "public_data_inferred" | "ai_hypothesis" | "needs_verification" | "unknown", "priceBand": "confirmed" | "user_provided" | "public_data_inferred" | "ai_hypothesis" | "needs_verification" | "unknown", "investmentPosture": "confirmed" | "user_provided" | "ai_hypothesis" | "needs_verification", "fitSummary": "ai_hypothesis" | "needs_verification" }
 - "missingData": 부족한 자료 배열
 - "boundaryNote": 면책문구 문자열
 

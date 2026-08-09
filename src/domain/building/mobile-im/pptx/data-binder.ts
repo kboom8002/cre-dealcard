@@ -625,6 +625,9 @@ export function stripMarkdown(text: string): string {
     .replace(/근린생활시설\s*또는\s*상업용\s*건물로\s*추정\s*/g, '')
     .replace(/건축물대장상\s*확인\s*필요/g, '확인 필요')
     .replace(/(으로|로)\s*추정(되는|됨|)\s*/g, '')
+    .replace(/인\s*것으로\s*(보임|판단됨|보여짐)\s*/g, '')
+    .replace(/일\s*가능성이\s*있(음|습니다)\s*/g, '')
+    .replace(/~?(으로|로)\s*보(임|입니다|여집니다)\s*/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }

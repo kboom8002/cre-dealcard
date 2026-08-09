@@ -92,6 +92,18 @@ export default async function BrokerDealCardResultPage({
     .limit(1)
     .maybeSingle();
 
+  // Fetch IM Lite document to check if basic IM exists
+  const { data: imLiteDoc } = await supabase
+    .from("document_objects")
+    .select("id")
+    .eq("building_id", id)
+    .eq("document_type", "im_lite")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const hasBasicIM = !!imLiteDoc;
+
   // Parse teaser body with robust fallback
   const body = (teaserDoc?.body ?? {}) as Record<string, unknown>;
   let teaser: Record<string, any>;
@@ -172,7 +184,7 @@ export default async function BrokerDealCardResultPage({
   const currentScore = gradeResult.scorePct;
 
   return (
-    <main className="flex flex-col items-center min-h-screen px-4 py-6 pb-44">
+    <main className="flex flex-col items-center min-h-screen px-4 py-6 pb-40">
       <div className="w-full max-w-md mx-auto space-y-4">
         {/* Top nav bar: Back + Actions */}
         <div className="flex items-center justify-between pt-2">
@@ -231,35 +243,62 @@ export default async function BrokerDealCardResultPage({
 
               {/* Extracted Info Card */}
               <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-                <h2 className="text-base font-semibold flex items-center gap-2">
-                  <span>🏢</span> 건물 신호 요약
+                <h2 className="text-base font-semibold flex items-center justify-between">
+                  <span className="flex items-center gap-2"><span>🏢</span> 건물 신호 요약</span>
+                  <span className="text-[11px] font-normal text-muted-foreground">확언형 표기 · 뱃지 검토 안내</span>
                 </h2>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   {[
-                    { label: "권역", value: building.area_signal },
-                    { label: "자산 유형", value: building.asset_type },
-                    { label: "가격대", value: building.price_band },
-                    { label: "현재 사용", value: building.current_use_signal },
-                  ].map((item) => (
-                    <div key={item.label} className={`rounded-lg p-2.5 ${item.value ? 'bg-muted/30' : 'bg-muted/10 border border-dashed border-muted-foreground/20'}`}>
-                      <p className="text-xs text-muted-foreground mb-0.5">{item.label}</p>
-                      <p className={`font-semibold ${item.value ? '' : 'text-muted-foreground/50 text-xs'}`}>
-                        {item.value || "미입력 ✏️"}
-                      </p>
-                    </div>
-                  ))}
+                    { label: "권역", value: building.area_signal, confKey: "areaSignal" },
+                    { label: "자산 유형", value: building.asset_type, confKey: "assetType" },
+                    { label: "가격대", value: building.price_band, confKey: "priceBand" },
+                    { label: "현재 사용", value: building.current_use_signal, confKey: "currentUseSignal" },
+                  ].map((item) => {
+                    const conf = ((building.confidence as Record<string, string>) || {})[item.confKey];
+                    return (
+                      <div key={item.label} className={`rounded-lg p-2.5 ${item.value ? 'bg-muted/30' : 'bg-muted/10 border border-dashed border-muted-foreground/20'}`}>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <p className="text-xs text-muted-foreground">{item.label}</p>
+                          {conf === 'ai_hypothesis' && (
+                            <span
+                              className="text-[10px] px-1 py-0.2 rounded bg-amber-500/15 text-amber-500 font-medium cursor-help"
+                              title="AI가 파싱한 분류입니다. 클릭하여 직접 수정할 수 있습니다."
+                            >
+                              AI분류
+                            </span>
+                          )}
+                          {conf === 'needs_verification' && (
+                            <span
+                              className="text-[10px] px-1 py-0.2 rounded bg-red-500/15 text-red-500 font-medium cursor-help"
+                              title="정보가 불충분합니다. 추가 공부확인 또는 실사가 필요합니다."
+                            >
+                              확인필요
+                            </span>
+                          )}
+                        </div>
+                        <p className={`font-semibold ${item.value ? '' : 'text-muted-foreground/50 text-xs'}`}>
+                          {item.value || "미입력 ✏️"}
+                        </p>
+                      </div>
+                    );
+                  })}
                 </div>
                 {building.fit_summary && (
-                  <p className="text-sm text-muted-foreground pt-1">
-                    <span className="font-medium text-foreground">적합 매수자:</span>{" "}
-                    {building.fit_summary}
-                  </p>
+                  <div className="text-sm text-muted-foreground pt-1 space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium text-foreground">🎯 적합 매수자</span>
+                      {((building.confidence as Record<string, string>) || {}).fitSummary === 'needs_verification' && (
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-red-500/15 text-red-500 font-medium cursor-help" title="실사 검증 필요 항목">확인필요</span>
+                      )}
+                    </div>
+                    <p className="leading-relaxed">{building.fit_summary}</p>
+                  </div>
                 )}
                 {building.caution_summary && (
-                  <p className="text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">확인 필요:</span>{" "}
-                    {building.caution_summary}
-                  </p>
+                  <div className="text-sm text-muted-foreground pt-1 space-y-0.5">
+                    <p className="font-medium text-amber-500 dark:text-amber-400">⚠️ 실사 확인 필요 사항</p>
+                    <p className="leading-relaxed">{building.caution_summary}</p>
+                  </div>
                 )}
               </div>
 
@@ -354,26 +393,47 @@ export default async function BrokerDealCardResultPage({
             </div>
           }
         />
+
+        {/* Scroll Area Utility Bar */}
+        <div className="mt-4 rounded-xl border border-border bg-card/60 p-3 space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground">📸 티저 공유 유틸리티</p>
+          <KakaoShareButton
+            text={kakaoText}
+            buildingId={id}
+            dealTitle={title}
+            brokerSlug={brokerSlug}
+            areaSignal={building.area_signal ?? undefined}
+            variant="utility"
+          />
+        </div>
       </div>
 
-      {/* Streamlined Sticky CTA Bar — Senior-friendly large buttons */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t border-border px-4 pt-3 pb-[calc(65px+env(safe-area-inset-bottom,0px))]">
-        <div className="max-w-md mx-auto space-y-2">
+      {/* Streamlined Sticky CTA Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t border-border px-4 pt-2.5 pb-[calc(65px+env(safe-area-inset-bottom,0px))]">
+        <div className="max-w-md mx-auto">
           <div className="grid grid-cols-2 gap-2">
-            <KakaoShareButton text={kakaoText} buildingId={id} dealTitle={title} brokerSlug={brokerSlug} areaSignal={building.area_signal ?? undefined} variant="primary" />
+            <KakaoShareButton
+              text={kakaoText}
+              buildingId={id}
+              dealTitle={title}
+              brokerSlug={brokerSlug}
+              areaSignal={building.area_signal ?? undefined}
+              variant="compact"
+            />
             <CreateMobileImButton
-            buildingId={id}
-            areaSignal={building.area_signal ?? undefined}
-            assetType={building.asset_type ?? undefined}
-            priceBand={building.price_band ?? undefined}
-            sizeSignal={building.size_signal ?? undefined}
-            vacancySignal={building.vacancy_signal ?? undefined}
-            fitSummary={building.fit_summary ?? undefined}
-            cautionSummary={building.caution_summary ?? undefined}
-            existingPhotoUrls={photoUrls}
-            initialAddress={extractedAddress}
-            currentGrade={currentGrade}
-          />
+              buildingId={id}
+              hasBasicIM={hasBasicIM}
+              areaSignal={building.area_signal ?? undefined}
+              assetType={building.asset_type ?? undefined}
+              priceBand={building.price_band ?? undefined}
+              sizeSignal={building.size_signal ?? undefined}
+              vacancySignal={building.vacancy_signal ?? undefined}
+              fitSummary={building.fit_summary ?? undefined}
+              cautionSummary={building.caution_summary ?? undefined}
+              existingPhotoUrls={photoUrls}
+              initialAddress={extractedAddress}
+              currentGrade={currentGrade}
+            />
           </div>
         </div>
         <BrokerBottomNav />

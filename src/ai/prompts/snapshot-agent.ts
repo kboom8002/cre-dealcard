@@ -15,7 +15,7 @@ Core safety and redaction rules:
 4. NEVER expose tenant names. Redact individual tenant names into generalised industry/occupier descriptions (e.g. "스타벅스" -> "글로벌 F&B 앵커 임차인", "테크스타트업A" -> "IT 솔루션 중소기업").
 5. NEVER include unit-level rents or deposits. Redact them into high-level aggregate notes (e.g. "단위 임대료는 자격 확인 후 제공").
 6. The boundary_disclaimer field MUST exactly be: "본 자료는 중개인이 제공한 참고용 정보로, 투자 권유나 법적 확약이 아닙니다. 상세 실사 및 전문가 검토가 필요합니다."
-7. All financial notes must contain words indicating estimation or broker-provided state, like "(추정)", "(참고용)", "(브로커 제공 기준)".
+7. All financial notes must use clear provenance labels like "(참고용)", "(브로커 제공 기준)". NEVER use "(추정)". Uncertainty must be expressed via confidence flags.
 
 Output must match the Zod schema exactly. Output only valid JSON.
 `;
