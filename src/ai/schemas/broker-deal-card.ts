@@ -20,7 +20,21 @@ export const MemoParserOutputSchema = z.object({
     unitRentTexts: z.array(z.string()).default([]),
     sellerMotivationText: z.string().nullable().default(null),
     brokerNotes: z.array(z.string()).default([]),
+    hospitalitySignals: z.object({
+      roomCount: z.number().nullable().default(null),
+      adr: z.number().nullable().default(null),         // 만원/박
+      occupancyRate: z.number().nullable().default(null), // %
+      gopMargin: z.number().nullable().default(null),     // %
+      operatingModel: z.string().nullable().default(null),
+    }).default({
+      roomCount: null,
+      adr: null,
+      occupancyRate: null,
+      gopMargin: null,
+      operatingModel: null,
+    }),
   }),
+
   detectedSensitiveFields: z.array(
     z.enum([
       "exact_address",

@@ -34,8 +34,24 @@ export async function DealPredictionSection({
     .limit(1)
     .maybeSingle();
 
-  // 데이터가 하나도 없으면 렌더하지 않음
-  if (!pricePred && !convPred) return null;
+  // 데이터가 없으면 안내 카드 렌더링
+  if (!pricePred && !convPred) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+        <h2 className="text-sm font-bold flex items-center gap-2 text-foreground">
+          <span>📊</span> AI 딜 성공 확률 & 적정가 분석
+        </h2>
+        <div className="rounded-lg bg-muted/40 p-4 text-center space-y-2 border border-border/50">
+          <p className="text-xs text-muted-foreground">
+            매물 특성 기반 AI 적정 거래가 및 전환 확률 분석 모델이 가동 준비 중입니다.
+          </p>
+          <span className="inline-flex items-center text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">
+            온톨로지 예측 엔진 v1.0
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   const probPercent = convPred
     ? Math.round(convPred.conversion_probability * 100)

@@ -58,10 +58,18 @@ export const MEMO_PARSER_USER_TEMPLATE = `다음 중개사 메모를 구조화�
 
 ## 지시사항
 Required output JSON keys:
-- "extractedFacts": { "region": string, "exactAddressCandidate": string, "assetType": string, "priceText": string, "sizeText": string, "currentUse": string, "leaseSignal": string, "vacancySignal": string, "tenantNames": array, "unitRentTexts": array, "sellerMotivationText": string, "brokerNotes": array }
+- "extractedFacts": { "region": string, "exactAddressCandidate": string, "assetType": string, "priceText": string, "sizeText": string, "currentUse": string, "leaseSignal": string, "vacancySignal": string, "tenantNames": array, "unitRentTexts": array, "sellerMotivationText": string, "brokerNotes": array, "hospitalitySignals": { "roomCount": number|null, "adr": number|null, "occupancyRate": number|null, "gopMargin": number|null, "operatingModel": string|null } }
 - "detectedSensitiveFields": 민감 정보 필드 배열 (반드시 다음 중 선택: "exact_address", "tenant_name", "unit_rent", "seller_motivation", "negotiation_memo", "owner_identity", "buyer_identity")
 - "ambiguousFields": 모호한 정보 배열
 - "warnings": 주의사항 배열
+
+[운영형 매물 키워드 추출]
+다음 키워드가 감지되면 extractedFacts.hospitalitySignals에 추출하세요:
+- "객실", "룸", "실" + 숫자 → roomCount
+- "ADR", "일평균", "객단가" + 숫자 → adr (만원)
+- "OCC", "점유율", "가동률" + 숫자 → occupancyRate (%)
+- "GOP", "영업이익률" + 숫자 → gopMargin (%)
+- "위탁운영", "직영", "프랜차이즈", "임대운영" → operatingModel
 
 JSON으로 응답해주세요.`;
 
@@ -205,15 +213,13 @@ JSON 키별 작성 요령:
 
 ### v3 구조화 필드 (반드시 포함)
 - "hookCopy": 매수자 투자 결정 트리거 1문장. 50자 이내.
-  · 형식: "{핵심 투자 논거} · {차별화 장점}"
-  · 매수자가 "이 매물을 왜 봐야 하는가?"에 답하는 문장.
-  · 아키타입별 소구:
-    · 안정 수익형: 임차 안정성+수익률 (예: "의원 장기임차 만실 · 연 수익률 4%대 안정형")
-    · 밸류애드형: 증축/리모델링 ROI (예: "용적률 여유 100%p+ · 리모델링 후 수익률 상승 여력")
-    · 개발 사이트: 토지+개발 포텐셜 (예: "대지 400평+ · 상업지역 개발 적지")
-    · 일반: 입지+운영현황 (예: "대로변 코너 가시성 · 전 층 임대 운영 중")
-  · BAD: "신사역 인근 이면 코너 입지 · 공원 인접 노후 상업용 건물" (단점 '노후' 노출)
-  · GOOD: "대로변 코너 가시성 · 의원 장기임차 안정 수익" (매력만 전달)
+  · [톤앤매너 규칙 — 사실 기술형]
+  · 형용사/감정/마케팅 과장 표현 절대 금지 ("놓치면 후회", "황금 입지", "안정적인 기회", "최고의", "놀라운" 등 사용 시 반려)
+  · 구체적인 사실 키워드만 " · " (가운뎃점) 구분자로 나열
+  · 구성: {운영/임차 상태} · {도로/교통 입지} · {권역 및 주요 특징}
+  · GOOD 예시: "만실 운영 중 · 대로변 · 역삼역 3분"
+  · GOOD 예시: "의료 임차 90% · 공실 없음 · 5%대"
+  · BAD 예시: "놓치면 후회할 황금 입지 · 안정적 수익의 기회"
   · "노후", "추정", "또는" 단어 절대 사용 금지.
 
 - "regionLabel": 권역 라벨만 (예: "역삼권", "성수권", "천안 동남권역"). 절대로 동·번지 노출 금지.

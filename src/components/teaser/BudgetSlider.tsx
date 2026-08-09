@@ -13,8 +13,9 @@ interface BudgetSliderProps {
 
 export function BudgetSlider({ defaultBudgetEok, maxBudgetEok, teaserConfigId, posture = 'income', sliderAxis2Config }: BudgetSliderProps) {
   const [budget, setBudget] = useState(defaultBudgetEok);
+  const [isOpen, setIsOpen] = useState(false);
   
-  const defaultAxis2 = sliderAxis2Config?.min ?? 30;
+  const defaultAxis2 = sliderAxis2Config?.min ?? 50;
   const [axis2, setAxis2] = useState(defaultAxis2);
 
   const axis2Config = sliderAxis2Config || { label: '대출활용 LTV', min: 0, max: 80, step: 5, unit: '%' };
@@ -28,102 +29,91 @@ export function BudgetSlider({ defaultBudgetEok, maxBudgetEok, teaserConfigId, p
     return () => clearTimeout(handler);
   }, [budget, axis2, teaserConfigId]);
 
-  let equityStr = '';
-  let estimatedValueStr = '';
-  let estimatedLabel = '참고 결과';
-
-  if (posture === 'development') {
-    equityStr = `${Math.round(budget * 0.5)}~${Math.round(budget * 0.7)}억 내외`;
-    estimatedLabel = '예상 연면적';
-    estimatedValueStr = `${Math.round((budget / 10) * (axis2 / 100))}평 내외`;
-  } else if (posture === 'owner_occupied') {
-    equityStr = `${Math.round(budget * 0.3)}~${Math.round(budget * 0.4)}억 내외`;
-    estimatedLabel = '총 예산 필요액';
-    estimatedValueStr = `${Math.round(axis2 * 1.5)}~${Math.round(axis2 * 2.5)}억 내외`;
-  } else {
-    // income, operating, trading
-    const ltv = axis2;
-    const equity = Math.round(budget * (1 - ltv / 100));
-    equityStr = `${Math.max(0, equity - 5)}~${equity + 5}억 내외`;
-    estimatedLabel = '참고 수익률';
-    const cap = (3.5 + (ltv * 0.02)).toFixed(1);
-    estimatedValueStr = `${(Number(cap) - 0.2).toFixed(1)}~${(Number(cap) + 0.2).toFixed(1)}%대`;
-  }
+  const ltv = axis2;
+  const equity = Math.round(budget * (1 - ltv / 100));
+  const equityStr = `약 ${Math.max(0, equity)}억원`;
+  const cap = (3.5 + (ltv * 0.02)).toFixed(1);
+  const estimatedValueStr = `${(Number(cap) - 0.2).toFixed(1)}~${(Number(cap) + 0.2).toFixed(1)}%대`;
 
   return (
-    <div className="bg-[#141A21] border border-[#252E39] rounded-2xl p-5 space-y-5">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-bold text-white">💰 투자 예산 시뮬레이터</h3>
+    <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 text-slate-100 shadow-xl space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-base font-bold text-amber-300 flex items-center gap-1.5">
+          <span>💰</span> 투자 수익률 시뮬레이터
+        </h3>
+        <span className="text-xs px-2 py-0.5 rounded bg-amber-400/10 text-amber-300 font-semibold border border-amber-400/20">
+          임대수익형
+        </span>
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <div className="flex justify-between text-xs mb-2">
-            <span className="text-slate-400">예산 상한</span>
-            <div className="flex items-center gap-2">
+      {/* Result First Area */}
+      <div className="rounded-xl bg-slate-850 border border-slate-800 p-3.5 space-y-2">
+        <div className="flex justify-between items-baseline text-xs text-slate-400">
+          <span>가정 실투자금 (자기자본)</span>
+          <span className="text-sm font-bold text-emerald-300">{equityStr}</span>
+        </div>
+
+        <div className="flex justify-between items-baseline text-xs text-slate-400">
+          <span>참고 수익률 (LTV {ltv}% 가정)</span>
+          <span className="text-base font-extrabold text-amber-300">
+            {estimatedValueStr}
+          </span>
+        </div>
+
+        <div className="pt-2 border-t border-slate-800/80">
+          <p className="text-[10px] text-slate-500 text-center">
+            ※ 본 시뮬레이션은 참고 범위이며, 실제 대출 금리 및 한도는 금융기관 심사에 따릅니다.
+          </p>
+        </div>
+      </div>
+
+      {/* Collapsible Slider Inputs */}
+      <div className="border-t border-slate-800 pt-2">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="w-full flex items-center justify-between text-xs font-semibold text-slate-400 hover:text-slate-200 py-1 transition-colors"
+        >
+          <span>⚙️ 조건 변경하기</span>
+          <span>{isOpen ? "▲ 접기" : "▼ 펼치기"}</span>
+        </button>
+
+        {isOpen && (
+          <div className="pt-3 space-y-3.5 text-xs">
+            <div>
+              <div className="flex justify-between mb-1 text-slate-300 font-medium">
+                <span>총 투자 예산</span>
+                <span className="text-amber-300 font-bold">{budget}억원</span>
+              </div>
               <input
-                type="number"
+                type="range"
+                min="10"
+                max={maxBudgetEok}
+                step="10"
                 value={budget}
                 onChange={(e) => setBudget(Number(e.target.value))}
-                className="bg-transparent border border-[#252E39] rounded px-2 py-0.5 text-white w-16 text-right"
+                className="w-full accent-amber-400 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
               />
-              <span className="text-white font-medium">억</span>
             </div>
-          </div>
-          <input
-            type="range"
-            min="10"
-            max={maxBudgetEok}
-            step="10"
-            value={budget}
-            onChange={(e) => setBudget(Number(e.target.value))}
-            className="w-full accent-amber-500"
-          />
-        </div>
 
-        <div>
-          <div className="flex justify-between text-xs mb-2">
-            <span className="text-slate-400">{axis2Config.label}</span>
-            <div className="flex items-center gap-2">
+            <div>
+              <div className="flex justify-between mb-1 text-slate-300 font-medium">
+                <span>{axis2Config.label}</span>
+                <span className="text-teal-300 font-bold">{axis2}{axis2Config.unit}</span>
+              </div>
               <input
-                type="number"
+                type="range"
+                min={axis2Config.min}
+                max={axis2Config.max}
+                step={axis2Config.step}
                 value={axis2}
                 onChange={(e) => setAxis2(Number(e.target.value))}
-                className="bg-transparent border border-[#252E39] rounded px-2 py-0.5 text-white w-16 text-right"
+                className="w-full accent-teal-400 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
               />
-              <span className="text-white font-medium">{axis2Config.unit}</span>
             </div>
           </div>
-          <input
-            type="range"
-            min={axis2Config.min}
-            max={axis2Config.max}
-            step={axis2Config.step}
-            value={axis2}
-            onChange={(e) => setAxis2(Number(e.target.value))}
-            className="w-full accent-amber-500"
-          />
-        </div>
+        )}
       </div>
-
-      <div className="bg-[#0b0f19] rounded-xl p-4 border border-[#252E39] space-y-3 mt-4">
-        <div className="flex justify-between items-center">
-          <span className="text-[11px] text-slate-400 flex items-center gap-1">
-            <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[9px]">⚙ 가정</span> 실투자금
-          </span>
-          <span className="text-sm font-bold text-emerald-400">{equityStr}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-[11px] text-slate-400 flex items-center gap-1">
-            <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[9px]">⚙ 가정</span> {estimatedLabel}
-          </span>
-          <span className="text-sm font-bold text-white">{estimatedValueStr}</span>
-        </div>
-      </div>
-
-      <p className="text-[10px] text-slate-500 text-center">
-        ※ 일반적 조건 가정 시 참고 범위이며, 실제 한도·금리는 금융기관 심사에 따릅니다.
-      </p>
     </div>
   );
 }
+

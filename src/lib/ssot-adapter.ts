@@ -60,6 +60,13 @@ export function buildAttrsFromSsotLite(
     vacancyReservePct: layers?.financial_assumptions?.vacancy_reserve_pct ?? 5,
     loanAmountKrw: (leaseSummary?.loan_amount_manwon ?? 0) * 10000,
     totalDepositKrw: (leaseSummary?.total_deposit_manwon ?? 0) * 10000,
+    loanStatus: layers?.financial?.loanStatus || leaseSummary?.loan_status || null,
+
+    // Pack slots & market benchmark
+    hospitalitySpec: layers?.pack_slots?.HospitalitySpec || layers?.hospitality_spec || null,
+    comparableAvgPricePerPyung: layers?.comparable_avg_per_pyung || null,
+    sigungu: layers?.location?.sigungu || null,
+
 
     // ── Category-level filled markers for grade-engine NEW_WEIGHTS ──
     // grade-engine iterates baseWeights keys (lease_roll, building_basic, ...)

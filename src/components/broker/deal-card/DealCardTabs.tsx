@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 type TabKey = 'overview' | 'im' | 'buyers' | 'analytics';
 
@@ -58,15 +58,15 @@ export function DealCardTabs({
               activeTab === tab.key ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            <span className="flex items-center justify-center gap-1.5">
+            <span className="flex items-center justify-center gap-1">
               <span>{tab.icon}</span>
               <span>{tab.label}</span>
               {tab.key === 'buyers' && buyersBadge && buyersBadge.count > 0 && (
-                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-extrabold ${
                   buyersBadge.topGrade === 'S' 
-                    ? 'bg-purple-600 text-white shadow-sm shadow-purple-500/50' 
+                    ? 'bg-grade-s text-white shadow-sm shadow-purple-500/40' 
                     : buyersBadge.topGrade === 'A'
-                    ? 'bg-emerald-600 text-white'
+                    ? 'bg-grade-a text-white shadow-sm'
                     : 'bg-muted text-muted-foreground'
                 }`}>
                   {buyersBadge.topGrade ? `${buyersBadge.topGrade}·${buyersBadge.count}` : buyersBadge.count}
@@ -82,7 +82,17 @@ export function DealCardTabs({
           </button>
         ))}
       </div>
-      <div className="animate-fadeIn">{contentMap[activeTab]}</div>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+        >
+          {contentMap[activeTab]}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

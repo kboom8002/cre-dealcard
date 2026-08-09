@@ -35,7 +35,7 @@ export function AiMatchCtaButton({ buildingId, matchCount, topGrade }: AiMatchCt
       id="cta-trigger-ai-match"
       className={`flex items-center justify-center gap-1.5 w-full rounded-xl text-white py-3 px-3 text-xs sm:text-sm font-bold shadow-md active:scale-[0.98] transition-all ${
         hasHighGrade
-          ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-800 shadow-purple-500/30 animate-pulse ring-2 ring-purple-400/50'
+          ? 'bg-gradient-to-r from-grade-s via-indigo-600 to-grade-s hover:from-purple-700 hover:to-indigo-800 shadow-purple-500/30 animate-pulse [animation-iteration-count:3] ring-2 ring-purple-400/50'
           : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-purple-500/20'
       }`}
     >

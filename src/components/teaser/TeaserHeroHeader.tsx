@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArchetypeBadge } from '@/components/badges/ArchetypeBadge';
+import { filterValidTiles } from '@/domain/teaser/filter-valid-tiles';
 
 interface TeaserHeroHeaderProps {
   archetype?: string;
@@ -89,15 +90,17 @@ export function TeaserHeroHeader({
 
       {/* Hook Copy (High impact headline) */}
       {hookCopy && (
-        <h1 className="relative z-10 text-[20px] font-bold text-white leading-snug tracking-tight font-serif drop-shadow-sm">
+        <h1 className="relative z-10 text-2xl font-bold text-white leading-snug tracking-tight font-serif drop-shadow-sm">
           {hookCopy}
         </h1>
       )}
 
       {/* 4-Tile Metrics Grid with Glassmorphism */}
-      {postureHeroTiles && postureHeroTiles.length > 0 && (
-        <div className="relative z-10 grid grid-cols-2 gap-2.5 pt-2">
-          {postureHeroTiles.map((tile, i) => (
+      {(() => {
+        const validTiles = postureHeroTiles ? filterValidTiles(postureHeroTiles) : [];
+        return validTiles.length > 0 ? (
+          <div className="relative z-10 grid grid-cols-2 gap-2.5 pt-2">
+            {validTiles.map((tile, i) => (
             <div 
               key={i}
               className={`p-3 rounded-xl border transition-all ${
@@ -115,8 +118,9 @@ export function TeaserHeroHeader({
               </div>
             </div>
           ))}
-        </div>
-      )}
+          </div>
+        ) : null;
+      })()}
     </div>
   );
 }

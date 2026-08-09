@@ -1,15 +1,9 @@
-/**
- * GET /api/og/deal/[id]/card
- *
- * Generates a full-page 9:16 mobile teaser card PNG (1080×1920).
- * Designed to be shared directly in KakaoTalk chat rooms for users who don't click links.
- * Includes dynamic QR code for smooth NDA/Gate conversion via mobile camera scan.
- */
 import { ImageResponse } from "next/og";
 import QRCode from "qrcode";
 import { createServiceClient } from "@/lib/supabase/service";
 import { readWithMigration, buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
 import { projectToTeaser } from "@/domain/deal/teaser/teaser-projector";
+import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
 
 export const runtime = "nodejs";
 
@@ -66,17 +60,15 @@ export async function GET(
   const hookCopy = imBody.hookCopy || teaserView.hookCopy || `${teaserView.region} 핵심 상업용 빌딩`;
   const posture = teaserView.posture || "income";
   const postureLabel = teaserView.postureLabel || "임대수익형";
-  const heroTiles = teaserView.postureHeroTiles || [
+
+  const rawTiles = teaserView.postureHeroTiles || [
     { emoji: "💰", label: "매각가", value: teaserView.bandedPrice || "가격 협의" },
-    { emoji: "📊", label: "예상 수익률", value: teaserView.bandedCapRate || "수익률 검토" },
-    { emoji: "📐", label: "규모", value: teaserView.bandedArea || "면적 확인 중" },
-    { emoji: "🏠", label: "명도/공실", value: teaserView.vacancyLabel || "입주 협의" },
+    { emoji: "📍", label: "권역", value: teaserView.region },
   ];
+  const heroTiles = filterValidTiles(rawTiles).slice(0, 4);
 
   const dealPoints = imBody.dealPoints || [
-    "대로변 코너에 위치한 가시성 최상급 자산",
-    "리모델링 및 용도변경을 통한 Value-add 여력 풍부",
-    "안정적 임차 구성 및 우수한 접근성"
+    teaserView.highlightText || "안정적 임차 구성 및 우수한 접근성"
   ];
 
   // Generate QR Code Data URL
@@ -288,7 +280,7 @@ export async function GET(
             💎 투자 핵심 포인트 (Deal Points)
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            {dealPoints.slice(0, 3).map((point: string, i: number) => (
+            {dealPoints.slice(0, 2).map((point: string, i: number) => (
               <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "14px" }}>
                 <span style={{ fontSize: "30px", color: accentColor }}>•</span>
                 <span style={{ fontSize: "30px", fontWeight: 600, color: "#E7ECF2", lineHeight: 1.4 }}>
@@ -348,3 +340,4 @@ export async function GET(
     },
   });
 }
+

@@ -106,6 +106,15 @@ export function ImDataBottomSheet({
   const [distanceToIc, setDistanceToIc] = useState<string>("");
   const [icName, setIcName] = useState<string>("");
 
+  // ── 운영형 (호텔/모텔/펜션) 필드 state ──
+  const [roomCount, setRoomCount] = useState<string>("");
+  const [averageDailyRate, setAverageDailyRate] = useState<string>(""); // ADR (만원/박)
+  const [occupancyRate, setOccupancyRate] = useState<string>(""); // OCC (%)
+  const [gopMargin, setGopMargin] = useState<string>(""); // GOP (%)
+  const [operatingModel, setOperatingModel] = useState<string>("self");
+  const [operatingEntity, setOperatingEntity] = useState<string>("");
+
+
   // Address search states
   const [searchKeyword, setSearchKeyword] = useState(initialAddress || "");
   const [searchResults, setSearchResults] = useState<AddressResult[]>([]);
@@ -263,6 +272,18 @@ export function ImDataBottomSheet({
         ic_name: icName || undefined,
       } : undefined;
 
+      const isHospitality = ['hotel', 'resort', 'motel', 'pension', 'guest_house'].some(
+        type => assetType?.toLowerCase().includes(type) || assetType?.includes('호텔')
+      );
+      const hospitalitySpec = isHospitality ? {
+        totalRoomCount: roomCount ? parseInt(roomCount) : undefined,
+        averageDailyRate: averageDailyRate ? parseFloat(averageDailyRate) : undefined,
+        occupancyRate: occupancyRate ? parseFloat(occupancyRate) : undefined,
+        gopMargin: gopMargin ? parseFloat(gopMargin) : undefined,
+        operatingModel,
+        operatingEntity: operatingEntity || undefined,
+      } : undefined;
+
       const requestBody = {
         building_id: buildingId,
         vacancy_status: vacancySignal,
@@ -282,6 +303,7 @@ export function ImDataBottomSheet({
         photo_captions: Object.keys(photoCaptions).length > 0 ? photoCaptions : undefined,
         floor_leases: floorLeases.length > 0 ? floorLeases : undefined,
         logistics,
+        hospitalitySpec,
         tier: targetTier,
       };
 
@@ -725,6 +747,60 @@ export function ImDataBottomSheet({
                 <span className="text-[10px] text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
               )}
             </div>
+            )}
+
+            {/* 🏨 운영형 (호텔/모텔/펜션) 전용 필드 */}
+            {['hotel', 'resort', 'motel', 'pension', 'guest_house'].some(
+              t => assetType?.toLowerCase().includes(t) || assetType?.includes('호텔')
+            ) && (
+              <div className="col-span-2 mt-3 border-t border-amber-500/30 pt-4 bg-amber-500/5 p-3.5 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-amber-300">🏨 운영형 (숙박/호텔) 매물 상세 정보</label>
+                  <span className="text-[10px] text-amber-400/80 font-medium">위젯 자동 시뮬레이션에 활용</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">총 객실 수</label>
+                    <input
+                      type="number"
+                      placeholder="예: 45"
+                      value={roomCount}
+                      onChange={(e) => setRoomCount(e.target.value)}
+                      className="w-full bg-secondary/50 border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">평균 객단가 (ADR)</label>
+                    <input
+                      type="number"
+                      placeholder="예: 12 (만원)"
+                      value={averageDailyRate}
+                      onChange={(e) => setAverageDailyRate(e.target.value)}
+                      className="w-full bg-secondary/50 border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">객실 점유율 (OCC)</label>
+                    <input
+                      type="number"
+                      placeholder="예: 75 (%)"
+                      value={occupancyRate}
+                      onChange={(e) => setOccupancyRate(e.target.value)}
+                      className="w-full bg-secondary/50 border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">GOP 마진율</label>
+                    <input
+                      type="number"
+                      placeholder="예: 30 (%)"
+                      value={gopMargin}
+                      onChange={(e) => setGopMargin(e.target.value)}
+                      className="w-full bg-secondary/50 border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+                    />
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* 부가수입 섹션 */}
@@ -1183,6 +1259,32 @@ export function ImDataBottomSheet({
                 style={{ width: `${currentDataGrade === 'A' ? 100 : currentDataGrade === 'B' ? 75 : currentDataGrade === 'C' ? 50 : readinessScore}%` }}
               />
             </div>
+            {/* 포스처별 누락 필드 안내 */}
+            {(() => {
+              const isHospitality = ['hotel', 'resort', 'motel', 'pension', 'guest_house', '호텔', '리조트', '모텔', '펜션'].some(t => assetType?.toLowerCase()?.includes(t));
+              const isDev = ['토지', '나대지', 'land', '개발'].some(t => assetType?.toLowerCase()?.includes(t));
+              const isOwnerOcc = ['사옥', '자가사용', 'owner'].some(t => assetType?.toLowerCase()?.includes(t));
+
+              let hint = '';
+              if (isHospitality && !roomCount && !averageDailyRate) {
+                hint = '💡 객실 수/ADR/OCC를 입력하면 운영 수익 시뮬레이터가 활성화됩니다';
+              } else if (isDev) {
+                hint = '💡 주소를 입력하면 건축물대장에서 용적률 여유가 자동 계산됩니다';
+              } else if (isOwnerOcc) {
+                hint = '💡 현재 공실/가용 면적을 입력하면 사옥 매수 비교기가 활성화됩니다';
+              } else if (!monthlyRent && !totalDeposit) {
+                hint = '💡 렌트롤(임대료/보증금)을 입력하면 딜카드에 수익률이 표시됩니다';
+              } else if (!askingPrice) {
+                hint = '💡 매각가를 입력하면 권역 실거래가 대비 시세 비교가 활성화됩니다';
+              }
+
+              if (!hint) return null;
+              return (
+                <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-700/40 rounded-lg p-2.5 mb-2">
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium">{hint}</p>
+                </div>
+              );
+            })()}
             {gradeUpItems && gradeUpItems.length > 0 && (
               <div className="space-y-1 mt-2">
                 <p className="text-[10px] text-muted-foreground font-medium">등급 업을 위해 필요한 항목:</p>

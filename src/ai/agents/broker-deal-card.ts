@@ -128,6 +128,13 @@ export async function runBrokerDealCard(
         unitRentTexts: Array.isArray(rawFacts.unitRentTexts || rawFacts.unit_rent_texts) ? (rawFacts.unitRentTexts || rawFacts.unit_rent_texts) as string[] : [],
         sellerMotivationText: rawFacts.sellerMotivationText != null ? String(rawFacts.sellerMotivationText) : (rawFacts.seller_motivation_text != null ? String(rawFacts.seller_motivation_text) : null),
         brokerNotes: Array.isArray(rawFacts.brokerNotes || rawFacts.broker_notes) ? (rawFacts.brokerNotes || rawFacts.broker_notes) as string[] : [],
+        hospitalitySignals: (rawFacts.hospitalitySignals || rawFacts.hospitality_signals || {
+          roomCount: null,
+          adr: null,
+          occupancyRate: null,
+          gopMargin: null,
+          operatingModel: null,
+        }) as any,
       },
       detectedSensitiveFields: Array.isArray(parsedMemoObj.detectedSensitiveFields || parsedMemoObj.detected_sensitive_fields)
         ? ((parsedMemoObj.detectedSensitiveFields || parsedMemoObj.detected_sensitive_fields) as string[]).filter(f => ["exact_address", "tenant_name", "unit_rent", "seller_motivation", "negotiation_memo", "owner_identity", "buyer_identity"].includes(f)) as MemoParserOutput["detectedSensitiveFields"]

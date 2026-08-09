@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import type { IdealBuyerPersonasOutput } from "@/ai/schemas/ideal-buyer-persona";
+import { personaToVirtualIntent } from "@/domain/matching/persona-to-intent";
 
 interface IdealBuyerPersonaSectionProps {
   buildingId: string;
@@ -42,17 +45,41 @@ export function IdealBuyerPersonaSection({
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
-  // Load from local storage on mount
+  // Load from DB first, fallback to localStorage
   useEffect(() => {
-    const cached = localStorage.getItem(`ideal_personas_${buildingId}`);
-    if (cached) {
+    let cancelled = false;
+    async function loadPersonas() {
       try {
-        setPersonas(JSON.parse(cached));
+        const res = await fetch(`/api/broker/deal-card/${buildingId}/personas`);
+        if (res.ok) {
+          const json = await res.json();
+          if (!cancelled && json.success && json.data) {
+            setPersonas(json.data);
+            // Sync localStorage with DB data
+            localStorage.setItem(`ideal_personas_${buildingId}`, JSON.stringify(json.data));
+            return;
+          }
+        }
       } catch (e) {
-        console.error("Failed to parse cached personas:", e);
+        // DB fetch failed, try localStorage fallback
+      }
+
+      // Fallback: localStorage
+      if (!cancelled) {
+        const cached = localStorage.getItem(`ideal_personas_${buildingId}`);
+        if (cached) {
+          try {
+            setPersonas(JSON.parse(cached));
+          } catch (e) {
+            console.error("Failed to parse cached personas:", e);
+          }
+        }
       }
     }
+    loadPersonas();
+    return () => { cancelled = true; };
   }, [buildingId]);
 
   // Loading animation simulation
@@ -96,6 +123,13 @@ export function IdealBuyerPersonaSection({
 
       setPersonas(json.data);
       localStorage.setItem(`ideal_personas_${buildingId}`, JSON.stringify(json.data));
+
+      // Persist to DB (fire-and-forget, non-blocking)
+      fetch(`/api/broker/deal-card/${buildingId}/personas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personasData: json.data }),
+      }).catch((e) => console.error("DB persona save failed:", e));
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "페르소나 생성 중 오류가 발생했습니다.");
@@ -104,9 +138,14 @@ export function IdealBuyerPersonaSection({
     }
   };
 
-  const handleClearCache = () => {
+  const handleClearCache = async () => {
     localStorage.removeItem(`ideal_personas_${buildingId}`);
     setPersonas(null);
+
+    // Delete from DB (fire-and-forget)
+    fetch(`/api/broker/deal-card/${buildingId}/personas`, {
+      method: "DELETE",
+    }).catch((e) => console.error("DB persona delete failed:", e));
   };
 
   // Profile icon & style mappings
@@ -279,21 +318,24 @@ export function IdealBuyerPersonaSection({
                     <button
                       onClick={async () => {
                         try {
+                          const virtualIntent = personaToVirtualIntent(persona, areaSignal, assetType);
+                          const memoText = `[가상 페르소나 매수자] ${virtualIntent.sourcePersonaLabel}\n유형: ${virtualIntent.buyerType}\n예산: ${virtualIntent.budgetRange.display}\n선호지역: ${virtualIntent.preferredRegions.join(', ')}\n선호자산: ${virtualIntent.assetTypes.join(', ')}\n목적: ${virtualIntent.purchasePurpose}\n투자관점: ${virtualIntent.investmentPosture ?? '미지정'}\n필수조건: ${virtualIntent.mustHave.join(', ')}\n우대조건: ${virtualIntent.niceToHave.join(', ')}`;
                           const res = await fetch("/api/broker/buyer-intents/from-memo", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
-                              memoText: `[가상 페르소나 매수자] ${persona.label}\n유형: ${persona.buyerType}\n예산: ${persona.budgetRange}\n선호지역: ${areaSignal}\n선호자산: ${assetType}\n목적: ${persona.motivation}\n필수조건: ${persona.coreNeeds.join(', ')}`,
+                              memoText,
                               buildingSsotLiteId: buildingId,
                             }),
                           });
                           if (res.ok) {
-                            alert(`🎯 [${persona.label}] 매수자 의향이 가상 등록되었습니다. 하단 '매수자 스코어카드를 확인하세요.`);
+                            toast.success(`🎯 [${persona.label}] 매수자 의향이 가상 등록되었습니다.`);
+                            router.refresh();
                           } else {
-                            alert("가상 의향 등록 중 오류가 발생했습니다.");
+                            toast.error("가상 의향 등록 중 오류가 발생했습니다.");
                           }
                         } catch (e) {
-                          alert("오류가 발생했습니다.");
+                          toast.error("오류가 발생했습니다.");
                         }
                       }}
                       className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 py-2 px-3 text-xs font-bold hover:bg-primary/20 active:scale-[0.99] transition-all"

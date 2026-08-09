@@ -31,6 +31,10 @@ const PATTERNS: { key: string; regex: RegExp; type: 'number' | 'string' }[] = [
   { key: 'assetType', regex: /(?:용도|건물유형|자산유형)[:\s]*([가-힣]+(?:시설|빌딩|상가|오피스|물류|창고|공장))/i, type: 'string' },
   { key: 'vacancyRatePct', regex: /(?:공실률|공실)[:\s]*([\d.]+)\s*%/i, type: 'number' },
   { key: 'capRatePct', regex: /(?:수익률|캡레이트|cap\s*rate)[:\s]*([\d.]+)\s*%/i, type: 'number' },
+  { key: 'roomCount', regex: /(?:객실|룸|실수)[:\s]*(\d+)\s*(?:실|룸|개)/i, type: 'number' },
+  { key: 'adrManwon', regex: /(?:ADR|객단가|일평균)[:\s]*([\d,.]+)\s*(?:만|원)/i, type: 'number' },
+  { key: 'occupancyRatePct', regex: /(?:OCC|점유율|가동률)[:\s]*([\d.]+)\s*%/i, type: 'number' },
+  { key: 'gopMarginPct', regex: /(?:GOP|영업이익률)[:\s]*([\d.]+)\s*%/i, type: 'number' },
 ];
 
 function parseKoreanNumber(raw: string): number {

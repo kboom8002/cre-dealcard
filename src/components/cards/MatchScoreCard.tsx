@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { MatchReasonBreakdown } from "./MatchReasonBreakdown";
 
 interface MatchScoreCardProps {
@@ -109,13 +110,13 @@ function CircularProgress({ percentage, colorClass }: { percentage: number; colo
 }
 
 export function MatchScoreCard({ match, buildingId }: MatchScoreCardProps) {
-  const [isExpanded, setIsExpanded] = useState(match.grade !== "C");
+  const [isExpanded, setIsExpanded] = useState(match.grade === "S");
   const cfg = GRADE_STYLE[match.grade] || GRADE_STYLE.C;
   const intent = Array.isArray(match.buyer_intent_lite)
     ? match.buyer_intent_lite[0]
     : match.buyer_intent_lite;
 
-  const scorePercent = Math.round(match.score * 100);
+  const scorePercent = Math.round(match.score); // score is already 0-100 from engine
 
   // Extract fail reasons if stage 1 failed
   let failReasons: string[] = [];
@@ -251,7 +252,7 @@ export function MatchScoreCard({ match, buildingId }: MatchScoreCardProps) {
         {(match.grade === "S" || match.grade === "A") && (
           <div className="grid grid-cols-2 gap-2 pb-1">
             <button
-              onClick={() => alert(`📅 [${intent?.buyer_type || '매수자'}] 임장 잡기 요청이 접수되었습니다. 일정 관리 탭에서 확인하세요.`)}
+              onClick={() => toast.success(`📅 [${intent?.buyer_type || '매수자'}] 임장 잡기 요청이 접수되었습니다.`)}
               className="inline-flex items-center justify-center gap-1 rounded-lg bg-primary/10 text-primary border border-primary/20 py-1.5 px-2 text-[11px] font-bold hover:bg-primary/20 transition-all"
             >
               📅 임장 잡기

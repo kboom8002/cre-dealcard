@@ -1,11 +1,6 @@
-/**
- * @module TeaserProjector
- * @description Projects SSoT asset data into a safe teaser view.
- * Precise values never leak — all numbers are banded.
- * @see docs/credal_v3/specs/teaser.md
- */
-
-import { bandPrice, bandArea, bandCapRate, bandBuildingEra, bandFarHeadroom, bandRoadContact } from './banding';
+import { bandArea, bandCapRate, bandBuildingEra, bandFarHeadroom, bandRoadContact } from './banding';
+import { bandPriceDisplay } from '../../ontology/price-banding';
+import { filterValidTiles } from '../../teaser/filter-valid-tiles';
 import { classifyDealArchetype } from '../../deal/archetype-classifier';
 import { computeDataQualityBadge } from '../../building/mobile-im/data-quality-badge';
 
@@ -18,6 +13,7 @@ export interface TeaserView {
   buildingAge: string;
   archetype: string;
   hookCopy: string;
+  highlightText: string;
   structuralSignals: string[];
   curiositySlot: string;
   photoCount: number;
@@ -36,32 +32,39 @@ export interface TeaserView {
   urgencyTag?: 'urgent' | 'reviewing' | 'flexible';
 }
 
-
 export interface TeaserConfig {
   curiositySlotKey?: string;
   hookCopyOverride?: string;
+  priceBandingMode?: 'single' | 'range';
   bandingOverrides?: Partial<{ priceUnit: number; areaUnit: number }>;
 }
 
-/**
- * Projects an asset's precise data into a banded teaser view.
- * RULE: This function MUST NOT output any precise numeric values.
- */
 export function projectToTeaser(
   attrs: Record<string, unknown>,
   config?: TeaserConfig
 ): TeaserView {
   const price = Number(attrs.askingPriceKrw || 0);
+  const priceManwon = price > 0 ? price / 10000 : 0;
   const area = Number(attrs.totalFloorAreaPyung || 0);
   const capRate = Number(attrs.capRatePct || 0);
   const buildYear = Number(attrs.buildYear || 0);
   const currentYear = new Date().getFullYear();
   const posture = String(attrs.investmentPosture || 'income');
 
-  // Extract region (구/동 level only, never exact address)
+  // Extract sigungu & region (시군구 · 권역명)
   const address = String(attrs.address || '');
-  const regionMatch = address.match(/([\uac00-\ud7a3]+(?:\uad6c|\uc2dc|\uad70))\s*([\uac00-\ud7a3]+(?:\ub3d9|\uc74d|\uba74))?/);
-  const region = regionMatch ? `${regionMatch[1]} ${regionMatch[2] || ''}`.trim() : '서울';
+  const sigunguMatch = address.match(/(?:서울|경기|인천|부산|대구|대전|광주|울산|세종|제주|\S+특별\S*)\s*(\S+[구군시])/);
+  const sigungu = String(attrs.sigungu || sigunguMatch?.[1] || '');
+  const areaSignal = String(attrs.regionLabel || attrs.areaSignal || attrs.region || '');
+  
+  let region = '비공개 권역';
+  if (sigungu && areaSignal) {
+    region = `${sigungu} · ${areaSignal}`;
+  } else if (sigungu) {
+    region = `${sigungu} 권역`;
+  } else if (areaSignal) {
+    region = `${areaSignal}`;
+  }
 
   const assetType = String(attrs.assetType || attrs.asset_type || '상업용 건물');
   const archetype = String(attrs.archetype || 'STABLE_INCOME');
@@ -104,7 +107,7 @@ export function projectToTeaser(
   let vacancyLabel = `공실 ${vacancyPct}%`;
   if (evictionStatus) vacancyLabel += ` (${evictionStatus})`;
 
-  const bandedPrice = bandPrice(price);
+  const bandedPrice = bandPriceDisplay(priceManwon, config?.priceBandingMode || 'single');
   const bandedCapRate = bandCapRate(capRate);
   const bandedArea = bandArea(area);
 
@@ -117,7 +120,7 @@ export function projectToTeaser(
   if (posture === 'development') {
     postureLabel = '개발형';
     slot2 = { emoji: '🏗️', label: '용적률 여유', value: bandedFarHeadroom || '확인 필요' };
-    slot4 = { emoji: '🏚️', label: '현재 용도', value: attrs.currentUseSignal ? String(attrs.currentUseSignal) : '나대지' };
+    slot4 = { emoji: '🏗️', label: '현재 용도', value: attrs.currentUseSignal ? String(attrs.currentUseSignal) : '나대지' };
     curiositySlot = attrs.farHeadroomPp ? `🔒 지금보다 ${attrs.farHeadroomPp}%p 더 지을 수 있는 여유` : "🔒 추가 용적률을 확인하세요";
     sliderAxis2 = { label: '목표 용적률', min: 200, max: 800, step: 50, unit: '%' };
   } else if (posture === 'owner_occupied') {
@@ -128,16 +131,34 @@ export function projectToTeaser(
     sliderAxis2 = { label: '필요 면적', min: 50, max: 500, step: 10, unit: '평' };
   } else if (posture === 'operating') {
     postureLabel = '운영형';
-    const rc = Number(attrs.roomCount) || 0;
-    const ppr = rc > 0 ? (price / 100000000 / rc).toFixed(1) + '억' : '확인 필요';
-    slot2 = { emoji: '🛏️', label: '객실 단가', value: rc > 0 ? `${rc}실 (당 ${ppr})` : '확인 필요' };
-    slot4 = { emoji: '🧑‍💼', label: '운영 방식', value: attrs.operationType ? String(attrs.operationType) : '직영' };
-    curiositySlot = attrs.pricePerRoomEok ? `🔒 객실당 ${attrs.pricePerRoomEok}억대입니다` : "🔒 객실당 단가를 확인하세요";
+    const isHotelOrResort = ['hotel', 'resort', 'motel'].includes(assetType.toLowerCase()) || assetType.includes('호텔');
+    if (isHotelOrResort && (attrs.hospitalitySpec || attrs.roomCount)) {
+      const spec = (attrs.hospitalitySpec as Record<string, unknown>) || {};
+      const rc = Number(spec.totalRoomCount || attrs.roomCount || 0);
+      const adrManwon = Number(spec.averageDailyRate || 0);
+      const adrLabel = adrManwon > 0 ? `${adrManwon}만원/박` : '확인 필요';
+      slot2 = { emoji: '🛏️', label: '객실 단가', value: rc > 0 ? `${rc}실 (${adrLabel})` : '확인 필요' };
+      slot4 = { emoji: '🧑‍💼', label: '운영 방식', value: String(spec.operatingModel || attrs.operationType || '직영') };
+    } else {
+      // 일반 운영형 fallback -> income 스타일 타일 적용
+      slot2 = { emoji: '📊', label: '예상 수익률', value: bandedCapRate };
+      slot4 = { emoji: '🏠', label: '명도/공실', value: vacancyLabel || '정보 없음' };
+    }
+    curiositySlot = "🔒 객실/운영 효율 및 수익 구조를 확인하세요";
   } else if (posture === 'trading') {
     postureLabel = '단기매매형';
-    slot2 = { emoji: '📈', label: '평당가 (vs 평균)', value: attrs.pricePerPyung ? String(attrs.pricePerPyung) : '확인 필요' };
-    slot4 = { emoji: '🔄', label: '거래 동향', value: '거래 활발' };
-    curiositySlot = attrs.priceVsAvgPct ? `🔒 권역 평균 대비 ${attrs.priceVsAvgPct}% 수준입니다` : "🔒 권역 평균 대비 가격 경쟁력을 확인하세요";
+    const myPricePerPyung = Number(attrs.pricePerPyung || 0);
+    const avgPricePerPyung = Number(attrs.comparableAvgPricePerPyung || 0);
+    let positionLabel = '시세 수준';
+    if (myPricePerPyung > 0 && avgPricePerPyung > 0) {
+      const premiumPct = ((myPricePerPyung - avgPricePerPyung) / avgPricePerPyung) * 100;
+      if (premiumPct < -5) positionLabel = '🟢 시세 대비 경쟁력';
+      else if (premiumPct <= 10) positionLabel = '📊 권역 시세 수준';
+      else positionLabel = '📊 프리미엄 포함';
+    }
+    slot2 = { emoji: '📈', label: '시세 포지션', value: positionLabel };
+    slot4 = { emoji: '🔄', label: '거래 동향', value: '권역 거래 활발' };
+    curiositySlot = "🔒 권역 실거래 대비 가격 경쟁력을 확인하세요";
   } else {
     // income
     if (attrs.rentGapPct) {
@@ -148,6 +169,31 @@ export function projectToTeaser(
   const hookCopy = config?.hookCopyOverride || generateHookCopy(archetype, region, assetType, attrs);
   const urgencyTag = (attrs.urgencyTag || attrs.urgency_tag) as 'urgent' | 'reviewing' | 'flexible' | undefined;
 
+  // Build highlight text including loan details (CRE Point D)
+  const highlightParts: string[] = [];
+  if (hookCopy) highlightParts.push(hookCopy);
+  const loanKrw = Number(attrs.loanAmountKrw || 0);
+  if (loanKrw > 0 && price > 0) {
+    const ltv = Math.round((loanKrw / price) * 100);
+    const ltvBand = Math.round(ltv / 10) * 10;
+    const loanStatus = String(attrs.loanStatus || '승계 가능');
+    highlightParts.push(`기존 대출 ${loanStatus} (LTV ${ltvBand}%대)`);
+  }
+  const highlightText = highlightParts.join(' · ');
+
+  // Hero tiles configuration with minimum 2 valid tiles guaranteed
+  const allTiles = [
+    { emoji: '💰', label: '매각가', value: bandedPrice },
+    slot2,
+    { emoji: '📍', label: '권역', value: region },
+    slot4
+  ];
+
+  let postureHeroTiles = filterValidTiles(allTiles);
+  if (postureHeroTiles.length < 2) {
+    postureHeroTiles = allTiles.slice(0, 2);
+  }
+
   return {
     region,
     assetType,
@@ -157,6 +203,7 @@ export function projectToTeaser(
     buildingAge,
     archetype,
     hookCopy,
+    highlightText,
     structuralSignals: signals,
     curiositySlot,
     photoCount: Number(attrs.photoCount || 0),
@@ -169,18 +216,16 @@ export function projectToTeaser(
     roadContactLabel,
     posture,
     postureLabel,
-    postureHeroTiles: [
-      { emoji: '💰', label: '매각가', value: bandedPrice },
-      slot2,
-      { emoji: '📐', label: '규모', value: bandedArea },
-      slot4
-    ],
+    postureHeroTiles,
     sliderAxis2,
     urgencyTag
   };
 }
 
-
+/**
+ * Fact-based hook copy generation (CRE Point I)
+ * No marketing hype / adjectives allowed.
+ */
 function generateHookCopy(archetype: string, region: string, assetType: string, attrs: Record<string, unknown>): string {
   const use = attrs.currentUseSignal ? String(attrs.currentUseSignal) : '';
   const vacancy = Number(attrs.vacancyPct || 0);
@@ -206,7 +251,7 @@ function generateHookCopy(archetype: string, region: string, assetType: string, 
   if (archetype === 'INSTITUTIONAL_LOGI') {
     return [`${region} 기관투자 적합`, '물류센터'].filter(Boolean).join(' · ');
   }
-  // General fallback: use whatever info we have
   return [roadLabel, use ? `${use} 운영` : '', `${region} ${assetType}`].filter(Boolean).join(' · ');
 }
+
 

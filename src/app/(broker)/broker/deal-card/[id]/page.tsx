@@ -24,7 +24,6 @@ import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 
 export async function generateMetadata({ params }: DealCardResultPageProps): Promise<Metadata> {
   const { id } = await params;
-  const supabase = createServiceClient();
   const { data: _building } = await readWithMigration(id);
   const building = _building as any;
 
@@ -329,23 +328,6 @@ export default async function BrokerDealCardResultPage({
                 </div>
               )}
 
-              {/* Raw Broker Notes Summary */}
-              {building.fit_summary && (
-                <div className="rounded-xl border border-border bg-muted/40 p-5 space-y-2">
-                  <h2 className="text-xs font-semibold text-muted-foreground">
-                    📝 브로커 노트 요약
-                  </h2>
-                  <p className="text-sm text-foreground/80 leading-relaxed">
-                    {building.fit_summary}
-                  </p>
-                  {building.caution_summary && (
-                    <p className="text-xs text-muted-foreground pt-1 border-t border-border/50">
-                      ⚠️ {building.caution_summary}
-                    </p>
-                  )}
-                </div>
-              )}
-
               {/* Hidden Fields Card */}
               {hiddenFields.length > 0 && (
                 <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
@@ -362,21 +344,33 @@ export default async function BrokerDealCardResultPage({
                 </div>
               )}
               
-              {/* Unified Deal Card Editor */}
-              <DealCardEditor
-                buildingId={id}
-                initialTitle={title}
-                initialSummary={shortSummary}
-                initialDealPoints={dealPoints}
-                initialCautionPoints={cautionPoints}
-                initialKakaoText={kakaoText}
-                initialOgTitle={teaser?.ogTitle || ""}
-                initialOgDescription={teaser?.ogDescription || ""}
-                initialHookCopy={teaser?.hookCopy || ""}
-                initialStructureChips={teaser?.structureChips || []}
-                initialVacancyLabel={teaser?.vacancyLabel || ""}
-                initialCuriosityHook={teaser?.curiosityHook || ""}
-              />
+              {/* Unified Deal Card Editor (Collapsible) */}
+              <details className="group rounded-xl border border-border bg-card shadow-sm overflow-hidden transition-all">
+                <summary className="flex items-center justify-between p-4 cursor-pointer select-none font-bold text-sm text-foreground hover:bg-muted/40 transition-colors">
+                  <span className="flex items-center gap-2">
+                    <span>✏️</span> 딜카드 문구 & OG 공유 정보 편집
+                  </span>
+                  <span className="text-xs text-muted-foreground group-open:rotate-180 transition-transform duration-200">
+                    ▼
+                  </span>
+                </summary>
+                <div className="p-4 pt-0 border-t border-border/40">
+                  <DealCardEditor
+                    buildingId={id}
+                    initialTitle={title}
+                    initialSummary={shortSummary}
+                    initialDealPoints={dealPoints}
+                    initialCautionPoints={cautionPoints}
+                    initialKakaoText={kakaoText}
+                    initialOgTitle={teaser?.ogTitle || ""}
+                    initialOgDescription={teaser?.ogDescription || ""}
+                    initialHookCopy={teaser?.hookCopy || ""}
+                    initialStructureChips={teaser?.structureChips || []}
+                    initialVacancyLabel={teaser?.vacancyLabel || ""}
+                    initialCuriosityHook={teaser?.curiosityHook || ""}
+                  />
+                </div>
+              </details>
             </div>
           }
           imContent={
