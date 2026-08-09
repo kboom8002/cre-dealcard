@@ -7,6 +7,8 @@
  * @see SDD §8 Phase M4.5
  */
 
+import { COMMERCIAL_MORTGAGE } from '@/domain/ontology/market-defaults';
+
 export interface LoanSimulationInput {
   /** 매각 희망가 (만원) */
   askingPriceManwon: number;
@@ -16,7 +18,7 @@ export interface LoanSimulationInput {
   existingLoanManwon?: number;
   /** 보증금 총액 (만원) */
   totalDepositManwon?: number;
-  /** 대출 금리 (%, 기본값 5.0) */
+  /** 대출 금리 (%, 기본값 5.2) */
   interestRatePct?: number;
   /** 대출 기간 (년, 기본값 20) */
   loanTermYears?: number;
@@ -53,7 +55,7 @@ export function simulateLoanScenarios(input: LoanSimulationInput): LoanSimulatio
     annualNoiKrw,
     existingLoanManwon = 0,
     totalDepositManwon = 0,
-    interestRatePct = 5.0,
+    interestRatePct = COMMERCIAL_MORTGAGE.interestRatePct,
     loanTermYears = 20,
     gracePeriodYears = 3,
   } = input;

@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 
+import { ACQUISITION_COSTS } from "@/domain/ontology/market-defaults";
+
 export default function InteractiveCurationToolsPage() {
   // C5: Tax Simulator State
   const [purchasePrice, setPurchasePrice] = useState<number>(100); // 100억
@@ -10,7 +12,7 @@ export default function InteractiveCurationToolsPage() {
   const [annualRentIncome, setAnnualRentIncome] = useState<number>(4.5); // 4.5% 수익률
 
   // Calculators
-  const acquisitionTax = purchasePrice * 0.046; // 4.6% standard CRE acquisition tax
+  const acquisitionTax = purchasePrice * (ACQUISITION_COSTS.taxRatePct / 100); // 상업용 취득세율 (4.6%)
   const capitalGainsTax = purchasePrice * 0.15; // Rough estimate of tax on 3-year standard gains
   const annualYield = (purchasePrice * (annualRentIncome / 100));
 

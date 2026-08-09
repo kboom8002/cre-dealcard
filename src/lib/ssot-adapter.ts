@@ -94,6 +94,15 @@ export function buildAttrsFromSsotLite(
       || layers?.hospitality_spec?.operatingModel || null,
     floorLeases: leaseSummary?.tenants || layers?.rent_roll || null,
 
+    // Pack slots
+    physicalSpec: layers?.pack_slots?.PhysicalSpec || null,
+    developmentPlan: layers?.pack_slots?.DevelopmentPlan || null,
+    vacatePlan: layers?.pack_slots?.VacatePlan || null,
+    permitRisk: layers?.pack_slots?.PermitRisk || null,
+    occupancyPlan: layers?.pack_slots?.OccupancyPlan || null,
+    sectionalSpec: layers?.pack_slots?.SectionalSpec || null,
+    residentialSpec: layers?.pack_slots?.ResidentialSpec || null,
+
     // ── Category-level filled markers for grade-engine NEW_WEIGHTS ──
     // grade-engine iterates baseWeights keys (lease_roll, building_basic, ...)
     // and checks attrs[category] != null. Without these, score is always 0% = Grade D.
@@ -106,6 +115,7 @@ export function buildAttrsFromSsotLite(
     financial_input: (askingPriceKrw && askingPriceKrw > 0) ? true : null,
     title_encumbrance: layers?.title_encumbrance ? true : null,
     market_comp: layers?.market_comp ? true : null,
+    pack: (layers?.pack_slots && Object.keys(layers.pack_slots).length > 0) ? true : null,
   };
 }
 

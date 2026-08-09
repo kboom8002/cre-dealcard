@@ -32,6 +32,13 @@ export async function POST(req: NextRequest) {
   let tier: 'basic' | 'pro' = 'basic';
   let hospitalitySpecInput: Record<string, any> | null = null;
   let loanStatusInput: string | null = null;
+  let developmentSpecInput: Record<string, any> | null = null;
+  let vacateSpecInput: Record<string, any> | null = null;
+  let permitSpecInput: Record<string, any> | null = null;
+  let occupancySpecInput: Record<string, any> | null = null;
+  let sectionalSpecInput: Record<string, any> | null = null;
+  let residentialSpecInput: Record<string, any> | null = null;
+  let investmentPostureInput: string | null = null;
 
   try {
     const body = await req.json();
@@ -58,6 +65,13 @@ export async function POST(req: NextRequest) {
     };
     hospitalitySpecInput = body.hospitalitySpec ?? null;
     loanStatusInput = body.loan_status ?? null;
+    developmentSpecInput = body.developmentSpec ?? null;
+    vacateSpecInput = body.vacateSpec ?? null;
+    permitSpecInput = body.permitSpec ?? null;
+    occupancySpecInput = body.occupancySpec ?? null;
+    sectionalSpecInput = body.sectionalSpec ?? null;
+    residentialSpecInput = body.residentialSpec ?? null;
+    investmentPostureInput = body.investment_posture ?? null;
 
     if (!buildingId) {
       return NextResponse.json({ error: "building_id is required" }, { status: 400 });
@@ -125,15 +139,37 @@ export async function POST(req: NextRequest) {
           const existingLayers = (existing.layers ?? {}) as Record<string, any>;
           const existingLease = (existing.lease_summary ?? {}) as Record<string, any>;
 
-          // layers 패치: 물류/운영 팩슬롯, 사진, 브로커 하이라이트
+          // layers 패치: 물류/운영/개발/사옥/주거/구분소유 팩슬롯, 사진, 브로커 하이라이트
           const layersPatch: Record<string, any> = { ...existingLayers };
+          const packSlotsPatch: Record<string, any> = { ...(existingLayers.pack_slots ?? {}) };
+
           if (supplemental.floor_leases) layersPatch.rent_roll = supplemental.floor_leases;
           if (supplemental.logistics) {
-            layersPatch.pack_slots = { ...(existingLayers.pack_slots ?? {}), PhysicalSpec: supplemental.logistics };
+            packSlotsPatch.PhysicalSpec = supplemental.logistics;
           }
           if (hospitalitySpecInput) {
-            layersPatch.pack_slots = { ...(layersPatch.pack_slots ?? {}), HospitalitySpec: hospitalitySpecInput };
+            packSlotsPatch.HospitalitySpec = hospitalitySpecInput;
           }
+          if (developmentSpecInput) {
+            packSlotsPatch.DevelopmentPlan = developmentSpecInput;
+          }
+          if (vacateSpecInput) {
+            packSlotsPatch.VacatePlan = vacateSpecInput;
+          }
+          if (permitSpecInput) {
+            packSlotsPatch.PermitRisk = permitSpecInput;
+          }
+          if (occupancySpecInput) {
+            packSlotsPatch.OccupancyPlan = occupancySpecInput;
+          }
+          if (sectionalSpecInput) {
+            packSlotsPatch.SectionalSpec = sectionalSpecInput;
+          }
+          if (residentialSpecInput) {
+            packSlotsPatch.ResidentialSpec = residentialSpecInput;
+          }
+          layersPatch.pack_slots = packSlotsPatch;
+
           if (supplemental.broker_highlight) layersPatch.broker_highlight = supplemental.broker_highlight;
           if (supplemental.photo_urls?.length) layersPatch.photos = supplemental.photo_urls;
           if (supplemental.resolved_address) {
@@ -151,11 +187,16 @@ export async function POST(req: NextRequest) {
           if (supplemental.vacancy_pct != null) leasePatch.vacancy_pct = supplemental.vacancy_pct;
           if (loanStatusInput) leasePatch.loan_status = loanStatusInput;
 
-          await supabase.from("building_ssot_lite").update({
+          const updatePayload: Record<string, any> = {
             layers: layersPatch,
             lease_summary: leasePatch,
             updated_at: new Date().toISOString(),
-          }).eq("id", buildingId);
+          };
+          if (investmentPostureInput) {
+            updatePayload.investment_posture = investmentPostureInput;
+          }
+
+          await supabase.from("building_ssot_lite").update(updatePayload).eq("id", buildingId);
         }
       } catch (writebackErr: any) {
         console.warn("[im-generate-async] SSoT writeback failed (non-blocking):", writebackErr?.message);

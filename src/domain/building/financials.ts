@@ -9,6 +9,7 @@
 
 import { getAssumptions } from './assumptions';
 import { isFeatureEnabled } from './feature-flags';
+import { ACQUISITION_COSTS } from '@/domain/ontology/market-defaults';
 
 /**
  * Inputs for financial calculations.
@@ -182,9 +183,9 @@ export function calculateAcquisitionCost(
   priceKrw: number,
   options?: Partial<AcquisitionCostInput>
 ): AcquisitionCostResult {
-  const brokerFeeKrw = options?.brokerageFee ?? (priceKrw * 0.009);
-  const acquisitionTaxKrw = options?.acquisitionTax ?? (priceKrw * 0.046);
-  const legalFeeKrw = options?.registrationLegal ?? 2000000;
+  const brokerFeeKrw = options?.brokerageFee ?? (priceKrw * (ACQUISITION_COSTS.brokerageFeePct / 100));
+  const acquisitionTaxKrw = options?.acquisitionTax ?? (priceKrw * (ACQUISITION_COSTS.taxRatePct / 100));
+  const legalFeeKrw = options?.registrationLegal ?? (priceKrw * (ACQUISITION_COSTS.legalFeesPct / 100));
   
   const appraisalDueDiligence = options?.appraisalDueDiligence ?? 0;
   const vatRefundEstimate = options?.vatRefundEstimate ?? 0;

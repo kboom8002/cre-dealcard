@@ -101,8 +101,13 @@ export async function enrichBuildingDataCore(
   const rc = recapData as BuildingRecapData | null;
   if (br && rc) {
     br.archArea = rc.archArea;
+    br.passengerElevatorCount = rc.rideUseElvtCnt;
+    br.emergencyElevatorCount = rc.emgenUseElvtCnt;
     br.elevatorCount = rc.rideUseElvtCnt + rc.emgenUseElvtCnt;
-    br.parkingCount = rc.indrAutoUtcnt + rc.oudrAutoUtcnt + rc.indrMechUtcnt;
+    
+    br.selfParkingCount = rc.indrAutoUtcnt + rc.oudrAutoUtcnt;
+    br.mechanicalParkingCount = rc.indrMechUtcnt;
+    br.parkingCount = br.selfParkingCount + br.mechanicalParkingCount;
     br.heatMethod = rc.heatMethodNm;
   }
 

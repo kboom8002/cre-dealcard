@@ -39,13 +39,17 @@ export interface TaxComparisonOutput {
   recommendation: string;
 }
 
-// 세율 상수 (2024 기준, 간이 계산용)
+import { ACQUISITION_COSTS } from '@/domain/ontology/market-defaults';
+
+const BASE_ACQUISITION_TAX_RATE = ACQUISITION_COSTS.taxRatePct / 100;
+
+// 세율 상수 (간이 계산용)
 const TAX_RATES = {
   // 취득세
   acquisition: {
-    individual: 0.046, // 4.0% + 농어촌 0.2% + 교육세 0.4%
-    corporate: 0.046,  // 동일 (중과 미적용 가정)
-    corporateHeavy: 0.092, // 중과세율 (2주택 이상 법인)
+    individual: BASE_ACQUISITION_TAX_RATE, // 4.6%
+    corporate: BASE_ACQUISITION_TAX_RATE,  // 4.6%
+    corporateHeavy: BASE_ACQUISITION_TAX_RATE * 2, // 중과세율 (9.2%)
   },
   // 재산세 (간이)
   propertyTax: {

@@ -15,7 +15,12 @@ export interface BuildingRegisterData {
   buildingName?: string;      // 건물명
   archArea?: number;          // 건축면적 (㎡)
   elevatorCount?: number;     // 승강기 수 (대)
+  passengerElevatorCount?: number; // 승용 승강기 수
+  emergencyElevatorCount?: number; // 비상용/화물 승강기 수
   parkingCount?: number;      // 주차 대수 (대)
+  selfParkingCount?: number;  // 자주식 주차 대수
+  mechanicalParkingCount?: number; // 기계식 주차 대수
+  hasViolation?: boolean;     // 위반건축물 표시 여부
   heatMethod?: string;        // 난방 방식
   _isFallback?: boolean;
 }

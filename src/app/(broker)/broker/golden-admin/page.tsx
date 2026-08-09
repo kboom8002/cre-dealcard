@@ -129,10 +129,67 @@ function sourceBadgeColor(source: string): string {
 
 export default function GoldenAdminPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'golden' | 'terminology' | 'analytics'>('golden');
-
-  // Stats Data
+  const [activeTab, setActiveTab] = useState<'golden' | 'terminology' | 'analytics' | 'market'>('golden');
   const [stats, setStats] = useState<Stats | null>(null);
+
+  // ── Tab 4: Market Defaults States ──
+  const [marketForm, setMarketForm] = useState({
+    commercial_mortgage_rate_pct: 5.2,
+    pf_interest_rate_pct: 8.5,
+    max_ltv_pct: 70,
+    construction_cost_rc: 750,
+    construction_cost_sc: 680,
+    construction_cost_src: 850,
+    acquisition_tax_rate_pct: 4.6,
+    notes: '',
+  });
+  const [marketLoading, setMarketLoading] = useState(false);
+  const [marketSaving, setMarketSaving] = useState(false);
+  const [marketUpdatedAt, setMarketUpdatedAt] = useState<string | null>(null);
+
+  const fetchMarketDefaults = useCallback(async () => {
+    setMarketLoading(true);
+    try {
+      const res = await fetch('/api/admin/market-defaults');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) {
+          setMarketForm({
+            commercial_mortgage_rate_pct: json.data.commercialMortgage?.interestRatePct ?? 5.2,
+            pf_interest_rate_pct: json.data.developmentDefaults?.pfInterestRatePct ?? 8.5,
+            max_ltv_pct: json.data.commercialMortgage?.maxLtvPct ?? 70,
+            construction_cost_rc: json.data.constructionCostPerPyung?.RC ?? 750,
+            construction_cost_sc: json.data.constructionCostPerPyung?.SC ?? 680,
+            construction_cost_src: json.data.constructionCostPerPyung?.SRC ?? 850,
+            acquisition_tax_rate_pct: json.data.acquisitionCosts?.taxRatePct ?? 4.6,
+            notes: '',
+          });
+          setMarketUpdatedAt(json.data.updatedAt || null);
+        }
+      }
+    } catch { /* ignore */ }
+    setMarketLoading(false);
+  }, []);
+
+  const handleSaveMarket = async () => {
+    setMarketSaving(true);
+    try {
+      const res = await fetch('/api/admin/market-defaults', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(marketForm),
+      });
+      if (res.ok) {
+        toast.success("시장 기본값이 성공적으로 갱신되었습니다!");
+        fetchMarketDefaults();
+      } else {
+        toast.error("시장 기본값 저장 실패");
+      }
+    } catch {
+      toast.error("서버 통신 오류");
+    }
+    setMarketSaving(false);
+  };
 
   // ── Tab 1: Golden Set States ──
   const [goldenSets, setGoldenSets] = useState<GoldenSet[]>([]);
@@ -231,7 +288,8 @@ export default function GoldenAdminPage() {
   useEffect(() => {
     if (activeTab === 'golden') fetchGoldenRows();
     else if (activeTab === 'terminology') fetchTerminologyRows();
-  }, [activeTab, fetchGoldenRows, fetchTerminologyRows]);
+    else if (activeTab === 'market') fetchMarketDefaults();
+  }, [activeTab, fetchGoldenRows, fetchTerminologyRows, fetchMarketDefaults]);
 
   // ── Tab 1 Actions ──
 
@@ -438,6 +496,14 @@ export default function GoldenAdminPage() {
           }`}
         >
           📊 효과 & 품질 Analytics
+        </button>
+        <button
+          onClick={() => setActiveTab('market')}
+          className={`px-4 py-2.5 text-sm font-semibold transition-all border-b-2 ${
+            activeTab === 'market' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          💹 시장 기본값 관리
         </button>
       </div>
 
@@ -864,6 +930,145 @@ export default function GoldenAdminPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB 4: MARKET DEFAULTS ─── */}
+      {activeTab === 'market' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+            <div>
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                💹 온톨로지 시장 기본값 레지스트리 (SSoT)
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                상업용 대출 금리, PF 금리, 건설 단가, 취득세율 등 온톨로지 엔진이 사용하는 기본값을 동적 관리합니다.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {marketUpdatedAt && (
+                <span className="text-xs text-muted-foreground">
+                  최종 갱신: {new Date(marketUpdatedAt).toLocaleDateString()}
+                </span>
+              )}
+              <Button onClick={handleSaveMarket} disabled={marketSaving} className="bg-primary text-primary-foreground text-xs">
+                {marketSaving ? "저장 중..." : "💾 기본값 저장/갱신"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 1. 금리 & 대출 조건 */}
+            <Card className="p-5 bg-neutral-900 border-neutral-800 space-y-4">
+              <h3 className="text-sm font-bold text-emerald-400 flex items-center gap-1.5">
+                🏦 상업용 대출 & 금융 조건
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">시중은행 상업용 대출 평균 금리 (연 %)</label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={marketForm.commercial_mortgage_rate_pct}
+                    onChange={(e) => setMarketForm(f => ({ ...f, commercial_mortgage_rate_pct: parseFloat(e.target.value) || 0 }))}
+                    className="bg-neutral-800 border-neutral-700"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">한국은행 기준금리 3.25% + 가산금리 기준</p>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">개발사업 PF 금리 (연 %)</label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={marketForm.pf_interest_rate_pct}
+                    onChange={(e) => setMarketForm(f => ({ ...f, pf_interest_rate_pct: parseFloat(e.target.value) || 0 }))}
+                    className="bg-neutral-800 border-neutral-700"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">최대 허용 LTV (%)</label>
+                  <Input
+                    type="number"
+                    value={marketForm.max_ltv_pct}
+                    onChange={(e) => setMarketForm(f => ({ ...f, max_ltv_pct: parseInt(e.target.value) || 0 }))}
+                    className="bg-neutral-800 border-neutral-700"
+                  />
+                </div>
+              </div>
+            </Card>
+
+            {/* 2. 건설 단가 */}
+            <Card className="p-5 bg-neutral-900 border-neutral-800 space-y-4">
+              <h3 className="text-sm font-bold text-blue-400 flex items-center gap-1.5">
+                🏗️ 표준 건설 단가 (서울 기준, 만원/평)
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">RC (철근콘크리트) 구조</label>
+                  <Input
+                    type="number"
+                    value={marketForm.construction_cost_rc}
+                    onChange={(e) => setMarketForm(f => ({ ...f, construction_cost_rc: parseInt(e.target.value) || 0 }))}
+                    className="bg-neutral-800 border-neutral-700"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">SC (철골) 구조</label>
+                  <Input
+                    type="number"
+                    value={marketForm.construction_cost_sc}
+                    onChange={(e) => setMarketForm(f => ({ ...f, construction_cost_sc: parseInt(e.target.value) || 0 }))}
+                    className="bg-neutral-800 border-neutral-700"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">SRC (철골철근콘크리트) 구조</label>
+                  <Input
+                    type="number"
+                    value={marketForm.construction_cost_src}
+                    onChange={(e) => setMarketForm(f => ({ ...f, construction_cost_src: parseInt(e.target.value) || 0 }))}
+                    className="bg-neutral-800 border-neutral-700"
+                  />
+                </div>
+              </div>
+            </Card>
+
+            {/* 3. 세금 & 부대비용 */}
+            <Card className="p-5 bg-neutral-900 border-neutral-800 space-y-4">
+              <h3 className="text-sm font-bold text-amber-400 flex items-center gap-1.5">
+                ⚖️ 취득세 및 법정 부대비용
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">상업용 부동산 표준 취득세율 (%)</label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={marketForm.acquisition_tax_rate_pct}
+                    onChange={(e) => setMarketForm(f => ({ ...f, acquisition_tax_rate_pct: parseFloat(e.target.value) || 0 }))}
+                    className="bg-neutral-800 border-neutral-700"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">지방세법 기본 4.0% + 농어촌 0.2% + 지방교육세 0.4%</p>
+                </div>
+              </div>
+            </Card>
+
+            {/* 4. 메모 & 이력 */}
+            <Card className="p-5 bg-neutral-900 border-neutral-800 space-y-4">
+              <h3 className="text-sm font-bold text-purple-400 flex items-center gap-1.5">
+                📝 변경 사유 및 관리자 메모
+              </h3>
+              <div>
+                <textarea
+                  value={marketForm.notes}
+                  onChange={(e) => setMarketForm(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="예: 2026 Q3 한국은행 금리 인상 반영 / 시공사 공사비 지수 갱신..."
+                  rows={4}
+                  className="w-full px-3 py-2 text-sm rounded-lg bg-neutral-800 border border-neutral-700 resize-y text-foreground"
+                />
               </div>
             </Card>
           </div>
