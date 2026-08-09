@@ -159,7 +159,7 @@ export function KakaoShareButton({
     });
   };
 
-  const label = shared ? "✅ 전송 완료!" : "🟡 카톡으로 전송";
+  const label = shared ? "✅ 완료!" : (variant === "compact" ? "🟡 카톡" : "🟡 카톡으로 전송");
   const readyClass = kakaoReady ? "" : "opacity-80";
 
   const handleSaveText = () => {

@@ -4,7 +4,14 @@
  */
 
 export type MatchGrade = 'S' | 'A' | 'B' | 'C';
-export type WeightProfile = '사옥' | '투자' | '증여' | 'default';
+export type WeightProfile =
+  | 'income'
+  | 'owner_occupied'
+  | 'development'
+  | 'operating'
+  | 'trading'
+  | 'gift'
+  | 'default';
 
 export interface MatchInput {
   buildingSsotLiteId: string;
@@ -13,6 +20,8 @@ export interface MatchInput {
   building: {
     areaSignal: string;
     assetType: string;
+    investmentPosture?: string;
+    buildingUse?: string;
     priceBand: string | null;
     vacancySignal: string | null;
     fitSummary: string;
@@ -25,6 +34,8 @@ export interface MatchInput {
     preferredRegions: string[];
     assetTypes: string[];
     purchasePurpose: string;
+    investmentPosture?: string;
+    buildingUse?: string;
     mustHave: string[];
     niceToHave: string[];
     riskTolerance: string;
@@ -56,12 +67,16 @@ export interface Stage1Result {
   };
 }
 
-// Purpose weights: market(시장), financial(재무), vacancy(공실), semantic(시맨틱)
+// Purpose weights aligned with Ontology v0.4 Investment Posture 5-types:
+// market(시장), financial(재무), vacancy(공실), semantic(시맨틱), devOrOp(개발/운영 특화 비중)
 export const PURPOSE_WEIGHTS: Record<WeightProfile, Record<string, number>> = {
-  '사옥':   { market: 0.35, financial: 0.25, vacancy: 0.15, semantic: 0.25 },
-  '투자':   { market: 0.20, financial: 0.40, vacancy: 0.15, semantic: 0.25 },
-  '증여':   { market: 0.10, financial: 0.15, vacancy: 0.00, semantic: 0.25, tax: 0.50 },
-  'default':{ market: 0.25, financial: 0.30, vacancy: 0.20, semantic: 0.25 },
+  income:         { market: 0.20, financial: 0.40, vacancy: 0.15, semantic: 0.25 }, // 임대수익형
+  owner_occupied: { market: 0.35, financial: 0.25, vacancy: 0.15, semantic: 0.25 }, // 자가사용형(사옥)
+  development:    { market: 0.30, financial: 0.20, vacancy: 0.05, semantic: 0.45 }, // 토지/신축 개발형
+  operating:      { market: 0.15, financial: 0.25, vacancy: 0.10, semantic: 0.50 }, // 영업/운영형(호텔 등)
+  trading:        { market: 0.45, financial: 0.15, vacancy: 0.05, semantic: 0.35 }, // 단기 매매차익형
+  gift:           { market: 0.10, financial: 0.15, vacancy: 0.00, semantic: 0.25, tax: 0.50 }, // 증여/상속
+  default:        { market: 0.25, financial: 0.30, vacancy: 0.20, semantic: 0.25 },
 };
 
 // ── Schedule Extensions ──────────────────────────────────────────────────

@@ -27,6 +27,17 @@ export function DealCardTabs({
 }: DealCardTabsProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
 
+  React.useEffect(() => {
+    const handleSwitchTab = (e: Event) => {
+      const customEvent = e as CustomEvent<TabKey>;
+      if (customEvent.detail && ['overview', 'im', 'buyers', 'analytics'].includes(customEvent.detail)) {
+        setActiveTab(customEvent.detail);
+      }
+    };
+    window.addEventListener('switch-deal-tab', handleSwitchTab);
+    return () => window.removeEventListener('switch-deal-tab', handleSwitchTab);
+  }, []);
+
   const contentMap: Record<TabKey, React.ReactNode> = {
     overview: overviewContent,
     im: imContent,
@@ -35,7 +46,7 @@ export function DealCardTabs({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" id="deal-card-tabs-container">
       <div className="flex border-b border-border sticky top-0 z-20 bg-background/95 backdrop-blur-md">
         {TABS.map((tab) => (
           <button

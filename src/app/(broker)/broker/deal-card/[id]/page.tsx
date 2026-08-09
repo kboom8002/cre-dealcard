@@ -13,6 +13,7 @@ import { DealCardPipelineContainer } from "./DealCardPipelineContainer";
 import { IdealBuyerPersonaSection } from "./ideal-buyer-persona-section";
 import { KakaoShareButton } from "./kakao-share-button";
 import { CreateMobileImButton } from "./create-mobile-im-button";
+import { AiMatchCtaButton } from "./ai-match-cta-button";
 import { ImManagementPanel } from "./im-management-panel";
 import { DealCardEditor } from "./DealCardEditor";
 import { ScheduleSection } from "./ScheduleSection";
@@ -287,9 +288,6 @@ export default async function BrokerDealCardResultPage({
                   <div className="text-sm text-muted-foreground pt-1 space-y-0.5">
                     <div className="flex items-center gap-1.5">
                       <span className="font-medium text-foreground">🎯 적합 매수자</span>
-                      {((building.confidence as Record<string, string>) || {}).fitSummary === 'needs_verification' && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-red-500/15 text-red-500 font-medium cursor-help" title="실사 검증 필요 항목">확인필요</span>
-                      )}
                     </div>
                     <p className="leading-relaxed">{building.fit_summary}</p>
                   </div>
@@ -302,33 +300,66 @@ export default async function BrokerDealCardResultPage({
                 )}
               </div>
 
+              {/* Risk / Caution Points */}
+              {cautionPoints.length > 0 && (
+                <div className="rounded-xl border border-border bg-card p-5 space-y-3 shadow-sm">
+                  <h2 className="text-base font-semibold flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                    <span>⚠️</span> 검토 필요 사항
+                  </h2>
+                  <ul className="space-y-2">
+                    {cautionPoints.map((point, idx) => (
+                      <li key={idx} className="text-sm text-muted-foreground flex gap-2">
+                        <span className="text-amber-500 font-bold">•</span>
+                        <span>{point}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Raw Broker Notes Summary */}
+              {building.fit_summary && (
+                <div className="rounded-xl border border-border bg-muted/40 p-5 space-y-2">
+                  <h2 className="text-xs font-semibold text-muted-foreground">
+                    📝 브로커 노트 요약
+                  </h2>
+                  <p className="text-sm text-foreground/80 leading-relaxed">
+                    {building.fit_summary}
+                  </p>
+                  {building.caution_summary && (
+                    <p className="text-xs text-muted-foreground pt-1 border-t border-border/50">
+                      ⚠️ {building.caution_summary}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Hidden Fields Card */}
               {hiddenFields.length > 0 && (
-                <div className="rounded-xl border border-warning/30 bg-warning/10 p-5 space-y-3">
-                  <h2 className="text-base font-semibold flex items-center gap-2 text-warning">
-                    <span>🔒</span> 숨긴 정보
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
+                  <h2 className="text-xs font-bold flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+                    <span>🔒</span> 비공개 처리 항목 ({hiddenFields.length}개)
                   </h2>
-                  <div className="space-y-1">
+                  <div className="flex flex-wrap gap-1.5">
                     {hiddenFields.map((field) => (
-                      <p key={field} className="text-sm text-warning/90 flex gap-2">
-                        <span>•</span>
-                        <span>{hiddenFieldLabels[field] || field}</span>
-                      </p>
+                      <span key={field} className="text-[11px] bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded">
+                        {hiddenFieldLabels[field] || field}
+                      </span>
                     ))}
                   </div>
                 </div>
               )}
-
+              
               {/* Unified Deal Card Editor */}
               <DealCardEditor
                 buildingId={id}
                 initialTitle={title}
                 initialSummary={shortSummary}
-                initialDealPoints={dealPoints.map(String)}
-                initialCautionPoints={cautionPoints.map(String)}
+                initialDealPoints={dealPoints}
+                initialCautionPoints={cautionPoints}
                 initialKakaoText={kakaoText}
-                initialOgTitle={(teaserDoc?.body as any)?.ogTitle || ""}
-                initialOgDescription={(teaserDoc?.body as any)?.ogDescription || ""}
+                initialOgTitle={teaser?.ogTitle || ""}
+                initialOgDescription={teaser?.ogDescription || ""}
                 initialHookCopy={teaser?.hookCopy || ""}
                 initialStructureChips={teaser?.structureChips || []}
                 initialVacancyLabel={teaser?.vacancyLabel || ""}
@@ -349,7 +380,7 @@ export default async function BrokerDealCardResultPage({
                 </p>
               </div>
               <div className="flex items-center justify-center gap-2">
-                <span className="inline-flex items-center rounded-md bg-warning/10 text-warning border border-warning/20 px-2.5 py-0.5 text-xs font-medium">
+                <span className="inline-flex items-center rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-2.5 py-0.5 text-xs font-medium">
                   AI 초안
                 </span>
                 <span className="text-xs text-muted-foreground">
@@ -360,8 +391,7 @@ export default async function BrokerDealCardResultPage({
           }
           buyersContent={
             <div className="space-y-6 pt-2">
-              <MatchedBuyersSection buildingId={id} />
-              <GateRequestsInbox buildingId={id} />
+              {/* ① Ideal Buyer Personas (Persona Feature promoted to top) */}
               <IdealBuyerPersonaSection
                 buildingId={id}
                 areaSignal={building.area_signal || ""}
@@ -375,6 +405,12 @@ export default async function BrokerDealCardResultPage({
                 cautionSummary={building.caution_summary || ""}
                 curiosityScore={signalCard?.deal_curiosity_score ?? 50}
               />
+
+              {/* ② Matched Buyers Scorecard */}
+              <MatchedBuyersSection buildingId={id} />
+
+              {/* ③ Gate Requests Inbox */}
+              <GateRequestsInbox buildingId={id} />
             </div>
           }
           analyticsContent={
@@ -393,31 +429,17 @@ export default async function BrokerDealCardResultPage({
             </div>
           }
         />
-
-        {/* Scroll Area Utility Bar */}
-        <div className="mt-4 rounded-xl border border-border bg-card/60 p-3 space-y-2">
-          <p className="text-xs font-semibold text-muted-foreground">📸 티저 공유 유틸리티</p>
-          <KakaoShareButton
-            text={kakaoText}
-            buildingId={id}
-            dealTitle={title}
-            brokerSlug={brokerSlug}
-            areaSignal={building.area_signal ?? undefined}
-            variant="utility"
-          />
-        </div>
       </div>
 
-      {/* Streamlined Sticky CTA Bar */}
+      {/* Streamlined 3-Column Sticky CTA Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t border-border px-4 pt-2.5 pb-[calc(65px+env(safe-area-inset-bottom,0px))]">
         <div className="max-w-md mx-auto">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <KakaoShareButton
               text={kakaoText}
               buildingId={id}
               dealTitle={title}
               brokerSlug={brokerSlug}
-              areaSignal={building.area_signal ?? undefined}
               variant="compact"
             />
             <CreateMobileImButton
@@ -434,6 +456,7 @@ export default async function BrokerDealCardResultPage({
               initialAddress={extractedAddress}
               currentGrade={currentGrade}
             />
+            <AiMatchCtaButton buildingId={id} />
           </div>
         </div>
         <BrokerBottomNav />

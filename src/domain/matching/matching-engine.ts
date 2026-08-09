@@ -110,6 +110,8 @@ export async function computeSemanticSimilarity(
   const buildingText = [
     building.areaSignal,
     building.assetType,
+    building.investmentPosture ? `투자관점: ${building.investmentPosture}` : '',
+    building.buildingUse ? `용도: ${building.buildingUse}` : '',
     building.priceBand ?? '',
     building.fitSummary,
     building.vacancySignal ?? '',
@@ -120,6 +122,8 @@ export async function computeSemanticSimilarity(
   const intentText = [
     intent.preferredRegions.join(' '),
     intent.purchasePurpose,
+    intent.investmentPosture ? `선호관점: ${intent.investmentPosture}` : '',
+    intent.buildingUse ? `선호용도: ${intent.buildingUse}` : '',
     intent.assetTypes.join(' '),
     intent.mustHave.join(' '),
     intent.niceToHave.join(' '),
@@ -159,7 +163,8 @@ export function computeEnsembleScore(params: {
     (w.financial ?? 0) * financialScore +
     (w.vacancy   ?? 0) * vacancyScore  +
     (w.semantic  ?? 0) * semanticScore +
-    (w.schedule  ?? 0) * scheduleFitScore
+    (w.schedule  ?? 0) * scheduleFitScore +
+    (w.tax       ?? 0) * financialScore
   ) * 100; // scale to 0-100
 }
 
@@ -172,11 +177,25 @@ export function scoreToGrade(score: number): MatchGrade {
 
 // ─── Resolve weight profile ────────────────────────────────────────────
 
-export function resolveWeightProfile(purchasePurpose: string, inferred?: string): WeightProfile {
-  const combined = `${purchasePurpose} ${inferred ?? ''}`;
-  if (combined.includes('사옥')) return '사옥';
-  if (combined.includes('증여')) return '증여';
-  if (combined.includes('투자')) return '투자';
+export function resolveWeightProfile(
+  purchasePurpose: string,
+  inferred?: string,
+  explicitPosture?: string,
+): WeightProfile {
+  // 1. Explicit ontology v0.4 posture
+  if (explicitPosture && PURPOSE_WEIGHTS[explicitPosture as WeightProfile]) {
+    return explicitPosture as WeightProfile;
+  }
+
+  const combined = `${purchasePurpose} ${inferred ?? ''}`.toLowerCase();
+
+  if (combined.includes('income') || combined.includes('수익') || combined.includes('임대')) return 'income';
+  if (combined.includes('owner') || combined.includes('사옥') || combined.includes('자가')) return 'owner_occupied';
+  if (combined.includes('dev') || combined.includes('개발') || combined.includes('신축') || combined.includes('철거')) return 'development';
+  if (combined.includes('op') || combined.includes('운영') || combined.includes('호텔') || combined.includes('매출')) return 'operating';
+  if (combined.includes('trade') || combined.includes('시세차익') || combined.includes('단기') || combined.includes('매매')) return 'trading';
+  if (combined.includes('gift') || combined.includes('증여') || combined.includes('상속')) return 'gift';
+
   return 'default';
 }
 
@@ -206,6 +225,7 @@ export async function runMatchingEngine(input: MatchInput): Promise<MatchResult>
   const profile = resolveWeightProfile(
     input.intent.purchasePurpose,
     input.intent.inferredPurpose,
+    input.intent.investmentPosture || input.building.investmentPosture,
   );
   const weights = PURPOSE_WEIGHTS[profile];
   const schedInput = input as unknown as ScheduleMatchInput;

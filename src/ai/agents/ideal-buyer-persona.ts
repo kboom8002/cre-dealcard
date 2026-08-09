@@ -21,6 +21,8 @@ import {
 export interface PersonaAgentInput {
   areaSignal: string;
   assetType: string;
+  investmentPosture?: string;
+  buildingUse?: string;
   priceBand: string;
   sizeSignal: string;
   vacancyStatus?: string;
@@ -48,6 +50,8 @@ export async function runIdealBuyerPersona(
   const userPrompt = USER_PROMPT_TEMPLATE
     .replace("{area_signal}", input.areaSignal)
     .replace("{asset_type}", input.assetType)
+    .replace("{investment_posture}", input.investmentPosture || "미정 (자동추론)")
+    .replace("{building_use}", input.buildingUse || "근린생활시설 및 업무시설")
     .replace("{price_band}", input.priceBand)
     .replace("{size_signal}", input.sizeSignal)
     .replace("{vacancy_status}", input.vacancyStatus || "확인 필요")

@@ -11,6 +11,8 @@ import { z } from "zod/v4";
 const RequestSchema = z.object({
   areaSignal: z.string().default("미확인"),
   assetType: z.string().default("미확인"),
+  investmentPosture: z.string().optional(),
+  buildingUse: z.string().optional(),
   priceBand: z.string().default("미확인"),
   sizeSignal: z.string().default("미확인"),
   vacancyStatus: z.string().optional(),
