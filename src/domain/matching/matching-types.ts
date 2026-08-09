@@ -24,6 +24,11 @@ export interface MatchInput {
     buildingUse?: string;
     priceBand: string | null;
     vacancySignal: string | null;
+    vacatePlan?: 'vacant' | 'pre_vacate' | 'contested' | 'unknown';
+    illegalExtension?: boolean;
+    sectionalOwners?: number;
+    floorLoadKg?: number;
+    ceilingHeightM?: number;
     fitSummary: string;
     cautionSummary: string;
     dealCuriosityScore?: number;
@@ -64,6 +69,7 @@ export interface Stage1Result {
     budget: boolean;
     asset: boolean;
     schedule?: boolean;
+    packSlots?: boolean;
   };
 }
 

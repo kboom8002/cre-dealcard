@@ -17,6 +17,7 @@ interface DealCardTabsProps {
   imContent: React.ReactNode;
   buyersContent: React.ReactNode;
   analyticsContent: React.ReactNode;
+  buyersBadge?: { count: number; topGrade?: string };
 }
 
 export function DealCardTabs({
@@ -24,6 +25,7 @@ export function DealCardTabs({
   imContent,
   buyersContent,
   analyticsContent,
+  buyersBadge,
 }: DealCardTabsProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
 
@@ -59,6 +61,17 @@ export function DealCardTabs({
             <span className="flex items-center justify-center gap-1.5">
               <span>{tab.icon}</span>
               <span>{tab.label}</span>
+              {tab.key === 'buyers' && buyersBadge && buyersBadge.count > 0 && (
+                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                  buyersBadge.topGrade === 'S' 
+                    ? 'bg-purple-600 text-white shadow-sm shadow-purple-500/50' 
+                    : buyersBadge.topGrade === 'A'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-muted text-muted-foreground'
+                }`}>
+                  {buyersBadge.topGrade ? `${buyersBadge.topGrade}·${buyersBadge.count}` : buyersBadge.count}
+                </span>
+              )}
             </span>
             {activeTab === tab.key && (
               <motion.div

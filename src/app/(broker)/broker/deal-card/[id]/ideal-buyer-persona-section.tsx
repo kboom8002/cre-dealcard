@@ -273,6 +273,34 @@ export function IdealBuyerPersonaSection({
                       {persona.approachStrategy}
                     </p>
                   </div>
+
+                  {/* 🆕 Virtual Intent Match Action */}
+                  <div className="pt-2">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch("/api/broker/buyer-intents/from-memo", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              memoText: `[가상 페르소나 매수자] ${persona.label}\n유형: ${persona.buyerType}\n예산: ${persona.budgetRange}\n선호지역: ${areaSignal}\n선호자산: ${assetType}\n목적: ${persona.motivation}\n필수조건: ${persona.coreNeeds.join(', ')}`,
+                              buildingSsotLiteId: buildingId,
+                            }),
+                          });
+                          if (res.ok) {
+                            alert(`🎯 [${persona.label}] 매수자 의향이 가상 등록되었습니다. 하단 '매수자 스코어카드를 확인하세요.`);
+                          } else {
+                            alert("가상 의향 등록 중 오류가 발생했습니다.");
+                          }
+                        } catch (e) {
+                          alert("오류가 발생했습니다.");
+                        }
+                      }}
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 py-2 px-3 text-xs font-bold hover:bg-primary/20 active:scale-[0.99] transition-all"
+                    >
+                      <span>🎯 이 페르소나 매칭 검토 (가상 의향 등록)</span>
+                    </button>
+                  </div>
                 </div>
               );
             })}

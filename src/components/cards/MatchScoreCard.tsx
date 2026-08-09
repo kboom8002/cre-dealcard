@@ -247,27 +247,45 @@ export function MatchScoreCard({ match, buildingId }: MatchScoreCardProps) {
       )}
 
       {/* Action Buttons */}
-      <div className="flex gap-2 pt-2 border-t border-border/40">
-        <Link
-          href={`/broker/buyer-intents/${intent?.id}`}
-          className="flex-1 inline-flex items-center justify-center rounded-lg bg-card border border-border px-3 py-2 text-xs font-semibold text-foreground transition-all hover:bg-muted"
-          id={`cta-buyer-detail-${match.id}`}
-        >
-          매수자 상세 보기
-        </Link>
-        <a
-          href={`${kakaoShareUrl}?q=${shareText}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`flex-1 inline-flex items-center justify-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-white transition-all shadow-sm ${
-            match.grade === "S" || match.grade === "A"
-              ? "bg-grade-s hover:bg-grade-s/90 hover:shadow-elevation-1 active:bg-grade-s"
-              : "bg-secondary-foreground hover:bg-secondary-foreground/90 hover:shadow-elevation-1 text-secondary"
-          }`}
-          id={`cta-notify-broker-${match.id}`}
-        >
-          <span>📲 담당자에게 공유</span>
-        </a>
+      <div className="space-y-2 pt-2 border-t border-border/40">
+        {(match.grade === "S" || match.grade === "A") && (
+          <div className="grid grid-cols-2 gap-2 pb-1">
+            <button
+              onClick={() => alert(`📅 [${intent?.buyer_type || '매수자'}] 임장 잡기 요청이 접수되었습니다. 일정 관리 탭에서 확인하세요.`)}
+              className="inline-flex items-center justify-center gap-1 rounded-lg bg-primary/10 text-primary border border-primary/20 py-1.5 px-2 text-[11px] font-bold hover:bg-primary/20 transition-all"
+            >
+              📅 임장 잡기
+            </button>
+            <Link
+              href={`/broker/buildings/${buildingId}/owner-report`}
+              className="inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 py-1.5 px-2 text-[11px] font-bold hover:bg-emerald-500/20 transition-all"
+            >
+              📋 맞춤 보고서
+            </Link>
+          </div>
+        )}
+        <div className="flex gap-2">
+          <Link
+            href={`/broker/buyer-intents/${intent?.id}`}
+            className="flex-1 inline-flex items-center justify-center rounded-lg bg-card border border-border px-3 py-2 text-xs font-semibold text-foreground transition-all hover:bg-muted"
+            id={`cta-buyer-detail-${match.id}`}
+          >
+            매수자 상세 보기
+          </Link>
+          <a
+            href={`${kakaoShareUrl}?q=${shareText}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`flex-1 inline-flex items-center justify-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-white transition-all shadow-sm ${
+              match.grade === "S" || match.grade === "A"
+                ? "bg-grade-s hover:bg-grade-s/90 hover:shadow-elevation-1 active:bg-grade-s"
+                : "bg-secondary-foreground hover:bg-secondary-foreground/90 hover:shadow-elevation-1 text-secondary"
+            }`}
+            id={`cta-notify-broker-${match.id}`}
+          >
+            <span>📲 카톡 공유</span>
+          </a>
+        </div>
       </div>
     </div>
   );

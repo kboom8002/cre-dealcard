@@ -105,6 +105,17 @@ export default async function BrokerDealCardResultPage({
 
   const hasBasicIM = !!imLiteDoc;
 
+  // Fetch match results for count & top grade badge
+  const { data: matchResults } = await supabase
+    .from("match_results")
+    .select("grade")
+    .eq("building_ssot_lite_id", id);
+
+  const matchCount = matchResults?.length ?? 0;
+  const topGrade = matchResults
+    ?.sort((a, b) => ['S', 'A', 'B', 'C'].indexOf(a.grade) - ['S', 'A', 'B', 'C'].indexOf(b.grade))[0]
+    ?.grade;
+
   // Parse teaser body with robust fallback
   const body = (teaserDoc?.body ?? {}) as Record<string, unknown>;
   let teaser: Record<string, any>;
@@ -218,6 +229,7 @@ export default async function BrokerDealCardResultPage({
 
         {/* 4-Tab Content Router */}
         <DealCardTabs
+          buyersBadge={matchCount > 0 ? { count: matchCount, topGrade } : undefined}
           overviewContent={
             <div className="space-y-6 pt-2">
               {/* Photo Gallery */}
@@ -379,14 +391,6 @@ export default async function BrokerDealCardResultPage({
                   {boundaryNote}
                 </p>
               </div>
-              <div className="flex items-center justify-center gap-2">
-                <span className="inline-flex items-center rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-2.5 py-0.5 text-xs font-medium">
-                  AI 초안
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {teaserDoc ? new Date(teaserDoc.created_at).toLocaleDateString("ko-KR") : ""}
-                </span>
-              </div>
             </div>
           }
           buyersContent={
@@ -456,7 +460,7 @@ export default async function BrokerDealCardResultPage({
               initialAddress={extractedAddress}
               currentGrade={currentGrade}
             />
-            <AiMatchCtaButton buildingId={id} />
+            <AiMatchCtaButton buildingId={id} matchCount={matchCount} topGrade={topGrade} />
           </div>
         </div>
         <BrokerBottomNav />

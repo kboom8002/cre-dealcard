@@ -63,6 +63,34 @@ export function runHardFilter(input: MatchInput): Stage1Result {
     }
   }
 
+  // ── Pack Slot Hard Filters ──
+  let packSlots = true;
+  if (intent.mustHave && intent.mustHave.length > 0) {
+    // 1. 명도 조건
+    if (intent.mustHave.some(m => m.includes('명도완료') || m.includes('즉시입주'))) {
+      if (building.vacatePlan === 'pre_vacate' || building.vacatePlan === 'contested') {
+        packSlots = false;
+        failReasons.push(`명도 조건 불일치: 매수자 즉시입주 요구 ↔ 매물 명도 상태(${building.vacatePlan})`);
+      }
+    }
+
+    // 2. 위반건축물 불가 조건
+    if (intent.mustHave.some(m => m.includes('위반건축물불가') || m.includes('적법건축물'))) {
+      if (building.illegalExtension) {
+        packSlots = false;
+        failReasons.push(`위반건축물 조건 불일치: 매수자 적법건축물 요구 ↔ 위반건축물 존재`);
+      }
+    }
+
+    // 3. 구분등기 불가 조건
+    if (intent.mustHave.some(m => m.includes('단독소유') || m.includes('구분등기불가'))) {
+      if (building.sectionalOwners && building.sectionalOwners > 1) {
+        packSlots = false;
+        failReasons.push(`소유 구조 불일치: 매수자 단독소유 요구 ↔ 구분소유자 ${building.sectionalOwners}인`);
+      }
+    }
+  }
+
   // ── 🆕 Schedule check (if ScheduleMatchInput) ──
   let schedule = true;
   const schedInput = input as unknown as ScheduleMatchInput;
@@ -96,7 +124,7 @@ export function runHardFilter(input: MatchInput): Stage1Result {
   return { 
     passed: failReasons.length === 0, 
     failReasons, 
-    details: { region, budget, asset, schedule } 
+    details: { region, budget, asset, schedule, packSlots } 
   };
 }
 
@@ -142,20 +170,72 @@ export async function computeSemanticSimilarity(
 
 // ─── Stage 3: Ensemble Scoring ────────────────────────────────────────
 
+export function computeMarketScore(building: MatchInput['building']): number {
+  let score = 0.5; // default base
+
+  if (building.dealCuriosityScore) {
+    score = (building.dealCuriosityScore / 100) * 0.6;
+  }
+
+  const vacancy = building.vacancySignal ?? '';
+  if (vacancy.includes('만실') || vacancy.includes('100%')) {
+    score += 0.2;
+  } else if (vacancy.includes('공실') && !vacancy.includes('없음')) {
+    score -= 0.1;
+  }
+
+  if (building.investmentPosture === 'development') {
+    score += 0.15;
+  } else if (building.investmentPosture === 'trading') {
+    score += 0.10;
+  }
+
+  return Math.min(Math.max(score, 0), 1);
+}
+
+export function computeVacancyScore(
+  building: MatchInput['building'],
+  intent: MatchInput['intent']
+): number {
+  let score = 0.5;
+
+  const vacancy = building.vacancySignal ?? '';
+  if (vacancy.includes('만실') || vacancy.includes('없음') || vacancy.includes('100%')) {
+    score = 0.9;
+  } else if (vacancy.includes('일부')) {
+    score = 0.6;
+  } else if (vacancy.includes('전체') || vacancy.includes('공실')) {
+    score = 0.3;
+  }
+
+  const posture = intent.investmentPosture || building.investmentPosture || '';
+  if (['development', 'owner_occupied'].includes(posture)) {
+    if (building.vacatePlan === 'vacant') score += 0.15;
+    else if (building.vacatePlan === 'contested') score -= 0.3;
+    else if (building.vacatePlan === 'pre_vacate') score -= 0.1;
+  }
+
+  if (posture === 'development' && vacancy.includes('공실')) {
+    score = Math.max(score, 0.75); // 개발 목적에서는 명도 필요 없는 공실이 더 유리
+  }
+
+  return Math.min(Math.max(score, 0), 1);
+}
+
 export function computeEnsembleScore(params: {
   similarity: number;
-  dealCuriosityScore: number; // 0-100 from DealCuriosityWriter
-  vacancyDemandVerified: boolean;
-  scheduleFitScore?: number;  // 0-1 from computeScheduleFitScore
+  dealCuriosityScore: number;
+  building: MatchInput['building'];
+  intent: MatchInput['intent'];
+  scheduleFitScore?: number;
   purposeWeights: Record<string, number>;
 }): number {
-  const { similarity, dealCuriosityScore, vacancyDemandVerified, scheduleFitScore = 0, purposeWeights } = params;
+  const { similarity, dealCuriosityScore, building, intent, scheduleFitScore = 0, purposeWeights } = params;
 
-  // Normalize sub-scores to 0-1
-  const semanticScore = similarity;                           // already 0-1
+  const semanticScore = similarity;
   const financialScore = dealCuriosityScore / 100;
-  const marketScore = financialScore * 0.8;                   // proxy until real market data
-  const vacancyScore = vacancyDemandVerified ? 1.0 : 0.3;
+  const marketScore = computeMarketScore(building);
+  const vacancyScore = computeVacancyScore(building, intent);
 
   const w = purposeWeights;
   return (
@@ -165,7 +245,7 @@ export function computeEnsembleScore(params: {
     (w.semantic  ?? 0) * semanticScore +
     (w.schedule  ?? 0) * scheduleFitScore +
     (w.tax       ?? 0) * financialScore
-  ) * 100; // scale to 0-100
+  ) * 100;
 }
 
 export function scoreToGrade(score: number): MatchGrade {
@@ -236,7 +316,8 @@ export async function runMatchingEngine(input: MatchInput): Promise<MatchResult>
   const stage3Score = computeEnsembleScore({
     similarity,
     dealCuriosityScore: input.building.dealCuriosityScore ?? 50,
-    vacancyDemandVerified: false, // enriched separately
+    building: input.building,
+    intent: input.intent,
     scheduleFitScore,
     purposeWeights: weights,
   });

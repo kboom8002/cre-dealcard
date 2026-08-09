@@ -66,26 +66,53 @@ export async function MatchedBuyersSection({
 
   const topGrade = sorted[0]?.grade;
 
+  const sGradeCount = matches.filter(m => m.grade === 'S').length;
+  const aGradeCount = matches.filter(m => m.grade === 'A').length;
+
   return (
     <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+      {/* 🧠 AI 매칭 인사이트 배너 */}
+      <div className="rounded-xl border border-primary/20 bg-gradient-to-r from-purple-500/10 via-indigo-500/5 to-emerald-500/10 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold flex items-center gap-1.5">
+            <span>🧠</span> AI 매칭 인사이트
+          </h3>
+          <span className="text-[10px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full border border-primary/20">
+            온톨로지 v0.4 · 3축 엔진
+          </span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="bg-card/90 rounded-lg p-2 border border-border/60">
+            <p className="text-base font-extrabold text-primary">{matches.length}</p>
+            <p className="text-[10px] text-muted-foreground">총 매칭</p>
+          </div>
+          <div className="bg-card/90 rounded-lg p-2 border border-border/60">
+            <p className="text-base font-extrabold text-purple-600 dark:text-purple-400">{sGradeCount}</p>
+            <p className="text-[10px] text-muted-foreground">S등급</p>
+          </div>
+          <div className="bg-card/90 rounded-lg p-2 border border-border/60">
+            <p className="text-base font-extrabold text-emerald-600 dark:text-emerald-400">{aGradeCount}</p>
+            <p className="text-[10px] text-muted-foreground">A등급</p>
+          </div>
+        </div>
+
+        {sGradeCount > 0 && (
+          <p className="text-xs text-purple-600 dark:text-purple-400 font-bold text-center animate-pulse pt-1">
+            🔥 S등급 최우선 매수자가 대기 중입니다! 즉시 연락을 권장합니다.
+          </p>
+        )}
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold flex items-center gap-2">
-          <span>🎯</span> 자동 매칭 매수자
+          <span>🎯</span> 자동 매칭 매수자 스코어카드
         </h2>
         <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
           {matches.length}명 매칭
         </span>
       </div>
-
-      {/* 최상위 등급 하이라이트 */}
-      {topGrade && ["S", "A"].includes(topGrade) && (
-        <div className="rounded-lg bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 px-3.5 py-2.5">
-          <p className="text-xs text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-1.5 animate-pulse">
-            🔥 {topGrade}등급 매수자가 {sorted.filter((m) => m.grade === topGrade).length}명 매칭되었습니다! 매칭 리스트를 확인해 보세요.
-          </p>
-        </div>
-      )}
 
       {/* 매칭 카드 목록 */}
       <div className="space-y-3.5">
