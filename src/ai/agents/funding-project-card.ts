@@ -11,6 +11,9 @@ import {
   FUNDING_BLIND_TEASER_SYSTEM,
   FUNDING_BLIND_TEASER_USER,
 } from "@/ai/prompts/funding-project";
+import { getModel } from "../model-selector";
+import { safeParseAIResponse } from "@/ai/utils/ai-response-parser";
+import { rewriteUnsafeText } from "@/domain/guardrails/safe-language";
 
 export interface FundingProjectCardResult {
   projectData: FundingProjectOutput;
@@ -21,7 +24,7 @@ export interface FundingProjectCardResult {
 export async function runFundingProjectCard(
   rawText: string,
 ): Promise<FundingProjectCardResult> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
+  const model = getModel("terra");
 
   // Step 1: Parse unstructured text into structured project info
   const parseUserPrompt = FUNDING_PROJECT_PARSER_USER.replace("{rawText}", rawText);
@@ -33,7 +36,11 @@ export async function runFundingProjectCard(
     temperature: 0.2, // lower temp for strict data extraction
   });
 
-  const projectData = FundingProjectOutputSchema.parse(JSON.parse(parseResponse.content));
+  const parseResult = safeParseAIResponse(parseResponse.content, FundingProjectOutputSchema);
+  if (!parseResult.success) {
+    throw new Error(`[funding-card] Step1 파싱 실패: ${parseResult.error}`);
+  }
+  const projectData = parseResult.data;
 
   // Step 2: Compose blind teaser using parsed info
   const teaserUserPrompt = FUNDING_BLIND_TEASER_USER
@@ -55,11 +62,35 @@ export async function runFundingProjectCard(
     temperature: 0.7, // slightly higher temp for engaging writing
   });
 
-  const blindTeaser = FundingBlindTeaserOutputSchema.parse(JSON.parse(teaserResponse.content));
+  const teaserResult = safeParseAIResponse(teaserResponse.content, FundingBlindTeaserOutputSchema);
+  if (!teaserResult.success) {
+    throw new Error(`[funding-card] Step2 파싱 실패: ${teaserResult.error}`);
+  }
+  const blindTeaser = teaserResult.data;
+
+  // ── 법적 가드레일 (자본시장법 준수) ──
+  const guardedTeaser = { ...blindTeaser };
+  if (guardedTeaser.title) {
+    guardedTeaser.title = rewriteUnsafeText(guardedTeaser.title).safeText;
+  }
+  if (guardedTeaser.shortSummary) {
+    guardedTeaser.shortSummary = rewriteUnsafeText(guardedTeaser.shortSummary).safeText;
+  }
+  if (guardedTeaser.forbiddenWordsNotice) {
+    guardedTeaser.forbiddenWordsNotice = rewriteUnsafeText(guardedTeaser.forbiddenWordsNotice).safeText;
+  }
+  if (guardedTeaser.kakaoText) {
+    guardedTeaser.kakaoText = rewriteUnsafeText(guardedTeaser.kakaoText).safeText;
+  }
+  if (guardedTeaser.dealPoints) {
+    guardedTeaser.dealPoints = guardedTeaser.dealPoints.map(
+      (p) => rewriteUnsafeText(p).safeText
+    );
+  }
 
   return {
     projectData,
-    blindTeaser,
+    blindTeaser: guardedTeaser,
     model,
   };
 }

@@ -8,6 +8,7 @@ import {
 } from "@/ai/prompts/inquiry-qualifier";
 import type { AgentOutputEnvelope } from "@/ai/envelope";
 import { createSuccessEnvelope, createErrorEnvelope } from "@/ai/envelope";
+import { getModel } from "../model-selector";
 
 // ── Input / Output ───────────────────────────────────────────────
 
@@ -41,7 +42,7 @@ export type InquiryQualifierOutput = z.infer<typeof InquiryQualifierOutputSchema
 export async function runInquiryQualifierAgent(
   input: InquiryQualifierInput,
 ): Promise<AgentOutputEnvelope<InquiryQualifierOutput>> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
+  const model = getModel("luna");
 
   const userPrompt = INQUIRY_QUALIFIER_USER_TEMPLATE
     .replace("{space_ssot}", JSON.stringify(input.space_ssot, null, 2))

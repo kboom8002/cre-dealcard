@@ -32,12 +32,18 @@ export const LAYER_WEIGHTS = {
 export interface ChecklistInput {
   /** 건축물대장 (Building Register) presence */
   buildingRegister?: boolean;
+  /** 건축물대장 발급일자 (ISO Date string, e.g. "2026-05-01") */
+  buildingRegisterDate?: string;
   /** 등기부등본 (Registry Documents) presence */
   registry?: boolean;
+  /** 등기부등본 발급일자 */
+  registryDate?: string;
   /** 토지이용계획 (Land Use Plan) presence */
   landUsePlan?: boolean;
   /** 렌트롤 (Rent Roll) presence */
   rentRoll?: boolean;
+  /** 렌트롤 작성일자 */
+  rentRollDate?: string;
   /** 사진 (Photos) presence */
   photos?: boolean;
   /** 도면 (Floor Plan) presence */
@@ -53,6 +59,21 @@ export interface ChecklistInput {
 }
 
 /**
+ * 문서 신선도 감쇠 계수를 산출합니다. (0.0 ~ 1.0)
+ * 유효기간 경과 시 점수 감쇠 적용.
+ */
+export function computeFreshnessFactor(dateStr?: string, maxAgeMonths: number = 6): number {
+  if (!dateStr) return 1.0;
+  const docDate = new Date(dateStr);
+  if (isNaN(docDate.getTime())) return 1.0;
+  const now = new Date();
+  const diffMonths = (now.getFullYear() - docDate.getFullYear()) * 12 + (now.getMonth() - docDate.getMonth());
+  if (diffMonths <= 0) return 1.0;
+  if (diffMonths >= maxAgeMonths) return 0.5; // 경과 시 50% 감쇠
+  return Math.max(0.5, 1 - (diffMonths / maxAgeMonths) * 0.5);
+}
+
+/**
  * Computes the layer score based on the provided document checklist.
  * Sums the configured weights for each present document, capping at 100.
  * 
@@ -63,10 +84,16 @@ export interface ChecklistInput {
  * // score.total === 35
  */
 export function computeLayerScore(checklist: ChecklistInput): LayerScores {
-  const building_register = checklist.buildingRegister ? LAYER_WEIGHTS.building_register : 0;
-  const registry_docs = checklist.registry ? LAYER_WEIGHTS.registry_docs : 0;
+  const building_register = checklist.buildingRegister
+    ? Math.round(LAYER_WEIGHTS.building_register * computeFreshnessFactor(checklist.buildingRegisterDate, 12))
+    : 0;
+  const registry_docs = checklist.registry
+    ? Math.round(LAYER_WEIGHTS.registry_docs * computeFreshnessFactor(checklist.registryDate, 3))
+    : 0;
   const land_use_plan = checklist.landUsePlan ? LAYER_WEIGHTS.land_use_plan : 0;
-  const rent_roll = checklist.rentRoll ? LAYER_WEIGHTS.rent_roll : 0;
+  const rent_roll = checklist.rentRoll
+    ? Math.round(LAYER_WEIGHTS.rent_roll * computeFreshnessFactor(checklist.rentRollDate, 6))
+    : 0;
   const photos = checklist.photos ? LAYER_WEIGHTS.photos : 0;
   const floor_plan = checklist.floorPlan ? LAYER_WEIGHTS.floor_plan : 0;
   const repair_history = checklist.repairHistory ? LAYER_WEIGHTS.repair_history : 0;

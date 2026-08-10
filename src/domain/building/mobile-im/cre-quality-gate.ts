@@ -10,6 +10,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import { callLLM } from "@/ai/llm-client";
+import { getModel } from "@/ai/model-selector";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -46,7 +47,7 @@ export interface CREQualityGateResult {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 /** Quality Gate 모델 — IM Judge와 동일 모델 사용 */
-const GATE_MODEL = process.env.AI_IM_MODEL || "gpt-5.4";
+const GATE_MODEL = process.env.AI_IM_MODEL || getModel("terra");
 
 /**
  * LLM 실패 시 안전 기본값

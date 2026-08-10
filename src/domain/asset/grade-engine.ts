@@ -202,9 +202,22 @@ export function computeDataGrade(
 
   const baseWeights = weights || NEW_WEIGHTS;
 
+  const CATEGORY_SLOTS: Record<string, string[]> = {
+    lease_roll: ['rentRoll', 'grossAnnualIncomeKrw'],
+    building_basic: ['totalFloorAreaPyung', 'approvalDate', 'evictionStatus'],
+    land_parcel: ['pnu', 'address', 'landAreaPyung', 'officialLandPricePerSqm'],
+    financial_input: ['askingPriceKrw', 'grossAnnualIncomeKrw'],
+    zoning: ['zoningRegion', 'farHeadroomPp'],
+    title_encumbrance: ['pnu'],
+    road_access: ['roadContactType'],
+    market_comp: ['askingPriceKrw']
+  };
+
   for (const [category, w] of Object.entries(baseWeights)) {
     totalNewWeight += w;
-    const hasData = isSlots ? (attrsOrSlots[category]?.filled) : (attrs[category] != null && attrs[category] !== '' && attrs[category] !== false);
+    const directData = isSlots ? (attrsOrSlots[category]?.filled) : (attrs[category] != null && attrs[category] !== '' && attrs[category] !== false);
+    const mappedData = !directData && CATEGORY_SLOTS[category]?.some(slot => attrs[slot] != null && attrs[slot] !== '' && attrs[slot] !== false);
+    const hasData = Boolean(directData || mappedData);
     
     if (hasData) {
       let provCoeff = 1.0;

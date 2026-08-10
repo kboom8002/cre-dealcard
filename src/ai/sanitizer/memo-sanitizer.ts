@@ -34,12 +34,15 @@ export function sanitizeMemo(memo: string): SanitizationMap {
 
   // 2. 번지수 (Exact Address) 마스킹
   // ADDR_DETAIL을 먼저 해줌으로써 건물명 마스킹시 번지수가 얽히는 것을 방지
-  sanitizedText = sanitizedText.replace(/\b\d{1,4}-\d{1,4}\b/g, (match) => {
-    counters.ADDR_DETAIL++;
-    const token = `[ADDR_DETAIL_${String.fromCharCode(64 + counters.ADDR_DETAIL)}]`;
-    tokens.set(token, match);
-    return token;
-  });
+  sanitizedText = sanitizedText.replace(
+    /(?:\b\d{1,4}-\d{1,4}\b|\b산?\s*\d{1,4}번지(?:\s*일대)?|\b[가-힣]+[로길]\s*\d{1,4}(?:-\d{1,4})?)/g,
+    (match) => {
+      counters.ADDR_DETAIL++;
+      const token = `[ADDR_DETAIL_${String.fromCharCode(64 + counters.ADDR_DETAIL)}]`;
+      tokens.set(token, match);
+      return token;
+    }
+  );
 
   // 3. Owner 명시 패턴 마스킹 (조사 은/는/이/가 대응)
   // 이름은 일반적으로 2~4글자 한글 단어로 엄격하게 매칭하여 문장을 삼키지 않도록 함

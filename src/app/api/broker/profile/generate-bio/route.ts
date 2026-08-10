@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod/v4';
 import { callLLM } from '@/ai/llm-client';
 import { requireBroker } from '@/lib/auth-guard';
+import { getModel } from '@/ai/model-selector';
 
 const GenerateBioRequest = z.object({
   name: z.string().min(1).max(30),
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
       {
         systemPrompt: SYSTEM_PROMPT,
         userPrompt,
-        model: 'gpt-5.4',
+        model: getModel("luna"),
         temperature: 0.7,
         maxTokens: 600,
       },

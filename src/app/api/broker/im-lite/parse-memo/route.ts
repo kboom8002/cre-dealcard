@@ -19,6 +19,7 @@ import {
   MEMO_PARSER_USER_TEMPLATE,
   MEMO_PARSER_PROMPT_ID,
 } from "@/ai/prompts/broker-deal-card";
+import { getModel } from "@/ai/model-selector";
 
 /** AUTH-03.2~03.3: 메모 파싱 결과 */
 export interface MemoParseResult {
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
+  const model = getModel("luna");
 
   try {
     // ─── Step 1: PII 마스킹 ────────────────────────────────────────────────

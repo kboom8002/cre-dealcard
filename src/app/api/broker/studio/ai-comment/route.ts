@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { callLLM } from "@/ai/llm-client";
+import { getModel } from "@/ai/model-selector";
 
 export async function POST(req: Request) {
   try {
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
     const result = await callLLM({
       systemPrompt,
       userPrompt,
-      model: "gpt-5.4",
+      model: getModel("luna"),
       temperature: 0.7,
     });
 

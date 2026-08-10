@@ -9,6 +9,7 @@ import {
 import { ScheduleMatchInput } from "@/domain/matching/matching-types";
 import { ScheduleRecommendationSchema, ScheduleRecommendation } from "@/ai/schemas/schedule-advisor";
 import { SCHEDULE_ADVISOR_PROMPT } from "@/ai/prompts/schedule-advisor";
+import { getModel } from "../model-selector";
 
 export interface ScheduleAdvisorInput {
   availableSlots: ScheduleMatchInput['vendor']['availableSlots'];
@@ -35,7 +36,7 @@ export async function runScheduleAdvisor(
         payload.clientSchedule,
         { domain: payload.domain, vendorType: payload.vendorType }
       ),
-      model: 'gpt-4o-mini',
+      model: getModel("luna"),
       responseFormat: 'json_object',
       temperature: 0.3,
     });

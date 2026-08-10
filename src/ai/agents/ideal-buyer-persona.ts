@@ -17,6 +17,7 @@ import {
   USER_PROMPT_TEMPLATE,
   PROMPT_ID,
 } from "@/ai/prompts/ideal-buyer-persona";
+import { getModel } from "../model-selector";
 
 export interface PersonaAgentInput {
   areaSignal: string;
@@ -45,7 +46,7 @@ export interface PersonaAgentResult {
 export async function runIdealBuyerPersona(
   input: PersonaAgentInput,
 ): Promise<PersonaAgentResult> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
+  const model = getModel("sol");
 
   const userPrompt = USER_PROMPT_TEMPLATE
     .replace("{area_signal}", input.areaSignal)

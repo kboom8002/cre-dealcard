@@ -16,6 +16,7 @@ import { recordEvent } from "@/domain/analytics/record-event";
 import type { PublicRadarGenerateReq } from "@/ai/schemas/api-building-radar";
 import { resolveAddressToComponents } from "@/domain/verification/address-resolver";
 import { fetchBuildingRegister } from "@/domain/verification/govt-api-client";
+import { getModel } from "@/ai/model-selector";
 
 export interface BuildingRadarGenerateResult {
   buildingId: string;
@@ -82,7 +83,7 @@ export async function generateBuildingRadar(
       run_type: "deal_curiosity_report",
       input_ref: { building_id: building.id },
       output_ref: {},
-      model: process.env.AI_DEFAULT_MODEL || "gpt-5.4",
+      model: getModel("terra"),
       prompt_version: "prompt_deal_curiosity_report_v1",
       status: "failed",
       latency_ms: Date.now() - startTime,

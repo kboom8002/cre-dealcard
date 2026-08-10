@@ -12,13 +12,17 @@ export const GLOBAL_CF_SAFETY = `자본시장법(Capital Markets Act) 및 금융
 
 export const FUNDING_FORBIDDEN_PHRASES = [
   "원금 보장",
-  "원금 보장형",
-  "확정 수익률",
-  "무위험",
-  "손실 없음",
+  "원금보장",
+  "확정 수익",
+  "확정수익",
+  "예상 수익률",
+  "최소 수익",
+  "최저 배당",
+  "손실 없는",
+  "안정적 배당",
+  "배당 보장",
   "100% 안전",
-  "대박 수익",
-  "확실한 수익",
+  "무위험",
 ];
 
 // ---- Crowdfunding Project Parser ----
@@ -90,6 +94,11 @@ export const FUNDING_BLIND_TEASER_USER = `다음 구조화된 프로젝트 정�
 6. gateMessage: 적격투자자/KYC 인증 단계별 열람 권한 안내 문구
 7. kakaoText: 카카오톡 공유용 완성 템플릿
 8. boundaryNote: 면책 고지 (본 지표는 예비 검토용이며 원금 손실 가능성이 있습니다 등)
+9. hookCopy: 프로젝트 투자 가치를 한 줄로 소구하는 마케팅 카피
+10. structureChips: 핵심 태그 배열 (예: ["STO", "목표수익률 8%", "원금손실위험"])
+11. regionLabel: 자산 위치 또는 연관 지역 라벨
+12. assetTypeLabel: B2C 자산유형 라벨 (예: "부동산 조각투자")
+13. curiosityHook: 궁금증 유발 한 줄 문구
 
 JSON으로 응답해주세요.`;
 

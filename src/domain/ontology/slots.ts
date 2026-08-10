@@ -200,6 +200,27 @@ export interface StackingPlanUnit {
   managementFee: number;
 }
 
+/** 3.2.1 한국 실정 임대차 세부 스펙 (LeaseTermsSpec) 🆕 */
+export interface LeaseTermsSpec {
+  depositTotal: number;                // 임대보증금 (원)
+  monthlyRentTotal: number;            // 월차임 합계 (원)
+  managementFeeTotal: number;          // 관리비 합계 (원)
+  exclusiveAreaRatio: number;          // 전용률 (%)
+  keyMoney: number | null;             // 권리금 (원)
+  rentFreeMonths: number;              // 렌트프리 (개월/년)
+  noc: number | null;                  // NOC (Net Occupancy Cost, 원/전용평)
+  nlaArea: number | null;              // NLA (Net Leasable Area, 전용면적 평)
+}
+
+/** 3.2.2 한국 세제 · 규제 세부 스펙 (TaxRegulationSpec) 🆕 */
+export interface TaxRegulationSpec {
+  acquisitionTaxRate: number;         // 취득세율 (%)
+  propertyTaxAnnual: number | null;    // 연간 재산세 (원)
+  comprehensiveRealEstateTax: number | null; // 종합부동산세 (원)
+  taxIncentives: string[];             // 세제 혜택/감면 항목 목록
+  landTaxCategory: 'general' | 'separate' | 'exempt'; // 종합합산 / 별도합산 / 비과세
+}
+
 /** 3.3 명도 계획 (개발형 필수) — CATALOG_SLOTS.md §3.3 */
 export interface VacatePlan {
   responsibility: VacateResponsibility;

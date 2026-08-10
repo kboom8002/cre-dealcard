@@ -5,6 +5,8 @@
 // P0 (즉시 차단): 투자 추천, 수익률 보장, 대출 확정, 법적 무결성 확정
 // High (경고 + 치환): 가치평가 확정, 가치상승 확정, 세무 확정, 허가 확정
 
+import { rewriteUnsafeText } from "@/domain/guardrails/safe-language";
+
 export type RiskSeverity = "low" | "medium" | "high" | "p0";
 export type RiskStatus = "pass" | "revise" | "blocked";
 export type DisclosureStatus = "pass" | "redacted" | "blocked";
@@ -163,6 +165,9 @@ export function runRiskBoundaryCheck(
       safeText = safeText.replace(fp.pattern, fp.recommended_text);
     }
   }
+
+  // ── safe-language.ts 공통 금지 문구 최종 검사 및 변환 ──
+  safeText = rewriteUnsafeText(safeText).safeText;
 
   return { status, issues, safe_text: safeText };
 }

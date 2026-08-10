@@ -24,7 +24,7 @@ export async function searchSimilarIMs(
   query: string,
   options: RAGQueryOptions = {}
 ): Promise<RAGDocument[]> {
-  const topK = options.topK || 3;
+  const topK = options.topK || 5;
   
   // 1. 임베딩 생성 (OpenAI text-embedding-3-small)
   let embedding: number[] = [];
@@ -51,25 +51,41 @@ export async function searchSimilarIMs(
   }
 
   // 2. 하이브리드 검색 호출 (Supabase RPC - match_im_documents)
-  // 실제 환경에서는 match_im_documents RPC가 pgvector와 websearch_to_tsquery를 결합하여 결과를 반환합니다.
   try {
     const { data, error } = await (supabase as any).rpc("match_im_documents", {
       query_embedding: embedding.length > 0 ? embedding : null,
       query_text: query,
-      match_count: topK,
+      match_count: topK * 2, // 2x 후보 수집 후 리랭킹 적용
       filter_asset_type: options.filterByAssetType || null,
       filter_region: options.filterByRegion || null,
     });
 
     if (error) throw error;
-    
-    return ((data as any[]) || []).map((doc: any) => ({
+
+    const rawDocs: RAGDocument[] = ((data as any[]) || []).map((doc: any) => ({
       id: doc.id,
       building_id: doc.building_id,
       content: doc.content,
       metadata: doc.metadata,
-      similarity: doc.similarity
+      similarity: doc.similarity ?? 0
     }));
+
+    // 3. Reranking (자산 유형 및 권역 정합성 가중치 보정)
+    const rerankedDocs = rawDocs
+      .map(doc => {
+        let boostedScore = doc.similarity ?? 0;
+        if (options.filterByAssetType && doc.metadata?.assetType === options.filterByAssetType) {
+          boostedScore += 0.15; // 자산유형 일치 가산점
+        }
+        if (options.filterByRegion && doc.metadata?.address?.includes(options.filterByRegion)) {
+          boostedScore += 0.10; // 권역 일치 가산점
+        }
+        return { ...doc, similarity: boostedScore };
+      })
+      .sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0))
+      .slice(0, topK);
+
+    return rerankedDocs;
   } catch (error) {
     console.error("[CRE-RAG] Hybrid search failed:", error);
     return [];
@@ -101,7 +117,7 @@ export async function generateRAGContext(
   if (queryParts.length === 0) return "";
 
   const query = queryParts.join(" ");
-  const docs = await searchSimilarIMs(supabase, query, { topK: 2, filterByAssetType: assetType });
+  const docs = await searchSimilarIMs(supabase, query, { topK: 5, filterByAssetType: assetType });
   
   if (docs.length === 0) return "";
 

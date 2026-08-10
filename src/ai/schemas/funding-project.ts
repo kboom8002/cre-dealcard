@@ -29,6 +29,12 @@ export const FundingBlindTeaserOutputSchema = z.object({
   gateMessage: z.string(),
   kakaoText: z.string(),
   boundaryNote: z.string(),
+  // ── v3 마케팅 확장 필드 ──
+  hookCopy: z.string().optional(),
+  structureChips: z.array(z.string()).optional(),
+  regionLabel: z.string().optional(),
+  assetTypeLabel: z.string().optional(),
+  curiosityHook: z.string().optional(),
 });
 
 export type FundingBlindTeaserOutput = z.infer<typeof FundingBlindTeaserOutputSchema>;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { callLLM } from "@/ai/llm-client";
+import { getModel } from "@/ai/model-selector";
 
 /**
  * POST /api/broker/morning-intelligence/custom
@@ -58,7 +59,7 @@ JSON 형식으로 정확히 출력:
   "sentimentScore": 65
 }`,
       userPrompt: inputText,
-      model: "gpt-5.4",
+      model: getModel("luna"),
       temperature: 0.3,
       maxTokens: 1200,
     });

@@ -15,6 +15,7 @@ import { computePromotionScore } from "@/domain/promotion/promotion-ranker";
 import { verifyAgainstPublicData } from "@/domain/verification/public-data-verifier";
 import { SupabaseBuildingRepository } from "./building-repository.supabase";
 import { geocodeAddress } from "@/domain/verification/address-resolver";
+import { getModel } from "@/ai/model-selector";
 
 export interface BrokerDealCardFromMemoInput {
   memo: string;
@@ -50,7 +51,7 @@ export async function brokerDealCardFromMemo(
       run_type: "broker_deal_card",
       input_ref: {},
       output_ref: {},
-      model: process.env.AI_DEFAULT_MODEL || "gpt-5.4",
+      model: getModel("sol"),
       prompt_version: "prompt_memo_parser_v1",
       status: "failed",
       latency_ms: Date.now() - startTime,

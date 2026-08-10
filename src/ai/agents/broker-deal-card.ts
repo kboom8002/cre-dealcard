@@ -30,6 +30,7 @@ import {
   BLIND_TEASER_PROMPT_ID,
 } from "@/ai/prompts/broker-deal-card";
 import { rewriteUnsafeText } from "@/domain/guardrails/safe-language";
+import { getModel } from "../model-selector";
 
 /** AI 응답에서 ```json ... ``` 코드블록을 제거하여 순수 JSON 문자열 추출 */
 function extractJsonString(raw: string): string {
@@ -83,7 +84,7 @@ async function callOpenAI(
 export async function runBrokerDealCard(
   input: BrokerDealCardInput,
 ): Promise<BrokerDealCardResult> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
+  const model = getModel("sol");
   let totalTokens = 0;
 
   // Apply PII Sanitization
@@ -269,6 +270,25 @@ export async function runBrokerDealCard(
   }
   if (guardedTeaser.shortSummary) {
     guardedTeaser.shortSummary = rewriteUnsafeText(guardedTeaser.shortSummary).safeText;
+  }
+  if (guardedTeaser.kakaoText) {
+    guardedTeaser.kakaoText = rewriteUnsafeText(guardedTeaser.kakaoText).safeText;
+  }
+  if (guardedTeaser.hookCopy) {
+    guardedTeaser.hookCopy = rewriteUnsafeText(guardedTeaser.hookCopy).safeText;
+  }
+  if (guardedTeaser.curiosityHook) {
+    guardedTeaser.curiosityHook = rewriteUnsafeText(guardedTeaser.curiosityHook).safeText;
+  }
+  if (guardedTeaser.dealPoints) {
+    guardedTeaser.dealPoints = guardedTeaser.dealPoints.map(
+      (p) => rewriteUnsafeText(p).safeText
+    );
+  }
+  if (guardedTeaser.hiddenInfoNotice) {
+    guardedTeaser.hiddenInfoNotice = guardedTeaser.hiddenInfoNotice.map(
+      (item) => rewriteUnsafeText(item).safeText
+    );
   }
 
   return {

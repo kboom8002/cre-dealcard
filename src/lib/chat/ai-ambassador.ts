@@ -54,7 +54,7 @@ ${ragContext || "관련 데이터 없음"}
 
   // 3. LLM 호출
   const result = await callLLM({
-    model: "gpt-4o", // 혹은 claude-sonnet-4-5
+    model: "gpt-5.6-terra", // 혹은 claude-sonnet-4-5
     systemPrompt: systemMessage.content,
     userPrompt: messages.map(m => `${m.role}: ${m.content}`).join('\n') + '\nassistant:',
     maxTokens: 1000,

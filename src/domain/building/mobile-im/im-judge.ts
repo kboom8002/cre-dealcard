@@ -7,6 +7,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 import { callLLM } from "@/ai/llm-client";
+import { getModel } from "@/ai/model-selector";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -49,7 +50,7 @@ export interface IMJudgeInput {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 /** 평가 모델 — 환경변수로 오버라이드 가능 */
-const JUDGE_MODEL = process.env.AI_IM_MODEL || "gpt-5.4";
+const JUDGE_MODEL = process.env.AI_IM_MODEL || getModel("terra");
 
 /** 5차원 가중치 — 규제 준수와 사실 정확성에 높은 비중 */
 const DIMENSION_WEIGHTS: Record<keyof Omit<IMJudgeScore, "overall" | "feedback" | "citation_check">, number> = {

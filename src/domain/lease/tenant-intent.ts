@@ -6,6 +6,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { runTenantIntentNormalizer } from "@/ai/agents/tenant-intent-normalizer";
 import { recordEvent } from "@/domain/analytics/record-event";
+import { getModel } from "@/ai/model-selector";
 
 export interface CreateTenantIntentInput {
   memo: string;
@@ -39,7 +40,7 @@ export async function createTenantIntentFromMemo(
       run_type: "tenant_intent_normalizer",
       input_ref: {},
       output_ref: {},
-      model: process.env.AI_DEFAULT_MODEL || "gpt-5.4",
+      model: getModel("luna"),
       prompt_version: "prompt_tenant_intent_normalizer_v1",
       status: "failed",
       latency_ms: Date.now() - startTime,

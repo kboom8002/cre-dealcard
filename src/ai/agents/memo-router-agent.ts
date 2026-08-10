@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { callLLM } from "@/ai/llm-client";
 import { MEMO_ROUTER_SYSTEM, MEMO_ROUTER_USER_TEMPLATE } from "@/ai/prompts/memo-router";
+import { getModel } from "../model-selector";
 
 export const MemoRouterOutputSchema = z.object({
   type: z.enum(["new_deal", "update_building", "buyer_condition", "general_note", "schedule_event"]),
@@ -15,7 +16,7 @@ export const MemoRouterOutputSchema = z.object({
 export type MemoRouterOutput = z.infer<typeof MemoRouterOutputSchema>;
 
 export async function routeMemo(memoText: string): Promise<MemoRouterOutput> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
+  const model = getModel("luna");
   const userPrompt = MEMO_ROUTER_USER_TEMPLATE.replace("{memo_text}", memoText);
 
   try {

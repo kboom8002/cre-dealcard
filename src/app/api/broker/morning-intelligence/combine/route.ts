@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { callLLM } from "@/ai/llm-client";
+import { getModel } from "@/ai/model-selector";
 
 /**
  * POST /api/broker/morning-intelligence/combine
@@ -79,7 +80,7 @@ JSON 형식:
   "sentimentScore": 65
 }`,
       userPrompt: combinedInput,
-      model: "gpt-5.4",
+      model: getModel("terra"),
       temperature: 0.35,
       maxTokens: 1000,
     });

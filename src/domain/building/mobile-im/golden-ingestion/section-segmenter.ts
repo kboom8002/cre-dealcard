@@ -6,6 +6,7 @@ import type { MobileIMSectionType } from "../types";
 import { MOBILE_IM_SECTIONS_7 } from "../types";
 import type { ParsedDocument } from "./file-parser";
 import { resolveSection, type SectionResolveResult } from "./section-alias-resolver";
+import { getModel } from "@/ai/model-selector";
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -88,7 +89,7 @@ export async function segmentDocument(
 async function callAIForSegmentation(
   doc: ParsedDocument,
 ): Promise<AISegmentResponse> {
-  const model = process.env.AI_IM_MODEL || process.env.AI_DEFAULT_MODEL || 'gpt-4o';
+  const model = process.env.AI_IM_MODEL || getModel("terra");
 
   const { OpenAI } = await import('openai');
   const client = new OpenAI();

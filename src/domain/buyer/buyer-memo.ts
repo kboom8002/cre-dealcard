@@ -9,6 +9,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { runBuyerMemoWriter } from "@/ai/agents/buyer-memo-writer";
 import { recordEvent } from "@/domain/analytics/record-event";
+import { getModel } from "@/ai/model-selector";
 
 export interface GenerateBuyerMemoInput {
   buildingId: string;
@@ -93,7 +94,7 @@ export async function generateBuyerMemo(
         buyer_intent_id: input.buyerIntentId,
       },
       output_ref: {},
-      model: process.env.AI_DEFAULT_MODEL || "gpt-5.4",
+      model: getModel("terra"),
       prompt_version: "prompt_buyer_memo_v1",
       status: "failed",
       latency_ms: Date.now() - startTime,

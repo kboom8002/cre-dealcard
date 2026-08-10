@@ -31,6 +31,25 @@ export function truncateText(text: string, maxChars: number): string {
   return text;
 }
 
+/**
+ * 텍스트를 예산 한도 내로 강제 트렁케이션합니다.
+ * 한국어 문장 단위로 자르되, 자연스럽게 끊기도록 처리합니다.
+ */
+export function enforceTextBudget(text: string, maxLen: number): string {
+  if (!text || text.length <= maxLen) return text;
+  const truncated = text.slice(0, maxLen);
+  const lastPeriod = Math.max(
+    truncated.lastIndexOf(". "),
+    truncated.lastIndexOf("다. "),
+    truncated.lastIndexOf("요. "),
+    truncated.lastIndexOf("음. "),
+  );
+  if (lastPeriod > maxLen * 0.6) {
+    return truncated.slice(0, lastPeriod + 1);
+  }
+  return truncated.trimEnd() + "…";
+}
+
 export function validateTextBudgets(texts: {type: keyof typeof TEXT_LIMITS | string, text: string}[]): string[] {
   const warnings: string[] = [];
   for (const {type, text} of texts) {

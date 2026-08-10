@@ -209,7 +209,7 @@ export function validateAssetConstraints(attrs: Record<string, unknown>): Constr
   if (addrSource === 'fallback' || addrSource === 'manual_input') {
     if (addrConfidence < 0.8) {
       violations.push({
-        ruleId: 'C13_legacy',
+        ruleId: 'C13',
         severity: 'warning',
         message: `주소 신뢰도(${(addrConfidence * 100).toFixed(0)}%)가 낮습니다. 주소를 재확인해 주세요.`,
         field: 'address',

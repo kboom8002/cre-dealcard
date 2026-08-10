@@ -92,8 +92,11 @@ function addFallbackContent(slide: any, data: any, _theme: any) {
         rowH,
         fontFace: KR, fontSize: 9.5,
         border: { type: 'solid', pt: 0.5, color: 'DDE3E8' },
-        colW: Array(tableData[0].length).fill(bodyW / tableData[0].length),
-        autoPage: false,
+        autoPage: true,
+        autoPageRepeatHeader: true,
+        autoPageLineWeight: 0.5,
+        autoPageCharWeight: 0.25,
+        margin: [0.05, 0.1, 0.05, 0.1],
       });
       // 헤더 행 스타일링 (첫 행)
       curY += tableH + 0.2;

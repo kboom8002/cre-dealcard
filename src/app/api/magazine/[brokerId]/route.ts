@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { callLLM } from "@/ai/llm-client";
+import { getModel } from "@/ai/model-selector";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -196,7 +197,7 @@ async function composeMagazineBriefing(
 - 출처가 있는 뉴스의 경우 출처 명시
 결과를 JSON으로 반환: {"headline": "...", "briefing": "..."}`,
       userPrompt: `오늘 뉴스:\n${newsText}\n\n투자자 심리: ${avgSentiment}/100 (${sentimentLabel})\n브로커 활성 매물: ${dealCount}건`,
-      model: "gpt-5.4",
+      model: getModel("terra"),
       temperature: 0.7,
       maxTokens: 600,
     });

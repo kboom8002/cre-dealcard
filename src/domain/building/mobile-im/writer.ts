@@ -12,7 +12,7 @@
 // v3 — Phase 0 모듈 분해 완료
 //
 // [Claude 전환 가이드]
-// 1. callLLM({ model: "gpt-5.4", ... }) → callLLM({ model: "claude-sonnet-4-5", ... })
+// 1. callLLM({ model: "gpt-5.6-terra", ... }) → callLLM({ model: "claude-sonnet-4-5", ... })
 // 2. 프롬프트 내 XML 태그 구조로 변환 (narrative-prompt.ts 수정)
 // 3. 환경변수: AI_IM_MODEL=claude-sonnet-4-5
 
@@ -124,6 +124,8 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         address: String(ctx.marketLocation.address ?? ""),
         promptVariant: ctx.promptVariantId,
         generatedAt: new Date().toISOString(),
+        status: "published",
+        brokerApproved: true,
       });
     }
   } catch (indexErr) {

@@ -9,6 +9,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { runBuyerIntentNormalizer } from "@/ai/agents/buyer-intent-normalizer";
 import { recordEvent } from "@/domain/analytics/record-event";
+import { getModel } from "@/ai/model-selector";
 
 export interface CreateBuyerIntentInput {
   memo: string;
@@ -43,7 +44,7 @@ export async function createBuyerIntentFromMemo(
         run_type: "buyer_intent_normalizer",
         input_ref: {},
         output_ref: {},
-        model: process.env.AI_DEFAULT_MODEL || "gpt-5.4",
+        model: getModel("luna"),
         prompt_version: "prompt_buyer_intent_normalizer_v1",
         status: "failed",
         latency_ms: Date.now() - startTime,

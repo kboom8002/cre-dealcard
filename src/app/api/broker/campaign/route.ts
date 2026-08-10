@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { text } = await generateText({
-      model: openai("gpt-4o"),
+      model: openai("gpt-5.6-terra"),
       system: systemPrompt,
       prompt: `다음 키포인트를 바탕으로 카피를 작성해주세요:\n${key_points}`,
       temperature: 0.7,

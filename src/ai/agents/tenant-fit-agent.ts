@@ -7,6 +7,7 @@ import {
 } from "@/ai/prompts/tenant-fit";
 import type { AgentOutputEnvelope } from "@/ai/envelope";
 import { createSuccessEnvelope, createErrorEnvelope } from "@/ai/envelope";
+import { getModel } from "../model-selector";
 
 // ── Input ────────────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ export type TenantFitAgentOutput = z.infer<typeof TenantFitAgentOutputSchema>;
 export async function runTenantFitAgent(
   input: TenantFitAgentInput,
 ): Promise<AgentOutputEnvelope<TenantFitAgentOutput>> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
+  const model = getModel("terra");
 
   // 프롬프트 템플릿에 입력 데이터 삽입
   const userPrompt = TENANT_FIT_USER_TEMPLATE

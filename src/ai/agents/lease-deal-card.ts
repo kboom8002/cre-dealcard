@@ -24,6 +24,9 @@ import {
   LEASE_BLIND_TEASER_USER_TEMPLATE,
   LEASE_BLIND_TEASER_PROMPT_ID,
 } from "@/ai/prompts/lease-deal-card";
+import { getModel } from "../model-selector";
+import { safeParseAIResponse } from "@/ai/utils/ai-response-parser";
+import { rewriteUnsafeText } from "@/domain/guardrails/safe-language";
 
 export interface LeaseBrokerDealCardInput {
   memo: string;
@@ -67,14 +70,18 @@ async function callOpenAI(
 export async function runLeaseBrokerDealCard(
   input: LeaseBrokerDealCardInput,
 ): Promise<LeaseBrokerDealCardResult> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
+  const model = getModel("sol");
   let totalTokens = 0;
 
   // Step 1: Parse lease memo
   const memoPrompt = LEASE_MEMO_PARSER_USER_TEMPLATE.replace("{memo}", input.memo);
   const memoResult = await callOpenAI(LEASE_MEMO_PARSER_SYSTEM, memoPrompt, model);
   totalTokens += memoResult.tokens;
-  const parsedMemo = LeaseMemoParserOutputSchema.parse(JSON.parse(memoResult.content));
+  const memoParseResult = safeParseAIResponse(memoResult.content, LeaseMemoParserOutputSchema);
+  if (!memoParseResult.success) {
+    throw new Error(`[lease-deal-card] Step1 파싱 실패: ${memoParseResult.error}`);
+  }
+  const parsedMemo = memoParseResult.data;
 
   // Step 2: Build Lease Mini Truth (SSoT Lite)
   const truthPrompt = LEASE_MINI_TRUTH_USER_TEMPLATE.replace(
@@ -87,9 +94,11 @@ export async function runLeaseBrokerDealCard(
     model,
   );
   totalTokens += truthResult.tokens;
-  const leaseTruth = LeaseMiniTruthOutputSchema.parse(
-    JSON.parse(truthResult.content),
-  );
+  const truthParseResult = safeParseAIResponse(truthResult.content, LeaseMiniTruthOutputSchema);
+  if (!truthParseResult.success) {
+    throw new Error(`[lease-deal-card] Step2 파싱 실패: ${truthParseResult.error}`);
+  }
+  const leaseTruth = truthParseResult.data;
 
   // Step 3: Generate Blind Lease Teaser
   const teaserPrompt = LEASE_BLIND_TEASER_USER_TEMPLATE.replace(
@@ -102,14 +111,38 @@ export async function runLeaseBrokerDealCard(
     model,
   );
   totalTokens += teaserResult.tokens;
-  const blindTeaser = LeaseBlindTeaserOutputSchema.parse(
-    JSON.parse(teaserResult.content),
-  );
+  const teaserParseResult = safeParseAIResponse(teaserResult.content, LeaseBlindTeaserOutputSchema);
+  if (!teaserParseResult.success) {
+    throw new Error(`[lease-deal-card] Step3 파싱 실패: ${teaserParseResult.error}`);
+  }
+  const blindTeaser = teaserParseResult.data;
+
+  // ── 법적 가드레일 ──
+  const guardedTeaser = { ...blindTeaser };
+  if (guardedTeaser.title) {
+    guardedTeaser.title = rewriteUnsafeText(guardedTeaser.title).safeText;
+  }
+  if (guardedTeaser.shortSummary) {
+    guardedTeaser.shortSummary = rewriteUnsafeText(guardedTeaser.shortSummary).safeText;
+  }
+  if (guardedTeaser.hiddenInfoNotice) {
+    guardedTeaser.hiddenInfoNotice = guardedTeaser.hiddenInfoNotice.map(
+      (item) => rewriteUnsafeText(item).safeText
+    );
+  }
+  if (guardedTeaser.kakaoText) {
+    guardedTeaser.kakaoText = rewriteUnsafeText(guardedTeaser.kakaoText).safeText;
+  }
+  if (guardedTeaser.dealPoints) {
+    guardedTeaser.dealPoints = guardedTeaser.dealPoints.map(
+      (p) => rewriteUnsafeText(p).safeText
+    );
+  }
 
   return {
     parsedMemo,
     leaseTruth,
-    blindTeaser,
+    blindTeaser: guardedTeaser,
     model,
     promptVersions: {
       memoParser: LEASE_MEMO_PARSER_PROMPT_ID,

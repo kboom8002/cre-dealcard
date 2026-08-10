@@ -632,11 +632,12 @@ export function stripMarkdown(text: string): string {
     .trim();
 }
 
+import { enforceTextBudget } from './text-budget';
+
 /** 텍스트 길이 제한 (PPTX 셀 오버플로 방지) */
 export function truncate(text: string, maxLen: number): string {
   const cleaned = stripMarkdown(text);
-  if (cleaned.length <= maxLen) return cleaned;
-  return cleaned.slice(0, maxLen - 1) + '…';
+  return enforceTextBudget(cleaned, maxLen);
 }
 
 function parseMarkdownTable(markdown: string): ParsedTable[] {

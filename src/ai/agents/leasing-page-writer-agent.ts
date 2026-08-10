@@ -16,6 +16,7 @@ import {
 } from "@/ai/prompts/leasing-page-writer";
 import type { AgentOutputEnvelope } from "@/ai/envelope";
 import { createSuccessEnvelope, createErrorEnvelope } from "@/ai/envelope";
+import { getModel } from "../model-selector";
 
 // ── Input / Output 타입 ──────────────────────────────────────────
 
@@ -57,7 +58,7 @@ export type LeasingPageWriterOutput = z.infer<typeof LeasingPageWriterOutputSche
 export async function runLeasingPageWriterAgent(
   input: LeasingPageWriterInput,
 ): Promise<AgentOutputEnvelope<LeasingPageWriterOutput>> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
+  const model = getModel("terra");
 
   // 프롬프트 조립 – 선택 필드는 빈 값 표기
   const userPrompt = LEASING_PAGE_WRITER_USER_TEMPLATE

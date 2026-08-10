@@ -13,8 +13,8 @@ describe('Data Grade Engine (S1-T4)', () => {
       askingPriceKrw: 8_000_000_000,
       grossAnnualIncomeKrw: 320_000_000,
       zoningRegion: '제2종일반주거지역',
-      approvalDate: '2015-05-10',
-      farHeadroomPp: 45,
+      approvalDate: '1995-05-10',
+      farHeadroomPp: 55,
       evictionStatus: '명도완료',
       rentRoll: '1층 A카페 월 800',
       officialLandPricePerSqm: 15000000,
@@ -71,7 +71,7 @@ describe('Archetype Classifier (S1-T6)', () => {
   it('classifies VALUE_ADD archetype for older building with FAR headroom', () => {
     const attrs = {
       approvalDate: '1995-01-01', // Age ~31
-      farHeadroomPp: 40,
+      farHeadroomPp: 55,
     };
     const result = classifyDealArchetype(attrs);
     expect(result.primaryArchetype).toBe('VALUE_ADD');

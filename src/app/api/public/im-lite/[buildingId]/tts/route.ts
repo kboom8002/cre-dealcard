@@ -80,7 +80,7 @@ ${sectionsText}
 데이터가 부족한 섹션은 건너뛰고, 확인된 데이터만으로 전문적인 브리핑을 구성하세요.`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.4",
+    model: "gpt-5.6-terra",
     messages: [
       { role: "system", content: BRIEFING_SYSTEM_PROMPT },
       { role: "user", content: userPrompt },
@@ -185,7 +185,7 @@ export async function GET(
 
     // 4. GPT-5.4로 브리핑 스크립트 생성 (실패 시 폴백)
     let script: string;
-    let scriptSource = "gpt-5.4";
+    let scriptSource = "gpt-5.6-terra";
     try {
       script = await generateBriefingScriptWithLLM(openai, doc);
       if (!script || script.length < 50) {

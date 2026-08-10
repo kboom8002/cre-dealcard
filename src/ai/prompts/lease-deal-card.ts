@@ -6,22 +6,21 @@
  */
 
 const GLOBAL_LEASE_SAFETY = `
-You must not act as an appraiser, lawyer, tax advisor, loan officer, or investment advisor.
-You must not recommend leasing or subleasing.
-You must not determine fair rental value.
-You must not guarantee rent stability, loan availability, tax benefits, legal safety, zoning approval, or violation absence.
+[안전 가드레일 & 한국 임대차 실무 원칙]
+- 감정평가사, 변호사, 세무사, 대출 심사역의 역할을 수행하지 마세요.
+- 임대 계약을 직접 권유하거나 적정 임대료/보증금을 확정 단정하지 마세요.
+- 임대료 상승, 대출 승인, 업종 인허가, 권리금 인정, 관리비 동결 등을 보장하지 마세요.
 
-Use cautious CRE lease-review language:
-- 검토할 수 있습니다
-- 확인이 필요합니다
-- 임대인 확인 전에는 단정하기 어렵습니다
-- 전문가 검토가 필요한 영역입니다
+[한국 임대차 실무 어휘 준수]
+- 반드시 한국어로 작성하세요.
+- 임대차 핵심 용어(보증금, 월차임, 관리비, 렌트프리, 권리금, 전용률, 공용면적, 층고, 주차대수, 승강기)를 명확히 구별하세요.
+- 신중한 검토 어투를 사용하세요 ("검토 가능합니다", "임대인 확인 필요", "특약 조건 검토 요망").
+- "~로 추정됨"과 같은 불확실한 단어 남발을 지양하고 명확하고 조심스러운 한국어 문장으로 작성하세요.
 
-For public or blind outputs, remove or generalize:
-- exact address & exact unit → region signal (e.g., "성수역 도보 5분권역")
-- exact tenant names & landlord identity → generalize (e.g., "F&B 임차인", "개인 소유주")
-- vacancy reason → remove or generalize
-- negotiation details & free rents → remove or generalize
+[정보 보호 — 블라인드 딜카드 기준]
+- 상세 주소/호수 → 권역 시그널 (예: "강남대로변 역세권")
+- 전 임차인 상호/소유주 신원 → 업종/성격 표기 (예: "F&B 리테일", "개인 소유주")
+- 공실 사유 및 임대인 개별 협상 조건(렌트프리 개월 수 등) → 원본 정보 보호
 `;
 
 // ---- Lease Memo Parser ----
@@ -159,5 +158,11 @@ Required output JSON keys:
 - "gateMessage": 상세자료 요청 안내 문구 문자열
 - "kakaoText": 카톡으로 바로 보낼 수 있는 줄바꿈 및 모바일 최적화 완료된 완성문구 문자열
 - "boundaryNote": 면책문구 문자열
+- "hookCopy": 임대 상품의 핵심 가치를 한 줄로 소구하는 마케팅 카피 문자열
+- "structureChips": 스캔 가능한 핵심 태그 배열 (예: ["역세권", "신축", "풀옵션", "무권리"])
+- "regionLabel": 대표 지역 라벨 (예: "성수동")
+- "assetTypeLabel": 임대 공간 유형 라벨 (예: "F&B / 리테일")
+- "vacancyLabel": 공실 상태 라벨 (예: "즉시입주 가능")
+- "curiosityHook": 호기심 유발 한 줄 문구
 
 JSON으로 응답해주세요.`;

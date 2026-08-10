@@ -16,6 +16,7 @@ import {
   USER_PROMPT_TEMPLATE,
   PROMPT_ID,
 } from "@/ai/prompts/deal-curiosity-report";
+import { getModel } from "../model-selector";
 
 export interface DealCuriosityWriterInput {
   rawInput: string;
@@ -39,7 +40,7 @@ export async function runDealCuriosityWriter(
     .replace("{input_type}", input.inputType)
     .replace("{user_purpose}", input.userPurpose);
 
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
+  const model = getModel("terra");
 
   const response = await callLLM({
     model,

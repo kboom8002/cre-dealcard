@@ -7,6 +7,7 @@ import {
   TenantIntentOutputSchema,
   type TenantIntentOutput,
 } from "@/ai/schemas/tenant-intent";
+import { getModel } from "../model-selector";
 
 export const TENANT_INTENT_SYSTEM = `You are a Korean commercial real estate leasing intent parser.
 Your task is to take an unstructured Kakao-style memo expressing a tenant's leasing requirements and normalize it into a structured JSON object.
@@ -43,6 +44,8 @@ Required output JSON keys:
 
 JSON으로 응답해주세요.`;
 
+import { safeParseAIResponse } from "@/ai/utils/ai-response-parser";
+
 export interface TenantIntentNormalizerResult {
   intent: TenantIntentOutput;
   model: string;
@@ -53,7 +56,7 @@ export interface TenantIntentNormalizerResult {
 export async function runTenantIntentNormalizer(
   memo: string,
 ): Promise<TenantIntentNormalizerResult> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
+  const model = getModel("luna");
   const userPrompt = TENANT_INTENT_USER_TEMPLATE.replace("{memo}", memo);
 
   const response = await callLLM({
@@ -61,14 +64,17 @@ export async function runTenantIntentNormalizer(
     systemPrompt: TENANT_INTENT_SYSTEM,
     userPrompt,
     responseFormat: "json_object",
-    temperature: 0.7,
+    temperature: 0.2,
     maxTokens: 4096,
   });
 
-  const intent = TenantIntentOutputSchema.parse(JSON.parse(response.content));
+  const parsed = safeParseAIResponse(response.content, TenantIntentOutputSchema);
+  if (!parsed.success) {
+    throw new Error(`[tenant-intent-normalizer] 파싱 실패: ${parsed.error}`);
+  }
 
   return {
-    intent,
+    intent: parsed.data,
     model,
     promptVersion: "prompt_tenant_intent_normalizer_v1",
     usage: { totalTokens: response.tokens },

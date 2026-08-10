@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { callLLM } from "@/ai/llm-client";
+import { getModel } from "@/ai/model-selector";
 
 // ─── 권역 매핑 ────────────────────────────────────────────────────────────────
 const REGION_MAP: Record<string, { district: string; areaSignals: string[]; pnu: string; districtCode: string }> = {
@@ -232,7 +233,7 @@ ${magazineSummary}
       const aiRes = await callLLM({
         systemPrompt,
         userPrompt,
-        model: "gpt-5.4",
+        model: getModel("terra"),
         temperature: 0.2,
         maxTokens: 1500,
       });

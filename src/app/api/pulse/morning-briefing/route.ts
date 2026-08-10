@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { callLLM } from "@/ai/llm-client";
 import { searchNaverNews } from "@/lib/external/naver-search";
+import { getModel } from "@/ai/model-selector";
 
 const REGION_SEARCH_QUERY: Record<string, string> = {
   seongsu: "성수 꼬마빌딩 OR 성수 상업용 부동산",
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
       const aiRes = await callLLM({
         systemPrompt,
         userPrompt,
-        model: "gpt-5.4",
+        model: getModel("terra"),
         temperature: 0.7,
         maxTokens: 600
       });

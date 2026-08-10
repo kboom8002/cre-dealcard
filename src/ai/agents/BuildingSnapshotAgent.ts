@@ -2,6 +2,7 @@ import { callLLM } from "@/ai/llm-client";
 import { SnapshotDraftSchema, type SnapshotDraft } from "@/ai/schemas/snapshot-schema";
 import { SNAPSHOT_AGENT_PROMPT_ID, SNAPSHOT_AGENT_SYSTEM, SNAPSHOT_AGENT_USER_TEMPLATE } from "@/ai/prompts/snapshot-agent";
 import { rewriteUnsafeText } from "@/domain/guardrails/safe-language";
+import { getModel } from "../model-selector";
 
 export interface BuildingSnapshotInput {
   building: any;
@@ -26,7 +27,7 @@ export async function runBuildingSnapshotAgent(
     .replace("{lease_data}", JSON.stringify(input.leaseSummary || {}, null, 2))
     .replace("{evidence_layers}", JSON.stringify(input.availableEvidenceLayers || [], null, 2));
 
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
+  const model = getModel("terra");
 
   const response = await callLLM({
     model,

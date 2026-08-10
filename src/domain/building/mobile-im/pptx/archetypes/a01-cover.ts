@@ -274,20 +274,33 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
   if (input.watermarkText) L.watermark(slide, input.watermarkText, true);
   L.foot(slide, input.slideNum, input.docno, true);
 
+  let imgAdded = false;
   if (input.data?.coverImageUrl) {
-    const img = await optimizeImageForPptx(input.data.coverImageUrl as string, 1280, 85);
-    if (img) {
-      const coverStyle = input.data?.coverStyle ?? THEME_META.coverStyle;
-      if (coverStyle === 'split') {
-        slide.addImage({ data: img.base64, x: 8.50, y: 0, w: 4.833, h: 7.5 });
-      } else if (coverStyle === 'hero_dark') {
-        // Full width background, placed behind other elements
-        slide.addImage({ data: img.base64, x: 0, y: 0, w: 13.333, h: 7.5 });
-      } else {
-        // Default: right side panel
-        slide.addImage({ data: img.base64, x: 8.50, y: 0, w: 4.833, h: 7.5 });
+    try {
+      const img = await optimizeImageForPptx(input.data.coverImageUrl as string, 1280, 85);
+      if (img) {
+        const coverStyle = input.data?.coverStyle ?? THEME_META.coverStyle;
+        if (coverStyle === 'split') {
+          slide.addImage({ data: img.base64, x: 8.50, y: 0, w: 4.833, h: 7.5 });
+        } else if (coverStyle === 'hero_dark') {
+          slide.addImage({ data: img.base64, x: 0, y: 0, w: 13.333, h: 7.5 });
+        } else {
+          slide.addImage({ data: img.base64, x: 8.50, y: 0, w: 4.833, h: 7.5 });
+        }
+        imgAdded = true;
       }
+    } catch {
+      warnings.push('표지 이미지 최적화 실패, 기본 그래픽 폴백 사용');
     }
+  }
+
+  // Cover image fallback graphic when no image is provided or loading failed
+  if (!imgAdded && (THEME_META.coverStyle === 'split' || THEME_META.coverStyle === 'institutional_masses')) {
+    slide.addShape('rect' as any, {
+      x: 8.50, y: 0, w: 4.833, h: 7.5,
+      fill: { color: C.brass, transparency: 88 },
+      line: { color: C.brass, width: 0.5 },
+    });
   }
 
   // Phase 4: 중개법인 로고 삽입 (좌상단 브랜딩)

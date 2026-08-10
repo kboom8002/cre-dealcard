@@ -14,6 +14,9 @@ import {
   BUYER_INTENT_USER_TEMPLATE,
   BUYER_INTENT_PROMPT_ID,
 } from "@/ai/prompts/buyer-intent";
+import { getModel } from "../model-selector";
+
+import { safeParseAIResponse } from "@/ai/utils/ai-response-parser";
 
 export interface BuyerIntentNormalizerResult {
   intent: BuyerIntentLiteOutput;
@@ -25,7 +28,7 @@ export interface BuyerIntentNormalizerResult {
 export async function runBuyerIntentNormalizer(
   memo: string,
 ): Promise<BuyerIntentNormalizerResult> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
+  const model = getModel("luna");
   const userPrompt = BUYER_INTENT_USER_TEMPLATE.replace("{memo}", memo);
 
   const response = await callLLM({
@@ -33,14 +36,17 @@ export async function runBuyerIntentNormalizer(
     systemPrompt: BUYER_INTENT_SYSTEM,
     userPrompt,
     responseFormat: "json_object",
-    temperature: 0.7,
+    temperature: 0.2,
     maxTokens: 4096,
   });
 
-  const intent = BuyerIntentLiteOutputSchema.parse(JSON.parse(response.content));
+  const parsed = safeParseAIResponse(response.content, BuyerIntentLiteOutputSchema);
+  if (!parsed.success) {
+    throw new Error(`[buyer-intent-normalizer] 파싱 실패: ${parsed.error}`);
+  }
 
   return {
-    intent,
+    intent: parsed.data,
     model,
     promptVersion: BUYER_INTENT_PROMPT_ID,
     usage: { totalTokens: response.tokens },

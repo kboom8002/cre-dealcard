@@ -142,7 +142,7 @@ async function scoreNewsBatch(items: RawNewsItem[]): Promise<ScoredNews[]> {
 반드시 아래 JSON 배열만 출력 (설명 없이):
 [{"idx":0,"score":8,"regions":["gbd"],"topic":"transaction","sentiment":"bullish"}]`,
       userPrompt: newsListText,
-      model: "gpt-5.4",
+      model: "gpt-5.6-luna",
       temperature: 0.15,
       maxTokens: 800,
     });
@@ -184,7 +184,7 @@ async function enhancedSummarize(title: string, content: string): Promise<string
 3줄: 추천 액션 (매수자 접촉, 임대조건 조정 등)
 총 150자 이내. 줄바꿈은 | 로 구분.`,
       userPrompt: `제목: ${title}\n내용: ${content}`,
-      model: "gpt-5.4",
+      model: "gpt-5.6-luna",
       temperature: 0.2,
       maxTokens: 200,
     });
@@ -314,7 +314,7 @@ export async function ingestGlobalReports(supabase: SupabaseClient): Promise<any
           const aiRes = await callLLM({
             systemPrompt: "부동산 리포트 뉴스를 1줄(50자 이내)로 핵심 수치 중심 요약.",
             userPrompt: `${title}: ${desc}`,
-            model: "gpt-5.4",
+            model: "gpt-5.6-luna",
             temperature: 0.2,
             maxTokens: 80,
           });
@@ -389,7 +389,7 @@ export async function crawlAuctions(supabase: SupabaseClient): Promise<any[]> {
             systemPrompt: `경매 뉴스에서 다음 JSON을 추출하세요. 정보가 없으면 null:
 {"case_number":"사건번호","court":"법원명","address":"소재지","appraised_value":감정가(원),"minimum_bid":최저가(원),"status":"진행상태","auction_date":"YYYY-MM-DD"}`,
             userPrompt: `${title}\n${desc}`,
-            model: "gpt-5.4",
+            model: "gpt-5.6-luna",
             temperature: 0.1,
             maxTokens: 200,
           });
@@ -465,7 +465,7 @@ export async function computeRentalMarketRates(supabase: SupabaseClient): Promis
 [{"building_type":"office_prime 또는 retail","deposit_avg":보증금(원/평),"monthly_rent_avg":월세(원/평),"vacancy_rate":공실률(%),"source":"출처"}]
 정보가 부족하면 빈 배열 []을 출력하세요.`,
           userPrompt: `권역: ${rk.region}\n\n뉴스:\n${articleTexts}`,
-          model: "gpt-5.4",
+          model: "gpt-5.6-luna",
           temperature: 0.1,
           maxTokens: 300,
         });

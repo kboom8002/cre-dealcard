@@ -36,9 +36,10 @@ import { CrePromptRegistry } from "./cre-prompt-registry";
 import { generatePremiumTemplate, formatBasicIncomeMarkdown, getSectionTitle } from "./premium-template-engine";
 import type { IMGenerationContext } from "./im-context-builder";
 import { getPosturePromptOverlay } from "./posture-prompts";
+import { getModel } from "@/ai/model-selector";
 
 /** AI 모델 설정 — 환경변수로 교체 가능 */
-const IM_AI_MODEL = process.env.AI_IM_MODEL || process.env.AI_DEFAULT_MODEL || "gpt-5.4";
+const IM_AI_MODEL = process.env.AI_IM_MODEL || getModel("terra");
 
 /** Fast mode: Vercel 타임아웃 방어 */
 const IM_FAST_MODE = process.env.IM_FAST_MODE !== "false";

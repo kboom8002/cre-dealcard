@@ -14,6 +14,7 @@ import {
   BUYER_MEMO_USER_TEMPLATE,
   BUYER_MEMO_PROMPT_ID,
 } from "@/ai/prompts/buyer-intent";
+import { getModel } from "../model-selector";
 
 export interface BuyerMemoWriterInput {
   building: {
@@ -49,7 +50,7 @@ export interface BuyerMemoWriterResult {
 export async function runBuyerMemoWriter(
   input: BuyerMemoWriterInput,
 ): Promise<BuyerMemoWriterResult> {
-  const model = process.env.AI_DEFAULT_MODEL || "gpt-5.4";
+  const model = getModel("terra");
 
   const userPrompt = BUYER_MEMO_USER_TEMPLATE
     .replace("{area_signal}", input.building.areaSignal || "미확인")
