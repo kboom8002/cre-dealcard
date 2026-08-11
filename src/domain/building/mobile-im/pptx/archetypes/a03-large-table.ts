@@ -25,6 +25,7 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
   
   let tableHead: string[] = input.data.tableHead || [];
   let tableRows: any[][] = input.data.tableRows || [];
+  let rowEntries: [string, string][] = [];
   
   // tableHead가 비어있고 tableRows에 데이터가 있으면 첫 행을 헤더로
   if (tableHead.length === 0 && tableRows.length > 1) {
@@ -53,7 +54,6 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
     const lines = String(input.data.content).split('\n')
       .map((l: string) => l.trim())
       .filter((l: string) => l.length > 5 && !l.startsWith('#'));
-    const rowEntries: [string, string][] = [];
     for (const line of lines) {
       const stripped = line.replace(/\*\*(.*?)\*\*/g, '$1').replace(/[|`\[\]]/g, '').trim();
       if (!stripped) continue;
@@ -68,6 +68,13 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
       L.rows(slide, M, 1.86, CW, rowEntries.slice(0, 14), { rh: 0.36, fs: 12 });
     }
   }
+
+  if (tableHead.length === 0 && tableRows.length === 0 && (!input.data.content || rowEntries.length === 0)) {
+    L.callout(slide, M, 2.20, CW, 1.4, 'info', '임대 현황 데이터 준비 중',
+      '임대차 현황 데이터는 상세 입력 완료 후 자동으로 업데이트됩니다.');
+    warnings.push('렌트롤 데이터 없음 — 폴백 callout 표시');
+  }
+
   
   // Note
   const tableEnd = 1.86 + ((tableRows.length + 1) * 0.38);

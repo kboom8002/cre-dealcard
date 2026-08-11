@@ -26,6 +26,7 @@ export interface DeckSequenceInput {
   incomeArchetype?: IncomeArchetype;
   hasViolation?: boolean;
   hasJointCollateral?: boolean;
+  hasPhotos?: boolean;
 }
 
 export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
@@ -33,30 +34,45 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   if (input.grade === 'D') {
     if (input.tier === 'pro') return [];
     // Basic 최소 덱: 표지 + 핵심요약 + 면책
-    return [
+    const dGradeSequence: SlideSpec[] = [
       { archetype: 'A01', kicker: 'BASIC IM', title: '표지', dataKey: 'cover' },
-      { archetype: 'A02', kicker: 'Summary', title: '핵심요약', dataKey: 'summary' },
-      { archetype: 'A10', kicker: 'Disclaimer', title: '표기 기준 및 면책', dataKey: 'closing' },
     ];
+    if (input.hasPhotos) {
+      dGradeSequence.push({ archetype: 'A14', kicker: 'Gallery', title: '건물 사진', dataKey: 'gallery' });
+    }
+    dGradeSequence.push(
+      { archetype: 'A02', kicker: 'Summary', title: '핵심요약', dataKey: 'summary' },
+      { archetype: 'A10', kicker: 'Disclaimer', title: '표기 기준 및 면책', dataKey: 'closing' }
+    );
+    return dGradeSequence;
   }
 
   // Basic C등급+: 7슬라이드 (표지+요약+입지+건물+렌트롤+리스크+면책)
   if (input.tier === 'basic') {
-    return [
-      { archetype: 'A01', kicker: 'BASIC IM', title: '표지', dataKey: 'cover' },
+    const basicSequence: SlideSpec[] = [
+      { archetype: 'A01', kicker: 'BASIC IM', title: '표지', dataKey: 'cover' }
+    ];
+    if (input.hasPhotos) {
+      basicSequence.push({ archetype: 'A14', kicker: 'Gallery', title: '건물 사진', dataKey: 'gallery' });
+    }
+    basicSequence.push(
       { archetype: 'A02', kicker: 'Summary', title: '핵심요약', dataKey: 'summary' },
       { archetype: 'A06', kicker: 'Location', title: '입지', dataKey: 'location' },
       { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
       { archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' },
       { archetype: 'A07', kicker: 'Risk', title: '리스크', dataKey: 'risk' },
-      { archetype: 'A10', kicker: 'Disclaimer', title: '표기 기준 및 면책', dataKey: 'closing' },
-    ];
+      { archetype: 'A10', kicker: 'Disclaimer', title: '표기 기준 및 면책', dataKey: 'closing' }
+    );
+    return basicSequence;
   }
 
   const sequence: SlideSpec[] = [];
 
   // ── 1. 공통 골격 (Pro) ──
   sequence.push({ archetype: 'A01', kicker: 'INVESTMENT MEMORANDUM', title: '표지', dataKey: 'cover' });
+  if (input.hasPhotos) {
+    sequence.push({ archetype: 'A14', kicker: 'Gallery', title: '건물 사진', dataKey: 'gallery' });
+  }
   sequence.push({ archetype: 'A02', kicker: 'Summary', title: '핵심요약', dataKey: 'summary' });
   sequence.push({ archetype: 'A06', kicker: 'Location', title: '입지', dataKey: 'location' });
   sequence.push({ archetype: 'A04', kicker: 'Land', title: '토지', dataKey: 'land' });

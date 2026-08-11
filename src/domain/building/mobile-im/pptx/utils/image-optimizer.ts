@@ -95,6 +95,46 @@ export async function generateStaticMapPlaceholder(
   h = 500,
   coordinates?: { lat: number; lng: number } | null
 ): Promise<OptimizedImage> {
+  // ── 0차: 카카오 Static Map API (최우선) ──
+  if (coordinates?.lat && coordinates?.lng) {
+    try {
+      const apiKey = process.env.KAKAO_REST_API_KEY;
+      if (apiKey) {
+        const baseUrl = 'https://spi.maps.daum.net/mapscms/map/staticmap.png';
+        const params = new URLSearchParams({
+          apikey: apiKey,
+          center: `${coordinates.lng},${coordinates.lat}`,
+          level: '3',
+          w: String(Math.min(w, 640)),
+          h: String(Math.min(h, 400)),
+          markers: `type:d|size:medium|${coordinates.lng},${coordinates.lat}`,
+        });
+        const kakaoUrl = `${baseUrl}?${params.toString()}`;
+        const response = await fetch(kakaoUrl, {
+          signal: AbortSignal.timeout(6000),
+        });
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          const inputBuffer = Buffer.from(arrayBuffer);
+          // Resize to desired dimensions
+          const resizedBuffer = await sharp(inputBuffer)
+            .resize({ width: w, height: h, fit: 'cover' })
+            .jpeg({ quality: 85 })
+            .toBuffer();
+          return {
+            buffer: resizedBuffer,
+            base64: `image/jpeg;base64,${resizedBuffer.toString('base64')}`,
+            width: w,
+            height: h,
+            sizeBytes: resizedBuffer.length,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('[generateStaticMapPlaceholder] Kakao map failed, falling back to OSM:', err);
+    }
+  }
+
   // ── 1차: OpenStreetMap 정적 타일 3x3 합성 ──
   if (coordinates?.lat && coordinates?.lng) {
     try {
@@ -225,4 +265,33 @@ export async function generateStaticMapPlaceholder(
     height: h,
     sizeBytes: buffer.length,
   };
+}
+
+/**
+ * 이미 생성된 카카오 지도 URL에서 이미지를 가져와 PPTX용으로 최적화
+ */
+export async function fetchKakaoMapImage(
+  mapUrl: string,
+  w = 560,
+  h = 450,
+): Promise<OptimizedImage | null> {
+  try {
+    const response = await fetch(mapUrl, { signal: AbortSignal.timeout(8000) });
+    if (!response.ok) return null;
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = await sharp(Buffer.from(arrayBuffer))
+      .resize({ width: w, height: h, fit: 'cover' })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+    return {
+      buffer,
+      base64: `image/jpeg;base64,${buffer.toString('base64')}`,
+      width: w,
+      height: h,
+      sizeBytes: buffer.length,
+    };
+  } catch (err) {
+    console.warn('[fetchKakaoMapImage] Failed:', mapUrl, err);
+    return null;
+  }
 }

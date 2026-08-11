@@ -56,8 +56,9 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     });
     
     // 점수
-    if (b.score) {
-      slide.addText(b.score, {
+    if (b.score !== undefined && b.score !== null) {
+      const scoreStr = typeof b.score === 'number' ? b.score.toFixed(2) : String(b.score);
+      slide.addText(scoreStr, {
         x: M + 5.66, y: by, w: 1.0, h: 0.32,
         align: 'right', valign: 'middle',
         fontFace: NUM, fontSize: 12, bold: true, color: 'FFFFFF', margin: 0,
@@ -71,16 +72,19 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
   
   L.sub(slide, rx, 1.66, rw, '면책 조항', true);
   
+  const disclaimerText = input.data.disclaimer || MOBILE_IM_STANDARD_DISCLAIMER;
+  const disclaimerLen = disclaimerText.length;
+  const cardH = Math.max(2.86, Math.min(4.0, 0.5 + Math.ceil(disclaimerLen / 50) * 0.28));
+
   // 면책 배경 카드
   slide.addShape('roundRect' as any, {
-    x: rx, y: 2.02, w: rw, h: 2.86,
+    x: rx, y: 2.02, w: rw, h: cardH,
     rectRadius: 0.04,
     fill: { color: C.ink2 },
   });
   
-  const disclaimerText = input.data.disclaimer || MOBILE_IM_STANDARD_DISCLAIMER;
   slide.addText(disclaimerText, {
-    x: rx + 0.24, y: 2.20, w: rw - 0.48, h: 2.50,
+    x: rx + 0.24, y: 2.20, w: rw - 0.48, h: cardH - 0.36,
     fontFace: KR, fontSize: 9.3, color: CD.mute,
     lineSpacingMultiple: 1.28, margin: 0, valign: 'top',
   });

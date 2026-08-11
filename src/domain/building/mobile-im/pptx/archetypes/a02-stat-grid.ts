@@ -105,6 +105,23 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     }
   }
   
+  if (metrics.length === 0 && !input.data.content) {
+    // Placeholder stat cards when no data available
+    const placeholders = [
+      { label: '매각 희망가', value: '—', unit: '' },
+      { label: '총 수익률', value: '—', unit: '' },
+      { label: '연면적', value: '—', unit: '' },
+      { label: '공실률', value: '—', unit: '' },
+    ];
+    const gap = 0.20;
+    const cardW = L.col(4, gap);
+    for (let i = 0; i < 4; i++) {
+      const x = L.colX(i, cardW, gap);
+      L.stat(slide, x, startY, cardW, placeholders[i].label, placeholders[i].value, '', '', { h: 1.4, vs: 20 });
+    }
+    warnings.push('Summary 메트릭 데이터 없음 — 플레이스홀더 표시');
+  }
+
   // Callouts
   const callouts = input.data.callouts || [];
   const calloutY = metrics.length > 4 ? 5.4 : (metrics.length > 0 ? startY + 1.8 : 4.5);

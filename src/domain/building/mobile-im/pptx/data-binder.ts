@@ -139,6 +139,18 @@ function transformForArchetype(markdown: string, tables: ParsedTable[], archetyp
 function buildA02Props(markdown: string, tables: ParsedTable[], lines: string[]): Record<string, any> {
   const leadSentence = findLeadSentence(lines);
   const metrics = extractStatMetrics(tables, lines);
+  if (metrics.length === 0) {
+    for (const line of lines) {
+      if (metrics.length >= 8) break;
+      const numMatch = line.match(/(\d[\d,.]*\s*(?:억|만원|원|%|㎡|평|층|호|실|개))/g);
+      if (numMatch) {
+        const parts = line.split(/[：:||\-]/);
+        const label = stripMarkdown(parts[0] || '').slice(0, 14);
+        const value = stripMarkdown(numMatch[0]);
+        if (label && value) metrics.push({ label, value });
+      }
+    }
+  }
   const callouts = extractCallouts(lines);
   return { leadSentence, metrics, callouts };
 }
@@ -209,6 +221,22 @@ function buildA06Props(markdown: string, tables: ParsedTable[], lines: string[])
     rows = boldKVs.map(bv => [bv.key, bv.value] as [string, string]);
   }
   
+  if (rows.length === 0) {
+    const locationKeywords = ['주소', '교통', '역', '도보', '차량', '인프라', '학교', '지하철', '버스', '거리', '위치', '접근'];
+    for (const line of lines) {
+      if (rows.length >= 5) break;
+      const stripped = stripMarkdown(line.replace(/^[-•·]\s*/, ''));
+      if (locationKeywords.some(kw => stripped.includes(kw))) {
+        const parts = stripped.split(/[：:]/);
+        if (parts.length >= 2) {
+          rows.push([parts[0].trim().slice(0, 20), enforceTextBudget(parts.slice(1).join(':').trim(), 45)] as [string, string]);
+        } else {
+          rows.push(['입지 정보', enforceTextBudget(stripped, 45)] as [string, string]);
+        }
+      }
+    }
+  }
+  
   // Truncate row values to prevent text overflow in PPTX
   const truncatedRows = rows.slice(0, 5).map(([label, value]) => 
     [label.slice(0, 20), enforceTextBudget(value, 45)] as [string, string]
@@ -243,6 +271,23 @@ function buildA07Props(lines: string[]): Record<string, any> {
     boldItems.slice(0, 3).forEach(bv => {
       blocks.push({ label: bv.key, value: bv.value, description: '' });
     });
+  }
+  
+  if (blocks.length === 0) {
+    const numbered = lines.filter(l => /^\d+[\.)\s]/.test(l));
+    numbered.slice(0, 3).forEach(l => {
+      const content = stripMarkdown(l.replace(/^\d+[\.)\s]*/, ''));
+      blocks.push({ label: '', value: content.slice(0, 20) || '—', description: content });
+    });
+  }
+  if (blocks.length === 0 && lines.length > 0) {
+    // Split narrative text into 3 blocks
+    const textLines = lines.filter(l => !l.startsWith('#') && l.length > 5);
+    const chunk = Math.max(1, Math.ceil(textLines.length / 3));
+    for (let i = 0; i < 3 && i * chunk < textLines.length; i++) {
+      const segment = textLines.slice(i * chunk, (i + 1) * chunk).join(' ');
+      blocks.push({ label: `항목 ${i + 1}`, value: '—', description: stripMarkdown(segment).slice(0, 120) });
+    }
   }
   
   const bottomText = lines.find(l => l.startsWith('>'))?.replace(/^>\s*/, '');
@@ -325,6 +370,17 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
       if (metrics.length >= 8) break;
       if (row.length >= 2) {
         metrics.push({ label: stripMarkdown(row[0]), value: stripMarkdown(row[1]) });
+      }
+    }
+  }
+
+  if (metrics.length < 4) {
+    for (const line of lines.filter(l => !l.startsWith('|') && !l.startsWith('#'))) {
+      if (metrics.length >= 8) break;
+      const numMatch = line.match(/(\d[\d,.]*\s*(?:억|만원|원|%|㎡|평|층|호|실|개))/g);
+      if (numMatch) {
+        const parts = line.split(/[：:||\-]/);
+        metrics.push({ label: stripMarkdown(parts[0] || '').slice(0, 14) || '정보', value: stripMarkdown(numMatch[0]) });
       }
     }
   }

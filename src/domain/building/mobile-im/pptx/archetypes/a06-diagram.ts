@@ -2,7 +2,7 @@ import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind, RowEntry } from '../imlib';
-import { generateStaticMapPlaceholder } from '../utils/image-optimizer';
+import { generateStaticMapPlaceholder, fetchKakaoMapImage, type OptimizedImage } from '../utils/image-optimizer';
 import { enforceTextBudget } from '../text-budget';
 
 export interface ArchetypeInput {
@@ -32,8 +32,21 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
 
   // ── 좌측: 지도 ──
   const coords = input.data?.coordinates ?? null;
+  const mapImageUrl = input.data?.mapImageUrl ?? null;
   const areaOrAddress = (input.data?.left as any)?.source || input.data?.areaSignal || '서울';
-  const mapImg = await generateStaticMapPlaceholder(areaOrAddress, 560, 450, coords);
+
+  let mapImg: OptimizedImage | null = null;
+
+  // 1차: 이미 생성된 카카오 지도 URL 사용
+  if (mapImageUrl) {
+    mapImg = await fetchKakaoMapImage(mapImageUrl, 560, 450);
+  }
+
+  // 2차: 좌표 기반 카카오/OSM 합성 지도 (fetchKakaoMapImage 실패 시)
+  if (!mapImg) {
+    mapImg = await generateStaticMapPlaceholder(areaOrAddress, 560, 450, coords);
+  }
+
   if (mapImg) {
     slide.addImage({ data: mapImg.base64, x: M, y: 1.62, w: mapW, h: 4.50 });
   }
@@ -57,6 +70,18 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     ) as RowEntry[];
     y = L.rows(slide, textX, y, textW, safeRows, { rh: 0.38, fs: 11 });
     y += 0.2;
+  }
+
+  if (rightRows.length === 0) {
+    // Fallback: default location attributes
+    const defaultRows: RowEntry[] = [
+      ['주소', '확인 필요'],
+      ['교통', '확인 필요'],
+      ['주변 인프라', '확인 필요'],
+    ];
+    y = L.rows(slide, textX, y, textW, defaultRows, { rh: 0.38, fs: 11 });
+    y += 0.2;
+    warnings.push('입지 데이터 없음 — 기본 프레임 표시');
   }
 
   if (right.callout && y < 5.8) {

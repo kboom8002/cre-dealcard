@@ -30,7 +30,9 @@ function addFallbackContent(slide: any, data: any, _theme: any) {
   const shapes = slide._slideObjects || slide._shapes || [];
   const hasBodyShapes = shapes.some((s: any) => {
     const y = s?.options?.y ?? s?.y ?? 0;
-    return y >= 2.0;
+    const h = s?.options?.h ?? s?.h ?? 0;
+    // Only count shapes in the body area (between header and footer)
+    return y >= 1.5 && y < 6.5 && h > 0.1;
   });
 
   if (hasBodyShapes || !data.content) return;
@@ -260,6 +262,7 @@ export class MobileImPptxRenderer {
         incomeArchetype: input.incomeArchetype,
         hasViolation: input.hasViolation,
         hasJointCollateral: input.hasJointCollateral,
+        hasPhotos: (input.doc.body?.photo_urls?.length > 0) || (input.doc.body?.photos?.length > 0),
       };
 
       const sequence: SlideSpec[] = buildDeckSequence(sequenceInput);
@@ -296,6 +299,7 @@ export class MobileImPptxRenderer {
 
       if (dataMap['location']) {
         (dataMap['location'] as any).coordinates = input.doc.body?.coordinates ?? null;
+        (dataMap['location'] as any).mapImageUrl = input.doc.body?.mapImageUrl ?? null;
       }
 
       // 면책 조항과 provenance 배지 설명은 법적 고정 텍스트 (§10, §18)
@@ -320,6 +324,18 @@ export class MobileImPptxRenderer {
           { label: '● 중개인입력', description: '중개인 현장 조사 및 경험 기반 입력', score: '0.60' },
           { label: '◇ AI추정·가정', description: '시나리오 분석 및 AI 모델 추정', score: '0.30' },
         ],
+      } as any;
+
+      // ── 갤러리 데이터 ──
+      const photoUrls = input.doc.body?.photo_urls ?? [];
+      const photos = input.doc.body?.photos ?? [];
+      dataMap['gallery'] = {
+        title: '건물 사진',
+        content: '',
+        tables: [],
+        metrics: {},
+        photoUrls,
+        photos,
       } as any;
 
       // heroCard 데이터를 summary에 매핑
