@@ -180,6 +180,7 @@ export async function generateMobileIMHandler(
 
   // ─── 공공데이터 수집 (fault-tolerant)
   let externalData = null;
+  let externalDataStatus: 'loaded' | 'partial' | 'failed' | 'skipped' = 'skipped';
 
   if (supplemental.resolved_pnu) {
     try {
@@ -188,14 +189,18 @@ export async function generateMobileIMHandler(
         supplemental.resolved_address || "",
         ssotRow.id
       );
+      externalDataStatus = externalData?.buildingRegister ? 'loaded' : 'partial';
     } catch (err) {
       console.error("[im-handler] External data enrichment by PNU failed:", err);
+      externalDataStatus = 'failed';
     }
   } else if (supplemental.resolved_address) {
     try {
       externalData = await enrichBuildingData(supplemental.resolved_address, ssotRow.id);
+      externalDataStatus = externalData?.buildingRegister ? 'loaded' : 'partial';
     } catch (err) {
       console.error("[im-handler] External data enrichment by Address failed:", err);
+      externalDataStatus = 'failed';
     }
   } else {
     const layers = (ssotRow.layers ?? {}) as Record<string, any>;
@@ -218,8 +223,10 @@ export async function generateMobileIMHandler(
     if (rawAddress && rawAddress.length > 3) {
       try {
         externalData = await enrichBuildingData(rawAddress, ssotRow.id);
+        externalDataStatus = externalData?.buildingRegister ? 'loaded' : 'partial';
       } catch (err) {
         console.error("[im-handler] External data enrichment failed:", err);
+        externalDataStatus = 'failed';
       }
     }
   }
@@ -231,6 +238,7 @@ export async function generateMobileIMHandler(
     readiness,
     external_data: externalData,
     dcfEligible,
+    dataGrade: gradeResult.grade,
     identity: identity ?? {
       buildingUse: undefined,
       assetType: String(bssotFlat.asset_type ?? ''),
@@ -344,6 +352,14 @@ export async function generateMobileIMHandler(
       dataGrade: gradeResult.grade,
       financialWarnings,
       dcfEligible,
+      // 데이터 완전성 메타데이터 — PPTX 엔드포인트에서 게이트에 활용
+      dataCompleteness: {
+        buildingRegister: externalDataStatus === 'loaded' || externalDataStatus === 'partial',
+        buildingRegisterSource: externalDataStatus,
+        qualityGrade: gradeResult.grade,
+        pptxExportAllowed: externalDataStatus !== 'failed' && externalDataStatus !== 'skipped' && gradeResult.grade !== 'D',
+        generatedAt: new Date().toISOString(),
+      },
       // 신규 writer 출력: heroCard, photos (기존 writer 미지원 시 undefined → JSON에서 제외)
       heroCard: writerResult.heroCard ?? undefined,
       photos: writerResult.photos ?? undefined,

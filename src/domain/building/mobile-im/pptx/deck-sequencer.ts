@@ -36,7 +36,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     return [
       { archetype: 'A01', kicker: 'BASIC IM', title: '표지', dataKey: 'cover' },
       { archetype: 'A02', kicker: 'Summary', title: '핵심요약', dataKey: 'summary' },
-      { archetype: 'A13', kicker: 'Disclaimer', title: '면책', dataKey: 'closing' },
+      { archetype: 'A10', kicker: 'Disclaimer', title: '표기 기준 및 면책', dataKey: 'closing' },
     ];
   }
 
@@ -49,7 +49,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
       { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
       { archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' },
       { archetype: 'A07', kicker: 'Risk', title: '리스크', dataKey: 'risk' },
-      { archetype: 'A13', kicker: 'Disclaimer', title: '면책', dataKey: 'closing' },
+      { archetype: 'A10', kicker: 'Disclaimer', title: '표기 기준 및 면책', dataKey: 'closing' },
     ];
   }
 

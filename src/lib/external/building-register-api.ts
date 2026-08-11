@@ -1,6 +1,7 @@
 // src/lib/external/building-register-api.ts
 // 국토교통부 건축물대장 API — 연면적, 대지면적, 층수, 구조, 승인일 조회
 // API 키 없을 때 결정적 fallback 데이터 반환 (seed 기반)
+import { fetchWithRetry } from './fetch-with-retry';
 
 export interface BuildingRegisterData {
   totalArea: number;          // 연면적 (sqm)
@@ -42,7 +43,7 @@ export async function fetchBuildingRegister(
 
     for (const url of endpoints) {
       try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        const res = await fetchWithRetry(url, { timeoutMs: 15_000, maxRetries: 1 });
         if (!res.ok) continue;
         const data = await res.json();
 
@@ -99,7 +100,7 @@ export async function fetchBuildingRecap(
 
     for (const url of endpoints) {
       try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        const res = await fetchWithRetry(url, { timeoutMs: 15_000, maxRetries: 1 });
         if (!res.ok) continue;
         const data = await res.json();
 

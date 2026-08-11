@@ -1,5 +1,6 @@
 // src/lib/external/real-transaction-api.ts
 // 국토교통부 상업업무용 부동산 매매 신고 조회 API — 주변 실거래 비교 사례
+import { fetchWithRetry } from './fetch-with-retry';
 
 export interface ComparableTransaction {
   address: string;               // 주소
@@ -33,7 +34,7 @@ export async function fetchComparableTransactions(
     await Promise.all(months.map(async (ym) => {
       try {
         const url = `https://apis.data.go.kr/1613000/RTMSDataSvcNrgTrade/getRTMSDataSvcNrgTrade?ServiceKey=${apiKey}&LAWD_CD=${sigunguCd}&DEAL_YMD=${ym}&numOfRows=10&pageNo=1&_type=json`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        const res = await fetchWithRetry(url, { timeoutMs: 10_000, maxRetries: 1 });
         if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`);
         const data = await res.json();
 

@@ -1,5 +1,6 @@
 // src/lib/external/land-price-api.ts
 // 국토교통부 개별공시지가 API
+import { fetchWithRetry } from './fetch-with-retry';
 
 export interface LandPriceData {
   pricePerSqm: number;        // 공시지가 (KRW/sqm)
@@ -14,7 +15,7 @@ export async function fetchLandPrice(pnu: string): Promise<LandPriceData | null>
   if (apiKey && apiKey !== "") {
     try {
       const url = `https://apis.data.go.kr/1611000/IndvdLandPriceService/getIndvdLandPriceAttr?ServiceKey=${apiKey}&pnu=${pnu}&numOfRows=1&pageNo=1&_type=json`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      const res = await fetchWithRetry(url, { timeoutMs: 10_000, maxRetries: 1 });
       if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`);
       const data = await res.json();
 

@@ -3,6 +3,7 @@ import * as L from '../imlib';
 import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind, RowEntry } from '../imlib';
 import { generateStaticMapPlaceholder } from '../utils/image-optimizer';
+import { enforceTextBudget } from '../text-budget';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -50,14 +51,23 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
 
   const rightRows = right.rows ?? [];
   if (rightRows.length > 0) {
-    y = L.rows(slide, textX, y, textW, rightRows as RowEntry[], { rh: 0.38, fs: 11 });
+    // Truncate each row's value to prevent overflow
+    const safeRows = rightRows.map(([label, value, ...rest]: any[]) => 
+      [label, enforceTextBudget(String(value || ''), 45), ...rest]
+    ) as RowEntry[];
+    y = L.rows(slide, textX, y, textW, safeRows, { rh: 0.38, fs: 11 });
     y += 0.2;
   }
 
-  if (right.callout) {
+  if (right.callout && y < 5.8) {
     const c = right.callout;
-    L.callout(slide, textX, y, textW, 1.4, c.kind ?? 'info', c.title ?? '', c.body ?? '');
-    y += 1.5;
+    const body = enforceTextBudget(c.body ?? '', 100);
+    const calloutH = Math.min(1.4, Math.max(0.8, 0.4 + Math.ceil(body.length / 30) * 0.22));
+    // Only render callout if it fits within slide bounds
+    if (y + calloutH <= 6.3) {
+      L.callout(slide, textX, y, textW, calloutH, c.kind ?? 'info', c.title ?? '', body);
+      y += calloutH + 0.1;
+    }
   }
 
   if (left.source) {

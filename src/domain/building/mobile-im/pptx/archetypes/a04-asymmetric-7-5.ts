@@ -44,7 +44,15 @@ export function buildA04Asymmetric75(input: ArchetypeInput): ArchetypeOutput {
       }
       return [String(r[0] || ''), ''] as [string, string];
     });
-    L.rows(slide, M, 1.86, lw, rowEntries, { rh: 0.38, fs: 12 });
+    // Filter out rows with empty or trivially short values
+    const validRows = rowEntries.filter(([, v]) => v.trim().length > 0);
+    if (validRows.length > 1) {
+      L.rows(slide, M, 1.86, lw, validRows, { rh: 0.38, fs: 12 });
+    } else {
+      // Too few data rows — show informational notice
+      L.callout(slide, M, 2.20, lw, 1.4, 'info', '데이터 업데이트 예정',
+        '상세 건물 정보는 건축물대장 조회 완료 후 자동으로 업데이트됩니다.');
+    }
   } else if (input.data.content) {
     // 테이블 데이터 없으면 content에서 추출하여 rows로 렌더링
     const lines = String(input.data.content).split('\n')
@@ -62,7 +70,13 @@ export function buildA04Asymmetric75(input: ArchetypeInput): ArchetypeOutput {
     }
     if (contentRows.length > 0) {
       L.rows(slide, M, 1.86, lw, contentRows.slice(0, 12), { rh: 0.38, fs: 12 });
+    } else {
+      L.callout(slide, M, 2.20, lw, 1.4, 'info', '데이터 업데이트 예정',
+        '상세 건물 정보는 건축물대장 조회 완료 후 자동으로 업데이트됩니다.');
     }
+  } else {
+    L.callout(slide, M, 2.20, lw, 1.4, 'info', '데이터 업데이트 예정',
+      '상세 건물 정보는 건축물대장 조회 완료 후 자동으로 업데이트됩니다.');
   }
   
   // Brass 수직 구분선

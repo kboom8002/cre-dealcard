@@ -1,6 +1,7 @@
 import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, KR, NUM, CD } from '../imlib';
+import { MOBILE_IM_STANDARD_DISCLAIMER } from '../../guardrails';
 import type { ProvenanceKind } from '../imlib';
 import { optimizeImageForPptx } from '../utils/image-optimizer';
 
@@ -77,26 +78,24 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     fill: { color: C.ink2 },
   });
   
-  if (input.data.disclaimer) {
-    slide.addText(input.data.disclaimer, {
-      x: rx + 0.24, y: 2.20, w: rw - 0.48, h: 2.50,
-      fontFace: KR, fontSize: 9.3, color: CD.mute,
-      lineSpacingMultiple: 1.28, margin: 0, valign: 'top',
-    });
-  }
+  const disclaimerText = input.data.disclaimer || MOBILE_IM_STANDARD_DISCLAIMER;
+  slide.addText(disclaimerText, {
+    x: rx + 0.24, y: 2.20, w: rw - 0.48, h: 2.50,
+    fontFace: KR, fontSize: 9.3, color: CD.mute,
+    lineSpacingMultiple: 1.28, margin: 0, valign: 'top',
+  });
   
   // ── 하단 푸터 바 ──
   slide.addShape('rect' as any, {
     x: M, y: 5.72, w: CW, h: 0.70,
     fill: { color: CD.accentBg },
   });
-  if (input.data.footerText) {
-    slide.addText(input.data.footerText, {
-      x: M + 0.24, y: 5.82, w: CW - 0.48, h: 0.50,
-      fontFace: KR, fontSize: 10, color: CD.accentText, margin: 0,
-      valign: 'middle',
-    });
-  }
+  const footerText = input.data.footerText || '본 자료의 모든 수치는 예비 검토용이며 실사 및 전문가 검증이 필요합니다.';
+  slide.addText(footerText, {
+    x: M + 0.24, y: 5.82, w: CW - 0.48, h: 0.50,
+    fontFace: KR, fontSize: 10, color: CD.accentText, margin: 0,
+    valign: 'middle',
+  });
   
   // Phase 4: 로고 이미지 삽입 (푸터 바 우측)
   if (input.data?.logoUrl) {

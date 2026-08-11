@@ -250,6 +250,8 @@ export interface MobileIMWriterInput {
   external_data?: ExternalDataSnapshot | null;
   onProgress?: (section: MobileIMSection) => void;
   dcfEligible?: boolean;
+  /** 데이터 품질 등급 (A/B/C/D) — handler에서 전달 */
+  dataGrade?: 'A' | 'B' | 'C' | 'D';
 }
 
 /** Mobile IM Writer 출력 */
@@ -268,4 +270,8 @@ export interface MobileIMWriterOutput {
     leveragedYield: number | null;
     wacc: number | null;
   };
+  /** Publish gate 차단 여부 */
+  publishBlocked?: boolean;
+  /** 차단 사유 목록 */
+  publishBlockReasons?: string[];
 }

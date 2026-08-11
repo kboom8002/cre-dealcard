@@ -209,12 +209,17 @@ function buildA06Props(markdown: string, tables: ParsedTable[], lines: string[])
     rows = boldKVs.map(bv => [bv.key, bv.value] as [string, string]);
   }
   
+  // Truncate row values to prevent text overflow in PPTX
+  const truncatedRows = rows.slice(0, 5).map(([label, value]) => 
+    [label.slice(0, 20), enforceTextBudget(value, 45)] as [string, string]
+  );
+
   return {
     left: { sub: stripMarkdown(sub), source: '' },
     right: { 
       sub: '', 
-      rows: rows.slice(0, 8),
-      callout: calloutItem ? { kind: 'info', title: '', body: stripMarkdown(calloutItem.replace(/^>\s*/, '')) } : undefined,
+      rows: truncatedRows,
+      callout: calloutItem ? { kind: 'info', title: '', body: enforceTextBudget(stripMarkdown(calloutItem.replace(/^>\s*/, '')), 120) } : undefined,
     },
   };
 }
@@ -222,11 +227,16 @@ function buildA06Props(markdown: string, tables: ParsedTable[], lines: string[])
 /** A07 ThreeBlock: blocks[], bottomBar */
 function buildA07Props(lines: string[]): Record<string, any> {
   const bullets = extractBulletItems(lines);
-  const blocks = bullets.slice(0, 3).map(b => ({
-    label: stripMarkdown(b.title || ''),
-    value: extractBoldValue(b.body) || stripMarkdown(b.body).slice(0, 20),
-    description: stripMarkdown(b.body),
-  }));
+  const blocks = bullets.slice(0, 3).map(b => {
+    const rawLabel = stripMarkdown(b.title || '');
+    const rawValue = extractBoldValue(b.body) || stripMarkdown(b.body).slice(0, 20);
+    const rawDesc = stripMarkdown(b.body);
+    // Avoid duplicate: if value equals description, clear description
+    const desc = (rawValue === rawDesc) ? '' : rawDesc;
+    // Remove trailing colon from value (incomplete data)
+    const cleanValue = rawValue.replace(/:$/, '').trim();
+    return { label: rawLabel, value: cleanValue, description: desc };
+  });
   
   if (blocks.length === 0) {
     const boldItems = extractBoldKeyValues(lines);
@@ -619,6 +629,10 @@ export function stripMarkdown(text: string): string {
     .replace(/`(.*?)`/g, '$1')
     .replace(/\[(.*?)\]\(.*?\)/g, '$1')
     .replace(/[🏢📍📊💰⚠️🎯📋✨🚇✓★▲●◇]/gu, '')
+    // ── 내부 시스템 메시지 제거 ──
+    .replace(/>\s*🔍?\s*\*{0,2}건축물대장\s*조회\s*미완료\*{0,2}[^\n]*/g, '')
+    .replace(/공공데이터\s*API\s*응답을\s*받지\s*못했습니다[^\n]*/g, '')
+    .replace(/추후\s*업데이트\s*시\s*자동\s*반영됩니다\.?/g, '')
     // ── SSoT 내부 표기 정제 ──
     .replace(/\s*\(BSSoT\s*Lite[^)]*\)/gi, '')
     .replace(/\s*\(기재\s*공란\)/g, ' (미확인)')

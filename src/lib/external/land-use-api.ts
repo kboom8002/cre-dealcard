@@ -1,5 +1,6 @@
 // src/lib/external/land-use-api.ts
 // 국토교통부 토지이용규제정보서비스(LURIS) — 용도지역, 건폐율, 용적률
+import { fetchWithRetry } from './fetch-with-retry';
 
 export interface LandUsePlanData {
   zoningDistrict: string;         // 용도지역 (예: 일반상업지역)
@@ -15,7 +16,7 @@ export async function fetchLandUsePlan(pnu: string): Promise<LandUsePlanData | n
   if (apiKey && apiKey !== "") {
     try {
       const url = `https://apis.data.go.kr/1611000/LandUseInfoService/getLandUseInfoAttr?ServiceKey=${apiKey}&pnu=${pnu}&numOfRows=1&pageNo=1&_type=json`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      const res = await fetchWithRetry(url, { timeoutMs: 10_000, maxRetries: 1 });
       if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`);
       const data = await res.json();
 

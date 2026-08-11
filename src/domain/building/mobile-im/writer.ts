@@ -69,12 +69,14 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     if (result.cachedFinancials) cachedFinancials = result.cachedFinancials;
   }
 
+  let publishBlocked = false;
+  let publishBlockReasons: string[] = [];
   try {
     const gateCtx = {
       salePrice: ctx.purchasePriceKrw,
       totalArea: ctx.totalAreaSqm,
       address: String(ctx.assetIdentity.area_signal ?? ''),
-      grade: 'B' as const,  // will be computed
+      grade: (input.dataGrade ?? 'C') as 'A' | 'B' | 'C' | 'D',
       crossValidationPassed: true,
       hasHallucination: false,
       piiRemoved: true,
@@ -91,6 +93,8 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     const gateReport = runPublishGates(gateCtx as any);
     if (gateReport.blocked) {
       console.warn('[mobile-im] Publish gates blocked:', gateReport.failedBlocks.map(g => g.id));
+      publishBlocked = true;
+      publishBlockReasons = gateReport.failedBlocks.map((g: any) => g.id);
     }
   } catch (e) {
     console.warn('[mobile-im] Publish gates failed:', e);
@@ -179,5 +183,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       leveragedYield: cachedFinancials.leveragedYield,
       wacc: cachedFinancials.wacc,
     } : undefined,
+    publishBlocked,
+    publishBlockReasons,
   };
 }

@@ -71,6 +71,19 @@ export async function GET(
 
     // IM body에서 posture, grade 등 메타데이터 추출
     const body = doc.body ?? {};
+
+    // ── 데이터 완전성 게이트 ──
+    const dataCompleteness = body.dataCompleteness;
+    if (dataCompleteness && !dataCompleteness.pptxExportAllowed) {
+      return NextResponse.json({
+        error: 'PPTX 다운로드 불가',
+        reason: '건축물대장 등 필수 공공데이터가 조회되지 않았습니다.',
+        suggestion: '건물 주소를 확인하고 IM을 재생성해 주세요.',
+        dataStatus: dataCompleteness.buildingRegisterSource,
+        qualityGrade: dataCompleteness.qualityGrade,
+      }, { status: 422 });
+    }
+
     const posture = body.investmentPosture ?? body.posture ?? 'income';
     const grade = body.qualityGrade ?? body.grade ?? 'B';
     const incomeArchetype = body.incomeArchetype ?? undefined;

@@ -294,12 +294,27 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
     }
   }
 
-  // Cover image fallback graphic when no image is provided or loading failed
+  // Cover image fallback graphic — layered geometric pattern for visual depth
   if (!imgAdded && (THEME_META.coverStyle === 'split' || THEME_META.coverStyle === 'institutional_masses')) {
+    // Base semi-transparent layer
     slide.addShape('rect' as any, {
       x: 8.50, y: 0, w: 4.833, h: 7.5,
-      fill: { color: C.brass, transparency: 88 },
-      line: { color: C.brass, width: 0.5 },
+      fill: { color: C.brass, transparency: 75 },
+    });
+    // Offset accent block (upper)
+    slide.addShape('rect' as any, {
+      x: 9.60, y: 0.80, w: 3.20, h: 2.60,
+      fill: { color: C.brass, transparency: 50 },
+    });
+    // Offset accent block (lower)
+    slide.addShape('rect' as any, {
+      x: 8.90, y: 4.00, w: 3.80, h: 2.80,
+      fill: { color: C.brass, transparency: 60 },
+    });
+    // Thin vertical accent line
+    slide.addShape('line' as any, {
+      x: 9.30, y: 0.40, w: 0, h: 6.70,
+      line: { color: C.brass, width: 0.8 },
     });
   }
 
