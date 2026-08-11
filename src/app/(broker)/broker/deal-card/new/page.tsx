@@ -64,19 +64,19 @@ export default function BrokerDealCardNewPage() {
     const controller = new AbortController();
     setAbortController(controller);
 
-    // Timeout safety abort after 30 seconds
+    // Timeout safety abort after 120 seconds (2 minutes for AI pipeline execution)
     const timeoutTimer = setTimeout(() => {
       controller.abort();
-      setError("생성 시간이 초과되었습니다 (30초 타임아웃). 네트워크 상태를 확인하거나 메모 내용을 수정한 후 다시 시도해 주세요.");
+      setError("생성 시간이 초과되었습니다. AI 분석 작업이 오래 걸리고 있습니다. 네트워크 상태를 확인하거나 잠시 후 내 딜카드 목록에서 생성 결과를 확인해 주세요.");
       setIsLoading(false);
-    }, 30000);
+    }, 120000);
 
     // Progressive loading steps
     const interval = setInterval(() => {
       setLoadingStep((prev) =>
         prev < LOADING_STEPS.length - 1 ? prev + 1 : prev,
       );
-    }, 2000);
+    }, 4000);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();

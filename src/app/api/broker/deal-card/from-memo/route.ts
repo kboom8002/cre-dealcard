@@ -19,6 +19,8 @@ import { buildAttrsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { createServiceClient } from '@/lib/supabase/service';
 import { extractSlotsFromMemo } from '@/domain/building/memo-slot-mapper';
 
+export const maxDuration = 120;
+
 const BrokerDealCardFromMemoRequest = z.object({
   memo: z.string().min(5),
   visibilityPreference: z.enum(["blind", "internal"]).default("blind"),
