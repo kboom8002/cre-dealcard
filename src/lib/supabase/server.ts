@@ -3,13 +3,17 @@
  * Uses the anon key — queries go through RLS with the user's session.
  */
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { env } from "@/lib/env";
 
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
+  const headerStore = await headers();
 
-  return createServerClient(
+  const authHeader = headerStore.get("authorization") || "";
+  const token = authHeader.replace("Bearer ", "");
+
+  const client = createServerClient(
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
@@ -27,6 +31,17 @@ export async function createServerSupabaseClient() {
           }
         },
       },
+      global: {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      },
     },
   );
+
+  if (token) {
+    console.log("[createServerSupabaseClient] Configured global auth header, length:", token.length);
+  } else {
+    console.log("[createServerSupabaseClient] No token in Authorization header");
+  }
+
+  return client;
 }

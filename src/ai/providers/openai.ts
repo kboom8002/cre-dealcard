@@ -16,6 +16,7 @@ export class OpenAIProvider implements LLMProvider {
   async chat(params: LLMChatParams): Promise<LLMChatResult> {
     const startTime = Date.now();
     const model = params.model || "gpt-5.6-terra";
+    console.log("[OpenAIProvider] model is:", model);
 
     try {
       const response = await this.openai.chat.completions.create(
@@ -26,7 +27,7 @@ export class OpenAIProvider implements LLMProvider {
             { role: "user", content: params.userPrompt },
           ],
           response_format: params.responseFormat === "json_object" ? { type: "json_object" } : undefined,
-          temperature: params.temperature ?? 0.7,
+          temperature: (model.includes("o1") || model.includes("terra") || model.includes("sol") || model.includes("luna") || model.includes("gpt-5.6")) ? 1 : (params.temperature ?? 0.7),
           max_completion_tokens: params.maxTokens ?? 4096,
         },
         {

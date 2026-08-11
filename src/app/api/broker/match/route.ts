@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     .from('buyer_intent_lite')
     .select('*')
     .eq('id', buyerIntentId)
-    .eq('broker_id', user!.id)
+    .eq('owner_id', user!.id)
     .single();
 
   if (iErr || !intent) {
@@ -94,7 +94,11 @@ export async function POST(req: NextRequest) {
     },
     intent: {
       buyerType:         intent.buyer_type,
-      budgetRange:       intent.budget_range,
+      budgetRange: {
+        min: intent.budget_min !== null ? Number(intent.budget_min) : null,
+        max: intent.budget_max !== null ? Number(intent.budget_max) : null,
+        display: intent.budget_display || '미정',
+      },
       preferredRegions:  intent.preferred_regions,
       assetTypes:        intent.asset_types,
       purchasePurpose:   intent.purchase_purpose,

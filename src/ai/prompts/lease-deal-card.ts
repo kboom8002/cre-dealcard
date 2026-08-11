@@ -113,7 +113,7 @@ Required output JSON keys:
 - "fitSummary": 임차인 관점 추천 가설 문자열
 - "cautionSummary": 확인 필요 사항 문자열
 - "hiddenFields": 공개 불가 필드 배열 (반드시 다음 중 선택: "exact_address", "exact_unit", "landlord_identity", "current_tenant", "vacancy_reason", "rent_negotiation", "incentive_detail", "lease_contract_raw_text")
-- "confidence": { "region": 신뢰 등급, "spaceType": 신뢰 등급, "rent": 신뢰 등급, "fitSummary": "ai_hypothesis" | "needs_verification" }
+- "confidence": { "region": "confirmed" | "user_provided" | "public_data_inferred" | "ai_hypothesis" | "needs_verification" | "unknown", "spaceType": "confirmed" | "user_provided" | "public_data_inferred" | "ai_hypothesis" | "needs_verification" | "unknown", "rent": "confirmed" | "user_provided" | "public_data_inferred" | "ai_hypothesis" | "needs_verification" | "unknown", "fitSummary": "ai_hypothesis" | "needs_verification" }
 - "missingData": 부족한 자료 배열
 - "boundaryNote": 면책문구 문자열
 

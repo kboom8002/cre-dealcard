@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     supabase.from('lease_spaces').select('id', { count: 'exact', head: true })
       .eq('broker_id', userId).gte('created_at', weekAgo),
     supabase.from('buyer_intent_lite').select('id', { count: 'exact', head: true })
-      .eq('broker_id', userId).gte('created_at', weekAgo),
+      .eq('owner_id', userId).gte('created_at', weekAgo),
     supabase.from('tenant_intent').select('id', { count: 'exact', head: true })
       .eq('broker_id', userId).gte('created_at', weekAgo),
     // All-time totals
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     supabase.from('lease_spaces').select('id', { count: 'exact', head: true })
       .eq('broker_id', userId),
     supabase.from('buyer_intent_lite').select('id', { count: 'exact', head: true })
-      .eq('broker_id', userId),
+      .eq('owner_id', userId),
     supabase.from('tenant_intent').select('id', { count: 'exact', head: true })
       .eq('broker_id', userId),
     supabase.from('broker_clients').select('id', { count: 'exact', head: true })

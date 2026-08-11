@@ -78,7 +78,7 @@ export const LeaseMiniTruthOutputSchema = z.object({
   availableFrom: z.string().nullable(),  // ISO Date or '즉시입주'
   leaseTermMonths: z.number().nullable(),
   incentives: z.object({
-    rentFreeMonths: z.number().default(0),
+    rentFreeMonths: z.number().nullable().default(0),
     interiorSupport: z.string().nullable().default(null),
     freeRentDetail: z.string().nullable().default(null),
   }),

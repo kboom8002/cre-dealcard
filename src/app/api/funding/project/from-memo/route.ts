@@ -1,15 +1,15 @@
-import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { NextResponse, NextRequest } from "next/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { runFundingProjectCard } from "@/ai/agents/funding-project-card";
+import { requireBroker } from "@/lib/auth-guard";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const guard = await requireBroker(request);
+    if (guard.error) return guard.error;
+    const { user } = guard;
 
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const supabase = createServiceClient();
 
     const { memo } = await request.json();
     if (!memo) {
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const { data: project, error } = await supabase
       .from("funding_projects")
       .insert({
-        operator_id: user.id,
+        operator_id: user!.id,
         project_name: aiResult.projectData.projectName,
         asset_type: aiResult.projectData.assetType,
         target_amount: aiResult.projectData.targetAmount,

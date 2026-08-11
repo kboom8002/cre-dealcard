@@ -47,13 +47,16 @@ export interface PendingInvitation {
   } | null;
 }
 
-export async function createCircle(input: {
-  name: string;
-  description?: string;
-  avatarEmoji?: string;
-  createdBy: string;
-}): Promise<Circle> {
-  const supabase = createServiceClient();
+export async function createCircle(
+  input: {
+    name: string;
+    description?: string;
+    avatarEmoji?: string;
+    createdBy: string;
+  },
+  supabaseClient?: any
+): Promise<Circle> {
+  const supabase = supabaseClient || createServiceClient();
 
   // 1. Create circle
   const { data: circle, error: circleErr } = await supabase

@@ -49,7 +49,7 @@ export async function callLLM(
     try {
       // AbortController를 이용해 타임아웃 제한
       const controller = new AbortController();
-      const timeoutMs = options.timeoutMs ?? 30000;
+      const timeoutMs = options.timeoutMs ?? 120000;
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       const result = await provider.chat({

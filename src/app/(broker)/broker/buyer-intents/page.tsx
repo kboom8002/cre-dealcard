@@ -23,7 +23,7 @@ export default async function BuyerIntentsPage() {
     .select(
       "id, buyer_type, budget_display, budget_min, budget_max, preferred_regions, asset_types, purchase_purpose, risk_tolerance, created_at"
     )
-    .eq("broker_id", user?.id)
+    .eq("owner_id", user?.id)
     .order("created_at", { ascending: false });
 
   // 각 의향서별 매칭 건수 조회
