@@ -417,66 +417,87 @@ export function ImDataBottomSheet({
 
       const startData = await startRes.json();
 
-      // 서버에서 동기 실행 완료 → 즉시 결과 처리
-      if (startData.status === "completed" && startData.result) {
-        setState("success");
-        setProgress(`✅ ${startData.result.sections_count ?? 7}섹션 생성 완료!`);
-        const reviewUrl = startData.result.im_lite_id
-          ? `/broker/im-approval/${startData.result.im_lite_id}`
-          : startData.result.url;
-        setTimeout(() => { window.location.href = reviewUrl; }, 1500);
-        return;
-      } else if (startData.status === "failed") {
-        setState("error");
-        setErrorMsg(startData.result?.error ?? "IM 생성 실패");
-        setProgress("");
-        return;
-      }
-
-      // Fallback: 폴링 (서버가 아직 processing인 경우)
+      // after() 패턴: 서버는 항상 { status: "processing", jobId } 반환
+      // → 무조건 폴링 진입
       const jobId = startData.jobId;
       if (!jobId) throw new Error("작업 ID를 받지 못했습니다");
 
-      const MAX_POLL_MS = 120_000;
+      const MAX_POLL_MS = 300_000; // 5분 (after() 백그라운드 300s 대응)
       const POLL_INTERVAL = 3_000;
       const startTime = Date.now();
       let dotCount = 0;
+      let cancelled = false;
 
-      while (Date.now() - startTime < MAX_POLL_MS) {
-        await new Promise(r => setTimeout(r, POLL_INTERVAL));
-        dotCount = (dotCount + 1) % 4;
-        const dots = ".".repeat(dotCount + 1);
-        const elapsed = Math.round((Date.now() - startTime) / 1000);
-        setProgress(`AI 분석 중${dots} (${elapsed}초 경과)`);
-
+      // ── iOS visibilitychange 핸들러 ──
+      // 앱 전환 후 복귀 시 즉시 상태 확인 (suspend된 폴링 루프 보완)
+      const onVisibilityChange = async () => {
+        if (document.hidden || cancelled) return;
         try {
           const pollRes = await fetch(`/api/broker/im-lite/job-status?jobId=${encodeURIComponent(jobId)}`);
-          if (!pollRes.ok) continue;
+          if (!pollRes.ok) return;
           const job = await pollRes.json();
-
           if (job.status === "completed" && job.result) {
+            cancelled = true;
             setState("success");
             setProgress(`✅ ${job.result.sections_count ?? 7}섹션 생성 완료!`);
             const reviewUrl = job.result.im_lite_id
               ? `/broker/im-approval/${job.result.im_lite_id}`
               : job.result.url;
             setTimeout(() => { window.location.href = reviewUrl; }, 1500);
-            return;
           } else if (job.status === "failed") {
+            cancelled = true;
             setState("error");
             setErrorMsg(job.result?.error ?? "IM 생성 실패");
             setProgress("");
-            return;
           }
-        } catch {
-          continue;
-        }
-      }
+        } catch { /* 네트워크 에러 — 다음 폴링에서 재시도 */ }
+      };
+      document.addEventListener("visibilitychange", onVisibilityChange);
 
-      // 타임아웃
-      setState("error");
-      setErrorMsg("생성 시간이 초과되었습니다. 잠시 후 IM 보관함에서 확인해 주세요.");
-      setProgress("");
+      try {
+        while (Date.now() - startTime < MAX_POLL_MS && !cancelled) {
+          await new Promise(r => setTimeout(r, POLL_INTERVAL));
+          if (cancelled) break;
+          dotCount = (dotCount + 1) % 4;
+          const dots = ".".repeat(dotCount + 1);
+          const elapsed = Math.round((Date.now() - startTime) / 1000);
+          setProgress(`AI 분석 중${dots} (${elapsed}초 경과)`);
+
+          try {
+            const pollRes = await fetch(`/api/broker/im-lite/job-status?jobId=${encodeURIComponent(jobId)}`);
+            if (!pollRes.ok) continue;
+            const job = await pollRes.json();
+
+            if (job.status === "completed" && job.result) {
+              cancelled = true;
+              setState("success");
+              setProgress(`✅ ${job.result.sections_count ?? 7}섹션 생성 완료!`);
+              const reviewUrl = job.result.im_lite_id
+                ? `/broker/im-approval/${job.result.im_lite_id}`
+                : job.result.url;
+              setTimeout(() => { window.location.href = reviewUrl; }, 1500);
+              return;
+            } else if (job.status === "failed") {
+              cancelled = true;
+              setState("error");
+              setErrorMsg(job.result?.error ?? "IM 생성 실패");
+              setProgress("");
+              return;
+            }
+          } catch {
+            continue;
+          }
+        }
+
+        if (!cancelled) {
+          // 타임아웃
+          setState("error");
+          setErrorMsg("생성 시간이 초과되었습니다. 잠시 후 IM 보관함에서 확인해 주세요.");
+          setProgress("");
+        }
+      } finally {
+        document.removeEventListener("visibilitychange", onVisibilityChange);
+      }
     } catch (err: any) {
       setState("error");
       setErrorMsg(err?.message ?? "서버 요청 실패");

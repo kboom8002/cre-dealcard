@@ -645,10 +645,11 @@ export function stat(
     fontSize: 9.5, color: labCol, fontFace: KR, margin: 0,
   });
 
-  // 값
+  // 값 — F2 fix: 한글 포함 시 KR 폰트 사용
+  const hasKoreanVal = /[\uAC00-\uD7AF]/.test(value);
   s.addText(value, {
     x: x + 0.18, y: y + 0.34, w: w - 0.36, h: 0.44,
-    fontSize: vs, bold: true, color: valCol, fontFace: NUM, margin: 0,
+    fontSize: vs, bold: true, color: valCol, fontFace: hasKoreanVal ? KR : NUM, margin: 0,
   });
 
   // 단위 (값 옆)
@@ -691,20 +692,25 @@ export function rows(
   const labColor = opt.onDark ? CD.mute : C.mute;
   const valColor = opt.onDark ? 'FFFFFF' : C.ink;
 
+  // F1 fix: 배지 유무에 따라 컬럼 비율 동적 분배
+  const hasBadge = list.some(r => r[2]);
+  const labW = hasBadge ? w * 0.40 : w * 0.38;
+  const valW = hasBadge ? w * 0.38 : w * 0.62;
+
   list.forEach((row, i) => {
     const ry = y + i * rh;
     const [label, value, badge, valCol] = row;
 
     // 라벨
     s.addText(label, {
-      x, y: ry, w: w * 0.45, h: rh,
+      x, y: ry, w: labW, h: rh,
       fontSize: fs, color: labColor, fontFace: KR,
       valign: 'middle', margin: 0, lineSpacingMultiple: 1.20,
     });
 
     // 값
     s.addText(value, {
-      x: x + w * 0.45, y: ry, w: w * 0.35, h: rh,
+      x: x + labW, y: ry, w: valW, h: rh,
       fontSize: fs, bold: true, color: valCol ?? valColor, fontFace: KR,
       valign: 'middle', margin: 0, lineSpacingMultiple: 1.20,
     });
@@ -811,7 +817,12 @@ export function table(
     }));
   });
 
-  s.addTable(tableRows, { x, y, w, colW, rowH: rh });
+  s.addTable(tableRows, {
+    x, y, w, colW, rowH: rh,
+    autoPage: true,
+    autoPageRepeatHeader: true,
+    autoPageLineWeight: 0.5,
+  } as any);
 
   return y + (bodyRows.length + 1) * rh;
 }

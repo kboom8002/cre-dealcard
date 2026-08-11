@@ -2,14 +2,13 @@
  * POST /api/broker/im-lite/generate-async
  * 
  * IM 생성을 시작합니다.
- * - maxDuration=300으로 설정 (Vercel Pro 플랜)
- * - 작업 완료 후 결과를 DB에 저장하고 응답 반환
- * - 클라이언트는 폴링으로 결과를 확인
- * 
- * 전략: 응답을 빠르게 보내고 after()로 백그라운드 실행을 시도하되,
- * after()가 지원되지 않으면 동기 실행 후 응답
+ * - after()를 사용하여 즉시 jobId를 반환하고, 백그라운드에서 IM 생성 실행
+ * - iOS Safari의 60~75s fetch 타임아웃 문제를 근본적으로 해결
+ * - 클라이언트는 GET /api/broker/im-lite/job-status?jobId=xxx 로 폴링
+ * - maxDuration=300 (Vercel Pro 플랜)
  */
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
@@ -98,140 +97,137 @@ export async function POST(req: NextRequest) {
     created_at: new Date().toISOString(),
   });
 
-  // ── IM 생성 실행 (동기) ──
-  // Vercel Hobby에서는 after()가 작동하지 않으므로 동기 실행
-  // maxDuration=300 (Vercel Pro)
-  try {
-    const { generateMobileIMHandler } = await import("../generate/handler");
-    const result = await generateMobileIMHandler({
-      buildingId,
-      userId: user.id,
-      supplemental,
-      skipApproval,
-      directData,
-      tier,
-    });
+  // ── after(): 응답 반환 후 백그라운드에서 IM 생성 실행 ──
+  // iOS Safari 60~75s fetch 타임아웃 문제 해결 — 즉시 jobId 반환
+  after(async () => {
+    const bgSupabase = createServiceClient();
+    try {
+      const { generateMobileIMHandler } = await import("../generate/handler");
+      const result = await generateMobileIMHandler({
+        buildingId,
+        userId: user!.id,
+        supplemental,
+        skipApproval,
+        directData,
+        tier,
+      });
 
-    if (result.ok) {
-      await supabase.from("im_generation_jobs").update({
-        status: "completed",
-        result: {
-          im_lite_id: result.im_lite_id,
-          url: result.url,
-          readiness_score: result.readiness_score,
-          ai_used: result.ai_used,
-          sections_count: result.sections_count,
-          external_data_loaded: result.external_data_loaded,
-          message: result.message,
-        },
-        completed_at: new Date().toISOString(),
-      }).eq("id", jobId);
+      if (result.ok) {
+        await bgSupabase.from("im_generation_jobs").update({
+          status: "completed",
+          result: {
+            im_lite_id: result.im_lite_id,
+            url: result.url,
+            readiness_score: result.readiness_score,
+            ai_used: result.ai_used,
+            sections_count: result.sections_count,
+            external_data_loaded: result.external_data_loaded,
+            message: result.message,
+          },
+          completed_at: new Date().toISOString(),
+        }).eq("id", jobId);
 
-      // ── Phase B: SSoT 역류 — 바텀시트 데이터를 building_ssot_lite에 영속화 ──
-      try {
-        const { data: existing } = await supabase
-          .from("building_ssot_lite")
-          .select("layers, lease_summary")
-          .eq("id", buildingId)
-          .single();
+        // ── Phase B: SSoT 역류 — 바텀시트 데이터를 building_ssot_lite에 영속화 ──
+        try {
+          const { data: existing } = await bgSupabase
+            .from("building_ssot_lite")
+            .select("layers, lease_summary")
+            .eq("id", buildingId)
+            .single();
 
-        if (existing) {
-          const existingLayers = (existing.layers ?? {}) as Record<string, any>;
-          const existingLease = (existing.lease_summary ?? {}) as Record<string, any>;
+          if (existing) {
+            const existingLayers = (existing.layers ?? {}) as Record<string, any>;
+            const existingLease = (existing.lease_summary ?? {}) as Record<string, any>;
 
-          // layers 패치: 물류/운영/개발/사옥/주거/구분소유 팩슬롯, 사진, 브로커 하이라이트
-          const layersPatch: Record<string, any> = { ...existingLayers };
-          const packSlotsPatch: Record<string, any> = { ...(existingLayers.pack_slots ?? {}) };
+            // layers 패치: 물류/운영/개발/사옥/주거/구분소유 팩슬롯, 사진, 브로커 하이라이트
+            const layersPatch: Record<string, any> = { ...existingLayers };
+            const packSlotsPatch: Record<string, any> = { ...(existingLayers.pack_slots ?? {}) };
 
-          if (supplemental.floor_leases) layersPatch.rent_roll = supplemental.floor_leases;
-          if (supplemental.logistics) {
-            packSlotsPatch.PhysicalSpec = supplemental.logistics;
-          }
-          if (hospitalitySpecInput) {
-            packSlotsPatch.HospitalitySpec = hospitalitySpecInput;
-          }
-          if (developmentSpecInput) {
-            packSlotsPatch.DevelopmentPlan = developmentSpecInput;
-          }
-          if (vacateSpecInput) {
-            packSlotsPatch.VacatePlan = vacateSpecInput;
-          }
-          if (permitSpecInput) {
-            packSlotsPatch.PermitRisk = permitSpecInput;
-          }
-          if (occupancySpecInput) {
-            packSlotsPatch.OccupancyPlan = occupancySpecInput;
-          }
-          if (sectionalSpecInput) {
-            packSlotsPatch.SectionalSpec = sectionalSpecInput;
-          }
-          if (residentialSpecInput) {
-            packSlotsPatch.ResidentialSpec = residentialSpecInput;
-          }
-          layersPatch.pack_slots = packSlotsPatch;
+            if (supplemental.floor_leases) layersPatch.rent_roll = supplemental.floor_leases;
+            if (supplemental.logistics) {
+              packSlotsPatch.PhysicalSpec = supplemental.logistics;
+            }
+            if (hospitalitySpecInput) {
+              packSlotsPatch.HospitalitySpec = hospitalitySpecInput;
+            }
+            if (developmentSpecInput) {
+              packSlotsPatch.DevelopmentPlan = developmentSpecInput;
+            }
+            if (vacateSpecInput) {
+              packSlotsPatch.VacatePlan = vacateSpecInput;
+            }
+            if (permitSpecInput) {
+              packSlotsPatch.PermitRisk = permitSpecInput;
+            }
+            if (occupancySpecInput) {
+              packSlotsPatch.OccupancyPlan = occupancySpecInput;
+            }
+            if (sectionalSpecInput) {
+              packSlotsPatch.SectionalSpec = sectionalSpecInput;
+            }
+            if (residentialSpecInput) {
+              packSlotsPatch.ResidentialSpec = residentialSpecInput;
+            }
+            layersPatch.pack_slots = packSlotsPatch;
 
-          if (supplemental.broker_highlight) layersPatch.broker_highlight = supplemental.broker_highlight;
-          if (supplemental.photo_urls?.length) layersPatch.photos = supplemental.photo_urls;
-          if (supplemental.resolved_address) {
-            layersPatch.location = { ...(existingLayers.location ?? {}), address: supplemental.resolved_address };
+            if (supplemental.broker_highlight) layersPatch.broker_highlight = supplemental.broker_highlight;
+            if (supplemental.photo_urls?.length) layersPatch.photos = supplemental.photo_urls;
+            if (supplemental.resolved_address) {
+              layersPatch.location = { ...(existingLayers.location ?? {}), address: supplemental.resolved_address };
+            }
+            if (supplemental.resolved_pnu) layersPatch.pnu = supplemental.resolved_pnu;
+
+            // lease_summary 패치
+            const leasePatch: Record<string, any> = { ...existingLease };
+            if (supplemental.monthly_rent_total_krw != null) leasePatch.monthly_rent_total_krw = supplemental.monthly_rent_total_krw;
+            if (supplemental.total_deposit_manwon != null) leasePatch.total_deposit_manwon = supplemental.total_deposit_manwon;
+            if (supplemental.mgmt_fee_total_manwon != null) leasePatch.mgmt_fee_total_manwon = supplemental.mgmt_fee_total_manwon;
+            if (supplemental.loan_amount_manwon != null) leasePatch.loan_amount_manwon = supplemental.loan_amount_manwon;
+            if (supplemental.asking_price_manwon != null) leasePatch.asking_price_manwon = supplemental.asking_price_manwon;
+            if (supplemental.vacancy_pct != null) leasePatch.vacancy_pct = supplemental.vacancy_pct;
+            if (loanStatusInput) leasePatch.loan_status = loanStatusInput;
+
+            const updatePayload: Record<string, any> = {
+              layers: layersPatch,
+              lease_summary: leasePatch,
+              updated_at: new Date().toISOString(),
+            };
+            if (investmentPostureInput) {
+              updatePayload.investment_posture = investmentPostureInput;
+            }
+
+            await bgSupabase.from("building_ssot_lite").update(updatePayload).eq("id", buildingId);
           }
-          if (supplemental.resolved_pnu) layersPatch.pnu = supplemental.resolved_pnu;
-
-          // lease_summary 패치
-          const leasePatch: Record<string, any> = { ...existingLease };
-          if (supplemental.monthly_rent_total_krw != null) leasePatch.monthly_rent_total_krw = supplemental.monthly_rent_total_krw;
-          if (supplemental.total_deposit_manwon != null) leasePatch.total_deposit_manwon = supplemental.total_deposit_manwon;
-          if (supplemental.mgmt_fee_total_manwon != null) leasePatch.mgmt_fee_total_manwon = supplemental.mgmt_fee_total_manwon;
-          if (supplemental.loan_amount_manwon != null) leasePatch.loan_amount_manwon = supplemental.loan_amount_manwon;
-          if (supplemental.asking_price_manwon != null) leasePatch.asking_price_manwon = supplemental.asking_price_manwon;
-          if (supplemental.vacancy_pct != null) leasePatch.vacancy_pct = supplemental.vacancy_pct;
-          if (loanStatusInput) leasePatch.loan_status = loanStatusInput;
-
-          const updatePayload: Record<string, any> = {
-            layers: layersPatch,
-            lease_summary: leasePatch,
-            updated_at: new Date().toISOString(),
-          };
-          if (investmentPostureInput) {
-            updatePayload.investment_posture = investmentPostureInput;
-          }
-
-          await supabase.from("building_ssot_lite").update(updatePayload).eq("id", buildingId);
+        } catch (writebackErr: any) {
+          console.warn("[im-generate-async] SSoT writeback failed (non-blocking):", writebackErr?.message);
         }
-      } catch (writebackErr: any) {
-        console.warn("[im-generate-async] SSoT writeback failed (non-blocking):", writebackErr?.message);
+      } else {
+        await bgSupabase.from("im_generation_jobs").update({
+          status: "failed",
+          result: {
+            error: result.error,
+            score: result.score,
+            threshold: result.threshold,
+            missing: result.missing,
+          },
+          completed_at: new Date().toISOString(),
+        }).eq("id", jobId);
       }
-    } else {
-      await supabase.from("im_generation_jobs").update({
+    } catch (err: any) {
+      console.error("[im-generate-async] Error:", err);
+      await bgSupabase.from("im_generation_jobs").update({
         status: "failed",
-        result: {
-          error: result.error,
-          score: result.score,
-          threshold: result.threshold,
-          missing: result.missing,
-        },
+        result: { error: err?.message ?? "Unknown error" },
         completed_at: new Date().toISOString(),
       }).eq("id", jobId);
     }
-  } catch (err: any) {
-    console.error("[im-generate-async] Error:", err);
-    await supabase.from("im_generation_jobs").update({
-      status: "failed",
-      result: { error: err?.message ?? "Unknown error" },
-      completed_at: new Date().toISOString(),
-    }).eq("id", jobId);
-  }
+  });
 
-  // 완료 후 최종 상태 조회하여 반환
-  const { data: finalJob } = await supabase
-    .from("im_generation_jobs")
-    .select("status, result")
-    .eq("id", jobId)
-    .single();
-
+  // ── 즉시 jobId 반환 (< 1초 이내) ──
+  // 클라이언트는 GET /api/broker/im-lite/job-status?jobId=xxx 로 폴링
   return NextResponse.json({
     jobId,
-    status: finalJob?.status ?? "completed",
-    result: finalJob?.result ?? null,
+    status: "processing",
+    result: null,
   });
 }

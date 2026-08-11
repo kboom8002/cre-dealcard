@@ -5,7 +5,7 @@
  * §15 posture별 시퀀스 + §15.3 income 아키타입 4종 분기 + 등급별 억제
  */
 
-type InvestmentPosture = 'income' | 'owner_occupied' | 'development' | 'operating' | 'trading';
+import type { InvestmentPosture } from '@/domain/ontology';
 
 export type PptxTier = 'basic' | 'pro';
 export type Grade = 'A' | 'B' | 'C' | 'D';

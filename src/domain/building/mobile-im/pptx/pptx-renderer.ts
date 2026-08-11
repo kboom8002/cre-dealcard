@@ -27,15 +27,27 @@ import { M, CW, KR, NUM, C, setActiveTheme } from './imlib';
  * - 일반 텍스트 → 정돈된 단락
  */
 function addFallbackContent(slide: any, data: any, _theme: any) {
+  // data.content가 없으면 fallback 불필요
+  if (!data.content) return;
+
   const shapes = slide._slideObjects || slide._shapes || [];
-  const hasBodyShapes = shapes.some((s: any) => {
+  // F1: PptxGenJS addTable()은 _slideObjects에 { _type: 'table' } 형태로 저장되며,
+  // h 속성 없이 rowH만 가짐. 테이블 존재 여부를 별도로 감지.
+  const hasTable = shapes.some((s: any) =>
+    s?._type === 'table' || s?.options?._type === 'table' || s?.arrTabRows != null
+  );
+  // y >= 1.7 기준: L.head()가 y~1.4~1.65에 추가하는 kicker/title 텍스트를
+  // body shape으로 오인하지 않도록 임계값을 높임.
+  // w가 슬라이드 너비(>8) 이상인 shape은 배경 rect이므로 제외.
+  const hasBodyShapes = hasTable || shapes.some((s: any) => {
     const y = s?.options?.y ?? s?.y ?? 0;
     const h = s?.options?.h ?? s?.h ?? 0;
-    // Only count shapes in the body area (between header and footer)
-    return y >= 1.5 && y < 6.5 && h > 0.1;
+    const w = s?.options?.w ?? s?.w ?? 0;
+    const rH = s?.options?.rowH ?? s?.rowH ?? 0;
+    return y >= 1.7 && y < 6.5 && (h > 0.1 || rH > 0) && w < 12;
   });
 
-  if (hasBodyShapes || !data.content) return;
+  if (hasBodyShapes) return;
 
   const markdown: string = data.content;
   const lines = markdown.split('\n');
@@ -272,7 +284,12 @@ export class MobileImPptxRenderer {
       }
 
       // ── 2. 섹션 데이터 바인딩 ──
-      const dataMap = bindSectionData(input.doc, input.building);
+      // RC1 fix: doc.body.sections → doc.sections 경로 정규화
+      const normalizedDoc = {
+        ...input.doc,
+        sections: input.doc.sections ?? input.doc.body?.sections ?? [],
+      };
+      const dataMap = bindSectionData(normalizedDoc, input.building);
 
       // cover/closing 데이터 보강
       const companyName = input.broker?.company_name ?? '';
@@ -345,7 +362,7 @@ export class MobileImPptxRenderer {
           title: '핵심 투자 지표',
           content: '',
           tables: [],
-          metrics: {},
+          metrics: [],
           leadSentence: heroCard.hookText ?? '',
           callouts: [],
         } as any;

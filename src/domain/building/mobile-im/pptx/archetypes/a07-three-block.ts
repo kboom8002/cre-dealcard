@@ -49,7 +49,10 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
     slide.addShape('rect' as any, { x, y, w, h: 0.04, fill: { color: C.brass } });
     
     slide.addText(b.label || '', { x: x+0.2, y: y+0.2, w: w-0.4, h: 0.3, fontFace: KR, fontSize: 11, color: labelColor });
-    slide.addText(b.value || '', { x: x+0.2, y: y+0.6, w: w-0.4, h: 0.5, fontFace: NUM, fontSize: 22, bold: true, color: valColor });
+    // F6 fix: 한글 포함 시 KR 폰트 + 크기 조정
+    const valText = b.value || '';
+    const hasKr = /[\uAC00-\uD7AF]/.test(valText);
+    slide.addText(valText, { x: x+0.2, y: y+0.6, w: w-0.4, h: 0.5, fontFace: hasKr ? KR : NUM, fontSize: hasKr ? 18 : 22, bold: true, color: valColor });
     slide.addText(b.description || '', { x: x+0.2, y: y+1.3, w: w-0.4, h: h-1.5, fontFace: KR, fontSize: 11, color: descColor, valign: 'top' });
   });
   

@@ -14,8 +14,9 @@ export const TEXT_LIMITS = {
 };
 
 export function charsPerLine(boxWidth: number, fontSize?: number): number {
-  // 한글 기준 (boxWidth - 0.40) / 0.152
-  return Math.floor((boxWidth - 0.40) / 0.152);
+  // F3 fix: CJK 문자 너비 = 약 0.19인치 @ 10pt 맑은 고딕 (기존 0.152는 Latin 기준)
+  const cjkCoeff = 0.19;
+  return Math.floor((boxWidth - 0.36) / cjkCoeff);
 }
 
 export function calcCalloutHeight(bodyText: string, boxWidth: number): number {

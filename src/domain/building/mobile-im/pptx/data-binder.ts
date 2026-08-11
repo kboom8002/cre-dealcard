@@ -157,25 +157,53 @@ function buildA02Props(markdown: string, tables: ParsedTable[], lines: string[])
 
 /** A03 LargeTable: tableHead, tableRows, note, callouts[] */
 function buildA03Props(tables: ParsedTable[], lines: string[]): Record<string, any> {
-  const t = tables[0];
+  const merged = mergeRentRollTables(tables);
   return {
-    tableHead: t?.headers?.map(stripMarkdown) || [],
-    tableRows: t?.rows?.map(r => r.map(stripMarkdown)) || [],
+    tableHead: merged.headers.map(stripMarkdown),
+    tableRows: merged.rows.map(r => r.map(stripMarkdown)),
     note: lines.find(l => l.startsWith('>'))?.replace(/^>\s*/, '') || '',
     callouts: extractCallouts(lines),
   };
 }
 
+/** F2: 다중 테이블 병합 — 동일 헤더면 행 합산, 다르면 가장 많은 행을 가진 테이블 선택 */
+function mergeRentRollTables(tables: ParsedTable[]): ParsedTable {
+  if (tables.length === 0) return { headers: [], rows: [] };
+  if (tables.length === 1) return tables[0];
+
+  // 헤더가 동일한 테이블의 행을 합산
+  const primary = { headers: [...tables[0].headers], rows: [...tables[0].rows] };
+  for (let i = 1; i < tables.length; i++) {
+    const t = tables[i];
+    if (!t.headers || t.headers.length === 0) continue;
+
+    const headersMatch = t.headers.length === primary.headers.length &&
+      t.headers.every((h, idx) => stripMarkdown(h) === stripMarkdown(primary.headers[idx]));
+
+    if (headersMatch) {
+      // 동일 헤더 → 행만 추가
+      primary.rows.push(...t.rows);
+    } else if (t.rows.length > primary.rows.length) {
+      // 다른 헤더이고 더 많은 행 → 이 테이블을 primary로 교체 (상세 렌트롤 우선)
+      primary.headers = [...t.headers];
+      primary.rows = [...t.rows];
+    }
+  }
+  return primary;
+}
+
 /** A04 Asymmetric75: left{sub, rows}, right{sub, callouts[]} */
 function buildA04Props(tables: ParsedTable[], lines: string[]): Record<string, any> {
   const t = tables[0];
-  const leftRows = t ? [t.headers.map(stripMarkdown), ...t.rows.map(r => r.map(stripMarkdown))] : [];
+  // F4 fix: 헤더행은 sub로 이동, rows에는 데이터만 포함
+  const headerText = t?.headers?.map(stripMarkdown).join(' · ') || '';
+  const leftRows = t ? t.rows.map(r => r.map(stripMarkdown)) : [];
   const callouts = extractCallouts(lines);
   const headerLine = lines.find(l => l.startsWith('#'));
   const sub = headerLine ? stripMarkdown(headerLine.replace(/^#+\s*/, '')) : '';
   
   return {
-    left: { sub, rows: leftRows },
+    left: { sub: sub || headerText, rows: leftRows },
     right: { sub: '', callouts },
   };
 }
@@ -359,10 +387,15 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
   const lines = markdown.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   
   const metrics: Array<{label: string; value: string; unit?: string}> = [];
-  if (heroCard.askingPrice) metrics.push({ label: '매각 희망가', value: heroCard.askingPrice, unit: '' });
-  if (heroCard.grossYield) metrics.push({ label: '총 수익률', value: heroCard.grossYield, unit: '' });
-  if (heroCard.totalArea) metrics.push({ label: '연면적', value: heroCard.totalArea, unit: '' });
-  if (heroCard.vacancy) metrics.push({ label: '공실', value: heroCard.vacancy, unit: '' });
+  // F5 fix: heroCard 필드명 *Display 접미사 우선 대응
+  const askPrice = heroCard.askingPriceDisplay ?? heroCard.askingPrice;
+  const yieldVal = heroCard.grossYieldDisplay ?? heroCard.grossYield;
+  const area = heroCard.totalAreaDisplay ?? heroCard.totalArea;
+  const vacancy = heroCard.vacancyDisplay ?? heroCard.vacancy;
+  if (askPrice) metrics.push({ label: '매각 희망가', value: askPrice, unit: '' });
+  if (yieldVal) metrics.push({ label: '총 수익률', value: yieldVal, unit: '' });
+  if (area) metrics.push({ label: '연면적', value: area, unit: '' });
+  if (vacancy) metrics.push({ label: '공실', value: vacancy, unit: '' });
   
   if (metrics.length < 4 && tables.length > 0) {
     const t = tables[0];

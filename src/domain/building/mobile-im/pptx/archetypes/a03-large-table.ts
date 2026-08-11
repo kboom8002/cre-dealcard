@@ -2,6 +2,7 @@ import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
+import { enforceTextBudget } from '../text-budget';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -16,6 +17,20 @@ export interface ArchetypeInput {
 export interface ArchetypeOutput {
   slide: ReturnType<PptxGenJS['addSlide']>;
   warnings: string[];
+}
+
+/** F4: 콘텐츠 유형에 맞는 컬럼 폭 가중 배분 */
+function computeSmartColumnWidths(headers: string[], totalW: number): number[] {
+  const n = headers.length;
+  if (n === 0) return [totalW];
+  if (n === 1) return [totalW];
+  const narrowKeywords = ['층', '호', '호실', 'floor', '구분', '번호'];
+  const weights = headers.map(h => {
+    const label = (h || '').toLowerCase().replace(/\s/g, '');
+    return narrowKeywords.some(k => label.includes(k)) ? 0.6 : 1.0;
+  });
+  const sum = weights.reduce((a, b) => a + b, 0);
+  return weights.map(w => (w / sum) * totalW);
 }
 
 export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
@@ -35,19 +50,23 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
   
   if (tableHead.length > 0 || tableRows.length > 0) {
     const colCount = Math.max(tableHead.length, ...tableRows.map((r: any[]) => r.length), 1);
-    const colW = Array(colCount).fill(CW / colCount);
+    const colW = tableHead.length > 0
+      ? computeSmartColumnWidths(tableHead, CW)
+      : Array(colCount).fill(CW / colCount);
     
     // CellValue[][] 형태로 변환
     const bodyRows = tableRows.map((r: any[]) =>
       r.map((c: any) => {
-        const text = String(c || '');
-        return { t: text.replace(/\*\*/g, '') };
+        let text = String(c || '').replace(/\*\*/g, '');
+        // F9: 12자 초과 셀은 말줄임 처리
+        if (text.length > 14) text = text.slice(0, 13) + '…';
+        return { t: text };
       })
     );
     
     L.table(slide, M, 1.86, CW, 
       tableHead.map(h => String(h || '').replace(/\*\*/g, '')),
-      bodyRows, colW, { rh: 0.38, bfs: 11, hfs: 10 }
+      bodyRows, colW, { rh: 0.46, bfs: 11, hfs: 10 }
     );
   } else if (input.data.content) {
     // 테이블 없으면 content를 L.rows()로 렌더링
@@ -77,8 +96,9 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
 
   
   // Note
-  const tableEnd = 1.86 + ((tableRows.length + 1) * 0.38);
-  if (input.data.note) {
+  const rh = 0.46;
+  const tableEnd = 1.86 + ((tableRows.length + 1) * rh);
+  if (input.data.note && tableEnd + 0.10 + 0.3 <= 7.0) {
     L.note(slide, M, tableEnd + 0.10, CW, input.data.note);
   }
   
@@ -89,7 +109,10 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
     const coGap = 0.20;
     const coW = L.col(2, coGap);
     const x = L.colX(i, coW, coGap);
-    L.callout(slide, x, Math.min(tableEnd + 0.40, 5.5), coW, 1.2, co.kind || 'info', co.title || '', co.body || '');
+    const calloutY = tableEnd + 0.40;
+    if (calloutY + 1.2 <= 7.0) {
+      L.callout(slide, x, calloutY, coW, 1.2, co.kind || 'info', co.title || '', co.body || '');
+    }
   });
   
   if (input.watermarkText) L.watermark(slide, input.watermarkText, false);

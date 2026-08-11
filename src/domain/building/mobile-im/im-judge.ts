@@ -235,7 +235,7 @@ export async function judgeIMSection(
       },
       {
         cacheKey: `im-judge:${input.sectionType}`,
-        timeoutMs: 45_000, // 평가는 생성보다 빠르므로 45초면 충분
+        timeoutMs: 25_000, // 평가는 생성보다 빠름. 실패 시 폴백 존재 → 짧게 유지
       }
     );
 

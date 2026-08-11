@@ -38,18 +38,18 @@ export interface LegacyGateResult {
 export function runGatesV02(ctx: GateContext): LegacyGateResult[] {
   const results: LegacyGateResult[] = [];
   // G10: all cap rates have basis label
-  const g10 = ctx.capRateResults.every(r => !!r.basis);
+  const g10 = (ctx.capRateResults ?? []).every(r => !!r.basis);
   results.push({ code: 'G10', passed: g10, message: g10 ? 'Cap Rate 기준 표기 확인' : 'Cap Rate 기준 미표기 값 있음', blocksPublish: !g10 });
   // G11: downside scenario included in total return
-  const g11 = ctx.totalReturnScenarios.some(s => s.totalReturnPct < 0 || s.label.includes('하락'));
+  const g11 = (ctx.totalReturnScenarios ?? []).some(s => s.totalReturnPct < 0 || s.label.includes('하락'));
   results.push({ code: 'G11', passed: g11, message: g11 ? '하방 시나리오 포함' : '상승 시나리오만 있음 — 발행 차단', blocksPublish: !g11 });
   // G12: exclusion area <= land area, effective FAR matches
-  const totalExclusion = ctx.parcels.reduce((s, p) => s + p.exclusions.filter(e => e.affectsFAR).reduce((a, e) => a + e.area, 0), 0);
-  const totalLand = ctx.parcels.reduce((s, p) => s + p.area, 0);
+  const totalExclusion = (ctx.parcels ?? []).reduce((s, p) => s + (p.exclusions ?? []).filter(e => e.affectsFAR).reduce((a, e) => a + e.area, 0), 0);
+  const totalLand = (ctx.parcels ?? []).reduce((s, p) => s + p.area, 0);
   const g12 = totalExclusion <= totalLand && Math.abs(ctx.effectiveFAR - ctx.calculatedEffectiveFAR) < 0.01;
   results.push({ code: 'G12', passed: g12, message: g12 ? '제척·용적률 검증 통과' : '제척 합계 > 대지 합계 또는 유효 용적률 불일치', blocksPublish: !g12 });
   // G13: lease act check
-  const g13 = ctx.leaseUnits.every(u => u.opposingPower === true || (u.opposingPower === false && !!u.opposingPowerEvidence));
+  const g13 = (ctx.leaseUnits ?? []).every(u => u.opposingPower === true || (u.opposingPower === false && !!u.opposingPowerEvidence));
   results.push({ code: 'G13', passed: g13, message: g13 ? '상임법 판정 정합' : '대항력=false에 근거 없음 — 발행 차단', blocksPublish: !g13 });
   // G14: DCF/IRR exposure requires term explanations
   const needsTerms = ctx.disclosureDcf !== 'hidden' || ctx.disclosureIrr !== 'hidden';
@@ -93,7 +93,7 @@ export const PUBLISH_GATES: GateDefinition[] = [
   { id: 'G09', label: 'IM Judge 3.0 이상', severity: 'warn', check: (ctx) => (ctx.imJudgeScore ?? 0) >= 3.0 },
   { id: 'G10', label: '3축 분류 확정', severity: 'block', check: (ctx) => ctx.threeAxisConfirmed === true },
   { id: 'G11', label: 'DCF 등급 게이트', severity: 'warn', check: (ctx) => ctx.dcfGradeGatePassed === true },
-  { id: 'G12', label: 'Cap Rate basis 명기', severity: 'warn', check: (ctx) => ctx.capRateResults.every(r => !!r.basis) },
+  { id: 'G12', label: 'Cap Rate basis 명기', severity: 'warn', check: (ctx) => (ctx.capRateResults ?? []).every(r => !!r.basis) },
   { id: 'G13', label: '임대차 법령 확정', severity: 'warn', check: (ctx) => ctx.leaseActConfirmed === true },
   { id: 'G14', label: '갱신요구권 확인', severity: 'warn', check: (ctx) => ctx.renewalRightConfirmed === true },
   { id: 'G15', label: '혼합 용도 법령 확정', severity: 'warn', check: (ctx) => ctx.mixedUseConfirmed === true },

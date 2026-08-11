@@ -92,6 +92,33 @@ export function ImManagementPanel({
       if (!res.ok) throw new Error('Generation failed');
       const { jobId } = await res.json();
 
+      // iOS visibilitychange 핸들러 — 앱 복귀 시 즉시 상태 확인
+      const onVisibilityChange = async () => {
+        if (document.hidden) return;
+        try {
+          const statusRes = await fetch(`/api/broker/im-lite/job-status?jobId=${jobId}`);
+          if (!statusRes.ok) return;
+          const { status } = await statusRes.json();
+          if (status === 'completed' || status === 'complete') {
+            setGenerationStatus('complete');
+            setGenerationProgress(100);
+            clearInterval(pollInterval);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            toast.success(`${tier.toUpperCase()} IM 생성이 완료되었습니다.`);
+            await fetchDocs();
+            setTimeout(() => setGenerationStatus('idle'), 2500);
+          }
+          if (status === 'failed' || status === 'error') {
+            setGenerationStatus('error');
+            clearInterval(pollInterval);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            toast.error('IM 생성 중 오류가 발생했습니다.');
+            setTimeout(() => setGenerationStatus('idle'), 3000);
+          }
+        } catch { /* 네트워크 에러 — 다음 폴링에서 재시도 */ }
+      };
+      document.addEventListener('visibilitychange', onVisibilityChange);
+
       const pollInterval = setInterval(async () => {
         try {
           const statusRes = await fetch(`/api/broker/im-lite/job-status?jobId=${jobId}`);
@@ -105,6 +132,7 @@ export function ImManagementPanel({
             setGenerationStatus('complete');
             setGenerationProgress(100);
             clearInterval(pollInterval);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
             toast.success(`${tier.toUpperCase()} IM 생성이 완료되었습니다.`);
             await fetchDocs();
             setTimeout(() => setGenerationStatus('idle'), 2500);
@@ -112,6 +140,7 @@ export function ImManagementPanel({
           if (status === 'failed' || status === 'error') {
             setGenerationStatus('error');
             clearInterval(pollInterval);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
             toast.error('IM 생성 중 오류가 발생했습니다.');
             setTimeout(() => setGenerationStatus('idle'), 3000);
           }

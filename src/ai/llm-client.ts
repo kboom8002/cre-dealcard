@@ -46,28 +46,37 @@ export async function callLLM(
     const provider = providerRegistry.get(providerName);
     if (!provider) continue;
     
-    try {
-      // AbortController를 이용해 타임아웃 제한
-      const controller = new AbortController();
-      const timeoutMs = options.timeoutMs ?? 120000;
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const maxAttempts = 3; // 1 initial + 2 retries
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        // AbortController를 이용해 타임아웃 제한
+        const controller = new AbortController();
+        const timeoutMs = options.timeoutMs ?? 120000;
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-      const result = await provider.chat({
-        ...params,
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      
-      // 호출 성공 시 캐시 키가 주어졌다면 인메모리 캐시에 적재
-      if (options.cacheKey) {
-        inMemoryLlmCache.set(options.cacheKey, result);
+        const result = await provider.chat({
+          ...params,
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        
+        // 호출 성공 시 캐시 키가 주어졌다면 인메모리 캐시에 적재
+        if (options.cacheKey) {
+          inMemoryLlmCache.set(options.cacheKey, result);
+        }
+        
+        return result;
+      } catch (err: any) {
+        lastError = err;
+        if (attempt < maxAttempts - 1) {
+          const delay = 1000 * Math.pow(2, attempt); // 1s, 2s
+          console.warn(`[callLLM] Provider '${providerName}' attempt ${attempt + 1}/${maxAttempts} failed: ${err.message ?? err}. Retrying in ${delay}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+        } else {
+          console.warn(`[callLLM] Provider '${providerName}' failed after ${maxAttempts} attempts:`, err.message ?? err);
+        }
+        continue; // 다음 시도 또는 다음 제공자로 폴백 진행
       }
-      
-      return result;
-    } catch (err: any) {
-      console.warn(`[callLLM] Provider '${providerName}' failed:`, err.message ?? err);
-      lastError = err;
-      continue; // 다음 제공자로 폴백 진행
     }
   }
 

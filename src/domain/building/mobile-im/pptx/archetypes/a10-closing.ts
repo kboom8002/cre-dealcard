@@ -59,7 +59,7 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     if (b.score !== undefined && b.score !== null) {
       const scoreStr = typeof b.score === 'number' ? b.score.toFixed(2) : String(b.score);
       slide.addText(scoreStr, {
-        x: M + 5.66, y: by, w: 1.0, h: 0.32,
+        x: M + 5.40, y: by, w: 0.80, h: 0.32,
         align: 'right', valign: 'middle',
         fontFace: NUM, fontSize: 12, bold: true, color: 'FFFFFF', margin: 0,
       });

@@ -1,0 +1,79 @@
+[
+  {
+    "id": "P1_income_basic_B",
+    "posture": "income",
+    "tier": "basic",
+    "grade": "B",
+    "slideCount": 0,
+    "fileSizeKB": 0,
+    "elapsedMs": 51,
+    "warnings": 0,
+    "status": "FAIL: EBUSY: resource busy or locked, open 'C:\\Users\\User\\cre-dealcard\\docs\\uat1\\pptx-",
+    "file": null
+  },
+  {
+    "id": "P2_owner_occupied_basic_B",
+    "posture": "owner_occupied",
+    "tier": "basic",
+    "grade": "B",
+    "slideCount": 7,
+    "fileSizeKB": 227,
+    "elapsedMs": 22,
+    "warnings": 0,
+    "status": "PASS",
+    "file": "C:\\Users\\User\\cre-dealcard\\docs\\uat1\\pptx-outputs\\P2_owner_occupied_basic_B.pptx"
+  },
+  {
+    "id": "P3_development_basic_B",
+    "posture": "development",
+    "tier": "basic",
+    "grade": "B",
+    "slideCount": 7,
+    "fileSizeKB": 219,
+    "elapsedMs": 18,
+    "warnings": 0,
+    "status": "PASS",
+    "file": "C:\\Users\\User\\cre-dealcard\\docs\\uat1\\pptx-outputs\\P3_development_basic_B.pptx"
+  },
+  {
+    "id": "P4_operating_basic_B",
+    "posture": "operating",
+    "tier": "basic",
+    "grade": "B",
+    "slideCount": 7,
+    "fileSizeKB": 208,
+    "elapsedMs": 22,
+    "warnings": 0,
+    "status": "PASS",
+    "file": "C:\\Users\\User\\cre-dealcard\\docs\\uat1\\pptx-outputs\\P4_operating_basic_B.pptx"
+  },
+  {
+    "id": "P5_trading_basic_B",
+    "posture": "trading",
+    "tier": "basic",
+    "grade": "B",
+    "slideCount": 7,
+    "fileSizeKB": 215,
+    "elapsedMs": 18,
+    "warnings": 0,
+    "status": "PASS",
+    "file": "C:\\Users\\User\\cre-dealcard\\docs\\uat1\\pptx-outputs\\P5_trading_basic_B.pptx"
+  },
+  {
+    "id": "P1_income_basic_D",
+    "posture": "income",
+    "tier": "basic",
+    "grade": "D",
+    "slideCount": 3,
+    "fileSizeKB": 94,
+    "elapsedMs": 4,
+    "warnings": 0,
+    "status": "PASS",
+    "file": "C:\\Users\\User\\cre-dealcard\\docs\\uat1\\pptx-outputs\\P1_income_basic_D.pptx"
+  },
+  {
+    "id": "Pro_Grade_C_reject",
+    "status": "WARN: 15 slides",
+    "slideCount": 15
+  }
+]

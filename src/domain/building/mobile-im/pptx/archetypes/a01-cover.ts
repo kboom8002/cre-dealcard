@@ -212,13 +212,13 @@ function renderCommonCoverContent(
   const priceBand = input.data.priceBand || '';
   if (priceBand) {
     slide.addShape('roundRect' as any, {
-      x, y: tagY + 0.70, w: centerAlign ? CW : CW, h: 1.34,
+      x, y: tagY + 0.70, w: centerAlign ? CW : Math.min(7.5, CW), h: 1.34,
       rectRadius: 0.04,
       fill: { color: CD.accentBg },
       line: { color: CD.accentBorder, width: 1 },
     });
     slide.addText(priceBand, {
-      x: x + 0.28, y: tagY + 0.92, w: (centerAlign ? CW : CW) - 0.56, h: 0.90,
+      x: x + 0.28, y: tagY + 0.92, w: (centerAlign ? CW : Math.min(7.5, CW)) - 0.56, h: 0.90,
       fontSize: 22, bold: true, color: CD.accentText,
       fontFace: KR, margin: 0, valign: 'middle', align,
     });
@@ -249,31 +249,9 @@ function renderCommonCoverContent(
 export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOutput> {
   const slide = L.dark(input.pres);
   const warnings: string[] = [];
-
   const style = THEME_META.coverStyle;
 
-  switch (style) {
-    case 'split':
-      coverSplit(slide, input);
-      break;
-    case 'hero_dark':
-      coverHeroDark(slide, input);
-      break;
-    case 'corporate_card':
-      coverCorporateCard(slide, input);
-      break;
-    case 'obsidian_glow':
-      coverObsidianGlow(slide, input);
-      break;
-    case 'institutional_masses':
-    default:
-      coverInstitutionalMasses(slide, input);
-      break;
-  }
-
-  if (input.watermarkText) L.watermark(slide, input.watermarkText, true);
-  L.foot(slide, input.slideNum, input.docno, true);
-
+  // ── Step 1: Cover image attempt (determines fallback need) ──
   let imgAdded = false;
   if (input.data?.coverImageUrl) {
     try {
@@ -294,8 +272,8 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
     }
   }
 
-  // Cover image fallback graphic — layered geometric pattern for visual depth
-  if (!imgAdded && (THEME_META.coverStyle === 'split' || THEME_META.coverStyle === 'institutional_masses')) {
+  // ── Step 2: Fallback decorative graphics (BEFORE text for correct z-order) ──
+  if (!imgAdded && (style === 'split' || style === 'institutional_masses')) {
     // Base semi-transparent layer
     slide.addShape('rect' as any, {
       x: 8.50, y: 0, w: 4.833, h: 7.5,
@@ -318,12 +296,34 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
     });
   }
 
-  // Phase 4: 중개법인 로고 삽입 (좌상단 브랜딩)
+  // ── Step 3: Cover style content (text renders ON TOP of decorations) ──
+  switch (style) {
+    case 'split':
+      coverSplit(slide, input);
+      break;
+    case 'hero_dark':
+      coverHeroDark(slide, input);
+      break;
+    case 'corporate_card':
+      coverCorporateCard(slide, input);
+      break;
+    case 'obsidian_glow':
+      coverObsidianGlow(slide, input);
+      break;
+    case 'institutional_masses':
+    default:
+      coverInstitutionalMasses(slide, input);
+      break;
+  }
+
+  if (input.watermarkText) L.watermark(slide, input.watermarkText, true);
+  L.foot(slide, input.slideNum, input.docno, true);
+
+  // ── Step 4: Logo (on top of everything) ──
   if (input.data?.logoUrl) {
     try {
       const logo = await optimizeImageForPptx(input.data.logoUrl as string, 200, 90);
       if (logo) {
-        // 로고: 좌상단 0.625" × 0.40" (표지 워드마크 위치)
         slide.addImage({
           data: logo.base64,
           x: M, y: 0.40,

@@ -14,9 +14,16 @@ export async function fetchLandPrice(pnu: string): Promise<LandPriceData | null>
 
   if (apiKey && apiKey !== "") {
     try {
-      const url = `https://apis.data.go.kr/1611000/IndvdLandPriceService/getIndvdLandPriceAttr?ServiceKey=${apiKey}&pnu=${pnu}&numOfRows=1&pageNo=1&_type=json`;
-      const res = await fetchWithRetry(url, { timeoutMs: 10_000, maxRetries: 1 });
-      if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`);
+      const stdrYear = new Date().getFullYear().toString();
+      const url = `https://apis.data.go.kr/1611000/IndvdLandPriceService/getIndvdLandPriceAttr?ServiceKey=${encodeURIComponent(apiKey)}&pnu=${pnu}&stdrYear=${stdrYear}&numOfRows=1&pageNo=1&_type=json`;
+      const res = await fetchWithRetry(url, { timeoutMs: 15_000, maxRetries: 2 });
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        if (body.includes('NO_OPENAPI_SERVICE_ERROR') || body.includes('returnReasonCode') && body.includes('12')) {
+          console.warn('[land-price-api] ⚠ data.go.kr 개별공시지가 서비스 미구독. https://www.data.go.kr 에서 "IndvdLandPriceService" 활용 신청 필요.');
+        }
+        throw new Error(`API error ${res.status}: ${res.statusText} | ${body.slice(0, 200)}`);
+      }
       const data = await res.json();
 
       const item = data?.response?.body?.items?.item;

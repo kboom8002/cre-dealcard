@@ -216,7 +216,7 @@ export async function runCREQualityGate(
       },
       {
         cacheKey: `cre-quality-gate:${sectionType}`,
-        timeoutMs: 30_000,
+        timeoutMs: 20_000, // Gate 실패 시 템플릿 폴백 존재 → 짧게 유지
       }
     );
 

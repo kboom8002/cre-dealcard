@@ -42,7 +42,8 @@ import { getModel } from "@/ai/model-selector";
 const IM_AI_MODEL = process.env.AI_IM_MODEL || getModel("terra");
 
 /** Fast mode: Vercel 타임아웃 방어 */
-const IM_FAST_MODE = process.env.IM_FAST_MODE !== "false";
+/** Fast mode: 명시적으로 "true"로 설정할 때만 활성화 (기본 false — Vercel Edge 환경에서만 opt-in) */
+const IM_FAST_MODE = process.env.IM_FAST_MODE === "true";
 
 /** 섹션별 최대 토큰 수 */
 const SECTION_MAX_TOKENS: Record<string, number> = {
@@ -210,7 +211,8 @@ export async function generateSingleSection(
       },
       {
         cacheKey: `mobile-im-${sectionType}-${String(ctx.assetIdentity.area_signal ?? "").slice(0, 20)}-${String(ctx.assetIdentity.asset_type ?? "").slice(0, 20)}`,
-        timeoutMs: IM_FAST_MODE ? 8000 : 25000,
+        // FAST_MODE: 30초, 일반: 90초 (gpt-5.6-terra 등 대형 모델 대응)
+        timeoutMs: IM_FAST_MODE ? 30000 : 90000,
       },
     );
 
