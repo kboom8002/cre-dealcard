@@ -379,6 +379,20 @@ export class MobileImPptxRenderer {
       for (const spec of sequence) {
         if (spec.suppress) continue;
 
+        const slideData = dataMap[spec.dataKey];
+        const isStaticSlide = ['cover', 'closing', 'gallery', 'summary'].includes(spec.dataKey);
+        const hasContent = slideData && (
+          (slideData.content && slideData.content.trim().length > 0) ||
+          (slideData.tables && slideData.tables.length > 0) ||
+          Boolean((slideData as any).left) || Boolean((slideData as any).right) ||
+          Boolean((slideData as any).blocks) || Boolean((slideData as any).table1) || Boolean((slideData as any).steps)
+        );
+
+        if (!hasContent && !isStaticSlide) {
+          warnings.push(`[Graceful Degradation] ${spec.title} 슬라이드 억제: 바인딩할 데이터(dataKey: ${spec.dataKey})가 충분하지 않습니다.`);
+          continue;
+        }
+
         const builder = ARCHETYPE_REGISTRY[spec.archetype];
         if (!builder) {
           warnings.push(`아키타입 ${spec.archetype} 빌더를 찾을 수 없습니다.`);

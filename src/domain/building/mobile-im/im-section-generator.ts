@@ -54,6 +54,18 @@ const SECTION_MAX_TOKENS: Record<string, number> = {
   risk_considerations: 1200,
   comparable_market: 1000,
   executive_summary: 1000,
+  // owner_occupied
+  occupancy_fit: 1200,
+  cost_comparison: 1500,
+  // development
+  site_analysis: 1200,
+  development_feasibility: 1500,
+  // operating
+  operation_overview: 1200,
+  gop_analysis: 1500,
+  // trading
+  market_position: 1200,
+  comparable_analysis: 1500,
 };
 
 /**

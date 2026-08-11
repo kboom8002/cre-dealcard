@@ -22,7 +22,24 @@ export const MOBILE_IM_SECTIONS_7 = [
   "next_steps",               // Full IM: deal_process_next_steps
 ] as const;
 
-export type MobileIMSectionType = (typeof MOBILE_IM_SECTIONS_7)[number];
+export const MOBILE_IM_SECTIONS_NON_INCOME = [
+  // owner_occupied
+  "occupancy_fit",
+  "cost_comparison",
+  // development
+  "site_analysis",
+  "development_feasibility",
+  // operating
+  "operation_overview",
+  "gop_analysis",
+  // trading
+  "market_position",
+  "comparable_analysis",
+] as const;
+
+export type MobileIMSectionType =
+  | (typeof MOBILE_IM_SECTIONS_7)[number]
+  | (typeof MOBILE_IM_SECTIONS_NON_INCOME)[number];
 
 export interface MobileIMProject {
   id: string;

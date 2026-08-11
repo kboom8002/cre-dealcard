@@ -3,7 +3,7 @@
 // ParsedDocument → 7섹션 SegmentedSection[]
 
 import type { MobileIMSectionType } from "../types";
-import { MOBILE_IM_SECTIONS_7 } from "../types";
+import { MOBILE_IM_SECTIONS_7, MOBILE_IM_SECTIONS_NON_INCOME } from "../types";
 import type { ParsedDocument } from "./file-parser";
 import { resolveSection, type SectionResolveResult } from "./section-alias-resolver";
 import { getModel } from "@/ai/model-selector";
@@ -135,9 +135,8 @@ function mapAISectionsToSegmented(
 ): SegmentedSection[] {
   return aiResponse.sections.map((s) => {
     // section_type_guess가 직접 MobileIMSectionType이면 그대로 사용
-    const directMatch = MOBILE_IM_SECTIONS_7.includes(
-      s.section_type_guess as MobileIMSectionType,
-    );
+    const directMatch = (MOBILE_IM_SECTIONS_7 as readonly string[]).includes(s.section_type_guess) ||
+      (MOBILE_IM_SECTIONS_NON_INCOME as readonly string[]).includes(s.section_type_guess);
 
     let resolved: SectionResolveResult;
     if (directMatch) {

@@ -27,6 +27,18 @@ const SECTION_TYPE_TO_DATA_KEY: Record<string, string> = {
   risk_check:        'risk',
   investment_thesis: 'comps',
   next_steps:        'process',
+  // owner_occupied
+  occupancy_fit:     'plan',
+  cost_comparison:   'vsLease',
+  // development
+  site_analysis:     'landDetail',
+  development_feasibility: 'feasibility',
+  // operating
+  operation_overview: 'kpi',
+  gop_analysis:      'revenue',
+  // trading
+  market_position:   'marketPosition',
+  comparable_analysis: 'comps',
 };
 
 /**
@@ -45,6 +57,28 @@ const DATA_KEY_ARCHETYPE: Record<string, string> = {
   comps:     'A04',
   risk:      'A07',  // ThreeBlock: blocks[], bottomBar{text}
   process:   'A09',  // Process: steps[], bottomInfo
+  // owner_occupied
+  plan:      'A04',
+  vsLease:   'A08',
+  commute:   'A06',
+  value:     'A04',
+  // development
+  landDetail: 'A04',
+  scale:      'A05',
+  eviction:   'A04',
+  cost:       'A08',
+  stacking:   'A05',
+  feasibility:'A05',
+  // operating
+  kpi:        'A13',
+  revenue:    'A05',
+  seasonality:'A05',
+  operator:   'A04',
+  // trading
+  marketPosition: 'A04',
+  trend:          'A05',
+  turnover:       'A04',
+  price:          'A04',
 };
 
 export function bindSectionData(
@@ -109,6 +143,74 @@ export function bindSectionData(
     if (sectionType === 'lease_status') {
       const stabilityProps = transformForArchetype(section.markdown, tables, 'A04');
       if (!result['stability']) result['stability'] = { title: '임대안정성', content: section.markdown, tables, metrics, ...stabilityProps };
+    }
+
+    // owner_occupied 파생 데이터 제공
+    if (sectionType === 'occupancy_fit') {
+      if (!result['commute']) {
+        const commuteProps = transformForArchetype(section.markdown, tables, 'A06');
+        result['commute'] = { title: '통근 및 접근성', content: section.markdown, tables, metrics, ...commuteProps };
+      }
+    }
+    if (sectionType === 'cost_comparison') {
+      if (!result['value']) {
+        const valueProps = transformForArchetype(section.markdown, tables, 'A04');
+        result['value'] = { title: '자산가치', content: section.markdown, tables, metrics, ...valueProps };
+      }
+    }
+
+    // development 파생 데이터 제공
+    if (sectionType === 'site_analysis') {
+      if (!result['scale']) {
+        const scaleProps = transformForArchetype(section.markdown, tables, 'A05');
+        result['scale'] = { title: '신축규모', content: section.markdown, tables, metrics, ...scaleProps };
+      }
+      if (!result['eviction']) {
+        const evictionProps = transformForArchetype(section.markdown, tables, 'A04');
+        result['eviction'] = { title: '명도계획', content: section.markdown, tables, metrics, ...evictionProps };
+      }
+    }
+    if (sectionType === 'development_feasibility') {
+      if (!result['cost']) {
+        const costProps = transformForArchetype(section.markdown, tables, 'A08');
+        result['cost'] = { title: '투입비용', content: section.markdown, tables, metrics, ...costProps };
+      }
+      if (!result['stacking']) {
+        const stackingProps = transformForArchetype(section.markdown, tables, 'A05');
+        result['stacking'] = { title: '스태킹계획', content: section.markdown, tables, metrics, ...stackingProps };
+      }
+    }
+
+    // operating 파생 데이터 제공
+    if (sectionType === 'operation_overview') {
+      if (!result['operator']) {
+        const operatorProps = transformForArchetype(section.markdown, tables, 'A04');
+        result['operator'] = { title: '운영사 현황', content: section.markdown, tables, metrics, ...operatorProps };
+      }
+    }
+    if (sectionType === 'gop_analysis') {
+      if (!result['seasonality']) {
+        const seasonalityProps = transformForArchetype(section.markdown, tables, 'A05');
+        result['seasonality'] = { title: '계절성 및 변동성', content: section.markdown, tables, metrics, ...seasonalityProps };
+      }
+    }
+
+    // trading 파생 데이터 제공
+    if (sectionType === 'market_position') {
+      if (!result['turnover']) {
+        const turnoverProps = transformForArchetype(section.markdown, tables, 'A04');
+        result['turnover'] = { title: '권역 회전율', content: section.markdown, tables, metrics, ...turnoverProps };
+      }
+    }
+    if (sectionType === 'comparable_analysis') {
+      if (!result['trend']) {
+        const trendProps = transformForArchetype(section.markdown, tables, 'A05');
+        result['trend'] = { title: '거래동향', content: section.markdown, tables, metrics, ...trendProps };
+      }
+      if (!result['price']) {
+        const priceProps = transformForArchetype(section.markdown, tables, 'A04');
+        result['price'] = { title: '적정 가격', content: section.markdown, tables, metrics, ...priceProps };
+      }
     }
   }
 

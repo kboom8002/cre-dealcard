@@ -46,10 +46,33 @@ const SECTION_ALIAS_MAP: Record<MobileIMSectionType, string[]> = {
     '투자 하이라이트', '매력 포인트', '투자 요약',
   ],
   next_steps: [
-    '거래 일정', '진행 절차', '향후 일정', '거래 프로세스',
-    'Next Steps', 'Deal Process', 'Transaction Timeline',
-    '매각 절차', '투자 절차', '거래 절차', '일정',
-    '프로세스', '절차', '타임라인',
+    '다음 단계', '후속 절차', '검토 절차', 'Next Steps',
+    'Deal Process', 'Transaction Process', '진행 절차',
+    '매수 절차', '일정', '후속', '다음단계',
+  ],
+  occupancy_fit: [
+    '사옥 적합성', '사옥적합성', '사옥 분석', '자가사용 적합성', 'Occupancy Fit',
+  ],
+  cost_comparison: [
+    '비용 비교', '자가 vs 임차', '임차 비교', 'Cost Comparison',
+  ],
+  site_analysis: [
+    '대지 분석', '부지 분석', 'Site Analysis', '대지 조건',
+  ],
+  development_feasibility: [
+    '사업 수지', '사업수지', '개발 사업성', 'Feasibility',
+  ],
+  operation_overview: [
+    '운영 개요', '운영 현황', 'Operation Overview',
+  ],
+  gop_analysis: [
+    'GOP 분석', '운영 손익', 'GOP Analysis',
+  ],
+  market_position: [
+    '시장 포지셔닝', '시장 위치', 'Market Position',
+  ],
+  comparable_analysis: [
+    '비교사례 분석', '유사 거래', 'Comparable Analysis',
   ],
 };
 
@@ -208,6 +231,14 @@ export function getSectionDisplayName(type: MobileIMSectionType): string {
     risk_check: '리스크',
     investment_thesis: '투자 포인트',
     next_steps: '거래 일정',
+    occupancy_fit: '사옥 적합성',
+    cost_comparison: '비용 비교',
+    site_analysis: '대지 분석',
+    development_feasibility: '사업 수지',
+    operation_overview: '운영 개요',
+    gop_analysis: 'GOP 분석',
+    market_position: '시장 포지셔닝',
+    comparable_analysis: '비교사례 분석',
   };
   return displayNames[type] || type;
 }

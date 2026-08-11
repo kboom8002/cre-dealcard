@@ -34,8 +34,20 @@ export function getSectionTitle(sectionType: MobileIMSectionType, assetType?: st
     risk_check:        "⚠️ 숨은 리스크는 없는가?",
     investment_thesis: `🎯 왜 지금 이 ${label}을 사야 하는가?`,
     next_steps:        "📋 검토 후 다음 단계는?",
+    // owner_occupied
+    occupancy_fit:     `🏢 사옥으로 활용하기에 적합한가?`,
+    cost_comparison:   `⚖️ 자가 사용 vs 임차 유지, 무엇이 유리한가?`,
+    // development
+    site_analysis:     `📐 개발 부지로서 대지 조건은 어떠한가?`,
+    development_feasibility: `🏗️ 신축/개발 사업수지와 수익성은?`,
+    // operating
+    operation_overview: `🏨 운영 자산으로서 현황과 실적은?`,
+    gop_analysis:      `📈 GOP 및 운영 손익 구조 분석`,
+    // trading
+    market_position:   `🧭 시장 내 자산 위치와 가격 경쟁력`,
+    comparable_analysis: `🔍 유사 거래 사례 및 비교 분석`,
   };
-  return titles[sectionType];
+  return titles[sectionType] ?? "📋 섹션 상세";
 }
 
 export function generatePremiumTemplate(
