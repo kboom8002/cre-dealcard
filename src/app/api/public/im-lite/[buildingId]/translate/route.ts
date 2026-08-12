@@ -10,10 +10,30 @@ import { translateIMSections, type IMLanguage } from '@/domain/building/mobile-i
 
 const VALID_LANGUAGES: IMLanguage[] = ['en', 'zh', 'ja'];
 
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(ip: string, limit: number, windowMs: number): boolean {
+  const now = Date.now();
+  let record = rateLimitMap.get(ip);
+  if (!record || record.resetAt < now) {
+    record = { count: 0, resetAt: now + windowMs };
+  }
+  if (record.count >= limit) return false;
+  record.count++;
+  rateLimitMap.set(ip, record);
+  return true;
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ buildingId: string }> }
 ) {
+  const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
+  const isAllowed = checkRateLimit(`translate:${ip}`, 5, 3600 * 1000); // 5 per hour
+  if (!isAllowed) {
+    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+  }
+
   const { buildingId } = await params;
 
   let language: IMLanguage;

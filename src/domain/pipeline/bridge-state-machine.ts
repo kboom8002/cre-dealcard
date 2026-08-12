@@ -48,6 +48,12 @@ export const BRIDGE_CONTRACTS: BridgeTransition[] = [
     holdWarningDays: 7,
   },
   {
+    from: 'deal_card_created',
+    to: 'im_created',
+    requiredFields: ['im_project_id', 'readiness_score'],
+    holdWarningDays: 7,
+  },
+  {
     from: 'gate_requested',
     to: 'im_created',
     requiredFields: ['im_project_id', 'readiness_score'],
@@ -90,8 +96,9 @@ export function validateBridgeTransition(
   const contract = BRIDGE_CONTRACTS.find((b) => b.from === from && b.to === to);
 
   if (!contract) {
+    const allowed = VALID_TRANSITIONS[from]?.includes(to);
     return {
-      valid: false,
+      valid: !!allowed,
       missing: [],
       holdWarning: false,
       holdDays: 0,

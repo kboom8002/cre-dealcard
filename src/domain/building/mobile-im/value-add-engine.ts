@@ -7,6 +7,7 @@ export interface ValueAddInputs {
   currentVacancyPct: number;
   currentMonthlyRentKrw: number;
   totalAreaSqm: number;
+  marketRentKrw?: number;
   assetType?: string;
 }
 
@@ -47,16 +48,18 @@ export function computeValueAddScenarios(inputs: ValueAddInputs): ValueAddOutput
   }
 
   // ── Scenario 2: 임대료 현실화 (+5%)
-  const rentIncreaseAnnualNoi = currentMonthlyRentKrw * 12 * 0.05 * 0.85;
-  scenarios.push({
-    name: '② 임대료 현실화 (+5%)',
-    description: '차기 갱신 시 시장가 기준 5% 증액',
-    noiImprovement: Math.round(rentIncreaseAnnualNoi),
-    noiImprovementPct: currentNoi > 0 ? parseFloat(((rentIncreaseAnnualNoi / currentNoi) * 100).toFixed(1)) : 0,
-    newCapRate: purchasePriceKrw > 0 ? parseFloat((((currentNoi + rentIncreaseAnnualNoi) / purchasePriceKrw) * 100).toFixed(2)) : null,
-    investmentRequired: 0,
-    paybackYears: 0,
-  });
+  if (inputs.marketRentKrw === undefined || currentMonthlyRentKrw < inputs.marketRentKrw) {
+    const rentIncreaseAnnualNoi = currentMonthlyRentKrw * 12 * 0.05 * 0.85;
+    scenarios.push({
+      name: '② 임대료 현실화 (+5%)',
+      description: '차기 갱신 시 시장가 기준 5% 증액',
+      noiImprovement: Math.round(rentIncreaseAnnualNoi),
+      noiImprovementPct: currentNoi > 0 ? parseFloat(((rentIncreaseAnnualNoi / currentNoi) * 100).toFixed(1)) : 0,
+      newCapRate: purchasePriceKrw > 0 ? parseFloat((((currentNoi + rentIncreaseAnnualNoi) / purchasePriceKrw) * 100).toFixed(2)) : null,
+      investmentRequired: 0,
+      paybackYears: 0,
+    });
+  }
 
   // ── Scenario 3: 리모델링
   if (totalAreaSqm > 0) {

@@ -57,17 +57,14 @@ export interface DataGradeResult {
 }
 
 /**
- * List of slots required for a baseline asset representation.
+ * Returns required slots dynamically based on posture.
  */
-const REQUIRED_SLOTS = [
-  'pnu',
-  'address',
-  'landAreaPyung',
-  'totalFloorAreaPyung',
-  'askingPriceKrw',
-  'grossAnnualIncomeKrw',
-  'zoningRegion',
-];
+function getRequiredSlots(posture?: string): string[] {
+  const baseSlots = ['pnu', 'address', 'landAreaPyung', 'totalFloorAreaPyung', 'askingPriceKrw', 'zoningRegion'];
+  if (posture === 'income') return [...baseSlots, 'grossAnnualIncomeKrw'];
+  if (posture === 'development') return [...baseSlots, 'farPct'];
+  return baseSlots;
+}
 
 /**
  * List of enhanced slots for higher data grades.
@@ -161,7 +158,8 @@ export function computeDataGrade(
   let requiredWeightSum = 0;
   let totalRequiredWeight = 0;
 
-  for (const slot of REQUIRED_SLOTS) {
+  const reqSlots = getRequiredSlots(identity?.investmentPosture);
+  for (const slot of reqSlots) {
     const w = weights ? (weights[slot] ?? 1) : 1;
     totalRequiredWeight += w;
     if (attrs[slot] != null && attrs[slot] !== '') {
@@ -190,7 +188,7 @@ export function computeDataGrade(
 
   const requiredCoveragePct = weights 
     ? Math.round((requiredWeightSum / totalRequiredWeight) * 100) 
-    : Math.round((requiredCount / REQUIRED_SLOTS.length) * 100);
+    : Math.round((requiredCount / reqSlots.length) * 100);
   const enhancedCoveragePct = weights 
     ? Math.round((enhancedWeightSum / totalEnhancedWeight) * 100) 
     : Math.round((enhancedCount / ENHANCED_SLOTS.length) * 100);

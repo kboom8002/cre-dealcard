@@ -46,7 +46,7 @@ export async function callLLM(
     const provider = providerRegistry.get(providerName);
     if (!provider) continue;
     
-    const maxAttempts = 3; // 1 initial + 2 retries
+    const maxAttempts = 5; // 1 initial + 4 retries (exponential backoff: 1s, 2s, 4s, 8s)
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         // AbortController를 이용해 타임아웃 제한
@@ -69,7 +69,7 @@ export async function callLLM(
       } catch (err: any) {
         lastError = err;
         if (attempt < maxAttempts - 1) {
-          const delay = 1000 * Math.pow(2, attempt); // 1s, 2s
+          const delay = Math.min(1000 * Math.pow(2, attempt), 16000); // 1s, 2s, 4s, 8s, 16s cap
           console.warn(`[callLLM] Provider '${providerName}' attempt ${attempt + 1}/${maxAttempts} failed: ${err.message ?? err}. Retrying in ${delay}ms...`);
           await new Promise(r => setTimeout(r, delay));
         } else {

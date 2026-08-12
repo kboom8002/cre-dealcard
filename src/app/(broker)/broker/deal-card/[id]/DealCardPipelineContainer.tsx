@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PipelineStatusBar } from "@/components/pipeline/pipeline-status-bar";
+import { PipelineErrorBoundary } from "@/components/pipeline/pipeline-error-boundary";
 import { DealStage } from "@/domain/pipeline/bridge-state-machine";
 import "@/components/briefing/briefing.css";
 
@@ -110,16 +111,18 @@ export function DealCardPipelineContainer({ buildingId }: DealCardPipelineContai
         </span>
       </div>
 
-      <PipelineStatusBar
-        buildingId={buildingId}
-        authToken={authToken}
-        currentStage={currentStage}
-        holdDays={holdDays}
-        onStageChange={(newStage) => {
-          setCurrentStage(newStage);
-          setHoldDays(0);
-        }}
-      />
+      <PipelineErrorBoundary>
+        <PipelineStatusBar
+          buildingId={buildingId}
+          authToken={authToken}
+          currentStage={currentStage}
+          holdDays={holdDays}
+          onStageChange={(newStage) => {
+            setCurrentStage(newStage);
+            setHoldDays(0);
+          }}
+        />
+      </PipelineErrorBoundary>
     </div>
   );
 }

@@ -45,6 +45,8 @@ export interface IMJudgeInput {
   supplementalData: Record<string, unknown>;
   /** 재무 분석 섹션 마크다운 (교차 검증용, 선택) */
   financialsMarkdown?: string;
+  /** 투자 포스처 */
+  posture?: import('@/domain/ontology').InvestmentPosture;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -71,7 +73,18 @@ const OVERALL_WARN_THRESHOLD = 3.0;
  *
  * 각 차원별 채점 가이드를 명시하여 LLM이 일관된 기준으로 평가하도록 한다.
  */
-function buildJudgeSystemPrompt(): string {
+function buildJudgeSystemPrompt(posture?: import('@/domain/ontology').InvestmentPosture): string {
+  let financialCriteria = `- Cap Rate, NOI, 수익률 등 재무 수치가 논리적으로 일관적인가?\n   - 월세→연수입→NOI→수익률 계산 체인이 정합적인가?`;
+  if (posture === 'development') {
+    financialCriteria = `- 총사업비, 개발이익률, 토지평당가, 용적률/건폐율 등 재무 수치가 논리적으로 일관적인가?`;
+  } else if (posture === 'operating') {
+    financialCriteria = `- GOP, ADR, OCC, RevPAR, 마진율 등 재무 수치가 논리적으로 일관적인가?`;
+  } else if (posture === 'owner_occupied') {
+    financialCriteria = `- 절감액, 손익분기기간, 점유비용 등 재무 수치가 논리적으로 일관적인가?`;
+  } else if (posture === 'trading') {
+    financialCriteria = `- 평당가, 시세할인율, 시세차익, HPR 등 재무 수치가 논리적으로 일관적인가?`;
+  }
+
   return `당신은 한국 상업용 부동산(CRE) 꼬마빌딩 투자 메모 품질 심사위원입니다.
 
 아래 5가지 차원에 대해 각각 0~5점(정수)으로 채점하고, 종합 피드백과 인용 검증 결과를 JSON으로 반환하세요.
@@ -84,8 +97,7 @@ function buildJudgeSystemPrompt(): string {
    - 5점: 모든 수치 정확, 3점: 사소한 불일치 1-2건, 0점: 핵심 수치 오류
 
 2. **financial_soundness** (재무 건전성)
-   - Cap Rate, NOI, 수익률 등 재무 수치가 논리적으로 일관적인가?
-   - 월세→연수입→NOI→수익률 계산 체인이 정합적인가?
+   ${financialCriteria}
    - 5점: 완벽한 논리, 3점: 경미한 추정 불일치, 0점: 계산 오류
 
 3. **regulatory_compliance** (규제 준수)
@@ -226,7 +238,7 @@ export async function judgeIMSection(
   try {
     const result = await callLLM(
       {
-        systemPrompt: buildJudgeSystemPrompt(),
+        systemPrompt: buildJudgeSystemPrompt(input.posture),
         userPrompt: buildJudgeUserPrompt(input),
         model: JUDGE_MODEL,
         responseFormat: "json_object",

@@ -49,6 +49,22 @@ export interface NumericalAnchors {
   buildingAge?: number;
   /** 역 도보 거리 (분) */
   stationDistance?: number;
+  /** 토지비 (원) */
+  landCostKrw?: number;
+  /** 공사비 (원) */
+  constructionCostKrw?: number;
+  /** 총사업비 (원) */
+  totalProjectCostKrw?: number;
+  /** ADR (원) */
+  adrKrw?: number;
+  /** OCC (%) */
+  occPct?: number;
+  /** RevPAR (원) */
+  revparKrw?: number;
+  /** 평당가 (원/평) */
+  pricePerPyeong?: number;
+  /** 매매호가 (원) */
+  askingPriceKrw?: number;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -327,13 +343,16 @@ export function updateNumericalAnchors(
  */
 export function runCrossValidation(
   sections: Array<{ section_type: string; markdown: string }>,
-  anchors: NumericalAnchors
+  anchors: NumericalAnchors,
+  posture?: import('@/domain/ontology').InvestmentPosture
 ): CrossValidationResult {
   const inconsistencies: CrossValidationInconsistency[] = [];
+  const skipIncomeChecks = posture === 'development' || posture === 'owner_occupied';
 
   // ── 1. 공실률 교차 검증 ───────────────────────────────────────────────────
   // lease_status, income_analysis, investment_thesis 간 비교
-  if (anchors.vacancyPct != null) {
+  // 개발형/자가사용형은 공실률 교차 검증 스킵 (공실 개념 없음)
+  if (!skipIncomeChecks && anchors.vacancyPct != null) {
     const vacancySections = sections.filter((s) =>
       (VACANCY_SECTIONS as readonly string[]).includes(s.section_type)
     );
@@ -440,7 +459,8 @@ export function runCrossValidation(
   }
 
   // ── 5. Cap Rate 교차 검증 (보조) ──────────────────────────────────────────
-  if (anchors.capRateBase != null) {
+  // 개발형/자가사용형은 Cap Rate 교차 검증 스킵 (수익률 개념 없음)
+  if (!skipIncomeChecks && anchors.capRateBase != null) {
     for (const section of sections) {
       const sectionCap = extractFirstNumber(section.markdown, PATTERNS.capRate);
       if (sectionCap != null && anchors.capRateBase != null) {
@@ -458,7 +478,8 @@ export function runCrossValidation(
   }
 
   // ── 6. 월세 교차 검증 (보조) ──────────────────────────────────────────────
-  if (anchors.monthlyRentKrw != null) {
+  // 개발형/자가사용형은 월세 교차 검증 스킵 (임대 수입 없음)
+  if (!skipIncomeChecks && anchors.monthlyRentKrw != null) {
     for (const section of sections) {
       const rentPattern = new RegExp(PATTERNS.monthlyRent.source, PATTERNS.monthlyRent.flags);
       const rentMatch = rentPattern.exec(section.markdown);
@@ -481,6 +502,46 @@ export function runCrossValidation(
             severity: "warning",
           });
         }
+      }
+    }
+  }
+
+  // ── development 포스처: FAR/BCR/공사비 교차 검증 ──
+  if (posture === 'development') {
+    // totalProjectCost 일관성 (land + construction = total)
+    const landCost = anchors.landCostKrw;
+    const constructionCost = anchors.constructionCostKrw;
+    const totalProject = anchors.totalProjectCostKrw;
+    if (landCost && constructionCost && totalProject) {
+      const sum = landCost + constructionCost;
+      if (Math.abs(sum - totalProject) / totalProject > 0.15) {
+        inconsistencies.push({ field: 'total_project_cost', severity: 'critical', section1: { type: 'anchor', value: `${sum}` }, section2: { type: 'validation', value: `${totalProject}` } });
+      }
+    }
+  }
+
+  // ── operating 포스처: ADR×OCC=RevPAR 교차 검증 ──
+  if (posture === 'operating') {
+    const adr = anchors.adrKrw;
+    const occ = anchors.occPct;
+    const revpar = anchors.revparKrw;
+    if (adr && occ && revpar) {
+      const expected = adr * (occ / 100);
+      if (Math.abs(expected - revpar) / revpar > 0.05) {
+        inconsistencies.push({ field: 'revpar', severity: 'critical', section1: { type: 'anchor', value: `${Math.round(expected)}` }, section2: { type: 'validation', value: `${revpar}` } });
+      }
+    }
+  }
+
+  // ── trading 포스처: 평당가 교차 검증 ──
+  if (posture === 'trading') {
+    const ppPyeong = anchors.pricePerPyeong;
+    const askingPrice = anchors.askingPriceKrw;
+    const totalArea = anchors.totalAreaSqm;
+    if (ppPyeong && askingPrice && totalArea) {
+      const expectedPP = Math.round(askingPrice / (totalArea / 3.30578));
+      if (Math.abs(expectedPP - ppPyeong) / ppPyeong > 0.1) {
+        inconsistencies.push({ field: 'price_per_pyeong', severity: 'warning', section1: { type: 'anchor', value: `${expectedPP}` }, section2: { type: 'validation', value: `${ppPyeong}` } });
       }
     }
   }

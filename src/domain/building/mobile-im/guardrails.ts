@@ -183,6 +183,32 @@ interface ProtectedFieldDetector {
 
 const PROTECTED_FIELD_DETECTORS: ProtectedFieldDetector[] = [
   {
+    field: "phone_number",
+    patterns: [
+      /(\d{2,3})[-.\s]?(\d{3,4})[-.\s]?(\d{4})/g,
+      /\(?\d{2,3}\)?[-.\s]?\d{3,4}[-.\s]?\d{4}/g,
+    ],
+    publicBlocked: true,
+    replacement: "[연락처 비공개]",
+  },
+  {
+    field: "email",
+    patterns: [
+      /[\w.-]+@[\w.-]+\.\w{2,}/g,
+    ],
+    publicBlocked: true,
+    replacement: "[이메일 비공개]",
+  },
+  {
+    field: "person_name",
+    patterns: [
+      /[가-힣]{2,4}\s*(님|씨|대표|사장|부장|과장|차장|팀장|이사|상무|전무|부사장|본부장|센터장|실장)/g,
+      /담당\s*:?\s*[가-힣]{2,4}/g,
+    ],
+    publicBlocked: true,
+    replacement: "[인명 비공개]",
+  },
+  {
     field: "exact_address",
     patterns: [
       /[가-힣]+구\s+[가-힣]+동\s*\d+[-\d]*/,

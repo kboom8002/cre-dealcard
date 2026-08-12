@@ -35,6 +35,20 @@ export async function PUT(
     if (!sections || !Array.isArray(sections)) {
       return NextResponse.json({ error: "Invalid 'sections' payload" }, { status: 400 });
     }
+
+    for (const sec of sections) {
+      if (!sec.section_type || typeof (sec as any).markdown !== 'string') {
+        return NextResponse.json({ error: "Invalid section structure" }, { status: 400 });
+      }
+      let markdown = (sec as any).markdown;
+      markdown = markdown.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+      markdown = markdown.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+      markdown = markdown.replace(/(\s)on[a-z]+\s*=\s*(['"])(?:(?!\2).)*\2/gi, '$1');
+      markdown = markdown.replace(/(\s)on[a-z]+\s*=\s*[^>\s]+/gi, '$1');
+      markdown = markdown.replace(/href\s*=\s*(['"])javascript:[^'"]*\1/gi, 'href="#"');
+      markdown = markdown.replace(/src\s*=\s*(['"])javascript:[^'"]*\1/gi, 'src=""');
+      (sec as any).markdown = markdown;
+    }
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
@@ -43,7 +57,7 @@ export async function PUT(
 
   const { data: doc, error: fetchErr } = await supabase
     .from('document_objects')
-    .select('id, owner_id, broker_id, body')
+    .select('id, owner_id, broker_id, body, status')
     .eq('id', id)
     .maybeSingle();
 
@@ -54,6 +68,10 @@ export async function PUT(
   const ownerId = doc.broker_id ?? doc.owner_id;
   if (ownerId !== guard.user!.id) {
     return NextResponse.json({ error: 'Forbidden: not your document' }, { status: 403 });
+  }
+
+  if (doc.status === 'published') {
+    return NextResponse.json({ error: 'Cannot edit a published document' }, { status: 400 });
   }
 
   const content = (doc.body as Record<string, unknown>) || {};
@@ -70,6 +88,35 @@ export async function PUT(
     ...(heroSubtitle !== undefined ? { heroSubtitle } : {}),
     ...(keyInvestmentPoint !== undefined ? { heroCard: { ...((content as Record<string, any>).heroCard || {}), keyInvestmentPoint } } : {}),
   };
+
+  const existingSections = (content.sections as any[]) || [];
+  
+  for (const section of sections) {
+    const prev = existingSections.find((s: any) => s.section_type === section.section_type);
+    if (prev && typeof prev.markdown === 'string' && prev.markdown !== section.markdown) {
+      const prevLen = prev.markdown.length;
+      const currLen = section.markdown.length;
+      const maxLen = Math.max(prevLen, currLen);
+      let diffRatio = 0;
+      if (maxLen > 0) {
+        let diffCount = Math.abs(prevLen - currLen);
+        const minLen = Math.min(prevLen, currLen);
+        for (let i = 0; i < minLen; i++) {
+          if (prev.markdown[i] !== section.markdown[i]) diffCount++;
+        }
+        diffRatio = Math.min(diffCount / maxLen, 1);
+      }
+      
+      await supabase.from('im_edit_diffs').insert({
+        document_id: id,
+        section_type: section.section_type,
+        original_markdown: prev.markdown,
+        edited_markdown: section.markdown,
+        broker_id: guard.user!.id,
+        diff_ratio: diffRatio,
+      });
+    }
+  }
 
   const { error: updateErr } = await supabase
     .from('document_objects')

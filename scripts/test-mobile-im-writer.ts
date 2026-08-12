@@ -108,7 +108,7 @@ async function runTest() {
     console.log("[1] writer.ts 호출 시작...\n");
     
     const result = await generateMobileIM({
-      building_ssot_lite,
+      building_ssot_lite: building_ssot_lite as any,
       supplemental,
       readiness,
       external_data,

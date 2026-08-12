@@ -58,7 +58,24 @@ export function PipelineStatusBar({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? '전환 중 오류가 발생했습니다');
+        const FIELD_LABELS: Record<string, string> = {
+          building_ssot_lite_id: '건물 정보',
+          gate_request_id: '자료 요청서',
+          im_project_id: 'IM 프로젝트',
+          readiness_score: '준비도 점수',
+          buyer_intent_lite_id: '매수자 정보',
+          match_grade: '매칭 등급',
+          meeting_schedule: '미팅 일정',
+          buyer_reaction: '매수자 반응',
+          price_gap: '가격 차이',
+          agreed_price: '합의된 가격',
+          key_conditions: '주요 조건',
+          closing_date: '잔금일',
+          fund_confirmed: '자금 조달 확인',
+        };
+        const missing = data.missing?.map((f: string) => FIELD_LABELS[f] || f).join(', ');
+        const missingText = missing ? ` (누락: ${missing})` : '';
+        setError((data.error ?? '전환 중 오류가 발생했습니다') + missingText);
       } else {
         onStageChange?.(toStage);
       }

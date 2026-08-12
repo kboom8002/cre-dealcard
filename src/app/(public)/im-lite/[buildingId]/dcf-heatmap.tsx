@@ -60,7 +60,7 @@ export function DCFHeatmap({ dcfOutputs, waccBase }: DCFHeatmapProps) {
   // 고유 exit cap rate 라벨 (첫 행에서 추출)
   const capLabels = useMemo(() => {
     if (grid.length === 0 || grid[0].length === 0) return [];
-    return grid[0].map((c) => `${(c.exitCapRate * 100).toFixed(1)}%`);
+    return grid[0].map((c) => `${(c.rentGrowthRate * 100).toFixed(1)}%`);
   }, [grid]);
 
   // 할인율 라벨

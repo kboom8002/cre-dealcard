@@ -7,7 +7,7 @@ interface HeroCardProps {
 }
 
 /** 숫자를 소수점 1자리까지 포맷 */
-function fmt(v: number | null, suffix = ""): string {
+function fmt(v: number | null | undefined, suffix = ""): string {
   if (v === null || v === undefined) return "—";
   return `${v.toLocaleString("ko-KR", { maximumFractionDigits: 1 })}${suffix}`;
 }
@@ -27,11 +27,28 @@ function readinessLabel(score: number): string {
 }
 
 export function HeroCard({ data }: HeroCardProps) {
-  const hasMetrics =
-    data.capRateBase !== null ||
-    data.noiBaseBil !== null ||
-    data.equityRequiredBil !== null ||
-    data.leveragedYieldPct !== null;
+  // 포스처별 메트릭 존재 여부 판단
+  const hasMetrics = (() => {
+    if (data.posture === "development") {
+      return data.landPricePerPyeong != null || data.zoning != null || !!data.askingPriceDisplay || data.devProfitMarginPct != null;
+    }
+    if (data.posture === "owner_occupied") {
+      return data.totalGrossAreaM2 != null || !!data.askingPriceDisplay || data.equityRequiredBil !== null || data.ownVsLeaseSavingsBil !== null;
+    }
+    if (data.posture === "operating") {
+      return data.gopMarginPct != null || data.adr != null || data.occPct != null || data.revpar != null || data.capRateBase !== null;
+    }
+    if (data.posture === "trading") {
+      return data.pricePerPyeong != null || data.marketDiscountPct != null || !!data.askingPriceDisplay || data.targetHprPct != null;
+    }
+    // income, undefined
+    return (
+      data.capRateBase !== null ||
+      data.noiBaseBil !== null ||
+      data.equityRequiredBil !== null ||
+      data.leveragedYieldPct !== null
+    );
+  })();
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-neutral-800/60 bg-neutral-900/80 backdrop-blur-xl">
@@ -60,8 +77,8 @@ export function HeroCard({ data }: HeroCardProps) {
             {data.posture === "development" ? (
               <>
                 <MetricCell
-                  label="대지면적"
-                  value={data.landAreaM2 ? `${data.landAreaM2.toLocaleString()}㎡ (${(data.landAreaM2 / 3.3058).toFixed(1)}평)` : "—"}
+                  label="토지 평당가"
+                  value={data.landPricePerPyeong ? `${data.landPricePerPyeong.toLocaleString()}원/평` : "—"}
                   highlight={false}
                 />
                 <MetricCell
@@ -75,9 +92,9 @@ export function HeroCard({ data }: HeroCardProps) {
                   highlight={!!data.askingPriceDisplay}
                 />
                 <MetricCell
-                  label="건축 연면적"
-                  value={data.totalGrossAreaM2 ? `${data.totalGrossAreaM2.toLocaleString()}㎡` : "—"}
-                  highlight={false}
+                  label="개발이익률"
+                  value={fmt(data.devProfitMarginPct, "%")}
+                  highlight={data.devProfitMarginPct != null && data.devProfitMarginPct > 0}
                 />
               </>
             ) : data.posture === "owner_occupied" ? (
@@ -98,8 +115,54 @@ export function HeroCard({ data }: HeroCardProps) {
                   highlight={false}
                 />
                 <MetricCell
-                  label="대지면적"
-                  value={data.landAreaM2 ? `${data.landAreaM2.toLocaleString()}㎡` : "—"}
+                  label="자가/임차 절감액"
+                  value={fmt(data.ownVsLeaseSavingsBil, "억")}
+                  highlight={data.ownVsLeaseSavingsBil != null && data.ownVsLeaseSavingsBil > 0}
+                />
+              </>
+            ) : data.posture === "operating" ? (
+              <>
+                <MetricCell
+                  label="GOP 마진"
+                  value={fmt(data.gopMarginPct, "%")}
+                  highlight={data.gopMarginPct != null && data.gopMarginPct >= 30}
+                />
+                <MetricCell
+                  label="객단가(ADR)"
+                  value={data.adr ? `${data.adr.toLocaleString()}원` : "—"}
+                  highlight={false}
+                />
+                <MetricCell
+                  label="가동률(OCC)"
+                  value={fmt(data.occPct, "%")}
+                  highlight={data.occPct != null && data.occPct >= 70}
+                />
+                <MetricCell
+                  label="RevPAR"
+                  value={data.revpar ? `${data.revpar.toLocaleString()}원` : "—"}
+                  highlight={false}
+                />
+              </>
+            ) : data.posture === "trading" ? (
+              <>
+                <MetricCell
+                  label="평당 매매가"
+                  value={data.pricePerPyeong ? `${data.pricePerPyeong.toLocaleString()}원/평` : "—"}
+                  highlight={false}
+                />
+                <MetricCell
+                  label="시세 할인율"
+                  value={fmt(data.marketDiscountPct, "%")}
+                  highlight={data.marketDiscountPct != null && data.marketDiscountPct > 0}
+                />
+                <MetricCell
+                  label="매각 희망가"
+                  value={data.askingPriceDisplay || "—"}
+                  highlight={true}
+                />
+                <MetricCell
+                  label="목표 수익률(HPR)"
+                  value={fmt(data.targetHprPct, "%")}
                   highlight={false}
                 />
               </>

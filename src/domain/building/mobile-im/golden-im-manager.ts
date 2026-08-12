@@ -13,6 +13,7 @@ export interface GoldenIMEntry {
   buildingId: string;
   assetType: string;
   priceBand: string;
+  posture: string;
   sectionType: string;
   markdown: string;
   judgeScore: number;
@@ -41,6 +42,7 @@ export async function markAsGoldenIM(
   sections: MobileIMSection[],
   brokerEdits?: BrokerEdit[],
   avgJudgeScore?: number,
+  posture: string = 'income',
 ): Promise<number> {
   const effectiveScore = avgJudgeScore ?? 4.0; // Judge 미실행 시 기본 4.0
   if (effectiveScore < MIN_JUDGE_SCORE) return 0;
@@ -66,6 +68,7 @@ export async function markAsGoldenIM(
         building_id:  buildingId,
         asset_type:   assetType,
         price_band:   priceBand,
+        posture:      posture,
         section_type: section.section_type,
         markdown:     finalMarkdown.slice(0, 2000),
         judge_score:  sectionScore,
@@ -93,27 +96,37 @@ export async function buildIMFewShotBlock(
   priceBand: string,
   sectionType: MobileIMSectionType,
   limit: number = 2,
+  posture: string = 'income',
 ): Promise<{ formatted: string; usedIds: string[] }> {
   try {
     const supabase = createServiceClient();
 
     // 1. 같은 자산 유형의 활성 골든셋 조회 (버전, 편집 여부, 생성일 등 조회)
-    const { data: matches } = await supabase
+    const { data: matches, error: matchesError } = await supabase
       .from('im_golden_sets')
-      .select('id, document_id, markdown, asset_type, price_band, judge_score, usage_count, was_edited, created_at')
+      .select('id, document_id, markdown, asset_type, price_band, posture, judge_score, usage_count, was_edited, created_at')
       .eq('section_type', sectionType)
       .eq('asset_type', assetType)
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .eq('posture', posture);
+
+    if (matchesError) {
+      console.error('[golden-im-manager] Error fetching matches:', matchesError);
+    }
 
     let candidates = matches || [];
 
     // 2. 같은 자산 유형이 부족하면 전체 활성 골든셋에서 폴백 조회
     if (candidates.length < limit) {
-      const { data: fallbackData } = await supabase
+      const { data: fallbackData, error: fallbackError } = await supabase
         .from('im_golden_sets')
-        .select('id, document_id, markdown, asset_type, price_band, judge_score, usage_count, was_edited, created_at')
+        .select('id, document_id, markdown, asset_type, price_band, posture, judge_score, usage_count, was_edited, created_at')
         .eq('section_type', sectionType)
         .eq('is_active', true);
+      
+      if (fallbackError) {
+        console.error('[golden-im-manager] Error fetching fallback data:', fallbackError);
+      }
       
       if (fallbackData && fallbackData.length > 0) {
         // 합치되 중복 제거
@@ -136,6 +149,7 @@ export async function buildIMFewShotBlock(
       markdown: string;
       asset_type: string;
       price_band: string;
+      posture?: string;
       judge_score: number;
       usage_count: number;
       was_edited: boolean;
@@ -168,6 +182,11 @@ export async function buildIMFewShotBlock(
       // E. 브로커 검증 보너스 (5점)
       if (entry.was_edited) {
         score += 5;
+      }
+
+      // F. Posture 일치도 (최대 30점)
+      if (posture && entry.posture === posture) {
+        score += 30;
       }
 
       return {
@@ -303,43 +322,64 @@ export async function createGoldenVersion(
   updatedScore?: number,
 ): Promise<string | null> {
   const supabase = createServiceClient();
+  const { data, error } = await supabase.rpc('create_golden_version_atomic', {
+    p_existing_id: existingId,
+    p_updated_markdown: updatedMarkdown,
+    p_updated_score: updatedScore ?? null,
+  });
 
-  // 1. 기존 레코드 조회
-  const { data: existing } = await supabase
-    .from('im_golden_sets')
-    .select('*')
-    .eq('id', existingId)
-    .single();
+  if (error) {
+    console.warn('[golden-im-manager] Atomic version creation failed, falling back:', error);
+    
+    // 1. 기존 레코드 조회
+    const { data: existing, error: fetchErr } = await supabase
+      .from('im_golden_sets')
+      .select('*')
+      .eq('id', existingId)
+      .single();
 
-  if (!existing) return null;
+    if (fetchErr || !existing) {
+      console.error('[golden-im-manager] Error fetching existing golden record:', fetchErr);
+      return null;
+    }
 
-  // 2. 기존 버전 비활성화
-  await supabase
-    .from('im_golden_sets')
-    .update({ is_active: false })
-    .eq('id', existingId);
+    // 2. 기존 버전 비활성화
+    const { error: updateErr } = await supabase
+      .from('im_golden_sets')
+      .update({ is_active: false })
+      .eq('id', existingId);
 
-  // 3. 새 버전 생성
-  const { data: newRow } = await supabase
-    .from('im_golden_sets')
-    .insert({
-      document_id: existing.document_id,
-      building_id: existing.building_id,
-      section_type: existing.section_type,
-      section_alias: existing.section_alias || '',
-      asset_type: existing.asset_type,
-      price_band: existing.price_band,
-      markdown: updatedMarkdown,
-      judge_score: updatedScore ?? existing.judge_score,
-      was_edited: true,
-      source_type: existing.source_type,
-      tags: existing.tags || [],
-      version: (existing.version || 1) + 1,
-      parent_id: existingId,
-      is_active: true,
-    })
-    .select('id')
-    .single();
+    if (updateErr) {
+      console.error('[golden-im-manager] Error disabling previous golden version:', updateErr);
+    }
 
-  return newRow?.id || null;
+    // 3. 새 버전 생성
+    const { data: newRow, error: insertErr } = await supabase
+      .from('im_golden_sets')
+      .insert({
+        document_id: existing.document_id,
+        building_id: existing.building_id,
+        section_type: existing.section_type,
+        section_alias: existing.section_alias || '',
+        asset_type: existing.asset_type,
+        price_band: existing.price_band,
+        posture: existing.posture,
+        markdown: updatedMarkdown,
+        judge_score: updatedScore ?? existing.judge_score,
+        was_edited: true,
+        source_type: 'version_update',
+        version: (existing.version || 1) + 1,
+        is_active: true,
+      })
+      .select('id')
+      .single();
+
+    if (insertErr) {
+      console.error('[golden-im-manager] Error creating new golden version:', insertErr);
+    }
+
+    return newRow?.id || null;
+  }
+
+  return data as string;
 }

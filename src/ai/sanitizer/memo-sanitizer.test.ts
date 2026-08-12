@@ -11,7 +11,7 @@ describe("PII Memo Sanitizer", () => {
     expect(sanitizedText).not.toContain("010-1234-5678");
     expect(sanitizedText).not.toContain("01098765432");
 
-    const restored = desanitizeOutput(sanitizedText, { sanitizedText, tokens });
+    const restored = desanitizeOutput(sanitizedText, { sanitizedText, tokens, injectionDetected: false });
     expect(restored).toBe(original);
   });
 
@@ -24,7 +24,7 @@ describe("PII Memo Sanitizer", () => {
     expect(sanitizedText).not.toContain("742-1");
     expect(sanitizedText).not.toContain("12-34");
 
-    const restored = desanitizeOutput(sanitizedText, { sanitizedText, tokens });
+    const restored = desanitizeOutput(sanitizedText, { sanitizedText, tokens, injectionDetected: false });
     expect(restored).toBe(original);
   });
 
@@ -37,7 +37,7 @@ describe("PII Memo Sanitizer", () => {
     expect(sanitizedText).not.toContain("파이낸스센터");
     expect(sanitizedText).not.toContain("스타타워");
 
-    const restored = desanitizeOutput(sanitizedText, { sanitizedText, tokens });
+    const restored = desanitizeOutput(sanitizedText, { sanitizedText, tokens, injectionDetected: false });
     expect(restored).toBe(original);
   });
 
@@ -50,7 +50,7 @@ describe("PII Memo Sanitizer", () => {
     expect(sanitizedText).not.toContain("삼성SDS");
     expect(sanitizedText).not.toContain("라인플러스");
 
-    const restored = desanitizeOutput(sanitizedText, { sanitizedText, tokens });
+    const restored = desanitizeOutput(sanitizedText, { sanitizedText, tokens, injectionDetected: false });
     expect(restored).toBe(original);
   });
 
@@ -63,7 +63,7 @@ describe("PII Memo Sanitizer", () => {
     expect(sanitizedText).not.toContain("김중개");
     expect(sanitizedText).not.toContain("이철수");
 
-    const restored = desanitizeOutput(sanitizedText, { sanitizedText, tokens });
+    const restored = desanitizeOutput(sanitizedText, { sanitizedText, tokens, injectionDetected: false });
     expect(restored).toBe(original);
   });
 
@@ -77,7 +77,7 @@ describe("PII Memo Sanitizer", () => {
     expect(sanitizedText).not.toContain("박영희");
     expect(sanitizedText).not.toContain("010-5555-6666");
 
-    const restored = desanitizeOutput(sanitizedText, { sanitizedText, tokens });
+    const restored = desanitizeOutput(sanitizedText, { sanitizedText, tokens, injectionDetected: false });
     expect(restored).toBe(original);
   });
 
@@ -93,7 +93,7 @@ describe("PII Memo Sanitizer", () => {
     expect(sanitizedText).not.toContain("02-3456-7890");
     expect(sanitizedText).not.toContain("851105-1234567");
 
-    const restored = desanitizeOutput(sanitizedText, { sanitizedText, tokens });
+    const restored = desanitizeOutput(sanitizedText, { sanitizedText, tokens, injectionDetected: false });
     expect(restored).toBe(original);
   });
 });

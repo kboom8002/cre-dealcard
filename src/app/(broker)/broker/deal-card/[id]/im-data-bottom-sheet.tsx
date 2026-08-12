@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { RentRollImporter } from "@/components/broker/rent-roll-importer";
@@ -27,6 +27,7 @@ interface ImDataBottomSheetProps {
   prefillAskingPrice?: number; // 만원 단위
   prefillLoanAmount?: number; // 만원 단위
   prefillVacancyPct?: number;
+  initialInvestmentPosture?: string;
   currentDataGrade?: string; // A/B/C/D
   gradeUpItems?: Array<{ field: string; label: string; gradeContribution: string }>;
   initialStage?: 'basic' | 'pro';
@@ -64,6 +65,7 @@ export function ImDataBottomSheet({
   prefillAskingPrice,
   prefillLoanAmount,
   prefillVacancyPct,
+  initialInvestmentPosture = "income",
   currentDataGrade,
   gradeUpItems,
   initialStage,
@@ -78,6 +80,18 @@ export function ImDataBottomSheet({
   const [address, setAddress] = useState("");
   const [pnu, setPnu] = useState("");
   const [monthlyRent, setMonthlyRent] = useState(""); // 만원 단위
+  
+  // ── 포스처 및 Pack Slot 신규 State ──
+  const [investmentPosture, setInvestmentPosture] = useState<string>(initialInvestmentPosture);
+
+  // 누락 필드 하이라이팅 헬퍼
+  const getFieldClass = (fieldName: string, baseClass: string = "bg-secondary/50 border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1") => {
+    // missingFields는 아래 useMemo에서 계산됨
+    const isMissing = computedMissingFields.includes(fieldName);
+    const borderClass = isMissing ? "border-red-500 focus:border-red-500 focus:ring-red-500" : "border-border focus:border-primary focus:ring-primary";
+    return `${baseClass} ${borderClass}`;
+  };
+
   const [totalDeposit, setTotalDeposit] = useState(""); // 보증금 (만원)
   const [mgmtFeeTotal, setMgmtFeeTotal] = useState(""); // 관리비 (만원)
   const [loanAmount, setLoanAmount] = useState(""); // 융자 (만원)
@@ -113,9 +127,6 @@ export function ImDataBottomSheet({
   const [gopMargin, setGopMargin] = useState<string>(""); // GOP (%)
   const [operatingModel, setOperatingModel] = useState<string>("self");
   const [operatingEntity, setOperatingEntity] = useState<string>("");
-
-  // ── 포스처 및 Pack Slot 신규 State ──
-  const [investmentPosture, setInvestmentPosture] = useState<string>("income");
 
   // 개발형 (DevelopmentPlan, VacatePlan, PermitRisk)
   const [devTargetUse, setDevTargetUse] = useState<string>("office");
@@ -177,6 +188,38 @@ export function ImDataBottomSheet({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [readinessScore, setReadinessScore] = useState(0);
+
+  // 현재 입력 상태에 따른 필수 데이터 누락 여부 동적 계산
+  const computedMissingFields = React.useMemo(() => {
+    const missing: string[] = [];
+    
+    // 1. 공통 필수 항목
+    if (!address && !pnu) missing.push('address');
+    if (!askingPrice || Number(askingPrice) <= 0) missing.push('askingPrice');
+    
+    // 2. 포스처별 필수 항목
+    switch (investmentPosture) {
+      case 'income':
+        if (!monthlyRent || Number(monthlyRent) <= 0) missing.push('monthlyRent');
+        if (!totalDeposit || Number(totalDeposit) <= 0) missing.push('totalDeposit');
+        break;
+      case 'owner_occupied':
+        if (!occHeadcount || Number(occHeadcount) <= 0) missing.push('occHeadcount');
+        if (!occDesiredFloors) missing.push('occDesiredFloors');
+        break;
+      case 'development':
+        if (!devTargetUse) missing.push('devTargetUse');
+        if (!devTargetScalePyung || Number(devTargetScalePyung) <= 0) missing.push('devTargetScalePyung');
+        break;
+      case 'operating':
+        if (!roomCount || Number(roomCount) <= 0) missing.push('roomCount');
+        if (!averageDailyRate || Number(averageDailyRate) <= 0) missing.push('averageDailyRate');
+        break;
+      // trading 등 기타 포스처는 현재 추가적인 강제 항목 없음
+    }
+    
+    return missing;
+  }, [address, pnu, askingPrice, investmentPosture, monthlyRent, totalDeposit, occHeadcount, occDesiredFloors, devTargetUse, devTargetScalePyung, roomCount, averageDailyRate]);
 
   // Sync props when opening/changing
   useEffect(() => {
@@ -568,18 +611,24 @@ export function ImDataBottomSheet({
 
   // 주소+월세 없이도 시도 가능하도록 UI 임계값을 40점으로 완화
   const isProValid = currentDataGrade === 'A' || currentDataGrade === 'B' || readinessScore >= 75;
-  const canGenerate = stage === 'basic' ? true : isProValid;
+  const hasRequiredFields = computedMissingFields.length === 0;
+  const canGenerate = stage === 'basic' ? hasRequiredFields : (isProValid && hasRequiredFields);
 
   // Portal을 사용하여 document.body에 직접 렌더링
   // 부모 요소의 transform/filter CSS가 fixed 포지셔닝을 깨뜨리는 문제 방지
   if (typeof window === 'undefined') return null;
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-0 sm:p-4">
-      <div className="bg-background rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl p-5 animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 max-h-[90vh] sm:max-h-[85vh] flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom,20px)]">
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-0 sm:p-4" role="presentation">
+      <div 
+        role="dialog" 
+        aria-modal="true" 
+        aria-labelledby="bottom-sheet-title"
+        className="bg-background rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl p-5 animate-in slide-in-from-bottom sm:zoom-in-95 duration-300 max-h-[90vh] sm:max-h-[85vh] flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom,20px)]"
+      >
         
         <div className="flex items-center justify-between mb-4 shrink-0">
-          <h2 className="text-lg font-bold text-foreground">
+          <h2 id="bottom-sheet-title" className="text-lg font-bold text-foreground">
             {stage === 'basic' ? '📊 Basic IM 만들기' : '📊 투자설명서 데이터 보강'}
           </h2>
           <button onClick={onClose} className="p-2 -mr-2 text-muted-foreground hover:text-foreground">
@@ -596,6 +645,15 @@ export function ImDataBottomSheet({
             ? '기본 정보를 입력하여 모바일 투자설명서를 생성하세요. 추가 데이터는 Pro에서.' 
             : '상세 렌트롤·DCF·부가수입을 입력하여 프리미엄 IM을 완성하세요.'}
         </p>
+
+        {computedMissingFields.length > 0 && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4 flex items-start gap-2 shrink-0">
+            <span className="text-red-500 shrink-0">⚠️</span>
+            <p className="text-xs text-red-500 font-medium">
+              IM 작성을 위해 필수적인 정보가 누락되었습니다. 빨간색으로 강조된 항목을 입력해주세요.
+            </p>
+          </div>
+        )}
 
         {/* Scrollable Form Area */}
         <div className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-6 mb-6 pb-10">
@@ -648,7 +706,7 @@ export function ImDataBottomSheet({
                 onKeyDown={handleSearchKeyDown}
                 onFocus={updateDropdownRect}
                 placeholder="동/도로명 입력 후 검색 (예: 상도동 477)"
-                className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                className={getFieldClass('address', 'flex-1 bg-secondary/50 border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1')}
               />
               <button 
                 onClick={() => { updateDropdownRect(); handleAddressSearch(); }}
@@ -726,7 +784,7 @@ export function ImDataBottomSheet({
                 onChange={(e) => setMonthlyRent(e.target.value)}
                 onKeyDown={(e) => handleEnterKey(e, totalDepositRef)}
                 placeholder="예: 1500"
-                className="w-full bg-secondary/50 border border-border rounded-lg pl-4 pr-14 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                className={getFieldClass('monthlyRent', 'w-full bg-secondary/50 border rounded-lg pl-4 pr-14 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1')}
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">만원</span>
             </div>
@@ -755,7 +813,7 @@ export function ImDataBottomSheet({
                   onChange={(e) => setTotalDeposit(e.target.value)}
                   onKeyDown={(e) => handleEnterKey(e, mgmtFeeTotalRef)}
                   placeholder="예: 30000"
-                  className="w-full bg-secondary/50 border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  className={getFieldClass('totalDeposit', 'w-full bg-secondary/50 border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1')}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
               </div>
@@ -828,7 +886,7 @@ export function ImDataBottomSheet({
                   onChange={(e) => setAskingPrice(e.target.value)}
                   onKeyDown={(e) => handleEnterKey(e, loanAmountRef)}
                   placeholder="예: 250000"
-                  className="w-full bg-secondary/50 border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  className={getFieldClass('askingPrice', 'w-full bg-secondary/50 border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1')}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
               </div>

@@ -1,11 +1,37 @@
 export interface SanitizationMap {
   tokens: Map<string, string>;   // "[TENANT_A]" -> "삼성SDS"
   sanitizedText: string;
+  injectionDetected: boolean;
+}
+
+const INJECTION_PATTERNS = [
+  /(ignore|disregard|forget)\s*(all\s*)?(previous|prior|above)\s*(instructions|prompts)/i,
+  /you\s+are\s+now/i,
+  /\b(system|assistant|user)\s*:/i,
+  /\[(SYSTEM|INST)\]/i,
+  /<\|?(system|im_start|im_end)\|?>/i,
+  /forget\s+everything/i,
+  /do\s+not\s+follow/i,
+  /pretend\s+(you|to\s+be)/i,
+  /system prompt/i,
+  /새로운 지침/i,
+  /이전 프롬프트 무시/i,
+];
+
+export function detectPromptInjection(text: string): boolean {
+  return INJECTION_PATTERNS.some(pattern => pattern.test(text));
 }
 
 export function sanitizeMemo(memo: string): SanitizationMap {
+  const MAX_MEMO_LENGTH = 5000;
+  const safeMemo = memo.length > MAX_MEMO_LENGTH ? memo.slice(0, MAX_MEMO_LENGTH) : memo;
+
+  if (detectPromptInjection(safeMemo)) {
+    return { tokens: new Map(), sanitizedText: '', injectionDetected: true };
+  }
+
   const tokens = new Map<string, string>();
-  let sanitizedText = memo;
+  let sanitizedText = safeMemo;
   const counters: Record<string, number> = { PHONE: 0, EMAIL: 0, RRN: 0, ADDR_DETAIL: 0, BLDG_NAME: 0, TENANT: 0, OWNER: 0 };
 
   // 1. 주민등록번호 (RRN) 마스킹 (민감도가 가장 높으므로 최우선 적용)
@@ -35,7 +61,7 @@ export function sanitizeMemo(memo: string): SanitizationMap {
   // 2. 번지수 (Exact Address) 마스킹
   // ADDR_DETAIL을 먼저 해줌으로써 건물명 마스킹시 번지수가 얽히는 것을 방지
   sanitizedText = sanitizedText.replace(
-    /(?:\b\d{1,4}-\d{1,4}\b|\b산?\s*\d{1,4}번지(?:\s*일대)?|\b[가-힣]+[로길]\s*\d{1,4}(?:-\d{1,4})?)/g,
+    /(?:\b\d{1,4}-\d{1,4}\b|산?\d{1,4}번지|\b[가-힣]{1,10}[로길]\s?\d{1,4}(?:-\d{1,4})?)/g,
     (match) => {
       counters.ADDR_DETAIL++;
       const token = `[ADDR_DETAIL_${String.fromCharCode(64 + counters.ADDR_DETAIL)}]`;
@@ -83,7 +109,7 @@ export function sanitizeMemo(memo: string): SanitizationMap {
     return token;
   });
 
-  return { tokens, sanitizedText };
+  return { tokens, sanitizedText, injectionDetected: false };
 }
 
 export function desanitizeOutput(output: string, map: SanitizationMap): string {

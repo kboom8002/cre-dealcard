@@ -1,0 +1,105 @@
+{
+  "ok": true,
+  "data": {
+    "asset_type": "근생빌딩",
+    "area_signal": "강남권 신사역·논현역 권역",
+    "price_band": "토지 평당 1.3억, 매각 희망가 약 242억",
+    "size_signal": "대지면적 미기재",
+    "vacancy_signal": "공실 정보 미기재",
+    "current_use_signal": "기존 건축물 임대 중",
+    "lease_signal": "현 임차인 존재",
+    "detected_sensitive_fields": [
+      "exact_address",
+      "tenant_name",
+      "seller_motivation",
+      "owner_identity"
+    ],
+    "ambiguous_fields": [
+      "정확한 주소 및 필지 정보 미기재",
+      "대지면적 미기재",
+      "현 임차인의 업종 및 임대차 조건 미기재",
+      "공실률 미기재",
+      "신축 가능 여부 및 개발 규모 관련 인허가·건축물 검토 자료 미기재",
+      "매각 희망가와 토지 평당가의 산정 기준 및 부가 조건 확인 필요"
+    ],
+    "warnings": [
+      "매각 희망가는 중개 메모상 희망 조건이며 확정 매매가격이 아님",
+      "토지 평당 1.3억은 건축물, 권리관계, 임대차, 개발 가능성 등을 반영한 검증 수치가 아님",
+      "1990년 준공 및 신축 방향은 현장 메모 내용으로, 건축물대장·토지이용계획·용도지역·용적률·건폐율·주차 및 인허가 검토가 필요함",
+      "역 도보 시간과 유동인구·상권 지속성은 현장 확인 및 별도 자료 검증이 필요함",
+      "임차인 승계 및 신축 관련 조건은 임대차계약서와 매매계약 조건 확인이 필요함"
+    ],
+    "prompt_version": "prompt_memo_parser_v1",
+    "model": "gpt-5.6-luna",
+    "memo_result": {
+      "extracted": [
+        {
+          "slotKey": "asset_type",
+          "value": "근생빌딩",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "area_signal",
+          "value": "강남권 신사역·논현역 권역",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "price_band",
+          "value": "토지 평당 1.3억, 매각 희망가 약 242억",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "size_signal",
+          "value": "대지면적 미기재",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "vacancy_signal",
+          "value": "공실 정보 미기재",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "current_use_signal",
+          "value": "기존 건축물 임대 중",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "lease_signal",
+          "value": "현 임차인 존재",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        }
+      ],
+      "ambiguous": [],
+      "unmatched": []
+    },
+    "grade_upgrade_actions": []
+  }
+}

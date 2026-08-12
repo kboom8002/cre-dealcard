@@ -20,7 +20,8 @@ export type CREViolationType =
   | "fabricated_data"
   | "legal_assertion"
   | "misleading_comparison"
-  | "ungrounded_market_claim";
+  | "ungrounded_market_claim"
+  | "price_opinion_prohibition";
 
 /** 개별 위반 이슈 */
 export interface CREQualityIssue {
@@ -73,7 +74,7 @@ const SAFE_DEFAULT_RESULT: CREQualityGateResult = {
 function buildGateSystemPrompt(): string {
   return `당신은 한국 상업용 부동산(CRE) 투자 정보 자료의 법규 준수 심사관입니다.
 
-아래 마크다운 텍스트를 검토하여 5가지 위반 유형을 탐지하세요.
+아래 마크다운 텍스트를 검토하여 6가지 위반 유형을 탐지하세요.
 단순 키워드 매칭이 아닌, 의미적으로 동일한 패러프레이징도 반드시 포착해야 합니다.
 
 ## 위반 유형 정의
@@ -104,6 +105,10 @@ function buildGateSystemPrompt(): string {
 - 출처 없이 시장 트렌드, 공실률, 임대 수요를 단정적으로 주장
 - 판단 기준: 공공데이터나 보고서 인용 없는 시장 현황 기술
 
+### 6. price_opinion_prohibition (주관적 가격 평가 금지)
+- 주관적 가격 평가: "적정가", "~할 것으로 보인다", "향후 ~% 상승 예상", "투자 적기"
+- 행동 기준: 위반으로 플래그
+
 ## 출력 형식 (반드시 아래 JSON 형식 준수)
 
 {
@@ -129,7 +134,7 @@ function buildGateUserPrompt(markdown: string, sectionType: string): string {
 ${markdown}
 \`\`\`
 
-위 마크다운 텍스트에서 5가지 위반 유형을 검사하세요.`;
+위 마크다운 텍스트에서 6가지 위반 유형을 검사하세요.`;
 }
 
 // ─── Risk Level Determination ────────────────────────────────────────────────
@@ -150,6 +155,7 @@ function determineRiskLevel(issues: CREQualityIssue[]): "low" | "medium" | "high
     "investment_guarantee",
     "fabricated_data",
     "legal_assertion",
+    "price_opinion_prohibition",
   ];
 
   const hasHighRisk = issues.some((issue) => highRiskTypes.includes(issue.type));
@@ -235,7 +241,32 @@ export async function runCREQualityGate(
         type: String(item.type) as CREViolationType,
         excerpt: typeof item.excerpt === "string" ? item.excerpt : "",
         suggestion: typeof item.suggestion === "string" ? item.suggestion : "",
-      }));
+      }))
+      // ── Provenance-based whitelist filter ──
+      // 표준 부동산 입지 표현은 ungrounded_market_claim에서 제외
+      .filter((issue) => {
+        const excerpt = issue.excerpt;
+
+        // 1. 일반적 입지/상권 표현 → ungrounded_market_claim 면제
+        if (issue.type === "ungrounded_market_claim") {
+          const locationWhitelist = /역세권|도보\s?\d+분|입지|상권|생활권|교통|접근성|배후수요/;
+          if (locationWhitelist.test(excerpt)) return false;
+        }
+
+        // 2. 조건부/가능성 표현 → investment_guarantee 면제
+        if (issue.type === "investment_guarantee") {
+          const conditionalPattern = /할 수 있는|기대되는|가능성|검토|예상|구조입니다|측면에서/;
+          if (conditionalPattern.test(excerpt)) return false;
+        }
+
+        // 3. 출처 명시된 데이터 → fabricated_data 면제
+        if (issue.type === "fabricated_data") {
+          const provenancePattern = /AI 추정|공공데이터|SSoT 기준|건축물대장|토지이음|공시지가|국토교통부|통상|평균|권역/;
+          if (provenancePattern.test(excerpt)) return false;
+        }
+
+        return true;
+      });
 
     const riskLevel = determineRiskLevel(issues);
 

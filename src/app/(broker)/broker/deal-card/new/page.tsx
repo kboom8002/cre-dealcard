@@ -56,6 +56,7 @@ export default function BrokerDealCardNewPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!memo.trim()) return;
+    if (memo.length > 3000) return;
 
     setIsLoading(true);
     setError(null);
@@ -92,7 +93,12 @@ export default function BrokerDealCardNewPage() {
             .from('building_photos')
             .upload(fileName, file);
 
-          if (!uploadError && uploadData) {
+          if (uploadError) {
+            console.warn(`[upload] Failed to upload ${file.name}:`, uploadError.message);
+            setError("이미지 '" + file.name + "' 업로드 실패. 계속 진행합니다.");
+            continue;
+          }
+          if (uploadData) {
             const { data: publicUrlData } = supabase.storage
               .from('building_photos')
               .getPublicUrl(fileName);
@@ -309,14 +315,18 @@ export default function BrokerDealCardNewPage() {
             id="broker-memo-input"
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
+            maxLength={3000}
             placeholder={
               "예:\n성수동 80억대 근생, 일부 임대 중,\n1층 F&B 가능, 사옥 수요도 볼 수 있음.\n주소는 아직 비공개."
             }
             className="min-h-[180px] text-base"
           />
-          <div className="flex justify-between items-center">
+          <p className="text-xs text-muted-foreground pt-1">
+            💡 투자 성격(수익형, 개발형, 운영형 등)은 AI가 메모 내용에서 자동 판별합니다.
+          </p>
+          <div className="flex justify-between items-center mt-2">
             <p className="text-xs text-muted-foreground">
-              {memo.length > 0 ? `${memo.length}자` : "최소 5자 이상"}
+              {memo.length > 0 ? `${memo.length.toLocaleString()} / 3,000자` : "최소 5자 이상"}
             </p>
             <button
               type="button"

@@ -57,6 +57,7 @@ export interface PptxThemeTokens {
   // 브랜딩
   companyName: string;
   companyTagline: string;
+  logoUrl?: string;
 }
 
 export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
@@ -350,9 +351,9 @@ export async function getPptxThemeAsync(
           layoutStyle: (data.layout_style as PptxThemeTokens['layoutStyle']) ?? base.layoutStyle,
           companyName: data.company_name ?? base.companyName,
           companyTagline: data.company_tagline ?? base.companyTagline,
-        } as PptxThemeTokens & { logoUrl?: string };
+        } as PptxThemeTokens;
         // G1: logo_url을 별도 속성으로 전달 (PptxThemeTokens 인터페이스 외)
-        if (data.logo_url) (merged as any).logoUrl = data.logo_url;
+        if (data.logo_url) merged.logoUrl = data.logo_url;
         return merged;
       }
     } catch (err) {

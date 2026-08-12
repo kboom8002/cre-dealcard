@@ -5,7 +5,7 @@
  */
 
 import { buildProvenanceMap } from './data-provenance';
-import { type SectionContext, MOBILE_IM_NARRATIVE_SYSTEM } from './narrative-prompt';
+import { type SectionContext, MOBILE_IM_NARRATIVE_SYSTEM, buildPostureAwareSystemPrompt } from './narrative-prompt';
 import { type FinancialOutputs } from './financials';
 import { computeValueAddScenarios } from './value-add-engine';
 import { generateRAGContext } from './cre-rag-service';
@@ -22,18 +22,21 @@ import { suggestArchetype } from './archetype-registry';
  * DB flat 컬럼 (area_signal, asset_type …) 또는 legacy 중첩 구조
  * 양쪽을 모두 지원하는 정규화 함수.
  */
-export function normalizeSsotLite(raw: Record<string, unknown>): {
+import type { BuildingSSoTLite } from '../building-ssot-lite.types';
+
+export function normalizeSsotLite(rawInput: BuildingSSoTLite): {
   assetIdentity: Record<string, unknown>;
   physicalFact:  Record<string, unknown>;
   marketLocation: Record<string, unknown>;
   buyerFit:      Record<string, unknown>;
   flat:          Record<string, unknown>;
 } {
-  // legacy 중첩 구조가 이미 있으면 그대로 사용
-  const legacyAssetIdentity  = (raw.asset_identity  ?? {}) as Record<string, unknown>;
-  const legacyPhysicalFact   = (raw.physical_fact   ?? {}) as Record<string, unknown>;
-  const legacyMarketLocation = (raw.market_location ?? {}) as Record<string, unknown>;
-  const legacyBuyerFit       = (raw.buyer_fit       ?? {}) as Record<string, unknown>;
+  const raw = rawInput as any;
+  // legacy 중첩 구조가 이미 있으면 그대로 사용 (BuildingSSoTLite에는 flat으로 선언되어 있음)
+  const legacyAssetIdentity  = raw.asset_identity  ?? {};
+  const legacyPhysicalFact   = raw.physical_fact   ?? {};
+  const legacyMarketLocation = raw.market_location ?? {};
+  const legacyBuyerFit       = raw.buyer_fit       ?? {};
 
   // flat → 중첩으로 병합 (flat 우선)
   const assetIdentity: Record<string, unknown> = {
@@ -61,7 +64,7 @@ export function normalizeSsotLite(raw: Record<string, unknown>): {
     caution_summary: raw.caution_summary ?? legacyBuyerFit.caution_summary,
   };
 
-  return { assetIdentity, physicalFact, marketLocation, buyerFit, flat: raw };
+  return { assetIdentity, physicalFact, marketLocation, buyerFit, flat: raw as unknown as Record<string, unknown> };
 }
 
 // ─── 가격대 문자열에서 KRW 추출 ──────────────────────────────────────────────
@@ -191,7 +194,7 @@ export async function buildIMContext(
   // ── value-add 사전 계산 (공실 또는 월세 데이터 있을 때) ──────────────────
   let valueAddMarkdown: string | null = null;
   const vacancyStr = String(physicalFact.vacancy_signal ?? supplemental.vacancy_status ?? "");
-  const vacancyPct = vacancyStr.includes("완전") || vacancyStr.includes("만실") ? 0
+  let vacancyPct = vacancyStr.includes("완전") || vacancyStr.includes("만실") ? 0
     : vacancyStr.includes("거의 만실") ? 5
     : vacancyStr.includes("반공실") ? 50
     : vacancyStr.includes("전체 공실") || vacancyStr.includes("올공실") ? 100
@@ -217,6 +220,12 @@ export async function buildIMContext(
     }
   }
 
+  // ── 건물 연식 사전 계산 (numericalAnchors 초기화 전 필요) ────────────────
+  const approvalDateStr = (external_data?.buildingRegister as any)?.useAprDay as string | undefined;
+  const buildingAge = approvalDateStr && approvalDateStr.length >= 4 
+    ? new Date().getFullYear() - parseInt(approvalDateStr.substring(0, 4), 10) 
+    : 0;
+
   // ── 상태 머신 맥락 초기화 (SOTA: 섹션 간 맥락 전파) ────────────────────
   const sectionCtx: SectionContext = {
     keyFacts: [],
@@ -226,9 +235,16 @@ export async function buildIMContext(
       vacancyPct: vacancyPct || undefined,
       monthlyRentKrw: supplemental.monthly_rent_total_krw || undefined,
       capRateBase: undefined,
-      buildingAge: undefined,
+      buildingAge: buildingAge > 0 ? buildingAge : undefined,
     },
   };
+
+  // ── 포스처 해석 (RAG 및 시스템 프롬프트 조립 전에 필요) ────────────────────────
+  const posture = (
+    (input as any).identity?.investmentPosture
+    || (input.supplemental as any)?.investmentPosture
+    || 'income'
+  ) as import('@/domain/ontology').InvestmentPosture;
 
   // ── RAG 컨텍스트 사전 조회 (루프 밖으로 호이스팅 — B-4 수정) ────────────
   let ragCtx = "";
@@ -238,7 +254,8 @@ export async function buildIMContext(
       sb as any,
       String(assetIdentity.asset_type ?? ""),
       String(marketLocation.address ?? ""),
-      String(external_data?.buildingRegister?.buildingName ?? "")
+      String(external_data?.buildingRegister?.buildingName ?? ""),
+      posture
     );
   } catch (e) {
     console.warn("[mobile-im-writer] RAG context failed:", e);
@@ -255,20 +272,21 @@ export async function buildIMContext(
     logisticsOverlay = getLogisticsPromptOverlay(supplemental.logistics);
   }
 
-  const sysPromptText = (activeSysPrompt ? activeSysPrompt.systemPrompt : MOBILE_IM_NARRATIVE_SYSTEM) + "\n" + logisticsOverlay;
+  // (포스처 해석은 위로 이동됨)
+
+  // P1-04: 비수익형 포스처의 공실률 보정 (development/trading은 "공실" 개념 부적합)
+  if ((posture === 'development' || posture === 'trading') && vacancyPct === 0 && !vacancyStr) {
+    // 명시적 공실률 입력이 없으면, 비수익형에서 0%(만실)로 기본값 설정하지 않음
+    sectionCtx.numericalAnchors!.vacancyPct = undefined;
+  }
+
+  const sysPromptText = (activeSysPrompt ? activeSysPrompt.systemPrompt : buildPostureAwareSystemPrompt(posture)) + "\n" + logisticsOverlay;
   const promptVariantId = activeSysPrompt?.id ?? "default";
-  console.info(`[mobile-im-writer] Prompt variant: ${promptVariantId} (v${activeSysPrompt?.version ?? "0"}), isLogistics=${isLogistics}`);
+  console.info(`[mobile-im-writer] Prompt variant: ${promptVariantId} (v${activeSysPrompt?.version ?? "0"}), isLogistics=${isLogistics}, posture=${posture}`);
 
   // ── Hero Card용 재무 데이터 캐시 (루프 밖에서 접근) ────────────────────
   const cachedFinancials: FinancialOutputs | null = null;
-
-  const posture = (input.supplemental as any)?.investmentPosture || (input as any).identity?.investmentPosture || 'income';
   const sectionPlan = getSectionPlan(posture);
-  
-  const approvalDateStr = (external_data?.buildingRegister as any)?.useAprDay as string | undefined;
-  const buildingAge = approvalDateStr && approvalDateStr.length >= 4 
-    ? new Date().getFullYear() - parseInt(approvalDateStr.substring(0, 4), 10) 
-    : 0;
 
   const suggestion = suggestArchetype({ vacancyPct, buildingAge: buildingAge ?? 0, posture });
   const archetype = (input.supplemental as any)?.archetype_override || suggestion.primary;

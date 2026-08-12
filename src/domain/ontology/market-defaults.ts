@@ -21,6 +21,26 @@ export const COMMERCIAL_MORTGAGE = {
   defaultLtvPct: 60,
 } as const;
 
+// ── 개발형 PF (Project Finance) 대출 조건 ──
+export const DEVELOPMENT_PF = {
+  bridge: {
+    /** 브릿지론 목표 LTV (%) */
+    ltvPct: 40,
+    /** 브릿지론 평균 금리 (%) */
+    interestRatePct: 10.0,
+    /** 브릿지론 만기 (년) */
+    termYears: 1.5,
+  },
+  mainPF: {
+    /** 본PF 목표 LTC (%) */
+    ltcPct: 55,
+    /** 본PF 평균 금리 (%) */
+    interestRatePct: 7.5,
+    /** 본PF 만기 (년) */
+    termYears: 3.0,
+  },
+} as const;
+
 // ── 취득 부대비용 ──
 export const ACQUISITION_COSTS = {
   /** 취득세율 (%) — 2026 기준 상업용 4.6% */

@@ -94,6 +94,7 @@ export function bridgeDealCardToIM(
   const mgmtFeeTotal = lease.mgmt_fee_total_manwon || undefined;
   const loanAmount = lease.loan_amount_manwon || undefined;
   const askingPrice = lease.asking_price_manwon || undefined;
+  const monthlyRevenue = lease.monthly_revenue_manwon || undefined;
   const vacancyPct = lease.vacancy_pct ?? (lease.vacancy_rate != null ? lease.vacancy_rate * 100 : undefined);
 
   // Photos from layers
@@ -125,6 +126,7 @@ export function bridgeDealCardToIM(
     photo_urls: photoUrls,
     ancillary_incomes: ancillaryIncomes,
     floor_leases: floorLeases,
+    monthly_revenue_manwon: monthlyRevenue,
   };
 
   // Determine grade-up items (Posture별 최적화)
@@ -136,16 +138,37 @@ export function bridgeDealCardToIM(
 
   if (posture === 'development') {
     // 개발형: 대지면적, 용도지역이 핵심
+    const landArea = layers.physical?.plat_area_sqm;
+    if (!landArea) {
+      gradeUpItems.push({ field: 'landArea', label: '대지면적', gradeContribution: 'C→B 필수' });
+    }
     if (!askingPrice) {
       gradeUpItems.push({ field: 'askingPrice', label: '매각 희망가 (토지비)', gradeContribution: 'B→A 필수' });
     }
   } else if (posture === 'owner_occupied') {
-    // 사옥형: 매각가가 핵심
+    // 사옥형: 연면적, 매각가가 핵심
+    const grossArea = layers.physical?.total_area_sqm;
+    if (!grossArea) {
+      gradeUpItems.push({ field: 'grossArea', label: '연면적 (사용가능면적)', gradeContribution: 'C→B 필수' });
+    }
+    if (!askingPrice) {
+      gradeUpItems.push({ field: 'askingPrice', label: '매각 희망가', gradeContribution: 'B→A 필수' });
+    }
+  } else if (posture === 'operating') {
+    // 운영형: 매출/GOP가 핵심
+    if (!monthlyRent && !monthlyRevenue) {
+      gradeUpItems.push({ field: 'monthlyRevenue', label: '월 매출 / 운영 수입', gradeContribution: 'C→B 필수' });
+    }
+    if (!askingPrice) {
+      gradeUpItems.push({ field: 'askingPrice', label: '매각 희망가', gradeContribution: 'B→A 필수' });
+    }
+  } else if (posture === 'trading') {
+    // 단기매매형: 매각가·비교사례가 핵심
     if (!askingPrice) {
       gradeUpItems.push({ field: 'askingPrice', label: '매각 희망가', gradeContribution: 'C→B 필수' });
     }
   } else {
-    // income, operating, trading
+    // income (기본)
     if (!monthlyRent) {
       gradeUpItems.push({ field: 'monthlyRent', label: '월 임대료 총액', gradeContribution: 'C→B 필수' });
     }

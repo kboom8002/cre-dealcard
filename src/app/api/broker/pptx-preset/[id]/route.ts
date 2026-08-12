@@ -35,17 +35,23 @@ export async function GET(
   // 접근 권한 확인 (내 것 또는 같은 법인)
   if (data.user_id !== user.id && !data.is_public) {
     // 같은 법인인지 확인
-    const { data: myPreset } = await supabase
-      .from('pptx_custom_presets')
+    const { data: myProfile } = await supabase
+      .from('broker_profiles')
       .select('company_id')
       .eq('user_id', user.id)
-      .eq('company_id', data.company_id)
       .maybeSingle();
-    if (!myPreset) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+    const isSameCompany = myProfile?.company_id && myProfile.company_id === data.company_id;
+    if (!isSameCompany) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // use_count 증가 (백그라운드)
-  supabase.from('pptx_custom_presets').update({ use_count: (data.use_count ?? 0) + 1 }).eq('id', id);
+  // use_count 원자적 증가 (또는 fallback)
+  const { error: rpcError } = await supabase.rpc('increment_preset_use_count', { preset_id: id });
+  if (rpcError) {
+    await supabase.from('pptx_custom_presets')
+      .update({ use_count: (data.use_count ?? 0) + 1 })
+      .eq('id', id);
+  }
 
   return NextResponse.json({ preset: data });
 }

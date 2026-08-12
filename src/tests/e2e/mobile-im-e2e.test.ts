@@ -299,7 +299,7 @@ describe("E2E Layer 5: Full IM Generation Pipeline", () => {
       total_area_sqm: 1500,
       vacancy_signal: "낮음",
       address: "서울시 강남구 역삼동 123-45",
-    },
+    } as any,
     supplemental: {
       monthly_rent_total_krw: 12_000_000,
       vacancy_pct: 5,

@@ -74,7 +74,7 @@ export async function GET(
   // 4. Fetch building + broker
   const { data: building } = await supabase
     .from('building_ssot_lite')
-    .select('owner_id, area_signal, asset_type, price_band')
+    .select('owner_id, area_signal, asset_type, price_band, investment_posture')
     .eq('id', buildingId)
     .maybeSingle();
 
@@ -98,11 +98,17 @@ export async function GET(
 
     // doc.body에서 posture/grade 등 덱 시퀀스 분기 파라미터 추출
     const body = doc.body ?? {};
+    const posture = body.investmentPosture
+      ?? body.posture
+      ?? body.identity?.investmentPosture
+      ?? body.ssot_summary?.investment_posture
+      ?? building?.investment_posture
+      ?? 'income';
     const result = await renderer.render({
       buildingId,
       tier: 'pro',
       preset,
-      posture: body.investmentPosture ?? body.posture ?? 'income',
+      posture,
       grade: body.qualityGrade ?? body.grade ?? 'B',
       incomeArchetype: body.incomeArchetype,
       hasViolation: body.hasViolation ?? body.violationStatus === 'exists',
@@ -126,7 +132,7 @@ export async function GET(
 
     // 5. Upload to storage
     const ts = Date.now();
-    const filePath = `im-pptx/${grant.building_id}/pro_${grantId}_${ts}.pptx`;
+    const filePath = `im-pptx/${buildingId}/pro_${grantId}_${ts}.pptx`;
     
     await supabase.storage
       .from('Exports')
@@ -135,11 +141,27 @@ export async function GET(
         upsert: true,
       });
 
-    // 6. Log event
+    // 6. 다운로드 횟수 제한 (10회)
+    const MAX_DOWNLOADS = 10;
+    const { count } = await supabase
+      .from('activity_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_type', 'im_pro_pptx_exported')
+      .eq('grant_id', grantId); // schema has grant_id column
+
+    if ((count ?? 0) >= MAX_DOWNLOADS) {
+      return NextResponse.json({
+        error: '다운로드 횟수 초과',
+        limit: MAX_DOWNLOADS,
+        used: count,
+      }, { status: 429 });
+    }
+
+    // 7. Log event
     await supabase.from('activity_events').insert({
       event_type: 'im_pro_pptx_exported',
       grant_id: grantId,
-      building_id: grant.building_id,
+      building_id: buildingId,
       actor_name: grant.requester_name,
       metadata: {
         exportedAt: new Date().toISOString(),

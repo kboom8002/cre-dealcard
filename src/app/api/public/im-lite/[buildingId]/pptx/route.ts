@@ -10,10 +10,30 @@ import { createClient } from '@supabase/supabase-js';
 export const runtime = 'nodejs';
 export const maxDuration = 300;  // Vercel Pro — 24p Pro 덱 대응
 
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+function checkRateLimit(ip: string, limit: number, windowMs: number): boolean {
+  const now = Date.now();
+  let record = rateLimitMap.get(ip);
+  if (!record || record.resetAt < now) {
+    record = { count: 0, resetAt: now + windowMs };
+  }
+  if (record.count >= limit) return false;
+  record.count++;
+  rateLimitMap.set(ip, record);
+  return true;
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ buildingId: string }> }
 ) {
+  const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
+  const rateLimit = process.env.NODE_ENV === 'development' ? 1000 : 10;
+  const isAllowed = checkRateLimit(`pptx-basic:${ip}`, rateLimit, 3600 * 1000);
+  if (!isAllowed) {
+    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+  }
+
   const { buildingId } = await params;
   const searchParams = req.nextUrl.searchParams;
   const docId = searchParams.get('doc_id');
@@ -47,7 +67,7 @@ export async function GET(
   // 2. Fetch building info
   const { data: building } = await supabase
     .from('building_ssot_lite')
-    .select('owner_id, area_signal, asset_type, price_band')
+    .select('owner_id, area_signal, asset_type, price_band, investment_posture')
     .eq('id', buildingId)
     .maybeSingle();
 
@@ -84,7 +104,12 @@ export async function GET(
       }, { status: 422 });
     }
 
-    const posture = body.investmentPosture ?? body.posture ?? 'income';
+    const posture = body.investmentPosture
+      ?? body.posture
+      ?? body.identity?.investmentPosture
+      ?? body.ssot_summary?.investment_posture
+      ?? building?.investment_posture
+      ?? 'income';
     const grade = body.qualityGrade ?? body.grade ?? 'B';
     const incomeArchetype = body.incomeArchetype ?? undefined;
     const hasViolation = body.hasViolation ?? body.violationStatus === 'exists';
@@ -134,13 +159,23 @@ export async function GET(
       console.warn('[PPTX] Storage upload failed, returning direct download:', uploadError);
     }
 
-    // 6. Return PPTX as direct download
+    // 6. Return PPTX via signed URL
     const buildingName = doc.title || body.buildingName || 'Mobile_IM';
     const safeName =
       buildingName.replace(
         /[^a-zA-Z0-9\u3131-\u318E\u3200-\u321E\uAC00-\uD7A3]/g,
         '_'
       ) + `_${tier === 'pro' ? 'Pro' : 'Basic'}.pptx`;
+
+    if (!uploadError) {
+      const { data: signedData } = await supabase.storage
+        .from('Exports')
+        .createSignedUrl(filePath, 1800, { download: safeName });
+        
+      if (signedData?.signedUrl) {
+        return NextResponse.redirect(signedData.signedUrl, 302);
+      }
+    }
 
     return new NextResponse(new Uint8Array(result.buffer), {
       status: 200,

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHaptic } from "@/hooks/useHaptic";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BrokerCreateFAB } from "@/components/layout/BrokerCreateFAB";
 import { BrokerMoreMenu } from "@/components/layout/BrokerMoreMenu";
 
@@ -47,6 +47,12 @@ export default function BrokerBottomNav({ userEmail }: { userEmail?: string }) {
   const pathname = usePathname();
   const haptic = useHaptic();
   const [moreOpen, setMoreOpen] = useState(false);
+
+  useEffect(() => {
+    const handleMemoOpened = () => setMoreOpen(false);
+    window.addEventListener("universal-memo-opened", handleMemoOpened);
+    return () => window.removeEventListener("universal-memo-opened", handleMemoOpened);
+  }, []);
 
   return (
     <>

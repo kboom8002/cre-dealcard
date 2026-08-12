@@ -34,12 +34,29 @@ export async function GET(
 
   const supabase = createServiceClient();
 
-  // ── 2. If docId is provided, fetch the generated document ────────
-  if (docId) {
+  // ── 2a. Auto-resolve docId if not provided ──────────────────────
+  let resolvedDocId = docId;
+  if (!resolvedDocId) {
+    const { data: latestDoc } = await supabase
+      .from('document_objects')
+      .select('id')
+      .eq('building_id', buildingId)
+      .in('document_type', ['mobile_im', 'im_lite_draft', 'blind_teaser'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestDoc?.id) {
+      resolvedDocId = latestDoc.id;
+    }
+  }
+
+  // ── 2. If docId is provided (or auto-resolved), fetch the generated document ────────
+  if (resolvedDocId) {
     const { data: document, error: docError } = await supabase
       .from("document_objects")
       .select("body, owner_id, created_at")
-      .eq("id", docId)
+      .eq("id", resolvedDocId)
       .eq("building_id", buildingId)
       .single();
 

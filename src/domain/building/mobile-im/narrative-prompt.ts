@@ -1,7 +1,7 @@
 // src/domain/building/mobile-im/narrative-prompt.ts
-// GPT-4o용 한국어 CRE 전문 라이터 시스템 프롬프트 + 섹션별 미션 정의.
-// Claude 전환 시 시스템 프롬프트 구조만 XML 태그 방식으로 조정하면 됨.
+// GPT-4o용 한국어 CRE 전문 라이터 시스템 프롬프트 + 포스처별 동적 예시 + 섹션별 미션 정의.
 
+import type { InvestmentPosture } from "@/domain/ontology";
 import type { MobileIMSectionType, MobileIMSupplementalInput, ExternalDataSnapshot } from "./types";
 
 /** v3 B2B/B2C 렉시콘 프로필 */
@@ -39,14 +39,11 @@ const B2C_LEXICON: Record<string, string> = {
 
 /**
  * 텍스트에 렉시콘 프로필을 적용합니다.
- * B2B: 구어체를 전문 용어로 변환
- * B2C: 전문 용어에 쉼운 설명을 병기
  */
 export function applyLexiconProfile(text: string, profile: LexiconProfile): string {
   const lexicon = profile === 'b2b' ? B2B_LEXICON : B2C_LEXICON;
   let result = text;
   for (const [from, to] of Object.entries(lexicon)) {
-    // 이미 변환된 경우 중복 적용 방지
     if (!result.includes(to)) {
       result = result.replace(new RegExp(from, 'g'), to);
     }
@@ -54,14 +51,9 @@ export function applyLexiconProfile(text: string, profile: LexiconProfile): stri
   return result;
 }
 
-// ─── Golden IM 예시 (Few-shot, token 절약 압축본) ─────────────────────────────
-export const GOLDEN_IM_EXAMPLES = `[참고 예시 — 자산 개요 섹션]
-**강남구 GBD 핵심 입지**에 위치한 2010년 준공 **연면적 약 3,300㎡(약 1,000평)** 규모의 오피스 빌딩입니다.
-지하 2층~지상 10층 구조이며, 전 층 엘리베이터 2기와 기계식 주차 20대를 갖추고 있습니다.
-건물 관리 상태는 양호하며, 최근 외벽 리모델링이 완료되어 시각적 가치가 향상되었습니다.
-> 📋 *건축물대장 기준 | 외관 상태 AI 추정*
-
-[참고 예시 — 수익분석 섹션]
+// ─── 포스처별 Golden IM 예시 ──────────────────────────────────────────────────
+export const GOLDEN_IM_EXAMPLES_BY_POSTURE: Record<InvestmentPosture, string> = {
+  income: `[참고 예시 — 수익분석 섹션]
 아래 수치는 AI 추정값으로 참고용입니다.
 ### 수익 지표 (추정)
 | 항목 | 추정값 | 비고 |
@@ -69,35 +61,58 @@ export const GOLDEN_IM_EXAMPLES = `[참고 예시 — 자산 개요 섹션]
 | **연 순영업소득(NOI)** | 약 11.4억~14.0억 원 | 80% 구간 추정 |
 | **Cap Rate** | **2.5%–3.1%** | 매각가 450억 기준 |
 | **IRR (5년 보유)** | **8.2%–11.4%** | 시나리오 추정, 참고용 |
-> ⚠️ 면책: 실제 수익은 임대차 조건에 따라 달라집니다.
+| **WALE (가중평균잔여임기)** | **4.2년** | 임차인 안정성 지표 |
+> ⚠️ 면책: 실제 수익은 임대차 조건에 따라 달라집니다.`,
 
-[참고 예시 — 임대차 현황 섹션]
-현재 총 **8개 임차인**이 입주 중이며 **공실률 약 5%** 수준으로, 안정적인 임대 운영이 이루어지고 있습니다.
-주요 임차인으로 A사(3~5층, 월 임대료 1,200만원), B사(6~7층, 월 900만원)가 있으며, 가중평균 잔여 임대기간(WALE)은 **약 2.8년**입니다.
-### 임차인 요약
-| 임차인 | 층 | 월 임대료 | 잔여기간 |
-|--------|-----|----------|----------|
-| A사 | 3~5F | 1,200만원 | 3.2년 |
-| B사 | 6~7F | 900만원 | 2.1년 |
-> 📋 *임대차계약서 요약 기반 | 실사 확인 필요*
-
-[참고 예시 — 투자포인트 섹션]
-본 자산의 핵심 투자 가치와 예상 매수자 유형 분석입니다.
-### 예상 매수자 유형 (AI 분석)
-| 유형 | 적합도 | 이유 |
+  development: `[참고 예시 — 사업수지 분석 섹션]
+아래 수치는 신축/개발 관점 AI 추정값으로 참고용입니다.
+### 개발 사업수지 지표 (추정)
+| 항목 | 추정값 | 비고 |
 |------|--------|------|
-| **자산운용사 (임대형 펀드)** | ⭐⭐⭐⭐⭐ | 완전임대 + Cap Rate |
-| **법인 자가사용** | ⭐⭐⭐⭐ | GBD 브랜드 가치 |
-| **고액 자산가 그룹** | ⭐⭐⭐ | 규모 협업 필요 |
+| **토지 평당가** | **약 4,500만원/평** | 대지면적 330㎡ 기준 |
+| **용적률 / 건폐율** | **249% / 59%** | 인허가 기준 |
+| **총 사업비 추정** | **약 120억 원** | 토지비 + 공사비 + 기타 |
+| **개발 이익률 추정** | **18.5%** | 예상 분양가 142억 기준 |
+> ⚠️ 면책: 실제 개발이익은 공사비·인허가 및 분양 성패에 따라 상이합니다.`,
 
-[참고 예시 — 리스크 섹션]
-⚠️ **용도지역**: 제3종 일반주거지역으로, 근린생활시설 용도 전환 시 허가 제한이 있을 수 있습니다 (건축법 확인 필요).
-⚠️ **건물 연식**: 준공 후 15년 경과, 주요 설비(냉난방기, 엘리베이터) 교체 시기 도래 가능성이 있어 **자본적 지출(CAPEX) 예산 반영**이 권장됩니다.
-⚠️ **임대차 집중도**: 단일 임차인(A사) 비중이 전체 임대 면적의 40%로, 이탈 시 공실 리스크에 유의해야 합니다.
-> ⚠️ *공법 규제 및 건물 상태 기반 AI 리스크 분석 | 실사 단계 확인 필수*`;
+  operating: `[참고 예시 — 직영 운영 분석 섹션]
+아래 수치는 직영 자가운영 관점 AI 추정값입니다.
+### 운영 재무 지표 (GOP 기반)
+| 항목 | 추정값 | 비고 |
+|------|--------|------|
+| **ADR / OCC / RevPAR** | **15만원 / 75% / 11.2만원** | 일일 객단가 및 가동률 |
+| **연간 GOP (영업이익)** | **약 12.5억 원** | 총매출 약 35억 기준 |
+| **GOP 마진율** | **35.7%** | 매출 대비 이익률 |
+| **GOP Cap Rate** | **4.2%** | 매각가 300억 기준 |
+> ⚠️ 면책: 실제 GOP는 가동률 및 운영 비용 제어에 따라 변동됩니다.`,
 
-// ─── 시스템 프롬프트 ──────────────────────────────────────────────────────────
-export const MOBILE_IM_NARRATIVE_SYSTEM = `당신은 한국 상업용 부동산 전문 라이터이자 투자 전략가입니다.
+  owner_occupied: `[참고 예시 — 사옥용 비용비교 섹션]
+아래 수치는 법인 실입주 사옥 관점 비용 비교입니다.
+### 자가사용 비용 비교 지표 (추정)
+| 항목 | 추정값 | 비고 |
+|------|--------|------|
+| **임차 대비 연 절감액** | **약 3.2억 원/년** | 인근 시장 평당 8만원 기준 |
+| **자가전환 손익분기** | **약 7.5년** | 초기 투입 자기자본 회수 |
+| **실사용 평당 점유비용** | **월 4.5만원/평** | 금융비용 + 관리비 |
+> ⚠️ 면책: 실제 절감액은 대출 조건 및 사옥 사용 면적에 따라 상이합니다.`,
+
+  trading: `[참고 예시 — 시세 분석 섹션]
+아래 수치는 단기 매매/플립 관점 시세 분석입니다.
+### 매매 시세 분석 지표 (추정)
+| 항목 | 추정값 | 비고 |
+|------|--------|------|
+| **평당 매매가** | **4,200만원/평** | 희망가 기준 |
+| **인근 시세 대비 갭(할인율)** | **12.5% 할인** | 인근 평균 4,800만원/평 |
+| **목표 시세차익** | **약 25억 원** | 2년 보유 후 목표 매각 |
+| **HPR (보유기간수익률)** | **35.2%** | 단기 플립 기준 |
+> ⚠️ 면책: 실제 차익은 부동산 시장 주기 및 매각 시점에 따라 달라집니다.`,
+};
+
+// 레거시 호환용 단일 Golden IM 예시
+export const GOLDEN_IM_EXAMPLES = GOLDEN_IM_EXAMPLES_BY_POSTURE.income;
+
+// ─── 포스처 중립 시스템 프롬프트 코어 ─────────────────────────────────────────────
+export const MOBILE_IM_NARRATIVE_CORE = `당신은 한국 상업용 부동산 전문 라이터이자 투자 전략가입니다.
 투자자가 "왜 이 건물인가?"를 직관적이고 빠르게 이해할 수 있도록 모바일 화면에 최적화된 매력적인 투자 서사를 작성해 주세요.
 
 [작성 규칙]
@@ -107,7 +122,7 @@ export const MOBILE_IM_NARRATIVE_SYSTEM = `당신은 한국 상업용 부동산 
 4. 금융 경계: 절대로 투자를 유도하거나, 특정 수익률을 확정 보장하는 어휘(예: "무조건", "100% 보장", "수익 확정")를 사용하지 마세요.
 5. 마크다운: 불릿 포인트 목록보다는 읽기 쉬운 줄글 위주로 쓰고, 강조할 핵심 키워드는 **두껍게** 표시하세요.
 6. 언어: 반드시 한국어로 작성하세요.
-7. 테이블 스타일: 수익분석·투자포인트 섹션은 아래 참고 예시와 같이 마크다운 테이블을 반드시 포함하세요.
+7. 테이블 스타일: 데이터 섹션은 아래 참고 예시와 같이 마크다운 테이블을 반드시 포함하세요.
 8. 데이터 경계: 제공된 데이터에 없는 정보는 절대 창작하지 마세요. 모르는 항목은 반드시 "실사 단계에서 확인 필요" 또는 "데이터 미확보"로 표기하세요.
 9. 출처 표기: 공공데이터 기반 수치 뒤에는 "건축물대장 기준", "공시지가 기준" 등 출처를 병기하세요. AI가 추론한 내용에는 "(AI 추정)" 레이블을 붙이세요.
 10. 교차 검증: [이전 섹션 맥락]이 제공되면 그 수치(공실률, 면적, 연식 등)를 반드시 일관되게 사용하세요. 이전 섹션과 모순되는 주장을 하지 마세요.
@@ -116,11 +131,70 @@ export const MOBILE_IM_NARRATIVE_SYSTEM = `당신은 한국 상업용 부동산 
 - 이 문서는 투자자의 관심을 유도하는 마케팅 문서입니다. 매물의 매력을 자신감 있게 전달하세요.
 - "검토할 수 있습니다", "살펴볼 수 있습니다", "확인해볼 수 있습니다" 등 수동적·모호한 표현을 절대 사용하지 마세요.
 - 대신 "~입니다", "~됩니다", "~있습니다" 등 확정적·단정적 어조로 작성하세요.
-- 주의 문구는 risk_check 섹션에만 간결하게 쓰고, 다른 섹션에서는 장점을 부각하세요.
-- 나쁜 예: "운영 구조를 검토할 수 있습니다" / 좋은 예: "안정적인 운영 구조를 갖추고 있습니다"
+- 주의 문구는 risk_check 섹션에만 간결하게 쓰고, 다른 섹션에서는 장점을 부각하세요.`;
 
-[참고 예시 — Golden IM 스타일]
-${GOLDEN_IM_EXAMPLES}`;
+// 레거시 단일 시스템 프롬프트 (수익형 기본값)
+export const MOBILE_IM_NARRATIVE_SYSTEM = `${MOBILE_IM_NARRATIVE_CORE}\n\n[참고 예시 — Golden IM 스타일]\n${GOLDEN_IM_EXAMPLES_BY_POSTURE.income}`;
+
+// ─── 포스처별 전문 용어집 ──────────────────────────────────────────────────────
+export const POSTURE_LEXICONS: Record<InvestmentPosture, Record<string, string>> = {
+  income: {
+    'NOI': '순영업소득(NOI)',
+    'Cap Rate': '환원수익률(Cap Rate)',
+    'WALE': '가중평균잔여임대기간(WALE)',
+    'DSCR': '원리금상환비율(DSCR)',
+    'IRR': '내부수익률(IRR)',
+    'DCF': '할인현금흐름(DCF)',
+    'EGI': '유효총수입(EGI)',
+  },
+  development: {
+    '건폐율': 'BCR(건폐율)',
+    '용적률': 'FAR(용적률)',
+    '분양가': '분양 예상단가',
+    '공사비': '건축 공사비',
+    '토지비': '토지 매입 비용',
+    '사업수지': '개발 사업수지(Pro Forma)',
+    'PF': '프로젝트 파이낸싱(PF)',
+    '브릿지론': '토지 담보 단기 대출(브릿지론)',
+    'LTC': '사업비 대비 대출 비율(LTC)',
+  },
+  operating: {
+    'GOP': '영업이익(GOP, Gross Operating Profit)',
+    'ADR': '평균 객단가(ADR, Average Daily Rate)',
+    'OCC': '가동률(OCC, Occupancy Rate)',
+    'RevPAR': '객실당 수익(RevPAR, Revenue Per Available Room)',
+    'OPEX': '운영비(OPEX)',
+    'GOP Cap Rate': 'GOP 기반 환원수익률',
+  },
+  owner_occupied: {
+    '사옥': '법인 자가사용 사옥',
+    '자가전환': '임차→자가 전환',
+    '기회비용': '자가소유 기회비용',
+    '손익분기': '자가전환 손익분기점',
+    '점유비용': '평당 실점유비용(금융비+관리비)',
+  },
+  trading: {
+    '평당가': '㎡당/평당 매매가',
+    '시세 갭': '인근 시세 대비 할인율(갭)',
+    'HPR': '보유기간수익률(HPR, Holding Period Return)',
+    '플립': '단기 매매 차익 실현(Flip)',
+    '비교사례': '인근 유사 거래 사례(Comparable)',
+    '양도세': '양도소득세(단기 중과 포함)',
+  },
+};
+
+/**
+ * 포스처에 대응되는 맞춤형 시스템 프롬프트를 동적으로 생성합니다.
+ * 코어 프롬프트 + Golden IM 예시 + 포스처별 용어집을 조립합니다.
+ */
+export function buildPostureAwareSystemPrompt(posture: InvestmentPosture = 'income'): string {
+  const example = GOLDEN_IM_EXAMPLES_BY_POSTURE[posture] ?? GOLDEN_IM_EXAMPLES_BY_POSTURE.income;
+  const lexicon = POSTURE_LEXICONS[posture] ?? POSTURE_LEXICONS.income;
+  const lexiconBlock = Object.entries(lexicon)
+    .map(([abbr, full]) => `- ${abbr} → ${full}`)
+    .join('\n');
+  return `${MOBILE_IM_NARRATIVE_CORE}\n\n[참고 예시 — 포스처 맞춤 Golden IM 스타일]\n${example}\n\n[포스처 전문 용어집 — 아래 용어를 우선 사용하세요]\n${lexiconBlock}`;
+}
 
 // ─── 시장 지표 타입 ────────────────────────────────────────────────────────────
 export interface MarketIndicators {
@@ -135,19 +209,15 @@ export interface MarketIndicators {
 }
 
 // ─── 유저 프롬프트 빌더 ──────────────────────────────────────────────────────
-/** 이전 섹션 맥락 (상태 머신에서 전달) */
 export interface SectionContext {
   keyFacts: string[];                      // 이전 섹션에서 추출된 핵심 사실
-  sectionSummaries: Record<string, string>; // 각 섹션 200자 요약
-  numericalAnchors: {
-    totalAreaSqm?: number;
-    vacancyPct?: number;
-    monthlyRentKrw?: number;
-    capRateBase?: number;
-    buildingAge?: number;
-  };
+  sectionSummaries?: Record<string, string>;
+  numericalAnchors?: Record<string, number | string | undefined>; // 잠금 수치 (공실률, Cap Rate, 면적 등)
 }
 
+/**
+ * 모바일 IM 섹션 생성을 위한 유저 프롬프트를 구성합니다.
+ */
 export function buildNarrativeUserPrompt(
   sectionType: MobileIMSectionType,
   bssotLite: Record<string, unknown>,
@@ -161,206 +231,80 @@ export function buildNarrativeUserPrompt(
   posture?: string,
   archetype?: string | null
 ): string {
-  // v2: flat 구조(DB 컨럼 직접) + legacy 중첩 양쪽 지원
-  const assetIdentity  = (bssotLite.asset_identity  ?? {}) as Record<string, unknown>;
-  const physicalFact   = (bssotLite.physical_fact   ?? {}) as Record<string, unknown>;
-  const marketLocation = (bssotLite.market_location ?? {}) as Record<string, unknown>;
-  const buyerFit       = (bssotLite.buyer_fit       ?? {}) as Record<string, unknown>;
-
-  const bssotCtx = JSON.stringify({
-    asset_type:        bssotLite.asset_type     ?? assetIdentity.asset_type,
-    area_signal:       bssotLite.area_signal    ?? assetIdentity.area_signal,
-    price_band:        bssotLite.price_band     ?? assetIdentity.price_band,
-    size_signal:       bssotLite.size_signal    ?? physicalFact.size_signal ?? assetIdentity.size_signal,
-    vacancy_signal:    bssotLite.vacancy_signal ?? physicalFact.vacancy_signal,
-    current_use:       bssotLite.current_use_signal ?? physicalFact.current_use,
-    location_analysis: bssotLite.location_analysis ?? marketLocation.location_analysis,
-    fit_summary:       bssotLite.fit_summary    ?? buyerFit.fit_summary,
-    caution_summary:   bssotLite.caution_summary ?? buyerFit.caution_summary,
-    raw_input:         typeof bssotLite.raw_input === 'string' ? bssotLite.raw_input?.slice(0, 300) : undefined,
-    lease_summary:     bssotLite.lease_summary,
-  });
-
-  const extCtx = externalData ? JSON.stringify({
-    building_register: externalData.buildingRegister,
-    land_price: externalData.landPrice,
-    land_use:   externalData.landUsePlan,
-    poi:        externalData.locationPoi,
-    commercial_district: externalData.commercialDistrict,
-    comparable_transactions_count: externalData.comparableTransactions?.length || 0,
-    comparable_avg_pyeong_price: externalData.comparableTransactions?.length
-      ? Math.round(
-          externalData.comparableTransactions.reduce((acc, c) => acc + c.pricePerPyeong, 0) /
-          externalData.comparableTransactions.length
-        )
-      : null,
-  }) : '없음';
-
-  // [A3] AI 프롬프트에 레버리지 분석 필수 데이터 전달
-  // 배우려: narrative가 이 데이터 없이 수익 옵션 서술 시 환각 발생
-  const suppCtx = JSON.stringify({
-    monthly_rent_total_krw: supplemental.monthly_rent_total_krw,
-    vacancy_status:         supplemental.vacancy_status,
-    vacancy_pct:            supplemental.vacancy_pct,
-    estimated_yield_pct:    supplemental.estimated_yield_pct,
-    broker_highlight:       supplemental.broker_highlight,
-    // 레버리지 분석 �심 (수익률 분석 셀션에 필수)
-    total_deposit_manwon:   supplemental.total_deposit_manwon,
-    mgmt_fee_total_manwon:  supplemental.mgmt_fee_total_manwon,
-    loan_amount_manwon:     supplemental.loan_amount_manwon,
-    loan_bank:              supplemental.loan_bank,
-    asking_price_manwon:    supplemental.asking_price_manwon,
-    // 물리적 표표제원으로 AI에 전달
-    building_age_years:     supplemental.building_age_years,
-    total_floor_count:      supplemental.total_floor_count,
-  });
-
-  // 시장 지표 + 재무 사전계산값
-  let marketCtx = '';
-  if (marketIndicators) {
-    const { financialsMarkdown, ...restIndicators } = marketIndicators;
-    if (Object.values(restIndicators).some(v => v != null)) {
-      marketCtx += `\n4. 시장 지표 데이터:\n${JSON.stringify(restIndicators)}`;
-    }
-    if (financialsMarkdown) {
-      marketCtx += `\n\n5. 사전 계산된 수익 지표 (이 테이블을 그대로 활용하고 수치를 변경하지 마세요):\n${financialsMarkdown}`;
-    }
-    if (restIndicators.capRateResults) {
-      marketCtx += `\n\n6. Cap Rate 분석 결과:\n${JSON.stringify(restIndicators.capRateResults)}`;
-    }
-    if (restIndicators.totalReturnResults) {
-      marketCtx += `\n\n7. Total Return 시나리오 분석 결과:\n${JSON.stringify(restIndicators.totalReturnResults)}`;
-    }
-  }
-
-  const sectionMission: Record<MobileIMSectionType, string> = {
-    property_overview: `[개요 섹션 미션]
-자산의 종류, 핵심 물리적 제원(연면적, 대지면적, 층수 등)과 **첫 인상을 사로잡는 프리미엄 가치**를 부각하세요.
-공공데이터(건축물대장)에서 확보된 명확한 물리적 스펙(예: 구조, 승인년도)을 활용하여 자산의 신뢰도를 높이세요.`,
-
-    location_access: `[입지/접근성 섹션 미션]
-자산의 물리적 위치와 **대중교통(지하철역 도보 거리 등) 연계성, 주요 상권과의 거리**를 분석하세요.
-제공된 POI/교통 접근성 데이터가 있으면 이를 녹여서 생생하게 묘사하세요.
-⚠️ 중요: POI 데이터가 제공되지 않았거나 교통 정보가 없으면, 지하철역 이름/거리를 절대 추론·창작하지 마세요. 대신 주소 기반의 일반적 입지 특성(행정구역, 도로 접근성 등)만 서술하세요.`,
-
-    lease_status: `[임대차 현황 섹션 미션]
-현재 자산의 **공실률 현황 및 주요 임차인 구성의 안정성**을 스토리로 만드세요.
-임대료 총액과 공실 데이터를 기초로 하되, 안정적인 임대 흐름이 리스크를 통제하고 있음을 알리세요.`,
-
-    income_analysis: `[수익률/재무 분석 섹션 미션]
-제공된 '사전 계산된 수익 지표' 테이블이 있다면 그것을 그대로 포함하고, 추가 설명을 2~3문장으로 덧붙이세요.
-테이블이 없다면, 개별공시지가 추이·예상 수익률(Yield) 등을 종합하여 **재무적 매력도와 인플레이션 방어 능력**을 묘사하세요.
-"예상 수치이며 실제 계약 조건에 따라 바뀔 수 있음"이라는 금융 리스크 경계 문구를 자연스럽게 포함하세요.`,
-
-    risk_check: `[리스크/공법 제한 섹션 미션]
-토지이용계획 상의 용도지역 법적 용적률 한도와 현재 용적률을 비교하여 **증축 또는 리모델링 등 가치상승(Value-add) 가능성**이 있는지,
-혹은 공법적 규제 경계가 무엇인지 객관적으로 짚어주세요.`,
-
-    investment_thesis: `[투자 논거 섹션 미션]
-이 건물을 매수해야 하는 **가장 결정적인 핵심 가치제안(Value Proposition)**을 제시하세요.
-주변 실거래 사례 대비 매매가의 경쟁력을 언급하고, 어떤 매수 성향(자체 사옥용, 임대수익용 등)에 가장 적합한 자산인지 설명하세요.
-반드시 '예상 매수자 유형' 마크다운 테이블 (유형 | 적합도⭐ | 이유)을 포함하세요.`,
-
-    next_steps: `[다음 단계 섹션 미션]
-예비 관심 매수자가 상세 검토를 진행하기 위해 **현장 방문(방문 예약)이나 Full IM(상세 설명서) 열람 등 구체적인 후속 액션**을 취하도록 정중하고 신뢰감 있게 안내하세요.`,
-
-    // owner_occupied
-    occupancy_fit: `[사옥 적합성 분석 미션]
-자산의 전용률, 주차 공간, 층별 공간 구조 및 CI/파사드 노출 가능성을 바탕으로 **사옥으로의 활용 적합성과 이동 동선/공가 활용성**을 분석하세요.`,
-
-    cost_comparison: `[자가 vs 임차 비용 비교 미션]
-사옥 자가 매입 시의 보유 비용(취득세, 감가상각 법인세 절감 등)과 임차 유지 시의 임대료 지출을 **10년 비교 시나리오 관점**에서 객관적으로 비교 분석하세요.`,
-
-    // development
-    site_analysis: `[대지 분석 미션]
-법정 용적률/건폐율 상한 대비 현황 잔여 수치, 토지 형상, 접도 조건, 일조권 및 도로사선 제한 등 **개발 및 증축/신축 잠재력**을 분석하세요.`,
-
-    development_feasibility: `[개발 사업수지 미션]
-총 토지비, 예상 공사비, 부대비용 및 분양/매각 예상 매출을 바탕으로 **개발 사업수익률과 PF/사업성**을 추정 분석하세요.`,
-
-    // operating
-    operation_overview: `[운영 개요 미션]
-운영 자산(호텔, 물류, 대형 상업시설 등)의 운영사 계약 구조, 객실/시설 가동률(OCC), ADR 및 주요 매출 구성 **운영 현황**을 분석하세요.`,
-
-    gop_analysis: `[GOP 손익 분석 미션]
-총매출 대비 영업비용 차감 후 **GOP(Gross Operating Profit) 및 GOP 기준 Cap Rate**를 산출하고 운영 손익 구조를 평가하세요.`,
-
-    // trading
-    market_position: `[시장 포지셔닝 미션]
-권역 내 동종 자산 평단가 및 거래 회전율 대비 본 자산의 **가격 경쟁력과 시장 사이클 상의 위치**를 분석하세요.`,
-
-    comparable_analysis: `[비교사례 분석 미션]
-최근 권역 내 유사 거래 사례(평단가, Cap Rate, 거래가 등)와 비교하여 본 자산의 **프리미엄 및 적정 매각가**를 평가하세요.`,
+  const sectionMission: Record<string, string> = {
+    property_overview: "건물의 기본 개요(위치, 규모, 준공연도, 관리 상태)를 설명하고, 자산의 직관적 물리적 우수성을 강조하세요.",
+    location_access: "입지적 강점(대중교통 접근성, 주변 인프라, 권역 프리미엄)을 분석하고 상권/업무지구의 미래 가치를 제시하세요.",
+    lease_status: posture === 'development'
+      ? "기존 임차인 명도 현황 및 퇴거 일정/명도 난이도를 분석하고, 신축 착공 준비 상태를 알리세요."
+      : "안정적인 임대 흐름이 리스크를 통제하고 있음을 알리세요.",
+    income_analysis: posture === 'development'
+      ? "토지 매입가, 예상 공사비, 총 사업비 및 개발 이익률 수지 분석을 종합하여 사업 타당성을 묘사하세요."
+      : posture === 'operating'
+      ? "GOP(영업이익), ADR, 가동률(OCC) 등 직영 운영 재무 실적 및 마진율 구조를 묘사하세요."
+      : posture === 'owner_occupied'
+      ? "사옥 실입주 시 임차 대비 임대료 절감액, 손익분기 기간 및 점유비용 효율성을 묘사하세요."
+      : posture === 'trading'
+      ? "평당 매매가, 인근 거래사례 대비 시세 갭(할인율) 및 목표 시세차익 수치를 묘사하세요."
+      : "개별공시지가 추이·예상 수익률(Yield) 등을 종합하여 재무적 매력도와 인플레이션 방어 능력을 묘사하세요.",
+    risk_check: "주요 공법적/건물 상태적 주의사항을 객관적으로 제시하되, 완화 방안이나 리스크 대비 메리트를 함께 언급하세요.",
+    investment_thesis: "매수 대상별(운영사, 자가사용, 디벨로퍼 등) 핵심 관전 포인트와 투자 타당성 결론을 도출하세요.",
+    next_steps: "투자 검토 진행 절차(비밀유지약약서 NDA, 현장 실사, LOI 제출) 및 실사 권고사항을 안내하세요.",
+    occupancy_fit: "실사용 사옥용 입주 적합성(연면적 수용력, 주차, 파사드 브랜딩 효과)을 강조하세요.",
+    cost_comparison: "임차 유지 시 대비 사옥 매입 자가전환에 따른 비용 절감 효과와 손익분기점을 비교하세요.",
+    site_analysis: "대지면적, 용도지역, 건폐율/용적률 개발 여력 및 신축 개발 잠재력을 강조하세요.",
+    development_feasibility: "신축 사업수지(토지비+공사비 vs 예상 분양가) 및 개발 이익률 타당성을 제시하세요.",
+    operation_overview: "직영 자가운영(호텔/물류/상업시설) 영업 개요 및 브랜드 오퍼레이션 현황을 설명하세요.",
+    gop_analysis: "GOP(Gross Operating Profit), ADR, 가동률(OCC) 운영 실적 및 이익률 구조를 제시하세요.",
+    market_position: "주변 매매 시세 및 경쟁 매물 대비 본 자산의 마켓 포지셔닝(할인율)을 제시하세요.",
+    comparable_analysis: "인근 거래사례와의 평당가 비교 및 단기 매각 시 목표 차익 타당성을 입증하세요.",
   };
 
-  // 이전 섹션 맥락 (상태 머신에서 전달)
-  let contextBlock = '';
+  const mission = sectionMission[sectionType] ?? "자산의 가치를 객관적이고 설득력 있게 설명하세요.";
+
+  let prompt = `## [섹션 작성 미션: ${sectionType}]
+${mission}
+
+## [기본 건물 데이터 (SSoT)]
+${JSON.stringify(bssotLite, null, 2)}`;
+
+  if (externalData) {
+    prompt += `\n\n## [공공 데이터 & 마켓 현황]
+${JSON.stringify(externalData, null, 2)}`;
+  }
+
+  if (supplemental) {
+    prompt += `\n\n## [추가 수집 데이터]
+${JSON.stringify(supplemental, null, 2)}`;
+  }
+
+  if (marketIndicators?.financialsMarkdown) {
+    prompt += `\n\n## [사전 계산된 재무 마크다운 (반드시 본문에 그대로 혹은 참조하여 수치 일치시키세요)]
+${marketIndicators.financialsMarkdown}`;
+  }
+
   if (sectionContext) {
-    const { keyFacts, sectionSummaries, numericalAnchors } = sectionContext;
-    if (keyFacts.length > 0) {
-      contextBlock += `\n\n[이전 섹션 맥락 — 아래 수치와 일관되게 작성하세요]\n${keyFacts.map(f => `- ${f}`).join('\n')}`;
-    }
-    const anchorLines: string[] = [];
-    if (numericalAnchors.totalAreaSqm) anchorLines.push(`연면적: ${numericalAnchors.totalAreaSqm.toLocaleString()}㎡`);
-    if (numericalAnchors.vacancyPct != null) anchorLines.push(`공실률: ${numericalAnchors.vacancyPct}%`);
-    if (numericalAnchors.buildingAge) anchorLines.push(`건물 연식: ${numericalAnchors.buildingAge}년`);
-    if (numericalAnchors.capRateBase) anchorLines.push(`Cap Rate(base): ${numericalAnchors.capRateBase}%`);
-    // [B5] monthlyRentKrw 앙커도 전달 — AI가 임대료 수치를 일관되게 사용하도록
-    if (numericalAnchors.monthlyRentKrw) anchorLines.push(`월세 총액: 약 ${Math.round(numericalAnchors.monthlyRentKrw / 10_000).toLocaleString()}만원/월`);
-    if (anchorLines.length > 0) {
-      contextBlock += `\n[수치 앵커 — 이 수치를 정확히 사용하세요]\n${anchorLines.join(' | ')}`;
-    }
-    // 이전 섹션 요약 — 항상 첫 섹션(자산 개요) 포함하여 핵심 데이터 일관성 유지
-    // [B5] Context 전파 확장: 모든 이전 섹션 요약을 전달
-    // 기존 코드는 property_overview + 최근 2개만 전달하여 6~7번째 섹션이 중간 섹션과 일관성을 잏는 문제 있음
-    const summaryEntries = Object.entries(sectionSummaries);
-    if (summaryEntries.length > 0) {
-      const firstEntry = summaryEntries.find(([key]) => key === "property_overview");
-      const otherEntries = summaryEntries.filter(([key]) => key !== "property_overview");
-      const contextEntries = firstEntry ? [firstEntry, ...otherEntries] : otherEntries;
-      contextBlock += `\n[이전 섹션 요약]\n${contextEntries.map(([k, v]) => `- ${k}: ${v}`).join('\n')}`;
+    prompt += `\n\n## [이전 섹션 맥락 (수치 일관성 필수 유지)]
+- 주요 사실: ${sectionContext.keyFacts.join(", ")}`;
+    if (sectionContext.numericalAnchors) {
+      prompt += `\n- 고정 수치: ${JSON.stringify(sectionContext.numericalAnchors)}`;
     }
   }
 
-  let prompt = `
-[섹션 정보]
-섹션 유형: ${sectionType}
-
-[데이터셋]
-1. BSSoT Lite 기본데이터:
-${bssotCtx}
-
-2. 공공데이터 및 외부 수집 데이터:
-${extCtx}
-
-3. 브로커 수동 입력 보강 데이터:
-${suppCtx}${marketCtx}
-
-4. RAG 관련 유사 사례 컨텍스트:
-${ragContext || "관련 유사사례 없음"}
-
-5. 승인된 Golden IM 예시 (Few-shot 참조):
-${fewShotBlock || "지정된 Few-shot 없음 (시스템 프롬프트의 기본 Golden IM 참고)"}${contextBlock}
-
-[개별 미션]
-${sectionMission[sectionType]}
-`;
-
-  if (lexiconProfile === 'b2b') {
-    prompt += `\n\n[B2B 프로필 적용]
-전문 투자자 대상 어투. CRE 업계 표준 영어 용어를 그대로 사용하고, 구어체를 피하세요.
-예시: '월세' → '월 임대료', '수익률' → 'Cap Rate', '세입자' → '임차인', '남는 돈' → 'NOI'`;
-  } else if (lexiconProfile === 'b2c') {
-    prompt += `\n\n[B2C 프로필 적용]
-개인 소액 투자자 대상 어투. 전문 용어에는 괄호 안에 쉼운 설명을 병기하세요.
-예시: 'Cap Rate' → '수익률(Cap Rate)', 'NOI' → '남는 돈(NOI)', 'DCF' → 'DCF(미래 수익 현재가치)'`;
+  if (ragContext) {
+    prompt += `\n\n## [관련 시장 조항 / 법률 RAG 참고]
+${ragContext}`;
   }
 
-  if (posture && posture !== 'income') {
-    prompt += `\n\n### 6. 투자 관점 (Investment Posture)\n- 본 IM은 **${posture}** 관점에서 작성합니다.\n`;
-    if (archetype) {
-      prompt += `- 아키타입: **${archetype}**\n`;
-    }
+  if (fewShotBlock) {
+    prompt += `\n\n## [섹션 맞춤 퓨샷 스타일 예시]
+${fewShotBlock}`;
+  }
+
+  prompt += `\n\n## [작성 요청]
+위 데이터를 바탕으로 **${sectionType}** 섹션을 작성해 주세요. 어조는 단정적이고 소구력 높은 어조로 2~4문장 줄글로 작성하고, 필요한 경우 마크다운 표를 포함하세요.`;
+
+  if (lexiconProfile) {
+    prompt = applyLexiconProfile(prompt, lexiconProfile);
   }
 
   return prompt;

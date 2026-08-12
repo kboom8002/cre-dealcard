@@ -161,3 +161,39 @@ export const REQUIRED_PACKS: Record<AssetType, string[]> = {
   raw_land: ['development_plan', 'permit_risk'],
   special_use: ['physical_spec'],
 };
+
+export { INVESTMENT_POSTURE as INVESTMENT_POSTURES } from './enums';
+
+export interface IncomePostureData {
+  posture: 'income';
+  grossAnnualIncomeKrw: number;
+  totalDepositKrw?: number;
+}
+
+export interface DevelopmentPostureData {
+  posture: 'development';
+  farPct: number;
+  landAreaPyung: number;
+}
+
+export interface OperatingPostureData {
+  posture: 'operating';
+  monthlyRevenueManwon?: number;
+}
+
+export interface OwnerOccupiedPostureData {
+  posture: 'owner_occupied';
+}
+
+export interface TradingPostureData {
+  posture: 'trading';
+  askingPriceManwon: number;
+}
+
+export type PostureData =
+  | IncomePostureData
+  | DevelopmentPostureData
+  | OperatingPostureData
+  | OwnerOccupiedPostureData
+  | TradingPostureData;
+

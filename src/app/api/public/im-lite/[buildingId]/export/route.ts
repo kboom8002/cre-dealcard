@@ -320,6 +320,24 @@ export async function GET(
   }
 
   const supabase = createServiceClient();
+
+  const tier = (searchParams.get('tier') || 'basic') as 'basic' | 'pro';
+  const grantId = searchParams.get('grant_id');
+
+  // Pro tier 보호
+  if (tier === 'pro') {
+    if (!grantId) return NextResponse.json({ error: 'grant_id required for pro export' }, { status: 400 });
+    const { data: grant } = await supabase
+      .from('im_pro_grants')
+      .select('status, expires_at')
+      .eq('id', grantId)
+      .eq('building_id', buildingId)
+      .maybeSingle();
+    if (!grant || grant.status !== 'active' || (grant.expires_at && new Date(grant.expires_at) < new Date())) {
+      return NextResponse.json({ error: 'Invalid or expired grant' }, { status: 403 });
+    }
+  }
+
   const { data: doc, error } = await supabase
     .from('document_objects')
     .select('id, title, body, created_at')
@@ -348,7 +366,7 @@ export async function GET(
   }
 
   const content = doc.body as any;
-  const tier = (searchParams.get('tier') || 'basic') as 'basic' | 'pro';
+
 
   const html = buildHtmlExport({
     buildingId,

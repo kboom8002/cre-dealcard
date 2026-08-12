@@ -181,6 +181,18 @@ export default async function BrokerDealCardResultPage({
     lease_contract_raw_text: "임대차 원문",
   };
 
+  // v3: 바텀시트 선제적 데이터 주입을 위한 값 추출
+  const finance = layers.finance || {};
+  const askingPriceKrw = Number(finance.asking_price_krw || building.asking_price || 0);
+  const loanAmountKrw = Number(finance.loan_amount_krw || building.loan_amount || 0);
+  
+  const leaseSum = building.lease_summary || {};
+  const totalDepositKrw = Number(leaseSum.total_deposit_krw || finance.total_deposit_krw || 0);
+  const monthlyRentKrw = Number(leaseSum.monthly_rent_krw || finance.monthly_rent_krw || 0);
+  const mgmtFeeKrw = Number(leaseSum.mgmt_fee_krw || finance.mgmt_fee_krw || 0);
+  const vacancyPct = Number(leaseSum.vacancy_pct || finance.vacancy_pct || 0);
+  const investmentPosture = building.investment_posture || layers.investment_posture || "income";
+
   const gradeAttrs = buildAttrsFromSsotLite({
     ...building,
     lease_summary: {},
@@ -453,6 +465,13 @@ export default async function BrokerDealCardResultPage({
               existingPhotoUrls={photoUrls}
               initialAddress={extractedAddress}
               currentGrade={currentGrade}
+              prefillAskingPrice={askingPriceKrw > 0 ? askingPriceKrw / 10000 : undefined}
+              prefillLoanAmount={loanAmountKrw > 0 ? loanAmountKrw / 10000 : undefined}
+              prefillTotalDeposit={totalDepositKrw > 0 ? totalDepositKrw / 10000 : undefined}
+              prefillMonthlyRent={monthlyRentKrw > 0 ? monthlyRentKrw / 10000 : undefined}
+              prefillMgmtFee={mgmtFeeKrw > 0 ? mgmtFeeKrw / 10000 : undefined}
+              prefillVacancyPct={vacancyPct > 0 ? vacancyPct : undefined}
+              initialInvestmentPosture={investmentPosture}
             />
             <AiMatchCtaButton buildingId={id} matchCount={matchCount} topGrade={topGrade} />
           </div>

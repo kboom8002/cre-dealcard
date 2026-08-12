@@ -30,6 +30,8 @@ export interface IMVariant {
   grade: { score: number; grade: string } | null;
   /** 발행 기록 */
   publishRecord: PublishRecord | null;
+  /** 티어 */
+  tier?: 'basic' | 'pro';
   /** 생성 시각 */
   createdAt: string;
 }
@@ -40,6 +42,27 @@ export interface PublishRecord {
   publishedBy: string;
   ontologyVersion: string;
   gateResults: Array<{ id: string; passed: boolean }>;
+}
+
+const PRO_ONLY_SECTIONS: Record<string, string[]> = {
+  income: ['dcf_analysis', 'loan_simulation', 'tax_structure'],
+  development: ['development_feasibility', 'loan_simulation', 'tax_structure'],
+  operating: ['gop_analysis', 'loan_simulation', 'tax_structure'],
+  owner_occupied: ['cost_comparison', 'loan_simulation', 'tax_structure'],
+  trading: ['comparable_analysis', 'loan_simulation', 'tax_structure'],
+};
+
+export function filterByTier(sections: any[], posture: string, tier: 'basic' | 'pro' = 'pro') {
+  let filtered = sections;
+  if (tier === 'basic') {
+    const proSections = PRO_ONLY_SECTIONS[posture] || [];
+    filtered = filtered.filter(s => {
+      const sectionId = typeof s === 'string' ? s : (s.id || s.sectionId);
+      return !proSections.includes(sectionId);
+    });
+    return filtered.slice(0, 5);
+  }
+  return filtered.slice(0, 10);
 }
 
 /** variant 생성 */

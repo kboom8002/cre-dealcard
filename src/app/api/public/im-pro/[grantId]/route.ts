@@ -69,6 +69,13 @@ export async function GET(
   // Watermark seed
   const watermarkSeed = `${grant.requester_name} \u00b7 ${(grant.requester_phone || '').slice(-4)} \u00b7 ${new Date().toISOString().slice(0, 16)}`;
 
+  // View count 증가 (비동기 — 응답 차단 없음)
+  supabase
+    .from('im_pro_grants')
+    .update({ view_count: (grant.view_count ?? 0) + 1 })
+    .eq('id', grantId)
+    .then();
+
   return NextResponse.json({
     ok: true,
     grant: {

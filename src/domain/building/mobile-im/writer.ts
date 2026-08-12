@@ -60,7 +60,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       ctx.sectionCtx,
       input.supplemental,
       external_data || null,
-      building_ssot_lite,
+      building_ssot_lite as any,
       { dcfEligible: input.dcfEligible, onProgress: input.onProgress },
     );
 
@@ -102,7 +102,11 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
 
   // ── 3. 섹션 간 교차 검증 ──
   try {
-    const crossValResult = runCrossValidation(sections, ctx.sectionCtx.numericalAnchors);
+    const crossValResult = runCrossValidation(
+      sections,
+      ctx.sectionCtx.numericalAnchors as any,
+      ctx.sectionPlan?.posture as any,
+    );
     if (!crossValResult.passed) {
       for (const issue of crossValResult.inconsistencies) {
         if (issue.severity === 'critical') {
@@ -121,7 +125,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   // ── 4. RAG 인덱싱 ──
   try {
     const sb = createServiceClient();
-    const buildingId = String(building_ssot_lite.id ?? building_ssot_lite.building_ssot_lite_id ?? "");
+    const buildingId = String(building_ssot_lite.id ?? (building_ssot_lite as any).building_ssot_lite_id ?? "");
     if (buildingId) {
       await indexIMSections(sb as any, buildingId, sections, {
         assetType: String(ctx.assetIdentity.asset_type ?? ""),
@@ -137,7 +141,9 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   }
 
   // ── 5. Hero Card 구축 ──
+  const posture = ctx.sectionPlan?.posture ?? 'income';
   const heroCard: HeroCardData = {
+    posture,
     assetType: String(ctx.assetIdentity.asset_type ?? ''),
     areaSignal: String(ctx.assetIdentity.area_signal ?? ''),
     askingPriceDisplay: String(ctx.assetIdentity.price_band ?? ''),
@@ -161,6 +167,21 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     leveragedYieldPct: cachedFinancials?.leveragedYield ?? null,
     readinessScore: input.readiness.score,
     dcf10YearNpvBil: cachedFinancials?.dcf10Year?.npvBase ? parseFloat((cachedFinancials.dcf10Year.npvBase / 1e8).toFixed(1)) : null,
+    landAreaM2: input.external_data?.buildingRegister?.platArea ?? null,
+    totalGrossAreaM2: input.external_data?.buildingRegister?.totalArea ?? ctx.totalAreaSqm ?? null,
+    zoning: input.external_data?.landUsePlan?.zoningDistrict ?? null,
+    // 포스처 확장 지표
+    landPricePerPyeong: cachedFinancials?.landPricePerPyeong ?? null,
+    devProfitMarginPct: cachedFinancials?.devProfitMarginPct ?? null,
+    gopMarginPct: cachedFinancials?.gopMarginPct ?? null,
+    adr: cachedFinancials?.adrKrw ?? null,
+    occPct: cachedFinancials?.occPct ?? null,
+    revpar: cachedFinancials?.revparKrw ?? null,
+    ownVsLeaseSavingsBil: cachedFinancials?.ownVsLeaseSavingsBil ?? null,
+    breakevenYears: cachedFinancials?.breakevenYears ?? null,
+    pricePerPyeong: cachedFinancials?.pricePerPyeong ?? null,
+    marketDiscountPct: cachedFinancials?.marketDiscountPct ?? null,
+    targetHprPct: cachedFinancials?.targetHprPct ?? null,
   };
 
   // ── 6. 사진 변환 ──

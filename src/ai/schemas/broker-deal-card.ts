@@ -33,7 +33,25 @@ export const MemoParserOutputSchema = z.object({
       gopMargin: null,
       operatingModel: null,
     }),
+    developmentSignals: z.object({
+      landAreaPyung: z.number().nullable().default(null),
+      farPct: z.number().nullable().default(null),
+      bcrPct: z.number().nullable().default(null),
+      constructionCostManwon: z.number().nullable().default(null),
+      expectedSalesPriceManwon: z.number().nullable().default(null),
+      developmentType: z.string().nullable().default(null),
+    }).default({ landAreaPyung: null, farPct: null, bcrPct: null, constructionCostManwon: null, expectedSalesPriceManwon: null, developmentType: null }),
+    tradingSignals: z.object({
+      pricePerPyeongManwon: z.number().nullable().default(null),
+      marketPriceManwon: z.number().nullable().default(null),
+      holdingPeriodMonths: z.number().nullable().default(null),
+    }).default({ pricePerPyeongManwon: null, marketPriceManwon: null, holdingPeriodMonths: null }),
+    ownerOccupiedSignals: z.object({
+      selfUseIntent: z.boolean().nullable().default(null),
+      currentLeaseCostManwon: z.number().nullable().default(null),
+    }).default({ selfUseIntent: null, currentLeaseCostManwon: null }),
   }),
+  investmentPosture: z.enum(['income', 'owner_occupied', 'development', 'operating', 'trading']).optional(),
 
   detectedSensitiveFields: z.array(
     z.enum([

@@ -9,6 +9,7 @@ export interface TranslationInput {
   language: IMLanguage;
   assetType?: string;
   areaSignal?: string;
+  posture?: string;
 }
 
 const LANGUAGE_NAMES: Record<IMLanguage, string> = {
@@ -31,6 +32,16 @@ export async function translateIMSections(
 ): Promise<TranslationInput['sections']> {
   if (input.language === 'ko') return input.sections;
 
+  const postureGlossary = input.posture === 'development'
+    ? 'Use development-specific CRE terms: FAR, BCR, land cost, feasibility, PF loan...'
+    : input.posture === 'operating'
+    ? 'Use hospitality/operating terms: ADR, OccRate, RevPAR, GOP margin...'
+    : input.posture === 'trading'
+    ? 'Use trading terms: price per pyeong, holding period, comparable transactions...'
+    : input.posture === 'owner_occupied'
+    ? 'Use owner-occupied terms: self-use area, own-vs-lease savings, breakeven...'
+    : 'Use income CRE terms: NOI, Cap Rate, DSCR, vacancy, lease terms...';
+
   const targetLang = LANGUAGE_NAMES[input.language];
   const sectionsText = input.sections
     .map((s, i) => `=== SECTION ${i + 1}: ${s.title} ===\n${s.content}`)
@@ -38,7 +49,7 @@ export async function translateIMSections(
 
   const result = await callLLM(
     {
-      systemPrompt: TRANSLATION_SYSTEM,
+      systemPrompt: TRANSLATION_SYSTEM + '\n' + postureGlossary,
       userPrompt: `Translate the following Korean real estate IM sections to ${targetLang}.\nReturn ONLY the translated sections in the same === SECTION N: title === format.\n\n${sectionsText}`,
       model: process.env.AI_IM_MODEL || 'gpt-5.4',
       temperature: 0.1,
@@ -57,9 +68,14 @@ export async function translateIMSections(
     return input.sections;
   }
 
-  return input.sections.map((orig, i) => ({
-    ...orig,
-    title: sectionMatches[i]?.[1]?.trim() || orig.title,
-    content: sectionMatches[i]?.[2]?.trim() || orig.content,
-  }));
+  const results = input.sections.map((orig, i) => {
+    const match = sectionMatches[i];
+    if (match) {
+      return { ...orig, title: match[1].trim(), content: match[2].trim() };
+    }
+    // fallback: 원본 유지 + 경고 로깅
+    console.warn(`[translator] Section ${i} (${orig.title}) translation parse failed, keeping original`);
+    return orig;
+  });
+  return results;
 }

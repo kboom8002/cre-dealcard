@@ -6,6 +6,14 @@
 import type { InvestmentPosture } from '@/domain/ontology';
 import type { ArchetypeCode } from './archetype-registry';
 
+const DEFAULT_POSTURE_CONTEXT: Record<string, string> = {
+  income: '임대수익 극대화 및 안정적 현금흐름 관점에서 서술하세요.',
+  development: '개발 사업의 타당성과 수익성 관점에서 서술하세요.',
+  operating: '직영 운영 수익성과 GOP 마진 관점에서 서술하세요.',
+  owner_occupied: '자가사용 비용절감 및 자산가치 관점에서 서술하세요.',
+  trading: '매매차익 실현 가능성 및 시세 갭 관점에서 서술하세요.',
+};
+
 /** posture별 섹션 프롬프트 오버레이 반환. 해당 없으면 null */
 export function getPosturePromptOverlay(
   posture: InvestmentPosture,
@@ -13,7 +21,11 @@ export function getPosturePromptOverlay(
   archetype?: ArchetypeCode,
 ): string | null {
   const overlay = POSTURE_OVERLAYS[posture]?.[section];
-  if (!overlay) return null;
+  if (!overlay) {
+    const defaultContext = DEFAULT_POSTURE_CONTEXT[posture];
+    if (defaultContext) return defaultContext;
+    return null;
+  }
 
   const archetypeNote = archetype ? `\n[아키타입: ${archetype}]` : '';
   return overlay + archetypeNote;

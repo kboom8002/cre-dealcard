@@ -47,7 +47,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     return dGradeSequence;
   }
 
-  // Basic C등급+: 7슬라이드 (표지+요약+입지+건물+렌트롤+리스크+면책)
+  // Basic C등급+: 7슬라이드 (표지+요약+입지+건물/렌트롤/토지 등 포스처별 2슬라이드+리스크+면책)
   if (input.tier === 'basic') {
     const basicSequence: SlideSpec[] = [
       { archetype: 'A01', kicker: 'BASIC IM', title: '표지', dataKey: 'cover' }
@@ -57,9 +57,43 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     }
     basicSequence.push(
       { archetype: 'A02', kicker: 'Summary', title: '핵심요약', dataKey: 'summary' },
-      { archetype: 'A06', kicker: 'Location', title: '입지', dataKey: 'location' },
-      { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
-      { archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' },
+      { archetype: 'A06', kicker: 'Location', title: '입지', dataKey: 'location' }
+    );
+    // 포스처별 본문 2슬라이드
+    switch (input.posture) {
+      case 'development':
+        basicSequence.push(
+          { archetype: 'A04', kicker: 'Land', title: '토지', dataKey: 'land' },
+          { archetype: 'A05', kicker: 'Feasibility', title: '개발 개요', dataKey: 'feasibility' }
+        );
+        break;
+      case 'owner_occupied':
+        basicSequence.push(
+          { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
+          { archetype: 'A08', kicker: 'Vs Lease', title: '자가비교', dataKey: 'vsLease' }
+        );
+        break;
+      case 'operating':
+        basicSequence.push(
+          { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
+          { archetype: 'A13', kicker: 'KPI', title: '운영지표', dataKey: 'kpi' }
+        );
+        break;
+      case 'trading':
+        basicSequence.push(
+          { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
+          { archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' }
+        );
+        break;
+      case 'income':
+      default:
+        basicSequence.push(
+          { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
+          { archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' }
+        );
+        break;
+    }
+    basicSequence.push(
       { archetype: 'A07', kicker: 'Risk', title: '리스크', dataKey: 'risk' },
       { archetype: 'A10', kicker: 'Disclaimer', title: '표기 기준 및 면책', dataKey: 'closing' }
     );
@@ -142,12 +176,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
       break;
   }
 
-  // ── 3. 공통 마감 ──
-  sequence.push({ archetype: 'A07', kicker: 'Risk', title: '리스크', dataKey: 'risk' });
-  sequence.push({ archetype: 'A09', kicker: 'Process', title: '절차', dataKey: 'process' });
-  sequence.push({ archetype: 'A10', kicker: 'Closing', title: '마감', dataKey: 'closing' });
-
-  // ── 4. Pro 전용 추가 슬라이드 ──
+  // ── 3. Pro 전용 추가 슬라이드 (Closing 앞에 배치) ──
   if (input.tier === 'pro') {
     const suppressDcf = input.grade === 'B' || input.grade === 'C';
     const suppressTotalReturn = input.grade === 'C';
@@ -159,8 +188,21 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     sequence.push({ archetype: 'A08', kicker: 'Tax', title: '세금시나리오', dataKey: 'tax' });
   }
 
+  // ── 4. 공통 마감 (항상 마지막) ──
+  sequence.push({ archetype: 'A07', kicker: 'Risk', title: '리스크', dataKey: 'risk' });
+  sequence.push({ archetype: 'A09', kicker: 'Process', title: '절차', dataKey: 'process' });
+  sequence.push({ archetype: 'A10', kicker: 'Closing', title: '마감', dataKey: 'closing' });
+
   const active = sequence.filter(s => !s.suppress);
 
   // Pro: 24p 이하로 제한
-  return active.slice(0, 24);
+  if (active.length > 24) {
+    const closingSlide = active.find(s => s.dataKey === 'closing');
+    const riskSlide = active.find(s => s.dataKey === 'risk');
+    const preserved = [riskSlide, closingSlide].filter(Boolean) as SlideSpec[];
+    const preservedKeys = new Set(preserved.map(s => s.dataKey));
+    const rest = active.filter(s => !preservedKeys.has(s.dataKey)).slice(0, 24 - preserved.length);
+    return [...rest, ...preserved];
+  }
+  return active;
 }

@@ -86,6 +86,36 @@ const FLAGS: Record<string, FeatureFlag> = {
     description: 'S4-K1: Enable Give-to-Get network mechanics',
     stage: 'S4',
   },
+  ff_posture_income: {
+    key: 'ff_posture_income',
+    enabled: true,
+    description: 'Phase delta: Enable posture income',
+    stage: 'PhaseDelta',
+  },
+  ff_posture_development: {
+    key: 'ff_posture_development',
+    enabled: true,
+    description: 'Phase delta: Enable posture development',
+    stage: 'PhaseDelta',
+  },
+  ff_posture_operating: {
+    key: 'ff_posture_operating',
+    enabled: true,
+    description: 'Phase delta: Enable posture operating',
+    stage: 'PhaseDelta',
+  },
+  ff_posture_owner_occupied: {
+    key: 'ff_posture_owner_occupied',
+    enabled: true,
+    description: 'Phase delta: Enable posture owner_occupied',
+    stage: 'PhaseDelta',
+  },
+  ff_posture_trading: {
+    key: 'ff_posture_trading',
+    enabled: false,
+    description: 'Phase delta: Enable posture trading (beta)',
+    stage: 'PhaseDelta',
+  },
 };
 
 let runtimeOverrides: Record<string, boolean> = {};

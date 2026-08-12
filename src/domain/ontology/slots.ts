@@ -60,6 +60,8 @@ export interface SlotDefinition {
   enumFamily?: string;
   /** 슬롯 종류 */
   kind?: SlotKind;
+  /** 특정 포스처에서만 필수 여부 */
+  requiredForPosture?: string[];
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -108,8 +110,8 @@ export const SLOT_CATALOG: SlotDefinition[] = [
 
   // ── Lease (8) ──
   { key: 'leaseUnits', label: '임대차 단위', type: 'array', category: 'lease', required: false, source: 'broker', defaultProvenance: 'broker', kind: 'array' },
-  { key: 'grossAnnualIncomeKrw', label: '연간 총수입(원)', type: 'number', category: 'financial', required: true, source: 'broker', defaultProvenance: 'broker' },
-  { key: 'monthlyRentKrw', label: '월 임대료(원)', type: 'number', category: 'financial', required: true, source: 'broker', defaultProvenance: 'broker' },
+  { key: 'grossAnnualIncomeKrw', label: '연간 총수입(원)', type: 'number', category: 'financial', required: false, source: 'broker', defaultProvenance: 'broker', requiredForPosture: ['income'] },
+  { key: 'monthlyRentKrw', label: '월 임대료(원)', type: 'number', category: 'financial', required: false, source: 'broker', defaultProvenance: 'broker', requiredForPosture: ['income', 'operating'] },
   { key: 'totalDepositKrw', label: '총 보증금(원)', type: 'number', category: 'financial', required: false, source: 'broker', defaultProvenance: 'broker' },
   { key: 'vacancyRatePct', label: '공실률(%)', type: 'number', category: 'lease', required: false, source: 'broker', defaultProvenance: 'broker' },
   { key: 'handoverCondition', label: '명도 조건', type: 'enum', category: 'lease', required: false, source: 'broker', defaultProvenance: 'broker', enumFamily: 'handover_condition', isNew: true },

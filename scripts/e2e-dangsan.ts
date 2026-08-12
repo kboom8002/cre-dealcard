@@ -211,7 +211,7 @@ async function generateIM(externalData: ExternalDataSnapshot) {
   console.log('\n══ Phase 3: Mobile IM 생성 (LLM 호출 포함) ══');
 
   const input: MobileIMWriterInput = {
-    building_ssot_lite,
+    building_ssot_lite: building_ssot_lite as any,
     supplemental,
     readiness: { score: 85, missing: [] },
     external_data: externalData,

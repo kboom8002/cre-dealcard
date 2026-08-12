@@ -17,6 +17,7 @@ export default function PptxEditorPage({ params }: { params: Promise<{ id: strin
   const [presetName, setPresetName] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
   const [buildingData, setBuildingData] = useState<BuildingPreviewData | undefined>(undefined);
+  const [realBuildingId, setRealBuildingId] = useState<string | undefined>(undefined);
   const [customPresets, setCustomPresets] = useState<any[]>([]);
 
   const supabase = createBrowserClient(
@@ -32,6 +33,7 @@ export default function PptxEditorPage({ params }: { params: Promise<{ id: strin
           const json = await res.json();
           const b = json.data?.building || json.building;
           if (b) {
+            setRealBuildingId(b.id);
             setBuildingData({
               title: json.data?.title || b.area_signal ? `${b.area_signal} 상업용 자산` : undefined,
               subtitle: `${b.area_signal || ''} | ${b.asset_type || ''} | ${b.price_band || ''}`,
@@ -127,12 +129,14 @@ export default function PptxEditorPage({ params }: { params: Promise<{ id: strin
       layoutStyle: tokens.layoutStyle,
       bodyFont: tokens.bodyFont,
     }).toString();
-    window.open(`/api/public/im-lite/${id}/pptx?${params}`, '_blank');
+    const bId = realBuildingId ?? id;  // buildingId 우선, dealId fallback
+    window.open(`/api/public/im-lite/${bId}/pptx?${params}`, '_blank');
   };
 
   const handleLogoUpload = async (file: File) => {
     const ext = file.name.split('.').pop();
-    const path = `pptx-logos/${Date.now()}.${ext}`;
+    const { data: { user } } = await supabase.auth.getUser();
+    const path = `pptx-logos/${user?.id ?? 'anon'}/${Date.now()}.${ext}`;
     const { error } = await supabase.storage.from('broker-assets').upload(path, file, {
       cacheControl: '3600',
       upsert: true,

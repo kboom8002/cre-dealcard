@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "data": {
+    "buildingId": "00d74731-bfd4-4902-b549-7e7c5224e649",
+    "signalCardId": "b9e3e8de-7ac1-4406-b755-1bb524c5cc7f",
+    "teaserDocId": "7a43cac3-9687-437e-bc34-05e46f84d5d0",
+    "hiddenFields": [
+      "exact_address",
+      "tenant_name",
+      "negotiation_memo",
+      "owner_identity"
+    ]
+  },
+  "archetypes": [
+    "STABLE_INCOME",
+    "RETAIL_STREET"
+  ],
+  "constraintWarnings": []
+}

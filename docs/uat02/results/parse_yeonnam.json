@@ -1,0 +1,103 @@
+{
+  "ok": true,
+  "data": {
+    "asset_type": "근생·주택 복합건물",
+    "area_signal": "마포구 연남권역",
+    "price_band": "매각 희망가 42억 원",
+    "size_signal": "두 필지 합계 283.0㎡, 도시계획도로 편입 6.2㎡, 유효 대지 276.8㎡",
+    "vacancy_signal": "지하 창고 공실",
+    "current_use_signal": "지하 1층 창고, 지상 1층 카페, 지상 2층 학원, 지상 3층 주택, 지상 4층 주택",
+    "lease_signal": "총 다섯 호실 임대차. 1·2층은 상가임대차보호법 적용 대상이며, 3·4층은 주택임대차보호법 적용 대상",
+    "detected_sensitive_fields": [
+      "exact_address",
+      "tenant_name",
+      "unit_rent"
+    ],
+    "ambiguous_fields": [
+      "두 필지별 개별 면적은 기재되지 않음",
+      "호실별 보증금과 임대료는 기재되지 않음",
+      "지하 창고의 호실 포함 여부와 임대차 계약 여부 확인 필요",
+      "건축물대장상 용도와 각 층의 실제 사용 현황 대조 필요",
+      "도시계획도로 편입 6.2㎡의 경계 및 권리관계 확인 필요"
+    ],
+    "warnings": [
+      "정확한 주소와 임차인 상호는 공개하지 않음",
+      "호실별 임대료 및 보증금은 개인정보·민감정보 보호를 위해 제외함",
+      "매각 희망가는 매도인의 제시 가격이며 적정 가격이나 거래 성사 가격을 의미하지 않음",
+      "임대차보호법 적용 여부와 계약 조건은 임대차계약서 및 관련 서류 실사 필요",
+      "준공연도, 층별 용도, 도로 편입 면적은 건축물대장·토지이용계획·지적도 확인 필요"
+    ],
+    "prompt_version": "prompt_memo_parser_v1",
+    "model": "gpt-5.6-luna",
+    "memo_result": {
+      "extracted": [
+        {
+          "slotKey": "asset_type",
+          "value": "근생·주택 복합건물",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "area_signal",
+          "value": "마포구 연남권역",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "price_band",
+          "value": "매각 희망가 42억 원",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "size_signal",
+          "value": "두 필지 합계 283.0㎡, 도시계획도로 편입 6.2㎡, 유효 대지 276.8㎡",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "vacancy_signal",
+          "value": "지하 창고 공실",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "current_use_signal",
+          "value": "지하 1층 창고, 지상 1층 카페, 지상 2층 학원, 지상 3층 주택, 지상 4층 주택",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "lease_signal",
+          "value": "총 다섯 호실 임대차. 1·2층은 상가임대차보호법 적용 대상이며, 3·4층은 주택임대차보호법 적용 대상",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        }
+      ],
+      "ambiguous": [],
+      "unmatched": []
+    },
+    "grade_upgrade_actions": []
+  }
+}

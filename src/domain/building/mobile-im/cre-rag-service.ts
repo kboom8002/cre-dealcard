@@ -13,6 +13,7 @@ export interface RAGQueryOptions {
   topK?: number;
   filterByAssetType?: string;
   filterByRegion?: string;
+  filterByPosture?: string;
 }
 
 /**
@@ -58,6 +59,7 @@ export async function searchSimilarIMs(
       match_count: topK * 2, // 2x 후보 수집 후 리랭킹 적용
       filter_asset_type: options.filterByAssetType || null,
       filter_region: options.filterByRegion || null,
+      filter_posture: options.filterByPosture || null,
     });
 
     if (error) throw error;
@@ -99,9 +101,11 @@ export async function generateRAGContext(
   supabase: ReturnType<typeof createClient>,
   assetType: string | undefined,
   address: string | undefined,
-  buildingName: string | undefined
+  buildingName: string | undefined,
+  posture?: string
 ): Promise<string> {
   const queryParts = [];
+  if (posture) queryParts.push(posture);
   if (assetType) queryParts.push(assetType);
   if (address) {
     // 동 단위로 추출 (예: 강남구 역삼동)

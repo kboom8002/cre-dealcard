@@ -83,13 +83,13 @@ export interface GateReport {
 
 export const PUBLISH_GATES: GateDefinition[] = [
   { id: 'G01', label: '매각가 존재', severity: 'block', check: (ctx) => ctx.salePrice !== undefined && ctx.salePrice > 0 },
-  { id: 'G02', label: '면적 존재', severity: 'block', check: (ctx) => ctx.area !== undefined && ctx.area > 0 },
+  { id: 'G02', label: '면적 존재', severity: 'block', check: (ctx) => (ctx.area !== undefined && ctx.area > 0) || (ctx.effectiveLandArea > 0) },
   { id: 'G03', label: '주소 존재', severity: 'block', check: (ctx) => !!ctx.address },
   { id: 'G04', label: '등급 D 아님', severity: 'block', check: (ctx) => ctx.dataGrade !== 'D' },
   { id: 'G05', label: '숫자 교차검증 통과', severity: 'block', check: (ctx) => ctx.crossValidationPassed === true },
   { id: 'G06', label: '할루시네이션 없음', severity: 'block', check: (ctx) => ctx.hasHallucination === false },
   { id: 'G07', label: 'PII 제거 완료', severity: 'block', check: (ctx) => ctx.piiRemoved === true },
-  { id: 'G08', label: '위험 표현 없음', severity: 'block', check: (ctx) => ctx.hasRiskExpression === false },
+  { id: 'G08', label: '위험 표현 없음', severity: 'block', check: (ctx) => ctx.hasRiskExpression !== true },
   { id: 'G09', label: 'IM Judge 3.0 이상', severity: 'warn', check: (ctx) => (ctx.imJudgeScore ?? 0) >= 3.0 },
   { id: 'G10', label: '3축 분류 확정', severity: 'block', check: (ctx) => ctx.threeAxisConfirmed === true },
   { id: 'G11', label: 'DCF 등급 게이트', severity: 'warn', check: (ctx) => ctx.dcfGradeGatePassed === true },

@@ -21,6 +21,18 @@ import { extractSlotsFromMemo } from '@/domain/building/memo-slot-mapper';
 
 export const maxDuration = 120;
 
+/** 한국어 가격 텍스트를 원화 숫자로 변환 (예: '120억' → 12_000_000_000) */
+function parsePriceKrw(priceText: string | null | undefined): number | null {
+  if (!priceText) return null;
+  const cleaned = priceText.replace(/[^0-9.억만원\s]/g, '');
+  let total = 0;
+  const eokMatch = cleaned.match(/([\d.]+)\s*억/);
+  const manMatch = cleaned.match(/([\d.]+)\s*만/);
+  if (eokMatch) total += parseFloat(eokMatch[1]) * 100_000_000;
+  if (manMatch) total += parseFloat(manMatch[1]) * 10_000;
+  return total > 0 ? total : null;
+}
+
 const BrokerDealCardFromMemoRequest = z.object({
   memo: z.string().min(5),
   visibilityPreference: z.enum(["blind", "internal"]).default("blind"),
@@ -110,9 +122,13 @@ export async function POST(req: NextRequest) {
       }
     });
 
+    // ─── v4 Price extraction from SSoT ───
+    const priceBand = createdBuilding?.price_band || createdBuilding?.layers?.price_band || null;
+    const askingPriceKrw = parsePriceKrw(priceBand);
+
     return Response.json({
       ok: true,
-      data: result,
+      data: { ...result, askingPriceKrw },
       archetypes,
       constraintWarnings,
     });

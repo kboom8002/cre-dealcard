@@ -280,18 +280,6 @@ export async function fetchIMData(
       .maybeSingle();
     document = res.data;
     
-    // Fallback: fetch any latest teaser document
-    if (!document) {
-      const res2 = await supabase
-        .from("document_objects")
-        .select("body, owner_id, created_at, status, updated_at")
-        .eq("building_id", buildingId)
-        .eq("document_type", "blind_teaser")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      document = res2.data;
-    }
   }
 
   if (document?.body?.sections) {
@@ -403,6 +391,18 @@ export async function fetchIMData(
             landAreaM2: s.land_area_m2 ?? document.body.external_data?.landUsePlan?.landAreaM2 ?? null,
             totalGrossAreaM2: s.total_gross_area_m2 ?? document.body.external_data?.buildingRegister?.totalGrossAreaM2 ?? null,
             zoning: s.zoning ?? document.body.external_data?.landUsePlan?.zoningName ?? null,
+            landPricePerPyeong: s.land_price_per_pyeong ?? null,
+            farHeadroom: s.far_headroom ?? null,
+            devProfitMarginPct: s.dev_profit_margin_pct ?? null,
+            gopMarginPct: s.gop_margin_pct ?? null,
+            adr: s.adr ?? null,
+            occPct: s.occ_pct ?? null,
+            revpar: s.revpar ?? null,
+            ownVsLeaseSavingsBil: s.own_vs_lease_savings_bil ?? null,
+            breakevenYears: s.breakeven_years ?? null,
+            pricePerPyeong: s.price_per_pyeong ?? null,
+            marketDiscountPct: s.market_discount_pct ?? null,
+            targetHprPct: s.target_hpr_pct ?? null,
           };
         })(),
         // [C2] DCF 10년 민감도

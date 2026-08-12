@@ -143,7 +143,11 @@ export async function generateMobileIMHandler(
     }
   } else {
     // Basic tier — Posture별 최소 필수 데이터 검증
-    const posture = (identity?.investmentPosture || 'income') as any;
+    const posture = (
+      identity?.investmentPosture
+      || ssotRow.investment_posture
+      || 'income'
+    ) as any;
     const hasBasicData = hasMinimumBasicData({
       hasAskingPrice: !!supplemental.asking_price_manwon,
       hasMonthlyRent: !!supplemental.monthly_rent_total_krw,
@@ -233,16 +237,16 @@ export async function generateMobileIMHandler(
 
   // ─── 7섹션 AI 생성
   const writerResult = await generateMobileIM({
-    building_ssot_lite: bssotFlat,
+    building_ssot_lite: bssotFlat as any,
     supplemental,
     readiness,
     external_data: externalData,
     dcfEligible,
     dataGrade: gradeResult.grade,
-    identity: identity ?? {
-      buildingUse: undefined,
-      assetType: String(bssotFlat.asset_type ?? ''),
-      investmentPosture: (supplemental as any).investmentPosture ?? 'income',
+    identity: {
+      buildingUse: identity?.buildingUse,
+      assetType: identity?.assetType || String(bssotFlat.asset_type ?? ''),
+      investmentPosture: identity?.investmentPosture || ssotRow.investment_posture || (supplemental as any).investmentPosture || 'income',
     } as any,
   });
 
@@ -298,6 +302,7 @@ export async function generateMobileIMHandler(
     body: {
       im_type: "mobile_im_lite",
       tier,
+      investmentPosture: identity?.investmentPosture || ssotRow.investment_posture || 'income',
       sections: writerResult.sections,
       boundary_note: writerResult.boundary_note,
       generated_at: writerResult.generated_at,
@@ -308,6 +313,7 @@ export async function generateMobileIMHandler(
         asset_type: ssotRow.asset_type,
         price_band: ssotRow.price_band,
         size_signal: ssotRow.size_signal,
+        investment_posture: identity?.investmentPosture || ssotRow.investment_posture || 'income',
         vacancy_signal: ssotRow.vacancy_signal,
         fit_summary: ssotRow.fit_summary,
         caution_summary: ssotRow.caution_summary,

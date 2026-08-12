@@ -1,0 +1,7 @@
+{
+  "ok": false,
+  "error": {
+    "code": "AI_ERROR",
+    "message": "AI 처리 중 오류가 발생했습니다."
+  }
+}

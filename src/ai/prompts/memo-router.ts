@@ -29,7 +29,8 @@ JSON 응답 형식:
   "summary": "메모 내용의 1문장 요약",
   "extracted_data": {
     "target_region": "분석된 지역 (있을 경우)",
-    "target_budget": "예산/가격대 (있을 경우)"
+    "target_budget": "예산/가격대 (있을 경우)",
+    "inferred_posture": "new_deal인 경우 투자 관점 추론 (income/owner_occupied/development/operating/trading 중 하나. 임대수익 → income, 사옥/자가 → owner_occupied, 신축/개발/나대지 → development, 호텔운영/매출 → operating, 기타단기 → trading)"
   }
 }
 `;

@@ -439,6 +439,7 @@ export interface Deal {
 export interface Asset {
   id: string;
   asset_type: string;
+  investment_posture?: string;
   pnu?: string;
   region_code?: string;
   zoning_region?: string;

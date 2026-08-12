@@ -19,7 +19,9 @@ export function UniversalMemoFAB() {
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
-    if (!open) {
+    if (open) {
+      window.dispatchEvent(new CustomEvent("universal-memo-opened"));
+    } else {
       setTimeout(() => {
         setMode("select");
         setTextMemo("");

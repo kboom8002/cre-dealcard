@@ -49,6 +49,14 @@ const ZONING_MAX_FAR: Record<string, number> = {
   '준공업지역': 400,
 };
 
+const POSTURE_REQUIRED_FIELDS: Record<string, string[]> = {
+  income: ['grossAnnualIncomeKrw', 'totalDepositKrw'],
+  development: ['landAreaPyung', 'farPct'],
+  operating: ['opexRatioPct', 'monthlyRentKrw'],
+  owner_occupied: ['totalFloorAreaPyung'],
+  trading: ['askingPriceKrw'],
+};
+
 /**
  * Validates asset attributes against domain constraint rules.
  * Validates rules:
@@ -59,11 +67,25 @@ const ZONING_MAX_FAR: Record<string, number> = {
  * - C12: Leverage Over-limit (Loan + Deposit > Price * 1.1)
  * 
  * @param attrs - The key-value map of asset attributes to validate
+ * @param posture - Optional investment posture
  * @returns Validation result with lists of violations and status
  * @see SDD §5 S0-T4
  */
-export function validateAssetConstraints(attrs: Record<string, unknown>): ConstraintValidationResult {
+export function validateAssetConstraints(attrs: Record<string, unknown>, posture?: string): ConstraintValidationResult {
   const violations: ConstraintViolation[] = [];
+
+  if (posture && POSTURE_REQUIRED_FIELDS[posture]) {
+    for (const reqField of POSTURE_REQUIRED_FIELDS[posture]) {
+      if (attrs[reqField] == null || attrs[reqField] === '') {
+        violations.push({
+          ruleId: 'C_POSTURE_REQ',
+          severity: 'warning',
+          message: `투자 성향(${posture})에 필수적인 항목(${reqField})이 누락되었습니다.`,
+          field: reqField,
+        });
+      }
+    }
+  }
 
   // C01: Floor Area positive check
   const floorArea = Number(attrs.totalFloorAreaPyung || 0);

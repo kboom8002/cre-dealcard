@@ -43,8 +43,8 @@ describe("Semantic Prompt Cache", () => {
 
   it("should expire entries after TTL", async () => {
     const key = promptCache.generateKey("expire_test", { y: 42 });
-    // Set with 0-second TTL → already expired
-    await promptCache.set(key, "short-lived", 0);
+    // Set with 1ms TTL
+    await promptCache.set(key, "short-lived", 0.001);
     // Wait a tiny bit
     await new Promise(r => setTimeout(r, 5));
     const result = await promptCache.get(key);

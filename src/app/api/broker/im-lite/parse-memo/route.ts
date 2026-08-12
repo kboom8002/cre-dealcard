@@ -21,6 +21,8 @@ import {
 } from "@/ai/prompts/broker-deal-card";
 import { getModel } from "@/ai/model-selector";
 
+const VALID_POSTURES = ['income', 'development', 'operating', 'owner_occupied', 'trading'] as const;
+
 /** AUTH-03.2~03.3: 메모 파싱 결과 */
 export interface MemoParseResult {
   extracted: Array<{
@@ -72,11 +74,23 @@ export async function POST(req: NextRequest) {
   try {
     // ─── Step 1: PII 마스킹 ────────────────────────────────────────────────
     const sanitizationMap = sanitizeMemo(memo_text);
+    if (sanitizationMap.injectionDetected) {
+      return NextResponse.json(
+        { ok: false, error: { code: 'INJECTION_DETECTED', message: '입력에 허용되지 않는 패턴이 포함되어 있습니다.' } },
+        { status: 400 }
+      );
+    }
     const { sanitizedText } = sanitizationMap;
 
     // ─── Step 2: MemoParser AI 호출 ──────────────────────────────────────
     let memoPrompt = MEMO_PARSER_USER_TEMPLATE.replace("{memo}", sanitizedText);
     if (body.investmentPosture) {
+      if (typeof body.investmentPosture !== 'string' || !VALID_POSTURES.includes(body.investmentPosture as any)) {
+        return NextResponse.json(
+          { ok: false, error: { code: 'INVALID_INPUT', message: '유효하지 않은 investmentPosture 입니다.' } },
+          { status: 400 }
+        );
+      }
       memoPrompt += `\n[Context] Investment Posture: ${body.investmentPosture}`;
     }
 

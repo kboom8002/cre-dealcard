@@ -39,7 +39,7 @@ export async function updateFewShotResultScore(
     const supabase = createServiceClient();
     await supabase
       .from('im_fewshot_usage_log')
-      .update({ result_score: score })
+      .update({ result_judge_score: score })
       .eq('generation_id', generationId)
       .eq('section_type', sectionType);
   } catch (err) {
@@ -68,8 +68,8 @@ export async function analyzeFewShotEffectiveness(): Promise<FewShotEffectivenes
     // 최근 1000건의 사용 이력 로드
     const { data: logs } = await supabase
       .from('im_fewshot_usage_log')
-      .select('golden_ids_used, result_score')
-      .not('result_score', 'is', null)
+      .select('golden_ids_used, result_judge_score')
+      .not('result_judge_score', 'is', null)
       .order('created_at', { ascending: false })
       .limit(1000);
 
@@ -96,14 +96,14 @@ export async function analyzeFewShotEffectiveness(): Promise<FewShotEffectivenes
 
     interface LogRow {
       golden_ids_used: string[];
-      result_score: number;
+      result_judge_score: number;
     }
 
     (logs as LogRow[]).forEach(log => {
       if (!log.golden_ids_used || log.golden_ids_used.length === 0) return;
       log.golden_ids_used.forEach(id => {
         const stats = statsMap.get(id) || { totalScore: 0, count: 0 };
-        stats.totalScore += Number(log.result_score);
+        stats.totalScore += Number(log.result_judge_score);
         stats.count += 1;
         statsMap.set(id, stats);
       });
@@ -154,6 +154,7 @@ export async function promoteToGoldenCandidate(
   sectionType: string,
   markdown: string,
   judgeScore: number,
+  posture: string = 'income',
 ): Promise<boolean> {
   try {
     const supabase = createServiceClient();
@@ -175,6 +176,7 @@ export async function promoteToGoldenCandidate(
       asset_type:    assetType,
       price_band:    priceBand,
       section_type:  sectionType,
+      posture:       posture,
       markdown:      markdown.slice(0, 2000),
       judge_score:   judgeScore,
       was_edited:    false,

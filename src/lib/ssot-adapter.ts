@@ -211,6 +211,7 @@ export function buildAssetFromSsotLite(row: Record<string, unknown>): Partial<As
   return {
     id: String(row.id || ''),
     asset_type: String(row.asset_type || attrs.assetType || 'office'),
+    investment_posture: String(row.investment_posture || attrs.investmentPosture || 'income'),
     pnu: String(row.pnu || attrs.pnu || ''),
     region_code: String(attrs.regionCode || ''),
     zoning_region: String(attrs.zoningRegion || ''),

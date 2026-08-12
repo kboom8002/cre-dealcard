@@ -115,12 +115,20 @@ Your goal is to write the Investment Thesis section for a Mobile Information Mem
   /**
    * 해당 슬롯의 활성 프롬프트를 가져옵니다. A/B 테스트가 켜져 있으면 무작위로 하나를 반환합니다.
    */
-  public getActivePrompt(slotKey: string): PromptTemplate | null {
+  public getActivePrompt(slotKey: string, generationId?: string): PromptTemplate | null {
     const activeTemplates = (this.templates.get(slotKey) || []).filter(t => t.isActive);
     if (activeTemplates.length === 0) return null;
 
     const abTestCandidates = activeTemplates.filter(t => t.isABTesting);
     if (abTestCandidates.length > 0) {
+      if (generationId) {
+        let hash = 0;
+        for (let i = 0; i < generationId.length; i++) {
+          hash = ((hash << 5) - hash) + generationId.charCodeAt(i);
+          hash |= 0;
+        }
+        return abTestCandidates[Math.abs(hash) % abTestCandidates.length];
+      }
       const randomIndex = Math.floor(Math.random() * abTestCandidates.length);
       return abTestCandidates[randomIndex];
     }

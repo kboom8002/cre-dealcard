@@ -190,21 +190,25 @@ async function flushRuleHits() {
   try {
     const supabase = createServiceClient();
     for (const [id, count] of currentHits.entries()) {
-      // hit_count 원자적 증가는 Supabase JS 클라이언트가 미지원하므로 기존값 조회 후 업데이트
-      const { data } = await supabase
-        .from('im_terminology_rules')
-        .select('hit_count')
-        .eq('id', id)
-        .maybeSingle();
+      const { error: rpcError } = await (supabase as any).rpc('increment_term_hit_count', { rule_id: id, amount: count });
+      
+      if (rpcError) {
+        // Fallback if RPC is not available
+        const { data } = await supabase
+          .from('im_terminology_rules')
+          .select('hit_count')
+          .eq('id', id)
+          .maybeSingle();
 
-      const existingCount = data?.hit_count || 0;
-      await supabase
-        .from('im_terminology_rules')
-        .update({
-          hit_count: existingCount + count,
-          last_hit_at: new Date().toISOString(),
-        })
-        .eq('id', id);
+        const existingCount = data?.hit_count || 0;
+        await supabase
+          .from('im_terminology_rules')
+          .update({
+            hit_count: existingCount + count,
+            last_hit_at: new Date().toISOString(),
+          })
+          .eq('id', id);
+      }
     }
   } catch (err) {
     console.warn('[terminology-normalizer] Failed to flush rule hits:', err);

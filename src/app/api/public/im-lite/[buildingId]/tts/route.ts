@@ -16,7 +16,16 @@ const scriptCache = new Map<string, { script: string; createdAt: number }>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1시간
 
 // ─── LLM 기반 브리핑 스크립트 생성 ─────────────────────────────────
-const BRIEFING_SYSTEM_PROMPT = `당신은 상업용 부동산(CRE) 전문 투자 브리핑 아나운서입니다.
+function getBriefingSystemPrompt(lang: string) {
+  const langInstructions = lang === 'ko'
+    ? '한국어로 작성하세요.'
+    : lang === 'en'
+    ? 'Write the briefing script in professional English.'
+    : lang === 'zh'
+    ? '用专业中文撰写简报稿。'
+    : '日本語で専門的なブリーフィングスクリプトを書いてください。';
+
+  return `당신은 상업용 부동산(CRE) 전문 투자 브리핑 아나운서입니다.
 투자설명서(IM) 데이터를 기반으로, 투자자가 차 안에서 듣기 좋은 자연스럽고 전문적인 음성 브리핑 스크립트를 작성합니다.
 
 ## 스크립트 작성 규칙
@@ -38,14 +47,19 @@ const BRIEFING_SYSTEM_PROMPT = `당신은 상업용 부동산(CRE) 전문 투자
    - 데이터가 없거나 "확인 필요"인 항목을 억지로 채우지 마세요
    - 주소, 건물명 등 블라인드 처리된 정보는 노출하지 마세요
 5. **숫자 읽기**: "5.2%"→"5.2퍼센트", "15억"→"15억원", "WALT"→"왈트"
-6. **자연스러운 전환**: "다음으로", "한편", "수익 측면에서 보면" 등 연결어 활용`;
+6. **자연스러운 전환**: "다음으로", "한편", "수익 측면에서 보면" 등 연결어 활용
+
+**언어 지침**: ${langInstructions}`;
+}
 
 async function generateBriefingScriptWithLLM(
   openai: OpenAI,
   doc: MobileIMDocument,
+  lang: string
 ): Promise<string> {
+  const cacheKey = `${doc.buildingId}_${lang}`;
   // 캐시 확인
-  const cached = scriptCache.get(doc.buildingId);
+  const cached = scriptCache.get(cacheKey);
   if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) {
     return cached.script;
   }
@@ -82,7 +96,7 @@ ${sectionsText}
   const response = await openai.chat.completions.create({
     model: "gpt-5.6-terra",
     messages: [
-      { role: "system", content: BRIEFING_SYSTEM_PROMPT },
+      { role: "system", content: getBriefingSystemPrompt(lang) },
       { role: "user", content: userPrompt },
     ],
     temperature: 0.6,
@@ -92,7 +106,7 @@ ${sectionsText}
   const script = response.choices[0]?.message?.content?.trim() ?? "";
 
   if (script.length > 50) {
-    scriptCache.set(doc.buildingId, { script, createdAt: Date.now() });
+    scriptCache.set(cacheKey, { script, createdAt: Date.now() });
   }
 
   return script;
@@ -133,9 +147,16 @@ export async function GET(
   { params }: { params: Promise<{ buildingId: string }> },
 ) {
   const { buildingId } = await params;
+  const lang = request.nextUrl.searchParams.get('language') || 'ko';
+  const VOICE_MAP: Record<string, string> = {
+    ko: 'nova', en: 'alloy', zh: 'echo', ja: 'shimmer',
+  };
+  const voice = VOICE_MAP[lang] || 'nova';
+
+  const cacheKey = `${buildingId}_${lang}`;
 
   // 1. 오디오 캐시 확인
-  const cached = audioCache.get(buildingId);
+  const cached = audioCache.get(cacheKey);
   if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) {
     return new NextResponse(new Uint8Array(cached.buffer), {
       status: 200,
@@ -187,7 +208,7 @@ export async function GET(
     let script: string;
     let scriptSource = "gpt-5.6-terra";
     try {
-      script = await generateBriefingScriptWithLLM(openai, doc);
+      script = await generateBriefingScriptWithLLM(openai, doc, lang);
       if (!script || script.length < 50) {
         throw new Error("Script too short");
       }
@@ -200,7 +221,7 @@ export async function GET(
     // 5. OpenAI TTS-1-HD로 음성 변환
     const mp3 = await openai.audio.speech.create({
       model: "tts-1-hd",
-      voice: "nova",
+      voice: voice as any,
       input: script,
       speed: 0.95,
       response_format: "mp3",
@@ -211,7 +232,7 @@ export async function GET(
     const uint8 = new Uint8Array(arrayBuffer);
 
     // 6. 캐시 저장
-    audioCache.set(buildingId, { buffer, createdAt: Date.now() });
+    audioCache.set(cacheKey, { buffer, createdAt: Date.now() });
 
     return new NextResponse(uint8, {
       status: 200,

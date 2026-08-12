@@ -78,8 +78,14 @@ function IMInquiryBottomSheet({
     <div
       className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      role="presentation"
     >
-      <div className="bg-neutral-900 rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[85vh] flex flex-col overflow-hidden">
+      <div 
+        role="dialog"
+        aria-modal="true"
+        aria-label="프라이빗 IM 신청"
+        className="bg-neutral-900 rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[85vh] flex flex-col overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
           <h2 className="text-base font-bold text-white">📄 프라이빗 IM 신청</h2>
@@ -727,15 +733,40 @@ function MarkdownRenderer({ content }: { content: string }) {
   return <div className="space-y-1">{elements}</div>;
 }
 
+function sanitizeHtml(html: string): string {
+  if (!html) return html;
+  
+  let safe = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  safe = safe.replace(/(\s)on[a-z]+\s*=\s*(['"])(?:(?!\2).)*\2/gi, '$1');
+  safe = safe.replace(/(\s)on[a-z]+\s*=\s*[^>\s]+/gi, '$1');
+  safe = safe.replace(/href\s*=\s*(['"])javascript:[^'"]*\1/gi, 'href="#"');
+  safe = safe.replace(/src\s*=\s*(['"])javascript:[^'"]*\1/gi, 'src=""');
+  
+  safe = safe.replace(/<\/?([a-z][a-z0-9]*)\b[^>]*>/gi, (match, tag) => {
+    const allowed = ['a', 'strong', 'em', 'img', 'br'];
+    if (allowed.includes(tag.toLowerCase())) {
+      return match;
+    }
+    return match.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  });
+  
+  return safe;
+}
+
 function InlineMarkdown({ text }: { text: string }) {
+  // Convert ![alt](url) to <img src="url" alt="alt" />
+  let processed = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />');
+
   // [text](url) → clickable link
-  let processed = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
+  processed = processed.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
     '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline">$1</a>');
 
   // If links were found, render via dangerouslySetInnerHTML for the link tags,
   // but we still need bold/italic. Process **bold** and *italic* as HTML too.
   processed = processed.replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-semibold">$1</strong>');
   processed = processed.replace(/\*([^*]+)\*/g, '<em class="italic text-neutral-200">$1</em>');
+
+  processed = sanitizeHtml(processed);
 
   // If any HTML was injected, use dangerouslySetInnerHTML
   if (processed !== text) {

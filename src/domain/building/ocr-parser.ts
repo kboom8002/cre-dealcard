@@ -7,6 +7,8 @@
  * @see SDD §6 S2-T1
  */
 
+import { sanitizeMemo } from '@/ai/sanitizer/memo-sanitizer';
+
 /**
  * Represents a single extracted slot from an OCR document.
  */
@@ -45,23 +47,34 @@ export interface OCRParseResult {
  */
 export function parseDocumentOCR(
   rawText: string,
-  documentType: 'building_ledger' | 'registry' | 'lease_contract'
+  documentType: 'building_ledger' | 'registry' | 'lease_contract',
+  confidenceMap?: Map<string, number>
 ): OCRParseResult {
   const extractedSlots: Record<string, ParsedOCRSlot> = {};
 
+  const { sanitizedText, injectionDetected } = sanitizeMemo(rawText);
+  if (injectionDetected) {
+    return {
+      documentType,
+      extractedSlots,
+      requiresConfirmation: true,
+      status: 'pending_confirmation',
+    };
+  }
+
   // Extract PNU / Address pattern
-  const addressMatch = rawText.match(/(서울|경기|인천|부산|대구|광주|대전|울산|세종)\s+[가-힣A-Za-z0-9\s]+(동|가|로|길)\s+\d+(-\d+)?/);
+  const addressMatch = sanitizedText.match(/(서울|경기|인천|부산|대구|광주|대전|울산|세종)\s+[가-힣A-Za-z0-9\s]+(동|가|로|길)\s+\d+(-\d+)?/);
   if (addressMatch) {
     extractedSlots.address = {
       slotKey: 'address',
       value: addressMatch[0].trim(),
-      confidence: 0.92,
+      confidence: confidenceMap?.get('address') ?? 0.92,
       rawTextSnippet: addressMatch[0],
     };
   }
 
   // Extract Total Floor Area (연면적)
-  const areaMatch = rawText.match(/연면적\s*:?\s*([\d,.]+)\s*(㎡|m2|평)/i);
+  const areaMatch = sanitizedText.match(/연면적\s*:?\s*([\d,.]+)\s*(㎡|m2|평)/i);
   if (areaMatch) {
     const num = parseFloat(areaMatch[1].replace(/,/g, ''));
     const isPyung = areaMatch[2] === '평';
@@ -69,13 +82,13 @@ export function parseDocumentOCR(
     extractedSlots.totalFloorAreaPyung = {
       slotKey: 'totalFloorAreaPyung',
       value: pyungVal,
-      confidence: 0.88,
+      confidence: confidenceMap?.get('totalFloorAreaPyung') ?? 0.88,
       rawTextSnippet: areaMatch[0],
     };
   }
 
   // Extract Asking Price / Rent
-  const priceMatch = rawText.match(/(매매가|매각가|희망가)\s*:?\s*([\d,.]+)\s*(억|만원|원)/);
+  const priceMatch = sanitizedText.match(/(매매가|매각가|희망가)\s*:?\s*([\d,.]+)\s*(억|만원|원)/);
   if (priceMatch) {
     const rawNum = parseFloat(priceMatch[2].replace(/,/g, ''));
     const unit = priceMatch[3];
@@ -86,7 +99,7 @@ export function parseDocumentOCR(
     extractedSlots.askingPriceKrw = {
       slotKey: 'askingPriceKrw',
       value: krw,
-      confidence: 0.85,
+      confidence: confidenceMap?.get('askingPriceKrw') ?? 0.85,
       rawTextSnippet: priceMatch[0],
     };
   }

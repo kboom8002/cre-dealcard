@@ -4,6 +4,7 @@
 
 import type { BuildingUse, AssetType, InvestmentPosture } from '@/domain/ontology';
 import type { ArchetypeCode } from './archetype-registry';
+import type { BuildingSSoTLite } from '../building-ssot-lite.types';
 
 /** 3축 자산 식별자 (v0.4) */
 export interface AssetIdentity {
@@ -47,7 +48,7 @@ export interface MobileIMProject {
   source_type: "dealcard_handoff" | "direct_create";
   source_handoff_token?: string;
   source_building_ssot_lite_id?: string;
-  building_ssot_lite: Record<string, unknown>;
+  building_ssot_lite: BuildingSSoTLite;
   supplemental_input: MobileIMSupplementalInput;
   readiness_score: number;
   status: "draft" | "generating" | "generated" | "pending_approval" | "published" | "revision_needed" | "archived";
@@ -114,6 +115,34 @@ export interface AncillaryIncomeItem {
   note?: string;            // 참고 (계약 조건 등)
 }
 
+export interface HospitalitySpec {
+  monthly_revenue_manwon?: number;
+}
+
+export interface DevelopmentSpec {
+  monthly_revenue_manwon?: number;
+}
+
+export interface VacateSpec {
+  monthly_revenue_manwon?: number;
+}
+
+export interface PermitSpec {
+  monthly_revenue_manwon?: number;
+}
+
+export interface OccupancySpec {
+  monthly_revenue_manwon?: number;
+}
+
+export interface SectionalSpec {
+  monthly_revenue_manwon?: number;
+}
+
+export interface ResidentialSpec {
+  monthly_revenue_manwon?: number;
+}
+
 /** 브로커가 딜카드 이후 추가로 입력하는 보강 정보 */
 export interface MobileIMSupplementalInput {
   monthly_rent_total_krw?: number;   // 월세 총액
@@ -137,9 +166,18 @@ export interface MobileIMSupplementalInput {
   loan_amount_manwon?: number;      // 융자(채권최고액) (만원)
   loan_bank?: string;               // 융자 은행
   asking_price_manwon?: number;     // 매매가 (만원)
+  monthly_revenue_manwon?: number;
 
   /** 비임대 부가수입 항목 */
   ancillary_incomes?: AncillaryIncomeItem[];
+
+  hospitalitySpec?: HospitalitySpec;
+  developmentSpec?: DevelopmentSpec;
+  vacateSpec?: VacateSpec;
+  permitSpec?: PermitSpec;
+  occupancySpec?: OccupancySpec;
+  sectionalSpec?: SectionalSpec;
+  residentialSpec?: ResidentialSpec;
 
   // ── v0.4: posture / archetype ──
   /** 투자 관점 (5 posture) */
@@ -245,6 +283,34 @@ export interface HeroCardData {
   landAreaM2?: number | null;
   totalGrossAreaM2?: number | null;
   zoning?: string | null;
+  // ── development 전용 ──
+  /** 토지 평당가 (만원/평) */
+  landPricePerPyeong?: number | null;
+  /** 용적률 여유 (%) — 법정 상한 대비 현재 사용 비율 */
+  farHeadroom?: number | null;
+  /** 예상 개발이익률 (%) */
+  devProfitMarginPct?: number | null;
+  // ── operating 전용 ──
+  /** 객단가/ADR (만원) */
+  adr?: number | null;
+  /** 가동률/OCC (%) */
+  occPct?: number | null;
+  /** RevPAR (만원) */
+  revpar?: number | null;
+  /** GOP 마진 (%) */
+  gopMarginPct?: number | null;
+  // ── owner_occupied 전용 ──
+  /** 임차 대비 자가소유 연 절감액 (억원) */
+  ownVsLeaseSavingsBil?: number | null;
+  /** 손익분기 기간 (년) */
+  breakevenYears?: number | null;
+  // ── trading 전용 ──
+  /** 평당 매매가 (만원/평) */
+  pricePerPyeong?: number | null;
+  /** 시세 대비 할인율 (%) */
+  marketDiscountPct?: number | null;
+  /** 목표 보유기간 수익률 HPR (%) */
+  targetHprPct?: number | null;
 }
 
 /** 데이터 출처 포인트 (section 내 출처 배지 표시용) */
@@ -259,7 +325,7 @@ export interface DataPointProvenance {
 
 /** Mobile IM Writer 입력 (writer.ts에서 이동 — 순환 참조 방지) */
 export interface MobileIMWriterInput {
-  building_ssot_lite: Record<string, unknown>;
+  building_ssot_lite: BuildingSSoTLite;
   /** v0.4: 3축 자산 식별 */
   identity?: AssetIdentity;
   supplemental: MobileIMSupplementalInput;

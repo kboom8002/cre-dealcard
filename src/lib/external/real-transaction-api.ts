@@ -33,7 +33,7 @@ export async function fetchComparableTransactions(
 
     await Promise.all(months.map(async (ym) => {
       try {
-        const url = `https://apis.data.go.kr/1613000/RTMSDataSvcNrgTrade/getRTMSDataSvcNrgTrade?ServiceKey=${apiKey}&LAWD_CD=${sigunguCd}&DEAL_YMD=${ym}&numOfRows=10&pageNo=1&_type=json`;
+        const url = `https://apis.data.go.kr/1613000/RTMSDataSvcNrgTrade/getRTMSDataSvcNrgTrade?ServiceKey=${encodeURIComponent(apiKey)}&LAWD_CD=${sigunguCd}&DEAL_YMD=${ym}&numOfRows=10&pageNo=1&_type=json`;
         const res = await fetchWithRetry(url, { timeoutMs: 10_000, maxRetries: 1 });
         if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`);
         const data = await res.json();

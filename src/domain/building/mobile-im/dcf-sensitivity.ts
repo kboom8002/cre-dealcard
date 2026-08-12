@@ -10,7 +10,7 @@ export interface DCFInputs {
 }
 
 export interface SensitivityMatrixCell {
-  exitCapRate: number;
+  rentGrowthRate: number;
   discountRate: number;
   npv: number;
   irr: number | null;
@@ -89,23 +89,23 @@ export function generateDCFSensitivity(inputs: Omit<DCFInputs, 'exitCapRate' | '
   });
 
   const matrix: SensitivityMatrixCell[] = [];
-  const capRateOffsets = [-0.005, 0, 0.005]; // -50bp, Base, +50bp
+  const growthRateOffsets = [-0.01, 0, 0.01]; // -1%, Base, +1%
   const discountRateOffsets = [-0.01, 0, 0.01]; // -1%, Base, +1%
 
   for (const drOffset of discountRateOffsets) {
-    for (const capOffset of capRateOffsets) {
-      const currentExitCap = baseExitCapRate + capOffset;
+    for (const growthOffset of growthRateOffsets) {
+      const currentGrowth = rentGrowthRate + growthOffset;
       const currentDR = baseDiscountRate + drOffset;
       const scenario = calculateDCFScenario({
         purchasePriceKrw,
         initialNoiKrw,
         holdYears,
-        exitCapRate: currentExitCap,
+        exitCapRate: baseExitCapRate,
         discountRate: currentDR,
-        rentGrowthRate
+        rentGrowthRate: currentGrowth
       });
       matrix.push({
-        exitCapRate: currentExitCap,
+        rentGrowthRate: currentGrowth,
         discountRate: currentDR,
         npv: scenario.npv,
         irr: scenario.irr

@@ -216,3 +216,84 @@ export function adaptLeases(
 
   return { isMixed, dispatches, conservativeRegime };
 }
+
+// ── Development Posture: 명도 분석 ──
+
+export interface EvictionAnalysis {
+  /** 명도 대상 임차인 수 */
+  totalTenants: number;
+  /** 보증금 반환 총액 (원) */
+  depositRefundKrw: number;
+  /** 예상 명도 비용 (원) — 이사비 + 영업권/권리금 보상 추정 */
+  estimatedEvictionCostKrw: number;
+  /** 최장 만기일 */
+  latestLeaseEnd: string | null;
+  /** 예상 명도 완료 소요 기간 (월) */
+  estimatedMonths: number;
+  /** 명도 난이도 */
+  frictionScore: 'low' | 'medium' | 'high';
+}
+
+/**
+ * 개발형(development) 물건의 기존 임차인 명도 비용 및 일정 분석
+ */
+export function analyzeEviction(leases: NormalizedLease[]): EvictionAnalysis {
+  const activeTenants = leases.filter(l => !l.isVacant);
+  const totalTenants = activeTenants.length;
+  const depositRefundKrw = activeTenants.reduce((sum, l) => sum + (l.depositKrw || 0), 0);
+
+  // 예상 명도비: 세대당 이사비(300만원) + 예상 합의금/영업보상(월세 6개월분)
+  const movingCost = totalTenants * 3_000_000;
+  const keyMoneyCompensation = activeTenants.reduce((sum, l) => sum + ((l.monthlyRentKrw || 0) * 6), 0);
+  const estimatedEvictionCostKrw = movingCost + keyMoneyCompensation;
+
+  // 최장 만기일 찾기
+  let latestLeaseEnd: string | null = null;
+  for (const t of activeTenants) {
+    if (t.leaseEnd && (!latestLeaseEnd || t.leaseEnd > latestLeaseEnd)) {
+      latestLeaseEnd = t.leaseEnd;
+    }
+  }
+
+  // 소요 기간 추정: 임차인 수 및 만기 기준 (기본 6~12개월)
+  let estimatedMonths = totalTenants <= 2 ? 6 : totalTenants <= 5 ? 9 : 12;
+  if (latestLeaseEnd) {
+    const endDate = new Date(latestLeaseEnd);
+    const now = new Date();
+    const diffMonths = Math.max(0, Math.round((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+    estimatedMonths = Math.max(estimatedMonths, diffMonths + 3);
+  }
+
+  const frictionScore: 'low' | 'medium' | 'high' =
+    totalTenants === 0 ? 'low' : totalTenants <= 3 ? 'medium' : 'high';
+
+  return {
+    totalTenants,
+    depositRefundKrw,
+    estimatedEvictionCostKrw,
+    latestLeaseEnd,
+    estimatedMonths,
+    frictionScore,
+  };
+}
+
+/**
+ * 명도 현황을 개발형 IM 전용 마크다운 테이블로 변환
+ */
+export function formatEvictionMarkdown(analysis: EvictionAnalysis): string {
+  const depositBil = (analysis.depositRefundKrw / 1e8).toFixed(1);
+  const evictionCostBil = (analysis.estimatedEvictionCostKrw / 1e8).toFixed(2);
+  const frictionLabel =
+    analysis.frictionScore === 'low' ? '🟢 용이 (공실/단순)'
+    : analysis.frictionScore === 'medium' ? '🟡 보통 (협의 필요)'
+    : '🔴 난이도 높음 (다수 임차인)';
+
+  return `### 명도 및 철거 준비 현황
+| 항목 | 분석 내용 | 비고 |
+|------|-----------|------|
+| **명도 대상 임차인** | **${analysis.totalTenants}세대** | 기존 점유자 |
+| **반환 필요 보증금** | **약 ${depositBil}억 원** | 착공 전 즉시 유출 |
+| **예상 명도 보상 비용** | **약 ${evictionCostBil}억 원** | 이사비 + 영업합의금 추정 |
+| **명도 완료 예상 기간** | **약 ${analysis.estimatedMonths}개월** | 최장 만기일: ${analysis.latestLeaseEnd || '미정'} |
+| **명도 난이도 평가** | ${frictionLabel} | 종합 리스크 |`;
+}

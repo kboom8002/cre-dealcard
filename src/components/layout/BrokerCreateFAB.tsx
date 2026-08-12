@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { Plus, X, Building2, Key, Target, Tag } from "lucide-react";
@@ -16,36 +16,18 @@ const ACTIONS = [
     textColor: "text-amber-300",
     border: "border-amber-500/40",
   },
-  {
-    href: "/broker/lease-card/new",
-    icon: Key,
-    label: "임대 딜카드",
-    color: "bg-blue-500",
-    textColor: "text-blue-300",
-    border: "border-blue-500/40",
-  },
-  {
-    href: "/broker/buyer-intents/new",
-    icon: Target,
-    label: "매수 의향서",
-    color: "bg-rose-500",
-    textColor: "text-rose-300",
-    border: "border-rose-500/40",
-  },
-  {
-    href: "/broker/tenant-intents/new",
-    icon: Tag,
-    label: "임차 의향서",
-    color: "bg-emerald-500",
-    textColor: "text-emerald-300",
-    border: "border-emerald-500/40",
-  },
 ] as const;
 
 export function BrokerCreateFAB() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const haptic = useHaptic();
+
+  useEffect(() => {
+    const handleMemoOpened = () => setOpen(false);
+    window.addEventListener("universal-memo-opened", handleMemoOpened);
+    return () => window.removeEventListener("universal-memo-opened", handleMemoOpened);
+  }, []);
 
   const handleToggle = () => {
     haptic.medium();
@@ -64,7 +46,7 @@ export function BrokerCreateFAB() {
       <AnimatePresence>
         {open && (
           <motion.div
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-md"
+            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -77,7 +59,7 @@ export function BrokerCreateFAB() {
       <AnimatePresence>
         {open && (
           <motion.div
-            className="fixed bottom-[80px] left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2"
+            className="fixed bottom-[80px] left-1/2 -translate-x-1/2 z-[101] flex flex-col items-center gap-2"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
@@ -126,7 +108,7 @@ export function BrokerCreateFAB() {
         aria-label="새로 만들기"
         onClick={handleToggle}
         className={cn(
-          "fixed bottom-[12px] left-1/2 -translate-x-1/2 z-50",
+          "fixed bottom-[12px] left-1/2 -translate-x-1/2 z-[101]",
           "w-14 h-14 rounded-full shadow-[0_0_20px_rgba(212,175,55,0.35)]",
           "flex items-center justify-center border border-amber-300/60",
           "transition-colors duration-200",

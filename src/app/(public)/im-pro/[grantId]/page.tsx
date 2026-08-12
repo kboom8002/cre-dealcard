@@ -123,9 +123,17 @@ export default function ProIMViewerPage({ params }: { params: Promise<{ grantId:
   }
 
   if (!data?.ok || !data.imDocument) {
+    const buildingId = data?.building?.id;
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-neutral-400">
-        <p>문서를 불러올 수 없습니다.</p>
+      <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center gap-4 text-neutral-400">
+        <p>Pro 문서에 접근할 수 없습니다.</p>
+        <p className="text-sm">열람 권한이 만료되었거나 취소되었을 수 있습니다.</p>
+        {buildingId && (
+          <a href={`/im-lite/${buildingId}`}
+             className="text-sm text-blue-400 underline hover:text-blue-300">
+            Basic 버전 보기 →
+          </a>
+        )}
       </div>
     );
   }
@@ -134,6 +142,10 @@ export default function ProIMViewerPage({ params }: { params: Promise<{ grantId:
   const building = data.building;
   const expiresAt = data.grant.expiresAt ? new Date(data.grant.expiresAt) : null;
   const hoursLeft = expiresAt ? Math.max(0, Math.round((expiresAt.getTime() - Date.now()) / 3600000)) : null;
+
+  const posture = data.imDocument?.posture
+    || data.building?.investment_posture
+    || 'income';
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 relative">
@@ -197,6 +209,12 @@ export default function ProIMViewerPage({ params }: { params: Promise<{ grantId:
               <div><span className="text-neutral-400">공실률</span><br/><span className="font-bold text-white">{building.leaseSummary.vacancy_rate ?? '-'}%</span></div>
               <div><span className="text-neutral-400">WALT</span><br/><span className="font-bold text-white">{building.leaseSummary.walt_months ?? '-'}개월</span></div>
               <div><span className="text-neutral-400">임차인 수</span><br/><span className="font-bold text-white">{building.leaseSummary.tenants?.length ?? 0}건</span></div>
+              {posture === 'development' && building?.far_headroom && (
+                <div className="text-xs text-neutral-400">용적률 여유: {building.far_headroom}%</div>
+              )}
+              {posture === 'operating' && data.imDocument?.gopMarginPct && (
+                <div className="text-xs text-neutral-400">GOP 마진: {data.imDocument.gopMarginPct}%</div>
+              )}
             </div>
           </div>
         )}
@@ -282,6 +300,32 @@ export default function ProIMViewerPage({ params }: { params: Promise<{ grantId:
             </div>
           </div>
         ))}
+
+        {/* 세금 시나리오 */}
+        {data.imDocument?.taxScenarios && (
+          <div className="bg-neutral-900/40 border border-neutral-800/50 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="text-sm font-bold text-white">🏛️ 세금 시나리오 (프로 전용)</h2>
+              <span className="text-[9px] bg-purple-500/30 text-purple-300 px-1.5 py-0.5 rounded">PRO</span>
+            </div>
+            <div className="text-sm text-neutral-300 leading-relaxed whitespace-pre-wrap">
+              {data.imDocument.taxScenarios}
+            </div>
+          </div>
+        )}
+
+        {/* 대출 시뮬레이션 */}
+        {data.imDocument?.loanSimulation && (
+          <div className="bg-neutral-900/40 border border-neutral-800/50 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="text-sm font-bold text-white">🏦 대출 시뮬레이션 (프로 전용)</h2>
+              <span className="text-[9px] bg-purple-500/30 text-purple-300 px-1.5 py-0.5 rounded">PRO</span>
+            </div>
+            <div className="text-sm text-neutral-300 leading-relaxed whitespace-pre-wrap">
+              {data.imDocument.loanSimulation}
+            </div>
+          </div>
+        )}
 
         {/* DCF Heatmap Section */}
         {data.imDocument?.dcf10Year && (

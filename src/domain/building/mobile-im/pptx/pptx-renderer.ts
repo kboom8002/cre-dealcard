@@ -18,6 +18,18 @@ import type { InvestmentPosture } from '@/domain/ontology';
 import { stripMarkdown } from './data-binder';
 import { M, CW, KR, NUM, C, setActiveTheme } from './imlib';
 
+function parseInlineMarkdown(line: string): Array<{ text: string; options?: { bold?: boolean; italic?: boolean } }> {
+  const runs: Array<{ text: string; options?: { bold?: boolean; italic?: boolean } }> = [];
+  const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|([^*]+))/g;
+  let match;
+  while ((match = regex.exec(line)) !== null) {
+    if (match[2]) runs.push({ text: match[2], options: { bold: true } });
+    else if (match[3]) runs.push({ text: match[3], options: { italic: true } });
+    else if (match[4]) runs.push({ text: match[4] });
+  }
+  return runs.length ? runs : [{ text: stripMarkdown(line) }];
+}
+
 /**
  * 아키타입 빌더가 본문을 렌더링하지 못한 경우의 고품질 폴백.
  * 
@@ -99,7 +111,7 @@ function addFallbackContent(slide: any, data: any, _theme: any) {
       ];
       const rowH = 0.32;
       const tableH = tableData.length * rowH;
-      if (curY + tableH > maxY) continue;
+      // autoPage가 긴 테이블을 자동 분할하므로 수동 skip 제거
 
       slide.addTable(tableData, {
         x: bodyX, y: curY, w: bodyW,
@@ -175,9 +187,9 @@ function addFallbackContent(slide: any, data: any, _theme: any) {
         const text = stripMarkdown(line);
         if (!text || text.length < 3) continue;
         const lineH = Math.max(0.26, Math.ceil(text.length / 70) * 0.20);
-        slide.addText(text, {
+        const runs = parseInlineMarkdown(line);
+        slide.addText(runs.map(r => ({ text: r.text, options: { ...r.options, fontFace: KR, fontSize: 10.5, color: C.body } })), {
           x: bodyX, y: curY, w: bodyW, h: lineH,
-          fontFace: KR, fontSize: 10.5, color: C.body,
           margin: 0, valign: 'top',
         });
         curY += lineH + 0.06;

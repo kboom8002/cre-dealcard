@@ -7,15 +7,19 @@
  */
 
 import { createHash } from "crypto";
+import { LRUCache } from "lru-cache";
 
 interface CacheEntry {
   response: string;
-  timestamp: number;
-  expiresIn: number; // ms
 }
 
 class SemanticPromptCache {
-  private cache = new Map<string, CacheEntry>();
+  private cache = new LRUCache<string, CacheEntry>({
+    max: 500,
+    ttl: 3600 * 1000,
+  });
+
+  private metrics = { hits: 0, misses: 0, sets: 0 };
 
   /**
    * 프롬프트의 입력 데이터를 기반으로 SHA-256 해시를 생성하여 캐시 키로 사용합니다.
@@ -31,13 +35,12 @@ class SemanticPromptCache {
    */
   async get(key: string): Promise<string | null> {
     const entry = this.cache.get(key);
-    if (!entry) return null;
-
-    if (Date.now() - entry.timestamp > entry.expiresIn) {
-      this.cache.delete(key);
+    if (!entry) {
+      this.metrics.misses++;
       return null;
     }
     
+    this.metrics.hits++;
     console.info(`[Cache] Hit for key: ${key}`);
     return entry.response;
   }
@@ -46,11 +49,8 @@ class SemanticPromptCache {
    * 프롬프트 생성 결과를 캐시에 저장합니다.
    */
   async set(key: string, response: string, ttlSeconds: number = 3600): Promise<void> {
-    this.cache.set(key, {
-      response,
-      timestamp: Date.now(),
-      expiresIn: ttlSeconds * 1000
-    });
+    this.metrics.sets++;
+    this.cache.set(key, { response }, { ttl: ttlSeconds * 1000 });
     console.info(`[Cache] Set for key: ${key}`);
   }
 
@@ -66,6 +66,14 @@ class SemanticPromptCache {
       }
     }
     console.info(`[Cache] Invalidated ${count} entries for section: ${sectionType}`);
+  }
+
+  getMetrics() {
+    return {
+      ...this.metrics,
+      hitRate: this.metrics.hits / (this.metrics.hits + this.metrics.misses) || 0,
+      size: this.cache.size,
+    };
   }
 }
 

@@ -19,9 +19,10 @@ interface Props {
   status: string;
   buildingId: string;
   createdAt: string;
+  posture?: string;
 }
 
-export function IMApprovalClient({ docId, title, content, status: initialStatus, buildingId, createdAt }: Props) {
+export function IMApprovalClient({ docId, title, content, status: initialStatus, buildingId, createdAt, posture }: Props) {
   // content.sections가 배열인지 안전하게 확인
   const rawSections = Array.isArray(content?.sections) ? content.sections : [];
   const [sections, setSections] = useState<IMSection[]>(rawSections as IMSection[]);

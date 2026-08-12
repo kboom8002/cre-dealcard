@@ -129,14 +129,12 @@ export async function runBrokerDealCard(
         unitRentTexts: Array.isArray(rawFacts.unitRentTexts || rawFacts.unit_rent_texts) ? (rawFacts.unitRentTexts || rawFacts.unit_rent_texts) as string[] : [],
         sellerMotivationText: rawFacts.sellerMotivationText != null ? String(rawFacts.sellerMotivationText) : (rawFacts.seller_motivation_text != null ? String(rawFacts.seller_motivation_text) : null),
         brokerNotes: Array.isArray(rawFacts.brokerNotes || rawFacts.broker_notes) ? (rawFacts.brokerNotes || rawFacts.broker_notes) as string[] : [],
-        hospitalitySignals: (rawFacts.hospitalitySignals || rawFacts.hospitality_signals || {
-          roomCount: null,
-          adr: null,
-          occupancyRate: null,
-          gopMargin: null,
-          operatingModel: null,
-        }) as any,
+        hospitalitySignals: (rawFacts.hospitalitySignals || rawFacts.hospitality_signals || { roomCount: null, adr: null, occupancyRate: null, gopMargin: null, operatingModel: null }) as any,
+        developmentSignals: (rawFacts.developmentSignals || rawFacts.development_signals || { landAreaPyung: null, farPct: null, bcrPct: null, constructionCostManwon: null, expectedSalesPriceManwon: null, developmentType: null }) as any,
+        tradingSignals: (rawFacts.tradingSignals || rawFacts.trading_signals || { pricePerPyeongManwon: null, marketPriceManwon: null, holdingPeriodMonths: null }) as any,
+        ownerOccupiedSignals: (rawFacts.ownerOccupiedSignals || rawFacts.owner_occupied_signals || { selfUseIntent: null, currentLeaseCostManwon: null }) as any,
       },
+      investmentPosture: (parsedMemoObj.investmentPosture || parsedMemoObj.investment_posture) as any,
       detectedSensitiveFields: Array.isArray(parsedMemoObj.detectedSensitiveFields || parsedMemoObj.detected_sensitive_fields)
         ? ((parsedMemoObj.detectedSensitiveFields || parsedMemoObj.detected_sensitive_fields) as string[]).filter(f => ["exact_address", "tenant_name", "unit_rent", "seller_motivation", "negotiation_memo", "owner_identity", "buyer_identity"].includes(f)) as MemoParserOutput["detectedSensitiveFields"]
         : [],
@@ -145,6 +143,18 @@ export async function runBrokerDealCard(
         : [],
       warnings: Array.isArray(parsedMemoObj.warnings) ? parsedMemoObj.warnings as string[] : [],
     };
+  }
+
+  // Step 1.5: Address Resolution (PNU 확보)
+  let resolvedAddress: { pnu?: string; lat?: number; lng?: number } = {};
+  const addressCandidate = parsedMemo.extractedFacts.exactAddressCandidate;
+  if (addressCandidate) {
+    try {
+      const { resolveAddress } = await import('@/lib/external/address-resolver');
+      resolvedAddress = await resolveAddress(addressCandidate) || {};
+    } catch (addrErr) {
+      console.warn('[broker-deal-card] Address resolution failed:', addrErr);
+    }
   }
 
   // Step 2: Build Mini Truth using sanitized raw memo
@@ -184,6 +194,14 @@ export async function runBrokerDealCard(
     buildingTruth = {
       areaSignal: String(parsedTruthObj.areaSignal || parsedTruthObj.area_signal || parsedMemo.extractedFacts.region || ""),
       assetType: String(parsedTruthObj.assetType || parsedTruthObj.asset_type || parsedMemo.extractedFacts.assetType || ""),
+      askingPriceManwon: parsedTruthObj.askingPriceManwon != null
+        ? Number(parsedTruthObj.askingPriceManwon)
+        : (parsedTruthObj.asking_price_manwon != null ? Number(parsedTruthObj.asking_price_manwon) : null),
+      investmentPosture: (['income','owner_occupied','development','operating','trading'].includes(
+          String(parsedTruthObj.investmentPosture || parsedTruthObj.investment_posture || '')
+        ))
+        ? String(parsedTruthObj.investmentPosture || parsedTruthObj.investment_posture) as any
+        : undefined,
       priceBand: parsedTruthObj.priceBand != null ? String(parsedTruthObj.priceBand) : (parsedTruthObj.price_band != null ? String(parsedTruthObj.price_band) : null),
       sizeSignal: parsedTruthObj.sizeSignal != null ? String(parsedTruthObj.sizeSignal) : (parsedTruthObj.size_signal != null ? String(parsedTruthObj.size_signal) : null),
       currentUseSignal: parsedTruthObj.currentUseSignal != null ? String(parsedTruthObj.currentUseSignal) : (parsedTruthObj.current_use_signal != null ? String(parsedTruthObj.current_use_signal) : null),

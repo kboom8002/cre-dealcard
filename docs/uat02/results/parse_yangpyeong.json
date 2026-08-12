@@ -1,0 +1,100 @@
+{
+  "ok": true,
+  "data": {
+    "asset_type": "업무시설",
+    "area_signal": "영등포구 양평동4가 일대",
+    "price_band": "매매가 250억원",
+    "size_signal": "3필지 합계 518.7㎡",
+    "vacancy_signal": "공실률 및 공실 현황 미기재",
+    "current_use_signal": "업무시설",
+    "lease_signal": "보증금 및 월 임대료 정보 기재",
+    "detected_sensitive_fields": [
+      "exact_address",
+      "unit_rent"
+    ],
+    "ambiguous_fields": [
+      "임대료가 전체 건물 기준인지 호실별 기준인지 불명확함",
+      "임차인 구성 및 임대차 잔여기간 미기재",
+      "공실 여부와 공실률 미기재",
+      "건축물대장상 세부 용도 및 위반건축물 여부 미확인"
+    ],
+    "warnings": [
+      "정확한 지번과 필지 번호는 개인정보·민감 정보 보호를 위해 권역 및 일대 단위로 비식별화함",
+      "호실별 임대료는 민감 정보 보호를 위해 삭제함",
+      "매매가, 임대차 조건, 준공연도, 용도 및 면적은 건축물대장·등기부·임대차계약서 등 원자료 확인이 필요함",
+      "현장 메모만으로 수익률, 공실률, 임대차 안정성 또는 매매 적정성을 확정할 수 없음"
+    ],
+    "prompt_version": "prompt_memo_parser_v1",
+    "model": "gpt-5.6-luna",
+    "memo_result": {
+      "extracted": [
+        {
+          "slotKey": "asset_type",
+          "value": "업무시설",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "area_signal",
+          "value": "영등포구 양평동4가 일대",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "price_band",
+          "value": "매매가 250억원",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "size_signal",
+          "value": "3필지 합계 518.7㎡",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "vacancy_signal",
+          "value": "공실률 및 공실 현황 미기재",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "current_use_signal",
+          "value": "업무시설",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        },
+        {
+          "slotKey": "lease_signal",
+          "value": "보증금 및 월 임대료 정보 기재",
+          "confidence": 0.85,
+          "sourceSpan": [
+            0,
+            0
+          ]
+        }
+      ],
+      "ambiguous": [],
+      "unmatched": []
+    },
+    "grade_upgrade_actions": []
+  }
+}

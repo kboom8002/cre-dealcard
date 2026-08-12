@@ -16,6 +16,13 @@ interface CreateMobileImButtonProps {
   existingPhotoUrls?: string[];
   initialAddress?: string;
   currentGrade?: string;
+  prefillAskingPrice?: number;
+  prefillLoanAmount?: number;
+  prefillTotalDeposit?: number;
+  prefillMonthlyRent?: number;
+  prefillMgmtFee?: number;
+  prefillVacancyPct?: number;
+  initialInvestmentPosture?: string;
 }
 
 export function CreateMobileImButton({
@@ -31,6 +38,13 @@ export function CreateMobileImButton({
   existingPhotoUrls,
   initialAddress,
   currentGrade,
+  prefillAskingPrice,
+  prefillLoanAmount,
+  prefillTotalDeposit,
+  prefillMonthlyRent,
+  prefillMgmtFee,
+  prefillVacancyPct,
+  initialInvestmentPosture = "income",
 }: CreateMobileImButtonProps) {
   const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [stage, setStage] = useState<'basic' | 'pro'>('basic');
@@ -83,6 +97,13 @@ export function CreateMobileImButton({
         initialStage={stage}
         targetTier={stage}
         currentDataGrade={currentGrade}
+        prefillAskingPrice={prefillAskingPrice}
+        prefillLoanAmount={prefillLoanAmount}
+        prefillTotalDeposit={prefillTotalDeposit}
+        prefillMonthlyRent={prefillMonthlyRent}
+        prefillMgmtFee={prefillMgmtFee}
+        prefillVacancyPct={prefillVacancyPct}
+        initialInvestmentPosture={initialInvestmentPosture}
       />
     </>
   );

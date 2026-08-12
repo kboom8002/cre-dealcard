@@ -152,17 +152,17 @@ export function checkDataAbsence(
     }
   }
 
-  // 보증금 (owner_occupied, development는 해당 없음)
+  // 보증금 (owner_occupied, development, trading는 해당 없음)
   if (input.total_deposit_manwon === undefined || input.total_deposit_manwon === null) {
-    if (posture !== 'owner_occupied' && posture !== 'development') {
+    if (posture !== 'owner_occupied' && posture !== 'development' && posture !== 'trading') {
       const policy = ABSENCE_POLICIES.find(p => p.fieldKey === 'total_deposit')!;
       missingFields.push(policy);
     }
   }
 
-  // 층별 임대차 (owner_occupied, development는 해당 없음)
+  // 층별 임대차 (owner_occupied, development, trading는 해당 없음)
   if (!input.floor_leases || input.floor_leases.length === 0) {
-    if (posture !== 'owner_occupied' && posture !== 'development') {
+    if (posture !== 'owner_occupied' && posture !== 'development' && posture !== 'trading') {
       const policy = ABSENCE_POLICIES.find(p => p.fieldKey === 'rent_roll')!;
       missingFields.push(policy);
     }

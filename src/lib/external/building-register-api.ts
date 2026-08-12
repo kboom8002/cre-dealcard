@@ -1,6 +1,6 @@
 // src/lib/external/building-register-api.ts
 // 국토교통부 건축물대장 API — 연면적, 대지면적, 층수, 구조, 승인일 조회
-// API 키 없을 때 결정적 fallback 데이터 반환 (seed 기반)
+// API 키 없거나 요청 실패 시 null 반환 (graceful degradation)
 import { fetchWithRetry } from './fetch-with-retry';
 
 export interface BuildingRegisterData {
@@ -37,8 +37,8 @@ export async function fetchBuildingRegister(
   if (apiKey && apiKey !== "") {
     // 두 엔드포인트 시도: HubService(신규) → v2(기존) fallback
     const endpoints = [
-      `https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo?ServiceKey=${apiKey}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=0&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`,
-      `https://apis.data.go.kr/1613000/BldRgstService_v2/getBrTitleInfo?ServiceKey=${apiKey}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`,
+      `https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=0&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`,
+      `https://apis.data.go.kr/1613000/BldRgstService_v2/getBrTitleInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`,
     ];
 
     for (const url of endpoints) {
@@ -94,8 +94,8 @@ export async function fetchBuildingRecap(
 
   if (apiKey && apiKey !== "") {
     const endpoints = [
-      `https://apis.data.go.kr/1613000/BldRgstHubService/getBrRecapTitleInfo?ServiceKey=${apiKey}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=0&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`,
-      `https://apis.data.go.kr/1613000/BldRgstService_v2/getBrRecapTitleInfo?ServiceKey=${apiKey}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`,
+      `https://apis.data.go.kr/1613000/BldRgstHubService/getBrRecapTitleInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=0&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`,
+      `https://apis.data.go.kr/1613000/BldRgstService_v2/getBrRecapTitleInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&numOfRows=1&pageNo=1&_type=json`,
     ];
 
     for (const url of endpoints) {

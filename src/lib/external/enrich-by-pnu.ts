@@ -22,7 +22,9 @@ const CACHE_TTL_DAYS = 30;
 export async function enrichBuildingDataCore(
   resolvedAddress: ResolvedAddress,
   rawAddress: string,
-  buildingSsotLiteId: string
+  buildingSsotLiteId: string,
+  cachedData?: any,
+  staleSources?: string[]
 ): Promise<ExternalDataEnrichmentResult> {
   const errors: { api: string; message: string }[] = [];
   const { sigunguCd, bjdongCd, bun, ji, pnu, lat, lng } = resolvedAddress;
@@ -39,60 +41,44 @@ export async function enrichBuildingDataCore(
 
   await Promise.all([
     (async () => {
-      try {
-        buildingRegister = await fetchBuildingRegister(sigunguCd, bjdongCd, bun, ji);
-      } catch (e: unknown) {
-        errors.push({ api: "building-register", message: e instanceof Error ? e.message : "Unknown error" });
-      }
+      if (cachedData && !staleSources?.includes('buildingRegister')) { buildingRegister = cachedData.building_register; return; }
+      try { buildingRegister = await fetchBuildingRegister(sigunguCd, bjdongCd, bun, ji); }
+      catch (e: unknown) { errors.push({ api: "building-register", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      try {
-        landPrice = await fetchLandPrice(pnu);
-      } catch (e: unknown) {
-        errors.push({ api: "land-price", message: e instanceof Error ? e.message : "Unknown error" });
-      }
+      if (cachedData && !staleSources?.includes('landPrice')) { landPrice = cachedData.official_land_price; return; }
+      try { landPrice = await fetchLandPrice(pnu); }
+      catch (e: unknown) { errors.push({ api: "land-price", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      try {
-        landUsePlan = await fetchLandUsePlan(pnu);
-      } catch (e: unknown) {
-        errors.push({ api: "land-use", message: e instanceof Error ? e.message : "Unknown error" });
-      }
+      if (cachedData && !staleSources?.includes('landUse')) { landUsePlan = cachedData.land_use_plan; return; }
+      try { landUsePlan = await fetchLandUsePlan(pnu); }
+      catch (e: unknown) { errors.push({ api: "land-use", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      try {
-        comparableTransactions = await fetchComparableTransactions(sigunguCd);
-      } catch (e: unknown) {
-        errors.push({ api: "real-transaction", message: e instanceof Error ? e.message : "Unknown error" });
-      }
+      if (cachedData && !staleSources?.includes('comparableTransactions')) { comparableTransactions = cachedData.comparable_transactions || []; return; }
+      try { comparableTransactions = await fetchComparableTransactions(sigunguCd); }
+      catch (e: unknown) { errors.push({ api: "real-transaction", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      try {
-        locationPoi = await fetchLocationPoi(lat, lng);
-      } catch (e: unknown) {
-        errors.push({ api: "kakao-map-local", message: e instanceof Error ? e.message : "Unknown error" });
-      }
+      if (cachedData && !staleSources?.includes('locationPoi')) { locationPoi = cachedData.location_poi; return; }
+      try { locationPoi = await fetchLocationPoi(lat, lng); }
+      catch (e: unknown) { errors.push({ api: "kakao-map-local", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      try {
-        registryData = await fetchRegistryData(rawAddress, pnu);
-      } catch (e: unknown) {
-        errors.push({ api: "registry", message: e instanceof Error ? e.message : "Unknown error" });
-      }
+      if (cachedData && !staleSources?.includes('registry')) { registryData = cachedData.registry_data; return; }
+      try { registryData = await fetchRegistryData(rawAddress, pnu); }
+      catch (e: unknown) { errors.push({ api: "registry", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      try {
-        recapData = await fetchBuildingRecap(sigunguCd, bjdongCd, bun, ji);
-      } catch (e: unknown) {
-        errors.push({ api: "building-recap", message: e instanceof Error ? e.message : "Unknown error" });
-      }
+      if (cachedData && !staleSources?.includes('buildingRegister')) { return; }
+      try { recapData = await fetchBuildingRecap(sigunguCd, bjdongCd, bun, ji); }
+      catch (e: unknown) { errors.push({ api: "building-recap", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      try {
-        if (pnu) commercialDistrict = await fetchCommercialDistrictFull(createServiceClient(), pnu);
-      } catch (e: unknown) {
-        errors.push({ api: "semas-commercial", message: e instanceof Error ? e.message : "Unknown error" });
-      }
+      if (cachedData && !staleSources?.includes('commercialDistrict')) { commercialDistrict = cachedData.commercial_district; return; }
+      try { if (pnu) commercialDistrict = await fetchCommercialDistrictFull(createServiceClient(), pnu); }
+      catch (e: unknown) { errors.push({ api: "semas-commercial", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
   ]);
 
@@ -192,6 +178,11 @@ export async function enrichBuildingDataByPNU(
   rawAddress: string,
   buildingSsotLiteId: string
 ): Promise<ExternalDataEnrichmentResult | null> {
+  // 유효하지 않은 PNU(길이 불량 등) 방어 로직 추가
+  if (!pnu || pnu.length < 19) {
+    console.warn(`[enrich-by-pnu] Invalid PNU length: ${pnu} for address ${rawAddress}`);
+    return null;
+  }
   // ─── 캐시 확인
   try {
     const supabase = createServiceClient();
@@ -210,6 +201,18 @@ export async function enrichBuildingDataByPNU(
 
       if (staleSourcesInfo.length > 0) {
         console.info(`[enrich-by-pnu] ${staleSourcesInfo.length} sources stale:`, staleSourcesInfo.map(s => s.source).join(', '));
+        const staleSources = staleSourcesInfo.map(s => s.source);
+        return await enrichBuildingDataCore(
+          {
+            pnu, legalDongCode: pnu.substring(0, 10), sigunguCd: pnu.substring(0, 5), bjdongCd: pnu.substring(5, 10),
+            bun: pnu.substring(11, 15) || "0000", ji: pnu.substring(15, 19) || "0000",
+            roadAddress: rawAddress, jibunAddress: rawAddress, lat: cached.latitude || 37.50085, lng: cached.longitude || 127.03698, buildingMgtNo: pnu + "000000"
+          },
+          rawAddress,
+          buildingSsotLiteId,
+          cached,
+          staleSources
+        );
       } else {
         console.info(`[external-data] Cache hit (${Math.round(cacheAge / 86400000)}d old)`);
         return reconstructFromCache(cached);

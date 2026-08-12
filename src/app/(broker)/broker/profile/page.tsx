@@ -354,9 +354,9 @@ export default function BrokerProfilePage() {
         }),
       });
       if (!res.ok) throw new Error('AI 자기소개 생성에 실패했습니다.');
-      const { data } = await res.json();
-      if (data?.bio) {
-        setBio(data.bio);
+      const json = await res.json();
+      if (json.bio) {
+        setBio(json.bio);
         // 즉시 프로필 저장 (Auto-save)
         const token = await getToken();
         await fetch('/api/broker/profile', {
@@ -371,7 +371,7 @@ export default function BrokerProfilePage() {
             company,
             specialty_regions: selectedRegions,
             specialty_assets: selectedAssets,
-            bio: data.bio, // 새로 생성된 바이오 반영
+            bio: json.bio, // 새로 생성된 바이오 반영
             license_number: licenseNumber,
             office_reg_number: officeRegNumber,
             association,

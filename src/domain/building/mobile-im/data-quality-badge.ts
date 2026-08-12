@@ -88,8 +88,27 @@ export function computeDataQualityBadge(params: {
     if (params.hasAddress && params.hasPublicData && (hasRev || params.hasAskingPrice)) {
       return { tier: 'partial', label: 'B등급 — 운영 현황 분석', emoji: '🟡', score, missingItems };
     }
+  } else if (posture === 'trading') {
+    // 단기매매형: 매각가, 비교사례(시장비교)가 핵심
+    if (params.hasAskingPrice) score += 25;
+    else missingItems.push('매각 희망가');
+
+    if (params.hasPublicData) score += 15;
+    else missingItems.push('공공데이터 (비교사례용)');
+
+    if (params.hasPhotos) score += 10;
+    else missingItems.push('건물 사진');
+
+    if (params.hasMonthlyRent) score += 5;
+
+    if (params.hasAddress && params.hasPublicData && params.hasAskingPrice) {
+      return { tier: 'verified', label: 'A등급 — 비교사례 분석 가능', emoji: '🟢', score, missingItems };
+    }
+    if (params.hasAddress && params.hasPublicData) {
+      return { tier: 'partial', label: 'B등급 — 시장 포지셔닝 분석', emoji: '🟡', score, missingItems };
+    }
   } else {
-    // income, trading: 소득형/매매형 (기존 재무 중심)
+    // income: 소득형 (기존 재무 중심)
     if (params.hasMonthlyRent) score += 15;
     else missingItems.push('월 임대료 총액');
 
@@ -136,13 +155,13 @@ export function isProEligible(grade: DataGrade): boolean {
   return grade === 'A' || grade === 'B';
 }
 
-/** 등급에 따른 Basic IM 최소 필수 데이터 확인 */
 export function hasMinimumBasicData(
   params: {
     hasAskingPrice?: boolean;
     hasMonthlyRent?: boolean;
     hasAddress?: boolean;
     hasPublicData?: boolean;
+    hasMonthlyRevenue?: boolean;
   },
   posture: InvestmentPosture = 'income'
 ): boolean {
@@ -154,7 +173,10 @@ export function hasMinimumBasicData(
     // 사옥형은 매각가 또는 주소가 있으면 가능
     return !!params.hasAskingPrice || !!params.hasAddress;
   }
-  // income, operating, trading: 매각가 또는 월세 중 하나만 있어도 Basic 허용
+  if (posture === 'operating') {
+    return !!params.hasAskingPrice || !!params.hasMonthlyRent || !!params.hasMonthlyRevenue;
+  }
+  // income, trading: 매각가 또는 월세 중 하나만 있어도 Basic 허용
   return !!params.hasAskingPrice || !!params.hasMonthlyRent;
 }
 
@@ -166,5 +188,13 @@ export function tierToGrade(tier: DataQualityTier): DataGrade {
     case 'reference': return 'C';
     case 'draft': return 'D';
   }
+}
+
+export function getDataFreshnessWarning(dataFetchedAt?: string): string | null {
+  if (!dataFetchedAt) return '⚠️ 데이터 수집 일시 미확인';
+  const daysSince = (Date.now() - new Date(dataFetchedAt).getTime()) / (1000 * 60 * 60 * 24);
+  if (daysSince > 30) return '🔴 데이터 갱신 필요 (30일 초과)';
+  if (daysSince > 7) return '🟡 데이터 갱신 권장 (7일 초과)';
+  return null;
 }
 

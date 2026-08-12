@@ -12,6 +12,7 @@ import { after } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
+import { persistLeaseUnits } from "@/domain/building/mobile-im/lease-adapter";
 
 export const maxDuration = 300; // Vercel Pro: 최대 300초
 
@@ -61,6 +62,14 @@ export async function POST(req: NextRequest) {
       asking_price_manwon: body.asking_price_manwon,
       floor_leases: body.floor_leases,
       logistics: body.logistics,
+      monthly_revenue_manwon: body.monthly_revenue_manwon,
+      hospitalitySpec: body.hospitalitySpec,
+      developmentSpec: body.developmentSpec,
+      vacateSpec: body.vacateSpec,
+      permitSpec: body.permitSpec,
+      occupancySpec: body.occupancySpec,
+      sectionalSpec: body.sectionalSpec,
+      residentialSpec: body.residentialSpec,
     };
     hospitalitySpecInput = body.hospitalitySpec ?? null;
     loanStatusInput = body.loan_status ?? null;
@@ -110,6 +119,9 @@ export async function POST(req: NextRequest) {
         skipApproval,
         directData,
         tier,
+        identity: investmentPostureInput
+          ? { investmentPosture: investmentPostureInput }
+          : undefined,
       });
 
       if (result.ok) {
@@ -129,6 +141,10 @@ export async function POST(req: NextRequest) {
 
         // ── Phase B: SSoT 역류 — 바텀시트 데이터를 building_ssot_lite에 영속화 ──
         try {
+          if (supplemental.floor_leases && supplemental.floor_leases.length > 0) {
+            await persistLeaseUnits(buildingId, supplemental.floor_leases);
+          }
+
           const { data: existing } = await bgSupabase
             .from("building_ssot_lite")
             .select("layers, lease_summary")

@@ -25,6 +25,17 @@ export async function fetchWithRetry(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+      // 4xx 클라이언트 에러는 재시도 무의미 → 즉시 반환
+      if (res.status >= 400 && res.status < 500) {
+        return res;
+      }
+      // 5xx 서버 에러는 재시도 대상
+      if (res.status >= 500 && attempt < maxRetries) {
+        const delay = baseDelayMs * Math.pow(2, attempt);
+        console.warn(`[fetch-with-retry] ${res.status} error, retrying in ${delay}ms (${attempt + 1}/${maxRetries})`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
       return res;
     } catch (err: unknown) {
       lastError = err instanceof Error ? err : new Error(String(err));

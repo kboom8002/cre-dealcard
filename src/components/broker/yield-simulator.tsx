@@ -135,7 +135,7 @@ export function YieldSimulator({
               <div className="h-[150px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart 
-                    data={results.dcf10Year.sensitivityMatrix.filter(m => m.exitCapRate === results.dcf10Year!.sensitivityMatrix[4].exitCapRate).map(m => ({
+                    data={results.dcf10Year.sensitivityMatrix.filter(m => m.rentGrowthRate === results.dcf10Year!.sensitivityMatrix[4].rentGrowthRate).map(m => ({
                       rate: (m.discountRate * 100).toFixed(1) + '%',
                       npv: Math.round(m.npv / 1e8)
                     }))} 
@@ -147,7 +147,7 @@ export function YieldSimulator({
                     <Tooltip cursor={{ fill: '#f3f4f6' }} contentStyle={{ fontSize: 12, borderRadius: '8px' }} />
                     <Bar dataKey="npv" fill="#10b981" radius={[4, 4, 0, 0]}>
                       {
-                        results.dcf10Year.sensitivityMatrix.filter(m => m.exitCapRate === results.dcf10Year!.sensitivityMatrix[4].exitCapRate).map((entry, index) => (
+                        results.dcf10Year.sensitivityMatrix.filter(m => m.rentGrowthRate === results.dcf10Year!.sensitivityMatrix[4].rentGrowthRate).map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.npv >= 0 ? '#10b981' : '#ef4444'} />
                         ))
                       }

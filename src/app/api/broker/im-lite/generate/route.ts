@@ -31,7 +31,11 @@ export async function POST(req: NextRequest) {
     buildingId = body.building_id;
     skipApproval = body.skip_approval === true;
     directData = body.direct_data ?? null;
-    identity = body.identity;
+    identity = body.identity || {};
+    const investmentPosture = body.investment_posture ?? body.investmentPosture ?? identity?.investmentPosture;
+    if (investmentPosture) {
+      identity = { ...identity, investmentPosture };
+    }
     tier = body.tier || 'basic';
     supplemental = {
       monthly_rent_total_krw: body.monthly_rent_total_krw,

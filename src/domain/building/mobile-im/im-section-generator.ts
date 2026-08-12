@@ -111,16 +111,32 @@ export async function generateSingleSection(
 
   const sectionProvenance = getSectionProvenance(sectionType, ctx.provenanceMap);
 
-  // ── income_analysis 전처리: 재무 계산 ──
+  // ── 포스처별 재무 계산 라우팅 ──
   let sectionMarketIndicators: MarketIndicators | undefined;
-  if (
-    sectionType === "income_analysis" &&
-    supplemental.monthly_rent_total_krw
-  ) {
+  const posture = (ctx.sectionPlan?.posture ?? 'income') as any;
+  const shouldCalculateFinancials = (() => {
+    switch (posture) {
+      case 'income':
+        return sectionType === "income_analysis" && !!supplemental.monthly_rent_total_krw;
+      case 'development':
+        return sectionType === "development_feasibility";
+      case 'operating':
+        return sectionType === "gop_analysis";
+      case 'owner_occupied':
+        return sectionType === "cost_comparison";
+      case 'trading':
+        return sectionType === "comparable_analysis";
+      default:
+        return sectionType === "income_analysis";
+    }
+  })();
+
+  if (shouldCalculateFinancials) {
     if (ctx.purchasePriceKrw > 0) {
       try {
         const fin = calculateFinancials({
-          monthlyRentKrw: supplemental.monthly_rent_total_krw,
+          posture,
+          monthlyRentKrw: supplemental.monthly_rent_total_krw ?? 0,
           purchasePriceKrw: ctx.purchasePriceKrw,
           landPricePerSqm: externalData?.landPrice?.pricePerSqm,
           totalAreaSqm: ctx.totalAreaSqm || undefined,
@@ -139,7 +155,7 @@ export async function generateSingleSection(
         // 무시
       }
     } else {
-      const mRent = supplemental.monthly_rent_total_krw;
+      const mRent = supplemental.monthly_rent_total_krw ?? 0;
       const annualGross = mRent * 12;
       const vPct = supplemental.vacancy_pct ?? ctx.vacancyPct;
       const effectiveGross = annualGross * (1 - vPct / 100);
@@ -189,6 +205,9 @@ export async function generateSingleSection(
       sectionIndex > 0 ? sectionCtx : undefined,
       ctx.ragCtx,
       fewShotBlock,
+      undefined,
+      posture,
+      ctx.archetype ?? undefined,
     );
 
     const registry = CrePromptRegistry.getInstance();
@@ -292,6 +311,7 @@ export async function generateSingleSection(
       supplemental,
       externalData,
       buildingSsotLite,
+      posture,
     );
   }
 
@@ -325,6 +345,7 @@ export async function generateSingleSection(
           supplemental,
           externalData,
           buildingSsotLite,
+          posture,
         );
       }
     } catch (gateErr) {
@@ -368,8 +389,12 @@ export async function generateSingleSection(
   try {
     const newFacts = extractKeyFacts(markdown, sectionType);
     sectionCtx.keyFacts.push(...newFacts);
-    sectionCtx.sectionSummaries[sectionType] = markdown.slice(0, 200);
-    updateNumericalAnchors(sectionCtx.numericalAnchors, markdown, sectionType);
+    if (sectionCtx.sectionSummaries) {
+      sectionCtx.sectionSummaries[sectionType] = markdown.slice(0, 200);
+    }
+    if (sectionCtx.numericalAnchors) {
+      updateNumericalAnchors(sectionCtx.numericalAnchors as any, markdown, sectionType);
+    }
   } catch {
     // 맥락 추출 실패 무시
   }

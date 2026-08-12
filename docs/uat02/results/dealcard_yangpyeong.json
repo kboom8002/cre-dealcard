@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "data": {
+    "buildingId": "6b7dce3f-30cc-4fd9-b8e5-53cac6d7ea48",
+    "signalCardId": "43b4ed80-016b-4600-91c8-731106e506b5",
+    "teaserDocId": "9f82ad7d-410b-44d1-9d81-e04721d0f719",
+    "hiddenFields": [
+      "exact_address"
+    ]
+  },
+  "archetypes": [
+    "STABLE_INCOME"
+  ],
+  "constraintWarnings": []
+}

@@ -58,18 +58,36 @@ export const MEMO_PARSER_USER_TEMPLATE = `다음 중개사 메모를 구조화�
 
 ## 지시사항
 Required output JSON keys:
-- "extractedFacts": { "region": string, "exactAddressCandidate": string, "assetType": string, "priceText": string, "sizeText": string, "currentUse": string, "leaseSignal": string, "vacancySignal": string, "tenantNames": array, "unitRentTexts": array, "sellerMotivationText": string, "brokerNotes": array, "hospitalitySignals": { "roomCount": number|null, "adr": number|null, "occupancyRate": number|null, "gopMargin": number|null, "operatingModel": string|null } }
+- "extractedFacts": { "region": string, "exactAddressCandidate": string, "assetType": string, "priceText": string, "sizeText": string, "currentUse": string, "leaseSignal": string, "vacancySignal": string, "tenantNames": array, "unitRentTexts": array, "sellerMotivationText": string, "brokerNotes": array, "hospitalitySignals": object, "developmentSignals": object, "tradingSignals": object, "ownerOccupiedSignals": object }
 - "detectedSensitiveFields": 민감 정보 필드 배열 (반드시 다음 중 선택: "exact_address", "tenant_name", "unit_rent", "seller_motivation", "negotiation_memo", "owner_identity", "buyer_identity")
 - "ambiguousFields": 모호한 정보 배열
 - "warnings": 주의사항 배열
 
-[운영형 매물 키워드 추출]
-다음 키워드가 감지되면 extractedFacts.hospitalitySignals에 추출하세요:
+[포스처별 키워드 추출]
+
+● 운영형(operating) — extractedFacts.hospitalitySignals에 추출:
 - "객실", "룸", "실" + 숫자 → roomCount
 - "ADR", "일평균", "객단가" + 숫자 → adr (만원)
 - "OCC", "점유율", "가동률" + 숫자 → occupancyRate (%)
 - "GOP", "영업이익률" + 숫자 → gopMargin (%)
 - "위탁운영", "직영", "프랜차이즈", "임대운영" → operatingModel
+
+● 개발형(development) — extractedFacts.developmentSignals에 추출:
+- "대지면적", "토지면적", "부지" + 숫자 → landAreaPyung (평)
+- "용적률" + 숫자% → farPct
+- "건폐율" + 숫자% → bcrPct
+- "공사비", "건축비", "시공비" + 숫자 → constructionCostManwon (만원)
+- "분양가", "예상 분양" + 숫자 → expectedSalesPriceManwon (만원)
+- "신축", "철거 후 신축", "재건축" → developmentType
+
+● 매매형(trading) — extractedFacts.tradingSignals에 추출:
+- "평당가", "평단가" + 숫자 → pricePerPyeongManwon (만원)
+- "시세", "실거래" + 숫자 → marketPriceManwon (만원)
+- "보유기간", "보유" + 숫자 → holdingPeriodMonths (개월)
+
+● 자가사용형(owner_occupied) — extractedFacts.ownerOccupiedSignals에 추출:
+- "자가 사용", "사옥", "본사", "사무실 이전" → selfUseIntent (true)
+- "현 임차료", "현재 월세" + 숫자 → currentLeaseCostManwon (만원)
 
 JSON으로 응답해주세요.`;
 
@@ -200,8 +218,13 @@ JSON 키별 작성 요령:
 - "title": 매수자 관점 투자 매력 중심 제목. 25자 이내.
   · 형식: "{핵심 투자 매력} · {입지 장점} · {권역} {자산유형}"
   · 매력 우선순위: ① 임차 안정성/수익률 → ② 입지 프리미엄(코너, 대로변, 역세권) → ③ 밸류애드 여력
+  · 개발형: ① 용적률 여유/개발 가능성 → ② 입지 프리미엄 → ③ 토지 단가 경쟁력
+  · 사옥형: ① 자가 사용 적합성(층고/주차) → ② 교통 접근성 → ③ 임차 대비 비용절감
+  · 매매형: ① 시세 대비 할인율 → ② 거래 가능성(매도자 사정) → ③ 단기 시세차익
   · BAD 예시: "신사역 인근 강남대로 이면권역 상업용 건물 · 코너" (지역명 나열, 매력 부재)
   · GOOD 예시: "의원 안정임차 · 대로변 코너 · 역삼권 근생빌딩" (매력→입지→유형)
+  · GOOD 예시 (개발형): "용적률 300% 미달 · 대로변 코너 · 성수역 3분 나대지"
+  · GOOD 예시 (사옥형): "전층 사용 가능 · 주차 20대 · 판교역 도보권"
   · "노후", "추정", "또는", "계열로" 단어 절대 사용 금지.
 - "shortSummary": 2~3문장. 건물 기본 스펙(권역, 규모, 용도)과 핵심 매력을 간결하게. 번역체 금지.
 - "dealPoints": 실제 장점 3~5개. 공실/리스업을 장점으로 넣지 마세요. 입지·임차안정성·건물상태·주차·가시성 등 사실 기반.

@@ -28,6 +28,7 @@ export const ConfidenceLevelEnum = z.enum([
 export const BuildingMiniTruthOutputSchema = z.object({
   areaSignal: z.string(),
   assetType: z.string(),
+  askingPriceManwon: z.number().min(0, "가격은 0 이상이어야 합니다").nullable().default(null),
   priceBand: z.string().nullable().default(null),
   sizeSignal: z.string().nullable().default(null),
   currentUseSignal: z.string().nullable().default(null),
