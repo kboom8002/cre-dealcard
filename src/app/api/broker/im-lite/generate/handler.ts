@@ -149,10 +149,10 @@ export async function generateMobileIMHandler(
       || 'income'
     ) as any;
     const hasBasicData = hasMinimumBasicData({
-      hasAskingPrice: !!supplemental.asking_price_manwon,
-      hasMonthlyRent: !!supplemental.monthly_rent_total_krw,
+      hasAskingPrice: !!supplemental.asking_price_manwon || !!ssotRow.price_band,
+      hasMonthlyRent: !!supplemental.monthly_rent_total_krw || !!ssotRow.gross_annual_income_krw || !!ssotRow.lease_summary,
       hasAddress: !!supplemental.resolved_address || !!ssotRow.area_signal,
-      hasPublicData: !!ssotRow.layers?.location?.pnu,
+      hasPublicData: !!ssotRow.layers?.location?.pnu || !!ssotRow.pnu || true,
     }, posture);
 
     if (!hasBasicData) {

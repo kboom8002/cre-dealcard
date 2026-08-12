@@ -94,7 +94,7 @@ export async function GET(
 
     // ── 데이터 완전성 게이트 ──
     const dataCompleteness = body.dataCompleteness;
-    if (dataCompleteness && !dataCompleteness.pptxExportAllowed) {
+    if (dataCompleteness && !dataCompleteness.pptxExportAllowed && tier === 'pro') {
       return NextResponse.json({
         error: 'PPTX 다운로드 불가',
         reason: '건축물대장 등 필수 공공데이터가 조회되지 않았습니다.',

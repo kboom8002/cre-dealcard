@@ -2,25 +2,24 @@
   "ok": true,
   "data": {
     "asset_type": "호텔",
-    "area_signal": "이대역·신촌 대학가 권역",
-    "price_band": "매각가 300억",
+    "area_signal": "이대역권역·신촌 대학가",
+    "price_band": "매각 300억",
     "size_signal": "94실",
-    "vacancy_signal": "확인된 내용 없음",
-    "current_use_signal": "호텔",
-    "lease_signal": "확인된 내용 없음",
+    "vacancy_signal": "확인된 공실 정보 없음",
+    "current_use_signal": "호텔 운영",
+    "lease_signal": "확인된 임대차 정보 없음",
     "detected_sensitive_fields": [],
     "ambiguous_fields": [
       "정확한 주소",
-      "객실 운영 방식",
-      "임대차 현황",
-      "공실 현황",
+      "임대차 및 운영 형태",
+      "공실률",
       "객실 운영지표",
-      "매각 조건 세부사항"
+      "매각 조건 및 거래 구조"
     ],
     "warnings": [
-      "매각가 300억과 객실당 3.19억은 메모 기재값이며 권리관계, 재무자료 및 실사 확인이 필요함",
-      "호텔의 운영 주체, 임대운영 여부 및 위탁운영 여부가 확인되지 않음",
-      "객실 수 외 대지면적, 연면적, 준공연도, 건축물대장 등 주요 물건 정보가 확인되지 않음"
+      "티저 수준의 정보로 매각가와 객실 수 외 세부 실사 자료가 확인되지 않았습니다.",
+      "정확한 주소, 임대차 현황, 공실률, 운영수익 및 비용 자료는 별도 확인이 필요합니다.",
+      "객실당 매각가 3.19억은 메모에 기재된 산술 정보이며 적정 가격을 의미하지 않습니다."
     ],
     "prompt_version": "prompt_memo_parser_v1",
     "model": "gpt-5.6-luna",
@@ -37,7 +36,7 @@
         },
         {
           "slotKey": "area_signal",
-          "value": "이대역·신촌 대학가 권역",
+          "value": "이대역권역·신촌 대학가",
           "confidence": 0.85,
           "sourceSpan": [
             0,
@@ -46,7 +45,7 @@
         },
         {
           "slotKey": "price_band",
-          "value": "매각가 300억",
+          "value": "매각 300억",
           "confidence": 0.85,
           "sourceSpan": [
             0,
@@ -64,7 +63,7 @@
         },
         {
           "slotKey": "vacancy_signal",
-          "value": "확인된 내용 없음",
+          "value": "확인된 공실 정보 없음",
           "confidence": 0.85,
           "sourceSpan": [
             0,
@@ -73,7 +72,7 @@
         },
         {
           "slotKey": "current_use_signal",
-          "value": "호텔",
+          "value": "호텔 운영",
           "confidence": 0.85,
           "sourceSpan": [
             0,
@@ -82,7 +81,7 @@
         },
         {
           "slotKey": "lease_signal",
-          "value": "확인된 내용 없음",
+          "value": "확인된 임대차 정보 없음",
           "confidence": 0.85,
           "sourceSpan": [
             0,

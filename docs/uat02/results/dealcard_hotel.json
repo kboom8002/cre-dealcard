@@ -1,20 +1,13 @@
 {
   "ok": true,
   "data": {
-    "buildingId": "aae2e5d0-cc13-47a3-a4a6-c2260218ce5d",
-    "signalCardId": "237b9eec-a6c0-4759-9fc1-be33b9c5d054",
-    "teaserDocId": "0d582cc2-c8b8-44e6-b200-01fcf1dcb1d7",
+    "buildingId": "2c865f0f-a5ee-46ea-8ff2-64d02380b5bd",
+    "signalCardId": "8a71bec6-e7b5-4ff4-8e0e-33e8b42671d4",
+    "teaserDocId": "a8b595d2-b583-4b38-bbf6-10603ab29ed8",
     "hiddenFields": [
-      "exact_address",
-      "tenant_name",
-      "unit_rent",
-      "seller_motivation",
-      "negotiation_memo",
-      "owner_identity",
-      "buyer_identity",
-      "registry_detail",
-      "lease_contract_raw_text"
-    ]
+      "exact_address"
+    ],
+    "askingPriceKrw": 30000000000
   },
   "archetypes": [
     "STABLE_INCOME"

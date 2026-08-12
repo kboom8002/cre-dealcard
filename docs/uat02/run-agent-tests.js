@@ -205,6 +205,7 @@ async function runTests() {
         break;
       }
       if (sJson.status === 'error' || sJson.status === 'failed') {
+        console.log(`    Status: ${sJson.status}, error: ${JSON.stringify(sJson.result?.error || sJson.result || {})}`);
         break;
       }
     }

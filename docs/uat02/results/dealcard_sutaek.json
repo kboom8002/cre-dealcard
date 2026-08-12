@@ -1,12 +1,13 @@
 {
   "ok": true,
   "data": {
-    "buildingId": "25b18a10-72af-4a97-b8fa-91bc4898dcea",
-    "signalCardId": "efeba961-b79f-46e0-9a12-c0fb46da34ce",
-    "teaserDocId": "6018dd5c-fdbc-4e7d-8f95-ed6711cf916c",
+    "buildingId": "ee31c99d-791e-4838-9f14-26d5971d7988",
+    "signalCardId": "ed7bfc73-0463-4311-86b1-1fe706011533",
+    "teaserDocId": "e73052f3-1338-4d15-b478-0e5c133fe209",
     "hiddenFields": [
       "exact_address"
-    ]
+    ],
+    "askingPriceKrw": 8000000000
   },
   "archetypes": [
     "STABLE_INCOME"

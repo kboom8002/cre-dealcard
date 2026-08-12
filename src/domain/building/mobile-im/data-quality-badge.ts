@@ -176,8 +176,8 @@ export function hasMinimumBasicData(
   if (posture === 'operating') {
     return !!params.hasAskingPrice || !!params.hasMonthlyRent || !!params.hasMonthlyRevenue;
   }
-  // income, trading: 매각가 또는 월세 중 하나만 있어도 Basic 허용
-  return !!params.hasAskingPrice || !!params.hasMonthlyRent;
+  // income, trading: 매각가, 월세, 또는 주소가 있으면 Basic 허용
+  return !!params.hasAskingPrice || !!params.hasMonthlyRent || !!params.hasAddress || !!params.hasPublicData;
 }
 
 /** DataQualityTier → DataGrade 변환 */

@@ -1,9 +1,9 @@
 {
   "ok": true,
   "data": {
-    "buildingId": "a4ee06f7-be25-4861-bf5c-202418929562",
-    "signalCardId": "5df25bd6-7c16-4b24-ba0d-e4884792cbe0",
-    "teaserDocId": "8f64f316-1318-477f-9baf-dd47ed0b9baf",
+    "buildingId": "36300a3c-f4a7-4277-97d8-ee884cf5ea58",
+    "signalCardId": "ca6befbf-cfb4-49f2-a4e4-1972fb334133",
+    "teaserDocId": "10dc9ca7-639a-4ddb-a0d6-3066cb72e22d",
     "hiddenFields": [
       "exact_address",
       "tenant_name",
@@ -13,7 +13,8 @@
       "owner_identity",
       "registry_detail",
       "lease_contract_raw_text"
-    ]
+    ],
+    "askingPriceKrw": 75000000
   },
   "archetypes": [
     "STABLE_INCOME"
