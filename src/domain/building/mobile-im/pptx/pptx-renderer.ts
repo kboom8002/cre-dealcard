@@ -150,7 +150,7 @@ function addFallbackContent(slide: any, data: any, _theme: any) {
         if (line.startsWith('-') || line.startsWith('•') || line.startsWith('·')) {
           const text = stripMarkdown(line.replace(/^[-•·]\s*/, ''));
           if (!text) continue;
-          const lineH = Math.max(0.28, Math.ceil(text.length / 70) * 0.22);
+          const lineH = Math.max(0.28, Math.ceil(text.length / 50) * 0.22);
           slide.addText(text, {
             x: bodyX + 0.3, y: curY, w: bodyW - 0.3, h: lineH,
             fontFace: KR, fontSize: 10, color: C.body,
@@ -165,7 +165,7 @@ function addFallbackContent(slide: any, data: any, _theme: any) {
         if (line.startsWith('>')) {
           const text = stripMarkdown(line.replace(/^>\s*/, ''));
           if (!text) continue;
-          const lineH = Math.max(0.36, Math.ceil(text.length / 60) * 0.22);
+          const lineH = Math.max(0.36, Math.ceil(text.length / 42) * 0.22);
           slide.addShape('rect' as any, {
             x: bodyX, y: curY, w: bodyW, h: lineH + 0.12,
             fill: { color: C.brassT }, 
@@ -186,9 +186,9 @@ function addFallbackContent(slide: any, data: any, _theme: any) {
         // 일반 텍스트
         const text = stripMarkdown(line);
         if (!text || text.length < 3) continue;
-        const lineH = Math.max(0.26, Math.ceil(text.length / 70) * 0.20);
+        const lineH = Math.max(0.26, Math.ceil(text.length / 50) * 0.20);
         const runs = parseInlineMarkdown(line);
-        slide.addText(runs.map(r => ({ text: r.text, options: { ...r.options, fontFace: KR, fontSize: 10.5, color: C.body } })), {
+        slide.addText(runs.map(r => ({ text: r.text, options: { ...r.options, fontFace: KR, fontSize: 10, color: C.body } })), {
           x: bodyX, y: curY, w: bodyW, h: lineH,
           margin: 0, valign: 'top',
         });
@@ -380,6 +380,22 @@ export class MobileImPptxRenderer {
         } as any;
       }
       (dataMap['summary'] as any).heroCard = heroCard;
+
+      // I-03 fix: heroCard.stats가 비어 있으면 SSoT/body에서 자동 구성
+      if (!heroCard.stats || heroCard.stats.length === 0) {
+        const ssot = input.doc.body?.ssot_summary ?? {};
+        const autoStats: Array<{label: string; value: string; unit?: string}> = [];
+        if (ssot.price_band) autoStats.push({ label: '매각 희망가', value: ssot.price_band });
+        else if (ssot.asking_price_manwon) autoStats.push({ label: '매각 희망가', value: `${Number(ssot.asking_price_manwon).toLocaleString()}만원` });
+        if (ssot.size_signal) autoStats.push({ label: '연면적', value: ssot.size_signal });
+        if (ssot.vacancy_signal) autoStats.push({ label: '공실률', value: ssot.vacancy_signal });
+        else if (ssot.vacancy_pct != null) autoStats.push({ label: '공실률', value: `${ssot.vacancy_pct}%` });
+        if (input.grade) autoStats.push({ label: '데이터 등급', value: input.grade });
+        if (ssot.area_signal) autoStats.push({ label: '소재지', value: ssot.area_signal });
+        if (autoStats.length > 0) {
+          (dataMap['summary'] as any).metrics = autoStats;
+        }
+      }
 
       // ── 3. 아키타입별 슬라이드 생성 ──
       const slides: any[] = [];

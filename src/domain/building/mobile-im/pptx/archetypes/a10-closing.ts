@@ -34,23 +34,23 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
   
   const badges = input.data.badges || [];
   badges.forEach((b: any, i: number) => {
-    const by = 2.02 + i * 0.62;
+    const by = 2.02 + i * 0.72;
     
     // 배지 라운드 사각형
     slide.addShape('roundRect' as any, {
-      x: M, y: by, w: 1.55, h: 0.32,
+      x: M, y: by, w: 1.55, h: 0.38,
       rectRadius: 0.04,
       fill: { color: CD.block },
     });
     slide.addText(b.label || '', {
-      x: M, y: by, w: 1.55, h: 0.32,
+      x: M, y: by, w: 1.55, h: 0.38,
       align: 'center', valign: 'middle',
       fontFace: KR, fontSize: 9.5, bold: true, color: 'FFFFFF', margin: 0,
     });
     
     // 설명
     slide.addText(b.description || '', {
-      x: M + 1.72, y: by - 0.06, w: 3.90, h: 0.44,
+      x: M + 1.72, y: by - 0.02, w: 3.90, h: 0.46,
       fontFace: KR, fontSize: 10, color: CD.body, margin: 0,
       valign: 'middle',
     });

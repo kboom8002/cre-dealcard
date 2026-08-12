@@ -57,20 +57,10 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
   });
   
   if (blocks.length === 0) {
-    const placeholderBlocks = [
-      { label: '리스크 항목 1', value: '—', description: '데이터 입력 후 자동 생성됩니다' },
-      { label: '리스크 항목 2', value: '—', description: '데이터 입력 후 자동 생성됩니다' },
-      { label: '리스크 항목 3', value: '—', description: '데이터 입력 후 자동 생성됩니다' },
-    ];
-    placeholderBlocks.forEach((b, i) => {
-      const x = L.colX(i, w, gap);
-      L.card(slide, x, y, w, h, { onDark });
-      slide.addShape('rect' as any, { x, y, w, h: 0.04, fill: { color: C.brass } });
-      slide.addText(b.label, { x: x+0.2, y: y+0.2, w: w-0.4, h: 0.3, fontFace: KR, fontSize: 11, color: labelColor });
-      slide.addText(b.value, { x: x+0.2, y: y+0.6, w: w-0.4, h: 0.5, fontFace: NUM, fontSize: 22, bold: true, color: valColor });
-      slide.addText(b.description, { x: x+0.2, y: y+1.3, w: w-0.4, h: h-1.5, fontFace: KR, fontSize: 11, color: descColor, valign: 'top' });
-    });
-    warnings.push('리스크 블록 데이터 없음 — 플레이스홀더 표시');
+    // I-05 fix: 빈 프레임 3개 대신 단일 informational callout 표시
+    L.callout(slide, M, y, CW, 2.0, 'info', '리스크 검토',
+      '현재 리스크 분석에 필요한 데이터가 충분하지 않습니다. 건축물대장, 등기부등본 등 공적 장부가 수집되면 자동으로 리스크 항목이 분석됩니다.');
+    warnings.push('리스크 블록 데이터 없음 — 안내 카드 표시');
   }
 
   if (input.data.bottomBar) {

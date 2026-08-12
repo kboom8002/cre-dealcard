@@ -274,25 +274,37 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
 
   // ── Step 2: Fallback decorative graphics (BEFORE text for correct z-order) ──
   if (!imgAdded && (style === 'split' || style === 'institutional_masses')) {
-    // Base semi-transparent layer
+    // Primary panel — warm dark tone (avoids PptxGenJS transparency color shift)
     slide.addShape('rect' as any, {
       x: 8.50, y: 0, w: 4.833, h: 7.5,
-      fill: { color: C.brass, transparency: 75 },
+      fill: { color: '2A2118' },
     });
-    // Offset accent block (upper)
+    // Accent block (upper) — subtle brass tint
     slide.addShape('rect' as any, {
       x: 9.60, y: 0.80, w: 3.20, h: 2.60,
-      fill: { color: C.brass, transparency: 50 },
+      fill: { color: '3D2E1A' },
     });
-    // Offset accent block (lower)
+    // Accent block (lower) — slightly lighter warm tone
     slide.addShape('rect' as any, {
       x: 8.90, y: 4.00, w: 3.80, h: 2.80,
-      fill: { color: C.brass, transparency: 60 },
+      fill: { color: '33271A' },
     });
-    // Thin vertical accent line
+    // Thin vertical accent line in brass
     slide.addShape('line' as any, {
       x: 9.30, y: 0.40, w: 0, h: 6.70,
       line: { color: C.brass, width: 0.8 },
+    });
+  }
+
+  if (!imgAdded && style === 'hero_dark') {
+    // Full-width warm gradient-like layered panels
+    slide.addShape('rect' as any, {
+      x: 0, y: 0, w: W, h: 7.5,
+      fill: { color: '1A1510' },
+    });
+    slide.addShape('rect' as any, {
+      x: 2.0, y: 1.2, w: 9.333, h: 5.1,
+      fill: { color: '2A2118' },
     });
   }
 

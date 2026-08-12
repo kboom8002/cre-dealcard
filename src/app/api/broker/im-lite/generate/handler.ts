@@ -343,6 +343,7 @@ export async function generateMobileIMHandler(
         : (ssotRow.layers as Record<string, any>)?.coordinates
         ? { lat: (ssotRow.layers as Record<string, any>).coordinates.lat, lng: (ssotRow.layers as Record<string, any>).coordinates.lng }
         : null,
+      mapImageUrl: externalData?.mapImageUrl ?? null,
       photo_urls: (() => {
         const userPhotos = supplemental.photo_urls ?? [];
         if (userPhotos.length > 0) return userPhotos;
