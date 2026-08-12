@@ -224,6 +224,10 @@ export function head(
   const numStr = typeof num === 'number' ? String(num).padStart(2, '0') : num;
   const style = THEME_META.layoutStyle;
 
+  // 프리미엄 템플릿의 경우 제목 앞의 이모티콘을 제거
+  const isPremium = THEME_META.presetId === 'golden_institutional' || THEME_META.presetId === 'pro_dark_obsidian';
+  const cleanTitle = isPremium ? title.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+/u, '').trim() : title;
+
   switch (style) {
     // ── modern: 액센트 언더라인 바 + 좌정렬, 번호 원 없음 ──
     case 'modern': {
@@ -237,7 +241,7 @@ export function head(
         fontSize: 9.5, bold: true, color: C.brass,
         fontFace: NUM, charSpacing: 2, margin: 0,
       });
-      s.addText(title, {
+      s.addText(cleanTitle, {
         x: M + 0.22, y: 0.64, w: CW - 0.22, h: 0.42,
         fontSize: 22, bold: true, color: C.ink,
         fontFace: TITLE_KR, margin: 0,
@@ -270,7 +274,7 @@ export function head(
         fontFace: NUM, charSpacing: 3, margin: 0, align: 'center',
       });
       // 중앙 정렬 title
-      s.addText(title, {
+      s.addText(cleanTitle, {
         x: M, y: 0.68, w: CW, h: 0.46,
         fontSize: 26, bold: true, color: C.ink,
         fontFace: TITLE_KR, margin: 0, align: 'center',
@@ -304,7 +308,7 @@ export function head(
         fontSize: 8.5, bold: true, color: C.mute,
         fontFace: NUM, charSpacing: 1.5, margin: 0,
       });
-      s.addText(title, {
+      s.addText(cleanTitle, {
         x: M, y: 0.72, w: CW, h: 0.38,
         fontSize: 21, bold: true, color: C.ink,
         fontFace: TITLE_KR, margin: 0,
@@ -348,7 +352,7 @@ export function head(
         fontSize: 9, bold: true, color: C.brass,
         fontFace: NUM, charSpacing: 2.5, margin: 0,
       });
-      s.addText(title, {
+      s.addText(cleanTitle, {
         x: M + 0.70, y: 0.58, w: CW - 0.70, h: 0.44,
         fontSize: 24, bold: true, color: 'FFFFFF',
         fontFace: TITLE_KR, margin: 0,
@@ -382,7 +386,7 @@ export function head(
         fontSize: 9.5, bold: true, color: C.brass,
         fontFace: NUM, charSpacing: 2, margin: 0,
       });
-      s.addText(title, {
+      s.addText(cleanTitle, {
         x: M + 0.62, y: 0.70, w: CW - 0.62, h: 0.40,
         fontSize: 23, bold: true, color: C.ink,
         fontFace: TITLE_KR, margin: 0,
@@ -410,11 +414,15 @@ export function headD(
   const numStr = typeof num === 'number' ? String(num).padStart(2, '0') : num;
   const style = THEME_META.layoutStyle;
 
+  // 프리미엄 템플릿의 경우 제목 앞의 이모티콘을 제거
+  const isPremium = THEME_META.presetId === 'golden_institutional' || THEME_META.presetId === 'pro_dark_obsidian';
+  const cleanTitle = isPremium ? title.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+/u, '').trim() : title;
+
   switch (style) {
     case 'modern': {
       s.addShape('rect' as any, { x: M, y: 0.42, w: 0.05, h: 0.80, fill: { color: C.brass } });
       s.addText(`${numStr}  ${kicker}`, { x: M + 0.22, y: 0.42, w: CW - 0.22, h: 0.22, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
-      s.addText(title, { x: M + 0.22, y: 0.64, w: CW - 0.22, h: 0.42, fontSize: 22, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
+      s.addText(cleanTitle, { x: M + 0.22, y: 0.64, w: CW - 0.22, h: 0.42, fontSize: 22, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
       s.addShape('line' as any, { x: M, y: 1.22, w: CW, h: 0, line: { color: C.brass, width: 1.5 } });
       if (sub) s.addText(sub, { x: M + 0.22, y: 1.08, w: CW - 0.22, h: 0.22, fontSize: 10.5, color: CD.mute, fontFace: KR, margin: 0 });
       break;
@@ -422,7 +430,7 @@ export function headD(
     case 'executive': {
       s.addShape('line' as any, { x: M, y: 0.38, w: CW, h: 0, line: { color: C.brass, width: 0.5 } });
       s.addText(`${numStr}  ·  ${kicker}`, { x: M, y: 0.48, w: CW, h: 0.22, fontSize: 9, bold: true, color: C.brass, fontFace: NUM, charSpacing: 3, margin: 0, align: 'center' });
-      s.addText(title, { x: M, y: 0.68, w: CW, h: 0.46, fontSize: 26, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0, align: 'center' });
+      s.addText(cleanTitle, { x: M, y: 0.68, w: CW, h: 0.46, fontSize: 26, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0, align: 'center' });
       s.addShape('line' as any, { x: M + CW * 0.3, y: 1.20, w: CW * 0.4, h: 0, line: { color: C.brass, width: 1 } });
       if (sub) s.addText(sub, { x: M, y: 1.10, w: CW, h: 0.22, fontSize: 11, color: CD.mute, fontFace: KR, margin: 0, align: 'center' });
       break;
@@ -430,7 +438,7 @@ export function headD(
     case 'minimal': {
       if (numStr) s.addText(numStr, { x: M, y: 0.48, w: 0.36, h: 0.24, fontSize: 10, bold: true, color: CD.mute, fontFace: NUM, margin: 0 });
       s.addText(kicker, { x: M + 0.40, y: 0.48, w: CW - 0.40, h: 0.20, fontSize: 8.5, bold: true, color: CD.mute, fontFace: NUM, charSpacing: 1.5, margin: 0 });
-      s.addText(title, { x: M, y: 0.72, w: CW, h: 0.38, fontSize: 21, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
+      s.addText(cleanTitle, { x: M, y: 0.64, w: CW, h: 0.46, fontSize: 24, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
       s.addShape('line' as any, { x: M, y: 1.16, w: 2.5, h: 0, line: { color: C.brass, width: 1.5 } });
       if (sub) s.addText(sub, { x: M, y: 1.08, w: CW, h: 0.22, fontSize: 10.5, color: CD.mute, fontFace: KR, margin: 0 });
       break;
@@ -443,7 +451,7 @@ export function headD(
         s.addText(numStr, { x: M, y: 0.36, w: 0.60, h: 0.50, fontSize: 28, bold: true, color: C.brass, fontFace: NUM, margin: 0 });
       }
       s.addText(kicker, { x: M + 0.70, y: 0.36, w: CW - 0.70, h: 0.22, fontSize: 9, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2.5, margin: 0 });
-      s.addText(title, { x: M + 0.70, y: 0.58, w: CW - 0.70, h: 0.44, fontSize: 24, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
+      s.addText(cleanTitle, { x: M + 0.70, y: 0.58, w: CW - 0.70, h: 0.44, fontSize: 24, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
       if (sub) s.addText(sub, { x: M + 0.70, y: 1.02, w: CW - 0.70, h: 0.22, fontSize: 10, color: CD.mute, fontFace: KR, margin: 0 });
       break;
     }
@@ -455,7 +463,7 @@ export function headD(
         s.addText(numStr, { x: M, y: 0.50, w: 0.42, h: 0.42, align: 'center', valign: 'middle', fontSize: 13, bold: true, color: 'FFFFFF', fontFace: NUM, margin: 0 });
       }
       s.addText(kicker, { x: M + 0.62, y: 0.50, w: CW - 0.62, h: 0.20, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
-      s.addText(title, { x: M + 0.62, y: 0.70, w: CW - 0.62, h: 0.40, fontSize: 23, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
+      s.addText(cleanTitle, { x: M + 0.22, y: 0.60, w: CW - 0.22, h: 0.46, fontSize: 24, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
       if (sub) s.addText(sub, { x: M + 0.62, y: 1.10, w: CW - 0.62, h: 0.26, fontSize: 11, color: CD.mute, fontFace: KR, margin: 0 });
       break;
     }
