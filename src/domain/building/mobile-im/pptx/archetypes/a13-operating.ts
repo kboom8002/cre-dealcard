@@ -40,9 +40,9 @@ export function buildA13Operating(input: ArchetypeInput): ArchetypeOutput {
   
   const rx = 8.20;
   const rw = 4.51;
-  slide.addShape('rect' as any, { x: rx, y: 1.98, w: rw, h: 1.12, fill: { color: 'F9F9F9' } });
-  slide.addShape('rect' as any, { x: rx, y: 3.22, w: rw, h: 1.44, fill: { color: 'F0F0F0' } });
-  slide.addShape('rect' as any, { x: rx, y: 4.80, w: rw, h: 1.18, fill: { color: 'F0F0F0' } });
+  slide.addShape('rect' as any, { x: rx, y: 1.98, w: rw, h: 1.12, fill: { color: C.tint } });
+  slide.addShape('rect' as any, { x: rx, y: 3.22, w: rw, h: 1.44, fill: { color: C.line2 } });
+  slide.addShape('rect' as any, { x: rx, y: 4.80, w: rw, h: 1.18, fill: { color: C.line2 } });
   
   if (input.watermarkText) L.watermark(slide, input.watermarkText, false);
   L.foot(slide, input.slideNum, input.docno);

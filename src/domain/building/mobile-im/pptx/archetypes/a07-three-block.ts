@@ -46,7 +46,9 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
     L.card(slide, x, y, w, h, { onDark });
     
     // Brass top border (3px approx 0.04 inch)
-    slide.addShape('rect' as any, { x, y, w, h: 0.04, fill: { color: C.brass } });
+    if (THEME_META.layoutStyle !== 'dramatic') {
+      slide.addShape('rect' as any, { x, y, w, h: 0.04, fill: { color: C.brass } });
+    }
     
     slide.addText(b.label || '', { x: x+0.2, y: y+0.2, w: w-0.4, h: 0.3, fontFace: KR, fontSize: 11, color: labelColor });
     // F6 fix: 한글 포함 시 KR 폰트 + 크기 조정

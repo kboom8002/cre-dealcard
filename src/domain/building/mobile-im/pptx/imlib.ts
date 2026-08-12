@@ -533,7 +533,7 @@ export function foot(
     }
     case 'classic':
     default: {
-      s.addText(`CREDEAL · 제이에스부동산중개(주)   |   ${docno}`, {
+      s.addText(`${THEME_META.companyName || 'CREDEAL'}   |   ${docno}`, {
         x: M, y: 6.98, w: 8, h: 0.24,
         fontSize: 8, color: textColor, fontFace: KR, margin: 0,
       });

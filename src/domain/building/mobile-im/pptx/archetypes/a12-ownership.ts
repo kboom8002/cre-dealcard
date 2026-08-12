@@ -28,7 +28,7 @@ export function buildA12Ownership(input: ArchetypeInput): ArchetypeOutput {
     slide.addTable(input.data.ownershipRows, { x: M, y: 1.98, w: 7.10, rowH: 0.35, fontFace: KR, fontSize: 10 });
   }
   const tableEnd = 1.98 + (input.data.ownershipRows ? input.data.ownershipRows.length * 0.35 : 0);
-  slide.addText(input.data.note ?? '', { x: M, y: tableEnd + 0.07, w: 7.10, h: 0.2, fontFace: KR, fontSize: 9, color: '888888' });
+  slide.addText(input.data.note ?? '', { x: M, y: tableEnd + 0.07, w: 7.10, h: 0.2, fontFace: KR, fontSize: 9, color: C.mute });
   
   const rx = 8.08;
   const rw = 4.63;
@@ -36,7 +36,7 @@ export function buildA12Ownership(input: ArchetypeInput): ArchetypeOutput {
   callouts.forEach((co: any, i: number) => {
     if (i > 2) return;
     const cy = 1.98 + i * (1.24 + 0.14);
-    slide.addShape('rect' as any, { x: rx, y: cy, w: rw, h: 1.24, fill: { color: 'F0F0F0' } });
+    slide.addShape('rect' as any, { x: rx, y: cy, w: rw, h: 1.24, fill: { color: C.tint } });
     slide.addText(co.title || '', { x: rx+0.2, y: cy+0.2, w: rw-0.4, h: 0.3, fontFace: KR, fontSize: 11, bold: true });
   });
   

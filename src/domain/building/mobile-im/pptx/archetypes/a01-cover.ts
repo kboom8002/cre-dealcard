@@ -28,15 +28,15 @@ function coverInstitutionalMasses(slide: any, input: ArchetypeInput): void {
   // 매스 3개 (우상단 장식 블록)
   slide.addShape('rect' as any, {
     x: 9.05, y: 0, w: 1.55, h: 4.42,
-    fill: { color: 'FFFFFF', transparency: 93 },
+    fill: { color: '1A2030' },
   });
   slide.addShape('rect' as any, {
     x: 10.70, y: 0.95, w: 1.25, h: 3.47,
-    fill: { color: 'FFFFFF', transparency: 95 },
+    fill: { color: '161D2B' },
   });
   slide.addShape('rect' as any, {
     x: 12.05, y: 1.85, w: 1.28, h: 2.57,
-    fill: { color: C.brass, transparency: 80 },
+    fill: { color: '2E2718' },
   });
 
   // 워드마크
@@ -138,15 +138,15 @@ function coverObsidianGlow(slide: any, input: ArchetypeInput): void {
   // 글로우 원 (중앙 우측)
   slide.addShape('ellipse' as any, {
     x: 8.00, y: 0.50, w: 6.00, h: 6.00,
-    fill: { color: C.brass, transparency: 90 },
+    fill: { color: '0C2A30' },
   });
   slide.addShape('ellipse' as any, {
     x: 9.00, y: 1.50, w: 4.00, h: 4.00,
-    fill: { color: C.brass, transparency: 85 },
+    fill: { color: '0E3640' },
   });
   slide.addShape('ellipse' as any, {
     x: 9.80, y: 2.30, w: 2.40, h: 2.40,
-    fill: { color: C.brass, transparency: 78 },
+    fill: { color: '134E5E' },
   });
 
   // 워드마크
