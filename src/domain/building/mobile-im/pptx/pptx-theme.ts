@@ -102,8 +102,8 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     darkAccentBorder: 'B98A2E',
     darkAccentText: 'F3EBDA',
 
-    titleFont: '맑은 고딕',
-    bodyFont: '맑은 고딕',
+    titleFont: 'Pretendard',
+    bodyFont: 'Pretendard',
     coverStyle: 'institutional_masses',
     layoutStyle: 'classic',
     companyName: '크리딜',
@@ -150,8 +150,8 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     darkAccentBorder: 'C8FF00',
     darkAccentText: 'F5FFCC',
 
-    titleFont: '맑은 고딕',
-    bodyFont: '맑은 고딕',
+    titleFont: 'Pretendard',
+    bodyFont: 'Pretendard',
     coverStyle: 'split',
     layoutStyle: 'modern',
     companyName: '크리딜',
@@ -199,7 +199,7 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     darkAccentText: 'F8F1E1',
 
     titleFont: 'Noto Serif KR',
-    bodyFont: '맑은 고딕',
+    bodyFont: 'Pretendard',
     coverStyle: 'hero_dark',
     layoutStyle: 'executive',
     companyName: '크리딜',
@@ -246,8 +246,8 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     darkAccentBorder: '059669',
     darkAccentText: 'D1FAE5',
 
-    titleFont: 'Noto Sans KR',
-    bodyFont: 'Noto Sans KR',
+    titleFont: 'Pretendard',
+    bodyFont: 'Pretendard',
     coverStyle: 'corporate_card',
     layoutStyle: 'minimal',
     companyName: '크리딜',
@@ -294,8 +294,8 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     darkAccentBorder: '06B6D4',
     darkAccentText: 'CFFAFE',
 
-    titleFont: '나눔스퀘어',
-    bodyFont: '나눔고딕',
+    titleFont: 'Pretendard',
+    bodyFont: 'Pretendard',
     coverStyle: 'obsidian_glow',
     layoutStyle: 'dramatic',
     companyName: '크리딜',

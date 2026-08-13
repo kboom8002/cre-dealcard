@@ -205,11 +205,11 @@ interface PptxThemeTokens {
 
 | ID | 이름 | coverStyle | layoutStyle | accent | titleFont |
 |---|---|---|---|---|---|
-| `golden_institutional` | Golden Institutional | `institutional_masses` | `classic` | `B98A2E` 골드 | 맑은 고딕 |
-| `credeal_signature` | CREDEAL Signature | `split` | `modern` | `C8FF00` 네온그린 | 맑은 고딕 |
+| `golden_institutional` | Golden Institutional | `institutional_masses` | `classic` | `B98A2E` 골드 | Pretendard |
+| `credeal_signature` | CREDEAL Signature | `split` | `modern` | `C8FF00` 네온그린 | Pretendard |
 | `executive_gold` | Executive Gold | `hero_dark` | `executive` | `D4A853` 웜골드 | Noto Serif KR |
-| `corporate_clean` | Corporate Clean | `corporate_card` | `minimal` | `059669` 에메랄드 | Noto Sans KR |
-| `pro_dark_obsidian` | Pro Dark Obsidian | `obsidian_glow` | `dramatic` | `06B6D4` 시안 | 나눔스퀘어 |
+| `corporate_clean` | Corporate Clean | `corporate_card` | `minimal` | `059669` 에메랄드 | Pretendard |
+| `pro_dark_obsidian` | Pro Dark Obsidian | `obsidian_glow` | `dramatic` | `06B6D4` 시안 | Pretendard |
 
 ### 4.3 커스텀 프리셋 (DB)
 
@@ -449,7 +449,7 @@ PPTX_PRESET_TEMPLATES['my_premium'] = {
   darkCard: '142238', darkBlock: '1E3050', darkBorder: '2A3C52',
   darkBody: 'A0B4CC', darkMute: '7A90A8', darkFaint: '5A7090',
   darkAccentBg: '0C1E3A', darkAccentBorder: '1E3A8A', darkAccentText: '93C5FD',
-  titleFont: 'Noto Sans KR', bodyFont: 'Noto Sans KR',
+  titleFont: 'Pretendard', bodyFont: 'Pretendard',
   coverStyle: 'hero_dark', layoutStyle: 'executive',
   companyName: '프리미엄부동산', companyTagline: '신뢰의 투자 파트너',
 };
