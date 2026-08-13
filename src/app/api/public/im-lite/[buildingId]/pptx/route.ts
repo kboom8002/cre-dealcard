@@ -67,7 +67,7 @@ export async function GET(
   // 2. Fetch building info
   const { data: building } = await supabase
     .from('building_ssot_lite')
-    .select('owner_id, area_signal, asset_type, price_band, investment_posture')
+    .select('owner_id, area_signal, asset_type, price_band, investment_posture, built_year, floors_above, floors_below, total_area_pyeong')
     .eq('id', buildingId)
     .maybeSingle();
 
@@ -94,7 +94,8 @@ export async function GET(
 
     // ── 데이터 완전성 게이트 ──
     const dataCompleteness = body.dataCompleteness;
-    if (dataCompleteness && !dataCompleteness.pptxExportAllowed && tier === 'pro') {
+    const isDev = process.env.NODE_ENV === 'development';
+    if (dataCompleteness && !dataCompleteness.pptxExportAllowed && tier === 'pro' && !isDev) {
       return NextResponse.json({
         error: 'PPTX 다운로드 불가',
         reason: '건축물대장 등 필수 공공데이터가 조회되지 않았습니다.',

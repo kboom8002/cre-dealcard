@@ -1,6 +1,6 @@
 import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
-import { C, M, CW, KR, NUM, CD } from '../imlib';
+import { C, M, CW, KR, NUM, CD, THEME_META } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 
 export interface ArchetypeInput {

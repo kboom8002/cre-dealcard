@@ -329,9 +329,15 @@ function buildA06Props(markdown: string, tables: ParsedTable[], lines: string[])
   const calloutItem = lines.find(l => l.startsWith('>'));
   
   // L.rows()는 RowEntry 튜플 [label, value] 형태를 기대
+  // FIX-RC3: 콜론이 없는 경우 value를 빈 문자열로 두어 중복 방지
   let rows: [string, string][] = bulletItems.map(b => {
-    const parts = (b.title ? `${b.title}: ${b.body}` : b.body).split(/[：:]/);
-    return [stripMarkdown(parts[0] || ''), stripMarkdown(parts.slice(1).join(':').trim() || parts[0])] as [string, string];
+    const combined = b.title ? `${b.title}: ${b.body}` : b.body;
+    const parts = combined.split(/[：:]/);
+    if (parts.length >= 2) {
+      return [stripMarkdown(parts[0] || ''), stripMarkdown(parts.slice(1).join(':').trim())] as [string, string];
+    }
+    // 콜론 없는 단일 문장 → label만 표시, value 비움
+    return [stripMarkdown(parts[0] || ''), ''] as [string, string];
   });
   
   // 불릿이 없으면 테이블 행에서 추출
@@ -459,6 +465,23 @@ function buildA09Props(lines: string[]): Record<string, any> {
         stepNum: `STEP ${i + 1}`,
         title: stripMarkdown(b.title || b.body.slice(0, 30)),
         description: stripMarkdown(b.body),
+      });
+    });
+  }
+
+  // FIX-RC4b: 번호/불릿 모두 없을 때 의미 있는 텍스트 행에서 steps 추출
+  if (steps.length === 0) {
+    const meaningful = lines.filter(l =>
+      !l.startsWith('#') && !l.startsWith('|') && !l.startsWith('>') &&
+      stripMarkdown(l).length > 10
+    );
+    meaningful.slice(0, 3).forEach((l, i) => {
+      const stripped = stripMarkdown(l);
+      const parts = stripped.split(/[：:]/);
+      steps.push({
+        stepNum: `STEP ${i + 1}`,
+        title: parts.length > 1 ? parts[0].trim().slice(0, 30) : stripped.slice(0, 30),
+        description: parts.length > 1 ? parts.slice(1).join(':').trim() : stripped,
       });
     });
   }

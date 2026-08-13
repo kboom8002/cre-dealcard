@@ -381,17 +381,34 @@ export class MobileImPptxRenderer {
       }
       (dataMap['summary'] as any).heroCard = heroCard;
 
-      // I-03 fix: heroCard.stats가 비어 있으면 SSoT/body에서 자동 구성
+      // I-03 fix + FIX-RC5: heroCard.stats가 비어 있으면 SSoT/body/building에서 자동 구성
       if (!heroCard.stats || heroCard.stats.length === 0) {
         const ssot = input.doc.body?.ssot_summary ?? {};
+        const bldg = input.building ?? {} as any;
         const autoStats: Array<{label: string; value: string; unit?: string}> = [];
+        // SSoT 우선 소스
         if (ssot.price_band) autoStats.push({ label: '매각 희망가', value: ssot.price_band });
         else if (ssot.asking_price_manwon) autoStats.push({ label: '매각 희망가', value: `${Number(ssot.asking_price_manwon).toLocaleString()}만원` });
         if (ssot.size_signal) autoStats.push({ label: '연면적', value: ssot.size_signal });
+        else if (bldg.total_area_pyeong) autoStats.push({ label: '연면적', value: `${bldg.total_area_pyeong}평` });
         if (ssot.vacancy_signal) autoStats.push({ label: '공실률', value: ssot.vacancy_signal });
         else if (ssot.vacancy_pct != null) autoStats.push({ label: '공실률', value: `${ssot.vacancy_pct}%` });
         if (input.grade) autoStats.push({ label: '데이터 등급', value: input.grade });
         if (ssot.area_signal) autoStats.push({ label: '소재지', value: ssot.area_signal });
+        else if (bldg.area_signal) autoStats.push({ label: '소재지', value: bldg.area_signal });
+        // FIX-RC5: building 테이블 폴백 소스 확대
+        if (autoStats.length < 4) {
+          if (bldg.built_year && !autoStats.some(s => s.label === '준공연도')) {
+            autoStats.push({ label: '준공연도', value: `${bldg.built_year}년` });
+          }
+          if (bldg.floors_above && !autoStats.some(s => s.label === '규모')) {
+            const floorStr = bldg.floors_below ? `B${bldg.floors_below}/F${bldg.floors_above}` : `${bldg.floors_above}층`;
+            autoStats.push({ label: '규모', value: floorStr });
+          }
+          if (bldg.asset_type && !autoStats.some(s => s.label === '자산유형')) {
+            autoStats.push({ label: '자산유형', value: bldg.asset_type });
+          }
+        }
         if (autoStats.length > 0) {
           (dataMap['summary'] as any).metrics = autoStats;
         }
@@ -412,8 +429,12 @@ export class MobileImPptxRenderer {
         const hasContent = slideData && (
           (slideData.content && slideData.content.trim().length > 0) ||
           (slideData.tables && slideData.tables.length > 0) ||
-          Boolean((slideData as any).left) || Boolean((slideData as any).right) ||
-          Boolean((slideData as any).blocks) || Boolean((slideData as any).table1) || Boolean((slideData as any).steps)
+          // FIX-RC4: 빈 배열 []도 truthy이므로, 배열 길이를 명시적으로 검사
+          ((slideData as any).left?.rows?.length > 0 || (slideData as any).left?.sub) ||
+          ((slideData as any).right?.stats?.length > 0 || (slideData as any).right?.callouts?.length > 0 || (slideData as any).right?.rows?.length > 0) ||
+          ((slideData as any).blocks?.length > 0) ||
+          ((slideData as any).table1?.rows?.length > 0) ||
+          ((slideData as any).steps?.length > 0)
         );
 
         if (!hasContent && !isStaticSlide) {

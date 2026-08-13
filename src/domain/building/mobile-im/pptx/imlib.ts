@@ -653,11 +653,18 @@ export function stat(
     fontSize: 9.5, color: labCol, fontFace: KR, margin: 0,
   });
 
-  // 값 — F2 fix: 한글 포함 시 KR 폰트 사용
+  // 값 — FIX-RC1: 텍스트 길이에 따른 동적 폰트 사이즈
+  // 짧은 숫자(6자 이하) → 25pt, 중간(12자 이하) → 18pt, 긴 한글 → 14pt
   const hasKoreanVal = /[\uAC00-\uD7AF]/.test(value);
+  const dynamicVs = opt.vs ?? (
+    value.length <= 6 ? 25 :
+    value.length <= 12 ? 18 :
+    value.length <= 20 ? 14 : 11
+  );
   s.addText(value, {
     x: x + 0.18, y: y + 0.34, w: w - 0.36, h: 0.44,
-    fontSize: vs, bold: true, color: valCol, fontFace: hasKoreanVal ? KR : NUM, margin: 0,
+    fontSize: dynamicVs, bold: true, color: valCol, fontFace: hasKoreanVal ? KR : NUM, margin: 0,
+    shrinkText: true,
   });
 
   // 단위 (값 옆)
