@@ -1,17 +1,17 @@
 # Pipeline Log: trading_case09_sinsa_value_add
 
-**Generated**: 2026-08-16T06:16:37.475Z
+**Generated**: 2026-08-16T08:22:48.110Z
 **Total Duration**: 0.5s
 
 ## Step-by-Step Timeline
 
 | # | Step | Duration | Status | Summary |
 |---|------|----------|--------|---------|
-| 1 | ① SSoT Lite 구축 | 0.00s | ✅ success | buildingId: stress-case-09 |
-| 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: trading, keys: 6 |
-| 3 | ③ IM 생성 (LLM) | 0.36s | ✅ success | ok=true, sections=8, grade=A |
+| 1 | ① SSoT Lite 구축 | 0.01s | ✅ success | buildingId: stress-case-09 |
+| 2 | ② 바텀시트 보강 | 0.01s | ✅ success | posture: trading, keys: 6 |
+| 3 | ③ IM 생성 (LLM) | 0.35s | ✅ success | ok=true, sections=8, grade=A |
 | 4 | ④ 중간 결과물 저장 | 0.01s | ✅ success | sections: 8 |
-| 5 | ⑤ PPTX 렌더링 | 0.10s | ✅ success | slides: 10, size: 229KB |
+| 5 | ⑤ PPTX 렌더링 | 0.08s | ✅ success | slides: 10, size: 251KB |
 
 ## Detailed Metrics
 
@@ -29,7 +29,7 @@
 ```json
 {
   "slideCount": 10,
-  "fileSizeBytes": 234931,
+  "fileSizeBytes": 256564,
   "warnings": []
 }
 ```

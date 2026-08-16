@@ -1,17 +1,17 @@
 # Pipeline Log: trading_case10_seocho_old_retail
 
-**Generated**: 2026-08-16T06:16:38.066Z
-**Total Duration**: 0.6s
+**Generated**: 2026-08-16T08:22:48.898Z
+**Total Duration**: 0.8s
 
 ## Step-by-Step Timeline
 
 | # | Step | Duration | Status | Summary |
 |---|------|----------|--------|---------|
-| 1 | ① SSoT Lite 구축 | 0.01s | ✅ success | buildingId: stress-case-10 |
-| 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: trading, keys: 6 |
-| 3 | ③ IM 생성 (LLM) | 0.48s | ✅ success | ok=true, sections=8, grade=A |
-| 4 | ④ 중간 결과물 저장 | 0.01s | ✅ success | sections: 8 |
-| 5 | ⑤ PPTX 렌더링 | 0.08s | ✅ success | slides: 10, size: 260KB |
+| 1 | ① SSoT Lite 구축 | 0.09s | ✅ success | buildingId: stress-case-10 |
+| 2 | ② 바텀시트 보강 | 0.01s | ✅ success | posture: trading, keys: 6 |
+| 3 | ③ IM 생성 (LLM) | 0.45s | ✅ success | ok=true, sections=8, grade=A |
+| 4 | ④ 중간 결과물 저장 | 0.07s | ✅ success | sections: 8 |
+| 5 | ⑤ PPTX 렌더링 | 0.14s | ✅ success | slides: 10, size: 272KB |
 
 ## Detailed Metrics
 
@@ -29,7 +29,7 @@
 ```json
 {
   "slideCount": 10,
-  "fileSizeBytes": 265891,
+  "fileSizeBytes": 278046,
   "warnings": []
 }
 ```

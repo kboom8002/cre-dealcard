@@ -1,7 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { generatePitchMessage, PitchMode, BuyerContext, DealContext } from '@/domain/deal/pitch/pitch-generator';
+import { requireBroker } from '@/lib/auth-guard';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // Auth guard — 미인증 요청 차단
+  const auth = await requireBroker(request);
+  if (auth.error) return auth.error;
+
   try {
     const body = await request.json();
     const { deal, buyer, mode } = body as { deal: DealContext, buyer: BuyerContext, mode: PitchMode };

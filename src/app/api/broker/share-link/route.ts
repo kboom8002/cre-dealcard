@@ -5,8 +5,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { createShareLink } from '@/domain/distribution/share-link-service';
+import { requireBroker } from '@/lib/auth-guard';
 
 export async function POST(req: NextRequest) {
+  // Auth guard — 미인증 요청 차단
+  const auth = await requireBroker(req);
+  if (auth.error) return auth.error;
+
   try {
     const body = await req.json();
     const { tenantId, dealId, dealVersion, tier, brokerId, recipientId, expiresInDays } = body;
@@ -36,6 +41,10 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  // Auth guard — 미인증 요청 차단
+  const auth = await requireBroker(req);
+  if (auth.error) return auth.error;
+
   try {
     const { searchParams } = new URL(req.url);
     const brokerId = searchParams.get('brokerId');

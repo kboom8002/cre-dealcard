@@ -1,8 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { callLLM } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
+import { requireBroker } from "@/lib/auth-guard";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  // Auth guard — 미인증 요청 차단
+  const auth = await requireBroker(req);
+  if (auth.error) return auth.error;
+
   try {
     const { comment } = await req.json();
     if (!comment) {

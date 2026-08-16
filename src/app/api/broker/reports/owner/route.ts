@@ -1,10 +1,15 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { generateOwnerReport } from '@/domain/magazine/owner-report-generator';
 import { dispatchEdition } from '@/domain/magazine/rail/dispatcher';
 import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
 import { createServiceClient } from '@/lib/supabase/service';
+import { requireBroker } from '@/lib/auth-guard';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // Auth guard — 미인증 요청 차단
+  const auth = await requireBroker(request);
+  if (auth.error) return auth.error;
+
   try {
     const { assetId, ownerName, ownerEmail } = await request.json();
 

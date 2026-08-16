@@ -3,8 +3,13 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { revokeShareLink } from '@/domain/distribution/share-link-service';
+import { requireBroker } from '@/lib/auth-guard';
 
 export async function POST(req: NextRequest) {
+  // Auth guard — 미인증 요청 차단
+  const auth = await requireBroker(req);
+  if (auth.error) return auth.error;
+
   try {
     const { token, brokerId } = await req.json();
 

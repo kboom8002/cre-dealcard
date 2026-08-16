@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runIdealBuyerPersona } from "@/ai/agents/ideal-buyer-persona";
 import { z } from "zod/v4";
+import { requireBroker } from "@/lib/auth-guard";
 
 const RequestSchema = z.object({
   areaSignal: z.string().default("미확인"),
@@ -26,6 +27,10 @@ const RequestSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  // Auth guard — 미인증 요청 차단
+  const auth = await requireBroker(request);
+  if (auth.error) return auth.error;
+
   try {
     const body = await request.json();
 
