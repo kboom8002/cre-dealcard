@@ -31,10 +31,10 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
   
   const gap = 0.30;
   const w = L.col(3, gap);
-  const h = 3.5;
-  const y = 1.72;
+  const h = 3.95;
+  const y = 1.55;
   
-  const labelColor = onDark ? CD.mute : C.mute;
+  const labelColor = onDark ? C.brass : C.brassD;
   const valColor = onDark ? 'FFFFFF' : C.ink;
   const descColor = onDark ? CD.body : C.body;
   
@@ -45,17 +45,56 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
     
     L.card(slide, x, y, w, h, { onDark });
     
-    // Brass top border (3px approx 0.04 inch)
+    // Brass top border
     if (THEME_META.layoutStyle !== 'dramatic') {
-      slide.addShape('rect' as any, { x, y, w, h: 0.04, fill: { color: C.brass } });
+      slide.addShape('rect' as any, { x, y, w, h: 0.05, fill: { color: C.brass } });
     }
     
-    slide.addText(b.label || '', { x: x+0.2, y: y+0.2, w: w-0.4, h: 0.3, fontFace: KR, fontSize: 11, color: labelColor });
-    // F6 fix: 한글 포함 시 KR 폰트 + 크기 조정
-    const valText = b.value || '';
-    const hasKr = /[\uAC00-\uD7AF]/.test(valText);
-    slide.addText(valText, { x: x+0.2, y: y+0.6, w: w-0.4, h: 0.5, fontFace: hasKr ? KR : NUM, fontSize: hasKr ? 18 : 22, bold: true, color: valColor });
-    slide.addText(b.description || '', { x: x+0.2, y: y+1.3, w: w-0.4, h: h-1.5, fontFace: KR, fontSize: 11, color: descColor, valign: 'top' });
+    // 1. 카테고리 헤더
+    const cleanLabel = (b.label || `실사 영역 ${i + 1}`).replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '').trim();
+    slide.addText(cleanLabel, {
+      x: x + 0.25, y: y + 0.22, w: w - 0.5, h: 0.32,
+      fontFace: KR, fontSize: 13.5, bold: true, color: labelColor, margin: 0
+    });
+
+    // 2. 핵심 요약 / 상태 (1줄)
+    const rawVal = (b.value || '실사 완료').replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '').trim();
+    const valText = rawVal.slice(0, 22);
+    slide.addText(valText, {
+      x: x + 0.25, y: y + 0.56, w: w - 0.5, h: 0.38,
+      fontFace: KR, fontSize: 15, bold: true, color: valColor, margin: 0
+    });
+
+    // 3. 세부 불릿 본문 (PptxGenJS 네이티브 행잉 인덴트 적용: 둘째 줄 이후 텍스트 자동 왼쪽 정렬)
+    const descText = b.description || '';
+    if (descText) {
+      const lines = descText.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
+      const textRuns = lines.map((line: string) => {
+        const cleanLine = line
+          .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '')
+          .replace(/^[•·\-*]+\s*/, '')
+          .trim();
+        return {
+          text: cleanLine,
+          options: {
+            bullet: { code: '2022' },
+            fontSize: 12.5,
+            color: descColor,
+            fontFace: KR,
+            breakLine: true,
+            indentLevel: 0,
+            margin: [0, 0, 0, 0],
+          }
+        };
+      });
+
+      if (textRuns.length > 0) {
+        slide.addText(textRuns as any, {
+          x: x + 0.25, y: y + 0.98, w: w - 0.5, h: h - 1.10,
+          valign: 'top', margin: 0
+        });
+      }
+    }
   });
   
   if (blocks.length === 0) {
@@ -65,12 +104,20 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
     warnings.push('리스크 블록 데이터 없음 — 안내 카드 표시');
   }
 
+  // 4. 하단 안내 바 (푸터 y: 7.05와 충돌하지 않도록 y: 5.65, h: 0.65로 컴팩트하게 배치)
   if (input.data.bottomBar) {
-    const barY = y + h + 0.3;
+    const barY = 5.68;
+    const barH = 0.68;
     const barBg = onDark ? CD.block : C.tint;
     const barFg = onDark ? 'FFFFFF' : C.ink;
-    L.card(slide, M, barY, CW, 0.98, { fill: barBg, onDark });
-    slide.addText(input.data.bottomBar.text || '', { x: M+0.2, y: barY+0.2, w: CW-0.4, h: 0.58, fontFace: KR, fontSize: 12, color: barFg, valign: 'middle' });
+    L.card(slide, M, barY, CW, barH, { fill: barBg, onDark });
+    const cleanBottomText = (input.data.bottomBar.text || '')
+      .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '')
+      .trim();
+    slide.addText(cleanBottomText, {
+      x: M + 0.25, y: barY, w: CW - 0.5, h: barH,
+      fontFace: KR, fontSize: 12, color: barFg, valign: 'middle', margin: 0
+    });
   }
   
   if (input.watermarkText) L.watermark(slide, input.watermarkText, onDark);

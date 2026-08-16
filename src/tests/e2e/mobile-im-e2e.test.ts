@@ -214,9 +214,11 @@ describe("E2E Layer 3: Semantic Prompt Cache", () => {
   });
 
   test("E2E-C04: TTL 만료 후 null 반환", async () => {
-    const key = promptCache.generateKey("ttl_e2e_test", { t: 1 });
-    await promptCache.set(key, "expired", 0);
-    await new Promise(r => setTimeout(r, 10));
+    const key = promptCache.generateKey("ttl_e2e_test", { t: Date.now() });
+    // lru-cache에서 ttl=0은 TTL 비활성화(무한)를 의미하므로 1초(최소 유효 TTL) 사용
+    await promptCache.set(key, "expired", 1);
+    // 1초 TTL이 확실히 만료되도록 1.5초 대기
+    await new Promise(r => setTimeout(r, 1500));
     const val = await promptCache.get(key);
     expect(val).toBeNull();
   });

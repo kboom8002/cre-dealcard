@@ -1,0 +1,14 @@
+{
+  "id": "stress-case-03",
+  "area_signal": "분당권역",
+  "asset_type": "프라임오피스",
+  "price_band": "320억",
+  "land_area_pyung": 385.2,
+  "total_floor_area_pyung": 2450.6,
+  "asking_price_krw": 32000000000,
+  "gross_annual_income_krw": 1536000000,
+  "layers": {
+    "location": {}
+  },
+  "completeness_score": 90
+}

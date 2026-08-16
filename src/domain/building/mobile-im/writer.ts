@@ -28,7 +28,7 @@ import type { DCFOutputs } from "./dcf-sensitivity";
 import { runCrossValidation } from "./cross-validator";
 import { createServiceClient } from "@/lib/supabase/service";
 import { indexIMSections } from "./im-embedding-indexer";
-import { transformPhotoUrls, type TransformedPhoto } from "./photo-url-transformer";
+import { transformPhotoUrls, resolvePhotos, PHOTO_CATEGORY_LABELS, type TransformedPhoto } from "./photo-url-transformer";
 
 // Phase 0 분해 모듈
 import { buildIMContext, type IMGenerationContext } from "./im-context-builder";
@@ -184,9 +184,17 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     targetHprPct: cachedFinancials?.targetHprPct ?? null,
   };
 
-  // ── 6. 사진 변환 ──
-  const photos = input.supplemental.photo_urls
-    ? transformPhotoUrls(input.supplemental.photo_urls, input.supplemental.photo_captions)
+  // ── 6. 사진 변환 (v0.6.0) ──
+  const resolvedPhotoMetas = resolvePhotos(input.supplemental);
+  const photos = resolvedPhotoMetas.length > 0
+    ? resolvedPhotoMetas.map(p => ({
+        url: p.url,
+        type: p.category,
+        label: PHOTO_CATEGORY_LABELS[p.category] || '건물 사진',
+        caption: p.caption,
+        order: p.order,
+        isHero: p.isHero,
+      }))
     : undefined;
 
   return {

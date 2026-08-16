@@ -1,0 +1,14 @@
+{
+  "id": "stress-case-07",
+  "area_signal": "여의도권역",
+  "asset_type": "사옥",
+  "price_band": "95억",
+  "land_area_pyung": 110.5,
+  "total_floor_area_pyung": 420.3,
+  "asking_price_krw": 9500000000,
+  "zoning_region": "일반상업지역",
+  "layers": {
+    "location": {}
+  },
+  "completeness_score": 72
+}

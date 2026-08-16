@@ -306,13 +306,22 @@ export async function fetchIMData(
       sections: (document.body.sections || []).map((s: any) => {
           if ("content" in s) return s;
           let icon = "📄";
-          if (s.section_type === "overview") icon = "🏢";
-          if (s.section_type === "location") icon = "📍";
-          if (s.section_type === "tenant") icon = "📋";
-          if (s.section_type === "financial") icon = "💰";
-          if (s.section_type === "risk") icon = "⚠️";
-          if (s.section_type === "buyer_fit") icon = "🎯";
+          if (s.section_type === "overview" || s.section_type === "property_overview") icon = "🏢";
+          if (s.section_type === "location" || s.section_type === "location_access") icon = "📍";
+          if (s.section_type === "tenant" || s.section_type === "lease_status") icon = "📋";
+          if (s.section_type === "financial" || s.section_type === "income_analysis") icon = "💰";
+          if (s.section_type === "risk" || s.section_type === "risk_check") icon = "⚠️";
+          if (s.section_type === "buyer_fit" || s.section_type === "investment_thesis") icon = "🎯";
           if (s.section_type === "next_steps") icon = "🚀";
+          // 비소득형 포스처 전용 섹션
+          if (s.section_type === "occupancy_fit") icon = "🏠";
+          if (s.section_type === "cost_comparison") icon = "📊";
+          if (s.section_type === "site_analysis") icon = "🗺️";
+          if (s.section_type === "development_feasibility") icon = "🏗️";
+          if (s.section_type === "operation_overview") icon = "⚙️";
+          if (s.section_type === "gop_analysis") icon = "📈";
+          if (s.section_type === "market_position") icon = "🏷️";
+          if (s.section_type === "comparable_analysis") icon = "📐";
 
           return {
             sectionId: s.section_type || `section_${s.section_order}`,

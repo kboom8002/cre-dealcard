@@ -1,0 +1,14 @@
+{
+  "dataGrade": "A",
+  "financialWarnings": [
+    "Cap Rate 1.1%: 권역 평균 대비 매우 낮음"
+  ],
+  "dcfEligible": true,
+  "dataCompleteness": {
+    "buildingRegister": true,
+    "buildingRegisterSource": "loaded",
+    "qualityGrade": "A",
+    "pptxExportAllowed": true,
+    "generatedAt": "2026-08-16T06:16:37.362Z"
+  }
+}

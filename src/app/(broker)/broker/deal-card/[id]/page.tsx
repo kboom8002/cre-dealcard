@@ -19,6 +19,8 @@ import { DealCardEditor } from "./DealCardEditor";
 import { ScheduleSection } from "./ScheduleSection";
 import { DealCardActionsMenu } from "./DealCardActionsMenu";
 import { DealCardTabs } from "@/components/broker/deal-card/DealCardTabs";
+import { LiveDealCardPreviewCard } from "@/components/broker/deal-card/LiveDealCardPreviewCard";
+import { BlindDealCardPreview } from "@/components/broker/deal-card/BlindDealCardPreview";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 
 
@@ -221,170 +223,174 @@ export default async function BrokerDealCardResultPage({
           <DealCardActionsMenu buildingId={id} />
         </div>
 
-        {/* Top Message */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1">
+        {/* Top Message Header */}
+        <div className="text-center space-y-1.5">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-0.5">
             <span className="inline-block w-2 h-2 rounded-full bg-primary" />
-            <span className="text-sm font-semibold text-primary">블라인드 딜카드</span>
+            <span className="text-xs font-semibold text-primary">블라인드 딜카드</span>
           </div>
-          <h1 className="text-2xl font-black leading-tight">
+          <h1 className="text-xl font-black leading-tight text-foreground">
             {title || "딜카드가 준비됐습니다."}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             주소와 민감정보는 매수자 보호를 위해 숨겨져 있습니다.
           </p>
         </div>
 
-        {/* Pipeline State Machine Progress */}
-        <DealCardPipelineContainer buildingId={id} />
+        {/* 📱 [1. 핵심 딜카드 & OG 공유 실시간 미리보기 카드] */}
+        <LiveDealCardPreviewCard
+          buildingId={id}
+          title={title}
+          summary={shortSummary}
+          hookCopy={teaser?.hookCopy || teaser?.ogDescription}
+          ogTitle={teaser?.ogTitle}
+          ogDescription={teaser?.ogDescription}
+          dealPoints={dealPoints.length > 0 ? dealPoints : ["안정적인 임대 수익 및 자산 가치", "우수한 대중교통 및 도로 접근성", "주변 시세 대비 경쟁력 있는 매각가"]}
+          areaSignal={building.area_signal || undefined}
+          assetType={building.asset_type || undefined}
+          priceBand={building.price_band || undefined}
+          kakaoText={kakaoText}
+        />
 
-        {/* 4-Tab Content Router */}
-        <DealCardTabs
-          buyersBadge={matchCount > 0 ? { count: matchCount, topGrade } : undefined}
-          overviewContent={
-            <div className="space-y-6 pt-2">
-              {/* Photo Gallery */}
-              {photoUrls.length > 0 && (
-                <div className="rounded-xl border border-border bg-card overflow-hidden">
-                  <div className="px-4 py-2 bg-muted/30 border-b border-border">
-                    <h2 className="text-xs font-semibold text-muted-foreground">📷 매물 사진 ({photoUrls.length}장)</h2>
-                  </div>
-                  <div className="flex gap-2 overflow-x-auto p-3 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
-                    {photoUrls.map((url: string, i: number) => (
-                      <div key={i} className="relative shrink-0 w-40 h-28 rounded-lg overflow-hidden border border-border bg-muted">
-                        <Image
-                          src={url}
-                          alt={`매물 사진 ${i + 1}`}
-                          fill
-                          className="object-cover"
-                          sizes="160px"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+        {/* ✏️ [2. 딜카드 문구 & OG 메타 실시간 편집기] */}
+        <DealCardEditor
+          buildingId={id}
+          initialTitle={title}
+          initialSummary={shortSummary}
+          initialDealPoints={dealPoints}
+          initialCautionPoints={cautionPoints}
+          initialKakaoText={kakaoText}
+          initialOgTitle={teaser?.ogTitle || ""}
+          initialOgDescription={teaser?.ogDescription || ""}
+          initialHookCopy={teaser?.hookCopy || ""}
+          initialStructureChips={teaser?.structureChips || []}
+          initialVacancyLabel={teaser?.vacancyLabel || ""}
+          initialCuriosityHook={teaser?.curiosityHook || ""}
+        />
 
-              {/* Extracted Info Card */}
-              <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-                <h2 className="text-base font-semibold flex items-center justify-between">
-                  <span className="flex items-center gap-2"><span>🏢</span> 건물 신호 요약</span>
-                  <span className="text-[11px] font-normal text-muted-foreground">확언형 표기 · 뱃지 검토 안내</span>
-                </h2>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  {[
-                    { label: "권역", value: building.area_signal, confKey: "areaSignal" },
-                    { label: "자산 유형", value: building.asset_type, confKey: "assetType" },
-                    { label: "가격대", value: building.price_band, confKey: "priceBand" },
-                    { label: "현재 사용", value: building.current_use_signal, confKey: "currentUseSignal" },
-                  ].map((item) => {
-                    const conf = ((building.confidence as Record<string, string>) || {})[item.confKey];
-                    return (
-                      <div key={item.label} className={`rounded-lg p-2.5 ${item.value ? 'bg-muted/30' : 'bg-muted/10 border border-dashed border-muted-foreground/20'}`}>
-                        <div className="flex items-center justify-between mb-0.5">
-                          <p className="text-xs text-muted-foreground">{item.label}</p>
-                          {conf === 'ai_hypothesis' && (
-                            <span
-                              className="text-[10px] px-1 py-0.2 rounded bg-amber-500/15 text-amber-500 font-medium cursor-help"
-                              title="AI가 파싱한 분류입니다. 클릭하여 직접 수정할 수 있습니다."
-                            >
-                              AI분류
-                            </span>
-                          )}
-                          {conf === 'needs_verification' && (
-                            <span
-                              className="text-[10px] px-1 py-0.2 rounded bg-red-500/15 text-red-500 font-medium cursor-help"
-                              title="정보가 불충분합니다. 추가 공부확인 또는 실사가 필요합니다."
-                            >
-                              확인필요
-                            </span>
-                          )}
-                        </div>
-                        <p className={`font-semibold ${item.value ? '' : 'text-muted-foreground/50 text-xs'}`}>
-                          {item.value || "미입력 ✏️"}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-                {building.fit_summary && (
-                  <div className="text-sm text-muted-foreground pt-1 space-y-0.5">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-medium text-foreground">🎯 적합 매수자</span>
+        {/* 🏢 [3. 세부 4-Tab 영역] */}
+        <div className="pt-2">
+          <DealCardTabs
+            buyersBadge={matchCount > 0 ? { count: matchCount, topGrade } : undefined}
+            overviewContent={
+              <div className="space-y-4 pt-2">
+                {/* Pipeline State Machine Progress */}
+                <DealCardPipelineContainer buildingId={id} />
+
+                {/* Photo Gallery */}
+                {photoUrls.length > 0 && (
+                  <div className="rounded-xl border border-border bg-card overflow-hidden">
+                    <div className="px-4 py-2 bg-muted/30 border-b border-border">
+                      <h2 className="text-xs font-semibold text-muted-foreground">📷 매물 사진 ({photoUrls.length}장)</h2>
                     </div>
-                    <p className="leading-relaxed">{building.fit_summary}</p>
+                    <div className="flex gap-2 overflow-x-auto p-3 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+                      {photoUrls.map((url: string, i: number) => (
+                        <div key={i} className="relative shrink-0 w-40 h-28 rounded-lg overflow-hidden border border-border bg-muted">
+                          <Image
+                            src={url}
+                            alt={`매물 사진 ${i + 1}`}
+                            fill
+                            className="object-cover"
+                            sizes="160px"
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
-                {building.caution_summary && (
-                  <div className="text-sm text-muted-foreground pt-1 space-y-0.5">
-                    <p className="font-medium text-amber-500 dark:text-amber-400">⚠️ 실사 확인 필요 사항</p>
-                    <p className="leading-relaxed">{building.caution_summary}</p>
+
+                {/* Extracted Info Card */}
+                <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                  <h2 className="text-sm font-semibold flex items-center justify-between">
+                    <span className="flex items-center gap-1.5"><span>🏢</span> 건물 신호 및 분류 스펙</span>
+                    <span className="text-[10px] font-normal text-muted-foreground">확언형 표기 · 뱃지 검토 안내</span>
+                  </h2>
+                  <div className="grid grid-cols-2 gap-2.5 text-xs">
+                    {[
+                      { label: "권역", value: building.area_signal, confKey: "areaSignal" },
+                      { label: "자산 유형", value: building.asset_type, confKey: "assetType" },
+                      { label: "가격대", value: building.price_band, confKey: "priceBand" },
+                      { label: "현재 사용", value: building.current_use_signal, confKey: "currentUseSignal" },
+                    ].map((item) => {
+                      const conf = ((building.confidence as Record<string, string>) || {})[item.confKey];
+                      return (
+                        <div key={item.label} className={`rounded-lg p-2.5 ${item.value ? 'bg-muted/30' : 'bg-muted/10 border border-dashed border-muted-foreground/20'}`}>
+                          <div className="flex items-center justify-between mb-0.5">
+                            <p className="text-[11px] text-muted-foreground">{item.label}</p>
+                            {conf === 'ai_hypothesis' && (
+                              <span
+                                className="text-[9px] px-1 py-0.2 rounded bg-amber-500/15 text-amber-500 font-medium cursor-help"
+                                title="AI가 파싱한 분류입니다."
+                              >
+                                AI분류
+                              </span>
+                            )}
+                            {conf === 'needs_verification' && (
+                              <span
+                                className="text-[9px] px-1 py-0.2 rounded bg-red-500/15 text-red-500 font-medium cursor-help"
+                                title="정보가 불충분합니다."
+                              >
+                                확인필요
+                              </span>
+                            )}
+                          </div>
+                          <p className={`font-semibold ${item.value ? '' : 'text-muted-foreground/50 text-[11px]'}`}>
+                            {item.value || "미입력 ✏️"}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {building.fit_summary && (
+                    <div className="text-xs text-muted-foreground pt-1 space-y-0.5">
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium text-foreground">🎯 적합 매수자</span>
+                      </div>
+                      <p className="leading-relaxed">{building.fit_summary}</p>
+                    </div>
+                  )}
+                  {building.caution_summary && (
+                    <div className="text-xs text-muted-foreground pt-1 space-y-0.5">
+                      <p className="font-medium text-amber-500 dark:text-amber-400">⚠️ 실사 확인 필요 사항</p>
+                      <p className="leading-relaxed">{building.caution_summary}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Risk / Caution Points */}
+                {cautionPoints.length > 0 && (
+                  <div className="rounded-xl border border-border bg-card p-4 space-y-2.5 shadow-sm">
+                    <h2 className="text-sm font-semibold flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                      <span>⚠️</span> 실사 검토 필요 사항 ({cautionPoints.length}건)
+                    </h2>
+                    <ul className="space-y-1.5">
+                      {cautionPoints.map((point, idx) => (
+                        <li key={idx} className="text-xs text-muted-foreground flex gap-1.5">
+                          <span className="text-amber-500 font-bold">•</span>
+                          <span>{point}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Hidden Fields Card */}
+                {hiddenFields.length > 0 && (
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5 space-y-2">
+                    <h2 className="text-xs font-bold flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+                      <span>🔒</span> 비공개 안전 처리 항목 ({hiddenFields.length}개)
+                    </h2>
+                    <div className="flex flex-wrap gap-1.5">
+                      {hiddenFields.map((field) => (
+                        <span key={field} className="text-[10px] bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded">
+                          {hiddenFieldLabels[field] || field}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
-
-              {/* Risk / Caution Points */}
-              {cautionPoints.length > 0 && (
-                <div className="rounded-xl border border-border bg-card p-5 space-y-3 shadow-sm">
-                  <h2 className="text-base font-semibold flex items-center gap-2 text-amber-600 dark:text-amber-400">
-                    <span>⚠️</span> 검토 필요 사항
-                  </h2>
-                  <ul className="space-y-2">
-                    {cautionPoints.map((point, idx) => (
-                      <li key={idx} className="text-sm text-muted-foreground flex gap-2">
-                        <span className="text-amber-500 font-bold">•</span>
-                        <span>{point}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Hidden Fields Card */}
-              {hiddenFields.length > 0 && (
-                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
-                  <h2 className="text-xs font-bold flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
-                    <span>🔒</span> 비공개 처리 항목 ({hiddenFields.length}개)
-                  </h2>
-                  <div className="flex flex-wrap gap-1.5">
-                    {hiddenFields.map((field) => (
-                      <span key={field} className="text-[11px] bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded">
-                        {hiddenFieldLabels[field] || field}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* Unified Deal Card Editor (Collapsible) */}
-              <details className="group rounded-xl border border-border bg-card shadow-sm overflow-hidden transition-all">
-                <summary className="flex items-center justify-between p-4 cursor-pointer select-none font-bold text-sm text-foreground hover:bg-muted/40 transition-colors">
-                  <span className="flex items-center gap-2">
-                    <span>✏️</span> 딜카드 문구 & OG 공유 정보 편집
-                  </span>
-                  <span className="text-xs text-muted-foreground group-open:rotate-180 transition-transform duration-200">
-                    ▼
-                  </span>
-                </summary>
-                <div className="p-4 pt-0 border-t border-border/40">
-                  <DealCardEditor
-                    buildingId={id}
-                    initialTitle={title}
-                    initialSummary={shortSummary}
-                    initialDealPoints={dealPoints}
-                    initialCautionPoints={cautionPoints}
-                    initialKakaoText={kakaoText}
-                    initialOgTitle={teaser?.ogTitle || ""}
-                    initialOgDescription={teaser?.ogDescription || ""}
-                    initialHookCopy={teaser?.hookCopy || ""}
-                    initialStructureChips={teaser?.structureChips || []}
-                    initialVacancyLabel={teaser?.vacancyLabel || ""}
-                    initialCuriosityHook={teaser?.curiosityHook || ""}
-                  />
-                </div>
-              </details>
-            </div>
-          }
+            }
           imContent={
             <div className="space-y-6 pt-2">
               <ImManagementPanel
@@ -439,6 +445,7 @@ export default async function BrokerDealCardResultPage({
             </div>
           }
         />
+        </div>
       </div>
 
       {/* Streamlined 3-Column Sticky CTA Bar */}

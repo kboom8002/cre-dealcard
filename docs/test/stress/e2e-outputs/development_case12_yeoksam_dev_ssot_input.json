@@ -1,0 +1,14 @@
+{
+  "id": "stress-case-12",
+  "area_signal": "강남권역",
+  "asset_type": "신축부지",
+  "price_band": "210억",
+  "land_area_pyung": 168.5,
+  "asking_price_krw": 21000000000,
+  "zoning_region": "제3종일반주거지역",
+  "far_pct": 0,
+  "layers": {
+    "location": {}
+  },
+  "completeness_score": 60
+}

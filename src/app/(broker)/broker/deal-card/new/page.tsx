@@ -4,11 +4,10 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-
 import { createClient } from "@/lib/supabase/client";
-
 import { ShareToCircleSheet } from "@/components/circle/ShareToCircleSheet";
+import { MemoImportModal } from "@/components/broker/deal-card/MemoImportModal";
+import { StickyNote } from "lucide-react";
 
 const LOADING_STEPS = [
   "메모에서 매물 정보 추출 중",
@@ -18,19 +17,16 @@ const LOADING_STEPS = [
   "카카오 문구 준비 중",
 ];
 
-const SAMPLE_MEMO =
-  "성수동 쪽 80억대 근생 건물. 정확한 주소는 아직 비공개로 해주세요.\n1층은 F&B로 쓰기 괜찮고 상층은 사무실 가능. 일부 임대 중이고 일부 공실 가능성 있음.\n매도자는 너무 공개되는 걸 싫어해서 임차인명이나 월세 세부는 빼고 먼저 사옥 수요자나 장기보유형한테 반응 보고 싶어함.\n주차는 확인 필요. 건물은 좀 노후됐고 리모델링 스토리 가능할 수도 있음.";
-
 export default function BrokerDealCardNewPage() {
   const router = useRouter();
   const [memo, setMemo] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [files, setFiles] = useState<File[]>([]);
   const [handoffSuccess, setHandoffSuccess] = useState(false);
   const [createdBuildingId, setCreatedBuildingId] = useState<string | null>(null);
   const [showShareSheet, setShowShareSheet] = useState(false);
+  const [showMemoModal, setShowMemoModal] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -44,12 +40,6 @@ export default function BrokerDealCardNewPage() {
       setTimeout(() => setHandoffSuccess(false), 3000);
     }
   }, []);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setFiles(Array.from(e.target.files));
-    }
-  };
 
   const [abortController, setAbortController] = useState<AbortController | null>(null);
 
@@ -83,30 +73,6 @@ export default function BrokerDealCardNewPage() {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
-      // Upload photos to Supabase Storage first
-      const photoUrls: string[] = [];
-      if (files.length > 0) {
-        for (const file of files) {
-          const fileExt = file.name.split('.').pop();
-          const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('building_photos')
-            .upload(fileName, file);
-
-          if (uploadError) {
-            console.warn(`[upload] Failed to upload ${file.name}:`, uploadError.message);
-            setError("이미지 '" + file.name + "' 업로드 실패. 계속 진행합니다.");
-            continue;
-          }
-          if (uploadData) {
-            const { data: publicUrlData } = supabase.storage
-              .from('building_photos')
-              .getPublicUrl(fileName);
-            photoUrls.push(publicUrlData.publicUrl);
-          }
-        }
-      }
-
       const res = await fetch("/api/broker/deal-card/from-memo", {
         method: "POST",
         headers: {
@@ -116,7 +82,6 @@ export default function BrokerDealCardNewPage() {
         body: JSON.stringify({
           memo: memo.trim(),
           visibilityPreference: "blind",
-          photoUrls,
         }),
         signal: controller.signal,
       });
@@ -139,83 +104,97 @@ export default function BrokerDealCardNewPage() {
             numeric: '💰 가격 또는 면적 수치 — 예: "80억대", "2,500평"',
             deal_type: '📋 거래 유형(매각, 임대 등) — 예: "매매"',
           };
-          const missingLabels = missing.map((f: string) => fieldLabels[f] || f).join('\n• ');
+          const missingGuide = missing
+            .map((f: string) => fieldLabels[f] || f)
+            .join("\n• ");
+
+          const suggestion = json.details.suggestion
+            ? `\n\n💡 AI 제안: ${json.details.suggestion}`
+            : "";
+
           throw new Error(
-            `다음 필수 정보가 부족하여 딜카드를 만들 수 없습니다:\n• ${missingLabels}`
+            `메모에 핵심 정보가 부족합니다.\n\n아래 항목 중 부족한 정보를 보완해주세요:\n• ${missingGuide}${suggestion}`,
           );
         }
-        const errorMsg =
-          json.error?.message ||
-          (typeof json.error === "string" ? json.error : null) ||
-          json.message ||
-          "딜카드 생성에 실패했습니다. 잠시 후 다시 시도해주세요.";
-        throw new Error(errorMsg);
+
+        // 가드레일 위반 시 상세 안내
+        if (json.code === "GUARDRAIL_VIOLATION") {
+          throw new Error(
+            `안전 가이드라인 위반: ${json.message || "매수자 보호 규정에 위배되는 내용이 포함되어 있습니다."}`,
+          );
+        }
+
+        throw new Error(json.error || json.message || "딜카드 생성에 실패했습니다.");
       }
 
-      clearTimeout(timeoutTimer);
-      clearInterval(interval);
+      // Success
       setCreatedBuildingId(json.data.buildingId);
-      setIsLoading(false);
-    } catch (err: any) {
-      clearTimeout(timeoutTimer);
-      clearInterval(interval);
-      if (err.name === 'AbortError') return; // Cancelled
-      let errorMessage = "이번 생성은 완료하지 못했습니다.";
-      if (err instanceof Error && err.message) {
-        errorMessage = err.message;
-      } else if (typeof err === "string") {
-        errorMessage = err;
+
+      // Auto-navigation with seamless transition
+      const buildingId = json.data.buildingId;
+      if (buildingId) {
+        sessionStorage.setItem("deal_card_just_created", "true");
+        router.push(`/broker/deal-card/${buildingId}`);
       }
-      setError(errorMessage);
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        return; // Aborted, handled by timeout
+      }
+      setError(err.message || "오류가 발생했습니다.");
       setIsLoading(false);
     } finally {
-      setAbortController(null);
+      clearTimeout(timeoutTimer);
+      clearInterval(interval);
     }
   }
 
   const handleCancelLoading = () => {
     if (abortController) {
       abortController.abort();
-      setIsLoading(false);
-      setError("딜카드 생성이 취소되었습니다.");
     }
+    setIsLoading(false);
+    setError("딜카드 생성을 취소했습니다. 메모 내용을 보완하여 다시 시도해보세요.");
   };
-
-  function handleUseSample() {
-    setMemo(SAMPLE_MEMO);
-  }
 
   if (createdBuildingId) {
     return (
-      <main className="flex flex-col items-center justify-center min-h-screen px-4 py-12 animate-in fade-in zoom-in duration-500">
-        <div className="w-full max-w-md mx-auto text-center space-y-6 bg-card border rounded-2xl p-8 shadow-xl">
-          <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-200 dark:border-emerald-500/30">
-            <span className="text-3xl">✨</span>
+      <main className="flex flex-col items-center justify-center min-h-screen px-4 py-12">
+        <div className="w-full max-w-md mx-auto text-center space-y-6">
+          <div className="text-5xl">🎉</div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold">딜카드가 완성되었습니다!</h1>
+            <p className="text-sm text-muted-foreground">
+              블라인드 처리된 딜카드로 안전하게 영업을 시작하세요.
+            </p>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">딜카드가 생성되었습니다!</h1>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            카톡으로 바로 공유하거나, 렌트롤·투자설명서를<br />추가하여 딜카드를 보강할 수 있습니다.
-          </p>
-          <div className="flex flex-col gap-3 pt-6">
-            <Button 
-              className="w-full bg-[#FEE500] hover:bg-[#FEE500]/90 text-[#3C1E1E] font-bold h-12 text-base"
-              onClick={() => router.push(`/broker/deal-card/${createdBuildingId}`)}
+
+          <div className="space-y-3 pt-4">
+            <Button
+              size="lg"
+              className="w-full text-base font-semibold"
+              onClick={() =>
+                router.push(`/broker/deal-card/${createdBuildingId}`)
+              }
             >
-              🟡 딜카드 확인 및 카톡 공유
+              딜카드 확인 및 카톡 공유
             </Button>
             <Button
+              size="lg"
               variant="outline"
-              className="w-full h-12 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-bold text-base"
+              className="w-full text-base"
               onClick={() => setShowShareSheet(true)}
             >
-              🤝 신뢰 서클 동료에게 보내기 (팀 AI 매칭)
+              🤝 서클에 딜 공유하기
             </Button>
-            <Button 
-              variant="outline"
-              className="w-full h-12 border-amber-500/30 hover:bg-amber-500/5 text-amber-600 dark:text-amber-400"
-              onClick={() => router.push(`/broker/schedule?buildingId=${createdBuildingId}&setup=true`)}
+            <Button
+              size="lg"
+              variant="ghost"
+              className="w-full text-base text-muted-foreground"
+              onClick={() =>
+                router.push(`/broker/schedule?building_id=${createdBuildingId}`)
+              }
             >
-              📅 임장 스케줄 설정하기
+              📅 임장 일정 잡기
             </Button>
           </div>
 
@@ -319,7 +298,7 @@ export default function BrokerDealCardNewPage() {
             placeholder={
               "예:\n성수동 80억대 근생, 일부 임대 중,\n1층 F&B 가능, 사옥 수요도 볼 수 있음.\n주소는 아직 비공개."
             }
-            className="min-h-[180px] text-base"
+            className="min-h-[220px] text-base"
           />
           <p className="text-xs text-muted-foreground pt-1">
             💡 투자 성격(수익형, 개발형, 운영형 등)은 AI가 메모 내용에서 자동 판별합니다.
@@ -330,35 +309,14 @@ export default function BrokerDealCardNewPage() {
             </p>
             <button
               type="button"
-              onClick={handleUseSample}
-              className="text-xs text-primary hover:underline"
-              id="btn-use-sample"
+              onClick={() => setShowMemoModal(true)}
+              className="text-xs text-primary font-semibold hover:underline flex items-center gap-1 bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-md transition-colors"
+              id="btn-import-memo"
             >
-              예시 메모 사용
+              <StickyNote className="w-3.5 h-3.5" />
+              메모함에서 불러오기
             </button>
           </div>
-        </div>
-
-        {/* Photo Upload */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">건물 사진 첨부 (선택)</label>
-          <Input
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={handleFileChange}
-            className="text-sm file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-          />
-          {files.length > 0 && (
-            <div className="flex gap-2 mt-2 overflow-x-auto pb-2 scrollbar-hide">
-              {files.map((file, idx) => (
-                <div key={idx} className="relative w-16 h-16 shrink-0 rounded-md overflow-hidden border border-border">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={URL.createObjectURL(file)} alt="preview" className="w-full h-full object-cover" />
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Disclosure Notice */}
@@ -404,6 +362,15 @@ export default function BrokerDealCardNewPage() {
           자동으로 숨겨집니다.
         </p>
       </form>
+
+      {/* Memo Import Modal */}
+      <MemoImportModal
+        isOpen={showMemoModal}
+        onClose={() => setShowMemoModal(false)}
+        onSelectMemo={(selectedMemo) => {
+          setMemo(selectedMemo);
+        }}
+      />
     </main>
   );
 }

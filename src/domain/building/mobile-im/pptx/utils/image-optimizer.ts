@@ -27,13 +27,35 @@ export async function optimizeImageForPptx(
   quality = 75
 ): Promise<OptimizedImage | null> {
   try {
-    const response = await fetch(imageUrl, {
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!response.ok) return null;
+    let inputBuffer: Buffer;
 
-    const arrayBuffer = await response.arrayBuffer();
-    const inputBuffer = Buffer.from(arrayBuffer);
+    if (imageUrl.startsWith('data:')) {
+      const base64Data = imageUrl.split(',')[1];
+      inputBuffer = Buffer.from(base64Data, 'base64');
+    } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      const response = await fetch(imageUrl, {
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!response.ok) return null;
+      const arrayBuffer = await response.arrayBuffer();
+      inputBuffer = Buffer.from(arrayBuffer);
+    } else {
+      // 로컬 파일 경로 처리 (e.g. /test-images/... or relative or absolute)
+      const fs = await import('fs');
+      const path = await import('path');
+      let localPath = imageUrl;
+      if (imageUrl.startsWith('/')) {
+        localPath = path.join(process.cwd(), 'public', imageUrl);
+      }
+      if (!fs.existsSync(localPath)) {
+        localPath = path.resolve(process.cwd(), imageUrl);
+      }
+      if (fs.existsSync(localPath)) {
+        inputBuffer = fs.readFileSync(localPath);
+      } else {
+        return null;
+      }
+    }
 
     const metadata = await sharp(inputBuffer).metadata();
     const originalWidth = metadata.width || 1280;

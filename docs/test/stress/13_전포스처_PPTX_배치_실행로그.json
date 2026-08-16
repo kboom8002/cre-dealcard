@@ -1,0 +1,54 @@
+[
+  {
+    "caseNo": 1,
+    "id": "bld_case1_seocho_medical",
+    "name": "서초동 역세권 160억대 메디컬 빌딩",
+    "posture": "income",
+    "preset": "golden_institutional",
+    "slideCount": 8,
+    "fileSizeKb": "1036.3",
+    "durationSec": "7.69",
+    "warningsCount": 0,
+    "filePath": "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\pptx_perfect_v3\\bld_case1_seocho_medical_golden_institutional_perfect_v3.pptx",
+    "passed": true
+  },
+  {
+    "caseNo": 2,
+    "id": "bld_case2_seongsu_headquarter",
+    "name": "성수 IT밸리 130억대 단독 통사옥",
+    "posture": "owner_occupied",
+    "preset": "pro_dark_obsidian",
+    "slideCount": 9,
+    "fileSizeKb": "1191.6",
+    "durationSec": "5.26",
+    "warningsCount": 0,
+    "filePath": "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\pptx_perfect_v3\\bld_case2_seongsu_headquarter_pro_dark_obsidian_perfect_v3.pptx",
+    "passed": true
+  },
+  {
+    "caseNo": 3,
+    "id": "bld_case3_sinsa_value_add",
+    "name": "신사동 가로수길 90억대 코너 밸류애드",
+    "posture": "trading",
+    "preset": "pro_dark_obsidian",
+    "slideCount": 8,
+    "fileSizeKb": "1031.7",
+    "durationSec": "4.13",
+    "warningsCount": 0,
+    "filePath": "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\pptx_perfect_v3\\bld_case3_sinsa_value_add_pro_dark_obsidian_perfect_v3.pptx",
+    "passed": true
+  },
+  {
+    "caseNo": 4,
+    "id": "bld_case4_yeoksam_development",
+    "name": "역삼동 테헤란로 코너 200억대 신축부지",
+    "posture": "development",
+    "preset": "golden_institutional",
+    "slideCount": 8,
+    "fileSizeKb": "812.5",
+    "durationSec": "2.87",
+    "warningsCount": 0,
+    "filePath": "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\pptx_perfect_v3\\bld_case4_yeoksam_development_golden_institutional_perfect_v3.pptx",
+    "passed": true
+  }
+]

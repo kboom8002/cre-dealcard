@@ -234,7 +234,7 @@ function renderCommonCoverContent(
   }
 
   const broker = input.data.brokerName || '';
-  const infoText = [broker, companyName, input.docno].filter(Boolean).join('  |  ');
+  const infoText = [broker, companyName].filter(Boolean).join('  |  ');
   slide.addText(infoText, {
     x: M, y: 6.60, w: CW, h: 0.3,
     fontSize: 8.5, color: CD.faint,

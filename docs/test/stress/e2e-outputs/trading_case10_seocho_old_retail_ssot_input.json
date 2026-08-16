@@ -1,0 +1,14 @@
+{
+  "id": "stress-case-10",
+  "area_signal": "서초권역",
+  "asset_type": "노후근생",
+  "price_band": "115억",
+  "land_area_pyung": 118.6,
+  "total_floor_area_pyung": 345.8,
+  "asking_price_krw": 11500000000,
+  "gross_annual_income_krw": 234000000,
+  "layers": {
+    "location": {}
+  },
+  "completeness_score": 70
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stress-case-08",
+  "area_signal": "한남권역",
+  "asset_type": "사옥",
+  "price_band": "180억",
+  "land_area_pyung": 128.4,
+  "total_floor_area_pyung": 265.8,
+  "asking_price_krw": 18000000000,
+  "layers": {
+    "location": {}
+  },
+  "completeness_score": 68
+}

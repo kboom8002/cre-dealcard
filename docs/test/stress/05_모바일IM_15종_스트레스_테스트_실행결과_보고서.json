@@ -1,0 +1,321 @@
+{
+  "timestamp": "2026-08-15T01:31:02.313Z",
+  "averageScore": 99,
+  "results": [
+    {
+      "caseId": "IM-CASE-01",
+      "name": "서초동 메디컬 빌딩",
+      "posture": "income",
+      "slideCount": 7,
+      "sections": [
+        "🏢 이 빌딩, 어떤 자산인가?",
+        "📍 이 입지, 투자할 만한 곳인가?",
+        "📊 임대 현황과 공실, 실제로 어떤가?",
+        "💰 수익률이 진짜로 나오는 딜인가?",
+        "⚠️ 숨은 리스크는 없는가?",
+        "🎯 왜 지금 이 빌딩을 사야 하는가?",
+        "📋 검토 후 다음 단계는?"
+      ],
+      "capRateFormatted": "3.62%",
+      "pricePerPyeong": "평당 2658만원",
+      "annualNoi": "59670만원",
+      "equityRequired": "68.5억원",
+      "score": 99,
+      "status": "PASS"
+    },
+    {
+      "caseId": "IM-CASE-02",
+      "name": "홍대 서교거리 F&B 올근생",
+      "posture": "income",
+      "slideCount": 7,
+      "sections": [
+        "🏢 이 빌딩, 어떤 자산인가?",
+        "📍 이 입지, 투자할 만한 곳인가?",
+        "📊 임대 현황과 공실, 실제로 어떤가?",
+        "💰 수익률이 진짜로 나오는 딜인가?",
+        "⚠️ 숨은 리스크는 없는가?",
+        "🎯 왜 지금 이 빌딩을 사야 하는가?",
+        "📋 검토 후 다음 단계는?"
+      ],
+      "capRateFormatted": "4.25%",
+      "pricePerPyeong": "평당 3659만원",
+      "annualNoi": "24630만원",
+      "equityRequired": "27.0억원",
+      "score": 99,
+      "status": "PASS"
+    },
+    {
+      "caseId": "IM-CASE-03",
+      "name": "분당 수내역 프라임 오피스",
+      "posture": "income",
+      "slideCount": 7,
+      "sections": [
+        "🏢 이 빌딩, 어떤 자산인가?",
+        "📍 이 입지, 투자할 만한 곳인가?",
+        "📊 임대 현황과 공실, 실제로 어떤가?",
+        "💰 수익률이 진짜로 나오는 딜인가?",
+        "⚠️ 숨은 리스크는 없는가?",
+        "🎯 왜 지금 이 빌딩을 사야 하는가?",
+        "📋 검토 후 다음 단계는?"
+      ],
+      "capRateFormatted": "3.74%",
+      "pricePerPyeong": "평당 1306만원",
+      "annualNoi": "119520만원",
+      "equityRequired": "118.0억원",
+      "score": 99,
+      "status": "PASS"
+    },
+    {
+      "caseId": "IM-CASE-04",
+      "name": "성수 아틀리에길 신축 올근생",
+      "posture": "income",
+      "slideCount": 7,
+      "sections": [
+        "🏢 이 빌딩, 어떤 자산인가?",
+        "📍 이 입지, 투자할 만한 곳인가?",
+        "📊 임대 현황과 공실, 실제로 어떤가?",
+        "💰 수익률이 진짜로 나오는 딜인가?",
+        "⚠️ 숨은 리스크는 없는가?",
+        "🎯 왜 지금 이 빌딩을 사야 하는가?",
+        "📋 검토 후 다음 단계는?"
+      ],
+      "capRateFormatted": "3.67%",
+      "pricePerPyeong": "평당 4441만원",
+      "annualNoi": "32340만원",
+      "equityRequired": "43.0억원",
+      "score": 99,
+      "status": "PASS"
+    },
+    {
+      "caseId": "IM-CASE-05",
+      "name": "성수 IT밸리 스타트업 단독통사옥",
+      "posture": "owner_occupier",
+      "slideCount": 7,
+      "sections": [
+        "🏢 이 빌딩, 어떤 자산인가?",
+        "📍 이 입지, 투자할 만한 곳인가?",
+        "🏢 사옥으로 활용하기에 적합한가?",
+        "⚖️ 자가 사용 vs 임차 유지, 무엇이 유리한가?",
+        "⚠️ 숨은 리스크는 없는가?",
+        "🎯 왜 지금 이 빌딩을 사야 하는가?",
+        "📋 검토 후 다음 단계는?"
+      ],
+      "capRateFormatted": "N/A",
+      "pricePerPyeong": "평당 2634만원",
+      "annualNoi": "N/A",
+      "equityRequired": "55.0억원",
+      "score": 99,
+      "status": "PASS"
+    },
+    {
+      "caseId": "IM-CASE-06",
+      "name": "강남 논현동 크리에이티브 사옥",
+      "posture": "owner_occupier",
+      "slideCount": 7,
+      "sections": [
+        "🏢 이 빌딩, 어떤 자산인가?",
+        "📍 이 입지, 투자할 만한 곳인가?",
+        "🏢 사옥으로 활용하기에 적합한가?",
+        "⚖️ 자가 사용 vs 임차 유지, 무엇이 유리한가?",
+        "⚠️ 숨은 리스크는 없는가?",
+        "🎯 왜 지금 이 빌딩을 사야 하는가?",
+        "📋 검토 후 다음 단계는?"
+      ],
+      "capRateFormatted": "N/A",
+      "pricePerPyeong": "평당 2661만원",
+      "annualNoi": "N/A",
+      "equityRequired": "31.0억원",
+      "score": 99,
+      "status": "PASS"
+    },
+    {
+      "caseId": "IM-CASE-07",
+      "name": "여의도 샛강역 전문직 법인사옥",
+      "posture": "owner_occupier",
+      "slideCount": 7,
+      "sections": [
+        "🏢 이 빌딩, 어떤 자산인가?",
+        "📍 이 입지, 투자할 만한 곳인가?",
+        "🏢 사옥으로 활용하기에 적합한가?",
+        "⚖️ 자가 사용 vs 임차 유지, 무엇이 유리한가?",
+        "⚠️ 숨은 리스크는 없는가?",
+        "🎯 왜 지금 이 빌딩을 사야 하는가?",
+        "📋 검토 후 다음 단계는?"
+      ],
+      "capRateFormatted": "N/A",
+      "pricePerPyeong": "평당 2261만원",
+      "annualNoi": "N/A",
+      "equityRequired": "40.0억원",
+      "score": 99,
+      "status": "PASS"
+    },
+    {
+      "caseId": "IM-CASE-08",
+      "name": "용산 한남동 대사관로 플래그십",
+      "posture": "owner_occupier",
+      "slideCount": 7,
+      "sections": [
+        "🏢 이 빌딩, 어떤 자산인가?",
+        "📍 이 입지, 투자할 만한 곳인가?",
+        "🏢 사옥으로 활용하기에 적합한가?",
+        "⚖️ 자가 사용 vs 임차 유지, 무엇이 유리한가?",
+        "⚠️ 숨은 리스크는 없는가?",
+        "🎯 왜 지금 이 빌딩을 사야 하는가?",
+        "📋 검토 후 다음 단계는?"
+      ],
+      "capRateFormatted": "N/A",
+      "pricePerPyeong": "평당 6770만원",
+      "annualNoi": "N/A",
+      "equityRequired": "80.0억원",
+      "score": 99,
+      "status": "PASS"
+    },
+    {
+      "caseId": "IM-CASE-09",
+      "name": "강남 신사동 가로수길 밸류애드",
+      "posture": "value_add",
+      "slideCount": 7,
+      "sections": [
+        "🏢 이 빌딩, 어떤 자산인가?",
+        "📍 이 입지, 투자할 만한 곳인가?",
+        "📊 임대 현황과 공실, 실제로 어떤가?",
+        "💰 수익률이 진짜로 나오는 딜인가?",
+        "⚠️ 숨은 리스크는 없는가?",
+        "🎯 왜 지금 이 빌딩을 사야 하는가?",
+        "📋 검토 후 다음 단계는?"
+      ],
+      "capRateFormatted": "1.13%",
+      "pricePerPyeong": "평당 4550만원",
+      "annualNoi": "11100만원",
+      "equityRequired": "36.2억원",
+      "score": 99,
+      "status": "PASS"
+    },
+    {
+      "caseId": "IM-CASE-10",
+      "name": "서초 교대역 법조타운 밸류애드",
+      "posture": "value_add",
+      "slideCount": 7,
+      "sections": [
+        "🏢 이 빌딩, 어떤 자산인가?",
+        "📍 이 입지, 투자할 만한 곳인가?",
+        "📊 임대 현황과 공실, 실제로 어떤가?",
+        "💰 수익률이 진짜로 나오는 딜인가?",
+        "⚠️ 숨은 리스크는 없는가?",
+        "🎯 왜 지금 이 빌딩을 사야 하는가?",
+        "📋 검토 후 다음 단계는?"
+      ],
+      "capRateFormatted": "1.67%",
+      "pricePerPyeong": "평당 3326만원",
+      "annualNoi": "19230만원",
+      "equityRequired": "46.0억원",
+      "score": 99,
+      "status": "PASS"
+    },
+    {
+      "caseId": "IM-CASE-11",
+      "name": "용산 원효로/용리단길 구옥 대수선",
+      "posture": "value_add",
+      "slideCount": 7,
+      "sections": [
+        "🏢 이 빌딩, 어떤 자산인가?",
+        "📍 이 입지, 투자할 만한 곳인가?",
+        "📊 임대 현황과 공실, 실제로 어떤가?",
+        "💰 수익률이 진짜로 나오는 딜인가?",
+        "⚠️ 숨은 리스크는 없는가?",
+        "🎯 왜 지금 이 빌딩을 사야 하는가?",
+        "📋 검토 후 다음 단계는?"
+      ],
+      "capRateFormatted": "N/A",
+      "pricePerPyeong": "평당 5467만원",
+      "annualNoi": "N/A",
+      "equityRequired": "18.0억원",
+      "score": 99,
+      "status": "PASS"
+    },
+    {
+      "caseId": "IM-CASE-12",
+      "name": "강남 역삼동 테헤란로 코너 신축부지",
+      "posture": "development",
+      "slideCount": 7,
+      "sections": [
+        "🏢 이 빌딩, 어떤 자산인가?",
+        "📍 이 입지, 투자할 만한 곳인가?",
+        "📐 개발 부지로서 대지 조건은 어떠한가?",
+        "🏗️ 신축/개발 사업수지와 수익성은?",
+        "⚠️ 숨은 리스크는 없는가?",
+        "🎯 왜 지금 이 빌딩을 사야 하는가?",
+        "📋 검토 후 다음 단계는?"
+      ],
+      "capRateFormatted": "N/A",
+      "pricePerPyeong": "N/A",
+      "annualNoi": "N/A",
+      "equityRequired": "80.0억원",
+      "score": 99,
+      "status": "PASS"
+    },
+    {
+      "caseId": "IM-CASE-13",
+      "name": "영등포 문래동 준공업 개발부지",
+      "posture": "development",
+      "slideCount": 7,
+      "sections": [
+        "🏢 이 빌딩, 어떤 자산인가?",
+        "📍 이 입지, 투자할 만한 곳인가?",
+        "📐 개발 부지로서 대지 조건은 어떠한가?",
+        "🏗️ 신축/개발 사업수지와 수익성은?",
+        "⚠️ 숨은 리스크는 없는가?",
+        "🎯 왜 지금 이 빌딩을 사야 하는가?",
+        "📋 검토 후 다음 단계는?"
+      ],
+      "capRateFormatted": "N/A",
+      "pricePerPyeong": "N/A",
+      "annualNoi": "N/A",
+      "equityRequired": "55.0억원",
+      "score": 99,
+      "status": "PASS"
+    },
+    {
+      "caseId": "IM-CASE-14",
+      "name": "송파 잠실/방이 법인 긴급 급매",
+      "posture": "income",
+      "slideCount": 7,
+      "sections": [
+        "🏢 이 빌딩, 어떤 자산인가?",
+        "📍 이 입지, 투자할 만한 곳인가?",
+        "📊 임대 현황과 공실, 실제로 어떤가?",
+        "💰 수익률이 진짜로 나오는 딜인가?",
+        "⚠️ 숨은 리스크는 없는가?",
+        "🎯 왜 지금 이 빌딩을 사야 하는가?",
+        "📋 검토 후 다음 단계는?"
+      ],
+      "capRateFormatted": "3.15%",
+      "pricePerPyeong": "평당 2414만원",
+      "annualNoi": "22680만원",
+      "equityRequired": "26.2억원",
+      "score": 99,
+      "status": "PASS"
+    },
+    {
+      "caseId": "IM-CASE-15",
+      "name": "종로 CBD 역사도심 상업지역 랜드마크",
+      "posture": "value_add",
+      "slideCount": 7,
+      "sections": [
+        "🏢 이 빌딩, 어떤 자산인가?",
+        "📍 이 입지, 투자할 만한 곳인가?",
+        "📊 임대 현황과 공실, 실제로 어떤가?",
+        "💰 수익률이 진짜로 나오는 딜인가?",
+        "⚠️ 숨은 리스크는 없는가?",
+        "🎯 왜 지금 이 빌딩을 사야 하는가?",
+        "📋 검토 후 다음 단계는?"
+      ],
+      "capRateFormatted": "3.28%",
+      "pricePerPyeong": "평당 2695만원",
+      "annualNoi": "78720만원",
+      "equityRequired": "85.0억원",
+      "score": 99,
+      "status": "PASS"
+    }
+  ]
+}

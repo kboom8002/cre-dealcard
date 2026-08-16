@@ -6,13 +6,14 @@
  */
 
 import type { InvestmentPosture } from '@/domain/ontology';
+import type { GallerySlideSpec } from './gallery-planner';
 
 export type PptxTier = 'basic' | 'pro';
 export type Grade = 'A' | 'B' | 'C' | 'D';
 export type IncomeArchetype = 'R-INC-01' | 'R-INC-02' | 'R-INC-03' | 'R-INC-04';
 
 export interface SlideSpec {
-  archetype: string;  // 'A01'~'A13'
+  archetype: string;  // 'A01'~'A14'
   kicker: string;
   title: string;
   dataKey: string;
@@ -27,9 +28,28 @@ export interface DeckSequenceInput {
   hasViolation?: boolean;
   hasJointCollateral?: boolean;
   hasPhotos?: boolean;
+  gallerySpecs?: GallerySlideSpec[];
+}
+
+/** 갤러리 슬라이드 목록을 SlideSpec[]으로 생성 */
+function buildGallerySlideSpecs(input: DeckSequenceInput): SlideSpec[] {
+  if (Array.isArray(input.gallerySpecs) && input.gallerySpecs.length > 0) {
+    return input.gallerySpecs.map(g => ({
+      archetype: 'A14',
+      kicker: g.kicker,
+      title: g.title,
+      dataKey: g.dataKey,
+    }));
+  }
+  if (input.hasPhotos) {
+    return [{ archetype: 'A14', kicker: 'Gallery', title: '건물 사진', dataKey: 'gallery' }];
+  }
+  return [];
 }
 
 export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
+  const gallerySlides = buildGallerySlideSpecs(input);
+
   // D등급: Pro는 빈 시퀀스(차단), Basic은 최소 3슬라이드
   if (input.grade === 'D') {
     if (input.tier === 'pro') return [];
@@ -37,9 +57,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     const dGradeSequence: SlideSpec[] = [
       { archetype: 'A01', kicker: 'BASIC IM', title: '표지', dataKey: 'cover' },
     ];
-    if (input.hasPhotos) {
-      dGradeSequence.push({ archetype: 'A14', kicker: 'Gallery', title: '건물 사진', dataKey: 'gallery' });
-    }
+    dGradeSequence.push(...gallerySlides);
     dGradeSequence.push(
       { archetype: 'A02', kicker: 'Summary', title: '핵심요약', dataKey: 'summary' },
       { archetype: 'A10', kicker: 'Disclaimer', title: '표기 기준 및 면책', dataKey: 'closing' }
@@ -52,9 +70,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     const basicSequence: SlideSpec[] = [
       { archetype: 'A01', kicker: 'BASIC IM', title: '표지', dataKey: 'cover' }
     ];
-    if (input.hasPhotos) {
-      basicSequence.push({ archetype: 'A14', kicker: 'Gallery', title: '건물 사진', dataKey: 'gallery' });
-    }
+    basicSequence.push(...gallerySlides);
     basicSequence.push(
       { archetype: 'A02', kicker: 'Summary', title: '핵심요약', dataKey: 'summary' },
       { archetype: 'A06', kicker: 'Location', title: '입지', dataKey: 'location' }
@@ -63,25 +79,29 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     switch (input.posture) {
       case 'development':
         basicSequence.push(
-          { archetype: 'A04', kicker: 'Land', title: '토지', dataKey: 'land' },
+          { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
+          { archetype: 'A04', kicker: 'Land Detail', title: '토지상세', dataKey: 'landDetail' },
           { archetype: 'A05', kicker: 'Feasibility', title: '개발 개요', dataKey: 'feasibility' }
         );
         break;
       case 'owner_occupied':
         basicSequence.push(
           { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
+          { archetype: 'A04', kicker: 'Plan', title: '사용계획', dataKey: 'plan' },
           { archetype: 'A08', kicker: 'Vs Lease', title: '자가비교', dataKey: 'vsLease' }
         );
         break;
       case 'operating':
         basicSequence.push(
           { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
-          { archetype: 'A13', kicker: 'KPI', title: '운영지표', dataKey: 'kpi' }
+          { archetype: 'A13', kicker: 'KPI', title: '운영지표', dataKey: 'kpi' },
+          { archetype: 'A05', kicker: 'Revenue', title: '매출', dataKey: 'revenue' }
         );
         break;
       case 'trading':
         basicSequence.push(
           { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
+          { archetype: 'A04', kicker: 'Market Position', title: '시장 포지션', dataKey: 'marketPosition' },
           { archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' }
         );
         break;
@@ -89,12 +109,15 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
       default:
         basicSequence.push(
           { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
-          { archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' }
+          { archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' },
+          { archetype: 'A05', kicker: 'Profit', title: '수익 분석', dataKey: 'profit' }
         );
         break;
     }
     basicSequence.push(
       { archetype: 'A07', kicker: 'Risk', title: '리스크', dataKey: 'risk' },
+      { archetype: 'A15', kicker: 'Thesis', title: '투자 논거', dataKey: 'thesis' },
+      { archetype: 'A09', kicker: 'Process', title: '다음 단계', dataKey: 'process' },
       { archetype: 'A10', kicker: 'Disclaimer', title: '표기 기준 및 면책', dataKey: 'closing' }
     );
     return basicSequence;
@@ -104,9 +127,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
 
   // ── 1. 공통 골격 (Pro) ──
   sequence.push({ archetype: 'A01', kicker: 'INVESTMENT MEMORANDUM', title: '표지', dataKey: 'cover' });
-  if (input.hasPhotos) {
-    sequence.push({ archetype: 'A14', kicker: 'Gallery', title: '건물 사진', dataKey: 'gallery' });
-  }
+  sequence.push(...gallerySlides);
   sequence.push({ archetype: 'A02', kicker: 'Summary', title: '핵심요약', dataKey: 'summary' });
   sequence.push({ archetype: 'A06', kicker: 'Location', title: '입지', dataKey: 'location' });
   sequence.push({ archetype: 'A04', kicker: 'Land', title: '토지', dataKey: 'land' });

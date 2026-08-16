@@ -1,8 +1,8 @@
 /**
- * slots.ts — 온톨로지 v0.4 슬롯 카탈로그
+ * slots.ts — 온톨로지 v0.5 슬롯 카탈로그
  * Spec: CATALOG_SLOTS.md · ONTOLOGY_V0.4_SPEC.md
  *
- * v0.2의 86 Core 슬롯 + v0.4 Pack 슬롯군 8종 = 163 슬롯.
+ * v0.2의 86 Core 슬롯 + v0.4 Pack 슬롯군8종 + v0.5 리스크·입지 슬롯 2종 = 165+ 슬롯.
  * Pack 슬롯은 pack_slots JSONB에 저장됩니다. Core 스키마를 건드리지 않습니다.
  */
 
@@ -13,6 +13,7 @@ import type {
   RampType, TemperatureZone, PermitKind,
   ExclusionKind, HandoverCondition, BuyerPurpose,
   VacateResponsibility,
+  RiskCategory, RiskSeverityLevel, LocationCategory, FallbackStrategy,
 } from './enums';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -147,7 +148,49 @@ export const SLOT_CATALOG: SlotDefinition[] = [
   { key: 'showIrr', label: 'IRR 공개', type: 'boolean', category: 'disclosure', required: false, source: 'broker', defaultProvenance: 'broker', isNew: true },
   { key: 'showSensitivity', label: '민감도 공개', type: 'boolean', category: 'disclosure', required: false, source: 'broker', defaultProvenance: 'broker', isNew: true },
   { key: 'capRateBasisDisplay', label: 'Cap Rate 기준 노출', type: 'enum', category: 'disclosure', required: false, source: 'broker', defaultProvenance: 'broker', enumFamily: 'cap_rate_basis', isNew: true },
+
+  // ── v0.5: Risk Items (1) ──
+  { key: 'riskItems', label: '리스크 항목', type: 'array', category: 'legal', required: false, source: 'derived', defaultProvenance: 'assumed', isV4New: true, kind: 'array' },
+
+  // ── v0.5: Location Aspects (1) ──
+  { key: 'locationAspects', label: '입지 분석 항목', type: 'array', category: 'road_access', required: false, source: 'derived', defaultProvenance: 'assumed', isV4New: true, kind: 'array' },
 ];
+
+// ══════════════════════════════════════════════════════════════════════
+// §2.5 v0.5 구조화 타입 — 리스크 항목 · 입지 분석 항목
+// ══════════════════════════════════════════════════════════════════════
+
+/** 리스크 항목 (v0.5 1급 객체) */
+export interface RiskItem {
+  category: RiskCategory;
+  title: string;
+  description: string;
+  severity: RiskSeverityLevel;
+  /** 실사/대응 방안 (선택적) */
+  mitigationAction?: string;
+  /** 출처 확인 방법 */
+  verificationSource?: string;
+}
+
+/** 입지 분석 항목 (v0.5 구조화 슬롯) */
+export interface LocationAspectItem {
+  category: LocationCategory;
+  label: string;
+  value: string;
+  /** 세부 설명 (선택적) */
+  detail?: string;
+  /** 프리미엄 등급 항목 여부 */
+  isPremium?: boolean;
+}
+
+/** 데이터 부재 시 폴백 메타데이터 (v0.5) */
+export interface SlotFallbackMeta {
+  strategy: FallbackStrategy;
+  /** 안내 카드 제목 */
+  title: string;
+  /** 안내 카드 본문 (불릿 포함 가능) */
+  body: string;
+}
 
 // ══════════════════════════════════════════════════════════════════════
 // §3. Pack 슬롯군 인터페이스 (8종 — Core 스키마 건드리지 않음)

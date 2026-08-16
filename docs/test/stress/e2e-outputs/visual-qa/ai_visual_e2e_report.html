@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>CRE DealCard AI Visual E2E Inspection Report</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+    h1, h2, h3 { color: #f1f5f9; }
+    .badge-pass { background: #10b981; color: #022c22; font-weight: bold; padding: 4px 10px; border-radius: 9999px; }
+    .badge-fail { background: #ef4444; color: #450a0a; font-weight: bold; padding: 4px 10px; border-radius: 9999px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-top: 16px; }
+    .slide-thumb { border: 1px solid #475569; border-radius: 8px; overflow: hidden; background: #000; }
+    .slide-thumb img { width: 100%; height: auto; display: block; }
+    .slide-title { padding: 8px; font-size: 13px; font-weight: 600; color: #cbd5e1; background: #0f172a; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+    th, td { border: 1px solid #334155; padding: 8px 12px; text-align: left; }
+    th { background: #334155; }
+  </style>
+</head>
+<body>
+  <h1>🏢 CRE DealCard AI 시각 E2E 검수 리포트</h1>
+  <p>검수 일시: 2026. 8. 16. 오후 1:59:02 | 대상: 대표 4개 포스처 (수익형, 사옥형, 개발형, 밸류애드형)</p>
+
+  
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>서초 메디컬 타워 (수익형 표준) [income]</h2>
+        <span class="badge-pass">
+          ✅ ALL PASS
+        </span>
+      </div>
+      <p>슬라이드 수: <strong>10장</strong> | 파일 크기: <strong>576.9 KB</strong> | XML 결함: <strong>0건</strong></p>
+      
+      <table>
+        <tr><th>검수 항목</th><th>결과</th><th>판정 기준</th></tr>
+        <tr><td>표지 및 헤더 무결성</td><td>✅ PASS</td><td>Kicker, 자산명, 매매가 정상 노출</td></tr>
+        <tr><td>핵심요약 4대 지표</td><td>✅ PASS</td><td>Cap Rate, NOI, 실투자금 천단위 콤마 포맷</td></tr>
+        <tr><td>입지 및 교통 다이어그램</td><td>✅ PASS</td><td>더블역세권 도보, 핵심 도로망 정상 노출</td></tr>
+        <tr><td>포스처 전용 슬라이드 (렌트롤/사옥비교)</td><td>✅ PASS</td><td>포스처별 특화 테이블 및 수치 완벽 바인딩</td></tr>
+        <tr><td>리스크 3-Block 카드</td><td>✅ PASS</td><td>진단 현황 및 완화 방안 3단 카드 렌더링</td></tr>
+        <tr><td>투자 포인트 (Thesis)</td><td>✅ PASS</td><td>4대 핵심 투자 논거 정상 표기</td></tr>
+        <tr><td>표기 기준 및 면책</td><td>✅ PASS</td><td>5대 출처 표기 및 법적 면책 조항</td></tr>
+        <tr><td>백지 슬라이드 방지</td><td>✅ PASS</td><td>모든 슬라이드에 콘텐츠 100% 충실</td></tr>
+        <tr><td>텍스트 오염 (NaN/undefined/null)</td><td>✅ PASS</td><td>오염 토큰 0건 검출</td></tr>
+      </table>
+
+      <h3>📸 생성된 슬라이드 캡처 (전수 10장)</h3>
+      <div class="grid">
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 1</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case01_seocho_medical/case01_seocho_medical_basic_slide_01.png" alt="Slide 1">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 2</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case01_seocho_medical/case01_seocho_medical_basic_slide_02.png" alt="Slide 2">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 3</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case01_seocho_medical/case01_seocho_medical_basic_slide_03.png" alt="Slide 3">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 4</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case01_seocho_medical/case01_seocho_medical_basic_slide_04.png" alt="Slide 4">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 5</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case01_seocho_medical/case01_seocho_medical_basic_slide_05.png" alt="Slide 5">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 6</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case01_seocho_medical/case01_seocho_medical_basic_slide_06.png" alt="Slide 6">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 7</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case01_seocho_medical/case01_seocho_medical_basic_slide_07.png" alt="Slide 7">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 8</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case01_seocho_medical/case01_seocho_medical_basic_slide_08.png" alt="Slide 8">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 9</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case01_seocho_medical/case01_seocho_medical_basic_slide_09.png" alt="Slide 9">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 10</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case01_seocho_medical/case01_seocho_medical_basic_slide_10.png" alt="Slide 10">
+          </div>
+        
+      </div>
+    </div>
+  
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>성수 IT밸리 통사옥 (사옥형 표준) [owner_occupied]</h2>
+        <span class="badge-pass">
+          ✅ ALL PASS
+        </span>
+      </div>
+      <p>슬라이드 수: <strong>10장</strong> | 파일 크기: <strong>573.0 KB</strong> | XML 결함: <strong>0건</strong></p>
+      
+      <table>
+        <tr><th>검수 항목</th><th>결과</th><th>판정 기준</th></tr>
+        <tr><td>표지 및 헤더 무결성</td><td>✅ PASS</td><td>Kicker, 자산명, 매매가 정상 노출</td></tr>
+        <tr><td>핵심요약 4대 지표</td><td>✅ PASS</td><td>Cap Rate, NOI, 실투자금 천단위 콤마 포맷</td></tr>
+        <tr><td>입지 및 교통 다이어그램</td><td>✅ PASS</td><td>더블역세권 도보, 핵심 도로망 정상 노출</td></tr>
+        <tr><td>포스처 전용 슬라이드 (렌트롤/사옥비교)</td><td>✅ PASS</td><td>포스처별 특화 테이블 및 수치 완벽 바인딩</td></tr>
+        <tr><td>리스크 3-Block 카드</td><td>✅ PASS</td><td>진단 현황 및 완화 방안 3단 카드 렌더링</td></tr>
+        <tr><td>투자 포인트 (Thesis)</td><td>✅ PASS</td><td>4대 핵심 투자 논거 정상 표기</td></tr>
+        <tr><td>표기 기준 및 면책</td><td>✅ PASS</td><td>5대 출처 표기 및 법적 면책 조항</td></tr>
+        <tr><td>백지 슬라이드 방지</td><td>✅ PASS</td><td>모든 슬라이드에 콘텐츠 100% 충실</td></tr>
+        <tr><td>텍스트 오염 (NaN/undefined/null)</td><td>✅ PASS</td><td>오염 토큰 0건 검출</td></tr>
+      </table>
+
+      <h3>📸 생성된 슬라이드 캡처 (전수 10장)</h3>
+      <div class="grid">
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 1</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case02_seongsu_hq/case02_seongsu_hq_basic_slide_01.png" alt="Slide 1">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 2</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case02_seongsu_hq/case02_seongsu_hq_basic_slide_02.png" alt="Slide 2">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 3</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case02_seongsu_hq/case02_seongsu_hq_basic_slide_03.png" alt="Slide 3">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 4</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case02_seongsu_hq/case02_seongsu_hq_basic_slide_04.png" alt="Slide 4">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 5</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case02_seongsu_hq/case02_seongsu_hq_basic_slide_05.png" alt="Slide 5">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 6</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case02_seongsu_hq/case02_seongsu_hq_basic_slide_06.png" alt="Slide 6">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 7</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case02_seongsu_hq/case02_seongsu_hq_basic_slide_07.png" alt="Slide 7">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 8</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case02_seongsu_hq/case02_seongsu_hq_basic_slide_08.png" alt="Slide 8">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 9</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case02_seongsu_hq/case02_seongsu_hq_basic_slide_09.png" alt="Slide 9">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 10</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case02_seongsu_hq/case02_seongsu_hq_basic_slide_10.png" alt="Slide 10">
+          </div>
+        
+      </div>
+    </div>
+  
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>역삼 테헤란로 신축부지 (개발형 표준) [development]</h2>
+        <span class="badge-pass">
+          ✅ ALL PASS
+        </span>
+      </div>
+      <p>슬라이드 수: <strong>10장</strong> | 파일 크기: <strong>581.0 KB</strong> | XML 결함: <strong>0건</strong></p>
+      
+      <table>
+        <tr><th>검수 항목</th><th>결과</th><th>판정 기준</th></tr>
+        <tr><td>표지 및 헤더 무결성</td><td>✅ PASS</td><td>Kicker, 자산명, 매매가 정상 노출</td></tr>
+        <tr><td>핵심요약 4대 지표</td><td>✅ PASS</td><td>Cap Rate, NOI, 실투자금 천단위 콤마 포맷</td></tr>
+        <tr><td>입지 및 교통 다이어그램</td><td>✅ PASS</td><td>더블역세권 도보, 핵심 도로망 정상 노출</td></tr>
+        <tr><td>포스처 전용 슬라이드 (렌트롤/사옥비교)</td><td>✅ PASS</td><td>포스처별 특화 테이블 및 수치 완벽 바인딩</td></tr>
+        <tr><td>리스크 3-Block 카드</td><td>✅ PASS</td><td>진단 현황 및 완화 방안 3단 카드 렌더링</td></tr>
+        <tr><td>투자 포인트 (Thesis)</td><td>✅ PASS</td><td>4대 핵심 투자 논거 정상 표기</td></tr>
+        <tr><td>표기 기준 및 면책</td><td>✅ PASS</td><td>5대 출처 표기 및 법적 면책 조항</td></tr>
+        <tr><td>백지 슬라이드 방지</td><td>✅ PASS</td><td>모든 슬라이드에 콘텐츠 100% 충실</td></tr>
+        <tr><td>텍스트 오염 (NaN/undefined/null)</td><td>✅ PASS</td><td>오염 토큰 0건 검출</td></tr>
+      </table>
+
+      <h3>📸 생성된 슬라이드 캡처 (전수 10장)</h3>
+      <div class="grid">
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 1</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case03_yeoksam_dev/case03_yeoksam_dev_basic_slide_01.png" alt="Slide 1">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 2</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case03_yeoksam_dev/case03_yeoksam_dev_basic_slide_02.png" alt="Slide 2">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 3</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case03_yeoksam_dev/case03_yeoksam_dev_basic_slide_03.png" alt="Slide 3">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 4</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case03_yeoksam_dev/case03_yeoksam_dev_basic_slide_04.png" alt="Slide 4">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 5</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case03_yeoksam_dev/case03_yeoksam_dev_basic_slide_05.png" alt="Slide 5">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 6</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case03_yeoksam_dev/case03_yeoksam_dev_basic_slide_06.png" alt="Slide 6">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 7</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case03_yeoksam_dev/case03_yeoksam_dev_basic_slide_07.png" alt="Slide 7">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 8</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case03_yeoksam_dev/case03_yeoksam_dev_basic_slide_08.png" alt="Slide 8">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 9</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case03_yeoksam_dev/case03_yeoksam_dev_basic_slide_09.png" alt="Slide 9">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 10</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case03_yeoksam_dev/case03_yeoksam_dev_basic_slide_10.png" alt="Slide 10">
+          </div>
+        
+      </div>
+    </div>
+  
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>신사동 가로수길 밸류애드 (밸류애드 표준) [trading]</h2>
+        <span class="badge-pass">
+          ✅ ALL PASS
+        </span>
+      </div>
+      <p>슬라이드 수: <strong>10장</strong> | 파일 크기: <strong>604.3 KB</strong> | XML 결함: <strong>0건</strong></p>
+      
+      <table>
+        <tr><th>검수 항목</th><th>결과</th><th>판정 기준</th></tr>
+        <tr><td>표지 및 헤더 무결성</td><td>✅ PASS</td><td>Kicker, 자산명, 매매가 정상 노출</td></tr>
+        <tr><td>핵심요약 4대 지표</td><td>✅ PASS</td><td>Cap Rate, NOI, 실투자금 천단위 콤마 포맷</td></tr>
+        <tr><td>입지 및 교통 다이어그램</td><td>✅ PASS</td><td>더블역세권 도보, 핵심 도로망 정상 노출</td></tr>
+        <tr><td>포스처 전용 슬라이드 (렌트롤/사옥비교)</td><td>✅ PASS</td><td>포스처별 특화 테이블 및 수치 완벽 바인딩</td></tr>
+        <tr><td>리스크 3-Block 카드</td><td>✅ PASS</td><td>진단 현황 및 완화 방안 3단 카드 렌더링</td></tr>
+        <tr><td>투자 포인트 (Thesis)</td><td>✅ PASS</td><td>4대 핵심 투자 논거 정상 표기</td></tr>
+        <tr><td>표기 기준 및 면책</td><td>✅ PASS</td><td>5대 출처 표기 및 법적 면책 조항</td></tr>
+        <tr><td>백지 슬라이드 방지</td><td>✅ PASS</td><td>모든 슬라이드에 콘텐츠 100% 충실</td></tr>
+        <tr><td>텍스트 오염 (NaN/undefined/null)</td><td>✅ PASS</td><td>오염 토큰 0건 검출</td></tr>
+      </table>
+
+      <h3>📸 생성된 슬라이드 캡처 (전수 10장)</h3>
+      <div class="grid">
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 1</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case04_sinsa_value_add/case04_sinsa_value_add_basic_slide_01.png" alt="Slide 1">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 2</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case04_sinsa_value_add/case04_sinsa_value_add_basic_slide_02.png" alt="Slide 2">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 3</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case04_sinsa_value_add/case04_sinsa_value_add_basic_slide_03.png" alt="Slide 3">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 4</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case04_sinsa_value_add/case04_sinsa_value_add_basic_slide_04.png" alt="Slide 4">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 5</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case04_sinsa_value_add/case04_sinsa_value_add_basic_slide_05.png" alt="Slide 5">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 6</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case04_sinsa_value_add/case04_sinsa_value_add_basic_slide_06.png" alt="Slide 6">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 7</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case04_sinsa_value_add/case04_sinsa_value_add_basic_slide_07.png" alt="Slide 7">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 8</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case04_sinsa_value_add/case04_sinsa_value_add_basic_slide_08.png" alt="Slide 8">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 9</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case04_sinsa_value_add/case04_sinsa_value_add_basic_slide_09.png" alt="Slide 9">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 10</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case04_sinsa_value_add/case04_sinsa_value_add_basic_slide_10.png" alt="Slide 10">
+          </div>
+        
+      </div>
+    </div>
+  
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>이천 복합물류센터 (운영형 표준) [operating]</h2>
+        <span class="badge-pass">
+          ✅ ALL PASS
+        </span>
+      </div>
+      <p>슬라이드 수: <strong>10장</strong> | 파일 크기: <strong>526.9 KB</strong> | XML 결함: <strong>0건</strong></p>
+      
+      <table>
+        <tr><th>검수 항목</th><th>결과</th><th>판정 기준</th></tr>
+        <tr><td>표지 및 헤더 무결성</td><td>✅ PASS</td><td>Kicker, 자산명, 매매가 정상 노출</td></tr>
+        <tr><td>핵심요약 4대 지표</td><td>✅ PASS</td><td>Cap Rate, NOI, 실투자금 천단위 콤마 포맷</td></tr>
+        <tr><td>입지 및 교통 다이어그램</td><td>✅ PASS</td><td>더블역세권 도보, 핵심 도로망 정상 노출</td></tr>
+        <tr><td>포스처 전용 슬라이드 (렌트롤/사옥비교)</td><td>✅ PASS</td><td>포스처별 특화 테이블 및 수치 완벽 바인딩</td></tr>
+        <tr><td>리스크 3-Block 카드</td><td>✅ PASS</td><td>진단 현황 및 완화 방안 3단 카드 렌더링</td></tr>
+        <tr><td>투자 포인트 (Thesis)</td><td>✅ PASS</td><td>4대 핵심 투자 논거 정상 표기</td></tr>
+        <tr><td>표기 기준 및 면책</td><td>✅ PASS</td><td>5대 출처 표기 및 법적 면책 조항</td></tr>
+        <tr><td>백지 슬라이드 방지</td><td>✅ PASS</td><td>모든 슬라이드에 콘텐츠 100% 충실</td></tr>
+        <tr><td>텍스트 오염 (NaN/undefined/null)</td><td>✅ PASS</td><td>오염 토큰 0건 검출</td></tr>
+      </table>
+
+      <h3>📸 생성된 슬라이드 캡처 (전수 10장)</h3>
+      <div class="grid">
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 1</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case05_icheon_logistics/case05_icheon_logistics_basic_slide_01.png" alt="Slide 1">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 2</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case05_icheon_logistics/case05_icheon_logistics_basic_slide_02.png" alt="Slide 2">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 3</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case05_icheon_logistics/case05_icheon_logistics_basic_slide_03.png" alt="Slide 3">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 4</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case05_icheon_logistics/case05_icheon_logistics_basic_slide_04.png" alt="Slide 4">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 5</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case05_icheon_logistics/case05_icheon_logistics_basic_slide_05.png" alt="Slide 5">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 6</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case05_icheon_logistics/case05_icheon_logistics_basic_slide_06.png" alt="Slide 6">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 7</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case05_icheon_logistics/case05_icheon_logistics_basic_slide_07.png" alt="Slide 7">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 8</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case05_icheon_logistics/case05_icheon_logistics_basic_slide_08.png" alt="Slide 8">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 9</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case05_icheon_logistics/case05_icheon_logistics_basic_slide_09.png" alt="Slide 9">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 10</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case05_icheon_logistics/case05_icheon_logistics_basic_slide_10.png" alt="Slide 10">
+          </div>
+        
+      </div>
+    </div>
+  
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>용산 용리단길 복합구옥 (엣지 표준) [trading]</h2>
+        <span class="badge-pass">
+          ✅ ALL PASS
+        </span>
+      </div>
+      <p>슬라이드 수: <strong>10장</strong> | 파일 크기: <strong>603.9 KB</strong> | XML 결함: <strong>0건</strong></p>
+      
+      <table>
+        <tr><th>검수 항목</th><th>결과</th><th>판정 기준</th></tr>
+        <tr><td>표지 및 헤더 무결성</td><td>✅ PASS</td><td>Kicker, 자산명, 매매가 정상 노출</td></tr>
+        <tr><td>핵심요약 4대 지표</td><td>✅ PASS</td><td>Cap Rate, NOI, 실투자금 천단위 콤마 포맷</td></tr>
+        <tr><td>입지 및 교통 다이어그램</td><td>✅ PASS</td><td>더블역세권 도보, 핵심 도로망 정상 노출</td></tr>
+        <tr><td>포스처 전용 슬라이드 (렌트롤/사옥비교)</td><td>✅ PASS</td><td>포스처별 특화 테이블 및 수치 완벽 바인딩</td></tr>
+        <tr><td>리스크 3-Block 카드</td><td>✅ PASS</td><td>진단 현황 및 완화 방안 3단 카드 렌더링</td></tr>
+        <tr><td>투자 포인트 (Thesis)</td><td>✅ PASS</td><td>4대 핵심 투자 논거 정상 표기</td></tr>
+        <tr><td>표기 기준 및 면책</td><td>✅ PASS</td><td>5대 출처 표기 및 법적 면책 조항</td></tr>
+        <tr><td>백지 슬라이드 방지</td><td>✅ PASS</td><td>모든 슬라이드에 콘텐츠 100% 충실</td></tr>
+        <tr><td>텍스트 오염 (NaN/undefined/null)</td><td>✅ PASS</td><td>오염 토큰 0건 검출</td></tr>
+      </table>
+
+      <h3>📸 생성된 슬라이드 캡처 (전수 10장)</h3>
+      <div class="grid">
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 1</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case06_yongsan_mixed/case06_yongsan_mixed_basic_slide_01.png" alt="Slide 1">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 2</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case06_yongsan_mixed/case06_yongsan_mixed_basic_slide_02.png" alt="Slide 2">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 3</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case06_yongsan_mixed/case06_yongsan_mixed_basic_slide_03.png" alt="Slide 3">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 4</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case06_yongsan_mixed/case06_yongsan_mixed_basic_slide_04.png" alt="Slide 4">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 5</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case06_yongsan_mixed/case06_yongsan_mixed_basic_slide_05.png" alt="Slide 5">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 6</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case06_yongsan_mixed/case06_yongsan_mixed_basic_slide_06.png" alt="Slide 6">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 7</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case06_yongsan_mixed/case06_yongsan_mixed_basic_slide_07.png" alt="Slide 7">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 8</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case06_yongsan_mixed/case06_yongsan_mixed_basic_slide_08.png" alt="Slide 8">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 9</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case06_yongsan_mixed/case06_yongsan_mixed_basic_slide_09.png" alt="Slide 9">
+          </div>
+        
+          <div class="slide-thumb">
+            <div class="slide-title">Slide 10</div>
+            <img src="C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case06_yongsan_mixed/case06_yongsan_mixed_basic_slide_10.png" alt="Slide 10">
+          </div>
+        
+      </div>
+    </div>
+  
+</body>
+</html>

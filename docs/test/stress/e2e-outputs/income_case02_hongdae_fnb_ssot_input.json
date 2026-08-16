@@ -1,0 +1,14 @@
+{
+  "id": "stress-case-02",
+  "area_signal": "마포권역",
+  "asset_type": "꼬마빌딩",
+  "price_band": "58억",
+  "land_area_pyung": 62.3,
+  "total_floor_area_pyung": 158.4,
+  "asking_price_krw": 5800000000,
+  "gross_annual_income_krw": 282000000,
+  "layers": {
+    "location": {}
+  },
+  "completeness_score": 75
+}

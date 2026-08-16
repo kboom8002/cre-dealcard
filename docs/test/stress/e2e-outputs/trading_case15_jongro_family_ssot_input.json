@@ -1,0 +1,15 @@
+{
+  "id": "stress-case-15",
+  "area_signal": "종로권역",
+  "asset_type": "올근생빌딩",
+  "price_band": "240억",
+  "land_area_pyung": 232.8,
+  "total_floor_area_pyung": 890.5,
+  "asking_price_krw": 24000000000,
+  "gross_annual_income_krw": 936000000,
+  "zoning_region": "일반상업지역",
+  "layers": {
+    "location": {}
+  },
+  "completeness_score": 82
+}

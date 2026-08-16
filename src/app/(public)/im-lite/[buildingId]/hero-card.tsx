@@ -169,24 +169,24 @@ export function HeroCard({ data }: HeroCardProps) {
             ) : (
               <>
                 <MetricCell
-                  label="Cap Rate"
-                  value={fmt(data.capRateBase, "%")}
-                  highlight={data.capRateBase !== null && data.capRateBase >= 4}
+                  label="매각 희망가"
+                  value={data.askingPriceDisplay || "—"}
+                  highlight={true}
                 />
                 <MetricCell
-                  label="NOI (연간)"
-                  value={fmt(data.noiBaseBil, "억")}
-                  highlight={false}
-                />
-                <MetricCell
-                  label="자기자본"
+                  label="실투자금(내 돈)"
                   value={fmt(data.equityRequiredBil, "억")}
                   highlight={false}
                 />
                 <MetricCell
-                  label="레버리지 수익률"
+                  label="연 순수익률"
+                  value={fmt(data.capRateBase, "%")}
+                  highlight={data.capRateBase !== null && data.capRateBase >= 3.5}
+                />
+                <MetricCell
+                  label="자기자본수익률"
                   value={fmt(data.leveragedYieldPct, "%")}
-                  highlight={data.leveragedYieldPct !== null && data.leveragedYieldPct >= 6}
+                  highlight={data.leveragedYieldPct !== null && data.leveragedYieldPct >= 5}
                 />
               </>
             )}
@@ -195,8 +195,8 @@ export function HeroCard({ data }: HeroCardProps) {
 
         {/* Investment Point */}
         <div className="mb-2 rounded-lg bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 px-4 py-3">
-          <p className="text-xs text-neutral-500 mb-1">💡 핵심 투자 포인트</p>
-          <p className="text-sm font-medium text-neutral-200 leading-relaxed">
+          <p className="text-xs font-semibold text-blue-400 mb-1">💡 핵심 투자 포인트</p>
+          <p className="text-sm sm:text-base font-medium text-neutral-200 leading-relaxed">
             {data.keyInvestmentPoint}
           </p>
         </div>
@@ -204,8 +204,8 @@ export function HeroCard({ data }: HeroCardProps) {
         {/* Key Risk */}
         {data.keyRisk && (
           <div className="mb-3 rounded-lg bg-gradient-to-r from-red-500/10 to-orange-500/5 border border-red-500/20 px-4 py-3">
-            <p className="text-xs text-neutral-500 mb-1">⚠️ 핵심 리스크</p>
-            <p className="text-sm font-medium text-red-300/90 leading-relaxed">
+            <p className="text-xs font-semibold text-red-400 mb-1">⚠️ 핵심 리스크 및 점검 사항</p>
+            <p className="text-sm sm:text-base font-medium text-red-300/90 leading-relaxed">
               {data.keyRisk}
             </p>
           </div>
@@ -241,7 +241,7 @@ export function HeroCard({ data }: HeroCardProps) {
                 style={{ width: `${Math.min(data.readinessScore, 100)}%` }}
               />
             </div>
-            <span className={`text-xs font-medium ${readinessColor(data.readinessScore)}`}>
+            <span className={`text-xs font-semibold ${readinessColor(data.readinessScore)}`}>
               {readinessLabel(data.readinessScore)}
             </span>
           </div>
@@ -262,10 +262,10 @@ function MetricCell({
   highlight: boolean;
 }) {
   return (
-    <div className="rounded-lg bg-neutral-800/50 px-3 py-2.5">
-      <p className="text-[11px] text-neutral-500 mb-0.5">{label}</p>
+    <div className="rounded-xl bg-neutral-800/60 border border-neutral-700/40 px-3.5 py-3 shadow-sm">
+      <p className="text-xs font-medium text-neutral-400 mb-1">{label}</p>
       <p
-        className={`text-lg font-bold tabular-nums ${
+        className={`text-xl sm:text-2xl font-black tracking-tight tabular-nums ${
           highlight ? "text-emerald-400" : "text-neutral-100"
         }`}
       >

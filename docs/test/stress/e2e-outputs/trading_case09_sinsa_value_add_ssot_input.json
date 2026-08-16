@@ -1,0 +1,15 @@
+{
+  "id": "stress-case-09",
+  "area_signal": "강남권역",
+  "asset_type": "노후빌딩",
+  "price_band": "98억",
+  "land_area_pyung": 102.3,
+  "total_floor_area_pyung": 215.4,
+  "asking_price_krw": 9800000000,
+  "gross_annual_income_krw": 132000000,
+  "far_pct": 165,
+  "layers": {
+    "location": {}
+  },
+  "completeness_score": 65
+}

@@ -1,0 +1,14 @@
+{
+  "id": "stress-case-04",
+  "area_signal": "성수권역",
+  "asset_type": "신축근생",
+  "price_band": "88억",
+  "land_area_pyung": 78.5,
+  "total_floor_area_pyung": 198.2,
+  "asking_price_krw": 8800000000,
+  "gross_annual_income_krw": 372000000,
+  "layers": {
+    "location": {}
+  },
+  "completeness_score": 80
+}

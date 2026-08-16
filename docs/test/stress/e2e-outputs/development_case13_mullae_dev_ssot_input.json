@@ -1,0 +1,14 @@
+{
+  "id": "stress-case-13",
+  "area_signal": "영등포권역",
+  "asset_type": "개발부지",
+  "price_band": "145억",
+  "land_area_pyung": 245,
+  "asking_price_krw": 14500000000,
+  "zoning_region": "준공업지역",
+  "far_pct": 0,
+  "layers": {
+    "location": {}
+  },
+  "completeness_score": 58
+}

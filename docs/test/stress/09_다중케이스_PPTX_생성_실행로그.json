@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-08-15T02:08:01.202Z",
+  "summaryResults": [
+    {
+      "caseNo": 1,
+      "buildingId": "bld_case1_seocho_medical",
+      "title": "서초동 역세권 160억대 메디컬 빌딩",
+      "posture": "income",
+      "preset": "golden_institutional",
+      "photoCount": 4,
+      "slideCount": 4,
+      "fileSizeBytes": 799244,
+      "fileSizeKb": "780.5",
+      "elapsedMs": 10329,
+      "warningsCount": 4,
+      "filePath": "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\pptx_outputs\\bld_case1_seocho_medical_golden_institutional.pptx",
+      "status": "PASS"
+    },
+    {
+      "caseNo": 2,
+      "buildingId": "bld_case2_seongsu_headquarter",
+      "title": "성수 IT밸리 130억대 단독 통사옥",
+      "posture": "owner_occupier",
+      "preset": "pro_dark_obsidian",
+      "photoCount": 5,
+      "slideCount": 4,
+      "fileSizeBytes": 754797,
+      "fileSizeKb": "737.1",
+      "elapsedMs": 7469,
+      "warningsCount": 4,
+      "filePath": "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\pptx_outputs\\bld_case2_seongsu_headquarter_pro_dark_obsidian.pptx",
+      "status": "PASS"
+    },
+    {
+      "caseNo": 3,
+      "buildingId": "bld_case3_sinsa_value_add",
+      "title": "신사동 가로수길 90억대 코너 밸류애드",
+      "posture": "value_add",
+      "preset": "pro_dark_obsidian",
+      "photoCount": 4,
+      "slideCount": 4,
+      "fileSizeBytes": 612485,
+      "fileSizeKb": "598.1",
+      "elapsedMs": 15023,
+      "warningsCount": 5,
+      "filePath": "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\pptx_outputs\\bld_case3_sinsa_value_add_pro_dark_obsidian.pptx",
+      "status": "PASS"
+    },
+    {
+      "caseNo": 4,
+      "buildingId": "bld_case4_yeoksam_development",
+      "title": "역삼동 테헤란로 코너 200억대 신축부지",
+      "posture": "development",
+      "preset": "golden_institutional",
+      "photoCount": 4,
+      "slideCount": 4,
+      "fileSizeBytes": 1693839,
+      "fileSizeKb": "1654.1",
+      "elapsedMs": 7977,
+      "warningsCount": 5,
+      "filePath": "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\pptx_outputs\\bld_case4_yeoksam_development_golden_institutional.pptx",
+      "status": "PASS"
+    }
+  ]
+}

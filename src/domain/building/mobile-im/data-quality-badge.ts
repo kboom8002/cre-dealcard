@@ -132,8 +132,8 @@ export function computeDataQualityBadge(params: {
     }
   }
 
-  // C등급: 건물 정보만 (공공데이터 있음)
-  if (params.hasAddress && params.hasPublicData) {
+  // C등급: 건물 정보만 (주소 또는 공공데이터 있음)
+  if (params.hasAddress || params.hasPublicData) {
     return { tier: 'reference', label: 'C등급 — 건물 정보만', emoji: '🟠', score, missingItems };
   }
   // D등급: 데이터 보충 필요

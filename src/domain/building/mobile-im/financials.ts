@@ -288,19 +288,19 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
     const pct = (n: number) => `${n.toFixed(1)}%`;
     const rows: string[] = [];
 
-    if (f.annualNoi.base > 0) rows.push(`| **연 순영업소득(NOI)** | ${bil(f.annualNoi.worst)}~**${bil(f.annualNoi.best)}** | 80% 신뢰구간 추정 |`);
-    if (f.capRate) rows.push(`| **Cap Rate** | ${pct(f.capRate.worst)}–**${pct(f.capRate.best)}** | 매각가 기준 구간 추정 |`);
-    if (f.irr5Year) rows.push(`| **IRR (5년 보유)** | ${pct(f.irr5Year.worst)}–**${pct(f.irr5Year.best)}** | 시나리오 추정, 참고용 |`);
-    if (f.yieldOnCost !== null) rows.push(`| **총 수익률(Gross Yield)** | **${pct(f.yieldOnCost)}** | 연 임대수입/매각가 |`);
+    if (f.annualNoi.base > 0) rows.push(`| **연 순영업소득(남는 돈 NOI)** | ${bil(f.annualNoi.worst)}~**${bil(f.annualNoi.best)}** | 운영비 차감 후 실질 순수익 |`);
+    if (f.capRate) rows.push(`| **연 순수익률(Cap Rate)** | ${pct(f.capRate.worst)}–**${pct(f.capRate.best)}** | 매매가 대비 구간 추정 |`);
+    if (f.irr5Year) rows.push(`| **5년 보유 시 투자수익률(IRR)** | ${pct(f.irr5Year.worst)}–**${pct(f.irr5Year.best)}** | 시나리오 추정, 참고용 |`);
+    if (f.yieldOnCost !== null) rows.push(`| **총 수익률(Gross Yield)** | **${pct(f.yieldOnCost)}** | 연 임대수입/매매가 |`);
     if (f.pricePerPyeong !== null) rows.push(`| **평당 매매가** | **${f.pricePerPyeong.toLocaleString()}원/평** | 참고용 |`);
-    if (f.landValueRatio !== null) rows.push(`| **대지 지분 가치 비중** | **${f.landValueRatio}%** | 하방 경직성 지표 |`);
-    else if (f.landValueRatioNote) rows.push(`| **대지 지분 가치 비중** | ⚠️ ${f.landValueRatioNote} | 공부 원본 확인 후 산출 |`);
-    if (f.totalDepositBil !== null) rows.push(`| **보증금 합계** | **${f.totalDepositBil}억 원** | 중개인 제공 |`);
+    if (f.landValueRatio !== null) rows.push(`| **땅값 비중(원금 안전판)** | **${f.landValueRatio}%** | 높을수록 원금 하방 경직성 확보 |`);
+    else if (f.landValueRatioNote) rows.push(`| **땅값 비중(원금 안전판)** | ⚠️ ${f.landValueRatioNote} | 공부 원본 확인 후 산출 |`);
+    if (f.totalDepositBil !== null) rows.push(`| **임대 보증금 합계** | **${f.totalDepositBil}억 원** | 중개인 제공 |`);
     if (f.loanAmountBil !== null) rows.push(`| **선순위 대출 잔액** | **${f.loanAmountBil}억 원** | 중개인 제공 |`);
-    if (f.equityRequired !== null) rows.push(`| **자기자본 소요 추정** | **약 ${f.equityRequired}억 원** | AI 추정 |`);
-    if (f.wacc !== null) rows.push(`| **추정 WACC(자본비용)** | **${pct(f.wacc * 100)}** | LTV 반영 |`);
-    if (f.dcf10Year) rows.push(`| **10년 DCF (NPV)** | **${f.dcf10Year.npvBase > 0 ? '+' : ''}${bil(f.dcf10Year.npvBase)}** | 기준 시나리오 |`);
-    if (f.leveragedYield !== null) rows.push(`| **레버리지 수익률** | **${f.leveragedYield}%** | NOI/자기자본, AI 추정 |`);
+    if (f.equityRequired !== null) rows.push(`| **실투자금(내 돈)** | **약 ${f.equityRequired}억 원** | 대출·보증금 제외 필요자본 |`);
+    if (f.wacc !== null) rows.push(`| **추정 자본비용(WACC)** | **${pct(f.wacc * 100)}** | LTV 및 금리 반영 |`);
+    if (f.dcf10Year) rows.push(`| **10년 현금흐름 현재가치(NPV)** | **${f.dcf10Year.npvBase > 0 ? '+' : ''}${bil(f.dcf10Year.npvBase)}** | 기준 시나리오 |`);
+    if (f.leveragedYield !== null) rows.push(`| **내 돈 대비 수익률(자기자본수익률)** | **${f.leveragedYield}%** | 대출 활용 시 연 수익률 |`);
 
     if (rows.length === 0) return '';
 
@@ -400,7 +400,7 @@ class DevelopmentFinancialStrategy implements PostureFinancialStrategy {
     if (f.expectedSalesRevenueBil != null) rows.push(`| **예상 분양/매각 수입** | **약 ${f.expectedSalesRevenueBil}억 원** | 목표 연면적 기준 |`);
     if (f.devProfitMarginPct != null) rows.push(`| **개발 이익률 추정** | **${f.devProfitMarginPct}%** | 총 사업비 대비 이익 |`);
     if (f.landCostRatioPct != null) rows.push(`| **토지비 비중** | **${f.landCostRatioPct}%** | 총 사업비 내 비중 |`);
-    if (f.equityRequired != null) rows.push(`| **토지 매입 자기자본** | **약 ${f.equityRequired}억 원** | 대출 제외 초기자금 |`);
+    if (f.equityRequired != null) rows.push(`| **토지 매입 실투자금(내 돈)** | **약 ${f.equityRequired}억 원** | 브릿지 대출 제외 초기자금 |`);
 
     if (rows.length === 0) return '';
 
@@ -469,12 +469,12 @@ class OperatingFinancialStrategy implements PostureFinancialStrategy {
 
   formatMarkdown(f: FinancialOutputs): string {
     const rows: string[] = [];
-    if (f.annualGopBil != null) rows.push(`| **연간 GOP (영업이익)** | **약 ${f.annualGopBil}억 원** | 운영 매출 기준 |`);
-    if (f.gopMarginPct != null) rows.push(`| **GOP 마진율** | **${f.gopMarginPct}%** | 총매출 대비 이익률 |`);
-    if (f.gopCapRatePct != null) rows.push(`| **GOP Cap Rate** | **${f.gopCapRatePct}%** | 매매가 대비 GOP 비율 |`);
+    if (f.annualGopBil != null) rows.push(`| **연간 실질 영업이익(GOP)** | **약 ${f.annualGopBil}억 원** | 운영 매출 기준 |`);
+    if (f.gopMarginPct != null) rows.push(`| **GOP 마진율** | **${f.gopMarginPct}%** | 총매출 대비 실질 마진 |`);
+    if (f.gopCapRatePct != null) rows.push(`| **GOP 환원율(Cap Rate)** | **${f.gopCapRatePct}%** | 매매가 대비 GOP 비율 |`);
     if (f.revparKrw != null) rows.push(`| **RevPAR (객실당 매출)** | **약 ${(f.revparKrw / 10000).toFixed(1)}만원** | ADR × OCC |`);
     if (f.pricePerPyeong != null) rows.push(`| **평당 매매가** | **${f.pricePerPyeong.toLocaleString()}원/평** | 참고용 |`);
-    if (f.equityRequired != null) rows.push(`| **자기자본 소요 추정** | **약 ${f.equityRequired}억 원** | AI 추정 |`);
+    if (f.equityRequired != null) rows.push(`| **필요 실투자금(내 돈)** | **약 ${f.equityRequired}억 원** | 대출 제외 초기자금 |`);
 
     if (rows.length === 0) return '';
 
@@ -546,9 +546,9 @@ class OwnerOccupiedFinancialStrategy implements PostureFinancialStrategy {
     const rows: string[] = [];
     if (f.ownVsLeaseSavingsBil != null) rows.push(`| **임차 대비 연 절감액** | **약 ${f.ownVsLeaseSavingsBil}억 원/년** | 주변 임대시세 대비 절감 |`);
     if (f.breakevenYears != null) rows.push(`| **자가전환 손익분기** | **약 ${f.breakevenYears}년** | 임대료 절감으로 투자금 회수 |`);
-    if (f.occupancyCostPerPyeongMonthly != null) rows.push(`| **실사용 평당 점유비용** | **월 ${f.occupancyCostPerPyeongMonthly.toLocaleString()}원/평** | 금융비용 + 관리비 |`);
+    if (f.occupancyCostPerPyeongMonthly != null) rows.push(`| **실사용 평당 점유비용** | **월 ${f.occupancyCostPerPyeongMonthly.toLocaleString()}원/평** | 금융비용 + 관리비 합산 |`);
     if (f.pricePerPyeong != null) rows.push(`| **평당 매매가** | **${f.pricePerPyeong.toLocaleString()}원/평** | 사옥 자산가치 |`);
-    if (f.equityRequired != null) rows.push(`| **사옥 매입 자기자본** | **약 ${f.equityRequired}억 원** | 초기 소요자금 |`);
+    if (f.equityRequired != null) rows.push(`| **사옥 매입 실투자금(내 돈)** | **약 ${f.equityRequired}억 원** | 시설자금 대출 제외 초기자금 |`);
 
     if (rows.length === 0) return '';
 
@@ -617,11 +617,11 @@ class TradingFinancialStrategy implements PostureFinancialStrategy {
 
   formatMarkdown(f: FinancialOutputs): string {
     const rows: string[] = [];
-    if (f.pricePerPyeong != null) rows.push(`| **평당 매매가** | **${f.pricePerPyeong.toLocaleString()}원/평** | 희망가 기준 |`);
-    if (f.marketDiscountPct != null) rows.push(`| **인근 시세 대비 갭(할인율)** | **${f.marketDiscountPct}%** | 주변 거래사례 대비 |`);
+    if (f.pricePerPyeong != null) rows.push(`| **평당 매매 희망가** | **${f.pricePerPyeong.toLocaleString()}원/평** | 희망가 기준 |`);
+    if (f.marketDiscountPct != null) rows.push(`| **인근 시세 대비 할인율(저평가 갭)** | **${f.marketDiscountPct}%** | 주변 거래사례 대비 |`);
     if (f.targetCapitalGainBil != null) rows.push(`| **목표 시세차익** | **약 ${f.targetCapitalGainBil}억 원** | 목표 매각가 기준 |`);
-    if (f.targetHprPct != null) rows.push(`| **자기자본 HPR (수익률)** | **${f.targetHprPct}%** | 보유기간 총수익률 |`);
-    if (f.equityRequired != null) rows.push(`| **자기자본 투입금** | **약 ${f.equityRequired}억 원** | 초기 소요자금 |`);
+    if (f.targetHprPct != null) rows.push(`| **자기자본 수익률(HPR)** | **${f.targetHprPct}%** | 보유기간 총수익률 |`);
+    if (f.equityRequired != null) rows.push(`| **필요 실투자금(내 돈)** | **약 ${f.equityRequired}억 원** | 초기 투입 자금 |`);
 
     if (rows.length === 0) return '';
 

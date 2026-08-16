@@ -6,6 +6,8 @@
  */
 
 import type { MobileIMSupplementalInput, AncillaryIncomeItem, FloorLeaseInput } from './types';
+import { sanitizeTextHygiene } from './terminology-normalizer';
+import { humanizeGuardrailTokensForView } from './guardrails';
 
 export interface DealCardToIMBridgeInput {
   // building_ssot_lite fields
@@ -102,8 +104,17 @@ export function bridgeDealCardToIM(
     ? layers.photos.map((p: any) => typeof p === 'string' ? p : p?.url).filter(Boolean)
     : undefined;
 
-  // Broker highlight from blindTeaser or fit_summary
-  const brokerHighlight = blindTeaser?.hookCopy || ssot.fit_summary || undefined;
+  // Broker highlight from blindTeaser or fit_summary — sanitize & humanize
+  const rawHighlight = blindTeaser?.hookCopy || ssot.fit_summary || undefined;
+  const brokerHighlight = rawHighlight
+    ? humanizeGuardrailTokensForView(sanitizeTextHygiene(rawHighlight), 'institutional')
+    : undefined;
+
+  // Caution summary — sanitize & humanize
+  const rawCaution = ssot.caution_summary || undefined;
+  const cautionSummary = rawCaution
+    ? humanizeGuardrailTokensForView(sanitizeTextHygiene(rawCaution), 'institutional')
+    : undefined;
 
   // Bridge ancillary incomes from SSoT
   const ancillaryIncomes = ssot.ancillary_incomes || undefined;

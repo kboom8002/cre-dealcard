@@ -2,9 +2,22 @@
 // Mobile IM Lite 7섹션 타입 정의
 // Full IM 18섹션에서 꼬마빌딩 매수자가 실제로 묻는 7가지만 추출
 
-import type { BuildingUse, AssetType, InvestmentPosture } from '@/domain/ontology';
+import type { BuildingUse, AssetType, InvestmentPosture, PhotoCategory } from '@/domain/ontology';
 import type { ArchetypeCode } from './archetype-registry';
 import type { BuildingSSoTLite } from '../building-ssot-lite.types';
+
+/** 개별 사진 메타데이터 (v0.6.0) */
+export interface PhotoMeta {
+  url: string;
+  category: PhotoCategory;               // 사진 분류 (17종 SSoT)
+  caption?: string;                      // 캡션 텍스트
+  isHero?: boolean;                      // 대표 사진 여부 (최대 1장)
+  autoClassified?: boolean;              // AI/규칙 자동 분류 여부 (vs 브로커 수동)
+  width?: number;                        // 원본 이미지 너비 (px)
+  height?: number;                       // 원본 이미지 높이 (px)
+  aspectRatio?: number;                  // width / height
+  order?: number;                        // 정렬 순서
+}
 
 /** 3축 자산 식별자 (v0.4) */
 export interface AssetIdentity {
@@ -148,8 +161,9 @@ export interface MobileIMSupplementalInput {
   monthly_rent_total_krw?: number;   // 월세 총액
   vacancy_status?: string;           // 공실 현황 간단 입력
   vacancy_pct?: number;              // 정확한 공실률 (%)
-  photo_urls?: string[];             // 대표 사진 최대 12장
-  photo_captions?: Record<number, string>; // 사진별 캡션 (인덱스→설명)
+  photo_urls?: string[];             // 대표 사진 최대 12장 (v1 레거시)
+  photo_captions?: Record<number, string>; // 사진별 캡션 (인덱스→설명) (v1 레거시)
+  photos_v2?: PhotoMeta[];           // 구조화 사진 메타데이터 (v2 SSoT)
   broker_highlight?: string;         // 브로커 한줄 코멘트
   estimated_yield_pct?: number;      // 예상 수익률
   resolved_address?: string;         // 확정 주소 (지번)

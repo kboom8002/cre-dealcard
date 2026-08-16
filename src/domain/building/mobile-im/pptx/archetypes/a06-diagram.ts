@@ -4,6 +4,7 @@ import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind, RowEntry } from '../imlib';
 import { generateStaticMapPlaceholder, fetchKakaoMapImage, type OptimizedImage } from '../utils/image-optimizer';
 import { enforceTextBudget } from '../text-budget';
+import { stripMarkdown } from '../data-binder';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -66,9 +67,9 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
   if (rightRows.length > 0) {
     // Truncate each row's value to prevent overflow
     const safeRows = rightRows.map(([label, value, ...rest]: any[]) => 
-      [label, enforceTextBudget(String(value || ''), 45), ...rest]
+      [stripMarkdown(String(label || '')), enforceTextBudget(stripMarkdown(String(value || '')), 70), ...rest]
     ) as RowEntry[];
-    y = L.rows(slide, textX, y, textW, safeRows, { rh: 0.38, fs: 11 });
+    y = L.rows(slide, textX, y, textW, safeRows, { rh: 0.48, fs: 14 });
     y += 0.2;
   }
 

@@ -272,3 +272,73 @@ function applyRules(text: string, rules: ReplacementRule[]): NormalizationResult
 
   return { text: result, replaced };
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// v0.5: 전역 텍스트 위생(Text Hygiene) 파이프라인
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * v0.5: SSoT → IM 데이터 브릿지 직전에 적용되는 전역 텍스트 위생 함수.
+ * 마크다운 찌꺼기, 시스템 메시지, 어휘 중복, 이모지, dangling 기호를 선제 정제합니다.
+ *
+ * 이 함수는 렌더러(PPTX/웹/PDF)가 아닌 SSoT 데이터 레이어에서 호출되어,
+ * 모든 하류 채널에 깨끗한 데이터를 보장합니다.
+ */
+export function sanitizeTextHygiene(text: string): string {
+  if (!text) return '';
+
+  return text
+    // ── 마크다운 서식 제거 ──
+    .replace(/^#+\s*/gm, '')
+    .replace(/^\s*[-*_]{3,}\s*$/gm, '')      // 수평선(---, ***)
+    .replace(/\*\*(.*?)\*\*/g, '$1')          // **bold**
+    .replace(/\*(.*?)\*/g, '$1')              // *italic*
+    .replace(/`(.*?)`/g, '$1')                // `code`
+    .replace(/\[(.*?)\]\(.*?\)/g, '$1')       // [link](url)
+    .replace(/^>\s*/gm, '')                   // blockquote
+
+    // ── HTML 태그 ──
+    .replace(/<[^>]*>/g, '')
+
+    // ── 이모지 ──
+    .replace(/[🏢📍📊💰⚠️🎯📋✨🚇✓★▲●◇🔍📌📈📉🏗️🏠💼🔑📝✅❌⭐🏆🎉🚀💡🔥❗❓]/gu, '')
+
+    // ── 내부 시스템 메시지 ──
+    .replace(/>\s*🔍?\s*\*{0,2}건축물대장\s*조회\s*미완료\*{0,2}[^\n]*/g, '')
+    .replace(/공공데이터\s*API\s*응답을\s*받지\s*못했습니다[^\n]*/g, '')
+    .replace(/추후\s*업데이트\s*시\s*자동\s*반영됩니다\.?/g, '')
+
+    // ── SSoT 내부 표기 정제 ──
+    .replace(/\s*\(BSSoT\s*Lite[^)]*\)/gi, '')
+    .replace(/\s*\(기재\s*공란\)/g, ' (미확인)')
+    .replace(/근린생활시설\s*또는\s*상업용\s*건물로\s*추정\s*/g, '')
+    .replace(/건축물대장상\s*확인\s*필요/g, '확인 필요')
+    .replace(/(으로|로)\s*추정(되는|됨|)\s*/g, '')
+    .replace(/인\s*것으로\s*(보임|판단됨|보여짐)\s*/g, '')
+    .replace(/일\s*가능성이\s*있(음|습니다)\s*/g, '')
+    .replace(/~?(으로|로)\s*보(임|입니다|여집니다)\s*/g, '')
+
+    // ── 어휘 중복 정제 ──
+    .replace(/(권역|입지|상권|역세권|대로변|인프라|교통|접근성)\s+\1/g, '$1')
+
+    // ── 문미 dangling 기호 ──
+    .replace(/\s*[—–-]\s*$/gm, '')
+
+    // ── 공백 정규화 ──
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * v0.5: 다수의 텍스트 필드에 일괄 적용하는 래퍼.
+ * Record의 string 값 필드에만 sanitizeTextHygiene을 적용합니다.
+ */
+export function sanitizeRecordTextFields<T extends Record<string, unknown>>(record: T): T {
+  const result = { ...record };
+  for (const [key, value] of Object.entries(result)) {
+    if (typeof value === 'string') {
+      (result as Record<string, unknown>)[key] = sanitizeTextHygiene(value);
+    }
+  }
+  return result;
+}

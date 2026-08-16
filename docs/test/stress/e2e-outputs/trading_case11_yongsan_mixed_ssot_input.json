@@ -1,0 +1,13 @@
+{
+  "id": "stress-case-11",
+  "area_signal": "용산권역",
+  "asset_type": "복합구옥",
+  "price_band": "43억",
+  "land_area_pyung": 48.2,
+  "total_floor_area_pyung": 78.5,
+  "asking_price_krw": 4300000000,
+  "layers": {
+    "location": {}
+  },
+  "completeness_score": 55
+}

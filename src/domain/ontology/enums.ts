@@ -1,8 +1,9 @@
 /**
- * enums.ts — 온톨로지 v0.4 Enum 카탈로그 (26계열)
+ * enums.ts — 온톨로지 v0.5 Enum 카탈로그 (30계열)
  * Spec: ONTOLOGY_V0.4_SPEC.md · CATALOG_SLOTS.md §5 · CATALOG_ASSET_TYPES.md
  *
- * v0.2의 9계열에서 v0.4의 26계열로 확장.
+ * v0.2의 9계열에서 v0.4의 26계열, v0.5의 30계열로 확장.
+ * v0.5 신규: RISK_CATEGORY(5), LOCATION_CATEGORY(4), RISK_SEVERITY(3), FALLBACK_STRATEGY(3)
  * 전 계열은 ENUM_REGISTRY에 등록되어야 합니다.
  * 미등록 enum은 버전 Pin 대상에서 빠져 과거 IM 재현 검증을 통과해 버립니다.
  *
@@ -282,6 +283,45 @@ export const VACATE_RESPONSIBILITY = [
 export type VacateResponsibility = typeof VACATE_RESPONSIBILITY[number];
 
 // ══════════════════════════════════════════════════════════════════════
+// §4.5 v0.5 신규 4계열 — 리스크·입지·폴백 온톨로지
+// ══════════════════════════════════════════════════════════════════════
+
+// ── 22v5. 리스크 카테고리 (5종) ────────────────────────────────────
+export const RISK_CATEGORY = [
+  'legal_right',           // 권리·등기·가압류 리스크
+  'physical_building',     // 건축물 노후도·위반건축물·설비
+  'zoning_regulatory',     // 용도지역·지구단위계획·건폐·용적률
+  'financial_debt',        // 근저당·신탁·대출상환
+  'tenant_vacancy',        // 공실률·임대차분쟁·명도 리스크
+] as const;
+export type RiskCategory = typeof RISK_CATEGORY[number];
+
+// ── 23v5. 리스크 심각도 (3종) ─────────────────────────────────────
+export const RISK_SEVERITY = [
+  'low',                   // 경미 — 통상적 확인 사항
+  'medium',                // 주의 — 실사 시 정밀 확인 필요
+  'high',                  // 중대 — 거래 의사결정에 직접 영향
+] as const;
+export type RiskSeverityLevel = typeof RISK_SEVERITY[number];
+
+// ── 24v5. 입지 분석 카테고리 (4종) ────────────────────────────────
+export const LOCATION_CATEGORY = [
+  'transit_access',        // 대중교통 접근성 (지하철·버스·도보)
+  'road_network',          // 도로 접면·차량 진출입성
+  'catchment_demand',      // 배후 수요 (세대수·유동인구·상권)
+  'urban_amenity',         // 도시 편의시설 (관공서·병원·교육)
+] as const;
+export type LocationCategory = typeof LOCATION_CATEGORY[number];
+
+// ── 25v5. 데이터 부재 시 폴백 전략 (3종) ──────────────────────────
+export const FALLBACK_STRATEGY = [
+  'institutional_checklist',  // 기관투자사 수준 실사 체크리스트 카드
+  'skeleton_guide',           // 데이터 입력 가이드 스켈레톤
+  'market_benchmark',         // 시장 비교 벤치마크 기반 추정
+] as const;
+export type FallbackStrategy = typeof FALLBACK_STRATEGY[number];
+
+// ══════════════════════════════════════════════════════════════════════
 // §5. 시스템 enum (CATALOG_SLOTS.md §1)
 // ══════════════════════════════════════════════════════════════════════
 
@@ -323,8 +363,68 @@ export const METRIC_DISCLOSURE = [
 ] as const;
 export type MetricDisclosure = typeof METRIC_DISCLOSURE[number];
 
+// ── 27. PPTX 테마 프리셋 (5종 — v0.5.1) ───────────────────────────
+export const PPTX_THEME_PRESET = [
+  'golden_institutional',  // 골든 기관투자형 (황동/골드 + 네이비)
+  'pro_dark_obsidian',     // 다크 옵시디언 (네온그린 + 다크슬레이트)
+  'pro_emerald',           // 에메랄드 클래식 (에메랄드 + 다크포레스트)
+  'pro_cyan_tech',         // 사이언 테크 (사이언 + 딥블루)
+  'pro_modern_gold',       // 모던 골드 (샴페인골드 + 차콜)
+] as const;
+export type PptxThemePreset = typeof PPTX_THEME_PRESET[number];
+
+// ── 28. PPTX 슬라이드 아키타입 (14종 — v0.5.1) ─────────────────────
+export const PPTX_ARCHETYPE = [
+  'A01',                   // 히어로 표지
+  'A02',                   // 3x2 핵심지표 그리드
+  'A03',                   // 대형 데이터 테이블 (렌트롤/비교사례)
+  'A04',                   // 7:5 비대칭 스펙+사진/콜아웃
+  'A05',                   // 7:4 비대칭 개발/수지분석
+  'A06',                   // 입지 다이어그램 + 지도
+  'A07',                   // 3단 리스크 블록 + 하단 안내바
+  'A08',                   // 듀얼 테이블 (자가 vs 임차 비교)
+  'A09',                   // 4단계 프로세스/타임라인
+  'A10',                   // 클로징 면책/담당자 카드
+  'A11',                   // 호실 스펙/공실 분석
+  'A12',                   // 권리관계/지분 구조
+  'A13',                   // 운영 KPI/GOP 분석
+  'A14',                   // 4~6분할 사진 갤러리
+] as const;
+export type PptxArchetypeCode = typeof PPTX_ARCHETYPE[number];
+
+// ── 29. 사진 카테고리 (17종 — v0.6.0) ─────────────────────────────
+export const PHOTO_CATEGORY = [
+  'exterior',        // 건물 외관 전경
+  'aerial',          // 항공/드론 촬영
+  'entrance',        // 건물 주 출입구
+  'surroundings',    // 주변 환경 (도로, 상권)
+  'signage',         // 건물 간판/사인
+  'lobby',           // 1층 로비/안내데스크
+  'corridor',        // 복도/계단/공용부
+  'elevator',        // 엘리베이터홀
+  'interior',        // 기준층 내부 (범용)
+  'tenant_space',    // 임차인 전용 공간
+  'floor_plan',      // 도면/평면도
+  'parking',         // 주차장 (지상/지하)
+  'rooftop',         // 옥상/테라스
+  'mechanical',      // 기계실/전기실/설비
+  'storage',         // 창고/보관실
+  'map',             // 위치 지도 (자동 생성)
+  'hero',            // 대표 사진 (브로커 지정)
+] as const;
+export type PhotoCategory = typeof PHOTO_CATEGORY[number];
+
+// ── 30. 갤러리 그룹 (4종 — v0.6.0) ────────────────────────────────
+export const GALLERY_GROUP = [
+  'G1_exterior',    // 외관·입지 (Exterior & Context)
+  'G2_common',      // 공용·로비 (Common & Lobby)
+  'G3_leasable',    // 전용·임대 (Leasable Space)
+  'G4_facility',    // 설비·부대 (Facilities)
+] as const;
+export type GalleryGroup = typeof GALLERY_GROUP[number];
+
 // ══════════════════════════════════════════════════════════════════════
-// §6. 통합 Enum Registry — 26계열 전량 등록
+// §6. 통합 Enum Registry — 34계열 전량 등록 (v0.6.0)
 // ══════════════════════════════════════════════════════════════════════
 
 export const ENUM_REGISTRY: Record<string, readonly string[]> = {
@@ -353,6 +453,17 @@ export const ENUM_REGISTRY: Record<string, readonly string[]> = {
   temperature_zone: TEMPERATURE_ZONE,
   permit_kind: PERMIT_KIND,
   vacate_responsibility: VACATE_RESPONSIBILITY,
+  // v0.5 리스크·입지·폴백
+  risk_category: RISK_CATEGORY,
+  risk_severity: RISK_SEVERITY,
+  location_category: LOCATION_CATEGORY,
+  fallback_strategy: FALLBACK_STRATEGY,
+  // v0.5.1 PPTX 렌더링 SSoT
+  pptx_theme_preset: PPTX_THEME_PRESET,
+  pptx_archetype: PPTX_ARCHETYPE,
+  // v0.6.0 사진/갤러리 SSoT
+  photo_category: PHOTO_CATEGORY,
+  gallery_group: GALLERY_GROUP,
   // 시스템
   slot_state: SLOT_STATE,
   grade: GRADE,

@@ -1,0 +1,27 @@
+{
+  "monthly_rent_total_krw": 120000000,
+  "asking_price_manwon": 4500000,
+  "total_deposit_manwon": 500000,
+  "vacancy_pct": 0,
+  "resolved_address": "경기도 이천시 마장면",
+  "investmentPosture": "operating",
+  "logistics": {
+    "ceiling_height_m": 12,
+    "dock_count": 12,
+    "dock_leveler_count": 8,
+    "max_vehicle_ton": 25,
+    "floor_load_ton_m2": 3.5,
+    "cold_storage_type": "both",
+    "cold_storage_area_pyeong": 1500,
+    "loading_area_pyeong": 800,
+    "vehicle_access_type": "both",
+    "fire_rating": "1급",
+    "sprinkler": true,
+    "column_span_m": "10x10",
+    "power_capacity_kw": 2500,
+    "has_office_space": true,
+    "office_area_pyeong": 200,
+    "distance_to_ic_km": 3,
+    "ic_name": "이천IC"
+  }
+}

@@ -1,16 +1,16 @@
 export const TEXT_LIMITS = {
-  slideTitle: 20,
-  kicker: 30,
-  subTitle: 40,
-  leadSentence: 90,
-  subHeading: 30,
-  statLabel: 14,
-  statValue: 6,
-  statSub: 24,
-  calloutTitle: 26,
-  tableHeader: 8,
-  tableCell: 12,
-  note: 120
+  slideTitle: 32,
+  kicker: 35,
+  subTitle: 50,
+  leadSentence: 100,
+  subHeading: 35,
+  statLabel: 18,
+  statValue: 10,
+  statSub: 30,
+  calloutTitle: 30,
+  tableHeader: 16,
+  tableCell: 30,
+  note: 140
 };
 
 export function charsPerLine(boxWidth: number, fontSize?: number): number {

@@ -201,12 +201,22 @@ export default function BrokerMemosPage() {
     }
   };
 
-  /* ── Transfer ── */
+  /* ── Transfer / Direct Actions ── */
+  const handleCreateDealCard = (memo: Memo) => {
+    sessionStorage.setItem("memo_transfer", memo.memo_text);
+    setOpenMenuId(null);
+    router.push("/broker/deal-card/new");
+  };
+
+  const handleCreateBuyerIntent = (memo: Memo) => {
+    sessionStorage.setItem("memo_transfer", memo.memo_text);
+    setOpenMenuId(null);
+    router.push("/broker/buyer-intents/new");
+  };
+
   const handleTransfer = (memo: Memo) => {
     sessionStorage.setItem("memo_transfer", memo.memo_text);
-    if (memo.routing_type === "new_deal") {
-      router.push("/broker/deal-card/new");
-    } else if (memo.routing_type === "buyer_condition") {
+    if (memo.routing_type === "buyer_condition") {
       router.push("/broker/buyer-intents/new");
     } else {
       router.push("/broker/deal-card/new");
@@ -370,6 +380,8 @@ export default function BrokerMemosPage() {
                     onDelete={() => handleDelete(memo.id)}
                     onTogglePin={() => handleTogglePin(memo)}
                     onTransfer={() => handleTransfer(memo)}
+                    onCreateDealCard={() => handleCreateDealCard(memo)}
+                    onCreateBuyerIntent={() => handleCreateBuyerIntent(memo)}
                     openMenuId={openMenuId}
                     setOpenMenuId={setOpenMenuId}
                     menuRef={menuRef}
@@ -399,6 +411,8 @@ export default function BrokerMemosPage() {
                       onDelete={() => handleDelete(memo.id)}
                       onTogglePin={() => handleTogglePin(memo)}
                       onTransfer={() => handleTransfer(memo)}
+                      onCreateDealCard={() => handleCreateDealCard(memo)}
+                      onCreateBuyerIntent={() => handleCreateBuyerIntent(memo)}
                       openMenuId={openMenuId}
                       setOpenMenuId={setOpenMenuId}
                       menuRef={menuRef}
@@ -426,6 +440,8 @@ interface MemoCardProps {
   onDelete: () => void;
   onTogglePin: () => void;
   onTransfer: () => void;
+  onCreateDealCard: () => void;
+  onCreateBuyerIntent: () => void;
   openMenuId: string | null;
   setOpenMenuId: (id: string | null) => void;
   menuRef: React.RefObject<HTMLDivElement | null>;
@@ -435,6 +451,7 @@ function MemoCard({
   memo, isEditing, editText, setEditText,
   onStartEdit, onCancelEdit, onSaveEdit,
   onDelete, onTogglePin, onTransfer,
+  onCreateDealCard, onCreateBuyerIntent,
   openMenuId, setOpenMenuId, menuRef,
 }: MemoCardProps) {
   const info = getTypeInfo(memo.routing_type);
@@ -473,7 +490,20 @@ function MemoCard({
             <MoreVertical className="w-4 h-4" />
           </button>
           {isMenuOpen && (
-            <div className="absolute right-0 top-7 z-30 bg-popover border border-border rounded-lg shadow-xl py-1 min-w-[140px] animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="absolute right-0 top-7 z-30 bg-popover border border-border rounded-lg shadow-xl py-1 min-w-[150px] animate-in fade-in slide-in-from-top-1 duration-150">
+              <button
+                onClick={onCreateDealCard}
+                className="w-full px-3 py-2 text-left text-sm hover:bg-primary/10 text-primary font-medium flex items-center gap-2 transition-colors"
+              >
+                <Building2 className="w-3.5 h-3.5" /> 딜카드 만들기
+              </button>
+              <button
+                onClick={onCreateBuyerIntent}
+                className="w-full px-3 py-2 text-left text-sm hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-2 transition-colors"
+              >
+                <Search className="w-3.5 h-3.5" /> 매수 의향서 등록
+              </button>
+              <div className="border-t border-border my-1" />
               <button
                 onClick={onStartEdit}
                 className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 transition-colors"
@@ -543,9 +573,9 @@ function MemoCard({
         </>
       )}
 
-      {/* Footer: timestamp + action */}
+      {/* Footer: timestamp + actions */}
       {!isEditing && (
-        <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-border/30">
+        <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-border/30 gap-2">
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <span>{formatMemoTime(memo.created_at)}</span>
             {wasEdited && (
@@ -555,17 +585,18 @@ function MemoCard({
               </>
             )}
           </div>
-          {!isConverted && (memo.routing_type === "new_deal" || memo.routing_type === "buyer_condition") && (
+          <div className="flex items-center gap-1.5">
             <Button
               size="sm"
               variant="secondary"
               className="text-[11px] h-7 px-2.5 hover:bg-primary/10 hover:text-primary transition-all"
-              onClick={onTransfer}
+              onClick={onCreateDealCard}
+              title="이 메모로 딜카드를 생성합니다"
             >
-              {memo.routing_type === "new_deal" ? "딜카드 만들기" : "의향서 만들기"}
-              <ArrowRight className="w-3 h-3 ml-1" />
+              <Building2 className="w-3 h-3 mr-1" />
+              딜카드 만들기
             </Button>
-          )}
+          </div>
         </div>
       )}
     </div>

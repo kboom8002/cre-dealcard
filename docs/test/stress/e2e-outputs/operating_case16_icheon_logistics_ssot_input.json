@@ -1,0 +1,14 @@
+{
+  "id": "stress-case-16-icheon",
+  "area_signal": "이천권역",
+  "asset_type": "물류센터",
+  "price_band": "450억",
+  "land_area_pyung": 3000,
+  "total_floor_area_pyung": 5500,
+  "asking_price_krw": 45000000000,
+  "gross_annual_income_krw": 1440000000,
+  "layers": {
+    "location": {}
+  },
+  "completeness_score": 80
+}

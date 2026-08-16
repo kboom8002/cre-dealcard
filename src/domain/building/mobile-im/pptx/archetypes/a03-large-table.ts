@@ -58,15 +58,15 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
     const bodyRows = tableRows.map((r: any[]) =>
       r.map((c: any) => {
         let text = String(c || '').replace(/\*\*/g, '');
-        // F9: 12자 초과 셀은 말줄임 처리
-        if (text.length > 14) text = text.slice(0, 13) + '…';
+        // 26자 초과 셀은 말줄임 처리
+        if (text.length > 26) text = text.slice(0, 25) + '…';
         return { t: text };
       })
     );
     
-    L.table(slide, M, 1.86, CW, 
+    L.table(slide, M, 1.80, CW, 
       tableHead.map(h => String(h || '').replace(/\*\*/g, '')),
-      bodyRows, colW, { rh: 0.46, bfs: 11, hfs: 10 }
+      bodyRows, colW, { rh: 0.50, bfs: 13, hfs: 13 }
     );
   } else if (input.data.content) {
     // 테이블 없으면 content를 L.rows()로 렌더링
@@ -84,36 +84,47 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
       }
     }
     if (rowEntries.length > 0) {
-      L.rows(slide, M, 1.86, CW, rowEntries.slice(0, 14), { rh: 0.36, fs: 12 });
+      L.rows(slide, M, 1.80, CW, rowEntries.slice(0, 12), { rh: 0.44, fs: 14 });
     }
   }
 
-  if (tableHead.length === 0 && tableRows.length === 0 && (!input.data.content || rowEntries.length === 0)) {
-    L.callout(slide, M, 2.20, CW, 1.4, 'info', '임대 현황 데이터 준비 중',
-      '임대차 현황 데이터는 상세 입력 완료 후 자동으로 업데이트됩니다.');
-    warnings.push('렌트롤 데이터 없음 — 폴백 callout 표시');
-  }
+  const hasNoData = tableHead.length === 0 && tableRows.length === 0 && (!input.data.content || rowEntries.length === 0);
 
+  if (hasNoData) {
+    L.callout(slide, M, 1.86, CW, 1.5, 'info', '임대차 현황 데이터 준비 중',
+      '상세 임대차 계약 현황(호실별 보증금, 월차임, 관리비, 만기일)은 소유자/중개인 확인 후 업데이트됩니다.');
+    warnings.push('렌트롤 데이터 없음 — 폴백 카드 표시');
+
+    // 하단에 2열 안내 카드를 배치하여 공백 해소 및 겹침 방지
+    const coGap = 0.20;
+    const coW = L.col(2, coGap);
+    L.callout(slide, L.colX(0, coW, coGap), 3.60, coW, 2.4, 'info', '임대차 실사 점검 항목',
+      '• 층별/호실별 임대차 계약서 및 사업자등록 현황\n• 보증금 총액 및 월 임대료 입금 내역(최근 6개월)\n• 렌트프리, 핏아웃 등 특약 조건 존재 여부');
+    L.callout(slide, L.colX(1, coW, coGap), 3.60, coW, 2.4, 'info', '수익률 분석 유의사항',
+      '• 상가임대차보호법상 10년 계약갱신요구권 적용 여부\n• 주변 시세 대비 적정 임대료(Market Rent) 갭 분석\n• 향후 명도 가능 여부 및 리모델링/신축 타당성');
+  }
   
   // Note
   const rh = 0.46;
   const tableEnd = 1.86 + ((tableRows.length + 1) * rh);
-  if (input.data.note && tableEnd + 0.10 + 0.3 <= 7.0) {
+  if (input.data.note && !hasNoData && tableEnd + 0.10 + 0.3 <= 7.0) {
     L.note(slide, M, tableEnd + 0.10, CW, input.data.note);
   }
   
-  // Callouts
-  const callouts = input.data.callouts || [];
-  callouts.forEach((co: any, i: number) => {
-    if (i > 1) return;
-    const coGap = 0.20;
-    const coW = L.col(2, coGap);
-    const x = L.colX(i, coW, coGap);
-    const calloutY = tableEnd + 0.40;
-    if (calloutY + 1.2 <= 7.0) {
-      L.callout(slide, x, calloutY, coW, 1.2, co.kind || 'info', co.title || '', co.body || '');
-    }
-  });
+  // Callouts (데이터가 있을 때만 tableEnd 아래에 렌더링하여 충돌 방지)
+  if (!hasNoData) {
+    const callouts = input.data.callouts || [];
+    callouts.forEach((co: any, i: number) => {
+      if (i > 1) return;
+      const coGap = 0.20;
+      const coW = L.col(2, coGap);
+      const x = L.colX(i, coW, coGap);
+      const calloutY = tableEnd + 0.40;
+      if (calloutY + 1.2 <= 7.0) {
+        L.callout(slide, x, calloutY, coW, 1.2, co.kind || 'info', co.title || '', co.body || '');
+      }
+    });
+  }
   
   if (input.watermarkText) L.watermark(slide, input.watermarkText, false);
   L.foot(slide, input.slideNum, input.docno);

@@ -38,7 +38,7 @@ interface ForbiddenPattern {
 const FORBIDDEN_PATTERNS: ForbiddenPattern[] = [
   // P0: 투자 추천
   {
-    pattern: /매수\s*(를)?\s*추천|투자\s*가치가\s*높|안전한\s*투자처|우량\s*매물|확실한\s*투자|강력히\s*추천/,
+    pattern: /매수\s*(를)?\s*추천|투자\s*가치가\s*높|안전한\s*투자처|우량\s*매물|확실한\s*투자|강력히\s*추천|무조건\s*상승/,
     issue_type: "investment_recommendation",
     severity: "p0",
     message: "투자 추천 또는 확정적 투자 가치 표현은 허용되지 않습니다.",
@@ -46,7 +46,7 @@ const FORBIDDEN_PATTERNS: ForbiddenPattern[] = [
   },
   // P0: 수익률 보장
   {
-    pattern: /수익률\s*(이|은|가)?\s*보장|NOI\s*(가|이)?\s*확정|현금흐름\s*(이|을)?\s*보장|Cap\s*Rate\s*(가|이)?\s*안정/,
+    pattern: /수익률\s*(이|은|가)?\s*보장|원금\s*(이|은|가)?\s*보장|NOI\s*(가|이)?\s*확정|현금흐름\s*(이|을)?\s*보장|Cap\s*Rate\s*(가|이)?\s*안정/,
     issue_type: "financial_certainty",
     severity: "p0",
     message: "수익률/NOI/현금흐름 보장 표현은 허용되지 않습니다.",
@@ -373,4 +373,72 @@ export function validateFactsOnly(
   }
 
   return violations;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// v0.5: 문맥 인식형 가드레일 토큰 자연어 치환 & 채널별 뷰 어댑터
+// ══════════════════════════════════════════════════════════════════════
+
+/** 출력 채널 구분 (v0.5) */
+export type OutputChannel = 'public' | 'institutional' | 'internal';
+
+/** 가드레일 토큰 → 자연어 매핑 (채널별 분기) */
+const TOKEN_HUMANIZATION: Record<string, Record<OutputChannel, string>> = {
+  '[인명 비공개]':            { public: '담당자',       institutional: '담당자',     internal: '(비공개)' },
+  '[연락처 비공개]':          { public: '문의처',       institutional: '중개 문의',  internal: '(비공개)' },
+  '[이메일 비공개]':          { public: '문의처',       institutional: '중개 문의',  internal: '(비공개)' },
+  '[지역 신호로 대체됨]':     { public: '해당 권역',    institutional: '해당 권역',  internal: '(비공개)' },
+  '[임차인 업종 정보로 대체됨]': { public: '주요 임차 업종', institutional: '주요 우량 임차인', internal: '(비공개)' },
+  '[임대수익 존재, 상세 내용 비공개]': { public: '임대 수익 발생 확인', institutional: '임대 수익 존재 (NDA)', internal: '(비공개)' },
+  '[매도자 사정 비공개]':     { public: '매도 사유 비공개', institutional: '매도 사유 비공개', internal: '(비공개)' },
+  '[내부 협상 메모 비공개]':  { public: '',              institutional: '',           internal: '(비공개)' },
+};
+
+/** 한국어 조사 보존형 치환 패턴 (토큰 뒤 조사 연결 처리) */
+const KOREAN_PARTICLE_RULES: Array<{
+  pattern: RegExp;
+  replacement: (channel: OutputChannel) => string;
+}> = [
+  // [인명 비공개]에게, [인명 비공개]게
+  { pattern: /\[인명\s*비공개\](에게|게)/g, replacement: () => '담당자에게' },
+  // [인명 비공개]의
+  { pattern: /\[인명\s*비공개\](의)/g, replacement: () => '담당자의' },
+  // [인명 비공개]을, [인명 비공개]를
+  { pattern: /\[인명\s*비공개\](을|를)/g, replacement: () => '담당자를' },
+  // [인명 비공개]이, [인명 비공개]가
+  { pattern: /\[인명\s*비공개\](이|가)/g, replacement: () => '담당자가' },
+  // [인명 비공개]은, [인명 비공개]는
+  { pattern: /\[인명\s*비공개\](은|는)/g, replacement: () => '담당자는' },
+  // [인명 비공개]와, [인명 비공개]과
+  { pattern: /\[인명\s*비공개\](와|과)/g, replacement: () => '담당자와' },
+];
+
+/**
+ * v0.5: 가드레일 토큰을 채널에 맞는 자연어로 치환합니다.
+ * 한국어 조사 탈락을 방지하면서 문맥에 맞는 자연스러운 문장을 생성합니다.
+ */
+export function humanizeGuardrailTokensForView(
+  text: string,
+  channel: OutputChannel = 'institutional',
+): string {
+  if (!text) return '';
+  let result = text;
+
+  // 1단계: 조사 보존형 치환 (우선 처리)
+  for (const rule of KOREAN_PARTICLE_RULES) {
+    result = result.replace(rule.pattern, rule.replacement(channel));
+  }
+
+  // 2단계: 일반 토큰 치환
+  for (const [token, channelMap] of Object.entries(TOKEN_HUMANIZATION)) {
+    const humanized = channelMap[channel] || channelMap.institutional;
+    if (humanized) {
+      result = result.replaceAll(token, humanized);
+    } else {
+      // 빈 문자열이면 토큰과 앞뒤 공백 제거
+      result = result.replaceAll(token, '').replace(/\s{2,}/g, ' ');
+    }
+  }
+
+  return result.trim();
 }

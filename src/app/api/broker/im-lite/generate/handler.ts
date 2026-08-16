@@ -182,6 +182,14 @@ export async function generateMobileIMHandler(
     }
   }
 
+  // ─── 주소 미입력 경고 (soft warning) ───
+  const addressMissing = !supplemental.resolved_address && !supplemental.resolved_pnu;
+  if (addressMissing) {
+    financialWarnings.push(
+      '주소가 입력되지 않아 건축물대장·토지이용계획 등 공적장부를 조회하지 못했습니다. 주소를 입력하면 데이터 등급이 향상됩니다.'
+    );
+  }
+
   // ─── 공공데이터 수집 (fault-tolerant)
   let externalData = null;
   let externalDataStatus: 'loaded' | 'partial' | 'failed' | 'skipped' = 'skipped';
@@ -213,14 +221,40 @@ export async function generateMobileIMHandler(
       layers?.location?.neighborhood ??
       null;
 
-    if (!rawAddress && ssotRow.raw_input) {
-      const addrMatch = String(ssotRow.raw_input).match(
+    // ── 단계 A: raw_input에서 정규 주소(도로명/지번) 추출 ──
+    if (ssotRow.raw_input) {
+      // 도로명: "XX로 123" 또는 "XX길 45-6"
+      const roadMatch = String(ssotRow.raw_input).match(
+        /([가-힣]{2,10}(?:로|길)\s*\d+(?:-\d+)?)/
+      );
+      // 지번: "서울시 XX구 XX동 123-45" 또는 "XX동 123-45"
+      const jibunMatch = String(ssotRow.raw_input).match(
         /([가-힣]{2,4}[시도]\s*[가-힣]{2,4}[시군구]\s*[가-힣]{2,6}[읍면동](?:\s*\d+[가-힣]?)?)/
-      ) ?? String(ssotRow.raw_input).match(/([가-힣]{2,6}[동로길]\s*\d+)/);
-      if (addrMatch) rawAddress = addrMatch[1];
+      ) ?? String(ssotRow.raw_input).match(/([가-힣]{2,6}[동]\s*\d+(?:-\d+)?)/)
+        ?? String(ssotRow.raw_input).match(/([가-힣]{2,6}[동로길]\s*\d+)/);
+
+      if (roadMatch) rawAddress = roadMatch[1];
+      else if (jibunMatch) rawAddress = jibunMatch[1];
     }
 
-    if (!rawAddress && ssotRow.area_signal) {
+    // ── 단계 B: raw_input에서 랜드마크 추출 → 카카오 키워드 검색 ──
+    if ((!rawAddress || rawAddress.length <= 3) && ssotRow.raw_input) {
+      const landmarkMatch = String(ssotRow.raw_input).match(
+        /([가-힣]+(?:역|사거리|IC))/
+      );
+      if (landmarkMatch) {
+        try {
+          const { searchLandmarkAddress } = await import('./landmark-resolver');
+          const resolved = await searchLandmarkAddress(landmarkMatch[1]);
+          if (resolved) rawAddress = resolved;
+        } catch (err: any) {
+          console.warn('[im-handler] Landmark resolution failed:', err?.message);
+        }
+      }
+    }
+
+    // ── 단계 C: area_signal 기반 fallback (최후 수단) ──
+    if ((!rawAddress || rawAddress.length <= 3) && ssotRow.area_signal) {
       rawAddress = `서울시 ${ssotRow.area_signal}`;
     }
 

@@ -1,0 +1,58 @@
+{
+  "monthly_rent_total_krw": 59500000,
+  "asking_price_manwon": 1650000,
+  "total_deposit_manwon": 115000,
+  "loan_amount_manwon": 850000,
+  "resolved_address": "서울특별시 서초구 서초동 1320-5",
+  "floor_leases": [
+    {
+      "floor": "B1~B2",
+      "tenant_type": "주차장",
+      "area_pyeong": 120,
+      "deposit_manwon": 0,
+      "rent_manwon": 0
+    },
+    {
+      "floor": "1F",
+      "tenant_type": "대형약국",
+      "area_pyeong": 55,
+      "deposit_manwon": 30000,
+      "rent_manwon": 1200
+    },
+    {
+      "floor": "2F",
+      "tenant_type": "안과",
+      "area_pyeong": 65,
+      "deposit_manwon": 20000,
+      "rent_manwon": 1100
+    },
+    {
+      "floor": "3F",
+      "tenant_type": "피부과",
+      "area_pyeong": 65,
+      "deposit_manwon": 20000,
+      "rent_manwon": 1050
+    },
+    {
+      "floor": "4F",
+      "tenant_type": "정형외과",
+      "area_pyeong": 65,
+      "deposit_manwon": 15000,
+      "rent_manwon": 1000
+    },
+    {
+      "floor": "5F",
+      "tenant_type": "치과",
+      "area_pyeong": 65,
+      "deposit_manwon": 15000,
+      "rent_manwon": 950
+    },
+    {
+      "floor": "6F~7F",
+      "tenant_type": "어학원",
+      "area_pyeong": 130,
+      "deposit_manwon": 15000,
+      "rent_manwon": 650
+    }
+  ]
+}

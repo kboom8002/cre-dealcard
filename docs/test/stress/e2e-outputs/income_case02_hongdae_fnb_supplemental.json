@@ -1,0 +1,22 @@
+{
+  "monthly_rent_total_krw": 23500000,
+  "asking_price_manwon": 580000,
+  "total_deposit_manwon": 30000,
+  "resolved_address": "서울특별시 마포구 서교동 395-88",
+  "floor_leases": [
+    {
+      "floor": "B1~2F",
+      "tenant_type": "F&B 브런치펍",
+      "area_pyeong": 95,
+      "deposit_manwon": 20000,
+      "rent_manwon": 1650
+    },
+    {
+      "floor": "3F~4F",
+      "tenant_type": "디자인 스튜디오",
+      "area_pyeong": 63,
+      "deposit_manwon": 10000,
+      "rent_manwon": 700
+    }
+  ]
+}

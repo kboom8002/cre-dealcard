@@ -49,7 +49,7 @@ export {
   migrateProvenanceTier,
 } from './provenance';
 
-// ── Enums (26계열) ──
+// ── Enums (30계열 — v0.5) ──
 export {
   // v0.2 기존 9계열
   type Jimok,
@@ -97,6 +97,25 @@ export {
   TEMPERATURE_ZONE,
   PERMIT_KIND,
   VACATE_RESPONSIBILITY,
+  // v0.5 리스크·입지·폴백
+  type RiskCategory,
+  type RiskSeverityLevel,
+  type LocationCategory,
+  type FallbackStrategy,
+  RISK_CATEGORY,
+  RISK_SEVERITY,
+  LOCATION_CATEGORY,
+  FALLBACK_STRATEGY,
+  // v0.5.1 PPTX 렌더링 SSoT
+  type PptxThemePreset,
+  type PptxArchetypeCode,
+  PPTX_THEME_PRESET,
+  PPTX_ARCHETYPE,
+  // v0.6.0 사진/갤러리 SSoT
+  type PhotoCategory,
+  type GalleryGroup,
+  PHOTO_CATEGORY,
+  GALLERY_GROUP,
   // 시스템
   type SlotState,
   type Grade,
@@ -138,6 +157,10 @@ export {
   type SectionalSpec,
   type SectionalUnit,
   type HospitalitySpec,
+  // v0.5 구조화 타입
+  type RiskItem,
+  type LocationAspectItem,
+  type SlotFallbackMeta,
   // 유틸리티
   SLOT_CATALOG,
   getSlotsByCategory,
@@ -223,4 +246,5 @@ export {
 } from './rules/parcel';
 
 /** 현재 온톨로지 버전 */
-export const ONTOLOGY_VERSION = 'v0.4.0';
+export const ONTOLOGY_VERSION = 'v0.5.0';
+

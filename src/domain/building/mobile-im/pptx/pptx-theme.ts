@@ -124,10 +124,10 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     bg: 'FFFFFF',
     tint: 'F8FAFC',
 
-    accent: 'C8FF00',
-    accentD: 'A3D900',
-    accentL: 'E0FF66',
-    accentT: 'F5FFCC',
+    accent: '6B8E00',
+    accentD: '4F6A00',
+    accentL: 'A3D900',
+    accentT: 'E8F5CC',
 
     green: '15803D',
     greenL: 'DCFCE7',
@@ -146,9 +146,9 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     darkBody: 'F1F5F9',
     darkMute: '94A3B8',
     darkFaint: '64748B',
-    darkAccentBg: 'A3D900',
-    darkAccentBorder: 'C8FF00',
-    darkAccentText: 'F5FFCC',
+    darkAccentBg: '4F6A00',
+    darkAccentBorder: '6B8E00',
+    darkAccentText: 'E8F5CC',
 
     titleFont: 'Pretendard',
     bodyFont: 'Pretendard',
@@ -172,10 +172,10 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     bg: 'FFFFFF',
     tint: 'F4F6F9',
 
-    accent: 'D4A853',
-    accentD: 'AA843D',
-    accentL: 'E6CA8A',
-    accentT: 'F8F1E1',
+    accent: 'B8862D',
+    accentD: '8B6914',
+    accentL: 'D4A853',
+    accentT: 'F5EDDC',
 
     green: '047857',
     greenL: 'D1FAE5',
@@ -194,9 +194,9 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     darkBody: 'F4F6F9',
     darkMute: '90A0C0',
     darkFaint: '5B6B8A',
-    darkAccentBg: 'AA843D',
-    darkAccentBorder: 'D4A853',
-    darkAccentText: 'F8F1E1',
+    darkAccentBg: '8B6914',
+    darkAccentBorder: 'B8862D',
+    darkAccentText: 'F5EDDC',
 
     titleFont: 'Noto Serif KR',
     bodyFont: 'Pretendard',
@@ -268,9 +268,9 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     bg: 'FFFFFF',
     tint: 'FAFAFA',
 
-    accent: '06B6D4',
-    accentD: '0891B2',
-    accentL: '67E8F9',
+    accent: '0284A8',
+    accentD: '016687',
+    accentL: '22D3EE',
     accentT: 'CFFAFE',
 
     green: '10B981',
@@ -290,8 +290,8 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     darkBody: 'FAFAFA',
     darkMute: 'A1A1AA',
     darkFaint: '71717A',
-    darkAccentBg: '0891B2',
-    darkAccentBorder: '06B6D4',
+    darkAccentBg: '016687',
+    darkAccentBorder: '0284A8',
     darkAccentText: 'CFFAFE',
 
     titleFont: 'Pretendard',
@@ -362,4 +362,51 @@ export async function getPptxThemeAsync(
   }
 
   return PPTX_PRESET_TEMPLATES[DEFAULT_PPTX_PRESET];
+}
+
+// ══════════════════════════════════════════
+// §C-4: 프리셋 접근성 자동 검증 유틸리티
+// ══════════════════════════════════════════
+
+function _relativeLuminance(hex: string): number {
+  const r = parseInt(hex.slice(0, 2), 16) / 255;
+  const g = parseInt(hex.slice(2, 4), 16) / 255;
+  const b = parseInt(hex.slice(4, 6), 16) / 255;
+  const toLinear = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+}
+
+function _contrastRatio(hex1: string, hex2: string): number {
+  const l1 = _relativeLuminance(hex1);
+  const l2 = _relativeLuminance(hex2);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+
+/**
+ * 프리셋의 접근성 기준 준수 여부를 검증합니다.
+ * - body vs bg: WCAG AA 4.5:1
+ * - ink vs bg: WCAG AA 4.5:1
+ * - accent vs bg: 최소 3:1 (장식용)
+ * - darkBody vs darkCard: WCAG AA 3:1 (반전 배경)
+ * @returns 위반 사항 문자열 배열 (빈 배열이면 통과)
+ */
+export function validatePresetAccessibility(preset: PptxThemeTokens): string[] {
+  const issues: string[] = [];
+  const checks: [string, string, string, string, number][] = [
+    ['body', preset.body, 'bg', preset.bg, 4.5],
+    ['ink', preset.ink, 'bg', preset.bg, 4.5],
+    ['ink2', preset.ink2, 'bg', preset.bg, 4.5],
+    ['accent', preset.accent, 'bg', preset.bg, 3.0],
+    ['mute', preset.mute, 'bg', preset.bg, 2.5],
+    ['darkBody', preset.darkBody, 'darkCard', preset.darkCard, 3.0],
+  ];
+  for (const [name1, hex1, name2, hex2, minRatio] of checks) {
+    const ratio = _contrastRatio(hex1, hex2);
+    if (ratio < minRatio) {
+      issues.push(
+        `[${preset.presetId}] ${name1}(${hex1}) vs ${name2}(${hex2}): ${ratio.toFixed(2)} < ${minRatio}:1`
+      );
+    }
+  }
+  return issues;
 }

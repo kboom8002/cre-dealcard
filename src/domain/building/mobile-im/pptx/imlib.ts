@@ -179,6 +179,30 @@ export function setActiveTheme(theme: PptxThemeTokens): void {
   PV.ai  = ['◇ AI추정·가정', C.mute,   C.line2  ];
 }
 
+/**
+ * 테마 격리 래퍼: 동시 렌더링 시 테마 오염을 방지합니다.
+ * setActiveTheme으로 글로벌 상태를 변경한 후, 작업 완료 시 원래 상태로 복원합니다.
+ */
+export async function withThemeIsolation<T>(theme: PptxThemeTokens, fn: () => Promise<T>): Promise<T> {
+  const savedC = { ...C };
+  const savedCD = { ...CD };
+  const savedKR = KR;
+  const savedTITLE_KR = TITLE_KR;
+  const savedMeta = { ...THEME_META };
+  const savedPV = { ...PV };
+  try {
+    setActiveTheme(theme);
+    return await fn();
+  } finally {
+    Object.assign(C, savedC);
+    Object.assign(CD, savedCD);
+    KR = savedKR;
+    TITLE_KR = savedTITLE_KR;
+    Object.assign(THEME_META, savedMeta);
+    Object.assign(PV, savedPV);
+  }
+}
+
 // ════════════════════════════════════════
 // §10 provenance 배지
 // ════════════════════════════════════════
@@ -224,36 +248,37 @@ export function head(
   const numStr = typeof num === 'number' ? String(num).padStart(2, '0') : num;
   const style = THEME_META.layoutStyle;
 
-  // 프리미엄 템플릿의 경우 제목 앞의 이모티콘을 제거
-  const isPremium = THEME_META.presetId === 'golden_institutional' || THEME_META.presetId === 'pro_dark_obsidian';
-  const cleanTitle = isPremium ? title.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+/u, '').trim() : title;
+  // 프리미엄 템플릿 및 일반 템플릿 공통: 제목/키커에서 모든 이모지 및 Variation Selector, 깨진 기호 제거
+  const sanitizeText = (txt: string) => (txt || '')
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '')
+    .replace(/^[#\s•·\-*]+/g, '')
+    .trim();
+
+  const cleanTitle = sanitizeText(title) || '개요';
+  const cleanKicker = sanitizeText(kicker) || kicker;
 
   switch (style) {
-    // ── modern: 액센트 언더라인 바 + 좌정렬, 번호 원 없음 ──
+    // ── modern: 좌측 액센트 세로 바 + 좌정렬 ──
     case 'modern': {
-      // 좌측 액센트 세로 바
+      const barH = sub ? 0.86 : 0.62;
+      // 좌측 액센트 세로 바 - sub 유무에 맞춘 완벽한 수직 정렬
       s.addShape('rect' as any, {
-        x: M, y: 0.42, w: 0.05, h: 0.80,
+        x: M, y: 0.42, w: 0.05, h: barH,
         fill: { color: C.brass },
       });
       s.addText(`${numStr}  ${kicker}`, {
-        x: M + 0.22, y: 0.42, w: CW - 0.22, h: 0.22,
+        x: M + 0.20, y: 0.42, w: CW - 0.20, h: 0.20,
         fontSize: 9.5, bold: true, color: C.brass,
         fontFace: NUM, charSpacing: 2, margin: 0,
       });
       s.addText(cleanTitle, {
-        x: M + 0.22, y: 0.64, w: CW - 0.22, h: 0.42,
+        x: M + 0.20, y: 0.62, w: CW - 0.20, h: 0.42,
         fontSize: 22, bold: true, color: C.ink,
         fontFace: TITLE_KR, margin: 0,
       });
-      // 하단 액센트 라인 (콘텐츠 폭)
-      s.addShape('line' as any, {
-        x: M, y: 1.22, w: CW, h: 0,
-        line: { color: C.brass, width: 1.5 },
-      });
       if (sub) {
         s.addText(sub, {
-          x: M + 0.22, y: 1.08, w: CW - 0.22, h: 0.22,
+          x: M + 0.20, y: 1.04, w: CW - 0.20, h: 0.24,
           fontSize: 10.5, color: C.mute, fontFace: KR, margin: 0,
         });
       }
@@ -414,17 +439,22 @@ export function headD(
   const numStr = typeof num === 'number' ? String(num).padStart(2, '0') : num;
   const style = THEME_META.layoutStyle;
 
-  // 프리미엄 템플릿의 경우 제목 앞의 이모티콘을 제거
-  const isPremium = THEME_META.presetId === 'golden_institutional' || THEME_META.presetId === 'pro_dark_obsidian';
-  const cleanTitle = isPremium ? title.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+/u, '').trim() : title;
+  // 프리미엄 템플릿 및 일반 템플릿 공통: 제목/키커에서 모든 이모지 및 Variation Selector, 깨진 기호 제거
+  const sanitizeText = (txt: string) => (txt || '')
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '')
+    .replace(/^[#\s•·\-*]+/g, '')
+    .trim();
+
+  const cleanTitle = sanitizeText(title) || '개요';
+  const cleanKicker = sanitizeText(kicker) || kicker;
 
   switch (style) {
     case 'modern': {
-      s.addShape('rect' as any, { x: M, y: 0.42, w: 0.05, h: 0.80, fill: { color: C.brass } });
-      s.addText(`${numStr}  ${kicker}`, { x: M + 0.22, y: 0.42, w: CW - 0.22, h: 0.22, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
-      s.addText(cleanTitle, { x: M + 0.22, y: 0.64, w: CW - 0.22, h: 0.42, fontSize: 22, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
-      s.addShape('line' as any, { x: M, y: 1.22, w: CW, h: 0, line: { color: C.brass, width: 1.5 } });
-      if (sub) s.addText(sub, { x: M + 0.22, y: 1.08, w: CW - 0.22, h: 0.22, fontSize: 10.5, color: CD.mute, fontFace: KR, margin: 0 });
+      const barH = sub ? 0.86 : 0.62;
+      s.addShape('rect' as any, { x: M, y: 0.42, w: 0.05, h: barH, fill: { color: C.brass } });
+      s.addText(`${numStr}  ${kicker}`, { x: M + 0.20, y: 0.42, w: CW - 0.20, h: 0.20, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
+      s.addText(cleanTitle, { x: M + 0.20, y: 0.62, w: CW - 0.20, h: 0.42, fontSize: 22, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
+      if (sub) s.addText(sub, { x: M + 0.20, y: 1.04, w: CW - 0.20, h: 0.24, fontSize: 10.5, color: CD.mute, fontFace: KR, margin: 0 });
       break;
     }
     case 'executive': {
@@ -463,7 +493,7 @@ export function headD(
         s.addText(numStr, { x: M, y: 0.50, w: 0.42, h: 0.42, align: 'center', valign: 'middle', fontSize: 13, bold: true, color: 'FFFFFF', fontFace: NUM, margin: 0 });
       }
       s.addText(kicker, { x: M + 0.62, y: 0.50, w: CW - 0.62, h: 0.20, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
-      s.addText(cleanTitle, { x: M + 0.22, y: 0.60, w: CW - 0.22, h: 0.46, fontSize: 24, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
+      s.addText(cleanTitle, { x: M + 0.62, y: 0.72, w: CW - 0.62, h: 0.46, fontSize: 24, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
       if (sub) s.addText(sub, { x: M + 0.62, y: 1.10, w: CW - 0.62, h: 0.26, fontSize: 11, color: CD.mute, fontFace: KR, margin: 0 });
       break;
     }
@@ -877,19 +907,46 @@ export function callout(
     fill: { color: barColor },
   });
 
-  // 제목
-  s.addText(title, {
+  // 제목 (이모지 정제)
+  const cleanCalloutTitle = (title || '')
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '')
+    .replace(/^[#\s•·\-*]+/g, '')
+    .trim();
+
+  s.addText(cleanCalloutTitle, {
     x: x + 0.20, y: y + 0.12, w: w - 0.36, h: 0.22,
     fontSize: 10.5, bold: true, color: titleColor,
     fontFace: KR, margin: 0,
   });
 
-  // 본문
-  s.addText(body, {
-    x: x + 0.20, y: y + 0.36, w: w - 0.36, h: h - 0.48,
-    fontSize: 9.3, color: C.body, fontFace: KR, margin: 0,
-    lineSpacingMultiple: 1.28,
+  // 본문 (불릿 분리 및 행잉 인덴트 렌더링)
+  const bodyLines = (body || '').split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
+  const textRuns = bodyLines.map((line: string) => {
+    const cleanLine = line
+      .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '')
+      .replace(/^[•·\-*]+\s*/, '')
+      .trim();
+    const isBullet = /^[•·\-*]/.test(line) || bodyLines.length > 1;
+    return {
+      text: cleanLine,
+      options: {
+        bullet: isBullet ? { code: '2022' } : undefined,
+        fontSize: 9.3,
+        color: C.body,
+        fontFace: KR,
+        breakLine: true,
+        indentLevel: 0,
+        margin: [0, 0, 0, 0],
+      }
+    };
   });
+
+  if (textRuns.length > 0) {
+    s.addText(textRuns as any, {
+      x: x + 0.20, y: y + 0.36, w: w - 0.36, h: h - 0.44,
+      valign: 'top', margin: 0, lineSpacingMultiple: 1.20,
+    });
+  }
 }
 
 /** §10 provenance 알약 배지 */

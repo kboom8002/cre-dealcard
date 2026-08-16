@@ -26,6 +26,7 @@ import {
   formatFinancialsMarkdown,
   type FinancialOutputs,
 } from "./financials";
+import { calculateNetCashFlow, formatNetCashFlowMarkdown } from "./net-cash-flow-calculator";
 import { judgeIMSection, shouldJudgeByConfidence } from "./im-judge";
 import { runCREQualityGate } from "./cre-quality-gate";
 import { extractKeyFacts, updateNumericalAnchors } from "./cross-validator";
@@ -150,7 +151,29 @@ export async function generateSingleSection(
         if (!input.dcfEligible && fin.dcf10Year) {
           fin.dcf10Year = undefined as any;
         }
-        sectionMarketIndicators = { financialsMarkdown: formatFinancialsMarkdown(fin) };
+
+        let finMd = formatFinancialsMarkdown(fin);
+
+        // 60대 자산가 페르소나: income 포스처 시 실투자금 & 월 순수익 3줄 요약 상단 자동 결합
+        if (posture === 'income' && supplemental.monthly_rent_total_krw && ctx.purchasePriceKrw > 0) {
+          const platArea = externalData?.buildingRegister?.platArea ?? 0;
+          const landPriceSqm = externalData?.landPrice?.pricePerSqm ?? 0;
+          const landPriceTotalKrw = platArea > 0 && landPriceSqm > 0 ? platArea * landPriceSqm : 0;
+
+          const ncf = calculateNetCashFlow({
+            purchasePriceKrw: ctx.purchasePriceKrw,
+            monthlyRentKrw: supplemental.monthly_rent_total_krw,
+            totalDepositKrw: supplemental.total_deposit_manwon ? supplemental.total_deposit_manwon * 10000 : 0,
+            loanAmountKrw: supplemental.loan_amount_manwon ? supplemental.loan_amount_manwon * 10000 : 0,
+            landPriceTotalKrw,
+          });
+
+          if (ncf) {
+            finMd = formatNetCashFlowMarkdown(ncf) + '\n\n' + finMd;
+          }
+        }
+
+        sectionMarketIndicators = { financialsMarkdown: finMd };
       } catch {
         // 무시
       }

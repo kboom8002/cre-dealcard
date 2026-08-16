@@ -1,0 +1,12 @@
+{
+  "dataGrade": "A",
+  "financialWarnings": [],
+  "dcfEligible": true,
+  "dataCompleteness": {
+    "buildingRegister": true,
+    "buildingRegisterSource": "loaded",
+    "qualityGrade": "A",
+    "pptxExportAllowed": true,
+    "generatedAt": "2026-08-16T06:16:38.734Z"
+  }
+}

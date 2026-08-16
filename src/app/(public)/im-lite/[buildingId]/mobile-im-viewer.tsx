@@ -671,36 +671,37 @@ function MarkdownRenderer({ content }: { content: string }) {
     if (line.startsWith("### ")) {
       flush();
       elements.push(
-        <h3 key={key++} className="text-xs font-bold uppercase tracking-wider text-primary mt-4 mb-2">
+        <h3 key={key++} className="text-sm sm:text-base font-bold tracking-tight text-primary mt-5 mb-2.5">
           {line.slice(4)}
         </h3>,
       );
     } else if (line.startsWith("## ")) {
       flush();
       elements.push(
-        <h2 key={key++} className="text-sm font-bold text-white mt-4 mb-2">
+        <h2 key={key++} className="text-base sm:text-lg font-bold text-white mt-5 mb-3">
           {line.slice(3)}
         </h2>,
       );
     } else if (line.startsWith("**") && line.endsWith("**") && !line.includes(" ")) {
       flush();
       elements.push(
-        <p key={key++} className="font-bold text-white text-sm">
+        <p key={key++} className="font-bold text-white text-base leading-relaxed">
           {line.slice(2, -2)}
         </p>,
       );
-    } else if (line.startsWith("- ") || line.startsWith("* ")) {
+    } else if (line.startsWith("- ") || line.startsWith("* ") || line.startsWith("• ")) {
       flush();
+      const bulletText = line.replace(/^[-*•]\s+/, "");
       elements.push(
-        <li key={key++} className="text-neutral-300 text-sm leading-relaxed ml-4 list-disc">
-          <InlineMarkdown text={line.slice(2)} />
+        <li key={key++} className="text-neutral-200 text-base leading-relaxed ml-4 list-disc my-1">
+          <InlineMarkdown text={bulletText} />
         </li>,
       );
     } else if (/^\d+\.\s/.test(line)) {
       flush();
       const text = line.replace(/^\d+\.\s/, "");
       elements.push(
-        <li key={key++} className="text-neutral-300 text-sm leading-relaxed ml-4 list-decimal">
+        <li key={key++} className="text-neutral-200 text-base leading-relaxed ml-4 list-decimal my-1">
           <InlineMarkdown text={text} />
         </li>,
       );
@@ -709,9 +710,9 @@ function MarkdownRenderer({ content }: { content: string }) {
       elements.push(
         <blockquote
           key={key++}
-          className="border-l-2 border-primary/50 bg-primary/5 rounded-r-lg py-1 px-3 my-2"
+          className="border-l-3 border-primary/60 bg-primary/10 rounded-r-xl py-2 px-4 my-3"
         >
-          <p className="text-neutral-400 text-xs leading-relaxed">
+          <p className="text-neutral-300 text-sm sm:text-base leading-relaxed font-medium">
             <InlineMarkdown text={line.slice(2)} />
           </p>
         </blockquote>,
@@ -722,7 +723,7 @@ function MarkdownRenderer({ content }: { content: string }) {
     } else {
       flush();
       elements.push(
-        <p key={key++} className="text-neutral-300 text-sm leading-relaxed">
+        <p key={key++} className="text-neutral-200 text-base leading-relaxed my-1">
           <InlineMarkdown text={line} />
         </p>,
       );
@@ -730,7 +731,7 @@ function MarkdownRenderer({ content }: { content: string }) {
   }
 
   flush();
-  return <div className="space-y-1">{elements}</div>;
+  return <div className="space-y-1.5">{elements}</div>;
 }
 
 function sanitizeHtml(html: string): string {
@@ -759,27 +760,23 @@ function InlineMarkdown({ text }: { text: string }) {
 
   // [text](url) → clickable link
   processed = processed.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline">$1</a>');
+    '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-400 underline font-medium">$1</a>');
 
-  // If links were found, render via dangerouslySetInnerHTML for the link tags,
-  // but we still need bold/italic. Process **bold** and *italic* as HTML too.
-  processed = processed.replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-semibold">$1</strong>');
+  processed = processed.replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-bold">$1</strong>');
   processed = processed.replace(/\*([^*]+)\*/g, '<em class="italic text-neutral-200">$1</em>');
 
   processed = sanitizeHtml(processed);
 
-  // If any HTML was injected, use dangerouslySetInnerHTML
   if (processed !== text) {
     return <span dangerouslySetInnerHTML={{ __html: processed }} />;
   }
 
-  // Fallback: no special syntax, render as plain text with bold/italic via React
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
   return (
     <>
       {parts.map((part, i) => {
         if (part.startsWith("**") && part.endsWith("**")) {
-          return <strong key={i} className="text-white font-semibold">{part.slice(2, -2)}</strong>;
+          return <strong key={i} className="text-white font-bold">{part.slice(2, -2)}</strong>;
         }
         if (part.startsWith("*") && part.endsWith("*")) {
           return <em key={i} className="italic text-neutral-200">{part.slice(1, -1)}</em>;
@@ -803,12 +800,12 @@ function TableFromLines({ lines }: { lines: string[] }) {
   const headers = parseRow(header);
 
   return (
-    <div className="overflow-x-auto my-3 rounded-xl border border-neutral-800">
-      <table className="w-full text-xs">
+    <div className="overflow-x-auto my-4 rounded-xl border border-neutral-700/60 shadow-sm">
+      <table className="w-full text-sm sm:text-base">
         <thead>
-          <tr className="border-b border-neutral-800 bg-neutral-950/50">
+          <tr className="border-b border-neutral-700 bg-neutral-950/80">
             {headers.map((h, i) => (
-              <th key={i} className="text-left text-neutral-400 font-medium px-3 py-2">
+              <th key={i} className="text-left text-neutral-300 font-bold px-3.5 py-3 text-xs sm:text-sm">
                 <InlineMarkdown text={h} />
               </th>
             ))}
@@ -816,9 +813,9 @@ function TableFromLines({ lines }: { lines: string[] }) {
         </thead>
         <tbody>
           {body.map((row, ri) => (
-            <tr key={ri} className="border-b border-neutral-800/50 last:border-0 hover:bg-neutral-800/20">
+            <tr key={ri} className="border-b border-neutral-800 last:border-0 hover:bg-neutral-800/30 transition-colors">
               {parseRow(row).map((cell, ci) => (
-                <td key={ci} className="px-3 py-2 text-neutral-300">
+                <td key={ci} className="px-3.5 py-2.5 text-neutral-200 leading-relaxed font-normal">
                   <InlineMarkdown text={cell} />
                 </td>
               ))}
@@ -874,7 +871,21 @@ function ShareButton({ title }: { title: string }) {
   );
 }
 
-function FloatingActionBar({ title, buildingId, docId, tier = 'basic' }: { title: string; buildingId: string; docId?: string; tier?: 'basic' | 'pro' }) {
+function FloatingActionBar({
+  title,
+  buildingId,
+  docId,
+  tier = 'basic',
+  brokerPhone,
+  onInquire,
+}: {
+  title: string;
+  buildingId: string;
+  docId?: string;
+  tier?: 'basic' | 'pro';
+  brokerPhone?: string;
+  onInquire?: () => void;
+}) {
   const [copied, setCopied] = useState(false);
   const [requestingPro, setRequestingPro] = useState(false);
 
@@ -927,24 +938,40 @@ function FloatingActionBar({ title, buildingId, docId, tier = 'basic' }: { title
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-neutral-900/95 backdrop-blur border-t border-neutral-800 safe-area-bottom">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-neutral-900/95 backdrop-blur border-t border-neutral-800 safe-area-bottom shadow-2xl">
       {tier === 'basic' && (
-        <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-b border-amber-500/20 px-4 py-2.5 flex items-center justify-between">
-          <p className="text-[11px] font-medium text-amber-400">🏆 더 상세한 투자설명서가 필요하신가요?</p>
-          <button onClick={handleProRequest} disabled={requestingPro} className="px-3 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 text-[10px] font-bold rounded-lg transition-colors whitespace-nowrap ml-2 border border-amber-500/30">
+        <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between">
+          <p className="text-xs font-semibold text-amber-300">🏆 정밀 실사·세무 분석이 포함된 Pro IM</p>
+          <button onClick={handleProRequest} disabled={requestingPro} className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold rounded-lg transition-colors whitespace-nowrap ml-2 shadow-sm">
             Pro 버전 요청
           </button>
         </div>
       )}
-      <div className="px-4 py-3 flex gap-2 max-w-2xl mx-auto">
-        <button onClick={handlePdf} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl transition-colors">
+      <div className="px-4 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">
+        {brokerPhone && (
+          <a
+            href={`tel:${brokerPhone}`}
+            className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl transition-colors shadow-sm"
+          >
+            📞 직통 전화
+          </a>
+        )}
+        {onInquire && (
+          <button
+            onClick={onInquire}
+            className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-primary hover:bg-primary/90 text-black text-sm font-bold rounded-xl transition-colors shadow-sm"
+          >
+            💬 비밀 상담
+          </button>
+        )}
+        <button onClick={handlePdf} title="PDF 다운로드" className="px-3 py-3 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl transition-colors">
           📄 PDF
         </button>
-        <button onClick={handlePptx} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl transition-colors">
+        <button onClick={handlePptx} title="PPTX 다운로드" className="px-3 py-3 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl transition-colors">
           📊 PPTX
         </button>
-        <button onClick={handleShare} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-primary text-black hover:bg-primary/90 text-xs font-bold rounded-xl transition-colors">
-          {copied ? "✅ 복사됨" : "🔗 공유"}
+        <button onClick={handleShare} title="공유하기" className="px-3 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white text-xs font-bold rounded-xl transition-colors">
+          {copied ? "✅" : "🔗"}
         </button>
       </div>
     </div>
@@ -1273,7 +1300,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
               {/* [C2][C4] 수익 분석 섹션 다음에 DCF 히트맵 + 레버리지 차트 삽입 */}
               {section.sectionId?.includes('income') && (
                 <>
-                  {doc.dcf10Year && doc.financials?.waccPct != null && (
+                  {doc.tier !== 'basic' && doc.dcf10Year && doc.financials?.waccPct != null && (
                     <div className="mt-3">
                       <DCFHeatmap dcfOutputs={doc.dcf10Year} waccBase={doc.financials.waccPct / 100} />
                     </div>
@@ -1438,6 +1465,8 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId }: P
         buildingId={buildingId}
         docId={docId}
         tier={doc.tier}
+        brokerPhone={doc.broker.phone}
+        onInquire={() => setShowInquiry(true)}
       />
     </div>
   );

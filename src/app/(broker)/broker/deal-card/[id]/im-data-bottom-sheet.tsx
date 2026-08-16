@@ -184,6 +184,8 @@ export function ImDataBottomSheet({
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [photoPreviewUrls, setPhotoPreviewUrls] = useState<string[]>([]);
   const [photoCaptions, setPhotoCaptions] = useState<Record<number, string>>({});
+  const [photoCategories, setPhotoCategories] = useState<Record<number, string>>({ 0: 'exterior' });
+  const [heroPhotoIndex, setHeroPhotoIndex] = useState<number>(0);
   const [floorLeases, setFloorLeases] = useState<Array<{ floor: string; tenant_type?: string; deposit_manwon?: number; rent_manwon?: number; mgmt_fee_manwon?: number; is_vacant?: boolean; }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -433,6 +435,13 @@ export function ImDataBottomSheet({
         direct_data: Object.keys(directData).length > 0 ? directData : undefined,
         photo_urls: [...existingUrls, ...uploadedPhotoUrls].length > 0 ? [...existingUrls, ...uploadedPhotoUrls] : undefined,
         photo_captions: Object.keys(photoCaptions).length > 0 ? photoCaptions : undefined,
+        photos_v2: [...existingUrls, ...uploadedPhotoUrls].map((url, idx) => ({
+          url,
+          category: (photoCategories[idx] || (idx === 0 ? 'exterior' : 'interior')) as any,
+          caption: photoCaptions[idx] || undefined,
+          isHero: idx === heroPhotoIndex,
+          order: idx,
+        })),
         floor_leases: floorLeases.length > 0 ? floorLeases : undefined,
         logistics,
         hospitalitySpec,
@@ -716,6 +725,15 @@ export function ImDataBottomSheet({
                 {isSearching ? "…" : "검색"}
               </button>
             </div>
+
+            {/* 주소 미입력 경고 */}
+            {!address && !pnu && (
+              <div className="mt-1 px-3 py-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <p className="text-xs text-amber-700 dark:text-amber-300">
+                  💡 주소를 입력하면 건축물대장·토지이용계획을 자동 조회하여 IM 품질이 크게 향상됩니다.
+                </p>
+              </div>
+            )}
 
             {/* 주소 확인 배지 */}
             {address && (
@@ -1119,78 +1137,131 @@ export function ImDataBottomSheet({
           {/* 사진 — Basic에도 표시 (기존 사진 + 업로드) */}
           <div>
             <label className="block text-xs font-semibold text-muted-foreground mb-1.5 flex justify-between items-center">
-              <span>📸 건물 대표 사진 (최대 12장)</span>
-              <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">점수 +10</span>
+              <span>📸 건물 사진 및 분류 (최대 12장)</span>
+              <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">⭐ 대표 지정 가능 · 점수 +10</span>
             </label>
-            <div className="flex gap-2 overflow-x-auto pb-2 snap-x">
+            <div className="flex gap-2.5 overflow-x-auto pb-2.5 snap-x">
               {/* Existing Photos */}
               {existingUrls.map((url, idx) => (
-                <div key={`existing-${idx}`} className="shrink-0 snap-start flex flex-col items-center gap-1">
-                  <div className="relative">
-                    <img src={url} alt={`Existing ${idx}`} className="w-20 h-20 object-cover rounded-lg border border-border" />
+                <div key={`existing-${idx}`} className="shrink-0 snap-start flex flex-col items-center gap-1.5 w-24">
+                  <div className="relative w-24 h-24">
+                    <img src={url} alt={`Existing ${idx}`} className="w-24 h-24 object-cover rounded-lg border border-border" />
                     <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[8px] px-1 rounded font-bold">기존</span>
+                    <button
+                      type="button"
+                      title="대표 사진으로 지정"
+                      onClick={() => setHeroPhotoIndex(idx)}
+                      className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-xs shadow transition-colors ${heroPhotoIndex === idx ? 'bg-amber-500 text-white' : 'bg-black/40 text-white/70 hover:bg-black/60'}`}
+                    >
+                      ★
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
                         setExistingUrls(prev => prev.filter((_, i) => i !== idx));
                       }}
-                      className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow"
+                      className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow"
                     >
                       ×
                     </button>
                   </div>
-                  <div className="h-5" />
+                  <select
+                    value={photoCategories[idx] || (idx === 0 ? 'exterior' : 'interior')}
+                    onChange={(e) => setPhotoCategories(prev => ({ ...prev, [idx]: e.target.value }))}
+                    className="w-24 text-[10px] px-1 py-0.5 rounded border border-border/60 bg-secondary/30 text-foreground focus:border-primary/50 focus:outline-none"
+                  >
+                    <option value="exterior">외관 전경</option>
+                    <option value="lobby">1층 로비</option>
+                    <option value="interior">실내 공간</option>
+                    <option value="parking">주차장</option>
+                    <option value="rooftop">옥상/테라스</option>
+                    <option value="entrance">주 출입구</option>
+                    <option value="mechanical">기계/설비</option>
+                    <option value="floor_plan">층별 도면</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="설명 (선택)"
+                    value={photoCaptions[idx] || ''}
+                    onChange={(e) => setPhotoCaptions(prev => ({ ...prev, [idx]: e.target.value }))}
+                    className="w-24 text-[10px] px-1 py-0.5 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
+                  />
                 </div>
               ))}
 
               {/* Newly Uploaded Photos */}
-              {photoPreviewUrls.map((url, idx) => (
-                <div key={`new-${idx}`} className="shrink-0 snap-start flex flex-col items-center gap-1">
-                  <div className="relative">
-                    <img src={url} alt={`Preview ${idx}`} className="w-20 h-20 object-cover rounded-lg border border-border" />
-                    <span className="absolute bottom-1 left-1 bg-indigo-600/80 text-white text-[8px] px-1 rounded font-bold">신규</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newFiles = [...photoFiles];
-                        newFiles.splice(idx, 1);
-                        setPhotoFiles(newFiles);
-                        const newUrls = [...photoPreviewUrls];
-                        URL.revokeObjectURL(newUrls[idx]);
-                        newUrls.splice(idx, 1);
-                        setPhotoPreviewUrls(newUrls);
-                        // Reindex captions
-                        const newCaptions: Record<number, string> = {};
-                        Object.entries(photoCaptions).forEach(([k, v]) => {
-                          const ki = parseInt(k);
-                          if (ki < idx) newCaptions[ki] = v;
-                          else if (ki > idx) newCaptions[ki - 1] = v;
-                        });
-                        setPhotoCaptions(newCaptions);
-                      }}
-                      className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow"
+              {photoPreviewUrls.map((url, idx) => {
+                const totalIdx = existingUrls.length + idx;
+                return (
+                  <div key={`new-${idx}`} className="shrink-0 snap-start flex flex-col items-center gap-1.5 w-24">
+                    <div className="relative w-24 h-24">
+                      <img src={url} alt={`Preview ${idx}`} className="w-24 h-24 object-cover rounded-lg border border-border" />
+                      <span className="absolute bottom-1 left-1 bg-indigo-600/80 text-white text-[8px] px-1 rounded font-bold">신규</span>
+                      <button
+                        type="button"
+                        title="대표 사진으로 지정"
+                        onClick={() => setHeroPhotoIndex(totalIdx)}
+                        className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-xs shadow transition-colors ${heroPhotoIndex === totalIdx ? 'bg-amber-500 text-white' : 'bg-black/40 text-white/70 hover:bg-black/60'}`}
+                      >
+                        ★
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newFiles = [...photoFiles];
+                          newFiles.splice(idx, 1);
+                          setPhotoFiles(newFiles);
+                          const newUrls = [...photoPreviewUrls];
+                          URL.revokeObjectURL(newUrls[idx]);
+                          newUrls.splice(idx, 1);
+                          setPhotoPreviewUrls(newUrls);
+                          // Reindex captions
+                          const newCaptions: Record<number, string> = {};
+                          Object.entries(photoCaptions).forEach(([k, v]) => {
+                            const ki = parseInt(k);
+                            if (ki < totalIdx) newCaptions[ki] = v;
+                            else if (ki > totalIdx) newCaptions[ki - 1] = v;
+                          });
+                          setPhotoCaptions(newCaptions);
+                        }}
+                        className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <select
+                      value={photoCategories[totalIdx] || (totalIdx === 0 ? 'exterior' : 'interior')}
+                      onChange={(e) => setPhotoCategories(prev => ({ ...prev, [totalIdx]: e.target.value }))}
+                      className="w-24 text-[10px] px-1 py-0.5 rounded border border-border/60 bg-secondary/30 text-foreground focus:border-primary/50 focus:outline-none"
                     >
-                      ×
-                    </button>
+                      <option value="exterior">외관 전경</option>
+                      <option value="lobby">1층 로비</option>
+                      <option value="interior">실내 공간</option>
+                      <option value="parking">주차장</option>
+                      <option value="rooftop">옥상/테라스</option>
+                      <option value="entrance">주 출입구</option>
+                      <option value="mechanical">기계/설비</option>
+                      <option value="floor_plan">층별 도면</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="설명 (선택)"
+                      value={photoCaptions[totalIdx] || ''}
+                      onChange={(e) => setPhotoCaptions(prev => ({ ...prev, [totalIdx]: e.target.value }))}
+                      className="w-24 text-[10px] px-1 py-0.5 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
+                    />
                   </div>
-                  <input
-                    type="text"
-                    placeholder="설명"
-                    value={photoCaptions[idx] || ''}
-                    onChange={(e) => setPhotoCaptions(prev => ({ ...prev, [idx]: e.target.value }))}
-                    className="w-20 text-[10px] px-1 py-0.5 rounded border border-border/60 bg-secondary/30 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
-                  />
-                </div>
-              ))}
+                );
+              })}
 
               {(existingUrls.length + photoFiles.length) < 12 && (
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-20 h-20 shrink-0 snap-start rounded-lg border-2 border-dashed border-border/60 hover:border-primary/50 flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors bg-secondary/30"
+                  className="w-24 h-24 shrink-0 snap-start rounded-lg border-2 border-dashed border-border/60 hover:border-primary/50 flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors bg-secondary/30"
                 >
                   <span className="text-xl leading-none mb-1">+</span>
-                  <span className="text-[10px]">추가</span>
+                  <span className="text-[10px]">사진 추가</span>
                 </button>
               )}
             </div>

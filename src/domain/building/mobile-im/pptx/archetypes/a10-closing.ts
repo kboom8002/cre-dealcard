@@ -94,7 +94,7 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     x: M, y: 5.72, w: CW, h: 0.70,
     fill: { color: CD.accentBg },
   });
-  const footerText = input.data.footerText || '본 자료의 모든 수치는 예비 검토용이며 실사 및 전문가 검증이 필요합니다.';
+  const footerText = input.data.footerText || '본 자료의 모든 수치는 예비 검토용이며, 상세 실사 자료(등기·임대차계약서) 및 1:1 비밀 상담은 담당 전문 중개사를 통해 제공됩니다.';
   slide.addText(footerText, {
     x: M + 0.24, y: 5.82, w: CW - 0.48, h: 0.50,
     fontFace: KR, fontSize: 10, color: CD.accentText, margin: 0,

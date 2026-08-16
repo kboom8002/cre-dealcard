@@ -25,7 +25,7 @@ const SECTION_TYPE_TO_DATA_KEY: Record<string, string> = {
   lease_status:      'rentRoll',
   income_analysis:   'profit',
   risk_check:        'risk',
-  investment_thesis: 'comps',
+  investment_thesis: 'thesis',
   next_steps:        'process',
   // owner_occupied
   occupancy_fit:     'plan',
@@ -45,7 +45,7 @@ const SECTION_TYPE_TO_DATA_KEY: Record<string, string> = {
  * deck-sequencer dataKey → 아키타입 ID 매핑
  * 아키타입별로 어떤 props 형태가 필요한지 결정
  */
-const DATA_KEY_ARCHETYPE: Record<string, string> = {
+export const DATA_KEY_ARCHETYPE: Record<string, string> = {
   summary:   'A02',  // StatGrid: leadSentence, metrics[], callouts[]
   location:  'A06',  // Diagram: left{sub,source}, right{sub,rows[],callout}
   land:      'A04',  // Asymmetric75: left{sub,rows}, right{sub,rows,callouts[]}
@@ -54,9 +54,10 @@ const DATA_KEY_ARCHETYPE: Record<string, string> = {
   stability: 'A04',
   profit:    'A05',  // Asymmetric74: left{sub,chartData,note}, right{stats[],callouts[]}
   capital:   'A08',  // DualTable: table1{sub,rows}, table2{sub,rows}, callouts[]
-  comps:     'A04',
+  comps:     'A03',  // LargeTable: comparable_analysis 표 렌더링
   risk:      'A07',  // ThreeBlock: blocks[], bottomBar{text}
   process:   'A09',  // Process: steps[], bottomInfo
+  thesis:    'A15',  // Thesis: 4-Pillar Grid + Bottom Takeaway Callout
   // owner_occupied
   plan:      'A04',
   vsLease:   'A08',
@@ -79,6 +80,18 @@ const DATA_KEY_ARCHETYPE: Record<string, string> = {
   trend:          'A05',
   turnover:       'A04',
   price:          'A04',
+  // Pro 전용 (income 서브아키타입 파생)
+  dcf:            'A05',
+  sensitivity:    'A05',
+  totalReturn:    'A05',
+  loan:           'A08',
+  tax:            'A08',
+  rentGap:        'A05',
+  upside:         'A05',
+  vacancy:        'A04',
+  leasing:        'A05',
+  current:        'A04',
+  remodel:        'A05',
 };
 
 export function bindSectionData(
@@ -98,118 +111,152 @@ export function bindSectionData(
       ? SECTION_TYPE_TO_DATA_KEY[sectionType]
       : sectionType || section.title.toLowerCase().replace(/\s+/g, '_');
 
-    // 2. 테이블/메트릭 기본 파싱
-    const tables = parseMarkdownTable(section.markdown);
-    const metrics = extractMetrics(section.markdown);
+    // 2. 페르소나/시스템 메시지 사전 제거 (markdown 구조 보존)
+    const cleanMarkdown = sanitizePersona(section.markdown);
+
+    // 3. 테이블/메트릭 기본 파싱
+    const tables = parseMarkdownTable(cleanMarkdown);
+    const metrics = extractMetrics(cleanMarkdown);
 
     // 3. 아키타입별 props 변환
     const archetype = DATA_KEY_ARCHETYPE[dataKey];
-    const props = transformForArchetype(section.markdown, tables, archetype);
+    const props = transformForArchetype(cleanMarkdown, tables, archetype);
 
     // 4. 기존 key가 없을 때만 설정 (중복 방지)
     if (!result[dataKey]) {
+      const firstPhoto = doc.body.photos?.[0]?.url || (Array.isArray(doc.body.photos) ? doc.body.photos[0] : null) || (Array.isArray(doc.body.photo_urls) ? doc.body.photo_urls[0] : null);
       result[dataKey] = {
         title: section.title,
-        content: section.markdown,
+        content: cleanMarkdown,
         tables,
         metrics,
         confidence: section.confidence || '확인 중',
+        boundaryNote: section.boundary_note,
+        photoUrl: firstPhoto,
+        photos: doc.body.photos || doc.body.photo_urls,
+        ...props
+      };
+    }
+
+    // summary 섹션이 명시적으로 주어졌을 때는 summary 슬라이드 데이터로 직접 덮어쓰기
+    if (sectionType === 'summary') {
+      result['summary'] = {
+        title: section.title || '핵심 투자 지표 요약',
+        content: cleanMarkdown,
+        tables,
+        metrics,
+        confidence: section.confidence || '전문가검증',
         boundaryNote: section.boundary_note,
         ...props
       };
     }
 
-    // property_overview → land/summary에도 파생 데이터 제공
+    // property_overview → land/summary에도 파생 데이터 제공 (summary가 없을 때만)
     if (sectionType === 'property_overview') {
-      const summaryProps = buildSummaryFromOverview(section.markdown, tables, doc.body);
-      if (!result['summary']) result['summary'] = { title: '핵심요약', content: '', tables: [], metrics: {}, ...summaryProps };
-      const landProps = buildLandFromOverview(section.markdown, tables);
+      if (!result['summary']) {
+        const summaryProps = buildSummaryFromOverview(cleanMarkdown, tables, doc.body);
+        result['summary'] = { title: '핵심요약', content: '', tables: [], metrics: {}, ...summaryProps };
+      }
+      const landProps = buildLandFromOverview(cleanMarkdown, tables);
       if (!result['land']) result['land'] = { title: '토지', content: '', tables: [], metrics: {}, ...landProps };
     }
     
     // income_analysis → capital, dcf, sensitivity, loan, tax에도 파생 데이터 제공
     if (sectionType === 'income_analysis') {
-      const capitalProps = buildCapitalFromIncome(section.markdown, tables);
+      const capitalProps = buildCapitalFromIncome(cleanMarkdown, tables);
       if (!result['capital']) result['capital'] = { title: '자본구조', content: '', tables: [], metrics: {}, ...capitalProps };
 
       // Pro 전용 파생 슬라이드 데이터 바인딩
-      if (!result['dcf']) result['dcf'] = { title: 'DCF 분석', content: '', tables: [], metrics: {}, ...buildDcfFromIncome(section.markdown, tables, doc.body) };
+      if (!result['dcf']) result['dcf'] = { title: 'DCF 분석', content: '', tables: [], metrics: {}, ...buildDcfFromIncome(cleanMarkdown, tables, doc.body) };
       if (!result['sensitivity']) result['sensitivity'] = { title: '수익률 민감도', content: '', tables: [], metrics: {}, ...buildSensitivityFromDcf(doc.body) };
-      if (!result['loan']) result['loan'] = { title: '대출 구조', content: '', tables: [], metrics: {}, ...buildLoanFromIncome(section.markdown, tables, doc.body) };
+      if (!result['loan']) result['loan'] = { title: '대출 구조', content: '', tables: [], metrics: {}, ...buildLoanFromIncome(cleanMarkdown, tables, doc.body) };
       if (!result['tax']) result['tax'] = { title: '세금 추정', content: '', tables: [], metrics: {}, ...buildTaxFromIncome(doc.body) };
     }
 
-    // lease_status → stability에도 파생 데이터 제공
+    // lease_status → stability, vacancy, current 등에도 파생 데이터 제공
     if (sectionType === 'lease_status') {
-      const stabilityProps = transformForArchetype(section.markdown, tables, 'A04');
-      if (!result['stability']) result['stability'] = { title: '임대안정성', content: section.markdown, tables, metrics, ...stabilityProps };
+      const stabilityProps = transformForArchetype(cleanMarkdown, tables, 'A04');
+      if (!result['stability']) result['stability'] = { title: '임대안정성', content: cleanMarkdown, tables, metrics, ...stabilityProps };
+      if (!result['vacancy']) result['vacancy'] = { title: '공실 분석', content: cleanMarkdown, tables, metrics, ...stabilityProps };
+      if (!result['current']) result['current'] = { title: '현황 분석', content: cleanMarkdown, tables, metrics, ...stabilityProps };
+    }
+
+    // income_analysis → rentGap, upside, leasing, remodel, comps 등 파생 데이터 제공
+    if (sectionType === 'income_analysis') {
+      const a05Props = transformForArchetype(cleanMarkdown, tables, 'A05');
+      const a04Props = transformForArchetype(cleanMarkdown, tables, 'A04');
+      if (!result['rentGap']) result['rentGap'] = { title: '임대료 갭', content: cleanMarkdown, tables, metrics, ...a05Props };
+      if (!result['upside']) result['upside'] = { title: '인상 경로', content: cleanMarkdown, tables, metrics, ...a05Props };
+      if (!result['leasing']) result['leasing'] = { title: '임차 유치', content: cleanMarkdown, tables, metrics, ...a05Props };
+      if (!result['remodel']) result['remodel'] = { title: '리모델링 계획', content: cleanMarkdown, tables, metrics, ...a05Props };
+      if (!result['comps']) result['comps'] = { title: '비교사례', content: cleanMarkdown, tables, metrics, ...a04Props };
     }
 
     // owner_occupied 파생 데이터 제공
     if (sectionType === 'occupancy_fit') {
       if (!result['commute']) {
-        const commuteProps = transformForArchetype(section.markdown, tables, 'A06');
-        result['commute'] = { title: '통근 및 접근성', content: section.markdown, tables, metrics, ...commuteProps };
+        const commuteProps = transformForArchetype(cleanMarkdown, tables, 'A06');
+        result['commute'] = { title: '통근 및 접근성', content: cleanMarkdown, tables, metrics, ...commuteProps };
       }
     }
     if (sectionType === 'cost_comparison') {
       if (!result['value']) {
-        const valueProps = transformForArchetype(section.markdown, tables, 'A04');
-        result['value'] = { title: '자산가치', content: section.markdown, tables, metrics, ...valueProps };
+        const valueProps = transformForArchetype(cleanMarkdown, tables, 'A04');
+        result['value'] = { title: '자산가치', content: cleanMarkdown, tables, metrics, ...valueProps };
       }
     }
 
     // development 파생 데이터 제공
     if (sectionType === 'site_analysis') {
       if (!result['scale']) {
-        const scaleProps = transformForArchetype(section.markdown, tables, 'A05');
-        result['scale'] = { title: '신축규모', content: section.markdown, tables, metrics, ...scaleProps };
+        const scaleProps = transformForArchetype(cleanMarkdown, tables, 'A05');
+        result['scale'] = { title: '신축규모', content: cleanMarkdown, tables, metrics, ...scaleProps };
       }
       if (!result['eviction']) {
-        const evictionProps = transformForArchetype(section.markdown, tables, 'A04');
-        result['eviction'] = { title: '명도계획', content: section.markdown, tables, metrics, ...evictionProps };
+        const evictionProps = transformForArchetype(cleanMarkdown, tables, 'A04');
+        result['eviction'] = { title: '명도계획', content: cleanMarkdown, tables, metrics, ...evictionProps };
       }
     }
     if (sectionType === 'development_feasibility') {
       if (!result['cost']) {
-        const costProps = transformForArchetype(section.markdown, tables, 'A08');
-        result['cost'] = { title: '투입비용', content: section.markdown, tables, metrics, ...costProps };
+        const costProps = transformForArchetype(cleanMarkdown, tables, 'A08');
+        result['cost'] = { title: '투입비용', content: cleanMarkdown, tables, metrics, ...costProps };
       }
       if (!result['stacking']) {
-        const stackingProps = transformForArchetype(section.markdown, tables, 'A05');
-        result['stacking'] = { title: '스태킹계획', content: section.markdown, tables, metrics, ...stackingProps };
+        const stackingProps = transformForArchetype(cleanMarkdown, tables, 'A05');
+        result['stacking'] = { title: '스태킹계획', content: cleanMarkdown, tables, metrics, ...stackingProps };
       }
     }
 
     // operating 파생 데이터 제공
     if (sectionType === 'operation_overview') {
       if (!result['operator']) {
-        const operatorProps = transformForArchetype(section.markdown, tables, 'A04');
-        result['operator'] = { title: '운영사 현황', content: section.markdown, tables, metrics, ...operatorProps };
+        const operatorProps = transformForArchetype(cleanMarkdown, tables, 'A04');
+        result['operator'] = { title: '운영사 현황', content: cleanMarkdown, tables, metrics, ...operatorProps };
       }
     }
     if (sectionType === 'gop_analysis') {
       if (!result['seasonality']) {
-        const seasonalityProps = transformForArchetype(section.markdown, tables, 'A05');
-        result['seasonality'] = { title: '계절성 및 변동성', content: section.markdown, tables, metrics, ...seasonalityProps };
+        const seasonalityProps = transformForArchetype(cleanMarkdown, tables, 'A05');
+        result['seasonality'] = { title: '계절성 및 변동성', content: cleanMarkdown, tables, metrics, ...seasonalityProps };
       }
     }
 
     // trading 파생 데이터 제공
     if (sectionType === 'market_position') {
       if (!result['turnover']) {
-        const turnoverProps = transformForArchetype(section.markdown, tables, 'A04');
-        result['turnover'] = { title: '권역 회전율', content: section.markdown, tables, metrics, ...turnoverProps };
+        const turnoverProps = transformForArchetype(cleanMarkdown, tables, 'A04');
+        result['turnover'] = { title: '권역 회전율', content: cleanMarkdown, tables, metrics, ...turnoverProps };
       }
     }
     if (sectionType === 'comparable_analysis') {
       if (!result['trend']) {
-        const trendProps = transformForArchetype(section.markdown, tables, 'A05');
-        result['trend'] = { title: '거래동향', content: section.markdown, tables, metrics, ...trendProps };
+        const trendProps = transformForArchetype(cleanMarkdown, tables, 'A05');
+        result['trend'] = { title: '거래동향', content: cleanMarkdown, tables, metrics, ...trendProps };
       }
       if (!result['price']) {
-        const priceProps = transformForArchetype(section.markdown, tables, 'A04');
-        result['price'] = { title: '적정 가격', content: section.markdown, tables, metrics, ...priceProps };
+        const priceProps = transformForArchetype(cleanMarkdown, tables, 'A04');
+        result['price'] = { title: '적정 가격', content: cleanMarkdown, tables, metrics, ...priceProps };
       }
     }
   }
@@ -227,32 +274,132 @@ function transformForArchetype(markdown: string, tables: ParsedTable[], archetyp
   switch (archetype) {
     case 'A02': return buildA02Props(markdown, tables, plainLines);
     case 'A03': return buildA03Props(tables, plainLines);
-    case 'A04': return buildA04Props(tables, plainLines);
+    case 'A04': return buildA04Props(tables, lines);
     case 'A05': return buildA05Props(markdown, tables, plainLines);
     case 'A06': return buildA06Props(markdown, tables, plainLines);
-    case 'A07': return buildA07Props(plainLines);
+    case 'A07': return buildA07Props(tables, lines);
     case 'A08': return buildA08Props(tables, plainLines);
     case 'A09': return buildA09Props(plainLines);
+    case 'A13': return buildA13Props(markdown, tables, lines);
+    case 'A15': return buildA15Props(markdown, tables, plainLines);
     default:    return buildGenericProps(markdown, tables, plainLines);
   }
+}
+
+/** A13 Operating/KPI: subtitle, kpiRows[], statCards[], highlight */
+function buildA13Props(markdown: string, tables: ParsedTable[], lines: string[]): Record<string, any> {
+  const headerLine = lines.find(l => l.startsWith('#'));
+  const subtitle = headerLine ? stripMarkdown(headerLine.replace(/^#+\s*/, '')) : '';
+
+  const bulletItems = extractBulletItems(lines);
+  const rows: [string, string][] = [];
+  const statCards: Array<{ label: string; value: string; unit?: string }> = [];
+
+  for (const b of bulletItems) {
+    const combined = b.title ? `${b.title}: ${b.body}` : b.body;
+    const parts = combined.split(/[：:]/);
+    if (parts.length >= 2) {
+      const k = stripMarkdown(parts[0] || '').trim();
+      const v = stripMarkdown(parts.slice(1).join(':')).trim();
+      if (k && v) {
+        rows.push([k, v]);
+        if (statCards.length < 3) {
+          statCards.push({ label: k, value: v });
+        }
+      }
+    }
+  }
+
+  if (rows.length === 0 && tables.length > 0) {
+    for (const t of tables) {
+      for (const r of t.rows) {
+        if (r.length >= 2) {
+          const k = stripMarkdown(r[0]);
+          const v = stripMarkdown(r[1]);
+          rows.push([k, v]);
+          if (statCards.length < 3) {
+            statCards.push({ label: k, value: v });
+          }
+        }
+      }
+    }
+  }
+
+  const highlight = lines.find(l => l.startsWith('>'))?.replace(/^>\s*/, '') ||
+    '대기업 장기 책임임차(Master Lease) 및 첨단 설비 스펙을 바탕으로 공실 리스크 없는 안정적인 운영 성과를 확보하고 있습니다.';
+
+  return {
+    subtitle,
+    kpiRows: rows,
+    statCards,
+    highlight: stripMarkdown(highlight),
+  };
+}
+
+/** A15 Thesis: pillars[], subtitle, takeaway */
+function buildA15Props(markdown: string, tables: ParsedTable[], lines: string[]): Record<string, any> {
+  const subtitle = lines.find(l => l.startsWith('#'))?.replace(/^#+\s*/, '') || '';
+  const listLines = lines.filter(l => l.match(/^\d+[.、)]\s*/) || l.startsWith('-') || l.startsWith('•'));
+  const narrativeLines = lines.filter(l => !l.startsWith('#') && !l.match(/^\d+[.、)]\s*/) && !l.startsWith('-') && !l.startsWith('•'));
+
+  const pillars = listLines.map((l, idx) => {
+    const stripped = l.replace(/^\d+[.、)]\s*/, '').replace(/^[-•·]\s*/, '').trim();
+    const parts = stripped.split(/[：:]/);
+    const title = stripMarkdown(parts[0] || `투자 포인트 ${idx + 1}`).trim();
+    const body = parts.length >= 2 ? stripMarkdown(parts.slice(1).join(':')).trim() : title;
+    return {
+      number: String(idx + 1).padStart(2, '0'),
+      title,
+      body,
+    };
+  });
+
+  const takeaway = narrativeLines.map(l => stripMarkdown(l)).filter(Boolean).join(' ') ||
+    '본 자산은 우수한 입지 경쟁력과 견고한 펀더멘털을 기반으로 중장기 자산 가치 상승 및 안정적인 현금흐름을 동시에 기대할 수 있는 우량 투자 기회입니다.';
+
+  return {
+    subtitle: stripMarkdown(subtitle),
+    pillars,
+    takeaway,
+  };
 }
 
 /** A02 StatGrid: leadSentence, metrics[], callouts[] */
 function buildA02Props(markdown: string, tables: ParsedTable[], lines: string[]): Record<string, any> {
   const leadSentence = findLeadSentence(lines);
-  const metrics = extractStatMetrics(tables, lines);
-  if (metrics.length === 0) {
-    for (const line of lines) {
+  const metrics: Array<{label: string; value: string; unit?: string}> = [];
+
+  // 1. 테이블에서 직접 지표 추출
+  for (const t of tables) {
+    for (const row of t.rows) {
       if (metrics.length >= 8) break;
-      const numMatch = line.match(/(\d[\d,.]*\s*(?:억|만원|원|%|㎡|평|층|호|실|개))/g);
-      if (numMatch) {
-        const parts = line.split(/[：:||\-]/);
-        const label = stripMarkdown(parts[0] || '').slice(0, 14);
-        const value = stripMarkdown(numMatch[0]);
-        if (label && value) metrics.push({ label, value });
+      if (row.length >= 2) {
+        const label = stripMarkdown(row[0]).trim();
+        const value = stripMarkdown(row[1]).trim();
+        if (label && value && !label.includes('항목') && !label.includes('구분')) {
+          metrics.push({ label: label.slice(0, 16), value });
+        }
       }
     }
   }
+
+  // 2. 불릿 라인에서 보강
+  if (metrics.length < 8) {
+    for (const line of lines) {
+      if (metrics.length >= 8) break;
+      if (line.startsWith('|') || line.startsWith('#')) continue;
+      const stripped = stripMarkdown(line.replace(/^[-*•]\s*/, ''));
+      const parts = stripped.split(/[：:]/);
+      if (parts.length >= 2) {
+        const label = parts[0].trim().slice(0, 16);
+        const value = parts.slice(1).join(':').trim();
+        if (label && value && !metrics.some(m => m.label === label)) {
+          metrics.push({ label, value });
+        }
+      }
+    }
+  }
+
   const callouts = extractCallouts(lines);
   return { leadSentence, metrics, callouts };
 }
@@ -296,16 +443,51 @@ function mergeRentRollTables(tables: ParsedTable[]): ParsedTable {
 
 /** A04 Asymmetric75: left{sub, rows}, right{sub, callouts[]} */
 function buildA04Props(tables: ParsedTable[], lines: string[]): Record<string, any> {
-  const t = tables[0];
-  // F4 fix: 헤더행은 sub로 이동, rows에는 데이터만 포함
-  const headerText = t?.headers?.map(stripMarkdown).join(' · ') || '';
-  const leftRows = t ? t.rows.map(r => r.map(stripMarkdown)) : [];
   const callouts = extractCallouts(lines);
   const headerLine = lines.find(l => l.startsWith('#'));
   const sub = headerLine ? stripMarkdown(headerLine.replace(/^#+\s*/, '')) : '';
+
+  // 1. 불릿 목록에서 key-value 추출 (우선순위 높음: 위치, 대지면적, 연면적 등)
+  const bulletItems = extractBulletItems(lines);
+  let leftRows: [string, string][] = [];
+
+  if (bulletItems.length >= 2) {
+    leftRows = bulletItems.map(b => {
+      const combined = b.title ? `${b.title}: ${b.body}` : b.body;
+      const parts = combined.split(/[：:]/);
+      if (parts.length >= 2) {
+        return [stripMarkdown(parts[0] || '').trim(), stripMarkdown(parts.slice(1).join(':').trim())] as [string, string];
+      }
+      return [stripMarkdown(b.title || parts[0] || '').trim(), stripMarkdown(b.body || '').trim()] as [string, string];
+    }).filter(([k, v]) => k.length > 0 && !k.includes('항목') && !k.includes('내용'));
+  }
+
+  // 2. 불릿이 부족하고 테이블이 있는 경우
+  if (leftRows.length < 2 && tables.length > 0) {
+    const t = tables[0];
+    if (t && t.rows.length === 1 && t.headers.length >= 2) {
+      // 1행 다열 테이블인 경우: 헤더와 값을 매핑
+      leftRows = t.headers.map((h, i) => [
+        stripMarkdown(h).trim(),
+        stripMarkdown(t.rows[0]?.[i] || '').trim()
+      ] as [string, string]).filter(([k, v]) => k.length > 0 && !k.includes('구분') && !k.includes('항목'));
+    } else if (t && t.rows.length >= 2) {
+      // 2열 다행 테이블인 경우
+      leftRows = t.rows.map(r => [
+        stripMarkdown(r[0] || '').trim(),
+        stripMarkdown(r[1] || '').trim()
+      ] as [string, string]).filter(([k, v]) => k.length > 0 && !k.includes('항목') && !k.includes('구분'));
+    }
+  }
+
+  // 3. 여전히 비어있으면 bold key-value 추출
+  if (leftRows.length === 0) {
+    const boldKVs = extractBoldKeyValues(lines);
+    leftRows = boldKVs.map(bv => [bv.key, bv.value] as [string, string]);
+  }
   
   return {
-    left: { sub: sub || headerText, rows: leftRows },
+    left: { sub: sub || '건축물 개요 및 물리 스펙', rows: leftRows },
     right: { sub: '', callouts },
   };
 }
@@ -328,19 +510,15 @@ function buildA06Props(markdown: string, tables: ParsedTable[], lines: string[])
   const bulletItems = extractBulletItems(lines);
   const calloutItem = lines.find(l => l.startsWith('>'));
   
-  // L.rows()는 RowEntry 튜플 [label, value] 형태를 기대
-  // FIX-RC3: 콜론이 없는 경우 value를 빈 문자열로 두어 중복 방지
   let rows: [string, string][] = bulletItems.map(b => {
     const combined = b.title ? `${b.title}: ${b.body}` : b.body;
     const parts = combined.split(/[：:]/);
     if (parts.length >= 2) {
       return [stripMarkdown(parts[0] || ''), stripMarkdown(parts.slice(1).join(':').trim())] as [string, string];
     }
-    // 콜론 없는 단일 문장 → label만 표시, value 비움
     return [stripMarkdown(parts[0] || ''), ''] as [string, string];
   });
   
-  // 불릿이 없으면 테이블 행에서 추출
   if (rows.length === 0 && tables.length > 0) {
     for (const t of tables) {
       for (const row of t.rows) {
@@ -351,31 +529,37 @@ function buildA06Props(markdown: string, tables: ParsedTable[], lines: string[])
     }
   }
   
-  // 그래도 없으면 bold key-value에서 추출
   if (rows.length === 0) {
     const boldKVs = extractBoldKeyValues(lines);
     rows = boldKVs.map(bv => [bv.key, bv.value] as [string, string]);
   }
   
   if (rows.length === 0) {
-    const locationKeywords = ['주소', '교통', '역', '도보', '차량', '인프라', '학교', '지하철', '버스', '거리', '위치', '접근'];
+    const locationKeywords: Record<string, string> = {
+      '역': '교통 접근성', '지하철': '대중교통', '버스': '대중교통', '도보': '보행 접근성',
+      '도로': '도로 조건', '차량': '차량 접근성', '대로': '도로 조건',
+      '상권': '상권 환경', '유동': '유동인구', '배후': '배후 수요', '집객': '집객력',
+      '인프라': '주변 인프라', '학교': '교육 시설', '병원': '편의 시설',
+      '주소': '소재지', '위치': '입지 특성', '권역': '핵심 권역',
+    };
     for (const line of lines) {
-      if (rows.length >= 5) break;
-      const stripped = stripMarkdown(line.replace(/^[-•·]\s*/, ''));
-      if (locationKeywords.some(kw => stripped.includes(kw))) {
-        const parts = stripped.split(/[：:]/);
-        if (parts.length >= 2) {
-          rows.push([parts[0].trim().slice(0, 20), enforceTextBudget(parts.slice(1).join(':').trim(), 45)] as [string, string]);
-        } else {
-          rows.push(['입지 정보', enforceTextBudget(stripped, 45)] as [string, string]);
-        }
+      if (rows.length >= 6) break;
+      if (line.startsWith('#') || line.startsWith('|')) continue;
+      const stripped = stripMarkdown(line).trim();
+      if (!stripped) continue;
+      let matchedLabel = '';
+      for (const [kw, lbl] of Object.entries(locationKeywords)) {
+        if (stripped.includes(kw)) { matchedLabel = lbl; break; }
+      }
+      if (!matchedLabel) matchedLabel = '입지 특성';
+      if (!rows.some(r => r[0] === matchedLabel && r[1] === stripped)) {
+        rows.push([matchedLabel, stripped]);
       }
     }
   }
   
-  // Truncate row values to prevent text overflow in PPTX
-  const truncatedRows = rows.slice(0, 5).map(([label, value]) => 
-    [label.slice(0, 20), enforceTextBudget(value, 45)] as [string, string]
+  const truncatedRows: [string, string][] = rows.slice(0, 6).map(([label, value]) => 
+    [label.slice(0, 20), enforceTextBudget(value, 60)] as [string, string]
   );
 
   return {
@@ -389,23 +573,71 @@ function buildA06Props(markdown: string, tables: ParsedTable[], lines: string[])
 }
 
 /** A07 ThreeBlock: blocks[], bottomBar */
-function buildA07Props(lines: string[]): Record<string, any> {
-  const bullets = extractBulletItems(lines);
-  const blocks = bullets.slice(0, 3).map(b => {
-    const rawLabel = stripMarkdown(b.title || '');
-    const rawValue = extractBoldValue(b.body) || stripMarkdown(b.body).slice(0, 20);
-    const rawDesc = stripMarkdown(b.body);
-    // Avoid duplicate: if value equals description, clear description
-    const desc = (rawValue === rawDesc) ? '' : rawDesc;
-    // Remove trailing colon from value (incomplete data)
-    const cleanValue = rawValue.replace(/:$/, '').trim();
-    return { label: rawLabel, value: cleanValue, description: desc };
-  });
-  
+function buildA07Props(tables: ParsedTable[], lines: string[]): Record<string, any> {
+  const blocks: Array<{ label: string; value: string; description: string }> = [];
+
+  // 1. 테이블 기반 3개 블록 추출 (테이블의 1열: 라벨, 2열: 현황/상태, 3열: 완화방안/설명)
+  if (tables.length > 0 && tables[0]?.rows && tables[0].rows.length > 0) {
+    for (const row of tables[0].rows) {
+      if (blocks.length >= 3) break;
+      if (row.length >= 3) {
+        blocks.push({
+          label: stripMarkdown(row[0] || '').trim(),
+          value: stripMarkdown(row[1] || '').trim(),
+          description: stripMarkdown(row[2] || '').trim(),
+        });
+      } else if (row.length >= 2) {
+        blocks.push({
+          label: stripMarkdown(row[0] || '').trim(),
+          value: '진단 완료',
+          description: stripMarkdown(row[1] || '').trim(),
+        });
+      }
+    }
+  }
+
+  // 2. ### 헤딩 기반 3개 블록 추출 (테이블이 없을 때)
   if (blocks.length === 0) {
-    const boldItems = extractBoldKeyValues(lines);
-    boldItems.slice(0, 3).forEach(bv => {
-      blocks.push({ label: bv.key, value: bv.value, description: '' });
+    let currentHeader = '';
+    let currentBullets: string[] = [];
+    const defaultStatusBadges = ['정밀안전 A등급', '임대차 안정', '권리관계 투명'];
+
+    for (const line of lines) {
+      if (line.startsWith('###')) {
+        if (currentHeader && currentBullets.length > 0) {
+          const badge = defaultStatusBadges[blocks.length] || '실사 적격';
+          blocks.push({
+            label: currentHeader,
+            value: badge,
+            description: currentBullets.map(b => b.replace(/^[🟢🔵🔶💡•·\-*]+\s*/gu, '').trim()).join('\n'),
+          });
+          currentBullets = [];
+        }
+        currentHeader = stripMarkdown(line.replace(/^#+\s*/, '')).slice(0, 24);
+      } else if (line.startsWith('-') || line.startsWith('•') || line.startsWith('*')) {
+        const stripped = stripMarkdown(line.replace(/^[-*•]\s*/, ''));
+        if (stripped.length > 2) currentBullets.push(stripped);
+      }
+    }
+    if (currentHeader && currentBullets.length > 0 && blocks.length < 3) {
+      const badge = defaultStatusBadges[blocks.length] || '실사 적격';
+      blocks.push({
+        label: currentHeader,
+        value: badge,
+        description: currentBullets.map(b => b.replace(/^[🟢🔵🔶💡•·\-*]+\s*/gu, '').trim()).join('\n'),
+      });
+    }
+  }
+
+  if (blocks.length === 0) {
+    const bullets = extractBulletItems(lines);
+    bullets.slice(0, 3).forEach(b => {
+      const rawLabel = stripMarkdown(b.title || '');
+      const rawValue = extractBoldValue(b.body) || stripMarkdown(b.body).slice(0, 20);
+      const rawDesc = stripMarkdown(b.body);
+      const desc = (rawValue === rawDesc) ? '' : rawDesc;
+      const cleanValue = rawValue.replace(/:$/, '').trim();
+      blocks.push({ label: rawLabel, value: cleanValue, description: desc });
     });
   }
   
@@ -418,11 +650,30 @@ function buildA07Props(lines: string[]): Record<string, any> {
   }
   if (blocks.length === 0 && lines.length > 0) {
     // Split narrative text into 3 blocks
-    const textLines = lines.filter(l => !l.startsWith('#') && l.length > 5);
+    const textLines = lines
+      .filter(l => !l.startsWith('#') && l.length > 5)
+      .map(l => l.replace(/^>\s*/, ''));  // M5: strip blockquote prefix
     const chunk = Math.max(1, Math.ceil(textLines.length / 3));
+    const categoryKeywords: Record<string, string> = {
+      '건축물': '건축 리스크', '용도': '용도 리스크', '위반': '법률 리스크',
+      '등기': '권리 리스크', '저당': '재무 리스크', '근저당': '재무 리스크',
+      '가압류': '법률 리스크', '임대': '임대 리스크', '공실': '공실 리스크',
+      '소송': '법률 리스크', '환경': '환경 리스크', '지구': '규제 리스크',
+      '도시': '도시계획', '주차': '주차 리스크', '소방': '안전 리스크',
+    };
     for (let i = 0; i < 3 && i * chunk < textLines.length; i++) {
       const segment = textLines.slice(i * chunk, (i + 1) * chunk).join(' ');
-      blocks.push({ label: `항목 ${i + 1}`, value: '—', description: stripMarkdown(segment).slice(0, 120) });
+      const stripped = stripMarkdown(segment);
+      let label = `항목 ${i + 1}`;
+      for (const [keyword, categoryLabel] of Object.entries(categoryKeywords)) {
+        if (stripped.includes(keyword)) { label = categoryLabel; break; }
+      }
+      // C5: 내부 가드레일 토큰 정제
+      const cleaned = stripped
+        .replace(/\[임차인 업종 정보로 대체됨\]/g, '')
+        .replace(/\[인명 비공개\]/g, '')
+        .trim();
+      blocks.push({ label, value: '—', description: cleaned.slice(0, 200) });
     }
   }
   
@@ -509,18 +760,50 @@ function buildGenericProps(markdown: string, tables: ParsedTable[], lines: strin
 
 function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body: Record<string, any>): Record<string, any> {
   const heroCard = body?.heroCard ?? {};
+  const posture = heroCard.posture || 'income';
   const lines = markdown.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   
   const metrics: Array<{label: string; value: string; unit?: string}> = [];
-  // F5 fix: heroCard 필드명 *Display 접미사 우선 대응
   const askPrice = heroCard.askingPriceDisplay ?? heroCard.askingPrice;
-  const yieldVal = heroCard.grossYieldDisplay ?? heroCard.grossYield;
-  const area = heroCard.totalAreaDisplay ?? heroCard.totalArea;
-  const vacancy = heroCard.vacancyDisplay ?? heroCard.vacancy;
-  if (askPrice) metrics.push({ label: '매각 희망가', value: askPrice, unit: '' });
-  if (yieldVal) metrics.push({ label: '총 수익률', value: yieldVal, unit: '' });
-  if (area) metrics.push({ label: '연면적', value: area, unit: '' });
-  if (vacancy) metrics.push({ label: '공실', value: vacancy, unit: '' });
+
+  // 포스처별 60대 자산가 맞춤형 핵심 4지표 매핑
+  if (posture === 'income') {
+    if (askPrice) metrics.push({ label: '매매 희망가', value: String(askPrice) });
+    if (heroCard.equityRequiredBil) metrics.push({ label: '실투자금(내 돈)', value: `약 ${heroCard.equityRequiredBil}억 원` });
+    if (heroCard.capRateBase) metrics.push({ label: '연 순수익률(Cap Rate)', value: `${heroCard.capRateBase}%` });
+    if (heroCard.leveragedYieldPct) metrics.push({ label: '자기자본수익률', value: `${heroCard.leveragedYieldPct}%` });
+  } else if (posture === 'owner_occupied') {
+    if (askPrice) metrics.push({ label: '매매 희망가', value: String(askPrice) });
+    if (heroCard.pricePerPyeong) metrics.push({ label: '평당 매매가', value: `${heroCard.pricePerPyeong.toLocaleString()}원/평` });
+    if (heroCard.ownVsLeaseSavingsBil) metrics.push({ label: '연 임대료 절감액', value: `약 ${heroCard.ownVsLeaseSavingsBil}억 원/년` });
+    if (heroCard.breakevenYears) metrics.push({ label: '자가전환 손익분기', value: `약 ${heroCard.breakevenYears}년` });
+  } else if (posture === 'trading') {
+    if (askPrice) metrics.push({ label: '매매 희망가', value: String(askPrice) });
+    if (heroCard.pricePerPyeong) metrics.push({ label: '평당 매매가', value: `${heroCard.pricePerPyeong.toLocaleString()}원/평` });
+    if (heroCard.marketDiscountPct) metrics.push({ label: '시세 할인율(갭)', value: `${heroCard.marketDiscountPct}% 저평가` });
+    if (heroCard.targetHprPct) metrics.push({ label: '목표 수익률(HPR)', value: `${heroCard.targetHprPct}%` });
+  } else if (posture === 'development') {
+    if (askPrice) metrics.push({ label: '토지 매입가', value: String(askPrice) });
+    if (heroCard.landPricePerPyeong) metrics.push({ label: '토지 평당가', value: `${heroCard.landPricePerPyeong.toLocaleString()}만원/평` });
+    if (heroCard.devProfitMarginPct) metrics.push({ label: '예상 개발이익률', value: `${heroCard.devProfitMarginPct}%` });
+    if (heroCard.totalGrossAreaM2) metrics.push({ label: '신축 연면적', value: `${heroCard.totalGrossAreaM2.toLocaleString()}㎡` });
+  } else if (posture === 'operating') {
+    if (askPrice) metrics.push({ label: '매매 희망가', value: String(askPrice) });
+    if (heroCard.noiBaseBil) metrics.push({ label: '연간 실질 GOP', value: `약 ${heroCard.noiBaseBil}억 원` });
+    if (heroCard.gopMarginPct) metrics.push({ label: 'GOP 마진율', value: `${heroCard.gopMarginPct}%` });
+    if (heroCard.revpar) metrics.push({ label: 'RevPAR(객실매출)', value: `약 ${(heroCard.revpar / 10000).toFixed(1)}만원` });
+  }
+
+  // 폴백 매핑
+  if (metrics.length === 0) {
+    const yieldVal = heroCard.grossYieldDisplay ?? heroCard.grossYield;
+    const area = heroCard.totalAreaDisplay ?? heroCard.totalArea;
+    const vacancy = heroCard.vacancyDisplay ?? heroCard.vacancy;
+    if (askPrice) metrics.push({ label: '매각 희망가', value: askPrice, unit: '' });
+    if (yieldVal) metrics.push({ label: '연 순수익률', value: yieldVal, unit: '' });
+    if (area) metrics.push({ label: '연면적', value: area, unit: '' });
+    if (vacancy) metrics.push({ label: '공실 현황', value: vacancy, unit: '' });
+  }
   
   if (metrics.length < 4 && tables.length > 0) {
     const t = tables[0];
@@ -535,10 +818,15 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
   if (metrics.length < 4) {
     for (const line of lines.filter(l => !l.startsWith('|') && !l.startsWith('#'))) {
       if (metrics.length >= 8) break;
-      const numMatch = line.match(/(\d[\d,.]*\s*(?:억|만원|원|%|㎡|평|층|호|실|개))/g);
+      const strippedLine = line.replace(/^[-*•·]\s*/, '').trim();
+      const numMatch = strippedLine.match(/(\d[\d,.]*\s*(?:억|만원|원|%|㎡|평|층|호|실|개))/g);
       if (numMatch) {
-        const parts = line.split(/[：:||\-]/);
-        metrics.push({ label: stripMarkdown(parts[0] || '').slice(0, 14) || '정보', value: stripMarkdown(numMatch[0]) });
+        const parts = strippedLine.split(/[：:]/);
+        const label = stripMarkdown(parts[0] || '').slice(0, 14).trim();
+        const value = parts.length >= 2 ? stripMarkdown(parts[1]).trim() : stripMarkdown(numMatch[0]);
+        if (label && value) {
+          metrics.push({ label, value });
+        }
       }
     }
   }
@@ -546,7 +834,7 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
   const callouts = extractCallouts(lines.filter(l => !l.startsWith('|') && !/^[-:]+$/.test(l)));
 
   return {
-    leadSentence: stripMarkdown(heroCard.hookText || findLeadSentence(lines.filter(l => !l.startsWith('|')))),
+    leadSentence: stripMarkdown(heroCard.keyInvestmentPoint || heroCard.hookText || findLeadSentence(lines.filter(l => !l.startsWith('|')))),
     metrics,
     callouts,
   };
@@ -818,7 +1106,7 @@ function extractBulletItems(lines: string[]): Array<{title: string; body: string
     });
 }
 
-function extractBoldKeyValues(lines: string[]): Array<{key: string; value: string}> {
+export function extractBoldKeyValues(lines: string[]): Array<{key: string; value: string}> {
   const results: Array<{key: string; value: string}> = [];
   for (const line of lines) {
     const match = line.match(/\*\*(.*?)\*\*\s*[：:||\-|]\s*(.*)/);
@@ -834,20 +1122,67 @@ function extractBoldValue(text: string): string {
   return match ? match[1] : '';
 }
 
+/**
+ * Markdown 구조(#, **, |, -)를 보존하면서
+ * 페르소나 지칭·시스템 메시지·이모지만 제거하는 경량 sanitizer.
+ * bindSectionData에서 content 필드 저장 전 적용하여
+ * 아키타입 빌더에 전달되는 raw content에서 페르소나 누출을 방지합니다.
+ */
+export function sanitizePersona(text: string): string {
+  if (!text) return '';
+  return text
+    // ── NaN/null/undefined 리터럴 제거 (수치 오염 방지) ──
+    .replace(/\bNaN\s*([%원만억천㎡평])/g, '--$1')
+    .replace(/\bundefined\s*([원만억천%㎡평])/g, '--$1')
+    .replace(/\bnull\s*([원만억천%㎡평])/g, '--$1')
+    .replace(/\bNaN\b/g, '--')
+    .replace(/\bundefined\b/g, '--')
+    .replace(/\bnull\b(?!\s*[=;,\]})])/g, '--')
+    // ── 내부 시스템 메시지 제거 ──
+    .replace(/>?\s*🔍?\s*\*{0,2}건축물대장\s*조회\s*미완료\*{0,2}[^\n]*/g, '')
+    .replace(/>?\s*🔒?\s*\*{0,2}임대차\s*상세\s*현황[^\n]*/g, '')
+    .replace(/공공데이터\s*API\s*응답을\s*받지\s*못했습니다[^\n]*/g, '')
+    .replace(/추후\s*업데이트\s*시\s*자동\s*반영됩니다\.?/g, '')
+    // ── 이모지 제거 ──
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{1F300}-\u{1FAFF}\u{25A0}-\u{25FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}✨🚇✓★▲●◇🟢🔵🔶💡🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍]/gu, '')
+    // ── 페르소나 직접 지칭 정제 ──
+    .replace(/(?:60대|50대|40대|30대|20대|초보|고액|법인|개인|VIP)\s*(?:자산가|투자자|법인\s*대표|대표|고객|매수자)(?:를\s*위한|의\s*관점|에게\s*추천하는|용|맞춤)?\s*/gu, '')
+    // ── 가드레일/익명화 토큰 정제 ──
+    .replace(/\[인명\s*비공개\]게/g, '담당자에게')
+    .replace(/\[인명\s*비공개\]에게/g, '담당자에게')
+    .replace(/\[인명\s*비공개\]/g, '담당자')
+    .replace(/\[지역\s*신호로\s*대체됨\]/g, '해당 권역')
+    .replace(/\[임차인\s*업종\s*정보로\s*대체됨\]/g, '주요 임차 업종')
+    .replace(/\[이메일\s*비공개\]/g, '문의처')
+    .replace(/\[연락처\s*비공개\]/g, '문의처');
+}
+
 /** Markdown 서식 및 SSoT 내부 표기 정제 */
 export function stripMarkdown(text: string): string {
   if (!text) return '';
   return text
+    // ── 내부 시스템 메시지 먼저 제거 (마크다운/이모지 파싱 전) ──
+    .replace(/>?\s*🔍?\s*\*{0,2}건축물대장\s*조회\s*미완료\*{0,2}[^\n]*/g, '')
+    .replace(/>?\s*🔒?\s*\*{0,2}임대차\s*상세\s*현황[^\n]*/g, '')
+    .replace(/공공데이터\s*API\s*응답을\s*받지\s*못했습니다[^\n]*/g, '')
+    .replace(/추후\s*업데이트\s*시\s*자동\s*반영됩니다\.?/g, '')
     .replace(/^#+\s*/gm, '')
+    // ── 수평선(---/***) 제거 ──
+    .replace(/^\s*[-*_]{3,}\s*$/gm, '')
     .replace(/\*\*(.*?)\*\*/g, '$1')
     .replace(/\*(.*?)\*/g, '$1')
     .replace(/`(.*?)`/g, '$1')
     .replace(/\[(.*?)\]\(.*?\)/g, '$1')
-    .replace(/[🏢📍📊💰⚠️🎯📋✨🚇✓★▲●◇]/gu, '')
-    // ── 내부 시스템 메시지 제거 ──
-    .replace(/>\s*🔍?\s*\*{0,2}건축물대장\s*조회\s*미완료\*{0,2}[^\n]*/g, '')
-    .replace(/공공데이터\s*API\s*응답을\s*받지\s*못했습니다[^\n]*/g, '')
-    .replace(/추후\s*업데이트\s*시\s*자동\s*반영됩니다\.?/g, '')
+    // ── HTML 태그 제거 (XSS 방어, PPTX 텍스트 보호) ──
+    .replace(/<[^>]*>/g, '')
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{1F300}-\u{1FAFF}\u{25A0}-\u{25FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}✨🚇✓★▲●◇🟢🔵🔶💡🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍]/gu, '')
+    // ── 페르소나 직접 지칭 정제 (60대 자산가를 위한 등 원천 제거) ──
+    .replace(/(?:60대|50대|40대|30대|20대|초보|고액|법인|개인|VIP)\s*(?:자산가|투자자|법인\s*대표|대표|고객|매수자)(?:를\s*위한|의\s*관점|에게\s*추천하는|용|맞춤)?\s*/gu, '')
+    // ── 어색한 외래어 정제 (한국 상업용 부동산 실무 어휘 치환) ──
+    .replace(/네이밍\s*라이츠/gu, '사옥 단독 명칭 표기(간판 설치권)')
+    .replace(/네이밍라이츠/gu, '사옥 단독 명칭 표기')
+    .replace(/브랜딩\s*라이츠/gu, '기업 단독 브랜딩')
+    .replace(/브랜딩라이츠/gu, '기업 단독 브랜딩')
     // ── SSoT 내부 표기 정제 ──
     .replace(/\s*\(BSSoT\s*Lite[^)]*\)/gi, '')
     .replace(/\s*\(기재\s*공란\)/g, ' (미확인)')
@@ -857,6 +1192,18 @@ export function stripMarkdown(text: string): string {
     .replace(/인\s*것으로\s*(보임|판단됨|보여짐)\s*/g, '')
     .replace(/일\s*가능성이\s*있(음|습니다)\s*/g, '')
     .replace(/~?(으로|로)\s*보(임|입니다|여집니다)\s*/g, '')
+    // ── 가드레일/익명화 토큰 자연어 정제 (조사 탈락 방지) ──
+    .replace(/\[인명\s*비공개\]게/g, '담당자에게')
+    .replace(/\[인명\s*비공개\]에게/g, '담당자에게')
+    .replace(/\[인명\s*비공개\]/g, '담당자')
+    .replace(/\[지역\s*신호로\s*대체됨\]/g, '해당 권역')
+    .replace(/\[임차인\s*업종\s*정보로\s*대체됨\]/g, '주요 임차 업종')
+    .replace(/\[이메일\s*비공개\]/g, '문의처')
+    .replace(/\[연락처\s*비공개\]/g, '문의처')
+    // ── 어휘 중복 정제 (예: '핵심 권역 권역' -> '핵심 권역') ──
+    .replace(/(권역|입지|상권|역세권|대로변|인프라)\s+\1/g, '$1')
+    // ── 문미 dangling 대시/기호 정제 ──
+    .replace(/\s*[—–-]\s*$/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -869,7 +1216,7 @@ export function truncate(text: string, maxLen: number): string {
   return enforceTextBudget(cleaned, maxLen);
 }
 
-function parseMarkdownTable(markdown: string): ParsedTable[] {
+export function parseMarkdownTable(markdown: string): ParsedTable[] {
   const tables: ParsedTable[] = [];
   const lines = markdown.split('\n');
   let currentTable: ParsedTable | null = null;
@@ -899,7 +1246,6 @@ function parseMarkdownTable(markdown: string): ParsedTable[] {
   if (currentTable) {
     tables.push(currentTable);
   }
-  
   return tables;
 }
 

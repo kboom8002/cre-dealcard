@@ -40,8 +40,25 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   
   // Stat grid
   let metrics = input.data.metrics || [];
+
+  // 1. heroCard 데이터 우선 바인딩
+  const hero = input.data.heroCard;
+  if (hero && (!metrics || metrics.length === 0)) {
+    metrics = [];
+    if (Array.isArray(hero.stats) && hero.stats.length > 0) {
+      metrics = hero.stats;
+    } else {
+      if (hero.askingPriceDisplay) metrics.push({ label: '매매 희망가', value: hero.askingPriceDisplay });
+      if (hero.equityRequiredBil) metrics.push({ label: '필요 실투자금', value: `약 ${hero.equityRequiredBil}억 원` });
+      if (hero.capRateBase) metrics.push({ label: '연 순수익률(Cap Rate)', value: `${hero.capRateBase}%` });
+      if (hero.leveragedYieldPct) metrics.push({ label: '자기자본수익률', value: `${hero.leveragedYieldPct}%` });
+      if (metrics.length < 4 && hero.landAreaM2) metrics.push({ label: '대지면적', value: `${(hero.landAreaM2 / 3.3058).toFixed(1)}평` });
+      if (metrics.length < 4 && hero.totalGrossAreaM2) metrics.push({ label: '연면적', value: `${(hero.totalGrossAreaM2 / 3.3058).toFixed(1)}평` });
+      if (metrics.length < 4 && hero.zoning) metrics.push({ label: '용도지역', value: hero.zoning });
+    }
+  }
   
-  // metrics가 비어있으면 tables/content에서 추출
+  // 2. metrics가 비어있으면 tables/content에서 추출
   if (metrics.length === 0 && input.data.tables && input.data.tables.length > 0) {
     const t = input.data.tables[0];
     for (const row of (t.rows || [])) {
@@ -53,7 +70,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     }
   }
   
-  // 그래도 없으면 content에서 key:value 패턴 추출
+  // 3. 그래도 없으면 content에서 key:value 패턴 추출
   if (metrics.length === 0 && input.data.content) {
     const lines = String(input.data.content).split('\n');
     for (const line of lines) {
@@ -69,7 +86,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   if (metrics.length > 0) {
     // Stat cards
     const gap = 0.20;
-    const cols = Math.min(4, metrics.length);
+    const cols = Math.max(2, Math.min(4, metrics.length));
     const cardW = L.col(cols, gap);
     const cardH = 1.4;
     

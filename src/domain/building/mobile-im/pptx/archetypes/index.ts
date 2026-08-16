@@ -12,8 +12,10 @@ import { buildA11RoomSpec } from './a11-room-spec';
 import { buildA12Ownership } from './a12-ownership';
 import { buildA13Operating } from './a13-operating';
 import { buildA14Gallery } from './a14-gallery';
+import { buildA15Thesis } from './a15-thesis';
 
 export * from './a01-cover'; // For Types
+export { buildA15Thesis, type ThesisPillar } from './a15-thesis';
 
 export const ARCHETYPE_REGISTRY: Record<string, any> = {
   A01: buildA01Cover,
@@ -30,4 +32,5 @@ export const ARCHETYPE_REGISTRY: Record<string, any> = {
   A12: buildA12Ownership,
   A13: buildA13Operating,
   A14: buildA14Gallery,
+  A15: buildA15Thesis,
 };

@@ -1,0 +1,81 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`PPTX Precision Tests > GS01: Jamwon PPTX slide structure snapshot 1`] = `
+[
+  "ppt/slides/slide1.xml",
+  "ppt/slides/slide2.xml",
+  "ppt/slides/slide3.xml",
+  "ppt/slides/slide4.xml",
+  "ppt/slides/slide5.xml",
+  "ppt/slides/slide6.xml",
+  "ppt/slides/slide7.xml",
+]
+`;
+
+exports[`PPTX Precision Tests > GS02: Dangsan PPTX slide structure snapshot 1`] = `
+[
+  "ppt/slides/slide1.xml",
+  "ppt/slides/slide2.xml",
+  "ppt/slides/slide3.xml",
+  "ppt/slides/slide4.xml",
+  "ppt/slides/slide5.xml",
+  "ppt/slides/slide6.xml",
+  "ppt/slides/slide7.xml",
+]
+`;
+
+exports[`PPTX Precision Tests > GS03: Yeonnam PPTX slide structure snapshot 1`] = `
+[
+  "ppt/slides/slide1.xml",
+  "ppt/slides/slide2.xml",
+  "ppt/slides/slide3.xml",
+  "ppt/slides/slide4.xml",
+  "ppt/slides/slide5.xml",
+  "ppt/slides/slide6.xml",
+  "ppt/slides/slide7.xml",
+]
+`;
+
+exports[`PPTX Precision Tests > GS04: Jamwon PPTX content types snapshot 1`] = `
+[
+  "PartName="/docProps/app.xml"",
+  "PartName="/docProps/core.xml"",
+  "PartName="/ppt/notesMasters/notesMaster1.xml"",
+  "PartName="/ppt/notesSlides/notesSlide1.xml"",
+  "PartName="/ppt/notesSlides/notesSlide2.xml"",
+  "PartName="/ppt/notesSlides/notesSlide3.xml"",
+  "PartName="/ppt/notesSlides/notesSlide4.xml"",
+  "PartName="/ppt/notesSlides/notesSlide5.xml"",
+  "PartName="/ppt/notesSlides/notesSlide6.xml"",
+  "PartName="/ppt/notesSlides/notesSlide7.xml"",
+  "PartName="/ppt/presProps.xml"",
+  "PartName="/ppt/presentation.xml"",
+  "PartName="/ppt/slideLayouts/slideLayout1.xml"",
+  "PartName="/ppt/slideMasters/slideMaster1.xml"",
+  "PartName="/ppt/slideMasters/slideMaster2.xml"",
+  "PartName="/ppt/slideMasters/slideMaster3.xml"",
+  "PartName="/ppt/slideMasters/slideMaster4.xml"",
+  "PartName="/ppt/slideMasters/slideMaster5.xml"",
+  "PartName="/ppt/slideMasters/slideMaster6.xml"",
+  "PartName="/ppt/slideMasters/slideMaster7.xml"",
+  "PartName="/ppt/slides/slide1.xml"",
+  "PartName="/ppt/slides/slide2.xml"",
+  "PartName="/ppt/slides/slide3.xml"",
+  "PartName="/ppt/slides/slide4.xml"",
+  "PartName="/ppt/slides/slide5.xml"",
+  "PartName="/ppt/slides/slide6.xml"",
+  "PartName="/ppt/slides/slide7.xml"",
+  "PartName="/ppt/tableStyles.xml"",
+  "PartName="/ppt/theme/theme1.xml"",
+  "PartName="/ppt/viewProps.xml"",
+]
+`;
+
+exports[`PPTX Precision Tests > GS05: PPTX directory structure snapshot 1`] = `
+[
+  "[Content_Types].xml",
+  "_rels",
+  "docProps",
+  "ppt",
+]
+`;

@@ -14,9 +14,11 @@ import { bindSectionData } from './data-binder';
 import { validateTextBudgets } from './text-budget';
 import type { ProvenanceKind } from './imlib';
 import type { InvestmentPosture } from '@/domain/ontology';
+import { resolvePhotos } from '../photo-url-transformer';
+import { planGallerySlides, type GallerySlideSpec } from './gallery-planner';
 
 import { stripMarkdown } from './data-binder';
-import { M, CW, KR, NUM, C, setActiveTheme } from './imlib';
+import { M, CW, KR, NUM, C, setActiveTheme, withThemeIsolation } from './imlib';
 
 function parseInlineMarkdown(line: string): Array<{ text: string; options?: { bold?: boolean; italic?: boolean } }> {
   const runs: Array<{ text: string; options?: { bold?: boolean; italic?: boolean } }> = [];
@@ -61,7 +63,7 @@ function addFallbackContent(slide: any, data: any, _theme: any) {
 
   if (hasBodyShapes) return;
 
-  const markdown: string = data.content;
+  const markdown: string = stripMarkdown(data.content);
   const lines = markdown.split('\n');
   let curY = 1.62;
   const maxY = 6.8;
@@ -94,7 +96,7 @@ function addFallbackContent(slide: any, data: any, _theme: any) {
         tableHeaders = null;
         tableRows = [];
       }
-      if (line.length > 0) textBuf.push(line);
+      if (line.length > 0 && !/^[-*_]{3,}$/.test(line)) textBuf.push(line);
     }
   }
   // 잔여 플러시
@@ -187,7 +189,7 @@ function addFallbackContent(slide: any, data: any, _theme: any) {
         const text = stripMarkdown(line);
         if (!text || text.length < 3) continue;
         const lineH = Math.max(0.26, Math.ceil(text.length / 50) * 0.20);
-        const runs = parseInlineMarkdown(line);
+        const runs = parseInlineMarkdown(text);
         slide.addText(runs.map(r => ({ text: r.text, options: { ...r.options, fontFace: KR, fontSize: 10, color: C.body } })), {
           x: bodyX, y: curY, w: bodyW, h: lineH,
           margin: 0, valign: 'top',
@@ -275,18 +277,24 @@ export class MobileImPptxRenderer {
     }
 
     // ★ 핵심: 테마 토큰을 C/CD/KR에 주입 — 이후 모든 아키타입이 프리셋 색상 사용
-    setActiveTheme(theme);
-
+    return await withThemeIsolation(theme, async () => {
     try {
+      // ── 0. 사진 메타 도출 및 갤러리 플래닝 (v0.6.0) ──
+      const posture = (input.posture ?? 'income') as InvestmentPosture;
+      const resolvedPhotos = resolvePhotos(input.doc.body as any);
+      const gallerySpecs = planGallerySlides(resolvedPhotos, posture);
+      const heroPhoto = resolvedPhotos.find(p => p.isHero) || resolvedPhotos[0];
+
       // ── 1. 덱 시퀀스 결정 ──
       const sequenceInput: DeckSequenceInput = {
-        posture: (input.posture ?? 'income') as InvestmentPosture,
+        posture,
         tier: input.tier,
         grade: (input.grade ?? 'B') as 'A' | 'B' | 'C',
         incomeArchetype: input.incomeArchetype,
         hasViolation: input.hasViolation,
         hasJointCollateral: input.hasJointCollateral,
-        hasPhotos: (input.doc.body?.photo_urls?.length > 0) || (input.doc.body?.photos?.length > 0),
+        hasPhotos: resolvedPhotos.length > 0,
+        gallerySpecs,
       };
 
       const sequence: SlideSpec[] = buildDeckSequence(sequenceInput);
@@ -321,7 +329,8 @@ export class MobileImPptxRenderer {
         tags: [input.building?.asset_type, input.building?.price_band].filter(Boolean),
         docno,
         logoUrl: input.logoUrl,
-        coverImageUrl: input.doc.body?.photo_urls?.[0]
+        coverImageUrl: heroPhoto?.url
+          ?? input.doc.body?.photo_urls?.[0]
           ?? input.doc.body?.photos?.[0]?.url
           ?? null,
       } as any;
@@ -355,16 +364,35 @@ export class MobileImPptxRenderer {
         ],
       } as any;
 
-      // ── 갤러리 데이터 ──
+      // ── 갤러리 데이터 (v0.6.0: 동적 멀티 슬라이드 바인딩) ──
+      if (gallerySpecs.length > 0) {
+        gallerySpecs.forEach((spec) => {
+          dataMap[spec.dataKey] = {
+            kicker: spec.kicker,
+            title: spec.title,
+            content: '',
+            tables: [],
+            metrics: {},
+            photos: spec.photos,
+            photoUrls: spec.photos.map(p => p.url),
+            layout: spec.layout,
+            group: spec.group,
+          } as any;
+        });
+      }
+
+      // 레거시 키 fallback (단일 gallery 호출 대응)
       const photoUrls = input.doc.body?.photo_urls ?? [];
       const photos = input.doc.body?.photos ?? [];
       dataMap['gallery'] = {
-        title: '건물 사진',
+        title: gallerySpecs[0]?.title || '건물 사진',
+        kicker: gallerySpecs[0]?.kicker || 'GALLERY',
         content: '',
         tables: [],
         metrics: {},
-        photoUrls,
-        photos,
+        photoUrls: gallerySpecs[0]?.photos.map(p => p.url) || photoUrls,
+        photos: gallerySpecs[0]?.photos || photos,
+        layout: gallerySpecs[0]?.layout,
       } as any;
 
       // heroCard 데이터를 summary에 매핑
@@ -381,8 +409,9 @@ export class MobileImPptxRenderer {
       }
       (dataMap['summary'] as any).heroCard = heroCard;
 
-      // I-03 fix + FIX-RC5: heroCard.stats가 비어 있으면 SSoT/body/building에서 자동 구성
-      if (!heroCard.stats || heroCard.stats.length === 0) {
+      // I-03 fix + FIX-RC5: dataMap['summary'].metrics나 heroCard.stats가 비어 있을 때만 SSoT/body/building에서 자동 구성
+      const existingMetrics = (dataMap['summary'] as any)?.metrics;
+      if ((!existingMetrics || existingMetrics.length === 0) && (!heroCard.stats || heroCard.stats.length === 0)) {
         const ssot = input.doc.body?.ssot_summary ?? {};
         const bldg = input.building ?? {} as any;
         const autoStats: Array<{label: string; value: string; unit?: string}> = [];
@@ -413,6 +442,16 @@ export class MobileImPptxRenderer {
           (dataMap['summary'] as any).metrics = autoStats;
         }
       }
+      // ── 2b. 공동담보 경고 블록 주입 (hasJointCollateral) ──
+      if (input.hasJointCollateral && dataMap['risk']) {
+        const riskData = dataMap['risk'] as any;
+        if (!riskData.blocks) riskData.blocks = [];
+        riskData.blocks.push({
+          label: '공동담보 설정',
+          value: '근저당 공동담보 확인 필요',
+          description: '본 물건에 타 부동산과의 공동담보(근저당)가 설정되어 있습니다.\n담보 해지 조건 및 말소 가능 여부를 법률 전문가와 사전 확인하시기 바랍니다.\n매매 시 담보 분리 또는 대환 절차가 필요할 수 있습니다.',
+        });
+      }
 
       // ── 3. 아키타입별 슬라이드 생성 ──
       const slides: any[] = [];
@@ -425,10 +464,14 @@ export class MobileImPptxRenderer {
         if (spec.suppress) continue;
 
         const slideData = dataMap[spec.dataKey];
-        const isStaticSlide = ['cover', 'closing', 'gallery', 'summary'].includes(spec.dataKey);
+        const isStaticSlide = ['cover', 'closing', 'gallery', 'summary'].includes(spec.dataKey)
+          || spec.dataKey.startsWith('gallery_')
+          || spec.archetype === 'A14';
         const hasContent = slideData && (
           (slideData.content && slideData.content.trim().length > 0) ||
           (slideData.tables && slideData.tables.length > 0) ||
+          ((slideData as any).photos && (slideData as any).photos.length > 0) ||
+          ((slideData as any).photoUrls && (slideData as any).photoUrls.length > 0) ||
           // FIX-RC4: 빈 배열 []도 truthy이므로, 배열 길이를 명시적으로 검사
           ((slideData as any).left?.rows?.length > 0 || (slideData as any).left?.sub) ||
           ((slideData as any).right?.stats?.length > 0 || (slideData as any).right?.callouts?.length > 0 || (slideData as any).right?.rows?.length > 0) ||
@@ -511,5 +554,6 @@ export class MobileImPptxRenderer {
           (error instanceof Error ? error.message : String(error))
       );
     }
+    });
   }
 }
