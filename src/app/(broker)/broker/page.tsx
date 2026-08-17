@@ -38,6 +38,7 @@ export default async function BrokerPage() {
     .eq("id", user.id)
     .single();
 
+  /* DORMANT: onboarding — Shock & Awe 온보딩 리다이렉트 비활성화 (복구 시 주석 해제)
   // ALPHA: 온보딩 완료 여부 확인 (admin 제외)
   // ALPHA: profile.role이 이미 broker인 직접 가입/관리자 배정 유저는 통과
   if (profile?.role !== 'admin') {
@@ -55,6 +56,7 @@ export default async function BrokerPage() {
       redirect('/onboarding');
     }
   }
+  */
 
   // brokerProfileData는 아래 Promise.all에서 조회됨 — 여기서는 임시 변수만 선언
   // (실제 값은 Promise.all 이후에 설정)

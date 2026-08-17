@@ -1,3 +1,5 @@
+// @ts-nocheck DORMANT: entire file dormant
+import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -90,6 +92,7 @@ export default async function PulseMainPage({
 }: {
   searchParams: Promise<{ tab?: string; type?: string }>;
 }) {
+  /* DORMANT: public-pages */ redirect("/hub");
   const { tab: tabParam, type } = await searchParams;
   const activeTab: Tab = (tabParam === "insight" || tabParam === "expert") ? tabParam : "signal";
 

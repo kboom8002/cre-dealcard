@@ -1,5 +1,7 @@
+// @ts-nocheck DORMANT: entire file dormant
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
   BrokerCardTemplate,
@@ -20,6 +22,11 @@ const CARD_TYPES = [
 import { createClient } from "@/lib/supabase/client";
 
 export default function BrokerMyCardNewPage() {
+  /* DORMANT: vibe-card */
+  const dormantRouter = useRouter();
+  useEffect(() => { dormantRouter.replace("/broker"); }, [dormantRouter]);
+  return null;
+
   const [step, setStep] = useState(1);
   const [selectedType, setSelectedType] = useState("");
   const [brokerName, setBrokerName] = useState("");

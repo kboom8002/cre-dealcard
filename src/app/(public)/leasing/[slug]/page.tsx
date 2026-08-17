@@ -1,5 +1,6 @@
+// @ts-nocheck DORMANT: entire file dormant
+import { redirect, notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import InquiryForm from "./InquiryForm";
@@ -60,6 +61,7 @@ function FitBadge({ level }: { level: string }) {
 // ── Page ─────────────────────────────────────────────────────────
 
 export default async function LeasingSlugPage({ params }: PageProps) {
+  /* DORMANT: leasing-studio */ redirect("/hub");
   const { slug } = await params;
   const supabase = createServiceClient();
 

@@ -22,6 +22,7 @@ const NAV_ITEMS = [
     icon: Home,
     ariaLabel: "DealCard Hub 홈",
   },
+  /* DORMANT: public-pages — 탐색/펄스 탭 (복구 시 주석 해제)
   {
     href: "/explore",
     label: "탐색",
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
     icon: Radio,
     ariaLabel: "CRE 시장 펄스 시그널",
   },
+  */
   {
     href: "/agora",
     label: "아고라",

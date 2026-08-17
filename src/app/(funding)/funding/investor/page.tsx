@@ -1,6 +1,8 @@
+// @ts-nocheck DORMANT: entire file dormant
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 interface Profile {
@@ -20,6 +22,10 @@ interface Profile {
 }
 
 export default function FundingInvestorPage() {
+  /* DORMANT: funding-gate-nda */
+  const dormantRouter = useRouter();
+  useEffect(() => { dormantRouter.replace("/hub"); }, [dormantRouter]);
+  return null;
   const [profile, setProfile] = useState<Profile | null>(null);
   const [rawMemo, setRawMemo] = useState("");
   const [loading, setLoading] = useState(true);

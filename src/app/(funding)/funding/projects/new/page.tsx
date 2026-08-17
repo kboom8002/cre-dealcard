@@ -1,10 +1,15 @@
+// @ts-nocheck DORMANT: entire file dormant
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function NewFundingProjectPage() {
+  /* DORMANT: funding-gate-nda */
+  const dormantRouter = useRouter();
+  useEffect(() => { dormantRouter.replace("/hub"); }, [dormantRouter]);
+  return null;
   const [memo, setMemo] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);

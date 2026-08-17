@@ -1,3 +1,4 @@
+// @ts-nocheck DORMANT: entire file dormant
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -13,6 +14,11 @@ interface Client {
 import { createClient } from "@/lib/supabase/client";
 
 export default function NewTenantIntentPage() {
+  /* DORMANT: leasing-studio */
+  const dormantRouter = useRouter();
+  useEffect(() => { dormantRouter.replace("/broker"); }, [dormantRouter]);
+  return null;
+
   const router = useRouter();
   const [memo, setMemo] = useState("");
   const [clientId, setClientId] = useState<string>("");

@@ -1,3 +1,4 @@
+// @ts-nocheck DORMANT: entire file dormant
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -23,6 +24,11 @@ interface LeaseSpace {
 }
 
 export default function LeaseSpacesListPage() {
+  /* DORMANT: leasing-studio */
+  const dormantRouter = useRouter();
+  useEffect(() => { dormantRouter.replace("/broker"); }, [dormantRouter]);
+  return null;
+
   const router = useRouter();
   const [spaces, setSpaces] = useState<LeaseSpace[]>([]);
   const [loading, setLoading] = useState(true);

@@ -1,11 +1,17 @@
+// @ts-nocheck DORMANT: entire file dormant
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { ACQUISITION_COSTS } from "@/domain/ontology/market-defaults";
 
 export default function InteractiveCurationToolsPage() {
+  /* DORMANT: public-pages */
+  const dormantRouter = useRouter();
+  useEffect(() => { dormantRouter.replace("/hub"); }, [dormantRouter]);
+  return null;
   // C5: Tax Simulator State
   const [purchasePrice, setPurchasePrice] = useState<number>(100); // 100억
   const [holdingPeriod, setHoldingPeriod] = useState<number>(3); // 3년

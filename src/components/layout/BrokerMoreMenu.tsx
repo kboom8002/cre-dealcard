@@ -96,6 +96,7 @@ const SECTIONS = [
         color: "text-amber-400",
         bg: "bg-amber-500/10",
       },
+      /* DORMANT: leasing-studio — AI 리싱 스튜디오 (복구 시 주석 해제)
       {
         href: "/broker/leasing",
         icon: Store,
@@ -104,9 +105,10 @@ const SECTIONS = [
         color: "text-emerald-400",
         bg: "bg-emerald-500/10",
       },
-
+      */
     ],
   },
+  /* DORMANT: public-pages — 시장 인텔리전스 섹션 전체 (복구 시 주석 해제)
   {
     label: "시장 인텔리전스",
     items: [
@@ -136,6 +138,7 @@ const SECTIONS = [
       },
     ],
   },
+  */
   {
     label: "설정",
     items: [

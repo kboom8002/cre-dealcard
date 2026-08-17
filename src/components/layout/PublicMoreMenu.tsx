@@ -53,6 +53,7 @@ const SECTIONS = [
         color: "text-emerald-400",
         bg: "bg-emerald-500/10",
       },
+      /* DORMANT: public-pages — 세금·DD 도구 (복구 시 주석 해제)
       {
         href: "/insight/tools",
         icon: Calculator,
@@ -61,6 +62,7 @@ const SECTIONS = [
         color: "text-amber-400",
         bg: "bg-amber-500/10",
       },
+      */
     ],
   },
   {
@@ -74,6 +76,7 @@ const SECTIONS = [
         color: "text-teal-400",
         bg: "bg-teal-500/10",
       },
+      /* DORMANT: funding-gate-nda — 비공개 임대 마켓 (복구 시 주석 해제)
       {
         href: "/marketplace",
         icon: Building2,
@@ -82,6 +85,7 @@ const SECTIONS = [
         color: "text-purple-400",
         bg: "bg-purple-500/10",
       },
+      */
     ],
   },
   {

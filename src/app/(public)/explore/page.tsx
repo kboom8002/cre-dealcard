@@ -1,6 +1,8 @@
+// @ts-nocheck DORMANT: entire file dormant
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Search, Building2, Store, BarChart3, MapPin, ArrowRight, Filter, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -102,6 +104,10 @@ function isBroker(r: AnyResult): r is BrokerResult {
 }
 
 export default function ExploreUnifiedPage() {
+  /* DORMANT: public-pages */
+  const dormantRouter = useRouter();
+  useEffect(() => { dormantRouter.replace("/hub"); }, [dormantRouter]);
+  return null;
   const [tab, setTab] = useState<Tab>("deal");
   const [region, setRegion] = useState<string>("all");
   const [query, setQuery] = useState("");

@@ -1,6 +1,8 @@
+// @ts-nocheck DORMANT: entire file dormant
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from 'sonner';
 
 interface ListedSpace {
@@ -24,6 +26,10 @@ interface ListedSpace {
 }
 
 export default function MarketplaceSearchPortal() {
+  /* DORMANT: funding-gate-nda */
+  const dormantRouter = useRouter();
+  useEffect(() => { dormantRouter.replace("/hub"); }, [dormantRouter]);
+  return null;
   const [spaces, setSpaces] = useState<ListedSpace[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

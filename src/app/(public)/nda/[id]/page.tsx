@@ -1,4 +1,5 @@
-import { notFound } from "next/navigation";
+// @ts-nocheck DORMANT: entire file dormant
+import { redirect, notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import NDASignatureForm from "./NDASignatureForm";
 
@@ -9,6 +10,7 @@ export const metadata = {
 };
 
 export default async function NDAPage({ params }: PageProps) {
+  /* DORMANT: funding-gate-nda */ redirect("/hub");
   const { id } = await params;
   const supabase = createServiceClient();
 

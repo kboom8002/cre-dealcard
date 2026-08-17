@@ -1,3 +1,4 @@
+// @ts-nocheck DORMANT: entire file dormant
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -21,6 +22,11 @@ interface TenantIntent {
 }
 
 export default function TenantIntentsListPage() {
+  /* DORMANT: leasing-studio */
+  const dormantRouter = useRouter();
+  useEffect(() => { dormantRouter.replace("/broker"); }, [dormantRouter]);
+  return null;
+
   const router = useRouter();
   const [intents, setIntents] = useState<TenantIntent[]>([]);
   const [loading, setLoading] = useState(true);

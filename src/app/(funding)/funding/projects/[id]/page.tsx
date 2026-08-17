@@ -1,6 +1,8 @@
+// @ts-nocheck DORMANT: entire file dormant
 "use client";
 
 import { useEffect, useState, use } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { predictFundingSuccess } from "@/domain/prediction/funding-success-predictor";
 import { toast } from 'sonner';
@@ -28,6 +30,10 @@ export default function FundingProjectDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  /* DORMANT: funding-gate-nda */
+  const dormantRouter = useRouter();
+  useEffect(() => { dormantRouter.replace("/hub"); }, [dormantRouter]);
+  return null;
   const resolvedParams = use(params);
   const [project, setProject] = useState<Project | null>(null);
   const [prediction, setPrediction] = useState<any>(null);

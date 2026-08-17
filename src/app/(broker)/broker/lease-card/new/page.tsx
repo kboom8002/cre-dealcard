@@ -1,12 +1,18 @@
+// @ts-nocheck DORMANT: entire file dormant
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 
 import { createClient } from "@/lib/supabase/client";
 
 export default function NewLeaseCardPage() {
+  /* DORMANT: leasing-studio */
+  const dormantRouter = useRouter();
+  useEffect(() => { dormantRouter.replace("/broker"); }, [dormantRouter]);
+  return null;
+
   const router = useRouter();
   const [memo, setMemo] = useState("");
   const [loading, setLoading] = useState(false);

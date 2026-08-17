@@ -1,3 +1,5 @@
+// @ts-nocheck DORMANT: entire file dormant
+import { redirect } from "next/navigation";
 import { OnboardingOrchestrator } from '@/components/onboarding/OnboardingOrchestrator';
 
 /**
@@ -7,6 +9,7 @@ import { OnboardingOrchestrator } from '@/components/onboarding/OnboardingOrches
  * OnboardingOrchestrator which is 'use client'.
  */
 export default function OnboardingPage() {
+  /* DORMANT: onboarding */ redirect("/broker");
   return <OnboardingOrchestrator />;
 }
 

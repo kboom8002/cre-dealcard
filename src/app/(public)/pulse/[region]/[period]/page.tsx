@@ -1,6 +1,7 @@
+// @ts-nocheck DORMANT: entire file dormant
+import { redirect, notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { CRESignalSnapshot } from "@/domain/pulse/cre-signal-aggregator";
 import { breadcrumb } from "@/lib/schema-org";
@@ -68,6 +69,7 @@ function SignalRow({ label, value, delta, unit }: { label: string; value: number
 }
 
 export default async function PulseDetailPage({ params }: { params: Params }) {
+  /* DORMANT: public-pages */ redirect("/hub");
   const { region, period } = await params;
   const pulse = await getPulse(region, period);
   if (!pulse) notFound();

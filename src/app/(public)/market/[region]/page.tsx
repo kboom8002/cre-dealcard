@@ -1,3 +1,5 @@
+// @ts-nocheck DORMANT: entire file dormant
+import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -26,6 +28,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export const revalidate = 86400; // daily
 
 export default async function MarketReportPage({ params }: PageProps) {
+  /* DORMANT: public-pages */ redirect("/hub");
   const { region } = await params;
   const label = REGION_MAP[region] || region;
   const supabase = createServiceClient();

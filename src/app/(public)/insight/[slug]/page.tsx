@@ -1,6 +1,7 @@
+// @ts-nocheck DORMANT: entire file dormant
+import { redirect, notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { OITICLE_TYPES, AUTHOR_TYPE_META } from "@/domain/pulse/oiticle-types";
 import type { OiticleTypeCode, OiticleAuthorType } from "@/domain/pulse/oiticle-types";
@@ -76,6 +77,7 @@ function renderMarkdown(md: string): string {
 }
 
 export default async function InsightDetailPage({ params }: { params: Params }) {
+  /* DORMANT: public-pages */ redirect("/hub");
   const { slug } = await params;
   const oiticle = await getOiticle(slug);
   if (!oiticle) notFound();
