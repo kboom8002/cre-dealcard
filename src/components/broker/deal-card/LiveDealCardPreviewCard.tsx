@@ -160,7 +160,7 @@ export function LiveDealCardPreviewCard({
               key={ogTimestamp}
             />
             {/* Overlay badge */}
-            <div className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-black/70 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded">
+            <div className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-black/70 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded">
               <span>카카오톡 공유 카드</span>
             </div>
           </div>

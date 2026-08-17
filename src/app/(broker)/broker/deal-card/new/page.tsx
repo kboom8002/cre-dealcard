@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { ShareToCircleSheet } from "@/components/circle/ShareToCircleSheet";
 import { MemoImportModal } from "@/components/broker/deal-card/MemoImportModal";
-import { StickyNote } from "lucide-react";
+import { StickyNote, Loader2, CheckCircle2, Circle } from "lucide-react";
 
 const LOADING_STEPS = [
   "메모에서 매물 정보 추출 중",
@@ -235,10 +235,16 @@ export default function BrokerDealCardNewPage() {
                   i <= loadingStep ? "opacity-100" : "opacity-30"
                 }`}
               >
-                <span className="text-lg">
-                  {i <= loadingStep ? "✅" : "⏳"}
+                <span className="text-lg flex items-center justify-center w-6 h-6">
+                  {i < loadingStep ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                  ) : i === loadingStep ? (
+                    <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                  ) : (
+                    <Circle className="w-5 h-5 text-muted-foreground/30" />
+                  )}
                 </span>
-                <span className="text-sm">{step}</span>
+                <span className={`text-sm ${i === loadingStep ? 'font-medium text-foreground' : i < loadingStep ? 'text-muted-foreground' : 'text-muted-foreground/50'}`}>{step}</span>
               </div>
             ))}
           </div>

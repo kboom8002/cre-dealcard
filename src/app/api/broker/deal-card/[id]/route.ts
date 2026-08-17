@@ -23,6 +23,13 @@ const UpdateSchema = z.object({
   structureChips: z.array(z.string()).optional(),
   vacancyLabel: z.string().optional(),
   curiosityHook: z.string().optional(),
+  // SSoT 건물 신호 필드 인라인 편집
+  ssotUpdate: z.object({
+    area_signal: z.string().optional(),
+    asset_type: z.string().optional(),
+    price_band: z.string().optional(),
+    current_use_signal: z.string().optional(),
+  }).optional(),
 });
 
 export async function PATCH(
@@ -119,6 +126,26 @@ export async function PATCH(
         .from("building_signal_cards")
         .update(signalCardUpdate)
         .eq("building_id", id);
+    }
+
+    // SSoT 건물 신호 필드 인라인 편집 반영
+    if (updateData.ssotUpdate && Object.keys(updateData.ssotUpdate).length > 0) {
+      const ssotFields: Record<string, unknown> = {};
+      const { area_signal, asset_type, price_band, current_use_signal } = updateData.ssotUpdate;
+      if (area_signal !== undefined) ssotFields.area_signal = area_signal;
+      if (asset_type !== undefined) ssotFields.asset_type = asset_type;
+      if (price_band !== undefined) ssotFields.price_band = price_band;
+      if (current_use_signal !== undefined) ssotFields.current_use_signal = current_use_signal;
+
+      if (Object.keys(ssotFields).length > 0) {
+        const { error: ssotError } = await serviceClient
+          .from("building_ssot_lite")
+          .update(ssotFields)
+          .eq("id", id);
+        if (ssotError) {
+          console.error("[deal-card PATCH] SSoT update failed:", ssotError);
+        }
+      }
     }
 
     return NextResponse.json({ success: true, body: updatedBody });

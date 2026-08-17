@@ -22,6 +22,7 @@ import { DealCardTabs } from "@/components/broker/deal-card/DealCardTabs";
 import { LiveDealCardPreviewCard } from "@/components/broker/deal-card/LiveDealCardPreviewCard";
 import { BlindDealCardPreview } from "@/components/broker/deal-card/BlindDealCardPreview";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
+import BuildingSignalEditor from "@/components/broker/deal-card/BuildingSignalEditor";
 
 
 export async function generateMetadata({ params }: DealCardResultPageProps): Promise<Metadata> {
@@ -299,63 +300,17 @@ export default async function BrokerDealCardResultPage({
                   </div>
                 )}
 
-                {/* Extracted Info Card */}
-                <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-                  <h2 className="text-sm font-semibold flex items-center justify-between">
-                    <span className="flex items-center gap-1.5"><span>🏢</span> 건물 신호 및 분류 스펙</span>
-                    <span className="text-[10px] font-normal text-muted-foreground">확언형 표기 · 뱃지 검토 안내</span>
-                  </h2>
-                  <div className="grid grid-cols-2 gap-2.5 text-xs">
-                    {[
-                      { label: "권역", value: building.area_signal, confKey: "areaSignal" },
-                      { label: "자산 유형", value: building.asset_type, confKey: "assetType" },
-                      { label: "가격대", value: building.price_band, confKey: "priceBand" },
-                      { label: "현재 사용", value: building.current_use_signal, confKey: "currentUseSignal" },
-                    ].map((item) => {
-                      const conf = ((building.confidence as Record<string, string>) || {})[item.confKey];
-                      return (
-                        <div key={item.label} className={`rounded-lg p-2.5 ${item.value ? 'bg-muted/30' : 'bg-muted/10 border border-dashed border-muted-foreground/20'}`}>
-                          <div className="flex items-center justify-between mb-0.5">
-                            <p className="text-[11px] text-muted-foreground">{item.label}</p>
-                            {conf === 'ai_hypothesis' && (
-                              <span
-                                className="text-[9px] px-1 py-0.2 rounded bg-amber-500/15 text-amber-500 font-medium cursor-help"
-                                title="AI가 파싱한 분류입니다."
-                              >
-                                AI분류
-                              </span>
-                            )}
-                            {conf === 'needs_verification' && (
-                              <span
-                                className="text-[9px] px-1 py-0.2 rounded bg-red-500/15 text-red-500 font-medium cursor-help"
-                                title="정보가 불충분합니다."
-                              >
-                                확인필요
-                              </span>
-                            )}
-                          </div>
-                          <p className={`font-semibold ${item.value ? '' : 'text-muted-foreground/50 text-[11px]'}`}>
-                            {item.value || "미입력 ✏️"}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {building.fit_summary && (
-                    <div className="text-xs text-muted-foreground pt-1 space-y-0.5">
-                      <div className="flex items-center gap-1">
-                        <span className="font-medium text-foreground">🎯 적합 매수자</span>
-                      </div>
-                      <p className="leading-relaxed">{building.fit_summary}</p>
-                    </div>
-                  )}
-                  {building.caution_summary && (
-                    <div className="text-xs text-muted-foreground pt-1 space-y-0.5">
-                      <p className="font-medium text-amber-500 dark:text-amber-400">⚠️ 실사 확인 필요 사항</p>
-                      <p className="leading-relaxed">{building.caution_summary}</p>
-                    </div>
-                  )}
-                </div>
+                {/* Extracted Info Card — Inline Editable */}
+                <BuildingSignalEditor
+                  buildingId={building.id}
+                  areaSignal={building.area_signal}
+                  assetType={building.asset_type}
+                  priceBand={building.price_band}
+                  currentUseSignal={building.current_use_signal}
+                  confidence={(building.confidence as Record<string, string>) || {}}
+                  fitSummary={building.fit_summary}
+                  cautionSummary={building.caution_summary}
+                />
 
                 {/* Risk / Caution Points */}
                 {cautionPoints.length > 0 && (
