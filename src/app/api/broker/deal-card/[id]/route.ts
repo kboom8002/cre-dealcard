@@ -60,11 +60,12 @@ export async function PATCH(
       return NextResponse.json({ error: fetchError.message }, { status: 400 });
     }
 
-    // Verify ownership
+    // Verify ownership (supports both legacy building_ssot_lite and assets table)
     const result = await readWithMigration(id);
     const building = result.data as any;
+    const ownerId = building?.owner_id ?? building?.user_id ?? (building?.attrs as any)?.ownerId;
 
-    if (!building || Object.keys(building).length === 0 || building.owner_id !== guard.user!.id) {
+    if (!building || Object.keys(building).length === 0 || (ownerId && ownerId !== guard.user!.id)) {
       return NextResponse.json({ error: "Forbidden: not your building" }, { status: 403 });
     }
 

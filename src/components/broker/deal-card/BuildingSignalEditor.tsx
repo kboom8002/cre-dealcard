@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Loader2, Check, Pencil } from "lucide-react";
+import { toast } from "sonner";
 
 interface BuildingSignalEditorProps {
   buildingId: string;
@@ -75,9 +76,11 @@ export default function BuildingSignalEditor({
         setTimeout(() => setSuccessKey(null), 2000);
       } else {
         console.error("Failed to save field:", ssotKey);
+        toast.error("저장에 실패했습니다. 다시 시도해 주세요.");
       }
     } catch (error) {
       console.error("Error saving field:", error);
+      toast.error("저장에 실패했습니다. 다시 시도해 주세요.");
     } finally {
       setLoadingKey(null);
     }

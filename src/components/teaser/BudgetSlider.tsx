@@ -9,9 +9,11 @@ interface BudgetSliderProps {
   teaserConfigId: string;
   posture?: string;
   sliderAxis2Config?: { label: string; min: number; max: number; step: number; unit: string };
+  askingPriceEok?: number;
+  annualRentEok?: number;
 }
 
-export function BudgetSlider({ defaultBudgetEok, maxBudgetEok, teaserConfigId, posture = 'income', sliderAxis2Config }: BudgetSliderProps) {
+export function BudgetSlider({ defaultBudgetEok, maxBudgetEok, teaserConfigId, posture = 'income', sliderAxis2Config, askingPriceEok, annualRentEok }: BudgetSliderProps) {
   const [budget, setBudget] = useState(defaultBudgetEok);
   const [isOpen, setIsOpen] = useState(false);
   
@@ -31,9 +33,25 @@ export function BudgetSlider({ defaultBudgetEok, maxBudgetEok, teaserConfigId, p
 
   const ltv = axis2;
   const equity = Math.round(budget * (1 - ltv / 100));
-  const equityStr = `약 ${Math.max(0, equity)}억원`;
-  const cap = (3.5 + (ltv * 0.02)).toFixed(1);
-  const estimatedValueStr = `${(Number(cap) - 0.2).toFixed(1)}~${(Number(cap) + 0.2).toFixed(1)}%대`;
+  const equityStr = `약 ${Math.max(1, equity)}억원`;
+  // Use actual financial data if available, otherwise estimate
+  let capLow: number;
+  let capHigh: number;
+  if (annualRentEok && askingPriceEok && askingPriceEok > 0) {
+    // Real data: NOI-based cap rate adjusted for leverage
+    const baseCap = (annualRentEok / askingPriceEok) * 100;
+    const leverageBoost = ltv > 0 ? (baseCap - 2.5) * (ltv / 100) : 0;
+    const leveragedReturn = baseCap + Math.max(0, leverageBoost);
+    capLow = Math.max(0.5, leveragedReturn - 0.3);
+    capHigh = leveragedReturn + 0.3;
+  } else {
+    // Estimate: base 3.5% + leverage effect
+    const baseCap = 3.5;
+    const leverageBoost = ltv > 0 ? (baseCap - 2.5) * (ltv / 100) : 0;
+    capLow = baseCap + leverageBoost - 0.2;
+    capHigh = baseCap + leverageBoost + 0.2;
+  }
+  const estimatedValueStr = `${capLow.toFixed(1)}~${capHigh.toFixed(1)}%대`;
 
   return (
     <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 text-slate-100 shadow-xl space-y-3">

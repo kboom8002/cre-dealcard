@@ -47,6 +47,8 @@ export function PostureWidget({ posture, attrs, teaserView, buildingId }: Props)
       teaserConfigId={buildingId}
       posture={posture}
       sliderAxis2Config={teaserView.sliderAxis2}
+      askingPriceEok={attrs.askingPriceKrw ? Math.round(Number(attrs.askingPriceKrw) / 100000000) : undefined}
+      annualRentEok={attrs.monthlyRentKrw ? Math.round(Number(attrs.monthlyRentKrw) * 12 / 100000000 * 10) / 10 : undefined}
     />
   );
 }

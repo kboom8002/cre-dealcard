@@ -12,7 +12,7 @@ async function getFontData(): Promise<ArrayBuffer | null> {
   if (fontBuffer) return fontBuffer;
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
     const res = await fetch(
       "https://fonts.gstatic.com/s/notosanskr/v36/PbyxFmXiEBPT4ITbgNA5Cgms3VYcOA4.woff",
       { signal: controller.signal }
@@ -81,7 +81,8 @@ export async function GET(
   const urgencyTag = teaserView.urgencyTag || (building?.urgency_tag as string);
 
   // Hook copy priority
-  const hookCopy = imBody?.hookCopy || teaser?.hookCopy || teaserView.hookCopy || `${regionLabel} ${assetType} 매물`;
+  const rawHookCopy = imBody?.hookCopy || teaser?.hookCopy || teaserView.hookCopy || `${regionLabel} ${assetType} 매물`;
+  const hookCopy = rawHookCopy.length > 35 ? rawHookCopy.slice(0, 35) + "..." : rawHookCopy;
 
   // Hero tiles filtering: valid tiles only (max 2)
   const validTiles = filterValidTiles(teaserView.postureHeroTiles || []);
@@ -106,11 +107,13 @@ export async function GET(
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          padding: "52px 64px",
+          padding: "36px 64px",
           background: "linear-gradient(135deg, #070A0F 0%, #111827 60%, #0F172A 100%)",
           color: "white",
           fontFamily: fontData ? "Noto Sans KR" : "sans-serif",
           position: "relative",
+          maxHeight: "630px",
+          overflow: "hidden",
         }}
       >
         {/* Top Gold Accent Bar */}
@@ -180,16 +183,19 @@ export async function GET(
         </div>
 
         {/* Center Main Section: Enlarged Hook Copy */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px", margin: "24px 0" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px", margin: "12px 0", maxHeight: "100px", overflow: "hidden" }}>
           <div
             style={{
-              fontSize: 56,
+              fontSize: 44,
               fontWeight: 900,
               lineHeight: 1.35,
               color: "#FFFFFF",
               display: "flex",
               maxWidth: "1080px",
               letterSpacing: "-0.02em",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}
           >
             {hookCopy}
@@ -213,10 +219,10 @@ export async function GET(
                   minWidth: "260px",
                 }}
               >
-                <span style={{ fontSize: 24, color: "#9AA7B5", fontWeight: 600 }}>
+                <span style={{ fontSize: 20, color: "#9AA7B5", fontWeight: 600 }}>
                   {tile.emoji} {tile.label}
                 </span>
-                <span style={{ fontSize: 40, fontWeight: 900, color: i === 0 ? "#5EEAD4" : "#FFFFFF" }}>
+                <span style={{ fontSize: 32, fontWeight: 900, color: i === 0 ? "#5EEAD4" : "#FFFFFF" }}>
                   {tile.value}
                 </span>
               </div>
@@ -224,7 +230,7 @@ export async function GET(
           </div>
 
           {/* Bottom Branding */}
-          <div style={{ fontSize: 22, fontWeight: 700, color: "#94A3B8", display: "flex", paddingBottom: "12px" }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#94A3B8", display: "flex", paddingBottom: "0px" }}>
             CREDEAL · 블라인드 딜카드
           </div>
         </div>

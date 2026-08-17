@@ -31,8 +31,9 @@ export async function generateMetadata({ params }: DealCardResultPageProps): Pro
   const building = _building as any;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
+  const bMeta = (building?.attrs || {}) as Record<string, any>;
   const title = building
-    ? `${building.area_signal} ${building.asset_type} ${building.price_band ?? ""} 딜카드`
+    ? `${building.area_signal ?? bMeta.areaSignal ?? ''} ${building.asset_type ?? bMeta.assetType ?? ''} ${building.price_band ?? bMeta.priceBand ?? ''} 딜카드`.trim()
     : "딜카드 결과";
 
   return {
@@ -59,6 +60,10 @@ export default async function BrokerDealCardResultPage({
   // Fetch building
   const { data: _building2 } = await readWithMigration(id);
   const building = _building2 as any;
+
+  // Flatten attrs for assets table compatibility
+  const bAttrs = (building?.attrs || {}) as Record<string, any>;
+  const sig = (key: string, snakeKey: string) => building?.[snakeKey] ?? bAttrs[key] ?? bAttrs[snakeKey] ?? null;
 
   if (!building) return notFound();
 
@@ -303,13 +308,13 @@ export default async function BrokerDealCardResultPage({
                 {/* Extracted Info Card — Inline Editable */}
                 <BuildingSignalEditor
                   buildingId={building.id}
-                  areaSignal={building.area_signal}
-                  assetType={building.asset_type}
-                  priceBand={building.price_band}
-                  currentUseSignal={building.current_use_signal}
-                  confidence={(building.confidence as Record<string, string>) || {}}
-                  fitSummary={building.fit_summary}
-                  cautionSummary={building.caution_summary}
+                  areaSignal={sig('areaSignal', 'area_signal')}
+                  assetType={sig('assetType', 'asset_type')}
+                  priceBand={sig('priceBand', 'price_band')}
+                  currentUseSignal={sig('currentUseSignal', 'current_use_signal')}
+                  confidence={(building.confidence ?? bAttrs.confidence ?? {}) as Record<string, string>}
+                  fitSummary={sig('fitSummary', 'fit_summary')}
+                  cautionSummary={sig('cautionSummary', 'caution_summary')}
                 />
 
                 {/* Risk / Caution Points */}
