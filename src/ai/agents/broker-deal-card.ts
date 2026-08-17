@@ -8,6 +8,7 @@
  */
 import { callLLM } from "@/ai/llm-client";
 import { sanitizeMemo, desanitizeOutput } from "@/ai/sanitizer/memo-sanitizer";
+import { derivePriceBand, resolveAreaSignal } from "@/domain/building/cre-area-ontology";
 import {
   MemoParserOutputSchema,
   BlindTeaserOutputSchema,
@@ -79,27 +80,6 @@ async function callOpenAI(
     content: result.content,
     tokens: result.tokens,
   };
-}
-/**
- * askingPriceManwon(만원) → 가격대 문자열 변환
- * - 100억 미만: 10억 단위 → "30억대", "80억대"
- * - 100억~300억: 10억 단위 → "120억대", "250억대"
- * - 300억 이상: 50억 단위 → "350억대", "500억대", "1,000억대"
- */
-function derivePriceBand(manwon: number): string {
-  const eok = manwon / 10000; // 만원 → 억 변환
-  if (eok <= 0) return "";
-  if (eok < 100) {
-    const band = Math.round(eok / 10) * 10 || 10;
-    return `${band}억대`;
-  }
-  if (eok < 300) {
-    const band = Math.round(eok / 10) * 10;
-    return `${band}억대`;
-  }
-  // 300억 이상: 50억 단위
-  const band = Math.round(eok / 50) * 50;
-  return band >= 1000 ? `${band.toLocaleString()}억대` : `${band}억대`;
 }
 
 export async function runBrokerDealCard(
@@ -248,10 +228,23 @@ export async function runBrokerDealCard(
     buildingTruth.priceBand = derivePriceBand(buildingTruth.askingPriceManwon);
   }
 
-  // ── Post-processing: areaSignal 자동 추론 (AI가 빈 값 반환 시 parsedMemo.region 기반) ──
-  if (!buildingTruth.areaSignal && parsedMemo.extractedFacts?.region) {
-    const region = String(parsedMemo.extractedFacts.region);
-    buildingTruth.areaSignal = region.endsWith("권역") ? region : `${region}권역`;
+  // ── Post-processing: areaSignal 정규화 (온톨로지 기반 룩업 + AI 폴백) ──
+  if (!buildingTruth.areaSignal) {
+    // 1순위: parsedMemo의 region/address에서 온톨로지 매칭
+    const regionText = String(parsedMemo.extractedFacts?.region || "");
+    const addrText = String(parsedMemo.extractedFacts?.exactAddressCandidate || "");
+    const memoText = input.memo || "";
+    const resolved = resolveAreaSignal(regionText) || resolveAreaSignal(addrText) || resolveAreaSignal(memoText);
+    if (resolved) {
+      buildingTruth.areaSignal = resolved;
+    } else if (regionText) {
+      // 2순위: 온톨로지에 없으면 region 텍스트를 XX권역 형태로 사용
+      buildingTruth.areaSignal = regionText.endsWith("권역") ? regionText : `${regionText}권역`;
+    }
+  } else {
+    // AI가 설정했어도 온톨로지에서 정규화 시도 ("성수" → "성수권역" 통일)
+    const normalized = resolveAreaSignal(buildingTruth.areaSignal);
+    if (normalized) buildingTruth.areaSignal = normalized;
   }
 
   // Step 3: Generate Blind Teaser
