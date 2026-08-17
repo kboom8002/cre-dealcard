@@ -261,9 +261,9 @@ export default async function BrokerDealCardResultPage({
           initialDealPoints={dealPoints}
           initialCautionPoints={cautionPoints}
           initialKakaoText={kakaoText}
-          initialOgTitle={teaser?.ogTitle || ""}
-          initialOgDescription={teaser?.ogDescription || ""}
-          initialHookCopy={teaser?.hookCopy || ""}
+          initialOgTitle={teaser?.ogTitle || title || ""}
+          initialOgDescription={teaser?.ogDescription || teaser?.shortSummary || building.fit_summary || ""}
+          initialHookCopy={teaser?.hookCopy || building.fit_summary || ""}
           initialStructureChips={teaser?.structureChips || []}
           initialVacancyLabel={teaser?.vacancyLabel || ""}
           initialCuriosityHook={teaser?.curiosityHook || ""}

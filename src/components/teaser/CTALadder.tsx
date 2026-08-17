@@ -16,23 +16,20 @@ interface CTALadderProps {
 export function CTALadder({
   buildingId,
   teaserConfigId,
-  brokerPhone = '010-0000-0000',
+  brokerPhone,
   requireNda = false
 }: CTALadderProps) {
   const router = useRouter();
   const [showContactModal, setShowContactModal] = useState(false);
   const fp = typeof window !== 'undefined' ? localStorage.getItem('visitorFp') || 'anon' : 'anon';
-  const cleanPhone = brokerPhone.replace(/[^0-9]/g, '');
-  const displayPhone = cleanPhone.length >= 10 
-    ? `${cleanPhone.slice(0, 3)}-${cleanPhone.slice(3, 7)}-${cleanPhone.slice(7)}` 
-    : brokerPhone;
+  const cleanPhone = brokerPhone ? brokerPhone.replace(/[^0-9]/g, '') : '';
 
   const handleCallPhone = () => {
     trackTeaserCta(teaserConfigId, fp, 'cta_click', { action: 'phone_call' });
-    if (cleanPhone) {
+    if (cleanPhone && cleanPhone.length >= 10) {
       window.location.href = `tel:${cleanPhone}`;
     } else {
-      toast.error("중개사 전화번호가 등록되지 않았습니다.");
+      toast.info("담당 중개사에게 연결을 요청합니다. 잠시만 기다려 주세요.");
     }
   };
 
@@ -104,7 +101,7 @@ export function CTALadder({
             className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-3 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/20"
           >
             <span>📞</span>
-            <span>전화 {displayPhone ? `(${displayPhone})` : "연결"}</span>
+            <span>전화 연결</span>
           </button>
           <button
             onClick={handleBasicIm}

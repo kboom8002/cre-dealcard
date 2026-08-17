@@ -182,9 +182,27 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
           <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3.5">
             <p className="text-xs font-bold text-amber-200 flex items-start gap-2 leading-relaxed">
               <span className="shrink-0 text-amber-400">⚡</span>
-              <span>{teaserView.highlightText || hookCopy}</span>
+              <span>{hookCopy || teaserView.highlightText}</span>
             </p>
           </div>
+
+          {/* ②-b 핵심 딜포인트 (blind_teaser에서 추출) */}
+          {(() => {
+            const dp = Array.isArray(imBody.dealPoints) ? imBody.dealPoints : [];
+            return dp.length > 0 ? (
+              <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-3.5 space-y-2">
+                <p className="text-[11px] font-bold text-amber-400 tracking-wide">⭐ 핵심 딜 포인트 {dp.length}선</p>
+                <ul className="space-y-1.5">
+                  {dp.slice(0, 5).map((pt: string, i: number) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-slate-200 leading-relaxed">
+                      <span className="shrink-0 text-amber-400/80 mt-0.5">•</span>
+                      <span>{pt}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null;
+          })()}
 
           {/* ③ 포스처 특화 위젯 (결과 우선 + 접이식 슬라이더) */}
           <PostureWidget
