@@ -326,7 +326,7 @@ export function ImDataBottomSheet({
         }
         if (uploadFailCount > 0 && uploadedPhotoUrls.length === 0) {
           // 모든 사진 업로드 실패
-          toast.error(`사진 ${uploadFailCount}장 업로드 실패: ${lastUploadError}\nSupabase Storage 버킷(building_photos)을 확인해주세요.`);
+          toast.error(`📷 사진 ${uploadFailCount}장 업로드에 실패했습니다. 사진 없이 계속 진행합니다.`);
         } else if (uploadFailCount > 0) {
           toast.error(`${uploadFailCount}장 업로드 실패 (${uploadedPhotoUrls.length}장 성공). 성공한 사진으로 계속합니다.`);
         }
@@ -1863,6 +1863,23 @@ export function ImDataBottomSheet({
                 ))}
               </div>
             )}
+            {/* IM 유형별 작성 가능 여부 */}
+            <div className="flex items-center gap-2 mt-2">
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                currentDataGrade === 'D' 
+                  ? 'bg-red-500/15 text-red-500' 
+                  : 'bg-emerald-500/15 text-emerald-500'
+              }`}>
+                {currentDataGrade === 'D' ? '🔴 Basic IM: 데이터 부족' : '🟢 Basic IM: 작성 가능'}
+              </span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                currentDataGrade === 'A' || currentDataGrade === 'B'
+                  ? 'bg-emerald-500/15 text-emerald-500'
+                  : 'bg-red-500/15 text-red-500'
+              }`}>
+                {currentDataGrade === 'A' || currentDataGrade === 'B' ? '🟢 Pro IM: 작성 가능' : '🔴 Pro IM: B등급 이상 필요'}
+              </span>
+            </div>
             {stage === 'pro' && (currentDataGrade === 'D' || currentDataGrade === 'C') && (
               <p className="text-[10px] text-red-500 mt-1">⚠ 현재 {currentDataGrade}등급: Pro IM은 B등급 이상부터 생성 가능합니다. 렌트롤·면적·가격 데이터를 입력하면 등급이 올라갑니다.</p>
             )}

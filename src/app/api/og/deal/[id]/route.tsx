@@ -8,13 +8,23 @@ export const runtime = "nodejs";
 
 let fontBuffer: ArrayBuffer | null = null;
 
-async function getFontData() {
-  if (!fontBuffer) {
-    const res = await fetch("https://fonts.gstatic.com/s/notosanskr/v36/PbyxFmXiEBPT4ITbgNA5Cgms3VYcOA4.woff");
-    if (!res.ok) throw new Error("Failed to fetch font data");
+async function getFontData(): Promise<ArrayBuffer | null> {
+  if (fontBuffer) return fontBuffer;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(
+      "https://fonts.gstatic.com/s/notosanskr/v36/PbyxFmXiEBPT4ITbgNA5Cgms3VYcOA4.woff",
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+    if (!res.ok) throw new Error(`Font fetch failed: ${res.status}`);
     fontBuffer = await res.arrayBuffer();
+    return fontBuffer;
+  } catch (err) {
+    console.error("[OG] Font loading failed, using fallback:", err);
+    return null;
   }
-  return fontBuffer;
 }
 
 export async function GET(
@@ -99,7 +109,7 @@ export async function GET(
           padding: "52px 64px",
           background: "linear-gradient(135deg, #070A0F 0%, #111827 60%, #0F172A 100%)",
           color: "white",
-          fontFamily: fontData ? "NotoSansKR" : "sans-serif",
+          fontFamily: fontData ? "Noto Sans KR" : "sans-serif",
           position: "relative",
         }}
       >
@@ -226,7 +236,7 @@ export async function GET(
       fonts: fontData
         ? [
             {
-              name: "NotoSansKR",
+              name: "Noto Sans KR",
               data: fontData,
               weight: 700,
               style: "normal",

@@ -192,7 +192,9 @@ export async function POST(req: NextRequest) {
             if (supplemental.resolved_address) {
               layersPatch.location = { ...(existingLayers.location ?? {}), address: supplemental.resolved_address };
             }
-            if (supplemental.resolved_pnu) layersPatch.pnu = supplemental.resolved_pnu;
+            if (supplemental.resolved_pnu) {
+              layersPatch.location = { ...(layersPatch.location ?? existingLayers.location ?? {}), pnu: supplemental.resolved_pnu };
+            }
 
             // lease_summary 패치
             const leasePatch: Record<string, any> = { ...existingLease };

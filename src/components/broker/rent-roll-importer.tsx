@@ -181,11 +181,57 @@ const HELP_CONTENT = [
 ];
 
 export function RentRollImporter({ onImport }: RentRollImporterProps) {
+  const [mode, setMode] = useState<"excel" | "text">("excel");
   const [isImporting, setIsImporting] = useState(false);
   const [result, setResult] = useState<string>("");
   const [isError, setIsError] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [textInput, setTextInput] = useState("");
+  const [isParsing, setIsParsing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTextParse = async () => {
+    if (!textInput.trim() || textInput.trim().length < 5) {
+      setIsError(true);
+      setResult("❌ 최소 5자 이상의 텍스트를 입력해 주세요.");
+      return;
+    }
+    setIsParsing(true);
+    setResult("");
+    setIsError(false);
+    try {
+      const res = await fetch("/api/broker/rent-roll/parse-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: textInput.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "파싱에 실패했습니다.");
+      }
+      const data = await res.json();
+      onImport({
+        monthlyRent: data.monthlyRent,
+        totalDeposit: data.totalDeposit,
+        mgmtFeeTotal: data.mgmtFeeTotal,
+        vacancyPct: data.vacancyPct,
+        floorLeases: data.floorLeases || [],
+      });
+      const vacantCount = (data.floorLeases || []).filter((l: any) => l.is_vacant).length;
+      const vacancyInfo = vacantCount > 0
+        ? ` · 공실 ${vacantCount}개(${data.vacancyPct}%)`
+        : " · 만실";
+      setResult(
+        `✅ ${data.floorLeases?.length || 0}개 호실 AI 분석 완료\n` +
+        `월세 ${data.monthlyRent.toLocaleString()}만원 · 보증금 ${data.totalDeposit.toLocaleString()}만원${vacancyInfo}`
+      );
+    } catch (err: any) {
+      setIsError(true);
+      setResult(`❌ ${err?.message ?? "텍스트 파싱 실패"}`);
+    } finally {
+      setIsParsing(false);
+    }
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -252,70 +298,123 @@ export function RentRollImporter({ onImport }: RentRollImporterProps) {
 
   return (
     <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-primary">엑셀 렌트롤 간편 임포트</p>
-          <p className="text-xs text-muted-foreground mt-0.5 truncate">
-            임대차 현황표 업로드 → 임대료·보증금·공실률 자동 계산
-          </p>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <input
-            type="file"
-            accept=".csv,.txt,.xlsx,.xls"
-            className="hidden"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-          />
-          {/* Help button */}
-          <button
-            type="button"
-            onClick={() => setShowHelp((v) => !v)}
-            className={`w-7 h-7 rounded-full border text-xs font-bold flex items-center justify-center transition-colors ${
-              showHelp
-                ? "bg-primary/20 border-primary text-primary"
-                : "border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
-            }`}
-            aria-label="엑셀 작성 가이드"
-            title="엑셀 작성 가이드"
-          >
-            ?
-          </button>
-          {/* Template download button */}
-          <a
-            href="/api/broker/excel-template"
-            download="rent-roll-template.xlsx"
-            className="border border-primary/30 text-primary px-2.5 py-1.5 rounded-md text-xs font-medium hover:bg-primary/10 transition-colors whitespace-nowrap"
-            title="파싱 호환 빈 엑셀 양식 다운로드"
-          >
-            📥 빈 양식
-          </a>
-          {/* Upload button */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isImporting}
-            className="bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"
-          >
-            {isImporting ? "분석 중..." : "엑셀/CSV 업로드"}
-          </button>
-        </div>
+      {/* Tab Toggle */}
+      <div className="flex gap-1 p-0.5 bg-muted/50 rounded-lg">
+        <button
+          type="button"
+          onClick={() => { setMode("excel"); setResult(""); setIsError(false); }}
+          className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${
+            mode === "excel"
+              ? "bg-background text-primary shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          📁 엑셀/CSV
+        </button>
+        <button
+          type="button"
+          onClick={() => { setMode("text"); setResult(""); setIsError(false); }}
+          className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${
+            mode === "text"
+              ? "bg-background text-primary shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          📝 텍스트 입력
+        </button>
       </div>
 
-      {/* Help panel */}
-      {showHelp && (
-        <div className="bg-background border border-border rounded-lg p-3 space-y-2 animate-in fade-in duration-150">
-          <p className="text-xs font-bold text-foreground">📋 엑셀 작성 가이드</p>
-          <ul className="space-y-1.5">
-            {HELP_CONTENT.map((item, i) => (
-              <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                <span className="shrink-0">{item.icon}</span>
-                <span>{item.text}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-2 p-2 bg-primary/5 rounded text-[11px] text-primary/80 leading-relaxed">
-            💡 <strong>팁:</strong> 기존 임대차 현황표를 그대로 업로드해보세요! 제목·주소·소계 행이 있어도 자동으로 건너뜁니다.
+      {/* Excel Mode */}
+      {mode === "excel" && (
+        <>
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-primary">엑셀 렌트롤 간편 임포트</p>
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                임대차 현황표 업로드 → 임대료·보증금·공실률 자동 계산
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <input
+                type="file"
+                accept=".csv,.txt,.xlsx,.xls"
+                className="hidden"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+              />
+              <button
+                type="button"
+                onClick={() => setShowHelp((v) => !v)}
+                className={`w-7 h-7 rounded-full border text-xs font-bold flex items-center justify-center transition-colors ${
+                  showHelp
+                    ? "bg-primary/20 border-primary text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+                }`}
+                aria-label="엑셀 작성 가이드"
+                title="엑셀 작성 가이드"
+              >
+                ?
+              </button>
+              <a
+                href="/api/broker/excel-template"
+                download="rent-roll-template.xlsx"
+                className="border border-primary/30 text-primary px-2.5 py-1.5 rounded-md text-xs font-medium hover:bg-primary/10 transition-colors whitespace-nowrap"
+                title="파싱 호환 빈 엑셀 양식 다운로드"
+              >
+                📥 빈 양식
+              </a>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isImporting}
+                className="bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"
+              >
+                {isImporting ? "분석 중..." : "엑셀/CSV 업로드"}
+              </button>
+            </div>
           </div>
+
+          {showHelp && (
+            <div className="bg-background border border-border rounded-lg p-3 space-y-2 animate-in fade-in duration-150">
+              <p className="text-xs font-bold text-foreground">📋 엑셀 작성 가이드</p>
+              <ul className="space-y-1.5">
+                {HELP_CONTENT.map((item, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <span className="shrink-0">{item.icon}</span>
+                    <span>{item.text}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-2 p-2 bg-primary/5 rounded text-[11px] text-primary/80 leading-relaxed">
+                💡 <strong>팁:</strong> 기존 임대차 현황표를 그대로 업로드해보세요! 제목·주소·소계 행이 있어도 자동으로 건너뜁니다.
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Text Mode */}
+      {mode === "text" && (
+        <div className="space-y-2">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-primary">자연어 렌트롤 입력</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              층별 임대 현황을 자유롭게 입력하면 AI가 자동 분석합니다
+            </p>
+          </div>
+          <textarea
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+            placeholder={`예시:\nB1 라이브펍(5,000/450)\n1F 카페 보증금 8,000 월세 600\n2F 공실\n3~4F 스튜디오(5,000/400)\n\n또는 상세하게:\n1층 약국 보증금 8000만 월세 600만 관리비 50만 계약 2023.03~2026.02`}
+            className="w-full h-28 bg-background border border-input rounded-lg px-3 py-2 text-xs leading-relaxed resize-none outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+          />
+          <button
+            type="button"
+            onClick={handleTextParse}
+            disabled={isParsing || !textInput.trim()}
+            className="w-full bg-primary text-primary-foreground py-2 rounded-md text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {isParsing ? "🔄 AI 분석 중..." : "✨ AI 분석"}
+          </button>
         </div>
       )}
 

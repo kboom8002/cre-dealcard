@@ -83,7 +83,7 @@ export function generatePremiumTemplate(
   const zoningDistrict = lu?.zoningDistrict || String(physicalFact.zoning_district || physicalFact.zoningDistrict || "제3종일반주거지역");
   const useAprDay  = br?.useAprDay || String(physicalFact.build_year || physicalFact.buildYear || "");
   const structure  = br?.structure || String(physicalFact.structure || "철근콘크리트구조");
-  const mainPurpose = br?.mainPurpose || String(physicalFact.main_purpose || physicalFact.assetType || "근린생활시설 / 메디컬");
+  const mainPurpose = br?.mainPurpose || String(physicalFact.main_purpose || physicalFact.assetType || "근린생활시설");
   const useAprYear = useAprDay ? String(useAprDay).substring(0, 4) : "";
   const buildingAge = useAprYear ? new Date().getFullYear() - parseInt(useAprYear, 10) : 0;
   const templateAskingKrw = supplemental.asking_price_manwon
@@ -98,9 +98,9 @@ export function generatePremiumTemplate(
     case "property_overview": {
       const totalPyeong = totalAreaPyung > 0 ? `${totalAreaPyung.toFixed(1)}평` : (totalArea > 0 ? `약 ${(totalArea * 0.3025).toFixed(0)}평` : "-");
       const platPyeong  = platAreaPyung > 0 ? `${platAreaPyung.toFixed(1)}평` : (platArea  > 0 ? `약 ${(platArea  * 0.3025).toFixed(0)}평` : "-");
-      const priceStr    = String(assetIdentity.price_band ?? "160억대");
-      const areaStr     = String(assetIdentity.area_signal ?? "서초권역");
-      const assetType   = String(assetIdentity.asset_type  ?? "메디컬빌딩");
+      const priceStr    = String(assetIdentity.price_band ?? "가격 미정");
+      const areaStr     = String(assetIdentity.area_signal ?? "비공개 권역");
+      const assetType   = String(assetIdentity.asset_type  ?? "근린생활시설");
 
       const overviewRows = [
         `| **소재지** | ${areaStr} |`,
@@ -122,7 +122,7 @@ export function generatePremiumTemplate(
 |------|------|
 ${overviewRows.join("\n")}
 
-> 본 매물은 ${areaStr} 대로변 입지의 우량 메디컬 테넌트 만실 운영 자산입니다.`;
+> 본 매물은 ${areaStr} 입지의 안정적 운영 자산입니다.`;
     }
 
     // ─── 섹션 2: 입지·상권 ──────────────────────────────────────────────────
@@ -130,32 +130,35 @@ ${overviewRows.join("\n")}
       const station   = poi?.nearestStation;
       const poiCounts = poi?.poiCounts;
       const locationAnalysis = String(marketLocation.location_analysis ?? "");
-      const areaSignal = String(assetIdentity.area_signal ?? "서초권역");
-      const subwayInfo = String(marketLocation.subway_info ?? "강남역(2호선·신분당선) 및 양재역(3호선) 더블역세권 도보 4분");
-      const roadInfo   = String(marketLocation.road_info ?? "서초대로 25m 메인 대로변 접면");
+      const areaSignal = String(assetIdentity.area_signal ?? "비공개 권역");
+      const subwayInfo = marketLocation.subway_info ? String(marketLocation.subway_info) : null;
+      const roadInfo   = marketLocation.road_info ? String(marketLocation.road_info) : null;
 
-      const trafficLines = [
-        `- 🚇 **지하철 접근성**: ${subwayInfo}`,
-        `- 🛣️ **도로 접면 조건**: ${roadInfo}`,
-        `- 🚗 **차량 진출입**: 경부고속도로 서초IC 및 테헤란로 3분 내 진입 가능`,
-      ].join("\n");
+      const trafficItems: string[] = [];
+      if (subwayInfo) trafficItems.push(`- 🚇 **지하철 접근성**: ${subwayInfo}`);
+      if (roadInfo) trafficItems.push(`- 🛣️ **도로 접면 조건**: ${roadInfo}`);
+      const trafficLines = trafficItems.length > 0
+        ? trafficItems.join("\n")
+        : `- ℹ️ 교통 접근성 정보는 담당 브로커에게 문의해 주세요.`;
 
-      const infra = [
-        `- 🏢 **배후 수요**: 강남 테헤란로 IT밸리 및 서초 법조타운 오피스 상주인구 30만 배후`,
-        `- 🏥 **의료 상권**: 1층 약국 및 상층부 안과·피부과 전문의원 집적 의료 특화 상권`,
-        `- ☕ **편의 인프라**: 반경 300m 내 스타벅스, 은행, 대형 베이커리 밀집`,
-      ].join("\n");
+      const infraItems: string[] = [];
+      if (poi?.poiCounts) {
+        infraItems.push(`- 🏢 **주변 시설**: 반경 500m 내 주요 편의시설 다수 입지`);
+      }
+      const infra = infraItems.length > 0
+        ? infraItems.join("\n")
+        : `- ℹ️ 배후 상권 정보는 담당 브로커에게 문의해 주세요.`;
 
-      return `**${areaSignal}** 핵심 요충지에 위치한 프라임 입지 자산입니다.
+      return `**${areaSignal}** 소재 자산입니다.
 
 ### 🚇 교통 및 도로 접근성
 ${trafficLines}
 
-### 🏥 배후 상권 및 인프라
+### 🏢 배후 상권 및 인프라
 ${infra}
 
-### 📈 입지 평가 및 경쟁력
-- 서초대로 25m 대로변 가시성과 더블역세권 유동인구를 모두 갖춘 독보적 메디컬 입지`;
+### 📈 입지 평가
+- 해당 권역 내 접근성과 가시성을 갖춘 입지입니다.`;
     }
 
     // ─── 섹션 3: 임대 현황 ──────────────────────────────────────────────────

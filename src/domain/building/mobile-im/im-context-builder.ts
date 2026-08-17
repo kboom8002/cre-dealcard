@@ -130,6 +130,7 @@ export async function deepNormalizeStringsAsync<T>(obj: T): Promise<T> {
 }
 
 export interface IMGenerationContext {
+  buildingId: string;
   assetIdentity: Record<string, unknown>;
   physicalFact: Record<string, unknown>;
   marketLocation: Record<string, unknown>;
@@ -292,6 +293,7 @@ export async function buildIMContext(
   const archetype = (input.supplemental as any)?.archetype_override || suggestion.primary;
 
   return {
+    buildingId: String(building_ssot_lite.id ?? ""),
     assetIdentity,
     physicalFact,
     marketLocation,

@@ -264,7 +264,7 @@ export async function generateSingleSection(
         maxTokens: effectiveMaxTokens,
       },
       {
-        cacheKey: `mobile-im-${sectionType}-${String(ctx.assetIdentity.area_signal ?? "").slice(0, 20)}-${String(ctx.assetIdentity.asset_type ?? "").slice(0, 20)}`,
+        cacheKey: `mobile-im-${sectionType}-${String(ctx.buildingId ?? "")}-${String(ctx.assetIdentity.area_signal ?? "").slice(0, 20)}-${String(ctx.assetIdentity.asset_type ?? "").slice(0, 20)}`,
         // FAST_MODE: 30초, 일반: 90초 (gpt-5.6-terra 등 대형 모델 대응)
         timeoutMs: IM_FAST_MODE ? 30000 : 90000,
       },

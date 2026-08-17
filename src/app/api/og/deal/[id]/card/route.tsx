@@ -9,16 +9,21 @@ export const runtime = "nodejs";
 
 let fontBuffer: ArrayBuffer | null = null;
 
-async function getFontData() {
-  if (!fontBuffer) {
-    try {
-      const res = await fetch("https://fonts.gstatic.com/s/notosanskr/v36/PbyxFmXiEBPT4ITbgNA5Cgms3VYcOA4.woff");
-      if (res.ok) {
-        fontBuffer = await res.arrayBuffer();
-      }
-    } catch (e) {
-      console.warn("Font fetch failed, falling back to system fonts", e);
+async function getFontData(): Promise<ArrayBuffer | null> {
+  if (fontBuffer) return fontBuffer;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(
+      "https://fonts.gstatic.com/s/notosanskr/v36/PbyxFmXiEBPT4ITbgNA5Cgms3VYcOA4.woff",
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      fontBuffer = await res.arrayBuffer();
     }
+  } catch (e) {
+    console.warn("[OG/card] Font fetch failed, falling back to system fonts", e);
   }
   return fontBuffer;
 }

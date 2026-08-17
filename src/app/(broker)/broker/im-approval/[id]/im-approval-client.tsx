@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { computeDataQualityBadge } from '@/domain/building/mobile-im/data-quality-badge';
 
 interface IMSection {
@@ -30,6 +31,8 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   const [editDraft, setEditDraft] = useState('');
   const [editableTitle, setEditableTitle] = useState(title);
   const [isTitleEditing, setIsTitleEditing] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const router = useRouter();
   
   // Track which sections have been verified by the broker
   const initialVerified = new Set(
@@ -108,6 +111,17 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
       console.error('Failed to save hero content', err);
     } finally {
       setIsHeroSaving(false);
+    }
+  };
+
+  const handleDeleteDraft = async () => {
+    try {
+      const res = await fetch(`/api/broker/im-lite/${docId}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push(`/broker/deal-card/${buildingId}`);
+      }
+    } catch (err) {
+      console.error("Delete failed:", err);
     }
   };
 
@@ -672,10 +686,19 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
       {docStatus !== 'published' && (
         <div className="fixed bottom-0 left-0 right-0 z-40 bg-neutral-900 border-t border-neutral-800 p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
           <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
-            <div className="text-sm font-medium">
-              <span className={allVerified ? 'text-emerald-400' : 'text-amber-400'}>
-                {verifiedSet.size} / {sections.length} 섹션 확인 완료
-              </span>
+            <div className="flex items-center gap-4">
+              <button 
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="text-xs text-red-500/70 hover:text-red-500 underline underline-offset-4 transition-colors"
+              >
+                🗑 작성 취소
+              </button>
+              <div className="text-sm font-medium">
+                <span className={allVerified ? 'text-emerald-400' : 'text-amber-400'}>
+                  {verifiedSet.size} / {sections.length} 섹션 확인 완료
+                </span>
+              </div>
             </div>
             
             <button
@@ -685,6 +708,21 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
             >
               {actionStatus === 'loading' ? '처리 중...' : '🚀 승인 및 공개'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)} />
+          <div className="relative bg-card border border-border rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
+            <h3 className="text-base font-bold text-foreground">모바일 IM 초안을 삭제하시겠습니까?</h3>
+            <p className="text-sm text-muted-foreground">삭제된 초안은 복구할 수 없습니다. 딜카드는 유지됩니다.</p>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 h-10 rounded-lg border border-border text-sm font-medium">취소</button>
+              <button onClick={handleDeleteDraft} className="flex-1 h-10 rounded-lg bg-red-500 text-white text-sm font-bold">삭제</button>
+            </div>
           </div>
         </div>
       )}
