@@ -80,6 +80,27 @@ async function callOpenAI(
     tokens: result.tokens,
   };
 }
+/**
+ * askingPriceManwon(만원) → 가격대 문자열 변환
+ * - 100억 미만: 10억 단위 → "30억대", "80억대"
+ * - 100억~300억: 10억 단위 → "120억대", "250억대"
+ * - 300억 이상: 50억 단위 → "350억대", "500억대", "1,000억대"
+ */
+function derivePriceBand(manwon: number): string {
+  const eok = manwon / 10000; // 만원 → 억 변환
+  if (eok <= 0) return "";
+  if (eok < 100) {
+    const band = Math.round(eok / 10) * 10 || 10;
+    return `${band}억대`;
+  }
+  if (eok < 300) {
+    const band = Math.round(eok / 10) * 10;
+    return `${band}억대`;
+  }
+  // 300억 이상: 50억 단위
+  const band = Math.round(eok / 50) * 50;
+  return band >= 1000 ? `${band.toLocaleString()}억대` : `${band}억대`;
+}
 
 export async function runBrokerDealCard(
   input: BrokerDealCardInput,
@@ -220,6 +241,17 @@ export async function runBrokerDealCard(
         : [],
       boundaryNote: String(parsedTruthObj.boundaryNote || parsedTruthObj.boundary_note || "이 자료는 공개 데이터와 입력 정보를 바탕으로 한 예비 검토 자료입니다."),
     };
+  }
+
+  // ── Post-processing: priceBand 자동 산출 (AI가 빈 값 반환 시 askingPriceManwon 기반) ──
+  if (!buildingTruth.priceBand && buildingTruth.askingPriceManwon && buildingTruth.askingPriceManwon > 0) {
+    buildingTruth.priceBand = derivePriceBand(buildingTruth.askingPriceManwon);
+  }
+
+  // ── Post-processing: areaSignal 자동 추론 (AI가 빈 값 반환 시 parsedMemo.region 기반) ──
+  if (!buildingTruth.areaSignal && parsedMemo.extractedFacts?.region) {
+    const region = String(parsedMemo.extractedFacts.region);
+    buildingTruth.areaSignal = region.endsWith("권역") ? region : `${region}권역`;
   }
 
   // Step 3: Generate Blind Teaser
