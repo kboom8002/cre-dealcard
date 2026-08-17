@@ -152,7 +152,8 @@ export function MarketBreakthroughMode({
 
             {trendDirection === "down" ? (
               <div className="grid grid-cols-1 gap-2">
-                {/* 1. 임대 전환 넛지 */}
+                {/* DORMANT: leasing-studio 휴면 — 임대 전환 넛지 비활성화 */}
+                {false && (
                 <div className="flex items-start gap-2.5 bg-gradient-to-r from-purple-500/10 to-indigo-500/5 p-3 rounded-xl border border-purple-500/20">
                   <span className="text-base mt-0.5">🔑</span>
                   <div className="flex-1">
@@ -168,6 +169,7 @@ export function MarketBreakthroughMode({
                     </Link>
                   </div>
                 </div>
+                )}
 
                 {/* 2. 파이프라인 정비 */}
                 <div className="flex items-start gap-2.5 bg-card/30 p-3 rounded-xl border border-border/20">

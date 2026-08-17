@@ -20,6 +20,7 @@ const ACTIONS = [
     bg: "bg-blue-500/10 border-blue-500/20 hover:border-blue-400/40",
     description: "새 매매물건 카드 생성",
   },
+  /* DORMANT: leasing-studio 휴면
   {
     href: "/broker/lease-card/new",
     icon: Building2,
@@ -28,6 +29,7 @@ const ACTIONS = [
     bg: "bg-emerald-500/10 border-emerald-500/20 hover:border-emerald-400/40",
     description: "새 임대차 카드 생성",
   },
+  */
   {
     href: "/broker/buyer-intents/new",
     icon: UserPlus,

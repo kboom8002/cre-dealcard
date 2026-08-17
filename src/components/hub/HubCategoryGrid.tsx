@@ -40,6 +40,7 @@ const CATEGORIES = [
     iconColor: "text-emerald-400",
     iconBg: "bg-emerald-500/10",
   },
+  /* DORMANT: explore 휴면
   {
     href: "/explore",
     icon: MapPin,
@@ -50,6 +51,8 @@ const CATEGORIES = [
     iconColor: "text-amber-400",
     iconBg: "bg-amber-500/10",
   },
+  */
+  /* DORMANT: market 휴면
   {
     href: "/market/gbd",
     icon: BarChart3,
@@ -60,6 +63,7 @@ const CATEGORIES = [
     iconColor: "text-purple-400",
     iconBg: "bg-purple-500/10",
   },
+  */
   {
     href: "/agora",
     icon: MessageCircle,
@@ -80,6 +84,7 @@ const CATEGORIES = [
     iconColor: "text-teal-400",
     iconBg: "bg-teal-500/10",
   },
+  /* DORMANT: pulse 휴면
   {
     href: "/pulse",
     icon: Radio,
@@ -92,6 +97,8 @@ const CATEGORIES = [
     badge: "NEW",
     badgeColor: "bg-indigo-500/20 text-indigo-300",
   },
+  */
+  /* DORMANT: insight 휴면
   {
     href: "/insight",
     icon: FileText,
@@ -102,6 +109,7 @@ const CATEGORIES = [
     iconColor: "text-rose-400",
     iconBg: "bg-rose-500/10",
   },
+  */
 ];
 
 const containerVariants = {

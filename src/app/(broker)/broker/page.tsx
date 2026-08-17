@@ -85,18 +85,14 @@ export default async function BrokerPage() {
       .from("building_ssot_lite")
       .select("id", { count: "exact", head: true })
       .eq("owner_id", user.id),
-    supabase
-      .from("lease_spaces")
-      .select("id", { count: "exact", head: true })
-      .eq("broker_id", user.id),
+    /* DORMANT: leasing-studio 휴면 — lease_spaces 쿼리 비활성화 */
+    Promise.resolve({ count: 0 }),
     supabase
       .from("buyer_intent_lite")
       .select("id", { count: "exact", head: true })
       .eq("broker_id", user.id),
-    supabase
-      .from("tenant_intent")
-      .select("id", { count: "exact", head: true })
-      .eq("broker_id", user.id),
+    /* DORMANT: leasing-studio 휴면 — tenant_intent 쿼리 비활성화 */
+    Promise.resolve({ count: 0 }),
     supabase
       .from("broker_clients")
       .select("id", { count: "exact", head: true })
@@ -105,10 +101,8 @@ export default async function BrokerPage() {
       .from("match_results")
       .select("grade")
       .eq("broker_id", user.id),
-    supabase
-      .from("lease_match_results")
-      .select("grade")
-      .eq("broker_id", user.id),
+    /* DORMANT: leasing-studio 휴면 — lease_match_results 쿼리 비활성화 */
+    Promise.resolve({ data: [] }),
     calculateBrokerMonthlyRoi(supabase, user.id),
     supabase
       .from("market_leading_indicators")
@@ -176,11 +170,10 @@ export default async function BrokerPage() {
     || null;
 
   const sMatchCount =
-    (matchResults?.filter((m) => m.grade === "S").length ?? 0) +
-    (leaseMatchResults?.filter((m) => m.grade === "S").length ?? 0);
+    (matchResults?.filter((m) => m.grade === "S").length ?? 0);
+    /* DORMANT: leasing-studio 휴면 — leaseMatchResults 합산 제거 */
   const aMatchCount =
-    (matchResults?.filter((m) => m.grade === "A").length ?? 0) +
-    (leaseMatchResults?.filter((m) => m.grade === "A").length ?? 0);
+    (matchResults?.filter((m) => m.grade === "A").length ?? 0);
 
   const trend = marketIndicatorRes?.data as any;
   const breakthroughMetrics = {
@@ -195,14 +188,13 @@ export default async function BrokerPage() {
       : { min: 0.08, max: 0.15 },
   };
 
-  const totalMatchCount =
-    (matchResults?.length ?? 0) + (leaseMatchResults?.length ?? 0);
+  const totalMatchCount = matchResults?.length ?? 0;
   const sConversionRate =
     totalMatchCount > 0
       ? Math.round((sMatchCount / totalMatchCount) * 1000) / 10
       : 0;
 
-  const myTotalDeals = (totalBuildings ?? 0) + (totalLeaseSpaces ?? 0);
+  const myTotalDeals = totalBuildings ?? 0;
 
   // 내 딜 실 평균 체류일 계산 (building_ssot_lite.created_at 기반)
   const dealCreatedDates = (dealDatesRes as any)?.data || [];
@@ -567,7 +559,8 @@ export default async function BrokerPage() {
         <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none">
           {[
             { label: "매매물건", value: totalBuildings ?? 0, icon: Building2, color: "text-amber-300", border: "border-amber-500/30", href: "/broker/buildings" },
-            { label: "임대물건", value: totalLeaseSpaces ?? 0, icon: Building2, color: "text-blue-300", border: "border-blue-500/30", href: "/broker/buildings" },
+            /* DORMANT: leasing-studio 휴면 — 임대물건 KPI 숨김 */
+            // { label: "임대물건", value: totalLeaseSpaces ?? 0, icon: Building2, color: "text-blue-300", border: "border-blue-500/30", href: "/broker/buildings" },
             { label: "S/A 매칭", value: sMatchCount + aMatchCount, icon: Target, color: "text-yellow-300", border: "border-yellow-500/30", href: "/broker/matching" },
             { label: "관리 고객", value: totalClients ?? 0, icon: Users, color: "text-emerald-300", border: "border-emerald-500/30", href: "/broker/clients" },
             { label: "매수 고객", value: totalBuyers ?? 0, icon: TrendingUp, color: "text-rose-300", border: "border-rose-500/30", href: "/broker/buyer-intents" },

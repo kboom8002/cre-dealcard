@@ -161,6 +161,7 @@ const QUICK_TOOLS = [
     bg: "bg-emerald-500/10",
     border: "border-emerald-500/20",
   },
+  /* DORMANT: insight/tools 휴면
   {
     href: "/insight/tools",
     icon: Calculator,
@@ -169,6 +170,7 @@ const QUICK_TOOLS = [
     bg: "bg-amber-500/10",
     border: "border-amber-500/20",
   },
+  */
 ] as const;
 
 const PULSE_TREND_COLOR: Record<string, string> = {
@@ -243,44 +245,7 @@ export default async function HubPage() {
         </div>
       </section>
 
-      {/* ── 시장 펄스 미니 위젯 ── */}
-      {data.latestPulse.length > 0 && (
-        <section className="max-w-2xl mx-auto px-4 pb-5">
-          <div className="flex items-center justify-between mb-2.5">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-              <Radio className="w-3 h-3 text-indigo-400" />
-              시장 펄스
-            </p>
-            <Link
-              href="/pulse"
-              className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-0.5 transition-colors"
-            >
-              전체 보기 <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {data.latestPulse.map((p: any) => (
-              <Link
-                key={p.region}
-                href={`/pulse/${p.region}/${p.period_label}`}
-                className="shrink-0 bg-[#131b2e] border border-indigo-500/20 rounded-xl px-3 py-2.5 hover:border-indigo-500/40 transition-all"
-              >
-                <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-[10px] font-bold text-indigo-400 uppercase">
-                    {p.region}
-                  </span>
-                  <span className={`text-[10px] font-bold ${PULSE_TREND_COLOR[p.trend] ?? "text-slate-400"}`}>
-                    {PULSE_TREND_ICON[p.trend] ?? ""} {p.pulse_score}
-                  </span>
-                </div>
-                <p className="text-[9px] text-slate-500 w-28 line-clamp-2 leading-relaxed">
-                  {p.summary_ko}
-                </p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* DORMANT: 시장 펄스 미니 위젯 — pulse 전체 휴면 */}
 
       {/* ── 최신 딜카드 캐러셀 ── */}
       {data.recentDeals.length > 0 && (
@@ -290,7 +255,7 @@ export default async function HubPage() {
               최신 딜카드
             </p>
             <Link
-              href="/explore"
+              href="/deal/gbd"
               className="text-[10px] text-primary hover:text-primary/80 flex items-center gap-0.5 transition-colors"
             >
               전체 탐색 <ArrowRight className="w-3 h-3" />
@@ -430,36 +395,7 @@ export default async function HubPage() {
         </div>
       </section>
 
-      {/* ── 오늘의 인사이트 ── */}
-      {data.latestInsight && (
-        <section className="max-w-2xl mx-auto px-4 pb-5 pt-4">
-          <div className="flex items-center justify-between mb-2.5">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-              오늘의 인사이트
-            </p>
-            <Link
-              href="/insight"
-              className="text-[10px] text-rose-400 hover:text-rose-300 flex items-center gap-0.5 transition-colors"
-            >
-              더보기 <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-          <Link
-            href={`/insight/${data.latestInsight.slug}`}
-            className="block bg-gradient-to-br from-rose-900/20 to-slate-900 border border-rose-500/20 rounded-2xl p-4 hover:border-rose-500/40 transition-all"
-          >
-            <span className="text-[9px] font-bold text-rose-400 uppercase tracking-wider">
-              {data.latestInsight.oiticle_type?.replace(/_/g, " ")}
-            </span>
-            <h3 className="text-sm font-bold text-foreground mt-1 leading-snug line-clamp-2">
-              {data.latestInsight.title}
-            </h3>
-            <p className="text-[10px] text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">
-              {data.latestInsight.excerpt}
-            </p>
-          </Link>
-        </section>
-      )}
+      {/* DORMANT: 오늘의 인사이트 — insight 전체 휴면 */}
 
       {/* ── Categories ── */}
       <section className="max-w-2xl mx-auto px-4 pb-6">
@@ -468,7 +404,7 @@ export default async function HubPage() {
             탐색하기
           </p>
           <Link
-            href="/explore"
+            href="/deal/gbd"
             className="text-xs text-primary hover:text-primary/80 flex items-center gap-0.5 transition-colors"
           >
             전체 보기
@@ -498,11 +434,11 @@ export default async function HubPage() {
               </p>
             </div>
             <Link
-              href="/onboarding"
+              href="/login"
               id="hub-cta-broker-login"
               className="shrink-0 flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl px-4 py-2.5 text-sm shadow-lg transition-all active:scale-95 whitespace-nowrap"
             >
-              📸 Vibe 명함 만들기
+              중개인 시작하기
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
