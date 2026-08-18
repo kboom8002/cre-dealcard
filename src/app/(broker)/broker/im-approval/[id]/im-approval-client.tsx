@@ -258,7 +258,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   const externalData = content?.external_data as Record<string, unknown> | undefined;
   const readinessScore = (content?.readiness_score as number) ?? 0;
   const qualityBadge = computeDataQualityBadge({
-    hasAddress: !!(ssotSummary?.area_signal),
+    hasAddress: !!(ssotSummary?.address || ssotSummary?.pnu || ssotSummary?.area_signal),
     hasPublicData: !!(externalData?.hasPublicData || externalData?.fallbackStatus || externalData?.enrichedAt),
     hasMonthlyRent: !!(ssotSummary?.monthly_rent_total_krw),
     hasVacancy: !!(ssotSummary?.vacancy_signal || ssotSummary?.vacancy_pct),

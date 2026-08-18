@@ -40,12 +40,23 @@ async function getDealCardData(id: string) {
       .maybeSingle(),
   ]);
 
+  // assets 테이블에는 owner_id가 없으므로 building_ssot_lite에서 보완 조회
+  let ownerId = buildingRes.data?.owner_id;
+  if (!ownerId) {
+    const { data: ssotRow } = await supabase
+      .from("building_ssot_lite")
+      .select("owner_id")
+      .eq("id", id)
+      .maybeSingle();
+    ownerId = ssotRow?.owner_id;
+  }
+
   let brokerProfile: Record<string, any> | null = null;
-  if (buildingRes.data?.owner_id) {
+  if (ownerId) {
     const { data: profile } = await supabase
       .from("broker_profiles")
       .select("display_name, specialty, response_guarantee_hours, closed_deals, is_licensed, slug, phone")
-      .eq("user_id", buildingRes.data.owner_id)
+      .eq("user_id", ownerId)
       .maybeSingle();
     brokerProfile = profile;
 
@@ -54,7 +65,7 @@ async function getDealCardData(id: string) {
       const { data: baseProfile } = await supabase
         .from("profiles")
         .select("display_name, phone, company")
-        .eq("id", buildingRes.data.owner_id)
+        .eq("id", ownerId)
         .maybeSingle();
 
       if (baseProfile) {

@@ -1156,6 +1156,23 @@ export function ImDataBottomSheet({
             {typeof vacancyPct === 'number' && vacancyPct > 0 && (
               <p className="text-xs text-amber-500 mt-1.5">⚠️ 공실률 {vacancyPct}% 반영</p>
             )}
+            {/* 메모 파싱된 공실 정보와 사용자 입력 충돌 경고 */}
+            {typeof vacancyPct === 'number' && vacancySignal && (() => {
+              const sig = vacancySignal.toLowerCase();
+              const memoHasVacancy = sig.includes("공실") && !sig.includes("만실");
+              const memoIsFull = sig.includes("만실");
+              if (vacancyPct === 0 && memoHasVacancy) {
+                return <p className="text-xs text-yellow-400 mt-1.5 bg-yellow-500/10 p-2 rounded-lg">
+                  💡 메모에 &quot;{vacancySignal}&quot;로 기재되어 있습니다. 만실이 맞으시면 그대로 진행하세요.
+                </p>;
+              }
+              if (vacancyPct > 0 && memoIsFull) {
+                return <p className="text-xs text-yellow-400 mt-1.5 bg-yellow-500/10 p-2 rounded-lg">
+                  💡 메모에 &quot;만실&quot;로 기재되어 있지만 공실률 {vacancyPct}%를 선택하셨습니다. 맞으시면 그대로 진행하세요.
+                </p>;
+              }
+              return null;
+            })()}
           </div>
 
           {/* Photos */}

@@ -200,29 +200,37 @@ export function computeDataGrade(
 
   const baseWeights = weights || NEW_WEIGHTS;
 
+  // 슬롯 중복 제거: 각 슬롯은 주 카테고리에만 배정
   const CATEGORY_SLOTS: Record<string, string[]> = {
     lease_roll: ['rentRoll', 'grossAnnualIncomeKrw'],
     building_basic: ['totalFloorAreaPyung', 'approvalDate', 'evictionStatus'],
     land_parcel: ['pnu', 'address', 'landAreaPyung', 'officialLandPricePerSqm'],
-    financial_input: ['askingPriceKrw', 'grossAnnualIncomeKrw'],
+    financial_input: ['askingPriceKrw', 'loanAmountKrw'],
     zoning: ['zoningRegion', 'farHeadroomPp'],
-    title_encumbrance: ['pnu'],
+    title_encumbrance: ['titleEncumbrance'],
     road_access: ['roadContactType'],
-    market_comp: ['askingPriceKrw']
+    market_comp: ['marketCompPerPyung']
   };
 
   for (const [category, w] of Object.entries(baseWeights)) {
     totalNewWeight += w;
     const directData = isSlots ? (attrsOrSlots[category]?.filled) : (attrs[category] != null && attrs[category] !== '' && attrs[category] !== false);
-    const mappedData = !directData && CATEGORY_SLOTS[category]?.some(slot => attrs[slot] != null && attrs[slot] !== '' && attrs[slot] !== false);
-    const hasData = Boolean(directData || mappedData);
     
-    if (hasData) {
+    if (directData) {
       let provCoeff = 1.0;
       if (isSlots && attrsOrSlots[category]?.provenance) {
         provCoeff = PROVENANCE_COEFF[attrsOrSlots[category].provenance] ?? 1.0;
       }
       earnedNewWeight += (w * provCoeff);
+    } else if (CATEGORY_SLOTS[category]) {
+      // 비례 점수: 카테고리 내 채워진 슬롯 비율 × 가중치
+      const slots = CATEGORY_SLOTS[category];
+      const filledCount = slots.filter(slot => attrs[slot] != null && attrs[slot] !== '' && attrs[slot] !== false).length;
+      const ratio = filledCount / slots.length;
+      earnedNewWeight += (w * ratio);
+      if (ratio === 0) {
+        missingCategories.push({ category, weight: w });
+      }
     } else {
       missingCategories.push({ category, weight: w });
     }

@@ -170,7 +170,11 @@ ${infra}
 
     // ─── 섹션 3: 임대 현황 ──────────────────────────────────────────────────
     case "lease_status": {
-      const vacancy = String(physicalFact.vacancy_signal ?? supplemental.vacancy_status ?? "");
+      // 사용자 입력 vacancy_pct가 있으면 우선 사용 (메모 파싱 결과 오버라이드)
+      const userVacPct = (supplemental as Record<string, unknown>).vacancy_pct;
+      const vacancy = (userVacPct != null && userVacPct !== undefined)
+        ? (Number(userVacPct) === 0 ? "만실" : `${userVacPct}%`)
+        : String(physicalFact.vacancy_signal ?? supplemental.vacancy_status ?? "");
       const currentUse = String(physicalFact.current_use ?? "");
       const annualRent = monthlyRent > 0 ? monthlyRent * 12 : 0;
       // 임대 현황 변수들
@@ -179,7 +183,7 @@ ${infra}
       const hasTenants = tenants && tenants.length > 0;
       // 공실률 수치 추출 (퍼센트)
       const vacancyMatch = vacancy.match(/(\d+(?:\.\d+)?)\s*%/);
-      const vacancyPct = vacancyMatch ? parseFloat(vacancyMatch[1]) : -1;
+      const vacancyPct = vacancyMatch ? parseFloat(vacancyMatch[1]) : (vacancy.includes("만실") ? 0 : -1);
 
       if (!vacancy && !monthlyRent) {
         return `> 🔒 **임대차 상세 현황 자료가 아직 확보되지 않았습니다.**\n>\n> 담당 브로커에게 문의하시면 임대 현황 자료를 제공해 드립니다.`;

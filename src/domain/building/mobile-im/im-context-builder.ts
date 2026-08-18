@@ -194,8 +194,13 @@ export async function buildIMContext(
 
   // ── value-add 사전 계산 (공실 또는 월세 데이터 있을 때) ──────────────────
   let valueAddMarkdown: string | null = null;
+  // 사용자가 바텀시트에서 명시적으로 입력한 vacancy_pct가 있으면 우선 사용
+  // (메모 파싱된 vacancy_signal보다 사용자 입력이 우선)
+  const userVacancyPct = supplemental.vacancy_pct;
   const vacancyStr = String(physicalFact.vacancy_signal ?? supplemental.vacancy_status ?? "");
-  let vacancyPct = vacancyStr.includes("완전") || vacancyStr.includes("만실") ? 0
+  let vacancyPct = (userVacancyPct != null && userVacancyPct !== undefined)
+    ? Number(userVacancyPct)
+    : vacancyStr.includes("완전") || vacancyStr.includes("만실") ? 0
     : vacancyStr.includes("거의 만실") ? 5
     : vacancyStr.includes("반공실") ? 50
     : vacancyStr.includes("전체 공실") || vacancyStr.includes("올공실") ? 100
