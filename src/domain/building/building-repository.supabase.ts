@@ -10,6 +10,8 @@ export class SupabaseBuildingRepository implements IBuildingRepository {
     created_by_role: string;
     input_type: string;
     raw_input: string;
+    raw_address?: string | null;
+    pnu?: string | null;
     area_signal: string | null;
     asset_type: string | null;
     price_band: string | null;

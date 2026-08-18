@@ -91,17 +91,31 @@ export async function brokerDealCardFromMemo(
   const latencyMs = Date.now() - startTime;
   const { buildingTruth, blindTeaser } = aiResult;
 
-  // 1.5. Geocoding
-  const addressQuery = aiResult.parsedMemo.extractedFacts.exactAddressCandidate || aiResult.parsedMemo.extractedFacts.region;
+  // 1.5. Geocoding & Address Resolution
+  const exactAddress = aiResult.parsedMemo.extractedFacts.exactAddressCandidate;
+  const addressQuery = exactAddress || aiResult.parsedMemo.extractedFacts.region;
   let coordinates = null;
   if (addressQuery) {
     coordinates = await geocodeAddress(addressQuery);
   }
 
+  // resolvedAddress from AI agent contains PNU from address resolution
+  const resolvedAddr = aiResult.resolvedAddress || {};
+
   const layersData: Record<string, any> = {};
   if (coordinates) layersData.coordinates = coordinates;
-  if (addressQuery) {
-    layersData.location = { address: addressQuery };
+  if (addressQuery || exactAddress) {
+    layersData.location = {
+      address: addressQuery,
+      // 정확한 주소 후보 (메모에서 파싱된 원문 그대로)
+      raw_address: exactAddress || null,
+      // 주소 해석 결과 (PNU, 도로명 등)
+      pnu: resolvedAddr.pnu || null,
+    };
+  }
+  // PNU를 top-level에도 저장 (ssot-adapter에서 빠르게 접근)
+  if (resolvedAddr.pnu) {
+    layersData.pnu = resolvedAddr.pnu;
   }
   if (input.photoUrls && input.photoUrls.length > 0) {
     layersData.photos = input.photoUrls.map((url, i) => ({
@@ -121,6 +135,8 @@ export async function brokerDealCardFromMemo(
     building = { id: input.existingBuildingId! };
     await buildingRepo.updateBuildingSsotLite(building.id, {
       raw_input: input.memo,
+      raw_address: exactAddress || null,
+      pnu: resolvedAddr.pnu || null,
       area_signal: buildingTruth.areaSignal,
       asset_type: buildingTruth.assetType,
       price_band: buildingTruth.priceBand,
@@ -142,6 +158,8 @@ export async function brokerDealCardFromMemo(
       created_by_role: "broker",
       input_type: "broker_memo",
       raw_input: input.memo,
+      raw_address: exactAddress || null,
+      pnu: resolvedAddr.pnu || null,
       area_signal: buildingTruth.areaSignal,
       asset_type: buildingTruth.assetType,
       price_band: buildingTruth.priceBand,

@@ -51,6 +51,7 @@ export interface BrokerDealCardResult {
   parsedMemo: MemoParserOutput;
   buildingTruth: BuildingMiniTruthOutput;
   blindTeaser: BlindTeaserOutput;
+  resolvedAddress: { pnu?: string; lat?: number; lng?: number };
   model: string;
   promptVersions: {
     memoParser: string;
@@ -338,6 +339,7 @@ export async function runBrokerDealCard(
     parsedMemo,
     buildingTruth,
     blindTeaser: guardedTeaser,
+    resolvedAddress,
     model,
     promptVersions: {
       memoParser: MEMO_PARSER_PROMPT_ID,

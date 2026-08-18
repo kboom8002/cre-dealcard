@@ -191,6 +191,8 @@ export interface BuildingSsotLite {
   canonical_property_id: string | null;
   /** 원본 주소 문자열 (layers 내부에서 승격) */
   raw_address: string | null;
+  /** 필지고유번호 (PNU) — 주소 해석 결과 */
+  pnu: string | null;
   created_at: string;
   updated_at: string;
 }
