@@ -67,6 +67,20 @@ export default async function BrokerDealCardResultPage({
   const { data: _building2 } = await readWithMigration(id);
   const building = _building2 as any;
 
+  // assets 테이블에서 온 데이터는 raw_input, raw_address가 없으므로 building_ssot_lite에서 직접 조회
+  if (building && !building.raw_input) {
+    const { data: ssotRow } = await supabase
+      .from("building_ssot_lite")
+      .select("raw_input, raw_address, area_signal")
+      .eq("id", id)
+      .maybeSingle();
+    if (ssotRow) {
+      building.raw_input = ssotRow.raw_input;
+      if (!building.raw_address && ssotRow.raw_address) building.raw_address = ssotRow.raw_address;
+      if (!building.area_signal && ssotRow.area_signal) building.area_signal = ssotRow.area_signal;
+    }
+  }
+
   // Flatten attrs for assets table compatibility
   const bAttrs = (building?.attrs || {}) as Record<string, any>;
   const sig = (key: string, snakeKey: string) => building?.[snakeKey] ?? bAttrs[key] ?? bAttrs[snakeKey] ?? null;
