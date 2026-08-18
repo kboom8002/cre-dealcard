@@ -144,7 +144,19 @@ export async function POST(req: NextRequest) {
         // ── Phase B: SSoT 역류 — 바텀시트 데이터를 building_ssot_lite에 영속화 ──
         try {
           if (supplemental.floor_leases && supplemental.floor_leases.length > 0) {
-            await persistLeaseUnits(buildingId, supplemental.floor_leases);
+            // 바텀시트 필드명(manwon) → persistLeaseUnits 필드명(krw) 변환
+            const mappedUnits = supplemental.floor_leases.map((fl: any) => ({
+              floor: fl.floor,
+              tenant_sector: fl.tenant_type || fl.tenant_sector || null,
+              deposit_krw: fl.deposit_manwon ? Number(fl.deposit_manwon) * 10000 : (fl.deposit_krw || undefined),
+              monthly_rent_krw: fl.rent_manwon ? Number(fl.rent_manwon) * 10000 : (fl.monthly_rent_krw || undefined),
+              mgmt_fee_krw: fl.mgmt_fee_manwon ? Number(fl.mgmt_fee_manwon) * 10000 : (fl.mgmt_fee_krw || undefined),
+              area_pyung: fl.area_pyung || undefined,
+              lease_start: fl.lease_start || undefined,
+              lease_end: fl.lease_end || undefined,
+              source_tier: 'broker_input',
+            }));
+            await persistLeaseUnits(buildingId, mappedUnits);
           }
 
           const { data: existing } = await bgSupabase

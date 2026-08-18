@@ -84,6 +84,7 @@ function parseRentRollData(data: any[][]): ParseResult {
   const mgmtIdx = findCol(["관리비", "공용관리비", "mgmt", "maintenance"]);
   const vacantIdx = findCol(["공실", "vacant", "empty"]);
   const bizTypeIdx = findCol(["업종", "용도", "임차인", "tenant", "입주사"]);
+  const floorIdx = findCol(["층", "층수", "floor", "호", "위치"]);
 
   let totalRent = 0;
   let totalDeposit = 0;
@@ -144,7 +145,8 @@ function parseRentRollData(data: any[][]): ParseResult {
     if (isVacant) vacantCount++;
 
     // Accumulate per-row data
-    const floorVal = cols[0] != null ? String(cols[0]).trim() : `${rowCount}F`;
+    const actualFloorIdx = floorIdx >= 0 ? floorIdx : 0;
+    const floorVal = cols[actualFloorIdx] != null ? String(cols[actualFloorIdx]).trim() : `${rowCount}F`;
     const bizVal = bizTypeIdx >= 0 && cols[bizTypeIdx] != null ? String(cols[bizTypeIdx]).trim() : undefined;
     parsedRows.push({
       floor: floorVal,
