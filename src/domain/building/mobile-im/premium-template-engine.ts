@@ -130,24 +130,31 @@ ${overviewRows.join("\n")}
       const station   = poi?.nearestStation;
       const poiCounts = poi?.poiCounts;
       const locationAnalysis = String(marketLocation.location_analysis ?? "");
-      const areaSignal = String(assetIdentity.area_signal ?? "비공개 권역");
+      const rawArea = String(assetIdentity.area_signal ?? "서울 주요 권역");
+      const areaSignal = rawArea.endsWith("권") && !rawArea.endsWith("권역") ? `${rawArea}역` : rawArea;
       const subwayInfo = marketLocation.subway_info ? String(marketLocation.subway_info) : null;
       const roadInfo   = marketLocation.road_info ? String(marketLocation.road_info) : null;
 
+      // Extract station / walk distance from memo or highlight if public POI is not loaded yet
+      const rawSource = `${supplemental.broker_highlight || ''} ${(buildingSsotLite as any)?.raw_input || ''} ${assetIdentity.fit_summary || ''}`;
+      const stationMatch = rawSource.match(/([가-힣0-9·]+\s*(?:역|역세권|더블역세권)(?:\s*도보\s*\d+분)?)/);
+      const extractedSubway = stationMatch ? stationMatch[0].trim() : null;
+      const finalSubway = subwayInfo || (station ? `${station.name} (${station.distanceM}m, 도보 약 ${station.walkMinutes}분)` : null) || extractedSubway;
+
       const trafficItems: string[] = [];
-      if (subwayInfo) trafficItems.push(`- 🚇 **지하철 접근성**: ${subwayInfo}`);
+      if (finalSubway) trafficItems.push(`- 🚇 **지하철 및 대중교통**: ${finalSubway}`);
       if (roadInfo) trafficItems.push(`- 🛣️ **도로 접면 조건**: ${roadInfo}`);
       const trafficLines = trafficItems.length > 0
         ? trafficItems.join("\n")
-        : `- ℹ️ 교통 접근성 정보는 담당 브로커에게 문의해 주세요.`;
+        : `- ℹ️ 교통 접근성 상세 정보는 담당 브로커를 통해 확인하실 수 있습니다.`;
 
       const infraItems: string[] = [];
-      if (poi?.poiCounts) {
-        infraItems.push(`- 🏢 **주변 시설**: 반경 500m 내 주요 편의시설 다수 입지`);
+      if (poiCounts && typeof poiCounts === 'object') {
+        infraItems.push(`- 🏢 **주변 상권 및 인프라**: 반경 500m 내 주요 상업시설 및 업무시설 밀집`);
+      } else {
+        infraItems.push(`- 🏢 **주변 상권**: ${areaSignal} 내 주요 비즈니스 및 유동인구 풍부한 상권 입지`);
       }
-      const infra = infraItems.length > 0
-        ? infraItems.join("\n")
-        : `- ℹ️ 배후 상권 정보는 담당 브로커에게 문의해 주세요.`;
+      const infra = infraItems.join("\n");
 
       return `**${areaSignal}** 소재 자산입니다.
 
@@ -158,7 +165,7 @@ ${trafficLines}
 ${infra}
 
 ### 📈 입지 평가
-- 해당 권역 내 접근성과 가시성을 갖춘 입지입니다.`;
+- ${areaSignal} 내 우수한 접근성과 높은 가시성을 갖춘 핵심 입지입니다.`;
     }
 
     // ─── 섹션 3: 임대 현황 ──────────────────────────────────────────────────

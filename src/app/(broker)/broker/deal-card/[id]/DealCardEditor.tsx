@@ -220,23 +220,40 @@ export function DealCardEditor({
               />
             </div>
 
-            {/* 핵심 딜 포인트 3선 */}
+            {/* 핵심 딜 포인트 */}
             <div className="space-y-2">
-              <label className="text-[11px] text-muted-foreground font-semibold flex items-center justify-between">
-                <span>🔑 핵심 딜 포인트 3선</span>
-                <span className="text-[10px] text-primary font-medium">매수자에게 어필할 3대 강점</span>
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1.5">
+                  <span>🔑 핵심 딜 포인트 ({dealPoints.filter(Boolean).length}개 등록됨)</span>
+                </label>
+                <span className="text-[10px] text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">
+                  1~3번 항목이 카톡 카드/미리보기에 우선 노출
+                </span>
+              </div>
               <div className="space-y-2">
                 {dealPoints.map((point, i) => (
                   <div key={i} className="flex items-center gap-2 group">
-                    <span className="w-5 h-5 flex items-center justify-center bg-primary/10 text-primary text-[10px] font-bold rounded-full shrink-0">
-                      {i + 1}
-                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className={`w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded-full ${
+                        i < 3 
+                          ? "bg-primary text-primary-foreground shadow-xs" 
+                          : "bg-muted text-muted-foreground border border-border"
+                      }`}>
+                        {i + 1}
+                      </span>
+                      {i < 3 && (
+                        <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1 py-0.2 rounded border border-amber-500/20 shrink-0">
+                          Top {i + 1}
+                        </span>
+                      )}
+                    </div>
                     <input
                       type="text"
                       value={point}
                       onChange={(e) => updateDealPoint(i, e.target.value)}
-                      className="flex-1 bg-background border border-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-primary transition-colors"
+                      className={`flex-1 bg-background border rounded-lg px-3 py-1.5 text-xs focus:outline-none transition-colors ${
+                        i < 3 ? "border-primary/40 focus:border-primary" : "border-border focus:border-muted-foreground"
+                      }`}
                       placeholder={`핵심 강점 ${i + 1} (예: 만실 운영 중, 월 수입 2,850만원)`}
                     />
                     {dealPoints.length > 1 && (
@@ -244,6 +261,7 @@ export function DealCardEditor({
                         type="button"
                         onClick={() => removeDealPoint(i)}
                         className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive p-1 transition-all"
+                        title="포인트 삭제"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -251,14 +269,19 @@ export function DealCardEditor({
                   </div>
                 ))}
               </div>
-              <button
-                type="button"
-                onClick={addDealPoint}
-                className="flex items-center gap-1 text-[11px] text-primary hover:underline pt-1 font-medium"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                포인트 추가
-              </button>
+              <div className="flex items-center justify-between pt-1">
+                <button
+                  type="button"
+                  onClick={addDealPoint}
+                  className="flex items-center gap-1 text-[11px] text-primary hover:underline font-medium"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  포인트 추가
+                </button>
+                <span className="text-[10px] text-muted-foreground">
+                  * 4번 이후 항목은 매수자가 상세 페이지를 열었을 때 전체 공개됩니다.
+                </span>
+              </div>
             </div>
           </div>
         )}

@@ -215,26 +215,23 @@ export async function generateMobileIMHandler(
       externalDataStatus = 'failed';
     }
   } else {
-    const layers = (ssotRow.layers ?? {}) as Record<string, any>;
-    let rawAddress: string | null =
-      layers?.location?.address ??
-      layers?.location?.neighborhood ??
-      null;
-
-    // ── 단계 A: raw_input에서 정규 주소(도로명/지번) 추출 ──
+    let rawAddress: string | null = null;
     if (ssotRow.raw_input) {
-      // 도로명: "XX로 123" 또는 "XX길 45-6"
-      const roadMatch = String(ssotRow.raw_input).match(
-        /([가-힣]{2,10}(?:로|길)\s*\d+(?:-\d+)?)/
+      const fullAdminMatch = String(ssotRow.raw_input).match(
+        /(?:(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)(?:특별시|광역시|특별자치시|도|특별자치도)?\s*)?[가-힣0-9]+(?:시|군|구)\s+[가-힣0-9]+(?:읍|면|동|가|로|길)\s*\d+(?:-\d+)?(?:번지)?/
       );
-      // 지번: "서울시 XX구 XX동 123-45" 또는 "XX동 123-45"
-      const jibunMatch = String(ssotRow.raw_input).match(
-        /([가-힣]{2,4}[시도]\s*[가-힣]{2,4}[시군구]\s*[가-힣]{2,6}[읍면동](?:\s*\d+[가-힣]?)?)/
-      ) ?? String(ssotRow.raw_input).match(/([가-힣]{2,6}[동]\s*\d+(?:-\d+)?)/)
-        ?? String(ssotRow.raw_input).match(/([가-힣]{2,6}[동로길]\s*\d+)/);
-
-      if (roadMatch) rawAddress = roadMatch[1];
-      else if (jibunMatch) rawAddress = jibunMatch[1];
+      const dongJibunMatch = String(ssotRow.raw_input).match(
+        /[가-힣0-9]+(?:읍|면|동|가|로|길)\s*\d+(?:-\d+)?(?:번지)?/
+      );
+      if (fullAdminMatch) rawAddress = fullAdminMatch[0].trim();
+      else if (dongJibunMatch) rawAddress = dongJibunMatch[0].trim();
+    }
+    if (!rawAddress) {
+      const layers = (ssotRow.layers ?? {}) as Record<string, any>;
+      const locAddr = layers?.location?.address || layers?.location?.raw_address || layers?.location?.exact_address;
+      if (locAddr && !locAddr.includes("권역") && !locAddr.endsWith("권")) {
+        rawAddress = locAddr;
+      }
     }
 
     // ── 단계 B: raw_input에서 랜드마크 추출 → 카카오 키워드 검색 ──
@@ -314,7 +311,8 @@ export async function generateMobileIMHandler(
   }
 
   // IM 제목: CRE IM 업계 표준 문체 적용 (골든셋 참조: @/lib/ai/im-title-golden-set)
-  const areaLabel = ssotRow.area_signal || "핵심 입지";
+  const rawArea = ssotRow.area_signal || "핵심 입지";
+  const areaLabel = rawArea.endsWith("권") && !rawArea.endsWith("권역") ? `${rawArea}역` : rawArea;
   // asset_type에서 불필요한 수식/추정 표현 제거
   const rawAssetType = ssotRow.asset_type || "상업용 자산";
   const cleanAssetType = rawAssetType
@@ -322,7 +320,7 @@ export async function generateMobileIMHandler(
     .replace(/\s*또는\s+[^\s]+\s*(계열로|계열)\s*(추정|)/g, "")  // "또는 다가구·상가주택 계열로 추정" 제거
     .replace(/\s+/g, " ")
     .trim();
-  const title = `${areaLabel} ${cleanAssetType} 매각`;
+  const title = directData?.title || directData?.deal_title || `${areaLabel} ${cleanAssetType} 매각`;
 
   const imDocPayload = {
     owner_id: userId,

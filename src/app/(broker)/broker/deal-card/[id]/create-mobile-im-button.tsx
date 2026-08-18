@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ImDataBottomSheet } from "./im-data-bottom-sheet";
 
 interface CreateMobileImButtonProps {
@@ -15,6 +15,7 @@ interface CreateMobileImButtonProps {
   cautionSummary?: string;
   existingPhotoUrls?: string[];
   initialAddress?: string;
+  initialPnu?: string;
   currentGrade?: string;
   prefillAskingPrice?: number;
   prefillLoanAmount?: number;
@@ -37,6 +38,7 @@ export function CreateMobileImButton({
   cautionSummary,
   existingPhotoUrls,
   initialAddress,
+  initialPnu,
   currentGrade,
   prefillAskingPrice,
   prefillLoanAmount,
@@ -48,6 +50,18 @@ export function CreateMobileImButton({
 }: CreateMobileImButtonProps) {
   const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [stage, setStage] = useState<'basic' | 'pro'>('basic');
+
+  useEffect(() => {
+    const handleOpen = (e: Event) => {
+      const customEvent = e as CustomEvent<{ stage?: 'basic' | 'pro' }>;
+      if (customEvent.detail?.stage) {
+        setStage(customEvent.detail.stage);
+      }
+      setShowBottomSheet(true);
+    };
+    window.addEventListener("open-mobile-im-sheet", handleOpen);
+    return () => window.removeEventListener("open-mobile-im-sheet", handleOpen);
+  }, []);
 
   const isProLocked = currentGrade === 'C' || currentGrade === 'D' || !currentGrade;
 
@@ -94,6 +108,7 @@ export function CreateMobileImButton({
         cautionSummary={cautionSummary}
         existingPhotoUrls={existingPhotoUrls}
         initialAddress={initialAddress}
+        initialPnu={initialPnu}
         initialStage={stage}
         targetTier={stage}
         currentDataGrade={currentGrade}

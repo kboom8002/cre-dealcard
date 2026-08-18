@@ -188,14 +188,21 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
 
           {/* ②-b 핵심 딜포인트 (blind_teaser에서 추출) */}
           {(() => {
-            const dp = Array.isArray(imBody.dealPoints) ? imBody.dealPoints : [];
+            const dp = Array.isArray(imBody.dealPoints) ? imBody.dealPoints.filter(Boolean) : [];
             return dp.length > 0 ? (
               <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-3.5 space-y-2">
-                <p className="text-[11px] font-bold text-amber-400 tracking-wide">⭐ 핵심 딜 포인트 {dp.length}선</p>
-                <ul className="space-y-1.5">
-                  {dp.slice(0, 5).map((pt: string, i: number) => (
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-bold text-amber-400 tracking-wide flex items-center gap-1.5">
+                    <span>⭐ 핵심 딜 포인트 ({dp.length}선)</span>
+                  </p>
+                  <span className="text-[10px] text-slate-400">매수 검토 핵심 요약</span>
+                </div>
+                <ul className="space-y-2">
+                  {dp.map((pt: string, i: number) => (
                     <li key={i} className="flex items-start gap-2 text-xs text-slate-200 leading-relaxed">
-                      <span className="shrink-0 text-amber-400/80 mt-0.5">•</span>
+                      <span className="w-4 h-4 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                        {i + 1}
+                      </span>
                       <span>{pt}</span>
                     </li>
                   ))}

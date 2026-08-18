@@ -7,7 +7,7 @@
  * Source: docs/08-api-contracts.md section 7
  */
 import { z } from "zod/v4";
-import { brokerDealCardFromMemo } from "@/domain/building/broker-deal-card";
+import { brokerDealCardFromMemo, checkDuplicateBeforeCreation } from "@/domain/building/broker-deal-card";
 import { toApiError } from "@/lib/api-error";
 import { requireBroker } from "@/lib/auth-guard";
 import { NextRequest, after } from "next/server";
@@ -37,6 +37,10 @@ const BrokerDealCardFromMemoRequest = z.object({
   memo: z.string().min(5),
   visibilityPreference: z.enum(["blind", "internal"]).default("blind"),
   photoUrls: z.array(z.string().url()).optional(),
+  /** 중복 감지 무시하고 새 물건으로 강제 생성 */
+  forceNew: z.boolean().optional(),
+  /** 기존 물건 업데이트 시 해당 building ID */
+  existingBuildingId: z.string().uuid().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -85,11 +89,28 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ─── P0: 동일 물건 중복 감지 (AI 파이프라인 전) ───
+    if (!input.forceNew && !input.existingBuildingId) {
+      const dedupResult = await checkDuplicateBeforeCreation(sanitizedMemo, user!.id);
+      if (dedupResult.hasDuplicate) {
+        return Response.json(
+          {
+            ok: false,
+            code: "DUPLICATE_BUILDING_DETECTED",
+            message: "동일한 물건이 이미 등록되어 있습니다.",
+            duplicates: dedupResult.candidates,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const result = await brokerDealCardFromMemo(
       {
         memo: sanitizedMemo,
         visibilityPreference: input.visibilityPreference,
         photoUrls: input.photoUrls,
+        existingBuildingId: input.existingBuildingId,
       },
       user!.id,
     );

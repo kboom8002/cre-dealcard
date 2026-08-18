@@ -203,7 +203,7 @@ const PROTECTED_FIELD_DETECTORS: ProtectedFieldDetector[] = [
     field: "person_name",
     patterns: [
       /[가-힣]{2,4}\s*(님|씨|대표|사장|부장|과장|차장|팀장|이사|상무|전무|부사장|본부장|센터장|실장)/g,
-      /담당\s*:?\s*[가-힣]{2,4}/g,
+      /담당\s*:?\s*(?!브로커|에이전트|중개사|공인중개사|담당자|전문가|매니저|팀|부서|역할)[가-힣]{2,4}/g,
     ],
     publicBlocked: true,
     replacement: "[인명 비공개]",

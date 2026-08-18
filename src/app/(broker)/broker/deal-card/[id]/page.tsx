@@ -44,6 +44,12 @@ export async function generateMetadata({ params }: DealCardResultPageProps): Pro
       description: "AI가 분석한 상업용 부동산 딜카드",
       images: [{ url: `${siteUrl}/api/og/deal/${id}`, width: 1200, height: 630 }],
     },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description: "AI가 분석한 상업용 부동산 딜카드",
+      images: [`${siteUrl}/api/og/deal/${id}`],
+    },
   };
 }
 
@@ -168,10 +174,28 @@ export default async function BrokerDealCardResultPage({
   // 우선순위: layers.photos → IM body.photos
   const photoUrls: string[] = layerPhotos.length > 0 ? layerPhotos : imPhotos;
 
-  const extractedAddress = layers?.location?.address
+  // v3 assets 테이블에서는 주소가 attrs JSONB에 저장됨
+  // building_ssot_lite에서는 raw_address, layers.location 에 저장됨
+  // 양쪽 모두에서 안전하게 추출
+  const attrsAddress = bAttrs.address || bAttrs.rawAddress || bAttrs.raw_address;
+  const attrsAreaSignal = bAttrs.areaSignal || bAttrs.area_signal;
+
+  const rawAddressCandidate = building.raw_address
+    || attrsAddress
+    || layers?.location?.raw_address
+    || layers?.location?.exact_address
+    || (layers?.location?.address && !layers.location.address.includes("권역") && !layers.location.address.endsWith("권") ? layers.location.address : null);
+
+  const extractedAddress = rawAddressCandidate
+    || (building.raw_input?.match(/(?:(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)(?:특별시|광역시|특별자치시|도|특별자치도)?\s*)?[가-힣0-9]+(?:시|군|구)\s+[가-힣0-9]+(?:읍|면|동|가|로|길)\s*\d+(?:-\d+)?(?:번지)?/)?.[0])
+    || (building.raw_input?.match(/[가-힣0-9]+(?:읍|면|동|가|로|길)\s*\d+(?:-\d+)?(?:번지)?/)?.[0])
+    || (layers?.location?.address)
     || building.area_signal
-    || (building.raw_input?.match(/([가-힣]{2,4}[시도]\s*[가-힣]{2,4}[시군구]\s*[가-힣]{2,6}[읍면동](?:\s*\d+[가-힣]?)?)/) || [])[1]
+    || attrsAreaSignal
     || "";
+
+  // PNU 추출: assets.pnu → attrs.pnu → layers.pnu → layers.location.pnu
+  const extractedPnu = building.pnu || bAttrs.pnu || layers?.pnu || layers?.location?.pnu || "";
 
   const hiddenFields = Array.isArray(building.hidden_fields)
     ? (building.hidden_fields as string[])
@@ -190,15 +214,16 @@ export default async function BrokerDealCardResultPage({
   };
 
   // v3: 바텀시트 선제적 데이터 주입을 위한 값 추출
+  // assets 테이블에서는 finance 데이터가 attrs에 저장됨
   const finance = layers.finance || {};
-  const askingPriceKrw = Number(finance.asking_price_krw || building.asking_price || 0);
-  const loanAmountKrw = Number(finance.loan_amount_krw || building.loan_amount || 0);
+  const askingPriceKrw = Number(finance.asking_price_krw || building.asking_price || bAttrs.askingPriceKrw || 0);
+  const loanAmountKrw = Number(finance.loan_amount_krw || building.loan_amount || bAttrs.loanAmountKrw || 0);
   
   const leaseSum = building.lease_summary || {};
-  const totalDepositKrw = Number(leaseSum.total_deposit_krw || finance.total_deposit_krw || 0);
-  const monthlyRentKrw = Number(leaseSum.monthly_rent_krw || finance.monthly_rent_krw || 0);
+  const totalDepositKrw = Number(leaseSum.total_deposit_krw || finance.total_deposit_krw || bAttrs.totalDepositKrw || 0);
+  const monthlyRentKrw = Number(leaseSum.monthly_rent_krw || finance.monthly_rent_krw || bAttrs.monthlyRentKrw || 0);
   const mgmtFeeKrw = Number(leaseSum.mgmt_fee_krw || finance.mgmt_fee_krw || 0);
-  const vacancyPct = Number(leaseSum.vacancy_pct || finance.vacancy_pct || 0);
+  const vacancyPct = Number(leaseSum.vacancy_pct || finance.vacancy_pct || bAttrs.vacancyPct || 0);
   const investmentPosture = building.investment_posture || layers.investment_posture || "income";
 
   const gradeAttrs = buildAttrsFromSsotLite({
@@ -422,15 +447,16 @@ export default async function BrokerDealCardResultPage({
             <CreateMobileImButton
               buildingId={id}
               hasBasicIM={hasBasicIM}
-              areaSignal={building.area_signal ?? undefined}
-              assetType={building.asset_type ?? undefined}
-              priceBand={building.price_band ?? undefined}
+              areaSignal={building.area_signal ?? bAttrs.areaSignal ?? undefined}
+              assetType={building.asset_type ?? bAttrs.assetType ?? undefined}
+              priceBand={building.price_band ?? bAttrs.priceBand ?? undefined}
               sizeSignal={building.size_signal ?? undefined}
-              vacancySignal={building.vacancy_signal ?? undefined}
+              vacancySignal={building.vacancy_signal ?? bAttrs.vacancySignal ?? undefined}
               fitSummary={building.fit_summary ?? undefined}
               cautionSummary={building.caution_summary ?? undefined}
               existingPhotoUrls={photoUrls}
               initialAddress={extractedAddress}
+              initialPnu={extractedPnu}
               currentGrade={currentGrade}
               prefillAskingPrice={askingPriceKrw > 0 ? askingPriceKrw / 10000 : undefined}
               prefillLoanAmount={loanAmountKrw > 0 ? loanAmountKrw / 10000 : undefined}

@@ -187,6 +187,10 @@ export interface BuildingSsotLite {
   disclosure_prefs: DisclosurePrefs | null;
   layer_scores: LayerScores | null;
   completeness_score: number;
+  /** P1: 정규 건물 레지스트리 FK */
+  canonical_property_id: string | null;
+  /** 원본 주소 문자열 (layers 내부에서 승격) */
+  raw_address: string | null;
   created_at: string;
   updated_at: string;
 }

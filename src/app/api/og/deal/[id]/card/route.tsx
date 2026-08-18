@@ -13,9 +13,9 @@ async function getFontData(): Promise<ArrayBuffer | null> {
   if (fontBuffer) return fontBuffer;
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(
-      "https://fonts.gstatic.com/s/notosanskr/v36/PbyxFmXiEBPT4ITbgNA5Cgms3VYcOA4.woff",
+      "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/public/static/Pretendard-Bold.otf",
       { signal: controller.signal }
     );
     clearTimeout(timeoutId);
@@ -89,7 +89,7 @@ export async function GET(
   }
 
   const fontData = await getFontData();
-  const fontsList: any[] = fontData ? [{ name: "Noto Sans KR", data: fontData, style: "normal", weight: 700 }] : [];
+  const fontsList: any[] = fontData ? [{ name: "Pretendard", data: fontData, style: "normal", weight: 700 }] : [];
 
   // Theme Gradients based on Investment Posture
   let bgGradient = "linear-gradient(180deg, #182232 0%, #0F1622 50%, #0B0F14 100%)";
@@ -116,7 +116,7 @@ export async function GET(
           justifyContent: "space-between",
           background: bgGradient,
           color: "#E7ECF2",
-          fontFamily: "'Noto Sans KR', sans-serif",
+          fontFamily: "'Pretendard', sans-serif",
           padding: "72px 64px",
           boxSizing: "border-box",
           position: "relative",

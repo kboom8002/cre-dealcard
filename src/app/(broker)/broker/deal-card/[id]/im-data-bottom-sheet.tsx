@@ -20,6 +20,7 @@ interface ImDataBottomSheetProps {
   cautionSummary?: string;
   existingPhotoUrls?: string[];
   initialAddress?: string;
+  initialPnu?: string;
   // v3: Deal card auto-supply data
   prefillMonthlyRent?: number; // 만원 단위
   prefillTotalDeposit?: number; // 만원 단위
@@ -59,6 +60,7 @@ export function ImDataBottomSheet({
   cautionSummary,
   existingPhotoUrls,
   initialAddress,
+  initialPnu,
   prefillMonthlyRent,
   prefillTotalDeposit,
   prefillMgmtFee,
@@ -231,16 +233,36 @@ export function ImDataBottomSheet({
   }, [existingPhotoUrls]);
 
   useEffect(() => {
-    if (isOpen && initialAddress) {
-      setSearchKeyword(initialAddress);
-      if (!address) {
-        const timer = setTimeout(() => {
-          handleAddressSearch(initialAddress);
-        }, 100);
-        return () => clearTimeout(timer);
+    if (!isOpen) return;
+
+    // PNU가 이미 있으면 즉시 설정 (assets 테이블에서 전달된 경우)
+    if (initialPnu && !pnu) {
+      setPnu(initialPnu);
+    }
+
+    if (initialAddress) {
+      // 실제 주소인지 판별 — 숫자 포함, 동/로/길 포함, 또는 PNU가 함께 전달된 경우
+      const isReal = /\d+/.test(initialAddress)
+        || /[동로길]\s/.test(initialAddress)
+        || /[동로길]$/.test(initialAddress)
+        || !!initialPnu;
+
+      if (isReal) {
+        setAddress(initialAddress);
+        setSearchKeyword(initialAddress);
+        // PNU가 없을 때만 주소 API 검색으로 PNU 해석 시도
+        if (!initialPnu) {
+          const timer = setTimeout(() => {
+            handleAddressSearch(initialAddress, true);
+          }, 100);
+          return () => clearTimeout(timer);
+        }
+      } else {
+        // 권역 시그널 등 — 검색 키워드로만 설정
+        setSearchKeyword(initialAddress);
       }
     }
-  }, [initialAddress, isOpen]);
+  }, [initialAddress, initialPnu, isOpen]);
 
   // v3: Auto-prefill from deal card data
   useEffect(() => {
@@ -305,30 +327,26 @@ export function ImDataBottomSheet({
       let uploadedPhotoUrls: string[] = [];
       if (photoFiles.length > 0) {
         setProgress("사진 업로드 중...");
-        const supabase = createClient();
-        let uploadFailCount = 0;
-        let lastUploadError = "";
-        for (const file of photoFiles) {
-          const fileName = `${buildingId}/${Date.now()}_${file.name}`;
-          const { data, error } = await supabase.storage
-            .from("building_photos")
-            .upload(fileName, file, { upsert: true });
-          if (data && !error) {
-            const { data: urlData } = supabase.storage
-              .from("building_photos")
-              .getPublicUrl(data.path);
-            uploadedPhotoUrls.push(urlData.publicUrl);
+        try {
+          const photoFormData = new FormData();
+          photoFiles.forEach((file) => photoFormData.append("files", file));
+          const uploadRes = await fetch(`/api/broker/buildings/${buildingId}/photos/upload`, {
+            method: "POST",
+            body: photoFormData,
+          });
+          const uploadJson = await uploadRes.json();
+          if (uploadRes.ok && Array.isArray(uploadJson.urls) && uploadJson.urls.length > 0) {
+            uploadedPhotoUrls = uploadJson.urls;
+            if (uploadJson.failedCount > 0) {
+              toast.warning(`사진 ${uploadJson.uploadedCount}장 업로드 성공 (${uploadJson.failedCount}장 실패)`);
+            }
           } else {
-            uploadFailCount++;
-            lastUploadError = error?.message || "unknown error";
-            console.error(`[Photo Upload] Failed: ${file.name}`, error?.message, error);
+            console.error("[Photo Upload API] Failed:", uploadJson.error);
+            toast.error(`📷 사진 업로드 실패: ${uploadJson.error || "서버 오류"}. 사진 없이 계속 진행합니다.`);
           }
-        }
-        if (uploadFailCount > 0 && uploadedPhotoUrls.length === 0) {
-          // 모든 사진 업로드 실패
-          toast.error(`📷 사진 ${uploadFailCount}장 업로드에 실패했습니다. 사진 없이 계속 진행합니다.`);
-        } else if (uploadFailCount > 0) {
-          toast.error(`${uploadFailCount}장 업로드 실패 (${uploadedPhotoUrls.length}장 성공). 성공한 사진으로 계속합니다.`);
+        } catch (uploadErr) {
+          console.error("[Photo Upload API] Network error:", uploadErr);
+          toast.error("📷 사진 업로드 네트워크 오류. 사진 없이 계속 진행합니다.");
         }
       }
 
@@ -558,7 +576,7 @@ export function ImDataBottomSheet({
   }
 
   // 주소 검색 (실제 API 호출)
-  const handleAddressSearch = async (overrideKeyword?: string) => {
+  const handleAddressSearch = async (overrideKeyword?: string, autoSelectFirst = false) => {
     const keyword = (overrideKeyword !== undefined ? overrideKeyword : searchKeyword).trim();
     if (!keyword || keyword.length < 2) {
       setSearchResults([]);
@@ -567,7 +585,9 @@ export function ImDataBottomSheet({
     }
 
     setIsSearching(true);
-    setShowResults(true);
+    if (!autoSelectFirst) {
+      setShowResults(true);
+    }
     
     try {
       const res = await fetch(`/api/public/address?keyword=${encodeURIComponent(keyword)}`);
@@ -578,6 +598,11 @@ export function ImDataBottomSheet({
       // data can be an array or { results: [...] }
       const results: AddressResult[] = Array.isArray(data) ? data : (data.results ?? data.juso ?? []);
       setSearchResults(results);
+      if (autoSelectFirst && results.length > 0) {
+        selectAddress(results[0]);
+      } else if (!autoSelectFirst) {
+        setShowResults(true);
+      }
     } catch (err) {
       console.error("Address search failed:", err);
       setSearchResults([]);

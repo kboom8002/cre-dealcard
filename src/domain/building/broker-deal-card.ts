@@ -16,11 +16,27 @@ import { verifyAgainstPublicData } from "@/domain/verification/public-data-verif
 import { SupabaseBuildingRepository } from "./building-repository.supabase";
 import { geocodeAddress } from "@/domain/verification/address-resolver";
 import { getModel } from "@/ai/model-selector";
+import { detectDuplicateBuilding, type DedupResult } from "./building-dedup";
+import { linkBuildingToCanonicalProperty } from "./canonical-property";
 
 export interface BrokerDealCardFromMemoInput {
   memo: string;
   visibilityPreference: "blind" | "internal";
   photoUrls?: string[];
+  /** 기존 물건 업데이트 시 해당 building ID */
+  existingBuildingId?: string;
+}
+
+/**
+ * 딜카드 생성 전 동일 물건 중복 여부를 사전 검사합니다.
+ * AI 파이프라인 실행 전 단계에서 호출하여 불필요한 AI 비용을 방지합니다.
+ */
+export async function checkDuplicateBeforeCreation(
+  memo: string,
+  userId: string,
+): Promise<DedupResult> {
+  const supabase = createServiceClient();
+  return detectDuplicateBuilding(supabase, userId, memo);
 }
 
 export interface BrokerDealCardFromMemoResult {
@@ -95,27 +111,52 @@ export async function brokerDealCardFromMemo(
     }));
   }
 
-  // 2. Create building_ssot_lite (via Repository Pattern)
+  // 2. Create or update building_ssot_lite (via Repository Pattern)
   const buildingRepo = new SupabaseBuildingRepository(supabase);
-  const building = await buildingRepo.createBuildingSsotLite({
-    owner_id: userId,
-    created_by_role: "broker",
-    input_type: "broker_memo",
-    raw_input: input.memo,
-    area_signal: buildingTruth.areaSignal,
-    asset_type: buildingTruth.assetType,
-    price_band: buildingTruth.priceBand,
-    size_signal: buildingTruth.sizeSignal,
-    current_use_signal: buildingTruth.currentUseSignal,
-    vacancy_signal: buildingTruth.vacancySignal,
-    fit_summary: buildingTruth.fitSummary,
-    caution_summary: buildingTruth.cautionSummary,
-    hidden_fields: buildingTruth.hiddenFields,
-    layers: layersData,
-    confidence: buildingTruth.confidence as unknown as Record<string, unknown>,
-    disclosure: { guard_checked: true },
-    status: "public_signal_ready",
-  });
+  const isUpdate = !!input.existingBuildingId;
+  let building: { id: string };
+
+  if (isUpdate) {
+    // ── 기존 물건 업데이트 모드 ──
+    building = { id: input.existingBuildingId! };
+    await buildingRepo.updateBuildingSsotLite(building.id, {
+      raw_input: input.memo,
+      area_signal: buildingTruth.areaSignal,
+      asset_type: buildingTruth.assetType,
+      price_band: buildingTruth.priceBand,
+      size_signal: buildingTruth.sizeSignal,
+      current_use_signal: buildingTruth.currentUseSignal,
+      vacancy_signal: buildingTruth.vacancySignal,
+      fit_summary: buildingTruth.fitSummary,
+      caution_summary: buildingTruth.cautionSummary,
+      hidden_fields: buildingTruth.hiddenFields,
+      layers: layersData,
+      confidence: buildingTruth.confidence as unknown as Record<string, unknown>,
+      disclosure: { guard_checked: true },
+      status: "public_signal_ready",
+    });
+  } else {
+    // ── 신규 물건 생성 모드 ──
+    building = await buildingRepo.createBuildingSsotLite({
+      owner_id: userId,
+      created_by_role: "broker",
+      input_type: "broker_memo",
+      raw_input: input.memo,
+      area_signal: buildingTruth.areaSignal,
+      asset_type: buildingTruth.assetType,
+      price_band: buildingTruth.priceBand,
+      size_signal: buildingTruth.sizeSignal,
+      current_use_signal: buildingTruth.currentUseSignal,
+      vacancy_signal: buildingTruth.vacancySignal,
+      fit_summary: buildingTruth.fitSummary,
+      caution_summary: buildingTruth.cautionSummary,
+      hidden_fields: buildingTruth.hiddenFields,
+      layers: layersData,
+      confidence: buildingTruth.confidence as unknown as Record<string, unknown>,
+      disclosure: { guard_checked: true },
+      status: "public_signal_ready",
+    });
+  }
 
   // 2-b. photo_urls 칼럼 동기화 (IM, 매거진, Vibe 카드 등에서 참조)
   if (input.photoUrls && input.photoUrls.length > 0) {
@@ -210,12 +251,12 @@ export async function brokerDealCardFromMemo(
       eventType: "broker_memo_submitted",
       entityType: "building_ssot_lite",
       entityId: building.id,
-      metadata: { source: "broker_deal_card_new" },
+      metadata: { source: isUpdate ? "broker_deal_card_update" : "broker_deal_card_new" },
     }),
     recordEvent(supabase, {
       actorId: userId,
       actorRole: "broker",
-      eventType: "building_ssot_lite_created",
+      eventType: isUpdate ? "building_ssot_lite_updated" : "building_ssot_lite_created",
       entityType: "building_ssot_lite",
       entityId: building.id,
       metadata: {
@@ -312,6 +353,14 @@ export async function brokerDealCardFromMemo(
         console.warn("[broker-deal-card] Public data verification failed:", verifyErr);
       });
   }
+
+  // 12. P1: Canonical Property 연결 — fire-and-forget
+  linkBuildingToCanonicalProperty(supabase, building.id, {
+    jibunAddress: addressQuery ?? null,
+    coordinates: coordinates ?? null,
+  }).catch((cpErr) => {
+    console.warn("[broker-deal-card] Canonical property link failed:", cpErr);
+  });
 
   return {
     buildingId: building.id,

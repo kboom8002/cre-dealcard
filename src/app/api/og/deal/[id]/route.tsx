@@ -12,9 +12,9 @@ async function getFontData(): Promise<ArrayBuffer | null> {
   if (fontBuffer) return fontBuffer;
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(
-      "https://fonts.gstatic.com/s/notosanskr/v36/PbyxFmXiEBPT4ITbgNA5Cgms3VYcOA4.woff",
+      "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/public/static/Pretendard-Bold.otf",
       { signal: controller.signal }
     );
     clearTimeout(timeoutId);
@@ -80,14 +80,21 @@ export async function GET(
   const postureLabel = teaserView.postureLabel || "임대수익형";
   const urgencyTag = teaserView.urgencyTag || (building?.urgency_tag as string);
 
-  // Hook copy priority
-  const rawHookCopy = imBody?.hookCopy || teaser?.hookCopy || teaserView.hookCopy || `${regionLabel} ${assetType} 매물`;
-  const hookCopy = rawHookCopy.length > 35 ? rawHookCopy.slice(0, 35) + "..." : rawHookCopy;
+  // Hook copy & title priority
+  const rawTitle = teaser?.ogTitle || teaser?.title || "";
+  const rawHookCopy = teaser?.hookCopy || imBody?.hookCopy || teaserView.hookCopy || `${regionLabel} ${assetType} 매물`;
+  const mainHeadline = rawTitle || rawHookCopy;
+  const subHeadline = rawTitle && rawHookCopy && rawTitle !== rawHookCopy 
+    ? rawHookCopy 
+    : (teaser?.ogDescription || teaser?.shortSummary || `${regionLabel} ${assetType} 핵심 투자 기회`);
+
+  const displayMain = mainHeadline.length > 40 ? mainHeadline.slice(0, 40) + "..." : mainHeadline;
+  const displaySub = subHeadline.length > 45 ? subHeadline.slice(0, 45) + "..." : subHeadline;
 
   // Hero tiles filtering: valid tiles only (max 2)
   const validTiles = filterValidTiles(teaserView.postureHeroTiles || []);
   const displayTiles = validTiles.length > 0 ? validTiles.slice(0, 2) : [
-    { emoji: "💰", label: "매각가", value: teaserView.bandedPrice || "가격 협의" },
+    { emoji: "💰", label: "매각가", value: teaserView.bandedPrice || building?.price_band || "가격 협의" },
     { emoji: "📍", label: "권역", value: regionLabel }
   ];
 
@@ -98,6 +105,9 @@ export async function GET(
     console.error("Font loading failed:", err);
   }
 
+  // Adjust font size based on text length to prevent overflow
+  const headlineFontSize = displayMain.length > 28 ? 34 : displayMain.length > 18 ? 38 : 42;
+
   return new ImageResponse(
     (
       <div
@@ -107,12 +117,12 @@ export async function GET(
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          padding: "36px 64px",
-          background: "linear-gradient(135deg, #070A0F 0%, #111827 60%, #0F172A 100%)",
+          padding: "48px 72px",
+          background: "linear-gradient(135deg, #070A0F 0%, #111827 55%, #0B132B 100%)",
           color: "white",
-          fontFamily: fontData ? "Noto Sans KR" : "sans-serif",
+          fontFamily: fontData ? "Pretendard" : "sans-serif",
           position: "relative",
-          maxHeight: "630px",
+          boxSizing: "border-box",
           overflow: "hidden",
         }}
       >
@@ -123,17 +133,32 @@ export async function GET(
             top: 0,
             left: 0,
             right: 0,
-            height: "8px",
+            height: "6px",
             background: "linear-gradient(90deg, #D4A853 0%, #F3EBDA 50%, #B98A2E 100%)",
           }}
         />
 
-        {/* Top Header Row: Badges */}
+        {/* Subtle Ambient Glow */}
+        <div
+          style={{
+            position: "absolute",
+            top: "-100px",
+            right: "-100px",
+            width: "400px",
+            height: "400px",
+            background: "radial-gradient(circle, rgba(212, 168, 83, 0.15) 0%, transparent 70%)",
+            borderRadius: "50%",
+            display: "flex",
+          }}
+        />
+
+        {/* Top Header Row: Badges with Safe Margin */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "14px",
+            gap: "12px",
+            marginTop: "4px",
           }}
         >
           <div
@@ -141,8 +166,8 @@ export async function GET(
               background: "rgba(185, 138, 46, 0.25)",
               border: "1px solid rgba(212, 168, 83, 0.6)",
               borderRadius: "8px",
-              padding: "8px 18px",
-              fontSize: 26,
+              padding: "6px 14px",
+              fontSize: 22,
               fontWeight: 800,
               color: "#F3EBDA",
               display: "flex",
@@ -155,8 +180,8 @@ export async function GET(
               background: "rgba(59, 130, 246, 0.2)",
               border: "1px solid rgba(59, 130, 246, 0.5)",
               borderRadius: "8px",
-              padding: "8px 18px",
-              fontSize: 26,
+              padding: "6px 14px",
+              fontSize: 22,
               fontWeight: 700,
               color: "#93c5fd",
               display: "flex",
@@ -164,14 +189,30 @@ export async function GET(
           >
             {`📍 ${regionLabel}`}
           </div>
+          {assetType ? (
+            <div
+              style={{
+                background: "rgba(148, 163, 184, 0.15)",
+                border: "1px solid rgba(148, 163, 184, 0.3)",
+                borderRadius: "8px",
+                padding: "6px 14px",
+                fontSize: 22,
+                fontWeight: 700,
+                color: "#cbd5e1",
+                display: "flex",
+              }}
+            >
+              {assetType}
+            </div>
+          ) : null}
           {urgencyTag === 'urgent' ? (
             <div
               style={{
                 background: "rgba(239, 68, 68, 0.25)",
                 border: "1px solid rgba(239, 68, 68, 0.7)",
                 borderRadius: "8px",
-                padding: "8px 18px",
-                fontSize: 26,
+                padding: "6px 14px",
+                fontSize: 22,
                 fontWeight: 800,
                 color: "#FCA5A5",
                 display: "flex",
@@ -182,47 +223,76 @@ export async function GET(
           ) : null}
         </div>
 
-        {/* Center Main Section: Enlarged Hook Copy */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px", margin: "12px 0", maxHeight: "100px", overflow: "hidden" }}>
+        {/* Center Main Section: 2-Line Resilient Typography */}
+        <div 
+          style={{ 
+            display: "flex", 
+            flexDirection: "column", 
+            gap: "10px", 
+            margin: "8px 0",
+            maxWidth: "1050px",
+          }}
+        >
           <div
             style={{
-              fontSize: 44,
+              fontSize: headlineFontSize,
               fontWeight: 900,
               lineHeight: 1.35,
               color: "#FFFFFF",
               display: "flex",
-              maxWidth: "1080px",
               letterSpacing: "-0.02em",
+              wordBreak: "keep-all",
               overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
             }}
           >
-            {hookCopy}
+            {displayMain}
           </div>
+          {displaySub ? (
+            <div
+              style={{
+                fontSize: 22,
+                fontWeight: 600,
+                color: "#94A3B8",
+                display: "flex",
+                lineHeight: 1.4,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {displaySub}
+            </div>
+          ) : null}
         </div>
 
-        {/* Bottom Section: 1x2 Tiles + Branding */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-          <div style={{ display: "flex", gap: "48px" }}>
+        {/* Bottom Section: 1x2 Key Metrics Tiles + Branding */}
+        <div 
+          style={{ 
+            display: "flex", 
+            justifyContent: "space-between", 
+            alignItems: "flex-end",
+            paddingBottom: "4px",
+          }}
+        >
+          <div style={{ display: "flex", gap: "24px" }}>
             {displayTiles.map((tile: any, i: number) => (
               <div
                 key={i}
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: "6px",
-                  background: "rgba(255, 255, 255, 0.05)",
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
-                  borderRadius: "14px",
-                  padding: "16px 28px",
-                  minWidth: "260px",
+                  gap: "4px",
+                  background: "rgba(255, 255, 255, 0.06)",
+                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  borderRadius: "12px",
+                  padding: "12px 24px",
+                  minWidth: "220px",
                 }}
               >
-                <span style={{ fontSize: 20, color: "#9AA7B5", fontWeight: 600 }}>
+                <span style={{ fontSize: 17, color: "#9AA7B5", fontWeight: 600 }}>
                   {tile.emoji} {tile.label}
                 </span>
-                <span style={{ fontSize: 32, fontWeight: 900, color: i === 0 ? "#5EEAD4" : "#FFFFFF" }}>
+                <span style={{ fontSize: 28, fontWeight: 900, color: i === 0 ? "#5EEAD4" : "#FFFFFF" }}>
                   {tile.value}
                 </span>
               </div>
@@ -230,8 +300,19 @@ export async function GET(
           </div>
 
           {/* Bottom Branding */}
-          <div style={{ fontSize: 22, fontWeight: 700, color: "#94A3B8", display: "flex", paddingBottom: "0px" }}>
-            CREDEAL · 블라인드 딜카드
+          <div 
+            style={{ 
+              fontSize: 20, 
+              fontWeight: 700, 
+              color: "#94A3B8", 
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <span>CREDEAL</span>
+            <span style={{ color: "#475569" }}>·</span>
+            <span style={{ color: "#CBD5E1" }}>블라인드 딜카드</span>
           </div>
         </div>
       </div>
@@ -242,7 +323,7 @@ export async function GET(
       fonts: fontData
         ? [
             {
-              name: "Noto Sans KR",
+              name: "Pretendard",
               data: fontData,
               weight: 700,
               style: "normal",

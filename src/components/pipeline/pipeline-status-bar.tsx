@@ -41,6 +41,19 @@ export function PipelineStatusBar({
   const holdWarning = holdDays >= 14 ? STAGE_HOLD_WARNINGS[currentStage] : null;
 
   async function advanceTo(toStage: DealStage) {
+    // 💡 1) IM 작성 시작 클릭 시: 실제 IM 생성 시트 오픈 및 IM 탭 전환
+    if (toStage === 'im_created') {
+      window.dispatchEvent(new CustomEvent('switch-deal-tab', { detail: 'im' }));
+      window.dispatchEvent(new CustomEvent('open-mobile-im-sheet', { detail: { stage: 'basic' } }));
+      return;
+    }
+
+    // 💡 2) 자료 요청 접수 처리 클릭 시: 매수자/자료요청 탭 전환
+    if (toStage === 'gate_requested') {
+      window.dispatchEvent(new CustomEvent('switch-deal-tab', { detail: 'buyers' }));
+      return;
+    }
+
     if (!window.confirm(`파이프라인 단계를 '${STAGE_LABELS[toStage]}'로 전환하시겠습니까?`)) {
       return;
     }
@@ -74,8 +87,8 @@ export function PipelineStatusBar({
           fund_confirmed: '자금 조달 확인',
         };
         const missing = data.missing?.map((f: string) => FIELD_LABELS[f] || f).join(', ');
-        const missingText = missing ? ` (누락: ${missing})` : '';
-        setError((data.error ?? '전환 중 오류가 발생했습니다') + missingText);
+        const missingText = missing ? ` (필요 항목: ${missing})` : '';
+        setError((data.error ?? '전환을 완료하려면 필수 조건이 필요합니다') + missingText);
       } else {
         onStageChange?.(toStage);
       }

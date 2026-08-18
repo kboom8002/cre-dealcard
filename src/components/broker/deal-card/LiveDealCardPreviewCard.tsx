@@ -90,7 +90,7 @@ export function LiveDealCardPreviewCard({
   // 카카오톡 공유
   const handleKakaoShare = () => {
     const finalText = (typeof window !== "undefined" && sessionStorage.getItem(`kakao_text_${buildingId}`)) || kakaoText || displayDesc;
-    const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}?t=${ogTimestamp}`;
+    const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}?t=${Date.now()}`;
 
     if (kakaoReady && window.Kakao?.Share) {
       try {
@@ -100,6 +100,8 @@ export function LiveDealCardPreviewCard({
             title: displayTitle,
             description: finalText.slice(0, 200),
             imageUrl: ogImageUrl,
+            imageWidth: 1200,
+            imageHeight: 630,
             link: {
               webUrl: shareUrl,
               mobileWebUrl: shareUrl,
@@ -182,11 +184,22 @@ export function LiveDealCardPreviewCard({
         {/* Key Deal Points Preview Chips */}
         {dealPoints.length > 0 && (
           <div className="bg-primary/[0.04] border border-primary/20 rounded-xl p-3 space-y-1.5">
-            <span className="text-[11px] font-bold text-primary block">⭐ 핵심 딜 포인트 3선</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-primary flex items-center gap-1">
+                <span>⭐ 핵심 딜 포인트 (Top 3 우선 노출)</span>
+              </span>
+              {dealPoints.length > 3 && (
+                <span className="text-[10px] text-muted-foreground">
+                  +{dealPoints.length - 3}개 더보기(상세)
+                </span>
+              )}
+            </div>
             <div className="space-y-1">
               {dealPoints.slice(0, 3).map((pt, i) => (
                 <p key={i} className="text-xs text-foreground font-medium flex items-start gap-1.5 leading-snug">
-                  <span className="text-primary font-bold">•</span>
+                  <span className="w-4 h-4 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                    {i + 1}
+                  </span>
                   <span>{pt}</span>
                 </p>
               ))}

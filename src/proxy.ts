@@ -16,6 +16,19 @@ const PROTECTED_BROKER = '/broker';
 const PROTECTED_ADMIN = '/admin';
 const AUTH_ROUTES = ['/login', '/signup'];
 
+/**
+ * Social crawler bot User-Agent patterns.
+ * These bots must be able to read OG meta tags on protected routes
+ * (e.g. /broker/deal-card/[id]) without authentication.
+ */
+const SOCIAL_BOT_PATTERNS = [
+  'kakaotalk-scrap', 'facebookexternalhit', 'facebot',
+  'twitterbot', 'slackbot', 'linkedinbot', 'discordbot',
+  'whatsapp', 'telegrambot', 'line/',
+  'googlebot', 'bingbot', 'yandex', 'baiduspider',
+  'duckduckbot', 'ia_archiver', 'applebot',
+];
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -55,10 +68,15 @@ export async function proxy(request: NextRequest) {
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname === r);
 
   // 1. Unauthenticated user → redirect to /login if on protected route
+  //    Exception: social crawlers are allowed through to read OG meta tags
   if ((isBrokerRoute || isAdminRoute) && !user) {
-    const redirectUrl = new URL('/login', request.nextUrl);
-    redirectUrl.searchParams.set('redirectTo', pathname);
-    return NextResponse.redirect(redirectUrl);
+    const ua = (request.headers.get('user-agent') || '').toLowerCase();
+    const isSocialBot = SOCIAL_BOT_PATTERNS.some(p => ua.includes(p));
+    if (!isSocialBot) {
+      const redirectUrl = new URL('/login', request.nextUrl);
+      redirectUrl.searchParams.set('redirectTo', pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   // 2. Admin route → also check admin role via custom header set downstream

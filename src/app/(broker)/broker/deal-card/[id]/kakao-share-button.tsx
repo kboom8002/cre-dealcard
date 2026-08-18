@@ -75,6 +75,8 @@ export function KakaoShareButton({
       ? sessionStorage.getItem(`kakao_text_${buildingId}`) || editedText 
       : editedText;
 
+    const currentOgImageUrl = `${ogImageUrl}?t=${Date.now()}`;
+
     if (kakaoReady && window.Kakao?.Share) {
       try {
         (window.Kakao.Share as any).sendDefault({
@@ -82,7 +84,9 @@ export function KakaoShareButton({
           content: {
             title: dealTitle || "블라인드 딜카드",
             description: finalText.slice(0, 200),
-            imageUrl: ogImageUrl,
+            imageUrl: currentOgImageUrl,
+            imageWidth: 1200,
+            imageHeight: 630,
             link: {
               webUrl: dealUrl,
               mobileWebUrl: dealUrl,

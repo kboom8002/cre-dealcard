@@ -15,7 +15,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net';
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "이 건물, 딜 될까? | JS Building SSoT",
   description:
     "주소나 매물 메모 하나로 건물 딜카드를 만들어보세요. AI 기반 CRE 딜 어시스턴트.",

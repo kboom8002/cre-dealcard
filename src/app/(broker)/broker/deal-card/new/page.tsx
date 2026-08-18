@@ -7,7 +7,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { ShareToCircleSheet } from "@/components/circle/ShareToCircleSheet";
 import { MemoImportModal } from "@/components/broker/deal-card/MemoImportModal";
-import { StickyNote, Loader2, CheckCircle2, Circle } from "lucide-react";
+import { StickyNote, Loader2, CheckCircle2, Circle, AlertTriangle, RefreshCw, Plus, X } from "lucide-react";
+
+interface DuplicateCandidateUI {
+  existingBuildingId: string;
+  matchType: string;
+  confidence: number;
+  summary: {
+    areaSignal: string | null;
+    assetType: string | null;
+    priceBand: string | null;
+    createdAt: string | null;
+    status: string | null;
+  };
+}
 
 const LOADING_STEPS = [
   "메모에서 매물 정보 추출 중",
@@ -27,6 +40,8 @@ export default function BrokerDealCardNewPage() {
   const [createdBuildingId, setCreatedBuildingId] = useState<string | null>(null);
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [showMemoModal, setShowMemoModal] = useState(false);
+  const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateCandidateUI[]>([]);
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -124,6 +139,16 @@ export default function BrokerDealCardNewPage() {
           );
         }
 
+        // ─── P0: 동일 물건 중복 감지 ───
+        if (json.code === "DUPLICATE_BUILDING_DETECTED" && json.duplicates) {
+          setDuplicateCandidates(json.duplicates);
+          setShowDuplicateDialog(true);
+          setIsLoading(false);
+          clearTimeout(timeoutTimer);
+          clearInterval(interval);
+          return; // 에러가 아닌 다이얼로그 표시
+        }
+
         throw new Error(json.error || json.message || "딜카드 생성에 실패했습니다.");
       }
 
@@ -155,6 +180,164 @@ export default function BrokerDealCardNewPage() {
     setIsLoading(false);
     setError("딜카드 생성을 취소했습니다. 메모 내용을 보완하여 다시 시도해보세요.");
   };
+
+  /** 동일 물건 감지 다이얼로그에서 선택 후 재전송 */
+  const handleDuplicateAction = async (action: "update" | "forceNew" | "cancel", existingId?: string) => {
+    setShowDuplicateDialog(false);
+    setDuplicateCandidates([]);
+
+    if (action === "cancel") return;
+
+    setIsLoading(true);
+    setError(null);
+    setLoadingStep(0);
+
+    const controller = new AbortController();
+    setAbortController(controller);
+    const timeoutTimer = setTimeout(() => {
+      controller.abort();
+      setError("생성 시간이 초과되었습니다.");
+      setIsLoading(false);
+    }, 120000);
+    const interval = setInterval(() => {
+      setLoadingStep((prev) => prev < LOADING_STEPS.length - 1 ? prev + 1 : prev);
+    }, 4000);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const body: Record<string, unknown> = {
+        memo: memo.trim(),
+        visibilityPreference: "blind",
+      };
+
+      if (action === "forceNew") {
+        body.forceNew = true;
+      } else if (action === "update" && existingId) {
+        body.existingBuildingId = existingId;
+      }
+
+      const res = await fetch("/api/broker/deal-card/from-memo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      let json: Record<string, unknown>;
+      try {
+        json = await res.json() as Record<string, unknown>;
+      } catch {
+        throw new Error(`서버 오류가 발생했습니다 (HTTP ${res.status}).`);
+      }
+
+      if (!res.ok || !json.ok) {
+        throw new Error((json.error as string) || (json.message as string) || "딜카드 생성에 실패했습니다.");
+      }
+
+      const data = json.data as Record<string, string>;
+      setCreatedBuildingId(data.buildingId);
+      if (data.buildingId) {
+        sessionStorage.setItem("deal_card_just_created", "true");
+        router.push(`/broker/deal-card/${data.buildingId}`);
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
+      setIsLoading(false);
+    } finally {
+      clearTimeout(timeoutTimer);
+      clearInterval(interval);
+    }
+  };
+
+  // ─── P0: 동일 물건 감지 다이얼로그 ───
+  if (showDuplicateDialog && duplicateCandidates.length > 0) {
+    return (
+      <main className="flex flex-col items-center justify-center min-h-screen px-4 py-12">
+        <div className="w-full max-w-md mx-auto space-y-6">
+          {/* Header */}
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+              <AlertTriangle className="w-6 h-6 text-amber-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold">동일한 물건이 감지되었습니다</h1>
+              <p className="text-sm text-muted-foreground">
+                이미 등록된 물건과 동일한 주소가 포함되어 있습니다.
+              </p>
+            </div>
+          </div>
+
+          {/* Duplicate Candidates */}
+          <div className="space-y-3">
+            {duplicateCandidates.map((candidate) => {
+              const matchLabel = candidate.matchType === "pnu" ? "PNU 일치"
+                : candidate.matchType === "jibun_exact" ? "지번 일치"
+                : "유사 물건";
+              const createdDate = candidate.summary.createdAt
+                ? new Date(candidate.summary.createdAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })
+                : "";
+
+              return (
+                <div
+                  key={candidate.existingBuildingId}
+                  className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 space-y-3"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                          {matchLabel} ({Math.round(candidate.confidence * 100)}%)
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium">
+                        {candidate.summary.areaSignal || "권역 미상"} · {candidate.summary.assetType || "유형 미상"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {candidate.summary.priceBand || ""} {createdDate ? `· ${createdDate} 등록` : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    onClick={() => handleDuplicateAction("update", candidate.existingBuildingId)}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    이 물건 업데이트
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Action buttons */}
+          <div className="space-y-2 pt-2">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => handleDuplicateAction("forceNew")}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              다른 물건이에요 — 새로 만들기
+            </Button>
+            <button
+              className="w-full text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 py-2"
+              onClick={() => handleDuplicateAction("cancel")}
+            >
+              <X className="w-3 h-3 inline mr-1" />
+              취소하고 메모 수정하기
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   if (createdBuildingId) {
     return (
