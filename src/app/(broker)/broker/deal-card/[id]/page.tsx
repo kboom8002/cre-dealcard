@@ -177,21 +177,36 @@ export default async function BrokerDealCardResultPage({
   // v3 assets 테이블에서는 주소가 attrs JSONB에 저장됨
   // building_ssot_lite에서는 raw_address, layers.location 에 저장됨
   // 양쪽 모두에서 안전하게 추출
+
+  // 실제 주소인지 판별 (권역 시그널 등 배제)
+  const looksLikeRealAddress = (addr: string | null | undefined): string | null => {
+    if (!addr) return null;
+    // "서초권역", "성수권역", "홍대권" 등은 주소가 아님
+    if (addr.includes("권역") || addr.endsWith("권")) return null;
+    // 숫자 포함 or 동/로/길/읍/면/리/가 포함 → 주소로 판단
+    if (/\d+/.test(addr) || /[동로길읍면리가]/.test(addr)) return addr;
+    return null;
+  };
+
   const attrsAddress = bAttrs.address || bAttrs.rawAddress || bAttrs.raw_address;
   const attrsAreaSignal = bAttrs.areaSignal || bAttrs.area_signal;
+  // raw_input은 building_ssot_lite에만 있고 assets에는 없으므로 양쪽 확인
+  const rawInput = building.raw_input || bAttrs.rawInput || bAttrs.raw_input || "";
 
   const rawAddressCandidate = building.raw_address
-    || attrsAddress
+    || looksLikeRealAddress(attrsAddress)
     || layers?.location?.raw_address
     || layers?.location?.exact_address
-    || (layers?.location?.address && !layers.location.address.includes("권역") && !layers.location.address.endsWith("권") ? layers.location.address : null);
+    || looksLikeRealAddress(layers?.location?.address);
+
+  // raw_input(원본 메모)에서 주소 정규식 추출
+  const regexAddr1 = rawInput?.match(/(?:(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)(?:특별시|광역시|특별자치시|도|특별자치도)?\s*)?[가-힣0-9]+(?:시|군|구)\s+[가-힣0-9]+(?:읍|면|동|가|로|길)\s*\d+(?:-\d+)?(?:번지)?/)?.[0];
+  const regexAddr2 = rawInput?.match(/[가-힣0-9]+(?:읍|면|동|가|로|길)\s*\d+(?:-\d+)?(?:번지)?/)?.[0];
 
   const extractedAddress = rawAddressCandidate
-    || (building.raw_input?.match(/(?:(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)(?:특별시|광역시|특별자치시|도|특별자치도)?\s*)?[가-힣0-9]+(?:시|군|구)\s+[가-힣0-9]+(?:읍|면|동|가|로|길)\s*\d+(?:-\d+)?(?:번지)?/)?.[0])
-    || (building.raw_input?.match(/[가-힣0-9]+(?:읍|면|동|가|로|길)\s*\d+(?:-\d+)?(?:번지)?/)?.[0])
-    || (layers?.location?.address)
-    || building.area_signal
-    || attrsAreaSignal
+    || regexAddr1
+    || regexAddr2
+    || looksLikeRealAddress(layers?.location?.address)
     || "";
 
   // PNU 추출: assets.pnu → attrs.pnu → layers.pnu → layers.location.pnu

@@ -30,7 +30,8 @@ export function buildAttrsFromSsotLite(
   return {
     // Required slots for grade-engine
     pnu: layers?.pnu ?? building.pnu ?? null,
-    address: layers?.location?.address ?? building.area_signal ?? null,
+    address: layers?.location?.raw_address ?? building.raw_address ?? layers?.location?.address ?? null,
+    rawInput: building.raw_input ?? null,
     landAreaPyung,
     totalFloorAreaPyung,
     askingPriceKrw,
