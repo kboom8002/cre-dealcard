@@ -282,7 +282,7 @@ export function reconstructFromCache(cached: any): ExternalDataEnrichmentResult 
     try {
       mapImageUrl = buildKakaoStaticMapUrl({
         lat: cached.latitude, lng: cached.longitude,
-        level: 3, width: 640, height: 360, marker: true,
+        level: 3, width: 1280, height: 960, marker: true,
       });
     } catch { /* ignore */ }
   }

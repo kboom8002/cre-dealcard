@@ -40,12 +40,12 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
 
   // 1차: 이미 생성된 카카오 지도 URL 사용
   if (mapImageUrl) {
-    mapImg = await fetchKakaoMapImage(mapImageUrl, 560, 450);
+    mapImg = await fetchKakaoMapImage(mapImageUrl, 1120, 900);
   }
 
   // 2차: 좌표 기반 카카오/OSM 합성 지도 (fetchKakaoMapImage 실패 시)
   if (!mapImg) {
-    mapImg = await generateStaticMapPlaceholder(areaOrAddress, 560, 450, coords);
+    mapImg = await generateStaticMapPlaceholder(areaOrAddress, 1120, 900, coords);
   }
 
   if (mapImg) {

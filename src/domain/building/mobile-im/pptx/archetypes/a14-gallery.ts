@@ -62,7 +62,7 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
 
   // Optimize images (최대 4장 — 슬라이드당 4장 제한)
   const urlsToOptimize = validPhotos.slice(0, 4).map(p => p.url);
-  const optimized = await optimizeImagesForPptx(urlsToOptimize, 4);
+  const optimized = await optimizeImagesForPptx(urlsToOptimize, 4, 1600, 85);
 
   if (optimized.length === 0) {
     L.callout(slide, M, 2.20, CW, 1.4, 'info', '사진 로딩 실패',
@@ -93,7 +93,15 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
     w: number,
     h: number,
   ) => {
-    // 1. 이미지
+    // 0. 배경 사각형 (사진 뒤 마감 — cover 크롭 경계 정리)
+    slide.addShape('roundRect' as any, {
+      x, y, w, h,
+      fill: { color: 'F0F0F0' },
+      rectRadius: 0.06,
+      line: { color: 'E0E0E0', width: 0.5 },
+    });
+
+    // 1. 이미지 (cover 모드 — 비율 유지하며 채움)
     slide.addImage({
       data: optImg.base64,
       x, y, w, h,

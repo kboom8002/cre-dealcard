@@ -111,9 +111,16 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
     L.note(slide, M, tableEnd + 0.10, CW, input.data.note);
   }
   
-  // Callouts (데이터가 있을 때만 tableEnd 아래에 렌더링하여 충돌 방지)
+  // Callouts (데이터가 있을 때만, 테이블 아래 note와 중복되지 않는 내용만 렌더링)
   if (!hasNoData) {
-    const callouts = input.data.callouts || [];
+    const noteText = input.data.note || '';
+    const callouts = (input.data.callouts || []).filter((co: any) => {
+      // note와 동일한 내용의 콜아웃은 중복이므로 스킵
+      if (!co.body) return false;
+      const normalizedBody = co.body.replace(/\s+/g, '').toLowerCase();
+      const normalizedNote = noteText.replace(/\s+/g, '').toLowerCase();
+      return normalizedBody !== normalizedNote && !normalizedNote.includes(normalizedBody) && !normalizedBody.includes(normalizedNote);
+    });
     callouts.forEach((co: any, i: number) => {
       if (i > 1) return;
       const coGap = 0.20;

@@ -93,11 +93,13 @@ export async function optimizeImageForPptx(
  */
 export async function optimizeImagesForPptx(
   urls: string[],
-  maxCount = 8
+  maxCount = 8,
+  maxWidth = 1280,
+  quality = 75
 ): Promise<OptimizedImage[]> {
   const targets = urls.slice(0, maxCount);
   const results = await Promise.allSettled(
-    targets.map(url => optimizeImageForPptx(url))
+    targets.map(url => optimizeImageForPptx(url, maxWidth, quality))
   );
 
   return results
@@ -127,8 +129,8 @@ export async function generateStaticMapPlaceholder(
           apikey: apiKey,
           center: `${coordinates.lng},${coordinates.lat}`,
           level: '3',
-          w: String(Math.min(w, 640)),
-          h: String(Math.min(h, 400)),
+          w: String(Math.min(w, 1280)),
+          h: String(Math.min(h, 960)),
           markers: `type:d|size:medium|${coordinates.lng},${coordinates.lat}`,
         });
         const kakaoUrl = `${baseUrl}?${params.toString()}`;

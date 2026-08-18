@@ -20,7 +20,7 @@ export interface StaticMapOptions {
  */
 export function buildKakaoStaticMapUrl(options: StaticMapOptions): string {
   const apiKey = process.env.KAKAO_REST_API_KEY;
-  const { lat, lng, level = 3, width = 640, height = 400, marker = true } = options;
+  const { lat, lng, level = 3, width = 1280, height = 960, marker = true } = options;
 
   if (!apiKey) {
     return `https://placehold.co/${width}x${height}/1a1a2e/ffffff?text=${encodeURIComponent('지도 준비 중')}`;

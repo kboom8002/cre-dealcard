@@ -139,15 +139,46 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     warnings.push('Summary 메트릭 데이터 없음 — 플레이스홀더 표시');
   }
 
-  // Callouts
+  // 투자 핵심 포인트 (KPI 카드 아래)
+  let highlightsEndY = metrics.length > 4 ? startY + 2 * (1.4 + 0.20) : (metrics.length > 0 ? startY + 1.4 + 0.20 : startY);
+  
+  const keyPoints: string[] = input.data.keyPoints || input.data.heroCard?.keyPoints || [];
+  // content에서 불릿 추출 폴백
+  if (keyPoints.length === 0 && input.data.content) {
+    const bullets = String(input.data.content).split('\n')
+      .map((l: string) => l.trim())
+      .filter((l: string) => (l.startsWith('•') || l.startsWith('-') || l.startsWith('·')) && l.length > 10)
+      .map((l: string) => l.replace(/^[•\-·]\s*/, ''))
+      .slice(0, 4);
+    keyPoints.push(...bullets);
+  }
+  
+  if (keyPoints.length > 0 && highlightsEndY + 0.30 + keyPoints.length * 0.32 <= 5.2) {
+    const hlY = highlightsEndY + 0.15;
+    slide.addText('📌 투자 핵심 포인트', {
+      x: M, y: hlY, w: CW, h: 0.30,
+      color: C.ink, fontFace: KR, fontSize: 11, bold: true,
+    });
+    keyPoints.forEach((pt, idx) => {
+      slide.addText(`•  ${pt}`, {
+        x: M + 0.10, y: hlY + 0.32 + idx * 0.30, w: CW - 0.10, h: 0.28,
+        color: C.body, fontFace: KR, fontSize: 10.5,
+      });
+    });
+    highlightsEndY = hlY + 0.32 + keyPoints.length * 0.30 + 0.10;
+  }
+
+  // Callouts (하단 2-column)
   const callouts = input.data.callouts || [];
-  const calloutY = metrics.length > 4 ? 5.4 : (metrics.length > 0 ? startY + 1.8 : 4.5);
+  const calloutY = Math.max(highlightsEndY + 0.15, metrics.length > 4 ? 5.4 : (metrics.length > 0 ? startY + 1.8 : 4.5));
   callouts.forEach((co: any, i: number) => {
     if (i > 1) return;
     const coGap = 0.20;
     const coW = L.col(2, coGap);
     const x = L.colX(i, coW, coGap);
-    L.callout(slide, x, calloutY, coW, 1.2, co.kind || 'info', co.title || '', co.body || '');
+    if (calloutY + 1.2 <= 6.5) {
+      L.callout(slide, x, calloutY, coW, 1.2, co.kind || 'info', co.title || '', co.body || '');
+    }
   });
   
   if (input.watermarkText) L.watermark(slide, input.watermarkText, false);

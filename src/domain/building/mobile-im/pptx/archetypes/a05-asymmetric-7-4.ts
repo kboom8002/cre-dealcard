@@ -24,121 +24,105 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
   const warnings: string[] = [];
   L.head(slide, input.slideNum, input.data.kicker || 'SECTION', input.data.title || '제목');
   
-  const lw = 7.5;
-  const gap = 0.393;
-  const rw = CW - lw - gap;
-  const rx = M + lw + gap;
-  
   const left = input.data.left || {};
   
-  // 우측 stat 카드 존재 여부 확인
-  const rightStats = input.data.right?.stats ?? [];
-  const hasRightStats = rightStats.length > 0;
-
-  // 좌측: 부제 및 리드문/서사 렌더링
+  // 부제 (서브타이틀)
+  let contentY = 1.45;
   if (left.sub) {
-    L.sub(slide, M, 1.45, lw, left.sub);
+    L.sub(slide, M, contentY, CW, left.sub);
+    contentY = 1.90;
   }
 
-  // 좌측 컨텐츠 처리: 우측에 이미 카드가 있을 때는 좌측에 중복 표 대신 하이라이트 요약 또는 보완 서사 배치
-  if (input.data.content) {
-    const rawLines = String(input.data.content).split('\n')
-      .map((l: string) => l.trim())
-      .filter((l: string) => l.length > 3 && !l.startsWith('#') && !/^[-*_]{3,}$/.test(l));
+  // Brass 강조선
+  slide.addShape('line' as any, {
+    x: M, y: contentY, w: CW, h: 0,
+    line: { color: C.brass, width: 1.5 },
+  });
+  contentY += 0.25;
 
-    // 순수 서사형 문장 (리드문)과 목록/불릿형 문장 분리
-    const narrativeLines = rawLines.filter(l => 
-      !l.match(/^\d+[.、)]\s*/) && 
-      !l.startsWith('-') && 
-      !l.startsWith('•') && 
-      !l.startsWith('*') && 
-      !l.startsWith('|')
-    );
-    const listLines = rawLines.filter(l => 
-      l.match(/^\d+[.、)]\s*/) || 
-      l.startsWith('-') || 
-      l.startsWith('•') || 
-      l.startsWith('*')
-    );
-
-    if (hasRightStats) {
-      // 우측에 3~4개 카드가 있는 경우: 좌측에는 종합 투자 테제 요약문과 배경 서사 렌더링
-      let leadBody = narrativeLines
-        .map(l => stripMarkdown(l.replace(/^[>•·-]\s*/, '')))
-        .filter(Boolean)
-        .join(' ');
-
-      if (!leadBody || leadBody.length < 15 || leadBody === left.sub) {
-        leadBody = '본 자산은 우수한 입지 경쟁력과 견고한 펀더멘털을 바탕으로 안정적인 현금흐름 창출과 중장기 자산 가치 상승(Capital Gain)을 동시에 실현할 수 있는 우량 투자 기회입니다.';
-      }
-
-      L.callout(
-        slide,
-        M,
-        left.sub ? 2.00 : 1.60,
-        lw,
-        3.0,
-        'info',
-        '핵심 투자 가치 제안 (Value Proposition)',
-        leadBody
-      );
-
-      // 우측 카드와 중복되지 않는 추가 보완 지표나 특이사항이 있을 때만 하단에 간결하게 표기
-      const nonDuplicateRows = listLines
-        .map(l => {
-          const stripped = stripMarkdown(l).replace(/^[|`\[\]\s•·\-*]+/g, '').trim();
-          const parts = stripped.split(/[：:]/);
-          return [parts[0].trim(), parts.slice(1).join(':').trim()] as [string, string];
-        })
-        .filter(([k]) => k.length > 0 && !rightStats.some((s: any) => s.label && (s.label.includes(k) || k.includes(s.label))));
-
-      if (nonDuplicateRows.length > 0) {
-        L.rows(slide, M, 4.85, lw, nonDuplicateRows.slice(0, 3), { rh: 0.38, fs: 11.5 });
-      }
-    } else {
-      // 우측에 카드가 없는 경우: 좌측에 목록 전체를 L.rows()로 렌더링
-      const rowEntries: [string, string][] = [];
-      for (const line of rawLines) {
-        const stripped = line.replace(/\*\*(.*?)\*\*/g, '$1').replace(/[|`\[\]]/g, '').trim();
-        if (!stripped) continue;
-        const parts = stripped.split(/[：:]/);
-        if (parts.length >= 2) {
-          rowEntries.push([parts[0].trim(), parts.slice(1).join(':').trim()]);
-        } else {
-          rowEntries.push([stripped.replace(/^[-•·\d+.]\s*/, ''), '']);
-        }
-      }
-      if (rowEntries.length > 0) {
-        L.rows(slide, M, left.sub ? 1.95 : 1.55, lw, rowEntries.slice(0, 8), { rh: 0.44, fs: 13 });
+  // ── KPI 카드: 풀폭 3-column 그리드 ──
+  const rightStats = input.data.right?.stats ?? [];
+  const allStats = [...rightStats];
+  
+  // 데이터 부족 시 content에서 추출
+  if (allStats.length === 0 && input.data.content) {
+    const lines = String(input.data.content).split('\n').map(l => l.trim());
+    for (const line of lines) {
+      const match = line.match(/\*\*(.*?)\*\*\s*[：:|]\s*(.*)/);
+      if (match && allStats.length < 6) {
+        allStats.push({ label: match[1].trim(), value: match[2].trim() });
       }
     }
   }
-  
-  // Brass 수직 구분선
-  slide.addShape('line' as any, {
-    x: M + lw + gap / 2, y: 1.50, w: 0, h: 5.2,
-    line: { color: C.brass, width: 0.7 },
-  });
-  
-  // 우측: stat 카드 (개수에 따른 동적 높이 및 여백 배분)
-  const count = rightStats.length;
-  const cardH = count >= 4 ? 1.10 : count === 3 ? 1.38 : 1.60;
-  const cardGap = count >= 4 ? 0.14 : count === 3 ? 0.18 : 0.24;
-  let sy = count >= 4 ? 1.68 : count === 3 ? 1.76 : 2.00;
 
-  rightStats.forEach((s: any) => {
-    L.stat(slide, rx, sy, rw, s.label ?? '', s.value ?? '', s.unit ?? '', s.sub ?? '', { h: cardH });
-    sy += cardH + cardGap;
-  });
+  const cols = 3;
+  const cardGap = 0.18;
+  const cardW = L.col(cols, cardGap);
   
-  // 우측: callouts
+  if (allStats.length > 0) {
+    // 핵심 카드 (상단 행) — 최대 3개
+    const row1 = allStats.slice(0, 3);
+    const cardH1 = 1.30;
+    row1.forEach((s: any, i: number) => {
+      const x = L.colX(i, cardW, cardGap);
+      L.stat(slide, x, contentY, cardW, s.label ?? '', s.value ?? '', s.unit ?? '', s.sub ?? '', { h: cardH1, vs: 22 });
+    });
+    contentY += cardH1 + cardGap;
+
+    // 보조 카드 (하단 행) — 최대 3개 더
+    const row2 = allStats.slice(3, 6);
+    if (row2.length > 0) {
+      const cardH2 = 1.15;
+      row2.forEach((s: any, i: number) => {
+        const x = L.colX(i, cardW, cardGap);
+        L.stat(slide, x, contentY, cardW, s.label ?? '', s.value ?? '', s.unit ?? '', s.sub ?? '', { h: cardH2, vs: 18 });
+      });
+      contentY += cardH2 + cardGap;
+    }
+  } else {
+    warnings.push('Profit stat 카드 없음');
+  }
+
+  // ── 하단: 풀폭 투자 가치 제안 콜아웃 ──
+  // 컨텐츠에서 리드문 추출
+  let leadBody = '';
+  if (input.data.content) {
+    const narrativeLines = String(input.data.content).split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length > 10 && !l.startsWith('#') && !l.startsWith('|') && !l.startsWith('-') && !l.startsWith('•') && !/^[-*_]{3,}$/.test(l))
+      .map(l => stripMarkdown(l.replace(/^[>•·-]\s*/, '')))
+      .filter(Boolean);
+    leadBody = narrativeLines.join(' ');
+  }
+  // 면책 문구는 leadBody에서 제외
+  if (leadBody.includes('AI 추정값') || leadBody.includes('투자 결정의 근거')) {
+    leadBody = leadBody.replace(/아래\s*수치는.*?상이합니다\.?\s*/g, '').trim();
+  }
+  
+  if (!leadBody || leadBody.length < 15 || leadBody === left.sub) {
+    leadBody = '본 자산은 우수한 입지 경쟁력과 견고한 펀더멘털을 바탕으로 안정적인 현금흐름 창출과 중장기 자산 가치 상승을 동시에 실현할 수 있는 우량 투자 기회입니다.';
+  }
+
+  // 우측 callouts가 있으면 2-column, 없으면 풀폭
   const rightCallouts = input.data.right?.callouts ?? [];
-  rightCallouts.forEach((c: any) => {
-    const ch = Math.max(1.2, 0.55 + Math.ceil((c.body?.length ?? 0) / 25) * 0.29);
-    L.callout(slide, rx, sy, rw, ch, c.kind ?? 'info', c.title ?? '', c.body ?? '');
-    sy += ch + 0.18;
-  });
+  const calloutMaxY = 6.40;
   
+  if (contentY + 1.0 <= calloutMaxY) {
+    const calloutH = Math.min(1.40, calloutMaxY - contentY);
+    
+    if (rightCallouts.length > 0) {
+      // 2-column: 투자 제안 + 추가 콜아웃
+      const coGap = 0.20;
+      const coW = L.col(2, coGap);
+      L.callout(slide, L.colX(0, coW, coGap), contentY + 0.10, coW, calloutH, 'info', '📌 투자 가치 제안', leadBody);
+      const rc = rightCallouts[0];
+      L.callout(slide, L.colX(1, coW, coGap), contentY + 0.10, coW, calloutH, rc.kind ?? 'info', rc.title ?? '', rc.body ?? '');
+    } else {
+      // 풀폭 콜아웃
+      L.callout(slide, M, contentY + 0.10, CW, calloutH, 'info', '📌 투자 가치 제안', leadBody);
+    }
+  }
+
   if (input.watermarkText) L.watermark(slide, input.watermarkText, false);
   L.foot(slide, input.slideNum, input.docno);
   return { slide, warnings };
