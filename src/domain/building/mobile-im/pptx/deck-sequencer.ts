@@ -117,7 +117,6 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     basicSequence.push(
       { archetype: 'A07', kicker: 'Risk', title: '리스크', dataKey: 'risk' },
       { archetype: 'A15', kicker: 'Thesis', title: '투자 논거', dataKey: 'thesis' },
-      { archetype: 'A09', kicker: 'Process', title: '다음 단계', dataKey: 'process' },
       { archetype: 'A10', kicker: 'Disclaimer', title: '표기 기준 및 면책', dataKey: 'closing' }
     );
     return basicSequence;
@@ -211,7 +210,6 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
 
   // ── 4. 공통 마감 (항상 마지막) ──
   sequence.push({ archetype: 'A07', kicker: 'Risk', title: '리스크', dataKey: 'risk' });
-  sequence.push({ archetype: 'A09', kicker: 'Process', title: '절차', dataKey: 'process' });
   sequence.push({ archetype: 'A10', kicker: 'Closing', title: '마감', dataKey: 'closing' });
 
   const active = sequence.filter(s => !s.suppress);
