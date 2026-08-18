@@ -149,7 +149,11 @@ export default function BrokerDealCardNewPage() {
           return; // 에러가 아닌 다이얼로그 표시
         }
 
-        throw new Error(json.error || json.message || "딜카드 생성에 실패했습니다.");
+        const errMsg = typeof json.error === 'string' ? json.error
+          : typeof json.message === 'string' ? json.message
+          : json.error ? JSON.stringify(json.error)
+          : "딜카드 생성에 실패했습니다.";
+        throw new Error(errMsg);
       }
 
       // Success
@@ -236,7 +240,11 @@ export default function BrokerDealCardNewPage() {
       }
 
       if (!res.ok || !json.ok) {
-        throw new Error((json.error as string) || (json.message as string) || "딜카드 생성에 실패했습니다.");
+        const errMsg = typeof json.error === 'string' ? json.error
+          : typeof json.message === 'string' ? json.message
+          : json.error ? JSON.stringify(json.error)
+          : "딜카드 생성에 실패했습니다.";
+        throw new Error(errMsg);
       }
 
       const data = json.data as Record<string, string>;
