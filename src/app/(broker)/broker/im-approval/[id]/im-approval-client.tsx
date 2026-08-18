@@ -432,10 +432,16 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                 {photos.map((photo, i) => (
                   <div key={i} className="space-y-1">
                     <div 
-                      className="w-full aspect-square rounded-lg overflow-hidden border border-neutral-800 bg-neutral-900 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                      className="w-full aspect-square rounded-lg overflow-hidden border border-neutral-800 bg-neutral-900 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all relative"
                       onClick={() => setLightboxIdx(i)}
                     >
                       <img src={photo.url} alt={photo.caption || `사진 ${i+1}`} className="w-full h-full object-cover" />
+                      {(photo as any).role === 'cover' && (
+                        <span className="absolute top-1 left-1 bg-amber-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold">📌 대표</span>
+                      )}
+                      {(photo as any).role === 'exterior' && (
+                        <span className="absolute top-1 left-1 bg-blue-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold">🏢 외관</span>
+                      )}
                     </div>
                     <input
                       value={photo.caption || ''}
@@ -444,6 +450,37 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                       placeholder={`사진 ${i+1} 캡션`}
                       className="w-full text-[10px] bg-neutral-950 border border-neutral-800 rounded px-1.5 py-1 text-neutral-300 placeholder-neutral-600 focus:outline-none focus:border-primary/50"
                     />
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); 
+                          const updated = photos.map((p, j) => ({
+                            ...p,
+                            role: j === i ? 'cover' : ((p as any).role === 'cover' ? 'general' : (p as any).role),
+                            isHero: j === i,
+                          }));
+                          setPhotos(updated as any);
+                          savePhotoCaptions();
+                        }}
+                        className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium transition-colors ${
+                          (photo as any).role === 'cover' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-neutral-800 text-neutral-500 hover:text-neutral-300'
+                        }`}
+                      >📌 대표</button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation();
+                          const updated = photos.map((p, j) => ({
+                            ...p,
+                            role: j === i ? ((p as any).role === 'exterior' ? 'general' : 'exterior') : ((p as any).role === 'exterior' ? 'general' : (p as any).role),
+                          }));
+                          setPhotos(updated as any);
+                          savePhotoCaptions();
+                        }}
+                        className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium transition-colors ${
+                          (photo as any).role === 'exterior' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-neutral-800 text-neutral-500 hover:text-neutral-300'
+                        }`}
+                      >🏢 외관</button>
+                    </div>
                   </div>
                 ))}
               </div>

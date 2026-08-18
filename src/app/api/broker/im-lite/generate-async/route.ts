@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
       occupancySpec: body.occupancySpec,
       sectionalSpec: body.sectionalSpec,
       residentialSpec: body.residentialSpec,
+      manual_comps: body.manual_comps,
     };
     hospitalitySpecInput = body.hospitalitySpec ?? null;
     loanStatusInput = body.loan_status ?? null;

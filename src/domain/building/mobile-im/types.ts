@@ -219,6 +219,21 @@ export interface MobileIMSupplementalInput {
     distance_to_ic_km?: number;          // 최근접 IC 거리 (km)
     ic_name?: string;                    // IC명
   };
+
+  /** Pro IM용 브로커 직접입력 유사 건물 실거래가 */
+  manual_comps?: ManualComparableInput[];
+}
+
+/** 브로커가 직접 입력한 유사 건물 실거래가 */
+export interface ManualComparableInput {
+  address: string;           // "서교동 395-12"
+  dealAmount: number;        // 거래금액 (만원 단위)
+  area: number;              // 연면적 (㎡)
+  dealYear: number;          // 거래년도
+  dealMonth: number;         // 거래월
+  buildingUse?: string;      // "근린생활시설" 등
+  floors?: number;           // 층수
+  memo?: string;             // 비고
 }
 
 export interface MobileIMSection {

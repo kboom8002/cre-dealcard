@@ -16,6 +16,7 @@ export interface TransformedPhoto {
   caption?: string;
   order?: number;
   isHero?: boolean;
+  role?: 'cover' | 'exterior' | 'general';  // 사용자 지정 역할 (PPTX 슬라이드 배치용)
 }
 
 /** 사진 카테고리별 공식 한글 명칭 */
@@ -121,6 +122,7 @@ export function resolvePhotos(supplemental?: MobileIMSupplementalInput | null): 
       isHero: p.isHero ?? (idx === 0),
       order: p.order ?? idx,
       caption: p.caption ?? supplemental.photo_captions?.[idx],
+      role: (p as any).role ?? (p.isHero ? 'cover' : undefined),
     }));
   }
 

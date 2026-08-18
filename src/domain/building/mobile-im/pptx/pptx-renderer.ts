@@ -283,7 +283,13 @@ export class MobileImPptxRenderer {
       const posture = (input.posture ?? 'income') as InvestmentPosture;
       const resolvedPhotos = resolvePhotos(input.doc.body as any);
       const gallerySpecs = planGallerySlides(resolvedPhotos, posture);
-      const heroPhoto = resolvedPhotos.find(p => p.isHero) || resolvedPhotos[0];
+      // role 기반 이미지 선택 (사용자 지정 → isHero → 첫 번째)
+      const heroPhoto = resolvedPhotos.find(p => (p as any).role === 'cover')
+        || resolvedPhotos.find(p => p.isHero)
+        || resolvedPhotos[0];
+      const exteriorPhoto = resolvedPhotos.find(p => (p as any).role === 'exterior')
+        || resolvedPhotos.find(p => p.category === 'exterior' || (p as any).type === 'exterior')
+        || heroPhoto;
 
       // ── 1. 덱 시퀀스 결정 ──
       const sequenceInput: DeckSequenceInput = {
@@ -338,6 +344,11 @@ export class MobileImPptxRenderer {
       if (dataMap['location']) {
         (dataMap['location'] as any).coordinates = input.doc.body?.coordinates ?? null;
         (dataMap['location'] as any).mapImageUrl = input.doc.body?.mapImageUrl ?? null;
+      }
+
+      // 건물 개요 슬라이드에 외관 사진 우선 사용
+      if (dataMap['building'] && exteriorPhoto) {
+        (dataMap['building'] as any).photoUrl = exteriorPhoto.url;
       }
 
       // 면책 조항과 provenance 배지 설명은 법적 고정 텍스트 (§10, §18)

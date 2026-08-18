@@ -267,6 +267,29 @@ export async function generateMobileIMHandler(
     }
   }
 
+  // ─── 수동 입력 실거래가 병합 (Pro IM용) ───
+  if (supplemental.manual_comps?.length) {
+    const manualAsComps = supplemental.manual_comps.map((mc: any) => ({
+      address: mc.address,
+      dealAmount: mc.dealAmount * 10000,  // 만원 → 원
+      area: mc.area,
+      dealYear: mc.dealYear,
+      dealMonth: mc.dealMonth,
+      dealDay: 1,
+      pricePerSqm: (mc.dealAmount * 10000) / mc.area,
+      pricePerPyeong: ((mc.dealAmount * 10000) / mc.area) * 3.30579,
+      buildingUse: mc.buildingUse || '상업용',
+      floors: mc.floors || 0,
+      _isManual: true,
+    }));
+    if (!externalData) externalData = {} as any;
+    externalData!.comparableTransactions = [
+      ...manualAsComps,
+      ...(externalData!.comparableTransactions || []),
+    ].slice(0, 15);
+    console.log('[im-handler] Merged manual comps:', manualAsComps.length, 'total:', externalData!.comparableTransactions?.length);
+  }
+
   // ─── 7섹션 AI 생성
   const writerResult = await generateMobileIM({
     building_ssot_lite: bssotFlat as any,

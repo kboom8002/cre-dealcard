@@ -188,7 +188,9 @@ export function ImDataBottomSheet({
   const [photoCaptions, setPhotoCaptions] = useState<Record<number, string>>({});
   const [photoCategories, setPhotoCategories] = useState<Record<number, string>>({ 0: 'exterior' });
   const [heroPhotoIndex, setHeroPhotoIndex] = useState<number>(0);
+  const [exteriorPhotoIndex, setExteriorPhotoIndex] = useState<number | null>(null);
   const [floorLeases, setFloorLeases] = useState<Array<{ floor: string; tenant_type?: string; deposit_manwon?: number; rent_manwon?: number; mgmt_fee_manwon?: number; is_vacant?: boolean; }>>([]);
+  const [manualComps, setManualComps] = useState<Array<{ address: string; dealAmount: string; area: string; dealYear: string; dealMonth: string; buildingUse: string; memo: string; }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [readinessScore, setReadinessScore] = useState(0);
@@ -458,6 +460,9 @@ export function ImDataBottomSheet({
           category: (photoCategories[idx] || (idx === 0 ? 'exterior' : 'interior')) as any,
           caption: photoCaptions[idx] || undefined,
           isHero: idx === heroPhotoIndex,
+          role: idx === heroPhotoIndex ? 'cover' 
+              : idx === exteriorPhotoIndex ? 'exterior' 
+              : 'general',
           order: idx,
         })),
         floor_leases: floorLeases.length > 0 ? floorLeases : undefined,
@@ -469,6 +474,17 @@ export function ImDataBottomSheet({
         occupancySpec,
         sectionalSpec,
         residentialSpec,
+        manual_comps: manualComps.length > 0 ? manualComps
+          .filter(mc => mc.address && Number(mc.dealAmount) > 0 && Number(mc.area) > 0)
+          .map(mc => ({
+            address: mc.address,
+            dealAmount: Number(mc.dealAmount),
+            area: Number(mc.area),
+            dealYear: Number(mc.dealYear) || new Date().getFullYear(),
+            dealMonth: Number(mc.dealMonth) || 1,
+            buildingUse: mc.buildingUse || undefined,
+            memo: mc.memo || undefined,
+          })) : undefined,
         tier: targetTier,
       };
 
@@ -945,6 +961,83 @@ export function ImDataBottomSheet({
               )}
             </div>
 
+            {/* 유사 건물 실거래가 (Pro IM 전용) */}
+            {stage === 'pro' && (
+            <div className="col-span-2 rounded-xl border border-border/40 bg-secondary/10 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-muted-foreground">📊 유사 건물 실거래가 (선택)</label>
+                {manualComps.length < 5 && (
+                  <button
+                    type="button"
+                    onClick={() => setManualComps(prev => [...prev, { address: '', dealAmount: '', area: '', dealYear: String(new Date().getFullYear()), dealMonth: String(new Date().getMonth() + 1), buildingUse: '근린생활시설', memo: '' }])}
+                    className="text-[10px] text-primary hover:text-primary/80 font-medium"
+                  >+ 사례 추가</button>
+                )}
+              </div>
+              {manualComps.length === 0 && (
+                <p className="text-[10px] text-muted-foreground/60">API 자동 조회 외에 직접 조사한 유사 실거래가를 추가하면 벤치마킹 정확도가 높아집니다.</p>
+              )}
+              {manualComps.map((comp, ci) => (
+                <div key={ci} className="rounded-lg border border-border/30 bg-background/50 p-2 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-muted-foreground">사례 {ci + 1}</span>
+                    <button type="button" onClick={() => setManualComps(prev => prev.filter((_, i) => i !== ci))} className="text-[10px] text-rose-400 hover:text-rose-300">삭제</button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <input
+                      value={comp.address}
+                      onChange={e => { const v = e.target.value; setManualComps(prev => prev.map((c, i) => i === ci ? { ...c, address: v } : c)); }}
+                      placeholder="주소 (예: 서교동 395-12)"
+                      className="col-span-2 text-[11px] px-2 py-1.5 rounded-lg border border-border/60 bg-secondary/30 text-foreground placeholder-muted-foreground/50 focus:border-primary/50 focus:outline-none"
+                    />
+                    <input
+                      type="number"
+                      value={comp.dealAmount}
+                      onChange={e => { const v = e.target.value; setManualComps(prev => prev.map((c, i) => i === ci ? { ...c, dealAmount: v } : c)); }}
+                      placeholder="거래가 (만원)"
+                      className="text-[11px] px-2 py-1.5 rounded-lg border border-border/60 bg-secondary/30 text-foreground placeholder-muted-foreground/50 focus:border-primary/50 focus:outline-none"
+                    />
+                    <input
+                      type="number"
+                      value={comp.area}
+                      onChange={e => { const v = e.target.value; setManualComps(prev => prev.map((c, i) => i === ci ? { ...c, area: v } : c)); }}
+                      placeholder="연면적 (㎡)"
+                      className="text-[11px] px-2 py-1.5 rounded-lg border border-border/60 bg-secondary/30 text-foreground placeholder-muted-foreground/50 focus:border-primary/50 focus:outline-none"
+                    />
+                    <div className="flex gap-1">
+                      <input
+                        type="number"
+                        value={comp.dealYear}
+                        onChange={e => { const v = e.target.value; setManualComps(prev => prev.map((c, i) => i === ci ? { ...c, dealYear: v } : c)); }}
+                        placeholder="년"
+                        className="w-1/2 text-[11px] px-2 py-1.5 rounded-lg border border-border/60 bg-secondary/30 text-foreground placeholder-muted-foreground/50 focus:border-primary/50 focus:outline-none"
+                      />
+                      <input
+                        type="number"
+                        value={comp.dealMonth}
+                        onChange={e => { const v = e.target.value; setManualComps(prev => prev.map((c, i) => i === ci ? { ...c, dealMonth: v } : c)); }}
+                        placeholder="월"
+                        className="w-1/2 text-[11px] px-2 py-1.5 rounded-lg border border-border/60 bg-secondary/30 text-foreground placeholder-muted-foreground/50 focus:border-primary/50 focus:outline-none"
+                      />
+                    </div>
+                    <select
+                      value={comp.buildingUse}
+                      onChange={e => { const v = e.target.value; setManualComps(prev => prev.map((c, i) => i === ci ? { ...c, buildingUse: v } : c)); }}
+                      className="text-[11px] px-2 py-1.5 rounded-lg border border-border/60 bg-secondary/30 text-foreground focus:border-primary/50 focus:outline-none"
+                    >
+                      <option value="근린생활시설">근린생활시설</option>
+                      <option value="업무시설">업무시설</option>
+                      <option value="판매시설">판매시설</option>
+                      <option value="숙박시설">숙박시설</option>
+                      <option value="공장">공장/물류</option>
+                      <option value="기타">기타</option>
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+            )}
+
             {/* Loan Amount */}
             {stage === 'pro' && (
             <div className="col-span-2">
@@ -1199,6 +1292,14 @@ export function ImDataBottomSheet({
                     </button>
                     <button
                       type="button"
+                      title="외관 사진으로 지정 (PPTX 개요 슬라이드)"
+                      onClick={() => setExteriorPhotoIndex(exteriorPhotoIndex === idx ? null : idx)}
+                      className={`absolute top-1 left-7 w-5 h-5 rounded-full flex items-center justify-center text-[8px] shadow transition-colors ${exteriorPhotoIndex === idx ? 'bg-blue-500 text-white' : 'bg-black/40 text-white/70 hover:bg-black/60'}`}
+                    >
+                      🏢
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => {
                         setExistingUrls(prev => prev.filter((_, i) => i !== idx));
                       }}
@@ -1246,6 +1347,14 @@ export function ImDataBottomSheet({
                         className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-xs shadow transition-colors ${heroPhotoIndex === totalIdx ? 'bg-amber-500 text-white' : 'bg-black/40 text-white/70 hover:bg-black/60'}`}
                       >
                         ★
+                      </button>
+                      <button
+                        type="button"
+                        title="외관 사진으로 지정 (PPTX 개요 슬라이드)"
+                        onClick={() => setExteriorPhotoIndex(exteriorPhotoIndex === totalIdx ? null : totalIdx)}
+                        className={`absolute top-1 left-7 w-5 h-5 rounded-full flex items-center justify-center text-[8px] shadow transition-colors ${exteriorPhotoIndex === totalIdx ? 'bg-blue-500 text-white' : 'bg-black/40 text-white/70 hover:bg-black/60'}`}
+                      >
+                        🏢
                       </button>
                       <button
                         type="button"
