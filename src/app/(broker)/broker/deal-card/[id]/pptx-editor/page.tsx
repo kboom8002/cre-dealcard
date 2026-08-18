@@ -156,9 +156,12 @@ export default function PptxEditorPage({ params }: { params: Promise<{ id: strin
     <div className="min-h-screen bg-[#0A1628] text-[#E7ECF2] flex flex-col font-sans">
       <header className="h-16 border-b border-slate-700/50 flex items-center px-6 bg-slate-900/50">
         <Link href={`/broker/deal-card/${id}`} className="text-slate-400 hover:text-white transition-colors mr-4">
-          ← 딜카드로
+          ← IM 관리로
         </Link>
         <h1 className="text-lg font-bold">PPTX 템플릿 에디터</h1>
+        <span className="ml-auto text-sm text-amber-400/80">
+          현재: {tokens.presetName || selectedPresetId}
+        </span>
       </header>
 
       <main className="flex-1 flex overflow-hidden">

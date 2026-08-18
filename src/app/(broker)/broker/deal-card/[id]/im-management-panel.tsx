@@ -17,6 +17,14 @@ interface ImDocument {
   tier: 'basic' | 'pro';
 }
 
+const PRESET_SWATCHES: Record<string, { accent: string; name: string }> = {
+  credeal_signature: { accent: '#6B8E00', name: 'CREDEAL Signature' },
+  golden_institutional: { accent: '#B98A2E', name: 'Golden Institutional' },
+  executive_gold: { accent: '#B8862D', name: 'Executive Gold' },
+  corporate_clean: { accent: '#059669', name: 'Corporate Clean' },
+  pro_dark_obsidian: { accent: '#0284A8', name: 'Pro Dark Obsidian' },
+};
+
 export function ImManagementPanel({
   buildingId,
   currentGrade,
@@ -293,22 +301,45 @@ export function ImManagementPanel({
         </div>
         
         {basicDoc ? (
-          <div className="flex flex-wrap gap-2 mt-2">
-            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => window.open(`/im-lite/${buildingId}`, '_blank')}>
-              👁 열기
-            </Button>
-            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('export')} disabled={!!isExporting}>
-              {isExporting === 'pdf' ? '⏳ 생성중...' : exportDone === 'pdf' ? '✅ 완료' : '📄 PDF'}
-            </Button>
-            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('pptx')} disabled={!!isExporting}>
-              {isExporting === 'pptx' ? '⏳ 생성중...' : exportDone === 'pptx' ? '✅ 완료' : '📊 PPTX'}
-            </Button>
-            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleCopyLink('basic')}>
-              🔗 링크복사
-            </Button>
-            <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => handleGenerateIM('basic')}>
-              ♻️ 재생성
-            </Button>
+          <div className="space-y-2 mt-2">
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full flex-shrink-0 border border-border" style={{ background: PRESET_SWATCHES[selectedPreset]?.accent ?? '#6B8E00' }} />
+              <select 
+                value={selectedPreset}
+                onChange={(e) => setSelectedPreset(e.target.value)}
+                className="flex-1 h-7 rounded-md border border-border bg-background text-[11px] px-2 focus:ring-1 focus:ring-blue-500 outline-none"
+              >
+                {Object.entries(PRESET_SWATCHES).map(([id, s]) => (
+                  <option key={id} value={id}>{s.name}</option>
+                ))}
+                {presets.map((p: any) => (
+                  <option key={p.id} value={p.id}>🎨 {p.preset_name ?? p.name} (커스텀)</option>
+                ))}
+              </select>
+              <Link 
+                href={`/broker/deal-card/${buildingId}/pptx-editor`}
+                className="text-[10px] text-amber-500 hover:text-amber-400 whitespace-nowrap"
+              >
+                ✏️ 편집
+              </Link>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => window.open(`/im-lite/${buildingId}`, '_blank')}>
+                👁 열기
+              </Button>
+              <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('export')} disabled={!!isExporting}>
+                {isExporting === 'pdf' ? '⏳ 생성중...' : exportDone === 'pdf' ? '✅ 완료' : '📄 PDF'}
+              </Button>
+              <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('pptx')} disabled={!!isExporting}>
+                {isExporting === 'pptx' ? '⏳ 생성중...' : exportDone === 'pptx' ? '✅ 완료' : '📊 PPTX'}
+              </Button>
+              <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleCopyLink('basic')}>
+                🔗 링크복사
+              </Button>
+              <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => handleGenerateIM('basic')}>
+                ♻️ 재생성
+              </Button>
+            </div>
           </div>
         ) : (
           <Button size="sm" className="mt-2 h-8 w-full bg-slate-800 hover:bg-slate-700 text-white" onClick={() => handleGenerateIM('basic')}>
@@ -352,22 +383,45 @@ export function ImManagementPanel({
             </Link>
           </div>
         ) : proDoc ? (
-          <div className="flex flex-wrap gap-2 mt-2">
-            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => window.open(`/im-pro/${buildingId}`, '_blank')}>
-              👁 열기
-            </Button>
-            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('export')} disabled={!!isExporting}>
-              {isExporting === 'pdf' ? '⏳ 생성중...' : exportDone === 'pdf' ? '✅ 완료' : '📄 PDF'}
-            </Button>
-            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('pptx')} disabled={!!isExporting}>
-              {isExporting === 'pptx' ? '⏳ 생성중...' : exportDone === 'pptx' ? '✅ 완료' : '📊 PPTX'}
-            </Button>
-            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleCopyLink('pro')}>
-              🔗 링크복사
-            </Button>
-            <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => handleGenerateIM('pro')}>
-              ♻️ 재생성
-            </Button>
+          <div className="space-y-2 mt-2">
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full flex-shrink-0 border border-border" style={{ background: PRESET_SWATCHES[selectedPreset]?.accent ?? '#6B8E00' }} />
+              <select 
+                value={selectedPreset}
+                onChange={(e) => setSelectedPreset(e.target.value)}
+                className="flex-1 h-7 rounded-md border border-border bg-background text-[11px] px-2 focus:ring-1 focus:ring-blue-500 outline-none"
+              >
+                {Object.entries(PRESET_SWATCHES).map(([id, s]) => (
+                  <option key={id} value={id}>{s.name}</option>
+                ))}
+                {presets.map((p: any) => (
+                  <option key={p.id} value={p.id}>🎨 {p.preset_name ?? p.name} (커스텀)</option>
+                ))}
+              </select>
+              <Link 
+                href={`/broker/deal-card/${buildingId}/pptx-editor`}
+                className="text-[10px] text-amber-500 hover:text-amber-400 whitespace-nowrap"
+              >
+                ✏️ 편집
+              </Link>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => window.open(`/im-pro/${buildingId}`, '_blank')}>
+                👁 열기
+              </Button>
+              <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('export')} disabled={!!isExporting}>
+                {isExporting === 'pdf' ? '⏳ 생성중...' : exportDone === 'pdf' ? '✅ 완료' : '📄 PDF'}
+              </Button>
+              <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('pptx')} disabled={!!isExporting}>
+                {isExporting === 'pptx' ? '⏳ 생성중...' : exportDone === 'pptx' ? '✅ 완료' : '📊 PPTX'}
+              </Button>
+              <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleCopyLink('pro')}>
+                🔗 링크복사
+              </Button>
+              <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => handleGenerateIM('pro')}>
+                ♻️ 재생성
+              </Button>
+            </div>
           </div>
         ) : (
           <Button size="sm" className="mt-2 h-8 w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:opacity-90 text-white font-bold" onClick={() => handleGenerateIM('pro')}>
@@ -376,51 +430,6 @@ export function ImManagementPanel({
         )}
       </div>
 
-      {/* Export Controls */}
-      <div className="pt-3 border-t border-border space-y-3">
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-medium w-16">프리셋</label>
-          <select 
-            value={selectedPreset}
-            onChange={(e) => setSelectedPreset(e.target.value)}
-            className="flex-1 h-8 rounded-md border border-border bg-background text-xs px-2 focus:ring-1 focus:ring-blue-500 outline-none"
-          >
-            <option value="credeal_signature">CRE Deal Signature (기본)</option>
-            <option value="golden_institutional">Golden Institutional</option>
-            <option value="executive_gold">Executive Gold</option>
-            <option value="corporate_clean">Corporate Clean</option>
-            <option value="pro_dark_obsidian">Pro Dark Obsidian</option>
-            {presets.map((p: any) => (
-              <option key={p.id} value={p.id}>🎨 {p.preset_name ?? p.name} (커스텀)</option>
-            ))}
-          </select>
-          <Link 
-            href={`/broker/deal-card/${buildingId}/pptx-editor`}
-            className="text-xs text-amber-400 hover:text-amber-300 border border-amber-400/30 hover:border-amber-400/60 px-2 py-1 rounded transition-colors"
-          >
-            ✏️ 템플릿 편집
-          </Link>
-        </div>
-        
-        <div className="flex gap-2">
-          <Button 
-            className="flex-1 text-xs h-9 font-medium" 
-            variant="outline"
-            disabled={!basicDoc && !proDoc}
-            onClick={() => handleExport('export')}
-          >
-            📄 현재 등급 PDF 다운로드
-          </Button>
-          <Button 
-            className="flex-1 text-xs h-9 font-medium" 
-            variant="outline"
-            disabled={!basicDoc && !proDoc}
-            onClick={() => handleExport('pptx')}
-          >
-            📊 현재 등급 PPTX 다운로드
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }
