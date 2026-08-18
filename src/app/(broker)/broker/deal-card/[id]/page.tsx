@@ -206,7 +206,10 @@ export default async function BrokerDealCardResultPage({
   const extractedAddress = rawAddressCandidate
     || regexAddr1
     || regexAddr2
-    || looksLikeRealAddress(layers?.location?.address)
+    || attrsAddress
+    || layers?.location?.address
+    || building.area_signal
+    || attrsAreaSignal
     || "";
 
   // PNU 추출: assets.pnu → attrs.pnu → layers.pnu → layers.location.pnu
