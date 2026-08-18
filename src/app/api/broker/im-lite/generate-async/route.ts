@@ -214,12 +214,9 @@ export async function POST(req: NextRequest) {
             if (investmentPostureInput) {
               updatePayload.investment_posture = investmentPostureInput;
             }
-            // 주소/PNU를 top-level 컬럼에도 역류 저장
+            // 주소를 top-level raw_address 컬럼에도 역류 저장
             if (supplemental.resolved_address) {
               updatePayload.raw_address = supplemental.resolved_address;
-            }
-            if (supplemental.resolved_pnu) {
-              updatePayload.pnu = supplemental.resolved_pnu;
             }
 
             await bgSupabase.from("building_ssot_lite").update(updatePayload).eq("id", buildingId);

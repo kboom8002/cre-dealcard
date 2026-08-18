@@ -136,7 +136,6 @@ export async function brokerDealCardFromMemo(
     await buildingRepo.updateBuildingSsotLite(building.id, {
       raw_input: input.memo,
       raw_address: exactAddress || null,
-      pnu: resolvedAddr.pnu || null,
       area_signal: buildingTruth.areaSignal,
       asset_type: buildingTruth.assetType,
       price_band: buildingTruth.priceBand,
@@ -159,7 +158,6 @@ export async function brokerDealCardFromMemo(
       input_type: "broker_memo",
       raw_input: input.memo,
       raw_address: exactAddress || null,
-      pnu: resolvedAddr.pnu || null,
       area_signal: buildingTruth.areaSignal,
       asset_type: buildingTruth.assetType,
       price_band: buildingTruth.priceBand,
