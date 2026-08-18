@@ -130,6 +130,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
     Array.isArray((content as any)?.hidden_sections) ? (content as any).hidden_sections : []
   );
   const [hiddenSections, setHiddenSections] = useState<Set<string>>(initialHidden);
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
   // 사진 캡션
   const [photos, setPhotos] = useState<Array<{ url: string; caption?: string; order?: number }>>(
@@ -427,22 +428,74 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
         {photos.length > 0 && (
           <div className="mb-4">
             <h3 className="text-xs font-semibold text-neutral-400 mb-2">📷 사진 ({photos.length}장) — 캡션을 입력하면 공개 IM에 표시됩니다</h3>
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-              {photos.map((photo, i) => (
-                <div key={i} className="space-y-1">
-                  <div className="w-full aspect-square rounded-lg overflow-hidden border border-neutral-800 bg-neutral-900">
-                    <img src={photo.url} alt={photo.caption || `사진 ${i+1}`} className="w-full h-full object-cover" />
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {photos.map((photo, i) => (
+                  <div key={i} className="space-y-1">
+                    <div 
+                      className="w-full aspect-square rounded-lg overflow-hidden border border-neutral-800 bg-neutral-900 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                      onClick={() => setLightboxIdx(i)}
+                    >
+                      <img src={photo.url} alt={photo.caption || `사진 ${i+1}`} className="w-full h-full object-cover" />
+                    </div>
+                    <input
+                      value={photo.caption || ''}
+                      onChange={(e) => updatePhotoCaption(i, e.target.value)}
+                      onBlur={savePhotoCaptions}
+                      placeholder={`사진 ${i+1} 캡션`}
+                      className="w-full text-[10px] bg-neutral-950 border border-neutral-800 rounded px-1.5 py-1 text-neutral-300 placeholder-neutral-600 focus:outline-none focus:border-primary/50"
+                    />
                   </div>
-                  <input
-                    value={photo.caption || ''}
-                    onChange={(e) => updatePhotoCaption(i, e.target.value)}
-                    onBlur={savePhotoCaptions}
-                    placeholder={`사진 ${i+1} 캡션`}
-                    className="w-full text-[10px] bg-neutral-950 border border-neutral-800 rounded px-1.5 py-1 text-neutral-300 placeholder-neutral-600 focus:outline-none focus:border-primary/50"
-                  />
+                ))}
+              </div>
+
+              {/* 라이트박스 오버레이 */}
+              {lightboxIdx !== null && (
+                <div 
+                  className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+                  onClick={() => setLightboxIdx(null)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') setLightboxIdx(null);
+                    if (e.key === 'ArrowLeft') setLightboxIdx(prev => prev !== null && prev > 0 ? prev - 1 : prev);
+                    if (e.key === 'ArrowRight') setLightboxIdx(prev => prev !== null && prev < photos.length - 1 ? prev + 1 : prev);
+                  }}
+                  tabIndex={0}
+                  ref={(el) => el?.focus()}
+                >
+                  {/* 닫기 버튼 */}
+                  <button 
+                    className="absolute top-4 right-4 text-white/70 hover:text-white text-2xl z-10"
+                    onClick={() => setLightboxIdx(null)}
+                  >✕</button>
+
+                  {/* 좌측 화살표 */}
+                  {lightboxIdx > 0 && (
+                    <button 
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-4xl font-light z-10 w-12 h-12 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60"
+                      onClick={(e) => { e.stopPropagation(); setLightboxIdx(lightboxIdx - 1); }}
+                    >‹</button>
+                  )}
+
+                  {/* 이미지 */}
+                  <div className="max-w-[85vw] max-h-[85vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+                    <img 
+                      src={photos[lightboxIdx].url} 
+                      alt={photos[lightboxIdx].caption || `사진 ${lightboxIdx + 1}`}
+                      className="max-w-full max-h-[80vh] object-contain rounded-lg"
+                    />
+                    <p className="text-neutral-400 text-sm mt-2">
+                      {photos[lightboxIdx].caption || `사진 ${lightboxIdx + 1}`} ({lightboxIdx + 1}/{photos.length})
+                    </p>
+                  </div>
+
+                  {/* 우측 화살표 */}
+                  {lightboxIdx < photos.length - 1 && (
+                    <button 
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-4xl font-light z-10 w-12 h-12 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60"
+                      onClick={(e) => { e.stopPropagation(); setLightboxIdx(lightboxIdx + 1); }}
+                    >›</button>
+                  )}
                 </div>
-              ))}
-            </div>
+              )}
           </div>
         )}
 

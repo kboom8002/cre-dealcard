@@ -156,9 +156,13 @@ export function ImManagementPanel({
   };
 
   // 내보내기 진행률 핸들러 (IM-3)
+  const [isExporting, setIsExporting] = useState<string | null>(null); // 'pdf' | 'pptx' | null
+  const [exportDone, setExportDone] = useState<string | null>(null);
   const handleExport = async (format: 'export' | 'pptx') => {
     const tier = proDoc ? 'pro' : 'basic';
     const ext = format === 'export' ? 'pdf' : 'pptx';
+    setIsExporting(ext);
+    setExportDone(null);
     const toastId = toast.loading(`${ext.toUpperCase()} 문서를 생성 중입니다...`);
     try {
       const url = `/api/public/im-lite/${buildingId}/${format}?tier=${tier}&preset=${selectedPreset}`;
@@ -174,12 +178,16 @@ export function ImManagementPanel({
       a.remove();
       URL.revokeObjectURL(blobUrl);
       toast.success(`${ext.toUpperCase()} 다운로드가 완료되었습니다.`, { id: toastId });
+      setExportDone(ext);
+      setTimeout(() => setExportDone(null), 3000);
     } catch {
       toast.error(`${ext.toUpperCase()} 생성 중 오류가 발생했습니다.`, { id: toastId });
+    } finally {
+      setIsExporting(null);
     }
   };
 
-  const isProLocked = currentGrade === 'D' || currentGrade === 'C';
+  const isProLocked = currentGrade === 'C';
 
   if (isLoading) {
     return (
@@ -289,11 +297,11 @@ export function ImManagementPanel({
             <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => window.open(`/im-lite/${buildingId}`, '_blank')}>
               👁 열기
             </Button>
-            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('export')}>
-              📄 PDF
+            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('export')} disabled={!!isExporting}>
+              {isExporting === 'pdf' ? '⏳ 생성중...' : exportDone === 'pdf' ? '✅ 완료' : '📄 PDF'}
             </Button>
-            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('pptx')}>
-              📊 PPTX
+            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('pptx')} disabled={!!isExporting}>
+              {isExporting === 'pptx' ? '⏳ 생성중...' : exportDone === 'pptx' ? '✅ 완료' : '📊 PPTX'}
             </Button>
             <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleCopyLink('basic')}>
               🔗 링크복사
@@ -348,11 +356,11 @@ export function ImManagementPanel({
             <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => window.open(`/im-pro/${buildingId}`, '_blank')}>
               👁 열기
             </Button>
-            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('export')}>
-              📄 PDF
+            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('export')} disabled={!!isExporting}>
+              {isExporting === 'pdf' ? '⏳ 생성중...' : exportDone === 'pdf' ? '✅ 완료' : '📄 PDF'}
             </Button>
-            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('pptx')}>
-              📊 PPTX
+            <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('pptx')} disabled={!!isExporting}>
+              {isExporting === 'pptx' ? '⏳ 생성중...' : exportDone === 'pptx' ? '✅ 완료' : '📊 PPTX'}
             </Button>
             <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleCopyLink('pro')}>
               🔗 링크복사

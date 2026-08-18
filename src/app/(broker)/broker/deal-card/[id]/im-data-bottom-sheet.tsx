@@ -643,8 +643,8 @@ export function ImDataBottomSheet({
     }
   };
 
-  // 주소+월세 없이도 시도 가능하도록 UI 임계값을 40점으로 완화
-  const isProValid = currentDataGrade === 'A' || currentDataGrade === 'B' || readinessScore >= 75;
+  // Pro IM은 A등급 이상에서만 가능
+  const isProValid = currentDataGrade === 'A' || readinessScore >= 75;
   const hasRequiredFields = computedMissingFields.length === 0;
   const canGenerate = stage === 'basic' ? hasRequiredFields : (isProValid && hasRequiredFields);
 
@@ -1852,8 +1852,7 @@ export function ImDataBottomSheet({
               <span className="text-xs font-bold text-foreground">데이터 등급</span>
               <span className={`text-sm font-bold ${
                 currentDataGrade === 'A' ? 'text-emerald-500' :
-                currentDataGrade === 'B' ? 'text-blue-500' :
-                currentDataGrade === 'C' ? 'text-amber-500' : 'text-red-500'
+                currentDataGrade === 'B' ? 'text-blue-500' : 'text-amber-500'
               }`}>
                 {currentDataGrade ? `${currentDataGrade}등급` : `${readinessScore}점`}
               </span>
@@ -1862,10 +1861,9 @@ export function ImDataBottomSheet({
               <div
                 className={`h-2 rounded-full transition-all duration-500 ${
                   currentDataGrade === 'A' ? 'bg-emerald-500' :
-                  currentDataGrade === 'B' ? 'bg-blue-500' :
-                  currentDataGrade === 'C' ? 'bg-amber-500' : 'bg-red-500'
+                  currentDataGrade === 'B' ? 'bg-blue-500' : 'bg-amber-500'
                 }`}
-                style={{ width: `${currentDataGrade === 'A' ? 100 : currentDataGrade === 'B' ? 75 : currentDataGrade === 'C' ? 50 : readinessScore}%` }}
+                style={{ width: `${currentDataGrade === 'A' ? 100 : currentDataGrade === 'B' ? 66 : 33}%` }}
               />
             </div>
             {/* 포스처별 누락 필드 안내 */}
@@ -1908,22 +1906,22 @@ export function ImDataBottomSheet({
             {/* IM 유형별 작성 가능 여부 */}
             <div className="flex items-center gap-2 mt-2">
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                currentDataGrade === 'D' 
-                  ? 'bg-red-500/15 text-red-500' 
+                currentDataGrade === 'C' 
+                  ? 'bg-amber-500/15 text-amber-500' 
                   : 'bg-emerald-500/15 text-emerald-500'
               }`}>
-                {currentDataGrade === 'D' ? '🔴 Basic IM: 데이터 부족' : '🟢 Basic IM: 작성 가능'}
+                {currentDataGrade === 'C' ? '⚠️ Basic IM: 데이터 보강 권장' : '🟢 Basic IM: 작성 가능'}
               </span>
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                currentDataGrade === 'A' || currentDataGrade === 'B'
+                currentDataGrade === 'A'
                   ? 'bg-emerald-500/15 text-emerald-500'
                   : 'bg-red-500/15 text-red-500'
               }`}>
-                {currentDataGrade === 'A' || currentDataGrade === 'B' ? '🟢 Pro IM: 작성 가능' : '🔴 Pro IM: B등급 이상 필요'}
+                {currentDataGrade === 'A' ? '🟢 Pro IM: 작성 가능' : '🔴 Pro IM: A등급 필요'}
               </span>
             </div>
-            {stage === 'pro' && (currentDataGrade === 'D' || currentDataGrade === 'C') && (
-              <p className="text-[10px] text-red-500 mt-1">⚠ 현재 {currentDataGrade}등급: Pro IM은 B등급 이상부터 생성 가능합니다. 렌트롤·면적·가격 데이터를 입력하면 등급이 올라갑니다.</p>
+            {stage === 'pro' && currentDataGrade !== 'A' && (
+              <p className="text-[10px] text-red-500 mt-1">⚠ 현재 {currentDataGrade}등급: Pro IM은 A등급부터 생성 가능합니다. 렌트롤·면적·가격 데이터를 입력하면 등급이 올라갑니다.</p>
             )}
           </div>
 

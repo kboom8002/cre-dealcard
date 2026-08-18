@@ -127,17 +127,18 @@ export async function generateMobileIMHandler(
   console.log('[im-handler] gradeResult:', gradeResult.grade, gradeResult.scorePct, 'directData present:', !!directData);
 
   if (directData?.qualityGrade) {
-    gradeResult.grade = directData.qualityGrade as 'A' | 'B' | 'C' | 'D';
+    const rawGrade = directData.qualityGrade as string;
+    gradeResult.grade = (rawGrade === 'D' ? 'C' : rawGrade) as 'A' | 'B' | 'C';
     console.log('[im-handler] Overriding grade with directData.qualityGrade:', gradeResult.grade);
   }
 
   // ─── Tier-based Gating ───
   if (tier === 'pro') {
-    if (gradeResult.grade === 'C' || gradeResult.grade === 'D' || (gradeResult.scorePct !== undefined && gradeResult.scorePct < 60)) {
+    if (gradeResult.grade !== 'A' || (gradeResult.scorePct !== undefined && gradeResult.scorePct < 60)) {
       console.log('[im-handler] Blocked by Pro Tier requirements:', JSON.stringify({grade: gradeResult.grade, scorePct: gradeResult.scorePct}));
       return {
         ok: false,
-        error: 'Pro IM은 B등급(완성도 60%) 이상의 데이터가 필요합니다.',
+        error: 'Pro IM은 A등급(완성도 75%) 이상의 데이터가 필요합니다.',
         statusCode: 422,
       };
     }
@@ -396,7 +397,7 @@ export async function generateMobileIMHandler(
         buildingRegister: externalDataStatus === 'loaded' || externalDataStatus === 'partial',
         buildingRegisterSource: externalDataStatus,
         qualityGrade: gradeResult.grade,
-        pptxExportAllowed: externalDataStatus !== 'failed' && externalDataStatus !== 'skipped' && gradeResult.grade !== 'D',
+        pptxExportAllowed: externalDataStatus !== 'failed' && externalDataStatus !== 'skipped',
         generatedAt: new Date().toISOString(),
       },
       // 신규 writer 출력: heroCard, photos (기존 writer 미지원 시 undefined → JSON에서 제외)

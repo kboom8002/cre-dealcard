@@ -137,22 +137,22 @@ export function computeDataQualityBadge(params: {
     return { tier: 'reference', label: 'C등급 — 건물 정보만', emoji: '🟠', score, missingItems };
   }
   // D등급: 데이터 보충 필요
-  return { tier: 'draft', label: 'D등급 — 데이터 보충 필요', emoji: '🔴', score, missingItems };
+  return { tier: 'draft', label: 'C등급 — 데이터 보강 권장', emoji: '⚠️', score, missingItems };
 }
 
 // ── Basic/Pro tier 게이트 ──
 
 export type ImTier = 'basic' | 'pro';
-export type DataGrade = 'A' | 'B' | 'C' | 'D';
+export type DataGrade = 'A' | 'B' | 'C';
 
 /** 해당 등급에서 사용 가능한 최소 tier */
 export function minimumTierForGrade(grade: DataGrade): ImTier {
   return 'basic';
 }
 
-/** Pro IM 생성 가능 여부 (B등급 이상) */
+/** Pro IM 생성 가능 여부 (A등급만) */
 export function isProEligible(grade: DataGrade): boolean {
-  return grade === 'A' || grade === 'B';
+  return grade === 'A';
 }
 
 export function hasMinimumBasicData(
@@ -180,13 +180,13 @@ export function hasMinimumBasicData(
   return !!params.hasAskingPrice || !!params.hasMonthlyRent || !!params.hasAddress || !!params.hasPublicData;
 }
 
-/** DataQualityTier → DataGrade 변환 */
+/** DataQualityTier → DataGrade 변환 (3-tier) */
 export function tierToGrade(tier: DataQualityTier): DataGrade {
   switch (tier) {
     case 'verified': return 'A';
     case 'partial': return 'B';
     case 'reference': return 'C';
-    case 'draft': return 'D';
+    case 'draft': return 'C';  // draft도 C등급으로 통합
   }
 }
 

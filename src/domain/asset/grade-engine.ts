@@ -14,10 +14,10 @@ import { gradeProfile, effectiveWeights } from '@/domain/ontology';
  * Data grade for an asset based on slot coverage.
  * A is highest, D is lowest.
  */
-export type DataGrade = 'A' | 'B' | 'C' | 'D';
+export type DataGrade = 'A' | 'B' | 'C';
 
 export interface GradeAdvice {
-  current: { score: number; grade: 'A' | 'B' | 'C' | 'D' };
+  current: { score: number; grade: 'A' | 'B' | 'C' };
   nextGrade: 'A' | 'B' | 'C';
   actions: Array<{
     slotGroup: string;
@@ -238,15 +238,13 @@ export function computeDataGrade(
 
   const scorePct = totalNewWeight > 0 ? Math.round((earnedNewWeight / totalNewWeight) * 100) : 0;
 
-  let grade: DataGrade = 'D';
-  if (scorePct >= 85) {
+  let grade: DataGrade = 'C';
+  if (scorePct >= 75) {
     grade = 'A';
-  } else if (scorePct >= 65) {
-    grade = 'B';
   } else if (scorePct >= 40) {
-    grade = 'C';
+    grade = 'B';
   } else {
-    grade = 'D';
+    grade = 'C';
   }
 
   // Next grade logic
@@ -254,7 +252,6 @@ export function computeDataGrade(
   if (grade === 'A') nextGrade = 'A';
   else if (grade === 'B') nextGrade = 'A';
   else if (grade === 'C') nextGrade = 'B';
-  else if (grade === 'D') nextGrade = 'C';
 
   // Compute actions for GradeAdvice (using dummy effortMinutes)
   const actions = missingCategories
@@ -274,10 +271,10 @@ export function computeDataGrade(
     actions,
   };
 
-  // Grade-based feature gating
-  const blockPublish = scorePct < 40;
-  const suppressTotalReturn = scorePct >= 40 && scorePct < 65;
-  const suppressDcf = scorePct >= 65 && scorePct < 85;
+  // Grade-based feature gating (3-tier)
+  const blockPublish = false; // C등급도 경고만 표시, 발행 차단 안 함
+  const suppressTotalReturn = grade === 'C';
+  const suppressDcf = grade === 'B';
 
   return {
     grade,
