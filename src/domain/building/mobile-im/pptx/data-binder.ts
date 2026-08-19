@@ -340,7 +340,16 @@ function buildA13Props(markdown: string, tables: ParsedTable[], lines: string[])
 function buildA15Props(markdown: string, tables: ParsedTable[], lines: string[]): Record<string, any> {
   const subtitle = lines.find(l => l.startsWith('#'))?.replace(/^#+\s*/, '') || '';
   const listLines = lines.filter(l => l.match(/^\d+[.、)]\s*/) || l.startsWith('-') || l.startsWith('•'));
-  const narrativeLines = lines.filter(l => !l.startsWith('#') && !l.match(/^\d+[.、)]\s*/) && !l.startsWith('-') && !l.startsWith('•'));
+  
+  // 주석, 표, 단순 수치 통계 나열 행을 제외한 요약 서술 라인 추출
+  const narrativeLines = lines.filter(l => {
+    const trimmed = l.trim();
+    if (!trimmed) return false;
+    if (trimmed.startsWith('#') || trimmed.startsWith('|')) return false;
+    if (trimmed.match(/^\d+[.、)]\s*/) || trimmed.startsWith('-') || trimmed.startsWith('•')) return false;
+    if (trimmed.includes('인근 실거래 비교 사례') || trimmed.includes('최근 인근 실거래 기준')) return false;
+    return true;
+  });
 
   const pillars = listLines.map((l, idx) => {
     const stripped = l.replace(/^\d+[.、)]\s*/, '').replace(/^[-•·]\s*/, '').trim();
@@ -354,8 +363,18 @@ function buildA15Props(markdown: string, tables: ParsedTable[], lines: string[])
     };
   });
 
-  const takeaway = narrativeLines.map(l => stripMarkdown(l)).filter(Boolean).join(' ') ||
-    '본 자산은 우수한 입지 경쟁력과 견고한 펀더멘털을 기반으로 중장기 자산 가치 상승 및 안정적인 현금흐름을 동시에 기대할 수 있는 우량 투자 기회입니다.';
+  // 전문가 한줄 의견이 있으면 단독 우선 채택
+  const brokerQuoteLine = lines.find(l => l.includes('전문가 한줄 의견') || l.includes('전문가 의견'));
+  let takeaway = '';
+  if (brokerQuoteLine) {
+    takeaway = stripMarkdown(brokerQuoteLine.replace(/^>\s*/, '')).trim();
+  } else if (narrativeLines.length > 0) {
+    takeaway = narrativeLines.map(l => stripMarkdown(l)).filter(Boolean).slice(0, 1).join(' ');
+  }
+
+  if (!takeaway || takeaway.length < 10) {
+    takeaway = '본 자산은 우수한 입지 경쟁력과 견고한 펀더멘털을 기반으로 중장기 자산 가치 상승 및 안정적인 현금흐름을 동시에 기대할 수 있는 우량 투자 기회입니다.';
+  }
 
   return {
     subtitle: stripMarkdown(subtitle),

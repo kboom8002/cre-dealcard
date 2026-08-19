@@ -347,13 +347,20 @@ ${tableRows}
 
     // ─── 섹션 6: 투자 포인트 ────────────────────────────────────────────────
     case "investment_thesis": {
-      const compsCount    = comps?.length || 0;
+      // 비정상 이상치 및 면적 누락 건 필터링
+      const validComps = comps?.filter(c => c.pricePerPyeong >= 500_000 && c.pricePerPyeong <= 500_000_000 && c.area > 0) || [];
+      const compsCount = validComps.length;
       const avgPyeongPrice = compsCount > 0
-        ? Math.round(comps!.reduce((acc, c) => acc + c.pricePerPyeong, 0) / compsCount)
+        ? Math.round(validComps.reduce((acc, c) => acc + c.pricePerPyeong, 0) / compsCount)
         : 0;
 
+      const pyeongManwon = Math.round(avgPyeongPrice / 10000);
+      const pyeongFormatted = pyeongManwon >= 10000
+        ? `${(pyeongManwon / 10000).toFixed(1)}억`
+        : `${pyeongManwon.toLocaleString()}만`;
+
       const compsLine = avgPyeongPrice > 0
-        ? `\n인근 실거래 비교 사례 **${compsCount}건** 기준 평균 평당가 **약 ${avgPyeongPrice.toLocaleString()}원**으로, 본 자산과 비교 검토할 수 있습니다.\n`
+        ? `\n인근 실거래 비교 사례 **${compsCount}건** 기준 평균 평당가 **약 ${pyeongFormatted}원/평**(${avgPyeongPrice.toLocaleString()}원)으로, 본 자산과 비교 검토할 수 있습니다.\n`
         : "";
 
       const fitSummary = String(buyerFit.fit_summary ?? "");
@@ -379,7 +386,7 @@ ${tableRows}
       let benchmarkBlock = "";
       if (compsCount > 0 && purchasePrice > 0 && totalArea > 0) {
         try {
-          const compsAsListings = comps!.map(c => ({
+          const compsAsListings = validComps.map(c => ({
             source: "기타" as const,
             title: c.address,
             priceKrw: c.pricePerPyeong * c.area / 3.30578,

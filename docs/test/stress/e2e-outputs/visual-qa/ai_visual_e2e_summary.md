@@ -1,6 +1,6 @@
 # 🏢 AI 시각 E2E 검수 요약 리포트 (대표 2개 케이스)
 
-> **검수 일시**: 2026-08-16T04:59:02.882Z  
+> **검수 일시**: 2026-08-19T04:04:34.661Z  
 > **검수 범위**: 딜카드 데이터 주입 → PPTX 인메모리 생성 → OpenXML 결함 검사 → LibreOffice+PyMuPDF 슬라이드별 고화질 캡처 → AI 시각 무결성 판정
 
 ---
@@ -9,12 +9,12 @@
 
 | 케이스 ID | 포스처 | 슬라이드 수 | 파일 크기 | XML 결함 | 최종 판정 |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **case01_seocho_medical** | `income` | 10장 | 576.9 KB | 0건 | ✅ **PASS** |
-| **case02_seongsu_hq** | `owner_occupied` | 10장 | 573.0 KB | 0건 | ✅ **PASS** |
-| **case03_yeoksam_dev** | `development` | 10장 | 581.0 KB | 0건 | ✅ **PASS** |
-| **case04_sinsa_value_add** | `trading` | 10장 | 604.3 KB | 0건 | ✅ **PASS** |
-| **case05_icheon_logistics** | `operating` | 10장 | 526.9 KB | 0건 | ✅ **PASS** |
-| **case06_yongsan_mixed** | `trading` | 10장 | 603.9 KB | 0건 | ✅ **PASS** |
+| **case01_seocho_medical** | `income` | 9장 | 593.9 KB | 0건 | ✅ **PASS** |
+| **case02_seongsu_hq** | `owner_occupied` | 9장 | 586.7 KB | 0건 | ✅ **PASS** |
+| **case03_yeoksam_dev** | `development` | 9장 | 598.0 KB | 0건 | ✅ **PASS** |
+| **case04_sinsa_value_add** | `trading` | 9장 | 621.4 KB | 0건 | ✅ **PASS** |
+| **case05_icheon_logistics** | `operating` | 9장 | 543.8 KB | 0건 | ✅ **PASS** |
+| **case06_yongsan_mixed** | `trading` | 9장 | 620.9 KB | 0건 | ✅ **PASS** |
 
 ---
 
@@ -49,7 +49,6 @@
   - Slide 7: [`slide_7`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case01_seocho_medical/case01_seocho_medical_basic_slide_07.png)
   - Slide 8: [`slide_8`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case01_seocho_medical/case01_seocho_medical_basic_slide_08.png)
   - Slide 9: [`slide_9`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case01_seocho_medical/case01_seocho_medical_basic_slide_09.png)
-  - Slide 10: [`slide_10`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case01_seocho_medical/case01_seocho_medical_basic_slide_10.png)
 
 
 ### 📁 성수 IT밸리 통사옥 (사옥형 표준)
@@ -64,7 +63,6 @@
   - Slide 7: [`slide_7`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case02_seongsu_hq/case02_seongsu_hq_basic_slide_07.png)
   - Slide 8: [`slide_8`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case02_seongsu_hq/case02_seongsu_hq_basic_slide_08.png)
   - Slide 9: [`slide_9`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case02_seongsu_hq/case02_seongsu_hq_basic_slide_09.png)
-  - Slide 10: [`slide_10`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case02_seongsu_hq/case02_seongsu_hq_basic_slide_10.png)
 
 
 ### 📁 역삼 테헤란로 신축부지 (개발형 표준)
@@ -79,7 +77,6 @@
   - Slide 7: [`slide_7`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case03_yeoksam_dev/case03_yeoksam_dev_basic_slide_07.png)
   - Slide 8: [`slide_8`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case03_yeoksam_dev/case03_yeoksam_dev_basic_slide_08.png)
   - Slide 9: [`slide_9`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case03_yeoksam_dev/case03_yeoksam_dev_basic_slide_09.png)
-  - Slide 10: [`slide_10`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case03_yeoksam_dev/case03_yeoksam_dev_basic_slide_10.png)
 
 
 ### 📁 신사동 가로수길 밸류애드 (밸류애드 표준)
@@ -94,7 +91,6 @@
   - Slide 7: [`slide_7`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case04_sinsa_value_add/case04_sinsa_value_add_basic_slide_07.png)
   - Slide 8: [`slide_8`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case04_sinsa_value_add/case04_sinsa_value_add_basic_slide_08.png)
   - Slide 9: [`slide_9`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case04_sinsa_value_add/case04_sinsa_value_add_basic_slide_09.png)
-  - Slide 10: [`slide_10`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case04_sinsa_value_add/case04_sinsa_value_add_basic_slide_10.png)
 
 
 ### 📁 이천 복합물류센터 (운영형 표준)
@@ -109,7 +105,6 @@
   - Slide 7: [`slide_7`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case05_icheon_logistics/case05_icheon_logistics_basic_slide_07.png)
   - Slide 8: [`slide_8`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case05_icheon_logistics/case05_icheon_logistics_basic_slide_08.png)
   - Slide 9: [`slide_9`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case05_icheon_logistics/case05_icheon_logistics_basic_slide_09.png)
-  - Slide 10: [`slide_10`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case05_icheon_logistics/case05_icheon_logistics_basic_slide_10.png)
 
 
 ### 📁 용산 용리단길 복합구옥 (엣지 표준)
@@ -124,5 +119,4 @@
   - Slide 7: [`slide_7`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case06_yongsan_mixed/case06_yongsan_mixed_basic_slide_07.png)
   - Slide 8: [`slide_8`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case06_yongsan_mixed/case06_yongsan_mixed_basic_slide_08.png)
   - Slide 9: [`slide_9`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case06_yongsan_mixed/case06_yongsan_mixed_basic_slide_09.png)
-  - Slide 10: [`slide_10`](C:/Users/User/cre-dealcard/docs/test/stress/e2e-outputs/visual-qa/case06_yongsan_mixed/case06_yongsan_mixed_basic_slide_10.png)
 

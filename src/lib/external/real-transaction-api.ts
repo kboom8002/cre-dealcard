@@ -42,27 +42,47 @@ export async function fetchComparableTransactions(
         const itemsArray: any[] = Array.isArray(item) ? item : item ? [item] : [];
 
         if (itemsArray.length > 0) {
-          const parsed = itemsArray.map((t: any) => {
-            const dealAmtTenThousand = parseInt(String(t.dealAmount).replace(/,/g, "").trim(), 10) || 0;
-            const dealAmount = dealAmtTenThousand * 10000;
-            const area = parseFloat(t.totArea || "1");
-            const pricePerSqm = dealAmount / area;
-            const pricePerPyeong = pricePerSqm * 3.30578;
+          const parsed: ComparableTransaction[] = itemsArray
+            .map((t: any): ComparableTransaction | null => {
+              // 해제된 거래 제외 (cdealType === 'O')
+              if (String(t.cdealType || "").trim() === "O") return null;
 
-            return {
-              address: `${t.sigungu || ""} ${t.dong || ""} ${t.jibun || ""}`.trim(),
-              dealYear: parseInt(t.dealYear || "2025", 10),
-              dealMonth: parseInt(t.dealMonth || "10", 10),
-              dealDay: parseInt(t.dealDay || "1", 10),
-              dealAmount,
-              area,
-              pricePerSqm,
-              pricePerPyeong,
-              buildingUse: String(t.buildingUse || "근린생활"),
-              floors: parseInt(t.floor || "5", 10),
-              _isFallback: false
-            };
-          });
+              const dealAmtTenThousand = parseInt(String(t.dealAmount || "0").replace(/,/g, "").trim(), 10) || 0;
+              const dealAmount = dealAmtTenThousand * 10000;
+              if (dealAmount <= 0) return null;
+
+              // 국토부 상업업무용 API: buildingAr(건물면적) 우선, 없으면 plottageAr(대지면적)
+              const rawArea = parseFloat(String(t.buildingAr || t.bldgArea || t.plottageAr || t.totArea || t.area || "0"));
+              if (!rawArea || isNaN(rawArea) || rawArea <= 0) return null;
+
+              const area = rawArea;
+              const pricePerSqm = dealAmount / area;
+              const pricePerPyeong = Math.round(pricePerSqm * 3.30578);
+
+              // 비정상 이상치(평당 50만원 미만 또는 평당 5억원 초과) 필터링
+              if (pricePerPyeong < 500_000 || pricePerPyeong > 500_000_000) return null;
+
+              const sgg = String(t.sggNm || t.sigungu || "").trim();
+              const umd = String(t.umdNm || t.dong || "").trim();
+              const jibun = String(t.jibun || "").trim();
+              const address = [sgg, umd, jibun].filter(Boolean).join(" ");
+
+              return {
+                address: address || "서울시 인근 상업용 자산",
+                dealYear: parseInt(String(t.dealYear || "2025"), 10),
+                dealMonth: parseInt(String(t.dealMonth || "1"), 10),
+                dealDay: parseInt(String(t.dealDay || "1"), 10),
+                dealAmount,
+                area,
+                pricePerSqm: Math.round(pricePerSqm),
+                pricePerPyeong,
+                buildingUse: String(t.buildingUse || "근린생활"),
+                floors: parseInt(String(t.floor || t.flr || "0").trim(), 10) || 0,
+                _isFallback: false
+              };
+            })
+            .filter((item): item is ComparableTransaction => item !== null);
+
           allResults.push(...parsed);
         }
       } catch (err) {
