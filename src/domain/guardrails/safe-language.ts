@@ -13,7 +13,6 @@
 // Expressions that imply certainty, guarantee, or recommendation
 // which Korean real estate law prohibits in marketing materials.
 export const FORBIDDEN_CLAIMS = [
-  "가능합니다", // "병의원 가능합니다", "F&B 가능합니다"
   "문제 없습니다", // "인허가 문제 없습니다", "소음 문제 없습니다"
   "임대 잘 됩니다",
   "바로 계약 가능합니다",
@@ -46,8 +45,6 @@ export type ForbiddenClaim = (typeof FORBIDDEN_CLAIMS)[number];
 // ── Safe Rewrite Map ─────────────────────────────────────────────
 // Maps forbidden phrases to legally safe alternatives.
 export const SAFE_REWRITE_MAP: Record<string, string> = {
-  가능합니다:
-    "검토 여지가 있으나, 관련 법규·인허가·시설 요건의 현장 확인이 필요합니다.",
   "문제 없습니다":
     "위반건축물 여부는 건축물대장과 현황 확인이 필요합니다.",
   "임대 잘 됩니다":
@@ -142,6 +139,9 @@ export function rewriteUnsafeText(text: string): SafeLanguageResult {
       safeText = safeText.replaceAll(claim, rewrite);
     }
   }
+
+  // 중복 마침표 및 구두점 정리 (예: "필요합니다.." -> "필요합니다.")
+  safeText = safeText.replace(/\.{2,}/g, '.');
 
   return {
     safeText,

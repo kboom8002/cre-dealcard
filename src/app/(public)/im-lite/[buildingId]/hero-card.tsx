@@ -194,12 +194,26 @@ export function HeroCard({ data }: HeroCardProps) {
         )}
 
         {/* Investment Point */}
-        <div className="mb-2 rounded-lg bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 px-4 py-3">
-          <p className="text-xs font-semibold text-blue-400 mb-1">💡 핵심 투자 포인트</p>
-          <p className="text-sm sm:text-base font-medium text-neutral-200 leading-relaxed">
-            {data.keyInvestmentPoint}
-          </p>
-        </div>
+        {data.keyPoints && data.keyPoints.length > 0 ? (
+          <div className="mb-2 rounded-lg bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 px-4 py-3">
+            <p className="text-xs font-semibold text-blue-400 mb-2">💡 3대 핵심 투자 포인트</p>
+            <ul className="space-y-1.5 text-xs sm:text-sm text-neutral-200 leading-relaxed">
+              {data.keyPoints.map((pt, idx) => (
+                <li key={idx} className="flex items-start gap-2">
+                  <span className="text-primary font-bold text-[11px] mt-0.5 shrink-0">0{idx + 1}</span>
+                  <span className="font-medium">{pt}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div className="mb-2 rounded-lg bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 px-4 py-3">
+            <p className="text-xs font-semibold text-blue-400 mb-1">💡 핵심 투자 포인트</p>
+            <p className="text-sm sm:text-base font-medium text-neutral-200 leading-relaxed">
+              {data.keyInvestmentPoint}
+            </p>
+          </div>
+        )}
 
         {/* Key Risk */}
         {data.keyRisk && (

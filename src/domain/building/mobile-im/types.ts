@@ -303,6 +303,7 @@ export interface HeroCardData {
   capRateBase: number | null;   // % (e.g. 4.2)
   noiBaseBil: number | null;    // 억원
   keyInvestmentPoint: string;   // 핵심 투자 포인트 1줄
+  keyPoints?: string[];         // 3대 핵심 투자 포인트 불릿 목록
   keyRisk: string;              // 핵심 리스크 1줄
   equityRequiredBil: number | null; // 자기자본 소요 (억원)
   leveragedYieldPct: number | null; // 레버리지 수익률 (%)

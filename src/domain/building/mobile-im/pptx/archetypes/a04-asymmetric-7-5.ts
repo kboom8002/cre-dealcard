@@ -99,11 +99,20 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
   }
 
   if (photoImg) {
-    // 우측 상단: 대표 건물 사진
-    slide.addImage({ data: photoImg.base64, x: rx, y: 1.80, w: rw, h: 3.30 });
+    // 우측 상단: 대표 건물 사진 (비율 왜곡 방지 cover 모드 적용)
+    slide.addImage({
+      data: photoImg.base64,
+      x: rx, y: 1.80, w: rw, h: 3.20,
+      sizing: { type: 'cover', w: rw, h: 3.20 },
+    });
     // 우측 하단: 핵심 강점 콜아웃
-    const calloutText = right.callouts?.[0]?.body || '• 우량 메디컬 테넌트 직영 만실 운영\n• 15인승 침대용 승강기 및 자주식 18대 완비';
-    L.callout(slide, rx, 5.25, rw, 1.45, 'info', '자산 하이라이트', calloutText);
+    let calloutText = right.callouts?.[0]?.body || '';
+    if (!calloutText || calloutText.length < 35 || !calloutText.includes('•')) {
+      calloutText = calloutText
+        ? `• ${calloutText}\n• 역세권 접근성 및 우수한 가시성 확보 자산\n• 단독 관리 및 임대수익 창출 최적 구조`
+        : '• 우량 메디컬/근생 테넌트 직영 만실 운영\n• 승강기 완비 및 자주식 주차 공간 확보\n• 공법상 잔여 용적률 활용 가치 상승 잠재력';
+    }
+    L.callout(slide, rx, 5.15, rw, 1.55, 'info', '자산 하이라이트', calloutText);
   } else {
     // 사진이 없을 때: 2개 카드로 꽉 찬 렌더링
     let cy = 1.80;

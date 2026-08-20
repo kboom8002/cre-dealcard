@@ -341,13 +341,14 @@ function buildA15Props(markdown: string, tables: ParsedTable[], lines: string[])
   const subtitle = lines.find(l => l.startsWith('#'))?.replace(/^#+\s*/, '') || '';
   const listLines = lines.filter(l => l.match(/^\d+[.、)]\s*/) || l.startsWith('-') || l.startsWith('•'));
   
-  // 주석, 표, 단순 수치 통계 나열 행을 제외한 요약 서술 라인 추출
+  // 주석, 표, 단순 수치 통계 나열 행, 메타 설명 행을 제외한 요약 서술 라인 추출
   const narrativeLines = lines.filter(l => {
     const trimmed = l.trim();
     if (!trimmed) return false;
     if (trimmed.startsWith('#') || trimmed.startsWith('|')) return false;
     if (trimmed.match(/^\d+[.、)]\s*/) || trimmed.startsWith('-') || trimmed.startsWith('•')) return false;
     if (trimmed.includes('인근 실거래 비교 사례') || trimmed.includes('최근 인근 실거래 기준')) return false;
+    if (trimmed.includes('예상 매수자 유형 분석') || trimmed.includes('핵심 투자 포인트와 예상')) return false;
     return true;
   });
 
@@ -363,17 +364,23 @@ function buildA15Props(markdown: string, tables: ParsedTable[], lines: string[])
     };
   });
 
-  // 전문가 한줄 의견이 있으면 단독 우선 채택
+  // 종합 가치 제안 / 전문가 한줄 의견 우선 채택
+  const valuePropLine = lines.find(l => l.includes('종합 가치 제안') || l.includes('종합 가치제안'));
   const brokerQuoteLine = lines.find(l => l.includes('전문가 한줄 의견') || l.includes('전문가 의견'));
   let takeaway = '';
-  if (brokerQuoteLine) {
-    takeaway = stripMarkdown(brokerQuoteLine.replace(/^>\s*/, '')).trim();
+  if (valuePropLine) {
+    takeaway = stripMarkdown(valuePropLine.replace(/^>\s*/, '').replace(/.*종합\s*가치\s*제안\s*[：:]\s*/, '')).trim();
+  } else if (brokerQuoteLine) {
+    takeaway = stripMarkdown(brokerQuoteLine.replace(/^>\s*/, '').replace(/.*전문가\s*(?:한줄\s*)?의견\s*[：:]\s*/, '')).trim();
   } else if (narrativeLines.length > 0) {
-    takeaway = narrativeLines.map(l => stripMarkdown(l)).filter(Boolean).slice(0, 1).join(' ');
+    const candidate = narrativeLines.map(l => stripMarkdown(l)).filter(Boolean).find(l => 
+      !l.includes('분석입니다') && !l.includes('지침입니다') && l.length >= 20
+    );
+    if (candidate) takeaway = candidate;
   }
 
-  if (!takeaway || takeaway.length < 10) {
-    takeaway = '본 자산은 우수한 입지 경쟁력과 견고한 펀더멘털을 기반으로 중장기 자산 가치 상승 및 안정적인 현금흐름을 동시에 기대할 수 있는 우량 투자 기회입니다.';
+  if (!takeaway || takeaway.length < 15 || takeaway.includes('분석입니다')) {
+    takeaway = '본 자산은 우수한 권역 입지 경쟁력과 견고한 펀더멘털을 기반으로 중장기 자산 가치 상승 및 안정적인 현금흐름을 동시에 실현할 수 있는 전략적 투자 기회입니다.';
   }
 
   return {
@@ -420,7 +427,12 @@ function buildA02Props(markdown: string, tables: ParsedTable[], lines: string[])
   }
 
   const callouts = extractCallouts(lines);
-  return { leadSentence, metrics, callouts };
+  const keyPoints: string[] = lines
+    .filter(l => (l.startsWith('•') || l.startsWith('-') || l.startsWith('*') || l.match(/^\d+[.、)]/)) && l.length > 8)
+    .map(l => stripMarkdown(l.replace(/^[-*•·\d.、)]\s*/, '')))
+    .slice(0, 3);
+
+  return { leadSentence, metrics, keyPoints, callouts };
 }
 
 /** A03 LargeTable: tableHead, tableRows, note, callouts[] */
@@ -578,7 +590,7 @@ function buildA06Props(markdown: string, tables: ParsedTable[], lines: string[])
   }
   
   const truncatedRows: [string, string][] = rows.slice(0, 6).map(([label, value]) => 
-    [label.slice(0, 20), enforceTextBudget(value, 60)] as [string, string]
+    [label.slice(0, 28), enforceTextBudget(value, 120)] as [string, string]
   );
 
   return {
@@ -595,6 +607,22 @@ function buildA06Props(markdown: string, tables: ParsedTable[], lines: string[])
 function buildA07Props(tables: ParsedTable[], lines: string[]): Record<string, any> {
   const blocks: Array<{ label: string; value: string; description: string }> = [];
 
+  const formatDescriptionBullets = (desc: string): string => {
+    if (!desc) return '';
+    const cleaned = stripMarkdown(desc);
+    if (cleaned.includes('\n')) return cleaned;
+    if (cleaned.includes('<br>') || cleaned.includes('<br/>')) {
+      return cleaned.split(/<br\s*\/?>/i).map(s => s.trim()).filter(Boolean).join('\n');
+    }
+    if (cleaned.includes('•') || cleaned.includes('·') || cleaned.includes('-')) {
+      return cleaned.split(/[•·\-]\s*/).map(s => s.trim()).filter(Boolean).join('\n');
+    }
+    if (cleaned.length > 35 && cleaned.includes('. ')) {
+      return cleaned.split(/(?<=\.)\s+/).map(s => s.trim()).filter(Boolean).join('\n');
+    }
+    return cleaned;
+  };
+
   // 1. 테이블 기반 3개 블록 추출 (테이블의 1열: 라벨, 2열: 현황/상태, 3열: 완화방안/설명)
   if (tables.length > 0 && tables[0]?.rows && tables[0].rows.length > 0) {
     for (const row of tables[0].rows) {
@@ -603,13 +631,13 @@ function buildA07Props(tables: ParsedTable[], lines: string[]): Record<string, a
         blocks.push({
           label: stripMarkdown(row[0] || '').trim(),
           value: stripMarkdown(row[1] || '').trim(),
-          description: stripMarkdown(row[2] || '').trim(),
+          description: formatDescriptionBullets(row[2] || ''),
         });
       } else if (row.length >= 2) {
         blocks.push({
           label: stripMarkdown(row[0] || '').trim(),
           value: '진단 완료',
-          description: stripMarkdown(row[1] || '').trim(),
+          description: formatDescriptionBullets(row[1] || ''),
         });
       }
     }
@@ -852,9 +880,34 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
 
   const callouts = extractCallouts(lines.filter(l => !l.startsWith('|') && !/^[-:]+$/.test(l)));
 
+  // 3대 핵심 투자 포인트 추출 및 폴백 합성
+  const keyPoints: string[] = [];
+  if (Array.isArray(heroCard.keyPoints) && heroCard.keyPoints.length > 0) {
+    keyPoints.push(...heroCard.keyPoints.map((k: string) => stripMarkdown(k)));
+  } else if (Array.isArray(heroCard.investmentPoints) && heroCard.investmentPoints.length > 0) {
+    keyPoints.push(...heroCard.investmentPoints.map((k: string) => stripMarkdown(k)));
+  } else {
+    const bullets = lines
+      .filter(l => (l.startsWith('•') || l.startsWith('-') || l.startsWith('*') || l.match(/^\d+[.、)]/)) && l.length > 10)
+      .map(l => stripMarkdown(l.replace(/^[-*•·\d.、)]\s*/, '')))
+      .slice(0, 3);
+    if (bullets.length > 0) {
+      keyPoints.push(...bullets);
+    } else {
+      const area = heroCard.areaSignal || '핵심권역';
+      const ask = heroCard.priceBand || (heroCard.askingPriceManwon ? `${(heroCard.askingPriceManwon / 10000).toFixed(0)}억대` : '시장 적정가');
+      keyPoints.push(
+        `원금 안전판: ${area} 핵심 입지 및 우량 대지 지분 가치로 하방 경직성 확보`,
+        `수익 안정성: 매매 ${ask} 수준 대비 안정적 월 임대수익 창출 기반`,
+        `미래 가치: 향후 권역 지가 상승 및 공법상 밸류업을 통한 자본이득 실현 가능`
+      );
+    }
+  }
+
   return {
     leadSentence: stripMarkdown(heroCard.keyInvestmentPoint || heroCard.hookText || findLeadSentence(lines.filter(l => !l.startsWith('|')))),
     metrics,
+    keyPoints,
     callouts,
   };
 }
@@ -1223,6 +1276,8 @@ export function stripMarkdown(text: string): string {
     .replace(/(권역|입지|상권|역세권|대로변|인프라)\s+\1/g, '$1')
     // ── 문미 dangling 대시/기호 정제 ──
     .replace(/\s*[—–-]\s*$/g, '')
+    // ── 연속된 마침표/구두점 정제 (예: 필요합니다.. -> 필요합니다.) ──
+    .replace(/\.{2,}/g, '.')
     .replace(/\s+/g, ' ')
     .trim();
 }

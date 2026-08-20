@@ -9,110 +9,121 @@ import type { Asset, Deal, LeaseUnit } from '@/types/database';
  * Decision #2: building_ssot_lite 유지 + 어댑터 함수로 점진적 전환
  */
 
-/** Extracts v3-compatible attrs from building_ssot_lite record */
+/** Extracts v3-compatible attrs from building_ssot_lite or assets record */
 export function buildAttrsFromSsotLite(
   building: Record<string, any>,
 ): Record<string, unknown> {
-  const layers = (building.layers ?? {}) as Record<string, any>;
-  const leaseSummary = (building.lease_summary ?? {}) as Record<string, any>;
+  const existingAttrs = (building.attrs ?? {}) as Record<string, any>;
+  const layers = (building.layers ?? existingAttrs.layers ?? {}) as Record<string, any>;
+  const leaseSummary = (building.lease_summary ?? existingAttrs.leaseSummary ?? existingAttrs.lease_summary ?? {}) as Record<string, any>;
 
-  // Parse price from price_band (e.g. "80억대" → 8000000000)
-  const askingPriceKrw = parsePriceBand(building.price_band);
+  // Parse price from price_band or askingPriceKrw
+  const priceBandStr = building.price_band ?? existingAttrs.priceBand ?? existingAttrs.price_band ?? null;
+  const askingPriceKrw = Number(
+    building.asking_price_krw ??
+    building.asking_price ??
+    existingAttrs.askingPriceKrw ??
+    existingAttrs.asking_price_krw ??
+    parsePriceBand(priceBandStr)
+  );
 
   // Extract gross annual income from lease summary
-  const monthlyRentTotal = leaseSummary?.monthly_rent_total_krw ?? 0;
-  const grossAnnualIncomeKrw = monthlyRentTotal * 12;
+  const monthlyRentTotal = leaseSummary?.monthly_rent_total_krw ?? existingAttrs.monthlyRentKrw ?? 0;
+  const grossAnnualIncomeKrw = (monthlyRentTotal * 12) || (existingAttrs.grossAnnualIncomeKrw as number) || 0;
 
-  // Extract area from size_signal or layers
-  const landAreaPyung = layers?.land_area_pyung ?? layers?.building_register?.land_area_pyung ?? null;
-  const totalFloorAreaPyung = layers?.total_floor_area_pyung ?? layers?.building_register?.total_floor_area_pyung ?? null;
+  // Extract area from size_signal or layers or existingAttrs
+  const landAreaPyung = layers?.land_area_pyung ?? layers?.building_register?.land_area_pyung ?? existingAttrs.landAreaPyung ?? null;
+  const totalFloorAreaPyung = layers?.total_floor_area_pyung ?? layers?.building_register?.total_floor_area_pyung ?? existingAttrs.totalFloorAreaPyung ?? null;
 
   return {
     // Required slots for grade-engine
-    pnu: layers?.pnu ?? building.pnu ?? null,
-    address: layers?.location?.raw_address ?? building.raw_address ?? layers?.location?.address ?? null,
-    rawInput: building.raw_input ?? null,
+    pnu: layers?.pnu ?? building.pnu ?? existingAttrs.pnu ?? null,
+    address: layers?.location?.raw_address ?? building.raw_address ?? layers?.location?.address ?? existingAttrs.address ?? existingAttrs.rawAddress ?? null,
+    rawInput: building.raw_input ?? existingAttrs.rawInput ?? null,
     landAreaPyung,
     totalFloorAreaPyung,
     askingPriceKrw,
     grossAnnualIncomeKrw,
-    zoningRegion: layers?.land_use_plan?.zoning ?? null,
+    zoningRegion: layers?.land_use_plan?.zoning ?? building.zoning_region ?? existingAttrs.zoningRegion ?? null,
 
     // Enhanced slots
-    approvalDate: layers?.building_register?.approval_date ?? null,
-    farHeadroomPp: layers?.far_headroom_pp ?? null,
-    evictionStatus: layers?.eviction_status ?? building.vacancy_signal ?? null,
-    rentRoll: leaseSummary?.tenants ?? null,
-    officialLandPricePerSqm: layers?.official_land_price_per_sqm ?? null,
-    roadContactType: layers?.road_contact_type ?? null,
-    parkingCapacity: layers?.parking_capacity ?? null,
+    approvalDate: layers?.building_register?.approval_date ?? existingAttrs.approvalDate ?? null,
+    farHeadroomPp: layers?.far_headroom_pp ?? existingAttrs.farHeadroomPp ?? null,
+    evictionStatus: layers?.eviction_status ?? building.vacancy_signal ?? existingAttrs.evictionStatus ?? existingAttrs.vacancySignal ?? null,
+    rentRoll: leaseSummary?.tenants ?? existingAttrs.rentRoll ?? null,
+    officialLandPricePerSqm: layers?.official_land_price_per_sqm ?? existingAttrs.officialLandPricePerSqm ?? null,
+    roadContactType: layers?.road_contact_type ?? existingAttrs.roadContactType ?? null,
+    parkingCapacity: layers?.parking_capacity ?? existingAttrs.parkingCapacity ?? null,
 
     // Additional for archetype-classifier
-    assetType: building.asset_type ?? null,
-    vacancySignal: building.vacancy_signal ?? null,
-    currentUseSignal: building.current_use_signal ?? null,
-    priceBand: building.price_band ?? null,
-    areaSignal: building.area_signal ?? null,
-    completionEra: layers?.building_register?.completion_era ?? null,
-    totalFloors: layers?.building_register?.total_floors ?? null,
+    assetType: building.asset_type ?? existingAttrs.assetType ?? existingAttrs.asset_type ?? null,
+    vacancySignal: building.vacancy_signal ?? existingAttrs.vacancySignal ?? existingAttrs.vacancy_signal ?? null,
+    currentUseSignal: building.current_use_signal ?? existingAttrs.currentUseSignal ?? existingAttrs.current_use_signal ?? null,
+    priceBand: priceBandStr,
+    areaSignal: building.area_signal ?? existingAttrs.areaSignal ?? existingAttrs.area_signal ?? null,
+    completionEra: layers?.building_register?.completion_era ?? existingAttrs.completionEra ?? null,
+    totalFloors: layers?.building_register?.total_floors ?? existingAttrs.totalFloors ?? null,
 
     // Financial inputs
-    opexRatioPct: layers?.financial_assumptions?.opex_ratio_pct ?? 10,
-    vacancyReservePct: layers?.financial_assumptions?.vacancy_reserve_pct ?? 5,
-    loanAmountKrw: (leaseSummary?.loan_amount_manwon ?? 0) * 10000,
-    totalDepositKrw: (leaseSummary?.total_deposit_manwon ?? 0) * 10000,
-    loanStatus: layers?.financial?.loanStatus || leaseSummary?.loan_status || null,
+    opexRatioPct: layers?.financial_assumptions?.opex_ratio_pct ?? existingAttrs.opexRatioPct ?? 10,
+    vacancyReservePct: layers?.financial_assumptions?.vacancy_reserve_pct ?? existingAttrs.vacancyReservePct ?? 5,
+    loanAmountKrw: existingAttrs.loanAmountKrw ?? ((leaseSummary?.loan_amount_manwon ?? 0) * 10000),
+    totalDepositKrw: existingAttrs.totalDepositKrw ?? ((leaseSummary?.total_deposit_manwon ?? 0) * 10000),
+    loanStatus: layers?.financial?.loanStatus || leaseSummary?.loan_status || existingAttrs.loanStatus || null,
 
     // Pack slots & market benchmark
-    hospitalitySpec: layers?.pack_slots?.HospitalitySpec || layers?.hospitality_spec || null,
-    comparableAvgPricePerPyung: layers?.comparable_avg_per_pyung || null,
-    sigungu: layers?.location?.sigungu || null,
+    hospitalitySpec: layers?.pack_slots?.HospitalitySpec || layers?.hospitality_spec || existingAttrs.hospitalitySpec || null,
+    comparableAvgPricePerPyung: layers?.comparable_avg_per_pyung ?? existingAttrs.comparableAvgPricePerPyung ?? null,
+    sigungu: layers?.location?.sigungu ?? existingAttrs.sigungu ?? null,
 
     // ── Phase A: 누락 필드 매핑 복구 (teaser-projector 연결) ──
-    investmentPosture: building.investment_posture || layers?.investment_posture || null,
-    buildYear: layers?.building_register?.approval_date
+    investmentPosture: building.investment_posture || existingAttrs.investmentPosture || layers?.investment_posture || null,
+    buildYear: existingAttrs.buildYear ?? (layers?.building_register?.approval_date
       ? new Date(String(layers.building_register.approval_date)).getFullYear()
-      : (layers?.building_register?.completion_era ? parseInt(String(layers.building_register.completion_era), 10) || null : null),
-    floorsAboveGround: layers?.building_register?.floors_above_ground
+      : (layers?.building_register?.completion_era ? parseInt(String(layers.building_register.completion_era), 10) || null : null)),
+    floorsAboveGround: existingAttrs.floorsAboveGround
+      || layers?.building_register?.floors_above_ground
       || layers?.building_register?.total_floors || null,
-    monthlyRentKrw: monthlyRentTotal || null,
-    vacancyPct: leaseSummary?.vacancy_pct ?? (leaseSummary?.vacancy_rate != null
+    monthlyRentKrw: monthlyRentTotal || existingAttrs.monthlyRentKrw || null,
+    vacancyPct: existingAttrs.vacancyPct ?? leaseSummary?.vacancy_pct ?? (leaseSummary?.vacancy_rate != null
       ? Number(leaseSummary.vacancy_rate) * 100 : null),
     capRatePct: (() => {
+      if (existingAttrs.capRatePct != null) return existingAttrs.capRatePct;
       const income = monthlyRentTotal * 12;
       return (askingPriceKrw && askingPriceKrw > 0 && income > 0)
         ? Math.round((income / askingPriceKrw) * 10000) / 100 : null;
     })(),
     pricePerPyung: (() => {
+      if (existingAttrs.pricePerPyung != null) return existingAttrs.pricePerPyung;
       return (askingPriceKrw && askingPriceKrw > 0 && totalFloorAreaPyung && totalFloorAreaPyung > 0)
         ? Math.round(askingPriceKrw / totalFloorAreaPyung) : null;
     })(),
-    photoCount: layers?.photos?.length ?? building?.photo_urls?.length ?? 0,
-    urgencyTag: building.urgency_tag || layers?.urgency_tag || null,
+    photoCount: existingAttrs.photoCount ?? layers?.photos?.length ?? building?.photo_urls?.length ?? 0,
+    urgencyTag: building.urgency_tag || existingAttrs.urgencyTag || layers?.urgency_tag || null,
     roomCount: layers?.pack_slots?.HospitalitySpec?.totalRoomCount
-      || layers?.hospitality_spec?.totalRoomCount || null,
+      || layers?.hospitality_spec?.totalRoomCount || existingAttrs.roomCount || null,
     operationType: layers?.pack_slots?.HospitalitySpec?.operatingModel
-      || layers?.hospitality_spec?.operatingModel || null,
-    floorLeases: leaseSummary?.tenants || layers?.rent_roll || null,
+      || layers?.hospitality_spec?.operatingModel || existingAttrs.operationType || null,
+    floorLeases: leaseSummary?.tenants || layers?.rent_roll || existingAttrs.floorLeases || null,
 
     // Pack slots
-    physicalSpec: layers?.pack_slots?.PhysicalSpec || null,
-    developmentPlan: layers?.pack_slots?.DevelopmentPlan || null,
-    vacatePlan: layers?.pack_slots?.VacatePlan || null,
-    permitRisk: layers?.pack_slots?.PermitRisk || null,
-    occupancyPlan: layers?.pack_slots?.OccupancyPlan || null,
-    sectionalSpec: layers?.pack_slots?.SectionalSpec || null,
-    residentialSpec: layers?.pack_slots?.ResidentialSpec || null,
+    physicalSpec: layers?.pack_slots?.PhysicalSpec || existingAttrs.physicalSpec || null,
+    developmentPlan: layers?.pack_slots?.DevelopmentPlan || existingAttrs.developmentPlan || null,
+    vacatePlan: layers?.pack_slots?.VacatePlan || existingAttrs.vacatePlan || null,
+    permitRisk: layers?.pack_slots?.PermitRisk || existingAttrs.permitRisk || null,
+    occupancyPlan: layers?.pack_slots?.OccupancyPlan || existingAttrs.occupancyPlan || null,
+    sectionalSpec: layers?.pack_slots?.SectionalSpec || existingAttrs.sectionalSpec || null,
+    residentialSpec: layers?.pack_slots?.ResidentialSpec || existingAttrs.residentialSpec || null,
 
     // ── Category-level filled markers for grade-engine NEW_WEIGHTS ──
     // grade-engine iterates baseWeights keys (lease_roll, building_basic, ...)
     // and checks attrs[category] != null. Without these, score is always 0% = Grade D.
     // Memo-parsed data (asset_type, size_signal, area_signal) should contribute to base grade.
-    building_basic: (totalFloorAreaPyung || layers?.building_register || building.asset_type || building.size_signal) ? true : null,
-    land_parcel: (landAreaPyung || layers?.land_use_plan || building.area_signal) ? true : null,
-    zoning: (layers?.land_use_plan?.zoning || building.area_signal) ? true : null,
-    road_access: (layers?.road_contact_type || layers?.parking_capacity || building.current_use_signal) ? true : null,
-    lease_roll: (grossAnnualIncomeKrw > 0 || leaseSummary?.tenants || building.vacancy_signal) ? true : null,
+    building_basic: (totalFloorAreaPyung || layers?.building_register || building.asset_type || existingAttrs.assetType || building.size_signal || existingAttrs.sizeSignal) ? true : null,
+    land_parcel: (landAreaPyung || layers?.land_use_plan || building.area_signal || existingAttrs.areaSignal) ? true : null,
+    zoning: (layers?.land_use_plan?.zoning || building.area_signal || existingAttrs.areaSignal) ? true : null,
+    road_access: (layers?.road_contact_type || layers?.parking_capacity || building.current_use_signal || existingAttrs.currentUseSignal) ? true : null,
+    lease_roll: (grossAnnualIncomeKrw > 0 || leaseSummary?.tenants || building.vacancy_signal || existingAttrs.vacancySignal) ? true : null,
     financial_input: (askingPriceKrw && askingPriceKrw > 0) ? true : null,
     title_encumbrance: layers?.title_encumbrance ? true : null,
     market_comp: layers?.market_comp ? true : null,
@@ -187,10 +198,11 @@ export function buildFinancialInputsFromSsotLite(
 }
 
 /** Parse Korean price band string to KRW number */
-function parsePriceBand(priceBand: string | null | undefined): number {
+export function parsePriceBand(priceBand: string | null | undefined): number {
   if (!priceBand) return 0;
-  const cleaned = priceBand.replace(/[^0-9.]/g, '');
-  const num = parseFloat(cleaned);
+  const match = priceBand.match(/(\d+(?:\.\d+)?)/);
+  if (!match) return 0;
+  const num = parseFloat(match[1]);
   if (isNaN(num)) return 0;
 
   if (priceBand.includes('조')) return num * 1_000_000_000_000;

@@ -62,6 +62,7 @@ export function normalizeSsotLite(rawInput: BuildingSSoTLite): {
   const buyerFit: Record<string, unknown> = {
     fit_summary:    raw.fit_summary      ?? legacyBuyerFit.fit_summary,
     caution_summary: raw.caution_summary ?? legacyBuyerFit.caution_summary,
+    fit_points:     raw.fit_points       ?? legacyBuyerFit.fit_points ?? raw.key_points ?? legacyBuyerFit.key_points,
   };
 
   return { assetIdentity, physicalFact, marketLocation, buyerFit, flat: raw as unknown as Record<string, unknown> };

@@ -35,7 +35,7 @@ import { logFewShotUsage, updateFewShotResultScore, promoteToGoldenCandidate } f
 import { normalizeTerminologyAsync } from "./terminology-normalizer";
 import { CrePromptRegistry } from "./cre-prompt-registry";
 import { generatePremiumTemplate, formatBasicIncomeMarkdown, getSectionTitle } from "./premium-template-engine";
-import { normalizeFloorLeases, formatRentRollMarkdown } from "./lease-adapter";
+import { normalizeFloorLeases, formatRentRollMarkdown, formatRentRollSummary } from "./lease-adapter";
 import type { IMGenerationContext } from "./im-context-builder";
 import { getPosturePromptOverlay } from "./posture-prompts";
 import { getModel } from "@/ai/model-selector";
@@ -344,12 +344,15 @@ export async function generateSingleSection(
     markdown += `\n\n${ctx.valueAddMarkdown}`;
   }
 
-  // 렌트롤 deterministic 테이블 주입: floor_leases가 있으면 LLM 생성 테이블을 교체
-  // LLM이 '6-7F' → '6층' 등으로 재인덱싱하는 할루시네이션 방지
-  if (sectionType === "income_analysis" && supplemental.floor_leases && supplemental.floor_leases.length > 0) {
+  // 렌트롤 deterministic 테이블 주입: floor_leases가 있으면 LLM 생성 테이블을 교체/보강
+  // LLM이 '6-7F' → '6층' 등으로 재인덱싱하는 할루시네이션 방지 및 풀 테이블+요약 동시 노출
+  if ((sectionType === "lease_status" || sectionType === "income_analysis") && supplemental.floor_leases && supplemental.floor_leases.length > 0) {
     try {
       const normalized = normalizeFloorLeases(supplemental.floor_leases);
       const deterministicTable = formatRentRollMarkdown(normalized);
+      const summaryTable = formatRentRollSummary(normalized);
+      const fullRentRollBlock = `${deterministicTable}\n\n${summaryTable}`;
+
       // 기존 마크다운 테이블 영역 교체 (| 로 시작하는 연속 행 블록)
       const lines = markdown.split('\n');
       let tableStart = -1;
@@ -365,10 +368,9 @@ export async function generateSingleSection(
       if (tableStart >= 0) {
         const before = lines.slice(0, tableStart).join('\n');
         const after = lines.slice(tableEnd + 1).join('\n');
-        markdown = before + '\n' + deterministicTable + '\n' + after;
+        markdown = before + '\n' + fullRentRollBlock + '\n' + after;
       } else {
-        // 테이블 없으면 추가
-        markdown += '\n\n' + deterministicTable;
+        markdown += '\n\n' + fullRentRollBlock;
       }
     } catch (e) {
       console.warn('[im-section-generator] Deterministic rent roll table failed:', e);

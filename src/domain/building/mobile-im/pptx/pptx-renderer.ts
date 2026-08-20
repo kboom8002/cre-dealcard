@@ -6,7 +6,7 @@
  * imlib.ts 컴포넌트 + 아키타입 레지스트리 + 덱 시퀀서로 동작.
  */
 import PptxGenJS from 'pptxgenjs';
-import { getPptxTheme, getPptxThemeAsync, type PptxThemeTokens } from './pptx-theme';
+import { getPptxTheme, getPptxThemeAsync, DEFAULT_PPTX_PRESET, type PptxThemeTokens } from './pptx-theme';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ARCHETYPE_REGISTRY, type ArchetypeInput } from './archetypes';
 import { buildDeckSequence, type DeckSequenceInput, type SlideSpec } from './deck-sequencer';
@@ -266,7 +266,7 @@ export class MobileImPptxRenderer {
     pres.layout = 'LAYOUT_WIDE';
 
     const theme: PptxThemeTokens = await getPptxThemeAsync(
-      input.preset ?? 'credeal_signature',
+      input.preset ?? DEFAULT_PPTX_PRESET,
       input.supabase
     );
 

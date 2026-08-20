@@ -117,26 +117,14 @@ export async function searchAddress(
     const json = await res.json();
     const results = json?.results;
 
-    // 에러 응답 확인 또는 결과 없을 때 fallback (데모용)
     const errorCode = results?.common?.errorCode;
     const jusoList = results?.juso;
     
     if (errorCode !== "0" || !Array.isArray(jusoList) || jusoList.length === 0) {
-      if (errorCode !== "0") {
-        console.error(`[address-resolver] Juso API Error: ${errorCode} - ${results?.common?.errorMessage}`);
+      if (errorCode && errorCode !== "0") {
+        console.warn(`[address-resolver] Juso API Error: ${errorCode} - ${results?.common?.errorMessage}`);
       }
-      // Demo fallback when API fails or returns no results
-      return [{
-        roadAddr: `서울특별시 강남구 ${keyword}로 123`,
-        jibunAddr: `서울특별시 강남구 ${keyword} 456-7`,
-        siNm: "서울특별시",
-        sggNm: "강남구",
-        emdNm: keyword.replace(/[0-9\s]/g, '') || "역삼동",
-        admCd: "1168010100",
-        rnMgtSn: "116801010000",
-        bdMgtSn: "1168010100108230000000001",
-        zipNo: "06234"
-      }];
+      return [];
     }
 
     return jusoList.map((j: Record<string, string>) => ({
@@ -154,6 +142,66 @@ export async function searchAddress(
     console.error("[address-resolver] Failed to search address:", error);
     return [];
   }
+}
+
+/**
+ * 메모 텍스트 또는 비정형 문자열에서 한국 주소를 정확하게 추출합니다.
+ * '매매가', '보증금', '월세', '대지', '연면적' 등의 비주소 단어가 도로명/지번으로 오인식되지 않도록 방지합니다.
+ */
+export function extractCleanKoreanAddress(rawText: string | null | undefined): string | null {
+  if (!rawText) return null;
+  const text = rawText.trim();
+
+  // 비주소 키워드 (오인식 방지용)
+  const nonAddressWords = [
+    '매매가', '매각가', '매매', '매각', '보증금', '월세', '임대료', '임대',
+    '관리비', '수익률', '대지', '연면적', '건물', '근생', '빌딩', '상가',
+    '호가', '가격', '대출', '융자', '수익형', '직영', '공실', '평형', '지상', '지하'
+  ];
+
+  const containsNonAddressWord = (segment: string) => {
+    return nonAddressWords.some(word => segment.includes(word));
+  };
+
+  // 1. 시/도 + 시/군/구 + 읍/면/동/로/길 + 번지(선택)
+  // 예: "서울특별시 마포구 서교동 354-22", "서울시 마포구 서교동", "서울특별시 마포구 양화로 45"
+  const sidoPattern = /(?:서울(?:특별시|시)?|부산(?:광역시|시)?|대구(?:광역시|시)?|인천(?:광역시|시)?|광주(?:광역시|시)?|대전(?:광역시|시)?|울산(?:광역시|시)?|세종(?:특별자치시|시)?|경기(?:도)?|강원(?:특별자치도|도)?|충청[북남]도|충[북남](?:도)?|전라[북남]도|전[북남](?:도)?|경상[북남]도|경[북남](?:도)?|제주(?:특별자치도|도)?)/;
+  
+  const fullRegex = new RegExp(
+    `(${sidoPattern.source}\\s+[가-힣0-9]+(?:시|군|구)\\s+[가-힣0-9]+(?:읍|면|동|가|로|길)(?:\\s+\\d+(?:-\\d+)?(?:번지)?)?)`,
+    'g'
+  );
+
+  const fullMatches = [...text.matchAll(fullRegex)];
+  for (const m of fullMatches) {
+    const candidate = m[1].trim();
+    if (!containsNonAddressWord(candidate)) {
+      return candidate;
+    }
+  }
+
+  // 2. 시/군/구 + 읍/면/동/로/길 + [번지] (시/도 생략형)
+  // 예: "마포구 서교동 354-22", "마포구 서교동", "강남구 역삼동"
+  const sigunguRegex = /([가-힣]+(?:구|군|시)\s+[가-힣0-9]+(?:읍|면|동|가|로|길)(?:\s+\d+(?:-\\d+)?(?:번지)?)?)/g;
+  const sigunguMatches = [...text.matchAll(sigunguRegex)];
+  for (const m of sigunguMatches) {
+    const candidate = m[1].trim();
+    if (!containsNonAddressWord(candidate)) {
+      return candidate;
+    }
+  }
+
+  // 3. 읍/면/동 + 번지 (예: "서교동 354-22" or "서교동")
+  const dongRegex = /([가-힣0-9]{2,}(?:동[0-9]*가?|읍|면|로[0-9]*가?|길)(?:\s+\d+(?:-\\d+)?(?:번지)?)?)/g;
+  const dongMatches = [...text.matchAll(dongRegex)];
+  for (const m of dongMatches) {
+    const candidate = m[0].trim();
+    if (!containsNonAddressWord(candidate) && !candidate.includes('매매') && !candidate.includes('임대')) {
+      return candidate;
+    }
+  }
+
+  return null;
 }
 
 /**

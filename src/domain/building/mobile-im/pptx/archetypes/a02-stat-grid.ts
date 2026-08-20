@@ -139,47 +139,87 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     warnings.push('Summary 메트릭 데이터 없음 — 플레이스홀더 표시');
   }
 
-  // 투자 핵심 포인트 (KPI 카드 아래)
-  let highlightsEndY = metrics.length > 4 ? startY + 2 * (1.4 + 0.20) : (metrics.length > 0 ? startY + 1.4 + 0.20 : startY);
-  
+  // 투자 핵심 포인트 (KPI 카드 아래 풍부한 3대 투자 포인트 렌더링)
   const keyPoints: string[] = input.data.keyPoints || input.data.heroCard?.keyPoints || [];
-  // content에서 불릿 추출 폴백
   if (keyPoints.length === 0 && input.data.content) {
     const bullets = String(input.data.content).split('\n')
       .map((l: string) => l.trim())
-      .filter((l: string) => (l.startsWith('•') || l.startsWith('-') || l.startsWith('·')) && l.length > 10)
+      .filter((l: string) => (l.startsWith('•') || l.startsWith('-') || l.startsWith('·')) && l.length > 8)
       .map((l: string) => l.replace(/^[•\-·]\s*/, ''))
-      .slice(0, 4);
+      .slice(0, 3);
     keyPoints.push(...bullets);
   }
-  
-  if (keyPoints.length > 0 && highlightsEndY + 0.30 + keyPoints.length * 0.32 <= 5.2) {
-    const hlY = highlightsEndY + 0.15;
-    slide.addText('📌 투자 핵심 포인트', {
-      x: M, y: hlY, w: CW, h: 0.30,
-      color: C.ink, fontFace: KR, fontSize: 11, bold: true,
-    });
-    keyPoints.forEach((pt, idx) => {
-      slide.addText(`•  ${pt}`, {
-        x: M + 0.10, y: hlY + 0.32 + idx * 0.30, w: CW - 0.10, h: 0.28,
-        color: C.body, fontFace: KR, fontSize: 10.5,
-      });
-    });
-    highlightsEndY = hlY + 0.32 + keyPoints.length * 0.30 + 0.10;
+
+  // 기본 폴백 3대 투자 포인트
+  if (keyPoints.length === 0) {
+    keyPoints.push(
+      '원금 안전판: 핵심 권역 내 우량 대지 지분 가치로 하방 경직성 강력 확보',
+      '현금흐름: 안정적 임대차 구조를 통한 매월 예측 가능한 순영업소득 창출',
+      '미래 가치: 잔여 용적률 활용 밸류업 및 향후 권역 지가 상승에 따른 시세차익 실현'
+    );
   }
 
-  // Callouts (하단 2-column)
-  const callouts = input.data.callouts || [];
-  const calloutY = Math.max(highlightsEndY + 0.15, metrics.length > 4 ? 5.4 : (metrics.length > 0 ? startY + 1.8 : 4.5));
-  callouts.forEach((co: any, i: number) => {
-    if (i > 1) return;
-    const coGap = 0.20;
-    const coW = L.col(2, coGap);
-    const x = L.colX(i, coW, coGap);
-    if (calloutY + 1.2 <= 6.5) {
-      L.callout(slide, x, calloutY, coW, 1.2, co.kind || 'info', co.title || '', co.body || '');
-    }
-  });
+  const kpiRows = Math.ceil(Math.min(8, metrics.length || 4) / (metrics.length > 4 ? 4 : Math.max(2, Math.min(4, metrics.length || 4))));
+  const kpiEndY = startY + kpiRows * (1.35 + 0.18);
+  const hlStartY = Math.max(kpiEndY + 0.15, 3.75);
+
+  if (keyPoints.length > 0 && hlStartY < 5.8) {
+    // 3대 핵심 투자 포인트 헤더
+    slide.addText('📌 3대 핵심 투자 포인트 (Investment Highlights)', {
+      x: M, y: hlStartY, w: CW, h: 0.30,
+      color: C.brassD, fontFace: KR, fontSize: 12.5, bold: true, margin: 0,
+    });
+
+    const numPoints = Math.min(3, keyPoints.length);
+    const rowH = 0.64;
+    const rowGap = 0.12;
+
+    keyPoints.slice(0, 3).forEach((pt, idx) => {
+      const ry = hlStartY + 0.36 + idx * (rowH + rowGap);
+      if (ry + rowH <= 6.5) {
+        // 배경 박스
+        slide.addShape('roundRect' as any, {
+          x: M, y: ry, w: CW, h: rowH,
+          rectRadius: 0.05,
+          fill: { color: 'F8F9FA' },
+          line: { color: 'E2E8F0', width: 0.6 },
+        });
+
+        // 좌측 번호 태그
+        slide.addShape('roundRect' as any, {
+          x: M + 0.12, y: ry + 0.12, w: 0.45, h: rowH - 0.24,
+          rectRadius: 0.04,
+          fill: { color: C.brassT },
+          line: { color: C.brassL, width: 0.5 },
+        });
+        slide.addText(`0${idx + 1}`, {
+          x: M + 0.12, y: ry + 0.12, w: 0.45, h: rowH - 0.24,
+          fontSize: 10, bold: true, color: C.brassD, fontFace: NUM,
+          align: 'center', valign: 'middle', margin: 0,
+        });
+
+        // 우측 내용 텍스트
+        slide.addText(pt, {
+          x: M + 0.70, y: ry + 0.08, w: CW - 0.85, h: rowH - 0.16,
+          color: C.ink, fontFace: KR, fontSize: 11.5,
+          margin: 0, valign: 'middle',
+        });
+      }
+    });
+  } else {
+    // Callouts 폴백
+    const callouts = input.data.callouts || [];
+    const calloutY = hlStartY;
+    callouts.forEach((co: any, i: number) => {
+      if (i > 1) return;
+      const coGap = 0.20;
+      const coW = L.col(2, coGap);
+      const x = L.colX(i, coW, coGap);
+      if (calloutY + 1.2 <= 6.5) {
+        L.callout(slide, x, calloutY, coW, 1.2, co.kind || 'info', co.title || '투자 하이라이트', co.body || '');
+      }
+    });
+  }
   
   if (input.watermarkText) L.watermark(slide, input.watermarkText, false);
   L.foot(slide, input.slideNum, input.docno);

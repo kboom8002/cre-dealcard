@@ -58,8 +58,8 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
     const bodyRows = tableRows.map((r: any[]) =>
       r.map((c: any) => {
         let text = String(c || '').replace(/\*\*/g, '');
-        // 26자 초과 셀은 말줄임 처리
-        if (text.length > 26) text = text.slice(0, 25) + '…';
+        // 35자 초과 셀은 말줄임 처리
+        if (text.length > 35) text = text.slice(0, 34) + '…';
         return { t: text };
       })
     );

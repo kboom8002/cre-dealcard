@@ -43,7 +43,18 @@ export function projectToTeaser(
   attrs: Record<string, unknown>,
   config?: TeaserConfig
 ): TeaserView {
-  const price = Number(attrs.askingPriceKrw || 0);
+  let price = Number(attrs.askingPriceKrw || 0);
+  if (price <= 0 && (attrs.priceBand || attrs.price_band)) {
+    const rawBand = String(attrs.priceBand || attrs.price_band);
+    const match = rawBand.match(/(\d+(?:\.\d+)?)/);
+    if (match) {
+      const num = parseFloat(match[1]);
+      if (rawBand.includes('조')) price = num * 1_000_000_000_000;
+      else if (rawBand.includes('억')) price = num * 100_000_000;
+      else if (rawBand.includes('만')) price = num * 10_000;
+      else price = num * 100_000_000;
+    }
+  }
   const priceManwon = price > 0 ? price / 10000 : 0;
   const area = Number(attrs.totalFloorAreaPyung || 0);
   const capRate = Number(attrs.capRatePct || 0);
@@ -55,11 +66,15 @@ export function projectToTeaser(
   const address = String(attrs.address || '');
   const sigunguMatch = address.match(/(?:서울|경기|인천|부산|대구|대전|광주|울산|세종|제주|\S+특별\S*)\s*(\S+[구군시])/);
   const sigungu = String(attrs.sigungu || sigunguMatch?.[1] || '');
-  const areaSignal = String(attrs.regionLabel || attrs.areaSignal || attrs.region || '');
+  const areaSignal = String(attrs.regionLabel || attrs.areaSignal || attrs.region || attrs.area_signal || '');
   
   let region = '비공개 권역';
   if (sigungu && areaSignal) {
-    region = `${sigungu} · ${areaSignal}`;
+    if (areaSignal.includes(sigungu)) {
+      region = areaSignal;
+    } else {
+      region = `${sigungu} · ${areaSignal}`;
+    }
   } else if (sigungu) {
     region = `${sigungu} 권역`;
   } else if (areaSignal) {
@@ -107,7 +122,9 @@ export function projectToTeaser(
   let vacancyLabel = vacancyPct == null ? '공실 정보 없음' : `공실 ${vacancyPct}%`;
   if (evictionStatus && vacancyPct != null) vacancyLabel += ` (${evictionStatus})`;
 
-  const bandedPrice = bandPriceDisplay(priceManwon, config?.priceBandingMode || 'single');
+  const bandedPrice = priceManwon > 0
+    ? bandPriceDisplay(priceManwon, config?.priceBandingMode || 'single')
+    : (attrs.priceBand || attrs.price_band ? String(attrs.priceBand || attrs.price_band) : '가격 협의');
   const bandedCapRate = bandCapRate(capRate);
   const bandedArea = bandArea(area);
 

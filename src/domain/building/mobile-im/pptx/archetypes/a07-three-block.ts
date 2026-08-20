@@ -57,19 +57,23 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
       fontFace: KR, fontSize: 13.5, bold: true, color: labelColor, margin: 0
     });
 
-    // 2. 핵심 요약 / 상태 (1줄)
+    // 2. 핵심 요약 / 상태 (1줄 또는 2줄)
     const rawVal = (b.value || '실사 완료').replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '').trim();
-    const valText = rawVal.slice(0, 22);
+    const valText = rawVal.slice(0, 36);
     slide.addText(valText, {
-      x: x + 0.25, y: y + 0.56, w: w - 0.5, h: 0.38,
-      fontFace: KR, fontSize: 15, bold: true, color: valColor, margin: 0
+      x: x + 0.25, y: y + 0.54, w: w - 0.5, h: 0.44,
+      fontFace: KR, fontSize: 13.5, bold: true, color: valColor, margin: 0,
+      fit: 'shrink' as any,
     });
 
-    // 3. 세부 불릿 본문 (PptxGenJS 네이티브 행잉 인덴트 적용: 둘째 줄 이후 텍스트 자동 왼쪽 정렬)
+    // 3. 세부 불릿 본문 (PptxGenJS 네이티브 행잉 인덴트 및 단락 간 여백 적용)
     const descText = b.description || '';
     if (descText) {
-      const lines = descText.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
-      const textRuns = lines.map((line: string) => {
+      let lines = descText.split(/\n+/).map((l: string) => l.trim()).filter((l: string) => l.length > 0);
+      if (lines.length === 1 && lines[0].length > 40 && (lines[0].includes('. ') || lines[0].includes('; '))) {
+        lines = lines[0].split(/(?<=[.;])\s+/).filter(Boolean);
+      }
+      const textRuns = lines.map((line: string, lineIdx: number) => {
         const cleanLine = line
           .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '')
           .replace(/^[•·\-*]+\s*/, '')
@@ -78,11 +82,13 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
           text: cleanLine,
           options: {
             bullet: { code: '2022' },
-            fontSize: 12.5,
+            fontSize: 12,
             color: descColor,
             fontFace: KR,
             breakLine: true,
             indentLevel: 0,
+            lineSpacingMultiple: 1.25,
+            paraSpaceBefore: lineIdx > 0 ? 8 : 0,
             margin: [0, 0, 0, 0],
           }
         };
@@ -90,7 +96,7 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
 
       if (textRuns.length > 0) {
         slide.addText(textRuns as any, {
-          x: x + 0.25, y: y + 0.98, w: w - 0.5, h: h - 1.10,
+          x: x + 0.25, y: y + 1.05, w: w - 0.5, h: h - 1.15,
           valign: 'top', margin: 0
         });
       }

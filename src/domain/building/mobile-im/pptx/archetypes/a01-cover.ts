@@ -49,19 +49,27 @@ function coverInstitutionalMasses(slide: any, input: ArchetypeInput): void {
 }
 
 /** split — 좌 콘텐츠 / 우 컬러 패널 분할 (credeal_signature) */
-function coverSplit(slide: any, input: ArchetypeInput): void {
-  // 우측 액센트 패널 (전체 높이)
-  slide.addShape('rect' as any, {
-    x: 8.50, y: 0, w: 4.833, h: 7.5,
-    fill: { color: C.brass },
-  });
+function coverSplit(slide: any, input: ArchetypeInput, imgAdded: boolean = false): void {
+  if (!imgAdded) {
+    // 우측 액센트 패널 (전체 높이)
+    slide.addShape('rect' as any, {
+      x: 8.50, y: 0, w: 4.833, h: 7.5,
+      fill: { color: C.brass },
+    });
 
-  // 패널 내 대각 장식
-  slide.addShape('rect' as any, {
-    x: 9.20, y: 0.60, w: 3.60, h: 6.30,
-    fill: { color: C.ink, transparency: 88 },
-    rotate: 2,
-  });
+    // 패널 내 대각 장식
+    slide.addShape('rect' as any, {
+      x: 9.20, y: 0.60, w: 3.60, h: 6.30,
+      fill: { color: C.ink, transparency: 88 },
+      rotate: 2,
+    });
+  } else {
+    // 이미지가 있는 경우: 태그라인 가독성을 위해 하단에만 반투명 보호 밴드 배치
+    slide.addShape('rect' as any, {
+      x: 8.50, y: 5.50, w: 4.833, h: 1.20,
+      fill: { color: C.ink, transparency: 40 },
+    });
+  }
 
   // 워드마크 (좌측)
   slide.addText([
@@ -72,7 +80,7 @@ function coverSplit(slide: any, input: ArchetypeInput): void {
   // 우측 패널에 태그라인
   slide.addText(THEME_META.companyTagline, {
     x: 9.00, y: 5.80, w: 3.80, h: 0.4,
-    fontSize: 10, color: C.ink, fontFace: KR, margin: 0, align: 'center',
+    fontSize: 10, color: imgAdded ? 'FFFFFF' : C.ink, fontFace: KR, margin: 0, align: 'center',
   });
 
   renderCommonCoverContent(slide, input, 2.22);
@@ -259,11 +267,23 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
       if (img) {
         const coverStyle = input.data?.coverStyle ?? THEME_META.coverStyle;
         if (coverStyle === 'split') {
-          slide.addImage({ data: img.base64, x: 8.50, y: 0, w: 4.833, h: 7.5 });
+          slide.addImage({
+            data: img.base64,
+            x: 8.50, y: 0, w: 4.833, h: 7.5,
+            sizing: { type: 'cover', w: 4.833, h: 7.5 },
+          });
         } else if (coverStyle === 'hero_dark') {
-          slide.addImage({ data: img.base64, x: 0, y: 0, w: 13.333, h: 7.5 });
+          slide.addImage({
+            data: img.base64,
+            x: 0, y: 0, w: 13.333, h: 7.5,
+            sizing: { type: 'cover', w: 13.333, h: 7.5 },
+          });
         } else {
-          slide.addImage({ data: img.base64, x: 8.50, y: 0, w: 4.833, h: 7.5 });
+          slide.addImage({
+            data: img.base64,
+            x: 8.50, y: 0, w: 4.833, h: 7.5,
+            sizing: { type: 'cover', w: 4.833, h: 7.5 },
+          });
         }
         imgAdded = true;
       }
@@ -311,7 +331,7 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
   // ── Step 3: Cover style content (text renders ON TOP of decorations) ──
   switch (style) {
     case 'split':
-      coverSplit(slide, input);
+      coverSplit(slide, input, imgAdded);
       break;
     case 'hero_dark':
       coverHeroDark(slide, input);

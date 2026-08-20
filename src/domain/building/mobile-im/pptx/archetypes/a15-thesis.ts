@@ -218,15 +218,15 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
 
   // 좌측 라벨 태그
   slide.addText('💡 종합 가치 제안', {
-    x: M + 0.20, y: bannerY + 0.12, w: 1.8, h: 0.24,
-    fontSize: 9.5, bold: true, color: C.brassD, fontFace: KR, margin: 0,
+    x: M + 0.20, y: bannerY + 0.12, w: 1.85, h: 0.28,
+    fontSize: 10.5, bold: true, color: C.brassD, fontFace: KR, margin: 0,
   });
 
   // 우측 마무리멘트 텍스트
   slide.addText(takeawayText, {
-    x: M + 2.05, y: bannerY + 0.10, w: CW - 2.25, h: bannerH - 0.20,
-    fontSize: 10, color: C.ink3, fontFace: KR,
-    margin: 0, valign: 'middle', lineSpacingMultiple: 1.20,
+    x: M + 2.10, y: bannerY + 0.08, w: CW - 2.30, h: bannerH - 0.16,
+    fontSize: 11, color: C.ink, fontFace: KR, bold: false,
+    margin: 0, valign: 'middle', lineSpacingMultiple: 1.25,
   });
 
   // 4. 워터마크 & 푸터

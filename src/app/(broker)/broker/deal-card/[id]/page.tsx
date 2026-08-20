@@ -23,6 +23,7 @@ import { LiveDealCardPreviewCard } from "@/components/broker/deal-card/LiveDealC
 import { BlindDealCardPreview } from "@/components/broker/deal-card/BlindDealCardPreview";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 import BuildingSignalEditor from "@/components/broker/deal-card/BuildingSignalEditor";
+import { extractCleanKoreanAddress } from "@/domain/verification/address-resolver";
 
 
 export async function generateMetadata({ params }: DealCardResultPageProps): Promise<Metadata> {
@@ -195,11 +196,8 @@ export default async function BrokerDealCardResultPage({
   // 실제 주소인지 판별 (권역 시그널 등 배제)
   const looksLikeRealAddress = (addr: string | null | undefined): string | null => {
     if (!addr) return null;
-    // "서초권역", "성수권역", "홍대권" 등은 주소가 아님
     if (addr.includes("권역") || addr.endsWith("권")) return null;
-    // 숫자 포함 or 동/로/길/읍/면/리/가 포함 → 주소로 판단
-    if (/\d+/.test(addr) || /[동로길읍면리가]/.test(addr)) return addr;
-    return null;
+    return extractCleanKoreanAddress(addr);
   };
 
   const attrsAddress = bAttrs.address || bAttrs.rawAddress || bAttrs.raw_address;
@@ -207,21 +205,17 @@ export default async function BrokerDealCardResultPage({
   // raw_input은 building_ssot_lite에만 있고 assets에는 없으므로 양쪽 확인
   const rawInput = building.raw_input || bAttrs.rawInput || bAttrs.raw_input || "";
 
-  const rawAddressCandidate = building.raw_address
+  const rawAddressCandidate = looksLikeRealAddress(building.raw_address)
     || looksLikeRealAddress(attrsAddress)
-    || layers?.location?.raw_address
-    || layers?.location?.exact_address
+    || looksLikeRealAddress(layers?.location?.raw_address)
+    || looksLikeRealAddress(layers?.location?.exact_address)
     || looksLikeRealAddress(layers?.location?.address);
 
-  // raw_input(원본 메모)에서 주소 정규식 추출
-  const regexAddr1 = rawInput?.match(/(?:(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)(?:특별시|광역시|특별자치시|도|특별자치도)?\s*)?[가-힣0-9]+(?:시|군|구)\s+[가-힣0-9]+(?:읍|면|동|가|로|길)\s*\d+(?:-\d+)?(?:번지)?/)?.[0];
-  const regexAddr2 = rawInput?.match(/[가-힣0-9]+(?:읍|면|동|가|로|길)\s*\d+(?:-\d+)?(?:번지)?/)?.[0];
+  const cleanMemoAddress = extractCleanKoreanAddress(rawInput);
 
   const extractedAddress = rawAddressCandidate
-    || regexAddr1
-    || regexAddr2
-    || attrsAddress
-    || layers?.location?.address
+    || cleanMemoAddress
+    || looksLikeRealAddress(attrsAddress)
     || building.area_signal
     || attrsAreaSignal
     || "";
@@ -309,9 +303,9 @@ export default async function BrokerDealCardResultPage({
           ogTitle={teaser?.ogTitle}
           ogDescription={teaser?.ogDescription}
           dealPoints={dealPoints.length > 0 ? dealPoints : ["안정적인 임대 수익 및 자산 가치", "우수한 대중교통 및 도로 접근성", "주변 시세 대비 경쟁력 있는 매각가"]}
-          areaSignal={building.area_signal || undefined}
-          assetType={building.asset_type || undefined}
-          priceBand={building.price_band || undefined}
+          areaSignal={building.area_signal || bAttrs.areaSignal || undefined}
+          assetType={building.asset_type || bAttrs.assetType || undefined}
+          priceBand={building.price_band || bAttrs.priceBand || undefined}
           kakaoText={kakaoText}
         />
 

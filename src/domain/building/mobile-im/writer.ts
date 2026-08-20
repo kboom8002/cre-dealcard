@@ -156,6 +156,21 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       const price = ctx.assetIdentity.price_band ? `, 매각 희망가 ${ctx.assetIdentity.price_band}` : '';
       return `${area} ${asset}${vacancy}${price}. 입지·임대차 현황을 감안할 때 투자 검토 가치가 있는 물건입니다.`;
     })()),
+    keyPoints: (() => {
+      const points: string[] = [];
+      if (Array.isArray((ctx.buyerFit as any)?.fit_points) && (ctx.buyerFit as any).fit_points.length > 0) {
+        points.push(...(ctx.buyerFit as any).fit_points.slice(0, 3));
+      } else {
+        const area = ctx.assetIdentity.area_signal || '핵심권역';
+        const ask = ctx.assetIdentity.price_band || '적정가';
+        points.push(
+          `원금 안전판: ${area} 핵심 입지 및 우량 대지 지분 가치로 하방 경직성 확보`,
+          `수익 안정성: 매각 희망가 ${ask} 대비 안정적인 월 임대수익 창출 구조`,
+          `미래 가치: 향후 권역 지가 상승 및 공법상 잔여 용적률 활용 밸류업 기회`
+        );
+      }
+      return points;
+    })(),
     keyRisk: String(ctx.buyerFit.caution_summary ?? (() => {
       const parts: string[] = [];
       if (!ctx.assetIdentity.vacancy_signal) parts.push('공실률 미확인');

@@ -89,6 +89,7 @@ export function normalizeFloorLeases(raw: FloorLeaseInput[]): NormalizedLease[] 
  * NormalizedLease 배열을 Rent Roll 마크다운 테이블로 변환
  */
 export function formatRentRollMarkdown(leases: NormalizedLease[]): string {
+  if (!leases || leases.length === 0) return '';
   const header = `### 층별 임대 현황\n| 층수 | 업종 | 전용면적 | 보증금 | 월 임대료 | 관리비 | 임대 만기 |\n|------|------|----------|--------|-----------|--------|-----------|`;
   const rows = leases.map((l) => {
     const tenantLabel =
@@ -96,7 +97,7 @@ export function formatRentRollMarkdown(leases: NormalizedLease[]): string {
       : l.tenantType === "office" ? "오피스"
       : l.tenantType === "retail" ? "리테일"
       : l.tenantType === "food" ? "F&B"
-      : l.tenantType;
+      : l.tenantType || "근생/업무";
 
     const areaPyeong = l.areaSqm > 0 ? `${(l.areaSqm / PYEONG_TO_SQM).toFixed(0)}평` : "-";
     const depositStr = l.depositKrw > 0 ? `${Math.round(l.depositKrw / MANWON_TO_WON).toLocaleString()}만` : "-";
@@ -106,6 +107,36 @@ export function formatRentRollMarkdown(leases: NormalizedLease[]): string {
     return `| ${l.floor} | ${tenantLabel} | ${areaPyeong} | ${depositStr} | ${rentStr} | ${mgmtStr} | ${l.leaseEnd || "미정"} |`;
   });
   return `${header}\n${rows.join("\n")}`;
+}
+
+/**
+ * NormalizedLease 배열로부터 종합 임대 현황 요약 마크다운 테이블 생성
+ */
+export function formatRentRollSummary(leases: NormalizedLease[]): string {
+  if (!leases || leases.length === 0) return '';
+  const totalUnits = leases.length;
+  const vacantUnits = leases.filter(l => l.isVacant).length;
+  const vacancyRate = totalUnits > 0 ? ((vacantUnits / totalUnits) * 100).toFixed(1) : '0.0';
+  const totalDeposit = leases.reduce((sum, l) => sum + (l.depositKrw || 0), 0);
+  const totalMonthlyRent = leases.reduce((sum, l) => sum + (l.monthlyRentKrw || 0), 0);
+  const totalMgmtFee = leases.reduce((sum, l) => sum + (l.mgmtFeeKrw || 0), 0);
+  const annualRent = totalMonthlyRent * 12;
+
+  const depositManwon = Math.round(totalDeposit / MANWON_TO_WON);
+  const depositStr = depositManwon >= 10000 ? `약 ${(depositManwon / 10000).toFixed(1)}억 원` : `${depositManwon.toLocaleString()}만 원`;
+  const monthlyRentManwon = Math.round(totalMonthlyRent / MANWON_TO_WON);
+  const monthlyRentStr = monthlyRentManwon >= 10000 ? `약 ${(monthlyRentManwon / 10000).toFixed(1)}억 원/월` : `${monthlyRentManwon.toLocaleString()}만 원/월`;
+  const annualRentManwon = Math.round(annualRent / MANWON_TO_WON);
+  const annualRentStr = annualRentManwon >= 10000 ? `약 ${(annualRentManwon / 10000).toFixed(1)}억 원/년` : `${annualRentManwon.toLocaleString()}만 원/년`;
+
+  return `### 임대차 종합 요약
+| 구분 | 지표 분석 | 비고 |
+|------|-----------|------|
+| **공실 현황** | ${vacancyRate}% (${totalUnits - vacantUnits}개 호실 임대 중 / 총 ${totalUnits}실) | 공실 ${vacantUnits}실 |
+| **월 임대료 합계** | ${monthlyRentStr} | 관리비 별도 (${Math.round(totalMgmtFee / MANWON_TO_WON).toLocaleString()}만 원) |
+| **연 임대 수입** | ${annualRentStr} | 연간 총 임대료 수입 |
+| **보증금 총액** | ${depositStr} | 임차인 보증금 합계 |
+| **임차인 정보** | 실사 및 NDA 체결 후 상세 제공 | 개인정보 보호 처리 |`;
 }
 
 /**

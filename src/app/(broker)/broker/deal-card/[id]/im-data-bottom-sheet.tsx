@@ -244,18 +244,19 @@ export function ImDataBottomSheet({
 
     if (initialAddress) {
       // 실제 주소인지 판별 — 숫자 포함, 동/로/길 포함, 또는 PNU가 함께 전달된 경우
-      const isReal = /\d+/.test(initialAddress)
-        || /[동로길]\s/.test(initialAddress)
-        || /[동로길]$/.test(initialAddress)
+      const hasBuildingNumber = /\d+(?:-\d+)?(?:번지)?/.test(initialAddress);
+      const isReal = /[동로길읍면리]\b/.test(initialAddress)
+        || /[동로길읍면리]$/.test(initialAddress)
+        || hasBuildingNumber
         || !!initialPnu;
 
       if (isReal) {
         setAddress(initialAddress);
         setSearchKeyword(initialAddress);
-        // PNU가 없을 때만 주소 API 검색으로 PNU 해석 시도
-        if (!initialPnu) {
+        // 상세 지번(숫자)이 포함되어 있고 PNU가 없을 때만 자동 검색 시도 (자동 선택 방지)
+        if (!initialPnu && hasBuildingNumber) {
           const timer = setTimeout(() => {
-            handleAddressSearch(initialAddress, true);
+            handleAddressSearch(initialAddress, false);
           }, 100);
           return () => clearTimeout(timer);
         }

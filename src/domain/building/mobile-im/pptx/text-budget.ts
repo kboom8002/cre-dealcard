@@ -39,14 +39,25 @@ export function truncateText(text: string, maxChars: number): string {
 export function enforceTextBudget(text: string, maxLen: number): string {
   if (!text || text.length <= maxLen) return text;
   const truncated = text.slice(0, maxLen);
-  const lastPeriod = Math.max(
+  const lastSentenceEnd = Math.max(
     truncated.lastIndexOf(". "),
     truncated.lastIndexOf("다. "),
     truncated.lastIndexOf("요. "),
     truncated.lastIndexOf("음. "),
+    truncated.lastIndexOf("다."),
+    truncated.lastIndexOf("요."),
+    truncated.lastIndexOf("함."),
+    truncated.lastIndexOf("임."),
+    truncated.lastIndexOf("."),
   );
-  if (lastPeriod > maxLen * 0.6) {
-    return truncated.slice(0, lastPeriod + 1);
+  if (lastSentenceEnd > maxLen * 0.5) {
+    const endIdx = truncated[lastSentenceEnd + 1] === ' ' ? lastSentenceEnd + 2 : lastSentenceEnd + 1;
+    return truncated.slice(0, endIdx).trim();
+  }
+  // 문장 부호가 없다면 공백(단어 경계) 기준으로 안전하게 끊기
+  const lastSpace = truncated.lastIndexOf(" ");
+  if (lastSpace > maxLen * 0.65) {
+    return truncated.slice(0, lastSpace).trim() + "…";
   }
   return truncated.trimEnd() + "…";
 }

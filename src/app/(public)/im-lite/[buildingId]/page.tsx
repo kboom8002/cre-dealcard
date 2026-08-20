@@ -13,6 +13,7 @@ import { notFound } from "next/navigation";
 import { DEMO_BUILDING_IDS } from "@/lib/demo/mobile-im-demo-data";
 import { MobileIMViewer } from "./mobile-im-viewer";
 import { fetchIMData } from "./fetch-im-data";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 interface Props {
   params: Promise<{ buildingId: string }>;
@@ -95,5 +96,16 @@ export default async function MobileIMLitePage({ params, searchParams }: Props) 
     );
   }
 
-  return <MobileIMViewer document={data} buildingId={buildingId} docId={docId} />;
+  let isBroker = sp.mode === 'broker';
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      isBroker = true;
+    }
+  } catch {
+    // Non-blocking
+  }
+
+  return <MobileIMViewer document={data} buildingId={buildingId} docId={docId} isBroker={isBroker} />;
 }

@@ -136,14 +136,23 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
   const isPreviewMode = sParams.preview === "1" || sParams.preview === "true";
   const { building, signalCard, teaserDoc, brokerProfile } = await getDealCardData(id);
 
-  if (!building && !isPreviewMode) return notFound();
-
-  const safeBuilding = building || { id, area_signal: "비공개 권역", asset_type: "근린생활시설", price_band: "가격 협의" };
-  const attrs = buildAttrsFromSsotLite(safeBuilding || {});
+  const safeBuilding = building || {
+    id,
+    area_signal: signalCard?.area_signal || "비공개 권역",
+    asset_type: signalCard?.asset_type || "근린생활시설",
+    price_band: signalCard?.price_band || "가격 협의",
+  };
+  const rawAttrs = buildAttrsFromSsotLite(safeBuilding || {});
+  const attrs = {
+    ...rawAttrs,
+    areaSignal: rawAttrs.areaSignal || signalCard?.area_signal || safeBuilding.area_signal,
+    priceBand: rawAttrs.priceBand || signalCard?.price_band || safeBuilding.price_band,
+    assetType: rawAttrs.assetType || signalCard?.asset_type || safeBuilding.asset_type,
+  };
   const teaserView = projectToTeaser(attrs);
 
   // 데이터 최소성 검사
-  const hasMinimalData = !!(safeBuilding.area_signal || safeBuilding.price_band || safeBuilding.asset_type || teaserDoc);
+  const hasMinimalData = !!(attrs.areaSignal || attrs.priceBand || attrs.assetType || teaserDoc);
   if (!hasMinimalData && !isPreviewMode) {
     return (
       <main className="min-h-screen bg-[#0B0F14] text-[#E7ECF2] flex items-center justify-center p-4">

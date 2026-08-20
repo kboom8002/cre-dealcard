@@ -44,6 +44,14 @@ export async function GET(
     const { data: bData } = await readWithMigration(id);
     building = bData as Record<string, any>;
 
+    const { data: sData } = await supabase
+      .from("building_signal_cards")
+      .select("area_signal, asset_type, price_band, title")
+      .eq("building_id", id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
     const { data: tData } = await supabase
       .from("document_objects")
       .select("*")
@@ -53,12 +61,25 @@ export async function GET(
       .limit(1)
       .single();
     teaserDoc = tData;
+
+    if (sData) {
+      if (!building) building = { id };
+      building.area_signal = building.area_signal || sData.area_signal;
+      building.asset_type = building.asset_type || sData.asset_type;
+      building.price_band = building.price_band || sData.price_band;
+    }
   } catch (e) {
     console.warn("Data fetch warning in 1-page card generator:", e);
   }
 
   const safeBuilding = building || { id, area_signal: "서울 주요 권역", asset_type: "상업용 빌딩", price_band: "가격 협의" };
-  const attrs = buildAttrsFromSsotLite(safeBuilding);
+  const rawAttrs = buildAttrsFromSsotLite(safeBuilding);
+  const attrs = {
+    ...rawAttrs,
+    areaSignal: rawAttrs.areaSignal || safeBuilding.area_signal,
+    priceBand: rawAttrs.priceBand || safeBuilding.price_band,
+    assetType: rawAttrs.assetType || safeBuilding.asset_type,
+  };
   const teaserView = projectToTeaser(attrs);
   const imBody = (teaserDoc?.body ?? {}) as Record<string, any>;
 

@@ -65,12 +65,11 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
 
   const rightRows = right.rows ?? [];
   if (rightRows.length > 0) {
-    // Truncate each row's value to prevent overflow
     const safeRows = rightRows.map(([label, value, ...rest]: any[]) => 
-      [stripMarkdown(String(label || '')), enforceTextBudget(stripMarkdown(String(value || '')), 70), ...rest]
+      [stripMarkdown(String(label || '')), stripMarkdown(String(value || '')), ...rest]
     ) as RowEntry[];
-    y = L.rows(slide, textX, y, textW, safeRows, { rh: 0.48, fs: 14 });
-    y += 0.2;
+    y = L.rows(slide, textX, y, textW, safeRows, { rh: 0.54, fs: 13 });
+    y += 0.15;
   }
 
   if (rightRows.length === 0) {
