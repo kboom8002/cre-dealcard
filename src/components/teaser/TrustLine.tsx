@@ -4,6 +4,7 @@ interface TrustLineProps {
   brokerName: string;
   brokerPhone?: string;
   brokerSlug?: string;
+  brokerAvatarUrl?: string;
   specialty?: string;
   responseGuaranteeHours?: number;
   closedDeals?: number;
@@ -14,6 +15,7 @@ export function TrustLine({
   brokerName,
   brokerPhone,
   brokerSlug,
+  brokerAvatarUrl,
   specialty,
   responseGuaranteeHours,
   closedDeals,
@@ -24,10 +26,19 @@ export function TrustLine({
   return (
     <div className="bg-[#141A21] border border-[#252E39] rounded-xl p-4 flex flex-col gap-2.5 shadow-lg">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-amber-300">
-            👤
-          </div>
+        <div className="flex items-center gap-2.5">
+          {/* Broker Avatar */}
+          {brokerAvatarUrl ? (
+            <img
+              src={brokerAvatarUrl}
+              alt={brokerName}
+              className="w-10 h-10 rounded-full object-cover border-2 border-amber-400/30 shadow-sm"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-sm font-bold text-amber-300">
+              {brokerName ? brokerName.charAt(0) : "👤"}
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-bold text-white">{brokerName || "담당 중개사"}</span>
@@ -63,5 +74,3 @@ export function TrustLine({
     </div>
   );
 }
-
-

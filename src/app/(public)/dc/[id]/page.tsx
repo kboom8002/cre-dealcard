@@ -21,7 +21,7 @@ interface PageProps {
 async function getDealCardData(id: string) {
   const supabase = createServiceClient();
 
-  const [buildingRes, signalCardRes, teaserDocRes] = await Promise.all([
+  const [buildingRes, signalCardRes, teaserDocRes, imDocRes] = await Promise.all([
     readWithMigration(id),
     supabase
       .from("building_signal_cards")
@@ -36,6 +36,14 @@ async function getDealCardData(id: string) {
       .eq("building_id", id)
       .eq("document_type", "blind_teaser")
       .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    // IM 문서 존재 여부 확인 (im_lite, im_lite_draft, mobile_im)
+    supabase
+      .from("document_objects")
+      .select("id")
+      .eq("building_id", id)
+      .in("document_type", ["im_lite", "im_lite_draft", "mobile_im"])
       .limit(1)
       .maybeSingle(),
   ]);
@@ -55,7 +63,7 @@ async function getDealCardData(id: string) {
   if (ownerId) {
     const { data: profile } = await supabase
       .from("broker_profiles")
-      .select("display_name, specialty, response_guarantee_hours, closed_deals, is_licensed, slug, phone")
+      .select("display_name, specialty, response_guarantee_hours, closed_deals, is_licensed, slug, phone, avatar_url")
       .eq("user_id", ownerId)
       .maybeSingle();
     brokerProfile = profile;
@@ -87,6 +95,7 @@ async function getDealCardData(id: string) {
     signalCard: signalCardRes.data,
     teaserDoc: teaserDocRes.data,
     brokerProfile,
+    hasImDoc: !!imDocRes.data,
   };
 }
 
@@ -134,7 +143,7 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
   const { id } = await params;
   const sParams = searchParams ? await searchParams : {};
   const isPreviewMode = sParams.preview === "1" || sParams.preview === "true";
-  const { building, signalCard, teaserDoc, brokerProfile } = await getDealCardData(id);
+  const { building, signalCard, teaserDoc, brokerProfile, hasImDoc } = await getDealCardData(id);
 
   const safeBuilding = building || {
     id,
@@ -244,6 +253,7 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
             brokerName={brokerProfile?.display_name || "담당 중개사"}
             brokerPhone={brokerProfile?.phone}
             brokerSlug={brokerProfile?.slug}
+            brokerAvatarUrl={brokerProfile?.avatar_url}
             specialty={brokerProfile?.specialty}
             responseGuaranteeHours={brokerProfile?.response_guarantee_hours}
             closedDeals={brokerProfile?.closed_deals}
@@ -256,6 +266,7 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
             teaserConfigId={safeBuilding?.id || id}
             brokerPhone={brokerProfile?.phone}
             requireNda={requireNda}
+            hasImDoc={hasImDoc}
           />
 
           {/* ⑥ 매도자 보호 및 비밀유지 안내 (접이식) */}
