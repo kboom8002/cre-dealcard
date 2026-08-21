@@ -109,16 +109,108 @@ export async function optimizeImagesForPptx(
 }
 
 /**
+ * POI 스폿 마커 정보 (지도 오버레이용)
+ */
+export interface MapPoiSpot {
+  name: string;
+  lat: number;
+  lng: number;
+  category: 'subway' | 'landmark' | 'hospital' | 'university' | 'shopping';
+}
+
+/** 카테고리별 마커 색상 */
+function poiMarkerColor(category: MapPoiSpot['category']): string {
+  switch (category) {
+    case 'subway': return '#3B82F6';     // blue
+    case 'hospital': return '#EF4444';   // red
+    case 'university': return '#22C55E'; // green
+    case 'shopping': return '#A855F7';   // purple
+    default: return '#6B7280';           // gray
+  }
+}
+
+/** 카테고리별 이모지/라벨 */
+function poiMarkerEmoji(category: MapPoiSpot['category']): string {
+  switch (category) {
+    case 'subway': return '🚇';
+    case 'hospital': return '🏥';
+    case 'university': return '🏫';
+    case 'shopping': return '🛒';
+    default: return '📍';
+  }
+}
+
+/**
+ * 위경도를 이미지 픽셀 좌표로 변환 (Mercator projection)
+ */
+function latlngToPixel(
+  lat: number, lng: number,
+  centerLat: number, centerLng: number,
+  zoom: number, imgW: number, imgH: number
+): { px: number; py: number } {
+  const scale = Math.pow(2, zoom) * 256;
+  const worldX = ((lng + 180) / 360) * scale;
+  const worldY = ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) * scale;
+  const centerWorldX = ((centerLng + 180) / 360) * scale;
+  const centerWorldY = ((1 - Math.log(Math.tan((centerLat * Math.PI) / 180) + 1 / Math.cos((centerLat * Math.PI) / 180)) / Math.PI) / 2) * scale;
+  
+  const px = Math.round(imgW / 2 + (worldX - centerWorldX));
+  const py = Math.round(imgH / 2 + (worldY - centerWorldY));
+  return { px, py };
+}
+
+/**
+ * POI 마커 SVG들을 생성하여 Sharp composite 오버레이 배열로 반환
+ */
+function buildPoiOverlays(
+  poiSpots: MapPoiSpot[],
+  centerLat: number, centerLng: number,
+  zoom: number, imgW: number, imgH: number
+): Array<{ input: Buffer; left: number; top: number }> {
+  const overlays: Array<{ input: Buffer; left: number; top: number }> = [];
+  
+  for (const spot of poiSpots) {
+    const { px, py } = latlngToPixel(spot.lat, spot.lng, centerLat, centerLng, zoom, imgW, imgH);
+    
+    // 이미지 범위 밖이면 스킵
+    if (px < -10 || px > imgW + 10 || py < -10 || py > imgH + 10) continue;
+    
+    const color = poiMarkerColor(spot.category);
+    const markerSize = 28;
+    
+    // POI 마커 SVG (작은 원형 마커 + 카테고리 색상)
+    const poiSvg = Buffer.from(`
+      <svg width="${markerSize}" height="${markerSize}" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="14" cy="14" r="12" fill="${color}" stroke="white" stroke-width="2.5" opacity="0.95"/>
+        <circle cx="14" cy="14" r="5" fill="white" opacity="0.9"/>
+      </svg>
+    `);
+    
+    overlays.push({
+      input: poiSvg,
+      left: Math.max(0, Math.min(px - markerSize / 2, imgW - markerSize)),
+      top: Math.max(0, Math.min(py - markerSize / 2, imgH - markerSize)),
+    });
+  }
+  
+  return overlays;
+}
+
+/**
  * 건물 위치 기반 정적 지도 생성
  * 1차: coordinates가 있는 경우 OSM(OpenStreetMap) 정적 타일 3x3 합성
  * 2차: 좌표가 없는 경우 dark SVG 플레이스홀더 (폰트 미의존)
+ * @param poiSpots - 지도에 표시할 주요 스폿 (역, 상권 등) 최대 5개
  */
 export async function generateStaticMapPlaceholder(
   addressOrArea: string,
   w = 800,
   h = 500,
-  coordinates?: { lat: number; lng: number } | null
+  coordinates?: { lat: number; lng: number } | null,
+  poiSpots?: MapPoiSpot[] | null
 ): Promise<OptimizedImage> {
+  const safePoiSpots = (poiSpots || []).slice(0, 5);
+  
   // ── 0차: 카카오 Static Map API (최우선) ──
   if (coordinates?.lat && coordinates?.lng) {
     try {
@@ -140,11 +232,22 @@ export async function generateStaticMapPlaceholder(
         if (response.ok) {
           const arrayBuffer = await response.arrayBuffer();
           const inputBuffer = Buffer.from(arrayBuffer);
-          // Resize to desired dimensions
-          const resizedBuffer = await sharp(inputBuffer)
-            .resize({ width: w, height: h, fit: 'cover' })
-            .jpeg({ quality: 85 })
-            .toBuffer();
+          
+          // 카카오 지도 위에 POI 마커 오버레이 (Sharp composite)
+          const kakaoW = Math.min(w, 1280);
+          const kakaoH = Math.min(h, 960);
+          let resized = sharp(inputBuffer).resize({ width: kakaoW, height: kakaoH, fit: 'cover' });
+          
+          if (safePoiSpots.length > 0) {
+            // 카카오 Static Map level 3 ≈ zoom 15 (근사치)
+            const kakaoZoom = 15;
+            const poiOverlays = buildPoiOverlays(safePoiSpots, coordinates.lat, coordinates.lng, kakaoZoom, kakaoW, kakaoH);
+            if (poiOverlays.length > 0) {
+              resized = sharp(await resized.png().toBuffer()).composite(poiOverlays);
+            }
+          }
+          
+          const resizedBuffer = await resized.jpeg({ quality: 85 }).toBuffer();
           return {
             buffer: resizedBuffer,
             base64: `image/jpeg;base64,${resizedBuffer.toString('base64')}`,
@@ -198,7 +301,7 @@ export async function generateStaticMapPlaceholder(
         const compositeWidth = tileSize * 3;
         const compositeHeight = tileSize * 3;
 
-        const overlays = tileBuffers.map(({ buf, dx, dy }) => ({
+        const tileOverlays = tileBuffers.map(({ buf, dx, dy }) => ({
           input: buf,
           left: (dx + 1) * tileSize,
           top: (dy + 1) * tileSize,
@@ -212,17 +315,20 @@ export async function generateStaticMapPlaceholder(
             background: { r: 30, g: 41, b: 59, alpha: 1 },
           },
         })
-          .composite(overlays)
+          .composite(tileOverlays)
           .png()
           .toBuffer();
 
-        // Marker pin SVG
+        // 건물 핀 마커 SVG
         const pinSvg = Buffer.from(`
           <svg width="40" height="50" viewBox="0 0 32 40">
             <path d="M16 0C7.164 0 0 7.164 0 16c0 12 16 24 16 24s16-12 16-24C32 7.164 24.836 0 16 0z" fill="#B98A2E"/>
             <circle cx="16" cy="16" r="6" fill="#10161F"/>
           </svg>
         `);
+
+        // POI 마커 오버레이
+        const poiOverlays = buildPoiOverlays(safePoiSpots, lat, lng, zoom, compositeWidth, compositeHeight);
 
         const cropLeft = Math.max(0, Math.floor((compositeWidth - w) / 2));
         const cropTop = Math.max(0, Math.floor((compositeHeight - h) / 2));
@@ -234,6 +340,7 @@ export async function generateStaticMapPlaceholder(
               left: Math.floor(compositeWidth / 2 - 20),
               top: Math.floor(compositeHeight / 2 - 40),
             },
+            ...poiOverlays,
           ])
           .extract({
             left: cropLeft,

@@ -344,6 +344,9 @@ export class MobileImPptxRenderer {
       if (dataMap['location']) {
         (dataMap['location'] as any).coordinates = input.doc.body?.coordinates ?? null;
         (dataMap['location'] as any).mapImageUrl = input.doc.body?.mapImageUrl ?? null;
+        // POI 주요 스폿 (역, 상권 랜드마크) — 지도 마커 오버레이용
+        const externalPoi = input.doc.body?.external_data?.locationPoi;
+        (dataMap['location'] as any).poiSpots = externalPoi?.keySpots ?? input.doc.body?.poiSpots ?? [];
       }
 
       // 건물 개요 슬라이드에 외관 사진 우선 사용

@@ -2,7 +2,7 @@ import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind, RowEntry } from '../imlib';
-import { generateStaticMapPlaceholder, fetchKakaoMapImage, type OptimizedImage } from '../utils/image-optimizer';
+import { generateStaticMapPlaceholder, fetchKakaoMapImage, type OptimizedImage, type MapPoiSpot } from '../utils/image-optimizer';
 import { enforceTextBudget } from '../text-budget';
 import { stripMarkdown } from '../data-binder';
 
@@ -35,6 +35,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
   const coords = input.data?.coordinates ?? null;
   const mapImageUrl = input.data?.mapImageUrl ?? null;
   const areaOrAddress = (input.data?.left as any)?.source || input.data?.areaSignal || '서울';
+  const poiSpots: MapPoiSpot[] = input.data?.poiSpots ?? [];
 
   let mapImg: OptimizedImage | null = null;
 
@@ -45,7 +46,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
 
   // 2차: 좌표 기반 카카오/OSM 합성 지도 (fetchKakaoMapImage 실패 시)
   if (!mapImg) {
-    mapImg = await generateStaticMapPlaceholder(areaOrAddress, 1120, 900, coords);
+    mapImg = await generateStaticMapPlaceholder(areaOrAddress, 1120, 900, coords, poiSpots);
   }
 
   if (mapImg) {
