@@ -337,19 +337,36 @@ export function ImDataBottomSheet({
             method: "POST",
             body: photoFormData,
           });
-          const uploadJson = await uploadRes.json();
-          if (uploadRes.ok && Array.isArray(uploadJson.urls) && uploadJson.urls.length > 0) {
-            uploadedPhotoUrls = uploadJson.urls;
-            if (uploadJson.failedCount > 0) {
-              toast.warning(`사진 ${uploadJson.uploadedCount}장 업로드 성공 (${uploadJson.failedCount}장 실패)`);
+
+          if (!uploadRes.ok) {
+            // Non-OK HTTP status — extract error details
+            let errorDetail = `HTTP ${uploadRes.status}`;
+            try {
+              const uploadJson = await uploadRes.json();
+              errorDetail = uploadJson.error || uploadJson.details?.join("; ") || errorDetail;
+            } catch { /* ignore JSON parse errors */ }
+
+            console.error("[Photo Upload] Server error:", errorDetail);
+            if (uploadRes.status === 401) {
+              toast.error("📷 사진 업로드 인증 만료. 페이지를 새로고침한 후 다시 시도해주세요.");
+            } else {
+              toast.error(`📷 사진 업로드 실패: ${errorDetail}. 기존 사진만으로 계속 진행합니다.`);
             }
           } else {
-            console.error("[Photo Upload API] Failed:", uploadJson.error);
-            toast.error(`📷 사진 업로드 실패: ${uploadJson.error || "서버 오류"}. 사진 없이 계속 진행합니다.`);
+            const uploadJson = await uploadRes.json();
+            if (Array.isArray(uploadJson.urls) && uploadJson.urls.length > 0) {
+              uploadedPhotoUrls = uploadJson.urls;
+              if (uploadJson.failedCount > 0) {
+                toast.warning(`사진 ${uploadJson.uploadedCount}장 업로드 성공 (${uploadJson.failedCount}장 실패)`);
+              }
+            } else {
+              console.error("[Photo Upload] Unexpected response:", uploadJson);
+              toast.error("📷 사진 업로드 응답이 비정상적입니다. 기존 사진만으로 계속 진행합니다.");
+            }
           }
         } catch (uploadErr) {
-          console.error("[Photo Upload API] Network error:", uploadErr);
-          toast.error("📷 사진 업로드 네트워크 오류. 사진 없이 계속 진행합니다.");
+          console.error("[Photo Upload] Network error:", uploadErr);
+          toast.error("📷 사진 업로드 네트워크 오류. 인터넷 연결을 확인해주세요. 기존 사진만으로 계속 진행합니다.");
         }
       }
 
