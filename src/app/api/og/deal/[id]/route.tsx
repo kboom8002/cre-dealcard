@@ -7,6 +7,7 @@ import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
 export const runtime = "nodejs";
 
 let fontBuffer: ArrayBuffer | null = null;
+let fallbackFontBuffer: ArrayBuffer | null = null;
 
 async function getFontData(): Promise<ArrayBuffer | null> {
   if (fontBuffer) return fontBuffer;
@@ -22,7 +23,27 @@ async function getFontData(): Promise<ArrayBuffer | null> {
     fontBuffer = await res.arrayBuffer();
     return fontBuffer;
   } catch (err) {
-    console.error("[OG] Font loading failed, using fallback:", err);
+    console.error("[OG] Pretendard font loading failed, trying fallback:", err);
+    return null;
+  }
+}
+
+async function getFallbackFont(): Promise<ArrayBuffer | null> {
+  if (fallbackFontBuffer) return fallbackFontBuffer;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    // Google Fonts Noto Sans KR Bold — 한글 지원 보장
+    const res = await fetch(
+      "https://fonts.gstatic.com/s/notosanskr/v36/PbyxFmXiEBPT4ITbgNA5Cgms3VYcOA-vvnIzzuoyeLGC5nwmHfxB5pVN.otf",
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+    if (!res.ok) throw new Error(`Fallback font fetch failed: ${res.status}`);
+    fallbackFontBuffer = await res.arrayBuffer();
+    return fallbackFontBuffer;
+  } catch (err) {
+    console.error("[OG] Fallback font loading also failed:", err);
     return null;
   }
 }
@@ -162,11 +183,19 @@ export async function GET(
   ];
 
   let fontData: ArrayBuffer | null = null;
+  let fallbackFont: ArrayBuffer | null = null;
   try {
-    fontData = await getFontData();
+    [fontData, fallbackFont] = await Promise.all([
+      getFontData(),
+      getFallbackFont(),
+    ]);
   } catch (err) {
     console.error("Font loading failed:", err);
   }
+  
+  // 폰트 우선순위: Pretendard → Noto Sans KR → sans-serif
+  const activeFontName = fontData ? "Pretendard" : fallbackFont ? "NotoSansKR" : "sans-serif";
+  const hasFontData = !!(fontData || fallbackFont);
 
   // Adjust font size based on text length to prevent overflow
   const headlineFontSize = displayMain.length > 28 ? 34 : displayMain.length > 18 ? 38 : 42;
@@ -183,7 +212,7 @@ export async function GET(
           padding: "48px 72px",
           background: "linear-gradient(135deg, #070A0F 0%, #111827 55%, #0B132B 100%)",
           color: "white",
-          fontFamily: fontData ? "Pretendard" : "sans-serif",
+          fontFamily: activeFontName,
           position: "relative",
           boxSizing: "border-box",
           overflow: "hidden",
@@ -383,16 +412,16 @@ export async function GET(
     {
       width: 1200,
       height: 630,
-      fonts: fontData
-        ? [
-            {
-              name: "Pretendard",
-              data: fontData,
-              weight: 700,
-              style: "normal",
-            },
-          ]
-        : undefined,
+      fonts: (() => {
+        const fontList: { name: string; data: ArrayBuffer; weight: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900; style: "normal" | "italic" }[] = [];
+        if (fontData) {
+          fontList.push({ name: "Pretendard", data: fontData, weight: 700, style: "normal" });
+        }
+        if (fallbackFont) {
+          fontList.push({ name: "NotoSansKR", data: fallbackFont, weight: 700, style: "normal" });
+        }
+        return fontList.length > 0 ? fontList : undefined;
+      })(),
       headers: {
         "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
       },
