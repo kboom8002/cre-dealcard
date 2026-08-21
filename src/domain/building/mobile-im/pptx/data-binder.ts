@@ -438,11 +438,22 @@ function buildA02Props(markdown: string, tables: ParsedTable[], lines: string[])
 /** A03 LargeTable: tableHead, tableRows, note, callouts[] */
 function buildA03Props(tables: ParsedTable[], lines: string[]): Record<string, any> {
   const merged = mergeRentRollTables(tables);
+  // 1-C: WALE 리스크 신호등 — 콜아웃 kind를 텍스트 기반 자동 추론
+  const rawCallouts = extractCallouts(lines);
+  const callouts = rawCallouts.map(c => {
+    if (c.kind && c.kind !== 'info') return c; // 이미 설정된 kind는 유지
+    const text = (c.title + ' ' + c.body).toLowerCase();
+    let kind: string = 'info';
+    if (/안정|양호|우수|낮음|리스크\s*없|만실|전층/.test(text)) kind = 'good';
+    else if (/주의|관찰|보통|중간|모니터링/.test(text)) kind = 'warn';
+    else if (/경고|위험|높음|집중|긴급|리스크\s*있|공실/.test(text)) kind = 'bad';
+    return { ...c, kind };
+  });
   return {
     tableHead: merged.headers.map(stripMarkdown),
     tableRows: merged.rows.map(r => r.map(stripMarkdown)),
     note: lines.find(l => l.startsWith('>'))?.replace(/^>\s*/, '') || '',
-    callouts: extractCallouts(lines),
+    callouts,
   };
 }
 
@@ -606,6 +617,7 @@ function buildA06Props(markdown: string, tables: ParsedTable[], lines: string[])
 /** A07 ThreeBlock: blocks[], bottomBar */
 function buildA07Props(tables: ParsedTable[], lines: string[]): Record<string, any> {
   const blocks: Array<{ label: string; value: string; description: string }> = [];
+  const MAX_BLOCKS = 5; // 3→5 확장: 명도/담보/위반건축물 등 한국 CRE 딜킬러 누락 방지
 
   const formatDescriptionBullets = (desc: string): string => {
     if (!desc) return '';
@@ -623,10 +635,10 @@ function buildA07Props(tables: ParsedTable[], lines: string[]): Record<string, a
     return cleaned;
   };
 
-  // 1. 테이블 기반 3개 블록 추출 (테이블의 1열: 라벨, 2열: 현황/상태, 3열: 완화방안/설명)
+  // 1. 테이블 기반 블록 추출 (테이블의 1열: 라벨, 2열: 현황/상태, 3열: 완화방안/설명)
   if (tables.length > 0 && tables[0]?.rows && tables[0].rows.length > 0) {
     for (const row of tables[0].rows) {
-      if (blocks.length >= 3) break;
+      if (blocks.length >= MAX_BLOCKS) break;
       if (row.length >= 3) {
         blocks.push({
           label: stripMarkdown(row[0] || '').trim(),
@@ -647,7 +659,7 @@ function buildA07Props(tables: ParsedTable[], lines: string[]): Record<string, a
   if (blocks.length === 0) {
     let currentHeader = '';
     let currentBullets: string[] = [];
-    const defaultStatusBadges = ['정밀안전 A등급', '임대차 안정', '권리관계 투명'];
+    const defaultStatusBadges = ['정밀안전 A등급', '임대차 안정', '권리관계 투명', '설비 양호', '법적 적격'];
 
     for (const line of lines) {
       if (line.startsWith('###')) {
@@ -666,7 +678,7 @@ function buildA07Props(tables: ParsedTable[], lines: string[]): Record<string, a
         if (stripped.length > 2) currentBullets.push(stripped);
       }
     }
-    if (currentHeader && currentBullets.length > 0 && blocks.length < 3) {
+    if (currentHeader && currentBullets.length > 0 && blocks.length < MAX_BLOCKS) {
       const badge = defaultStatusBadges[blocks.length] || '실사 적격';
       blocks.push({
         label: currentHeader,
@@ -678,7 +690,7 @@ function buildA07Props(tables: ParsedTable[], lines: string[]): Record<string, a
 
   if (blocks.length === 0) {
     const bullets = extractBulletItems(lines);
-    bullets.slice(0, 3).forEach(b => {
+    bullets.slice(0, MAX_BLOCKS).forEach(b => {
       const rawLabel = stripMarkdown(b.title || '');
       const rawValue = extractBoldValue(b.body) || stripMarkdown(b.body).slice(0, 20);
       const rawDesc = stripMarkdown(b.body);
@@ -690,25 +702,27 @@ function buildA07Props(tables: ParsedTable[], lines: string[]): Record<string, a
   
   if (blocks.length === 0) {
     const numbered = lines.filter(l => /^\d+[\.)\s]/.test(l));
-    numbered.slice(0, 3).forEach(l => {
+    numbered.slice(0, MAX_BLOCKS).forEach(l => {
       const content = stripMarkdown(l.replace(/^\d+[\.)\s]*/, ''));
       blocks.push({ label: '', value: content.slice(0, 20) || '—', description: content });
     });
   }
   if (blocks.length === 0 && lines.length > 0) {
-    // Split narrative text into 3 blocks
+    // Split narrative text into blocks (최대 MAX_BLOCKS)
     const textLines = lines
       .filter(l => !l.startsWith('#') && l.length > 5)
-      .map(l => l.replace(/^>\s*/, ''));  // M5: strip blockquote prefix
-    const chunk = Math.max(1, Math.ceil(textLines.length / 3));
+      .map(l => l.replace(/^>\s*/, ''));
+    const targetBlocks = Math.min(MAX_BLOCKS, Math.max(3, textLines.length));
+    const chunk = Math.max(1, Math.ceil(textLines.length / targetBlocks));
     const categoryKeywords: Record<string, string> = {
       '건축물': '건축 리스크', '용도': '용도 리스크', '위반': '법률 리스크',
       '등기': '권리 리스크', '저당': '재무 리스크', '근저당': '재무 리스크',
       '가압류': '법률 리스크', '임대': '임대 리스크', '공실': '공실 리스크',
       '소송': '법률 리스크', '환경': '환경 리스크', '지구': '규제 리스크',
       '도시': '도시계획', '주차': '주차 리스크', '소방': '안전 리스크',
+      '명도': '명도 리스크', '담보': '담보 리스크', '승강기': '설비 리스크',
     };
-    for (let i = 0; i < 3 && i * chunk < textLines.length; i++) {
+    for (let i = 0; i < targetBlocks && i * chunk < textLines.length; i++) {
       const segment = textLines.slice(i * chunk, (i + 1) * chunk).join(' ');
       const stripped = stripMarkdown(segment);
       let label = `항목 ${i + 1}`;
@@ -745,7 +759,7 @@ function buildA08Props(tables: ParsedTable[], lines: string[]): Record<string, a
 /** A09 Process: steps[], bottomInfo */
 function buildA09Props(lines: string[]): Record<string, any> {
   const numberedItems = lines.filter(l => /^\d+\./.test(l));
-  const steps = numberedItems.slice(0, 3).map((l, i) => {
+  const steps = numberedItems.slice(0, 4).map((l, i) => {
     const match = l.match(/^(\d+)\.\s*(.*)/);
     const content = match ? match[2] : l;
     const parts = content.split(/[：:]/);

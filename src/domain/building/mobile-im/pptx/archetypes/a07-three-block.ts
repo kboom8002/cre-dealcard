@@ -30,17 +30,22 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
   }
   
   const gap = 0.30;
-  const w = L.col(3, gap);
+  const blocks = input.data.blocks || [];
+  const blockCount = Math.min(blocks.length || 3, 5);
+  const w = L.col(blockCount, gap);
   const h = 3.95;
   const y = 1.55;
+  // 블록 4~5개 시 폰트 축소
+  const headerFs = blockCount <= 3 ? 13.5 : (blockCount === 4 ? 12.5 : 11.5);
+  const valFs = blockCount <= 3 ? 13.5 : (blockCount === 4 ? 12.5 : 11.5);
+  const descFs = blockCount <= 3 ? 12 : (blockCount === 4 ? 11 : 10.5);
   
   const labelColor = onDark ? C.brass : C.brassD;
   const valColor = onDark ? 'FFFFFF' : C.ink;
   const descColor = onDark ? CD.body : C.body;
   
-  const blocks = input.data.blocks || [];
   blocks.forEach((b: any, i: number) => {
-    if (i > 2) return;
+    if (i >= blockCount) return;
     const x = L.colX(i, w, gap);
     
     L.card(slide, x, y, w, h, { onDark });
@@ -54,7 +59,7 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
     const cleanLabel = (b.label || `실사 영역 ${i + 1}`).replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '').trim();
     slide.addText(cleanLabel, {
       x: x + 0.25, y: y + 0.22, w: w - 0.5, h: 0.32,
-      fontFace: KR, fontSize: 13.5, bold: true, color: labelColor, margin: 0
+      fontFace: KR, fontSize: headerFs, bold: true, color: labelColor, margin: 0
     });
 
     // 2. 핵심 요약 / 상태 (1줄 또는 2줄)
@@ -62,7 +67,7 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
     const valText = rawVal.slice(0, 36);
     slide.addText(valText, {
       x: x + 0.25, y: y + 0.54, w: w - 0.5, h: 0.44,
-      fontFace: KR, fontSize: 13.5, bold: true, color: valColor, margin: 0,
+      fontFace: KR, fontSize: valFs, bold: true, color: valColor, margin: 0,
       fit: 'shrink' as any,
     });
 
@@ -82,7 +87,7 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
           text: cleanLine,
           options: {
             bullet: { code: '2022' },
-            fontSize: 12,
+            fontSize: descFs,
             color: descColor,
             fontFace: KR,
             breakLine: true,
