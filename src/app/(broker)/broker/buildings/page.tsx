@@ -30,7 +30,6 @@ export default async function BuildingsPage() {
       "id, area_signal, asset_type, price_band, status, matched_buyer_count, promotion_score, vacancy_signal, created_at"
     )
     .eq("owner_id", user.id)
-    .is("archived_at", null)
     .neq("status", "archived")
     .order("promotion_score", { ascending: false, nullsFirst: false });
 

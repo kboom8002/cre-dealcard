@@ -209,10 +209,7 @@ export async function DELETE(
       console.warn("[deal-card/delete] Hard delete failed, fallback to soft delete:", hardDeleteErr.message);
       const { error: softDeleteErr } = await service
         .from("building_ssot_lite")
-        .update({ 
-          archived_at: new Date().toISOString(),
-          status: "archived"
-        })
+        .update({ status: "archived" })
         .eq("id", id);
 
       if (softDeleteErr) {

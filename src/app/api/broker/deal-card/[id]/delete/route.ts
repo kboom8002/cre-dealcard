@@ -63,13 +63,10 @@ export async function DELETE(
 
     if (hardDeleteErr) {
       console.warn("[deal-card/delete] Hard delete failed, falling back to soft delete:", hardDeleteErr.message);
-      // Hard delete 실패 시 soft delete 수행 (archived_at 및 status 모두 갱신)
+      // Hard delete 실패 시 soft delete 수행 (status만 갱신 — archived_at 컬럼 미존재)
       const { error: softDeleteErr } = await service
         .from("building_ssot_lite")
-        .update({ 
-          archived_at: new Date().toISOString(),
-          status: "archived"
-        })
+        .update({ status: "archived" })
         .eq("id", id);
 
       if (softDeleteErr) {

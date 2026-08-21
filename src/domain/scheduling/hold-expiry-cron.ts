@@ -11,6 +11,17 @@ export async function expireHeldSlots(supabase: SupabaseClient): Promise<ExpiryC
   try {
     const now = new Date().toISOString();
 
+    // 0. 테이블 존재 여부 사전 확인 (미생성 시 조용히 종료)
+    const { error: probeErr } = await supabase
+      .from('availability_slots')
+      .select('id')
+      .limit(0);
+    
+    if (probeErr?.message?.includes('schema cache') || probeErr?.message?.includes('does not exist') || probeErr?.code === 'PGRST204') {
+      console.log("[expireHeldSlots] availability_slots table not yet created, skipping.");
+      return { expiredCount: 0, success: true };
+    }
+
     // 1. 만료된 hold를 available로 복원
     const { data: expiredHolds, error: updateError } = await supabase
       .from('availability_slots')
