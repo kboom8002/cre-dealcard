@@ -3,7 +3,7 @@ import * as L from '../imlib';
 import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind, RowEntry } from '../imlib';
 import { generateStaticMapPlaceholder, fetchKakaoMapImage, type OptimizedImage, type MapPoiSpot } from '../utils/image-optimizer';
-import { enforceTextBudget } from '../text-budget';
+// enforceTextBudget는 data-binder에서 이미 적용되므로 여기서는 사용하지 않음
 import { stripMarkdown } from '../data-binder';
 
 export interface ArchetypeInput {
@@ -87,12 +87,20 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
 
   if (right.callout && y < 5.8) {
     const c = right.callout;
-    const body = enforceTextBudget(c.body ?? '', 100);
-    const calloutH = Math.min(1.4, Math.max(0.8, 0.4 + Math.ceil(body.length / 30) * 0.22));
-    // Only render callout if it fits within slide bounds
-    if (y + calloutH <= 6.3) {
-      L.callout(slide, textX, y, textW, calloutH, c.kind ?? 'info', c.title ?? '', body);
-      y += calloutH + 0.1;
+    // data-binder에서 이미 enforceTextBudget 적용됨 — 이중 잘림 방지
+    const body = c.body ?? '';
+    // CJK 기준 줄당 글자 수 계산 (callout 내부 패딩 0.36인치 제거)
+    const effectiveW = textW - 0.36;
+    const cjkCharsPerLine = Math.max(10, Math.floor(effectiveW / 0.19));
+    const bodyLines = Math.max(1, Math.ceil(body.length / cjkCharsPerLine));
+    // 높이 = 타이틀(0.36) + 줄수 × 줄높이(0.24) + 하단패딩(0.12)
+    const calloutH = Math.min(2.0, Math.max(0.7, 0.36 + bodyLines * 0.24 + 0.12));
+    // 슬라이드 하단(6.3인치) 내에서만 렌더링
+    const maxAvailable = 6.3 - y;
+    if (maxAvailable >= 0.7) {
+      const finalH = Math.min(calloutH, maxAvailable);
+      L.callout(slide, textX, y, textW, finalH, c.kind ?? 'info', c.title ?? '', body);
+      y += finalH + 0.1;
     }
   }
 

@@ -590,7 +590,7 @@ function buildA06Props(markdown: string, tables: ParsedTable[], lines: string[])
   }
   
   const truncatedRows: [string, string][] = rows.slice(0, 6).map(([label, value]) => 
-    [label.slice(0, 28), enforceTextBudget(value, 120)] as [string, string]
+    [label.slice(0, 28), enforceTextBudget(value, 160)] as [string, string]
   );
 
   return {
@@ -598,7 +598,7 @@ function buildA06Props(markdown: string, tables: ParsedTable[], lines: string[])
     right: { 
       sub: '', 
       rows: truncatedRows,
-      callout: calloutItem ? { kind: 'info', title: '', body: enforceTextBudget(stripMarkdown(calloutItem.replace(/^>\s*/, '')), 120) } : undefined,
+      callout: calloutItem ? { kind: 'info', title: '', body: enforceTextBudget(stripMarkdown(calloutItem.replace(/^>\s*/, '')), 200) } : undefined,
     },
   };
 }
