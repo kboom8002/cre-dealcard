@@ -111,11 +111,18 @@ function addFallbackContent(slide: any, data: any, _theme: any) {
         block.headers.map(h => stripMarkdown(h)),
         ...block.rows.map(r => r.map(c => stripMarkdown(c)))
       ];
+      // 3-D: 헤더 행에 brass 테마 적용
+      const styledData = tableData.map((row, rowIdx) =>
+        row.map(cell => rowIdx === 0
+          ? { text: cell, options: { fill: { color: C.brassL }, bold: true, color: C.brassD, fontSize: 10 } }
+          : { text: cell, options: { color: C.ink, fontSize: 9.5 } }
+        )
+      );
       const rowH = 0.32;
-      const tableH = tableData.length * rowH;
-      // autoPage가 긴 테이블을 자동 분할하므로 수동 skip 제거
+      const tableH = styledData.length * rowH;
+      const colCount = tableData[0]?.length || 1;
 
-      slide.addTable(tableData, {
+      slide.addTable(styledData as any, {
         x: bodyX, y: curY, w: bodyW,
         rowH,
         fontFace: KR, fontSize: 9.5,
@@ -125,8 +132,8 @@ function addFallbackContent(slide: any, data: any, _theme: any) {
         autoPageLineWeight: 0.5,
         autoPageCharWeight: 0.25,
         margin: [0.05, 0.1, 0.05, 0.1],
+        colW: Array(colCount).fill(bodyW / colCount),
       });
-      // 헤더 행 스타일링 (첫 행)
       curY += tableH + 0.2;
     } else {
       // 텍스트 블록: 헤더, 불릿, 일반 텍스트를 구분하여 렌더링

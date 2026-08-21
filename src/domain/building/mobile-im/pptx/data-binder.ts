@@ -1256,8 +1256,16 @@ export function sanitizePersona(text: string): string {
     .replace(/>?\s*🔒?\s*\*{0,2}임대차\s*상세\s*현황[^\n]*/g, '')
     .replace(/공공데이터\s*API\s*응답을\s*받지\s*못했습니다[^\n]*/g, '')
     .replace(/추후\s*업데이트\s*시\s*자동\s*반영됩니다\.?/g, '')
-    // ── 이모지 제거 ──
-    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{1F300}-\u{1FAFF}\u{25A0}-\u{25FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}✨🚇✓★▲●◇🟢🔵🔶💡🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍]/gu, '')
+    // ── 이모지 → 카테고리 라벨 매핑 (단순 제거 대신 맥락 보존) ──
+    .replace(/🚇/g, '[교통]').replace(/🛣️/g, '[교통]').replace(/🚗/g, '[교통]')
+    .replace(/🏢/g, '[건물]').replace(/🏥/g, '[의료]').replace(/🏫/g, '[교육]')
+    .replace(/📈/g, '[성장]').replace(/📉/g, '[하락]').replace(/💰/g, '[수익]')
+    .replace(/⚠️/g, '[주의]').replace(/🔒/g, '[보안]').replace(/⚖️/g, '[법률]')
+    .replace(/📋/g, '[임대]').replace(/🎯/g, '[전략]').replace(/🚀/g, '[실행]')
+    .replace(/💡/g, '[참고]').replace(/🔍/g, '[분석]').replace(/🛡️/g, '[안전]')
+    .replace(/☕/g, '[상권]').replace(/✨/g, '').replace(/✓/g, '✔')
+    // 나머지 매핑 안 된 이모지는 제거
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{1F300}-\u{1FAFF}\u{25A0}-\u{25FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}🟢🔵🔶★▲●◇]/gu, '')
     // ── 페르소나 직접 지칭 정제 ──
     .replace(/(?:60대|50대|40대|30대|20대|초보|고액|법인|개인|VIP)\s*(?:자산가|투자자|법인\s*대표|대표|고객|매수자)(?:를\s*위한|의\s*관점|에게\s*추천하는|용|맞춤)?\s*/gu, '')
     // ── 가드레일/익명화 토큰 정제 ──
