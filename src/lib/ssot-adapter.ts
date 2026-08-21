@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/service';
 import type { Asset, Deal, LeaseUnit } from '@/types/database';
+import { extractSlotsFromMemo } from '@/domain/building/memo-slot-mapper';
 
 /**
  * @module SSoT Adapter
@@ -16,24 +17,42 @@ export function buildAttrsFromSsotLite(
   const existingAttrs = (building.attrs ?? {}) as Record<string, any>;
   const layers = (building.layers ?? existingAttrs.layers ?? {}) as Record<string, any>;
   const leaseSummary = (building.lease_summary ?? existingAttrs.leaseSummary ?? existingAttrs.lease_summary ?? {}) as Record<string, any>;
+  const finance = (layers.finance ?? existingAttrs.finance ?? {}) as Record<string, any>;
+  const rawInput = building.raw_input ?? existingAttrs.rawInput ?? null;
 
-  // Parse price from price_band or askingPriceKrw
+  // 원문 메모 슬롯 파싱 (기존 데이터 복구용)
+  const memoSlots = rawInput ? extractSlotsFromMemo(rawInput).slots : [];
+  const slotMap = new Map(memoSlots.map(s => [s.key, s.value]));
+
+  // Parse price from finance layer, raw input slots, asking_price, or price_band
   const priceBandStr = building.price_band ?? existingAttrs.priceBand ?? existingAttrs.price_band ?? null;
-  const askingPriceKrw = Number(
+  let askingPriceKrw = Number(
+    finance.asking_price_krw ??
     building.asking_price_krw ??
     building.asking_price ??
     existingAttrs.askingPriceKrw ??
     existingAttrs.asking_price_krw ??
-    parsePriceBand(priceBandStr)
+    (slotMap.get('askingPriceKrw') as number) ??
+    0
   );
 
-  // Extract gross annual income from lease summary
-  const monthlyRentTotal = leaseSummary?.monthly_rent_total_krw ?? existingAttrs.monthlyRentKrw ?? 0;
+  if (!askingPriceKrw && priceBandStr) {
+    askingPriceKrw = parsePriceBand(priceBandStr);
+  }
+
+  // Extract gross annual income from lease summary, finance layer, or raw memo
+  const monthlyRentTotal = Number(
+    finance.monthly_rent_krw ??
+    leaseSummary?.monthly_rent_total_krw ??
+    existingAttrs.monthlyRentKrw ??
+    (slotMap.get('monthlyRentKrw') as number) ??
+    0
+  );
   const grossAnnualIncomeKrw = (monthlyRentTotal * 12) || (existingAttrs.grossAnnualIncomeKrw as number) || 0;
 
-  // Extract area from size_signal or layers or existingAttrs
-  const landAreaPyung = layers?.land_area_pyung ?? layers?.building_register?.land_area_pyung ?? existingAttrs.landAreaPyung ?? null;
-  const totalFloorAreaPyung = layers?.total_floor_area_pyung ?? layers?.building_register?.total_floor_area_pyung ?? existingAttrs.totalFloorAreaPyung ?? null;
+  // Extract area from size_signal, layers, or raw memo slots
+  const landAreaPyung = layers?.land_area_pyung ?? layers?.building_register?.land_area_pyung ?? existingAttrs.landAreaPyung ?? (slotMap.get('landAreaPyung') as number) ?? null;
+  const totalFloorAreaPyung = layers?.total_floor_area_pyung ?? layers?.building_register?.total_floor_area_pyung ?? existingAttrs.totalFloorAreaPyung ?? (slotMap.get('totalFloorAreaPyung') as number) ?? null;
 
   return {
     // Required slots for grade-engine

@@ -18,6 +18,7 @@ import { geocodeAddress } from "@/domain/verification/address-resolver";
 import { getModel } from "@/ai/model-selector";
 import { detectDuplicateBuilding, type DedupResult } from "./building-dedup";
 import { linkBuildingToCanonicalProperty } from "./canonical-property";
+import { extractSlotsFromMemo } from "./memo-slot-mapper";
 
 export interface BrokerDealCardFromMemoInput {
   memo: string;
@@ -124,6 +125,34 @@ export async function brokerDealCardFromMemo(
       label: i === 0 ? "건물 외관" : "기타",
     }));
   }
+
+  // 1.6. 원문 메모 및 AI 추출 결과 기반 정밀 재무/물리 데이터 보존
+  const memoSlots = extractSlotsFromMemo(input.memo || '');
+  const slotMap = new Map(memoSlots.slots.map(s => [s.key, s.value]));
+
+  const exactAskingPriceManwon = buildingTruth.askingPriceManwon
+    || (slotMap.get('askingPriceKrw') ? Number(slotMap.get('askingPriceKrw')) / 10000 : null);
+  const exactAskingPriceKrw = exactAskingPriceManwon ? exactAskingPriceManwon * 10000 : (Number(slotMap.get('askingPriceKrw')) || null);
+
+  const exactMonthlyRentKrw = Number(slotMap.get('monthlyRentKrw')) || null;
+  const exactTotalDepositKrw = Number(slotMap.get('totalDepositKrw')) || null;
+  const exactLoanAmountKrw = Number(slotMap.get('loanAmountKrw')) || null;
+  const exactLandAreaPyung = Number(slotMap.get('landAreaPyung')) || null;
+  const exactFloorAreaPyung = Number(slotMap.get('totalFloorAreaPyung')) || null;
+
+  layersData.finance = {
+    asking_price_krw: exactAskingPriceKrw,
+    asking_price_manwon: exactAskingPriceManwon,
+    monthly_rent_krw: exactMonthlyRentKrw,
+    monthly_rent_manwon: exactMonthlyRentKrw ? exactMonthlyRentKrw / 10000 : null,
+    total_deposit_krw: exactTotalDepositKrw,
+    total_deposit_manwon: exactTotalDepositKrw ? exactTotalDepositKrw / 10000 : null,
+    loan_amount_krw: exactLoanAmountKrw,
+    loan_amount_manwon: exactLoanAmountKrw ? exactLoanAmountKrw / 10000 : null,
+  };
+
+  if (exactLandAreaPyung) layersData.land_area_pyung = exactLandAreaPyung;
+  if (exactFloorAreaPyung) layersData.total_floor_area_pyung = exactFloorAreaPyung;
 
   // 2. Create or update building_ssot_lite (via Repository Pattern)
   const buildingRepo = new SupabaseBuildingRepository(supabase);
