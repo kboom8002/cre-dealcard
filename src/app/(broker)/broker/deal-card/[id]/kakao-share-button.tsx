@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 
 interface KakaoShareButtonProps {
@@ -38,10 +39,27 @@ export function KakaoShareButton({
   const [kakaoReady, setKakaoReady] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState(text);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     setEditedText(text);
   }, [text]);
+
+  // Escape 키로 모달 닫기
+  useEffect(() => {
+    if (!isEditing) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsEditing(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isEditing]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -178,34 +196,75 @@ export function KakaoShareButton({
     setIsEditing(true);
   };
 
-  const renderEditModal = () => (
-    isEditing && !showEditForm && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in">
-        <div className="bg-card w-full max-w-sm rounded-xl p-5 space-y-4 shadow-xl">
-          <h3 className="text-base font-semibold">카톡 문구 수정</h3>
-          <textarea
-            value={editedText}
-            onChange={(e) => setEditedText(e.target.value)}
-            className="w-full min-h-[160px] p-3 text-sm rounded-lg border border-border bg-background focus:ring-1 focus:ring-primary outline-none"
-          />
-          <div className="flex gap-2">
+  const renderEditModal = () => {
+    if (!isEditing || showEditForm || !mounted) return null;
+
+    return createPortal(
+      <div
+        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+        onClick={() => setIsEditing(false)}
+      >
+        <div
+          className="bg-neutral-900 border border-neutral-700 w-full max-w-md rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl relative z-10 max-h-[90vh] flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">💬</span>
+              <h3 className="text-base font-bold text-white tracking-tight">카톡 문구 수정</h3>
+            </div>
             <button
+              type="button"
               onClick={() => setIsEditing(false)}
-              className="flex-1 py-2.5 text-sm font-medium rounded-lg border border-border bg-muted/50 hover:bg-muted"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer text-sm font-bold"
+              aria-label="닫기"
+              title="닫기"
+            >
+              ✕
+            </button>
+          </div>
+
+          <p className="text-xs text-neutral-400 leading-relaxed">
+            카카오톡으로 공유할 때 수신자에게 전송되는 메시지 문구를 맞춤 편집하세요.
+          </p>
+
+          {/* Textarea */}
+          <div className="flex-1 min-h-0">
+            <textarea
+              value={editedText}
+              onChange={(e) => setEditedText(e.target.value)}
+              placeholder="카톡 공유 문구를 입력하세요..."
+              rows={7}
+              className="w-full min-h-[160px] max-h-[42vh] p-3.5 text-sm rounded-xl border border-neutral-700 bg-neutral-950 text-neutral-100 placeholder-neutral-500 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none resize-y leading-relaxed font-sans"
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2.5 pt-1">
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              className="flex-1 py-3 text-sm font-semibold rounded-xl border border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white transition-colors cursor-pointer"
             >
               취소
             </button>
             <button
-              onClick={handleSaveText}
-              className="flex-1 py-2.5 text-sm font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
+              type="button"
+              onClick={() => {
+                handleSaveText();
+                toast.success("카톡 문구가 수정되었습니다.");
+              }}
+              className="flex-1 py-3 text-sm font-bold rounded-xl bg-[#FEE500] text-[#3C1E1E] hover:bg-[#FEE500]/90 transition-colors shadow-md cursor-pointer"
             >
               수정 완료
             </button>
           </div>
         </div>
-      </div>
-    )
-  );
+      </div>,
+      document.body
+    );
+  };
 
   // Compact Variant (for Sticky Bottom CTA Bar)
   if (variant === "compact") {
