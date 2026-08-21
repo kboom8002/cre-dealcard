@@ -41,33 +41,41 @@ export async function DELETE(
   }
 
   try {
-    // 1. 연관 document_objects 삭제 (blind_teaser, im_lite_draft 등)
-    await service
-      .from("document_objects")
-      .delete()
-      .eq("building_id", id);
+    // 1. 연관 데이터 선삭제 (참조 무결성 및 외래키 제약 준수)
+    await Promise.allSettled([
+      service.from("document_objects").delete().eq("building_id", id),
+      service.from("building_signal_cards").delete().eq("building_id", id),
+      service.from("gate_requests").delete().eq("building_id", id),
+      service.from("owner_readiness_checks").delete().eq("building_id", id),
+      service.from("deal_card_personas").delete().eq("building_id", id),
+      service.from("deal_matches").delete().eq("building_id", id),
+      service.from("price_predictions").delete().eq("building_id", id),
+      service.from("lease_spaces").delete().eq("building_id", id),
+      service.from("full_im_handoffs").delete().eq("source_building_ssot_lite_id", id),
+      service.from("space_ai_handoffs").delete().eq("source_building_ssot_lite_id", id),
+    ]);
 
-    // 2. 연관 building_signal_cards 삭제
-    await service
-      .from("building_signal_cards")
-      .delete()
-      .eq("building_id", id);
-
-    // 3. 연관 gate_requests 삭제
-    await service
-      .from("gate_requests")
-      .delete()
-      .eq("building_id", id);
-
-    // 4. 메인 레코드 삭제
-    const { error: deleteError } = await service
+    // 2. 메인 레코드 삭제 (Hard delete 시도)
+    const { error: hardDeleteErr } = await service
       .from("building_ssot_lite")
-      .update({ archived_at: new Date().toISOString() })
+      .delete()
       .eq("id", id);
 
-    if (deleteError) {
-      console.error("[deal-card/delete] Delete error:", deleteError);
-      return NextResponse.json({ error: `삭제 실패: ${deleteError.message}` }, { status: 500 });
+    if (hardDeleteErr) {
+      console.warn("[deal-card/delete] Hard delete failed, falling back to soft delete:", hardDeleteErr.message);
+      // Hard delete 실패 시 soft delete 수행 (archived_at 및 status 모두 갱신)
+      const { error: softDeleteErr } = await service
+        .from("building_ssot_lite")
+        .update({ 
+          archived_at: new Date().toISOString(),
+          status: "archived"
+        })
+        .eq("id", id);
+
+      if (softDeleteErr) {
+        console.error("[deal-card/delete] Soft delete error:", softDeleteErr);
+        return NextResponse.json({ error: `삭제 실패: ${softDeleteErr.message}` }, { status: 500 });
+      }
     }
 
     return NextResponse.json({ ok: true, message: "딜카드가 삭제되었습니다." });

@@ -52,11 +52,12 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
     setDeletingId(id);
     try {
       const res = await fetch(`/api/broker/deal-card/${id}/delete`, { method: "DELETE" });
+      const d = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const d = await res.json();
         throw new Error(d.error ?? "삭제 실패");
       }
       setBuildings((prev) => prev.filter((b) => b.id !== id));
+      setImListState((prev) => prev.filter((d) => d.buildingId !== id));
       toast.success("딜카드가 삭제되었습니다.");
     } catch (err: any) {
       toast.error(`삭제 중 오류: ${err.message}`);
@@ -69,12 +70,13 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
   const handleDeleteIM = async (docId: string) => {
     try {
       const res = await fetch(`/api/broker/im-lite/${docId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed');
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? '삭제 실패');
       setImListState(prev => prev.filter(d => d.docId !== docId));
       setDeletingImId(null);
       toast.success("IM이 삭제되었습니다.");
-    } catch {
-      toast.error('삭제에 실패했습니다.');
+    } catch (err: any) {
+      toast.error(`삭제 중 오류: ${err.message || '삭제에 실패했습니다.'}`);
     }
   };
 
