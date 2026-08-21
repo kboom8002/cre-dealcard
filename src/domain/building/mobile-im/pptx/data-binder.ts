@@ -383,10 +383,23 @@ function buildA15Props(markdown: string, tables: ParsedTable[], lines: string[])
     takeaway = '본 자산은 우수한 권역 입지 경쟁력과 견고한 펀더멘털을 기반으로 중장기 자산 가치 상승 및 안정적인 현금흐름을 동시에 실현할 수 있는 전략적 투자 기회입니다.';
   }
 
+  // 2-A: 벤치마크/별점 표 추출
+  let benchmarkTable: { headers: string[]; rows: string[][] } | undefined;
+  if (tables.length > 0) {
+    const bt = tables[0];
+    if (bt && bt.headers.length >= 2 && bt.rows.length >= 1) {
+      benchmarkTable = {
+        headers: bt.headers.map(h => stripMarkdown(h).replace(/⭐/g, '★').replace(/☆/g, '☆')),
+        rows: bt.rows.map(r => r.map(c => stripMarkdown(c).replace(/⭐/g, '★').replace(/☆/g, '☆'))),
+      };
+    }
+  }
+
   return {
     subtitle: stripMarkdown(subtitle),
     pillars,
     takeaway,
+    benchmarkTable,
   };
 }
 
@@ -528,9 +541,23 @@ function buildA04Props(tables: ParsedTable[], lines: string[]): Record<string, a
     leftRows = boldKVs.map(bv => [bv.key, bv.value] as [string, string]);
   }
   
+  // 2-B: 서사 리드문 복원 — 첫 줄글 문장을 brass 콜아웃으로 자동 삽입
+  const narrativeLine = lines.find(l => {
+    const t = l.trim();
+    if (!t || t.length < 10) return false;
+    if (t.startsWith('#') || t.startsWith('|') || t.startsWith('-') || t.startsWith('•') || t.startsWith('*') || t.startsWith('>')) return false;
+    if (/^\d+[.、)]/.test(t)) return false;
+    return true;
+  });
+  const leadCallout = narrativeLine
+    ? [{ kind: 'brass', title: '', body: stripMarkdown(narrativeLine).slice(0, 120) }]
+    : [];
+  // 기존 콜아웃과 합쳐 최대 2개
+  const mergedCallouts = [...leadCallout, ...callouts].slice(0, 2);
+
   return {
     left: { sub: sub || '건축물 개요 및 물리 스펙', rows: leftRows },
-    right: { sub: '', callouts },
+    right: { sub: '', callouts: mergedCallouts },
   };
 }
 

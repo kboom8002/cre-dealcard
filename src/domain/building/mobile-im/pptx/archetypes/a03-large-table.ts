@@ -59,14 +59,17 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
       r.map((c: any) => {
         let text = String(c || '').replace(/\*\*/g, '');
         // 35자 초과 셀은 말줄임 처리
-        if (text.length > 35) text = text.slice(0, 34) + '…';
+        if (text.length > 45) text = text.slice(0, 44) + '…';
         return { t: text };
       })
     );
     
+    // 컬럼 수에 따른 동적 폰트 사이즈
+    const baseFontSize = colCount <= 4 ? 13 : (colCount <= 6 ? 11 : 10);
+    
     L.table(slide, M, 1.80, CW, 
       tableHead.map(h => String(h || '').replace(/\*\*/g, '')),
-      bodyRows, colW, { rh: 0.50, bfs: 13, hfs: 13 }
+      bodyRows, colW, { rh: 0.50, bfs: baseFontSize, hfs: baseFontSize }
     );
   } else if (input.data.content) {
     // 테이블 없으면 content를 L.rows()로 렌더링

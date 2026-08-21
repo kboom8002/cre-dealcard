@@ -198,6 +198,22 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
     }
   }
 
+  // 2-A: 벤치마크/별점 표 렌더링 (pillar 카드 아래, takeaway 위)
+  const bmTable = input.data.benchmarkTable;
+  let bmTableHeight = 0;
+  if (bmTable && bmTable.headers?.length >= 2 && bmTable.rows?.length >= 1) {
+    const bmY = startY + gridH + 0.15;
+    const bmRows = bmTable.rows.slice(0, 4); // 최대 4행
+    const bmColCount = bmTable.headers.length;
+    const bmColW = Array(bmColCount).fill(CW / bmColCount);
+    const bmBodyRows = bmRows.map((r: string[]) => r.map((c: string) => ({ t: c || '' })));
+    L.table(slide, M, bmY, CW,
+      bmTable.headers,
+      bmBodyRows, bmColW, { rh: 0.36, bfs: 10.5, hfs: 10.5 }
+    );
+    bmTableHeight = 0.36 * (bmRows.length + 1) + 0.15; // header + rows + gap
+  }
+
   // 3. 하단 마무리멘트 / 종합 가치 제안 (Secondary Takeaway Banner)
   const takeawayText = input.data.takeaway || input.data.closingRemark || input.data.leadBody || (
     subtitle && subtitle !== title
@@ -205,7 +221,7 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
       : `자산의 안정성과 성장성을 겸비한 우량 부동산으로, 상세 실사 단계에서 구체적인 계약 조건 및 세무 검토가 진행됩니다.`
   );
 
-  const bannerY = startY + gridH + 0.20; // 5.60
+  const bannerY = startY + gridH + 0.20 + bmTableHeight;
   const bannerH = 0.88;
 
   // 마무리멘트 배경 리본
