@@ -359,39 +359,43 @@ export default function BrokerProfilePage() {
         setBio(json.bio);
         // 즉시 프로필 저장 (Auto-save)
         const token = await getToken();
-        await fetch('/api/broker/profile', {
+        const autoSaveRes = await fetch('/api/broker/profile', {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            display_name: displayName,
-            phone,
-            company,
-            specialty_regions: selectedRegions,
-            specialty_assets: selectedAssets,
+            display_name: displayName || undefined,
+            phone: phone || undefined,
+            company: company || undefined,
+            tagline: tagline || undefined,
+            specialty_regions: selectedRegions.length > 0 ? selectedRegions : undefined,
+            specialty_assets: selectedAssets.length > 0 ? selectedAssets : undefined,
             bio: json.bio, // 새로 생성된 바이오 반영
-            license_number: licenseNumber,
-            office_reg_number: officeRegNumber,
-            association,
-            career_start_year: careerStartYear || null,
-            total_deal_count_self: totalDealCount || null,
-            deal_size_range: dealSizeRange || null,
-            deal_specialty: dealSpecialty,
-            buyer_types: buyerTypes,
-            preferred_price_range: preferredPriceRange || null,
-            fee_policy: feePolicy || null,
-            consult_methods: consultMethods,
-            response_time_hours: responseTimeHours || null,
-            languages,
-            kakao_channel: kakaoChannel,
-            naver_blog_url: naverBlogUrl,
-            youtube_url: youtubeUrl,
-            linkedin_url: linkedinUrl,
-            avatar_url: avatarUrl || null,
+            license_number: licenseNumber || undefined,
+            office_reg_number: officeRegNumber || undefined,
+            association: association || undefined,
+            career_start_year: careerStartYear ? Number(careerStartYear) : undefined,
+            total_deal_count_self: totalDealCount ? Number(totalDealCount) : undefined,
+            deal_size_range: dealSizeRange || undefined,
+            deal_specialty: dealSpecialty.length > 0 ? dealSpecialty : undefined,
+            buyer_types: buyerTypes.length > 0 ? buyerTypes : undefined,
+            preferred_price_range: preferredPriceRange || undefined,
+            fee_policy: feePolicy || undefined,
+            consult_methods: consultMethods.length > 0 ? consultMethods : undefined,
+            response_time_hours: responseTimeHours ? Number(responseTimeHours) : undefined,
+            languages: languages.length > 0 ? languages : undefined,
+            kakao_channel: kakaoChannel || undefined,
+            naver_blog_url: naverBlogUrl || undefined,
+            youtube_url: youtubeUrl || undefined,
+            linkedin_url: linkedinUrl || undefined,
+            avatar_url: avatarUrl || undefined,
           }),
         });
+        if (!autoSaveRes.ok) {
+          console.warn('[profile] AI bio auto-save failed:', autoSaveRes.status);
+        }
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       }

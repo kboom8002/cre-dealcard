@@ -1,6 +1,6 @@
 # Pipeline Log: income_case03_bundang_office
 
-**Generated**: 2026-08-16T08:22:45.207Z
+**Generated**: 2026-08-23T01:22:37.181Z
 **Total Duration**: 0.4s
 
 ## Step-by-Step Timeline
@@ -9,9 +9,9 @@
 |---|------|----------|--------|---------|
 | 1 | ① SSoT Lite 구축 | 0.00s | ✅ success | buildingId: stress-case-03 |
 | 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: income, keys: 5 |
-| 3 | ③ IM 생성 (LLM) | 0.32s | ✅ success | ok=true, sections=8, grade=A |
+| 3 | ③ IM 생성 (LLM) | 0.24s | ✅ success | ok=true, sections=8, grade=A |
 | 4 | ④ 중간 결과물 저장 | 0.01s | ✅ success | sections: 8 |
-| 5 | ⑤ PPTX 렌더링 | 0.08s | ✅ success | slides: 10, size: 251KB |
+| 5 | ⑤ PPTX 렌더링 | 0.10s | ✅ success | slides: 10, size: 303KB |
 
 ## Detailed Metrics
 
@@ -29,7 +29,9 @@
 ```json
 {
   "slideCount": 10,
-  "fileSizeBytes": 256713,
-  "warnings": []
+  "fileSizeBytes": 309942,
+  "warnings": [
+    "Profit stat 카드 없음"
+  ]
 }
 ```

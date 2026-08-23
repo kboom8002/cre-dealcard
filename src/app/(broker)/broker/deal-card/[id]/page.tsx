@@ -240,14 +240,15 @@ export default async function BrokerDealCardResultPage({
   };
 
   // v3: 바텀시트 선제적 데이터 주입을 위한 값 추출
-  // assets 테이블에서는 finance 데이터가 attrs에 저장됨
+  // 우선순위: building.lease_summary > layers.lease_summary > layers.finance > bAttrs
   const finance = layers.finance || {};
+  const layersLeaseSum = layers.lease_summary || {};
   const askingPriceKrw = Number(finance.asking_price_krw || building.asking_price || bAttrs.askingPriceKrw || 0);
   const loanAmountKrw = Number(finance.loan_amount_krw || building.loan_amount || bAttrs.loanAmountKrw || 0);
   
   const leaseSum = building.lease_summary || {};
-  const totalDepositKrw = Number(leaseSum.total_deposit_krw || finance.total_deposit_krw || bAttrs.totalDepositKrw || 0);
-  const monthlyRentKrw = Number(leaseSum.monthly_rent_krw || finance.monthly_rent_krw || bAttrs.monthlyRentKrw || 0);
+  const totalDepositKrw = Number(leaseSum.total_deposit_krw || layersLeaseSum.total_deposit_krw || finance.total_deposit_krw || bAttrs.totalDepositKrw || 0);
+  const monthlyRentKrw = Number(leaseSum.monthly_rent_krw || layersLeaseSum.monthly_rent_krw || finance.monthly_rent_krw || bAttrs.monthlyRentKrw || 0);
   const mgmtFeeKrw = Number(leaseSum.mgmt_fee_krw || finance.mgmt_fee_krw || 0);
   const vacancyPct = Number(leaseSum.vacancy_pct || finance.vacancy_pct || bAttrs.vacancyPct || 0);
   const investmentPosture = building.investment_posture || layers.investment_posture || "income";

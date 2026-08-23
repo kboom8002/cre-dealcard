@@ -67,6 +67,12 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
     // 컬럼 수에 따른 동적 폰트 사이즈
     const baseFontSize = colCount <= 4 ? 13 : (colCount <= 6 ? 11 : 10);
     
+    // 테이블 행 제한 (최대 8행)
+    if (bodyRows.length > 8) {
+      bodyRows.length = 8;
+      input.data.note = (input.data.note ? input.data.note + ' / ' : '') + '외 N건은 별첨 참조';
+    }
+
     L.table(slide, M, 1.80, CW, 
       tableHead.map(h => String(h || '').replace(/\*\*/g, '')),
       bodyRows, colW, { rh: 0.50, bfs: baseFontSize, hfs: baseFontSize }
@@ -108,8 +114,8 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
   }
   
   // Note
-  const rh = 0.46;
-  const tableEnd = 1.86 + ((tableRows.length + 1) * rh);
+  const rh = 0.50;
+  const tableEnd = 1.86 + ((Math.min(8, tableRows.length) + 1) * rh);
   if (input.data.note && !hasNoData && tableEnd + 0.10 + 0.3 <= 7.0) {
     L.note(slide, M, tableEnd + 0.10, CW, input.data.note);
   }

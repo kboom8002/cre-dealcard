@@ -60,6 +60,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     dGradeSequence.push(...gallerySlides);
     dGradeSequence.push(
       { archetype: 'A02', kicker: 'Summary', title: '핵심요약', dataKey: 'summary' },
+      { archetype: 'A09', kicker: 'Process', title: '진행 절차', dataKey: 'process' },
       { archetype: 'A10', kicker: 'Disclaimer', title: '표기 기준 및 면책', dataKey: 'closing' }
     );
     return dGradeSequence;
@@ -117,6 +118,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     basicSequence.push(
       { archetype: 'A07', kicker: 'Risk', title: '리스크', dataKey: 'risk' },
       { archetype: 'A15', kicker: 'Thesis', title: '투자 논거', dataKey: 'thesis' },
+      { archetype: 'A09', kicker: 'Process', title: '진행 절차', dataKey: 'process' },
       { archetype: 'A10', kicker: 'Disclaimer', title: '표기 기준 및 면책', dataKey: 'closing' }
     );
     return basicSequence;
@@ -142,21 +144,21 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
           sequence.push({ archetype: 'A05', kicker: 'Rent Gap', title: '임대료 갭', dataKey: 'rentGap' });
           sequence.push({ archetype: 'A05', kicker: 'Upside', title: '인상 경로', dataKey: 'upside' });
           sequence.push({ archetype: 'A08', kicker: 'Capital', title: '자본구조', dataKey: 'capital' });
-          sequence.push({ archetype: 'A04', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
+          sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
         case 'R-INC-03': // 공실 해소형 — 공실 원인/유치 전략 강조
           sequence.push({ archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' });
           sequence.push({ archetype: 'A04', kicker: 'Vacancy', title: '공실 분석', dataKey: 'vacancy' });
           sequence.push({ archetype: 'A05', kicker: 'Leasing', title: '임차 유치', dataKey: 'leasing' });
           sequence.push({ archetype: 'A08', kicker: 'Capital', title: '자본구조', dataKey: 'capital' });
-          sequence.push({ archetype: 'A04', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
+          sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
         case 'R-INC-04': // 리모델링형 — 전/후 비교 강조
           sequence.push({ archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' });
           sequence.push({ archetype: 'A04', kicker: 'Current', title: '현황', dataKey: 'current' });
           sequence.push({ archetype: 'A05', kicker: 'Remodel', title: '리모델링', dataKey: 'remodel' });
           sequence.push({ archetype: 'A08', kicker: 'Capital', title: '자본구조', dataKey: 'capital' });
-          sequence.push({ archetype: 'A04', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
+          sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
         case 'R-INC-01': // 초안정형 (기본)
         default:
@@ -164,7 +166,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
           sequence.push({ archetype: 'A04', kicker: 'Stability', title: '임대안정성', dataKey: 'stability' });
           sequence.push({ archetype: 'A05', kicker: 'Profit', title: '수익구조', dataKey: 'profit' });
           sequence.push({ archetype: 'A08', kicker: 'Capital', title: '자본구조', dataKey: 'capital' });
-          sequence.push({ archetype: 'A04', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
+          sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
       }
       break;
@@ -209,7 +211,9 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   }
 
   // ── 4. 공통 마감 (항상 마지막) ──
+  sequence.push({ archetype: 'A15', kicker: 'Thesis', title: '투자 논거', dataKey: 'thesis' });
   sequence.push({ archetype: 'A07', kicker: 'Risk', title: '리스크', dataKey: 'risk' });
+  sequence.push({ archetype: 'A09', kicker: 'Process', title: '진행 절차', dataKey: 'process' });
   sequence.push({ archetype: 'A10', kicker: 'Closing', title: '마감', dataKey: 'closing' });
 
   const active = sequence.filter(s => !s.suppress);

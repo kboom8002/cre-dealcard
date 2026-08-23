@@ -13,7 +13,7 @@ const ProfileUpdateSchema = z.object({
   company: z.string().max(50).optional(),
   specialty_regions: z.array(z.string()).max(10).optional(),
   specialty_assets: z.array(z.string()).max(10).optional(),
-  bio: z.string().max(500).optional(),
+  bio: z.string().max(1000).optional(),
   slug: z.string().max(50).optional(),
   magazine_title: z.string().max(100).optional(),
   magazine_theme_color: z.string().max(20).optional(),

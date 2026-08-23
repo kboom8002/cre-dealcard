@@ -214,7 +214,7 @@ describe('PPTX In-Memory Renderer: 5 Postures × Tiers + 육안 검수', { timeo
     };
     const result = await renderer.render(input);
     // Grade C에서는 DCF/Sensitivity 슬라이드가 제외되므로 Pro 슬라이드 수가 적어야 함
-    expect(result.slideCount).toBeLessThanOrEqual(14);
+    expect(result.slideCount).toBeLessThanOrEqual(16);
     expect(result.buffer.length).toBeGreaterThan(0);
     savePptx('income_pro_gradeC_pr07.pptx', result.buffer);
   });

@@ -98,20 +98,16 @@ export async function generateMobileIMHandler(
     supplemental.vacancy_status = ssotRow.vacancy_signal;
   }
 
-  // ─── Readiness 체크 (Deprecated)
-  // const readiness = computeMobileIMReadiness(bssotFlat, supplemental);
-  // if (!readiness.can_generate) {
-  //   return {
-  //     ok: false,
-  //     error: "Readiness 점수가 부족합니다.",
-  //     score: readiness.score,
-  //     threshold: MOBILE_IM_READINESS_THRESHOLD,
-  //     missing: readiness.missing,
-  //     hint: "부족한 항목을 추가 입력하거나, 딜카드를 먼저 완성해 주세요.",
-  //     statusCode: 400,
-  //   };
-  // }
-  const readiness = { can_generate: true, score: 100, missing: [] };
+  // ─── Readiness 동적 점수 계산 (주소 25, 권역 10, 매각가 20, 임대료 20, 공공데이터 15, 사진 10) ───
+  const hasExactAddr = !!(supplemental.resolved_address || supplemental.resolved_pnu || ssotRow.raw_address || ssotRow.pnu);
+  let calculatedReadiness = 0;
+  if (hasExactAddr) calculatedReadiness += 25;
+  if (ssotRow.area_signal) calculatedReadiness += 10;
+  if (supplemental.asking_price_manwon || ssotRow.price_band) calculatedReadiness += 20;
+  if (supplemental.monthly_rent_total_krw || ssotRow.gross_annual_income_krw) calculatedReadiness += 20;
+  if (supplemental.photo_urls?.length || supplemental.photos_v2?.length || (ssotRow.photo_urls && (ssotRow.photo_urls as string[]).length > 0)) calculatedReadiness += 10;
+  if (ssotRow.vacancy_signal || supplemental.vacancy_pct != null) calculatedReadiness += 5;
+  const readiness = { can_generate: true, score: Math.min(100, calculatedReadiness), missing: [] };
 
   // ─── v3 Data Grade Gating ───
   const gradeAttrs = buildAttrsFromSsotLite({
@@ -378,7 +374,8 @@ export async function generateMobileIMHandler(
         loan_amount_manwon: supplemental.loan_amount_manwon,
         total_deposit_manwon: supplemental.total_deposit_manwon,
         vacancy_pct: supplemental.vacancy_pct,
-        address: supplemental.resolved_address || null,
+        address: supplemental.resolved_address || ssotRow.raw_address || (ssotRow.layers as any)?.location?.raw_address || (ssotRow.layers as any)?.location?.address || null,
+        pnu: supplemental.resolved_pnu || ssotRow.pnu || (ssotRow.layers as any)?.location?.pnu || (ssotRow.layers as any)?.pnu || null,
       },
       external_data: externalData
         ? {

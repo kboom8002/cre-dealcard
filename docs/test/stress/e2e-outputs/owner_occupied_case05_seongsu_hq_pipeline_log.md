@@ -1,7 +1,7 @@
 # Pipeline Log: owner_occupied_case05_seongsu_hq
 
-**Generated**: 2026-08-16T08:22:46.047Z
-**Total Duration**: 0.4s
+**Generated**: 2026-08-23T01:22:37.767Z
+**Total Duration**: 0.3s
 
 ## Step-by-Step Timeline
 
@@ -9,9 +9,9 @@
 |---|------|----------|--------|---------|
 | 1 | ① SSoT Lite 구축 | 0.00s | ✅ success | buildingId: stress-case-05 |
 | 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: owner_occupied, keys: 3 |
-| 3 | ③ IM 생성 (LLM) | 0.35s | ✅ success | ok=true, sections=8, grade=A |
+| 3 | ③ IM 생성 (LLM) | 0.16s | ✅ success | ok=true, sections=8, grade=B |
 | 4 | ④ 중간 결과물 저장 | 0.01s | ✅ success | sections: 8 |
-| 5 | ⑤ PPTX 렌더링 | 0.06s | ✅ success | slides: 10, size: 241KB |
+| 5 | ⑤ PPTX 렌더링 | 0.11s | ✅ success | slides: 10, size: 298KB |
 
 ## Detailed Metrics
 
@@ -20,7 +20,7 @@
 {
   "ok": true,
   "sections_count": 8,
-  "dataGrade": "A",
+  "dataGrade": "B",
   "ai_used": true
 }
 ```
@@ -29,7 +29,7 @@
 ```json
 {
   "slideCount": 10,
-  "fileSizeBytes": 246807,
+  "fileSizeBytes": 304797,
   "warnings": []
 }
 ```

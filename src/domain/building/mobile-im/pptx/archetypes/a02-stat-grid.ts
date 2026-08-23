@@ -165,7 +165,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
 
   if (keyPoints.length > 0 && hlStartY < 5.8) {
     // 3대 핵심 투자 포인트 헤더
-    slide.addText('📌 3대 핵심 투자 포인트 (Investment Highlights)', {
+    slide.addText('3대 핵심 투자 포인트 (Investment Highlights)', {
       x: M, y: hlStartY, w: CW, h: 0.30,
       color: C.brassD, fontFace: KR, fontSize: 12.5, bold: true, margin: 0,
     });

@@ -102,7 +102,7 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
       if (textRuns.length > 0) {
         slide.addText(textRuns as any, {
           x: x + 0.25, y: y + 1.05, w: w - 0.5, h: h - 1.15,
-          valign: 'top', margin: 0
+          valign: 'top', margin: 0, shrinkText: true
         });
       }
     }

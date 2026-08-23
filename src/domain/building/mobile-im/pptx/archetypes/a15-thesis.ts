@@ -81,7 +81,9 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
   const pillarCount = displayPillars.length;
 
   const startY = subtitle ? 1.62 : 1.45;
-  const gridH = 3.80;
+  const bmTable = input.data.benchmarkTable;
+  const hasBmTable = bmTable && bmTable.headers?.length >= 2 && bmTable.rows?.length >= 1;
+  const gridH = hasBmTable ? 2.80 : 3.80;
 
   if (pillarCount > 0) {
     if (pillarCount <= 3) {
@@ -199,11 +201,10 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
   }
 
   // 2-A: 벤치마크/별점 표 렌더링 (pillar 카드 아래, takeaway 위)
-  const bmTable = input.data.benchmarkTable;
   let bmTableHeight = 0;
-  if (bmTable && bmTable.headers?.length >= 2 && bmTable.rows?.length >= 1) {
+  if (hasBmTable) {
     const bmY = startY + gridH + 0.15;
-    const bmRows = bmTable.rows.slice(0, 4); // 최대 4행
+    const bmRows = bmTable.rows.slice(0, 3); // 최대 3행 (헤더 + 2행) = 총 3행. 원래는 slice(0,4)였음
     const bmColCount = bmTable.headers.length;
     const bmColW = Array(bmColCount).fill(CW / bmColCount);
     const bmBodyRows = bmRows.map((r: string[]) => r.map((c: string) => ({ t: c || '' })));
@@ -221,8 +222,11 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
       : `자산의 안정성과 성장성을 겸비한 우량 부동산으로, 상세 실사 단계에서 구체적인 계약 조건 및 세무 검토가 진행됩니다.`
   );
 
-  const bannerY = startY + gridH + 0.20 + bmTableHeight;
+  let bannerY = startY + gridH + 0.20 + bmTableHeight;
   const bannerH = 0.88;
+  if (bannerY + bannerH > 7.50) { // 혹시 모를 overflow 대비
+    bannerY = 7.50 - bannerH;
+  }
 
   // 마무리멘트 배경 리본
   slide.addShape('roundRect' as any, {
@@ -233,7 +237,7 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
   });
 
   // 좌측 라벨 태그
-  slide.addText('💡 종합 가치 제안', {
+  slide.addText('종합 가치 제안', {
     x: M + 0.20, y: bannerY + 0.12, w: 1.85, h: 0.28,
     fontSize: 10.5, bold: true, color: C.brassD, fontFace: KR, margin: 0,
   });

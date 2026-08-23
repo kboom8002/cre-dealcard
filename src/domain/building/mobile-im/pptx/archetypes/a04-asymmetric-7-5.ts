@@ -52,7 +52,7 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       L.rows(slide, M, 1.80, lw, rowEntries.slice(0, 10), { rh: 0.44, fs: 14 });
     } else {
       L.callout(slide, M, 1.80, lw, 2.0, 'info', '건축물 물리 스펙 요약',
-        '• 대지 142.5평 / 연면적 620.8평\n• 지하 2층 ~ 지상 7층 (2017년 준공)\n• 15인승 침대용 승강기 및 자주식 주차 18대 완비');
+        '• 상세 건물 제원은 실사 자료를 참조하시기 바랍니다\n• 건물 현황 및 규모는 첨부 대장을 기준으로 합니다\n• 건물 상태 및 설비 현황은 실사 보고서를 참조하십시오');
     }
   } else if (input.data.content) {
     const lines = String(input.data.content).split('\n')
@@ -72,11 +72,11 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       L.rows(slide, M, 1.80, lw, contentRows.slice(0, 10), { rh: 0.44, fs: 14 });
     } else {
       L.callout(slide, M, 1.80, lw, 2.0, 'info', '건축물 물리 스펙 요약',
-        '• 대지 142.5평 / 연면적 620.8평\n• 지하 2층 ~ 지상 7층 (2017년 준공)\n• 15인승 침대용 승강기 및 자주식 주차 18대 완비');
+        '• 상세 건물 제원은 실사 자료를 참조하시기 바랍니다\n• 건물 현황 및 규모는 첨부 대장을 기준으로 합니다\n• 건물 상태 및 설비 현황은 실사 보고서를 참조하십시오');
     }
   } else {
     L.callout(slide, M, 1.80, lw, 2.0, 'info', '건축물 물리 스펙 요약',
-      '• 대지 142.5평 / 연면적 620.8평\n• 지하 2층 ~ 지상 7층 (2017년 준공)\n• 15인승 침대용 승강기 및 자주식 주차 18대 완비');
+      '• 상세 건물 제원은 실사 자료를 참조하시기 바랍니다\n• 건물 현황 및 규모는 첨부 대장을 기준으로 합니다\n• 건물 상태 및 설비 현황은 실사 보고서를 참조하십시오');
   }
   
   // Brass 수직 구분선
@@ -119,15 +119,18 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     const rightCallouts = input.data.right?.callouts ?? [];
     if (rightCallouts.length > 0) {
       rightCallouts.slice(0, 2).forEach((c: any) => {
-        const ch = Math.max(1.8, 0.7 + Math.ceil((c.body?.length ?? 0) / 25) * 0.32);
-        L.callout(slide, rx, cy, rw, ch, c.kind ?? 'info', c.title ?? '자산 평가 포인트', c.body ?? '');
-        cy += ch + 0.22;
+        let ch = Math.max(1.8, 0.7 + Math.ceil((c.body?.length ?? 0) / 25) * 0.32);
+        if (cy + ch > 6.80) ch = Math.max(1.0, 6.80 - cy);
+        if (cy < 6.80) {
+          L.callout(slide, rx, cy, rw, ch, c.kind ?? 'info', c.title ?? '자산 평가 포인트', c.body ?? '');
+          cy += ch + 0.22;
+        }
       });
     } else {
       L.callout(slide, rx, 1.80, rw, 2.3, 'info', '토지 및 건물 분석 포인트',
-        '• 서초대로 25m 메인 도로변 우수한 가시성 확보\n• 제3종일반주거지역 법정 용적률 완비 자산\n• 침대용 승강기 완비로 병의원 입점 최적화 구조');
+        '• 물건 접면 도로 및 교통 여건은 현장 확인 사항입니다\n• 상세 건물 제원은 실사 자료를 참조하시기 바랍니다\n• 건물 현황 및 규모는 첨부 대장을 기준으로 합니다');
       L.callout(slide, rx, 4.35, rw, 2.35, 'info', '물건 실사 및 관리 상태',
-        '• 2017년 준공 신축급 상태로 누수·균열 0건\n• 단독 법인 소유로 권리관계 투명\n• 1금융권 담보대출 85억 원 승계 적격');
+        '• 건물 상태 및 설비 현황은 실사 보고서를 참조하십시오\n• 자금 조달 및 대출 조건은 금융 자문 후 확정됩니다\n• 상세 실사 단계에서 구체적인 계약 조건 및 세무 검토가 진행됩니다');
     }
   }
   

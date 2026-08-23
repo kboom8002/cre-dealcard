@@ -1,0 +1,136 @@
+{
+  "step1_memo_parser": {
+    "min": {},
+    "std": {
+      "askingPriceKrw": 25000000000,
+      "totalDepositKrw": 500000000,
+      "floorsAboveGround": 10,
+      "floorsUnderGround": 1
+    },
+    "suf": {
+      "monthlyRentKrw": 50170000,
+      "totalFloorAreaPyung": 753.49,
+      "floorsAboveGround": 10,
+      "floorsUnderGround": 1,
+      "pricePerPyeongManwon": 50000
+    },
+    "askingPriceCheck": "PASS",
+    "depositCheck": "FAIL",
+    "rentCheck": "FAIL",
+    "buildYearCheck": "FAIL"
+  },
+  "step2_data_grade": {
+    "min": {
+      "tier": "verified",
+      "label": "A등급 — 투자 검토 가능",
+      "emoji": "🟢",
+      "score": 70,
+      "missingItems": [
+        "층별 임대차 내역",
+        "대출 금액",
+        "건물 사진"
+      ]
+    },
+    "std": {
+      "tier": "verified",
+      "label": "A등급 — 투자 검토 가능",
+      "emoji": "🟢",
+      "score": 70,
+      "missingItems": [
+        "층별 임대차 내역",
+        "대출 금액"
+      ]
+    },
+    "suf": {
+      "tier": "verified",
+      "label": "A등급 — 투자 검토 가능",
+      "emoji": "🟢",
+      "score": 80,
+      "missingItems": [
+        "대출 금액"
+      ]
+    },
+    "currentCapRatePct": 2.41,
+    "potentialCapRatePct": 2.71
+  },
+  "step3_kakao_text": {
+    "text": "선유도역(9호선 도보 1분 대로변), 대지 157평 2018년 신축 오피스빌딩 매물 안내드립니다.\n매매가 250억(보증금 5.35억 / 월세 5,017만), IT·회계·디자인 11개 우량 법인 만실 초안정 수익형 (연 순수익률 2.41%).\n검토 후 상세 자료(IM) 및 임대차 세부 내역이 필요하시면 편하게 말씀해 주세요.",
+    "expectedClosingMatch": true,
+    "noBannedWords": true,
+    "status": "PASS"
+  },
+  "step4_im_sections": {},
+  "step5_pptx_rendering": {
+    "slideCount": 10,
+    "slideImages": [
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\yangpyeong\\captures\\yangpyeong_basic_slide_01.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\yangpyeong\\captures\\yangpyeong_basic_slide_02.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\yangpyeong\\captures\\yangpyeong_basic_slide_03.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\yangpyeong\\captures\\yangpyeong_basic_slide_04.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\yangpyeong\\captures\\yangpyeong_basic_slide_05.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\yangpyeong\\captures\\yangpyeong_basic_slide_06.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\yangpyeong\\captures\\yangpyeong_basic_slide_07.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\yangpyeong\\captures\\yangpyeong_basic_slide_08.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\yangpyeong\\captures\\yangpyeong_basic_slide_09.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\yangpyeong\\captures\\yangpyeong_basic_slide_10.png"
+    ]
+  },
+  "step6_web_capture": {
+    "mobileCapturePath": "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\yangpyeong\\captures\\yangpyeong_web_mobile_full.png",
+    "desktopCapturePath": "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\yangpyeong\\captures\\yangpyeong_web_desktop_view.png"
+  },
+  "step7_visual_audit": {
+    "auditItems": [
+      {
+        "rule": "1. 페르소나 격리 원칙 (Implicit Persona Principle)",
+        "check": "외부 노출 슬라이드/웹에 \"60대 자산가\" 등 지칭 배제",
+        "passed": true,
+        "notes": "모든 섹션 및 슬라이드에서 순수 데이터/수익성 중심 문구 유지"
+      },
+      {
+        "rule": "2. CRE 실무 표준 용어 준수",
+        "check": "연 순수익률 (Cap Rate), 렌트롤, 밸류애드 등 표준어 사용",
+        "passed": true,
+        "notes": "외래어 직역 투 배제 및 연 순수익률 (Cap Rate) 사용"
+      },
+      {
+        "rule": "3. 연 순수익률 (Cap Rate) 2.41% 및 리스업 후 2.71% 정밀 산출",
+        "check": "현 Cap Rate 2.41% 및 지하 리스업 시 2.71% 계산값 노출 여부",
+        "passed": true,
+        "notes": "현행: 2.41%, 잠재: 2.71%"
+      },
+      {
+        "rule": "4. 용적률 이중 기준 병기 (지상 398.8% / 전체 480.2%)",
+        "check": "지상 기준 398.8% 및 전체 480.2% 누락 없이 2기준 병기",
+        "passed": true,
+        "notes": "물건 개요 및 PPTX 슬라이드 03에 2기준 정상 병기"
+      },
+      {
+        "rule": "5. 초안정형 서사 (밸류애드 불가를 무결점 장점으로 치환)",
+        "check": "신축급 컨디션 및 11개사 분산 임차로 안정성 강조",
+        "passed": true,
+        "notes": "추가 CapEx 불필요 및 공실 리스크 분산 서사 전개 완료"
+      },
+      {
+        "rule": "6. 카톡 공유 문구 포스처별 클로징",
+        "check": "income 전용 회신 유도 문구 및 \"블라인드 기준\" 금지어 배제",
+        "passed": true,
+        "notes": "검토 후 상세 자료(IM) 및 임대차 세부 내역이 필요하시면 편하게 말씀해 주세요."
+      }
+    ],
+    "artifactImages": [
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\yangpyeong_basic_slide_01.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\yangpyeong_basic_slide_02.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\yangpyeong_basic_slide_03.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\yangpyeong_basic_slide_04.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\yangpyeong_basic_slide_05.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\yangpyeong_basic_slide_06.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\yangpyeong_basic_slide_07.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\yangpyeong_basic_slide_08.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\yangpyeong_basic_slide_09.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\yangpyeong_basic_slide_10.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\yangpyeong_web_desktop_view.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\yangpyeong_web_mobile_full.png"
+    ]
+  }
+}

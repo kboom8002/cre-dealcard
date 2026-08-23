@@ -185,11 +185,12 @@ export function bindSectionData(
     if (sectionType === 'income_analysis') {
       const a05Props = transformForArchetype(cleanMarkdown, tables, 'A05');
       const a04Props = transformForArchetype(cleanMarkdown, tables, 'A04');
+      const a03Props = transformForArchetype(cleanMarkdown, tables, 'A03');
       if (!result['rentGap']) result['rentGap'] = { title: '임대료 갭', content: cleanMarkdown, tables, metrics, ...a05Props };
       if (!result['upside']) result['upside'] = { title: '인상 경로', content: cleanMarkdown, tables, metrics, ...a05Props };
       if (!result['leasing']) result['leasing'] = { title: '임차 유치', content: cleanMarkdown, tables, metrics, ...a05Props };
       if (!result['remodel']) result['remodel'] = { title: '리모델링 계획', content: cleanMarkdown, tables, metrics, ...a05Props };
-      if (!result['comps']) result['comps'] = { title: '비교사례', content: cleanMarkdown, tables, metrics, ...a04Props };
+      if (!result['comps']) result['comps'] = { title: '비교사례', content: cleanMarkdown, tables, metrics, ...a03Props };
     }
 
     // owner_occupied 파생 데이터 제공
@@ -1263,9 +1264,11 @@ export function sanitizePersona(text: string): string {
     .replace(/⚠️/g, '[주의]').replace(/🔒/g, '[보안]').replace(/⚖️/g, '[법률]')
     .replace(/📋/g, '[임대]').replace(/🎯/g, '[전략]').replace(/🚀/g, '[실행]')
     .replace(/💡/g, '[참고]').replace(/🔍/g, '[분석]').replace(/🛡️/g, '[안전]')
-    .replace(/☕/g, '[상권]').replace(/✨/g, '').replace(/✓/g, '✔')
+    .replace(/☕/g, '[상권]').replace(/⭐/g, '__STAR__').replace(/✨/g, '').replace(/✓/g, '✔')
     // 나머지 매핑 안 된 이모지는 제거
-    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{1F300}-\u{1FAFF}\u{25A0}-\u{25FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}🟢🔵🔶★▲●◇]/gu, '')
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{1F300}-\u{1FAFF}\u{25A0}-\u{25FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}🟢🔵🔶▲●◇]/gu, '')
+    // ★ 플레이스홀더 복원 (벤치마크 별점 및 Provenance 배지용)
+    .replace(/__STAR__/g, '★')
     // ── 페르소나 직접 지칭 정제 ──
     .replace(/(?:60대|50대|40대|30대|20대|초보|고액|법인|개인|VIP)\s*(?:자산가|투자자|법인\s*대표|대표|고객|매수자)(?:를\s*위한|의\s*관점|에게\s*추천하는|용|맞춤)?\s*/gu, '')
     // ── 가드레일/익명화 토큰 정제 ──
@@ -1296,8 +1299,9 @@ export function stripMarkdown(text: string): string {
     .replace(/\[(.*?)\]\(.*?\)/g, '$1')
     // ── HTML 태그 제거 (XSS 방어, PPTX 텍스트 보호) ──
     .replace(/<[^>]*>/g, '')
-    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{1F300}-\u{1FAFF}\u{25A0}-\u{25FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}✨🚇✓★▲●◇🟢🔵🔶💡🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍]/gu, '')
-    // ── 페르소나 직접 지칭 정제 (60대 자산가를 위한 등 원천 제거) ──
+    .replace(/\u2605/g, '__STAR__')
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{1F300}-\u{1FAFF}\u{25A0}-\u{25FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}✨🚇✓▲●◇🟢🔵🔶💡🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍]/gu, '')
+    .replace(/__STAR__/g, '★')
     .replace(/(?:60대|50대|40대|30대|20대|초보|고액|법인|개인|VIP)\s*(?:자산가|투자자|법인\s*대표|대표|고객|매수자)(?:를\s*위한|의\s*관점|에게\s*추천하는|용|맞춤)?\s*/gu, '')
     // ── 어색한 외래어 정제 (한국 상업용 부동산 실무 어휘 치환) ──
     .replace(/네이밍\s*라이츠/gu, '사옥 단독 명칭 표기(간판 설치권)')

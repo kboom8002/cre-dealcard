@@ -1,7 +1,7 @@
 # Pipeline Log: operating_case16_icheon_logistics
 
-**Generated**: 2026-08-16T08:22:52.073Z
-**Total Duration**: 0.4s
+**Generated**: 2026-08-23T01:22:40.926Z
+**Total Duration**: 0.3s
 
 ## Step-by-Step Timeline
 
@@ -9,9 +9,9 @@
 |---|------|----------|--------|---------|
 | 1 | ① SSoT Lite 구축 | 0.00s | ✅ success | buildingId: stress-case-16-icheon |
 | 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: operating, keys: 7 |
-| 3 | ③ IM 생성 (LLM) | 0.31s | ✅ success | ok=true, sections=8, grade=A |
+| 3 | ③ IM 생성 (LLM) | 0.26s | ✅ success | ok=true, sections=8, grade=A |
 | 4 | ④ 중간 결과물 저장 | 0.01s | ✅ success | sections: 8 |
-| 5 | ⑤ PPTX 렌더링 | 0.06s | ✅ success | slides: 10, size: 238KB |
+| 5 | ⑤ PPTX 렌더링 | 0.07s | ✅ success | slides: 10, size: 296KB |
 
 ## Detailed Metrics
 
@@ -29,7 +29,9 @@
 ```json
 {
   "slideCount": 10,
-  "fileSizeBytes": 243395,
-  "warnings": []
+  "fileSizeBytes": 303356,
+  "warnings": [
+    "Profit stat 카드 없음"
+  ]
 }
 ```

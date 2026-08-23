@@ -1,0 +1,962 @@
+{
+  "timestamp": "2026-08-23T00:37:32.849Z",
+  "version": "v2.1-p0p1p2-direct-pipeline",
+  "baseUrl": "http://localhost:3000",
+  "passed": 185,
+  "failed": 0,
+  "skipped": 5,
+  "total": 190,
+  "passRate": "100.0%",
+  "results": [
+    {
+      "test": "③-1 [income] property_overview → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=building"
+    },
+    {
+      "test": "③-2 [income] building → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A04"
+    },
+    {
+      "test": "③-1 [income] location_access → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=location"
+    },
+    {
+      "test": "③-2 [income] location → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A06"
+    },
+    {
+      "test": "③-1 [income] lease_status → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=rentRoll"
+    },
+    {
+      "test": "③-2 [income] rentRoll → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A03"
+    },
+    {
+      "test": "③-1 [income] income_analysis → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=profit"
+    },
+    {
+      "test": "③-2 [income] profit → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A05"
+    },
+    {
+      "test": "③-1 [income] risk_check → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=risk"
+    },
+    {
+      "test": "③-2 [income] risk → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A07"
+    },
+    {
+      "test": "③-1 [income] investment_thesis → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=thesis"
+    },
+    {
+      "test": "③-2 [income] thesis → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A15"
+    },
+    {
+      "test": "③-1 [income] next_steps → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=process"
+    },
+    {
+      "test": "③-2 [income] process → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A09"
+    },
+    {
+      "test": "⑥-3C [income] 🚇→[교통] 맥락 보존 매핑",
+      "status": "PASS",
+      "detail": "sanitized contains \"[교통]\": true"
+    },
+    {
+      "test": "⑥-3C [income] 📈→[성장] 맥락 보존 매핑",
+      "status": "PASS",
+      "detail": "sanitized contains \"[성장]\": true"
+    },
+    {
+      "test": "⑥-3C [income] 💰→[수익] 맥락 보존 매핑",
+      "status": "PASS",
+      "detail": "sanitized contains \"[수익]\": true"
+    },
+    {
+      "test": "⑥-3C [income] 📋→[임대] 맥락 보존 매핑",
+      "status": "PASS",
+      "detail": "sanitized contains \"[임대]\": true"
+    },
+    {
+      "test": "⑥-3C [income] 정제 후 잔류 이모지 없음",
+      "status": "PASS",
+      "detail": "residual: none"
+    },
+    {
+      "test": "①-1 [income] 포스처 추론 (Direct)",
+      "status": "PASS",
+      "detail": "expected=income, got=income"
+    },
+    {
+      "test": "①-2 [income] 매매가 파싱 (Direct)",
+      "status": "PASS",
+      "detail": "price=150억원"
+    },
+    {
+      "test": "②-1 [income] 섹션 수 (8개)",
+      "status": "PASS",
+      "detail": "expected>=5, got=8"
+    },
+    {
+      "test": "②-2 [income] section_type: property_overview",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, lease_status, income_analysis, investment_thesis, risk_check, next_steps, property_overview"
+    },
+    {
+      "test": "②-2 [income] section_type: location_access",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, lease_status, income_analysis, investment_thesis, risk_check, next_steps, property_overview"
+    },
+    {
+      "test": "②-2 [income] section_type: lease_status",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, lease_status, income_analysis, investment_thesis, risk_check, next_steps, property_overview"
+    },
+    {
+      "test": "②-2 [income] section_type: income_analysis",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, lease_status, income_analysis, investment_thesis, risk_check, next_steps, property_overview"
+    },
+    {
+      "test": "②-2 [income] section_type: risk_check",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, lease_status, income_analysis, investment_thesis, risk_check, next_steps, property_overview"
+    },
+    {
+      "test": "②-2 [income] section_type: investment_thesis",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, lease_status, income_analysis, investment_thesis, risk_check, next_steps, property_overview"
+    },
+    {
+      "test": "②-2 [income] section_type: next_steps",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, lease_status, income_analysis, investment_thesis, risk_check, next_steps, property_overview"
+    },
+    {
+      "test": "②-4 [income] NaN/undefined 오염 없음",
+      "status": "PASS",
+      "detail": "found: "
+    },
+    {
+      "test": "②-5 [income] 페르소나 직접 지칭 없음",
+      "status": "PASS",
+      "detail": "found: "
+    },
+    {
+      "test": "④-1A [income] A07 리스크 블록 수 ≥5 (실제: 5개)",
+      "status": "PASS",
+      "detail": "found=5 blocks"
+    },
+    {
+      "test": "④-1C [income] WALE 콜아웃 kind: good 자동 매핑",
+      "status": "PASS",
+      "detail": "callout kinds: verified via content rule"
+    },
+    {
+      "test": "④-A09 [income] A09 프로세스 단계 ≥4 (실제: 4단계)",
+      "status": "PASS",
+      "detail": "found=4 steps"
+    },
+    {
+      "test": "⑤-2A [income] A15 벤치마크 표 복원 (4행)",
+      "status": "PASS",
+      "detail": "headers=항목, 본 매물, 인근A, 인근B, 평가"
+    },
+    {
+      "test": "⑤-2A [income] A15 별점 ⭐→★ 안전 변환 (★ 존재, ⭐ 없음)",
+      "status": "PASS",
+      "detail": "hasStar=true, hasEmojiStar=false"
+    },
+    {
+      "test": "⑤-2B [income] A04 서사 리드문 brass 콜아웃 삽입",
+      "status": "PASS",
+      "detail": "hasBrassCallout=true"
+    },
+    {
+      "test": "⑤-2C [income] 긴 임차인명 45자 이내 (17자)",
+      "status": "PASS",
+      "detail": "name=\"스타벅스코리아주식회사강남역삼로점\""
+    },
+    {
+      "test": "⑤-3D [income] R8 폴백 테이블 brass 테마 검증",
+      "status": "SKIP",
+      "detail": "PPTX XML 파서 미구현"
+    },
+    {
+      "test": "⑦-1 [income] PPTX basic 직접 렌더링 성공 (슬라이드 10장, PK 매직 바이트)",
+      "status": "PASS",
+      "detail": "size: 332.1KB"
+    },
+    {
+      "test": "⑦-1 [income] PPTX pro 직접 렌더링 성공 (슬라이드 17장, PK 매직 바이트)",
+      "status": "PASS",
+      "detail": "size: 447.2KB"
+    },
+    {
+      "test": "③-1 [owner_occupied] property_overview → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=building"
+    },
+    {
+      "test": "③-2 [owner_occupied] building → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A04"
+    },
+    {
+      "test": "③-1 [owner_occupied] location_access → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=location"
+    },
+    {
+      "test": "③-2 [owner_occupied] location → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A06"
+    },
+    {
+      "test": "③-1 [owner_occupied] occupancy_fit → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=plan"
+    },
+    {
+      "test": "③-2 [owner_occupied] plan → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A04"
+    },
+    {
+      "test": "③-1 [owner_occupied] cost_comparison → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=vsLease"
+    },
+    {
+      "test": "③-2 [owner_occupied] vsLease → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A08"
+    },
+    {
+      "test": "③-1 [owner_occupied] risk_check → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=risk"
+    },
+    {
+      "test": "③-2 [owner_occupied] risk → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A07"
+    },
+    {
+      "test": "③-1 [owner_occupied] investment_thesis → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=thesis"
+    },
+    {
+      "test": "③-2 [owner_occupied] thesis → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A15"
+    },
+    {
+      "test": "③-1 [owner_occupied] next_steps → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=process"
+    },
+    {
+      "test": "③-2 [owner_occupied] process → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A09"
+    },
+    {
+      "test": "⑥-3C [owner_occupied] 🏢→[건물] 맥락 보존 매핑",
+      "status": "PASS",
+      "detail": "sanitized contains \"[건물]\": true"
+    },
+    {
+      "test": "⑥-3C [owner_occupied] 🎯→[전략] 맥락 보존 매핑",
+      "status": "PASS",
+      "detail": "sanitized contains \"[전략]\": true"
+    },
+    {
+      "test": "⑥-3C [owner_occupied] 🚀→[실행] 맥락 보존 매핑",
+      "status": "PASS",
+      "detail": "sanitized contains \"[실행]\": true"
+    },
+    {
+      "test": "⑥-3C [owner_occupied] 🛡️→[안전] 맥락 보존 매핑",
+      "status": "PASS",
+      "detail": "sanitized contains \"[안전]\": true"
+    },
+    {
+      "test": "⑥-3C [owner_occupied] 정제 후 잔류 이모지 없음",
+      "status": "PASS",
+      "detail": "residual: none"
+    },
+    {
+      "test": "①-1 [owner_occupied] 포스처 추론 (Direct)",
+      "status": "PASS",
+      "detail": "expected=owner_occupied, got=owner_occupied"
+    },
+    {
+      "test": "①-2 [owner_occupied] 매매가 파싱 (Direct)",
+      "status": "PASS",
+      "detail": "price=280억원"
+    },
+    {
+      "test": "②-1 [owner_occupied] 섹션 수 (7개)",
+      "status": "PASS",
+      "detail": "expected>=5, got=7"
+    },
+    {
+      "test": "②-2 [owner_occupied] section_type: property_overview",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, occupancy_fit, cost_comparison, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [owner_occupied] section_type: location_access",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, occupancy_fit, cost_comparison, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [owner_occupied] section_type: occupancy_fit",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, occupancy_fit, cost_comparison, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [owner_occupied] section_type: cost_comparison",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, occupancy_fit, cost_comparison, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [owner_occupied] section_type: risk_check",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, occupancy_fit, cost_comparison, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [owner_occupied] section_type: investment_thesis",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, occupancy_fit, cost_comparison, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [owner_occupied] section_type: next_steps",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, occupancy_fit, cost_comparison, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-3 [owner_occupied] suppress: lease_status 미생성",
+      "status": "PASS",
+      "detail": "found in: property_overview, location_access, occupancy_fit, cost_comparison, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-4 [owner_occupied] NaN/undefined 오염 없음",
+      "status": "PASS",
+      "detail": "found: "
+    },
+    {
+      "test": "②-5 [owner_occupied] 페르소나 직접 지칭 없음",
+      "status": "PASS",
+      "detail": "found: "
+    },
+    {
+      "test": "④-1A [owner_occupied] A07 리스크 블록 수 ≥5 (실제: 5개)",
+      "status": "PASS",
+      "detail": "found=5 blocks"
+    },
+    {
+      "test": "④-A09 [owner_occupied] A09 프로세스 단계 ≥4 (실제: 4단계)",
+      "status": "PASS",
+      "detail": "found=4 steps"
+    },
+    {
+      "test": "⑤-2B [owner_occupied] A04 서사 리드문 brass 콜아웃 삽입",
+      "status": "PASS",
+      "detail": "hasBrassCallout=true"
+    },
+    {
+      "test": "⑤-3D [owner_occupied] R8 폴백 테이블 brass 테마 검증",
+      "status": "SKIP",
+      "detail": "PPTX XML 파서 미구현"
+    },
+    {
+      "test": "⑦-1 [owner_occupied] PPTX basic 직접 렌더링 성공 (슬라이드 10장, PK 매직 바이트)",
+      "status": "PASS",
+      "detail": "size: 326.8KB"
+    },
+    {
+      "test": "⑦-1 [owner_occupied] PPTX pro 직접 렌더링 성공 (슬라이드 13장, PK 매직 바이트)",
+      "status": "PASS",
+      "detail": "size: 419.9KB"
+    },
+    {
+      "test": "③-1 [development] property_overview → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=building"
+    },
+    {
+      "test": "③-2 [development] building → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A04"
+    },
+    {
+      "test": "③-1 [development] location_access → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=location"
+    },
+    {
+      "test": "③-2 [development] location → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A06"
+    },
+    {
+      "test": "③-1 [development] site_analysis → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=landDetail"
+    },
+    {
+      "test": "③-2 [development] landDetail → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A04"
+    },
+    {
+      "test": "③-1 [development] development_feasibility → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=feasibility"
+    },
+    {
+      "test": "③-2 [development] feasibility → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A05"
+    },
+    {
+      "test": "③-1 [development] risk_check → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=risk"
+    },
+    {
+      "test": "③-2 [development] risk → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A07"
+    },
+    {
+      "test": "③-1 [development] investment_thesis → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=thesis"
+    },
+    {
+      "test": "③-2 [development] thesis → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A15"
+    },
+    {
+      "test": "③-1 [development] next_steps → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=process"
+    },
+    {
+      "test": "③-2 [development] process → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A09"
+    },
+    {
+      "test": "⑥-3C [development] 🎯→[전략] 맥락 보존 매핑",
+      "status": "PASS",
+      "detail": "sanitized contains \"[전략]\": true"
+    },
+    {
+      "test": "⑥-3C [development] 💰→[수익] 맥락 보존 매핑",
+      "status": "PASS",
+      "detail": "sanitized contains \"[수익]\": true"
+    },
+    {
+      "test": "⑥-3C [development] 📈→[성장] 맥락 보존 매핑",
+      "status": "PASS",
+      "detail": "sanitized contains \"[성장]\": true"
+    },
+    {
+      "test": "⑥-3C [development] 🚀→[실행] 맥락 보존 매핑",
+      "status": "PASS",
+      "detail": "sanitized contains \"[실행]\": true"
+    },
+    {
+      "test": "⑥-3C [development] 정제 후 잔류 이모지 없음",
+      "status": "PASS",
+      "detail": "residual: none"
+    },
+    {
+      "test": "①-1 [development] 포스처 추론 (Direct)",
+      "status": "PASS",
+      "detail": "expected=development, got=development"
+    },
+    {
+      "test": "①-2 [development] 매매가 파싱 (Direct)",
+      "status": "PASS",
+      "detail": "price=180억원"
+    },
+    {
+      "test": "②-1 [development] 섹션 수 (7개)",
+      "status": "PASS",
+      "detail": "expected>=5, got=7"
+    },
+    {
+      "test": "②-2 [development] section_type: property_overview",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, site_analysis, development_feasibility, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [development] section_type: location_access",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, site_analysis, development_feasibility, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [development] section_type: site_analysis",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, site_analysis, development_feasibility, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [development] section_type: development_feasibility",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, site_analysis, development_feasibility, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [development] section_type: risk_check",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, site_analysis, development_feasibility, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [development] section_type: investment_thesis",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, site_analysis, development_feasibility, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [development] section_type: next_steps",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, site_analysis, development_feasibility, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-3 [development] suppress: lease_status 미생성",
+      "status": "PASS",
+      "detail": "found in: property_overview, location_access, site_analysis, development_feasibility, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-3 [development] suppress: income_analysis 미생성",
+      "status": "PASS",
+      "detail": "found in: property_overview, location_access, site_analysis, development_feasibility, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-4 [development] NaN/undefined 오염 없음",
+      "status": "PASS",
+      "detail": "found: "
+    },
+    {
+      "test": "②-5 [development] 페르소나 직접 지칭 없음",
+      "status": "PASS",
+      "detail": "found: "
+    },
+    {
+      "test": "④-1A [development] A07 리스크 블록 수 ≥5 (실제: 5개)",
+      "status": "PASS",
+      "detail": "found=5 blocks"
+    },
+    {
+      "test": "④-A09 [development] A09 프로세스 단계 ≥4 (실제: 4단계)",
+      "status": "PASS",
+      "detail": "found=4 steps"
+    },
+    {
+      "test": "⑤-2B [development] A04 서사 리드문 brass 콜아웃 삽입",
+      "status": "PASS",
+      "detail": "hasBrassCallout=true"
+    },
+    {
+      "test": "⑤-3D [development] R8 폴백 테이블 brass 테마 검증",
+      "status": "SKIP",
+      "detail": "PPTX XML 파서 미구현"
+    },
+    {
+      "test": "⑦-1 [development] PPTX basic 직접 렌더링 성공 (슬라이드 10장, PK 매직 바이트)",
+      "status": "PASS",
+      "detail": "size: 294.4KB"
+    },
+    {
+      "test": "⑦-1 [development] PPTX pro 직접 렌더링 성공 (슬라이드 15장, PK 매직 바이트)",
+      "status": "PASS",
+      "detail": "size: 369.6KB"
+    },
+    {
+      "test": "③-1 [operating] property_overview → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=building"
+    },
+    {
+      "test": "③-2 [operating] building → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A04"
+    },
+    {
+      "test": "③-1 [operating] location_access → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=location"
+    },
+    {
+      "test": "③-2 [operating] location → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A06"
+    },
+    {
+      "test": "③-1 [operating] operation_overview → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=kpi"
+    },
+    {
+      "test": "③-2 [operating] kpi → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A13"
+    },
+    {
+      "test": "③-1 [operating] gop_analysis → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=revenue"
+    },
+    {
+      "test": "③-2 [operating] revenue → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A05"
+    },
+    {
+      "test": "③-1 [operating] risk_check → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=risk"
+    },
+    {
+      "test": "③-2 [operating] risk → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A07"
+    },
+    {
+      "test": "③-1 [operating] investment_thesis → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=thesis"
+    },
+    {
+      "test": "③-2 [operating] thesis → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A15"
+    },
+    {
+      "test": "③-1 [operating] next_steps → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=process"
+    },
+    {
+      "test": "③-2 [operating] process → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A09"
+    },
+    {
+      "test": "⑥-3C [operating] 🏢→[건물] 맥락 보존 매핑",
+      "status": "PASS",
+      "detail": "sanitized contains \"[건물]\": true"
+    },
+    {
+      "test": "⑥-3C [operating] 💰→[수익] 맥락 보존 매핑",
+      "status": "PASS",
+      "detail": "sanitized contains \"[수익]\": true"
+    },
+    {
+      "test": "⑥-3C [operating] 📈→[성장] 맥락 보존 매핑",
+      "status": "PASS",
+      "detail": "sanitized contains \"[성장]\": true"
+    },
+    {
+      "test": "⑥-3C [operating] 🎯→[전략] 맥락 보존 매핑",
+      "status": "PASS",
+      "detail": "sanitized contains \"[전략]\": true"
+    },
+    {
+      "test": "⑥-3C [operating] 정제 후 잔류 이모지 없음",
+      "status": "PASS",
+      "detail": "residual: none"
+    },
+    {
+      "test": "①-1 [operating] 포스처 추론 (Direct)",
+      "status": "PASS",
+      "detail": "expected=operating, got=operating"
+    },
+    {
+      "test": "①-2 [operating] 매매가 파싱 (Direct)",
+      "status": "PASS",
+      "detail": "price=320억원"
+    },
+    {
+      "test": "②-1 [operating] 섹션 수 (7개)",
+      "status": "PASS",
+      "detail": "expected>=5, got=7"
+    },
+    {
+      "test": "②-2 [operating] section_type: property_overview",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, operation_overview, gop_analysis, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [operating] section_type: location_access",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, operation_overview, gop_analysis, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [operating] section_type: operation_overview",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, operation_overview, gop_analysis, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [operating] section_type: gop_analysis",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, operation_overview, gop_analysis, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [operating] section_type: risk_check",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, operation_overview, gop_analysis, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [operating] section_type: investment_thesis",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, operation_overview, gop_analysis, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [operating] section_type: next_steps",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, operation_overview, gop_analysis, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-3 [operating] suppress: lease_status 미생성",
+      "status": "PASS",
+      "detail": "found in: property_overview, location_access, operation_overview, gop_analysis, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-4 [operating] NaN/undefined 오염 없음",
+      "status": "PASS",
+      "detail": "found: "
+    },
+    {
+      "test": "②-5 [operating] 페르소나 직접 지칭 없음",
+      "status": "PASS",
+      "detail": "found: "
+    },
+    {
+      "test": "④-1A [operating] A07 리스크 블록 수 ≥5 (실제: 5개)",
+      "status": "PASS",
+      "detail": "found=5 blocks"
+    },
+    {
+      "test": "④-A09 [operating] A09 프로세스 단계 ≥4 (실제: 4단계)",
+      "status": "PASS",
+      "detail": "found=4 steps"
+    },
+    {
+      "test": "⑤-2B [operating] A04 서사 리드문 brass 콜아웃 삽입",
+      "status": "PASS",
+      "detail": "hasBrassCallout=true"
+    },
+    {
+      "test": "⑤-3D [operating] R8 폴백 테이블 brass 테마 검증",
+      "status": "SKIP",
+      "detail": "PPTX XML 파서 미구현"
+    },
+    {
+      "test": "⑦-1 [operating] PPTX basic 직접 렌더링 성공 (슬라이드 10장, PK 매직 바이트)",
+      "status": "PASS",
+      "detail": "size: 300.2KB"
+    },
+    {
+      "test": "⑦-1 [operating] PPTX pro 직접 렌더링 성공 (슬라이드 13장, PK 매직 바이트)",
+      "status": "PASS",
+      "detail": "size: 360.2KB"
+    },
+    {
+      "test": "③-1 [trading] property_overview → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=building"
+    },
+    {
+      "test": "③-2 [trading] building → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A04"
+    },
+    {
+      "test": "③-1 [trading] location_access → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=location"
+    },
+    {
+      "test": "③-2 [trading] location → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A06"
+    },
+    {
+      "test": "③-1 [trading] market_position → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=marketPosition"
+    },
+    {
+      "test": "③-2 [trading] marketPosition → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A04"
+    },
+    {
+      "test": "③-1 [trading] comparable_analysis → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=comps"
+    },
+    {
+      "test": "③-2 [trading] comps → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A03"
+    },
+    {
+      "test": "③-1 [trading] risk_check → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=risk"
+    },
+    {
+      "test": "③-2 [trading] risk → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A07"
+    },
+    {
+      "test": "③-1 [trading] investment_thesis → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=thesis"
+    },
+    {
+      "test": "③-2 [trading] thesis → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A15"
+    },
+    {
+      "test": "③-1 [trading] next_steps → dataKey 매핑",
+      "status": "PASS",
+      "detail": "dataKey=process"
+    },
+    {
+      "test": "③-2 [trading] process → archetype 매핑",
+      "status": "PASS",
+      "detail": "archetype=A09"
+    },
+    {
+      "test": "①-1 [trading] 포스처 추론 (Direct)",
+      "status": "PASS",
+      "detail": "expected=trading, got=trading"
+    },
+    {
+      "test": "①-2 [trading] 매매가 파싱 (Direct)",
+      "status": "PASS",
+      "detail": "price=95억원"
+    },
+    {
+      "test": "②-1 [trading] 섹션 수 (7개)",
+      "status": "PASS",
+      "detail": "expected>=5, got=7"
+    },
+    {
+      "test": "②-2 [trading] section_type: property_overview",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, market_position, comparable_analysis, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [trading] section_type: location_access",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, market_position, comparable_analysis, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [trading] section_type: market_position",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, market_position, comparable_analysis, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [trading] section_type: comparable_analysis",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, market_position, comparable_analysis, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [trading] section_type: risk_check",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, market_position, comparable_analysis, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [trading] section_type: investment_thesis",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, market_position, comparable_analysis, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-2 [trading] section_type: next_steps",
+      "status": "PASS",
+      "detail": "found: property_overview, location_access, market_position, comparable_analysis, investment_thesis, risk_check, next_steps"
+    },
+    {
+      "test": "②-4 [trading] NaN/undefined 오염 없음",
+      "status": "PASS",
+      "detail": "found: "
+    },
+    {
+      "test": "②-5 [trading] 페르소나 직접 지칭 없음",
+      "status": "PASS",
+      "detail": "found: "
+    },
+    {
+      "test": "④-1A [trading] A07 리스크 블록 수 ≥5 (실제: 5개)",
+      "status": "PASS",
+      "detail": "found=5 blocks"
+    },
+    {
+      "test": "④-A09 [trading] A09 프로세스 단계 ≥4 (실제: 4단계)",
+      "status": "PASS",
+      "detail": "found=4 steps"
+    },
+    {
+      "test": "⑤-2A [trading] A15 벤치마크 표 복원 (4행)",
+      "status": "PASS",
+      "detail": "headers=항목, 본 매물, 권역 평균, 평가"
+    },
+    {
+      "test": "⑤-2A [trading] A15 별점 ⭐→★ 안전 변환 (★ 존재, ⭐ 없음)",
+      "status": "PASS",
+      "detail": "hasStar=true, hasEmojiStar=false"
+    },
+    {
+      "test": "⑤-2B [trading] A04 서사 리드문 brass 콜아웃 삽입",
+      "status": "PASS",
+      "detail": "hasBrassCallout=true"
+    },
+    {
+      "test": "⑤-3D [trading] R8 폴백 테이블 brass 테마 검증",
+      "status": "SKIP",
+      "detail": "PPTX XML 파서 미구현"
+    },
+    {
+      "test": "⑦-1 [trading] PPTX basic 직접 렌더링 성공 (슬라이드 10장, PK 매직 바이트)",
+      "status": "PASS",
+      "detail": "size: 381.9KB"
+    },
+    {
+      "test": "⑦-1 [trading] PPTX pro 직접 렌더링 성공 (슬라이드 13장, PK 매직 바이트)",
+      "status": "PASS",
+      "detail": "size: 452.2KB"
+    }
+  ]
+}

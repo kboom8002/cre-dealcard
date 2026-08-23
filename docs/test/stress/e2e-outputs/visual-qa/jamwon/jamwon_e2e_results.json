@@ -1,0 +1,124 @@
+{
+  "step1_memo_parser": {
+    "min": {},
+    "std": {
+      "askingPriceKrw": 24200000000,
+      "totalFloorAreaPyung": 615,
+      "floorsAboveGround": 6,
+      "floorsUnderGround": 1,
+      "landAreaPyung": 186
+    },
+    "suf": {
+      "totalFloorAreaPyung": 614.86,
+      "floorsAboveGround": 6,
+      "floorsUnderGround": 1
+    },
+    "askingPriceCheck": "FAIL",
+    "buildYearCheck": "FAIL",
+    "floorAreaCheck": "PASS"
+  },
+  "step2_data_grade": {
+    "min": {
+      "tier": "draft",
+      "label": "C등급 — 데이터 보강 권장",
+      "emoji": "⚠️",
+      "score": 15,
+      "missingItems": [
+        "주소 입력",
+        "공공데이터 연동 (건축물대장/토지이용계획)",
+        "월 임대료 총액",
+        "층별 임대차 내역",
+        "대출 금액",
+        "건물 사진"
+      ]
+    },
+    "std": {
+      "tier": "verified",
+      "label": "A등급 — 개발 수지 검토 가능",
+      "emoji": "🟢",
+      "score": 100,
+      "missingItems": []
+    },
+    "suf": {
+      "tier": "verified",
+      "label": "A등급 — 개발 수지 검토 가능",
+      "emoji": "🟢",
+      "score": 100,
+      "missingItems": []
+    }
+  },
+  "step3_kakao_text": {
+    "text": "강남대로 이면(신사역 4분), 대지 186평 근생빌딩 매물 안내드립니다.\n매매가 242억(평당 1.3억), 매도인 책임 명도 완료 조건 신축 부지.\n토지 대장 및 신축 수지 검토 자료가 필요하시면 전달드리겠습니다.",
+    "expectedClosingMatch": true,
+    "noBannedWords": true,
+    "status": "PASS"
+  },
+  "step4_im_sections": {},
+  "step5_pptx_rendering": {
+    "slideCount": 10,
+    "slideImages": [
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\jamwon\\captures\\jamwon_basic_slide_01.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\jamwon\\captures\\jamwon_basic_slide_02.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\jamwon\\captures\\jamwon_basic_slide_03.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\jamwon\\captures\\jamwon_basic_slide_04.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\jamwon\\captures\\jamwon_basic_slide_05.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\jamwon\\captures\\jamwon_basic_slide_06.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\jamwon\\captures\\jamwon_basic_slide_07.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\jamwon\\captures\\jamwon_basic_slide_08.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\jamwon\\captures\\jamwon_basic_slide_09.png",
+      "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\jamwon\\captures\\jamwon_basic_slide_10.png"
+    ]
+  },
+  "step6_web_capture": {
+    "mobileCapturePath": "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\jamwon\\captures\\jamwon_web_mobile_full.png",
+    "desktopCapturePath": "C:\\Users\\User\\cre-dealcard\\docs\\test\\stress\\e2e-outputs\\visual-qa\\jamwon\\captures\\jamwon_web_desktop_view.png"
+  },
+  "step7_visual_audit": {
+    "auditItems": [
+      {
+        "rule": "1. 페르소나 격리 원칙 (Implicit Persona Principle)",
+        "check": "외부 노출 슬라이드/웹에 \"60대 자산가\" 등 지칭 배제",
+        "passed": true,
+        "notes": "모든 섹션 및 슬라이드에서 순수 데이터/가치 중심 문구 유지"
+      },
+      {
+        "rule": "2. CRE 실무 표준 용어 준수",
+        "check": "연 순수익률 (Cap Rate), 명도 조건, 신축 수지 등 표준어 사용",
+        "passed": true,
+        "notes": "외래어 직역 투 없음, 실무 표준 용어 준수"
+      },
+      {
+        "rule": "3. 용적률 이중 기준 병기 (지상 247.0% vs 공부상 325.6%)",
+        "check": "두 용적률 기준이 명확히 병기되어 혼선 방지",
+        "passed": true,
+        "notes": "물건 개요 및 PPTX A02/A04에 2기준 정상 병기"
+      },
+      {
+        "rule": "4. 명도 조건 & 월세 0원 개발형 포스처 처리",
+        "check": "11개 호실 매도인 책임 명도 확정 및 NaN/Infinity 방지",
+        "passed": true,
+        "notes": "월세=0에 따른 Cap Rate 왜곡 방지 및 신축 수지 위주 편성 완료"
+      },
+      {
+        "rule": "5. 카톡 공유 문구 포스처별 클로징",
+        "check": "개발형 전용 회신 유도 문구 및 \"블라인드 기준\" 금지어 배제",
+        "passed": true,
+        "notes": "토지 대장 및 신축 수지 검토 자료가 필요하시면 전달드리겠습니다."
+      }
+    ],
+    "artifactImages": [
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\jamwon_basic_slide_01.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\jamwon_basic_slide_02.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\jamwon_basic_slide_03.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\jamwon_basic_slide_04.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\jamwon_basic_slide_05.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\jamwon_basic_slide_06.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\jamwon_basic_slide_07.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\jamwon_basic_slide_08.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\jamwon_basic_slide_09.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\jamwon_basic_slide_10.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\jamwon_web_desktop_view.png",
+      "C:\\Users\\User\\.gemini\\antigravity\\brain\\89e3bfb7-fe7b-45cf-bafa-7d6970e57fbd\\jamwon_web_mobile_full.png"
+    ]
+  }
+}

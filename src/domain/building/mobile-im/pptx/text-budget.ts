@@ -15,14 +15,16 @@ export const TEXT_LIMITS = {
 
 export function charsPerLine(boxWidth: number, fontSize?: number): number {
   // F3 fix: CJK 문자 너비 = 약 0.19인치 @ 10pt 맑은 고딕 (기존 0.152는 Latin 기준)
-  const cjkCoeff = 0.19;
+  const cjkCoeff = 0.19 * (10 / (fontSize || 10));
   return Math.floor((boxWidth - 0.36) / cjkCoeff);
 }
 
 export function calcCalloutHeight(bodyText: string, boxWidth: number): number {
   const charsLine = charsPerLine(boxWidth);
-  const lines = Math.ceil(bodyText.length / charsLine);
-  return 0.55 + lines * 0.29;
+  const explicitLines = (bodyText.match(/\n/g) || []).length;
+  const wrappedLines = bodyText.split('\n').reduce((sum, seg) => sum + Math.ceil(seg.length / charsLine), 0);
+  const totalLines = Math.max(wrappedLines, explicitLines + 1);
+  return 0.55 + totalLines * 0.29;
 }
 
 export function truncateText(text: string, maxChars: number): string {
@@ -51,7 +53,11 @@ export function enforceTextBudget(text: string, maxLen: number): string {
     truncated.lastIndexOf("."),
   );
   if (lastSentenceEnd > maxLen * 0.5) {
-    const endIdx = truncated[lastSentenceEnd + 1] === ' ' ? lastSentenceEnd + 2 : lastSentenceEnd + 1;
+    let endIdx = lastSentenceEnd + 1;
+    if (['다', '요', '음', '함', '임'].includes(truncated[lastSentenceEnd]) && truncated[lastSentenceEnd + 1] === '.') {
+      endIdx = lastSentenceEnd + 2;
+    }
+    if (truncated[endIdx] === ' ') endIdx++;
     return truncated.slice(0, endIdx).trim();
   }
   // 문장 부호가 없다면 공백(단어 경계) 기준으로 안전하게 끊기

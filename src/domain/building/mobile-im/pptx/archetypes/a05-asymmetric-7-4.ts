@@ -114,12 +114,12 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
       // 2-column: 투자 제안 + 추가 콜아웃
       const coGap = 0.20;
       const coW = L.col(2, coGap);
-      L.callout(slide, L.colX(0, coW, coGap), contentY + 0.10, coW, calloutH, 'info', '📌 투자 가치 제안', leadBody);
+      L.callout(slide, L.colX(0, coW, coGap), contentY + 0.10, coW, calloutH, 'info', '투자 가치 제안', leadBody);
       const rc = rightCallouts[0];
       L.callout(slide, L.colX(1, coW, coGap), contentY + 0.10, coW, calloutH, rc.kind ?? 'info', rc.title ?? '', rc.body ?? '');
     } else {
       // 풀폭 콜아웃
-      L.callout(slide, M, contentY + 0.10, CW, calloutH, 'info', '📌 투자 가치 제안', leadBody);
+      L.callout(slide, M, contentY + 0.10, CW, calloutH, 'info', '투자 가치 제안', leadBody);
     }
   }
 

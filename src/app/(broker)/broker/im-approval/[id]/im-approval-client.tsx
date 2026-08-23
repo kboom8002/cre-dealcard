@@ -258,15 +258,23 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   const ssotSummary = content?.ssot_summary as Record<string, unknown> | undefined;
   const externalData = content?.external_data as Record<string, unknown> | undefined;
   const readinessScore = (content?.readiness_score as number) ?? 0;
+  
+  // 정확한 주소 또는 PNU 존재 여부 (단순 권역명 area_signal은 주소로 인정하지 않음)
+  const hasRealAddress = !!(
+    ssotSummary?.address ||
+    ssotSummary?.pnu ||
+    (ssotSummary?.raw_address as string)
+  );
+
   const qualityBadge = computeDataQualityBadge({
-    hasAddress: !!(ssotSummary?.address || ssotSummary?.pnu || ssotSummary?.area_signal),
+    hasAddress: hasRealAddress,
     hasPublicData: !!(externalData?.hasPublicData || externalData?.fallbackStatus || externalData?.enrichedAt),
     hasMonthlyRent: !!(ssotSummary?.monthly_rent_total_krw),
     hasVacancy: !!(ssotSummary?.vacancy_signal || ssotSummary?.vacancy_pct),
     hasPhotos: photos.length > 0,
     hasAskingPrice: !!(ssotSummary?.asking_price_manwon),
     hasLoanAmount: !!(ssotSummary?.loan_amount_manwon),
-  });
+  }, (posture as any) || 'income');
 
   const handleApprove = async () => {
     setActionStatus('loading');
@@ -407,7 +415,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
           <div className="mt-3 space-y-1">
             <p className="text-[10px] font-semibold text-neutral-500 mb-1.5">등급 판정 기준 (A등급 = 주소 + 공공데이터 + 임대료 + 매각가)</p>
             {[
-              { ok: !!(ssotSummary?.area_signal), label: '주소', detail: ssotSummary?.area_signal ? String(ssotSummary.area_signal) : '바텀시트에서 주소 검색' },
+              { ok: hasRealAddress, label: '정확한 주소', detail: (ssotSummary?.address as string) || (ssotSummary?.raw_address as string) || (ssotSummary?.pnu ? 'PNU 연동' : '바텀시트에서 주소 검색 필요') },
               { ok: !!(externalData?.hasPublicData || externalData?.fallbackStatus || externalData?.enrichedAt), label: '공공데이터', detail: (externalData?.hasPublicData || externalData?.fallbackStatus || externalData?.enrichedAt) ? '건축물대장/토지이용계획 연동됨' : '건축물대장 API 미연동' },
               { ok: !!(ssotSummary?.monthly_rent_total_krw), label: '월 임대료', detail: ssotSummary?.monthly_rent_total_krw ? `${(Number(ssotSummary.monthly_rent_total_krw) / 10000).toLocaleString()}만원` : '바텀시트에서 입력' },
               { ok: !!(ssotSummary?.asking_price_manwon), label: '매각 희망가', detail: ssotSummary?.asking_price_manwon ? `${Number(ssotSummary.asking_price_manwon).toLocaleString()}만원` : '바텀시트에서 입력' },
