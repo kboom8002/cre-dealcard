@@ -211,8 +211,23 @@ export async function runFullPipeline(testCase: E2ETestCase, outputDir: string):
 
     const pptxRenderer = new MobileImPptxRenderer();
     const pptxOutput = await pptxRenderer.render(pptxInput as MobileImPptxInput);
-    const pptxPath = join(outputDir, testCase.caseName + '.pptx');
-    writeFileSync(pptxPath, pptxOutput.buffer);
+    let pptxPath = join(outputDir, testCase.caseName + '.pptx');
+    // EBUSY 방어: 기존 파일이 잠겨 있으면 삭제 시도 → 실패 시 타임스탬프 파일명 사용
+    try {
+      if (existsSync(pptxPath)) {
+        const { unlinkSync } = require('fs');
+        unlinkSync(pptxPath);
+      }
+      writeFileSync(pptxPath, pptxOutput.buffer);
+    } catch (busyErr: any) {
+      if (busyErr.code === 'EBUSY' || busyErr.code === 'EPERM') {
+        pptxPath = join(outputDir, testCase.caseName + '_' + Date.now() + '.pptx');
+        writeFileSync(pptxPath, pptxOutput.buffer);
+        console.log('  warn: original pptx locked, saved as ' + pptxPath);
+      } else {
+        throw busyErr;
+      }
+    }
     artifacts.pptxPath = pptxPath;
 
     const captureDir = join(outputDir, 'slides');
