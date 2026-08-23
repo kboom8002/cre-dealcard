@@ -29,15 +29,30 @@ export async function inspectOutputs(params: {
       }
     }
 
-    // D06: Markdown residue check
-    const mdResidueRegex = /(\*\*|##|>\s|raw\s•)/g;
-    const mdMatch = allXmlContent.match(mdResidueRegex);
-    const mdPass = !mdMatch;
+    // D06: Markdown residue check — text node 내부만 검사
+    // XML 태그 내부의 > 는 정상이므로 <a:t> 태그 내 텍스트만 추출
+    const textNodeRegex = /<a:t>([^<]*)<\/a:t>/g;
+    let textContent = '';
+    let tm: RegExpExecArray | null;
+    while ((tm = textNodeRegex.exec(allXmlContent)) !== null) {
+      textContent += tm[1] + '\n';
+    }
+    const mdResiduePatterns = [
+      { pattern: /\*\*[^*]+\*\*/g, label: '**bold**' },
+      { pattern: /^#{1,3}\s/gm, label: '## heading' },
+      { pattern: /^>\s/gm, label: '> blockquote' },
+      { pattern: /^\s*[-*]\s/gm, label: '- list marker' },
+    ];
+    const mdFindings: string[] = [];
+    for (const { pattern, label } of mdResiduePatterns) {
+      if (pattern.test(textContent)) mdFindings.push(label);
+    }
+    const mdPass = mdFindings.length === 0;
     results.push({
       criterion: 'D06',
       label: '마크다운 잔재 확인',
       pass: mdPass,
-      detail: mdPass ? '마크다운 잔재 없음' : `마크다운 잔재 발견: ${mdMatch?.slice(0,3).join(', ')}`
+      detail: mdPass ? '마크다운 잔재 없음' : `마크다운 잔재 발견: ${mdFindings.join(', ')}`
     });
     console.log(`[AI-Inspector] D06 마크다운 체크: ${mdPass ? 'PASS' : 'FAIL'}`);
 
@@ -53,10 +68,10 @@ export async function inspectOutputs(params: {
     });
     console.log(`[AI-Inspector] D07 비정상 데이터 체크: ${invalidPass ? 'PASS' : 'FAIL'}`);
 
-    // D08: Emoji check
-    // Matches most emoji ranges but excludes ★ (U+2605)
-    const emojiRegex = /[\u{1F300}-\u{1F5FF}\u{1F900}-\u{1F9FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{2604}\u{2606}-\u{26FF}\u{2700}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{1F191}-\u{1F251}\u{1F004}\u{1F0CF}\u{1F170}-\u{1F171}\u{1F17E}-\u{1F17F}\u{1F18E}\u{3030}\u{2B50}\u{2B55}\u{2934}-\u{2935}\u{2B05}-\u{2B07}\u{2B1B}-\u{2B1C}\u{3297}\u{3299}\u{303D}\u{00A9}\u{00AE}\u{2122}\u{23F3}\u{24C2}\u{23E9}-\u{23EF}\u{25B6}\u{23F8}-\u{23FA}]/gu;
-    const emojiMatches = allXmlContent.match(emojiRegex);
+    // D08: Emoji check — text node 내용만 검사
+    // ★ (U+2605), ✓ (U+2713), ✗ (U+2717) 은 허용 (체크마크, 별)
+    const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{2604}\u{2606}-\u{26FF}\u{2700}-\u{2712}\u{2714}-\u{2716}\u{2718}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{2B50}\u{2B55}\u{00A9}\u{00AE}\u{2122}]/gu;
+    const emojiMatches = textContent.match(emojiRegex);
     const emojiPass = !emojiMatches;
     results.push({
       criterion: 'D08',

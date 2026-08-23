@@ -108,7 +108,7 @@ export function generateMobileImViewerHtml(params: ViewerParams): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>\${buildingTitle} - 모바일 IM</title>
+  <title>${buildingTitle} - 모바일 IM</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -228,18 +228,18 @@ export function generateMobileImViewerHtml(params: ViewerParams): string {
 <body>
   <div class="max-w-md mx-auto min-h-screen relative pb-6">
     <div class="p-4 text-center border-b border-neutral-800">
-      <h1 class="text-xl font-bold">\${buildingTitle}</h1>
+      <h1 class="text-xl font-bold">${buildingTitle}</h1>
     </div>
 
     <div class="hero-card">
       <h2 class="text-lg font-bold mb-2">핵심 투자 조건</h2>
       <div class="metrics-grid">
-        \${getHeroMetricsHtml(posture)}
+        ${getHeroMetricsHtml(posture)}
       </div>
     </div>
 
     <div class="sections-container mt-6">
-      \${sectionsHtml}
+      ${sectionsHtml}
     </div>
 
     <div class="broker-card">

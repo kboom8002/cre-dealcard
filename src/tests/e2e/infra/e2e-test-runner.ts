@@ -1,4 +1,4 @@
-﻿import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { chromium } from 'playwright';
 
@@ -181,8 +181,30 @@ export async function runFullPipeline(testCase: E2ETestCase, outputDir: string):
       grade: dataGrade,
       doc: {
         title: testCase.caseLabel,
-        body: { heroCard, photos: testCase.supplementalData.photos ?? [] },
-        sections: sections.map((s: any) => ({ title: s.title ?? '', markdown: s.markdown ?? '', confidence: s.confidence, boundary_note: s.boundary_note })),
+        body: {
+          heroCard,
+          sections: sections.map((s: any) => ({
+            section_type: s.section_type ?? '',
+            title: s.title ?? '',
+            markdown: s.markdown ?? '',
+            confidence: s.confidence,
+            boundary_note: s.boundary_note,
+          })),
+          photos: testCase.supplementalData.photos ?? [],
+          photo_urls: (testCase.supplementalData.photos ?? []).map((p: any) => p.url),
+          ssot_summary: {
+            price_band: testCase.buildingMeta?.price_band,
+            area_signal: testCase.buildingMeta?.area_signal,
+          },
+          financials: imOutput.financials ?? {},
+          dcf10Year: imOutput.dcf10Year ?? {},
+        },
+        sections: sections.map((s: any) => ({
+          title: s.title ?? '',
+          markdown: s.markdown ?? '',
+          confidence: s.confidence,
+          boundary_note: s.boundary_note,
+        })),
       },
       building: testCase.buildingMeta,
     };
