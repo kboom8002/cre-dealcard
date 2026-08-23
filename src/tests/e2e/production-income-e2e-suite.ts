@@ -664,30 +664,132 @@ function generateMobileImViewerHtml(
   keyPoint: string,
   sections: Array<{ title: string; section_type: string; markdown: string }>
 ): string {
+  /**
+   * 간이 마크다운 → HTML 변환기 (프로덕션 MarkdownRenderer 패턴 반영)
+   * - 파이프 테이블(|) → <table> 변환
+   * - **bold** → <strong>
+   * - *italic* → <em>
+   * - # heading → <h2>/<h3>
+   * - - bullet → <li>
+   * - > blockquote → <blockquote>
+   */
+  function mdToHtml(md: string): string {
+    const lines = md.split('\n');
+    const htmlParts: string[] = [];
+    let inTable = false;
+    let tableHeaders: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) { htmlParts.push('<div class="h-2"></div>'); continue; }
+
+      // 테이블 구분선 (|---|---|) 스킵
+      if (/^\|[-:|\s]+\|$/.test(line)) continue;
+
+      // 파이프 테이블 행
+      if (line.startsWith('|') && line.endsWith('|')) {
+        const cells = line.split('|').slice(1, -1).map(c => c.trim());
+        if (!inTable) {
+          inTable = true;
+          tableHeaders = cells;
+          htmlParts.push('<div class="overflow-x-auto mt-2 mb-2"><table class="w-full text-[11px] border-collapse">');
+          htmlParts.push('<thead><tr>' + cells.map(c =>
+            `<th class="p-2 text-left bg-neutral-800/80 text-neutral-300 font-bold border-b border-neutral-700">${inlineMd(c)}</th>`
+          ).join('') + '</tr></thead><tbody>');
+        } else {
+          // 헤더와 동일한 내용이면 스킵
+          if (cells.join('') === tableHeaders.join('')) continue;
+          htmlParts.push('<tr>' + cells.map(c =>
+            `<td class="p-2 text-neutral-300 border-b border-neutral-800/60">${inlineMd(c)}</td>`
+          ).join('') + '</tr>');
+        }
+        continue;
+      } else if (inTable) {
+        htmlParts.push('</tbody></table></div>');
+        inTable = false;
+        tableHeaders = [];
+      }
+
+      // 제목
+      if (line.startsWith('### ')) {
+        htmlParts.push(`<h3 class="text-xs font-bold text-emerald-400 mt-3 mb-1">${inlineMd(line.slice(4))}</h3>`);
+      } else if (line.startsWith('## ')) {
+        htmlParts.push(`<h2 class="text-sm font-bold text-white mt-3 mb-1">${inlineMd(line.slice(3))}</h2>`);
+      } else if (line.startsWith('# ')) {
+        htmlParts.push(`<h2 class="text-sm font-bold text-white mt-2 mb-1">${inlineMd(line.slice(2))}</h2>`);
+      }
+      // 인용구
+      else if (line.startsWith('> ')) {
+        htmlParts.push(`<blockquote class="border-l-2 border-emerald-500/50 pl-3 py-1.5 text-[11px] text-emerald-200/80 bg-emerald-500/5 rounded-r-lg my-1.5">${inlineMd(line.slice(2))}</blockquote>`);
+      }
+      // 불릿 리스트
+      else if (/^[-*•]\s+/.test(line)) {
+        htmlParts.push(`<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span>${inlineMd(line.replace(/^[-*•]\s+/, ''))}</span></div>`);
+      }
+      // 번호 리스트
+      else if (/^\d+[.)\s]/.test(line)) {
+        const num = line.match(/^(\d+)/)?.[1] || '1';
+        const text = line.replace(/^\d+[.)]\s*/, '');
+        htmlParts.push(`<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 font-bold shrink-0">${num}.</span><span>${inlineMd(text)}</span></div>`);
+      }
+      // 일반 텍스트
+      else {
+        htmlParts.push(`<p class="text-[11px] text-neutral-300 leading-relaxed">${inlineMd(line)}</p>`);
+      }
+    }
+    if (inTable) htmlParts.push('</tbody></table></div>');
+    return htmlParts.join('\n');
+  }
+
+  /** 인라인 마크다운 변환: **bold**, *italic* */
+  function inlineMd(text: string): string {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em class="italic text-neutral-200">$1</em>');
+  }
+
+  /** 섹션 아이콘 매핑 */
+  const sectionIcons: Record<string, string> = {
+    property_overview: '🏢', location_access: '📍', lease_status: '📋',
+    income_analysis: '💰', risk_check: '⚠️', investment_thesis: '🎯', next_steps: '📌',
+    occupancy_fit: '🏠', cost_comparison: '💵', site_analysis: '🗺️',
+    development_feasibility: '📐', operation_overview: '⚙️', gop_analysis: '📊',
+    market_position: '📈', comparable_analysis: '🔄',
+  };
+
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${buildingTitle} — CREDEAL Mobile IM Lite</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com"><\/script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
     body { font-family: 'Pretendard', sans-serif; background-color: #0a0a0c; color: #f3f4f6; }
+    table { border-spacing: 0; }
+    th, td { text-align: left; white-space: nowrap; }
+    td:first-child, th:first-child { white-space: normal; }
   </style>
 </head>
 <body class="p-4 max-w-md mx-auto min-h-screen pb-20 space-y-4">
-  <!-- Top Bar -->
-  <div class="flex items-center justify-between py-2 border-b border-neutral-800 text-xs text-neutral-400">
-    <span>🏢 CREDEAL Mobile IM Lite</span>
-    <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">🟢 수익형 B등급</span>
+  <!-- Sticky Top Bar -->
+  <div class="sticky top-0 z-10 backdrop-blur-md bg-neutral-950/80 flex items-center justify-between py-2.5 px-1 border-b border-neutral-800 text-xs text-neutral-400">
+    <div class="flex items-center gap-2">
+      <span class="text-base">←</span>
+      <span class="font-bold text-white text-xs">IM Lite</span>
+      <span class="px-1.5 py-0.5 rounded bg-neutral-800 text-[10px] text-neutral-400">초역세권</span>
+    </div>
+    <div class="flex gap-1.5">
+      ${sections.map((_, idx) => `<span class="w-1.5 h-1.5 rounded-full ${idx === 0 ? 'bg-emerald-400' : 'bg-neutral-600'}"></span>`).join('')}
+    </div>
   </div>
 
   <!-- Hero Card -->
   <div id="hero-card" class="p-5 rounded-2xl bg-gradient-to-b from-neutral-900 to-neutral-950 border border-emerald-500/30 shadow-xl space-y-3">
     <div class="flex justify-between items-start">
       <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">INCOME STABLE</span>
-      <span class="text-xs text-neutral-400">초역세권</span>
+      <span class="text-[10px] px-2 py-0.5 rounded bg-neutral-800 text-neutral-400">🟢 B등급</span>
     </div>
     <h1 class="text-xl font-black text-white leading-snug">${buildingTitle}</h1>
     <div class="grid grid-cols-2 gap-2 pt-2 border-t border-neutral-800/60 text-xs">
@@ -707,17 +809,63 @@ function generateMobileImViewerHtml(
     </div>
   </div>
 
-  <!-- Sections Accordion -->
+  <!-- Map Placeholder (OSM Tile Style) -->
+  <div class="rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-900">
+    <div class="relative h-44 bg-neutral-800 flex items-center justify-center">
+      <div class="absolute inset-0 bg-gradient-to-b from-neutral-700/30 to-neutral-900/50"></div>
+      <div class="relative z-10 text-center">
+        <div class="w-8 h-8 mx-auto mb-2 rounded-full bg-red-500/80 flex items-center justify-center text-white text-sm">📍</div>
+        <p class="text-xs text-neutral-400">프로덕션 뷰어에서 3×3 OSM 타일 지도 렌더링</p>
+      </div>
+    </div>
+    <div class="p-3 flex items-center justify-between">
+      <span class="text-[11px] text-neutral-400">${buildingTitle} 위치</span>
+      <span class="text-[11px] text-yellow-400 font-bold">🗺️ 카카오맵에서 보기 →</span>
+    </div>
+  </div>
+
+  <!-- Photo Gallery Placeholder -->
+  <div class="rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-900">
+    <div class="flex gap-0.5 h-28 overflow-x-auto snap-x snap-mandatory">
+      <div class="snap-center shrink-0 w-full h-full bg-neutral-800 flex items-center justify-center">
+        <span class="text-xs text-neutral-500">📸 건물 외관 사진</span>
+      </div>
+      <div class="snap-center shrink-0 w-full h-full bg-neutral-800 flex items-center justify-center">
+        <span class="text-xs text-neutral-500">📸 내부 사진</span>
+      </div>
+    </div>
+    <div class="p-2 flex justify-center gap-1.5">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+      <span class="w-1.5 h-1.5 rounded-full bg-neutral-600"></span>
+    </div>
+  </div>
+
+  <!-- Sections Accordion (Rich Markdown Rendering) -->
   ${sections.map((sec, idx) => `
-    <div class="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 space-y-2">
-      <h2 class="text-sm font-bold text-white flex items-center gap-1.5">
-        <span class="w-1.5 h-3.5 bg-emerald-400 rounded-sm inline-block"></span> ${idx + 1}. ${sec.title}
-      </h2>
-      <div class="text-xs text-neutral-300 space-y-1.5 leading-relaxed bg-neutral-950 p-3 rounded-xl border border-neutral-800/60 whitespace-pre-line font-mono">
-        ${sec.markdown.replace(/[#*|]/g, ' ').replace(/\n\s*\n/g, '\n')}
+    <div class="rounded-2xl bg-neutral-900/60 border border-neutral-800 overflow-hidden">
+      <div class="p-3.5 flex items-center gap-2 cursor-pointer">
+        <span class="text-base">${sectionIcons[sec.section_type] || '📄'}</span>
+        <span class="w-1 h-4 bg-emerald-400 rounded-sm"></span>
+        <h2 class="text-sm font-bold text-white flex-1">${idx + 1}. ${sec.title}</h2>
+        <div class="flex gap-1">
+          <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-[9px] text-emerald-400 font-bold">✓ 확인됨</span>
+        </div>
+      </div>
+      <div class="px-4 pb-4 space-y-1">
+        ${mdToHtml(sec.markdown)}
       </div>
     </div>
   `).join('')}
+
+  <!-- Broker Profile Card -->
+  <div class="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 flex items-center gap-3">
+    <div class="w-10 h-10 rounded-full bg-neutral-700 flex items-center justify-center text-lg">👤</div>
+    <div class="flex-1">
+      <p class="text-xs font-bold text-white">담당 브로커</p>
+      <p class="text-[10px] text-neutral-400">CRE 전문 · 상업용 부동산</p>
+    </div>
+    <button class="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/30">연결</button>
+  </div>
 
   <!-- Bottom CTA -->
   <div class="p-4 rounded-2xl bg-gradient-to-r from-emerald-950 to-neutral-900 border border-emerald-500/40 text-center space-y-2">
@@ -725,6 +873,13 @@ function generateMobileImViewerHtml(
     <button class="w-full py-2.5 rounded-xl bg-emerald-500 text-black font-black text-xs hover:bg-emerald-400 transition">
       📞 담당 브로커 전화 문의 (NDA 체결)
     </button>
+  </div>
+
+  <!-- Floating Action Bar -->
+  <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-3 bg-neutral-950/95 backdrop-blur-md border-t border-neutral-800 flex items-center justify-around">
+    <span class="text-[10px] text-yellow-400 font-bold">💬 카카오톡 공유</span>
+    <span class="text-[10px] text-neutral-400">📊 PPTX 다운로드</span>
+    <span class="text-[10px] text-neutral-400">📋 PDF 내보내기</span>
   </div>
 </body>
 </html>`;

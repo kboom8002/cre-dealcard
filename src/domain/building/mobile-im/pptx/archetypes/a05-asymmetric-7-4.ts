@@ -65,7 +65,20 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
     const cardH1 = 1.30;
     row1.forEach((s: any, i: number) => {
       const x = L.colX(i, cardW, cardGap);
-      L.stat(slide, x, contentY, cardW, s.label ?? '', s.value ?? '', s.unit ?? '', s.sub ?? '', { h: cardH1, vs: 22 });
+      // 텍스트 오버플로 방지: label 16자, value 20자, sub 40자 제한
+      const safeLabel = (s.label ?? '').slice(0, 16);
+      const rawValue = s.value ?? '';
+      // value가 서술형 장문(20자 초과 + 한글 포함)이면 핵심 수치만 추출 시도
+      let safeValue = rawValue;
+      if (rawValue.length > 20 && /[가-힣]/.test(rawValue)) {
+        // 괄호 안의 수치나 퍼센트를 먼저 시도
+        const numMatch = rawValue.match(/[\d,.]+\s*[%억만원㎡평]+/);
+        safeValue = numMatch ? numMatch[0] : rawValue.slice(0, 20) + '…';
+      } else if (rawValue.length > 24) {
+        safeValue = rawValue.slice(0, 23) + '…';
+      }
+      const safeSub = (s.sub ?? '').slice(0, 40);
+      L.stat(slide, x, contentY, cardW, safeLabel, safeValue, s.unit ?? '', safeSub, { h: cardH1, vs: 22 });
     });
     contentY += cardH1 + cardGap;
 
@@ -75,7 +88,17 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
       const cardH2 = 1.15;
       row2.forEach((s: any, i: number) => {
         const x = L.colX(i, cardW, cardGap);
-        L.stat(slide, x, contentY, cardW, s.label ?? '', s.value ?? '', s.unit ?? '', s.sub ?? '', { h: cardH2, vs: 18 });
+        const safeLabel = (s.label ?? '').slice(0, 16);
+        const rawValue = s.value ?? '';
+        let safeValue = rawValue;
+        if (rawValue.length > 20 && /[가-힣]/.test(rawValue)) {
+          const numMatch = rawValue.match(/[\d,.]+\s*[%억만원㎡평]+/);
+          safeValue = numMatch ? numMatch[0] : rawValue.slice(0, 20) + '…';
+        } else if (rawValue.length > 24) {
+          safeValue = rawValue.slice(0, 23) + '…';
+        }
+        const safeSub = (s.sub ?? '').slice(0, 40);
+        L.stat(slide, x, contentY, cardW, safeLabel, safeValue, s.unit ?? '', safeSub, { h: cardH2, vs: 18 });
       });
       contentY += cardH2 + cardGap;
     }

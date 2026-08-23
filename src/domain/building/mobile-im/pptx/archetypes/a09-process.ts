@@ -37,18 +37,23 @@ export function buildA09Process(input: ArchetypeInput): ArchetypeOutput {
     // Card background
     L.card(slide, x, y, w, h);
     
-    // Brass numbered circle
+    // Brass numbered circle (0.48" — same as A10 closing)
     const cx = x + 0.24;
     const cy = y + 0.24;
-    slide.addShape('ellipse' as any, { x: cx, y: cy, w: 0.42, h: 0.42, fill: { color: C.brass } });
-    const numStr = s.stepNum || String(i+1).padStart(2, '0');
-    slide.addText(numStr, { x: cx, y: cy, w: 0.42, h: 0.42, align: 'center', valign: 'middle', fontSize: 13, bold: true, color: 'FFFFFF', fontFace: NUM, margin: 0 });
+    const circleSize = 0.48;
+    slide.addShape('ellipse' as any, { x: cx, y: cy, w: circleSize, h: circleSize, fill: { color: C.brass } });
+    const rawNum = s.stepNum || String(i+1).padStart(2, '0');
+    const numStr = rawNum.replace(/[^0-9]/g, '').padStart(2, '0').slice(0, 2);
+    slide.addText(numStr, { x: cx, y: cy, w: circleSize, h: circleSize, align: 'center', valign: 'middle', fontSize: 14, bold: true, color: 'FFFFFF', fontFace: NUM, margin: 0 });
     
-    // Title
-    slide.addText(s.title || '', { x: x + 0.24, y: y + 0.8, w: w - 0.48, h: 0.4, fontFace: KR, fontSize: 16, bold: true, color: C.ink });
+    // Title (with step number prefix for clarity)
+    const stepTitle = s.title || `${i + 1}단계`;
+    slide.addText(`${i + 1}단계`, { x: x + 0.24, y: y + 0.8, w: w - 0.48, h: 0.4, fontFace: KR, fontSize: 16, bold: true, color: C.ink });
     
-    // Description
-    slide.addText(s.description || '', { x: x + 0.24, y: y + 1.3, w: w - 0.48, h: h - 1.5, fontFace: KR, fontSize: 11, color: C.body, valign: 'top' });
+    // Description (includes original title content if different from step number)
+    const descParts = [s.title && s.title !== `${i + 1}단계` ? s.title : '', s.description].filter(Boolean);
+    const descText = descParts.join('\n') || '';
+    slide.addText(descText, { x: x + 0.24, y: y + 1.3, w: w - 0.48, h: h - 1.5, fontFace: KR, fontSize: 11, color: C.body, valign: 'top' });
     
     // Tag
     if (s.tag) {

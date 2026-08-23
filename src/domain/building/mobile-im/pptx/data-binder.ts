@@ -792,7 +792,7 @@ function buildA09Props(lines: string[]): Record<string, any> {
     const content = match ? match[2] : l;
     const parts = content.split(/[：:]/);
     return {
-      stepNum: `STEP ${i + 1}`,
+      stepNum: String(i + 1).padStart(2, '0'),
       title: stripMarkdown(parts[0] || ''),
       description: stripMarkdown(parts.slice(1).join(':').trim()),
     };
@@ -802,7 +802,7 @@ function buildA09Props(lines: string[]): Record<string, any> {
     const bullets = extractBulletItems(lines);
     bullets.slice(0, 3).forEach((b, i) => {
       steps.push({
-        stepNum: `STEP ${i + 1}`,
+        stepNum: String(i + 1).padStart(2, '0'),
         title: stripMarkdown(b.title || b.body.slice(0, 30)),
         description: stripMarkdown(b.body),
       });
@@ -819,7 +819,7 @@ function buildA09Props(lines: string[]): Record<string, any> {
       const stripped = stripMarkdown(l);
       const parts = stripped.split(/[：:]/);
       steps.push({
-        stepNum: `STEP ${i + 1}`,
+        stepNum: String(i + 1).padStart(2, '0'),
         title: parts.length > 1 ? parts[0].trim().slice(0, 30) : stripped.slice(0, 30),
         description: parts.length > 1 ? parts.slice(1).join(':').trim() : stripped,
       });
