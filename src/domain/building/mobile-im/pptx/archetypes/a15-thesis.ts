@@ -216,11 +216,8 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
   }
 
   // 3. 하단 마무리멘트 / 종합 가치 제안 (Secondary Takeaway Banner)
-  const takeawayText = input.data.takeaway || input.data.closingRemark || input.data.leadBody || (
-    subtitle && subtitle !== title
-      ? `본 자산은 우수한 입지 경쟁력과 견고한 펀더멘털을 기반으로 중장기 자산 가치 상승 및 안정적인 현금흐름을 기대할 수 있는 핵심 투자 기회입니다.`
-      : `자산의 안정성과 성장성을 겸비한 우량 부동산으로, 상세 실사 단계에서 구체적인 계약 조건 및 세무 검토가 진행됩니다.`
-  );
+  const takeawayText = input.data.takeaway || input.data.closingRemark || input.data.leadBody ||
+    '본 자산에 대한 상세 분석 및 투자 의사결정은 원본 임대차 계약서 및 공부상 권리관계 실사를 바탕으로 진행됩니다.';
 
   let bannerY = startY + gridH + 0.20 + bmTableHeight;
   const bannerH = 0.88;

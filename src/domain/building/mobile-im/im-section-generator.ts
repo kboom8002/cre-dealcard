@@ -383,6 +383,33 @@ export async function generateSingleSection(
     markdown = normResult.text;
   }
 
+  // 갱신요구권 연수 환각 정제: 최초계약일이 미제출된 경우 "N년 잔여" 단정 표현을 "최초계약일 확인 필요"로 치환 (불변조건 7)
+  const hasMissingFirstContractDates = !supplemental.floor_leases || supplemental.floor_leases.some(
+    (l: any) => !l.first_contract_date && !l.firstContractDate
+  );
+  if (hasMissingFirstContractDates) {
+    markdown = markdown.replace(/갱신요구권\s*\d+(?:\.\d+)?\s*년(?:\s*잔여)?/g, '계약갱신요구권(최초계약일 확인 필요)');
+    markdown = markdown.replace(/갱신권\s*\d+(?:\.\d+)?\s*년(?:\s*잔여)?/g, '갱신권(최초계약일 확인 필요)');
+  }
+
+  // 미근거 유명 브랜드/앵커테넌트 환각 정제 (예: 실제 임차인이 아닌 '스타벅스' 등 자동 날조 방지)
+  if (supplemental.floor_leases && supplemental.floor_leases.length > 0) {
+    const knownTenants = supplemental.floor_leases.map((l: any) => 
+      String(l.tenant_type || l.tenantType || l.note || '').toLowerCase()
+    ).join(' ');
+    const famousBrands = ['스타벅스', '맥도날드', '투썸플레이스', '올리브영', '다이소', '버거킹', '파리바게뜨'];
+    for (const brand of famousBrands) {
+      if (markdown.includes(brand) && !knownTenants.includes(brand.toLowerCase())) {
+        markdown = markdown.replace(new RegExp(`${brand}\\s*(?:선유도역점|역점|점)?`, 'g'), '1층 근생/업무 테넌트');
+        markdown = markdown.replace(new RegExp(`${brand}\\s*앵커\\s*테넌트`, 'g'), '주요 입주 테넌트');
+      }
+    }
+  }
+
+  // 총수익률(Gross)에 '순수익률' 또는 'Cap Rate' 라벨 오남용 방지
+  markdown = markdown.replace(/연\s*순수익률\s*\(\s*Cap\s*Rate\s*\)/gi, '연 수익률 (총임대료 기준)');
+  markdown = markdown.replace(/연간\s*실질\s*임대수입/g, '연간 총 임대수입');
+
   // Risk Boundary 가드레일
   const riskCheck = runRiskBoundaryCheck(markdown, sectionType);
   if (riskCheck.safe_text) markdown = riskCheck.safe_text;

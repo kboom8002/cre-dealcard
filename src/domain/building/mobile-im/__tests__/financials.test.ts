@@ -38,10 +38,12 @@ describe("Financials Engine", () => {
 
       const result = calculateFinancials(inputs);
       
-      // Debt = 1.7B, Equity = 1.3B
+      // Debt = 1.7B (Loan 1.5B + Deposit 0.2B), Pure Equity = 1.3B
       // NOI = 96M
-      // Leveraged Yield calculated as NOI / Equity = 96M / 1.3B = 7.38%
-      expect(result.leveragedYield).toBeCloseTo(7.38, 2);
+      // Annual Loan Interest (at default 4.5%) = 1.5B * 4.5% = 67.5M
+      // Net Cash Flow = 96M - 67.5M = 28.5M
+      // Leveraged Yield (ROE) = 28.5M / 1.3B = 2.19%
+      expect(result.leveragedYield).toBeCloseTo(2.19, 2);
     });
 
     it("should clamp debtRatio when debt exceeds purchase price", () => {

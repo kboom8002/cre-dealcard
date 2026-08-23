@@ -115,8 +115,14 @@ export function formatRentRollMarkdown(leases: NormalizedLease[]): string {
 export function formatRentRollSummary(leases: NormalizedLease[]): string {
   if (!leases || leases.length === 0) return '';
   const totalUnits = leases.length;
+  const ownerOccupiedUnits = leases.filter(l => 
+    l.tenantType === '자가사용' || (l.note && l.note.includes('자가사용'))
+  ).length;
   const vacantUnits = leases.filter(l => l.isVacant).length;
-  const vacancyRate = totalUnits > 0 ? ((vacantUnits / totalUnits) * 100).toFixed(1) : '0.0';
+  const leasableUnits = Math.max(1, totalUnits - ownerOccupiedUnits);
+  const leasedUnits = Math.max(0, leasableUnits - vacantUnits);
+  const vacancyRate = ((vacantUnits / leasableUnits) * 100).toFixed(1);
+
   const totalDeposit = leases.reduce((sum, l) => sum + (l.depositKrw || 0), 0);
   const totalMonthlyRent = leases.reduce((sum, l) => sum + (l.monthlyRentKrw || 0), 0);
   const totalMgmtFee = leases.reduce((sum, l) => sum + (l.mgmtFeeKrw || 0), 0);
@@ -129,10 +135,14 @@ export function formatRentRollSummary(leases: NormalizedLease[]): string {
   const annualRentManwon = Math.round(annualRent / MANWON_TO_WON);
   const annualRentStr = annualRentManwon >= 10000 ? `약 ${(annualRentManwon / 10000).toFixed(1)}억 원/년` : `${annualRentManwon.toLocaleString()}만 원/년`;
 
+  const breakdownStr = ownerOccupiedUnits > 0
+    ? `임대중 ${leasedUnits} · 자가사용 ${ownerOccupiedUnits} · 공실 ${vacantUnits}`
+    : `임대중 ${leasedUnits} · 공실 ${vacantUnits}`;
+
   return `### 임대차 종합 요약
 | 구분 | 지표 분석 | 비고 |
 |------|-----------|------|
-| **공실 현황** | ${vacancyRate}% (${totalUnits - vacantUnits}개 호실 임대 중 / 총 ${totalUnits}실) | 공실 ${vacantUnits}실 |
+| **공실 현황** | ${vacancyRate}% (${breakdownStr}) | ${vacantUnits > 0 ? `공실 ${vacantUnits}실` : (ownerOccupiedUnits > 0 ? '자가사용 포함 가동 중' : '전 층 만실 운영')} |
 | **월 임대료 합계** | ${monthlyRentStr} | 관리비 별도 (${Math.round(totalMgmtFee / MANWON_TO_WON).toLocaleString()}만 원) |
 | **연 임대 수입** | ${annualRentStr} | 연간 총 임대료 수입 |
 | **보증금 총액** | ${depositStr} | 임차인 보증금 합계 |

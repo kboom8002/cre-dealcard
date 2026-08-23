@@ -264,8 +264,11 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
 
     // 순수 자산 에쿼티 (레버리지 수익률 산출용)
     const pureEquityKrw = purchasePriceKrw - depositKrw - loanKrw;
+    const defaultLoanRatePct = (ASSUMPTIONS.loanRateDefault.value ?? 0.045) * 100;
+    const annualInterestKrw = loanKrw > 0 ? loanKrw * (defaultLoanRatePct / 100) : 0;
+    const netCashFlowKrw = noiBase - annualInterestKrw;
     const leveragedYield = (pureEquityKrw > 0 && noiBase > 0)
-      ? parseFloat(((noiBase / pureEquityKrw) * 100).toFixed(2))
+      ? parseFloat(((netCashFlowKrw / pureEquityKrw) * 100).toFixed(2))
       : null;
 
     // 취득 부대비용 포함 총 필요 실투자금
@@ -273,7 +276,6 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
     const equityRequired = equityKrw > 0 ? parseFloat((equityKrw / 1e8).toFixed(1)) : (pureEquityKrw > 0 ? parseFloat((pureEquityKrw / 1e8).toFixed(1)) : null);
 
     // Phase 3: 역레버리지 검사 (대출금리 > 총수익률)
-    const defaultLoanRatePct = (ASSUMPTIONS.loanRateDefault.value ?? 0.045) * 100;
     const isNegativeLeverage = !!(yieldOnCost !== null && yieldOnCost < defaultLoanRatePct && loanKrw > 0);
     const negativeLeverageWarning = isNegativeLeverage
       ? `대출금리(연 ${defaultLoanRatePct}%)가 총수익률(${yieldOnCost}%)보다 높아 대출 실행 시 자기자본수익률이 하락하는 역레버리지 구간입니다.`

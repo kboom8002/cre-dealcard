@@ -381,7 +381,7 @@ function buildA15Props(markdown: string, tables: ParsedTable[], lines: string[])
   }
 
   if (!takeaway || takeaway.length < 15 || takeaway.includes('분석입니다')) {
-    takeaway = '본 자산은 우수한 권역 입지 경쟁력과 견고한 펀더멘털을 기반으로 중장기 자산 가치 상승 및 안정적인 현금흐름을 동시에 실현할 수 있는 전략적 투자 기회입니다.';
+    takeaway = '';
   }
 
   // 2-A: 벤치마크/별점 표 추출
@@ -1488,6 +1488,30 @@ export function bindFromIMCore(core: IMCore): Record<string, SectionData> {
   };
 
   // 5. Capital / Cost (A16 Investment Structure)
+  const askingKrw = core.price.askingKrw || 0;
+  const depositKrw = core.equity.deposit || 0;
+  const totalCostKrw = core.equity.totalAcquisitionCost || askingKrw * 1.055;
+  const annualRentKrw = (core.anchors?.monthlyRentTotalManwon ?? 0) * 10000 * 12 || 
+    (core.yields.gross_price ? askingKrw * (core.yields.gross_price.value / 100) : 0);
+  const loanRatePct = 4.5; // 기본 금리 4.5%
+
+  const calcLtvScenario = (ltvPct: number, note: string) => {
+    const loan = askingKrw * (ltvPct / 100);
+    const equity = totalCostKrw - depositKrw - loan;
+    const annualInterest = loan * (loanRatePct / 100);
+    const netCashFlow = annualRentKrw - annualInterest;
+    const yieldPct = equity > 0 ? parseFloat(((netCashFlow / equity) * 100).toFixed(2)) : 0;
+    return {
+      ltvPct,
+      equityBil: (equity / 1e8).toFixed(1),
+      yieldPct,
+      note,
+    };
+  };
+
+  const grossYieldPct = askingKrw > 0 ? (annualRentKrw / askingKrw) * 100 : 0;
+  const isNegLev = grossYieldPct > 0 && grossYieldPct < loanRatePct;
+
   result['capital'] = {
     title: '투자 및 자본 조달 구조 분석',
     content: '',
@@ -1495,12 +1519,14 @@ export function bindFromIMCore(core: IMCore): Record<string, SectionData> {
     metrics: {},
     equityBreakdown: core.equity,
     ltvScenarios: [
-      { ltvPct: 0, equityBil: (core.equity.totalAcquisitionCost / 1e8).toFixed(1), yieldPct: core.yields.gross_price?.value ?? 4.0, note: '전액 자기자본' },
-      { ltvPct: 40, equityBil: ((core.equity.totalAcquisitionCost - core.price.askingKrw * 0.4) / 1e8).toFixed(1), yieldPct: 4.5, note: '보수적 차입 (40%)' },
-      { ltvPct: 50, equityBil: ((core.equity.totalAcquisitionCost - core.price.askingKrw * 0.5) / 1e8).toFixed(1), yieldPct: 4.8, note: '표준 차입 (50%)' },
+      calcLtvScenario(0, '전액 자기자본 (무차입)'),
+      calcLtvScenario(40, '보수적 차입 (LTV 40%)'),
+      calcLtvScenario(50, '표준 차입 (LTV 50%)'),
     ],
-    negativeLeverage: core.headline.posture === 'income' ? (core.headline as any).negativeLeverage : false,
-    negativeLeverageWarning: (core.headline as any).negativeLeverageWarning,
+    negativeLeverage: isNegLev,
+    negativeLeverageWarning: isNegLev
+      ? `대출금리(연 ${loanRatePct}%)가 총수익률(${grossYieldPct.toFixed(2)}%)보다 높아 대출 시 자기자본수익률이 하락하는 역레버리지 구간입니다.`
+      : null,
   };
   result['cost'] = result['capital'];
 

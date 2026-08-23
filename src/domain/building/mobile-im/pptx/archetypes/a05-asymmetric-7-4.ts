@@ -123,24 +123,29 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
   }
   
   if (!leadBody || leadBody.length < 15 || leadBody === left.sub) {
-    leadBody = '본 자산은 우수한 입지 경쟁력과 견고한 펀더멘털을 바탕으로 안정적인 현금흐름 창출과 중장기 자산 가치 상승을 동시에 실현할 수 있는 우량 투자 기회입니다.';
+    leadBody = '';
   }
 
   // 우측 callouts가 있으면 2-column, 없으면 풀폭
   const rightCallouts = input.data.right?.callouts ?? [];
   const calloutMaxY = 6.40;
   
-  if (contentY + 1.0 <= calloutMaxY) {
+  if (contentY + 1.0 <= calloutMaxY && (leadBody || rightCallouts.length > 0)) {
     const calloutH = Math.min(1.40, calloutMaxY - contentY);
     
     if (rightCallouts.length > 0) {
       // 2-column: 투자 제안 + 추가 콜아웃
       const coGap = 0.20;
       const coW = L.col(2, coGap);
-      L.callout(slide, L.colX(0, coW, coGap), contentY + 0.10, coW, calloutH, 'info', '투자 가치 제안', leadBody);
-      const rc = rightCallouts[0];
-      L.callout(slide, L.colX(1, coW, coGap), contentY + 0.10, coW, calloutH, rc.kind ?? 'info', rc.title ?? '', rc.body ?? '');
-    } else {
+      if (leadBody) {
+        L.callout(slide, L.colX(0, coW, coGap), contentY + 0.10, coW, calloutH, 'info', '투자 가치 제안', leadBody);
+        const rc = rightCallouts[0];
+        L.callout(slide, L.colX(1, coW, coGap), contentY + 0.10, coW, calloutH, rc.kind ?? 'info', rc.title ?? '', rc.body ?? '');
+      } else {
+        const rc = rightCallouts[0];
+        L.callout(slide, M, contentY + 0.10, CW, calloutH, rc.kind ?? 'info', rc.title ?? '', rc.body ?? '');
+      }
+    } else if (leadBody) {
       // 풀폭 콜아웃
       L.callout(slide, M, contentY + 0.10, CW, calloutH, 'info', '투자 가치 제안', leadBody);
     }

@@ -132,6 +132,14 @@ const FORBIDDEN_PATTERNS: ForbiddenPattern[] = [
     message: "시세 대비 확정 표현은 근거가 필요합니다.",
     recommended_text: "주변 거래사례 및 공시가격을 종합적으로 검토하시기 바랍니다.",
   },
+  // P0/High: 미검증 결손 항목 확정 완료 단정 표현 (불변조건 13)
+  {
+    pattern: /(?:대장\s*오기|면적\s*오기|소재지)\s*(?:정정\s*)?확인\s*완료|동의서\s*징구\s*완료|담보\s*\d+억\s*확인\s*완료|확정적\s*수익률\s*개선|건물\s*가치\s*보장/,
+    issue_type: "deficiency_falsification",
+    severity: "high",
+    message: "미제출/미검증 결손 항목을 확인 완료로 단정하는 표현은 금지됩니다.",
+    recommended_text: "해당 사항은 원본 공부 및 서류 실사를 통해 확인이 필요한 항목입니다.",
+  },
 ];
 
 // ─── runRiskBoundaryCheck ──────────────────────────────────────────────────

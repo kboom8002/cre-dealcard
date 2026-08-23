@@ -179,12 +179,12 @@ export function HeroCard({ data }: HeroCardProps) {
                   highlight={false}
                 />
                 <MetricCell
-                  label="연 순수익률"
+                  label="연 수익률 (총임대료)"
                   value={fmt(data.capRateBase, "%")}
                   highlight={data.capRateBase !== null && data.capRateBase >= 3.5}
                 />
                 <MetricCell
-                  label="자기자본수익률"
+                  label="자기자본수익률 (ROE)"
                   value={fmt(data.leveragedYieldPct, "%")}
                   highlight={data.leveragedYieldPct !== null && data.leveragedYieldPct >= 5}
                 />

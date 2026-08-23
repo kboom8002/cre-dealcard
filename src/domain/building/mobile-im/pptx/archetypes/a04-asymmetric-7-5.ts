@@ -107,10 +107,8 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     });
     // 우측 하단: 핵심 강점 콜아웃
     let calloutText = right.callouts?.[0]?.body || '';
-    if (!calloutText || calloutText.length < 35 || !calloutText.includes('•')) {
-      calloutText = calloutText
-        ? `• ${calloutText}\n• 역세권 접근성 및 우수한 가시성 확보 자산\n• 단독 관리 및 임대수익 창출 최적 구조`
-        : '• 우량 메디컬/근생 테넌트 직영 만실 운영\n• 승강기 완비 및 자주식 주차 공간 확보\n• 공법상 잔여 용적률 활용 가치 상승 잠재력';
+    if (!calloutText || calloutText.length < 15) {
+      calloutText = '• 물건 접면 도로 및 교통 여건은 현장 실사 확인 사항입니다\n• 상세 임대차 계약 내역은 원본 계약서 대조가 필요합니다\n• 건축물 제원 및 용도 현황은 첨부 건축물대장을 기준으로 합니다';
     }
     L.callout(slide, rx, 5.15, rw, 1.55, 'info', '자산 하이라이트', calloutText);
   } else {

@@ -1586,6 +1586,16 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId, isB
                     📄 프라이빗 투자설명서(IM) 신청
                   </button>
 
+                  {doc.broker.phone && (
+                    <a
+                      href={`tel:${doc.broker.phone}`}
+                      aria-label={`담당 중개인 ${doc.broker.displayName || '브로커'}에게 직통 전화 문의`}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-neutral-900 border border-neutral-700 hover:border-emerald-500/50 text-emerald-400 text-xs font-bold rounded-2xl transition-all"
+                    >
+                      📞 담당 브로커 직통 전화 문의
+                    </a>
+                  )}
+
                   {/* [P3] Basic 티어에서 Pro 콘텐츠 blur 프리뷰 */}
                   {doc.tier === 'basic' && (
                     <div className="relative rounded-2xl border border-purple-500/30 bg-purple-500/5 overflow-hidden">

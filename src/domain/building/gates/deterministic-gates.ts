@@ -106,32 +106,123 @@ export function checkC19(core: IMCore): GateCheckResult {
 }
 
 /**
- * G21: 첨부 문서/도면 참조 위치 유효성 검증
+ * G21: 첨부 문서/공부 소재지 일치 및 위치 유효성 검증
  */
 export function checkG21(core: IMCore): GateCheckResult {
   const isStrict = process.env.GATE_STRICT_MODE !== 'false';
   const docs = core.attachedDocs || [];
+  const targetSigungu = core.address?.sigungu;
 
   if (docs.length > 0) {
-    const allVerified = docs.every(d => d.verified === true && !!d.fileUrl);
+    const unverifiedDocs = docs.filter(d => !d.verified || !d.fileUrl);
+    // 소재지 불일치 공부 검사 (공부의 시군구가 물건 주소의 시군구와 상이한 경우)
+    const mismatchedDocs = targetSigungu
+      ? docs.filter(d => (d as any).sigungu && (d as any).sigungu !== targetSigungu)
+      : [];
+
+    const passed = unverifiedDocs.length === 0 && mismatchedDocs.length === 0;
     return {
       code: 'G21',
-      label: '첨부 공부/문서 위치 및 검증 상태 확인',
-      passed: allVerified,
+      label: '첨부 공부/문서 소재지 일치 및 검증 상태 확인',
+      passed,
       severity: isStrict ? 'block' : 'warn',
-      message: allVerified
-        ? `첨부 문서 ${docs.length}건 검증 완료`
-        : `미검증되거나 URL이 누락된 첨부 문서가 존재합니다.`,
-      diff: { docCount: docs.length, unverifiedCount: docs.filter(d => !d.verified).length },
+      message: passed
+        ? `첨부 문서 ${docs.length}건 검증 및 소재지 일치 확인 완료`
+        : mismatchedDocs.length > 0
+          ? `첨부 문서 중 본건 소재지(${targetSigungu})와 다른 관할 공부가 포함되어 있습니다.`
+          : `미검증되거나 URL이 누락된 첨부 문서가 존재합니다.`,
+      diff: { 
+        docCount: docs.length, 
+        unverifiedCount: unverifiedDocs.length,
+        mismatchedCount: mismatchedDocs.length,
+      },
     };
   }
 
   return {
     code: 'G21',
-    label: '첨부 공부/문서 위치 및 검증 상태 확인',
+    label: '첨부 공부/문서 소재지 일치 및 검증 상태 확인',
     passed: true,
     severity: isStrict ? 'block' : 'warn',
     message: '첨부 문서 없음',
+  };
+}
+
+/**
+ * G18: 최초계약일 부재 시 갱신요구권 잔여 연수 단정 표기 차단
+ */
+export function checkG18(core: IMCore, textSnippets?: Array<{ type: string; text: string }>): GateCheckResult {
+  const isStrict = process.env.GATE_STRICT_MODE !== 'false';
+  const missingFirstDateLeases = core.leases.filter(
+    l => l.leaseState === '임대중' && (!l.firstContractDate || String(l.firstContractDate).trim() === '')
+  );
+
+  // 텍스트 스니펫 내에서 최초계약일 없는 갱신요구권 연수 환각 검출
+  const hallucinatedSnippets: string[] = [];
+  if (missingFirstDateLeases.length > 0 && textSnippets) {
+    for (const snip of textSnippets) {
+      const match = snip.text.match(/갱신요구권\s*\d+\s*년/);
+      if (match) {
+        hallucinatedSnippets.push(match[0]);
+      }
+    }
+  }
+
+  const passed = hallucinatedSnippets.length === 0;
+  return {
+    code: 'G18',
+    label: '최초계약일 부재 시 갱신요구권 연수 산출 금지 (불변조건 7)',
+    passed,
+    severity: isStrict ? 'block' : 'warn',
+    message: passed
+      ? '갱신요구권 관련 환각 표기가 없습니다.'
+      : `최초계약일이 미제출된 호실(${missingFirstDateLeases.length}건)에 대해 갱신요구권 잔여 연수가 단정 표기되었습니다: ${hallucinatedSnippets.join(', ')}`,
+    diff: { missingFirstDateCount: missingFirstDateLeases.length, hallucinatedSnippets },
+  };
+}
+
+/**
+ * C-BASIS: 수익률 basis 명시 및 gross 계열의 '순수익률' 라벨링 금지
+ */
+export function checkCBASIS(core: IMCore, textSnippets?: Array<{ type: string; text: string }>): GateCheckResult {
+  const isStrict = process.env.GATE_STRICT_MODE !== 'false';
+  const violations: string[] = [];
+
+  // 1. yields 객체 basis 검증
+  const grossPriceYield = core.yields.gross_price;
+  const grossDepositYield = core.yields.gross_price_deposit;
+
+  // 2. 텍스트 스니펫에서 gross 수치에 '순수익률' 또는 'Cap Rate' 라벨 혼용 검사
+  if (textSnippets) {
+    for (const snip of textSnippets) {
+      // "연 순수익률 (Cap Rate) 2.08%" 또는 "Cap Rate 2.08%" 처럼 gross_price_deposit 수치에 순수익 라벨이 붙은 경우
+      if (grossDepositYield && Math.abs(grossDepositYield.value - 0) > 0.01) {
+        const valStr = grossDepositYield.value.toFixed(2);
+        const badPattern = new RegExp(`(?:순수익률|Cap\\s*Rate)[^%\\n]*${valStr}%`, 'i');
+        if (badPattern.test(snip.text)) {
+          violations.push(`총수익률(${valStr}%)에 '순수익률(Cap Rate)' 라벨이 오표기되었습니다.`);
+        }
+      }
+      if (grossPriceYield && Math.abs(grossPriceYield.value - 0) > 0.01) {
+        const valStr = grossPriceYield.value.toFixed(2);
+        const badPattern = new RegExp(`(?:순수익률|Cap\\s*Rate)[^%\\n]*${valStr}%`, 'i');
+        if (badPattern.test(snip.text)) {
+          violations.push(`총수익률(${valStr}%)에 '순수익률(Cap Rate)' 라벨이 오표기되었습니다.`);
+        }
+      }
+    }
+  }
+
+  const passed = violations.length === 0;
+  return {
+    code: 'C-BASIS',
+    label: '수익률 basis 무결성 및 순수익률 라벨 오남용 방지',
+    passed,
+    severity: isStrict ? 'block' : 'warn',
+    message: passed
+      ? '수익률 basis 및 라벨이 올바르게 적용되었습니다.'
+      : `수익률 basis 위반 ${violations.length}건: ${violations.join('; ')}`,
+    diff: { violations },
   };
 }
 
@@ -185,7 +276,7 @@ export function checkG16(context: GateEvaluationContext): GateCheckResult {
 }
 
 /**
- * 5대 결정적 품질 게이트 종합 실행기
+ * 결정적 품질 게이트 종합 실행기
  */
 export function runDeterministicGates(context: GateEvaluationContext): GateEvaluationReport {
   const isStrict = process.env.GATE_STRICT_MODE !== 'false';
@@ -194,6 +285,8 @@ export function runDeterministicGates(context: GateEvaluationContext): GateEvalu
     checkG19(context.core),
     checkC19(context.core),
     checkG21(context.core),
+    checkG18(context.core, context.textSnippets),
+    checkCBASIS(context.core, context.textSnippets),
     checkG15(context),
     checkG16(context),
   ];

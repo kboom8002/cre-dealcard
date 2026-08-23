@@ -251,12 +251,12 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       if (Array.isArray((ctx.buyerFit as any)?.fit_points) && (ctx.buyerFit as any).fit_points.length > 0) {
         points.push(...(ctx.buyerFit as any).fit_points.slice(0, 3));
       } else {
-        const area = ctx.assetIdentity.area_signal || '핵심권역';
+        const area = ctx.assetIdentity.area_signal || '해당 권역';
         const ask = ctx.assetIdentity.price_band || '적정가';
         points.push(
-          `원금 안전판: ${area} 핵심 입지 및 우량 대지 지분 가치로 하방 경직성 확보`,
-          `수익 안정성: 매각 희망가 ${ask} 대비 안정적인 월 임대수익 창출 구조`,
-          `미래 가치: 향후 권역 지가 상승 및 공법상 잔여 용적률 활용 밸류업 기회`
+          `입지 가치: ${area} 소재 자산으로 중장기 자산 가치 및 안정적 수요 검토`,
+          `임대 구조: ${ask} 수준의 가격대 및 현 임대차 기반의 현금흐름 분석`,
+          `실사 점검: 계약서 및 공부 확인을 통한 권리관계·물리적 상태 정밀 진단`
         );
       }
       return points;
