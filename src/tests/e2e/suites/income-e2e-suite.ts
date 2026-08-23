@@ -47,13 +47,14 @@ const caseA: E2ETestCase = {
     vacancyRatePct: 0, 
     loanAmountKrw: 5_110_000_000, 
     floor_leases: [
-      { unitLabel: '1F(101호)', tenant: '고은약국', leaseAreaSqm: 78.39, depositKrw: 60000000, monthlyRentKrw: 1830000, leaseState: 'occupied' },
-      { unitLabel: '1F·2F(102·201호)', tenant: '로뎀나무내과', leaseAreaSqm: 357.69, depositKrw: 140000000, monthlyRentKrw: 8830000, leaseState: 'occupied' },
-      { unitLabel: '3F(301호)', tenant: '헬스장', leaseAreaSqm: 252.09, depositKrw: 50000000, monthlyRentKrw: 4550000, leaseState: 'occupied' },
-      { unitLabel: '4F(401호)', tenant: '국제와인', leaseAreaSqm: 169.06, depositKrw: 30000000, monthlyRentKrw: 2600000, leaseState: 'occupied' },
-      { unitLabel: '5F(501호)', tenant: '로뎀나무내과', leaseAreaSqm: 183.67, depositKrw: 10000000, monthlyRentKrw: 1650000, leaseState: 'occupied' },
-      { unitLabel: 'B1F', tenant: '자가사용', leaseAreaSqm: 317.22, depositKrw: 0, monthlyRentKrw: 0, leaseState: 'owner_use' },
-      { unitLabel: '4F(402호)', tenant: '자가사용', leaseAreaSqm: 83.03, depositKrw: 0, monthlyRentKrw: 0, leaseState: 'owner_use' },
+      { floor: 'B1', tenant_type: '카페(자가운영)', area_pyeong: 96.0, deposit_manwon: 0, rent_manwon: 0, is_vacant: false, note: '소유자 직접 운영 · 임대전환 대상' },
+      { floor: '1F', tenant_type: '약국', area_pyeong: 23.7, deposit_manwon: 6000, rent_manwon: 183, lease_start: '2015-09-01', lease_end: '2026-08-31', note: '임대 11년 경과' },
+      { floor: '1F', tenant_type: '내과', area_pyeong: 31.9, deposit_manwon: 14000, rent_manwon: 883, lease_start: '2015-09-01', lease_end: '2026-08-31', note: '1F+2F 통합계약(B그룹)' },
+      { floor: '2F', tenant_type: '내과', area_pyeong: 76.3, deposit_manwon: 0, rent_manwon: 0, lease_end: '2026-08-31', note: 'B그룹 금액은 1F행에 합산' },
+      { floor: '3F', tenant_type: '헬스장', area_pyeong: 76.3, deposit_manwon: 5000, rent_manwon: 455, lease_end: '2026-04-17' },
+      { floor: '4F', tenant_type: '주류판매', area_pyeong: 51.1, deposit_manwon: 3000, rent_manwon: 260, lease_end: '2025-04-30', note: 'IM 작성 시점 만료 계약' },
+      { floor: '4F', tenant_type: '자가사용', area_pyeong: 25.1, deposit_manwon: 0, rent_manwon: 0, is_vacant: false, note: '임대전환 대상' },
+      { floor: '5F', tenant_type: '내과', area_pyeong: 55.6, deposit_manwon: 1000, rent_manwon: 165, lease_start: '2015-09-01', lease_end: '2026-08-31', note: '별도 계약' },
     ], 
     askingPriceKrw: 11_500_000_000, 
     landAreaSqm: 506.8, 
@@ -91,19 +92,34 @@ const caseB: E2ETestCase = {
   expectedGradeRange: { min: 50, max: 85 },
   pptxSlideCount: 10,
   supplementalData: { 
-    monthlyRentKrw: 50170000, 
-    totalDepositKrw: 535000000, 
-    mgmtFeeKrw: 6480000, 
-    vacancyRatePct: 17, 
+    monthlyRentKrw: 46570000,   // 실측: 4,657만원 (표지 5,017만원과 차이)
+    totalDepositKrw: 495000000, // 실측: 4.95억원 (표지 5.35억원과 차이)
+    mgmtFeeKrw: 5760000,       // 실측: 576만원
+    vacancyRatePct: 17,         // B1 면적기준 17%
+    floor_leases: [
+      { floor: 'B1', tenant_type: '공실', area_pyeong: 127.8, is_vacant: true, deposit_manwon: 0, rent_manwon: 0, note: '리스업 대상' },
+      { floor: '1F', tenant_type: '부동산', deposit_manwon: 3500, rent_manwon: 250, mgmt_fee_manwon: 15, lease_start: '2023-11-11', lease_end: '2025-11-11' },
+      { floor: '2F', tenant_type: '미용실', deposit_manwon: 5000, rent_manwon: 540, mgmt_fee_manwon: 60, lease_start: '2024-02-22', lease_end: '2026-02-21' },
+      { floor: '3F', tenant_type: '치과', deposit_manwon: 7000, rent_manwon: 310, mgmt_fee_manwon: 53, lease_start: '2022-11-01', lease_end: '2024-10-31' },
+      { floor: '4F', tenant_type: '사무실', deposit_manwon: 5000, rent_manwon: 440, mgmt_fee_manwon: 55, lease_start: '2022-06-30', lease_end: '2024-06-29' },
+      { floor: '5F', tenant_type: '사무실', deposit_manwon: 5700, rent_manwon: 528, mgmt_fee_manwon: 66, lease_start: '2022-05-30', lease_end: '2024-05-29' },
+      { floor: '6F', tenant_type: '사무실', deposit_manwon: 4000, rent_manwon: 483, mgmt_fee_manwon: 69, lease_start: '2024-03-01', lease_end: '2026-02-28' },
+      { floor: '7F', tenant_type: '사무실', deposit_manwon: 5000, rent_manwon: 588, mgmt_fee_manwon: 62, lease_start: '2023-10-04', lease_end: '2025-10-03' },
+      { floor: '8F', tenant_type: '사무실', deposit_manwon: 5000, rent_manwon: 560, mgmt_fee_manwon: 80, lease_start: '2023-09-08', lease_end: '2025-09-07' },
+      { floor: '9F', tenant_type: '스튜디오렌탈', deposit_manwon: 2000, rent_manwon: 199, mgmt_fee_manwon: 22, lease_start: '2023-11-01', lease_end: '2025-10-31' },
+      { floor: '9F', tenant_type: '사무실', deposit_manwon: 3000, rent_manwon: 300, mgmt_fee_manwon: 43, lease_start: '2023-12-01', lease_end: '2025-11-30' },
+      { floor: '10F', tenant_type: '운동시설', deposit_manwon: 4300, rent_manwon: 459, mgmt_fee_manwon: 51, lease_start: '2022-10-01', lease_end: '2024-09-30' },
+    ],
     askingPriceKrw: 25_000_000_000, 
     landAreaSqm: 518.7, 
-    totalGrossAreaSqm: 3050.0, 
+    totalGrossAreaSqm: 2490.88,  // 실측 연면적
     buildYear: 2018, 
     floors: 'B1~10F', 
     zoning: '준공업지역', 
     parking: '자주식 1대 + 기계식 22대', 
     photos: [{ url: '/test-images/01_exterior.jpg', type: 'exterior' }] 
-  }
+  },
+  buildingMeta: { area_signal: '양평권역 (선유도역)', asset_type: '업무시설', price_band: '250억' }
 };
 
 export async function runIncomeE2ESuite(): Promise<FullReport> {
