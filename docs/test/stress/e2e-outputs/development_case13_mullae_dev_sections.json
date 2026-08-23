@@ -3,7 +3,7 @@
     "section_type": "property_overview",
     "section_order": 1,
     "title": "이 매물, 어떤 자산인가",
-    "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역삼\",\"asset_type\":\"오피스빌딩\",\"price_band\":\"300억\",\"size_signal\":\"3000평(약 9917.4㎡)\"},\"extractedFacts\":{\"region\":\"역삼\",\"exactAddressCandidate\":\"역삼동 742-1\",\"assetType\":\"오피스빌딩\",\"priceText\":\"300억\",\"sizeText\":\"3000평(약 9917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[\"쿠팡\",\"네이버\"],\"unitRentTexts\":[\"301호: 1500만\"],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"초역세권 매물\"]},\"detectedSensitiveFields\":[\"exact_address\",\"tenant_name\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"역삼\",\"assetType\":\"오피스빌딩\",\"priceBand\":\"300억\",\"sizeSignal\":\"3000평(약 9917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"역삼 센트럴타워\",\"exactAddress\":\"역삼동 742-1\",\"totalFloorArea\":9917.3,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"초역세권 근생 빌딩으로 시행/사옥 매입에 최적화\",\"cautionSummary\":\"[임차인 업종 정보로 대체됨] 만기 조율 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"ai_hypothesis\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[\"sizeSignal\"],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":50,\"max\":80,\"display\":\"50억~80억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"꼬마빌딩\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"초역세권\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(50-80억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"강남 역삼역 초역세권 오피스 사옥용 빌딩 매각\",\"shortSummary\":\"역삼역 도보 5분 거리의 준신축급 대형 오피스빌딩입니다.\",\"dealPoints\":[\"초역세권\",\"사옥 최적\"],\"cautionPoints\":[\"명도 조율 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"강남 역삼역 오피스 빌딩 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"rentFreeMonths\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
+    "markdown": "**영등포권역** 소재 **개발부지** 핵심 자산입니다.\n\n| 항목 | 내용 |\n|------|------|\n| **소재지** | 영등포권역 |\n| **주요 용도** | 근린생활시설 |\n| **연면적** | 5,000㎡ (약 1513평(약 5001.7㎡)) |\n| **대지면적** | 1,000㎡ (약 303평(약 1001.7㎡)) |\n| **용도지역** | 일반상업지역 |\n| **승강기** | 1대 (15인승 침대용) |\n| **주차 대수** | 18대 (자주식 완비) |\n| **주구조** | 철근콘크리트구조 |\n| **매매 희망가** | 145억 |\n\n> 본 매물은 영등포권역 입지의 안정적 운영 자산입니다.",
     "confidence": "confirmed",
     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
     "provenance": [
@@ -13,7 +13,7 @@
         "source": "public_data",
         "sourceDetail": "국토교통부 건축물대장 API",
         "confidence": "confirmed",
-        "lastVerifiedAt": "2026-08-23T09:54:04.884Z"
+        "lastVerifiedAt": "2026-08-23T11:28:46.448Z"
       },
       {
         "fieldKey": "plat_area",
@@ -21,26 +21,17 @@
         "source": "public_data",
         "sourceDetail": "국토교통부 건축물대장 API",
         "confidence": "confirmed",
-        "lastVerifiedAt": "2026-08-23T09:54:04.884Z"
+        "lastVerifiedAt": "2026-08-23T11:28:46.448Z"
       }
     ],
+    "judge_score": 0,
     "min_tier": "public"
   },
   {
     "section_type": "location_access",
     "section_order": 2,
     "title": "이 입지, 투자할 만한 곳인가",
-    "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역삼\",\"asset_type\":\"오피스빌딩\",\"price_band\":\"300억\",\"size_signal\":\"3000평(약 9917.4㎡)\"},\"extractedFacts\":{\"region\":\"역삼\",\"exactAddressCandidate\":\"역삼동 742-1\",\"assetType\":\"오피스빌딩\",\"priceText\":\"300억\",\"sizeText\":\"3000평(약 9917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[\"쿠팡\",\"네이버\"],\"unitRentTexts\":[\"301호: 1500만\"],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"초역세권 매물\"]},\"detectedSensitiveFields\":[\"exact_address\",\"tenant_name\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"역삼\",\"assetType\":\"오피스빌딩\",\"priceBand\":\"300억\",\"sizeSignal\":\"3000평(약 9917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"역삼 센트럴타워\",\"exactAddress\":\"역삼동 742-1\",\"totalFloorArea\":9917.3,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"초역세권 근생 빌딩으로 시행/사옥 매입에 최적화\",\"cautionSummary\":\"[임차인 업종 정보로 대체됨] 만기 조율 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"ai_hypothesis\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[\"sizeSignal\"],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":50,\"max\":80,\"display\":\"50억~80억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"꼬마빌딩\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"초역세권\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(50-80억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"강남 역삼역 초역세권 오피스 사옥용 빌딩 매각\",\"shortSummary\":\"역삼역 도보 5분 거리의 준신축급 대형 오피스빌딩입니다.\",\"dealPoints\":[\"초역세권\",\"사옥 최적\"],\"cautionPoints\":[\"명도 조율 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"강남 역삼역 오피스 빌딩 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"rentFreeMonths\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
-    "confidence": "inferred",
-    "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
-    "provenance": [],
-    "min_tier": "public"
-  },
-  {
-    "section_type": "site_analysis",
-    "section_order": 3,
-    "title": "개발 부지로서 대지 조건은 어떠한가",
-    "markdown": "### 대지 및 신축 개발 여력 분석\n본 자산은 **대지면적 약 303평(약 1001.7㎡)**, **용도지역 일반상업지역**에 위치하여 신축 및 재건축 개발 가치가 매우 높습니다.\n\n### 개발 규제 및 공법 여력\n| 항목 | 공법 기준 | 개발 여력 분석 |\n|------|-----------|----------------|\n| **대지면적** | 1000㎡ | 약 303평(약 1001.7㎡) |\n| **용도지역** | 일반상업지역 | 법정 건폐율/용적률 상한 적용 |\n| **명도 상태** | 기존 [임차인 업종 정보로 대체됨] 현황 | 착공 전 명도 협의 필요 |\n| **개발 잠재력** | 신축 시 연면적 증대 가능 | 상업/업무 시설 기획 가능 |\n\n> 📋 건축물대장 및 토지이용계획확인서 기준 | 신축 설계 검토 필요",
+    "markdown": "**영등포권역** 소재 자산입니다.\n\n### 🚇 교통 및 도로 접근성\n- ℹ️ 교통 접근성 상세 정보는 담당 브로커를 통해 확인하실 수 있습니다.\n\n### 🏢 배후 상권 및 인프라\n- 🏢 **주변 상권**: 영등포권역 내 주요 비즈니스 및 유동인구 풍부한 상권 입지\n\n### 📈 입지 평가\n- 영등포권역 내 우수한 접근성과 높은 가시성을 갖춘 핵심 입지입니다.",
     "confidence": "inferred",
     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
     "provenance": [],
@@ -48,8 +39,29 @@
     "min_tier": "public"
   },
   {
-    "section_type": "development_feasibility",
+    "section_type": "next_steps",
+    "section_order": 3,
+    "title": "검토 후 다음 단계는 무엇인가",
+    "markdown": "관심이 있으시다면 아래 절차로 진행해 주세요.\n\n### 투자 진행 단계\n1. **초기 관심 표명** → [인명 비공개] 연락\n2. **NDA 체결** → 임차인 정보 및 임대차계약서 제공\n3. **현장 실사 일정 조율** → 건물 컨디션 및 설비 직접 확인\n4. **LOI(투자의향서) 제출** → 가격 협의 개시\n5. **법적 실사(DD)** → 법률·세무·기술 전문가 투입\n6. **매매계약 체결 → 잔금 납부**\n\n### 상세 분석이 필요하신가요?\nFull IM (투자등급 정식 투자설명서)은 18개 섹션, 전문가 검토 포함 버전입니다.\n\n> 본 자료는 예비 검토용으로 모든 수치와 내용은 실사 및 전문가 검토를 통해 확인이 필요합니다.",
+    "confidence": "inferred",
+    "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+    "provenance": [],
+    "judge_score": 0,
+    "min_tier": "public"
+  },
+  {
+    "section_type": "site_analysis",
     "section_order": 4,
+    "title": "개발 부지로서 대지 조건은 어떠한가",
+    "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역삼\",\"asset_type\":\"오피스빌딩\",\"price_band\":\"300억\",\"size_signal\":\"3000평(약 9917.4㎡)\"},\"extractedFacts\":{\"region\":\"역삼\",\"exactAddressCandidate\":\"역삼동 742-1\",\"assetType\":\"오피스빌딩\",\"priceText\":\"300억\",\"sizeText\":\"3000평(약 9917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[\"쿠팡\",\"네이버\"],\"unitRentTexts\":[\"301호: 1500만\"],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"초역세권 매물\"]},\"detectedSensitiveFields\":[\"exact_address\",\"tenant_name\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"역삼\",\"assetType\":\"오피스빌딩\",\"priceBand\":\"300억\",\"sizeSignal\":\"3000평(약 9917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"역삼 센트럴타워\",\"exactAddress\":\"역삼동 742-1\",\"totalFloorArea\":9917.3,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"초역세권 근생 빌딩으로 시행/사옥 매입에 최적화\",\"cautionSummary\":\"[임차인 업종 정보로 대체됨] 만기 조율 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"ai_hypothesis\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[\"sizeSignal\"],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":50,\"max\":80,\"display\":\"50억~80억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"꼬마빌딩\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"초역세권\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(50-80억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"강남 역삼역 초역세권 오피스 사옥용 빌딩 매각\",\"shortSummary\":\"역삼역 도보 5분 거리의 준신축급 대형 오피스빌딩입니다.\",\"dealPoints\":[\"초역세권\",\"사옥 최적\"],\"cautionPoints\":[\"명도 조율 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"강남 역삼역 오피스 빌딩 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"rentFreeMonths\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
+    "confidence": "inferred",
+    "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
+    "provenance": [],
+    "min_tier": "public"
+  },
+  {
+    "section_type": "development_feasibility",
+    "section_order": 5,
     "title": "신축/개발 사업수지와 수익성은 어떠한가",
     "markdown": "### 신축 사업수지 및 개발 타당성 분석\n본 자산의 대지 매입 후 신축 개발 시 총 사업비, 예상 분양 수입 및 개발 이익률을 종합 추정합니다.\n\n### 신축 사업수지 요약\n| 구분 | 추정 금액 | 비고 |\n|------|-----------|------|\n| **토지 매입비** | 희망가 기준 | 사업비 내 비중 산출 |\n| **추정 신축 공사비** | 평당 공사비 산정 | 신축 연면적 기준 |\n| **예상 총 사업비** | 토지비 + 공사비 + 금융/기타 | 총 투자금 |\n| **예상 개발 이익률** | **15% ~ 25% 수준** | 시장 상황 연동 |\n\n> ⚠️ 신축 공사비 및 분양가 변동에 따라 최종 수익률이 달라질 수 있습니다.",
     "confidence": "inferred",
@@ -60,7 +72,7 @@
   },
   {
     "section_type": "risk_check",
-    "section_order": 5,
+    "section_order": 6,
     "title": "리스크는 무엇이고 대응책은 있는가",
     "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역삼\",\"asset_type\":\"오피스빌딩\",\"price_band\":\"300억\",\"size_signal\":\"3000평(약 9917.4㎡)\"},\"extractedFacts\":{\"region\":\"역삼\",\"exactAddressCandidate\":\"역삼동 742-1\",\"assetType\":\"오피스빌딩\",\"priceText\":\"300억\",\"sizeText\":\"3000평(약 9917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[\"쿠팡\",\"네이버\"],\"unitRentTexts\":[\"301호: 1500만\"],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"초역세권 매물\"]},\"detectedSensitiveFields\":[\"exact_address\",\"tenant_name\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"역삼\",\"assetType\":\"오피스빌딩\",\"priceBand\":\"300억\",\"sizeSignal\":\"3000평(약 9917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"역삼 센트럴타워\",\"exactAddress\":\"역삼동 742-1\",\"totalFloorArea\":9917.3,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"초역세권 근생 빌딩으로 시행/사옥 매입에 최적화\",\"cautionSummary\":\"[임차인 업종 정보로 대체됨] 만기 조율 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"ai_hypothesis\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[\"sizeSignal\"],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":50,\"max\":80,\"display\":\"50억~80억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"꼬마빌딩\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"초역세권\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(50-80억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"강남 역삼역 초역세권 오피스 사옥용 빌딩 매각\",\"shortSummary\":\"역삼역 도보 5분 거리의 준신축급 대형 오피스빌딩입니다.\",\"dealPoints\":[\"초역세권\",\"사옥 최적\"],\"cautionPoints\":[\"명도 조율 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"강남 역삼역 오피스 빌딩 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"rentFreeMonths\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
     "confidence": "confirmed",
@@ -72,30 +84,19 @@
         "source": "public_data",
         "sourceDetail": "토지이용규제정보서비스(LURIS) API",
         "confidence": "confirmed",
-        "lastVerifiedAt": "2026-08-23T09:54:04.884Z"
+        "lastVerifiedAt": "2026-08-23T11:28:46.448Z"
       }
     ],
     "min_tier": "public"
   },
   {
     "section_type": "investment_thesis",
-    "section_order": 6,
+    "section_order": 7,
     "title": "왜 지금 이 매물을 사야 하는가",
     "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역삼\",\"asset_type\":\"오피스빌딩\",\"price_band\":\"300억\",\"size_signal\":\"3000평(약 9917.4㎡)\"},\"extractedFacts\":{\"region\":\"역삼\",\"exactAddressCandidate\":\"역삼동 742-1\",\"assetType\":\"오피스빌딩\",\"priceText\":\"300억\",\"sizeText\":\"3000평(약 9917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[\"쿠팡\",\"네이버\"],\"unitRentTexts\":[\"301호: 1500만\"],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"초역세권 매물\"]},\"detectedSensitiveFields\":[\"exact_address\",\"tenant_name\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"역삼\",\"assetType\":\"오피스빌딩\",\"priceBand\":\"300억\",\"sizeSignal\":\"3000평(약 9917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"역삼 센트럴타워\",\"exactAddress\":\"역삼동 742-1\",\"totalFloorArea\":9917.3,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"초역세권 근생 빌딩으로 시행/사옥 매입에 최적화\",\"cautionSummary\":\"[임차인 업종 정보로 대체됨] 만기 조율 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"ai_hypothesis\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[\"sizeSignal\"],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":50,\"max\":80,\"display\":\"50억~80억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"꼬마빌딩\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"초역세권\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(50-80억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"강남 역삼역 초역세권 오피스 사옥용 빌딩 매각\",\"shortSummary\":\"역삼역 도보 5분 거리의 준신축급 대형 오피스빌딩입니다.\",\"dealPoints\":[\"초역세권\",\"사옥 최적\"],\"cautionPoints\":[\"명도 조율 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"강남 역삼역 오피스 빌딩 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"rentFreeMonths\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
     "confidence": "inferred",
     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
     "provenance": [],
-    "min_tier": "public"
-  },
-  {
-    "section_type": "next_steps",
-    "section_order": 7,
-    "title": "검토 후 다음 단계는 무엇인가",
-    "markdown": "관심이 있으시다면 아래 절차로 진행해 주세요.\n\n### 투자 진행 단계\n1. **초기 관심 표명** → [인명 비공개] 연락\n2. **NDA 체결** → 임차인 정보 및 임대차계약서 제공\n3. **현장 실사 일정 조율** → 건물 컨디션 및 설비 직접 확인\n4. **LOI(투자의향서) 제출** → 가격 협의 개시\n5. **법적 실사(DD)** → 법률·세무·기술 전문가 투입\n6. **매매계약 체결 → 잔금 납부**\n\n### 상세 분석이 필요하신가요?\nFull IM (투자등급 정식 투자설명서)은 18개 섹션, 전문가 검토 포함 버전입니다.\n\n> 본 자료는 예비 검토용으로 모든 수치와 내용은 실사 및 전문가 검토를 통해 확인이 필요합니다.",
-    "confidence": "inferred",
-    "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
-    "provenance": [],
-    "judge_score": 0,
     "min_tier": "public"
   },
   {

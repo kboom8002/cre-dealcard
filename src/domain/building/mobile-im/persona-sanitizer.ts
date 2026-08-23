@@ -8,7 +8,7 @@
 export function sanitizePersonaInGoldenIM(text: string): string {
   if (!text) return '';
   return text
-    .replace(/(?:60대\s*자산가|50대\s*자산가|법인\s*대표|디벨로퍼|개인\s*투자자)\s*(?:를\s*위한|맞춤형?|전용)?\s*/g, '')
+    .replace(/(?:60대|50대|40대|30대|20대|초보|고액|개인|VIP)?\s*(?:자산가|투자자|법인\s*대표|법인|대표|고객|매수자|디벨로퍼)\s*(?:를\s*위한|의\s*관점|에게\s*추천하는|용|맞춤형?|전용|맞춤)?\s*/gu, '')
     .replace(/★+/g, '')
     .trim();
 }

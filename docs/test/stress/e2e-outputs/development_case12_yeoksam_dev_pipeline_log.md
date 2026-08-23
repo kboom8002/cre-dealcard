@@ -1,7 +1,7 @@
 # Pipeline Log: development_case12_yeoksam_dev
 
-**Generated**: 2026-08-23T09:54:04.872Z
-**Total Duration**: 0.2s
+**Generated**: 2026-08-23T11:28:46.437Z
+**Total Duration**: 0.3s
 
 ## Step-by-Step Timeline
 
@@ -9,9 +9,9 @@
 |---|------|----------|--------|---------|
 | 1 | ① SSoT Lite 구축 | 0.00s | ✅ success | buildingId: stress-case-12 |
 | 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: development, keys: 3 |
-| 3 | ③ IM 생성 (LLM) | 0.15s | ✅ success | ok=true, sections=8, grade=B |
+| 3 | ③ IM 생성 (LLM) | 0.20s | ✅ success | ok=true, sections=8, grade=B |
 | 4 | ④ 중간 결과물 저장 | 0.01s | ✅ success | sections: 8 |
-| 5 | ⑤ PPTX 렌더링 | 0.07s | ✅ success | slides: 10, size: 277KB |
+| 5 | ⑤ PPTX 렌더링 | 0.10s | ✅ success | slides: 10, size: 295KB |
 
 ## Detailed Metrics
 
@@ -29,7 +29,9 @@
 ```json
 {
   "slideCount": 10,
-  "fileSizeBytes": 283494,
-  "warnings": []
+  "fileSizeBytes": 301780,
+  "warnings": [
+    "Profit stat 카드 없음"
+  ]
 }
 ```

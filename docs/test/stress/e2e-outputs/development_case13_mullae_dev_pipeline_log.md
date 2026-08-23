@@ -1,7 +1,7 @@
 # Pipeline Log: development_case13_mullae_dev
 
-**Generated**: 2026-08-23T09:54:05.088Z
-**Total Duration**: 0.2s
+**Generated**: 2026-08-23T11:28:46.711Z
+**Total Duration**: 0.3s
 
 ## Step-by-Step Timeline
 
@@ -9,9 +9,9 @@
 |---|------|----------|--------|---------|
 | 1 | ① SSoT Lite 구축 | 0.00s | ✅ success | buildingId: stress-case-13 |
 | 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: development, keys: 3 |
-| 3 | ③ IM 생성 (LLM) | 0.14s | ✅ success | ok=true, sections=8, grade=B |
+| 3 | ③ IM 생성 (LLM) | 0.17s | ✅ success | ok=true, sections=8, grade=B |
 | 4 | ④ 중간 결과물 저장 | 0.01s | ✅ success | sections: 8 |
-| 5 | ⑤ PPTX 렌더링 | 0.06s | ✅ success | slides: 10, size: 284KB |
+| 5 | ⑤ PPTX 렌더링 | 0.09s | ✅ success | slides: 10, size: 296KB |
 
 ## Detailed Metrics
 
@@ -29,7 +29,7 @@
 ```json
 {
   "slideCount": 10,
-  "fileSizeBytes": 291040,
+  "fileSizeBytes": 303002,
   "warnings": []
 }
 ```
