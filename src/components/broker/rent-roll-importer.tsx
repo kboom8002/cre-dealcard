@@ -4,6 +4,7 @@ import React, { useRef, useState } from "react";
 import * as XLSX from "xlsx";
 
 interface RentRollImporterProps {
+  hasExistingData?: boolean;
   onImport: (data: {
     monthlyRent: number;
     totalDeposit: number;
@@ -12,10 +13,14 @@ interface RentRollImporterProps {
     floorLeases: Array<{
       floor: string;
       tenant_type?: string;
+      tenant_name?: string;
       deposit_manwon?: number;
       rent_manwon?: number;
       mgmt_fee_manwon?: number;
       is_vacant?: boolean;
+      area_sqm?: number;
+      lease_start?: string;
+      lease_end?: string;
     }>;
   }) => void;
 }
@@ -29,7 +34,18 @@ interface ParseResult {
   vacantCount: number;
   detectedHeaderRow: number;
   unitDetected: "manwon" | "won";
-  parsedRows: Array<{ floor: string; tenant_type?: string; deposit_manwon?: number; rent_manwon?: number; mgmt_fee_manwon?: number; is_vacant?: boolean; }>;
+  parsedRows: Array<{
+    floor: string;
+    tenant_type?: string;
+    tenant_name?: string;
+    deposit_manwon?: number;
+    rent_manwon?: number;
+    mgmt_fee_manwon?: number;
+    is_vacant?: boolean;
+    area_sqm?: number;
+    lease_start?: string;
+    lease_end?: string;
+  }>;
 }
 
 /**
@@ -85,6 +101,10 @@ function parseRentRollData(data: any[][]): ParseResult {
   const vacantIdx = findCol(["공실", "vacant", "empty"]);
   const bizTypeIdx = findCol(["업종", "용도", "임차인", "tenant", "입주사"]);
   const floorIdx = findCol(["층", "층수", "floor", "호", "위치"]);
+  const areaIdx = findCol(['면적', '전용면적', 'area', '㎡', '평']);
+  const tenantNameIdx = findCol(['임차인', '입주사', 'tenant', '상호']);
+  const leaseStartIdx = findCol(['계약시작', '시작일', '개시일', 'start']);
+  const leaseEndIdx = findCol(['계약종료', '종료일', '만료일', 'end', '만기']);
 
   let totalRent = 0;
   let totalDeposit = 0;
@@ -93,7 +113,7 @@ function parseRentRollData(data: any[][]): ParseResult {
   let rowCount = 0;
   let unitDetected: "won" | "manwon" = "manwon";
 
-  const parsedRows: Array<{ floor: string; tenant_type?: string; deposit_manwon?: number; rent_manwon?: number; mgmt_fee_manwon?: number; is_vacant?: boolean; }> = [];
+  const parsedRows: ParseResult['parsedRows'] = [];
 
   for (let i = headerRowIdx + 1; i < lines.length; i++) {
     const cols = lines[i];
@@ -148,13 +168,54 @@ function parseRentRollData(data: any[][]): ParseResult {
     const actualFloorIdx = floorIdx >= 0 ? floorIdx : 0;
     const floorVal = cols[actualFloorIdx] != null ? String(cols[actualFloorIdx]).trim() : `${rowCount}F`;
     const bizVal = bizTypeIdx >= 0 && cols[bizTypeIdx] != null ? String(cols[bizTypeIdx]).trim() : undefined;
+    
+    const tName = tenantNameIdx >= 0 && cols[tenantNameIdx] != null ? String(cols[tenantNameIdx]).trim() : undefined;
+    
+    let areaVal: number | undefined = undefined;
+    if (areaIdx >= 0 && cols[areaIdx] != null) {
+      const originalStr = String(cols[areaIdx]);
+      const areaStr = originalStr.replace(/[^0-9.]/g, "");
+      const areaNum = parseFloat(areaStr);
+      if (!isNaN(areaNum)) {
+        if (originalStr.includes('평') || (areaNum < 50 && areaStr.includes('.'))) {
+           areaVal = parseFloat((areaNum * 3.30578).toFixed(2));
+        } else {
+           areaVal = areaNum;
+        }
+      }
+    }
+
+    const parseDate = (val: any) => {
+      if (!val) return undefined;
+      let s = String(val).trim();
+      if (!isNaN(Number(s)) && Number(s) > 30000) {
+        const d = new Date(Math.round((Number(s) - 25569) * 86400 * 1000));
+        if (!isNaN(d.getTime())) {
+          return d.toISOString().split('T')[0];
+        }
+      }
+      s = s.replace(/\./g, '-').replace(/\//g, '-');
+      const m = s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (m) {
+        return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+      }
+      return s;
+    };
+
+    const lStart = leaseStartIdx >= 0 ? parseDate(cols[leaseStartIdx]) : undefined;
+    const lEnd = leaseEndIdx >= 0 ? parseDate(cols[leaseEndIdx]) : undefined;
+
     parsedRows.push({
       floor: floorVal,
       tenant_type: bizVal || undefined,
+      tenant_name: tName || undefined,
       deposit_manwon: convertedDeposit || undefined,
       rent_manwon: convertedRent || undefined,
       mgmt_fee_manwon: convertedMgmt || undefined,
       is_vacant: isVacant || undefined,
+      area_sqm: areaVal,
+      lease_start: lStart,
+      lease_end: lEnd,
     });
   }
 
@@ -182,7 +243,7 @@ const HELP_CONTENT = [
   { icon: "📁", text: ".xlsx, .xls, .csv 모두 지원" },
 ];
 
-export function RentRollImporter({ onImport }: RentRollImporterProps) {
+export function RentRollImporter({ hasExistingData, onImport }: RentRollImporterProps) {
   const [mode, setMode] = useState<"excel" | "text">("excel");
   const [isImporting, setIsImporting] = useState(false);
   const [result, setResult] = useState<string>("");
@@ -192,7 +253,49 @@ export function RentRollImporter({ onImport }: RentRollImporterProps) {
   const [isParsing, setIsParsing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [parsedPreview, setParsedPreview] = useState<{
+    rows: Array<{
+      floor: string;
+      tenant_type?: string;
+      tenant_name?: string;
+      deposit_manwon: number;
+      rent_manwon: number;
+      mgmt_fee_manwon: number;
+      is_vacant: boolean;
+      area_sqm?: number;
+      lease_start?: string;
+      lease_end?: string;
+    }>;
+    monthlyRent: number;
+    totalDeposit: number;
+    mgmtFeeTotal: number;
+    vacancyPct: number;
+  } | null>(null);
+
+  const updatePreviewTotals = (newRows: any[]) => {
+    let totDep = 0;
+    let totRent = 0;
+    let totMgmt = 0;
+    let vacCnt = 0;
+    newRows.forEach(r => {
+      totDep += (r.deposit_manwon || 0);
+      totRent += (r.rent_manwon || 0);
+      totMgmt += (r.mgmt_fee_manwon || 0);
+      if (r.is_vacant) vacCnt++;
+    });
+    const vacPct = newRows.length > 0 ? Math.round((vacCnt / newRows.length) * 100) : 0;
+    setParsedPreview(prev => prev ? {
+      ...prev,
+      rows: newRows,
+      totalDeposit: totDep,
+      monthlyRent: totRent,
+      mgmtFeeTotal: totMgmt,
+      vacancyPct: vacPct
+    } : null);
+  };
+
   const handleTextParse = async () => {
+    if (hasExistingData && !window.confirm('기존 렌트롤 데이터가 있습니다. 새 데이터로 덮어쓰시겠습니까?')) return;
     if (!textInput.trim() || textInput.trim().length < 5) {
       setIsError(true);
       setResult("❌ 최소 5자 이상의 텍스트를 입력해 주세요.");
@@ -212,21 +315,24 @@ export function RentRollImporter({ onImport }: RentRollImporterProps) {
         throw new Error(err.error || "파싱에 실패했습니다.");
       }
       const data = await res.json();
-      onImport({
+      
+      const rows = (data.floorLeases || []).map((r: any) => ({
+        ...r,
+        deposit_manwon: r.deposit_manwon || 0,
+        rent_manwon: r.rent_manwon || 0,
+        mgmt_fee_manwon: r.mgmt_fee_manwon || 0,
+        is_vacant: r.is_vacant || false,
+      }));
+
+      setParsedPreview({
+        rows,
         monthlyRent: data.monthlyRent,
         totalDeposit: data.totalDeposit,
         mgmtFeeTotal: data.mgmtFeeTotal,
         vacancyPct: data.vacancyPct,
-        floorLeases: data.floorLeases || [],
       });
-      const vacantCount = (data.floorLeases || []).filter((l: any) => l.is_vacant).length;
-      const vacancyInfo = vacantCount > 0
-        ? ` · 공실 ${vacantCount}개(${data.vacancyPct}%)`
-        : " · 만실";
-      setResult(
-        `✅ ${data.floorLeases?.length || 0}개 호실 AI 분석 완료\n` +
-        `월세 ${data.monthlyRent.toLocaleString()}만원 · 보증금 ${data.totalDeposit.toLocaleString()}만원${vacancyInfo}`
-      );
+
+      setResult("✅ AI 분석이 완료되었습니다. 아래 표에서 확인 후 적용해주세요.");
     } catch (err: any) {
       setIsError(true);
       setResult(`❌ ${err?.message ?? "텍스트 파싱 실패"}`);
@@ -238,6 +344,11 @@ export function RentRollImporter({ onImport }: RentRollImporterProps) {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (hasExistingData && !window.confirm('기존 렌트롤 데이터가 있습니다. 새 데이터로 덮어쓰시겠습니까?')) {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
 
     setIsImporting(true);
     setResult("");
@@ -258,11 +369,16 @@ export function RentRollImporter({ onImport }: RentRollImporterProps) {
         throw new Error("시트를 찾을 수 없습니다. 파일이 비어있는지 확인해주세요.");
       }
 
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
+      // v1.2 표준양식 호환: '렌트롤' 시트 우선 탐지
+      const rentRollSheetName = workbook.SheetNames.find(
+        (name) => name.includes('렌트롤') || name.toLowerCase().includes('rent')
+      );
+      const targetSheetName = rentRollSheetName || workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[targetSheetName];
+      console.log(`[RentRollImporter] Using sheet: '${targetSheetName}' (of ${workbook.SheetNames.length} sheets)`);
       
       if (!worksheet) {
-        throw new Error(`시트 '${firstSheetName}'를 읽을 수 없습니다.`);
+        throw new Error(`시트 '${targetSheetName}'를 읽을 수 없습니다.`);
       }
 
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
@@ -273,22 +389,24 @@ export function RentRollImporter({ onImport }: RentRollImporterProps) {
 
       const parsed = parseRentRollData(jsonData);
 
-      onImport({
+      const rows = parsed.parsedRows.map((r) => ({
+        ...r,
+        deposit_manwon: r.deposit_manwon || 0,
+        rent_manwon: r.rent_manwon || 0,
+        mgmt_fee_manwon: r.mgmt_fee_manwon || 0,
+        is_vacant: r.is_vacant || false,
+      }));
+
+      setParsedPreview({
+        rows,
         monthlyRent: parsed.monthlyRent,
         totalDeposit: parsed.totalDeposit,
         mgmtFeeTotal: parsed.mgmtFeeTotal,
         vacancyPct: parsed.vacancyPct,
-        floorLeases: parsed.parsedRows,
       });
 
       const unitLabel = parsed.unitDetected === "won" ? "(원→만원 자동변환)" : "(만원 단위)";
-      const vacancyInfo = parsed.vacantCount > 0
-        ? ` · 공실 ${parsed.vacantCount}개(${parsed.vacancyPct}%)`
-        : " · 만실";
-      setResult(
-        `✅ ${parsed.rowCount}개 호실 분석 완료 ${unitLabel}\n` +
-        `월세 ${parsed.monthlyRent.toLocaleString()}만원 · 보증금 ${parsed.totalDeposit.toLocaleString()}만원${vacancyInfo}`
-      );
+      setResult(`✅ ${parsed.rowCount}개 호실 분석 완료 ${unitLabel}. 아래 표에서 확인 후 적용해주세요.`);
     } catch (err: any) {
       setIsError(true);
       setResult(`❌ ${err?.message ?? "파일 파싱 실패"}\n💡 아래 '?' 버튼을 눌러 작성 가이드를 확인하세요.`);
@@ -304,7 +422,7 @@ export function RentRollImporter({ onImport }: RentRollImporterProps) {
       <div className="flex gap-1 p-0.5 bg-muted/50 rounded-lg">
         <button
           type="button"
-          onClick={() => { setMode("excel"); setResult(""); setIsError(false); }}
+          onClick={() => { setMode("excel"); setResult(""); setIsError(false); setParsedPreview(null); }}
           className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${
             mode === "excel"
               ? "bg-background text-primary shadow-sm"
@@ -315,7 +433,7 @@ export function RentRollImporter({ onImport }: RentRollImporterProps) {
         </button>
         <button
           type="button"
-          onClick={() => { setMode("text"); setResult(""); setIsError(false); }}
+          onClick={() => { setMode("text"); setResult(""); setIsError(false); setParsedPreview(null); }}
           className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${
             mode === "text"
               ? "bg-background text-primary shadow-sm"
@@ -421,12 +539,141 @@ export function RentRollImporter({ onImport }: RentRollImporterProps) {
       )}
 
       {/* Result */}
-      {result && (
+      {result && !parsedPreview && (
         <p className={`text-xs font-medium whitespace-pre-line ${
           isError ? "text-rose-500" : "text-emerald-600 dark:text-emerald-400"
         }`}>
           {result}
         </p>
+      )}
+
+      {/* Parsed Preview Editable Mini-Table */}
+      {parsedPreview && (
+        <div className="mt-4 bg-secondary/50 rounded-lg p-3 border border-border animate-in fade-in duration-150">
+          <h4 className="text-sm font-semibold mb-2 text-foreground">데이터 확인 및 수정</h4>
+          <div className="max-h-60 overflow-y-auto mb-2 border border-border rounded">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-muted sticky top-0">
+                <tr>
+                  <th className="px-2 py-1 font-medium">층</th>
+                  <th className="px-2 py-1 font-medium">업종</th>
+                  <th className="px-2 py-1 font-medium">보증금</th>
+                  <th className="px-2 py-1 font-medium">월세</th>
+                  <th className="px-2 py-1 font-medium">상태</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parsedPreview.rows.map((row, idx) => (
+                  <tr key={idx} className="border-b border-border/50 hover:bg-muted/30">
+                    <td className="px-2 py-1">
+                      <input 
+                        type="text" 
+                        value={row.floor} 
+                        onChange={(e) => {
+                          const newRows = [...parsedPreview.rows];
+                          newRows[idx].floor = e.target.value;
+                          setParsedPreview({ ...parsedPreview, rows: newRows });
+                        }}
+                        className="w-12 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs" 
+                      />
+                    </td>
+                    <td className="px-2 py-1">
+                      <input 
+                        type="text" 
+                        value={row.tenant_type || ''} 
+                        onChange={(e) => {
+                          const newRows = [...parsedPreview.rows];
+                          newRows[idx].tenant_type = e.target.value;
+                          setParsedPreview({ ...parsedPreview, rows: newRows });
+                        }}
+                        className="w-16 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs" 
+                      />
+                    </td>
+                    <td className="px-2 py-1">
+                      <input 
+                        type="number" 
+                        value={row.deposit_manwon} 
+                        onChange={(e) => {
+                          const newRows = [...parsedPreview.rows];
+                          newRows[idx].deposit_manwon = Number(e.target.value);
+                          updatePreviewTotals(newRows);
+                        }}
+                        className="w-16 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs" 
+                      />
+                    </td>
+                    <td className="px-2 py-1">
+                      <input 
+                        type="number" 
+                        value={row.rent_manwon} 
+                        onChange={(e) => {
+                          const newRows = [...parsedPreview.rows];
+                          newRows[idx].rent_manwon = Number(e.target.value);
+                          updatePreviewTotals(newRows);
+                        }}
+                        className="w-16 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs" 
+                      />
+                    </td>
+                    <td className="px-2 py-1">
+                      <select 
+                        value={row.is_vacant ? '공실' : '임대중'} 
+                        onChange={(e) => {
+                          const newRows = [...parsedPreview.rows];
+                          newRows[idx].is_vacant = e.target.value === '공실';
+                          updatePreviewTotals(newRows);
+                        }}
+                        className="bg-transparent border-none p-0 text-xs focus:ring-1 focus:ring-primary cursor-pointer"
+                      >
+                        <option value="임대중">임대중</option>
+                        <option value="공실">공실</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex justify-between items-center text-xs text-muted-foreground mb-3 font-medium">
+            <span>총 보증금: {parsedPreview.totalDeposit.toLocaleString()}만원</span>
+            <span>총 월세: {parsedPreview.monthlyRent.toLocaleString()}만원</span>
+            <span>공실률: {parsedPreview.vacancyPct}%</span>
+          </div>
+          {result && (
+            <p className={`text-xs font-medium whitespace-pre-line mb-3 ${
+              isError ? "text-rose-500" : "text-emerald-600 dark:text-emerald-400"
+            }`}>
+              {result}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <button 
+              type="button"
+              onClick={() => {
+                onImport({
+                  monthlyRent: parsedPreview.monthlyRent,
+                  totalDeposit: parsedPreview.totalDeposit,
+                  mgmtFeeTotal: parsedPreview.mgmtFeeTotal,
+                  vacancyPct: parsedPreview.vacancyPct,
+                  floorLeases: parsedPreview.rows
+                });
+                setParsedPreview(null);
+                setResult("✅ 데이터가 성공적으로 반영되었습니다.");
+              }} 
+              className="flex-1 bg-primary text-primary-foreground py-1.5 rounded text-xs font-medium hover:opacity-90 transition-opacity"
+            >
+              적용
+            </button>
+            <button 
+              type="button"
+              onClick={() => {
+                setParsedPreview(null);
+                setResult("");
+              }} 
+              className="flex-1 bg-muted text-foreground py-1.5 rounded text-xs font-medium hover:bg-muted/80 transition-colors"
+            >
+              취소
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

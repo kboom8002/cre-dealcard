@@ -837,6 +837,7 @@ export function ImDataBottomSheet({
 
             {/* Rent Roll Import */}
             <RentRollImporter 
+              hasExistingData={floorLeases.length > 0}
               onImport={(data) => {
                 setMonthlyRent(data.monthlyRent.toString());
                 setTotalDeposit(data.totalDeposit.toString());

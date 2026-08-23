@@ -7,10 +7,12 @@ import { z } from "zod/v4";
 const FloorLeaseSchema = z.object({
   floor: z.string(),
   tenant_type: z.string().optional(),
+  tenant_name: z.string().optional(),
   deposit_manwon: z.number().optional(),
   rent_manwon: z.number().optional(),
   mgmt_fee_manwon: z.number().optional(),
   is_vacant: z.boolean().optional(),
+  area_sqm: z.number().optional(),
   contract_start: z.string().optional(),
   contract_end: z.string().optional(),
 });
@@ -43,7 +45,20 @@ const SYSTEM_PROMPT = `당신은 상업용 부동산 렌트롤(임대차 현황)
 
 반드시 아래 JSON 형식으로만 응답하세요. 설명이나 마크다운 없이 순수 JSON만 출력하세요:
 {
-  "floorLeases": [...],
+  "floorLeases": [
+    {
+      "floor": "층 (예: B1, 1층, 2F)",
+      "tenant_type": "업종 (예: 카페, 사무실, 공실)",
+      "tenant_name": "임차인/상호명 (예: 스타벅스) — 미기재 시 생략",
+      "deposit_manwon": 보증금(만원),
+      "rent_manwon": 월세(만원),
+      "mgmt_fee_manwon": 관리비(만원, 미기재 시 0),
+      "is_vacant": true/false,
+      "area_sqm": 면적(㎡, 미기재 시 생략),
+      "contract_start": "계약시작일 (YYYY-MM-DD, 미기재 시 생략)",
+      "contract_end": "계약종료일 (YYYY-MM-DD, 미기재 시 생략)"
+    }
+  ],
   "monthlyRent": 총 월임대료(만원),
   "totalDeposit": 총 보증금(만원),
   "mgmtFeeTotal": 총 관리비(만원),
