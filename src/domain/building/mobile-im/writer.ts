@@ -23,7 +23,7 @@ import {
   type MobileIMWriterOutput,
 } from "./types";
 import { runPublishGates } from './quality-gates-v02';
-import { MOBILE_IM_STANDARD_DISCLAIMER } from "./guardrails";
+import { MOBILE_IM_STANDARD_DISCLAIMER, humanizeGuardrailTokensForView } from "./guardrails";
 import type { DCFOutputs } from "./dcf-sensitivity";
 import { runCrossValidation } from "./cross-validator";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -301,6 +301,29 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         isHero: p.isHero,
       }))
     : undefined;
+
+  // ── 7. 플레이스홀더 토큰 자연어화 (P0-2) ──
+  for (const sec of sections) {
+    if (sec.markdown) {
+      sec.markdown = humanizeGuardrailTokensForView(sec.markdown, 'institutional');
+    }
+  }
+
+  // ── 8. 섹션 정본 순서 재정렬 (P1-2) ──
+  // 실행 순서(의존성 기반 4단계)와 독자 시점 출력 순서를 분리
+  const CANONICAL_ORDER: string[] = [
+    'property_overview', 'location_access',
+    'lease_status', 'site_analysis', 'occupancy_fit', 'operation_overview', 'market_position',
+    'income_analysis', 'development_feasibility', 'gop_analysis', 'cost_comparison', 'comparable_analysis',
+    'risk_check', 'investment_thesis', 'next_steps',
+  ];
+  sections.sort((a, b) => {
+    const ia = CANONICAL_ORDER.indexOf(a.section_type);
+    const ib = CANONICAL_ORDER.indexOf(b.section_type);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+  // section_order 재부여
+  sections.forEach((sec, i) => { sec.section_order = i + 1; });
 
   return {
     sections,

@@ -128,8 +128,52 @@ export async function inspectOutputs(params: {
     });
     console.log(`[AI-Inspector] POSTURE-SLIDE 슬라이드 수 체크: ${slidePass ? 'PASS' : 'FAIL'}`);
 
+    // PLACEHOLDER-CHECK: 미치환 플레이스홀더 토큰 감지
+    const placeholderPatterns = [
+      /\[임차인 업종 정보로 대체됨\]/g,
+      /\[지역 신호로 대체됨\]/g,
+      /\[인명 비공개\]/g,
+      /\[연락처 비공개\]/g,
+      /\[이메일 비공개\]/g,
+      /\[매도자 사정 비공개\]/g,
+      /\[내부 협상 메모 비공개\]/g,
+      /\[임대수익 존재, 상세 내용 비공개\]/g,
+    ];
+    const placeholderFindings: string[] = [];
+    for (const pat of placeholderPatterns) {
+      const matches = textContent.match(pat);
+      if (matches) placeholderFindings.push(`${pat.source} x${matches.length}`);
+    }
+    const placeholderPass = placeholderFindings.length === 0;
+    results.push({
+      criterion: 'PLACEHOLDER-CHECK',
+      label: '플레이스홀더 미치환 확인',
+      pass: placeholderPass,
+      detail: placeholderPass ? '미치환 플레이스홀더 없음' : `미치환 발견: ${placeholderFindings.join(', ')}`
+    });
+    console.log(`[AI-Inspector] PLACEHOLDER-CHECK 플레이스홀더 체크: ${placeholderPass ? 'PASS' : 'FAIL'}`);
+
+    // TEMPLATE-FABRICATION: 허위 하드코딩 데이터 감지
+    const fabricationPatterns = [
+      { pattern: /WALE\s*\d+(\.\d+)?\s*년\s*확보/g, label: 'WALE 확보 (근거 없음)' },
+      { pattern: /담보대출\s*\d+억/g, label: '대출 금액 창작' },
+      { pattern: /승계\s*적격\s*판정/g, label: '승계 적격 판정 창작' },
+      { pattern: /⭐/g, label: '⭐ 별점 기호' },
+    ];
+    const fabricationFindings: string[] = [];
+    for (const { pattern, label } of fabricationPatterns) {
+      if (pattern.test(textContent)) fabricationFindings.push(label);
+    }
+    const fabricationPass = fabricationFindings.length === 0;
+    results.push({
+      criterion: 'TEMPLATE-FABRICATION',
+      label: '템플릿 허위 데이터 확인',
+      pass: fabricationPass,
+      detail: fabricationPass ? '허위 하드코딩 데이터 없음' : `발견: ${fabricationFindings.join(', ')}`
+    });
+    console.log(`[AI-Inspector] TEMPLATE-FABRICATION 허위 데이터 체크: ${fabricationPass ? 'PASS' : 'FAIL'}`);
+
     // PII-CHECK: Scan for known PII patterns
-    const piiRegex = /(\b010-\d{4}-\d{4}\b)|(\b[\w.-]+@[\w.-]+\.\w+\b)|([김이박최정강조윤장임한오서신권황안송전홍유고문양손배조백허유남심노정하곽성차주우구신임나전민유진지엄채원천방공강현함변염양변여추노도소신석선설마길주연방위표명기반왕금옥육인맹제모장남탁국여진어은편구용유승동감개강견경공과관교구국군궁권기김내단대도돈동두라류리마망매맹명모목묘묵문미민박반방배백번범변보복봉부비빈빙사산상서석선설섭성소손송수순승시신심십아안애야어엄여연염엽영예오옥온옹왕요용우원위유육윤은음이인임자장전정제조종좌주지진차창채천초최추탁태판팽편평포표풍피하학한함해허현형호홍화환황보단독우제주갈감개갱거건견결겸경공곽교구국군굴궁권궐근금기길나남내노뇌누다단담당대도독돈동두마막만망매맹명모목묘묵문미민박반방배백번벌범변보복봉부비빈빙사산상서석선설섭성소손송수순승시신심십아안애야어엄여연염엽영예오옥온옹왕요용우원위유육윤은음이인임자장전정제조종좌주지진차창채천초최추탁태판팽편평포표풍피하학한함해허현형호홍화환황]?[가-힣]{2}\b)/g;
     const phoneEmailRegex = /(\b010-\d{4}-\d{4}\b)|(\b[\w.-]+@[\w.-]+\.\w+\b)/g;
     const piiMatch = allXmlContent.match(phoneEmailRegex);
     const piiPass = !piiMatch;

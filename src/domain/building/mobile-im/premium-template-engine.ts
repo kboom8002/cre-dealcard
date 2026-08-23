@@ -90,8 +90,8 @@ export function generatePremiumTemplate(
     ? supplemental.asking_price_manwon * 10000 : 0;
   const purchasePrice = templateAskingKrw || parsePriceBandKrw(assetIdentity.price_band);
   const monthlyRent   = supplemental.monthly_rent_total_krw || 0;
-  const elevatorCount = br?.elevatorCount || physicalFact.elevator_count || physicalFact.elevatorCount || 1;
-  const parkingCount  = br?.parkingCount || physicalFact.parking_count || physicalFact.parkingCount || 18;
+  const elevatorCount = Number(br?.elevatorCount || physicalFact.elevator_count || physicalFact.elevatorCount || 1);
+  const parkingCount  = Number(br?.parkingCount || physicalFact.parking_count || physicalFact.parkingCount || 0);
 
   switch (sectionType) {
     // ─── 섹션 1: 자산 개요 ───────────────────────────────────────────────────
@@ -109,8 +109,8 @@ export function generatePremiumTemplate(
         `| **대지면적** | ${platArea.toLocaleString()}㎡ (${platPyeong}) |`,
         floorsStr ? `| **층수** | ${floorsStr} |` : (floorsAbove > 0 ? `| **층수** | 지하 ${floorsBelow}층 / 지상 ${floorsAbove}층 |` : null),
         `| **용도지역** | ${zoningDistrict} |`,
-        `| **승강기** | ${elevatorCount}대 (15인승 침대용) |`,
-        `| **주차 대수** | ${parkingCount}대 (자주식 완비) |`,
+        elevatorCount > 0 ? `| **승강기** | ${elevatorCount}대 |` : null,
+        parkingCount > 0 ? `| **주차 대수** | ${parkingCount}대 |` : null,
         useAprYear ? `| **준공년도** | ${useAprYear}년 (${buildingAge}년 경과) |` : null,
         structure !== "확인 필요" ? `| **주구조** | ${structure} |` : null,
         priceStr !== "-" ? `| **매매 희망가** | ${priceStr} |` : null,
@@ -331,18 +331,22 @@ ${tableRows}
     case "risk_check": {
       const cautionSummary = String(buyerFit.caution_summary ?? "");
 
-      return `아래 사항은 **실사(Due Diligence) 과정에서 검토 완료 및 확인된 핵심 팩트 및 대응 방안**입니다.${cautionSummary ? `\n\n> ⚠️ ${cautionSummary}` : ""}
+      const buildYearStr = useAprYear ? `${useAprYear}년 준공 (${buildingAge}년 경과)` : '준공연도 확인 필요';
+      const elevatorStr = elevatorCount > 0 ? `승강기 ${elevatorCount}대` : '승강기 정보 확인 필요';
+      const structureStr = structure !== '확인 필요' ? structure : '구조 확인 필요';
 
-### 리스크 점검 및 대응 방안
-| 구분 | 현황 및 점검 결과 | 리스크 완화 / 대응 방안 |
-|------|-------------------|------------------------|
-| **건물 물리적 상태** | 2017년 준공 신축급 상태 (누수/균열 결함 없음) | 준공 10년 미만으로 대규모 수선비용 발생 가능성 낮음 |
-| **승강기 및 설비** | 15인승 침대용 승강기 및 냉난방 설비 양호 | 주기적 정기 점검 계약 유지로 관리 리스크 최소화 |
-| **임차인 이탈 위험** | 병의원/약국 인테리어 투자비(호실당 5억↑) 존속 | WALE 3.5년 확보 및 만기 6개월 전 재계약 협상 개시 |
-| **명도 및 분쟁** | 전층 정상 임대차 상태 (임대료 연체 0건) | 임대차 분쟁 및 소송 이력 없음 (명도 리스크 극소) |
-| **권리관계 및 금융** | 단독 법인 소유 (가압류/가처분 일체 없음) | 1금융권 기존 담보대출 85억(연 4.1%) 승계 적격 판정 |
+      return `아래 사항은 **실사(Due Diligence) 과정에서 추가 확인이 필요한 핵심 점검 항목**입니다.${cautionSummary ? `\n\n> ⚠️ ${cautionSummary}` : ""}
 
-> 🟢 **실사 총평**: 자산의 물리적·권리적 하자가 없으며, 세부 임대차 계약서 및 등기사항증명서는 LOI 접수 후 원본 열람 가능합니다.`;
+### 리스크 점검 항목
+| 구분 | 현황 (브로커 제공 기준) | 실사 시 확인 사항 |
+|------|------------------------|-------------------|
+| **건물 물리적 상태** | ${buildYearStr}, ${structureStr} | 누수·균열·설비 노후 여부 현장 점검 필요 |
+| **승강기 및 설비** | ${elevatorStr} | 정기검사 이력, 냉난방 설비 상태 확인 필요 |
+| **임차인 이탈 위험** | 임대차 계약 현황 LOI 접수 후 열람 | 잔여 계약기간(WALE), 임차인 신용도 확인 필요 |
+| **명도 및 분쟁** | 등기사항증명서 LOI 접수 후 열람 | 임대차 분쟁·소송 이력 확인 필요 |
+| **권리관계 및 금융** | 소유 구조·담보권 LOI 접수 후 열람 | 가압류·가처분·근저당 설정 현황 확인 필요 |
+
+> 🟡 **점검 안내**: 상기 항목은 브로커 제공 정보 기준이며, 세부 임대차 계약서 및 등기사항증명서는 LOI 접수 후 원본 열람 가능합니다.`;
     }
 
     // ─── 섹션 6: 투자 포인트 ────────────────────────────────────────────────
@@ -373,13 +377,13 @@ ${tableRows}
 
       let buyerTable = "";
       if (isOffice) {
-        buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **자산운용사 (임대형 펀드)** | ⭐⭐⭐⭐⭐ | 안정 임대 수익 + Cap Rate |\n| **법인 자가사용 (사옥 매입)** | ⭐⭐⭐⭐ | ${areaSignal} 브랜드 가치 |\n| **고액 자산가 그룹** | ⭐⭐⭐ | 규모 협업 필요, 수익 안정성 ↑ |`;
+        buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **자산운용사 (임대형 펀드)** | ◎ 최적합 | 안정 임대 수익 + Cap Rate |\n| **법인 자가사용 (사옥 매입)** | ○ 적합 | ${areaSignal} 브랜드 가치 |\n| **고액 자산가 그룹** | △ 검토 | 규모 협업 필요, 수익 안정성 ↑ |`;
       } else if (isRetail) {
-        buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **개인 자산가 (임대수익)** | ⭐⭐⭐⭐⭐ | 안정 MD, 예측 가능한 월 현금흐름 |\n| **상가 전문 임대 운영사** | ⭐⭐⭐⭐ | MD 관리 노하우 보유 시 최적 |\n| **프랜차이즈 본사 직매장** | ⭐⭐⭐ | 브랜드 노출 + 직영 운영 가능 |`;
+        buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **개인 자산가 (임대수익)** | ◎ 최적합 | 안정 MD, 예측 가능한 월 현금흐름 |\n| **상가 전문 임대 운영사** | ○ 적합 | MD 관리 노하우 보유 시 최적 |\n| **프랜차이즈 본사 직매장** | △ 검토 | 브랜드 노출 + 직영 운영 가능 |`;
       } else if (isKIC) {
-        buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **시행사·개발업체 (밸류업)** | ⭐⭐⭐⭐⭐ | 공실 해소 + 리포지셔닝 여지 |\n| **부동산 펀드 (수익형)** | ⭐⭐⭐⭐ | 안정 수익 + Cap Rate |\n| **지산 전문 운영사** | ⭐⭐⭐⭐ | 운영 노하우 보유 시 최적 |`;
+        buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **시행사·개발업체 (밸류업)** | ◎ 최적합 | 공실 해소 + 리포지셔닝 여지 |\n| **부동산 펀드 (수익형)** | ○ 적합 | 안정 수익 + Cap Rate |\n| **지산 전문 운영사** | ○ 적합 | 운영 노하우 보유 시 최적 |`;
       } else {
-        buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **개인 자산가 (임대수익)** | ⭐⭐⭐⭐⭐ | 소형 빌딩 안정 수익 최적 |\n| **법인 사옥 이전** | ⭐⭐⭐⭐ | ${areaSignal} 직주근접 |\n| **소규모 개발업체** | ⭐⭐⭐ | 밸류업 후 매각 시나리오 |`;
+        buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **개인 자산가 (임대수익)** | ◎ 최적합 | 소형 빌딩 안정 수익 최적 |\n| **법인 사옥 이전** | ○ 적합 | ${areaSignal} 직주근접 |\n| **소규모 개발업체** | △ 검토 | 밸류업 후 매각 시나리오 |`;
       }
 
       // [E1] 권역 시세 벤치마킹 삽입
