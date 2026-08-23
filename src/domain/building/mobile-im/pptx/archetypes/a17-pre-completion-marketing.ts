@@ -58,10 +58,7 @@ export function buildA17PreCompletionMarketing(input: ArchetypeInput): Archetype
   });
 
   const stackingRows = input.data.stackingPlan || [
-    { floor: '5F~6F', usage: '업무시설 (Office)', area: '약 120평', tenant: '사옥 / 전문직 법인' },
-    { floor: '2F~4F', usage: '근린생활시설 (Clinic)', area: '약 180평', tenant: '병원·의원 / 학원' },
-    { floor: '1F', usage: '근린생활시설 (Retail)', area: '약 50평', tenant: 'F&B / 플래그십 스토어' },
-    { floor: 'B1F', usage: '주차 및 부속시설', area: '약 80평', tenant: '자주식/기계식 주차' },
+    { floor: '-', usage: '스태킹 플랜 데이터 필요', area: '-', tenant: '-' },
   ];
 
   const stackingHeaders = ['층수', '권장 용도', '전용 면적', '타깃 임차'];
@@ -115,20 +112,22 @@ export function buildA17PreCompletionMarketing(input: ArchetypeInput): Archetype
     onDark,
   });
 
-  // ── 한시 규제 완화 기한 경고 배너 ──
-  const expiry = input.data.regulationExpiry || '2028-05-18';
-  const daysLeft = input.data.regulationDaysLeft ?? 630;
+  // ── 한시 규제 완화 기한 경고 배너 (데이터 제공 시에만 표시) ──
+  const expiry = input.data.regulationExpiry || null;
+  const daysLeft = input.data.regulationDaysLeft ?? null;
 
-  L.callout(
-    slide,
-    rightX + 0.25,
-    y + 3.10,
-    colW - 0.5,
-    1.40,
-    'warn',
-    `⏳ 한시적 용적률 완화 기한: ${expiry} (잔여 ${daysLeft}일)`,
-    '• 건축허가 접수일 기준 한시적 인센티브가 적용되므로 인허가 타임라인 준수 필수\n• 인허가 지연 시 기준 용적률로 회귀할 위험에 대한 사전 인허가 사전심의 필요'
-  );
+  if (expiry && daysLeft != null) {
+    L.callout(
+      slide,
+      rightX + 0.25,
+      y + 3.10,
+      colW - 0.5,
+      1.40,
+      'warn',
+      `⏳ 한시적 용적률 완화 기한: ${expiry} (잔여 ${daysLeft}일)`,
+      '• 건축허가 접수일 기준 한시적 인센티브가 적용되므로 인허가 타임라인 준수 필수\n• 인허가 지연 시 기준 용적률로 회귀할 위험에 대한 사전 인허가 사전심의 필요'
+    );
+  }
 
   if (input.watermarkText) L.watermark(slide, input.watermarkText, onDark);
   L.foot(slide, input.slideNum, input.docno, onDark);

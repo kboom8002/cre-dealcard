@@ -99,9 +99,9 @@ export function buildA16InvestmentStructure(input: ArchetypeInput): ArchetypeOut
   });
 
   const ltvScenarios = input.data.ltvScenarios || [
-    { ltvPct: 0, equityBil: priceBil, yieldPct: input.data.grossYieldPct ?? 4.0, note: '전액 자기자본' },
-    { ltvPct: 40, equityBil: (parseFloat(priceBil) * 0.6).toFixed(1), yieldPct: 4.5, note: '보수적 차입' },
-    { ltvPct: 50, equityBil: (parseFloat(priceBil) * 0.5).toFixed(1), yieldPct: 4.8, note: '표준 차입' },
+    { ltvPct: 0, equityBil: priceBil, yieldPct: input.data.grossYieldPct ?? null, note: '전액 자기자본' },
+    { ltvPct: 40, equityBil: (parseFloat(priceBil) * 0.6).toFixed(1), yieldPct: null, note: '보수적 차입' },
+    { ltvPct: 50, equityBil: (parseFloat(priceBil) * 0.5).toFixed(1), yieldPct: null, note: '표준 차입' },
   ];
 
   const ltvTableHead = ['구분', '대출비율', '실투자금', '예상수익률'];

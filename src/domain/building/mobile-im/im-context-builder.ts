@@ -207,7 +207,11 @@ export async function buildIMContext(
     : vacancyStr.includes("전체 공실") || vacancyStr.includes("올공실") ? 100
     : vacancyStr.includes("공실") ? 30
     : vacancyStr.match(/(\d+)\s*%/) ? parseInt(vacancyStr.match(/(\d+)\s*%/)![1], 10)
-    : 0;
+    : null;
+  if (vacancyPct == null) {
+    console.warn('[im-context-builder] 공실률 데이터 미확보 — 재무 추정치에 공실률 미반영');
+    vacancyPct = 0; // 계산 진행을 위해 0 사용하되, 로그로 명시
+  }
 
   if (supplemental.monthly_rent_total_krw && supplemental.monthly_rent_total_krw > 0 && purchasePriceForGuard > 0) {
     try {
@@ -221,7 +225,7 @@ export async function buildIMContext(
         purchasePriceKrw: purchasePriceForGuard,
         currentVacancyPct: vacancyPct,
         currentMonthlyRentKrw: monthlyRent,
-        totalAreaSqm: totalAreaForGuard > 0 ? totalAreaForGuard : 500,
+        totalAreaSqm: totalAreaForGuard > 0 ? totalAreaForGuard : (() => { console.warn('[im-context-builder] 연면적 데이터 미확보 — value-add 추정 정확도 저하'); return 1; })(),
         assetType: String(assetIdentity.asset_type ?? ""),
       });
       valueAddMarkdown = vaResult.markdownTable;

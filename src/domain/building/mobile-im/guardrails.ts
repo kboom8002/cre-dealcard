@@ -396,7 +396,7 @@ const TOKEN_HUMANIZATION: Record<string, Record<OutputChannel, string>> = {
   '[연락처 비공개]':          { public: '문의처',       institutional: '중개 문의',  internal: '(비공개)' },
   '[이메일 비공개]':          { public: '문의처',       institutional: '중개 문의',  internal: '(비공개)' },
   '[지역 신호로 대체됨]':     { public: '해당 권역',    institutional: '해당 권역',  internal: '(비공개)' },
-  '[임차인 업종 정보로 대체됨]': { public: '주요 임차 업종', institutional: '주요 우량 임차인', internal: '(비공개)' },
+  '[임차인 업종 정보로 대체됨]': { public: '주요 임차 업종', institutional: '주요 임차인', internal: '(비공개)' },
   '[임대수익 존재, 상세 내용 비공개]': { public: '임대 수익 발생 확인', institutional: '임대 수익 존재 (NDA)', internal: '(비공개)' },
   '[매도자 사정 비공개]':     { public: '매도 사유 비공개', institutional: '매도 사유 비공개', internal: '(비공개)' },
   '[내부 협상 메모 비공개]':  { public: '',              institutional: '',           internal: '(비공개)' },

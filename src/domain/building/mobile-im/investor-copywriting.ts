@@ -51,8 +51,8 @@ export function generateInvestorCopyBlock(params: InvestorCopyParams): InvestorC
 
   switch (posture) {
     case 'income': {
-      const landRatio = landValueRatio ?? financials?.landValueRatio ?? 65;
-      const leveragedYield = financials?.leveragedYield ?? 4.5;
+      const landRatio = landValueRatio ?? financials?.landValueRatio ?? null;
+      const leveragedYield = financials?.leveragedYield ?? null;
       const equityReq = financials?.equityRequired ? `약 ${financials.equityRequired}억 원` : '대출 조건 연동';
       const monthlyNet = financials?.annualNoi?.base 
         ? `월 약 ${Math.round(financials.annualNoi.base / 12 / 10000).toLocaleString()}만원` 
@@ -61,10 +61,10 @@ export function generateInvestorCopyBlock(params: InvestorCopyParams): InvestorC
       return {
         headline: `${areaSignal} 안정 임대수익형 핵심 자산 (매매가 ${priceBand})`,
         investmentPoints: [
-          `토지 지분 가치 비중 ${landRatio}% 수준으로 원금 하방 경직성 및 자산 안전성 확보`,
+          landRatio !== null ? `토지 지분 가치 비중 ${landRatio}% 수준으로 원금 하방 경직성 및 자산 안전성 확보` : null,
           `우량 임차인 기반 공실 리스크 최소화 및 ${monthlyNet} 수준의 예측 가능한 월 현금흐름`,
-          `선순위 대출 및 보증금 레버리지 활용 시 자기자본수익률(내 돈 대비 연 수익률) ${leveragedYield}% 추정`,
-        ],
+          leveragedYield !== null ? `선순위 대출 및 보증금 레버리지 활용 시 자기자본수익률(내 돈 대비 연 수익률) ${leveragedYield}% 추정` : null,
+        ].filter(Boolean) as [string, string, string],
         keyRisk: vacancyPct && vacancyPct > 10 
           ? `일부 공실(${vacancyPct}%) 발생 → 전속 MD 개편 및 렌트프리 협의를 통해 조기 만실화 추진` 
           : '향후 금리 변동 리스크 → 고정금리 대출 승계 및 임대료 물가연동 인상 조항 검토 권장',
@@ -82,7 +82,7 @@ export function generateInvestorCopyBlock(params: InvestorCopyParams): InvestorC
         : '연간 수억 원 수준';
       const breakeven = financials?.breakevenYears 
         ? `약 ${financials.breakevenYears}년` 
-        : '약 7~8년';
+        : '산출 불가 (데이터 부족)';
 
       return {
         headline: `${areaSignal} 법인 본사 사옥 실입주 최적화 자산 (기업 위상 제고)`,
@@ -104,7 +104,7 @@ export function generateInvestorCopyBlock(params: InvestorCopyParams): InvestorC
       const targetGain = financials?.targetCapitalGainBil 
         ? `약 ${financials.targetCapitalGainBil}억 원` 
         : '수십억 원 대 차익';
-      const hpr = financials?.targetHprPct ? `${financials.targetHprPct}%` : '25~35%';
+      const hpr = financials?.targetHprPct ? `${financials.targetHprPct}%` : '산출 불가';
 
       return {
         headline: `${areaSignal} 권역 실거래 대비 ${discount} 밸류업 매각 대상 자산`,
@@ -118,7 +118,7 @@ export function generateInvestorCopyBlock(params: InvestorCopyParams): InvestorC
     }
 
     case 'development': {
-      const devProfit = financials?.devProfitMarginPct ? `${financials.devProfitMarginPct}%` : '18~25%';
+      const devProfit = financials?.devProfitMarginPct ? `${financials.devProfitMarginPct}%` : '산출 불가';
       const landPyeong = financials?.landPricePerPyeong 
         ? `평당 ${financials.landPricePerPyeong.toLocaleString()}만원` 
         : '경쟁력 있는 평당 토지가';
@@ -135,7 +135,7 @@ export function generateInvestorCopyBlock(params: InvestorCopyParams): InvestorC
     }
 
     case 'operating': {
-      const gopMargin = financials?.gopMarginPct ? `${financials.gopMarginPct}%` : '35%';
+      const gopMargin = financials?.gopMarginPct ? `${financials.gopMarginPct}%` : '산출 불가';
       const annualGop = financials?.annualGopBil ? `약 ${financials.annualGopBil}억 원` : '연간 우량 영업이익';
       const revpar = financials?.revparKrw 
         ? `RevPAR ${(financials.revparKrw / 10000).toFixed(1)}만원` 

@@ -101,7 +101,7 @@ function buildHtmlExport({
   const capRate = heroCard.capRateBase ? `${heroCard.capRateBase}%` : '-';
   const area = heroCard.grossAreaPyeong ? `${heroCard.grossAreaPyeong}평` : (heroCard.areaPyeong ? `${heroCard.areaPyeong}평` : '-');
   const vacancy = heroCard.vacancy || '-';
-  const grade = heroCard.grade || 'B등급';
+  const grade = heroCard.grade || '미등급';
 
   const sectionHtml = sections
     .map(

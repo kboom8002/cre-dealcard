@@ -145,7 +145,7 @@ export function bindSectionData(
         content: cleanMarkdown,
         tables,
         metrics,
-        confidence: section.confidence || '전문가검증',
+        confidence: section.confidence || '미확인',
         boundaryNote: section.boundary_note,
         ...props
       };
@@ -327,7 +327,7 @@ function buildA13Props(markdown: string, tables: ParsedTable[], lines: string[])
   }
 
   const highlight = lines.find(l => l.startsWith('>'))?.replace(/^>\s*/, '') ||
-    '대기업 장기 책임임차(Master Lease) 및 첨단 설비 스펙을 바탕으로 공실 리스크 없는 안정적인 운영 성과를 확보하고 있습니다.';
+    '상세 투자 포인트 및 자산 분석 내용은 IM 본문을 참조하시기 바랍니다.';
 
   return {
     subtitle,
@@ -687,7 +687,7 @@ function buildA07Props(tables: ParsedTable[], lines: string[]): Record<string, a
   if (blocks.length === 0) {
     let currentHeader = '';
     let currentBullets: string[] = [];
-    const defaultStatusBadges = ['정밀안전 A등급', '임대차 안정', '권리관계 투명', '설비 양호', '법적 적격'];
+    const defaultStatusBadges: string[] = [];
 
     for (const line of lines) {
       if (line.startsWith('###')) {
@@ -939,9 +939,9 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
       const area = heroCard.areaSignal || '핵심권역';
       const ask = heroCard.priceBand || (heroCard.askingPriceManwon ? `${(heroCard.askingPriceManwon / 10000).toFixed(0)}억대` : '시장 적정가');
       keyPoints.push(
-        `원금 안전판: ${area} 핵심 입지 및 우량 대지 지분 가치로 하방 경직성 확보`,
-        `수익 안정성: 매매 ${ask} 수준 대비 안정적 월 임대수익 창출 기반`,
-        `미래 가치: 향후 권역 지가 상승 및 공법상 밸류업을 통한 자본이득 실현 가능`
+        `입지 분석: ${area} 소재 자산의 입지 특성 및 대지 지분 가치 확인 필요`,
+        `수익 구조: 매매 ${ask} 수준 대비 임대수익 현황 분석 필요`,
+        `향후 검토: 권역 개발 동향 및 공법상 변경 가능성 확인 필요`
       );
     }
   }

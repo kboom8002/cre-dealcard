@@ -80,17 +80,17 @@ export function generatePremiumTemplate(
   const floorsStr   = String(physicalFact.floors || "");
   const floorsAbove = br?.floorsAbove || (floorsStr.includes("지상") ? parseInt(floorsStr.split("지상")[1]) || 0 : 0);
   const floorsBelow = br?.floorsBelow || (floorsStr.includes("지하") ? parseInt(floorsStr.split("지하")[1]) || 0 : 0);
-  const zoningDistrict = lu?.zoningDistrict || String(physicalFact.zoning_district || physicalFact.zoningDistrict || "제3종일반주거지역");
+  const zoningDistrict = lu?.zoningDistrict || String(physicalFact.zoning_district || physicalFact.zoningDistrict || "확인 필요");
   const useAprDay  = br?.useAprDay || String(physicalFact.build_year || physicalFact.buildYear || "");
-  const structure  = br?.structure || String(physicalFact.structure || "철근콘크리트구조");
-  const mainPurpose = br?.mainPurpose || String(physicalFact.main_purpose || physicalFact.assetType || "근린생활시설");
+  const structure  = br?.structure || String(physicalFact.structure || "확인 필요");
+  const mainPurpose = br?.mainPurpose || String(physicalFact.main_purpose || physicalFact.assetType || "확인 필요");
   const useAprYear = useAprDay ? String(useAprDay).substring(0, 4) : "";
   const buildingAge = useAprYear ? new Date().getFullYear() - parseInt(useAprYear, 10) : 0;
   const templateAskingKrw = supplemental.asking_price_manwon
     ? supplemental.asking_price_manwon * 10000 : 0;
   const purchasePrice = templateAskingKrw || parsePriceBandKrw(assetIdentity.price_band);
   const monthlyRent   = supplemental.monthly_rent_total_krw || 0;
-  const elevatorCount = Number(br?.elevatorCount || physicalFact.elevator_count || physicalFact.elevatorCount || 1);
+  const elevatorCount = Number(br?.elevatorCount || physicalFact.elevator_count || physicalFact.elevatorCount || 0);
   const parkingCount  = Number(br?.parkingCount || physicalFact.parking_count || physicalFact.parkingCount || 0);
 
   switch (sectionType) {
@@ -100,7 +100,7 @@ export function generatePremiumTemplate(
       const platPyeong  = platAreaPyung > 0 ? `${platAreaPyung.toFixed(1)}평` : (platArea  > 0 ? `약 ${(platArea  * 0.3025).toFixed(0)}평` : "-");
       const priceStr    = String(assetIdentity.price_band ?? "가격 미정");
       const areaStr     = String(assetIdentity.area_signal ?? "비공개 권역");
-      const assetType   = String(assetIdentity.asset_type  ?? "근린생활시설");
+      const assetType   = String(assetIdentity.asset_type  ?? "상업용 자산");
 
       const overviewRows = [
         `| **소재지** | ${areaStr} |`,
@@ -210,9 +210,9 @@ ${infra}
             const rolloverFlag = wale.atRiskRentPct12m > 30
               ? "🔴 **12개월 내 만기 집중 위험** — 임대차 갱신 협상 조기 시작 권고"
               : wale.atRiskRentPct12m > 15
-              ? "🟡 12개월 내 만기 화입 제공 좌약 없음 — 계약 현황 확인 권장"
-              : "🟢 단기 만기 위험 낙음";
-            rentRollTable += `\n### 임대 안정성 지표 (AI 산쳙)\n| 지표 | 값 | 비고 |\n|------|-----|------|\n| **WALE (임대료 가중)** | **${wale.waleByRentYears.toFixed(1)}년** | 가중평균 임대만료기간 |\n| **WALE (면적 가중)** | **${wale.waleByAreaYears.toFixed(1)}년** | 면적 기준 |\n| **12개월 내 만기 비중** | **${wale.atRiskRentPct12m.toFixed(0)}%** | ${rolloverFlag} |`;
+              ? "🟡 12개월 내 만기 도래 비중 있음 — 임대차 계약 현황 확인 권장"
+              : "🟢 단기 만기 위험 낮음";
+            rentRollTable += `\n### 임대 안정성 지표 (AI 산출)\n| 지표 | 값 | 비고 |\n|------|-----|------|\n| **WALE (임대료 가중)** | **${wale.waleByRentYears.toFixed(1)}년** | 가중평균 임대만료기간 |\n| **WALE (면적 가중)** | **${wale.waleByAreaYears.toFixed(1)}년** | 면적 기준 |\n| **12개월 내 만기 비중** | **${wale.atRiskRentPct12m.toFixed(0)}%** | ${rolloverFlag} |`;
           }
         } catch (e) {
           console.warn("[writer] WALE/lease-adapter failed:", e);
@@ -408,14 +408,14 @@ ${tableRows}
         }
       }
 
-      const valueProposition = `> 💡 **종합 가치 제안**: ${areaSignal ? `${areaSignal} 핵심 상권의 희소성 높은 우량 자산으로, ` : ''}안정적인 임대 수익과 향후 공법상 밸류업 및 권역 지가 상승에 따른 자본 이득(Capital Gain)을 동시에 실현할 수 있는 전략적 매물입니다.`;
+      const valueProposition = `> 💡 **종합 가치 제안**: ${areaSignal ? `${areaSignal} 소재 ${assetType}으로, 입지 및 자산 특성에 대한 상세 분석은 본문을 참조하시기 바랍니다.` : '본 자산의 투자 매력 및 리스크 요인에 대한 상세 분석은 본문을 참조하시기 바랍니다.'}`;
 
       return `${valueProposition}
 
 ### 3대 핵심 투자 포인트 (Investment Highlights)
 
-• **원금 안전판 확보**: ${fitSummary || `${areaSignal} 권역의 핵심 입지로, 우량한 대지 지분 가치가 하방 경직성을 강력히 지지합니다.`}
-• **확실한 월 현금흐름**: 우량 테넌트 만실 운영 및 장기 임대차 구조를 기반으로 매월 안정적인 순영업소득(NOI) 창출이 기대됩니다.
+• **원금 안전판 확보**: ${fitSummary || `${areaSignal} 권역의 핵심 입지로, 대지 지분 가치 및 입지 경쟁력에 대한 분석은 자산 개요 섹션을 참조하시기 바랍니다.`}
+• **확실한 월 현금흐름**: 임대차 현황 및 공실률을 반영한 순영업소득(NOI) 분석은 수익분석 섹션을 참조하시기 바랍니다.
 • **가치 상승 및 출구 전략**: 현행 공법 여력을 활용한 밸류업 기회와 더불어 향후 권역 지가 상승에 따른 시세차익 실현이 유력합니다.
 ${compsLine}${benchmarkBlock}
 ### 예상 매수자 유형 (AI 분석)
@@ -432,10 +432,9 @@ ${buyerTable}`;
 ### 입주 적합성 지표
 | 평가 항목 | 스펙 분석 | 비고 |
 |-----------|-----------|------|
-| **수용 가능 인원** | 약 50~150명 수용 가능 | 1인당 5~7평 기준 |
-| **층별 독점성** | 전층 단독 사용 구조 | 보안 및 브랜딩 유리 |
+${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaPyung / 7)}~${Math.floor(totalAreaPyung / 5)}명 수용 가능 (전용면적 기준 추정) | 1인당 5~7평 기준 |\n` : ''}| **층별 독점성** | 층별 사용 구조 확인 필요 | 보안 및 브랜딩 유리 |
 | **주차 및 접근성** | 지상/지하 주차 및 대중교통 우수 | 임직원 출퇴근 편의 |
-| **파사드 브랜딩** | 사옥 전면 간판 설치 가능 | 기업 인지도 제고 |
+| **파사드 브랜딩** | 건물 외벽 사인물 가능 여부 확인 필요 | 기업 인지도 제고 |
 
 > 💡 사옥 이전 시 브랜딩 가치 향상 및 장기 사옥 소요 충족이 가능합니다.`;
     }
@@ -452,7 +451,7 @@ ${buyerTable}`;
 | **자산 가치** | 비용 소멸 | 건물/토지 가치 상승 유인 | **자본 이득 형성** |
 | **세제 혜택** | 임대료 손비 처리 | 감가상각 및 이자 비용 처리 | **법인세 절감** |
 
-> 💡 임차 대비 연간 수억 원 수준의 임대료 절감 및 투자금 회수가 기대됩니다.`;
+> 💡 임차 대비 자가 매입 시 비용 절감 효과에 대한 분석이 필요합니다.`;
     }
 
     // ─── development 전용 섹션 ──────────────────────────────────────────────
@@ -467,7 +466,7 @@ ${buyerTable}`;
 | **대지면적** | ${platArea ? `${platArea}㎡` : "-"} | ${platPyeong} |
 | **용도지역** | ${zoningDistrict} | 법정 건폐율/용적률 상한 적용 |
 | **명도 상태** | 기존 건물 임차인 현황 | 착공 전 명도 협의 필요 |
-| **개발 잠재력** | 신축 시 연면적 증대 가능 | 상업/업무 시설 기획 가능 |
+| **개발 잠재력** | 잔여 용적률 및 건축 가능 연면적 확인 필요 | 상업/업무 시설 기획 가능 |
 
 > 📋 건축물대장 및 토지이용계획확인서 기준 | 신축 설계 검토 필요`;
     }
@@ -482,7 +481,7 @@ ${buyerTable}`;
 | **토지 매입비** | 희망가 기준 | 사업비 내 비중 산출 |
 | **추정 신축 공사비** | 평당 공사비 산정 | 신축 연면적 기준 |
 | **예상 총 사업비** | 토지비 + 공사비 + 금융/기타 | 총 투자금 |
-| **예상 개발 이익률** | **15% ~ 25% 수준** | 시장 상황 연동 |
+| **예상 개발 이익률** | **산출 불가 (사업비 데이터 부족)** | 시장 상황 연동 |
 
 > ⚠️ 신축 공사비 및 분양가 변동에 따라 최종 수익률이 달라질 수 있습니다.`;
     }
@@ -541,7 +540,7 @@ ${buyerTable}`;
 |------|-----------|------|
 | **목표 매각가** | 주변 시세 상단 추정 | 리밸런싱 타겟 |
 | **목표 시세차익** | 매수 희망가 대비 갭 | 자본 이득 |
-| **목표 보유기간 수익률 (HPR)** | **10% ~ 20%** | 보유 기간 2~3년 가정 |
+| **목표 보유기간 수익률 (HPR)** | **산출 불가 (매도가 데이터 부족)** | 보유 기간 2~3년 가정 |
 
 > 💡 리모델링 또는 밸류업 후 단기 매각(Trading)을 통한 Capital Gain 실현 시나리오입니다.`;
     }
