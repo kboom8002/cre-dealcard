@@ -1,0 +1,29 @@
+{
+  "fixtureId": "sutaek",
+  "maskNote": "나대지 · 명도 개념 없음",
+  "asset": {
+    "assetId": "FX-ST-001",
+    "addressBand": "경기도 구리시 수택동",
+    "assetType": "land",
+    "totalFloorAreaSqm": null
+  },
+  "posture": "development",
+  "devMode": "sale",
+  "vacateResponsibility": "buyer",
+  "financial": {
+    "targetFarPct": null
+  },
+  "ledger": {
+    "asOf": null,
+    "rows": []
+  },
+  "expect": {
+    "ledgerRows": 0,
+    "resolution": "R0",
+    "minResolutionRequired": "R3",
+    "feasibilitySectionHidden": true,
+    "deficiencyFields": [
+      "targetFarByZoning"
+    ]
+  }
+}

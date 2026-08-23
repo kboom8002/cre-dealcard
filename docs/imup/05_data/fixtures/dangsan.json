@@ -1,0 +1,228 @@
+{
+  "fixtureId": "dangsan",
+  "maskNote": "상호 마스킹(약국A 등) · 업종 유지 · 물건명 제외",
+  "asset": {
+    "assetId": "FX-DS-001",
+    "addressBand": "서울특별시 영등포구 당산동5가",
+    "buildingUse": "제2종근린생활시설",
+    "assetType": "small_building",
+    "totalFloorAreaSqm": null
+  },
+  "posture": "income",
+  "financial": {
+    "priceKrw": 11500000000,
+    "depositKrw": 290000000,
+    "monthlyRentKrw": 19460000,
+    "mgmtFeeKrw": null,
+    "opexKrw": null,
+    "loanKrw": null,
+    "loanRate": null,
+    "brokerFeeKrw": null,
+    "otherCostKrw": null
+  },
+  "ledger": {
+    "asOf": "2025-05-01",
+    "statedTotalAreaSqm": 1141.15,
+    "statedMonthlyRent": 19460000,
+    "rows": [
+      {
+        "unitLabel": "B1",
+        "contractGroup": null,
+        "leaseAreaSqm": 317.22,
+        "tenantBusiness": "카페",
+        "legalBasis": "미확인",
+        "depositKrw": null,
+        "monthlyRentKrw": null,
+        "mgmtFeeKrw": null,
+        "firstContractDate": null,
+        "currentStartDate": null,
+        "currentExpiryDate": null,
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "자가사용",
+        "note": "소유자 직접 운영"
+      },
+      {
+        "unitLabel": "1F",
+        "contractGroup": "A",
+        "leaseAreaSqm": 78.39,
+        "tenantBusiness": "약국",
+        "legalBasis": "상가",
+        "depositKrw": 60000000,
+        "monthlyRentKrw": 1830000,
+        "mgmtFeeKrw": null,
+        "firstContractDate": null,
+        "currentStartDate": null,
+        "currentExpiryDate": "2026-08-31",
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "임대중",
+        "note": null
+      },
+      {
+        "unitLabel": "1F",
+        "contractGroup": "B",
+        "leaseAreaSqm": 105.6,
+        "tenantBusiness": "의원",
+        "legalBasis": "상가",
+        "depositKrw": 140000000,
+        "monthlyRentKrw": 8830000,
+        "mgmtFeeKrw": null,
+        "firstContractDate": null,
+        "currentStartDate": null,
+        "currentExpiryDate": "2026-08-31",
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "임대중",
+        "note": "1F+2F 통합계약 · 금액은 대표 행"
+      },
+      {
+        "unitLabel": "2F",
+        "contractGroup": "B",
+        "leaseAreaSqm": 252.09,
+        "tenantBusiness": "의원",
+        "legalBasis": "상가",
+        "depositKrw": null,
+        "monthlyRentKrw": null,
+        "mgmtFeeKrw": null,
+        "firstContractDate": null,
+        "currentStartDate": null,
+        "currentExpiryDate": "2026-08-31",
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "임대중",
+        "note": "B그룹 · 금액은 1F 행"
+      },
+      {
+        "unitLabel": "3F",
+        "contractGroup": "C",
+        "leaseAreaSqm": 252.09,
+        "tenantBusiness": "헬쓰장",
+        "legalBasis": "상가",
+        "depositKrw": 50000000,
+        "monthlyRentKrw": 4550000,
+        "mgmtFeeKrw": null,
+        "firstContractDate": null,
+        "currentStartDate": null,
+        "currentExpiryDate": "2026-04-17",
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "임대중",
+        "note": null
+      },
+      {
+        "unitLabel": "4F",
+        "contractGroup": "D",
+        "leaseAreaSqm": 169.06,
+        "tenantBusiness": "주류판매",
+        "legalBasis": "상가",
+        "depositKrw": 30000000,
+        "monthlyRentKrw": 2600000,
+        "mgmtFeeKrw": null,
+        "firstContractDate": null,
+        "currentStartDate": null,
+        "currentExpiryDate": "2025-04-30",
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "임대중",
+        "note": "IM 작성 시점에 이미 만료"
+      },
+      {
+        "unitLabel": "4F",
+        "contractGroup": null,
+        "leaseAreaSqm": 83.03,
+        "tenantBusiness": null,
+        "legalBasis": "미확인",
+        "depositKrw": null,
+        "monthlyRentKrw": null,
+        "mgmtFeeKrw": null,
+        "firstContractDate": null,
+        "currentStartDate": null,
+        "currentExpiryDate": null,
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "자가사용",
+        "note": "임대 전환 대상"
+      },
+      {
+        "unitLabel": "5F",
+        "contractGroup": "E",
+        "leaseAreaSqm": 183.67,
+        "tenantBusiness": "의원",
+        "legalBasis": "상가",
+        "depositKrw": 10000000,
+        "monthlyRentKrw": 1650000,
+        "mgmtFeeKrw": null,
+        "firstContractDate": null,
+        "currentStartDate": null,
+        "currentExpiryDate": "2026-08-31",
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "임대중",
+        "note": "별도 계약"
+      }
+    ]
+  },
+  "attachedDocs": [],
+  "expect": {
+    "ledgerRows": 8,
+    "sumAreaSqm": 1441.15,
+    "areaGapSqm": 300.0,
+    "sumDepositKrw": 290000000,
+    "sumMonthlyRentKrw": 19460000,
+    "liveRows": 6,
+    "selfUseRows": 2,
+    "vacantRows": 0,
+    "vacancyPct": 0.0,
+    "resolution": "R1",
+    "yields": {
+      "gross_price": 2.03,
+      "gross_price_deposit": 2.08
+    },
+    "noiBasesAbsent": true,
+    "equity": {
+      "acquisitionTax": 529000000,
+      "brokerFee": 103500000,
+      "totalAcquisitionCost": 12132500000,
+      "equityNoLoan": 11842500000
+    },
+    "ltv": [
+      {
+        "ltv": 0.0,
+        "loan": 0,
+        "equity": 11842500000,
+        "monthlyNet": 19460000,
+        "roe": 1.97
+      },
+      {
+        "ltv": 0.4,
+        "loan": 4600000000,
+        "equity": 7242500000,
+        "monthlyNet": 2210000,
+        "roe": 0.37
+      },
+      {
+        "ltv": 0.5,
+        "loan": 5750000000,
+        "equity": 6092500000,
+        "monthlyNet": -2102500,
+        "roe": -0.41
+      }
+    ],
+    "negativeLeverage": true,
+    "gatesBlocking": [
+      "C19"
+    ],
+    "gatesWarning": [
+      "G18"
+    ],
+    "contractGroups": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "archetypeA03Slides": 1
+  }
+}

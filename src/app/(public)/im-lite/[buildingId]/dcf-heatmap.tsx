@@ -90,13 +90,13 @@ export function DCFHeatmap({ dcfOutputs, waccBase }: DCFHeatmapProps) {
         <table className="w-full min-w-[280px] border-collapse text-center text-xs">
           <thead>
             <tr>
-              <th className="p-1 text-[10px] font-normal text-neutral-500">
+              <th className="p-1 text-xs font-normal text-neutral-500">
                 할인율 ＼ Exit
               </th>
               {capLabels.map((label, i) => (
                 <th
                   key={i}
-                  className={`p-1 text-[10px] font-medium ${
+                  className={`p-1 text-xs font-medium ${
                     i === 1 ? "text-sky-400" : "text-neutral-400"
                   }`}
                 >
@@ -123,7 +123,7 @@ export function DCFHeatmap({ dcfOutputs, waccBase }: DCFHeatmapProps) {
               <tr key={ri}>
                 {/* 행 헤더: 할인율 */}
                 <td
-                  className={`p-1 text-[10px] font-medium whitespace-nowrap ${
+                  className={`p-1 text-xs font-medium whitespace-nowrap ${
                     ri === 1 ? "text-sky-400" : "text-neutral-400"
                   }`}
                 >
@@ -166,7 +166,7 @@ export function DCFHeatmap({ dcfOutputs, waccBase }: DCFHeatmapProps) {
       </div>
 
       {/* 범례 */}
-      <div className="mt-3 flex items-center gap-3 text-[10px] text-neutral-500">
+      <div className="mt-3 flex items-center gap-3 text-xs text-neutral-500">
         <span className="flex items-center gap-1">
           <span className="inline-block h-2 w-2 rounded-sm bg-emerald-600" />
           NPV &gt; 0

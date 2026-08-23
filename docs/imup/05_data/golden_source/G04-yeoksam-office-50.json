@@ -1,0 +1,45 @@
+{
+  "goldenId": "G04-yeoksam-office-50",
+  "grade": "A",
+  "posture": "owner_occupied",
+  "source": {
+    "url": "https://dbritz.kr/gangnam-building-sale/?bmode=view&idx=172569313",
+    "harvestedAt": "2026-08-23",
+    "publisher": "DBRITZ",
+    "kind": "공개 매물 기사"
+  },
+  "addressBand": "서울특별시 강남구 역삼동",
+  "facts": {
+    "priceKrw": 5000000000,
+    "landSqm": null,
+    "landPyeong": 78.59,
+    "grossFloorSqm": null,
+    "grossFloorPyeong": 105.86,
+    "floors": "지하 1층 ~ 지상 2층",
+    "buildingAgeYears": 33,
+    "zoning": "제3종일반주거지역",
+    "bcrPct": null,
+    "farPct": null,
+    "transit": "언주역 인근",
+    "roadCondition": "소로한면",
+    "elevator": 0,
+    "landPerPyeongKrw": 63620000,
+    "priorDeal": {
+      "date": "2026-04-29",
+      "priceKrw": 4150000000
+    },
+    "priorDeal2": {
+      "date": "2022-04",
+      "priceKrw": 4500000000
+    },
+    "remodeled": "있음 (시점·범위 미확인)",
+    "leaseState": "임대중 (보증금·월세·계약기간 미공개)"
+  },
+  "deficiencies": [
+    "건폐율·용적률",
+    "보증금·월세·계약기간",
+    "리모델링 공사 범위·시점",
+    "3개월 만의 +20.5% 가격 상승 근거"
+  ],
+  "teachingPoint": "단기 재매각 호가 검증 · 용적률 자료 없으면 신축 사업성 단정 금지"
+}

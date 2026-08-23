@@ -2,6 +2,7 @@
 // 퓨샷 품질 피드백 루프 및 상관관계 분석 모듈
 
 import { createServiceClient } from "@/lib/supabase/service";
+import { sanitizePersona, stripMarkdown } from './pptx/data-binder';
 
 export interface FewShotUsageInput {
   generationId: string;
@@ -177,7 +178,9 @@ export async function promoteToGoldenCandidate(
       price_band:    priceBand,
       section_type:  sectionType,
       posture:       posture,
-      markdown:      markdown.slice(0, 2000),
+      markdown:      stripMarkdown(sanitizePersona(markdown)).slice(0, 2000),
+      markdown_raw:  markdown.slice(0, 4000),
+      grade:         judgeScore >= 4.5 ? 'S' : 'A',
       judge_score:   judgeScore,
       was_edited:    false,
       source_type:   'auto_approve',

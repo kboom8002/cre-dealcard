@@ -1,6 +1,10 @@
+// src/domain/building/mobile-im/pptx/archetypes/a07-three-block.ts
+// A07: 3-블록 리스크 실사 (Three Block Risk Assessment) 아키타입
+// Spec: Phase 4.1 리스크 체크를 위한 3개의 시각적 섹션 디자인 전면 개편
+
 import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
-import { C, M, CW, KR, NUM, CD, THEME_META } from '../imlib';
+import { C, M, CW, KR, CD, THEME_META } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 
 export interface ArchetypeInput {
@@ -22,56 +26,93 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
   const onDark = input.data.onDark === true;
   const slide = onDark ? L.dark(input.pres) : L.light(input.pres);
   const warnings: string[] = [];
-  
+
+  const kicker = input.data.kicker || 'DUE DILIGENCE & RISK';
+  const title = input.data.title || '핵심 투자 리스크 및 권리·물리 실사 점검';
+
   if (onDark) {
-    L.headD(slide, input.slideNum, input.data.kicker || 'SECTION', input.data.title || '제목');
+    L.headD(slide, input.slideNum, kicker, title);
   } else {
-    L.head(slide, input.slideNum, input.data.kicker || 'SECTION', input.data.title || '제목');
+    L.head(slide, input.slideNum, kicker, title);
   }
-  
-  const gap = 0.30;
-  const blocks = input.data.blocks || [];
-  const blockCount = Math.min(blocks.length || 3, 5);
+
+  const gap = 0.28;
+  let blocks = input.data.blocks || [];
+
+  // 기본 3개 시각적 리스크 섹션 기본값 제공 (데이터 부재 시에도 체계적 프레임워크 표시)
+  if (blocks.length === 0) {
+    blocks = [
+      {
+        label: '1. 법적·공법 규제',
+        value: input.data.legalStatus || '위반건축물 및 규제 점검',
+        description: '• 건축물대장상 위반건축물 등재 여부 확인\n• 지구단위계획 및 용도지역 행위제한 점검\n• 도로접면 및 건축선 후퇴 필요 여부',
+      },
+      {
+        label: '2. 임대차·명도 리스크',
+        value: input.data.leaseStatus || '상임법 10년 및 대항력 점검',
+        description: '• 상가임대차보호법상 10년 갱신요구권 행사 현황\n• 임차인 대항력 및 우선변제권 유무 확인\n• 명도 합의 가능성 및 리모델링/재건축 타임라인',
+      },
+      {
+        label: '3. 물리적·시설 현황',
+        value: input.data.physicalStatus || '설비 노후도 및 구조 안전',
+        description: '• 승강기, 기계식 주차장 정기검사 합격 여부\n• 누수, 외벽 균열 및 주요 구조체 노후도 점검\n• 전기/수도 인입 용량 및 정화조 용량 충족 여부',
+      },
+    ];
+  }
+
+  const blockCount = Math.min(blocks.length, 3);
   const w = L.col(blockCount, gap);
-  const h = 3.95;
+  const h = 4.00;
   const y = 1.55;
-  // 블록 4~5개 시 폰트 축소
-  const headerFs = blockCount <= 3 ? 13.5 : (blockCount === 4 ? 12.5 : 11.5);
-  const valFs = blockCount <= 3 ? 13.5 : (blockCount === 4 ? 12.5 : 11.5);
-  const descFs = blockCount <= 3 ? 12 : (blockCount === 4 ? 11 : 10.5);
-  
+
+  const headerFs = 13.5;
+  const valFs = 12.5;
+  const descFs = 11.0;
+
   const labelColor = onDark ? C.brass : C.brassD;
   const valColor = onDark ? 'FFFFFF' : C.ink;
   const descColor = onDark ? CD.body : C.body;
-  
-  blocks.forEach((b: any, i: number) => {
-    if (i >= blockCount) return;
+
+  blocks.slice(0, blockCount).forEach((b: any, i: number) => {
     const x = L.colX(i, w, gap);
-    
+
+    // 카드 베이스
     L.card(slide, x, y, w, h, { onDark });
-    
-    // Brass top border
-    if (THEME_META.layoutStyle !== 'dramatic') {
-      slide.addShape('rect' as any, { x, y, w, h: 0.05, fill: { color: C.brass } });
-    }
-    
+
+    // 상단 브라스 강조 보더
+    slide.addShape('rect' as any, { x, y, w, h: 0.05, fill: { color: C.brass } });
+
     // 1. 카테고리 헤더
     const cleanLabel = (b.label || `실사 영역 ${i + 1}`).replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '').trim();
     slide.addText(cleanLabel, {
-      x: x + 0.25, y: y + 0.22, w: w - 0.5, h: 0.32,
-      fontFace: KR, fontSize: headerFs, bold: true, color: labelColor, margin: 0
+      x: x + 0.25,
+      y: y + 0.22,
+      w: w - 0.5,
+      h: 0.32,
+      fontFace: KR,
+      fontSize: headerFs,
+      bold: true,
+      color: labelColor,
+      margin: 0,
     });
 
-    // 2. 핵심 요약 / 상태 (1줄 또는 2줄)
+    // 2. 핵심 상태/요약
     const rawVal = (b.value || '실사 완료').replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '').trim();
     const valText = rawVal.slice(0, 36);
     slide.addText(valText, {
-      x: x + 0.25, y: y + 0.54, w: w - 0.5, h: 0.44,
-      fontFace: KR, fontSize: valFs, bold: true, color: valColor, margin: 0,
+      x: x + 0.25,
+      y: y + 0.58,
+      w: w - 0.5,
+      h: 0.40,
+      fontFace: KR,
+      fontSize: valFs,
+      bold: true,
+      color: valColor,
+      margin: 0,
       fit: 'shrink' as any,
     });
 
-    // 3. 세부 불릿 본문 (PptxGenJS 네이티브 행잉 인덴트 및 단락 간 여백 적용)
+    // 3. 세부 불릿 본문
     const descText = b.description || '';
     if (descText) {
       let lines = descText.split(/\n+/).map((l: string) => l.trim()).filter((l: string) => l.length > 0);
@@ -93,44 +134,51 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
             breakLine: true,
             indentLevel: 0,
             lineSpacingMultiple: 1.25,
-            paraSpaceBefore: lineIdx > 0 ? 8 : 0,
+            paraSpaceBefore: lineIdx > 0 ? 6 : 0,
             margin: [0, 0, 0, 0],
-          }
+          },
         };
       });
 
       if (textRuns.length > 0) {
         slide.addText(textRuns as any, {
-          x: x + 0.25, y: y + 1.05, w: w - 0.5, h: h - 1.15,
-          valign: 'top', margin: 0, shrinkText: true
+          x: x + 0.25,
+          y: y + 1.05,
+          w: w - 0.5,
+          h: h - 1.15,
+          valign: 'top',
+          margin: 0,
+          shrinkText: true,
         });
       }
     }
   });
-  
-  if (blocks.length === 0) {
-    // I-05 fix: 빈 프레임 3개 대신 단일 informational callout 표시
-    L.callout(slide, M, y, CW, 2.0, 'info', '리스크 검토',
-      '현재 리스크 분석에 필요한 데이터가 충분하지 않습니다. 건축물대장, 등기부등본 등 공적 장부가 수집되면 자동으로 리스크 항목이 분석됩니다.');
-    warnings.push('리스크 블록 데이터 없음 — 안내 카드 표시');
-  }
 
-  // 4. 하단 안내 바 (푸터 y: 7.05와 충돌하지 않도록 y: 5.65, h: 0.65로 컴팩트하게 배치)
-  if (input.data.bottomBar) {
-    const barY = 5.68;
-    const barH = 0.68;
-    const barBg = onDark ? CD.block : C.tint;
-    const barFg = onDark ? 'FFFFFF' : C.ink;
-    L.card(slide, M, barY, CW, barH, { fill: barBg, onDark });
-    const cleanBottomText = (input.data.bottomBar.text || '')
-      .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '')
-      .trim();
-    slide.addText(cleanBottomText, {
-      x: M + 0.25, y: barY, w: CW - 0.5, h: barH,
-      fontFace: KR, fontSize: 12, color: barFg, valign: 'middle', margin: 0
-    });
-  }
-  
+  // 4. 하단 안내 바 (y: 5.68, h: 0.68)
+  const barY = 5.68;
+  const barH = 0.68;
+  const barBg = onDark ? CD.block : C.tint;
+  const barFg = onDark ? 'FFFFFF' : C.ink;
+  L.card(slide, M, barY, CW, barH, { fill: barBg, onDark });
+
+  const bottomNotice = input.data.bottomBar?.text ||
+    '※ 본 리스크 체크는 공부 및 브로커 확인 기반이며, 매수 전 전문 실사팀(변호사/건축사)을 통한 정밀 실사가 필요합니다.';
+  const cleanBottomText = bottomNotice
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '')
+    .trim();
+
+  slide.addText(cleanBottomText, {
+    x: M + 0.25,
+    y: barY,
+    w: CW - 0.5,
+    h: barH,
+    fontFace: KR,
+    fontSize: 11,
+    color: barFg,
+    valign: 'middle',
+    margin: 0,
+  });
+
   if (input.watermarkText) L.watermark(slide, input.watermarkText, onDark);
   L.foot(slide, input.slideNum, input.docno, onDark);
   return { slide, warnings };

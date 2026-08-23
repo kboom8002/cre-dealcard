@@ -212,7 +212,10 @@ export async function buildIMContext(
   if (supplemental.monthly_rent_total_krw && supplemental.monthly_rent_total_krw > 0 && purchasePriceForGuard > 0) {
     try {
       const monthlyRent = supplemental.monthly_rent_total_krw;
-      const annualNoi = monthlyRent * 12 * 0.85;
+      const annualGross = monthlyRent * 12;
+      const annualNoi = supplemental.opex_total_krw
+        ? Math.max(0, annualGross - supplemental.opex_total_krw)
+        : annualGross * (1 - 0.15); // 통상 관리비/운영비 차감 기준
       const vaResult = computeValueAddScenarios({
         currentNoi: annualNoi,
         purchasePriceKrw: purchasePriceForGuard,

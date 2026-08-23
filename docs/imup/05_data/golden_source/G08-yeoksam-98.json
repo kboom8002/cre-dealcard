@@ -1,0 +1,42 @@
+{
+  "goldenId": "G08-yeoksam-98",
+  "grade": "A",
+  "posture": "trading",
+  "source": {
+    "url": "https://dbritz.kr/gangnam-building-sale/?bmode=view&idx=173119584",
+    "harvestedAt": "2026-08-23",
+    "publisher": "DBRITZ",
+    "kind": "공개 매물 기사"
+  },
+  "addressBand": "서울특별시 강남구 역삼동",
+  "facts": {
+    "priceKrw": 9800000000,
+    "landSqm": 297.2,
+    "landPyeong": 89.9,
+    "grossFloorSqm": 490.4,
+    "grossFloorPyeong": 148.34,
+    "floors": "지하 1층 ~ 지상 3층",
+    "zoning": "제1종일반주거지역",
+    "transit": "언주역 5번 출구 310m · 도보 5분",
+    "roadCondition": "약 6m 도로 · 삼거리 인근",
+    "orientation": "동향",
+    "elevator": 0,
+    "landPerPyeongKrw": 109000000,
+    "officialLandPricePerPyeongKrw": 32970000,
+    "dealHistory": [
+      {
+        "date": "2023-02",
+        "priceKrw": 7670000000,
+        "perPyeongKrw": 85000000
+      }
+    ],
+    "priceGapVsLastDealPct": 27.8
+  },
+  "deficiencies": [
+    "임대현황",
+    "대출 현황",
+    "건폐율·용적률",
+    "2021년 거래가"
+  ],
+  "teachingPoint": "호가 98억 = 2023년 실거래 +21.3억 · 상승 근거 검증 필요"
+}

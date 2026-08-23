@@ -78,3 +78,45 @@ export function validateTextBudgets(texts: {type: keyof typeof TEXT_LIMITS | str
   }
   return warnings;
 }
+
+export interface BoundingBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface BoundsLimit {
+  maxW?: number;
+  maxH?: number;
+  safeMarginX?: number;
+  safeMarginY?: number;
+}
+
+/**
+ * PPTX 객체의 좌표 및 크기가 인쇄/슬라이드 안전 영역(기본 12.713 x 6.75)을 초과하지 않는지 검증합니다.
+ */
+export function assertBounds(
+  element: BoundingBox,
+  limits: BoundsLimit = { maxW: 12.713, maxH: 6.75 }
+): { valid: boolean; error?: string } {
+  const maxW = limits.maxW ?? 12.713;
+  const maxH = limits.maxH ?? 6.75;
+  const right = element.x + element.w;
+  const bottom = element.y + element.h;
+
+  if (right > maxW + 0.05) { // 0.05 inch margin of floating error
+    return {
+      valid: false,
+      error: `Element right edge (${right.toFixed(3)}) exceeds max safe width (${maxW.toFixed(3)})`,
+    };
+  }
+  if (bottom > maxH + 0.05) {
+    return {
+      valid: false,
+      error: `Element bottom edge (${bottom.toFixed(3)}) exceeds max safe height (${maxH.toFixed(3)})`,
+    };
+  }
+  return { valid: true };
+}
+

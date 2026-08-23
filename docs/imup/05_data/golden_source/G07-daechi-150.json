@@ -1,0 +1,50 @@
+{
+  "goldenId": "G07-daechi-150",
+  "grade": "A",
+  "posture": "trading",
+  "source": {
+    "url": "https://dbritz.kr/gangnam-building-sale/?bmode=view&idx=173180120",
+    "harvestedAt": "2026-08-23",
+    "publisher": "DBRITZ",
+    "kind": "공개 매물 기사"
+  },
+  "addressBand": "서울특별시 강남구 대치동",
+  "facts": {
+    "priceKrw": 15000000000,
+    "landSqm": 247.8,
+    "landPyeong": 74.96,
+    "grossFloorSqm": 777.3,
+    "grossFloorPyeong": 235.14,
+    "buildingAgeYears": 30.5,
+    "zoning": "제2종일반주거지역",
+    "roadCondition": "소로한면",
+    "orientation": "남서향",
+    "parking": "자주식 4대",
+    "landPerPyeongKrw": 200100000,
+    "gfaPerPyeongKrw": 63790000,
+    "officialLandPricePerPyeongKrw": 35800000,
+    "dealHistory": [
+      {
+        "date": "2008-10",
+        "priceKrw": 2430000000
+      },
+      {
+        "date": "2016-05",
+        "priceKrw": 3100000000
+      },
+      {
+        "date": "2024-04-15",
+        "priceKrw": 8250000000,
+        "perPyeongKrw": 110000000
+      }
+    ],
+    "remodeled": "대수선·리모델링 이력 있음"
+  },
+  "deficiencies": [
+    "임대현황",
+    "기대출 승계 여부",
+    "보증금·월 임대수익",
+    "리모델링 범위"
+  ],
+  "teachingPoint": "2024년 실거래 82.5억 → 호가 150억(+81.8%) · comps 없이 출구가 산출 금지"
+}

@@ -1,0 +1,39 @@
+{
+  "goldenId": "G05-samseong-house-195",
+  "grade": "A",
+  "posture": "development",
+  "source": {
+    "url": "https://dbritz.kr/gangnam-building-sale/?bmode=view&idx=172860444",
+    "harvestedAt": "2026-08-23",
+    "publisher": "DBRITZ",
+    "kind": "공개 매물 기사"
+  },
+  "addressBand": "서울특별시 강남구 삼성동",
+  "facts": {
+    "priceKrw": 19500000000,
+    "landSqm": 497.2,
+    "landPyeong": 150.4,
+    "grossFloorSqm": 317.4,
+    "grossFloorPyeong": 96.02,
+    "floors": "지하 1층 ~ 지상 2층",
+    "buildingAgeYears": 41.5,
+    "zoning": "제1종전용주거지역",
+    "bcrPct": null,
+    "farPct": null,
+    "transit": "청담역 6번 출구 390m · 도보 6분",
+    "roadCondition": "6m·4m 양면도로 세각지",
+    "orientation": "남향",
+    "elevator": 0,
+    "violationBuilding": false,
+    "landPerPyeongKrw": 129650000,
+    "gfaPerPyeongKrw": 203090000,
+    "officialLandPricePerPyeongKrw": 42310000
+  },
+  "deficiencies": [
+    "임대차 현황",
+    "대출 현황",
+    "허용 용도(비주거 전환 가능성)",
+    "높이 제한·일조·지구단위계획"
+  ],
+  "teachingPoint": "제1종전용주거지역 — 용적률 400% 일괄 적용 시 최대 4배 과대"
+}

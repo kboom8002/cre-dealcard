@@ -121,7 +121,7 @@ function IMInquiryBottomSheet({
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-neutral-400 mb-1">연락처 <span className="text-neutral-600 text-[10px]">(전화 또는 이메일 필수)</span></label>
+              <label className="block text-xs font-medium text-neutral-400 mb-1">연락처 <span className="text-neutral-600 text-xs">(전화 또는 이메일 필수)</span></label>
               <input
                 type="tel"
                 placeholder="010-XXXX-XXXX (선택)"
@@ -160,7 +160,7 @@ function IMInquiryBottomSheet({
               {submitting ? "접수 중..." : "📨 신청서 보내기"}
             </button>
 
-            <p className="text-[10px] text-neutral-600 text-center">
+            <p className="text-xs text-neutral-600 text-center">
               입력하신 정보는 담당 중개인에게만 전달되며, 투자 상담 목적으로만 사용됩니다.
             </p>
           </div>
@@ -342,14 +342,14 @@ function PhotoGallery({ photos, coordinates, blindName }: {
 
               {/* Type badge (top-left) */}
               <div className="absolute top-3 left-3">
-                <span className="px-2 py-1 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold rounded-lg border border-white/10">
+                <span className="px-2 py-1 bg-black/60 backdrop-blur-sm text-white text-xs font-bold rounded-lg border border-white/10">
                   {item.label}
                 </span>
               </div>
 
               {/* Counter (top-right) */}
               <div className="absolute top-3 right-3">
-                <span className="px-2 py-1 bg-black/60 backdrop-blur-sm text-white text-[10px] font-medium rounded-lg border border-white/10">
+                <span className="px-2 py-1 bg-black/60 backdrop-blur-sm text-white text-xs font-medium rounded-lg border border-white/10">
                   {i + 1} / {sortedItems.length}
                 </span>
               </div>
@@ -536,7 +536,7 @@ function SectionCard({
           {(section as any).provenance && (section as any).provenance.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-1.5 mb-2">
               {Array.from(new Set((section as any).provenance.map((p: any) => p.source))).map((source: any) => (
-                <span key={source} className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                <span key={source} className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-medium border ${
                   source === 'public_data' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
                   source === 'broker_input' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
                   source === 'ai_inferred' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
@@ -562,13 +562,13 @@ function SectionCard({
         <div className="flex items-center gap-2 shrink-0">
           {!section.locked && (
             <span
-              className={`hidden sm:inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border ${aiRoleBadge.color}`}
+              className={`hidden sm:inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border ${aiRoleBadge.color}`}
             >
               {aiRoleBadge.label}
             </span>
           )}
           {!section.locked && section.confidence === 'confirmed' && (
-            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span className="hidden sm:inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
@@ -1114,7 +1114,7 @@ function FloatingActionBar({
                   className="px-2.5 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 hover:text-white border-l border-neutral-600 transition-colors flex items-center justify-center"
                   title="PPTX 템플릿 프리셋 선택"
                 >
-                  <span className={`transform transition-transform text-[10px] ${isPresetMenuOpen ? 'rotate-180' : ''}`}>▼</span>
+                  <span className={`transform transition-transform text-xs ${isPresetMenuOpen ? 'rotate-180' : ''}`}>▼</span>
                 </button>
               </div>
 
@@ -1141,9 +1141,9 @@ function FloatingActionBar({
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-bold">{preset.label}</span>
-                          {selectedPreset === preset.id && <span className="text-[10px]">✓</span>}
+                          {selectedPreset === preset.id && <span className="text-xs">✓</span>}
                         </div>
-                        <span className="text-[10px] text-neutral-500">{preset.desc}</span>
+                        <span className="text-xs text-neutral-500">{preset.desc}</span>
                       </button>
                     ))}
                   </div>
@@ -1388,7 +1388,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId, isB
           </Link>
 
           <div className="flex items-center gap-2 min-w-0">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded-full text-xs font-bold uppercase tracking-wider shrink-0">
               📄 IM Lite
             </span>
             <span className="text-xs text-neutral-500 truncate hidden sm:block">
@@ -1459,7 +1459,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId, isB
                   전문 중개인 검증 완료
                 </span>
                 {doc.approvedAt && (
-                  <span className="text-[10px] text-neutral-500 font-medium">
+                  <span className="text-xs text-neutral-500 font-medium">
                     {new Date(doc.approvedAt).toLocaleDateString("ko-KR")}
                   </span>
                 )}
@@ -1492,7 +1492,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId, isB
           )}
 
           {/* Generation timestamp */}
-          <p className="text-[10px] text-neutral-600">
+          <p className="text-xs text-neutral-600">
             AI 생성: {new Date(doc.generatedAt).toLocaleDateString("ko-KR")} · 크리딜 모바일 IM Lite
           </p>
         </div>
@@ -1675,11 +1675,11 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId, isB
 
         {/* ── Disclaimer ── */}
         <div className="rounded-xl bg-neutral-900/50 border border-neutral-800/50 p-4 mb-4">
-          <p className="text-[10px] text-neutral-600 leading-relaxed">
+          <p className="text-xs text-neutral-600 leading-relaxed">
             <span className="font-bold text-neutral-500">⚠️ 면책 조항 </span>
             {doc.disclaimer}
           </p>
-          <p className="text-[10px] text-neutral-700 mt-2">
+          <p className="text-xs text-neutral-700 mt-2">
             {doc.protectedFieldsRemoved.length > 0 && `보호된 필드: ${doc.protectedFieldsRemoved.join(", ")}`}
           </p>
         </div>

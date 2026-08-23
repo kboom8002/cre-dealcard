@@ -180,7 +180,7 @@ export function LeverageChart({
           <span className="inline-flex items-center rounded-full bg-sky-900/40 px-2.5 py-0.5 text-[11px] font-medium text-sky-300">
             레버리지 수익률 {leveragedYieldPct.toFixed(1)}%
           </span>
-          <span className="text-[10px] text-neutral-600">
+          <span className="text-xs text-neutral-600">
             NOI ÷ 자기자본
           </span>
         </div>

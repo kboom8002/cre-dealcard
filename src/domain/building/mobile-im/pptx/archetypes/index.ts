@@ -13,9 +13,13 @@ import { buildA12Ownership } from './a12-ownership';
 import { buildA13Operating } from './a13-operating';
 import { buildA14Gallery } from './a14-gallery';
 import { buildA15Thesis } from './a15-thesis';
+import { buildA16InvestmentStructure } from './a16-investment-structure';
+import { buildA17PreCompletionMarketing } from './a17-pre-completion-marketing';
 
 export * from './a01-cover'; // For Types
 export { buildA15Thesis, type ThesisPillar } from './a15-thesis';
+export { buildA16InvestmentStructure } from './a16-investment-structure';
+export { buildA17PreCompletionMarketing } from './a17-pre-completion-marketing';
 
 export const ARCHETYPE_REGISTRY: Record<string, any> = {
   A01: buildA01Cover,
@@ -33,4 +37,6 @@ export const ARCHETYPE_REGISTRY: Record<string, any> = {
   A13: buildA13Operating,
   A14: buildA14Gallery,
   A15: buildA15Thesis,
+  A16: buildA16InvestmentStructure,
+  A17: buildA17PreCompletionMarketing,
 };

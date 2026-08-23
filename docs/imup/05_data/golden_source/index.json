@@ -1,0 +1,50 @@
+[
+  {
+    "goldenId": "G03-yeoksam-hq-120",
+    "grade": "A",
+    "posture": "owner_occupied",
+    "source": "https://dbritz.kr/gangnam-building-sale/?bmode=view&idx=172861167"
+  },
+  {
+    "goldenId": "G04-yeoksam-office-50",
+    "grade": "A",
+    "posture": "owner_occupied",
+    "source": "https://dbritz.kr/gangnam-building-sale/?bmode=view&idx=172569313"
+  },
+  {
+    "goldenId": "G05-samseong-house-195",
+    "grade": "A",
+    "posture": "development",
+    "source": "https://dbritz.kr/gangnam-building-sale/?bmode=view&idx=172860444"
+  },
+  {
+    "goldenId": "G07-daechi-150",
+    "grade": "A",
+    "posture": "trading",
+    "source": "https://dbritz.kr/gangnam-building-sale/?bmode=view&idx=173180120"
+  },
+  {
+    "goldenId": "G08-yeoksam-98",
+    "grade": "A",
+    "posture": "trading",
+    "source": "https://dbritz.kr/gangnam-building-sale/?bmode=view&idx=173119584"
+  },
+  {
+    "goldenId": "G01-yangpyeong-250",
+    "grade": "S",
+    "posture": "income",
+    "source": "fixtures/yangpyeong.json"
+  },
+  {
+    "goldenId": "G02-dangsan-115",
+    "grade": "S",
+    "posture": "income",
+    "source": "fixtures/dangsan.json"
+  },
+  {
+    "goldenId": "G06-jamwon-dev",
+    "grade": "S",
+    "posture": "development",
+    "source": "fixtures/jamwon.json"
+  }
+]

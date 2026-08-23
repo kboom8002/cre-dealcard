@@ -1,7 +1,7 @@
 # Pipeline Log: development_case12_yeoksam_dev
 
-**Generated**: 2026-08-23T01:22:39.772Z
-**Total Duration**: 0.3s
+**Generated**: 2026-08-23T09:54:04.872Z
+**Total Duration**: 0.2s
 
 ## Step-by-Step Timeline
 
@@ -11,7 +11,7 @@
 | 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: development, keys: 3 |
 | 3 | ③ IM 생성 (LLM) | 0.15s | ✅ success | ok=true, sections=8, grade=B |
 | 4 | ④ 중간 결과물 저장 | 0.01s | ✅ success | sections: 8 |
-| 5 | ⑤ PPTX 렌더링 | 0.10s | ✅ success | slides: 10, size: 296KB |
+| 5 | ⑤ PPTX 렌더링 | 0.07s | ✅ success | slides: 10, size: 277KB |
 
 ## Detailed Metrics
 
@@ -29,7 +29,7 @@
 ```json
 {
   "slideCount": 10,
-  "fileSizeBytes": 302593,
+  "fileSizeBytes": 283494,
   "warnings": []
 }
 ```

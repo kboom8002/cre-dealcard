@@ -1,7 +1,7 @@
 # Pipeline Log: owner_occupied_case07_yeouido_corp
 
-**Generated**: 2026-08-23T01:22:38.349Z
-**Total Duration**: 0.3s
+**Generated**: 2026-08-23T09:54:03.702Z
+**Total Duration**: 0.2s
 
 ## Step-by-Step Timeline
 
@@ -9,9 +9,9 @@
 |---|------|----------|--------|---------|
 | 1 | ① SSoT Lite 구축 | 0.00s | ✅ success | buildingId: stress-case-07 |
 | 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: owner_occupied, keys: 3 |
-| 3 | ③ IM 생성 (LLM) | 0.17s | ✅ success | ok=true, sections=8, grade=B |
+| 3 | ③ IM 생성 (LLM) | 0.15s | ✅ success | ok=true, sections=8, grade=B |
 | 4 | ④ 중간 결과물 저장 | 0.01s | ✅ success | sections: 8 |
-| 5 | ⑤ PPTX 렌더링 | 0.12s | ✅ success | slides: 10, size: 310KB |
+| 5 | ⑤ PPTX 렌더링 | 0.07s | ✅ success | slides: 10, size: 303KB |
 
 ## Detailed Metrics
 
@@ -29,7 +29,7 @@
 ```json
 {
   "slideCount": 10,
-  "fileSizeBytes": 317850,
+  "fileSizeBytes": 310680,
   "warnings": []
 }
 ```

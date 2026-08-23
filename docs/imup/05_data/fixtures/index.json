@@ -1,0 +1,27 @@
+[
+  {
+    "fixtureId": "yangpyeong",
+    "posture": "income",
+    "file": "yangpyeong.json"
+  },
+  {
+    "fixtureId": "dangsan",
+    "posture": "income",
+    "file": "dangsan.json"
+  },
+  {
+    "fixtureId": "jamwon",
+    "posture": "development",
+    "file": "jamwon.json"
+  },
+  {
+    "fixtureId": "sutaek",
+    "posture": "development",
+    "file": "sutaek.json"
+  },
+  {
+    "fixtureId": "hotel",
+    "posture": "operating",
+    "file": "hotel.json"
+  }
+]

@@ -50,23 +50,113 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   let aiUsed = false;
   let cachedFinancials = ctx.cachedFinancials;
 
-  for (let i = 0; i < ctx.sectionPlan.sections.length; i++) {
-    const sectionType = ctx.sectionPlan.sections[i] as any;
+  // ── Phase 1: 4단계 위상 정렬 병렬화 ──
+  const CONCURRENCY = Number(process.env.IM_SECTION_CONCURRENCY ?? 4);
 
-    const result = await generateSingleSection(
-      sectionType,
-      i,
-      ctx,
-      ctx.sectionCtx,
-      input.supplemental,
-      external_data || null,
-      building_ssot_lite as any,
-      { dcfEligible: input.dcfEligible, onProgress: input.onProgress },
-    );
+  // 섹션 의존성 그래프: 독립 섹션은 병렬 실행, 의존 섹션은 순차 실행
+  const INDEPENDENT_SECTIONS = new Set([
+    'property_overview', 'location_access', 'lease_status', 'next_steps',
+  ]);
+  const FINANCIAL_SECTIONS = new Set([
+    'income_analysis', 'development_feasibility', 'gop_analysis',
+    'cost_comparison', 'comparable_analysis',
+  ]);
 
-    sections.push(result.section);
-    if (result.generatedByAi) aiUsed = true;
-    if (result.cachedFinancials) cachedFinancials = result.cachedFinancials;
+  const allSections = ctx.sectionPlan.sections as string[];
+  const independentBatch = allSections.filter(s => INDEPENDENT_SECTIONS.has(s));
+  const financialBatch = allSections.filter(s => FINANCIAL_SECTIONS.has(s));
+  const riskBatch = allSections.filter(s => s === 'risk_check');
+  const thesisBatch = allSections.filter(s => s === 'investment_thesis');
+  // 기타 섹션은 독립 배치에 포함
+  const otherSections = allSections.filter(s =>
+    !INDEPENDENT_SECTIONS.has(s) &&
+    !FINANCIAL_SECTIONS.has(s) &&
+    s !== 'risk_check' &&
+    s !== 'investment_thesis'
+  );
+
+  const stages: string[][] = [
+    [...independentBatch, ...otherSections], // Stage 1: 병렬 실행
+    financialBatch,                          // Stage 2: 재무 (순차)
+    riskBatch,                               // Stage 3: 리스크 (순차)
+    thesisBatch,                             // Stage 4: 투자뻐지 (순차)
+  ].filter(stage => stage.length > 0);
+
+  let globalIndex = 0;
+
+  for (let stageIdx = 0; stageIdx < stages.length; stageIdx++) {
+    const stageSections = stages[stageIdx];
+    const isParallel = stageIdx === 0 && CONCURRENCY > 1;
+
+    if (isParallel) {
+      // Stage 1: 병렬 실행 (Promise.allSettled)
+      const batchPromises = stageSections.map((sectionType, batchIdx) => {
+        const idx = globalIndex + batchIdx;
+        return generateSingleSection(
+          sectionType as any,
+          idx,
+          ctx,
+          // 병렬 실행 시 각 섹션은 같은 컨텍스트 스냅샷을 사용 (경쟁 방지)
+          { ...ctx.sectionCtx, keyFacts: [...(ctx.sectionCtx.keyFacts || [])] },
+          input.supplemental,
+          external_data || null,
+          building_ssot_lite as any,
+          { dcfEligible: input.dcfEligible, onProgress: input.onProgress },
+        );
+      });
+
+      const results = await Promise.allSettled(batchPromises);
+
+      for (let ri = 0; ri < results.length; ri++) {
+        const result = results[ri];
+        if (result.status === 'fulfilled') {
+          sections.push(result.value.section);
+          if (result.value.generatedByAi) aiUsed = true;
+          if (result.value.cachedFinancials) cachedFinancials = result.value.cachedFinancials;
+          // 성공한 섹션의 맥락을 전역 컨텍스트에 병합
+          try {
+            const md = result.value.section.markdown || '';
+            const newFacts = extractKeyFactsFromMarkdown(md, stageSections[ri]);
+            if (!ctx.sectionCtx.keyFacts) ctx.sectionCtx.keyFacts = [];
+            ctx.sectionCtx.keyFacts.push(...newFacts);
+          } catch { /* 무시 */ }
+        } else {
+          // 부분 실패: 템플릿 폴백 섹션 추가
+          console.warn(`[writer] Stage 1 section ${stageSections[ri]} failed, using fallback:`, result.reason);
+          sections.push({
+            section_type: stageSections[ri] as any,
+            section_order: globalIndex + ri + 1,
+            title: stageSections[ri],
+            markdown: `> 해당 섹션은 자동 생성에 실패했습니다. 데이터를 확인해 주세요.`,
+            confidence: 'needs_check' as const,
+            boundary_note: '자동 생성 실패로 폴백 템플릿 적용',
+            provenance: [],
+            min_tier: 'public' as const,
+          });
+        }
+      }
+
+      globalIndex += stageSections.length;
+    } else {
+      // Stage 2~4: 순차 실행 (기존 동작 동일)
+      for (const sectionType of stageSections) {
+        const result = await generateSingleSection(
+          sectionType as any,
+          globalIndex,
+          ctx,
+          ctx.sectionCtx,
+          input.supplemental,
+          external_data || null,
+          building_ssot_lite as any,
+          { dcfEligible: input.dcfEligible, onProgress: input.onProgress },
+        );
+
+        sections.push(result.section);
+        if (result.generatedByAi) aiUsed = true;
+        if (result.cachedFinancials) cachedFinancials = result.cachedFinancials;
+        globalIndex++;
+      }
+    }
   }
 
   let publishBlocked = false;
@@ -230,4 +320,21 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     publishBlocked,
     publishBlockReasons,
   };
+}
+
+/** 병렬 섹션에서 추출한 핵심 사실 (순차 섹션에 전파) */
+function extractKeyFactsFromMarkdown(markdown: string, sectionType: string): string[] {
+  const facts: string[] = [];
+  // 수치 앱커 추출: 면적, 가격, 수익률 등
+  const patterns = [
+    /(\d[\d,]*\.?\d*)\s*(㎡|평|\uc5b5|\ub9cc\uc6d0|%)/g,
+  ];
+  for (const p of patterns) {
+    p.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = p.exec(markdown)) !== null) {
+      facts.push(`[${sectionType}] ${m[0]}`);
+    }
+  }
+  return facts.slice(0, 10); // 섹션당 최대 10개
 }

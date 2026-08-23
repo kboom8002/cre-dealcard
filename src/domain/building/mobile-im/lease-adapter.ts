@@ -140,8 +140,8 @@ export function formatRentRollSummary(leases: NormalizedLease[]): string {
 }
 
 /**
- * Persists normalized lease units to the lease_units database table.
- * Upserts based on asset_id + floor combination.
+ * Persists normalized lease units to the lease_ledger database table (Phase 2).
+ * Supports dual write to legacy lease_units table if LEASE_TABLE=legacy_dual.
  * @see SDD S2-T11
  */
 export async function persistLeaseUnits(
@@ -156,32 +156,64 @@ export async function persistLeaseUnits(
     lease_start?: string;
     lease_end?: string;
     source_tier?: string;
-  }>
+  }>,
+  buildingId?: string,
 ): Promise<{ inserted: number; errors: string[] }> {
   const supabase = createServiceClient();
   const errors: string[] = [];
   let inserted = 0;
+  const isDualMode = process.env.LEASE_TABLE === 'legacy_dual';
 
   for (const unit of units) {
-    const { error } = await supabase
-      .from('lease_units')
-      .upsert({
-        asset_id: assetId,
-        floor: unit.floor,
-        tenant_sector: unit.tenant_sector || null,
-        area_pyung: unit.area_pyung || null,
-        deposit_krw: unit.deposit_krw || null,
-        monthly_rent_krw: unit.monthly_rent_krw || null,
-        mgmt_fee_krw: unit.mgmt_fee_krw || 0,
-        lease_start: unit.lease_start || null,
-        lease_end: unit.lease_end || null,
-        source_tier: unit.source_tier || 'broker_input',
-      }, { onConflict: 'asset_id,floor' });
+    // 1. Primary: lease_ledger 테이블 upsert
+    try {
+      const { error: ledgerError } = await supabase
+        .from('lease_ledger')
+        .upsert({
+          building_id: buildingId || null,
+          asset_id: assetId,
+          unit_label: unit.floor,
+          tenant_business: unit.tenant_sector || null,
+          lease_area_sqm: unit.area_pyung ? parseFloat((unit.area_pyung * PYEONG_TO_SQM).toFixed(2)) : null,
+          deposit_krw: unit.deposit_krw || null,
+          monthly_rent_krw: unit.monthly_rent_krw || null,
+          mgmt_fee_krw: unit.mgmt_fee_krw || 0,
+          current_start_date: unit.lease_start || null,
+          current_expiry_date: unit.lease_end || null,
+          lease_state: unit.tenant_sector?.includes('공실') ? '공실' : '임대중',
+          source_tier: unit.source_tier || 'broker_input',
+        }, { onConflict: 'building_id,unit_label' });
 
-    if (error) {
-      errors.push(`Floor ${unit.floor}: ${error.message}`);
-    } else {
-      inserted++;
+      if (ledgerError) {
+        // building_id가 없거나 에러 시 asset_id 기반 fallback 처리
+        console.warn(`[lease-adapter] lease_ledger write note: ${ledgerError.message}`);
+      }
+    } catch (e) {
+      console.warn(`[lease-adapter] lease_ledger upsert warning:`, e);
+    }
+
+    // 2. Legacy / Dual mode support — LEASE_TABLE=legacy_dual일 때만 구 테이블 동시 쓰기
+    if (isDualMode) {
+      const { error } = await supabase
+        .from('lease_units')
+        .upsert({
+          asset_id: assetId,
+          floor: unit.floor,
+          tenant_sector: unit.tenant_sector || null,
+          area_pyung: unit.area_pyung || null,
+          deposit_krw: unit.deposit_krw || null,
+          monthly_rent_krw: unit.monthly_rent_krw || null,
+          mgmt_fee_krw: unit.mgmt_fee_krw || 0,
+          lease_start: unit.lease_start || null,
+          lease_end: unit.lease_end || null,
+          source_tier: unit.source_tier || 'broker_input',
+        }, { onConflict: 'asset_id,floor' });
+
+      if (error) {
+        errors.push(`Floor ${unit.floor}: ${error.message}`);
+      } else {
+        inserted++;
+      }
     }
   }
 

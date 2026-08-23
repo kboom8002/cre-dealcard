@@ -1,0 +1,47 @@
+{
+  "goldenId": "G03-yeoksam-hq-120",
+  "grade": "A",
+  "posture": "owner_occupied",
+  "source": {
+    "url": "https://dbritz.kr/gangnam-building-sale/?bmode=view&idx=172861167",
+    "harvestedAt": "2026-08-23",
+    "publisher": "DBRITZ",
+    "kind": "공개 매물 기사"
+  },
+  "addressBand": "서울특별시 강남구 역삼동",
+  "facts": {
+    "priceKrw": 12000000000,
+    "landSqm": 284.8,
+    "landPyeong": 86.15,
+    "grossFloorSqm": 785.9,
+    "grossFloorPyeong": 237.72,
+    "floors": "지하 1층 ~ 지상 6층",
+    "completedYear": 2023,
+    "zoning": "제2종일반주거지역",
+    "bcrPct": 57.51,
+    "farPct": 199.75,
+    "parking": "자주식 6대",
+    "elevator": 1,
+    "restrooms": 9,
+    "transit": "역삼역 도보 5~6분",
+    "landPerPyeongKrw": 139290000,
+    "gfaPerPyeongKrw": 50480000,
+    "priorDeal": {
+      "date": "2021-03",
+      "priceKrw": 5780000000,
+      "perPyeongKrw": 67000000,
+      "note": "토지 거래 후 신축"
+    },
+    "officialLandPricePerPyeongKrw": 31720000,
+    "violationBuilding": false,
+    "roadCondition": "세로",
+    "orientation": "동향",
+    "hvac": "개별"
+  },
+  "deficiencies": [
+    "임대차 계약 조건(보증금·월세·만기)",
+    "지상층 인도 조건",
+    "층별 전용면적"
+  ],
+  "teachingPoint": "신축 vs 완성건물 매입 비교 · 명도 시점이 핵심 협의사항"
+}

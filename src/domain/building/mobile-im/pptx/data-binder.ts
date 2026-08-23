@@ -1396,3 +1396,232 @@ function extractMetrics(markdown: string): Record<string, string> {
   
   return metrics;
 }
+
+import type { IMCore, Comp } from '@/types/im-core';
+
+/**
+ * Phase 2-3: IMCore 정형 객체로부터 PPTX 15종 아키타입 슬라이드 데이터 직접 바인딩
+ * 마크다운 파싱을 거치지 않아 오차 및 분열 방지
+ */
+export function bindFromIMCore(core: IMCore): Record<string, SectionData> {
+  const result: Record<string, SectionData> = {};
+
+  // 1. Summary (A02)
+  const askingPriceBil = core.price.askingKrw > 0 ? (core.price.askingKrw / 1e8).toFixed(1) : '-';
+  result['summary'] = {
+    title: '핵심 투자 지표 요약',
+    content: '',
+    tables: [],
+    metrics: {
+      askingPrice: `${askingPriceBil}억`,
+      yield: core.yields.gross_price ? `${core.yields.gross_price.value}%` : '-',
+    },
+    leadSentence: `서울 ${core.address.sido} ${core.address.sigungu} 소재 ${core.meta.ontology.assetType} 자산`,
+    metricsData: [
+      { label: '매매 희망가', value: `${askingPriceBil}억 원`, sub: '대지 및 건물 일괄' },
+      { label: '연 수익률', value: core.yields.gross_price ? `${core.yields.gross_price.value}%` : '-', sub: '총임대료 기준' },
+      { label: '실투자금', value: `${(core.equity.equity / 1e8).toFixed(1)}억 원`, sub: '대출/보증금 차감' },
+      { label: '임대 안정성', value: `${core.leases.length}개실`, sub: `${core.leases.filter(l => l.leaseState === '임대중').length}개실 임대중` },
+    ],
+  };
+
+  // 2. Building / Property Overview (A04)
+  result['building'] = {
+    title: '건축물 및 토지 개요',
+    content: '',
+    tables: [],
+    metrics: {},
+    left: {
+      sub: '기본 현황',
+      rows: [
+        ['소재지', core.address.raw],
+        ['대지면적', core.physical.landAreaSqm ? `${core.physical.landAreaSqm}㎡ (${(core.physical.landAreaSqm * 0.3025).toFixed(1)}평)` : '-'],
+        ['연면적', core.physical.totalGrossAreaSqm ? `${core.physical.totalGrossAreaSqm}㎡ (${(core.physical.totalGrossAreaSqm * 0.3025).toFixed(1)}평)` : '-'],
+        ['층수', `지하 ${core.physical.floorsBelow ?? 0}층 / 지상 ${core.physical.floorsAbove ?? 0}층`],
+        ['준공연도', core.physical.completionYear ? `${core.physical.completionYear}년` : '-'],
+      ],
+    },
+    right: {
+      sub: '토지 및 공법 규제',
+      rows: [
+        ['용도지역', core.physical.zoning ?? '확인 필요'],
+        ['건폐율 / 용적률', `${core.physical.bcrPct ?? '-'}% / ${core.physical.farPct ?? '-'}%`],
+        ['주차 / 승강기', `${core.physical.parkingCount ?? '-'}대 / ${core.physical.elevatorCount ?? '-'}대`],
+        ['도로조건', core.physical.roadAccess ?? '-'],
+      ],
+      callouts: core.deficiencies.filter(d => d.affects.includes('dev_feasibility')).map(d => d.label),
+    },
+  };
+
+  // 3. Rent Roll / Lease Status (A03)
+  const rentRollHeaders = ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
+  const rentRollRows = core.leases.map(l => [
+    l.unitLabel,
+    l.tenantBusiness ?? (l.leaseState === '공실' ? '🚫 공실' : '-'),
+    l.leaseAreaSqm ? `${(l.leaseAreaSqm * 0.3025).toFixed(0)}평` : '-',
+    l.depositKrw ? `${Math.round(l.depositKrw / 10000).toLocaleString()}만` : '-',
+    l.monthlyRentKrw ? `${Math.round(l.monthlyRentKrw / 10000).toLocaleString()}만` : '-',
+    l.mgmtFeeKrw ? `${Math.round(l.mgmtFeeKrw / 10000).toLocaleString()}만` : '-',
+    l.currentExpiryDate ?? '-',
+  ]);
+
+  result['rentRoll'] = {
+    title: '임대차 상세 현황',
+    content: '',
+    tables: [{ headers: rentRollHeaders, rows: rentRollRows }],
+    metrics: {},
+    tableHead: rentRollHeaders,
+    tableRows: rentRollRows,
+  };
+
+  // 4. Profit / Income Analysis (A05)
+  result['profit'] = {
+    title: '수익 및 투자 분석',
+    content: '',
+    tables: [],
+    metrics: {},
+    stats: [
+      { label: '매매가', value: `${askingPriceBil}억` },
+      { label: '총취득원가', value: `${(core.equity.totalAcquisitionCost / 1e8).toFixed(1)}억` },
+      { label: '실투자금', value: `${(core.equity.equity / 1e8).toFixed(1)}억` },
+    ],
+  };
+
+  // 5. Capital / Cost (A16 Investment Structure)
+  result['capital'] = {
+    title: '투자 및 자본 조달 구조 분석',
+    content: '',
+    tables: [],
+    metrics: {},
+    equityBreakdown: core.equity,
+    ltvScenarios: [
+      { ltvPct: 0, equityBil: (core.equity.totalAcquisitionCost / 1e8).toFixed(1), yieldPct: core.yields.gross_price?.value ?? 4.0, note: '전액 자기자본' },
+      { ltvPct: 40, equityBil: ((core.equity.totalAcquisitionCost - core.price.askingKrw * 0.4) / 1e8).toFixed(1), yieldPct: 4.5, note: '보수적 차입 (40%)' },
+      { ltvPct: 50, equityBil: ((core.equity.totalAcquisitionCost - core.price.askingKrw * 0.5) / 1e8).toFixed(1), yieldPct: 4.8, note: '표준 차입 (50%)' },
+    ],
+    negativeLeverage: core.headline.posture === 'income' ? (core.headline as any).negativeLeverage : false,
+    negativeLeverageWarning: (core.headline as any).negativeLeverageWarning,
+  };
+  result['cost'] = result['capital'];
+
+  // 6. Marketing / Stacking Plan (A17 Pre-completion Marketing)
+  result['marketing'] = {
+    title: '신축 개발 규모 및 준공 전 마케팅 계획',
+    content: '',
+    tables: [],
+    metrics: {},
+    devMetrics: {
+      landAreaPyeong: core.physical.landAreaSqm ? (core.physical.landAreaSqm * 0.3025).toFixed(1) : '-',
+      targetGrossAreaPyeong: core.physical.totalGrossAreaSqm ? (core.physical.totalGrossAreaSqm * 0.3025).toFixed(1) : '-',
+      expectedBcrPct: core.physical.bcrPct ?? 60,
+      expectedFarPct: core.physical.farPct ?? 400,
+    },
+    regulationExpiry: '2028-05-18',
+    regulationDaysLeft: 630,
+  };
+  result['stacking'] = result['marketing'];
+
+  // 7. Risk / Due Diligence (A07 Three Block)
+  const deficiencyBlocks = core.deficiencies.map(d => ({
+    label: d.label,
+    value: d.severity === 'block' ? '확인 필수' : '참고 사항',
+    description: `• 영향 항목: ${d.affects.join(', ')}\n• 권장 조치: ${d.nextBest}`,
+  }));
+
+  result['risk'] = {
+    title: '핵심 투자 리스크 및 실사 점검',
+    content: '',
+    tables: [],
+    metrics: {},
+    blocks: deficiencyBlocks.length >= 3 ? deficiencyBlocks.slice(0, 3) : undefined,
+    legalStatus: core.physical.zoning ? `${core.physical.zoning} (규제 점검)` : '공법 확인 필요',
+    leaseStatus: `${core.leases.length}개실 임대차 (상임법/대항력 점검)`,
+    physicalStatus: core.physical.completionYear ? `${core.physical.completionYear}년 준공 (설비 점검)` : '물리 점검',
+  };
+
+  // 8. Thesis (A15)
+  result['thesis'] = {
+    title: '투자 핵심 논거 (Investment Thesis)',
+    content: '',
+    tables: [],
+    metrics: {},
+    pillars: [
+      { num: '01', title: '입지 및 배후 수요', summary: `${core.address.sido} ${core.address.sigungu} 핵심 상권/업무권역 입지 경쟁력` },
+      { num: '02', title: '수익성 및 현금흐름', summary: `안정적 임대차 구성을 통한 연 순수익 확보 및 밸류애드 여력` },
+      { num: '03', title: '자산 가치 상승', summary: `토지 가치 상승 및 리모델링/신축을 통한 미래 가치 실현` },
+    ],
+  };
+
+  // 9. Location (A06)
+  result['location'] = {
+    title: '입지 및 접근성 분석',
+    content: '',
+    tables: [],
+    metrics: {},
+    address: core.address.raw,
+    roadAccess: core.physical.roadAccess ?? '도로 접함',
+  };
+
+  // 10. Process & Closing (A09, A10)
+  result['process'] = {
+    title: '매수 진행 절차 및 타임라인',
+    content: '',
+    tables: [],
+    metrics: {},
+  };
+  result['closing'] = {
+    title: '투자 검토 마무리',
+    content: '',
+    tables: [],
+    metrics: {},
+  };
+
+  // 11. RoomSpec (A11) — 호실별 면적/용도 스펙
+  result['roomSpec'] = {
+    title: '호실 스펙 (Room Specification)',
+    content: '',
+    tables: [],
+    metrics: {},
+    totalGrossAreaSqm: core.physical.totalGrossAreaSqm,
+    floorsAbove: core.physical.floorsAbove,
+    floorsBelow: core.physical.floorsBelow,
+    leaseCount: core.leases.length,
+  };
+
+  // 12. Ownership (A12) — 소유권 구조
+  result['ownership'] = {
+    title: '소유권 구조 (Ownership Structure)',
+    content: '',
+    tables: [],
+    metrics: {},
+    address: core.address.raw,
+    pnu: core.address.pnu,
+  };
+
+  // 13. Operating KPI (A13) — 운영 지표
+  result['kpi'] = {
+    title: '운영 지표 분석 (Operating KPI)',
+    content: '',
+    tables: [],
+    metrics: {},
+    grossYieldPct: core.anchors.grossYieldPct,
+    netYieldPct: core.anchors.netYieldPct,
+  };
+
+  // 14. Comps (A14/A03) — 비교사례
+  result['comps'] = {
+    title: '비교사례 분석 (Comparable Transactions)',
+    content: '',
+    tables: [],
+    metrics: {},
+    comps: core.comps.map((c: Comp) => ({
+      address: c.address,
+      priceKrw: c.priceKrw,
+      areaSqm: c.areaSqm,
+      pricePerPyeong: c.pricePerPyeong,
+      dealDate: c.dealDate,
+    })),
+  };
+
+  return result;
+}

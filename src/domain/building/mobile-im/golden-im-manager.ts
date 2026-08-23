@@ -5,6 +5,7 @@
 
 import { createServiceClient } from "@/lib/supabase/service";
 import type { MobileIMSection, MobileIMSectionType } from "./types";
+import { sanitizePersona, stripMarkdown } from './pptx/data-binder';
 
 // ─── 인터페이스 ─────────────────────────────────────────────────────────────
 
@@ -27,6 +28,27 @@ interface BrokerEdit {
 }
 
 // ─── Golden 등록 기준 ────────────────────────────────────────────────────────
+
+/**
+ * Golden 승격 시 이모지/페르소나 정제
+ * PPTX 렌더링 시점만 적용되던 정제를 Golden 저장 시점에도 적용
+ */
+function sanitizeForGolden(markdown: string): string {
+  return stripMarkdown(sanitizePersona(markdown));
+}
+
+/** 가격대 밴드 순서 정의 — 인접 밴드 매칭에 사용 */
+const BAND_ORDER = ['B1', 'B2', 'B3', 'B4', 'B5'] as const;
+
+/** 동일 밴드: 30점, 인접(±1): 15점, 2단계 이상: 0점 */
+function adjacentBands(candidateBand: string, targetBand: string): number {
+  if (!candidateBand || !targetBand) return 0;
+  if (candidateBand === targetBand) return 30;
+  const ci = BAND_ORDER.indexOf(candidateBand as any);
+  const ti = BAND_ORDER.indexOf(targetBand as any);
+  if (ci === -1 || ti === -1) return 0;
+  return Math.abs(ci - ti) === 1 ? 15 : 0;
+}
 
 const MIN_JUDGE_SCORE = 3.5;    // Judge 점수 3.5 이상만 Golden
 const MIN_MARKDOWN_LENGTH = 100; // 100자 이상의 콘텐츠만
@@ -61,6 +83,7 @@ export async function markAsGoldenIM(
     // 브로커가 수정한 최종본을 우선 사용
     const editedVersion = brokerEdits?.find(e => e.sectionType === section.section_type);
     const finalMarkdown = editedVersion?.editedMarkdown || section.markdown;
+    const sanitizedMarkdown = sanitizeForGolden(finalMarkdown);
 
     try {
       await supabase.from('im_golden_sets').upsert({
@@ -70,7 +93,9 @@ export async function markAsGoldenIM(
         price_band:   priceBand,
         posture:      posture,
         section_type: section.section_type,
-        markdown:     finalMarkdown.slice(0, 2000),
+        markdown:     sanitizedMarkdown.slice(0, 2000),
+        markdown_raw: finalMarkdown.slice(0, 4000),
+        grade:        sectionScore >= 4.5 ? 'S' : 'A',
         judge_score:  sectionScore,
         was_edited:   !!editedVersion,
         source_type:  'auto_approve',
@@ -108,6 +133,7 @@ export async function buildIMFewShotBlock(
       .eq('section_type', sectionType)
       .eq('asset_type', assetType)
       .eq('is_active', true)
+      .in('grade', ['S', 'A'])
       .eq('posture', posture);
 
     if (matchesError) {
@@ -122,7 +148,8 @@ export async function buildIMFewShotBlock(
         .from('im_golden_sets')
         .select('id, document_id, markdown, asset_type, price_band, posture, judge_score, usage_count, was_edited, created_at')
         .eq('section_type', sectionType)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .in('grade', ['S', 'A']);
       
       if (fallbackError) {
         console.error('[golden-im-manager] Error fetching fallback data:', fallbackError);
@@ -165,10 +192,8 @@ export async function buildIMFewShotBlock(
       const judgeVal = Number(entry.judge_score || 3.5);
       score += (judgeVal / 5.0) * 40;
 
-      // B. 가격대 일치도 (최대 30점)
-      if (priceBand && entry.price_band === priceBand) {
-        score += 30;
-      }
+      // B. 가격대 일치도 (최대 30점, 인접 밴드 ±1단계 15점)
+      score += adjacentBands(entry.price_band, priceBand);
 
       // C. 신선도 점수 (최대 15점, 30일 이내 생성 시 가점)
       const ageMs = Date.now() - new Date(entry.created_at).getTime();

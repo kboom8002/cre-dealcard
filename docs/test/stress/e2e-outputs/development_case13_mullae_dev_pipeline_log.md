@@ -1,6 +1,6 @@
 # Pipeline Log: development_case13_mullae_dev
 
-**Generated**: 2026-08-23T01:22:40.020Z
+**Generated**: 2026-08-23T09:54:05.088Z
 **Total Duration**: 0.2s
 
 ## Step-by-Step Timeline
@@ -11,7 +11,7 @@
 | 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: development, keys: 3 |
 | 3 | ③ IM 생성 (LLM) | 0.14s | ✅ success | ok=true, sections=8, grade=B |
 | 4 | ④ 중간 결과물 저장 | 0.01s | ✅ success | sections: 8 |
-| 5 | ⑤ PPTX 렌더링 | 0.09s | ✅ success | slides: 10, size: 300KB |
+| 5 | ⑤ PPTX 렌더링 | 0.06s | ✅ success | slides: 10, size: 284KB |
 
 ## Detailed Metrics
 
@@ -29,9 +29,7 @@
 ```json
 {
   "slideCount": 10,
-  "fileSizeBytes": 306729,
-  "warnings": [
-    "Profit stat 카드 없음"
-  ]
+  "fileSizeBytes": 291040,
+  "warnings": []
 }
 ```

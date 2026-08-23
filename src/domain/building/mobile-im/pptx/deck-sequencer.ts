@@ -13,7 +13,7 @@ export type Grade = 'A' | 'B' | 'C' | 'D';
 export type IncomeArchetype = 'R-INC-01' | 'R-INC-02' | 'R-INC-03' | 'R-INC-04';
 
 export interface SlideSpec {
-  archetype: string;  // 'A01'~'A14'
+  archetype: string;  // 'A01'~'A17'
   kicker: string;
   title: string;
   dataKey: string;
@@ -81,7 +81,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
       case 'development':
         basicSequence.push(
           { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
-          { archetype: 'A04', kicker: 'Land Detail', title: '토지상세', dataKey: 'landDetail' },
+          { archetype: 'A04', kicker: 'Land Detail', title: '토지상세', dataKey: 'land' },
           { archetype: 'A05', kicker: 'Feasibility', title: '개발 개요', dataKey: 'feasibility' }
         );
         break;
@@ -143,21 +143,21 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
           sequence.push({ archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' });
           sequence.push({ archetype: 'A05', kicker: 'Rent Gap', title: '임대료 갭', dataKey: 'rentGap' });
           sequence.push({ archetype: 'A05', kicker: 'Upside', title: '인상 경로', dataKey: 'upside' });
-          sequence.push({ archetype: 'A08', kicker: 'Capital', title: '자본구조', dataKey: 'capital' });
+          sequence.push({ archetype: 'A16', kicker: 'Capital', title: '자본구조', dataKey: 'capital' });
           sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
         case 'R-INC-03': // 공실 해소형 — 공실 원인/유치 전략 강조
           sequence.push({ archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' });
           sequence.push({ archetype: 'A04', kicker: 'Vacancy', title: '공실 분석', dataKey: 'vacancy' });
           sequence.push({ archetype: 'A05', kicker: 'Leasing', title: '임차 유치', dataKey: 'leasing' });
-          sequence.push({ archetype: 'A08', kicker: 'Capital', title: '자본구조', dataKey: 'capital' });
+          sequence.push({ archetype: 'A16', kicker: 'Capital', title: '자본구조', dataKey: 'capital' });
           sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
         case 'R-INC-04': // 리모델링형 — 전/후 비교 강조
           sequence.push({ archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' });
           sequence.push({ archetype: 'A04', kicker: 'Current', title: '현황', dataKey: 'current' });
           sequence.push({ archetype: 'A05', kicker: 'Remodel', title: '리모델링', dataKey: 'remodel' });
-          sequence.push({ archetype: 'A08', kicker: 'Capital', title: '자본구조', dataKey: 'capital' });
+          sequence.push({ archetype: 'A16', kicker: 'Capital', title: '자본구조', dataKey: 'capital' });
           sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
         case 'R-INC-01': // 초안정형 (기본)
@@ -165,7 +165,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
           sequence.push({ archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' });
           sequence.push({ archetype: 'A04', kicker: 'Stability', title: '임대안정성', dataKey: 'stability' });
           sequence.push({ archetype: 'A05', kicker: 'Profit', title: '수익구조', dataKey: 'profit' });
-          sequence.push({ archetype: 'A08', kicker: 'Capital', title: '자본구조', dataKey: 'capital' });
+          sequence.push({ archetype: 'A16', kicker: 'Capital', title: '자본구조', dataKey: 'capital' });
           sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
       }
@@ -177,11 +177,11 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
       sequence.push({ archetype: 'A04', kicker: 'Value', title: '자산가치', dataKey: 'value' });
       break;
     case 'development':
-      sequence.push({ archetype: 'A04', kicker: 'Land Detail', title: '토지상세', dataKey: 'landDetail' });
+      sequence.push({ archetype: 'A04', kicker: 'Land Detail', title: '토지상세', dataKey: 'land' });
       sequence.push({ archetype: 'A05', kicker: 'Scale', title: '신축규모', dataKey: 'scale' });
       sequence.push({ archetype: 'A04', kicker: 'Eviction', title: '명도', dataKey: 'eviction' });
       sequence.push({ archetype: 'A08', kicker: 'Cost', title: '투입비용', dataKey: 'cost' });
-      sequence.push({ archetype: 'A05', kicker: 'Stacking', title: '스태킹', dataKey: 'stacking' });
+      sequence.push({ archetype: 'A17', kicker: 'Stacking', title: '스태킹', dataKey: 'stacking' });
       sequence.push({ archetype: 'A05', kicker: 'Feasibility', title: '사업수지', dataKey: 'feasibility' });
       break;
     case 'operating':

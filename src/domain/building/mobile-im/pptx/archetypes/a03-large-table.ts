@@ -64,18 +64,28 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
       })
     );
     
-    // 컬럼 수에 따른 동적 폰트 사이즈
-    const baseFontSize = colCount <= 4 ? 13 : (colCount <= 6 ? 11 : 10);
-    
-    // 테이블 행 제한 (최대 8행)
-    if (bodyRows.length > 8) {
-      bodyRows.length = 8;
-      input.data.note = (input.data.note ? input.data.note + ' / ' : '') + '외 N건은 별첨 참조';
+    // 컬럼 수 및 행 수에 따른 동적 폰트 및 높이 사이즈 (최대 12행 지원)
+    const maxRows = 12;
+    if (bodyRows.length > maxRows) {
+      bodyRows.length = maxRows;
+    }
+
+    const rowCount = bodyRows.length;
+    const baseFontSize = colCount <= 4 ? (rowCount > 8 ? 11 : 13) : (colCount <= 6 ? (rowCount > 8 ? 9.5 : 11) : (rowCount > 8 ? 9 : 10));
+    const rh = rowCount > 8 ? 0.38 : 0.48;
+
+    // "외 N건은 별첨 참조" 등 오염 문자열 정제
+    if (input.data.note) {
+      input.data.note = String(input.data.note)
+        .replace(/외\s*\d*건은\s*별첨\s*참조/g, '')
+        .replace(/\s*\/\s*$/, '')
+        .replace(/^\s*\/\s*/, '')
+        .trim();
     }
 
     L.table(slide, M, 1.80, CW, 
       tableHead.map(h => String(h || '').replace(/\*\*/g, '')),
-      bodyRows, colW, { rh: 0.50, bfs: baseFontSize, hfs: baseFontSize }
+      bodyRows, colW, { rh, bfs: baseFontSize, hfs: baseFontSize }
     );
   } else if (input.data.content) {
     // 테이블 없으면 content를 L.rows()로 렌더링
@@ -114,9 +124,9 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
   }
   
   // Note
-  const rh = 0.50;
-  const tableEnd = 1.86 + ((Math.min(8, tableRows.length) + 1) * rh);
-  if (input.data.note && !hasNoData && tableEnd + 0.10 + 0.3 <= 7.0) {
+  const calculatedRh = (tableRows.length > 8 ? 0.38 : 0.48);
+  const tableEnd = 1.80 + ((Math.min(12, tableRows.length) + 1) * calculatedRh);
+  if (input.data.note && !hasNoData && tableEnd + 0.10 + 0.3 <= 6.75) {
     L.note(slide, M, tableEnd + 0.10, CW, input.data.note);
   }
   

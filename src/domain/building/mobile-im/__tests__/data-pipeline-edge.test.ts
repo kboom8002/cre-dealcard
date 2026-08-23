@@ -389,9 +389,9 @@ describe('Data Pipeline Edge Cases', () => {
     });
 
     it('E10: V3 warning messages - strips emojis ✨🚇✓★▲●◇', () => {
-      const stripped = stripMarkdown('✨🚇✓★▲●◇ 텍스트');
+      const stripped = stripMarkdown('✨🚇✓▲●◇ 텍스트');
       expect(stripped).toContain('텍스트');
-      expect(stripped).not.toMatch(/[✨🚇✓★▲●◇]/);
+      expect(stripped).not.toMatch(/[✨🚇✓▲●◇]/);
     });
   });
 

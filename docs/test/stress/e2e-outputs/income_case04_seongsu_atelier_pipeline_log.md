@@ -1,7 +1,7 @@
 # Pipeline Log: income_case04_seongsu_atelier
 
-**Generated**: 2026-08-23T01:22:37.479Z
-**Total Duration**: 0.3s
+**Generated**: 2026-08-23T09:54:02.989Z
+**Total Duration**: 0.2s
 
 ## Step-by-Step Timeline
 
@@ -11,7 +11,7 @@
 | 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: income, keys: 4 |
 | 3 | ③ IM 생성 (LLM) | 0.17s | ✅ success | ok=true, sections=8, grade=A |
 | 4 | ④ 중간 결과물 저장 | 0.01s | ✅ success | sections: 8 |
-| 5 | ⑤ PPTX 렌더링 | 0.11s | ✅ success | slides: 10, size: 340KB |
+| 5 | ⑤ PPTX 렌더링 | 0.07s | ✅ success | slides: 10, size: 322KB |
 
 ## Detailed Metrics
 
@@ -29,7 +29,9 @@
 ```json
 {
   "slideCount": 10,
-  "fileSizeBytes": 347731,
-  "warnings": []
+  "fileSizeBytes": 330129,
+  "warnings": [
+    "Profit stat 카드 없음"
+  ]
 }
 ```

@@ -178,6 +178,7 @@ export interface MobileIMSupplementalInput {
   total_deposit_manwon?: number;    // 보증금 합계 (만원)
   mgmt_fee_total_manwon?: number;   // 관리비 합계 (만원)
   loan_amount_manwon?: number;      // 융자(채권최고액) (만원)
+  opex_total_krw?: number;          // 연간 실측 운영비 (원)
   loan_bank?: string;               // 융자 은행
   asking_price_manwon?: number;     // 매매가 (만원)
   monthly_revenue_manwon?: number;

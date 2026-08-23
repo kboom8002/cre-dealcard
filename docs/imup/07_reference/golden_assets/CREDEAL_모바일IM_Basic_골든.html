@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CREDEAL 모바일 IM Basic 골든 — 연남동 상가주택</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Helvetica Neue",sans-serif;
+     background:#F4F6F8;color:#1B222B;padding:34px 20px 60px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto}
+.doc-hd{max-width:800px;margin:0 auto 28px;text-align:center}
+.doc-hd h1{font-size:24px;font-weight:800;letter-spacing:-.4px;margin-bottom:9px}
+.doc-hd h1 em{font-style:normal;color:#B45309}
+.doc-hd p{font-size:13px;color:#6B7987;line-height:1.85}
+.ont{display:inline-block;margin-top:12px;font-size:11px;color:#B45309;background:#FEF6E7;
+     border:1px solid #F5DFA8;border-radius:7px;padding:7px 13px;line-height:1.7}
+.row{display:table;width:100%;max-width:1080px;margin:0 auto;border-spacing:22px 0}
+.col-ph{display:table-cell;width:410px;vertical-align:top}
+.col-nt{display:table-cell;vertical-align:top}
+
+.phone{width:392px;background:#0B0F14;border-radius:34px;border:9px solid #1A2028;
+       overflow:hidden;box-shadow:0 14px 40px rgba(15,23,42,.22)}
+.sbar{display:table;width:100%;padding:11px 20px 5px;font-size:11.5px;color:#9AA7B5;font-weight:600}
+.sbar .l{display:table-cell;text-align:left}.sbar .r{display:table-cell;text-align:right}
+.scr{color:#E7ECF2}
+.nav{display:table;width:100%;padding:9px 16px 11px;border-bottom:1px solid #1B222B}
+.nav span{display:table-cell;vertical-align:middle}
+.nav .bk{width:22px;font-size:16px;color:#9AA7B5}
+.nav .ti{font-size:12.5px;font-weight:700;text-align:center}
+.nav .ic{width:22px;font-size:14px;color:#9AA7B5;text-align:right}
+.pad{padding:14px 16px 20px}
+
+.eyebrow{font-size:10.6px;color:#6B7987;font-weight:600;letter-spacing:.2px}
+.h1{font-size:19.5px;font-weight:800;line-height:1.4;margin-top:7px;letter-spacing:-.35px}
+.h1 span{display:block;color:#9AA7B5;font-size:13px;font-weight:600;margin-top:5px}
+
+.eq{background:#1A2333;border:1px solid #2C3A4D;border-radius:15px;padding:15px 16px;margin-top:13px}
+.eq .k{font-size:10.6px;color:#8FA3BC;font-weight:700;letter-spacing:.3px}
+.eq .v{font-size:31px;font-weight:800;letter-spacing:-.8px;margin-top:4px;line-height:1.2}
+.eq .v i{font-style:normal;font-size:15px;font-weight:700;margin-left:3px}
+.eq .c{font-size:10.6px;color:#8FA3BC;margin-top:7px;line-height:1.65;
+       padding-top:8px;border-top:1px solid #2C3A4D}
+
+.g2{display:table;width:calc(100% + 14px);border-spacing:7px 0;margin:9px -7px 0}
+.g2 .c{display:table-cell;width:50%}
+.mini{background:#141A21;border:1px solid #252E39;border-radius:12px;padding:11px 12px;height:100%}
+.mini.bm{background:#12191B;border-color:#22382C}
+.mini .m1{font-size:9.8px;color:#6B7987;font-weight:600}
+.mini .m2{font-size:18px;font-weight:800;margin-top:4px;letter-spacing:-.4px}
+.mini.bm .m2{color:#7FD69B}
+.mini .m3{font-size:9.4px;color:#9AA7B5;margin-top:4px;line-height:1.5}
+
+.sum{background:#181F2A;border:1px solid #2E3A48;border-radius:12px;padding:13px;margin-top:11px;
+     font-size:12.5px;line-height:1.88}
+.map{margin-top:12px;border:1px solid #252E39;border-radius:12px;overflow:hidden;background:#111820}
+.map .ph{position:relative;height:196px;background:
+   repeating-linear-gradient(0deg,#151D26 0 1px,transparent 1px 26px),
+   repeating-linear-gradient(90deg,#151D26 0 1px,transparent 1px 26px),#101720}
+.map .rd{position:absolute;background:#1F2A36}
+.map .r1{left:0;right:0;top:98px;height:13px}
+.map .r2{top:0;bottom:0;left:172px;width:9px}
+.map .cir{position:absolute;border:1px dashed #35485C;border-radius:50%}
+.map .c1{left:96px;top:24px;width:160px;height:160px}
+.map .c2{left:136px;top:64px;width:80px;height:80px}
+.map .dot{position:absolute;left:169px;top:97px;width:16px;height:16px;border-radius:50%;
+          background:#B98A2E;border:2px solid #0B0F14}
+.map .st{position:absolute;left:44px;top:36px;background:#2A3644;color:#E7ECF2;
+         font-size:9px;font-weight:700;padding:3px 7px;border-radius:9px}
+.map .cap{font-size:9.4px;color:#6B7987;padding:8px 11px;line-height:1.6;border-top:1px solid #252E39}
+
+.q{margin-top:15px}
+.qh{font-size:14px;font-weight:800;letter-spacing:-.2px;margin-bottom:9px}
+.qh i{font-style:normal;color:#B98A2E;margin-right:6px}
+.card{background:#141A21;border:1px solid #252E39;border-radius:12px;padding:13px}
+.rw{display:table;width:100%;font-size:11.8px;padding:7px 0;border-bottom:1px solid #1E252E}
+.rw:last-child{border-bottom:0}
+.rw .a{display:table-cell;color:#8B98A6}
+.rw .b{display:table-cell;text-align:right;font-weight:700}
+.bdg{display:inline-block;font-size:8.6px;font-weight:700;padding:2px 5px;border-radius:4px;margin-left:5px}
+.b-pub{background:#132318;color:#4ADE80;border:1px solid #2C5C3C}
+.b-ai{background:#22201A;color:#B08A3E;border:1px solid #4A3D22}
+.gap{background:#22201A;border:1px solid #4A3D22;border-radius:11px;padding:12px;margin-top:9px}
+.gap b{color:#E0B75C}
+.gap p{font-size:11.6px;line-height:1.8;color:#C9BFA8;margin-top:5px}
+.rk{display:table;width:100%;padding:9px 0;border-bottom:1px solid #1E252E}
+.rk:last-child{border-bottom:0}
+.rk .i{display:table-cell;width:20px;font-size:12px;vertical-align:top;padding-top:1px}
+.rk .t{display:table-cell;font-size:11.8px;line-height:1.72}
+.rk .t b{display:block;font-size:12.4px;margin-bottom:2px}
+
+details{background:#121821;border:1px solid #222B36;border-radius:11px;margin-top:8px}
+summary{padding:12px 13px;font-size:12.4px;font-weight:700;cursor:pointer;list-style:none;color:#C3CBD4}
+summary::-webkit-details-marker{display:none}
+summary::after{content:'▾';float:right;color:#6B7987;font-size:11px}
+details[open] summary::after{content:'▴'}
+details .db{padding:0 13px 13px}
+.warnbox{background:#241618;border:1px solid #5A2B30;border-radius:10px;padding:11px;margin-top:9px}
+.warnbox b{color:#FCA5A5;font-size:11.6px}
+.warnbox p{font-size:11px;line-height:1.75;color:#C4A8AA;margin-top:4px}
+
+.tbl{width:100%;border-collapse:collapse;font-size:11px;margin-top:4px}
+.tbl th{background:#161D26;color:#7E8B99;font-weight:700;padding:7px 5px;text-align:center;
+        border-bottom:1px solid #252E39;font-size:10px}
+.tbl td{padding:7px 5px;text-align:center;border-bottom:1px solid #1B222B;color:#C3CBD4}
+.tbl td:first-child,.tbl th:first-child{text-align:left;color:#E7ECF2;font-weight:700}
+.tbl tr:last-child td{border-bottom:0}
+
+.btn3{display:table;width:calc(100% + 12px);border-spacing:6px 0;margin:15px 0 0 -6px}
+.btn3 a{display:table-cell;width:33.3%;text-align:center;font-size:11.4px;font-weight:700;
+        padding:13px 2px;border-radius:10px;text-decoration:none;line-height:1.35}
+.b1{background:#141A21;border:1px solid #2E3A48;color:#C3CBD4}
+.b3{background:#B98A2E;border:1px solid #B98A2E;color:#12161C}
+.prof{display:table;width:100%;background:#141A21;border:1px solid #252E39;border-radius:12px;padding:12px;margin-top:11px}
+.prof .pi{display:table-cell;width:38px;vertical-align:middle}
+.prof .pi i{display:block;width:32px;height:32px;border-radius:50%;background:#2A3644;
+            font-style:normal;font-size:13px;line-height:32px;text-align:center;color:#C3CBD4}
+.prof .pt{display:table-cell;vertical-align:middle}
+.prof .pt b{display:block;font-size:12px}
+.prof .pt span{display:block;font-size:9.6px;color:#9AA7B5;margin-top:3px;line-height:1.6}
+.disc{font-size:9.2px;color:#5C6875;line-height:1.7;margin-top:12px}
+
+.note-card{background:#fff;border:1px solid #E2E7EC;border-radius:12px;padding:17px 19px;margin-bottom:14px}
+.note-card h3{font-size:13.5px;font-weight:800;margin-bottom:11px}
+.nt{display:table;width:100%;font-size:11.8px;line-height:1.72;border-bottom:1px solid #EEF1F4;padding:8px 0}
+.nt:last-child{border-bottom:0}
+.nt .k{display:table-cell;width:104px;color:#6B7987;font-weight:600;vertical-align:top}
+.nt .v{display:table-cell;color:#2B3440;vertical-align:top}
+.nt .v b{color:#0F1720}
+.del{color:#A33A3D;text-decoration:line-through}
+.add{color:#2E7D4F;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="doc-hd">
+  <h1>CREDEAL <em>모바일 IM · Basic</em> 골든</h1>
+  <p>연남동 상가주택 · 임대수익형(R-INC-02) · 가상 목업(실물건 아님)<br>
+     <b>3문 펼침 + 4문 접기</b> · 스크립트 없음(<code>&lt;details&gt;</code>) · 지도 에셋 포함</p>
+  <div class="ont">온톨로지 v0.4 — 첫 숫자 = 실투자금 · 권역 벤치마크 병기 · 업종 대분류 · 역레버리지 정직 표기</div>
+</div>
+
+<div class="row">
+  <div class="col-ph">
+    <div class="phone">
+      <div class="sbar"><span class="l">9:41</span><span class="r">LTE ▮▮▮ 87%</span></div>
+      <div class="scr">
+        <div class="nav"><span class="bk">←</span><span class="ti">투자설명서 · Basic</span><span class="ic">⤴</span></div>
+        <div class="pad">
+
+          <div class="eyebrow">상가주택 · 📍 마포 연남 · 📏 대지 85평</div>
+          <div class="h1">연남 상권 상가주택<span>임대료 여지가 남은 물건</span></div>
+
+          <!-- ★ 첫 숫자 = 실투자금 -->
+          <div class="eq">
+            <div class="k">실투자금</div>
+            <div class="v">약 39<i>억</i></div>
+            <div class="c">매각가 42억 − 승계 보증금 3.3억<br>취득 부대비용 별도 약 2.5억</div>
+          </div>
+
+          <!-- ★ 권역 비교 -->
+          <div class="g2">
+            <div class="c"><div class="mini">
+              <div class="m1">임대수익률</div><div class="m2">1.86%</div>
+              <div class="m3">실투자금 기준<span class="bdg b-pub">✓공부</span></div>
+            </div></div>
+            <div class="c"><div class="mini bm">
+              <div class="m1">연남 근생 평균</div><div class="m2">1.9%</div>
+              <div class="m3">표본 N=23 · 최근 12개월</div>
+            </div></div>
+          </div>
+
+          <div class="sum">
+            💡 <b>지금은 권역 평균 수준</b>입니다. 다만 임대 중인 세 곳 모두
+            주변 시세보다 <b>19% 낮게</b> 묶여 있고, 지하 한 개 층이 비어 있습니다.
+            채우고 조정하면 <b>2.2% 수준</b>이 됩니다.
+          </div>
+
+          <!-- 지도 에셋 -->
+          <div class="map">
+            <div class="ph">
+              <div class="rd r1"></div><div class="rd r2"></div>
+              <div class="cir c1"></div><div class="cir c2"></div>
+              <div class="st">홍대입구역</div>
+              <div class="dot"></div>
+            </div>
+            <div class="cap">반경 150m / 300m · 개념도이며 정확 위치는 상세 자료에서 확인됩니다</div>
+          </div>
+
+          <!-- Q1 -->
+          <div class="q">
+            <div class="qh"><i>Q1</i>이 돈으로 무엇을 사는가</div>
+            <div class="card">
+              <div class="rw"><span class="a">대지 / 연면적</span><span class="b">85.6평 / 205.7평<span class="bdg b-pub">✓공부</span></span></div>
+              <div class="rw"><span class="a">규모</span><span class="b">지하1층 ~ 지상4층</span></div>
+              <div class="rw"><span class="a">사용승인</span><span class="b">2003년 5월 (23년)</span></div>
+              <div class="rw"><span class="a">용도</span><span class="b">1·2층 근생 + 3·4층 주택</span></div>
+              <div class="rw"><span class="a">용적률</span><span class="b">198.4% <span style="color:#6B7987;font-weight:400">지상 기준</span></span></div>
+              <div class="rw"><span class="a">주차</span><span class="b">자주식 3대</span></div>
+            </div>
+          </div>
+
+          <!-- Q2 -->
+          <div class="q">
+            <div class="qh"><i>Q2</i>얼마나 벌고, 더 벌 수 있나</div>
+            <div class="card">
+              <div class="rw"><span class="a">월 임대료</span><span class="b">600만원</span></div>
+              <div class="rw"><span class="a">보증금</span><span class="b">3.3억 (전세 1호 포함)</span></div>
+              <div class="rw"><span class="a">공실</span><span class="b">지하 1개층</span></div>
+              <div class="rw"><span class="a">임대수익률</span><span class="b">1.86% <span style="color:#6B7987;font-weight:400">실투자금 기준</span></span></div>
+            </div>
+            <div class="gap">
+              <b>올릴 여지 — 두 단계</b>
+              <p>① 지하 공실 해소 (신규 계약이라 인상 상한 없음) &nbsp;<b>+90만/월</b><br>
+                 ② 임대 3실 갱신 시 인상 &nbsp;<b>+30만/월</b> — 법정 상한 5% 이내<br>
+                 → 월 <b>720만원</b> · 수익률 <b>2.23%</b> <span class="bdg b-ai">⚙가정</span></p>
+            </div>
+            <div class="disc">※ 시세 수준(월 87만 추가)까지는 갱신요구권 소진 후에만 가능하며, 1층 기준 2.7년 남았습니다.</div>
+          </div>
+
+          <!-- Q3 -->
+          <div class="q">
+            <div class="qh"><i>Q3</i>무엇이 걸리는가</div>
+            <div class="card">
+              <div class="rk"><span class="i">🔴</span><span class="t">
+                <b>갱신요구권이 남아 있습니다</b>1층 2.7년 · 2층 5.1년. 그 전까지는 갱신 시 5% 상한이 적용됩니다.</span></div>
+              <div class="rk"><span class="i">🟠</span><span class="t">
+                <b>3·4층은 주택입니다</b>상가와 임대차 규정이 달라 명도 시점 판단이 별도로 필요합니다.</span></div>
+              <div class="rk"><span class="i">🟠</span><span class="t">
+                <b>위반건축물 조회 중</b>옥탑 증축 여부를 구청에 확인하고 있습니다. 등재 시 대출이 제한될 수 있습니다.</span></div>
+              <div class="rk"><span class="i">🟡</span><span class="t">
+                <b>운영경비 실적 미수령</b>수익률은 통상치 22%를 가정해 산출했습니다.</span></div>
+            </div>
+          </div>
+
+          <!-- 접힘 4문 -->
+          <details>
+            <summary>입지는 어떤가</summary>
+            <div class="db">
+              <div class="rw"><span class="a">용도지역</span><span class="b">제2종일반주거지역<span class="bdg b-pub">✓공부</span></span></div>
+              <div class="rw"><span class="a">용적률 상한</span><span class="b">200% (현황 198.4%)</span></div>
+              <div class="rw"><span class="a">접도</span><span class="b">남측 8m · 동측 4m</span></div>
+              <div class="rw"><span class="a">역세권</span><span class="b">홍대입구역 도보 9분</span></div>
+              <div class="rw"><span class="a">공시지가</span><span class="b">㎡당 894만원</span></div>
+              <div class="disc">※ 상한에 근접해 증축 여지는 거의 없습니다.</div>
+            </div>
+          </details>
+
+          <details>
+            <summary>층별 임대 현황</summary>
+            <div class="db">
+              <table class="tbl">
+                <tr><th>층</th><th>용도</th><th>전용</th><th>보증금</th><th>월세</th></tr>
+                <tr><td>4F</td><td>주택</td><td>40.1평</td><td>0.5억</td><td>110만</td></tr>
+                <tr><td>3F</td><td>주택</td><td>40.1평</td><td>2.0억</td><td>전세</td></tr>
+                <tr><td>2F</td><td>근생 (교육)</td><td>44.8평</td><td>0.3억</td><td>210만</td></tr>
+                <tr><td>1F</td><td>근생 (식음)</td><td>44.8평</td><td>0.5억</td><td>280만</td></tr>
+                <tr><td>B1</td><td>창고</td><td>35.8평</td><td>—</td><td>공실</td></tr>
+              </table>
+              <div class="disc">※ 업종은 대분류로 표기합니다. 임차인 상호·계약 만기는 상세 자료에서 확인하실 수 있습니다.</div>
+            </div>
+          </details>
+
+          <details>
+            <summary>대출을 쓰면 어떻게 되나</summary>
+            <div class="db">
+              <table class="tbl">
+                <tr><th>대출</th><th>실투자금</th><th>연 이자</th><th>연 현금흐름</th></tr>
+                <tr><td>없음</td><td>38.7억</td><td>—</td><td>+0.56억</td></tr>
+                <tr><td>40%</td><td>21.9억</td><td>0.81억</td><td>−0.24억</td></tr>
+                <tr><td>55%</td><td>15.6억</td><td>1.11억</td><td>−0.55억</td></tr>
+              </table>
+              <div class="warnbox">
+                <b>이 물건은 대출이 불리합니다</b>
+                <p>대출금리(연 4.8% 가정)가 이 물건의 수익률보다 높습니다.
+                   대출을 쓰면 초기 자금은 줄지만 <b>연간 현금흐름이 마이너스</b>가 됩니다.
+                   임대료 정상화 이후에는 달라집니다.</p>
+              </div>
+              <div class="disc">※ 금리는 2026년 8월 기준 가정이며 실제 조건은 금융기관 심사에 따릅니다.</div>
+            </div>
+          </details>
+
+          <details>
+            <summary>권리 관계</summary>
+            <div class="db">
+              <div class="rw"><span class="a">소유</span><span class="b">층별 구분등기 · 2인</span></div>
+              <div class="rw"><span class="a">근저당 채권최고액</span><span class="b">8.4억<span class="bdg b-pub">✓공부</span></span></div>
+              <div class="rw"><span class="a">공동담보</span><span class="b">2개 그룹</span></div>
+              <div class="rw"><span class="a">매각 조건</span><span class="b">소유자 2인 전원 동의</span></div>
+              <div class="disc">※ 호실별 채권최고액을 단순 합산하면 16.8억이 되지만, 같은 그룹에 설정된 공동담보이므로 실제는 8.4억입니다.</div>
+            </div>
+          </details>
+
+          <div class="btn3">
+            <a class="b1" href="#">💬<br>질문</a>
+            <a class="b1" href="#">📄<br>자료 더 받기</a>
+            <a class="b3" href="#">🔑<br>현장 보기</a>
+          </div>
+
+          <div class="prof">
+            <span class="pi"><i>차</i></span>
+            <span class="pt"><b>차상혁 팀장 <span class="bdg b-pub">✓공인중개사</span></b>
+            <span>마포·연남 CRE 9년 · 응답 보장 3시간 · 제이에스부동산중개(주)</span></span>
+          </div>
+
+          <div class="disc">본 자료는 정보 제공을 목적으로 하며 투자 권유가 아닙니다. ⚙ 표시 항목은 가정이며 실제와 다를 수 있습니다. 매수 결정 전 독립적인 검토를 받으시기 바랍니다.</div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-nt">
+    <div class="note-card">
+      <h3>기존 7문 대비 무엇이 바뀌었나</h3>
+      <div class="nt"><span class="k">첫 숫자</span><span class="v"><span class="del">매각가 42억</span> → <span class="add">실투자금 39억</span><br>매수자가 알고 싶은 건 "내 돈 얼마"입니다. 계산 과정을 한 줄로 붙였습니다</span></div>
+      <div class="nt"><span class="k">비교</span><span class="v"><span class="add">권역 평균 병기</span> — 매수자는 받은 5개를 비교합니다.<br>표본 N을 밝히고, <b>평균보다 낮아도 그대로 씁니다</b></span></div>
+      <div class="nt"><span class="k">구조</span><span class="v">7문 평면 → <b>3문 펼침 + 4문 접기</b><br>30초 판단용 문서에 7문은 그 자체가 10분입니다</span></div>
+      <div class="nt"><span class="k">접기 구현</span><span class="v"><code>&lt;details&gt;</code> — <b>스크립트 없음</b>. 어느 섹션을 펼쳤는지가 관심 방향 신호가 됩니다</span></div>
+      <div class="nt"><span class="k">업종</span><span class="v"><span class="del">카페 / 학원 / 의원</span> → <span class="add">근생(식음) / 근생(교육)</span><br>Basic은 링크가 퍼집니다. 상호가 있으면 검색으로 특정됩니다</span></div>
+      <div class="nt"><span class="k">CTA</span><span class="v"><span class="del">상세 요청(NDA)</span> → <span class="add">자료 더 받기</span> 중간 계단 신설<br>연락처만 받고 보조 자료 발송 → 관계 형성 후 NDA</span></div>
+    </div>
+
+    <div class="note-card">
+      <h3>가장 중요한 판단 — 대출을 첫 화면에 넣지 않았습니다</h3>
+      <div style="font-size:12.2px;line-height:1.9;color:#2B3440">
+        "LTV 55%면 실투자금 <b>15.6억</b>"은 숫자로는 매력적입니다.
+        그런데 이 물건은 <b>대출금리 4.8% &gt; 수익률 1.34%</b>인 역레버리지라,
+        대출을 쓰면 연 현금흐름이 <b>마이너스 0.55억</b>이 됩니다.<br><br>
+        첫 화면에 두면 유인이 아니라 <b>기만</b>이 됩니다.
+        접힌 섹션에서 경고와 함께 제시했습니다.<br><br>
+        <b>매력적으로 보이는 것과 정확한 것이 충돌하면 정확을 택합니다.</b>
+        실사에서 드러나면 그 딜만 잃는 게 아니라 중개인을 잃습니다.
+      </div>
+    </div>
+
+    <div class="note-card">
+      <h3>지도 에셋</h3>
+      <div class="nt"><span class="k">형식</span><span class="v">정적 이미지 (Static Map API). 지도 SDK는 무겁고 카카오 인앱에서 실패율이 높습니다</span></div>
+      <div class="nt"><span class="k">중심</span><span class="v"><b>반경 원의 중심</b> — 정확 위치가 아닙니다</span></div>
+      <div class="nt"><span class="k">예산</span><span class="v">≤60KB · lazy. <b>첫 화면은 이미지 없이 완성</b>되어야 합니다</span></div>
+      <div class="nt"><span class="k">부재 시</span><span class="v">사진·지도가 없는 물건에서도 <b>레이아웃이 깨지지 않아야</b> 합니다 — 매물의 절반은 사진이 없습니다</span></div>
+      <div class="nt"><span class="k">외관 사진</span><span class="v">Basic은 1장 · <b>간판·번지·번호판 마스킹</b>. 사람이 검수합니다</span></div>
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

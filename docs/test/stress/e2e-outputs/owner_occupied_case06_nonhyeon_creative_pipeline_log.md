@@ -1,7 +1,7 @@
 # Pipeline Log: owner_occupied_case06_nonhyeon_creative
 
-**Generated**: 2026-08-23T01:22:38.041Z
-**Total Duration**: 0.3s
+**Generated**: 2026-08-23T09:54:03.463Z
+**Total Duration**: 0.2s
 
 ## Step-by-Step Timeline
 
@@ -11,7 +11,7 @@
 | 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: owner_occupied, keys: 3 |
 | 3 | ③ IM 생성 (LLM) | 0.17s | ✅ success | ok=true, sections=8, grade=B |
 | 4 | ④ 중간 결과물 저장 | 0.01s | ✅ success | sections: 8 |
-| 5 | ⑤ PPTX 렌더링 | 0.09s | ✅ success | slides: 10, size: 280KB |
+| 5 | ⑤ PPTX 렌더링 | 0.06s | ✅ success | slides: 10, size: 265KB |
 
 ## Detailed Metrics
 
@@ -29,7 +29,7 @@
 ```json
 {
   "slideCount": 10,
-  "fileSizeBytes": 287010,
+  "fileSizeBytes": 271707,
   "warnings": []
 }
 ```

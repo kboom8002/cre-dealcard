@@ -317,12 +317,22 @@ export class MobileImPptxRenderer {
       }
 
       // ── 2. 섹션 데이터 바인딩 ──
-      // RC1 fix: doc.body.sections → doc.sections 경로 정규화
-      const normalizedDoc = {
-        ...input.doc,
-        sections: input.doc.sections ?? input.doc.body?.sections ?? [],
-      };
-      const dataMap = bindSectionData(normalizedDoc, input.building);
+      // RENDER_PATH 환경변수에 따라 IMCore 직접 바인딩 또는 레거시 마크다운 파싱 분기
+      const renderPath = process.env.RENDER_PATH ?? 'legacy_md';
+      let dataMap: Record<string, import('./data-binder').SectionData>;
+
+      if (renderPath === 'imcore' && (input as any).core) {
+        // Phase 2-3: IMCore 정형 객체 직접 바인딩 (마크다운 파싱 우회)
+        const { bindFromIMCore } = await import('./data-binder');
+        dataMap = bindFromIMCore((input as any).core);
+      } else {
+        // 레거시: 마크다운 파싱 기반 바인딩
+        const normalizedDoc = {
+          ...input.doc,
+          sections: input.doc.sections ?? input.doc.body?.sections ?? [],
+        };
+        dataMap = bindSectionData(normalizedDoc, input.building);
+      }
 
       // cover/closing 데이터 보강
       const companyName = input.broker?.company_name ?? '';
