@@ -176,14 +176,14 @@ export async function runProductionIncomeE2ESuite(): Promise<PipelineCaseResult[
       section_type: 'lease_status',
       markdown: `### 의원 + 약국 중심 만실 우량 임차 구성
 - **보증금 총액**: 2억 9,000만 원 | **월 임대료 총액**: 1,946만 원
-- **공실 현황**: 0.0% (전 층 만실 운영 중)
+- **공실 현황**: 임대 6구획 만실 · 자가사용 2구획 (B1F·4F 일부)
 - **주요 임차인 구성**:
-  - **1F**: 고은약국 (보증금 5,000만 / 월세 350만)
-  - **1F·2F·5F**: 로뎀나무내과 (보증금 1억 / 월세 750만)
-  - **3F**: 프리미엄 헬스장 (보증금 5,000만 / 월세 366만)
-  - **4F(401호)**: 국제와인 (보증금 4,000만 / 월세 260만)
-    - 갱신요구권 7년 잔여 → **법정 5% 상한 적용: 273만 원** (시세 306만 불가)
-  - **B1F / 4F 일부**: 소유자 자가 사용 (임대 전환 시 월 602만 원 즉시 증대)`,
+  - **1F(101호)**: 고은약국 (보증금 6,000만 / 월세 183만) — 11년 미인상
+  - **1F·2F(102·201호)**: 로뎀나무내과 (보증금 1억 4,000만 / 월세 883만) — 1F+2F 통합계약
+  - **3F(301호)**: 프리미엄 헬스장 (보증금 5,000만 / 월세 455만)
+  - **4F(401호)**: 국제와인 (보증금 3,000만 / 월세 260만)
+  - **5F(501호)**: 로뎀나무내과 (보증금 1,000만 / 월세 165만) — 5F 별도 계약
+  - **B1F / 4F(402호)**: 소유자 자가 사용 (임대 전환 시 월 602만 원 추가 수익 가능)`,
     },
     {
       title: '수익성 및 임대료 정상화 분석',
@@ -236,14 +236,15 @@ export async function runProductionIncomeE2ESuite(): Promise<PipelineCaseResult[
       ],
       heroCard: {
         askingPriceDisplay: '115.0억 원',
-        capRateBase: 2.08,
+        capRateBase: 2.03,
         noiBaseBil: 2.34,
-        equityRequiredBil: 61.0,
-        leveragedYieldPct: 3.45,
+        equityRequiredBil: 67.69,
+        leveragedYieldPct: 0.07,
         posture: 'income',
         landAreaM2: 506.8,
         totalGrossAreaM2: 1441.15,
         zoning: '준공업지역',
+        isNegativeLeverage: true,
       },
     },
     sections: dangsanSections,
@@ -748,14 +749,8 @@ function generateMobileImViewerHtml(
       .replace(/\*(.*?)\*/g, '<em class="italic text-neutral-200">$1</em>');
   }
 
-  /** 섹션 아이콘 매핑 */
-  const sectionIcons: Record<string, string> = {
-    property_overview: '🏢', location_access: '📍', lease_status: '📋',
-    income_analysis: '💰', risk_check: '⚠️', investment_thesis: '🎯', next_steps: '📌',
-    occupancy_fit: '🏠', cost_comparison: '💵', site_analysis: '🗺️',
-    development_feasibility: '📐', operation_overview: '⚙️', gop_analysis: '📊',
-    market_position: '📈', comparable_analysis: '🔄',
-  };
+  /** 섹션 아이콘 — PPTX/E2E에서 이모지 사용 금지 (D16 §5.1 준수) */
+  // 이모지 대신 번호만 사용하므로 sectionIcons 맵 비활성화
 
   return `<!DOCTYPE html>
 <html lang="ko">
@@ -841,25 +836,31 @@ function generateMobileImViewerHtml(
   </div>
 
   <!-- Sections Accordion (Rich Markdown Rendering) -->
-  ${sections.map((sec, idx) => `
+  ${sections.map((sec, idx) => {
+    // 결손 키워드 기반 뱃지 조건부 렌더링 — 거짓 확인 방지
+    const deficiencyKeywords = ['확인 필요', '확인필요', '미확정', '미제출', '미첨부', '오기', '정정', '불일치', '추정', '가정'];
+    const hasDeficiency = deficiencyKeywords.some(kw => sec.markdown.includes(kw));
+    const badge = hasDeficiency
+      ? '<span class="px-1.5 py-0.5 rounded bg-amber-500/15 text-[9px] text-amber-400 font-bold">⚠ 확인 필요</span>'
+      : '<span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-[9px] text-emerald-400 font-bold">✓ 자료 확보</span>';
+    return `
     <div class="rounded-2xl bg-neutral-900/60 border border-neutral-800 overflow-hidden">
       <div class="p-3.5 flex items-center gap-2 cursor-pointer">
-        <span class="text-base">${sectionIcons[sec.section_type] || '📄'}</span>
         <span class="w-1 h-4 bg-emerald-400 rounded-sm"></span>
         <h2 class="text-sm font-bold text-white flex-1">${idx + 1}. ${sec.title}</h2>
         <div class="flex gap-1">
-          <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-[9px] text-emerald-400 font-bold">✓ 확인됨</span>
+          ${badge}
         </div>
       </div>
       <div class="px-4 pb-4 space-y-1">
         ${mdToHtml(sec.markdown)}
       </div>
     </div>
-  `).join('')}
+  `;}).join('')}
 
   <!-- Broker Profile Card -->
   <div class="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 flex items-center gap-3">
-    <div class="w-10 h-10 rounded-full bg-neutral-700 flex items-center justify-center text-lg">👤</div>
+    <div class="w-10 h-10 rounded-full bg-neutral-700 flex items-center justify-center text-sm font-bold text-neutral-300">B</div>
     <div class="flex-1">
       <p class="text-xs font-bold text-white">담당 브로커</p>
       <p class="text-[10px] text-neutral-400">CRE 전문 · 상업용 부동산</p>

@@ -647,6 +647,7 @@ export interface StatOpts {
   labCol?: string;
   subCol?: string;
   onDark?: boolean;
+  labelFontSize?: number; // 라벨 폰트 크기 (기본 9.5, 긴 라벨 자동 축소용)
 }
 
 /** §8.2 스탯 카드 */
@@ -680,7 +681,7 @@ export function stat(
   // 라벨
   s.addText(label, {
     x: x + 0.18, y: y + 0.14, w: w - 0.36, h: 0.22,
-    fontSize: 9.5, color: labCol, fontFace: KR, margin: 0,
+    fontSize: opt.labelFontSize ?? 9.5, color: labCol, fontFace: KR, margin: 0,
   });
 
   // 값 — FIX-RC1: 텍스트 길이에 따른 동적 폰트 사이즈

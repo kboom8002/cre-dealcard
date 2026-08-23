@@ -65,8 +65,9 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
     const cardH1 = 1.30;
     row1.forEach((s: any, i: number) => {
       const x = L.colX(i, cardW, cardGap);
-      // 텍스트 오버플로 방지: label 16자, value 20자, sub 40자 제한
-      const safeLabel = (s.label ?? '').slice(0, 16);
+      // 라벨 절삭 금지: 괄호 약어(Cap Rate, GOP, TI) 보호, 글자수에 따라 폰트 자동 축소
+      const safeLabel = (s.label ?? '').trim();
+      const labelFontSize = safeLabel.length > 20 ? 8.0 : safeLabel.length > 16 ? 8.5 : 9.5;
       const rawValue = s.value ?? '';
       // value가 서술형 장문(20자 초과 + 한글 포함)이면 핵심 수치만 추출 시도
       let safeValue = rawValue;
@@ -78,7 +79,7 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
         safeValue = rawValue.slice(0, 23) + '…';
       }
       const safeSub = (s.sub ?? '').slice(0, 40);
-      L.stat(slide, x, contentY, cardW, safeLabel, safeValue, s.unit ?? '', safeSub, { h: cardH1, vs: 22 });
+      L.stat(slide, x, contentY, cardW, safeLabel, safeValue, s.unit ?? '', safeSub, { h: cardH1, vs: 22, labelFontSize });
     });
     contentY += cardH1 + cardGap;
 
@@ -88,7 +89,8 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
       const cardH2 = 1.15;
       row2.forEach((s: any, i: number) => {
         const x = L.colX(i, cardW, cardGap);
-        const safeLabel = (s.label ?? '').slice(0, 16);
+        const safeLabel = (s.label ?? '').trim();
+        const labelFontSize = safeLabel.length > 20 ? 8.0 : safeLabel.length > 16 ? 8.5 : 9.5;
         const rawValue = s.value ?? '';
         let safeValue = rawValue;
         if (rawValue.length > 20 && /[가-힣]/.test(rawValue)) {
@@ -98,7 +100,7 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
           safeValue = rawValue.slice(0, 23) + '…';
         }
         const safeSub = (s.sub ?? '').slice(0, 40);
-        L.stat(slide, x, contentY, cardW, safeLabel, safeValue, s.unit ?? '', safeSub, { h: cardH2, vs: 18 });
+        L.stat(slide, x, contentY, cardW, safeLabel, safeValue, s.unit ?? '', safeSub, { h: cardH2, vs: 18, labelFontSize });
       });
       contentY += cardH2 + cardGap;
     }

@@ -417,7 +417,7 @@ function buildA02Props(markdown: string, tables: ParsedTable[], lines: string[])
         const label = stripMarkdown(row[0]).trim();
         const value = stripMarkdown(row[1]).trim();
         if (label && value && !label.includes('항목') && !label.includes('구분')) {
-          metrics.push({ label: label.slice(0, 16), value });
+          metrics.push({ label: label.slice(0, 28), value });
         }
       }
     }
@@ -431,7 +431,7 @@ function buildA02Props(markdown: string, tables: ParsedTable[], lines: string[])
       const stripped = stripMarkdown(line.replace(/^[-*•]\s*/, ''));
       const parts = stripped.split(/[：:]/);
       if (parts.length >= 2) {
-        const label = parts[0].trim().slice(0, 16);
+        const label = parts[0].trim().slice(0, 28);
         const value = parts.slice(1).join(':').trim();
         if (label && value && !metrics.some(m => m.label === label)) {
           metrics.push({ label, value });
@@ -1278,7 +1278,10 @@ export function sanitizePersona(text: string): string {
     .replace(/\[지역\s*신호로\s*대체됨\]/g, '해당 권역')
     .replace(/\[임차인\s*업종\s*정보로\s*대체됨\]/g, '주요 임차 업종')
     .replace(/\[이메일\s*비공개\]/g, '문의처')
-    .replace(/\[연락처\s*비공개\]/g, '문의처');
+    .replace(/\[연락처\s*비공개\]/g, '문의처')
+    // ── 갱신요구권 환각 방어: 최초계약일 미확인 시 연수 단정 방지 (G18 보완) ──
+    .replace(/갱신요구권\s*\d+(?:\.\d+)?\s*년(?:\s*잔여)?/g, '계약갱신요구권(최초계약일 확인 필요)')
+    .replace(/갱신권\s*\d+(?:\.\d+)?\s*년(?:\s*잔여)?/g, '갱신권(최초계약일 확인 필요)');
 }
 
 /** Markdown 서식 및 SSoT 내부 표기 정제 */
