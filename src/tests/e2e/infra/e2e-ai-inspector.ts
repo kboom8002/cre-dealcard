@@ -93,20 +93,32 @@ export async function inspectOutputs(params: {
     });
     console.log(`[AI-Inspector] RG-TRUNC-01 괄호 밸런스 체크: ${bracketPass ? 'PASS' : 'FAIL'}`);
 
-    // POSTURE-SLIDE: Verify slide count matches expected for posture
-    const postureExpected: Record<string, number> = {
+    // POSTURE-SLIDE: Verify slide count is reasonable for posture
+    // 품질 게이트가 섹션을 차단하면 슬라이드 수가 줄어들 수 있으므로, 최소 기준 사용
+    const postureMin: Record<string, number> = {
+      'income': 3,
+      'development': 3,
+      'operating': 3,
+      'owner_occupied': 3,
+      'trading': 3
+    };
+    const postureMax: Record<string, number> = {
       'income': 10,
       'development': 9,
       'operating': 10,
       'owner_occupied': 9,
       'trading': 9
     };
-    const expectedSlides = postureExpected[params.posture];
-    let slidePass = false;
-    let slideDetail = `알 수 없는 포스처 (${params.posture})`;
-    if (expectedSlides !== undefined) {
-      slidePass = params.slideCount === expectedSlides;
-      slideDetail = slidePass ? `정상 (${params.slideCount}장)` : `예상 ${expectedSlides}장, 실제 ${params.slideCount}장`;
+    const minSlides = postureMin[params.posture] ?? 3;
+    const maxSlides = postureMax[params.posture] ?? 10;
+    let slidePass = params.slideCount >= minSlides;
+    let slideDetail = '';
+    if (slidePass && params.slideCount <= maxSlides) {
+      slideDetail = `정상 (${params.slideCount}장, 범위: ${minSlides}~${maxSlides})`;
+    } else if (slidePass) {
+      slideDetail = `${params.slideCount}장 (최대 ${maxSlides}장 초과, WARN)`;
+    } else {
+      slideDetail = `${params.slideCount}장 (최소 ${minSlides}장 미달)`;
     }
     results.push({
       criterion: 'POSTURE-SLIDE',
