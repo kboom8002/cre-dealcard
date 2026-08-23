@@ -199,10 +199,27 @@ export async function PUT(req: NextRequest) {
   }
 
   if (Object.keys(brokerUpdate).length > 1) {
-    const { error } = await supabase
+    // PostgREST에서 onConflict를 사용하려면 UNIQUE CONSTRAINT가 필요하므로
+    // UNIQUE INDEX만 있는 경우 에러가 발생할 수 있습니다. 
+    // 이를 우회하기 위해 직접 존재 여부를 확인 후 update/insert 합니다.
+    const { data: existing } = await supabase
       .from('broker_profiles')
-      .upsert(brokerUpdate, { onConflict: 'user_id' });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      .select('user_id')
+      .eq('user_id', user!.id)
+      .maybeSingle();
+
+    if (existing) {
+      const { error } = await supabase
+        .from('broker_profiles')
+        .update(brokerUpdate)
+        .eq('user_id', user!.id);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    } else {
+      const { error } = await supabase
+        .from('broker_profiles')
+        .insert(brokerUpdate);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ ok: true });
