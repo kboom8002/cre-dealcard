@@ -476,8 +476,8 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                 ?
               </button>
               <a
-                href="/api/broker/excel-template"
-                download="rent-roll-template.xlsx"
+                href="/CREDEAL_rentroll_template_v1.2.xlsx"
+                download="CREDEAL_렌트롤_표준양식_v1.2.xlsx"
                 className="border border-primary/30 text-primary px-2.5 py-1.5 rounded-md text-xs font-medium hover:bg-primary/10 transition-colors whitespace-nowrap"
                 title="파싱 호환 빈 엑셀 양식 다운로드"
               >
