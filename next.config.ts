@@ -15,6 +15,18 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizeCss: true,
   },
+  outputFileTracingExcludes: {
+    "*": [
+      "./docs/**",
+      "./src/tests/**",
+      "./.git/**",
+      "./node_modules/playwright/**",
+      "./node_modules/playwright-core/**",
+      "./node_modules/@playwright/**",
+      "./node_modules/sharp/**",
+      "./node_modules/@img/**",
+    ],
+  },
 };
 
 export default nextConfig;
