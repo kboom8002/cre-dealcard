@@ -61,33 +61,34 @@ async function getDealCardData(id: string) {
 
   let brokerProfile: Record<string, any> | null = null;
   if (ownerId) {
-    const { data: profile } = await supabase
-      .from("broker_profiles")
-      .select("display_name, specialty, response_guarantee_hours, closed_deals, is_licensed, slug, phone, avatar_url")
-      .eq("user_id", ownerId)
-      .maybeSingle();
-    brokerProfile = profile;
-
-    // Fallback to basic profiles table if broker_profiles record does not exist
-    if (!brokerProfile) {
-      const { data: baseProfile } = await supabase
+    const [{ data: bProfile }, { data: baseProfile }] = await Promise.all([
+      supabase
+        .from("broker_profiles")
+        .select("display_name, specialty, response_guarantee_hours, closed_deals, is_licensed, slug, phone, avatar_url")
+        .eq("user_id", ownerId)
+        .maybeSingle(),
+      supabase
         .from("profiles")
-        .select("display_name, phone, company")
+        .select("display_name, phone, company, photo_url, role")
         .eq("id", ownerId)
-        .maybeSingle();
+        .maybeSingle(),
+    ]);
 
-      if (baseProfile) {
-        brokerProfile = {
-          display_name: baseProfile.display_name || "담당 중개사",
-          phone: baseProfile.phone,
-          specialty: baseProfile.company ? `${baseProfile.company} 소속` : "검증 공인중개사",
-          is_licensed: true,
-          response_guarantee_hours: null,
-          closed_deals: null,
-          slug: null,
-        };
-      }
-    }
+    const avatarUrl = bProfile?.avatar_url || baseProfile?.photo_url || (baseProfile as any)?.avatar_url || null;
+    const displayName = bProfile?.display_name || baseProfile?.display_name || "담당 중개사";
+    const phone = bProfile?.phone || baseProfile?.phone || null;
+    const specialty = bProfile?.specialty || (baseProfile?.company ? `${baseProfile.company} 소속` : "검증 공인중개사");
+
+    brokerProfile = {
+      display_name: displayName,
+      phone,
+      specialty,
+      avatar_url: avatarUrl,
+      is_licensed: bProfile?.is_licensed ?? true,
+      response_guarantee_hours: bProfile?.response_guarantee_hours ?? null,
+      closed_deals: bProfile?.closed_deals ?? null,
+      slug: bProfile?.slug ?? null,
+    };
   }
 
   return {
