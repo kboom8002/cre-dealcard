@@ -240,11 +240,11 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     capRateBase: cachedFinancials?.capRate?.base ?? null,
     noiBaseBil: cachedFinancials?.annualNoi?.base ? parseFloat((cachedFinancials.annualNoi.base / 1e8).toFixed(1)) : null,
     keyInvestmentPoint: String(ctx.buyerFit.fit_summary ?? (() => {
-      const area = ctx.assetIdentity.area_signal ? `${ctx.assetIdentity.area_signal} 권역 내` : '';
-      const asset = ctx.assetIdentity.asset_type ? `${ctx.assetIdentity.asset_type}` : '상업용 자산';
-      const vacancy = ctx.assetIdentity.vacancy_signal ? `, 공실률 ${ctx.assetIdentity.vacancy_signal}` : '';
-      const price = ctx.assetIdentity.price_band ? `, 매각 희망가 ${ctx.assetIdentity.price_band}` : '';
-      return `${area} ${asset}${vacancy}${price}. 입지·임대차 현황을 감안할 때 투자 검토 가치가 있는 물건입니다.`;
+      const areaSig = String(ctx.assetIdentity.area_signal ?? '');
+      const area = areaSig ? (areaSig.endsWith('권역') ? `${areaSig} 소재` : areaSig.endsWith('권') ? `${areaSig}역 소재` : `${areaSig} 권역 소재`) : '소재';
+      const asset = String(ctx.assetIdentity.asset_type ?? '상업용 자산');
+      const price = ctx.assetIdentity.price_band ? `, 희망가 ${ctx.assetIdentity.price_band}` : '';
+      return `${area} ${asset}${price} 투자 검토 자료입니다.`;
     })()),
     keyPoints: (() => {
       const points: string[] = [];

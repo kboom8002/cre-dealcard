@@ -162,7 +162,7 @@ export async function GET(
     || teaser?.title 
     || `${regionLabel} ${assetType} 매각`;
 
-  const subHeadline = 
+  const rawSubHeadline = 
     imBody?.ogDescription 
     || imBody?.heroSubtitle 
     || imBody?.keyInvestmentPoint 
@@ -173,8 +173,15 @@ export async function GET(
     || teaserView.hookCopy 
     || `${regionLabel} ${assetType} 핵심 투자 기회`;
 
-  const displayMain = mainHeadline.length > 40 ? mainHeadline.slice(0, 40) + "..." : mainHeadline;
-  const displaySub = subHeadline.length > 55 ? subHeadline.slice(0, 55) + "..." : subHeadline;
+  // 중복된 "권역 권역" 제거 및 공백 정제
+  const cleanedSub = String(rawSubHeadline || "")
+    .replace(/권역\s*권역/g, "권역")
+    .replace(/권역\s*소재\s*소재/g, "권역 소재")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const displayMain = mainHeadline.length > 36 ? mainHeadline.slice(0, 36) + "..." : mainHeadline;
+  const displaySub = cleanedSub.length > 60 ? cleanedSub.slice(0, 58) + "..." : cleanedSub;
 
   // Hero tiles: 유효한 매각가와 권역 표시 보장
   const displayTiles = [
@@ -344,14 +351,15 @@ export async function GET(
           {displaySub ? (
             <div
               style={{
-                fontSize: 34,
+                fontSize: displaySub.length > 34 ? 26 : 30,
                 fontWeight: 600,
                 color: "#E2E8F0",
                 display: "flex",
-                lineHeight: 1.3,
+                lineHeight: 1.35,
+                letterSpacing: "-0.01em",
+                wordBreak: "keep-all",
+                maxHeight: "76px",
                 overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
               }}
             >
               {displaySub}

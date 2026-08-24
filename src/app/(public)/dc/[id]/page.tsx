@@ -112,10 +112,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     || (signalCard?.title as string)
     || `${building?.area_signal || "상업용 부동산"} ${building?.asset_type || "매물"} 매각`;
   
+  const rawArea = building?.area_signal || "서울 주요";
+  const areaFormatted = rawArea.endsWith("권역") ? rawArea : rawArea.endsWith("권") ? `${rawArea}역` : `${rawArea} 권역`;
+
   const ogDescription = imBodyOg.kakaoOgDescription
     || imBodyOg.ogDescription 
     || (body.shortSummary as string)
-    || `${building?.area_signal || "서울 주요"} 권역 블라인드 매각 딜카드`;
+    || `${areaFormatted} 블라인드 매각 딜카드`;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net';
   const absoluteOgImage = `${siteUrl}/api/og/deal/${id}`;
