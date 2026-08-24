@@ -1072,15 +1072,7 @@ function FloatingActionBar({
         </div>
       )}
 
-      {/* Pro upgrade prompt for buyers */}
-      {!isBrokerMode && tier === 'basic' && (
-        <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between">
-          <p className="text-xs font-semibold text-amber-300">🏆 정밀 실사·세무 분석이 포함된 Pro IM</p>
-          <button onClick={handleProRequest} disabled={requestingPro} className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold rounded-lg transition-colors whitespace-nowrap ml-2 shadow-sm">
-            Pro 버전 요청
-          </button>
-        </div>
-      )}
+
 
       {/* Main Buttons */}
       <div className="px-4 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">
@@ -1596,33 +1588,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId, isB
                     </a>
                   )}
 
-                  {/* [P3] Basic 티어에서 Pro 콘텐츠 blur 프리뷰 */}
-                  {doc.tier === 'basic' && (
-                    <div className="relative rounded-2xl border border-purple-500/30 bg-purple-500/5 overflow-hidden">
-                      <div className="absolute inset-0 backdrop-blur-sm bg-neutral-950/60 z-10 flex flex-col items-center justify-center gap-3 p-4">
-                        <span className="text-2xl">🔓</span>
-                        <p className="text-sm font-bold text-white text-center">Pro IM에서 더 상세한 데이터를 확인하세요</p>
-                        <p className="text-xs text-neutral-400 text-center">호실별 렌트롤 · 10년 DCF · 대출 세부 · 관리비</p>
-                        <button
-                          onClick={() => setShowInquiry(true)}
-                          className="px-5 py-2 bg-purple-500 hover:bg-purple-400 text-white text-xs font-black rounded-xl transition-colors"
-                        >
-                          🏆 Pro IM 요청하기
-                        </button>
-                      </div>
-                      <div className="p-4 select-none">
-                        <p className="text-xs font-bold text-purple-400 mb-2">📋 호실별 렌트롤 (Pro 전용)</p>
-                        <div className="space-y-1.5">
-                          {['최하층 커피', '2F 사무실', '3F 공실'].map((label, i) => (
-                            <div key={i} className="flex justify-between text-[11px] text-neutral-400 py-1 border-b border-neutral-800/30">
-                              <span>{label}</span>
-                              <span>————만원</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
+
                 </div>
               )}
             </div>

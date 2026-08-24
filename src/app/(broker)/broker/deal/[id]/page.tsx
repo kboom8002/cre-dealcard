@@ -392,8 +392,7 @@ function DocumentsTab({ data, buildingId }: { data: any; buildingId: string }) {
   const docs = [
     { key: 'teaser', label: 'Blind Teaser', icon: '🎭', minGrade: 'C', href: `/dc/${buildingId}` },
     { key: 'snapshot', label: 'AI Snapshot', icon: '📸', minGrade: 'C', href: `/broker/buildings/${buildingId}/snapshot` },
-    { key: 'im_basic', label: 'Basic IM', icon: '📄', minGrade: 'B', href: `/broker/buildings/${buildingId}/im-lite` },
-    { key: 'im_pro', label: 'Pro IM', icon: '🔐', minGrade: 'A', href: '#', comingSoon: true },
+    { key: 'im', label: '투자설명서 (IM)', icon: '📄', minGrade: 'C', href: `/broker/buildings/${buildingId}/im-lite` },
   ];
   const gradeOrder = ['D', 'C', 'B', 'A'];
   const canGenerate = (minGrade: string) => gradeOrder.indexOf(grade) >= gradeOrder.indexOf(minGrade);
@@ -406,7 +405,7 @@ function DocumentsTab({ data, buildingId }: { data: any; buildingId: string }) {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {docs.map(doc => {
-            const enabled = canGenerate(doc.minGrade) && !doc.comingSoon;
+            const enabled = canGenerate(doc.minGrade);
             return (
               <a key={doc.key} href={enabled ? doc.href : undefined}
                 className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${
@@ -419,7 +418,7 @@ function DocumentsTab({ data, buildingId }: { data: any; buildingId: string }) {
                 <div>
                   <span className="text-sm font-bold text-white">{doc.label}</span>
                   <span className="block text-[10px] text-neutral-400">
-                    {doc.comingSoon ? 'Phase 3에서 구현' : enabled ? '생성 가능' : `Grade ${doc.minGrade} 이상 필요`}
+                    {enabled ? '생성 가능' : `Grade ${doc.minGrade} 이상 필요`}
                   </span>
                 </div>
                 {enabled && <span className="ml-auto text-primary">→</span>}

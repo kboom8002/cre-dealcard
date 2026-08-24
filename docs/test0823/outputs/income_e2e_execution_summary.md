@@ -1,6 +1,6 @@
 # 🏢 프로덕션 임대수익형(Income) E2E 테스트 수행 및 AI 시각 검수 보고서
 
-> **테스트 일시**: 2026. 8. 23. 오후 8:47:16  
+> **테스트 일시**: 2026. 8. 23. 오후 9:47:30  
 > **기준 명세**: [`docs/test0823/01_e2e_income_fullpipeline.md`](file:///c:/Users/User/cre-dealcard/docs/test0823/01_e2e_income_fullpipeline.md)  
 > **검증 대상**: Case A (당산동 115억) / Case B (양평동 250억)  
 > **최종 판정**: ✅ **2개 케이스 100% ALL PASS (결함 0건)**
@@ -16,7 +16,7 @@
 | **3단계: 데이터 등급 판정** | 표준: **70.0점 (verified)** → 정밀: **80.0점 (verified)** | 표준: **70.0점 (verified)** → 정밀: **80.0점 (verified)** | C/B 등급 산정 및 Pro IM 게이트 | ✅ PASS |
 | **4단계: 모바일 IM 문서** | 7섹션 전문 마크다운 및 JSON 저장 완료 | 7섹션 전문 마크다운 및 JSON 저장 완료 | 7개 섹션 아코디언 체계 완비 | ✅ PASS |
 | **5단계: 웹 브라우저 캡처** | Mobile Full, Hero Card, Desktop Full 3종 | Mobile Full, Hero Card, Desktop Full 3종 | Playwright Chromium 실 브라우저 렌더링 | ✅ PASS |
-| **6단계: PPTX 10장 렌더링** | 10장 생성 (571.0 KB) | 10장 생성 (562.8 KB) | OpenXML 10장 생성 무결성 | ✅ PASS |
+| **6단계: PPTX 10장 렌더링** | 10장 생성 (568.2 KB) | 10장 생성 (560.2 KB) | OpenXML 10장 생성 무결성 | ✅ PASS |
 | **7단계: 150 DPI PNG 캡처** | 10장 고화질 슬라이드 PNG 캡처 | 10장 고화질 슬라이드 PNG 캡처 | LibreOffice + PyMuPDF 변환 | ✅ PASS |
 | **8단계: AI 시각 무결성** | D01~D11 11대 기준 100% 충족 (XML 결함 0건) | D01~D11 11대 기준 100% 충족 (XML 결함 0건) | NaN/undefined/null 방지 (P0) | ✅ PASS |
 | **9단계: 페르소나 격리** | '60대 자산가' 등 문구 0건 (완전 격리) | '60대 자산가' 등 문구 0건 (완전 격리) | Implicit Persona Principle (P0) | ✅ PASS |

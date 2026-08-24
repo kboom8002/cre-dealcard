@@ -697,21 +697,14 @@ export function ImDataBottomSheet({
         
         <div className="flex items-center justify-between mb-4 shrink-0">
           <h2 id="bottom-sheet-title" className="text-lg font-bold text-foreground">
-            {stage === 'basic' ? '📊 Basic IM 만들기' : '📊 투자설명서 데이터 보강'}
+            {'📊 투자설명서(IM) 만들기'}
           </h2>
           <button onClick={onClose} className="p-2 -mr-2 text-muted-foreground hover:text-foreground">
             ✕
           </button>
         </div>
-        {stage === 'pro' && (
-          <button onClick={() => setStage('basic')} className="text-sm text-primary underline mb-4 shrink-0 text-left">
-            ← Basic으로 돌아가기
-          </button>
-        )}
         <p className="text-sm text-muted-foreground mb-4 shrink-0">
-          {stage === 'basic' 
-            ? '기본 정보를 입력하여 모바일 투자설명서를 생성하세요. 추가 데이터는 Pro에서.' 
-            : '상세 렌트롤·DCF·부가수입을 입력하여 프리미엄 IM을 완성하세요.'}
+          {'기본 정보를 입력하여 모바일 투자설명서를 생성하세요.'}
         </p>
 
         {computedMissingFields.length > 0 && (
@@ -2031,26 +2024,21 @@ export function ImDataBottomSheet({
                 ))}
               </div>
             )}
-            {/* IM 유형별 작성 가능 여부 */}
+            {/* 등급별 IM 구성 안내 */}
             <div className="flex items-center gap-2 mt-2">
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                 currentDataGrade === 'C' 
                   ? 'bg-amber-500/15 text-amber-500' 
                   : 'bg-emerald-500/15 text-emerald-500'
               }`}>
-                {currentDataGrade === 'C' ? '⚠️ Basic IM: 데이터 보강 권장' : '🟢 Basic IM: 작성 가능'}
+                {currentDataGrade === 'C' ? '⚠️ 데이터 보강 권장' : `🟢 IM 작성 가능 (${currentDataGrade}등급)`}
               </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                currentDataGrade === 'A'
-                  ? 'bg-emerald-500/15 text-emerald-500'
-                  : 'bg-red-500/15 text-red-500'
-              }`}>
-                {currentDataGrade === 'A' ? '🟢 Pro IM: 작성 가능' : '🔴 Pro IM: A등급 필요'}
-              </span>
+              {currentDataGrade !== 'A' && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-blue-500/15 text-blue-400">
+                  💡 A등급 달성 시 DCF 분석 포함
+                </span>
+              )}
             </div>
-            {stage === 'pro' && currentDataGrade !== 'A' && (
-              <p className="text-[10px] text-red-500 mt-1">⚠ 현재 {currentDataGrade}등급: Pro IM은 A등급부터 생성 가능합니다. 렌트롤·면적·가격 데이터를 입력하면 등급이 올라갑니다.</p>
-            )}
           </div>
 
           {/* Error & CTA */}
@@ -2078,17 +2066,9 @@ export function ImDataBottomSheet({
                     <span className="truncate">{progress}</span>
                   </>
                 ) : (
-                  stage === 'basic' ? "⚡ Basic IM 생성" : "🏆 Pro IM 생성"
+                  "⚡ IM 생성"
                 )}
               </button>
-              {stage === 'basic' && (
-                <button 
-                  onClick={() => setStage('pro')}
-                  className="text-xs text-primary/80 hover:text-primary underline text-center w-full mt-1"
-                >
-                  🏆 상세 렌트롤·DCF·부가수입 추가 → Pro IM
-                </button>
-              )}
             </div>
           )}
         </div>

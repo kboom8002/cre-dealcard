@@ -71,7 +71,7 @@ export function GateRequestsInbox({ buildingId }: { buildingId: string }) {
   function handleCopyNDALink(reqId: string) {
     const ndaUrl = `${window.location.origin}/nda/${reqId}`;
     navigator.clipboard.writeText(ndaUrl).then(() => {
-      toast.success("NDA 서명 링크가 복사되었습니다. 매수자에게 전달하세요.");
+      toast.success("열람 링크가 복사되었습니다. 매수자에게 전달하세요.");
     });
   }
 
@@ -131,14 +131,14 @@ export function GateRequestsInbox({ buildingId }: { buildingId: string }) {
                 )}
               </div>
               
-              {/* submitted: NDA 서명 요청 버튼 */}
+              {/* submitted: IM 열람 승인 버튼 */}
               {req.status === "submitted" && (
                 <div className="flex gap-2 pt-1">
                   <button
                     onClick={() => handleStatusUpdate(req.id, "broker_review")}
                     className="flex-1 bg-primary text-primary-foreground py-1.5 rounded-md text-xs font-semibold hover:bg-primary/90"
                   >
-                    NDA 서명 요청 보내기
+                    IM 열람 승인
                   </button>
                   <button
                     onClick={() => handleStatusUpdate(req.id, "rejected")}
@@ -149,24 +149,24 @@ export function GateRequestsInbox({ buildingId }: { buildingId: string }) {
                 </div>
               )}
 
-              {/* broker_review: 서명 진행 중 */}
+              {/* broker_review: 열람 대기 중 */}
               {req.status === "broker_review" && (
                 <div className="flex flex-col gap-2 pt-1">
                   <p className="text-xs text-muted-foreground mb-1">
-                    매수자에게 아래 링크를 전달하여 서명을 받으세요.
+                    매수자에게 아래 링크를 전달하여 열람을 허용하세요.
                   </p>
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleCopyNDALink(req.id)}
                       className="flex-1 bg-secondary text-secondary-foreground py-1.5 rounded-md text-xs font-semibold hover:bg-secondary/80 border border-border"
                     >
-                      🔗 서명 링크 복사
+                      🔗 열람 링크 복사
                     </button>
                     <button
                       onClick={() => handleStatusUpdate(req.id, "approved")}
                       className="flex-1 bg-primary text-primary-foreground py-1.5 rounded-md text-xs font-semibold hover:bg-primary/90"
                     >
-                      서명 확인 완료 (수동)
+                      열람 확인 완료 (수동)
                     </button>
                   </div>
                 </div>
@@ -176,7 +176,7 @@ export function GateRequestsInbox({ buildingId }: { buildingId: string }) {
               {req.status === "approved" && (
                 <div className="flex flex-col gap-2 pt-1">
                   <p className="text-xs text-green-600 dark:text-green-400 font-semibold mb-1">
-                    ✅ 서명이 완료되었습니다! 매수자에게 모바일 IM을 전달하세요.
+                    ✅ 열람이 승인되었습니다! 매수자에게 모바일 IM을 전달하세요.
                   </p>
                   <button
                     onClick={() => handleCopyIMLink(req.id)}

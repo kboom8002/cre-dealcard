@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>E2E Report - Development E2E Suite</title>
+  <style>
+    body { background-color: #121212; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; line-height: 1.6; }
+    h1, h2, h3 { color: #ffffff; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; background-color: #1a1a1a; }
+    th, td { border: 1px solid #333; padding: 10px 14px; text-align: left; }
+    th { background-color: #2c2c2c; font-weight: 600; }
+    .pass { color: #81c784; font-weight: bold; }
+    .fail { color: #e57373; font-weight: bold; }
+    .card { background-color: #1e1e1e; border: 1px solid #333; border-radius: 8px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    .badge-pass { background-color: rgba(129, 199, 132, 0.15); color: #81c784; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; font-weight: 600; border: 1px solid rgba(129, 199, 132, 0.3); }
+    .badge-fail { background-color: rgba(229, 115, 115, 0.15); color: #e57373; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; font-weight: 600; border: 1px solid rgba(229, 115, 115, 0.3); }
+    a { color: #64b5f6; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; margin-top: 15px; }
+    .image-grid img { width: 100%; border-radius: 6px; border: 1px solid #444; transition: transform 0.2s; }
+    .image-grid img:hover { transform: scale(1.02); }
+  </style>
+</head>
+<body>
+  <h1>E2E Test Report: Development E2E Suite</h1>
+  <div class="card" style="padding: 15px;">
+    <p style="margin: 5px 0;"><strong>실행 일시:</strong> 2026-08-23T22:34:33.934Z</p>
+    <p style="margin: 5px 0;"><strong>전체 결과:</strong> 총 2개 케이스 (PASS: <span class="pass">2</span>, FAIL: <span class="fail">0</span>)</p>
+  </div>
+
+  <h2>요약 (Summary)</h2>
+  <table>
+    <tr><th>Case Name</th><th>Label</th><th>Posture</th><th>Result</th></tr><tr>
+      <td>caseA_jamwon_242b</td>
+      <td>잠원동 신축개발 242억</td>
+      <td>development</td>
+      <td><span class="badge-pass">PASS</span></td>
+    </tr><tr>
+      <td>caseB_sutaek_89b</td>
+      <td>구리 수택동 나대지 89억</td>
+      <td>development</td>
+      <td><span class="badge-pass">PASS</span></td>
+    </tr></table><div class="card">
+      <h2 style="margin-top: 0;">Case: caseA_jamwon_242b <span style="font-size: 0.7em; color: #aaa; font-weight: normal;">(잠원동 신축개발 242억)</span></h2>
+      <p style="margin: 5px 0;"><strong>Posture:</strong> development</p>
+      <p style="margin: 5px 0;"><strong>Result:</strong> <span class="badge-pass">PASS</span></p>
+      <p style="margin: 15px 0 5px 0;"><strong>Artifacts:</strong></p>
+      <ul style="margin-top: 5px;"><li>PPTX: <a href="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseA_jamwon_242b\caseA_jamwon_242b.pptx">caseA_jamwon_242b.pptx</a></li><li>Viewer: <a href="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseA_jamwon_242b\viewer.html">viewer.html</a></li></ul><h3>수행 단계 (Steps)</h3>
+      <table>
+        <tr><th>Step</th><th style="width: 80px;">Pass</th><th>Detail</th><th style="width: 100px;">Duration</th></tr><tr>
+        <td>1_memo_slots</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>1 slots</td>
+        <td>2ms</td>
+      </tr><tr>
+        <td>2_banding</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>240억 원대</td>
+        <td>11ms</td>
+      </tr><tr>
+        <td>3_quality</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>80 (reference)</td>
+        <td>1ms</td>
+      </tr><tr>
+        <td>4_im_generation</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>7 sections</td>
+        <td>69.51s</td>
+      </tr><tr>
+        <td>5_pptx</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>4 slides</td>
+        <td>4.44s</td>
+      </tr><tr>
+        <td>6_html_capture</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>viewer + captures</td>
+        <td>5.26s</td>
+      </tr><tr>
+        <td>7_inspection</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>6/6 pass</td>
+        <td>6ms</td>
+      </tr></table><h3>검사 결과 (Inspections)</h3>
+      <table>
+        <tr><th style="width: 150px;">Criterion</th><th style="width: 250px;">Label</th><th style="width: 80px;">Pass</th><th>Detail</th></tr><tr>
+        <td>D06</td>
+        <td>마크다운 잔재 확인</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>마크다운 잔재 없음</td>
+      </tr><tr>
+        <td>D07</td>
+        <td>비정상 데이터 (NaN 등) 확인</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>비정상 데이터 없음</td>
+      </tr><tr>
+        <td>D08</td>
+        <td>이모지 사용 확인</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>이모지 없음</td>
+      </tr><tr>
+        <td>RG-TRUNC-01</td>
+        <td>괄호 밸런스 확인</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>괄호 매칭 정상</td>
+      </tr><tr>
+        <td>POSTURE-SLIDE</td>
+        <td>포스처별 슬라이드 수 확인</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>정상 (4장, 범위: 3~9)</td>
+      </tr><tr>
+        <td>PII-CHECK</td>
+        <td>개인정보(PII) 유출 확인</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>개인정보 패턴 없음</td>
+      </tr></table><h3>캡처 이미지 (Captures)</h3><div class="image-grid"><a href="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseA_jamwon_242b\slides\caseA_jamwon_242b_slide_01.png" target="_blank"><img src="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseA_jamwon_242b\slides\caseA_jamwon_242b_slide_01.png" alt="caseA_jamwon_242b_slide_01.png" title="caseA_jamwon_242b_slide_01.png" /></a><a href="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseA_jamwon_242b\slides\caseA_jamwon_242b_slide_02.png" target="_blank"><img src="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseA_jamwon_242b\slides\caseA_jamwon_242b_slide_02.png" alt="caseA_jamwon_242b_slide_02.png" title="caseA_jamwon_242b_slide_02.png" /></a><a href="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseA_jamwon_242b\slides\caseA_jamwon_242b_slide_03.png" target="_blank"><img src="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseA_jamwon_242b\slides\caseA_jamwon_242b_slide_03.png" alt="caseA_jamwon_242b_slide_03.png" title="caseA_jamwon_242b_slide_03.png" /></a><a href="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseA_jamwon_242b\slides\caseA_jamwon_242b_slide_04.png" target="_blank"><img src="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseA_jamwon_242b\slides\caseA_jamwon_242b_slide_04.png" alt="caseA_jamwon_242b_slide_04.png" title="caseA_jamwon_242b_slide_04.png" /></a></div></div><div class="card">
+      <h2 style="margin-top: 0;">Case: caseB_sutaek_89b <span style="font-size: 0.7em; color: #aaa; font-weight: normal;">(구리 수택동 나대지 89억)</span></h2>
+      <p style="margin: 5px 0;"><strong>Posture:</strong> development</p>
+      <p style="margin: 5px 0;"><strong>Result:</strong> <span class="badge-pass">PASS</span></p>
+      <p style="margin: 15px 0 5px 0;"><strong>Artifacts:</strong></p>
+      <ul style="margin-top: 5px;"><li>PPTX: <a href="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseB_sutaek_89b\caseB_sutaek_89b.pptx">caseB_sutaek_89b.pptx</a></li><li>Viewer: <a href="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseB_sutaek_89b\viewer.html">viewer.html</a></li></ul><h3>수행 단계 (Steps)</h3>
+      <table>
+        <tr><th>Step</th><th style="width: 80px;">Pass</th><th>Detail</th><th style="width: 100px;">Duration</th></tr><tr>
+        <td>1_memo_slots</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>3 slots</td>
+        <td>1ms</td>
+      </tr><tr>
+        <td>2_banding</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>80억 원대</td>
+        <td>0ms</td>
+      </tr><tr>
+        <td>3_quality</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>70 (reference)</td>
+        <td>0ms</td>
+      </tr><tr>
+        <td>4_im_generation</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>7 sections</td>
+        <td>93.81s</td>
+      </tr><tr>
+        <td>5_pptx</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>3 slides</td>
+        <td>2.44s</td>
+      </tr><tr>
+        <td>6_html_capture</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>viewer + captures</td>
+        <td>2.09s</td>
+      </tr><tr>
+        <td>7_inspection</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>6/6 pass</td>
+        <td>2ms</td>
+      </tr></table><h3>검사 결과 (Inspections)</h3>
+      <table>
+        <tr><th style="width: 150px;">Criterion</th><th style="width: 250px;">Label</th><th style="width: 80px;">Pass</th><th>Detail</th></tr><tr>
+        <td>D06</td>
+        <td>마크다운 잔재 확인</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>마크다운 잔재 없음</td>
+      </tr><tr>
+        <td>D07</td>
+        <td>비정상 데이터 (NaN 등) 확인</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>비정상 데이터 없음</td>
+      </tr><tr>
+        <td>D08</td>
+        <td>이모지 사용 확인</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>이모지 없음</td>
+      </tr><tr>
+        <td>RG-TRUNC-01</td>
+        <td>괄호 밸런스 확인</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>괄호 매칭 정상</td>
+      </tr><tr>
+        <td>POSTURE-SLIDE</td>
+        <td>포스처별 슬라이드 수 확인</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>정상 (3장, 범위: 3~9)</td>
+      </tr><tr>
+        <td>PII-CHECK</td>
+        <td>개인정보(PII) 유출 확인</td>
+        <td><span class="pass">✓ PASS</span></td>
+        <td>개인정보 패턴 없음</td>
+      </tr></table><h3>캡처 이미지 (Captures)</h3><div class="image-grid"><a href="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseB_sutaek_89b\slides\caseB_sutaek_89b_slide_01.png" target="_blank"><img src="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseB_sutaek_89b\slides\caseB_sutaek_89b_slide_01.png" alt="caseB_sutaek_89b_slide_01.png" title="caseB_sutaek_89b_slide_01.png" /></a><a href="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseB_sutaek_89b\slides\caseB_sutaek_89b_slide_02.png" target="_blank"><img src="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseB_sutaek_89b\slides\caseB_sutaek_89b_slide_02.png" alt="caseB_sutaek_89b_slide_02.png" title="caseB_sutaek_89b_slide_02.png" /></a><a href="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseB_sutaek_89b\slides\caseB_sutaek_89b_slide_03.png" target="_blank"><img src="file://C:\Users\User\cre-dealcard\docs\test0823\outputs\development\caseB_sutaek_89b\slides\caseB_sutaek_89b_slide_03.png" alt="caseB_sutaek_89b_slide_03.png" title="caseB_sutaek_89b_slide_03.png" /></a></div></div></body></html>

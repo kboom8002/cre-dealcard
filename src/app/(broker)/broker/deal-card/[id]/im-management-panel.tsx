@@ -259,36 +259,23 @@ export function ImManagementPanel({
       {/* Basic/Pro IM 비교 인포카드 (IM-2) */}
       <details className="rounded-lg border border-border/80 bg-muted/20 p-3 text-xs group">
         <summary className="font-bold text-amber-400 cursor-pointer flex items-center justify-between">
-          <span>ℹ️ Basic IM vs Pro IM 기능 비교</span>
+          <span>ℹ️ 데이터 등급별 IM 구성</span>
           <span className="text-[10px] text-muted-foreground group-open:rotate-180 transition-transform">▼</span>
         </summary>
-        <div className="mt-3 grid grid-cols-2 gap-3 text-muted-foreground pt-2 border-t border-border/40">
-          <div className="space-y-1">
-            <p className="font-bold text-foreground">📄 Basic IM (7p)</p>
-            <ul className="list-disc pl-3.5 space-y-0.5 text-[11px]">
-              <li>건물 신호 요약</li>
-              <li>입지 분석 &amp; 3D 레이더</li>
-              <li>임대 현황 (Rent Roll)</li>
-              <li>기본 투자 하이라이트</li>
-            </ul>
-          </div>
-          <div className="space-y-1">
-            <p className="font-bold text-foreground">📊 Pro IM (24p DCF)</p>
-            <ul className="list-disc pl-3.5 space-y-0.5 text-[11px]">
-              <li>10년 DCF 현금흐름 모델</li>
-              <li>수익률/가격 민감도 분석</li>
-              <li>대출 LTV &amp; 세금 시뮬레이션</li>
-              <li>NDA 워터마크 보안 링크</li>
-            </ul>
+        <div className="mt-3 text-muted-foreground pt-2 border-t border-border/40">
+          <div className="space-y-2 text-xs text-muted-foreground">
+            <p><span className="font-bold text-foreground">🟢 A등급</span> — 건물 요약, 입지 분석, 임대 현황, 투자 하이라이트 + DCF 현금흐름, 수익률 민감도, 대출 시뮬레이션</p>
+            <p><span className="font-bold text-foreground">🟡 B등급</span> — 건물 요약, 입지 분석, 임대 현황, 기본 투자 하이라이트</p>
+            <p><span className="font-bold text-foreground">🟠 C등급</span> — 건물 기본 정보 요약 (데이터 보강 권장)</p>
           </div>
         </div>
       </details>
 
-      {/* Basic IM Card */}
+      {/* IM Card */}
       <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
         <div className="flex justify-between items-center">
           <div>
-            <h3 className="font-semibold text-sm">Basic IM</h3>
+            <h3 className="font-semibold text-sm">투자설명서 (IM)</h3>
             <p className="text-xs text-muted-foreground mt-0.5">주소 입력만으로 즉시 생성 · 모바일 웹 뷰어 + 7p PPTX/PDF</p>
           </div>
           <div className="text-xs font-medium">
@@ -343,89 +330,7 @@ export function ImManagementPanel({
           </div>
         ) : (
           <Button size="sm" className="mt-2 h-8 w-full bg-slate-800 hover:bg-slate-700 text-white" onClick={() => handleGenerateIM('basic')}>
-            ⚡ Basic IM 생성하기
-          </Button>
-        )}
-      </div>
-
-      {/* Pro IM Card */}
-      <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3 relative overflow-hidden">
-        <div className="flex justify-between items-center">
-          <div>
-            <h3 className="font-semibold text-sm">Pro IM</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">10년 DCF·수익률 민감도·대출/세금 분석 24p 정밀 IM (워터마크 보안)</p>
-          </div>
-          <div className="text-xs font-medium">
-            {isProLocked ? (
-              <span className="text-amber-500 bg-amber-500/10 px-2 py-1 rounded-full">🔒 잠김 (현재 {currentGrade}등급)</span>
-            ) : proDoc ? (
-              <span className="text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-full">✅ 생성됨 ({new Date(proDoc.created_at).toLocaleDateString()})</span>
-            ) : (
-              <span className="text-blue-500 bg-blue-500/10 px-2 py-1 rounded-full">✨ 생성 가능</span>
-            )}
-          </div>
-        </div>
-
-        {isProLocked ? (
-          <div className="mt-2 text-xs text-muted-foreground space-y-3">
-            <p>현재 <strong className="text-red-400">{currentGrade}등급</strong> → <strong className="text-blue-400">B등급</strong> 이상이면 Pro IM 생성이 가능합니다.</p>
-            <div className="bg-muted/50 rounded-lg p-2.5 space-y-1">
-              <p className="text-[10px] font-semibold text-foreground">📋 등급 올리는 방법:</p>
-              <p className="text-[10px]">1. 렌트롤 입력 (엑셀/수동) → +25점</p>
-              <p className="text-[10px]">2. 건물 면적·준공연도 → +15점</p>
-              <p className="text-[10px]">3. 매매가·월임대료 → +15점</p>
-            </div>
-            <Link
-              href={`/broker/deal-card/${buildingId}`}
-              className="inline-flex items-center justify-center h-8 w-full rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 text-xs font-bold transition-colors"
-            >
-              ✏️ 부족한 빌딩 데이터 보강하러 가기
-            </Link>
-          </div>
-        ) : proDoc ? (
-          <div className="space-y-2 mt-2">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full flex-shrink-0 border border-border" style={{ background: PRESET_SWATCHES[selectedPreset]?.accent ?? '#6B8E00' }} />
-              <select 
-                value={selectedPreset}
-                onChange={(e) => setSelectedPreset(e.target.value)}
-                className="flex-1 h-7 rounded-md border border-border bg-background text-[11px] px-2 focus:ring-1 focus:ring-blue-500 outline-none"
-              >
-                {Object.entries(PRESET_SWATCHES).map(([id, s]) => (
-                  <option key={id} value={id}>{s.name}</option>
-                ))}
-                {presets.map((p: any) => (
-                  <option key={p.id} value={p.id}>🎨 {p.preset_name ?? p.name} (커스텀)</option>
-                ))}
-              </select>
-              <Link 
-                href={`/broker/deal-card/${buildingId}/pptx-editor`}
-                className="text-[10px] text-amber-500 hover:text-amber-400 whitespace-nowrap"
-              >
-                ✏️ 편집
-              </Link>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => window.open(`/im-pro/${buildingId}`, '_blank')}>
-                👁 열기
-              </Button>
-              <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('export')} disabled={!!isExporting}>
-                {isExporting === 'pdf' ? '⏳ 생성중...' : exportDone === 'pdf' ? '✅ 완료' : '📄 PDF'}
-              </Button>
-              <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('pptx')} disabled={!!isExporting}>
-                {isExporting === 'pptx' ? '⏳ 생성중...' : exportDone === 'pptx' ? '✅ 완료' : '📊 PPTX'}
-              </Button>
-              <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleCopyLink('pro')}>
-                🔗 링크복사
-              </Button>
-              <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => handleGenerateIM('pro')}>
-                ♻️ 재생성
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <Button size="sm" className="mt-2 h-8 w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:opacity-90 text-white font-bold" onClick={() => handleGenerateIM('pro')}>
-            🚀 Pro IM 생성하기
+            ⚡ IM 생성하기
           </Button>
         )}
       </div>

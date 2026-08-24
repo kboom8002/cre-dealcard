@@ -124,7 +124,7 @@ export function computeDataQualityBadge(params: {
     if (!params.hasVacancy) missingItems.push('공실 현황');
     if (!params.hasPhotos) missingItems.push('건물 사진');
 
-    if (params.hasAddress && params.hasPublicData && params.hasMonthlyRent && params.hasAskingPrice) {
+    if (params.hasAddress && params.hasPublicData && params.hasMonthlyRent && params.hasAskingPrice && params.hasFloorLeases) {
       return { tier: 'verified', label: 'A등급 — 투자 검토 가능', emoji: '🟢', score, missingItems };
     }
     if (params.hasAddress && params.hasPublicData && (params.hasMonthlyRent || params.hasAskingPrice)) {

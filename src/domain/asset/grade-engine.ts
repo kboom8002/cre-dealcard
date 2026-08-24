@@ -238,9 +238,17 @@ export function computeDataGrade(
 
   const scorePct = totalNewWeight > 0 ? Math.round((earnedNewWeight / totalNewWeight) * 100) : 0;
 
+  // income 포스처: 구조화된 렌트롤(호실별 임대차) 없이는 A등급 불가 — 최대 B등급으로 캡핑
+  const posture = identity?.investmentPosture || 'income';
+  const isIncomePosture = posture === 'income' || posture === 'operating';
+  const hasStructuredRentRoll =
+    (Array.isArray(attrs.leaseUnits) && attrs.leaseUnits.length > 0) ||
+    (Array.isArray(attrs.rentRoll) && attrs.rentRoll.length > 0);
+
   let grade: DataGrade = 'C';
   if (scorePct >= 75) {
-    grade = 'A';
+    // income/operating 포스처에서 렌트롤 미제출 시 A등급 승격 차단
+    grade = (isIncomePosture && !hasStructuredRentRoll) ? 'B' : 'A';
   } else if (scorePct >= 40) {
     grade = 'B';
   } else {

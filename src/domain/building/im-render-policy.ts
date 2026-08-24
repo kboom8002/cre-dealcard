@@ -10,20 +10,19 @@ import { DisclosurePolicy, DISCLOSURE_DEFAULT } from './mobile-im/disclosure-pol
 
 
 /**
- * Represents the two tiers of Information Memorandum (IM) available to users.
- * - 'basic': Public view with masked address and fuzzy coordinates.
- * - 'pro': Gated view with full disclosure, requires NDA.
+ * Represents the IM tier (unified — Basic/Pro 구분 제거).
+ * Legacy 'basic' | 'pro' values are still accepted for backward compatibility.
  */
-export type IMTier = 'basic' | 'pro';
+export type IMTier = 'basic' | 'pro' | 'standard';
 
 /**
- * Configuration for rendering an Information Memorandum (IM) based on tier and permissions.
+ * Configuration for rendering an Information Memorandum (IM) based on data grade.
  * Defines what sensitive information can be displayed.
  */
 export interface IMRenderPolicy {
   /** The tier this policy represents */
   tier: IMTier;
-  /** Whether to show the exact property address (hidden in Basic) */
+  /** Whether to show the exact property address */
   showExactAddress: boolean;
   showExactMapCoordinates: boolean;
   showTenantNames: boolean;
@@ -35,40 +34,55 @@ export interface IMRenderPolicy {
 }
 
 /**
- * Retrieves the Information Memorandum (IM) render policy for a given tier and NDA status.
- * Basic tier masks the exact address, coordinates, tenant names, and financial data.
- * Pro tier requires an NDA to unmask all sensitive data.
- * 
- * @param {IMTier} tier - The requested IM tier.
- * @param {boolean} [isNDASigned=false] - Whether the user has a signed NDA.
- * @returns {IMRenderPolicy} The resulting render policy determining data visibility.
- * @example
- * const policy = getIMRenderPolicy('basic');
- * // policy.showExactAddress === false
+ * 등급 기반 IM 렌더 정책 (Basic/Pro 구분 제거).
+ * A등급: 전체 공개 (주소, 임차인, 호실별 임대료, DCF)
+ * B등급: 부분 공개 (주소 표시, 임차인/호실 임대료 마스킹, DCF 미포함)
+ * C등급: 최소 공개 (주소 마스킹, 모든 민감 정보 마스킹)
+ *
+ * @param {string} grade - 데이터 등급 ('A' | 'B' | 'C')
+ * @param {IMTier} [tier] - 레거시 호환용 (무시됨)
+ * @param {boolean} [isNDASigned] - 레거시 호환용 (무시됨)
+ * @returns {IMRenderPolicy}
  */
-export function getIMRenderPolicy(tier: IMTier, isNDASigned: boolean = false): IMRenderPolicy {
-  if (tier === 'pro' && isNDASigned) {
+export function getIMRenderPolicy(tier: IMTier = 'standard', isNDASigned: boolean = false, grade?: string): IMRenderPolicy {
+  // A등급: 전체 공개
+  if (grade === 'A') {
     return {
-      tier: 'pro',
+      tier: 'standard',
       showExactAddress: true,
       showExactMapCoordinates: true,
       showTenantNames: true,
       showUnitRent: true,
       showDcfSensitivity: true,
-      requiresWatermark: true,
-      requiresNDA: true,
+      requiresWatermark: false,
+      requiresNDA: false,
       disclosure: DISCLOSURE_DEFAULT['pro'],
     };
   }
 
-  // Basic IM (or Pro IM without signed NDA)
+  // B등급: 주소 공개, 임차인/호실 임대료 마스킹
+  if (grade === 'B') {
+    return {
+      tier: 'standard',
+      showExactAddress: true,
+      showExactMapCoordinates: true,
+      showTenantNames: false,
+      showUnitRent: false,
+      showDcfSensitivity: false,
+      requiresWatermark: false,
+      requiresNDA: false,
+      disclosure: DISCLOSURE_DEFAULT['basic'],
+    };
+  }
+
+  // C등급 또는 기본: 블라인드 (주소/좌표/임차인 모두 마스킹)
   return {
-    tier: 'basic',
+    tier: 'standard',
     showExactAddress: false,
-    showExactMapCoordinates: false, // Use ±150m fuzzy offset
-    showTenantNames: false,          // Redact to sector (e.g. F&B)
-    showUnitRent: false,             // Redact to range
-    showDcfSensitivity: false,       // Gated
+    showExactMapCoordinates: false,
+    showTenantNames: false,
+    showUnitRent: false,
+    showDcfSensitivity: false,
     requiresWatermark: false,
     requiresNDA: false,
     disclosure: DISCLOSURE_DEFAULT['basic'],

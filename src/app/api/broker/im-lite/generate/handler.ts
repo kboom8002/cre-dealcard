@@ -128,18 +128,8 @@ export async function generateMobileIMHandler(
     console.log('[im-handler] Overriding grade with directData.qualityGrade:', gradeResult.grade);
   }
 
-  // ─── Tier-based Gating ───
-  if (tier === 'pro') {
-    if (gradeResult.grade !== 'A' || (gradeResult.scorePct !== undefined && gradeResult.scorePct < 60)) {
-      console.log('[im-handler] Blocked by Pro Tier requirements:', JSON.stringify({grade: gradeResult.grade, scorePct: gradeResult.scorePct}));
-      return {
-        ok: false,
-        error: 'Pro IM은 A등급(완성도 75%) 이상의 데이터가 필요합니다.',
-        statusCode: 422,
-      };
-    }
-  } else {
-    // Basic tier — Posture별 최소 필수 데이터 검증
+  // ─── 등급 기반 자동 결정 (Basic/Pro 구분 제거 → 단일 IM) ───
+  {
     const posture = (
       identity?.investmentPosture
       || ssotRow.investment_posture
@@ -156,8 +146,8 @@ export async function generateMobileIMHandler(
       return {
         ok: false,
         error: posture === 'development'
-          ? '개발형 Basic IM 생성에 필요한 주소 또는 대지/건물 정보가 부족합니다.'
-          : 'Basic IM 생성을 위해 매각 희망가 또는 월 임대료 입력이 필요합니다.',
+          ? '개발형 IM 생성에 필요한 주소 또는 대지/건물 정보가 부족합니다.'
+          : 'IM 생성을 위해 매각 희망가 또는 월 임대료 입력이 필요합니다.',
         statusCode: 422,
       };
     }

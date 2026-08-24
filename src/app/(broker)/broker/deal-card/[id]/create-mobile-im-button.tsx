@@ -49,21 +49,19 @@ export function CreateMobileImButton({
   initialInvestmentPosture = "income",
 }: CreateMobileImButtonProps) {
   const [showBottomSheet, setShowBottomSheet] = useState(false);
-  const [stage, setStage] = useState<'basic' | 'pro'>('basic');
+  const [stage, setStage] = useState<'basic'>('basic');
 
   useEffect(() => {
     const handleOpen = (e: Event) => {
       const customEvent = e as CustomEvent<{ stage?: 'basic' | 'pro' }>;
       if (customEvent.detail?.stage) {
-        setStage(customEvent.detail.stage);
+        setStage('basic');
       }
       setShowBottomSheet(true);
     };
     window.addEventListener("open-mobile-im-sheet", handleOpen);
     return () => window.removeEventListener("open-mobile-im-sheet", handleOpen);
   }, []);
-
-  const isProLocked = currentGrade === 'C' || currentGrade === 'D' || !currentGrade;
 
   return (
     <>
@@ -74,23 +72,15 @@ export function CreateMobileImButton({
             className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-2 py-3 text-xs sm:text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98] w-full shadow-md shadow-blue-900/30"
             id="cta-mobile-im-basic"
           >
-            ⚡ Basic IM
+            ⚡ IM 생성
           </button>
-        ) : isProLocked ? (
+        ) : (
           <button
             onClick={() => { setStage('basic'); setShowBottomSheet(true); }}
             className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-2 py-3 text-xs sm:text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98] w-full shadow-md shadow-blue-900/30"
             id="cta-mobile-im-edit"
           >
             📝 IM 수정
-          </button>
-        ) : (
-          <button
-            onClick={() => { setStage('pro'); setShowBottomSheet(true); }}
-            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-2 py-3 text-xs sm:text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98] w-full shadow-md shadow-indigo-900/30"
-            id="cta-mobile-im-pro"
-          >
-            🏆 Pro IM
           </button>
         )}
       </div>

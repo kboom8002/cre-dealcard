@@ -60,7 +60,7 @@ export function TieredMap({ lat, lng, tier, areaSignal, className = '' }: Tiered
             <div className="w-20 h-20 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center">
               <span className="text-neutral-500 text-[10px]">±150m</span>
             </div>
-            <span className="text-[10px] text-neutral-600">Pro IM에서 정확한 위치 확인</span>
+            <span className="text-[10px] text-neutral-600">IM 상세에서 정확한 위치 확인</span>
           </>
         )}
 

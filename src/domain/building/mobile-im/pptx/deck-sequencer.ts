@@ -50,12 +50,10 @@ function buildGallerySlideSpecs(input: DeckSequenceInput): SlideSpec[] {
 export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   const gallerySlides = buildGallerySlideSpecs(input);
 
-  // D등급: Pro는 빈 시퀀스(차단), Basic은 최소 3슬라이드
+  // D등급: 최소 3슬라이드 (표지+핵심요약+면책)
   if (input.grade === 'D') {
-    if (input.tier === 'pro') return [];
-    // Basic 최소 덱: 표지 + 핵심요약 + 면책
     const dGradeSequence: SlideSpec[] = [
-      { archetype: 'A01', kicker: 'BASIC IM', title: '표지', dataKey: 'cover' },
+      { archetype: 'A01', kicker: 'INVESTMENT MEMORANDUM', title: '표지', dataKey: 'cover' },
     ];
     dGradeSequence.push(...gallerySlides);
     dGradeSequence.push(
@@ -66,41 +64,43 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     return dGradeSequence;
   }
 
-  // Basic C등급+: 7슬라이드 (표지+요약+입지+건물/렌트롤/토지 등 포스처별 2슬라이드+리스크+면책)
-  if (input.tier === 'basic') {
-    const basicSequence: SlideSpec[] = [
-      { archetype: 'A01', kicker: 'BASIC IM', title: '표지', dataKey: 'cover' }
+  // B/C등급: 최소 7슬라이드 구성 (표지+요약+입지+포스처별 본문+리스크+면책)
+  // A등급: 풀 시퀀스 (DCF/민감도/총수익률 등 자동 포함)
+  // → Basic/Pro 분기 제거: 등급에 따라 자동 결정
+  if (input.grade === 'C' || input.grade === 'B') {
+    const compactSequence: SlideSpec[] = [
+      { archetype: 'A01', kicker: 'INVESTMENT MEMORANDUM', title: '표지', dataKey: 'cover' }
     ];
-    basicSequence.push(...gallerySlides);
-    basicSequence.push(
+    compactSequence.push(...gallerySlides);
+    compactSequence.push(
       { archetype: 'A02', kicker: 'Summary', title: '핵심요약', dataKey: 'summary' },
       { archetype: 'A06', kicker: 'Location', title: '입지', dataKey: 'location' }
     );
     // 포스처별 본문 2슬라이드
     switch (input.posture) {
       case 'development':
-        basicSequence.push(
+        compactSequence.push(
           { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
           { archetype: 'A04', kicker: 'Land Detail', title: '토지상세', dataKey: 'land' },
           { archetype: 'A05', kicker: 'Feasibility', title: '개발 개요', dataKey: 'feasibility' }
         );
         break;
       case 'owner_occupied':
-        basicSequence.push(
+        compactSequence.push(
           { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
           { archetype: 'A04', kicker: 'Plan', title: '사용계획', dataKey: 'plan' },
           { archetype: 'A08', kicker: 'Vs Lease', title: '자가비교', dataKey: 'vsLease' }
         );
         break;
       case 'operating':
-        basicSequence.push(
+        compactSequence.push(
           { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
           { archetype: 'A13', kicker: 'KPI', title: '운영지표', dataKey: 'kpi' },
           { archetype: 'A05', kicker: 'Revenue', title: '매출', dataKey: 'revenue' }
         );
         break;
       case 'trading':
-        basicSequence.push(
+        compactSequence.push(
           { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
           { archetype: 'A04', kicker: 'Market Position', title: '시장 포지션', dataKey: 'marketPosition' },
           { archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' }
@@ -108,20 +108,20 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
         break;
       case 'income':
       default:
-        basicSequence.push(
+        compactSequence.push(
           { archetype: 'A04', kicker: 'Building', title: '건물', dataKey: 'building' },
           { archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' },
           { archetype: 'A05', kicker: 'Profit', title: '수익 분석', dataKey: 'profit' }
         );
         break;
     }
-    basicSequence.push(
+    compactSequence.push(
       { archetype: 'A07', kicker: 'Risk', title: '리스크', dataKey: 'risk' },
       { archetype: 'A15', kicker: 'Thesis', title: '투자 논거', dataKey: 'thesis' },
       { archetype: 'A09', kicker: 'Process', title: '진행 절차', dataKey: 'process' },
       { archetype: 'A10', kicker: 'Disclaimer', title: '표기 기준 및 면책', dataKey: 'closing' }
     );
-    return basicSequence;
+    return compactSequence;
   }
 
   const sequence: SlideSpec[] = [];
@@ -198,14 +198,11 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
       break;
   }
 
-  // ── 3. Pro 전용 추가 슬라이드 (Closing 앞에 배치) ──
-  if (input.tier === 'pro') {
-    const suppressDcf = input.grade === 'B' || input.grade === 'C';
-    const suppressTotalReturn = input.grade === 'C';
-
-    sequence.push({ archetype: 'A05', kicker: 'DCF', title: 'DCF 분석', dataKey: 'dcf', suppress: suppressDcf });
-    sequence.push({ archetype: 'A05', kicker: 'Sensitivity', title: '민감도 분석', dataKey: 'sensitivity', suppress: suppressDcf });
-    sequence.push({ archetype: 'A05', kicker: 'Total Return', title: '총수익률', dataKey: 'totalReturn', suppress: suppressTotalReturn });
+  // ── 3. A등급 전용 추가 슬라이드 (DCF/민감도/총수익률 — 등급 기반 자동 포함) ──
+  if (input.grade === 'A') {
+    sequence.push({ archetype: 'A05', kicker: 'DCF', title: 'DCF 분석', dataKey: 'dcf' });
+    sequence.push({ archetype: 'A05', kicker: 'Sensitivity', title: '민감도 분석', dataKey: 'sensitivity' });
+    sequence.push({ archetype: 'A05', kicker: 'Total Return', title: '총수익률', dataKey: 'totalReturn' });
     sequence.push({ archetype: 'A08', kicker: 'Loan', title: '대출시나리오', dataKey: 'loan', suppress: input.hasViolation });
     sequence.push({ archetype: 'A08', kicker: 'Tax', title: '세금시나리오', dataKey: 'tax' });
   }
@@ -218,7 +215,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
 
   const active = sequence.filter(s => !s.suppress);
 
-  // Pro: 24p 이하로 제한
+  // A등급: 24p 이하로 제한
   if (active.length > 24) {
     const closingSlide = active.find(s => s.dataKey === 'closing');
     const riskSlide = active.find(s => s.dataKey === 'risk');

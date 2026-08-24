@@ -8,20 +8,29 @@
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
     body { font-family: 'Pretendard', sans-serif; background-color: #0a0a0c; color: #f3f4f6; }
+    table { border-spacing: 0; }
+    th, td { text-align: left; white-space: nowrap; }
+    td:first-child, th:first-child { white-space: normal; }
   </style>
 </head>
 <body class="p-4 max-w-md mx-auto min-h-screen pb-20 space-y-4">
-  <!-- Top Bar -->
-  <div class="flex items-center justify-between py-2 border-b border-neutral-800 text-xs text-neutral-400">
-    <span>🏢 CREDEAL Mobile IM Lite</span>
-    <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">🟢 수익형 B등급</span>
+  <!-- Sticky Top Bar -->
+  <div class="sticky top-0 z-10 backdrop-blur-md bg-neutral-950/80 flex items-center justify-between py-2.5 px-1 border-b border-neutral-800 text-xs text-neutral-400">
+    <div class="flex items-center gap-2">
+      <span class="text-base">←</span>
+      <span class="font-bold text-white text-xs">IM Lite</span>
+      <span class="px-1.5 py-0.5 rounded bg-neutral-800 text-[10px] text-neutral-400">초역세권</span>
+    </div>
+    <div class="flex gap-1.5">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span><span class="w-1.5 h-1.5 rounded-full bg-neutral-600"></span><span class="w-1.5 h-1.5 rounded-full bg-neutral-600"></span><span class="w-1.5 h-1.5 rounded-full bg-neutral-600"></span><span class="w-1.5 h-1.5 rounded-full bg-neutral-600"></span><span class="w-1.5 h-1.5 rounded-full bg-neutral-600"></span><span class="w-1.5 h-1.5 rounded-full bg-neutral-600"></span>
+    </div>
   </div>
 
   <!-- Hero Card -->
   <div id="hero-card" class="p-5 rounded-2xl bg-gradient-to-b from-neutral-900 to-neutral-950 border border-emerald-500/30 shadow-xl space-y-3">
     <div class="flex justify-between items-start">
       <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">INCOME STABLE</span>
-      <span class="text-xs text-neutral-400">초역세권</span>
+      <span class="text-[10px] px-2 py-0.5 rounded bg-neutral-800 text-neutral-400">🟢 B등급</span>
     </div>
     <h1 class="text-xl font-black text-white leading-snug">당산역 역세권 메디컬빌딩</h1>
     <div class="grid grid-cols-2 gap-2 pt-2 border-t border-neutral-800/60 text-xs">
@@ -41,108 +50,187 @@
     </div>
   </div>
 
-  <!-- Sections Accordion -->
+  <!-- Map Placeholder (OSM Tile Style) -->
+  <div class="rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-900">
+    <div class="relative h-44 bg-neutral-800 flex items-center justify-center">
+      <div class="absolute inset-0 bg-gradient-to-b from-neutral-700/30 to-neutral-900/50"></div>
+      <div class="relative z-10 text-center">
+        <div class="w-8 h-8 mx-auto mb-2 rounded-full bg-red-500/80 flex items-center justify-center text-white text-sm">📍</div>
+        <p class="text-xs text-neutral-400">프로덕션 뷰어에서 3×3 OSM 타일 지도 렌더링</p>
+      </div>
+    </div>
+    <div class="p-3 flex items-center justify-between">
+      <span class="text-[11px] text-neutral-400">당산역 역세권 메디컬빌딩 위치</span>
+      <span class="text-[11px] text-yellow-400 font-bold">🗺️ 카카오맵에서 보기 →</span>
+    </div>
+  </div>
+
+  <!-- Photo Gallery Placeholder -->
+  <div class="rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-900">
+    <div class="flex gap-0.5 h-28 overflow-x-auto snap-x snap-mandatory">
+      <div class="snap-center shrink-0 w-full h-full bg-neutral-800 flex items-center justify-center">
+        <span class="text-xs text-neutral-500">📸 건물 외관 사진</span>
+      </div>
+      <div class="snap-center shrink-0 w-full h-full bg-neutral-800 flex items-center justify-center">
+        <span class="text-xs text-neutral-500">📸 내부 사진</span>
+      </div>
+    </div>
+    <div class="p-2 flex justify-center gap-1.5">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+      <span class="w-1.5 h-1.5 rounded-full bg-neutral-600"></span>
+    </div>
+  </div>
+
+  <!-- Sections Accordion (Rich Markdown Rendering) -->
   
-    <div class="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 space-y-2">
-      <h2 class="text-sm font-bold text-white flex items-center gap-1.5">
-        <span class="w-1.5 h-3.5 bg-emerald-400 rounded-sm inline-block"></span> 1. 물건 개요
-      </h2>
-      <div class="text-xs text-neutral-300 space-y-1.5 leading-relaxed bg-neutral-950 p-3 rounded-xl border border-neutral-800/60 whitespace-pre-line font-mono">
-            서울특별시 영등포구 당산동5가 11-47
--   대지면적  : 153.31평 (506.8㎡)
--   연면적  : 435.95평 (1,441.15㎡)  (건축물대장 오기 1,141.15㎡ 정정 확인 완료) 
--   건축규모  : 지하 1층 ~ 지상 5층 (자주식 주차 8대, 승강기 1대)
--   준공연도  : 2002년 (유지 관리 컨디션 양호)
--   용적률 현황  : 지상 기준   221.8%   / 전체   284.4%  
--   거래 조건  : 매매희망가 115.0억 원 (토지 평당 7,501만 원)
-  구분   대지면적   연면적 (실제)   지상 용적률   준공연도   주용도  
- --- --- --- --- --- --- 
-  본건   153.31평 (506.8㎡)   435.95평 (1,441.15㎡)   221.8%   2002년   제2종근린생활시설  
+    <div class="rounded-2xl bg-neutral-900/60 border border-neutral-800 overflow-hidden">
+      <div class="p-3.5 flex items-center gap-2 cursor-pointer">
+        <span class="text-base">🏢</span>
+        <span class="w-1 h-4 bg-emerald-400 rounded-sm"></span>
+        <h2 class="text-sm font-bold text-white flex-1">1. 물건 개요</h2>
+        <div class="flex gap-1">
+          <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-[9px] text-emerald-400 font-bold">✓ 확인됨</span>
+        </div>
+      </div>
+      <div class="px-4 pb-4 space-y-1">
+        <h3 class="text-xs font-bold text-emerald-400 mt-3 mb-1">서울특별시 영등포구 당산동5가 11-47</h3>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">대지면적</strong>: 153.31평 (506.8㎡)</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">연면적</strong>: 435.95평 (1,441.15㎡) <em class="italic text-neutral-200">(건축물대장 오기 1,141.15㎡ 정정 확인 완료)</em></span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">건축규모</strong>: 지하 1층 ~ 지상 5층 (자주식 주차 8대, 승강기 1대)</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">준공연도</strong>: 2002년 (유지 관리 컨디션 양호)</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">용적률 현황</strong>: 지상 기준 <strong class="text-white font-bold">221.8%</strong> / 전체 <strong class="text-white font-bold">284.4%</strong></span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">거래 조건</strong>: 매매희망가 115.0억 원 (토지 평당 7,501만 원)</span></div>
+<div class="h-2"></div>
+<div class="overflow-x-auto mt-2 mb-2"><table class="w-full text-[11px] border-collapse">
+<thead><tr><th class="p-2 text-left bg-neutral-800/80 text-neutral-300 font-bold border-b border-neutral-700">구분</th><th class="p-2 text-left bg-neutral-800/80 text-neutral-300 font-bold border-b border-neutral-700">대지면적</th><th class="p-2 text-left bg-neutral-800/80 text-neutral-300 font-bold border-b border-neutral-700">연면적 (실제)</th><th class="p-2 text-left bg-neutral-800/80 text-neutral-300 font-bold border-b border-neutral-700">지상 용적률</th><th class="p-2 text-left bg-neutral-800/80 text-neutral-300 font-bold border-b border-neutral-700">준공연도</th><th class="p-2 text-left bg-neutral-800/80 text-neutral-300 font-bold border-b border-neutral-700">주용도</th></tr></thead><tbody>
+<tr><td class="p-2 text-neutral-300 border-b border-neutral-800/60">본건</td><td class="p-2 text-neutral-300 border-b border-neutral-800/60">153.31평 (506.8㎡)</td><td class="p-2 text-neutral-300 border-b border-neutral-800/60">435.95평 (1,441.15㎡)</td><td class="p-2 text-neutral-300 border-b border-neutral-800/60">221.8%</td><td class="p-2 text-neutral-300 border-b border-neutral-800/60">2002년</td><td class="p-2 text-neutral-300 border-b border-neutral-800/60">제2종근린생활시설</td></tr>
+</tbody></table></div>
       </div>
     </div>
   
-    <div class="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 space-y-2">
-      <h2 class="text-sm font-bold text-white flex items-center gap-1.5">
-        <span class="w-1.5 h-3.5 bg-emerald-400 rounded-sm inline-block"></span> 2. 입지 및 상권 분석
-      </h2>
-      <div class="text-xs text-neutral-300 space-y-1.5 leading-relaxed bg-neutral-950 p-3 rounded-xl border border-neutral-800/60 whitespace-pre-line font-mono">
-            당산역 더블역세권 및 탄탄한 아파트 배후 상권
--   교통 접근성  : 당산역(2호선·9호선) 도보 5분 거리, 올림픽대로 및 국회대로 진출입 용이
--   배후 수요  : 인근 1만 세대 이상 대단지 아파트 밀집 지역으로 생활 밀착형 수요 풍부
--   권역 특성  : 영등포구청 및 여의도 업무지구 배후 주거·상업 복합 상권으로 주 7일 안정적 유동
--   규제 완화 수혜  : 서울시 준공업지역 제도 개선(2024.10)에 따른 용적률 상향 잠재력 확보
+    <div class="rounded-2xl bg-neutral-900/60 border border-neutral-800 overflow-hidden">
+      <div class="p-3.5 flex items-center gap-2 cursor-pointer">
+        <span class="text-base">📍</span>
+        <span class="w-1 h-4 bg-emerald-400 rounded-sm"></span>
+        <h2 class="text-sm font-bold text-white flex-1">2. 입지 및 상권 분석</h2>
+        <div class="flex gap-1">
+          <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-[9px] text-emerald-400 font-bold">✓ 확인됨</span>
+        </div>
+      </div>
+      <div class="px-4 pb-4 space-y-1">
+        <h3 class="text-xs font-bold text-emerald-400 mt-3 mb-1">당산역 더블역세권 및 탄탄한 아파트 배후 상권</h3>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">교통 접근성</strong>: 당산역(2호선·9호선) 도보 5분 거리, 올림픽대로 및 국회대로 진출입 용이</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">배후 수요</strong>: 인근 1만 세대 이상 대단지 아파트 밀집 지역으로 생활 밀착형 수요 풍부</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">권역 특성</strong>: 영등포구청 및 여의도 업무지구 배후 주거·상업 복합 상권으로 주 7일 안정적 유동</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">규제 완화 수혜</strong>: 서울시 준공업지역 제도 개선(2024.10)에 따른 용적률 상향 잠재력 확보</span></div>
       </div>
     </div>
   
-    <div class="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 space-y-2">
-      <h2 class="text-sm font-bold text-white flex items-center gap-1.5">
-        <span class="w-1.5 h-3.5 bg-emerald-400 rounded-sm inline-block"></span> 3. 임대차 현황 (Rent Roll)
-      </h2>
-      <div class="text-xs text-neutral-300 space-y-1.5 leading-relaxed bg-neutral-950 p-3 rounded-xl border border-neutral-800/60 whitespace-pre-line font-mono">
-            의원 + 약국 중심 만실 우량 임차 구성
--   보증금 총액  : 2억 9,000만 원     월 임대료 총액  : 1,946만 원
--   공실 현황  : 0.0% (전 층 만실 운영 중)
--   주요 임차인 구성  :
-  -   1F  : 고은약국 (보증금 5,000만 / 월세 350만)
-  -   1F·2F·5F  : 로뎀나무내과 (보증금 1억 / 월세 750만)
-  -   3F  : 프리미엄 헬스장 (보증금 5,000만 / 월세 366만)
-  -   4F(401호)  : 국제와인 (보증금 4,000만 / 월세 260만)
-    - 갱신요구권 7년 잔여 →   법정 5% 상한 적용: 273만 원   (시세 306만 불가)
-  -   B1F / 4F 일부  : 소유자 자가 사용 (임대 전환 시 월 602만 원 즉시 증대)
+    <div class="rounded-2xl bg-neutral-900/60 border border-neutral-800 overflow-hidden">
+      <div class="p-3.5 flex items-center gap-2 cursor-pointer">
+        <span class="text-base">📋</span>
+        <span class="w-1 h-4 bg-emerald-400 rounded-sm"></span>
+        <h2 class="text-sm font-bold text-white flex-1">3. 임대차 현황 (Rent Roll)</h2>
+        <div class="flex gap-1">
+          <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-[9px] text-emerald-400 font-bold">✓ 확인됨</span>
+        </div>
+      </div>
+      <div class="px-4 pb-4 space-y-1">
+        <h3 class="text-xs font-bold text-emerald-400 mt-3 mb-1">의원 + 약국 중심 만실 우량 임차 구성</h3>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">보증금 총액</strong>: 2억 9,000만 원 | <strong class="text-white font-bold">월 임대료 총액</strong>: 1,946만 원</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">공실 현황</strong>: 0.0% (전 층 만실 운영 중)</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">주요 임차인 구성</strong>:</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">1F</strong>: 고은약국 (보증금 5,000만 / 월세 350만)</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">1F·2F·5F</strong>: 로뎀나무내과 (보증금 1억 / 월세 750만)</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">3F</strong>: 프리미엄 헬스장 (보증금 5,000만 / 월세 366만)</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">4F(401호)</strong>: 국제와인 (보증금 4,000만 / 월세 260만)</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span>갱신요구권 7년 잔여 → <strong class="text-white font-bold">법정 5% 상한 적용: 273만 원</strong> (시세 306만 불가)</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">B1F / 4F 일부</strong>: 소유자 자가 사용 (임대 전환 시 월 602만 원 즉시 증대)</span></div>
       </div>
     </div>
   
-    <div class="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 space-y-2">
-      <h2 class="text-sm font-bold text-white flex items-center gap-1.5">
-        <span class="w-1.5 h-3.5 bg-emerald-400 rounded-sm inline-block"></span> 4. 수익성 및 임대료 정상화 분석
-      </h2>
-      <div class="text-xs text-neutral-300 space-y-1.5 leading-relaxed bg-neutral-950 p-3 rounded-xl border border-neutral-800/60 whitespace-pre-line font-mono">
-            11년 미인상 임대료 정상화 시 47% 수익성 개선
--   현재 연 순수익률 (Cap Rate)  :   2.08%   (연간 실질 임대수입 2억 3,352만 원)
--   임대료 정상화 시뮬레이션  :
-  - 인근 시세(기준층 평당 6.24만 원) 적용 시 예상 월 임대료:   2,867만 원   (+47.3% 상승)
-  -   401호 법정 상한 규제 반영  : 갱신요구권(7년 잔여)으로 인해 시세 대신 법정 5% 상한(273만 원) 적용
--   정상화 후 예상 연 순수익률  :   2.99%   (실투자금 기준 3.09%)
+    <div class="rounded-2xl bg-neutral-900/60 border border-neutral-800 overflow-hidden">
+      <div class="p-3.5 flex items-center gap-2 cursor-pointer">
+        <span class="text-base">💰</span>
+        <span class="w-1 h-4 bg-emerald-400 rounded-sm"></span>
+        <h2 class="text-sm font-bold text-white flex-1">4. 수익성 및 임대료 정상화 분석</h2>
+        <div class="flex gap-1">
+          <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-[9px] text-emerald-400 font-bold">✓ 확인됨</span>
+        </div>
+      </div>
+      <div class="px-4 pb-4 space-y-1">
+        <h3 class="text-xs font-bold text-emerald-400 mt-3 mb-1">11년 미인상 임대료 정상화 시 47% 수익성 개선</h3>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">현재 연 순수익률 (Cap Rate)</strong>: <strong class="text-white font-bold">2.08%</strong> (연간 실질 임대수입 2억 3,352만 원)</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">임대료 정상화 시뮬레이션</strong>:</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span>인근 시세(기준층 평당 6.24만 원) 적용 시 예상 월 임대료: <strong class="text-white font-bold">2,867만 원</strong> (+47.3% 상승)</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">401호 법정 상한 규제 반영</strong>: 갱신요구권(7년 잔여)으로 인해 시세 대신 법정 5% 상한(273만 원) 적용</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span><strong class="text-white font-bold">정상화 후 예상 연 순수익률</strong>: <strong class="text-white font-bold">2.99%</strong> (실투자금 기준 3.09%)</span></div>
       </div>
     </div>
   
-    <div class="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 space-y-2">
-      <h2 class="text-sm font-bold text-white flex items-center gap-1.5">
-        <span class="w-1.5 h-3.5 bg-emerald-400 rounded-sm inline-block"></span> 5. 투자 리스크 및 점검 사항
-      </h2>
-      <div class="text-xs text-neutral-300 space-y-1.5 leading-relaxed bg-neutral-950 p-3 rounded-xl border border-neutral-800/60 whitespace-pre-line font-mono">
-          리스크 영역   진단 현황   완화 방안 및 대응책  
- --- --- --- 
-    C19 면적 오기     층별 합계 1,441.15㎡ vs 대장 1,141.15㎡   300㎡ 단순 오기 건축물대장 정정 신청 완료  
-    C32 공동담보     호실별 근저당 분할 기재   공동담보 2그룹으로 실제 담보 총액 16억 확인  
-    구분소유 매각     형제 2인 층별 구분등기   소유자 2인 전체 매각 동의서 징구 완료  
+    <div class="rounded-2xl bg-neutral-900/60 border border-neutral-800 overflow-hidden">
+      <div class="p-3.5 flex items-center gap-2 cursor-pointer">
+        <span class="text-base">⚠️</span>
+        <span class="w-1 h-4 bg-emerald-400 rounded-sm"></span>
+        <h2 class="text-sm font-bold text-white flex-1">5. 투자 리스크 및 점검 사항</h2>
+        <div class="flex gap-1">
+          <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-[9px] text-emerald-400 font-bold">✓ 확인됨</span>
+        </div>
+      </div>
+      <div class="px-4 pb-4 space-y-1">
+        <div class="overflow-x-auto mt-2 mb-2"><table class="w-full text-[11px] border-collapse">
+<thead><tr><th class="p-2 text-left bg-neutral-800/80 text-neutral-300 font-bold border-b border-neutral-700">리스크 영역</th><th class="p-2 text-left bg-neutral-800/80 text-neutral-300 font-bold border-b border-neutral-700">진단 현황</th><th class="p-2 text-left bg-neutral-800/80 text-neutral-300 font-bold border-b border-neutral-700">완화 방안 및 대응책</th></tr></thead><tbody>
+<tr><td class="p-2 text-neutral-300 border-b border-neutral-800/60"><strong class="text-white font-bold">C19 면적 오기</strong></td><td class="p-2 text-neutral-300 border-b border-neutral-800/60">층별 합계 1,441.15㎡ vs 대장 1,141.15㎡</td><td class="p-2 text-neutral-300 border-b border-neutral-800/60">300㎡ 단순 오기 건축물대장 정정 신청 완료</td></tr>
+<tr><td class="p-2 text-neutral-300 border-b border-neutral-800/60"><strong class="text-white font-bold">C32 공동담보</strong></td><td class="p-2 text-neutral-300 border-b border-neutral-800/60">호실별 근저당 분할 기재</td><td class="p-2 text-neutral-300 border-b border-neutral-800/60">공동담보 2그룹으로 실제 담보 총액 16억 확인</td></tr>
+<tr><td class="p-2 text-neutral-300 border-b border-neutral-800/60"><strong class="text-white font-bold">구분소유 매각</strong></td><td class="p-2 text-neutral-300 border-b border-neutral-800/60">형제 2인 층별 구분등기</td><td class="p-2 text-neutral-300 border-b border-neutral-800/60">소유자 2인 전체 매각 동의서 징구 완료</td></tr>
+</tbody></table></div>
       </div>
     </div>
   
-    <div class="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 space-y-2">
-      <h2 class="text-sm font-bold text-white flex items-center gap-1.5">
-        <span class="w-1.5 h-3.5 bg-emerald-400 rounded-sm inline-block"></span> 6. 종합 가치 제안
-      </h2>
-      <div class="text-xs text-neutral-300 space-y-1.5 leading-relaxed bg-neutral-950 p-3 rounded-xl border border-neutral-800/60 whitespace-pre-line font-mono">
-            당산역 메디컬 안정형 빌딩 3대 핵심 가치
-1.   필수 의료시설 앵커 테넌트  : 내과·약국 11년 장기 임차로 공실 리스크 극소화
-2.   명확한 밸류애드 여력  : 11년간 동결된 임대료 정상화를 통한 즉각적인 현금흐름 47% 증대
-3.   준공업지역 규제 완화 수혜  : 서울시 준공업지역 제도 개선에 따른 용적률 상향 잠재력 확보
+    <div class="rounded-2xl bg-neutral-900/60 border border-neutral-800 overflow-hidden">
+      <div class="p-3.5 flex items-center gap-2 cursor-pointer">
+        <span class="text-base">🎯</span>
+        <span class="w-1 h-4 bg-emerald-400 rounded-sm"></span>
+        <h2 class="text-sm font-bold text-white flex-1">6. 종합 가치 제안</h2>
+        <div class="flex gap-1">
+          <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-[9px] text-emerald-400 font-bold">✓ 확인됨</span>
+        </div>
+      </div>
+      <div class="px-4 pb-4 space-y-1">
+        <h3 class="text-xs font-bold text-emerald-400 mt-3 mb-1">당산역 메디컬 안정형 빌딩 3대 핵심 가치</h3>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 font-bold shrink-0">1.</span><span><strong class="text-white font-bold">필수 의료시설 앵커 테넌트</strong>: 내과·약국 11년 장기 임차로 공실 리스크 극소화</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 font-bold shrink-0">2.</span><span><strong class="text-white font-bold">명확한 밸류애드 여력</strong>: 11년간 동결된 임대료 정상화를 통한 즉각적인 현금흐름 47% 증대</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 font-bold shrink-0">3.</span><span><strong class="text-white font-bold">준공업지역 규제 완화 수혜</strong>: 서울시 준공업지역 제도 개선에 따른 용적률 상향 잠재력 확보</span></div>
       </div>
     </div>
   
-    <div class="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 space-y-2">
-      <h2 class="text-sm font-bold text-white flex items-center gap-1.5">
-        <span class="w-1.5 h-3.5 bg-emerald-400 rounded-sm inline-block"></span> 7. 향후 매각 진행 일정
-      </h2>
-      <div class="text-xs text-neutral-300 space-y-1.5 leading-relaxed bg-neutral-950 p-3 rounded-xl border border-neutral-800/60 whitespace-pre-line font-mono">
-            거래 진행 프로세스
-- 1단계: 비밀유지협약(NDA) 체결 및 세부 임대차 계약서 실사
-- 2단계: 구분소유자 2인 매매계약 체결 및 임대차 승계 확인
-- 3단계: 잔금 지급 및 임대차 정상화 로드맵 착수
+    <div class="rounded-2xl bg-neutral-900/60 border border-neutral-800 overflow-hidden">
+      <div class="p-3.5 flex items-center gap-2 cursor-pointer">
+        <span class="text-base">📌</span>
+        <span class="w-1 h-4 bg-emerald-400 rounded-sm"></span>
+        <h2 class="text-sm font-bold text-white flex-1">7. 향후 매각 진행 일정</h2>
+        <div class="flex gap-1">
+          <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-[9px] text-emerald-400 font-bold">✓ 확인됨</span>
+        </div>
+      </div>
+      <div class="px-4 pb-4 space-y-1">
+        <h3 class="text-xs font-bold text-emerald-400 mt-3 mb-1">거래 진행 프로세스</h3>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span>1단계: 비밀유지협약(NDA) 체결 및 세부 임대차 계약서 실사</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span>2단계: 구분소유자 2인 매매계약 체결 및 임대차 승계 확인</span></div>
+<div class="flex gap-1.5 text-[11px] text-neutral-300 leading-relaxed"><span class="text-emerald-400 shrink-0">•</span><span>3단계: 잔금 지급 및 임대차 정상화 로드맵 착수</span></div>
       </div>
     </div>
   
+
+  <!-- Broker Profile Card -->
+  <div class="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 flex items-center gap-3">
+    <div class="w-10 h-10 rounded-full bg-neutral-700 flex items-center justify-center text-lg">👤</div>
+    <div class="flex-1">
+      <p class="text-xs font-bold text-white">담당 브로커</p>
+      <p class="text-[10px] text-neutral-400">CRE 전문 · 상업용 부동산</p>
+    </div>
+    <button class="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/30">연결</button>
+  </div>
 
   <!-- Bottom CTA -->
   <div class="p-4 rounded-2xl bg-gradient-to-r from-emerald-950 to-neutral-900 border border-emerald-500/40 text-center space-y-2">
@@ -150,6 +238,13 @@
     <button class="w-full py-2.5 rounded-xl bg-emerald-500 text-black font-black text-xs hover:bg-emerald-400 transition">
       📞 담당 브로커 전화 문의 (NDA 체결)
     </button>
+  </div>
+
+  <!-- Floating Action Bar -->
+  <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-3 bg-neutral-950/95 backdrop-blur-md border-t border-neutral-800 flex items-center justify-around">
+    <span class="text-[10px] text-yellow-400 font-bold">💬 카카오톡 공유</span>
+    <span class="text-[10px] text-neutral-400">📊 PPTX 다운로드</span>
+    <span class="text-[10px] text-neutral-400">📋 PDF 내보내기</span>
   </div>
 </body>
 </html>
