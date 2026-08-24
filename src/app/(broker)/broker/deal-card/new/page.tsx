@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { ShareToCircleSheet } from "@/components/circle/ShareToCircleSheet";
 import { MemoImportModal } from "@/components/broker/deal-card/MemoImportModal";
-import { StickyNote, Loader2, CheckCircle2, Circle, AlertTriangle, RefreshCw, Plus, X } from "lucide-react";
+import { StickyNote, Loader2, CheckCircle2, Circle, AlertTriangle, RefreshCw, Plus, X, ChevronLeft } from "lucide-react";
 
 interface DuplicateCandidateUI {
   existingBuildingId: string;
@@ -463,13 +463,44 @@ export default function BrokerDealCardNewPage() {
   }
 
   return (
-    <main className="flex flex-col items-center min-h-screen px-4 py-8">
+    <main className="flex flex-col items-center min-h-screen px-4 py-6">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-md mx-auto space-y-6"
+        className="w-full max-w-md mx-auto space-y-5"
       >
+        {/* Top Breadcrumb & Back Navigation */}
+        <div className="flex items-center justify-between pb-3 border-b border-border/40">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.history.length > 1) {
+                router.back();
+              } else {
+                router.push("/broker/buildings");
+              }
+            }}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors py-1 px-2 -ml-2 rounded-lg hover:bg-secondary/60"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>뒤로 가기</span>
+          </button>
+          
+          <span className="text-xs text-muted-foreground/70 font-medium">
+            딜카드 관리 &gt; 새 딜카드 등록
+          </span>
+
+          <button
+            type="button"
+            onClick={() => router.push("/broker/buildings")}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-secondary/60"
+            title="닫고 목록으로"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
         {/* Header */}
-        <div className="space-y-2 pt-4">
+        <div className="space-y-2 pt-1">
           {handoffSuccess && (
             <div className="mb-4 bg-emerald-50 text-emerald-600 border border-emerald-200 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
               <span>📋</span> 유니버설 메모에서 텍스트가 자동 전달되었습니다.

@@ -48,12 +48,14 @@ export async function signup(
   const { displayName, email, password, role } = parsed.data;
 
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.signUp({
+  const { data: signUpData, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
         display_name: displayName,
+        name: displayName,
+        full_name: displayName,
         requested_role: role,
       },
     },
@@ -66,13 +68,29 @@ export async function signup(
     return { message: `회원가입 오류: ${error.message}` };
   }
 
-  // ALPHA: 모든 신규 가입자에게 즉시 broker 권한 부여
-  const { data: { user } } = await supabase.auth.getUser();
-  if (user) {
-    await supabase
-      .from('profiles')
-      .update({ role: 'broker', display_name: displayName })
-      .eq('id', user.id);
+  // ALPHA: 모든 신규 가입자에게 서비스 롤을 통해 즉시 broker 권한 및 이름 부여
+  const newUserId = signUpData?.user?.id;
+  if (newUserId) {
+    try {
+      const { createServiceClient } = await import('@/lib/supabase/service');
+      const serviceClient = createServiceClient();
+      
+      await serviceClient
+        .from('profiles')
+        .upsert({
+          id: newUserId,
+          role: 'broker',
+          display_name: displayName,
+        });
+
+      await serviceClient
+        .from('broker_profiles')
+        .upsert({
+          user_id: newUserId,
+        }, { onConflict: 'user_id' });
+    } catch (upsertErr) {
+      console.warn('[Signup] Profile upsert warning:', upsertErr);
+    }
   }
 
   redirect('/broker');

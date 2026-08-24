@@ -937,11 +937,8 @@ export default function BrokerProfilePage() {
 // Helper to get Supabase session token from cookie via client
 async function getToken(): Promise<string> {
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const { createClient } = await import('@/lib/supabase/client');
+    const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     return session?.access_token ?? '';
   } catch {
