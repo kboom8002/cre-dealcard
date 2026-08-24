@@ -1,12 +1,13 @@
 /**
  * GET /api/public/im-lite/[buildingId]/export?format=html&doc_id=...
- * Exports Mobile IM as printable HTML.
+ * Exports Mobile IM as printable HTML / PDF.
  * PDF generation is done client-side via window.print().
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
 function escapeHtml(s: string): string {
+  if (!s) return '';
   return s
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -15,16 +16,20 @@ function escapeHtml(s: string): string {
 }
 
 function inlineMarkdown(text: string): string {
+  if (!text) return '';
   return escapeHtml(text)
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>');
 }
 
 function markdownToHtml(md: string): string {
+  if (!md) return '';
   const lines = md.split('\n');
   const out: string[] = [];
   let inTable = false;
   let tableLines: string[] = [];
+  let inList = false;
+  let listType: 'ul' | 'ol' | null = null;
 
   const flushTable = () => {
     if (tableLines.length === 0) return;
@@ -33,28 +38,83 @@ function markdownToHtml(md: string): string {
     const [header, ...body] = rows;
     const parseRow = (r: string) => r.split('|').slice(1, -1).map((c) => c.trim());
     const headers = parseRow(header);
-    out.push('<table>');
+    out.push('<div class="table-container"><table>');
     out.push('<thead><tr>' + headers.map((h) => `<th>${inlineMarkdown(h)}</th>`).join('') + '</tr></thead>');
     out.push('<tbody>');
     body.forEach((row) => {
       out.push('<tr>' + parseRow(row).map((c) => `<td>${inlineMarkdown(c)}</td>`).join('') + '</tr>');
     });
-    out.push('</tbody></table>');
-    inTable = false; tableLines = [];
+    out.push('</tbody></table></div>');
+    inTable = false;
+    tableLines = [];
   };
 
-  for (const line of lines) {
-    if (line.startsWith('|')) { inTable = true; tableLines.push(line); continue; }
+  const flushList = () => {
+    if (inList && listType) {
+      out.push(`</${listType}>`);
+      inList = false;
+      listType = null;
+    }
+  };
+
+  for (let rawLine of lines) {
+    const line = rawLine.trim();
+    if (line.startsWith('|')) {
+      flushList();
+      inTable = true;
+      tableLines.push(line);
+      continue;
+    }
     if (inTable) flushTable();
-    if (line.startsWith('### ')) { out.push(`<h3>${escapeHtml(line.slice(4))}</h3>`); }
-    else if (line.startsWith('## ')) { out.push(`<h2>${escapeHtml(line.slice(3))}</h2>`); }
-    else if (line.startsWith('> ')) { out.push(`<blockquote>${inlineMarkdown(line.slice(2))}</blockquote>`); }
-    else if (line.startsWith('- ') || line.startsWith('* ')) { out.push(`<li>${inlineMarkdown(line.slice(2))}</li>`); }
-    else if (line.trim() === '') { out.push('<br>'); }
-    else { out.push(`<p>${inlineMarkdown(line)}</p>`); }
+
+    if (line.startsWith('### ')) {
+      flushList();
+      out.push(`<h3>${escapeHtml(line.slice(4))}</h3>`);
+    } else if (line.startsWith('## ')) {
+      flushList();
+      out.push(`<h2>${escapeHtml(line.slice(3))}</h2>`);
+    } else if (line.startsWith('# ')) {
+      flushList();
+      out.push(`<h1>${escapeHtml(line.slice(2))}</h1>`);
+    } else if (line.startsWith('> ')) {
+      flushList();
+      out.push(`<blockquote>${inlineMarkdown(line.slice(2))}</blockquote>`);
+    } else if (line.startsWith('- ') || line.startsWith('* ')) {
+      if (!inList || listType !== 'ul') {
+        flushList();
+        out.push('<ul>');
+        inList = true;
+        listType = 'ul';
+      }
+      out.push(`<li>${inlineMarkdown(line.slice(2))}</li>`);
+    } else if (/^\d+\.\s+/.test(line)) {
+      if (!inList || listType !== 'ol') {
+        flushList();
+        out.push('<ol>');
+        inList = true;
+        listType = 'ol';
+      }
+      const itemText = line.replace(/^\d+\.\s+/, '');
+      out.push(`<li>${inlineMarkdown(itemText)}</li>`);
+    } else if (line === '') {
+      flushList();
+    } else {
+      flushList();
+      const cleaned = line.replace(/\s*###\s*/g, ' ').replace(/\s*##\s*/g, ' ');
+      out.push(`<p>${inlineMarkdown(cleaned)}</p>`);
+    }
   }
   if (inTable) flushTable();
+  flushList();
   return out.join('\n');
+}
+
+interface BrokerInfo {
+  displayName: string;
+  company: string;
+  phone: string;
+  licenseNumber: string;
+  specialty: string;
 }
 
 function buildHtmlExport({
@@ -62,17 +122,15 @@ function buildHtmlExport({
   title,
   content,
   building,
-  brokerProfile,
+  brokerInfo,
   generatedAt,
-  tier
 }: {
   buildingId: string;
   title: string;
   content: any;
   building: any;
-  brokerProfile: any;
+  brokerInfo: BrokerInfo;
   generatedAt: string;
-  tier: 'basic' | 'pro';
 }): string {
   const sections = (content?.sections ?? []) as Array<any>;
   const heroCard = content?.heroCard || {};
@@ -80,7 +138,8 @@ function buildHtmlExport({
   const ancillaryIncomes = content?.ancillaryIncomes;
   const incomeScenarios = content?.incomeScenarios;
 
-  const getConfidenceBadge = (confidence?: string) => {
+  const getConfidenceBadge = (confidence?: string, sectionType?: string) => {
+    if (sectionType === 'next_steps' || sectionType === 'disclaimer') return '';
     if (confidence === 'confirmed') return '✅ 공부확인';
     if (confidence === 'inferred') return '⚙️ AI추정';
     if (confidence === 'needs_check') return '⚠️ 확인필요';
@@ -88,25 +147,26 @@ function buildHtmlExport({
   };
 
   const getGradeColor = (grade: string) => {
-    if (grade.includes('A')) return '#2e7d32';
-    if (grade.includes('B')) return '#1976d2';
-    if (grade.includes('C')) return '#ed6c02';
-    if (grade.includes('D')) return '#d32f2f';
-    return '#1976d2';
+    if (grade.includes('A')) return '#059669';
+    if (grade.includes('B')) return '#2563eb';
+    if (grade.includes('C')) return '#d97706';
+    if (grade.includes('D')) return '#dc2626';
+    return '#2563eb';
   };
 
-  const archetype = heroCard.assetType || building?.asset_type || '건물';
-  const region = heroCard.areaSignal || building?.area_signal || '지역';
+  const archetype = heroCard.assetType || building?.asset_type || '상업용 빌딩';
+  const region = heroCard.areaSignal || building?.area_signal || '핵심 권역';
   const askingPrice = heroCard.askingPriceDisplay || building?.price_band || '별도문의';
-  const capRate = heroCard.capRateBase ? `${heroCard.capRateBase}%` : '-';
+  const capRate = heroCard.capRateBase ? `${heroCard.capRateBase}%` : (content?.financials?.capRate ? `${content.financials.capRate}%` : '-');
   const area = heroCard.grossAreaPyeong ? `${heroCard.grossAreaPyeong}평` : (heroCard.areaPyeong ? `${heroCard.areaPyeong}평` : '-');
-  const vacancy = heroCard.vacancy || '-';
-  const grade = heroCard.grade || '미등급';
+  const vacancy = heroCard.vacancy || (content?.financials?.vacancyPct != null ? `${content.financials.vacancyPct}%` : '-');
+  const grade = heroCard.grade || content?.readiness_grade || 'A등급';
 
   const sectionHtml = sections
+    .filter((s) => !(content?.hiddenSections || []).includes(s.section_type || s.sectionId))
     .map(
       (s) => {
-        const confBadge = s.confidence ? `<span class="confidence-badge">${getConfidenceBadge(s.confidence)}</span>` : '';
+        const confBadge = s.confidence ? `<span class="confidence-badge">${getConfidenceBadge(s.confidence, s.section_type)}</span>` : '';
         const boundaryNote = (s.boundary_note || s.confidence_note) ? `<div class="boundary-note">ℹ️ ${escapeHtml(s.boundary_note || s.confidence_note)}</div>` : '';
         return `<section class="im-section">
   <div class="section-header">
@@ -123,7 +183,7 @@ function buildHtmlExport({
   if (photoUrls.length > 0) {
     photosHtml = `
       <div class="photo-gallery">
-        ${photoUrls.map((url: string) => `<img src="${escapeHtml(url)}" style="max-width:100%; max-height:200px; object-fit:cover; border-radius:8px;" />`).join('\n        ')}
+        ${photoUrls.map((url: string) => `<img src="${escapeHtml(url)}" alt="현장 사진" />`).join('\n        ')}
       </div>
     `;
   }
@@ -132,20 +192,22 @@ function buildHtmlExport({
   if (ancillaryIncomes && Array.isArray(ancillaryIncomes) && ancillaryIncomes.length > 0) {
     ancillaryHtml = `
       <section class="im-section">
-        <div class="section-header"><h2>부가 수익</h2></div>
+        <div class="section-header"><h2>부가 수익 구조</h2></div>
         <div class="section-content">
-          <table>
-            <thead><tr><th>항목</th><th>금액</th><th>참고</th></tr></thead>
-            <tbody>
-              ${ancillaryIncomes.map(item => `
-                <tr>
-                  <td>${escapeHtml(item.label || item.type || '')}</td>
-                  <td>${item.annualAmountKrw ? item.annualAmountKrw.toLocaleString() + '원' : '-'}</td>
-                  <td>${escapeHtml(item.note || '')}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+          <div class="table-container">
+            <table>
+              <thead><tr><th>항목</th><th>연간 금액</th><th>비고</th></tr></thead>
+              <tbody>
+                ${ancillaryIncomes.map((item: any) => `
+                  <tr>
+                    <td>${escapeHtml(item.label || item.type || '')}</td>
+                    <td>${item.annualAmountKrw ? item.annualAmountKrw.toLocaleString() + '원' : '-'}</td>
+                    <td>${escapeHtml(item.note || '')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     `;
@@ -155,127 +217,397 @@ function buildHtmlExport({
   if (incomeScenarios && Array.isArray(incomeScenarios) && incomeScenarios.length > 0) {
     scenariosHtml = `
       <section class="im-section">
-        <div class="section-header"><h2>수익 시나리오</h2></div>
+        <div class="section-header"><h2>수익 시나리오 분석</h2></div>
         <div class="section-content">
-          <table>
-            <thead><tr><th>시나리오</th><th>예상 수익률</th><th>설명</th></tr></thead>
-            <tbody>
-              ${incomeScenarios.map(sc => `
-                <tr>
-                  <td>${escapeHtml(sc.name || '')}</td>
-                  <td>${sc.yieldPct ? sc.yieldPct + '%' : '-'}</td>
-                  <td>${escapeHtml(sc.description || '')}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+          <div class="table-container">
+            <table>
+              <thead><tr><th>시나리오</th><th>예상 수익률</th><th>설명</th></tr></thead>
+              <tbody>
+                ${incomeScenarios.map((sc: any) => `
+                  <tr>
+                    <td>${escapeHtml(sc.name || '')}</td>
+                    <td>${sc.yieldPct ? sc.yieldPct + '%' : '-'}</td>
+                    <td>${escapeHtml(sc.description || '')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     `;
   }
 
-  const brokerName = brokerProfile?.display_name || '담당 중개인';
-  const brokerCompany = brokerProfile?.company_name || '';
-  const brokerPhone = brokerProfile?.phone || '';
-  const brokerSpecialty = brokerProfile?.specialty || '';
+  const brokerMetaParts = [
+    brokerInfo.company,
+    brokerInfo.phone,
+    brokerInfo.licenseNumber,
+    brokerInfo.specialty
+  ].filter(Boolean);
 
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(title)} — Mobile IM Lite</title>
+  <title>${escapeHtml(title)} — CREDEAL 투자설명서</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Noto Sans KR', sans-serif;
-      background: #fdfdfd;
-      color: #1a1a1a;
+      font-family: 'Pretendard', 'Noto Sans KR', -apple-system, sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+      font-size: 10pt;
+      line-height: 1.6;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .page {
+      max-width: 210mm;
+      margin: 0 auto;
+      padding: 16mm 14mm;
+      background: #fff;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    }
+    .brand-header {
       font-size: 11pt;
+      font-weight: 800;
+      color: #059669;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    .header {
+      border-bottom: 2px solid #059669;
+      padding-bottom: 14px;
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      font-size: 20pt;
+      font-weight: 900;
+      color: #0f172a;
+      line-height: 1.3;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .data-grade-badge, .archetype-badge {
+      font-size: 9.5pt;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+    .data-grade-badge {
+      background: #ecfdf5;
+      color: ${getGradeColor(grade)};
+      border: 1px solid currentColor;
+    }
+    .archetype-badge {
+      background: #0f172a;
+      color: #fff;
+    }
+    .header .meta {
+      color: #64748b;
+      font-size: 8.5pt;
+      display: flex;
+      gap: 12px;
+    }
+    
+    .hero-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #059669;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 24px;
+    }
+    .hero-badge {
+      font-size: 11pt;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .hero-grid .metric {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      padding: 10px 8px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .hero-grid .metric .label {
+      display: block;
+      font-size: 8pt;
+      color: #64748b;
+      margin-bottom: 2px;
+    }
+    .hero-grid .metric .value {
+      display: block;
+      font-size: 12pt;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    
+    .photo-gallery {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 24px;
+      page-break-inside: avoid;
+    }
+    .photo-gallery img {
+      width: 100%;
+      height: 160px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+    }
+    
+    .im-section {
+      margin-bottom: 24px;
+      page-break-inside: avoid;
+    }
+    .im-section .section-header {
+      margin-bottom: 10px;
+      page-break-after: avoid;
+    }
+    .im-section h2 {
+      font-size: 13pt;
+      font-weight: 800;
+      color: #0f172a;
+      border-left: 3px solid #059669;
+      padding-left: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .confidence-badge {
+      font-size: 8.5pt;
+      font-weight: 600;
+      background: #f1f5f9;
+      color: #475569;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #cbd5e1;
+    }
+    .boundary-note {
+      font-size: 8pt;
+      color: #94a3b8;
+      font-style: italic;
+      margin-top: 8px;
+    }
+    
+    .section-content {
+      font-size: 9.5pt;
+      color: #334155;
+    }
+    .section-content p {
+      margin-bottom: 8px;
       line-height: 1.6;
     }
-    .page { max-width: 210mm; margin: 0 auto; padding: 20mm 15mm; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
-    .brand-header { font-size: 14pt; font-weight: 900; color: #1a1a1a; margin-bottom: 12px; }
-    .header { border-bottom: 3px solid #c8ff00; padding-bottom: 16px; margin-bottom: 24px; }
-    .header h1 { font-size: 24pt; font-weight: 900; color: #1a1a1a; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .data-grade-badge, .archetype-badge { font-size: 11pt; padding: 4px 8px; border-radius: 6px; font-weight: 700; }
-    .data-grade-badge { background: #f0f4f8; color: ${getGradeColor(grade)}; border: 1px solid currentColor; }
-    .archetype-badge { background: #1a1a1a; color: #fff; }
-    .header .meta { color: #666; font-size: 9pt; }
+    .section-content h3 {
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 12px 0 6px;
+      page-break-after: avoid;
+    }
+    .table-container {
+      margin: 12px 0;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .section-content table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9pt;
+    }
+    .section-content th {
+      text-align: left;
+      padding: 8px 10px;
+      background: #f8fafc;
+      border-bottom: 1px solid #cbd5e1;
+      font-weight: 700;
+      color: #334155;
+    }
+    .section-content td {
+      padding: 7px 10px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #334155;
+    }
+    .section-content tr:last-child td {
+      border-bottom: none;
+    }
+    .section-content tr:nth-child(even) td {
+      background: #fafafa;
+    }
+    .section-content strong {
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .section-content blockquote {
+      border-left: 3px solid #059669;
+      padding: 8px 12px;
+      background: #f0fdf4;
+      margin: 10px 0;
+      font-size: 8.5pt;
+      color: #166534;
+      border-radius: 0 6px 6px 0;
+    }
+    .section-content ul, .section-content ol {
+      padding-left: 18px;
+      margin: 8px 0;
+    }
+    .section-content li {
+      margin-bottom: 4px;
+      line-height: 1.5;
+    }
     
-    .hero-card { background: #f8f9fa; border-left: 4px solid #c8ff00; border-radius: 8px; padding: 16px; margin-bottom: 24px; }
-    .hero-badge { font-size: 12pt; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-    .hero-badge .grade-badge { font-size: 10pt; color: ${getGradeColor(grade)}; background: #fff; padding: 2px 6px; border-radius: 4px; border: 1px solid currentColor; }
-    .hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .hero-grid .metric { background: #fff; padding: 12px; border-radius: 6px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-    .hero-grid .metric .label { display: block; font-size: 9pt; color: #666; margin-bottom: 4px; }
-    .hero-grid .metric .value { display: block; font-size: 14pt; font-weight: 700; color: #1a1a1a; }
+    .footer {
+      margin-top: 32px;
+      padding-top: 18px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 8pt;
+      color: #64748b;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      page-break-inside: avoid;
+    }
+    .broker-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #059669;
+      padding: 12px 14px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    .broker-card .broker-title {
+      font-size: 7.5pt;
+      font-weight: 700;
+      color: #059669;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 2px;
+    }
+    .broker-card strong {
+      display: block;
+      font-size: 11pt;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+    .broker-card .broker-meta {
+      font-size: 8.5pt;
+      color: #475569;
+    }
     
-    .photo-gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px; page-break-inside: avoid; }
+    .qr-section {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      margin-left: 16px;
+    }
+    .qr-section img {
+      width: 72px;
+      height: 72px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+    }
+    .qr-section span {
+      font-size: 7.5pt;
+      font-weight: 700;
+      color: #0f172a;
+    }
     
-    .im-section { margin-bottom: 32px; page-break-inside: avoid; }
-    .im-section .section-header { margin-bottom: 12px; }
-    .im-section h2 { font-size: 14pt; font-weight: 700; color: #1a1a1a; border-left: 4px solid #c8ff00; padding-left: 10px; display: flex; align-items: center; gap: 8px; }
-    .confidence-badge { font-size: 10pt; font-weight: 500; background: #f5f5f5; padding: 2px 6px; border-radius: 4px; border: 1px solid #ddd; }
-    .boundary-note { font-size: 8pt; color: #999; font-style: italic; margin-top: 12px; }
-    
-    .section-content { font-size: 10.5pt; }
-    .section-content p { margin-bottom: 10px; }
-    .section-content h3 { font-size: 11pt; font-weight: 700; color: #333; margin: 16px 0 8px; }
-    .section-content table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 9.5pt; }
-    .section-content th { text-align: left; padding: 10px 12px; border-bottom: 2px solid #1a1a1a; background: #f8f9fa; font-weight: 700; }
-    .section-content td { padding: 8px 12px; border-bottom: 1px solid #e5e5e5; }
-    .section-content tr:nth-child(even) td { background: #fafafa; }
-    .section-content strong { font-weight: 700; color: #000; }
-    .section-content blockquote { border-left: 4px solid #c8ff00; padding: 10px 14px; background: #fafafa; margin: 12px 0; font-size: 9.5pt; color: #555; }
-    .section-content ul { padding-left: 20px; margin: 8px 0; }
-    .section-content li { margin-bottom: 4px; }
-    
-    .footer { margin-top: 40px; padding-top: 24px; border-top: 1px solid #e5e5e5; font-size: 8.5pt; color: #777; display: flex; justify-content: space-between; align-items: flex-end; page-break-inside: avoid; }
-    .broker-card { background: #f5f5f5; padding: 16px; border-radius: 8px; margin-bottom: 16px; border-left: 4px solid #1a1a1a; }
-    .broker-card strong { display: block; font-size: 12pt; font-weight: 700; color: #000; margin-bottom: 4px; }
-    
-    .qr-section { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-    .qr-section img { width: 80px; height: 80px; border-radius: 8px; }
-    .qr-section span { font-size: 8pt; font-weight: 700; color: #1a1a1a; }
-    
-    .no-print { display: block; background: #c8ff00; color: #000; font-weight: 700; padding: 14px 24px; text-align: center; cursor: pointer; border: none; font-size: 12pt; width: 100%; margin-bottom: 24px; border-radius: 8px; box-shadow: 0 2px 8px rgba(200,255,0,0.3); transition: transform 0.1s; }
-    .no-print:active { transform: translateY(2px); }
+    .no-print {
+      display: block;
+      background: #059669;
+      color: #fff;
+      font-weight: 800;
+      padding: 12px 20px;
+      text-align: center;
+      cursor: pointer;
+      border: none;
+      font-size: 11pt;
+      width: 100%;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(5,150,105,0.25);
+      transition: all 0.15s ease;
+    }
+    .no-print:hover {
+      background: #047857;
+    }
     
     @media print {
-      @page { size: A4; margin: 15mm 10mm; }
+      @page {
+        size: A4 portrait;
+        margin: 12mm 10mm;
+      }
       .no-print { display: none !important; }
-      body { font-size: 10pt; margin: 0; padding: 0; background: #fff; }
-      .page { padding: 0; max-width: none; box-shadow: none; }
-      .im-section { page-break-inside: avoid; page-break-after: auto; }
-      .section-content table { page-break-inside: avoid; }
-      .footer { page-break-inside: avoid; }
+      body {
+        font-size: 9.5pt;
+        background: #fff;
+      }
+      .page {
+        padding: 0;
+        max-width: none;
+        box-shadow: none;
+      }
+      .im-section {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .table-container {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .footer {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
     }
   </style>
 </head>
 <body>
 <div class="page">
-  <button class="no-print" onclick="window.print()">🖨️ PDF로 저장 (인쇄)</button>
+  <button class="no-print" onclick="window.print()">🖨️ PDF 다운로드 / 인쇄하기</button>
   <div class="header">
-    <div class="brand-header">${tier === 'pro' ? '크리딜 Pro' : '크리딜 Basic'}</div>
+    <div class="brand-header">CREDEAL Mobile IM</div>
     <h1>
       ${escapeHtml(title)}
       <span class="data-grade-badge">${escapeHtml(grade)}</span>
       <span class="archetype-badge">${escapeHtml(archetype)}</span>
     </h1>
-    <div class="meta">크리딜 Mobile IM Lite &nbsp;|&nbsp; AI 생성: ${new Date(generatedAt).toLocaleDateString('ko-KR')} &nbsp;|&nbsp; ${tier === 'pro' ? '기밀 — 내부 열람용' : '기초 정보'}</div>
+    <div class="meta">
+      <span>CREDEAL 모바일 투자설명서</span>
+      <span>작성일: ${new Date(generatedAt).toLocaleDateString('ko-KR')}</span>
+      <span>대외비 (Confidential)</span>
+    </div>
   </div>
   
   <div class="hero-card">
-    <div class="hero-badge">${escapeHtml(archetype)} · ${escapeHtml(region)} <span class="grade-badge">[${escapeHtml(grade)}]</span></div>
+    <div class="hero-badge">${escapeHtml(archetype)} · ${escapeHtml(region)}</div>
     <div class="hero-grid">
-      <div class="metric"><span class="label">매매가</span><span class="value">${escapeHtml(askingPrice)}</span></div>
+      <div class="metric"><span class="label">매매 희망가</span><span class="value">${escapeHtml(askingPrice)}</span></div>
       <div class="metric"><span class="label">Cap Rate</span><span class="value">${escapeHtml(capRate)}</span></div>
       <div class="metric"><span class="label">연면적</span><span class="value">${escapeHtml(area)}</span></div>
-      <div class="metric"><span class="label">공실</span><span class="value">${escapeHtml(vacancy)}</span></div>
+      <div class="metric"><span class="label">공실률</span><span class="value">${escapeHtml(vacancy)}</span></div>
     </div>
   </div>
 
@@ -288,18 +620,20 @@ function buildHtmlExport({
   ${scenariosHtml}
 
   <div class="footer">
-    <div style="flex: 1; padding-right: 20px;">
+    <div style="flex: 1;">
       <div class="broker-card">
-        <strong>${escapeHtml(brokerName)}</strong>
-        ${escapeHtml(brokerCompany)} &nbsp;·&nbsp; ${escapeHtml(brokerPhone)} ${brokerSpecialty ? `&nbsp;·&nbsp; ${escapeHtml(brokerSpecialty)}` : ''}
+        <div class="broker-title">담당 공인중개사</div>
+        <strong>${escapeHtml(brokerInfo.displayName)}</strong>
+        <div class="broker-meta">
+          ${brokerMetaParts.length > 0 ? brokerMetaParts.map(escapeHtml).join(' &nbsp;·&nbsp; ') : '크리딜 공인중개사 네트워크'}
+        </div>
       </div>
-      <p>이 문서는 AI가 생성한 참고용 자료입니다. 실제 투자 결정 전 전문가 자문을 받으시기 바랍니다.</p>
-      ${tier === 'basic' ? '<p style="margin-top:8px; font-weight: bold; color: #d32f2f;">본 문서는 Basic 버전으로 일부 상세 데이터(수익 분석, DCF 등)가 생략되어 있습니다.</p>' : ''}
-      <p style="margin-top:8px;color:#bbb;">Generated by 크리딜 Mobile IM Lite · Confidential</p>
+      <p>본 문서는 공공데이터 및 입력 정보를 바탕으로 생성된 투자설명서입니다. 실제 거래 전 독립적인 법률·세무·기술 실사를 권장합니다.</p>
+      <p style="margin-top:6px; color:#94a3b8;">Generated by CREDEAL Mobile IM · All rights reserved.</p>
     </div>
     <div class="qr-section">
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https://cre-dealcard.vercel.app/im-lite/${buildingId}" />
-      <span>모바일에서 보기</span>
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://credeal.net/im-lite/${buildingId}" alt="QR Code" />
+      <span>모바일 뷰어 열기</span>
     </div>
   </div>
 </div>
@@ -321,26 +655,9 @@ export async function GET(
 
   const supabase = createServiceClient();
 
-  const tier = (searchParams.get('tier') || 'basic') as 'basic' | 'pro';
-  const grantId = searchParams.get('grant_id');
-
-  // Pro tier 보호
-  if (tier === 'pro') {
-    if (!grantId) return NextResponse.json({ error: 'grant_id required for pro export' }, { status: 400 });
-    const { data: grant } = await supabase
-      .from('im_pro_grants')
-      .select('status, expires_at')
-      .eq('id', grantId)
-      .eq('building_id', buildingId)
-      .maybeSingle();
-    if (!grant || grant.status !== 'active' || (grant.expires_at && new Date(grant.expires_at) < new Date())) {
-      return NextResponse.json({ error: 'Invalid or expired grant' }, { status: 403 });
-    }
-  }
-
   const { data: doc, error } = await supabase
     .from('document_objects')
-    .select('id, title, body, created_at')
+    .select('id, title, body, created_at, owner_id')
     .eq('id', docId)
     .eq('building_id', buildingId)
     .maybeSingle();
@@ -355,27 +672,44 @@ export async function GET(
     .eq('id', buildingId)
     .maybeSingle();
 
-  let brokerProfile = null;
-  if (building?.owner_id) {
-    const { data: profile } = await supabase
-      .from('broker_profiles')
-      .select('display_name, company_name, phone, specialty, slug')
-      .eq('user_id', building.owner_id)
-      .maybeSingle();
-    brokerProfile = profile;
+  const ownerId = building?.owner_id || doc.owner_id;
+
+  const brokerInfo: BrokerInfo = {
+    displayName: '담당 공인중개사',
+    company: '',
+    phone: '',
+    licenseNumber: '',
+    specialty: '',
+  };
+
+  if (ownerId) {
+    const [profRes, brokerProfRes] = await Promise.all([
+      supabase.from('profiles').select('display_name, company, phone').eq('id', ownerId).maybeSingle(),
+      supabase.from('broker_profiles').select('license_number, specialty_assets, specialty_regions').eq('user_id', ownerId).maybeSingle(),
+    ]);
+
+    if (profRes.data?.display_name && profRes.data.display_name !== '.') {
+      brokerInfo.displayName = profRes.data.display_name;
+    }
+    if (profRes.data?.company) brokerInfo.company = profRes.data.company;
+    if (profRes.data?.phone) brokerInfo.phone = profRes.data.phone;
+    if (brokerProfRes.data?.license_number) {
+      brokerInfo.licenseNumber = `등록번호: ${brokerProfRes.data.license_number}`;
+    }
+    if (brokerProfRes.data?.specialty_assets && Array.isArray(brokerProfRes.data.specialty_assets) && brokerProfRes.data.specialty_assets.length > 0) {
+      brokerInfo.specialty = `전문: ${brokerProfRes.data.specialty_assets.join(', ')}`;
+    }
   }
 
   const content = doc.body as any;
 
-
   const html = buildHtmlExport({
     buildingId,
-    title: doc.title ?? 'Mobile IM Lite',
+    title: doc.title ?? 'CREDEAL 모바일 투자설명서',
     content,
     building,
-    brokerProfile,
+    brokerInfo,
     generatedAt: (content?.generated_at as string) ?? doc.created_at,
-    tier,
   });
 
   return new NextResponse(html, {
@@ -385,4 +719,3 @@ export async function GET(
     },
   });
 }
-
