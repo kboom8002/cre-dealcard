@@ -292,6 +292,15 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
       mgmtFeeTotal: totMgmt,
       vacancyPct: vacPct
     } : null);
+
+    // 실시간 수정 내용도 상위 폼에 즉시 반영
+    onImport({
+      monthlyRent: totRent,
+      totalDeposit: totDep,
+      mgmtFeeTotal: totMgmt,
+      vacancyPct: vacPct,
+      floorLeases: newRows,
+    });
   };
 
   const handleTextParse = async () => {
@@ -332,7 +341,16 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
         vacancyPct: data.vacancyPct,
       });
 
-      setResult("✅ AI 분석이 완료되었습니다. 아래 표에서 확인 후 적용해주세요.");
+      // 파싱 즉시 상위 폼(월 임대료, 보증금, 관리비, 공실률)에 자동 입력
+      onImport({
+        monthlyRent: data.monthlyRent,
+        totalDeposit: data.totalDeposit,
+        mgmtFeeTotal: data.mgmtFeeTotal,
+        vacancyPct: data.vacancyPct,
+        floorLeases: rows,
+      });
+
+      setResult("✅ AI 분석이 완료되었습니다. 폼에 금액이 자동 입력되었습니다.");
     } catch (err: any) {
       setIsError(true);
       setResult(`❌ ${err?.message ?? "텍스트 파싱 실패"}`);
@@ -405,8 +423,17 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
         vacancyPct: parsed.vacancyPct,
       });
 
+      // 파싱 즉시 상위 폼(월 임대료, 보증금, 관리비, 공실률)에 자동 입력
+      onImport({
+        monthlyRent: parsed.monthlyRent,
+        totalDeposit: parsed.totalDeposit,
+        mgmtFeeTotal: parsed.mgmtFeeTotal,
+        vacancyPct: parsed.vacancyPct,
+        floorLeases: rows,
+      });
+
       const unitLabel = parsed.unitDetected === "won" ? "(원→만원 자동변환)" : "(만원 단위)";
-      setResult(`✅ ${parsed.rowCount}개 호실 분석 완료 ${unitLabel}. 아래 표에서 확인 후 적용해주세요.`);
+      setResult(`✅ ${parsed.rowCount}개 호실 분석 완료 ${unitLabel}. 폼에 금액이 자동 입력되었습니다.`);
     } catch (err: any) {
       setIsError(true);
       setResult(`❌ ${err?.message ?? "파일 파싱 실패"}\n💡 아래 '?' 버튼을 눌러 작성 가이드를 확인하세요.`);

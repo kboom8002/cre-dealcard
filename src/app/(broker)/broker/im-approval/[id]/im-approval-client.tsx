@@ -418,9 +418,17 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
               { ok: hasRealAddress, label: '정확한 주소', detail: (ssotSummary?.address as string) || (ssotSummary?.raw_address as string) || (ssotSummary?.pnu ? 'PNU 연동' : '바텀시트에서 주소 검색 필요') },
               { ok: !!(externalData?.hasPublicData || externalData?.fallbackStatus || externalData?.enrichedAt), label: '공공데이터', detail: (externalData?.hasPublicData || externalData?.fallbackStatus || externalData?.enrichedAt) ? '건축물대장/토지이용계획 연동됨' : '건축물대장 API 미연동' },
               { ok: !!(ssotSummary?.monthly_rent_total_krw), label: '월 임대료', detail: ssotSummary?.monthly_rent_total_krw ? `${(Number(ssotSummary.monthly_rent_total_krw) / 10000).toLocaleString()}만원` : '바텀시트에서 입력' },
-              { ok: !!(ssotSummary?.asking_price_manwon), label: '매각 희망가', detail: ssotSummary?.asking_price_manwon ? `${Number(ssotSummary.asking_price_manwon).toLocaleString()}만원` : '바텀시트에서 입력' },
-              { ok: !!(ssotSummary?.vacancy_signal || ssotSummary?.vacancy_pct), label: '공실 현황', detail: ssotSummary?.vacancy_signal ? String(ssotSummary.vacancy_signal) : '바텀시트에서 입력' },
-              { ok: photos.length > 0, label: '건물 사진', detail: photos.length > 0 ? `${photos.length}장` : '바텀시트에서 첨부' },
+              { 
+                ok: !!(ssotSummary?.vacancy_signal || ssotSummary?.vacancy_pct != null || (ssotSummary as any)?.vacancy_status), 
+                label: '공실 현황', 
+                detail: ssotSummary?.vacancy_pct != null 
+                  ? (Number(ssotSummary.vacancy_pct) === 0 ? '만실 (공실 0%)' : `공실률 ${ssotSummary.vacancy_pct}%`) 
+                  : ssotSummary?.vacancy_signal 
+                    ? String(ssotSummary.vacancy_signal) 
+                    : (ssotSummary as any)?.vacancy_status 
+                      ? String((ssotSummary as any).vacancy_status) 
+                      : '바텀시트에서 입력' 
+              },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-2 text-[10px]">
                 <span className={item.ok ? 'text-emerald-400' : 'text-rose-400'}>{item.ok ? '✅' : '❌'}</span>

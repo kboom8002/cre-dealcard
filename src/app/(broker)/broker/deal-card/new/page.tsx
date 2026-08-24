@@ -23,11 +23,11 @@ interface DuplicateCandidateUI {
 }
 
 const LOADING_STEPS = [
-  "메모에서 매물 정보 추출 중",
-  "건물 기본 신호 생성 중",
-  "민감정보 식별 및 숨김 처리 중",
-  "블라인드 딜카드 생성 중",
-  "카카오 문구 준비 중",
+  "메모에서 매물 핵심 정보 추출 중",
+  "권역 및 자산 개요 분석 중",
+  "주소·임차인 등 민감정보 마스킹 처리 중",
+  "보안형 블라인드 딜카드 생성 중",
+  "카카오톡 공유 브리핑 문구 작성 중",
 ];
 
 export default function BrokerDealCardNewPage() {
