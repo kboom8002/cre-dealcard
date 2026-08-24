@@ -42,9 +42,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    buildingId = body.building_id;
-    skipApproval = body.skip_approval === true;
-    directData = body.direct_data ?? null;
+    buildingId = body.building_id || body.buildingId;
+    skipApproval = body.skip_approval === true || body.skipApproval === true;
+    directData = body.direct_data ?? body.directData ?? null;
     tier = body.tier || 'basic';
     supplemental = {
       monthly_rent_total_krw: body.monthly_rent_total_krw,

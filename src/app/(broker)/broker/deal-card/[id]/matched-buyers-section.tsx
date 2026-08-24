@@ -18,7 +18,7 @@ export async function MatchedBuyersSection({
   const supabase = createServiceClient();
 
   // match_results + buyer_intent_lite 조인 조회
-  const { data: matches } = await supabase
+  const { data: allMatches } = await supabase
     .from("match_results")
     .select(
       `id, grade, score, reasoning, stage1_passed, stage2_similarity, stage3_score, purpose_weight_profile, created_at,
@@ -32,25 +32,31 @@ export async function MatchedBuyersSection({
     .order("score", { ascending: false })
     .limit(10);
 
+  // Stage 1 하드 필터 탈락 및 0점 매수자는 제외 (실질적인 유효 매칭만 노출)
+  const matches = (allMatches || []).filter(
+    (m) => m.stage1_passed !== false && (m.score == null || m.score > 0)
+  );
+
   if (!matches || matches.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-card p-5 space-y-3">
         <h2 className="text-base font-semibold flex items-center gap-2">
           <span>🎯</span> 자동 매칭 매수자
         </h2>
-        <div className="text-center py-4 space-y-2">
-          <p className="text-sm text-muted-foreground">
-            아직 매칭된 매수자가 없어요.
+        <div className="text-center py-6 space-y-2">
+          <div className="w-12 h-12 mx-auto rounded-full bg-primary/10 flex items-center justify-center text-xl">🎯</div>
+          <p className="text-sm font-semibold text-foreground">
+            아직 조건에 맞는 유효 매수자가 없습니다.
           </p>
-          <p className="text-xs text-muted-foreground">
-            매수자 조건이 등록되면 자동으로 매칭됩니다.
+          <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+            조건 불일치(탈락) 매수자는 제외되며, S/A/B등급 적합 매수자가 등록되면 3-Stage AI 엔진이 자동으로 매칭합니다.
           </p>
           <Link
             href="/broker/buyer-intents/new"
-            className="inline-flex items-center justify-center mt-2 rounded-lg bg-primary/10 px-4 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+            className="inline-flex items-center justify-center mt-3 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition-colors hover:bg-primary/90 shadow-sm"
             id="cta-add-buyer-from-match"
           >
-            🎯 매수자 조건 등록하기
+            🎯 매수자 의향 등록하기
           </Link>
         </div>
       </div>

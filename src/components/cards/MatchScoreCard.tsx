@@ -277,14 +277,10 @@ export function MatchScoreCard({ match, buildingId }: MatchScoreCardProps) {
             href={`${kakaoShareUrl}?q=${shareText}`}
             target="_blank"
             rel="noopener noreferrer"
-            className={`flex-1 inline-flex items-center justify-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-white transition-all shadow-sm ${
-              match.grade === "S" || match.grade === "A"
-                ? "bg-grade-s hover:bg-grade-s/90 hover:shadow-elevation-1 active:bg-grade-s"
-                : "bg-secondary-foreground hover:bg-secondary-foreground/90 hover:shadow-elevation-1 text-secondary"
-            }`}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] transition-all shadow-sm active:scale-[0.98]"
             id={`cta-notify-broker-${match.id}`}
           >
-            <span>📲 카톡 공유</span>
+            <span>💬 카톡 공유</span>
           </a>
         </div>
       </div>

@@ -288,8 +288,16 @@ export function ImManagementPanel({
         </div>
         
         {basicDoc ? (
-          <div className="space-y-2 mt-2">
-            <div className="flex items-center gap-2">
+          <div className="space-y-3 mt-2">
+            <Link
+              href={`/im-lite/${buildingId}`}
+              target="_blank"
+              className="flex items-center justify-center gap-2 w-full h-10 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm shadow-md transition-all active:scale-[0.98]"
+            >
+              <span>📱</span> IM 바로가기 (웹 뷰어 열기)
+            </Link>
+
+            <div className="flex items-center gap-2 pt-1">
               <span className="w-3 h-3 rounded-full flex-shrink-0 border border-border" style={{ background: PRESET_SWATCHES[selectedPreset]?.accent ?? '#6B8E00' }} />
               <select 
                 value={selectedPreset}
@@ -310,27 +318,29 @@ export function ImManagementPanel({
                 ✏️ 편집
               </Link>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => window.open(`/im-lite/${buildingId}`, '_blank')}>
-                👁 열기
-              </Button>
-              <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('export')} disabled={!!isExporting}>
+            <div className="grid grid-cols-4 gap-1.5">
+              <Button size="sm" variant="secondary" className="text-xs h-8 font-medium" onClick={() => handleExport('export')} disabled={!!isExporting}>
                 {isExporting === 'pdf' ? '⏳ 생성중...' : exportDone === 'pdf' ? '✅ 완료' : '📄 PDF'}
               </Button>
-              <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleExport('pptx')} disabled={!!isExporting}>
+              <Button size="sm" variant="secondary" className="text-xs h-8 font-medium" onClick={() => handleExport('pptx')} disabled={!!isExporting}>
                 {isExporting === 'pptx' ? '⏳ 생성중...' : exportDone === 'pptx' ? '✅ 완료' : '📊 PPTX'}
               </Button>
-              <Button size="sm" variant="secondary" className="text-xs h-8" onClick={() => handleCopyLink('basic')}>
+              <Button size="sm" variant="secondary" className="text-xs h-8 font-medium" onClick={() => handleCopyLink('basic')}>
                 🔗 링크복사
               </Button>
-              <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => handleGenerateIM('basic')}>
+              <Button size="sm" variant="outline" className="text-xs h-8 font-medium text-muted-foreground hover:text-foreground" onClick={() => handleGenerateIM('basic')}>
                 ♻️ 재생성
               </Button>
             </div>
           </div>
         ) : (
-          <Button size="sm" className="mt-2 h-8 w-full bg-slate-800 hover:bg-slate-700 text-white" onClick={() => handleGenerateIM('basic')}>
-            ⚡ IM 생성하기
+          <Button 
+            size="sm" 
+            className="mt-2 h-9 w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-sm"
+            onClick={() => handleGenerateIM('basic')}
+            disabled={generationStatus !== 'idle'}
+          >
+            {generationStatus !== 'idle' ? '⏳ IM 생성 중...' : '⚡ IM 생성하기'}
           </Button>
         )}
       </div>

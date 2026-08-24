@@ -133,14 +133,18 @@ export default async function BrokerDealCardResultPage({
 
   const hasBasicIM = !!imLiteDoc;
 
-  // Fetch match results for count & top grade badge
+  // Fetch match results for count & top grade badge (유효 매칭만 카운트)
   const { data: matchResults } = await supabase
     .from("match_results")
-    .select("grade")
+    .select("grade, stage1_passed, score")
     .eq("building_ssot_lite_id", id);
 
-  const matchCount = matchResults?.length ?? 0;
-  const topGrade = matchResults
+  const validMatchResults = (matchResults || []).filter(
+    (m: any) => m.stage1_passed !== false && (m.score == null || m.score > 0)
+  );
+
+  const matchCount = validMatchResults.length;
+  const topGrade = validMatchResults
     ?.sort((a, b) => ['S', 'A', 'B', 'C'].indexOf(a.grade) - ['S', 'A', 'B', 'C'].indexOf(b.grade))[0]
     ?.grade;
 

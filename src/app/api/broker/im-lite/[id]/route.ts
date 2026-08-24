@@ -2,6 +2,41 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const service = createServiceClient();
+
+    // id can be building_id or document id
+    const { data: docs, error } = await service
+      .from('document_objects')
+      .select('id, building_id, document_type, title, body, status, created_at')
+      .or(`building_id.eq.${id},id.eq.${id}`)
+      .in('document_type', ['im_lite', 'mobile_im', 'im_approval', 'blind_teaser'])
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      documents: (docs || []).map((d) => ({
+        id: d.id,
+        created_at: d.created_at,
+        status: d.status,
+        body: d.body,
+        tier: (d.body as any)?.tier || 'basic',
+      })),
+    });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
