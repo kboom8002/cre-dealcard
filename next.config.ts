@@ -23,8 +23,6 @@ const nextConfig: NextConfig = {
       "./node_modules/playwright/**",
       "./node_modules/playwright-core/**",
       "./node_modules/@playwright/**",
-      "./node_modules/sharp/**",
-      "./node_modules/@img/**",
     ],
   },
 };
