@@ -85,6 +85,8 @@ export interface FinancialOutputs {
   brokerFeeBil?: number | null;
   negativeLeverage?: boolean | null;
   negativeLeverageWarning?: string | null;
+  /** 운영비 출처: 'user' = 사용자 입력, 'assumed' = AI 가정 */
+  opexSource?: 'user' | 'assumed';
   regulationExpiry?: string | null;
   regulationDaysLeft?: number | null;
 
@@ -276,9 +278,14 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
     const equityRequired = equityKrw > 0 ? parseFloat((equityKrw / 1e8).toFixed(1)) : (pureEquityKrw > 0 ? parseFloat((pureEquityKrw / 1e8).toFixed(1)) : null);
 
     // Phase 3: 역레버리지 검사 (대출금리 > 총수익률)
-    const isNegativeLeverage = !!(yieldOnCost !== null && yieldOnCost < defaultLoanRatePct && loanKrw > 0);
-    const negativeLeverageWarning = isNegativeLeverage
+    // loanKrw가 0이더라도, 총수익률이 시장 대출금리보다 낮으면 잠재적 역레버리지 경고
+    const isExplicitNegativeLeverage = !!(yieldOnCost !== null && yieldOnCost < defaultLoanRatePct && loanKrw > 0);
+    const isPotentialNegativeLeverage = !!(yieldOnCost !== null && yieldOnCost < defaultLoanRatePct && loanKrw === 0);
+    const isNegativeLeverage = isExplicitNegativeLeverage || isPotentialNegativeLeverage;
+    const negativeLeverageWarning = isExplicitNegativeLeverage
       ? `대출금리(연 ${defaultLoanRatePct}%)가 총수익률(${yieldOnCost}%)보다 높아 대출 실행 시 자기자본수익률이 하락하는 역레버리지 구간입니다.`
+      : isPotentialNegativeLeverage
+      ? `총수익률(${yieldOnCost}%)이 통상 대출금리(연 ${defaultLoanRatePct}%)보다 낮아, 대출 활용 시 역레버리지가 발생합니다. 무차입 기준 수익률을 표기합니다.`
       : null;
 
     let wacc: number | null = null;
@@ -323,6 +330,7 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
       brokerFeeBil,
       negativeLeverage: isNegativeLeverage,
       negativeLeverageWarning,
+      opexSource: (inputs.opexRatioPct != null || (inputs.mgmtFeeTotalManwon ?? 0) > 0) ? 'user' : 'assumed',
       disclaimer: 'AI 추정값 (참고용). 실제 수익은 임대차 조건·공실률·세금에 따라 상이합니다.',
     };
   }
@@ -333,18 +341,28 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
     const rows: string[] = [];
 
     if (f.annualNoi.base > 0) rows.push(`| **연 순영업소득(남는 돈 NOI)** | ${bil(f.annualNoi.worst)}~**${bil(f.annualNoi.best)}** | 운영비 차감 후 실질 순수익 |`);
-    if (f.capRate) rows.push(`| **연 순수익률(Cap Rate)** | ${pct(f.capRate.worst)}–**${pct(f.capRate.best)}** | 매매가 대비 구간 추정 |`);
+    if (f.capRate) {
+      // 운영비 자료가 없으면 AI 가정 운영비 기준임을 명시 (QA-DUP-01 / QA-BASIS-01 해소)
+      const capLabel = f.opexSource === 'user'
+        ? '매매가 대비 NOI 기준 구간 추정'
+        : 'AI 가정 운영비 기준 구간 추정';
+      rows.push(`| **연 수익률 (총임대료 기준)** | ${pct(f.capRate.worst)}–**${pct(f.capRate.best)}** | ${capLabel} |`);
+    }
     if (f.irr5Year) rows.push(`| **5년 보유 시 투자수익률(IRR)** | ${pct(f.irr5Year.worst)}–**${pct(f.irr5Year.best)}** | 시나리오 추정, 참고용 |`);
-    if (f.yieldOnCost !== null) rows.push(`| **총 수익률(Gross Yield)** | **${pct(f.yieldOnCost)}** | 연 임대수입/매매가 |`);
+    if (f.yieldOnCost !== null) rows.push(`| **총 수익률(Gross Yield)** | **${pct(f.yieldOnCost)}** | 연 임대수입/매매가 (운영비 미차감) |`);
     if (f.pricePerPyeong !== null) rows.push(`| **평당 매매가** | **${f.pricePerPyeong.toLocaleString()}원/평** | 참고용 |`);
     if (f.landValueRatio !== null) rows.push(`| **땅값 비중(원금 안전판)** | **${f.landValueRatio}%** | 높을수록 원금 하방 경직성 확보 |`);
     else if (f.landValueRatioNote) rows.push(`| **땅값 비중(원금 안전판)** | ⚠️ ${f.landValueRatioNote} | 공부 원본 확인 후 산출 |`);
     if (f.totalDepositBil !== null) rows.push(`| **임대 보증금 합계** | **${f.totalDepositBil}억 원** | 중개인 제공 |`);
     if (f.loanAmountBil !== null) rows.push(`| **선순위 대출 잔액** | **${f.loanAmountBil}억 원** | 중개인 제공 |`);
-    if (f.equityRequired !== null) rows.push(`| **실투자금(내 돈)** | **약 ${f.equityRequired}억 원** | 대출·보증금 제외 필요자본 |`);
+    if (f.totalAcquisitionCostBil !== null) rows.push(`| **총취득원가** | **약 ${f.totalAcquisitionCostBil}억 원** | 매매가 + 취득세(4.6%) + 중개보수(0.9%) |`);
+    if (f.equityRequired !== null) rows.push(`| **실투자금(총취득원가 기준)** | **약 ${f.equityRequired}억 원** | 취득원가 - 보증금 - 대출금 |`);
     if (f.wacc !== null) rows.push(`| **추정 자본비용(WACC)** | **${pct(f.wacc * 100)}** | LTV 및 금리 반영 |`);
     if (f.dcf10Year) rows.push(`| **10년 현금흐름 현재가치(NPV)** | **${f.dcf10Year.npvBase > 0 ? '+' : ''}${bil(f.dcf10Year.npvBase)}** | 기준 시나리오 |`);
-    if (f.leveragedYield !== null) rows.push(`| **내 돈 대비 수익률(자기자본수익률)** | **${f.leveragedYield}%** | 대출 활용 시 연 수익률 |`);
+    if (f.leveragedYield !== null) {
+      const roeLabel = f.loanAmountBil ? '대출 활용 시 연 수익률' : '무차입 기준 연 수익률';
+      rows.push(`| **내 돈 대비 수익률(자기자본수익률)** | **${f.leveragedYield}%** | ${roeLabel} |`);
+    }
 
     if (rows.length === 0) return '';
 

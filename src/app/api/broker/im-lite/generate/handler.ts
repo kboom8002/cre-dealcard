@@ -333,7 +333,7 @@ export async function generateMobileIMHandler(
   const rawArea = (directData?.area_signal as string) 
     || ssotRow.area_signal 
     || extractedAreaFromAddr 
-    || "핵심 입지";
+    || "소재 권역";
 
   const areaLabel = rawArea.endsWith("권") && !rawArea.endsWith("권역") ? `${rawArea}역` : rawArea;
 
@@ -364,14 +364,14 @@ export async function generateMobileIMHandler(
     ?.trim()
     ?.slice(0, 60) || '';
   const autoHeroSubtitle = [
-    areaLabel !== '핵심 입지' ? `${areaLabel} 소재` : '',
+    areaLabel !== '소재 권역' && areaLabel !== '핵심 입지' ? `${areaLabel} 소재` : '',
     cleanAssetType !== '상업용 자산' ? cleanAssetType : '',
     priceBandLabel ? `매각 희망가 ${priceBandLabel}` : '',
   ].filter(Boolean).join(', ') 
     + (firstSectionText ? `. ${firstSectionText}` : '');
   // OG 설명: 간결한 한 줄 요약
   const autoOgDescription = [
-    areaLabel !== '핵심 입지' ? `${areaLabel}` : '',
+    areaLabel !== '소재 권역' && areaLabel !== '핵심 입지' ? `${areaLabel}` : '',
     cleanAssetType !== '상업용 자산' ? cleanAssetType : '',
     priceBandLabel,
     firstSectionText.slice(0, 40),

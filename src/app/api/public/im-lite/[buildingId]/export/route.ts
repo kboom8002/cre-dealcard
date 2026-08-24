@@ -33,7 +33,7 @@ function markdownToHtml(md: string): string {
 
   const flushTable = () => {
     if (tableLines.length === 0) return;
-    const rows = tableLines.filter((l) => !l.match(/^\|[\s-|]+\|$/));
+    const rows = tableLines.filter((l) => !l.match(/^\|[\s:-|]+\|$/));
     if (rows.length === 0) { inTable = false; tableLines = []; return; }
     const [header, ...body] = rows;
     const parseRow = (r: string) => r.split('|').slice(1, -1).map((c) => c.trim());
@@ -57,7 +57,14 @@ function markdownToHtml(md: string): string {
     }
   };
 
-  for (let rawLine of lines) {
+  // Split lines that contain inline headings (e.g., "some text ### Heading")
+  const splitLines: string[] = [];
+  for (const rawLine of lines) {
+    const parts = rawLine.split(/(?=\s#{2,6}\s)/);
+    splitLines.push(...parts);
+  }
+
+  for (let rawLine of splitLines) {
     const line = rawLine.trim();
     if (line.startsWith('|')) {
       flushList();
@@ -138,9 +145,12 @@ function buildHtmlExport({
   const ancillaryIncomes = content?.ancillaryIncomes;
   const incomeScenarios = content?.incomeScenarios;
 
-  const getConfidenceBadge = (confidence?: string, sectionType?: string) => {
+  const getConfidenceBadge = (confidence?: string, sectionType?: string, markdown?: string) => {
     if (sectionType === 'next_steps' || sectionType === 'disclaimer') return '';
-    if (confidence === 'confirmed') return '✅ 공부확인';
+    // 결손 내용(확인 필요, 미확정, 확보되지 않 등)이 포함된 섹션에는 '확인됨' 뱃지를 붙이지 않는다 (QA-BADGE-01 해소)
+    const hasDefects = markdown && /(?:확인\s*필요|미확정|확보되지\s*않|대지지분\s*확인|산출\s*불가|미정|0\s*㎡)/.test(markdown);
+    if (confidence === 'confirmed' && !hasDefects) return '✅ 공부확인';
+    if (confidence === 'confirmed' && hasDefects) return '⚠️ 일부확인';
     if (confidence === 'inferred') return '⚙️ AI추정';
     if (confidence === 'needs_check') return '⚠️ 확인필요';
     return '';
@@ -166,7 +176,8 @@ function buildHtmlExport({
     .filter((s) => !(content?.hiddenSections || []).includes(s.section_type || s.sectionId))
     .map(
       (s) => {
-        const confBadge = s.confidence ? `<span class="confidence-badge">${getConfidenceBadge(s.confidence, s.section_type)}</span>` : '';
+        const badgeText = getConfidenceBadge(s.confidence, s.section_type, s.markdown);
+        const confBadge = badgeText ? `<span class="confidence-badge">${badgeText}</span>` : '';
         const boundaryNote = (s.boundary_note || s.confidence_note) ? `<div class="boundary-note">ℹ️ ${escapeHtml(s.boundary_note || s.confidence_note)}</div>` : '';
         return `<section class="im-section">
   <div class="section-header">
@@ -557,7 +568,7 @@ function buildHtmlExport({
     @media print {
       @page {
         size: A4 portrait;
-        margin: 12mm 10mm;
+        margin: 0;
       }
       .no-print { display: none !important; }
       body {
@@ -565,7 +576,7 @@ function buildHtmlExport({
         background: #fff;
       }
       .page {
-        padding: 0;
+        padding: 12mm 10mm;
         max-width: none;
         box-shadow: none;
       }

@@ -71,15 +71,15 @@ export function formatBenchmarkMarkdown(metrics: BenchmarkMetrics, compsCount: n
     ? `${compsCount}건 (API ${autoCount}건 + 직접입력 ${manualCount}건)` 
     : `${compsCount}건`;
 
-  return `### 권역 시세 벤치마킹 (실거래 분석)
+  return `### 권역 시세 벤치마킹 (실거래 분석 · 연면적 기준)
 | 항목 | 수치 |
 |------|------|
-| **본 자산 ㎡당 단가** | ${Math.round(metrics.targetPricePerSqm).toLocaleString()}원/㎡ |
-| **권역 평균 ㎡당 단가** | ${Math.round(metrics.avgComparablePricePerSqm).toLocaleString()}원/㎡ |
+| **본 자산 ㎡당 단가 (연면적 기준)** | ${Math.round(metrics.targetPricePerSqm).toLocaleString()}원/㎡ |
+| **권역 평균 ㎡당 단가 (연면적 기준)** | ${Math.round(metrics.avgComparablePricePerSqm).toLocaleString()}원/㎡ |
 | **시세 대비 포지션** | ${statusEmoji} **${premiumLabel}** |
 | **경쟁력 판정** | ${metrics.competitivenessStatus === "Highly Competitive" ? "**저평가 — 매력적 진입 가격**" : metrics.competitivenessStatus === "Overpriced" ? "**고평가 — 협상 여지 검토**" : "**시세 적정 수준**"} |
 | **비교 사례 수** | ${sourceNote} |
 
-> 최근 인근 실거래 기준. 개별 물건 조건(층수, 임차인, 리모델링 이력)에 따라 차이가 있습니다.`;
+> ℹ️ **단가 기준 안내**: 본 비교는 건물 연면적 기준 단가입니다. (토지 면적 단가와 구분) 최근 인근 실거래 기준이며 개별 물건 조건에 따라 차이가 있습니다.`;
 }
 

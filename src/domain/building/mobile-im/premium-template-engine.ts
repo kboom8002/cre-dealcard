@@ -165,7 +165,7 @@ ${trafficLines}
 ${infra}
 
 ### 📈 입지 평가
-- ${areaSignal} 내 우수한 접근성과 높은 가시성을 갖춘 핵심 입지입니다.`;
+- ${areaSignal} 내 위치하며 접근성과 가시성이 양호한 입지입니다.`;
     }
 
     // ─── 섹션 3: 임대 현황 ──────────────────────────────────────────────────
@@ -369,7 +369,7 @@ ${tableRows}
 
       const fitSummary = String(buyerFit.fit_summary ?? "");
       const assetType  = String(assetIdentity.asset_type  ?? "상업용 자산");
-      const areaSignal = String(assetIdentity.area_signal ?? "핵심 입지");
+      const areaSignal = String(assetIdentity.area_signal ?? "해당 권역");
 
       const isOffice = assetType.includes("오피스") || assetType.includes("업무");
       const isRetail = assetType.includes("상가")   || assetType.includes("근린") || assetType.includes("근생");
@@ -414,7 +414,7 @@ ${tableRows}
 
 ### 3대 핵심 투자 포인트 (Investment Highlights)
 
-• **원금 안전판 확보**: ${fitSummary || `${areaSignal} 권역의 핵심 입지로, 대지 지분 가치 및 입지 경쟁력에 대한 분석은 자산 개요 섹션을 참조하시기 바랍니다.`}
+• **원금 안전판 확보**: ${fitSummary || `${areaSignal} 소재 자산으로, 대지 지분 가치 및 입지 경쟁력에 대한 분석은 자산 개요 섹션을 참조하시기 바랍니다.`}
 • **확실한 월 현금흐름**: 임대차 현황 및 공실률을 반영한 순영업소득(NOI) 분석은 수익분석 섹션을 참조하시기 바랍니다.
 • **가치 상승 및 출구 전략**: 현행 공법 여력을 활용한 밸류업 기회와 더불어 향후 권역 지가 상승에 따른 시세차익 실현이 유력합니다.
 ${compsLine}${benchmarkBlock}
