@@ -197,8 +197,8 @@ export async function GET(
   const activeFontName = fontData ? "Pretendard" : fallbackFont ? "NotoSansKR" : "sans-serif";
   const hasFontData = !!(fontData || fallbackFont);
 
-  // Adjust font size based on text length to prevent overflow
-  const headlineFontSize = displayMain.length > 28 ? 34 : displayMain.length > 18 ? 38 : 42;
+  // Adjust font size based on text length — 2x larger for mobile thumbnail readability
+  const headlineFontSize = displayMain.length > 28 ? 56 : displayMain.length > 18 ? 64 : 72;
 
   return new ImageResponse(
     (
@@ -209,8 +209,8 @@ export async function GET(
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          padding: "48px 72px",
-          background: "linear-gradient(135deg, #070A0F 0%, #111827 55%, #0B132B 100%)",
+          padding: "40px 56px",
+          background: "linear-gradient(135deg, #030712 0%, #0F172A 55%, #020617 100%)",
           color: "white",
           fontFamily: activeFontName,
           position: "relative",
@@ -225,7 +225,7 @@ export async function GET(
             top: 0,
             left: 0,
             right: 0,
-            height: "6px",
+            height: "8px",
             background: "linear-gradient(90deg, #D4A853 0%, #F3EBDA 50%, #B98A2E 100%)",
           }}
         />
@@ -234,32 +234,32 @@ export async function GET(
         <div
           style={{
             position: "absolute",
-            top: "-100px",
-            right: "-100px",
-            width: "400px",
-            height: "400px",
-            background: "radial-gradient(circle, rgba(212, 168, 83, 0.15) 0%, transparent 70%)",
+            top: "-120px",
+            right: "-120px",
+            width: "500px",
+            height: "500px",
+            background: "radial-gradient(circle, rgba(212, 168, 83, 0.18) 0%, transparent 70%)",
             borderRadius: "50%",
             display: "flex",
           }}
         />
 
-        {/* Top Header Row: Badges with Safe Margin */}
+        {/* Top Header Row: Badges — 2x larger */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "12px",
-            marginTop: "4px",
+            gap: "16px",
+            marginTop: "8px",
           }}
         >
           <div
             style={{
-              background: "rgba(185, 138, 46, 0.25)",
-              border: "1px solid rgba(212, 168, 83, 0.6)",
-              borderRadius: "8px",
-              padding: "6px 14px",
-              fontSize: 22,
+              background: "rgba(185, 138, 46, 0.3)",
+              border: "2px solid rgba(212, 168, 83, 0.7)",
+              borderRadius: "12px",
+              padding: "10px 22px",
+              fontSize: 36,
               fontWeight: 800,
               color: "#F3EBDA",
               display: "flex",
@@ -270,25 +270,25 @@ export async function GET(
           <div
             style={{
               background: "rgba(59, 130, 246, 0.2)",
-              border: "1px solid rgba(59, 130, 246, 0.5)",
-              borderRadius: "8px",
-              padding: "6px 14px",
-              fontSize: 22,
+              border: "2px solid rgba(59, 130, 246, 0.5)",
+              borderRadius: "12px",
+              padding: "10px 22px",
+              fontSize: 36,
               fontWeight: 700,
               color: "#93c5fd",
               display: "flex",
             }}
           >
-            {`📍 ${regionLabel}`}
+            {regionLabel}
           </div>
           {assetType ? (
             <div
               style={{
                 background: "rgba(148, 163, 184, 0.15)",
-                border: "1px solid rgba(148, 163, 184, 0.3)",
-                borderRadius: "8px",
-                padding: "6px 14px",
-                fontSize: 22,
+                border: "2px solid rgba(148, 163, 184, 0.3)",
+                borderRadius: "12px",
+                padding: "10px 22px",
+                fontSize: 36,
                 fontWeight: 700,
                 color: "#cbd5e1",
                 display: "flex",
@@ -301,10 +301,10 @@ export async function GET(
             <div
               style={{
                 background: "rgba(239, 68, 68, 0.25)",
-                border: "1px solid rgba(239, 68, 68, 0.7)",
-                borderRadius: "8px",
-                padding: "6px 14px",
-                fontSize: 22,
+                border: "2px solid rgba(239, 68, 68, 0.7)",
+                borderRadius: "12px",
+                padding: "10px 22px",
+                fontSize: 36,
                 fontWeight: 800,
                 color: "#FCA5A5",
                 display: "flex",
@@ -315,24 +315,26 @@ export async function GET(
           ) : null}
         </div>
 
-        {/* Center Main Section: 2-Line Resilient Typography */}
+        {/* Center Main Section: 2x larger headline */}
         <div 
           style={{ 
             display: "flex", 
             flexDirection: "column", 
-            gap: "10px", 
-            margin: "8px 0",
-            maxWidth: "1050px",
+            gap: "14px", 
+            margin: "0",
+            maxWidth: "1090px",
+            flex: "1",
+            justifyContent: "center",
           }}
         >
           <div
             style={{
               fontSize: headlineFontSize,
               fontWeight: 900,
-              lineHeight: 1.35,
+              lineHeight: 1.25,
               color: "#FFFFFF",
               display: "flex",
-              letterSpacing: "-0.02em",
+              letterSpacing: "-0.03em",
               wordBreak: "keep-all",
               overflow: "hidden",
             }}
@@ -342,11 +344,11 @@ export async function GET(
           {displaySub ? (
             <div
               style={{
-                fontSize: 22,
+                fontSize: 34,
                 fontWeight: 600,
-                color: "#94A3B8",
+                color: "#E2E8F0",
                 display: "flex",
-                lineHeight: 1.4,
+                lineHeight: 1.3,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
@@ -357,7 +359,7 @@ export async function GET(
           ) : null}
         </div>
 
-        {/* Bottom Section: 1x2 Key Metrics Tiles + Branding */}
+        {/* Bottom Section: 2x larger stat tiles + branding */}
         <div 
           style={{ 
             display: "flex", 
@@ -373,33 +375,33 @@ export async function GET(
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: "4px",
-                  background: "rgba(255, 255, 255, 0.06)",
-                  border: "1px solid rgba(255, 255, 255, 0.12)",
-                  borderRadius: "12px",
-                  padding: "12px 24px",
-                  minWidth: "220px",
+                  gap: "6px",
+                  background: "rgba(255, 255, 255, 0.08)",
+                  border: "1.5px solid rgba(255, 255, 255, 0.18)",
+                  borderRadius: "16px",
+                  padding: "16px 32px",
+                  minWidth: "260px",
                 }}
               >
-                <span style={{ fontSize: 17, color: "#9AA7B5", fontWeight: 600 }}>
+                <span style={{ fontSize: 28, color: "#9AA7B5", fontWeight: 600 }}>
                   {tile.emoji} {tile.label}
                 </span>
-                <span style={{ fontSize: 28, fontWeight: 900, color: i === 0 ? "#5EEAD4" : "#FFFFFF" }}>
+                <span style={{ fontSize: 52, fontWeight: 900, color: i === 0 ? "#5EEAD4" : "#FFFFFF" }}>
                   {tile.value}
                 </span>
               </div>
             ))}
           </div>
 
-          {/* Bottom Branding */}
+          {/* Bottom Branding — larger */}
           <div 
             style={{ 
-              fontSize: 20, 
+              fontSize: 30, 
               fontWeight: 700, 
               color: "#94A3B8", 
               display: "flex",
               alignItems: "center",
-              gap: "8px",
+              gap: "10px",
             }}
           >
             <span>CREDEAL</span>
