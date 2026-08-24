@@ -332,6 +332,30 @@ export async function generateMobileIMHandler(
     .trim();
   const title = directData?.title || directData?.deal_title || `${areaLabel} ${cleanAssetType} 매각`;
 
+  // ── Hero/OG 메타 자동 생성 (fallback 의존도 제거) ──
+  const autoHeroTitle = title;
+  const priceBandLabel = ssotRow.price_band 
+    || (supplemental.asking_price_manwon ? `${Math.round(supplemental.asking_price_manwon / 10000)}억 원대` : '');
+  // 부제목: 권역 + 자산유형 + 매각가 + 첫 섹션에서 핵심 문장 추출
+  const firstSectionText = writerResult.sections?.[0]?.markdown
+    ?.replace(/[#*`\n>|]/g, ' ')
+    ?.replace(/\s+/g, ' ')
+    ?.trim()
+    ?.slice(0, 60) || '';
+  const autoHeroSubtitle = [
+    areaLabel !== '핵심 입지' ? `${areaLabel} 소재` : '',
+    cleanAssetType !== '상업용 자산' ? cleanAssetType : '',
+    priceBandLabel ? `매각 희망가 ${priceBandLabel}` : '',
+  ].filter(Boolean).join(', ') 
+    + (firstSectionText ? `. ${firstSectionText}` : '');
+  // OG 설명: 간결한 한 줄 요약
+  const autoOgDescription = [
+    areaLabel !== '핵심 입지' ? `${areaLabel}` : '',
+    cleanAssetType !== '상업용 자산' ? cleanAssetType : '',
+    priceBandLabel,
+    firstSectionText.slice(0, 40),
+  ].filter(Boolean).join(' · ');
+
   const imDocPayload = {
     owner_id: userId,
     source_type: "building_ssot_lite" as const,
@@ -345,6 +369,12 @@ export async function generateMobileIMHandler(
       im_type: "mobile_im_lite",
       tier,
       investmentPosture: identity?.investmentPosture || ssotRow.investment_posture || 'income',
+      // Hero/OG 메타 자동 세팅 — 브로커가 im-approval에서 수정 가능
+      heroTitle: autoHeroTitle,
+      heroSubtitle: autoHeroSubtitle,
+      ogTitle: autoHeroTitle,
+      ogDescription: autoOgDescription,
+      keyInvestmentPoint: autoHeroSubtitle,
       sections: writerResult.sections,
       boundary_note: writerResult.boundary_note,
       generated_at: writerResult.generated_at,
