@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { RentRollImporter } from "@/components/broker/rent-roll-importer";
 import { computeFinancialSummary } from '@/domain/building/financials';
+import { uploadPhotosSequentially } from "@/lib/image-compressor";
 import { toast } from "sonner";
 
 interface ImDataBottomSheetProps {
@@ -329,44 +330,22 @@ export function ImDataBottomSheet({
 
       let uploadedPhotoUrls: string[] = [];
       if (photoFiles.length > 0) {
-        setProgress("사진 업로드 중...");
+        setProgress("사진 최적화 및 업로드 중...");
         try {
-          const photoFormData = new FormData();
-          photoFiles.forEach((file) => photoFormData.append("files", file));
-          const uploadRes = await fetch(`/api/broker/buildings/${buildingId}/photos/upload`, {
-            method: "POST",
-            body: photoFormData,
-          });
-
-          if (!uploadRes.ok) {
-            // Non-OK HTTP status — extract error details
-            let errorDetail = `HTTP ${uploadRes.status}`;
-            try {
-              const uploadJson = await uploadRes.json();
-              errorDetail = uploadJson.error || uploadJson.details?.join("; ") || errorDetail;
-            } catch { /* ignore JSON parse errors */ }
-
-            console.error("[Photo Upload] Server error:", errorDetail);
-            if (uploadRes.status === 401) {
-              toast.error("📷 사진 업로드 인증 만료. 페이지를 새로고침한 후 다시 시도해주세요.");
-            } else {
-              toast.error(`📷 사진 업로드 실패: ${errorDetail}. 기존 사진만으로 계속 진행합니다.`);
-            }
-          } else {
-            const uploadJson = await uploadRes.json();
-            if (Array.isArray(uploadJson.urls) && uploadJson.urls.length > 0) {
-              uploadedPhotoUrls = uploadJson.urls;
-              if (uploadJson.failedCount > 0) {
-                toast.warning(`사진 ${uploadJson.uploadedCount}장 업로드 성공 (${uploadJson.failedCount}장 실패)`);
-              }
-            } else {
-              console.error("[Photo Upload] Unexpected response:", uploadJson);
-              toast.error("📷 사진 업로드 응답이 비정상적입니다. 기존 사진만으로 계속 진행합니다.");
-            }
+          const uploadResult = await uploadPhotosSequentially(
+            buildingId,
+            photoFiles,
+            (msg) => setProgress(msg)
+          );
+          uploadedPhotoUrls = uploadResult.urls;
+          if (uploadResult.failedCount > 0) {
+            toast.warning(`사진 ${uploadedPhotoUrls.length}장 업로드 완료 (${uploadResult.failedCount}장 실패)`);
+          } else if (uploadedPhotoUrls.length > 0) {
+            toast.success(`📷 사진 ${uploadedPhotoUrls.length}장 업로드 완료`);
           }
         } catch (uploadErr) {
-          console.error("[Photo Upload] Network error:", uploadErr);
-          toast.error("📷 사진 업로드 네트워크 오류. 인터넷 연결을 확인해주세요. 기존 사진만으로 계속 진행합니다.");
+          console.error("[Photo Upload] Error:", uploadErr);
+          toast.error("📷 사진 업로드 처리 중 오류가 발생했습니다. 기존 사진으로 계속 진행합니다.");
         }
       }
 
@@ -1436,10 +1415,10 @@ export function ImDataBottomSheet({
               className="hidden"
               onChange={(e) => {
                 if (!e.target.files?.length) return;
-                const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+                const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
                 const validFiles = Array.from(e.target.files).filter(f => f.size <= MAX_FILE_SIZE);
                 if (validFiles.length < e.target.files.length) {
-                  toast.error("10MB 이상의 파일은 제외되었습니다.");
+                  toast.error("25MB 이상의 파일은 제외되었습니다.");
                 }
                 const files = validFiles.slice(0, 12 - (existingUrls.length + photoFiles.length));
                 setPhotoFiles((prev) => [...prev, ...files]);
