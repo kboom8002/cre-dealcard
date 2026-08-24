@@ -37,7 +37,7 @@ export async function signup(
     displayName: formData.get('displayName'),
     email: formData.get('email'),
     password: formData.get('password'),
-    role: formData.get('role') ?? 'public_user',
+    role: formData.get('role') ?? 'broker',
   };
 
   const parsed = SignupSchema.safeParse(raw);

@@ -1,11 +1,39 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useState, useActionState } from 'react';
 import Link from 'next/link';
 import { signup } from '@/app/actions/auth';
+import { Eye, EyeOff, Check, X, ShieldCheck } from 'lucide-react';
 
 export default function SignupPage() {
   const [state, action, pending] = useActionState(signup, undefined);
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  // ── Password Strength Calculation ─────────────────────────────────────────
+  const hasMinLength = password.length >= 8;
+  const hasLetter = /[a-zA-Z]/.test(password);
+  const hasNumber = /\d/.test(password);
+  const hasSpecial = /[!@#$%^&*(),.?":{}|<>_\-+=~`[\]\\/]/.test(password);
+
+  const passedRules = [hasMinLength, hasLetter, hasNumber, hasSpecial].filter(Boolean).length;
+  
+  let strengthScore = 0;
+  if (password.length > 0) {
+    if (!hasMinLength) {
+      strengthScore = 1;
+    } else {
+      strengthScore = passedRules; // 2, 3, or 4
+    }
+  }
+
+  const strengthConfig = [
+    { label: '', color: 'bg-neutral-800', textColor: 'text-neutral-500' },
+    { label: '취약 (8자 이상 필요)', color: 'bg-red-500', textColor: 'text-red-400' },
+    { label: '보통 (영문/숫자 조합 권장)', color: 'bg-amber-500', textColor: 'text-amber-400' },
+    { label: '안전', color: 'bg-emerald-500', textColor: 'text-emerald-400' },
+    { label: '매우 강력', color: 'bg-primary', textColor: 'text-primary font-bold' },
+  ][strengthScore];
 
   return (
     <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-8 shadow-2xl">
@@ -60,58 +88,90 @@ export default function SignupPage() {
           )}
         </div>
 
-        {/* Password */}
-        <div className="space-y-1.5">
-          <label htmlFor="password" className="block text-sm font-semibold text-neutral-300">
-            비밀번호
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            required
-            placeholder="8자 이상"
-            className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-4 py-3 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors"
-          />
+        {/* Password with Strength Indicator */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label htmlFor="password" className="block text-sm font-semibold text-neutral-300">
+              비밀번호
+            </label>
+            {password.length > 0 && (
+              <span className={`text-xs ${strengthConfig.textColor} transition-colors`}>
+                {strengthConfig.label}
+              </span>
+            )}
+          </div>
+
+          <div className="relative">
+            <input
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              required
+              placeholder="8자 이상 입력"
+              className="w-full bg-neutral-950 border border-neutral-700 rounded-lg pl-4 pr-11 py-3 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              tabIndex={-1}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300 transition-colors p-1"
+              aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+
+          {/* Password Strength Meter (4 Bars) */}
+          {password.length > 0 && (
+            <div className="space-y-2 pt-1">
+              <div className="grid grid-cols-4 gap-1.5 h-1.5">
+                {[1, 2, 3, 4].map((step) => (
+                  <div
+                    key={step}
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      step <= strengthScore ? strengthConfig.color : 'bg-neutral-800'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {/* Real-time Requirement Checklist */}
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 pt-1 text-[11px]">
+                <div className={`flex items-center gap-1.5 transition-colors ${hasMinLength ? 'text-emerald-400 font-medium' : 'text-neutral-500'}`}>
+                  {hasMinLength ? <Check size={12} className="shrink-0" /> : <X size={12} className="shrink-0 opacity-40" />}
+                  <span>8자 이상</span>
+                </div>
+                <div className={`flex items-center gap-1.5 transition-colors ${hasLetter ? 'text-emerald-400 font-medium' : 'text-neutral-500'}`}>
+                  {hasLetter ? <Check size={12} className="shrink-0" /> : <X size={12} className="shrink-0 opacity-40" />}
+                  <span>영문자 포함</span>
+                </div>
+                <div className={`flex items-center gap-1.5 transition-colors ${hasNumber ? 'text-emerald-400 font-medium' : 'text-neutral-500'}`}>
+                  {hasNumber ? <Check size={12} className="shrink-0" /> : <X size={12} className="shrink-0 opacity-40" />}
+                  <span>숫자 포함</span>
+                </div>
+                <div className={`flex items-center gap-1.5 transition-colors ${hasSpecial ? 'text-emerald-400 font-medium' : 'text-neutral-500'}`}>
+                  {hasSpecial ? <Check size={12} className="shrink-0" /> : <X size={12} className="shrink-0 opacity-40" />}
+                  <span>특수문자 포함</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {state?.errors?.password && (
             <p className="text-xs text-red-400">{state.errors.password[0]}</p>
           )}
         </div>
 
-        {/* Role Selection */}
-        <div className="space-y-2">
-          <label className="block text-sm font-semibold text-neutral-300">계정 유형</label>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="relative flex cursor-pointer">
-              <input
-                type="radio"
-                name="role"
-                value="public_user"
-                defaultChecked
-                className="peer sr-only"
-              />
-              <div className="w-full text-center p-3 bg-neutral-950 border border-neutral-700 rounded-lg text-sm font-medium text-neutral-400 peer-checked:border-primary peer-checked:text-primary peer-checked:bg-primary/5 transition-all">
-                <span className="block text-xl mb-1">👤</span>
-                일반 사용자
-              </div>
-            </label>
-            <label className="relative flex cursor-pointer">
-              <input
-                type="radio"
-                name="role"
-                value="broker"
-                className="peer sr-only"
-              />
-              <div className="w-full text-center p-3 bg-neutral-950 border border-neutral-700 rounded-lg text-sm font-medium text-neutral-400 peer-checked:border-primary peer-checked:text-primary peer-checked:bg-primary/5 transition-all">
-                <span className="block text-xl mb-1">🏢</span>
-                공인중개사
-              </div>
-            </label>
-          </div>
-          {state?.errors?.role && (
-            <p className="text-xs text-red-400">{state.errors.role[0]}</p>
-          )}
+        {/* Hidden Role: Always broker during test period */}
+        <input type="hidden" name="role" value="broker" />
+
+        {/* Broker Badge Notice */}
+        <div className="flex items-center gap-2 p-3 bg-neutral-950/80 border border-neutral-800 rounded-lg text-xs text-neutral-400">
+          <ShieldCheck size={16} className="text-primary shrink-0" />
+          <span>테스트 기간 동안 모든 신규 계정은 <strong>공인중개사(Broker)</strong> 권한으로 자동 생성됩니다.</span>
         </div>
 
         {/* Terms Notice */}
