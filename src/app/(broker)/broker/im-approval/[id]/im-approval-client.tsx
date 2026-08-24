@@ -904,11 +904,15 @@ function MarkdownRenderer({ content }: { content: string }) {
       elements.push(<div key={key++} className="h-2" />);
     } else {
       flush();
-      elements.push(
-        <p key={key++} className="text-neutral-300 text-sm leading-relaxed">
-          <InlineMarkdown text={line} />
-        </p>,
-      );
+      // LLM이 ### 를 인라인 구분자로 사용하는 경우 제거
+      const cleanedLine = line.replace(/\s*###\s*/g, ' ').trim();
+      if (cleanedLine) {
+        elements.push(
+          <p key={key++} className="text-neutral-300 text-sm leading-relaxed">
+            <InlineMarkdown text={cleanedLine} />
+          </p>,
+        );
+      }
     }
   }
 

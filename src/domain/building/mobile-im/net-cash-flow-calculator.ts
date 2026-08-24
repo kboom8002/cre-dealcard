@@ -112,7 +112,9 @@ export function calculateNetCashFlow(input: NetCashFlowInput): NetCashFlowSummar
  * 60대 투자자를 위한 직관적 3줄 요약 마크다운 생성
  */
 export function formatNetCashFlowMarkdown(s: NetCashFlowSummary): string {
-  const loanNote = s.isLoanEstimated ? ` (LTV 50%·금리 ${s.interestRatePct}% 가정)` : ` (금리 ${s.interestRatePct}%)`;
+  const loanNote = s.isLoanEstimated 
+    ? ` (⚠️ 대출금 미입력 → LTV ${50}%·금리 ${s.interestRatePct}% AI 가정, 실제 조건과 다를 수 있음)` 
+    : ` (금리 ${s.interestRatePct}%)`;
   const landSafetyText = s.landSafetyRatioPct !== null 
     ? `\n> 🛡️ **원금 안전판**: 토지 지분 가치 비중 **${s.landSafetyRatioPct}%**로 매입 원금의 하방 경직성을 강력하게 지지합니다.` 
     : '';

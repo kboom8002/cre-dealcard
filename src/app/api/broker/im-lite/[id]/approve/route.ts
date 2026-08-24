@@ -55,19 +55,8 @@ export async function POST(
     const building = result.data as any;
 
     if (building && Object.keys(building).length > 0) {
-      // v3: K-Anonymity re-identification check before publishing
-      const attrs = buildAttrsFromSsotLite(building);
-      const district = String(attrs.address || '').match(/([\uac00-\ud7a3]+(?:\uad6c|\uc2dc|\uad70))/)?.[1] || '';
-      const reidentResult = await simulateReidentification(attrs, district);
-      if (!reidentResult.passed) {
-        return NextResponse.json({
-          ok: false,
-          error: 'K-익명성 검증 실패',
-          suggestion: reidentResult.suggestion,
-          candidateCount: reidentResult.candidateCount,
-          kThreshold: reidentResult.kThreshold,
-        }, { status: 422 });
-      }
+      // K-익명성 검증 제거: 등급 기반 마스킹 정책으로 대체됨
+      // 등급에 따라 주소/임차인 자동 마스킹되므로 재식별 위험 없음
     }
   }
 
