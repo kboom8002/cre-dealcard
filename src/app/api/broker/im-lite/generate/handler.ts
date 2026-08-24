@@ -321,16 +321,37 @@ export async function generateMobileIMHandler(
   }
 
   // IM 제목: CRE IM 업계 표준 문체 적용 (골든셋 참조: @/lib/ai/im-title-golden-set)
-  const rawArea = ssotRow.area_signal || "핵심 입지";
+  const resolvedAddr = supplemental.resolved_address || (ssotRow.layers as any)?.location?.address || '';
+  let extractedAreaFromAddr = '';
+  if (resolvedAddr) {
+    const m = resolvedAddr.match(/([가-힣]+(?:구|군|시))\s+([가-힣0-9]+(?:동|가|로|읍|면))/);
+    if (m) {
+      extractedAreaFromAddr = `${m[1]} ${m[2]}`;
+    }
+  }
+
+  const rawArea = (directData?.area_signal as string) 
+    || ssotRow.area_signal 
+    || extractedAreaFromAddr 
+    || "핵심 입지";
+
   const areaLabel = rawArea.endsWith("권") && !rawArea.endsWith("권역") ? `${rawArea}역` : rawArea;
-  // asset_type에서 불필요한 수식/추정 표현 제거
-  const rawAssetType = ssotRow.asset_type || "상업용 자산";
+
+  const rawAssetType = (directData?.asset_type as string) 
+    || identity?.assetType 
+    || ssotRow.asset_type 
+    || "상업용 자산";
+
   const cleanAssetType = rawAssetType
     .replace(/(으로|로)\s*추정(되는|됨|)\s*/g, "")
-    .replace(/\s*또는\s+[^\s]+\s*(계열로|계열)\s*(추정|)/g, "")  // "또는 다가구·상가주택 계열로 추정" 제거
+    .replace(/\s*또는\s+[^\s]+\s*(계열로|계열)\s*(추정|)/g, "")
     .replace(/\s+/g, " ")
     .trim();
-  const title = directData?.title || directData?.deal_title || `${areaLabel} ${cleanAssetType} 매각`;
+
+  let title = (directData?.title || directData?.deal_title) as string | undefined;
+  if (!title || title.includes("핵심 입지") || title.includes("비공개 권역") || title === "매물 매각") {
+    title = `${areaLabel} ${cleanAssetType} 매각`;
+  }
 
   // ── Hero/OG 메타 자동 생성 (fallback 의존도 제거) ──
   const autoHeroTitle = title;

@@ -82,19 +82,28 @@ export async function enrichBuildingDataCore(
     })(),
   ]);
 
-  // 총괄표제부 데이터 병합
+  // 총괄표제부 데이터 병합 (단일 건물 데이터 우선, 대단지 복합 데이터 왜곡 방지)
   const br = buildingRegister as BuildingRegisterData | null;
   const rc = recapData as BuildingRecapData | null;
   if (br && rc) {
-    br.archArea = rc.archArea;
-    br.passengerElevatorCount = rc.rideUseElvtCnt;
-    br.emergencyElevatorCount = rc.emgenUseElvtCnt;
-    br.elevatorCount = rc.rideUseElvtCnt + rc.emgenUseElvtCnt;
+    if (!br.archArea && rc.archArea) br.archArea = rc.archArea;
+    if (br.elevatorCount == null || br.elevatorCount === 0) {
+      br.passengerElevatorCount = rc.rideUseElvtCnt;
+      br.emergencyElevatorCount = rc.emgenUseElvtCnt;
+      br.elevatorCount = rc.rideUseElvtCnt + rc.emgenUseElvtCnt;
+    }
     
-    br.selfParkingCount = rc.indrAutoUtcnt + rc.oudrAutoUtcnt;
-    br.mechanicalParkingCount = rc.indrMechUtcnt;
-    br.parkingCount = br.selfParkingCount + br.mechanicalParkingCount;
-    br.heatMethod = rc.heatMethodNm;
+    // 소형/중형 단일 건물(연면적 3,000㎡ 미만)인데 총괄표제부 주차가 수백 대 이상인 경우(단지 전체 합산) 덮어쓰지 않음
+    const recapTotalParking = (rc.indrAutoUtcnt || 0) + (rc.oudrAutoUtcnt || 0) + (rc.indrMechUtcnt || 0);
+    const isSingleSmallBuilding = br.totalArea && br.totalArea < 3000;
+    if (!isSingleSmallBuilding || recapTotalParking < 100) {
+      if (br.parkingCount == null || br.parkingCount === 0) {
+        br.selfParkingCount = rc.indrAutoUtcnt + rc.oudrAutoUtcnt;
+        br.mechanicalParkingCount = rc.indrMechUtcnt;
+        br.parkingCount = br.selfParkingCount + br.mechanicalParkingCount;
+      }
+    }
+    if (rc.heatMethodNm) br.heatMethod = rc.heatMethodNm;
   }
 
   // 카카오 스태틱 맵

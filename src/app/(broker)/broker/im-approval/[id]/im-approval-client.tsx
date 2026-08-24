@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { computeDataQualityBadge } from '@/domain/building/mobile-im/data-quality-badge';
+import { toast } from 'sonner';
 
 interface IMSection {
   section_type: string;
@@ -32,6 +33,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   const [editableTitle, setEditableTitle] = useState(title);
   const [isTitleEditing, setIsTitleEditing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showPublishedModal, setShowPublishedModal] = useState(false);
   const router = useRouter();
   
   // Track which sections have been verified by the broker
@@ -297,9 +299,15 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
       setDocStatus('published');
       setResultMsg('IM이 성공적으로 공개되었습니다.');
       setActionStatus('done');
+      setShowPublishedModal(true);
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      toast.success("🎉 모바일 투자설명서가 성공적으로 공개되었습니다!");
     } catch (err: unknown) {
       setResultMsg(err instanceof Error ? err.message : 'Error');
       setActionStatus('error');
+      toast.error(err instanceof Error ? err.message : '공개 승인 처리 중 오류가 발생했습니다.');
     }
   };
 
@@ -690,9 +698,20 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
             const isVerified = verifiedSet.has(idx);
             const isEditing = editingIdx === idx;
             
+            const isProcedural = section.section_type === 'next_steps' 
+              || section.section_type === 'disclaimer'
+              || section.title?.includes('다음 단계')
+              || section.title?.includes('면책');
+
             let badgeUI = null;
-            if (section.confidence === 'confirmed' || isVerified) {
+            if (isProcedural) {
+              badgeUI = isVerified
+                ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">🟢 검토 확인됨</span>
+                : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400 border border-neutral-700">⚪ 표준 안내</span>;
+            } else if (section.confidence === 'confirmed') {
               badgeUI = <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">🟢 공공데이터 확인됨</span>;
+            } else if (isVerified) {
+              badgeUI = <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">🟢 브로커 검토완료</span>;
             } else if (section.confidence === 'needs_check') {
               badgeUI = <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">🔴 보완 필요</span>;
             } else {
@@ -789,31 +808,131 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
       </div>
 
       {/* Fixed Bottom Action Bar */}
-      {docStatus !== 'published' && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-neutral-900 border-t border-neutral-800 p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
-          <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <button 
-                type="button"
-                onClick={() => setShowDeleteConfirm(true)}
-                className="text-xs text-red-500/70 hover:text-red-500 underline underline-offset-4 transition-colors"
-              >
-                🗑 작성 취소
-              </button>
-              <div className="text-sm font-medium">
-                <span className={allVerified ? 'text-emerald-400' : 'text-amber-400'}>
-                  {verifiedSet.size} / {sections.length} 섹션 확인 완료
-                </span>
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-neutral-900 border-t border-neutral-800 p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+          {docStatus !== 'published' ? (
+            <>
+              <div className="flex items-center gap-4">
+                <button 
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="text-xs text-red-500/70 hover:text-red-500 underline underline-offset-4 transition-colors"
+                >
+                  🗑 작성 취소
+                </button>
+                <div className="text-sm font-medium">
+                  <span className={allVerified ? 'text-emerald-400' : 'text-amber-400'}>
+                    {verifiedSet.size} / {sections.length} 섹션 확인 완료
+                  </span>
+                </div>
               </div>
+              
+              <button
+                onClick={handleApprove}
+                disabled={actionStatus === 'loading' || !allVerified}
+                className="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl transition-colors disabled:opacity-50 disabled:bg-neutral-800 disabled:text-neutral-500 text-sm shadow-lg shadow-emerald-500/20"
+              >
+                {actionStatus === 'loading' ? '처리 중...' : '🚀 승인 및 공개'}
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  배포 완료 상태
+                </span>
+                <Link
+                  href={`/broker/deal-card/${buildingId}`}
+                  className="text-xs text-neutral-400 hover:text-white transition-colors"
+                >
+                  ← 딜카드 관리
+                </Link>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`https://credeal.net/im-lite/${buildingId}`);
+                    toast.success("🔗 모바일 IM 링크가 복사되었습니다.");
+                  }}
+                  className="px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs rounded-xl transition-colors"
+                >
+                  🔗 링크 복사
+                </button>
+                <button
+                  onClick={() => window.open(`/im-lite/${buildingId}`, '_blank')}
+                  className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs rounded-xl transition-colors shadow-lg shadow-emerald-500/20 flex items-center gap-1.5"
+                >
+                  <span>📱 퍼블릭 IM 보기</span>
+                  <span>↗</span>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Published Success Celebration Modal */}
+      {showPublishedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative bg-neutral-900 border border-emerald-500/40 rounded-3xl p-6 md:p-8 max-w-md w-full space-y-6 shadow-2xl animate-in zoom-in-95 duration-300 text-center">
+            <div className="w-16 h-16 bg-emerald-500/20 border border-emerald-500/40 rounded-2xl flex items-center justify-center mx-auto text-3xl">
+              🎉
             </div>
             
-            <button
-              onClick={handleApprove}
-              disabled={actionStatus === 'loading' || !allVerified}
-              className="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl transition-colors disabled:opacity-50 disabled:bg-neutral-800 disabled:text-neutral-500 text-sm shadow-lg shadow-emerald-500/20"
-            >
-              {actionStatus === 'loading' ? '처리 중...' : '🚀 승인 및 공개'}
-            </button>
+            <div className="space-y-2">
+              <h2 className="text-xl font-extrabold text-white">
+                투자설명서가 공개되었습니다!
+              </h2>
+              <p className="text-xs text-neutral-400 leading-relaxed">
+                바이어와 고객에게 전달 가능한 모바일 투자설명서가 생성되었습니다. 아래 버튼을 눌러 완성된 뷰어를 확인하거나 링크를 공유하세요.
+              </p>
+            </div>
+
+            <div className="p-3.5 bg-neutral-950/80 rounded-xl border border-neutral-800 text-left space-y-1">
+              <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">공개 링크</p>
+              <p className="text-xs text-emerald-400 font-mono truncate">
+                https://credeal.net/im-lite/{buildingId}
+              </p>
+            </div>
+
+            <div className="space-y-2.5 pt-2">
+              <button
+                onClick={() => {
+                  window.open(`/im-lite/${buildingId}`, '_blank');
+                }}
+                className="w-full h-12 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+              >
+                <span>📱 완성된 모바일 IM 확인하기</span>
+                <span>↗</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`https://credeal.net/im-lite/${buildingId}`);
+                  toast.success("🔗 모바일 IM 링크가 복사되었습니다.");
+                }}
+                className="w-full h-11 bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5"
+              >
+                <span>📋 카카오톡 공유 링크 복사</span>
+              </button>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => setShowPublishedModal(false)}
+                  className="flex-1 py-2.5 text-xs text-neutral-400 hover:text-white transition-colors"
+                >
+                  검토 화면 계속 보기
+                </button>
+                <Link
+                  href={`/broker/deal-card/${buildingId}`}
+                  className="flex-1 py-2.5 text-xs text-neutral-400 hover:text-white transition-colors text-center"
+                >
+                  딜카드 관리로 이동 →
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       )}

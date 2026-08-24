@@ -105,12 +105,12 @@ export function generatePremiumTemplate(
       const overviewRows = [
         `| **소재지** | ${areaStr} |`,
         `| **주요 용도** | ${mainPurpose} |`,
-        `| **연면적** | ${totalArea.toLocaleString()}㎡ (${totalPyeong}) |`,
-        `| **대지면적** | ${platArea.toLocaleString()}㎡ (${platPyeong}) |`,
+        totalArea > 0 ? `| **연면적** | ${totalArea.toLocaleString()}㎡ (${totalPyeong}) |` : `| **연면적** | 확인 필요 |`,
+        platArea > 0 ? `| **대지면적** | ${platArea.toLocaleString()}㎡ (${platPyeong}) |` : `| **대지면적** | 대지지분 확인 필요 (공부 확인 권장) |`,
         floorsStr ? `| **층수** | ${floorsStr} |` : (floorsAbove > 0 ? `| **층수** | 지하 ${floorsBelow}층 / 지상 ${floorsAbove}층 |` : null),
         `| **용도지역** | ${zoningDistrict} |`,
         elevatorCount > 0 ? `| **승강기** | ${elevatorCount}대 |` : null,
-        parkingCount > 0 ? `| **주차 대수** | ${parkingCount}대 |` : null,
+        parkingCount > 0 && parkingCount < 300 ? `| **주차 대수** | ${parkingCount}대 |` : (parkingCount >= 300 && totalArea < 2000 ? `| **주차** | 단지 공용 주차 |` : (parkingCount >= 300 ? `| **주차 대수** | ${parkingCount}대 |` : null)),
         useAprYear ? `| **준공년도** | ${useAprYear}년 (${buildingAge}년 경과) |` : null,
         structure !== "확인 필요" ? `| **주구조** | ${structure} |` : null,
         priceStr !== "-" ? `| **매매 희망가** | ${priceStr} |` : null,
@@ -555,11 +555,8 @@ ${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaP
 2. **NDA 체결** → 임차인 정보 및 임대차계약서 제공
 3. **현장 실사 일정 조율** → 건물 컨디션 및 설비 직접 확인
 4. **LOI(투자의향서) 제출** → 가격 협의 개시
-5. **법적 실사(DD)** → 법률·세무·기술 전문가 투입
-6. **매매계약 체결 → 잔금 납부**
-
-### 상세 분석이 필요하신가요?
-Full IM (투자등급 정식 투자설명서)은 18개 섹션, 전문가 검토 포함 버전입니다.
+### 문의 및 상담 안내
+상세한 임대차 명세서(Rent Roll), 공적장부 열람 및 현장 실사 일정은 담당 중개사에게 문의하시기 바랍니다.
 
 > 본 자료는 예비 검토용으로 모든 수치와 내용은 실사 및 전문가 검토를 통해 확인이 필요합니다.`;
   }
