@@ -8,11 +8,17 @@ import { computeDataQualityBadge, hasMinimumBasicData } from '../data-quality-ba
 import { bridgeDealCardToIM } from '../ssot-to-im-bridge';
 
 describe('Posture Pipeline — Section Catalog', () => {
+  // D29 m-2: 포스처별 분화 (수익 12, 사옥 9, 개발 10, 운영 10, 매매 8)
+  const EXPECTED_COUNTS: Record<string, number> = {
+    income: 12, owner_occupied: 9, development: 10, operating: 10, trading: 8,
+  };
+
   for (const posture of INVESTMENT_POSTURE) {
-    it(`${posture}: should have 7 sections in plan`, () => {
+    it(`${posture}: should have ${EXPECTED_COUNTS[posture]} sections in plan (with checklist)`, () => {
       const plan = getSectionPlan(posture);
       expect(plan.posture).toBe(posture);
-      expect(plan.sections).toHaveLength(7);
+      expect(plan.sections).toHaveLength(EXPECTED_COUNTS[posture]);
+      expect(plan.sections).toContain('checklist');
     });
 
     it(`${posture}: should not overlap sections with suppress list`, () => {
@@ -33,10 +39,10 @@ describe('Posture Pipeline — Archetype Registry', () => {
   }
 
   it('posture specific primary archetype mappings', () => {
-    expect(suggestArchetype({ vacancyPct: 0, buildingAge: 5, posture: 'development' }).primary).toBe('DEV-01');
-    expect(suggestArchetype({ vacancyPct: 0, buildingAge: 5, posture: 'owner_occupied' }).primary).toBe('OO-01');
-    expect(suggestArchetype({ vacancyPct: 0, buildingAge: 5, posture: 'operating' }).primary).toBe('OP-01');
-    expect(suggestArchetype({ vacancyPct: 0, buildingAge: 5, posture: 'trading' }).primary).toBe('TR-01');
+    expect(suggestArchetype({ vacancyPct: 0, buildingAge: 5, posture: 'development' }).primary).toBe('R-DEV-01');
+    expect(suggestArchetype({ vacancyPct: 0, buildingAge: 5, posture: 'owner_occupied' }).primary).toBe('R-OWN-01');
+    expect(suggestArchetype({ vacancyPct: 0, buildingAge: 5, posture: 'operating' }).primary).toBe('R-OPR-01');
+    expect(suggestArchetype({ vacancyPct: 0, buildingAge: 5, posture: 'trading' }).primary).toBe('R-TRD-01');
   });
 });
 
@@ -64,10 +70,12 @@ describe('Posture Pipeline — Deck Sequencer', () => {
     for (const tier of ['basic', 'pro'] as const) {
       for (const grade of ['A', 'B', 'C', 'D'] as const) {
         it(`${posture}/${tier}/${grade}: should return valid slide sequence`, () => {
-          const result = buildDeckSequence({ posture, tier, grade });
-          if (grade === 'D' && tier === 'pro') {
-            expect(result).toHaveLength(0);
+          if (grade === 'D') {
+            // D29 BL-1: D등급은 전면 차단 (throw)
+            expect(() => buildDeckSequence({ posture, tier, grade }))
+              .toThrow('[G30]');
           } else {
+            const result = buildDeckSequence({ posture, tier, grade });
             expect(result.length).toBeGreaterThan(0);
           }
         });

@@ -346,7 +346,7 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
       const capLabel = f.opexSource === 'user'
         ? '매매가 대비 NOI 기준 구간 추정'
         : 'AI 가정 운영비 기준 구간 추정';
-      rows.push(`| **연 수익률 (총임대료 기준)** | ${pct(f.capRate.worst)}–**${pct(f.capRate.best)}** | ${capLabel} |`);
+      rows.push(`| **연 수익률 (Cap Rate)** | ${pct(f.capRate.worst)}–**${pct(f.capRate.best)}** | ${capLabel} |`);
     }
     if (f.irr5Year) rows.push(`| **5년 보유 시 투자수익률(IRR)** | ${pct(f.irr5Year.worst)}–**${pct(f.irr5Year.best)}** | 시나리오 추정, 참고용 |`);
     if (f.yieldOnCost !== null) rows.push(`| **총 수익률(Gross Yield)** | **${pct(f.yieldOnCost)}** | 연 임대수입/매매가 (운영비 미차감) |`);

@@ -1,17 +1,17 @@
 # Pipeline Log: trading_case15_jongro_family
 
-**Generated**: 2026-08-23T11:28:47.319Z
-**Total Duration**: 0.3s
+**Generated**: 2026-08-25T13:22:57.024Z
+**Total Duration**: 0.4s
 
 ## Step-by-Step Timeline
 
 | # | Step | Duration | Status | Summary |
 |---|------|----------|--------|---------|
-| 1 | ① SSoT Lite 구축 | 0.00s | ✅ success | buildingId: stress-case-15 |
-| 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: trading, keys: 5 |
-| 3 | ③ IM 생성 (LLM) | 0.20s | ✅ success | ok=true, sections=8, grade=A |
-| 4 | ④ 중간 결과물 저장 | 0.01s | ✅ success | sections: 8 |
-| 5 | ⑤ PPTX 렌더링 | 0.11s | ✅ success | slides: 10, size: 306KB |
+| 1 | ① SSoT Lite 구축 | 0.01s | ✅ success | buildingId: stress-case-15 |
+| 2 | ② 바텀시트 보강 | 0.01s | ✅ success | posture: trading, keys: 5 |
+| 3 | ③ IM 생성 (LLM) | 0.18s | ✅ success | ok=true, sections=12, grade=B |
+| 4 | ④ 중간 결과물 저장 | 0.05s | ✅ success | sections: 12 |
+| 5 | ⑤ PPTX 렌더링 | 0.11s | ✅ success | slides: 10, size: 324KB |
 
 ## Detailed Metrics
 
@@ -19,8 +19,8 @@
 ```json
 {
   "ok": true,
-  "sections_count": 8,
-  "dataGrade": "A",
+  "sections_count": 12,
+  "dataGrade": "B",
   "ai_used": true
 }
 ```
@@ -29,7 +29,7 @@
 ```json
 {
   "slideCount": 10,
-  "fileSizeBytes": 313725,
+  "fileSizeBytes": 331559,
   "warnings": []
 }
 ```

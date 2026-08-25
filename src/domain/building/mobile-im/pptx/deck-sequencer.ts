@@ -50,24 +50,14 @@ function buildGallerySlideSpecs(input: DeckSequenceInput): SlideSpec[] {
 export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   const gallerySlides = buildGallerySlideSpecs(input);
 
-  // D등급: 최소 3슬라이드 (표지+핵심요약+면책)
+  // D29 BL-1: D등급 발행 전면 차단 (ONTOLOGY_V0.5_SPEC §6.3 — D = 발행 불가)
+  // 티어 무관. QG04 + deck-sequencer 양쪽에서 통일.
   if (input.grade === 'D') {
-    const dGradeSequence: SlideSpec[] = [
-      { archetype: 'A01', kicker: 'INVESTMENT MEMORANDUM', title: '표지', dataKey: 'cover' },
-    ];
-    dGradeSequence.push(...gallerySlides);
-    dGradeSequence.push(
-      { archetype: 'A02', kicker: 'Summary', title: '핵심요약', dataKey: 'summary' },
-      { archetype: 'A09', kicker: 'Process', title: '진행 절차', dataKey: 'process' },
-      { archetype: 'A10', kicker: 'Disclaimer', title: '표기 기준 및 면책', dataKey: 'closing' }
-    );
-    return dGradeSequence;
+    throw new Error('[G30] D등급은 발행할 수 없습니다');
   }
 
-  // B/C등급: 최소 7슬라이드 구성 (표지+요약+입지+포스처별 본문+리스크+면책)
-  // A등급: 풀 시퀀스 (DCF/민감도/총수익률 등 자동 포함)
-  // → Basic/Pro 분기 제거: 등급에 따라 자동 결정
-  if (input.grade === 'C' || input.grade === 'B') {
+  // Basic 티어 또는 B/C등급: 7~11슬라이드 Compact 시퀀스 구성
+  if (input.tier === 'basic' || input.grade === 'C' || input.grade === 'B') {
     const compactSequence: SlideSpec[] = [
       { archetype: 'A01', kicker: 'INVESTMENT MEMORANDUM', title: '표지', dataKey: 'cover' }
     ];
@@ -115,8 +105,11 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
         );
         break;
     }
+    // D29 BL-4: 누락 4섹션 PPTX 연결 (checklist, title_rights, land_detail, comparables)
     compactSequence.push(
+      { archetype: 'A04', kicker: 'Title', title: '권리관계', dataKey: 'titleRights' },
       { archetype: 'A07', kicker: 'Risk', title: '리스크', dataKey: 'risk' },
+      { archetype: 'A12', kicker: 'Checklist', title: '체크리스트', dataKey: 'checklist' },
       { archetype: 'A15', kicker: 'Thesis', title: '투자 논거', dataKey: 'thesis' },
       { archetype: 'A09', kicker: 'Process', title: '진행 절차', dataKey: 'process' },
       { archetype: 'A10', kicker: 'Disclaimer', title: '표기 기준 및 면책', dataKey: 'closing' }
@@ -208,21 +201,32 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   }
 
   // ── 4. 공통 마감 (항상 마지막) ──
+  // D29 BL-4: checklist + comparables 추가
+  sequence.push({ archetype: 'A04', kicker: 'Title', title: '권리관계', dataKey: 'titleRights' });
+  sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comparables' });
   sequence.push({ archetype: 'A15', kicker: 'Thesis', title: '투자 논거', dataKey: 'thesis' });
   sequence.push({ archetype: 'A07', kicker: 'Risk', title: '리스크', dataKey: 'risk' });
+  sequence.push({ archetype: 'A12', kicker: 'Checklist', title: '체크리스트', dataKey: 'checklist' });
   sequence.push({ archetype: 'A09', kicker: 'Process', title: '진행 절차', dataKey: 'process' });
   sequence.push({ archetype: 'A10', kicker: 'Closing', title: '마감', dataKey: 'closing' });
 
   const active = sequence.filter(s => !s.suppress);
 
-  // A등급: 24p 이하로 제한
-  if (active.length > 24) {
-    const closingSlide = active.find(s => s.dataKey === 'closing');
-    const riskSlide = active.find(s => s.dataKey === 'risk');
-    const preserved = [riskSlide, closingSlide].filter(Boolean) as SlideSpec[];
-    const preservedKeys = new Set(preserved.map(s => s.dataKey));
-    const rest = active.filter(s => !preservedKeys.has(s.dataKey)).slice(0, 24 - preserved.length);
-    return [...rest, ...preserved];
+  // D29 m-8: 분량 상한 — 필수 12면 + 권장 16면 (초과 시 절삭)
+  const PAGE_MANDATORY = 12;
+  const PAGE_RECOMMENDED = 16;
+
+  if (active.length > PAGE_RECOMMENDED) {
+    // 마감·리스크·체크리스트는 절삭 방지
+    const protectedKeys = new Set(['closing', 'risk', 'checklist', 'process', 'thesis']);
+    const protectedSlides = active.filter(s => protectedKeys.has(s.dataKey));
+    const optionalSlides = active.filter(s => !protectedKeys.has(s.dataKey));
+    const budget = PAGE_RECOMMENDED - protectedSlides.length;
+    const trimmed = optionalSlides.slice(0, budget);
+    if (active.length > PAGE_RECOMMENDED) {
+      console.warn(`[deck-sequencer] m-8: ${active.length}면 → ${PAGE_RECOMMENDED}면으로 절삭`);
+    }
+    return [...trimmed, ...protectedSlides];
   }
   return active;
 }

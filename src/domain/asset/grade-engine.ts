@@ -8,17 +8,68 @@
 import { getGradeWeights, type AssetType } from '../building/asset-ontology';
 import { isFeatureEnabled } from '../building/feature-flags';
 import { lintProvenance } from '../building/provenance-lint';
-import { gradeProfile, effectiveWeights } from '@/domain/ontology';
+import { gradeProfile, effectiveWeights, type InvestmentPosture, type AssetType as OntologyAssetType } from '@/domain/ontology';
+
+// E-4: L×P 2축 등급 해상도
+export type PropertyResolution = 'P0' | 'P1' | 'P2' | 'P3';
+export type LeadResolution = 'R0' | 'R1' | 'R2' | 'R3';
+
+// P축 공통 슬롯 (전 포스처 공통 — 물건 해상도)
+const P_AXIS_SLOTS = ['land_parcel', 'building_basic', 'zoning', 'road_access', 'title_encumbrance'];
+
+// L축 슬롯 (포스처별 — 리드 해상도)
+const L_AXIS_SLOTS: Record<string, string[]> = {
+  income: ['lease_roll', 'financial_input'],
+  operating: ['operating_performance', 'hospitality_spec', 'financial_input'],
+  development: ['development_plan', 'vacate_plan', 'permit_risk'],
+  owner_occupied: ['occupancy_plan', 'physical_spec'],
+  trading: ['market_comp', 'holding_history'],
+};
+
+// D29 M-1: 속성 키 → 슬롯 그룹 매핑
+// 실제 attrs 키를 L/P 슬롯 그룹명으로 매핑하여 해상도 산출
+const ATTR_TO_SLOT: Record<string, string> = {
+  // P축 매핑
+  pnu: 'land_parcel', landAreaPyung: 'land_parcel',
+  totalFloorAreaPyung: 'building_basic', buildingAge: 'building_basic', approvalDate: 'building_basic',
+  zoningRegion: 'zoning', farHeadroomPp: 'zoning',
+  roadContactType: 'road_access',
+  titleEncumbrance: 'title_encumbrance',
+  // L축 매핑 — income
+  leaseUnits: 'lease_roll', rentRoll: 'lease_roll',
+  grossAnnualIncomeKrw: 'financial_input', loanAmountKrw: 'financial_input', askingPriceKrw: 'financial_input',
+  // L축 매핑 — operating
+  gopMarginPct: 'pack', adr: 'pack', occRate: 'pack', revpar: 'pack',
+  hospitalitySpec: 'hospitality_spec',
+  // L축 매핑 — development
+  developmentPlan: 'development_plan', vacatePlan: 'vacate_plan', permitRisk: 'permit_risk',
+  // L축 매핑 — owner_occupied
+  occupancyPlan: 'occupancy_plan', physicalSpec: 'physical_spec',
+  // L축 매핑 — trading
+  marketCompPerPyung: 'market_comp', holdingHistory: 'holding_history',
+  // 추가 공통
+  officialLandPricePerSqm: 'land_parcel', evictionStatus: 'land_parcel',
+  address: 'land_parcel',
+};
 
 /**
  * Data grade for an asset based on slot coverage.
  * A is highest, D is lowest.
  */
-export type DataGrade = 'A' | 'B' | 'C';
+export type DataGrade = 'A' | 'B' | 'C' | 'D';
+
+export interface NextStep {
+  slot: string;
+  slotLabel: string;
+  unlocks: string[];
+  gradeAfter: DataGrade;
+  axis: 'L' | 'P';
+  effortMinutes: number;
+}
 
 export interface GradeAdvice {
-  current: { score: number; grade: 'A' | 'B' | 'C' };
-  nextGrade: 'A' | 'B' | 'C';
+  current: { score: number; grade: DataGrade };
+  nextGrade: DataGrade;
   actions: Array<{
     slotGroup: string;
     label: string;
@@ -48,12 +99,21 @@ export interface DataGradeResult {
   dcfEligible: boolean;
   /** Top 3 effort-efficient actions */
   advice: GradeAdvice;
+  /** S5-1: 다음 한 단계 단일 추천 (One-Step Guidance) */
+  nextStep?: NextStep | null;
+  /** 잠긴 지표 및 누락 슬롯 목록 */
+  lockedMetrics?: Array<{ key: string; missing: string[] }>;
   /** Gate: D < 40 blocks publish */
   blockPublish?: boolean;
   /** Gate: C 40-65 suppresses total return */
   suppressTotalReturn?: boolean;
   /** Gate: B 65-85 suppresses DCF */
   suppressDcf?: boolean;
+  // E-4: 2축 등급 필드
+  L?: LeadResolution;
+  P?: PropertyResolution;
+  lFillRate?: number;
+  pFillRate?: number;
 }
 
 /**
@@ -79,6 +139,7 @@ const ENHANCED_SLOTS = [
   'parkingCapacity',
 ];
 
+// D29 M-4: Pack 등급 기여 추가 (운영형 GOP/ADR/OCC 기여)
 const NEW_WEIGHTS: Record<string, number> = {
   lease_roll: 25,
   building_basic: 15,
@@ -87,17 +148,58 @@ const NEW_WEIGHTS: Record<string, number> = {
   zoning: 10,
   title_encumbrance: 10,
   road_access: 5,
-  market_comp: 5
+  market_comp: 5,
+  pack: 10,        // D29 M-4: 운영형 실적 Pack (GOP, ADR, OCC 등)
 };
 
+// D29 M-5: 정본 9종 출처 계수 (ontology/provenance.ts 정본)
 const PROVENANCE_COEFF: Record<string, number> = {
+  registry: 1.0,
+  public_api: 0.95,
+  broker_aug: 0.90,
+  expert: 0.90,
+  ledger: 0.90,
+  seller: 0.65,
+  broker: 0.60,
+  derived: 0.40,
+  ai_inferred: 0.30,
+  assumed: 0.30,
+  // 레거시 호환
   public_data: 1.0,
   expert_verified: 0.95,
   seller_declared: 0.65,
   broker_input: 0.60,
-  ai_inferred: 0.30,
-  assumed: 0.30,
 };
+
+/** E-4: P축 해상도 산정 */
+export function resolveP(filled: Record<string, boolean>): PropertyResolution {
+  const count = P_AXIS_SLOTS.filter(s => filled[s]).length;
+  const rate = count / P_AXIS_SLOTS.length;
+  if (rate >= 0.8) return 'P3';
+  if (rate >= 0.6) return 'P2';
+  if (rate >= 0.3) return 'P1';
+  return 'P0';
+}
+
+/** E-4: L축 해상도 산정 */
+export function resolveL(filled: Record<string, boolean>, posture: string): LeadResolution {
+  const slots = L_AXIS_SLOTS[posture] ?? L_AXIS_SLOTS['income'];
+  const count = slots.filter(s => filled[s]).length;
+  const rate = count / slots.length;
+  if (rate >= 0.8) return 'R3';
+  if (rate >= 0.5) return 'R2';
+  if (rate >= 0.2) return 'R1';
+  return 'R0';
+}
+
+/** E-4: L×P 등급 매트릭스 */
+export function gradeMatrix(l: LeadResolution, p: PropertyResolution): DataGrade {
+  if (l === 'R0' || p === 'P0') return 'D';
+  if (l >= 'R2' && p >= 'P2') return 'A';
+  if (l >= 'R1' && p >= 'P2') return 'B';
+  if (l >= 'R1' && p === 'P1') return 'C';
+  return 'D';
+}
 
 /**
  * Computes the data grade for an asset based on provided attributes.
@@ -140,7 +242,7 @@ export function computeDataGrade(
   let weights = (assetType && isFeatureEnabled('ff_s1_ontology_loader')) ? getGradeWeights(assetType) : null;
   
   if (identity && identity.assetType && identity.investmentPosture) {
-    const profile = gradeProfile(identity.assetType as any, identity.investmentPosture as any);
+    const profile = gradeProfile(identity.assetType as OntologyAssetType, identity.investmentPosture as InvestmentPosture);
     const notApplicableGroups: string[] = [];
     weights = effectiveWeights(profile, notApplicableGroups);
   }
@@ -238,36 +340,116 @@ export function computeDataGrade(
 
   const scorePct = totalNewWeight > 0 ? Math.round((earnedNewWeight / totalNewWeight) * 100) : 0;
 
-  // income 포스처: 구조화된 렌트롤(호실별 임대차) 없이는 A등급 불가 — 최대 B등급으로 캡핑
+  // D29 M-1: L×P 매트릭스 기반 등급 산정 (ONTOLOGY_V0.5_SPEC §6.3)
+  // D29 M-2: L축 = Lease Resolution (R0~R3), P축 = Property Resolution (P0~P3)
   const posture = identity?.investmentPosture || 'income';
   const isIncomePosture = posture === 'income' || posture === 'operating';
   const hasStructuredRentRoll =
     (Array.isArray(attrs.leaseUnits) && attrs.leaseUnits.length > 0) ||
     (Array.isArray(attrs.rentRoll) && attrs.rentRoll.length > 0);
 
-  let grade: DataGrade = 'C';
-  if (scorePct >= 75) {
-    // income/operating 포스처에서 렌트롤 미제출 시 A등급 승격 차단
-    grade = (isIncomePosture && !hasStructuredRentRoll) ? 'B' : 'A';
-  } else if (scorePct >= 40) {
+  // D29 M-1: 속성 키 → 슬롯 그룹으로 변환하여 L×P 해상도 산출
+  const filledMap: Record<string, boolean> = {};
+  for (const key of Object.keys(attrs)) {
+    const val = attrs[key];
+    const isFilled = val !== undefined && val !== null && val !== '' &&
+      !(Array.isArray(val) && val.length === 0);
+    if (isFilled) {
+      // 슬롯 그룹으로 매핑 (매핑 없으면 키 그대로 사용)
+      const slotGroup = ATTR_TO_SLOT[key] ?? key;
+      filledMap[slotGroup] = true;
+    }
+  }
+
+  // L×P 해상도 산출
+  const pAxis = resolveP(filledMap);
+  const lAxis = resolveL(filledMap, posture);
+  let grade: DataGrade = gradeMatrix(lAxis, pAxis);
+
+  // income/operating 포스처: 렌트롤 미제출 시 A등급 승격 차단
+  if (grade === 'A' && isIncomePosture && !hasStructuredRentRoll) {
     grade = 'B';
-  } else {
-    grade = 'C';
   }
 
   // Next grade logic
-  let nextGrade: 'A' | 'B' | 'C' = 'A';
+  let nextGrade: DataGrade = 'A';
   if (grade === 'A') nextGrade = 'A';
   else if (grade === 'B') nextGrade = 'A';
   else if (grade === 'C') nextGrade = 'B';
+  else nextGrade = 'C';
 
-  // Compute actions for GradeAdvice (using dummy effortMinutes)
+  // S5-1: 단일 다음 단계 (NextStep) 산출
+  let nextStep: NextStep | null = null;
+  const lockedMetrics: Array<{ key: string; missing: string[] }> = [];
+
+  const slotUnlocksMap: Record<string, { label: string; unlocks: string[]; axis: 'L' | 'P'; effort: number }> = {
+    lease_roll: { label: '임대차 원장/월세', unlocks: ['연 수익률(Cap Rate, 기준: NOI)', '공실률'], axis: 'L', effort: 5 },
+    financial_input: { label: '매각 희망가/대출', unlocks: ['실투자금', '자기자본수익률', '총취득원가'], axis: 'L', effort: 3 },
+    building_basic: { label: '건물 연면적/준공일', unlocks: ['평당 매매가', '건물 스펙 분석'], axis: 'P', effort: 3 },
+    land_parcel: { label: '토지 대장/공시지가', unlocks: ['대지가치 비중', '원금 안전판'], axis: 'P', effort: 2 },
+    zoning: { label: '용도지역/용적률 여유', unlocks: ['개발 여력', '용적률 분석'], axis: 'P', effort: 2 },
+    operating_performance: { label: '운영 실적/매출', unlocks: ['실질 영업이익 (GOP)', 'RevPAR'], axis: 'L', effort: 5 },
+    occupancy_plan: { label: '사옥 사용 계획', unlocks: ['임차료 절감액', '손익분기 기간'], axis: 'L', effort: 5 },
+    vacate_plan: { label: '명도 계획', unlocks: ['명도 타임라인', '사업수지'], axis: 'L', effort: 10 },
+    market_comp: { label: '인근 비교사례', unlocks: ['시세 대비 갭 분석', '목표 시세차익'], axis: 'L', effort: 5 },
+  };
+
+  if (grade !== 'A') {
+    const targetGrade: DataGrade = grade === 'C' ? 'B' : 'A';
+    // F-4: 풀 재시뮬레이션 — 모든 미충족 카테고리에 대해 채움 시뮬레이션
+    const candidates: Array<NextStep & { roi: number }> = [];
+    for (const item of missingCategories) {
+      const meta = slotUnlocksMap[item.category];
+      if (meta) {
+        // 해당 슬롯을 채웠을 때의 점수 시뮬레이션
+        const simulatedEarned = earnedNewWeight + item.weight;
+        const simulatedPct = totalNewWeight > 0 ? Math.round((simulatedEarned / totalNewWeight) * 100) : 0;
+        let simulatedGrade: DataGrade = 'C';
+        if (simulatedPct >= 75) simulatedGrade = 'A';
+        else if (simulatedPct >= 40) simulatedGrade = 'B';
+        
+        const scoreGain = simulatedPct - scorePct;
+        const roi = scoreGain / Math.max(1, meta.effort);
+
+        candidates.push({
+          slot: item.category,
+          slotLabel: meta.label,
+          unlocks: meta.unlocks,
+          gradeAfter: simulatedGrade >= targetGrade ? targetGrade : simulatedGrade,
+          axis: meta.axis,
+          effortMinutes: meta.effort,
+          roi,
+        });
+      }
+    }
+    // ROI 최적 항목 선택
+    candidates.sort((a, b) => b.roi - a.roi);
+    if (candidates.length > 0) {
+      const { roi: _, ...best } = candidates[0];
+      nextStep = best;
+    }
+  }
+
+  // 잠긴 지표 기록
+  for (const item of missingCategories) {
+    const meta = slotUnlocksMap[item.category];
+    if (meta) {
+      for (const unlocked of meta.unlocks) {
+        lockedMetrics.push({
+          key: unlocked,
+          missing: [meta.label],
+        });
+      }
+    }
+  }
+
+  // Compute actions for GradeAdvice
   const actions = missingCategories
     .map(c => ({
       slotGroup: c.category,
       label: `Provide data for ${c.category}`,
       scoreGain: c.weight,
-      effortMinutes: 5, // arbitrary default
+      effortMinutes: 5,
       unlocks: [],
     }))
     .sort((a, b) => (b.scoreGain / b.effortMinutes) - (a.scoreGain / a.effortMinutes))
@@ -279,10 +461,10 @@ export function computeDataGrade(
     actions,
   };
 
-  // Grade-based feature gating (3-tier)
-  const blockPublish = false; // C등급도 경고만 표시, 발행 차단 안 함
-  const suppressTotalReturn = grade === 'C';
-  const suppressDcf = grade === 'B';
+  // D29 M-1: L×P 매트릭스 활성화 — D등급 발행 차단
+  const blockPublish = grade === 'D';
+  const suppressTotalReturn = grade === 'C' || grade === 'D';
+  const suppressDcf = grade !== 'A';
 
   return {
     grade,
@@ -293,9 +475,19 @@ export function computeDataGrade(
     missingEnhancedSlots: missingEnhanced,
     dcfEligible: grade === 'A',
     advice: adviceObj,
+    nextStep,
+    lockedMetrics,
     blockPublish,
     suppressTotalReturn,
     suppressDcf,
+    // D29 M-1: L×P 축 정보 추가
+    L: lAxis,
+    P: pAxis,
+    lFillRate: (() => {
+      const slots = L_AXIS_SLOTS[posture] ?? L_AXIS_SLOTS['income'];
+      return slots.length > 0 ? slots.filter(s => filledMap[s]).length / slots.length : 0;
+    })(),
+    pFillRate: P_AXIS_SLOTS.length > 0 ? P_AXIS_SLOTS.filter(s => filledMap[s]).length / P_AXIS_SLOTS.length : 0,
   };
 }
 

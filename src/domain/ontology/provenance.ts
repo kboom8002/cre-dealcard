@@ -9,28 +9,83 @@
  * v0.4 감사에서 구현 적합이 확인되었습니다. 로직 변경 없음.
  */
 
-// ── 5-Tier Provenance ──────────────────────────────────────────────
+// ── 9-Tier Provenance (v0.5) ──────────────────────────────────────────────
 
-/** v0.2 Provenance 등급 (신뢰도 내림차순) */
-export type ProvenanceTier = 'public' | 'expert' | 'seller' | 'broker' | 'assumed';
+/** v0.5 Provenance 등급 (신뢰도 내림차순 및 출처 9종 세분화) */
+export type ProvenanceTier =
+  | 'registry'     // 공부 (건축물대장, 등기부, 토지대장) — 1.00
+  | 'public_api'   // 공공 API 원시 (V-World, 국토부) — 0.95
+  | 'broker_aug'   // 공공 + 중개인 보강 — 0.80
+  | 'expert'       // 감정평가, 구조진단 — 0.95
+  | 'ledger'       // 임대차 원장, 관리비 내역서 — 0.70
+  | 'seller'       // 매도인 진술 — 0.65
+  | 'broker'       // 중개인 진술 — 0.60
+  | 'derived'      // 파생 계산값 — 최약 고리 승계
+  | 'assumed'      // 가정값 — 0.30
+  // 하위 호환 별칭 (v0.2/v0.4 레거시)
+  | 'public';
+
+// ── SourceTier 6단 표시 체계 (ONTOLOGY_V0.5_SPEC §5.2) ── (B-2)
+export type SourceTier = 'S1' | 'S2a' | 'S2b' | 'S3' | 'S4' | 'S5';
+
+/** ProvenanceTier → SourceTier 매핑 */
+export function tierOf(p: ProvenanceTier): SourceTier {
+  switch (p) {
+    case 'registry':   return 'S1';
+    case 'public_api': return 'S2a';
+    case 'broker_aug': return 'S2b';
+    case 'expert':     return 'S3';
+    case 'ledger':
+    case 'seller':
+    case 'broker':
+    case 'derived':    return 'S4';
+    case 'assumed':    return 'S5';
+    case 'public':     return 'S1'; // 레거시 호환
+  }
+}
+
+// ── 하위 호환 명시 export ── (B-2)
+export type LegacyProvenanceTier = 'public' | 'expert' | 'seller' | 'broker' | 'assumed';
+
+export const LEGACY_PROVENANCE_MAPPING: Record<LegacyProvenanceTier, ProvenanceTier> = {
+  public: 'registry',
+  expert: 'expert',
+  seller: 'seller',
+  broker: 'broker',
+  assumed: 'assumed',
+};
 
 /** Provenance 등급별 메타데이터 */
 export interface ProvenanceMeta {
   tier: ProvenanceTier;
   badge: string;
   label: string;
-  score: number;
+  score: number | null; // derived는 입력값의 최약 고리에 따라 동적 결정
   responsibility: string;
 }
 
-/** 5-tier 정의 레지스트리 */
+/** 9-tier 정의 레지스트리 (레거시 public 포함) */
 export const PROVENANCE_REGISTRY: Record<ProvenanceTier, ProvenanceMeta> = {
-  public: {
-    tier: 'public',
+  registry: {
+    tier: 'registry',
     badge: '✓',
     label: '공부확인',
     score: 1.00,
     responsibility: '발급기관',
+  },
+  public_api: {
+    tier: 'public_api',
+    badge: '✓',
+    label: '공공API',
+    score: 0.95,
+    responsibility: 'API 운영기관',
+  },
+  broker_aug: {
+    tier: 'broker_aug',
+    badge: '●✓',
+    label: '공공+보강',
+    score: 0.80,
+    responsibility: '중개인+운영기관',
   },
   expert: {
     tier: 'expert',
@@ -38,6 +93,13 @@ export const PROVENANCE_REGISTRY: Record<ProvenanceTier, ProvenanceMeta> = {
     label: '전문가검증',
     score: 0.95,
     responsibility: '해당 자격사',
+  },
+  ledger: {
+    tier: 'ledger',
+    badge: '📋',
+    label: '원장확인',
+    score: 0.70,
+    responsibility: '원장 제공자',
   },
   seller: {
     tier: 'seller',
@@ -53,6 +115,13 @@ export const PROVENANCE_REGISTRY: Record<ProvenanceTier, ProvenanceMeta> = {
     score: 0.60,
     responsibility: '중개인',
   },
+  derived: {
+    tier: 'derived',
+    badge: '⚙',
+    label: '파생계산',
+    score: null,
+    responsibility: '시스템',
+  },
   assumed: {
     tier: 'assumed',
     badge: '◇',
@@ -60,11 +129,19 @@ export const PROVENANCE_REGISTRY: Record<ProvenanceTier, ProvenanceMeta> = {
     score: 0.30,
     responsibility: '없음 (가정)',
   },
+  // 하위 호환 매핑
+  public: {
+    tier: 'registry',
+    badge: '✓',
+    label: '공부확인',
+    score: 1.00,
+    responsibility: '발급기관',
+  },
 };
 
 /** 점수에서 가장 가까운 Provenance Tier 반환 */
 export function scoreToTier(score: number): ProvenanceTier {
-  if (score >= 0.975) return 'public';
+  if (score >= 0.975) return 'registry';
   if (score >= 0.80) return 'expert';
   if (score >= 0.625) return 'seller';
   if (score >= 0.45) return 'broker';
@@ -73,8 +150,16 @@ export function scoreToTier(score: number): ProvenanceTier {
 
 /** 배지 문자열 생성 (예: "● 중개인입력") */
 export function formatBadge(tier: ProvenanceTier): string {
-  const meta = PROVENANCE_REGISTRY[tier];
+  const meta = PROVENANCE_REGISTRY[tier] || PROVENANCE_REGISTRY.assumed;
   return `${meta.badge} ${meta.label}`;
+}
+
+/** C21: 파생값 최약 고리 승계 */
+export function derivedConfidence(inputs: ProvenanceTier[]): number {
+  const scores = inputs
+    .map(p => PROVENANCE_REGISTRY[p]?.score)
+    .filter((s): s is number => s !== null && s !== undefined);
+  return scores.length > 0 ? Math.min(...scores) : 0.30;
 }
 
 // ── 파생값 합성 규칙 (§1.2) ────────────────────────────────────────

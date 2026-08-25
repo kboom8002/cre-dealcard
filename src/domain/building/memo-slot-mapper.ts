@@ -167,3 +167,47 @@ export function extractSlotsFromMemo(memoText: string): MemoSlotResult {
     extractionRate: memoText.length > 0 ? Math.round((matchedLength / memoText.length) * 100) : 0,
   };
 }
+
+import type { InvestmentPosture } from '@/domain/ontology';
+import type { PostureProposal } from './broker-deal-card';
+
+const POSTURE_KEYWORDS: Record<InvestmentPosture, string[]> = {
+  income: ['임대', '월세', '렌트', '수익률', '공실', '임차인', '보증금', '전월세', '수익형'],
+  development: ['개발', '용적률', '인허가', '명도', '철거', '신축', '건축', '분양', '재건축'],
+  operating: ['운영', 'GOP', 'RevPAR', 'ADR', '객실', '매출', '호텔', '리조트', '숙박'],
+  owner_occupied: ['사옥', '자가', '이전', '통근', '본사', '사무실', '입주', '자사'],
+  trading: ['급매', '시세차익', '단기', '갭투자', '전매', '매도', '시세', '환차익', '저가'],
+};
+
+export function extractPostureProposal(memo: string): PostureProposal {
+  const normalizedMemo = memo.toLowerCase();
+  const scores: Record<string, number> = {};
+  
+  for (const [posture, keywords] of Object.entries(POSTURE_KEYWORDS)) {
+    const matchCount = keywords.filter(kw => normalizedMemo.includes(kw.toLowerCase())).length;
+    scores[posture] = matchCount;
+  }
+  
+  const entries = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+  const [topPosture, topScore] = entries[0];
+  const [, secondScore] = entries[1] || [null, 0];
+  
+  if (topScore === 0) {
+    return { value: null, confidence: 0, reason: '포스처 관련 키워드를 감지하지 못했습니다.', confirmedBy: null, confirmedAt: null };
+  }
+  
+  // 신뢰도 산출: 매칭 수 + 1위와 2위 차이 반영
+  const gap = topScore - secondScore;
+  const confidence = Math.min(0.95, (topScore * 0.15) + (gap * 0.1) + 0.3);
+  
+  const matchedKeywords = POSTURE_KEYWORDS[topPosture as InvestmentPosture]
+    .filter(kw => normalizedMemo.includes(kw.toLowerCase()));
+  
+  return {
+    value: topPosture as InvestmentPosture,
+    confidence: Math.round(confidence * 100) / 100,
+    reason: `키워드 감지: ${matchedKeywords.join(', ')}`,
+    confirmedBy: null,
+    confirmedAt: null,
+  };
+}

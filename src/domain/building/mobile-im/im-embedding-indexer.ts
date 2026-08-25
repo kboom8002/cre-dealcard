@@ -1,13 +1,13 @@
 // src/domain/building/mobile-im/im-embedding-indexer.ts
 
-import { createClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { MobileIMSection } from "./types";
 
 /**
  * IM 섹션 컨텐츠를 임베딩하여 RAG 검색을 위한 pgvector 인덱스에 저장합니다.
  */
 export async function indexIMSections(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   buildingId: string,
   sections: MobileIMSection[],
   metadata: Record<string, any>

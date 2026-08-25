@@ -25,7 +25,7 @@ const B2B_LEXICON: Record<string, string> = {
 /** B2C 전용 용어 매핑 */
 const B2C_LEXICON: Record<string, string> = {
   'NOI': '남는 돈(순영업수익 NOI)',
-  'Cap Rate': '연 순수익률(Cap Rate)',
+  'Cap Rate': '연 수익률(Cap Rate, 기준: NOI)',
   'DCF': '10년 미래 현금흐름 현재가치(DCF)',
   'IRR': '투자 수익률(IRR)',
   'DSCR': '원리금 상환 여력(DSCR)',
@@ -66,7 +66,7 @@ export const GOLDEN_IM_EXAMPLES_BY_POSTURE: Record<InvestmentPosture, string> = 
 | 항목 | 추정값 | 비고 |
 |------|--------|------|
 | **연간 순수익(남는 돈)** | 약 11.4억~14.0억 원 | 운영비 차감 후 실질 순수익 |
-| **연 순수익률(Cap Rate)** | **2.5%–3.1%** | 매매가 450억 기준 |
+| **연 수익률(Cap Rate, 기준: NOI)** | **2.5%–3.1%** | 매매가 450억 기준 |
 | **실투자금(내 돈)** | **약 180억 원** | 대출·보증금 차감 후 필요자금 |
 | **내 돈 대비 수익률** | **6.3%~7.8%** | 대출 활용 시 자기자본수익률 |
 | **땅값 비중(원금 안전판)** | **68.5%** | 높을수록 원금 하방 경직성 확보 |
@@ -162,7 +162,7 @@ export const MOBILE_IM_NARRATIVE_SYSTEM = `${MOBILE_IM_NARRATIVE_CORE}\n\n[참�
 export const POSTURE_LEXICONS: Record<InvestmentPosture, Record<string, string>> = {
   income: {
     'NOI': '연간 순수익(NOI)',
-    'Cap Rate': '연 순수익률(Cap Rate)',
+    'Cap Rate': '연 수익률(Cap Rate, 기준: NOI)',
     'WALE': '평균 잔여 임대기간(WALE)',
     'DSCR': '원리금 상환 여력(DSCR)',
     'IRR': '투자 수익률(IRR)',
@@ -236,7 +236,7 @@ export interface MarketIndicators {
 export interface SectionContext {
   keyFacts: string[];                      // 이전 섹션에서 추출된 핵심 사실
   sectionSummaries?: Record<string, string>;
-  numericalAnchors?: Record<string, number | string | undefined>; // 잠금 수치 (공실률, Cap Rate, 면적 등)
+  numericalAnchors?: import('./numerical-anchors').NumericalAnchors | Record<string, number | string | undefined>; // 잠금 수치 (공실률, Cap Rate, 면적 등)
 }
 
 /**
@@ -269,7 +269,7 @@ export function buildNarrativeUserPrompt(
       ? "사옥 실입주 시 임차 대비 임대료 절감액, 손익분기 기간 및 점유비용 효율성을 묘사하세요. 첫 문장에 '임차 대비 연 ○억 원 절감, 손익분기 ○년'을 명시하세요."
       : posture === 'trading'
       ? "평당 매매가, 인근 거래사례 대비 시세 할인율(갭) 및 목표 시세차익 수치를 묘사하세요. 첫 문장에 '인근 시세 대비 ○% 저평가, 목표 차익 ○억 원'을 명시하세요."
-      : "실투자금(내 돈), 월 순수익, 연 순수익률(Cap Rate), 대지 지분 가치 비중을 종합하여 현금흐름과 원금 안전성을 명확히 서술하세요.",
+      : "실투자금(내 돈), 월 순수익, 연 수익률(Cap Rate, 기준: NOI), 대지 지분 가치 비중을 종합하여 현금흐름과 원금 안전성을 명확히 서술하세요.",
     risk_check: "주요 리스크 항목과 이에 대한 '구체적 대응 방안(완화책)'을 함께 제시하세요. 리스크만 나열하지 말고 '어떻게 해결 가능한지'를 함께 서술하여 불안감을 해소하세요.",
     investment_thesis: "이 건물을 지금 사야 하는 '3대 핵심 투자 포인트'를 불릿 3줄(• **제목**: 상세설명)로 명확히 제시하고, 마지막 줄에 '> **종합 가치 제안**: 자산의 안정성과 성장성을 겸비한 우량 부동산으로...' 형식의 실질적 투자 결론을 도출하세요.",
     next_steps: "투자 검토 진행 절차(비밀유지약약서 NDA, 현장 실사, LOI 제출) 및 1:1 비밀 상담 안내를 제공하세요.",

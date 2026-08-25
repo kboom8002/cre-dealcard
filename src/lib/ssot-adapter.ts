@@ -1,6 +1,8 @@
 import { createServiceClient } from '@/lib/supabase/service';
 import type { Asset, Deal, LeaseUnit } from '@/types/database';
 import { extractSlotsFromMemo } from '@/domain/building/memo-slot-mapper';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * @module SSoT Adapter
@@ -378,4 +380,52 @@ export async function readManyWithMigration(buildingIds: string[]): Promise<{
   }
   
   return { results, migratedCount };
+}
+
+// F-3: im.pages.yaml 정본에서 면 순서 로딩
+let pageOrderCache: Record<string, string[]> | null = null;
+
+export function loadPageOrder(posture: string): string[] {
+  if (!pageOrderCache) {
+    try {
+      const yamlPath = path.join(process.cwd(), 'CREDEAL_IM_HANDOVER_v0.5', 'credeal', 'ssot', 'im.pages.yaml');
+      const raw = fs.readFileSync(yamlPath, 'utf-8');
+      // 간단한 YAML 파싱 (외부 의존성 없이)
+      const lines = raw.split('\n');
+      const result: Record<string, string[]> = {};
+      let currentKey = '';
+      let inOrder = false;
+      for (const line of lines) {
+        const keyMatch = line.match(/^\s{2}(\w+):/);
+        if (keyMatch) {
+          currentKey = keyMatch[1];
+          inOrder = false;
+          continue;
+        }
+        if (line.trim() === 'order:') {
+          inOrder = true;
+          result[currentKey] = [];
+          continue;
+        }
+        if (inOrder && line.trim().startsWith('- ')) {
+          result[currentKey].push(line.trim().replace('- ', ''));
+          continue;
+        }
+        if (inOrder && !line.trim().startsWith('- ') && line.trim() !== '') {
+          inOrder = false;
+        }
+      }
+      pageOrderCache = result;
+    } catch {
+      pageOrderCache = {};
+    }
+  }
+  
+  // 포스처 키로 조회, 없으면 기본 15개 순서
+  return pageOrderCache[posture] ?? [
+    'property_overview', 'title_rights', 'land_detail', 'location_access',
+    'lease_status', 'site_analysis', 'occupancy_fit', 'operation_overview', 'market_position',
+    'income_analysis', 'development_feasibility', 'gop_analysis', 'cost_comparison', 'comparable_analysis',
+    'risk_check', 'checklist', 'investment_thesis', 'next_steps',
+  ];
 }

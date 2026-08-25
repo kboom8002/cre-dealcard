@@ -174,3 +174,22 @@ export function scoreToGrade(score: number): 'A' | 'B' | 'C' | 'D' {
   if (score >= 40) return 'C';
   return 'D';
 }
+
+// E-4/E-5: P축(물건 해상도) 가중치 — 전 포스처 공통, 합 50
+export const P_WEIGHTS: Record<string, number> = {
+  land_parcel: 12,
+  building_basic: 12,
+  zoning: 10,
+  road_access: 8,
+  title_encumbrance: 8,
+};
+
+// E-4/E-5: L축(리드 해상도) 가중치 — 포스처별, 합 50
+export const L_WEIGHTS: Record<string, Record<string, number>> = {
+  income: { lease_roll: 30, financial_input: 20 },
+  operating: { operating_performance: 25, hospitality_spec: 10, financial_input: 15 },
+  development: { development_plan: 20, vacate_plan: 15, permit_risk: 15 },
+  owner_occupied: { occupancy_plan: 25, physical_spec: 25 },
+  trading: { market_comp: 25, holding_history: 25 },
+};
+

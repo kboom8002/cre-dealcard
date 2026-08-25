@@ -859,7 +859,7 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
   if (posture === 'income') {
     if (askPrice) metrics.push({ label: '매매 희망가', value: String(askPrice) });
     if (heroCard.equityRequiredBil) metrics.push({ label: '실투자금(내 돈)', value: `약 ${heroCard.equityRequiredBil}억 원` });
-    if (heroCard.capRateBase) metrics.push({ label: '연 순수익률(Cap Rate)', value: `${heroCard.capRateBase}%` });
+    if (heroCard.capRateBase) metrics.push({ label: '연 수익률(Cap Rate, 기준: NOI)', value: `${heroCard.capRateBase}%` });
     if (heroCard.leveragedYieldPct) metrics.push({ label: '자기자본수익률', value: `${heroCard.leveragedYieldPct}%` });
   } else if (posture === 'owner_occupied') {
     if (askPrice) metrics.push({ label: '매매 희망가', value: String(askPrice) });
@@ -889,7 +889,7 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
     const area = heroCard.totalAreaDisplay ?? heroCard.totalArea;
     const vacancy = heroCard.vacancyDisplay ?? heroCard.vacancy;
     if (askPrice) metrics.push({ label: '매각 희망가', value: askPrice, unit: '' });
-    if (yieldVal) metrics.push({ label: '연 순수익률', value: yieldVal, unit: '' });
+    if (yieldVal) metrics.push({ label: '연 수익률', value: yieldVal, unit: '' });
     if (area) metrics.push({ label: '연면적', value: area, unit: '' });
     if (vacancy) metrics.push({ label: '공실 현황', value: vacancy, unit: '' });
   }

@@ -1,0 +1,132 @@
+meta:
+  id: im.format
+  version: 1
+  owner: IM_STANDARD_수익형.md §6.4 (정본) + D19 §6C
+  note: |
+    숫자·면적·날짜 표기가 코드마다 흩어져 있으면 같은 값이 다르게 찍힙니다.
+    표기 함수는 이 파일 하나를 읽습니다.
+
+# ── 금액 ───────────────────────────────────────────────────────────────
+money:
+  units:
+    - key: eok
+      label: 억
+      value: 100000000
+    - key: man
+      label: 만
+      value: 10000
+  rules:
+    - context: hero            # 표지·요약 큰 숫자
+      unit: eok
+      decimals: 0
+      example: 115억
+    - context: table           # 표 안
+      unit: eok
+      decimals: 2
+      example: 121.33억
+    - context: rent            # 월세·보증금
+      unit: man
+      decimals: 0
+      thousands: true
+      example: 1,946만원
+    - context: table_man_col   # 머리행에 (만원)이 있는 열
+      unit: man
+      decimals: 0
+      thousands: true
+      suffix: ''               # 셀에서는 단위를 반복하지 않습니다
+      example: '6,000'
+  # 단위 전환 경계 — 애매한 구간을 없앱니다
+  switch_threshold:
+    man_to_eok: 100000000      # 1억 미만은 만, 이상은 억
+    note: 9,999만원은 만 · 1억원은 억. "1.0억"과 "10,000만"을 섞지 않습니다
+  forbidden:
+    - 천원 단위 혼용
+    - 소수 3자리 이상
+    - 억·만 동시 표기 (예 1억 2,000만) — 표에서는 금지, 본문 서술만 허용
+
+# ── 비율 ───────────────────────────────────────────────────────────────
+percent:
+  decimals: 2
+  require_basis: true          # 불변조건 2 — 기준 없는 비율은 렌더 금지
+  basis_position: 라벨 또는 인접 열
+  examples:
+    good: 2.03% (총임대료 ÷ 매매가)
+    bad: 연 순수익률 2.03%
+  special:
+    percentage_point:
+      suffix: '%p'
+      decimals: 1
+      example: 178.2%p
+
+# ── 면적 ───────────────────────────────────────────────────────────────
+area:
+  primary: sqm
+  require_pyeong: true         # ㎡·평 병기 필수
+  pyeong_ratio: 3.305785
+  sqm_decimals: 2
+  pyeong_decimals: 2
+  compact_pyeong_decimals: 1   # 좁은 셀
+  example: 507.40㎡ (153.49평)
+  forbidden:
+    - 평 단독 표기
+    - ㎡ 단독 표기 (표 머리행에 단위가 명시된 경우 제외)
+
+# ── 단가 ───────────────────────────────────────────────────────────────
+unit_price:
+  require_basis: true
+  bases:
+    - key: per_land_pyeong
+      label: 토지 평당가
+      formula: 매매가 ÷ 대지 평수
+    - key: per_gfa_pyeong
+      label: 연면적 평당가
+      formula: 매매가 ÷ 연면적 평수
+    - key: per_land_sqm
+      label: 토지 ㎡당
+    - key: per_gfa_sqm
+      label: 연면적 ㎡당
+  comparison_rule: |
+    분자와 분모의 basis가 다르면 비교하지 않습니다.
+    연면적 단가를 토지 실거래와 비교하면 항상 몇 배로 나옵니다.
+  unit: 만원/평
+  decimals: 0
+  thousands: true
+
+# ── 부호 ───────────────────────────────────────────────────────────────
+sign:
+  minus_char: '−'              # U+2212 · 하이픈을 쓰지 않습니다
+  negative_marker: '▼'         # 색 의존 금지 — 기호 병기
+  positive_marker: '▲'
+  rule: 음수는 색·기호·굵기 세 가지로 표시합니다
+
+# ── 날짜 ───────────────────────────────────────────────────────────────
+date:
+  full: 'YYYY-MM-DD'           # 계약 만료일 · 사용승인일
+  month: 'YYYY.MM'             # 발행 시점 · 조회 시점
+  short_forbidden: true        # 26.08 같은 2자리 연도 금지
+  require_as_of: true          # 공시지가·실거래는 시점이 값의 일부입니다
+  examples:
+    contract: '2026-08-31'
+    published: '2026.08'
+    source: '개별공시지가 2025'
+
+# ── 결손 표기 ──────────────────────────────────────────────────────────
+missing:
+  token: 확인 필요
+  forbidden_tokens: ['0', '—', '-', 'N/A', '없음', '미정']
+  rule: |
+    값이 없는 것을 0이나 —로 채우면 매수인은 확정된 0으로 읽습니다.
+    의미 있는 0(공실 0구획)만 0으로 씁니다.
+  computed_missing_phrase: '{이유} {대상}을(를) 산출하지 않았습니다'
+
+# ── 가정 표기 ──────────────────────────────────────────────────────────
+assumption:
+  marker: '◇'
+  require_basis: true
+  example: '◇ 대출금리 4.5% — 2026년 상업용 담보대출 통상 수준'
+
+# ── 조사 ───────────────────────────────────────────────────────────────
+josa:
+  rule: 받침으로 선택합니다. '을(를)' 병기 표기를 쓰지 않습니다
+  pairs: ['을/를', '이/가', '은/는', '과/와', '으로/로']
+  non_hangul_fallback: 받침 없는 형태

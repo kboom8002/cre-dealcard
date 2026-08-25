@@ -47,6 +47,10 @@ export function getSectionTitle(sectionType: MobileIMSectionType, assetType?: st
     // trading
     market_position:   `시장 내 자산 위치와 가격 경쟁력`,
     comparable_analysis: `유사 거래 사례 및 비교 분석`,
+    // 공통 확장 섹션
+    title_rights:      `등기부 권리관계와 소유 구조는 어떠한가`,
+    land_detail:        `토지 현황과 이용 조건은 어떠한가`,
+    comparables:        `주변 유사 매물과의 비교`,
   };
   return titles[sectionType] ?? "섹션 상세";
 }

@@ -7,6 +7,20 @@ import { RentRollImporter } from "@/components/broker/rent-roll-importer";
 import { computeFinancialSummary } from '@/domain/building/financials';
 import { uploadPhotosSequentially } from "@/lib/image-compressor";
 import { toast } from "sonner";
+import {
+  PostureSelector,
+  HospitalitySpecSection,
+  OwnerOccupiedSpecSection,
+  SectionalSpecSection,
+  ResidentialSpecSection,
+  DevelopmentSpecSection,
+  ParcelSection,
+  HoldingHistorySection,
+  OperatingPerfSection,
+  DataGradeFooter,
+} from "./bottom-sheet/sections";
+import { getInputOrder } from "./bottom-sheet/hooks/use-input-order";
+import { validateCombination } from "@/domain/ontology/asset-identity";
 
 interface ImDataBottomSheetProps {
   buildingId: string;
@@ -34,6 +48,8 @@ interface ImDataBottomSheetProps {
   gradeUpItems?: Array<{ field: string; label: string; gradeContribution: string }>;
   initialStage?: 'basic' | 'pro';
   targetTier?: 'basic' | 'pro';
+  /** C-2: AI 포스처 추천 */
+  postureProposal?: { value: string; confidence: number; reason: string };
 }
 
 type BottomSheetState = "idle" | "loading" | "success" | "error";
@@ -68,11 +84,12 @@ export function ImDataBottomSheet({
   prefillAskingPrice,
   prefillLoanAmount,
   prefillVacancyPct,
-  initialInvestmentPosture = "income",
+  initialInvestmentPosture, // 기본값 없음 — 중개인 필수 선택 (S2-2)
   currentDataGrade,
   gradeUpItems,
   initialStage,
   targetTier = 'basic',
+  postureProposal,
 }: ImDataBottomSheetProps) {
   const [stage, setStage] = useState<'basic' | 'pro'>(initialStage || targetTier);
   const [state, setState] = useState<BottomSheetState>("idle");
@@ -85,7 +102,7 @@ export function ImDataBottomSheet({
   const [monthlyRent, setMonthlyRent] = useState(""); // 만원 단위
   
   // ── 포스처 및 Pack Slot 신규 State ──
-  const [investmentPosture, setInvestmentPosture] = useState<string>(initialInvestmentPosture);
+  const [investmentPosture, setInvestmentPosture] = useState<string>(initialInvestmentPosture || "");
 
   // 누락 필드 하이라이팅 헬퍼
   const getFieldClass = (fieldName: string, baseClass: string = "bg-secondary/50 border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1") => {
@@ -155,6 +172,7 @@ export function ImDataBottomSheet({
   const [sectionalOwnerCount, setSectionalOwnerCount] = useState<string>("");
   const [sectionalManagementBody, setSectionalManagementBody] = useState<string>("unknown");
   const [sectionalMasterLease, setSectionalMasterLease] = useState<string>("no");
+  const [jointCollateralGroup, setJointCollateralGroup] = useState<string>("");
   const [sectionalLandSharePct, setSectionalLandSharePct] = useState<string>("100");
   const [sectionalFullPurchase, setSectionalFullPurchase] = useState<string>("full");
 
@@ -164,6 +182,26 @@ export function ImDataBottomSheet({
   const [resMonthlyUnits, setResMonthlyUnits] = useState<string>("");
   const [resJeonseDepositTotalManwon, setResJeonseDepositTotalManwon] = useState<string>("");
   const [resIllegalExtension, setResIllegalExtension] = useState<boolean>(false);
+
+  // ── trading 포스처 (보유이력) ──
+  const [acquisitionDate, setAcquisitionDate] = useState<string>("");
+  const [acquisitionPriceManwon, setAcquisitionPriceManwon] = useState<string>("");
+  const [holdingMonths, setHoldingMonths] = useState<string>("");
+  const [transferCountIn10Y, setTransferCountIn10Y] = useState<string>("");
+  const [sellerMotive, setSellerMotive] = useState<string>("");
+
+  // ── operating 포스처 (운영실적 확장) ──
+  const [unitKind, setUnitKind] = useState<string>("room");
+  const [unitCount, setUnitCount] = useState<string>("");
+  const [licenceTransferable, setLicenceTransferable] = useState<boolean | null>(null);
+  const [annualRevenue, setAnnualRevenue] = useState<string>("");
+  const [annualGop, setAnnualGop] = useState<string>("");
+
+  // ── 필지 (ParcelSection) ──
+  const [parcels, setParcels] = useState<Array<{
+    pnu: string; landCategory: string; areaM2: string;
+    shareRatio: string; officialPricePerM2: string;
+  }>>([]);
 
 
 
@@ -200,6 +238,12 @@ export function ImDataBottomSheet({
   const computedMissingFields = React.useMemo(() => {
     const missing: string[] = [];
     
+    // 0. 포스처 미선택 시 최우선 결손 (S2-2)
+    if (!investmentPosture) {
+      missing.push('investmentPosture');
+      return missing; // 포스처 없으면 다른 검증 불필요
+    }
+
     // 1. 공통 필수 항목
     if (!address && !pnu) missing.push('address');
     if (!askingPrice || Number(askingPrice) <= 0) missing.push('askingPrice');
@@ -226,7 +270,33 @@ export function ImDataBottomSheet({
     }
     
     return missing;
-  }, [address, pnu, askingPrice, investmentPosture, monthlyRent, totalDeposit, occHeadcount, occDesiredFloors, devTargetUse, devTargetScalePyung, roomCount, averageDailyRate]);
+    // trading 포스처 필드 검증
+    if (investmentPosture === 'trading') {
+      if (!acquisitionPriceManwon) missing.push('acquisitionPriceManwon');
+    }
+    // operating 포스처 확장 필드 검증
+    if (investmentPosture === 'operating') {
+      if (!unitKind) missing.push('unitKind');
+    }
+
+  }, [address, pnu, askingPrice, investmentPosture, monthlyRent, totalDeposit, occHeadcount, occDesiredFloors, devTargetUse, devTargetScalePyung, roomCount, averageDailyRate, acquisitionPriceManwon, unitKind]);
+
+  // U-6: 포스처 변경 시 조합 검증
+  const handlePostureChange = (newPosture: string) => {
+    if (assetType && newPosture) {
+      const result = validateCombination(assetType as Parameters<typeof validateCombination>[0], newPosture as Parameters<typeof validateCombination>[1]);
+      if (result.status === 'blocked') {
+        toast.error(result.message);
+        return;
+      }
+      if (result.status === 'caution') {
+        toast.warning(result.message);
+      }
+    }
+    setInvestmentPosture(newPosture);
+  };
+
+
 
   // Sync props when opening/changing
   useEffect(() => {
@@ -359,9 +429,9 @@ export function ImDataBottomSheet({
         max_vehicle_ton: maxVehicleTon ? parseInt(maxVehicleTon) : undefined,
         floor_load_ton_m2: floorLoadTon ? parseFloat(floorLoadTon) : undefined,
         cold_storage_area_pyeong: coldStorageArea ? parseFloat(coldStorageArea) : undefined,
-        cold_storage_type: coldStorageType as any,
+        cold_storage_type: coldStorageType,
         loading_area_pyeong: loadingArea ? parseFloat(loadingArea) : undefined,
-        vehicle_access_type: vehicleAccessType as any,
+        vehicle_access_type: vehicleAccessType,
         fire_rating: fireRating || undefined,
         sprinkler,
         column_span_m: columnSpan || undefined,
@@ -434,6 +504,31 @@ export function ImDataBottomSheet({
         illegalExtension: resIllegalExtension,
       } : undefined;
 
+      const holdingHistorySpec = investmentPosture === 'trading' ? {
+        acquisitionDate: acquisitionDate || undefined,
+        acquisitionPriceManwon: acquisitionPriceManwon ? Number(acquisitionPriceManwon) : undefined,
+        holdingMonths: holdingMonths ? parseInt(holdingMonths) : undefined,
+        transferCountIn10Y: transferCountIn10Y ? parseInt(transferCountIn10Y) : undefined,
+        sellerMotive: sellerMotive || undefined,
+      } : undefined;
+
+      const operatingPerfSpec = investmentPosture === 'operating' ? {
+        unitKind,
+        unitCount: unitCount ? parseInt(unitCount) : undefined,
+        operationModel: operatingModel,
+        licenceTransferable,
+        annualRevenue: annualRevenue ? Number(annualRevenue) : undefined,
+        annualGop: annualGop ? Number(annualGop) : undefined,
+      } : undefined;
+
+      const parcelsData = parcels.length > 0 ? parcels.map(p => ({
+        pnu: p.pnu,
+        landCategory: p.landCategory,
+        areaM2: p.areaM2 ? parseFloat(p.areaM2) : undefined,
+        shareRatio: p.shareRatio ? parseFloat(p.shareRatio) : undefined,
+        officialPricePerM2: p.officialPricePerM2 ? parseFloat(p.officialPricePerM2) : undefined,
+      })) : undefined;
+
       const requestBody = {
         building_id: buildingId,
         investment_posture: investmentPosture,
@@ -454,7 +549,7 @@ export function ImDataBottomSheet({
         photo_captions: Object.keys(photoCaptions).length > 0 ? photoCaptions : undefined,
         photos_v2: [...existingUrls, ...uploadedPhotoUrls].map((url, idx) => ({
           url,
-          category: (photoCategories[idx] || (idx === 0 ? 'exterior' : 'interior')) as any,
+          category: (photoCategories[idx] || (idx === 0 ? 'exterior' : 'interior')),
           caption: photoCaptions[idx] || undefined,
           isHero: idx === heroPhotoIndex,
           role: idx === heroPhotoIndex ? 'cover' 
@@ -471,6 +566,9 @@ export function ImDataBottomSheet({
         occupancySpec,
         sectionalSpec,
         residentialSpec,
+        holdingHistorySpec,
+        operatingPerfSpec,
+        parcels: parcelsData,
         manual_comps: manualComps.length > 0 ? manualComps
           .filter(mc => mc.address && Number(mc.dealAmount) > 0 && Number(mc.area) > 0)
           .map(mc => ({
@@ -698,35 +796,11 @@ export function ImDataBottomSheet({
         {/* Scrollable Form Area */}
         <div className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-6 mb-6 pb-10">
           {/* 🎯 투자 포스처 선택 */}
-          <div>
-            <label className="block text-xs font-semibold text-muted-foreground mb-1.5 flex justify-between items-center">
-              <span>🎯 투자 포스처 선택</span>
-              <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">위젯 맞춤</span>
-            </label>
-            <div className="grid grid-cols-5 gap-1">
-              {[
-                { id: 'income', label: '임대수익', emoji: '💰' },
-                { id: 'owner_occupied', label: '자가사용', emoji: '🏢' },
-                { id: 'development', label: '개발형', emoji: '🏗️' },
-                { id: 'operating', label: '운영형', emoji: '🏨' },
-                { id: 'trading', label: '단기매매', emoji: '📈' },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setInvestmentPosture(item.id)}
-                  className={`py-2 px-1 rounded-xl text-[11px] font-semibold border transition-all flex flex-col items-center gap-0.5 ${
-                    investmentPosture === item.id
-                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                      : "bg-secondary/40 text-muted-foreground border-border hover:border-primary/40"
-                  }`}
-                >
-                  <span className="text-sm">{item.emoji}</span>
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+          <PostureSelector
+            investmentPosture={investmentPosture}
+            setInvestmentPosture={setInvestmentPosture}
+            postureProposal={postureProposal}
+          />
 
           {/* 주소 + 월세 + 렌트롤 — Basic에도 표시 */}
               <div>
@@ -1082,58 +1156,29 @@ export function ImDataBottomSheet({
             )}
 
             {/* 🏨 운영형 (호텔/모텔/펜션) 전용 필드 */}
-            {['hotel', 'resort', 'motel', 'pension', 'guest_house'].some(
-              t => assetType?.toLowerCase().includes(t) || assetType?.includes('호텔')
-            ) && (
-              <div className="col-span-2 mt-3 border-t border-amber-500/30 pt-4 bg-amber-500/5 p-3.5 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-amber-300">🏨 운영형 (숙박/호텔) 매물 상세 정보</label>
-                  <span className="text-[10px] text-amber-400/80 font-medium">위젯 자동 시뮬레이션에 활용</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">총 객실 수</label>
-                    <input
-                      type="number"
-                      placeholder="예: 45"
-                      value={roomCount}
-                      onChange={(e) => setRoomCount(e.target.value)}
-                      className="w-full bg-secondary/50 border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">평균 객단가 (ADR)</label>
-                    <input
-                      type="number"
-                      placeholder="예: 12 (만원)"
-                      value={averageDailyRate}
-                      onChange={(e) => setAverageDailyRate(e.target.value)}
-                      className="w-full bg-secondary/50 border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">객실 점유율 (OCC)</label>
-                    <input
-                      type="number"
-                      placeholder="예: 75 (%)"
-                      value={occupancyRate}
-                      onChange={(e) => setOccupancyRate(e.target.value)}
-                      className="w-full bg-secondary/50 border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">GOP 마진율</label>
-                    <input
-                      type="number"
-                      placeholder="예: 30 (%)"
-                      value={gopMargin}
-                      onChange={(e) => setGopMargin(e.target.value)}
-                      className="w-full bg-secondary/50 border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
+            <HospitalitySpecSection
+              assetType={assetType}
+              roomCount={roomCount} setRoomCount={setRoomCount}
+              averageDailyRate={averageDailyRate} setAverageDailyRate={setAverageDailyRate}
+              occupancyRate={occupancyRate} setOccupancyRate={setOccupancyRate}
+              gopMargin={gopMargin} setGopMargin={setGopMargin}
+            />
+
+            {/* 📊 운영형 확장 필드 (OperatingPerfSection) */}
+            <OperatingPerfSection
+              investmentPosture={investmentPosture}
+              assetType={assetType}
+              roomCount={roomCount} setRoomCount={setRoomCount}
+              averageDailyRate={averageDailyRate} setAverageDailyRate={setAverageDailyRate}
+              occupancyRate={occupancyRate} setOccupancyRate={setOccupancyRate}
+              gopMargin={gopMargin} setGopMargin={setGopMargin}
+              unitKind={unitKind} setUnitKind={setUnitKind}
+              unitCount={unitCount} setUnitCount={setUnitCount}
+              operationModel={operatingModel} setOperationModel={setOperatingModel}
+              licenceTransferable={licenceTransferable} setLicenceTransferable={setLicenceTransferable}
+              annualRevenue={annualRevenue} setAnnualRevenue={setAnnualRevenue}
+              annualGop={annualGop} setAnnualGop={setAnnualGop}
+            />
 
             {/* 부가수입 섹션 */}
             {stage === 'pro' && (
@@ -1636,296 +1681,65 @@ export function ImDataBottomSheet({
             </div>
           )}
 
-          {/* 🏗️ 개발형 전용 필드 (DevelopmentPlan, VacatePlan, PermitRisk) */}
-          {investmentPosture === 'development' && (
-            <div className="border border-indigo-500/30 rounded-xl p-4 bg-indigo-500/5 space-y-4">
-              <div className="flex justify-between items-center border-b border-indigo-500/20 pb-2">
-                <span className="text-xs font-bold text-indigo-300">🏗️ 개발 계획 & 명도 조건 & 인허가</span>
-                <span className="text-[10px] text-indigo-400 font-medium">개발형 위젯 및 Grade A 승격 필수</span>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2 text-[11px] font-bold text-muted-foreground/80">1. 개발 계획</div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">목표 용도</label>
-                  <select
-                    value={devTargetUse}
-                    onChange={(e) => setDevTargetUse(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  >
-                    <option value="office">오피스 빌딩</option>
-                    <option value="commercial">근린생활시설/상가</option>
-                    <option value="residential">주거/오피스텔</option>
-                    <option value="mixed">복합개발</option>
-                    <option value="logistics">물류센터</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">목표 연면적 (평)</label>
-                  <input
-                    type="number"
-                    placeholder="예: 1200"
-                    value={devTargetScalePyung}
-                    onChange={(e) => setDevTargetScalePyung(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">예상 분양/매각가 (만원/평)</label>
-                  <input
-                    type="number"
-                    placeholder="예: 4500"
-                    value={devExpectedSalePricePerPyung}
-                    onChange={(e) => setDevExpectedSalePricePerPyung(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">예상 공사비 (만원/평)</label>
-                  <input
-                    type="number"
-                    placeholder="예: 750"
-                    value={devConstructionCostPerPyung}
-                    onChange={(e) => setDevConstructionCostPerPyung(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  />
-                </div>
+          {/* 📐 필지·제척 입력 */}
+          <ParcelSection
+            parcels={parcels}
+            setParcels={setParcels}
+            ledgerTotalM2={0}
+          />
 
-                <div className="col-span-2 text-[11px] font-bold text-muted-foreground/80 mt-2 border-t border-border/40 pt-2">2. 명도 조건</div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">명도 책임</label>
-                  <select
-                    value={vacateResponsibility}
-                    onChange={(e) => setVacateResponsibility(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  >
-                    <option value="seller">매도인 책임 명도</option>
-                    <option value="buyer">매수인 인수 후 명도</option>
-                    <option value="negotiation">매도/매수 협의</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">현재 임차인 수</label>
-                  <input
-                    type="number"
-                    placeholder="예: 8"
-                    value={vacateTenantCount}
-                    onChange={(e) => setVacateTenantCount(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">예상 명도 비용 (만원)</label>
-                  <input
-                    type="number"
-                    placeholder="예: 5000"
-                    value={vacateEstimatedCostManwon}
-                    onChange={(e) => setVacateEstimatedCostManwon(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">예상 명도 기간 (개월)</label>
-                  <input
-                    type="number"
-                    placeholder="예: 6"
-                    value={vacateEstimatedMonths}
-                    onChange={(e) => setVacateEstimatedMonths(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  />
-                </div>
+          {/* 🏗️ 개발형 전용 필드 */}
+          <DevelopmentSpecSection
+            investmentPosture={investmentPosture}
+            devTargetUse={devTargetUse} setDevTargetUse={setDevTargetUse}
+            devTargetScalePyung={devTargetScalePyung} setDevTargetScalePyung={setDevTargetScalePyung}
+            devExpectedSalePricePerPyung={devExpectedSalePricePerPyung} setDevExpectedSalePricePerPyung={setDevExpectedSalePricePerPyung}
+            devConstructionCostPerPyung={devConstructionCostPerPyung} setDevConstructionCostPerPyung={setDevConstructionCostPerPyung}
+            vacateResponsibility={vacateResponsibility} setVacateResponsibility={setVacateResponsibility}
+            vacateTenantCount={vacateTenantCount} setVacateTenantCount={setVacateTenantCount}
+            vacateEstimatedCostManwon={vacateEstimatedCostManwon} setVacateEstimatedCostManwon={setVacateEstimatedCostManwon}
+            vacateEstimatedMonths={vacateEstimatedMonths} setVacateEstimatedMonths={setVacateEstimatedMonths}
+            permitStatus={permitStatus} setPermitStatus={setPermitStatus}
+            permitEstimatedMonths={permitEstimatedMonths} setPermitEstimatedMonths={setPermitEstimatedMonths}
+          />
 
-                <div className="col-span-2 text-[11px] font-bold text-muted-foreground/80 mt-2 border-t border-border/40 pt-2">3. 인허가 리스크</div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">인허가 진행 상태</label>
-                  <select
-                    value={permitStatus}
-                    onChange={(e) => setPermitStatus(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  >
-                    <option value="completed">허가 완료</option>
-                    <option value="in_progress">심의/진행 중</option>
-                    <option value="not_started">미착수 (매수 후 착수)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">예상 인허가 기간 (개월)</label>
-                  <input
-                    type="number"
-                    placeholder="예: 4"
-                    value={permitEstimatedMonths}
-                    onChange={(e) => setPermitEstimatedMonths(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+          {/* 🏢 자가사용형 전용 필드 */}
+          <OwnerOccupiedSpecSection
+            investmentPosture={investmentPosture}
+            occHeadcount={occHeadcount} setOccHeadcount={setOccHeadcount}
+            occAreaPerHeadPyung={occAreaPerHeadPyung} setOccAreaPerHeadPyung={setOccAreaPerHeadPyung}
+            occDesiredFloors={occDesiredFloors} setOccDesiredFloors={setOccDesiredFloors}
+            occCurrentRentManwon={occCurrentRentManwon} setOccCurrentRentManwon={setOccCurrentRentManwon}
+          />
 
-          {/* 🏢 자가사용형 전용 필드 (OccupancyPlan) */}
-          {investmentPosture === 'owner_occupied' && (
-            <div className="border border-blue-500/30 rounded-xl p-4 bg-blue-500/5 space-y-3">
-              <div className="flex justify-between items-center border-b border-blue-500/20 pb-2">
-                <span className="text-xs font-bold text-blue-300">🏢 사옥 입주 및 자가사용 계획</span>
-                <span className="text-[10px] text-blue-400 font-medium">자가사용 위젯 시뮬레이션</span>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">예상 입주 인원 (명)</label>
-                  <input
-                    type="number"
-                    placeholder="예: 100"
-                    value={occHeadcount}
-                    onChange={(e) => setOccHeadcount(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">1인당 필요 면적 (평)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="예: 3.3"
-                    value={occAreaPerHeadPyung}
-                    onChange={(e) => setOccAreaPerHeadPyung(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">희망 사용 층</label>
-                  <input
-                    type="text"
-                    placeholder="예: 지상 2~5층"
-                    value={occDesiredFloors}
-                    onChange={(e) => setOccDesiredFloors(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">현재 사옥 월 임차료 (만원)</label>
-                  <input
-                    type="number"
-                    placeholder="예: 3000 (매입 비교용)"
-                    value={occCurrentRentManwon}
-                    onChange={(e) => setOccCurrentRentManwon(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+          {/* 📊 구분소유 건물 필드 */}
+          <SectionalSpecSection
+            assetType={assetType}
+            sectionalOwnerCount={sectionalOwnerCount} setSectionalOwnerCount={setSectionalOwnerCount}
+            sectionalLandSharePct={sectionalLandSharePct} setSectionalLandSharePct={setSectionalLandSharePct}
+            sectionalManagementBody={sectionalManagementBody} setSectionalManagementBody={setSectionalManagementBody}
+            sectionalMasterLease={sectionalMasterLease} setSectionalMasterLease={setSectionalMasterLease}
+            jointCollateralGroup={jointCollateralGroup} setJointCollateralGroup={setJointCollateralGroup}
+          />
 
-          {/* 📊 구분소유 건물 필드 (SectionalSpec) */}
-          {['officetel', 'knowledge_center', 'retail_strip', 'serviced_residence'].some(
-            t => assetType?.toLowerCase().includes(t) || assetType?.includes('오피스텔') || assetType?.includes('지식산업') || assetType?.includes('상가')
-          ) && (
-            <div className="border border-purple-500/30 rounded-xl p-4 bg-purple-500/5 space-y-3">
-              <div className="flex justify-between items-center border-b border-purple-500/20 pb-2">
-                <span className="text-xs font-bold text-purple-300">📊 구분소유 상세 정보</span>
-                <span className="text-[10px] text-purple-400 font-medium">지분/권리관계 확인</span>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">구분소유자 수 (명)</label>
-                  <input
-                    type="number"
-                    placeholder="예: 45"
-                    value={sectionalOwnerCount}
-                    onChange={(e) => setSectionalOwnerCount(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">토지지분 비율 (%)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="예: 100"
-                    value={sectionalLandSharePct}
-                    onChange={(e) => setSectionalLandSharePct(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">관리단 구성 여부</label>
-                  <select
-                    value={sectionalManagementBody}
-                    onChange={(e) => setSectionalManagementBody(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  >
-                    <option value="yes">관리단 구성됨</option>
-                    <option value="no">관리단 없음</option>
-                    <option value="unknown">미확인</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">마스터리스 계약</label>
-                  <select
-                    value={sectionalMasterLease}
-                    onChange={(e) => setSectionalMasterLease(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  >
-                    <option value="no">없음 (개별 임대)</option>
-                    <option value="yes">있음 (통임대 운영중)</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* 🏠 주거 사양 필드 */}
+          <ResidentialSpecSection
+            assetType={assetType}
+            resTotalUnits={resTotalUnits} setResTotalUnits={setResTotalUnits}
+            resJeonseUnits={resJeonseUnits} setResJeonseUnits={setResJeonseUnits}
+            resJeonseDepositTotalManwon={resJeonseDepositTotalManwon} setResJeonseDepositTotalManwon={setResJeonseDepositTotalManwon}
+            resIllegalExtension={resIllegalExtension} setResIllegalExtension={setResIllegalExtension}
+          />
 
-          {/* 🏠 주거 사양 필드 (ResidentialSpec) */}
-          {['multi_household', 'multi_family', 'mixed_shop_house'].some(
-            t => assetType?.toLowerCase().includes(t) || assetType?.includes('다세대') || assetType?.includes('다가구') || assetType?.includes('상가주택')
-          ) && (
-            <div className="border border-emerald-500/30 rounded-xl p-4 bg-emerald-500/5 space-y-3">
-              <div className="flex justify-between items-center border-b border-emerald-500/20 pb-2">
-                <span className="text-xs font-bold text-emerald-300">🏠 주거 세대 스펙</span>
-                <span className="text-[10px] text-emerald-400 font-medium">전세/월세 보증금</span>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">총 세대수</label>
-                  <input
-                    type="number"
-                    placeholder="예: 12"
-                    value={resTotalUnits}
-                    onChange={(e) => setResTotalUnits(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">전세 세대수</label>
-                  <input
-                    type="number"
-                    placeholder="예: 4"
-                    value={resJeonseUnits}
-                    onChange={(e) => setResJeonseUnits(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground mb-1">전세 보증금 합계 (만원)</label>
-                  <input
-                    type="number"
-                    placeholder="예: 80000"
-                    value={resJeonseDepositTotalManwon}
-                    onChange={(e) => setResJeonseDepositTotalManwon(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                  />
-                </div>
-                <div className="flex items-center gap-2 pt-4">
-                  <input
-                    type="checkbox"
-                    id="resIllegalExtension"
-                    checked={resIllegalExtension}
-                    onChange={(e) => setResIllegalExtension(e.target.checked)}
-                    className="rounded border-border text-emerald-500 focus:ring-emerald-500 w-4 h-4 bg-background"
-                  />
-                  <label htmlFor="resIllegalExtension" className="text-xs text-muted-foreground cursor-pointer">불법 증축/옥탑 포함</label>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* 📜 보유이력 (trading 전용) */}
+          <HoldingHistorySection
+            investmentPosture={investmentPosture}
+            acquisitionDate={acquisitionDate} setAcquisitionDate={setAcquisitionDate}
+            acquisitionPriceManwon={acquisitionPriceManwon} setAcquisitionPriceManwon={setAcquisitionPriceManwon}
+            holdingMonths={holdingMonths} setHoldingMonths={setHoldingMonths}
+            transferCountIn10Y={transferCountIn10Y} setTransferCountIn10Y={setTransferCountIn10Y}
+            sellerMotive={sellerMotive} setSellerMotive={setSellerMotive}
+          />
 
           {/* Comment */}
           <div>
@@ -1944,81 +1758,11 @@ export function ImDataBottomSheet({
 
         {/* Footer actions - Fixed at bottom */}
         <div className="shrink-0 pt-3 border-t border-border/40 mt-auto bg-background">
-          {/* v3: Data Grade Progress */}
-          <div className={`rounded-xl p-3 mb-3 border-2 transition-colors ${
-            canGenerate ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-500/30" : "bg-amber-50 dark:bg-amber-950/30 border-amber-500/30"
-          }`}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-foreground">데이터 등급</span>
-              <span className={`text-sm font-bold ${
-                currentDataGrade === 'A' ? 'text-emerald-500' :
-                currentDataGrade === 'B' ? 'text-blue-500' : 'text-amber-500'
-              }`}>
-                {currentDataGrade ? `${currentDataGrade}등급` : `${readinessScore}점`}
-              </span>
-            </div>
-            <div className="w-full bg-secondary rounded-full h-2 mb-2">
-              <div
-                className={`h-2 rounded-full transition-all duration-500 ${
-                  currentDataGrade === 'A' ? 'bg-emerald-500' :
-                  currentDataGrade === 'B' ? 'bg-blue-500' : 'bg-amber-500'
-                }`}
-                style={{ width: `${currentDataGrade === 'A' ? 100 : currentDataGrade === 'B' ? 66 : 33}%` }}
-              />
-            </div>
-            {/* 포스처별 누락 필드 안내 */}
-            {(() => {
-              const isHospitality = ['hotel', 'resort', 'motel', 'pension', 'guest_house', '호텔', '리조트', '모텔', '펜션'].some(t => assetType?.toLowerCase()?.includes(t));
-              const isDev = ['토지', '나대지', 'land', '개발'].some(t => assetType?.toLowerCase()?.includes(t));
-              const isOwnerOcc = ['사옥', '자가사용', 'owner'].some(t => assetType?.toLowerCase()?.includes(t));
-
-              let hint = '';
-              if (isHospitality && !roomCount && !averageDailyRate) {
-                hint = '💡 객실 수/ADR/OCC를 입력하면 운영 수익 시뮬레이터가 활성화됩니다';
-              } else if (isDev) {
-                hint = '💡 주소를 입력하면 건축물대장에서 용적률 여유가 자동 계산됩니다';
-              } else if (isOwnerOcc) {
-                hint = '💡 현재 공실/가용 면적을 입력하면 사옥 매수 비교기가 활성화됩니다';
-              } else if (!monthlyRent && !totalDeposit) {
-                hint = '💡 렌트롤(임대료/보증금)을 입력하면 딜카드에 수익률이 표시됩니다';
-              } else if (!askingPrice) {
-                hint = '💡 매각가를 입력하면 권역 실거래가 대비 시세 비교가 활성화됩니다';
-              }
-
-              if (!hint) return null;
-              return (
-                <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-700/40 rounded-lg p-2.5 mb-2">
-                  <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium">{hint}</p>
-                </div>
-              );
-            })()}
-            {gradeUpItems && gradeUpItems.length > 0 && (
-              <div className="space-y-1 mt-2">
-                <p className="text-[10px] text-muted-foreground font-medium">등급 업을 위해 필요한 항목:</p>
-                {gradeUpItems.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between text-[10px]">
-                    <span className="text-amber-600 dark:text-amber-400">⚠️ {item.label}</span>
-                    <span className="text-muted-foreground bg-secondary/80 px-1.5 py-0.5 rounded text-[9px]">{item.gradeContribution}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {/* 등급별 IM 구성 안내 */}
-            <div className="flex items-center gap-2 mt-2">
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                currentDataGrade === 'C' 
-                  ? 'bg-amber-500/15 text-amber-500' 
-                  : 'bg-emerald-500/15 text-emerald-500'
-              }`}>
-                {currentDataGrade === 'C' ? '⚠️ 데이터 보강 권장' : `🟢 IM 작성 가능 (${currentDataGrade}등급)`}
-              </span>
-              {currentDataGrade !== 'A' && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-blue-500/15 text-blue-400">
-                  💡 A등급 달성 시 DCF 분석 포함
-                </span>
-              )}
-            </div>
-          </div>
+          {/* v3: Data Grade Progress — DataGradeFooter 컴포넌트 */}
+          <DataGradeFooter
+            currentGrade={currentDataGrade}
+            gradeUpItems={gradeUpItems}
+          />
 
           {/* Error & CTA */}
           {state === "error" && (

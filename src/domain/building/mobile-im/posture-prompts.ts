@@ -48,7 +48,7 @@ const POSTURE_OVERLAYS: Record<string, Record<string, string>> = {
   • 원금 안전판: 토지 지분 가치 비중과 입지 희소성을 통한 원금 보전력
   • 현금흐름 확실성: 만실 임대차 또는 우량 테넌트 기반의 예측 가능한 월 순수익
   • 레버리지 효과: 대출 활용 시 자기자본수익률 및 향후 자산가치 상승 여력
-- 전문 약어는 한글(약어) 형태로 표기하세요. (예: 연 순수익률(Cap Rate), 순영업수익(NOI))`,
+- 전문 약어는 한글(약어) 형태로 표기하세요. (예: 연 수익률(Cap Rate, 기준: NOI), 순영업수익(NOI))`,
   },
   owner_occupied: {
     occupancy_fit: `

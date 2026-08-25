@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
 
           const { data: existing } = await bgSupabase
             .from("building_ssot_lite")
-            .select("layers, lease_summary")
+            .select("layers, lease_summary, investment_posture")
             .eq("id", buildingId)
             .single();
 
@@ -226,6 +226,30 @@ export async function POST(req: NextRequest) {
             };
             if (investmentPostureInput) {
               updatePayload.investment_posture = investmentPostureInput;
+              
+              // C-4: 포스처 변경 시 기존 생성물 무효화
+              const previousPosture = existing.investment_posture;
+              if (previousPosture && previousPosture !== investmentPostureInput) {
+                await bgSupabase
+                  .from('im_documents')
+                  .update({ invalidated_at: new Date().toISOString() })
+                  .eq('building_id', buildingId)
+                  .is('invalidated_at', null);
+                
+                console.log(`[generate-async] Posture changed ${previousPosture} → ${investmentPostureInput}, invalidated existing IMs for ${buildingId}`);
+
+                // S2-4: 포스처 결정 이력 기록
+                const { error: pdErr } = await bgSupabase.from('posture_decisions').insert({
+                  deal_id: buildingId,
+                  proposed_posture: null,
+                  proposed_confidence: null,
+                  proposed_reason: null,
+                  confirmed_posture: investmentPostureInput,
+                  confirmed_by: user,
+                  changed_from: previousPosture,
+                });
+                if (pdErr) console.warn('[generate-async] posture_decisions insert failed:', pdErr.message);
+              }
             }
             // 주소를 top-level raw_address 컬럼에도 역류 저장
             if (supplemental.resolved_address) {

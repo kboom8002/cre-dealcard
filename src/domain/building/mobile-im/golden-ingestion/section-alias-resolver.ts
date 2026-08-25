@@ -74,6 +74,18 @@ const SECTION_ALIAS_MAP: Record<MobileIMSectionType, string[]> = {
   comparable_analysis: [
     '비교사례 분석', '유사 거래', 'Comparable Analysis',
   ],
+  title_rights: [
+    '등기부 권리관계', '등기 분석', '권리관계', 'Title Rights', 'Title Analysis',
+    '등기부등본', '소유권', '근저당', '권리 분석',
+  ],
+  land_detail: [
+    '토지 상세', '토지 분석', '필지 분석', 'Land Detail', 'Land Analysis',
+    '대지 현황', '토지이용계획', '토지 현황',
+  ],
+  comparables: [
+    '비교 매물', '비교매물', '유사매물', 'Comparables', 'Comparable Properties',
+    '시세 비교', '실거래 비교', '주변 시세',
+  ],
 };
 
 // ─── 유사도 계산 (토큰 오버랩 + Levenshtein) ─────────────────────────────────
@@ -239,6 +251,9 @@ export function getSectionDisplayName(type: MobileIMSectionType): string {
     gop_analysis: 'GOP 분석',
     market_position: '시장 포지셔닝',
     comparable_analysis: '비교사례 분석',
+    title_rights: '등기부 권리관계',
+    land_detail: '토지 상세',
+    comparables: '비교 매물',
   };
   return displayNames[type] || type;
 }

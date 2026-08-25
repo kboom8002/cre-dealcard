@@ -1,0 +1,311 @@
+{
+  "fixtureId": "yangpyeong",
+  "maskNote": "물건명 마스킹 · 업종은 원문 유지 · 지번 제외",
+  "asset": {
+    "assetId": "FX-YP-001",
+    "addressBand": "서울특별시 영등포구 양평동4가",
+    "buildingUse": "업무시설",
+    "assetType": "office",
+    "totalFloorAreaSqm": 2490.88,
+    "farBaseAreaSqm": 2068.63,
+    "buildingCoverageRatio": 58.4,
+    "floorAreaRatio": 398.8
+  },
+  "posture": "income",
+  "financial": {
+    "priceKrw": 25000000000,
+    "depositKrw": 495000000,
+    "monthlyRentKrw": 46570000,
+    "mgmtFeeKrw": 5760000,
+    "opexKrw": null,
+    "loanKrw": null,
+    "loanRate": null,
+    "brokerFeeKrw": null,
+    "otherCostKrw": null
+  },
+  "ledger": {
+    "asOf": null,
+    "statedMonthlyRent": 50170000,
+    "statedDepositKrw": 535000000,
+    "statedMgmtFeeKrw": 6480000,
+    "statedTotalAreaSqm": 2490.88,
+    "rows": [
+      {
+        "unitLabel": "10F",
+        "contractGroup": null,
+        "leaseAreaSqm": null,
+        "tenantBusiness": "운동시설",
+        "legalBasis": "상가",
+        "depositKrw": 43000000,
+        "monthlyRentKrw": 4590000,
+        "mgmtFeeKrw": 510000,
+        "firstContractDate": null,
+        "currentStartDate": "2022-10-01",
+        "currentExpiryDate": "2024-09-30",
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "임대중",
+        "note": null
+      },
+      {
+        "unitLabel": "9F(2)",
+        "contractGroup": null,
+        "leaseAreaSqm": null,
+        "tenantBusiness": "사무실",
+        "legalBasis": "상가",
+        "depositKrw": 30000000,
+        "monthlyRentKrw": 3000000,
+        "mgmtFeeKrw": 430000,
+        "firstContractDate": null,
+        "currentStartDate": "2023-12-01",
+        "currentExpiryDate": "2025-11-30",
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "임대중",
+        "note": null
+      },
+      {
+        "unitLabel": "9F(1)",
+        "contractGroup": null,
+        "leaseAreaSqm": null,
+        "tenantBusiness": "스튜디오렌탈",
+        "legalBasis": "상가",
+        "depositKrw": 20000000,
+        "monthlyRentKrw": 1990000,
+        "mgmtFeeKrw": 220000,
+        "firstContractDate": null,
+        "currentStartDate": "2023-11-01",
+        "currentExpiryDate": "2025-10-31",
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "임대중",
+        "note": null
+      },
+      {
+        "unitLabel": "8F",
+        "contractGroup": null,
+        "leaseAreaSqm": null,
+        "tenantBusiness": "사무실",
+        "legalBasis": "상가",
+        "depositKrw": 50000000,
+        "monthlyRentKrw": 5600000,
+        "mgmtFeeKrw": 800000,
+        "firstContractDate": null,
+        "currentStartDate": "2023-09-08",
+        "currentExpiryDate": "2025-09-07",
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "임대중",
+        "note": null
+      },
+      {
+        "unitLabel": "7F",
+        "contractGroup": null,
+        "leaseAreaSqm": null,
+        "tenantBusiness": "사무실",
+        "legalBasis": "상가",
+        "depositKrw": 50000000,
+        "monthlyRentKrw": 5880000,
+        "mgmtFeeKrw": 620000,
+        "firstContractDate": null,
+        "currentStartDate": "2023-10-04",
+        "currentExpiryDate": "2025-10-03",
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "임대중",
+        "note": null
+      },
+      {
+        "unitLabel": "6F",
+        "contractGroup": null,
+        "leaseAreaSqm": null,
+        "tenantBusiness": "사무실",
+        "legalBasis": "상가",
+        "depositKrw": 40000000,
+        "monthlyRentKrw": 4830000,
+        "mgmtFeeKrw": 690000,
+        "firstContractDate": null,
+        "currentStartDate": "2024-03-01",
+        "currentExpiryDate": "2026-02-28",
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "임대중",
+        "note": null
+      },
+      {
+        "unitLabel": "5F",
+        "contractGroup": null,
+        "leaseAreaSqm": null,
+        "tenantBusiness": "사무실",
+        "legalBasis": "상가",
+        "depositKrw": 57000000,
+        "monthlyRentKrw": 5280000,
+        "mgmtFeeKrw": 660000,
+        "firstContractDate": null,
+        "currentStartDate": "2022-05-30",
+        "currentExpiryDate": "2024-05-29",
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "임대중",
+        "note": null
+      },
+      {
+        "unitLabel": "4F",
+        "contractGroup": null,
+        "leaseAreaSqm": null,
+        "tenantBusiness": "사무실",
+        "legalBasis": "상가",
+        "depositKrw": 50000000,
+        "monthlyRentKrw": 4400000,
+        "mgmtFeeKrw": 550000,
+        "firstContractDate": null,
+        "currentStartDate": "2022-06-30",
+        "currentExpiryDate": "2024-06-29",
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "임대중",
+        "note": null
+      },
+      {
+        "unitLabel": "3F",
+        "contractGroup": null,
+        "leaseAreaSqm": null,
+        "tenantBusiness": "치과",
+        "legalBasis": "상가",
+        "depositKrw": 70000000,
+        "monthlyRentKrw": 3100000,
+        "mgmtFeeKrw": 530000,
+        "firstContractDate": null,
+        "currentStartDate": "2022-11-01",
+        "currentExpiryDate": "2024-10-31",
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "임대중",
+        "note": null
+      },
+      {
+        "unitLabel": "2F",
+        "contractGroup": null,
+        "leaseAreaSqm": null,
+        "tenantBusiness": "미용실",
+        "legalBasis": "상가",
+        "depositKrw": 50000000,
+        "monthlyRentKrw": 5400000,
+        "mgmtFeeKrw": 600000,
+        "firstContractDate": null,
+        "currentStartDate": "2024-02-22",
+        "currentExpiryDate": "2026-02-21",
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "임대중",
+        "note": null
+      },
+      {
+        "unitLabel": "1F",
+        "contractGroup": null,
+        "leaseAreaSqm": null,
+        "tenantBusiness": "부동산",
+        "legalBasis": "상가",
+        "depositKrw": 35000000,
+        "monthlyRentKrw": 2500000,
+        "mgmtFeeKrw": 150000,
+        "firstContractDate": null,
+        "currentStartDate": "2023-11-11",
+        "currentExpiryDate": "2025-11-11",
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "임대중",
+        "note": null
+      },
+      {
+        "unitLabel": "B1",
+        "contractGroup": null,
+        "leaseAreaSqm": 422.25,
+        "tenantBusiness": null,
+        "legalBasis": "미확인",
+        "depositKrw": null,
+        "monthlyRentKrw": null,
+        "mgmtFeeKrw": null,
+        "firstContractDate": null,
+        "currentStartDate": null,
+        "currentExpiryDate": null,
+        "renewalExercised": "모름",
+        "opposingPower": "미확인",
+        "leaseState": "공실",
+        "note": "공실 · 리스업 대상"
+      }
+    ]
+  },
+  "attachedDocs": [
+    {
+      "kind": "토지이용계획원",
+      "addressBand": "서울특별시 강남구 논현동"
+    }
+  ],
+  "expect": {
+    "ledgerRows": 12,
+    "sumDepositKrw": 495000000,
+    "sumMonthlyRentKrw": 46570000,
+    "sumMgmtFeeKrw": 5760000,
+    "resolution": "R2",
+    "yields": {
+      "gross_price": 2.24,
+      "gross_price_deposit": 2.28
+    },
+    "noiBasesAbsent": true,
+    "equity": {
+      "acquisitionTax": 1150000000,
+      "brokerFee": 225000000,
+      "totalAcquisitionCost": 26375000000,
+      "equityNoLoan": 25880000000
+    },
+    "ltv": [
+      {
+        "ltv": 0.0,
+        "loan": 0,
+        "equity": 25880000000,
+        "monthlyNet": 46570000,
+        "roe": 2.16
+      },
+      {
+        "ltv": 0.4,
+        "loan": 10000000000,
+        "equity": 15880000000,
+        "monthlyNet": 9070000,
+        "roe": 0.69
+      },
+      {
+        "ltv": 0.5,
+        "loan": 12500000000,
+        "equity": 13380000000,
+        "monthlyNet": -305000,
+        "roe": -0.03
+      }
+    ],
+    "negativeLeverage": true,
+    "gatesBlocking": [
+      "G19",
+      "G21"
+    ],
+    "gatesWarning": [
+      "G18"
+    ],
+    "gatesNotEvaluable": [
+      "F12",
+      "F13"
+    ],
+    "archetypeA03Slides": 1
+  },
+  "land": {
+    "_note": [
+      "🔴 3필지 합지 물건입니다 (public_data landSqm 518.70㎡ '3필지 합산').",
+      "필지별 면적·지번·제척은 **확보되지 않았습니다.**",
+      "parcels 배열을 비워 두면 시스템이 단일 필지로 오인합니다.",
+      "parcelCount 만 두고 parcelsKnown=false 로 표시해 확인사항으로 넘깁니다."
+    ],
+    "parcelCount": 3,
+    "parcelsKnown": false,
+    "ledgerAreaSqm": 518.7,
+    "parcels": []
+  }
+}

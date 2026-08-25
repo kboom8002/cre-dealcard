@@ -1,0 +1,152 @@
+{
+  "fixtureId": "multiparcel",
+  "synthetic": true,
+  "syntheticNote": [
+    "🔴 합성 픽스처입니다. 실물 물건이 아닙니다.",
+    "필지 기하(511.7㎡ + 104.4㎡ · 제척 12.5㎡)만 잠원동 두원빌딩 실측치를 씁니다 —",
+    "INPUT_정밀_잠원동두원빌딩.md 에 공개된 값이고, 다필지·제척 경로를 밟기 위해",
+    "필요합니다. 임대차·가격은 시험용으로 만든 값이며 실제 거래와 무관합니다.",
+    "발행 대상이 아니라 **경로 시험 대상**입니다 (D22-5 §5.2 골든 확장 #7)."
+  ],
+  "maskNote": "합성 · 물건명 없음 · 지번은 공개 문서 인용",
+  "asset": {
+    "assetId": "FX-MP-001",
+    "addressBand": "서울특별시 서초구 잠원동",
+    "buildingUse": "제2종근린생활시설",
+    "assetType": "small_building",
+    "totalFloorAreaSqm": 1789.0,
+    "farBaseAreaSqm": 1534.0,
+    "buildingCoverageRatio": 48.6,
+    "floorAreaRatio": 249.0
+  },
+  "land": {
+    "_note": "CATALOG_SLOTS §2.1 Parcel[] — 제척은 ●중개인 · 구청 확인 필요",
+    "parcels": [
+      {
+        "pnu": "1165010700100260014",
+        "jibun": "잠원동 26-14",
+        "jimok": "대",
+        "area": 511.7,
+        "ownership": "sole",
+        "officialPriceSqm": 13200000,
+        "exclusions": []
+      },
+      {
+        "pnu": "1165010700100260016",
+        "jibun": "잠원동 26-16",
+        "jimok": "대",
+        "area": 104.4,
+        "ownership": "sole",
+        "officialPriceSqm": 12800000,
+        "exclusions": [
+          {
+            "kind": "planned_road",
+            "area": 12.5,
+            "affectsFAR": true,
+            "provenance": "broker",
+            "note": "9M 도로 확폭 계획 저촉 (토지이용계획도 판독) — 관할 구청 확인 필요"
+          }
+        ]
+      }
+    ]
+  },
+  "zoning": {
+    "useArea": "제2종일반주거지역",
+    "items": [
+      "용도지역",
+      "정비구역",
+      "지구단위계획구역",
+      "도시계획시설 저촉",
+      "가로구역별 최고높이 제한구역",
+      "토지거래허가구역",
+      "과밀억제권역"
+    ],
+    "temporaryRelief": {
+      "name": "서울시 소규모 건축물 한시적 용적률 완화",
+      "thresholdPct": 250.0,
+      "expiry": "2028-05-18"
+    }
+  },
+  "posture": "income",
+  "financial": {
+    "priceKrw": 8000000000,
+    "depositKrw": 320000000,
+    "monthlyRentKrw": 21400000,
+    "mgmtFeeKrw": 2100000,
+    "opexKrw": null,
+    "loanKrw": null,
+    "loanRate": null,
+    "brokerFeeKrw": null,
+    "otherCostKrw": null
+  },
+  "ledger": {
+    "asOf": "2026-08-01",
+    "statedTotalAreaSqm": 1789.0,
+    "statedMonthlyRent": 21400000,
+    "rows": [
+      { "unitLabel": "1F", "contractGroup": null, "leaseAreaSqm": 268.4,
+        "tenantBusiness": "약국", "legalBasis": "상가",
+        "depositKrw": 90000000, "monthlyRentKrw": 6800000, "mgmtFeeKrw": 620000,
+        "firstContractDate": null, "currentStartDate": "2025-03-01",
+        "currentExpiryDate": "2027-02-28", "renewalExercised": "모름",
+        "opposingPower": "미확인", "leaseState": "임대중", "note": null },
+      { "unitLabel": "2F", "contractGroup": null, "leaseAreaSqm": 298.2,
+        "tenantBusiness": "의원", "legalBasis": "상가",
+        "depositKrw": 80000000, "monthlyRentKrw": 4900000, "mgmtFeeKrw": 480000,
+        "firstContractDate": null, "currentStartDate": "2024-11-01",
+        "currentExpiryDate": "2026-10-31", "renewalExercised": "모름",
+        "opposingPower": "미확인", "leaseState": "임대중", "note": null },
+      { "unitLabel": "3F", "contractGroup": null, "leaseAreaSqm": 298.2,
+        "tenantBusiness": "학원", "legalBasis": "상가",
+        "depositKrw": 60000000, "monthlyRentKrw": 3800000, "mgmtFeeKrw": 420000,
+        "firstContractDate": null, "currentStartDate": "2025-09-01",
+        "currentExpiryDate": "2027-08-31", "renewalExercised": "모름",
+        "opposingPower": "미확인", "leaseState": "임대중", "note": null },
+      { "unitLabel": "4F", "contractGroup": null, "leaseAreaSqm": 298.2,
+        "tenantBusiness": "사무실", "legalBasis": "상가",
+        "depositKrw": 50000000, "monthlyRentKrw": 3300000, "mgmtFeeKrw": 380000,
+        "firstContractDate": null, "currentStartDate": "2025-05-15",
+        "currentExpiryDate": "2027-05-14", "renewalExercised": "모름",
+        "opposingPower": "미확인", "leaseState": "임대중", "note": null },
+      { "unitLabel": "5F", "contractGroup": null, "leaseAreaSqm": 298.2,
+        "tenantBusiness": "사무실", "legalBasis": "상가",
+        "depositKrw": 40000000, "monthlyRentKrw": 2600000, "mgmtFeeKrw": 200000,
+        "firstContractDate": null, "currentStartDate": "2026-01-05",
+        "currentExpiryDate": "2028-01-04", "renewalExercised": "모름",
+        "opposingPower": "미확인", "leaseState": "임대중", "note": null },
+      { "unitLabel": "B1", "contractGroup": null, "leaseAreaSqm": 327.8,
+        "tenantBusiness": null, "legalBasis": "미확인",
+        "depositKrw": null, "monthlyRentKrw": null, "mgmtFeeKrw": null,
+        "firstContractDate": null, "currentStartDate": null,
+        "currentExpiryDate": null, "renewalExercised": "모름",
+        "opposingPower": "미확인", "leaseState": "공실", "note": "공실 · 임대 전환 대상" }
+    ]
+  },
+  "attachedDocs": [],
+  "brokerInputs": {
+    "buyerPurpose": "value_add",
+    "_buyerPurpose_note": "밸류애드 매수자 전제 — L12 가 고도지구·정비구역을 본문으로 올립니다"
+  },
+  "expect": {
+    "ledgerRows": 6,
+    "sumDepositKrw": 320000000,
+    "sumMonthlyRentKrw": 21400000,
+    "sumMgmtFeeKrw": 2100000,
+    "resolution": "R2",
+    "land": {
+      "parcelCount": 2,
+      "ledgerAreaSqm": 616.1,
+      "excludedAreaSqm": 12.5,
+      "effectiveAreaSqm": 603.6,
+      "exclusionImpactPct": 2.03,
+      "ledgerFarPct": 249.0,
+      "effectiveFarPct": 254.1,
+      "reliefThresholdPct": 250.0,
+      "reliefVerdict": "대장 기준 충족 · 유효 기준 이탈"
+    },
+    "layout": { "L10": true, "L11": true, "L12": true },
+    "gatesBlocking": [],
+    "gatesWarning": [],
+    "noiBasesAbsent": true
+  }
+}

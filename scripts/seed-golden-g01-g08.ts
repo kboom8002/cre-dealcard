@@ -66,7 +66,7 @@ async function processFile(filename: string) {
 async function main() {
   try {
     const files = await fs.readdir(GOLDEN_DIR);
-    const gFiles = files.filter(f => /^G0[1-8].*\.md$/.test(f));
+    const gFiles = files.filter(f => /^G(0[1-9]|1[0-4]).*\.md$/.test(f)); // G-1: 8→14건 확장
     
     if (gFiles.length === 0) {
       console.log('No matching files found in', GOLDEN_DIR);

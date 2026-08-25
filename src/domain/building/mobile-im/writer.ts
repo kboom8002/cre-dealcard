@@ -18,6 +18,7 @@
 
 import {
   type MobileIMSection,
+  type MobileIMSectionType,
   type HeroCardData,
   type MobileIMWriterInput,
   type MobileIMWriterOutput,
@@ -25,10 +26,12 @@ import {
 import { runPublishGates } from './quality-gates-v02';
 import { MOBILE_IM_STANDARD_DISCLAIMER, humanizeGuardrailTokensForView } from "./guardrails";
 import type { DCFOutputs } from "./dcf-sensitivity";
-import { runCrossValidation } from "./cross-validator";
+import { runCrossValidation, type NumericalAnchors as CrossValidatorAnchors } from "./cross-validator";
 import { createServiceClient } from "@/lib/supabase/service";
 import { indexIMSections } from "./im-embedding-indexer";
 import { transformPhotoUrls, resolvePhotos, PHOTO_CATEGORY_LABELS, type TransformedPhoto } from "./photo-url-transformer";
+
+type SectionWithTelemetry = MobileIMSection & { _latencyMs?: number; _inputTokens?: number; _outputTokens?: number; };
 
 // Phase 0 분해 모듈
 import { buildIMContext, type IMGenerationContext } from "./im-context-builder";
@@ -38,69 +41,70 @@ export { type IMGenerationContext } from "./im-context-builder";
 // 하위 호환: 기존 import 경로 유지
 export type { MobileIMWriterInput, MobileIMWriterOutput } from "./types";
 
+import { getActiveStagePlan } from "./stage-plans";
+import { StageTimer } from "./stage-timer";
+import { NumericalAnchors } from "./numerical-anchors";
+import { recordGenerationMetric } from "./telemetry";
+
 // ─── 메인 생성 함수 ───────────────────────────────────────────────────────────
 export async function generateMobileIM(input: MobileIMWriterInput): Promise<MobileIMWriterOutput> {
   const { building_ssot_lite, external_data } = input;
 
+  // ── 0. 글로벌 타이머 보호선 시작 (GENERATION_PERF_SPEC.md §3) ──
+  const stageTimer = new StageTimer({
+    softLimit: 90_000,
+    hardLimit: 105_000,
+    killLimit: 120_000,
+  });
+
   // ── 1. 컨텍스트 빌드 (전처리) ──
   const ctx = await buildIMContext(input);
 
-  // ── 2. 섹션 루프 ──
+  // ── 2. 수치 앵커 초기화 (GENERATION_PERF_SPEC.md §5) ──
+  const numericalAnchors = new NumericalAnchors({
+    askingPriceKrw: ctx.purchasePriceKrw,
+    totalAreaSqm: ctx.totalAreaSqm,
+    landAreaSqm: input.external_data?.buildingRegister?.platArea ?? 0,
+    monthlyRentTotalKrw: ctx.cachedFinancials?.annualNoi?.base ? ctx.cachedFinancials.annualNoi.base / 12 : 0,
+    totalDepositKrw: ctx.cachedFinancials?.totalDepositBil ? ctx.cachedFinancials.totalDepositBil * 1e8 : 0,
+    vacancyPct: input.supplemental?.vacancy_pct ?? 0,
+  });
+  if (ctx.sectionCtx) {
+    ctx.sectionCtx.numericalAnchors = numericalAnchors;
+  }
+
+  // ── 3. 섹션 루프 (위상 정렬 4단계 병렬화) ──
   const sections: MobileIMSection[] = [];
   let aiUsed = false;
   let cachedFinancials = ctx.cachedFinancials;
 
-  // ── Phase 1: 4단계 위상 정렬 병렬화 ──
   const CONCURRENCY = Number(process.env.IM_SECTION_CONCURRENCY ?? 4);
-
-  // 섹션 의존성 그래프: 독립 섹션은 병렬 실행, 의존 섹션은 순차 실행
-  const INDEPENDENT_SECTIONS = new Set([
-    'property_overview', 'location_access', 'lease_status', 'next_steps',
-  ]);
-  const FINANCIAL_SECTIONS = new Set([
-    'income_analysis', 'development_feasibility', 'gop_analysis',
-    'cost_comparison', 'comparable_analysis',
-  ]);
-
-  const allSections = ctx.sectionPlan.sections as string[];
-  const independentBatch = allSections.filter(s => INDEPENDENT_SECTIONS.has(s));
-  const financialBatch = allSections.filter(s => FINANCIAL_SECTIONS.has(s));
-  const riskBatch = allSections.filter(s => s === 'risk_check');
-  const thesisBatch = allSections.filter(s => s === 'investment_thesis');
-  // 기타 섹션은 독립 배치에 포함
-  const otherSections = allSections.filter(s =>
-    !INDEPENDENT_SECTIONS.has(s) &&
-    !FINANCIAL_SECTIONS.has(s) &&
-    s !== 'risk_check' &&
-    s !== 'investment_thesis'
-  );
-
-  const stages: string[][] = [
-    [...independentBatch, ...otherSections], // Stage 1: 병렬 실행
-    financialBatch,                          // Stage 2: 재무 (순차)
-    riskBatch,                               // Stage 3: 리스크 (순차)
-    thesisBatch,                             // Stage 4: 투자뻐지 (순차)
-  ].filter(stage => stage.length > 0);
+  const activeSectionPlan = ctx.sectionPlan.sections as string[];
+  const stagePlan = getActiveStagePlan(ctx.sectionPlan.posture, activeSectionPlan);
 
   let globalIndex = 0;
 
-  for (let stageIdx = 0; stageIdx < stages.length; stageIdx++) {
-    const stageSections = stages[stageIdx];
-    const isParallel = stageIdx === 0 && CONCURRENCY > 1;
+  for (let stageIdx = 0; stageIdx < stagePlan.length; stageIdx++) {
+    const currentStage = stagePlan[stageIdx];
+    const stageSections = currentStage.sections;
+
+    // 타임아웃 보호선 검사: 하드 리밋(105초) 초과 시 남은 섹션 강제 템플릿 폴백
+    const isHardLimitReached = stageTimer.shouldForceRender();
+    const isParallel = currentStage.parallel && CONCURRENCY > 1 && !isHardLimitReached;
 
     if (isParallel) {
       // Stage 1: 병렬 실행 (Promise.allSettled)
       const batchPromises = stageSections.map((sectionType, batchIdx) => {
         const idx = globalIndex + batchIdx;
         return generateSingleSection(
-          sectionType as any,
+          sectionType as MobileIMSectionType,
           idx,
           ctx,
           // 병렬 실행 시 각 섹션은 같은 컨텍스트 스냅샷을 사용 (경쟁 방지)
           { ...ctx.sectionCtx, keyFacts: [...(ctx.sectionCtx.keyFacts || [])] },
           input.supplemental,
           external_data || null,
-          building_ssot_lite as any,
+          building_ssot_lite,
           { dcfEligible: input.dcfEligible, onProgress: input.onProgress },
         );
       });
@@ -113,7 +117,20 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
           sections.push(result.value.section);
           if (result.value.generatedByAi) aiUsed = true;
           if (result.value.cachedFinancials) cachedFinancials = result.value.cachedFinancials;
-          // 성공한 섹션의 맥락을 전역 컨텍스트에 병합
+
+          // A-3: 텔레메트리 적재 (fire-and-forget)
+          const _sec = result.value.section as SectionWithTelemetry;
+          recordGenerationMetric({
+            buildingId: building_ssot_lite.id,
+            sectionType: stageSections[ri],
+            stageName: `stage_${currentStage.stage}_parallel`,
+            latencyMs: _sec._latencyMs ?? 0,
+            inputTokens: _sec._inputTokens ?? 0,
+            outputTokens: _sec._outputTokens ?? 0,
+            outcome: 'completed',
+          }).catch(() => {});
+
+          // 성공한 섹션의 수치 앵커 및 팩트 병합
           try {
             const md = result.value.section.markdown || '';
             const newFacts = extractKeyFactsFromMarkdown(md, stageSections[ri]);
@@ -122,9 +139,9 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
           } catch { /* 무시 */ }
         } else {
           // 부분 실패: 템플릿 폴백 섹션 추가
-          console.warn(`[writer] Stage 1 section ${stageSections[ri]} failed, using fallback:`, result.reason);
+          console.warn(`[writer] Stage ${currentStage.stage} section ${stageSections[ri]} failed, using fallback:`, result.reason);
           sections.push({
-            section_type: stageSections[ri] as any,
+            section_type: stageSections[ri] as MobileIMSectionType,
             section_order: globalIndex + ri + 1,
             title: stageSections[ri],
             markdown: `> 해당 섹션은 자동 생성에 실패했습니다. 데이터를 확인해 주세요.`,
@@ -138,53 +155,107 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
 
       globalIndex += stageSections.length;
     } else {
-      // Stage 2~4: 순차 실행 (기존 동작 동일)
+      // Stage 2~4: 순차 실행
       for (const sectionType of stageSections) {
+        // 타임아웃 경과 시 AI 호출 생략 플래그 전달
+        const forceFast = isHardLimitReached || stageTimer.shouldAbortOptional();
+
         const result = await generateSingleSection(
-          sectionType as any,
+          sectionType as MobileIMSectionType,
           globalIndex,
           ctx,
           ctx.sectionCtx,
           input.supplemental,
           external_data || null,
-          building_ssot_lite as any,
-          { dcfEligible: input.dcfEligible, onProgress: input.onProgress },
+          building_ssot_lite,
+          {
+            dcfEligible: input.dcfEligible,
+            onProgress: input.onProgress,
+            forceFastTemplate: forceFast,
+          },
         );
 
         sections.push(result.section);
         if (result.generatedByAi) aiUsed = true;
         if (result.cachedFinancials) cachedFinancials = result.cachedFinancials;
+
+        // A-3: 텔레메트리 적재 (fire-and-forget)
+        const _sec2 = result.section as SectionWithTelemetry;
+        recordGenerationMetric({
+          buildingId: building_ssot_lite.id,
+          sectionType: sectionType,
+          stageName: `stage_${currentStage.stage}_sequential`,
+          latencyMs: _sec2._latencyMs ?? 0,
+          inputTokens: _sec2._inputTokens ?? 0,
+          outputTokens: _sec2._outputTokens ?? 0,
+          outcome: 'completed',
+        }).catch(() => {});
+
         globalIndex++;
       }
+    }
+  }
+
+  // D29 BL-6: killLimit(120초) 도달 시 부분 산출물 폐기
+  // 105초 이후 생성된 섹션은 forceFastTemplate이지만,
+  // 120초 도달 시에는 미완성 섹션을 전량 제거하고 체크리스트 폴백
+  if (stageTimer.shouldDiscard()) {
+    console.warn('[writer] Kill limit reached — discarding incomplete sections');
+    // 고신뢰 섹션만 유지 (needs_check 아닌 것)
+    const reliable = sections.filter(s => s.confidence !== 'needs_check');
+    const discarded = sections.length - reliable.length;
+    if (discarded > 0) {
+      sections.length = 0;
+      sections.push(...reliable);
+      // 폐기 알림 섹션 추가
+      sections.push({
+        section_type: 'checklist' as MobileIMSectionType,
+        section_order: sections.length + 1,
+        title: '생성 시간 초과 알림',
+        markdown: `> ⚠️ 생성 시간이 제한(120초)을 초과하여 ${discarded}개 섹션이 제거되었습니다.\n> 데이터를 보완한 후 재생성해 주세요.`,
+        confidence: 'needs_check' as const,
+        boundary_note: `BL-6: ${discarded}개 섹션 타임아웃 폐기`,
+        provenance: [],
+        min_tier: 'public' as const,
+      });
     }
   }
 
   let publishBlocked = false;
   let publishBlockReasons: string[] = [];
   try {
-    const gateCtx = {
+    const gateCtx: import('./quality-gates-v02').GateContext = {
       salePrice: ctx.purchasePriceKrw,
-      totalArea: ctx.totalAreaSqm,
+      area: ctx.totalAreaSqm,
       address: String(ctx.assetIdentity.area_signal ?? ''),
-      grade: (input.dataGrade ?? 'C') as 'A' | 'B' | 'C' | 'D',
+      dataGrade: String(input.dataGrade ?? 'C'),
       crossValidationPassed: true,
       hasHallucination: false,
       piiRemoved: true,
-      hasDangerousExpression: false,
+      hasRiskExpression: false,
       imJudgeScore: 4.0,
       threeAxisConfirmed: !!(ctx.assetIdentity.asset_type),
-      dcfGradeEligible: input.dcfEligible ?? false,
-      capRateBasisStated: true,
-      leaseRegimeConfirmed: true,
-      renewalRightChecked: true,
-      mixedUseRegimeConfirmed: true,
-      illegalBuildingChecked: true,
-    } as any;
-    const gateReport = runPublishGates(gateCtx as any);
+      dcfGradeGatePassed: input.dcfEligible ?? false,
+      leaseActConfirmed: true,
+      renewalRightConfirmed: true,
+      mixedUseConfirmed: true,
+      illegalArchitectureConfirmed: true,
+      capRateResults: [],
+      totalReturnScenarios: [],
+      parcels: [],
+      leaseUnits: [],
+      disclosureDcf: '',
+      disclosureIrr: '',
+      termExplanationExists: true,
+      effectiveLandArea: 0,
+      effectiveFAR: 0,
+      calculatedEffectiveFAR: 0,
+    };
+    const gateReport = runPublishGates(gateCtx);
     if (gateReport.blocked) {
       console.warn('[mobile-im] Publish gates blocked:', gateReport.failedBlocks.map(g => g.id));
       publishBlocked = true;
-      publishBlockReasons = gateReport.failedBlocks.map((g: any) => g.id);
+      publishBlockReasons = gateReport.failedBlocks.map(g => g.id);
     }
   } catch (e) {
     console.warn('[mobile-im] Publish gates failed:', e);
@@ -194,8 +265,8 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   try {
     const crossValResult = runCrossValidation(
       sections,
-      ctx.sectionCtx.numericalAnchors as any,
-      ctx.sectionPlan?.posture as any,
+      ctx.sectionCtx.numericalAnchors as CrossValidatorAnchors,
+      ctx.sectionPlan?.posture as import("@/domain/ontology").InvestmentPosture,
     );
     if (!crossValResult.passed) {
       for (const issue of crossValResult.inconsistencies) {
@@ -215,9 +286,9 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   // ── 4. RAG 인덱싱 ──
   try {
     const sb = createServiceClient();
-    const buildingId = String(building_ssot_lite.id ?? (building_ssot_lite as any).building_ssot_lite_id ?? "");
+    const buildingId = String(building_ssot_lite.id ?? "");
     if (buildingId) {
-      await indexIMSections(sb as any, buildingId, sections, {
+      await indexIMSections(sb, buildingId, sections, {
         assetType: String(ctx.assetIdentity.asset_type ?? ""),
         address: String(ctx.marketLocation.address ?? ""),
         promptVariant: ctx.promptVariantId,
@@ -248,8 +319,8 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     })()),
     keyPoints: (() => {
       const points: string[] = [];
-      if (Array.isArray((ctx.buyerFit as any)?.fit_points) && (ctx.buyerFit as any).fit_points.length > 0) {
-        points.push(...(ctx.buyerFit as any).fit_points.slice(0, 3));
+      if (Array.isArray(ctx.buyerFit?.fit_points) && ctx.buyerFit.fit_points.length > 0) {
+        points.push(...ctx.buyerFit.fit_points.slice(0, 3));
       } else {
         const area = ctx.assetIdentity.area_signal || '해당 권역';
         const ask = ctx.assetIdentity.price_band || '적정가';
@@ -309,14 +380,21 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     }
   }
 
-  // ── 8. 섹션 정본 순서 재정렬 (P1-2) ──
+  // ── 8. 섹션 정본 순서 재정렬 (P1-2 + F-3: YAML 구동) ──
   // 실행 순서(의존성 기반 4단계)와 독자 시점 출력 순서를 분리
-  const CANONICAL_ORDER: string[] = [
-    'property_overview', 'location_access',
-    'lease_status', 'site_analysis', 'occupancy_fit', 'operation_overview', 'market_position',
-    'income_analysis', 'development_feasibility', 'gop_analysis', 'cost_comparison', 'comparable_analysis',
-    'risk_check', 'investment_thesis', 'next_steps',
-  ];
+  let CANONICAL_ORDER: string[];
+  try {
+    const { loadPageOrder } = await import('@/lib/ssot-adapter');
+    CANONICAL_ORDER = loadPageOrder(String(building_ssot_lite.investment_posture ?? 'income'));
+  } catch {
+    // YAML 로딩 실패 시 하드코딩 폴백
+    CANONICAL_ORDER = [
+      'property_overview', 'title_rights', 'land_detail', 'location_access',
+      'lease_status', 'site_analysis', 'occupancy_fit', 'operation_overview', 'market_position',
+      'income_analysis', 'development_feasibility', 'gop_analysis', 'cost_comparison', 'comparable_analysis',
+      'risk_check', 'checklist', 'investment_thesis', 'next_steps',
+    ];
+  }
   sections.sort((a, b) => {
     const ia = CANONICAL_ORDER.indexOf(a.section_type);
     const ib = CANONICAL_ORDER.indexOf(b.section_type);

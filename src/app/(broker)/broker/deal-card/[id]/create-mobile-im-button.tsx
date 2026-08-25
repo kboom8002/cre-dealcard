@@ -24,6 +24,11 @@ interface CreateMobileImButtonProps {
   prefillMgmtFee?: number;
   prefillVacancyPct?: number;
   initialInvestmentPosture?: string;
+  postureProposal?: {
+    value: string;
+    confidence: number;
+    reason: string;
+  };
 }
 
 export function CreateMobileImButton({
@@ -47,6 +52,7 @@ export function CreateMobileImButton({
   prefillMgmtFee,
   prefillVacancyPct,
   initialInvestmentPosture = "income",
+  postureProposal,
 }: CreateMobileImButtonProps) {
   const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [stage, setStage] = useState<'basic'>('basic');
@@ -109,6 +115,7 @@ export function CreateMobileImButton({
         prefillMgmtFee={prefillMgmtFee}
         prefillVacancyPct={prefillVacancyPct}
         initialInvestmentPosture={initialInvestmentPosture}
+        postureProposal={postureProposal}
       />
     </>
   );

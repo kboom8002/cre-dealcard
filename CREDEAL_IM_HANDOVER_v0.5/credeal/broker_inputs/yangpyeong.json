@@ -1,0 +1,54 @@
+{
+  "_note": [
+    "중개인이 바텀시트에서 채운 보강 입력입니다.",
+    "픽스처(원장)를 고치지 않고 **위에 얹습니다.** 원장은 제출받은 그대로 두어야",
+    "나중에 '누가 무엇을 바꿨는지'를 추적할 수 있습니다.",
+    "각 항목에 어느 게이트·해상도를 여는지 적었습니다 — 바텀시트 유도 문구의 근거입니다."
+  ],
+  "dealId": "FX-YP-001",
+  "asOf": "2026-08-01",
+  "_asOf_opens": "G18 경고 해소 · 만료 판정 기준일 확정",
+
+  "statedMonthlyRentKrw": 46570000,
+  "statedDepositKrw": 495000000,
+  "_stated_opens": "G19 차단 해소 — 표지 요약과 각 행의 합이 같음을 중개인이 확정",
+
+  "attachedDocsCorrected": [
+    { "kind": "건축물대장", "addressBand": "서울특별시 영등포구 양평동4가" },
+    { "kind": "토지이용계획원", "addressBand": "서울특별시 영등포구 양평동4가" }
+  ],
+  "_attached_opens": "G21 차단 해소 — 첨부 공부 소재지가 본건과 일치",
+
+  "leaseAreaSource": "건축물대장 층별개요 (계약면적)",
+  "_leaseArea_note": [
+    "🔴 원장에는 B1 한 행에만 임대면적이 있었습니다.",
+    "나머지 11행은 공부 층별개요에서 채웠습니다 — 출처가 S3(원장)이 아니라 S1(공부)입니다.",
+    "그리고 이 건물의 층별개요는 바닥면적이 아니라 **계약면적**입니다(floorTableKind: lease).",
+    "따라서 합계가 연면적과 같지 않습니다. 차이는 공용·기계실입니다.",
+    "표에 출처를 반드시 병기합니다."
+  ],
+
+  "opexKrw": null,
+  "_opex_note": "미입력 — NOI 계열 4종은 산출하지 않습니다 (불변조건 1)",
+
+  "firstContractDates": null,
+  "_first_note": "미입력 — 갱신요구권 잔여를 산출하지 않습니다 (불변조건 7). L축 R3 미달",
+
+  "opposingPower": null,
+  "_opposing_note": "미입력 — 대항력 판정을 하지 않습니다. L축 R3 미달",
+
+  "compsEnrichment": {
+    "identified": true,
+    "frontage": true,
+    "floors": true,
+    "landSqm": true,
+    "condition": true
+  },
+  "_comps_note": "실거래 원시(S2a)는 지번이 마스킹되어 있습니다. 중개인이 식별·대로변/이면·층수·대지면적·상태를 얹어 S2b가 됩니다",
+
+  "photoNote": [
+    "🔴 제출 사진 4매 — 최소 6매(외부3·내부3)에 미달합니다.",
+    "그중 3매가 실효 dpi 하한 미달입니다 (hero 118 · map 132 · cadastre 139).",
+    "재촬영 전까지 사진 갤러리 면을 내지 않고 '촬영 후 보완' 안내로 대체합니다."
+  ]
+}

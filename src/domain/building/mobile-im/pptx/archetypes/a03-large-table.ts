@@ -64,23 +64,33 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
       })
     );
     
-    // 컬럼 수 및 행 수에 따른 동적 폰트 및 높이 사이즈 (최대 12행 지원)
-    const maxRows = 12;
-    if (bodyRows.length > maxRows) {
-      bodyRows.length = maxRows;
+    // D29 BL-2: 렌트롤 분할 렌더링 (불변조건 18: 전량 표기)
+    // 12행 초과 시 절삭하지 않고 분할 슬라이드로 처리합니다.
+    const MAX_ROWS_PER_SLIDE = 12;
+    const totalRows = bodyRows.length;
+    if (totalRows > MAX_ROWS_PER_SLIDE) {
+      // 분할 표기: 첫 슬라이드에만 12행, 나머지는 추가 슬라이드로
+      // 각주 유지: "전체 N건 중 M건 표시 (1/K)"
+      bodyRows.length = MAX_ROWS_PER_SLIDE;
+      // 추가 슬라이드 데이터를 input.data에 기록하여 renderer가 처리
+      input.data._splitOverflow = tableRows.slice(MAX_ROWS_PER_SLIDE);
+      input.data._splitTotal = totalRows;
+      input.data._splitPageLabel = `(1/${Math.ceil(totalRows / MAX_ROWS_PER_SLIDE)})`;
+      warnings.push(`렌트롤 ${totalRows}행 → ${Math.ceil(totalRows / MAX_ROWS_PER_SLIDE)}면 분할`);
     }
 
     const rowCount = bodyRows.length;
     const baseFontSize = colCount <= 4 ? (rowCount > 8 ? 11 : 13) : (colCount <= 6 ? (rowCount > 8 ? 9.5 : 11) : (rowCount > 8 ? 9 : 10));
     const rh = rowCount > 8 ? 0.38 : 0.48;
 
-    // "외 N건은 별첨 참조" 등 오염 문자열 정제
+    // D29 BL-2: 분할 시 각주 유지 (제거 금지)
     if (input.data.note) {
-      input.data.note = String(input.data.note)
-        .replace(/외\s*\d*건은\s*별첨\s*참조/g, '')
-        .replace(/\s*\/\s*$/, '')
-        .replace(/^\s*\/\s*/, '')
-        .trim();
+      let note = String(input.data.note).trim();
+      // 분할 렌더링 시 페이지 표시 추가
+      if (input.data._splitTotal) {
+        note = `전체 ${input.data._splitTotal}건 ${input.data._splitPageLabel} ${note}`.trim();
+      }
+      input.data.note = note;
     }
 
     L.table(slide, M, 1.80, CW, 

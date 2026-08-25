@@ -7,6 +7,16 @@
  *
  * Source: docs/08-api-contracts.md section 7
  */
+import type { InvestmentPosture } from '@/domain/ontology';
+
+export interface PostureProposal {
+  value: InvestmentPosture | null;
+  confidence: number;        // 0~1
+  reason: string;
+  confirmedBy: string | null;
+  confirmedAt: Date | null;
+}
+
 import { createServiceClient } from "@/lib/supabase/service";
 import { runBrokerDealCard } from "@/ai/agents/broker-deal-card";
 import { recordEvent } from "@/domain/analytics/record-event";
@@ -18,7 +28,7 @@ import { geocodeAddress } from "@/domain/verification/address-resolver";
 import { getModel } from "@/ai/model-selector";
 import { detectDuplicateBuilding, type DedupResult } from "./building-dedup";
 import { linkBuildingToCanonicalProperty } from "./canonical-property";
-import { extractSlotsFromMemo } from "./memo-slot-mapper";
+import { extractSlotsFromMemo, extractPostureProposal } from "./memo-slot-mapper";
 
 export interface BrokerDealCardFromMemoInput {
   memo: string;
@@ -45,6 +55,7 @@ export interface BrokerDealCardFromMemoResult {
   signalCardId: string;
   teaserDocId: string;
   hiddenFields: string[];
+  postureProposal?: PostureProposal;
 }
 
 export async function brokerDealCardFromMemo(
@@ -129,6 +140,7 @@ export async function brokerDealCardFromMemo(
   // 1.6. 원문 메모 및 AI 추출 결과 기반 정밀 재무/물리 데이터 보존
   const memoSlots = extractSlotsFromMemo(input.memo || '');
   const slotMap = new Map(memoSlots.slots.map(s => [s.key, s.value]));
+  const postureProposal = extractPostureProposal(input.memo || '');
 
   const exactAskingPriceManwon = buildingTruth.askingPriceManwon
     || (slotMap.get('askingPriceKrw') ? Number(slotMap.get('askingPriceKrw')) / 10000 : null);
@@ -422,5 +434,6 @@ export async function brokerDealCardFromMemo(
     signalCardId: signalCard.id,
     teaserDocId: teaserDoc.id,
     hiddenFields: buildingTruth.hiddenFields,
+    postureProposal,
   };
 }

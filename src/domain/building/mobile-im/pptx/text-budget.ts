@@ -1,15 +1,15 @@
 export const TEXT_LIMITS = {
   slideTitle: 32,
-  kicker: 35,
+  kicker: 32,
   subTitle: 50,
   leadSentence: 100,
   subHeading: 35,
   statLabel: 18,
   statValue: 10,
-  statSub: 30,
+  statSub: 27,
   calloutTitle: 30,
   tableHeader: 16,
-  tableCell: 30,
+  tableCell: 27,
   note: 140
 };
 

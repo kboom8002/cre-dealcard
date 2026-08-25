@@ -102,8 +102,8 @@ export async function generateSingleSection(
   sectionCtx: SectionContext,
   supplemental: MobileIMSupplementalInput,
   externalData: ExternalDataSnapshot | null,
-  buildingSsotLite: Record<string, unknown>,
-  input: { dcfEligible?: boolean; onProgress?: (section: MobileIMSection) => void },
+  buildingSsotLite: Record<string, unknown> | import('../building-ssot-lite.types').BuildingSSoTLite,
+  input: { dcfEligible?: boolean; onProgress?: (section: MobileIMSection) => void; forceFastTemplate?: boolean },
 ): Promise<SectionGenerationResult> {
   let markdown = "";
   let confidence: "confirmed" | "inferred" | "needs_check" = "inferred";
@@ -192,6 +192,10 @@ export async function generateSingleSection(
 
   // ── AI 생성 시도 ──
   try {
+    if (input.forceFastTemplate) {
+      throw new Error("TIME_BUDGET_FORCE_FAST_TEMPLATE");
+    }
+
     let fewShotBlock = "";
     let usedGoldenIds: string[] = [];
     try {

@@ -1,0 +1,194 @@
+meta:
+  id: im.pages
+  version: 1
+  owner: CREDEAL_IM_SPEC_수익형.md §4 + §6B (프리셋 계약)
+  note: |
+    지금 페이지 순서는 build_pptx_kr.py 의 build() 안에 **하드코딩**되어 있습니다.
+    프리셋이 순서를 바꾸려면 코드를 고쳐야 하는데, 프리셋의 존재 이유가
+    바로 순서를 바꾸는 것입니다. 순서를 데이터로 꺼냅니다.
+  scope: posture=income · edition R1/R2 · 등급 A/B
+
+# ── 기본 시퀀스 ────────────────────────────────────────────────────────
+# needs: 이 면을 렌더하려면 열려 있어야 하는 블록 (im.gating.yaml)
+# min_grade: 이 등급 미만이면 면을 생략합니다
+# omit_policy
+#   skip                 조용히 생략 (결손은 확인사항이 받습니다)
+#   placeholder          내용이 없어도 안내 면을 냅니다
+#   placeholder_if_partial  0 이면 생략 · 1개 이상 부족이면 있는 것 + 안내
+#     └ 사진 갤러리용입니다. 0매인데 면을 내면 "사진 미제출" 만 적힌 빈 면이
+#       남습니다. 심사 5항("이 면을 지우면 아쉬운가")을 통과하지 못합니다.
+#       0매 사실은 확인사항 면이 이미 말합니다.
+sequence:
+  - n: 1
+    key: cover
+    title: 표지
+    builder: s01_cover
+    needs: [address_band, price]
+    photo: [hero, front]
+    min_grade: D
+    omit_policy: placeholder
+    note: 사진 없이 표지를 내지 않습니다. 한국 IM 의 첫 인상은 외관입니다
+  - n: 2
+    key: points
+    title: 핵심 요약
+    builder: s02_points
+    needs: [hero_metrics]
+    photo: [front, hero, ext1, ext2, context, map]
+    min_grade: D
+  - n: 3
+    key: overview
+    title: 물건 개요
+    builder: s03_overview
+    needs: [building_summary]
+    photo: [front, ext1, hero]
+    min_grade: D
+  - n: 4
+    key: location
+    title: 입지
+    builder: s04_location
+    needs: [address_band]
+    photo: [map]
+    min_grade: C
+    omit_policy: placeholder
+    r1_fallback: 역 거리·접면 도로를 임의 기재하지 않고 현장 확인 안내로 대체합니다
+  - n: 4.5
+    key: parcels
+    title: 필지 명세 · 제척
+    builder: sX_parcels
+    needs: [parcel_table]
+    min_grade: C
+    min_parcels: 2
+    invariant: []
+    rule: |
+      L10 — 필지 수 ≥ 2 일 때만 켭니다. 단일 필지에 이 면을 내면
+      "1필지" 라는 당연한 말을 한 면 씁니다.
+    note: 제척이 있으면 유효 대지·유효 용적률·한시 완화 이탈을 함께 냅니다 (L11)
+  - n: 5
+    key: land
+    title: 토지·공부
+    builder: s05_land
+    needs: [land_sqm]
+    photo: [cadastre, map]
+    min_grade: C
+  - n: 6
+    key: rentroll
+    title: 임대 현황
+    builder: s06_rentroll
+    needs: [rentroll_table]
+    min_grade: D
+    invariant: 18
+    rule: 전량 표기합니다. 상위 N행 요약을 쓰지 않습니다
+  - n: 7
+    key: lease2
+    title: 임대차 상세·여력
+    builder: s07_lease2
+    needs: [expiry_state]
+    min_grade: B
+    opens_at: L>=R2
+    note: 만료일·관리비가 있어야 성립합니다. R1 에서는 면 자체를 내지 않습니다
+  - n: 8
+    key: invest
+    title: 투자 분석
+    builder: s08_invest
+    needs: [price_basis, equity, leverage_table]
+    min_grade: D
+  - n: 9
+    key: market
+    title: 시세·비교사례
+    builder: s09_market
+    needs: [comps_table]
+    min_grade: B
+    invariant: [5, 16]
+    omit_policy: placeholder
+  - n: 10
+    key: risk
+    title: 확인사항
+    builder: s10_risk
+    needs: []
+    min_grade: D
+    invariant: [9, 13]
+    rule: 어떤 등급에서도 생략하지 않습니다. 결손이 모이는 자리입니다
+  - n: 11
+    key: evidence
+    title: 공부 교차검증
+    builder: sX_evidence
+    needs: [crosscheck_results]
+    min_grade: B
+    switch: crosscheckPage
+    requires_public: true
+  - n: 12
+    key: landvalue
+    title: 토지 가치·용적 여력
+    builder: sX_landvalue
+    needs: [far_headroom, land_price_multiple]
+    min_grade: B
+    switch: farGaugePage
+    requires_public: true
+  - n: 13
+    key: photos_ext
+    title: 건물 사진 — 외부
+    builder: s11_photos
+    photo: [front, ext1, ext2, ext3, hero, context]
+    min_grade: D
+    needs_photos: 2
+    omit_policy: placeholder_if_partial
+  - n: 14
+    key: photos_int
+    title: 건물 사진 — 내부
+    builder: s11_photos
+    photo: [in_lobby, in_shop, in_ev, in_hall, in_cafe]
+    min_grade: D
+    needs_photos: 2
+    omit_policy: placeholder_if_partial
+  - n: 15
+    key: terms
+    title: 거래 조건·절차
+    builder: s12_terms
+    needs: []
+    min_grade: D
+
+# ── 프리셋별 편성 ──────────────────────────────────────────────────────
+presets:
+  jsre_field_navy:
+    label: 현장 표준 — 제이에스 남색
+    max_pages: 17
+    order: [cover, points, overview, location, parcels, land, rentroll, lease2,
+            invest, market, risk, evidence, landvalue, photos_ext, photos_int, terms]
+    switches: {crosscheckPage: true, farGaugePage: true}
+  evidence_first:
+    label: 근거 우선 — 기관·법인 매수자
+    max_pages: 19
+    order: [cover, points, evidence, overview, parcels, land, landvalue, rentroll,
+            lease2, invest, market, location, risk, photos_ext, photos_int, terms]
+    switches: {crosscheckPage: true, farGaugePage: true}
+    rationale: 숫자를 믿을 근거를 먼저 보여 주고 물건 설명으로 갑니다
+  land_value_first:
+    label: 토지 가치 우선 — 개발 여력 소구
+    max_pages: 17
+    order: [cover, points, parcels, land, landvalue, location, overview, rentroll,
+            invest, market, risk, evidence, photos_ext, photos_int, terms]
+    switches: {crosscheckPage: true, farGaugePage: true}
+    cover_variant: land_metric
+    rationale: 임대 수익보다 토지·용적을 사는 매수자용. 임대차 상세를 뒤로 뺍니다
+
+# ── 편성 규칙 ──────────────────────────────────────────────────────────
+rules:
+  min_pages: 12
+  max_pages_absolute: 18
+  note_parcels: 필지 면은 다필지에서만 켜지므로 단일 필지 물건의 면수는 그대로입니다
+  over_limit: 빌드 중단 (Overflow) — 자르지 않습니다
+  under_min:
+    action: 경고 + "내부 검토용" 워터마크
+    reason: 12면을 못 채우면 IM 이 아니라 요약지입니다
+  orphan_heading: 제목만 남고 본문이 다음 면으로 넘어가면 제목을 함께 넘깁니다
+  tables_per_page_max: 2
+  consecutive_table_pages_max: 2
+  photo_page_gap: 사진 면 사이에 최소 1개의 내용 면을 둡니다
+
+# ── 등급별 기대 분량 ───────────────────────────────────────────────────
+# 상용 기준선은 A/B 입니다. C/D 는 내부 검토용으로만 씁니다.
+by_grade:
+  A: {pages: 15, all_blocks: true, note: L>=R2 & P>=P2 — 상용 기본 · 사진 완비 기준}
+  B: {pages: 13, omitted: [lease2], note: L=R1 — 만료일·관리비 부재}
+  C: {pages: 11, omitted: [lease2, market, evidence, landvalue], watermark: 내부 검토용}
+  D: {pages: 9, omitted: [lease2, market, evidence, landvalue, location, land], watermark: 내부 검토용}

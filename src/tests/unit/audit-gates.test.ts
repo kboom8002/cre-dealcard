@@ -2,7 +2,7 @@
 // Unit tests covering Dangsan 115B & Yangpyeong 250B audit findings
 
 import { describe, it, expect } from 'vitest';
-import { runDeterministicGates, checkG19, checkG18, checkCBASIS, checkG21 } from '@/domain/building/gates/deterministic-gates';
+import { runDeterministicGates, checkQG19, checkQG18, checkCBASIS, checkQG21 } from '@/domain/building/gates/deterministic-gates';
 import type { IMCore } from '@/types/im-core';
 
 function createMockCore(overrides?: Partial<IMCore>): IMCore {
@@ -138,7 +138,7 @@ describe('Audit Quality Gates (Dangsan & Yangpyeong Audit Verification)', () => 
     const core = createMockCore();
     // Leases sum: Deposit = 6000만 + 14000만 + 5000만 + 3000만 + 1000만 = 29000만 (2.9억)
     // Monthly = 183만 + 883만 + 455만 + 260만 + 165만 = 1946만
-    const res = checkG19(core);
+    const res = checkQG19(core);
     expect(res.passed).toBe(true);
   });
 
@@ -152,7 +152,7 @@ describe('Audit Quality Gates (Dangsan & Yangpyeong Audit Verification)', () => 
         equity: 6092500000,
       },
     });
-    const res = checkG19(core);
+    const res = checkQG19(core);
     expect(res.passed).toBe(false);
     expect(res.severity).toBe('block');
   });
@@ -162,7 +162,7 @@ describe('Audit Quality Gates (Dangsan & Yangpyeong Audit Verification)', () => 
     const snippets = [
       { type: 'lease_status', text: '401호는 갱신요구권 7년 잔여로 인해 5% 상한이 적용됩니다.' },
     ];
-    const res = checkG18(core, snippets);
+    const res = checkQG18(core, snippets);
     expect(res.passed).toBe(false);
     expect(res.severity).toBe('block');
     expect(res.message).toContain('갱신요구권');
@@ -173,7 +173,7 @@ describe('Audit Quality Gates (Dangsan & Yangpyeong Audit Verification)', () => 
     const snippets = [
       { type: 'lease_status', text: '호실별 임대차 계약 현황은 최초계약일 확인 필요 상태입니다.' },
     ];
-    const res = checkG18(core, snippets);
+    const res = checkQG18(core, snippets);
     expect(res.passed).toBe(true);
   });
 
@@ -209,7 +209,7 @@ describe('Audit Quality Gates (Dangsan & Yangpyeong Audit Verification)', () => 
         } as any,
       ],
     });
-    const res = checkG21(core);
+    const res = checkQG21(core);
     expect(res.passed).toBe(false);
     expect(res.message).toContain('다른 관할 공부');
   });
@@ -226,7 +226,7 @@ describe('Audit Quality Gates (Dangsan & Yangpyeong Audit Verification)', () => 
         } as any,
       ],
     });
-    const res = checkG21(core);
+    const res = checkQG21(core);
     expect(res.passed).toBe(true);
   });
 

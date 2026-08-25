@@ -47,6 +47,12 @@ export {
   SCENARIO_SCORE,
   SELLER_CANDIDATE_SLOTS,
   migrateProvenanceTier,
+  derivedConfidence,
+  // B-2: SourceTier 6단 + Legacy 호환
+  type SourceTier,
+  tierOf,
+  type LegacyProvenanceTier,
+  LEGACY_PROVENANCE_MAPPING,
 } from './provenance';
 
 // ── Enums (30계열 — v0.5) ──
@@ -232,6 +238,17 @@ export {
   dispatchAllTenancy,
 } from './rules/tenancy-dispatch';
 
+// ── Posture Contract (v0.5 13-slot) ──
+export {
+  type PostureContract,
+  type Resolution,
+  type PropertyResolution,
+  type PostureStatus,
+  POSTURE_CONTRACTS,
+  getPostureContract,
+  isPostureReady,
+} from './posture-contract';
+
 // ── Rules: Parcel (P01~P03) + C19 ──
 export {
   type Parcel,
@@ -248,3 +265,11 @@ export {
 /** 현재 온톨로지 버전 */
 export const ONTOLOGY_VERSION = 'v0.5.0';
 
+// ── D29 BL-9: 발행 가능성 검증 ──
+// ── D29 M-3: 해상도 검증 ──
+export {
+  assertPublishable,
+  checkPublishable,
+  checkMinResolution,
+  PublishGateFailure,
+} from './assert-publishable';

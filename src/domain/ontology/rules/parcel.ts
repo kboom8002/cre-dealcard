@@ -207,3 +207,45 @@ export function checkC19All(buildings: BuildingUnit[]): {
     hasViolation: results.some(r => !r.ok && !r.skipped),
   };
 }
+
+// ── X05: 다필지 합산 면적 교차검증 ── (B-3)
+export interface X05Result {
+  passed: boolean;
+  deviation: number;
+  sumParcelsM2: number;
+  ledgerTotalM2: number;
+  message?: string;
+}
+
+/**
+ * X05: 다필지 합산 면적 교차검증
+ * 필지별 (대장면적 × 지분율) 합 vs 건축물대장 표기 대지면적 ±0.5% 이내
+ */
+export function checkX05(
+  parcels: Array<{ ledgerAreaM2: number; shareRatio: number }>,
+  ledgerTotalM2: number,
+): X05Result {
+  if (parcels.length === 0 || ledgerTotalM2 <= 0) {
+    return { passed: true, deviation: 0, sumParcelsM2: 0, ledgerTotalM2, message: '필지 데이터 부재 — 검증 생략' };
+  }
+
+  const sumParcels = parcels.reduce((s, p) => s + p.ledgerAreaM2 * p.shareRatio, 0);
+  const deviation = Math.abs(sumParcels - ledgerTotalM2) / ledgerTotalM2;
+
+  if (deviation > 0.005) {
+    return {
+      passed: false,
+      deviation,
+      sumParcelsM2: sumParcels,
+      ledgerTotalM2,
+      message: `필지 합산 면적(${sumParcels.toFixed(2)}㎡)과 대장 면적(${ledgerTotalM2.toFixed(2)}㎡)의 편차가 ${(deviation * 100).toFixed(2)}%로 허용 범위(±0.5%)를 초과합니다.`,
+    };
+  }
+
+  return {
+    passed: true,
+    deviation,
+    sumParcelsM2: sumParcels,
+    ledgerTotalM2,
+  };
+}

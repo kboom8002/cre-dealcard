@@ -263,7 +263,7 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
   let imgAdded = false;
   if (input.data?.coverImageUrl) {
     try {
-      const img = await optimizeImageForPptx(input.data.coverImageUrl as string, 1280, 85);
+      const img = await optimizeImageForPptx(input.data.coverImageUrl as string, 1476 /* D29 M-11: 8.20" × 180dpi */, 85);
       if (img) {
         const coverStyle = input.data?.coverStyle ?? THEME_META.coverStyle;
         if (coverStyle === 'split') {

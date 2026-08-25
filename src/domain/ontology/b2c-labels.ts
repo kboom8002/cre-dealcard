@@ -8,13 +8,13 @@ export interface B2CSlotLabel {
   slotKey: string;
   internalName: string;
   b2cLabel: string;
-  category: 'hero' | 'chip' | 'curiosity' | 'slider' | 'regulation';
+  category: 'hero' | 'chip' | 'curiosity' | 'slider' | 'regulation' | 'detail';
 }
 
 export const B2C_LABEL_MAP: B2CSlotLabel[] = [
   // Hero tiles
   { slotKey: 'askingPriceKrw', internalName: '매각 희망가', b2cLabel: '매각가', category: 'hero' },
-  { slotKey: 'capRatePct', internalName: 'Cap Rate', b2cLabel: '임대수익률', category: 'hero' },
+  { slotKey: 'capRatePct', internalName: 'Cap Rate', b2cLabel: '연 수익률', category: 'hero' }, // E-2: v0.5 라벨
   { slotKey: 'totalFloorAreaPyung', internalName: '연면적(평)', b2cLabel: '규모', category: 'hero' },
   { slotKey: 'landAreaPyung', internalName: '대지면적(평)', b2cLabel: '대지', category: 'hero' },
   { slotKey: 'vacancyPct', internalName: '공실률(%)', b2cLabel: '공실', category: 'hero' },
@@ -27,6 +27,9 @@ export const B2C_LABEL_MAP: B2CSlotLabel[] = [
   { slotKey: 'zoningRegion', internalName: '용도지역', b2cLabel: '용도지역', category: 'chip' },
   { slotKey: 'floorsAboveGround', internalName: '지상층수', b2cLabel: '층수', category: 'chip' },
   { slotKey: 'buildingAge', internalName: '건물연식', b2cLabel: '준공', category: 'chip' },
+  
+  // Detail - E-2: rentRoll 신규 등록
+  { slotKey: 'rentRoll', internalName: 'Rent Roll', b2cLabel: '임대 현황', category: 'detail' },
   
   // Curiosity - these have NO b2cLabel (internal only)
   { slotKey: 'rentGapPct', internalName: '임대료갭(%)', b2cLabel: '', category: 'curiosity' },

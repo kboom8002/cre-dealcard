@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { checkG19, checkC19, checkG21, runDeterministicGates } from '@/domain/building/gates/deterministic-gates';
+import { checkQG19, checkC19, checkQG21, runDeterministicGates } from '@/domain/building/gates/deterministic-gates';
 import { calculateIncomeFinancials, calculateDevelopmentFinancials, calculateOwnerOccupiedFinancials, calculateTradingFinancials } from '@/domain/building/mobile-im/financials';
 import type { IMCore } from '@/types/im-core';
 
@@ -123,12 +123,12 @@ describe('5 Real Cases E2E Gate & Pipeline Tests', () => {
       ],
     });
 
-    const g19Result = checkG19(g01Core);
+    const g19Result = checkQG19(g01Core);
     expect(g19Result.passed).toBe(false);
     expect(g19Result.severity).toBe('block');
     expect(g19Result.diff?.monthlyDiff).toBe(3_600_000);
 
-    const g21Result = checkG21(g01Core);
+    const g21Result = checkQG21(g01Core);
     expect(g21Result.passed).toBe(false);
     expect(g21Result.severity).toBe('block');
 

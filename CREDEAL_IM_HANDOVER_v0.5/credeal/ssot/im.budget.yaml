@@ -1,0 +1,63 @@
+# 이 파일은 build_ssot.py 가 생성합니다. 손으로 고치지 마십시오.
+# 정본 코드: credeal/input_spec.py · credeal/presets.py
+meta:
+  id: im.budget
+  version: 1
+  owner: D19 §6C · IM_STANDARD_수익형.md §3.1·§4.7·§5.5
+deck:
+  required_pages: 12
+  max_pages_default: 16
+  max_pages_evidence: 18
+  note: 30p+ 는 정본 기준 과함 · 부티크 작성 불가
+canvas:
+  w_in: 13.333
+  h_in: 7.5
+  margin_in: 0.62
+  content_w_in: 12.093
+  safe_right_in: 12.713
+  safe_bottom_in: 6.75
+type:
+  pptx:
+    hero: 26
+    title: 22
+    sub: 13
+    body: 11.5
+    table: 9.5
+    caption: 8.5
+  web:
+    hero: 30
+    title: 23
+    sub: 17
+    body: 17
+    table: 14.5
+    caption: 13
+  min:
+    pptx_body: 11
+    pptx_table: 9
+    web_body: 16
+truncation:
+  never:
+    - 라벨
+    - 표 헤더
+    - 단위
+    - 출처
+    - 슬라이드 제목
+    - 수치
+  allowed:
+    - 자유서술 본문
+  overflow_policy: 폰트 축소 → 다음 면으로 흘림 → 그래도 넘치면 빌드 중단
+  incident: D17 E01 — "현재 연 순수익률 (Cap R" · 20자 예산을 라벨에 적용
+sentence:
+  pptx_line_max: 45
+  mobile_sentence_max: 40
+  mobile_oneliner_max: 25
+  mobile_section_title_max: 12
+  paragraph_max_sentences: 3
+  styles:
+    slide_bullet: 개조식(명사형)
+    warning: 완결문장
+    opinion: 완결문장 · "저희가 보기에" 접두
+    caption: 개조식
+table:
+  max_tables_per_page: 2
+  note: §4.7은 1개를 권하나 §4.3이 p6에 두 표를 둡니다

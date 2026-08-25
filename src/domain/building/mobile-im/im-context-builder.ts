@@ -130,12 +130,19 @@ export async function deepNormalizeStringsAsync<T>(obj: T): Promise<T> {
   return obj;
 }
 
+interface BuyerFit {
+  fit_summary?: string;
+  fit_points?: string[];
+  caution_summary?: string;
+  [key: string]: unknown;
+}
+
 export interface IMGenerationContext {
   buildingId: string;
   assetIdentity: Record<string, unknown>;
   physicalFact: Record<string, unknown>;
   marketLocation: Record<string, unknown>;
-  buyerFit: Record<string, unknown>;
+  buyerFit: BuyerFit;
   flat: Record<string, unknown>;
   provenanceMap: ReturnType<typeof buildProvenanceMap>;
   purchasePriceKrw: number;
@@ -291,7 +298,7 @@ export async function buildIMContext(
   // P1-04: 비수익형 포스처의 공실률 보정 (development/trading은 "공실" 개념 부적합)
   if ((posture === 'development' || posture === 'trading') && vacancyPct === 0 && !vacancyStr) {
     // 명시적 공실률 입력이 없으면, 비수익형에서 0%(만실)로 기본값 설정하지 않음
-    sectionCtx.numericalAnchors!.vacancyPct = undefined;
+    (sectionCtx.numericalAnchors as Record<string, unknown>)['vacancyPct'] = undefined;
   }
 
   const sysPromptText = (activeSysPrompt ? activeSysPrompt.systemPrompt : buildPostureAwareSystemPrompt(posture)) + "\n" + logisticsOverlay;

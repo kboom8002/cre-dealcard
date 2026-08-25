@@ -75,19 +75,22 @@ export interface NumericalAnchors {
  * - 면적: 20% 이상 차이 → critical
  * - 일반 수치: 15% 이상 상대 차이 → warning
  */
+// D29 BL-8: 면 간 동일 지표 정확 일치 (불변조건 22)
+// "같은 지표는 모든 면에서 같은 값" — 오차 허용 없음, 바이트 동일
+// 근본 해소: M-10에서 파생 계산을 ⑤등급 단계로 이동하면 값 불일치 자체 미발생
 const THRESHOLDS = {
-  /** 공실률 절대 차이 임계값 (%p) */
-  VACANCY_CRITICAL_PP: 10,
-  /** 면적 상대 차이 임계값 (%) */
-  AREA_CRITICAL_PCT: 20,
-  /** 월세 상대 차이 임계값 (%) */
-  RENT_WARNING_PCT: 15,
-  /** Cap Rate 절대 차이 임계값 (%p) */
-  CAP_RATE_WARNING_PP: 2,
-  /** 역 도보 거리 절대 차이 임계값 (분) */
-  STATION_WARNING_MIN: 3,
-  /** 건물 연식 절대 차이 임계값 (년) */
-  AGE_WARNING_YEARS: 3,
+  /** 공실률 절대 차이 임계값 (%p) — 정확 일치 */
+  VACANCY_CRITICAL_PP: 0,
+  /** 면적 상대 차이 임계값 (%) — 정확 일치 */
+  AREA_CRITICAL_PCT: 0,
+  /** 월세 상대 차이 임계값 (%) — 정확 일치 */
+  RENT_WARNING_PCT: 0,
+  /** Cap Rate 절대 차이 임계값 (%p) — 정확 일치 */
+  CAP_RATE_WARNING_PP: 0,
+  /** 역 도보 거리 절대 차이 임계값 (분) — 정확 일치 */
+  STATION_WARNING_MIN: 0,
+  /** 건물 연식 절대 차이 임계값 (년) — 정확 일치 */
+  AGE_WARNING_YEARS: 0,
 } as const;
 
 // ─── Section Types (검증 대상 매핑) ──────────────────────────────────────────

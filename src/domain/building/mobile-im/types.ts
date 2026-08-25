@@ -49,6 +49,10 @@ export const MOBILE_IM_SECTIONS_NON_INCOME = [
   // trading
   "market_position",
   "comparable_analysis",
+  // 공통 확장 섹션
+  "title_rights",
+  "land_detail",
+  "comparables",
 ] as const;
 
 export type MobileIMSectionType =

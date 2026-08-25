@@ -171,12 +171,16 @@ export function setActiveTheme(theme: PptxThemeTokens): void {
     presetId:       theme.presetId,
   });
 
-  // ── PV (provenance 배지) 색상 갱신 ──
-  PV.pub = ['✓ 공부확인',    C.green,  C.greenL ];
-  PV.exp = ['★ 전문가검증',  C.amber,  C.amberL ];
-  PV.sel = ['▲ 매도인고지',  C.violet, C.violetL];
-  PV.brk = ['● 중개인입력',  C.blue,   C.blueL  ];
-  PV.ai  = ['◇ AI추정·가정', C.mute,   C.line2  ];
+  // ── PV (provenance 배지) 색상 갱신 — D29 M-5 정본 9종 ──
+  PV.registry   = ['✓ 등기·대장',    C.green,  C.greenL ];
+  PV.public_api = ['✓ 공공데이터',   C.green,  C.greenL ];
+  PV.broker_aug = ['● 현장확인',     C.blue,   C.blueL  ];
+  PV.expert     = ['★ 전문가검증',   C.amber,  C.amberL ];
+  PV.ledger     = ['✓ 원장확인',     C.green,  C.greenL ];
+  PV.seller     = ['▲ 매도인고지',   C.violet, C.violetL];
+  PV.broker     = ['● 중개인입력',   C.blue,   C.blueL  ];
+  PV.derived    = ['◈ 파생계산',     C.mute,   C.line2  ];
+  PV.assumed    = ['◇ AI추정·가정',  C.mute,   C.line2  ];
 }
 
 /**
@@ -207,14 +211,38 @@ export async function withThemeIsolation<T>(theme: PptxThemeTokens, fn: () => Pr
 // §10 provenance 배지
 // ════════════════════════════════════════
 
-export type ProvenanceKind = 'pub' | 'exp' | 'sel' | 'brk' | 'ai';
+// D29 M-5: 정본 9종 출처 체계 (ontology/provenance.ts 정본)
+export type ProvenanceKind =
+  | 'registry'     // S1: 등기·대장 (공적 장부)
+  | 'public_api'   // S2a: 공공 API (국토부 실거래가, 공시지가 등)
+  | 'broker_aug'   // S2a: 중개인 보강 (현장 실측 등)
+  | 'expert'       // S2b: 전문가 검증 (감정평가사 등)
+  | 'ledger'       // S2a: 원장 (임대차 계약서 원본)
+  | 'seller'       // S3: 매도인 고지
+  | 'broker'       // S3: 중개인 입력
+  | 'derived'      // S4: 파생 계산
+  | 'assumed';     // S5: AI 추정·가정
 
 export const PV: Record<ProvenanceKind, [string, string, string]> = {
-  pub: ['✓ 공부확인',    C.green,  C.greenL ],
-  exp: ['★ 전문가검증',  C.amber,  C.amberL ],
-  sel: ['▲ 매도인고지',  C.violet, C.violetL],
-  brk: ['● 중개인입력',  C.blue,   C.blueL  ],
-  ai:  ['◇ AI추정·가정', C.mute,   C.line2  ],
+  registry:   ['✓ 등기·대장',    C.green,  C.greenL ],
+  public_api: ['✓ 공공데이터',   C.green,  C.greenL ],
+  broker_aug: ['● 현장확인',     C.blue,   C.blueL  ],
+  expert:     ['★ 전문가검증',   C.amber,  C.amberL ],
+  ledger:     ['✓ 원장확인',     C.green,  C.greenL ],
+  seller:     ['▲ 매도인고지',   C.violet, C.violetL],
+  broker:     ['● 중개인입력',   C.blue,   C.blueL  ],
+  derived:    ['◈ 파생계산',     C.mute,   C.line2  ],
+  assumed:    ['◇ AI추정·가정',  C.mute,   C.line2  ],
+};
+
+// 레거시 코드 호환 매핑
+/** @deprecated D29 M-5: 레거시 5종 → 정본 9종 */
+export const LEGACY_PROVENANCE_MAP: Record<string, ProvenanceKind> = {
+  pub: 'public_api',
+  exp: 'expert',
+  sel: 'seller',
+  brk: 'broker',
+  ai: 'assumed',
 };
 
 // ════════════════════════════════════════
@@ -516,7 +544,7 @@ export function foot(
       const footText = `${THEME_META.companyName}  ·  ${docno}  ·  ${page}`;
       s.addText(footText, {
         x: M, y: 7.02, w: CW, h: 0.22,
-        align: 'center', fontSize: 7.5, color: textColor, fontFace: KR, margin: 0,
+        align: 'center', fontSize: 9, color: textColor, fontFace: KR, margin: 0,
       });
       // 하단 얇은 액센트 라인
       s.addShape('line' as any, {
@@ -533,7 +561,7 @@ export function foot(
       });
       s.addText(`${docno}`, {
         x: M, y: 7.00, w: CW * 0.5, h: 0.22,
-        fontSize: 7.5, color: textColor, fontFace: KR, margin: 0,
+        fontSize: 9, color: textColor, fontFace: KR, margin: 0,
       });
       s.addText(String(page), {
         x: W - M - 0.6, y: 7.00, w: 0.6, h: 0.22,
@@ -561,7 +589,7 @@ export function foot(
       });
       s.addText(`${docno}`, {
         x: M, y: 7.12, w: 8, h: 0.20,
-        fontSize: 7, color: onDark ? CD.faint : CD.mute, fontFace: KR, margin: 0,
+        fontSize: 9, color: onDark ? CD.faint : CD.mute, fontFace: KR, margin: 0,
       });
       s.addText(String(page), {
         x: W - M - 0.8, y: 7.12, w: 0.8, h: 0.20,
@@ -629,7 +657,7 @@ export function note(
 ): void {
   s.addText(text, {
     x, y, w, h: 0.42,
-    fontSize: 7.8, color: onDark ? CD.faint : C.mute2,
+    fontSize: 11, color: onDark ? CD.faint : C.mute2,
     fontFace: KR, margin: 0, lineSpacingMultiple: 1.25,
   });
 }
@@ -763,15 +791,16 @@ export function rows(
 
     // 배지 (선택)
     if (badge) {
-      const pvKey = badge.startsWith('✓') ? 'pub'
-        : badge.startsWith('★') ? 'exp'
-        : badge.startsWith('▲') ? 'sel'
-        : badge.startsWith('●') ? 'brk'
-        : 'ai';
-      const [, fg, bg] = PV[pvKey as ProvenanceKind] ?? PV.ai;
+      const pvKey = badge.startsWith('✓') ? 'registry'
+        : badge.startsWith('★') ? 'expert'
+        : badge.startsWith('▲') ? 'seller'
+        : badge.startsWith('●') ? 'broker'
+        : badge.startsWith('◈') ? 'derived'
+        : 'assumed';
+      const [, fg, bg] = PV[pvKey as ProvenanceKind] ?? PV.assumed;
       s.addText(badge, {
         x: x + w * 0.80, y: ry + 0.04, w: w * 0.20, h: rh - 0.08,
-        fontSize: 7.2, bold: true, color: fg, fontFace: KR,
+        fontSize: 9, bold: true, color: fg, fontFace: KR,
         fill: { color: bg },
         valign: 'middle', align: 'center', margin: 0,
       });
@@ -967,7 +996,7 @@ export function chip(
   s.addText(label, {
     x, y, w: 1.02, h: 0.21,
     align: 'center', valign: 'middle',
-    fontSize: 7.2, bold: true, color: fg,
+    fontSize: 9, bold: true, color: fg,
     fontFace: KR, margin: 0,
   });
 }
@@ -1122,7 +1151,7 @@ export function waterfall(
     // 라벨 (하단)
     s.addText(step.lab, {
       x: bx, y: y + h - 0.34, w: barW, h: 0.22,
-      fontSize: 7.5, color: C.mute, fontFace: KR,
+      fontSize: 9, color: C.mute, fontFace: KR,
       align: 'center', margin: 0,
     });
 

@@ -23,7 +23,7 @@ export interface OptimizedImage {
  */
 export async function optimizeImageForPptx(
   imageUrl: string,
-  maxWidth = 1280,
+  maxWidth = 1800, // D29 M-11: 실효 dpi 180 기반 (10" × 180dpi)
   quality = 75
 ): Promise<OptimizedImage | null> {
   try {
@@ -94,7 +94,7 @@ export async function optimizeImageForPptx(
 export async function optimizeImagesForPptx(
   urls: string[],
   maxCount = 8,
-  maxWidth = 1280,
+  maxWidth = 1800, // D29 M-11: 실효 dpi 180 기반 (10" × 180dpi)
   quality = 75
 ): Promise<OptimizedImage[]> {
   const targets = urls.slice(0, maxCount);
@@ -221,7 +221,7 @@ export async function generateStaticMapPlaceholder(
           apikey: apiKey,
           center: `${coordinates.lng},${coordinates.lat}`,
           level: '3',
-          w: String(Math.min(w, 1280)),
+          w: String(Math.min(w, 1800)),
           h: String(Math.min(h, 960)),
           markers: `type:d|size:medium|${coordinates.lng},${coordinates.lat}`,
         });
@@ -234,7 +234,7 @@ export async function generateStaticMapPlaceholder(
           const inputBuffer = Buffer.from(arrayBuffer);
           
           // 카카오 지도 위에 POI 마커 오버레이 (Sharp composite)
-          const kakaoW = Math.min(w, 1280);
+          const kakaoW = Math.min(w, 1800);
           const kakaoH = Math.min(h, 960);
           let resized = sharp(inputBuffer).resize({ width: kakaoW, height: kakaoH, fit: 'cover' });
           

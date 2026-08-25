@@ -223,7 +223,7 @@ export type Terrain = typeof TERRAIN[number];
 export const BUYER_PURPOSE = [
   'owner_use',             // 실사용
   'rental_income',         // 임대수익
-  'value_add',             // 밸류애드
+  'value_add',             // 가치 상승 여력 (E-2: CRE 실무 용어 준수)
   'development',           // 개발
   'asset_allocation',      // 자산배분
 ] as const;

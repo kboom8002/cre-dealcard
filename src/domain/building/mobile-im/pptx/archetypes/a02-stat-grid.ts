@@ -50,7 +50,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     } else {
       if (hero.askingPriceDisplay) metrics.push({ label: '매매 희망가', value: hero.askingPriceDisplay });
       if (hero.equityRequiredBil) metrics.push({ label: '필요 실투자금', value: `약 ${hero.equityRequiredBil}억 원` });
-      if (hero.capRateBase) metrics.push({ label: '연 순수익률(Cap Rate)', value: `${hero.capRateBase}%` });
+      if (hero.capRateBase) metrics.push({ label: '연 수익률(Cap Rate, 기준: NOI)', value: `${hero.capRateBase}%` });
       if (hero.leveragedYieldPct) metrics.push({ label: '자기자본수익률', value: `${hero.leveragedYieldPct}%` });
       if (metrics.length < 4 && hero.landAreaM2) metrics.push({ label: '대지면적', value: `${(hero.landAreaM2 / 3.3058).toFixed(1)}평` });
       if (metrics.length < 4 && hero.totalGrossAreaM2) metrics.push({ label: '연면적', value: `${(hero.totalGrossAreaM2 / 3.3058).toFixed(1)}평` });

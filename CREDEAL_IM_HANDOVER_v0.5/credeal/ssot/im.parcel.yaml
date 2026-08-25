@@ -1,0 +1,252 @@
+meta:
+  id: im.parcel
+  version: 1
+  owner: CATALOG_SLOTS.md §2.1·§5(enum 표 8·13행) + CATALOG_RULES.md §3(P01~P03)·§4(G12)·§5.1(L10~L12)
+  note: |
+    🔴 이 파일은 **새로 만든 규격이 아닙니다.** 이미 정본에 있던 것을
+    기계 판독으로 옮긴 것입니다.
+
+    다필지·제척·유효 대지면적·토지이용계획 목적별 필터는 CREDEAL 온톨로지
+    v0.3 에 이미 설계돼 있었습니다. 그런데 계산식을 소유하던
+    `IM_PRECISION_SPEC.md` 가 SUPERSEDED 되면서 승계 문서
+    (`IM_SYSTEM_SSOT.md` §5 · `API_TYPE_CONTRACT.md`)에 **하나도 넘어가지
+    않았습니다** — 두 문서에서 "제척"·"다필지"·"parcels" 검색 결과 0건.
+
+    그 결과 D19·D22 세트가 전부 단일 필지를 전제했고, D22-1 §D5 는 다필지를
+    "차단"하기로 결정했습니다. **이미 지원하도록 설계된 것을 막기로 한
+    것입니다.** D22-8 에서 철회합니다.
+
+# ── 필지 ───────────────────────────────────────────────────────────────
+parcel:
+  fields:
+    - {key: pnu, type: string, len: 19, source: S2a}
+    - {key: address, type: string, source: S1}
+    - {key: jibun, type: string, source: S1, masking: pro 단계만}
+    - {key: jimok, type: enum, ref: Jimok(28), source: S1}
+    - {key: area, type: number, unit: ㎡, source: S1, note: 대장 면적}
+    - {key: officialPrice, type: money, source: S2a}
+    - {key: ownership, type: enum, values: [sole, shared], source: S1}
+    - {key: shareNumerator, type: number, nullable: true}
+    - {key: shareDenominator, type: number, nullable: true}
+    - {key: exclusions, type: array, ref: ExclusionItem}
+
+# ── 제척 사유 7종 (CATALOG_SLOTS §5 enum 표 8행) ─────────────────────────────────
+# affects_far_default 는 **기본값일 뿐입니다.** 실제 저촉 여부는 필지마다
+# 다르므로 중개인이 확정합니다. 기본값으로 계산하고 넘어가면
+# "틀린 값이 확신 있게" 나갑니다.
+exclusion_kinds:
+  - key: planned_road
+    label: 도시계획도로 저촉
+    affects_far_default: true
+    note: 가장 흔합니다. 확폭 계획선이 필지를 가로지릅니다
+  - key: buffer_green
+    label: 완충녹지
+    affects_far_default: true
+  - key: park
+    label: 공원
+    affects_far_default: true
+  - key: river
+    label: 하천구역
+    affects_far_default: true
+  - key: road_setback
+    label: 접도구역
+    affects_far_default: true
+  - key: slope
+    label: 법면 (건축 불가 경사)
+    affects_far_default: false
+    note: 대지면적에는 남지만 건축 가능 범위에서 빠집니다. 판단이 갈립니다
+  - key: other_share
+    label: 타인 공유지분
+    affects_far_default: false
+    note: 지분으로 이미 차감되므로 중복 차감하지 않습니다
+
+# ── 취득 경로 ──────────────────────────────────────────────────────────
+acquisition:
+  rule: |
+    🔴 제척 면적은 **API 로 나오지 않습니다.**
+    토지이용계획도의 도시계획시설 저촉선을 읽어야 합니다.
+  provenance: S3 (중개인 입력)
+  display: 화면에 ●중개인 을 명시합니다
+  verify: 관할 구청 확인 — 확인 전까지 확인사항에 남깁니다
+  automation: 도면 판독 자동화는 범위 밖입니다
+
+# ── 파생 산식 (CATALOG_RULES P01~P03) ──────────────────────────────────
+derived:
+  - code: P01
+    key: effectiveArea
+    label: 유효 대지면적
+    formula: Σ(필지 면적 × 지분) − Σ(제척 면적 where affectsFAR)
+    unit: ㎡
+    floor: 0
+    note: 필지별로 음수가 되지 않도록 max(0, …) 를 씁니다
+  - code: P02
+    key: effectiveFar
+    label: 유효 용적률
+    formula: 용적률 산정 연면적 ÷ 유효 대지면적 × 100
+    unit: '%'
+    warning: |
+      대장 대지면적으로 계산하면 **증축 여유를 과대평가합니다.**
+      유효 대지가 작아지면 현재 용적률이 실제로는 더 높고 여유는 줄어듭니다.
+  - code: P03
+    key: exclusionImpact
+    label: 제척 영향도
+    formula: 제척 면적 합 ÷ 대장 대지면적 합 × 100
+    unit: '%'
+  - code: P04
+    key: ledgerArea
+    label: 대장 대지면적 합
+    formula: Σ 필지 면적
+    unit: ㎡
+    status: 신설 — CATALOG_SLOTS 파생표에는 있으나 P 코드가 없었습니다
+
+# ── 교차검증 X05 (신설) ────────────────────────────────────────────────
+crosschecks:
+  - code: X05
+    label: 필지 면적 합 = 공부 대지면적
+    tolerance_pct: 0.5
+    level: 경고
+    status: 등록요청
+    condition: 필지 수 ≥ 2
+    rationale: |
+      🔴 D22-1 §D5 는 "다필지를 합산값으로 돌리면 오차가 허용범위 안에
+      들어와 틀린 것이 통과한다" 고 걱정했습니다. 그 답은 X01~X04 를 유효
+      면적으로 바꾸는 것이 **아닙니다** — 그러면 공부끼리의 항등식이 깨집니다.
+      건폐율·용적률은 **대장 대지 기준으로 고시**되므로 X01·X02·X04 는
+      대장으로 검산해야 맞습니다. 필지 합 자체를 따로 재는 것이 답입니다.
+    note: 유효 면적은 검산이 아니라 파생입니다 — P01·P02 소관
+
+# ── 게이트·레이아웃 ────────────────────────────────────────────────────
+gates:
+  - code: G12
+    label: 제척 합계 ≤ 대지 합계 · 유효 용적률 재계산 일치
+    level: 차단
+    status: 등록
+    on_fail: 불일치 필지를 지목합니다
+layout:
+  - code: L10
+    condition: 필지 수 ≥ 2
+    action: 필지 명세 면 추가
+  - code: L11
+    condition: 제척 면적 > 0
+    action: 유효 대지·유효 용적률 강조 · 대장 면적 병기
+  - code: L12
+    condition: 토지이용계획 항목 존재
+    action: 매수 목적별 relevance 필터 · 전체는 부록
+
+# ── 토지이용계획 선택적 표시 (L12) ─────────────────────────────────────
+# 확인원에는 수십 항목이 찍힙니다. 다 보여주면 노이즈이고,
+# 임의로 고르면 누락 책임이 생깁니다. **목적별로 필터하되 전체는 부록에.**
+zoning_display:
+  purposes: [own_use, income, value_add, development, allocation]
+  purpose_labels:
+    own_use: 실사용
+    income: 임대수익
+    value_add: 가치 상승 여력      # 정본 §6.1 — '밸류애드'는 치환 대상입니다
+    development: 개발
+    allocation: 자산배분
+  levels:
+    high: 본문
+    medium: 접기 (모바일) · 표 하단 (PPTX)
+    low: 부록
+  appendix_rule: |
+    🔴 relevance 와 무관하게 **전체 목록을 항상 부록에 싣습니다.**
+    고르는 행위 자체가 누락 책임을 만듭니다. 고르는 것은 강조일 뿐
+    감추는 것이 아니어야 합니다.
+  relevance:
+    - item: 용도지역
+      own_use: high
+      income: high
+      value_add: high
+      development: high
+    - item: 고도지구
+      own_use: low
+      income: low
+      value_add: high
+      development: high
+    - item: 학교 상대보호구역
+      own_use: medium
+      income: high
+      value_add: medium
+      development: medium
+      why: 업종 제한 — 임대 가능 업종이 줄어듭니다
+    - item: 토지거래허가구역
+      own_use: high
+      income: high
+      value_add: high
+      development: high
+      why: 거래 자체의 조건입니다. 목적과 무관하게 본문
+    - item: 개발제한구역
+      own_use: high
+      income: medium
+      value_add: high
+      development: high
+    - item: 과밀억제권역
+      own_use: low
+      income: low
+      value_add: medium
+      development: high
+      why: 취득세 중과
+    - item: 대공방어협조구역
+      own_use: low
+      income: low
+      value_add: medium
+      development: high
+      why: 고도 제한
+    - item: 가로구역별 최고높이 제한구역
+      own_use: low
+      income: low
+      value_add: high
+      development: high
+    - item: 정비구역
+      own_use: medium
+      income: medium
+      value_add: high
+      development: high
+      status: 신설
+      why: 정비사업 진행 단계에 따라 처분 제한이 걸립니다
+    - item: 지구단위계획구역
+      own_use: medium
+      income: medium
+      value_add: high
+      development: high
+      status: 신설
+      why: 획지·용도·높이 지침이 개별 필지에 직접 걸립니다
+    - item: 도시계획시설 저촉
+      own_use: high
+      income: medium
+      value_add: high
+      development: high
+      status: 신설
+      why: 제척의 원인입니다. 저촉이 있으면 L11 이 함께 켜집니다
+
+# ── 한시 제도 연동 ─────────────────────────────────────────────────────
+# 🔴 유효 대지면적이 한시 완화 조건의 임계를 넘기는 일이 실제로 있습니다.
+temporary_relief_check:
+  rule: |
+    한시적 용적률 완화가 "산정 용적률 N% 미만" 을 조건으로 걸 때,
+    **대장 기준으로는 충족인데 유효 기준으로는 이탈**할 수 있습니다.
+    두 값을 모두 계산해 비교합니다.
+  measured_case:
+    property: 잠원동 두원빌딩 (2필지)
+    parcels: [{jibun: 26-14, area: 511.7}, {jibun: 26-16, area: 104.4}]
+    exclusion: {kind: planned_road, area: 12.5, note: 9M 도로 확폭 계획}
+    ledger_area: 616.1
+    effective_area: 603.6
+    far_on_ledger_pct: 249
+    far_on_effective_pct: 254
+    relief_threshold_pct: 250
+    verdict: 대장 기준 충족 · 유효 기준 이탈
+    impact: 12.5㎡ 하나가 사업 구조를 바꿉니다
+  on_cross: 경고 + 확인사항 · 완화를 전제한 규모 산출을 하지 않습니다
+
+# ── 다필지 탐색 ────────────────────────────────────────────────────────
+# 중개인은 대표 지번 하나만 압니다. 나머지는 시스템이 찾아 제시합니다.
+discovery:
+  input: 대표 지번 1개
+  method: 인접 필지 탐색 → 후보 제시 → 중개인이 선택
+  max_candidates: 10
+  on_overflow: 자동 중단 · "필지가 많습니다. 직접 선택해 주십시오"
+  rule: |
+    🔴 자동으로 확정하지 않습니다. 인접하다고 같은 물건이 아닙니다.
+    후보를 보여주고 사람이 고릅니다.
+  source: IM_DATA_PIPELINE.md §다필지 탐색

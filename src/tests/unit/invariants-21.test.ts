@@ -9,7 +9,7 @@ import { commercialVacatePoint, residentialVacatePoint } from '@/domain/building
 import { applyMask } from '@/domain/building/mobile-im/render/apply-mask';
 import { auditDeficiencies } from '@/domain/building/mobile-im/deficiency-ledger';
 import { requiresManualComps, ASSUMPTIONS } from '@/domain/building/mobile-im/assumptions';
-import { runDeterministicGates, checkG19, checkC19 } from '@/domain/building/gates/deterministic-gates';
+import { runDeterministicGates, checkQG19, checkC19 } from '@/domain/building/gates/deterministic-gates';
 import { formatBandedPrice, formatBandedYield } from '@/domain/dealcard/teaser-rules';
 import { stripMarkdown } from '@/domain/building/mobile-im/pptx/data-binder';
 import { sanitizePersonaInGoldenIM } from '@/domain/building/mobile-im/persona-sanitizer';

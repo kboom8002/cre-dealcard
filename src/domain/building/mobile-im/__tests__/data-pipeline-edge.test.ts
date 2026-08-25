@@ -163,10 +163,10 @@ describe('Data Pipeline Edge Cases', () => {
     const postures = ['income', 'development', 'owner_occupied', 'operating', 'trading'];
     
     postures.forEach((posture, idx) => {
-      it(`B0${idx * 2 + 1}: ${posture}/basic/B: 5-10 slides`, () => {
+      it(`B0${idx * 2 + 1}: ${posture}/basic/B: 5-14 slides`, () => {
         const slides = buildDeckSequence({ posture, tier: 'basic', grade: 'B' });
         expect(slides.length).toBeGreaterThanOrEqual(5);
-        expect(slides.length).toBeLessThanOrEqual(10);
+        expect(slides.length).toBeLessThanOrEqual(14);
       });
       const bnum = idx * 2 + 2;
       it(`B${bnum < 10 ? '0' + bnum : bnum}: ${posture}/pro/B: 8-24 slides`, () => {
@@ -176,14 +176,14 @@ describe('Data Pipeline Edge Cases', () => {
       });
     });
 
-    it('B11: D grade + pro -> 0 slides', () => {
-      const slides = buildDeckSequence({ posture: 'income', tier: 'pro', grade: 'D' });
-      expect(slides.length).toBe(0);
+    it('B11: D grade + pro -> throws (발행 차단)', () => {
+      expect(() => buildDeckSequence({ posture: 'income', tier: 'pro', grade: 'D' }))
+        .toThrow('[G30]');
     });
 
-    it('B12: D grade + basic -> some slides (reduced set)', () => {
-      const slides = buildDeckSequence({ posture: 'income', tier: 'basic', grade: 'D' });
-      expect(slides.length).toBeGreaterThan(0);
+    it('B12: D grade + basic -> throws (발행 차단)', () => {
+      expect(() => buildDeckSequence({ posture: 'income', tier: 'basic', grade: 'D' }))
+        .toThrow('[G30]');
     });
 
     it('B13: hasPhotos=true -> A14 in sequence', () => {

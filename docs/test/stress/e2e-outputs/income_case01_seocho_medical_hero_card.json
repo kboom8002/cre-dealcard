@@ -5,17 +5,17 @@
   "askingPriceDisplay": "165억",
   "capRateBase": 3.33,
   "noiBaseBil": 5.5,
-  "keyInvestmentPoint": "서초권역 권역 내 근생빌딩, 매각 희망가 165억. 입지·임대차 현황을 감안할 때 투자 검토 가치가 있는 물건입니다.",
+  "keyInvestmentPoint": "서초권역 소재 근생빌딩, 희망가 165억 투자 검토 자료입니다.",
   "keyPoints": [
-    "원금 안전판: 서초권역 핵심 입지 및 우량 대지 지분 가치로 하방 경직성 확보",
-    "수익 안정성: 매각 희망가 165억 대비 안정적인 월 임대수익 창출 구조",
-    "미래 가치: 향후 권역 지가 상승 및 공법상 잔여 용적률 활용 밸류업 기회"
+    "입지 가치: 서초권역 소재 자산으로 중장기 자산 가치 및 안정적 수요 검토",
+    "임대 구조: 165억 수준의 가격대 및 현 임대차 기반의 현금흐름 분석",
+    "실사 점검: 계약서 및 공부 확인을 통한 권리관계·물리적 상태 정밀 진단"
   ],
   "keyRisk": "공실률 미확인, 등기·건축물대장 현장 실사 필요. 투자 결정 전 반드시 직접 검증하시기 바랍니다.",
   "equityRequiredBil": 77.6,
-  "leveragedYieldPct": 8.03,
+  "leveragedYieldPct": 2.44,
   "readinessScore": 75,
-  "dcf10YearNpvBil": -20.8,
+  "dcf10YearNpvBil": null,
   "landAreaM2": 1000,
   "totalGrossAreaM2": 5000,
   "zoning": "일반상업지역",

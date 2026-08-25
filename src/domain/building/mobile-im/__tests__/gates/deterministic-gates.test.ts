@@ -1,11 +1,11 @@
 // src/domain/building/mobile-im/__tests__/gates/deterministic-gates.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
-  checkG19,
+  checkQG19,
   checkC19,
-  checkG21,
-  checkG15,
-  checkG16,
+  checkQG21,
+  checkQG15,
+  checkQG16,
   runDeterministicGates,
 } from '@/domain/building/gates/deterministic-gates';
 import type { IMCore } from '@/types/im-core';
@@ -139,7 +139,7 @@ describe('Deterministic Gates (Phase 5.1)', () => {
   describe('G19: Summary Deposit/Rent === Ledger Sum', () => {
     it('UT-01: G19 passes when summary equals ledger total exactly', () => {
       const core = createMockCore();
-      const result = checkG19(core);
+      const result = checkQG19(core);
       expect(result.passed).toBe(true);
       expect(result.severity).toBe('block');
     });
@@ -157,7 +157,7 @@ describe('Deterministic Gates (Phase 5.1)', () => {
           equity: 4_950_000_000,
         },
       });
-      const result = checkG19(core);
+      const result = checkQG19(core);
       expect(result.passed).toBe(false);
       expect(result.diff?.depositDiff).toBe(100_000_000);
     });
@@ -174,7 +174,7 @@ describe('Deterministic Gates (Phase 5.1)', () => {
           grossAreaPyung: 302.5,
         },
       });
-      const result = checkG19(core);
+      const result = checkQG19(core);
       expect(result.passed).toBe(false);
       expect(result.diff?.monthlyDiff).toBe(5_000_000);
     });
@@ -244,7 +244,7 @@ describe('Deterministic Gates (Phase 5.1)', () => {
   describe('G21: Attached Documents Verification', () => {
     it('UT-07: G21 passes when all docs are verified', () => {
       const core = createMockCore();
-      const result = checkG21(core);
+      const result = checkQG21(core);
       expect(result.passed).toBe(true);
     });
 
@@ -254,14 +254,14 @@ describe('Deterministic Gates (Phase 5.1)', () => {
           { docType: '대장', fileName: '미확인도면.pdf', fileUrl: 'https://example.com/unv.pdf', verified: false },
         ],
       });
-      const result = checkG21(core);
+      const result = checkQG21(core);
       expect(result.passed).toBe(false);
     });
   });
 
-  describe('G15: Text Budget & Limits', () => {
-    it('UT-09: G15 passes when all text lengths are within limits', () => {
-      const result = checkG15({
+  describe('QG15: Text Budget & Limits', () => {
+    it('UT-09: QG15 passes when all text lengths are within limits', () => {
+      const result = checkQG15({
         core: createMockCore(),
         textSnippets: [
           { type: 'slideTitle', text: '핵심 투자 지표 요약' },
@@ -272,8 +272,8 @@ describe('Deterministic Gates (Phase 5.1)', () => {
       expect(result.passed).toBe(true);
     });
 
-    it('UT-10: G15 fails when text exceeds limits', () => {
-      const result = checkG15({
+    it('UT-10: QG15 fails when text exceeds limits', () => {
+      const result = checkQG15({
         core: createMockCore(),
         textSnippets: [
           { type: 'slideTitle', text: '이 제목은 슬라이드 제목의 글자수 제한인 삼십이 글자를 훨씬 넘어서 작성된 매우 길고 긴 비정상적인 제목입니다' },
@@ -283,9 +283,9 @@ describe('Deterministic Gates (Phase 5.1)', () => {
     });
   });
 
-  describe('G16: Coordinate & Bounds Integrity (12.713 x 6.75)', () => {
-    it('UT-11: G16 passes when all elements fit within bounds', () => {
-      const result = checkG16({
+  describe('QG16: Coordinate & Bounds Integrity (12.713 x 6.75)', () => {
+    it('UT-11: QG16 passes when all elements fit within bounds', () => {
+      const result = checkQG16({
         core: createMockCore(),
         renderedElements: [
           { x: 0.6, y: 1.55, w: 5.9, h: 4.8 },
@@ -295,8 +295,8 @@ describe('Deterministic Gates (Phase 5.1)', () => {
       expect(result.passed).toBe(true);
     });
 
-    it('UT-12: G16 fails when element overflows right edge or bottom edge', () => {
-      const result = checkG16({
+    it('UT-12: QG16 fails when element overflows right edge or bottom edge', () => {
+      const result = checkQG16({
         core: createMockCore(),
         renderedElements: [
           { x: 8.0, y: 2.0, w: 5.5, h: 5.2 }, // right: 13.5 > 12.713, bottom: 7.2 > 6.75

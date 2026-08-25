@@ -33,7 +33,7 @@ export interface GateEvaluationReport {
 /**
  * G19: 표지/요약표 합계 = 상세 원장(Ledger) 합산 검증 (오차 0원 일치)
  */
-export function checkG19(core: IMCore): GateCheckResult {
+export function checkQG19(core: IMCore): GateCheckResult {
   const isStrict = process.env.GATE_STRICT_MODE !== 'false';
   const summaryDeposit = core.equity.deposit ?? 0;
   const ledgerDeposit = core.leases.reduce((acc, l) => acc + (l.depositKrw ?? 0), 0);
@@ -51,7 +51,7 @@ export function checkG19(core: IMCore): GateCheckResult {
 
     const passed = depositMatches && monthlyMatches;
     return {
-      code: 'G19',
+      code: 'QG19',
       label: '표지/요약표와 임대차 원장 금액 합계 일치',
       passed,
       severity: isStrict ? 'block' : 'warn',
@@ -63,7 +63,7 @@ export function checkG19(core: IMCore): GateCheckResult {
   }
 
   return {
-    code: 'G19',
+    code: 'QG19',
     label: '표지/요약표와 임대차 원장 금액 합계 일치',
     passed: true,
     severity: isStrict ? 'block' : 'warn',
@@ -108,7 +108,7 @@ export function checkC19(core: IMCore): GateCheckResult {
 /**
  * G21: 첨부 문서/공부 소재지 일치 및 위치 유효성 검증
  */
-export function checkG21(core: IMCore): GateCheckResult {
+export function checkQG21(core: IMCore): GateCheckResult {
   const isStrict = process.env.GATE_STRICT_MODE !== 'false';
   const docs = core.attachedDocs || [];
   const targetSigungu = core.address?.sigungu;
@@ -122,7 +122,7 @@ export function checkG21(core: IMCore): GateCheckResult {
 
     const passed = unverifiedDocs.length === 0 && mismatchedDocs.length === 0;
     return {
-      code: 'G21',
+      code: 'QG21',
       label: '첨부 공부/문서 소재지 일치 및 검증 상태 확인',
       passed,
       severity: isStrict ? 'block' : 'warn',
@@ -140,7 +140,7 @@ export function checkG21(core: IMCore): GateCheckResult {
   }
 
   return {
-    code: 'G21',
+    code: 'QG21',
     label: '첨부 공부/문서 소재지 일치 및 검증 상태 확인',
     passed: true,
     severity: isStrict ? 'block' : 'warn',
@@ -151,7 +151,7 @@ export function checkG21(core: IMCore): GateCheckResult {
 /**
  * G18: 최초계약일 부재 시 갱신요구권 잔여 연수 단정 표기 차단
  */
-export function checkG18(core: IMCore, textSnippets?: Array<{ type: string; text: string }>): GateCheckResult {
+export function checkQG18(core: IMCore, textSnippets?: Array<{ type: string; text: string }>): GateCheckResult {
   const isStrict = process.env.GATE_STRICT_MODE !== 'false';
   const missingFirstDateLeases = core.leases.filter(
     l => l.leaseState === '임대중' && (!l.firstContractDate || String(l.firstContractDate).trim() === '')
@@ -170,7 +170,7 @@ export function checkG18(core: IMCore, textSnippets?: Array<{ type: string; text
 
   const passed = hallucinatedSnippets.length === 0;
   return {
-    code: 'G18',
+    code: 'QG18',
     label: '최초계약일 부재 시 갱신요구권 연수 산출 금지 (불변조건 7)',
     passed,
     severity: isStrict ? 'block' : 'warn',
@@ -229,14 +229,14 @@ export function checkCBASIS(core: IMCore, textSnippets?: Array<{ type: string; t
 /**
  * G15: 텍스트 예산 및 필수 섹션 누락 검증
  */
-export function checkG15(context: GateEvaluationContext): GateCheckResult {
+export function checkQG15(context: GateEvaluationContext): GateCheckResult {
   const isStrict = process.env.GATE_STRICT_MODE !== 'false';
   const texts = context.textSnippets || [];
   const warnings = validateTextBudgets(texts);
 
   const passed = warnings.length === 0;
   return {
-    code: 'G15' as GateCode,
+    code: 'QG15',
     label: '텍스트 예산 한도 및 필수 섹션 누락 검증',
     passed,
     severity: isStrict ? 'block' : 'warn',
@@ -250,7 +250,7 @@ export function checkG15(context: GateEvaluationContext): GateCheckResult {
 /**
  * G16: 좌표 무결성 검증 (인쇄 안전 마진 12.713 x 6.75 초과 여부)
  */
-export function checkG16(context: GateEvaluationContext): GateCheckResult {
+export function checkQG16(context: GateEvaluationContext): GateCheckResult {
   const isStrict = process.env.GATE_STRICT_MODE !== 'false';
   const elements = context.renderedElements || [];
 
@@ -264,7 +264,7 @@ export function checkG16(context: GateEvaluationContext): GateCheckResult {
 
   const passed = violations.length === 0;
   return {
-    code: 'G16' as GateCode,
+    code: 'QG16',
     label: 'PPTX 슬라이드 인쇄 안전 좌표 무결성 검증 (12.713 × 6.75)',
     passed,
     severity: isStrict ? 'block' : 'warn',
@@ -279,16 +279,18 @@ export function checkG16(context: GateEvaluationContext): GateCheckResult {
  * 결정적 품질 게이트 종합 실행기
  */
 export function runDeterministicGates(context: GateEvaluationContext): GateEvaluationReport {
-  const isStrict = process.env.GATE_STRICT_MODE !== 'false';
+  // V5-8: DETERMINISTIC_GATES 환경변수 지원 (warn → block 전환 제어)
+  const gateMode = process.env.DETERMINISTIC_GATES; // 'warn' | 'block' | undefined
+  const isStrict = gateMode === 'block' || (gateMode !== 'warn' && process.env.GATE_STRICT_MODE !== 'false');
 
   const results: GateCheckResult[] = [
-    checkG19(context.core),
+    checkQG19(context.core),
     checkC19(context.core),
-    checkG21(context.core),
-    checkG18(context.core, context.textSnippets),
+    checkQG21(context.core),
+    checkQG18(context.core, context.textSnippets),
     checkCBASIS(context.core, context.textSnippets),
-    checkG15(context),
-    checkG16(context),
+    checkQG15(context),
+    checkQG16(context),
   ];
 
   const failedBlocks = results.filter(r => r.severity === 'block' && !r.passed);

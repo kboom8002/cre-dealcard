@@ -366,6 +366,40 @@ export interface HospitalitySpec {
   starRating: number | null;           // 성급
 }
 
+// ── Pack: HoldingHistory (단기매매형 L축) ── (B-1)
+export type SellerMotive =
+  | 'debt_pressure' | 'portfolio_rebalance' | 'estate_settlement'
+  | 'business_closure' | 'relocation' | 'profit_taking' | 'other';
+
+export interface HoldingHistory {
+  acquisitionDate: string | null;       // ISO 8601
+  acquisitionPriceKrw: number;
+  holdingMonths: number;
+  transferCountIn10Y: number;           // 10년 내 이전 횟수
+  sellerMotive: SellerMotive | null;    // 7종 — 대외문서 노출 금지 (페르소나 격리)
+  askingPriceHistory: Array<{
+    date: string;
+    priceKrw: number;
+    note?: string;
+  }>;
+}
+
+// ── Pack: OperatingPerformance (운영형 L축) ── (B-1)
+export interface OperatingPerformance {
+  unitKind: 'room' | 'bed' | 'parking' | 'tee' | 'seat' | 'other';
+  unitCount: number;
+  yearlyPerformance: Array<{
+    year: number;
+    occupancyPct: number;
+    revenueKrw: number;
+    gopKrw: number;
+    verificationLevel: 'verified' | 'partial' | 'unverified';
+    source: string;
+  }>;
+  licenceTransferable: boolean | null;
+  operationModel: 'direct' | 'lease' | 'management' | 'franchise';
+}
+
 // ══════════════════════════════════════════════════════════════════════
 // §4. 유틸리티
 // ══════════════════════════════════════════════════════════════════════

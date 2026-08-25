@@ -70,7 +70,7 @@ export function auditDeficiencies(input: DeficiencyAuditInput): Deficiency[] {
         field: 'opexKrw',
         label: '연간 실측 운영비 (Opex)',
         affects: ['yield_noi'],
-        nextBest: '관리비·보험·재산세 등 실제 연간 운영비를 입력하면 연 순수익률(Net Yield / NOI)이 산출됩니다.',
+        nextBest: '관리비·보험·재산세 등 실제 연간 운영비를 입력하면 연 수익률(Net Yield, 기준: NOI)이 산출됩니다.',
         severity: 'note',
       });
     }
