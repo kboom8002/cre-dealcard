@@ -1,9 +1,10 @@
 # 📋 CREDEAL 메모→딜카드→바텀시트→모바일IM→PPTX IM 파이프라인 기능 명세서
 
-> **문서 ID**: `DOC-TEST0825-PIPELINE-SPEC`  
-> **생성 일시**: 2026-08-25 08:25 (KST)  
+> **문서 ID**: `DOC-TEST0825-PIPELINE-SPEC-v2`  
+> **생성 일시**: 2026-08-25 20:45 (KST)  
 > **감사 대상**: 메모 입력 → 슬롯 추출 → 딜카드 생성 → 바텀시트 데이터 입력 → 등급 산정 → 모바일 IM 생성 → PPTX IM 렌더링 전체 파이프라인  
-> **감사 범위**: 50+ 소스 파일, API 엔드포인트, Supabase 테이블, AI 에이전트 체인, 품질 게이트
+> **감사 범위**: 50+ 소스 파일, API 엔드포인트, Supabase 테이블, AI 에이전트 체인, 품질 게이트  
+> **코드베이스 버전**: 2026-08-25 최신 (대폭 업그레이드 후 재감사)
 
 ---
 
@@ -26,49 +27,49 @@
 ```mermaid
 flowchart LR
     subgraph "① 메모 입력"
-        M1["📝 텍스트 메모"]
-        M2["🎤 음성 녹음"]
-        M3["📋 저장 메모 불러오기"]
+        M1["📝 텍스트 메모\n(최대 3,000자)"]
+        M2["🎤 음성 녹음\n(Web Speech API\n+ Whisper 폴백)"]
+        M3["📋 저장 메모\n불러오기"]
     end
     subgraph "② 슬롯 추출"
-        S1["정규식 2-Layer\n슬롯 매퍼"]
-        S2["AI MemoParser\n(GPT-5.6-terra)"]
+        S1["정규식 3-Layer\n슬롯 매퍼\n(Summary→Fallback→General)"]
+        S2["AI MemoParser\n(sol 모델)"]
         S3["PII 마스킹\n& 인젝션 차단"]
     end
     subgraph "③ 딜카드 생성"
         D1["building_ssot_lite\nINSERT"]
-        D2["BlindTeaser\n생성"]
-        D3["공공데이터 API\n(건축물대장/토지)"]
+        D2["BlindTeaser v3\n생성"]
+        D3["공공데이터 API\n비동기 검증"]
         D4["자동 매칭\n트리거"]
     end
     subgraph "④ 바텀시트"
         B1["재무 입력\n(매각가/임대료)"]
         B2["렌트롤 임포터\n(Excel/텍스트)"]
-        B3["사진 업로드\n(12장, 카테고리)"]
-        B4["포스처별\nPack Slots"]
+        B3["사진 업로드\n(12장, 8종 카테고리)"]
+        B4["포스처별\n8종 Pack Slots"]
     end
     subgraph "⑤ 등급 산정"
         G1["8개 카테고리\n가중 점수 (100점)"]
         G2["출처 계수\n(1.0→0.3)"]
-        G3["A / B / C\n등급 결정"]
+        G3["L×P 2축 해상도\n+ NextStep 추천"]
     end
     subgraph "⑥ 모바일 IM 생성"
-        I1["4단계 위상\n병렬 Writer"]
+        I1["4단계 위상\n병렬 Writer\n(StageTimer 보호)"]
         I2["LLM 섹션\n생성기"]
-        I3["품질 게이트\n(16개 G01~G16)"]
-        I4["결정적 폴백\n템플릿"]
+        I3["17개 품질 게이트\n(QG01~QG20)"]
+        I4["결정적 폴백\n+ 텔레메트리"]
     end
     subgraph "⑦ 모바일 IM 뷰어"
-        V1["Hero Card\n+ KPI Grid"]
-        V2["사진 갤러리\n캐러셀"]
+        V1["Hero Card\n(포스처 적응형)"]
+        V2["DCF 히트맵\n& 레버리지 차트\n& 가격추세 차트"]
         V3["섹션 카드\n아코디언"]
-        V4["DCF 히트맵\n& 레버리지 차트"]
+        V4["사진 갤러리\n+ KakaoStaticMap"]
     end
     subgraph "⑧ PPTX IM"
-        P1["덱 시퀀서\n(Posture×Grade)"]
-        P2["데이터 바인더\n(MD/IMCore)"]
+        P1["덱 시퀀서\n(Posture×Grade×Tier\n+ 아키타입 분기)"]
+        P2["이중 데이터 바인더\n(MD/IMCore)"]
         P3["17 아키타입\n빌더 (A01~A17)"]
-        P4["테마/프리셋\n(5종 내장+커스텀)"]
+        P4["테마 격리\n(5종 내장+커스텀)"]
     end
 
     M1 & M2 & M3 --> S1 & S2
@@ -90,12 +91,12 @@ flowchart LR
 
 | 계층 | 기술 | 역할 |
 |---|---|---|
-| 프레임워크 | Next.js 16.2.6 (Vercel Pro, `maxDuration=300`) | 서버리스 API, RSC, 스트리밍 |
-| AI / LLM | Vercel AI SDK + OpenAI (`gpt-5.6-terra` / `gpt-4o`) | 메모 파싱, 섹션 생성, 품질 심사 |
-| 데이터베이스 | Supabase (PostgreSQL + Storage) | SSoT, 프리셋, 이미지, PPTX 버퍼 |
+| 프레임워크 | Next.js (Vercel Pro, `maxDuration=300`) | 서버리스 API, `after()` 백그라운드, RSC |
+| AI / LLM | Vercel AI SDK — `sol`(MemoParser), `gpt-5.6-terra`/`claude-sonnet-4-5`(섹션 생성) | 메모 파싱, 콘텐츠 생성, 품질 심사 |
+| 데이터베이스 | Supabase (PostgreSQL + Storage + Vector) | SSoT, 프리셋, 이미지, 벡터 검색 |
 | 프레젠테이션 | `pptxgenjs` v4.0.1 | PPTX 슬라이드 프로그래밍 생성 |
-| 이미지 처리 | `sharp` v0.33.5 | JPEG 최적화, 지도 합성 |
-| 음성 인식 | Web Speech API + Whisper(폴백) | 한국어 음성 → 텍스트 |
+| 이미지 처리 | `sharp` v0.33.5 | JPEG 최적화, OSM 타일 합성, 지도 |
+| 음성 인식 | Web Speech API (`ko-KR`) + Whisper 폴백 | 한국어 음성 → 텍스트 |
 
 ---
 
@@ -103,81 +104,77 @@ flowchart LR
 
 ### 2.1 입력 채널 3종
 
-| 채널 | 컴포넌트 | 경로 |
+| 채널 | 컴포넌트 | 주요 기능 |
 |---|---|---|
-| **텍스트 메모** | `<Textarea>` (최대 3,000자) | [`deal-card/new/page.tsx`](file:///c:/Users/User/cre-dealcard/src/app/(broker)/broker/deal-card/new/page.tsx) |
-| **음성 녹음** | `VoiceRecorder` (Web Speech API + Whisper 폴백) | [`VoiceRecorder.tsx`](file:///c:/Users/User/cre-dealcard/src/components/memo/VoiceRecorder.tsx) |
-| **저장 메모** | `MemoImportModal` (메모 보관함) | [`MemoImportModal.tsx`](file:///c:/Users/User/cre-dealcard/src/components/broker/deal-card/MemoImportModal.tsx) |
+| **텍스트 메모** | `deal-card/new/page.tsx` | 최대 3,000자, 5단계 프로그레시브 로딩, 120s 타임아웃, 품질 게이트(422) & 중복 감지(409) |
+| **음성 녹음** | `VoiceRecorder.tsx` | Web Speech API(한국어) + MediaRecorder→Whisper 폴백, 실시간 중간/최종 텍스트 |
+| **저장 메모** | `UniversalMemoFAB.tsx` + `MemoImportModal` | 대시보드 FAB, 메모 보관함, 유형 필터링, 1-Click 딜카드 전환 |
 
 ### 2.2 하이브리드 3-Tier 슬롯 추출 전략
 
 ```mermaid
 flowchart TD
-    A["원문 메모 텍스트"] --> B["Layer A: 정규식 2-Layer 슬롯 매퍼\n(memo-slot-mapper.ts)"]
-    A --> C["Layer B: 규칙 기반 분류기 + LLM 라우터\n(memo-router-agent.ts)"]
-    A --> D["Layer C: PII 마스킹 → AI 에이전트 체인\n(broker-deal-card.ts)"]
+    A["원문 메모 텍스트"] --> B["Layer 1: Summary Patterns\n(신뢰도 0.95)\n총액 요약 블록 우선"]
+    A --> C["Layer 2: Fallback Patterns\n(신뢰도 0.80~0.90)\n개별 호실 단위\n(Layer 1 미충족 시만)"]
+    A --> D["Layer 3: General Patterns\n(신뢰도 0.75~0.90)\n물리·규제·운영 슬롯"]
+    B & C & D --> E["MemoSlotResult\n{slots[], extractionRate}"]
     
-    B --> E["MemoSlotResult\n{slots[], extractionRate}"]
-    C --> F["MemoRouterOutput\n{route, confidence}"]
-    D --> G["Step 1: MemoParser → extractedFacts"]
-    G --> H["Step 1.5: resolveAddress → PNU"]
-    H --> I["Step 2: BuildingMiniTruth → SSoT"]
-    I --> J["Step 3: BlindTeaser → 공개 마케팅 카피"]
+    A --> F["PII 마스킹\nmemo-sanitizer.ts"]
+    F --> G["AI MemoParser (sol 모델)\n→ MemoParserOutput"]
+    G --> H["Address Resolution\n→ PNU & 좌표"]
+    H --> I["BuildingMiniTruth\n→ SSoT 정규화"]
+    I --> J["BlindTeaser v3\n→ 공개 마케팅 카피"]
 ```
 
-#### Layer A: 정규식 슬롯 매퍼
+> [!IMPORTANT]
+> **Layer 1 → Layer 2 계층적 우선순위**: Layer 1의 `보증금 총액 18억` 같은 총액 패턴이 Layer 2의 개별 `스타벅스 보증금 5억`보다 항상 우선합니다. 이는 호실별 임대료가 건물 전체 수치를 덮어쓰는 것을 방지합니다.
 
-| 우선순위 | 패턴 유형 | 신뢰도 | 예시 |
-|---|---|---|---|
-| 1 (최고) | 총액 요약 블록 | 0.95 | `보증금 총액 15억`, `월 임대수입 총액 3,200만원` |
-| 2 | 개별 호실 단위 | 0.70~0.85 | `301호 월세 120만원`, `보증금 5천만원` |
-| 3 | 일반 물리/재무 | 0.60~0.80 | `연면적 420평`, `준공 2018년`, `용적률 399%` |
-
-#### Layer C: AI 에이전트 체인 (3단계)
-
-| 단계 | 에이전트 | 모델 | 입력 | 출력 |
-|---|---|---|---|---|
-| Step 1 | `MemoParser` | `gpt-5.6-terra` | PII 마스킹된 메모 | `MemoParserOutput` (40+ 구조화 슬롯) |
-| Step 1.5 | `resolveAddress` | 주소 API | 주소 후보 | PNU, 좌표 |
-| Step 2 | `BuildingMiniTruth` | `gpt-5.6-terra` | 파싱 결과 | `BuildingMiniTruthOutput` (SSoT 포맷) |
-| Step 3 | `BlindTeaser` | `gpt-5.6-terra` | MiniTruth | 공개 블라인드 카드 (가드레일 적용) |
-
-### 2.3 PII 마스킹 체계 (`memo-sanitizer.ts`)
-
-| 민감정보 유형 | 마스킹 토큰 | 예시 |
-|---|---|---|
-| 주민등록번호 | `[RRN_A]` | `850101-1234567` → `[RRN_A]` |
-| 이메일 | `[EMAIL_A]` | `kim@naver.com` → `[EMAIL_A]` |
-| 전화번호 | `[PHONE_A]` | `010-1234-5678` → `[PHONE_A]` |
-| 건물 번호·도로명 상세 | `[ADDR_DETAIL_A]` | `123-45번지` → `[ADDR_DETAIL_A]` |
-| 소유주 이름 | `[OWNER_A]` | `김OO` → `[OWNER_A]` |
-| 임차인 사명 | `[TENANT_A]` | `㈜스타벅스` → `[TENANT_A]` |
-| 건물 고유명 | `[BLDG_NAME_A]` | `XX타워` → `[BLDG_NAME_A]` |
-
-### 2.4 추출 슬롯 전체 목록
+### 2.3 추출 슬롯 전체 목록 (24개)
 
 | 슬롯명 | 타입 | 추출원 | 설명 |
 |---|---|---|---|
-| `exactAddressCandidate` | `string` | Regex + LLM | 도로명/지번 주소 |
-| `region` / `areaSignal` | `string` | Regex + LLM + 온톨로지 | 정규화된 CRE 시장 권역 (e.g. 성수권역) |
-| `assetType` | `enum` (17종) | Regex + LLM | 근생빌딩, 사무용빌딩, 물류센터, 호텔 등 |
+| `address` / `exactAddressCandidate` | `string` | Regex + LLM | 도로명/지번 주소 |
+| `region` / `areaSignal` | `string` | Regex + LLM + 온톨로지 | 정규화된 CRE 시장 권역 |
+| `assetType` | `enum` (17종) | Regex + LLM | 근생빌딩, 사무용빌딩, 물류센터 등 |
 | `investmentPosture` | `enum` (5종) | LLM | `income` / `owner_occupied` / `development` / `operating` / `trading` |
 | `askingPriceKrw` | `number` (원) | Regex + LLM | 매각 희망가 |
 | `monthlyRentKrw` | `number` (원) | Regex + LLM | 월 임대수입 총액 |
 | `totalDepositKrw` | `number` (원) | Regex + LLM | 보증금 총액 |
-| `loanAmountKrw` | `number` (원) | Regex + LLM | 기존 대출 잔액 |
+| `loanAmountKrw` | `number` (원) | Regex + LLM | 대출 잔액 |
 | `totalFloorAreaPyung` | `number` (평) | Regex + LLM | 연면적 |
 | `landAreaPyung` | `number` (평) | Regex + LLM | 대지면적 |
 | `buildYear` | `number` | Regex | 준공연도 |
 | `floorsAboveGround` / `Underground` | `number` | Regex | 층수 (지상/지하) |
 | `vacancyRatePct` | `number` (%) | Regex + LLM | 공실률 |
 | `capRatePct` | `number` (%) | Regex + 역산 | 연 순수익률 |
-| `tenantNames` | `string[]` | LLM | 임차인 상호 (마스킹) |
-| `sellerMotivationText` | `string` | LLM | 매도 사유 (자동 마스킹) |
-| `hospitalitySignals` | `object` | LLM | 객실수, ADR, OCC, GOP마진, 운영모델 |
-| `developmentSignals` | `object` | LLM | 대지면적(평), 용적률, 건폐율, 평당공사비 |
-| `tradingSignals` | `object` | LLM | 평당가, 시세, 보유기간 |
-| `ownerOccupiedSignals` | `object` | LLM | 자가사용 의향, 현 임차료 |
+| `roomCount` / `adrManwon` / `occupancyRatePct` / `gopMarginPct` | `number` | Regex + LLM | 운영(호텔) 지표 |
+| `farPct` / `bcrPct` / `constructionCostManwon` | `number` | Regex + LLM | 개발 지표 |
+| `pricePerPyeongManwon` / `holdingPeriodYears` | `number` | Regex + LLM | 매매 지표 |
+| `monthlyRevenueKrw` | `number` (원) | Regex + LLM | 월 매출 |
+
+### 2.4 PII 마스킹 체계
+
+| 민감정보 유형 | 마스킹 토큰 | 패턴 |
+|---|---|---|
+| 주민등록번호 | `[RRN_A]` | `\d{6}-?[1-4]\d{6}` |
+| 이메일 | `[EMAIL_A]` | 표준 이메일 패턴 |
+| 전화번호 | `[PHONE_A]` | 모바일, 유선, VoIP, 15xx 대표번호 |
+| 건물 번호·도로명 상세 | `[ADDR_DETAIL_A]` | `\d{1,4}-\d{1,4}`, 번지, [로길] |
+| 소유주 이름 | `[OWNER_A]` | 소유주/건물주/매도인 + 인명 |
+| 임차인 사명 | `[TENANT_A]` | 임차인/세입자/입주사 + 상호 |
+| 건물 고유명 | `[BLDG_NAME_A]` | 타워/빌딩/센터/플라자 (꼬마빌딩 등 자산유형 제외) |
+
+### 2.5 AI 에이전트 체인 (4단계)
+
+| 단계 | 에이전트 | 모델 | 출력 |
+|---|---|---|---|
+| Step 1 | `MemoParser` | `sol` | `MemoParserOutput` — 40+ 구조화 슬롯 + 5개 포스처 시그널 서브오브젝트 |
+| Step 1.5 | `resolveAddress` | 주소 API | PNU(19자리), 좌표(lat/lng) |
+| Step 2 | `BuildingMiniTruth` | `sol` | SSoT 포맷 + `resolveAreaSignal` + `derivePriceBand` |
+| Step 3 | `BlindTeaser` v3 | `sol` | 공개 카드: `hookCopy`, `curiosityHook`, `kakaoOgTitle`, `structureChips`, `boundaryNote` |
+
+> [!TIP]
+> **Anti-Fragility**: MemoParser와 BuildingMiniTruth 모두 Zod 유효성 검사 실패 시 수동 필드 복구 폴백을 갖추고 있어, LLM 출력의 구조적 편차에 강건합니다.
 
 ---
 
@@ -187,21 +184,24 @@ flowchart TD
 
 ```
 POST /api/broker/deal-card/from-memo
-  │
-  ├── 1. requireBroker(req)              → 인증 검증
-  ├── 2. validateMemoQuality(memo)       → 품질 게이트 (위치·수치·자산유형 필수)
-  ├── 3. sanitizeComplianceText(memo)    → 준법 텍스트 소독
-  ├── 4. extractSlotsFromMemo(memo)      → 정규식 슬롯 추출
-  ├── 5. checkDuplicateBeforeCreation()  → PNU/지번 중복 검사 (409 응답)
-  ├── 6. brokerDealCardFromMemo()        → 3단계 AI 에이전트 실행
-  │       ├── MemoParser → 구조화
-  │       ├── resolveAddress → PNU 확정
-  │       ├── BuildingMiniTruth → SSoT 정규화
-  │       └── BlindTeaser → 공개 마케팅 카피
-  ├── 7. classifyDealArchetype()         → 아키타입 분류
-  ├── 8. validateAssetConstraints()      → 자산 제약 검증
-  ├── 9. after(() => runAutoMatch())     → 비동기 자동 매칭
-  └── 10. after(() => verifyPublicData()) → 비동기 공공데이터 검증
+  ├── 1. requireBroker(req)                  → 브로커 인증
+  ├── 2. validateMemoQuality(memo)           → CRE 시그널 ≥ 1개 필수 (422)
+  ├── 3. sanitizeComplianceText(memo)        → 준법 텍스트 + 콜드모드 가드
+  ├── 4. checkDuplicateBeforeCreation()      → PNU/지번 중복 (409)
+  ├── 5. brokerDealCardFromMemo()            → 4단계 AI 체인 실행
+  │       ├── runBrokerDealCard (AI)
+  │       ├── geocodeAddress → 좌표·PNU
+  │       ├── building_ssot_lite INSERT
+  │       ├── building_signal_cards INSERT
+  │       ├── document_objects INSERT (blind_teaser)
+  │       ├── ai_runs 로깅 (토큰 사용량, 지연)
+  │       ├── deal_casepacks 생성
+  │       └── deal_pipeline_states 초기화
+  ├── 6. classifyDealArchetype()             → 아키타입 분류
+  ├── 7. validateAssetConstraints()          → 자산 제약 검증
+  ├── 8. after(() => runAutoMatch())         → 비동기 매수자 자동 매칭
+  ├── 9. after(() => verifyAgainstPublicData()) → 비동기 공공데이터 교차검증
+  └── 10. after(() => linkBuildingToCanonicalProperty()) → 정식 부동산 연결
 ```
 
 ### 3.2 SSoT 핵심 데이터 모델 (`building_ssot_lite`)
@@ -211,133 +211,163 @@ erDiagram
     building_ssot_lite {
         UUID id PK
         UUID owner_id FK
+        string input_type "broker_memo|voice_note|address|manual_form"
         string raw_input
         string raw_address
         string pnu "19자리 필지고유번호"
-        string area_signal "시장 권역"
-        string asset_type "자산 유형"
-        string price_band "가격대"
-        string vacancy_signal "공실 상태"
-        string fit_summary "투자 가치 요약"
-        string caution_summary "실사 주의사항"
+        string area_signal
+        string asset_type
+        string price_band
+        string investment_posture "income|owner_occupied|development|operating|trading"
+        string vacancy_signal
+        string fit_summary
+        string caution_summary
+        text_arr hidden_fields
+        text_arr photo_urls
         jsonb layers "다층 구조 데이터"
-        jsonb confidence "필드별 신뢰도"
-        string status "public_signal_ready"
-        number completeness_score
+        jsonb lease_summary
+        jsonb confidence
+        jsonb disclosure
+        jsonb verification_status
+        jsonb verification_result
+        string status "draft|public_signal_ready|snapshot_draft_ready|archived"
+        numeric promotion_score
+        numeric completeness_score
+        UUID canonical_property_id FK
     }
     building_ssot_lite ||--o{ document_objects : "generates"
     building_ssot_lite ||--o{ building_signal_cards : "generates"
     building_ssot_lite ||--o{ deal_pipeline_states : "tracks"
     building_ssot_lite ||--o{ match_results : "evaluated"
     building_ssot_lite ||--o{ activity_events : "logged"
+    building_ssot_lite ||--o{ ai_runs : "generated"
+    building_ssot_lite ||--o{ posture_decisions : "history"
 ```
 
 #### `layers` JSONB 구조
 
 | 레이어 키 | 주요 필드 | 용도 |
 |---|---|---|
-| `layers.finance` | `asking_price_krw`, `monthly_rent_krw`, `total_deposit_krw`, `loan_amount_krw` | 재무 핵심 지표 |
-| `layers.lease_summary` | `total_deposit_krw`, `monthly_rent_krw`, `tenants[]` | 임대차 요약 |
-| `layers.location` | `address`, `pnu`, `coordinates: {lat, lng}` | 위치 정보 |
+| `layers.finance` | `asking_price_krw`, `asking_price_manwon`, `monthly_rent_krw`, `monthly_rent_manwon`, `total_deposit_krw`, `loan_amount_krw` | 재무 핵심 지표 |
+| `layers.lease_summary` | `total_deposit_krw`, `monthly_rent_krw`, `mgmt_fee_total_manwon` | 임대차 요약 |
+| `layers.location` | `address`, `raw_address`, `pnu`, `coordinates: {lat, lng}` | 위치 정보 |
 | `layers.photos` | `Array<{url, type, label}>` | 건물 사진 |
-| `layers.building_register` | FAR, BCR, 준공일, 주차 | 공공 API 검증 데이터 |
-| `layers.pack_slots` | `HospitalitySpec`, `DevelopmentPlan`, `OccupancyPlan` 등 | 포스처별 특화 데이터 |
+| `layers.building_register` | `approval_date`, `completion_era`, `total_floors`, `floors_above_ground` | 공공 API 검증 |
+| `layers.land_use_plan` | `zoning` | 용도지역 |
+| `layers.rent_roll` | `Array<FloorLease>` | 호실별 임대차 |
+| `layers.financial_assumptions` | `opex_ratio_pct`, `vacancy_reserve_pct` | 재무 가정치 |
+| `layers.pack_slots` | `PhysicalSpec`, `HospitalitySpec`, `DevelopmentPlan`, `VacatePlan`, `PermitRisk`, `OccupancyPlan`, `SectionalSpec`, `ResidentialSpec` | **8종 포스처별 Pack Slots** |
 
-### 3.3 딜카드 페이지 구조
+### 3.3 SSoT 어댑터 (`ssot-adapter.ts`)
+
+| 함수 | 역할 |
+|---|---|
+| `buildAttrsFromSsotLite(building)` | 플랫 컬럼 + layers JSONB → 정규화 attrs 객체 |
+| `buildProvenanceFromSsotLite(building)` | 필드별 출처 매핑 (`public_api`/`broker`/`ai_estimated`) |
+| `readWithMigration(buildingId)` | `assets` 테이블 우선 → 미존재 시 SSoT에서 레이지 마이그레이션 |
+| `loadPageOrder(posture)` | `im.pages.yaml`에서 포스처별 슬라이드 렌더링 순서 로드 |
+
+### 3.4 딜카드 페이지 구조
 
 ```
-딜카드 관리 페이지 (/broker/deal-card/[id])
-├── 헤더: 뒤로가기 + DealCardActionsMenu
-├── 타이틀: 권역 + 자산유형 + 블라인드 배지
-├── LiveDealCardPreviewCard (OG 미리보기)
-├── DealCardEditor (인라인 카피 수정)
-├── 4탭 컨테이너 (DealCardTabs):
+BrokerDealCardResultPage (Server Component)
+├── Top Navigation (Back + DealCardActionsMenu)
+├── Top Message Header (Blind Badge, Title, Privacy Notice)
+├── LiveDealCardPreviewCard (카카오 OG 미리보기)
+├── DealCardEditor (인라인 실시간 편집: Title, Summary, Bullets, 카카오, OG, Chips)
+├── DealCardTabs (4탭):
 │   ├── Tab 1: 개요
-│   │   ├── DealCardPipelineContainer (파이프라인 단계)
-│   │   ├── Photo Gallery Carousel
-│   │   ├── BuildingSignalEditor (인라인 수정)
+│   │   ├── DealCardPipelineContainer (상태 머신 파이프라인 스테퍼)
+│   │   ├── Photo Gallery (수평 스크롤)
+│   │   ├── BuildingSignalEditor (인라인 편집 + 신뢰도)
 │   │   ├── Caution Points Card
 │   │   └── Hidden Fields Card
 │   ├── Tab 2: IM
-│   │   ├── ImManagementPanel (등급, 점수, 생성/재생성)
-│   │   └── Boundary Disclaimer
+│   │   ├── ImManagementPanel (등급·점수·생성/재생성·프리셋·내보내기)
+│   │   └── Boundary Note
 │   ├── Tab 3: 매수자
-│   │   ├── IdealBuyerPersonaSection (AI 타깃 페르소나)
-│   │   ├── MatchedBuyersSection (자동 매칭 결과)
-│   │   └── GateRequestsInbox (접근 요청 수신함)
+│   │   ├── IdealBuyerPersonaSection
+│   │   ├── MatchedBuyersSection
+│   │   └── GateRequestsInbox
 │   └── Tab 4: 분석
-│       ├── DealPredictionSection (계약 확률)
-│       ├── ScheduleSection (일정)
+│       ├── DealPredictionSection (AI 확률·속도 예측)
+│       ├── ScheduleSection
 │       └── Owner Report Link
-└── 하단 3열 액션바:
+└── Sticky Bottom CTA Bar:
     ├── KakaoShareButton
-    ├── CreateMobileImButton → 바텀시트 열기
-    └── AiMatchCtaButton
+    ├── CreateMobileImButton → 바텀시트
+    ├── AiMatchCtaButton
+    └── BrokerBottomNav
 ```
 
 ---
 
 ## 4. Stage 3: 바텀시트 IM 데이터 입력
 
-### 4.1 바텀시트 개요
+### 4.1 컴포넌트 아키텍처
 
-- **컴포넌트**: [`im-data-bottom-sheet.tsx`](file:///c:/Users/User/cre-dealcard/src/app/(broker)/broker/deal-card/%5Bid%5D/im-data-bottom-sheet.tsx)
 - **렌더링**: React Portal → `document.body`
-- **티어 모드**: `basic` (필수 재무+사진) / `pro` (상세 렌트롤, 비교거래, 부채, Pack Slots)
+- **티어**: `basic` (필수 재무+사진) / `pro` (상세 렌트롤, 비교거래, Pack Slots)
+- **동적 필수 필드 (`computedMissingFields`)**:
+  - 공통: `investmentPosture`, `address`/`pnu`, `askingPrice`
+  - `income`: + `monthlyRent`, `totalDeposit`
+  - `owner_occupied`: + `occHeadcount`, `occDesiredFloors`
+  - `development`: + `devTargetUse`, `devTargetScalePyung`
+  - `operating`: + `roomCount`, `averageDailyRate`
+  - `trading`: + `acquisitionPriceManwon`
 
-### 4.2 서브 컴포넌트
+### 4.2 입력 섹션 & 필드 전체 목록
 
-| 컴포넌트 | 기능 |
+| 섹션 | 주요 필드 | 타입 |
+|---|---|---|
+| **포스처 선택** | 5종 + AI 추천 칩 + 조합 검증 | `PostureSelector` |
+| **소재지** | 주소 검색, PNU 자동 해석 | `string` |
+| **재무** | 월 임대료, 보증금, 관리비, 매각가, Cap Rate 역산기, 대출 상태/금액, 비임대 부가수입(6종), 유사 실거래가 | `number` (만원) |
+| **임대** | 공실률 (프리셋 + 커스텀), 렌트롤 임포터 | `%`, `RentRollImporter` |
+| **사진** | 12장, 8종 카테고리, 히어로/외관 선택, 캡션 | `image-compressor.ts` |
+| **필지** | 다중 필지 PNU, 지목, 면적, 지분율, 공시지가 | `ParcelSection` |
+| **개발형** | 목표용도/규모/분양가/공사비/시공/명도/인허가 | `DevelopmentSpecSection` |
+| **자가사용** | 입주인원/1인당면적/희망층/현 임차료 | `OwnerOccupiedSpecSection` |
+| **구분소유** | 소유자수/관리단/마스터리스/지분율 | `SectionalSpecSection` |
+| **주거사양** | 세대수/전세/월세/보증금/위반건축 | `ResidentialSpecSection` |
+| **매매이력** | 취득일/취득가/보유기간/10년 양도횟수/매도 동기 | `HoldingHistorySection` |
+| **운영실적** | 객실수/ADR/OCC/GOP/단위/운영모델/면허/연매출/연GOP | `OperatingPerfSection` |
+| **물류사양** | 천장고/주간/바닥하중/전기/도크/레벨러/차량/적재/냉장/접근/소방/스프링클러/사무실/IC | `LogisticsSection` |
+| **중개코멘트** | 한줄 코멘트 | `brokerHighlight` |
+
+### 4.3 렌트롤 임포터 (`rent-roll-importer.tsx`)
+
+| 모드 | 처리 |
 |---|---|
-| **주소 검색 & PNU 자동완성** | 도로명·지번 자동 매칭, 19자리 PNU 자동 부착 |
-| **렌트롤 임포터** (`RentRollImporter`) | Excel/CSV 파싱 (`xlsx` 라이브러리), 한국어 헤더 자동 감지 (10행 스캔), 열 매핑 (층/업종/보증금/월세/관리비/공실/면적/계약일), 원↔만원 자동 감지 |
-| **사진 업로더** (`image-compressor.ts`) | 최대 12장, 클라이언트 Canvas 리사이즈 (1920px, JPEG 0.82), 카테고리 태깅 (8종), 히어로 커버 선택, PPTX 외관 선택 |
+| **Excel/CSV** | `xlsx` 라이브러리, 다중 헤더 행 감지, '렌트롤' 시트 우선, 원↔만원 자동 감지 (≥100,000 → 만원 변환), 미니 편집 테이블 |
+| **자연어 텍스트** | `/api/broker/rent-roll/parse-text` AI 파싱 |
 
-### 4.3 전체 입력 필드 목록
-
-| 섹션 | 필드 | 타입 | 프리필 |
-|---|---|---|:---:|
-| **소재지** | 주소 / PNU | `string` | ✅ |
-| **재무** | 월 임대료 총액 | 만원 | ✅ |
-| | 보증금 총액 | 만원 | ✅ |
-| | 관리비 총액 (Pro) | 만원 | ✅ |
-| | 매각 희망가 | 만원 | ✅ |
-| | Cap Rate 역산기 | 계산 모달 | - |
-| | 대출 상태 (Pro) | enum | ✅ |
-| | 대출 금액 (Pro) | 만원 | ✅ |
-| | 비임대 부가수입 (Pro) | Array | - |
-| | 유사 건물 실거래가 (Pro) | Array | - |
-| **임대** | 공실률 | % | ✅ |
-| | 호실별 렌트롤 | Array (RentRollImporter) | - |
-| **사진** | 건물 사진 & 분류 | Array (12장, 8개 카테고리) | ✅ |
-| **물류센터** | 천장고/도크수/바닥하중 | 조건부 | - |
-| **운영형** | 객실수/ADR/OCC/GOP | 조건부 | - |
-| **개발형** | 목표연면적/예상공사비/명도/인허가 | 조건부 | - |
-| **자가사용** | 입주인원/1인당면적/희망층 | 조건부 | - |
-| **중개코멘트** | 한줄 코멘트 | `string` | - |
-
-### 4.4 데이터 플로우: 바텀시트 → IM 생성
+### 4.4 데이터 플로우: 바텀시트 → IM 생성 → SSoT 역동기화
 
 ```mermaid
 sequenceDiagram
     actor Broker
     participant BS as 바텀시트
-    participant API as /im-lite/generate-async
-    participant Worker as Background Worker
+    participant API as /generate-async
+    participant Worker as after() Worker
     participant SSoT as building_ssot_lite
-    participant Poll as Job Status API
+    participant Job as im_generation_jobs
+    participant Poll as /job-status
 
-    Broker->>BS: 재무/렌트롤/사진 입력
+    Broker->>BS: 데이터 입력 완료
     BS->>API: POST (전체 폼 데이터)
-    API-->>Broker: {jobId, status:"processing"} (< 1초)
-    API->>Worker: Next.js after() 백그라운드 실행
-    Worker->>SSoT: UPDATE layers (lease, photos, packs)
-    Worker->>Worker: generateMobileIM() 실행
-    loop 3초 간격 × 최대 300초
+    API->>Job: INSERT {jobId, status: "processing"}
+    API-->>Broker: {jobId, status: "processing"} (<1초)
+    API->>Worker: after() 백그라운드
+    Worker->>SSoT: UPDATE layers (rent_roll, photos, pack_slots, lease_summary)
+    Worker->>SSoT: UPDATE investment_posture, raw_address
+    Note over Worker: 포스처 변경 시 기존 IM 무효화 + posture_decisions 로깅
+    Worker->>Worker: generateMobileIMHandler() 실행
+    Worker->>Job: UPDATE {status: "completed", result: {...}}
+    loop 2초 간격 × 최대 300초
         Broker->>Poll: GET /job-status?jobId=xxx
-        Poll-->>Broker: {status: "processing"} or {status: "completed"}
+        Poll-->>Broker: {status} + iOS visibilitychange 즉시 복구
     end
-    Broker->>Broker: 완료 시 IM 승인 페이지로 리다이렉트
 ```
 
 ---
@@ -346,36 +376,39 @@ sequenceDiagram
 
 ### 5.1 등급 엔진 (`grade-engine.ts`)
 
-100점 만점, 8개 가중 카테고리로 산출:
+100점 만점, 8개 가중 카테고리:
 
-| 카테고리 | 가중치 | 평가 항목 |
+| 카테고리 | 가중치 | 핵심 슬롯 |
 |---|:---:|---|
-| `lease_roll` (임대차) | **25%** | 렌트롤 테이블, 연간 총수입, 임차인 상세 |
-| `building_basic` (건물 기본) | **15%** | 연면적, 준공일, 명도 상태, 층수 |
-| `land_parcel` (토지) | **15%** | PNU, 지번, 대지면적, 공시지가 |
-| `financial_input` (재무) | **15%** | 매각가, 대출/부채 |
-| `zoning` (용도지역) | **10%** | 용도지역, 용적률 여유분 |
-| `title_encumbrance` (등기) | **10%** | 근저당, 유치권, 소유권 부담 |
-| `road_access` (도로 접면) | **5%** | 도로 접면 유형, 주차 용량 |
-| `market_comp` (비교사례) | **5%** | 유사 거래 벤치마크 |
+| `lease_roll` | **25%** | `rentRoll`, `grossAnnualIncomeKrw` |
+| `building_basic` | **15%** | `totalFloorAreaPyung`, `approvalDate`, `evictionStatus` |
+| `land_parcel` | **15%** | `pnu`, `address`, `landAreaPyung`, `officialLandPricePerSqm` |
+| `financial_input` | **15%** | `askingPriceKrw`, `loanAmountKrw` |
+| `zoning` | **10%** | `zoningRegion`, `farHeadroomPp` |
+| `title_encumbrance` | **10%** | `titleEncumbrance` |
+| `road_access` | **5%** | `roadContactType` |
+| `market_comp` | **5%** | `marketCompPerPyung` |
 
-### 5.2 출처 품질 계수 (Provenance Coefficient)
+### 5.2 출처 품질 계수
 
-| 출처 | 계수 | 설명 |
-|---|:---:|---|
-| `public_data` (건축물대장/토지이용계획 API) | **1.00** | 공공 검증 데이터 |
-| `expert_verified` (전문가/평가사 실사) | **0.95** | 전문가 확인 |
-| `seller_declared` (소유주 확인) | **0.65** | 매도인 고지 |
-| `broker_input` (중개사 수동 입력) | **0.60** | 중개인 입력 |
-| `ai_inferred` (AI 추론/가설) | **0.30** | AI 추정 |
+| 출처 | 계수 |
+|---|:---:|
+| `public_data` (건축물대장/토지이용계획 API) | **1.00** |
+| `expert_verified` (전문가/평가사 실사) | **0.95** |
+| `seller_declared` (소유주 확인) | **0.65** |
+| `broker_input` (중개사 수동 입력) | **0.60** |
+| `ai_inferred` / `assumed` (AI 추론) | **0.30** |
 
-### 5.3 등급 기준 & 임계값
+### 5.3 등급 기준 & L×P 2축 해상도
 
-| 등급 | 점수 범위 | 핵심 요건 | 해금 기능 |
+| 등급 | 점수 | 핵심 요건 | 해금 기능 |
 |---|:---:|---|---|
-| **A** | ≥ 75% | 고수준 슬롯 커버리지 + `income`/`operating` 포스처는 **구조화 렌트롤 필수** (미충족 시 B캡) | 풀 DCF 민감도 분석, IRR, 프리미엄 IM 내보내기 |
-| **B** | 40%~74% | 핵심 건물·토지·재무 입력 충족 | 표준 모바일 IM & PPTX 생성 |
-| **C** | < 40% | 기본 메모/가설 수준 | 데이터 보강 경고 배너, DCF/총수익 분석 억제 |
+| **A** | ≥ 75% | 고수준 커버리지 + **income/operating은 구조화 렌트롤 필수** (미충족 시 B캡) | 풀 DCF, IRR, 민감도, 총수익률, Pro IM |
+| **B** | 40%~74% | 핵심 입력 충족 | 표준 IM & PPTX. DCF 억제 |
+| **C/D** | < 40% | 기본 메모/가설 | DCF + 총수익 억제. D는 발행 차단 |
+
+> [!IMPORTANT]
+> **L×P 2축 해상도 (E-4)**: Property 축(P0~P3: 토지·건물·용도·도로·등기)과 Lead 축(L0~L3: 포스처별 슬롯)을 교차 평가합니다. `NextStep` 추천은 누락 카테고리의 `scoreGain / effortMinutes` ROI를 시뮬레이션하여 최고 레버리지 입력 필드를 제안합니다.
 
 ---
 
@@ -387,46 +420,56 @@ sequenceDiagram
 POST /api/broker/im-lite/generate-async
   → after() 백그라운드 실행
     → generateMobileIMHandler()
-      → buildIMContext()           // SSoT 정규화, RAG 컨텍스트
-      → generateMobileIM()         // 4단계 Writer 실행
-        → Stage 1 (병렬): 독립 섹션 7~8개
-        → Stage 2 (순차): 재무 분석 5개
-        → Stage 3 (순차): 리스크 체크
+      → validateCombination()           // 온톨로지 조합 게이트
+      → readWithMigration()             // SSoT Lite 로딩
+      → computeDataGrade()              // 등급 산정 & DCF 게이팅
+      → enrichBuildingData()            // 공공데이터 보강 (PNU → 주소 → 지역 → 랜드마크)
+      → generateMobileIM()              // 4단계 Writer
+        → Stage 1 (병렬): 독립 섹션
+        → Stage 2 (순차): 재무/특화 섹션
+        → Stage 3 (순차): 리스크
         → Stage 4 (순차): 투자 논거
-      → runPublishGates()          // 16개 품질 게이트
-      → runCrossValidator()        // 수치 교차 검증
-      → persistDocument()          // Supabase document_objects 저장
-      → persistLeaseUnits()        // SSoT 역동기화
+      → runPublishGates()               // 17개 품질 게이트 (QG01~QG20)
+      → runCrossValidation()            // 수치 교차 검증
+      → indexIMSections()               // RAG 인덱싱
+      → sanitizeComplianceText()        // 준법 소독 (전 섹션)
+      → persistDocument()               // document_objects 저장
+      → persistLeaseUnits()             // SSoT 역동기화
 ```
 
-### 6.2 15개 섹션 유형
+### 6.2 5 포스처 × 11 섹션 매트릭스
 
-| 포스처 | 섹션 구성 (7개) | 강조 섹션 (2× 토큰 예산) |
+| # | 섹션 유형 | `income` | `owner_occ` | `dev` | `operating` | `trading` |
+|---|---|:---:|:---:|:---:|:---:|:---:|
+| 1 | `property_overview` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 2 | `location_access` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 3 | `title_rights` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 4 | `land_detail` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 5 | 포스처 전용 1 | `lease_status` | `occupancy_fit` | `site_analysis` | `operation_overview` | `market_position` |
+| 6 | 포스처 전용 2 | `income_analysis` | `cost_comparison` | `dev_feasibility` | `gop_analysis` | `comparable_analysis` |
+| 7 | `risk_check` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 8 | `checklist` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 9 | `comparables` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 10 | `investment_thesis` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 11 | `next_steps` | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+### 6.3 Writer 보호 타이머
+
+| 타이머 | 시간 | 동작 |
+|---|:---:|---|
+| Soft Limit | 90s | 경고 로깅 |
+| Hard Limit | 105s | 빠른 템플릿 폴백 전환 |
+| Kill Limit | 120s | 즉시 종료 |
+
+### 6.4 재무 엔진 (5 포스처 전략)
+
+| 포스처 | 전략 클래스 | 핵심 계산 |
 |---|---|---|
-| **income** | property_overview, location_access, lease_status, income_analysis, risk_check, investment_thesis, next_steps | `lease_status`, `income_analysis` |
-| **owner_occupied** | property_overview, location_access, occupancy_fit, cost_comparison, risk_check, investment_thesis, next_steps | `occupancy_fit`, `cost_comparison` |
-| **development** | property_overview, location_access, site_analysis, development_feasibility, risk_check, investment_thesis, next_steps | `site_analysis`, `development_feasibility` |
-| **operating** | property_overview, location_access, operation_overview, gop_analysis, risk_check, investment_thesis, next_steps | `operation_overview`, `gop_analysis` |
-| **trading** | property_overview, location_access, market_position, comparable_analysis, risk_check, investment_thesis, next_steps | `market_position`, `comparable_analysis` |
-
-### 6.3 섹션 생성 10단계 파이프라인 (per section)
-
-| 단계 | 처리 | 목적 |
-|---|---|---|
-| 1 | 포스처별 재무 계산 | Cap Rate, NOI, 레버리지 수익률 |
-| 2 | Few-Shot 골든 IM 블록 | 품질 기준선 제공 |
-| 3 | 시스템 프롬프트 조립 | Core + 포스처 용어집 + 오버레이 |
-| 4 | 유저 프롬프트 조립 | 미션, SSoT, 외부 데이터, 앵커 |
-| 5 | LLM 호출 | `gpt-5.6-terra`, temp 0.3 |
-| 6 | **할루시네이션 탐지** | 가격 20×/면적 10× 이탈 감지 |
-| 7 | **LLM-as-Judge** | 5차원 평가 (사실성/재무/규제/투자가치/근거). < 3.0이면 폴백 |
-| 8 | **결정적 렌트롤 주입** | LLM 테이블을 정규화된 결정적 테이블로 교체 |
-| 9 | **용어/법적 할루시네이션 소독** | 갱신요구권 오류, 무단 브랜드명 제거 |
-| 10 | **가드레일 실행** | RiskBoundary → CREQualityGate → DisclosureGuard |
-
-### 6.4 품질 게이트 (G01~G16)
-
-생성 완료 후 16개 발행 게이트를 순차 평가하여 `publishBlocked` 여부를 결정합니다.
+| `income` | `IncomeFinancialStrategy` | 3-시나리오 NOI, Cap Rate, 5Y IRR, 취득원가 분해, 역레버리지 감지 |
+| `development` | `DevelopmentFinancialStrategy` | 평당 토지가, 건축비(1,200만원/평 기준), 개발 이익률, 규제 완화 카운트다운 |
+| `operating` | `OperatingFinancialStrategy` | GOP, GOP Cap Rate, ADR, OCC, RevPAR |
+| `owner_occupied` | `OwnerOccupiedFinancialStrategy` | 가상 임차비 vs 부채 상환, 연간 절감액, 손익분기 연수 |
+| `trading` | `TradingFinancialStrategy` | 평당가, 시세 할인율, 자본이득, HPR% |
 
 ---
 
@@ -435,49 +478,41 @@ POST /api/broker/im-lite/generate-async
 ### 7.1 뷰어 컴포넌트 트리
 
 ```
-MobileIMViewer (mobile-im-viewer.tsx)
-├── Sticky Top Bar
-│   ├── "IM 보관함" 뒤로가기
-│   ├── "📄 IM Lite" 타이틀 배지
-│   ├── ShareButton (Web Share API)
-│   └── Section Progress Dots (IntersectionObserver)
-├── Hero Header
-│   ├── Badges (자산유형, 권역, 규모)
-│   ├── 건물 블라인드 명칭 (h1)
-│   ├── 품질 등급 배지 (A/B/C/D)
-│   ├── Price Band 표시
-│   └── 리드 카피
-├── HeroCard (hero-card.tsx)
-│   ├── 2×2 Dynamic Metric Grid (포스처 적응)
-│   ├── 3 Key Investment Points
-│   ├── Key Risk Box
-│   └── 10Y NPV Badge + SSoT 준비도 Progress Bar
-├── PhotoGallery
-│   ├── 수평 스냅 스크롤 캐러셀 (최대 12장 + 지도)
-│   ├── KakaoStaticMap / OSM 타일 렌더러
-│   └── 전체화면 터치 스와이프 라이트박스
-├── Section Cards (아코디언)
-│   ├── SectionCard × 7개
-│   │   └── MarkdownRenderer → InlineMarkdown / TableFromLines
-│   ├── DCFHeatmap (Income A등급 전용)
-│   ├── LeverageChart (SVG 도넛 차트)
-│   ├── Mid-stream CTA (3번째 섹션 후)
-│   └── End-stream CTA (브로커 직접 연결)
-├── Broker Profile Section (FlatProfileCard)
-├── Disclaimer Box
-└── FloatingActionBar (공유, 프리셋, 문의)
+MobileIMViewer (Client Component)
+├── Warning Banners (Draft, D/C/B 등급 게이팅)
+├── Sticky Top Bar (IM Library, Share, Section Progress Dots)
+├── Hero Header (배지, 블라인드명, 등급 배지, 부제목)
+├── HeroCard (포스처 적응형 2×2 Metric Grid + 3 Key Points + Key Risk + 10Y NPV)
+├── PhotoGallery (수평 스냅 스크롤 + Lightbox + KakaoStaticMap 3×3 타일)
+├── SectionCard List (아코디언, Provenance 태그)
+│   ├── [Income 후] DCFHeatmap (3×3 매트릭스, 할인율×Exit Cap)
+│   ├── [Income 후] LeverageChart (SVG 도넛: 자기자본/보증금/대출)
+│   ├── [Income 후] PriceTrendChart (SVG 라인: 비교사례 ㎡ 가격 추세)
+│   ├── [3번째 섹션 후] Mid-stream CTA (1-tap 관심 표명)
+│   └── [마지막 섹션 후] End-stream CTA (Private IM 요청 + 브로커 직접 통화)
+├── FlatProfileCard (브로커 아바타, 전문분야, 활성 딜, 매거진 링크)
+├── IMInquiryBottomSheet (Private IM 리드 캡처 모달)
+├── Disclaimer & Protected Fields Card
+└── FloatingActionBar (브로커/매수자 모드, 카카오, PPTX 프리셋, PDF)
 ```
 
-### 7.2 마크다운 → HTML 변환
+### 7.2 HeroCard 포스처별 메트릭 그리드
 
-경량 커스텀 React 컴포넌트 사용 (외부 마크다운 라이브러리 미사용):
+| 포스처 | 셀 1 | 셀 2 | 셀 3 | 셀 4 |
+|---|---|---|---|---|
+| `income` | 매각 희망가 | 순자기자본 | Gross Yield | ROE (레버리지) |
+| `development` | 평당 토지가 | 용도지역 | 목표 매출 | 개발 이익률 |
+| `owner_occupied` | 연면적 | 매각 희망가 | 순자기자본 | 연간 임차 절감 |
+| `operating` | GOP 마진 | ADR | OCC | RevPAR |
+| `trading` | 평당가 | 시세 할인율 | 목표 매각가 | HPR |
 
-| 컴포넌트 | 역할 |
-|---|---|
-| `MarkdownRenderer` | 라인 분할, 테이블·헤더·인용·불릿·번호 리스트 파싱 |
-| `TableFromLines` | 반응형 HTML `<table>` 생성, 셀 포맷팅 |
-| `InlineMarkdown` | 인라인 볼드/이탤릭/이미지/링크 변환 |
-| `sanitizeHtml` | `<script>`, `on*`, `javascript:` URL 차단 (화이트리스트 태그만 허용) |
+### 7.3 인터랙티브 차트
+
+| 차트 | 기술 | 조건 |
+|---|---|---|
+| **DCF Heatmap** | 3×3 매트릭스: WACC ±1%p × Exit Cap ±50bp | Income A등급 전용 |
+| **Leverage Donut** | Zero-dep SVG, `strokeDasharray` 애니메이션 | Income 전체 |
+| **Price Trend** | SVG 미니 라인차트, 비교사례 ㎡ 가격 vs 대상 | 비교사례 존재 시 |
 
 ---
 
@@ -486,130 +521,154 @@ MobileIMViewer (mobile-im-viewer.tsx)
 ### 8.1 PPTX 렌더링 파이프라인
 
 ```
-GET /api/public/im-lite/[buildingId]/pptx
-  → MobileImPptxRenderer.render(input)
-    → getPptxThemeAsync(presetId)      // 3-Tier 프리셋 로딩
-    → withThemeIsolation(theme, ...)   // 스레드 안전 테마 격리
-    → resolvePhotos() + planGallerySlides()  // 사진 분석 & 갤러리 기획
-    → buildDeckSequence(posture, grade, tier, flags)  // 슬라이드 시퀀스
-    → bindSectionData() / bindFromIMCore()   // 데이터 바인딩
-    → ARCHETYPE_REGISTRY[A01~A17]     // 아키타입 빌더 실행
-    → addFallbackContent()            // 미렌더링 폴백
-    → validateTextBudgets()           // 텍스트 예산 검증
-    → PptxGenJS.write() → Buffer     // PPTX 바이너리 생성
-    → Supabase Storage 업로드         // Signed URL 발급
+MobileImPptxRenderer.render(input)
+  → getPptxThemeAsync(presetId)        // 3-Tier 프리셋 로딩
+  → withThemeIsolation(theme, ...)     // 스레드 안전 테마 격리
+  → resolvePhotos() + planGallerySlides()  // 사진 분석 & 갤러리 기획
+  → buildDeckSequence(posture, grade, tier, incomeArchetype)
+  → bindSectionData() / bindFromIMCore()   // 이중 데이터 바인딩
+  → ARCHETYPE_REGISTRY[A01~A17]       // 아키타입 빌더 실행
+  → addFallbackContent()              // 미렌더링 폴백
+  → validateTextBudgets()             // 텍스트 예산 검증
+  → PptxGenJS.write() → Buffer       // PPTX 바이너리 생성
 ```
 
-### 8.2 덱 시퀀서 매트릭스
+### 8.2 덱 시퀀서 매트릭스 (Posture × Grade × Tier × Archetype)
 
-| 등급 | 슬라이드 수 | 시퀀스 |
+| 등급 | 슬라이드 수 | 핵심 시퀀스 |
 |---|:---:|---|
-| **D** | 3~5 | A01 Cover → [A14 Gallery] → A02 Summary → A09 Process → A10 Closing |
-| **B/C** | 7~13 | A01 → [A14] → A02 → A06 Location → 포스처 본문(2~3) → A07 Risk → A15 Thesis → A09 → A10 |
-| **A** | 최대 24 | A01 → [A14] → A02 → A06 → A04 Land → A04 Building → 포스처 심층(4~6) → A05 DCF → A05 민감도 → A08 대출 → A08 세금 → A15 → A07 → A09 → A10 |
+| **D (Basic)** | 3~5 | Cover → [Gallery] → Summary → Process → Closing |
+| **B/C (Basic)** | 7~11 | Cover → [Gallery] → Summary → Location → 포스처 본문(3) → Risk → Thesis → Process → Closing |
+| **A (Pro)** | 최대 24 | Cover → [Gallery] → Summary → Location → Land → Building → **포스처·아키타입 분기(4~6)** → DCF → 민감도 → 총수익 → 대출 → 세금 → Thesis → Risk → Process → Closing |
+
+**Pro A등급 Income 아키타입 분기**:
+
+| 아키타입 | 분기 시퀀스 |
+|---|---|
+| R-INC-01 (안정형) | RentRoll → Stability → Profit → Capital → Comps |
+| R-INC-02 (갭 투자형) | RentRoll → RentGap → Upside → Capital → Comps |
+| R-INC-03 (공실 해소형) | RentRoll → Vacancy → Leasing → Capital → Comps |
+| R-INC-04 (리모델링형) | RentRoll → Current → Remodel → Capital → Comps |
 
 ### 8.3 17개 아키타입 슬라이드 요약
 
 | 코드 | 슬라이드명 | 레이아웃 | 핵심 콘텐츠 |
 |---|---|---|---|
-| A01 | 표지 | 전면 다크 | 커버 스타일 5종, 40pt 타이틀, 매각가 하이라이트 |
-| A02 | 핵심 지표 | 라이트 | 2~4열 KPI 카드 + 3개 투자 포인트 |
-| A03 | 대형 테이블 | 라이트 | 렌트롤/비교사례, 스마트 컬럼 너비, 최대 12행 |
-| A04 | 비대칭 7:5 | 라이트 | 좌7.5" 제원 행 + 수직 brass선 + 우4.2" 사진/콜아웃 |
-| A05 | 비대칭 7:4 | 라이트 | 3열 KPI 그리드 + 가치제안 배너 |
-| A06 | 입지 지도 | 라이트 | 좌5.6" 지도 + 우6.1" 입지 속성 |
-| A07 | 리스크 3블록 | 라이트/다크 | 법적·임대·물리 3카드 + 고지 바 |
+| A01 | 표지 | 전면 다크 | 5종 커버 스타일, 40pt 타이틀, 매각가 하이라이트 박스 |
+| A02 | 핵심 지표 | 라이트 | 2~4열 KPI 카드 + 3개 투자 하이라이트 |
+| A03 | 대형 테이블 | 라이트 | 렌트롤/비교사례, 스마트 컬럼, 최대 12행, 2열 콜아웃 |
+| A04 | 비대칭 7:5 | 라이트 | 좌7.5" 제원 행 + brass 수직선 + 우4.2" 사진/콜아웃 |
+| A05 | 비대칭 7:4 | 라이트 | 3열 KPI 그리드 + 가치제안 콜아웃 |
+| A06 | 입지 지도 | 라이트 | 좌5.6" 지도(Kakao/OSM 5종 POI) + 우6.1" 입지 속성 |
+| A07 | 리스크 3블록 | 라이트/다크 | 3열 리스크 카드 + 하단 고지 바 |
 | A08 | 이중 테이블 | 라이트 | 좌7.3" 2개 테이블 + 우4.5" 콜아웃 |
 | A09 | 진행 절차 | 라이트 | 3~4단계 프로세스 카드 + 화살표 |
-| A10 | 마감 | 다크 | 프로세스 바 + Provenance 레전드 + 면책 |
+| A10 | 마감 | 다크 | 프로세스 리본 + 5등급 Provenance + 면책 + 로고 |
 | A11 | 호실 사양 | 라이트 | 호실 테이블 + 2×2 통계 + 위반 경고 |
 | A12 | 소유 구조 | 라이트 | 소유권 테이블 + 콜아웃 |
-| A13 | 운영 KPI | 라이트 | KPI 행 + 통계 카드 |
-| A14 | 사진 갤러리 | 라이트 | 6종 토폴로지, 최대 4슬라이드 |
-| A15 | 투자 논거 | 라이트 | 1×3 / 2×2 필러 + 벤치마크 + Takeaway |
-| A16 | 자본 구조 | 라이트/다크 | 취득비용 분해 + LTV 시나리오 |
-| A17 | 준공전 마케팅 | 라이트/다크 | 스태킹 플랜 + 규제 완화 카운트다운 |
+| A13 | 운영 KPI | 라이트 | KPI 행 + brass 수직선 + 통계 카드 |
+| A14 | 사진 갤러리 | 라이트 | 6종 토폴로지(FULL/DUAL/1+2/2×2), 최대 4슬라이드 |
+| A15 | 투자 논거 | 라이트 | 1×3/2×2 필러 + 벤치마크 + Takeaway 리본 |
+| A16 | 자본 구조 | 라이트/다크 | 취득비용 7행 + LTV 0/40/50% 시나리오 + 역레버리지 경고 |
+| A17 | 준공전 마케팅 | 라이트/다크 | 스태킹 플랜 + 개발 메트릭 + 규제 완화 카운트다운 |
 
-### 8.4 프리셋 시스템 (5종 내장)
+### 8.4 프리셋 시스템 (5종 내장 + 커스텀 DB)
 
-| 프리셋 | 악센트 | 커버 스타일 | 레이아웃 | 타깃 |
+| 프리셋 | 악센트 | 커버 스타일 | 레이아웃 | 타이틀 폰트 |
 |---|---|---|---|---|
-| `golden_institutional` | `#B98A2E` Brass | 기하 블록 | classic | 기관투자·패밀리오피스 |
-| `credeal_signature` | `#6B8E00` Lime | 좌우 분할 | modern | 표준 세일즈 덱 |
-| `executive_gold` | `#B8862D` Gold | 히어로 다크 | executive | 임원·트로피 자산 |
-| `corporate_clean` | `#059669` Emerald | 플로팅 카드 | minimal | ESG·테크 캠퍼스 |
-| `pro_dark_obsidian` | `#0284A8` Cyan | 글로우 | dramatic | 물류·데이터센터 |
+| `golden_institutional` | `#B98A2E` | 기하 블록 | classic | Pretendard |
+| `credeal_signature` | `#6B8E00` | 좌우 분할 | modern | Pretendard |
+| `executive_gold` | `#B8862D` | 히어로 다크 | executive | Noto Serif KR |
+| `corporate_clean` | `#059669` | 플로팅 카드 | minimal | Pretendard |
+| `pro_dark_obsidian` | `#0284A8` | 글로우 | dramatic | Pretendard |
 
 ---
 
 ## 9. 전체 파일 인벤토리
 
-### 9.1 메모 & 슬롯 추출
+### 9.1 메모 & 슬롯 추출 (10개 파일)
 
 | 파일 | 역할 |
 |---|---|
 | `src/app/(broker)/broker/deal-card/new/page.tsx` | 딜카드 생성 페이지 |
 | `src/components/memo/UniversalMemoFAB.tsx` | 범용 메모 FAB |
 | `src/components/memo/VoiceRecorder.tsx` | 음성 녹음기 |
-| `src/components/memo/MemoResultSheet.tsx` | 결과 시트 |
-| `src/domain/building/memo-slot-mapper.ts` | 정규식 슬롯 매퍼 |
-| `src/ai/agents/memo-router-agent.ts` | 메모 라우터 에이전트 |
-| `src/ai/sanitizer/memo-sanitizer.ts` | PII 마스킹 |
-| `src/ai/agents/broker-deal-card.ts` | AI 에이전트 체인 |
-| `src/ai/schemas/broker-deal-card.ts` | Zod 스키마 |
+| `src/components/memo/MemoResultSheet.tsx` | 분류 결과 시트 |
+| `src/domain/building/memo-slot-mapper.ts` | 3-Layer 정규식 슬롯 매퍼 |
+| `src/ai/agents/memo-router-agent.ts` | 메모 라우터 (LLM + 규칙 듀얼) |
+| `src/ai/sanitizer/memo-sanitizer.ts` | PII 마스킹 + 인젝션 탐지 |
+| `src/ai/agents/broker-deal-card.ts` | 4단계 AI 에이전트 체인 |
+| `src/ai/schemas/broker-deal-card.ts` | Zod 스키마 (MemoParser, BlindTeaser v3) |
+| `src/ai/prompts/broker-deal-card.ts` | 시스템 프롬프트 (MemoParser, MiniTruth, BlindTeaser) |
 
-### 9.2 딜카드 & SSoT
+### 9.2 딜카드 & SSoT (6개 파일)
 
 | 파일 | 역할 |
 |---|---|
 | `src/app/api/broker/deal-card/from-memo/route.ts` | 딜카드 생성 API |
-| `src/domain/building/broker-deal-card.ts` | 오케스트레이터 |
+| `src/domain/building/broker-deal-card.ts` | 도메인 오케스트레이터 |
+| `src/domain/building/building-dedup.ts` | PNU/지번 중복 검사 |
 | `src/app/(broker)/broker/deal-card/[id]/page.tsx` | 딜카드 관리 페이지 |
-| `src/lib/ssot-adapter.ts` | SSoT 어댑터 |
-| `src/domain/asset/grade-engine.ts` | 등급 엔진 |
+| `src/lib/ssot-adapter.ts` | SSoT 어댑터 (attrs 변환, 마이그레이션, YAML 로딩) |
+| `src/domain/asset/grade-engine.ts` | 등급 엔진 (L×P 2축) |
 
-### 9.3 바텀시트 & IM 생성
+### 9.3 바텀시트 & IM 생성 (16개 파일)
 
 | 파일 | 역할 |
 |---|---|
-| `src/app/(broker)/broker/deal-card/[id]/im-data-bottom-sheet.tsx` | 바텀시트 |
+| `src/app/(broker)/broker/deal-card/[id]/im-data-bottom-sheet.tsx` | 바텀시트 (8종 Pack Slots) |
 | `src/components/broker/rent-roll-importer.tsx` | 렌트롤 임포터 |
-| `src/lib/image-compressor.ts` | 이미지 압축 |
+| `src/lib/image-compressor.ts` | 이미지 압축 (Canvas, 1920px, 0.82) |
 | `src/app/api/broker/im-lite/generate-async/route.ts` | 비동기 생성 API |
 | `src/app/api/broker/im-lite/generate/handler.ts` | 생성 핸들러 |
-| `src/domain/building/mobile-im/writer.ts` | 4단계 Writer |
-| `src/domain/building/mobile-im/im-section-generator.ts` | 섹션 생성기 |
+| `src/domain/building/mobile-im/writer.ts` | 4단계 Writer (StageTimer) |
+| `src/domain/building/mobile-im/im-section-generator.ts` | 10단계 섹션 생성기 |
 | `src/domain/building/mobile-im/im-context-builder.ts` | 컨텍스트 빌더 |
-| `src/domain/building/mobile-im/section-catalog.ts` | 섹션 카탈로그 |
-| `src/domain/building/mobile-im/archetype-registry.ts` | 아키타입 레지스트리 |
-| `src/domain/building/mobile-im/narrative-prompt.ts` | 시스템 프롬프트 |
+| `src/domain/building/mobile-im/section-catalog.ts` | 5 포스처 × 11 섹션 카탈로그 |
+| `src/domain/building/mobile-im/archetype-registry.ts` | 9개 아키타입 (R-INC×4 + OO/DEV/OP/TR) |
+| `src/domain/building/mobile-im/narrative-prompt.ts` | 시스템 프롬프트 코어 |
 | `src/domain/building/mobile-im/posture-prompts.ts` | 포스처 오버레이 |
+| `src/domain/building/mobile-im/quality-gates-v02.ts` | 17개 발행 게이트 (QG01~QG20) |
+| `src/domain/building/mobile-im/cre-quality-gate.ts` | 6종 CRE 의미 위반 검사 |
+| `src/domain/building/mobile-im/im-judge.ts` | LLM-as-Judge 5차원 |
+| `src/domain/building/mobile-im/cross-validator.ts` | 수치 교차 검증 (5개 포스처별 규칙) |
 
-### 9.4 모바일 IM 웹 뷰어
-
-| 파일 | 역할 |
-|---|---|
-| `src/app/(public)/im-lite/[buildingId]/page.tsx` | 뷰어 페이지 |
-| `src/app/(public)/im-lite/[buildingId]/mobile-im-viewer.tsx` | 뷰어 클라이언트 |
-| `src/app/(public)/im-lite/[buildingId]/hero-card.tsx` | 히어로 카드 |
-| `src/app/(public)/im-lite/[buildingId]/dcf-heatmap.tsx` | DCF 히트맵 |
-| `src/app/(public)/im-lite/[buildingId]/leverage-chart.tsx` | 레버리지 차트 |
-
-### 9.5 PPTX IM 렌더링
+### 9.4 재무 엔진 (3개 파일)
 
 | 파일 | 역할 |
 |---|---|
-| `src/domain/building/mobile-im/pptx/pptx-renderer.ts` | 메인 렌더러 |
-| `src/domain/building/mobile-im/pptx/deck-sequencer.ts` | 덱 시퀀서 |
-| `src/domain/building/mobile-im/pptx/data-binder.ts` | 데이터 바인더 |
-| `src/domain/building/mobile-im/pptx/imlib.ts` | 컴포넌트 라이브러리 |
-| `src/domain/building/mobile-im/pptx/pptx-theme.ts` | 테마 & 프리셋 |
-| `src/domain/building/mobile-im/pptx/gallery-planner.ts` | 갤러리 플래너 |
-| `src/domain/building/mobile-im/pptx/text-budget.ts` | 텍스트 예산 |
-| `src/domain/building/mobile-im/pptx/basis-enforcer.ts` | 재무 기준 강제 |
-| `src/domain/building/mobile-im/pptx/provenance-mapper.ts` | 출처 매퍼 |
-| `src/domain/building/mobile-im/pptx/archetypes/*.ts` | A01~A17 빌더 17개 |
+| `src/domain/building/mobile-im/financials.ts` | 5 포스처 재무 전략 패턴 |
+| `src/domain/building/mobile-im/net-cash-flow-calculator.ts` | 3-Line 순현금흐름 + 원금 안전판 |
+| `src/domain/building/mobile-im/dcf-sensitivity.ts` | 10Y DCF, 뉴턴-랩슨 IRR, 3×3 민감도, WACC |
+
+### 9.5 모바일 IM 웹 뷰어 (6개 파일)
+
+| 파일 | 역할 |
+|---|---|
+| `src/app/(public)/im-lite/[buildingId]/page.tsx` | 서버 컴포넌트 |
+| `src/app/(public)/im-lite/[buildingId]/mobile-im-viewer.tsx` | 클라이언트 뷰어 |
+| `src/app/(public)/im-lite/[buildingId]/hero-card.tsx` | 포스처 적응형 히어로 카드 |
+| `src/app/(public)/im-lite/[buildingId]/dcf-heatmap.tsx` | DCF 3×3 히트맵 |
+| `src/app/(public)/im-lite/[buildingId]/leverage-chart.tsx` | SVG 레버리지 도넛 |
+| `src/app/(public)/im-lite/[buildingId]/price-trend-chart.tsx` | SVG 가격 추세 라인 |
+
+### 9.6 PPTX IM 렌더링 (28개 파일)
+
+| 파일 | 역할 |
+|---|---|
+| `pptx-renderer.ts` (591행) | 메인 렌더러 (테마 격리 + 워터마크) |
+| `deck-sequencer.ts` (232행) | 덱 시퀀서 (Posture×Grade×Tier×Archetype) |
+| `data-binder.ts` (1,657행) | 이중 데이터 바인더 + sanitizePersona |
+| `imlib.ts` (1,245행) | 21개 컴포넌트 프리미티브 (5종 레이아웃 스타일) |
+| `pptx-theme.ts` (413행) | 5종 프리셋 + 커스텀 DB + WCAG 검증 |
+| `gallery-planner.ts` (244행) | v0.6.0 갤러리 플래너 |
+| `text-budget.ts` (123행) | 텍스트 예산 (12개 제한) |
+| `basis-enforcer.ts` (58행) | 재무 기준 강제 (FAR, Cap Rate, GOP, 상임법) |
+| `provenance-mapper.ts` (41행) | 5등급 출처 + weakest-link |
+| `image-optimizer.ts` (429행) | Sharp 최적화, 3-Tier 지도 생성기 |
+| `html-parser.ts` (67행) | HTML 파서, `formatKrwCompact` |
+| `archetypes/a01~a17*.ts` (17개) | 17개 아키타입 빌더 |
 
 ---
 
-*본 문서는 메모 입력부터 PPTX IM 내보내기까지 전체 파이프라인 50+ 소스 파일의 코드베이스 정밀 감사를 통해 작성된 기능 명세서입니다.*
+*본 문서는 2026-08-25 코드베이스 대폭 업그레이드 후 전체 파이프라인 50+ 소스 파일을 처음부터 재감사하여 작성된 기능 명세서입니다.*
