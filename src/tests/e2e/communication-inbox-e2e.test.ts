@@ -250,9 +250,9 @@ describe('Communication & Inbox Domain (소통/관리함) Tests', () => {
       
       expect(askAiAmbassador).toHaveBeenCalledWith(messages, context);
       expect(response).toBeDefined();
-      expect(response.message).toBeDefined();
-      expect(response.message.role).toBe('assistant');
-      expect(response.message.content).toBe('Mocked response');
+      expect((response as any).message).toBeDefined();
+      expect((response as any).message.role).toBe('assistant');
+      expect((response as any).message.content).toBe('Mocked response');
     });
 
     test('COM-E2E-18: AI 응답 내 할루시네이션 방지 문구 확인', async () => {
@@ -263,7 +263,7 @@ describe('Communication & Inbox Domain (소통/관리함) Tests', () => {
       });
 
       const response = await askAiAmbassador([{ role: 'user' as const, content: '수익률 보장되나요?' }], {} as any);
-      expect(response.message.content).toContain('해당 중개인에게 확인 후 안내');
+      expect((response as any).message.content).toContain('해당 중개인에게 확인 후 안내');
     });
   });
 });

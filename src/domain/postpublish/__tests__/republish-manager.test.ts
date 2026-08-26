@@ -10,8 +10,8 @@ describe('Republish Manager Multi-Version Pipeline', () => {
     status: 'active',
     publishedAt: '2026-08-01T00:00:00Z',
     findings: [
-      { source: 'rule', code: 'F01', severity: 'warn', message: '등기부 경과', detectedAt: '2026-08-01' },
-      { source: 'rule', code: 'F09', severity: 'block', message: '만기 임박', detectedAt: '2026-08-01' },
+      { source: 'rule', code: 'F01', severity: 'warn', message: '등기부 경과', detectedAt: '2026-08-01', resolved: false },
+      { source: 'rule', code: 'F09', severity: 'block', message: '만기 임박', detectedAt: '2026-08-01', resolved: false },
     ],
     resolvedFindings: [],
   };

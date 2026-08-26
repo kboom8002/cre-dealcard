@@ -10,10 +10,11 @@ describe('Deficiency Ledger Unit Tests', () => {
         leaseAreaSqm: 100,
         leaseState: '임대중',
         firstContractDate: '2022-01-01',
-        legalBasis: 'commercial',
+        legalBasis: '상가',
         mgmtFeeKrw: 300000,
         monthlyRentKrw: 2000000,
         depositKrw: 50000000,
+        tenantBusiness: '음식점', currentExpiryDate: '2025-12-31', contractGroup: null, currentStartDate: '2022-01-01', renewalExercised: null, opposingPower: null, note: null,
       },
     ];
     const deficiencies = auditDeficiencies({
@@ -30,8 +31,9 @@ describe('Deficiency Ledger Unit Tests', () => {
         unitLabel: '101',
         leaseAreaSqm: 100,
         leaseState: '임대중',
-        legalBasis: 'commercial',
+        legalBasis: '상가',
         mgmtFeeKrw: 300000,
+        tenantBusiness: null, depositKrw: null, monthlyRentKrw: null, currentExpiryDate: null, firstContractDate: null, contractGroup: null, currentStartDate: null, renewalExercised: null, opposingPower: null, note: null,
       },
     ];
     const deficiencies = auditDeficiencies({
@@ -55,6 +57,7 @@ describe('Deficiency Ledger Unit Tests', () => {
         firstContractDate: '2021-05-01',
         legalBasis: '미확인',
         mgmtFeeKrw: 100000,
+        tenantBusiness: null, depositKrw: null, monthlyRentKrw: null, currentExpiryDate: null, contractGroup: null, currentStartDate: null, renewalExercised: null, opposingPower: null, note: null,
       },
     ];
     const deficiencies = auditDeficiencies({

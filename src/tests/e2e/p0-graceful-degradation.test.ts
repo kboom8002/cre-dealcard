@@ -14,11 +14,11 @@ describe('T01: Graceful Degradation — Blank Slide Prevention', { timeout: 60_0
   test('T01-01: 5 sections with empty markdown + valid section_type -> no blank slides, only cover/summary/closing survive', async () => {
     const doc = buildMinimalDoc('income');
     // Set 5 sections to empty
-    doc.sections[0].markdown = ''; // property_overview
-    doc.sections[1].markdown = ''; // location_access
-    doc.sections[2].markdown = ''; // lease_status
-    doc.sections[3].markdown = ''; // income_analysis
-    doc.sections[4].markdown = ''; // risk_check
+    doc.sections![0].markdown = ''; // property_overview
+    doc.sections![1].markdown = ''; // location_access
+    doc.sections![2].markdown = ''; // lease_status
+    doc.sections![3].markdown = ''; // income_analysis
+    doc.sections![4].markdown = ''; // risk_check
 
     const input: MobileImPptxInput = {
       buildingId: 'test-t01-01',
@@ -48,10 +48,10 @@ describe('T01: Graceful Degradation — Blank Slide Prevention', { timeout: 60_0
   test('T01-02: Mix of valid and empty sections -> only slides with content appear', async () => {
     const doc = buildMinimalDoc('income');
     // Mix: property_overview has content, others empty
-    doc.sections[1].markdown = ''; // location_access
-    doc.sections[2].markdown = ''; // lease_status
-    doc.sections[3].markdown = ''; // income_analysis
-    doc.sections[4].markdown = ''; // risk_check
+    doc.sections![1].markdown = ''; // location_access
+    doc.sections![2].markdown = ''; // lease_status
+    doc.sections![3].markdown = ''; // income_analysis
+    doc.sections![4].markdown = ''; // risk_check
 
     const input: MobileImPptxInput = {
       buildingId: 'test-t01-02',
@@ -77,7 +77,7 @@ describe('T01: Graceful Degradation — Blank Slide Prevention', { timeout: 60_0
 
   test('T01-03: All sections have content consisting only of whitespace -> treated as empty', async () => {
     const doc = buildMinimalDoc('income');
-    doc.sections.forEach(s => {
+    doc.sections!.forEach(s => {
       s.markdown = '   \n\n  \t  ';
     });
 
@@ -100,8 +100,8 @@ describe('T01: Graceful Degradation — Blank Slide Prevention', { timeout: 60_0
 
   test('T01-04: Section with only a markdown table (no prose text) -> should still render', async () => {
     const doc = buildMinimalDoc('income');
-    doc.sections[0].markdown = '| 항목 | 내용 |\n|---|---|\n| 대지면적 | 142.5평 |'; // Only table
-    doc.sections.forEach((s, idx) => {
+    doc.sections![0].markdown = '| 항목 | 내용 |\n|---|---|\n| 대지면적 | 142.5평 |'; // Only table
+    doc.sections!.forEach((s, idx) => {
       if (idx !== 0) s.markdown = ''; // Empty out the rest
     });
 
@@ -124,7 +124,7 @@ describe('T01: Graceful Degradation — Blank Slide Prevention', { timeout: 60_0
 
   test('T01-05: Section with markdown containing only bold key-value pairs but no table -> should still render', async () => {
     const doc = buildMinimalDoc('income');
-    doc.sections[3].markdown = '**연 순영업소득(NOI)**: 약 7.14억 원\n**매입 Cap Rate**: 4.62%';
+    doc.sections![3].markdown = '**연 순영업소득(NOI)**: 약 7.14억 원\n**매입 Cap Rate**: 4.62%';
     
     const input: MobileImPptxInput = {
       buildingId: 'test-t01-05',

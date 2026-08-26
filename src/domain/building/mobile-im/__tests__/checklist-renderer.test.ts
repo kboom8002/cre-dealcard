@@ -5,8 +5,8 @@ describe('Checklist Renderer (S3-7, 불변조건 9, 13, 18)', () => {
   it('결손 데이터, 게이트 경고, AI 가정값, 잠긴 지표를 누락 없이 전량 렌더해야 한다', () => {
     const section = renderChecklist({
       deficiencies: [
-        { field: 'officialLandPrice', label: '공시지가', affects: '원금 안전판', severity: 'degrade' },
-        { field: 'rentRoll', label: '임대차 원장', affects: '연 순수익률', severity: 'block' },
+        { field: 'officialLandPrice', label: '공시지가', affects: ['yield_noi'] as any, severity: 'degrade' as const, nextBest: null },
+        { field: 'rentRoll', label: '임대차 원장', affects: ['yield_gross'] as any, severity: 'block' as const, nextBest: null },
       ],
       gateWarnings: [
         { id: 'QG14', label: '최초계약일 미확인 호실 존재' },

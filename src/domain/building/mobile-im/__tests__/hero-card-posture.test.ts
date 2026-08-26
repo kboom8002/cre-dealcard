@@ -75,10 +75,10 @@ describe('HeroCard Posture-Specific Metrics', () => {
 
   test('HC-01: income → askingPriceDisplay, equityRequiredBil, capRateBase, leveragedYieldPct present', async () => {
     setupMockContext('income', {
-      capRate: { base: 4.5, upside: 5.0, range: '4.5~5.0%' },
+      capRate: { base: 4.5, best: 5.0, worst: 4.0 },
       equityRequired: 30,
       leveragedYield: 6.2,
-      annualNoi: { base: 100000000, upside: 120000000 },
+      annualNoi: { base: 100000000, best: 120000000, worst: 100000000 },
     }, { price_band: '100억' });
 
     const result = await generateMobileIM(dummyInput);
@@ -171,7 +171,7 @@ describe('HeroCard Posture-Specific Metrics', () => {
 
   test('HC-06: unknown posture → default income fallback', async () => {
     setupMockContext('unknown_posture', {
-      capRate: { base: 4.0, upside: 4.5, range: '4.0~4.5%' },
+      capRate: { base: 4.0, best: 4.5, worst: 3.5 },
     });
 
     const result = await generateMobileIM(dummyInput);

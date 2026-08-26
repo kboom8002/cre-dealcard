@@ -37,17 +37,23 @@ describe('AI Matching Domain E2E Tests (AI 매칭/추천)', () => {
     test('MATCH-E2E-02: Import and test runHardFilter directly with matching buyer+building', () => {
       // 조건이 맞는 빌딩과 매수자 인텐트를 직접 하드 필터로 검증 (성공 케이스)
       const input: MatchInput = {
+        buildingSsotLiteId: 'test-bsl-1',
+        buyerIntentLiteId: 'test-bil-1',
+        brokerId: 'test-broker-1',
         building: {
-          id: 'b1',
           priceBand: '50억',
           areaSignal: '강남구 역삼동',
           assetType: '중소형빌딩',
           vacatePlan: 'vacant',
           illegalExtension: false,
-          sectionalOwners: 1
+          sectionalOwners: 1,
+          vacancySignal: null,
+          fitSummary: '',
+          cautionSummary: '',
         },
         intent: {
-          id: 'i1',
+          buyerType: '개인투자자',
+          riskTolerance: 'moderate',
           purchasePurpose: '투자',
           budgetRange: { min: 4_000_000_000, max: 6_000_000_000, display: '40~60억' },
           preferredRegions: ['강남구'],
@@ -64,14 +70,20 @@ describe('AI Matching Domain E2E Tests (AI 매칭/추천)', () => {
     test('MATCH-E2E-03: Import and test runHardFilter with mismatched budget (should fail)', () => {
       // 예산 상한선을 초과하는 빌딩에 대해 하드 필터가 탈락시키는지를 검증
       const input: MatchInput = {
+        buildingSsotLiteId: 'test-bsl-1',
+        buyerIntentLiteId: 'test-bil-1',
+        brokerId: 'test-broker-1',
         building: {
-          id: 'b1',
           priceBand: '100억',
           areaSignal: '강남구 역삼동',
           assetType: '중소형빌딩',
+          vacancySignal: null,
+          fitSummary: '',
+          cautionSummary: '',
         },
         intent: {
-          id: 'i1',
+          buyerType: '개인투자자',
+          riskTolerance: 'moderate',
           purchasePurpose: '투자',
           budgetRange: { min: 4_000_000_000, max: 6_000_000_000, display: '40~60억' },
           preferredRegions: ['강남구'],
@@ -244,7 +256,8 @@ describe('AI Matching Domain E2E Tests (AI 매칭/추천)', () => {
       // 임대 하드 필터 통과 케이스 테스트
       const result = runLeaseHardFilter({
         space: {
-          id: 's1',
+          id: 'space-test-1',
+
           floor: '3F',
           area_sqm: 100,
           space_type: 'office',
@@ -258,7 +271,8 @@ describe('AI Matching Domain E2E Tests (AI 매칭/추천)', () => {
           area_signal: '강남구'
         },
         intent: {
-          id: 'i1',
+          id: 'tenant-test-1',
+
           business_type: 'IT',
           preferred_regions: ['강남구'],
           area_min: 80,
@@ -278,7 +292,8 @@ describe('AI Matching Domain E2E Tests (AI 매칭/추천)', () => {
       // 임대 하드 필터 탈락 케이스 (예산 초과) 테스트
       const result = runLeaseHardFilter({
         space: {
-          id: 's1',
+          id: 'space-test-1',
+
           floor: '3F',
           area_sqm: 100,
           space_type: 'office',
@@ -292,7 +307,8 @@ describe('AI Matching Domain E2E Tests (AI 매칭/추천)', () => {
           area_signal: '강남구'
         },
         intent: {
-          id: 'i1',
+          id: 'tenant-test-1',
+
           business_type: 'IT',
           preferred_regions: ['강남구'],
           area_min: 80,

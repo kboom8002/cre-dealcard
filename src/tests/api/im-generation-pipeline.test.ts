@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { generateMobileIMHandler } from '@/app/api/broker/im-lite/generate/handler';
 import { callLLM } from '@/ai/llm-client';
-import { enrichBuildingData, enrichBuildingDataByPNU } from '@/lib/external/external-data-orchestrator';
+import { enrichBuildingData } from '@/lib/external/external-data-orchestrator';
 
 vi.mock('@supabase/supabase-js', () => {
   return {

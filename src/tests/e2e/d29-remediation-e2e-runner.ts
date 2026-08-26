@@ -362,10 +362,9 @@ function phase7_crossValidation() {
     { section_type: 'income_analysis', markdown: '매매가: 115억원\n대지 153.31평', title: '수익분석', section_order: 2, confidence: 'high' as const, boundary_note: '', provenance: [], min_tier: 'public' as const },
   ];
   const anchors: NumericalAnchors = {
-    askingPrice: 11_500_000_000,
-    landAreaPyung: 153.31,
-    totalFloorAreaPyung: 435.9,
-    annualRentTotal: 233_520_000,
+    askingPriceKrw: 11_500_000_000,
+    totalAreaSqm: 507.0,         // 153.31평 × 3.3058
+    monthlyRentKrw: 19_460_000,  // 233_520_000 / 12
   };
 
   const result = runCrossValidation(sections, anchors, 'income');
@@ -389,7 +388,7 @@ function phase8_idempotency() {
 
   const params = {
     dealId: 'dangsan-test-001',
-    inputHash: computeInputHash(JSON.stringify(DANGSAN_INCOME)),
+    inputHash: computeInputHash(DANGSAN_INCOME as unknown as Record<string, unknown>),
     posture: 'income',
     rendererVersion: '1.0.0',
     lexiconVersion: '1.0.0',

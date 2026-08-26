@@ -160,7 +160,7 @@ describe('Data Pipeline Edge Cases', () => {
   });
 
   describe('B. buildDeckSequence', () => {
-    const postures = ['income', 'development', 'owner_occupied', 'operating', 'trading'];
+    const postures = ['income', 'development', 'owner_occupied', 'operating', 'trading'] as const;
     
     postures.forEach((posture, idx) => {
       it(`B0${idx * 2 + 1}: ${posture}/basic/B: 5-14 slides`, () => {
@@ -268,11 +268,11 @@ describe('Data Pipeline Edge Cases', () => {
   });
 
   describe('C. computeDataQualityBadge & hasMinimumBasicData', () => {
-    const postures = ['income', 'development', 'owner_occupied', 'operating', 'trading'];
+    const postures = ['income', 'development', 'owner_occupied', 'operating', 'trading'] as const;
     
     postures.forEach((posture, idx) => {
       it(`C0${idx + 1}: ${posture}, full data -> verified or partial (A or B)`, () => {
-        const badge = computeDataQualityBadge({ hasAddress: true, hasPublicData: true, hasAskingPrice: true }, posture);
+        const badge = computeDataQualityBadge({ hasAddress: true, hasPublicData: true, hasAskingPrice: true, hasMonthlyRent: true, hasVacancy: true, hasPhotos: true }, posture);
         expect(['verified', 'partial']).toContain(badge.tier);
       });
     });
@@ -280,7 +280,7 @@ describe('Data Pipeline Edge Cases', () => {
     postures.forEach((posture, idx) => {
       const cnum = idx + 6;
       it(`C${cnum < 10 ? '0' + cnum : cnum}: ${posture}, address=T, public=F, asking=T -> reference (C)`, () => {
-        const badge = computeDataQualityBadge({ hasAddress: true, hasPublicData: false, hasAskingPrice: true }, posture);
+        const badge = computeDataQualityBadge({ hasAddress: true, hasPublicData: false, hasAskingPrice: true, hasMonthlyRent: false, hasVacancy: false, hasPhotos: false }, posture);
         expect(badge.tier).toBe('reference');
       });
     });
@@ -288,7 +288,7 @@ describe('Data Pipeline Edge Cases', () => {
     postures.forEach((posture, idx) => {
       const cnum = idx + 11;
       it(`C${cnum}: ${posture}, no address, no publicData -> draft (D)`, () => {
-        const badge = computeDataQualityBadge({ hasAddress: false, hasPublicData: false }, posture);
+        const badge = computeDataQualityBadge({ hasAddress: false, hasPublicData: false, hasMonthlyRent: false, hasVacancy: false, hasPhotos: false }, posture);
         expect(badge.tier).toBe('draft');
       });
     });
@@ -296,7 +296,7 @@ describe('Data Pipeline Edge Cases', () => {
     postures.forEach((posture, idx) => {
       const cnum = idx + 16;
       it(`C${cnum}: ${posture}, no publicData -> NOT verified (not A)`, () => {
-        const badge = computeDataQualityBadge({ hasAddress: true, hasPublicData: false }, posture);
+        const badge = computeDataQualityBadge({ hasAddress: true, hasPublicData: false, hasMonthlyRent: false, hasVacancy: false, hasPhotos: false }, posture);
         expect(badge.tier).not.toBe('verified');
       });
     });

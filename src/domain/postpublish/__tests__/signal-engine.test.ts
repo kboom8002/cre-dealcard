@@ -44,7 +44,7 @@ describe('Signal Engine (S01~S08) Comprehensive Edge Cases', () => {
     });
     const s02 = verdicts.find(v => v.code === 'S02');
     expect(s02).toBeDefined();
-    expect(s02?.details.type).toBe('too_short');
+    expect(s02?.details!.type).toBe('too_short');
   });
 
   it('S02-극단체류 (deep_interest): flags info when price slide dwell > 30s', () => {
@@ -56,7 +56,7 @@ describe('Signal Engine (S01~S08) Comprehensive Edge Cases', () => {
     });
     const s02 = verdicts.find(v => v.code === 'S02');
     expect(s02).toBeDefined();
-    expect(s02?.details.type).toBe('deep_interest');
+    expect(s02?.details!.type).toBe('deep_interest');
   });
 
   it('S03-급증: flags warning when share link forwarded >= 3 times', () => {
