@@ -51,6 +51,9 @@ export interface GateContext {
   // D32 M-3: 종횡비 왜곡
   /** 전 사진 중 최대 종횡비 왜곡률 (%) */
   aspectDistortionMaxPct?: number;
+  // D32 M-8: 라벨↔내용 정합
+  /** 라벨과 내용이 불일치하는 슬라이드 수 */
+  labelContentMismatchCount?: number;
 }
 
 export interface LegacyGateResult {
@@ -151,6 +154,8 @@ export const PUBLISH_GATES: GateDefinition[] = [
   { id: 'G37', label: '타 물건 사진 혼입 차단', severity: 'block', check: (ctx) => (ctx.foreignPhotoCount ?? 0) === 0 },
   // D32 BL-3: 수익률 기준 라벨-계산 정합
   { id: 'G38', label: 'yieldBasis 라벨-계산 정합', severity: 'block', check: (ctx) => ctx.yieldBasisConsistent !== false },
+  // D32 M-8: 라벨↔내용 정합
+  { id: 'G39', label: '슬라이드 라벨-내용 정합', severity: 'warn', check: (ctx) => (ctx.labelContentMismatchCount ?? 0) === 0 },
   // D32 BL-4: 역레버리지 미경고 ROE 단독 표시 차단
   { id: 'G40', label: '역레버리지 ROE 경고', severity: 'block', check: (ctx) => ctx.negativeLeverageWarned !== false },
   // ── QG계열: 품질 경고 (warn) ── CATALOG_RULES §4.3

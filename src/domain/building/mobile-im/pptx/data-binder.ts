@@ -99,6 +99,8 @@ export function bindSectionData(
   building?: { area_signal?: string; asset_type?: string; price_band?: string },
 ): Record<string, SectionData> {
   const result: Record<string, SectionData> = {};
+  // D32 BL-6: 결손 문구 수집 배열 (체크리스트 이관용)
+  const collectedDeficiencies: string[] = [];
 
   if (!doc.sections) {
     return result;
@@ -111,7 +113,29 @@ export function bindSectionData(
       ? SECTION_TYPE_TO_DATA_KEY[sectionType]
       : sectionType || section.title.toLowerCase().replace(/\s+/g, '_');
 
-    // 2. 페르소나/시스템 메시지 사전 제거 (markdown 구조 보존)
+    // 2. D32 BL-6: 결손 문구 추출 → 삭제 대신 체크리스트로 이관
+    const deficiencyPatterns = [
+      /건축물대장\s*조회\s*미완료/,
+      /임대차\s*상세\s*현황.*미확보/,
+      /공공데이터\s*API\s*응답을\s*받지\s*못했습니다/,
+      /조회\s*미완료/,
+      /확인\s*필요/,
+      /미확보/,
+      /자료\s*없음/,
+    ];
+    const deficiencyItems: string[] = [];
+    const mdLines = (section.markdown || '').split('\n');
+    for (const line of mdLines) {
+      const trimmed = line.replace(/^[>\s*#\-•·]+/, '').trim();
+      if (trimmed && deficiencyPatterns.some(p => p.test(trimmed))) {
+        deficiencyItems.push(`[${dataKey}] ${trimmed}`);
+      }
+    }
+    if (deficiencyItems.length > 0) {
+      collectedDeficiencies.push(...deficiencyItems);
+    }
+
+    // 페르소나/시스템 메시지 사전 제거 (markdown 구조 보존)
     const cleanMarkdown = sanitizePersona(section.markdown);
 
     // 3. 테이블/메트릭 기본 파싱
@@ -262,6 +286,16 @@ export function bindSectionData(
     }
   }
 
+  // D32 BL-6: 결손 문구를 체크리스트 슬롯에 이관
+  if (collectedDeficiencies.length > 0) {
+    const existing = (result['checklist'] as any)?.checkItems ?? [];
+    result['_deficiencies'] = {
+      content: '',
+      checkItems: [...existing, ...collectedDeficiencies],
+    } as any;
+    console.warn(`[BL-6] ${collectedDeficiencies.length}건의 결손 문구를 체크리스트로 이관`, collectedDeficiencies);
+  }
+
   return result;
 }
 
@@ -340,7 +374,11 @@ function buildA13Props(markdown: string, tables: ParsedTable[], lines: string[])
 /** A15 Thesis: pillars[], subtitle, takeaway */
 function buildA15Props(markdown: string, tables: ParsedTable[], lines: string[]): Record<string, any> {
   const subtitle = lines.find(l => l.startsWith('#'))?.replace(/^#+\s*/, '') || '';
-  const listLines = lines.filter(l => l.match(/^\d+[.、)]\s*/) || l.startsWith('-') || l.startsWith('•'));
+  // D32 M-7: 물리적 제원은 Thesis에서 제외 (투자 논거만 남김)
+  const SPEC_KEYWORDS = /(?:대지면적|연면적|건축면적|건폐율|용적률|준공|규모|층수|주차|엘리베이터|지상|지하|세대|호실|총\s*면적|전용면적|공용면적)/;
+  const listLines = lines
+    .filter(l => l.match(/^\d+[.、)]\s*/) || l.startsWith('-') || l.startsWith('•'))
+    .filter(l => !SPEC_KEYWORDS.test(l));
   
   // 주석, 표, 단순 수치 통계 나열 행, 메타 설명 행을 제외한 요약 서술 라인 추출
   const narrativeLines = lines.filter(l => {
@@ -384,11 +422,13 @@ function buildA15Props(markdown: string, tables: ParsedTable[], lines: string[])
     takeaway = '';
   }
 
-  // 2-A: 벤치마크/별점 표 추출
+  // 2-A: 벤치마크/별점 표 추출 (D32 M-7: 제원 표는 제외)
   let benchmarkTable: { headers: string[]; rows: string[][] } | undefined;
   if (tables.length > 0) {
     const bt = tables[0];
-    if (bt && bt.headers.length >= 2 && bt.rows.length >= 1) {
+    const headerText = bt?.headers?.join(' ') ?? '';
+    const isSpecTable = SPEC_KEYWORDS.test(headerText);
+    if (bt && bt.headers.length >= 2 && bt.rows.length >= 1 && !isSpecTable) {
       benchmarkTable = {
         headers: bt.headers.map(h => stripMarkdown(h).replace(/⭐/g, '★').replace(/☆/g, '☆')),
         rows: bt.rows.map(r => r.map(c => stripMarkdown(c).replace(/⭐/g, '★').replace(/☆/g, '☆'))),
