@@ -187,20 +187,50 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
           continue;
         }
 
-        const result = await generateSingleSection(
-          sectionType as MobileIMSectionType,
-          globalIndex,
-          ctx,
-          ctx.sectionCtx,
-          input.supplemental,
-          external_data || null,
-          building_ssot_lite,
-          {
-            dcfEligible: input.dcfEligible,
-            onProgress: input.onProgress,
-            forceFastTemplate: forceFast,
-          },
-        );
+        // D30 M-8: 멱등키 재시도 정책 — 최대 2회, 동일 섹션 동일 컨텍스트
+        const MAX_RETRIES = 2;
+        let result;
+        let lastError: Error | undefined;
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            result = await generateSingleSection(
+              sectionType as MobileIMSectionType,
+              globalIndex,
+              ctx,
+              ctx.sectionCtx,
+              input.supplemental,
+              external_data || null,
+              building_ssot_lite,
+              {
+                dcfEligible: input.dcfEligible,
+                onProgress: input.onProgress,
+                forceFastTemplate: forceFast,
+              },
+            );
+            break; // 성공 시 루프 탈출
+          } catch (e) {
+            lastError = e instanceof Error ? e : new Error(String(e));
+            if (attempt < MAX_RETRIES) {
+              console.warn(`[writer] M-8: ${sectionType} 재시도 ${attempt + 1}/${MAX_RETRIES}:`, lastError.message);
+            }
+          }
+        }
+        if (!result) {
+          // 모든 재시도 실패 — 확인사항 이관
+          console.error(`[writer] M-8: ${sectionType} 재시도 소진:`, lastError?.message);
+          sections.push({
+            section_type: 'checklist' as MobileIMSectionType,
+            section_order: globalIndex + 1,
+            title: `${sectionType} — 생성 실패`,
+            markdown: `> ⚠️ \`${sectionType}\` 섹션 생성이 ${MAX_RETRIES + 1}회 시도 후 실패했습니다.\n> 오류: ${lastError?.message || '알 수 없음'}`,
+            confidence: 'needs_check' as const,
+            boundary_note: 'D30 M-8: 재시도 소진 확인사항 이관',
+            provenance: [],
+            min_tier: 'public' as const,
+          });
+          globalIndex++;
+          continue;
+        }
 
         sections.push(result.section);
         if (result.generatedByAi) aiUsed = true;

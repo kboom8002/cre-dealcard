@@ -15,6 +15,7 @@ import { buildA14Gallery } from './a14-gallery';
 import { buildA15Thesis } from './a15-thesis';
 import { buildA16InvestmentStructure } from './a16-investment-structure';
 import { buildA17PreCompletionMarketing } from './a17-pre-completion-marketing';
+import { buildA18Checklist } from './a18-checklist'; // D30 M-11
 
 export * from './a01-cover'; // For Types
 export { buildA15Thesis, type ThesisPillar } from './a15-thesis';
@@ -41,6 +42,7 @@ export const SLIDE_ARCHETYPE_REGISTRY: Record<string, any> = {
   A15: buildA15Thesis,
   A16: buildA16InvestmentStructure,
   A17: buildA17PreCompletionMarketing,
+  A18: buildA18Checklist, // D30 M-11
 };
 
 /** @deprecated D30 M-17: SLIDE_ARCHETYPE_REGISTRY로 개명됨 */
