@@ -433,15 +433,22 @@ export function computeDataGrade(
     for (const item of missingCategories) {
       const meta = slotUnlocksMap[item.category];
       if (meta) {
-        // 해당 슬롯을 채웠을 때의 점수 시뮬레이션
-        const simulatedEarned = earnedNewWeight + item.weight;
-        const simulatedPct = totalNewWeight > 0 ? Math.round((simulatedEarned / totalNewWeight) * 100) : 0;
-        let simulatedGrade: DataGrade = 'C';
-        if (simulatedPct >= 75) simulatedGrade = 'A';
-        else if (simulatedPct >= 40) simulatedGrade = 'B';
+        // D30 M-4: L×P 단일 정의 — 시뮬레이션도 gradeMatrix 사용
+        // 이전: scorePct 기반 컷 (>=75→A, >=40→B) → gradeMatrix와 불일치
+        // 개선: 해당 슬롯 채움 시 L/P 해상도 재산출 → gradeMatrix 결과 사용
+        const simulatedFilledMap = { ...filledMap, [item.category]: true };
+        const simP = resolveP(simulatedFilledMap);
+        const simL = resolveL(simulatedFilledMap, posture);
+        let simulatedGrade = gradeMatrix(simL, simP);
+        // income/operating: 렌트롤 미제출 시 A 승격 차단 유지
+        if (simulatedGrade === 'A' && isIncomePosture && !hasStructuredRentRoll && item.category !== 'lease_roll') {
+          simulatedGrade = 'B';
+        }
         
-        const scoreGain = simulatedPct - scorePct;
-        const roi = scoreGain / Math.max(1, meta.effort);
+        // D30 M-4: 등급 향상 기반 ROI (점수 대신 등급 단계 차이)
+        const gradeOrder: Record<DataGrade, number> = { D: 0, C: 1, B: 2, A: 3 };
+        const gradeGain = gradeOrder[simulatedGrade] - gradeOrder[grade];
+        const roi = gradeGain / Math.max(1, meta.effort);
 
         candidates.push({
           slot: item.category,

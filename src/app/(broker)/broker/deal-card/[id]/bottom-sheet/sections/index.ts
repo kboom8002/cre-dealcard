@@ -10,3 +10,4 @@ export { ParcelSection } from "./ParcelSection";
 export { HoldingHistorySection } from "./HoldingHistorySection";
 export { OperatingPerfSection } from "./OperatingPerfSection";
 export { DataGradeFooter } from "./DataGradeFooter";
+export { PhotoApprovalSection } from "./PhotoApprovalSection"; // D30 §5
