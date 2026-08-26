@@ -48,6 +48,9 @@ export interface GateContext {
   // D32 BL-1: 타 물건 사진 혼입
   /** 타 물건 사진 수 (0이 아니면 차단) */
   foreignPhotoCount?: number;
+  // D32 M-3: 종횡비 왜곡
+  /** 전 사진 중 최대 종횡비 왜곡률 (%) */
+  aspectDistortionMaxPct?: number;
 }
 
 export interface LegacyGateResult {
@@ -144,6 +147,7 @@ export const PUBLISH_GATES: GateDefinition[] = [
   { id: 'G34', label: '요소 겹침 0.015in 이하', severity: 'warn', check: (ctx) => (ctx.overlapMaxInches ?? 0) <= 0.015 },
   { id: 'G35', label: '지면 이탈 0', severity: 'block', check: (ctx) => (ctx.bleedCount ?? 0) === 0 },
   // D32 BL-1: 타 물건 사진 혼입 차단
+  { id: 'G36', label: '종횡비 왜곡 5% 이하', severity: 'block', check: (ctx) => (ctx.aspectDistortionMaxPct ?? 0) <= 5 },
   { id: 'G37', label: '타 물건 사진 혼입 차단', severity: 'block', check: (ctx) => (ctx.foreignPhotoCount ?? 0) === 0 },
   // D32 BL-3: 수익률 기준 라벨-계산 정합
   { id: 'G38', label: 'yieldBasis 라벨-계산 정합', severity: 'block', check: (ctx) => ctx.yieldBasisConsistent !== false },

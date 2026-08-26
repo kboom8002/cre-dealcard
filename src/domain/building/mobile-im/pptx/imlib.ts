@@ -9,6 +9,7 @@
  */
 import type PptxGenJS from 'pptxgenjs';
 import type { PptxThemeTokens } from './pptx-theme';
+import { textH as computeTextH } from './utils/layout-physics';
 
 // ════════════════════════════════════════
 // §2 기하
@@ -706,11 +707,19 @@ export function stat(
     line: { color: lineCol, width: 0.5 },
   });
 
+  // M-4: 라벨 높이를 textH()로 동적 역산 (고정 0.22→실측)
+  const labelFontSize = opt.labelFontSize ?? 9.5;
+  const labelW = w - 0.36;
+  const labelH = Math.max(0.22, computeTextH(label, labelW, labelFontSize));
+
   // 라벨
   s.addText(label, {
-    x: x + 0.18, y: y + 0.14, w: w - 0.36, h: 0.22,
-    fontSize: opt.labelFontSize ?? 9.5, color: labCol, fontFace: KR, margin: 0,
+    x: x + 0.18, y: y + 0.14, w: labelW, h: labelH,
+    fontSize: labelFontSize, color: labCol, fontFace: KR, margin: 0,
   });
+
+  // M-5: 값 상자를 라벨 높이 아래에서 시작 (겹침 방지)
+  const valY = y + 0.14 + labelH + 0.02;
 
   // 값 — FIX-RC1: 텍스트 길이에 따른 동적 폰트 사이즈
   // 짧은 숫자(6자 이하) → 25pt, 중간(12자 이하) → 18pt, 긴 한글 → 14pt
@@ -720,8 +729,9 @@ export function stat(
     value.length <= 12 ? 18 :
     value.length <= 20 ? 14 : 11
   );
+  const valH = Math.min(0.44, h - (valY - y) - 0.40); // 남은 공간에 맞춤
   s.addText(value, {
-    x: x + 0.18, y: y + 0.34, w: w - 0.36, h: 0.44,
+    x: x + 0.18, y: valY, w: labelW, h: Math.max(0.30, valH),
     fontSize: dynamicVs, bold: true, color: valCol, fontFace: hasKoreanVal ? KR : NUM, margin: 0,
     shrinkText: true,
   });

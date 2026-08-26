@@ -416,3 +416,34 @@ export function checkBleed(
   }
   return null;
 }
+
+// ══════════════════════════════════════════════════════
+// G36: 종횡비 왜곡 검사 (D32 M-3)
+// ══════════════════════════════════════════════════════
+
+/**
+ * 이미지가 상자에 비등방(non-proportional) 스트레칭되었는지 검사합니다.
+ * cover/contain 모드에서는 왜곡이 없으므로, 명시적 w/h 지정 시에만 의미가 있습니다.
+ */
+export function checkAspectDistortion(
+  imgW: number, imgH: number,
+  boxW: number, boxH: number,
+  maxDistortionPct: number = 5,
+  label?: string,
+): LayoutCheckResult | null {
+  if (imgW <= 0 || imgH <= 0 || boxW <= 0 || boxH <= 0) return null;
+
+  const imgAspect = imgW / imgH;
+  const boxAspect = boxW / boxH;
+  const distortionPct = Math.abs(imgAspect - boxAspect) / imgAspect * 100;
+
+  if (distortionPct > maxDistortionPct) {
+    return {
+      gate: 'G36',
+      severity: 'violation',
+      message: `${label || '이미지'} 종횡비 왜곡 ${distortionPct.toFixed(1)}% (상한 ${maxDistortionPct}%) — 원본 ${imgAspect.toFixed(2)}:1 → 상자 ${boxAspect.toFixed(2)}:1`,
+      value: distortionPct,
+    };
+  }
+  return null;
+}
