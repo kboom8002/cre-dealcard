@@ -57,8 +57,9 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     throw new Error('[G30] D등급은 발행할 수 없습니다');
   }
 
-  // Basic 티어 또는 B/C등급: 7~11슬라이드 Compact 시퀀스 구성
-  if (input.tier === 'basic' || input.grade === 'C' || input.grade === 'B') {
+  // D32 M-2: Basic 티어, 또는 C등급(항상 Compact), 또는 B등급+basic: Compact 시퀀스 구성
+  // A등급은 tier에 따라 분기, B등급도 tier=pro이면 Pro 시퀀스 허용
+  if (input.tier === 'basic' || input.grade === 'C' || (input.grade === 'B' && input.tier !== 'pro')) {
     const compactSequence: SlideSpec[] = [
       { archetype: 'A01', kicker: 'INVESTMENT MEMORANDUM', title: '표지', dataKey: 'cover' }
     ];
@@ -226,7 +227,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
 
   if (active.length > PAGE_RECOMMENDED) {
     // 마감·리스크·체크리스트는 절삭 방지
-    const protectedKeys = new Set(['closing', 'risk', 'checklist', 'process', 'thesis']);
+    const protectedKeys = new Set(['closing', 'risk', 'checklist', 'process', 'thesis', 'titleRights']);
     const protectedSlides = active.filter(s => protectedKeys.has(s.dataKey));
     const optionalSlides = active.filter(s => !protectedKeys.has(s.dataKey));
     const budget = PAGE_RECOMMENDED - protectedSlides.length;

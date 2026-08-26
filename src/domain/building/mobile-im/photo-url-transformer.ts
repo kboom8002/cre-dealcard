@@ -111,13 +111,16 @@ const DEFAULT_SEQUENCE: Array<[PhotoCategory, string]> = [
 /**
  * supplemental 입력에서 구조화된 PhotoMeta[]를 완전하게 도출합니다.
  * (v2 photos_v2 우선 -> v1 photo_urls 폴백)
+ * D32 BL-1: buildingId가 주어지면, 사진의 buildingId와 일치하는 것만 반환합니다.
  */
-export function resolvePhotos(supplemental?: MobileIMSupplementalInput | null): PhotoMeta[] {
+export function resolvePhotos(supplemental?: MobileIMSupplementalInput | null, buildingId?: string): PhotoMeta[] {
   if (!supplemental) return [];
+
+  let photos: PhotoMeta[] = [];
 
   // 1. v2 구조화 데이터가 있으면 우선 사용
   if (Array.isArray(supplemental.photos_v2) && supplemental.photos_v2.length > 0) {
-    return supplemental.photos_v2.slice(0, 12).map((p, idx) => ({
+    photos = supplemental.photos_v2.slice(0, 12).map((p, idx) => ({
       ...p,
       isHero: p.isHero ?? (idx === 0),
       order: p.order ?? idx,
@@ -125,10 +128,9 @@ export function resolvePhotos(supplemental?: MobileIMSupplementalInput | null): 
       role: (p as any).role ?? (p.isHero ? 'cover' : undefined),
     }));
   }
-
   // 2. v1 photo_urls + photo_captions 폴백
-  if (Array.isArray(supplemental.photo_urls) && supplemental.photo_urls.length > 0) {
-    return supplemental.photo_urls.slice(0, 12).map((url, i) => {
+  else if (Array.isArray(supplemental.photo_urls) && supplemental.photo_urls.length > 0) {
+    photos = supplemental.photo_urls.slice(0, 12).map((url, i) => {
       const filename = decodeURIComponent(url.split('/').pop()?.split('?')[0] || '');
       const matched = TYPE_PATTERNS.find(([regex]) => regex.test(filename) || regex.test(url));
       const category = matched?.[1] ?? DEFAULT_SEQUENCE[i]?.[0] ?? 'interior';
@@ -145,7 +147,16 @@ export function resolvePhotos(supplemental?: MobileIMSupplementalInput | null): 
     });
   }
 
-  return [];
+  // D32 BL-1: buildingId 필터링 — 타 물건 사진 제외
+  if (buildingId && photos.length > 0) {
+    const ownPhotos = photos.filter(p => !(p as any).buildingId || (p as any).buildingId === buildingId);
+    if (ownPhotos.length < photos.length) {
+      console.warn(`[resolvePhotos] BL-1: ${photos.length - ownPhotos.length}장의 타 물건 사진 제외 (buildingId: ${buildingId})`);
+    }
+    return ownPhotos;
+  }
+
+  return photos;
 }
 
 /**

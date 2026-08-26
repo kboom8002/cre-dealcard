@@ -40,7 +40,7 @@ function parseInlineMarkdown(line: string): Array<{ text: string; options?: { bo
  * - 불릿 리스트 → 구조화된 텍스트 블록
  * - 일반 텍스트 → 정돈된 단락
  */
-function addFallbackContent(slide: any, data: any, _theme: any) {
+function addFallbackContent(slide: any, data: any, _theme: any, meta?: { archetype?: string; slideIndex?: number; warnings?: string[] }) {
   // data.content가 없으면 fallback 불필요
   if (!data.content) return;
 
@@ -62,6 +62,19 @@ function addFallbackContent(slide: any, data: any, _theme: any) {
   });
 
   if (hasBodyShapes) return;
+
+  // D32 BL-5: 폴백 발동 기록 — 표가 있어야 할 자리에 불릿이 들어가는 것은 결손
+  const archetype = meta?.archetype ?? 'unknown';
+  const slideIdx = meta?.slideIndex ?? -1;
+  const fallbackMsg = `[BL-5] 폴백 발동: ${archetype} 슬라이드 #${slideIdx} — 아키타입이 본문을 렌더링하지 못해 마크다운 폴백 사용`;
+  console.warn(fallbackMsg);
+  if (meta?.warnings) {
+    meta.warnings.push(fallbackMsg);
+    // A03 (Large Table) 계열 폴백은 발행 차단 — 표→불릿 대체는 결손
+    if (archetype === 'A03') {
+      meta.warnings.push(`[BL-5 BLOCK] A03(Large Table) 폴백 차단: 렌트롤/비교사례 표가 불릿으로 대체됨`);
+    }
+  }
 
   const markdown: string = stripMarkdown(data.content);
   const lines = markdown.split('\n');
@@ -288,7 +301,7 @@ export class MobileImPptxRenderer {
     try {
       // ── 0. 사진 메타 도출 및 갤러리 플래닝 (v0.6.0) ──
       const posture = (input.posture ?? 'income') as InvestmentPosture;
-      const resolvedPhotos = resolvePhotos(input.doc.body as any);
+      const resolvedPhotos = resolvePhotos(input.doc.body as any, input.buildingId);
       const gallerySpecs = planGallerySlides(resolvedPhotos, posture);
       // role 기반 이미지 선택 (사용자 지정 → isHero → 첫 번째)
       const heroPhoto = resolvedPhotos.find(p => (p as any).role === 'cover')
@@ -539,7 +552,11 @@ export class MobileImPptxRenderer {
 
         try {
           const result = await Promise.resolve(builder(archetypeInput));
-          addFallbackContent(result.slide, archetypeInput.data, theme);
+          addFallbackContent(result.slide, archetypeInput.data, theme, {
+            archetype: spec.archetype,
+            slideIndex: pageNum,
+            warnings,
+          });
           slides.push(result.slide);
           warnings.push(...result.warnings);
           pageNum++;
