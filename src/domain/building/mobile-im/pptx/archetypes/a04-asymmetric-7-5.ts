@@ -99,11 +99,11 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
   }
 
   if (photoImg) {
-    // 우측 상단: 대표 건물 사진 (비율 왜곡 방지 cover 모드 적용)
+    // 우측 상단: 대표 건물 사진 (D31 BL-2: contain 모드 — 크로핑 0)
     slide.addImage({
       data: photoImg.base64,
       x: rx, y: 1.80, w: rw, h: 3.20,
-      sizing: { type: 'cover', w: rw, h: 3.20 },
+      sizing: { type: 'contain', w: rw, h: 3.20 },
     });
     // 우측 하단: 핵심 강점 콜아웃
     let calloutText = right.callouts?.[0]?.body || '';

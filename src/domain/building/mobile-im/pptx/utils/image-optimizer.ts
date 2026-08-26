@@ -13,6 +13,13 @@ export interface OptimizedImage {
   width: number;
   height: number;
   sizeBytes: number;
+  // D31 M-1: DPI 메타데이터
+  /** 리사이즈 전 원본 폭 (px) */
+  originalWidth: number;
+  /** 리사이즈 전 원본 높이 (px) */
+  originalHeight: number;
+  /** 원본 비율 (width / height) */
+  aspectRatio: number;
 }
 
 /**
@@ -81,6 +88,10 @@ export async function optimizeImageForPptx(
       width: resizedMeta.width || originalWidth,
       height: resizedMeta.height || originalHeight,
       sizeBytes: resizedBuffer.length,
+      // D31 M-1: DPI 메타데이터
+      originalWidth,
+      originalHeight,
+      aspectRatio: originalWidth / originalHeight,
     };
   } catch (err) {
     console.warn('[optimizeImageForPptx] Failed:', imageUrl, err);
@@ -254,6 +265,9 @@ export async function generateStaticMapPlaceholder(
             width: w,
             height: h,
             sizeBytes: resizedBuffer.length,
+            originalWidth: w,
+            originalHeight: h,
+            aspectRatio: w / h,
           };
         }
       }
@@ -357,6 +371,9 @@ export async function generateStaticMapPlaceholder(
           width: w,
           height: h,
           sizeBytes: finalMapBuffer.length,
+          originalWidth: w,
+          originalHeight: h,
+          aspectRatio: w / h,
         };
       }
     } catch (err) {
@@ -395,6 +412,9 @@ export async function generateStaticMapPlaceholder(
     width: w,
     height: h,
     sizeBytes: buffer.length,
+    originalWidth: w,
+    originalHeight: h,
+    aspectRatio: w / h,
   };
 }
 
@@ -420,6 +440,9 @@ export async function fetchKakaoMapImage(
       width: w,
       height: h,
       sizeBytes: buffer.length,
+      originalWidth: w,
+      originalHeight: h,
+      aspectRatio: w / h,
     };
   } catch (err) {
     console.warn('[fetchKakaoMapImage] Failed:', mapUrl, err);

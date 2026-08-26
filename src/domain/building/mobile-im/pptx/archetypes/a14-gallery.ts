@@ -101,11 +101,11 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
       line: { color: 'E0E0E0', width: 0.5 },
     });
 
-    // 1. 이미지 (cover 모드 — 비율 유지하며 채움)
+    // 1. 이미지 (contain 모드 — D31 BL-2: 비율 유지, 크로핑 0)
     slide.addImage({
       data: optImg.base64,
       x, y, w, h,
-      sizing: { type: 'cover', w, h },
+      sizing: { type: 'contain', w, h },
     });
 
     const meta = validPhotos[metaIdx] || {};

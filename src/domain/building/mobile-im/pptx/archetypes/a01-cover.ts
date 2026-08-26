@@ -3,6 +3,7 @@ import * as L from '../imlib';
 import { C, M, CW, W, KR, TITLE_KR, NUM, CD, THEME_META } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 import { optimizeImageForPptx } from '../utils/image-optimizer';
+import { coverCropRatio, CROP_WARN_THRESHOLD } from '../utils/layout-physics';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -286,6 +287,11 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
           });
         }
         imgAdded = true;
+        // D31 BL-2: 표지 배경 예외 — cover-fit 허용하되 크로핑률 25% 초과 시 경고
+        const cropR = coverCropRatio(img.width, img.height, 4.833, 7.5);
+        if (cropR > CROP_WARN_THRESHOLD) {
+          warnings.push(`표지 사진 크로핑률 ${(cropR * 100).toFixed(0)}% — 25% 초과 주의`);
+        }
       }
     } catch {
       warnings.push('표지 이미지 최적화 실패, 기본 그래픽 폴백 사용');

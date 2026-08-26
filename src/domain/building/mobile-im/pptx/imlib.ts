@@ -1271,3 +1271,8 @@ export function chartOpts(overrides?: Record<string, any>): Record<string, any> 
     ...overrides,
   };
 }
+
+// ════════════════════════════════════════
+// §9 D31 BL-3: 텍스트 높이 자동 계산 (layout-physics 재수출)
+// ════════════════════════════════════════
+export { textH, fitBox, gridFit } from './utils/layout-physics';

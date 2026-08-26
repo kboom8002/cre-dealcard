@@ -28,6 +28,17 @@ export interface GateContext {
   illegalArchitectureConfirmed?: boolean;
   /** B1: 중개인이 사진 내 물건명·임차인명 노출 없음을 수동 확인 */
   imagePiiConfirmed?: boolean;
+  // D31 BL-1: 지면 물리 검사 필드
+  /** 전 사진 중 최대 크로핑률 (0~1) */
+  maxCropRatio?: number;
+  /** 전 사진 중 최소 실효 DPI */
+  minEffectiveDpi?: number;
+  /** 텍스트 넘침 건수 */
+  textOverflowCount?: number;
+  /** 요소 겹침 최대 인치 */
+  overlapMaxInches?: number;
+  /** 지면 이탈 건수 */
+  bleedCount?: number;
 }
 
 export interface LegacyGateResult {
@@ -117,6 +128,12 @@ export const PUBLISH_GATES: GateDefinition[] = [
   { id: 'G28', label: '면적 totalGross vs effectiveGross 분리', severity: 'block', check: (ctx) => (ctx as any).areaMetricSeparated !== false },
   { id: 'G29', label: '브랜드 환각 방지', severity: 'block', check: (ctx) => (ctx as any).brandHallucinationBlocked !== false },
   { id: 'G30', label: '가정값 ◇ 표기 확인', severity: 'block', check: (ctx) => (ctx as any).assumptionMarked !== false },
+  // D31 BL-1: 지면 물리 게이트
+  { id: 'G31', label: '사진 크로핑률 45% 미만', severity: 'block', check: (ctx) => (ctx.maxCropRatio ?? 0) < 0.45 },
+  { id: 'G32', label: '실효 DPI 하한 충족', severity: 'block', check: (ctx) => (ctx.minEffectiveDpi ?? 150) >= 150 },
+  { id: 'G33', label: '텍스트 상자 넘침 0', severity: 'block', check: (ctx) => (ctx.textOverflowCount ?? 0) === 0 },
+  { id: 'G34', label: '요소 겹침 0.015in 이하', severity: 'warn', check: (ctx) => (ctx.overlapMaxInches ?? 0) <= 0.015 },
+  { id: 'G35', label: '지면 이탈 0', severity: 'block', check: (ctx) => (ctx.bleedCount ?? 0) === 0 },
   // ── QG계열: 품질 경고 (warn) ── CATALOG_RULES §4.3
   { id: 'QG09', label: 'IM Judge 3.0 이상', severity: 'warn', check: (ctx) => (ctx.imJudgeScore ?? 0) >= 3.0 },
   { id: 'QG11', label: 'DCF 등급 게이트', severity: 'warn', check: (ctx) => ctx.dcfGradeGatePassed === true },
