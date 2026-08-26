@@ -16,15 +16,16 @@ export async function fetchWithRetry(
     timeoutMs?: number;
     maxRetries?: number;
     baseDelayMs?: number;
+    headers?: Record<string, string>;
   } = {}
 ): Promise<Response> {
-  const { timeoutMs = 15_000, maxRetries = 1, baseDelayMs = 1000 } = opts;
+  const { timeoutMs = 15_000, maxRetries = 1, baseDelayMs = 1000, headers } = opts;
 
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+      const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs), headers });
       // 4xx 클라이언트 에러는 재시도 무의미 → 즉시 반환
       if (res.status >= 400 && res.status < 500) {
         return res;
