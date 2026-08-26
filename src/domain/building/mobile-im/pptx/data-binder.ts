@@ -855,12 +855,27 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
   const metrics: Array<{label: string; value: string; unit?: string}> = [];
   const askPrice = heroCard.askingPriceDisplay ?? heroCard.askingPrice;
 
-  // 포스처별 60대 자산가 맞춤형 핵심 4지표 매핑
+  // 포스처별 핵심 4지표 매핑
   if (posture === 'income') {
     if (askPrice) metrics.push({ label: '매매 희망가', value: String(askPrice) });
-    if (heroCard.equityRequiredBil) metrics.push({ label: '실투자금(내 돈)', value: `약 ${heroCard.equityRequiredBil}억 원` });
-    if (heroCard.capRateBase) metrics.push({ label: '연 수익률(Cap Rate, 기준: NOI)', value: `${heroCard.capRateBase}%` });
-    if (heroCard.leveragedYieldPct) metrics.push({ label: '자기자본수익률', value: `${heroCard.leveragedYieldPct}%` });
+    if (heroCard.equityRequiredBil) metrics.push({ label: '실투자금', value: `약 ${heroCard.equityRequiredBil}억 원` });
+    // BL-3: Cap Rate 라벨 — heroCard.yieldBasis 또는 계산 기준에 따라 동적 표기
+    const yieldBasisLabel = heroCard.yieldBasis === 'NOI'
+      ? '연 순수익률(Cap Rate, 기준: 순영업소득)'
+      : '연 수익률(Cap Rate, 기준: 총임대료)';
+    if (heroCard.capRateBase) metrics.push({ label: yieldBasisLabel, value: `${heroCard.capRateBase}%` });
+    // BL-4: 역레버리지 감지 — capRate < 조달금리(4.5% 기본)이면 ROE 단독 표시 금지
+    const assumedLoanRate = heroCard.loanRatePct ?? 4.5;
+    const isNegativeLeverage = heroCard.capRateBase && heroCard.capRateBase < assumedLoanRate;
+    if (heroCard.leveragedYieldPct && !isNegativeLeverage) {
+      metrics.push({ label: '자기자본수익률', value: `${heroCard.leveragedYieldPct}%` });
+    } else if (isNegativeLeverage) {
+      // 역레버리지 경고: ROE 대신 경고 메시지 표시
+      metrics.push({
+        label: '⚠️ 역레버리지 구간',
+        value: `수익률 ${heroCard.capRateBase}% < 금리 ${assumedLoanRate}%`,
+      });
+    }
   } else if (posture === 'owner_occupied') {
     if (askPrice) metrics.push({ label: '매매 희망가', value: String(askPrice) });
     if (heroCard.pricePerPyeong) metrics.push({ label: '평당 매매가', value: `${heroCard.pricePerPyeong.toLocaleString()}원/평` });
@@ -1412,21 +1427,52 @@ export function bindFromIMCore(core: IMCore): Record<string, SectionData> {
 
   // 1. Summary (A02)
   const askingPriceBil = core.price.askingKrw > 0 ? (core.price.askingKrw / 1e8).toFixed(1) : '-';
+  // BL-3: 수익률 기준 동적 표기 — CapRateBasis 타입 기반 판별
+  const grossYield = core.yields.gross_price;
+  const isNoiBased = grossYield?.basis && (['noi_price', 'noi_price_deposit', 'noi_equity', 'noi_total_cost'] as string[]).includes(grossYield.basis);
+  const yieldBasisSub = isNoiBased ? '순영업소득 기준' : '총임대료 기준';
+  const yieldBasisLabel = isNoiBased
+    ? '연 순수익률(Cap Rate, 기준: 순영업소득)'
+    : '연 수익률(Cap Rate, 기준: 총임대료)';
+  // BL-4: 역레버리지 감지
+  const assumedLoanRate = 4.5;
+  const isNegLevIMCore = grossYield && grossYield.value < assumedLoanRate;
+
+  const summaryMetrics: Array<{ label: string; value: string; sub: string }> = [
+    { label: '매매 희망가', value: `${askingPriceBil}억 원`, sub: '대지 및 건물 일괄' },
+    { label: yieldBasisLabel, value: grossYield ? `${grossYield.value}%` : '-', sub: yieldBasisSub },
+    { label: '실투자금', value: `${(core.equity.equity / 1e8).toFixed(1)}억 원`, sub: '대출/보증금 차감' },
+  ];
+  // BL-4: 역레버리지 시 ROE 대신 경고, 정상 시 임대 안정성
+  if (isNegLevIMCore) {
+    summaryMetrics.push({
+      label: '⚠️ 역레버리지 구간',
+      value: `수익률 ${grossYield!.value}% < 금리 ${assumedLoanRate}%`,
+      sub: '대출 시 자기자본수익률 하락',
+    });
+  } else {
+    summaryMetrics.push({
+      label: '임대 안정성',
+      value: `${core.leases.length}개실`,
+      sub: `${core.leases.filter(l => l.leaseState === '임대중').length}개실 임대중`,
+    });
+  }
+
   result['summary'] = {
     title: '핵심 투자 지표 요약',
     content: '',
     tables: [],
     metrics: {
       askingPrice: `${askingPriceBil}억`,
-      yield: core.yields.gross_price ? `${core.yields.gross_price.value}%` : '-',
+      yield: grossYield ? `${grossYield.value}%` : '-',
     },
     leadSentence: `서울 ${core.address.sido} ${core.address.sigungu} 소재 ${core.meta.ontology.assetType} 자산`,
-    metricsData: [
-      { label: '매매 희망가', value: `${askingPriceBil}억 원`, sub: '대지 및 건물 일괄' },
-      { label: '연 수익률', value: core.yields.gross_price ? `${core.yields.gross_price.value}%` : '-', sub: '총임대료 기준' },
-      { label: '실투자금', value: `${(core.equity.equity / 1e8).toFixed(1)}억 원`, sub: '대출/보증금 차감' },
-      { label: '임대 안정성', value: `${core.leases.length}개실`, sub: `${core.leases.filter(l => l.leaseState === '임대중').length}개실 임대중` },
-    ],
+    metricsData: summaryMetrics,
+    // BL-4: 역레버리지 메타데이터
+    negativeLeverage: !!isNegLevIMCore,
+    negativeLeverageWarning: isNegLevIMCore
+      ? `대출금리(연 ${assumedLoanRate}%)가 총수익률(${grossYield!.value}%)보다 높아 대출 시 자기자본수익률이 하락하는 역레버리지 구간입니다.`
+      : null,
   };
 
   // 2. Building / Property Overview (A04)

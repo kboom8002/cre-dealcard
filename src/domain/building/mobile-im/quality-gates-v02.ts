@@ -39,6 +39,15 @@ export interface GateContext {
   overlapMaxInches?: number;
   /** 지면 이탈 건수 */
   bleedCount?: number;
+  // D32 BL-3: 수익률 기준 정합
+  /** yieldBasis 라벨과 실제 계산 경로가 일치하는지 (false = 불일치 차단) */
+  yieldBasisConsistent?: boolean;
+  // D32 BL-4: 역레버리지 경고
+  /** 역레버리지 구간인데 경고가 표시되었는지 (false = 미경고 차단) */
+  negativeLeverageWarned?: boolean;
+  // D32 BL-1: 타 물건 사진 혼입
+  /** 타 물건 사진 수 (0이 아니면 차단) */
+  foreignPhotoCount?: number;
 }
 
 export interface LegacyGateResult {
@@ -134,6 +143,12 @@ export const PUBLISH_GATES: GateDefinition[] = [
   { id: 'G33', label: '텍스트 상자 넘침 0', severity: 'block', check: (ctx) => (ctx.textOverflowCount ?? 0) === 0 },
   { id: 'G34', label: '요소 겹침 0.015in 이하', severity: 'warn', check: (ctx) => (ctx.overlapMaxInches ?? 0) <= 0.015 },
   { id: 'G35', label: '지면 이탈 0', severity: 'block', check: (ctx) => (ctx.bleedCount ?? 0) === 0 },
+  // D32 BL-1: 타 물건 사진 혼입 차단
+  { id: 'G37', label: '타 물건 사진 혼입 차단', severity: 'block', check: (ctx) => (ctx.foreignPhotoCount ?? 0) === 0 },
+  // D32 BL-3: 수익률 기준 라벨-계산 정합
+  { id: 'G38', label: 'yieldBasis 라벨-계산 정합', severity: 'block', check: (ctx) => ctx.yieldBasisConsistent !== false },
+  // D32 BL-4: 역레버리지 미경고 ROE 단독 표시 차단
+  { id: 'G40', label: '역레버리지 ROE 경고', severity: 'block', check: (ctx) => ctx.negativeLeverageWarned !== false },
   // ── QG계열: 품질 경고 (warn) ── CATALOG_RULES §4.3
   { id: 'QG09', label: 'IM Judge 3.0 이상', severity: 'warn', check: (ctx) => (ctx.imJudgeScore ?? 0) >= 3.0 },
   { id: 'QG11', label: 'DCF 등급 게이트', severity: 'warn', check: (ctx) => ctx.dcfGradeGatePassed === true },
