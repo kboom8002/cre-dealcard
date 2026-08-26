@@ -245,7 +245,7 @@ function renderCommonCoverContent(
   const infoText = [broker, companyName].filter(Boolean).join('  |  ');
   slide.addText(infoText, {
     x: M, y: 6.60, w: CW, h: 0.3,
-    fontSize: 8.5, color: CD.faint,
+    fontSize: 9, color: CD.faint, // D30 m-4: 최소 캡션 9pt
     fontFace: KR, margin: 0,
   });
 }

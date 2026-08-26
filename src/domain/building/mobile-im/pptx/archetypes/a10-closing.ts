@@ -69,7 +69,7 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     });
     slide.addText(s.desc, {
       x: x + 0.72, y: stepY + 0.36, w: stepW - 0.84, h: 0.28,
-      fontFace: KR, fontSize: 8.5, color: CD.mute, margin: 0, valign: 'top',
+      fontFace: KR, fontSize: 9, color: CD.mute, margin: 0, valign: 'top',
     });
     
     // 화살표 (마지막 제외)
@@ -99,7 +99,7 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     slide.addText(b.label || '', {
       x: M, y: by, w: 1.40, h: 0.32,
       align: 'center', valign: 'middle',
-      fontFace: KR, fontSize: 8.5, bold: true, color: 'FFFFFF', margin: 0,
+      fontFace: KR, fontSize: 9, bold: true, color: 'FFFFFF', margin: 0,
     });
     
     // 설명 (점수 제거 — 사용자에게 불필요)
@@ -129,7 +129,7 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
   
   slide.addText(disclaimerText, {
     x: rx + 0.20, y: sectionY + 0.48, w: rw - 0.40, h: cardH - 0.24,
-    fontFace: KR, fontSize: 8.5, color: CD.mute,
+    fontFace: KR, fontSize: 9, color: CD.mute,
     lineSpacingMultiple: 1.28, margin: 0, valign: 'top',
   });
   

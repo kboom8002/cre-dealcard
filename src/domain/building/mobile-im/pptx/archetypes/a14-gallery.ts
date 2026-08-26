@@ -119,7 +119,7 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
       });
       slide.addText(meta.label, {
         x: x + 0.08, y: y + 0.08, w: badgeW, h: 0.26,
-        fontFace: KR, fontSize: 8, color: 'FFFFFF', bold: true,
+        fontFace: KR, fontSize: 9, color: 'FFFFFF', bold: true, // D30 m-4: 최소 캡션 9pt
         align: 'center', valign: 'middle', margin: 0,
       });
     }
@@ -133,7 +133,7 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
       });
       slide.addText(meta.caption, {
         x: x + 0.12, y: y + h - captionH, w: w - 0.24, h: captionH,
-        fontFace: KR, fontSize: 8.5, color: 'FFFFFF',
+        fontFace: KR, fontSize: 9, color: 'FFFFFF', // D30 m-4: 최소 캡션 9pt
         valign: 'middle', margin: 0,
       });
     }
