@@ -1,0 +1,454 @@
+{
+  "timestamp": "2026-08-25T22:52:23.489Z",
+  "summary": {
+    "pass": 82,
+    "fail": 0,
+    "total": 82
+  },
+  "results": [
+    {
+      "phase": "Phase1",
+      "test": "아키타입 총 25종 등록",
+      "pass": true,
+      "detail": "실제: 25종"
+    },
+    {
+      "phase": "Phase1",
+      "test": "수익형 R-INC 9종",
+      "pass": true
+    },
+    {
+      "phase": "Phase1",
+      "test": "사옥형 R-OWN 4종",
+      "pass": true
+    },
+    {
+      "phase": "Phase1",
+      "test": "개발형 R-DEV 4종",
+      "pass": true
+    },
+    {
+      "phase": "Phase1",
+      "test": "운영형 R-OPR 4종",
+      "pass": true
+    },
+    {
+      "phase": "Phase1",
+      "test": "매매형 R-TRD 4종",
+      "pass": true
+    },
+    {
+      "phase": "Phase1",
+      "test": "레거시 매핑 테이블 존재",
+      "pass": true
+    },
+    {
+      "phase": "Phase1",
+      "test": "income 만실/중년 → R-INC 계열",
+      "pass": true,
+      "detail": "실제: R-INC-06"
+    },
+    {
+      "phase": "Phase1",
+      "test": "development → R-DEV 계열",
+      "pass": true,
+      "detail": "실제: R-DEV-01"
+    },
+    {
+      "phase": "Phase2",
+      "test": "income: 섹션 수 12",
+      "pass": true,
+      "detail": "실제: 12"
+    },
+    {
+      "phase": "Phase2",
+      "test": "income: 강조 섹션 ≤ 2종",
+      "pass": true,
+      "detail": "실제: 2종"
+    },
+    {
+      "phase": "Phase2",
+      "test": "income: checklist → next_steps 바로 앞",
+      "pass": true,
+      "detail": "checklist@9, next_steps@10"
+    },
+    {
+      "phase": "Phase2",
+      "test": "owner_occupied: 섹션 수 9",
+      "pass": true,
+      "detail": "실제: 9"
+    },
+    {
+      "phase": "Phase2",
+      "test": "owner_occupied: 강조 섹션 ≤ 2종",
+      "pass": true,
+      "detail": "실제: 2종"
+    },
+    {
+      "phase": "Phase2",
+      "test": "owner_occupied: checklist → next_steps 바로 앞",
+      "pass": true,
+      "detail": "checklist@7, next_steps@8"
+    },
+    {
+      "phase": "Phase2",
+      "test": "development: 섹션 수 10",
+      "pass": true,
+      "detail": "실제: 10"
+    },
+    {
+      "phase": "Phase2",
+      "test": "development: 강조 섹션 ≤ 2종",
+      "pass": true,
+      "detail": "실제: 2종"
+    },
+    {
+      "phase": "Phase2",
+      "test": "development: checklist → next_steps 바로 앞",
+      "pass": true,
+      "detail": "checklist@8, next_steps@9"
+    },
+    {
+      "phase": "Phase2",
+      "test": "operating: 섹션 수 10",
+      "pass": true,
+      "detail": "실제: 10"
+    },
+    {
+      "phase": "Phase2",
+      "test": "operating: 강조 섹션 ≤ 2종",
+      "pass": true,
+      "detail": "실제: 2종"
+    },
+    {
+      "phase": "Phase2",
+      "test": "operating: checklist → next_steps 바로 앞",
+      "pass": true,
+      "detail": "checklist@8, next_steps@9"
+    },
+    {
+      "phase": "Phase2",
+      "test": "trading: 섹션 수 8",
+      "pass": true,
+      "detail": "실제: 8"
+    },
+    {
+      "phase": "Phase2",
+      "test": "trading: 강조 섹션 ≤ 2종",
+      "pass": true,
+      "detail": "실제: 2종"
+    },
+    {
+      "phase": "Phase2",
+      "test": "trading: checklist → next_steps 바로 앞",
+      "pass": true,
+      "detail": "checklist@6, next_steps@7"
+    },
+    {
+      "phase": "Phase2",
+      "test": "사옥형: land_detail suppress",
+      "pass": true
+    },
+    {
+      "phase": "Phase2",
+      "test": "사옥형: comparables suppress",
+      "pass": true
+    },
+    {
+      "phase": "Phase3",
+      "test": "당산동 수익형 등급 ≥ B (L×P)",
+      "pass": true,
+      "detail": "등급: B"
+    },
+    {
+      "phase": "Phase3",
+      "test": "당산동: L축 반환",
+      "pass": true,
+      "detail": "L=R3"
+    },
+    {
+      "phase": "Phase3",
+      "test": "당산동: P축 반환",
+      "pass": true,
+      "detail": "P=P3"
+    },
+    {
+      "phase": "Phase3",
+      "test": "당산동: blockPublish 필드",
+      "pass": true
+    },
+    {
+      "phase": "Phase3",
+      "test": "양평동 수익형 등급",
+      "pass": true,
+      "detail": "등급: B"
+    },
+    {
+      "phase": "Phase3",
+      "test": "잠원동 개발형 등급",
+      "pass": true,
+      "detail": "등급: A"
+    },
+    {
+      "phase": "Phase3",
+      "test": "M-4: 운영형 Pack 반영 등급 산출",
+      "pass": true,
+      "detail": "등급: B"
+    },
+    {
+      "phase": "Phase3",
+      "test": "빈 속성 → D등급",
+      "pass": true
+    },
+    {
+      "phase": "Phase3",
+      "test": "D등급 → blockPublish=true",
+      "pass": true
+    },
+    {
+      "phase": "Phase4",
+      "test": "block 게이트 ≥ 8개",
+      "pass": true,
+      "detail": "실제: 12"
+    },
+    {
+      "phase": "Phase4",
+      "test": "warn 게이트 ≥ 5개",
+      "pass": true,
+      "detail": "실제: 7"
+    },
+    {
+      "phase": "Phase4",
+      "test": "block → G 접두어",
+      "pass": true,
+      "detail": "G: 12, 전체block: 12"
+    },
+    {
+      "phase": "Phase4",
+      "test": "warn → QG 접두어",
+      "pass": true
+    },
+    {
+      "phase": "Phase4",
+      "test": "G20 이미지 PII 게이트 존재",
+      "pass": true
+    },
+    {
+      "phase": "Phase4",
+      "test": "G20 severity = block",
+      "pass": true
+    },
+    {
+      "phase": "Phase4",
+      "test": "정상 컨텍스트 → blocked=false",
+      "pass": true
+    },
+    {
+      "phase": "Phase4",
+      "test": "classifiedFailures 배열 존재",
+      "pass": true
+    },
+    {
+      "phase": "Phase4",
+      "test": "D등급 → blocked=true",
+      "pass": true
+    },
+    {
+      "phase": "Phase4",
+      "test": "D등급 분류 = gate_block",
+      "pass": true
+    },
+    {
+      "phase": "Phase5",
+      "test": "compact: titleRights 슬라이드 존재",
+      "pass": true
+    },
+    {
+      "phase": "Phase5",
+      "test": "compact: checklist 슬라이드 존재",
+      "pass": true
+    },
+    {
+      "phase": "Phase5",
+      "test": "pro: ≥ 8 슬라이드",
+      "pass": true,
+      "detail": "실제: 16"
+    },
+    {
+      "phase": "Phase5",
+      "test": "pro: checklist 존재",
+      "pass": true
+    },
+    {
+      "phase": "Phase5",
+      "test": "pro 슬라이드 ≤ 16면",
+      "pass": true,
+      "detail": "실제: 16면"
+    },
+    {
+      "phase": "Phase5",
+      "test": "income/basic: 5~14 슬라이드",
+      "pass": true,
+      "detail": "실제: 12"
+    },
+    {
+      "phase": "Phase5",
+      "test": "owner_occupied/basic: 5~14 슬라이드",
+      "pass": true,
+      "detail": "실제: 12"
+    },
+    {
+      "phase": "Phase5",
+      "test": "development/basic: 5~14 슬라이드",
+      "pass": true,
+      "detail": "실제: 12"
+    },
+    {
+      "phase": "Phase5",
+      "test": "operating/basic: 5~14 슬라이드",
+      "pass": true,
+      "detail": "실제: 12"
+    },
+    {
+      "phase": "Phase5",
+      "test": "trading/basic: 5~14 슬라이드",
+      "pass": true,
+      "detail": "실제: 12"
+    },
+    {
+      "phase": "Phase6",
+      "test": "D/basic → throw",
+      "pass": true
+    },
+    {
+      "phase": "Phase6",
+      "test": "D/pro → throw",
+      "pass": true
+    },
+    {
+      "phase": "Phase6",
+      "test": "income/D → throw",
+      "pass": true
+    },
+    {
+      "phase": "Phase6",
+      "test": "owner_occupied/D → throw",
+      "pass": true
+    },
+    {
+      "phase": "Phase6",
+      "test": "development/D → throw",
+      "pass": true
+    },
+    {
+      "phase": "Phase6",
+      "test": "operating/D → throw",
+      "pass": true
+    },
+    {
+      "phase": "Phase6",
+      "test": "trading/D → throw",
+      "pass": true
+    },
+    {
+      "phase": "Phase7",
+      "test": "동일 수치 → passed=true",
+      "pass": true
+    },
+    {
+      "phase": "Phase7",
+      "test": "BL-8: 교차 검증 결과 반환",
+      "pass": true
+    },
+    {
+      "phase": "Phase8",
+      "test": "같은 입력 → 같은 멱등키",
+      "pass": true
+    },
+    {
+      "phase": "Phase8",
+      "test": "다른 dealId → 다른 멱등키",
+      "pass": true
+    },
+    {
+      "phase": "Phase8",
+      "test": "다른 posture → 다른 멱등키",
+      "pass": true
+    },
+    {
+      "phase": "Phase8",
+      "test": "멱등키 SHA256 64자",
+      "pass": true
+    },
+    {
+      "phase": "Phase9",
+      "test": "income: publishable=true",
+      "pass": true
+    },
+    {
+      "phase": "Phase9",
+      "test": "trading: publishable=false (internal_only)",
+      "pass": true
+    },
+    {
+      "phase": "Phase9",
+      "test": "미등록 포스처 → 차단",
+      "pass": true
+    },
+    {
+      "phase": "Phase9",
+      "test": "개발형 R2/P3 → 통과",
+      "pass": true
+    },
+    {
+      "phase": "Phase9",
+      "test": "개발형 R2/P2 → 미통과 (P<P3)",
+      "pass": true
+    },
+    {
+      "phase": "Phase9",
+      "test": "개발형+명도 R1/P3 → 미통과 (R<R3)",
+      "pass": true
+    },
+    {
+      "phase": "Phase9",
+      "test": "개발형+명도 R3/P3 → 통과",
+      "pass": true
+    },
+    {
+      "phase": "Phase9",
+      "test": "수익형 R2/P2 → 통과",
+      "pass": true
+    },
+    {
+      "phase": "Phase10",
+      "test": "정상 입력 → allPassed",
+      "pass": true
+    },
+    {
+      "phase": "Phase10",
+      "test": "정상 입력 → blocked=false",
+      "pass": true
+    },
+    {
+      "phase": "Phase10",
+      "test": "게이트 5개 반환",
+      "pass": true
+    },
+    {
+      "phase": "Phase10",
+      "test": "X05 필지합 불일치 → blocked",
+      "pass": true
+    },
+    {
+      "phase": "Phase10",
+      "test": "X05 passed=false",
+      "pass": true
+    },
+    {
+      "phase": "Phase10",
+      "test": "X01 주소 없음 → blocked",
+      "pass": true
+    }
+  ]
+}

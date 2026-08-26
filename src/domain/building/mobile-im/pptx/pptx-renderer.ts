@@ -8,7 +8,7 @@
 import PptxGenJS from 'pptxgenjs';
 import { getPptxTheme, getPptxThemeAsync, DEFAULT_PPTX_PRESET, type PptxThemeTokens } from './pptx-theme';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ARCHETYPE_REGISTRY, type ArchetypeInput } from './archetypes';
+import { SLIDE_ARCHETYPE_REGISTRY, type ArchetypeInput } from './archetypes';
 import { buildDeckSequence, type DeckSequenceInput, type SlideSpec } from './deck-sequencer';
 import { bindSectionData } from './data-binder';
 import { validateTextBudgets } from './text-budget';
@@ -516,7 +516,7 @@ export class MobileImPptxRenderer {
           continue;
         }
 
-        const builder = ARCHETYPE_REGISTRY[spec.archetype];
+        const builder = SLIDE_ARCHETYPE_REGISTRY[spec.archetype];
         if (!builder) {
           warnings.push(`아키타입 ${spec.archetype} 빌더를 찾을 수 없습니다.`);
           continue;

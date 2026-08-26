@@ -5,6 +5,8 @@
  * D29 BL-5: 정본 코드로 재배정 (OO-01→R-OWN-01, DEV-01→R-DEV-01 등)
  * D29 BL-5: R-INC-02~06 정의를 정본과 일치시킴
  * D29 BL-5: 라벨 금지어 교정 (초안정→임대 안정, 밸류애드→가치 상승 여력)
+ * D30 BL-1: 비수익 16종 라벨·조건 정본 §1.1~§1.5 전량 치환
+ * D30 BL-2: R-OPR-04(용도 리스크형)·R-TRD-04(출구 제약형) 경고 유형 복원
  */
 
 // ── 수익형 R-INC (9종, 정본 §1.1) ──────────────────────────────────────
@@ -100,10 +102,10 @@ export const INCOME_ARCHETYPES: Record<IncomeArchetypeCode, ArchetypeDefinition>
   },
   'R-INC-09': {
     code: 'R-INC-09',
-    label: '복합 수익 전환형',
-    tone: 'mixed-income',
-    narrative: '용도 전환을 통한 수익 구조 다각화',
-    triggerConditions: '현 용도와 허용 용도 간 수익률 차이 ≥ 2%p',
+    label: '분산 임차형',  // D30 BL-1: 정본 §1.1 치환
+    tone: 'diversified-tenant',
+    narrative: '다수 소규모 임차인 분산으로 공실 리스크 완화',
+    triggerConditions: '호실 ≥ 6 ∧ 최대 임차인 비중 ≤ 25%',
   },
 };
 
@@ -111,31 +113,31 @@ export const INCOME_ARCHETYPES: Record<IncomeArchetypeCode, ArchetypeDefinition>
 export const OWNER_OCC_ARCHETYPES: Record<OwnerOccArchetypeCode, ArchetypeDefinition> = {
   'R-OWN-01': {
     code: 'R-OWN-01',
-    label: '본사 이전형',
-    tone: 'corporate-fit',
-    narrative: '기업 본사 이전 최적 후보',
-    triggerConditions: 'owner_occupied ∧ 인원수 대비 면적 적합',
+    label: '자가 우위형',  // D30 BL-1: 정본 §1.2 치환
+    tone: 'owner-advantage',
+    narrative: '자가 사용이 임차 대비 비용 우위인 물건',
+    triggerConditions: '자가 우위액 > 0 (기준 시나리오) ∧ 회수기간 ≤ 5년',
   },
   'R-OWN-02': {
     code: 'R-OWN-02',
-    label: '통합 이전형',
-    tone: 'consolidation',
-    narrative: '분산된 사업장을 단일 건물로 통합',
-    triggerConditions: '다층 가용 ∧ 주차 충분',
+    label: '확장 여력형',  // D30 BL-1: 정본 §1.2 치환
+    tone: 'expansion-capacity',
+    narrative: '현 인원 대비 여유 면적으로 향후 증원 대응 가능',
+    triggerConditions: '증원 여력 ≥ 현 인원 30%',
   },
   'R-OWN-03': {
     code: 'R-OWN-03',
-    label: '브랜딩 랜드마크형',
-    tone: 'landmark',
-    narrative: '기업 단독 브랜딩이 가능한 단독 건물',
-    triggerConditions: '단독 건물 ∧ 대로변 접면',
+    label: '통근 우수형',  // D30 BL-1: 정본 §1.2 치환 + 금지어 '랜드마크' 제거
+    tone: 'commute-excellence',
+    narrative: '역세권 도보 접근성과 복수 노선 환승 편의',
+    triggerConditions: '역세권 도보 ≤ 5분 ∧ 노선 2개 이상',
   },
   'R-OWN-04': {
     code: 'R-OWN-04',
-    label: '임대 겸용 사옥형',
-    tone: 'owner-plus-lease',
-    narrative: '일부 층 자가사용 + 나머지 임대 수익',
-    triggerConditions: '자가사용 비율 < 70%',
+    label: '사세 표현형',  // D30 BL-1: 정본 §1.2 치환
+    tone: 'corporate-prestige',
+    narrative: '사옥 단독 명칭 표기(간판 설치권) 및 단독 사용',
+    triggerConditions: '네이밍 권리 ∧ 단독 사용',
   },
 };
 
@@ -143,31 +145,31 @@ export const OWNER_OCC_ARCHETYPES: Record<OwnerOccArchetypeCode, ArchetypeDefini
 export const DEV_ARCHETYPES: Record<DevArchetypeCode, ArchetypeDefinition> = {
   'R-DEV-01': {
     code: 'R-DEV-01',
-    label: '용적률 활용 개발형',
-    tone: 'far-upside',
-    narrative: '현 용적률 대비 법적 용적률 여유를 활용한 증축·신축',
-    triggerConditions: '유효 용적률 여유 ≥ 50%p',
+    label: '즉시 착공형',  // D30 BL-1: 정본 §1.3 치환
+    tone: 'immediate-start',
+    narrative: '명도 완료 및 인허가 해소로 즉시 착공 가능',
+    triggerConditions: '명도 완료 ∧ 인허가 clear',
   },
   'R-DEV-02': {
     code: 'R-DEV-02',
-    label: '합필 개발형',
-    tone: 'land-assembly',
-    narrative: '인접 필지 합필을 통한 대형 개발',
-    triggerConditions: '다필지 ∧ 합필 가능',
+    label: '명도 선행형',  // D30 BL-1: 정본 §1.3 치환
+    tone: 'vacancy-first',
+    narrative: '장기 임차인 명도가 개발 착수의 선결 조건',
+    triggerConditions: '명도 미완 ∧ 갱신권 잔여 ≥ 5년 임차인 존재',
   },
   'R-DEV-03': {
     code: 'R-DEV-03',
-    label: '용도 전환형',
-    tone: 'use-conversion',
-    narrative: '현 용도에서 더 높은 수익성 용도로 전환',
-    triggerConditions: '용도지역 허용 범위 내 상위 용도 전환 가능',
+    label: '인허가 리스크형',  // D30 BL-1: 정본 §1.3 치환
+    tone: 'permit-risk',
+    narrative: '인허가 과정에서 제약 또는 불확실성 존재',
+    triggerConditions: 'permit_risk 중 constraint 이상 1건 이상',
   },
   'R-DEV-04': {
     code: 'R-DEV-04',
-    label: '철거 신축형',
-    tone: 'demolish-rebuild',
-    narrative: '기존 건물 철거 후 신축',
-    triggerConditions: '건물연령 ≥ 30년 ∧ 토지 가치 > 건물 가치',
+    label: '용적률 여유형',  // D30 BL-1: 정본 §1.3 치환
+    tone: 'far-surplus',
+    narrative: '법적 용적률 대비 현 용적률의 개발 여유',
+    triggerConditions: '유효 기준 신축 용적률 ≤ 상한 − 20%p',
   },
 };
 
@@ -175,31 +177,31 @@ export const DEV_ARCHETYPES: Record<DevArchetypeCode, ArchetypeDefinition> = {
 export const OPERATING_ARCHETYPES: Record<OperatingArchetypeCode, ArchetypeDefinition> = {
   'R-OPR-01': {
     code: 'R-OPR-01',
-    label: '운영 수익 안정형',
+    label: '실적 안정형',  // D30 BL-1: 정본 §1.4 치환
     tone: 'operational-stability',
-    narrative: 'GOP 마진 안정적, 운영사 장기 계약',
-    triggerConditions: 'operating ∧ GOP 마진 ≥ 30% ∧ 운영 계약 잔여 ≥ 3년',
+    narrative: '3개년 OCC 편차 안정, GOP 마진 권역 중앙값 이상',
+    triggerConditions: '3개년 OCC 편차 ≤ 10%p ∧ GOP 마진 ≥ 권역 중앙값',
   },
   'R-OPR-02': {
     code: 'R-OPR-02',
-    label: '운영사 교체 기회형',
-    tone: 'operator-change',
-    narrative: '운영사 교체를 통한 수익 개선 여지',
-    triggerConditions: 'operating ∧ 운영 계약 만료 임박',
+    label: '운영 개선형',  // D30 BL-1: 정본 §1.4 치환
+    tone: 'operational-improvement',
+    narrative: 'OCC 저조하나 시설 양호 — 운영 개선으로 수익 상승 여지',
+    triggerConditions: 'OCC < 권역 중앙값 − 10%p ∧ 시설 노후 없음',
   },
   'R-OPR-03': {
     code: 'R-OPR-03',
-    label: '시설 리노베이션형',
-    tone: 'facility-renovation',
-    narrative: '시설 투자 대비 ADR/OCC 상승 시나리오',
-    triggerConditions: 'operating ∧ 시설 연식 ≥ 15년 ∧ ADR < 권역 평균',
+    label: '운영사 의존형',  // D30 BL-1: 정본 §1.4 치환
+    tone: 'operator-dependent',
+    narrative: '위탁운영 계약 잔여 기간 짧아 운영사 교체 리스크',
+    triggerConditions: '위탁운영 ∧ 계약 잔여 ≤ 2년',
   },
   'R-OPR-04': {
     code: 'R-OPR-04',
-    label: '라이선스 인수형',
-    tone: 'licence-acquisition',
-    narrative: '사업 허가·면허 포함 인수',
-    triggerConditions: 'operating ∧ 면허 양도 가능',
+    label: '용도 리스크형',  // D30 BL-1+BL-2: 정본 §1.4 치환 — ⚠️ 경고 유형
+    tone: 'land-use-risk',
+    narrative: '용도 적법성 미확인 — 생활형숙박시설 주거 사용 등 이행강제금 리스크',
+    triggerConditions: 'landUseLegality ≠ clear',
   },
 };
 
@@ -207,31 +209,31 @@ export const OPERATING_ARCHETYPES: Record<OperatingArchetypeCode, ArchetypeDefin
 export const TRADING_ARCHETYPES: Record<TradingArchetypeCode, ArchetypeDefinition> = {
   'R-TRD-01': {
     code: 'R-TRD-01',
-    label: '시세 차익형',
-    tone: 'capital-appreciation',
-    narrative: '권역 시세 대비 저평가 매입 후 단기 매각',
-    triggerConditions: 'trading ∧ 매입가 ≤ 권역 중앙값 × 0.85',
+    label: '시세 하회형',  // D30 BL-1: 정본 §1.5 치환
+    tone: 'below-market',
+    narrative: '권역 중앙값 대비 저평가된 매입 기회',
+    triggerConditions: '평단가 ≤ 권역 중앙값 × 0.9 ∧ 비교사례 ≥ 6건',
   },
   'R-TRD-02': {
     code: 'R-TRD-02',
-    label: '급매물 선취형',
-    tone: 'distressed-acquisition',
-    narrative: '매도인 급매 사유 활용한 저가 매입',
-    triggerConditions: 'trading ∧ 매도 사유 = debt_pressure 또는 estate_settlement',
+    label: '회전 활발형',  // D30 BL-1: 정본 §1.5 치환
+    tone: 'high-turnover',
+    narrative: '권역 내 거래 회전이 활발하여 출구 전략 다양',
+    triggerConditions: '권역 12개월 거래 회전율 ≥ 권역 중앙값',
   },
   'R-TRD-03': {
     code: 'R-TRD-03',
-    label: '갭투자 전매형',
-    tone: 'gap-flip',
-    narrative: '보증금 레버리지 활용한 전매',
-    triggerConditions: 'trading ∧ 보증금/매매가 ≥ 50%',
+    label: '분할 매각 가능형',  // D30 BL-1: 정본 §1.5 치환
+    tone: 'partial-sale',
+    narrative: '호실·층별 분할 매각이 가능한 구조',
+    triggerConditions: 'sectional_spec.partialSaleFeasible ∧ 소유자 단독',
   },
   'R-TRD-04': {
     code: 'R-TRD-04',
-    label: '환금성 우선형',
-    tone: 'liquidity-focused',
-    narrative: '거래 빈도가 높은 권역의 높은 환금성',
-    triggerConditions: 'trading ∧ 권역 거래 회전율 상위 20%',
+    label: '출구 제약형',  // D30 BL-1+BL-2: 정본 §1.5 치환 — ⚠️ 경고 유형 (되팔기 어려움)
+    tone: 'exit-constrained',
+    narrative: '전 소유자 동의 또는 인허가 승계 제약으로 매각 난이도 높음',
+    triggerConditions: '전 소유자 동의 필요 ∨ 인허가 승계 제약',
   },
 };
 

@@ -152,17 +152,18 @@ const NEW_WEIGHTS: Record<string, number> = {
   pack: 10,        // D29 M-4: 운영형 실적 Pack (GOP, ADR, OCC 등)
 };
 
-// D29 M-5: 정본 9종 출처 계수 (ontology/provenance.ts 정본)
+// D30 M-1: 정본 출처 계수 (ONTOLOGY_V0.5_SPEC §6.2)
+// D30 M-2: derived는 고정값 아닌 최약 고리 승계 (C21·C22 준수)
+// D30 M-3: ai_inferred 제거 (assumed와 중복 — D27 개명 지시)
 const PROVENANCE_COEFF: Record<string, number> = {
   registry: 1.0,
   public_api: 0.95,
-  broker_aug: 0.90,
-  expert: 0.90,
-  ledger: 0.90,
+  broker_aug: 0.80,    // D30 M-1: 0.90 → 0.80 (정본)
+  expert: 0.95,        // D30 M-1: 0.90 → 0.95 (정본)
+  ledger: 0.70,        // D30 M-1: 0.90 → 0.70 (정본)
   seller: 0.65,
   broker: 0.60,
-  derived: 0.40,
-  ai_inferred: 0.30,
+  // derived: 최약 고리 승계 — getDerivedCoeff() 사용 (D30 M-2)
   assumed: 0.30,
   // 레거시 호환
   public_data: 1.0,
@@ -170,6 +171,17 @@ const PROVENANCE_COEFF: Record<string, number> = {
   seller_declared: 0.65,
   broker_input: 0.60,
 };
+
+/**
+ * D30 M-2: derived 출처 계수 — 입력 출처 중 최약 고리를 승계
+ * 자기 신뢰도 없음 (C21·C22 준수)
+ * @param inputProvenances 파생 계산에 사용된 입력 출처들
+ */
+export function getDerivedCoeff(inputProvenances: string[]): number {
+  if (inputProvenances.length === 0) return 0.30; // 입력 없으면 assumed 수준
+  const coeffs = inputProvenances.map(p => PROVENANCE_COEFF[p] ?? 0.30);
+  return Math.min(...coeffs);
+}
 
 /** E-4: P축 해상도 산정 */
 export function resolveP(filled: Record<string, boolean>): PropertyResolution {
@@ -314,14 +326,34 @@ export function computeDataGrade(
     market_comp: ['marketCompPerPyung']
   };
 
+  // D30 M-12: not_applicable — 포스처별 해당 없는 카테고리를 분모에서 제외
+  // 운영형은 렌트롤(25점)이 구조적으로 불필요 → 분모에서 빠져야 A등급 도달 가능
+  const NOT_APPLICABLE: Record<string, string[]> = {
+    operating: ['lease_roll'],        // 운영형: 렌트롤 없음 (GOP/OCC로 대체)
+    owner_occupied: ['lease_roll'],   // 사옥형: 자가사용이므로 렌트롤 불필요
+    trading: ['lease_roll'],          // 매매형: 임대차보다 시세·출구가 중심
+  };
+  const posture = identity?.investmentPosture ?? '';
+  const excludedCategories = NOT_APPLICABLE[posture] ?? [];
+
   for (const [category, w] of Object.entries(baseWeights)) {
+    // D30 M-12: not_applicable 카테고리는 분모(totalNewWeight)에서 제외
+    if (excludedCategories.includes(category)) continue;
     totalNewWeight += w;
     const directData = isSlots ? (attrsOrSlots[category]?.filled) : (attrs[category] != null && attrs[category] !== '' && attrs[category] !== false);
     
     if (directData) {
       let provCoeff = 1.0;
       if (isSlots && attrsOrSlots[category]?.provenance) {
-        provCoeff = PROVENANCE_COEFF[attrsOrSlots[category].provenance] ?? 1.0;
+        const prov = attrsOrSlots[category].provenance;
+        // D30 M-2: derived는 최약 고리 승계, M-3: ai_inferred→assumed 호환
+        if (prov === 'derived') {
+          provCoeff = getDerivedCoeff([]); // 입력 출처 미지정 시 assumed 수준
+        } else if (prov === 'ai_inferred') {
+          provCoeff = PROVENANCE_COEFF['assumed'] ?? 0.30;
+        } else {
+          provCoeff = PROVENANCE_COEFF[prov] ?? 1.0;
+        }
       }
       earnedNewWeight += (w * provCoeff);
     } else if (CATEGORY_SLOTS[category]) {
@@ -342,8 +374,8 @@ export function computeDataGrade(
 
   // D29 M-1: L×P 매트릭스 기반 등급 산정 (ONTOLOGY_V0.5_SPEC §6.3)
   // D29 M-2: L축 = Lease Resolution (R0~R3), P축 = Property Resolution (P0~P3)
-  const posture = identity?.investmentPosture || 'income';
-  const isIncomePosture = posture === 'income' || posture === 'operating';
+  const lpPosture = identity?.investmentPosture || 'income';
+  const isIncomePosture = lpPosture === 'income' || lpPosture === 'operating';
   const hasStructuredRentRoll =
     (Array.isArray(attrs.leaseUnits) && attrs.leaseUnits.length > 0) ||
     (Array.isArray(attrs.rentRoll) && attrs.rentRoll.length > 0);

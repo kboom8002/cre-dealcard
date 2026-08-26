@@ -1,17 +1,17 @@
 # Pipeline Log: trading_case15_jongro_family
 
-**Generated**: 2026-08-25T13:22:57.024Z
-**Total Duration**: 0.4s
+**Generated**: 2026-08-26T00:19:19.394Z
+**Total Duration**: 0.2s
 
 ## Step-by-Step Timeline
 
 | # | Step | Duration | Status | Summary |
 |---|------|----------|--------|---------|
-| 1 | ① SSoT Lite 구축 | 0.01s | ✅ success | buildingId: stress-case-15 |
-| 2 | ② 바텀시트 보강 | 0.01s | ✅ success | posture: trading, keys: 5 |
-| 3 | ③ IM 생성 (LLM) | 0.18s | ✅ success | ok=true, sections=12, grade=B |
-| 4 | ④ 중간 결과물 저장 | 0.05s | ✅ success | sections: 12 |
-| 5 | ⑤ PPTX 렌더링 | 0.11s | ✅ success | slides: 10, size: 324KB |
+| 1 | ① SSoT Lite 구축 | 0.00s | ✅ success | buildingId: stress-case-15 |
+| 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: trading, keys: 5 |
+| 3 | ③ IM 생성 (LLM) | 0.11s | ✅ success | ok=true, sections=9, grade=B |
+| 4 | ④ 중간 결과물 저장 | 0.02s | ✅ success | sections: 9 |
+| 5 | ⑤ PPTX 렌더링 | 0.09s | ✅ success | slides: 10, size: 266KB |
 
 ## Detailed Metrics
 
@@ -19,7 +19,7 @@
 ```json
 {
   "ok": true,
-  "sections_count": 12,
+  "sections_count": 9,
   "dataGrade": "B",
   "ai_used": true
 }
@@ -29,7 +29,10 @@
 ```json
 {
   "slideCount": 10,
-  "fileSizeBytes": 331559,
-  "warnings": []
+  "fileSizeBytes": 272814,
+  "warnings": [
+    "[Graceful Degradation] 권리관계 슬라이드 억제: 바인딩할 데이터(dataKey: titleRights)가 충분하지 않습니다.",
+    "[Graceful Degradation] 투자 논거 슬라이드 억제: 바인딩할 데이터(dataKey: thesis)가 충분하지 않습니다."
+  ]
 }
 ```

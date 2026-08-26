@@ -88,9 +88,21 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     const currentStage = stagePlan[stageIdx];
     const stageSections = currentStage.sections;
 
-    // 타임아웃 보호선 검사: 하드 리밋(105초) 초과 시 남은 섹션 강제 템플릿 폴백
+    // D30 BL-7: 하드 리밋(105초) 초과 시 — 템플릿 생성 금지
+    // 미완 섹션은 확인사항(checklist)으로 이관
+    // 필수 섹션(property_overview, checklist) 실패 시 전체 차단
     const isHardLimitReached = stageTimer.shouldForceRender();
     const isParallel = currentStage.parallel && CONCURRENCY > 1 && !isHardLimitReached;
+
+    // D30 BL-7: 105초 경과 시 필수 섹션 미완이면 전체 차단
+    const REQUIRED_SECTIONS = ['property_overview', 'checklist', 'closing'];
+    if (isHardLimitReached) {
+      const pendingSections = stageSections.filter(s => !sections.some(sec => sec.section_type === s));
+      const requiredPending = pendingSections.filter(s => REQUIRED_SECTIONS.includes(s));
+      if (requiredPending.length > 0) {
+        throw new Error(`[BL-7] 필수 섹션 생성 시간 초과 (105초): ${requiredPending.join(', ')} — 발행 차단 (system_error)`);
+      }
+    }
 
     if (isParallel) {
       // Stage 1: 병렬 실행 (Promise.allSettled)
@@ -157,8 +169,23 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     } else {
       // Stage 2~4: 순차 실행
       for (const sectionType of stageSections) {
-        // 타임아웃 경과 시 AI 호출 생략 플래그 전달
+        // D30 BL-7: 타임아웃 경과 시 — 템플릿 폴백 대신 확인사항 이관
         const forceFast = isHardLimitReached || stageTimer.shouldAbortOptional();
+        if (forceFast && isHardLimitReached) {
+          // 105초 경과: 선택 섹션은 확인사항으로 이관 (D30 BL-7)
+          sections.push({
+            section_type: 'checklist' as MobileIMSectionType,
+            section_order: globalIndex + 1,
+            title: `${sectionType} — 생성 시간 초과`,
+            markdown: `> ⚠️ \`${sectionType}\` 섹션이 생성 시간 제한(105초)을 초과하여 확인사항으로 이관되었습니다.\n> 데이터를 보완한 후 재생성해 주세요.`,
+            confidence: 'needs_check' as const,
+            boundary_note: 'D30 BL-7: 105초 초과 확인사항 이관',
+            provenance: [],
+            min_tier: 'public' as const,
+          });
+          globalIndex++;
+          continue;
+        }
 
         const result = await generateSingleSection(
           sectionType as MobileIMSectionType,

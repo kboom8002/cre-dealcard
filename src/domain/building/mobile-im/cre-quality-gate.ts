@@ -6,7 +6,7 @@
 // regex로 잡을 수 없는 패러프레이징된 금지 표현, 데이터 창작,
 // 법적 확정 표현, 검증 불가 비교, 무근거 시장 주장을 LLM이 탐지한다.
 //
-// 핵심 원칙: LLM 실패 시에도 안전 기본값 반환 (fail-open + disclaimer)
+// 핵심 원칙: D30 BL-6 Fail-Closed — LLM 실패 시 발행 차단 (system_error)
 // ──────────────────────────────────────────────────────────────────────────────
 
 import { callLLM } from "@/ai/llm-client";
@@ -51,16 +51,22 @@ export interface CREQualityGateResult {
 const GATE_MODEL = process.env.AI_IM_MODEL || getModel("terra");
 
 /**
- * LLM 실패 시 안전 기본값
+ * D30 BL-6: LLM 실패 시 Fail-Closed
  *
- * 원칙: 검증 불가 시 통과시키되, 면책 문구를 반드시 삽입 (fail-open + disclaimer)
- * 차단하면 생성 파이프라인 전체가 중단되므로 fail-close보다 이 전략이 적합
+ * 원칙: 검증 불가 시 발행 차단 (system_error 분류)
+ * CRE 의미 위반 검사(투자 보장·수치 날조·법적 단정 등)는
+ * LLM 실패 시 "검사 없이 통과"시키면 안 됩니다 — D26 §2
+ * "모르면 우리 잘못으로 셉니다"
  */
 const SAFE_DEFAULT_RESULT: CREQualityGateResult = {
-  passed: true,
-  riskLevel: "medium",
-  issues: [],
-  autoDisclaimerRequired: true,
+  passed: false,        // D30 BL-6: true → false (Fail-Closed)
+  riskLevel: "high",    // D30 BL-6: medium → high
+  issues: [{
+    type: 'fabricated_data',
+    excerpt: '[LLM 검사기 호출 실패]',
+    suggestion: 'CRE 의미 위반 검사 불가 — system_error 분류, 발행 차단. LLM 서비스 확인 후 재시도.',
+  }],
+  autoDisclaimerRequired: false, // D30 BL-6: 면책 문구 대체 불가 — 차단
 };
 
 // ─── Prompts ─────────────────────────────────────────────────────────────────

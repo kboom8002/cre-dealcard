@@ -21,7 +21,9 @@ export { buildA15Thesis, type ThesisPillar } from './a15-thesis';
 export { buildA16InvestmentStructure } from './a16-investment-structure';
 export { buildA17PreCompletionMarketing } from './a17-pre-completion-marketing';
 
-export const ARCHETYPE_REGISTRY: Record<string, any> = {
+/** D30 M-17: SLIDE_ARCHETYPE_REGISTRY — PPTX 빌더 레지스트리 (17종)
+ * archetype-registry.ts의 ALL_ARCHETYPES(편성 25종)와 구분 */
+export const SLIDE_ARCHETYPE_REGISTRY: Record<string, any> = {
   A01: buildA01Cover,
   A02: buildA02StatGrid,
   A03: buildA03LargeTable,
@@ -40,3 +42,6 @@ export const ARCHETYPE_REGISTRY: Record<string, any> = {
   A16: buildA16InvestmentStructure,
   A17: buildA17PreCompletionMarketing,
 };
+
+/** @deprecated D30 M-17: SLIDE_ARCHETYPE_REGISTRY로 개명됨 */
+export const ARCHETYPE_REGISTRY = SLIDE_ARCHETYPE_REGISTRY;

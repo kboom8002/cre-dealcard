@@ -69,3 +69,52 @@ export const SECTION_CATALOG: Record<InvestmentPosture, SectionPlan> = {
 export function getSectionPlan(posture: InvestmentPosture): SectionPlan {
   return SECTION_CATALOG[posture];
 }
+
+/**
+ * D30 BL-2: 경고 아키타입에 대한 강제 섹션 삽입
+ * R-OPR-04(용도 리스크형), R-TRD-04(출구 제약형)은
+ * 장점이 아닌 경고로 표시해야 하며, 관련 리스크 섹션을 강제 편성
+ */
+export function getAugmentedSectionPlan(
+  posture: InvestmentPosture,
+  archetypeCode?: string,
+): SectionPlan {
+  const base = { ...SECTION_CATALOG[posture] };
+  base.sections = [...base.sections];
+  base.emphasize = [...base.emphasize];
+
+  // R-OPR-04: 용도 적법성 리스크 강제 편성
+  if (archetypeCode === 'R-OPR-04') {
+    // risk_check를 강조에 추가하고, 용도 적법성 경고를 제목에 반영
+    if (!base.emphasize.includes('risk_check')) {
+      base.emphasize.push('risk_check');
+    }
+    // legality_warning 섹션 강제 삽입 (risk_check 바로 앞)
+    if (!base.sections.includes('legality_warning')) {
+      const riskIdx = base.sections.indexOf('risk_check');
+      if (riskIdx >= 0) {
+        base.sections.splice(riskIdx, 0, 'legality_warning');
+      } else {
+        base.sections.push('legality_warning');
+      }
+    }
+  }
+
+  // R-TRD-04: 출구 제약 경고 강제 편성
+  if (archetypeCode === 'R-TRD-04') {
+    if (!base.emphasize.includes('risk_check')) {
+      base.emphasize.push('risk_check');
+    }
+    // exit_constraint 섹션 강제 삽입 (risk_check 바로 앞)
+    if (!base.sections.includes('exit_constraint')) {
+      const riskIdx = base.sections.indexOf('risk_check');
+      if (riskIdx >= 0) {
+        base.sections.splice(riskIdx, 0, 'exit_constraint');
+      } else {
+        base.sections.push('exit_constraint');
+      }
+    }
+  }
+
+  return base;
+}

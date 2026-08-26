@@ -1245,13 +1245,14 @@ function extractBoldValue(text: string): string {
 export function sanitizePersona(text: string): string {
   if (!text) return '';
   return text
-    // ── NaN/null/undefined 리터럴 제거 (수치 오염 방지) ──
-    .replace(/\bNaN\s*([%원만억천㎡평])/g, '--$1')
-    .replace(/\bundefined\s*([원만억천%㎡평])/g, '--$1')
-    .replace(/\bnull\s*([원만억천%㎡평])/g, '--$1')
-    .replace(/\bNaN\b/g, '--')
-    .replace(/\bundefined\b/g, '--')
-    .replace(/\bnull\b(?!\s*[=;,\]})])/g, '--')
+    // ── D30 BL-8: NaN/null/undefined → [확인 필요] 표기 (무음 치환 금지) ──
+    // 결손 수치는 '--'로 숨기지 않고 확인사항으로 노출
+    .replace(/\bNaN\s*([%원만억천㎡평])/g, '[확인 필요]$1')
+    .replace(/\bundefined\s*([원만억천%㎡평])/g, '[확인 필요]$1')
+    .replace(/\bnull\s*([원만억천%㎡평])/g, '[확인 필요]$1')
+    .replace(/\bNaN\b/g, '[확인 필요]')
+    .replace(/\bundefined\b/g, '[확인 필요]')
+    .replace(/\bnull\b(?!\s*[=;,\]})])/g, '[확인 필요]')
     // ── 내부 시스템 메시지 제거 ──
     .replace(/>?\s*🔍?\s*\*{0,2}건축물대장\s*조회\s*미완료\*{0,2}[^\n]*/g, '')
     .replace(/>?\s*🔒?\s*\*{0,2}임대차\s*상세\s*현황[^\n]*/g, '')

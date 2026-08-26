@@ -396,23 +396,40 @@ export async function generateSingleSection(
     markdown = markdown.replace(/갱신권\s*\d+(?:\.\d+)?\s*년(?:\s*잔여)?/g, '갱신권(최초계약일 확인 필요)');
   }
 
-  // 미근거 유명 브랜드/앵커테넌트 환각 정제 (예: 실제 임차인이 아닌 '스타벅스' 등 자동 날조 방지)
+  // D30 BL-9: 임차인 상호 전량 마스킹 + 업종 보존 (불변조건 14·23, G29)
+  // 정본: "물건명·법인명·임차인명은 대외 문서에 표기하지 않는다"
+  // 마스킹은 상호를 가리되 업종을 지우지 않는다
   if (supplemental.floor_leases && supplemental.floor_leases.length > 0) {
-    const knownTenants = supplemental.floor_leases.map((l: any) => 
-      String(l.tenant_type || l.tenantType || l.note || '').toLowerCase()
-    ).join(' ');
-    const famousBrands = ['스타벅스', '맥도날드', '투썸플레이스', '올리브영', '다이소', '버거킹', '파리바게뜨'];
-    for (const brand of famousBrands) {
-      if (markdown.includes(brand) && !knownTenants.includes(brand.toLowerCase())) {
-        markdown = markdown.replace(new RegExp(`${brand}\\s*(?:선유도역점|역점|점)?`, 'g'), '1층 근생/업무 테넌트');
-        markdown = markdown.replace(new RegExp(`${brand}\\s*앵커\\s*테넌트`, 'g'), '주요 입주 테넌트');
-      }
+    const tenantNames: string[] = [];
+    for (const lease of supplemental.floor_leases) {
+      const l = lease as any;
+      const name = String(l.tenant_name || l.tenantName || l.note || '').trim();
+      if (name && name.length >= 2) tenantNames.push(name);
+    }
+    // 긴 이름부터 치환 (부분 매칭 방지)
+    const sorted = [...new Set(tenantNames)].sort((a, b) => b.length - a.length);
+    sorted.forEach((name, idx) => {
+      const label = `[임차인${String.fromCharCode(65 + (idx % 26))}]`; // [임차인A], [임차인B]...
+      // 상호만 마스킹 — 업종·위치 정보는 보존
+      const escaped = name.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+      markdown = markdown.replaceAll(name, label);
+    });
+  }
+  // 유명 브랜드 환각 방지 (LLM이 날조한 브랜드명도 마스킹)
+  const famousBrands = ['스타벅스', '맥도날드', '투썸플레이스', '올리브영', '다이소', '버거킹', '파리바게뜨', 'CU', 'GS25', '이마트'];
+  for (const brand of famousBrands) {
+    if (markdown.includes(brand)) {
+      markdown = markdown.replace(new RegExp(brand + '\\s*(?:[가-힣]*점)?', 'g'), '[임차인]');
     }
   }
 
-  // 총수익률(Gross)에 '순수익률' 또는 'Cap Rate' 라벨 오남용 방지
-  markdown = markdown.replace(/연\s*순수익률\s*\(\s*Cap\s*Rate\s*\)/gi, '연 수익률 (총임대료 기준)');
+  // D30 M-19: Cap Rate 라벨 정본 병기 (CRE 실무 용어집)
+  // "연 순수익률 (Cap Rate)"는 정본 표현 — 유지
+  // "총수익률"을 "순수익률/Cap Rate"로 잘못 표기한 경우만 교정
+  markdown = markdown.replace(/연\s*총수익률\s*\(\s*Cap\s*Rate\s*\)/gi, '연 총수익률 (Gross Yield)');
   markdown = markdown.replace(/연간\s*실질\s*임대수입/g, '연간 총 임대수입');
+  // 캡레이트 외래어 직역 → 정본 병기
+  markdown = markdown.replace(/캡레이트/g, '연 순수익률 (Cap Rate)');
 
   // Risk Boundary 가드레일
   const riskCheck = runRiskBoundaryCheck(markdown, sectionType);
