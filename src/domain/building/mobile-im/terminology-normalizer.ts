@@ -103,6 +103,14 @@ export const HARDCODED_TERM_RULES: ReplacementRule[] = [
   { id: 'hardcoded_huge_profit', pattern: /떼돈/g, replacement: '상당한 투자 수익(리스크 병행 검토 필요)', category: '법적위험' },
   { id: 'hardcoded_no_loss', pattern: /절대\s*(안\s*)?손해/g, replacement: '원금 보전 가능성이 높은(리스크 존재)', category: '법적위험' },
   { id: 'hardcoded_stable_rent', pattern: /월세\s*따박따박/g, replacement: '안정적 월 임대 수익', category: '법적위험' },
+  // D32 M-6: CRE 용어집 표준 (AGENTS.md §2)
+  { id: 'd32_naming_rights', pattern: /네이밍\s*라이츠/g, replacement: '사옥 단독 명칭 표기(간판 설치권)', category: 'CRE용어' },
+  { id: 'd32_branding_rights', pattern: /브랜딩\s*라이츠/g, replacement: '기업 단독 브랜딩', category: 'CRE용어' },
+  { id: 'd32_cap_rate_kr', pattern: /캡레이트/g, replacement: '연 순수익률(Cap Rate)', category: 'CRE용어' },
+  { id: 'd32_gop_kr', pattern: /(?<![실질\s])GOP(?!\s*마진)/g, replacement: '실질 영업이익(GOP)', category: 'CRE용어' },
+  { id: 'd32_ti_raw', pattern: /(?<!\()TI(?!\)|\s*\/)/g, replacement: '인테리어 지원금(TI)', category: 'CRE용어' },
+  { id: 'd32_rent_free', pattern: /(?<!\()Rent\s*Free(?!\))/gi, replacement: '렌트프리(무상임대)', category: 'CRE용어' },
+  { id: 'd32_my_money', pattern: /내\s*돈/g, replacement: '실투자금', category: 'CRE용어' },
 ];
 
 // ─── DB 캐싱 & 로드 로직 ──────────────────────────────────────────────────────
