@@ -90,10 +90,10 @@ export const LEGACY_GATE_MAP: Readonly<Record<string, string>> = {
   'G13': 'QG13', 'G14': 'QG14', 'G15': 'QG15', 'G16': 'QG16',
 } as const;
 
-// D29 M-8: 발행 게이트(G) = block, 품질 게이트(QG) = warn
-// §5.1: "QG는 경고만, G는 차단"
+// D30 BL-4: CATALOG_RULES §4 정본 게이트 네임스페이스
+// G계열 = 발행 차단 (block), QG계열 = 품질 경고 (warn)
 export const PUBLISH_GATES: GateDefinition[] = [
-  // ── G계열: 발행 차단 (block) ──
+  // ── G계열: 발행 차단 (block) ── CATALOG_RULES §4.1
   { id: 'G01', label: '매각가 존재', severity: 'block', check: (ctx) => ctx.salePrice !== undefined && ctx.salePrice > 0 },
   { id: 'G02', label: '면적 존재', severity: 'block', check: (ctx) => (ctx.area !== undefined && ctx.area > 0) || (ctx.effectiveLandArea > 0) },
   { id: 'G03', label: '주소 존재', severity: 'block', check: (ctx) => !!ctx.address },
@@ -103,10 +103,21 @@ export const PUBLISH_GATES: GateDefinition[] = [
   { id: 'G07', label: 'PII 제거 완료', severity: 'block', check: (ctx) => ctx.piiRemoved === true },
   { id: 'G08', label: '위험 표현 없음', severity: 'block', check: (ctx) => ctx.hasRiskExpression !== true },
   { id: 'G10', label: '3축 분류 확정', severity: 'block', check: (ctx) => ctx.threeAxisConfirmed === true },
-  { id: 'G17', label: '렌트롤 전량 표기', severity: 'block', check: () => true }, // BL-2에서 보장
-  { id: 'G18', label: '면 간 수치 일치', severity: 'block', check: (ctx) => ctx.crossValidationPassed === true },
+  // D30 BL-4 §4.2: 신설 게이트
+  { id: 'G17', label: '실효 DPI 최소 72', severity: 'block', check: (ctx) => (ctx as any).imageDpi === undefined || (ctx as any).imageDpi >= 72 },
+  { id: 'G18', label: 'EXIF 좌표 일치', severity: 'block', check: (ctx) => (ctx as any).exifMatch !== false },
   { id: 'G20', label: '이미지 PII 승인', severity: 'block', check: (ctx) => ctx.imagePiiConfirmed === true },
-  // ── QG계열: 품질 경고 (warn) ──
+  { id: 'G21', label: '필수 섹션 완성', severity: 'block', check: (ctx) => (ctx as any).requiredSectionsComplete !== false },
+  { id: 'G22', label: '면적 지표명 정확', severity: 'block', check: (ctx) => (ctx as any).areaLabelAccurate !== false },
+  { id: 'G23', label: '렌트롤 전량 표기', severity: 'block', check: () => true }, // BL-2에서 보장
+  { id: 'G24', label: '면 간 수치 일치', severity: 'block', check: (ctx) => ctx.crossValidationPassed === true },
+  { id: 'G25', label: 'LLM 안전 판정 통과', severity: 'block', check: (ctx) => (ctx as any).llmSafetyPassed !== false },
+  { id: 'G26', label: '최소 사진 3매', severity: 'block', check: (ctx) => (ctx as any).photoCount === undefined || (ctx as any).photoCount >= 3 },
+  { id: 'G27', label: '임차인 마스킹 완료', severity: 'block', check: (ctx) => (ctx as any).tenantMasked !== false },
+  { id: 'G28', label: '면적 totalGross vs effectiveGross 분리', severity: 'block', check: (ctx) => (ctx as any).areaMetricSeparated !== false },
+  { id: 'G29', label: '브랜드 환각 방지', severity: 'block', check: (ctx) => (ctx as any).brandHallucinationBlocked !== false },
+  { id: 'G30', label: '가정값 ◇ 표기 확인', severity: 'block', check: (ctx) => (ctx as any).assumptionMarked !== false },
+  // ── QG계열: 품질 경고 (warn) ── CATALOG_RULES §4.3
   { id: 'QG09', label: 'IM Judge 3.0 이상', severity: 'warn', check: (ctx) => (ctx.imJudgeScore ?? 0) >= 3.0 },
   { id: 'QG11', label: 'DCF 등급 게이트', severity: 'warn', check: (ctx) => ctx.dcfGradeGatePassed === true },
   { id: 'QG12', label: 'Cap Rate basis 명기', severity: 'warn', check: (ctx) => (ctx.capRateResults ?? []).every(r => !!r.basis) },

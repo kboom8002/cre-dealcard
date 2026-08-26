@@ -56,6 +56,25 @@ export interface Deficiency {
   severity: 'block' | 'degrade' | 'note';
 }
 
+/**
+ * D30 §5: 이미지 승인 레코드
+ * 각 사진의 PII 확인 및 사용 승인을 기록
+ */
+export interface PhotoApproval {
+  /** 사진 파일명 또는 Storage URL */
+  photoRef: string;
+  /** 승인자 (중개인 ID) */
+  approvedBy: string;
+  /** 승인 일시 (ISO 8601) */
+  approvedAt: string;
+  /** 마스킹 처리 여부 (수동 판단) */
+  masked: boolean;
+  /** PII 노출 여부 확인 (물건명·임차인명) */
+  piiChecked: boolean;
+  /** 버킷 분류: original(원본) | masked(마스킹) | derived(파생) */
+  bucket: 'original' | 'masked' | 'derived';
+}
+
 // ══════════════════════════════════════════════════════════════════════
 // §2. IMCore 단일 자료구조
 // ══════════════════════════════════════════════════════════════════════

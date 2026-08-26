@@ -9,11 +9,14 @@
 import type { Deficiency } from '@/types/im-core';
 
 export interface ChecklistItem {
-  category: 'missing_data' | 'gate_warning' | 'assumption' | 'locked_metric';
+  // D30 BL-10: 확장 카테고리 — timeout_redirect(BL-7), data_deficit(BL-8)
+  category: 'missing_data' | 'gate_warning' | 'assumption' | 'locked_metric' | 'timeout_redirect' | 'data_deficit';
   text: string;
   severity?: 'block' | 'degrade' | 'note' | 'warn';
   slot?: string;
   gateCode?: string;
+  /** D30 BL-7: 타임아웃으로 이관된 원래 섹션 타입 */
+  redirectedFrom?: string;
 }
 
 export interface ChecklistSection {
@@ -117,6 +120,22 @@ export function renderChecklist(input: ChecklistRenderInput): ChecklistSection {
     if (lockedGroup.length > 0) {
       mdLines.push(`### 4. 미입력 잠금 지표 (${lockedGroup.length}건)`);
       lockedGroup.forEach(i => mdLines.push(`- ${i.text}`));
+      mdLines.push(``);
+    }
+
+    // D30 BL-10: 타임아웃 이관 (BL-7)
+    const timeoutGroup = items.filter(i => i.category === 'timeout_redirect');
+    if (timeoutGroup.length > 0) {
+      mdLines.push(`### 5. 생성 시간 초과 이관 (${timeoutGroup.length}건)`);
+      timeoutGroup.forEach(i => mdLines.push(`- ⏱️ **${i.text}**`));
+      mdLines.push(``);
+    }
+
+    // D30 BL-10: 결손 수치 (BL-8)
+    const deficitGroup = items.filter(i => i.category === 'data_deficit');
+    if (deficitGroup.length > 0) {
+      mdLines.push(`### 6. 결손 수치 확인 필요 (${deficitGroup.length}건)`);
+      deficitGroup.forEach(i => mdLines.push(`- 🔍 **${i.text}**`));
       mdLines.push(``);
     }
   }

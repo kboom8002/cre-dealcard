@@ -12,6 +12,8 @@ export interface SectionPlan {
   sections: string[];
   suppress: string[];       // 해당 posture에서 비노출 섹션
   emphasize: string[];      // 상세 프롬프트 적용 섹션 (D29 m-4: 포스처별 2종)
+  /** D30 M-14: 포스처별 필수 섹션 — 누락 시 발행 차단 */
+  required: string[];
 }
 
 // D29 m-2: 포스처별 섹션 수 분화
@@ -26,6 +28,7 @@ export const SECTION_CATALOG: Record<InvestmentPosture, SectionPlan> = {
                'investment_thesis', 'checklist', 'next_steps', 'closing'],
     suppress: [],
     emphasize: ['lease_status', 'income_analysis'],  // m-4: 2종
+    required: ['property_overview', 'lease_status', 'income_analysis', 'checklist'],  // D30 M-14
   },
   // 사옥형: 9섹션
   owner_occupied: {
@@ -33,8 +36,9 @@ export const SECTION_CATALOG: Record<InvestmentPosture, SectionPlan> = {
     sections: ['property_overview', 'location_access', 'title_rights',
                'occupancy_fit', 'cost_comparison', 'risk_check',
                'investment_thesis', 'checklist', 'next_steps'],
-    suppress: ['lease_status', 'land_detail', 'comparables'],  // m-3: 불필요 섹션 억제
+    suppress: ['lease_status', 'land_detail', 'comparables'],
     emphasize: ['occupancy_fit', 'cost_comparison'],  // m-4: 2종
+    required: ['property_overview', 'occupancy_fit', 'checklist'],  // D30 M-14: 잔여 임대 포함
   },
   // 개발형: 10섹션
   development: {
@@ -44,6 +48,7 @@ export const SECTION_CATALOG: Record<InvestmentPosture, SectionPlan> = {
                'investment_thesis', 'checklist', 'next_steps'],
     suppress: ['lease_status', 'income_analysis', 'comparables'],
     emphasize: ['site_analysis', 'development_feasibility'],  // m-4: 2종
+    required: ['property_overview', 'site_analysis', 'development_feasibility', 'checklist'],  // D30 M-14: 명도 계획
   },
   // 운영형: 10섹션
   operating: {
@@ -53,6 +58,7 @@ export const SECTION_CATALOG: Record<InvestmentPosture, SectionPlan> = {
                'investment_thesis', 'checklist', 'next_steps'],
     suppress: ['lease_status'],
     emphasize: ['operation_overview', 'gop_analysis'],  // m-4: 2종
+    required: ['property_overview', 'operation_overview', 'gop_analysis', 'risk_check', 'checklist'],  // D30 M-14: 용도 적법성
   },
   // 단기매매형: 8섹션
   trading: {
@@ -62,6 +68,7 @@ export const SECTION_CATALOG: Record<InvestmentPosture, SectionPlan> = {
                'checklist', 'next_steps'],
     suppress: ['lease_status', 'land_detail'],
     emphasize: ['market_position', 'comparable_analysis'],  // m-4: 2종
+    required: ['property_overview', 'market_position', 'risk_check', 'checklist'],  // D30 M-14: 출구 시나리오
   },
 };
 

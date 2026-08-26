@@ -890,7 +890,7 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
     const vacancy = heroCard.vacancyDisplay ?? heroCard.vacancy;
     if (askPrice) metrics.push({ label: '매각 희망가', value: askPrice, unit: '' });
     if (yieldVal) metrics.push({ label: '연 수익률', value: yieldVal, unit: '' });
-    if (area) metrics.push({ label: '연면적', value: area, unit: '' });
+    if (area) metrics.push({ label: '연면적(총)', value: area, unit: '' }); // D30 BL-5: totalGross 명시
     if (vacancy) metrics.push({ label: '공실 현황', value: vacancy, unit: '' });
   }
   
@@ -1440,7 +1440,7 @@ export function bindFromIMCore(core: IMCore): Record<string, SectionData> {
       rows: [
         ['소재지', core.address.raw],
         ['대지면적', core.physical.landAreaSqm ? `${core.physical.landAreaSqm}㎡ (${(core.physical.landAreaSqm * 0.3025).toFixed(1)}평)` : '-'],
-        ['연면적', core.physical.totalGrossAreaSqm ? `${core.physical.totalGrossAreaSqm}㎡ (${(core.physical.totalGrossAreaSqm * 0.3025).toFixed(1)}평)` : '-'],
+        ['연면적(총)', core.physical.totalGrossAreaSqm ? `${core.physical.totalGrossAreaSqm}㎡ (${(core.physical.totalGrossAreaSqm * 0.3025).toFixed(1)}평)` : '-'], // D30 BL-5
         ['층수', `지하 ${core.physical.floorsBelow ?? 0}층 / 지상 ${core.physical.floorsAbove ?? 0}층`],
         ['준공연도', core.physical.completionYear ? `${core.physical.completionYear}년` : '-'],
       ],
