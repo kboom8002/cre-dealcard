@@ -9,7 +9,7 @@
     "legalDongCode10": "1114013900",
     "lat": 37.5586888189231,
     "lng": 126.996436695619,
-    "extractedAt": "2026-08-26T00:14:54.454Z"
+    "extractedAt": "2026-08-26T00:31:37.622Z"
   },
   "jusoResult": {
     "siNm": "서울특별시",
@@ -154,34 +154,33 @@
     }
   ],
   "buildingRecap": [],
-  "landUsePlan": {
-    "OpenAPI_ServiceResponse": {
-      "cmmMsgHeader": {
-        "errMsg": "NO_OPENAPI_SERVICE_ERROR",
-        "returnAuthMsg": "해당 오픈API 서비스가 없거나 폐기됨",
-        "returnReasonCode": "12"
-      }
-    }
-  },
-  "landPrice": {
-    "current": {
-      "OpenAPI_ServiceResponse": {
-        "cmmMsgHeader": {
-          "errMsg": "NO_OPENAPI_SERVICE_ERROR",
-          "returnAuthMsg": "해당 오픈API 서비스가 없거나 폐기됨",
-          "returnReasonCode": "12"
-        }
-      }
-    },
-    "previous": {
-      "OpenAPI_ServiceResponse": {
-        "cmmMsgHeader": {
-          "errMsg": "NO_OPENAPI_SERVICE_ERROR",
-          "returnAuthMsg": "해당 오픈API 서비스가 없거나 폐기됨",
-          "returnReasonCode": "12"
-        }
-      }
-    }
+  "vworldLandCharacteristics": {
+    "tpgrphHgCodeNm": "완경사",
+    "stdrYear": "2026",
+    "lndcgrCodeNm": "대",
+    "roadSideCodeNm": "세로한면(가)",
+    "pblntfPclnd": "7094000",
+    "prposArea2Nm": "지정되지않음",
+    "tpgrphHgCode": "03",
+    "prposArea1Nm": "제2종일반주거지역",
+    "ladUseSittnNm": "상업기타",
+    "ladSn": "9260",
+    "ladUseSittn": "240",
+    "tpgrphFrmCode": "04",
+    "lastUpdtDt": "2026-05-12",
+    "regstrSeCodeNm": "일반",
+    "regstrSeCode": "1",
+    "lndpclAr": "306.8",
+    "tpgrphFrmCodeNm": "사다리형",
+    "ldCode": "1114013900",
+    "ldCodeNm": "서울특별시 중구 필동3가",
+    "prposArea1": "14",
+    "prposArea2": "00",
+    "mnnmSlno": "44-5",
+    "lndcgrCode": "08",
+    "pnu": "1114013900100440005",
+    "stdrMt": "01",
+    "roadSideCode": "08"
   },
   "realTransactions": [
     {
