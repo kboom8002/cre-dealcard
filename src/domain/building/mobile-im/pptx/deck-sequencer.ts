@@ -219,7 +219,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   sequence.push({ archetype: 'A09', kicker: 'Process', title: '진행 절차', dataKey: 'process' });
   sequence.push({ archetype: 'A10', kicker: 'Closing', title: '마감', dataKey: 'closing' });
 
-  // ── 면 절삭 ──
+  // ── 면 절삭 (V5 감사 §4 시정: 보호 키 우선 유지) ──
   const active = sequence.filter(s => !s.suppress);
 
   const PAGE_RECOMMENDED = 12; // D33 S-2: 정본 §3.1 기준
@@ -228,19 +228,37 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   let finalSlides = active;
 
   if (active.length > PAGE_RECOMMENDED) {
-    // 마감·리스크·체크리스트는 절삭 방지
+    // 보호 키는 절삭에서 제외
     const protectedKeys = new Set(['cover', 'summary', 'closing', 'risk', 'checklist', 'process', 'thesis', 'titleRights']);
+    const protectedSlides = active.filter(s => protectedKeys.has(s.dataKey));
     const optionalSlides = active.filter(s => !protectedKeys.has(s.dataKey));
-    const budget = PAGE_RECOMMENDED - (active.length - optionalSlides.length);
-    const removedSet = new Set(optionalSlides.slice(budget).map(s => s.dataKey));
-    console.warn(`[deck-sequencer] goldilocks: ${active.length}면 → ${PAGE_RECOMMENDED}면으로 절삭`);
-    finalSlides = active.filter(s => !removedSet.has(s.dataKey));
+    const budget = PAGE_HARD_LIMIT - protectedSlides.length;
+
+    if (budget < 0) {
+      // 보호 키만으로도 상한 초과 — 구조 오류
+      throw new Error(`[deck-sequencer] 보호 키(${protectedSlides.length}면)가 PAGE_HARD_LIMIT(${PAGE_HARD_LIMIT})을 초과합니다`);
+    }
+
+    // 비보호 면을 예산 내에서만 유지 (원래 순서 보존)
+    const keptOptional = optionalSlides.slice(0, budget);
+    // 원래 순서를 유지하며 재조립
+    const keptKeys = new Set([
+      ...protectedSlides.map(s => s.dataKey),
+      ...keptOptional.map(s => s.dataKey),
+    ]);
+    finalSlides = active.filter(s => keptKeys.has(s.dataKey));
+
+    if (finalSlides.length < active.length) {
+      console.warn(`[deck-sequencer] goldilocks: ${active.length}면 → ${finalSlides.length}면으로 절삭 (보호 키 ${protectedSlides.length}면 유지)`);
+    }
   }
 
-  // W-PPTX-7: 절대 상한 하드 리밋
+  // V5 감사 §4.2 시정: 절대 상한 초과 시 빌드 중단 (silent slice 폐기)
   if (finalSlides.length > PAGE_HARD_LIMIT) {
-    console.error(`[deck-sequencer] HARD LIMIT: ${finalSlides.length}면 → ${PAGE_HARD_LIMIT}면으로 강제 절삭`);
-    finalSlides = finalSlides.slice(0, PAGE_HARD_LIMIT);
+    throw new Error(
+      `[deck-sequencer] PAGE_HARD_LIMIT(${PAGE_HARD_LIMIT}) 초과: ${finalSlides.length}면. ` +
+      `편성 예산을 확인하세요. 면 목록: ${finalSlides.map(s => s.dataKey).join(', ')}`
+    );
   }
 
   return finalSlides;

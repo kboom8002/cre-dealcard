@@ -35,7 +35,7 @@ interface MobileImPptxInput {
   preset?: string;          // 프리셋 ID (5대 내장 또는 Supabase UUID)
   posture?: InvestmentPosture;  // income | owner_occupied | development | operating | trading
   grade?: 'A' | 'B' | 'C' | 'D';
-  incomeArchetype?: 'R-INC-01' | 'R-INC-02' | 'R-INC-03' | 'R-INC-04';
+  incomeArchetype?: 'R-INC-01' | 'R-INC-02' | 'R-INC-03' | 'R-INC-04' | 'R-INC-05' | 'R-INC-06' | 'R-INC-07' | 'R-INC-08' | 'R-INC-09';
   hasViolation?: boolean;
   hasJointCollateral?: boolean;
   docno?: string;
@@ -102,6 +102,8 @@ interface DataAvailability {
   hasCommercialDistrict?: boolean;
   hasCadastralMap?: boolean;
   hasFloorPlan?: boolean;
+  hasRentRoll?: boolean;      // V5 감사 §2.7 시정 — 불변조건 31
+  hasPhotos?: boolean;         // V5 감사 §3.2 시정 — gallery 조건
 }
 
 interface SlideSpec {
@@ -128,13 +130,18 @@ interface SlideSpec {
 
 #### 3.2.2 포스처별 본문 슬라이드
 
+> income 아키타입 정본: `deck-sequencer.ts` L17 `IncomeArchetype` (9종)
+> 포스처별 아키타입 정본: `im.ontology.yaml §current_coverage`
+
 | 포스처 | 슬라이드 구성 |
 |---|---|
-| **income** (R-INC-01) | rentRoll(A03) → stability(A04) → profit(A05) → comps(A03) |
-| **income** (R-INC-02) | rentRoll(A03) → valueAdd(A05) → farUpside(A04) → comps(A03) |
-| **income** (R-INC-04) | rentRoll(A03) → rentGap(A05) → upside(A05) → comps(A03) |
-| **income** (R-INC-05) | rentRoll(A03) → vacancy(A04) → leasing(A05) → comps(A03) |
-| **income** (R-INC-06) | rentRoll(A03) → current(A04) → remodel(A05) → comps(A03) |
+| **income** (R-INC-01 임대안정) | rentRoll(A03) → stability(A04) → profit(A05) → comps(A03) |
+| **income** (R-INC-02 가치상승) | rentRoll(A03) → valueAdd(A05) → farUpside(A04) → comps(A03) |
+| **income** (R-INC-03 신축프리미엄) | rentRoll(A03) → stability(A04) → profit(A05) → comps(A03) |
+| **income** (R-INC-04 임대료정상화) | rentRoll(A03) → rentGap(A05) → upside(A05) → comps(A03) |
+| **income** (R-INC-05 공실해소) | rentRoll(A03) → vacancy(A04) → leasing(A05) → comps(A03) |
+| **income** (R-INC-06 리모델링) | rentRoll(A03) → current(A04) → remodel(A05) → comps(A03) |
+| **income** (R-INC-07~09) | im.ontology.yaml 참조 — 확장 예정 |
 | **owner_occupied** | plan(A04) → vsLease(A08) → commute(A06) → value(A04) |
 | **development** | land(A04) → scale(A05) → eviction(A04) → cost(A08) → stacking(A17) → feasibility(A05) |
 | **operating** | kpi(A13) → revenue(A05) → seasonality(A05) → operator(A04) |
@@ -264,7 +271,7 @@ interface SlideSpec {
 | **A09** | `a09-process.ts` | `buildA09Process` | 타임라인 스텝 카드 | 매수 진행 절차 |
 | **A10** | `a10-closing.ts` | `buildA10Closing` | 면책/출처 배지 | 마감 고지 |
 | **A11** | `a11-room-spec.ts` | `buildA11RoomSpec` | 호실별 면적/용도 | 호실 스펙 |
-| **A12** | `a12-ownership.ts` | `buildA12Ownership` | 소유권/권리관계 | 실사 체크리스트 |
+| **A12** | `a12-ownership.ts` | `buildA12Ownership` | 소유권/권리관계 | 실사 체크리스트 — deck-sequencer 마감부에서 `checklist` dataKey로 매핑 |
 | **A13** | `a13-operating.ts` | `buildA13Operating` | KPI 지표/매출 분석 | 운영형 KPI |
 | **A14** | `a14-gallery.ts` | `buildA14Gallery` | 1/2/3/4컷 동적 그리드 | 사진 갤러리 |
 | **A15** | `a15-thesis.ts` | `buildA15Thesis` | 4-Pillar Grid + Takeaway | 투자 논거 |
