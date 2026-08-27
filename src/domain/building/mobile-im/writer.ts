@@ -46,7 +46,7 @@ import { getActiveStagePlan } from "./stage-plans";
 import { StageTimer } from "./stage-timer";
 import { NumericalAnchors } from "./numerical-anchors";
 import { recordGenerationMetric } from "./telemetry";
-import { ClaimRegistry, FinancialCalculator } from "../im-core";
+import { ClaimRegistry, FinancialCalculator, deriveDataAvailability } from "../im-core";
 
 // ─── 메인 생성 함수 ───────────────────────────────────────────────────────────
 export async function generateMobileIM(input: MobileIMWriterInput): Promise<MobileIMWriterOutput> {
@@ -95,6 +95,13 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   if (financialClaimResult.violations.length > 0) {
     console.warn('[writer] Claim violations:', financialClaimResult.violations);
   }
+
+  // ── S0b. DataAvailability 실값 파생 (D37 P0-4) ──
+  // 하드코딩 금지 — 실제 데이터 존재 여부에서 파생
+  const derivedDA = deriveDataAvailability({
+    externalData: input.external_data as Record<string, unknown> | null,
+    supplemental: input.supplemental as Record<string, unknown> | null,
+  });
 
   // ── 3. 섹션 루프 (위상 정렬 4단계 병렬화) ──
   const sections: MobileIMSection[] = [];

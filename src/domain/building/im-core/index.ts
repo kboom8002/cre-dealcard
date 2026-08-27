@@ -29,3 +29,7 @@ export {
   TIER_EXTERNAL_ALLOWED,
 } from './release-tier';
 export type { ResolveTierInput } from './release-tier';
+
+// DA 실값 검사 + 충돌 객체 (P0-4/P0-5)
+export { deriveDataAvailability, detectConflict } from './data-availability';
+export type { ConflictSubject, Conflict } from './data-availability';

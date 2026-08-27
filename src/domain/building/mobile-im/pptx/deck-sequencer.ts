@@ -39,6 +39,13 @@ export interface DataAvailability {
   hasCadastralMap?: boolean;     // 지적도 이미지
   hasFloorPlan?: boolean;        // 층별 평면도
   hasRentRoll?: boolean;         // D33 S-5: 렌트롤 데이터 유무
+  // D37 P0-4 신설 — 실값 기반 tier 판정
+  hasOpex?: boolean;             // 운영비 실값 존재
+  hasAsOf?: boolean;             // 기준일 존재
+  hasScenario?: boolean;         // 시나리오(Base/Upside/Downside) 존재
+  hasExpertReview?: boolean;     // 전문가 검토 완료 — D36 §1.9 Screening 분기
+  hasPermitZone?: boolean;       // 토지거래허가구역 조회 결과
+  hasPhotos?: boolean;           // 건물 사진 존재 (gallery 면 결정)
 }
 
 export interface DeckSequenceInput {
