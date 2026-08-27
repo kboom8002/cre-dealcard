@@ -58,6 +58,9 @@ export const DATA_KEY_ARCHETYPE: Record<string, string> = {
   risk:      'A07',  // ThreeBlock: blocks[], bottomBar{text}
   process:   'A09',  // Process: steps[], bottomInfo
   thesis:    'A15',  // Thesis: 4-Pillar Grid + Bottom Takeaway Callout
+  titleRights: 'A04',  // 권리관계: 등기, 근저당, 압류 등
+  checklist:   'A12',  // 체크리스트: 결손 항목 이관 리스트
+  comparables: 'A03',  // 비교사례: 인근 거래 사례 표
   // owner_occupied
   plan:      'A04',
   vsLease:   'A08',
