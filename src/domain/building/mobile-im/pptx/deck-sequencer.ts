@@ -9,6 +9,8 @@
 
 import type { InvestmentPosture } from '@/domain/ontology';
 import type { GallerySlideSpec } from './gallery-planner';
+import type { ReleaseTier } from '../../im-core/release-tier';
+import { getTierAllowedSections } from '../../im-core/release-tier';
 
 /** @deprecated 골디락스 단일 시퀀스 전환 — 하위 호환을 위해 타입만 유지 */
 export type PptxTier = 'basic' | 'pro';
@@ -44,6 +46,8 @@ export interface DeckSequenceInput {
   /** @deprecated 골디락스 전환 후 무시됨 — 하위 호환 유지 */
   tier?: PptxTier;
   grade: Grade;
+  /** D37 P0-3: 발행 등급 — 자료 가용성 기반 산출물 종류 */
+  releaseTier?: ReleaseTier;
   incomeArchetype?: IncomeArchetype;
   hasViolation?: boolean;
   hasJointCollateral?: boolean;
@@ -171,22 +175,29 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
 
   // ══════════════════════════════════════════════════
   // Grade 기반 재무 확장 슬라이드
+  // D37 P0-3: releaseTier가 있으면 tier 기반으로 면 허용 판단
   // ══════════════════════════════════════════════════
 
-  if (input.grade === 'A') {
-    // A등급: 자본구조 + DCF + 민감도 + 총수익률 + 대출 + 세금
-    sequence.push({ archetype: 'A16', kicker: 'Capital', title: '자본구조', dataKey: 'capital' });
-    sequence.push({ archetype: 'A05', kicker: 'DCF', title: 'DCF 분석', dataKey: 'dcf' });
-    sequence.push({ archetype: 'A05', kicker: 'Sensitivity', title: '수익률 민감도', dataKey: 'sensitivity' });
-    sequence.push({ archetype: 'A05', kicker: 'Total Return', title: '총수익률', dataKey: 'totalReturn' });
-    sequence.push({ archetype: 'A08', kicker: 'Loan', title: '대출 시나리오', dataKey: 'loan', suppress: input.hasViolation });
-    sequence.push({ archetype: 'A08', kicker: 'Tax', title: '세금 추정', dataKey: 'tax' });
-  } else if (input.grade === 'B') {
-    // B등급: 자본구조 + 총수익률만
-    sequence.push({ archetype: 'A16', kicker: 'Capital', title: '자본구조', dataKey: 'capital' });
-    sequence.push({ archetype: 'A05', kicker: 'Total Return', title: '총수익률', dataKey: 'totalReturn' });
+  const tierConfig = input.releaseTier
+    ? getTierAllowedSections(input.releaseTier)
+    : { allowFinancials: true, allowScenario: true, allowValueAdd: true, allowRentGap: true, maxBodyPages: 16 };
+
+  if (tierConfig.allowFinancials) {
+    if (input.grade === 'A') {
+      // A등급: 자본구조 + DCF + 민감도 + 총수익률 + 대출 + 세금
+      sequence.push({ archetype: 'A16', kicker: 'Capital', title: '자본구조', dataKey: 'capital' });
+      sequence.push({ archetype: 'A05', kicker: 'DCF', title: 'DCF 분석', dataKey: 'dcf' });
+      sequence.push({ archetype: 'A05', kicker: 'Sensitivity', title: '수익률 민감도', dataKey: 'sensitivity' });
+      sequence.push({ archetype: 'A05', kicker: 'Total Return', title: '총수익률', dataKey: 'totalReturn' });
+      sequence.push({ archetype: 'A08', kicker: 'Loan', title: '대출 시나리오', dataKey: 'loan', suppress: input.hasViolation });
+      sequence.push({ archetype: 'A08', kicker: 'Tax', title: '세금 추정', dataKey: 'tax' });
+    } else if (input.grade === 'B') {
+      // B등급: 자본구조 + 총수익률만
+      sequence.push({ archetype: 'A16', kicker: 'Capital', title: '자본구조', dataKey: 'capital' });
+      sequence.push({ archetype: 'A05', kicker: 'Total Return', title: '총수익률', dataKey: 'totalReturn' });
+    }
   }
-  // C등급: 재무 슬라이드 없음
+  // tier가 fact_om 이하이거나 allowFinancials=false이면 재무 슬라이드 전량 생략
 
   // ══════════════════════════════════════════════════
   // 데이터 가용성 기반 권장 면 동적 추가 (12→20p)
