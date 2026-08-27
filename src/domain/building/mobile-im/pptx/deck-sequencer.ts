@@ -224,6 +224,9 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   // D29 m-8: 분량 상한 — 필수 12면 + 권장 16면 (초과 시 절삭)
   const PAGE_MANDATORY = 12;
   const PAGE_RECOMMENDED = 16;
+  const PAGE_HARD_LIMIT = 20; // W-PPTX-7: 절대 상한 — 어떤 경우에도 이 수를 초과하지 않음
+
+  let finalSlides = active;
 
   if (active.length > PAGE_RECOMMENDED) {
     // 마감·리스크·체크리스트는 절삭 방지
@@ -232,10 +235,15 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     const optionalSlides = active.filter(s => !protectedKeys.has(s.dataKey));
     const budget = PAGE_RECOMMENDED - protectedSlides.length;
     const trimmed = optionalSlides.slice(0, budget);
-    if (active.length > PAGE_RECOMMENDED) {
-      console.warn(`[deck-sequencer] m-8: ${active.length}면 → ${PAGE_RECOMMENDED}면으로 절삭`);
-    }
-    return [...trimmed, ...protectedSlides];
+    console.warn(`[deck-sequencer] m-8: ${active.length}면 → ${PAGE_RECOMMENDED}면으로 절삭`);
+    finalSlides = [...trimmed, ...protectedSlides];
   }
-  return active;
+
+  // W-PPTX-7: 절대 상한 하드 리밋
+  if (finalSlides.length > PAGE_HARD_LIMIT) {
+    console.error(`[deck-sequencer] HARD LIMIT: ${finalSlides.length}면 → ${PAGE_HARD_LIMIT}면으로 강제 절삭`);
+    finalSlides = finalSlides.slice(0, PAGE_HARD_LIMIT);
+  }
+
+  return finalSlides;
 }

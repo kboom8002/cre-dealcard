@@ -1325,8 +1325,10 @@ export function sanitizePersona(text: string): string {
     .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{1F300}-\u{1FAFF}\u{25A0}-\u{25FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}🟢🔵🔶▲●◇]/gu, '')
     // ★ 플레이스홀더 복원 (벤치마크 별점 및 Provenance 배지용)
     .replace(/__STAR__/g, '★')
-    // ── 페르소나 직접 지칭 정제 ──
-    .replace(/(?:60대|50대|40대|30대|20대|초보|고액|법인|개인|VIP)\s*(?:자산가|투자자|법인\s*대표|대표|고객|매수자)(?:를\s*위한|의\s*관점|에게\s*추천하는|용|맞춤)?\s*/gu, '')
+    // ── 페르소나 직접 지칭 정제 (W-PPTX-4: 범용 캐치올 강화) ──
+    .replace(/(?:70대|60대|50대|40대|30대|20대|MZ|초보|고액|고자산|법인|개인|VIP|기관|리츠|시행사|디벨로퍼|부부|은퇴)\s*(?:자산가|투자자|법인\s*대표|대표|고객|매수자|운용사|펀드|가족)(?:를\s*위한|의\s*관점|에게\s*추천하는|용|맞춤|에\s*적합한|을\s*위한)?\s*/gu, '')
+    // W-PPTX-4: 범용 캐치올 — "~자/가/인 맞춤/전용/추천" 패턴
+    .replace(/(?:[가-힣]+(?:자|가|인|사)\s+(?:맞춤|전용|추천|적합)\s*(?:형|용)?)\s*/gu, '')
     // ── 가드레일/익명화 토큰 정제 ──
     .replace(/\[인명\s*비공개\]게/g, '담당자에게')
     .replace(/\[인명\s*비공개\]에게/g, '담당자에게')
@@ -1340,10 +1342,25 @@ export function sanitizePersona(text: string): string {
     .replace(/갱신권\s*\d+(?:\.\d+)?\s*년(?:\s*잔여)?/g, '갱신권(최초계약일 확인 필요)');
 }
 
+// W-PPTX-5: CRE 실무 용어 교정 맵 — 신규 용어 추가 시 여기에 항목 추가
+const CRE_LEXICON_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/네이밍\s*라이츠/gu, '사옥 단독 명칭 표기(간판 설치권)'],
+  [/네이밍라이츠/gu, '사옥 단독 명칭 표기'],
+  [/브랜딩\s*라이츠/gu, '기업 단독 브랜딩'],
+  [/브랜딩라이츠/gu, '기업 단독 브랜딩'],
+  [/테넌트\s*인센티브/gu, '인테리어 지원금(TI)'],
+  [/테넌트인센티브/gu, '인테리어 지원금(TI)'],
+  [/프리\s*렌트/gu, '렌트프리(무상임대)'],
+  [/프리렌트/gu, '렌트프리(무상임대)'],
+  [/렌트\s*프리/gu, '렌트프리(무상임대)'],
+  [/리커버리\s*레이트/gu, '비용 회수율'],
+  [/캡\s*레이트/gu, '연 순수익률(Cap Rate)'],
+];
+
 /** Markdown 서식 및 SSoT 내부 표기 정제 */
 export function stripMarkdown(text: string): string {
   if (!text) return '';
-  return text
+  let cleaned = text
     // ── 내부 시스템 메시지 먼저 제거 (마크다운/이모지 파싱 전) ──
     .replace(/>?\s*🔍?\s*\*{0,2}건축물대장\s*조회\s*미완료\*{0,2}[^\n]*/g, '')
     .replace(/>?\s*🔒?\s*\*{0,2}임대차\s*상세\s*현황[^\n]*/g, '')
@@ -1361,12 +1378,15 @@ export function stripMarkdown(text: string): string {
     .replace(/\u2605/g, '__STAR__')
     .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{1F300}-\u{1FAFF}\u{25A0}-\u{25FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}✨🚇✓▲●◇🟢🔵🔶💡🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍]/gu, '')
     .replace(/__STAR__/g, '★')
-    .replace(/(?:60대|50대|40대|30대|20대|초보|고액|법인|개인|VIP)\s*(?:자산가|투자자|법인\s*대표|대표|고객|매수자)(?:를\s*위한|의\s*관점|에게\s*추천하는|용|맞춤)?\s*/gu, '')
-    // ── 어색한 외래어 정제 (한국 상업용 부동산 실무 어휘 치환) ──
-    .replace(/네이밍\s*라이츠/gu, '사옥 단독 명칭 표기(간판 설치권)')
-    .replace(/네이밍라이츠/gu, '사옥 단독 명칭 표기')
-    .replace(/브랜딩\s*라이츠/gu, '기업 단독 브랜딩')
-    .replace(/브랜딩라이츠/gu, '기업 단독 브랜딩')
+    .replace(/(?:70대|60대|50대|40대|30대|20대|MZ|초보|고액|고자산|법인|개인|VIP|기관|리츠|시행사|디벨로퍼|부부|은퇴)\s*(?:자산가|투자자|법인\s*대표|대표|고객|매수자|운용사|펀드|가족)(?:를\s*위한|의\s*관점|에게\s*추천하는|용|맞춤|에\s*적합한|을\s*위한)?\s*/gu, '')
+    .replace(/(?:[가-힣]+(?:자|가|인|사)\s+(?:맞춤|전용|추천|적합)\s*(?:형|용)?)\s*/gu, '');
+
+  // W-PPTX-5: CRE 용어 정제 — 배열 기반 순회 적용
+  for (const [pattern, replacement] of CRE_LEXICON_REPLACEMENTS) {
+    cleaned = cleaned.replace(pattern, replacement);
+  }
+
+  return cleaned
     // ── SSoT 내부 표기 정제 ──
     .replace(/\s*\(BSSoT\s*Lite[^)]*\)/gi, '')
     .replace(/\s*\(기재\s*공란\)/g, ' (미확인)')

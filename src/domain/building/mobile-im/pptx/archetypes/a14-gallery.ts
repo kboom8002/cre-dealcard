@@ -53,11 +53,10 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
   const validPhotos = targetPhotos.filter(p => !!p.url);
 
   if (validPhotos.length === 0) {
-    L.callout(slide, M, 2.20, CW, 1.4, 'info', '건물 사진',
-      '건물 실사 사진이 등록되면 이 슬라이드에 최적 레이아웃으로 표시됩니다.');
-    if (input.watermarkText) L.watermark(slide, input.watermarkText, false);
+    // W-PPTX-6: 사진 0장일 때 빈 슬라이드 대신 suppress 신호 반환
+    warnings.push('갤러리 사진 없음 — 슬라이드 억제');
     L.foot(slide, input.slideNum, input.docno);
-    return { slide, warnings };
+    return { slide, warnings, suppress: true } as any;
   }
 
   // Optimize images (최대 4장 — 슬라이드당 4장 제한)

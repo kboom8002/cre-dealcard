@@ -40,9 +40,9 @@ function parseInlineMarkdown(line: string): Array<{ text: string; options?: { bo
  * - 불릿 리스트 → 구조화된 텍스트 블록
  * - 일반 텍스트 → 정돈된 단락
  */
-function addFallbackContent(slide: any, data: any, _theme: any, meta?: { archetype?: string; slideIndex?: number; warnings?: string[] }) {
+function addFallbackContent(slide: any, data: any, _theme: any, meta?: { archetype?: string; slideIndex?: number; warnings?: string[] }): boolean {
   // data.content가 없으면 fallback 불필요
-  if (!data.content) return;
+  if (!data.content) return true;
 
   const shapes = slide._slideObjects || slide._shapes || [];
   // F1: PptxGenJS addTable()은 _slideObjects에 { _type: 'table' } 형태로 저장되며,
@@ -61,7 +61,7 @@ function addFallbackContent(slide: any, data: any, _theme: any, meta?: { archety
     return y >= 1.7 && y < 6.5 && (h > 0.1 || rH > 0) && w < 12;
   });
 
-  if (hasBodyShapes) return;
+  if (hasBodyShapes) return true;
 
   // D32 BL-5: 폴백 발동 기록 — 표가 있어야 할 자리에 불릿이 들어가는 것은 결손
   const archetype = meta?.archetype ?? 'unknown';
@@ -73,6 +73,7 @@ function addFallbackContent(slide: any, data: any, _theme: any, meta?: { archety
     // A03 (Large Table) 계열 폴백은 발행 차단 — 표→불릿 대체는 결손
     if (archetype === 'A03') {
       meta.warnings.push(`[BL-5 BLOCK] A03(Large Table) 폴백 차단: 렌트롤/비교사례 표가 불릿으로 대체됨`);
+      return false; // W-PPTX-1: 슬라이드 제거 신호
     }
   }
 
@@ -132,8 +133,16 @@ function addFallbackContent(slide: any, data: any, _theme: any, meta?: { archety
         )
       );
       const rowH = 0.32;
-      const tableH = styledData.length * rowH;
+      let tableH = styledData.length * rowH;
       const colCount = tableData[0]?.length || 1;
+
+      // W-PPTX-2: 테이블 높이가 안전 영역 초과 시 행 절삭
+      if (curY + tableH > maxY && styledData.length > 2) {
+        const availableH = maxY - curY;
+        const maxRows = Math.max(2, Math.floor(availableH / rowH));
+        styledData.splice(maxRows);
+        tableH = styledData.length * rowH;
+      }
 
       slide.addTable(styledData as any, {
         x: bodyX, y: curY, w: bodyW,
@@ -218,6 +227,7 @@ function addFallbackContent(slide: any, data: any, _theme: any, meta?: { archety
       }
     }
   }
+  return true; // W-PPTX-1: 폴백 렌더링 성공
 }
 
 export type PptxTier = 'basic' | 'pro';
@@ -552,11 +562,22 @@ export class MobileImPptxRenderer {
 
         try {
           const result = await Promise.resolve(builder(archetypeInput));
-          addFallbackContent(result.slide, archetypeInput.data, theme, {
+          // W-PPTX-6: 빌더가 suppress 신호를 반환하면 슬라이드 생략
+          if ((result as any).suppress) {
+            warnings.push(...result.warnings);
+            warnings.push(`[Suppress] ${spec.archetype}(${spec.title}) 슬라이드 억제`);
+            continue;
+          }
+          // W-PPTX-1: addFallbackContent가 false 반환 시 슬라이드 차단 (A03 BLOCK 등)
+          const fallbackOk = addFallbackContent(result.slide, archetypeInput.data, theme, {
             archetype: spec.archetype,
             slideIndex: pageNum,
             warnings,
           });
+          if (!fallbackOk) {
+            warnings.push(`[BL-5 BLOCK] ${spec.archetype}(${spec.title}) 슬라이드 제거: 폴백 차단`);
+            continue;
+          }
           slides.push(result.slide);
           warnings.push(...result.warnings);
           pageNum++;

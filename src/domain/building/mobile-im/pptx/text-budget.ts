@@ -68,12 +68,36 @@ export function enforceTextBudget(text: string, maxLen: number): string {
   return truncated.trimEnd() + "…";
 }
 
+// W-PPTX-3: 절삭 메타데이터 반환 버전
+export interface TextBudgetResult {
+  text: string;
+  wasTruncated: boolean;
+  originalLength: number;
+  truncatedLength: number;
+}
+
+export function enforceTextBudgetWithMeta(text: string, maxLen: number): TextBudgetResult {
+  const result = enforceTextBudget(text, maxLen);
+  const wasTruncated = !!text && text !== result;
+  if (wasTruncated) {
+    console.warn(`[text-budget] Text truncated: ${text.length} → ${result.length} chars (limit: ${maxLen})`);
+  }
+  return {
+    text: result,
+    wasTruncated,
+    originalLength: text?.length ?? 0,
+    truncatedLength: result?.length ?? 0,
+  };
+}
+
 export function validateTextBudgets(texts: {type: keyof typeof TEXT_LIMITS | string, text: string}[]): string[] {
   const warnings: string[] = [];
   for (const {type, text} of texts) {
     const limit = TEXT_LIMITS[type as keyof typeof TEXT_LIMITS];
     if (limit && text.length > limit) {
       warnings.push(`Text budget exceeded for ${type}: length ${text.length} > limit ${limit}`);
+      // W-PPTX-3: 절삭 필드 경고 로그
+      console.warn(`[text-budget] Field "${type}" exceeds budget: ${text.length} > ${limit} chars`);
     }
   }
   return warnings;
