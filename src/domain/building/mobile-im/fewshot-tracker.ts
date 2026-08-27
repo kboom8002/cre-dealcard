@@ -170,7 +170,7 @@ export async function promoteToGoldenCandidate(
 
     if (existing) return false;
 
-    // 2. 골든셋 등록 수행
+    // V5 감사 §5.2 시정: 자동 등록 → 후보 등록 (사람 승인 필요)
     await supabase.from('im_golden_sets').insert({
       document_id:   documentId,
       building_id:   buildingId,
@@ -183,12 +183,12 @@ export async function promoteToGoldenCandidate(
       grade:         judgeScore >= 4.5 ? 'S' : 'A',
       judge_score:   judgeScore,
       was_edited:    false,
-      source_type:   'auto_approve',
+      source_type:   'auto_candidate',  // V5: auto_approve → auto_candidate
       version:       1,
-      is_active:     true,
+      is_active:     false,             // V5: 사람 승인 전까지 비활성
     });
 
-    console.info(`[fewshot-tracker] Automatically promoted ${sectionType} of doc ${documentId} (Score: ${judgeScore})`);
+    console.info(`[fewshot-tracker] Golden candidate registered (pending approval): ${sectionType} of doc ${documentId} (Score: ${judgeScore})`);
     return true;
   } catch (err) {
     console.warn('[fewshot-tracker] Failed to auto-promote:', err);

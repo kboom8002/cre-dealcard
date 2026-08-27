@@ -292,6 +292,9 @@ export interface MobileImPptxInput {
   provenance?: Record<string, ProvenanceKind>;
   supabase?: SupabaseClient;
   logoUrl?: string;  // Phase 4: 중개법인 로고 URL (Supabase Storage)
+  /** V5 감사 §5.1 시정: 게이트 차단 시 경고 워터마크 표시 */
+  publishBlocked?: boolean;
+  publishBlockReasons?: string[];
 }
 
 export interface MobileImPptxOutput {
@@ -552,6 +555,11 @@ export class MobileImPptxRenderer {
         ? `${input.watermark.requesterName} · ${input.watermark.phoneLast4} · ${input.watermark.timestamp}`
         : undefined;
 
+      // V5 감사 §5.1 시정: 게이트 차단 시 경고 워터마크
+      const blockedWarning = input.publishBlocked
+        ? `⚠ 발행 차단 [${(input.publishBlockReasons ?? []).join(', ')}] — 내부 검토용`
+        : undefined;
+
       for (const spec of sequence) {
         if (spec.suppress) continue;
 
@@ -587,7 +595,7 @@ export class MobileImPptxRenderer {
           pres,
           slideNum: pageNum,
           docno,
-          watermarkText: input.watermark ? watermarkText : undefined,
+          watermarkText: blockedWarning ?? (input.watermark ? watermarkText : undefined),
           data: {
             ...(dataMap[spec.dataKey] ?? {}),
             kicker: spec.kicker,

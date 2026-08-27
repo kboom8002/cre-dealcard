@@ -107,6 +107,8 @@ export interface GateDefinition {
   label: string;
   severity: 'block' | 'warn';
   check: (ctx: GateContext) => boolean;
+  /** V5 감사 §5.3 시정: 이 게이트가 적용되는 포스처 목록. undefined = 전 포스처 */
+  appliesTo?: ('income' | 'owner_occupied' | 'development' | 'operating' | 'trading')[];
 }
 
 export interface GateResult {
@@ -168,13 +170,13 @@ export const PUBLISH_GATES: GateDefinition[] = [
   { id: 'G36', label: '종횡비 왜곡 5% 이하', severity: 'block', check: (ctx) => (ctx.aspectDistortionMaxPct ?? 0) <= 5 },
   { id: 'G37', label: '타 물건 사진 혼입 차단', severity: 'block', check: (ctx) => (ctx.foreignPhotoCount ?? 0) === 0 },
   // D32 BL-3: 수익률 기준 라벨-계산 정합
-  { id: 'G38', label: 'yieldBasis 라벨-계산 정합', severity: 'block', check: (ctx) => ctx.yieldBasisConsistent !== false },
+  { id: 'G38', label: 'yieldBasis 라벨-계산 정합', severity: 'block', check: (ctx) => ctx.yieldBasisConsistent !== false, appliesTo: ['income', 'operating', 'trading'] },
   // D32 M-8: 라벨↔내용 정합
   { id: 'G39', label: '슬라이드 라벨-내용 정합', severity: 'warn', check: (ctx) => (ctx.labelContentMismatchCount ?? 0) === 0 },
   // D32 BL-4: 역레버리지 미경고 ROE 단독 표시 차단
-  { id: 'G40', label: '역레버리지 ROE 경고', severity: 'block', check: (ctx) => ctx.negativeLeverageWarned !== false },
+  { id: 'G40', label: '역레버리지 ROE 경고', severity: 'block', check: (ctx) => ctx.negativeLeverageWarned !== false, appliesTo: ['income', 'operating'] },
   // D33 G41: 만실↔공실 서술어 모순
-  { id: 'G41', label: '서술어↔수치 모순 없음', severity: 'block', check: (ctx) => ctx.vacancyNarrativeContradiction !== true },
+  { id: 'G41', label: '서술어↔수치 모순 없음', severity: 'block', check: (ctx) => ctx.vacancyNarrativeContradiction !== true, appliesTo: ['income', 'operating'] },
   // D33 G42: 폴백 중복 차단
   { id: 'G42', label: '폴백 중복 0', severity: 'block', check: (ctx) => (ctx.fallbackDuplicateCount ?? 0) === 0 },
   // D33 G43: highlights↔제원 중복
