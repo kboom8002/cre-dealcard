@@ -26,6 +26,8 @@ export interface SlideSpec {
   suppress?: boolean;
   /** D33 M-E: 이 슬라이드 렌더 전 반드시 채워져 있어야 할 데이터 키 목록 */
   requiredKeys?: string[];
+  /** D37 P0-7: 본문/부록 배치. body=본문(기본), appendix=부록, closing=마감 */
+  placement?: 'body' | 'appendix' | 'closing';
 }
 
 /** V-World / 공공 API 데이터 가용성 — 동적 면 추가 판단용 */
@@ -212,44 +214,48 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
 
   // 공부 발췌 (건축물대장 + 토지이용계획 둘 다 있을 때)
   if (da.hasBuildingRegister && da.hasLandUsePlan) {
-    sequence.push({ archetype: 'A04', kicker: 'Records', title: '공부 발췌', dataKey: 'publicRecords' });
+    sequence.push({ archetype: 'A04', kicker: 'Records', title: '공부 발췌', dataKey: 'publicRecords', placement: 'appendix' });
   }
 
   // 권리관계 (등기부 있을 때)
   if (da.hasRegistryData) {
-    sequence.push({ archetype: 'A04', kicker: 'Title', title: '권리관계', dataKey: 'titleRights' });
+    sequence.push({ archetype: 'A04', kicker: 'Title', title: '권리관계', dataKey: 'titleRights', placement: 'appendix' });
   }
 
   // 지적도 (WMS 이미지 있을 때)
   if (da.hasCadastralMap) {
-    sequence.push({ archetype: 'A06', kicker: 'Cadastral', title: '지적도', dataKey: 'cadastralMap' });
+    sequence.push({ archetype: 'A06', kicker: 'Cadastral', title: '지적도', dataKey: 'cadastralMap', placement: 'appendix' });
   }
 
   // 상권 분석 (상권 데이터 있을 때)
   if (da.hasCommercialDistrict) {
-    sequence.push({ archetype: 'A04', kicker: 'District', title: '상권 분석', dataKey: 'commercialDistrict' });
+    sequence.push({ archetype: 'A04', kicker: 'District', title: '상권 분석', dataKey: 'commercialDistrict', placement: 'appendix' });
   }
 
   // ── 공통 마감 (항상 마지막) ──
-  sequence.push({ archetype: 'A15', kicker: 'Thesis', title: '투자 논거', dataKey: 'thesis' });
-  sequence.push({ archetype: 'A07', kicker: 'Risk', title: '리스크', dataKey: 'risk' });
-  sequence.push({ archetype: 'A12', kicker: 'Checklist', title: '실사 체크리스트', dataKey: 'checklist' });
-  sequence.push({ archetype: 'A09', kicker: 'Process', title: '진행 절차', dataKey: 'process' });
-  sequence.push({ archetype: 'A10', kicker: 'Closing', title: '마감', dataKey: 'closing' });
+  sequence.push({ archetype: 'A15', kicker: 'Thesis', title: '투자 논거', dataKey: 'thesis', placement: 'closing' });
+  sequence.push({ archetype: 'A07', kicker: 'Risk', title: '리스크', dataKey: 'risk', placement: 'closing' });
+  sequence.push({ archetype: 'A12', kicker: 'Checklist', title: '실사 체크리스트', dataKey: 'checklist', placement: 'closing' });
+  sequence.push({ archetype: 'A09', kicker: 'Process', title: '진행 절차', dataKey: 'process', placement: 'closing' });
+  sequence.push({ archetype: 'A10', kicker: 'Closing', title: '마감', dataKey: 'closing', placement: 'closing' });
 
-  // ── 면 절삭 (V5 감사 §4 시정: 보호 키 우선 유지) ──
+  // ── D37 P0-7: body/appendix 이원화 절삭 ──
   const active = sequence.filter(s => !s.suppress);
+
+  // 부록은 본문 면수에서 제외
+  const bodySlides = active.filter(s => s.placement !== 'appendix');
+  const appendixSlides = active.filter(s => s.placement === 'appendix');
 
   const PAGE_RECOMMENDED = 12; // D33 S-2: 정본 §3.1 기준
   const PAGE_HARD_LIMIT = 16;  // D33 S-2: 절대 상한 (정본 §3.1 — 기존 20 폐기)
 
-  let finalSlides = active;
+  let finalBody = bodySlides;
 
-  if (active.length > PAGE_RECOMMENDED) {
+  if (bodySlides.length > PAGE_RECOMMENDED) {
     // 보호 키는 절삭에서 제외
-    const protectedKeys = new Set(['cover', 'summary', 'closing', 'risk', 'checklist', 'process', 'thesis', 'titleRights']);
-    const protectedSlides = active.filter(s => protectedKeys.has(s.dataKey));
-    const optionalSlides = active.filter(s => !protectedKeys.has(s.dataKey));
+    const protectedKeys = new Set(['cover', 'summary', 'closing', 'risk', 'checklist', 'process', 'thesis']);
+    const protectedSlides = bodySlides.filter(s => protectedKeys.has(s.dataKey));
+    const optionalSlides = bodySlides.filter(s => !protectedKeys.has(s.dataKey));
     const budget = PAGE_HARD_LIMIT - protectedSlides.length;
 
     if (budget < 0) {
@@ -259,25 +265,25 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
 
     // 비보호 면을 예산 내에서만 유지 (원래 순서 보존)
     const keptOptional = optionalSlides.slice(0, budget);
-    // 원래 순서를 유지하며 재조립
     const keptKeys = new Set([
       ...protectedSlides.map(s => s.dataKey),
       ...keptOptional.map(s => s.dataKey),
     ]);
-    finalSlides = active.filter(s => keptKeys.has(s.dataKey));
+    finalBody = bodySlides.filter(s => keptKeys.has(s.dataKey));
 
-    if (finalSlides.length < active.length) {
-      console.warn(`[deck-sequencer] goldilocks: ${active.length}면 → ${finalSlides.length}면으로 절삭 (보호 키 ${protectedSlides.length}면 유지)`);
+    if (finalBody.length < bodySlides.length) {
+      console.warn(`[deck-sequencer] goldilocks: 본문 ${bodySlides.length}면 → ${finalBody.length}면 절삭 (부록 ${appendixSlides.length}면 분리)`);
     }
   }
 
-  // V5 감사 §4.2 시정: 절대 상한 초과 시 빌드 중단 (silent slice 폐기)
-  if (finalSlides.length > PAGE_HARD_LIMIT) {
+  // V5 감사 §4.2 시정: 본문 절대 상한 초과 시 빌드 중단
+  if (finalBody.length > PAGE_HARD_LIMIT) {
     throw new Error(
-      `[deck-sequencer] PAGE_HARD_LIMIT(${PAGE_HARD_LIMIT}) 초과: ${finalSlides.length}면. ` +
-      `편성 예산을 확인하세요. 면 목록: ${finalSlides.map(s => s.dataKey).join(', ')}`
+      `[deck-sequencer] PAGE_HARD_LIMIT(${PAGE_HARD_LIMIT}) 초과: 본문 ${finalBody.length}면. ` +
+      `편성 예산을 확인하세요. 면 목록: ${finalBody.map(s => s.dataKey).join(', ')}`
     );
   }
 
-  return finalSlides;
+  // 본문 + 부록 합산 반환 (부록은 본문 뒤에 배치)
+  return [...finalBody, ...appendixSlides];
 }

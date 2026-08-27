@@ -48,6 +48,14 @@ import { NumericalAnchors } from "./numerical-anchors";
 import { recordGenerationMetric } from "./telemetry";
 import { ClaimRegistry, FinancialCalculator, deriveDataAvailability } from "../im-core";
 
+// D37 P0-8: confidence 기반 IM Judge 점수 계산 (하드코딩 4.0 해소)
+function computeImJudgeScore(sections: MobileIMSection[]): number {
+  if (sections.length === 0) return 0;
+  const scoreMap: Record<string, number> = { high: 5, medium: 3, low: 1, needs_check: 0 };
+  const total = sections.reduce((sum, s) => sum + (scoreMap[s.confidence] ?? 2), 0);
+  return Math.round((total / sections.length) * 10) / 10;
+}
+
 // ─── 메인 생성 함수 ───────────────────────────────────────────────────────────
 export async function generateMobileIM(input: MobileIMWriterInput): Promise<MobileIMWriterOutput> {
   const { building_ssot_lite, external_data } = input;
@@ -309,24 +317,31 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       area: ctx.totalAreaSqm,
       address: String(ctx.assetIdentity.area_signal ?? ''),
       dataGrade: String(input.dataGrade ?? 'C'),
-      crossValidationPassed: true,
-      hasHallucination: false,
-      piiRemoved: true,
-      hasRiskExpression: false,
-      imJudgeScore: 4.0,
+      // D37 P0-8: 실값 전환 — 하드코딩 해소
+      // crossValidation 결과는 이 아래 runCrossValidation 후 재설정되므로 여기선 false
+      crossValidationPassed: false,
+      // 할루시네이션: 섹션 중 하나라도 confidence='needs_check'이면 true
+      hasHallucination: sections.some(s => s.confidence === 'needs_check'),
+      // PII: 섹션 마크다운에 개인정보 패턴이 없는지 검사
+      piiRemoved: !sections.some(s => /\d{3}-\d{4}-\d{4}|주민등록|resident\s*registration/i.test(s.markdown || '')),
+      // 위험 표현: 섹션 중 boundary_note가 있으면 true
+      hasRiskExpression: sections.some(s => !!(s.boundary_note && s.boundary_note.length > 0)),
+      // IM Judge 점수: 평균 confidence 기반 (high=5, medium=3, low=1, needs_check=0)
+      imJudgeScore: computeImJudgeScore(sections),
       threeAxisConfirmed: !!(ctx.assetIdentity.asset_type),
       dcfGradeGatePassed: input.dcfEligible ?? false,
-      leaseActConfirmed: true,
-      renewalRightConfirmed: true,
-      mixedUseConfirmed: true,
-      illegalArchitectureConfirmed: true,
+      // 임대차보호법 확인: DA에 렌트롤이 있어야 확인 가능
+      leaseActConfirmed: derivedDA.hasRentRoll === true,
+      renewalRightConfirmed: derivedDA.hasRentRoll === true,
+      mixedUseConfirmed: derivedDA.hasBuildingRegister !== false,
+      illegalArchitectureConfirmed: derivedDA.hasBuildingRegister !== false,
       capRateResults: [],
       totalReturnScenarios: [],
       parcels: [],
       leaseUnits: [],
       disclosureDcf: '',
       disclosureIrr: '',
-      termExplanationExists: true,
+      termExplanationExists: sections.some(s => s.section_type === 'risk_check'),
       effectiveLandArea: 0,
       effectiveFAR: 0,
       calculatedEffectiveFAR: 0,
