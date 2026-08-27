@@ -11,12 +11,19 @@ export interface RegulationScreeningProps {
   permits: Permit[];
   landUseZone: string;
   isTransactionPermitArea: boolean;
+  /** D37 H-7: 토지거래허가 상세 정보 */
+  permitZoneDetail?: {
+    thresholdSqm?: number;
+    designationPeriod?: string;
+    useObligation?: string;
+  };
 }
 
 export const RegulationScreening: React.FC<RegulationScreeningProps> = ({
   permits,
   landUseZone,
   isTransactionPermitArea,
+  permitZoneDetail,
 }) => {
   if (permits.length === 0 && !isTransactionPermitArea) {
     return null;
@@ -37,9 +44,31 @@ export const RegulationScreening: React.FC<RegulationScreeningProps> = ({
 
       {isTransactionPermitArea && (
         <div className="bg-red-900/20 border border-red-500/30 rounded p-2 mb-4">
-          <p className="text-red-400 text-sm">
-            토지거래허가구역 — 실수요 증빙 필요
+          <p className="text-red-400 text-sm font-medium">
+            ⚠️ 토지거래허가구역 — 실수요 증빙 필요
           </p>
+          {permitZoneDetail && (
+            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+              {permitZoneDetail.thresholdSqm != null && (
+                <>
+                  <span className="text-[#9AA7B5]">기준면적</span>
+                  <span className="text-[#E7ECF2]">{permitZoneDetail.thresholdSqm.toLocaleString()}㎡</span>
+                </>
+              )}
+              {permitZoneDetail.designationPeriod && (
+                <>
+                  <span className="text-[#9AA7B5]">지정기간</span>
+                  <span className="text-[#E7ECF2]">{permitZoneDetail.designationPeriod}</span>
+                </>
+              )}
+              {permitZoneDetail.useObligation && (
+                <>
+                  <span className="text-[#9AA7B5]">이용의무</span>
+                  <span className="text-[#E7ECF2]">{permitZoneDetail.useObligation}</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
 

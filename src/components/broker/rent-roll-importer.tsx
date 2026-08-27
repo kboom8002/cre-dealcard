@@ -586,6 +586,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                   <th className="px-2 py-1 font-medium">업종</th>
                   <th className="px-2 py-1 font-medium">보증금</th>
                   <th className="px-2 py-1 font-medium">월세</th>
+                  <th className="px-2 py-1 font-medium" title="보증금 + (월세 × 100)">환산보증금</th>
                   <th className="px-2 py-1 font-medium">상태</th>
                 </tr>
               </thead>
@@ -639,6 +640,27 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
                         }}
                         className="w-16 bg-transparent border-none p-0 focus:ring-1 focus:ring-primary text-xs" 
                       />
+                    </td>
+                    {/* D37 H-6: 환산보증금 + 상임법 뱃지 */}
+                    <td className="px-2 py-1 text-right">
+                      {(() => {
+                        const dep = row.deposit_manwon ?? 0;
+                        const rent = row.rent_manwon ?? 0;
+                        const converted = dep + rent * 100; // 상임법 시행령 제2조
+                        const THRESHOLD = 90000; // 서울 9억 만원
+                        const isProtected = converted <= THRESHOLD;
+                        return (
+                          <span className="inline-flex items-center gap-1">
+                            <span className="tabular-nums">{converted.toLocaleString()}</span>
+                            {!row.is_vacant && (
+                              <span className={`text-[9px] px-1 rounded ${isProtected ? 'bg-emerald-500/10 text-emerald-400' : 'bg-neutral-500/10 text-neutral-400'}`}
+                                title={isProtected ? '상임법 보호 대상' : '상임법 미적용'}>
+                                {isProtected ? '보호' : '-'}
+                              </span>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-2 py-1">
                       <select 

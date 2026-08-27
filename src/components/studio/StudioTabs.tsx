@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 interface StudioTabsProps {
   buildingId: string;
-  activeTab: 'briefing' | 'lease' | 'files' | 'disclosure';
+  activeTab: 'briefing' | 'lease' | 'files' | 'disclosure' | 'legal';
 }
 
 export function StudioTabs({ buildingId, activeTab }: StudioTabsProps) {
@@ -13,6 +13,7 @@ export function StudioTabs({ buildingId, activeTab }: StudioTabsProps) {
     { key: 'lease', label: '📜 Rent Roll 상세 입력', href: `/broker/buildings/${buildingId}/studio/lease` },
     { key: 'files', label: '📂 증빙 서류 업로드', href: `/broker/buildings/${buildingId}/studio/files` },
     { key: 'disclosure', label: '🔒 Blind 공개 설정', href: `/broker/buildings/${buildingId}/studio/disclosure` },
+    { key: 'legal', label: '⚖️ 한국법 필수 항목', href: `/broker/buildings/${buildingId}/studio/legal` },
   ] as const;
 
   return (
