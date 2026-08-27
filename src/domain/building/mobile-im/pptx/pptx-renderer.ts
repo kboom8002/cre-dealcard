@@ -85,11 +85,9 @@ function addFallbackContent(slide: any, data: any, _theme: any, meta?: { archety
   console.warn(fallbackMsg);
   if (meta?.warnings) {
     meta.warnings.push(fallbackMsg);
-    // A03 (Large Table) 계열 폴백은 발행 차단 — 표→불릿 대체는 결손
-    if (archetype === 'A03') {
-      meta.warnings.push(`[BL-5 BLOCK] A03(Large Table) 폴백 차단: 렌트롤/비교사례 표가 불릿으로 대체됨`);
-      return false; // W-PPTX-1: 슬라이드 제거 신호
-    }
+    // D37 P0-6: 모든 아키타입 폴백 차단 (빈 면 금지 07 §15.3)
+    meta.warnings.push(`[P0-6 BLOCK] ${archetype} 폴백 차단: 아키타입이 본문을 렌더링하지 못함`);
+    return false; // 슬라이드 제거 신호
   }
 
   // D33 BL-F G42: 이 content를 폴백으로 사용했음을 기록

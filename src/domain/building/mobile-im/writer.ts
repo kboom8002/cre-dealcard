@@ -182,18 +182,9 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
             console.warn(`[writer] extractKeyFacts failed for section "${stageSections[ri]}", anchor propagation may be incomplete:`, factErr);
           }
         } else {
-          // 부분 실패: 템플릿 폴백 섹션 추가
-          console.warn(`[writer] Stage ${currentStage.stage} section ${stageSections[ri]} failed, using fallback:`, result.reason);
-          sections.push({
-            section_type: stageSections[ri] as MobileIMSectionType,
-            section_order: globalIndex + ri + 1,
-            title: stageSections[ri],
-            markdown: `> 해당 섹션은 자동 생성에 실패했습니다. 데이터를 확인해 주세요.`,
-            confidence: 'needs_check' as const,
-            boundary_note: '자동 생성 실패로 폴백 템플릿 적용',
-            provenance: [],
-            min_tier: 'public' as const,
-          });
+          // D37 P0-6: 폴백 금지 — 실패한 면은 추가하지 않음 (빈 면 금지)
+          // 필수 섹션 실패는 stageTimer softLimit에서 throw됨
+          console.warn(`[writer] Stage ${currentStage.stage} section ${stageSections[ri]} failed, skipping (no fallback):`, result.reason);
         }
       }
 

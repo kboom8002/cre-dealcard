@@ -328,18 +328,11 @@ export async function generateSingleSection(
     console.warn(`[im-section-generator] AI failed for ${sectionType}, using template:`, err);
   }
 
-  // AI 실패 → 프리미엄 템플릿 폴백
+  // D37 P0-6: AI 실패 → 폴백 금지. 빈 면 생성 금지 (07 §15.3)
+  // 실패 시 throw하여 writer가 해당 면을 건너뛰거나 차단하도록 위임
   if (!generatedByAi) {
-    markdown = generatePremiumTemplate(
-      sectionType,
-      ctx.assetIdentity,
-      ctx.physicalFact,
-      ctx.marketLocation,
-      ctx.buyerFit,
-      supplemental,
-      externalData,
-      buildingSsotLite,
-      posture,
+    throw new Error(
+      `[P0-6] AI 생성 실패: ${sectionType}. 폴백 금지 — 데이터 부족 시 면 자체를 제외해야 합니다.`,
     );
   }
 
@@ -452,20 +445,16 @@ export async function generateSingleSection(
     try {
       const gateResult = await runCREQualityGate(markdown, sectionType);
       if (!gateResult.passed && gateResult.riskLevel === "high") {
-        console.warn(`[cre-quality-gate] Section ${sectionType} BLOCKED → template fallback`);
-        markdown = generatePremiumTemplate(
-          sectionType,
-          ctx.assetIdentity,
-          ctx.physicalFact,
-          ctx.marketLocation,
-          ctx.buyerFit,
-          supplemental,
-          externalData,
-          buildingSsotLite,
-          posture,
+        // D37 P0-6: QG 차단 시 폴백 금지 → throw
+        throw new Error(
+          `[P0-6/QG] 품질 게이트 차단: ${sectionType}. riskLevel=high. 폴백 금지.`,
         );
       }
     } catch (gateErr) {
+      // QG 자체 실패는 경고만 (게이트 인프라 장애 시 빌드 차단 방지)
+      if (gateErr instanceof Error && gateErr.message.startsWith('[P0-6/QG]')) {
+        throw gateErr; // P0-6 차단은 재throw
+      }
       console.warn(`[cre-quality-gate] Gate failed for ${sectionType}, skipping:`, gateErr);
     }
   }
