@@ -52,20 +52,52 @@ export function enforceTextBudget(text: string, maxLen: number): string {
     truncated.lastIndexOf("임."),
     truncated.lastIndexOf("."),
   );
+  let result: string;
   if (lastSentenceEnd > maxLen * 0.5) {
     let endIdx = lastSentenceEnd + 1;
     if (['다', '요', '음', '함', '임'].includes(truncated[lastSentenceEnd]) && truncated[lastSentenceEnd + 1] === '.') {
       endIdx = lastSentenceEnd + 2;
     }
     if (truncated[endIdx] === ' ') endIdx++;
-    return truncated.slice(0, endIdx).trim();
+    result = truncated.slice(0, endIdx).trim();
+  } else {
+    // 문장 부호가 없다면 공백(단어 경계) 기준으로 안전하게 끊기
+    const lastSpace = truncated.lastIndexOf(" ");
+    if (lastSpace > maxLen * 0.65) {
+      result = truncated.slice(0, lastSpace).trim() + "…";
+    } else {
+      result = truncated.trimEnd() + "…";
+    }
   }
-  // 문장 부호가 없다면 공백(단어 경계) 기준으로 안전하게 끊기
-  const lastSpace = truncated.lastIndexOf(" ");
-  if (lastSpace > maxLen * 0.65) {
-    return truncated.slice(0, lastSpace).trim() + "…";
+
+  // D33 M-F: 괄호 균형 수리 — 절삭으로 열린 괄호가 닫히지 않은 경우 보정
+  result = repairBracketBalance(result);
+  return result;
+}
+
+/** D33 M-F: 열린 괄호를 닫아 균형을 맞춥니다 */
+function repairBracketBalance(text: string): string {
+  const PAIRS: Record<string, string> = { '(': ')', '[': ']', '{': '}', '（': '）' };
+  const CLOSE_TO_OPEN: Record<string, string> = { ')': '(', ']': '[', '}': '{', '）': '（' };
+  const stack: string[] = [];
+
+  for (const ch of text) {
+    if (ch in PAIRS) {
+      stack.push(ch);
+    } else if (ch in CLOSE_TO_OPEN) {
+      if (stack.length > 0 && stack[stack.length - 1] === CLOSE_TO_OPEN[ch]) {
+        stack.pop();
+      }
+    }
   }
-  return truncated.trimEnd() + "…";
+
+  // 닫히지 않은 괄호를 역순으로 닫기
+  let repaired = text;
+  while (stack.length > 0) {
+    const open = stack.pop()!;
+    repaired += PAIRS[open];
+  }
+  return repaired;
 }
 
 // W-PPTX-3: 절삭 메타데이터 반환 버전

@@ -42,9 +42,22 @@ function parseInlineMarkdown(line: string): Array<{ text: string; options?: { bo
  * - 불릿 리스트 → 구조화된 텍스트 블록
  * - 일반 텍스트 → 정돈된 단락
  */
+// D33 BL-F G42: 폴백 중복 추적 — 같은 content가 다른 슬라이드에서 폴백으로 재사용되면 차단
+const _fallbackContentHashes = new Set<string>();
+export function resetFallbackTracker() { _fallbackContentHashes.clear(); }
+
 function addFallbackContent(slide: any, data: any, _theme: any, meta?: { archetype?: string; slideIndex?: number; warnings?: string[] }): boolean {
   // data.content가 없으면 fallback 불필요
   if (!data.content) return true;
+
+  // D33 BL-F G42: 동일 content 중복 폴백 차단
+  const contentHash = typeof data.content === 'string' ? data.content.trim().slice(0, 200) : '';
+  if (contentHash.length > 0 && _fallbackContentHashes.has(contentHash)) {
+    const dupMsg = `[BL-F G42] 폴백 중복 차단: ${meta?.archetype ?? '?'}#${meta?.slideIndex ?? '?'} — 동일 content가 이전 슬라이드에서 이미 폴백 사용됨`;
+    console.warn(dupMsg);
+    if (meta?.warnings) meta.warnings.push(dupMsg);
+    return false;
+  }
 
   const shapes = slide._slideObjects || slide._shapes || [];
   // F1: PptxGenJS addTable()은 _slideObjects에 { _type: 'table' } 형태로 저장되며,
@@ -78,6 +91,9 @@ function addFallbackContent(slide: any, data: any, _theme: any, meta?: { archety
       return false; // W-PPTX-1: 슬라이드 제거 신호
     }
   }
+
+  // D33 BL-F G42: 이 content를 폴백으로 사용했음을 기록
+  if (contentHash.length > 0) _fallbackContentHashes.add(contentHash);
 
   const markdown: string = stripMarkdown(data.content);
   const lines = markdown.split('\n');
@@ -289,6 +305,7 @@ export interface MobileImPptxOutput {
 export class MobileImPptxRenderer {
   async render(input: MobileImPptxInput): Promise<MobileImPptxOutput> {
     const warnings: string[] = [];
+    resetFallbackTracker(); // D33 BL-F: 렌더 시작 시 폴백 중복 추적기 초기화
 
     // 골디락스: D등급 전면 차단 (tier 무관)
     if (input.grade === 'D') {
