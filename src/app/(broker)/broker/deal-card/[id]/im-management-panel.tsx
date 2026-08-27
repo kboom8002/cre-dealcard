@@ -15,6 +15,8 @@ interface ImDocument {
   id: string;
   created_at: string;
   tier: 'basic' | 'pro';
+  /** D37: 5종 발행 등급 */
+  releaseTier?: 'internal_only' | 'fact_om' | 'analysis_im' | 'decision_im' | 'expert_required';
 }
 
 const PRESET_SWATCHES: Record<string, { accent: string; name: string }> = {
@@ -50,7 +52,8 @@ export function ImManagementPanel({
           setDocs(data.documents.map((d: any) => ({
             id: d.id,
             created_at: d.created_at,
-            tier: d.body?.tier || 'basic'
+            tier: d.body?.tier || 'basic',
+            releaseTier: d.body?.releaseTier,
           })));
         }
       }
@@ -226,6 +229,22 @@ export function ImManagementPanel({
               💡 렌트롤·면적·가격 입력 시 등급 상승
             </span>
           )}
+          {/* D37 H-8: ReleaseTier 라벨 */}
+          {docs[0]?.releaseTier && (() => {
+            const TIER_LABELS: Record<string, { label: string; color: string }> = {
+              internal_only:   { label: '내부 전용',       color: 'text-neutral-400' },
+              fact_om:         { label: 'Fact OM',        color: 'text-amber-400' },
+              analysis_im:    { label: 'Analysis IM',    color: 'text-blue-400' },
+              decision_im:    { label: 'Decision IM',    color: 'text-emerald-400' },
+              expert_required: { label: '전문가 검토 필요', color: 'text-purple-400' },
+            };
+            const cfg = TIER_LABELS[docs[0].releaseTier!] ?? { label: docs[0].releaseTier, color: 'text-neutral-400' };
+            return (
+              <span className={`text-[10px] font-medium mt-0.5 ${cfg.color}`}>
+                📋 {cfg.label}
+              </span>
+            );
+          })()}
         </div>
       </h2>
 

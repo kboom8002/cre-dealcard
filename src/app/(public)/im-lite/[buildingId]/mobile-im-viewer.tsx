@@ -10,6 +10,7 @@ import { HeroCard } from "./hero-card";
 import { DCFHeatmap } from "./dcf-heatmap";
 import { LeverageChart } from "./leverage-chart";
 import { toast } from 'sonner';
+import { DISPLAY_LABEL_MAP } from '@/domain/building/im-core';
 
 // 카카오 SDK 초기화 헬퍼 함수
 const initKakao = () => {
@@ -556,26 +557,37 @@ function SectionCard({
               {section.title}
             </span>
           </div>
-          {/* Provenance badges */}
-          {(section as any).provenance && (section as any).provenance.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-1.5 mb-2">
-              {Array.from(new Set((section as any).provenance.map((p: any) => p.source))).map((source: any) => (
-                <span key={source} className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-medium border ${
-                  source === 'public_data' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                  source === 'broker_input' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                  source === 'ai_inferred' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
-                  source === 'expert_verified' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                  'bg-neutral-500/10 text-neutral-400 border-neutral-500/20'
-                }`}>
-                  {source === 'public_data' ? '✓ 공부 확인' :
-                   source === 'broker_input' ? '👤 중개인 입력' :
-                   source === 'ai_inferred' ? '⚙ AI 추정' :
-                   source === 'expert_verified' ? '★ 전문가 검증' :
-                   source}
-                </span>
-              ))}
-            </div>
-          )}
+          {/* Provenance badges — D37 8종 책임 표시 연동 */}
+          {(section as any).provenance && (section as any).provenance.length > 0 && (() => {
+            // 레거시 source → D37 ProvenanceKind 매핑
+            const SOURCE_TO_PROVENANCE: Record<string, string> = {
+              public_data: 'public_api', broker_input: 'broker',
+              ai_inferred: 'assumed', expert_verified: 'ledger',
+            };
+            const TRUST_COLOR: Record<number, string> = {
+              5: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+              4: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+              3: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+              2: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+              1: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+              0: 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20',
+            };
+            const sources = Array.from(new Set((section as any).provenance.map((p: any) => p.source)));
+            return (
+              <div className="flex flex-wrap gap-1.5 mt-1.5 mb-2">
+                {sources.map((source: any) => {
+                  const prov = SOURCE_TO_PROVENANCE[source] ?? source;
+                  const config = DISPLAY_LABEL_MAP[prov] ?? { label: source, icon: '?', trustWeight: 0 };
+                  const colorClass = TRUST_COLOR[config.trustWeight] ?? TRUST_COLOR[0];
+                  return (
+                    <span key={source} className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-medium border ${colorClass}`}>
+                      {config.icon} {config.label}
+                    </span>
+                  );
+                })}
+              </div>
+            );
+          })()}
           {section.locked && section.lockedReason && (
             <p className="text-xs text-neutral-600 mt-0.5 line-clamp-1">
               {section.lockedReason}
