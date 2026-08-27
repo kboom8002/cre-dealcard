@@ -1,9 +1,11 @@
 # PPTX IM 콘텐츠 생성 및 렌더링 스펙 (코드 감사용)
 
+> [!NOTE]
 > **문서 ID**: `DOC-TEST0827-03-PPTX-IM-SPEC`  
-> **작성일**: 2026-08-27  
-> **대상**: QA / 코드 감사 / 품질 관리팀  
-> **범위**: `src/domain/building/mobile-im/pptx/` 및 E2E 테스트 인프라
+> **작성일**: 2026-08-27 (Updated)  
+> **대상**: QA / 코드 감사 / 개발 기획팀  
+> **코드베이스**: `main` branch, commits up to `7f9f468`  
+> **범위**: `src/domain/building/mobile-im/pptx/` 및 E2E 테스트 인프라  
 
 ---
 
@@ -27,55 +29,28 @@
 
 ### 1.1 핵심 오케스트레이터
 
-**파일**: [`pptx-renderer.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/pptx-renderer.ts) — 608행  
+**파일**: [pptx-renderer.ts](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/pptx-renderer.ts) — 608행  
 **클래스**: `MobileImPptxRenderer`
 
 기존 17개 `buildSlide` 메서드를 전면 교체한 슬림 오케스트레이터:
 
-```
-MobileImPptxInput (buildingId, tier, posture, grade, doc, broker, preset)
-    │
-    ▼
-[1] Quality Gate (Grade & Tier 검증)
-    │  • D등급 전면 차단
-    │  • Pro 티어: B등급 이상 필수
-    ▼
-[2] PptxGenJS Canvas 초기화
-    │  • LAYOUT_WIDE: 13.333" × 7.5" (16:9)
-    │  • Margin M = 0.62", Content Width CW = 12.093"
-    ▼
-[3] Theme Resolution & Isolation
-    │  • getPptxThemeAsync + withThemeIsolation
-    │  • 동시 요청 간 색상/글꼴 오염 방지
-    ▼
-[4] Gallery Planning
-    │  • resolvePhotos (역할별: cover, exterior, aerial, interior)
-    │  • planGallerySlides → A14 갤러리 슬라이드
-    ▼
-[5] Deck Sequencing
-    │  • buildDeckSequence: posture × tier × grade × incomeArchetype
-    │  • 12~16장 권장, 불필요 슬라이드 자동 트림
-    ▼
-[6] Data Binding
-    │  • bindSectionData / bindFromIMCore
-    │  • 마크다운 → 아키타입 프롭스 변환
-    ▼
-[7] Archetype Rendering
-    │  • SLIDE_ARCHETYPE_REGISTRY[spec.archetype]
-    │  • 실패 시 addFallbackContent
-    ▼
-[8] Text Budget & Bounds Validation
-    │  • validateTextBudgets, assertBounds
-    ▼
-[9] PptxGenJS write (nodebuffer)
-    │
-    ▼
-Output: { buffer, slideCount, warnings }
+```mermaid
+graph TD
+    A[MobileImPptxInput<br>buildingId, tier, posture, grade...] --> B[1. Quality Gate<br>Grade & Tier 검증]
+    B --> C[2. PptxGenJS Canvas 초기화<br>LAYOUT_WIDE 16:9]
+    C --> D[3. Theme Resolution & Isolation<br>동시 요청 간 색상/글꼴 오염 방지]
+    D --> E[4. Gallery Planning<br>cover, exterior, aerial, interior]
+    E --> F[5. Deck Sequencing<br>buildDeckSequence]
+    F --> G[6. Data Binding<br>마크다운 → 아키타입 프롭스]
+    G --> H[7. Archetype Rendering<br>SLIDE_ARCHETYPE_REGISTRY]
+    H --> I[8. Text Budget & Bounds Validation<br>validateTextBudgets, assertBounds]
+    I --> J[9. PptxGenJS write<br>nodebuffer]
+    J --> K[Output<br>buffer, slideCount, warnings]
 ```
 
 ### 1.2 테마 고립화 (Thread Safety)
 
-**파일**: [`pptx-theme.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/pptx-theme.ts), [`imlib.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/imlib.ts)
+**파일**: [pptx-theme.ts](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/pptx-theme.ts), [imlib.ts](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/imlib.ts)
 
 `withThemeIsolation(theme, async () => { ... })`:
 - 글로벌 스코프에 팔레트 토큰(`C`=밝은색, `CD`=어두운색, `KR`/`TITLE_KR`=타이포, `PV`=출처뱃지)을 동적 주입
@@ -85,7 +60,7 @@ Output: { buffer, slideCount, warnings }
 
 ## 2. 덱 시퀀서 & 등급 게이트
 
-**파일**: [`deck-sequencer.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/deck-sequencer.ts)  
+**파일**: [deck-sequencer.ts](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/deck-sequencer.ts)  
 **함수**: `buildDeckSequence(input: DeckSequenceInput): SlideSpec[]`
 
 ### 2.1 등급별 슬라이드 범위
@@ -96,15 +71,18 @@ Output: { buffer, slideCount, warnings }
 | **Pro / A-B등급** | 최대 16장 | 17개 아키타입 동적 배치 |
 | **D등급** | 0장 | `[G30] D등급은 발행할 수 없습니다` — 전면 차단 |
 
-### 2.2 슬라이드 트리밍 규칙
-- 필수 12장, 권장 16장
-- 초과 시 선택적 슬라이드 제거 (단, `risk_check`, `closing`, `legal` 슬라이드는 보호)
+### 2.2 슬라이드 트리밍 규칙 & 상수
+- **PAGE_MANDATORY** = 12
+- **PAGE_RECOMMENDED** = 16
+- **PAGE_HARD_LIMIT** = 20
+
+초과 시 선택적 슬라이드 자동 트림이 발생합니다 (단, `closing`, `risk`, `checklist`, `process`, `thesis`, `titleRights` 슬라이드는 보호됨).
 
 ---
 
 ## 3. 데이터 바인딩 & 마크다운 파싱
 
-**파일**: [`data-binder.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/data-binder.ts)  
+**파일**: [data-binder.ts](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/data-binder.ts)  
 **함수**: `bindSectionData`, `bindFromIMCore`
 
 ### 3.1 핵심 기능
@@ -154,6 +132,7 @@ Output: { buffer, slideCount, warnings }
 **규칙 출처**: `AGENTS.md` §3 (PPTX 슬라이드 비중복 렌더링 원칙)
 
 ### 5.1 원칙
+> [!IMPORTANT]
 > 좌/우 분할 레이아웃(A04, A05, A06 등)에서 좌측 영역과 우측 카드에 **동일한 텍스트/불릿 항목을 중복 나열하지 않는다**.
 
 ### 5.2 적용 대상 아키타입
@@ -174,24 +153,24 @@ Output: { buffer, slideCount, warnings }
 
 ## 6. 텍스트 예산 & 물리적 경계 제약
 
-**파일**: [`text-budget.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/text-budget.ts)
+**파일**: [text-budget.ts](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/text-budget.ts)
 
 ### 6.1 텍스트 예산 (`TEXT_LIMITS`)
 
-| 요소 | 최대 길이 | 비고 |
-|---|:---:|---|
-| `slideTitle` | 32자 | — |
-| `kicker` | 32자 | — |
-| `subTitle` | 50자 | — |
-| `subHeading` | 35자 | — |
-| `leadSentence` | 100자 | 메인 리드 문구 |
-| `statLabel` | 18자 | 초과 시 9.5pt → 8.0pt 자동 스케일 |
-| `statValue` | 10자 | 또는 정규식 숫자 추출 |
-| `statSub` | 27자 | 보조 설명 |
-| `calloutTitle` | 30자 | — |
-| `tableHeader` | 16자 | — |
-| `tableCell` | 27자 | — |
-| `note` | 140자 | — |
+| Element | Max Chars |
+|---|---|
+| slideTitle | 32 |
+| kicker | 32 |
+| subTitle | 50 |
+| leadSentence | 100 |
+| subHeading | 35 |
+| statLabel | 18 |
+| statValue | 10 |
+| statSub | 27 |
+| calloutTitle | 30 |
+| tableHeader | 16 |
+| tableCell | 27 |
+| note | 140 |
 
 ### 6.2 한국어 CJK 문자 폭 계산
 ```
@@ -199,18 +178,13 @@ characters_per_line = 0.19 × (10 / fontSize) inches
 ```
 - CJK 문자가 라틴 문자보다 넓은 점을 명시적으로 반영
 
-### 6.3 스마트 절삭 (Smart Truncation)
-
-**함수**: `enforceTextBudget`
-
-- 단어 중간이 아닌 **한국어 문장 종결부**에서 절삭:
-  - `. `, `다.`, `요.`, `임.`, `함.`
-- 절삭 시 `...` 접미사 추가
+### 6.3 스마트 절삭 (Smart Truncation) & 메타데이터
+- **함수**: `enforceTextBudgetWithMeta`
+- 리턴: `TextBudgetResult` 인터페이스 (`text, wasTruncated, originalLength, truncatedLength`)
+- 단어 중간이 아닌 **한국어 문장 종결부**에서 절삭 (`. `, `다.`, `요.`, `임.`, `함.`)
+- 절삭 시 `...` 접미사 추가 및 `console.warn` 에밋 (`validateTextBudgets` L93-104)
 
 ### 6.4 물리적 안전 경계 (Safe Bounds)
-
-**함수**: `assertBounds`
-
 | 축 | 제한 | 공차 |
 |:---:|---|:---:|
 | X + W | ≤ 12.713" | ±0.05" |
@@ -218,16 +192,11 @@ characters_per_line = 0.19 × (10 / fontSize) inches
 
 위반 시 경고 로그 발생 (렌더링은 계속 진행)
 
-### 6.5 이미지 처리
-- `sizing: { type: 'contain' }` — 비율 왜곡 방지, 제로 크롭
-- 건축 비율 유지가 상업용 부동산 프레젠테이션에서 필수
-
 ---
 
 ## 7. 테마 & 프리셋 시스템
 
 ### 7.1 5종 빌트인 프리셋
-
 | 프리셋 | 용도 |
 |---|---|
 | `golden_institutional` | 기관 투자자용 골든 테마 |
@@ -253,65 +222,61 @@ characters_per_line = 0.19 × (10 / fontSize) inches
 ## 8. 폴백 & 에러 처리
 
 ### 8.1 아키타입 폴백 (`addFallbackContent`)
-
 **파일**: `pptx-renderer.ts` L43-221
 
-아키타입 빌더가 본문 렌더링에 실패한 경우:
+아키타입 빌더가 본문 렌더링에 실패한 경우 (`addFallbackContent` 리턴 타입: `boolean`):
 1. 마크다운 헤딩 → 스타일드 텍스트 블록
 2. 불릿 리스트 → 구조화 텍스트
 3. 테이블 → PptxGenJS `addTable` 네이티브 렌더링
-4. **[BL-5] 경고**: 폴백 발동 시 로깅
+4. 콘텐츠 없음 → `return true` (L45)
+5. Body Shape 있음 → `return true` (L64)
 
-> [!CAUTION]
-> **약점 W-PPTX-1**: A03(대형 테이블) 아키타입의 폴백은 **명시적으로 차단**됩니다. 복잡한 렌트롤을 불릿으로 대체하면 치명적 결함으로 간주되어 `[BL-5 BLOCK]` 경고가 발생합니다. 그러나 **차단 후 해당 슬라이드가 어떻게 처리되는지(빈 슬라이드 vs 제거)에 대한 명확한 코드 경로가 불확실**합니다.
+> [!TIP]
+> 렌더러의 메인 루프 (L571-580)에서는 `fallbackOk` 리턴값을 확인하여 `false` 인 경우 `continue` 를 통해 빈 슬라이드를 덱에서 안전하게 제외시킵니다.
 
 ### 8.2 결함 데이터 마스킹
-
 **파일**: `data-binder.ts`
 
 | 원본 | 치환 |
 |---|---|
-| `NaN` | `[확인 필요]` |
-| `undefined` | `[확인 필요]` |
-| `null` | `[확인 필요]` |
-| `[object Object]` | `[확인 필요]` |
-| `[인명 비공개]` | 제거 |
-| `[연락처 비공개]` | 제거 |
+| `NaN` / `undefined` / `null` / `[object Object]` | `[확인 필요]` |
+| `[인명 비공개]` / `[연락처 비공개]` | 제거 |
 
 ### 8.3 데이터 완전성 게이트
-
 **파일**: PPTX API `route.ts`
-
 - `dataCompleteness.pptxExportAllowed === false` → Pro 요청 즉시 거부 (422)
-- 건축물대장/공공데이터 필수 확보 검증
 
 ---
 
 ## 9. CRE 규칙 적용
 
-### 9.1 페르소나 격리 (PPTX 전용)
+### 9.1 페르소나 격리 확장 (PPTX 전용)
+**파일**: `data-binder.ts` — L1328-1331
 
-**파일**: `data-binder.ts` — `sanitizePersona`
-
-정규식으로 PPTX 헤더/타이틀/본문에서 타겟 페르소나 표현을 동적 제거:
-```regex
-/(?:60대|50대|40대|30대)\s*(?:자산가|투자자|대표)/gu
-/(?:VIP|HNW)\s*(?:투자자|고객)/gu
-/(?:법인\s*대표)\s*(?:맞춤|전용)/gu
-```
-
-**검증**: `src/tests/e2e/p0-pii-persona-scrub.test.ts`에서 포괄적으로 테스트
+> [!NOTE]
+> 페르소나 매칭 정규식이 대폭 확장되었습니다. 
+> `70대|60대|50대|40대|30대|20대|MZ|초보|고액|고자산|법인|개인|VIP|기관|리츠|시행사|디벨로퍼|부부|은퇴`  
+> Target nouns: `자산가|투자자|법인대표|대표|고객|매수자|운용사|펀드|가족`  
+> NEW Catch-all: `/(?:[가-힣]+(?:자|가|인|사)\s+(?:맞춤|전용|추천|적합)\s*(?:형|용)?)\s*/gu`
 
 ### 9.2 CRE 표준 용어 (PPTX 전용)
+**파일**: `data-binder.ts` L1346-1358 ( `CRE_LEXICON_REPLACEMENTS` )
 
-**파일**: `data-binder.ts` — `stripMarkdown`, [`basis-enforcer.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/basis-enforcer.ts)
-
-- `네이밍 라이츠` → `사옥 단독 명칭 표기(간판 설치권)`
-- Cap Rate 라벨 → `enforceCapRateLabel`로 `NOI Cap Rate` 정규화
-- GOP vs NOI 존재 여부 검증 → 오도성 데이터 방지
+| 원본 패턴 (RegExp) | 대체 문자열 (Replacement) |
+|---|---|
+| `네이밍 라이츠` | `사옥 단독 명칭 표기(간판 설치권)` |
+| `브랜딩 라이츠` | `기업 단독 브랜딩` |
+| `테넌트 인센티브` | `인테리어 지원금(TI)` |
+| `프리렌트` | `렌트프리(무상임대)` |
+| `렌트프리` | `렌트프리(무상임대)` |
+| `리커버리 레이트` | `비용 회수율` |
+| `캡 레이트` | `연 순수익률(Cap Rate)` |
+| `LTV` | `담보인정비율(LTV)` |
+| `DSR` | `총부채원리금상환비율(DSR)` |
+| `NOI` | `순영업소득(NOI)` |
+| `WALE` | `가중평균 잔여임대기간(WALE)` |
 
 ### 9.3 출처 뱃지 (9종)
-
 **파일**: `imlib.ts`, `a10-closing.ts`
 
 | 뱃지 | 의미 |
@@ -332,98 +297,54 @@ characters_per_line = 0.19 × (10 / fontSize) inches
 
 **디렉터리**: `src/tests/e2e/`
 
-### 10.1 테스트 케이스 (6종)
-
-| # | 물건 | 포스처 | 아키타입 |
-|:---:|---|---|---|
-| 1 | 서초 의료타워 | `income` | R-INC-01 (안정 수익 표준) |
-| 2 | 성수 IT밸리 | `owner_occupied` | 사옥형 표준 |
-| 3 | 역삼 테헤란 개발부지 | `development` | 개발형 표준 |
-| 4 | 신사 가로수길 밸류애드 | `trading` | 밸류애드 엣지 |
-| 5 | 이천 물류허브 | `operating` | 운영형 표준 |
-| 6 | 용산 구옥 혼합용도 | `trading` | 엣지 케이스 |
-
-### 10.2 검증 파이프라인
+### 10.1 검증 파이프라인
 
 ```
 [1] PPTX Binary 생성
     │
     ▼
 [2] OpenXML 구조적 무결성 검사 (AdmZip)
-    │  • ppt/slides/slide*.xml 추출
     │  • 런타임 토큰 탐지: >NaN<, >undefined<, >null<, [object Object]
-    │  • 마크다운 찌꺼기: **bold**, ## heading, > quote, - bullet
-    │  • 괄호 균형 검사 (bracket balance)
-    │  • 비공개 플레이스홀더 잔존: [인명 비공개], [연락처 비공개]
-    │  • 부적절 이모지 / 깨진 variation selector
+    │  • 비공개 플레이스홀더 잔존 확인
     ▼
-[3] 150 DPI 고해상도 PNG 캡처
-    │  • LibreOffice + PyMuPDF 기반
+[3] 150 DPI 고해상도 PNG 캡처 (LibreOffice + PyMuPDF)
+    │
     ▼
 [4] 자동화 스코어카드 (e2e-ai-inspector.ts)
-    │  • 커버 슬라이드 존재 검증
-    │  • 메트릭 포매팅 검증 ([\d%])
-    │  • 입지/리스크/논거 섹션 존재 확인
-    │  • 빈 슬라이드 감지
-    │  • 포스처별 기대 슬라이드 수 범위 검증 (3~10장)
-    │  • 팩트 환각 검증 (미검증 WALE, 가공 대출금액 등)
+    │  • 커버 슬라이드 존재 검증, 팩트 환각 검증
     ▼
 [5] HTML 스코어카드 출력 (ai_visual_e2e_report.html)
 ```
-
-### 10.3 추가 테스트 매트릭스
-
-| 테스트 | 검증 범위 |
-|---|---|
-| `p0-pii-persona-scrub.test.ts` | PII 및 페르소나 누출 방지 |
-| `p2-accessibility.test.ts` | 접근성 경계 검증 |
-| `p2-cross-platform.test.ts` | 크로스 플랫폼 호환성 |
 
 ---
 
 ## 11. API 라우트 & 배포
 
 ### 11.1 PPTX 다운로드 라우트
-
 **파일**: `src/app/api/public/im-lite/[buildingId]/pptx/route.ts`
 
-| 항목 | 사양 |
-|---|---|
-| **메서드** | `GET` |
-| **인증** | 공개 (Rate Limit 적용) |
-| **Rate Limit** | IP당 10회/시간 |
-| **응답 방식** | Supabase `Exports` 버킷에 업로드 → 임시 Signed URL (302 리다이렉트) |
-| **직접 다운로드 폴백** | 버퍼 직접 반환 + 커스텀 헤더(`X-Slide-Count`, `X-File-Size`, `X-Warnings`) |
-
-### 11.2 Pro 티어 PPTX
-
-**파일**: `src/app/api/public/im-pro/[grantId]/pptx/route.ts`
-
-- `grantId` 기반 인증
-- 데이터 완전성 게이트 추가 적용
+- **Rate Limit**: IP당 10회/시간
+- Supabase `Exports` 버킷에 업로드 → 임시 Signed URL (302 리다이렉트)
+- 다운로드 폴백: 버퍼 직접 반환 + 커스텀 헤더(`X-Slide-Count`, `X-Warnings`)
 
 ---
 
 ## 12. 약점 및 우려 사항 종합
 
-### 🔴 Critical
+### ✅ RESOLVED ISSUES (Commit: `7f9f468`)
 
-| ID | 제목 | 위치 | 설명 |
-|---|---|---|---|
-| **W-PPTX-1** | A03 폴백 차단 후 슬라이드 처리 불명확 | `pptx-renderer.ts` L43-221 | 대형 테이블 렌더링 실패 시 BL-5 BLOCK 발생하나, 해당 슬라이드가 빈 상태로 남는지 제거되는지 코드 경로 불분명 |
+| ID | 기존 등급 | 해결 내역 및 반영 위치 |
+|---|---|---|
+| **W-PPTX-1** | Critical | **A03 Fallback 차단 후 슬라이드 처리 명확화**<br>`pptx-renderer.ts` L43, L76, L571-580: `addFallbackContent` 리턴 타입을 `boolean`으로 변경하고, A03 BLOCK 시 `return false` 처리. 메인 루프에서 `fallbackOk === false`일 경우 슬라이드 덱에 푸시하지 않고 `continue` 하도록 수정되었습니다. |
+| **W-PPTX-2** | High | **Fallback Bounding Box 오버플로 방지**<br>`pptx-renderer.ts` L139-145: 테이블 높이가 `maxY` 초과 시 최대 행(Row)을 계산(`maxRows`)하여 데이터를 자르고(splice) 높이를 재계산하도록 로직이 추가되었습니다. |
+| **W-PPTX-3** | High | **텍스트 절삭(Truncation) 시 메타데이터 로깅**<br>`text-budget.ts` L72-91, 93-104: 새로운 `TextBudgetResult`를 도입하는 `enforceTextBudgetWithMeta` 함수가 추가되어, 절삭 시 `console.warn`을 방출하여 경고 정보를 유실하지 않습니다. |
+| **W-PPTX-4** | High | **페르소나 정규식 커버리지 대폭 확장**<br>`data-binder.ts` L1328-1331: MZ, 기관, 디벨로퍼, 시니어 등의 연령층/타겟과 "맞춤형", "추천" 등의 포괄적 Catch-all 정규식을 추가하여 LLM의 미등록 변형도 모두 필터링합니다. |
+| **W-PPTX-5** | Medium | **CRE Lexicon Extensibility 확보**<br>`data-binder.ts` L1346-1358: 11개 항목을 갖춘 `CRE_LEXICON_REPLACEMENTS` 상수로 분리하여, 새로운 외래어 및 오용 어휘를 일괄 치환(Iterative Replace)합니다. |
+| **W-PPTX-6** | Medium | **갤러리 슬라이드 빈 프레임 렌더링 수정**<br>`gallery-planner.ts` L81-83, `a14-gallery.ts` L55-60: 사진이 없을 경우 빈 배열을 반환하고 렌더러에 `{ suppress: true }`를 전달하여 빈 갤러리 슬라이드가 렌더링되지 않도록 조치되었습니다. |
+| **W-PPTX-7** | Medium | **슬라이드 하드 리밋(Hard Limit) 적용**<br>`deck-sequencer.ts` L227, 242-246: `PAGE_HARD_LIMIT = 20` 상수를 도입하여, 최대 허용치를 초과하는 슬라이드를 강제로 트림하고 로깅(`console.error`)합니다. |
 
-### 🟡 High
+### 🔵 REMAINING CONCERNS (Low)
 
-| ID | 제목 | 위치 | 설명 |
-|---|---|---|---|
-| **W-PPTX-2** | 폴백 콘텐츠의 바운딩 박스 오버플로 | `pptx-renderer.ts` addFallbackContent | 아키타입 간격 규칙을 우회하므로, 비정상적으로 긴 LLM 출력 시 안전 영역 초과 가능 |
-| **W-PPTX-3** | 텍스트 절삭으로 인한 정보 손실 | `text-budget.ts` enforceTextBudget | 중요 정보가 문장 끝에 있을 경우 `...`으로 잘려 브로커가 인지하지 못할 위험 |
-| **W-PPTX-4** | 페르소나 정규식 커버리지 한계 | `data-binder.ts` sanitizePersona | LLM이 미등록 변형("고자산 은퇴자용", "MZ 투자자 맞춤")을 생성하면 정규식 미포착 → 페르소나 태그 누출 |
-
-### 🟢 Medium
-
-| ID | 제목 | 위치 | 설명 |
-|---|---|---|---|
-| **W-PPTX-5** | CRE 용어 정규식 기반의 한계 | `data-binder.ts` stripMarkdown | 새로운 외래어 오용(예: "테넌트 인센티브") 등록이 수동적 |
-| **W-PPTX-6** | 갤러리 슬라이드 사진 부재 시 빈 슬라이드 | `gallery-planner.ts` | 사진이 0장이면 A14 갤러리가 빈 프레임으로 렌더링될 수 있음 |
-| **W-PPTX-7** | 슬라이드 수 하드리밋 없음 | `deck-sequencer.ts` | 극단적인 데이터 조합에서 16장 권장치를 초과할 이론적 가능성 |
+| ID | 제목 | 설명 |
+|---|---|---|
+| **L-PPTX-1** | PDF Export 시 일부 레이아웃 시프트 | 13.333" × 7.5" 와이드 비율을 PDF로 내보낼 때 일부 환경에서 텍스트 상자 패딩이 근소하게 시프트될 가능성 존재 (지속 모니터링 필요). |
