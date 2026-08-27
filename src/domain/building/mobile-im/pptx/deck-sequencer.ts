@@ -22,6 +22,8 @@ export interface SlideSpec {
   title: string;
   dataKey: string;
   suppress?: boolean;
+  /** D33 M-E: 이 슬라이드 렌더 전 반드시 채워져 있어야 할 데이터 키 목록 */
+  requiredKeys?: string[];
 }
 
 /** V-World / 공공 API 데이터 가용성 — 동적 면 추가 판단용 */

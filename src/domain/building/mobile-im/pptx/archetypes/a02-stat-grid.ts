@@ -150,6 +150,12 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     keyPoints.push(...bullets);
   }
 
+  // D33 M-D G43: highlights ↔ 제원 중복 방지 — 제원 텍스트 필터링
+  const SPEC_TERMS = /^(대지면적|연면적|건축규모|용적률|건폐율|지상|지하|총\s*층수|주차|승강기|엘리베이터)\s*[:：]/;
+  const filteredKP = keyPoints.filter(pt => !SPEC_TERMS.test(pt.trim()));
+  keyPoints.length = 0;
+  keyPoints.push(...filteredKP);
+
   // 기본 폴백 3대 투자 포인트
   if (keyPoints.length === 0) {
     keyPoints.push(

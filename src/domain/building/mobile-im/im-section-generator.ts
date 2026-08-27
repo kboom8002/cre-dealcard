@@ -447,8 +447,8 @@ export async function generateSingleSection(
   const riskCheck = runRiskBoundaryCheck(markdown, sectionType);
   if (riskCheck.safe_text) markdown = riskCheck.safe_text;
 
-  // CRE Quality Gate (Fast mode 스킵)
-  if (generatedByAi && !IM_FAST_MODE) {
+  // CRE Quality Gate (Fast mode 스킵) — D33 M-H: 정적 합성 문구에도 적용
+  if (!IM_FAST_MODE) {
     try {
       const gateResult = await runCREQualityGate(markdown, sectionType);
       if (!gateResult.passed && gateResult.riskLevel === "high") {

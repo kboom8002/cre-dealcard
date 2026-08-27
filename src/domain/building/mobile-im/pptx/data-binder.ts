@@ -744,7 +744,7 @@ function buildA07Props(tables: ParsedTable[], lines: string[]): Record<string, a
     for (const line of lines) {
       if (line.startsWith('###')) {
         if (currentHeader && currentBullets.length > 0) {
-          const badge = defaultStatusBadges[blocks.length] || '실사 적격';
+          const badge = defaultStatusBadges[blocks.length] || '';
           blocks.push({
             label: currentHeader,
             value: badge,
@@ -759,7 +759,7 @@ function buildA07Props(tables: ParsedTable[], lines: string[]): Record<string, a
       }
     }
     if (currentHeader && currentBullets.length > 0 && blocks.length < MAX_BLOCKS) {
-      const badge = defaultStatusBadges[blocks.length] || '실사 적격';
+      const badge = defaultStatusBadges[blocks.length] || '';
       blocks.push({
         label: currentHeader,
         value: badge,
