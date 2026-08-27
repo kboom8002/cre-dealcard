@@ -224,12 +224,11 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   if (active.length > PAGE_RECOMMENDED) {
     // 마감·리스크·체크리스트는 절삭 방지
     const protectedKeys = new Set(['cover', 'summary', 'closing', 'risk', 'checklist', 'process', 'thesis', 'titleRights']);
-    const protectedSlides = active.filter(s => protectedKeys.has(s.dataKey));
     const optionalSlides = active.filter(s => !protectedKeys.has(s.dataKey));
-    const budget = PAGE_RECOMMENDED - protectedSlides.length;
-    const trimmed = optionalSlides.slice(0, budget);
+    const budget = PAGE_RECOMMENDED - (active.length - optionalSlides.length);
+    const removedSet = new Set(optionalSlides.slice(budget).map(s => s.dataKey));
     console.warn(`[deck-sequencer] goldilocks: ${active.length}면 → ${PAGE_RECOMMENDED}면으로 절삭`);
-    finalSlides = [...trimmed, ...protectedSlides];
+    finalSlides = active.filter(s => !removedSet.has(s.dataKey));
   }
 
   // W-PPTX-7: 절대 상한 하드 리밋

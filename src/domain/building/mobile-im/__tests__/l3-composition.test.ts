@@ -8,29 +8,29 @@ describe('L3: Composition & Deck Sequencing (32 cases)', () => {
     const postures = ['income', 'development', 'owner_occupied', 'operating', 'trading'] as const;
 
     postures.forEach(posture => {
-      it(`L3-L02-01: ${posture} / basic / B grade yields 5~14 slides`, () => {
-        const seq = buildDeckSequence({ posture, tier: 'basic', grade: 'B' });
-        expect(seq.length).toBeGreaterThanOrEqual(5);
-        expect(seq.length).toBeLessThanOrEqual(14);
+      it(`L3-L02-01: ${posture} / B grade yields 10~20 slides (goldilocks)`, () => {
+        const seq = buildDeckSequence({ posture, grade: 'B' });
+        expect(seq.length).toBeGreaterThanOrEqual(10);
+        expect(seq.length).toBeLessThanOrEqual(20);
         expect(seq[0].archetype).toBe('A01');
       });
 
-      it(`L3-L02-02: ${posture} / pro / B grade yields 7~24 slides`, () => {
-        const seq = buildDeckSequence({ posture, tier: 'pro', grade: 'B' });
-        expect(seq.length).toBeGreaterThanOrEqual(7);
-        expect(seq.length).toBeLessThanOrEqual(24);
+      it(`L3-L02-02: ${posture} / A grade yields 12~20 slides (goldilocks)`, () => {
+        const seq = buildDeckSequence({ posture, grade: 'A' });
+        expect(seq.length).toBeGreaterThanOrEqual(12);
+        expect(seq.length).toBeLessThanOrEqual(20);
       });
     });
 
     it('L3-L02-09: D grade throws error blocking publication', () => {
-      expect(() => buildDeckSequence({ posture: 'income', tier: 'basic', grade: 'D' })).toThrow(/D등급은 발행할 수 없습니다/);
-      expect(() => buildDeckSequence({ posture: 'development', tier: 'pro', grade: 'D' })).toThrow(/D등급은 발행할 수 없습니다/);
+      expect(() => buildDeckSequence({ posture: 'income', grade: 'D' })).toThrow(/D등급은 발행할 수 없습니다/);
+      expect(() => buildDeckSequence({ posture: 'development', grade: 'D' })).toThrow(/D등급은 발행할 수 없습니다/);
     });
 
     it('L3-L02-03: R-INC-04 includes rent normalization archetype in pro income sequence', () => {
       const seq = buildDeckSequence({
         posture: 'income',
-        tier: 'pro',
+        tier: 'pro', // deprecated — 골디락스에서 무시됨
         grade: 'A',
         incomeArchetype: 'R-INC-04',
       });
@@ -41,7 +41,7 @@ describe('L3: Composition & Deck Sequencing (32 cases)', () => {
     it('L3-L02-04: R-INC-02 includes value-add archetype in pro income sequence', () => {
       const seq = buildDeckSequence({
         posture: 'income',
-        tier: 'pro',
+        tier: 'pro', // deprecated — 골디락스에서 무시됨
         grade: 'A',
         incomeArchetype: 'R-INC-02',
       });

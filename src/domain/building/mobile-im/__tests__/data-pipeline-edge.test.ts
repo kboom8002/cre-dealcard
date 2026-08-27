@@ -33,9 +33,9 @@ describe('Data Pipeline Edge Cases', () => {
     });
 
     it('A05: Korean title only -> Korean fallback key', () => {
-      const doc = { body: {}, sections: [{ title: '임대 현황', markdown: 'text' }] };
+      const doc = { body: {}, sections: [{ title: '?��? ?�황', markdown: 'text' }] };
       const result = bindSectionData(doc);
-      expect(result).toHaveProperty('임대_현황');
+      expect(result).toHaveProperty('?��?_?�황');
     });
 
     it('A06: property_overview generates derived summary', () => {
@@ -102,39 +102,39 @@ describe('Data Pipeline Edge Cases', () => {
       expect(result.building?.tables?.[0]?.rows?.length).toBe(100);
     });
 
-    it('A16: Metric extraction - Money: "50억" -> metrics.money', () => {
-      const doc = { body: {}, sections: [{ title: 'M', markdown: '매매가: 50억', section_type: 'property_overview' }] };
+    it('A16: Metric extraction - Money: "50?? -> metrics.money', () => {
+      const doc = { body: {}, sections: [{ title: 'M', markdown: '매매가: 50??, section_type: 'property_overview' }] };
       const result = bindSectionData(doc);
-      expect(result.building?.metrics?.money).toBe('50억');
+      expect(result.building?.metrics?.money).toBe('50??);
     });
 
-    it('A17: Metric extraction - Area: "2,032㎡" -> metrics.area', () => {
-      const doc = { body: {}, sections: [{ title: 'M', markdown: '면적 2,032㎡', section_type: 'property_overview' }] };
+    it('A17: Metric extraction - Area: "2,032?? -> metrics.area', () => {
+      const doc = { body: {}, sections: [{ title: 'M', markdown: '면적 2,032??, section_type: 'property_overview' }] };
       const result = bindSectionData(doc);
-      expect(result.building?.metrics?.area).toBe('2,032㎡');
+      expect(result.building?.metrics?.area).toBe('2,032??);
     });
 
     it('A18: Metric extraction - Ratio: "3.5%" -> metrics.ratio', () => {
-      const doc = { body: {}, sections: [{ title: 'M', markdown: '수익률 3.5%', section_type: 'property_overview' }] };
+      const doc = { body: {}, sections: [{ title: 'M', markdown: '?�익�?3.5%', section_type: 'property_overview' }] };
       const result = bindSectionData(doc);
       expect(result.building?.metrics?.ratio).toBe('3.5%');
     });
 
     it('A19: Metric extraction - No numbers -> empty metrics', () => {
-      const doc = { body: {}, sections: [{ title: 'M', markdown: '내용만 있음', section_type: 'property_overview' }] };
+      const doc = { body: {}, sections: [{ title: 'M', markdown: '?�용�??�음', section_type: 'property_overview' }] };
       const result = bindSectionData(doc);
       expect(Object.keys(result.building?.metrics ?? {})).toHaveLength(0);
     });
 
     it('A20: Metric extraction - Multiple same-type -> first only', () => {
-      const doc = { body: {}, sections: [{ title: 'M', markdown: '10억 그리고 20억', section_type: 'property_overview' }] };
+      const doc = { body: {}, sections: [{ title: 'M', markdown: '10??그리�?20??, section_type: 'property_overview' }] };
       const result = bindSectionData(doc);
-      expect(result.building?.metrics?.money).toBe('10억');
+      expect(result.building?.metrics?.money).toBe('10??);
     });
 
-    it('A21: Heading removal: "## 제목" -> "제목"', () => {
-      expect(stripMarkdown('## 제목')).not.toContain('##');
-      expect(stripMarkdown('## 제목')).toContain('제목');
+    it('A21: Heading removal: "## ?�목" -> "?�목"', () => {
+      expect(stripMarkdown('## ?�목')).not.toContain('##');
+      expect(stripMarkdown('## ?�목')).toContain('?�목');
     });
 
     it('A22: Bold removal: "**볼드**" -> "볼드"', () => {
@@ -142,8 +142,8 @@ describe('Data Pipeline Edge Cases', () => {
     });
 
     it('A23: Script tag removal (XSS defense)', () => {
-      const res = stripMarkdown("<script>alert('xss')</script>텍스트");
-      expect(res).toContain('텍스트');
+      const res = stripMarkdown("<script>alert('xss')</script>?�스??);
+      expect(res).toContain('?�스??);
       expect(res).not.toContain('<script>');
       expect(res).not.toContain('</script>');
     });
@@ -154,8 +154,8 @@ describe('Data Pipeline Edge Cases', () => {
     });
 
     it('A25: System message removal - blockquote pattern', () => {
-      const text = stripMarkdown('> 🔍 **건축물대장 조회 미완료** — 공공데이터 API 응답을 받지 못했습니다.');
-      expect(text).not.toContain('건축물대장 조회 미완료');
+      const text = stripMarkdown('> ?�� **건축물�???조회 미완�?* ??공공?�이??API ?�답??받�? 못했?�니??');
+      expect(text).not.toContain('건축물�???조회 미완�?);
     });
   });
 
@@ -163,41 +163,41 @@ describe('Data Pipeline Edge Cases', () => {
     const postures = ['income', 'development', 'owner_occupied', 'operating', 'trading'] as const;
     
     postures.forEach((posture, idx) => {
-      it(`B0${idx * 2 + 1}: ${posture}/basic/B: 5-14 slides`, () => {
-        const slides = buildDeckSequence({ posture, tier: 'basic', grade: 'B' });
-        expect(slides.length).toBeGreaterThanOrEqual(5);
-        expect(slides.length).toBeLessThanOrEqual(14);
+      it(`B0${idx * 2 + 1}: ${posture}/B: 10-20 slides (goldilocks)`, () => {
+        const slides = buildDeckSequence({ posture, grade: 'B' });
+        expect(slides.length).toBeGreaterThanOrEqual(10);
+        expect(slides.length).toBeLessThanOrEqual(20);
       });
       const bnum = idx * 2 + 2;
-      it(`B${bnum < 10 ? '0' + bnum : bnum}: ${posture}/pro/B: 8-24 slides`, () => {
-        const slides = buildDeckSequence({ posture, tier: 'pro', grade: 'B' });
-        expect(slides.length).toBeGreaterThanOrEqual(8);
-        expect(slides.length).toBeLessThanOrEqual(24);
+      it(`B${bnum < 10 ? '0' + bnum : bnum}: ${posture}/A: 12-20 slides (goldilocks)`, () => {
+        const slides = buildDeckSequence({ posture, grade: 'A' });
+        expect(slides.length).toBeGreaterThanOrEqual(12);
+        expect(slides.length).toBeLessThanOrEqual(20);
       });
     });
 
     it('B11: D grade + pro -> throws (발행 차단)', () => {
-      expect(() => buildDeckSequence({ posture: 'income', tier: 'pro', grade: 'D' }))
+      expect(() => buildDeckSequence({ posture: 'income', grade: 'D' }))
         .toThrow('[G30]');
     });
 
     it('B12: D grade + basic -> throws (발행 차단)', () => {
-      expect(() => buildDeckSequence({ posture: 'income', tier: 'basic', grade: 'D' }))
+      expect(() => buildDeckSequence({ posture: 'income', grade: 'D' }))
         .toThrow('[G30]');
     });
 
     it('B13: hasPhotos=true -> A14 in sequence', () => {
-      const slides = buildDeckSequence({ posture: 'income', tier: 'basic', grade: 'A', hasPhotos: true });
+      const slides = buildDeckSequence({ posture: 'income', grade: 'A', hasPhotos: true });
       expect(slides.some(s => s.archetype === 'A14' || s.dataKey === 'gallery')).toBe(true);
     });
 
     it('B14: hasPhotos=false -> no A14', () => {
-      const slides = buildDeckSequence({ posture: 'income', tier: 'basic', grade: 'A', hasPhotos: false });
+      const slides = buildDeckSequence({ posture: 'income', grade: 'A', hasPhotos: false });
       expect(slides.some(s => s.archetype === 'A14' || s.dataKey === 'gallery')).toBe(false);
     });
 
     it('B15: Grade A + pro -> contains dcf-related slides', () => {
-      const slides = buildDeckSequence({ posture: 'income', tier: 'pro', grade: 'A' });
+      const slides = buildDeckSequence({ posture: 'income', grade: 'A' });
       const hasDcf = slides.some(s => s.dataKey.toLowerCase().includes('dcf') || s.archetype.includes('dcf'));
       // Note: we just check that the function executes without error if we don't know exact keys, 
       // but let's assert what the requirements say.
@@ -205,19 +205,19 @@ describe('Data Pipeline Edge Cases', () => {
     });
 
     it('B16: Grade B + pro -> dcf slides suppressed', () => {
-      const slides = buildDeckSequence({ posture: 'income', tier: 'pro', grade: 'B' });
+      const slides = buildDeckSequence({ posture: 'income', grade: 'B' });
       const hasDcf = slides.some(s => s.dataKey.toLowerCase().includes('dcf') || s.archetype.includes('dcf'));
       expect(hasDcf).toBe(false);
     });
 
     it('B17: Grade C + pro -> additional suppression', () => {
-      const slides = buildDeckSequence({ posture: 'income', tier: 'pro', grade: 'C' });
+      const slides = buildDeckSequence({ posture: 'income', grade: 'C' });
       const hasTotalReturn = slides.some(s => s.dataKey.toLowerCase().includes('totalreturn'));
       expect(hasTotalReturn).toBe(false);
     });
 
     it('B18: All slides have archetype and dataKey', () => {
-      const slides = buildDeckSequence({ posture: 'income', tier: 'pro', grade: 'A' });
+      const slides = buildDeckSequence({ posture: 'income', grade: 'A' });
       slides.forEach(s => {
         expect(s).toHaveProperty('archetype');
         expect(s).toHaveProperty('dataKey');
@@ -225,7 +225,7 @@ describe('Data Pipeline Edge Cases', () => {
     });
 
     it('B19: Cover (first) and closing (last) slide presence', () => {
-      const slides = buildDeckSequence({ posture: 'income', tier: 'pro', grade: 'A' });
+      const slides = buildDeckSequence({ posture: 'income', grade: 'A' });
       if (slides.length > 0) {
         expect(slides[0].archetype).toBeDefined();
         expect(slides[slides.length - 1].archetype).toBeDefined();
@@ -233,12 +233,12 @@ describe('Data Pipeline Edge Cases', () => {
     });
 
     it('B20: Max 24 slides enforced', () => {
-      const slides = buildDeckSequence({ posture: 'income', tier: 'pro', grade: 'A' });
+      const slides = buildDeckSequence({ posture: 'income', grade: 'A' });
       expect(slides.length).toBeLessThanOrEqual(24);
     });
 
     it('B21: income basic includes profit slide for income analysis parity', () => {
-      const slides = buildDeckSequence({ posture: 'income', tier: 'basic', grade: 'A' });
+      const slides = buildDeckSequence({ posture: 'income', grade: 'A' });
       const hasProfit = slides.some(s => s.dataKey === 'profit');
       expect(hasProfit).toBe(true);
     });
@@ -246,7 +246,7 @@ describe('Data Pipeline Edge Cases', () => {
     it('B22: all postures basic include thesis and process slides', () => {
       const postures = ['income', 'owner_occupied', 'development', 'operating', 'trading'] as const;
       for (const posture of postures) {
-        const slides = buildDeckSequence({ posture, tier: 'basic', grade: 'A' });
+        const slides = buildDeckSequence({ posture, grade: 'A' });
         const hasThesis = slides.some(s => s.dataKey === 'thesis');
         const hasProcess = slides.some(s => s.dataKey === 'process');
         expect(hasThesis).toBe(true);
@@ -254,15 +254,17 @@ describe('Data Pipeline Edge Cases', () => {
       }
     });
 
-    it('B23: basic closing order is risk → thesis → process → closing', () => {
-      const slides = buildDeckSequence({ posture: 'income', tier: 'basic', grade: 'A' });
+    it('B23: goldilocks closing order is thesis ??risk ??checklist ??process ??closing', () => {
+      const slides = buildDeckSequence({ posture: 'income', grade: 'A' });
       const keys = slides.map(s => s.dataKey);
-      const riskIdx = keys.indexOf('risk');
       const thesisIdx = keys.indexOf('thesis');
+      const riskIdx = keys.indexOf('risk');
+      const checklistIdx = keys.indexOf('checklist');
       const processIdx = keys.indexOf('process');
       const closingIdx = keys.indexOf('closing');
-      expect(riskIdx).toBeLessThan(thesisIdx);
-      expect(thesisIdx).toBeLessThan(processIdx);
+      expect(thesisIdx).toBeLessThan(riskIdx);
+      expect(riskIdx).toBeLessThan(checklistIdx);
+      expect(checklistIdx).toBeLessThan(processIdx);
       expect(processIdx).toBeLessThan(closingIdx);
     });
   });
@@ -350,48 +352,48 @@ describe('Data Pipeline Edge Cases', () => {
 
   describe('E. Narrative prompt constraints (via stripMarkdown)', () => {
     it('E01: publicDataNote logic - strips SSoT markers', () => {
-      expect(stripMarkdown('정보 (BSSoT Lite) 확인')).not.toContain('BSSoT');
+      expect(stripMarkdown('?�보 (BSSoT Lite) ?�인')).not.toContain('BSSoT');
     });
 
-    it('E02: publicDataNote logic - strips (기재 공란)', () => {
-      expect(stripMarkdown('항목 (기재 공란)')).not.toContain('기재 공란');
+    it('E02: publicDataNote logic - strips (기재 공�?)', () => {
+      expect(stripMarkdown('??�� (기재 공�?)')).not.toContain('기재 공�?');
     });
 
-    it('E03: publicDataNote logic - strips hedging phrase pattern (으로 추정)', () => {
-      expect(stripMarkdown('상업시설로 추정되는 건물')).not.toContain('추정');
+    it('E03: publicDataNote logic - strips hedging phrase pattern (?�로 추정)', () => {
+      expect(stripMarkdown('?�업?�설�?추정?�는 건물')).not.toContain('추정');
     });
 
-    it('E04: publicDataNote logic - strips hedging phrase pattern (일 가능성)', () => {
-      expect(stripMarkdown('개발일 가능성이 있음')).not.toContain('가능성');
+    it('E04: publicDataNote logic - strips hedging phrase pattern (??가?�성)', () => {
+      expect(stripMarkdown('개발??가?�성???�음')).not.toContain('가?�성');
     });
 
     it('E05: publicDataNote logic - strips hedging phrases (보임)', () => {
-      expect(stripMarkdown('안정적으로 보임')).not.toContain('보임');
+      expect(stripMarkdown('?�정?�으�?보임')).not.toContain('보임');
     });
 
-    it('E06: V3 warning messages - strips emojis 🏢', () => {
-      expect(stripMarkdown('🏢 빌딩')).not.toContain('🏢');
+    it('E06: V3 warning messages - strips emojis ?��', () => {
+      expect(stripMarkdown('?�� 빌딩')).not.toContain('?��');
     });
 
-    it('E07: V3 warning messages - strips emojis 📍📊', () => {
-      expect(stripMarkdown('📍 위치 📊 데이터')).not.toContain('📍');
-      expect(stripMarkdown('📍 위치 📊 데이터')).not.toContain('📊');
+    it('E07: V3 warning messages - strips emojis ?��?��', () => {
+      expect(stripMarkdown('?�� ?�치 ?�� ?�이??)).not.toContain('?��');
+      expect(stripMarkdown('?�� ?�치 ?�� ?�이??)).not.toContain('?��');
     });
 
-    it('E08: V3 warning messages - strips emojis 💰⚠️', () => {
-      expect(stripMarkdown('💰 가격 ⚠️ 주의')).not.toContain('💰');
-      expect(stripMarkdown('💰 가격 ⚠️ 주의')).not.toContain('⚠️');
+    it('E08: V3 warning messages - strips emojis ?��?�️', () => {
+      expect(stripMarkdown('?�� 가�??�️ 주의')).not.toContain('?��');
+      expect(stripMarkdown('?�� 가�??�️ 주의')).not.toContain('?�️');
     });
 
-    it('E09: V3 warning messages - strips emojis 🎯📋', () => {
-      expect(stripMarkdown('🎯 목표 📋 목록')).not.toContain('🎯');
-      expect(stripMarkdown('🎯 목표 📋 목록')).not.toContain('📋');
+    it('E09: V3 warning messages - strips emojis ?��?��', () => {
+      expect(stripMarkdown('?�� 목표 ?�� 목록')).not.toContain('?��');
+      expect(stripMarkdown('?�� 목표 ?�� 목록')).not.toContain('?��');
     });
 
-    it('E10: V3 warning messages - strips emojis ✨🚇✓★▲●◇', () => {
-      const stripped = stripMarkdown('✨🚇✓▲●◇ 텍스트');
-      expect(stripped).toContain('텍스트');
-      expect(stripped).not.toMatch(/[✨🚇✓▲●◇]/);
+    it('E10: V3 warning messages - strips emojis ?�🚇✓?�▲?�◇', () => {
+      const stripped = stripMarkdown('?�🚇✓?�●???�스??);
+      expect(stripped).toContain('?�스??);
+      expect(stripped).not.toMatch(/[?�🚇✓?�●??/);
     });
   });
 
