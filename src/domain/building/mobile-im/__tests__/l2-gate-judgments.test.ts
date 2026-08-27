@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { runPublishGates, type GateContext } from '@/domain/building/mobile-im/quality-gates-v02';
+import { runPublishGates, PUBLISH_GATES, type GateContext } from '@/domain/building/mobile-im/quality-gates-v02';
 import { ALL_ARCHETYPES, INCOME_ARCHETYPES, DEV_ARCHETYPES, OPERATING_ARCHETYPES, OWNER_OCC_ARCHETYPES, TRADING_ARCHETYPES } from '@/domain/building/mobile-im/archetype-registry';
 import { runRiskBoundaryCheck, runDisclosureGuard } from '@/domain/building/mobile-im/guardrails';
 import { runCREQualityGate } from '@/domain/building/mobile-im/cre-quality-gate';
@@ -234,6 +234,93 @@ describe('L2: Gate & Judgment Logic (43 cases)', () => {
       expect(result.passed).toBe(false);
       expect(result.riskLevel).toBe('high');
       expect(result.issues[0].excerpt).toContain('LLM 검사기 호출 실패');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // D34 §4.3 — T2 케이스 (가장 중요한 단일 케이스 포함)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  describe('D34 T2: Gate Wiring & Judgment (5 cases)', () => {
+
+    /**
+     * T2-GATE-01: 선언된 게이트 중 미연결 0개
+     *
+     * 🔴 "이 하나가 D33 BL-A 전체를 지킵니다."
+     * PUBLISH_GATES에 등록된 모든 게이트가 실제 check 함수를 가지고 있고,
+     * 기본 컨텍스트에서 평가 가능한지 확인합니다.
+     */
+    it('T2-GATE-01: 선언된 게이트 중 미연결 0개 — 모든 게이트가 실행 경로에 연결', () => {
+      const declared = PUBLISH_GATES.map(g => g.id);
+
+      // 모든 게이트가 check 함수를 가지고 있어야 함
+      for (const gate of PUBLISH_GATES) {
+        expect(typeof gate.check).toBe('function');
+      }
+
+      // 기본 컨텍스트로 1회 렌더(게이트 평가) → 전 게이트 결과 수집
+      const ctx = createValidGateContext();
+      const report = runPublishGates(ctx);
+      const evaluated = new Set(report.results.map(r => r.id));
+
+      // 선언된 게이트 중 평가되지 않은 것 = 0
+      const unwired = declared.filter(g => !evaluated.has(g));
+      expect(unwired).toEqual([]);
+
+      // G41~G45가 반드시 포함되어야 함
+      expect(evaluated.has('G41')).toBe(true);
+      expect(evaluated.has('G42')).toBe(true);
+      expect(evaluated.has('G43')).toBe(true);
+      expect(evaluated.has('G44')).toBe(true);
+      expect(evaluated.has('G45')).toBe(true);
+    });
+
+    /**
+     * T2-GATE-02: 게이트 위반 시 block severity는 throw (blocked=true)
+     */
+    it('T2-GATE-02: block severity 게이트 위반 시 blocked=true', () => {
+      // G41 block 게이트 위반
+      const report = runPublishGates(createValidGateContext({
+        vacancyNarrativeContradiction: true,
+      }));
+      expect(report.blocked).toBe(true);
+      expect(report.failedBlocks.length).toBeGreaterThan(0);
+    });
+
+    /**
+     * T2-D-01: D등급 → G04 차단
+     */
+    it('T2-D-01: D등급 → G04 차단 · blocked=true', () => {
+      const report = runPublishGates(createValidGateContext({ dataGrade: 'D' }));
+      expect(report.blocked).toBe(true);
+      expect(report.failedBlocks.map(f => f.id)).toContain('G04');
+    });
+
+    /**
+     * T2-STALE-01: 스테일 코드 사용 0건
+     * C19, QG19, QG21, QG18 등 구버전 게이트 ID가 PUBLISH_GATES에 없어야 함
+     */
+    it('T2-STALE-01: 스테일 코드 사용 0건 — 구버전 게이트 ID 미사용', () => {
+      const staleIds = ['C19', 'QG19', 'QG21', 'QG18', 'QG10', 'QG11_old'];
+      const currentIds = new Set(PUBLISH_GATES.map(g => g.id));
+      for (const stale of staleIds) {
+        expect(currentIds.has(stale)).toBe(false);
+      }
+    });
+
+    /**
+     * T2-GRADE-01: 등급이 L축·P축 두 값으로 산출 (단일 스칼라 금지)
+     * Grade 엔진이 2축을 반환하는지는 grade-engine 단위에서 검증하므로,
+     * 여기서는 PUBLISH_GATES에서 grade가 단일 스칼라로 처리되지 않는지 확인
+     */
+    it('T2-GRADE-01: G04가 dataGrade 문자열로 판정 (엔진 통합은 L3)', () => {
+      // A/B/C는 통과, D만 차단
+      for (const grade of ['A', 'B', 'C']) {
+        const report = runPublishGates(createValidGateContext({ dataGrade: grade }));
+        expect(report.failedBlocks.map(f => f.id)).not.toContain('G04');
+      }
+      const dReport = runPublishGates(createValidGateContext({ dataGrade: 'D' }));
+      expect(dReport.failedBlocks.map(f => f.id)).toContain('G04');
     });
   });
 });

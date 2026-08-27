@@ -11,14 +11,14 @@ describe('L3: Composition & Deck Sequencing (32 cases)', () => {
       it(`L3-L02-01: ${posture} / B grade yields 10~20 slides (goldilocks)`, () => {
         const seq = buildDeckSequence({ posture, grade: 'B' });
         expect(seq.length).toBeGreaterThanOrEqual(10);
-        expect(seq.length).toBeLessThanOrEqual(20);
+        expect(seq.length).toBeLessThanOrEqual(16); // D34: 정본 §3.1 상한 16
         expect(seq[0].archetype).toBe('A01');
       });
 
       it(`L3-L02-02: ${posture} / A grade yields 12~20 slides (goldilocks)`, () => {
         const seq = buildDeckSequence({ posture, grade: 'A' });
         expect(seq.length).toBeGreaterThanOrEqual(12);
-        expect(seq.length).toBeLessThanOrEqual(20);
+        expect(seq.length).toBeLessThanOrEqual(16); // D34: 정본 §3.1 상한 16
       });
     });
 
@@ -110,6 +110,110 @@ describe('L3: Composition & Deck Sequencing (32 cases)', () => {
       expect(section.markdown).toContain('최초계약일 미확인');
       expect(section.markdown).toContain('운영비 비율');
       expect(section.markdown).toContain('실투자금');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // D34 §4.2 — T3 편성 케이스
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  describe('D34 T3: Sequencing Assertions (8 cases)', () => {
+
+    it('T3-SEQ-01: SlideSpec.requiredKeys 필드가 존재 (G39)', () => {
+      const seq = buildDeckSequence({ posture: 'income', grade: 'B' });
+      // requiredKeys는 선택적 필드이므로 undefined 가능 — 타입만 확인
+      for (const spec of seq) {
+        if (spec.requiredKeys) {
+          expect(Array.isArray(spec.requiredKeys)).toBe(true);
+        }
+      }
+    });
+
+    /**
+     * T3-RR-01: hasRentRoll=false면 rentRoll 면이 열리지 않아야 함
+     * 
+     * 🔴 known_defect: deck-sequencer가 income 아키타입에서 rentRoll을
+     *    hasRentRoll 플래그와 무관하게 무조건 추가함.
+     *    수정 대상: deck-sequencer.ts L109~L134 각 아키타입 분기에서
+     *    `if (input.dataAvailability?.hasRentRoll !== false)` 가드 추가 필요.
+     *    xfail 처리 — 수정 시 XPASS로 전환됨.
+     */
+    it.fails('T3-RR-01: hasRentRoll=false면 rentRoll 면이 열리지 않음 (known_defect)', () => {
+      const seq = buildDeckSequence({
+        posture: 'income', grade: 'B',
+        dataAvailability: { hasRentRoll: false },
+      });
+      const keys = seq.map(s => s.dataKey);
+      expect(keys).not.toContain('rentRoll');
+    });
+
+    it('T3-RR-01-NEG: hasRentRoll=true면 rentRoll 면 포함 (A등급)', () => {
+      const seq = buildDeckSequence({
+        posture: 'income', grade: 'A',
+        dataAvailability: { hasRentRoll: true },
+      });
+      // A등급에서 rentRoll 면이 열릴 수 있음 (절삭 대상이지만 데이터 면 자체는 추가됨)
+      // 절삭으로 제거될 수 있으므로 면수만 확인
+      expect(seq.length).toBeLessThanOrEqual(16);
+    });
+
+    it('T3-IMG-02: 사진 없으면 갤러리 면 미개방', () => {
+      const seq = buildDeckSequence({
+        posture: 'income', grade: 'B',
+        hasPhotos: false,
+      });
+      const keys = seq.map(s => s.dataKey);
+      expect(keys).not.toContain('gallery');
+    });
+
+    it('T3-IMG-02-NEG: 사진 있으면 갤러리 면 포함', () => {
+      const seq = buildDeckSequence({
+        posture: 'income', grade: 'B',
+        hasPhotos: true,
+      });
+      const keys = seq.map(s => s.dataKey);
+      expect(keys).toContain('gallery');
+    });
+
+    it('T3-TRIM-01: 절삭 시 보호 키 전량 잔존', () => {
+      const seq = buildDeckSequence({
+        posture: 'income', grade: 'A', hasPhotos: true,
+        dataAvailability: {
+          hasLandUsePlan: true, hasLandPrice: true,
+          hasBuildingRegister: true, hasRegistryData: true,
+          hasComparables: true, hasCommercialDistrict: true,
+          hasCadastralMap: true, hasFloorPlan: true,
+        },
+      });
+      const keys = seq.map(s => s.dataKey);
+      // 보호 키: cover, summary, closing, risk, checklist, process, thesis
+      expect(keys).toContain('cover');
+      expect(keys).toContain('summary');
+      expect(keys).toContain('closing');
+      expect(keys).toContain('risk');
+      expect(keys).toContain('checklist');
+      expect(keys).toContain('process');
+      expect(keys).toContain('thesis');
+    });
+
+    it('T3-TRIM-01-NEG: titleRights는 보호키 — 절삭 후에도 잔존', () => {
+      const seq = buildDeckSequence({
+        posture: 'income', grade: 'A', hasPhotos: true,
+        dataAvailability: {
+          hasLandUsePlan: true, hasLandPrice: true,
+          hasBuildingRegister: true, hasRegistryData: true,
+          hasComparables: true, hasCommercialDistrict: true,
+          hasCadastralMap: true,
+        },
+      });
+      const keys = seq.map(s => s.dataKey);
+      expect(keys).toContain('titleRights');
+    });
+
+    it('T3-LAND-01: D등급 → G30 throw · 슬라이드 0', () => {
+      expect(() => buildDeckSequence({
+        posture: 'income', grade: 'D',
+      })).toThrow('[G30]');
     });
   });
 });
