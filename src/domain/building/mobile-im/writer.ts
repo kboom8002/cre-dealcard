@@ -46,6 +46,7 @@ import { getActiveStagePlan } from "./stage-plans";
 import { StageTimer } from "./stage-timer";
 import { NumericalAnchors } from "./numerical-anchors";
 import { recordGenerationMetric } from "./telemetry";
+import { ClaimRegistry, FinancialCalculator } from "../im-core";
 
 // ─── 메인 생성 함수 ───────────────────────────────────────────────────────────
 export async function generateMobileIM(input: MobileIMWriterInput): Promise<MobileIMWriterOutput> {
@@ -72,6 +73,27 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   });
   if (ctx.sectionCtx) {
     ctx.sectionCtx.numericalAnchors = numericalAnchors;
+  }
+
+  // ── S0. Claim 레지스트리 + 결정론적 계산 (D37 P0-2) ──
+  // 계산은 여기서 1회 실행. LLM은 이후 설명만 생성.
+  const claimRegistry = new ClaimRegistry();
+  const financialCalc = new FinancialCalculator(claimRegistry);
+  const financialClaimResult = financialCalc.calculate({
+    posture: ctx.sectionPlan.posture as any,
+    purchasePriceKrw: ctx.purchasePriceKrw,
+    monthlyRentKrw: ctx.cachedFinancials?.annualNoi?.base ? ctx.cachedFinancials.annualNoi.base / 12 : (input.supplemental?.monthly_rent_total_krw ?? 0),
+    totalAreaSqm: ctx.totalAreaSqm,
+    platAreaSqm: input.external_data?.buildingRegister?.platArea ?? undefined,
+    vacancyRatePct: input.supplemental?.vacancy_pct ?? undefined,
+    totalDepositManwon: input.supplemental?.total_deposit_manwon ?? undefined,
+    loanAmountManwon: input.supplemental?.loan_amount_manwon ?? undefined,
+    mgmtFeeTotalManwon: input.supplemental?.mgmt_fee_total_manwon ?? undefined,
+    assetType: String(ctx.assetIdentity?.asset_type ?? ''),
+    landPricePerSqm: input.external_data?.landPrice?.pricePerSqm ?? undefined,
+  });
+  if (financialClaimResult.violations.length > 0) {
+    console.warn('[writer] Claim violations:', financialClaimResult.violations);
   }
 
   // ── 3. 섹션 루프 (위상 정렬 4단계 병렬화) ──

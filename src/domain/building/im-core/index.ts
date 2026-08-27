@@ -15,3 +15,6 @@ export { validateCalculation, YIELD_BASIS_LABEL } from './calculation';
 // 레지스트리
 export { ClaimRegistry } from './claim-registry';
 export type { CreateClaimOptions } from './claim-registry';
+
+// 계산 엔진 (P0-2)
+export { FinancialCalculator } from './financial-calculator';
