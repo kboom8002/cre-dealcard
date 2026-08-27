@@ -21,7 +21,7 @@ export interface RegistryData {
 }
 
 export async function parseRealEstateRegistryPDF(file: File): Promise<RegistryData> {
-  // TODO: 실제 OCR API 호출 및 권리분석 추출 로직 연동
+  throw new Error('[NOT_IMPLEMENTED] 등기부 OCR 파싱 API 미연동 — Phase 2 구현 예정');
   console.log(`Parsing real estate registry PDF: ${file.name} (${file.size} bytes)`);
 
   await new Promise(resolve => setTimeout(resolve, 1500));

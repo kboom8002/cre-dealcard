@@ -26,6 +26,14 @@ export async function fetchWithRetry(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs), headers });
+      // 429 Too Many Requests — Retry-After 헤더 파싱 후 재시도
+      if (res.status === 429 && attempt < maxRetries) {
+        const retryAfter = res.headers.get('Retry-After');
+        const delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : baseDelayMs * Math.pow(2, attempt);
+        console.warn(`[fetch-with-retry] 429 Rate Limited, retrying in ${delay}ms (${attempt + 1}/${maxRetries})`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
       // 4xx 클라이언트 에러는 재시도 무의미 → 즉시 반환
       if (res.status >= 400 && res.status < 500) {
         return res;

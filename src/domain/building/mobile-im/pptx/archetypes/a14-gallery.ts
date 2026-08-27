@@ -64,12 +64,9 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
   const optimized = await optimizeImagesForPptx(urlsToOptimize, 4, 1600, 85);
 
   if (optimized.length === 0) {
-    L.callout(slide, M, 2.20, CW, 1.4, 'info', '사진 로딩 실패',
-      '건물 사진을 로딩하지 못했습니다. 원본 이미지 상태 또는 네트워크를 확인해주세요.');
-    warnings.push('갤러리 사진 로딩 실패');
-    if (input.watermarkText) L.watermark(slide, input.watermarkText, false);
+    warnings.push('걤러리 사진 로딩 실패 — 슬라이드 억제');
     L.foot(slide, input.slideNum, input.docno);
-    return { slide, warnings };
+    return { slide, warnings, suppress: true } as any;
   }
 
   const count = optimized.length;

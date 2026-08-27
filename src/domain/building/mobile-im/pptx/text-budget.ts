@@ -90,17 +90,43 @@ export function enforceTextBudgetWithMeta(text: string, maxLen: number): TextBud
   };
 }
 
-export function validateTextBudgets(texts: {type: keyof typeof TEXT_LIMITS | string, text: string}[]): string[] {
-  const warnings: string[] = [];
-  for (const {type, text} of texts) {
-    const limit = TEXT_LIMITS[type as keyof typeof TEXT_LIMITS];
-    if (limit && text.length > limit) {
-      warnings.push(`Text budget exceeded for ${type}: length ${text.length} > limit ${limit}`);
-      // W-PPTX-3: 절삭 필드 경고 로그
-      console.warn(`[text-budget] Field "${type}" exceeds budget: ${text.length} > ${limit} chars`);
+export function validateTextBudgets(
+  values: { type: keyof typeof TEXT_LIMITS | string; text: string }[],
+  options?: { autoEnforce?: boolean }
+): string[];
+export function validateTextBudgets(
+  values: Record<string, string>,
+  options?: { autoEnforce?: boolean }
+): Record<string, string>;
+export function validateTextBudgets(
+  values: { type: keyof typeof TEXT_LIMITS | string; text: string }[] | Record<string, string>,
+  options?: { autoEnforce?: boolean }
+): string[] | Record<string, string> {
+  if (Array.isArray(values)) {
+    const warnings: string[] = [];
+    for (const { type, text } of values) {
+      const limit = TEXT_LIMITS[type as keyof typeof TEXT_LIMITS];
+      if (limit && text.length > limit) {
+        warnings.push(`Text budget exceeded for ${type}: length ${text.length} > limit ${limit}`);
+        // W-PPTX-3: 절삭 필드 경고 로그
+        console.warn(`[text-budget] Field "${type}" exceeds budget: ${text.length} > ${limit} chars`);
+      }
     }
+    return warnings;
+  } else {
+    const result = { ...values };
+    for (const [key, value] of Object.entries(values)) {
+      const limitKey = key as keyof typeof TEXT_LIMITS;
+      const limit = TEXT_LIMITS[limitKey];
+      if (limit && value.length > limit) {
+        console.warn(`[text-budget] ${key} 초과: ${value.length}/${limit}자`);
+        if (options?.autoEnforce) {
+          result[key] = enforceTextBudget(value, limit);
+        }
+      }
+    }
+    return result;
   }
-  return warnings;
 }
 
 export interface BoundingBox {

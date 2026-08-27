@@ -210,7 +210,9 @@ export function tierToGrade(tier: DataQualityTier): DataGrade {
 
 export function getDataFreshnessWarning(dataFetchedAt?: string): string | null {
   if (!dataFetchedAt) return '⚠️ 데이터 수집 일시 미확인';
-  const daysSince = (Date.now() - new Date(dataFetchedAt).getTime()) / (1000 * 60 * 60 * 24);
+  const fetchedDate = new Date(dataFetchedAt);
+  if (isNaN(fetchedDate.getTime())) return '⚠️ 데이터 수집 일시 파싱 오류';
+  const daysSince = (Date.now() - fetchedDate.getTime()) / (1000 * 60 * 60 * 24);
   if (daysSince > 30) return '🔴 데이터 갱신 필요 (30일 초과)';
   if (daysSince > 7) return '🟡 데이터 갱신 권장 (7일 초과)';
   return null;

@@ -61,6 +61,7 @@ export interface FinancialInputs {
 }
 
 import { ASSUMPTIONS } from './assumptions';
+import { getAssumptions } from '../assumptions';
 
 export interface FinancialOutputs {
   annualNoi: { best: number; base: number; worst: number };
@@ -168,8 +169,8 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
       monthlyRentKrw = 0,
       purchasePriceKrw,
       holdYears = 5,
-      vacancyRatePct = 5,
-      rentGrowthPctPerYear = 2,
+      vacancyRatePct = getAssumptions(inputs.assetType).vacancyReservePct,
+      rentGrowthPctPerYear = getAssumptions(inputs.assetType).annualRentGrowthPct,
       landPricePerSqm,
       totalAreaSqm,
       platAreaSqm,
@@ -210,7 +211,7 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
 
     let irr5Year: { best: number; base: number; worst: number } | null = null;
     if (purchasePriceKrw > 0 && noiBase > 0) {
-      const entryCapBase = capRate ? capRate.base / 100 : 0.04;
+      const entryCapBase = capRate ? capRate.base / 100 : getAssumptions(assetType).entryCapBase;
       const exitCapBest  = entryCapBase + 0.0025;
       const exitCapBase  = entryCapBase + 0.005;
       const exitCapWorst = entryCapBase + 0.01;

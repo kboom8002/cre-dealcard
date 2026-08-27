@@ -1268,7 +1268,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId, isB
   // [D2] PWA Service Worker 등록
   useEffect(() => {
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw-im.js").catch(() => {});
+      navigator.serviceWorker.register("/sw-im.js").catch((err) => { console.warn('[mobile-im-viewer]', err); });
     }
   }, []);
 
@@ -1297,7 +1297,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId, isB
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ section_viewed: null }),
       signal: controller.signal,
-    }).catch(() => {});
+    }).catch((err) => { console.warn('[mobile-im-viewer]', err); });
     return () => controller.abort();
   }, [buildingId]);
 
@@ -1319,7 +1319,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId, isB
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ section_viewed: sectionId }),
-              }).catch(() => {});
+              }).catch((err) => { console.warn('[mobile-im-viewer]', err); });
             }
             // [D1] 현재 화면 상 섹션 인덱스 계산
             const idx = doc?.sections.findIndex((s) => s.sectionId === sectionId) ?? -1;
@@ -1573,7 +1573,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId, isB
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ eventType: 'intent.interest_tap', buildingId, docId })
                           });
-                        } catch {}
+                        } catch (err) { console.warn('[mobile-im-viewer]', err); }
                         const btn = document.activeElement as HTMLButtonElement;
                         if (btn) { btn.textContent = '✅ 관심 표시 완료'; btn.disabled = true; }
                       }}

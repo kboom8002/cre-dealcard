@@ -52,7 +52,7 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
     setDeletingId(id);
     try {
       const res = await fetch(`/api/broker/deal-card/${id}/delete`, { method: "DELETE" });
-      const d = await res.json().catch(() => ({}));
+      const d = await res.json().catch((err) => { console.warn('[BuildingsListClient]', err); return {}; });
       if (!res.ok) {
         throw new Error(d.error ?? "삭제 실패");
       }
@@ -70,7 +70,7 @@ export function BuildingsListClient({ initialBuildings, imList = [] }: Buildings
   const handleDeleteIM = async (docId: string) => {
     try {
       const res = await fetch(`/api/broker/im-lite/${docId}`, { method: 'DELETE' });
-      const d = await res.json().catch(() => ({}));
+      const d = await res.json().catch((err) => { console.warn('[BuildingsListClient]', err); return {}; });
       if (!res.ok) throw new Error(d.error ?? '삭제 실패');
       setImListState(prev => prev.filter(d => d.docId !== docId));
       setDeletingImId(null);

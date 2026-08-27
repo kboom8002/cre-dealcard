@@ -18,6 +18,7 @@ export interface ArchetypeInput {
 export interface ArchetypeOutput {
   slide: ReturnType<PptxGenJS['addSlide']>;
   warnings: string[];
+  suppress?: boolean;
 }
 
 // ═══════════════════════════════════════════════════════

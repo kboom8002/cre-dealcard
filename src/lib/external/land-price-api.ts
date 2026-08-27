@@ -3,6 +3,7 @@
 // 1차: 브이월드(V-World) 토지특성속성조회 API
 // 2차: data.go.kr 개별공시지가 (레거시 폴백)
 import { fetchWithRetry } from './fetch-with-retry';
+import { getVWorldReferer } from './vworld-config';
 
 export interface LandPriceData {
   pricePerSqm: number;        // 공시지가 (KRW/sqm)
@@ -25,7 +26,7 @@ export async function fetchLandPrice(pnu: string): Promise<LandPriceData | null>
       const res = await fetchWithRetry(url, {
         timeoutMs: 15_000,
         maxRetries: 2,
-        headers: { 'Referer': process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' },
+        headers: { 'Referer': getVWorldReferer() },
       });
       if (res.ok) {
         const data = await res.json();

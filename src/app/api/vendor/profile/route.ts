@@ -64,8 +64,7 @@ export async function POST(req: NextRequest) {
   // ── 자격증 자동 검증 (Phase 1: stub, Phase 2: 외부 API 연동) ──
   let licenseVerified = false;
   if (body.licenseNumber) {
-    // TODO: 실제 자격증 API 연동 (국가자격증 정보시스템 등)
-    // 현재는 번호 형식 검증만 수행
+    console.warn('[vendor-profile] 국가자격증 정보시스템 API 미연동 — 수동 검증 필요');
     licenseVerified = body.licenseNumber.length >= 5;
   }
 

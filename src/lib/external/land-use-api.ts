@@ -3,6 +3,7 @@
 // 1차: 브이월드(V-World) 토지특성속성조회 API
 // 2차: data.go.kr LURIS (레거시 폴백)
 import { fetchWithRetry } from './fetch-with-retry';
+import { getVWorldReferer } from './vworld-config';
 
 export interface LandUsePlanData {
   zoningDistrict: string;         // 용도지역 (예: 제2종일반주거지역)
@@ -50,7 +51,7 @@ export async function fetchLandUsePlan(pnu: string): Promise<LandUsePlanData | n
       const res = await fetchWithRetry(url, {
         timeoutMs: 15_000,
         maxRetries: 2,
-        headers: { 'Referer': process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' },
+        headers: { 'Referer': getVWorldReferer() },
       });
       if (res.ok) {
         const data = await res.json();

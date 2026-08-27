@@ -30,6 +30,7 @@ import { runCrossValidation, type NumericalAnchors as CrossValidatorAnchors } fr
 import { createServiceClient } from "@/lib/supabase/service";
 import { indexIMSections } from "./im-embedding-indexer";
 import { transformPhotoUrls, resolvePhotos, PHOTO_CATEGORY_LABELS, type TransformedPhoto } from "./photo-url-transformer";
+import { getDataFreshnessWarning } from './data-quality-badge';
 
 type SectionWithTelemetry = MobileIMSection & { _latencyMs?: number; _inputTokens?: number; _outputTokens?: number; };
 
@@ -140,7 +141,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
             inputTokens: _sec._inputTokens ?? 0,
             outputTokens: _sec._outputTokens ?? 0,
             outcome: 'completed',
-          }).catch(() => {});
+          }).catch((err) => { console.warn('[writer]', err); });
 
           // 성공한 섹션의 수치 앵커 및 팩트 병합
           try {
@@ -248,7 +249,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
           inputTokens: _sec2._inputTokens ?? 0,
           outputTokens: _sec2._outputTokens ?? 0,
           outcome: 'completed',
-        }).catch(() => {});
+        }).catch((err) => { console.warn('[writer]', err); });
 
         globalIndex++;
       }
@@ -488,6 +489,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     } : undefined,
     publishBlocked,
     publishBlockReasons,
+    dataFreshnessWarning: getDataFreshnessWarning(input.external_data?.enrichedAt ?? input.building_ssot_lite?.updated_at),
   };
 }
 

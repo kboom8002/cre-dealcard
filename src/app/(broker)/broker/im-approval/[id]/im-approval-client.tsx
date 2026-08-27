@@ -237,7 +237,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
           photos,
         }),
       });
-    } catch {}
+    } catch (err) { console.warn('[im-approval]', err); }
   }, [sections, hiddenSections, docId, photos]);
 
   const updatePhotoCaption = (idx: number, caption: string) => {
@@ -253,7 +253,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sections, photos, hidden_sections: Array.from(hiddenSections) }),
       });
-    } catch {}
+    } catch (err) { console.warn('[im-approval]', err); }
   };
 
   // 데이터 품질 계산

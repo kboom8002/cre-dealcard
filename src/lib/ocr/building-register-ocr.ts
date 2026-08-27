@@ -20,7 +20,7 @@ export interface BuildingRegisterData {
 }
 
 export async function parseBuildingRegisterPDF(file: File): Promise<BuildingRegisterData> {
-  // TODO: 실제 OCR API 호출 및 파싱 로직 연동
+  throw new Error('[NOT_IMPLEMENTED] 건축물대장 OCR API 미연동 — Phase 2 구현 예정');
   console.log(`Parsing building register PDF: ${file.name} (${file.size} bytes)`);
 
   // 시뮬레이션 지연

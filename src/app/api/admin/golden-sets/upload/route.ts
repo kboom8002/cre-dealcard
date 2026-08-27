@@ -79,10 +79,7 @@ export async function POST(req: NextRequest) {
       .from(STORAGE_BUCKET)
       .getPublicUrl(storagePath);
 
-    // TODO: file-parser.ts 연동
-    // 여기에 파일 파싱 로직을 추가하여 섹션별 markdown을 추출합니다.
-    // const parsed = await parseIMFile(buffer, ext);
-    // return NextResponse.json({ ok: true, data: { fileUrl, sections: parsed } });
+    console.warn('[golden-sets] file-parser.ts 미연동 — 수동 섹션 파싱 필요');
 
     return NextResponse.json(
       {

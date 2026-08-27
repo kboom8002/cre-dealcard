@@ -214,7 +214,7 @@ export async function generateSingleSection(
       sectionType,
       goldenIdsUsed: usedGoldenIds,
       hardcodedUsed: !fewShotBlock,
-    }).catch(() => {});
+    }).catch((err) => { console.warn('[im-section-generator]', err); });
 
     const normalizedForProvenance: Record<string, unknown> = {
       asset_identity: ctx.assetIdentity,
@@ -296,7 +296,7 @@ export async function generateSingleSection(
             });
             if (judgeResult) {
               finalSectionJudgeScore = judgeResult.overall;
-              updateFewShotResultScore(ctx.generationId, sectionType, judgeResult.overall).catch(() => {});
+              updateFewShotResultScore(ctx.generationId, sectionType, judgeResult.overall).catch((err) => { console.warn('[im-section-generator]', err); });
               if (judgeResult.overall >= 4.5) {
                 promoteToGoldenCandidate(
                   ctx.generationId,
@@ -306,7 +306,7 @@ export async function generateSingleSection(
                   sectionType,
                   rawText,
                   judgeResult.overall,
-                ).catch(() => {});
+                ).catch((err) => { console.warn('[im-section-generator]', err); });
               }
               if (judgeResult.overall < 3.0) {
                 console.warn(`[im-judge] Section ${sectionType} score ${judgeResult.overall.toFixed(1)} → template fallback`);

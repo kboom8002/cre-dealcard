@@ -53,7 +53,11 @@ export async function searchSimilarIMs(
 
   // 2. 하이브리드 검색 호출 (Supabase RPC - match_im_documents)
   try {
-    const { data, error } = await (supabase as any).rpc("match_im_documents", {
+    type SupabaseRpcClient = {
+      rpc: (fn: string, params?: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+    };
+    const rpcClient = supabase as unknown as SupabaseRpcClient;
+    const { data, error } = await rpcClient.rpc("match_im_documents", {
       query_embedding: embedding.length > 0 ? embedding : null,
       query_text: query,
       match_count: topK * 2, // 2x 후보 수집 후 리랭킹 적용

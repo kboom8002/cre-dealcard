@@ -253,7 +253,7 @@ ${magazineSummary}
             try {
               const doubleParsed = JSON.parse(aiBriefing);
               aiBriefing = doubleParsed.briefing || aiBriefing;
-            } catch {}
+            } catch (err) { console.warn('[morning-intelligence]', err); }
           }
 
           aiHotLeadScript = parsed.hot_lead_script || "";

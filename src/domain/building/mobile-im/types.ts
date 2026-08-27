@@ -392,4 +392,5 @@ export interface MobileIMWriterOutput {
   publishBlocked?: boolean;
   /** 차단 사유 목록 */
   publishBlockReasons?: string[];
+  dataFreshnessWarning?: string | null;
 }

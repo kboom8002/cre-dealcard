@@ -563,7 +563,7 @@ export class MobileImPptxRenderer {
         try {
           const result = await Promise.resolve(builder(archetypeInput));
           // W-PPTX-6: 빌더가 suppress 신호를 반환하면 슬라이드 생략
-          if ((result as any).suppress) {
+          if (result.suppress) {
             warnings.push(...result.warnings);
             warnings.push(`[Suppress] ${spec.archetype}(${spec.title}) 슬라이드 억제`);
             continue;

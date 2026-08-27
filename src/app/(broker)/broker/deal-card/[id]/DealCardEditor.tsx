@@ -107,7 +107,7 @@ export function DealCardEditor({
         window.dispatchEvent(new Event(`kakao_update_${buildingId}`));
         window.dispatchEvent(new Event(`deal_card_updated_${buildingId}`));
       } else {
-        const err = await res.json().catch(() => ({}));
+        const err = await res.json().catch((err) => { console.warn('[DealCardEditor]', err); return {}; });
         sonnerToast.error(err.error || "저장 실패 — 다시 시도해주세요");
       }
     } catch {

@@ -62,6 +62,14 @@ async function geocodeWithRetry(address: string): Promise<{ lat: number; lng: nu
       }
     }
   }
+  
+  // 폴백: 로컬 좌표 캐시에서 근사치 검색
+  const fallback = localFallbackGeocode(address);
+  if (fallback) {
+    console.warn(`[address-resolver] API 실패, 로컬 폴백 좌표 사용: ${address}`);
+    return fallback;
+  }
+  
   return null;
 }
 
@@ -165,4 +173,41 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
     lng: geo?.lng ?? null,
     buildingMgtNo: "",
   };
+}
+
+/** 주요 상업지구 로컬 좌표 캐시 (행안부 API 장애 시 폴백) */
+const MAJOR_COMMERCIAL_COORDS: Record<string, { lat: number; lng: number }> = {
+  '강남구': { lat: 37.4979, lng: 127.0276 },
+  '서초구': { lat: 37.4837, lng: 127.0324 },
+  '중구': { lat: 37.5640, lng: 126.9975 },
+  '종로구': { lat: 37.5735, lng: 126.9790 },
+  '마포구': { lat: 37.5538, lng: 126.9084 },
+  '영등포구': { lat: 37.5264, lng: 126.8965 },
+  '송파구': { lat: 37.5145, lng: 127.1059 },
+  '광진구': { lat: 37.5384, lng: 127.0823 },
+  '용산구': { lat: 37.5326, lng: 126.9909 },
+  '동작구': { lat: 37.5124, lng: 126.9393 },
+  '강남역': { lat: 37.4981, lng: 127.0280 },
+  '역삼역': { lat: 37.5008, lng: 127.0362 },
+  '삼성역': { lat: 37.5089, lng: 127.0637 },
+  '종로': { lat: 37.5700, lng: 126.9830 },
+  '광화문': { lat: 37.5714, lng: 126.9658 },
+  '여의도': { lat: 37.5253, lng: 126.9244 },
+  '판교': { lat: 37.3945, lng: 127.1119 },
+  '분당': { lat: 37.3826, lng: 127.1195 },
+  '인천': { lat: 37.4563, lng: 126.7052 },
+  '부산': { lat: 35.1796, lng: 129.0756 },
+  '대구': { lat: 35.8714, lng: 128.6014 },
+  '광주': { lat: 35.1595, lng: 126.8526 },
+  '대전': { lat: 36.3504, lng: 127.3845 },
+  '제주': { lat: 33.4996, lng: 126.5312 },
+  '세종': { lat: 36.4800, lng: 127.2551 },
+};
+
+/** 주소 문자열에서 로컬 좌표 폴백 시도 */
+export function localFallbackGeocode(address: string): { lat: number; lng: number } | null {
+  for (const [key, coords] of Object.entries(MAJOR_COMMERCIAL_COORDS)) {
+    if (address.includes(key)) return coords;
+  }
+  return null;
 }

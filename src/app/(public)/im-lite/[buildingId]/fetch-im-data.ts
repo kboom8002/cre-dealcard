@@ -33,7 +33,7 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
       if (data2.documents?.[0]) {
         return { lat: parseFloat(data2.documents[0].y), lng: parseFloat(data2.documents[0].x) };
       }
-    } catch {}
+    } catch (err) { console.warn('[fetch-im-data]', err); }
   }
   // Kakao 실패 시 Nominatim fallback
   try {
@@ -46,7 +46,7 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
     if (data?.[0]?.lat && data?.[0]?.lon) {
       return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
     }
-  } catch {}
+  } catch (err) { console.warn('[fetch-im-data]', err); }
   return null;
 }
 

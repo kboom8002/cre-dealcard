@@ -18,6 +18,27 @@ const INJECTION_PATTERNS = [
   /이전 프롬프트 무시/i,
 ];
 
+/** 웹 보안 패턴: XSS/SQL 인젝션 방어 */
+const WEB_SECURITY_PATTERNS: RegExp[] = [
+  // XSS
+  /<script[\s>]/i,
+  /javascript\s*:/i,
+  /on(?:error|load|click|mouseover)\s*=/i,
+  /<iframe[\s>]/i,
+  /<img[^>]*onerror/i,
+  /&#(?:x[0-9a-f]+|\d+);/i,
+  // SQL Injection
+  /UNION\s+(?:ALL\s+)?SELECT/i,
+  /DROP\s+TABLE/i,
+  /;\s*DELETE\s+FROM/i,
+  /OR\s+1\s*=\s*1/i,
+  /--\s*$/m,
+  // 한국어 인젝션 변형
+  /기존\s*규칙\s*무시/i,
+  /관리자\s*모드/i,
+  /탈옥/i,
+];
+
 export function detectPromptInjection(text: string): boolean {
   return INJECTION_PATTERNS.some(pattern => pattern.test(text));
 }
@@ -32,6 +53,12 @@ export function sanitizeMemo(memo: string): SanitizationMap {
 
   const tokens = new Map<string, string>();
   let sanitizedText = safeMemo;
+
+  // WEB_SECURITY_PATTERNS 매칭 시 해당 패턴 제거
+  for (const pattern of WEB_SECURITY_PATTERNS) {
+    sanitizedText = sanitizedText.replace(pattern, '[BLOCKED]');
+  }
+
   const counters: Record<string, number> = { PHONE: 0, EMAIL: 0, RRN: 0, ADDR_DETAIL: 0, BLDG_NAME: 0, TENANT: 0, OWNER: 0 };
 
   // 1. 주민등록번호 (RRN) 마스킹 (민감도가 가장 높으므로 최우선 적용)
@@ -52,6 +79,14 @@ export function sanitizeMemo(memo: string): SanitizationMap {
 
   // 3. Phone 마스킹 (모바일 + 유선전화 + 인터넷전화 + 전국대표번호)
   sanitizedText = sanitizedText.replace(/(?:01[0-9]|02|0[3-6][1-9]|070|15\d{2}|16\d{2}|18\d{2})-?\d{3,4}-?\d{4}/g, (match) => {
+    counters.PHONE++;
+    const token = `[PHONE_${String.fromCharCode(64 + counters.PHONE)}]`;
+    tokens.set(token, match);
+    return token;
+  });
+
+  // 하이픈 없는 휴대전화번호
+  sanitizedText = sanitizedText.replace(/01[016789]\d{7,8}/g, (match) => {
     counters.PHONE++;
     const token = `[PHONE_${String.fromCharCode(64 + counters.PHONE)}]`;
     tokens.set(token, match);
