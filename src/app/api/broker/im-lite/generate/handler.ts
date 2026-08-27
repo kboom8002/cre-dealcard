@@ -12,6 +12,7 @@ import { enrichBuildingDataByPNU } from "@/lib/external/enrich-by-pnu";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 import { sanitizeComplianceText } from '@/domain/building/guardrails';
 import { computeDataGrade } from '@/domain/asset/grade-engine';
+import { resolveTier } from '@/domain/building/im-core';
 import { calculateNOI, calculateCapRate } from '@/domain/building/financials';
 import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { getIMDisclaimers } from '@/domain/building/legal-copy';
@@ -389,6 +390,19 @@ export async function generateMobileIMHandler(
     body: {
       im_type: "mobile_im_lite",
       tier,
+      // D37 C-4: 5종 발행 등급 산출 및 영속화
+      releaseTier: resolveTier({
+        grade: gradeResult.grade as 'A' | 'B' | 'C' | 'D',
+        posture: (identity?.investmentPosture || ssotRow.investment_posture || 'income') as any,
+        dataAvailability: {
+          hasBuildingRegister: !!(externalData?.hasPublicData),
+          hasLandUsePlan: !!(externalData?.hasPublicData),
+          hasRentRoll: !!(supplemental.floor_leases?.length || supplemental.monthly_rent_total_krw),
+          hasComparables: !!(externalData?.comparableTransactions?.length),
+          hasPhotos: !!(supplemental.photo_urls?.length || supplemental.photos_v2?.length),
+        },
+        hasExpertReview: false,
+      }),
       investmentPosture: identity?.investmentPosture || ssotRow.investment_posture || 'income',
       // Hero/OG 메타 자동 세팅 — 브로커가 im-approval에서 수정 가능
       heroTitle: autoHeroTitle,

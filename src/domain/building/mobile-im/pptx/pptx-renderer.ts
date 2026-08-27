@@ -293,6 +293,8 @@ export interface MobileImPptxInput {
   /** V5 감사 §5.1 시정: 게이트 차단 시 경고 워터마크 표시 */
   publishBlocked?: boolean;
   publishBlockReasons?: string[];
+  /** D37 C-3: 5종 발행 등급 */
+  releaseTier?: import('../../im-core/release-tier').ReleaseTier;
 }
 
 export interface MobileImPptxOutput {
@@ -364,6 +366,8 @@ export class MobileImPptxRenderer {
           hasCadastralMap: !!(enrichment.cadastralMapImage),
           hasFloorPlan: false,
         },
+        // D37 C-3: ReleaseTier 전달 → tier 기반 면 제어 활성화
+        releaseTier: input.releaseTier,
       };
 
       const sequence: SlideSpec[] = buildDeckSequence(sequenceInput);

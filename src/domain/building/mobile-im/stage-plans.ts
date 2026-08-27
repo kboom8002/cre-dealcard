@@ -53,7 +53,7 @@ export const STAGE_PLANS: Record<InvestmentPosture, SectionStage[]> = {
     },
     {
       stage: 2,
-      sections: ['site_analysis', 'development_screening'],
+      sections: ['site_analysis', 'development_feasibility'],
       parallel: false,
       dependsOn: ['askingPriceKrw', 'landAreaSqm'],
     },

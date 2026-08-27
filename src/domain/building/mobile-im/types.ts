@@ -53,6 +53,15 @@ export const MOBILE_IM_SECTIONS_NON_INCOME = [
   "title_rights",
   "land_detail",
   "comparables",
+  // D37 income 15면 확장 (stage-plans S1/S3)
+  "decision_snapshot",
+  "market_rent_gap",
+  "value_add_plan",
+  "stabilized_scenario",
+  "evidence_status",
+  // 구조 면 (writer.ts에서 직접 생성)
+  "checklist",
+  "closing",
 ] as const;
 
 export type MobileIMSectionType =

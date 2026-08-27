@@ -51,6 +51,14 @@ export function getSectionTitle(sectionType: MobileIMSectionType, assetType?: st
     title_rights:      `등기부 권리관계와 소유 구조는 어떠한가`,
     land_detail:        `토지 현황과 이용 조건은 어떠한가`,
     comparables:        `주변 유사 매물과의 비교`,
+    // D37 income 15면 확장
+    decision_snapshot:   `의사결정을 위한 핵심 요약`,
+    market_rent_gap:     `시장 임대료와의 갭은 얼마인가`,
+    value_add_plan:      `밸류애드 전략과 기대 수익`,
+    stabilized_scenario: `안정화 후 예상 수익 시나리오`,
+    evidence_status:     `데이터 증빙 현황과 신뢰도`,
+    checklist:           `실사 체크리스트 및 확인사항`,
+    closing:             `면책조항 및 표기 기준`,
   };
   return titles[sectionType] ?? "섹션 상세";
 }

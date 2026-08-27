@@ -86,6 +86,29 @@ const SECTION_ALIAS_MAP: Record<MobileIMSectionType, string[]> = {
     '비교 매물', '비교매물', '유사매물', 'Comparables', 'Comparable Properties',
     '시세 비교', '실거래 비교', '주변 시세',
   ],
+  // D37 income 15면 확장
+  decision_snapshot: [
+    '의사결정 요약', '투자 판단', 'Decision Snapshot', 'Decision Summary',
+  ],
+  market_rent_gap: [
+    '시장 임대료 갭', '임대료 갭 분석', '렌트갭', 'Market Rent Gap', 'Rent Gap Analysis',
+  ],
+  value_add_plan: [
+    '밸류애드 계획', '가치증대', '밸류애드', 'Value Add Plan', 'Value Enhancement',
+  ],
+  stabilized_scenario: [
+    '안정화 시나리오', '정상화 수익', 'Stabilized Scenario', 'Stabilized NOI',
+  ],
+  evidence_status: [
+    '증빙 현황', '근거 확인', 'Evidence Status', 'Evidence Summary',
+  ],
+  // 구조 면
+  checklist: [
+    '실사 체크리스트', '체크리스트', '확인사항', 'Checklist', 'DD Checklist',
+  ],
+  closing: [
+    '마감', '면책조항', 'Closing', 'Disclaimer', '표기 기준',
+  ],
 };
 
 // ─── 유사도 계산 (토큰 오버랩 + Levenshtein) ─────────────────────────────────
@@ -254,6 +277,14 @@ export function getSectionDisplayName(type: MobileIMSectionType): string {
     title_rights: '등기부 권리관계',
     land_detail: '토지 상세',
     comparables: '비교 매물',
+    // D37 신설
+    decision_snapshot: '의사결정 요약',
+    market_rent_gap: '임대료 갭 분석',
+    value_add_plan: '밸류애드 계획',
+    stabilized_scenario: '안정화 시나리오',
+    evidence_status: '증빙 현황',
+    checklist: '실사 체크리스트',
+    closing: '마감',
   };
   return displayNames[type] || type;
 }
