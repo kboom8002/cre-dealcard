@@ -1,0 +1,24 @@
+{
+  "$schema": "D34 §3 — 대조군 기대 위반 건수 (수정 금지)",
+  "specimens": {
+    "v3_gold.pptx": {
+      "description": "V3 Gold — 위반 12 · 주의 19",
+      "layout_violations": 12,
+      "standard_violations": 7,
+      "frozen": true
+    },
+    "v3_obsidian.pptx": {
+      "description": "V3 Dark Obsidian — 위반 13 · 주의 8",
+      "layout_violations": 13,
+      "standard_violations": 6,
+      "frozen": true
+    },
+    "v4_goldilocks.pptx": {
+      "description": "V4 Goldilocks — 위반 20 · 주의 17",
+      "layout_violations": 20,
+      "standard_violations": 6,
+      "frozen": true
+    }
+  },
+  "assertion": "모든 산출물 검사는 target_* 3종에서 통과하고, v3_*/v4_*에서 expected 건수만큼 정확히 실패해야 합니다."
+}

@@ -1,0 +1,237 @@
+# 이 파일은 build_ssot.py 가 생성합니다. 손으로 고치지 마십시오.
+# 정본 코드: credeal/input_spec.py · credeal/presets.py
+meta:
+  id: im.tokens
+  version: 1
+  owner: credeal/presets.py (생성본)
+  note: 현행 53토큰 + 신설 7종 = 60
+new_tokens:
+  priceHi: 매매가 강조 — 국내 IM 사실상 표준
+  priceHiBg: 매매가 강조 배경
+  labelCol: 표 라벨 열 바탕
+  labelColTx: 표 라벨 열 글씨
+  srcChip: 출처 칩 글씨
+  srcChipBg: 출처 칩 바탕
+  needsCheck: 확인 필요 전용색
+base:
+  ink: '#10161F'
+  ink2: '#1C2433'
+  ink3: '#2D3748'
+  slate: '#4A5568'
+  body: '#10161F'
+  mute: '#5A6472'
+  line: '#CBD5E0'
+  line2: '#E2E8F0'
+  bg: '#FFFFFF'
+  tint: '#F7FAFC'
+  green: '#276749'
+  greenL: '#E7F1EB'
+  red: '#9B2C2C'
+  redL: '#FBEDEA'
+  amber: '#9C4221'
+  amberL: '#FEEBC8'
+  blue: '#2B6CB0'
+  blueL: '#BEE3F8'
+  titleFont: Pretendard
+  bodyFont: Pretendard
+  priceHi: '#C00000'
+  priceHiBg: '#FCECEA'
+  labelCol: '#16325C'
+  labelColTx: '#FFFFFF'
+  srcChip: '#C8D2E0'
+  srcChipBg: '#1E2C42'
+  needsCheck: '#9E2B1C'
+presets:
+  - key: jsre_field_navy
+    name: JSRE Field Navy
+    cover: photo_left_panel
+    layout: field_kr
+    target: 개인 자산가 대면 브리핑 · 인쇄 배포 · 30억~150억 근생
+    switches:
+      coverPhoto: required
+      overviewPhoto: required
+      priceAccent: true
+      labelColumn: true
+      bulletStyle: 개조식
+      termsStrip: true
+      maxSlides: 16
+    tokens_override:
+      tint: '#EEF1F5'
+      accent: '#16325C'
+      accentD: '#0C1F3C'
+      accentL: '#3D5A87'
+      accentT: '#EEF1F5'
+      darkCard: '#0C1F3C'
+      darkBody: '#E8EDF4'
+      darkMute: '#A9B6C8'
+      darkAccentText: '#C9B386'
+    wcag:
+      - pair: 본문 / 배경
+        ratio: 18.16
+        need: 4.5
+        ok: true
+      - pair: 약화 / 배경
+        ratio: 6.0
+        need: 4.5
+        ok: true
+      - pair: 매매가 / 매매가 배경
+        ratio: 5.65
+        need: 4.5
+        ok: true
+      - pair: 라벨 열 글씨 / 라벨 열
+        ratio: 12.77
+        need: 4.5
+        ok: true
+      - pair: 출처 칩 / 칩 배경
+        ratio: 9.2
+        need: 4.5
+        ok: true
+      - pair: 확인 필요 / 배경
+        ratio: 7.46
+        need: 4.5
+        ok: true
+      - pair: 악센트 / 배경
+        ratio: 12.77
+        need: 3.0
+        ok: true
+    mono:
+      - pair: 양수(green) ↔ 음수(red)
+        gap: 0.017
+        ok: false
+      - pair: 매매가 ↔ 본문
+        gap: 0.104
+        ok: true
+      - pair: 확인 필요 ↔ 본문
+        gap: 0.083
+        ok: true
+  - key: evidence_first
+    name: Evidence First
+    cover: evidence_band
+    layout: evidence
+    target: 기관·법인 실사 · 자문사 검토 · 게이트 차단 이력이 있는 물건
+    switches:
+      sourceColumn: required
+      sourceChips: header
+      crosscheckPage: true
+      gradeBadge: LxP
+      lockedBlockList: true
+      priceAccent: true
+      labelColumn: true
+      maxSlides: 18
+    tokens_override:
+      tint: '#F4F7FB'
+      green: '#12603F'
+      srcChip: '#CBD8E8'
+      srcChipBg: '#243B55'
+      accent: '#2B4C7E'
+      accentD: '#1B3557'
+      accentL: '#5C7FAE'
+      accentT: '#EAF0F7'
+    wcag:
+      - pair: 본문 / 배경
+        ratio: 18.16
+        need: 4.5
+        ok: true
+      - pair: 약화 / 배경
+        ratio: 6.0
+        need: 4.5
+        ok: true
+      - pair: 매매가 / 매매가 배경
+        ratio: 5.65
+        need: 4.5
+        ok: true
+      - pair: 라벨 열 글씨 / 라벨 열
+        ratio: 12.77
+        need: 4.5
+        ok: true
+      - pair: 출처 칩 / 칩 배경
+        ratio: 7.93
+        need: 4.5
+        ok: true
+      - pair: 확인 필요 / 배경
+        ratio: 7.46
+        need: 4.5
+        ok: true
+      - pair: 악센트 / 배경
+        ratio: 8.61
+        need: 3.0
+        ok: true
+    mono:
+      - pair: 양수(green) ↔ 음수(red)
+        gap: 0.001
+        ok: false
+      - pair: 매매가 ↔ 본문
+        gap: 0.104
+        ok: true
+      - pair: 확인 필요 ↔ 본문
+        gap: 0.083
+        ok: true
+  - key: land_value_first
+    name: Land Value First
+    cover: land_metric
+    layout: metric_led
+    target: 저밀 개발 · 증축·재건축 여력이 핵심인 자산 · 토지 중심 매수자
+    switches:
+      heroMetrics:
+        - 토지 평당가
+        - 공시지가 배수
+        - 잔여 용적률
+      farGaugePage: true
+      landPriceFirst: true
+      coverPhoto: required
+      priceAccent: true
+      labelColumn: true
+      maxSlides: 16
+    tokens_override:
+      tint: '#FAF7F1'
+      green: '#3B6D11'
+      greenL: '#EAF3DE'
+      accent: '#7A5C2E'
+      accentD: '#5C4522'
+      accentL: '#A98A50'
+      accentT: '#F5EFE4'
+    wcag:
+      - pair: 본문 / 배경
+        ratio: 18.16
+        need: 4.5
+        ok: true
+      - pair: 약화 / 배경
+        ratio: 6.0
+        need: 4.5
+        ok: true
+      - pair: 매매가 / 매매가 배경
+        ratio: 5.65
+        need: 4.5
+        ok: true
+      - pair: 라벨 열 글씨 / 라벨 열
+        ratio: 12.77
+        need: 4.5
+        ok: true
+      - pair: 출처 칩 / 칩 배경
+        ratio: 9.2
+        need: 4.5
+        ok: true
+      - pair: 확인 필요 / 배경
+        ratio: 7.46
+        need: 4.5
+        ok: true
+      - pair: 악센트 / 배경
+        ratio: 6.18
+        need: 3.0
+        ok: true
+    mono:
+      - pair: 양수(green) ↔ 음수(red)
+        gap: 0.03
+        ok: true
+      - pair: 매매가 ↔ 본문
+        gap: 0.104
+        ok: true
+      - pair: 확인 필요 ↔ 본문
+        gap: 0.083
+        ok: true
+existing_presets:
+  - golden_institutional
+  - credeal_signature
+  - executive_gold
+  - corporate_clean
+  - pro_dark_obsidian

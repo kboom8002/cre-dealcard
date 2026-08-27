@@ -1,0 +1,222 @@
+meta:
+  id: im.image
+  version: 1
+  owner: IM_IMAGE_PIPELINE_SPEC.md (D22-2)
+  note: |
+    사진은 한국 IM 에서 첫 장을 차지하는 요소인데 지금까지 규격이 없었습니다.
+    해상도 하한도, EXIF 처리도, 마스킹도 정해진 것이 없었습니다.
+    마스킹 **대상**은 im.masking.yaml §images 가 소유합니다.
+    이 파일은 **취득·품질·배치·처리 순서**를 소유합니다.
+
+# ── 판정 기준 ──────────────────────────────────────────────────────────
+# 구속력은 **실효 dpi** 에 있습니다. min_px 는 중개인에게 보여 줄
+# 알기 쉬운 목표치일 뿐입니다.
+#
+#   실효 dpi = cover-fit 크롭 후 상자를 채우는 픽셀 ÷ 상자 인치
+#
+# 같은 2000px 짜리도 표지(8.20in)에 넣으면 244dpi, 갤러리(4.79in)에 넣으면
+# 417dpi 입니다. 화소만 보면 판정이 어긋납니다.
+min_dpi:
+  photo: 180        # 사진 — 슬라이드 인쇄 배포에 견디는 하한
+  capture: 150      # 지도·지적도 — 선 위주라 낮은 값에서도 읽힙니다
+
+# ── 슬롯 ───────────────────────────────────────────────────────────────
+# box_in: PPTX 배치 상자 (인치) · build_pptx_kr.py 실측
+# min_px: min_dpi 를 만족하는 권장 화소 (목표치)
+slots:
+  - key: hero
+    label: 표지 외관
+    required: true
+    box_in: {w: 8.20, h: 7.50}
+    min_px: {long: 2000, short: 1400}
+    effective_dpi_at_min: 187
+    guidance: 세로를 살린 정면 또는 사각. 하늘을 30% 이상 넣지 않습니다
+  - key: front
+    label: 정면
+    required: true
+    box_in: {w: 7.10, h: 5.10}
+    min_px: {long: 1600, short: 1150}
+    effective_dpi_at_min: 225
+  - key: ext1
+    label: 외관 보조 1
+    required: true
+    box_in: {w: 4.79, h: 1.54}
+    min_px: {long: 1600, short: 1150}
+  - key: ext2
+    label: 외관 보조 2
+    required: false
+    box_in: {w: 4.79, h: 1.54}
+    min_px: {long: 1600, short: 1150}
+  - key: ext3
+    label: 외관 보조 3
+    required: false
+    box_in: {w: 4.79, h: 1.54}
+    min_px: {long: 1600, short: 1150}
+  - key: in_lobby
+    label: 내부 — 공용부
+    required: true
+    box_in: {w: 4.79, h: 1.54}
+    min_px: {long: 1600, short: 1150}
+  - key: in_shop
+    label: 내부 — 임차 공간
+    required: false
+    box_in: {w: 4.79, h: 1.54}
+    min_px: {long: 1600, short: 1150}
+    caution: 임차인 상호·집기가 가장 많이 찍히는 슬롯입니다
+  - key: in_ev
+    label: 내부 — 승강기·계단
+    required: false
+    box_in: {w: 4.79, h: 1.54}
+    min_px: {long: 1600, short: 1150}
+  - key: in_hall
+    label: 내부 — 계단·복도
+    required: false
+    box_in: {w: 4.79, h: 1.54}
+    min_px: {long: 1600, short: 1150}
+  - key: in_cafe
+    label: 내부 — 임차 공간 2
+    required: false
+    box_in: {w: 4.79, h: 1.54}
+    min_px: {long: 1600, short: 1150}
+    caution: 임차인 상호·집기가 가장 많이 찍히는 슬롯입니다
+  - key: context
+    label: 가로 전경
+    required: false
+    box_in: {w: 2.48, h: 1.92}
+    min_px: {long: 1200, short: 950}
+    caution: 인접 건물 상호가 함께 찍힙니다
+  - key: map
+    label: 위치도
+    required: true
+    box_in: {w: 8.05, h: 5.50}
+    min_px: {long: 1600, short: 1100}
+    kind: 캡처
+    caution: 지도 서비스 이용약관 확인 필요 — 상업적 재배포 허용 범위
+  - key: locmap
+    label: 광역 위치도
+    required: false
+    box_in: {w: 5.10, h: 2.62}
+    min_px: {long: 1200, short: 900}
+    kind: 캡처
+  - key: cadastre
+    label: 지적도
+    required: true
+    box_in: {w: 7.10, h: 5.10}
+    min_px: {long: 1400, short: 1000}
+    kind: 캡처
+    note: 선 위주라 사진보다 낮은 화소로도 읽힙니다
+
+minimum_set:
+  count: 6
+  rule: 외부 3장 + 내부 3장 이상
+  source: CREDEAL_IM_SPEC_수익형.md §6A FR10
+  on_shortfall: 사진 갤러리 면을 렌더하지 않고 "촬영 후 보완" 안내를 표시합니다
+
+# ── 품질 게이트 ────────────────────────────────────────────────────────
+quality:
+  - code: IMGQ01
+    label: 해상도 미달
+    level: 경고
+    rule: 실효 dpi < min_dpi[kind]. min_px 만 미달이면 통과시키고 안내만 합니다
+    on_fail: 해당 슬롯을 비우고 대체 슬롯을 찾습니다. 없으면 사진 미제출 안내
+    measured_2026_08_24:
+      total: 17
+      pass: 14
+      fail: 3
+      failures:
+        - 양평동 hero 964×894 → 표지 상자에서 118dpi (하한 180)
+        - 양평동 map 1158×728 → 132dpi (하한 150)
+        - 양평동 cadastre 984×820 → 139dpi (하한 150)
+      note: |
+        미달 3매가 전부 양평동입니다. 당산동 13매는 전부 통과하되
+        hero(180dpi)·map(152dpi)이 하한에 붙어 있어 여유가 없습니다.
+  - code: IMGQ02
+    label: 종횡비 극단
+    level: 경고
+    rule: 0.5 < w/h < 2.5 를 벗어나면 crop 손실이 큽니다
+  - code: IMGQ03
+    label: 파일 크기
+    level: 경고
+    rule: 단일 15MB 초과 · 합계 60MB 초과
+    reason: 생성 시간 한계 120초 (불변조건 15)
+  - code: IMGQ04
+    label: 허용 포맷
+    level: 차단
+    allow: [jpeg, png, heic, webp]
+    deny: [gif, bmp, tiff, svg]
+    note: HEIC 는 업로드 시 JPEG 로 변환합니다
+  - code: IMGQ05
+    label: 중복 사진
+    level: 경고
+    rule: 지각 해시 거리 ≤ 5 이면 같은 사진으로 봅니다
+    reason: 같은 사진이 표지와 갤러리에 두 번 나오면 성의 없어 보입니다
+
+# ── 처리 파이프라인 ────────────────────────────────────────────────────
+# 순서를 바꾸지 않습니다. EXIF 회전을 적용하기 전에 크롭하면 사진이 눕습니다.
+pipeline:
+  - step: 1
+    name: 수신
+    action: 업로드 원본을 그대로 보관 (private 버킷)
+    retention: 발행 후 3년
+  - step: 2
+    name: 회전 정규화
+    action: EXIF Orientation 을 픽셀에 적용
+  - step: 3
+    name: EXIF 제거
+    action: 전 태그 삭제 (GPS 포함)
+    invariant: masking.images.exif_gps
+    verify: 처리본에 EXIF 태그 0개
+  - step: 4
+    name: 자동 검출
+    action: 번호판·얼굴 검출 → 후보 영역 목록
+    model_required: true
+    recall_target: 0.95
+    note: 정밀도보다 재현율입니다. 과검출은 사람이 지우면 되지만 미검출은 새어 나갑니다
+  - step: 5
+    name: 상호 검출
+    action: OCR → 텍스트 영역 중 임대 현황의 업종·상호와 대조
+    caution: OCR 만으로는 부족합니다. 6단계가 실질 방어선입니다
+  - step: 6
+    name: 중개인 확인
+    action: 검출 결과를 겹쳐 보여주고 추가·삭제·승인
+    required: true
+    reason: 자동 검출 정확도는 100% 가 아닙니다. 사람이 마지막에 봅니다
+  - step: 7
+    name: 마스킹 적용
+    action: 가우시안 블러 σ ≥ 상자 단변의 8% · 되돌릴 수 없게 픽셀에 굽습니다
+    forbid: CSS 필터·오버레이 도형 — 원본이 파일에 남습니다
+  - step: 8
+    name: 파생본 생성
+    action: 슬롯별 cover-fit 크롭 + JPEG q88
+    crop_anchor: 세로 크롭 시 상단 30% 지점 (건물 몸통이 중앙에 오도록)
+  - step: 9
+    name: 발행 전 검사
+    gate: G20
+    rule: 발행 IM 에 쓰인 모든 이미지에 6단계 승인 이력이 있어야 합니다
+    level: 차단
+
+# ── 저장 ───────────────────────────────────────────────────────────────
+storage:
+  buckets:
+    original: {access: private, exposure: 없음, note: pro 단계에서도 노출하지 않습니다}
+    masked: {access: signed-url, exposure: nda·pro}
+    derived: {access: signed-url, exposure: public·nda·pro}
+  naming: '{dealId}/{slot}/{sha256[:12]}.{ext}'
+  rule: 파일명에 물건명·주소·임차인명을 넣지 않습니다
+  audit:
+    fields: [dealId, slot, sha256, maskedRegions, approvedBy, approvedAt, pipelineVersion]
+    note: approvedBy 는 사람 식별자입니다. G20 이 이것을 봅니다
+
+# ── 미해결 ─────────────────────────────────────────────────────────────
+open:
+  - key: neighbor_signage
+    question: 인접 건물 상호를 가려야 하는가
+    current: 경고만 · 판단 보류
+    consideration: 본건 임차인이 아니므로 불변조건 14 대상은 아니나, 상권 사진에서 경쟁 점포가 식별되는 것이 적절한지는 별개 문제입니다
+  - key: map_license
+    question: 지도 캡처의 상업적 재배포 허용 범위
+    action: 지도 제공사 약관 확인 후 확정
+    risk: 확인 전까지 지도 면에 출처 표기를 반드시 넣습니다
+  - key: detection_model
+    question: 번호판·얼굴 검출을 자체 모델로 할지 외부 API 로 할지
+    consideration: 외부 API 는 사진이 밖으로 나갑니다. 마스킹 전 원본이므로 상호가 찍혀 있습니다

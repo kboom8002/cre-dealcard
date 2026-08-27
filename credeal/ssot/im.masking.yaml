@@ -1,0 +1,114 @@
+meta:
+  id: im.masking
+  version: 1
+  owner: IM_SYSTEM_SSOT.md 불변조건 9·14 + IM_STANDARD_수익형.md §5.2 노출 경계
+  note: |
+    지금까지 마스킹 규칙이 **텍스트에만** 적용되고 이미지에는 적용되지
+    않았습니다. 당산동 산출물 사진에 임차인 상호(간판)가 그대로 찍혀
+    있습니다 — 불변조건 14 위반. 이 파일이 두 경로를 함께 규정합니다.
+
+# ── 노출 단계 ──────────────────────────────────────────────────────────
+stages:
+  - key: public
+    label: 공개 (NDA 이전)
+    audience: 모바일 IM · 링크 공유
+  - key: nda
+    label: NDA 체결 후
+    audience: 모바일 Pro · PPTX 배포
+  - key: pro
+    label: LOI 이후
+    audience: 실사 자료
+
+# ── 항목별 규칙 ────────────────────────────────────────────────────────
+fields:
+  address:
+    public: 동까지            # 서울특별시 영등포구 당산동5가
+    nda: 동까지
+    pro: 지번 전체
+    rule: 지번은 public·nda 단계에서 노출하지 않습니다
+  property_name:
+    public: 미표기
+    nda: 미표기
+    pro: 미표기
+    invariant: 14
+    rule: 물건명은 어느 단계에서도 대외 문서에 표기하지 않습니다
+  tenant_name:
+    public: 미표기
+    nda: 미표기
+    pro: 계약서 열람으로 대체
+    invariant: 14
+    rule: 업종만 원문 그대로 표기합니다 (고은약국 → 약국)
+  owner_name:
+    public: 미표기
+    nda: 미표기
+    pro: 등기부 열람으로 대체
+    invariant: 14
+  unit_amounts:
+    public: 합계만
+    nda: 호실별
+    pro: 호실별
+  contract_expiry:
+    public: 미표기
+    nda: 호실별
+    pro: 호실별
+  confirmation_items:
+    public: 전부 노출
+    nda: 전부 노출
+    pro: 전부 노출
+    invariant: 9
+    rule: 확인사항 칸은 공개 단계에서도 마스킹하지 않습니다
+
+# ── 🔴 이미지 마스킹 — 신설 ────────────────────────────────────────────
+images:
+  status: 미구현
+  blocking: true
+  reason: |
+    텍스트로는 임차인명을 가렸는데 사진에는 간판이 그대로 찍혀 있습니다.
+    불변조건 14는 문서 전체에 적용됩니다. 이미지도 문서입니다.
+  targets:
+    - key: signage
+      label: 임차인 상호 간판
+      stages: [public, nda]
+      action: 블러 또는 크롭
+      severity: 차단
+      note: 실측 — 당산동 hero·front·ext1 사진에 상호 간판 식별 가능
+    - key: license_plate
+      label: 차량 번호판
+      stages: [public, nda, pro]
+      action: 블러
+      severity: 차단
+      legal: 개인정보 보호법
+      note: 실측 — 당산동 front·ext1 사진에 번호판 식별 가능
+    - key: face
+      label: 보행자 얼굴
+      stages: [public, nda, pro]
+      action: 블러
+      severity: 차단
+      legal: 개인정보 보호법 · 초상권
+      note: 실측 — 당산동 hero 사진에 보행자 4~5인
+    - key: neighbor_signage
+      label: 인접 건물 상호
+      stages: [public]
+      action: 판단 보류 — 본건 임차인이 아니면 허용 검토
+      severity: 경고
+    - key: exif_gps
+      label: EXIF 위치정보
+      stages: [public, nda, pro]
+      action: 제거
+      severity: 차단
+      note: public 단계는 주소를 동까지만 노출하는데 EXIF에 좌표가 남습니다
+  pipeline:
+    - 업로드 시 EXIF 제거 (회전 정보는 적용 후 제거)
+    - 자동 검출 — 번호판·얼굴 (OCR/검출 모델)
+    - 중개인 확인 — 검출 결과를 보여주고 승인·수정
+    - 블러 적용 후 원본과 분리 저장
+    - 발행 전 검사 — 미처리 이미지가 있으면 차단
+  acceptance:
+    - 발행된 IM의 모든 이미지에 마스킹 처리 이력이 있어야 합니다
+    - 원본은 pro 단계에서도 노출하지 않습니다
+
+# ── 로그·오류 메시지 ───────────────────────────────────────────────────
+logs:
+  rule: 입력값을 담지 않습니다 — 필드명만 기록합니다
+  example_bad: "월세 파싱 실패: '1,946만원'"
+  example_good: "월세 파싱 실패: rr_rent (행 3)"

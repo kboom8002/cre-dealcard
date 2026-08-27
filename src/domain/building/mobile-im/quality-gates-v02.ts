@@ -54,6 +54,21 @@ export interface GateContext {
   // D32 M-8: 라벨↔내용 정합
   /** 라벨과 내용이 불일치하는 슬라이드 수 */
   labelContentMismatchCount?: number;
+  // D33 G41: 만실↔공실 서술어 모순
+  /** 만실 서술 + 공실률>0 또는 공실 서술 + 공실률=0 모순 여부 */
+  vacancyNarrativeContradiction?: boolean;
+  // D33 G42: 폴백 중복
+  /** 동일 content가 2개 이상 슬라이드에서 폴백으로 반복된 횟수 */
+  fallbackDuplicateCount?: number;
+  // D33 G43: highlights↔제원 중복
+  /** 투자 포인트와 제원이 중복되는지 */
+  highlightSpecDuplicate?: boolean;
+  // D33 G44: 괄호 균형
+  /** 열린 괄호/인용부호로 끝나는 문장 수 */
+  unclosedBracketCount?: number;
+  // D33 G45: 정적 문구 CRE QG
+  /** 정적 합성 문구가 CRE QG를 통과했는지 */
+  staticTextQGPassed?: boolean;
 }
 
 export interface LegacyGateResult {
@@ -158,6 +173,16 @@ export const PUBLISH_GATES: GateDefinition[] = [
   { id: 'G39', label: '슬라이드 라벨-내용 정합', severity: 'warn', check: (ctx) => (ctx.labelContentMismatchCount ?? 0) === 0 },
   // D32 BL-4: 역레버리지 미경고 ROE 단독 표시 차단
   { id: 'G40', label: '역레버리지 ROE 경고', severity: 'block', check: (ctx) => ctx.negativeLeverageWarned !== false },
+  // D33 G41: 만실↔공실 서술어 모순
+  { id: 'G41', label: '서술어↔수치 모순 없음', severity: 'block', check: (ctx) => ctx.vacancyNarrativeContradiction !== true },
+  // D33 G42: 폴백 중복 차단
+  { id: 'G42', label: '폴백 중복 0', severity: 'block', check: (ctx) => (ctx.fallbackDuplicateCount ?? 0) === 0 },
+  // D33 G43: highlights↔제원 중복
+  { id: 'G43', label: 'highlights↔제원 중복 없음', severity: 'warn', check: (ctx) => ctx.highlightSpecDuplicate !== true },
+  // D33 G44: 괄호 균형
+  { id: 'G44', label: '열린 괄호로 끝나는 문장 0', severity: 'warn', check: (ctx) => (ctx.unclosedBracketCount ?? 0) === 0 },
+  // D33 G45: 정적 문구 CRE QG
+  { id: 'G45', label: '정적 문구 CRE QG 통과', severity: 'warn', check: (ctx) => ctx.staticTextQGPassed !== false },
   // ── QG계열: 품질 경고 (warn) ── CATALOG_RULES §4.3
   { id: 'QG09', label: 'IM Judge 3.0 이상', severity: 'warn', check: (ctx) => (ctx.imJudgeScore ?? 0) >= 3.0 },
   { id: 'QG11', label: 'DCF 등급 게이트', severity: 'warn', check: (ctx) => ctx.dcfGradeGatePassed === true },

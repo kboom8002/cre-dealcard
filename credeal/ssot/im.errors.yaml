@@ -1,0 +1,390 @@
+meta:
+  id: im.errors
+  version: 1
+  owner: CATALOG_RULES.md (코드 공간 정본) · 이 파일은 기계 판독 사본 + 신설 등록 요청
+  note: |
+    CATALOG_RULES.md 는 "코드 신설·폐기는 반드시 이 문서에 먼저 등록합니다" 와
+    "코드 재사용 금지 — 폐기된 코드를 다른 의미로 다시 쓰면 과거 IM의 해석이
+    사후에 바뀝니다" 를 규정합니다. **그 규정이 세 번 지켜지지 않았습니다.**
+    이 파일은 충돌을 드러내고 해소안을 제시합니다. CATALOG 반영 전까지
+    `status: 등록요청` 인 코드는 사용하지 않습니다.
+
+# ── 코드군 소유 ────────────────────────────────────────────────────────
+namespaces:
+  - prefix: R
+    label: Archetype — 이 물건은 어떤 유형인가
+    owner: CATALOG_RULES.md §1
+    scheme: R-{POSTURE}-{nn}
+  - prefix: T-C / T-R
+    label: Tenancy — 임대차의 법적 지위
+    owner: CATALOG_RULES.md §2
+  - prefix: P
+    label: Parcel — 토지의 유효 규모
+    owner: CATALOG_RULES.md §3
+  - prefix: C
+    label: Constraint — 데이터가 정합한가
+    owner: CATALOG_RULES.md §3
+    range: C01~C32 (사용 중) · C33~ 확장 가능
+  - prefix: G
+    label: Gate — 발행해도 되는가
+    owner: CATALOG_RULES.md §4
+    range: G01~G16 (등록) · G17~G24 등록요청
+  - prefix: L
+    label: Layout — 어떤 슬라이드를 편성할까
+    owner: CATALOG_RULES.md §5
+  - prefix: M
+    label: NLG Mask — 어떻게 문장으로 쓸까
+    owner: CATALOG_RULES.md §6
+  - prefix: F
+    label: Freshness — 발행 후 낡았는가
+    owner: POST_PUBLISH_SPEC.md §2
+    range: F01~F10
+    warning: 🔴 D19·D20 이 같은 접두를 기능요구 코드로 썼습니다 — conflicts C3
+  - prefix: S
+    label: Signal — 매수자 반응이 무엇을 말하는가
+    owner: POST_PUBLISH_SPEC.md §3
+  - prefix: X
+    label: Crosscheck — 공부값끼리 검산이 맞는가
+    owner: 이 파일 (등록요청)
+    range: X01~X04
+    status: 등록요청
+    rationale: |
+      C 는 "받은 데이터가 규칙에 맞는가"를 봅니다.
+      X 는 "받은 데이터끼리 계산이 맞는가"를 봅니다.
+      전자는 단일 값 판정, 후자는 값 사이의 항등식 판정으로 성격이 다릅니다.
+      C 에 흡수하면 허용오차·해소 경로가 뒤섞입니다.
+  - prefix: FR
+    label: Functional Requirement — 무엇을 만들 것인가
+    owner: CREDEAL_IM_SPEC_수익형.md §9 · PPTX_시스템_개선_요구서.md
+    range: FR01~FR22
+    status: 등록요청
+    note: 규칙 코드가 아니라 개발 항목입니다. 판정 로직 카탈로그와 공간을 나눕니다
+
+# ── 🔴 충돌 4건 ────────────────────────────────────────────────────────
+conflicts:
+  - id: C1
+    code: C19
+    severity: 차단
+    a:
+      source: CATALOG_RULES.md §3
+      meaning: Σ 층별 바닥면적 = 연면적
+      tolerance_pct: 0.5
+      level: 경고
+    b:
+      source: IM_SYSTEM_SSOT.md §11 · CREDEAL_IM_SPEC_수익형.md
+      meaning: 임대면적 합 = 표기 연면적
+      tolerance_pct: 2.0
+      level: 차단
+    impact: |
+      같은 코드가 서로 다른 검사를, 서로 다른 허용오차로, 서로 다른 심각도로
+      판정합니다. 로그에 'C19 실패'만 남으면 무엇이 틀렸는지 알 수 없습니다.
+      더 나쁘게는 A 가 경고인데 B 가 차단이므로 **어느 구현을 쓰느냐로 발행
+      가부가 갈립니다.**
+    resolution:
+      keep: C19 = CATALOG 정의 (층별 바닥면적 합 = 연면적 · ±0.5% · 경고)
+      rename: 임대면적 검사를 C33 으로 신설
+      migrate: 기존 로그·문서의 'C19(임대면적)' 표기를 C33 으로 일괄 치환
+  - id: C2
+    code: G13
+    severity: 중대
+    a:
+      source: CATALOG_RULES.md §4
+      meaning: 적용 법령별 임대차 판정 정합 · opposingPower=false 에 근거 존재
+    b:
+      source: IM_SYSTEM_SSOT.md
+      meaning: 대항력 근거 없이 "없음" 표기
+    impact: B 는 A 의 후반부와 같은 검사입니다. 두 문서가 각자 서술했습니다
+    resolution:
+      keep: G13 = CATALOG 정의 (B 를 포함합니다)
+      action: IM_SYSTEM_SSOT.md 의 G13 행을 CATALOG 참조로 대체
+  - id: C3
+    code: F
+    severity: 차단
+    a:
+      source: POST_PUBLISH_SPEC.md §2
+      meaning: Freshness — 발행 후 낡았는가 (F01~F10)
+    b:
+      source: CREDEAL_IM_SPEC_수익형.md §9
+      meaning: 기능 요구 (F1~F10)
+    c:
+      source: PPTX_시스템_개선_요구서.md
+      meaning: 기능 요구 (F11~F22)
+    d:
+      source: im.invariants.yaml v1 (이 세션)
+      meaning: 계약 만료 게이트 (F11~F13)
+    impact: |
+      **4중 충돌입니다.** "F12 실패"가 만료 비율 50% 초과인지, PPTX 블록
+      게이팅 미구현인지, 발행 후 신선도 항목인지 구분되지 않습니다.
+      D 는 제가 이번 세션에 만든 것이므로 제 잘못입니다.
+    resolution:
+      keep: F01~F10 = Freshness (POST_PUBLISH_SPEC 소유)
+      rename_b_c: 기능 요구를 FR01~FR22 로 개명
+      rename_d: 만료 게이트를 G22·G23·G24 로 이관 (게이트 성격)
+  - id: C4
+    code: G17 G18 G19 G21
+    severity: 중대
+    detail: CATALOG 의 G 범위는 G01~G16 입니다. G17 이후는 미등록 코드입니다
+    impact: 카탈로그에 없는 코드가 산출물과 로그에 나타납니다. 사후 추적 불가
+    resolution:
+      action: 번호를 유지한 채 CATALOG §4 에 정식 등록 (이미 IM·로그에 남아 있어 개명 비용이 큼)
+      register: [G17, G18, G19, G20, G21, G22, G23, G24]
+
+# ── 개명 매핑 — 마이그레이션 스크립트가 읽습니다 ────────────────────────
+renames:
+  - from: C19 (임대면적 합)
+    to: C33
+    scope: IM_SYSTEM_SSOT.md · CREDEAL_IM_SPEC_수익형.md · im.invariants.yaml · qa/*
+  - from: F1~F10 (기능요구)
+    to: FR01~FR10
+    scope: CREDEAL_IM_SPEC_수익형.md §9
+  - from: F11~F22 (기능요구)
+    to: FR11~FR22
+    scope: PPTX_시스템_개선_요구서.md
+  - from: F11 (만료 계약 존재)
+    to: G22
+  - from: F12 (만료 비율 50% 초과)
+    to: G23
+  - from: F13 (30일 내 만료 임박)
+    to: G24
+  - from: X1~X4
+    to: X01~X04
+    scope: 자릿수 통일
+
+# ── 게이트 전량 ────────────────────────────────────────────────────────
+# level: 차단 = 발행 API 4xx · 경고 = 통과 + 로그 · 치환 = 값을 "확인 필요"로 바꿈
+gates:
+  - code: G01
+    label: 텍스트 오버플로 0건
+    level: 차단
+    status: 등록
+    on_fail: 슬라이드·슬롯 지목 + 축약 제안
+  - code: G02
+    label: 빈 플레이스홀더 0건
+    level: 차단
+    status: 등록
+  - code: G03
+    label: 티어별 필수 면책 문구 존재
+    level: 차단
+    status: 등록
+  - code: G04
+    label: 모든 수치 블록에 provenance
+    level: 차단
+    status: 등록
+  - code: G05
+    label: 밴딩 정책 준수 (tier=basic)
+    level: 차단
+    status: 등록
+    note: 정규식이 아니라 Valued.band 유무로 타입 수준 판정
+  - code: G06
+    label: 재식별 게이트 통과 (Basic)
+    level: 차단
+    status: 등록
+  - code: G07
+    label: 제약 C01~C33 검증
+    level: 차단
+    status: 등록
+    changed: C32 → C33 (C33 신설 반영)
+  - code: G08
+    label: 워터마크 적용 (tier=pro)
+    level: 차단
+    status: 등록
+  - code: G09
+    label: QR · 단축링크 삽입
+    level: 경고
+    status: 등록
+  - code: G10
+    label: 모든 수익률에 기준(basis) 표기
+    level: 차단
+    status: 등록
+    invariant: 2
+  - code: G11
+    label: 총수익률 표시 시 하방 시나리오 포함
+    level: 차단
+    status: 등록
+  - code: G12
+    label: 제척 합계 ≤ 대지 합계 · 유효 용적률 재계산 일치
+    level: 차단
+    status: 등록
+  - code: G13
+    label: 적용 법령별 임대차 판정 정합 · opposingPower=false 에 근거 존재
+    level: 차단
+    status: 등록
+  - code: G14
+    label: DCF·IRR 노출 시 용어 해설 존재
+    level: 차단
+    status: 등록
+  - code: G15
+    label: 적용 임대차 법령이 호실별로 확정
+    level: 경고
+    status: 등록
+  - code: G16
+    label: 위반건축물 여부 확인
+    level: 경고
+    status: 등록
+    on_fail: 미확인 시 대출 시나리오 억제
+  - code: G17
+    label: 업종 미기재 시 추론 금지
+    level: 치환
+    status: 등록요청
+    replace_with: 미상
+    invariant: 6
+  - code: G18
+    label: 렌트롤 기준일 존재
+    level: 경고
+    status: 등록요청
+    resolves_with: rr_as_of
+  - code: G19
+    label: 표지 요약 = 각 행의 합
+    level: 차단
+    status: 등록요청
+    resolves_with: 중개인 정본 확정
+    public_data_resolvable: false
+  - code: G20
+    label: 발행 이미지 전량에 마스킹 처리 이력 존재
+    level: 차단
+    status: 등록요청
+    invariant: 14
+    owner_doc: IM_IMAGE_PIPELINE_SPEC.md
+    note: 신설 — 이미지 경로 불변조건 14 집행
+  - code: G21
+    label: 첨부 공부 소재지 = 본건
+    level: 차단
+    status: 등록요청
+    public_data_resolvable: true
+  - code: G22
+    label: 만료 계약 존재
+    level: 경고
+    status: 등록요청
+    was: F11
+  - code: G23
+    label: 만료 비율 50% 초과
+    level: 경고
+    status: 등록요청
+    was: F12
+    changed: |
+      2026-08-24 차단 → 경고. **만료 경과는 공실이 아닙니다.**
+      상가건물임대차보호법 제10조 갱신요구권과 민법 제639조 묵시의 갱신이
+      있어 만료일이 지나도 점유가 이어지면 계약이 유지됩니다.
+      leaseState 가 '공실' 로 함께 뒤집힌 경우에만 차단입니다 (D22-7 §4.1).
+    block_when: 만료 + leaseState == 공실
+  - code: G24
+    label: 30일 내 만료 임박
+    level: 경고
+    status: 등록요청
+    was: F13
+  - code: G25
+    label: 다필지 물건
+    level: 차단
+    status: 폐기
+    retired_at: '2026-08-24'
+    retired_reason: |
+      🔴 이 게이트는 **틀린 전제**에서 나왔습니다. 다필지는 이미
+      CATALOG_SLOTS §2.1 · CATALOG_RULES P01~P03·G12·L10~L12 에 설계돼
+      있었습니다. 차단이 아니라 정식 지원입니다 (D22-8 §3 · D22-1 §D5′).
+      X01~X04 는 유효 면적 기준으로 돌립니다.
+    note: 코드 재사용 금지 — G25 를 다른 의미로 다시 쓰지 않습니다
+  - code: G26
+    label: 건물 사진 최소 6매 (외부3·내부3)
+    level: 경고
+    status: 등록요청
+    resolves_with: 사진 재제출
+    note: |
+      🔴 **산출물에서 셀 수 없습니다.** 같은 원본을 여러 면에 배치하면
+      ppt/media 항목이 늘어나 과다 계상됩니다. 생성 시점에만 판정됩니다.
+      정본 §9.1 의 "사진 6장 이상"을 검사기가 문자열로만 보고 있었습니다 —
+      항목명을 "사진 면 존재"로 바로잡고 장수 판정은 이 게이트로 옮깁니다.
+    measured: 양평동 4매 — 미달 · 확인사항으로 이동
+
+  - code: G27
+    label: X05 필지 합 일치
+    level: 차단
+    applies_to: all
+    owner: CATALOG_RULES.md §4.2
+    note: 필지 합이 대장과 안 맞으면 필지 목록이 불완전합니다 — P01~P04가 전부 틀립니다
+  - code: G28
+    label: 같은 지표가 모든 면에서 같은 값
+    level: 차단
+    applies_to: all
+    owner: CATALOG_RULES.md §4.2
+    invariant: 22
+    checked_by: [qa/consistency_check.py]
+  - code: G29
+    label: 마스킹이 업종을 지우지 않았는가
+    level: 차단
+    applies_to: [income, operating]
+    owner: CATALOG_RULES.md §4.2
+    invariant: 23
+    checked_by: ['qa/invariant_check.py QA-SRC-01']
+  - code: G30
+    label: 포스처 확장 계약 13칸 충족
+    level: 차단
+    applies_to: all
+    owner: CATALOG_RULES.md §4.2
+    note: 계약이 빈 포스처는 등급을 매길 수도 결손을 말할 수도 없습니다
+
+# ── 신설 제약 ──────────────────────────────────────────────────────────
+constraints_new:
+  - code: C33
+    label: 임대면적 합 = 표기 연면적
+    tolerance_pct: 2.0
+    level: 차단
+    status: 등록요청
+    was: C19 (SSoT 판)
+    condition: 모든 행에 임대면적이 있을 때만 판정
+    note: |
+      한 행이라도 임대면적이 비면 판정하지 않습니다. 양평동에서 B1 만 면적이
+      있는 상태로 오탐이 났던 사례가 있습니다.
+  - code: C34
+    label: floorTableKind 명시
+    level: 경고
+    status: 등록요청
+    detail: |
+      층별개요가 공부 바닥면적인지 계약면적인지 구분하지 않으면 X03 이 오탐합니다.
+      양평동 실측 — 계약면적을 공부면적으로 오인해 11.1% 불일치가 났습니다.
+    values: [official, lease]
+
+# ── 교차검증 ───────────────────────────────────────────────────────────
+crosschecks:
+  - code: X01
+    label: 건폐율 × 대지면적 = 건축면적
+    tolerance_pct: 1.0
+    level: 경고
+    measured:
+      dangsan: {expected: 252.08, actual: 252.09, delta_pct: 0.004}
+      yangpyeong: {expected: 302.92, actual: 302.92, delta_pct: 0.000}
+  - code: X02
+    label: 용적률 × 대지면적 = 용적률산정 연면적
+    tolerance_pct: 2.0
+    level: 경고
+    fallback: 용적률산정 연면적이 없으면 층별 지상합과 비교
+    measured:
+      dangsan: {expected: 1125.41, actual: 1123.93, delta_pct: 0.13}
+      yangpyeong: {expected: 2068.58, actual: 2068.63, delta_pct: 0.002}
+    note: |
+      당산동 연면적 정본을 이 검산으로 확정했습니다.
+      1,441.15㎡ 가정 시 221.80% (문서 표기와 일치) · 1,141.15㎡ 가정 시 162.38%.
+      후자는 59.4%p 어긋나므로 1,441.15㎡ 가 정본입니다.
+  - code: X03
+    label: 층별개요 합 = 연면적
+    tolerance_pct: 0.5
+    level: 경고
+    condition: floorTableKind == official
+    same_as: C19
+    note: C19 와 같은 항등식입니다. 허용오차를 CATALOG 의 ±0.5% 로 통일했습니다
+    alt:
+      label: 계약면적 합 ≤ 연면적
+      condition: floorTableKind == lease
+      output: 차이 = 공용·기계실 · 임대면적 비율 산출
+      measured_yangpyeong: {gfa: 2490.88, lease_sum: 2213.68, common: 277.20, lease_ratio_pct: 88.9}
+  - code: X04
+    label: 대지면적 × ㎡당 공시지가 = 총액
+    tolerance_pct: 1.0
+    level: 경고
+
+# ── 로그 형식 ──────────────────────────────────────────────────────────
+log_format:
+  rule: 코드 · 심각도 · 필드명 · 해소 경로. **입력값은 담지 않습니다**
+  template: '{code} {level} field={field} resolve={resolves_with}'
+  good: 'C33 차단 field=rr_area resolve=공부 확정'
+  bad: 'C33 차단 임대면적 합 1,234.56㎡ vs 연면적 1,441.15㎡'
+  reason: 로그는 물건명·임차인명·금액이 새는 가장 흔한 경로입니다
