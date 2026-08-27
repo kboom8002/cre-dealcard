@@ -132,13 +132,9 @@ describe('L3: Composition & Deck Sequencing (32 cases)', () => {
     /**
      * T3-RR-01: hasRentRoll=false면 rentRoll 면이 열리지 않아야 함
      * 
-     * 🔴 known_defect: deck-sequencer가 income 아키타입에서 rentRoll을
-     *    hasRentRoll 플래그와 무관하게 무조건 추가함.
-     *    수정 대상: deck-sequencer.ts L109~L134 각 아키타입 분기에서
-     *    `if (input.dataAvailability?.hasRentRoll !== false)` 가드 추가 필요.
-     *    xfail 처리 — 수정 시 XPASS로 전환됨.
+     * ✅ D34에서 발견 → deck-sequencer.ts 수정으로 해결.
      */
-    it.fails('T3-RR-01: hasRentRoll=false면 rentRoll 면이 열리지 않음 (known_defect)', () => {
+    it('T3-RR-01: hasRentRoll=false면 rentRoll 면이 열리지 않음', () => {
       const seq = buildDeckSequence({
         posture: 'income', grade: 'B',
         dataAvailability: { hasRentRoll: false },
