@@ -388,3 +388,23 @@ log_format:
   good: 'C33 차단 field=rr_area resolve=공부 확정'
   bad: 'C33 차단 임대면적 합 1,234.56㎡ vs 연면적 1,441.15㎡'
   reason: 로그는 물건명·임차인명·금액이 새는 가장 흔한 경로입니다
+
+# ── 폐기 코드 레지스트리 (V5 감사 §2.2 시정) ──────────────────────────
+# 폐기된 코드를 다른 의미로 다시 쓰면 과거 IM의 해석이 사후에 바뀝니다.
+# ONTOLOGY_GOVERNANCE_SPEC §변경절차 7: 코드를 재사용하지 않는다.
+stale_mapping:
+  - old: G17
+    meaning_at_deprecation: 실효 DPI 최소 72 (quality-gates-v02.ts)
+    new: null
+    note: |
+      G17을 '업종 추론 금지'로 재사용하면 안 됩니다.
+      업종 추론 금지는 불변조건 6이며 게이트가 아닙니다.
+      운영 코드의 DPI 검사(G17)는 QG17로 개명 대상입니다.
+    deprecated_by: V5 감사 §2.2
+  - old: G28
+    meaning_at_deprecation: 면적 totalGross vs effectiveGross 분리 (quality-gates-v02.ts)
+    new: null
+    note: |
+      G28을 '같은 지표 같은 값'으로 재사용하면 안 됩니다.
+      같은 지표 같은 값은 불변조건 22이며 qa/consistency_check.py가 봅니다.
+    deprecated_by: V5 감사 §2.2

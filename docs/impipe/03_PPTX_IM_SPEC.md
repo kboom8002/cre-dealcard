@@ -172,10 +172,12 @@ interface SlideSpec {
 
 ### 3.3 면 절삭
 
-| 상수 | 값 | 설명 |
+| 상수 | 정본 | 설명 |
 |---|:---:|---|
-| `PAGE_RECOMMENDED` | 16 | 권장 상한 — 초과 시 optional 슬라이드 뒤에서부터 절삭 |
-| `PAGE_HARD_LIMIT` | 20 | 절대 상한 — 강제 슬라이스 |
+| `PAGE_RECOMMENDED` | `im.pages.yaml §rules.min_pages` | 권장 면수 — 초과 시 optional 슬라이드 뒤에서부터 절삭 |
+| `PAGE_HARD_LIMIT` | `im.pages.yaml §rules.max_pages_absolute` | 절대 상한 — 코드는 이 값을 SSOT에서 읽습니다 |
+
+> ⚠️ V5 감사 §2.6 시정: 이 표는 값을 소유하지 않습니다. 값은 `credeal/ssot/im.pages.yaml`에서 읽습니다.
 
 **보호 키 (절삭 방지)**: `cover`, `summary`, `closing`, `risk`, `checklist`, `process`, `thesis`, `titleRights`
 

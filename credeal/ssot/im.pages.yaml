@@ -174,9 +174,9 @@ presets:
 # ── 편성 규칙 ──────────────────────────────────────────────────────────
 rules:
   min_pages: 12
-  max_pages_absolute: 18
+  max_pages_absolute: 16   # V5 감사 §2.6 시정: 18→16으로 코드(PAGE_HARD_LIMIT)와 통일
   note_parcels: 필지 면은 다필지에서만 켜지므로 단일 필지 물건의 면수는 그대로입니다
-  over_limit: 빌드 중단 (Overflow) — 자르지 않습니다
+  over_limit: 빌드 중단 (Overflow) — 편성이 예산을 넘지 않도록 사전 제어합니다
   under_min:
     action: 경고 + "내부 검토용" 워터마크
     reason: 12면을 못 채우면 IM 이 아니라 요약지입니다
@@ -186,9 +186,36 @@ rules:
   photo_page_gap: 사진 면 사이에 최소 1개의 내용 면을 둡니다
 
 # ── 등급별 기대 분량 ───────────────────────────────────────────────────
-# 상용 기준선은 A/B 입니다. C/D 는 내부 검토용으로만 씁니다.
+# 상용 기준선은 A/B 입니다. C 는 내부 검토용으로만 씁니다.
+# D등급은 발행 차단 [G30] — CF2 결론. 산출물을 만들지 않습니다.
 by_grade:
-  A: {pages: 15, all_blocks: true, note: L>=R2 & P>=P2 — 상용 기본 · 사진 완비 기준}
-  B: {pages: 13, omitted: [lease2], note: L=R1 — 만료일·관리비 부재}
-  C: {pages: 11, omitted: [lease2, market, evidence, landvalue], watermark: 내부 검토용}
-  D: {pages: 9, omitted: [lease2, market, evidence, landvalue, location, land], watermark: 내부 검토용}
+  A: {pages: 15, all_blocks: true, note: 'L>=R2 & P>=P2 — 상용 기본 · 사진 완비 기준'}
+  B: {pages: 13, omitted: [lease2], note: 'L=R1 — 만료일·관리비 부재'}
+  C: {pages: 12, omitted: [lease2, market], watermark: 내부 검토용}
+  # D: 발행 차단 — 이 표에 포함하지 않습니다 (V5 감사 §2.8 CF2 준수)
+
+# ── 등급별 예산 배분 (V5 감사 §4 시정 — RC-2 해결) ────────────────────
+# deck-sequencer가 면을 추가할 때 이 예산을 확인합니다.
+# 편성이 상한을 넘지 않도록 사전 제어합니다.
+budget_by_grade:
+  A:
+    total: 16           # 절대 상한
+    intro: 4            # cover, summary, location, land/building
+    body: 4             # 포스처별 본문
+    finance: 3          # capital, totalReturn, dcf (loan·tax는 잔여 예산 내에서만)
+    dynamic: 0          # 잔여 예산(total - intro - body - finance - closing)으로만 추가
+    closing: 5          # thesis, risk, checklist, process, closing
+  B:
+    total: 13
+    intro: 4
+    body: 4
+    finance: 1          # totalReturn만
+    dynamic: 0
+    closing: 4          # process 생략 가능
+  C:
+    total: 12
+    intro: 3            # gallery 생략
+    body: 4
+    finance: 0
+    dynamic: 0
+    closing: 5

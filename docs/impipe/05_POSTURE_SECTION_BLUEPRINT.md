@@ -131,18 +131,20 @@
 
 | 항목 | 상세 |
 |---|---|
-| **레이아웃** | 표 형식 — 호실, 업종/상호, 보증금, 월임대료, 만료일, 상태 |
+| **레이아웃** | 표 형식 — 호실, 업종, 보증금, 월임대료, 만료일, 상태 |
 | **데이터 소스** | rentroll_table (S1~S3) — rr_unit, rr_business, rr_deposit, rr_rent, rr_expiry, rr_state |
-| **작성 요건** | ① 전량 표기 (상위 N행 요약 금지, im.pages.yaml §rentroll) ② 업종·상호 원문 그대로 (불변조건 6) ③ hasRentRoll=false면 면 자체 미개방 (D34 T3-RR-01) |
-| **게이트** | G17(업종 추론 금지), G28(면적 분리) |
-| **불변조건** | 18(렌트롤 전량 표기) |
+| **작성 요건** | ① 전량 표기 (상위 N행 요약 금지, im.pages.yaml §rentroll) ② **임차인 상호는 마스킹** — 업종은 원문 유지 (불변조건 14·23) ③ 업종을 모르면 추론하지 않고 "미상" 표기 (불변조건 6) ④ hasRentRoll=false면 면 자체 미개방 (불변조건 31) |
+| **게이트** | G46(업종 추론 금지), G47(면적 분리) |
+| **불변조건** | 18(렌트롤 전량 표기), 14(임차인명 미표기), 23(마스킹 업종 보존) |
+
+> V5 감사 §2.1 시정: "업종·상호 원문 그대로"는 삭제. 마스킹 규칙(불변조건 14·23)이 정본.
 
 #### 📄 stability / profit (임대안정성 · 수익구조) — A04, A05
 
 | 항목 | 상세 |
 |---|---|
 | **데이터 소스** | 공실률, 평균 잔여 임대기간, 갱신율, 운영비율, NOI/GOI |
-| **작성 요건** | ① 수익률 basis 일관 (G38) ② 만실 서술+공실률>0 모순 금지 (G41, 불변조건 23) ③ 운영비 없이 NOI 산출 금지 (불변조건 1) ④ gross계열에 "순수익률" 라벨 금지 (불변조건 3) |
+| **작성 요건** | ① 수익률 basis 일관 (G38) ② 만실 서술+공실률>0 모순 금지 (G41, 불변조건 28) ③ 운영비 없이 NOI 산출 금지 (불변조건 1) ④ gross계열에 "순수익률" 라벨 금지 (불변조건 3) |
 
 #### 📄 comps (비교사례) — A03
 
@@ -360,34 +362,38 @@
 
 ## 7. 면수 상한 규칙
 
-| 항목 | 값 | 출처 |
-|---|:---:|---|
-| 권장 면수 | **12면** | `im.pages.yaml §rules.min_pages` + `PAGE_RECOMMENDED` |
-| 절대 상한 | **16면** | `im.pages.yaml §rules.max_pages_absolute` + `PAGE_HARD_LIMIT` |
-| 최소 면수 | **12면** | 12면 미만 → "내부 검토용" 워터마크 |
-| 초과 시 | **빌드 중단** | im.pages.yaml: "자르지 않습니다" |
+> ⚠️ 값은 이 표에서 소유하지 않습니다. 정본은 `credeal/ssot/im.pages.yaml`입니다.
 
-### 등급별 기대 분량 (im.pages.yaml §by_grade)
+| 항목 | 정본 참조 | 설명 |
+|---|---|---|
+| 권장 면수 | `im.pages.yaml §rules.min_pages` | 이 미만 시 "내부 검토용" 워터마크 |
+| 절대 상한 | `im.pages.yaml §rules.max_pages_absolute` | 편성 예산이 이 값을 넘지 않도록 사전 제어 |
+| D등급 | 발행 차단 `[G30]` | CF2 결론 — D등급은 산출물을 만들지 않음 |
 
-| 등급 | 기대 면수 | 생략 면 | 비고 |
-|:---:|:---:|---|---|
-| A | 15 | 없음 | 상용 기본 · 사진 완비 |
-| B | 13 | lease2 | L=R1 — 만료일·관리비 부재 |
-| C | 11 | lease2, market, evidence, landvalue | 내부 검토용 워터마크 |
-| D | 9 | +location, land | 내부 검토용 워터마크 |
+### 등급별 예산 배분 (im.pages.yaml §budget_by_grade 참조)
+
+> 편성은 **예산 안에서** 면을 배정합니다. 사후 절삭이 아니라 사전 예산 제어입니다.
+> V5 감사 §4 시정: 편성이 상한을 넘지 않도록 설계.
+
+등급별 면수와 계층별 배분은 `im.pages.yaml §budget_by_grade`가 소유합니다.
+이 문서에 값을 복사하지 않습니다.
 
 ---
 
-## 8. 절삭 알고리즘
+## 8. 편성 알고리즘
 
 ```
-1. 포스처별 본문 면 + 공통 도입/마감 → 전체 면 산출
-2. active.length > PAGE_RECOMMENDED(12)?
-   → 보호 키 제외하고 나머지에서 후순위부터 절삭
-   → 보호 키: cover, summary, closing, risk, checklist, process, thesis, titleRights
-3. finalSlides.length > PAGE_HARD_LIMIT(16)?
-   → 강제 절삭 (앞 16면만 유지)
+1. 등급별 예산 로드: budget = im.pages.yaml §budget_by_grade[grade]
+2. 도입부 면 배정 (budget.intro 내)
+3. 포스처별 본문 면 배정 (budget.body 내)
+4. 등급별 재무 면 배정 (budget.finance 내 — 잔여 예산 확인)
+5. 동적 공공 면 배정 (잔여 예산 내에서만)
+6. 마감부 면 배정 (budget.closing — 보호 키)
+7. 총 면수 ≤ budget.total 단언 — 초과 시 빌드 중단
 ```
+
+> V5 감사 §4.2 시정: "앞 N면만 유지"하는 절삭 대신, 편성이 예산을 넘지 않도록 합니다.
+> 보호 키(closing, risk, checklist, process, thesis)는 절삭 대상에서 제외됩니다.
 
 ---
 
@@ -401,11 +407,16 @@
 | 4. 용도지역 실패 시 개발규모 금지 | development, trading | scale, feasibility |
 | 5. comps 없이 목표 매각가 금지 | all | comps, price |
 | 6. 업종·상호 추론 금지 | income, operating | rentRoll |
-| 22. 게이트 전량 실행 | all | 전 면 |
-| 23. 만실↔공실 공존 금지 | income, operating | stability, profit |
-| 24. 폴백 중복 금지 | all | 전 면 |
-| 25. 열린 괄호 금지 | all | 전 면 |
-| 26. hasRentRoll=false → 렌트롤 금지 | income | rentRoll |
+| 14. 임차인명 미표기 | all | rentRoll |
+| 22. 같은 지표 같은 값 | all | 전 면 |
+| 23. 마스킹 업종 보존 | all | rentRoll |
+| 27. 게이트 전량 실행 | all | 전 면 |
+| 28. 만실↔공실 공존 금지 | income, operating | stability, profit |
+| 29. 폴백 중복 금지 | all | 전 면 |
+| 30. 열린 괄호 금지 | all | 전 면 |
+| 31. hasRentRoll=false → 렌트롤 금지 | income | rentRoll |
+
+> V5 감사 §2.3 시정: 불변조건 22~26을 27~31로 재번호. 정본 22·23 유지.
 
 ---
 
@@ -416,17 +427,21 @@
 | G01~G03 | block | cover (가격·면적·주소) |
 | G04 | block | 전체 (D등급 차단) |
 | G05~G08 | block | 전체 (교차검증·환각·PII·리스크) |
-| G17 | block | rentRoll (업종 추론) |
 | G20 | block | cover, gallery (사진 PII) |
-| G28 | block | summary (면적 분리) |
-| G31~G36 | block/warn | gallery (크로핑·DPI·넘침·왜곡·이탈) |
+| G31~G36 | block/warn | **전 면** (크로핑·DPI·넘침·왜곡·이탈) |
 | G38 | block | summary, profit (basis 정합) |
-| G40 | block | totalReturn (역레버리지) |
+| G40 | block | **ROE가 표시되는 모든 면** (역레버리지) |
 | G41 | block | stability, profit (만실↔공실) |
 | G42 | block | 전 면 (폴백 중복) |
 | G43 | warn | summary (highlights↔제원) |
 | G44 | warn | 전 면 (괄호 균형) |
 | G45 | warn | 전 면 (정적 문구 QG) |
+| G46 | block | rentRoll (업종 추론 금지 — 구 G17 의미 재부여) |
+| G47 | block | summary (면적 분리 — 구 G28 의미 재부여) |
+
+> V5 감사 §2.2 시정: G17·G28은 폐기 코드이므로 G46·G47로 재부여.
+> V5 감사 §3.4 시정: G31~G36을 gallery에서 **전 면**으로 확대.
+> V5 감사 §3.5 시정: G40을 totalReturn에서 **ROE 표시 전 면**으로 확대.
 
 ---
 
