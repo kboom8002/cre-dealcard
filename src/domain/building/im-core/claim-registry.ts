@@ -85,6 +85,11 @@ export class ClaimRegistry {
     return this.claims.get(id);
   }
 
+  /** 전체 Claim 목록 반환 */
+  getAll(): Claim[] {
+    return Array.from(this.claims.values());
+  }
+
   /** subject 이름으로 Claim 목록 조회 */
   getBySubject(subject: string): Claim[] {
     const ids = this.subjectIndex.get(subject) ?? [];

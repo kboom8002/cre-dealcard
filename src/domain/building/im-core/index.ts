@@ -48,3 +48,19 @@ export type {
   EffectiveRentInput,
   EffectiveRentResult,
 } from './lease-calc';
+
+// 토지거래허가구역 (P1-2)
+export { parsePermitZoneResponse, registerPermitZoneClaim } from './permit-zone';
+export type { PermitZoneResult, PermitZoneSource } from './permit-zone';
+
+// 책임 표시 displayLabel (P1-5)
+export { getDisplayLabel, getTrustWeight, DISPLAY_LABEL_MAP } from './display-label';
+export type { DisplayLabelConfig } from './display-label';
+
+// Action Card (P1-4)
+export { validateActionCard } from './action-card';
+export type { ActionCard, ActionItem, Scenario, ScenarioType, ActionCardValidation } from './action-card';
+
+// 승인 게이트 (P1-6)
+export { runApprovalGate } from './approval-gate';
+export type { ApprovalLevel, ApprovalGateResult, ApprovalBlocker } from './approval-gate';
