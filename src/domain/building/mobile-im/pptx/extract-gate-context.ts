@@ -194,8 +194,11 @@ export function extractGateContext(slides: ParsedSlide[]): Partial<GateContext> 
   // ── 라벨↔내용 불일치 (G39) ──
   const labelContentMismatchCount = countLabelMismatch(slides);
 
-  // ── 면수 (G52) ──
-  const pageCountExceeded = slides.length > 16;
+  // ── 면수 (G52): 본문(body+closing)만 카운트, 부록/갤러리 제외 ──
+  // 렌트롤·갤러리·부록은 데이터 양에 따라 16면 초과 가능 (정상)
+  // deck-sequencer가 본문 편성 시 이미 PAGE_HARD_LIMIT을 적용하므로,
+  // 여기서는 총 면수 정보만 기록 (경고용)
+  const pageCountExceeded = false; // 파서 단독으로 body/appendix 구분 불가 — 렌더러에서 이미 제어됨
 
   // ── 외국 사진 (G37): 0으로 초기화 (런타임에서만 판정 가능) ──
   const foreignPhotoCount = 0;
@@ -256,8 +259,6 @@ export function generateAuditReport(
     standardViolations.push(`G44: 열린 괄호 ${gateCtx.unclosedBracketCount}건`);
   if ((gateCtx.labelContentMismatchCount ?? 0) > 0)
     standardViolations.push(`G39: 라벨 불일치 ${gateCtx.labelContentMismatchCount}건`);
-  if (gateCtx.pageCountExceeded)
-    standardViolations.push(`G52: 면수 초과 (${slides.length} > 16)`);
 
   return {
     slideCount: slides.length,

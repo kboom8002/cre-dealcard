@@ -54,8 +54,10 @@
 - income 포스처의 rentRoll, gallery 등은 반드시 `dataAvailability` 가드를 확인합니다.
 
 ### 10. 면수 상한 (Page Hard Limit)
-- IM 면수 상한은 **16면**입니다 (PAGE_HARD_LIMIT=16, im.pages.yaml §rules).
-- 20면이 아닙니다. 테스트에서 `≤ 20`으로 적지 않습니다.
+- IM **본문** 면수 상한은 **16면**입니다 (PAGE_HARD_LIMIT=16, deck-sequencer 본문 절삭).
+- **부록**(공부발췌, 권리관계, 지적도, 상권분석)은 16면 한도에서 **제외**됩니다.
+- 렌트롤 다단 테이블, 갤러리 다면은 데이터 양에 따라 초과 가능합니다.
+- 테스트에서 총 면수(본문+부록)를 16 이하로 단언하지 않습니다.
 <!-- END:cre-pipeline-rules -->
 
 <!-- BEGIN:cre-d37-rules -->

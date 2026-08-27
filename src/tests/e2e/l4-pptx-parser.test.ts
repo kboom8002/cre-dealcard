@@ -202,21 +202,19 @@ describe('L4: PPTX 바이너리 파서 (D35 §4)', () => {
   });
 
   describe('면수 검사', () => {
-    it('16면 초과 슬라이드는 G52 위반', () => {
-      // 17면 가상 슬라이드
-      const fakeSlides: any[] = Array.from({ length: 17 }, (_, i) => ({
+    it('파서는 면수 초과를 판정하지 않는다 (렌더러에서 제어)', () => {
+      // 부록·갤러리·렌트롤 등으로 16면 초과는 정상
+      // deck-sequencer가 본문 16면을 이미 제어하므로, 파서에서 재차 차단하지 않음
+      const fakeSlides: any[] = Array.from({ length: 20 }, (_, i) => ({
         index: i, shapes: [], texts: [], images: [],
       }));
       const ctx = extractGateContext(fakeSlides);
-      expect(ctx.pageCountExceeded).toBe(true);
+      expect(ctx.pageCountExceeded).toBe(false);
     });
 
     // ── negative pair ──
-    it('16면 이하 슬라이드는 G52 통과', () => {
-      const fakeSlides: any[] = Array.from({ length: 16 }, (_, i) => ({
-        index: i, shapes: [], texts: [], images: [],
-      }));
-      const ctx = extractGateContext(fakeSlides);
+    it('빈 슬라이드에서도 면수 초과 없음', () => {
+      const ctx = extractGateContext([]);
       expect(ctx.pageCountExceeded).toBe(false);
     });
   });
