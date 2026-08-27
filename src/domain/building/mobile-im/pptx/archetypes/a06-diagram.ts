@@ -2,7 +2,7 @@ import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind, RowEntry } from '../imlib';
-import { generateStaticMapPlaceholder, fetchKakaoMapImage, type OptimizedImage, type MapPoiSpot } from '../utils/image-optimizer';
+import { fetchKakaoMapImage, type OptimizedImage, type MapPoiSpot } from '../utils/image-optimizer';
 // enforceTextBudget는 data-binder에서 이미 적용되므로 여기서는 사용하지 않음
 import { stripMarkdown } from '../data-binder';
 
@@ -48,25 +48,22 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
       mapImg = await fetchKakaoMapImage(mapImageUrl, 1120, 900);
     }
 
-    // 2차: 좌표 기반 카카오/OSM 합성 지도 (fetchKakaoMapImage 실패 시)
-    if (!mapImg) {
-      mapImg = await generateStaticMapPlaceholder(areaOrAddress, 1120, 900, coords, poiSpots);
-    }
+    // D33 BL-E: 3차 generateStaticMapPlaceholder 삭제
+    // 플레이스홀더는 지도가 아닙니다. 1·2차 실패 시 면 생략.
 
     if (mapImg) {
       slide.addImage({ data: mapImg.base64, x: M, y: 1.62, w: mapW, h: 4.50 });
     } else {
-      // D32 BL-2: 지도 데이터 결손 경고
-      warnings.push(`[BL-2] 지도 렌더 실패: 좌표=${coords ? '있음' : '없음'}, URL=${mapImageUrl ? '있음' : '없음'}, 지명='${areaOrAddress}'`);
+      // D33 BL-E: 지도 없으면 면 생략, 체크리스트 이관
+      warnings.push('[BL-E] 지도 데이터 미확보 — 슬라이드 생략, 체크리스트 이관');
+      L.foot(slide, input.slideNum, input.docno);
+      return { slide, warnings, suppress: true } as any;
     }
   }
 
-  // D32 BL-2: 지도 4조건 검증 (좌표·URL·지명·POI)
-  if (!coords && !mapImageUrl) {
-    warnings.push('[BL-2] 지도 좌표와 이미지 URL 모두 없음 — 플레이스홀더 지도 사용');
-  }
-  if (!areaOrAddress || areaOrAddress === '서울') {
-    warnings.push('[BL-2] 지도 지명/주소가 기본값(서울)임 — 정확한 주소 미입력');
+  // D33 BL-E: 지도 4조건 경고 (suppress하지 않은 경우에만 도달)
+  if (!coords && !mapImageUrl && !input.data?.cadastralImage) {
+    warnings.push('[BL-2] 지도 좌표와 이미지 URL 모두 없음');
   }
 
   // ── 우측: 텍스트 데이터 ──

@@ -147,13 +147,26 @@ export function resolvePhotos(supplemental?: MobileIMSupplementalInput | null, b
     });
   }
 
-  // D32 BL-1: buildingId 필터링 — 타 물건 사진 제외
+  // D33 BL-B: buildingId 필수 결속 — .buildingId가 없거나 불일치하면 제외
+  // D32에서는 .buildingId가 없는 사진은 통과시켰으나, 이제 제외합니다.
   if (buildingId && photos.length > 0) {
-    const ownPhotos = photos.filter(p => !(p as any).buildingId || (p as any).buildingId === buildingId);
+    const ownPhotos = photos.filter(p => (p as any).buildingId === buildingId);
     if (ownPhotos.length < photos.length) {
-      console.warn(`[resolvePhotos] BL-1: ${photos.length - ownPhotos.length}장의 타 물건 사진 제외 (buildingId: ${buildingId})`);
+      const excluded = photos.length - ownPhotos.length;
+      console.warn(`[resolvePhotos] D33 BL-B: ${excluded}장 제외 — buildingId 미일치/미설정 (대상: ${buildingId})`);
     }
-    return ownPhotos;
+    // D33 BL-B: 사진 0장이면 빈 배열 반환 → 갤러리 면 미개방
+    if (ownPhotos.length === 0) {
+      console.warn(`[resolvePhotos] D33 BL-B: 유효 사진 0장 — 갤러리 면 미개방, 체크리스트 이관 필요`);
+    }
+    photos = ownPhotos;
+  }
+
+  // D33 BL-B: 캡션이 없거나 분류와 불일치 시, 분류 라벨로 캡션 자동 연결
+  for (const p of photos) {
+    if (p.category && (!p.caption || p.caption.trim().length === 0)) {
+      p.caption = PHOTO_CATEGORY_LABELS[p.category as keyof typeof PHOTO_CATEGORY_LABELS] ?? p.category;
+    }
   }
 
   return photos;
