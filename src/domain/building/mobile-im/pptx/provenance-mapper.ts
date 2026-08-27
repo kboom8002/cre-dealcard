@@ -9,15 +9,16 @@ export type { ProvenanceKind } from './imlib';
 
 // D29 M-5: 정본 9종 가중치 (SourceTier 기반)
 export const PROVENANCE_WEIGHTS: Record<ProvenanceKind, number> = {
-  registry:   1.0,   // S1
-  public_api: 0.95,  // S2a
-  broker_aug: 0.90,  // S2a (현장 실측)
-  expert:     0.90,  // S2b
-  ledger:     0.90,  // S2a (원장)
-  seller:     0.65,  // S3
-  broker:     0.60,  // S3
-  derived:    0.40,  // S4
-  assumed:    0.30,  // S5
+  registry:               1.0,   // S1
+  public_api:             0.95,  // S2a
+  public_api_identified:  0.95,  // S2b (D36 §4.3: 공공 API + 중개인 식별)
+  broker_aug:             0.90,  // S2a (현장 실측)
+  expert:                 0.90,  // S2b
+  ledger:                 0.90,  // S2a (원장)
+  seller:                 0.65,  // S3
+  broker:                 0.60,  // S3
+  derived:                0.40,  // S4
+  assumed:                0.30,  // S5
 };
 
 /**
@@ -59,15 +60,16 @@ export function getWeakestLink(provenances: ProvenanceKind[]): ProvenanceKind {
 
 export function formatProvenanceBadge(kind: ProvenanceKind): string {
   const badges: Record<ProvenanceKind, string> = {
-    registry:   '✓등기·대장',
-    public_api: '✓공공데이터',
-    broker_aug: '●현장확인',
-    expert:     '★전문가검증',
-    ledger:     '✓원장확인',
-    seller:     '▲매도인고지',
-    broker:     '●중개인입력',
-    derived:    '◈파생계산',
-    assumed:    '◇AI추정·가정',
+    registry:               '✓등기·대장',
+    public_api:             '✓공공데이터',
+    public_api_identified:  '✓공공+중개인',
+    broker_aug:             '●현장확인',
+    expert:                 '★전문가검증',
+    ledger:                 '✓원장확인',
+    seller:                 '▲매도인고지',
+    broker:                 '●중개인입력',
+    derived:                '◈파생계산',
+    assumed:                '◇AI추정·가정',
   };
   return badges[kind] ?? '◇AI추정·가정';
 }

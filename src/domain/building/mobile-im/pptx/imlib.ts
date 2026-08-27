@@ -212,28 +212,30 @@ export async function withThemeIsolation<T>(theme: PptxThemeTokens, fn: () => Pr
 // §10 provenance 배지
 // ════════════════════════════════════════
 
-// D29 M-5: 정본 9종 출처 체계 (ontology/provenance.ts 정본)
+// D29 M-5: 정본 9종(+1) 출처 체계 (ontology/provenance.ts 정본)
 export type ProvenanceKind =
-  | 'registry'     // S1: 등기·대장 (공적 장부)
-  | 'public_api'   // S2a: 공공 API (국토부 실거래가, 공시지가 등)
-  | 'broker_aug'   // S2a: 중개인 보강 (현장 실측 등)
-  | 'expert'       // S2b: 전문가 검증 (감정평가사 등)
-  | 'ledger'       // S2a: 원장 (임대차 계약서 원본)
-  | 'seller'       // S3: 매도인 고지
-  | 'broker'       // S3: 중개인 입력
-  | 'derived'      // S4: 파생 계산
-  | 'assumed';     // S5: AI 추정·가정
+  | 'registry'               // S1: 등기·대장 (공적 장부)
+  | 'public_api'             // S2a: 공공 API (국토부 실거래가, 공시지가 등)
+  | 'public_api_identified'  // S2b: 공공 API + 중개인 식별 (D36 §4.3)
+  | 'broker_aug'             // S2a: 중개인 보강 (현장 실측 등)
+  | 'expert'                 // S2b: 전문가 검증 (감정평가사 등)
+  | 'ledger'                 // S2a: 원장 (임대차 계약서 원본)
+  | 'seller'                 // S3: 매도인 고지
+  | 'broker'                 // S3: 중개인 입력
+  | 'derived'                // S4: 파생 계산
+  | 'assumed';               // S5: AI 추정·가정
 
 export const PV: Record<ProvenanceKind, [string, string, string]> = {
-  registry:   ['✓ 등기·대장',    C.green,  C.greenL ],
-  public_api: ['✓ 공공데이터',   C.green,  C.greenL ],
-  broker_aug: ['● 현장확인',     C.blue,   C.blueL  ],
-  expert:     ['★ 전문가검증',   C.amber,  C.amberL ],
-  ledger:     ['✓ 원장확인',     C.green,  C.greenL ],
-  seller:     ['▲ 매도인고지',   C.violet, C.violetL],
-  broker:     ['● 중개인입력',   C.blue,   C.blueL  ],
-  derived:    ['◈ 파생계산',     C.mute,   C.line2  ],
-  assumed:    ['◇ AI추정·가정',  C.mute,   C.line2  ],
+  registry:               ['✓ 등기·대장',    C.green,  C.greenL ],
+  public_api:             ['✓ 공공데이터',   C.green,  C.greenL ],
+  public_api_identified:  ['✓ 공공+중개인',  C.green,  C.greenL ],
+  broker_aug:             ['● 현장확인',     C.blue,   C.blueL  ],
+  expert:                 ['★ 전문가검증',   C.amber,  C.amberL ],
+  ledger:                 ['✓ 원장확인',     C.green,  C.greenL ],
+  seller:                 ['▲ 매도인고지',   C.violet, C.violetL],
+  broker:                 ['● 중개인입력',   C.blue,   C.blueL  ],
+  derived:                ['◈ 파생계산',     C.mute,   C.line2  ],
+  assumed:                ['◇ AI추정·가정',  C.mute,   C.line2  ],
 };
 
 // 레거시 코드 호환 매핑

@@ -158,6 +158,7 @@ const NEW_WEIGHTS: Record<string, number> = {
 const PROVENANCE_COEFF: Record<string, number> = {
   registry: 1.0,
   public_api: 0.95,
+  public_api_identified: 0.95,  // D36 §4.3 S2b: 공공 API + 중개인 식별
   broker_aug: 0.80,    // D30 M-1: 0.90 → 0.80 (정본)
   expert: 0.95,        // D30 M-1: 0.90 → 0.95 (정본)
   ledger: 0.70,        // D30 M-1: 0.90 → 0.70 (정본)
