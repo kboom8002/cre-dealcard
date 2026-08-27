@@ -303,6 +303,15 @@ export interface MobileImPptxOutput {
   fileSizeBytes: number;
   generatedAt: string;
   warnings: string[];
+  /** D35 §4: 셀프 검증 감사 리포트 — 렌더 후 파서로 산출물 자체 검증 */
+  auditReport?: {
+    layoutViolations: string[];
+    standardViolations: string[];
+    totalViolations: number;
+    imageCount: number;
+    textCount: number;
+    gateContext: Record<string, unknown>;
+  };
 }
 
 export class MobileImPptxRenderer {
@@ -678,12 +687,43 @@ export class MobileImPptxRenderer {
         compression: true,
       })) as Buffer;
 
+      // ── 6. 셀프 검증 (D35 §4: 렌더 후 산출물 자체 파싱 → 게이트 검증) ──
+      let auditReport: MobileImPptxOutput['auditReport'];
+      try {
+        const { parsePptx } = await import('./pptx-parser');
+        const { extractGateContext, generateAuditReport } = await import('./extract-gate-context');
+        const parseResult = await parsePptx(buffer);
+        const gateCtx = extractGateContext(parseResult.slides);
+        const report = generateAuditReport(parseResult.slides, gateCtx);
+
+        auditReport = {
+          layoutViolations: report.layoutViolations,
+          standardViolations: report.standardViolations,
+          totalViolations: report.layoutViolations.length + report.standardViolations.length,
+          imageCount: report.imageCount,
+          textCount: report.textCount,
+          gateContext: gateCtx as Record<string, unknown>,
+        };
+
+        // 감사 위반을 warnings에 추가
+        for (const v of report.layoutViolations) {
+          warnings.push(`[AUDIT] ${v}`);
+        }
+        for (const v of report.standardViolations) {
+          warnings.push(`[AUDIT] ${v}`);
+        }
+      } catch (auditErr) {
+        // 셀프 검증 실패는 렌더를 차단하지 않음 (graceful degradation)
+        warnings.push(`[AUDIT] 셀프 검증 실패: ${auditErr instanceof Error ? auditErr.message : String(auditErr)}`);
+      }
+
       return {
         buffer,
         slideCount: slides.length,
         fileSizeBytes: buffer.length,
         generatedAt: new Date().toISOString(),
         warnings,
+        auditReport,
       };
     } catch (error) {
       if (error instanceof Error && error.message.includes('D등급')) {

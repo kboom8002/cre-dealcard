@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { toast } from "sonner";
+import { PptxAuditReportView, type PptxAuditData } from "@/components/im/pptx-audit-report-view";
 
 interface ImManagementPanelProps {
   buildingId: string;
@@ -169,6 +170,8 @@ export function ImManagementPanel({
   // 내보내기 진행률 핸들러 (IM-3)
   const [isExporting, setIsExporting] = useState<string | null>(null); // 'pdf' | 'pptx' | null
   const [exportDone, setExportDone] = useState<string | null>(null);
+  // D35 §4: PPTX 셀프 검증 감사 결과
+  const [lastAudit, setLastAudit] = useState<PptxAuditData | null>(null);
   const handleExport = async (format: 'export' | 'pptx') => {
     const tier = proDoc ? 'pro' : 'basic';
     const ext = format === 'export' ? 'pdf' : 'pptx';
@@ -179,6 +182,28 @@ export function ImManagementPanel({
       const url = `/api/public/im-lite/${buildingId}/${format}?tier=${tier}&preset=${selectedPreset}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error('Export failed');
+
+      // D35 §4: PPTX 셀프 검증 감사 결과 추출
+      if (ext === 'pptx') {
+        try {
+          const auditViolations = parseInt(res.headers.get('X-Audit-Violations') ?? '0', 10);
+          const layoutRaw = res.headers.get('X-Audit-Layout');
+          const standardRaw = res.headers.get('X-Audit-Standard');
+          const layoutViolations = layoutRaw ? JSON.parse(decodeURIComponent(layoutRaw)) : [];
+          const standardViolations = standardRaw ? JSON.parse(decodeURIComponent(standardRaw)) : [];
+          const slideCount = parseInt(res.headers.get('X-Slide-Count') ?? '0', 10);
+
+          setLastAudit({
+            layoutViolations,
+            standardViolations,
+            totalViolations: auditViolations,
+            slideCount,
+          });
+        } catch {
+          // 감사 헤더 파싱 실패 — 무시
+        }
+      }
+
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -351,6 +376,13 @@ export function ImManagementPanel({
                 ♻️ 재생성
               </Button>
             </div>
+
+            {/* D35 §4: PPTX 셀프 검증 감사 리포트 */}
+            {lastAudit && (
+              <div className="mt-3">
+                <PptxAuditReportView audit={lastAudit} />
+              </div>
+            )}
           </div>
         ) : (
           <Button 
