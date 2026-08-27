@@ -564,6 +564,36 @@ export function runCrossValidation(
     }
   }
 
+  // ── D33 BL-D G41: 서술어↔수치 모순 (만실↔공실) ──────────────────────────
+  // "만실" 또는 "전실"이라 서술하면서 공실률 > 5%이면 모순
+  // "공실"이라 서술하면서 공실률 = 0%이면 모순
+  if (!skipIncomeChecks && anchors.vacancyPct != null) {
+    const FULL_OCC_TERMS = /만실|전실|전층\s*임대|완전\s*임대|공실\s*없/i;
+    const VACANCY_TERMS = /공실(?!률)|공실\s*발생|비어\s*있|미입주|미임대/i;
+
+    for (const section of sections) {
+      const text = section.markdown;
+      // 만실 서술 + 공실률 > 5%
+      if (FULL_OCC_TERMS.test(text) && anchors.vacancyPct > 5) {
+        inconsistencies.push({
+          field: 'vacancy_narrative_contradiction',
+          section1: { type: section.section_type, value: '만실/전실 서술' },
+          section2: { type: 'anchor', value: `공실률 ${anchors.vacancyPct}%` },
+          severity: 'critical',
+        });
+      }
+      // 공실 서술 + 공실률 = 0%
+      if (VACANCY_TERMS.test(text) && anchors.vacancyPct === 0) {
+        inconsistencies.push({
+          field: 'vacancy_narrative_contradiction',
+          section1: { type: section.section_type, value: '공실 서술' },
+          section2: { type: 'anchor', value: '공실률 0%' },
+          severity: 'critical',
+        });
+      }
+    }
+  }
+
   // ── 결과 종합 ──────────────────────────────────────────────────────────────
   // critical 불일치가 하나라도 있으면 passed=false
   const hasCritical = inconsistencies.some((i) => i.severity === "critical");

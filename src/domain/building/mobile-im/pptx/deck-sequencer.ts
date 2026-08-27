@@ -34,6 +34,7 @@ export interface DataAvailability {
   hasCommercialDistrict?: boolean; // 상권분석
   hasCadastralMap?: boolean;     // 지적도 이미지
   hasFloorPlan?: boolean;        // 층별 평면도
+  hasRentRoll?: boolean;         // D33 S-5: 렌트롤 데이터 유무
 }
 
 export interface DeckSequenceInput {
