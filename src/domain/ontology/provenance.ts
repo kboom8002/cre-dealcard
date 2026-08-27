@@ -11,17 +11,18 @@
 
 // ── 9-Tier Provenance (v0.5) ──────────────────────────────────────────────
 
-/** v0.5 Provenance 등급 (신뢰도 내림차순 및 출처 9종 세분화) */
+/** v0.5 Provenance 등급 (신뢰도 내림차순 및 출처 10종 세분화) */
 export type ProvenanceTier =
-  | 'registry'     // 공부 (건축물대장, 등기부, 토지대장) — 1.00
-  | 'public_api'   // 공공 API 원시 (V-World, 국토부) — 0.95
-  | 'broker_aug'   // 공공 + 중개인 보강 — 0.80
-  | 'expert'       // 감정평가, 구조진단 — 0.95
-  | 'ledger'       // 임대차 원장, 관리비 내역서 — 0.70
-  | 'seller'       // 매도인 진술 — 0.65
-  | 'broker'       // 중개인 진술 — 0.60
-  | 'derived'      // 파생 계산값 — 최약 고리 승계
-  | 'assumed'      // 가정값 — 0.30
+  | 'registry'              // 공부 (건축물대장, 등기부, 토지대장) — 1.00
+  | 'public_api'            // 공공 API 원시 (V-World, 국토부) — 0.95
+  | 'public_api_identified' // 공공 API 식별 결과 (D36 §4.3 S2b) — 0.90
+  | 'broker_aug'            // 공공 + 중개인 보강 — 0.80
+  | 'expert'                // 감정평가, 구조진단 — 0.95
+  | 'ledger'                // 임대차 원장, 관리비 내역서 — 0.70
+  | 'seller'                // 매도인 진술 — 0.65
+  | 'broker'                // 중개인 진술 — 0.60
+  | 'derived'               // 파생 계산값 — 최약 고리 승계
+  | 'assumed'               // 가정값 — 0.30
   // 하위 호환 별칭 (v0.2/v0.4 레거시)
   | 'public';
 
@@ -33,6 +34,7 @@ export function tierOf(p: ProvenanceTier): SourceTier {
   switch (p) {
     case 'registry':   return 'S1';
     case 'public_api': return 'S2a';
+    case 'public_api_identified': return 'S2b';
     case 'broker_aug': return 'S2b';
     case 'expert':     return 'S3';
     case 'ledger':
@@ -79,6 +81,13 @@ export const PROVENANCE_REGISTRY: Record<ProvenanceTier, ProvenanceMeta> = {
     label: '공공API',
     score: 0.95,
     responsibility: 'API 운영기관',
+  },
+  public_api_identified: {
+    tier: 'public_api_identified',
+    badge: '✓',
+    label: '공공API식별',
+    score: 0.90,
+    responsibility: 'API 운영기관 + 시스템',
   },
   broker_aug: {
     tier: 'broker_aug',

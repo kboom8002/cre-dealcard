@@ -265,7 +265,9 @@ export async function generateSingleSection(
         systemPrompt: effectiveSysPrompt,
         userPrompt,
         model: IM_AI_MODEL,
-        temperature: 0.3,
+        // D37 P2-1: 멱등 단언 — temperature: 0 + seed 고정
+        // Claim 수치는 결정론적이므로 항상 동일, LLM 설명은 temperature:0으로 최대한 일치
+        temperature: 0,
         maxTokens: effectiveMaxTokens,
       },
       {

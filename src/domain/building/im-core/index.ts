@@ -64,3 +64,7 @@ export type { ActionCard, ActionItem, Scenario, ScenarioType, ActionCardValidati
 // 승인 게이트 (P1-6)
 export { runApprovalGate } from './approval-gate';
 export type { ApprovalLevel, ApprovalGateResult, ApprovalBlocker } from './approval-gate';
+
+// 한국법 필드 (P2-7)
+export { registerKoreanLegalClaims } from './korean-legal';
+export type { KoreanLegalFields, TransactionStructure, MgmtFeeStructure } from './korean-legal';
