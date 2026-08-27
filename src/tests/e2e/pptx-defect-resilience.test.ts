@@ -14,7 +14,6 @@ describe('Axis 2: PPTX Input Defect Resilience & Edge Case Tests', { timeout: 60
   test('D01: sections: [] -> throws no unhandled error, renders minimal deck', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'test-d01',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc: {
@@ -40,7 +39,6 @@ describe('Axis 2: PPTX Input Defect Resilience & Edge Case Tests', { timeout: 60
 
     const input: MobileImPptxInput = {
       buildingId: 'test-d02',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc,
@@ -60,7 +58,6 @@ describe('Axis 2: PPTX Input Defect Resilience & Edge Case Tests', { timeout: 60
 
     const input: MobileImPptxInput = {
       buildingId: 'test-d03',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc,
@@ -75,7 +72,6 @@ describe('Axis 2: PPTX Input Defect Resilience & Edge Case Tests', { timeout: 60
   test('D04: building metadata undefined -> renders with defaults', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'test-d04',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc: buildMinimalDoc('income'),
@@ -90,7 +86,6 @@ describe('Axis 2: PPTX Input Defect Resilience & Edge Case Tests', { timeout: 60
   test('D05: doc.body: {} -> builds summary and defaults safely', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'test-d05',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc: {
@@ -112,7 +107,6 @@ describe('Axis 2: PPTX Input Defect Resilience & Edge Case Tests', { timeout: 60
 
     const input: MobileImPptxInput = {
       buildingId: 'test-d06',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc,
@@ -134,7 +128,6 @@ describe('Axis 2: PPTX Input Defect Resilience & Edge Case Tests', { timeout: 60
 
     const input: MobileImPptxInput = {
       buildingId: 'test-d07',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc,
@@ -156,7 +149,6 @@ describe('Axis 2: PPTX Input Defect Resilience & Edge Case Tests', { timeout: 60
 
     const input: MobileImPptxInput = {
       buildingId: 'test-d08',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc,
@@ -174,7 +166,6 @@ describe('Axis 2: PPTX Input Defect Resilience & Edge Case Tests', { timeout: 60
 
     const input: MobileImPptxInput = {
       buildingId: 'test-d09',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc,
@@ -198,7 +189,6 @@ describe('Axis 2: PPTX Input Defect Resilience & Edge Case Tests', { timeout: 60
 
     const input: MobileImPptxInput = {
       buildingId: 'test-d10',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc,
@@ -213,7 +203,6 @@ describe('Axis 2: PPTX Input Defect Resilience & Edge Case Tests', { timeout: 60
   test('D11: grade undefined -> defaults to Grade B', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'test-d11',
-      tier: 'basic',
       posture: 'income',
       grade: undefined as any,
       doc: buildMinimalDoc('income'),
@@ -228,7 +217,6 @@ describe('Axis 2: PPTX Input Defect Resilience & Edge Case Tests', { timeout: 60
   test('D12: posture undefined -> defaults to income posture sequence', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'test-d12',
-      tier: 'basic',
       posture: undefined as any,
       grade: 'B',
       doc: buildMinimalDoc('income'),
@@ -251,7 +239,6 @@ describe('Axis 2: PPTX Input Defect Resilience & Edge Case Tests', { timeout: 60
 
     const input: MobileImPptxInput = {
       buildingId: 'test-d13',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc,
@@ -266,7 +253,6 @@ describe('Axis 2: PPTX Input Defect Resilience & Edge Case Tests', { timeout: 60
   test('D14: broker undefined -> closing slide renders safely without broker block', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'test-d14',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc: buildMinimalDoc('income'),
@@ -285,7 +271,6 @@ describe('Axis 2: PPTX Input Defect Resilience & Edge Case Tests', { timeout: 60
 
     const input: MobileImPptxInput = {
       buildingId: 'test-d15',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc,
@@ -300,7 +285,6 @@ describe('Axis 2: PPTX Input Defect Resilience & Edge Case Tests', { timeout: 60
   test('D16: hasViolation and hasJointCollateral flags -> loan slide suppressed in pro tier', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'test-d16',
-      tier: 'pro',
       posture: 'income',
       grade: 'A',
       hasViolation: true,

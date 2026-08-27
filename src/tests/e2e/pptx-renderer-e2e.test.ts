@@ -101,7 +101,6 @@ describe('PPTX In-Memory Renderer: 5 Postures × Tiers + 육안 검수', { timeo
   test('PR-01: income/basic → 정상 버퍼 + 슬라이드 5~8장 + PPTX 저장', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'pptx-test-income-basic',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc: buildMinimalDoc('income'),
@@ -120,7 +119,6 @@ describe('PPTX In-Memory Renderer: 5 Postures × Tiers + 육안 검수', { timeo
   test('PR-02: income/pro → 정상 버퍼 + 슬라이드 8~14장 + PPTX 저장', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'pptx-test-income-pro',
-      tier: 'pro',
       posture: 'income',
       grade: 'A',
       doc: buildMinimalDoc('income'),
@@ -138,7 +136,6 @@ describe('PPTX In-Memory Renderer: 5 Postures × Tiers + 육안 검수', { timeo
   test('PR-03: owner_occupied/basic → vsLease 전용 슬라이드 + PPTX 저장', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'pptx-test-oo-basic',
-      tier: 'basic',
       posture: 'owner_occupied',
       grade: 'B',
       doc: buildMinimalDoc('owner_occupied'),
@@ -155,7 +152,6 @@ describe('PPTX In-Memory Renderer: 5 Postures × Tiers + 육안 검수', { timeo
   test('PR-04: development/basic → land+feasibility 전용 슬라이드 + PPTX 저장', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'pptx-test-dev-basic',
-      tier: 'basic',
       posture: 'development',
       grade: 'B',
       doc: buildMinimalDoc('development'),
@@ -172,7 +168,6 @@ describe('PPTX In-Memory Renderer: 5 Postures × Tiers + 육안 검수', { timeo
   test('PR-05: operating/basic → KPI 슬라이드 (이천 물류센터) + PPTX 저장', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'pptx-test-op-basic',
-      tier: 'basic',
       posture: 'operating',
       grade: 'B',
       doc: buildMinimalDoc('operating'),
@@ -189,7 +184,6 @@ describe('PPTX In-Memory Renderer: 5 Postures × Tiers + 육안 검수', { timeo
   test('PR-06: trading/basic → comps 슬라이드 + PPTX 저장', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'pptx-test-trading-basic',
-      tier: 'basic',
       posture: 'trading',
       grade: 'B',
       doc: buildMinimalDoc('trading'),
@@ -206,7 +200,6 @@ describe('PPTX In-Memory Renderer: 5 Postures × Tiers + 육안 검수', { timeo
   test('PR-07: Grade C → DCF/Sensitivity 슬라이드 suppress 확인', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'pptx-test-grade-c',
-      tier: 'pro',
       posture: 'income',
       grade: 'C',
       doc: buildMinimalDoc('income'),
@@ -223,7 +216,6 @@ describe('PPTX In-Memory Renderer: 5 Postures × Tiers + 육안 검수', { timeo
   test('PR-08: Grade D → Pro 렌더링 reject 확인', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'pptx-test-grade-d',
-      tier: 'pro',
       posture: 'income',
       grade: 'D',
       doc: buildMinimalDoc('income'),
@@ -236,7 +228,6 @@ describe('PPTX In-Memory Renderer: 5 Postures × Tiers + 육안 검수', { timeo
   test('PR-09: 사진 0장 → 갤러리 슬라이드 없음 확인', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'pptx-test-no-photos',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc: buildMinimalDoc('income'),
@@ -262,7 +253,6 @@ describe('PPTX In-Memory Renderer: 5 Postures × Tiers + 육안 검수', { timeo
 
     const input: MobileImPptxInput = {
       buildingId: 'pptx-test-8-photos',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc,
@@ -282,7 +272,6 @@ describe('PPTX In-Memory Renderer: 5 Postures × Tiers + 육안 검수', { timeo
 
     const input: MobileImPptxInput = {
       buildingId: 'pptx-test-overflow',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc,

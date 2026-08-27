@@ -173,7 +173,6 @@ describe('T29: PII Scrubbing & Persona Isolation', { timeout: 60_000 }, () => {
 
       const input: MobileImPptxInput = {
         buildingId: 'pii-persona-test',
-        tier: 'basic',
         posture: 'income',
         grade: 'A',
         doc: docWithPersona,
@@ -227,7 +226,6 @@ describe('T29: PII Scrubbing & Persona Isolation', { timeout: 60_000 }, () => {
 
       const input: MobileImPptxInput = {
         buildingId: 'pii-sysmsg-test',
-        tier: 'basic',
         posture: 'income',
         grade: 'A',
         doc: docWithSystemMsg,

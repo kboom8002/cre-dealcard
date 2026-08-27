@@ -306,7 +306,6 @@ ${expectedClosing}`;
       phone: '010-3344-5566',
       specialty: '영등포·여의도권 오피스 전문',
     },
-    tier: 'basic',
     posture: 'income',
     preset: 'credeal_signature',
     grade: 'B',

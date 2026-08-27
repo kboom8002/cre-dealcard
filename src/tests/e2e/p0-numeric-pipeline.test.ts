@@ -95,7 +95,6 @@ describe('T02: Numeric Pipeline End-to-End Consistency', { timeout: 60_000 }, ()
   test('T02-02: SSoT summary price_band appears in rendered PPTX', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'numeric-t02',
-      tier: 'basic',
       posture: 'income',
       grade: 'A',
       doc: incomeDoc,
@@ -115,7 +114,6 @@ describe('T02: Numeric Pipeline End-to-End Consistency', { timeout: 60_000 }, ()
   test('T02-03: Area values preserved through pipeline to PPTX', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'numeric-t02-area',
-      tier: 'basic',
       posture: 'income',
       grade: 'A',
       doc: incomeDoc,
@@ -133,7 +131,6 @@ describe('T02: Numeric Pipeline End-to-End Consistency', { timeout: 60_000 }, ()
   test('T02-04: Cap Rate and NOI values in rendered PPTX', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'numeric-t02-yield',
-      tier: 'basic',
       posture: 'income',
       grade: 'A',
       doc: incomeDoc,
@@ -154,7 +151,6 @@ describe('T02: Numeric Pipeline End-to-End Consistency', { timeout: 60_000 }, ()
   test('T02-05: No numeric corruption (NaN, Infinity) in output', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'numeric-t02-corruption',
-      tier: 'basic',
       posture: 'income',
       grade: 'A',
       doc: incomeDoc,
@@ -190,7 +186,6 @@ describe('T02: Numeric Pipeline End-to-End Consistency', { timeout: 60_000 }, ()
       const meta = BUILDING_META[posture];
       const input: MobileImPptxInput = {
         buildingId: `numeric-meta-${posture}`,
-        tier: 'basic',
         posture,
         grade: 'A',
         doc: {

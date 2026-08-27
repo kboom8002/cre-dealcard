@@ -81,7 +81,6 @@ describe('P2 Accessibility Tests', () => {
       renderer = new MobileImPptxRenderer();
       const input: MobileImPptxInput = {
         buildingId: 'test-accessibility',
-        tier: 'pro',
         docno: 'DOC-ACC-01',
         doc: buildMinimalDoc('income'),
       };

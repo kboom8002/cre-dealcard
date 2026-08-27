@@ -62,7 +62,6 @@ describe('L2 Data Contract', () => {
     postures.forEach(posture => {
       const sequence = buildDeckSequence({
         posture,
-        tier: 'basic',
         grade: 'A',
       });
       const dataKeysInSequence = sequence.map(s => s.dataKey);

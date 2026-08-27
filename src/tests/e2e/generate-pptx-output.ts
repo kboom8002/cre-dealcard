@@ -73,7 +73,7 @@ async function main() {
     buildingId: 'yangpyeong-output',
     building: { area_signal: '양평권역 (선유도역)', asset_type: '사무용빌딩', price_band: '250억' } as any,
     broker: { display_name: 'CREDEAL', company_name: 'CREDEAL', phone: '', specialty: '상업용 부동산 전문' },
-    tier: 'basic', posture: 'income', preset: 'credeal_signature', grade: 'B',
+posture: 'income', preset: 'credeal_signature', grade: 'B',
   });
   const ypPath = join(OUTPUT_DIR, 'yangpyeong_income_250억_IM.pptx');
   writeFileSync(ypPath, ypResult.buffer);
@@ -139,7 +139,7 @@ async function main() {
     buildingId: 'dangsan-output',
     building: { area_signal: '당산권역 (당산역)', asset_type: '근린생활시설', price_band: '115억' } as any,
     broker: { display_name: 'CREDEAL', company_name: 'CREDEAL', phone: '', specialty: '상업용 부동산 전문' },
-    tier: 'basic', posture: 'income', preset: 'credeal_signature', grade: 'C',
+posture: 'income', preset: 'credeal_signature', grade: 'C',
   });
   const dsPath = join(OUTPUT_DIR, 'dangsan_income_115억_IM.pptx');
   writeFileSync(dsPath, dsResult.buffer);

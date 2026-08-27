@@ -28,7 +28,6 @@ describe('L4 Cross-Format Parity', () => {
     postures.forEach(posture => {
       const sequence = buildDeckSequence({
         posture,
-        tier: 'basic',
         grade: 'A',
       });
       const dataKeysInSequence = sequence.map(s => s.dataKey);
@@ -47,7 +46,6 @@ describe('L4 Cross-Format Parity', () => {
     postures.forEach(posture => {
       const sequence = buildDeckSequence({
         posture,
-        tier: 'basic',
         grade: 'A',
       });
       const dataKeysInSequence = sequence.map(s => s.dataKey);

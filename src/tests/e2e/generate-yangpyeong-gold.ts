@@ -154,7 +154,7 @@ async function main() {
 
   const result = await renderer.render({
     buildingId: 'yangpyeong-gold',
-    tier: 'pro',                      // Pro 시퀀스: 토지·임대안정성·자본구조·비교사례 포함
+// Pro 시퀀스: 토지·임대안정성·자본구조·비교사례 포함
     preset: 'executive_gold',
     posture: 'income',
     grade: 'A',                       // A등급: DCF·민감도·대출·세금 시나리오 추가

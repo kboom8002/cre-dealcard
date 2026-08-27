@@ -88,7 +88,7 @@ describe('P1 Layout & Parsing Tests', () => {
       ];
 
       const renderer = new MobileImPptxRenderer();
-      const { buffer } = await renderer.render({ tier: 'basic', buildingId: 'test', doc } as any);
+      const { buffer } = await renderer.render({buildingId: 'test', doc } as any);
       expect(buffer.length).toBeGreaterThan(0);
       const texts = await extractSlideTexts(buffer);
     });
@@ -114,7 +114,7 @@ describe('P1 Layout & Parsing Tests', () => {
       ];
 
       const renderer = new MobileImPptxRenderer();
-      const { buffer } = await renderer.render({ tier: 'basic', buildingId: 'test', doc } as any);
+      const { buffer } = await renderer.render({buildingId: 'test', doc } as any);
       expect(buffer.length).toBeGreaterThan(0);
     });
   });
@@ -131,7 +131,7 @@ describe('P1 Layout & Parsing Tests', () => {
       ];
 
       const renderer = new MobileImPptxRenderer();
-      const { buffer } = await renderer.render({ tier: 'basic', buildingId: 'test', doc } as any);
+      const { buffer } = await renderer.render({buildingId: 'test', doc } as any);
       expect(buffer.length).toBeGreaterThan(0);
     });
 
@@ -147,7 +147,7 @@ describe('P1 Layout & Parsing Tests', () => {
       ];
 
       const renderer = new MobileImPptxRenderer();
-      const { buffer } = await renderer.render({ tier: 'basic', buildingId: 'test', doc } as any);
+      const { buffer } = await renderer.render({buildingId: 'test', doc } as any);
       expect(buffer.length).toBeGreaterThan(0);
     });
 
@@ -162,7 +162,7 @@ describe('P1 Layout & Parsing Tests', () => {
       ];
 
       const renderer = new MobileImPptxRenderer();
-      const { buffer } = await renderer.render({ tier: 'basic', buildingId: 'test', doc } as any);
+      const { buffer } = await renderer.render({buildingId: 'test', doc } as any);
       expect(buffer.length).toBeGreaterThan(0);
     });
 
@@ -177,7 +177,7 @@ describe('P1 Layout & Parsing Tests', () => {
       ];
 
       const renderer = new MobileImPptxRenderer();
-      const { buffer } = await renderer.render({ tier: 'basic', buildingId: 'test', doc } as any);
+      const { buffer } = await renderer.render({buildingId: 'test', doc } as any);
       expect(buffer.length).toBeGreaterThan(0);
     });
 
@@ -186,7 +186,7 @@ describe('P1 Layout & Parsing Tests', () => {
       doc.sections = [{ title: '투자포인트', section_type: 'investment_thesis', markdown: 'test' }];
 
       const renderer = new MobileImPptxRenderer();
-      const { buffer } = await renderer.render({ tier: 'basic', buildingId: 'test', doc } as any);
+      const { buffer } = await renderer.render({buildingId: 'test', doc } as any);
       const xmls = await extractSlideXmls(buffer);
       for (const [_, xml] of xmls) {
         expect(xml).toContain('<p:sld');
@@ -198,7 +198,7 @@ describe('P1 Layout & Parsing Tests', () => {
     it('T08-01: Basic tier PPTX -> footer text (크리딜) present in last area of every slide', async () => {
       const doc = buildMinimalDoc('income');
       const renderer = new MobileImPptxRenderer();
-      const { buffer } = await renderer.render({ tier: 'basic', buildingId: 'test', doc } as any);
+      const { buffer } = await renderer.render({buildingId: 'test', doc } as any);
       const texts = await extractSlideTexts(buffer);
     });
 
@@ -206,7 +206,7 @@ describe('P1 Layout & Parsing Tests', () => {
       const doc = buildMinimalDoc('income');
       const renderer = new MobileImPptxRenderer();
       const { buffer } = await renderer.render({ 
-        tier: 'pro', 
+
         buildingId: 'test', 
         watermark: { requesterName: '홍길동', phoneLast4: '1234', timestamp: '2024' },
         doc 
@@ -221,7 +221,7 @@ describe('P1 Layout & Parsing Tests', () => {
         { title: 'tenant', section_type: 'lease_status', markdown: 'loooooooong'.repeat(100) }
       ];
       const renderer = new MobileImPptxRenderer();
-      const { buffer } = await renderer.render({ tier: 'basic', buildingId: 'test', doc } as any);
+      const { buffer } = await renderer.render({buildingId: 'test', doc } as any);
       expect(buffer.length).toBeGreaterThan(0);
     });
   });

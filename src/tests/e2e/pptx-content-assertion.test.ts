@@ -110,7 +110,6 @@ describe('L3 PPTX Content Assertion Tests', () => {
     for (const posture of postures) {
       const input: MobileImPptxInput = {
         buildingId: `test-${posture}`,
-        tier: 'basic',
         posture,
         grade: 'B',
         doc: buildMinimalDoc(posture) as any,
@@ -136,7 +135,6 @@ describe('L3 PPTX Content Assertion Tests', () => {
     const posture = 'income';
     const input: MobileImPptxInput = {
       buildingId: `test-${posture}-keywords`,
-      tier: 'basic',
       posture,
       grade: 'B',
       doc: buildMinimalDoc(posture) as any,
@@ -172,7 +170,6 @@ describe('L3 PPTX Content Assertion Tests', () => {
     for (const posture of postures) {
       const input: MobileImPptxInput = {
         buildingId: `test-${posture}-keywords`,
-        tier: 'basic',
         posture,
         grade: 'B',
         doc: buildMinimalDoc(posture) as any,
@@ -202,7 +199,6 @@ describe('L3 PPTX Content Assertion Tests', () => {
     for (const posture of postures) {
       const input: MobileImPptxInput = {
         buildingId: `test-${posture}-clean`,
-        tier: 'basic',
         posture,
         grade: 'B',
         doc: buildMinimalDoc(posture) as any,
@@ -227,7 +223,6 @@ describe('L3 PPTX Content Assertion Tests', () => {
     for (const posture of postures) {
       const input: MobileImPptxInput = {
         buildingId: `test-${posture}-korean`,
-        tier: 'basic',
         posture,
         grade: 'B',
         doc: buildMinimalDoc(posture) as any,

@@ -151,7 +151,6 @@ async function runVisualQAPipeline() {
   const renderer = new MobileImPptxRenderer();
   const input: MobileImPptxInput = {
     buildingId: 'stress-case-01',
-    tier: 'basic',
     posture: 'income',
     grade: 'A',
     preset: 'credeal_signature',

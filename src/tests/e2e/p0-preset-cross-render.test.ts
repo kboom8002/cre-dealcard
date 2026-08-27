@@ -78,7 +78,6 @@ describe('T09: 5-Preset Cross-Rendering Validation', { timeout: 120_000 }, () =>
 
   const baseInput: Omit<MobileImPptxInput, 'preset'> = {
     buildingId: 'preset-cross-test',
-    tier: 'basic',
     posture: 'income',
     grade: 'A',
     doc: buildMinimalDoc('income'),

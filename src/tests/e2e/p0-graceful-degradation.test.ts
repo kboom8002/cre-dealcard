@@ -22,7 +22,6 @@ describe('T01: Graceful Degradation — Blank Slide Prevention', { timeout: 60_0
 
     const input: MobileImPptxInput = {
       buildingId: 'test-t01-01',
-      tier: 'pro',
       posture: 'income',
       grade: 'A',
       doc,
@@ -55,7 +54,6 @@ describe('T01: Graceful Degradation — Blank Slide Prevention', { timeout: 60_0
 
     const input: MobileImPptxInput = {
       buildingId: 'test-t01-02',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc,
@@ -83,7 +81,6 @@ describe('T01: Graceful Degradation — Blank Slide Prevention', { timeout: 60_0
 
     const input: MobileImPptxInput = {
       buildingId: 'test-t01-03',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc,
@@ -107,7 +104,6 @@ describe('T01: Graceful Degradation — Blank Slide Prevention', { timeout: 60_0
 
     const input: MobileImPptxInput = {
       buildingId: 'test-t01-04',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc,
@@ -128,7 +124,6 @@ describe('T01: Graceful Degradation — Blank Slide Prevention', { timeout: 60_0
     
     const input: MobileImPptxInput = {
       buildingId: 'test-t01-05',
-      tier: 'basic',
       posture: 'income',
       grade: 'B',
       doc,

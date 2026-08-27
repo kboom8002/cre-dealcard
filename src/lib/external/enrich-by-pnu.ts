@@ -12,6 +12,7 @@ import { CACHE_TTL_BY_SOURCE, type ExternalDataEnrichmentResult } from "./extern
 import type { ResolvedAddress } from "./address-resolver";
 import { geocodeAddress } from "@/domain/verification/address-resolver";
 import { fetchCommercialDistrictFull, type CommercialDistrictAnalysis } from "./semas-commercial-api";
+import { fetchCadastralMapImage, type CadastralMapResult } from "./vworld-wms-cadastral";
 
 const CACHE_TTL_DAYS = 30;
 
@@ -37,6 +38,7 @@ export async function enrichBuildingDataCore(
   let locationPoi: LocationPoiData | null = null;
   let registryData: RegistryData | null = null;
   let commercialDistrict: CommercialDistrictAnalysis | null = null;
+  let cadastralMapImage: CadastralMapResult | null = null;
   let mapImageUrl: string | null = null;
 
   await Promise.all([
@@ -79,6 +81,17 @@ export async function enrichBuildingDataCore(
       if (cachedData && !staleSources?.includes('commercialDistrict')) { commercialDistrict = cachedData.commercial_district; return; }
       try { if (pnu) commercialDistrict = await fetchCommercialDistrictFull(createServiceClient(), pnu); }
       catch (e: unknown) { errors.push({ api: "semas-commercial", message: e instanceof Error ? e.message : "Unknown error" }); }
+    })(),
+    // 9. V-World WMS 지적도 이미지 (Phase 4)
+    (async () => {
+      if (cachedData && !staleSources?.includes('cadastralMap')) { return; }
+      try {
+        if (lat != null && lng != null) {
+          cadastralMapImage = await fetchCadastralMapImage(lat, lng, 800, 600, 150);
+        }
+      } catch (e: unknown) {
+        errors.push({ api: "vworld-wms-cadastral", message: e instanceof Error ? e.message : "Unknown error" });
+      }
     })(),
   ]);
 
@@ -127,6 +140,7 @@ export async function enrichBuildingDataCore(
     mapImageUrl,
     registryData,
     commercialDistrict,
+    cadastralMapImage,
     enrichedAt: new Date().toISOString(),
     errors,
   };
@@ -312,6 +326,7 @@ export function reconstructFromCache(cached: any): ExternalDataEnrichmentResult 
     mapImageUrl,
     registryData: cached.registry_data || null,
     commercialDistrict: cached.commercial_district || null,
+    cadastralMapImage: null, // WMS 이미지는 캐시에 저장하지 않음 — 재호출 필요
     enrichedAt: cached.updated_at,
     errors: cached.errors ? (typeof cached.errors === 'string' ? JSON.parse(cached.errors) : cached.errors) : [],
   };

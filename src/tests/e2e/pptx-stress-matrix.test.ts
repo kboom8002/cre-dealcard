@@ -25,7 +25,6 @@ describe('Axis 1: PPTX 40-Cell Posture × Grade × Tier Stress Matrix', { timeou
           test(testName, async () => {
             const input: MobileImPptxInput = {
               buildingId: `stress-${posture}-${grade}-${tier}`,
-              tier,
               posture,
               grade,
               doc: buildMinimalDoc(posture) as any,

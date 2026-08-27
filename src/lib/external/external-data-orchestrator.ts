@@ -41,6 +41,8 @@ export interface ExternalDataEnrichmentResult {
   mapImageUrl: string | null;
   registryData: RegistryData | null;
   commercialDistrict: CommercialDistrictAnalysis | null;
+  /** V-World WMS 지적도 이미지 (Phase 4) */
+  cadastralMapImage: { buffer: Buffer; base64: string; width: number; height: number; bbox: [number, number, number, number]; _source: 'vworld_wms' } | null;
   enrichedAt: string;
   errors: { api: string; message: string }[];
 }

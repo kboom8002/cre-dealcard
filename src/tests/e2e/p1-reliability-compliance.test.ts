@@ -16,7 +16,6 @@ describe('T25: Concurrent Generation Load', () => {
     
     const tasks = presets.map(preset => renderer.render({
       buildingId: 'test-25-01',
-      tier: 'pro',
       preset,
       posture: 'income',
       grade: 'B',
@@ -38,7 +37,6 @@ describe('T25: Concurrent Generation Load', () => {
     
     const tasks = Array(5).fill(0).map((_, i) => renderer.render({
       buildingId: `test-25-02-${i}`,
-      tier: 'pro',
       preset,
       posture: 'income',
       grade: 'B',
@@ -61,7 +59,6 @@ describe('T25: Concurrent Generation Load', () => {
     
     const tasks = Array(3).fill(0).map((_, i) => renderer.render({
       buildingId: `test-25-03-${i}`,
-      tier: 'pro',
       preset: 'credeal_signature',
       posture: 'income',
       grade: 'B',
@@ -99,7 +96,6 @@ describe('T26: Large Memo Input', () => {
     
     const result = await renderer.render({
       buildingId: 'test-26-02',
-      tier: 'pro',
       posture: 'income',
       grade: 'B',
       doc
@@ -122,7 +118,6 @@ describe('T26: Large Memo Input', () => {
     
     const result = await renderer.render({
       buildingId: 'test-26-03',
-      tier: 'pro',
       posture: 'income',
       grade: 'B',
       doc
@@ -146,7 +141,6 @@ describe('T28: Network Failure Recovery', () => {
     
     const result = await renderer.render({
       buildingId: 'test-28-01',
-      tier: 'pro',
       posture: 'income',
       grade: 'B',
       doc
@@ -161,7 +155,6 @@ describe('T28: Network Failure Recovery', () => {
     
     const result = await renderer.render({
       buildingId: 'test-28-02',
-      tier: 'pro',
       posture: 'income',
       grade: 'B',
       doc,
@@ -180,7 +173,6 @@ describe('T28: Network Failure Recovery', () => {
     
     const result = await renderer.render({
       buildingId: 'test-28-03',
-      tier: 'pro',
       posture: 'income',
       grade: 'B',
       doc: {
@@ -201,7 +193,6 @@ describe('T30: Disclaimer Legal Completeness', () => {
     
     const result = await renderer.render({
       buildingId: 'test-30-01',
-      tier: 'pro',
       posture: 'income',
       grade: 'B',
       doc
@@ -219,7 +210,6 @@ describe('T30: Disclaimer Legal Completeness', () => {
     
     const result = await renderer.render({
       buildingId: 'test-30-02',
-      tier: 'pro',
       posture: 'income',
       grade: 'B',
       doc
@@ -237,7 +227,6 @@ describe('T30: Disclaimer Legal Completeness', () => {
     
     const result = await renderer.render({
       buildingId: 'test-30-03',
-      tier: 'pro',
       posture: 'income',
       grade: 'B',
       doc
@@ -255,7 +244,6 @@ describe('T30: Disclaimer Legal Completeness', () => {
     
     const result = await renderer.render({
       buildingId: 'test-30-04',
-      tier: 'pro',
       posture: 'income',
       grade: 'B',
       doc

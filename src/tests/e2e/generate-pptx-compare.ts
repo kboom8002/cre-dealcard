@@ -250,7 +250,6 @@ async function renderProperty(
       phone: '',
       specialty: '상업용 부동산 전문',
     },
-    tier: 'basic',
     posture: 'income',
     preset: presetId,
     grade: config.grade,

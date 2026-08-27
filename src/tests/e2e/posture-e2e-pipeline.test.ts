@@ -113,7 +113,6 @@ async function runPipelineForFixture(fixture: PostureE2EFixture): Promise<{
     userId: 'e2e-test-user',
     supplemental: fixture.supplemental,
     identity: fixture.identity,
-    tier: 'basic',
   };
 
   logger.startStep();
@@ -150,7 +149,6 @@ async function runPipelineForFixture(fixture: PostureE2EFixture): Promise<{
       const renderer = new MobileImPptxRenderer();
       const pptxInput: MobileImPptxInput = {
         buildingId: fixture.ssotLite.id!,
-        tier: 'basic',
         posture: fixture.posture as InvestmentPosture,
         grade: (result.dataGrade as 'A' | 'B' | 'C' | 'D') ?? 'B',
         doc: {

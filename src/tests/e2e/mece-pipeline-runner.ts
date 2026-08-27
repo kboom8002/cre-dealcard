@@ -159,7 +159,7 @@ async function testCommunication() {
   });
 
   await runTest('COM-RUN-03', 'Share Link API — 미인증 차단 (인증 패치 검증)', 'C.소통', 'C2.공유', async () => {
-    const res = await fetch(`${BASE_URL}/api/broker/share-link`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({buildingId:'t',tier:'teaser'}), signal: AbortSignal.timeout(10000) });
+    const res = await fetch(`${BASE_URL}/api/broker/share-link`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({buildingId:'t',}), signal: AbortSignal.timeout(10000) });
     if (![401,403].includes(res.status)) throw new Error(`Expected 401/403 after auth patch, got ${res.status}`);
     return `인증 패치 적용 확인: ${res.status}`;
   });

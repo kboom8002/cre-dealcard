@@ -366,7 +366,6 @@ ${expectedClosing}`;
       phone: '010-3344-5566',
       specialty: '영등포·당산 근생 및 메디컬 전문',
     },
-    tier: 'basic',
     posture: 'income',
     preset: 'credeal_signature',
     grade: 'B',

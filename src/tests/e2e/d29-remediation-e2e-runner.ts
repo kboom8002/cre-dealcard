@@ -305,14 +305,14 @@ function phase5_deckSequence() {
   console.log('\n═══ Phase 5: PPTX 덱 시퀀스 (BL-4, m-8) ═══');
 
   // BL-4: compact 시퀀스에 titleRights + checklist 포함
-  const compactSlides = buildDeckSequence({ posture: 'income', tier: 'basic', grade: 'B' });
+  const compactSlides = buildDeckSequence({ posture: 'income',grade: 'B' });
   const hasTitle = compactSlides.some(s => s.dataKey === 'titleRights');
   const hasChecklist = compactSlides.some(s => s.dataKey === 'checklist');
   assert('Phase5', 'compact: titleRights 슬라이드 존재', hasTitle);
   assert('Phase5', 'compact: checklist 슬라이드 존재', hasChecklist);
 
   // Pro 시퀀스에도 포함
-  const proSlides = buildDeckSequence({ posture: 'income', tier: 'pro', grade: 'A' });
+  const proSlides = buildDeckSequence({ posture: 'income',grade: 'A' });
   assert('Phase5', 'pro: ≥ 8 슬라이드', proSlides.length >= 8, `실제: ${proSlides.length}`);
   assert('Phase5', 'pro: checklist 존재', proSlides.some(s => s.dataKey === 'checklist'));
 
@@ -321,7 +321,7 @@ function phase5_deckSequence() {
 
   // 모든 포스처 compact 테스트
   for (const posture of INVESTMENT_POSTURE) {
-    const slides = buildDeckSequence({ posture, tier: 'basic', grade: 'B' });
+    const slides = buildDeckSequence({ posture,grade: 'B' });
     assert('Phase5', `${posture}/basic: 5~14 슬라이드`,
       slides.length >= 5 && slides.length <= 14,
       `실제: ${slides.length}`);
@@ -336,8 +336,8 @@ function phase6_dGradeBlock() {
 
   let threwForBasic = false;
   let threwForPro = false;
-  try { buildDeckSequence({ posture: 'income', tier: 'basic', grade: 'D' }); } catch { threwForBasic = true; }
-  try { buildDeckSequence({ posture: 'income', tier: 'pro', grade: 'D' }); } catch { threwForPro = true; }
+  try { buildDeckSequence({ posture: 'income',grade: 'D' }); } catch { threwForBasic = true; }
+  try { buildDeckSequence({ posture: 'income',grade: 'D' }); } catch { threwForPro = true; }
 
   assert('Phase6', 'D/basic → throw', threwForBasic);
   assert('Phase6', 'D/pro → throw', threwForPro);
@@ -345,7 +345,7 @@ function phase6_dGradeBlock() {
   // 모든 포스처 D등급 차단
   for (const posture of INVESTMENT_POSTURE) {
     let threw = false;
-    try { buildDeckSequence({ posture, tier: 'pro', grade: 'D' }); } catch { threw = true; }
+    try { buildDeckSequence({ posture,grade: 'D' }); } catch { threw = true; }
     assert('Phase6', `${posture}/D → throw`, threw);
   }
 }
@@ -358,8 +358,8 @@ function phase7_crossValidation() {
 
   // 동일 수치 → 통과
   const sections = [
-    { section_type: 'property_overview', markdown: '매매가: 115억원\n대지 153.31평', title: '물건 개요', section_order: 1, confidence: 'high' as const, boundary_note: '', provenance: [], min_tier: 'public' as const },
-    { section_type: 'income_analysis', markdown: '매매가: 115억원\n대지 153.31평', title: '수익분석', section_order: 2, confidence: 'high' as const, boundary_note: '', provenance: [], min_tier: 'public' as const },
+    { section_type: 'property_overview', markdown: '매매가: 115억원\n대지 153.31평', title: '물건 개요', section_order: 1, confidence: 'high' as const, boundary_note: '', provenance: [], min_as const },
+    { section_type: 'income_analysis', markdown: '매매가: 115억원\n대지 153.31평', title: '수익분석', section_order: 2, confidence: 'high' as const, boundary_note: '', provenance: [], min_as const },
   ];
   const anchors: NumericalAnchors = {
     askingPriceKrw: 11_500_000_000,

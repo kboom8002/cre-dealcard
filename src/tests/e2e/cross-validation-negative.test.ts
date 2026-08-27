@@ -129,7 +129,6 @@ describe('Cross-Validation Negative Cases', () => {
         monthly_rent_total_krw: 1000000 // 1M / month -> 12M / yr. Cap rate will be ~0.1%
       },
       identity: { investmentPosture: 'income' },
-      tier: 'basic'
     });
     
     expect(res.financialWarnings?.some(w => w.includes('권역 평균 대비 매우 낮음'))).toBe(true);
@@ -145,7 +144,6 @@ describe('Cross-Validation Negative Cases', () => {
         monthly_rent_total_krw: 500000000 // 500M / month
       },
       identity: { investmentPosture: 'income' },
-      tier: 'basic'
     });
     
     expect(res.financialWarnings?.some(w => w.includes('비정상적으로 높음'))).toBe(true);

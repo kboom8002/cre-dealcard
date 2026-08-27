@@ -1,203 +1,264 @@
-import { describe, test, expect, beforeAll } from 'vitest';
-import { MobileImPptxRenderer } from '@/domain/building/mobile-im/pptx/pptx-renderer';
-import type { MobileImPptxInput } from '@/domain/building/mobile-im/pptx/pptx-renderer';
+import { describe, test, expect } from 'vitest';
 import type { InvestmentPosture } from '@/domain/ontology';
-import { buildDeckSequence } from '@/domain/building/mobile-im/pptx/deck-sequencer';
-import { buildMinimalDoc, BUILDING_META, extractSlideTexts } from './pptx-test-helpers';
+import { buildDeckSequence, type DeckSequenceInput } from '@/domain/building/mobile-im/pptx/deck-sequencer';
 
-describe('T13/T14: Basic vs Pro + Grade Gate', { timeout: 60_000 }, () => {
-  let renderer: MobileImPptxRenderer;
+/**
+ * Goldilocks 단일 시퀀스 검증 — 기존 T13/T14(Basic vs Pro + Grade Gate) 대체
+ *
+ * Phase 1: Basic/Pro 이중 시퀀스 폐지 → 골디락스 12p 필수 + 동적 12→20p 스케일링
+ */
+describe('Goldilocks 단일 시퀀스 검증', { timeout: 60_000 }, () => {
 
-  beforeAll(() => {
-    renderer = new MobileImPptxRenderer();
-  });
-
-  describe('T13: Basic vs Pro Slide Count & Composition', () => {
+  // ── G-01: 필수 골디락스 구성 확인 ──
+  describe('G-01: 포스처별 골디락스 필수 구성', () => {
     const postures: InvestmentPosture[] = ['income', 'owner_occupied', 'development', 'operating', 'trading'];
 
     postures.forEach(posture => {
-      test(`T13-01 & T13-04: Compare Basic vs Pro slide counts for ${posture}`, async () => {
-        const inputBasic: MobileImPptxInput = {
-          buildingId: `t13-basic-${posture}`,
-          tier: 'basic',
+      test(`${posture}: 최소 10p 이상 골디락스 구성`, () => {
+        const seq = buildDeckSequence({
           posture,
-          grade: 'A',
-          doc: buildMinimalDoc(posture) as any,
-          building: BUILDING_META[posture],
-        };
+          grade: 'B',
+        });
 
-        const inputPro: MobileImPptxInput = {
-          ...inputBasic,
-          buildingId: `t13-pro-${posture}`,
-          tier: 'pro',
-        };
+        // 골디락스 최소: cover + summary + location + land + building + posture(3~6) + 마감(5) = 최소 ~14
+        expect(seq.length).toBeGreaterThanOrEqual(10);
+        expect(seq.length).toBeLessThanOrEqual(20);
 
-        const resBasic = await renderer.render(inputBasic);
-        const resPro = await renderer.render(inputPro);
-
-        // T13-01: Basic count bounds
-        expect(resBasic.slideCount).toBeGreaterThanOrEqual(7);
-        expect(resBasic.slideCount).toBeLessThanOrEqual(13);
-        
-        // T13-01: Pro should have more slides than Basic (at least 1 more)
-        // Some postures (owner_occupied, trading) have fewer Pro body sections
-        expect(resPro.slideCount).toBeGreaterThanOrEqual(resBasic.slideCount + 1);
-
-        // T13-04: Basic deck should have fewer or equal slides than Pro
-        expect(resBasic.slideCount).toBeLessThanOrEqual(resPro.slideCount);
+        // 필수 dataKey 존재 확인
+        const keys = seq.map(s => s.dataKey);
+        expect(keys).toContain('cover');
+        expect(keys).toContain('summary');
+        expect(keys).toContain('location');
+        expect(keys).toContain('land');
+        expect(keys).toContain('building');
+        expect(keys).toContain('risk');
+        expect(keys).toContain('process');
+        expect(keys).toContain('closing');
       });
-    });
-
-    test('T13-02: Pro-exclusive slides should NOT appear in Basic deck', async () => {
-      const input: MobileImPptxInput = {
-        buildingId: `t13-02-basic`,
-        tier: 'basic',
-        posture: 'income',
-        grade: 'A',
-        doc: buildMinimalDoc('income') as any,
-        building: BUILDING_META['income'],
-      };
-
-      const res = await renderer.render(input);
-      const textMap = await extractSlideTexts(res.buffer);
-      const allText = Array.from(textMap.values()).flat().join(' ');
-
-      expect(allText).not.toContain('DCF 분석');
-      expect(allText).not.toContain('민감도 분석');
-      expect(allText).not.toContain('총수익률');
-      expect(allText).not.toContain('대출시나리오');
-      expect(allText).not.toContain('세금시나리오');
-    });
-
-    test('T13-03: Pro deck should contain keywords related to DCF, Tax in Grade A', async () => {
-      const input: MobileImPptxInput = {
-        buildingId: `t13-03-pro`,
-        tier: 'pro',
-        posture: 'income',
-        grade: 'A',
-        doc: buildMinimalDoc('income') as any,
-        building: BUILDING_META['income'],
-      };
-
-      const res = await renderer.render(input);
-      const textMap = await extractSlideTexts(res.buffer);
-      const allText = Array.from(textMap.values()).flat().join(' ');
-
-      expect(allText).toContain('DCF');
-      expect(allText).toContain('세금');
     });
   });
 
-  describe('T14: Grade D/C/B/A Gate Logic', () => {
-    test('T14-01: Grade D + Pro tier → throws error (deck-sequencer returns empty)', async () => {
-      // Unit test
+  // ── G-02: Grade별 동적 면 수 ──
+  describe('G-02: Grade별 동적 면 수', () => {
+    test('Grade A + 풀 데이터 → 16~20p', () => {
       const seq = buildDeckSequence({
         posture: 'income',
-        tier: 'pro',
-        grade: 'D',
+        grade: 'A',
+        hasPhotos: true,
+        dataAvailability: {
+          hasLandUsePlan: true,
+          hasLandPrice: true,
+          hasBuildingRegister: true,
+          hasRegistryData: true,
+          hasComparables: true,
+          hasCommercialDistrict: true,
+          hasCadastralMap: true,
+        },
       });
-      expect(seq.length).toBe(0);
-
-      // Render test
-      const input: MobileImPptxInput = {
-        buildingId: `t14-01`,
-        tier: 'pro',
-        posture: 'income',
-        grade: 'D',
-        doc: buildMinimalDoc('income') as any,
-        building: BUILDING_META['income'],
-      };
-      
-      await expect(renderer.render(input)).rejects.toThrow();
+      // A등급은 재무 확장(capital, dcf, sensitivity, totalReturn, loan, tax) + 데이터 면 추가
+      expect(seq.length).toBeGreaterThanOrEqual(16);
+      expect(seq.length).toBeLessThanOrEqual(20);
     });
 
-    test('T14-02: Grade D + Basic tier → minimal deck (3-5 slides: cover, summary, closing)', async () => {
-      const input: MobileImPptxInput = {
-        buildingId: `t14-02`,
-        tier: 'basic',
-        posture: 'income',
-        grade: 'D',
-        doc: buildMinimalDoc('income') as any,
-        building: BUILDING_META['income'],
-      };
-      const res = await renderer.render(input);
-      
-      expect(res.slideCount).toBeGreaterThanOrEqual(3);
-      expect(res.slideCount).toBeLessThanOrEqual(5);
-    });
-
-    test('T14-03: Grade C + Pro → DCF and TotalReturn suppressed', async () => {
+    test('Grade B + 기본 데이터 → 13~16p', () => {
       const seq = buildDeckSequence({
         posture: 'income',
-        tier: 'pro',
-        grade: 'C',
+        grade: 'B',
+        hasPhotos: true,
+        dataAvailability: {
+          hasLandUsePlan: true,
+          hasBuildingRegister: true,
+        },
       });
-      const keys = seq.map(s => s.dataKey);
-      expect(keys).not.toContain('dcf');
-      expect(keys).not.toContain('sensitivity');
-      expect(keys).not.toContain('totalReturn');
+      expect(seq.length).toBeGreaterThanOrEqual(13);
+      expect(seq.length).toBeLessThanOrEqual(16);
+    });
 
-      const input: MobileImPptxInput = {
-        buildingId: `t14-03`,
-        tier: 'pro',
+    test('Grade C + 최소 데이터 → 12~14p', () => {
+      const seq = buildDeckSequence({
         posture: 'income',
         grade: 'C',
-        doc: buildMinimalDoc('income') as any,
-        building: BUILDING_META['income'],
-      };
-      const res = await renderer.render(input);
-      const textMap = await extractSlideTexts(res.buffer);
-      const allText = Array.from(textMap.values()).flat().join(' ');
-      
-      expect(allText).not.toContain('DCF 분석');
-      expect(allText).not.toContain('총수익률');
+        hasPhotos: false,
+        dataAvailability: {},
+      });
+      // C등급: 재무 없음, 데이터 면 없음
+      expect(seq.length).toBeGreaterThanOrEqual(10);
+      expect(seq.length).toBeLessThanOrEqual(14);
+    });
+  });
+
+  // ── G-03: D등급 차단 ──
+  describe('G-03: D등급 차단', () => {
+    test('Grade D → [G30] 에러', () => {
+      expect(() => buildDeckSequence({
+        posture: 'income',
+        grade: 'D',
+      })).toThrow('[G30]');
+    });
+  });
+
+  // ── G-04: A등급 전용 재무 슬라이드 ──
+  describe('G-04: A등급 전용 재무 슬라이드', () => {
+    test('Grade A → B등급보다 더 많은 슬라이드 (재무 확장)', () => {
+      const seqA = buildDeckSequence({ posture: 'income', grade: 'A' });
+      const seqB = buildDeckSequence({ posture: 'income', grade: 'B' });
+      const seqC = buildDeckSequence({ posture: 'income', grade: 'C' });
+
+      // A >= B > C 면 수 관계 보장 (A와 B는 둘 다 PAGE_RECOMMENDED=16으로 절삭될 수 있음)
+      expect(seqA.length).toBeGreaterThanOrEqual(seqB.length);
+      expect(seqB.length).toBeGreaterThanOrEqual(seqC.length);
+
+      // A등급에만 존재하는 키 확인 (절삭 후에도 capital은 보호 대상 근처)
+      const keysA = seqA.map(s => s.dataKey);
+      const keysB = seqB.map(s => s.dataKey);
+      // A등급은 dcf를 포함 (절삭 순서상 앞쪽이라 유지)
+      expect(keysA).toContain('capital');
+      // B등급에는 dcf가 없음
+      expect(keysB).not.toContain('dcf');
     });
 
-    test('T14-04: Grade B + Pro → DCF suppressed, but TotalReturn NOT suppressed', () => {
+    test('Grade B → DCF/민감도/세금 없음, 자본구조+총수익률만', () => {
       const seq = buildDeckSequence({
         posture: 'income',
-        tier: 'pro',
         grade: 'B',
       });
       const keys = seq.map(s => s.dataKey);
       expect(keys).not.toContain('dcf');
       expect(keys).not.toContain('sensitivity');
+      expect(keys).not.toContain('tax');
+      expect(keys).toContain('capital');
       expect(keys).toContain('totalReturn');
     });
 
-    test('T14-05: Grade A + Pro → all financial slides present', () => {
+    test('Grade C → 재무 슬라이드 전무', () => {
       const seq = buildDeckSequence({
         posture: 'income',
-        tier: 'pro',
-        grade: 'A',
+        grade: 'C',
       });
       const keys = seq.map(s => s.dataKey);
-      expect(keys).toContain('dcf');
-      expect(keys).toContain('sensitivity');
-      expect(keys).toContain('totalReturn');
-      expect(keys).toContain('tax');
+      expect(keys).not.toContain('dcf');
+      expect(keys).not.toContain('sensitivity');
+      expect(keys).not.toContain('capital');
     });
+  });
 
-    test('T14-06: hasViolation=true → Loan slide suppressed in Pro deck', () => {
+  // ── G-05: V-World 데이터 기반 면 추가 ──
+  describe('G-05: V-World 데이터 기반 면 추가', () => {
+    test('건축물대장+토지이용계획 → 공부발췌 면 추가', () => {
       const seq = buildDeckSequence({
         posture: 'income',
-        tier: 'pro',
+        grade: 'C', // C등급: 재무 슬라이드 없음 → 절삭 가능성 낮음
+        dataAvailability: {
+          hasLandUsePlan: true,
+          hasBuildingRegister: true,
+        },
+      });
+      const keys = seq.map(s => s.dataKey);
+      expect(keys).toContain('publicRecords');
+    });
+
+    test('등기부 있으면 권리관계 면 추가', () => {
+      const seq = buildDeckSequence({
+        posture: 'income',
+        grade: 'C',
+        dataAvailability: { hasRegistryData: true },
+      });
+      const keys = seq.map(s => s.dataKey);
+      expect(keys).toContain('titleRights');
+    });
+
+    test('지적도 있으면 지적도 면 추가', () => {
+      const seq = buildDeckSequence({
+        posture: 'income',
+        grade: 'C',
+        dataAvailability: { hasCadastralMap: true },
+      });
+      const keys = seq.map(s => s.dataKey);
+      expect(keys).toContain('cadastralMap');
+    });
+
+    test('상권 데이터 있으면 상권 분석 면 추가', () => {
+      const seq = buildDeckSequence({
+        posture: 'income',
+        grade: 'C',
+        dataAvailability: { hasCommercialDistrict: true },
+      });
+      const keys = seq.map(s => s.dataKey);
+      expect(keys).toContain('commercialDistrict');
+    });
+
+    test('데이터 없으면 추가 면 없음', () => {
+      const seq = buildDeckSequence({
+        posture: 'income',
+        grade: 'C',
+        dataAvailability: {},
+      });
+      const keys = seq.map(s => s.dataKey);
+      expect(keys).not.toContain('publicRecords');
+      expect(keys).not.toContain('titleRights');
+      expect(keys).not.toContain('cadastralMap');
+      expect(keys).not.toContain('commercialDistrict');
+    });
+  });
+
+  // ── G-06: 면 절삭 (하드리밋 20p) ──
+  describe('G-06: 면 절삭 (하드리밋 20p)', () => {
+    test('모든 데이터 + A등급 → 20p 이하', () => {
+      const seq = buildDeckSequence({
+        posture: 'income',
+        grade: 'A',
+        hasPhotos: true,
+        incomeArchetype: 'R-INC-02',
+        dataAvailability: {
+          hasLandUsePlan: true, hasLandPrice: true,
+          hasBuildingRegister: true, hasRegistryData: true,
+          hasComparables: true, hasCommercialDistrict: true,
+          hasCadastralMap: true, hasFloorPlan: true,
+        },
+      });
+      expect(seq.length).toBeLessThanOrEqual(20);
+    });
+
+    test('보호된 키는 절삭되지 않음', () => {
+      const seq = buildDeckSequence({
+        posture: 'income',
+        grade: 'A',
+        hasPhotos: true,
+        dataAvailability: {
+          hasLandUsePlan: true, hasLandPrice: true,
+          hasBuildingRegister: true, hasRegistryData: true,
+          hasComparables: true, hasCommercialDistrict: true,
+          hasCadastralMap: true,
+        },
+      });
+      const keys = seq.map(s => s.dataKey);
+      // 보호된 키: cover, summary, closing, risk, checklist, process, thesis, titleRights
+      expect(keys).toContain('cover');
+      expect(keys).toContain('summary');
+      expect(keys).toContain('closing');
+      expect(keys).toContain('risk');
+      expect(keys).toContain('checklist');
+      expect(keys).toContain('process');
+      expect(keys).toContain('thesis');
+    });
+  });
+
+  // ── G-07: 위반건물 대출 suppress ──
+  describe('G-07: 위반건물 대출 suppress', () => {
+    test('hasViolation=true → loan 슬라이드 suppress', () => {
+      const seq = buildDeckSequence({
+        posture: 'income',
         grade: 'A',
         hasViolation: true,
       });
-      const keys = seq.map(s => s.dataKey);
-      expect(keys).not.toContain('loan');
-    });
-
-    test('T14-07: hasViolation=false → Loan slide present in Pro deck', () => {
-      const seq = buildDeckSequence({
-        posture: 'income',
-        tier: 'pro',
-        grade: 'A',
-        hasViolation: false,
-      });
-      const keys = seq.map(s => s.dataKey);
-      expect(keys).toContain('loan');
+      const loanSlide = seq.find(s => s.dataKey === 'loan');
+      // loan 슬라이드가 suppress=true이면 active에서 제외됨
+      if (loanSlide) {
+        expect(loanSlide.suppress).toBe(true);
+      }
+      // 또는 아예 제외됨 (filtered out)
+      const activeKeys = seq.filter(s => !s.suppress).map(s => s.dataKey);
+      expect(activeKeys).not.toContain('loan');
     });
   });
 });

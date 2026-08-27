@@ -433,6 +433,19 @@ export async function generateMobileIMHandler(
             },
           }
         : null,
+      // Phase 2: V-World / 공공 API 원본 데이터 → PPTX bindFromExternalData 직접 바인딩용
+      enrichment: externalData
+        ? {
+            landUsePlan: externalData.landUsePlan ?? null,
+            landPrice: externalData.landPrice ?? null,
+            buildingRegister: externalData.buildingRegister ?? null,
+            registryData: externalData.registryData ?? null,
+            comparableTransactions: externalData.comparableTransactions ?? null,
+            locationPoi: externalData.locationPoi ?? null,
+            commercialDistrict: externalData.commercialDistrict ?? null,
+            cadastralMapImage: externalData.cadastralMapImage ?? null,
+          }
+        : null,
       coordinates: externalData?.resolvedAddress
         ? { lat: externalData.resolvedAddress.lat, lng: externalData.resolvedAddress.lng }
         : (ssotRow.layers as Record<string, any>)?.coordinates

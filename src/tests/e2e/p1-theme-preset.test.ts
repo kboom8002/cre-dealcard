@@ -239,7 +239,6 @@ describe('T12: CJK Font Embedding Consistency', { timeout: 60_000 }, () => {
     const renderer = new MobileImPptxRenderer();
     const result = await renderer.render({
       buildingId: 'font-test',
-      tier: 'basic',
       posture: 'income',
       grade: 'A',
       doc: buildMinimalDoc('income'),
@@ -263,7 +262,6 @@ describe('T12: CJK Font Embedding Consistency', { timeout: 60_000 }, () => {
     const renderer = new MobileImPptxRenderer();
     const result = await renderer.render({
       buildingId: 'font-dark-test',
-      tier: 'basic',
       posture: 'income',
       grade: 'A',
       doc: buildMinimalDoc('income'),

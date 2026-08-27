@@ -61,7 +61,6 @@ describe('Communication & Inbox Domain (소통/관리함) Tests', () => {
         tenantId: 'tenant-1',
         dealId: 'deal-1',
         dealVersion: 1,
-        tier: 'teaser',
         brokerId: 'broker-1',
         recipientId: 'recipient-1',
         expiresInDays: 7

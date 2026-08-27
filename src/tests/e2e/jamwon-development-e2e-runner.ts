@@ -267,7 +267,6 @@ ${expectedClosing}`;
       phone: '010-3344-5566',
       specialty: '강남·서초 신축 개발 부지 전문',
     },
-    tier: 'basic',
     posture: 'development',
     preset: 'credeal_signature',
     grade: 'B',

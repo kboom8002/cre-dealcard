@@ -9,7 +9,6 @@ describe('MECE Phase 2 - Pro Posture & Income Variants Tests', () => {
     test('T17-01: Income Pro with stability data (R-INC-01)', () => {
       const sequence = buildDeckSequence({
         posture: 'income',
-        tier: 'pro',
         grade: 'A',
         incomeArchetype: 'R-INC-01'
       });
@@ -22,7 +21,6 @@ describe('MECE Phase 2 - Pro Posture & Income Variants Tests', () => {
     test('T17-02: Income Pro with rent gap data (R-INC-02)', () => {
       const sequence = buildDeckSequence({
         posture: 'income',
-        tier: 'pro',
         grade: 'A',
         incomeArchetype: 'R-INC-02'
       });
@@ -34,7 +32,6 @@ describe('MECE Phase 2 - Pro Posture & Income Variants Tests', () => {
     test('T17-03: Income Pro with vacancy/leasing data (R-INC-03)', () => {
       const sequence = buildDeckSequence({
         posture: 'income',
-        tier: 'pro',
         grade: 'A',
         incomeArchetype: 'R-INC-03'
       });
@@ -46,7 +43,6 @@ describe('MECE Phase 2 - Pro Posture & Income Variants Tests', () => {
     test('T17-04: Income Pro with remodel data (R-INC-04)', () => {
       const sequence = buildDeckSequence({
         posture: 'income',
-        tier: 'pro',
         grade: 'A',
         incomeArchetype: 'R-INC-04'
       });
@@ -59,7 +55,6 @@ describe('MECE Phase 2 - Pro Posture & Income Variants Tests', () => {
       const renderer = new MobileImPptxRenderer();
       const input: MobileImPptxInput = {
         posture: 'income',
-        tier: 'pro',
         grade: 'A',
         building: BUILDING_META['income'],
         doc: buildMinimalDoc('income'),
@@ -79,7 +74,6 @@ describe('MECE Phase 2 - Pro Posture & Income Variants Tests', () => {
     test('T18-01: operating Pro', () => {
       const sequence = buildDeckSequence({
         posture: 'operating',
-        tier: 'pro',
         grade: 'A'
       });
       const dataKeys = sequence.map(s => s.dataKey);
@@ -90,7 +84,6 @@ describe('MECE Phase 2 - Pro Posture & Income Variants Tests', () => {
     test('T18-02: development Pro', () => {
       const sequence = buildDeckSequence({
         posture: 'development',
-        tier: 'pro',
         grade: 'A'
       });
       const dataKeys = sequence.map(s => s.dataKey);
@@ -103,7 +96,6 @@ describe('MECE Phase 2 - Pro Posture & Income Variants Tests', () => {
     test('T18-03: owner_occupied Pro', () => {
       const sequence = buildDeckSequence({
         posture: 'owner_occupied',
-        tier: 'pro',
         grade: 'A'
       });
       const dataKeys = sequence.map(s => s.dataKey);
@@ -114,7 +106,6 @@ describe('MECE Phase 2 - Pro Posture & Income Variants Tests', () => {
     test('T18-04: trading Pro', () => {
       const sequence = buildDeckSequence({
         posture: 'trading',
-        tier: 'pro',
         grade: 'A'
       });
       const dataKeys = sequence.map(s => s.dataKey);
@@ -130,7 +121,6 @@ describe('MECE Phase 2 - Pro Posture & Income Variants Tests', () => {
       for (const posture of postures) {
         const input: MobileImPptxInput = {
           posture,
-          tier: 'pro',
           grade: 'A',
           building: BUILDING_META[posture],
           doc: buildMinimalDoc(posture),

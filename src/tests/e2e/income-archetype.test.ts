@@ -49,7 +49,6 @@ describe('Axis 5: Income Posture Archetype Branching (Pro Tier)', { timeout: 30_
       // 1. Deck sequencer sequence verification
       const sequence = buildDeckSequence({
         posture: 'income',
-        tier: 'pro',
         grade: 'A',
         incomeArchetype: id,
       });
@@ -65,7 +64,6 @@ describe('Axis 5: Income Posture Archetype Branching (Pro Tier)', { timeout: 30_
       // 2. Full In-Memory PPTX Rendering verification
       const input: MobileImPptxInput = {
         buildingId: `income-arch-${id.toLowerCase()}`,
-        tier: 'pro',
         posture: 'income',
         grade: 'A',
         incomeArchetype: id,

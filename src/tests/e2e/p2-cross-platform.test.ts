@@ -27,7 +27,6 @@ describe('P2 Cross-Platform Render Integrity', () => {
       doc: buildMinimalDoc('income'),
       building_id: 'bld-p2-test',
       posture: 'income',
-      tier: 'basic',
       grade: 'A',
       meta: {
         ...BUILDING_META['income'],

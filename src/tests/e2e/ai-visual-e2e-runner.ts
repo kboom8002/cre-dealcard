@@ -677,7 +677,6 @@ export async function runRepresentativeE2ETests(): Promise<InspectionRecord[]> {
     // 1. PPTX 렌더링
     const input: MobileImPptxInput = {
       buildingId: c.caseId,
-      tier: 'basic',
       posture: c.posture,
       grade: 'A',
       preset: 'credeal_signature',

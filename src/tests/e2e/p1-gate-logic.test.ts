@@ -13,7 +13,6 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
     it('T15-01: Grade A + Pro -> DCF and Sensitivity slides present in sequence', () => {
       const sequence = buildDeckSequence({
         posture: 'income',
-        tier: 'pro',
         grade: 'A',
       });
       const dcf = sequence.find(s => s.dataKey === 'dcf');
@@ -25,7 +24,6 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
     it('T15-02: Grade B + Pro -> DCF suppressed, Sensitivity suppressed, TotalReturn present', () => {
       const sequence = buildDeckSequence({
         posture: 'income',
-        tier: 'pro',
         grade: 'B',
       });
       const dcf = sequence.find(s => s.dataKey === 'dcf');
@@ -39,7 +37,6 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
     it('T15-03: Grade C + Pro -> DCF, Sensitivity, TotalReturn all suppressed', () => {
       const sequence = buildDeckSequence({
         posture: 'income',
-        tier: 'pro',
         grade: 'C',
       });
       const dcf = sequence.find(s => s.dataKey === 'dcf');
@@ -54,7 +51,7 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
       const renderer = new MobileImPptxRenderer();
       const input = {
         buildingId: 'test-building',
-        tier: 'pro' as const,
+as const,
         posture: 'income' as InvestmentPosture,
         grade: 'B' as const,
         doc: buildMinimalDoc('income'),
@@ -79,7 +76,6 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
     it('T16-01: hasViolation=true -> loan slide suppressed in Pro deck sequence', () => {
       const sequence = buildDeckSequence({
         posture: 'income',
-        tier: 'pro',
         grade: 'A',
         hasViolation: true
       });
@@ -90,7 +86,6 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
     it('T16-02: hasViolation=false -> loan slide present in Pro deck sequence', () => {
       const sequence = buildDeckSequence({
         posture: 'income',
-        tier: 'pro',
         grade: 'A',
         hasViolation: false
       });
@@ -102,7 +97,7 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
       const renderer = new MobileImPptxRenderer();
       const input = {
         buildingId: 'test-building',
-        tier: 'pro' as const,
+as const,
         posture: 'income' as InvestmentPosture,
         grade: 'A' as const,
         hasJointCollateral: true,
@@ -126,7 +121,7 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
       const renderer = new MobileImPptxRenderer();
       const input = {
         buildingId: 'test-building',
-        tier: 'pro' as const,
+as const,
         posture: 'income' as InvestmentPosture,
         grade: 'A' as const,
         hasViolation: true,
@@ -151,7 +146,6 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
     it('T20-01: posture=undefined -> falls back to income sequence in basic tier', () => {
       const sequence = buildDeckSequence({
         posture: undefined as any,
-        tier: 'basic',
         grade: 'B'
       });
       const rentRoll = sequence.find(s => s.dataKey === 'rentRoll');
@@ -161,7 +155,6 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
     it('T20-02: posture=\'unknown_type\' -> falls back to income sequence in basic tier', () => {
       const sequence = buildDeckSequence({
         posture: 'unknown_type' as any,
-        tier: 'basic',
         grade: 'B'
       });
       const rentRoll = sequence.find(s => s.dataKey === 'rentRoll');
@@ -171,7 +164,6 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
     it('T20-03: posture=\'\' (empty string) -> falls back to income sequence in basic tier', () => {
       const sequence = buildDeckSequence({
         posture: '' as any,
-        tier: 'basic',
         grade: 'B'
       });
       const rentRoll = sequence.find(s => s.dataKey === 'rentRoll');
@@ -183,7 +175,6 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
       for (const p of postures) {
         const sequence = buildDeckSequence({
           posture: p,
-          tier: 'pro',
           grade: 'B'
         });
         expect(sequence.length).toBeGreaterThan(0);
