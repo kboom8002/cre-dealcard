@@ -230,11 +230,13 @@ function addFallbackContent(slide: any, data: any, _theme: any, meta?: { archety
   return true; // W-PPTX-1: 폴백 렌더링 성공
 }
 
+/** @deprecated 골디락스 단일 시퀀스 전환 — 하위 호환용 */
 export type PptxTier = 'basic' | 'pro';
 
 export interface MobileImPptxInput {
   buildingId: string;
-  tier: PptxTier;
+  /** @deprecated 골디락스 전환 후 무시됨 */
+  tier?: PptxTier;
   preset?: string;
   posture?: InvestmentPosture;
   grade?: 'A' | 'B' | 'C' | 'D';
@@ -286,9 +288,9 @@ export class MobileImPptxRenderer {
   async render(input: MobileImPptxInput): Promise<MobileImPptxOutput> {
     const warnings: string[] = [];
 
-    // D등급: Pro만 차단, Basic은 허용
-    if (input.grade === 'D' && input.tier === 'pro') {
-      throw new Error('Pro IM은 B등급 이상 데이터가 필요합니다. 데이터를 보강해주세요.');
+    // 골디락스: D등급 전면 차단 (tier 무관)
+    if (input.grade === 'D') {
+      throw new Error('[G30] D등급은 IM을 발행할 수 없습니다. 데이터를 보강해주세요.');
     }
 
     const pres = new PptxGenJS();
@@ -322,15 +324,26 @@ export class MobileImPptxRenderer {
         || heroPhoto;
 
       // ── 1. 덱 시퀀스 결정 ──
+      const enrichment = input.doc.body?.enrichment ?? {};
+      const externalData = input.doc.body?.external_data ?? {};
       const sequenceInput: DeckSequenceInput = {
         posture,
-        tier: input.tier,
         grade: (input.grade ?? 'B') as 'A' | 'B' | 'C',
         incomeArchetype: input.incomeArchetype,
         hasViolation: input.hasViolation,
         hasJointCollateral: input.hasJointCollateral,
         hasPhotos: resolvedPhotos.length > 0,
         gallerySpecs,
+        dataAvailability: {
+          hasLandUsePlan: !!(enrichment.landUsePlan ?? externalData.hasPublicData),
+          hasLandPrice: !!(enrichment.landPrice),
+          hasBuildingRegister: !!(enrichment.buildingRegister ?? externalData.hasPublicData),
+          hasRegistryData: !!(enrichment.registryData),
+          hasComparables: (enrichment.comparableTransactions?.length ?? 0) > 0,
+          hasCommercialDistrict: !!(enrichment.commercialDistrict),
+          hasCadastralMap: !!(enrichment.cadastralMapImage),
+          hasFloorPlan: false,
+        },
       };
 
       const sequence: SlideSpec[] = buildDeckSequence(sequenceInput);
@@ -381,11 +394,17 @@ export class MobileImPptxRenderer {
           ?? null,
       } as any;
 
+      // ── 2-1. V-World / 공공 API 구조화 데이터 직접 바인딩 ──
+      if (Object.keys(enrichment).length > 0) {
+        const { bindFromExternalData } = await import('./data-binder');
+        bindFromExternalData(enrichment, dataMap);
+      }
+
       if (dataMap['location']) {
         (dataMap['location'] as any).coordinates = input.doc.body?.coordinates ?? null;
         (dataMap['location'] as any).mapImageUrl = input.doc.body?.mapImageUrl ?? null;
         // POI 주요 스폿 (역, 상권 랜드마크) — 지도 마커 오버레이용
-        const externalPoi = input.doc.body?.external_data?.locationPoi;
+        const externalPoi = enrichment?.locationPoi ?? input.doc.body?.external_data?.locationPoi;
         (dataMap['location'] as any).poiSpots = externalPoi?.keySpots ?? input.doc.body?.poiSpots ?? [];
       }
 
@@ -549,7 +568,7 @@ export class MobileImPptxRenderer {
           pres,
           slideNum: pageNum,
           docno,
-          watermarkText: input.tier === 'pro' ? watermarkText : undefined,
+          watermarkText: input.watermark ? watermarkText : undefined,
           data: {
             ...(dataMap[spec.dataKey] ?? {}),
             kicker: spec.kicker,

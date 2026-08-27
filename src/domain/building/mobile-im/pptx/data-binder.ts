@@ -184,8 +184,11 @@ export function bindSectionData(
         const summaryProps = buildSummaryFromOverview(cleanMarkdown, tables, doc.body);
         result['summary'] = { title: '핵심요약', content: '', tables: [], metrics: {}, ...summaryProps };
       }
+      // V-World 데이터(_source 있음)가 없을 때만 마크다운 파싱 폴백
       const landProps = buildLandFromOverview(cleanMarkdown, tables);
-      if (!result['land']) result['land'] = { title: '토지', content: '', tables: [], metrics: {}, ...landProps };
+      if (!result['land'] || !(result['land'] as any)._source) {
+        result['land'] = { title: '토지', content: '', tables: [], metrics: {}, ...landProps };
+      }
     }
     
     // income_analysis → capital, dcf, sensitivity, loan, tax에도 파생 데이터 제공
@@ -1763,4 +1766,194 @@ export function bindFromIMCore(core: IMCore): Record<string, SectionData> {
   };
 
   return result;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Phase 2: V-World / 공공 API 구조화 데이터 → 슬라이드 직접 바인딩
+// ══════════════════════════════════════════════════════════════════
+
+/**
+ * V-World / 공공 API 구조화 데이터를 슬라이드 props로 직접 매핑.
+ * 마크다운 파싱에 의존하지 않고, 검증된 공공 데이터 JSON을 사용.
+ *
+ * @param enrichment - handler.ts에서 주입된 enrichment 객체 (ExternalDataEnrichmentResult 부분집합)
+ * @param dataMap - bindSectionData가 생성한 기존 dataMap (보강, 덮어쓰기 아님 — _source가 없을 때만)
+ */
+export function bindFromExternalData(
+  enrichment: Record<string, any>,
+  dataMap: Record<string, any>,
+): void {
+  // ── 토지 슬라이드: V-World 구조화 데이터 우선 ──
+  const lup = enrichment.landUsePlan;
+  const lp = enrichment.landPrice;
+  if (lup || lp) {
+    const rows: string[][] = [];
+    if (lup?.zoningDistrict) rows.push(['용도지역', lup.zoningDistrict]);
+    if (lup?.zoningOverlap) {
+      const overlap = Array.isArray(lup.zoningOverlap) ? lup.zoningOverlap.join(', ') : lup.zoningOverlap;
+      if (overlap) rows.push(['용도지구', overlap]);
+    }
+    if (lup?.buildingCoverageMax) rows.push(['법정 건폐율 상한', `${lup.buildingCoverageMax}%`]);
+    if (lup?.floorAreaRatioMax) rows.push(['법정 용적률 상한', `${lup.floorAreaRatioMax}%`]);
+    if (lup?.landArea) rows.push(['대지면적', `${Number(lup.landArea).toLocaleString()}㎡ (${(Number(lup.landArea) * 0.3025).toFixed(1)}평)`]);
+    if (lup?.landShape) rows.push(['필지 형상', lup.landShape]);
+    if (lup?.terrain) rows.push(['지형', lup.terrain]);
+    if (lup?.roadAccess) rows.push(['도로접면', lup.roadAccess]);
+    if (lup?.landUseSituation) rows.push(['이용상황', lup.landUseSituation]);
+    if (lp?.landCategory) rows.push(['지목', lp.landCategory]);
+    if (lp?.pricePerSqm) {
+      const pricePerPyeong = Math.round(Number(lp.pricePerSqm) * 3.3058);
+      rows.push(['개별공시지가', `${Number(lp.pricePerSqm).toLocaleString()}원/㎡ (${pricePerPyeong.toLocaleString()}원/평, ${lp.baseYear ?? ''}년)`]);
+    }
+
+    // 기존 마크다운 파싱 결과보다 V-World 데이터 우선
+    dataMap['land'] = {
+      ...(dataMap['land'] ?? {}),
+      title: '토지 현황',
+      content: '',
+      tables: [],
+      metrics: {},
+      left: { sub: '토지이용계획 · 개별공시지가', rows },
+      right: { sub: '', callouts: [] },
+      _source: 'vworld_api',
+    };
+  }
+
+  // ── 공부 발췌: 건축물대장 + 토지이용계획 ──
+  const br = enrichment.buildingRegister;
+  if (br && lup) {
+    const brRows: string[][] = [];
+    if (br.buildingName) brRows.push(['건물명', br.buildingName]);
+    if (br.mainPurpose) brRows.push(['주용도', br.mainPurpose]);
+    if (br.structure) brRows.push(['구조', br.structure]);
+    if (br.roofType) brRows.push(['지붕', br.roofType]);
+    if (br.groundFloors != null) brRows.push(['지상 층수', `${br.groundFloors}층`]);
+    if (br.undergroundFloors != null) brRows.push(['지하 층수', `${br.undergroundFloors}층`]);
+    if (br.totalArea != null) brRows.push(['연면적', `${Number(br.totalArea).toLocaleString()}㎡ (${(Number(br.totalArea) * 0.3025).toFixed(1)}평)`]);
+    if (br.archArea != null) brRows.push(['건축면적', `${Number(br.archArea).toLocaleString()}㎡`]);
+    if (br.approvalDate) brRows.push(['사용승인일', br.approvalDate]);
+    if (br.elevatorCount != null) brRows.push(['승강기', `${br.elevatorCount}대`]);
+    if (br.parkingCount != null) {
+      const selfP = br.selfParkingCount ?? 0;
+      const mechP = br.mechanicalParkingCount ?? 0;
+      brRows.push(['주차', `${br.parkingCount}대 (자주식 ${selfP} / 기계식 ${mechP})`]);
+    }
+
+    const lupRows: string[][] = [];
+    if (lup.zoningDistrict) lupRows.push(['용도지역', lup.zoningDistrict]);
+    if (lup.buildingCoverageMax && lup.floorAreaRatioMax) {
+      lupRows.push(['건폐율/용적률', `${lup.buildingCoverageMax}% / ${lup.floorAreaRatioMax}%`]);
+    }
+    if (lup.roadAccess) lupRows.push(['도로접면', lup.roadAccess]);
+
+    dataMap['publicRecords'] = {
+      title: '공부 발췌',
+      content: '',
+      tables: [],
+      metrics: {},
+      left: { sub: '건축물대장 표제부', rows: brRows },
+      right: { sub: '토지이용규제', rows: lupRows },
+      _source: 'public_api',
+    };
+  }
+
+  // ── 권리관계: 등기부 ──
+  const reg = enrichment.registryData;
+  if (reg) {
+    const regRows: string[][] = [];
+    if (reg.ownerName) regRows.push(['소유자', reg.ownerName]);
+    if (reg.ownershipType) regRows.push(['소유형태', reg.ownershipType]);
+    if (reg.acquisitionDate) regRows.push(['취득일', reg.acquisitionDate]);
+    if (Array.isArray(reg.mortgages)) {
+      reg.mortgages.forEach((m: any, i: number) => {
+        regRows.push([`근저당 ${i + 1}`, `${m.creditor ?? '채권자 미확인'} / ${m.amount != null ? Number(m.amount).toLocaleString() + '원' : '금액 미확인'}`]);
+      });
+    }
+    if (Array.isArray(reg.encumbrances)) {
+      reg.encumbrances.forEach((e: any) => {
+        if (e.type && e.description) regRows.push([e.type, e.description]);
+      });
+    }
+
+    // V-World 데이터가 없는 기존 마크다운 파싱 결과보다 우선
+    if (!dataMap['titleRights']?._source) {
+      dataMap['titleRights'] = {
+        title: '권리관계',
+        content: '',
+        tables: [],
+        metrics: {},
+        left: { sub: '등기부등본 요약', rows: regRows },
+        right: { sub: '', callouts: [] },
+        _source: 'registry_api',
+      };
+    }
+  }
+
+  // ── 비교사례: 실거래 API ──
+  const comps = enrichment.comparableTransactions;
+  if (Array.isArray(comps) && comps.length > 0 && !dataMap['comps']?._source) {
+    const compRows: string[][] = [];
+    compRows.push(['물건', '거래가', '면적', '거래일']);
+    comps.slice(0, 5).forEach((c: any) => {
+      compRows.push([
+        c.buildingName || c.address || '-',
+        c.dealAmount ? `${(c.dealAmount / 10000).toFixed(1)}억` : '-',
+        c.area ? `${c.area}㎡` : '-',
+        c.dealDate || '-',
+      ]);
+    });
+
+    dataMap['comps'] = {
+      ...(dataMap['comps'] ?? {}),
+      title: '인근 거래 사례',
+      content: '',
+      tables: [{ headers: compRows[0], rows: compRows.slice(1) }],
+      metrics: {},
+      _source: 'rtms_api',
+    };
+  }
+
+  // ── 상권 분석: SEMAS API ──
+  const cd = enrichment.commercialDistrict;
+  if (cd) {
+    const cdRows: string[][] = [];
+    if (cd.districtName) cdRows.push(['상권명', cd.districtName]);
+    if (cd.districtType) cdRows.push(['상권유형', cd.districtType]);
+    if (cd.mainIndustry) cdRows.push(['주요업종', cd.mainIndustry]);
+    if (cd.floatingPopulation != null) cdRows.push(['유동인구', `${Number(cd.floatingPopulation).toLocaleString()}명/일`]);
+    if (cd.salesIndex != null) cdRows.push(['매출지수', String(cd.salesIndex)]);
+    if (cd.storeCount != null) cdRows.push(['점포수', `${cd.storeCount}개`]);
+    if (cd.openRate != null) cdRows.push(['개업률', `${cd.openRate}%`]);
+    if (cd.closeRate != null) cdRows.push(['폐업률', `${cd.closeRate}%`]);
+
+    dataMap['commercialDistrict'] = {
+      title: '상권 분석',
+      content: '',
+      tables: [],
+      metrics: {},
+      left: { sub: '소상공인 상권 분석', rows: cdRows },
+      right: { sub: '', callouts: [] },
+      _source: 'semas_api',
+    };
+  }
+
+  // ── 지적도: V-World WMS ──
+  const cadastral = enrichment.cadastralMapImage;
+  if (cadastral) {
+    dataMap['cadastralMap'] = {
+      title: '지적도',
+      content: '',
+      tables: [],
+      metrics: {},
+      coordinates: null,
+      mapImageUrl: null,
+      cadastralImage: cadastral.base64 ?? cadastral,
+      left: { sub: '연속지적도 (V-World)', source: `© V-World 국토교통부 | ${new Date().getFullYear()}` },
+      right: {
+        sub: '필지 정보',
+        rows: dataMap['land']?.left?.rows?.slice(0, 4) ?? [],
+      },
+      _source: 'vworld_wms',
+    };
+  }
 }

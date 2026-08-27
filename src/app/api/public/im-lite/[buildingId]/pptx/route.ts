@@ -37,6 +37,7 @@ export async function GET(
   const { buildingId } = await params;
   const searchParams = req.nextUrl.searchParams;
   const docId = searchParams.get('doc_id');
+  /** @deprecated 골디락스 전환 후 렌더에 영향 없음 — 파일명 호환용 */
   const tier = (searchParams.get('tier') ?? 'basic') as 'basic' | 'pro';
   const preset = searchParams.get('preset') || 'credeal_signature';
 
@@ -95,7 +96,8 @@ export async function GET(
     // ── 데이터 완전성 게이트 ──
     const dataCompleteness = body.dataCompleteness;
     const isDev = process.env.NODE_ENV === 'development';
-    if (dataCompleteness && !dataCompleteness.pptxExportAllowed && tier === 'pro' && !isDev) {
+    // 골디락스: 데이터 완전성 게이트 (D등급 차단은 renderer에서 처리)
+    if (dataCompleteness && !dataCompleteness.pptxExportAllowed && !isDev) {
       return NextResponse.json({
         error: 'PPTX 다운로드 불가',
         reason: '건축물대장 등 필수 공공데이터가 조회되지 않았습니다.',
@@ -118,7 +120,6 @@ export async function GET(
 
     const result = await renderer.render({
       buildingId,
-      tier,
       preset,
       posture,
       grade,
@@ -133,7 +134,7 @@ export async function GET(
       },
       building: building || undefined,
       broker: broker || undefined,
-      watermark: tier === 'pro'
+      watermark: searchParams.get('watermark') !== 'false'
         ? {
             requesterName: searchParams.get('requester') || 'CREDEAL',
             phoneLast4: searchParams.get('phone4') || '0000',

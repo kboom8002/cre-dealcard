@@ -37,23 +37,28 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
   const areaOrAddress = (input.data?.left as any)?.source || input.data?.areaSignal || '서울';
   const poiSpots: MapPoiSpot[] = input.data?.poiSpots ?? [];
 
-  let mapImg: OptimizedImage | null = null;
-
-  // 1차: 이미 생성된 카카오 지도 URL 사용
-  if (mapImageUrl) {
-    mapImg = await fetchKakaoMapImage(mapImageUrl, 1120, 900);
-  }
-
-  // 2차: 좌표 기반 카카오/OSM 합성 지도 (fetchKakaoMapImage 실패 시)
-  if (!mapImg) {
-    mapImg = await generateStaticMapPlaceholder(areaOrAddress, 1120, 900, coords, poiSpots);
-  }
-
-  if (mapImg) {
-    slide.addImage({ data: mapImg.base64, x: M, y: 1.62, w: mapW, h: 4.50 });
+  // 0차: 지적도 이미지가 직접 전달된 경우 (V-World WMS)
+  if (input.data?.cadastralImage) {
+    slide.addImage({ data: input.data.cadastralImage, x: M, y: 1.62, w: mapW, h: 4.50 });
   } else {
-    // D32 BL-2: 지도 데이터 결손 경고
-    warnings.push(`[BL-2] 지도 렌더 실패: 좌표=${coords ? '있음' : '없음'}, URL=${mapImageUrl ? '있음' : '없음'}, 지명='${areaOrAddress}'`);
+    let mapImg: OptimizedImage | null = null;
+
+    // 1차: 이미 생성된 카카오 지도 URL 사용
+    if (mapImageUrl) {
+      mapImg = await fetchKakaoMapImage(mapImageUrl, 1120, 900);
+    }
+
+    // 2차: 좌표 기반 카카오/OSM 합성 지도 (fetchKakaoMapImage 실패 시)
+    if (!mapImg) {
+      mapImg = await generateStaticMapPlaceholder(areaOrAddress, 1120, 900, coords, poiSpots);
+    }
+
+    if (mapImg) {
+      slide.addImage({ data: mapImg.base64, x: M, y: 1.62, w: mapW, h: 4.50 });
+    } else {
+      // D32 BL-2: 지도 데이터 결손 경고
+      warnings.push(`[BL-2] 지도 렌더 실패: 좌표=${coords ? '있음' : '없음'}, URL=${mapImageUrl ? '있음' : '없음'}, 지명='${areaOrAddress}'`);
+    }
   }
 
   // D32 BL-2: 지도 4조건 검증 (좌표·URL·지명·POI)

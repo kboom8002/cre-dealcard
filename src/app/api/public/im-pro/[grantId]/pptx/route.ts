@@ -106,7 +106,7 @@ export async function GET(
       ?? 'income';
     const result = await renderer.render({
       buildingId,
-      tier: 'pro',
+      // tier 폐지 — 골디락스 단일 시퀀스
       preset,
       posture,
       grade: body.qualityGrade ?? body.grade ?? 'B',
