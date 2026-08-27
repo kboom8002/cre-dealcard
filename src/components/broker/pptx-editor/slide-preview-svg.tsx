@@ -100,7 +100,7 @@ const SAMPLE = {
     '서초대로 제일선에 위치한 코너 상가, 안정적 임대수익을 쮤하는 프라임 자산.',
 };
 
-type Archetype = 'A01' | 'A02' | 'A03' | 'A04' | 'A07' | 'A10';
+type Archetype = 'A01' | 'A02' | 'A03' | 'A04' | 'A05' | 'A06' | 'A07' | 'A08' | 'A09' | 'A10' | 'A11' | 'A14';
 
 export function SlidePreviewSVG({ tokens, width = 720, buildingData }: SlidePreviewSVGProps) {
   const [activeArchetype, setActiveArchetype] = useState<Archetype>('A01');
@@ -303,6 +303,155 @@ export function SlidePreviewSVG({ tokens, width = 720, buildingData }: SlidePrev
     </>
   );
 
+  const renderA05AsymmetricAlt = () => (
+    <>
+      <rect x="0" y="0" width={W} height={H} fill={tokens.bg} />
+      {renderHeaderBlock()}
+      <g transform={`translate(${M}, 150)`}>
+        {/* Left 7/13 — narrative block */}
+        <rect x={0} y={0} width={CW * (7/13) - 20} height={420} fill={tokens.tint} rx={8} />
+        <text x={30} y={40} fill={tokens.accent} fontSize={pt(18)} fontFamily={titleFontFamily} fontWeight="bold">Value-Add 기회</text>
+        {wrapText(SAMPLE_DATA.leadSentence + ' 임대료 상승 여력이 존재하며 정상화 후 추가 가치 창출이 가능합니다.', 30, 28, 30, 80, tokens.ink, pt(14), 'normal', fontFamily)}
+        {/* Right 4/13 — metrics stack */}
+        <g transform={`translate(${CW * (7/13) + 20}, 0)`}>
+          {SAMPLE_DATA.metrics.map((m, i) => (
+            <g key={i} transform={`translate(0, ${i * 105})`}>
+              <rect x={0} y={0} width={CW * (6/13) - 40} height={95} fill={tokens.darkBlock} rx={8} />
+              <text x={15} y={35} fill={tokens.mute} fontSize={pt(14)} fontFamily={fontFamily}>{m.label}</text>
+              <text x={15} y={70} fill={tokens.accent} fontSize={pt(28)} fontFamily={titleFontFamily} fontWeight="bold">{m.value}</text>
+            </g>
+          ))}
+        </g>
+      </g>
+    </>
+  );
+
+  const renderA06Diagram = () => (
+    <>
+      <rect x="0" y="0" width={W} height={H} fill={tokens.bg} />
+      {renderHeaderBlock()}
+      <g transform={`translate(${W/2}, 300)`}>
+        {/* Center circle */}
+        <circle cx={0} cy={0} r={80} fill={tokens.darkBlock} stroke={tokens.accent} strokeWidth={2} />
+        <text x={0} y={5} fill={tokens.accent} fontSize={pt(18)} fontFamily={titleFontFamily} fontWeight="bold" textAnchor="middle">투자 구조</text>
+        {/* 4 connected nodes */}
+        {[0, 1, 2, 3].map((i) => {
+          const angle = (i * Math.PI / 2) - Math.PI / 4;
+          const cx = Math.cos(angle) * 220;
+          const cy = Math.sin(angle) * 180;
+          const labels = ['매입가', '임대수익', '관리비', 'CAPEX'];
+          return (
+            <g key={i}>
+              <line x1={Math.cos(angle) * 85} y1={Math.sin(angle) * 85} x2={cx - Math.cos(angle) * 50} y2={cy - Math.sin(angle) * 40} stroke={tokens.mute} strokeWidth={1} opacity={0.5} />
+              <rect x={cx - 60} y={cy - 25} width={120} height={50} fill={tokens.tint} rx={6} stroke={tokens.accent} strokeWidth={1} opacity={0.4} />
+              <text x={cx} y={cy + 5} fill={tokens.ink} fontSize={pt(14)} fontFamily={fontFamily} textAnchor="middle">{labels[i]}</text>
+            </g>
+          );
+        })}
+      </g>
+    </>
+  );
+
+  const renderA08DualTable = () => (
+    <>
+      <rect x="0" y="0" width={W} height={H} fill={tokens.bg} />
+      {renderHeaderBlock()}
+      <g transform={`translate(${M}, 150)`}>
+        {[0, 1].map((t) => (
+          <g key={t} transform={`translate(${t * (CW/2 + 20)}, 0)`}>
+            <text x={0} y={-10} fill={tokens.accent} fontSize={pt(16)} fontFamily={titleFontFamily} fontWeight="bold">{t === 0 ? '수입 내역' : '비용 내역'}</text>
+            <rect x={0} y={0} width={CW/2 - 20} height={40} fill={tokens.darkBlock} rx={4} />
+            <text x={20} y={27} fill={tokens.darkBody} fontSize={pt(14)} fontFamily={fontFamily}>항목</text>
+            <text x={CW/2 - 60} y={27} fill={tokens.darkBody} fontSize={pt(14)} fontFamily={fontFamily} textAnchor="end">금액</text>
+            {[1, 2, 3, 4].map((r) => (
+              <g key={r} transform={`translate(0, ${r * 40})`}>
+                <rect x={0} y={0} width={CW/2 - 20} height={40} fill={r % 2 === 0 ? tokens.tint : tokens.bg} />
+                <text x={20} y={27} fill={tokens.ink} fontSize={pt(13)} fontFamily={fontFamily}>{t === 0 ? `임대수입 ${r}` : `운영비 ${r}`}</text>
+                <text x={CW/2 - 60} y={27} fill={tokens.ink} fontSize={pt(13)} fontFamily={fontFamily} textAnchor="end">{`${r * 1200}만`}</text>
+              </g>
+            ))}
+          </g>
+        ))}
+      </g>
+    </>
+  );
+
+  const renderA09Process = () => {
+    const steps = ['물건 검토', '실사 진행', '가격 협상', '계약 체결', '잔금/인도'];
+    return (
+      <>
+        <rect x="0" y="0" width={W} height={H} fill={tokens.bg} />
+        {renderHeaderBlock()}
+        <g transform={`translate(${M}, 250)`}>
+          {steps.map((step, i) => {
+            const stepW = (CW - (steps.length - 1) * 20) / steps.length;
+            const x = i * (stepW + 20);
+            return (
+              <g key={i}>
+                {i > 0 && (
+                  <line x1={x - 15} y1={60} x2={x - 5} y2={60} stroke={tokens.accent} strokeWidth={2} markerEnd="url(#arrow)" />
+                )}
+                <rect x={x} y={0} width={stepW} height={120} fill={tokens.tint} rx={8} stroke={tokens.accent} strokeWidth={1} opacity={0.3} />
+                <circle cx={x + stepW/2} cy={30} r={16} fill={tokens.accent} opacity={0.2} />
+                <text x={x + stepW/2} y={36} fill={tokens.accent} fontSize={pt(14)} fontFamily={fontFamily} fontWeight="bold" textAnchor="middle">{i + 1}</text>
+                <text x={x + stepW/2} y={80} fill={tokens.ink} fontSize={pt(13)} fontFamily={fontFamily} textAnchor="middle">{step}</text>
+              </g>
+            );
+          })}
+        </g>
+      </>
+    );
+  };
+
+  const renderA11RoomSpec = () => (
+    <>
+      <rect x="0" y="0" width={W} height={H} fill={tokens.bg} />
+      {renderHeaderBlock()}
+      <g transform={`translate(${M}, 150)`}>
+        {[0, 1, 2, 3].map((i) => {
+          const col = i % 2;
+          const row = Math.floor(i / 2);
+          const labels = ['1층 근생', '2층 사무실', '3층 사무실', '옥탑'];
+          return (
+            <g key={i} transform={`translate(${col * (CW/2 + 10)}, ${row * 200})`}>
+              <rect x={0} y={0} width={CW/2 - 10} height={180} fill={tokens.tint} rx={8} />
+              <rect x={0} y={0} width={CW/2 - 10} height={6} fill={tokens.accent} rx={3} />
+              <text x={20} y={40} fill={tokens.accent} fontSize={pt(16)} fontFamily={titleFontFamily} fontWeight="bold">{labels[i]}</text>
+              <text x={20} y={75} fill={tokens.mute} fontSize={pt(13)} fontFamily={fontFamily}>전용 85㎡ / 공용 120㎡</text>
+              <text x={20} y={105} fill={tokens.ink} fontSize={pt(13)} fontFamily={fontFamily}>보증금 5,000만 / 월세 250만</text>
+              <text x={20} y={135} fill={tokens.mute} fontSize={pt(12)} fontFamily={fontFamily}>천장고 2.8m · 화장실 1개</text>
+            </g>
+          );
+        })}
+      </g>
+    </>
+  );
+
+  const renderA14Gallery = () => (
+    <>
+      <rect x="0" y="0" width={W} height={H} fill={tokens.bg} />
+      {renderHeaderBlock()}
+      <g transform={`translate(${M}, 140)`}>
+        {/* 2x3 photo grid */}
+        {[0, 1, 2, 3, 4, 5].map((i) => {
+          const col = i % 3;
+          const row = Math.floor(i / 3);
+          const cellW = (CW - 20) / 3;
+          const cellH = 230;
+          const captions = ['정면 외관', '후면', '1층 로비', '사무공간', '주차장', '옥상'];
+          return (
+            <g key={i} transform={`translate(${col * (cellW + 10)}, ${row * (cellH + 20)})`}>
+              <rect x={0} y={0} width={cellW} height={cellH} fill={tokens.darkBlock} rx={6} />
+              <text x={cellW/2} y={cellH/2 - 10} fill={tokens.mute} fontSize={pt(24)} fontFamily={fontFamily} textAnchor="middle" opacity={0.3}>📷</text>
+              <text x={cellW/2} y={cellH/2 + 20} fill={tokens.mute} fontSize={pt(12)} fontFamily={fontFamily} textAnchor="middle" opacity={0.5}>사진 {i + 1}</text>
+              <text x={cellW/2} y={cellH - 15} fill={tokens.darkBody} fontSize={pt(11)} fontFamily={fontFamily} textAnchor="middle">{captions[i]}</text>
+            </g>
+          );
+        })}
+      </g>
+    </>
+  );
+
   const renderA10Closing = () => (
     <>
       <rect x="0" y="0" width={W} height={H} fill={tokens.darkBlock} />
@@ -320,8 +469,14 @@ export function SlidePreviewSVG({ tokens, width = 720, buildingData }: SlidePrev
       case 'A02': return renderA02StatGrid();
       case 'A03': return renderA03Table();
       case 'A04': return renderA04Asymmetric();
+      case 'A05': return renderA05AsymmetricAlt();
+      case 'A06': return renderA06Diagram();
       case 'A07': return renderA07ThreeBlock();
+      case 'A08': return renderA08DualTable();
+      case 'A09': return renderA09Process();
       case 'A10': return renderA10Closing();
+      case 'A11': return renderA11RoomSpec();
+      case 'A14': return renderA14Gallery();
     }
   };
 
@@ -341,8 +496,8 @@ export function SlidePreviewSVG({ tokens, width = 720, buildingData }: SlidePrev
         </svg>
       </div>
 
-      <div className="flex gap-2">
-        {(['A01', 'A02', 'A03', 'A04', 'A07', 'A10'] as Archetype[]).map((arc) => (
+      <div className="flex flex-wrap gap-2 justify-center">
+        {(['A01', 'A02', 'A03', 'A04', 'A05', 'A06', 'A07', 'A08', 'A09', 'A10', 'A11', 'A14'] as Archetype[]).map((arc) => (
           <button
             key={arc}
             onClick={() => setActiveArchetype(arc)}
