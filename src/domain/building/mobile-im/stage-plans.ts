@@ -15,25 +15,32 @@ export interface SectionStage {
 
 export const STAGE_PLANS: Record<InvestmentPosture, SectionStage[]> = {
   income: [
+    // D37 P1-1: D36 §4.2 income 15면 반영
     {
       stage: 1,
-      sections: ['property_overview', 'location_access', 'lease_status', 'next_steps'],
+      sections: ['property_overview', 'decision_snapshot', 'location_access', 'next_steps'],
       parallel: true,
     },
-    // [앵커 확정] askingPriceKrw, totalAreaSqm, vacancyPct, monthlyRentTotalKrw, leaseUnitCount
+    // [앵커 확정] askingPriceKrw, totalAreaSqm, vacancyPct, monthlyRentTotalKrw
     {
       stage: 2,
-      sections: ['income_analysis'],
+      sections: ['lease_status', 'income_analysis'],
       parallel: false,
       dependsOn: ['askingPriceKrw', 'totalAreaSqm'],
     },
+    // BG 전용면 — releaseTier에 따라 조건부 포함
     {
       stage: 3,
-      sections: ['risk_check'],
+      sections: ['market_rent_gap', 'value_add_plan', 'stabilized_scenario'],
       parallel: false,
     },
     {
       stage: 4,
+      sections: ['risk_check'],
+      parallel: false,
+    },
+    {
+      stage: 5,
       sections: ['investment_thesis'],
       parallel: false,
     },
@@ -46,7 +53,7 @@ export const STAGE_PLANS: Record<InvestmentPosture, SectionStage[]> = {
     },
     {
       stage: 2,
-      sections: ['site_analysis', 'development_feasibility'],
+      sections: ['site_analysis', 'development_screening'],
       parallel: false,
       dependsOn: ['askingPriceKrw', 'landAreaSqm'],
     },

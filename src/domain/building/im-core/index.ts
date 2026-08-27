@@ -33,3 +33,18 @@ export type { ResolveTierInput } from './release-tier';
 // DA 실값 검사 + 충돌 객체 (P0-4/P0-5)
 export { deriveDataAvailability, detectConflict } from './data-availability';
 export type { ConflictSubject, Conflict } from './data-availability';
+
+// 환산보증금 + 실효임대료 (P1-3)
+export {
+  calculateConvertedDeposit,
+  calculateEffectiveRent,
+  registerLeaseCalcClaims,
+  COMMERCIAL_LEASE_ACT_THRESHOLDS,
+  CONVERTED_DEPOSIT_RATE,
+} from './lease-calc';
+export type {
+  ConvertedDepositInput,
+  ConvertedDepositResult,
+  EffectiveRentInput,
+  EffectiveRentResult,
+} from './lease-calc';
