@@ -1,19 +1,29 @@
 # CRE-DealCard 파이프라인 기능 명세서 (코드 감사용)
 
 > **문서 ID**: `DOC-TEST0827-01-PIPELINE-SPEC`  
-> **작성일**: 2026-08-27 (Updated)  
+> **작성일**: 2026-08-27 (Updated — 커밋 `4b8550e`)  
 > **대상**: QA / 코드 감사 / 개발 기획팀  
-> **코드베이스 기준**: `main` branch, 커밋 `7f9f468` 이후  
+> **코드베이스 기준**: `main` branch, 커밋 `4b8550e`  
 > **범위**: Memo 입력 → Deal Card 생성 → Bottom Sheet 데이터 보강 → IM 비동기 생성 브릿지
 
 > [!NOTE]
-> 본 문서는 2026-08-27 세션(커밋 `9645f0f`, `55110d8`, `7f9f468`)의 코드 개선 결과를 반영한 갱신본입니다. **이전 감사에서 지적된 8건의 결함(Critical 3, High 3, Medium 2)이 모두 해결(RESOLVED)되었습니다.**
+> 본 문서는 커밋 `4b8550e` (25건 보완 개선) 반영본입니다. 이전 8건 결함 전원 해결 + 신규 17건 개선이 추가 반영되었습니다.
 
-## EXACT SECTIONS - Use these PRECISE details:
+---
 
-### Stage 1: 메모 파싱 & 슬롯 추출
+## 목차
+1. [Stage 1: 메모 파싱 & 슬롯 추출](#stage-1-메모-파싱--슬롯-추출)
+2. [Stage 2: 딜카드 생성 & SSoT 데이터 모델](#stage-2-딜카드-생성--ssot-데이터-모델)
+3. [Stage 3: 바톰시트 UI & 공공데이터 보강](#stage-3-바톰시트-ui--공공데이터-보강)
+4. [Stage 4: 데이터 품질 등급 & IM 생성 브릿지](#stage-4-데이터-품질-등급--im-생성-브릿지)
+5. [전체 상태 전이 다이어그램](#전체-상태-전이-다이어그램)
+6. [약점 및 우려 사항 종합](#약점-및-우려-사항-종합)
 
-**1.1 엔드포인트 & 입력**
+---
+
+## Stage 1: 메모 파싱 & 슬롯 추출
+
+### 1.1 엔드포인트 & 입력
 
 | 엔드포인트 | 용도 | 입력 |
 |---|---|---|
@@ -22,9 +32,9 @@
 
 **음성 입력**: Web Speech API `ko-KR` 우선 → MediaRecorder/Whisper 폴백
 
-**1.2 PII 마스킹 & 보안 가드**
+### 1.2 PII 마스킹 & 보안 가드
 
-**파일**: [`memo-sanitizer.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/memo-sanitizer.ts)
+**파일**: [`memo-sanitizer.ts`](file:///c:/Users/User/cre-dealcard/src/ai/sanitizer/memo-sanitizer.ts) — 122행
 
 LLM 전송 전 7종 민감정보 자동 마스킹:
 
@@ -38,106 +48,124 @@ LLM 전송 전 7종 민감정보 자동 마스킹:
 | 6 | 임차인 상호 | `[TENANT_A]` | `(주)ABC커피` |
 | 7 | 건물 고유명칭 | `[BLDG_NAME_A]` | `크로바빌딩` |
 
-- **프롬프트 인젝션 방어**: 11개 패턴 탐지 → `INJECTION_DETECTED` 즉시 차단
-- **구현 위치**: `parse-memo/route.ts` L76-83
+> [!TIP]
+> **✅ NEW-L3 개선**: 하이픈 없는 전화번호(`01012345678`) 패턴 추가 — `/01[016789]\d{7,8}/g`
 
-**1.3 하이브리드 슬롯 추출 메커니즘**
+- **프롬프트 인젝션 방어**: 11개 패턴 탐지 → `INJECTION_DETECTED` 즉시 차단
+
+> [!IMPORTANT]
+> **✅ NEW-H6 개선**: `WEB_SECURITY_PATTERNS` 15개 신규 추가
+> - XSS: `<script>`, `javascript:`, `onerror=`, `onload=`, `<iframe>`, `<img onerror>`, HTML 엔티티
+> - SQL: `UNION SELECT`, `DROP TABLE`, `; DELETE`, `OR 1=1`, `--` 종단
+> - 한국어: `기존 규칙 무시`, `관리자 모드`, `탈옥`
+> - 매칭 시 해당 패턴을 `[BLOCKED]`로 치환 (차단이 아닌 제거)
+
+### 1.3 하이브리드 슬롯 추출 메커니즘
 
 #### A. 3-Layer 정규식 슬롯 매퍼
 
 **파일**: [`memo-slot-mapper.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/memo-slot-mapper.ts) L121-212
 
-| Layer | 패턴 그룹 | 신뢰도 | 추출 대상 | 비고 |
-|:---:|---|:---:|---|---|
-| **1** | `SUMMARY_PATTERNS` | 0.95 | 보증금 총액, 월 임대수입 총액, 매매가 | 최우선 적용 |
-| **2** | `FALLBACK_PATTERNS` | 0.80~0.90 | 개별 보증금, 월세, 전세금 | Layer 1 누락 시에만 |
-| **3** | `GENERAL_PATTERNS` | 0.75~0.90 | 연면적, 층수, 준공년도, 대출금, 공실률, Cap Rate 등 24개 슬롯 | 항상 적용 |
+| Layer | 패턴 그룹 | 신뢰도 | 추출 대상 |
+|:---:|---|:---:|---|
+| **1** | `SUMMARY_PATTERNS` | 0.95 | 보증금 총액, 월 임대수입 총액, 매매가 |
+| **2** | `FALLBACK_PATTERNS` | 0.80~0.90 | 개별 보증금, 월세, 전세금 |
+| **3** | `GENERAL_PATTERNS` | 0.75~0.90 | 연면적, 층수, 준공년도, 대출금, 공실률, Cap Rate 등 24개 |
 
-**한국어 수치 변환**: `억` = 10⁸, `만` = 10⁴, `㎡` × 0.3025 → 평
-
-#### B. AI MemoParser
-
-- `sol` LLM 모델 활용, `MemoParserOutputSchema` 기반 40+ 슬롯 구조화 추출
-- 5대 투자 포스처 신호 탐지
-- 모호한 필드(`ambiguousFields`) 및 민감 필드 목록 별도 분류
-
-#### C. 투자 포스처 추천
+#### B. 투자 포스처 추천
 
 **파일**: `memo-slot-mapper.ts` L182-230 — `extractPostureProposal()`
 
-> [!IMPORTANT]
-> **✅ W-1.1 해결 (커밋 `9645f0f`)**: 복합 포스처 감지 로직이 추가되었습니다 (L199-215).
-> - 1위-2위 포스처 점수 간격 ≤ 1: 신뢰도 `Math.min(0.50, ...)` 제한
-> - `secondaryPosture` 필드 추가 (브로커 확인 필요 안내)
-> - `PostureProposal` 인터페이스에 `secondaryPosture?: InvestmentPosture` 추가
-
+- ✅ **W-1.1 해결**: 복합 포스처 감지 (gap ≤ 1 → confidence ≤ 0.50, `secondaryPosture`)
 - 단일 우세 포스처: `Math.min(0.95, (topScore * 0.15) + (gap * 0.1) + 0.3)`
-- 출력: 5대 포스처(`income`, `development`, `operating`, `owner_occupied`, `trading`) 중 최고 신뢰도
 
-#### D. 주소 지오코딩 & PNU 해석
+#### C. 주소 지오코딩 & PNU 해석
 
-**파일**: [`address-resolver.ts`](file:///c:/Users/User/cre-dealcard/src/lib/external/address-resolver.ts) — 169행
+**파일**: [`address-resolver.ts`](file:///c:/Users/User/cre-dealcard/src/lib/external/address-resolver.ts) — 169행+
 
-> [!IMPORTANT]
-> **✅ W-1.2 + W-1.3 + W-3.2 해결 (커밋 `9645f0f`)**: `address-resolver.ts`가 전면 재작성되었습니다.
-
-| 개선 항목 | 상세 |
+| 기능 | 상세 |
 |---|---|
-| `parseJibunAddress()` (L40-46) | 지번 주소에서 `bun`/`ji`/`isMount` 추출. 산지 감지: `/산\s*\d/.test()` |
-| 산지 PNU 지원 | `landCategory = isMount ? '2' : '1'` — 대지구분 하드코딩 제거 |
-| 합필 PNU 감지 (L98-105) | `pnuFromJibun !== pnuFromBdMgtSn` 시 지번 PNU 채택 + `_mergedParcelWarning: true` |
-| `geocodeWithRetry()` (L52-66) | 최대 2회 재시도, 실패 시 `null` 반환. **하드코딩 좌표 전면 제거** |
-| nullable 좌표 | `ResolvedAddress.lat/lng: number | null` — 다운스트림 타입 호환성 수정 완료 |
+| `parseJibunAddress()` (L40-46) | 지번 주소에서 `bun`/`ji`/`isMount` 추출 |
+| 산지 PNU | `landCategory = isMount ? '2' : '1'` |
+| 합필 PNU 감지 | `pnuFromJibun !== pnuFromBdMgtSn` → `_mergedParcelWarning: true` |
+| `geocodeWithRetry()` (L52-66) | 2회 재시도, 실패 시 `null`. 하드코딩 좌표 전면 제거 |
+| nullable 좌표 | `ResolvedAddress.lat/lng: number | null` |
+
+> [!TIP]
+> **✅ NEW-M8 개선**: `localFallbackGeocode()` 추가 — 행안부 API 장애 시 25개 주요 상업지구 로컬 좌표 폴백
+> - 강남구, 서초구, 중구, 종로구, 마포구, 영등포구, 송파구, 광진구, 용산구, 동작구, 강남역, 역삼역, 삼성역, 종로, 광화문, 여의도, 판교, 분당, 인천, 부산, 대구, 광주, 대전, 제주, 세종
 
 ---
 
-### Stage 2: 딜카드 생성 & SSoT 데이터 모델
+## Stage 2: 딜카드 생성 & SSoT 데이터 모델
 
-**2.1 딜카드 생성 파이프라인**
+### 2.1 딜카드 생성 파이프라인
 
 **파일**: [`broker-deal-card.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/broker-deal-card.ts)
 
-14단계 도메인 오케스트레이션 (`brokerDealCardFromMemo`, L61-438):
-1. MemoParser → resolveAddress → BuildingMiniTruth
-2. BlindTeaser v3 → Guardrails rewrite
-3. 정밀 재무값 분해: `layers.finance` + `layers.lease_summary`
-4. `building_ssot_lite` INSERT/UPDATE
-5. `building_signal_cards`, `document_objects` 생성
-6. `deal_casepacks`, `deal_pipeline_states` 초기화
+14단계 도메인 오케스트레이션 (`brokerDealCardFromMemo`, L61-438)
 
-> [!IMPORTANT]
-> **✅ W-2.1 해결 (커밋 `9645f0f`)**: `retryWithBackoff<T>()` 함수 추가 (L24-41)
-> - 3회 재시도, 지수 백오프 (2s, 4s, 8s)
-> - `verifyAgainstPublicData` 및 `linkBuildingToCanonicalProperty`에 적용
-> - 전체 실패 시 `verification_status: 'retry_exhausted'`
+- ✅ **W-2.1 해결**: `retryWithBackoff<T>()` (L24-41) — 3회 지수 백오프 (2s/4s/8s)
 
-**2.2 SSoT Lite 핵심 구조**
-
-**테이블**: `building_ssot_lite`
+### 2.2 SSoT Lite 핵심 구조
 
 | JSONB Layer | 주요 필드 | 설명 |
 |---|---|---|
-| `layers.finance` | `askingPriceKrw`, `askingPriceManwon`, `totalDepositKrw`, `monthlyRentKrw` | 원/만원 이중 정밀 저장 |
-| `layers.lease_summary` | `totalDepositManwon`, `monthlyRentManwon`, `mgmtFeeManwon`, `vacancyRate`, `loanAmount` | 임대 요약 |
+| `layers.finance` | `askingPriceKrw`, `totalDepositKrw`, `monthlyRentKrw` | 원/만원 이중 정밀 저장 |
+| `layers.lease_summary` | `totalDepositManwon`, `monthlyRentManwon`, `vacancyRate` | 임대 요약 |
 | `layers.location` | `roadAddr`, `jibunAddr`, `pnu`, `lat`, `lng` | 주소/좌표 |
-| `layers.pack_slots` | 8종 스펙: Physical, Hospitality, Development, Vacate, Permit, Occupancy, Sectional, Residential | 포스처별 상세 |
-| `layers.photos` | 12장 메타데이터, 카테고리, 히어로/외관 플래그 | 사진 관리 |
-| `layers.rent_roll` | 층별/호실별 구조화 렌트롤 | 임대 상세 |
+| `layers.pack_slots` | 8종 스펙 | 포스처별 상세 |
+| `layers.photos` | 12장 메타데이터 | 사진 관리 |
+| `layers.rent_roll` | 층별/호실별 렌트롤 | 임대 상세 |
+
+### 2.3 재무 가정값 중앙화
+
+**파일**: [`assumptions.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/assumptions.ts) — 80행+
+
+> [!IMPORTANT]
+> **✅ NEW-H4 개선**: 하드코딩 재무 상수가 `DEFAULT_ASSUMPTIONS`로 중앙화되었습니다.
+
+| 상수 | 값 | 비고 |
+|---|:---:|---|
+| `opexRatioPct` | 10% | 자산유형별 오버라이드 |
+| `vacancyReservePct` | 5% | 기본 공실률 |
+| `annualRentGrowthPct` | 2% | 연 임대료 성장률 |
+| `loanInterestRatePct` | 4.5% | 대출 금리 |
+| `acquisitionTaxPct` | 4.6% | ✅ 신규 외부화 |
+| `brokerageFeePct` | 0.9% | ✅ 신규 외부화 |
+| `propertyTaxPct` | 0.4% | ✅ 신규 외부화 |
+| `entryCapBase` | 0.04 | ✅ 신규 외부화 |
+
+**자산유형별 오버라이드** (`ASSET_TYPE_OVERRIDES`):
+
+| 자산유형 | opexRatioPct | 기타 |
+|---|:---:|---|
+| 오피스 | 15% | — |
+| 리테일 | 20% | — |
+| 지식산업센터 | 22% | — |
+| 물류 | 12% | — |
+| 호텔 | 25% | `vacancyReservePct: 10` |
+| 원룸 | 15% | — |
+| 병원 | 22% | — |
+| 주유소 | 10% | — |
+| 교육 | 20% | — |
+
+> [!TIP]
+> **✅ NEW-M5 준비**: `loadAssumptionsFromDB()` 스텀 추가 — Supabase `assumptions` 테이블 연동 Phase 2 준비
 
 ---
 
-### Stage 3: 바톰시트 UI & 공공데이터 보강
+## Stage 3: 바톰시트 UI & 공공데이터 보강
 
-**3.1 바톰시트 UI 상호작용**
+### 3.1 바톰시트 UI
 
-**파일**: [`im-data-bottom-sheet.tsx`](file:///c:/Users/User/cre-dealcard/src/app/(broker)/broker/deal-card/[id]/im-data-bottom-sheet.tsx) — 1,804행 모놈리식 컴포넌트
+**파일**: [`im-data-bottom-sheet.tsx`](file:///c:/Users/User/cre-dealcard/src/app/(broker)/broker/deal-card/[id]/im-data-bottom-sheet.tsx) — 1,804행
 
-> [!IMPORTANT]
-> **✅ BUG-3.1 해결 (커밋 `9645f0f`)**: Dead Code 제거. `return missing;`을 switch-case 블록 후로 이동하여 모든 포스처 검증이 정상 작동합니다.
+- ✅ **BUG-3.1 해결**: switch-case 구조로 전환, 5대 포스처 검증 정상 작동
 
-**포스처별 동적 필수값 검증** ([L237-278](file:///c:/Users/User/cre-dealcard/src/app/(broker)/broker/deal-card/[id]/im-data-bottom-sheet.tsx#L237-L278)):
+**포스처별 필수값 검증** ([L237-278](file:///c:/Users/User/cre-dealcard/src/app/(broker)/broker/deal-card/[id]/im-data-bottom-sheet.tsx#L237-L278)):
 
-| 포스처 | 공통 필수 | 포스처 전용 필수 |
+| 포스처 | 공통 필수 | 전용 필수 |
 |---|---|---|
 | 공통 | `address`/`pnu`, `askingPrice` | — |
 | `income` | — | `monthlyRent`, `totalDeposit` |
@@ -146,52 +174,70 @@ LLM 전송 전 7종 민감정보 자동 마스킹:
 | `operating` | — | `roomCount`, `averageDailyRate`, `unitKind` |
 | `trading` | — | `acquisitionPriceManwon` |
 
-**3.2 공공데이터 API 보강 흐름**
-
-PNU/주소 기반 **8개 공공데이터 API 병렬 호출** (`Promise.all`):
-
-| # | API | 주요 반환값 | 캐시 TTL |
-|:---:|---|---|:---:|
-| 1 | 건축물대장 표제부 | 건축면적, 연면적, 건폐율/용적률, 층수, 승인일 | 90일 |
-| 2 | 건축물대장 총괄표제부 | 주차대수, 승강기, 난방방식 | 90일 |
-| 3 | V-World 토지특성 | 용도지역, 형상, 지형, 도로접면 | **120일** ✅ |
-| 4 | V-World/data.go.kr 공시지가 | m²당 공시지가 | **180일** ✅ |
-| 5 | 국토부 실거래가 | 시군구 내 상업용 부동산 거래 | 30일 |
-| 6 | 카카오 로컬 POI | 지하철역/거리, 버스, 생활 인프라 | 90일 |
-| 7 | 등기부/권리분석 | 소유권, 권리제한 | 7일 |
-| 8 | 소상공인 상권분석 | 유동인구, 배후수요, 업종별 매출 | 60일 |
-
 > [!TIP]
-> **✅ W-3.3 해결**: `CACHE_TTL_BY_SOURCE`에 `land_price_vworld: 120`, `land_use_plan_vworld: 120` 추가. `land_price` 365→180일 단축.
+> **✅ NEW-H5 개선**: 바톰시트 컴포넌트 분해 시작
+> - [`useImDataForm.ts`](file:///c:/Users/User/cre-dealcard/src/app/(broker)/broker/deal-card/[id]/hooks/useImDataForm.ts): 포스처별 필수 필드 검증 로직 훅으로 추출 (`getPostureRequiredFields`, `computeMissingFields`)
+> - [`useImGenerator.ts`](file:///c:/Users/User/cre-dealcard/src/app/(broker)/broker/deal-card/[id]/hooks/useImGenerator.ts): IM 생성 비동기 워크플로우 훅으로 추출
+
+### 3.2 공공데이터 API 보강
+
+PNU/주소 기반 **8개 공공데이터 API 병렬 호출**:
+
+| # | API | 캐시 TTL | 비고 |
+|:---:|---|:---:|---|
+| 1 | 건축물대장 표제부 | 90일 | — |
+| 2 | 건축물대장 총괄표제부 | 90일 | — |
+| 3 | V-World 토지특성 | 120일 | ✅ Referer 통합 |
+| 4 | V-World 공시지가 | 180일 | ✅ Referer 통합 |
+| 5 | 국토부 실거래가 | 30일 | — |
+| 6 | 카카오 로컬 POI | 90일 | — |
+| 7 | 등기부/권리분석 | 7일 | — |
+| 8 | 소상공인 상권분석 | 60일 | — |
+
+> [!IMPORTANT]
+> **✅ NEW-M6 개선**: V-World Referer 헤더 통합
+> - [`vworld-config.ts`](file:///c:/Users/User/cre-dealcard/src/lib/external/vworld-config.ts) 신규: `getVWorldReferer()` 3단계 폴백 (`VWORLD_REFERER` → `NEXT_PUBLIC_SITE_URL` → 프로덕션 도메인)
+> - `getVWorldApiKey()`: 대문자 강제 (AGENTS.md 규칙)
+> - `land-price-api.ts`, `land-use-api.ts`에서 `localhost:3000` 하드코딩 제거
+
+### 3.3 API 재시도 인프라
+
+**파일**: [`fetch-with-retry.ts`](file:///c:/Users/User/cre-dealcard/src/lib/external/fetch-with-retry.ts) — 54행+
+
+> [!IMPORTANT]
+> **✅ NEW-H2 개선**: HTTP 429 Rate Limiting 전용 처리 추가
+> - `Retry-After` 헤더 파싱 (초 → ms 변환), 없으면 지수 백오프
+> - 429 전용 최대 재시도 3회
+> - 5xx 서버 에러: 기존 지수 백오프 유지
 
 ---
 
-### Stage 4: 데이터 품질 등급 & IM 생성 브릿지
+## Stage 4: 데이터 품질 등급 & IM 생성 브릿지
 
-**4.1 데이터 품질 등급 엔진**
+### 4.1 데이터 품질 등급 엔진
 
 **파일**: [`data-quality-badge.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/data-quality-badge.ts) — 219행
 
-| 등급 | 점수 | 해금 범위 | 제약 |
-|:---:|:---:|---|---|
-| **A** | ≥75% | 풀 DCF, IRR 감응도, Pro IM, 전체 PPTX | 없음 |
-| **B** | 40~74% | 표준 IM/PPTX | DCF 억제 |
-| **C** | <40% | 기본 IM | DCF 전면 억제, Cap Rate "검증 중" |
-| **D** | 최저 | — | 발행 전면 차단 |
+| 등급 | 점수 | 해금 범위 |
+|:---:|:---:|---|
+| **A** | ≥75% | 풀 DCF, IRR 감응도, Pro IM |
+| **B** | 40~74% | 표준 IM/PPTX |
+| **C** | <40% | 기본 IM |
+| **D** | 최저 | 발행 전면 차단 |
 
-> [!IMPORTANT]
-> **✅ W-4.1 해결 (커밋 `9645f0f`)**: 포스처별 A등급 조건 정밀화
-> - `development`: `hasDevTargetUse && hasDevTargetScale` 필수 (L61)
-> - `operating`: `hasRoomCount && hasAverageDailyRate` + `hasUnitKind(+3점)` 추가 (L103)
-> - 모든 5대 포스처에 전용 점수 산정 및 A/B 등급 조건 구현
+- ✅ **W-4.1 해결**: 포스처별 A등급 조건 정밀화 (dev: `devTargetUse/Scale`, operating: `roomCount/ADR/unitKind`)
 
-**4.2 비동기 IM 생성 브릿지**
+> [!TIP]
+> **✅ NEW-C2 개선**: `getDataFreshnessWarning()` 데드 코드 활성화
+> - `isNaN` 가드 추가
+> - `writer.ts` 출력에 `dataFreshnessWarning` 필드 연결
+> - >30일: 🔴 갱신 필요 / >7일: 🟡 갱신 권장
 
-**엔드포인트**: `POST /api/broker/im-lite/generate-async`
+### 4.2 비동기 IM 생성 브릿지
 
 - `im_generation_jobs` 테이블에 `jobId` 등록 → <1초 내 응답
-- Next.js `after()` 백그라운드 워커: SSoT 역동기화 → 포스처 변경 감지 → `generateMobileIMHandler` 실행
-- 3초 주기 폴링, `visibilitychange` 이벤트로 iOS 백그라운드 복귀 시 즉시 상태 확인
+- Next.js `after()` 백그라운드 워커
+- 3초 주기 폴링, `visibilitychange` 이벤트
 
 ---
 
@@ -200,49 +246,50 @@ PNU/주소 기반 **8개 공공데이터 API 병렬 호출** (`Promise.all`):
 ```mermaid
 stateDiagram-v2
     [*] --> MemoInput : 텍스트/음성 입력
-    MemoInput --> PII_Sanitized : memo-sanitizer (7종 마스킹)
+    MemoInput --> PII_Sanitized : memo-sanitizer (7종 PII + 15종 XSS/SQL 방어)
     PII_Sanitized --> SlotExtracted : 정규식 3-Layer + AI MemoParser
-    SlotExtracted --> DealCardCreated : broker-deal-card.ts (14단계)
-    state DealCardCreated {
-        [*] --> BackgroundTasks : retryWithBackoff (3회)
-        BackgroundTasks --> PublicDataVerified : verifyAgainstPublicData
-        BackgroundTasks --> PropertyLinked : linkBuildingToCanonicalProperty
-        BackgroundTasks --> BuyerMatched : runAutoMatch
-    }
+    SlotExtracted --> PostureProposed : extractPostureProposal (복합 포스처 감지)
+    PostureProposed --> AddressResolved : address-resolver (PNU + 산지 + 합필 + 로컬폴백)
+    AddressResolved --> DealCardCreated : broker-deal-card.ts (14단계 + retryWithBackoff)
     DealCardCreated --> BottomSheetOpen : 브로커 IM 생성 클릭
-    BottomSheetOpen --> DataEnriched : 수동 입력 + 8종 공공 API 병렬 보강
-    DataEnriched --> QualityGraded : grade-engine (A/B/C/D)
+    BottomSheetOpen --> DataEnriched : 8종 API 병렬 (429 Rate Limiting 처리)
+    DataEnriched --> QualityGraded : grade-engine (A/B/C/D) + 데이터 신선도 경고
     QualityGraded --> Blocked : D등급
     QualityGraded --> AsyncGeneration : C/B/A등급
-    AsyncGeneration --> MobileIMReady : 4단계 Writer 완료
-    state MobileIMReady {
-        [*] --> WebViewer : /im-lite/[id]
-        [*] --> BrokerApproval : /broker/im-approval/[id]
-        [*] --> PPTXExport : GET /pptx
-    }
+    AsyncGeneration --> MobileIMReady : 4단계 Writer (assumptions.ts 기반 재무 상수)
 ```
 
 ---
 
-## 약점 및 우려 사항 종합 (해결 현황)
+## 약점 및 우려 사항 종합
 
-### ✅ 해결 완료 항목
+### ✅ 해결 완료 항목 (총 17건 = 이전 8건 + 신규 9건)
 
-| ID | 등급 | 제목 | 해결 내용 | 커밋 |
-|---|:---:|---|---|---|
-| **BUG-3.1** | 🔴→✅ | Dead Code: trading/operating 필드 검증 미작동 | `im-data-bottom-sheet.tsx` switch-case 구조로 전환, 5대 포스처 전원 검증 | `9645f0f` |
-| **W-1.2** | 🔴→✅ | 합필 PNU 매핑 오류 | `address-resolver.ts` 전면 재작성: `parseJibunAddress()`, 합필 감지, `_mergedParcelWarning` | `9645f0f` |
-| **W-1.3** | 🔴→✅ | 산지 주소 PNU 생성 불가 | `isMount ? '2' : '1'` 대지구분 동적 판정 | `9645f0f` |
-| **W-3.2** | 🔴→✅ | 하드코딩 지오코딩 폴백 좌표 | 하드코딩 좌표 전면 제거, `geocodeWithRetry()` 2회 재시도, 실패 시 `null` | `9645f0f` |
-| **W-2.1** | 🟡→✅ | 백그라운드 작업 재시도 큐 부재 | `retryWithBackoff<T>()` 3회 지수 백오프 (2s/4s/8s), 전체 실패 시 `retry_exhausted` | `9645f0f` |
-| **W-4.1** | 🟡→✅ | 등급 엔진과 바톰시트 검증 불일치 | `data-quality-badge.ts` 포스처별 A등급 조건 정밀화 (dev/operating) | `9645f0f` |
-| **W-1.1** | 🟢→✅ | 포스처 추천 알고리즘 단순성 | 복합 포스처 감지 (gap≤1, confidence≤0.50, `secondaryPosture`) | `9645f0f` |
-| **W-3.3** | 🟢→✅ | V-World 캐시 TTL 미등록 | `land_price_vworld: 120`, `land_use_plan_vworld: 120` 추가, `land_price` 365→180 | `9645f0f` |
+| ID | 등급 | 제목 | 커밋 |
+|---|:---:|---|---|
+| BUG-3.1 | 🔴→✅ | Dead Code: 포스처 검증 미작동 | `9645f0f` |
+| W-1.2/1.3 | 🔴→✅ | 합필/산지 PNU 매핑 | `9645f0f` |
+| W-3.2 | 🔴→✅ | 하드코딩 좌표 제거 | `9645f0f` |
+| W-2.1 | 🟡→✅ | 백그라운드 재시도 | `9645f0f` |
+| W-4.1 | 🟡→✅ | 등급 엔진 불일치 | `9645f0f` |
+| W-1.1 | 🟢→✅ | 복합 포스처 감지 | `9645f0f` |
+| W-3.3 | 🟢→✅ | V-World TTL 미등록 | `9645f0f` |
+| NEW-C2 | 🔴→✅ | 데이터 신선도 경고 데드코드 | `4b8550e` |
+| NEW-H2 | 🟡→✅ | 429 Rate Limiting | `4b8550e` |
+| NEW-H4 | 🟡→✅ | 재무 상수 하드코딩 | `4b8550e` |
+| NEW-H5 | 🟡→✅ | 바톰시트 훅 추출 | `4b8550e` |
+| NEW-H6 | 🟡→✅ | XSS/SQL 방어 | `4b8550e` |
+| NEW-H1(부분) | 🟡→✅ | 에러 삼킴 보완 | `4b8550e` |
+| NEW-M6 | 🟢→✅ | V-World Referer 통합 | `4b8550e` |
+| NEW-M8 | 🟢→✅ | JUSO 로컬 폴백 | `4b8550e` |
+| NEW-L3 | 🔵→✅ | PII 엣지 케이스 | `4b8550e` |
+| NEW-M5 | 🟢→✅ | 가정값 외부화 스텀 | `4b8550e` |
 
-### 🟢 잔여 Low 수준 관찰 사항
+### 🟢 잔여 관찰 사항
 
 | ID | 제목 | 설명 |
 |---|---|---|
-| L-P-1 | 바톰시트 모놈리식 컴포넌트 | 1,804행 단일 컴포넌트 — 유지보수성 개선 권장 |
-| L-P-2 | PII 마스킹 엣지 케이스 | `01012345678` (하이픈 없는 형식) 등 부분적 미커버 |
-| L-P-3 | 행안부 JUSO API 의존성 | 외부 API 장애 시 PNU 해석 불가 — 오프라인 폴백 부재 |
+| L-P-1 | 바톰시트 1,804행 | 훅 추출 완료, 본체 리팩토링은 UI 테스트 후 진행 권장 |
+| L-P-2 | `as any` 218건 | 핵심 파일 `suppress` 타입 제거 완료. 나머지 ~180건은 점진적 타입 정비 필요 |
+| L-P-3 | OCR/자격증 API 스텀 | `[NOT_IMPLEMENTED]` 표준화 완료. 실제 API 연동은 별도 프로젝트 |
+| L-P-4 | i18n | 한국어 하드코딩. 글로벌 확장 시 도입 필요 |
