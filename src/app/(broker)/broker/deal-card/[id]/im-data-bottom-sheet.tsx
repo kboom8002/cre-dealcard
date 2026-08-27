@@ -47,7 +47,7 @@ interface ImDataBottomSheetProps {
   currentDataGrade?: string; // A/B/C/D
   gradeUpItems?: Array<{ field: string; label: string; gradeContribution: string }>;
   initialStage?: 'basic' | 'pro';
-  targetTier?: 'basic' | 'pro';
+  targetTier?: 'basic' | 'pro' | 'internal_only' | 'fact_om' | 'analysis_im' | 'decision_im' | 'expert_required';
   /** C-2: AI 포스처 추천 */
   postureProposal?: { value: string; confidence: number; reason: string };
 }
@@ -91,7 +91,12 @@ export function ImDataBottomSheet({
   targetTier = 'basic',
   postureProposal,
 }: ImDataBottomSheetProps) {
-  const [stage, setStage] = useState<'basic' | 'pro'>(initialStage || targetTier);
+  // D37 L-3: 5종 tier → legacy stage 변환
+  const resolvedStage: 'basic' | 'pro' = initialStage || (
+    targetTier === 'analysis_im' || targetTier === 'decision_im' || targetTier === 'pro'
+      ? 'pro' : 'basic'
+  );
+  const [stage, setStage] = useState<'basic' | 'pro'>(resolvedStage);
   const [state, setState] = useState<BottomSheetState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [progress, setProgress] = useState("");

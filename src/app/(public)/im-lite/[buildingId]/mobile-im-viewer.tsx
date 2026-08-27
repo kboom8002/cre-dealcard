@@ -603,14 +603,24 @@ function SectionCard({
               {aiRoleBadge.label}
             </span>
           )}
-          {!section.locked && section.confidence === 'confirmed' && !/(?:확인\s*필요|미확정|확보되지\s*않|대지지분\s*확인|산출\s*불가|미정|0\s*㎡)/.test((section as any).markdown || section.content || '') && (
-            <span className="hidden sm:inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              확인됨
-            </span>
-          )}
+          {/* D37 L-1: confidence 3상태 뱃지 */}
+          {!section.locked && section.confidence && (() => {
+            const md = (section as any).markdown || section.content || '';
+            const hasUncertainText = /(?:확인\s*필요|미확정|확보되지\s*않|대지지분\s*확인|산출\s*불가|미정|0\s*㎡)/.test(md);
+            if (hasUncertainText && section.confidence === 'confirmed') return null;
+            const CONF_BADGE: Record<string, { label: string; color: string; icon: string }> = {
+              confirmed:   { label: '확인됨', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', icon: '✓' },
+              needs_check: { label: '확인 필요', color: 'bg-amber-500/10 text-amber-400 border-amber-500/20', icon: '!' },
+              inferred:    { label: 'AI 추론', color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20', icon: '◇' },
+            };
+            const cfg = CONF_BADGE[section.confidence];
+            if (!cfg) return null;
+            return (
+              <span className={`hidden sm:inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full border ${cfg.color}`}>
+                {cfg.icon} {cfg.label}
+              </span>
+            );
+          })()}
           {!section.locked && (
             <svg
               className={`w-4 h-4 text-neutral-400 transition-transform duration-200 ${

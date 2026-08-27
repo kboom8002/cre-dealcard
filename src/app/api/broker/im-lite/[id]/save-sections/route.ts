@@ -3,6 +3,37 @@ import { requireBroker } from '@/lib/auth-guard';
 import { createServiceClient } from '@/lib/supabase/service';
 import type { MobileIMSection } from '@/domain/building/mobile-im/types';
 
+// D37 H-3: 섹션 저장 시 수치 검증 유틸
+function validateSectionClaims(
+  sections: MobileIMSection[],
+  ssotSummary?: Record<string, any>,
+): string[] {
+  const warnings: string[] = [];
+  if (!ssotSummary) return warnings;
+
+  for (const sec of sections) {
+    const md = (sec as any).markdown as string || '';
+
+    // 가격 불일치 검증
+    if (sec.section_type === 'property_overview' && ssotSummary.asking_price) {
+      const priceStr = String(ssotSummary.asking_price);
+      // 가격이 마크다운에 전혀 없으면 경고
+      if (priceStr.length >= 3 && !md.includes(priceStr) && !md.includes(Number(priceStr).toLocaleString())) {
+        warnings.push(`[${sec.section_type}] 매매 희망가(${priceStr})가 본문에 불일치할 수 있습니다.`);
+      }
+    }
+
+    // 면적 불일치 검증
+    if (sec.section_type === 'property_overview' && ssotSummary.total_area) {
+      const areaStr = String(ssotSummary.total_area);
+      if (areaStr.length >= 3 && !md.includes(areaStr) && !md.includes(Number(areaStr).toLocaleString())) {
+        warnings.push(`[${sec.section_type}] 연면적(${areaStr})이 본문에 불일치할 수 있습니다.`);
+      }
+    }
+  }
+  return warnings;
+}
+
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -131,8 +162,13 @@ export async function PUT(
     return NextResponse.json({ error: updateErr.message }, { status: 500 });
   }
 
+  // D37 H-3: Claim 수치 검증 (non-blocking warnings)
+  const ssotSummary = (content as Record<string, any>).ssot_summary;
+  const claimWarnings = validateSectionClaims(sections, ssotSummary);
+
   return NextResponse.json({
     ok: true,
     message: '섹션이 성공적으로 저장되었습니다.',
+    ...(claimWarnings.length > 0 ? { warnings: claimWarnings } : {}),
   });
 }
