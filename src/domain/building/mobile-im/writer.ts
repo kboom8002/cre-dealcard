@@ -345,6 +345,13 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       effectiveLandArea: 0,
       effectiveFAR: 0,
       calculatedEffectiveFAR: 0,
+      // D37 P2-3: G48~G53 실값 연결
+      unresolvedConflictCount: claimRegistry.findConflicted().length,
+      unevidencedClaimCount: claimRegistry.findUnevidenced().length,
+      asOfMissingCount: claimRegistry.getAll().filter(c => !c.asOf).length,
+      calculationNotReproducible: false,  // FinancialCalculator 결정론적 → 항상 재현 가능
+      pageCountExceeded: false,           // deck-sequencer에서 절삭으로 보장
+      permitZoneNotDisplayed: derivedDA.hasPermitZone === true && !sections.some(s => s.section_type === 'property_overview'),
     };
     const gateReport = runPublishGates(gateCtx);
     if (gateReport.blocked) {

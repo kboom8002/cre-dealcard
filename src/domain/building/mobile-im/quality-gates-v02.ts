@@ -69,6 +69,19 @@ export interface GateContext {
   // D33 G45: 정적 문구 CRE QG
   /** 정적 합성 문구가 CRE QG를 통과했는지 */
   staticTextQGPassed?: boolean;
+  // D37 P2-3: 07 게이트 → 신설 G48~G53
+  /** B03→G48: 미해결 Conflict 건수 */
+  unresolvedConflictCount?: number;
+  /** B04→G49: 증거 없는 Claim 건수 */
+  unevidencedClaimCount?: number;
+  /** B09→G50: 기준일(asOf) 미표시 건수 */
+  asOfMissingCount?: number;
+  /** B11→G51: 계산식 재현 불가 여부 */
+  calculationNotReproducible?: boolean;
+  /** B13→G52: 면수 초과 여부 (body+closing > PAGE_HARD_LIMIT) */
+  pageCountExceeded?: boolean;
+  /** B14→G53: 토지거래허가구역 해당인데 미표시 여부 */
+  permitZoneNotDisplayed?: boolean;
 }
 
 export interface LegacyGateResult {
@@ -185,6 +198,13 @@ export const PUBLISH_GATES: GateDefinition[] = [
   { id: 'G44', label: '열린 괄호로 끝나는 문장 0', severity: 'warn', check: (ctx) => (ctx.unclosedBracketCount ?? 0) === 0 },
   // D33 G45: 정적 문구 CRE QG
   { id: 'G45', label: '정적 문구 CRE QG 통과', severity: 'warn', check: (ctx) => ctx.staticTextQGPassed !== false },
+  // D37 P2-3: 07 게이트 매핑 신설 (AGENTS.md §5 게이트 레지스트리)
+  { id: 'G48', label: '미해결 Conflict 0건', severity: 'block', check: (ctx) => (ctx.unresolvedConflictCount ?? 0) === 0 },
+  { id: 'G49', label: '증거 없는 Claim 0건', severity: 'block', check: (ctx) => (ctx.unevidencedClaimCount ?? 0) === 0 },
+  { id: 'G50', label: '기준일(asOf) 전수 표시', severity: 'warn', check: (ctx) => (ctx.asOfMissingCount ?? 0) === 0 },
+  { id: 'G51', label: '계산식 재현 가능', severity: 'block', check: (ctx) => ctx.calculationNotReproducible !== true },
+  { id: 'G52', label: '면수 상한 초과 없음', severity: 'block', check: (ctx) => ctx.pageCountExceeded !== true },
+  { id: 'G53', label: '토지거래허가 표시', severity: 'warn', check: (ctx) => ctx.permitZoneNotDisplayed !== true },
   // ── QG계열: 품질 경고 (warn) ── CATALOG_RULES §4.3
   { id: 'QG09', label: 'IM Judge 3.0 이상', severity: 'warn', check: (ctx) => (ctx.imJudgeScore ?? 0) >= 3.0 },
   { id: 'QG11', label: 'DCF 등급 게이트', severity: 'warn', check: (ctx) => ctx.dcfGradeGatePassed === true },
