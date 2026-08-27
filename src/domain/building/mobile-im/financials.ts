@@ -140,12 +140,18 @@ export interface FinancialOutputs {
 function getOpexRatio(assetType?: string): number {
   if (!assetType) return 0.18;
   const t = assetType.toLowerCase();
-  if (t.includes('오피스') || t.includes('office')) return 0.15;
-  if (t.includes('상가') || t.includes('근린')) return 0.20;
+  if (t.includes('오피스') || t.includes('office') || t.includes('업무')) return 0.15;
+  if (t.includes('상가') || t.includes('근린') || t.includes('리테일')) return 0.20;
   if (t.includes('지식산업') || t.includes('지산')) return 0.22;
-  if (t.includes('물류') || t.includes('창고')) return 0.12;
+  if (t.includes('물류') || t.includes('창고') || t.includes('데이터센터')) return 0.12;
   if (t.includes('꼬마') || t.includes('빌딩') || t.includes('주상복합')) return 0.18;
-  if (t.includes('호텔') || t.includes('숙박')) return 0.25; // Phase 3: GOP 마진과의 혼동 해소 (35% -> 25%)
+  if (t.includes('호텔') || t.includes('숙박') || t.includes('생활형숙박') || t.includes('레지던스')) return 0.25;
+  // W-IM-2: 누락 assetType 보충
+  if (t.includes('원룸') || t.includes('다세대') || t.includes('다가구') || t.includes('오피스텔')) return 0.15;
+  if (t.includes('병원') || t.includes('의료') || t.includes('요양')) return 0.22;
+  if (t.includes('주유소') || t.includes('세차')) return 0.10;
+  if (t.includes('교육') || t.includes('학원')) return 0.20;
+  console.warn(`[financials] Unknown assetType for opexRatio: "${assetType}", using default 18%`);
   return 0.18;
 }
 

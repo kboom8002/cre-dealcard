@@ -370,9 +370,21 @@ export async function generateSingleSection(
         }
       }
       if (tableStart >= 0) {
-        const before = lines.slice(0, tableStart).join('\n');
-        const after = lines.slice(tableEnd + 1).join('\n');
-        markdown = before + '\n' + fullRentRollBlock + '\n' + after;
+        const beforeLines = lines.slice(0, tableStart);
+        const afterLines = lines.slice(tableEnd + 1);
+
+        // W-IM-7: 테이블 직전 캡션/소개 라인 보존 (### 또는 > 또는 **임대 로 시작하는 줄)
+        let captionLine = '';
+        if (beforeLines.length > 0) {
+          const lastBefore = beforeLines[beforeLines.length - 1].trim();
+          if (/^(?:###|>|\*\*임대|\*\*렌트롤|\*\*층별)/.test(lastBefore)) {
+            captionLine = beforeLines.pop()! + '\n';
+          }
+        }
+
+        const before = beforeLines.join('\n');
+        const after = afterLines.join('\n');
+        markdown = before + '\n' + captionLine + fullRentRollBlock + '\n' + after;
       } else {
         markdown += '\n\n' + fullRentRollBlock;
       }

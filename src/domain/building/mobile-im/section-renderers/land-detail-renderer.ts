@@ -16,6 +16,10 @@ export interface LandDetailInput {
   floorAreaRatio?: number;         // 용적률 %
   maxFar?: number;                 // 법정 용적률 상한 %
   exclusions?: Array<{ kind: string; areaM2: number }>;
+  // W-IM-5: V-World 토지특성 속성
+  landShape?: string;              // 형상: '정방형' | '가장형' | '세장형' | '부정형' | '삼각형' 등
+  landTopography?: string;         // 지형: '평지' | '완경사' | '급경사' | '고지' | '저지' 등
+  roadFrontage?: string;           // 도로접면: '광대한면' | '중로한면' | '소로한면' | '세로(가)한면' | '맹지' 등
 }
 
 export interface SectionOutput {
@@ -63,6 +67,16 @@ export function renderLandDetail(input: LandDetailInput): SectionOutput {
       ? `- **용적률**: ${input.floorAreaRatio}% (법정 상한 ${input.maxFar}%, 여유 ${(input.maxFar - input.floorAreaRatio).toFixed(1)}%p)`
       : `- **용적률**: ${input.floorAreaRatio}%`;
     lines.push(farLine);
+  }
+  // W-IM-5: V-World 토지특성 속성 렌더링
+  if (input.landShape) {
+    lines.push(`- **필지 형상**: ${input.landShape}`);
+  }
+  if (input.landTopography) {
+    lines.push(`- **지형**: ${input.landTopography}`);
+  }
+  if (input.roadFrontage) {
+    lines.push(`- **도로접면**: ${input.roadFrontage}`);
   }
   
   // 제척

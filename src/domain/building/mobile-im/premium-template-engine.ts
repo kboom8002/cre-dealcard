@@ -66,8 +66,7 @@ export function generatePremiumTemplate(
   buildingSsotLite?: Record<string, unknown>,
   posture?: import('@/domain/ontology').InvestmentPosture
 ): string {
-  // v0.4: posture별 분기 — 현재 income 전용, 나머지 posture는 income 폴백
-  // TODO: owner_occupied, development, operating, trading 전용 템플릿 추가
+  // v0.5: posture별 분기 구현 완료 — 공통 섹션(property_overview, lease_status, investment_thesis)에서 포스처별 어조/지표 분기
 
   const br   = externalData?.buildingRegister;
   const lu   = externalData?.landUsePlan;
@@ -120,13 +119,22 @@ export function generatePremiumTemplate(
         priceStr !== "-" ? `| **매매 희망가** | ${priceStr} |` : null,
       ].filter((r): r is string => r !== null);
 
+      const postureLeadMap: Record<string, string> = {
+        income: `본 매물은 ${areaStr} 입지의 안정적 임대 수익형 자산입니다.`,
+        owner_occupied: `본 매물은 ${areaStr} 입지의 사옥 매입 적합 자산입니다.`,
+        development: `본 매물은 ${areaStr} 입지의 재건축/신축 개발 잠재력이 있는 자산입니다.`,
+        operating: `본 매물은 ${areaStr} 입지의 직영 운영형 자산입니다.`,
+        trading: `본 매물은 ${areaStr} 입지의 시세차익 실현 가능성이 있는 자산입니다.`,
+      };
+      const leadText = postureLeadMap[posture || 'income'] || postureLeadMap.income;
+
       return `**${areaStr}** 소재 **${assetType}** 핵심 자산입니다.
 
 | 항목 | 내용 |
 |------|------|
 ${overviewRows.join("\n")}
 
-> 본 매물은 ${areaStr} 입지의 안정적 운영 자산입니다.`;
+> ${leadText}`;
     }
 
     // ─── 섹션 2: 입지·상권 ──────────────────────────────────────────────────
@@ -174,6 +182,23 @@ ${infra}
 
     // ─── 섹션 3: 임대 현황 ──────────────────────────────────────────────────
     case "lease_status": {
+      // W-IM-1: Non-income 포스처에서는 임대 현황 대신 포스처 맞춤 안내
+      if (posture === 'development') {
+        return `> ℹ️ **개발형 투자**: 기존 임차 현황보다 명도 가능성 및 개발 사업수지가 핵심입니다.
+
+기존 임차인 현황은 명도 협의 참고용이며, 상세 임대차 현황은 담당 브로커에게 문의 바랍니다.`;
+      }
+      if (posture === 'owner_occupied') {
+        return `> ℹ️ **사옥 매입형**: 자가사용 목적으로 기존 임차인 명도 후 입주 예정입니다.
+
+기존 임차 현황 및 명도 일정은 담당 브로커에게 확인 바랍니다.`;
+      }
+      if (posture === 'operating') {
+        return `> ℹ️ **운영형 자산**: 임대차 구조가 아닌 직영 운영 매출 기반 자산입니다.
+
+운영 실적(GOP) 분석은 별도 섹션을 참조하시기 바랍니다.`;
+      }
+      // income, trading → 기존 임대 현황 테이블 생성
       // 사용자 입력 vacancy_pct가 있으면 우선 사용 (메모 파싱 결과 오버라이드)
       const userVacPct = (supplemental as Record<string, unknown>).vacancy_pct;
       const vacancy = (userVacPct != null && userVacPct !== undefined)
@@ -414,13 +439,51 @@ ${tableRows}
 
       const valueProposition = `> 💡 **종합 가치 제안**: ${areaSignal ? `${areaSignal} 소재 ${assetType}으로, 입지 및 자산 특성에 대한 상세 분석은 본문을 참조하시기 바랍니다.` : '본 자산의 투자 매력 및 리스크 요인에 대한 상세 분석은 본문을 참조하시기 바랍니다.'}`;
 
+      // W-IM-1: 포스처별 3대 핵심 투자 포인트 분기
+      let highlightsBlock: string;
+      const defaultFit = fitSummary || `${areaSignal} 소재 자산으로, 대지 지분 가치 및 입지 경쟁력에 대한 분석은 자산 개요 섹션을 참조하시기 바랍니다.`;
+
+      switch (posture) {
+        case 'owner_occupied':
+          highlightsBlock = `### 3대 핵심 투자 포인트 (사옥 매입)
+
+• **사옥 브랜드 가치**: ${defaultFit}
+• **임차비 절감 효과**: 자가 소유 전환 시 연간 임대 비용 절감 및 자산 가치 형성이 가능합니다.
+• **자산 가치 상승**: ${areaSignal} 권역의 지가 상승 및 건물 리뉴얼을 통한 자본 이득이 유력합니다.`;
+          break;
+        case 'development':
+          highlightsBlock = `### 3대 핵심 투자 포인트 (개발형)
+
+• **토지 잔존 가치**: ${defaultFit}
+• **개발 이익률**: 잔여 용적률 활용 및 신축 개발을 통한 사업 수익 실현이 가능합니다.
+• **분양/매각 출구 전략**: 개발 완료 후 분양 또는 통 매각을 통한 자본 회수 시나리오입니다.`;
+          break;
+        case 'operating':
+          highlightsBlock = `### 3대 핵심 투자 포인트 (운영형)
+
+• **운영 자산 브랜드**: ${defaultFit}
+• **GOP 마진 수익**: 직영 운영을 통한 영업이익(GOP) 기반의 실질 수익 창출이 핵심입니다.
+• **운영 최적화 출구**: 오퍼레이션 효율화 및 브랜드 가치 제고를 통한 자산 가치 상승이 유력합니다.`;
+          break;
+        case 'trading':
+          highlightsBlock = `### 3대 핵심 투자 포인트 (단기매매형)
+
+• **시세 하방 지지**: ${defaultFit}
+• **보유기간 수익(HPR)**: 단기 보유 후 리밸런싱을 통한 시세차익 실현이 목표입니다.
+• **단기 매각 차익**: 인근 시세 대비 합리적 매입가 확보 시 Capital Gain 실현이 유력합니다.`;
+          break;
+        default: // income
+          highlightsBlock = `### 3대 핵심 투자 포인트 (Investment Highlights)
+
+• **원금 안전판 확보**: ${defaultFit}
+• **확실한 월 현금흐름**: 임대차 현황 및 공실률을 반영한 순영업소득(NOI) 분석은 수익분석 섹션을 참조하시기 바랍니다.
+• **가치 상승 및 출구 전략**: 현행 공법 여력을 활용한 밸류업 기회와 더불어 향후 권역 지가 상승에 따른 시세차익 실현이 유력합니다.`;
+          break;
+      }
+
       return `${valueProposition}
 
-### 3대 핵심 투자 포인트 (Investment Highlights)
-
-• **원금 안전판 확보**: ${fitSummary || `${areaSignal} 소재 자산으로, 대지 지분 가치 및 입지 경쟁력에 대한 분석은 자산 개요 섹션을 참조하시기 바랍니다.`}
-• **확실한 월 현금흐름**: 임대차 현황 및 공실률을 반영한 순영업소득(NOI) 분석은 수익분석 섹션을 참조하시기 바랍니다.
-• **가치 상승 및 출구 전략**: 현행 공법 여력을 활용한 밸류업 기회와 더불어 향후 권역 지가 상승에 따른 시세차익 실현이 유력합니다.
+${highlightsBlock}
 ${compsLine}${benchmarkBlock}
 ### 예상 매수자 유형 (AI 분석)
 ${buyerTable}`;

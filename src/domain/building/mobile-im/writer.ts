@@ -148,7 +148,9 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
             const newFacts = extractKeyFactsFromMarkdown(md, stageSections[ri]);
             if (!ctx.sectionCtx.keyFacts) ctx.sectionCtx.keyFacts = [];
             ctx.sectionCtx.keyFacts.push(...newFacts);
-          } catch { /* 무시 */ }
+          } catch (factErr) {
+            console.warn(`[writer] extractKeyFacts failed for section "${stageSections[ri]}", anchor propagation may be incomplete:`, factErr);
+          }
         } else {
           // 부분 실패: 템플릿 폴백 섹션 추가
           console.warn(`[writer] Stage ${currentStage.stage} section ${stageSections[ri]} failed, using fallback:`, result.reason);
@@ -444,13 +446,22 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     const { loadPageOrder } = await import('@/lib/ssot-adapter');
     CANONICAL_ORDER = loadPageOrder(String(building_ssot_lite.investment_posture ?? 'income'));
   } catch {
-    // YAML 로딩 실패 시 하드코딩 폴백
-    CANONICAL_ORDER = [
-      'property_overview', 'title_rights', 'land_detail', 'location_access',
-      'lease_status', 'site_analysis', 'occupancy_fit', 'operation_overview', 'market_position',
-      'income_analysis', 'development_feasibility', 'gop_analysis', 'cost_comparison', 'comparable_analysis',
-      'risk_check', 'checklist', 'investment_thesis', 'next_steps',
-    ];
+    // W-IM-4: YAML 로드 실패 시 STAGE_PLANS에서 동적 생성 (스키마 드리프트 방지)
+    try {
+      const postureKey = String(building_ssot_lite.investment_posture ?? 'income');
+      const { STAGE_PLANS } = await import('./stage-plans');
+      const plan = STAGE_PLANS[postureKey as keyof typeof STAGE_PLANS] || STAGE_PLANS.income;
+      CANONICAL_ORDER = plan.flatMap(s => s.sections);
+      console.warn(`[writer] YAML loadPageOrder failed, using STAGE_PLANS-derived order for ${postureKey}`);
+    } catch {
+      // 최종 폴백: STAGE_PLANS 로드도 실패한 극단적 경우
+      CANONICAL_ORDER = [
+        'property_overview', 'title_rights', 'land_detail', 'location_access',
+        'lease_status', 'site_analysis', 'occupancy_fit', 'operation_overview', 'market_position',
+        'income_analysis', 'development_feasibility', 'gop_analysis', 'cost_comparison', 'comparable_analysis',
+        'risk_check', 'checklist', 'investment_thesis', 'next_steps',
+      ];
+    }
   }
   sections.sort((a, b) => {
     const ia = CANONICAL_ORDER.indexOf(a.section_type);
