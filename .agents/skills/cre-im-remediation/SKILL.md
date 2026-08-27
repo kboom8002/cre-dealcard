@@ -76,13 +76,40 @@ git add -A && git commit -m "..." && git push origin main
 |---|---|
 | `quality-gates-v02.ts` | 게이트 레지스트리 (PUBLISH_GATES + GateContext) |
 | `cross-validator.ts` | 교차 검증 (서술어↔수치 모순 등) |
-| `pptx-renderer.ts` | PPTX 렌더링 + 폴백 추적 |
+| `pptx-renderer.ts` | PPTX 렌더링 + ReleaseTier 전달 |
 | `deck-sequencer.ts` | 면 편성 + 절삭 |
 | `text-budget.ts` | 텍스트 버짓 + 괄호 균형 |
 | `terminology-normalizer.ts` | CRE 용어 정규화 |
 | `guardrails.ts` | 리스크 표현·PII·마스킹 |
-| `data-binder.ts` | 데이터→슬라이드 바인딩 |
+| `data-binder.ts` | 데이터→슬라이드 바인딩 (SECTION_TYPE_TO_DATA_KEY) |
 | `im-section-generator.ts` | 섹션별 마크다운 생성 |
+| `im-core/` | 순수 도메인 로직 (9모듈) |
+
+## im-core 모듈 (D37 추가)
+
+| 모듈 | 핵심 export |
+|---|---|
+| `claim-registry.ts` | `ClaimRegistry`, `Claim`, `EvidenceRef` |
+| `display-label.ts` | `DISPLAY_LABEL_MAP`, `getDisplayLabel()` |
+| `release-tier.ts` | `ReleaseTier`, `resolveTier()` |
+| `approval-gate.ts` | `runApprovalGate()`, `ApprovalGateResult` |
+| `korean-legal.ts` | `KoreanLegalFields`, `registerKoreanLegalClaims()` |
+| `action-card.ts` | `ActionCard`, `Scenario`, `ScenarioType` |
+| `lease-calc.ts` | 환산보증금, 상임법 보호 판정 |
+| `permit-zone.ts` | 토지거래허가구역 판정 |
+| `financial-calc.ts` | FinancialCalculator |
+
+## MobileIMSectionType 확장 체크리스트
+
+새 섹션을 추가할 때 반드시 확인:
+```
+□ types.ts MOBILE_IM_SECTIONS 배열
+□ section-alias-resolver.ts SECTION_ALIAS_MAP
+□ section-alias-resolver.ts displayNames
+□ premium-template-engine.ts getSectionTitle()
+□ data-binder.ts SECTION_TYPE_TO_DATA_KEY
+□ data-binder.ts DATA_KEY_ARCHETYPE (선택)
+```
 
 ## 테스트 계층
 
@@ -95,6 +122,7 @@ git add -A && git commit -m "..." && git push origin main
 
 ## 참고 문서
 
-- [04_MODEL_GOLDEN_IM_REQUIREMENTS.md](../../../docs/impipe/04_MODEL_GOLDEN_IM_REQUIREMENTS.md) — SSOT/대조군/골든 IM 요구서
+- [01_FULL_PIPELINE_ARCHITECTURE.md](../../../docs/impipe/01_FULL_PIPELINE_ARCHITECTURE.md) — 풀 파이프라인 v6
 - [SSOT YAML 14개](../../../credeal/ssot/) — 단일 진실 원천
-- [expected.json](../../../tests/corpus/expected.json) — 대조군 기대 위반
+- [AGENTS.md §5~§16](../AGENTS.md) — D33/D34/D37 규칙
+
