@@ -62,7 +62,7 @@ export async function enrichBuildingDataCore(
     })(),
     (async () => {
       if (cachedData && !staleSources?.includes('locationPoi')) { locationPoi = cachedData.location_poi; return; }
-      try { locationPoi = await fetchLocationPoi(lat, lng); }
+      try { if (lat != null && lng != null) { locationPoi = await fetchLocationPoi(lat, lng); } }
       catch (e: unknown) { errors.push({ api: "kakao-map-local", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {

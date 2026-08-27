@@ -16,8 +16,10 @@ import { reconstructFromCache, enrichBuildingDataCore } from "./enrich-by-pnu";
 const CACHE_TTL_DAYS = 30; // default fallback
 export const CACHE_TTL_BY_SOURCE: Record<string, number> = {
   building_register: 90,   // 건축물대장 — rarely changes
-  land_price: 365,         // 공시지가 — annual update
+  land_price: 180,         // W-3.3: 365→180 단축 (연중 보정 가능성)
+  land_price_vworld: 120,  // W-3.3: V-World 토지특성은 수시 업데이트 가능
   land_use_plan: 180,      // 토지이용계획 — semi-annual
+  land_use_plan_vworld: 120, // W-3.3: V-World 용도지역
   comparable_tx: 30,       // 실거래가 — monthly update
   location_poi: 90,        // POI — quarterly
   registry: 7,             // 등기부등본 — frequent changes (ownership transfers)

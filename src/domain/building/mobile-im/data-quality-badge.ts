@@ -23,6 +23,13 @@ export function computeDataQualityBadge(params: {
   hasZoning?: boolean;
   hasTotalGrossArea?: boolean;
   hasMonthlyRevenue?: boolean;
+  // W-4.1: 포스처별 바텀시트 필수 필드 연동
+  hasDevTargetUse?: boolean;
+  hasDevTargetScale?: boolean;
+  hasAcquisitionPrice?: boolean;
+  hasRoomCount?: boolean;
+  hasAverageDailyRate?: boolean;
+  hasUnitKind?: boolean;
 }, posture: InvestmentPosture = 'income'): DataQualityBadgeInfo {
   let score = 0;
   if (params.hasAddress) score += 20;
@@ -40,13 +47,18 @@ export function computeDataQualityBadge(params: {
     if (hasZone) score += 15;
     if (params.hasAskingPrice) score += 15;
     if (params.hasPhotos) score += 10;
+    // W-4.1: 바텀시트 필수 필드 연동
+    if (params.hasDevTargetUse) score += 5;
+    if (params.hasDevTargetScale) score += 5;
 
     if (!hasLand) missingItems.push('대지면적');
     if (!hasZone) missingItems.push('용도지역');
     if (!params.hasAskingPrice) missingItems.push('매각 희망가 (선택)');
     if (!params.hasPhotos) missingItems.push('현장 사진');
+    if (!params.hasDevTargetUse) missingItems.push('개발 목표 용도');
+    if (!params.hasDevTargetScale) missingItems.push('개발 목표 규모');
 
-    if (params.hasAddress && params.hasPublicData && hasLand && hasZone && params.hasAskingPrice) {
+    if (params.hasAddress && params.hasPublicData && hasLand && hasZone && params.hasAskingPrice && params.hasDevTargetUse && params.hasDevTargetScale) {
       return { tier: 'verified', label: 'A등급 — 개발 수지 검토 가능', emoji: '🟢', score, missingItems };
     }
     if (params.hasAddress && params.hasPublicData && hasLand) {
@@ -81,8 +93,14 @@ export function computeDataQualityBadge(params: {
 
     if (params.hasVacancy) score += 10;
     if (params.hasPhotos) score += 10;
+    // W-4.1: 바텀시트 필수 필드 연동
+    if (params.hasRoomCount) score += 5;
+    if (params.hasAverageDailyRate) score += 5;
+    if (params.hasUnitKind) score += 3;
+    if (!params.hasRoomCount) missingItems.push('객실/유닛 수');
+    if (!params.hasAverageDailyRate) missingItems.push('평균 객실 단가 (ADR)');
 
-    if (params.hasAddress && params.hasPublicData && hasRev && params.hasAskingPrice) {
+    if (params.hasAddress && params.hasPublicData && hasRev && params.hasAskingPrice && params.hasRoomCount) {
       return { tier: 'verified', label: 'A등급 — 운영 수익 검토 가능', emoji: '🟢', score, missingItems };
     }
     if (params.hasAddress && params.hasPublicData && (hasRev || params.hasAskingPrice)) {

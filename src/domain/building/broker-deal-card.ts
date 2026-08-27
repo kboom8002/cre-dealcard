@@ -15,9 +15,30 @@ export interface PostureProposal {
   reason: string;
   confirmedBy: string | null;
   confirmedAt: Date | null;
+  secondaryPosture?: InvestmentPosture; // W-1.1: 복합 포스처 감지 시 2순위
 }
 
 import { createServiceClient } from "@/lib/supabase/service";
+
+// W-2.1: 지수 백오프 재시도 래퍼 — 백그라운드 작업 실패 시 자동 재시도
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  label: string,
+  maxRetries = 3,
+  baseDelayMs = 2000,
+): Promise<T | null> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const delay = baseDelayMs * Math.pow(2, attempt - 1);
+      console.warn(`[${label}] Attempt ${attempt}/${maxRetries} failed, retrying in ${delay}ms`, err);
+      if (attempt < maxRetries) await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  console.error(`[${label}] All ${maxRetries} attempts failed — recording permanent failure`);
+  return null;
+}
 import { runBrokerDealCard } from "@/ai/agents/broker-deal-card";
 import { recordEvent } from "@/domain/analytics/record-event";
 import { extractDealCardCasePack } from "@/domain/casepack/casepack-extractor";
@@ -400,33 +421,43 @@ export async function brokerDealCardFromMemo(
     console.warn("[broker-deal-card] Promotion score init failed", promoErr);
   }
 
-  // 11. 공공데이터 교차검증 (건축물대장 API) — fire-and-forget
+  // 11. 공공데이터 교차검증 (건축물대장 API) — W-2.1: 지수 백오프 재시도
   if (buildingTruth.areaSignal || buildingTruth.assetType) {
-    verifyAgainstPublicData(
-      buildingTruth.areaSignal || "",
-      buildingTruth.assetType || "",
-      buildingTruth.sizeSignal || "",
+    retryWithBackoff(
+      () => verifyAgainstPublicData(
+        buildingTruth.areaSignal || "",
+        buildingTruth.assetType || "",
+        buildingTruth.sizeSignal || "",
+      ),
+      'public-data-verify',
     )
       .then(async (verificationResult) => {
-        await supabase
-          .from("building_ssot_lite")
-          .update({
-            verification_status: verificationResult.status,
-            verification_result: verificationResult as unknown as Record<string, unknown>,
-          })
-          .eq("id", building.id);
-      })
-      .catch((verifyErr) => {
-        console.warn("[broker-deal-card] Public data verification failed:", verifyErr);
+        if (verificationResult) {
+          await supabase
+            .from("building_ssot_lite")
+            .update({
+              verification_status: verificationResult.status,
+              verification_result: verificationResult as unknown as Record<string, unknown>,
+            })
+            .eq("id", building.id);
+        } else {
+          await supabase
+            .from("building_ssot_lite")
+            .update({ verification_status: 'retry_exhausted' })
+            .eq("id", building.id);
+        }
       });
   }
 
-  // 12. P1: Canonical Property 연결 — fire-and-forget
-  linkBuildingToCanonicalProperty(supabase, building.id, {
-    jibunAddress: addressQuery ?? null,
-    coordinates: coordinates ?? null,
-  }).catch((cpErr) => {
-    console.warn("[broker-deal-card] Canonical property link failed:", cpErr);
+  // 12. P1: Canonical Property 연결 — W-2.1: 지수 백오프 재시도
+  retryWithBackoff(
+    () => linkBuildingToCanonicalProperty(supabase, building.id, {
+      jibunAddress: addressQuery ?? null,
+      coordinates: coordinates ?? null,
+    }),
+    'canonical-property-link',
+  ).catch(() => {
+    // retryWithBackoff 내부에서 이미 로깅 완료
   });
 
   return {

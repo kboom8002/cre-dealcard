@@ -265,19 +265,15 @@ export function ImDataBottomSheet({
       case 'operating':
         if (!roomCount || Number(roomCount) <= 0) missing.push('roomCount');
         if (!averageDailyRate || Number(averageDailyRate) <= 0) missing.push('averageDailyRate');
+        if (!unitKind) missing.push('unitKind');
+        break;
+      case 'trading':
+        if (!acquisitionPriceManwon) missing.push('acquisitionPriceManwon');
         break;
       // trading 등 기타 포스처는 현재 추가적인 강제 항목 없음
     }
     
     return missing;
-    // trading 포스처 필드 검증
-    if (investmentPosture === 'trading') {
-      if (!acquisitionPriceManwon) missing.push('acquisitionPriceManwon');
-    }
-    // operating 포스처 확장 필드 검증
-    if (investmentPosture === 'operating') {
-      if (!unitKind) missing.push('unitKind');
-    }
 
   }, [address, pnu, askingPrice, investmentPosture, monthlyRent, totalDeposit, occHeadcount, occDesiredFloors, devTargetUse, devTargetScalePyung, roomCount, averageDailyRate, acquisitionPriceManwon, unitKind]);
 

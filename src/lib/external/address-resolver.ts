@@ -13,9 +13,10 @@ export interface ResolvedAddress {
   ji: string;                     // 부번 4자리
   roadAddress: string;            // 정규화된 도로명주소
   jibunAddress: string;           // 지번주소
-  lat: number;
-  lng: number;
+  lat: number | null;             // W-3.2: nullable — 지오코딩 실패 시 null
+  lng: number | null;             // W-3.2: nullable — 지오코딩 실패 시 null
   buildingMgtNo: string;          // 건물관리번호
+  _mergedParcelWarning?: boolean; // W-1.2: 합필 의심 플래그
 }
 
 function padNumber(numStr: string | number): string {
@@ -29,6 +30,39 @@ function getMockLegalDongCode(address: string): string {
     if (address.includes(key)) return codes.sigunguCd + codes.bjdongCd;
   }
   return "1168010100"; // 기본 역삼동
+}
+
+/**
+ * W-1.2 + W-1.3: 지번주소에서 본번/부번/산 여부를 추출
+ * "영등포구 당산동5가 11-47" → { bun: "11", ji: "47", isMount: false }
+ * "관악구 남현동 산 1-1"    → { bun: "1",  ji: "1",  isMount: true }
+ */
+function parseJibunAddress(jibunAddr: string): { bun: string; ji: string; isMount: boolean } | null {
+  if (!jibunAddr) return null;
+  const isMount = /산\s*\d/.test(jibunAddr);
+  const match = jibunAddr.match(/(\d+)(?:-(\d+))?\s*$/);
+  if (!match) return null;
+  return { bun: match[1], ji: match[2] || '0', isMount };
+}
+
+/**
+ * W-3.2: 카카오 지오코딩 재시도 (하드코딩 폴백 좌표 제거)
+ * 최대 2회 시도, 실패 시 null 반환
+ */
+async function geocodeWithRetry(address: string): Promise<{ lat: number; lng: number } | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const geo = await geocodeAddress(address);
+      if (geo) return geo;
+    } catch (err) {
+      if (attempt === 0) {
+        console.warn(`[address-resolver] Geocoding attempt 1 failed, retrying:`, err);
+      } else {
+        console.warn(`[address-resolver] Geocoding failed after 2 attempts for: ${address}`);
+      }
+    }
+  }
+  return null;
 }
 
 export async function resolveAddress(rawAddress: string): Promise<ResolvedAddress | null> {
@@ -47,29 +81,43 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
         const jibunAddress = item.jibunAddr;
         const buildingMgtNo = item.bdMgtSn || "";
 
-        const pnu = buildingMgtNo.substring(0, 19) || "1168010100108320000";
-        const legalDongCode = pnu.substring(0, 10);
-        const sigunguCd = pnu.substring(0, 5);
-        const bjdongCd = pnu.substring(5, 10);
+        const pnuFromBdMgtSn = buildingMgtNo.substring(0, 19) || "";
+        const legalDongCode = pnuFromBdMgtSn.substring(0, 10);
+        const sigunguCd = pnuFromBdMgtSn.substring(0, 5);
+        const bjdongCd = pnuFromBdMgtSn.substring(5, 10);
+
+        // W-1.2: 지번주소에서 PNU를 별도 생성하여 합필 의심 감지
+        const jibunParsed = parseJibunAddress(jibunAddress);
+        let pnuFromJibun: string | null = null;
+        if (jibunParsed && legalDongCode.length === 10) {
+          // W-1.3: isMount 플래그로 대지구분 자동 분류 (1=일반, 2=산)
+          const landCategory = jibunParsed.isMount ? '2' : '1';
+          pnuFromJibun = `${legalDongCode}${landCategory}${padNumber(jibunParsed.bun)}${padNumber(jibunParsed.ji)}`;
+        }
+
+        // 합필 감지: 두 PNU가 다르면 지번 PNU를 우선 채택
+        let pnu = pnuFromBdMgtSn;
+        let mergedParcelWarning = false;
+        if (pnuFromJibun && pnuFromBdMgtSn && pnuFromJibun !== pnuFromBdMgtSn) {
+          console.warn(`[address-resolver] 합필 의심: bdMgtSn PNU=${pnuFromBdMgtSn}, 지번 PNU=${pnuFromJibun}`);
+          pnu = pnuFromJibun;
+          mergedParcelWarning = true;
+        }
+
         const bun = pnu.substring(11, 15) || "0000";
         const ji = pnu.substring(15, 19) || "0000";
 
-        let lat = 37.50085;
-        let lng = 127.03698;
-        try {
-          const geo = await geocodeAddress(rawAddress);
-          if (geo) { lat = geo.lat; lng = geo.lng; }
-          else applyFallbackCoords();
-        } catch { applyFallbackCoords(); }
+        // W-3.2: 하드코딩 폴백 좌표 제거 — 재시도 후 null 허용
+        const geo = await geocodeWithRetry(rawAddress);
 
-        function applyFallbackCoords() {
-          if (rawAddress.includes("삼성")) { lat = 37.5088; lng = 127.0631; }
-          else if (rawAddress.includes("서초")) { lat = 37.4876; lng = 127.0174; }
-          else if (rawAddress.includes("성수")) { lat = 37.5447; lng = 127.0562; }
-          else if (rawAddress.includes("마포") || rawAddress.includes("합정")) { lat = 37.5500; lng = 126.9099; }
-        }
-
-        return { pnu, legalDongCode, sigunguCd, bjdongCd, bun, ji, roadAddress, jibunAddress, lat, lng, buildingMgtNo };
+        return {
+          pnu, legalDongCode, sigunguCd, bjdongCd, bun, ji,
+          roadAddress, jibunAddress,
+          lat: geo?.lat ?? null,
+          lng: geo?.lng ?? null,
+          buildingMgtNo,
+          _mergedParcelWarning: mergedParcelWarning,
+        };
       }
     } catch (err) {
       console.warn("[address-resolver] Juso API error, falling back to regex parser:", err);
@@ -78,7 +126,9 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
 
   // REGEX FALLBACK
   const cleanAddr = rawAddress.trim();
-  const jibunMatch = cleanAddr.match(/(?:동|로|길)\s+(\d+)(?:-(\d+))?/);
+  // W-1.3: 산지 주소 지원
+  const isMount = /산\s*\d/.test(cleanAddr);
+  const jibunMatch = cleanAddr.match(/(?:동|로|길)\s+(?:산\s*)?(\d+)(?:-(\d+))?/);
 
   let bun: string = "";
   let ji: string = "0000";
@@ -95,22 +145,12 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
   const legalDongCode = getMockLegalDongCode(cleanAddr);
   const sigunguCd = legalDongCode.substring(0, 5);
   const bjdongCd = legalDongCode.substring(5, 10);
-  const pnu = `${legalDongCode}1${bun}${ji}`;
+  // W-1.3: 산지 대지구분 '2' 적용
+  const landCategory = isMount ? '2' : '1';
+  const pnu = `${legalDongCode}${landCategory}${bun}${ji}`;
 
-  let lat = 37.50085;
-  let lng = 127.03698;
-  try {
-    const geo = await geocodeAddress(cleanAddr);
-    if (geo) { lat = geo.lat; lng = geo.lng; }
-    else applyFallbackCoords2();
-  } catch { applyFallbackCoords2(); }
-
-  function applyFallbackCoords2() {
-    if (cleanAddr.includes("삼성")) { lat = 37.5088; lng = 127.0631; }
-    else if (cleanAddr.includes("서초")) { lat = 37.4876; lng = 127.0174; }
-    else if (cleanAddr.includes("성수")) { lat = 37.5447; lng = 127.0562; }
-    else if (cleanAddr.includes("마포") || cleanAddr.includes("합정")) { lat = 37.5500; lng = 126.9099; }
-  }
+  // W-3.2: 하드코딩 폴백 좌표 제거
+  const geo = await geocodeWithRetry(cleanAddr);
 
   return {
     pnu,
@@ -121,8 +161,8 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
     ji,
     roadAddress: cleanAddr,
     jibunAddress: cleanAddr,
-    lat,
-    lng,
-    buildingMgtNo: pnu + "000000",
+    lat: geo?.lat ?? null,
+    lng: geo?.lng ?? null,
+    buildingMgtNo: "",
   };
 }

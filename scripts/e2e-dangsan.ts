@@ -148,8 +148,8 @@ async function enrichFromAPIs(): Promise<ExternalDataSnapshot> {
   const snapshot: ExternalDataSnapshot = {
     resolvedAddress: {
       pnu: resolved.pnu,
-      lat: resolved.lat,
-      lng: resolved.lng,
+      lat: resolved.lat ?? undefined,
+      lng: resolved.lng ?? undefined,
       roadAddress: resolved.roadAddress,
     },
     buildingRegister: enrichResult.buildingRegister as any,

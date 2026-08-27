@@ -153,7 +153,14 @@ export async function runBrokerDealCard(
   if (addressCandidate) {
     try {
       const { resolveAddress } = await import('@/lib/external/address-resolver');
-      resolvedAddress = await resolveAddress(addressCandidate) || {};
+      const resolved = await resolveAddress(addressCandidate);
+      if (resolved) {
+        resolvedAddress = {
+          pnu: resolved.pnu,
+          lat: resolved.lat ?? undefined,
+          lng: resolved.lng ?? undefined,
+        };
+      }
     } catch (addrErr) {
       console.warn('[broker-deal-card] Address resolution failed:', addrErr);
     }

@@ -196,8 +196,25 @@ export function extractPostureProposal(memo: string): PostureProposal {
     return { value: null, confidence: 0, reason: '포스처 관련 키워드를 감지하지 못했습니다.', confirmedBy: null, confirmedAt: null };
   }
   
-  // 신뢰도 산출: 매칭 수 + 1위와 2위 차이 반영
+  // W-1.1: 복합 포스처 감지 — 1위와 2위 차이가 1 이하이면 ambiguous
   const gap = topScore - secondScore;
+  
+  if (gap <= 1 && topScore > 0 && secondScore > 0) {
+    const confidence = Math.min(0.50, (topScore * 0.10) + 0.25);
+    const matchedKeywords = POSTURE_KEYWORDS[topPosture as InvestmentPosture]
+      .filter(kw => normalizedMemo.includes(kw.toLowerCase()));
+    
+    return {
+      value: topPosture as InvestmentPosture,
+      confidence: Math.round(confidence * 100) / 100,
+      reason: `복합 포스처 감지: ${topPosture}(${topScore}점) vs ${entries[1][0]}(${secondScore}점) — 브로커 확인 필요. 키워드: ${matchedKeywords.join(', ')}`,
+      secondaryPosture: entries[1][0] as InvestmentPosture,
+      confirmedBy: null,
+      confirmedAt: null,
+    };
+  }
+  
+  // 신뢰도 산출: 매칭 수 + 1위와 2위 차이 반영
   const confidence = Math.min(0.95, (topScore * 0.15) + (gap * 0.1) + 0.3);
   
   const matchedKeywords = POSTURE_KEYWORDS[topPosture as InvestmentPosture]
