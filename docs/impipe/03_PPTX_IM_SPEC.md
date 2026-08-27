@@ -14,7 +14,7 @@ PPTX IM은 모바일 IM JSON 데이터를 **PowerPoint 2016+ (.pptx)** 형식의
 
 | 원칙 | 설명 |
 |---|---|
-| **골디락스 단일 시퀀스** | Basic/Pro 이중 분기 폐지 → 12p 필수 + 동적 12→20p 스케일링 |
+| **골디락스 단일 시퀀스** | Basic/Pro 이중 분기 폐지 → 12p 필수 + 동적 12→16p 스케일링 |
 | **데이터 가용성 기반 동적 편성** | `DataAvailability` 플래그에 따라 슬라이드 자동 추가/제외 |
 | **Grade 기반 재무 확장** | A등급 풀 재무(6종) → B등급 축소(2종) → C등급 없음 |
 | **테마 격리** | `withThemeIsolation()` — 동시 렌더링 시 전역 상태 오염 방지 |
@@ -384,11 +384,11 @@ UUID 프리셋 ID → `pptx_custom_presets` 테이블 비동기 로딩 → 내�
 | 그룹 | 테스트 수 | 검증 내용 |
 |---|:---:|---|
 | G-01 포스처별 필수 구성 | 5 | 5개 포스처 × 최소 10p, 필수 dataKey 존재 |
-| G-02 Grade별 동적 면 수 | 3 | A:16~20p, B:13~16p, C:12~14p |
+| G-02 Grade별 동적 면 수 | 3 | A:12~16p, B:10~16p, C:10~14p |
 | G-03 D등급 차단 | 1 | [G30] 에러 throw |
 | G-04 A등급 재무 확장 | 3 | A≥B≥C, A에만 dcf, B에 dcf 없음 |
 | G-05 V-World 면 추가 | 5 | publicRecords, titleRights, cadastralMap, commercialDistrict |
-| G-06 면 절삭 | 2 | 20p 이하, 보호 키 유지 |
+| G-06 면 절삭 | 2 | 16p 이하, 보호 키 유지 |
 | G-07 위반건물 suppress | 1 | loan suppress 확인 |
 
 ### 9.2 기타 E2E 테스트

@@ -1,8 +1,8 @@
 # 풀 파이프라인 아키텍처 — 메모 → 딜카드 → 모바일 IM → PPTX IM
 
-> **문서 버전**: v4.0 (골디락스 파이프라인)
+> **문서 버전**: v5.0 (D33 골디락스 개선)
 > **최종 갱신**: 2026-08-27
-> **대상 커밋**: `dadd09f`
+> **대상 커밋**: `1858bee`
 
 ---
 
@@ -37,7 +37,7 @@ flowchart TD
 
     subgraph PPTXIM["⑤ PPTX IM 렌더링"]
         N["MobileImPptxRenderer\n(골디락스 시퀀서 + 아키타입)"]
-        O["buildDeckSequence\n(12~20p 동적 편성)"]
+        O["buildDeckSequence\n(12~16p 동적 편성)"]
         P["bindSectionData +\nbindFromExternalData"]
         Q["19종 아키타입 슬라이드\n+ 테마/프리셋 적용"]
         R[".pptx 버퍼 출력"]
