@@ -256,6 +256,15 @@ const PROTECTED_FIELD_DETECTORS: ProtectedFieldDetector[] = [
     publicBlocked: true,
     replacement: "[내부 협상 메모 비공개]",
   },
+  // D33 M-C: 건물명 마스킹 — 표지·본문에서 특정 건물명 노출 방지
+  {
+    field: "building_name",
+    patterns: [
+      /(?:더\s*)?[가-힣A-Za-z0-9]+(?:빌딩|타워|오피스텔|센터|플라자|스퀘어|파크|몰|아파트)/g,
+    ],
+    publicBlocked: false, // 건물명은 기본적으로 허용 — 워터마크 모드에서만 차단
+    replacement: "[건물명 비공개]",
+  },
 ];
 
 export interface DisclosureGuardResult {

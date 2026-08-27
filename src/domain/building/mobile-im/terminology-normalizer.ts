@@ -111,6 +111,18 @@ export const HARDCODED_TERM_RULES: ReplacementRule[] = [
   { id: 'd32_ti_raw', pattern: /(?<!\()TI(?!\)|\s*\/)/g, replacement: '인테리어 지원금(TI)', category: 'CRE용어' },
   { id: 'd32_rent_free', pattern: /(?<!\()Rent\s*Free(?!\))/gi, replacement: '렌트프리(무상임대)', category: 'CRE용어' },
   { id: 'd32_my_money', pattern: /내\s*돈/g, replacement: '실투자금', category: 'CRE용어' },
+  // D33 M-B: 누락 CRE 용어 추가
+  { id: 'd33_noi_standalone', pattern: /(?<![순\s])NOI(?!\s*기준|\s*\()/g, replacement: '순영업소득(NOI)', category: 'CRE용어' },
+  { id: 'd33_cap_rate_en', pattern: /(?<![연\s])Cap\s*Rate(?!\s*[,(])/gi, replacement: '연 순수익률(Cap Rate)', category: 'CRE용어' },
+  { id: 'd33_nnn_lease', pattern: /NNN\s*리스/g, replacement: '삼중순임대(NNN Lease)', category: 'CRE용어' },
+  { id: 'd33_super_station', pattern: /초역세권/g, replacement: '역세권 도보 3분 이내', category: 'CRE용어' },
+  { id: 'd33_sublease', pattern: /전대차/g, replacement: '전대(轉貸)임대차', category: 'CRE용어' },
+  { id: 'd33_ltv_raw', pattern: /(?<!\()LTV(?!\))/g, replacement: '담보인정비율(LTV)', category: 'CRE용어' },
+  { id: 'd33_dscr_raw', pattern: /(?<!\()DSCR(?!\))/g, replacement: '원리금상환비율(DSCR)', category: 'CRE용어' },
+  { id: 'd33_irr_raw', pattern: /(?<!\()IRR(?!\))/g, replacement: '내부수익률(IRR)', category: 'CRE용어' },
+  { id: 'd33_vacancy_informal', pattern: /비어\s*있는\s*방/g, replacement: '공실', category: 'CRE용어' },
+  { id: 'd33_myeongdo_evict', pattern: /쫓아내/g, replacement: '명도 절차 진행', category: 'CRE용어' },
+  { id: 'd33_deposit_colloquial', pattern: /보증금\s*때먹/g, replacement: '보증금 미반환', category: 'CRE용어' },
 ];
 
 // ─── DB 캐싱 & 로드 로직 ──────────────────────────────────────────────────────
