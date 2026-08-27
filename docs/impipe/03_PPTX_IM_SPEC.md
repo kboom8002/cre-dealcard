@@ -1,8 +1,9 @@
-# PPTX IM 스펙 — 데이터 바인딩 · 렌더링 · 아키타입 명세
+# PPTX IM 스펙 — 데이터 바인딩 · 렌더링 · 아키타입 · 테마 명세
 
-> **문서 버전**: v4.0 (골디락스 파이프라인)
-> **최종 갱신**: 2026-08-27
-> **대상 커밋**: `dadd09f`
+> **문서 버전**: v6.0 (D37 Claim/Tier/Gate 고도화)
+> **최종 갱신**: 2026-08-28
+> **대상 커밋**: `450b58b`
+> **선행**: D30~D37 전량 완료
 
 ---
 
@@ -14,401 +15,405 @@ PPTX IM은 모바일 IM JSON 데이터를 **PowerPoint 2016+ (.pptx)** 형식의
 
 | 원칙 | 설명 |
 |---|---|
-| **골디락스 단일 시퀀스** | Basic/Pro 이중 분기 폐지 → 12p 필수 + 동적 12→16p 스케일링 |
-| **데이터 가용성 기반 동적 편성** | `DataAvailability` 플래그에 따라 슬라이드 자동 추가/제외 |
+| **골디락스 단일 시퀀스** | Basic/Pro 이중 분기 폐지 → 12p 필수 + 동적 12→16p |
+| **데이터 가용성 기반 편성** | `DataAvailability` 15플래그에 따라 슬라이드 자동 추가/제외 |
 | **Grade 기반 재무 확장** | A등급 풀 재무(6종) → B등급 축소(2종) → C등급 없음 |
+| **ReleaseTier 기반 면제어** (D37) | `resolveTier()` → 허용 섹션/면수 동적 제한 |
 | **테마 격리** | `withThemeIsolation()` — 동시 렌더링 시 전역 상태 오염 방지 |
 | **Graceful Degradation** | 데이터 결손 시 슬라이드 생략 + 경고, 에러 없음 |
+| **본문/부록 이원화** (D37) | 공부·등기·지적도·상권 → 부록 (16면 한도 제외) |
 
 ---
 
 ## 2. 렌더러 코어
 
-### 2.1 입력 인터페이스
+> 📁 [`pptx-renderer.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/pptx-renderer.ts) (700행)
 
-> 📁 [`pptx-renderer.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/pptx-renderer.ts#L236-L277)
+### 2.1 `MobileImPptxInput` 인터페이스
 
 ```typescript
 interface MobileImPptxInput {
   buildingId: string;
-  tier?: PptxTier;          // @deprecated — 골디락스에서 무시됨
-  preset?: string;          // 프리셋 ID (5대 내장 또는 Supabase UUID)
-  posture?: InvestmentPosture;  // income | owner_occupied | development | operating | trading
+  tier?: PptxTier;
+  preset?: string;
+  posture?: InvestmentPosture;
   grade?: 'A' | 'B' | 'C' | 'D';
-  incomeArchetype?: 'R-INC-01' | 'R-INC-02' | 'R-INC-03' | 'R-INC-04' | 'R-INC-05' | 'R-INC-06' | 'R-INC-07' | 'R-INC-08' | 'R-INC-09';
+  incomeArchetype?: 'R-INC-01' | 'R-INC-02' | 'R-INC-03' | 'R-INC-04';
   hasViolation?: boolean;
   hasJointCollateral?: boolean;
-  docno?: string;
   doc: {
     title?: string;
-    body: Record<string, any>;   // enrichment, heroCard, coordinates, mapImageUrl, photos 등
-    sections?: Array<{ title: string; markdown: string; }>;
+    body: Record<string, any>;
+    sections?: Array<{ title, markdown, confidence?, boundary_note? }>;
   };
-  building?: { area_signal?; asset_type?; price_band?; owner_id?; };
-  broker?: { display_name?; company_name?; phone?; specialty?; };
-  watermark?: { requesterName: string; phoneLast4: string; timestamp: string; };
+  building?: { area_signal?, asset_type?, price_band?, owner_id? };
+  broker?: { display_name?, company_name?, phone?, specialty? };
+  watermark?: { requesterName, phoneLast4, timestamp };
   provenance?: Record<string, ProvenanceKind>;
-  supabase?: SupabaseClient;
-  logoUrl?: string;
+  releaseTier?: ReleaseTier;  // D37 — 5종 발행 등급
 }
 ```
 
-### 2.2 출력 인터페이스
+### 2.2 `render()` 메서드 6단계 흐름
 
+| Step | 라인 | 작업 | 설명 |
+|:---:|:---:|---|---|
+| 0 | L337~346 | 갤러리 플래닝 | `resolvePhotos`, `planGallerySlides` |
+| 1 | L349~377 | **덱 시퀀스** | `buildDeckSequence(sequenceInput)` |
+| 2 | L380~551 | **데이터 바인딩** | `bindSectionData` + `bindFromExternalData` |
+| 3 | L554~637 | **아키타입 빌드** | `SLIDE_ARCHETYPE_REGISTRY[archetype]()` |
+| 4 | L644~673 | **물리 검증** | 텍스트 버짓 + 지면 물리(G31~G36) + 수익률(G38) |
+| 5 | L676~687 | **바이너리 생성** | PptxGenJS → Buffer |
+
+### 2.3 D등급 차단
 ```typescript
-interface MobileImPptxOutput {
-  buffer: Buffer;           // .pptx 파일 바이너리
-  slideCount: number;
-  fileSizeBytes: number;
-  generatedAt: string;      // ISO 8601
-  warnings: string[];
-}
-```
-
-### 2.3 렌더 파이프라인 (10단계)
-
-```mermaid
-flowchart TD
-    A[입력 수신] --> B{Grade D?}
-    B -->|Yes| X["[G30] 에러 throw"]
-    B -->|No| C[프레젠테이션 초기화<br/>PptxGenJS + LAYOUT_WIDE]
-    C --> D[테마 조회<br/>getPptxThemeAsync]
-    D --> E[테마 격리<br/>withThemeIsolation]
-    E --> F[Step 0: 사진 메타 도출<br/>resolvePhotos + planGallerySlides]
-    F --> G[Step 1: 덱 시퀀스<br/>buildDeckSequence]
-    G --> H[Step 2: 데이터 바인딩<br/>bindSectionData + bindFromExternalData]
-    H --> I[Step 3: 아키타입 렌더<br/>SLIDE_ARCHETYPE_REGISTRY 순회]
-    I --> J[Step 4: 텍스트 예산 검증]
-    J --> K[Step 5: 버퍼 압축 출력]
+if (input.grade === 'D') throw new Error('G30: D등급 IM은 PPTX 렌더링 불가');
 ```
 
 ---
 
-## 3. 골디락스 시퀀서
+## 3. 덱 시퀀서
 
-> 📁 [`deck-sequencer.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/deck-sequencer.ts)
+> 📁 [`deck-sequencer.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/deck-sequencer.ts) (290행)
 
-### 3.1 핵심 타입
+### 3.1 입력 인터페이스
 
 ```typescript
-type Grade = 'A' | 'B' | 'C' | 'D';
-
-interface DataAvailability {
-  hasLandUsePlan?: boolean;
-  hasLandPrice?: boolean;
-  hasBuildingRegister?: boolean;
-  hasRegistryData?: boolean;
-  hasComparables?: boolean;
-  hasCommercialDistrict?: boolean;
-  hasCadastralMap?: boolean;
-  hasFloorPlan?: boolean;
-  hasRentRoll?: boolean;      // V5 감사 §2.7 시정 — 불변조건 31
-  hasPhotos?: boolean;         // V5 감사 §3.2 시정 — gallery 조건
+interface DeckSequenceInput {
+  posture: InvestmentPosture;
+  tier: PptxTier;
+  grade: 'A' | 'B' | 'C';
+  releaseTier?: ReleaseTier;      // D37
+  incomeArchetype?: string;
+  hasViolation?: boolean;
+  hasJointCollateral?: boolean;
+  hasPhotos?: boolean;
+  gallerySpecs?: GallerySpec[];
+  dataAvailability: DataAvailability;
 }
 
-interface SlideSpec {
-  archetype: string;    // A01~A18
-  kicker: string;       // 슬라이드 상단 카테고리
-  title: string;        // 슬라이드 제목
-  dataKey: string;      // dataMap 바인딩 키
-  suppress?: boolean;   // true면 active에서 제외
+interface DataAvailability {
+  hasLandUsePlan: boolean;
+  hasLandPrice: boolean;
+  hasBuildingRegister: boolean;
+  hasRegistryData: boolean;
+  hasComparables: boolean;
+  hasCommercialDistrict: boolean;
+  hasCadastralMap: boolean;
+  hasFloorPlan: boolean;
+  hasRentRoll: boolean;
+  hasOpex: boolean;
+  hasAsOf: boolean;
+  hasScenario: boolean;
+  hasExpertReview: boolean;
+  hasPermitZone: boolean;
+  hasPhotos: boolean;
 }
 ```
 
-### 3.2 시퀀스 편성 규칙
+### 3.2 슬라이드 편성 규칙
 
-#### 3.2.1 골디락스 필수 구성 (항상 포함)
-
-| 순서 | Archetype | dataKey | 제목 |
-|:---:|:---:|---|---|
-| 1 | A01 | `cover` | 표지 |
-| 2 | A14 | `gallery` | 건물 사진 (사진 있을 때) |
-| 3 | A02 | `summary` | 핵심 투자 지표 요약 |
-| 4 | A06 | `location` | 입지 분석 |
-| 5 | A04 | `land` | 토지 현황 |
-| 6 | A04 | `building` | 건물 개요 |
-
-#### 3.2.2 포스처별 본문 슬라이드
-
-> income 아키타입 정본: `deck-sequencer.ts` L17 `IncomeArchetype` (9종)
-> 포스처별 아키타입 정본: `im.ontology.yaml §current_coverage`
-
-| 포스처 | 슬라이드 구성 |
-|---|---|
-| **income** (R-INC-01 임대안정) | rentRoll(A03) → stability(A04) → profit(A05) → comps(A03) |
-| **income** (R-INC-02 가치상승) | rentRoll(A03) → valueAdd(A05) → farUpside(A04) → comps(A03) |
-| **income** (R-INC-03 신축프리미엄) | rentRoll(A03) → stability(A04) → profit(A05) → comps(A03) |
-| **income** (R-INC-04 임대료정상화) | rentRoll(A03) → rentGap(A05) → upside(A05) → comps(A03) |
-| **income** (R-INC-05 공실해소) | rentRoll(A03) → vacancy(A04) → leasing(A05) → comps(A03) |
-| **income** (R-INC-06 리모델링) | rentRoll(A03) → current(A04) → remodel(A05) → comps(A03) |
-| **income** (R-INC-07~09) | im.ontology.yaml 참조 — 확장 예정 |
-| **owner_occupied** | plan(A04) → vsLease(A08) → commute(A06) → value(A04) |
-| **development** | land(A04) → scale(A05) → eviction(A04) → cost(A08) → stacking(A17) → feasibility(A05) |
-| **operating** | kpi(A13) → revenue(A05) → seasonality(A05) → operator(A04) |
-| **trading** | comps(A03) → trend(A05) → turnover(A04) → price(A04) |
-
-#### 3.2.3 Grade 기반 재무 확장
-
-| Grade | 추가 슬라이드 |
-|:---:|---|
-| **A** | capital(A16), dcf(A05), sensitivity(A05), totalReturn(A05), loan(A08)*, tax(A08) |
-| **B** | capital(A16), totalReturn(A05) |
-| **C** | (없음) |
-| **D** | `[G30]` 에러 — 발행 불가 |
-
-> \* `hasViolation=true` 시 loan 슬라이드 `suppress=true`
-
-#### 3.2.4 DataAvailability 기반 동적 추가
-
-| 조건 | dataKey | Archetype | 제목 |
-|---|---|:---:|---|
-| `hasBuildingRegister && hasLandUsePlan` | `publicRecords` | A04 | 공부 발췌 |
-| `hasRegistryData` | `titleRights` | A04 | 권리관계 |
-| `hasCadastralMap` | `cadastralMap` | A06 | 지적도 |
-| `hasCommercialDistrict` | `commercialDistrict` | A04 | 상권 분석 |
-
-#### 3.2.5 공통 마감 (항상 마지막)
-
-| 순서 | Archetype | dataKey | 제목 |
-|:---:|:---:|---|---|
-| N-4 | A15 | `thesis` | 투자 논거 |
-| N-3 | A07 | `risk` | 리스크 |
-| N-2 | A12 | `checklist` | 실사 체크리스트 |
-| N-1 | A09 | `process` | 진행 절차 |
-| N | A10 | `closing` | 마감 |
-
-### 3.3 면 절삭
-
-| 상수 | 정본 | 설명 |
+| 상수 | 값 | 설명 |
 |---|:---:|---|
-| `PAGE_RECOMMENDED` | `im.pages.yaml §rules.min_pages` | 권장 면수 — 초과 시 optional 슬라이드 뒤에서부터 절삭 |
-| `PAGE_HARD_LIMIT` | `im.pages.yaml §rules.max_pages_absolute` | 절대 상한 — 코드는 이 값을 SSOT에서 읽습니다 |
+| `PAGE_RECOMMENDED` | 12 | 기본 본문 면수 |
+| `PAGE_HARD_LIMIT` | 16 | 본문 절대 상한 |
+| `protectedKeys` | 7종 | 절삭 보호 슬라이드 |
 
-> ⚠️ V5 감사 §2.6 시정: 이 표는 값을 소유하지 않습니다. 값은 `credeal/ssot/im.pages.yaml`에서 읽습니다.
+**보호 키**: `cover`, `summary`, `closing`, `risk`, `checklist`, `process`, `thesis`
 
-**보호 키 (절삭 방지)**: `cover`, `summary`, `closing`, `risk`, `checklist`, `process`, `thesis`, `titleRights`
+### 3.3 본문/부록 이원화 (D37)
 
-> 절삭 시 **원래 순서를 유지**하며, removedSet을 구성하여 active 배열을 필터링합니다.
+```
+본문 (body, ≤16면): 표지 + 요약 + 포스처별 섹션 + 마감
+부록 (appendix): 공부발췌, 권리관계, 지적도, 상권분석
+```
+
+- `placement === 'appendix'` → 16면 한도에서 제외
+- 본문 > 16면 시 protectedKeys 보존, 선택 슬라이드 절삭
+
+### 3.4 SlideSpec
+
+```typescript
+interface SlideSpec {
+  archetype: string;        // A01~A18
+  kicker: string;           // 킥커 텍스트
+  title: string;            // 슬라이드 제목
+  dataKey: string;          // 데이터 바인딩 키
+  suppress?: boolean;       // 렌더 억제
+  requiredKeys?: string[];  // 필수 데이터 키
+  placement?: 'body' | 'appendix' | 'closing';
+}
+```
 
 ---
 
 ## 4. 데이터 바인더
 
-> 📁 [`data-binder.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/data-binder.ts)
+> 📁 [`data-binder.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/data-binder.ts) (1,979행)
 
-### 4.1 섹션 타입 → dataKey 매핑
+### 4.1 SECTION_TYPE → DATA_KEY 매핑 (21종)
 
-| section_type | dataKey |
-|---|---|
-| `property_overview` | `building` |
-| `location_access` | `location` |
-| `lease_status` | `rentRoll` |
-| `income_analysis` | `profit` |
-| `risk_check` | `risk` |
-| `investment_thesis` | `thesis` |
-| `next_steps` | `process` |
-| `capital_structure` | `capital` |
-| `public_records` | `publicRecords` |
-| `title_rights` | `titleRights` |
-| `comparable_analysis` | `comps` |
-| `commercial_analysis` | `commercialDistrict` |
+| SectionType | DataKey | 아키타입 |
+|---|---|:---:|
+| property_overview | building | A04 |
+| location_access | location | A06 |
+| lease_status | rentRoll | A03 |
+| income_analysis | profit | A05 |
+| risk_check | risk | A07 |
+| investment_thesis | thesis | A15 |
+| next_steps | process | A09 |
+| occupancy_fit | plan | A04 |
+| cost_comparison | vsLease | A08 |
+| site_analysis | landDetail | A04 |
+| development_feasibility | feasibility | A05 |
+| operation_overview | kpi | A13 |
+| gop_analysis | revenue | A05 |
+| market_position | marketPosition | A04 |
+| comparable_analysis | comps | A03 |
+| **decision_snapshot** | **summary** | **A02** |
+| **market_rent_gap** | **rentGap** | **A05** |
+| **value_add_plan** | **valueAdd** | **A05** |
+| **stabilized_scenario** | **stability** | **A04** |
+| **evidence_status** | **checklist** | **A12** |
 
-### 4.2 dataKey → Archetype 매핑 (DATA_KEY_ARCHETYPE)
+### 4.2 `bindFromExternalData()` 6종 바인딩
 
-| dataKey | Archetype | 설명 |
-|---|:---:|---|
-| `summary` | A02 | 핵심 요약 스탯 그리드 |
-| `location` | A06 | 입지/지도 다이어그램 |
-| `land` / `building` | A04 | 7:5 비대칭 제원 |
-| `rentRoll` / `comps` | A03 | 대형 테이블 |
-| `stability` / `vacancy` | A04 | 비대칭 분석 |
-| `profit` / `dcf` / `sensitivity` / `totalReturn` | A05 | KPI 차트 |
-| `capital` | A16 | 자본구조도 |
-| `risk` | A07 | 리스크 3블록 |
-| `process` | A09 | 타임라인 |
-| `thesis` | A15 | 4-Pillar 논거 |
-| `closing` | A10 | 마감 면책 |
-| `checklist` | A12 | 실사 체크리스트 |
-| `publicRecords` / `titleRights` / `commercialDistrict` | A04 | 공부/권리/상권 |
-| `cadastralMap` | A06 | 지적도 |
-| `stacking` | A17 | 스태킹 다이어그램 |
-| `kpi` | A13 | 운영 KPI |
-| `loan` / `tax` | A08 | 이중 테이블 |
-
-### 4.3 bindFromExternalData() — V-World 6종 바인딩
-
-| # | dataKey | 소스 | `_source` 태그 | 바인딩 내용 |
+| # | 데이터 | 소스 | dataKey | _source |
 |:---:|---|---|---|---|
-| 1 | `land` | `enrichment.landUsePlan` + `landPrice` | `vworld_api` | 용도지역, 건폐율/용적률 상한, 공시지가, 대지면적 |
-| 2 | `publicRecords` | `buildingRegister` + `landUsePlan` | `public_api` | 건축물대장 표제부 + 토지이용규제 |
-| 3 | `titleRights` | `registryData` | `registry_api` | 소유형태, 근저당, 압류, 전세권 |
-| 4 | `comps` | `comparableTransactions` | `rtms_api` | 인근 거래 사례 (최대 5건) |
-| 5 | `commercialDistrict` | `commercialDistrict` | `semas_api` | 상권명, 유동인구, 매출지수, 개폐업률 |
-| 6 | `cadastralMap` | `cadastralMapImage` | `vworld_wms` | 지적도 PNG (base64), 필지 요약 |
+| 1 | 토지 현황 | V-World landUsePlan + landPrice | land | vworld_api |
+| 2 | 공부 발췌 | 건축물대장 + 토지이용규제 | publicRecords | public_api |
+| 3 | 권리관계 | 등기부 | titleRights | registry_api |
+| 4 | 비교사례 | 국토부 실거래 | comps | rtms_api |
+| 5 | 상권 분석 | SEMAS | commercialDistrict | semas_api |
+| 6 | 지적도 | V-World WMS | cadastralMap | vworld_wms |
 
-### 4.4 BL-6 결손 문구 소독
+### 4.3 DATA_KEY → ARCHETYPE 매핑 (50+)
 
-- **검사 패턴**: `건축물대장 조회 미완료`, `임대차 상세 미확보`, `확인 필요`, `자료 없음` 등
-- **처리**: 본문에서 제거 → `_deficiencies` 배열에 수집 → 체크리스트 슬라이드(A18)로 이관
-- **`_source` 폴백 보호**: 외부 정형 데이터(`_source: 'vworld_api'` 등)가 존재하면 마크다운 파싱 데이터로 덮어쓰지 않음
-
----
-
-## 5. 아키타입 레지스트리 (19종)
-
-> 📁 [`archetypes/`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/archetypes)
-
-| ID | 파일 | 빌더 함수 | 레이아웃 | 용도 |
-|:---:|---|---|---|---|
-| **A01** | `a01-cover.ts` | `buildA01Cover` | 표지 (5대 커버 스타일) | 투자설명서 표지 |
-| **A02** | `a02-stat-grid.ts` | `buildA02StatGrid` | 리드문 + 4~8 스탯 카드 | 핵심 요약 |
-| **A03** | `a03-large-table.ts` | `buildA03LargeTable` | 대형 테이블 + 콜아웃 | 렌트롤, 비교사례 |
-| **A04** | `a04-asymmetric-7-5.ts` | `buildA04Asymmetric75` | 7:5 비대칭 (좌:rows, 우:사진/콜아웃) | 제원, 토지, 권리 |
-| **A05** | `a05-asymmetric-7-4.ts` | `buildA05Asymmetric74` | 7:4 비대칭 / KPI 카드 | 수익분석, DCF |
-| **A06** | `a06-diagram.ts` | `buildA06Diagram` | 지도/지적도 + 입지 rows | 입지, 지적도 |
-| **A07** | `a07-three-block.ts` | `buildA07ThreeBlock` | 3~5 리스크 진단 블록 | 리스크 점검 |
-| **A08** | `a08-dual-table.ts` | `buildA08DualTable` | 2단 분할 테이블 | 자본구조, 대출, 세금 |
-| **A09** | `a09-process.ts` | `buildA09Process` | 타임라인 스텝 카드 | 매수 진행 절차 |
-| **A10** | `a10-closing.ts` | `buildA10Closing` | 면책/출처 배지 | 마감 고지 |
-| **A11** | `a11-room-spec.ts` | `buildA11RoomSpec` | 호실별 면적/용도 | 호실 스펙 |
-| **A12** | `a12-ownership.ts` | `buildA12Ownership` | 소유권/권리관계 | 실사 체크리스트 — deck-sequencer 마감부에서 `checklist` dataKey로 매핑 |
-| **A13** | `a13-operating.ts` | `buildA13Operating` | KPI 지표/매출 분석 | 운영형 KPI |
-| **A14** | `a14-gallery.ts` | `buildA14Gallery` | 1/2/3/4컷 동적 그리드 | 사진 갤러리 |
-| **A15** | `a15-thesis.ts` | `buildA15Thesis` | 4-Pillar Grid + Takeaway | 투자 논거 |
-| **A16** | `a16-investment-structure.ts` | `buildA16InvestmentStructure` | 자본조달 구조도 | LTV/에쿼티/금리 |
-| **A17** | `a17-pre-completion-marketing.ts` | `buildA17PreCompletionMarketing` | 스태킹 다이어그램 | 개발 층별 구성 |
-| **A18** | `a18-checklist.ts` | `buildA18Checklist` | 결손 항목 체크리스트 | BL-6 이관 목록 |
-
-### 5.1 A06 지적도 분기 로직
-
-```
-1차: enrichment.cadastralMapImage (V-World WMS)
-  → slide.addImage(base64 직접 삽입)
-2차: 카카오 정적 지도 URL
-  → fetchKakaoMapImage() + sharp 최적화
-3차: OSM 타일 합성 플레이스홀더
-  → generateStaticMapPlaceholder()
-4차: 모두 실패 → [BL-2] 경고 + 슬라이드 생략
+```typescript
+const DATA_KEY_ARCHETYPE: Record<string, string> = {
+  summary: 'A02',  location: 'A06',  building: 'A04',
+  rentRoll: 'A03', profit: 'A05',    risk: 'A07',
+  process: 'A09',  thesis: 'A15',    checklist: 'A12',
+  // development
+  landDetail: 'A04', feasibility: 'A05', cost: 'A08',
+  // operating
+  kpi: 'A13',  revenue: 'A05',
+  // D37 확장
+  rentGap: 'A05', valueAdd: 'A05', stability: 'A04',
+  // Pro 확장
+  dcf: 'A05', sensitivity: 'A05', loan: 'A08', tax: 'A08',
+  // ... (총 50+ 매핑)
+};
 ```
 
 ---
 
-## 6. 테마 & 프리셋
+## 5. 18종 슬라이드 아키타입
 
-> 📁 [`pptx-theme.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/pptx-theme.ts)
+> 📁 [`archetypes/index.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/archetypes/index.ts)
 
-### 6.1 5대 내장 프리셋
+### 5.1 아키타입 레지스트리
 
-| ID | 명칭 | 메인 액센트 | 커버 스타일 | 레이아웃 | 제목 폰트 |
-|---|---|---|---|---|---|
-| `golden_institutional` | Golden Institutional | `#B98A2E` 황동 | `institutional_masses` | `classic` | Pretendard |
-| `credeal_signature` | CREDEAL Signature | `#6B8E00` 라임 | `split` | `modern` | Pretendard |
-| `executive_gold` | Executive Gold | `#B8862D` 골드 | `hero_dark` | `executive` | Noto Serif KR |
-| `corporate_clean` | Corporate Clean | `#059669` 에메랄드 | `corporate_card` | `minimal` | Pretendard |
-| `pro_dark_obsidian` | Pro Dark Obsidian | `#0284A8` 시안 | `obsidian_glow` | `dramatic` | Pretendard |
+| ID | 빌더 | 레이아웃 | 주 용도 |
+|:---:|---|---|---|
+| A01 | `buildA01Cover` | 전면 표지 | 커버 (5종 coverStyle) |
+| A02 | `buildA02StatGrid` | 2×2 지표 그리드 | 요약/의사결정 스냅샷 |
+| A03 | `buildA03LargeTable` | 전폭 테이블 | 렌트롤/비교사례 |
+| A04 | `buildA04Asymmetric75` | 7:5 비대칭 | 물건개요/토지/안정화 |
+| A05 | `buildA05Asymmetric74` | 7:4 차트+통계 | 수익분석/GOP/시나리오 |
+| A06 | `buildA06Diagram` | 중앙 다이어그램 | 입지/지도/통근 |
+| A07 | `buildA07ThreeBlock` | 3열 블록 | 3대 리스크 |
+| A08 | `buildA08DualTable` | 2열 테이블 | 비용비교/대출/세금 |
+| A09 | `buildA09Process` | 5단계 스텝 | 진행절차 |
+| A10 | `buildA10Closing` | 다크 전면 | 면책/마감 |
+| A11 | `buildA11RoomSpec` | 2×2 카드 | 객실 스펙 |
+| A12 | `buildA12Ownership` | 체크리스트 | 권리관계/실사 |
+| A13 | `buildA13Operating` | KPI 대시보드 | 운영 지표 |
+| A14 | `buildA14Gallery` | 2×3 그리드 | 사진 갤러리 |
+| A15 | `buildA15Thesis` | 4대 카드 | 투자 논거 |
+| A16 | `buildA16InvestmentStructure` | 자본 구조도 | 자금조달/PF |
+| A17 | `buildA17PreCompletionMarketing` | 스태킹 플랜 | 사전 마케팅 |
+| A18 | `buildA18Checklist` | 체크리스트 | 자료 현황 |
 
-### 6.2 PptxThemeTokens 구조
+### 5.2 SVG 미리보기 (12/18종 지원)
 
-- **무채색 11종**: `ink`, `ink2`, `ink3`, `slate`, `body`, `mute`, `mute2`, `line`, `line2`, `bg`, `tint`
-- **액센트 4종**: `accent`, `accentD`, `accentL`, `accentT`
-- **의미색 10종**: `green/L`, `red/L`, `amber/L`, `blue/L`, `violet/L`
-- **다크 전용 9종**: `darkCard`, `darkBlock`, `darkBorder`, `darkBody`, `darkMute`, `darkFaint`, `darkAccentBg/Border/Text`
-- **타이포**: `titleFont`, `bodyFont`
-- **브랜딩**: `companyName`, `companyTagline`, `logoUrl?`
+> 📁 [`slide-preview-svg.tsx`](file:///c:/Users/User/cre-dealcard/src/components/broker/pptx-editor/slide-preview-svg.tsx) (511행)
 
-### 6.3 커스텀 프리셋 (Supabase)
-
-UUID 프리셋 ID → `pptx_custom_presets` 테이블 비동기 로딩 → 내장 프리셋 토큰에 머지 → WCAG AA 자동 검증
-
-### 6.4 워터마크
-
-- **문구**: `${requesterName} · ${phoneLast4} · ${timestamp}`
-- **스타일**: 36pt bold, 회전 -30°, 투명도 85%
-- **위치**: 슬라이드 중앙 (x:1.5, y:2.5, w:10, h:2.5)
+지원: A01~A06, A07~A09, A10, A11, A14
 
 ---
 
-## 7. 렌더링 인프라 (imlib.ts)
+## 6. 테마 시스템
+
+> 📁 [`pptx-theme.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/pptx-theme.ts) (413행)
+
+### 6.1 PptxThemeTokens (60개 토큰)
+
+| 범주 | 토큰 | 개수 |
+|---|---|:---:|
+| 무채색 | ink, ink2, ink3, slate, body, mute, mute2, line, line2, bg, tint | 11 |
+| 액센트 | accent, accentD, accentL, accentT | 4 |
+| 의미색 | green/L, red/L, amber/L, blue/L, violet/L | 10 |
+| 다크 전용 | darkCard, darkBlock, darkBorder, darkBody, darkMute, darkFaint, darkAccent×3 | 9 |
+| 타이포 | titleFont, bodyFont | 2 |
+| 스타일 | coverStyle (5종), layoutStyle (5종) | 2 |
+| 브랜딩 | companyName, companyTagline, logoUrl | 3 |
+
+### 6.2 내장 프리셋 (5종)
+
+| presetId | 이름 | 커버 스타일 | 레이아웃 | 특징 |
+|---|---|---|---|---|
+| `golden_institutional` | Golden Institutional | institutional_masses | classic | 기본값, 금색 액센트 |
+| `credeal_signature` | CREDEAL Signature | split | modern | 딥네이비/슬레이트 |
+| `executive_gold` | Executive Gold | hero_dark | executive | 오렌지골드/화이트 |
+| `corporate_clean` | Corporate Clean | corporate_card | minimal | 화이트/미니멀 |
+| `pro_dark_obsidian` | Pro Dark Obsidian | obsidian_glow | dramatic | 다크/네온 |
+
+### 6.3 워터마크
+- 대각선 반복 텍스트: `{요청자명} · {전화뒷4자} · {타임스탬프}`
+- 투명도 조절로 가독성 유지
+
+---
+
+## 7. imlib 유틸리티 라이브러리
+
+> 📁 [`imlib.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/imlib.ts) (1,291행)
 
 ### 7.1 기하 상수
 
 | 상수 | 값 | 설명 |
-|---|:---:|---|
-| `W` | 13.333" | 캔버스 폭 (16:9 와이드) |
-| `H` | 7.5" | 캔버스 높이 |
-| `M` | 0.62" | 좌우 마진 |
-| `CW` | 12.093" | 콘텐츠 폭 (W - M×2) |
+|---|---|---|
+| `W` | 13.333 in | 슬라이드 너비 (16:9) |
+| `H` | 7.5 in | 슬라이드 높이 |
+| `M` | 0.62 in | 안전 여백 |
+| `CW` | 12.093 in | 콘텐츠 너비 (W - 2M) |
 
-### 7.2 주요 렌더링 함수
+### 7.2 핵심 컴포넌트
 
-| 함수 | 역할 |
+| 함수 | 용도 |
 |---|---|
-| `light(pres)` / `dark(pres)` | 라이트/다크 배경 슬라이드 생성 |
-| `head(s, num, kicker, title)` | layoutStyle 분기 슬라이드 헤더 |
-| `foot(s, page, docno)` | layoutStyle 분기 푸터 |
-| `stat(s, x, y, w, label, value, unit)` | 스탯 카드 (layout-physics 연동) |
-| `rows(s, x, y, w, list)` | 키-값 행 목록 + 출처 배지 |
-| `table(s, x, y, w, head, body)` | 테마 연동 테이블 |
-| `callout(s, x, y, w, h, kind, title, body)` | info/good/warn/bad/brass 박스 |
-| `waterfall()` / `stack()` / `locmap()` | 차트/스택/개념도 |
-
-### 7.3 출처 표기 체계 (ProvenanceKind 9종)
-
-| 종류 | 라벨 | 신뢰도 |
-|---|---|:---:|
-| `registry` | 등기부등본 | ★★★★★ |
-| `public_api` | 공공 API | ★★★★☆ |
-| `broker_aug` | 중개보강 | ★★★☆☆ |
-| `expert` | 전문가 | ★★★★☆ |
-| `ledger` | 건축물대장 | ★★★★★ |
-| `seller` | 매도인 제공 | ★★☆☆☆ |
-| `broker` | 중개사 | ★★★☆☆ |
-| `derived` | 산출값 | ★★★☆☆ |
-| `assumed` | 추정 | ★☆☆☆☆ |
+| `light(pres)` / `dark(pres)` | 라이트/다크 슬라이드 베이스 |
+| `head()` / `headD()` | 라이트/다크 헤더 |
+| `stat(opts)` | 단일 지표 카드 |
+| `rows(entries)` | 라벨-값 행 목록 |
+| `table(data, opts)` | 정형 테이블 |
+| `callout(kind, text)` | 강조 콜아웃 |
+| `waterfall(steps)` | 워터폴 차트 |
+| `stack(floors)` | 스태킹 플랜 |
+| `locmap()` | 위치 지도 |
+| `fitBox(text, box)` | 텍스트 자동 맞춤 |
 
 ---
 
-## 8. V-World WMS 지적도
+## 8. 텍스트 버짓
 
-> 📁 [`vworld-wms-cadastral.ts`](file:///c:/Users/User/cre-dealcard/src/lib/external/vworld-wms-cadastral.ts)
+> 📁 [`text-budget.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/pptx/text-budget.ts) (205행)
 
-### 8.1 API 호출 사양
+### 8.1 글자 수 한도
 
-| 항목 | 값 |
-|---|---|
-| **엔드포인트** | `http://api.vworld.kr/req/wms` |
-| **CRS** | EPSG:3857 (Web Mercator) |
-| **레이어** | `lp_pa_cbnd_bonbun,lp_pa_cbnd_bubun` |
-| **포맷** | `image/png`, `TRANSPARENT=TRUE` |
-| **좌표변환** | `toEpsg3857()` — WGS84 → Web Mercator |
-| **타임아웃** | 10초 |
-| **반환 타입** | `CadastralMapResult { buffer, base64, width, height, bbox, _source }` |
+| 요소 | 한도 | 비고 |
+|---|:---:|---|
+| slideTitle | 32 | |
+| kicker | 32 | |
+| subTitle | 50 | |
+| leadSentence | 100 | |
+| subHeading | 35 | |
+| statLabel | 18 | 지표 라벨 |
+| statValue | 10 | 지표 값 |
+| statSub | 27 | 지표 부제 |
+| calloutTitle | 30 | |
+| tableHeader | 16 | |
+| tableCell | 27 | |
+| note | 140 | |
+
+### 8.2 CJK 텍스트 처리
+- CJK 문자 너비 계수: 0.19인치 @ 10pt
+- `charsPerLine(boxWidth, fontSize)` — 줄당 글자 수 계산
+- `enforceTextBudget()` — 한국어 종결어미 보존 트렁케이션
+- `repairBracketBalance()` — 괄호 균형 자동 수리 (D33 M-F)
+
+### 8.3 인쇄 안전 영역
+```
+Safe: 12.713 × 6.75 in (슬라이드 내 콘텐츠 영역)
+assertBounds(element, limits) — 경계 초과 검증
+```
 
 ---
 
-## 9. E2E 테스트 매트릭스
+## 9. 지면 물리 검증
 
-### 9.1 골디락스 시퀀스 테스트 (20케이스)
+### 9.1 G31~G36 게이트
 
-| 그룹 | 테스트 수 | 검증 내용 |
-|---|:---:|---|
-| G-01 포스처별 필수 구성 | 5 | 5개 포스처 × 최소 10p, 필수 dataKey 존재 |
-| G-02 Grade별 동적 면 수 | 3 | A:12~16p, B:10~16p, C:10~14p |
-| G-03 D등급 차단 | 1 | [G30] 에러 throw |
-| G-04 A등급 재무 확장 | 3 | A≥B≥C, A에만 dcf, B에 dcf 없음 |
-| G-05 V-World 면 추가 | 5 | publicRecords, titleRights, cadastralMap, commercialDistrict |
-| G-06 면 절삭 | 2 | 16p 이하, 보호 키 유지 |
-| G-07 위반건물 suppress | 1 | loan suppress 확인 |
+| ID | 검사 | 임계값 |
+|---|---|---|
+| G31 | 사진 크로핑률 | < 45% |
+| G32 | 실효 DPI | ≥ 150 (캡처) / 180 (사진) |
+| G33 | 텍스트 상자 넘침 | 0건 |
+| G34 | 요소 겹침 | ≤ 0.015in |
+| G35 | 지면 이탈 | 0건 |
+| G36 | 종횡비 왜곡 | ≤ 5% |
 
-### 9.2 기타 E2E 테스트
+### 9.2 수익률 검증 (G38, G40)
 
-| 파일 | 검증 |
+| ID | 검사 |
 |---|---|
-| `p0-graceful-degradation.test.ts` | 데이터 결손 시 graceful 처리 |
-| `p0-numeric-pipeline.test.ts` | 숫자 파이프라인 무결성 |
-| `p0-pii-persona-scrub.test.ts` | 개인정보/페르소나 노출 차단 |
-| `p0-preset-cross-render.test.ts` | 5대 프리셋 교차 렌더링 |
-| `p1-theme-preset.test.ts` | 테마 토큰 + 커스텀 프리셋 |
-| `p2-accessibility.test.ts` | WCAG 명도대비 검증 |
-| `p2-gallery-photos.test.ts` | 갤러리 플래너 + 사진 바인딩 |
-| `ai-visual-e2e-runner.ts` | 150 DPI PNG 캡처 + AI 시각 무결성 |
+| G38 | 전 면 동일 yieldBasis (net/gross 혼용 금지) |
+| G40 | 역레버리지 ROE 경고 표시 확인 |
+
+---
+
+## 10. 교차 검증
+
+> 📁 [`cross-validator.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/cross-validator.ts) (687행)
+
+| 검증 항목 | 검사 | 임계값 |
+|---|---|---|
+| vacancy_pct | 공실률 섹션 간 일치 | 0%p (정확) |
+| total_area_sqm | 면적 섹션 간 일치 | 0% (정확) |
+| cap_rate | Cap Rate vs 앵커 | 0.5%p |
+| monthly_rent_krw | 월세 vs 앵커 | 0% |
+| vacancy_narrative | 서술어↔수치 모순 (G41) | 만실+공실>5% |
+| cap_rate_narrative | AI Cap Rate vs 계산값 | ±0.5%p (critical) |
+| noi_narrative | AI NOI vs 계산값 | ±15% (warning) |
+| development: total_cost | 토지비+공사비 vs 총사업비 | — |
+| operating: revpar | ADR×OCC = RevPAR | — |
+| trading: price_per_pyeong | 매각가/면적 vs 평당가 | — |
+
+---
+
+## 11. ReleaseTier 연동 (D37)
+
+### 11.1 Tier → 면 편성 제어
+```typescript
+function getTierAllowedSections(tier: ReleaseTier): {
+  allowFinancials: boolean;   // 재무 섹션 허용
+  allowScenario: boolean;     // 시나리오 허용
+  allowValueAdd: boolean;     // Value-Add 허용
+  allowRentGap: boolean;      // 임대료 갭 허용
+  maxBodyPages: number;       // 최대 본문 면수
+};
+```
+
+### 11.2 전구간 연결
+```
+handler.ts resolveTier() → DB body.releaseTier
+  → pptx-renderer.ts MobileImPptxInput.releaseTier
+  → buildDeckSequence({ releaseTier })
+  → 면 편성/억제 결정
+```
+
+---
+
+## 12. 코드 맵
+
+| 파일 | 행 | 역할 |
+|---|:---:|---|
+| `pptx-renderer.ts` | 700 | 렌더러 코어 (6단계) |
+| `deck-sequencer.ts` | 290 | 면 편성 + 절삭 |
+| `data-binder.ts` | 1,979 | 데이터 바인딩 (21→50+ 매핑) |
+| `pptx-theme.ts` | 413 | 테마 토큰 + 5종 프리셋 |
+| `imlib.ts` | 1,291 | 슬라이드 컴포넌트 라이브러리 |
+| `text-budget.ts` | 205 | 텍스트 버짓 + CJK 처리 |
+| `cross-validator.ts` | 687 | 교차 검증 엔진 |
+| `archetypes/` | 18파일 | 아키타입별 슬라이드 빌더 |
+| `slide-preview-svg.tsx` | 511 | SVG 미리보기 (12/18종) |

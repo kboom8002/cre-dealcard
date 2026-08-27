@@ -1,8 +1,9 @@
-# 모바일 IM 스펙 — 데이터 생성 · LLM Writer · 품질 게이트 · 뷰어 렌더링
+# 모바일 IM 스펙 — 데이터 생성 · LLM Writer · 뷰어 렌더링 · im-core 연동
 
-> **문서 버전**: v4.0 (골디락스 파이프라인)
-> **최종 갱신**: 2026-08-27
-> **대상 커밋**: `dadd09f`
+> **문서 버전**: v6.0 (D37 Claim/Tier/Gate 고도화)
+> **최종 갱신**: 2026-08-28
+> **대상 커밋**: `450b58b`
+> **선행**: D30~D37 전량 완료
 
 ---
 
@@ -15,10 +16,13 @@
 | 원칙 | 설명 |
 |---|---|
 | **위상 정렬 4단계 생성** | 섹션 간 의존성 해결 (독립→재무→리스크→논거) |
+| **Claim 기반 데이터 흐름** (D37) | ClaimRegistry로 증거 관리, 하드코딩 제거 |
 | **Fail-Closed 안전** | LLM 실패 시 `passed: false` 반환, 무검증 배포 원천 차단 |
 | **수치 앵커 일관성** | NumericalAnchors로 섹션 간 가격/면적/수익률 기준점 고정 |
+| **결정론적 계산 우선** (D37) | FinancialCalculator 1회 실행 → LLM은 설명만 |
 | **타임아웃 방어** | Soft 90s → Hard 105s → Kill 120s, 미완 섹션 체크리스트 이관 |
 | **5종 포스처 분화** | 동일 건물도 투자 목적에 따라 완전히 다른 서사 생성 |
+| **5종 발행 등급** (D37) | ResolveTier → 재무 허용 범위 제어 |
 
 ---
 
@@ -26,297 +30,338 @@
 
 > 📁 [`writer.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/writer.ts)
 
-### 2.1 입력/출력 인터페이스
+### 2.1 `generateMobileIM()` 10단계 파이프라인
 
-```typescript
-interface MobileIMWriterInput {
-  building_ssot_lite: BuildingSSoTLite;
-  supplemental: MobileIMSupplementalInput;  // 렌트롤, 사진, 대출 등
-  readiness: { can_generate: boolean; score: number; missing: string[] };
-  external_data: ExternalDataEnrichmentResult | null;
-  dcfEligible?: boolean;
-  dataGrade?: string;  // 'A' | 'B' | 'C' | 'D'
-  identity?: { buildingUse?; assetType?; investmentPosture?; };
-  onProgress?: (progress: number, currentSection: string) => void;
-}
+| Stage | 단계 | 핵심 함수 | 설명 |
+|:---:|---|---|---|
+| 1 | 타이머 초기화 | `StageTimer(90, 105, 120)` | Soft/Hard/Kill 3단계 |
+| 2 | 컨텍스트 빌드 | `buildIMContext(input)` | 3축 식별자 + 재무 + 섹션 플랜 |
+| 3 | 수치 앵커 | `new NumericalAnchors(...)` | 전 섹션 수치 불변성 보장 |
+| 4 | **결정론적 계산** (D37) | `ClaimRegistry` + `FinancialCalculator.calculate()` | 1회 실행, Claim 등록 |
+| 5 | **DA 파생** (D37) | `deriveDataAvailability()` | 실데이터 기반 가용성 플래그 |
+| 6 | 4-Stage 위상정렬 | `getActiveStagePlan()` → `generateSingleSection()` | 병렬 Stage 1 → 순차 2~4 |
+| 7 | 품질 게이트 | `runPublishGates(gateCtx)` | G01~G53 (49종) |
+| 8 | 교차 검증 | `runCrossValidation()` | 섹션 간 수치 모순 탐지 |
+| 9 | RAG 인덱싱 | `indexIMSections()` | 비동기 임베딩 |
+| 10 | 정본 순서 정렬 | YAML/STAGE_PLANS 기준 재정렬 | 최종 순서 확정 |
 
-interface MobileIMWriterOutput {
-  sections: MobileIMSection[];
-  boundary_note: string;
-  generated_at: string;
-  ai_used: boolean;
-  heroCard: HeroCardData;
-  photos?: TransformedPhoto[];
-  dcf10Year?: Record<string, unknown>;
-  financials?: { equityRequired?; totalDepositBil?; loanAmountBil?; leveragedYield?; wacc?; };
-  publishBlocked: boolean;
-  publishBlockReasons: string[];
-  dataFreshnessWarning?: string | null;
-}
+### 2.2 Stage 구조
+
+```
+Stage 1 (병렬) — property_overview, location_access, next_steps, [decision_snapshot]
+    ↓ Promise.allSettled
+Stage 2 (순차, 의존: askingPriceKrw, totalAreaSqm) — lease_status, income_analysis
+    ↓
+Stage 3 (순차) — market_rent_gap, value_add_plan, stabilized_scenario
+    ↓
+Stage 4 (순차) — risk_check, investment_thesis
 ```
 
-### 2.2 8단계 파이프라인
-
-```mermaid
-flowchart TD
-    S0["Stage 0\n글로벌 타이머 보호선\nSoft 90s / Hard 105s / Kill 120s"]
-    S1["Stage 1\n컨텍스트 빌드\nbuildIMContext()"]
-    S2["Stage 2\n수치 앵커 초기화\nNumericalAnchors"]
-    S3["Stage 3\n위상 정렬 4단계 생성\n(병렬→순차→리스크→논거)"]
-    S4["Stage 4\n발행 게이트 검증\nrunPublishGates (G01~G40)"]
-    S5["Stage 5\n섹션 간 교차 검증\nrunCrossValidation"]
-    S6["Stage 6\nRAG 인덱싱 + Hero Card"]
-    S7["Stage 7\n정본 순서 재정렬"]
-
-    S0 --> S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7
-```
-
-### 2.3 위상 정렬 4단계 (Stage 3 상세)
-
-| 단계 | 병렬/순차 | 대상 섹션 | 의존성 |
-|:---:|:---:|---|---|
-| **Stage 1** | 병렬 (`Promise.allSettled`) | `property_overview`, `location_access`, `lease_status`, `next_steps` | 없음 |
-| **Stage 2** | 순차 | `income_analysis`, `site_analysis`, `gop_analysis` 등 | 앵커 확정 (매각가, 면적) |
-| **Stage 3** | 순차 | `risk_check` | Stage 1~2 완료 |
-| **Stage 4** | 순차 | `investment_thesis`, `checklist` | 전체 완료 |
-
-> **타임아웃 방어**: 105초 초과 시 비필수 섹션은 체크리스트로 이관. 필수 섹션(`property_overview`, `checklist`, `closing`) 미완 시 발행 차단.
+- 최대 2회 멱등키 재시도 (`MAX_RETRIES = 2`)
+- 타임아웃 도달 시 미완성 섹션 → `checklist` 안전 이관
 
 ---
 
-## 3. 섹션 카탈로그
+## 3. im-core 연동 (D37 핵심)
+
+### 3.1 Writer ← im-core 연동 흐름
+
+```mermaid
+sequenceDiagram
+    participant W as writer.ts
+    participant CR as ClaimRegistry
+    participant FC as FinancialCalculator
+    participant RT as resolveTier()
+    participant DA as deriveDataAvailability()
+    participant LC as LeaseCalc
+    participant PZ as PermitZone
+    participant KL as KoreanLegal
+
+    W->>CR: new ClaimRegistry()
+    W->>FC: calculate(financialInputs)
+    FC->>CR: register(claims[])
+    W->>LC: registerLeaseCalcClaims(registry, ...)
+    W->>PZ: registerPermitZoneClaim(registry, ...)
+    W->>KL: registerKoreanLegalClaims(registry, ...)
+    W->>DA: deriveDataAvailability(registry)
+    W->>RT: resolveTier({ grade, posture, dataAvailability })
+```
+
+### 3.2 Claim 기반 데이터 확보 상태
+
+| ClaimStatus | 의미 | 뷰어 표시 |
+|---|---|---|
+| `confirmed` | 공부/계약서 확인 | 🟢 확인됨 |
+| `needs_check` | 중개인 현장확인 필요 | 🟡 확인필요 |
+| `inferred` | AI 추정/계산값 | 🔵 추정값 |
+| `not_available` | 미확인/미입력 | ⚪ 미확인 |
+
+---
+
+## 4. 섹션 타입 체계
+
+### 4.1 MobileIMSectionType (25종)
+
+> 📁 [`types.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/types.ts)
+
+#### 기본 7종 (`MOBILE_IM_SECTIONS_7`)
+| 섹션 | 한국어 | 역할 |
+|---|---|---|
+| `property_overview` | 물건 개요 | 소재지, 면적, 용도, 준공연도 |
+| `location_access` | 입지 분석 | 교통, 상권, 개발 호재 |
+| `lease_status` | 임대 현황 | 렌트롤, 공실, 임차인 |
+| `income_analysis` | 수익 분석 | NOI, Cap Rate, 수익률 |
+| `risk_check` | 리스크 점검 | 법적, 물리적, 시장 리스크 |
+| `investment_thesis` | 투자 논거 | 4대 핵심 투자 포인트 |
+| `next_steps` | 진행 절차 | LOI, 실사, 계약, 잔금 |
+
+#### 비수익형 8종 (포스처별)
+| 섹션 | 포스처 | 역할 |
+|---|---|---|
+| `occupancy_fit` | owner_occupied | 사옥 적합성 |
+| `cost_comparison` | owner_occupied | 매입 vs 임차 비교 |
+| `site_analysis` | development | 부지 분석 |
+| `development_feasibility` | development | 개발 사업성 |
+| `operation_overview` | operating | 운영 현황 |
+| `gop_analysis` | operating | 영업이익 분석 |
+| `market_position` | trading | 시장 포지셔닝 |
+| `comparable_analysis` | trading | 비교사례 분석 |
+
+#### D37 확장 10종
+| 섹션 | 용도 | 비고 |
+|---|---|---|
+| `title_rights` | 권리관계 | 공통 |
+| `land_detail` | 토지 상세 | 공통 |
+| `comparables` | 비교사례 | 공통 |
+| `decision_snapshot` | 의사결정 요약 | income 15면 |
+| `market_rent_gap` | 시장임대료 갭 | income 15면 |
+| `value_add_plan` | Value-Add 전략 | income 15면 |
+| `stabilized_scenario` | 안정화 시나리오 | income 15면 |
+| `evidence_status` | 자료 현황 | income 15면 |
+| `checklist` | 체크리스트 | 구조 |
+| `closing` | 면책/마감 | 구조 |
+
+### 4.2 섹션 확장 시 연쇄 수정 (AGENTS.md §11)
+
+```
+□ types.ts MOBILE_IM_SECTIONS 배열
+□ section-alias-resolver.ts SECTION_ALIAS_MAP
+□ section-alias-resolver.ts displayNames
+□ premium-template-engine.ts getSectionTitle()
+□ data-binder.ts SECTION_TYPE_TO_DATA_KEY (선택)
+□ data-binder.ts DATA_KEY_ARCHETYPE (선택)
+```
+
+---
+
+## 5. 포스처별 Stage 계획
+
+> 📁 [`stage-plans.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/stage-plans.ts)
+
+### 5.1 income (5 Stage)
+| Stage | 섹션 | 의존 |
+|:---:|---|---|
+| 1 (병렬) | property_overview, decision_snapshot, location_access, next_steps | — |
+| 2 | lease_status, income_analysis | askingPriceKrw, totalAreaSqm |
+| 3 | market_rent_gap, value_add_plan, stabilized_scenario | Stage 2 |
+| 4 | risk_check | Stage 3 |
+| 5 | investment_thesis | Stage 4 |
+
+### 5.2 development (4 Stage)
+| Stage | 섹션 | 의존 |
+|:---:|---|---|
+| 1 (병렬) | property_overview, location_access, next_steps | — |
+| 2 | site_analysis, development_feasibility | askingPriceKrw, landAreaSqm |
+| 3 | risk_check | Stage 2 |
+| 4 | investment_thesis | Stage 3 |
+
+### 5.3 operating / owner_occupied / trading
+동일 4-Stage 구조, Stage 2에서 포스처별 강조 섹션만 다름
+
+---
+
+## 6. Section Catalog
 
 > 📁 [`section-catalog.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/section-catalog.ts)
 
-### 3.1 포스처별 섹션 편성
-
-| 포스처 | 섹션 수 | 구성 | 강조 섹션 |
+| 포스처 | 총 섹션 | 필수 섹션 | 강조 섹션 |
 |---|:---:|---|---|
-| **income** | 12 | overview, location, title_rights, land_detail, lease_status, income_analysis, risk_check, comparables, investment_thesis, checklist, next_steps, closing | `lease_status`, `income_analysis` |
-| **owner_occupied** | 9 | overview, location, title_rights, occupancy_fit, cost_comparison, risk_check, investment_thesis, checklist, next_steps | `occupancy_fit`, `cost_comparison` |
-| **development** | 10 | overview, location, title_rights, land_detail, site_analysis, development_feasibility, risk_check, investment_thesis, checklist, next_steps | `site_analysis`, `development_feasibility` |
-| **operating** | 10 | overview, location, title_rights, land_detail, operation_overview, gop_analysis, risk_check, investment_thesis, checklist, next_steps | `operation_overview`, `gop_analysis` |
-| **trading** | 8 | overview, location, title_rights, market_position, comparable_analysis, risk_check, checklist, next_steps | `market_position`, `comparable_analysis` |
+| income | 12 | property_overview, lease_status, income_analysis, checklist | lease_status, income_analysis |
+| owner_occupied | 9 | property_overview, occupancy_fit, checklist | occupancy_fit, cost_comparison |
+| development | 10 | property_overview, site_analysis, development_feasibility, checklist | site_analysis, development_feasibility |
+| operating | 10 | property_overview, operation_overview, gop_analysis, risk_check, checklist | operation_overview, gop_analysis |
+| trading | 8 | property_overview, market_position, risk_check, checklist | market_position, comparable_analysis |
 
-### 3.2 아키타입 레지스트리 (25종)
+---
 
-| 계열 | 코드 범위 | 주요 아키타입 |
+## 7. 품질 게이트 (49종)
+
+> 📁 [`quality-gates-v02.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/quality-gates-v02.ts)
+
+### 7.1 블록 게이트 (block) — 38종
+| 범위 | ID | 검사 |
 |---|---|---|
-| 수익형 | R-INC-01~09 | 임대안정, 가치상승, 개발준비, 임대료정상화, 공실해소, 리모델링 |
-| 사옥형 | R-OWN-01~04 | 즉시입주, 본사브랜딩, 임대겸용, 가성비분할 |
-| 개발형 | R-DEV-01~04 | 신축개발, 증축리모델링, 용도변경, 토지분할 |
-| 운영형 | R-OPR-01~04 | 직영운영, 마스터리스, 공간컨텐츠, **용도리스크(경고)** |
-| 매매형 | R-TRD-01~04 | 시세차익, 급매매수, 지분분할, **출구제약(경고)** |
+| 필수 데이터 | G01~G04 | 매각가, 면적, 주소, D등급 |
+| 교차 검증 | G05, G24, G41 | 수치 교차, 면간 일치, 서술어 모순 |
+| 안전 | G06~G08 | 할루시네이션, PII, 위험 표현 |
+| 분류 | G10 | 3축 분류 확정 |
+| 이미지 | G17~G18, G20, G26~G27, G31~G32, G36~G37 | DPI, EXIF, PII, 사진수, 마스킹, 크로핑, 왜곡 |
+| 섹션 | G21~G23, G25, G28~G30 | 필수섹션, 면적라벨, 렌트롤, 가정표기 |
+| 텍스트 | G33, G35, G42 | 넘침, 이탈, 폴백중복 |
+| 수익률 | G38, G40 | basis정합, 역레버리지 |
+| **D37 Claim** | **G48~G52** | **Conflict, 미증거, asOf, 재현성, 면수** |
 
----
+### 7.2 경고 게이트 (warn) — 11종
+G34, G39, G43~G45, G50, G53, QG09, QG11~QG16
 
-## 4. LLM Writer 계층
-
-> 📁 [`im-section-generator.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/im-section-generator.ts)
-
-### 4.1 단일 섹션 생성 파이프라인 (11단계)
-
-```
-1. 포스처별 재무 사전 계산
-2. 골든 Few-shot 주입 (buildIMFewShotBlock)
-3. 프롬프트 조립 (system + user + postureOverlay)
-4. callLLM 호출 (temperature: 0.3, 30~90초)
-5. 수치 환각 검사 (detectHallucination)
-6. LLM-as-Judge 5차원 품질 심사 (3.0 미만 → 폴백)
-7. 결정론적 렌트롤 테이블 강제 치환
-8. 용어 정규화 (normalizeTerminologyAsync)
-9. 임차인 마스킹 ([임차인A], [임차인B])
-10. Cap Rate 표준 라벨 교정
-11. riskBoundary → CREQualityGate → DisclosureGuard
-```
-
-### 4.2 LLM-as-Judge 5차원 평가
-
-| 차원 | 가중치 | 설명 |
-|---|:---:|---|
-| `factual_accuracy` | 0.25 | 사실 정확도 |
-| `financial_soundness` | 0.20 | 재무 건전성 |
-| `regulatory_compliance` | 0.25 | 규제 준수 |
-| `investor_value` | 0.15 | 투자자 가치 |
-| `data_grounding` | 0.15 | 데이터 근거 |
-
-- **< 3.0**: 품질 미달 → 템플릿 폴백
-- **≥ 4.5**: 고품질 → Few-shot 골든셋 후보 자동 등록
-
-### 4.3 결정론적 섹션 렌더러 (3종)
-
-| 렌더러 | 파일 | 입력 |
-|---|---|---|
-| 등기부/권리관계 | `title-rights-renderer.ts` | `RegistryData` |
-| 토지이용계획/대지 | `land-detail-renderer.ts` | `LandUsePlanData` + `LandPriceData` |
-| 실거래가 비교표 | `comparables-renderer.ts` | `ComparableTransaction[]` |
-
-### 4.4 용어 정규화 규칙
-
-| ❌ 외래어 직역 | ✅ 한국 CRE 실무 표준 |
-|---|---|
-| 네이밍 라이츠 | 사옥 단독 명칭 표기(간판 설치권) |
-| 캡레이트 | 연 순수익률 (Cap Rate) |
-| GOP | 실질 영업이익 (GOP) |
-| TI / Rent Free | 인테리어 지원금(TI) / 렌트프리(무상임대) |
-
----
-
-## 5. CRE 시맨틱 Quality Gate
-
-> 📁 [`cre-quality-gate.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/cre-quality-gate.ts)
-
-### 5.1 6대 위반 유형
-
-| 유형 | 설명 | 예시 |
-|---|---|---|
-| `investment_guarantee` | 투자 추천/수익 보장 | "놓치면 후회", "수익 보장" |
-| `fabricated_data` | 데이터 창작 | SSoT에 없는 시세/통계 |
-| `legal_assertion` | 법적 효력 확정 | "법적 문제 없음" |
-| `misleading_comparison` | 검증 불가 비교 | "주변보다 저렴" |
-| `ungrounded_market_claim` | 무근거 시장 주장 | 공공데이터 인용 없는 단정 |
-| `price_opinion_prohibition` | 가격 평가 금지 | "적정가", "투자 적기" |
-
----
-
-## 6. 체크리스트 렌더러
-
-> 📁 [`checklist-renderer.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/checklist-renderer.ts)
-
-### 6.1 6대 카테고리
-
-| 카테고리 | 설명 |
-|---|---|
-| `missing_data` | 공부·원장 확인 필요 항목 |
-| `gate_warning` | 품질·규제 유의사항 |
-| `assumption` | AI 추정 및 시장 기본값 가정 |
-| `locked_metric` | 미입력 잠금 지표 |
-| `timeout_redirect` | 105초 초과 이관 항목 |
-| `data_deficit` | 결손 수치 점검 항목 |
-
-> **불변조건 준수**: 확인사항은 마스킹되지 않으며(`masking: false`), 결손 수치는 생략 없이 전량 이관(`truncation: 'never'`).
-
----
-
-## 7. 모바일 IM 뷰어
-
-### 7.1 컴포넌트 계층
-
-```
-mobile-im-viewer.tsx (메인 클라이언트 뷰어)
-│
-├── Sticky Top Bar
-│   └── 뒤로가기 / 권역·유형 배지 / 공유 버튼
-│
-├── Data Grade Banners (D차단 / C제한 / B안내)
-│
-├── HeroCard (hero-card.tsx)
-│   └── 2×2 메트릭 그리드 + 핵심 투자포인트 3종
-│
-├── Section List (아코디언 카드)
-│   └── SectionCard
-│       ├── Header (번호, 아이콘, 타이틀, Provenance 배지)
-│       ├── MarkdownRenderer (표/강조/불릿 렌더링)
-│       └── Boundary Note (면책 주기)
-│
-├── Financial Visualizations (A등급 한정)
-│   ├── DCFHeatmap
-│   ├── LeverageChart
-│   └── PriceTrendChart
-│
-├── FlatProfileCard (담당 중개인)
-│
-├── Sticky Action Bar
-│   └── 비밀 상담 / PDF / PPTX / 링크 공유
-│
-└── IMInquiryBottomSheet (상담 신청 모달)
-```
-
-### 7.2 뷰어 데이터 모델
-
+### 7.3 GateContext 인터페이스 (D37 확장)
 ```typescript
-interface MobileIMDocument {
-  id: string;
-  buildingId: string;
-  blindName: string;
-  fullName: string;
-  assetType: string;
-  areaSignal: string;
-  priceBand: string;
-  broker: BrokerProfileData;
-  sections: Array<{
-    sectionId: string;
-    title: string;
-    content: string;           // markdown
-    dataSource: string;
-    aiRole: "auto" | "ai_generated" | "static";
-    confidence: "confirmed" | "inferred" | "needs_check";
-    provenance?: DataPointProvenance[];
-  }>;
-  photos?: Array<{ url; type; label; caption?; }>;
-  heroCard?: HeroCardData;
-  dcf10Year?: Record<string, unknown>;
-  financials?: { equityRequiredBil?; leveragedYieldPct?; waccPct?; };
-  dataQualityBadge?: DataQualityBadgeResult;
-  status: 'draft' | 'broker_reviewed' | 'published';
-  disclaimer: string;
+interface GateContext {
+  // 기본 (G01~G08)
+  salePrice?: number;
+  area?: number;
+  address?: string;
+  dataGrade?: string;
+  crossValidationPassed?: boolean;
+  hasHallucination?: boolean;
+  piiRemoved?: boolean;
+  hasRiskExpression?: boolean;
+
+  // D37 Claim 기반
+  unresolvedConflictCount?: number;       // G48
+  unevidencedClaimCount?: number;         // G49
+  asOfMissingCount?: number;              // G50
+  calculationNotReproducible?: boolean;   // G51
+  pageCountExceeded?: boolean;            // G52
+  permitZoneNotDisplayed?: boolean;       // G53
+
+  // 이미지 물리
+  maxCropRatio?: number;                  // G31
+  minEffectiveDpi?: number;               // G32
+  textOverflowCount?: number;             // G33
+  overlapMaxInches?: number;              // G34
+  bleedCount?: number;                    // G35
+  aspectDistortionMaxPct?: number;        // G36
+  foreignPhotoCount?: number;             // G37
+
+  // 수익률
+  yieldBasisConsistent?: boolean;         // G38
+  negativeLeverageWarned?: boolean;       // G40
+  vacancyNarrativeContradiction?: boolean; // G41
+
+  // ... (총 40+ 필드)
 }
 ```
 
 ---
 
-## 8. DB 저장 스키마 (`document_objects.body`)
+## 8. 교차 검증
 
-생성 완료 후 Supabase `document_objects` 테이블에 저장되는 JSON 구조:
+> 📁 [`cross-validator.ts`](file:///c:/Users/User/cre-dealcard/src/domain/building/mobile-im/cross-validator.ts)
 
-```json
-{
-  "im_type": "mobile_im_lite",
-  "investmentPosture": "income",
-  "heroTitle": "영등포구 양평동 근린생활시설 매각",
-  "ogTitle": "...",
-  "ogDescription": "...",
-  "sections": [
-    {
-      "section_type": "property_overview",
-      "section_order": 1,
-      "title": "물건 개요",
-      "markdown": "...",
-      "confidence": "confirmed",
-      "boundary_note": "...",
-      "provenance": [{ "fieldKey": "total_area_sqm", "value": 1420.5, "source": "public_data" }],
-      "judge_score": 4.6
-    }
-  ],
-  "heroCard": { "capRateBase": 4.5, "keyPoints": [...] },
-  "enrichment": { "landUsePlan": {}, "buildingRegister": {}, "cadastralMapImage": null },
-  "coordinates": { "lat": 37.534, "lng": 126.897 },
-  "mapImageUrl": "https://...",
-  "dataGrade": "A",
-  "dcfEligible": true,
-  "dataCompleteness": { "qualityGrade": "A", "pptxExportAllowed": true }
+| 검증 항목 | 설명 |
+|---|---|
+| 가격 일관성 | 전 섹션 동일 매각가 참조 확인 |
+| 면적 일관성 | 전용/임대/대지 면적 상호 정합 |
+| 수익률 basis | Cap Rate 산출 기준 동일성 |
+| 공실/임대 모순 | 서술어와 수치 불일치 탐지 |
+| 렌트롤 합산 | 층별 합산 vs 총액 일치 |
+
+---
+
+## 9. 뷰어 렌더링
+
+> 📁 [`mobile-im-viewer.tsx`](file:///c:/Users/User/cre-dealcard/src/app/(public)/im-lite/[buildingId]/mobile-im-viewer.tsx)
+
+### 9.1 주요 UI 컴포넌트
+
+| 영역 | 기능 | D37 변경 |
+|---|---|---|
+| HeroCard | 제목, 가격, 수익률, CTA | — |
+| Section Cards | 마크다운 → React 렌더 | confidence 3상태 뱃지 추가 |
+| **Provenance 뱃지** | 데이터 출처 표시 | 4종 하드코딩 → **8종 DISPLAY_LABEL_MAP** |
+| **Confidence 뱃지** | 데이터 확인 상태 | 🆕 confirmed/needs_check/inferred |
+| 사진 갤러리 | 슬라이드 뷰어 | — |
+| 면책 조항 | 법적 고지 | — |
+| 공유/다운로드 | 링크 복사, PPTX 다운로드 | — |
+
+### 9.2 displayLabel 8종 연동 (D37)
+```typescript
+import { DISPLAY_LABEL_MAP } from '@/domain/building/im-core';
+
+// 프로베넌스 뱃지 렌더링
+const config = DISPLAY_LABEL_MAP[provenanceKind];
+// → { label: '공부확인', icon: '✓', trustWeight: 5 }
+// trustWeight 기반 색상: 5→green, 4→blue, 3→amber, 2→gray, 1→yellow, 0→red
+```
+
+---
+
+## 10. Handler 파이프라인
+
+> 📁 [`handler.ts`](file:///c:/Users/User/cre-dealcard/src/app/api/broker/im-lite/generate/handler.ts)
+
+### 10.1 11단계 오케스트레이션
+| # | 단계 | 설명 |
+|:---:|---|---|
+| 1 | 3축 조합 검증 | `validateCombination(assetType, posture)` |
+| 2 | SSoT 조회 | `readWithMigration(buildingId)` |
+| 3 | Readiness 점수 | 주소 25 + 권역 10 + 매각가 20 + 임대료 20 + 사진 10 + 공실 5 |
+| 4 | **등급 판정** | `computeDataGrade()` → A/B/C/D |
+| 5 | 최소 데이터 가드 | `hasMinimumBasicData()` |
+| 6 | 재무 검증 | `calculateNOI()`, `calculateCapRate()` |
+| 7 | 공공데이터 수집 | PNU → 9개 API 병렬 |
+| 8 | **AI IM 생성** | `generateMobileIM()` |
+| 9 | 가드레일 정제 | `sanitizeComplianceText()`, 마스킹 |
+| 10 | **발행 등급** (D37) | `resolveTier()` → 5종 |
+| 11 | **DB 영속화** | `document_objects.body` + releaseTier |
+
+---
+
+## 11. 발행/승인 (D37)
+
+### 11.1 ReleaseTier 5종 전구간 연결
+```
+resolveTier() → handler.ts → DB body.releaseTier
+  → pptx-renderer.ts (sequenceInput.releaseTier)
+  → im-management-panel.tsx (뱃지)
+  → im-data-bottom-sheet.tsx (targetTier)
+```
+
+### 11.2 ApprovalGate
+```typescript
+// approve/route.ts
+const gateResult = runApprovalGate(registry, tier);
+if (!gateResult.passed) {
+  return NextResponse.json({ blockers: gateResult.blockers }, { status: 422 });
 }
 ```
 
 ---
 
-## 9. 테스트 구조 (38개 파일)
+## 12. 테스트 구조
 
-### 9.1 계층별 테스트 분류
+| 계층 | 파일 | 건수 | 대상 |
+|---|---|:---:|---|
+| L1 | `l1-calculations.test.ts` | 14 | 순수 재무 계산 |
+| L2 | `l2-gate-judgments.test.ts` | 25+ | 게이트 판정 로직 |
+| L3 | `l3-composition.test.ts` | 33 | 면 편성/시퀀스 |
+| L4 | `l4-output-assertions-d34.test.ts` | 15+ | 산출물 게이트 결과 |
+| L5 | `l5-pipeline-e2e.test.ts` | 25 | 풀 파이프라인 종단 |
 
-| 계층 | 파일 수 | 주요 테스트 |
+---
+
+## 13. 코드 맵
+
+| 파일 | 행 | 역할 |
 |---|:---:|---|
-| L1 순수 계산 | 3 | financials, lease-math, wale-calculator |
-| L2 게이트/판정 | 4 | deterministic-gates, l2-gate-judgments, guardrails, v05-gates-suite |
-| L3 조합/시퀀싱 | 3 | l3-composition, data-pipeline-edge, posture-pipeline |
-| L4 레이아웃/물리 | 3 | l4-layout-physics, l4-output-artifacts, l4-d32-yield-leverage |
-| L5 E2E 파이프라인 | 2 | l5-pipeline-e2e, e2e-real-property |
-| 모듈 단위 | 23 | 개별 모듈별 (hallucination, persona, hero-card 등) |
-
-### 9.2 핵심 E2E 테스트
-
-| 테스트 | 케이스 수 | 검증 |
-|---|:---:|---|
-| `e2e-real-property.test.ts` | 20+ | 양평동·당산동 실물건 end-to-end (등급, IM 생성, 수익률, 렌트롤) |
-| `l5-pipeline-e2e.test.ts` | 25 | 전체 파이프라인 불변조건 검증 |
-| `posture-pipeline.test.ts` | 66 | 섹션 카탈로그, 아키타입, 시퀀서, 배지, 브릿지 통합 |
+| `writer.ts` | ~530 | 10단계 파이프라인 코어 |
+| `im-section-generator.ts` | ~800 | 섹션별 LLM 프롬프트 + 마크다운 |
+| `stage-plans.ts` | ~185 | 5포스처 Stage 계획 |
+| `section-catalog.ts` | ~130 | 섹션 카탈로그 + 강조/필수 |
+| `types.ts` | ~70 | MobileIMSectionType 25종 |
+| `quality-gates-v02.ts` | ~280 | 49종 게이트 레지스트리 |
+| `cross-validator.ts` | ~200 | 교차 검증 엔진 |
+| `text-budget.ts` | ~120 | 텍스트 버짓 검증 |
+| `handler.ts` | ~550 | 11단계 API 오케스트레이션 |
+| `im-core/` | 13파일 | 순수 도메인 9모듈 |
