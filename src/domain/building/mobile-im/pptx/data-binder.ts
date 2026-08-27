@@ -41,6 +41,12 @@ const SECTION_TYPE_TO_DATA_KEY: Record<string, string> = {
   // trading
   market_position:   'marketPosition',
   comparable_analysis: 'comps',
+  // D37 income 15면 확장
+  decision_snapshot: 'summary',         // A02 stat-grid
+  market_rent_gap:   'rentGap',         // A05
+  value_add_plan:    'valueAdd',        // A05 → 기존 카멜케이스 매핑 활용
+  stabilized_scenario: 'stability',     // A04
+  evidence_status:   'checklist',       // A12
 };
 
 /**
@@ -97,6 +103,7 @@ export const DATA_KEY_ARCHETYPE: Record<string, string> = {
   leasing:        'A05',
   current:        'A04',
   remodel:        'A05',
+  valueAdd:       'A05',  // D37: value_add_plan
 };
 
 export function bindSectionData(

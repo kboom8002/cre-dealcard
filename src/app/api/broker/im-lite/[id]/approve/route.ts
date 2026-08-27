@@ -10,6 +10,7 @@ import { markAsGoldenIM } from '@/domain/building/mobile-im/golden-im-manager';
 import { createServiceClient } from '@/lib/supabase/service';
 import { simulateReidentification } from '@/domain/deal/teaser/reident-simulator';
 import { buildAttrsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
+import { runApprovalGate } from '@/domain/building/im-core';
 
 export async function POST(
   req: NextRequest,
@@ -57,6 +58,32 @@ export async function POST(
     if (building && Object.keys(building).length > 0) {
       // K-익명성 검증 제거: 등급 기반 마스킹 정책으로 대체됨
       // 등급에 따라 주소/임차인 자동 마스킹되므로 재식별 위험 없음
+    }
+  }
+
+  // D37 H-2: ApprovalGate 사전 검증 — 승인 시에만
+  if (action === 'approve') {
+    const { data: fullDocForGate } = await supabase
+      .from('document_objects')
+      .select('body')
+      .eq('id', id)
+      .single();
+
+    if (fullDocForGate?.body) {
+      const { ClaimRegistry } = await import('@/domain/building/im-core');
+      const registry = new ClaimRegistry();
+      const tier = fullDocForGate.body.releaseTier ?? 'fact_om';
+      const gateResult = runApprovalGate(registry, tier, {
+        hasHallucination: false,
+        publishBlocked: fullDocForGate.body.gateReport?.blocked === true,
+      });
+
+      if (!gateResult.passed) {
+        return NextResponse.json({
+          error: '승인 게이트 미통과 — 아래 항목을 해결해 주세요.',
+          blockers: gateResult.blockers,
+        }, { status: 422 });
+      }
     }
   }
 
