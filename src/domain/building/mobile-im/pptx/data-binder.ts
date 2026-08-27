@@ -13,6 +13,8 @@ export interface ParsedTable {
   rows: string[][];
 }
 
+import { buildYieldFromHeroCard, buildYieldFromIMCore, yieldLabel, type Yield } from './yield-object';
+
 /**
  * section_type → deck-sequencer dataKey 매핑
  * 
@@ -183,6 +185,10 @@ export function bindSectionData(
       if (!result['summary']) {
         const summaryProps = buildSummaryFromOverview(cleanMarkdown, tables, doc.body);
         result['summary'] = { title: '핵심요약', content: '', tables: [], metrics: {}, ...summaryProps };
+        // D33 BL-C: Yield 단일 객체를 dataMap 최상위에 주입 — 전 슬라이드 공유
+        if (summaryProps._yield) {
+          (result as any)._yield = summaryProps._yield;
+        }
       }
       // V-World 데이터(_source 있음)가 없을 때만 마크다운 파싱 폴백
       const landProps = buildLandFromOverview(cleanMarkdown, tables);
@@ -900,16 +906,19 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
   
   const metrics: Array<{label: string; value: string; unit?: string}> = [];
   const askPrice = heroCard.askingPriceDisplay ?? heroCard.askingPrice;
+  // D33 BL-C: 함수 스코프에서 Yield 객체 선언 — 반환값으로 전달
+  let summaryYield: Yield | null = null;
 
   // 포스처별 핵심 4지표 매핑
   if (posture === 'income') {
     if (askPrice) metrics.push({ label: '매매 희망가', value: String(askPrice) });
     if (heroCard.equityRequiredBil) metrics.push({ label: '실투자금', value: `약 ${heroCard.equityRequiredBil}억 원` });
-    // BL-3: Cap Rate 라벨 — heroCard.yieldBasis 또는 계산 기준에 따라 동적 표기
-    const yieldBasisLabel = heroCard.yieldBasis === 'NOI'
-      ? '연 순수익률(Cap Rate, 기준: 순영업소득)'
-      : '연 수익률(Cap Rate, 기준: 총임대료)';
-    if (heroCard.capRateBase) metrics.push({ label: yieldBasisLabel, value: `${heroCard.capRateBase}%` });
+    // D33 BL-C: 수익률 단일 객체 — 라벨은 값에서 파생, 문자열 교정 폐기
+    const yieldObj = buildYieldFromHeroCard(heroCard);
+    if (yieldObj) {
+      summaryYield = yieldObj;
+      metrics.push({ label: yieldLabel(yieldObj), value: `${yieldObj.value}%` });
+    }
     // BL-4: 역레버리지 감지 — capRate < 조달금리(4.5% 기본)이면 ROE 단독 표시 금지
     const assumedLoanRate = heroCard.loanRatePct ?? 4.5;
     const isNegativeLeverage = heroCard.capRateBase && heroCard.capRateBase < assumedLoanRate;
@@ -1012,6 +1021,7 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
     metrics,
     keyPoints,
     callouts,
+    _yield: summaryYield,  // D33 BL-C: 호출처에서 dataMap._yield에 주입
   };
 }
 
@@ -1493,22 +1503,24 @@ export function bindFromIMCore(core: IMCore): Record<string, SectionData> {
 
   // 1. Summary (A02)
   const askingPriceBil = core.price.askingKrw > 0 ? (core.price.askingKrw / 1e8).toFixed(1) : '-';
-  // BL-3: 수익률 기준 동적 표기 — CapRateBasis 타입 기반 판별
+  // D33 BL-C: 수익률 단일 객체 — IMCore 경로
   const grossYield = core.yields.gross_price;
-  const isNoiBased = grossYield?.basis && (['noi_price', 'noi_price_deposit', 'noi_equity', 'noi_total_cost'] as string[]).includes(grossYield.basis);
-  const yieldBasisSub = isNoiBased ? '순영업소득 기준' : '총임대료 기준';
-  const yieldBasisLabel = isNoiBased
-    ? '연 순수익률(Cap Rate, 기준: 순영업소득)'
-    : '연 수익률(Cap Rate, 기준: 총임대료)';
+  const yieldObj = buildYieldFromIMCore(core.yields);
+  const yieldBasisSub = yieldObj?.basis === 'NOI' ? '순영업소득 기준' : '총임대료 기준';
   // BL-4: 역레버리지 감지
   const assumedLoanRate = 4.5;
   const isNegLevIMCore = grossYield && grossYield.value < assumedLoanRate;
 
   const summaryMetrics: Array<{ label: string; value: string; sub: string }> = [
     { label: '매매 희망가', value: `${askingPriceBil}억 원`, sub: '대지 및 건물 일괄' },
-    { label: yieldBasisLabel, value: grossYield ? `${grossYield.value}%` : '-', sub: yieldBasisSub },
+    { label: yieldObj ? yieldLabel(yieldObj) : '연 수익률(Cap Rate)', value: grossYield ? `${grossYield.value}%` : '-', sub: yieldBasisSub },
     { label: '실투자금', value: `${(core.equity.equity / 1e8).toFixed(1)}억 원`, sub: '대출/보증금 차감' },
   ];
+
+  // _yield 단일 인스턴스를 결과에 주입
+  if (yieldObj) {
+    (result as any)._yield = yieldObj;
+  }
   // BL-4: 역레버리지 시 ROE 대신 경고, 정상 시 임대 안정성
   if (isNegLevIMCore) {
     summaryMetrics.push({

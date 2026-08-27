@@ -19,6 +19,8 @@ import { planGallerySlides, type GallerySlideSpec } from './gallery-planner';
 
 import { stripMarkdown } from './data-binder';
 import { M, CW, KR, NUM, C, setActiveTheme, withThemeIsolation } from './imlib';
+import { validateLayout } from './layout-validator';
+import { validateYield, type Yield } from './yield-object';
 
 function parseInlineMarkdown(line: string): Array<{ text: string; options?: { bold?: boolean; italic?: boolean } }> {
   const runs: Array<{ text: string; options?: { bold?: boolean; italic?: boolean } }> = [];
@@ -619,6 +621,29 @@ export class MobileImPptxRenderer {
       }
       const budgetWarnings = validateTextBudgets(textItems);
       warnings.push(...budgetWarnings);
+
+      // ── 4b. 지면 물리 검증 (D33 BL-A: G31~G36 실행 경로 연결) ──
+      const layoutResult = validateLayout(pres);
+      if (layoutResult.violations.length > 0) {
+        // G34(겹침)는 warn 수준이므로 throw 대상에서 제외, 나머지는 차단
+        const blockingViolations = layoutResult.violations.filter(v => v.gate !== 'G34');
+        if (blockingViolations.length > 0) {
+          const msg = blockingViolations
+            .map(v => `[${v.gate}] slide ${v.slideIndex}: ${v.message}`)
+            .join('; ');
+          throw new Error(`[LAYOUT_GATE] 지면 물리 위반 ${blockingViolations.length}건: ${msg}`);
+        }
+        // G34 warn만 있으면 경고에 추가
+        for (const v of layoutResult.violations.filter(v => v.gate === 'G34')) {
+          warnings.push(`[${v.gate}] slide ${v.slideIndex}: ${v.message}`);
+        }
+      }
+
+      // ── 4c. 수익률 정합 검증 (D33 BL-C: G38) ──
+      const yieldObj = (dataMap as any)._yield as Yield | undefined;
+      if (yieldObj && !validateYield(yieldObj)) {
+        throw new Error(`[G38] 수익률 정합 위반: basis='${yieldObj.basis}'인데 deductions가 비어있습니다. NOI를 주장하면서 공제 항목이 없으면 총임대료와 구분 불가합니다.`);
+      }
 
       // ── 5. 출력 ──
       const buffer = (await pres.write({

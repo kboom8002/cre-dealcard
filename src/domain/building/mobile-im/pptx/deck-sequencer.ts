@@ -216,8 +216,8 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   // ── 면 절삭 ──
   const active = sequence.filter(s => !s.suppress);
 
-  const PAGE_RECOMMENDED = 16;
-  const PAGE_HARD_LIMIT = 20; // W-PPTX-7: 절대 상한
+  const PAGE_RECOMMENDED = 12; // D33 S-2: 정본 §3.1 기준
+  const PAGE_HARD_LIMIT = 16;  // D33 S-2: 절대 상한 (정본 §3.1 — 기존 20 폐기)
 
   let finalSlides = active;
 
