@@ -1,9 +1,9 @@
-# D37 모델 골든 IM 생성 및 종단 검증 요구서 v2
+# D37 모델 골든 IM 생성 및 종단 검증 요구서 v3
 
-> **선행** D33 렌더 수렴 · D34 테스트 재편 · D37 Claim/Tier/Gate 고도화
+> **선행** D33 렌더 수렴 · D34 테스트 재편 · D37 Claim/Tier/Gate 고도화 · **D38 PPTX 파서 구현 ✅**
 > **소유** CREDEAL 렌더 팀
 > **목적** "산출물이 옳다"를 기계적으로 증명할 수 있는 종단 검증 체계 구축
-> **버전** v2.0 (2026-08-28, D37 반영)
+> **버전** v3.0 (2026-08-28, Phase A 완료 반영)
 
 ---
 
@@ -33,15 +33,19 @@
 | **발행 등급** | A/B/C/D only | **5종 ReleaseTier** + 전구간 연결 |
 | **승인 게이트** | ❌ 없음 | `runApprovalGate()` → 422+blockers |
 
-### 0.3 여전히 빠진 것
+### 0.3 현재 상태 (Phase A 완료 후)
 
-| 항목 | 상태 | 위험도 |
-|---|---|:---:|
-| **PPTX 바이너리 파서** | ❌ 미구현 | 🔴 |
-| **모델 골든 IM 3종** | ❌ 미생성 | 🔴 |
-| **`extractGateContext(slides)`** | ❌ 미구현 | 🔴 |
-| **종단 산출물 테스트** | ❌ 미구현 | 🔴 |
-| **일부 SSOT → 코드 하드코딩** | ⚠️ 잔존 | 🟡 |
+| 항목 | 상태 | 비고 |
+|---|---|---|
+| **PPTX 바이너리 파서** | ✅ 구현 완료 | `pptx-parser.ts` ~350행 (jszip + fast-xml-parser) |
+| **`extractGateContext(slides)`** | ✅ 구현 완료 | `extract-gate-context.ts` ~230행, 감사 리포트 생성 |
+| **렌더러 셀프 검증** | ✅ 연결 완료 | `pptx-renderer.ts` Step 6 — render() 후 자동 검증 |
+| **API 감사 헤더** | ✅ 구현 완료 | X-Audit-Violations/Layout/Standard 헤더 |
+| **감사 리포트 UI** | ✅ 구현 완료 | `pptx-audit-report-view.tsx`, im-management-panel 연결 |
+| **L4 파서 테스트** | ✅ 13/13 통과 | `l4-pptx-parser.test.ts` (대조군 3종 검증) |
+| **모델 골든 IM 5종** | ❌ 미생성 | 🔴 |
+| **종단 산출물 테스트** | ⚠️ 파서 테스트 완료, 골든 미생성 | 🟡 |
+| **SSOT → 코드 완전 연결** | ⚠️ 부분 | 🟡 |
 
 ---
 
@@ -193,92 +197,112 @@ Step 6. 동결
 
 ---
 
-## 4. PPTX 파서 요구서
+## 4. PPTX 파서 — ✅ 구현 완료
 
-### 4.1 구현 방법
+### 4.1 구현 파일
+
+| 파일 | 행 | 역할 |
+|---|:---:|---|
+| `src/domain/building/mobile-im/pptx/pptx-parser.ts` | ~350 | ZIP 해제 + XML 파싱 + 이미지 DPI 계산 |
+| `src/domain/building/mobile-im/pptx/extract-gate-context.ts` | ~230 | ParsedSlide[] → GateContext + 감사 리포트 |
+| `src/components/im/pptx-audit-report-view.tsx` | ~160 | 감사 결과 시각화 UI |
+| `src/tests/e2e/l4-pptx-parser.test.ts` | ~220 | 대조군 3종 종단 검증 13케이스 |
+
+### 4.2 실제 인터페이스
 
 ```typescript
-// pptx-parser.ts (신규)
-interface ParsedSlide {
+// pptx-parser.ts (구현됨)
+export interface ParsedSlide {
   index: number;
   shapes: ParsedShape[];
   texts: string[];
   images: ParsedImage[];
 }
 
-interface ParsedShape {
+export interface ParsedShape {
   name: string;
-  type: 'text' | 'image' | 'table' | 'chart' | 'group';
-  position: { x: number; y: number; cx: number; cy: number }; // EMU
+  type: 'text' | 'image' | 'table' | 'chart' | 'group' | 'other';
+  position: { x: number; y: number; cx: number; cy: number }; // inches (EMU 변환 완료)
   text?: string;
+  fontSize?: number; // pt
 }
 
-interface ParsedImage {
+export interface ParsedImage {
   slotName: string;
-  widthPx: number;
+  widthPx: number;      // PNG/JPEG 헤더에서 실제 추출
   heightPx: number;
   boxWidthInches: number;
   boxHeightInches: number;
-  effectiveDpi: number;
-  cropRatio: number;
-  aspectDistortionPct: number;
+  effectiveDpi: number;  // visiblePixels / boxInches
+  cropRatio: number;     // srcRect 기반 (0~1)
+  aspectDistortionPct: number; // 원본 vs 박스 비율 왜곡
 }
 
-export async function parsePptx(buffer: Buffer): Promise<ParsedSlide[]>;
+export async function parsePptx(buffer: Buffer): Promise<PptxParseResult>;
 ```
 
-### 4.2 D37 확장: Claim 검증 연결
-
-```typescript
-// extractGateContext 확장
-interface ExtendedGateContext extends GateContext {
-  // D37 Claim 기반 검증
-  unresolvedConflictCount: number;    // G48
-  unevidencedClaimCount: number;      // G49
-  asOfMissingCount: number;           // G50
-  calculationNotReproducible: boolean; // G51
-  pageCountExceeded: boolean;          // G52
-  permitZoneNotDisplayed: boolean;     // G53
-
-  // ReleaseTier 정합성
-  actualTier: ReleaseTier;
-  expectedSections: string[];
-  actualSections: string[];
-  tierSectionsMatch: boolean;
-}
-```
-
-### 4.3 종단 검사 흐름 (v2)
+### 4.3 렌더러 셀프 검증 파이프라인 (구현됨)
 
 ```mermaid
 flowchart TD
-    A["target_*.pptx"] --> B["parsePptx(buffer)"]
-    B --> C["ParsedSlide[]"]
-    C --> D["extractGateContext(slides)"]
-    D --> E["ExtendedGateContext"]
-    E --> F["runPublishGates(ctx)"]
-    F --> G{"blocked?"}
-    G -- false --> H["✅ 위반 0"]
-    G -- true --> I["❌ 실패"]
+    R["pptx-renderer.ts render()"] --> B["Step 5: Buffer 생성"]
+    B --> P["Step 6: parsePptx(buffer)"]
+    P --> E["extractGateContext(slides)"]
+    E --> G["generateAuditReport()"]
+    G --> W{"위반?"}
+    W -- yes --> WA["warnings += [AUDIT] 위반 목록"]
+    W -- no --> OK["auditReport.totalViolations = 0"]
+    WA --> OUT["MobileImPptxOutput { buffer, auditReport }"]
+    OK --> OUT
+    OUT --> API["route.ts → X-Audit-* 헤더"]
+    API --> UI["im-management-panel → PptxAuditReportView"]
+```
 
-    E --> J["runApprovalGate(registry, tier)"]
-    J --> K{"passed?"}
-    K -- true --> L["✅ 승인 통과"]
-    K -- false --> M["❌ blockers"]
+### 4.4 감사 검출 항목
+
+| 게이트 | 검출 항목 | 구현 |
+|---|---|:---:|
+| G31 | 크로핑률 ≥ 45% | ✅ srcRect 파싱 |
+| G32 | DPI < 150 | ✅ PNG/JPEG 헤더 |
+| G33 | 텍스트 넘침 | ✅ CJK 0.19in/char 추정 |
+| G34 | 요소 겹침 > 0.015in | ✅ N² 바운딩박스 |
+| G35 | 지면 이탈 | ✅ 13.333×7.5 경계 |
+| G36 | 종횡비 왜곡 > 5% | ✅ 원본 vs 박스 |
+| G41 | 만실↔공실 모순 | ✅ 정규식 패턴 |
+| G42 | 폴백 중복 | ✅ 텍스트 해시 |
+| G44 | 괄호 균형 | ✅ 열림/닫힘 카운트 |
+| G52 | 면수 초과 | ⚠️ 파서에서 미판정 (주석 참조) |
+
+> [!NOTE]
+> **G52 면수 초과**는 파서에서 판정하지 않습니다.
+> 파서는 body/appendix를 구분할 수 없고, 렌트롤·갤러리·부록은
+> 데이터 양에 따라 16면을 초과할 수 있습니다 (정상).
+> 본문 16면 상한은 `deck-sequencer.ts`의 `PAGE_HARD_LIMIT`이
+> 렌더 시점에 이미 제어합니다.
+
+### 4.5 D37 Claim 연결 (미완 — Phase B 이후)
+
+```typescript
+// 향후 구현: 파서 출력에서 Claim 정합성 검증
+// parsePptx → extractClaims(slides) → ClaimRegistry
+// → runApprovalGate(registry, tier)
+// 현재는 렌더 시점에서만 Claim 검증이 실행됨
 ```
 
 ---
 
 ## 5. 전체 작업 목록 (v2)
 
-### Phase A: PPTX 파서 (선행)
+### Phase A: PPTX 파서 — ✅ 완료 (커밋 `54f761f` → `e176429`)
 
-| # | 작업 | 의존 | 산출물 |
-|:---:|---|---|---|
-| A-1 | `pptx-parser.ts` 구현 | jszip, xml2js | `ParsedSlide[]` |
-| A-2 | `extractGateContext(slides)` 구현 | A-1 | `ExtendedGateContext` |
-| A-3 | D37 Claim 검증 연결 | A-2, im-core | G48~G53 연동 |
-| A-4 | 기존 v3/v4 PPTX로 파서 검증 | A-1~A-3 | 위반 건수 확인 |
+| # | 작업 | 상태 | 산출물 |
+|:---:|---|:---:|---|
+| A-1 | `pptx-parser.ts` 구현 | ✅ | jszip + fast-xml-parser → `PptxParseResult` |
+| A-2 | `extractGateContext(slides)` 구현 | ✅ | `Partial<GateContext>` + 감사 리포트 |
+| A-3 | 렌더러 셀프 검증 연결 (Step 6) | ✅ | render() → parsePptx → auditReport |
+| A-4 | 기존 v3/v4 PPTX로 파서 검증 | ✅ | 13/13 테스트 통과 |
+| A-5 | API 감사 헤더 + 감사 리포트 UI | ✅ | X-Audit-* 헤더 + PptxAuditReportView |
+| A-6 | G52 면수 초과 판정 수정 | ✅ | 부록/갤러리/렌트롤 초과 허용 |
 
 ### Phase B: 모델 골든 IM 생성
 
@@ -375,30 +399,33 @@ flowchart TD
 
 ---
 
-## 8. 현재 코드 자산 현황 (D37 갱신)
+## 8. 현재 코드 자산 현황 (Phase A 완료 후)
 
 ### 8.1 이미 있는 것
 
 | 파일 | 역할 | 비고 |
 |---|---|---|
 | `credeal/ssot/*.yaml` (14개) | SSOT 원천 | `loadPageOrder()` 연결 |
-| `tests/corpus/v3_*.pptx` (2개) | 음성 대조군 | 파서 미구현 |
-| `tests/corpus/v4_*.pptx` (1개) | 음성 대조군 | 파서 미구현 |
-| `tests/corpus/expected.json` | 기대 위반 | 종단 테스트 미구현 |
+| `tests/corpus/v3_*.pptx` (2개) | 음성 대조군 | ✅ 파서 검증 완료 |
+| `tests/corpus/v4_*.pptx` (1개) | 음성 대조군 | ✅ 파서 검증 완료 |
+| `tests/corpus/expected.json` | 기대 위반 | ✅ 파서 테스트 연결 |
 | `ssot-loader.ts` (432행) | YAML 로더 | `loadPageOrder()` 구현 |
 | `quality-gates-v02.ts` (280행) | 게이트 **49종** | G48~G53 Claim 기반 |
 | `im-core/` (13파일) | **순수 도메인 9모듈** | D37 P0+P1+P2 |
-| `l4-output-assertions-d34.test.ts` | L4 15+건 | 함수 단언 (PPTX 미파싱) |
-| 58개 테스트 (L1~L5) | 전 계층 | 전량 통과 |
+| `pptx-parser.ts` (~350행) | **PPTX 바이너리 파서** | ✅ 신규 (D38) |
+| `extract-gate-context.ts` (~230행) | **게이트 컨텍스트 추출** | ✅ 신규 (D38) |
+| `pptx-audit-report-view.tsx` (~160행) | **감사 리포트 UI** | ✅ 신규 (D38) |
+| `l4-pptx-parser.test.ts` (~220행) | **파서 E2E 13케이스** | ✅ 신규 (D38) |
+| `pptx-renderer.ts` Step 6 | **셀프 검증 루프** | ✅ 연결 (D38) |
+| 58개 테스트 (L1~L5) + 파서 13 = **71개** | 전 계층 | 전량 통과 |
 
 ### 8.2 아직 없는 것
 
 | 항목 | 상태 | 우선순위 |
 |---|---|:---:|
-| **PPTX 바이너리 파서** | ❌ 미구현 | 🔴 P0 |
 | **모델 골든 IM 5종** | ❌ 미생성 | 🔴 P0 |
-| **`extractGateContext(slides)`** | ❌ 미구현 | 🔴 P0 |
-| **종단 산출물 테스트** | ❌ 미구현 | 🔴 P1 |
+| **종단 산출물 테스트 (골든 기반)** | ⚠️ 파서 테스트만 완료 | 🟡 P1 |
+| **Claim 파서 연결** (파서→Claim검증) | ⚠️ 렌더 시점만 | 🟡 P1 |
 | **SSOT → 코드 완전 연결** | ⚠️ 부분 | 🟡 P2 |
 
 ---
@@ -406,14 +433,15 @@ flowchart TD
 ## 9. 우선순위 판단
 
 > [!IMPORTANT]
-> **Phase A (PPTX 파서)가 모든 것의 선행**입니다.
-> 파서 없이는 모델 골든을 검증할 수 없고, 대조군 falsifiability를 증명할 수 없습니다.
-> D37 im-core 덕분에 Claim/Tier 검증이 가능해졌으나, PPTX 레벨에서 이를 확인하려면 파서가 필수입니다.
+> **Phase A (PPTX 파서)는 완료되었습니다.**
+> 파서가 렌더러에 셀프 검증으로 연결되어, 매 PPTX 생성 시 자동 품질 검사가 실행됩니다.
+> 다음 단계는 **Phase B (모델 골든 IM 5종 생성)**입니다.
 
 추천 실행 순서:
 
 ```
-Week 1:  Phase A (파서 + D37 Claim 연결) + Phase C (SSOT 연결)  ← 병행
-Week 2:  Phase B (모델 골든 5종 생성 + 수작업 검수)
-Week 3:  Phase D (종단 테스트 + Claim/Tier E2E + CI)
+✅ Done:   Phase A (파서 + 셀프 검증 + UI)
+Next:      Phase B (모델 골든 5종 생성 + 수작업 검수)
+Parallel:  Phase C (SSOT 연결) ← Phase B와 병행 가능
+Last:      Phase D (종단 테스트 + Claim/Tier E2E + CI)
 ```
