@@ -63,6 +63,11 @@ export function useMagazineAnalytics({ editionId, brokerId }: MagazineAnalyticsC
     sendEvent('click', { target_url: targetUrl, target_param: targetParam });
   }, [editionId, brokerId]);
 
+  /** Track high-engagement interactions (poll vote, calculator use, referral copy) */
+  const trackInteraction = useCallback((action: 'poll_vote' | 'calc_simulate' | 'referral_copy', detail?: Record<string, any>) => {
+    sendEvent('click', { target_url: action, target_param: action, ...detail });
+  }, [editionId, brokerId]);
+
   function sendEvent(eventType: string, extra: Record<string, any> = {}) {
     if (typeof window === 'undefined') return;
 
@@ -79,5 +84,5 @@ export function useMagazineAnalytics({ editionId, brokerId }: MagazineAnalyticsC
     navigator.sendBeacon('/api/public/magazine/analytics', body);
   }
 
-  return { trackSectionView, trackClick };
+  return { trackSectionView, trackClick, trackInteraction };
 }

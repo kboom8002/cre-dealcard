@@ -1722,6 +1722,51 @@ function MagazineEditorInner() {
                   })}
                 </div>
               )}
+
+              {/* 📊 투표 현황 */}
+              {pollQuestion && (
+                <div className="mt-6 space-y-2">
+                  <h3 className="text-xs font-bold text-violet-300 flex items-center gap-1.5">
+                    <BarChart3 className="w-3.5 h-3.5" /> 투표 현황
+                  </h3>
+                  <div className="bg-violet-950/15 border border-violet-500/10 rounded-xl p-3 space-y-2">
+                    <p className="text-[11px] font-semibold text-white">{pollQuestion}</p>
+                    {pollChoices.filter(Boolean).map((c, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400 w-20 truncate">{c}</span>
+                        <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-violet-500/50" style={{ width: '0%' }} />
+                        </div>
+                        <span className="text-[9px] text-slate-600">—</span>
+                      </div>
+                    ))}
+                    <p className="text-[9px] text-slate-600 mt-1">* 투표 결과는 뷰어에서 실시간 집계됩니다.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* 🎁 추천 레퍼럴 현황 */}
+              <div className="mt-6 space-y-2">
+                <h3 className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5" /> 추천 레퍼럴 현황
+                </h3>
+                <div className="bg-indigo-950/15 border border-indigo-500/10 rounded-xl p-3 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { count: 1, reward: "리포트", emoji: "📊" },
+                      { count: 3, reward: "수지분석기", emoji: "📈" },
+                      { count: 5, reward: "딜시트", emoji: "🏢" },
+                      { count: 10, reward: "1:1 자문", emoji: "📞" },
+                    ].map((ms) => (
+                      <div key={ms.count} className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                        <span>{ms.emoji}</span>
+                        <span>{ms.count}명 → {ms.reward}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[9px] text-slate-600 mt-1">* 구독자가 추천 링크를 공유하면 자동 집계됩니다.</p>
+                </div>
+              </div>
             </div>
           </div>
         );

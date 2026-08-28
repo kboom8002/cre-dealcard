@@ -112,7 +112,7 @@ function SectionCard({ title, icon, badge, children, defaultOpen = false }: {
 export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewProps) {
   // Inject brokerVibe into data for renderBrokerProfile
   if (brokerVibe) (data as any).__brokerVibe = brokerVibe;
-  const { trackSectionView, trackClick } = useMagazineAnalytics({
+  const { trackSectionView, trackClick, trackInteraction } = useMagazineAnalytics({
     editionId: data.id ?? `${brokerId}-${date}`,
     brokerId,
   });
@@ -672,6 +672,7 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
 
   const handlePollVote = useCallback(async (choiceIdx: number) => {
     setPollVoted(choiceIdx);
+    trackInteraction('poll_vote', { choice: choiceIdx });
     try {
       const res = await fetch('/api/public/magazine/poll', {
         method: 'POST',
@@ -681,7 +682,7 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
       const json = await res.json();
       if (json.results) setPollResults(json.results);
     } catch { /* silent */ }
-  }, [brokerId, date]);
+  }, [brokerId, date, trackInteraction]);
 
   const POLL_COLORS = ['#34d399', '#fbbf24', '#f87171'];
 
@@ -825,6 +826,7 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
                 onClick={() => {
                   navigator.clipboard.writeText(refLink);
                   setReferralCopied(true);
+                  trackInteraction('referral_copy');
                   setTimeout(() => setReferralCopied(false), 2000);
                 }}
                 className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold rounded-lg transition-colors shrink-0"
