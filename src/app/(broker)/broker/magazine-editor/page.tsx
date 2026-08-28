@@ -40,6 +40,7 @@ import {
   Users,
   Link2,
   Flame,
+  Lightbulb,
 } from "lucide-react";
 import {
   MARKET_TEMP_CONFIG,
@@ -165,8 +166,23 @@ function MagazineEditorInner() {
   const [magazineTitle, setMagazineTitle] = useState("");
   const [showShareModal, setShowShareModal] = useState(false);
   const [magazineData, setMagazineData] = useState<any>(null);
+  const [targetSegments, setTargetSegments] = useState<string[]>(["all"]);
+
+  // Poll
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollChoices, setPollChoices] = useState<string[]>(["", "", ""]);
+
+  // Tax/Legal Clinic
+  const [taxQuestion, setTaxQuestion] = useState("");
+  const [taxAnswer, setTaxAnswer] = useState("");
+  const [taxSource, setTaxSource] = useState("");
+
+  // Section Order
+  const DEFAULT_SECTION_ORDER = ["ai_briefing", "field_note", "theme_of_week", "featured_deals", "poll", "market_data", "news_curation", "tax_clinic", "auction_picks", "sentiment_index", "roi_calculator", "referral"];
+  const [sectionOrder, setSectionOrder] = useState<string[]>(DEFAULT_SECTION_ORDER);
 
   // Analytics
+  const [topLeads, setTopLeads] = useState<any[]>([]);
   const [editionHistory, setEditionHistory] = useState<any[]>([]);
   const [analyticsData, setAnalyticsData] = useState<{
     subscriberCount: number;
@@ -324,6 +340,21 @@ function MagazineEditorInner() {
         } catch (analyticsErr) {
           console.warn("[magazine-editor] Analytics load failed (non-blocking):", analyticsErr);
         }
+
+        // 6. 구독자 매수 온도 Top 리드 로드
+        try {
+          const subsRes = await fetch("/api/broker/magazine/subscribers?status=active&limit=50");
+          if (subsRes.ok) {
+            const subsJson = await subsRes.json();
+            const sorted = (subsJson.subscribers || [])
+              .filter((s: any) => s.temperatureConfig?.minScore > 0)
+              .sort((a: any, b: any) => (b.temperatureConfig?.minScore || 0) - (a.temperatureConfig?.minScore || 0))
+              .slice(0, 5);
+            setTopLeads(sorted);
+          }
+        } catch (subsErr) {
+          console.warn("[magazine-editor] Subscribers load failed (non-blocking):", subsErr);
+        }
       } catch (err) {
         console.error("Failed to load magazine data", err);
       } finally {
@@ -364,6 +395,9 @@ function MagazineEditorInner() {
         topic: n.topic,
       })),
       dealHighlights: filteredDeals,
+      poll: pollQuestion ? { question: pollQuestion, choices: pollChoices.filter(Boolean) } : null,
+      tax_clinic: taxQuestion ? { question: taxQuestion, answer: taxAnswer, source: taxSource } : null,
+      section_order: sectionOrder,
     };
   }, [
     magazineData,
@@ -380,6 +414,12 @@ function MagazineEditorInner() {
     allDeals,
     selectedNewsIds,
     selectedDealIds,
+    pollQuestion,
+    pollChoices,
+    taxQuestion,
+    taxAnswer,
+    taxSource,
+    sectionOrder,
   ]);
   // ── 30초 자동 저장 ──
   useEffect(() => {
@@ -1226,6 +1266,224 @@ function MagazineEditorInner() {
               </div>
             </div>
 
+            {/* 타깃 세그먼트 설정 */}
+            <div className="space-y-3 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
+              <div className="flex items-center gap-2">
+                <Target className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="text-xs font-bold text-slate-200">배포 타깃 세그먼트</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {["all", "꼬마빌딩", "오피스", "리테일", "개발"].map((seg) => {
+                  const active = targetSegments.includes(seg);
+                  return (
+                    <button
+                      key={seg}
+                      onClick={() =>
+                        setTargetSegments((prev) => {
+                          if (seg === "all") return ["all"];
+                          const next = prev.filter((s) => s !== "all");
+                          return next.includes(seg) ? (next.filter((s) => s !== seg).length ? next.filter((s) => s !== seg) : ["all"]) : [...next, seg];
+                        })
+                      }
+                      className={`text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-all ${
+                        active
+                          ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/40 shadow-sm shadow-indigo-500/20"
+                          : "bg-slate-900/60 text-slate-400 border-slate-700 hover:text-slate-200"
+                      }`}
+                    >
+                      {seg === "all" ? "전체 구독자" : seg}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-slate-500">
+                선택한 관심 분야를 보유한 구독자에게 맞춤 발송됩니다.
+              </p>
+            </div>
+
+            {/* ── 이번 주 투표 질문 ── */}
+            <div className="space-y-3 p-4 bg-violet-950/20 border border-violet-500/20 rounded-xl">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-3.5 h-3.5 text-violet-400" />
+                <span className="text-xs font-bold text-violet-300">1-Click 투표 (선택)</span>
+              </div>
+              <p className="text-[10px] text-violet-200/60">
+                매거진에 투표 질문을 추가하면 구독자 참여를 유도하고 매수 성향을 파악할 수 있습니다.
+              </p>
+              <input
+                type="text"
+                value={pollQuestion}
+                onChange={(e) => setPollQuestion(e.target.value)}
+                placeholder="예: 현재 강남 꼬마빌딩 평당 1.2억, 적정하다고 보십니까?"
+                className="w-full bg-violet-950/30 border border-violet-500/20 rounded-lg px-3 py-2 text-xs text-white placeholder-violet-300/30 focus:outline-none focus:border-violet-500/40"
+              />
+              {pollQuestion && (
+                <div className="space-y-1.5">
+                  {pollChoices.map((choice, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className="text-[10px] text-violet-300/60 w-4">{idx + 1}.</span>
+                      <input
+                        type="text"
+                        value={choice}
+                        onChange={(e) => {
+                          const next = [...pollChoices];
+                          next[idx] = e.target.value;
+                          setPollChoices(next);
+                        }}
+                        placeholder={["🟢 저평가 — 매수 타이밍", "🟡 적정가 — 관망", "🔴 고평가 — 조정 필요"][idx]}
+                        className="flex-1 bg-violet-950/20 border border-violet-500/15 rounded px-2.5 py-1.5 text-[11px] text-white placeholder-violet-300/25 focus:outline-none focus:border-violet-500/30"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── 세무/법률 클리닉 ── */}
+            <div className="space-y-3 p-4 bg-amber-950/15 border border-amber-500/15 rounded-xl">
+              <div className="flex items-center gap-2">
+                <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-xs font-bold text-amber-300">💰 세무·법률 클리닉 (선택)</span>
+              </div>
+              <p className="text-[10px] text-amber-200/50">
+                매수자가 가장 궁금해하는 절세/법인활용 1문1답을 매거진에 추가합니다.
+              </p>
+              <input
+                type="text"
+                value={taxQuestion}
+                onChange={(e) => setTaxQuestion(e.target.value)}
+                placeholder="Q. 법인 취득세 중과 범위는 어디까지인가요?"
+                className="w-full bg-amber-950/20 border border-amber-500/15 rounded-lg px-3 py-2 text-xs text-white placeholder-amber-300/25 focus:outline-none focus:border-amber-500/30"
+              />
+              {taxQuestion && (
+                <>
+                  <textarea
+                    value={taxAnswer}
+                    onChange={(e) => setTaxAnswer(e.target.value)}
+                    placeholder="A. 수도권 과밀억제권역 내 법인 취득 시 표준세율(4.6%) 대신 중과세율(9.4%)이 적용됩니다..."
+                    rows={3}
+                    className="w-full bg-amber-950/20 border border-amber-500/15 rounded-lg px-3 py-2 text-xs text-white placeholder-amber-300/25 focus:outline-none focus:border-amber-500/30"
+                  />
+                  <input
+                    type="text"
+                    value={taxSource}
+                    onChange={(e) => setTaxSource(e.target.value)}
+                    placeholder="출처: 지방세법 제13조의2 (선택)"
+                    className="w-full bg-amber-950/10 border border-amber-500/10 rounded px-3 py-1.5 text-[10px] text-slate-400 placeholder-amber-300/20 focus:outline-none"
+                  />
+                </>
+              )}
+            </div>
+
+            {/* ── 섹션 순서 커스터마이저 ── */}
+            <div className="space-y-3 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
+              <div className="flex items-center gap-2">
+                <Target className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="text-xs font-bold text-slate-200">섹션 순서 편집</span>
+              </div>
+              <p className="text-[10px] text-slate-500">
+                매거진 섹션의 노출 순서를 조절합니다. 이번 주 핵심 콘텐츠를 상단에 배치하세요.
+              </p>
+              <div className="space-y-1">
+                {sectionOrder.map((sec, idx) => {
+                  const LABELS: Record<string, string> = {
+                    ai_briefing: "🤖 AI 브리핑",
+                    field_note: "🏗️ 필드노트",
+                    theme_of_week: "🎯 주간 테마",
+                    featured_deals: "🏢 추천 매물",
+                    poll: "📊 투표",
+                    market_data: "📈 시장 데이터",
+                    news_curation: "📰 뉴스",
+                    tax_clinic: "💰 세무 클리닉",
+                    auction_picks: "⚖️ 경매",
+                    sentiment_index: "🌡️ 심리지수",
+                    roi_calculator: "🧮 수지분석 계산기",
+                    referral: "🎁 추천 레퍼럴",
+                  };
+                  return (
+                    <div key={sec} className="flex items-center gap-2 bg-slate-900/50 rounded-lg px-3 py-1.5">
+                      <span className="text-[10px] text-slate-600 w-4">{idx + 1}</span>
+                      <span className="text-[11px] text-slate-300 flex-1">{LABELS[sec] || sec}</span>
+                      <button
+                        onClick={() => {
+                          if (idx === 0) return;
+                          const next = [...sectionOrder];
+                          [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+                          setSectionOrder(next);
+                        }}
+                        disabled={idx === 0}
+                        className="text-[10px] text-slate-500 hover:text-white disabled:opacity-20 px-1"
+                      >▲</button>
+                      <button
+                        onClick={() => {
+                          if (idx === sectionOrder.length - 1) return;
+                          const next = [...sectionOrder];
+                          [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+                          setSectionOrder(next);
+                        }}
+                        disabled={idx === sectionOrder.length - 1}
+                        className="text-[10px] text-slate-500 hover:text-white disabled:opacity-20 px-1"
+                      >▼</button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 원페이지 이미지 내보내기 & 미리보기 */}
+            {brokerSlug && (
+              <div className="space-y-3 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Newspaper className="w-3.5 h-3.5 text-indigo-400" />
+                    <span className="text-xs font-bold text-slate-200">원페이지 이미지 (1080x1920)</span>
+                  </div>
+                  <span className="text-[10px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full font-bold">
+                    카톡/스토리 최적화
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  링크 클릭 없이 메신저에서 즉시 읽을 수 있는 고해상도 요약 이미지입니다.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      const todayStr = new Date().toISOString().slice(0, 10);
+                      const imgUrl = `/api/magazine/${brokerSlug}/${todayStr}/image?format=story`;
+                      try {
+                        toast.info("이미지 생성 및 다운로드 중...");
+                        const res = await fetch(imgUrl);
+                        const blob = await res.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `CRE-Magazine-${brokerSlug}-${todayStr}.png`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        toast.success("원페이지 이미지가 다운로드되었습니다!");
+                      } catch {
+                        toast.error("이미지 다운로드에 실패했습니다.");
+                      }
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-600/30 text-xs font-bold transition-all"
+                  >
+                    ⬇️ 이미지 다운로드
+                  </button>
+                  <button
+                    onClick={() => {
+                      const todayStr = new Date().toISOString().slice(0, 10);
+                      const imgUrl = `https://www.credeal.net/api/magazine/${brokerSlug}/${todayStr}/image?format=story`;
+                      navigator.clipboard.writeText(imgUrl);
+                      toast.success("이미지 URL이 복사되었습니다.");
+                    }}
+                    className="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 text-xs font-bold transition-all"
+                  >
+                    🔗 URL 복사
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* 에디션 아카이브 링크 */}
             {brokerSlug && (
               <Link
@@ -1330,25 +1588,39 @@ function MagazineEditorInner() {
             <div className="space-y-3 p-4 border border-rose-500/20 bg-gradient-to-br from-rose-950/30 to-pink-950/20 rounded-xl">
               <div className="flex items-center gap-2">
                 <Flame className="w-4 h-4 text-rose-400" />
-                <span className="text-xs font-bold text-rose-300">매수자 관심 점수 (가상 데이터)</span>
-                <span className="ml-auto text-[10px] bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full">3명</span>
+                <span className="text-xs font-bold text-rose-300">매수자 관심 점수</span>
+                <span className="ml-auto text-[10px] bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full">{topLeads.length}명</span>
               </div>
               <div className="space-y-2">
-                {[
-                  { name: "김*진", score: 95, action: "최근 3일 연속 매거진 열람" },
-                  { name: "박*호", score: 82, action: "특정 매물(강남 빌딩) 2회 조회" },
-                  { name: "이*영", score: 78, action: "링크 클릭 후 3분 체류" }
-                ].map((lead, idx) => (
-                  <div key={idx} className="flex items-center justify-between bg-black/20 p-2 rounded-lg border border-white/5">
-                    <div>
-                      <p className="text-[11px] font-bold text-slate-200">{lead.name}</p>
-                      <p className="text-[9px] text-slate-400">{lead.action}</p>
+                {topLeads.length === 0 ? (
+                  <p className="text-[10px] text-slate-500 text-center py-3">구독자 데이터가 아직 없습니다.</p>
+                ) : (
+                  topLeads.map((lead: any) => (
+                    <div key={lead.id} className="flex items-center justify-between bg-black/20 p-2 rounded-lg border border-white/5">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="text-sm w-6 h-6 flex items-center justify-center rounded"
+                          style={{ background: lead.temperatureConfig?.badgeBg || 'rgba(100,116,139,0.1)' }}
+                        >
+                          {lead.buyerTemperature?.charAt(0) || '⚪'}
+                        </span>
+                        <div>
+                          <p className="text-[11px] font-bold text-slate-200">{lead.subscriber_name}</p>
+                          <p className="text-[9px] text-slate-400">{lead.subscriber_phone}</p>
+                        </div>
+                      </div>
+                      <span
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                        style={{
+                          background: lead.temperatureConfig?.badgeBg || 'rgba(100,116,139,0.1)',
+                          color: lead.temperatureConfig?.color || '#64748b',
+                        }}
+                      >
+                        {lead.buyerTemperature || '미확인'}
+                      </span>
                     </div>
-                    <div className="text-right">
-                      <span className="text-xs font-black text-rose-400">{lead.score}점</span>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 

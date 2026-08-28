@@ -17,6 +17,7 @@ import {
 } from './types';
 import { runMagazineQualityGate } from './quality-gate';
 import { generateMagazineTeaserCards } from './magazine-teaser-cards';
+import { summarizeMonthlyTransactions } from '@/domain/external/monthly-transaction-summary';
 
 // ── 타입 정의 ──────────────────────────────────────────────────────
 
@@ -428,6 +429,55 @@ const generateLLMContent = async (
   }
 };
 
+/**
+ * 구독자 관심사(권역, 자산유형, 토픽, 취미)에 맞춘 2~3줄 개인화 인서트 생성.
+ * 배포 시 카카오 알림톡 및 이메일에 동적 삽입됩니다.
+ */
+export async function generatePersonalizedInsert(
+  interestTags: { regions?: string[]; assetTypes?: string[]; topics?: string[]; hobbies?: string[] },
+  editionSummary: { theme_title?: string; ai_briefing?: string },
+  recentNews?: Array<{ title: string; source?: string }>,
+): Promise<string> {
+  if (!interestTags || (!interestTags.regions?.length && !interestTags.topics?.length && !interestTags.assetTypes?.length)) {
+    return "";
+  }
+
+  const regionsStr = interestTags.regions?.join(", ") || "서울 전역";
+  const assetsStr = interestTags.assetTypes?.join(", ") || "상업용 자산";
+  const topicsStr = interestTags.topics?.join(", ") || "부동산 투자";
+  const hobbiesStr = interestTags.hobbies?.length ? `고객 라이프스타일/취미: ${interestTags.hobbies.join(", ")}` : "";
+
+  try {
+    const relevantNews = (recentNews || [])
+      .filter((n) => interestTags.regions?.some((r) => n.title.includes(r)))
+      .slice(0, 3);
+
+    const newsContext = relevantNews.length
+      ? `관련 권역 뉴스:\n${relevantNews.map((n) => `- ${n.title}`).join("\n")}`
+      : `에디션 테마: ${editionSummary.theme_title || ""}`;
+
+    const res = await callLLM({
+      systemPrompt: `당신은 상업용 부동산 전문 중개사의 1:1 고객 전담 비서입니다.
+고객 관심 정보:
+- 희망 권역: ${regionsStr}
+- 관심 자산: ${assetsStr}
+- 관심 분야: ${topicsStr}
+${hobbiesStr}
+
+위 고객에게 이번 주 리포트에서 가장 주목해야 할 점을 2~3줄로 친근하면서도 전문적인 존댓말로 요약하세요. (120자 내외, 핵심 키워드 강조)`,
+      userPrompt: newsContext,
+      model: "gpt-5.4",
+      temperature: 0.6,
+      maxTokens: 250,
+    });
+
+    return res.content.trim().replace(/^["']|["']$/g, "");
+  } catch (err) {
+    console.warn("[generatePersonalizedInsert] Fallback used:", err);
+    return `${regionsStr} 권역의 ${assetsStr} 실거래 동향과 금주 시장 분석 포인트를 확인해보세요.`;
+  }
+}
+
 // ── 메인: 주간 매거진 생성 ─────────────────────────────────────────
 
 /**
@@ -498,11 +548,23 @@ export const generateWeeklyMagazine = async (params: {
     deals.map((d: any) => ({ id: d.id, attrs: d.attrs || {} }))
   );
 
+  // 5.5. 월간 실거래 동향 집계 (매월 첫째 주 에디션 또는 요청 시)
+  let monthlySummary: any[] = [];
+  try {
+    const todayObj = new Date();
+    const prevMonthStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() === 0 ? 12 : todayObj.getMonth()).padStart(2, '0')}`;
+    const targetRegions = brokerCtx.broker.specialty_regions?.length ? brokerCtx.broker.specialty_regions : ['성수동', '강남구'];
+    monthlySummary = await summarizeMonthlyTransactions(supabase, prevMonthStr, targetRegions);
+  } catch (err) {
+    console.warn('[WeeklyGenerator] Failed to summarize monthly transactions:', err);
+  }
+
   const contentPayload = {
     // view가 기대하는 키명: briefing, headline (ai_briefing 대신)
     briefing: briefingText,
     headline: headlineLine,
     ai_briefing: briefingText, // 하위호환
+    monthlySummary,
     broker: {
       name: brokerCtx.profile.display_name ?? '',
       slug: brokerCtx.broker.slug ?? brokerId,

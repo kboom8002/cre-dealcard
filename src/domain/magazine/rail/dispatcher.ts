@@ -67,10 +67,28 @@ export async function dispatchEdition(
 }
 
 import { createServiceClient } from '@/lib/supabase/service';
+import { sendMagazineEmail } from '@/lib/notification/email-service';
 
-// Channel implementations (stubs - integrate with actual email service)
+// Channel implementations
 async function sendWeeklyEmail(target: DispatchTarget, html: string): Promise<void> {
   const supabase = createServiceClient();
+
+  if (target.email) {
+    try {
+      await sendMagazineEmail({
+        to: target.email,
+        brokerName: 'CRE DealCard',
+        subscriberName: '고객',
+        magazineTitle: 'CRE 위클리 매거진',
+        headline: '이번 주 상업용 부동산 시장 인사이트입니다.',
+        magazineUrl: 'https://www.credeal.net/magazine',
+        imageUrl: '',
+      });
+    } catch (err) {
+      console.warn(`[rail] Failed to send email to ${target.email}:`, err);
+    }
+  }
+
   const { error } = await supabase.from('dispatch_logs').insert({
     subscriber_id: target.subscriberId,
     email: target.email,

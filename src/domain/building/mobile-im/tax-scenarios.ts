@@ -69,7 +69,7 @@ const TAX_RATES = {
   acquisition: {
     individual: BASE_ACQUISITION_TAX_RATE, // 4.6%
     corporate: BASE_ACQUISITION_TAX_RATE,  // 4.6%
-    corporateHeavy: BASE_ACQUISITION_TAX_RATE * 2, // 과밀억제권역 중과세율 (9.2%)
+    corporateHeavy: 0.094,                  // 과밀억제권역 중과세율 (9.4% - 지방세법 제13조 제2항)
   },
   propertyTax: {
     rate: 0.004, // 공시지가 대비 0.4%
@@ -211,7 +211,7 @@ export function compareTaxScenarios(input: TaxScenarioInput): TaxComparisonOutpu
       netYieldAfterTaxPct: corporateNetYield,
       notes: [
         `법인세 적용 (9~24%)`,
-        isMetropolitanArea ? '⚠️ 과밀억제권역 취득세 중과 (9.2%) 적용' : '표준 취득세율 (4.6%) 적용',
+        isMetropolitanArea ? '⚠️ 과밀억제권역 취득세 중과 (9.4%) 적용' : '표준 취득세율 (4.6%) 적용',
         '감가상각비 및 이자비용 손산 반영 가능',
       ],
     },

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getBuyerTemperature } from "@/domain/magazine/buyer-temperature";
 
-// GET /api/broker/magazine/subscribers - 내 구독자 목록 조회
+// GET /api/broker/magazine/subscribers - 내 구독자 목록 조회 (매수 온도 포함)
 export async function GET(request: Request) {
   try {
     const supabase = await createServerSupabaseClient();
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status"); // active, paused, unsubscribed
     const channel = searchParams.get("channel"); // kakao, email, both
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const limit = parseInt(searchParams.get("limit") || "50");
     const offset = parseInt(searchParams.get("offset") || "0");
 
     let query = supabase
@@ -38,8 +39,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // 매수 온도 5단계 자동 라벨링 병합
+    const enrichedSubscribers = (data || []).map((sub: any) => {
+      const tempTier = getBuyerTemperature(sub.interest_profile);
+      return {
+        ...sub,
+        buyerTemperature: tempTier.label,
+        temperatureConfig: tempTier,
+      };
+    });
+
     return NextResponse.json({
-      subscribers: data || [],
+      subscribers: enrichedSubscribers,
       total: count || 0,
     });
   } catch (err: any) {
@@ -48,7 +59,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/broker/magazine/subscribers - 구독자 수동 추가
+// POST /api/broker/magazine/subscribers - 구독자 추가 (관심사 및 client_id 지원)
 export async function POST(request: Request) {
   try {
     const supabase = await createServerSupabaseClient();
@@ -59,7 +70,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { phone, name, email, channel } = body;
+    const { phone, name, email, channel, client_id, interest_tags, interest_profile } = body;
 
     if (!phone || !name) {
       return NextResponse.json({ error: "이름과 전화번호는 필수 입력 항목입니다." }, { status: 400 });
@@ -78,6 +89,9 @@ export async function POST(request: Request) {
           channel: channel || "kakao",
           status: "active",
           source: "manual",
+          client_id: client_id || null,
+          interest_tags: interest_tags || {},
+          interest_profile: interest_profile || {},
           subscribed_at: new Date().toISOString(),
         },
         { onConflict: "broker_id,subscriber_phone" }

@@ -60,6 +60,9 @@ export type EditionStatus =
 // ── 에디션 유형 ────────────────────────────────────────────────────
 export type EditionType = 'daily' | 'weekly' | 'monthly' | 'special';
 
+// ── 매거진 이미지 포맷 ───────────────────────────────────────────────
+export type MagazineImageFormat = 'story' | 'card' | 'og';
+
 // ── 브로커 현장 노트 (5필드) ──────────────────────────────────────
 export interface BrokerFieldNote {
   question: string;        // 이번 주 시장을 한 문장으로?

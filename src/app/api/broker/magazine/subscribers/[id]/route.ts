@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-// PATCH /api/broker/magazine/subscribers/[id] - 구독자 상태 변경
+// PATCH /api/broker/magazine/subscribers/[id] - 구독자 상태 및 관심사 정보 수정
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -17,17 +17,27 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { status } = body; // active, paused, unsubscribed
+    const { status, interest_tags, interest_profile, channel, subscriber_name, subscriber_email, subscriber_phone } = body;
 
-    if (!status || !["active", "paused", "unsubscribed"].includes(status)) {
-      return NextResponse.json({ error: "올바르지 않은 상태 값입니다." }, { status: 400 });
+    const updateFields: any = {};
+
+    if (status) {
+      if (!["active", "paused", "unsubscribed"].includes(status)) {
+        return NextResponse.json({ error: "올바르지 않은 상태 값입니다." }, { status: 400 });
+      }
+      updateFields.status = status;
+      updateFields.unsubscribed_at = status === "unsubscribed" ? new Date().toISOString() : null;
     }
 
-    const updateFields: any = { status };
-    if (status === "unsubscribed") {
-      updateFields.unsubscribed_at = new Date().toISOString();
-    } else {
-      updateFields.unsubscribed_at = null;
+    if (interest_tags !== undefined) updateFields.interest_tags = interest_tags;
+    if (interest_profile !== undefined) updateFields.interest_profile = interest_profile;
+    if (channel && ["kakao", "email", "both"].includes(channel)) updateFields.channel = channel;
+    if (subscriber_name !== undefined) updateFields.subscriber_name = subscriber_name;
+    if (subscriber_email !== undefined) updateFields.subscriber_email = subscriber_email;
+    if (subscriber_phone !== undefined) updateFields.subscriber_phone = subscriber_phone.replace(/[^0-9]/g, "");
+
+    if (Object.keys(updateFields).length === 0) {
+      return NextResponse.json({ error: "수정할 항목이 제공되지 않았습니다." }, { status: 400 });
     }
 
     const { data, error } = await supabase

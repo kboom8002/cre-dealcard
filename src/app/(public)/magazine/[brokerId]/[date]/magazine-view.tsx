@@ -6,11 +6,13 @@ import { motion, useInView } from "motion/react";
 import {
   Phone, Share2, Check, Building2, Hammer, Globe, BookOpen, ArrowRight,
   Sparkles, Newspaper, ChevronDown, MessageSquare, TrendingUp, BarChart3,
-  Copy, Target, Lightbulb, PenLine,
+  Copy, Target, Lightbulb, PenLine, Calculator, Gift, Users,
 } from "lucide-react";
 import { useMagazineAnalytics } from "@/hooks/use-magazine-analytics";
 import { SubscribeCard } from "@/components/magazine/SubscribeCard";
 import { FlatProfileCard } from "@/components/broker/flat-profile-card";
+import { ActionCardView } from "@/components/im/action-card-view";
+import { RoiCalculator } from "@/components/magazine/RoiCalculator";
 
 // ── Inline MARKET_TEMP_CONFIG (avoid server/client boundary import) ──
 const MARKET_TEMP_CONFIG: Record<string, { emoji: string; color: string; description: string }> = {
@@ -160,7 +162,8 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
   const recentTxs = Array.isArray(data.recentTransactions) ? data.recentTransactions : [];
   const rentalTrend = data.rentalTrend as any;
   const commercialDistrict = data.commercialDistrict as any;
-  const hasMarketData = recentTxs.length > 0 || rentalTrend || commercialDistrict;
+  const monthlySummary = data.monthlySummary as any;
+  const hasMarketData = recentTxs.length > 0 || rentalTrend || commercialDistrict || monthlySummary;
 
   // ── News (now news_curation) ──
   const topNews: any[] = Array.isArray(data.topNews) ? data.topNews : Array.isArray(data.news_curation) ? data.news_curation : [];
@@ -168,6 +171,16 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
   // ── Extras ──
   const auctionPicks: any[] = Array.isArray(data.auctionPicks) ? data.auctionPicks : [];
   const reports: any[] = Array.isArray(data.reports) ? data.reports : [];
+
+  // ── Read time estimate (Korean ~400 chars/min) ──
+  const readTimeMin = useMemo(() => {
+    const texts = [
+      data.briefing, data.headline, themeBodyMd,
+      fieldNote.question, fieldNote.buyerReaction, fieldNote.sellerReaction, fieldNote.marketJudgment, fieldNote.comment,
+      ...topNews.map((n: any) => `${n.title} ${n.summary}`),
+    ].filter(Boolean).join('');
+    return Math.max(2, Math.ceil(texts.length / 400));
+  }, [data.briefing, data.headline, themeBodyMd, fieldNote, topNews]);
 
   // ── Theme-matched deals ──
   const themeDeals = useMemo(() => {
@@ -409,6 +422,11 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
                     상세 정보
                   </a>
                 </div>
+                {deal.actionCard && (
+                  <div className="px-3 pb-3 border-t border-white/5 pt-2">
+                    <ActionCardView actionCard={deal.actionCard} />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -507,6 +525,36 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
                   </div>
                 </div>
                 <p className="text-[9px] text-slate-600 mt-1">{commercialDistrict.district_name}</p>
+              </div>
+            )}
+            {monthlySummary && (
+              <div>
+                <p className="text-[10px] font-bold text-violet-300 mb-2 flex items-center gap-1">📊 월간 실거래 요약 <span className="text-[9px] text-violet-300/60 bg-violet-500/12 px-1.5 py-0.5 rounded-full ml-1">{monthlySummary.period || '최근'}</span></p>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-white/4 border border-white/8 rounded-xl p-2.5 text-center">
+                    <p className="text-[16px] font-extrabold text-violet-300">{monthlySummary.totalCount ?? '—'}<span className="text-[9px] font-normal">건</span></p>
+                    <p className="text-[9px] text-slate-500 mt-0.5">거래 건수</p>
+                  </div>
+                  <div className="bg-white/4 border border-white/8 rounded-xl p-2.5 text-center">
+                    <p className="text-[16px] font-extrabold text-violet-300">{monthlySummary.avgPrice ?? '—'}</p>
+                    <p className="text-[9px] text-slate-500 mt-0.5">평균 거래가</p>
+                  </div>
+                  <div className="bg-white/4 border border-white/8 rounded-xl p-2.5 text-center">
+                    <p className={`text-[16px] font-extrabold ${(monthlySummary.changeRate ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                      {(monthlySummary.changeRate ?? 0) >= 0 ? '+' : ''}{monthlySummary.changeRate ?? '—'}%
+                    </p>
+                    <p className="text-[9px] text-slate-500 mt-0.5">전월 대비</p>
+                  </div>
+                </div>
+                {Array.isArray(monthlySummary.usageDistribution) && monthlySummary.usageDistribution.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {monthlySummary.usageDistribution.slice(0, 5).map((u: any, i: number) => (
+                      <span key={i} className="text-[9px] bg-violet-500/10 text-violet-300 px-2 py-0.5 rounded-full border border-violet-500/15">
+                        {u.usage || u.type} {u.count}건 ({u.ratio || u.percentage}%)
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -617,8 +665,181 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
     </div>
   );
 
+  // ── Poll (1-Click 투표) ─────────────────────────────────────────
+  const poll = data.poll as { question: string; choices: string[] } | null | undefined;
+  const [pollVoted, setPollVoted] = useState<number | null>(null);
+  const [pollResults, setPollResults] = useState<{ total: number; counts: Record<number, number> } | null>(null);
+
+  const handlePollVote = useCallback(async (choiceIdx: number) => {
+    setPollVoted(choiceIdx);
+    try {
+      const res = await fetch('/api/public/magazine/poll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brokerId, editionDate: date, choice: choiceIdx }),
+      });
+      const json = await res.json();
+      if (json.results) setPollResults(json.results);
+    } catch { /* silent */ }
+  }, [brokerId, date]);
+
+  const POLL_COLORS = ['#34d399', '#fbbf24', '#f87171'];
+
+  const renderPoll = () => !poll?.question || !poll.choices?.length ? null : (
+    <div data-section-id="poll" ref={sectionRef('poll')}>
+      <Section delay={0.32}>
+        <SectionCard title="📊 이번 주 투표" icon={<BarChart3 className="w-4 h-4 text-violet-400" />} defaultOpen>
+          <div className="space-y-3">
+            <p className="text-[13px] font-bold text-white leading-snug">{poll.question}</p>
+            <div className="space-y-2">
+              {poll.choices.map((choice, idx) => {
+                const voted = pollVoted !== null;
+                const isSelected = pollVoted === idx;
+                const pct = pollResults && pollResults.total > 0
+                  ? Math.round(((pollResults.counts[idx] || 0) / pollResults.total) * 100)
+                  : 0;
+                const color = POLL_COLORS[idx] || '#94a3b8';
+
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => !voted && handlePollVote(idx)}
+                    disabled={voted}
+                    className={`w-full text-left rounded-xl border p-3 transition-all relative overflow-hidden ${
+                      voted
+                        ? isSelected
+                          ? 'border-white/20 bg-white/[0.06]'
+                          : 'border-white/5 bg-white/[0.02] opacity-60'
+                        : 'border-white/10 bg-white/[0.04] hover:bg-white/[0.08] hover:border-white/20 active:scale-[0.98] cursor-pointer'
+                    }`}
+                  >
+                    {voted && (
+                      <div
+                        className="absolute inset-y-0 left-0 rounded-xl opacity-15 transition-all duration-700"
+                        style={{ width: `${pct}%`, background: color }}
+                      />
+                    )}
+                    <div className="relative flex items-center justify-between">
+                      <span className="text-[12px] text-slate-200 font-medium">{choice}</span>
+                      {voted && (
+                        <span className="text-[11px] font-bold" style={{ color }}>
+                          {pct}%
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            {pollResults && (
+              <p className="text-[9px] text-slate-600 text-center">총 {pollResults.total}명 참여</p>
+            )}
+          </div>
+        </SectionCard>
+      </Section>
+    </div>
+  );
+
+  // ── Tax/Legal Clinic (세무 클리닉) ──────────────────────────────
+  const taxClinic = data.tax_clinic as { question?: string; answer?: string; source?: string } | null | undefined;
+
+  const renderTaxClinic = () => !taxClinic?.question || !taxClinic?.answer ? null : (
+    <div data-section-id="tax_clinic" ref={sectionRef('tax_clinic')}>
+      <Section delay={0.3}>
+        <SectionCard title="💰 세무·법률 클리닉" icon={<Lightbulb className="w-4 h-4 text-amber-400" />} defaultOpen>
+          <div className="space-y-3">
+            <div className="bg-amber-500/5 border border-amber-500/15 rounded-xl p-3">
+              <p className="text-[12px] font-bold text-amber-300 mb-1">Q. {taxClinic.question}</p>
+            </div>
+            <div className="text-[12px] text-slate-300 leading-relaxed whitespace-pre-line">
+              {taxClinic.answer}
+            </div>
+            {taxClinic.source && (
+              <p className="text-[9px] text-slate-600 border-t border-white/5 pt-2">
+                📎 {taxClinic.source}
+              </p>
+            )}
+          </div>
+        </SectionCard>
+      </Section>
+    </div>
+  );
+
+  // ── ROI Calculator (수지분석 계산기) ────────────────────────────
+  const renderRoiCalculator = () => (
+    <div data-section-id="roi_calculator" ref={sectionRef('roi_calculator')}>
+      <Section delay={0.28}>
+        <SectionCard title="🧮 수지분석 계산기" icon={<Calculator className="w-4 h-4 text-emerald-400" />} defaultOpen>
+          <RoiCalculator accentColor={accent} />
+        </SectionCard>
+      </Section>
+    </div>
+  );
+
+  // ── Referral Growth Loop (추천 레퍼럴) ──────────────────────────
+  const [referralUrl, setReferralUrl] = useState('');
+  const [referralCopied, setReferralCopied] = useState(false);
+
+  const renderReferral = () => {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://credeal.net';
+    const refLink = `${baseUrl}/magazine/${brokerId}?ref=share`;
+
+    return (
+      <div data-section-id="referral" ref={sectionRef('referral')}>
+        <Section delay={0.36}>
+          <div className="bg-gradient-to-br from-indigo-500/10 via-violet-500/5 to-transparent border border-indigo-500/15 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <Gift className="w-4 h-4 text-indigo-400" />
+              <span className="text-[13px] font-extrabold text-white">이 매거진이 유익했나요?</span>
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              주변 투자자에게 공유하고 특별한 리워드를 받으세요!
+            </p>
+
+            {/* 마일스톤 프로그레스 */}
+            <div className="space-y-2">
+              {[
+                { count: 1, reward: "📊 비공개 시장 분석 리포트", color: "#6ee7b7" },
+                { count: 3, reward: "📈 엑셀 수지분석기", color: "#fbbf24" },
+                { count: 5, reward: "🏢 비공개 딜 시트 열람권", color: "#818cf8" },
+                { count: 10, reward: "📞 브로커 1:1 자문 30분", color: "#f472b6" },
+              ].map((ms) => (
+                <div key={ms.count} className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full border flex items-center justify-center text-[8px] font-bold"
+                    style={{ borderColor: `${ms.color}50`, color: ms.color }}>
+                    {ms.count}
+                  </div>
+                  <span className="text-[10px] text-slate-400 flex-1">{ms.reward}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* 공유 링크 */}
+            <div className="flex gap-2">
+              <input
+                readOnly
+                value={refLink}
+                className="flex-1 bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[10px] text-slate-400 truncate"
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(refLink);
+                  setReferralCopied(true);
+                  setTimeout(() => setReferralCopied(false), 2000);
+                }}
+                className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold rounded-lg transition-colors shrink-0"
+              >
+                {referralCopied ? "✓ 복사됨" : "링크 복사"}
+              </button>
+            </div>
+          </div>
+        </Section>
+      </div>
+    );
+  };
+
   // ═══════════════════════════════════════════════════════════════════
-  //  TARGET-SEGMENT SECTION ORDERING
+  //  TARGET-SEGMENT SECTION ORDERING (with custom order support)
   // ═══════════════════════════════════════════════════════════════════
 
   const buildSections = (): React.ReactNode[] => {
@@ -633,12 +854,41 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
       </div>
     );
 
-    if (target === "buyer") {
+    // Section render map
+    const SECTION_RENDERERS: Record<string, () => React.ReactNode | null> = {
+      ai_briefing: renderAiBriefing,
+      field_note: renderFieldNote,
+      theme_of_week: renderThemeOfWeek,
+      featured_deals: renderFeaturedDeals,
+      poll: renderPoll,
+      market_data: renderMarketData,
+      news_curation: renderNewsCuration,
+      tax_clinic: renderTaxClinic,
+      auction_picks: renderAuctionPicks,
+      reports: renderReports,
+      sentiment_index: renderSentimentIndex,
+      roi_calculator: renderRoiCalculator,
+      referral: renderReferral,
+    };
+
+    // Custom section order from edition data
+    const customOrder = data.section_order as string[] | null | undefined;
+
+    if (customOrder && Array.isArray(customOrder) && customOrder.length > 0) {
+      // Custom order: render sections in specified order, then subscribe + profile
+      for (const secId of customOrder) {
+        const renderer = SECTION_RENDERERS[secId];
+        if (renderer) push(secId, renderer());
+      }
+      push("subscribe_cta", renderSubscribeCard());
+      push("broker_profile", renderBrokerProfile());
+    } else if (target === "buyer") {
       // Buyer-focused: deals + theme first, market data in extras
       push("ai_briefing", renderAiBriefing());
       push("field_note", renderFieldNote());
       push("featured_deals", renderFeaturedDeals());
       push("theme_of_week", renderThemeOfWeek());
+      push("poll", renderPoll());
       push("subscribe_cta", renderSubscribeCard());
       push("broker_profile", renderBrokerProfile());
       // Extras
@@ -647,6 +897,9 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
       push("auction_picks", renderAuctionPicks());
       push("reports", renderReports());
       push("sentiment_index", renderSentimentIndex());
+      push("tax_clinic", renderTaxClinic());
+      push("roi_calculator", renderRoiCalculator());
+      push("referral", renderReferral());
     } else if (target === "seller") {
       // Seller-focused: market data + transactions prominent
       push("ai_briefing", renderAiBriefing());
@@ -655,18 +908,23 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
       push("sentiment_index", renderSentimentIndex());
       push("featured_deals", renderFeaturedDeals());
       push("theme_of_week", renderThemeOfWeek());
+      push("poll", renderPoll());
       push("subscribe_cta", renderSubscribeCard());
       push("broker_profile", renderBrokerProfile());
       // Extras
       push("news_curation", renderNewsCuration());
       push("auction_picks", renderAuctionPicks());
       push("reports", renderReports());
+      push("tax_clinic", renderTaxClinic());
+      push("roi_calculator", renderRoiCalculator());
+      push("referral", renderReferral());
     } else {
       // Default (all): Standard MVP order
       push("ai_briefing", renderAiBriefing());
       push("field_note", renderFieldNote());
       push("theme_of_week", renderThemeOfWeek());
       push("featured_deals", renderFeaturedDeals());
+      push("poll", renderPoll());
       push("subscribe_cta", renderSubscribeCard());
       push("broker_profile", renderBrokerProfile());
       // Extras (collapsed)
@@ -675,6 +933,9 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
       push("auction_picks", renderAuctionPicks());
       push("reports", renderReports());
       push("sentiment_index", renderSentimentIndex());
+      push("tax_clinic", renderTaxClinic());
+      push("roi_calculator", renderRoiCalculator());
+      push("referral", renderReferral());
     }
 
     return sections;
@@ -727,7 +988,10 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
 
           {/* Date + Title */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="relative">
-            <p className="text-[12px] text-slate-500 mb-1.5">{dateLabel} {weekday}요일</p>
+            <p className="text-[12px] text-slate-500 mb-1.5 flex items-center gap-2">
+              <span>{dateLabel} {weekday}요일</span>
+              <span className="text-[10px] bg-indigo-500/10 text-indigo-300/80 px-2 py-0.5 rounded-full border border-indigo-500/15">⏱ {readTimeMin}분 완독</span>
+            </p>
             <h1 className="text-[26px] font-extrabold text-white leading-tight tracking-tight mb-2">CRE 위클리 매거진</h1>
 
             {/* Market temperature badge */}

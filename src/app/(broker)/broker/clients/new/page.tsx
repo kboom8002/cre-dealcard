@@ -60,12 +60,17 @@ export default function NewClientPage() {
           );
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
-            await supabase.from('magazine_subscribers').insert({
+            const formattedPhone = phone ? phone.replace(/[^0-9]/g, '') : null;
+            await supabase.from('magazine_subscribers').upsert({
               broker_id: user.id,
-              email: email.trim(),
-              name: displayName.trim(),
+              client_id: data.id,
+              subscriber_phone: formattedPhone,
+              subscriber_email: email.trim() || null,
+              subscriber_name: displayName.trim(),
+              channel: formattedPhone ? 'both' : 'email',
+              status: 'active',
               source: 'crm_sync',
-            });
+            }, { onConflict: formattedPhone ? 'broker_id,subscriber_phone' : undefined });
           }
         } catch (err) {
           console.error('Magazine sync failed:', err);

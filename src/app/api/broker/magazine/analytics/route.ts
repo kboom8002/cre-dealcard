@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const supabaseAuth = await createServerSupabaseClient();
     const { data: { user } } = await supabaseAuth.auth.getUser();
@@ -13,7 +13,55 @@ export async function GET() {
     }
 
     const supabase = createServiceClient();
+    const { searchParams } = new URL(req.url);
+    const subscriberId = searchParams.get("subscriberId");
 
+    // ── 구독자별 상세 행동 드릴다운 ──
+    if (subscriberId) {
+      // 1. 구독자 정보 검증 (내 구독자인지 확인)
+      const { data: sub, error: subError } = await supabase
+        .from("magazine_subscribers")
+        .select("id, subscriber_name, subscriber_phone, subscriber_email, segment, channel, interest_tags, interest_profile, status, subscribed_at")
+        .eq("id", subscriberId)
+        .eq("broker_id", user.id)
+        .maybeSingle();
+
+      if (subError || !sub) {
+        return NextResponse.json({ error: "해당 구독자를 찾을 수 없습니다." }, { status: 404 });
+      }
+
+      // 2. 최근 30일 해당 구독자 이벤트 조회
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+      const { data: events } = await supabase
+        .from("magazine_analytics_events")
+        .select("id, event_type, edition_id, scroll_pct, dwell_seconds, section_id, target_url, created_at")
+        .or(`visitor_id.eq.${subscriberId},metadata->>subscriber_id.eq.${subscriberId}`)
+        .gte("created_at", thirtyDaysAgo)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      const eventList = events || [];
+      const views = eventList.filter(e => e.event_type === "page_view").length;
+      const dwells = eventList.filter(e => e.event_type === "dwell" && e.dwell_seconds != null);
+      const avgDwell = dwells.length > 0
+        ? Math.round(dwells.reduce((sum, e) => sum + (e.dwell_seconds || 0), 0) / dwells.length)
+        : 0;
+
+      const viewedSections = [...new Set(eventList.map(e => e.section_id).filter(Boolean))];
+
+      return NextResponse.json({
+        subscriber: sub,
+        analytics: {
+          totalViews: views,
+          avgDwellSeconds: avgDwell,
+          lastActivityAt: eventList[0]?.created_at || null,
+          viewedSections,
+          recentEvents: eventList.slice(0, 30),
+        },
+      });
+    }
+
+    // ── 전체 브로커 매거진 성과 대시보드 ──
     // 1. broker slug 조회
     const { data: bp } = await supabase
       .from("broker_profiles")

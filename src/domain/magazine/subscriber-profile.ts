@@ -14,6 +14,8 @@ export interface InterestProfile {
   preferredCapRate: { min: number; max: number };
   readArticleCount: number;
   lastEngagedAt: string;
+  topics?: string[];
+  hobbies?: string[];
 }
 
 export interface SubscriberProfile {
