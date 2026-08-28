@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-08-28T05:15:54.634Z",
+  "totalGates": 50,
+  "gatesPassed": 50,
+  "gatesFailed": 0,
+  "blocked": false,
+  "allPassed": true,
+  "failedBlockIds": [],
+  "failedWarnIds": [],
+  "durationMs": 1,
+  "gateCount": 50,
+  "context": "synthetic_baseline"
+}
