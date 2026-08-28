@@ -12,7 +12,6 @@ const multiCasePptxTests: MobileImPptxInput[] = [
   // 🏥 Case 1: [Income] 서초동 160억대 메디컬 빌딩 (Golden Institutional 테마, 4장 사진)
   {
     buildingId: "bld_case1_seocho_medical",
-    tier: "basic",
     preset: "golden_institutional",
     posture: "income",
     grade: "A",
@@ -59,7 +58,6 @@ const multiCasePptxTests: MobileImPptxInput[] = [
   // 👔 Case 2: [Owner-Occupier] 성수 IT밸리 130억대 단독 통사옥 (Pro Dark Obsidian 테마, 5장 사진)
   {
     buildingId: "bld_case2_seongsu_headquarter",
-    tier: "basic",
     preset: "pro_dark_obsidian",
     posture: "owner_occupied",
     grade: "A",
@@ -108,7 +106,6 @@ const multiCasePptxTests: MobileImPptxInput[] = [
   // 🛠️ Case 3: [Value-Add] 신사동 가로수길 90억대 코너 밸류애드 (Pro Dark Obsidian 테마, 4장 사진)
   {
     buildingId: "bld_case3_sinsa_value_add",
-    tier: "basic",
     preset: "pro_dark_obsidian",
     posture: "trading",
     grade: "A",
@@ -155,7 +152,6 @@ const multiCasePptxTests: MobileImPptxInput[] = [
   // 🏗️ Case 4: [Development] 역삼동 테헤란로 코너 200억대 신축부지 (Golden Institutional 테마, 4장 사진)
   {
     buildingId: "bld_case4_yeoksam_development",
-    tier: "basic",
     preset: "golden_institutional",
     posture: "development",
     grade: "A",

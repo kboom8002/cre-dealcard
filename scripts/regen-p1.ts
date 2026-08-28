@@ -6,7 +6,6 @@ async function main() {
   const r = new MobileImPptxRenderer();
   const result = await r.render({
     buildingId: 'bld_P1',
-    tier: 'basic' as const,
     preset: 'credeal_signature',
     posture: 'income' as const,
     grade: 'B' as const,

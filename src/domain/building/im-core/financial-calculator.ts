@@ -14,7 +14,7 @@ import { randomUUID } from 'crypto';
 import type { FinancialInputs, FinancialOutputs } from '../mobile-im/financials';
 import { calculateFinancials } from '../mobile-im/financials';
 import { ClaimRegistry, type CreateClaimOptions } from './claim-registry';
-import type { Calculation, Deduction, YieldBasis } from './calculation';
+import { validateCalculation, type Calculation, type Deduction, type YieldBasis } from './calculation';
 import type { Claim } from './claim';
 
 // ── 계산 결과를 Claim으로 변환하는 매핑 ──
@@ -64,6 +64,12 @@ const INCOME_CLAIM_SPECS: FinancialClaimSpec[] = [
 
 const FORMULA_VERSION = 'v1.0.0';
 
+export interface FinancialCalcOutput {
+  claims: Claim[];
+  outputs: FinancialOutputs;
+  violations: string[];
+}
+
 // ── FinancialCalculator ──
 
 export class FinancialCalculator {
@@ -80,11 +86,7 @@ export class FinancialCalculator {
    *
    * @returns 등록된 Claim 배열 + 원본 FinancialOutputs + 위반 목록
    */
-  calculate(inputs: FinancialInputs): {
-    claims: Claim[];
-    outputs: FinancialOutputs;
-    violations: string[];
-  } {
+  calculate(inputs: FinancialInputs): FinancialCalcOutput {
     // 1. 기존 결정론적 계산 실행
     const outputs = calculateFinancials(inputs);
     const posture = inputs.posture ?? 'income';
@@ -119,6 +121,11 @@ export class FinancialCalculator {
         basis: spec.basis,
         deductions: deductions,
       } : undefined;
+
+      if (calc) {
+        const calcViolations = validateCalculation(calc);
+        allViolations.push(...calcViolations);
+      }
 
       const hasUserOpex = inputs.opexRatioPct != null || (inputs.mgmtFeeTotalManwon ?? 0) > 0;
 

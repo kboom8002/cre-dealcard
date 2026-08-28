@@ -266,7 +266,6 @@ async function renderPptx(imResult: any, externalData: ExternalDataSnapshot) {
   const renderer = new MobileImPptxRenderer();
   const pptxResult = await renderer.render({
     buildingId: 'e2e_dangsan_001',
-    tier: 'basic' as const,
     preset: 'credeal_signature',
     posture: 'income' as const,
     grade: 'B' as const,

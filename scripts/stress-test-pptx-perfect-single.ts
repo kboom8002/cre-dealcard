@@ -129,7 +129,6 @@ async function runPerfectSinglePptxTest() {
   // 4. PPTX 렌더러 입력 구성
   const pptxInput: MobileImPptxInput = {
     buildingId: caseData.id,
-    tier: "basic",
     preset: "golden_institutional",
     posture: "income",
     grade: "A",

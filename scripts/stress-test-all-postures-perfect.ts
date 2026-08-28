@@ -229,7 +229,6 @@ async function runAllPosturesPerfectTest() {
 
     const pptxInput: MobileImPptxInput = {
       buildingId: tc.id,
-      tier: "basic",
       preset: tc.preset,
       posture: tc.posture,
       grade: "A",

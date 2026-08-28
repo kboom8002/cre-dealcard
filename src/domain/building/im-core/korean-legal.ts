@@ -13,6 +13,7 @@ import type { ClaimRegistry } from './claim-registry';
 
 export type TransactionStructure = '일반과세' | '포괄양수도' | '미정';
 export type MgmtFeeStructure = '실비정산' | '정액' | '혼합';
+export type VatStructure = '과세' | '면세' | '포괄양수도' | '미정';
 
 export interface KoreanLegalFields {
   // v1 (D36 §3.4~§3.6)
@@ -38,6 +39,14 @@ export interface KoreanLegalFields {
   fire_safety_certificate: string | null;
   /** 정화조 용량 (근생 업종 변경 범위) */
   septic_tank_capacity: string | null;
+
+  // v3 (D41 S8: 권리금 · VAT 축)
+  /** 권리금 존재 여부 */
+  premium_exists: boolean | null;
+  /** 권리금 추정액 (원) */
+  premium_estimated_krw: number | null;
+  /** VAT 과세 구조 */
+  vat_structure: VatStructure;
 }
 
 // ── Claim 등록 ──
@@ -141,6 +150,38 @@ export function registerKoreanLegalClaims(
       ...base,
       subject: 'septic_tank_capacity',
       value: fields.septic_tank_capacity,
+      evidence: [{ sourceId: 'broker', asOf }],
+      status: 'broker_checked',
+    });
+  }
+
+  // v3 필드
+  if (fields.premium_exists !== undefined && fields.premium_exists !== null) {
+    registry.register({
+      ...base,
+      subject: 'premium_exists',
+      value: fields.premium_exists ? 1 : 0,
+      evidence: [{ sourceId: 'broker', asOf }],
+      status: 'broker_checked',
+    });
+  }
+
+  if (fields.premium_estimated_krw !== undefined && fields.premium_estimated_krw !== null) {
+    registry.register({
+      ...base,
+      subject: 'premium_estimated_krw',
+      value: fields.premium_estimated_krw,
+      unit: 'KRW',
+      evidence: [{ sourceId: 'broker', asOf }],
+      status: 'broker_checked',
+    });
+  }
+
+  if (fields.vat_structure !== undefined) {
+    registry.register({
+      ...base,
+      subject: 'vat_structure',
+      value: fields.vat_structure,
       evidence: [{ sourceId: 'broker', asOf }],
       status: 'broker_checked',
     });

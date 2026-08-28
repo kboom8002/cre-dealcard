@@ -9,7 +9,7 @@ import PptxGenJS from 'pptxgenjs';
 import { getPptxTheme, getPptxThemeAsync, DEFAULT_PPTX_PRESET, type PptxThemeTokens } from './pptx-theme';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { SLIDE_ARCHETYPE_REGISTRY, type ArchetypeInput } from './archetypes';
-import { buildDeckSequence, type DeckSequenceInput, type SlideSpec } from './deck-sequencer';
+import { buildDeckSequence, type DeckSequenceInput, type SlideSpec, type IncomeArchetype } from './deck-sequencer';
 import { bindSectionData } from './data-binder';
 import { validateTextBudgets } from './text-budget';
 import type { ProvenanceKind } from './imlib';
@@ -246,17 +246,12 @@ function addFallbackContent(slide: any, data: any, _theme: any, meta?: { archety
   return true; // W-PPTX-1: 폴백 렌더링 성공
 }
 
-/** @deprecated 골디락스 단일 시퀀스 전환 — 하위 호환용 */
-export type PptxTier = 'basic' | 'pro';
-
 export interface MobileImPptxInput {
   buildingId: string;
-  /** @deprecated 골디락스 전환 후 무시됨 */
-  tier?: PptxTier;
   preset?: string;
   posture?: InvestmentPosture;
   grade?: 'A' | 'B' | 'C' | 'D';
-  incomeArchetype?: 'R-INC-01' | 'R-INC-02' | 'R-INC-03' | 'R-INC-04';
+  incomeArchetype?: IncomeArchetype;
   hasViolation?: boolean;
   hasJointCollateral?: boolean;
   docno?: string;

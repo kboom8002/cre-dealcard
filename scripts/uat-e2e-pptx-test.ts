@@ -45,7 +45,6 @@ async function main() {
     {
       id: 'P1_income_basic_B',
       posture: 'income' as const,
-      tier: 'basic' as const,
       grade: 'B' as const,
       incomeArchetype: 'R-INC-01' as const,
       building: { area_signal: '당산', asset_type: '근생빌딩', price_band: '50억~100억' },
@@ -125,7 +124,6 @@ async function main() {
     {
       id: 'P2_owner_occupied_basic_B',
       posture: 'owner_occupied' as const,
-      tier: 'basic' as const,
       grade: 'B' as const,
       building: { area_signal: '서초', asset_type: '사무용빌딩', price_band: '100억~300억' },
       doc: {
@@ -194,7 +192,6 @@ async function main() {
     {
       id: 'P3_development_basic_B',
       posture: 'development' as const,
-      tier: 'basic' as const,
       grade: 'B' as const,
       building: { area_signal: '합정', asset_type: '나대지', price_band: '100억~200억' },
       doc: {
@@ -261,7 +258,6 @@ async function main() {
     {
       id: 'P4_operating_basic_B',
       posture: 'operating' as const,
-      tier: 'basic' as const,
       grade: 'B' as const,
       building: { area_signal: '이천', asset_type: '물류창고', price_band: '300억~500억' },
       doc: {
@@ -329,7 +325,6 @@ async function main() {
     {
       id: 'P5_trading_basic_B',
       posture: 'trading' as const,
-      tier: 'basic' as const,
       grade: 'B' as const,
       building: { area_signal: '영등포', asset_type: '근생빌딩', price_band: '50억~100억' },
       doc: {
@@ -398,7 +393,6 @@ async function main() {
     {
       id: 'P1_income_basic_D',
       posture: 'income' as const,
-      tier: 'basic' as const,
       grade: 'D' as const,
       building: { area_signal: '강남', asset_type: '빌딩', price_band: '50억~100억' },
       doc: {
@@ -443,7 +437,6 @@ async function main() {
       // 1. Deck sequence test
       const seqInput = {
         posture: tc.posture,
-        tier: tc.tier,
         grade: tc.grade,
         incomeArchetype: (tc as any).incomeArchetype,
         hasViolation: false,
@@ -456,7 +449,6 @@ async function main() {
       // 2. Render PPTX
       const input = {
         buildingId: `bld_test_${label}`,
-        tier: tc.tier,
         preset: 'credeal_signature',
         posture: tc.posture,
         grade: tc.grade,
@@ -467,7 +459,6 @@ async function main() {
         doc: tc.doc,
         building: tc.building,
         broker,
-        watermark: (tc.tier as string) === 'pro' ? watermark : undefined,
       };
 
       const result = await renderer.render(input);
@@ -480,7 +471,6 @@ async function main() {
       const record = {
         id: label,
         posture: tc.posture,
-        tier: tc.tier,
         grade: tc.grade,
         slideCount: result.slideCount,
         fileSizeKB: Math.round(result.fileSizeBytes / 1024),
@@ -500,7 +490,6 @@ async function main() {
       results.push({
         id: label,
         posture: tc.posture,
-        tier: tc.tier,
         grade: tc.grade,
         slideCount: 0,
         fileSizeKB: 0,
@@ -521,7 +510,6 @@ async function main() {
   try {
     const seqInput = {
       posture: 'income' as const,
-      tier: 'pro' as const,
       grade: 'C' as const,
       hasPhotos: false,
     };
@@ -545,10 +533,10 @@ async function main() {
   console.log('\n═══════════════════════════════════════════════');
   console.log('  테스트 결과 요약');
   console.log('═══════════════════════════════════════════════');
-  console.log('| ID | Posture | Tier | Grade | Slides | Size(KB) | Time(ms) | Status |');
-  console.log('|---|---|---|---|---|---|---|---|');
+  console.log('| ID | Posture | Grade | Slides | Size(KB) | Time(ms) | Status |');
+  console.log('|---|---|---|---|---|---|---|');
   for (const r of results) {
-    console.log(`| ${r.id} | ${r.posture || '-'} | ${r.tier || '-'} | ${r.grade || '-'} | ${r.slideCount} | ${r.fileSizeKB || '-'} | ${r.elapsedMs || '-'} | ${r.status} |`);
+    console.log(`| ${r.id} | ${r.posture || '-'} | ${r.grade || '-'} | ${r.slideCount} | ${r.fileSizeKB || '-'} | ${r.elapsedMs || '-'} | ${r.status} |`);
   }
 
   const passCount = results.filter(r => r.status?.startsWith('PASS')).length;

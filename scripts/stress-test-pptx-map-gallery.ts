@@ -17,7 +17,6 @@ async function testPptxMapAndGalleryRendering() {
   // 테스트 매물: 서초동 160억대 메디컬 빌딩 (지도 + 4장 사진 갤러리 포함)
   const testInput: MobileImPptxInput = {
     buildingId: "bld_seocho_medical_160",
-    tier: "basic",
     preset: "golden_institutional",
     posture: "income",
     grade: "A",
