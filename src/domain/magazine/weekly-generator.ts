@@ -188,7 +188,7 @@ const fetchActiveDeals = async (
   try {
     const { data } = await supabase
       .from('building_ssot_lite')
-      .select('id, address, area_signal, asset_type, price, status, photo_urls')
+      .select('id, address, area_signal, asset_type, price, status, photo_urls, attrs, buyer_interest_count')
       .eq('owner_id', userId)
       .in('status', ['public_signal_ready', 'active'])
       .order('updated_at', { ascending: false })
@@ -505,14 +505,18 @@ export const generateWeeklyMagazine = async (params: {
   const region =
     (brokerCtx.broker.specialty_regions?.[0] ?? 'seongsu').toLowerCase();
 
-  // 2. 병렬 데이터 수집
-  const [pulseData, news, transactions, deals, sentimentData] =
+  // 2. 병렬 데이터 수집 (M1 fix: 미활용 4개 테이블 추가)
+  const [pulseData, news, transactions, deals, sentimentData, auctionPicks, reports, rentalTrend, commercialDistrict] =
     await Promise.all([
       fetchWeekPulse(supabase, region, label),
       fetchWeekNews(supabase, 10),
       fetchWeekTransactions(supabase, 10),
       fetchActiveDeals(supabase, brokerCtx.broker.user_id),
       fetchSentimentData(supabase),
+      supabase.from('auction_listings').select('id, address, asset_type, appraisal_price, minimum_bid, auction_date, status, discount_pct').order('auction_date', { ascending: false }).limit(5).then(r => r.data ?? []),
+      supabase.from('external_reports').select('id, title, source, summary, published_date, report_type').order('published_date', { ascending: false }).limit(5).then(r => r.data ?? []),
+      supabase.from('rental_trend_data').select('region, avg_rent, vacancy_rate, trend, period').order('period', { ascending: false }).limit(5).then(r => r.data ?? []),
+      supabase.from('commercial_district').select('dong_name, total_stores, monthly_sales_avg, category_top3, change_rate').limit(5).then(r => r.data ?? []),
     ]);
 
   // 3. 커버 데이터 결정
@@ -552,7 +556,9 @@ export const generateWeeklyMagazine = async (params: {
   let monthlySummary: any[] = [];
   try {
     const todayObj = new Date();
-    const prevMonthStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() === 0 ? 12 : todayObj.getMonth()).padStart(2, '0')}`;
+    const prevYear = todayObj.getMonth() === 0 ? todayObj.getFullYear() - 1 : todayObj.getFullYear();
+    const prevMonth = todayObj.getMonth() === 0 ? 12 : todayObj.getMonth();
+    const prevMonthStr = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
     const targetRegions = brokerCtx.broker.specialty_regions?.length ? brokerCtx.broker.specialty_regions : ['성수동', '강남구'];
     monthlySummary = await summarizeMonthlyTransactions(supabase, prevMonthStr, targetRegions);
   } catch (err) {
@@ -604,8 +610,17 @@ export const generateWeeklyMagazine = async (params: {
     market_temp: llmContent.market_temp,
     cover_keywords: llmContent.cover_keywords,
     cover_image_url: brokerCtx.broker.magazine_cover_image,
+    // M1 fix: 4개 미활용 테이블 활성화 (뷰어에 렌더 코드 기존 존재)
+    auctionPicks: auctionPicks.slice(0, 5),
+    reports: reports.slice(0, 5),
+    rentalTrend: rentalTrend.slice(0, 3),
+    commercialDistrict: commercialDistrict.slice(0, 3),
     theme_title: theme.themeTitle,
     theme_body_md: theme.themeBodyMd,
+    // C1 fix: viewer reads from content JSONB, so these must be included
+    theme_asset_types: brokerCtx.broker.specialty_assets ?? [],
+    featured_deal_ids: theme.matchedDealIds,
+    theme_color: '#6366f1',
   };
 
   // 6.5. Quality Gate 검증

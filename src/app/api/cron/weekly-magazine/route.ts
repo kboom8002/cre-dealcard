@@ -65,17 +65,21 @@ export async function GET(request: NextRequest) {
         editionLabel,
       });
 
-      // 생성 후 구독자에게 배포
+      // C2 fix: 품질 게이트 실패 시 배포 차단
       let distResult = { sent: 0, failed: 0 };
-      try {
-        distResult = await distributeMagazine(supabase, broker.slug, {
-          title: edition.title ?? `${editionLabel} 주간 리포트`,
-          date: new Date().toISOString().slice(0, 10),
-          headline: (edition.content as any)?.headline,
-        });
-      } catch (distErr: unknown) {
-        const msg = distErr instanceof Error ? distErr.message : 'unknown';
-        console.warn(`[cron] 배포 실패 (non-blocking): ${broker.slug}`, msg);
+      if (edition.status === 'needs_review') {
+        console.warn(`[cron] QG 불합격 — 배포 스킵, 브로커 수동 검토 필요: ${broker.slug}`);
+      } else {
+        try {
+          distResult = await distributeMagazine(supabase, broker.slug, {
+            title: edition.title ?? `${editionLabel} 주간 리포트`,
+            date: new Date().toISOString().slice(0, 10),
+            headline: (edition.content as any)?.headline,
+          });
+        } catch (distErr: unknown) {
+          const msg = distErr instanceof Error ? distErr.message : 'unknown';
+          console.warn(`[cron] 배포 실패 (non-blocking): ${broker.slug}`, msg);
+        }
       }
 
       results.push({

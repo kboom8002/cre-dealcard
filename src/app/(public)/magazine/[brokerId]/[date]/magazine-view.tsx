@@ -130,10 +130,12 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
 
   const [copied, setCopied] = useState(false);
   const broker = (data.broker as Record<string, any>) ?? {};
+  // M3 fix: handle both YYYY-MM-DD and W##-YYYY formats
+  const isWeekLabel = /^W\d{1,2}-\d{4}$/.test(date);
   const [y, m, d] = date.split("-");
-  const dateLabel = `${y}년 ${m}월 ${d}일`;
+  const dateLabel = isWeekLabel ? `${y} (${m})` : `${y}년 ${m}월 ${d}일`;
   const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
-  const weekday = weekdays[new Date(date).getDay()];
+  const weekday = isWeekLabel ? null : weekdays[new Date(date).getDay()];
   const sentiment = (data.sentiment as any) ?? { score: 50, status: "중립 관망" };
   const sc = sentimentColor(sentiment.score);
   const accent = (data.themeColor as string | undefined) || (data.theme_color as string | undefined) || "#6366f1";
@@ -991,7 +993,7 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
           {/* Date + Title */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="relative">
             <p className="text-[12px] text-slate-500 mb-1.5 flex items-center gap-2">
-              <span>{dateLabel} {weekday}요일</span>
+              <span>{dateLabel}{weekday ? ` ${weekday}요일` : ''}</span>
               <span className="text-[10px] bg-indigo-500/10 text-indigo-300/80 px-2 py-0.5 rounded-full border border-indigo-500/15">⏱ {readTimeMin}분 완독</span>
             </p>
             <h1 className="text-[26px] font-extrabold text-white leading-tight tracking-tight mb-2">CRE 위클리 매거진</h1>
