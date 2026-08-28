@@ -322,7 +322,174 @@ gates:
     owner: CATALOG_RULES.md §4.2
     note: 계약이 빈 포스처는 등급을 매길 수도 결손을 말할 수도 없습니다
 
-# ── 신설 제약 ──────────────────────────────────────────────────────────
+  # ── D31 신설: 지면 물리 게이트 (quality-gates-v02.ts 배선) ──
+  - code: G31
+    label: 사진 크로핑률 45% 미만
+    level: 차단
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D31 BL-1 지면 물리. maxCropRatio < 0.45
+  - code: G32
+    label: 실효 DPI 하한 충족 (≥150)
+    level: 차단
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D31 BL-1. minEffectiveDpi >= 150
+  - code: G33
+    label: 텍스트 상자 넘침 0건
+    level: 차단
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D31 BL-1. textOverflowCount === 0
+  - code: G34
+    label: 요소 겹침 0.015in 이하
+    level: 경고
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D31 BL-1. overlapMaxInches <= 0.015
+  - code: G35
+    label: 지면 이탈 0건
+    level: 차단
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D31 BL-1. bleedCount === 0
+  - code: G36
+    label: 종횡비 왜곡 5% 이하
+    level: 차단
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D32 M-3. aspectDistortionMaxPct <= 5
+  - code: G37
+    label: 타 물건 사진 혼입 차단
+    level: 차단
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D32 BL-1. foreignPhotoCount === 0
+  - code: G38
+    label: yieldBasis 라벨-계산 정합
+    level: 차단
+    status: 등록
+    owner: quality-gates-v02.ts
+    applies_to: [income, operating, trading]
+    note: D32 BL-3. yieldBasisConsistent !== false
+  - code: G39
+    label: 슬라이드 라벨-내용 정합
+    level: 경고
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D32 M-8. labelContentMismatchCount === 0
+  - code: G40
+    label: 역레버리지 ROE 경고
+    level: 차단
+    status: 등록
+    owner: quality-gates-v02.ts
+    applies_to: [income, operating]
+    note: D32 BL-4. negativeLeverageWarned !== false
+  - code: G41
+    label: 서술어↔수치 모순 없음 (만실↔공실)
+    level: 차단
+    status: 등록
+    owner: quality-gates-v02.ts
+    applies_to: [income, operating]
+    note: D33 BL-D. vacancyNarrativeContradiction !== true
+  - code: G42
+    label: 폴백 중복 0건
+    level: 차단
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D33 BL-F. fallbackDuplicateCount === 0
+  - code: G43
+    label: highlights↔제원 중복 없음
+    level: 경고
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D33. highlightSpecDuplicate !== true
+  - code: G44
+    label: 열린 괄호로 끝나는 문장 0건
+    level: 경고
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D33. unclosedBracketCount === 0
+  - code: G45
+    label: 정적 문구 CRE QG 통과
+    level: 경고
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D33. staticTextQGPassed !== false
+  # G46~G47: 예약 (미사용)
+  - code: G48
+    label: 미해결 Conflict 0건
+    level: 차단
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D37 P2-3. B03→G48. unresolvedConflictCount === 0
+  - code: G49
+    label: 증거 없는 Claim 0건
+    level: 차단
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D37 P2-3. B04→G49. unevidencedClaimCount === 0
+  - code: G50
+    label: 기준일(asOf) 전수 표시
+    level: 경고
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D37 P2-3. B09→G50. asOfMissingCount === 0
+  - code: G51
+    label: 계산식 재현 가능
+    level: 차단
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D37 P2-3. B11→G51. calculationNotReproducible !== true
+  - code: G52
+    label: 면수 상한 초과 없음
+    level: 차단
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D37 P2-3. B13→G52. 본문 16면 상한. 부록·렌트롤·갤러리 제외
+  - code: G53
+    label: 토지거래허가 표시
+    level: 경고
+    status: 등록
+    owner: quality-gates-v02.ts
+    note: D37 P2-3. B14→G53. permitZoneNotDisplayed !== true
+
+  # ── QG 계열: 품질 경고 (quality-gates-v02.ts 배선) ──
+  - code: QG09
+    label: IM Judge 3.0 이상
+    level: 경고
+    status: 등록
+    owner: quality-gates-v02.ts
+  - code: QG11
+    label: DCF 등급 게이트
+    level: 경고
+    status: 등록
+    owner: quality-gates-v02.ts
+  - code: QG12
+    label: Cap Rate basis 명기
+    level: 경고
+    status: 등록
+    owner: quality-gates-v02.ts
+  - code: QG13
+    label: 임대차 법령 확정
+    level: 경고
+    status: 등록
+    owner: quality-gates-v02.ts
+  - code: QG14
+    label: 갱신요구권 확인
+    level: 경고
+    status: 등록
+    owner: quality-gates-v02.ts
+  - code: QG15
+    label: 혼합 용도 법령 확정
+    level: 경고
+    status: 등록
+    owner: quality-gates-v02.ts
+  - code: QG16
+    label: 위반건축물 확인
+    level: 경고
+    status: 등록
+    owner: quality-gates-v02.ts
 constraints_new:
   - code: C33
     label: 임대면적 합 = 표기 연면적

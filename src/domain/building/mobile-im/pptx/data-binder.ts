@@ -14,6 +14,10 @@ export interface ParsedTable {
 }
 
 import { buildYieldFromHeroCard, buildYieldFromIMCore, yieldLabel, type Yield } from './yield-object';
+import type { ClaimRegistry } from '@/domain/building/im-core/claim-registry';
+import type { PermitZoneResult } from '@/domain/building/im-core/permit-zone';
+import type { ConvertedDepositResult, EffectiveRentResult } from '@/domain/building/im-core/lease-calc';
+import type { KoreanLegalFields } from '@/domain/building/im-core/korean-legal';
 
 /**
  * section_type → deck-sequencer dataKey 매핑
@@ -1975,4 +1979,80 @@ export function bindFromExternalData(
       _source: 'vworld_wms',
     };
   }
+}
+
+/**
+ * D41 W4: im-core 모듈 → PPTX 데이터 바인딩 경로
+ * ClaimRegistry에서 슬라이드 데이터를 직접 추출합니다.
+ */
+export function bindFromClaimRegistry(
+  registry: ClaimRegistry,
+  options?: {
+    permitZone?: PermitZoneResult;
+    convertedDeposits?: ConvertedDepositResult[];
+    effectiveRents?: EffectiveRentResult[];
+    koreanLegal?: KoreanLegalFields;
+  }
+): Record<string, any> {
+  const result: Record<string, any> = {};
+  
+  // Claim에서 핵심 수치 추출
+  const claims = registry.getAll();
+  for (const claim of claims) {
+    if (claim.value !== null) {
+      result[claim.subject] = {
+        value: claim.value,
+        unit: claim.unit,
+        displayLabel: claim.displayLabel,
+        asOf: claim.asOf,
+        status: claim.status,
+        claimId: claim.id,
+      };
+    }
+  }
+  
+  // PermitZone 바인딩
+  if (options?.permitZone) {
+    const pz = options.permitZone;
+    result.permitZone = {
+      isPermitZone: pz.isPermitZone,
+      permitRequired: pz.permitRequired,
+      thresholdSqm: pz.thresholdSqm,
+      designatedUntil: pz.designatedUntil,
+      source: pz.source,
+      asOf: pz.asOf,
+    };
+  }
+  
+  // LeaseCalc 바인딩 (환산보증금 + 실효임대료)
+  if (options?.convertedDeposits?.length) {
+    result.convertedDeposits = options.convertedDeposits.map(cd => ({
+      convertedDeposit: cd.convertedDeposit,
+      protectionThreshold: cd.protectionThreshold,
+      isProtected: cd.isProtected,
+      formula: cd.formula,
+    }));
+  }
+  
+  if (options?.effectiveRents?.length) {
+    result.effectiveRents = options.effectiveRents.map(er => ({
+      effectiveRent: er.effectiveMonthlyRent,
+      formula: er.formula,
+    }));
+  }
+  
+  // KoreanLegal 바인딩
+  if (options?.koreanLegal) {
+    const kl = options.koreanLegal;
+    result.koreanLegal = {
+      violation_registered: kl.violation_registered,
+      violation_detail: kl.violation_detail,
+      transaction_structure: kl.transaction_structure,
+      redevelopment_zone: kl.redevelopment_zone,
+      brokerage_fee_rate: kl.brokerage_fee_rate,
+      fund_source_report_required: kl.fund_source_report_required,
+    };
+  }
+  
+  return result;
 }

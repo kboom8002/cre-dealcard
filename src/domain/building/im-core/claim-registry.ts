@@ -17,6 +17,25 @@ import {
 import type { ProvenanceKind } from '../mobile-im/pptx/imlib';
 import type { Calculation } from './calculation';
 
+// ── Conflict ──
+
+export type ConflictKind = 
+  | 'address' | 'area' | 'use' | 'rentroll_sum' | 'lease_terms'
+  | 'occupancy_narrative' | 'unit_price' | 'comp_identity' | 'yield_basis';
+
+export interface Conflict {
+  id: string;
+  kind: ConflictKind;
+  left: string;   // Claim ID
+  right: string;  // Claim ID
+  resolution?: {
+    chosen: string;  // Claim ID
+    reason: string;
+    by: string;
+    at: string;
+  };
+}
+
 // ── Claim 생성 옵션 ──
 
 export interface CreateClaimOptions {
@@ -45,6 +64,7 @@ export interface CreateClaimOptions {
 export class ClaimRegistry {
   private claims = new Map<string, Claim>();
   private subjectIndex = new Map<string, string[]>();
+  private conflicts = new Map<string, Conflict>();
 
   /** Claim 등록. 불변조건 위반 시 violations 배열 반환 (빈 배열 = 정상) */
   register(options: CreateClaimOptions): { claim: Claim; violations: string[] } {
@@ -115,6 +135,35 @@ export class ClaimRegistry {
   /** 충돌 상태 Claim 검출 (B03/G48 차단 대상) */
   findConflicted(): Claim[] {
     return Array.from(this.claims.values()).filter(c => c.status === 'conflicted');
+  }
+
+  registerConflict(conflict: Omit<Conflict, 'id'>): Conflict {
+    const id = randomUUID();
+    const newConflict: Conflict = { id, ...conflict };
+    this.conflicts.set(id, newConflict);
+
+    const leftClaim = this.claims.get(conflict.left);
+    if (leftClaim) leftClaim.status = 'conflicted';
+    
+    const rightClaim = this.claims.get(conflict.right);
+    if (rightClaim) rightClaim.status = 'conflicted';
+
+    return newConflict;
+  }
+
+  getConflicts(): Conflict[] {
+    return Array.from(this.conflicts.values());
+  }
+
+  getUnresolvedConflicts(): Conflict[] {
+    return this.getConflicts().filter(c => !c.resolution);
+  }
+
+  resolveConflict(id: string, resolution: Conflict['resolution']): void {
+    const conflict = this.conflicts.get(id);
+    if (conflict) {
+      conflict.resolution = resolution;
+    }
   }
 
   /** 스테일 Claim 검출 (90일 초과) */
