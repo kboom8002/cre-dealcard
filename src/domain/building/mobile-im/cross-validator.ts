@@ -36,7 +36,10 @@ export interface CrossValidationInconsistency {
  *
  * 후속 섹션에서 동일 지표가 다른 값으로 등장하면 불일치로 판정한다.
  */
-export interface NumericalAnchors {
+/** @deprecated CrossValidatorAnchors를 사용하세요 */
+export type NumericalAnchors = CrossValidatorAnchors;
+
+export interface CrossValidatorAnchors {
   /** 총 면적 (㎡) */
   totalAreaSqm?: number;
   /** 공실률 (%) */
@@ -256,7 +259,7 @@ export function extractKeyFacts(markdown: string, _sectionType: string): string[
 }
 
 /**
- * 마크다운에서 수치를 파싱하여 NumericalAnchors 업데이트
+ * 마크다운에서 수치를 파싱하여 CrossValidatorAnchors 업데이트
  *
  * 최초로 발견된 값만 앵커에 기록한다 (이미 값이 있으면 건너뜀).
  * 이를 통해 첫 섹션의 값이 기준값(ground truth)이 되고,
@@ -268,14 +271,14 @@ export function extractKeyFacts(markdown: string, _sectionType: string): string[
  *
  * @example
  * ```ts
- * const anchors: NumericalAnchors = {};
+ * const anchors: CrossValidatorAnchors = {};
  * updateNumericalAnchors(anchors, overviewMd, "property_overview");
  * updateNumericalAnchors(anchors, incomeMd, "income_analysis");
  * // anchors에 property_overview에서 추출한 값이 기준으로 저장됨
  * ```
  */
 export function updateNumericalAnchors(
-  anchors: NumericalAnchors,
+  anchors: CrossValidatorAnchors,
   markdown: string,
   _sectionType: string
 ): void {
@@ -361,7 +364,7 @@ export function updateNumericalAnchors(
  */
 export function runCrossValidation(
   sections: Array<{ section_type: string; markdown: string }>,
-  anchors: NumericalAnchors,
+  anchors: CrossValidatorAnchors,
   posture?: import('@/domain/ontology').InvestmentPosture
 ): CrossValidationResult {
   const inconsistencies: CrossValidationInconsistency[] = [];

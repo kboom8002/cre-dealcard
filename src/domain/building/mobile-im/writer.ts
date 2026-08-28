@@ -26,7 +26,7 @@ import {
 import { runPublishGates } from './quality-gates-v02';
 import { MOBILE_IM_STANDARD_DISCLAIMER, humanizeGuardrailTokensForView } from "./guardrails";
 import type { DCFOutputs } from "./dcf-sensitivity";
-import { runCrossValidation, type NumericalAnchors as CrossValidatorAnchors } from "./cross-validator";
+import { runCrossValidation, type CrossValidatorAnchors } from "./cross-validator";
 import { createServiceClient } from "@/lib/supabase/service";
 import { indexIMSections } from "./im-embedding-indexer";
 import { transformPhotoUrls, resolvePhotos, PHOTO_CATEGORY_LABELS, type TransformedPhoto } from "./photo-url-transformer";
@@ -367,7 +367,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   try {
     const crossValResult = runCrossValidation(
       sections,
-      ctx.sectionCtx.numericalAnchors as CrossValidatorAnchors,
+      (ctx.sectionCtx.numericalAnchors as NumericalAnchors).toCrossValidatorAnchors(),
       ctx.sectionPlan?.posture as import("@/domain/ontology").InvestmentPosture,
     );
     if (!crossValResult.passed) {

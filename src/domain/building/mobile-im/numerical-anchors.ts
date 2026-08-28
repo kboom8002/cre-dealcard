@@ -4,6 +4,8 @@
  * 선행 스테이지에서 확정된 수치(가격, 면적, 임대료 등)를 후행 스테이지로 안전하게 전파
  */
 
+import type { CrossValidatorAnchors } from './cross-validator';
+
 export interface AnchorEntry {
   value: number;
   source: string; // 섹션 타입 또는 출처
@@ -12,6 +14,26 @@ export interface AnchorEntry {
 }
 
 export class NumericalAnchors {
+  toCrossValidatorAnchors(): CrossValidatorAnchors {
+    const all = this.getAll();
+    return {
+      totalAreaSqm: all['totalAreaSqm'],
+      vacancyPct: all['vacancyPct'],
+      monthlyRentKrw: all['monthlyRentTotalKrw'] ?? all['monthlyRentKrw'],
+      capRateBase: all['capRateBase'] ?? all['capRate'],
+      buildingAge: all['buildingAge'],
+      stationDistance: all['stationDistance'],
+      landCostKrw: all['landCostKrw'],
+      constructionCostKrw: all['constructionCostKrw'],
+      totalProjectCostKrw: all['totalProjectCostKrw'],
+      adrKrw: all['adrKrw'],
+      occPct: all['occPct'],
+      revparKrw: all['revparKrw'],
+      pricePerPyeong: all['pricePerPyeong'],
+      askingPriceKrw: all['askingPriceKrw'],
+    };
+  }
+
   private values: Map<string, AnchorEntry> = new Map();
   public conflictCount: number = 0;
   public conflicts: Array<{ key: string; existing: AnchorEntry; attempted: { value: number; source: string; stage: number } }> = [];
