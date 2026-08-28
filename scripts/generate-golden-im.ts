@@ -1,3 +1,16 @@
+/**
+ * @file generate-golden-im.ts
+ * @status SCAFFOLD — 인프라 검증용. 콘텐츠는 스텁.
+ *
+ * ⚠️ 이 스크립트의 sections는 1~2문장짜리 더미입니다.
+ * 실제 골든 IM을 생성하려면:
+ *   1. generateMobileIM()으로 풀 파이프라인 실행하여 실제 sections 획득
+ *   2. 획득한 sections를 아래 pptxInput.doc.sections에 주입
+ *   3. 이 스크립트로 PPTX 렌더 → 파싱 → 감사 → 멱등 검증
+ *   4. 도메인 전문가 검수 후 docs/test/golden/에 커밋
+ *
+ * @see docs/test/golden/README.md
+ */
 import { MobileImPptxRenderer } from '../src/domain/building/mobile-im/pptx/pptx-renderer';
 import fs from 'fs';
 import path from 'path';
