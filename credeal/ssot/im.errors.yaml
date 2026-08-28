@@ -188,7 +188,7 @@ gates:
     label: 워터마크 적용 (tier=pro)
     level: 차단
     status: 등록
-  - code: G09
+  - code: QG09
     label: QR · 단축링크 삽입
     level: 경고
     status: 등록
@@ -197,40 +197,40 @@ gates:
     level: 차단
     status: 등록
     invariant: 2
-  - code: G11
+  - code: QG11
     label: 총수익률 표시 시 하방 시나리오 포함
-    level: 차단
+    level: 경고
     status: 등록
-  - code: G12
+  - code: QG12
     label: 제척 합계 ≤ 대지 합계 · 유효 용적률 재계산 일치
-    level: 차단
+    level: 경고
     status: 등록
-  - code: G13
+  - code: QG13
     label: 적용 법령별 임대차 판정 정합 · opposingPower=false 에 근거 존재
-    level: 차단
+    level: 경고
     status: 등록
-  - code: G14
+  - code: QG14
     label: DCF·IRR 노출 시 용어 해설 존재
-    level: 차단
+    level: 경고
     status: 등록
-  - code: G15
+  - code: QG15
     label: 적용 임대차 법령이 호실별로 확정
     level: 경고
     status: 등록
-  - code: G16
+  - code: QG16
     label: 위반건축물 여부 확인
     level: 경고
     status: 등록
     on_fail: 미확인 시 대출 시나리오 억제
   - code: G17
     label: 업종 미기재 시 추론 금지
-    level: 치환
+    level: 차단
     status: 등록요청
     replace_with: 미상
     invariant: 6
   - code: G18
     label: 렌트롤 기준일 존재
-    level: 경고
+    level: 차단
     status: 등록요청
     resolves_with: rr_as_of
   - code: G19
@@ -253,12 +253,12 @@ gates:
     public_data_resolvable: true
   - code: G22
     label: 만료 계약 존재
-    level: 경고
+    level: 차단
     status: 등록요청
     was: F11
   - code: G23
     label: 만료 비율 50% 초과
-    level: 경고
+    level: 차단
     status: 등록요청
     was: F12
     changed: |
@@ -269,7 +269,7 @@ gates:
     block_when: 만료 + leaseState == 공실
   - code: G24
     label: 30일 내 만료 임박
-    level: 경고
+    level: 차단
     status: 등록요청
     was: F13
   - code: G25
@@ -285,7 +285,7 @@ gates:
     note: 코드 재사용 금지 — G25 를 다른 의미로 다시 쓰지 않습니다
   - code: G26
     label: 건물 사진 최소 6매 (외부3·내부3)
-    level: 경고
+    level: 차단
     status: 등록요청
     resolves_with: 사진 재제출
     note: |
