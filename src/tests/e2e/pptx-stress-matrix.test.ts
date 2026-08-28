@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll } from 'vitest';
 import { MobileImPptxRenderer } from '@/domain/building/mobile-im/pptx/pptx-renderer';
 import type { MobileImPptxInput } from '@/domain/building/mobile-im/pptx/pptx-renderer';
 import type { InvestmentPosture } from '@/domain/ontology';
-import type { Grade, PptxTier } from '@/domain/building/mobile-im/pptx/deck-sequencer';
+import type { Grade } from '@/domain/building/mobile-im/pptx/deck-sequencer';
 import { buildMinimalDoc, BUILDING_META, extractSlideTexts, assertNoCorruptionStrings } from './pptx-test-helpers';
 
 describe('Axis 1: PPTX 40-Cell Posture × Grade × Tier Stress Matrix', { timeout: 60_000 }, () => {
@@ -14,7 +14,7 @@ describe('Axis 1: PPTX 40-Cell Posture × Grade × Tier Stress Matrix', { timeou
 
   const postures: InvestmentPosture[] = ['income', 'owner_occupied', 'development', 'operating', 'trading'];
   const grades: Grade[] = ['A', 'B', 'C', 'D'];
-  const tiers: PptxTier[] = ['basic', 'pro'];
+  const tiers: ('basic' | 'pro')[] = ['basic', 'pro'];
 
   postures.forEach(posture => {
     describe(`Posture: ${posture}`, () => {

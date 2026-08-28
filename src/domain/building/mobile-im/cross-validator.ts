@@ -646,7 +646,8 @@ export function runFinancialsNarrativeValidation(
       const narrativeCapRate = parseFloat(match[1]);
       if (!isNaN(narrativeCapRate)) {
         const diff = Math.abs(narrativeCapRate - calculatedCapRate);
-        if (diff > 0.5) {
+        // D41 S2: CF3 폐기 결정 반영 — 허용오차 0
+        if (diff > 0) {
           issues.push({
             field: "cap_rate_narrative_vs_calc",
             section1: { type: "financials_engine",          value: `${calculatedCapRate.toFixed(2)}%` },
@@ -668,12 +669,13 @@ export function runFinancialsNarrativeValidation(
       const narrativeNoi = parseFloat(match[1]);
       if (!isNaN(narrativeNoi) && calcBil > 0) {
         const relativeDiff = Math.abs(narrativeNoi - calcBil) / calcBil;
-        if (relativeDiff > 0.15) {
+        // D41 S2: CF3 폐기 결정 반영 — 허용오차 0
+        if (relativeDiff > 0) {
           issues.push({
             field: "noi_narrative_vs_calc",
             section1: { type: "financials_engine",         value: `${calcBil.toFixed(2)}억` },
             section2: { type: "income_analysis_narrative", value: `${narrativeNoi}억` },
-            severity: "warning",
+            severity: "critical",
           });
           break;
         }

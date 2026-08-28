@@ -31,17 +31,7 @@ export const STAGE_PLANS: Record<InvestmentPosture, SectionStage[]> = {
     // BG 전용면 — releaseTier에 따라 조건부 포함
     {
       stage: 3,
-      sections: ['market_rent_gap', 'value_add_plan', 'stabilized_scenario'],
-      parallel: false,
-    },
-    {
-      stage: 4,
-      sections: ['risk_check'],
-      parallel: false,
-    },
-    {
-      stage: 5,
-      sections: ['investment_thesis'],
+      sections: ['market_rent_gap', 'value_add_plan', 'stabilized_scenario', 'risk_check', 'investment_thesis'],
       parallel: false,
     },
   ],
@@ -82,12 +72,7 @@ export const STAGE_PLANS: Record<InvestmentPosture, SectionStage[]> = {
     },
     {
       stage: 3,
-      sections: ['risk_check'],
-      parallel: false,
-    },
-    {
-      stage: 4,
-      sections: ['investment_thesis'],
+      sections: ['risk_check', 'investment_thesis'],
       parallel: false,
     },
   ],
@@ -105,12 +90,7 @@ export const STAGE_PLANS: Record<InvestmentPosture, SectionStage[]> = {
     },
     {
       stage: 3,
-      sections: ['risk_check'],
-      parallel: false,
-    },
-    {
-      stage: 4,
-      sections: ['investment_thesis'],
+      sections: ['risk_check', 'investment_thesis'],
       parallel: false,
     },
   ],
@@ -128,12 +108,7 @@ export const STAGE_PLANS: Record<InvestmentPosture, SectionStage[]> = {
     },
     {
       stage: 3,
-      sections: ['risk_check'],
-      parallel: false,
-    },
-    {
-      stage: 4,
-      sections: ['investment_thesis'],
+      sections: ['risk_check', 'investment_thesis'],
       parallel: false,
     },
   ],

@@ -12,10 +12,11 @@ const CANVAS_W = 13.333;
 const CANVAS_H = 7.5;
 
 /** 인쇄 안전 마진 */
-const SAFE_W = 12.713;
-const SAFE_H = 6.75;
-const SAFE_MARGIN_X = (CANVAS_W - SAFE_W) / 2;
-const SAFE_MARGIN_Y = (CANVAS_H - SAFE_H) / 2;
+// D41 S4: imlib.ts M=0.62와 통일
+const SAFE_W = 12.093;
+const SAFE_H = 6.26;
+const SAFE_MARGIN_X = 0.62;
+const SAFE_MARGIN_Y = 0.62;
 
 export interface LayoutViolation {
   gate: string;

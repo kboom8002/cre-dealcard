@@ -12,8 +12,7 @@ import type { GallerySlideSpec } from './gallery-planner';
 import type { ReleaseTier } from '../../im-core/release-tier';
 import { getTierAllowedSections } from '../../im-core/release-tier';
 
-/** @deprecated 골디락스 단일 시퀀스 전환 — 하위 호환을 위해 타입만 유지 */
-export type PptxTier = 'basic' | 'pro';
+
 export type Grade = 'A' | 'B' | 'C' | 'D';
 // D30 BL-3/M-13: 정본 수익형 9종 전체 지원
 export type IncomeArchetype = 'R-INC-01' | 'R-INC-02' | 'R-INC-03' | 'R-INC-04' | 'R-INC-05' | 'R-INC-06' | 'R-INC-07' | 'R-INC-08' | 'R-INC-09';
@@ -52,8 +51,6 @@ export interface DataAvailability {
 
 export interface DeckSequenceInput {
   posture: InvestmentPosture;
-  /** @deprecated 골디락스 전환 후 무시됨 — 하위 호환 유지 */
-  tier?: PptxTier;
   grade: Grade;
   /** D37 P0-3: 발행 등급 — 자료 가용성 기반 산출물 종류 */
   releaseTier?: ReleaseTier;
@@ -253,10 +250,11 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
 
   if (bodySlides.length > PAGE_RECOMMENDED) {
     // 보호 키는 절삭에서 제외
-    const protectedKeys = new Set(['cover', 'summary', 'closing', 'risk', 'checklist', 'process', 'thesis']);
+    const protectedKeys = new Set(['cover', 'summary', 'closing', 'risk', 'checklist', 'process', 'thesis', 'titleRights']);
     const protectedSlides = bodySlides.filter(s => protectedKeys.has(s.dataKey));
     const optionalSlides = bodySlides.filter(s => !protectedKeys.has(s.dataKey));
-    const budget = PAGE_HARD_LIMIT - protectedSlides.length;
+    const effectiveLimit = tierConfig?.maxBodyPages ?? PAGE_HARD_LIMIT;
+    const budget = effectiveLimit - protectedSlides.length;
 
     if (budget < 0) {
       // 보호 키만으로도 상한 초과 — 구조 오류
