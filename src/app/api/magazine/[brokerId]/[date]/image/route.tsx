@@ -325,6 +325,68 @@ export async function GET(
             </div>
           </div>
 
+          {/* 4.5 Engagement Teasers (Poll, Tax Clinic, Calculator) */}
+          <div style={{ display: "flex", gap: "16px", marginTop: "32px", zIndex: 10 }}>
+            {edition?.content?.poll?.question && (
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                  background: "rgba(139, 92, 246, 0.1)",
+                  border: "1px solid rgba(139, 92, 246, 0.2)",
+                  borderRadius: "20px",
+                  padding: "20px 24px",
+                }}
+              >
+                <span style={{ fontSize: "24px" }}>📊</span>
+                <span style={{ color: "#a78bfa", fontSize: "16px", fontWeight: 800 }}>이번 주 투표</span>
+                <span style={{ color: "#c4b5fd", fontSize: "14px", lineHeight: 1.5 }}>
+                  {String(edition.content.poll.question).slice(0, 40)}{String(edition.content.poll.question).length > 40 ? "..." : ""}
+                </span>
+              </div>
+            )}
+            {edition?.content?.tax_clinic?.question && (
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                  background: "rgba(245, 158, 11, 0.08)",
+                  border: "1px solid rgba(245, 158, 11, 0.15)",
+                  borderRadius: "20px",
+                  padding: "20px 24px",
+                }}
+              >
+                <span style={{ fontSize: "24px" }}>💰</span>
+                <span style={{ color: "#f59e0b", fontSize: "16px", fontWeight: 800 }}>세무·법률 Q&A</span>
+                <span style={{ color: "#fbbf24", fontSize: "14px", lineHeight: 1.5 }}>
+                  {String(edition.content.tax_clinic.question).slice(0, 40)}{String(edition.content.tax_clinic.question).length > 40 ? "..." : ""}
+                </span>
+              </div>
+            )}
+            <div
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+                background: "rgba(16, 185, 129, 0.08)",
+                border: "1px solid rgba(16, 185, 129, 0.15)",
+                borderRadius: "20px",
+                padding: "20px 24px",
+              }}
+            >
+              <span style={{ fontSize: "24px" }}>🧮</span>
+              <span style={{ color: "#34d399", fontSize: "16px", fontWeight: 800 }}>수지분석 계산기</span>
+              <span style={{ color: "#6ee7b7", fontSize: "14px", lineHeight: 1.5 }}>
+                매입가·금리·공실 시뮬레이션
+              </span>
+            </div>
+          </div>
+
           {/* 5. Footer (Broker Branding & Contact) */}
           <div
             style={{
