@@ -15,6 +15,9 @@ export interface MagazineEmailPayload {
   featuredDeals?: { address?: string; assetType?: string; price?: number | string }[];
   topNews?: { title?: string; sentiment?: string; source?: string }[];
   recentTransactions?: { address?: string; transaction_price?: number | string; transaction_date?: string }[];
+  // Extended sections (HI #4, #5)
+  poll?: { question?: string; choices?: string[] } | null;
+  taxClinic?: { question?: string; answer?: string; source?: string } | null;
 }
 
 export function buildMagazineHtml(p: MagazineEmailPayload): string {
@@ -131,6 +134,33 @@ export function buildMagazineHtml(p: MagazineEmailPayload): string {
                 </tr>
                 `).join('')}
               </table>
+            </td>
+          </tr>
+          ` : ""}
+
+          <!-- Poll Teaser -->
+          ${p.poll?.question ? `
+          <tr>
+            <td style="padding:0 32px 24px;">
+              <div style="background:rgba(139,92,246,0.08); border:1px solid rgba(139,92,246,0.15); border-radius:14px; padding:20px;">
+                <div style="font-size:13px; font-weight:800; color:#a78bfa; margin-bottom:8px;">📊 이번 주 투표</div>
+                <div style="font-size:14px; font-weight:700; color:#ffffff; margin-bottom:12px;">${p.poll.question}</div>
+                <a href="${p.magazineUrl}" target="_blank" style="display:inline-block; background:#7c3aed; color:#ffffff; padding:10px 20px; border-radius:8px; text-decoration:none; font-size:12px; font-weight:700;">지금 투표하기 →</a>
+              </div>
+            </td>
+          </tr>
+          ` : ""}
+
+          <!-- Tax Clinic -->
+          ${p.taxClinic?.question ? `
+          <tr>
+            <td style="padding:0 32px 24px;">
+              <div style="background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.12); border-radius:14px; padding:20px;">
+                <div style="font-size:13px; font-weight:800; color:#f59e0b; margin-bottom:8px;">💰 세무·법률 클리닉</div>
+                <div style="font-size:13px; font-weight:700; color:#fbbf24; margin-bottom:8px;">Q. ${p.taxClinic.question}</div>
+                <div style="font-size:12px; color:#94a3b8; line-height:1.7;">${(p.taxClinic.answer || '').slice(0, 200)}${(p.taxClinic.answer || '').length > 200 ? '...' : ''}</div>
+                ${p.taxClinic.source ? `<div style="font-size:10px; color:#64748b; margin-top:8px;">📎 ${p.taxClinic.source}</div>` : ''}
+              </div>
             </td>
           </tr>
           ` : ""}

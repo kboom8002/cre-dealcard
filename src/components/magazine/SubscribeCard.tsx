@@ -30,6 +30,13 @@ export function SubscribeCard({ brokerId, source, accentColor = '#6366f1' }: Sub
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Extract referral parameter from URL
+  const getRefParam = () => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('ref') || params.get('referrer') || null;
+  };
+
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
     if ((channel === 'kakao' || channel === 'both') && !phone.trim()) {
@@ -45,6 +52,7 @@ export function SubscribeCard({ brokerId, source, accentColor = '#6366f1' }: Sub
 
     setStatus('loading');
     try {
+      const refParam = getRefParam();
       const res = await fetch('/api/public/magazine/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -55,12 +63,27 @@ export function SubscribeCard({ brokerId, source, accentColor = '#6366f1' }: Sub
           name: name.trim() || undefined,
           channel,
           source,
+          referrer: refParam || undefined,
         }),
       });
 
       const data = await res.json();
       if (res.ok && data.ok) {
         setStatus('success');
+
+        // Record referral if ref param exists
+        if (refParam && phone.trim()) {
+          fetch('/api/public/magazine/referral', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              brokerId,
+              referrerPhone: refParam,
+              referredPhone: phone.trim(),
+            }),
+          }).catch(() => {/* silent */});
+        }
+
         setPhone('');
         setEmail('');
         setName('');

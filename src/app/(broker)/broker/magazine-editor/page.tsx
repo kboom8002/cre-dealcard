@@ -247,8 +247,29 @@ function MagazineEditorInner() {
             if (ed.theme_color) setThemeColor(ed.theme_color);
             // Store content for preview
             if (ed.content) {
+              const c = ed.content as any;
               setMagazineData({ ...ed.content, themeColor: ed.theme_color });
-              if ((ed.content as any).briefing) setBriefing((ed.content as any).briefing);
+              if (c.briefing) setBriefing(c.briefing);
+
+              // Hydrate Poll
+              if (c.poll?.question) {
+                setPollQuestion(c.poll.question);
+                if (Array.isArray(c.poll.choices)) {
+                  setPollChoices([...c.poll.choices, "", "", ""].slice(0, 3));
+                }
+              }
+
+              // Hydrate Tax Clinic
+              if (c.tax_clinic?.question) {
+                setTaxQuestion(c.tax_clinic.question);
+                setTaxAnswer(c.tax_clinic.answer || "");
+                setTaxSource(c.tax_clinic.source || "");
+              }
+
+              // Hydrate Section Order
+              if (Array.isArray(c.section_order) && c.section_order.length > 0) {
+                setSectionOrder(c.section_order);
+              }
             }
           }
         }

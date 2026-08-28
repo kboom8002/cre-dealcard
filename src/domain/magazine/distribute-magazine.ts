@@ -140,6 +140,8 @@ export async function distributeMagazine(
             featuredDeals: ((edition as any).content?.dealHighlights || (edition as any).content?.featured_deals || []).slice(0, 3),
             topNews: ((edition as any).content?.topNews || []).slice(0, 3),
             recentTransactions: ((edition as any).content?.recentTransactions || []).slice(0, 3),
+            poll: (edition as any).content?.poll || null,
+            taxClinic: (edition as any).content?.tax_clinic || null,
           });
         })
       );
