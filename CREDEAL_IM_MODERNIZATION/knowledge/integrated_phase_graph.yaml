@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "program": "CREDEAL_INTEGRATED_IM_MODERNIZATION",
+  "phases": [
+    {"id":"CIM-M0","name":"기준선 확정과 개발 통제","depends_on":[],"exit_gate":"MG-0"},
+    {"id":"CIM-M1","name":"즉시 안전봉합","depends_on":["CIM-M0"],"exit_gate":"MG-1"},
+    {"id":"CIM-M2","name":"재개 가능한 실행기와 공통 검사틀","depends_on":["CIM-M1"],"exit_gate":"MG-2"},
+    {"id":"CIM-M3","name":"블라인드 딜카드 세로절단","depends_on":["CIM-M2"],"exit_gate":"MG-3"},
+    {"id":"CIM-M4","name":"IM CORE v1","depends_on":["CIM-M2","CIM-M3"],"exit_gate":"MG-4"},
+    {"id":"CIM-M5","name":"모바일 IM L1/L1.5","depends_on":["CIM-M4"],"exit_gate":"MG-5"},
+    {"id":"CIM-M6","name":"PPTX IM Studio","depends_on":["CIM-M4","CIM-M5"],"exit_gate":"MG-6"},
+    {"id":"CIM-M7","name":"변경영향과 최소 재생성","depends_on":["CIM-M5","CIM-M6"],"exit_gate":"MG-7"},
+    {"id":"CIM-M8","name":"점진 전환과 구형경로 폐기","depends_on":["CIM-M7"],"exit_gate":"MG-8"}
+  ],
+  "cross_cutting_controls": ["gate_state_machine","target_hash_approval","publication_ledger","evidence_lineage","observability","feature_flags","rollback"]
+}

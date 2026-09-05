@@ -1,17 +1,17 @@
 # Pipeline Log: owner_occupied_case05_seongsu_hq
 
-**Generated**: 2026-08-26T00:19:17.040Z
-**Total Duration**: 0.3s
+**Generated**: 2026-09-05T11:13:22.655Z
+**Total Duration**: 0.7s
 
 ## Step-by-Step Timeline
 
 | # | Step | Duration | Status | Summary |
 |---|------|----------|--------|---------|
-| 1 | ① SSoT Lite 구축 | 0.01s | ✅ success | buildingId: stress-case-05 |
-| 2 | ② 바텀시트 보강 | 0.01s | ✅ success | posture: owner_occupied, keys: 3 |
-| 3 | ③ IM 생성 (LLM) | 0.12s | ✅ success | ok=true, sections=10, grade=B |
-| 4 | ④ 중간 결과물 저장 | 0.02s | ✅ success | sections: 10 |
-| 5 | ⑤ PPTX 렌더링 | 0.12s | ✅ success | slides: 11, size: 282KB |
+| 1 | ① SSoT Lite 구축 | 0.02s | ✅ success | buildingId: stress-case-05 |
+| 2 | ② 바텀시트 보강 | 0.03s | ✅ success | posture: owner_occupied, keys: 3 |
+| 3 | ③ IM 생성 (LLM) | 0.30s | ✅ success | ok=true, sections=8, grade=B |
+| 4 | ④ 중간 결과물 저장 | 0.13s | ✅ success | sections: 8 |
+| 5 | ⑤ PPTX 렌더링 | 0.24s | ✅ success | slides: 12, size: 355KB |
 
 ## Detailed Metrics
 
@@ -19,7 +19,7 @@
 ```json
 {
   "ok": true,
-  "sections_count": 10,
+  "sections_count": 8,
   "dataGrade": "B",
   "ai_used": true
 }
@@ -28,10 +28,24 @@
 ### ⑤ PPTX 렌더링
 ```json
 {
-  "slideCount": 11,
-  "fileSizeBytes": 288512,
+  "slideCount": 12,
+  "fileSizeBytes": 363661,
   "warnings": [
-    "[Graceful Degradation] 권리관계 슬라이드 억제: 바인딩할 데이터(dataKey: titleRights)가 충분하지 않습니다."
+    "[BL-E] 지도 데이터 미확보 — 슬라이드 생략, 체크리스트 이관",
+    "[Suppress] A06(입지 분석) 슬라이드 억제",
+    "[Graceful Degradation] 건물 개요 슬라이드 억제: 바인딩할 데이터(dataKey: building)가 충분하지 않습니다.",
+    "[BL-5] 폴백 발동: A08 슬라이드 #5 — 아키타입이 본문을 렌더링하지 못해 마크다운 폴백 사용",
+    "[P0-6 BLOCK] A08 폴백 차단: 아키타입이 본문을 렌더링하지 못함",
+    "[BL-5 BLOCK] A08(자가비교) 슬라이드 제거: 폴백 차단",
+    "[BL-E] 지도 데이터 미확보 — 슬라이드 생략, 체크리스트 이관",
+    "[Suppress] A06(통근·접근성) 슬라이드 억제",
+    "역레버리지 경고 슬라이드 반영",
+    "[Graceful Degradation] 총수익률 슬라이드 억제: 바인딩할 데이터(dataKey: totalReturn)가 충분하지 않습니다.",
+    "[AUDIT] G33: 텍스트 넘침 26건",
+    "[AUDIT] G34: 겹침 12.093in > 0.015in",
+    "[AUDIT] G41: 만실↔공실 서술어 모순",
+    "[AUDIT] G42: 폴백 중복 5건",
+    "[AUDIT] G44: 열린 괄호 2건"
   ]
 }
 ```

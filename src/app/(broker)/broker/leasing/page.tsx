@@ -1,4 +1,3 @@
-// @ts-nocheck DORMANT: entire file dormant
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -53,7 +52,6 @@ function StatusBadge({ status }: { status?: string }) {
 // ── Page ─────────────────────────────────────────────────────────
 
 export default async function LeasingStudioPage() {
-  /* DORMANT: leasing-studio */ redirect("/broker");
   const supabase = createServiceClient();
 
   const [{ data: spaces }, { data: leasingPages }] = await Promise.all([

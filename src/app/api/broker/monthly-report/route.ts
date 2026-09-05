@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       .from("deal_pipeline_states")
       .select("*", { count: "exact", head: true })
       .eq("broker_id", user!.id)
-      .eq("current_stage", "buyer_meeting")
+      .eq("stage", "buyer_meeting")
       .gte("entered_at", currentMonthStart)
       .lt("entered_at", nextMonthStart);
 
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
       .from("deal_pipeline_states")
       .select("*", { count: "exact", head: true })
       .eq("broker_id", user!.id)
-      .eq("current_stage", "buyer_meeting")
+      .eq("stage", "buyer_meeting")
       .gte("entered_at", prevMonthStart)
       .lt("entered_at", currentMonthStart);
 
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
       .from("deal_pipeline_states")
       .select("*", { count: "exact", head: true })
       .eq("broker_id", user!.id)
-      .in("current_stage", ["contract", "closed"])
+      .in("stage", ["contract", "closed"])
       .gte("entered_at", currentMonthStart)
       .lt("entered_at", nextMonthStart);
 
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
       .from("deal_pipeline_states")
       .select("*", { count: "exact", head: true })
       .eq("broker_id", user!.id)
-      .in("current_stage", ["contract", "closed"])
+      .in("stage", ["contract", "closed"])
       .gte("entered_at", prevMonthStart)
       .lt("entered_at", currentMonthStart);
 

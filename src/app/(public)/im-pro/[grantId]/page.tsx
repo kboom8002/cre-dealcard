@@ -172,17 +172,33 @@ export default function ProIMViewerPage({ params }: { params: Promise<{ grantId:
               {building?.areaSignal || ''} {building?.assetType || '매물'}
             </h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {data.grant.pdfExportAllowed && (
-              <button
-                onClick={() => window.open(`/api/public/im-pro/${grantId}/export`, '_blank')}
-                className="flex items-center gap-2 px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg text-sm font-medium transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                워터마크 PDF 다운로드
-              </button>
+              <>
+                <button
+                  onClick={() => window.open(`/api/public/im-pro/${grantId}/export?format=pptx`, '_blank')}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-lg text-xs shadow-md transition-all active:scale-95"
+                  data-testid="btn-download-pptx"
+                  title="워터마크 공식 PPTX 발표자료 다운로드"
+                >
+                  <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  <span className="hidden sm:inline">공식 PPTX 다운로드</span>
+                  <span className="sm:hidden">PPTX</span>
+                </button>
+                <button
+                  onClick={() => window.open(`/api/public/im-pro/${grantId}/export`, '_blank')}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg text-xs font-medium transition-colors"
+                  data-testid="btn-download-pdf"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span className="hidden sm:inline">워터마크 PDF</span>
+                  <span className="sm:hidden">PDF</span>
+                </button>
+              </>
             )}
             {hoursLeft !== null && (
               <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-1 rounded-full">
@@ -199,6 +215,27 @@ export default function ProIMViewerPage({ params }: { params: Promise<{ grantId:
         <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 text-xs text-purple-300">
           🔐 {data.grant.requesterName}님 전용 문서 · 전송 금지 · 워터마크 추적 중
         </div>
+
+        {/* Hero Official PPTX Action Card */}
+        {data.grant.pdfExportAllowed && (
+          <div className="bg-gradient-to-r from-emerald-950/60 via-teal-950/40 to-slate-900 border border-emerald-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-3 text-left">
+              <span className="text-2xl">📊</span>
+              <div>
+                <h3 className="text-sm font-bold text-emerald-200">공식 투자설명서 PPTX 프레젠테이션</h3>
+                <p className="text-xs text-slate-400">수신인 동적 워터마크가 결속된 고해상도 공식 발표자료를 다운로드합니다</p>
+              </div>
+            </div>
+            <button
+              onClick={() => window.open(`/api/public/im-pro/${grantId}/export?format=pptx`, '_blank')}
+              className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 whitespace-nowrap"
+              data-testid="hero-download-pptx-button"
+            >
+              <span>📥</span>
+              <span>공식 PPTX 다운로드</span>
+            </button>
+          </div>
+        )}
 
         {/* Financial Summary (unmasked) */}
         {building?.leaseSummary && (

@@ -1,0 +1,15 @@
+{
+  "caseId": "case-06",
+  "title": "사진 내 PII 포함 케이스",
+  "description": "외관 사진에 상호 및 전화번호가 노출되어 수동 승인 없이 외부 발행 차단 검증",
+  "asset": {
+    "name": "송파구 방이동 빌딩",
+    "photos": [
+      { "url": "/photos/exterior-with-phone.jpg", "piiDetected": true, "piiConfirmed": false }
+    ]
+  },
+  "expectedOutcome": {
+    "gateExpected": "BLOCKER",
+    "gateCode": "GATE-PII-EXCLUSION"
+  }
+}

@@ -61,7 +61,7 @@ describe('L4: Output Artifacts & Fixture Verifications (20 cases)', () => {
         { investmentPosture: SUTAEK_FIXTURE.posture, assetType: 'bare_land' }
       );
       expect(gradeResult.grade).toBe('D');
-      expect(() => buildDeckSequence({ posture: 'development', tier: 'basic', grade: 'D' })).toThrow(/D등급/);
+      expect(() => buildDeckSequence({ posture: 'development', grade: 'D' })).toThrow(/D등급/);
     });
 
     it('L4-HT-01: hotel fixture with empty GOP resolves to D grade and blocks publication', () => {
@@ -70,7 +70,7 @@ describe('L4: Output Artifacts & Fixture Verifications (20 cases)', () => {
         { investmentPosture: HOTEL_FIXTURE.posture, assetType: 'hotel' }
       );
       expect(gradeResult.grade).toBe('D');
-      expect(() => buildDeckSequence({ posture: 'operating', tier: 'basic', grade: 'D' })).toThrow(/D등급/);
+      expect(() => buildDeckSequence({ posture: 'operating', grade: 'D' })).toThrow(/D등급/);
     });
 
     it('L4-OO-01: ownocc fixture resolves to B grade with valid occupancy plan', () => {

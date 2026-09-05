@@ -102,8 +102,8 @@ export async function createTenantIntentFromMemo(
   await recordEvent(supabase, {
     actorId: userId,
     actorRole: "broker",
-    eventType: "buyer_intent_created",
-    entityType: "buyer_intent_lite",
+    eventType: "tenant_intent_created",
+    entityType: "tenant_intent",
     entityId: tenantIntent.id,
     metadata: {
       business_type: intent.businessType,

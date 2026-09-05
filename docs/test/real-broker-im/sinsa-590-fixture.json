@@ -1,0 +1,228 @@
+{
+  "dealId": "sinsa-590",
+  "title": "신사동 590 ICL 빌딩 매각 안내서",
+  "posture": "income",
+  "address": "서울특별시 강남구 신사동 590 외 2필지 (590-1, 590-2)",
+  "askingPriceKrw": 76000000000,
+  "landAreaM2": 1061.90,
+  "grossFloorAreaM2": 3341.80,
+  "archAreaM2": 544.70,
+  "bcRat": 51.30,
+  "vlRat": 237.20,
+  "maxVlRat": 250.0,
+  "maxBcRat": 50.0,
+  "useZone": "제3종일반주거지역",
+  "floors": "지하 2층 ~ 지상 6층",
+  "floorsAbove": 6,
+  "floorsBelow": 2,
+  "structure": "철근콘크리트구조",
+  "elevatorCount": 1,
+  "parking": "총 26대 (기계식 21대 / 자주식 5대, 실제 8대 가능)",
+  "parkingCount": 26,
+  "mechanicalParkingCount": 21,
+  "selfParkingCount": 5,
+  "completionDate": "1998-05-15",
+  "wale": 3.8,
+  "vacancyRate": 16.7,
+  "statedDepositKrw": 950000000,
+  "statedMonthlyRentKrw": 64625000,
+  "statedLandPricePerPyeongKrw": 236000000,
+  "calculatedLandPricePerPyeongKrw": 236594472,
+  "capRatePct": 1.02,
+  "subDistrict": "GBD_SINSA",
+  "coordinates": {
+    "lat": 37.5208,
+    "lng": 127.0285
+  },
+  "poiSpots": [
+    { "name": "압구정역 (3호선)", "lat": 37.5265, "lng": 127.0285, "category": "subway" },
+    { "name": "신사역 (3호선/신분당선)", "lat": 37.5164, "lng": 127.0205, "category": "subway" },
+    { "name": "강남을지병원사거리", "lat": 37.5200, "lng": 127.0290, "category": "landmark" }
+  ],
+  "keyFacts3Tier": {
+    "tier1_subject": [
+      ["소재지", "서울특별시 강남구 신사동 590 외 2필지 (590-1, 590-2)"],
+      ["매각희망가", "760억 원"],
+      ["토지 평당가", "약 2.36억 원/평"],
+      ["연 순수익률 (Cap Rate)", "1.02% (4층 공실 정상화 시 1.28%)"],
+      ["주요 용도", "제1종·제2종 근린생활시설 (메디컬·사옥)"]
+    ],
+    "tier2_land": [
+      ["대지면적", "1,061.90㎡ (321.2평)"],
+      ["용도지역", "제3종일반주거지역"],
+      ["건폐율 / 용적률", "51.3% / 237.2% (법정 50% / 250%)"],
+      ["도로접면", "논현로 이면 코너 (북측 8m, 동측 6m)"]
+    ],
+    "tier3_building": [
+      ["연면적", "3,341.80㎡ (1,010.9평)"],
+      ["건축면적", "544.70㎡ (164.8평)"],
+      ["사용승인일", "1998-05-15 (준공 1998년)"],
+      ["규모 / 층수", "지하 2층 ~ 지상 6층"],
+      ["주차 설비", "총 26대 (기계 21대, 자주 5대, 실제 8대 가능)"],
+      ["승강기", "1대 완비"],
+      ["주구조", "철근콘크리트구조"]
+    ]
+  },
+  "salesComparisonComps": [
+    {
+      "name": "신사동 586-6 (실거래)",
+      "distanceM": 120,
+      "dealDate": "2024-02",
+      "landPricePerPyeongKrw": 225550000,
+      "gfaPricePerPyeongKrw": 70610000,
+      "landAreaPyeong": 76.7,
+      "gfaPyeong": 245.0
+    },
+    {
+      "name": "신사동 566-35 (실거래)",
+      "distanceM": 380,
+      "dealDate": "2023-11",
+      "landPricePerPyeongKrw": 200310000,
+      "gfaPricePerPyeongKrw": 62980000,
+      "landAreaPyeong": 65.4,
+      "gfaPyeong": 208.0
+    },
+    {
+      "name": "신사동 590-23 (인근매물)",
+      "distanceM": 80,
+      "dealDate": "2024-05",
+      "landPricePerPyeongKrw": 274910000,
+      "gfaPricePerPyeongKrw": 88890000,
+      "landAreaPyeong": 145.5,
+      "gfaPyeong": 450.0
+    },
+    {
+      "name": "신사동 559-6 (인근매물)",
+      "distanceM": 420,
+      "dealDate": "2024-03",
+      "landPricePerPyeongKrw": 283290000,
+      "gfaPricePerPyeongKrw": 90910000,
+      "landAreaPyeong": 70.6,
+      "gfaPyeong": 220.0
+    },
+    {
+      "name": "신사동 588-1 (인근매물)",
+      "distanceM": 210,
+      "dealDate": "2024-04",
+      "landPricePerPyeongKrw": 317600000,
+      "gfaPricePerPyeongKrw": 92110000,
+      "landAreaPyeong": 55.1,
+      "gfaPyeong": 190.0
+    }
+  ],
+  "incomeCapitalization": {
+    "annualGrossRentKrw": 775500000,
+    "annualMgmtFeeKrw": 0,
+    "annualOpexKrw": 0,
+    "annualNoiKrw": 775500000,
+    "marketCapRateRangePct": [2.50, 3.50],
+    "estimatedValueRangeKrw": [22157142857, 31020000000],
+    "proFormaAnnualNoiKrw": 973500000,
+    "proFormaEstimatedValueRangeKrw": [27814285714, 38940000000],
+    "costMethodExcludedNote": "원가법 제외: 노후도 감가 및 도심 역세권 수익형 상업용 부동산 특성상 사례비교법 및 수익환원법 2방식 적용",
+    "valuationConclusion": "본건 매매가 760억 원은 인근 GBD 토지 거래 밴드(2.00억~3.18억 원/평) 내 중간값(2.36억 원/평)에 안착하며 가격 적정성 부합"
+  },
+  "stackingPlan": [
+    {
+      "floor": "6F",
+      "use": "제2종근린생활시설(의원)",
+      "tenant": "하우연한의원",
+      "floorAreaM2": 450.0,
+      "floorAreaPy": 136.1,
+      "exclusiveAreaM2": 360.0,
+      "exclusiveAreaPy": 108.9,
+      "expiryYear": 2027,
+      "depositKrw": 100000000,
+      "monthlyRentKrw": 7800000,
+      "isVacant": false
+    },
+    {
+      "floor": "5F",
+      "use": "제1종근린생활시설(의원)",
+      "tenant": "ST성형외과",
+      "floorAreaM2": 520.0,
+      "floorAreaPy": 157.3,
+      "exclusiveAreaM2": 416.0,
+      "exclusiveAreaPy": 125.8,
+      "expiryYear": 2024,
+      "depositKrw": 300000000,
+      "monthlyRentKrw": 13300000,
+      "isVacant": false
+    },
+    {
+      "floor": "4F",
+      "use": "제2종근린생활시설(사무소)",
+      "tenant": "공실 (임대 가능 / 밸류애드)",
+      "floorAreaM2": 544.7,
+      "floorAreaPy": 164.8,
+      "exclusiveAreaM2": 435.8,
+      "exclusiveAreaPy": 131.8,
+      "expiryYear": 0,
+      "depositKrw": 0,
+      "monthlyRentKrw": 0,
+      "isVacant": true
+    },
+    {
+      "floor": "3F",
+      "use": "제2종근린생활시설(학원)",
+      "tenant": "엑셀유학/어학",
+      "floorAreaM2": 544.7,
+      "floorAreaPy": 164.8,
+      "exclusiveAreaM2": 435.8,
+      "exclusiveAreaPy": 131.8,
+      "expiryYear": 2025,
+      "depositKrw": 150000000,
+      "monthlyRentKrw": 15750000,
+      "isVacant": false
+    },
+    {
+      "floor": "2F",
+      "use": "제2종근린생활시설(학원)",
+      "tenant": "모래공장보컬아카데미",
+      "floorAreaM2": 544.7,
+      "floorAreaPy": 164.8,
+      "exclusiveAreaM2": 435.8,
+      "exclusiveAreaPy": 131.8,
+      "expiryYear": 2024,
+      "depositKrw": 150000000,
+      "monthlyRentKrw": 11500000,
+      "isVacant": false
+    },
+    {
+      "floor": "1F",
+      "use": "제1종근린생활시설(소매점)",
+      "tenant": "이탈로모토 (바이크 쇼룸)",
+      "floorAreaM2": 544.7,
+      "floorAreaPy": 164.8,
+      "exclusiveAreaM2": 435.8,
+      "exclusiveAreaPy": 131.8,
+      "expiryYear": 2030,
+      "depositKrw": 250000000,
+      "monthlyRentKrw": 16275000,
+      "isVacant": false
+    }
+  ],
+  "photos": [
+    {
+      "url": "docs/test/real-broker-im/sinsa-media/image9.jpeg",
+      "caption": "신사동 590 ICL 빌딩 전경 및 대로변 코너 입지"
+    },
+    {
+      "url": "docs/test/real-broker-im/sinsa-media/image8.jpeg",
+      "caption": "건물 전면 도로 및 1층 근린생활시설 바이크 쇼룸"
+    },
+    {
+      "url": "docs/test/real-broker-im/sinsa-media/image10.jpeg",
+      "caption": "건물 후면 주차장 및 진출입로 전경"
+    },
+    {
+      "url": "docs/test/real-broker-im/sinsa-media/image11.jpeg",
+      "caption": "상부층 의료시설 및 근린생활시설 전용 공간"
+    },
+    {
+      "url": "docs/test/real-broker-im/sinsa-media/image1.jpg",
+      "caption": "논현로 및 도산대로 교차권역 상권 전경"
+    }
+  ],
+  "cadastralMapImage": "docs/test/real-broker-im/sinsa-media/image5.png"
+}

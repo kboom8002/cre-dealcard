@@ -6,6 +6,8 @@
  * "사람 승인 없이는 발행 불가"
  */
 
+import type { GateResultStatus } from '@/types/gate-result';
+
 export interface ImageApprovalRecord {
   sha256: string;
   slot: string;
@@ -18,6 +20,7 @@ export interface ImageApprovalRecord {
 export interface G20Result {
   id: 'G20';
   passed: boolean;
+  status: GateResultStatus;
   severity: 'block';
   failures: Array<{
     slot: string;
@@ -57,9 +60,16 @@ export function checkG20(
     }
   }
 
+  const passed = failures.length === 0;
+  let status: GateResultStatus = 'PASS';
+  if (!passed) {
+    status = approvals.size === 0 && usedImages.length > 0 ? 'NOT_RUN' : 'FAIL';
+  }
+
   return {
     id: 'G20',
-    passed: failures.length === 0,
+    passed,
+    status,
     severity: 'block',
     failures,
   };

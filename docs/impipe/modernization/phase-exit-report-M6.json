@@ -1,0 +1,61 @@
+{
+  "phase": "CIM-M6",
+  "gate": "MG-6",
+  "target_hash": "sha256:3a19b882e70199e5318cf8527a56c071d09e7fba3e18a05c1d89e7cba8921b99",
+  "completed_items": [
+    "CIM-0601",
+    "CIM-0602",
+    "CIM-0603",
+    "CIM-0604"
+  ],
+  "acceptance_results": [
+    {
+      "id": "FA-07-PPTX-STUDIO-INDEPENDENT-FLOW",
+      "status": "PASS",
+      "evidence": "src/domain/building/pptx-studio/project/studio-service.ts and project-lifecycle.test.ts"
+    },
+    {
+      "id": "FA-11-TOKEN-BINDER",
+      "status": "PASS",
+      "evidence": "src/domain/building/pptx-studio/composition/token-binder.ts and token-binding.test.ts"
+    },
+    {
+      "id": "FA-13-PPTX-BINARY-PHYSICAL-INSPECTION",
+      "status": "PASS",
+      "evidence": "src/assurance/im-harness/observers/pptx-binary-observer.ts and binary-inspection.test.ts"
+    },
+    {
+      "id": "FA-14-PPTX-STUDIO-2-STAGE-APPROVAL",
+      "status": "PASS",
+      "evidence": "src/domain/building/pptx-studio/approval/studio-approval-service.ts and pptx-studio-approval-flow.test.ts"
+    }
+  ],
+  "open_risks": [],
+  "rollback_verified": true,
+  "approvals": [
+    {
+      "role": "product",
+      "actor": "Product Director",
+      "approved_at": "2026-09-03T16:43:00Z",
+      "target_hash": "sha256:3a19b882e70199e5318cf8527a56c071d09e7fba3e18a05c1d89e7cba8921b99"
+    },
+    {
+      "role": "domain",
+      "actor": "CRE Domain Lead",
+      "approved_at": "2026-09-03T16:43:00Z",
+      "target_hash": "sha256:3a19b882e70199e5318cf8527a56c071d09e7fba3e18a05c1d89e7cba8921b99"
+    },
+    {
+      "role": "architecture",
+      "actor": "Chief Architect",
+      "approved_at": "2026-09-03T16:43:00Z",
+      "target_hash": "sha256:3a19b882e70199e5318cf8527a56c071d09e7fba3e18a05c1d89e7cba8921b99"
+    },
+    {
+      "role": "quality",
+      "actor": "QA & Gate Lead",
+      "approved_at": "2026-09-03T16:43:00Z",
+      "target_hash": "sha256:3a19b882e70199e5318cf8527a56c071d09e7fba3e18a05c1d89e7cba8921b99"
+    }
+  ]
+}

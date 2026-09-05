@@ -21,8 +21,9 @@ describe('Goldilocks 단일 시퀀스 검증', { timeout: 60_000 }, () => {
         });
 
         // 골디락스 최소: cover + summary + location + land + building + posture(3~6) + 마감(5) = 최소 ~14
+        const bodySlides = seq.filter(s => s.placement !== 'appendix');
         expect(seq.length).toBeGreaterThanOrEqual(10);
-        expect(seq.length).toBeLessThanOrEqual(16); // D33 S-2: 정본 §3.1 상한 16
+        expect(bodySlides.length).toBeLessThanOrEqual(16); // D33 S-2 & Rule 10: 본문 상한 16
 
         // 필수 dataKey 존재 확인
         const keys = seq.map(s => s.dataKey);
@@ -40,7 +41,7 @@ describe('Goldilocks 단일 시퀀스 검증', { timeout: 60_000 }, () => {
 
   // ── G-02: Grade별 동적 면 수 ──
   describe('G-02: Grade별 동적 면 수', () => {
-    test('Grade A + 풀 데이터 → 16~20p', () => {
+    test('Grade A + 풀 데이터 → 본문 12~16p + 부록 분리', () => {
       const seq = buildDeckSequence({
         posture: 'income',
         grade: 'A',
@@ -55,12 +56,15 @@ describe('Goldilocks 단일 시퀀스 검증', { timeout: 60_000 }, () => {
           hasCadastralMap: true,
         },
       });
-      // A등급은 재무 확장 + 데이터 면 추가 → 절삭 후 12~16p
-      expect(seq.length).toBeGreaterThanOrEqual(12); // D33 S-2
-      expect(seq.length).toBeLessThanOrEqual(16); // D33 S-2
+      // A등급은 재무 확장 + 데이터 면 추가 → 절삭 후 본문 12~16p (Rule 10: 부록 제외)
+      const bodySlides = seq.filter(s => s.placement !== 'appendix');
+      const appendixSlides = seq.filter(s => s.placement === 'appendix');
+      expect(bodySlides.length).toBeGreaterThanOrEqual(12); // D33 S-2
+      expect(bodySlides.length).toBeLessThanOrEqual(16); // Rule 10: 본문 16p 이하
+      expect(appendixSlides.length).toBeGreaterThan(0); // 부록 분리 검증 (Rule 10)
     });
 
-    test('Grade B + 기본 데이터 → 10~16p', () => {
+    test('Grade B + 기본 데이터 → 본문 10~16p', () => {
       const seq = buildDeckSequence({
         posture: 'income',
         grade: 'B',
@@ -70,11 +74,12 @@ describe('Goldilocks 단일 시퀀스 검증', { timeout: 60_000 }, () => {
           hasBuildingRegister: true,
         },
       });
-      expect(seq.length).toBeGreaterThanOrEqual(10); // D33 S-2: PAGE_RECOMMENDED=12 절삭
-      expect(seq.length).toBeLessThanOrEqual(16);
+      const bodySlides = seq.filter(s => s.placement !== 'appendix');
+      expect(bodySlides.length).toBeGreaterThanOrEqual(10); // D33 S-2: PAGE_RECOMMENDED=12 절삭
+      expect(bodySlides.length).toBeLessThanOrEqual(16); // Rule 10: 본문 16p 이하
     });
 
-    test('Grade C + 최소 데이터 → 12~14p', () => {
+    test('Grade C + 최소 데이터 → 본문 10~14p', () => {
       const seq = buildDeckSequence({
         posture: 'income',
         grade: 'C',
@@ -82,8 +87,9 @@ describe('Goldilocks 단일 시퀀스 검증', { timeout: 60_000 }, () => {
         dataAvailability: {},
       });
       // C등급: 재무 없음, 데이터 면 없음
-      expect(seq.length).toBeGreaterThanOrEqual(10);
-      expect(seq.length).toBeLessThanOrEqual(14);
+      const bodySlides = seq.filter(s => s.placement !== 'appendix');
+      expect(bodySlides.length).toBeGreaterThanOrEqual(10);
+      expect(bodySlides.length).toBeLessThanOrEqual(14);
     });
   });
 
@@ -156,7 +162,8 @@ describe('Goldilocks 단일 시퀀스 검증', { timeout: 60_000 }, () => {
       // C등급 기본 12면 + publicRecords 1면 = 13면 → 절삭 발동
       // publicRecords는 보호키가 아니므로 절삭될 수 있음
       // 하지만 면이 절삭 범위 안에 들어가면 유지됨
-      expect(seq.length).toBeLessThanOrEqual(16);
+      const bodySlides = seq.filter(s => s.placement !== 'appendix');
+      expect(bodySlides.length).toBeLessThanOrEqual(16);
     });
 
     test('등기부 있으면 권리관계 면 추가 (titleRights는 보호키)', () => {
@@ -176,8 +183,9 @@ describe('Goldilocks 단일 시퀀스 검증', { timeout: 60_000 }, () => {
         grade: 'C',
         dataAvailability: { hasCadastralMap: true },
       });
-      // D33 S-2: 절삭으로 cadastralMap이 탈락할 수 있음 — 면수만 확인
-      expect(seq.length).toBeLessThanOrEqual(16);
+      // D33 S-2: 절삭으로 cadastralMap이 탈락할 수 있음 — 본문 면수만 확인
+      const bodySlides = seq.filter(s => s.placement !== 'appendix');
+      expect(bodySlides.length).toBeLessThanOrEqual(16);
     });
 
     test('상권 데이터 있으면 시퀀스에 상권 분석 포함 시도', () => {
@@ -186,8 +194,9 @@ describe('Goldilocks 단일 시퀀스 검증', { timeout: 60_000 }, () => {
         grade: 'C',
         dataAvailability: { hasCommercialDistrict: true },
       });
-      // D33 S-2: 절삭으로 commercialDistrict이 탈락할 수 있음 — 면수만 확인
-      expect(seq.length).toBeLessThanOrEqual(16);
+      // D33 S-2: 절삭으로 commercialDistrict이 탈락할 수 있음 — 본문 면수만 확인
+      const bodySlides = seq.filter(s => s.placement !== 'appendix');
+      expect(bodySlides.length).toBeLessThanOrEqual(16);
     });
 
     test('데이터 없으면 추가 면 없음', () => {
@@ -206,7 +215,7 @@ describe('Goldilocks 단일 시퀀스 검증', { timeout: 60_000 }, () => {
 
   // ── G-06: 면 절삭 (하드리밋 16p) ──
   describe('G-06: 면 절삭 (하드리밋 16p)', () => {
-    test('모든 데이터 + A등급 → 16p 이하', () => {
+    test('모든 데이터 + A등급 → 본문 16p 이하 (부록 제외)', () => {
       const seq = buildDeckSequence({
         posture: 'income',
         grade: 'A',
@@ -219,7 +228,10 @@ describe('Goldilocks 단일 시퀀스 검증', { timeout: 60_000 }, () => {
           hasCadastralMap: true, hasFloorPlan: true,
         },
       });
-      expect(seq.length).toBeLessThanOrEqual(16); // D33 S-2: 정본 §3.1
+      const bodySlides = seq.filter(s => s.placement !== 'appendix');
+      const appendixSlides = seq.filter(s => s.placement === 'appendix');
+      expect(bodySlides.length).toBeLessThanOrEqual(16); // D33 S-2 & Rule 10: 본문 하드리밋 16
+      expect(appendixSlides.length).toBeGreaterThan(0); // 부록은 16면 한도에서 제외
     });
 
     test('보호된 키는 절삭되지 않음', () => {

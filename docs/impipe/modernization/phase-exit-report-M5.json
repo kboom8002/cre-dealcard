@@ -1,0 +1,61 @@
+{
+  "phase": "CIM-M5",
+  "gate": "MG-5",
+  "target_hash": "sha256:7f81a4b92c0199e5318cf8527a56c071d09e7fba3e18a05c1d89e7cba8921b71",
+  "completed_items": [
+    "CIM-0501",
+    "CIM-0502",
+    "CIM-0503",
+    "CIM-0504"
+  ],
+  "acceptance_results": [
+    {
+      "id": "FA-06-MOBILE-COMPOSER-6-STAGE",
+      "status": "PASS",
+      "evidence": "src/domain/building/mobile-im/composer/mobile-composer.ts and composer.test.ts"
+    },
+    {
+      "id": "FA-10-CRE-LEXICON-FILTER",
+      "status": "PASS",
+      "evidence": "src/domain/building/mobile-im/presentation/cre-lexicon-filter.ts and lexicon-filter.test.ts"
+    },
+    {
+      "id": "FA-12-ADAPTIVE-PHOTO-LAYOUT",
+      "status": "PASS",
+      "evidence": "src/domain/building/mobile-im/presentation/adaptive-photo-layout.tsx and photo-layout.test.ts"
+    },
+    {
+      "id": "FA-15-MOBILE-L15-E2E-FLOW",
+      "status": "PASS",
+      "evidence": "src/tests/e2e/mobile-l15-e2e.test.ts"
+    }
+  ],
+  "open_risks": [],
+  "rollback_verified": true,
+  "approvals": [
+    {
+      "role": "product",
+      "actor": "Product Director",
+      "approved_at": "2026-09-03T16:41:00Z",
+      "target_hash": "sha256:7f81a4b92c0199e5318cf8527a56c071d09e7fba3e18a05c1d89e7cba8921b71"
+    },
+    {
+      "role": "domain",
+      "actor": "CRE Domain Lead",
+      "approved_at": "2026-09-03T16:41:00Z",
+      "target_hash": "sha256:7f81a4b92c0199e5318cf8527a56c071d09e7fba3e18a05c1d89e7cba8921b71"
+    },
+    {
+      "role": "architecture",
+      "actor": "Chief Architect",
+      "approved_at": "2026-09-03T16:41:00Z",
+      "target_hash": "sha256:7f81a4b92c0199e5318cf8527a56c071d09e7fba3e18a05c1d89e7cba8921b71"
+    },
+    {
+      "role": "quality",
+      "actor": "QA & Gate Lead",
+      "approved_at": "2026-09-03T16:41:00Z",
+      "target_hash": "sha256:7f81a4b92c0199e5318cf8527a56c071d09e7fba3e18a05c1d89e7cba8921b71"
+    }
+  ]
+}

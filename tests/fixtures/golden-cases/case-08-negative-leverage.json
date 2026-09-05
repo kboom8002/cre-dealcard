@@ -1,0 +1,14 @@
+{
+  "caseId": "case-08",
+  "title": "역레버리지 위험 케이스",
+  "description": "대출금리(5.2%)가 CapRate(3.8%)를 초과하여 역마진 발생 시 필수 경고 검증",
+  "financials": {
+    "capRate": 0.038,
+    "loanRate": 0.052,
+    "negativeLeverage": true
+  },
+  "expectedOutcome": {
+    "warningRequired": true,
+    "gateCode": "BL-4-NEGATIVE-LEVERAGE"
+  }
+}

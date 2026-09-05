@@ -1,0 +1,189 @@
+catalog_version: 1.0.0
+owner: im-pipeline
+status: proposed_normative
+stages:
+  - code: P00
+    name_ko: 요청접수·입력동결
+    phase: core
+    required: true
+    input_artifact_types: [case_input_reference]
+    output_artifact_types: [intake_envelope]
+    allowed_partial_success: false
+    user_phase: 입력 확인
+    default_deadline_seconds: 10
+  - code: P10
+    name_ko: 근거수집·정규화
+    phase: core
+    required: true
+    input_artifact_types: [intake_envelope]
+    output_artifact_types: [evidence_collection, data_inventory]
+    allowed_partial_success: true
+    user_phase: 자료 수집
+    default_deadline_seconds: 60
+    fanout_groups: [building_land, market, rent_roll, media, broker_input]
+  - code: P20
+    name_ko: 매각범위·불일치조정
+    phase: core
+    required: true
+    input_artifact_types: [evidence_collection, data_inventory]
+    output_artifact_types: [asset_scope, conflict_set, correction_set, reconciliation_set]
+    allowed_partial_success: false
+    user_phase: 자료 확인
+    default_deadline_seconds: 20
+  - code: P30
+    name_ko: 유효기준본 생성
+    phase: core
+    required: true
+    input_artifact_types: [reconciliation_set]
+    output_artifact_types: [effective_snapshot]
+    allowed_partial_success: false
+    user_phase: 기준 확정
+    default_deadline_seconds: 10
+  - code: P40
+    name_ko: 산출항목 계산·판정
+    phase: core
+    required: true
+    input_artifact_types: [effective_snapshot]
+    output_artifact_types: [claim_evaluation_set]
+    allowed_partial_success: true
+    user_phase: 내용 판정
+    default_deadline_seconds: 30
+  - code: P50
+    name_ko: CORE 검사·등급가능범위
+    phase: core
+    required: true
+    input_artifact_types: [effective_snapshot, claim_evaluation_set]
+    output_artifact_types: [core_gate_report, level_eligibility]
+    allowed_partial_success: false
+    user_phase: 발행 가능범위 확인
+    default_deadline_seconds: 15
+  - code: P60
+    name_ko: 공통 발행묶음 생성
+    phase: core
+    required: true
+    input_artifact_types: [effective_snapshot, claim_evaluation_set, core_gate_report, level_eligibility]
+    output_artifact_types: [publication_package]
+    allowed_partial_success: false
+    user_phase: 발행재료 준비
+    default_deadline_seconds: 15
+  - code: M00
+    name_ko: 모바일 제작요청
+    phase: mobile
+    required: true
+    input_artifact_types: [publication_package]
+    output_artifact_types: [mobile_build_request]
+    allowed_partial_success: false
+    user_phase: 모바일 초안 준비
+    default_deadline_seconds: 10
+  - code: M10
+    name_ko: 모바일 내용구성
+    phase: mobile
+    required: true
+    input_artifact_types: [mobile_build_request, publication_package]
+    output_artifact_types: [mobile_content_plan]
+    allowed_partial_success: false
+    user_phase: 모바일 초안 준비
+    default_deadline_seconds: 20
+  - code: M20
+    name_ko: 모바일 문안·표·사진조립
+    phase: mobile
+    required: true
+    input_artifact_types: [mobile_content_plan, publication_package]
+    output_artifact_types: [mobile_publication_version]
+    allowed_partial_success: false
+    user_phase: 모바일 초안 작성
+    default_deadline_seconds: 60
+  - code: M30
+    name_ko: 모바일 검사
+    phase: mobile
+    required: true
+    input_artifact_types: [mobile_publication_version, publication_package]
+    output_artifact_types: [mobile_channel_gate_report]
+    allowed_partial_success: false
+    user_phase: 모바일 검수
+    default_deadline_seconds: 20
+  - code: M40
+    name_ko: 모바일 사람승인
+    phase: mobile
+    required: true
+    input_artifact_types: [mobile_publication_version, mobile_channel_gate_report]
+    output_artifact_types: [approval_event]
+    allowed_partial_success: false
+    user_phase: 중개인 확인
+    automatic_execution: false
+  - code: M50
+    name_ko: 모바일 발행
+    phase: mobile
+    required: true
+    input_artifact_types: [mobile_publication_version, approval_event]
+    output_artifact_types: [distribution_record]
+    allowed_partial_success: false
+    user_phase: 발행 완료
+  - code: S00
+    name_ko: PPTX Studio 프로젝트 생성
+    phase: pptx
+    required: true
+    input_artifact_types: [publication_package]
+    output_artifact_types: [pptx_studio_project_version]
+    allowed_partial_success: false
+    user_phase: PPTX 기획
+  - code: S10
+    name_ko: 페이지 구성안
+    phase: pptx
+    required: true
+    input_artifact_types: [pptx_studio_project_version, publication_package]
+    output_artifact_types: [composition_plan]
+    allowed_partial_success: false
+    user_phase: PPTX 기획
+  - code: S20
+    name_ko: 문안·표 계획
+    phase: pptx
+    required: true
+    input_artifact_types: [composition_plan, publication_package]
+    output_artifact_types: [copy_plan]
+    allowed_partial_success: false
+    user_phase: PPTX 편집
+  - code: S30
+    name_ko: 사진·레이아웃
+    phase: pptx
+    required: true
+    input_artifact_types: [composition_plan, copy_plan, publication_package]
+    output_artifact_types: [media_plan, layout_plan]
+    allowed_partial_success: false
+    user_phase: PPTX 편집
+  - code: S40
+    name_ko: 미리보기
+    phase: pptx
+    required: true
+    input_artifact_types: [composition_plan, copy_plan, media_plan, layout_plan]
+    output_artifact_types: [preview_artifact]
+    allowed_partial_success: false
+    user_phase: PPTX 미리보기
+    default_deadline_seconds: 180
+  - code: S50
+    name_ko: PPTX 지면·사실검사
+    phase: pptx
+    required: true
+    input_artifact_types: [preview_artifact, publication_package]
+    output_artifact_types: [pptx_channel_gate_report]
+    allowed_partial_success: false
+    user_phase: PPTX 검수
+  - code: S60
+    name_ko: PPTX 최종승인
+    phase: pptx
+    required: true
+    input_artifact_types: [preview_artifact, pptx_channel_gate_report]
+    output_artifact_types: [approval_event]
+    allowed_partial_success: false
+    automatic_execution: false
+    user_phase: 중개인 확인
+  - code: S70
+    name_ko: PPTX 최종렌더·배포
+    phase: pptx
+    required: true
+    input_artifact_types: [pptx_studio_project_version, approval_event]
+    output_artifact_types: [rendered_artifact, distribution_record]
+    allowed_partial_success: false
+    user_phase: 발행 완료
+    default_deadline_seconds: 180
+

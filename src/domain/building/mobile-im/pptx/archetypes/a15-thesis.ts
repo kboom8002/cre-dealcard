@@ -136,12 +136,14 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
           line: { color: C.line, width: 0.5 },
         });
 
-        // 상세 설명
-        slide.addText(p.body, {
-          x: x + 0.25, y: y + 1.42, w: cardW - 0.50, h: cardH - 1.65,
-          fontSize: 12, color: C.body, fontFace: KR,
-          margin: 0, valign: 'top', lineSpacingMultiple: 1.30,
-        });
+        // 상세 설명 (title과 동일하면 중복 렌더링 방지)
+        if (p.body && p.body.trim() !== p.title.trim()) {
+          slide.addText(p.body, {
+            x: x + 0.25, y: y + 1.42, w: cardW - 0.50, h: cardH - 1.65,
+            fontSize: 12, color: C.body, fontFace: KR,
+            margin: 0, valign: 'top', lineSpacingMultiple: 1.30,
+          });
+        }
       });
     } else {
       // 4개: 2×2 그리드 카드 (Hero Emphasis)
@@ -153,8 +155,8 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
 
       displayPillars.forEach((p, idx) => {
         const row = Math.floor(idx / cols);
-        const colIdx = idx % cols;
-        const x = colX(colIdx, cardW, gapX);
+        const c = idx % cols;
+        const x = colX(c, cardW, gapX);
         const y = startY + row * (cardH + gapY);
 
         // 카드 배경
@@ -174,13 +176,13 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
         // 상단: 넘버 배지 + 강점 타이틀
         const numText = p.number || String(idx + 1).padStart(2, '0');
         slide.addShape('roundRect' as any, {
-          x: x + 0.25, y: y + 0.20, w: 0.46, h: 0.28,
+          x: x + 0.20, y: y + 0.18, w: 0.48, h: 0.30,
           rectRadius: 0.04,
           fill: { color: C.brassL },
         });
         slide.addText(numText, {
-          x: x + 0.25, y: y + 0.20, w: 0.46, h: 0.28,
-          fontSize: 10, bold: true, color: C.brassD, fontFace: NUM,
+          x: x + 0.20, y: y + 0.18, w: 0.48, h: 0.30,
+          fontSize: 10.5, bold: true, color: C.brassD, fontFace: NUM,
           align: 'center', valign: 'middle', margin: 0,
         });
 
@@ -190,12 +192,14 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
           margin: 0, valign: 'middle',
         });
 
-        // 상세 설명 본문 (강조 가독성 확보)
-        slide.addText(p.body, {
-          x: x + 0.25, y: y + 0.58, w: cardW - 0.50, h: cardH - 0.72,
-          fontSize: 12, color: C.ink2, fontFace: KR,
-          margin: 0, valign: 'top', lineSpacingMultiple: 1.25,
-        });
+        // 상세 설명 본문 (title과 동일하면 중복 렌더링 방지)
+        if (p.body && p.body.trim() !== p.title.trim()) {
+          slide.addText(p.body, {
+            x: x + 0.25, y: y + 0.58, w: cardW - 0.50, h: cardH - 0.72,
+            fontSize: 12, color: C.ink2, fontFace: KR,
+            margin: 0, valign: 'top', lineSpacingMultiple: 1.25,
+          });
+        }
       });
     }
   }

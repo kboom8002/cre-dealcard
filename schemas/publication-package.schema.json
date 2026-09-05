@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PublicationPackage",
+  "description": "CTR-008: Immutable common publication package consumed by Mobile IM and PPTX Studio",
+  "type": "object",
+  "required": [
+    "packageId",
+    "dealId",
+    "snapshotHash",
+    "claimsHash",
+    "packageHash",
+    "level",
+    "snapshot",
+    "claims",
+    "createdAt"
+  ],
+  "properties": {
+    "packageId": { "type": "string" },
+    "dealId": { "type": "string" },
+    "snapshotHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "claimsHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "packageHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "level": { "type": "string", "enum": ["L1", "L1.5", "L2", "L3"] },
+    "snapshot": { "type": "object" },
+    "claims": { "type": "object" },
+    "proposals": { "type": "array" },
+    "photos": { "type": "array" },
+    "createdAt": { "type": "string" }
+  }
+}

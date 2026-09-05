@@ -45,3 +45,25 @@ next-env.d.ts
 # scratch files
 /scratch/
 /supabase/.temp/
+
+# agent run artifacts
+/.agents/auditor*
+/.agents/challenger*
+/.agents/explorer*
+/.agents/m*
+/.agents/orchestrator*
+/.agents/reviewer*
+/.agents/sentinel*
+/.agents/survey*
+/.agents/teamwork*
+/.agents/victory*
+/.agents/worker*
+
+# test outputs
+/docs/test/stress/e2e-outputs/
+/e2e/screenshots/
+
+# local test workflows
+/.github/workflows/harness.yml
+
+

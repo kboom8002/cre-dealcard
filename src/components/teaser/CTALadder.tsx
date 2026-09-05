@@ -13,6 +13,10 @@ interface CTALadderProps {
   requireNda?: boolean;
   /** IM 문서 존재 여부 — false이면 "모바일 IM 보기" 버튼을 숨기거나 안내로 대체 */
   hasImDoc?: boolean;
+  /** 공식 바이너리 승인(S70) 완료 여부 */
+  isPptxApproved?: boolean;
+  /** 공식 승인된 PPTX 다운로드 URL */
+  pptxDownloadUrl?: string;
 }
 
 export function CTALadder({
@@ -21,7 +25,10 @@ export function CTALadder({
   brokerPhone,
   requireNda = false,
   hasImDoc = true,
+  isPptxApproved = false,
+  pptxDownloadUrl,
 }: CTALadderProps) {
+
   const router = useRouter();
   const [showContactModal, setShowContactModal] = useState(false);
   const fp = typeof window !== 'undefined' ? localStorage.getItem('visitorFp') || 'anon' : 'anon';
@@ -48,15 +55,10 @@ export function CTALadder({
   const handleProImRequest = () => {
     trackTeaserCta(teaserConfigId, fp, 'cta_click', { action: 'pro_im_request' });
     if (requireNda) {
-      const gateForm = document.getElementById('gate-form');
-      if (gateForm) {
-        gateForm.scrollIntoView({ behavior: 'smooth' });
-      } else {
-        toast.info("🔑 비밀유지약정(NDA) 체결 후 상세 자료가 제공됩니다.");
-      }
+      router.push(`/nda/${buildingId}`);
     } else {
       // Check if already verified
-      const isVerified = localStorage.getItem(`contact_verified_${buildingId}`);
+      const isVerified = typeof window !== 'undefined' ? localStorage.getItem(`contact_verified_${buildingId}`) : null;
       if (isVerified) {
         router.push(`/im-lite/${buildingId}?pro=true`);
       } else {
@@ -84,6 +86,25 @@ export function CTALadder({
             <span className="text-slate-400 group-hover:translate-x-0.5 transition-transform">→</span>
           </button>
         ) : null}
+
+        {isPptxApproved ? (
+          <a
+            href={pptxDownloadUrl || `/api/public/im-lite/${buildingId}/pptx`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-3 px-4 bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/40 text-emerald-200 font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-between group active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-2.5 text-left">
+              <span className="text-base text-emerald-400">✓</span>
+              <div>
+                <div className="font-extrabold text-emerald-300">공식 승인 PPTX 다운로드</div>
+                <div className="text-[11px] font-normal text-emerald-400/80">바이너리 해시 검증 완료된 공식 투자설명서</div>
+              </div>
+            </div>
+            <span className="text-emerald-400 group-hover:translate-x-0.5 transition-transform">↓</span>
+          </a>
+        ) : null}
+
 
         <button
           onClick={handleProImRequest}

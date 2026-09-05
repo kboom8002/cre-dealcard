@@ -19,11 +19,22 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
 
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
+
   const { agreedToTerms, signerName, signerPhone } = body;
 
-  if (!agreedToTerms || !signerName) {
+  if (
+    !agreedToTerms ||
+    !signerName ||
+    typeof signerName !== 'string' ||
+    signerName.trim() === ''
+  ) {
     return NextResponse.json({ error: 'NDA agreement and signer name required' }, { status: 400 });
   }
+
+  const trimmedSignerName = signerName.trim();
 
   // Fetch grant
   const { data: grant, error } = await supabase
@@ -43,7 +54,7 @@ export async function POST(
   // Update grant: activate + set NDA timestamp + 24h expiry
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const watermarkSeed = `${signerName}|${(signerPhone || '').slice(-4)}|${now.toISOString()}`;
+  const watermarkSeed = `${trimmedSignerName}|${(signerPhone || '').slice(-4)}|${now.toISOString()}`;
 
   const { error: updateError } = await supabase
     .from('im_pro_grants')
@@ -52,7 +63,7 @@ export async function POST(
       nda_signed_at: now.toISOString(),
       expires_at: expiresAt.toISOString(),
       watermark_seed: watermarkSeed,
-      requester_name: signerName,
+      requester_name: trimmedSignerName,
       requester_phone: signerPhone || grant.requester_phone,
     })
     .eq('id', id);

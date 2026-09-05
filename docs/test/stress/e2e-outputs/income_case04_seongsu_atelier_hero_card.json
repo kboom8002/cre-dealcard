@@ -3,8 +3,8 @@
   "assetType": "신축근생",
   "areaSignal": "성수권역",
   "askingPriceDisplay": "88억",
-  "capRateBase": 3.26,
-  "noiBaseBil": 2.9,
+  "capRateBase": null,
+  "noiBaseBil": null,
   "keyInvestmentPoint": "성수권역 소재 신축근생, 희망가 88억 투자 검토 자료입니다.",
   "keyPoints": [
     "입지 가치: 성수권역 소재 자산으로 중장기 자산 가치 및 안정적 수요 검토",
@@ -12,8 +12,8 @@
     "실사 점검: 계약서 및 공부 확인을 통한 권리관계·물리적 상태 정밀 진단"
   ],
   "keyRisk": "공실률 미확인, 등기·건축물대장 현장 실사 필요. 투자 결정 전 반드시 직접 검증하시기 바랍니다.",
-  "equityRequiredBil": 87.8,
-  "leveragedYieldPct": 3.45,
+  "equityRequiredBil": null,
+  "leveragedYieldPct": null,
   "readinessScore": 75,
   "dcf10YearNpvBil": null,
   "landAreaM2": 1000,
@@ -27,7 +27,7 @@
   "revpar": null,
   "ownVsLeaseSavingsBil": null,
   "breakevenYears": null,
-  "pricePerPyeong": 5818173,
+  "pricePerPyeong": null,
   "marketDiscountPct": null,
   "targetHprPct": null
 }

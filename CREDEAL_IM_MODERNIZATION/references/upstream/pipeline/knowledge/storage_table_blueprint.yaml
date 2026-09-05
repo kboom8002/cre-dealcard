@@ -1,0 +1,65 @@
+blueprint_version: 1.0.0
+owner: im-platform
+status: design_not_executable_migration
+tables:
+  im_pipeline_runs:
+    purpose: 부모·자식 실행과 집계상태
+    primary_key: id_uuid
+    columns: [case_id, parent_run_id, run_type, status, input_version, requested_channels, correlation_id, created_by, created_at, completed_at, superseded_by_run_id]
+    indexes: [case_id_created_at_desc, status_created_at, parent_run_id]
+  im_stage_executions:
+    purpose: 단계별 시도·작업임대·오류·시간
+    primary_key: id_uuid
+    columns: [run_id, stage_code, attempt, status, reuse_key, worker_id, lease_token, lease_expires_at, heartbeat_at, started_at, ended_at, error_code, error_class, error_detail_redacted]
+    unique_constraints: [run_id_stage_code_attempt]
+    indexes: [status_lease_expires_at, run_id_stage_code, reuse_key]
+  im_artifacts:
+    purpose: 불변 산출물 등록
+    primary_key: id_uuid
+    columns: [artifact_type, schema_version, case_id, run_id, produced_by_stage_execution_id, content_sha256, content_jsonb, storage_uri, size_bytes, policy_versions_jsonb, disclosure_class, retention_class, quarantined_at, created_at]
+    constraints: [exactly_one_of_content_jsonb_or_storage_uri]
+    indexes: [case_id_artifact_type_created_at, run_id, content_sha256]
+  im_artifact_edges:
+    purpose: 산출물 의존그래프
+    primary_key: composite_parent_child_relation
+    columns: [parent_artifact_id, child_artifact_id, relation]
+    indexes: [child_artifact_id]
+  im_event_outbox:
+    purpose: DB 변경과 사건발행 결박
+    primary_key: id_uuid
+    columns: [aggregate_type, aggregate_id, event_type, event_version, payload_jsonb, occurred_at, published_at, attempts, next_attempt_at]
+    indexes: [published_at_next_attempt_at]
+  im_publication_projects:
+    purpose: 모바일·PPTX 편집작업
+    primary_key: id_uuid
+    columns: [case_id, package_artifact_id, channel, target_level, current_version, status, created_by, created_at, updated_at]
+    indexes: [case_id_channel_updated_at]
+  im_publication_versions:
+    purpose: 채널별 불변 버전
+    primary_key: id_uuid
+    columns: [project_id, version, package_hash, content_hash, media_hash, layout_hash, body_artifact_id, gate_artifact_id, status, created_by, created_at]
+    unique_constraints: [project_id_version]
+  im_approval_events:
+    purpose: 승인·거부·철회·무효 사건
+    primary_key: id_uuid
+    columns: [case_id, subject_type, subject_id, approval_type, decision, subject_hashes_jsonb, scope_jsonb, actor_id, reason, occurred_at, caused_by_event_id]
+    indexes: [subject_type_subject_id_occurred_at, case_id_occurred_at]
+  im_distribution_records:
+    purpose: 공개·철회·다운로드 제어
+    primary_key: id_uuid
+    columns: [publication_version_id, rendered_artifact_id, channel, status, disclosure_scope, public_slug, published_at, revoked_at, revoke_reason]
+    indexes: [public_slug, publication_version_id, status]
+compatibility_projections:
+  im_generation_jobs:
+    source: im_pipeline_runs
+    legacy_status_mapping:
+      queued: processing
+      running: processing
+      blocked: failed
+      failed: failed
+      partially_succeeded: completed
+      succeeded: completed
+  document_objects:
+    source: approved_mobile_publication_version
+    write_policy: projection_only
+

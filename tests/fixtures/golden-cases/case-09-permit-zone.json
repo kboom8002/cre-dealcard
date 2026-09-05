@@ -1,0 +1,13 @@
+{
+  "caseId": "case-09",
+  "title": "토지거래허가구역 안내 케이스",
+  "description": "토지거래허가구역 내 물건인데 허가 의무 미표시 시 발행 차단 검증",
+  "legal": {
+    "isPermitZone": true,
+    "permitZoneDisplayed": false
+  },
+  "expectedOutcome": {
+    "gateExpected": "BLOCKER",
+    "gateCode": "G53-PERMIT-ZONE"
+  }
+}

@@ -1,0 +1,58 @@
+policy_version: 1.0.0
+owner: im-publication
+status: proposed_normative
+freshness_states: [fresh, stale_review_required, stale_invalid, superseded, revoked]
+rules:
+  - change_type: evidence_change
+    earliest_stage: P10
+    invalidate: [affected_reconciliation, affected_snapshot, affected_claims, affected_packages, dependent_channel_versions]
+    preserve: [unaffected_provider_artifacts]
+  - change_type: correction_change
+    earliest_stage: P20
+    invalidate: [effective_snapshot, claim_evaluation_set, core_gate_report, publication_package, all_dependent_channel_versions]
+  - change_type: snapshot_asof_change
+    earliest_stage: P30
+    invalidate: [effective_snapshot, claim_evaluation_set, core_gate_report, publication_package, all_dependent_channel_versions]
+  - change_type: formula_change
+    earliest_stage: P40
+    invalidate: [affected_claims, core_gate_report, publication_package, dependent_channel_versions]
+  - change_type: gating_policy_change
+    earliest_stage: P50
+    invalidate: [core_gate_report, level_eligibility, publication_package, dependent_channel_versions]
+  - change_type: package_policy_change
+    earliest_stage: P60
+    invalidate: [publication_package, dependent_channel_versions]
+  - change_type: proposal_copy_change
+    earliest_stage_by_channel:
+      mobile: M10
+      pptx: S20
+    invalidate: [broker_opinion_approval, dependent_channel_editorial_approval]
+  - change_type: mobile_copy_order_change
+    earliest_stage: M20
+    invalidate: [mobile_channel_gate_report, mobile_editorial_approval, mobile_distribution]
+    preserve: [core_artifacts, pptx_artifacts]
+  - change_type: mobile_photo_change
+    earliest_stage: M20
+    invalidate: [mobile_channel_gate_report, mobile_editorial_approval, mobile_distribution]
+    preserve: [core_artifacts, pptx_artifacts]
+  - change_type: pptx_composition_change
+    earliest_stage: S10
+    invalidate: [copy_plan, media_plan, layout_plan, preview, pptx_gate, pptx_approval, rendered_artifact]
+    preserve: [core_artifacts, mobile_artifacts]
+  - change_type: pptx_copy_change
+    earliest_stage: S20
+    invalidate: [preview, pptx_gate, pptx_approval, rendered_artifact]
+    preserve: [core_artifacts, mobile_artifacts]
+  - change_type: pptx_media_change
+    earliest_stage: S30
+    invalidate: [preview, pptx_gate, pptx_approval, rendered_artifact]
+    preserve: [core_artifacts, mobile_artifacts]
+  - change_type: pptx_theme_change
+    earliest_stage: S30
+    invalidate: [layout_plan, preview, pptx_gate, pptx_approval, rendered_artifact]
+    preserve: [core_artifacts, mobile_artifacts]
+  - change_type: renderer_change
+    earliest_stage: S40
+    invalidate: [preview, pptx_gate, rendered_artifact_approval]
+    conditional_preserve: [pptx_editorial_approval]
+

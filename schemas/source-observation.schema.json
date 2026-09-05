@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SourceObservationSet",
+  "description": "CTR-006: Data contract for normalized source observations with locator and confidence",
+  "type": "object",
+  "required": ["dealId", "sourceArtifacts", "observations", "asOf"],
+  "properties": {
+    "dealId": { "type": "string" },
+    "sourceArtifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "sourceType", "rawHash", "retrievedAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "sourceType": {
+            "type": "string",
+            "enum": ["public_registry", "broker_input", "seller_notice"]
+          },
+          "rawHash": { "type": "string" },
+          "retrievedAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "sourceArtifactId", "fieldPath", "observedValue", "confidence", "locator"],
+        "properties": {
+          "id": { "type": "string" },
+          "sourceArtifactId": { "type": "string" },
+          "fieldPath": { "type": "string" },
+          "observedValue": {},
+          "confidence": {
+            "type": "string",
+            "enum": ["confirmed", "inferred", "ambiguous"]
+          },
+          "locator": {
+            "type": "object",
+            "required": ["sourceArtifactId", "fieldPath"]
+          }
+        }
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "leftObservationId", "rightObservationId"]
+      }
+    },
+    "asOf": { "type": "string" }
+  }
+}

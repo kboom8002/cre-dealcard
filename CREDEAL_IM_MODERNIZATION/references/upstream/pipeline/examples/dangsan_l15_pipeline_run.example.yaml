@@ -1,0 +1,92 @@
+example_version: 1.0.0
+purpose_ko: 당산동 가상보완 자료를 포함한 L1.5 형제채널 실행 예시
+notice_ko: 값과 식별자는 구조 설명용 예시이며 실제 거래자료가 아니다.
+pipeline_run:
+  runId: 11111111-1111-4111-8111-111111111111
+  caseId: CASE-DANGSAN-11-47
+  runType: core
+  status: succeeded
+  inputVersion: 9
+  correlationId: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+  requestedChannels: [mobile, pptx]
+  createdBy: broker-017
+  createdAt: 2026-08-31T10:00:00+09:00
+core_stages:
+  - code: P00
+    status: succeeded
+    output: ART-INTAKE-DANGSAN-R9
+  - code: P10
+    status: succeeded
+    output: ART-EVIDENCE-DANGSAN-R9
+    notes: [building_register_loaded, vworld_loaded, rent_roll_broker_input, photos_loaded]
+  - code: P20
+    status: succeeded
+    output: ART-RECON-DANGSAN-R3
+    resolved_conflicts: [gross_floor_area_rounding, rent_roll_summary_difference]
+  - code: P30
+    status: succeeded
+    output: SNAP-DANGSAN-R3
+    asOf: 2026-08-31
+  - code: P40
+    status: succeeded
+    output: CLAIMSET-DANGSAN-R3
+    use_status_counts:
+      allowed: 31
+      allowed_with_warning: 5
+      blocked: 4
+      not_applicable: 2
+      not_available_at_stage: 3
+      not_evaluated: 0
+  - code: P50
+    status: succeeded
+    output: GATE-DANGSAN-R3
+    highestEligibleLevel: L1.5
+  - code: P60
+    status: succeeded
+    output: PKG-DANGSAN-R3
+    contentSha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+proposal_units:
+  - proposalUnitId: PROP-DANGSAN-01
+    brokerRawText: 자가사용 공간은 임대 전환을 검토할 수 있어 보임
+    publicCopy: 자가사용 공간은 인도시기와 임대수요를 확인한 뒤 임대 전환을 검토할 수 있습니다.
+    evidenceRefs: [OBS-USE-01, PHOTO-INTERIOR-03]
+    buyerMeaning: 추가 임대수입 확보 가능성 검토
+    conditions: [공간 인도시기, 목표업종 임대수요, 시설공사 범위]
+    approvalStatus: approved_for_publication
+mobile_child_run:
+  runId: 22222222-2222-4222-8222-222222222222
+  parentRunId: 11111111-1111-4111-8111-111111111111
+  packageId: PKG-DANGSAN-R3
+  targetLevel: L1.5
+  status: succeeded
+  stages:
+    M00: succeeded
+    M10: succeeded
+    M20: succeeded
+    M30: succeeded
+    M40: succeeded
+    M50: succeeded
+  publicationVersionId: MOBILE-DANGSAN-V2
+pptx_child_run:
+  runId: 33333333-3333-4333-8333-333333333333
+  parentRunId: 11111111-1111-4111-8111-111111111111
+  packageId: PKG-DANGSAN-R3
+  targetLevel: L1.5
+  status: succeeded
+  stages:
+    S00: succeeded
+    S10: succeeded
+    S20: succeeded
+    S30: succeeded
+    S40: succeeded
+    S50: succeeded
+    S60: succeeded
+    S70: succeeded
+  projectVersionId: STUDIO-DANGSAN-V5
+  renderedArtifactId: PPTX-DANGSAN-V5
+assertions:
+  same_snapshot_for_channels: true
+  same_package_for_channels: true
+  mobile_is_not_pptx_fact_source: true
+  broker_opinion_trace_complete: true
+

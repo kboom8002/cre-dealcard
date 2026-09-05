@@ -70,10 +70,11 @@ function collectElements(pres: PptxGenJS): ElementBounds[] {
 
     for (const obj of objs) {
       const opts = obj?.options ?? obj ?? {};
-      const x = parseFloat(opts.x) || 0;
-      const y = parseFloat(opts.y) || 0;
-      const w = parseFloat(opts.w) || 0;
-      const h = parseFloat(opts.h) || 0;
+      const toInches = (val: number) => (val > 100 ? val / 914400 : val);
+      const x = toInches(parseFloat(opts.x) || 0);
+      const y = toInches(parseFloat(opts.y) || 0);
+      const w = toInches(parseFloat(opts.w) || 0);
+      const h = toInches(parseFloat(opts.h) || 0);
 
       if (w === 0 && h === 0) continue;
 

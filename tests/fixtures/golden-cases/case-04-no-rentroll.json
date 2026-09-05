@@ -1,0 +1,17 @@
+{
+  "caseId": "case-04",
+  "title": "렌트롤 무제공 매물",
+  "description": "임대차 정보가 전혀 없는 경우 수익률 및 CapRate 주장이 원천 차단되는지 검증",
+  "asset": {
+    "name": "강남구 자가사용 통사옥",
+    "askingPrice": 25000000000,
+    "landArea": 350.0,
+    "grossFloorArea": 1100.0,
+    "rentroll": null
+  },
+  "expectedOutcome": {
+    "capRateClaim": "BLOCKED",
+    "targetLevel": "L1",
+    "gateExpected": "PASS"
+  }
+}

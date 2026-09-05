@@ -1,0 +1,24 @@
+{
+  "purpose_ko": "승인 미리보기 이후 문안이 바뀐 경우 승인 차단 예시",
+  "request": {
+    "approvalType": "pptx_editorial",
+    "subjectId": "STUDIO-DANGSAN-V5",
+    "expectedHashes": {
+      "package": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "copyPlan": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "mediaPlan": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "layoutPlan": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "preview": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  },
+  "current": {
+    "copyPlan": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  "expected_response": {
+    "httpStatus": 409,
+    "errorCode": "APPROVAL_SUBJECT_CHANGED",
+    "changedComponents": ["copyPlan"],
+    "approvalCreated": false
+  }
+}
+

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://credeal.example/schemas/im/pipeline-run/1.0.0",
+  "title": "IM Pipeline Run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["runId", "caseId", "runType", "status", "inputVersion", "correlationId", "requestedChannels", "createdAt"],
+  "properties": {
+    "runId": {"type": "string", "format": "uuid"},
+    "caseId": {"type": "string", "minLength": 1},
+    "parentRunId": {"type": ["string", "null"], "format": "uuid"},
+    "runType": {"enum": ["core", "mobile", "pptx", "regeneration", "reevaluation", "rerender"]},
+    "status": {"enum": ["queued", "running", "succeeded", "partially_succeeded", "blocked", "failed", "cancelled", "superseded"]},
+    "inputVersion": {"type": "integer", "minimum": 1},
+    "correlationId": {"type": "string", "format": "uuid"},
+    "requestedChannels": {"type": "array", "uniqueItems": true, "items": {"enum": ["mobile", "pptx"]}},
+    "currentUserPhase": {"type": "string"},
+    "needsAction": {"type": "boolean"},
+    "supersededByRunId": {"type": ["string", "null"], "format": "uuid"},
+    "createdBy": {"type": "string", "minLength": 1},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "completedAt": {"type": ["string", "null"], "format": "date-time"}
+  }
+}
+

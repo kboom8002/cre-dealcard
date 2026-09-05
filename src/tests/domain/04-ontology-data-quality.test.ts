@@ -12,6 +12,7 @@ import { verifyAgainstPublicData } from '@/domain/verification/public-data-verif
 import { extractSlotsFromMemo } from '@/domain/building/memo-slot-mapper';
 import { sanitizeMemo } from '@/ai/sanitizer/memo-sanitizer';
 import { getCurrentBillingMonth } from '@/domain/subscription/usage-tracker';
+import { THRESHOLDS } from '@/constants/thresholds';
 
 describe('04. 온톨로지·데이터 품질·크로스-시스템 통합 테스트', () => {
 
@@ -33,7 +34,7 @@ describe('04. 온톨로지·데이터 품질·크로스-시스템 통합 테스�
       // D30: pack 가중치(10) 추가로 초기 입력 시 D등급 가능
       expect(['C', 'D']).toContain(result.grade);
       expect(result.scorePct).toBeGreaterThanOrEqual(20);
-      expect(result.scorePct).toBeLessThan(65);
+      expect(result.scorePct).toBeLessThan(THRESHOLDS.GRADE_C_MAX);
     });
 
     it('Step 1: 면적 슬롯 추가 시 점수 상승 (50+점, C등급 유지)', () => {

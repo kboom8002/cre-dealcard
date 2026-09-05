@@ -1,0 +1,86 @@
+meta:
+  id: im-document-level-bundles
+  version: 1.0.0
+  status: proposed
+  display_rule: internal_codes_hidden_from_external_documents
+levels:
+  L0:
+    internal_name: 내부검토본
+    external_allowed: false
+    question: 무엇이 빠지고 서로 맞지 않는가
+    requires_all: []
+    purpose: data_reconciliation
+  L1:
+    internal_name: 사실확인형 매각안내서
+    external_label: 매각안내서
+    external_allowed: true
+    question: 무엇을 얼마에 파는가
+    requires_all:
+      - bundle.asset_scope
+      - bundle.asking_price
+      - bundle.public_records
+      - bundle.current_use
+      - bundle.as_of_and_sources
+      - bundle.risks_and_unknowns
+      - bundle.disclosure_approval
+    optional:
+      - bundle.location
+      - bundle.photos
+  L1.5:
+    internal_name: 중개인 제안형 매각제안서
+    external_label: 매각제안서
+    external_allowed: true
+    question: 왜 검토할 만하며 누구에게 맞는가
+    inherits: L1
+    requires_all:
+      - bundle.broker_proposal
+    broker_proposal_minimum:
+      approved_units: 1
+      recommended_units: [3, 5]
+      each_requires: [raw_text, public_copy, evidence, buyer_meaning, condition, approval]
+    not_required: [gross_yield, comparables, scenario]
+  L2:
+    internal_name: 표준 검토형 매각안내서
+    external_label: 매각안내서 · 매수 검토자료 포함
+    external_allowed: true
+    question: 검토하고 답사할 가치가 있는가
+    inherits: L1.5
+    requires_all:
+      - bundle.current_lease_or_not_applicable
+      - bundle.price_basis
+      - bundle.market_basis_or_approved_opinion
+      - bundle.review_summary
+      - bundle.dd_and_transaction_conditions
+    conditional:
+      yield_lens: [RR-C01-SELLER-MONTHLY-BASE-RENT]
+      redevelopment_lens: [PARCEL-C01-SCOPE-COVERAGE, DEV-C01-THEORETICAL-BUILDING-AREA]
+  L3:
+    internal_name: 중개분석형 투자검토서
+    external_label: 투자검토서
+    external_allowed: true
+    question: 어떻게 개선하고 협상할 수 있는가
+    inherits: L2
+    optional_modules:
+      - lease_expiry
+      - market_rent_gap
+      - adjusted_comparables
+      - value_add_actions
+      - approved_scenarios
+      - noi_and_cap_rate
+    rule: only_include_modules_with_allowed_claims
+  L4:
+    internal_name: 전문가 협업형 투자검토서
+    external_label: 투자검토서
+    external_allowed: restricted
+    question: 최종 투자심의에 필요한 전문가 검토가 완료됐는가
+    rule: out_of_scope_for_v1
+eligibility_algorithm:
+  order: [L2, L1.5, L1]
+  rules:
+    - identity_unknown_returns_L0
+    - material_scope_conflict_returns_L0
+    - privacy_failure_returns_L0
+    - missing_human_release_approval_blocks_external_release
+    - level_never_opens_claims
+    - claims_and_proposals_satisfy_level_bundles
+

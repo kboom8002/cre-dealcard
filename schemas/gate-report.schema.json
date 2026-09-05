@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://credeal.com/schemas/gate-report.schema.json",
+  "title": "GateReport",
+  "description": "CTR-003: Modern IM Gate Report and Evaluation Matrix",
+  "type": "object",
+  "required": [
+    "reportId",
+    "artifactRunId",
+    "profile",
+    "allRun",
+    "blockerCount",
+    "results",
+    "reportHash",
+    "ruleRegistryVersion",
+    "evaluatedAt"
+  ],
+  "properties": {
+    "reportId": { "type": "string", "format": "uuid" },
+    "artifactRunId": { "type": "string", "format": "uuid" },
+    "profile": { "type": "string" },
+    "allRun": { "type": "boolean" },
+    "blockerCount": { "type": "integer", "minimum": 0 },
+    "reportHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "ruleRegistryVersion": { "type": "string" },
+    "evaluatedAt": { "type": "string", "format": "date-time" },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "gateId",
+          "version",
+          "status",
+          "severity",
+          "observed",
+          "expected",
+          "reason",
+          "observerVersion",
+          "executedAt",
+          "durationMs"
+        ],
+        "properties": {
+          "gateId": { "type": "string" },
+          "version": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "WARN",
+              "NOT_APPLICABLE",
+              "NOT_RUN",
+              "INDETERMINATE",
+              "SYSTEM_ERROR"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["BLOCKER", "ERROR", "WARNING", "INFO"]
+          },
+          "observed": {},
+          "expected": {},
+          "reason": { "type": "string" },
+          "applicabilityReason": { "type": "string" },
+          "observerVersion": { "type": "string" },
+          "targetArtifactHash": { "type": "string" },
+          "executedAt": { "type": "string", "format": "date-time" },
+          "durationMs": { "type": "number", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

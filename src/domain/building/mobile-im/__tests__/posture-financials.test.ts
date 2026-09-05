@@ -134,7 +134,19 @@ describe('Tax Scenarios — Corporate & Development Charges', () => {
     const individual = res.scenarios.find(s => s.type === '개인');
     const corporate = res.scenarios.find(s => s.type === '법인');
     expect(individual!.acquisitionTaxRatePct).toBe(4.6);
-    expect(corporate!.acquisitionTaxRatePct).toBe(9.2); // 과밀억제 중과세
+    expect(corporate!.acquisitionTaxRatePct).toBe(9.4); // 과밀억제 중과세 (지방세법 제13조제2항)
+  });
+
+  // Rule 7: Negative Pair
+  it('Rule 7 (Negative Pair): 과밀억제권역이 아닌 경우 법인 취득세 중과세율이 적용되지 않아야 한다', () => {
+    const res = compareTaxScenarios({
+      askingPriceManwon: 1_000_000,
+      annualNoiKrw: 400_000_000,
+      isMetropolitanArea: false,
+    });
+    const corporate = res.scenarios.find(s => s.type === '법인');
+    expect(corporate!.acquisitionTaxRatePct).toBe(4.6);
+    expect(corporate!.acquisitionTaxRatePct).not.toBe(9.4);
   });
 
   it('development: should calculate farmland and development charges', () => {

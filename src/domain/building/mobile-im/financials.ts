@@ -359,7 +359,6 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
     if (f.yieldOnCost !== null) rows.push(`| **총 수익률(Gross Yield)** | **${pct(f.yieldOnCost)}** | 연 임대수입/매매가 (운영비 미차감) |`);
     if (f.pricePerPyeong !== null) rows.push(`| **평당 매매가** | **${f.pricePerPyeong.toLocaleString()}원/평** | 참고용 |`);
     if (f.landValueRatio !== null) rows.push(`| **땅값 비중(원금 안전판)** | **${f.landValueRatio}%** | 높을수록 원금 하방 경직성 확보 |`);
-    else if (f.landValueRatioNote) rows.push(`| **땅값 비중(원금 안전판)** | ⚠️ ${f.landValueRatioNote} | 공부 원본 확인 후 산출 |`);
     if (f.totalDepositBil !== null) rows.push(`| **임대 보증금 합계** | **${f.totalDepositBil}억 원** | 중개인 제공 |`);
     if (f.loanAmountBil !== null) rows.push(`| **선순위 대출 잔액** | **${f.loanAmountBil}억 원** | 중개인 제공 |`);
     if (f.totalAcquisitionCostBil !== null) rows.push(`| **총취득원가** | **약 ${f.totalAcquisitionCostBil}억 원** | 매매가 + 취득세(4.6%) + 중개보수(0.9%) |`);

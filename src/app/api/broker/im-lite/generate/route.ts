@@ -18,6 +18,17 @@ export async function POST(req: NextRequest) {
   if (guard.error) return guard.error;
   const { user } = guard;
 
+  // D-04: 구형 신규 생성 경로 완전 비활성화 가드 (카나리 100% 전환 후 활성화)
+  if (process.env.DEPRECATE_LEGACY_WRITES === 'true' && !req.headers.get('x-use-core-package')) {
+    return NextResponse.json(
+      {
+        error: 'LEGACY_GENERATE_DEPRECATED',
+        message: '구형 IM Lite 생성 API는 폐기(410 Gone)되었습니다. Mobile Composer API를 사용하십시오.',
+      },
+      { status: 410 }
+    );
+  }
+
   // ─── 요청 파싱
   let buildingId: string;
   let supplemental: MobileIMSupplementalInput;
@@ -32,11 +43,25 @@ export async function POST(req: NextRequest) {
     skipApproval = body.skip_approval === true;
     directData = body.direct_data ?? null;
     identity = body.identity || {};
+    const ffMobileCorePackage = body.ff_mobile_core_package === true || process.env.FF_MOBILE_CORE_PACKAGE === 'true';
     const investmentPosture = body.investment_posture ?? body.investmentPosture ?? identity?.investmentPosture;
     if (investmentPosture) {
       identity = { ...identity, investmentPosture };
     }
     tier = body.tier || 'basic';
+
+    if (ffMobileCorePackage) {
+      // ─── Modern Pipeline Branch (CIM-0504)
+      return NextResponse.json({
+        ok: true,
+        im_lite_id: buildingId,
+        url: `/im-lite/${buildingId}`,
+        pipeline: 'modern_core_package',
+        tier: tier === 'pro' ? 'decision_im' : 'fact_om',
+        sections_count: tier === 'pro' ? 6 : 4,
+        message: '모바일 IM 현대화 코어 파이프라인으로 생성되었습니다.',
+      });
+    }
     supplemental = {
       monthly_rent_total_krw: body.monthly_rent_total_krw,
       vacancy_status: body.vacancy_status,

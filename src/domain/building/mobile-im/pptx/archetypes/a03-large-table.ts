@@ -54,15 +54,21 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
       ? computeSmartColumnWidths(tableHead, CW)
       : Array(colCount).fill(CW / colCount);
     
-    // CellValue[][] 형태로 변환
-    const bodyRows = tableRows.map((r: any[]) =>
-      r.map((c: any) => {
+    // CellValue[][] 형태로 변환 (합계 행 Slate Tint #F1F5F9 및 공실 셀 Amber Accent #D97706 적용)
+    const bodyRows = tableRows.map((r: any[]) => {
+      const isSummary = r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim()));
+      return r.map((c: any, cIdx: number) => {
         let text = String(c || '').replace(/\*\*/g, '');
-        // 35자 초과 셀은 말줄임 처리
         if (text.length > 45) text = text.slice(0, 44) + '…';
-        return { t: text };
-      })
-    );
+        const isVacant = text.includes('공실');
+        return {
+          t: text,
+          fill: isSummary ? 'F1F5F9' : undefined,
+          c: isVacant ? 'D97706' : undefined,
+          b: isSummary || isVacant || cIdx === 0,
+        };
+      });
+    });
     
     // D29 BL-2: 렌트롤 분할 렌더링 (불변조건 18: 전량 표기)
     // 12행 초과 시 절삭하지 않고 분할 슬라이드로 처리합니다.

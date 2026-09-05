@@ -30,7 +30,6 @@ describe('L3: Composition & Deck Sequencing (32 cases)', () => {
     it('L3-L02-03: R-INC-04 includes rent normalization archetype in pro income sequence', () => {
       const seq = buildDeckSequence({
         posture: 'income',
-        tier: 'pro', // deprecated — 골디락스에서 무시됨
         grade: 'A',
         incomeArchetype: 'R-INC-04',
       });
@@ -41,7 +40,6 @@ describe('L3: Composition & Deck Sequencing (32 cases)', () => {
     it('L3-L02-04: R-INC-02 includes value-add archetype in pro income sequence', () => {
       const seq = buildDeckSequence({
         posture: 'income',
-        tier: 'pro', // deprecated — 골디락스에서 무시됨
         grade: 'A',
         incomeArchetype: 'R-INC-02',
       });

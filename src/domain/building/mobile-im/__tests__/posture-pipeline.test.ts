@@ -67,37 +67,35 @@ describe('Posture Pipeline — Posture Overlay Prompts', () => {
 
 describe('Posture Pipeline — Deck Sequencer', () => {
   for (const posture of INVESTMENT_POSTURE) {
-    for (const tier of ['basic', 'pro'] as const) {
-      for (const grade of ['A', 'B', 'C', 'D'] as const) {
-        it(`${posture}/${tier}/${grade}: should return valid slide sequence`, () => {
-          if (grade === 'D') {
-            // D29 BL-1: D등급은 전면 차단 (throw)
-            expect(() => buildDeckSequence({ posture, tier, grade }))
-              .toThrow('[G30]');
-          } else {
-            const result = buildDeckSequence({ posture, tier, grade });
-            expect(result.length).toBeGreaterThan(0);
-          }
-        });
-      }
+    for (const grade of ['A', 'B', 'C', 'D'] as const) {
+      it(`${posture}/${grade}: should return valid slide sequence`, () => {
+        if (grade === 'D') {
+          // D29 BL-1: D등급은 전면 차단 (throw)
+          expect(() => buildDeckSequence({ posture, grade }))
+            .toThrow('[G30]');
+        } else {
+          const result = buildDeckSequence({ posture, grade });
+          expect(result.length).toBeGreaterThan(0);
+        }
+      });
     }
   }
 
-  it('basic tier slide sequence posture customization', () => {
-    const devSeq = buildDeckSequence({ posture: 'development', tier: 'basic', grade: 'B' });
+  it('slide sequence posture customization', () => {
+    const devSeq = buildDeckSequence({ posture: 'development', grade: 'B' });
     const devDataKeys = devSeq.map(s => s.dataKey);
     expect(devDataKeys).toContain('land');
     expect(devDataKeys).toContain('feasibility');
 
-    const ownSeq = buildDeckSequence({ posture: 'owner_occupied', tier: 'basic', grade: 'B' });
+    const ownSeq = buildDeckSequence({ posture: 'owner_occupied', grade: 'B' });
     const ownDataKeys = ownSeq.map(s => s.dataKey);
     expect(ownDataKeys).toContain('vsLease');
 
-    const opsSeq = buildDeckSequence({ posture: 'operating', tier: 'basic', grade: 'B' });
+    const opsSeq = buildDeckSequence({ posture: 'operating', grade: 'B' });
     const opsDataKeys = opsSeq.map(s => s.dataKey);
     expect(opsDataKeys).toContain('kpi');
 
-    const trdSeq = buildDeckSequence({ posture: 'trading', tier: 'basic', grade: 'B' });
+    const trdSeq = buildDeckSequence({ posture: 'trading', grade: 'B' });
     const trdDataKeys = trdSeq.map(s => s.dataKey);
     expect(trdDataKeys).toContain('comps');
   });
@@ -115,7 +113,7 @@ describe('Posture Pipeline — Data Quality Badge & Gating', () => {
 
   it('development: should not require monthly rent for high grade', () => {
     const badge = computeDataQualityBadge(
-      { ...baseParams, hasLandArea: true, hasZoning: true, hasAskingPrice: true },
+      { ...baseParams, hasLandArea: true, hasZoning: true, hasAskingPrice: true, hasDevTargetUse: true, hasDevTargetScale: true },
       'development',
     );
     expect(badge.tier).toBe('verified');
@@ -136,6 +134,24 @@ describe('Posture Pipeline — Data Quality Badge & Gating', () => {
     expect(hasMinimumBasicData({}, 'income')).toBe(false);
     expect(hasMinimumBasicData({ hasAskingPrice: true }, 'income')).toBe(true);
     expect(hasMinimumBasicData({ hasMonthlyRent: true }, 'income')).toBe(true);
+  });
+
+  // Rule 7: Negative Pair
+  it('Rule 7 (Negative Pair): development missing land area should degrade to draft/reference', () => {
+    const badge = computeDataQualityBadge(
+      { ...baseParams, hasAddress: false, hasPublicData: false, hasLandArea: false, hasZoning: false },
+      'development',
+    );
+    expect(badge.tier).not.toBe('verified');
+    expect(badge.missingItems).toContain('대지면적');
+  });
+
+  // Rule 7: Negative Pair
+  it('Rule 7 (Negative Pair): hasMinimumBasicData returns false when posture requirements are not met', () => {
+    expect(hasMinimumBasicData({}, 'development')).toBe(false);
+    expect(hasMinimumBasicData({}, 'owner_occupied')).toBe(false);
+    expect(hasMinimumBasicData({}, 'operating')).toBe(false);
+    expect(hasMinimumBasicData({}, 'trading')).toBe(false);
   });
 });
 

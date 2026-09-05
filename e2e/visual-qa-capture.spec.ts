@@ -8,7 +8,7 @@ if (!existsSync(CAPTURES_DIR)) mkdirSync(CAPTURES_DIR, { recursive: true });
 test.describe('Visual QA: Case 01 서초 메디컬 빌딩 화면 캡처', () => {
   test('IM-01 & IM-03~10: 모바일 IM 뷰어 (iPhone 14 Pro 390x844)', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('http://localhost:3000/im-lite/case01_seocho_medical', { waitUntil: 'networkidle' });
+    await page.goto('/im-lite/fe5cbadd-aede-4a58-af40-3982f48ecfa7', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1000);
 
     // 전체 페이지 스크롤 캡처
@@ -37,7 +37,7 @@ test.describe('Visual QA: Case 01 서초 메디컬 빌딩 화면 캡처', () => 
 
   test('IM-02: 모바일 IM 뷰어 데스크톱 뷰 (1440x900)', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('http://localhost:3000/im-lite/case01_seocho_medical', { waitUntil: 'networkidle' });
+    await page.goto('/im-lite/fe5cbadd-aede-4a58-af40-3982f48ecfa7', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1000);
 
     await page.screenshot({
@@ -49,7 +49,7 @@ test.describe('Visual QA: Case 01 서초 메디컬 빌딩 화면 캡처', () => 
   test('DC-01 & DC-02: 딜카드 뷰어 (모바일 & 데스크톱)', async ({ page }) => {
     // 모바일 딜카드
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('http://localhost:3000/im-lite/case01_seocho_medical', { waitUntil: 'networkidle' });
+    await page.goto('/im-lite/fe5cbadd-aede-4a58-af40-3982f48ecfa7', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(500);
 
     await page.screenshot({

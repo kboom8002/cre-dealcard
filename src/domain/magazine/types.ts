@@ -5,6 +5,12 @@
  * pulse/oiticle-types.ts 패턴을 따름.
  */
 
+// ── DB 클라이언트 인터페이스 (Rule 12: 도메인 계층 Supabase 직접 의존 제거) ──
+export interface MagazineDbClient {
+  from(table: string): any;
+  storage?: any;
+}
+
 // ── 시장 온도 ──────────────────────────────────────────────────────
 export type MarketTemperature =
   | '적극 매수'

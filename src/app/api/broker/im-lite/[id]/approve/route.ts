@@ -22,11 +22,13 @@ export async function POST(
   const { id } = await params;
   let action: string;
   let brokerNotes: string | undefined;
+  let expectedHash: string | undefined;
 
   try {
     const body = await req.json();
     action = body.action;
     brokerNotes = body.broker_notes;
+    expectedHash = body.expectedHash;
     if (!['approve', 'reject'].includes(action)) {
       return NextResponse.json({ error: "action must be 'approve' or 'reject'" }, { status: 400 });
     }
@@ -51,50 +53,119 @@ export async function POST(
     return NextResponse.json({ error: 'Forbidden: not your document' }, { status: 403 });
   }
 
-  if (action === 'approve' && doc.building_id) {
-    const result = await readWithMigration(doc.building_id);
-    const building = result.data as any;
+  let serverHash: string | undefined;
 
-    if (building && Object.keys(building).length > 0) {
-      // K-익명성 검증 제거: 등급 기반 마스킹 정책으로 대체됨
-      // 등급에 따라 주소/임차인 자동 마스킹되므로 재식별 위험 없음
-    }
-  }
-
-  // D37 H-2: ApprovalGate 사전 검증 — 승인 시에만
+  // D37 H-2 & CIM-0102: ApprovalGate 사전 검증 및 해시 결속 (승인 시에만)
   if (action === 'approve') {
+    if (!expectedHash || typeof expectedHash !== 'string' || !expectedHash.startsWith('sha256:')) {
+      return NextResponse.json({
+        error: 'IM_APPROVAL_MISSING_EXPECTED_HASH',
+        message: '승인 대상 해시(expectedHash)가 누락되었거나 유효하지 않습니다.',
+      }, { status: 400 });
+    }
+
     const { data: fullDocForGate } = await supabase
       .from('document_objects')
       .select('body')
       .eq('id', id)
       .single();
 
-    if (fullDocForGate?.body) {
-      const { ClaimRegistry } = await import('@/domain/building/im-core');
-      const registry = new ClaimRegistry();
-      const tier = fullDocForGate.body.releaseTier ?? 'fact_om';
-      const gateResult = runApprovalGate(registry, tier, {
-        hasHallucination: false,
-        publishBlocked: fullDocForGate.body.gateReport?.blocked === true,
-      });
+    if (!fullDocForGate?.body) {
+      return NextResponse.json({
+        error: 'IM_APPROVAL_EMPTY_BODY',
+        message: '승인할 문서 본문(body)이 비어 있습니다.',
+      }, { status: 422 });
+    }
 
-      if (!gateResult.passed) {
-        return NextResponse.json({
-          error: '승인 게이트 미통과 — 아래 항목을 해결해 주세요.',
-          blockers: gateResult.blockers,
-        }, { status: 422 });
+    // 대상 해시 계산 및 검증 (G1 해결)
+    const { computeTargetHash } = await import('@/domain/building/im-core/target-hash');
+    const tier = fullDocForGate.body.releaseTier ?? 'fact_om';
+    serverHash = computeTargetHash({
+      body: fullDocForGate.body,
+      releaseTier: tier,
+      policyVersion: '2026-08-31',
+    });
+
+    if (serverHash !== expectedHash) {
+      return NextResponse.json({
+        error: 'IM_APPROVAL_HASH_MISMATCH',
+        message: '승인 대상 문서가 변경되었습니다. 최신 상태를 확인 후 다시 승인해 주세요.',
+        serverHash,
+        expectedHash,
+      }, { status: 422 });
+    }
+
+    // G2 해결: new ClaimRegistry() 빈 인스턴스화 제거 -> 실제 본문 claims로 재수화
+    const { ClaimRegistry } = await import('@/domain/building/im-core');
+    const registry = new ClaimRegistry();
+
+    if (Array.isArray(fullDocForGate.body.claims) && fullDocForGate.body.claims.length > 0) {
+      for (const rawClaim of fullDocForGate.body.claims) {
+        registry.register(rawClaim);
       }
+    } else if (fullDocForGate.body.ssot_summary || fullDocForGate.body.sections) {
+      // 레거시 문서 호환: ssot_summary에서 기본 Claim 재수화
+      const ssot = fullDocForGate.body.ssot_summary || {};
+      if (ssot.asking_price || ssot.price) {
+        registry.register({
+          subject: 'asking_price',
+          value: ssot.asking_price || ssot.price,
+          evidence: [],
+          provenance: 'broker',
+          asOf: new Date().toISOString(),
+          status: 'reconciled',
+        });
+      }
+      if (ssot.total_area || ssot.gross_area) {
+        registry.register({
+          subject: 'total_area',
+          value: ssot.total_area || ssot.gross_area,
+          evidence: [],
+          provenance: 'public_api',
+          asOf: new Date().toISOString(),
+          status: 'reconciled',
+        });
+      }
+      if (ssot.gross_yield || ssot.cap_rate) {
+        registry.register({
+          subject: 'gross_yield',
+          value: ssot.gross_yield || ssot.cap_rate,
+          evidence: [],
+          provenance: 'broker',
+          asOf: new Date().toISOString(),
+          status: 'reconciled',
+        });
+      }
+    }
+
+    const gateResult = runApprovalGate(registry, tier, {
+      hasHallucination: fullDocForGate.body.hasHallucination === true,
+      publishBlocked: fullDocForGate.body.gateReport?.blocked === true,
+    });
+
+    if (!gateResult.passed) {
+      return NextResponse.json({
+        error: '승인 게이트 미통과 — 아래 항목을 해결해 주세요.',
+        blockers: gateResult.blockers,
+      }, { status: 422 });
     }
   }
 
   const newStatus = action === 'approve' ? 'published' : 'draft';
 
+  const updateFields: Record<string, unknown> = {
+    status: newStatus,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (action === 'approve' && serverHash) {
+    updateFields.approval_target_hash = serverHash;
+    updateFields.approved_at = new Date().toISOString();
+  }
+
   const { error: updateErr } = await supabase
     .from('document_objects')
-    .update({
-      status: newStatus,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateFields)
     .eq('id', id);
 
   if (updateErr) {

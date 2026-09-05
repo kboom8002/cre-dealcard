@@ -1,0 +1,13 @@
+{
+  "id":"CIM-0000",
+  "phase":"CIM-M0",
+  "title":"작업 제목",
+  "requirements":["CIM-R-001"],
+  "depends_on":[],
+  "owner":"담당 팀",
+  "acceptance_tests":["양성·음성·변조·복구 시험을 구체적으로 기입"],
+  "evidence":["변경 전후 검사보고서·로그·화면 또는 파일 해시"],
+  "feature_flag":null,
+  "rollback":"되돌릴 대상·순서·데이터 보존 방법",
+  "status":"BACKLOG"
+}

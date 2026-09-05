@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireBroker } from '@/lib/auth-guard';
 import { createServiceClient } from '@/lib/supabase/service';
 import type { MobileIMSection } from '@/domain/building/mobile-im/types';
+import { computeTargetHash } from '@/domain/building/im-core';
+import { studioService } from '@/domain/building/pptx-studio/studio-service';
+import { InvalidationEngine } from '@/platform/im-pipeline/regeneration/invalidation-engine';
+import { broadcastDealcardMutation } from '@/platform/im-pipeline/realtime/dealcard-sync-channel';
+
 
 // D37 H-3: 섹션 저장 시 수치 검증 유틸
 function validateSectionClaims(
@@ -42,6 +47,15 @@ export async function PUT(
   if (guard.error) return guard.error;
 
   const { id } = await params;
+  if (process.env.DEPRECATE_LEGACY_WRITES === 'true' || req.headers.get('x-enforce-modern-pipeline') === 'true') {
+    return NextResponse.json(
+      {
+        error: 'LEGACY_WRITE_DEPRECATED',
+        message: '구형 섹션 직접 저장 API(save-sections)는 폐기(410 Gone)되었습니다. IM CORE v1 및 Mobile Composer API를 사용하십시오.',
+      },
+      { status: 410 }
+    );
+  }
   let sections: MobileIMSection[];
   let newTitle: string | undefined;
   let hiddenSections: string[] | undefined;
@@ -88,7 +102,7 @@ export async function PUT(
 
   const { data: doc, error: fetchErr } = await supabase
     .from('document_objects')
-    .select('id, owner_id, broker_id, body, status')
+    .select('id, owner_id, broker_id, body, status, building_id')
     .eq('id', id)
     .maybeSingle();
 
@@ -107,7 +121,7 @@ export async function PUT(
 
   const content = (doc.body as Record<string, unknown>) || {};
   
-  const updatedContent = {
+  const updatedContent: Record<string, any> = {
     ...content,
     sections: sections,
     ...(newTitle ? { title: newTitle } : {}),
@@ -119,6 +133,16 @@ export async function PUT(
     ...(heroSubtitle !== undefined ? { heroSubtitle } : {}),
     ...(keyInvestmentPoint !== undefined ? { heroCard: { ...((content as Record<string, any>).heroCard || {}), keyInvestmentPoint } } : {}),
   };
+
+  // Compute deterministic SHA-256 target hash
+  const tier = updatedContent.releaseTier ?? 'fact_om';
+  const newTargetHash = computeTargetHash({
+    body: updatedContent,
+    releaseTier: tier,
+    policyVersion: '2026-08-31',
+  });
+  updatedContent.targetHash = newTargetHash;
+  updatedContent.approval_target_hash = newTargetHash;
 
   const existingSections = (content.sections as any[]) || [];
   
@@ -154,12 +178,63 @@ export async function PUT(
     .update({
       ...(newTitle ? { title: newTitle } : {}),
       body: updatedContent,
+      approval_target_hash: newTargetHash,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);
 
   if (updateErr) {
     return NextResponse.json({ error: updateErr.message }, { status: 500 });
+  }
+
+  // Forward sync to PPTX Studio project if exists
+  const buildingId = (doc as any).building_id || id;
+  try {
+    const pptxProject =
+      studioService.findProjectByDealId(buildingId) ||
+      studioService.findProjectByDealId(id);
+
+    if (pptxProject) {
+      if (newTitle) {
+        pptxProject.title = newTitle;
+        const cover = pptxProject.slides.find(
+          (s) => s.layoutType?.includes('A01') || s.dataKey === 'cover'
+        );
+        if (cover) {
+          studioService.patchSlideOverrides(pptxProject.id, cover.id, { title: newTitle });
+        }
+      }
+      if (heroTitle || heroSubtitle) {
+        const overview = pptxProject.slides.find(
+          (s) => s.layoutType?.includes('A02') || s.dataKey === 'overview'
+        );
+        if (overview) {
+          studioService.patchSlideOverrides(pptxProject.id, overview.id, {
+            title: heroTitle || overview.title,
+            kicker: heroSubtitle || overview.kicker,
+          });
+        }
+      }
+    }
+  } catch (syncErr) {
+    console.warn('[save-sections] Forward sync to PPTX Studio failed (non-blocking):', syncErr);
+  }
+
+  // Broadcast mutation via Realtime Channel
+  try {
+    const invalidationEngine = new InvalidationEngine();
+    const scope = invalidationEngine.resolveScope('copy_text_changed');
+    await broadcastDealcardMutation(supabase, {
+      buildingId,
+      documentId: id,
+      targetHash: newTargetHash,
+      changeKind: 'copy_text_changed',
+      invalidatedChannels: scope.invalidatedChannels,
+      timestamp: new Date().toISOString(),
+      updatedBy: guard.user!.id,
+    });
+  } catch (broadcastErr) {
+    console.warn('[save-sections] Broadcast failed (non-blocking):', broadcastErr);
   }
 
   // D37 H-3: Claim 수치 검증 (non-blocking warnings)
@@ -169,6 +244,8 @@ export async function PUT(
   return NextResponse.json({
     ok: true,
     message: '섹션이 성공적으로 저장되었습니다.',
+    targetHash: newTargetHash,
     ...(claimWarnings.length > 0 ? { warnings: claimWarnings } : {}),
   });
 }
+

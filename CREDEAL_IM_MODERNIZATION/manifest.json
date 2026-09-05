@@ -1,0 +1,23 @@
+{
+  "package":"CREDEAL_INTEGRATED_IM_MODERNIZATION_SDD",
+  "version":"1.0.0",
+  "generated_at":"2026-08-31",
+  "language":"ko-KR",
+  "entrypoint":"README.md",
+  "primary_sdd":"01_INTEGRATED_MODERNIZATION_SDD.md",
+  "master_work_order":"05_MASTER_WORK_ORDER.md",
+  "phase_range":"CIM-M0..CIM-M8",
+  "management_gate_range":"MG-0..MG-8",
+  "reference_policy":"read_only_snapshots",
+  "machine_readable_files":[
+    "knowledge/integrated_phase_graph.yaml",
+    "knowledge/work_item_catalog.yaml",
+    "knowledge/requirements_traceability.yaml",
+    "knowledge/contract_registry.yaml",
+    "knowledge/release_gate_catalog.yaml",
+    "knowledge/feature_flag_rollout.yaml",
+    "schemas/integrated-work-item.schema.json",
+    "schemas/phase-exit-report.schema.json",
+    "schemas/release-decision.schema.json"
+  ]
+}

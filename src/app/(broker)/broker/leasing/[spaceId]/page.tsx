@@ -1,4 +1,3 @@
-// @ts-nocheck DORMANT: entire file dormant
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -47,7 +46,6 @@ function StatusBadge({ status }: { status?: string }) {
 }
 
 export default async function SpaceLeasingPage({ params }: PageProps) {
-  /* DORMANT: leasing-studio */ redirect("/broker");
   const { spaceId } = await params;
   const supabase = createServiceClient();
 

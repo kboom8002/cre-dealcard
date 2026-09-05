@@ -147,7 +147,7 @@ function coverCorporateCard(slide: any, input: ArchetypeInput): void {
 function coverObsidianGlow(slide: any, input: ArchetypeInput): void {
   // 글로우 원 (중앙 우측)
   slide.addShape('ellipse' as any, {
-    x: 8.00, y: 0.50, w: 6.00, h: 6.00,
+    x: 7.33, y: 0.50, w: 6.00, h: 6.00,
     fill: { color: '0C2A30' },
   });
   slide.addShape('ellipse' as any, {
@@ -265,7 +265,7 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
   let imgAdded = false;
   if (input.data?.coverImageUrl) {
     try {
-      const img = await optimizeImageForPptx(input.data.coverImageUrl as string, 1476 /* D29 M-11: 8.20" × 180dpi */, 85);
+      const img = await optimizeImageForPptx(input.data.coverImageUrl as string, 2400 /* 13.333" × 180dpi */, 85);
       if (img) {
         const coverStyle = input.data?.coverStyle ?? THEME_META.coverStyle;
         if (coverStyle === 'split') {

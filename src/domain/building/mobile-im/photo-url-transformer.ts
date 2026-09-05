@@ -108,6 +108,13 @@ const DEFAULT_SEQUENCE: Array<[PhotoCategory, string]> = [
   ['tenant_space', '임차 공간'],
 ];
 
+/** 비표준 미디어(.wdp 등) 자동 여과 가드 */
+export const isSupportedMedia = (url?: string): boolean => {
+  if (!url || typeof url !== 'string') return false;
+  const cleanUrl = url.split('?')[0].toLowerCase();
+  return !cleanUrl.endsWith('.wdp');
+};
+
 /**
  * supplemental 입력에서 구조화된 PhotoMeta[]를 완전하게 도출합니다.
  * (v2 photos_v2 우선 -> v1 photo_urls 폴백)
@@ -118,19 +125,28 @@ export function resolvePhotos(supplemental?: MobileIMSupplementalInput | null, b
 
   let photos: PhotoMeta[] = [];
 
-  // 1. v2 구조화 데이터가 있으면 우선 사용
-  if (Array.isArray(supplemental.photos_v2) && supplemental.photos_v2.length > 0) {
-    photos = supplemental.photos_v2.slice(0, 12).map((p, idx) => ({
+  // 1. v2 구조화 데이터(photos_v2) 또는 photos 배열이 있으면 우선 사용
+  const rawPhotos = (Array.isArray(supplemental.photos_v2) && supplemental.photos_v2.length > 0)
+    ? supplemental.photos_v2
+    : (Array.isArray((supplemental as any).photos) && (supplemental as any).photos.length > 0)
+      ? (supplemental as any).photos
+      : null;
+
+  if (rawPhotos) {
+    const validRaw = rawPhotos.filter((p: any) => isSupportedMedia(typeof p === 'string' ? p : p?.url));
+    photos = validRaw.slice(0, 12).map((p: any, idx: number) => ({
       ...p,
       isHero: p.isHero ?? (idx === 0),
       order: p.order ?? idx,
       caption: p.caption ?? supplemental.photo_captions?.[idx],
-      role: (p as any).role ?? (p.isHero ? 'cover' : undefined),
+      role: p.role ?? (p.isHero ? 'cover' : undefined),
+      buildingId: p.buildingId ?? p.building_id ?? buildingId,
     }));
   }
   // 2. v1 photo_urls + photo_captions 폴백
   else if (Array.isArray(supplemental.photo_urls) && supplemental.photo_urls.length > 0) {
-    photos = supplemental.photo_urls.slice(0, 12).map((url, i) => {
+    const validUrls = supplemental.photo_urls.filter(isSupportedMedia);
+    photos = validUrls.slice(0, 12).map((url, i) => {
       const filename = decodeURIComponent(url.split('/').pop()?.split('?')[0] || '');
       const matched = TYPE_PATTERNS.find(([regex]) => regex.test(filename) || regex.test(url));
       const category = matched?.[1] ?? DEFAULT_SEQUENCE[i]?.[0] ?? 'interior';
@@ -143,6 +159,7 @@ export function resolvePhotos(supplemental?: MobileIMSupplementalInput | null, b
         isHero: i === 0,
         autoClassified: true,
         order: i,
+        buildingId,
       };
     });
   }
@@ -179,7 +196,8 @@ export function transformPhotoUrls(
   urls: string[],
   captions?: Record<number, string>,
 ): TransformedPhoto[] {
-  return urls.slice(0, 12).map((url, i) => {
+  const validUrls = urls.filter(isSupportedMedia);
+  return validUrls.slice(0, 12).map((url, i) => {
     const filename = decodeURIComponent(url.split('/').pop()?.split('?')[0] || '');
     const matched = TYPE_PATTERNS.find(([regex]) => regex.test(filename) || regex.test(url));
     const type = matched?.[1] ?? DEFAULT_SEQUENCE[i]?.[0] ?? 'interior';

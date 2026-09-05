@@ -1,0 +1,41 @@
+{
+  "caseId": "case-01",
+  "title": "당산동 중개인형 L1.5 표준 케이스",
+  "description": "중개인 의견과 표준 렌트롤이 포함된 정상 L1.5 발행 대상 물건",
+  "asset": {
+    "name": "당산동 근린생활시설",
+    "address": "서울특별시 영등포구 당산동 123-4",
+    "askingPrice": 12500000000,
+    "landArea": 420.5,
+    "grossFloorArea": 1380.2,
+    "buildingArea": 210.1,
+    "useZone": "준공업지역",
+    "completionYear": 2018,
+    "floors": "지하 1층 / 지상 5층"
+  },
+  "rentroll": {
+    "tier": "standard",
+    "units": [
+      { "unit": "101호", "use": "근린생활시설", "deposit": 100000000, "monthlyRent": 7000000, "maintenanceFee": 500000, "isVacant": false },
+      { "unit": "201호", "use": "업무시설", "deposit": 50000000, "monthlyRent": 4000000, "maintenanceFee": 400000, "isVacant": false },
+      { "unit": "301호", "use": "업무시설", "deposit": 50000000, "monthlyRent": 4000000, "maintenanceFee": 400000, "isVacant": false },
+      { "unit": "401호", "use": "업무시설", "deposit": 50000000, "monthlyRent": 3500000, "maintenanceFee": 350000, "isVacant": false },
+      { "unit": "501호", "use": "근린생활시설", "deposit": 50000000, "monthlyRent": 3500000, "maintenanceFee": 350000, "isVacant": false }
+    ],
+    "depositTotal": 300000000,
+    "monthlyRentTotal": 22000000,
+    "maintenanceFeeTotal": 2000000
+  },
+  "brokerProposal": {
+    "rawText": "당산역 도보 3분 초역세권으로 향후 사옥 또는 메디컬 빌딩으로 통임대 전환 시 임대수익률 4.2% 이상 개선 가능함.",
+    "evidenceRefs": ["claim.asking_price", "claim.monthly_rent_total"],
+    "buyerIntentMeaning": "사옥 수요 기업 또는 메디컬 개발 매수자에게 밸류애드 소구점 제시",
+    "finalCopy": "초역세권 입지로 향후 단독 사옥 브랜딩 및 통임대 전환을 통한 임대수익 개선 기대",
+    "placementTarget": "mobile.proposal_card"
+  },
+  "expectedOutcome": {
+    "targetLevel": "L1.5",
+    "eligibility": "PASS",
+    "gateExpected": "PASS"
+  }
+}

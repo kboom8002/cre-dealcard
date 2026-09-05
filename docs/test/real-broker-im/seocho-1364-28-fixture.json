@@ -1,0 +1,235 @@
+{
+  "dealId": "seocho-1364-28",
+  "title": "서초동 1364-28 FM 빌딩 매각 안내서",
+  "posture": "income",
+  "address": "서울특별시 서초구 서초동 1364-28",
+  "coordinates": {
+    "lat": 37.4855,
+    "lng": 127.0345
+  },
+  "askingPriceKrw": 23000000000,
+  "landAreaM2": 596.00,
+  "grossFloorAreaM2": 2104.88,
+  "archAreaM2": 296.14,
+  "bcRat": 49.70,
+  "vlRat": 276.50,
+  "maxVlRat": 250.0,
+  "maxBcRat": 50.0,
+  "useZone": "제3종일반주거지역",
+  "floors": "지하 1층 ~ 지상 6층",
+  "floorsAbove": 6,
+  "floorsBelow": 1,
+  "structure": "철근콘크리트구조",
+  "elevatorCount": 1,
+  "parking": "총 16대 (자주식/기계식 복합)",
+  "parkingCount": 16,
+  "completionDate": "1991-01-20",
+  "wale": 1.2,
+  "vacancyRate": 42.9,
+  "statedDepositKrw": 290000000,
+  "statedMonthlyRentKrw": 21950000,
+  "statedLandPricePerPyeongKrw": 127563000,
+  "calculatedLandPricePerPyeongKrw": 127563098,
+  "rawBrokerStatedLandPricePerPyeongKrw": 70000000,
+  "capRatePct": 1.15,
+  "subDistrict": "GBD_SEOCHO",
+  "poiSpots": [
+    { "name": "양재역 (3호선/신분당선)", "lat": 37.4842, "lng": 127.0345, "category": "subway" },
+    { "name": "서초IC", "lat": 37.4830, "lng": 127.0250, "category": "landmark" },
+    { "name": "양재역먹자골목", "lat": 37.4850, "lng": 127.0348, "category": "retail" }
+  ],
+  "proForma": {
+    "vacantFloorCount": 3,
+    "vacantFloors": ["2F", "4F", "5F"],
+    "vacantAreaPyeong": 259.4,
+    "currentCapRatePct": 1.15,
+    "estimatedFullOccupancyCapRatePct": 2.30,
+    "upsideCapRatePp": 1.15,
+    "additionalMonthlyRentKrw": 22100000,
+    "proFormaMonthlyRentKrw": 44050000,
+    "proFormaAnnualNoiKrw": 528600000,
+    "marketRentPerPyeongKrw": 85000,
+    "narrative": "현재 2, 4, 5층(총 259.4평) 공실 상태로 인해 연 순수익률이 1.15%이나, 인근 오피스 시세(평당 8.5만 원)로 임대 정상화 시 연 순수익률(Cap Rate) 2.30%로 +1.15%p 대폭 개선되는 밸류애드 기회"
+  },
+  "keyFacts3Tier": {
+    "tier1_subject": [
+      ["소재지", "서울특별시 서초구 서초동 1364-28"],
+      ["매각희망가", "230억 원"],
+      ["실제 토지 평당가", "약 1.28억 원/평"],
+      ["연 순수익률 (Cap Rate)", "현재 1.15% ➔ 만실 정상화 2.30% (+1.15%p)"],
+      ["추천 용도", "기업 사옥 직영 또는 리테일/오피스 밸류애드 복합임대"]
+    ],
+    "tier2_land": [
+      ["대지면적", "596.00㎡ (180.3평)"],
+      ["용도지역", "제3종일반주거지역"],
+      ["건폐율 / 용적률", "49.7% / 276.5% (기존 용적률 법정 250% 초과 활용)"],
+      ["도로접면", "양재역 먹자골목 코너 사다리꼴 우량 부지"]
+    ],
+    "tier3_building": [
+      ["연면적", "2,104.88㎡ (636.7평, 옥탑 10.9평 별도)"],
+      ["건축면적", "296.14㎡ (89.6평)"],
+      ["사용승인일", "1991-01-20 (준공 1991년 1월)"],
+      ["규모 / 층수", "지하 1층 ~ 지상 6층"],
+      ["주차 / 승강기", "총 16대 완비 (자주식/기계식 복합) / 승강기 1대 완비"],
+      ["주구조", "철근콘크리트구조"]
+    ]
+  },
+  "salesComparisonComps": [
+    {
+      "name": "서초동 1362-11 (실거래)",
+      "distanceM": 140,
+      "dealDate": "2024-02",
+      "landPricePerPyeongKrw": 133330000,
+      "gfaPricePerPyeongKrw": 31250000,
+      "landAreaPyeong": 112.5,
+      "gfaPyeong": 480.0
+    },
+    {
+      "name": "서초동 1358-3 (실거래)",
+      "distanceM": 290,
+      "dealDate": "2023-10",
+      "landPricePerPyeongKrw": 131950000,
+      "gfaPricePerPyeongKrw": 30330000,
+      "landAreaPyeong": 140.2,
+      "gfaPyeong": 610.0
+    },
+    {
+      "name": "양재동 12-8 (실거래)",
+      "distanceM": 410,
+      "dealDate": "2024-05",
+      "landPricePerPyeongKrw": 130300000,
+      "gfaPricePerPyeongKrw": 29860000,
+      "landAreaPyeong": 165.0,
+      "gfaPyeong": 720.0
+    },
+    {
+      "name": "서초동 1360-14 (인근매물)",
+      "distanceM": 250,
+      "dealDate": "2024-04",
+      "landPricePerPyeongKrw": 140000000,
+      "gfaPricePerPyeongKrw": 33090000,
+      "landAreaPyeong": 130.0,
+      "gfaPyeong": 550.0
+    }
+  ],
+  "incomeCapitalization": {
+    "annualGrossRentKrw": 263400000,
+    "annualMgmtFeeKrw": 0,
+    "annualOpexKrw": 0,
+    "annualNoiKrw": 263400000,
+    "marketCapRateRangePct": [2.50, 3.50],
+    "estimatedValueRangeKrw": [7525714286, 10536000000],
+    "proFormaAnnualNoiKrw": 528600000,
+    "proFormaEstimatedValueRangeKrw": [15102857143, 21144000000],
+    "costMethodExcludedNote": "원가법 제외: 노후도 감가 및 도심 역세권 수익형 상업용 부동산 특성상 사례비교법 및 수익환원법 2방식 적용",
+    "valuationConclusion": "현재 다층 공실 상태(Cap Rate 1.15%)이나, 만실 정상화 시 Cap Rate 2.30% 달성 및 인근 시세(1.30억~1.40억 원/평) 대비 평당 1.28억 원으로 우수한 가격 메리트 확보"
+  },
+  "stackingPlan": [
+    {
+      "floor": "6F",
+      "use": "사무소",
+      "tenant": "사무실",
+      "floorAreaM2": 241.3,
+      "floorAreaPy": 73.0,
+      "exclusiveAreaM2": 193.0,
+      "exclusiveAreaPy": 58.4,
+      "expiryYear": 2026,
+      "depositKrw": 0,
+      "monthlyRentKrw": 1050000,
+      "isVacant": false
+    },
+    {
+      "floor": "5F",
+      "use": "사무소",
+      "tenant": "공실 (예정 / 밸류애드)",
+      "floorAreaM2": 271.8,
+      "floorAreaPy": 82.2,
+      "exclusiveAreaM2": 217.4,
+      "exclusiveAreaPy": 65.8,
+      "expiryYear": 0,
+      "depositKrw": 0,
+      "monthlyRentKrw": 0,
+      "isVacant": true
+    },
+    {
+      "floor": "4F",
+      "use": "사무소",
+      "tenant": "공실 (즉시 유치 가능)",
+      "floorAreaM2": 292.9,
+      "floorAreaPy": 88.6,
+      "exclusiveAreaM2": 234.3,
+      "exclusiveAreaPy": 70.9,
+      "expiryYear": 0,
+      "depositKrw": 0,
+      "monthlyRentKrw": 0,
+      "isVacant": true
+    },
+    {
+      "floor": "3F",
+      "use": "사무소",
+      "tenant": "사무실",
+      "floorAreaM2": 292.9,
+      "floorAreaPy": 88.6,
+      "exclusiveAreaM2": 234.3,
+      "exclusiveAreaPy": 70.9,
+      "expiryYear": 2025,
+      "depositKrw": 100000000,
+      "monthlyRentKrw": 7500000,
+      "isVacant": false
+    },
+    {
+      "floor": "2F",
+      "use": "교육/연구/복지",
+      "tenant": "공실 (예정 / 밸류애드)",
+      "floorAreaM2": 292.9,
+      "floorAreaPy": 88.6,
+      "exclusiveAreaM2": 234.3,
+      "exclusiveAreaPy": 70.9,
+      "expiryYear": 0,
+      "depositKrw": 0,
+      "monthlyRentKrw": 0,
+      "isVacant": true
+    },
+    {
+      "floor": "1F",
+      "use": "일반음식점",
+      "tenant": "식당",
+      "floorAreaM2": 256.0,
+      "floorAreaPy": 77.4,
+      "exclusiveAreaM2": 204.8,
+      "exclusiveAreaPy": 61.9,
+      "expiryYear": 2026,
+      "depositKrw": 130000000,
+      "monthlyRentKrw": 8300000,
+      "isVacant": false
+    },
+    {
+      "floor": "B1",
+      "use": "제2종근린생활시설",
+      "tenant": "파티룸",
+      "floorAreaM2": 457.1,
+      "floorAreaPy": 138.3,
+      "exclusiveAreaM2": 365.7,
+      "exclusiveAreaPy": 110.6,
+      "expiryYear": 2026,
+      "depositKrw": 60000000,
+      "monthlyRentKrw": 5100000,
+      "isVacant": false
+    }
+  ],
+  "photos": [
+    {
+      "url": "docs/test/real-broker-im/seocho-media/image3.jpeg",
+      "caption": "서초동 1364-28 FM 빌딩 외관 전경"
+    },
+    {
+      "url": "docs/test/real-broker-im/seocho-media/image8.jpeg",
+      "caption": "건물 후면 및 1층 주차부스/진입로"
+    },
+    {
+      "url": "docs/test/real-broker-im/seocho-media/image10.jpeg",
+      "caption": "지상층 전용 오피스 내부 업무 공간"
+    }
+  ],
+  "cadastralMapImage": "docs/test/real-broker-im/seocho-media/image5.png"
+}

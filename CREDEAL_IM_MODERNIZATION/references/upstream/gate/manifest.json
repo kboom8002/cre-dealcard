@@ -1,0 +1,10 @@
+{
+  "package": "CREDEAL_GATE_HARNESS_REFACTOR_SDD",
+  "version": "1.0.0",
+  "generated": "2026-08-31",
+  "owner": "CREDEAL Product and IM Platform Team",
+  "scope": ["dealcard", "im-core", "mobile-im", "pptx-studio", "approval", "quality"],
+  "status": "proposed",
+  "entrypoint": "README.md"
+}
+

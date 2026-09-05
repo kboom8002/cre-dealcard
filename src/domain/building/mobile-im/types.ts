@@ -125,6 +125,47 @@ export interface FloorLeaseInput {
   };
 }
 
+/** 층별 테넌트 의미 분류 카테고리 */
+export type TenantCategory = 'anchor' | 'general' | 'retail' | 'parking' | 'vacant';
+
+/** 건축 입면 셋백 스태킹 플랜 층별 제원 */
+export interface StackingPlanFloor {
+  floor: string;              // "11F", "10F", "B1F", ... 또는 "B3~B5F"
+  use?: string;               // e.g. "업무시설(사무소)", "근린생활시설", "주차장", "기계실"
+  tenant?: string;            // e.g. "NH농협캐피탈(주)", "롤링핀 / GS25", "공실"
+  floorAreaM2?: number;       // 바닥면적 (m2)
+  floorAreaPy?: number;       // 바닥면적 (평)
+  exclusiveAreaM2?: number;   // 전용면적 (m2)
+  exclusiveAreaPy?: number;   // 전용면적 (평)
+  leasableAreaM2?: number;    // 임대면적 (m2)
+  leasableAreaPy?: number;    // 임대면적 (평)
+  deposit?: number;           // 보증금 (원 또는 만원)
+  rent?: number;              // 월임대료 (원 또는 만원)
+  expiryYear?: number;        // 만기연도 (e.g. 2026, 0 for N/A)
+  isVacant?: boolean;         // 공실 여부
+  category?: TenantCategory;  // 'anchor' | 'general' | 'retail' | 'parking' | 'vacant'
+  tenantCategory?: TenantCategory; // 호환성 별칭
+  hasTerrace?: boolean;       // 상층부 테라스 후퇴 여부
+  setbackRatio?: number;      // 기준 바닥 대비 너비 비율 (e.g. 0.51, 1.0, 1.35)
+  depthMeters?: number;       // 지하층 깊이 (m, e.g. -3.5, -7.0, -21.0)
+  note?: string;              // 특이사항
+}
+
+/** 스태킹 플랜 종합 지표 요약 */
+export interface StackingPlanSummary {
+  totalGrossAreaPy?: number;
+  totalGrossAreaM2?: number;
+  exclusiveRatePct?: number;
+  waleYears?: number;
+  vacancyRatePct?: number;
+  totalUnits?: number;
+  floorsAboveGround?: number;
+  floorsUnderground?: number;
+  anchorRatioPct?: number;
+  anchorTenantName?: string;
+  totalFloors?: number;
+}
+
 /** 비임대 부가수입 항목 */
 export interface AncillaryIncomeItem {
   type: 'telecom_antenna'   // 통신장비 임대

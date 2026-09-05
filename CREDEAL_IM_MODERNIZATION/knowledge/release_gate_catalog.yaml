@@ -1,0 +1,20 @@
+{
+  "schema_version":"1.0.0",
+  "states":["PASS","FAIL","WARN","NOT_APPLICABLE","NOT_RUN","INDETERMINATE","SYSTEM_ERROR"],
+  "gates":[
+    {"id":"GATE-SOURCE-INTEGRITY","severity":"BLOCKER","artifacts":["dealcard","mobile","pptx"],"waivable":false},
+    {"id":"GATE-BLIND-PRIVACY","severity":"BLOCKER","artifacts":["dealcard"],"waivable":false},
+    {"id":"GATE-PARCEL-COMPLETENESS","severity":"ERROR","artifacts":["mobile","pptx"],"waivable":true},
+    {"id":"GATE-RENTROLL-RECONCILIATION","severity":"BLOCKER","artifacts":["mobile","pptx"],"waivable":false},
+    {"id":"GATE-CLAIM-EVIDENCE","severity":"ERROR","artifacts":["mobile","pptx"],"waivable":true},
+    {"id":"GATE-LEVEL-ELIGIBILITY","severity":"BLOCKER","artifacts":["mobile","pptx"],"waivable":false},
+    {"id":"GATE-PLACEHOLDER-RESIDUE","severity":"BLOCKER","artifacts":["dealcard","mobile","pptx"],"waivable":false},
+    {"id":"GATE-PPTX-FILE-VISUAL","severity":"ERROR","artifacts":["pptx"],"waivable":true},
+    {"id":"GATE-APPROVAL-HASH","severity":"BLOCKER","artifacts":["dealcard","mobile","pptx"],"waivable":false},
+    {"id":"GATE-PUBLICATION-OBJECT","severity":"BLOCKER","artifacts":["dealcard","mobile","pptx"],"waivable":false}
+  ],
+  "release_metrics": {
+    "baseline_required": true,
+    "targets": ["blocker_false_pass_rate","critical_fact_mismatch_rate","publication_success_rate","p95_end_to_end_duration","cost_per_deal","broker_completion_time"]
+  }
+}

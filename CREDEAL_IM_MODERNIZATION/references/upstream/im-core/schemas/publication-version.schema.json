@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://credeal.local/schemas/publication-version.v1.json",
+  "title": "PublicationVersion v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["publicationVersionId", "projectId", "packageId", "channel", "versionNo", "targetLevel", "contentPlan", "renderedContent", "channelGateReport", "contentHash", "copyHash", "photoPlanHash", "publicationStatus", "createdAt"],
+  "properties": {
+    "publicationVersionId": {"type": "string", "format": "uuid"},
+    "projectId": {"type": "string", "format": "uuid"},
+    "packageId": {"type": "string", "format": "uuid"},
+    "channel": {"enum": ["mobile", "pptx"]},
+    "versionNo": {"type": "integer", "minimum": 1},
+    "targetLevel": {"enum": ["L1", "L1.5", "L2", "L3", "L4"]},
+    "contentPlan": {"type": "object"},
+    "renderedContent": {"type": "object"},
+    "channelGateReport": {"type": "object"},
+    "coreGateReportHash": {"type": "string"},
+    "contentHash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "copyHash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "photoPlanHash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "layoutHash": {"type": ["string", "null"]},
+    "artifactStoragePath": {"type": ["string", "null"]},
+    "artifactHash": {"type": ["string", "null"]},
+    "publicationStatus": {"enum": ["draft", "machine_blocked", "machine_passed", "approved", "published", "invalidated", "archived"]},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "publishedAt": {"type": ["string", "null"], "format": "date-time"}
+  }
+}
+

@@ -70,8 +70,9 @@ describe('L4: 산출물 단언 — D34 §4.1 (15 케이스 + negative 짝)', () 
         posture: 'income', grade: 'A', hasPhotos: true,
         dataAvailability: { hasLandUsePlan: true, hasBuildingRegister: true, hasRegistryData: true },
       });
-      expect(seq.length).toBeGreaterThanOrEqual(12);
-      expect(seq.length).toBeLessThanOrEqual(16);
+      const bodyOnly = seq.filter(s => s.placement !== 'appendix');
+      expect(bodyOnly.length).toBeGreaterThanOrEqual(12);
+      expect(bodyOnly.length).toBeLessThanOrEqual(16);
     });
 
     it('T4-PAGE-01-NEG: 17면 산출 시 차단', () => {
@@ -84,7 +85,8 @@ describe('L4: 산출물 단언 — D34 §4.1 (15 케이스 + negative 짝)', () 
           hasCadastralMap: true, hasFloorPlan: true,
         },
       });
-      expect(seq.length).toBeLessThanOrEqual(16);
+      const bodyOnly = seq.filter(s => s.placement !== 'appendix');
+      expect(bodyOnly.length).toBeLessThanOrEqual(16);
     });
   });
 

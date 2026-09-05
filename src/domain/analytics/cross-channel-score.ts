@@ -1,4 +1,9 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+/**
+ * DB 클라이언트 인터페이스 (Rule 12: 도메인 계층 Supabase 직접 의존 제거)
+ */
+export interface AnalyticsDbClient {
+  from(table: string): any;
+}
 
 export interface LeadScoreResult {
   score: number;
@@ -25,7 +30,7 @@ const SCORE_WEIGHTS: Record<string, number> = {
 const HOT_LEAD_THRESHOLD = 80;
 
 export async function calculateLeadScore(
-  supabase: SupabaseClient,
+  supabase: AnalyticsDbClient,
   brokerId: string,
   visitorHash: string,
 ): Promise<LeadScoreResult> {
@@ -94,8 +99,9 @@ export async function calculateLeadScore(
       firstContact: events?.[0]?.created_at,
       lastContact: events?.[events.length - 1]?.created_at,
     };
-  } catch (err: any) {
-    console.error('[calculateLeadScore] Unexpected error:', err.message);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[calculateLeadScore] Unexpected error:', message);
     return { score: 0, isHotLead: false, touchpoints: [], channelCount: 0, buildingsViewed: [] };
   }
 }

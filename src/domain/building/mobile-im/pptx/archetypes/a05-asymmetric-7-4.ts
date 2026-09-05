@@ -44,13 +44,33 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
   const rightStats = input.data.right?.stats ?? [];
   const allStats = [...rightStats];
   
-  // 데이터 부족 시 content에서 추출
+  // 1차: 테이블 데이터에서 KPI 추출
+  if (allStats.length === 0 && input.data.tables && input.data.tables.length > 0) {
+    for (const t of input.data.tables) {
+      for (const row of t.rows) {
+        if (row.length >= 2 && allStats.length < 6) {
+          const l = stripMarkdown(row[0]).trim();
+          const v = stripMarkdown(row[1]).trim();
+          if (l && v && !l.includes('구분') && !l.includes('항목')) {
+            allStats.push({ label: l, value: v });
+          }
+        }
+      }
+    }
+  }
+
+  // 2차: content 마크다운 불릿/텍스트에서 KPI 추출
   if (allStats.length === 0 && input.data.content) {
     const lines = String(input.data.content).split('\n').map(l => l.trim());
     for (const line of lines) {
-      const match = line.match(/\*\*(.*?)\*\*\s*[：:|]\s*(.*)/);
+      if (line.startsWith('#') || line.startsWith('|')) continue;
+      const match = line.match(/^[-*•]?\s*\**([^*：:]{2,25})\**\s*[：:]\s*(.*)/);
       if (match && allStats.length < 6) {
-        allStats.push({ label: match[1].trim(), value: match[2].trim() });
+        const l = match[1].trim();
+        const v = match[2].trim();
+        if (l && v) {
+          allStats.push({ label: l, value: v });
+        }
       }
     }
   }
@@ -114,23 +134,25 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
   if (input.data.content) {
     const narrativeLines = String(input.data.content).split('\n')
       .map(l => l.trim())
-      .filter(l => l.length > 10 && !l.startsWith('#') && !l.startsWith('|') && !l.startsWith('-') && !l.startsWith('•') && !/^[-*_]{3,}$/.test(l))
+      .filter(l => l.length > 8 && !l.startsWith('#') && !l.startsWith('|') && !/^[-*_]{3,}$/.test(l))
       .map(l => stripMarkdown(l.replace(/^[>•·-]\s*/, '')))
       .filter(Boolean);
-    leadBody = narrativeLines.join(' ');
+    leadBody = narrativeLines.slice(0, 2).join(' ');
   }
   // 면책 문구는 leadBody에서 제외
   if (leadBody.includes('AI 추정값') || leadBody.includes('투자 결정의 근거')) {
     leadBody = leadBody.replace(/아래\s*수치는.*?상이합니다\.?\s*/g, '').trim();
   }
   
-  if (!leadBody || leadBody.length < 15 || leadBody === left.sub) {
+  if (!leadBody || leadBody.length < 10 || leadBody === left.sub) {
     leadBody = '';
   }
 
   // 우측 callouts가 있으면 2-column, 없으면 풀폭
   const rightCallouts = input.data.right?.callouts ?? [];
   const calloutMaxY = 6.40;
+  const isScale = (input.data.title || '').includes('신축') || (input.data.kicker || '').includes('Scale');
+  const defaultTitle = isScale ? '신축 건축 규모 요약' : '투자 가치 제안';
   
   if (contentY + 1.0 <= calloutMaxY && (leadBody || rightCallouts.length > 0)) {
     const calloutH = Math.min(1.40, calloutMaxY - contentY);
@@ -140,7 +162,7 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
       const coGap = 0.20;
       const coW = L.col(2, coGap);
       if (leadBody) {
-        L.callout(slide, L.colX(0, coW, coGap), contentY + 0.10, coW, calloutH, 'info', '투자 가치 제안', leadBody);
+        L.callout(slide, L.colX(0, coW, coGap), contentY + 0.10, coW, calloutH, 'info', defaultTitle, leadBody);
         const rc = rightCallouts[0];
         L.callout(slide, L.colX(1, coW, coGap), contentY + 0.10, coW, calloutH, rc.kind ?? 'info', rc.title ?? '', rc.body ?? '');
       } else {
@@ -149,7 +171,7 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
       }
     } else if (leadBody) {
       // 풀폭 콜아웃
-      L.callout(slide, M, contentY + 0.10, CW, calloutH, 'info', '투자 가치 제안', leadBody);
+      L.callout(slide, M, contentY + 0.10, CW, calloutH, 'info', defaultTitle, leadBody);
     }
   }
 

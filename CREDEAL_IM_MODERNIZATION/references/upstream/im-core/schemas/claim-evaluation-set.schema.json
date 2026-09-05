@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://credeal.local/schemas/claim-evaluation-set.v1.json",
+  "title": "ClaimEvaluationSet v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["snapshotId", "definitionSetVersion", "evaluations", "evaluationSetHash", "evaluatedAt"],
+  "properties": {
+    "snapshotId": {"type": "string", "format": "uuid"},
+    "definitionSetVersion": {"type": "string"},
+    "evaluations": {"type": "array", "items": {"$ref": "#/$defs/evaluation"}},
+    "evaluationSetHash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "evaluatedAt": {"type": "string", "format": "date-time"}
+  },
+  "$defs": {
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evaluationId", "claimId", "claimDefinitionVersion", "snapshotId", "evidenceStatus", "useStatus", "evidenceRefs", "gateDecisionRefs"],
+      "properties": {
+        "evaluationId": {"type": "string", "format": "uuid"},
+        "claimId": {"type": "string", "pattern": "^[A-Z]+-C[0-9]{2}(-[A-Z0-9-]+)?$"},
+        "claimDefinitionVersion": {"type": "string"},
+        "snapshotId": {"type": "string", "format": "uuid"},
+        "evidenceStatus": {"enum": ["unverified", "broker_checked", "reconciled", "conflicted", "stale", "not_available"]},
+        "useStatus": {"enum": ["allowed", "allowed_with_warning", "blocked", "not_applicable", "not_available_at_stage", "not_evaluated"]},
+        "value": {},
+        "unit": {"type": "string"},
+        "formulaId": {"type": "string"},
+        "basis": {"type": "object"},
+        "inputClaimRefs": {"type": "array", "items": {"type": "string"}},
+        "evidenceRefs": {"type": "array", "items": {"type": "string"}},
+        "warnings": {"type": "array", "items": {"type": "string"}},
+        "blockers": {"type": "array", "items": {"type": "string"}},
+        "gateDecisionRefs": {"type": "array", "items": {"type": "string"}},
+        "calculationHash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+      }
+    }
+  }
+}
+

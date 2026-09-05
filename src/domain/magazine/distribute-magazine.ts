@@ -3,11 +3,11 @@
  * @description 매거진 발행 시 카카오 알림톡 + 이메일 + 원페이지 이미지 3채널 일괄 배포.
  * weekly-magazine 크론 또는 에디터의 "발행" 버튼에서 호출됩니다.
  */
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendKakaoAlimtalk } from '@/lib/notification/notification-service';
 import { sendMagazineEmail } from '@/lib/notification/email-service';
 import { dispatchEdition, type DispatchTarget } from './rail/dispatcher';
 import { generatePersonalizedInsert } from './weekly-generator';
+import type { MagazineDbClient } from './types';
 
 export interface DistributeMagazineEditionInput {
   id?: string;
@@ -20,7 +20,7 @@ export interface DistributeMagazineEditionInput {
 }
 
 export async function distributeMagazine(
-  supabase: SupabaseClient,
+  supabase: MagazineDbClient,
   brokerId: string,
   edition: DistributeMagazineEditionInput
 ): Promise<{ sent: number; failed: number; kakaoSent: number; emailSent: number }> {
@@ -84,7 +84,7 @@ export async function distributeMagazine(
     for (let i = 0; i < kakaoTargets.length; i += 5) {
       const batch = kakaoTargets.slice(i, i + 5);
       const results = await Promise.allSettled(
-        batch.map((sub) => {
+        batch.map((sub: any) => {
           const smsText = `[${brokerName}] 주간 부동산 매거진이 발행되었습니다.\n주제: ${edition.title}\n링크: ${magazineUrl}`;
           return sendKakaoAlimtalk({
             recipientPhone: sub.subscriber_phone!,
@@ -114,7 +114,7 @@ export async function distributeMagazine(
     for (let i = 0; i < emailTargets.length; i += 5) {
       const batch = emailTargets.slice(i, i + 5);
       const results = await Promise.allSettled(
-        batch.map(async (sub) => {
+        batch.map(async (sub: any) => {
           const emailAddr = sub.subscriber_email || sub.email;
           let customInsert = '';
           if (sub.interest_tags && Object.keys(sub.interest_tags).length > 0) {

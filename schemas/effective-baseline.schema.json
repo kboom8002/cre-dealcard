@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://credeal.com/schemas/effective-baseline.schema.json",
+  "title": "EffectiveBaseline",
+  "description": "CTR-006: P30 Reconciled Effective Baseline Contract",
+  "type": "object",
+  "required": [
+    "dealId",
+    "baselineHash",
+    "physical",
+    "commercial",
+    "zoning",
+    "asOf",
+    "createdAt"
+  ],
+  "properties": {
+    "dealId": { "type": "string", "format": "uuid" },
+    "baselineHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "physical": {
+      "type": "object",
+      "required": ["landAreaSqm", "grossFloorAreaSqm"],
+      "properties": {
+        "landAreaSqm": { "type": "number", "minimum": 0 },
+        "grossFloorAreaSqm": { "type": "number", "minimum": 0 },
+        "exclusiveAreaSqm": { "type": "number" },
+        "leasableAreaSqm": { "type": "number" },
+        "buildingCoveragePct": { "type": "number" },
+        "floorAreaRatioPct": { "type": "number" },
+        "floorsAbove": { "type": "integer" },
+        "floorsBelow": { "type": "integer" }
+      }
+    },
+    "commercial": {
+      "type": "object",
+      "required": ["askingPriceKrw"],
+      "properties": {
+        "askingPriceKrw": { "type": "number", "minimum": 0 },
+        "totalDepositKrw": { "type": "number" },
+        "monthlyRentKrw": { "type": "number" },
+        "monthlyAdminFeeKrw": { "type": "number" }
+      }
+    },
+    "zoning": {
+      "type": "object",
+      "properties": {
+        "useDistrict": { "type": "string" },
+        "mainUsage": { "type": "string" }
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "asOf": { "type": "string", "format": "date-time" },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

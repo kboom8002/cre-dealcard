@@ -40,6 +40,7 @@ export interface DataAvailability {
   hasCadastralMap?: boolean;     // 지적도 이미지
   hasFloorPlan?: boolean;        // 층별 평면도
   hasRentRoll?: boolean;         // D33 S-5: 렌트롤 데이터 유무
+  hasStackingPlan?: boolean;     // A22 건축 입면 셋백 스태킹 플랜 유무
   // D37 P0-4 신설 — 실값 기반 tier 판정
   hasOpex?: boolean;             // 운영비 실값 존재
   hasAsOf?: boolean;             // 기준일 존재
@@ -113,6 +114,8 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   // ── 포스처별 본문 슬라이드 ──
   // D34 T3-RR-01: rentRoll은 hasRentRoll !== false 일 때만 추가
   const addRentRoll = input.dataAvailability?.hasRentRoll !== false;
+  // A22 건축 입면 셋백 스태킹 플랜: hasStackingPlan 유무에 따라 추가
+  const addStackingPlan = input.dataAvailability?.hasStackingPlan === true;
 
   switch (input.posture) {
     case 'income':
@@ -120,24 +123,28 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
       switch (input.incomeArchetype) {
         case 'R-INC-02': // 가치 상승 여력형
           if (addRentRoll) sequence.push({ archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' });
+          if (addStackingPlan) sequence.push({ archetype: 'A22', kicker: 'Stacking Plan', title: '스태킹 플랜', dataKey: 'stackingPlan' });
           sequence.push({ archetype: 'A05', kicker: 'Value-Add', title: '가치 상승 실행 계획', dataKey: 'valueAdd' });
           sequence.push({ archetype: 'A04', kicker: 'FAR', title: '용적률 여유', dataKey: 'farUpside' });
           sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
         case 'R-INC-04': // 임대료 정상화형
           if (addRentRoll) sequence.push({ archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' });
+          if (addStackingPlan) sequence.push({ archetype: 'A22', kicker: 'Stacking Plan', title: '스태킹 플랜', dataKey: 'stackingPlan' });
           sequence.push({ archetype: 'A05', kicker: 'Rent Gap', title: '임대료 정상화 경로', dataKey: 'rentGap' });
           sequence.push({ archetype: 'A05', kicker: 'Upside', title: '갱신 인상 시나리오', dataKey: 'upside' });
           sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
         case 'R-INC-05': // 공실 해소형
           if (addRentRoll) sequence.push({ archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' });
+          if (addStackingPlan) sequence.push({ archetype: 'A22', kicker: 'Stacking Plan', title: '스태킹 플랜', dataKey: 'stackingPlan' });
           sequence.push({ archetype: 'A04', kicker: 'Vacancy', title: '공실 원인·유치 전략', dataKey: 'vacancy' });
           sequence.push({ archetype: 'A05', kicker: 'Leasing', title: '임차 유치 시나리오', dataKey: 'leasing' });
           sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
         case 'R-INC-06': // 리모델링형
           if (addRentRoll) sequence.push({ archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' });
+          if (addStackingPlan) sequence.push({ archetype: 'A22', kicker: 'Stacking Plan', title: '스태킹 플랜', dataKey: 'stackingPlan' });
           sequence.push({ archetype: 'A04', kicker: 'Current', title: '현황', dataKey: 'current' });
           sequence.push({ archetype: 'A05', kicker: 'Remodel', title: '리모델링 전후 수익 비교', dataKey: 'remodel' });
           sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
@@ -145,6 +152,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
         case 'R-INC-01': // 임대 안정형 (기본)
         default:
           if (addRentRoll) sequence.push({ archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' });
+          if (addStackingPlan) sequence.push({ archetype: 'A22', kicker: 'Stacking Plan', title: '스태킹 플랜', dataKey: 'stackingPlan' });
           sequence.push({ archetype: 'A04', kicker: 'Stability', title: '임대안정성', dataKey: 'stability' });
           sequence.push({ archetype: 'A05', kicker: 'Profit', title: '수익구조', dataKey: 'profit' });
           sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
@@ -158,11 +166,15 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
       sequence.push({ archetype: 'A04', kicker: 'Value', title: '자산가치', dataKey: 'value' });
       break;
     case 'development':
-      sequence.push({ archetype: 'A04', kicker: 'Land Detail', title: '토지상세', dataKey: 'land' });
+      sequence.push({ archetype: 'A04', kicker: 'Land Detail', title: '토지상세', dataKey: 'landDetail' });
       sequence.push({ archetype: 'A05', kicker: 'Scale', title: '신축규모', dataKey: 'scale' });
       sequence.push({ archetype: 'A04', kicker: 'Eviction', title: '명도', dataKey: 'eviction' });
       sequence.push({ archetype: 'A08', kicker: 'Cost', title: '투입비용', dataKey: 'cost' });
-      sequence.push({ archetype: 'A17', kicker: 'Stacking', title: '스태킹', dataKey: 'stacking' });
+      if (addStackingPlan) {
+        sequence.push({ archetype: 'A22', kicker: 'Stacking', title: '스태킹', dataKey: 'stackingPlan' });
+      } else {
+        sequence.push({ archetype: 'A17', kicker: 'Stacking', title: '스태킹', dataKey: 'stacking' });
+      }
       sequence.push({ archetype: 'A05', kicker: 'Feasibility', title: '사업수지', dataKey: 'feasibility' });
       break;
     case 'operating':
@@ -232,7 +244,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   // ── 공통 마감 (항상 마지막) ──
   sequence.push({ archetype: 'A15', kicker: 'Thesis', title: '투자 논거', dataKey: 'thesis', placement: 'closing' });
   sequence.push({ archetype: 'A07', kicker: 'Risk', title: '리스크', dataKey: 'risk', placement: 'closing' });
-  sequence.push({ archetype: 'A12', kicker: 'Checklist', title: '실사 체크리스트', dataKey: 'checklist', placement: 'closing' });
+  sequence.push({ archetype: 'A18', kicker: 'Checklist', title: '실사 체크리스트', dataKey: 'checklist', placement: 'closing' });
   sequence.push({ archetype: 'A09', kicker: 'Process', title: '진행 절차', dataKey: 'process', placement: 'closing' });
   sequence.push({ archetype: 'A10', kicker: 'Closing', title: '마감', dataKey: 'closing', placement: 'closing' });
 

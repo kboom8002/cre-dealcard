@@ -1,0 +1,51 @@
+version: 1.0.0
+operators:
+  MUT-MEMO-NUMBER:
+    target: broker_memo
+    action: change_numeric_token
+    expected: dependent_dealcard_and_prefill_hash_change
+  MUT-MEMO-DELETE-SPAN:
+    target: memo_observation
+    action: remove_source_span
+    expected_gate: MEMO.SPAN.001
+  MUT-DC-INVENT-FIELD:
+    target: dealcard
+    action: add_value_without_observation_ref
+    expected_gate: DC.NOVEL.001
+  MUT-DC-EXACT-ADDRESS:
+    target: dealcard
+    action: reveal_exact_address
+    expected_gate: DC.MASK.001
+  MUT-RR-RENT:
+    target: rent_roll_row
+    action: change_monthly_rent
+    expected: totals_yields_mobile_pptx_recomputed
+  MUT-RR-REMOVE-MGMT:
+    target: rent_roll
+    action: remove_management_fee
+    expected: noi_claim_blocked_or_indeterminate
+  MUT-SNAPSHOT-PRICE:
+    target: effective_snapshot
+    action: change_asking_price
+    expected: dependent_publications_and_approvals_invalidated
+  MUT-PPTX-NUMERIC-TOKEN:
+    target: pptx_text_shape
+    action: change_displayed_numeric_value
+    expected_gate: PPTX.VALUE.001
+  MUT-PPTX-PHOTO:
+    target: pptx_image
+    action: replace_with_unapproved_photo
+    expected_gate: PPTX.PHOTO.001
+  MUT-PROPOSAL-CONDITION:
+    target: proposal_unit
+    action: remove_conditions
+    expected: l15_auto_eligibility_fail
+  MUT-POLICY-VERSION:
+    target: publication_manifest
+    action: change_policy_version
+    expected: approval_binding_hash_mismatch
+  MUT-OBSERVER-TIMEOUT:
+    target: gate_observer
+    action: force_timeout
+    expected: status_system_error_not_pass
+

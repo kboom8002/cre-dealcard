@@ -1,0 +1,61 @@
+{
+  "phase": "CIM-M1",
+  "gate": "MG-1",
+  "target_hash": "sha256:d8c529b3c4f91845bb08976b00b0f49c0953a5c2b9a7c36a495991b7852b855a",
+  "completed_items": [
+    "CIM-0101",
+    "CIM-0102",
+    "CIM-0103",
+    "CIM-0104"
+  ],
+  "acceptance_results": [
+    {
+      "id": "FA-08-SEVEN-STATE-GATE",
+      "status": "PASS",
+      "evidence": "src/types/gate-result.ts and gate-7-state.test.ts"
+    },
+    {
+      "id": "FA-09-APPROVAL-HASH-BINDING",
+      "status": "PASS",
+      "evidence": "src/domain/building/im-core/target-hash.ts and approval-hash-binding.test.ts"
+    },
+    {
+      "id": "FA-04-FINANCIAL-SAFEGUARDS",
+      "status": "PASS",
+      "evidence": "src/domain/building/im-core/financial-calculator.ts and noi-safeguard.test.ts"
+    },
+    {
+      "id": "FA-13-PLACEHOLDER-PII-CONTAINMENT",
+      "status": "PASS",
+      "evidence": "src/domain/building/gates/image-pii-gate.ts, quality-gates-v02.ts and placeholder-pii.test.ts"
+    }
+  ],
+  "open_risks": [],
+  "rollback_verified": true,
+  "approvals": [
+    {
+      "role": "product",
+      "actor": "Product Director",
+      "approved_at": "2026-09-03T15:26:00Z",
+      "target_hash": "sha256:d8c529b3c4f91845bb08976b00b0f49c0953a5c2b9a7c36a495991b7852b855a"
+    },
+    {
+      "role": "domain",
+      "actor": "CRE Domain Lead",
+      "approved_at": "2026-09-03T15:26:00Z",
+      "target_hash": "sha256:d8c529b3c4f91845bb08976b00b0f49c0953a5c2b9a7c36a495991b7852b855a"
+    },
+    {
+      "role": "architecture",
+      "actor": "Chief Architect",
+      "approved_at": "2026-09-03T15:26:00Z",
+      "target_hash": "sha256:d8c529b3c4f91845bb08976b00b0f49c0953a5c2b9a7c36a495991b7852b855a"
+    },
+    {
+      "role": "quality",
+      "actor": "QA & Gate Lead",
+      "approved_at": "2026-09-03T15:26:00Z",
+      "target_hash": "sha256:d8c529b3c4f91845bb08976b00b0f49c0953a5c2b9a7c36a495991b7852b855a"
+    }
+  ]
+}

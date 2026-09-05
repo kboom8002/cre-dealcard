@@ -1,0 +1,49 @@
+example_version: 1.0.0
+purpose_ko: 공공 API 일부 실패를 숨기지 않고 L1 가능범위를 판정하는 예시
+runId: 55555555-5555-4555-8555-555555555555
+stage: P10
+provider_results:
+  building_register:
+    status: loaded
+    fetchedAt: 2026-08-31T10:00:03+09:00
+    attempts: 1
+  vworld_land_use:
+    status: cached
+    fetchedAt: 2026-08-31T10:00:05+09:00
+    sourceAsOf: 2026-08-29
+    attempts: 3
+    warning: 공급자 시간초과로 이틀 전 캐시 사용
+  transaction_comparables:
+    status: failed
+    attempts: 3
+    errorClass: transient_external
+    missingness: not_available_at_stage
+  commercial_district:
+    status: failed
+    attempts: 3
+    errorClass: transient_external
+    missingness: not_available_at_stage
+data_inventory_effect:
+  asset_identification: available
+  building_facts: available
+  land_use: available_with_staleness_warning
+  comparable_transactions: not_available_at_stage
+  commercial_district: not_available_at_stage
+claim_effect:
+  property_overview: allowed
+  land_use_summary: allowed_with_warning
+  comparable_price_analysis: blocked
+  market_demand_analysis: blocked
+level_eligibility:
+  eligibleLevels: [L1]
+  highestLevel: L1
+  missingForL1_5: [approved_broker_proposal]
+  missingForL2: [comparable_transactions, market_evidence]
+expected_pipeline_result:
+  core_status: succeeded
+  user_warning_required: true
+  forbidden_behavior:
+    - failed_provider_value_as_zero
+    - inferred_market_analysis_without_evidence
+    - silent_cache_use
+

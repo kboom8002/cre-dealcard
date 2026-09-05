@@ -43,6 +43,7 @@ export async function POST(
       await supabase.from('activity_events').insert([
         {
           building_id: buildingId,
+          building_ssot_lite_id: buildingId,
           event_type: 'im_lite_view',
           metadata: {
             referrer,
@@ -72,6 +73,7 @@ export async function POST(
       await supabase.from('activity_events').insert([
         {
           building_id: buildingId,
+          building_ssot_lite_id: buildingId,
           event_type: 'im_lite_view',
           metadata: {
             referrer,

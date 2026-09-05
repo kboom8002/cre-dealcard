@@ -130,6 +130,36 @@ function countLabelMismatch(slides: ParsedSlide[]): number {
   return mismatches;
 }
 
+// ─── highlights↔제원 중복 탐지 (G43 / Rule 3) ─────────
+function detectHighlightSpecDuplicate(slides: ParsedSlide[]): boolean {
+  for (const slide of slides) {
+    const leftLines: string[] = [];
+    const rightLines: string[] = [];
+
+    for (const shape of slide.shapes) {
+      if (shape.type !== 'text' || !shape.text) continue;
+      const lines = shape.text
+        .split('\n')
+        .map(l => l.replace(/^[-•·*]\s*/, '').trim())
+        .filter(l => l.length >= 10);
+
+      if (shape.position.x < 6.8) {
+        leftLines.push(...lines);
+      } else {
+        rightLines.push(...lines);
+      }
+    }
+
+    for (const lt of leftLines) {
+      for (const rt of rightLines) {
+        if (lt === rt) return true;
+        if (lt.length >= 15 && (rt.includes(lt) || lt.includes(rt))) return true;
+      }
+    }
+  }
+  return false;
+}
+
 // ─── 메인 함수 ───────────────────────────────────────
 export function extractGateContext(slides: ParsedSlide[]): Partial<GateContext> {
   const allTexts: string[] = [];
@@ -188,6 +218,9 @@ export function extractGateContext(slides: ParsedSlide[]): Partial<GateContext> 
   // ── 폴백 중복 (G42) ──
   const fallbackDuplicateCount = countFallbackDuplicates(slides);
 
+  // ── highlights↔제원 중복 (G43) ──
+  const highlightSpecDuplicate = detectHighlightSpecDuplicate(slides);
+
   // ── 괄호 균형 (G44) ──
   const unclosedBracketCount = countUnclosedBrackets(allTexts);
 
@@ -212,6 +245,7 @@ export function extractGateContext(slides: ParsedSlide[]): Partial<GateContext> 
     aspectDistortionMaxPct,
     vacancyNarrativeContradiction,
     fallbackDuplicateCount,
+    highlightSpecDuplicate,
     unclosedBracketCount,
     labelContentMismatchCount,
     pageCountExceeded,
@@ -255,6 +289,8 @@ export function generateAuditReport(
     standardViolations.push('G41: 만실↔공실 서술어 모순');
   if ((gateCtx.fallbackDuplicateCount ?? 0) > 0)
     standardViolations.push(`G42: 폴백 중복 ${gateCtx.fallbackDuplicateCount}건`);
+  if (gateCtx.highlightSpecDuplicate)
+    standardViolations.push('G43: highlights↔제원 중복');
   if ((gateCtx.unclosedBracketCount ?? 0) > 0)
     standardViolations.push(`G44: 열린 괄호 ${gateCtx.unclosedBracketCount}건`);
   if ((gateCtx.labelContentMismatchCount ?? 0) > 0)

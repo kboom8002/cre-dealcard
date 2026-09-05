@@ -1,0 +1,15 @@
+{
+  "schema_version":"1.0.0",
+  "flags":[
+    {"id":"ff_gate_strict_states","introduced":"CIM-M1","retire_after":"CIM-M8","safe_default":true},
+    {"id":"ff_hash_bound_approval","introduced":"CIM-M1","retire_after":"CIM-M8","safe_default":true},
+    {"id":"ff_resumable_runtime","introduced":"CIM-M2","retire_after":"CIM-M8","safe_default":false},
+    {"id":"ff_dealcard_new_pipeline","introduced":"CIM-M3","retire_after":"CIM-M8","safe_default":false},
+    {"id":"ff_im_core_v1","introduced":"CIM-M4","retire_after":"CIM-M8","safe_default":false},
+    {"id":"ff_mobile_core_package","introduced":"CIM-M5","retire_after":"CIM-M8","safe_default":false},
+    {"id":"ff_pptx_studio","introduced":"CIM-M6","retire_after":"CIM-M8","safe_default":false},
+    {"id":"ff_minimal_regeneration","introduced":"CIM-M7","retire_after":"CIM-M8","safe_default":false}
+  ],
+  "canary_steps_percent":[1,10,50,100],
+  "promotion_requires":["exit_gate_pass","no_open_p0_p1","rollback_verified","observability_ready"]
+}

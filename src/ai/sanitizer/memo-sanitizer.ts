@@ -16,6 +16,9 @@ const INJECTION_PATTERNS = [
   /system prompt/i,
   /새로운 지침/i,
   /이전 프롬프트 무시/i,
+  /기존\s*규칙\s*무시/i,
+  /관리자\s*모드/i,
+  /탈옥/i,
 ];
 
 /** 웹 보안 패턴: XSS/SQL 인젝션 방어 */
@@ -33,10 +36,6 @@ const WEB_SECURITY_PATTERNS: RegExp[] = [
   /;\s*DELETE\s+FROM/i,
   /OR\s+1\s*=\s*1/i,
   /--\s*$/m,
-  // 한국어 인젝션 변형
-  /기존\s*규칙\s*무시/i,
-  /관리자\s*모드/i,
-  /탈옥/i,
 ];
 
 export function detectPromptInjection(text: string): boolean {

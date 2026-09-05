@@ -10,6 +10,7 @@ import {
   type InvestmentPosture,
   type ProvenanceTier,
 } from '../index';
+import { THRESHOLDS } from '@/constants/thresholds';
 
 describe('Posture Contract 13-slot (S1-1)', () => {
   const postures: InvestmentPosture[] = [
@@ -48,6 +49,16 @@ describe('Posture Contract 13-slot (S1-1)', () => {
     expect(POSTURE_CONTRACTS.trading.status).toBe('internal_only');
     expect(isPostureReady('trading')).toBe(false);
   });
+
+  // Rule 7: Negative Pair
+  it('Rule 7 (Negative Pair): 미등록 포스처 요청 시 에러를 throw해야 한다', () => {
+    expect(() => getPostureContract('invalid_posture' as any)).toThrow('[PostureContract] 미등록 포스처 계약');
+  });
+
+  // Rule 7: Negative Pair
+  it('Rule 7 (Negative Pair): 미등록 포스처에 대해 isPostureReady는 false를 반환해야 한다', () => {
+    expect(isPostureReady('unknown_posture' as any)).toBe(false);
+  });
 });
 
 describe('9-Tier Provenance System (S1-1)', () => {
@@ -74,18 +85,29 @@ describe('9-Tier Provenance System (S1-1)', () => {
   });
 
   it('C21: derivedConfidence는 입력 출처의 최약 고리(최저 점수)를 승계해야 한다', () => {
-    expect(derivedConfidence(['registry', 'public_api'])).toBe(0.95);
-    expect(derivedConfidence(['registry', 'broker'])).toBe(0.60);
-    expect(derivedConfidence(['expert', 'seller', 'assumed'])).toBe(0.30);
+    expect(derivedConfidence(['registry', 'public_api'])).toBe(THRESHOLDS.PROVENANCE_PUBLIC_API);
+    expect(derivedConfidence(['registry', 'broker'])).toBe(THRESHOLDS.PROVENANCE_BROKER);
+    expect(derivedConfidence(['expert', 'seller', 'assumed'])).toBe(THRESHOLDS.PROVENANCE_ASSUMED);
+  });
+
+  // Rule 7: Negative Pair
+  it('Rule 7 (Negative Pair): 빈 출처 목록 전달 시 기본 assumed 신뢰도(0.30)를 반환해야 한다', () => {
+    expect(derivedConfidence([])).toBe(THRESHOLDS.PROVENANCE_ASSUMED);
   });
 
   it('scoreToTier 및 formatBadge가 유효한 배지를 반환해야 한다', () => {
-    expect(scoreToTier(1.0)).toBe('registry');
-    expect(scoreToTier(0.60)).toBe('broker');
-    expect(scoreToTier(0.30)).toBe('assumed');
+    expect(scoreToTier(THRESHOLDS.PROVENANCE_REGISTRY)).toBe('registry');
+    expect(scoreToTier(THRESHOLDS.PROVENANCE_BROKER)).toBe('broker');
+    expect(scoreToTier(THRESHOLDS.PROVENANCE_ASSUMED)).toBe('assumed');
 
     const badge = formatBadge('broker');
     expect(badge).toContain('●');
     expect(badge).toContain('중개인입력');
+  });
+
+  // Rule 7: Negative Pair
+  it('Rule 7 (Negative Pair): 최하위 점수 이하(0.1, -1)에 대해 assumed를 반환해야 한다', () => {
+    expect(scoreToTier(0.1)).toBe('assumed');
+    expect(scoreToTier(-1)).toBe('assumed');
   });
 });

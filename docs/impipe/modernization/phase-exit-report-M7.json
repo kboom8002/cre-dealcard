@@ -1,0 +1,61 @@
+{
+  "phase": "CIM-M7",
+  "gate": "MG-7",
+  "target_hash": "sha256:5b28a991f80299e5318cf8527a56c071d09e7fba3e18a05c1d89e7cba8921baa",
+  "completed_items": [
+    "CIM-0701",
+    "CIM-0702",
+    "CIM-0703",
+    "CIM-0704"
+  ],
+  "acceptance_results": [
+    {
+      "id": "FA-10-DEPENDENCY-GRAPH-DAG",
+      "status": "PASS",
+      "evidence": "src/platform/im-pipeline/regeneration/dependency-graph.ts and dependency-graph.test.ts"
+    },
+    {
+      "id": "FA-10-INVALIDATION-ENGINE-13-KINDS",
+      "status": "PASS",
+      "evidence": "src/platform/im-pipeline/regeneration/invalidation-engine.ts and invalidation-rules.test.ts"
+    },
+    {
+      "id": "FA-10-REGENERATION-PLANNER-CTR-010",
+      "status": "PASS",
+      "evidence": "src/platform/im-pipeline/regeneration/planner.ts and regeneration-plan.test.ts"
+    },
+    {
+      "id": "FA-10-CROSS-CHANNEL-INVALIDATION-E2E",
+      "status": "PASS",
+      "evidence": "src/tests/e2e/cross-channel-invalidation.test.ts"
+    }
+  ],
+  "open_risks": [],
+  "rollback_verified": true,
+  "approvals": [
+    {
+      "role": "product",
+      "actor": "Product Director",
+      "approved_at": "2026-09-03T16:45:00Z",
+      "target_hash": "sha256:5b28a991f80299e5318cf8527a56c071d09e7fba3e18a05c1d89e7cba8921baa"
+    },
+    {
+      "role": "domain",
+      "actor": "CRE Domain Lead",
+      "approved_at": "2026-09-03T16:45:00Z",
+      "target_hash": "sha256:5b28a991f80299e5318cf8527a56c071d09e7fba3e18a05c1d89e7cba8921baa"
+    },
+    {
+      "role": "architecture",
+      "actor": "Chief Architect",
+      "approved_at": "2026-09-03T16:45:00Z",
+      "target_hash": "sha256:5b28a991f80299e5318cf8527a56c071d09e7fba3e18a05c1d89e7cba8921baa"
+    },
+    {
+      "role": "quality",
+      "actor": "QA & Gate Lead",
+      "approved_at": "2026-09-03T16:45:00Z",
+      "target_hash": "sha256:5b28a991f80299e5318cf8527a56c071d09e7fba3e18a05c1d89e7cba8921baa"
+    }
+  ]
+}

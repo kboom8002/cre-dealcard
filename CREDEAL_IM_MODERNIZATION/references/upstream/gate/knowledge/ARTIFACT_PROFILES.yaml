@@ -1,0 +1,44 @@
+version: 1.0.0
+profiles:
+  P-MEMO-CANDIDATE:
+    artifact_type: memo_parse_candidate
+    external_release: false
+    required_families: [eligibility, content]
+    required_gate_prefixes: [MEMO]
+  P-DEALCARD-BLIND:
+    artifact_type: dealcard_blind
+    external_release: true
+    required_families: [eligibility, evidence, content, approval]
+    required_gate_prefixes: [DC]
+    required_approvals: [dealcard_disclosure]
+  P-MOBILE-L1:
+    artifact_type: mobile_im
+    document_edition: fact_om
+    external_release: true
+    required_families: [eligibility, evidence, content, layout, approval]
+    required_approvals: [editorial_mobile, release]
+  P-MOBILE-L15:
+    artifact_type: mobile_im
+    document_edition: broker_proposal_om
+    inherits: P-MOBILE-L1
+    required_families: [reasoning]
+    required_approvals: [proposal_publication, editorial_mobile, release]
+  P-PPTX-DRAFT:
+    artifact_type: pptx_im_draft
+    external_release: false
+    required_families: [eligibility, evidence, reasoning]
+  P-PPTX-RELEASE:
+    artifact_type: pptx_im
+    external_release: true
+    required_families: [eligibility, evidence, content, reasoning, layout, approval]
+    required_approvals: [editorial_pptx, artifact_pptx, release]
+applicability_dimensions:
+  - artifact_type
+  - document_edition
+  - asset_posture
+  - claim_presence
+  - data_resolution
+  - disclosure_mode
+  - photo_availability
+  - rent_roll_resolution
+

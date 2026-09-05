@@ -1,4 +1,3 @@
-// @ts-nocheck DORMANT: entire file dormant
 "use client";
 
 import React, { useEffect, useState, use } from "react";
@@ -51,11 +50,6 @@ export default function TenantIntentDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  /* DORMANT: leasing-studio */
-  const dormantRouter = useRouter();
-  useEffect(() => { dormantRouter.replace("/broker"); }, [dormantRouter]);
-  return null;
-
   const router = useRouter();
   const { id } = use(params);
 

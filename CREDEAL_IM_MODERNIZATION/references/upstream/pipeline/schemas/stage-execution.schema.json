@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://credeal.example/schemas/im/stage-execution/1.0.0",
+  "title": "IM Stage Execution",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["stageExecutionId", "runId", "stageCode", "attempt", "status", "reuseKey", "inputArtifactRefs", "createdAt"],
+  "properties": {
+    "stageExecutionId": {"type": "string", "format": "uuid"},
+    "runId": {"type": "string", "format": "uuid"},
+    "stageCode": {"type": "string", "pattern": "^[PMS][0-9]{2}$"},
+    "attempt": {"type": "integer", "minimum": 1},
+    "status": {"enum": ["queued", "leased", "running", "succeeded", "failed_retryable", "blocked_user", "blocked_policy", "failed_fatal", "cancelled", "superseded"]},
+    "reuseKey": {"type": "string", "minLength": 32},
+    "inputArtifactRefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifactId", "sha256"],
+        "properties": {
+          "artifactId": {"type": "string"},
+          "sha256": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"}
+        }
+      }
+    },
+    "outputArtifactRefs": {"type": "array", "items": {"type": "string"}},
+    "policyVersions": {"type": "object", "additionalProperties": {"type": "string"}},
+    "workerId": {"type": ["string", "null"]},
+    "leaseToken": {"type": ["string", "null"]},
+    "leaseExpiresAt": {"type": ["string", "null"], "format": "date-time"},
+    "heartbeatAt": {"type": ["string", "null"], "format": "date-time"},
+    "deadlineAt": {"type": ["string", "null"], "format": "date-time"},
+    "errorCode": {"type": ["string", "null"]},
+    "errorClass": {"type": ["string", "null"], "enum": [null, "transient_external", "transient_internal", "invalid_input", "missing_evidence", "unresolved_conflict", "policy_block", "concurrency_conflict", "deterministic_bug", "render_defect", "cancelled"]},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "startedAt": {"type": ["string", "null"], "format": "date-time"},
+    "endedAt": {"type": ["string", "null"], "format": "date-time"}
+  }
+}
+

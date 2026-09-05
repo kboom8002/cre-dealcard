@@ -1,0 +1,21 @@
+gate_id: DOMAIN.SUBJECT.001
+name_ko: 검사 이름
+description: 한 문장으로 답할 질문
+family: evidence
+artifact_types: [mobile_im]
+applies_when: "claim('EXAMPLE-C01').is_present == true"
+observer:
+  id: observer.example
+  version: 1.0.0
+pass_condition: "observed_value == expected_value"
+opposite_condition: "observed_value != expected_value"
+severity: block
+risk_class: RC2
+failure_action: BLOCK_RELEASE
+positive_fixture_ids: [FIX-POS-001]
+negative_fixture_ids: [FIX-NEG-001]
+mutation_operator_ids: [MUT-EXAMPLE-001]
+owner: team-name
+policy_version: 1.0.0
+notes: null
+

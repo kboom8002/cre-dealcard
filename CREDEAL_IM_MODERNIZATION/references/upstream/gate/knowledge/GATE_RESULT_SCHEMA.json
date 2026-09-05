@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://credeal.example/schemas/gate-result-v2.json",
+  "title": "CREDEAL Gate Result V2",
+  "type": "object",
+  "required": [
+    "runId", "gateId", "artifactId", "artifactHash", "profileId",
+    "policyVersion", "applicability", "status", "severity", "observedAt"
+  ],
+  "properties": {
+    "runId": {"type": "string"},
+    "gateId": {"type": "string"},
+    "artifactId": {"type": "string"},
+    "artifactHash": {"type": "string"},
+    "profileId": {"type": "string"},
+    "policyVersion": {"type": "string"},
+    "applicability": {
+      "type": "object",
+      "required": ["applies", "reason"],
+      "properties": {
+        "applies": {"type": "boolean"},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "status": {
+      "enum": ["PASS", "FAIL", "WARN", "NOT_APPLICABLE", "NOT_RUN", "INDETERMINATE", "SYSTEM_ERROR"]
+    },
+    "severity": {"enum": ["block", "warn", "info"]},
+    "observerId": {"type": "string"},
+    "observerVersion": {"type": "string"},
+    "observedValue": {},
+    "expectedCondition": {"type": "string"},
+    "evidenceRefs": {"type": "array", "items": {"type": "string"}},
+    "failureAction": {"type": "string"},
+    "error": {"type": ["string", "null"]},
+    "observedAt": {"type": "string", "format": "date-time"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "NOT_APPLICABLE"}}},
+      "then": {"properties": {"applicability": {"properties": {"applies": {"const": false}}}}}
+    }
+  ],
+  "additionalProperties": false
+}
+

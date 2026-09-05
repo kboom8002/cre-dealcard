@@ -1,0 +1,47 @@
+example_version: 1.0.0
+purpose_ko: PPTX 제목·본문만 바꿀 때 최소 범위 재생성 예시
+change_event:
+  changeType: pptx_copy_change
+  subjectId: COPY-PLAN-DANGSAN-V5
+  changedFields: [cover_title, page_7_body]
+unchanged:
+  snapshotId: SNAP-DANGSAN-R3
+  claimEvaluationSetId: CLAIMSET-DANGSAN-R3
+  publicationPackageId: PKG-DANGSAN-R3
+  mobilePublicationVersionId: MOBILE-DANGSAN-V2
+  mediaPlanId: MEDIA-DANGSAN-V5
+regeneration_plan:
+  planId: 44444444-4444-4444-8444-444444444444
+  caseId: CASE-DANGSAN-11-47
+  reuseArtifactIds:
+    - SNAP-DANGSAN-R3
+    - CLAIMSET-DANGSAN-R3
+    - PKG-DANGSAN-R3
+    - COMP-DANGSAN-V5
+    - MEDIA-DANGSAN-V5
+  invalidateSubjects:
+    - subjectType: pptx_editorial_approval
+      subjectId: APPROVAL-PPTX-V5
+      newFreshnessState: stale_invalid
+      reasonCode: COPY_HASH_CHANGED
+    - subjectType: rendered_artifact
+      subjectId: PPTX-DANGSAN-V5
+      newFreshnessState: superseded
+      reasonCode: NEW_COPY_VERSION
+  stagesToRun: [S20, S40, S50, S60, S70]
+  approvalImpacts:
+    - approvalType: factual_snapshot
+      action: preserve
+    - approvalType: broker_opinion
+      action: review
+    - approvalType: mobile_editorial
+      action: preserve
+    - approvalType: pptx_editorial
+      action: invalidate
+  requiresUserConfirmation: false
+expected:
+  core_stage_executions_created: 0
+  mobile_stage_executions_created: 0
+  new_pptx_project_version: true
+  new_pptx_approval_required: true
+

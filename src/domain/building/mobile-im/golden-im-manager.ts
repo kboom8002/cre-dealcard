@@ -133,7 +133,7 @@ export async function buildIMFewShotBlock(
       .eq('section_type', sectionType)
       .eq('asset_type', assetType)
       .eq('is_active', true)
-      .in('grade', ['S', 'A'])
+      .gte('judge_score', 4.0)
       .eq('posture', posture);
 
     if (matchesError) {
@@ -149,7 +149,7 @@ export async function buildIMFewShotBlock(
         .select('id, document_id, markdown, asset_type, price_band, posture, judge_score, usage_count, was_edited, created_at')
         .eq('section_type', sectionType)
         .eq('is_active', true)
-        .in('grade', ['S', 'A']);
+        .gte('judge_score', 4.0);
       
       if (fallbackError) {
         console.error('[golden-im-manager] Error fetching fallback data:', fallbackError);

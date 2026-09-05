@@ -32,7 +32,13 @@ import { indexIMSections } from "./im-embedding-indexer";
 import { transformPhotoUrls, resolvePhotos, PHOTO_CATEGORY_LABELS, type TransformedPhoto } from "./photo-url-transformer";
 import { getDataFreshnessWarning } from './data-quality-badge';
 
-type SectionWithTelemetry = MobileIMSection & { _latencyMs?: number; _inputTokens?: number; _outputTokens?: number; };
+import { TIMEOUT_THRESHOLDS } from "@/constants/thresholds";
+import { recordSectionTelemetry } from "./writer-telemetry";
+import {
+  createTimeoutChecklistSection,
+  createRetryExhaustedChecklistSection,
+  createKillLimitChecklistSection,
+} from "./writer-fallback";
 
 // Phase 0 분해 모듈
 import { buildIMContext, type IMGenerationContext } from "./im-context-builder";
@@ -45,7 +51,6 @@ export type { MobileIMWriterInput, MobileIMWriterOutput } from "./types";
 import { getActiveStagePlan } from "./stage-plans";
 import { StageTimer } from "./stage-timer";
 import { NumericalAnchors } from "./numerical-anchors";
-import { recordGenerationMetric } from "./telemetry";
 import { ClaimRegistry, FinancialCalculator, deriveDataAvailability } from "../im-core";
 
 // D37 P0-8: confidence 기반 IM Judge 점수 계산 (하드코딩 4.0 해소)
@@ -62,9 +67,9 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
 
   // ── 0. 글로벌 타이머 보호선 시작 (GENERATION_PERF_SPEC.md §3) ──
   const stageTimer = new StageTimer({
-    softLimit: 90_000,
-    hardLimit: 105_000,
-    killLimit: 120_000,
+    softLimit: TIMEOUT_THRESHOLDS.SOFT_LIMIT_MS,
+    hardLimit: TIMEOUT_THRESHOLDS.HARD_LIMIT_MS,
+    killLimit: TIMEOUT_THRESHOLDS.KILL_LIMIT_MS,
   });
 
   // ── 1. 컨텍스트 빌드 (전처리) ──
@@ -169,16 +174,12 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
           if (result.value.cachedFinancials) cachedFinancials = result.value.cachedFinancials;
 
           // A-3: 텔레메트리 적재 (fire-and-forget)
-          const _sec = result.value.section as SectionWithTelemetry;
-          recordGenerationMetric({
+          recordSectionTelemetry({
             buildingId: building_ssot_lite.id,
             sectionType: stageSections[ri],
             stageName: `stage_${currentStage.stage}_parallel`,
-            latencyMs: _sec._latencyMs ?? 0,
-            inputTokens: _sec._inputTokens ?? 0,
-            outputTokens: _sec._outputTokens ?? 0,
-            outcome: 'completed',
-          }).catch((err) => { console.warn('[writer]', err); });
+            section: result.value.section,
+          });
 
           // 성공한 섹션의 수치 앵커 및 팩트 병합
           try {
@@ -204,16 +205,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         const forceFast = isHardLimitReached || stageTimer.shouldAbortOptional();
         if (forceFast && isHardLimitReached) {
           // 105초 경과: 선택 섹션은 확인사항으로 이관 (D30 BL-7)
-          sections.push({
-            section_type: 'checklist' as MobileIMSectionType,
-            section_order: globalIndex + 1,
-            title: `${sectionType} — 생성 시간 초과`,
-            markdown: `> ⚠️ \`${sectionType}\` 섹션이 생성 시간 제한(105초)을 초과하여 확인사항으로 이관되었습니다.\n> 데이터를 보완한 후 재생성해 주세요.`,
-            confidence: 'needs_check' as const,
-            boundary_note: 'D30 BL-7: 105초 초과 확인사항 이관',
-            provenance: [],
-            min_tier: 'public' as const,
-          });
+          sections.push(createTimeoutChecklistSection(sectionType, globalIndex + 1));
           globalIndex++;
           continue;
         }
@@ -249,16 +241,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         if (!result) {
           // 모든 재시도 실패 — 확인사항 이관
           console.error(`[writer] M-8: ${sectionType} 재시도 소진:`, lastError?.message);
-          sections.push({
-            section_type: 'checklist' as MobileIMSectionType,
-            section_order: globalIndex + 1,
-            title: `${sectionType} — 생성 실패`,
-            markdown: `> ⚠️ \`${sectionType}\` 섹션 생성이 ${MAX_RETRIES + 1}회 시도 후 실패했습니다.\n> 오류: ${lastError?.message || '알 수 없음'}`,
-            confidence: 'needs_check' as const,
-            boundary_note: 'D30 M-8: 재시도 소진 확인사항 이관',
-            provenance: [],
-            min_tier: 'public' as const,
-          });
+          sections.push(createRetryExhaustedChecklistSection(sectionType, globalIndex + 1, MAX_RETRIES, lastError?.message));
           globalIndex++;
           continue;
         }
@@ -268,16 +251,12 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         if (result.cachedFinancials) cachedFinancials = result.cachedFinancials;
 
         // A-3: 텔레메트리 적재 (fire-and-forget)
-        const _sec2 = result.section as SectionWithTelemetry;
-        recordGenerationMetric({
+        recordSectionTelemetry({
           buildingId: building_ssot_lite.id,
-          sectionType: sectionType,
+          sectionType,
           stageName: `stage_${currentStage.stage}_sequential`,
-          latencyMs: _sec2._latencyMs ?? 0,
-          inputTokens: _sec2._inputTokens ?? 0,
-          outputTokens: _sec2._outputTokens ?? 0,
-          outcome: 'completed',
-        }).catch((err) => { console.warn('[writer]', err); });
+          section: result.section,
+        });
 
         globalIndex++;
       }
@@ -296,16 +275,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       sections.length = 0;
       sections.push(...reliable);
       // 폐기 알림 섹션 추가
-      sections.push({
-        section_type: 'checklist' as MobileIMSectionType,
-        section_order: sections.length + 1,
-        title: '생성 시간 초과 알림',
-        markdown: `> ⚠️ 생성 시간이 제한(120초)을 초과하여 ${discarded}개 섹션이 제거되었습니다.\n> 데이터를 보완한 후 재생성해 주세요.`,
-        confidence: 'needs_check' as const,
-        boundary_note: `BL-6: ${discarded}개 섹션 타임아웃 폐기`,
-        provenance: [],
-        min_tier: 'public' as const,
-      });
+      sections.push(createKillLimitChecklistSection(sections.length + 1, discarded));
     }
   }
 

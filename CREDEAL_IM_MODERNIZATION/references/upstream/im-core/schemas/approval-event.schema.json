@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://credeal.local/schemas/approval-event.v1.json",
+  "title": "ApprovalEvent v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["approvalEventId", "approvalType", "action", "targetHash", "scope", "actorId", "createdAt"],
+  "properties": {
+    "approvalEventId": {"type": "string", "format": "uuid"},
+    "approvalType": {"enum": ["factual_snapshot", "broker_opinion", "photo_disclosure", "editorial_mobile", "editorial_pptx", "artifact_final"]},
+    "action": {"enum": ["approve", "reject", "withdraw", "invalidate"]},
+    "targetHash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "scope": {"type": "object"},
+    "snapshotId": {"type": ["string", "null"], "format": "uuid"},
+    "proposalUnitId": {"type": ["string", "null"]},
+    "publicationVersionId": {"type": ["string", "null"], "format": "uuid"},
+    "actorId": {"type": "string", "format": "uuid"},
+    "notes": {"type": ["string", "null"]},
+    "createdAt": {"type": "string", "format": "date-time"}
+  }
+}
+

@@ -99,9 +99,9 @@ describe('T09: 5-Preset Cross-Rendering Validation', { timeout: 120_000 }, () =>
       expect(result.buffer).toBeDefined();
       expect(result.buffer.length).toBeGreaterThan(5_000);
 
-      // 2. Slide count consistency (same input → same structure)
+      // 2. Slide count consistency (same input → same structure, Rule 10: PAGE_HARD_LIMIT=16)
       expect(result.slideCount).toBeGreaterThanOrEqual(7);
-      expect(result.slideCount).toBeLessThanOrEqual(13);
+      expect(result.slideCount).toBeLessThanOrEqual(16);
 
       // 3. No XML corruption
       await assertNoCorruptionStrings(result.buffer);

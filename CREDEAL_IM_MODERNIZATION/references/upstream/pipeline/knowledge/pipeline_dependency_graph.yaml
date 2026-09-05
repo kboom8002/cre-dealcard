@@ -1,0 +1,31 @@
+graph_version: 1.0.0
+owner: im-pipeline
+status: proposed_normative
+nodes: [P00, P10, P20, P30, P40, P50, P60, M00, M10, M20, M30, M40, M50, S00, S10, S20, S30, S40, S50, S60, S70]
+edges:
+  - {from: P00, to: P10, condition: intake_valid}
+  - {from: P10, to: P20, condition: evidence_collection_registered}
+  - {from: P20, to: P30, condition: material_conflicts_resolved_or_blocked}
+  - {from: P30, to: P40, condition: effective_snapshot_registered}
+  - {from: P40, to: P50, condition: every_target_claim_has_explicit_use_status}
+  - {from: P50, to: P60, condition: core_package_creation_allowed}
+  - {from: P60, to: M00, condition: mobile_requested}
+  - {from: M00, to: M10, condition: target_level_eligible}
+  - {from: M10, to: M20, condition: mobile_content_plan_valid}
+  - {from: M20, to: M30, condition: mobile_version_registered}
+  - {from: M30, to: M40, condition: mobile_gate_passed, automatic: false}
+  - {from: M40, to: M50, condition: mobile_approval_valid}
+  - {from: P60, to: S00, condition: pptx_requested}
+  - {from: S00, to: S10, condition: project_created}
+  - {from: S10, to: S20, condition: composition_plan_valid}
+  - {from: S20, to: S30, condition: copy_plan_valid}
+  - {from: S30, to: S40, condition: media_and_layout_plan_valid}
+  - {from: S40, to: S50, condition: preview_registered}
+  - {from: S50, to: S60, condition: pptx_gate_passed, automatic: false}
+  - {from: S60, to: S70, condition: pptx_approval_valid}
+invariants:
+  - mobile_and_pptx_never_depend_on_each_other
+  - every_channel_node_descends_from_exactly_one_publication_package
+  - human_approval_edges_are_never_automatic
+  - channel_failure_does_not_reverse_P60_success
+

@@ -1,0 +1,14 @@
+{
+  "caseId": "case-07",
+  "title": "PPTX 지면 넘침 및 이탈 케이스",
+  "description": "긴 텍스트로 인해 슬라이드 밖 텍스트 넘침 및 Bleed 발생 시 지면 물리 검사 차단 검증",
+  "asset": {
+    "name": "성동구 성수동 지식산업센터",
+    "longDescription": "매우 긴 설명문 텍스트가 바운딩 박스를 초과하여 렌더러 지면 검사에서 적발되어야 함..."
+  },
+  "expectedOutcome": {
+    "gateExpected": "ERROR",
+    "gateCode": "GATE-PPTX-FILE-VISUAL",
+    "waivable": true
+  }
+}

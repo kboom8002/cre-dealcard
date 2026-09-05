@@ -1,0 +1,12 @@
+{
+  "caseId": "case-10",
+  "title": "메모 극단 축약 블라인드 딜카드 케이스",
+  "description": "메모 2줄에서 금액/지역만 추출하여 블라인드 딜카드로 정상 발행되는지 검증",
+  "memo": {
+    "rawText": "영등포 당산역 인근 대지 100평 근생 120억 매각 의뢰. 보증금 3억 월 2천 나옴."
+  },
+  "expectedOutcome": {
+    "artifactType": "dealcard",
+    "gateExpected": "PASS"
+  }
+}

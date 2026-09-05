@@ -1,0 +1,60 @@
+meta:
+  id: im-copy-terminology-rules
+  version: 1.0.0
+  status: proposed_extension
+  merge_targets: [credeal/ssot/im.lexicon.yaml, credeal/ssot/im.format.yaml, legal_copy_pack]
+external_copy:
+  title_patterns:
+    preferred:
+      - type: feature
+        example: 당산역 도보 5분, 병원·약국 장기 영업 중인 수익형 빌딩
+      - type: key_numbers
+        example: 매도 희망가 115억원｜대지 153.3평｜연면적 435.9평
+      - type: action_opportunity
+        example: 자가사용 공간 임대 전환 및 기존 임대료 조정 여지
+    avoid:
+      - 검토의 핵심은 ...이다
+      - ...로 정리한다
+      - ...을 같은 무게로 검토한다
+      - 내부 등급이나 발행검사 상태가 포함된 제목
+  sentence_order: [confirmed_fact, broker_opinion, buyer_meaning, condition, next_action]
+  tone:
+    preferred_endings: [입니다, 로 확인됩니다, 할 수 있습니다, 검토할 수 있습니다]
+    avoid_unless_grounded: [우량, 안전, 확정, 저평가, 보장]
+  internal_terms_hidden:
+    - L0
+    - L1
+    - L1.5
+    - L2
+    - L3
+    - 골디락스
+    - 산출항목
+    - 발행검사
+    - 사용차단
+    - 포스처
+    - 가상 보완값
+number_labels:
+  price_requires: [price_character, as_of, included_scope, vat_treatment]
+  area_requires: [area_type, evidence, sqm_value, pyeong_conversion]
+  rent_requires: [base_rent_vs_mgmt, vat_treatment, evidence_level, as_of]
+  yield_requires: [metric_name, numerator, denominator, deposit_treatment, opex_treatment, as_of]
+  distance_requires: [origin, destination, route_or_method, lookup_date]
+claim_source_labels:
+  public_record: 공부확인
+  seller: 매도인 제시
+  contract: 계약확인
+  payment: 수납확인
+  broker_field: 중개인 현장확인
+  broker_opinion: 중개인 의견
+  calculated: 계산값
+  assumption: 분석가정
+  unknown: 미확인
+ai_forbidden:
+  - infer_missing_numbers
+  - choose_conflicting_source_values
+  - generate_public_financial_numbers
+  - convert_broker_opinion_to_confirmed_fact
+  - invent_photo_subject_or_date
+  - remove_required_warning_or_basis
+  - approve_or_publish
+

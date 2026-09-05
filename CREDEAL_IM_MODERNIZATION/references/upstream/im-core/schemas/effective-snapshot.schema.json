@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://credeal.local/schemas/effective-snapshot.v1.json",
+  "title": "EffectiveSnapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["snapshotId", "caseRef", "sequenceNo", "status", "asOf", "assetScope", "observations", "conflicts", "corrections", "effectiveValues", "materializerVersion", "snapshotHash", "createdAt"],
+  "properties": {
+    "snapshotId": {"type": "string", "format": "uuid"},
+    "caseRef": {"$ref": "#/$defs/caseRef"},
+    "sequenceNo": {"type": "integer", "minimum": 1},
+    "status": {"enum": ["valid", "superseded", "invalidated"]},
+    "asOf": {"type": "string", "format": "date-time"},
+    "assetScope": {"type": "object"},
+    "observations": {"type": "array", "items": {"$ref": "#/$defs/observation"}},
+    "conflicts": {"type": "array", "items": {"$ref": "#/$defs/conflict"}},
+    "corrections": {"type": "array", "items": {"$ref": "#/$defs/correction"}},
+    "effectiveValues": {"type": "object"},
+    "materializerVersion": {"type": "string", "minLength": 1},
+    "sourcePolicyVersions": {"type": "object"},
+    "snapshotHash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "createdAt": {"type": "string", "format": "date-time"}
+  },
+  "$defs": {
+    "caseRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": {"enum": ["building_ssot_lite", "asset", "deal"]},
+        "id": {"type": "string", "format": "uuid"}
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["observationId", "domain", "subjectPath", "sourceChannel", "evidenceRef", "retrievedAt"],
+      "properties": {
+        "observationId": {"type": "string", "format": "uuid"},
+        "domain": {"enum": ["asset", "transaction", "parcel", "building", "lease", "rights", "market", "photo", "opinion"]},
+        "subjectPath": {"type": "string", "minLength": 1},
+        "rawValue": {},
+        "normalizedValue": {},
+        "unit": {"type": "string"},
+        "basis": {"type": "string"},
+        "sourceChannel": {"enum": ["public_record", "public_api", "seller", "contract", "payment", "broker_field", "broker_input", "expert", "legacy"]},
+        "evidenceRef": {"type": "object"},
+        "asOf": {"type": ["string", "null"], "format": "date-time"},
+        "retrievedAt": {"type": "string", "format": "date-time"}
+      }
+    },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["conflictId", "subjectPath", "status", "severity", "observationIds"],
+      "properties": {
+        "conflictId": {"type": "string", "format": "uuid"},
+        "subjectPath": {"type": "string"},
+        "status": {"enum": ["open", "resolved", "accepted_with_warning", "not_material"]},
+        "severity": {"enum": ["minor", "material", "critical"]},
+        "observationIds": {"type": "array", "minItems": 2, "items": {"type": "string", "format": "uuid"}}
+      }
+    },
+    "correction": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["correctionId", "adoptedObservationId", "reason", "approvedBy", "approvedAt"],
+      "properties": {
+        "correctionId": {"type": "string", "format": "uuid"},
+        "adoptedObservationId": {"type": "string", "format": "uuid"},
+        "reason": {"type": "string", "minLength": 1},
+        "approvedBy": {"type": "string", "format": "uuid"},
+        "approvedAt": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}
+

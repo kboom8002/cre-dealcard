@@ -3,6 +3,7 @@ import type { Asset, Deal, LeaseUnit } from '@/types/database';
 import { extractSlotsFromMemo } from '@/domain/building/memo-slot-mapper';
 import fs from 'fs';
 import path from 'path';
+import * as yaml from 'js-yaml';
 
 /**
  * @module SSoT Adapter
@@ -306,59 +307,89 @@ export async function readWithMigration(buildingId: string): Promise<{
 }> {
   const supabase = createServiceClient();
   
-  // 1. Try new table first
+  // 1. Check existing assets row
   const { data: asset } = await supabase
     .from('assets')
     .select('*')
     .eq('id', buildingId)
     .maybeSingle();
   
-  if (asset) {
-    return { source: 'assets', data: asset, migrated: false };
-  }
-  
-  // 2. Fall back to legacy table
+  // 2. Fetch legacy building_ssot_lite record
   const { data: legacy } = await supabase
     .from('building_ssot_lite')
     .select('*')
     .eq('id', buildingId)
-    .single();
+    .maybeSingle();
+
+  // Helper to sync from building_ssot_lite to assets, deals, lease_units
+  const syncFromLegacy = async (legacyRecord: Record<string, any>) => {
+    const convertedAsset = buildAssetFromSsotLite({
+      ...legacyRecord,
+      lease_summary: legacyRecord.lease_summary ?? {},
+    });
+    const { data: upsertedAsset, error: assetError } = await supabase
+      .from('assets')
+      .upsert(convertedAsset, { onConflict: 'id' })
+      .select()
+      .maybeSingle();
+
+    if (assetError) {
+      console.warn(`[ssot-adapter] Sync/migration failed for asset ${buildingId}:`, assetError.message);
+    } else {
+      // Lazy-write to deals table
+      const convertedDeal = buildDealFromSsotLite(legacyRecord);
+      if (convertedDeal.broker_id) {
+        const { error: dealError } = await supabase
+          .from('deals')
+          .upsert(convertedDeal, { onConflict: 'id' });
+        if (dealError) console.warn(`[ssot-adapter] Sync failed for deal ${buildingId}:`, dealError.message);
+      }
+      
+      // Lazy-write to lease_units table
+      const units = buildLeaseUnitsFromSsotLite(legacyRecord, buildingId);
+      if (units.length > 0) {
+        await supabase.from('lease_units').delete().eq('asset_id', buildingId);
+        const { error: leaseError } = await supabase.from('lease_units').insert(units);
+        if (leaseError) console.warn(`[ssot-adapter] Sync failed for lease_units ${buildingId}:`, leaseError.message);
+      }
+    }
+
+    return { upsertedAsset: upsertedAsset || convertedAsset, assetError };
+  };
+
+  if (asset) {
+    if (legacy) {
+      const isLegacyNewer = !!(
+        legacy.updated_at &&
+        asset.updated_at &&
+        new Date(legacy.updated_at).getTime() > new Date(asset.updated_at).getTime()
+      );
+
+      const attrs = (asset.attrs ?? {}) as Record<string, any>;
+      const keyFields = ['askingPriceKrw', 'totalFloorAreaPyung', 'landAreaPyung', 'address', 'assetType'];
+      const isMissingKeyFields =
+        !asset.attrs ||
+        typeof attrs !== 'object' ||
+        Object.keys(attrs).length === 0 ||
+        keyFields.some((k) => attrs[k] === undefined || attrs[k] === null);
+
+      if (isLegacyNewer || isMissingKeyFields) {
+        const { upsertedAsset, assetError } = await syncFromLegacy(legacy);
+        if (!assetError) {
+          return { source: 'assets', data: upsertedAsset as Record<string, unknown>, migrated: true };
+        }
+      }
+    }
+    return { source: 'assets', data: asset, migrated: false };
+  }
   
+  // 3. Fall back to legacy table when asset does not exist
   if (!legacy) {
     return { source: 'building_ssot_lite', data: {}, migrated: false };
   }
   
-  // 3. Convert and lazy-write to new tables
-  const convertedAsset = buildAssetFromSsotLite({
-    ...legacy,
-    lease_summary: legacy.lease_summary ?? {},
-  });
-  const { error: assetError } = await supabase
-    .from('assets')
-    .upsert(convertedAsset, { onConflict: 'id' })
-    .select()
-    .single();
-  
-  if (assetError) {
-    console.warn(`[ssot-adapter] Lazy migration failed for asset ${buildingId}:`, assetError.message);
-  } else {
-    // 3a. Lazy-write to deals table
-    const convertedDeal = buildDealFromSsotLite(legacy);
-    if (convertedDeal.broker_id) {
-      const { error: dealError } = await supabase
-        .from('deals')
-        .upsert(convertedDeal, { onConflict: 'id' });
-      if (dealError) console.warn(`[ssot-adapter] Lazy migration failed for deal ${buildingId}:`, dealError.message);
-    }
-    
-    // 3b. Lazy-write to lease_units table
-    const units = buildLeaseUnitsFromSsotLite(legacy, buildingId);
-    if (units.length > 0) {
-      await supabase.from('lease_units').delete().eq('asset_id', buildingId);
-      const { error: leaseError } = await supabase.from('lease_units').insert(units);
-      if (leaseError) console.warn(`[ssot-adapter] Lazy migration failed for lease_units ${buildingId}:`, leaseError.message);
-    }
-  }
+  // Convert and lazy-write to new tables
+  const { assetError } = await syncFromLegacy(legacy);
   
   return { source: 'building_ssot_lite', data: legacy, migrated: !assetError };
 }
@@ -385,47 +416,98 @@ export async function readManyWithMigration(buildingIds: string[]): Promise<{
 // F-3: im.pages.yaml 정본에서 면 순서 로딩
 let pageOrderCache: Record<string, string[]> | null = null;
 
-export function loadPageOrder(posture: string): string[] {
+/** Resolves candidate paths for credeal/ssot/im.pages.yaml across CLI, tests, and build environments */
+export function resolveImPagesYamlPath(): string | null {
+  const candidates = [
+    path.join(process.cwd(), 'credeal', 'ssot', 'im.pages.yaml'),
+    path.resolve(__dirname, '../../credeal/ssot/im.pages.yaml'),
+    path.resolve(__dirname, '../../../credeal/ssot/im.pages.yaml'),
+  ];
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) return p;
+    } catch {
+      // ignore access error
+    }
+  }
+  return null;
+}
+
+/** Default canonical section order if YAML loading fails */
+export const DEFAULT_CANONICAL_PAGE_ORDER: string[] = [
+  'property_overview', 'title_rights', 'land_detail', 'location_access',
+  'lease_status', 'site_analysis', 'occupancy_fit', 'operation_overview', 'market_position',
+  'income_analysis', 'development_feasibility', 'gop_analysis', 'cost_comparison', 'comparable_analysis',
+  'risk_check', 'checklist', 'investment_thesis', 'next_steps',
+];
+
+/** Mapping from im.pages.yaml page keys to Mobile IM section types (SSoT im.bindings.yaml §sections.map) */
+const PAGE_KEY_TO_SECTION_MAP: Record<string, string> = {
+  cover: 'property_overview',
+  overview: 'property_overview',
+  points: 'investment_thesis',
+  location: 'location_access',
+  parcels: 'title_rights',
+  land: 'land_detail',
+  rentroll: 'lease_status',
+  lease2: 'lease_status',
+  invest: 'income_analysis',
+  market: 'income_analysis',
+  risk: 'risk_check',
+  evidence: 'title_rights',
+  landvalue: 'land_detail',
+  photos_ext: 'property_overview',
+  photos_int: 'property_overview',
+  terms: 'next_steps',
+};
+
+export function clearPageOrderCache(): void {
+  pageOrderCache = null;
+}
+
+export function loadPageOrder(postureOrPreset: string): string[] {
   if (!pageOrderCache) {
     try {
-      const yamlPath = path.join(process.cwd(), 'CREDEAL_IM_HANDOVER_v0.5', 'credeal', 'ssot', 'im.pages.yaml');
+      const yamlPath = resolveImPagesYamlPath();
+      if (!yamlPath) {
+        throw new Error('[ssot-adapter] im.pages.yaml not found in candidate paths');
+      }
       const raw = fs.readFileSync(yamlPath, 'utf-8');
-      // 간단한 YAML 파싱 (외부 의존성 없이)
-      const lines = raw.split('\n');
+      const parsed = yaml.load(raw) as {
+        sequence?: Array<{ key: string }>;
+        presets?: Record<string, { order: string[] }>;
+      };
+
       const result: Record<string, string[]> = {};
-      let currentKey = '';
-      let inOrder = false;
-      for (const line of lines) {
-        const keyMatch = line.match(/^\s{2}(\w+):/);
-        if (keyMatch) {
-          currentKey = keyMatch[1];
-          inOrder = false;
-          continue;
-        }
-        if (line.trim() === 'order:') {
-          inOrder = true;
-          result[currentKey] = [];
-          continue;
-        }
-        if (inOrder && line.trim().startsWith('- ')) {
-          result[currentKey].push(line.trim().replace('- ', ''));
-          continue;
-        }
-        if (inOrder && !line.trim().startsWith('- ') && line.trim() !== '') {
-          inOrder = false;
+
+      // 1. Load presets directly (jsre_field_navy, evidence_first, land_value_first)
+      if (parsed?.presets) {
+        for (const [presetKey, preset] of Object.entries(parsed.presets)) {
+          if (Array.isArray(preset?.order)) {
+            result[presetKey] = preset.order;
+          }
         }
       }
+
+      // 2. Derive income posture order from sequence and bindings
+      if (Array.isArray(parsed?.sequence)) {
+        const sequenceKeys = parsed.sequence.map((s) => s.key);
+        result['sequence'] = sequenceKeys;
+
+        // Mapped section types for mobile IM (16 items)
+        const mappedSections: string[] = sequenceKeys.map(
+          (key) => PAGE_KEY_TO_SECTION_MAP[key] ?? key
+        );
+        result['income'] = mappedSections;
+      }
+
       pageOrderCache = result;
     } catch {
       pageOrderCache = {};
     }
   }
-  
-  // 포스처 키로 조회, 없으면 기본 15개 순서
-  return pageOrderCache[posture] ?? [
-    'property_overview', 'title_rights', 'land_detail', 'location_access',
-    'lease_status', 'site_analysis', 'occupancy_fit', 'operation_overview', 'market_position',
-    'income_analysis', 'development_feasibility', 'gop_analysis', 'cost_comparison', 'comparable_analysis',
-    'risk_check', 'checklist', 'investment_thesis', 'next_steps',
-  ];
+
+  // Lookup by posture or preset, falling back to DEFAULT_CANONICAL_PAGE_ORDER
+  return pageOrderCache[postureOrPreset] ?? DEFAULT_CANONICAL_PAGE_ORDER;
 }
+

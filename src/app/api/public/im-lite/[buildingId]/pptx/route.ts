@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import type { ReleaseTier } from '@/domain/building/im-core';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;  // Vercel Pro — 24p Pro 덱 대응
@@ -126,6 +127,7 @@ export async function GET(
       incomeArchetype,
       hasViolation,
       hasJointCollateral,
+      releaseTier: (body.releaseTier as ReleaseTier) || 'decision_im',
       docno: body.docno ?? `IM-${buildingId.substring(0, 6).toUpperCase()}`,
       doc: {
         title: doc.title || body.buildingName || 'Mobile IM',

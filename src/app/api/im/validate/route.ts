@@ -46,10 +46,18 @@ export async function POST(req: NextRequest) {
     const errors: string[] = [];
     const warnings: string[] = [];
 
+    // income 포스처에서는 매각 희망가가 필수
+    const hasAskingPrice = !!body.asking_price_manwon && Number(body.asking_price_manwon) > 0;
+    if (posture === 'income' && !hasAskingPrice) {
+      errors.push('매각 희망가를 입력해 주세요.');
+    }
+
     if (!hasBasicData) {
       switch (posture) {
         case 'income':
-          if (!body.asking_price_manwon) errors.push('매각 희망가를 입력해 주세요.');
+          if (!hasAskingPrice && !errors.includes('매각 희망가를 입력해 주세요.')) {
+            errors.push('매각 희망가를 입력해 주세요.');
+          }
           if (!body.monthly_rent_total_krw) errors.push('월 임대료를 입력해 주세요.');
           break;
         case 'development':
@@ -79,7 +87,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-      canGenerate: hasBasicData && (tier !== 'pro' || isProEligible),
+      canGenerate: hasBasicData && errors.length === 0 && (tier !== 'pro' || isProEligible),
       grade,
       gradeLabel: badge.label,
       score: badge.score,

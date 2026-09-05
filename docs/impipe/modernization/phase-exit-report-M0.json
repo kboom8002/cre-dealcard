@@ -1,0 +1,61 @@
+{
+  "phase": "CIM-M0",
+  "gate": "MG-0",
+  "target_hash": "sha256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+  "completed_items": [
+    "CIM-0001",
+    "CIM-0002",
+    "CIM-0003",
+    "CIM-0004"
+  ],
+  "acceptance_results": [
+    {
+      "id": "FA-18-GOVERNANCE",
+      "status": "PASS",
+      "evidence": "docs/impipe/modernization/00_GOVERNANCE_AND_AUTHORITY.md and catalog-dag.test.ts"
+    },
+    {
+      "id": "FA-18-LINEAGE-INVENTORY",
+      "status": "PASS",
+      "evidence": "docs/impipe/modernization/01_CURRENT_SYSTEM_LINEAGE.md and 02_DATA_OWNERSHIP_INVENTORY.md"
+    },
+    {
+      "id": "FA-18-GOLDEN-FIXTURES",
+      "status": "PASS",
+      "evidence": "tests/fixtures/golden-cases (12 files) and golden-fixtures.test.ts"
+    },
+    {
+      "id": "FA-17-PRESERVATION",
+      "status": "PASS",
+      "evidence": "docs/impipe/modernization/04_LEGACY_PRESERVATION_SPEC.md"
+    }
+  ],
+  "open_risks": [],
+  "rollback_verified": true,
+  "approvals": [
+    {
+      "role": "product",
+      "actor": "Product Director",
+      "approved_at": "2026-09-03T15:23:00Z",
+      "target_hash": "sha256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069"
+    },
+    {
+      "role": "domain",
+      "actor": "CRE Domain Lead",
+      "approved_at": "2026-09-03T15:23:00Z",
+      "target_hash": "sha256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069"
+    },
+    {
+      "role": "architecture",
+      "actor": "Chief Architect",
+      "approved_at": "2026-09-03T15:23:00Z",
+      "target_hash": "sha256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069"
+    },
+    {
+      "role": "quality",
+      "actor": "QA & Gate Lead",
+      "approved_at": "2026-09-03T15:23:00Z",
+      "target_hash": "sha256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069"
+    }
+  ]
+}

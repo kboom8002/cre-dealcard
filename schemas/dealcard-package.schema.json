@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://credeal.com/schemas/dealcard-package.schema.json",
+  "title": "DealcardPackage",
+  "description": "CTR-009: Blind Teaser Dealcard Publication Package",
+  "type": "object",
+  "required": [
+    "packageId",
+    "memoRawHash",
+    "bandedLocation",
+    "bandedPrice",
+    "bandedLandArea",
+    "highlights",
+    "privacyGuaranteed",
+    "packageHash",
+    "createdAt"
+  ],
+  "properties": {
+    "packageId": { "type": "string", "format": "uuid" },
+    "memoRawHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "bandedLocation": { "type": "string" },
+    "bandedPrice": { "type": "string" },
+    "bandedLandArea": { "type": "string" },
+    "bandedYield": { "type": "string" },
+    "highlights": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "privacyGuaranteed": { "type": "boolean", "const": true },
+    "packageHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

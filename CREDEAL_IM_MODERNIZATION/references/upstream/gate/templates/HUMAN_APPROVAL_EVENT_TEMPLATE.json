@@ -1,0 +1,18 @@
+{
+  "approvalId": "APP-YYYYMMDD-0001",
+  "action": "APPROVE",
+  "scope": "editorial_mobile",
+  "subjectId": "artifact-or-proposal-id",
+  "bindingHash": "sha256:...",
+  "expectedPreviousHash": "sha256:...",
+  "policyVersions": {
+    "gate": "1.0.0",
+    "disclosure": "1.0.0",
+    "terminology": "1.0.0"
+  },
+  "actorId": "broker-user-id",
+  "actorRole": "responsible_broker",
+  "reason": "최종 문안·사진·공개범위 확인",
+  "createdAt": "2026-08-31T00:00:00+09:00"
+}
+

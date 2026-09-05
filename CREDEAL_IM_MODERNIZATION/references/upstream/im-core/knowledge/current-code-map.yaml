@@ -1,0 +1,58 @@
+meta:
+  id: im-core-current-code-map
+  version: 1.0.0
+  status: proposed
+modules:
+  - current: src/domain/building/im-core/claim.ts
+    target: im-core/claims/claim-evaluation.ts
+    action: preserve_evidence_status_add_use_status
+    tasks: [IC-P0-T03, IC-P1-T06]
+  - current: src/domain/building/im-core/claim-registry.ts
+    target: im-core/claims plus compat/legacy-claim-registry-adapter.ts
+    action: add_serialization_then_reduce_to_compat
+    tasks: [IC-P0-T03, IC-P1-T13]
+  - current: src/domain/building/im-core/financial-calculator.ts
+    target: im-core/claims/formula-registry.ts
+    action: wrap_formulas_with_explicit_prerequisites
+    tasks: [IC-P0-T06, IC-P1-T07]
+  - current: src/domain/building/im-core/release-tier.ts
+    target: im-core/publication/eligibility.ts
+    action: compatibility_only
+    tasks: [IC-P1-T09, IC-P1-T13, IC-P5-T02]
+  - current: src/domain/building/im-core/data-availability.ts
+    target: im-core/evidence/data-inventory.ts
+    action: expand_boolean_summary_to_structured_inventory
+    tasks: [IC-P1-T03, IC-P1-T06]
+  - current: src/domain/building/im-core/approval-gate.ts
+    target: im-core/approval/gate-engine.ts
+    action: machine_checks_only
+    tasks: [IC-P0-T04, IC-P1-T11]
+  - current: src/domain/building/im-core/action-card.ts
+    target: proposals/proposal-action.ts plus claims/scenario-projection.ts
+    action: split_qualitative_and_numeric
+    tasks: [IC-P1-T08]
+  - current: src/domain/building/mobile-im/writer.ts
+    target: mobile-im/composer
+    action: inject_publication_package_then_remove_domain_decisions
+    tasks: [IC-P1-T14, IC-P2-T01, IC-P2-T03]
+  - current: src/app/api/broker/im-lite/generate/handler.ts
+    target: core orchestration plus legacy adapter
+    action: persist_snapshot_package_version_references
+    tasks: [IC-P0-T05, IC-P1-T12, IC-P1-T13]
+  - current: src/app/api/broker/im-lite/[id]/approve/route.ts
+    target: approval service adapter
+    action: rehydrate_and_hash_validate
+    tasks: [IC-P0-T04, IC-P2-T07]
+  - current: src/domain/building/mobile-im/pptx/pptx-renderer.ts
+    target: pptx-studio/rendering/pptx-studio-renderer.ts
+    action: use_package_and_composition_plan
+    tasks: [IC-P3-T08, IC-P3-T11]
+  - current: src/domain/building/mobile-im/pptx/data-binder.ts
+    target: pptx-studio/composition/content-unit-binder.ts
+    action: prohibit_raw_enrichment_and_mobile_markdown_in_new_path
+    tasks: [IC-P3-T04, IC-P5-T03]
+  - current: src/domain/building/mobile-im/pptx/deck-sequencer.ts
+    target: pptx-studio/composition/composition-planner.ts
+    action: replace_tier_opening_with_content_units_and_page_budget
+    tasks: [IC-P3-T03, IC-P5-T02]
+

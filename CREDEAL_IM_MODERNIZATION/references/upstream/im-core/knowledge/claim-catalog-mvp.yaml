@@ -1,0 +1,172 @@
+meta:
+  id: im-claim-catalog-mvp
+  version: 1.0.0
+  status: proposed
+  note: IDs outside the D55 RR series are proposed and require IC-P1-T01 approval.
+use_statuses: [allowed, allowed_with_warning, blocked, not_applicable, not_available_at_stage, not_evaluated]
+evidence_statuses: [unverified, broker_checked, reconciled, conflicted, stale, not_available]
+claims:
+  - id: ASSET-C01-IDENTITY
+    label: 매각대상 식별
+    domain: asset
+    permitted_levels: [L1, L1.5, L2, L3]
+    requires: [assetScope.status, assetScope.parcels, address]
+    gates: [ICG-001-ASSET-IDENTITY, ICG-002-ASSET-SCOPE]
+  - id: PARCEL-C01-SCOPE-COVERAGE
+    label: 매각대상 필지 확인범위
+    domain: parcel
+    permitted_levels: [L1, L1.5, L2, L3]
+    requires: [assetScope.parcels]
+    formula: parcel_scope_coverage_v1
+    gates: [ICG-002-ASSET-SCOPE, ICG-013-MULTIPARCEL-PROPAGATION]
+  - id: TX-C01-ASKING-PRICE
+    label: 매도 희망가
+    domain: transaction
+    unit: KRW
+    permitted_levels: [L1, L1.5, L2, L3]
+    requires: [askingPrice.value, askingPrice.basis, askingPrice.asOf]
+    gates: [ICG-003-ASKING-PRICE-BASIS]
+  - id: LAND-C01-LEDGER-AREA
+    label: 공부상 대지면적
+    domain: parcel
+    unit: SQM
+    permitted_levels: [L1, L1.5, L2, L3]
+    requires: [parcelLedgerAreas, assetScope]
+    formula: sum_included_parcel_ledger_area_v1
+    gates: [ICG-004-MATERIAL-CONFLICT, ICG-013-MULTIPARCEL-PROPAGATION]
+  - id: BLD-C01-GROSS-FLOOR-AREA
+    label: 건축물대장상 연면적
+    domain: building
+    unit: SQM
+    permitted_levels: [L1, L1.5, L2, L3]
+    requires: [buildingRegister.totalArea, assetScope]
+    gates: [ICG-004-MATERIAL-CONFLICT]
+  - id: BLD-C02-LEGAL-USE
+    label: 공부상 주용도
+    domain: building
+    permitted_levels: [L1, L1.5, L2, L3]
+    requires: [buildingRegister.mainUse]
+    gates: [ICG-010-NOT-EVALUATED]
+  - id: LAND-C02-ZONING
+    label: 용도지역
+    domain: parcel
+    permitted_levels: [L1, L1.5, L2, L3]
+    requires: [landUsePlan.zoning, parcelIdentity]
+    gates: [ICG-013-MULTIPARCEL-PROPAGATION]
+  - id: USE-C01-CURRENT-USE
+    label: 현재 사용현황
+    domain: building
+    permitted_levels: [L1, L1.5, L2, L3]
+    requires_any: [brokerFieldUse, sellerUseStatement, leaseRows]
+    gates: [ICG-004-MATERIAL-CONFLICT]
+  - id: RR-C01-SELLER-MONTHLY-BASE-RENT
+    label: 매도인 제시 현행 월 기본임대료
+    domain: lease
+    unit: KRW_PER_MONTH
+    permitted_levels: [L2, L3]
+    requires: [rentRoll.rows, rentRoll.asOf, rowCoverage]
+    formula: sum_monthly_base_rent_ex_vat_ex_mgmt_v1
+    gates: [ICG-004-MATERIAL-CONFLICT, ICG-005-BLANK-ZERO, ICG-006-MGMT-NOT-INCOME]
+  - id: RR-C02-CONTRACT-MONTHLY-BASE-RENT
+    label: 계약확인 월 기본임대료
+    domain: lease
+    unit: KRW_PER_MONTH
+    permitted_levels: [L2, L3]
+    requires: [contractEvidenceCoverage, rentRoll.asOf]
+    formula: sum_contract_monthly_base_rent_v1
+    gates: [ICG-004-MATERIAL-CONFLICT, ICG-005-BLANK-ZERO]
+  - id: RR-C03-COLLECTED-MONTHLY-BASE-RENT
+    label: 최근 수납확인 월 기본임대료
+    domain: lease
+    unit: KRW_PER_MONTH
+    permitted_levels: [L2, L3]
+    requires: [paymentEvidencePeriod, paymentEvidenceCoverage]
+    formula: sum_collected_monthly_base_rent_v1
+    gates: [ICG-004-MATERIAL-CONFLICT]
+  - id: RR-C04-DEPOSIT-TOTAL
+    label: 임대차보증금 합계
+    domain: lease
+    unit: KRW
+    permitted_levels: [L2, L3]
+    requires: [rentRoll.rows, depositCoverage, rentRoll.asOf]
+    formula: sum_deposits_v1
+    gates: [ICG-004-MATERIAL-CONFLICT, ICG-005-BLANK-ZERO]
+  - id: RR-C05-VACANCY-RATE
+    label: 공실률
+    domain: lease
+    unit: PERCENT
+    permitted_levels: [L2, L3]
+    requires: [useStateCoverage, vacancyDenominatorBasis]
+    formula: vacancy_rate_v1
+    gates: [ICG-014-OWNER-USE-NOT-VACANCY]
+  - id: RR-C07-LEASE-EXPIRY-SCHEDULE
+    label: 임대차 만기일정
+    domain: lease
+    permitted_levels: [L3]
+    requires: [leaseStartEndCoverage, largestTenantLeaseTerm]
+    gates: [ICG-004-MATERIAL-CONFLICT]
+  - id: RR-C08-WALE
+    label: 가중평균 잔여 임대차기간
+    domain: lease
+    unit: MONTH
+    permitted_levels: [L3]
+    requires: [RR-C07-LEASE-EXPIRY-SCHEDULE, waleWeightBasis]
+    formula: wale_v1
+    gates: [ICG-009-YIELD-BASIS]
+  - id: RR-C09-MGMT-FEE-BILLED
+    label: 월 관리비 청구액
+    domain: lease
+    unit: KRW_PER_MONTH
+    permitted_levels: [L2, L3]
+    requires: [managementFeeRows, managementFeeBasis]
+    formula: sum_mgmt_fee_billed_v1
+    gates: [ICG-006-MGMT-NOT-INCOME]
+  - id: RR-C10-MGMT-NET-EFFECT
+    label: 관리비 순효과
+    domain: lease
+    unit: KRW_PER_YEAR
+    permitted_levels: [L3]
+    requires: [managementFeeBilled, managementFeeCollected, managementRelatedExpenses]
+    formula: management_fee_net_effect_v1
+    gates: [ICG-006-MGMT-NOT-INCOME]
+  - id: RR-C11-ASKING-GROSS-YIELD
+    label: 매도 희망가 기준 단순 임대수익률
+    domain: finance
+    unit: PERCENT
+    permitted_levels: [L2, L3]
+    requires: [RR-C01-SELLER-MONTHLY-BASE-RENT, TX-C01-ASKING-PRICE, yieldBasis, rentRoll.asOf]
+    formula: gross_yield_asking_price_v1
+    gates: [ICG-006-MGMT-NOT-INCOME, ICG-009-YIELD-BASIS, ICG-015-EXPIRED-LEASE-MATERIALITY]
+  - id: RR-C13-NOI
+    label: 순영업소득
+    domain: finance
+    unit: KRW_PER_YEAR
+    permitted_levels: [L3]
+    requires: [effectiveGrossIncome, trailing12MonthOpex, opexCoverage]
+    formula: noi_v1
+    gates: [ICG-008-NOI-PREREQUISITES]
+  - id: RR-C14-CAP-RATE
+    label: 현재 순영업소득 기준 자본환원율
+    domain: finance
+    unit: PERCENT
+    permitted_levels: [L3]
+    requires: [RR-C13-NOI, TX-C01-ASKING-PRICE, capRateBasis]
+    formula: cap_rate_v1
+    gates: [ICG-008-NOI-PREREQUISITES, ICG-009-YIELD-BASIS]
+  - id: DEV-C01-THEORETICAL-BUILDING-AREA
+    label: 공부상 건폐율 단순적용 이론 건축면적
+    domain: development
+    unit: SQM
+    permitted_levels: [L2, L3]
+    requires: [LAND-C01-LEDGER-AREA, legalBcr, parcelScopeCoverage]
+    formula: theoretical_building_area_v1
+    gates: [ICG-013-MULTIPARCEL-PROPAGATION, ICG-016-DEVELOPMENT-THEORETICAL-LABEL]
+  - id: DEV-C02-THEORETICAL-FAR-AREA
+    label: 공부상 용적률 단순적용 이론 연면적
+    domain: development
+    unit: SQM
+    permitted_levels: [L2, L3]
+    requires: [LAND-C01-LEDGER-AREA, legalFar, parcelScopeCoverage]
+    formula: theoretical_far_area_v1
+    gates: [ICG-013-MULTIPARCEL-PROPAGATION, ICG-016-DEVELOPMENT-THEORETICAL-LABEL]
+

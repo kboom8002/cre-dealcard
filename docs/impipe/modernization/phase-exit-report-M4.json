@@ -1,0 +1,63 @@
+{
+  "phase": "CIM-M4",
+  "gate": "MG-4",
+  "target_hash": "sha256:4d60c406b7218685e13da556ef3c1a84f33194a86ecb21469e3cb16a1b244c06",
+  "completed_items": [
+    "CIM-0401",
+    "CIM-0402",
+    "CIM-0403",
+    "CIM-0404",
+    "CIM-0405",
+    "CIM-0406"
+  ],
+  "acceptance_results": [
+    {
+      "id": "FA-01-D54-D55-ELIGIBILITY",
+      "status": "PASS",
+      "evidence": "src/domain/building/im-core/publication/eligibility-checker.ts"
+    },
+    {
+      "id": "FA-03-LINEAGE-5-STAGE",
+      "status": "PASS",
+      "evidence": "src/domain/building/im-core/proposals/proposal-unit.ts and proposal-lineage.test.ts"
+    },
+    {
+      "id": "FA-04-RENTROLL-4-TIER",
+      "status": "PASS",
+      "evidence": "src/domain/building/im-core/evidence/rentroll-tier-engine.ts and rentroll-tier.test.ts"
+    },
+    {
+      "id": "FA-05-AREA-DENOMINATORS-SNAPSHOT",
+      "status": "PASS",
+      "evidence": "src/domain/building/im-core/evidence/effective-snapshot.ts and snapshot-generator.test.ts"
+    }
+  ],
+  "open_risks": [],
+  "rollback_verified": true,
+  "approvals": [
+    {
+      "role": "product",
+      "actor": "Product Director",
+      "approved_at": "2026-09-03T16:37:00Z",
+      "target_hash": "sha256:4d60c406b7218685e13da556ef3c1a84f33194a86ecb21469e3cb16a1b244c06"
+    },
+    {
+      "role": "domain",
+      "actor": "CRE Domain Lead",
+      "approved_at": "2026-09-03T16:37:00Z",
+      "target_hash": "sha256:4d60c406b7218685e13da556ef3c1a84f33194a86ecb21469e3cb16a1b244c06"
+    },
+    {
+      "role": "architecture",
+      "actor": "Chief Architect",
+      "approved_at": "2026-09-03T16:37:00Z",
+      "target_hash": "sha256:4d60c406b7218685e13da556ef3c1a84f33194a86ecb21469e3cb16a1b244c06"
+    },
+    {
+      "role": "quality",
+      "actor": "QA & Gate Lead",
+      "approved_at": "2026-09-03T16:37:00Z",
+      "target_hash": "sha256:4d60c406b7218685e13da556ef3c1a84f33194a86ecb21469e3cb16a1b244c06"
+    }
+  ]
+}

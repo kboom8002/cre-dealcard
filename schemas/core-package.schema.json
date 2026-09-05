@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://credeal.com/schemas/core-package.schema.json",
+  "title": "CorePackage",
+  "description": "CTR-007: P60 Common Verified Core Package",
+  "type": "object",
+  "required": [
+    "packageId",
+    "dealId",
+    "baselineHash",
+    "physical",
+    "commercial",
+    "unitPrices",
+    "rentroll",
+    "harnessReportId",
+    "packageHash",
+    "createdAt"
+  ],
+  "properties": {
+    "packageId": { "type": "string", "format": "uuid" },
+    "dealId": { "type": "string", "format": "uuid" },
+    "baselineHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "physical": { "type": "object" },
+    "commercial": { "type": "object" },
+    "unitPrices": { "type": "object" },
+    "rentroll": { "type": "object" },
+    "harnessReportId": { "type": "string", "format": "uuid" },
+    "packageHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

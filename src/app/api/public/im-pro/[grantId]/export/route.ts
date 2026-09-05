@@ -278,6 +278,11 @@ export async function GET(
   { params }: { params: Promise<{ grantId: string }> }
 ) {
   const { grantId } = await params;
+  const format = req.nextUrl.searchParams.get('format');
+  if (format === 'pptx') {
+    return NextResponse.redirect(new URL(`/api/public/im-pro/${grantId}/pptx`, req.url));
+  }
+
   const supabase = createServiceClient();
 
   const { data: grant } = await supabase
@@ -292,11 +297,21 @@ export async function GET(
   if (grant.pdf_export_allowed === false) return NextResponse.json({ error: 'PDF export not permitted for this grant' }, { status: 403 });
   if (new Date(grant.expires_at) < new Date()) return NextResponse.json({ error: 'Grant expired' }, { status: 410 });
 
+  let buildingId: string | null = grant.building_id || null;
+  if (!buildingId && grant.deal_id) {
+    const { data: deal } = await supabase
+      .from('deals')
+      .select('asset_id')
+      .eq('id', grant.deal_id)
+      .maybeSingle();
+    buildingId = deal?.asset_id || null;
+  }
+
   const { data: doc } = await supabase
     .from('document_objects')
     .select('*')
-    .eq('building_id', grant.building_id)
-    .eq('doc_type', 'mobile_im_lite')
+    .eq('building_id', buildingId || grant.building_id)
+    .eq('document_type', 'mobile_im_lite')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();

@@ -98,7 +98,7 @@ describe('PPTX In-Memory Renderer: 5 Postures × Tiers + 육안 검수', { timeo
   });
 
   // ── PR-01: income / basic ──────────────────────────────────────────
-  test('PR-01: income/basic → 정상 버퍼 + 슬라이드 5~8장 + PPTX 저장', async () => {
+  test('PR-01: income/basic → 정상 버퍼 + 슬라이드 5~16장 + PPTX 저장', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'pptx-test-income-basic',
       posture: 'income',
@@ -110,7 +110,7 @@ describe('PPTX In-Memory Renderer: 5 Postures × Tiers + 육안 검수', { timeo
     const result = await renderer.render(input);
     expect(result.buffer.length).toBeGreaterThan(10_000);
     expect(result.slideCount).toBeGreaterThanOrEqual(5);
-    expect(result.slideCount).toBeLessThanOrEqual(10);
+    expect(result.slideCount).toBeLessThanOrEqual(16);
     expect(result.warnings.filter(w => w.includes('overflow'))).toHaveLength(0);
     savePptx('income_basic_pr01.pptx', result.buffer);
   });

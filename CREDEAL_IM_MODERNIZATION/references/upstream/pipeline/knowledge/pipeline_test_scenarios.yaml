@@ -1,0 +1,145 @@
+catalog_version: 1.0.0
+owner: im-quality
+status: proposed_normative
+scenarios:
+  - id: T-INPUT-01
+    category: input
+    title_ko: 공란·0·미제공·해당없음 구분
+    expected: four_distinct_states_preserved
+    release_blocker: true
+  - id: T-RENT-01
+    category: claims
+    title_ko: 운영비 없는 순영업소득·자본환원율 차단
+    expected: claims_blocked
+    release_blocker: true
+  - id: T-RENT-02
+    category: claims
+    title_ko: 관리비와 기본임대료 분리
+    expected: no_automatic_sum_into_base_rent_or_noi
+    release_blocker: true
+  - id: T-PARCEL-01
+    category: asset_scope
+    title_ko: 다필지 대표필지 값 전파 금지
+    expected: parcel_specific_values_only
+    release_blocker: true
+  - id: T-LINEAGE-01
+    category: lineage
+    title_ko: 외부 수치의 원자료 역추적
+    expected: observation_to_publication_trace_complete
+    release_blocker: true
+  - id: T-ARTIFACT-01
+    category: artifact
+    title_ko: 산출물 해시 변조 차단
+    expected: downstream_stage_rejected
+    release_blocker: true
+  - id: T-ARTIFACT-02
+    category: artifact
+    title_ko: 동일 입력 산출물 재사용
+    expected: no_duplicate_success_artifact
+    release_blocker: false
+  - id: T-ARTIFACT-03
+    category: recovery
+    title_ko: 작업자 종료 후 체크포인트 재개
+    expected: resume_from_first_invalid_stage
+    release_blocker: true
+  - id: T-CLAIM-01
+    category: claims
+    title_ko: 근거상태와 사용허가상태 분리
+    expected: independent_status_axes
+    release_blocker: true
+  - id: T-GATE-01
+    category: gate
+    title_ko: 미실행 검사는 통과 아님
+    expected: publication_blocked
+    release_blocker: true
+  - id: T-L15-01
+    category: l1_5
+    title_ko: 근거 없는 중개인 의견 차단
+    expected: proposal_not_public
+    release_blocker: true
+  - id: T-L15-02
+    category: l1_5
+    title_ko: 매수자 의미 없는 의견 차단
+    expected: proposal_not_eligible
+    release_blocker: true
+  - id: T-L15-03
+    category: l1_5
+    title_ko: 성립조건 없는 활용제안 차단
+    expected: proposal_not_eligible
+    release_blocker: true
+  - id: T-L15-04
+    category: l1_5
+    title_ko: 공개승인 전 의견 숨김
+    expected: proposal_hidden_from_external_channels
+    release_blocker: true
+  - id: T-L15-05
+    category: l1_5
+    title_ko: 의견 원문부터 반영위치 추적
+    expected: trace_coverage_100_percent
+    release_blocker: true
+  - id: T-CHANNEL-01
+    category: channel
+    title_ko: 모바일 없이 PPTX 생성
+    expected: pptx_succeeds_from_publication_package
+    release_blocker: true
+  - id: T-CHANNEL-02
+    category: channel
+    title_ko: PPTX 없이 모바일 발행
+    expected: mobile_publishes_independently
+    release_blocker: true
+  - id: T-CHANNEL-03
+    category: channel
+    title_ko: 형제채널 실패격리
+    expected: sibling_and_core_unchanged
+    release_blocker: true
+  - id: T-APPROVAL-01
+    category: approval
+    title_ko: 빈 판정집합 승인차단
+    expected: approval_rejected
+    release_blocker: true
+  - id: T-APPROVAL-02
+    category: approval
+    title_ko: 승인대상 해시변경 차단
+    expected: http_409_subject_changed
+    release_blocker: true
+  - id: T-APPROVAL-03
+    category: approval
+    title_ko: 모바일 승인이 PPTX를 대신하지 않음
+    expected: pptx_requires_separate_editorial_approval
+    release_blocker: true
+  - id: T-APPROVAL-04
+    category: approval
+    title_ko: 사실변경 승인무효 전파
+    expected: dependent_approvals_invalidated
+    release_blocker: true
+  - id: T-PPTX-01
+    category: pptx
+    title_ko: 페이지 수가 문서등급을 올리지 않음
+    expected: target_level_unchanged
+    release_blocker: true
+  - id: T-PPTX-02
+    category: pptx
+    title_ko: 텍스트 수치변조 차단
+    expected: channel_gate_blocked
+    release_blocker: true
+  - id: T-PPTX-03
+    category: pptx
+    title_ko: 넘침·겹침·잘림 차단
+    expected: channel_gate_blocked_with_locations
+    release_blocker: true
+  - id: T-REGEN-01
+    category: regeneration
+    title_ko: PPTX 문안만 최소 재생성
+    expected: rerun_S20_to_S70_only
+    release_blocker: true
+  - id: T-REGEN-02
+    category: regeneration
+    title_ko: 매각가 변경 양 채널 무효
+    expected: rerun_from_P20_or_P30_and_stale_both_channels
+    release_blocker: true
+  - id: T-ROLLBACK-01
+    category: operations
+    title_ko: 30분 이내 안정경로 복귀
+    expected: legacy_read_and_write_restored_without_data_loss
+    release_blocker: true
+

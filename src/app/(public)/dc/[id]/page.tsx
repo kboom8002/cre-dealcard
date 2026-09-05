@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { projectToTeaser } from '@/domain/deal/teaser/teaser-projector';
@@ -38,12 +39,13 @@ async function getDealCardData(id: string) {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    // IM 문서 존재 여부 확인 (im_lite, im_lite_draft, mobile_im)
+    // IM 문서 존재 여부 및 공식 승인 상태 확인 (im_lite, im_lite_draft, mobile_im)
     supabase
       .from("document_objects")
-      .select("id")
+      .select("id, status, approval_stage, pptx_file_hash, pptx_download_url")
       .eq("building_id", id)
       .in("document_type", ["im_lite", "im_lite_draft", "mobile_im"])
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
   ]);
@@ -91,12 +93,19 @@ async function getDealCardData(id: string) {
     };
   }
 
+  const isPptxApproved =
+    imDocRes.data?.approval_stage === 'S70_FILE_APPROVAL' ||
+    (imDocRes.data?.status === 'published' && !!imDocRes.data?.pptx_file_hash);
+  const pptxDownloadUrl = imDocRes.data?.pptx_download_url || `/api/public/im-lite/${id}/pptx`;
+
   return {
     building: buildingRes.data as Record<string, any>,
     signalCard: signalCardRes.data,
     teaserDoc: teaserDocRes.data,
     brokerProfile,
     hasImDoc: !!imDocRes.data,
+    isPptxApproved,
+    pptxDownloadUrl,
   };
 }
 
@@ -147,7 +156,9 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
   const { id } = await params;
   const sParams = searchParams ? await searchParams : {};
   const isPreviewMode = sParams.preview === "1" || sParams.preview === "true";
-  const { building, signalCard, teaserDoc, brokerProfile, hasImDoc } = await getDealCardData(id);
+  const { building, signalCard, teaserDoc, brokerProfile, hasImDoc, isPptxApproved, pptxDownloadUrl } =
+    await getDealCardData(id);
+
 
   const safeBuilding = building || {
     id,
@@ -271,7 +282,10 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
             brokerPhone={brokerProfile?.phone}
             requireNda={requireNda}
             hasImDoc={hasImDoc}
+            isPptxApproved={isPptxApproved}
+            pptxDownloadUrl={pptxDownloadUrl}
           />
+
 
           {/* ⑥ 매도자 보호 및 비밀유지 안내 (접이식) */}
           <details className="group text-xs text-slate-400 border border-slate-800 rounded-xl p-3 bg-slate-900/50">
@@ -288,8 +302,35 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
             </div>
           </details>
 
+          {/* ⑦ 중개사 업무 바로가기 허브 (Broker Quick Hub) */}
+          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                <span>⚡</span> 중개사 전용 매칭 허브
+              </span>
+              <Link href={`/broker/deal-card/${id}`} className="text-[11px] text-primary hover:underline">
+                딜카드 관리 →
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                href={`/broker/matching?buildingId=${id}`}
+                className="flex items-center justify-center gap-1 py-2 px-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-xs font-medium text-slate-200 transition-colors"
+              >
+                <span>🎯 매수자 매칭</span>
+              </Link>
+              <Link
+                href={`/broker/tenant-intents?buildingId=${id}`}
+                className="flex items-center justify-center gap-1 py-2 px-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-xs font-medium text-slate-200 transition-colors"
+              >
+                <span>🏢 임차의향서</span>
+              </Link>
+            </div>
+          </div>
+
           {/* Legal Disclaimer */}
           <div className="text-center px-2 pt-2 pb-4">
+
             <p className="text-[10px] text-slate-500 leading-relaxed">
               본 자산은 매도자 요청으로 지번 및 소유자가 블라인드 처리되었습니다.
             </p>

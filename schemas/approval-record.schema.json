@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://credeal.com/schemas/approval-record.schema.json",
+  "title": "ApprovalRecord",
+  "description": "CTR-004: Modern IM Immutable Approval Event Record",
+  "type": "object",
+  "required": [
+    "id",
+    "artifactRunId",
+    "eventType",
+    "targetHash",
+    "createdAt"
+  ],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "artifactRunId": { "type": "string", "format": "uuid" },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "machine_check",
+        "human_approve",
+        "human_reject",
+        "invalidate",
+        "withdraw"
+      ]
+    },
+    "actorId": { "type": "string" },
+    "actorRole": { "type": "string" },
+    "targetHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "harnessReportId": { "type": "string", "format": "uuid" },
+    "predecessorApprovalId": { "type": "string", "format": "uuid" },
+    "reason": { "type": "string" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

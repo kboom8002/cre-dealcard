@@ -144,15 +144,61 @@ export class FinancialCalculator {
         calculation: calc,
       };
 
-      // G38: NOI 기반인데 운영비 없으면 차단
+      // G38 & CIM-0103: NOI 기반인데 운영비 없으면 차단 (운영비 없는 NOI 확정 발행 방지)
       if (spec.basis === 'NOI' && !hasUserOpex && spec.subject.startsWith('cap_rate')) {
         claimOpts.status = 'unverified';
-        claimOpts.evidence[0].excerpt = '운영비 미입력 — 가정치 기반 계산';
+        claimOpts.evidence[0].excerpt = '운영비 미입력 — 실질 NOI 산출 불가';
+        allViolations.push(`G38_NOI_MISSING_OPEX: ${spec.subject} requires evidenced operating expenses`);
       }
 
       const { claim, violations } = this.registry.register(claimOpts);
       claims.push(claim);
       allViolations.push(...violations);
+    }
+
+    // 3. 고공실률(≥20%)인 경우 pro_forma 클레임 자동 등록
+    if (
+      inputs.vacancyRatePct != null &&
+      inputs.vacancyRatePct >= 20.0 &&
+      inputs.purchasePriceKrw > 0 &&
+      inputs.monthlyRentKrw
+    ) {
+      const currentAnnualRent = inputs.monthlyRentKrw * 12;
+      const currentCapRate = (currentAnnualRent / inputs.purchasePriceKrw) * 100;
+      const occupancyRate = (100 - inputs.vacancyRatePct) / 100;
+      const fullOccupancyAnnualRent = occupancyRate > 0 ? currentAnnualRent / occupancyRate : currentAnnualRent;
+      const proFormaCapRate = (fullOccupancyAnnualRent / inputs.purchasePriceKrw) * 100;
+      const upsidePp = Math.max(0, proFormaCapRate - currentCapRate);
+
+      const { claim: proCapClaim } = this.registry.register({
+        subject: 'pro_forma_cap_rate',
+        value: Math.round(proFormaCapRate * 100) / 100,
+        unit: '%',
+        evidence: [{ sourceId: 'derived', asOf: this.asOfDate, excerpt: '만실 정상화 시 연 순수익률 예상' }],
+        provenance: 'derived',
+        asOf: this.asOfDate,
+        status: 'reconciled',
+        calculation: {
+          id: randomUUID(),
+          formula: 'full_occupancy_annual_rent / purchase_price * 100',
+          formulaVersion: FORMULA_VERSION,
+          inputs: {},
+          result: Math.round(proFormaCapRate * 100) / 100,
+          basis: 'NOI',
+        },
+      });
+      claims.push(proCapClaim);
+
+      const { claim: upsideClaim } = this.registry.register({
+        subject: 'pro_forma_upside_cap_rate_pp',
+        value: Math.round(upsidePp * 100) / 100,
+        unit: '%p',
+        evidence: [{ sourceId: 'derived', asOf: this.asOfDate, excerpt: `공실 해소 시 연 순수익률 +${upsidePp.toFixed(2)}%p 개선` }],
+        provenance: 'derived',
+        asOf: this.asOfDate,
+        status: 'reconciled',
+      });
+      claims.push(upsideClaim);
     }
 
     return { claims, outputs, violations: allViolations };

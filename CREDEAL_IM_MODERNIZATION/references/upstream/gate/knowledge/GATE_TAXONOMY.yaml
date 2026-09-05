@@ -1,0 +1,36 @@
+version: 1.0.0
+effective_date: 2026-08-31
+result_states:
+  PASS: {external_release: allow}
+  FAIL: {external_release: block_for_block_severity}
+  WARN: {external_release: allow_with_notice}
+  NOT_APPLICABLE: {external_release: exclude, reason_required: true}
+  NOT_RUN: {external_release: block_for_block_severity}
+  INDETERMINATE: {external_release: block_for_block_severity}
+  SYSTEM_ERROR: {external_release: block_for_block_severity}
+severity:
+  block: 외부발행 차단
+  warn: 발행 가능하나 사람 확인 또는 표시 필요
+  info: 운영정보
+families:
+  eligibility: 산출물 또는 산출항목을 만들 수 있는가
+  evidence: 표시내용이 근거와 연결되는가
+  content: 수치·문안·공개범위가 정확한가
+  reasoning: 중요한 편집·의견 판단이 추적되는가
+  layout: 최종 산출물을 읽을 수 있는가
+  approval: 필요한 사람승인이 유효한가
+risk_classes:
+  RC0: 표시·편집 품질
+  RC1: 산출항목·발행형식 적격
+  RC2: 외부발행·개인정보·핵심수치·법적경계
+  RC3: 전문가 검토가 필요한 법률·세무·구조·개발 판단
+enforcement_modes:
+  shadow: 결과는 기록하되 기존 발행을 차단하지 않음
+  enforce: 정책에 따라 실제 발행 차단
+invariants:
+  - severity_is_immutable_within_policy_version
+  - not_run_is_not_pass
+  - one_gate_id_has_one_severity
+  - block_gate_requires_positive_negative_and_mutation_controls
+  - access_entitlement_does_not_change_document_quality
+

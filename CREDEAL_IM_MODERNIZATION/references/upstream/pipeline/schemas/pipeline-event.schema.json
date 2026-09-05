@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://credeal.example/schemas/im/pipeline-event/1.0.0",
+  "title": "IM Pipeline Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eventId", "eventType", "eventVersion", "aggregateType", "aggregateId", "correlationId", "occurredAt", "payload"],
+  "properties": {
+    "eventId": {"type": "string", "format": "uuid"},
+    "eventType": {"type": "string", "pattern": "^[A-Z][A-Za-z0-9]+$"},
+    "eventVersion": {"type": "integer", "minimum": 1},
+    "aggregateType": {"enum": ["pipeline_run", "stage_execution", "artifact", "case", "publication_project", "approval", "distribution", "regeneration_plan"]},
+    "aggregateId": {"type": "string", "minLength": 1},
+    "correlationId": {"type": "string", "format": "uuid"},
+    "causationId": {"type": ["string", "null"], "format": "uuid"},
+    "actorId": {"type": ["string", "null"]},
+    "occurredAt": {"type": "string", "format": "date-time"},
+    "payload": {"type": "object"}
+  }
+}
+

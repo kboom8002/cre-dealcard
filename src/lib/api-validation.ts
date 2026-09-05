@@ -29,3 +29,20 @@ export async function validateRequestBody<T>(
 
   return { data: result.data };
 }
+
+/**
+ * Higher-order function for API route handlers with Zod schema validation (P1-1)
+ */
+export function withValidation<T>(
+  schema: ZodSchema<T>,
+  handler: (data: T, req: Request) => Promise<NextResponse>
+) {
+  return async (req: Request): Promise<NextResponse> => {
+    const validated = await validateRequestBody(req, schema);
+    if ('error' in validated) {
+      return validated.error;
+    }
+    return handler(validated.data, req);
+  };
+}
+

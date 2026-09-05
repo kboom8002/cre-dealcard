@@ -1,0 +1,21 @@
+{
+  "caseId": "case-02",
+  "title": "상도동 다필지 매물 케이스",
+  "description": "3개 필지로 구성된 복합 필지 물건으로 면적 분모 4종 분리 및 부분 실패 검증용",
+  "asset": {
+    "name": "상도동 개발 부지 및 건물",
+    "parcels": [
+      { "pnu": "1159010200101230001", "landArea": 250.0, "roadCondition": "8m 도로 접", "useZone": "제2종일반주거지역" },
+      { "pnu": "1159010200101230002", "landArea": 180.0, "roadCondition": "6m 도로 접", "useZone": "제2종일반주거지역" },
+      { "pnu": "1159010200101230003", "landArea": 120.0, "roadCondition": "맹지", "useZone": "제2종일반주거지역" }
+    ],
+    "askingPrice": 8500000000,
+    "buildingArea": 280.0,
+    "grossFloorArea": 750.0
+  },
+  "expectedOutcome": {
+    "landAreaTotal": 550.0,
+    "targetLevel": "L1",
+    "gateExpected": "PASS"
+  }
+}

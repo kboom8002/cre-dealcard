@@ -6,8 +6,7 @@
  * imlib.ts 컴포넌트 + 아키타입 레지스트리 + 덱 시퀀서로 동작.
  */
 import PptxGenJS from 'pptxgenjs';
-import { getPptxTheme, getPptxThemeAsync, DEFAULT_PPTX_PRESET, type PptxThemeTokens } from './pptx-theme';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { getPptxTheme, getPptxThemeAsync, DEFAULT_PPTX_PRESET, type PptxThemeTokens, type ThemePresetDbReader } from './pptx-theme';
 import { SLIDE_ARCHETYPE_REGISTRY, type ArchetypeInput } from './archetypes';
 import { buildDeckSequence, type DeckSequenceInput, type SlideSpec, type IncomeArchetype } from './deck-sequencer';
 import { bindSectionData } from './data-binder';
@@ -17,234 +16,12 @@ import type { InvestmentPosture } from '@/domain/ontology';
 import { resolvePhotos } from '../photo-url-transformer';
 import { planGallerySlides, type GallerySlideSpec } from './gallery-planner';
 
-import { stripMarkdown } from './data-binder';
 import { M, CW, KR, NUM, C, setActiveTheme, withThemeIsolation } from './imlib';
 import { validateLayout } from './layout-validator';
 import { validateYield, type Yield } from './yield-object';
+import { addFallbackContent, resetFallbackTracker, parseInlineMarkdown } from './pptx-markdown-fallback';
 
-function parseInlineMarkdown(line: string): Array<{ text: string; options?: { bold?: boolean; italic?: boolean } }> {
-  const runs: Array<{ text: string; options?: { bold?: boolean; italic?: boolean } }> = [];
-  const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|([^*]+))/g;
-  let match;
-  while ((match = regex.exec(line)) !== null) {
-    if (match[2]) runs.push({ text: match[2], options: { bold: true } });
-    else if (match[3]) runs.push({ text: match[3], options: { italic: true } });
-    else if (match[4]) runs.push({ text: match[4] });
-  }
-  return runs.length ? runs : [{ text: stripMarkdown(line) }];
-}
-
-/**
- * 아키타입 빌더가 본문을 렌더링하지 못한 경우의 고품질 폴백.
- * 
- * markdown을 파싱하여:
- * - 테이블 → PptxGenJS addTable로 렌더링
- * - 불릿 리스트 → 구조화된 텍스트 블록
- * - 일반 텍스트 → 정돈된 단락
- */
-// D33 BL-F G42: 폴백 중복 추적 — 같은 content가 다른 슬라이드에서 폴백으로 재사용되면 차단
-const _fallbackContentHashes = new Set<string>();
-export function resetFallbackTracker() { _fallbackContentHashes.clear(); }
-
-function addFallbackContent(slide: any, data: any, _theme: any, meta?: { archetype?: string; slideIndex?: number; warnings?: string[] }): boolean {
-  // data.content가 없으면 fallback 불필요
-  if (!data.content) return true;
-
-  // D33 BL-F G42: 동일 content 중복 폴백 차단
-  const contentHash = typeof data.content === 'string' ? data.content.trim().slice(0, 200) : '';
-  if (contentHash.length > 0 && _fallbackContentHashes.has(contentHash)) {
-    const dupMsg = `[BL-F G42] 폴백 중복 차단: ${meta?.archetype ?? '?'}#${meta?.slideIndex ?? '?'} — 동일 content가 이전 슬라이드에서 이미 폴백 사용됨`;
-    console.warn(dupMsg);
-    if (meta?.warnings) meta.warnings.push(dupMsg);
-    return false;
-  }
-
-  const shapes = slide._slideObjects || slide._shapes || [];
-  // F1: PptxGenJS addTable()은 _slideObjects에 { _type: 'table' } 형태로 저장되며,
-  // h 속성 없이 rowH만 가짐. 테이블 존재 여부를 별도로 감지.
-  const hasTable = shapes.some((s: any) =>
-    s?._type === 'table' || s?.options?._type === 'table' || s?.arrTabRows != null
-  );
-  // y >= 1.7 기준: L.head()가 y~1.4~1.65에 추가하는 kicker/title 텍스트를
-  // body shape으로 오인하지 않도록 임계값을 높임.
-  // w가 슬라이드 너비(>8) 이상인 shape은 배경 rect이므로 제외.
-  const hasBodyShapes = hasTable || shapes.some((s: any) => {
-    const y = s?.options?.y ?? s?.y ?? 0;
-    const h = s?.options?.h ?? s?.h ?? 0;
-    const w = s?.options?.w ?? s?.w ?? 0;
-    const rH = s?.options?.rowH ?? s?.rowH ?? 0;
-    return y >= 1.7 && y < 6.5 && (h > 0.1 || rH > 0) && w < 12;
-  });
-
-  if (hasBodyShapes) return true;
-
-  // D32 BL-5: 폴백 발동 기록 — 표가 있어야 할 자리에 불릿이 들어가는 것은 결손
-  const archetype = meta?.archetype ?? 'unknown';
-  const slideIdx = meta?.slideIndex ?? -1;
-  const fallbackMsg = `[BL-5] 폴백 발동: ${archetype} 슬라이드 #${slideIdx} — 아키타입이 본문을 렌더링하지 못해 마크다운 폴백 사용`;
-  console.warn(fallbackMsg);
-  if (meta?.warnings) {
-    meta.warnings.push(fallbackMsg);
-    // D37 P0-6: 모든 아키타입 폴백 차단 (빈 면 금지 07 §15.3)
-    meta.warnings.push(`[P0-6 BLOCK] ${archetype} 폴백 차단: 아키타입이 본문을 렌더링하지 못함`);
-    return false; // 슬라이드 제거 신호
-  }
-
-  // D33 BL-F G42: 이 content를 폴백으로 사용했음을 기록
-  if (contentHash.length > 0) _fallbackContentHashes.add(contentHash);
-
-  const markdown: string = stripMarkdown(data.content);
-  const lines = markdown.split('\n');
-  let curY = 1.62;
-  const maxY = 6.8;
-  const bodyW = CW;
-  const bodyX = M;
-
-  // 그룹화: 테이블 블록 vs 텍스트 블록
-  const blocks: Array<{type: 'table'; headers: string[]; rows: string[][]} | {type: 'text'; lines: string[]}> = [];
-  let textBuf: string[] = [];
-  let tableHeaders: string[] | null = null;
-  let tableRows: string[][] = [];
-
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (line.startsWith('|')) {
-      // 테이블 행
-      const cells = line.split('|').map(c => c.trim()).filter((_, i, a) => i > 0 && i < a.length - 1);
-      if (cells.every(c => /^[-:]+$/.test(c))) continue; // 구분선
-      if (!tableHeaders) {
-        // 텍스트 버퍼 플러시
-        if (textBuf.length > 0) { blocks.push({type: 'text', lines: [...textBuf]}); textBuf = []; }
-        tableHeaders = cells;
-      } else {
-        tableRows.push(cells);
-      }
-    } else {
-      // 테이블 종료
-      if (tableHeaders) {
-        blocks.push({type: 'table', headers: tableHeaders, rows: [...tableRows]});
-        tableHeaders = null;
-        tableRows = [];
-      }
-      if (line.length > 0 && !/^[-*_]{3,}$/.test(line)) textBuf.push(line);
-    }
-  }
-  // 잔여 플러시
-  if (tableHeaders) blocks.push({type: 'table', headers: tableHeaders, rows: tableRows});
-  if (textBuf.length > 0) blocks.push({type: 'text', lines: textBuf});
-
-  for (const block of blocks) {
-    if (curY >= maxY) break;
-
-    if (block.type === 'table') {
-      const tableData = [
-        block.headers.map(h => stripMarkdown(h)),
-        ...block.rows.map(r => r.map(c => stripMarkdown(c)))
-      ];
-      // 3-D: 헤더 행에 brass 테마 적용
-      const styledData = tableData.map((row, rowIdx) =>
-        row.map(cell => rowIdx === 0
-          ? { text: cell, options: { fill: { color: C.brassL }, bold: true, color: C.brassD, fontSize: 10 } }
-          : { text: cell, options: { color: C.ink, fontSize: 9.5 } }
-        )
-      );
-      const rowH = 0.32;
-      let tableH = styledData.length * rowH;
-      const colCount = tableData[0]?.length || 1;
-
-      // W-PPTX-2: 테이블 높이가 안전 영역 초과 시 행 절삭
-      if (curY + tableH > maxY && styledData.length > 2) {
-        const availableH = maxY - curY;
-        const maxRows = Math.max(2, Math.floor(availableH / rowH));
-        styledData.splice(maxRows);
-        tableH = styledData.length * rowH;
-      }
-
-      slide.addTable(styledData as any, {
-        x: bodyX, y: curY, w: bodyW,
-        rowH,
-        fontFace: KR, fontSize: 9.5,
-        border: { type: 'solid', pt: 0.5, color: 'DDE3E8' },
-        autoPage: true,
-        autoPageRepeatHeader: true,
-        autoPageLineWeight: 0.5,
-        autoPageCharWeight: 0.25,
-        margin: [0.05, 0.1, 0.05, 0.1],
-        colW: Array(colCount).fill(bodyW / colCount),
-      });
-      curY += tableH + 0.2;
-    } else {
-      // 텍스트 블록: 헤더, 불릿, 일반 텍스트를 구분하여 렌더링
-      for (const line of block.lines) {
-        if (curY >= maxY) break;
-
-        // 헤더 (### 또는 ##)
-        if (line.startsWith('#')) {
-          const level = (line.match(/^#+/) || [''])[0].length;
-          const text = stripMarkdown(line.replace(/^#+\s*/, ''));
-          if (!text) continue;
-          const fontSize = level <= 2 ? 14 : 12;
-          slide.addText(text, {
-            x: bodyX, y: curY, w: bodyW, h: 0.36,
-            fontFace: KR, fontSize, bold: true, color: C.ink,
-            margin: 0,
-          });
-          curY += 0.40;
-          continue;
-        }
-
-        // 불릿 아이템
-        if (line.startsWith('-') || line.startsWith('•') || line.startsWith('·')) {
-          const text = stripMarkdown(line.replace(/^[-•·]\s*/, ''));
-          if (!text) continue;
-          const lineH = Math.max(0.28, Math.ceil(text.length / 50) * 0.22);
-          slide.addText(text, {
-            x: bodyX + 0.3, y: curY, w: bodyW - 0.3, h: lineH,
-            fontFace: KR, fontSize: 10, color: C.body,
-            bullet: { char: '•' },
-            margin: 0, valign: 'top',
-          });
-          curY += lineH + 0.04;
-          continue;
-        }
-
-        // blockquote (> ...)
-        if (line.startsWith('>')) {
-          const text = stripMarkdown(line.replace(/^>\s*/, ''));
-          if (!text) continue;
-          const lineH = Math.max(0.36, Math.ceil(text.length / 42) * 0.22);
-          slide.addShape('rect' as any, {
-            x: bodyX, y: curY, w: bodyW, h: lineH + 0.12,
-            fill: { color: C.brassT }, 
-          });
-          slide.addShape('rect' as any, {
-            x: bodyX, y: curY, w: 0.05, h: lineH + 0.12,
-            fill: { color: C.brass },
-          });
-          slide.addText(text, {
-            x: bodyX + 0.2, y: curY + 0.06, w: bodyW - 0.4, h: lineH,
-            fontFace: KR, fontSize: 10, color: C.ink3,
-            margin: 0, valign: 'top',
-          });
-          curY += lineH + 0.20;
-          continue;
-        }
-
-        // 일반 텍스트
-        const text = stripMarkdown(line);
-        if (!text || text.length < 3) continue;
-        const lineH = Math.max(0.26, Math.ceil(text.length / 50) * 0.20);
-        const runs = parseInlineMarkdown(text);
-        slide.addText(runs.map(r => ({ text: r.text, options: { ...r.options, fontFace: KR, fontSize: 10, color: C.body } })), {
-          x: bodyX, y: curY, w: bodyW, h: lineH,
-          margin: 0, valign: 'top',
-        });
-        curY += lineH + 0.06;
-      }
-    }
-  }
-  return true; // W-PPTX-1: 폴백 렌더링 성공
-}
+export { resetFallbackTracker, addFallbackContent, parseInlineMarkdown };
 
 export interface MobileImPptxInput {
   buildingId: string;
@@ -283,7 +60,7 @@ export interface MobileImPptxInput {
     timestamp: string;
   };
   provenance?: Record<string, ProvenanceKind>;
-  supabase?: SupabaseClient;
+  supabase?: ThemePresetDbReader;
   logoUrl?: string;  // Phase 4: 중개법인 로고 URL (Supabase Storage)
   /** V5 감사 §5.1 시정: 게이트 차단 시 경고 워터마크 표시 */
   publishBlocked?: boolean;
@@ -311,6 +88,13 @@ export interface MobileImPptxOutput {
 
 export class MobileImPptxRenderer {
   async render(input: MobileImPptxInput): Promise<MobileImPptxOutput> {
+    // D-03: 구형 PPTX 렌더러 직접 호출 차단 가드 (PPTX Studio 전환 시 활성화)
+    if (process.env.DEPRECATE_LEGACY_WRITES === 'true') {
+      throw new Error(
+        'LEGACY_PPTX_RENDERER_DEPRECATED: 구형 MobileImPptxRenderer.render()는 폐기되었습니다. ' +
+        'PPTX Studio API(/api/broker/pptx-studio/projects)를 통해 독립 프로젝트를 생성하십시오.'
+      );
+    }
     const warnings: string[] = [];
     resetFallbackTracker(); // D33 BL-F: 렌더 시작 시 폴백 중복 추적기 초기화
 
@@ -482,17 +266,19 @@ export class MobileImPptxRenderer {
         });
       }
 
-      // 레거시 키 fallback (단일 gallery 호출 대응)
-      const photoUrls = input.doc.body?.photo_urls ?? [];
-      const photos = input.doc.body?.photos ?? [];
+      // 레거시 키 fallback (단일 gallery 호출 대응, 비표준 .wdp 필터링)
+      const rawPhotoUrls = input.doc.body?.photo_urls ?? [];
+      const rawPhotos = input.doc.body?.photos ?? [];
+      const photoUrls = rawPhotoUrls.filter((u: string) => typeof u === 'string' && !u.toLowerCase().endsWith('.wdp'));
+      const photos = rawPhotos.filter((p: any) => typeof p?.url === 'string' && !p.url.toLowerCase().endsWith('.wdp'));
       dataMap['gallery'] = {
         title: gallerySpecs[0]?.title || '건물 사진',
         kicker: gallerySpecs[0]?.kicker || 'GALLERY',
         content: '',
         tables: [],
         metrics: {},
-        photoUrls: gallerySpecs[0]?.photos.map(p => p.url) || photoUrls,
-        photos: gallerySpecs[0]?.photos || photos,
+        photoUrls: (gallerySpecs[0]?.photos.map(p => p.url) || photoUrls).filter((u: string) => !u?.toLowerCase().endsWith('.wdp')),
+        photos: (gallerySpecs[0]?.photos || photos).filter((p: any) => !p?.url?.toLowerCase().endsWith('.wdp')),
         layout: gallerySpecs[0]?.layout,
       } as any;
 
@@ -583,7 +369,18 @@ export class MobileImPptxRenderer {
           ((slideData as any).right?.stats?.length > 0 || (slideData as any).right?.callouts?.length > 0 || (slideData as any).right?.rows?.length > 0) ||
           ((slideData as any).blocks?.length > 0) ||
           ((slideData as any).table1?.rows?.length > 0) ||
-          ((slideData as any).steps?.length > 0)
+          ((slideData as any).steps?.length > 0) ||
+          // D38: 고도화 아키타입 전수 콘텐츠 검사 가드 (Silent Drop 방지)
+          ((slideData as any).stackingPlan && (slideData as any).stackingPlan.length > 0) ||
+          ((slideData as any).kpiRows && (slideData as any).kpiRows.length > 0) ||
+          ((slideData as any).statCards && (slideData as any).statCards.length > 0) ||
+          ((slideData as any).equityBreakdown != null) ||
+          ((slideData as any).ltvScenarios && (slideData as any).ltvScenarios.length > 0) ||
+          ((slideData as any).ownershipRows && (slideData as any).ownershipRows.length > 0) ||
+          ((slideData as any).roomTypes && (slideData as any).roomTypes.length > 0) ||
+          ((slideData as any).checkItems && (slideData as any).checkItems.length > 0) ||
+          ((slideData as any).pillars && (slideData as any).pillars.length > 0) ||
+          (Boolean((slideData as any).markdown && (slideData as any).markdown.trim().length > 0))
         );
 
         if (!hasContent && !isStaticSlide) {

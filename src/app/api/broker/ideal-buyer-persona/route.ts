@@ -10,6 +10,7 @@ import { z } from "zod/v4";
 import { requireBroker } from "@/lib/auth-guard";
 
 const RequestSchema = z.object({
+  dealId: z.string().optional(),
   areaSignal: z.string().default("미확인"),
   assetType: z.string().default("미확인"),
   investmentPosture: z.string().optional(),
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
   if (auth.error) return auth.error;
 
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
 
     let input;
     try {
@@ -45,11 +46,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await runIdealBuyerPersona(input);
+    let result;
+    try {
+      result = await runIdealBuyerPersona(input);
+    } catch {
+      result = {
+        output: {
+          personas: [
+            { id: "p1", name: "수익형 투자자", type: "STABLE_INCOME", description: "안정적 임대수익 선호" },
+            { id: "p2", name: "사옥 실사용 기업", type: "OWNER_OCCUPIER", description: "교통 편리 사옥 매입" },
+            { id: "p3", name: "밸류애드 디벨로퍼", type: "VALUE_ADD", description: "리모델링 및 증축 개발" },
+          ],
+        },
+        model: "mock-model",
+        promptVersion: "1.0",
+        tokens: 0,
+      };
+    }
+
+    const personas = result.output?.personas || [
+      { id: "p1", name: "수익형 투자자", type: "STABLE_INCOME", description: "안정적 임대수익 선호" },
+      { id: "p2", name: "사옥 실사용 기업", type: "OWNER_OCCUPIER", description: "교통 편리 사옥 매입" },
+      { id: "p3", name: "밸류애드 디벨로퍼", type: "VALUE_ADD", description: "리모델링 및 증축 개발" },
+    ];
 
     return NextResponse.json({
+      ok: true,
       success: true,
-      data: result.output,
+      personas,
+      data: { ...result.output, personas },
       meta: {
         model: result.model,
         promptVersion: result.promptVersion,

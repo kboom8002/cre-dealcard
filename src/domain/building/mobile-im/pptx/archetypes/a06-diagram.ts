@@ -37,8 +37,16 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
   const areaOrAddress = (input.data?.left as any)?.source || input.data?.areaSignal || '서울';
   const poiSpots: MapPoiSpot[] = input.data?.poiSpots ?? [];
 
-  // 0차: 지적도 이미지가 직접 전달된 경우 (V-World WMS)
-  if (input.data?.cadastralImage) {
+  // 0-1차: 광역 대중교통망 벡터 다이어그램 (최우선 벡터 맵)
+  const macroTransitRaw = input.data?.macroTransitImage;
+  const macroTransitImg = typeof macroTransitRaw === 'object' && macroTransitRaw !== null
+    ? (macroTransitRaw.base64 ?? macroTransitRaw.data ?? (Buffer.isBuffer(macroTransitRaw) ? `image/png;base64,${macroTransitRaw.toString('base64')}` : null))
+    : (typeof macroTransitRaw === 'string' ? macroTransitRaw : null);
+
+  if (macroTransitImg) {
+    slide.addImage({ data: macroTransitImg, x: M, y: 1.62, w: mapW, h: 4.50 });
+  } else if (input.data?.cadastralImage) {
+    // 0-2차: 지적도 이미지가 직접 전달된 경우 (V-World WMS)
     slide.addImage({ data: input.data.cadastralImage, x: M, y: 1.62, w: mapW, h: 4.50 });
   } else {
     let mapImg: OptimizedImage | null = null;
@@ -62,7 +70,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
   }
 
   // D33 BL-E: 지도 4조건 경고 (suppress하지 않은 경우에만 도달)
-  if (!coords && !mapImageUrl && !input.data?.cadastralImage) {
+  if (!coords && !mapImageUrl && !input.data?.cadastralImage && !macroTransitImg) {
     warnings.push('[BL-2] 지도 좌표와 이미지 URL 모두 없음');
   }
 
@@ -77,7 +85,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     y += 0.35;
   }
 
-  const rightRows = right.rows ?? [];
+  const rightRows = (right.rows ?? []).slice(0, 5);
   if (rightRows.length > 0) {
     const safeRows = rightRows.map(([label, value, ...rest]: any[]) => 
       [stripMarkdown(String(label || '')), stripMarkdown(String(value || '')), ...rest]

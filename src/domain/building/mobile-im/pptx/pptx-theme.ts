@@ -52,7 +52,7 @@ export interface PptxThemeTokens {
   coverStyle: 'institutional_masses' | 'split' | 'hero_dark' | 'corporate_card' | 'obsidian_glow';
 
   // 본문 레이아웃 스타일 (프리셋별 슬라이드 레이아웃 차별화)
-  layoutStyle: 'classic' | 'modern' | 'executive' | 'minimal' | 'dramatic';
+  layoutStyle: 'classic' | 'modern' | 'executive' | 'minimal' | 'dramatic' | 'open_frame';
 
   // 브랜딩
   companyName: string;
@@ -61,6 +61,258 @@ export interface PptxThemeTokens {
 }
 
 export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
+  // ── 4대 핵심 완성형 프라임 템플릿 ──
+  // 1. 기관투자자 프라임 (Institutional Dark/Gold)
+  institutional_dark_gold: {
+    presetId: 'institutional_dark_gold',
+    presetName: '기관투자자 프라임 (Institutional Dark/Gold)',
+    ink: '10161F',
+    ink2: '1C2433',
+    ink3: '2D3748',
+    slate: '4A5568',
+    body: '10161F',
+    mute: '718096',
+    mute2: 'A0AEC0',
+    line: 'CBD5E0',
+    line2: 'E2E8F0',
+    bg: 'FFFFFF',
+    tint: 'F7FAFC',
+
+    accent: 'B98A2E',
+    accentD: '977024',
+    accentL: 'D9B668',
+    accentT: 'F3EBDA',
+
+    green: '276749',
+    greenL: 'C6F6D5',
+    red: '9B2C2C',
+    redL: 'FED7D7',
+    amber: '9C4221',
+    amberL: 'FEEBC8',
+    blue: '2B6CB0',
+    blueL: 'BEE3F8',
+    violet: '553C9A',
+    violetL: 'E9D8FD',
+
+    darkCard: '1A202C',
+    darkBlock: '2D3748',
+    darkBorder: '4A5568',
+    darkBody: 'E2E8F0',
+    darkMute: 'A0AEC0',
+    darkFaint: '718096',
+    darkAccentBg: '977024',
+    darkAccentBorder: 'B98A2E',
+    darkAccentText: 'F3EBDA',
+
+    titleFont: 'Pretendard',
+    bodyFont: 'Pretendard',
+    coverStyle: 'institutional_masses',
+    layoutStyle: 'classic',
+    companyName: '크리딜',
+    companyTagline: '상업용 부동산 투자 플랫폼'
+  },
+
+  // 2. 기업 사옥용 모던 (Corporate Clean White)
+  corporate_clean_white: {
+    presetId: 'corporate_clean_white',
+    presetName: '기업 사옥용 모던 (Corporate Clean White)',
+    ink: '1E293B',
+    ink2: '334155',
+    ink3: '475569',
+    slate: '64748B',
+    body: '1E293B',
+    mute: '94A3B8',
+    mute2: 'CBD5E1',
+    line: 'E2E8F0',
+    line2: 'F1F5F9',
+    bg: 'FFFFFF',
+    tint: 'F8FAFC',
+
+    accent: '059669',
+    accentD: '047857',
+    accentL: '34D399',
+    accentT: 'D1FAE5',
+
+    green: '16A34A',
+    greenL: 'DCFCE7',
+    red: 'EF4444',
+    redL: 'FEE2E2',
+    amber: 'F59E0B',
+    amberL: 'FEF3C7',
+    blue: '3B82F6',
+    blueL: 'DBEAFE',
+    violet: '8B5CF6',
+    violetL: 'EDE9FE',
+
+    darkCard: '334155',
+    darkBlock: '475569',
+    darkBorder: '64748B',
+    darkBody: 'F8FAFC',
+    darkMute: 'CBD5E1',
+    darkFaint: '94A3B8',
+    darkAccentBg: '047857',
+    darkAccentBorder: '059669',
+    darkAccentText: 'D1FAE5',
+
+    titleFont: 'Pretendard',
+    bodyFont: 'Pretendard',
+    coverStyle: 'corporate_card',
+    layoutStyle: 'minimal',
+    companyName: '크리딜',
+    companyTagline: '상업용 부동산 투자 플랫폼'
+  },
+
+  // 3. 메디컬/근생형 비주얼 (Commercial Visual Grid)
+  commercial_visual_grid: {
+    presetId: 'commercial_visual_grid',
+    presetName: '메디컬/근생형 비주얼 (Commercial Visual Grid)',
+    ink: '0F172A',
+    ink2: '1E293B',
+    ink3: '334155',
+    slate: '475569',
+    body: '0F172A',
+    mute: '64748B',
+    mute2: '94A3B8',
+    line: 'CBD5E1',
+    line2: 'E2E8F0',
+    bg: 'FFFFFF',
+    tint: 'F8FAFC',
+
+    accent: '1D4ED8',
+    accentD: '1E40AF',
+    accentL: '3B82F6',
+    accentT: 'EFF6FF',
+
+    green: '15803D',
+    greenL: 'DCFCE7',
+    red: 'B91C1C',
+    redL: 'FEE2E2',
+    amber: 'B45309',
+    amberL: 'FEF3C7',
+    blue: '1D4ED8',
+    blueL: 'DBEAFE',
+    violet: '6D28D9',
+    violetL: 'EDE9FE',
+
+    darkCard: '1E293B',
+    darkBlock: '334155',
+    darkBorder: '475569',
+    darkBody: 'F8FAFC',
+    darkMute: '94A3B8',
+    darkFaint: '64748B',
+    darkAccentBg: '1E40AF',
+    darkAccentBorder: '1D4ED8',
+    darkAccentText: 'DBEAFE',
+
+    titleFont: 'Pretendard',
+    bodyFont: 'Pretendard',
+    coverStyle: 'split',
+    layoutStyle: 'modern',
+    companyName: '크리딜',
+    companyTagline: '상업용 부동산 투자 플랫폼'
+  },
+
+  // 4. 개발부지형 테크니컬 (Development Technical Blueprint)
+  development_technical_blueprint: {
+    presetId: 'development_technical_blueprint',
+    presetName: '개발부지형 테크니컬 (Development Technical Blueprint)',
+    ink: '0F172A',
+    ink2: '1E293B',
+    ink3: '334155',
+    slate: '475569',
+    body: '0F172A',
+    mute: '64748B',
+    mute2: '94A3B8',
+    line: 'CBD5E1',
+    line2: 'E2E8F0',
+    bg: 'FFFFFF',
+    tint: 'F1F5F9',
+
+    accent: '0284C7',
+    accentD: '0369A1',
+    accentL: '38BDF8',
+    accentT: 'E0F2FE',
+
+    green: '059669',
+    greenL: 'D1FAE5',
+    red: 'DC2626',
+    redL: 'FEE2E2',
+    amber: 'D97706',
+    amberL: 'FEF3C7',
+    blue: '0284C7',
+    blueL: 'E0F2FE',
+    violet: '7C3AED',
+    violetL: 'EDE9FE',
+
+    darkCard: '0F172A',
+    darkBlock: '1E293B',
+    darkBorder: '334155',
+    darkBody: 'F8FAFC',
+    darkMute: '94A3B8',
+    darkFaint: '64748B',
+    darkAccentBg: '0369A1',
+    darkAccentBorder: '0284C7',
+    darkAccentText: 'E0F2FE',
+
+    titleFont: 'Pretendard',
+    bodyFont: 'Pretendard',
+    coverStyle: 'hero_dark',
+    layoutStyle: 'executive',
+    companyName: '크리딜',
+    companyTagline: '상업용 부동산 투자 플랫폼'
+  },
+
+  // 5. 기관투자자 슬레이트 (Institutional Slate/Gold)
+  institutional_slate: {
+    presetId: 'institutional_slate',
+    presetName: '기관투자자 슬레이트 (Institutional Slate/Gold)',
+    ink: 'FFFFFF',
+    ink2: 'F1F5F9',
+    ink3: 'E2E8F0',
+    slate: '94A3B8',
+    body: 'CBD5E1',
+    mute: '64748B',
+    mute2: '475569',
+    line: '3D4356',
+    line2: '4A5268',
+    bg: '2B2F3E',
+    tint: '232733',
+
+    accent: 'E8DEC8',
+    accentD: 'C4B598',
+    accentL: 'F5F0E6',
+    accentT: '1A1813',
+
+    green: '10B981',
+    greenL: '064E3B',
+    red: 'F43F5E',
+    redL: '881337',
+    amber: 'F59E0B',
+    amberL: '78350F',
+    blue: '38BDF8',
+    blueL: '0C4A6E',
+    violet: 'A78BFA',
+    violetL: '4C1D95',
+
+    darkCard: '232733',
+    darkBlock: '1E222D',
+    darkBorder: '3D4356',
+    darkBody: 'E2E8F0',
+    darkMute: '94A3B8',
+    darkFaint: '1E222D',
+    darkAccentBg: '383428',
+    darkAccentBorder: '665D46',
+    darkAccentText: 'E8DEC8',
+
+    titleFont: 'Pretendard',
+    bodyFont: 'Pretendard',
+    coverStyle: 'institutional_masses',
+    layoutStyle: 'open_frame',
+    companyName: '크리딜',
+    companyTagline: '상업용 부동산 투자 플랫폼'
+  },
+
+  // ── 하위 호환 레거시 프리셋 및 별칭 (Backward Compatibility) ──
   golden_institutional: {
     presetId: 'golden_institutional',
     presetName: 'Golden Institutional',
@@ -106,6 +358,54 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     bodyFont: 'Pretendard',
     coverStyle: 'institutional_masses',
     layoutStyle: 'classic',
+    companyName: '크리딜',
+    companyTagline: '상업용 부동산 투자 플랫폼'
+  },
+  corporate_clean: {
+    presetId: 'corporate_clean',
+    presetName: 'Corporate Clean',
+    ink: '1E293B',
+    ink2: '334155',
+    ink3: '475569',
+    slate: '64748B',
+    body: '1E293B',
+    mute: '94A3B8',
+    mute2: 'CBD5E1',
+    line: 'E2E8F0',
+    line2: 'F1F5F9',
+    bg: 'FFFFFF',
+    tint: 'F8FAFC',
+
+    accent: '059669',
+    accentD: '047857',
+    accentL: '34D399',
+    accentT: 'D1FAE5',
+
+    green: '16A34A',
+    greenL: 'DCFCE7',
+    red: 'EF4444',
+    redL: 'FEE2E2',
+    amber: 'F59E0B',
+    amberL: 'FEF3C7',
+    blue: '3B82F6',
+    blueL: 'DBEAFE',
+    violet: '8B5CF6',
+    violetL: 'EDE9FE',
+
+    darkCard: '334155',
+    darkBlock: '475569',
+    darkBorder: '64748B',
+    darkBody: 'F8FAFC',
+    darkMute: 'CBD5E1',
+    darkFaint: '94A3B8',
+    darkAccentBg: '047857',
+    darkAccentBorder: '059669',
+    darkAccentText: 'D1FAE5',
+
+    titleFont: 'Pretendard',
+    bodyFont: 'Pretendard',
+    coverStyle: 'corporate_card',
+    layoutStyle: 'minimal',
     companyName: '크리딜',
     companyTagline: '상업용 부동산 투자 플랫폼'
   },
@@ -205,54 +505,6 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     companyName: '크리딜',
     companyTagline: '상업용 부동산 투자 플랫폼'
   },
-  corporate_clean: {
-    presetId: 'corporate_clean',
-    presetName: 'Corporate Clean',
-    ink: '1E293B',
-    ink2: '334155',
-    ink3: '475569',
-    slate: '64748B',
-    body: '1E293B',
-    mute: '94A3B8',
-    mute2: 'CBD5E1',
-    line: 'E2E8F0',
-    line2: 'F1F5F9',
-    bg: 'FFFFFF',
-    tint: 'F8FAFC',
-
-    accent: '059669',
-    accentD: '047857',
-    accentL: '34D399',
-    accentT: 'D1FAE5',
-
-    green: '16A34A',
-    greenL: 'DCFCE7',
-    red: 'EF4444',
-    redL: 'FEE2E2',
-    amber: 'F59E0B',
-    amberL: 'FEF3C7',
-    blue: '3B82F6',
-    blueL: 'DBEAFE',
-    violet: '8B5CF6',
-    violetL: 'EDE9FE',
-
-    darkCard: '334155',
-    darkBlock: '475569',
-    darkBorder: '64748B',
-    darkBody: 'F8FAFC',
-    darkMute: 'CBD5E1',
-    darkFaint: '94A3B8',
-    darkAccentBg: '047857',
-    darkAccentBorder: '059669',
-    darkAccentText: 'D1FAE5',
-
-    titleFont: 'Pretendard',
-    bodyFont: 'Pretendard',
-    coverStyle: 'corporate_card',
-    layoutStyle: 'minimal',
-    companyName: '크리딜',
-    companyTagline: '상업용 부동산 투자 플랫폼'
-  },
   pro_dark_obsidian: {
     presetId: 'pro_dark_obsidian',
     presetName: 'Pro Dark Obsidian',
@@ -303,32 +555,70 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
   }
 };
 
+export const PRIME_TEMPLATE_ALIASES: Record<string, string> = {
+  golden_institutional: 'institutional_dark_gold',
+  corporate_clean: 'corporate_clean_white',
+  commercial_visual: 'commercial_visual_grid',
+  development_blueprint: 'development_technical_blueprint',
+  institutional_slate_gold: 'institutional_slate',
+  slate_institutional: 'institutional_slate',
+};
+
+export const CORE_PRIME_TEMPLATES = [
+  'institutional_dark_gold',
+  'corporate_clean_white',
+  'commercial_visual_grid',
+  'development_technical_blueprint',
+  'institutional_slate',
+] as const;
+
+export const INSTITUTIONAL_SLATE_PRESET = 'institutional_slate';
+
+export type CorePrimeTemplateId = typeof CORE_PRIME_TEMPLATES[number];
+
 export const DEFAULT_PPTX_PRESET = 'golden_institutional';
 
 export function getPptxTheme(presetId?: string): PptxThemeTokens {
-  if (presetId && PPTX_PRESET_TEMPLATES[presetId]) {
-    return PPTX_PRESET_TEMPLATES[presetId];
+  if (presetId) {
+    if (PPTX_PRESET_TEMPLATES[presetId]) {
+      return PPTX_PRESET_TEMPLATES[presetId];
+    }
+    const resolvedAlias = PRIME_TEMPLATE_ALIASES[presetId];
+    if (resolvedAlias && PPTX_PRESET_TEMPLATES[resolvedAlias]) {
+      return PPTX_PRESET_TEMPLATES[resolvedAlias];
+    }
   }
   return PPTX_PRESET_TEMPLATES[DEFAULT_PPTX_PRESET];
 }
 
 export const CREDEAL_PPTX_THEME = PPTX_PRESET_TEMPLATES.credeal_signature;
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+/**
+ * DB 조회를 위한 경량 인터페이스 (도메인 계층 Supabase 직접 의존 제거 — Rule 12)
+ */
+export interface ThemePresetDbReader {
+  from(table: string): any;
+}
 
 /**
  * 커스텀 프리셋을 포함한 비동기 테마 조회.
- * 1차: 내장 프리셋 확인 (golden_institutional 등 5개)
+ * 1차: 내장 프리셋 확인 (4대 프라임 템플릿 + 레거시 별칭)
  * 2차: UUID 형식이면 DB에서 커스텀 프리셋 조회
  * 3차: 기본값(golden_institutional) 반환
  */
 export async function getPptxThemeAsync(
   presetId?: string,
-  supabase?: SupabaseClient,
+  supabase?: ThemePresetDbReader,
 ): Promise<PptxThemeTokens> {
-  // 1. 내장 프리셋 (빠른 경로)
-  if (presetId && PPTX_PRESET_TEMPLATES[presetId]) {
-    return PPTX_PRESET_TEMPLATES[presetId];
+  // 1. 내장 프리셋 (빠른 경로 및 별칭 해석)
+  if (presetId) {
+    if (PPTX_PRESET_TEMPLATES[presetId]) {
+      return PPTX_PRESET_TEMPLATES[presetId];
+    }
+    const resolvedAlias = PRIME_TEMPLATE_ALIASES[presetId];
+    if (resolvedAlias && PPTX_PRESET_TEMPLATES[resolvedAlias]) {
+      return PPTX_PRESET_TEMPLATES[resolvedAlias];
+    }
   }
 
   // 2. UUID 형식 → DB에서 커스텀 프리셋 조회

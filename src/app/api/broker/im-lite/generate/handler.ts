@@ -129,6 +129,15 @@ export async function generateMobileIMHandler(
     console.log('[im-handler] Overriding grade with directData.qualityGrade:', gradeResult.grade);
   }
 
+  // Pro IM tier gate: requires at least B-grade (completeness >= 60%)
+  if (tier === 'pro' && (gradeResult.grade === 'D' || gradeResult.grade === 'C' || (typeof ssotRow.completeness_score === 'number' && ssotRow.completeness_score < 60))) {
+    return {
+      ok: false,
+      error: 'Pro IM은 B등급(완성도 60%) 이상의 데이터가 필요합니다.',
+      statusCode: 422,
+    };
+  }
+
   // ─── 등급 기반 자동 결정 (Basic/Pro 구분 제거 → 단일 IM) ───
   {
     const posture = (

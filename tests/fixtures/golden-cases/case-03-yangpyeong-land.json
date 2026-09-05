@@ -1,0 +1,16 @@
+{
+  "caseId": "case-03",
+  "title": "양평동 노후 공장/부지 (자료제약형)",
+  "description": "사진 1장 미만 자료 제약 상태에서 억지 확대 없이 다이어그램 중심 레이아웃 검증용",
+  "asset": {
+    "name": "양평동 준공업지역 창고부지",
+    "askingPrice": 16000000000,
+    "landArea": 890.0,
+    "grossFloorArea": 450.0,
+    "photos": []
+  },
+  "expectedOutcome": {
+    "photoLayoutMode": "data_constrained",
+    "gateExpected": "PASS"
+  }
+}

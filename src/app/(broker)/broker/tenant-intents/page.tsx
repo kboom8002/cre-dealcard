@@ -1,9 +1,8 @@
-// @ts-nocheck DORMANT: entire file dormant
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 
 interface TenantIntent {
@@ -21,13 +20,10 @@ interface TenantIntent {
   } | null;
 }
 
-export default function TenantIntentsListPage() {
-  /* DORMANT: leasing-studio */
-  const dormantRouter = useRouter();
-  useEffect(() => { dormantRouter.replace("/broker"); }, [dormantRouter]);
-  return null;
-
+function TenantIntentsListContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const buildingId = searchParams?.get("buildingId");
   const [intents, setIntents] = useState<TenantIntent[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -67,6 +63,19 @@ export default function TenantIntentsListPage() {
             + 새 의향서
           </Link>
         </div>
+
+        {/* Building ID link banner if present */}
+        {buildingId && (
+          <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 flex items-center justify-between">
+            <span className="text-xs text-primary font-medium">🏢 매물 연동 임차의향서 매칭</span>
+            <Link
+              href={`/broker/deal-card/${buildingId}`}
+              className="text-xs text-primary underline hover:text-primary/80"
+            >
+              ← 딜카드로 이동
+            </Link>
+          </div>
+        )}
 
         {/* Search */}
         <div className="relative">
@@ -143,5 +152,13 @@ export default function TenantIntentsListPage() {
 
       <BrokerBottomNav />
     </main>
+  );
+}
+
+export default function TenantIntentsListPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0b0f19] flex items-center justify-center text-slate-400 text-xs">로딩 중...</div>}>
+      <TenantIntentsListContent />
+    </Suspense>
   );
 }

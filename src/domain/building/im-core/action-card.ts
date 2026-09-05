@@ -7,6 +7,10 @@
  * @see docs/impipe/D37_P1P2_IMPLEMENTATION_PLAN.md §P1-4
  */
 
+import { randomUUID } from 'crypto';
+import type { ClaimRegistry } from './claim-registry';
+import type { Claim } from './claim';
+
 // ── 타입 ──
 
 export type ScenarioType = 'base' | 'upside' | 'downside';
@@ -95,3 +99,120 @@ export function validateActionCard(card: ActionCard): ActionCardValidation {
     warnings,
   };
 }
+
+/**
+ * Action Card의 시나리오 및 실행 항목을 ClaimRegistry에 1급 객체로 등록합니다.
+ */
+export function registerActionCardClaims(
+  registry: ClaimRegistry,
+  card: ActionCard,
+  asOf: string = new Date().toISOString().slice(0, 10)
+): { claims: Claim[]; cardWithClaimIds: ActionCard } {
+  const claims: Claim[] = [];
+  const claimIds: string[] = [];
+
+  for (const scenario of card.scenarios) {
+    const prefix = `action_card_${card.cardOrder}_${scenario.type}`;
+
+    // 1. Stabilized Cap Rate Claim
+    const { claim: capRateClaim } = registry.register({
+      subject: `${prefix}_cap_rate`,
+      value: scenario.stabilizedCapRate,
+      unit: '%',
+      evidence: [{
+        sourceId: 'derived',
+        asOf,
+        excerpt: `[ActionCard ${card.cardOrder}: ${card.currentStateSummary}] ${scenario.title} 정상화 Cap Rate`,
+      }],
+      provenance: 'derived',
+      asOf,
+      status: 'reconciled',
+      calculation: {
+        id: randomUUID(),
+        formula: 'stabilized_noi / estimated_value * 100',
+        formulaVersion: 'v1.0.0',
+        inputs: {},
+        result: scenario.stabilizedCapRate,
+        basis: 'NOI',
+      },
+    });
+    claims.push(capRateClaim);
+    claimIds.push(capRateClaim.id);
+
+    // 2. Stabilized NOI Claim
+    const { claim: noiClaim } = registry.register({
+      subject: `${prefix}_noi`,
+      value: scenario.stabilizedNOI,
+      unit: '원',
+      evidence: [{
+        sourceId: 'derived',
+        asOf,
+        excerpt: `[ActionCard ${card.cardOrder}] ${scenario.title} 정상화 순영업소득(NOI)`,
+      }],
+      provenance: 'derived',
+      asOf,
+      status: 'reconciled',
+    });
+    claims.push(noiClaim);
+    claimIds.push(noiClaim.id);
+
+    // 3. Stabilized Monthly Rent Claim
+    const { claim: rentClaim } = registry.register({
+      subject: `${prefix}_monthly_rent`,
+      value: scenario.stabilizedMonthlyRent,
+      unit: '원/월',
+      evidence: [{
+        sourceId: 'derived',
+        asOf,
+        excerpt: `[ActionCard ${card.cardOrder}] ${scenario.title} 정상화 월 임대료`,
+      }],
+      provenance: 'derived',
+      asOf,
+      status: 'reconciled',
+    });
+    claims.push(rentClaim);
+    claimIds.push(rentClaim.id);
+
+    // 4. Estimated Value Claim
+    const { claim: valueClaim } = registry.register({
+      subject: `${prefix}_estimated_value`,
+      value: scenario.estimatedValue,
+      unit: '원',
+      evidence: [{
+        sourceId: 'derived',
+        asOf,
+        excerpt: `[ActionCard ${card.cardOrder}] ${scenario.title} 정상화 후 추정 자산 가치`,
+      }],
+      provenance: 'derived',
+      asOf,
+      status: 'reconciled',
+    });
+    claims.push(valueClaim);
+    claimIds.push(valueClaim.id);
+  }
+
+  // D36 §3.3: If tenant relocation is involved, verify premiumRiskClaim is present
+  if (card.involvesTenantRelocation && !card.premiumRiskClaim) {
+    const { claim: premiumClaim } = registry.register({
+      subject: `action_card_${card.cardOrder}_premium_risk`,
+      value: '권리금 회수기회 보호 대상 검토 필요',
+      unit: '',
+      evidence: [{ sourceId: 'broker', asOf, excerpt: '기존 임차인 명도/이동 계획 수반' }],
+      provenance: 'broker',
+      asOf,
+      status: 'unverified',
+      expertRequired: true,
+    });
+    claims.push(premiumClaim);
+    claimIds.push(premiumClaim.id);
+    card.premiumRiskClaim = premiumClaim.id;
+  }
+
+  const cardWithClaimIds: ActionCard = {
+    ...card,
+    relatedClaimIds: Array.from(new Set([...(card.relatedClaimIds || []), ...claimIds])),
+  };
+
+  return { claims, cardWithClaimIds };
+}
+

@@ -1,0 +1,15 @@
+{
+  "schema_version":"1.0.0",
+  "contracts":[
+    {"id":"CTR-001","name":"deal_run","producer":"pipeline","consumers":["all"],"owner":"pipeline"},
+    {"id":"CTR-002","name":"stage_run","producer":"pipeline","consumers":["all"],"owner":"pipeline"},
+    {"id":"CTR-003","name":"gate_report","producer":"gate","consumers":["approval","publication","operations"],"owner":"quality"},
+    {"id":"CTR-004","name":"approval_record","producer":"approval","consumers":["publication","audit"],"owner":"security"},
+    {"id":"CTR-005","name":"publication_record","producer":"publication","consumers":["channels","audit","operations"],"owner":"pipeline"},
+    {"id":"CTR-006","name":"source_observation","producer":"ingestion","consumers":["im_core"],"owner":"im_core"},
+    {"id":"CTR-007","name":"canonical_snapshot","producer":"im_core","consumers":["claim_engine","eligibility"],"owner":"im_core"},
+    {"id":"CTR-008","name":"publication_package","producer":"im_core","consumers":["mobile","pptx_studio"],"owner":"im_core"},
+    {"id":"CTR-009","name":"dealcard_package","producer":"dealcard_assembler","consumers":["dealcard_renderer"],"owner":"dealcard"},
+    {"id":"CTR-010","name":"impact_plan","producer":"invalidation_planner","consumers":["pipeline","approval","channels"],"owner":"architecture"}
+  ]
+}

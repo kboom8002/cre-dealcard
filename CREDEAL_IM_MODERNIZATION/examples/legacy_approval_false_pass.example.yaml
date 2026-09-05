@@ -1,0 +1,16 @@
+{
+  "example":"구형 승인 허위통과 방지",
+  "legacy_behavior":{
+    "checker_error":"converted_to_pass",
+    "approval_target":"artifact_id_only",
+    "post_approval_change":"approval_remained_valid"
+  },
+  "required_behavior":{
+    "checker_error":"SYSTEM_ERROR",
+    "blocking_result":true,
+    "approval_target":["artifact_version_id","server_target_hash"],
+    "post_approval_change":"approval_invalidated",
+    "publication":"rejected_until_recheck_and_reapproval"
+  },
+  "tests":["negative_checker_failure","tamper_target_bytes","recovery_recheck_reapprove"]
+}

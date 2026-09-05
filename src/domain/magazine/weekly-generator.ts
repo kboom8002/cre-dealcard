@@ -6,12 +6,12 @@
  * composeMagazineBriefing / getMarketIntelligence 패턴을 따릅니다.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { callLLM } from '@/ai/llm-client';
 import {
   type MarketTemperature,
   type MagazineEdition,
   type EditionStatus,
+  type MagazineDbClient,
   getWeekLabel,
   MARKET_TEMP_CONFIG,
 } from './types';
@@ -93,7 +93,7 @@ interface LLMGeneratedContent {
 // ── 데이터 수집 ────────────────────────────────────────────────────
 
 const fetchBrokerContext = async (
-  supabase: SupabaseClient,
+  supabase: MagazineDbClient,
   brokerId: string,
 ): Promise<BrokerContext | null> => {
   try {
@@ -128,7 +128,7 @@ const fetchBrokerContext = async (
 };
 
 const fetchWeekPulse = async (
-  supabase: SupabaseClient,
+  supabase: MagazineDbClient,
   region: string,
   weekLabel: string,
 ): Promise<PulseData | null> => {
@@ -147,7 +147,7 @@ const fetchWeekPulse = async (
 };
 
 const fetchWeekNews = async (
-  supabase: SupabaseClient,
+  supabase: MagazineDbClient,
   limit = 10,
 ): Promise<NewsItem[]> => {
   try {
@@ -164,7 +164,7 @@ const fetchWeekNews = async (
 };
 
 const fetchWeekTransactions = async (
-  supabase: SupabaseClient,
+  supabase: MagazineDbClient,
   limit = 10,
 ): Promise<Record<string, unknown>[]> => {
   try {
@@ -182,7 +182,7 @@ const fetchWeekTransactions = async (
 };
 
 const fetchActiveDeals = async (
-  supabase: SupabaseClient,
+  supabase: MagazineDbClient,
   userId: string,
 ): Promise<DealItem[]> => {
   try {
@@ -200,7 +200,7 @@ const fetchActiveDeals = async (
 };
 
 const fetchSentimentData = async (
-  supabase: SupabaseClient,
+  supabase: MagazineDbClient,
 ): Promise<{ avgSentiment: number; items: Record<string, unknown>[] }> => {
   try {
     const { data } = await supabase
@@ -488,7 +488,7 @@ ${hobbiesStr}
  * 3. draft 상태로 magazine_editions에 저장
  */
 export const generateWeeklyMagazine = async (params: {
-  supabase: SupabaseClient;
+  supabase: MagazineDbClient;
   brokerId: string;
   editionType?: string;
   editionLabel?: string;
@@ -513,10 +513,10 @@ export const generateWeeklyMagazine = async (params: {
       fetchWeekTransactions(supabase, 10),
       fetchActiveDeals(supabase, brokerCtx.broker.user_id),
       fetchSentimentData(supabase),
-      supabase.from('auction_listings').select('id, address, asset_type, appraisal_price, minimum_bid, auction_date, status, discount_pct').order('auction_date', { ascending: false }).limit(5).then(r => r.data ?? []),
-      supabase.from('external_reports').select('id, title, source, summary, published_date, report_type').order('published_date', { ascending: false }).limit(5).then(r => r.data ?? []),
-      supabase.from('rental_trend_data').select('region, avg_rent, vacancy_rate, trend, period').order('period', { ascending: false }).limit(5).then(r => r.data ?? []),
-      supabase.from('commercial_district').select('dong_name, total_stores, monthly_sales_avg, category_top3, change_rate').limit(5).then(r => r.data ?? []),
+      supabase.from('auction_listings').select('id, address, asset_type, appraisal_price, minimum_bid, auction_date, status, discount_pct').order('auction_date', { ascending: false }).limit(5).then((r: any) => r.data ?? []),
+      supabase.from('external_reports').select('id, title, source, summary, published_date, report_type').order('published_date', { ascending: false }).limit(5).then((r: any) => r.data ?? []),
+      supabase.from('rental_trend_data').select('region, avg_rent, vacancy_rate, trend, period').order('period', { ascending: false }).limit(5).then((r: any) => r.data ?? []),
+      supabase.from('commercial_district').select('dong_name, total_stores, monthly_sales_avg, category_top3, change_rate').limit(5).then((r: any) => r.data ?? []),
     ]);
 
   // 3. 커버 데이터 결정
@@ -560,7 +560,7 @@ export const generateWeeklyMagazine = async (params: {
     const prevMonth = todayObj.getMonth() === 0 ? 12 : todayObj.getMonth();
     const prevMonthStr = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
     const targetRegions = brokerCtx.broker.specialty_regions?.length ? brokerCtx.broker.specialty_regions : ['성수동', '강남구'];
-    monthlySummary = await summarizeMonthlyTransactions(supabase, prevMonthStr, targetRegions);
+    monthlySummary = await summarizeMonthlyTransactions(supabase as any, prevMonthStr, targetRegions);
   } catch (err) {
     console.warn('[WeeklyGenerator] Failed to summarize monthly transactions:', err);
   }

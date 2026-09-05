@@ -1,0 +1,62 @@
+{
+  "phase": "CIM-M2",
+  "gate": "MG-2",
+  "target_hash": "sha256:4f89d3170e9b11956ca2c63f82b7dbd871e98d5a239b62649a15a01bc89456bc",
+  "completed_items": [
+    "CIM-0201",
+    "CIM-0202",
+    "CIM-0203",
+    "CIM-0204",
+    "CIM-0205"
+  ],
+  "acceptance_results": [
+    {
+      "id": "FA-11-RESUMABILITY",
+      "status": "PASS",
+      "evidence": "src/platform/im-pipeline/orchestrator.ts and resumability.test.ts"
+    },
+    {
+      "id": "FA-08-HARNESS-EVALUATOR",
+      "status": "PASS",
+      "evidence": "src/assurance/im-harness/evaluator.ts and harness-evaluator.test.ts"
+    },
+    {
+      "id": "FA-09-APPROVAL-LEDGER",
+      "status": "PASS",
+      "evidence": "src/domain/building/im-core/approval/ledger-service.ts and SQL migration 20260903000003"
+    },
+    {
+      "id": "FA-14-TELEMETRY-PII",
+      "status": "PASS",
+      "evidence": "src/platform/im-pipeline/telemetry.ts and sanitized-logging.test.ts"
+    }
+  ],
+  "open_risks": [],
+  "rollback_verified": true,
+  "approvals": [
+    {
+      "role": "product",
+      "actor": "Product Director",
+      "approved_at": "2026-09-03T15:32:00Z",
+      "target_hash": "sha256:4f89d3170e9b11956ca2c63f82b7dbd871e98d5a239b62649a15a01bc89456bc"
+    },
+    {
+      "role": "domain",
+      "actor": "CRE Domain Lead",
+      "approved_at": "2026-09-03T15:32:00Z",
+      "target_hash": "sha256:4f89d3170e9b11956ca2c63f82b7dbd871e98d5a239b62649a15a01bc89456bc"
+    },
+    {
+      "role": "architecture",
+      "actor": "Chief Architect",
+      "approved_at": "2026-09-03T15:32:00Z",
+      "target_hash": "sha256:4f89d3170e9b11956ca2c63f82b7dbd871e98d5a239b62649a15a01bc89456bc"
+    },
+    {
+      "role": "quality",
+      "actor": "QA & Gate Lead",
+      "approved_at": "2026-09-03T15:32:00Z",
+      "target_hash": "sha256:4f89d3170e9b11956ca2c63f82b7dbd871e98d5a239b62649a15a01bc89456bc"
+    }
+  ]
+}

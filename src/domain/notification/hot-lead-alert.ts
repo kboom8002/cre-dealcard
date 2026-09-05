@@ -1,13 +1,13 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendKakaoAlimtalk } from '@/lib/notification/notification-service';
 import type { LeadScoreResult } from '../analytics/cross-channel-score';
+import type { NotificationDbClient } from './im-view-alert';
 
 /**
  * Hot Lead 감지 시 브로커에게 카카오 알림톡 발송.
  * 조건: 리드 스코어 80+ 달성 + 24시간 내 동일 알림 미발송
  */
 export async function checkAndSendHotLeadAlert(
-  supabase: SupabaseClient,
+  supabase: NotificationDbClient,
   brokerId: string,
   lead: LeadScoreResult,
   visitorHash: string,
@@ -115,8 +115,9 @@ export async function checkAndSendHotLeadAlert(
     }
 
     return sent;
-  } catch (err: any) {
-    console.error('[Hot Lead Alert] Error occurred:', err.message);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[Hot Lead Alert] Error occurred:', message);
     return false;
   }
 }

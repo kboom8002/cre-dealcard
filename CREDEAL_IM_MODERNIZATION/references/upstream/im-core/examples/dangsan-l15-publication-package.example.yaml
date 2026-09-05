@@ -1,0 +1,116 @@
+packageId: 33333333-3333-4333-8333-333333333333
+snapshotId: 22222222-2222-4222-8222-222222222222
+packageVersion: 1.0.0
+targetLevel: L1.5
+eligibleLevels: [L1, L1.5]
+claimEvaluations:
+  - evaluationId: 44444444-4444-4444-8444-444444444444
+    claimId: TX-C01-ASKING-PRICE
+    claimDefinitionVersion: 1.0.0
+    snapshotId: 22222222-2222-4222-8222-222222222222
+    evidenceStatus: broker_checked
+    useStatus: allowed
+    value: 11500000000
+    unit: KRW
+    basis:
+      priceCharacter: seller_asking
+      vatTreatment: building_vat_separate
+      asOf: '2026-08-31'
+    evidenceRefs: [OBS-ASK-001]
+    gateDecisionRefs: [GATE-ASK-001]
+  - evaluationId: 55555555-5555-4555-8555-555555555555
+    claimId: RR-C01-SELLER-MONTHLY-BASE-RENT
+    claimDefinitionVersion: 1.0.0
+    snapshotId: 22222222-2222-4222-8222-222222222222
+    evidenceStatus: broker_checked
+    useStatus: allowed_with_warning
+    value: 19460000
+    unit: KRW_PER_MONTH
+    basis:
+      sourceLevel: seller_provided
+      excludes: [VAT, management_fee]
+      asOf: '2026-08-31'
+    evidenceRefs: [OBS-RR-001]
+    warnings: [계약 갱신상태와 최근 수납내역은 매수 검토 시 확인]
+    gateDecisionRefs: [GATE-RR-001]
+  - evaluationId: 66666666-6666-4666-8666-666666666666
+    claimId: RR-C13-NOI
+    claimDefinitionVersion: 1.0.0
+    snapshotId: 22222222-2222-4222-8222-222222222222
+    evidenceStatus: not_available
+    useStatus: blocked
+    value: null
+    unit: KRW_PER_YEAR
+    evidenceRefs: [OBS-OPEX-MISSING]
+    blockers: [최근 12개월 운영비 자료 미제출]
+    gateDecisionRefs: [GATE-NOI-001]
+  - evaluationId: 77777777-7777-4777-8777-777777777777
+    claimId: RR-C14-CAP-RATE
+    claimDefinitionVersion: 1.0.0
+    snapshotId: 22222222-2222-4222-8222-222222222222
+    evidenceStatus: not_available
+    useStatus: blocked
+    value: null
+    unit: PERCENT
+    evidenceRefs: [OBS-OPEX-MISSING]
+    blockers: [순영업소득 산출항목 사용차단]
+    gateDecisionRefs: [GATE-CAP-001]
+proposalUnits:
+  - proposalUnitId: PROP-DANGSAN-001
+    brokerRawText: 자가사용 121평을 임대로 돌리면 임대료 업사이드가 있음
+    publicCopy: 자가사용 공간 121.1평은 매입 후 임대 전환을 검토할 수 있습니다.
+    evidenceRefs: [OBS-USE-001, PHOTO-OWNER-SPACE-001]
+    buyerMeaning: 추가 임대수입을 확보할 수 있는 활용 여지
+    conditions: [공간 인도시기, 목표업종 임대수요, 시설공사 범위]
+    approvalStatus: approved_for_publication
+risks:
+  - riskId: RISK-DANGSAN-001
+    issue: 일부 임대차의 갱신상태와 최근 수납 미확인
+    affectedClaimRefs: [RR-C01-SELLER-MONTHLY-BASE-RENT]
+    impact: [income]
+    ddRequestRef: DD-DANGSAN-001
+ddRequests:
+  - ddRequestId: DD-DANGSAN-001
+    request: 갱신합의서와 최근 3개월 임대료 수납내역 확인
+    owner: broker
+    dueStage: before_price_confirmation
+loiConditions:
+  - loiConditionId: LOI-DANGSAN-001
+    condition: 임대차 갱신상태와 수납내역 확인 후 현재 임대수입 재산정
+mediaBindings:
+  - mediaBindingId: MB-DANGSAN-001
+    photoAssetId: PHOTO-EXTERIOR-001
+    role: representative_exterior
+    disclosureStatus: approved
+    linkedContentUnitRefs: [CU-COVER, CU-PROPERTY-OVERVIEW]
+  - mediaBindingId: MB-DANGSAN-002
+    photoAssetId: PHOTO-OWNER-SPACE-001
+    role: vacant_or_owner_space
+    disclosureStatus: approved
+    linkedProposalUnitRefs: [PROP-DANGSAN-001]
+contentUnits:
+  - contentUnitId: CU-PROPERTY-OVERVIEW
+    readerQuestion: 무엇을 얼마에 파는가
+    titleCandidates: [당산역 도보권 수익형 빌딩]
+    claimRefs: [TX-C01-ASKING-PRICE]
+    proposalUnitRefs: []
+    mediaBindingRefs: [MB-DANGSAN-001]
+    sourceNoteRefs: [SRC-NOTE-ASK-001]
+  - contentUnitId: CU-BROKER-PROPOSAL
+    readerQuestion: 어떤 활용 여지를 검토할 수 있는가
+    titleCandidates: [자가사용 공간 임대 전환 검토]
+    claimRefs: []
+    proposalUnitRefs: [PROP-DANGSAN-001]
+    mediaBindingRefs: [MB-DANGSAN-002]
+    sourceNoteRefs: [SRC-NOTE-USE-001]
+gateReport:
+  gateReportId: GATE-RUN-DANGSAN-001
+  status: PASS_WITH_WARNINGS
+  blockedClaimRefs: [RR-C13-NOI, RR-C14-CAP-RATE]
+  releaseBlocked: false
+policyVersions:
+  gating: 1.0.0-proposed
+  masking: current
+  image: current
+packageHash: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+createdAt: '2026-08-31T12:00:00+09:00'

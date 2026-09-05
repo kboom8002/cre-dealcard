@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://credeal.com/schemas/mobile-im-package.schema.json",
+  "title": "MobileIMPackage",
+  "description": "CTR-008: Modern Mobile IM Publication Package",
+  "type": "object",
+  "required": [
+    "packageId",
+    "dealId",
+    "corePackageHash",
+    "level",
+    "sections",
+    "claims",
+    "harnessReportId",
+    "packageHash",
+    "createdAt"
+  ],
+  "properties": {
+    "packageId": { "type": "string", "format": "uuid" },
+    "dealId": { "type": "string", "format": "uuid" },
+    "corePackageHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "level": {
+      "type": "string",
+      "enum": ["L1", "L1.5"]
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["sectionType", "title", "content"],
+        "properties": {
+          "sectionType": { "type": "string" },
+          "title": { "type": "string" },
+          "content": { "type": "string" },
+          "tables": { "type": "array" }
+        }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "harnessReportId": { "type": "string", "format": "uuid" },
+    "packageHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

@@ -1,0 +1,88 @@
+policy_version: 1.0.0
+owner: im-pipeline
+status: proposed_normative
+stage_states:
+  - queued
+  - leased
+  - running
+  - succeeded
+  - failed_retryable
+  - blocked_user
+  - blocked_policy
+  - failed_fatal
+  - cancelled
+  - superseded
+error_classes:
+  transient_external:
+    automatic_retry: true
+    user_action_required: false
+    default_max_attempts: 3
+    backoff_seconds: [2, 6, 18]
+    jitter: full
+  transient_internal:
+    automatic_retry: true
+    user_action_required: false
+    default_max_attempts: 4
+    backoff_seconds: [1, 3, 9, 27]
+    jitter: full
+  invalid_input:
+    automatic_retry: false
+    user_action_required: true
+    terminal_stage_state: blocked_user
+  missing_evidence:
+    automatic_retry: false
+    user_action_required: true
+    terminal_stage_state: blocked_user
+  unresolved_conflict:
+    automatic_retry: false
+    user_action_required: true
+    terminal_stage_state: blocked_user
+  policy_block:
+    automatic_retry: false
+    user_action_required: true
+    terminal_stage_state: blocked_policy
+  concurrency_conflict:
+    automatic_retry: false
+    user_action_required: true
+    http_status: 409
+  deterministic_bug:
+    automatic_retry: true
+    user_action_required: false
+    default_max_attempts: 2
+    backoff_seconds: [0]
+    terminal_stage_state: failed_fatal
+  render_defect:
+    automatic_retry: conditional
+    user_action_required: conditional
+    default_max_attempts: 2
+    backoff_seconds: [5]
+  cancelled:
+    automatic_retry: false
+    user_action_required: false
+    terminal_stage_state: cancelled
+operation_overrides:
+  public_api_get:
+    error_class: transient_external
+    max_attempts: 3
+    honor_retry_after: true
+    cache_fallback_requires_explicit_label: true
+  llm_copy_generation:
+    max_attempts: 2
+    backoff_seconds: [2, 8]
+    allowed_fallback: deterministic_copy_without_new_facts_or_numbers
+  deterministic_core:
+    max_attempts: 2
+    backoff_seconds: [0]
+  pptx_render:
+    max_attempts: 2
+    backoff_seconds: [5]
+  approval:
+    max_attempts: 1
+    duplicate_idempotency_returns_existing_result: true
+lease_policy:
+  default_lease_seconds: 60
+  default_heartbeat_seconds: 15
+  long_render_lease_seconds: 180
+  long_render_heartbeat_seconds: 30
+  reject_late_completion_on_token_mismatch: true
+

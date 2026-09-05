@@ -1,0 +1,71 @@
+catalog_version: 1.0.0
+owner: im-architecture
+status: migration_reference
+source_repo: C:/Users/User/cre-dealcard
+mappings:
+  - current: src/app/api/broker/im-lite/generate-async/route.ts
+    observed_role: 입력접수와 after 기반 전체 백그라운드 실행
+    risks: [single_long_running_task, coarse_job_status, mixed_ssot_writeback]
+    target: application/im-pipeline/commands/create-core-run
+    migration_action: keep_route_as_command_adapter
+  - current: src/app/api/broker/im-lite/job-status/route.ts
+    observed_role: processing_completed_failed 폴링
+    risks: [no_stage_progress, no_action_items, no_resume_point]
+    target: application/im-pipeline/queries/get-run-status
+    migration_action: project_new_status_to_legacy_response
+  - current: src/domain/building/mobile-im/im-generation-state-machine.ts
+    observed_role: 독자 섹션 순서 중심 forward-only 상태
+    risks: [business_stage_and_copy_stage_mixed, no_retry_states]
+    target: domain/im-pipeline/stage-graph plus mobile/content-plan
+    migration_action: split_business_stages_from_presentation_sections
+  - current: src/domain/building/mobile-im/stage-plans.ts
+    observed_role: 포스처별 섹션 생성 위상계획
+    risks: [release_content_coupled_to_generation]
+    target: domain/mobile-im/composer/content-plan
+    migration_action: retain_as_legacy_content_adapter_only
+  - current: src/domain/building/mobile-im/stage-timer.ts
+    observed_role: 90_105_120초 전역 시간보호
+    risks: [whole_run_discard, platform_timeout_dependency]
+    target: infrastructure/im-pipeline/stage-deadline-and-lease
+    migration_action: replace_global_timer_with_per_stage_deadlines
+  - current: src/domain/building/mobile-im/writer.ts
+    observed_role: 계산·자료가용성·섹션문안·게이트·인덱싱 조정
+    risks: [responsibility_concentration, ephemeral_claim_registry, non_blocking_side_effects]
+    target: im-core workers plus mobile composer
+    migration_action: serialize_core_outputs_then_shrink_to_composer
+  - current: src/app/api/broker/im-lite/generate/handler.ts
+    observed_role: 자료수집·writer 호출·document_objects 저장
+    risks: [large_json_body_ssot, no_stage_checkpoints]
+    target: workers/P00-P60 and publication projection
+    migration_action: extract_stage_executors_incrementally
+  - current: src/app/api/broker/im-lite/[id]/approve/route.ts
+    observed_role: 문서상태변경과 빈 ClaimRegistry 승인검사
+    risks: [approval_not_rehydrated, machine_and_human_state_mixed]
+    target: application/approvals/approve-subject
+    migration_action: replace_with_hash_bound_approval_event
+  - current: src/app/api/broker/im-lite/[id]/save-sections/route.ts
+    observed_role: 모바일 마크다운 전체저장과 간단 수치경고
+    risks: [unstructured_numeric_edits, no_optimistic_lock]
+    target: application/mobile-publications/update-content
+    migration_action: add_content_unit_commands_and_expected_version
+  - current: src/domain/building/mobile-im/pptx/pptx-renderer.ts
+    observed_role: MobileImPptxInput를 PPTX로 렌더
+    risks: [mobile_as_fact_source, raw_body_rebinding]
+    target: domain/pptx-studio/rendering/PptxStudioRenderer
+    migration_action: put_publication_package_legacy_adapter_in_front
+  - current: src/app/api/public/im-lite/[buildingId]/pptx/route.ts
+    observed_role: 공개 GET에서 즉석 PPTX 렌더·저장·리다이렉트
+    risks: [duplicate_long_render, unbound_artifact_approval]
+    target: application/exports/get-approved-export
+    migration_action: serve_approved_artifact_and_gate_legacy_fallback
+  - current: supabase/migrations/20260713003746_im_generation_jobs.sql
+    observed_role: 3상태 비동기 작업행
+    risks: [no_stage_attempts, no_leases, no_artifact_lineage]
+    target: im_pipeline_runs plus im_stage_executions
+    migration_action: retain_as_compatibility_projection
+  - current: supabase/migrations/20260823_phase0_golden_and_telemetry.sql
+    observed_role: 섹션·편집·공공API 계측
+    risks: [job_id_type_audit_required, section_metrics_not_pipeline_lineage]
+    target: stage_metrics plus existing domain_metrics
+    migration_action: add_run_and_stage_refs_without_losing_history
+

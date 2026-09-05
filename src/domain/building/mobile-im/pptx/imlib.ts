@@ -422,6 +422,45 @@ export function head(
       break;
     }
 
+    // ── open_frame: 미니멀 오픈 프레임 + 직각 라인 액센트 ──
+    case 'open_frame': {
+      if (numStr) {
+        s.addShape('rect' as any, {
+          x: M, y: 0.48, w: 0.42, h: 0.24,
+          fill: { color: C.tint },
+          line: { color: C.brass, width: 0.5 },
+        });
+        s.addText(numStr, {
+          x: M, y: 0.48, w: 0.42, h: 0.24,
+          align: 'center', valign: 'middle',
+          fontSize: 11, bold: true, color: C.brass,
+          fontFace: NUM, margin: 0,
+        });
+      }
+      s.addText(kicker, {
+        x: M + 0.54, y: 0.50, w: CW - 0.54, h: 0.20,
+        fontSize: 9.5, bold: true, color: C.brass,
+        fontFace: NUM, charSpacing: 2, margin: 0,
+      });
+      s.addText(cleanTitle, {
+        x: M + 0.54, y: 0.70, w: CW - 0.54, h: 0.40,
+        fontSize: 23, bold: true, color: C.ink,
+        fontFace: TITLE_KR, margin: 0,
+      });
+      s.addShape('line' as any, {
+        x: M + 0.54, y: 1.12, w: 2.0, h: 0,
+        line: { color: C.brass, width: 0.5 },
+      });
+      if (sub) {
+        s.addText(sub, {
+          x: M + 0.54 + 2.15, y: 1.05, w: CW - 0.54 - 2.15, h: 0.24,
+          fontSize: 10.5, color: C.mute,
+          fontFace: KR, margin: 0,
+        });
+      }
+      break;
+    }
+
     // ── classic: 황동 원 + 좌정렬 (기본값) ──
     case 'classic':
     default: {
@@ -513,7 +552,43 @@ export function headD(
       }
       s.addText(kicker, { x: M + 0.70, y: 0.36, w: CW - 0.70, h: 0.22, fontSize: 9, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2.5, margin: 0 });
       s.addText(cleanTitle, { x: M + 0.70, y: 0.58, w: CW - 0.70, h: 0.44, fontSize: 24, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
-      if (sub) s.addText(sub, { x: M + 0.70, y: 1.02, w: CW - 0.70, h: 0.22, fontSize: 10, color: CD.mute, fontFace: KR, margin: 0 });
+      break;
+    }
+    case 'open_frame': {
+      if (numStr) {
+        s.addShape('rect' as any, {
+          x: M, y: 0.46, w: 0.42, h: 0.26,
+          fill: { color: CD.card },
+          line: { color: C.brass, width: 0.5 },
+        });
+        s.addText(numStr, {
+          x: M, y: 0.46, w: 0.42, h: 0.26,
+          align: 'center', valign: 'middle',
+          fontSize: 11, bold: true, color: C.brass,
+          fontFace: NUM, margin: 0,
+        });
+      }
+      s.addText(kicker, {
+        x: M + 0.54, y: 0.48, w: CW - 0.54, h: 0.20,
+        fontSize: 9.5, bold: true, color: C.brass,
+        fontFace: NUM, charSpacing: 2, margin: 0,
+      });
+      s.addText(cleanTitle, {
+        x: M + 0.54, y: 0.68, w: CW - 0.54, h: 0.42,
+        fontSize: 22, bold: true, color: 'FFFFFF',
+        fontFace: TITLE_KR, margin: 0,
+      });
+      s.addShape('line' as any, {
+        x: M + 0.54, y: 1.12, w: 2.2, h: 0,
+        line: { color: C.brass, width: 0.5 },
+      });
+      if (sub) {
+        s.addText(sub, {
+          x: M + 0.54 + 2.35, y: 1.05, w: CW - 0.54 - 2.35, h: 0.24,
+          fontSize: 10.5, color: CD.mute,
+          fontFace: KR, margin: 0,
+        });
+      }
       break;
     }
     case 'classic':
@@ -597,6 +672,21 @@ export function foot(
       s.addText(String(page), {
         x: W - M - 0.8, y: 7.12, w: 0.8, h: 0.20,
         align: 'right', fontSize: 9, bold: true, color: C.brass, fontFace: NUM, margin: 0,
+      });
+      break;
+    }
+    case 'open_frame': {
+      s.addShape('line' as any, {
+        x: M, y: 6.94, w: CW, h: 0,
+        line: { color: C.line, width: 0.5 },
+      });
+      s.addText(`${THEME_META.companyName || 'CREDEAL'}   |   ${docno}`, {
+        x: M, y: 7.00, w: 8, h: 0.22,
+        fontSize: 8.5, color: textColor, fontFace: KR, margin: 0,
+      });
+      s.addText(String(page), {
+        x: W - M - 0.8, y: 7.00, w: 0.8, h: 0.22,
+        align: 'right', fontSize: 8.5, bold: true, color: C.brass, fontFace: NUM, margin: 0,
       });
       break;
     }
@@ -787,19 +877,28 @@ export function rows(
     const ry = y + i * rh;
     const [label, value, badge, valCol] = row;
 
-    // 라벨
-    s.addText(label, {
-      x, y: ry, w: labW, h: rh,
-      fontSize: fs, color: labColor, fontFace: KR,
-      valign: 'middle', margin: 0, lineSpacingMultiple: 1.20,
-    });
+    // 값이 없는 단일 텍스트/불릿 행인 경우 전체 너비(w) 사용
+    if (!value || value.trim() === '') {
+      s.addText(label, {
+        x, y: ry, w: hasBadge ? w * 0.78 : w, h: rh,
+        fontSize: fs, color: opt.onDark ? 'FFFFFF' : C.ink, fontFace: KR,
+        valign: 'middle', margin: 0, lineSpacingMultiple: 1.20,
+      });
+    } else {
+      // 라벨
+      s.addText(label, {
+        x, y: ry, w: labW, h: rh,
+        fontSize: fs, color: labColor, fontFace: KR,
+        valign: 'middle', margin: 0, lineSpacingMultiple: 1.20,
+      });
 
-    // 값
-    s.addText(value, {
-      x: x + labW, y: ry, w: valW, h: rh,
-      fontSize: fs, bold: true, color: valCol ?? valColor, fontFace: KR,
-      valign: 'middle', margin: 0, lineSpacingMultiple: 1.20,
-    });
+      // 값
+      s.addText(value, {
+        x: x + labW, y: ry, w: valW, h: rh,
+        fontSize: fs, bold: true, color: valCol ?? valColor, fontFace: KR,
+        valign: 'middle', margin: 0, lineSpacingMultiple: 1.20,
+      });
+    }
 
     // 배지 (선택)
     if (badge) {
@@ -1093,6 +1192,15 @@ export function card(
       s.addShape('rect' as any, {
         x, y, w: 0.05, h,
         fill: { color: C.brass },
+      });
+      break;
+    }
+    case 'open_frame': {
+      // 오픈 프레임: 미니멀 직각 지오메트리 + 정밀 0.5pt 라인 프레임
+      s.addShape('rect' as any, {
+        x, y, w, h,
+        fill: { color: fill },
+        line: { color: lineCol, width: 0.5 },
       });
       break;
     }

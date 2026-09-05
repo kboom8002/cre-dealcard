@@ -1,0 +1,47 @@
+meta:
+  id: im-test-fixture-catalog
+  version: 1.0.0
+  status: proposed
+fixtures:
+  - id: FX-DANGSAN-01
+    type: real_reference_derived
+    asset_form: whole_building
+    lenses: [yield, value_add]
+    issues: [area_correction, seller_rent_plan, no_opex, broker_opinions]
+    expected_level_before_correction: L1
+    expected_level_after_correction_and_opinion_approval: L1.5
+    blocked_claims: [RR-C13-NOI, RR-C14-CAP-RATE]
+  - id: FX-SANGDO-01
+    type: real_reference_derived
+    asset_form: whole_building
+    lenses: [yield]
+    issues: [rent_summary_row_conflict, management_fee_ambiguity, expired_leases, violation, mortgage_max]
+    expected_level: L1
+    blocked_claims: [RR-C01-SELLER-MONTHLY-BASE-RENT, RR-C11-ASKING-GROSS-YIELD]
+  - id: FX-YANGPYEONG-01
+    type: real_reference_derived
+    asset_form: whole_building
+    lenses: [yield, redevelopment]
+    issues: [multi_parcel, representative_parcel_only, address_mismatch, area_conflict]
+    expected_level: L0_or_L1_after_identity_fix
+    blocked_claims: [PARCEL-C01-SCOPE-COVERAGE, LAND-C01-LEDGER-AREA, DEV-C01-THEORETICAL-BUILDING-AREA]
+  - id: FX-MINIMAL-01
+    type: synthetic
+    asset_form: whole_building
+    inputs: [address, asking_price, core_public_records, one_exterior_photo]
+    expected_level: L1
+    omitted_units: [CU-LEASE-STATUS, CU-INCOME-BASIS]
+  - id: FX-L15-OPINION-01
+    type: synthetic
+    asset_form: whole_building
+    inputs: [L1_bundle, three_broker_opinions]
+    opinion_states: [approved_complete, evidence_linked_not_approved, raw_only]
+    expected_level: L1.5
+    public_opinion_count: 1
+photo_variants:
+  - {id: FX-PHOTO-00, usable_photos: 0, expected: no_empty_photo_page}
+  - {id: FX-PHOTO-01, usable_photos: 1, expected: purpose_specific_crops}
+  - {id: FX-PHOTO-03, usable_photos: 3, expected: distributed_near_related_content}
+  - {id: FX-PHOTO-08, usable_photos: 8, expected: evidence_adjacent_layout}
+  - {id: FX-PHOTO-11, usable_photos: 11, expected: important_in_body_remainder_in_appendix}
+

@@ -60,17 +60,31 @@ export function runApprovalGate(
     });
   }
 
-  // 2. 필수 항목 not_available 검사
+  // 2. 필수 항목 존재 및 상태 검사 (G2 해결: 빈 Registry 허위 통과 방지)
   const REQUIRED_SUBJECTS = ['asking_price', 'total_area', 'gross_yield'];
   const allClaims = registry.getAll ? registry.getAll() : [];
-  for (const subj of REQUIRED_SUBJECTS) {
-    const claims = allClaims.filter(c => c.subject === subj);
-    if (claims.length > 0 && claims.every(c => c.status === 'not_available')) {
-      blockers.push({
-        id: `approval.required_na.${subj}`,
-        description: `필수 항목 '${subj}'이 미확인 상태입니다`,
-        severity: 'block',
-      });
+  if (allClaims.length === 0) {
+    blockers.push({
+      id: 'approval.empty_registry',
+      description: '등록된 Claim이 없어 승인할 수 없습니다 (빈 ClaimRegistry 방지).',
+      severity: 'block',
+    });
+  } else {
+    for (const subj of REQUIRED_SUBJECTS) {
+      const claims = allClaims.filter(c => c.subject === subj);
+      if (claims.length === 0) {
+        blockers.push({
+          id: `approval.required_missing.${subj}`,
+          description: `필수 항목 '${subj}'이 Claim 목록에 누락되었습니다`,
+          severity: 'block',
+        });
+      } else if (claims.every(c => c.status === 'not_available' || c.status === 'unverified')) {
+        blockers.push({
+          id: `approval.required_na.${subj}`,
+          description: `필수 항목 '${subj}'이 미확인 상태입니다`,
+          severity: 'block',
+        });
+      }
     }
   }
 

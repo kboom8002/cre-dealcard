@@ -1,0 +1,86 @@
+meta:
+  id: im-content-unit-catalog
+  version: 1.0.0
+  status: proposed
+units:
+  - id: CU-COVER
+    external_title: 매각안내서
+    reader_question: 어떤 매물인가
+    levels: [L1, L1.5, L2, L3]
+    required: true
+    supports: [headline, key_metrics, representative_exterior]
+  - id: CU-SELLING-POINTS
+    external_title: 매물 추천 포인트
+    reader_question: 왜 검토할 만한가
+    levels: [L1.5, L2, L3]
+    requires: [approved_proposal_units]
+    supports: [proposal_cards, supporting_photos]
+  - id: CU-PROPERTY-OVERVIEW
+    external_title: 물건 개요
+    reader_question: 무엇을 얼마에 파는가
+    levels: [L1, L1.5, L2, L3]
+    required: true
+    claim_refs: [ASSET-C01-IDENTITY, TX-C01-ASKING-PRICE, LAND-C01-LEDGER-AREA, BLD-C01-GROSS-FLOOR-AREA]
+    photo_roles: [representative_exterior]
+  - id: CU-ASSET-SCOPE
+    external_title: 매각대상 범위
+    reader_question: 어떤 필지와 건물이 포함되는가
+    levels: [L1, L1.5, L2, L3]
+    required_when: multi_parcel_or_exclusion_or_share
+    claim_refs: [PARCEL-C01-SCOPE-COVERAGE]
+    visual: cadastral_scope_map
+  - id: CU-LOCATION-ACCESS
+    external_title: 입지 및 접근
+    reader_question: 어디에 있고 어떻게 접근하는가
+    levels: [L1, L1.5, L2, L3]
+    photo_roles: [road_frontage, access_route, map]
+  - id: CU-PUBLIC-RECORDS
+    external_title: 토지·건물 현황
+    reader_question: 공부상 토지와 건물은 어떠한가
+    levels: [L1, L1.5, L2, L3]
+    claim_refs: [LAND-C01-LEDGER-AREA, BLD-C01-GROSS-FLOOR-AREA, BLD-C02-LEGAL-USE, LAND-C02-ZONING]
+  - id: CU-CURRENT-USE
+    external_title: 층별 구성 및 사용현황
+    reader_question: 현재 어떻게 사용되는가
+    levels: [L1, L1.5, L2, L3]
+    claim_refs: [USE-C01-CURRENT-USE]
+    photo_roles: [tenant_signage, entrance, common_area, vacant_or_owner_space]
+  - id: CU-LEASE-STATUS
+    external_title: 임대차 현황
+    reader_question: 현재 임대수입은 어떻게 구성되는가
+    levels: [L2, L3]
+    claim_refs: [RR-C01-SELLER-MONTHLY-BASE-RENT, RR-C04-DEPOSIT-TOTAL, RR-C05-VACANCY-RATE, RR-C09-MGMT-FEE-BILLED]
+  - id: CU-INCOME-BASIS
+    external_title: 임대수입 산정기준
+    reader_question: 표시된 임대수입과 수익률은 무엇을 기준으로 하는가
+    levels: [L2, L3]
+    claim_refs: [RR-C01-SELLER-MONTHLY-BASE-RENT, RR-C11-ASKING-GROSS-YIELD]
+  - id: CU-BROKER-PROPOSAL
+    external_title: 임대수입 개선방안
+    reader_question: 어떤 활용 여지를 검토할 수 있는가
+    levels: [L1.5, L2, L3]
+    requires: [approved_proposal_units]
+    photo_roles: [vacant_or_owner_space, common_area, repair_item]
+  - id: CU-PRICE-REFERENCE
+    external_title: 가격 참고정보
+    reader_question: 가격을 어떤 기준으로 참고할 것인가
+    levels: [L1.5, L2, L3]
+    rule: only_include_allowed_unit_prices_yields_or_identified_comparables
+  - id: CU-BUYER-FIT
+    external_title: 적합한 매수자
+    reader_question: 누구에게 적합한가
+    levels: [L1.5, L2, L3]
+    requires: [approved_proposal_units]
+  - id: CU-RISKS-DD
+    external_title: 매수 전 확인사항
+    reader_question: 무엇이 틀릴 수 있고 무엇을 확인해야 하는가
+    levels: [L1, L1.5, L2, L3]
+    required: true
+    supports: [risk_items, dd_requests, loi_conditions]
+  - id: CU-CONTACT-DISCLAIMER
+    external_title: 문의 및 자료 유의사항
+    reader_question: 다음 행동과 문서의 범위는 무엇인가
+    levels: [L1, L1.5, L2, L3]
+    required: true
+    supports: [contact, next_action, legal_copy]
+

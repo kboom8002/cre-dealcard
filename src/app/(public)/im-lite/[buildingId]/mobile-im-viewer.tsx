@@ -9,8 +9,11 @@ import { FlatProfileCard } from "@/components/broker/flat-profile-card";
 import { HeroCard } from "./hero-card";
 import { DCFHeatmap } from "./dcf-heatmap";
 import { LeverageChart } from "./leverage-chart";
+import { StackingPlanView } from "@/components/im/stacking-plan-view";
 import { toast } from 'sonner';
 import { DISPLAY_LABEL_MAP } from '@/domain/building/im-core';
+import { useDealcardRealtimeSync } from '@/platform/im-pipeline/realtime/use-dealcard-realtime-sync';
+
 
 // 카카오 SDK 초기화 헬퍼 함수
 const initKakao = () => {
@@ -1099,12 +1102,30 @@ function FloatingActionBar({
               {isBrokerMode ? "💼 중개인 전용 모드" : "👁️ 매수자 시점 화면"}
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <Link
+              href={`/broker/deal-card/${buildingId}`}
+              className="text-neutral-400 hover:text-white transition-colors"
+            >
+              딜카드
+            </Link>
+            <Link
+              href={`/broker/matching?buildingId=${buildingId}`}
+              className="text-neutral-400 hover:text-primary transition-colors"
+            >
+              매칭
+            </Link>
+            <Link
+              href={`/broker/tenant-intents?buildingId=${buildingId}`}
+              className="text-neutral-400 hover:text-blue-400 transition-colors"
+            >
+              임차의향
+            </Link>
             <button
               onClick={() => setIsBrokerMode(!isBrokerMode)}
               className="text-neutral-400 hover:text-white underline underline-offset-2 transition-colors font-medium"
             >
-              {isBrokerMode ? "👁️ 매수자 시점 보기" : "💼 중개인 모드로 전환"}
+              {isBrokerMode ? "👁️ 매수자시점" : "💼 중개인모드"}
             </button>
             {docId && (
               <Link
@@ -1115,6 +1136,7 @@ function FloatingActionBar({
               </Link>
             )}
           </div>
+
         </div>
       )}
 
@@ -1264,6 +1286,42 @@ function CompletenessBar({ score }: { score: number }) {
 export function MobileIMViewer({ document: doc, buildingId, ssotData, docId, isBroker = false }: Props) {
   const accentColor = '#60a5fa';
 
+  const [approvalStage, setApprovalStage] = useState<string>(
+    (doc as any)?.approval_stage ||
+    ((doc as any)?.status === 'published' ? 'S70_FILE_APPROVAL' : 'draft')
+  );
+  const [pptxFileHash, setPptxFileHash] = useState<string | undefined>(
+    (doc as any)?.pptx_file_hash || (doc as any)?.approval_target_hash
+  );
+  const [pptxDownloadUrl, setPptxDownloadUrl] = useState<string | undefined>(
+    (doc as any)?.pptx_download_url || `/api/public/im-lite/${buildingId}/pptx`
+  );
+  const [verifiedAt, setVerifiedAt] = useState<string | undefined>(
+    (doc as any)?.approved_at
+  );
+
+  useDealcardRealtimeSync(buildingId, {
+    onContentMutated: (payload) => {
+      if (payload.targetHash) {
+        setPptxFileHash(payload.targetHash);
+      }
+    },
+    onApprovalChanged: (payload) => {
+      if (payload.stage) {
+        setApprovalStage(payload.stage);
+      }
+      if (payload.targetHash) {
+        setPptxFileHash(payload.targetHash);
+      }
+      if (payload.fileUrl) {
+        setPptxDownloadUrl(payload.fileUrl);
+      }
+      if (payload.timestamp) {
+        setVerifiedAt(payload.timestamp);
+      }
+    },
+  });
+
   const [openSections, setOpenSections] = useState<Set<string>>(
     new Set(["01_overview"]), // First section open by default
   );
@@ -1271,6 +1329,7 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId, isB
   const [activeSection, setActiveSection] = useState(0);
   // [D4] 언어 전환 (영문 1-Pager)
   const [showInquiry, setShowInquiry] = useState(false);
+
 
   const viewedSectionsRef = useRef<Set<string>>(new Set());
   const sectionRefsMap = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -1380,14 +1439,49 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId, isB
 
   return (
     <div className="min-h-screen bg-neutral-950">
-      {/* Draft / Blocked Warning Banner */}
-      {doc.status === 'draft' && (
-        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2.5 text-center">
+      {/* Omni-Channel Approval Status & Verified PPTX Download Banner */}
+      {approvalStage === 'S70_FILE_APPROVAL' || doc.status === 'published' ? (
+        <div className="bg-gradient-to-r from-emerald-950 via-emerald-900/80 to-slate-900 border-b border-emerald-500/50 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+              ✓ 공식 승인 완료
+            </span>
+            {pptxFileHash && (
+              <span className="text-[11px] font-mono text-emerald-300/80 hidden sm:inline" title={pptxFileHash}>
+                {pptxFileHash.slice(0, 16)}...
+              </span>
+            )}
+            {verifiedAt && (
+              <span className="text-[10px] text-neutral-400 hidden xs:inline">
+                ({new Date(verifiedAt).toLocaleDateString()} 검증)
+              </span>
+            )}
+          </div>
+          <a
+            href={pptxDownloadUrl || `/api/public/im-lite/${buildingId}/pptx`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-lg transition-transform active:scale-95 shadow shrink-0"
+          >
+            <span>📊</span> 공식 검증 PPTX 다운로드
+          </a>
+        </div>
+      ) : approvalStage === 'S60_EDITORIAL_APPROVAL' ? (
+        <div className="bg-blue-950/70 border-b border-blue-500/30 px-4 py-2 flex items-center justify-between gap-2">
+          <span className="text-xs font-semibold text-blue-300 flex items-center gap-1.5">
+            <span>📋</span> 슬라이드 편집 승인 완료 (S60) — 바이너리 파일 승인 대기 중
+          </span>
+          <span className="text-[10px] text-blue-400/80">공식 배포 전 초안</span>
+        </div>
+      ) : (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2.5 text-center flex items-center justify-center gap-2">
           <p className="text-xs font-bold text-amber-400">
-            ⚠️ 초안 상태 — 중개인 검수 전 자료이며, 최종 확인이 필요합니다.
+            🔒 미승인 열람용 초안 — 중개인 공식 검수 전 자료이며 워터마크가 적용됩니다.
           </p>
         </div>
       )}
+
 
       {/* Grade-based Suppression Banners */}
       {doc.dataQualityBadge?.tier === 'draft' && (
@@ -1415,15 +1509,36 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId, isB
       {/* ── Sticky Top Bar ── */}
       <div className="sticky top-0 z-40 bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800/50">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <Link
-            href="/broker/buildings?tab=im"
-            className="flex items-center gap-1 text-xs text-neutral-400 hover:text-white transition-colors shrink-0"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            IM 보관함
-          </Link>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <Link
+              href="/broker/buildings?tab=im"
+              className="flex items-center gap-1 text-xs text-neutral-400 hover:text-white transition-colors shrink-0"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              IM 보관함
+            </Link>
+            <Link
+              href={`/broker/deal-card/${buildingId}`}
+              className="text-xs text-neutral-400 hover:text-white transition-colors hidden xs:inline"
+            >
+              딜카드
+            </Link>
+            <Link
+              href={`/broker/matching?buildingId=${buildingId}`}
+              className="text-xs text-primary/80 hover:text-primary transition-colors font-medium hidden xs:inline"
+            >
+              매칭
+            </Link>
+            <Link
+              href={`/broker/tenant-intents?buildingId=${buildingId}`}
+              className="text-xs text-blue-400/80 hover:text-blue-400 transition-colors font-medium hidden xs:inline"
+            >
+              임차의향
+            </Link>
+          </div>
+
 
           <div className="flex items-center gap-2 min-w-0">
             <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded-full text-xs font-bold uppercase tracking-wider shrink-0">
@@ -1561,6 +1676,18 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId, isB
                 isOpen={openSections.has(section.sectionId)}
                 onToggle={() => toggleSection(section.sectionId)}
               />
+              {/* 층별 건축 입면 셋백 스태킹 플랜 인터랙티브 뷰 */}
+              {(section.sectionId?.includes('lease') || (section as any).sectionType === 'lease_status' || (section as any).sectionType === 'stacking_plan' || section.sectionId?.includes('stacking')) && (
+                <div className="mt-3">
+                  <StackingPlanView
+                    stackingPlan={(doc as any).body?.stackingPlan ?? (doc as any).stackingPlan}
+                    summary={(doc as any).body?.stackingSummary}
+                    rawMarkdown={section.content || (section as any).markdown}
+                    tables={(section as any).tables}
+                    buildingName={doc.blindName || doc.fullName}
+                  />
+                </div>
+              )}
               {/* [C2][C4] 수익 분석 섹션 다음에 DCF 히트맵 + 레버리지 차트 삽입 */}
               {section.sectionId?.includes('income') && (
                 <>
@@ -1695,8 +1822,35 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId, isB
           />
         )}
 
+        {/* ── 중개사 허브 바로가기 ── */}
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4 mb-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-neutral-300 flex items-center gap-1.5">
+              <span>⚡</span> 이 매물 중개 허브 바로가기
+            </h3>
+            <Link href={`/broker/deal-card/${buildingId}`} className="text-xs text-primary hover:underline font-medium">
+              딜카드 보기 →
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              href={`/broker/matching?buildingId=${buildingId}`}
+              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold transition-colors border border-neutral-700/50"
+            >
+              <span>🎯 AI 매수자 매칭</span>
+            </Link>
+            <Link
+              href={`/broker/tenant-intents?buildingId=${buildingId}`}
+              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold transition-colors border border-neutral-700/50"
+            >
+              <span>🏢 임차의향서 매칭</span>
+            </Link>
+          </div>
+        </div>
+
         {/* ── Disclaimer ── */}
         <div className="rounded-xl bg-neutral-900/50 border border-neutral-800/50 p-4 mb-4">
+
           <p className="text-xs text-neutral-600 leading-relaxed">
             <span className="font-bold text-neutral-500">⚠️ 면책 조항 </span>
             {doc.disclaimer}

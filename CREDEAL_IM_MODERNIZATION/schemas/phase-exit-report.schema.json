@@ -1,0 +1,18 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://credeal.example/schemas/phase-exit-report.schema.json",
+  "title":"CREDEAL Phase Exit Report",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["phase","gate","target_hash","completed_items","acceptance_results","open_risks","rollback_verified","approvals"],
+  "properties":{
+    "phase":{"type":"string","pattern":"^CIM-M[0-8]$"},
+    "gate":{"type":"string","pattern":"^MG-[0-8]$"},
+    "target_hash":{"type":"string","minLength":32},
+    "completed_items":{"type":"array","items":{"type":"string","pattern":"^CIM-[0-9]{4}$"}},
+    "acceptance_results":{"type":"array","items":{"type":"object","required":["id","status","evidence"],"properties":{"id":{"type":"string"},"status":{"enum":["PASS","FAIL","WARN","NOT_APPLICABLE","NOT_RUN","INDETERMINATE","SYSTEM_ERROR"]},"evidence":{"type":"string"}}}},
+    "open_risks":{"type":"array","items":{"type":"object","required":["severity","description","owner"],"properties":{"severity":{"enum":["P0","P1","P2","P3"]},"description":{"type":"string"},"owner":{"type":"string"}}}},
+    "rollback_verified":{"type":"boolean"},
+    "approvals":{"type":"array","minItems":4,"items":{"type":"object","required":["role","actor","approved_at","target_hash"],"properties":{"role":{"type":"string"},"actor":{"type":"string"},"approved_at":{"type":"string","format":"date-time"},"target_hash":{"type":"string"}}}}
+  }
+}

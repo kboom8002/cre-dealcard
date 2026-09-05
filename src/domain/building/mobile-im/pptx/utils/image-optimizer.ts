@@ -346,7 +346,8 @@ export async function generateStaticMapPlaceholder(
 
         const cropLeft = Math.max(0, Math.floor((compositeWidth - w) / 2));
         const cropTop = Math.max(0, Math.floor((compositeHeight - h) / 2));
-
+        const targetW = Math.max(w, 1120);
+        const targetH = Math.max(h, 900);
         const finalMapBuffer = await sharp(combinedBuffer)
           .composite([
             {
@@ -362,18 +363,19 @@ export async function generateStaticMapPlaceholder(
             width: Math.min(w, compositeWidth - cropLeft),
             height: Math.min(h, compositeHeight - cropTop),
           })
+          .resize({ width: targetW, height: targetH })
           .jpeg({ quality: 85 })
           .toBuffer();
 
         return {
           buffer: finalMapBuffer,
           base64: `image/jpeg;base64,${finalMapBuffer.toString('base64')}`,
-          width: w,
-          height: h,
+          width: targetW,
+          height: targetH,
           sizeBytes: finalMapBuffer.length,
-          originalWidth: w,
-          originalHeight: h,
-          aspectRatio: w / h,
+          originalWidth: targetW,
+          originalHeight: targetH,
+          aspectRatio: targetW / targetH,
         };
       }
     } catch (err) {

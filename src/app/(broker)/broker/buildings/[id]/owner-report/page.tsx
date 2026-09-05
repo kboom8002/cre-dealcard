@@ -28,13 +28,14 @@ export default async function OwnerReportPage({ params }: OwnerReportPageProps) 
   const { data: events } = await supabase
     .from("activity_events")
     .select("event_type, created_at, metadata")
-    .eq("building_ssot_lite_id", id)
+    .or(`building_ssot_lite_id.eq.${id},building_id.eq.${id}`)
     .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(200);
 
   // Group events
   const matchEvents = events?.filter((e) => e.event_type === "match_computed") ?? [];
   const inquiryEvents = events?.filter((e) => e.event_type === "inquiry_received") ?? [];
+  const viewEvents = events?.filter((e) => e.event_type === "im_lite_view" || e.event_type === "teaser_view" || e.event_type === "view") ?? [];
   const aGradeMatches = matchEvents.filter(
     (e) =>
       (e.metadata as Record<string, unknown>)?.grade === "A" ||
@@ -61,21 +62,17 @@ export default async function OwnerReportPage({ params }: OwnerReportPageProps) 
     return d;
   }).reverse();
 
-  // Map activities to chart data with a simulated baseline for page views based on promotion score
+  // Map activities to chart data with genuine event aggregation for page views
   const chartData = last7Days.map((date) => {
     const dayStr = date.toLocaleDateString("ko-KR", { weekday: "short" });
     const dateKey = date.toDateString();
     const dayMatches = matchEvents.filter((e) => new Date(e.created_at).toDateString() === dateKey).length;
     const dayInquiries = inquiryEvents.filter((e) => new Date(e.created_at).toDateString() === dateKey).length;
-    
-    // Stable pseudo-random generator to keep chart shape fixed per building/date
-    const seedVal = (id.charCodeAt(0) + date.getDate()) % 12;
-    const baseViews = Math.floor((building.promotion_score ?? 50) * 0.8);
-    const simulatedViews = Math.max(15, baseViews + (dayMatches * 6) + (dayInquiries * 12) + seedVal);
+    const dayViews = viewEvents.filter((e) => new Date(e.created_at).toDateString() === dateKey).length;
 
     return {
       label: dayStr,
-      pageViews: simulatedViews,
+      pageViews: dayViews,
       matches: dayMatches,
       inquiries: dayInquiries,
     };
@@ -352,6 +349,9 @@ export default async function OwnerReportPage({ params }: OwnerReportPageProps) 
                     deal_card_created: "자산 딜카드 등록",
                     owner_readiness_checked: "자료 준비도 확인 완료",
                     gate_approved: "Gate 의사결정 승인 완료",
+                    im_lite_view: "모바일 IM 열람",
+                    teaser_view: "티저 페이지 열람",
+                    view: "물건 상세 열람",
                   };
                   const grade = (event.metadata as Record<string, unknown>)?.grade as string;
                   return (

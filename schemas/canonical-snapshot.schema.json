@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CanonicalSnapshot",
+  "description": "CTR-007: Immutable canonical baseline snapshot with 4-area denominators and cryptographic hash",
+  "type": "object",
+  "required": [
+    "snapshotId",
+    "dealId",
+    "snapshotHash",
+    "areas",
+    "pricing",
+    "unitPrices",
+    "asOf",
+    "createdAt"
+  ],
+  "properties": {
+    "snapshotId": { "type": "string" },
+    "dealId": { "type": "string" },
+    "snapshotHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "areas": {
+      "type": "object",
+      "required": ["landAreaTotal", "grossFloorArea"],
+      "properties": {
+        "landAreaTotal": { "type": "number", "minimum": 0 },
+        "buildingAreaTotal": { "type": "number" },
+        "grossFloorArea": { "type": "number", "minimum": 0 },
+        "exclusiveLeaseArea": { "type": "number" }
+      }
+    },
+    "pricing": {
+      "type": "object",
+      "required": ["askingPriceKrw"],
+      "properties": {
+        "askingPriceKrw": { "type": "number", "minimum": 0 },
+        "totalDepositKrw": { "type": "number" },
+        "monthlyRentKrw": { "type": "number" },
+        "monthlyAdminFeeKrw": { "type": "number" }
+      }
+    },
+    "unitPrices": {
+      "type": "object",
+      "required": ["pricePerPyeongLand", "pricePerPyeongGross"],
+      "properties": {
+        "pricePerPyeongLand": { "type": "number" },
+        "pricePerPyeongGross": { "type": "number" },
+        "rentPerPyeongLeasable": { "type": "number" },
+        "rentPerPyeongExclusive": { "type": "number" }
+      }
+    },
+    "parcels": { "type": "array" },
+    "asOf": { "type": "string" },
+    "createdAt": { "type": "string" }
+  }
+}

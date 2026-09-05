@@ -1,0 +1,151 @@
+catalog_version: 1.0.0
+owner: im-core
+status: proposed_normative
+common_required_fields:
+  - artifactId
+  - artifactType
+  - schemaVersion
+  - caseId
+  - runId
+  - producedByStageExecutionId
+  - parentArtifactRefs
+  - policyVersions
+  - contentSha256
+  - createdAt
+  - disclosureClass
+artifact_types:
+  case_input_reference:
+    owner_stage: external_case_store
+    immutable: false
+    retention_class: operational
+    contains: [case_id, input_version, source_record_refs]
+  intake_envelope:
+    owner_stage: P00
+    immutable: true
+    retention_class: audit
+    contains: [input_copy, source_record_versions, requested_channels, disclosure_scope]
+  evidence_collection:
+    owner_stage: P10
+    immutable: true
+    retention_class: audit
+    contains: [observations, evidence_artifacts, provider_results]
+  data_inventory:
+    owner_stage: P10
+    immutable: true
+    retention_class: audit
+    contains: [availability, resolution, verification_level, missingness, as_of]
+  asset_scope:
+    owner_stage: P20
+    immutable: true
+    retention_class: audit
+    contains: [parcels, buildings, shares, inclusions, exclusions]
+  conflict_set:
+    owner_stage: P20
+    immutable: true
+    retention_class: audit
+    contains: [field, competing_values, materiality, resolution_status]
+  correction_set:
+    owner_stage: P20
+    immutable: true
+    retention_class: audit
+    contains: [selected_value, reason, evidence_refs, approved_by]
+  reconciliation_set:
+    owner_stage: P20
+    immutable: true
+    retention_class: audit
+    contains: [asset_scope_ref, conflict_refs, correction_refs, unresolved_blocks]
+  effective_snapshot:
+    owner_stage: P30
+    immutable: true
+    retention_class: audit
+    contains: [as_of, effective_values, evidence_refs, correction_refs, asset_scope_version]
+  claim_evaluation_set:
+    owner_stage: P40
+    immutable: true
+    retention_class: audit
+    contains: [claim_results, formula_versions, evidence_statuses, use_statuses]
+  core_gate_report:
+    owner_stage: P50
+    immutable: true
+    retention_class: audit
+    contains: [rule_observations, opposite_conditions, decisions, blockers, policy_versions]
+  level_eligibility:
+    owner_stage: P50
+    immutable: true
+    retention_class: audit
+    contains: [eligible_levels, highest_level, missing_bundles]
+  publication_package:
+    owner_stage: P60
+    immutable: true
+    retention_class: audit
+    contains: [allowed_claims, conditional_claims, blocked_claims, content_units, proposal_units, risk_items, dd_requests, media_bindings]
+  mobile_build_request:
+    owner_stage: M00
+    immutable: true
+    retention_class: operational
+    contains: [package_ref, target_level, disclosure_scope, selected_proposals, selected_photos]
+  mobile_content_plan:
+    owner_stage: M10
+    immutable: true
+    retention_class: operational
+    contains: [card_order, content_unit_refs, proposal_refs, media_bindings, action_items]
+  mobile_publication_version:
+    owner_stage: M20
+    immutable: true
+    retention_class: audit
+    contains: [content_plan_ref, cards, copy_units, media_usage, package_hash]
+  mobile_channel_gate_report:
+    owner_stage: M30
+    immutable: true
+    retention_class: audit
+    contains: [fact_checks, copy_checks, media_checks, disclosure_checks, decision]
+  pptx_studio_project_version:
+    owner_stage: S00
+    immutable: true
+    retention_class: operational
+    contains: [audience_brief, target_level, package_ref, editing_version]
+  composition_plan:
+    owner_stage: S10
+    immutable: true
+    retention_class: operational
+    contains: [page_order, page_roles, content_unit_refs, page_budget]
+  copy_plan:
+    owner_stage: S20
+    immutable: true
+    retention_class: operational
+    contains: [copy_units, claim_tokens, footnotes, source_notes]
+  media_plan:
+    owner_stage: S30
+    immutable: true
+    retention_class: operational
+    contains: [photo_refs, roles, crops, redactions, page_bindings]
+  layout_plan:
+    owner_stage: S30
+    immutable: true
+    retention_class: operational
+    contains: [theme_version, layout_slots, typography, coordinates]
+  preview_artifact:
+    owner_stage: S40
+    immutable: true
+    retention_class: transient
+    contains: [preview_uri, page_images, project_version_hash]
+  pptx_channel_gate_report:
+    owner_stage: S50
+    immutable: true
+    retention_class: audit
+    contains: [fact_checks, copy_checks, media_checks, layout_checks, file_checks, decision]
+  rendered_artifact:
+    owner_stage: S70
+    immutable: true
+    retention_class: audit
+    contains: [file_uri, file_sha256, renderer_version, slide_count, validation_report_ref]
+  approval_event:
+    owner_stage: approval_service
+    immutable: true
+    retention_class: audit
+    contains: [approval_type, subject_hashes, actor, decision, scope, reason]
+  distribution_record:
+    owner_stage: publication_service
+    immutable: true
+    retention_class: audit
+    contains: [publication_version_ref, channel, status, published_at, revoked_at]

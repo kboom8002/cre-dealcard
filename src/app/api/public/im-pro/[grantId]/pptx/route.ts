@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import type { ReleaseTier } from '@/domain/building/im-core';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // Pro 24p 덱 + 이미지 최적화 대응
@@ -113,6 +114,7 @@ export async function GET(
       incomeArchetype: body.incomeArchetype,
       hasViolation: body.hasViolation ?? body.violationStatus === 'exists',
       hasJointCollateral: body.hasJointCollateral ?? false,
+      releaseTier: (body.releaseTier as ReleaseTier) || 'decision_im',
       docno: body.docno ?? `IM-${buildingId.substring(0, 6).toUpperCase()}`,
       doc: {
         title: doc.title || body.buildingName || 'Mobile IM Pro',

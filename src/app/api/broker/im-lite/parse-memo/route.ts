@@ -54,6 +54,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json(
+      { ok: false, error: { code: 'INVALID_JSON', message: '요청 본문이 유효한 JSON 객체가 아닙니다.' } },
+      { status: 400 }
+    );
+  }
+
   const { memo_text } = body;
   if (
     !memo_text ||
@@ -166,7 +173,14 @@ export async function POST(req: NextRequest) {
     const message = err instanceof Error ? err.message : "알 수 없는 오류";
     console.error("[parse-memo] Error:", message);
 
-    if (message.toLowerCase().includes("zod") || message.includes("parse")) {
+    const isParseError =
+      (err as Error)?.name === "ZodError" ||
+      err instanceof SyntaxError ||
+      message.toLowerCase().includes("zod") ||
+      message.toLowerCase().includes("parse") ||
+      message.toLowerCase().includes("json");
+
+    if (isParseError) {
       return NextResponse.json(
         {
           ok: false,

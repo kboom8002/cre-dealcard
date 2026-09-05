@@ -20,6 +20,9 @@ export function charsPerLine(boxWidth: number, fontSize?: number): number {
 }
 
 export function calcCalloutHeight(bodyText: string, boxWidth: number): number {
+  if (!bodyText || bodyText.trim().length === 0) {
+    return 0.55;
+  }
   const charsLine = charsPerLine(boxWidth);
   const explicitLines = (bodyText.match(/\n/g) || []).length;
   const wrappedLines = bodyText.split('\n').reduce((sum, seg) => sum + Math.ceil(seg.length / charsLine), 0);

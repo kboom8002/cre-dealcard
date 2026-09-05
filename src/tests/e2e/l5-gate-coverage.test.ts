@@ -79,6 +79,9 @@ function createPassingContext(): GateContext & Record<string, unknown> {
     calculationNotReproducible: false,
     pageCountExceeded: false,
     permitZoneNotDisplayed: false,
+    defectExcuseCount: 0,
+    preachyToneCount: 0,
+    internalRuleLeakCount: 0,
 
     // ── 코드에서 (ctx as any)로 접근하는 확장 필드 ──
     imageDpi: 150,
@@ -171,6 +174,9 @@ const NEGATIVE_PAIRS: NegSpec[] = [
   ['G51', { calculationNotReproducible: true }, '계산식 재현 불가 → 차단'],
   ['G52', { pageCountExceeded: true }, '면수 상한 초과 → 차단'],
   ['G53', { permitZoneNotDisplayed: true }, '토지거래허가 미표시 → 경고'],
+  ['G54', { defectExcuseCount: 2 }, '결손 변명 2건 → 차단'],
+  ['G55', { preachyToneCount: 1 }, 'AI 훈계조 1건 → 차단'],
+  ['G56', { internalRuleLeakCount: 1 }, '내부 룰 노출 1건 → 차단'],
 
   // ── Group G: QG 계열 품질 경고 ──
   ['QG09', { imJudgeScore: 2.0 }, 'IM Judge 3.0 미만 → 경고'],

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://credeal.example/schemas/im/artifact-envelope/1.0.0",
+  "title": "IM Artifact Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["artifactId", "artifactType", "schemaVersion", "caseId", "runId", "producedByStageExecutionId", "parentArtifactRefs", "policyVersions", "contentSha256", "createdAt", "createdBy", "disclosureClass", "body"],
+  "properties": {
+    "artifactId": {"type": "string", "minLength": 1},
+    "artifactType": {"type": "string", "minLength": 1},
+    "schemaVersion": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "caseId": {"type": "string", "minLength": 1},
+    "runId": {"type": "string", "format": "uuid"},
+    "producedByStageExecutionId": {"type": "string", "format": "uuid"},
+    "parentArtifactRefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifactId", "sha256"],
+        "properties": {
+          "artifactId": {"type": "string"},
+          "sha256": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"},
+          "relation": {"type": "string"}
+        }
+      }
+    },
+    "policyVersions": {"type": "object", "additionalProperties": {"type": "string"}},
+    "contentSha256": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "createdBy": {"type": "string", "minLength": 1},
+    "disclosureClass": {"enum": ["public", "broker_only", "confidential", "restricted_personal"]},
+    "retentionClass": {"enum": ["audit", "operational", "transient", "personal_sensitive"]},
+    "body": {"type": ["object", "array"]}
+  }
+}

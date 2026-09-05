@@ -82,35 +82,46 @@ export interface GateContext {
   pageCountExceeded?: boolean;
   /** B14→G53: 토지거래허가구역 해당인데 미표시 여부 */
   permitZoneNotDisplayed?: boolean;
+  /** CIM-0104: 자리표시자 ({{...}}, NaN, 미치환 변수) 잔존 수 */
+  placeholderResidueCount?: number;
+  /** G54: 결손 변명 문구 건수 (0이어야 통과) */
+  defectExcuseCount?: number;
+  /** G55: AI 훈계조 문구 건수 (0이어야 통과) */
+  preachyToneCount?: number;
+  /** G56: 내부 시스템 규칙 노출 건수 (0이어야 통과) */
+  internalRuleLeakCount?: number;
 }
+
+import type { GateResultStatus } from '@/types/gate-result';
 
 export interface LegacyGateResult {
   code: string;
   passed: boolean;
   message: string;
   blocksPublish: boolean;
+  status?: GateResultStatus;
 }
 
 export function runGatesV02(ctx: GateContext): LegacyGateResult[] {
   const results: LegacyGateResult[] = [];
   // QG10: all cap rates have basis label
   const g10 = (ctx.capRateResults ?? []).every(r => !!r.basis);
-  results.push({ code: 'QG10', passed: g10, message: g10 ? 'Cap Rate 기준 표기 확인' : 'Cap Rate 기준 미표기 값 있음', blocksPublish: !g10 });
+  results.push({ code: 'QG10', passed: g10, message: g10 ? 'Cap Rate 기준 표기 확인' : 'Cap Rate 기준 미표기 값 있음', blocksPublish: !g10, status: g10 ? 'PASS' : 'FAIL' });
   // QG11: downside scenario included in total return
   const g11 = (ctx.totalReturnScenarios ?? []).some(s => s.totalReturnPct < 0 || s.label.includes('하락'));
-  results.push({ code: 'QG11', passed: g11, message: g11 ? '하방 시나리오 포함' : '상승 시나리오만 있음 — 발행 차단', blocksPublish: !g11 });
+  results.push({ code: 'QG11', passed: g11, message: g11 ? '하방 시나리오 포함' : '상승 시나리오만 있음 — 발행 차단', blocksPublish: !g11, status: g11 ? 'PASS' : 'FAIL' });
   // QG12: exclusion area <= land area, effective FAR matches
   const totalExclusion = (ctx.parcels ?? []).reduce((s, p) => s + (p.exclusions ?? []).filter(e => e.affectsFAR).reduce((a, e) => a + e.area, 0), 0);
   const totalLand = (ctx.parcels ?? []).reduce((s, p) => s + p.area, 0);
   const g12 = totalExclusion <= totalLand && Math.abs(ctx.effectiveFAR - ctx.calculatedEffectiveFAR) < 0.01;
-  results.push({ code: 'QG12', passed: g12, message: g12 ? '제척·용적률 검증 통과' : '제척 합계 > 대지 합계 또는 유효 용적률 불일치', blocksPublish: !g12 });
+  results.push({ code: 'QG12', passed: g12, message: g12 ? '제척·용적률 검증 통과' : '제척 합계 > 대지 합계 또는 유효 용적률 불일치', blocksPublish: !g12, status: g12 ? 'PASS' : 'FAIL' });
   // QG13: lease act check
   const g13 = (ctx.leaseUnits ?? []).every(u => u.opposingPower === true || (u.opposingPower === false && !!u.opposingPowerEvidence));
-  results.push({ code: 'QG13', passed: g13, message: g13 ? '상임법 판정 정합' : '대항력=false에 근거 없음 — 발행 차단', blocksPublish: !g13 });
+  results.push({ code: 'QG13', passed: g13, message: g13 ? '상임법 판정 정합' : '대항력=false에 근거 없음 — 발행 차단', blocksPublish: !g13, status: g13 ? 'PASS' : 'FAIL' });
   // QG14: DCF/IRR exposure requires term explanations
   const needsTerms = ctx.disclosureDcf !== 'hidden' || ctx.disclosureIrr !== 'hidden';
   const g14 = !needsTerms || ctx.termExplanationExists;
-  results.push({ code: 'QG14', passed: g14, message: g14 ? '용어 해설 확인' : 'DCF/IRR 노출 시 용어 해설 누락', blocksPublish: !g14 });
+  results.push({ code: 'QG14', passed: g14, message: g14 ? '용어 해설 확인' : 'DCF/IRR 노출 시 용어 해설 누락', blocksPublish: !g14, status: g14 ? 'PASS' : 'FAIL' });
   return results;
 }
 
@@ -129,6 +140,8 @@ export interface GateResult {
   label: string;
   severity: 'block' | 'warn';
   passed: boolean;
+  status?: GateResultStatus;
+  errorDetail?: string;
 }
 
 export interface GateReport {
@@ -156,7 +169,7 @@ export const PUBLISH_GATES: GateDefinition[] = [
   { id: 'G04', label: '등급 D 아님', severity: 'block', check: (ctx) => ctx.dataGrade !== 'D' },
   { id: 'G05', label: '숫자 교차검증 통과', severity: 'block', check: (ctx) => ctx.crossValidationPassed === true },
   { id: 'G06', label: '할루시네이션 없음', severity: 'block', check: (ctx) => ctx.hasHallucination === false },
-  { id: 'G07', label: 'PII 제거 완료', severity: 'block', check: (ctx) => ctx.piiRemoved === true },
+  { id: 'G07', label: 'PII 제거 및 자리표시자 잔존 0', severity: 'block', check: (ctx) => ctx.piiRemoved === true && (ctx.placeholderResidueCount ?? 0) === 0 },
   { id: 'G08', label: '위험 표현 없음', severity: 'block', check: (ctx) => ctx.hasRiskExpression !== true },
   { id: 'G10', label: '3축 분류 확정', severity: 'block', check: (ctx) => ctx.threeAxisConfirmed === true },
   // D30 BL-4 §4.2: 신설 게이트
@@ -205,6 +218,10 @@ export const PUBLISH_GATES: GateDefinition[] = [
   { id: 'G51', label: '계산식 재현 가능', severity: 'block', check: (ctx) => ctx.calculationNotReproducible !== true },
   { id: 'G52', label: '면수 상한 초과 없음', severity: 'block', check: (ctx) => ctx.pageCountExceeded !== true },
   { id: 'G53', label: '토지거래허가 표시', severity: 'warn', check: (ctx) => ctx.permitZoneNotDisplayed !== true },
+  // R1 Broker Feedback Remediation Gates
+  { id: 'G54', label: '결손 변명 문구 0건', severity: 'block', check: (ctx) => (ctx.defectExcuseCount ?? 0) === 0 },
+  { id: 'G55', label: 'AI 훈계조 문구 0건', severity: 'block', check: (ctx) => (ctx.preachyToneCount ?? 0) === 0 },
+  { id: 'G56', label: '내부 시스템 규칙 노출 0건', severity: 'block', check: (ctx) => (ctx.internalRuleLeakCount ?? 0) === 0 },
   // ── QG계열: 품질 경고 (warn) ── CATALOG_RULES §4.3
   { id: 'QG09', label: 'IM Judge 3.0 이상', severity: 'warn', check: (ctx) => (ctx.imJudgeScore ?? 0) >= 3.0 },
   { id: 'QG11', label: 'DCF 등급 게이트', severity: 'warn', check: (ctx) => ctx.dcfGradeGatePassed === true },
@@ -249,7 +266,11 @@ export function runPublishGates(ctx: GateContext): GateReport & {
       });
     }
 
-    results.push({ id: g.id, label: g.label, severity: g.severity, passed });
+    let status: GateResultStatus = 'PASS';
+    if (!passed) {
+      status = errorMsg ? 'SYSTEM_ERROR' : 'FAIL';
+    }
+    results.push({ id: g.id, label: g.label, severity: g.severity, passed, status, errorDetail: errorMsg });
 
     if (!passed && !errorMsg) {
       // 의도적 차단/경고 — system_error가 아닌 경우

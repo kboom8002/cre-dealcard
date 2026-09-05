@@ -1,5 +1,11 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendKakaoAlimtalk } from '@/lib/notification/notification-service';
+
+/**
+ * DB 클라이언트 인터페이스 (Rule 12: 도메인 계층 Supabase 직접 의존 제거)
+ */
+export interface NotificationDbClient {
+  from(table: string): any;
+}
 
 interface IMViewAlertInput {
   buildingId: string;
@@ -10,7 +16,7 @@ interface IMViewAlertInput {
 }
 
 export async function checkAndSendIMViewAlert(
-  supabase: SupabaseClient,
+  supabase: NotificationDbClient,
   input: IMViewAlertInput
 ): Promise<boolean> {
   try {
@@ -101,8 +107,9 @@ export async function checkAndSendIMViewAlert(
     }
 
     return sent;
-  } catch (err: any) {
-    console.error('[IM View Alert] Error occurred:', err.message);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[IM View Alert] Error occurred:', message);
     return false;
   }
 }

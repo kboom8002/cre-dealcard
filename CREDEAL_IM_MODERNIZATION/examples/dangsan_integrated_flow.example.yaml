@@ -1,0 +1,34 @@
+{
+  "example":"당산동 중개인형 L1.5 통합 흐름",
+  "fictional_completion_notice":"실제 입력이 없는 값은 사용하지 않으며 가상보완은 별도 태그로만 허용",
+  "dealcard":{
+    "input":"broker_memo_v1",
+    "public_scope":"blind",
+    "output":"dealcard_v1",
+    "approval":"approval_dealcard_v1"
+  },
+  "im_core":{
+    "inputs":["bottom_sheet_v2","building_register","land_register","broker_rentroll_minimum","broker_opinion_v1","photos_v1"],
+    "rentroll_level":"MINIMUM",
+    "target_level":"L1.5",
+    "conflicts":["monthly_rent_total_mismatch"],
+    "corrections":["rentroll_correction_event_1"],
+    "output":"publication_package_v3"
+  },
+  "mobile":{
+    "input":"publication_package_v3",
+    "output":"mobile_im_v2",
+    "approval":"approval_mobile_v2"
+  },
+  "pptx_studio":{
+    "input":"publication_package_v3",
+    "layout":"overview_with_exterior_photo",
+    "output":"pptx_im_v4",
+    "approval":"approval_pptx_file_v4"
+  },
+  "change_event":{
+    "type":"rentroll_correction",
+    "invalidates":["publication_package_v3","mobile_im_v2","pptx_im_v4","approval_mobile_v2","approval_pptx_file_v4"],
+    "does_not_invalidate":["dealcard_v1","approval_dealcard_v1"]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "package": "CREDEAL_IM_CORE_SDD_PACKAGE",
+  "version": "1.0.0",
+  "generatedAt": "2026-08-31T00:00:00+09:00",
+  "status": "proposed_for_approval",
+  "fileCountExcludingChecksumManifest": 35,
+  "entrypoints": [
+    "README.md",
+    "00_WORK_ORDER.md",
+    "01_SOFTWARE_DESIGN_DOCUMENT.md",
+    "08_IMPLEMENTATION_BACKLOG.md"
+  ],
+  "runtimeSsot": false,
+  "adoptionTask": "IC-P1-T01",
+  "notes": [
+    "knowledge files are proposals and must not be copied directly into runtime SSOT",
+    "generated SSOT ownership must be repaired in IC-P0-T02 before policy changes"
+  ]
+}

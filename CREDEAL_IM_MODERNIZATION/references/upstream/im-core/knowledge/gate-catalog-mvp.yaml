@@ -1,0 +1,138 @@
+meta:
+  id: im-gate-catalog-mvp
+  version: 1.0.0
+  status: proposed
+  merge_target: existing_gating_and_invariant_owners_after_review
+effects: [BLOCK_RELEASE, DOWNGRADE, BLOCK_CLAIM, WARN, PASS]
+risk_classes: [RC0, RC1, RC2]
+statuses: [PASS, WARN, BLOCK_CLAIM, DOWNGRADE, BLOCK_RELEASE, NOT_RUN, ERROR]
+gates:
+  - id: ICG-001-ASSET-IDENTITY
+    label: 자산 식별 일치
+    effect: BLOCK_RELEASE
+    risk_class: RC2
+    observation_type: identity
+    scope: snapshot
+    predicate: canonical address and case subject are resolved
+  - id: ICG-002-ASSET-SCOPE
+    label: 매각대상 범위 확정
+    effect: BLOCK_RELEASE
+    risk_class: RC2
+    observation_type: identity
+    scope: snapshot
+    predicate: included parcels buildings and shares are broker confirmed
+  - id: ICG-003-ASKING-PRICE-BASIS
+    label: 매도 희망가 성격과 기준
+    effect: BLOCK_CLAIM
+    risk_class: RC1
+    observation_type: calculation
+    scope: claim
+    predicate: value unit asOf VAT treatment and included scope exist
+  - id: ICG-004-MATERIAL-CONFLICT
+    label: 중대한 불일치 의존차단
+    effect: BLOCK_CLAIM
+    risk_class: RC2
+    observation_type: conflict
+    scope: claim
+    predicate: no open material conflict affects the claim
+  - id: ICG-005-BLANK-ZERO
+    label: 공란과 확인된 0 구분
+    effect: BLOCK_CLAIM
+    risk_class: RC2
+    observation_type: schema
+    scope: claim
+    predicate: no blank unknown or not_provided value was normalized to zero
+  - id: ICG-006-MGMT-NOT-INCOME
+    label: 관리비 청구와 임대수입 분리
+    effect: BLOCK_CLAIM
+    risk_class: RC2
+    observation_type: calculation
+    scope: claim
+    predicate: billed management fee is excluded from base rent and NOI unless collected and expenses are evidenced
+  - id: ICG-007-MORTGAGE-MAX-NOT-BALANCE
+    label: 채권최고액과 대출잔액 분리
+    effect: BLOCK_RELEASE
+    risk_class: RC2
+    observation_type: copy
+    scope: publication
+    predicate: maximum secured amount is never labeled as outstanding loan balance
+  - id: ICG-008-NOI-PREREQUISITES
+    label: 순영업소득 전제
+    effect: BLOCK_CLAIM
+    risk_class: RC2
+    observation_type: calculation
+    scope: claim
+    predicate: effective gross income and trailing twelve month operating expenses with coverage exist
+  - id: ICG-009-YIELD-BASIS
+    label: 수익률 산정기준
+    effect: BLOCK_CLAIM
+    risk_class: RC2
+    observation_type: calculation
+    scope: claim
+    predicate: numerator denominator deposit VAT management fee vacancy and asOf basis are explicit
+  - id: ICG-010-NOT-EVALUATED
+    label: 미판정은 통과가 아님
+    effect: BLOCK_CLAIM
+    risk_class: RC2
+    observation_type: version
+    scope: claim
+    predicate: required evaluator ran successfully
+  - id: ICG-011-BROKER-PROPOSAL-APPROVAL
+    label: 중개인 제안 근거와 공개승인
+    effect: DOWNGRADE
+    risk_class: RC1
+    observation_type: approval
+    scope: proposal
+    predicate: evidence buyer meaning condition public copy and approval exist
+    downgrade_to: L1
+  - id: ICG-012-PHOTO-DISCLOSURE
+    label: 사진 공개승인과 가림처리
+    effect: BLOCK_RELEASE
+    risk_class: RC2
+    observation_type: photo
+    scope: photo
+    predicate: disclosure approval and required redaction version match
+  - id: ICG-013-MULTIPARCEL-PROPAGATION
+    label: 대표필지 사실 전체전파 금지
+    effect: BLOCK_CLAIM
+    risk_class: RC2
+    observation_type: identity
+    scope: claim
+    predicate: parcel-specific value is not propagated without evidence for every included parcel
+  - id: ICG-014-OWNER-USE-NOT-VACANCY
+    label: 자가사용과 공실 분리
+    effect: BLOCK_CLAIM
+    risk_class: RC1
+    observation_type: calculation
+    scope: claim
+    predicate: owner occupied area is separately classified from vacancy
+  - id: ICG-015-EXPIRED-LEASE-MATERIALITY
+    label: 만료계약 현재수입 사용조건
+    effect: BLOCK_CLAIM
+    risk_class: RC1
+    observation_type: calculation
+    scope: claim
+    predicate: expired lease occupancy payment and materiality policy are evaluated
+    note: thresholds remain provisional until calibrated
+  - id: ICG-016-DEVELOPMENT-THEORETICAL-LABEL
+    label: 개발 이론값 표시경계
+    effect: BLOCK_CLAIM
+    risk_class: RC2
+    observation_type: copy
+    scope: claim
+    predicate: value is labeled theoretical and not actual permitted scale with mandatory caveat
+  - id: ICG-017-SINGLE-SNAPSHOT
+    label: 발행본 단일 유효기준본
+    effect: BLOCK_RELEASE
+    risk_class: RC2
+    observation_type: version
+    scope: publication
+    predicate: all claims proposals and media bindings resolve to one snapshot and package
+  - id: ICG-018-HASH-AND-APPROVAL
+    label: 승인대상 해시 일치
+    effect: BLOCK_RELEASE
+    risk_class: RC2
+    observation_type: approval
+    scope: publication
+    predicate: expected hash equals server hash and required approvals target current hashes
+

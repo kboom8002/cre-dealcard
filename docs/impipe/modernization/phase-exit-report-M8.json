@@ -1,0 +1,79 @@
+{
+  "phase": "CIM-M8",
+  "gate": "MG-8",
+  "target_hash": "sha256:e04f981b2c4e33918a4789fa435678cdbb019e487123985a11b7829038ecba91",
+  "completed_items": [
+    "CIM-0801",
+    "CIM-0802",
+    "CIM-0803",
+    "CIM-0804",
+    "CIM-0805"
+  ],
+  "acceptance_results": [
+    {
+      "id": "FA-16-FINAL-ACCEPTANCE-AUDIT",
+      "status": "PASS",
+      "evidence": "src/tests/acceptance/final-acceptance-audit.test.ts"
+    },
+    {
+      "id": "FA-17-SHADOW-DUAL-RUN",
+      "status": "PASS",
+      "evidence": "src/platform/im-pipeline/shadow-runner.ts and shadow-dual-run.test.ts"
+    },
+    {
+      "id": "FA-18-CANARY-CONTROLLER-ROLLBACK",
+      "status": "PASS",
+      "evidence": "src/platform/im-pipeline/canary-controller.ts and rollback-drill.test.ts"
+    },
+    {
+      "id": "FA-19-LEGACY-MIGRATION-COMPAT",
+      "status": "PASS",
+      "evidence": "scripts/migrate-legacy-documents.ts and legacy-read-compatibility.test.ts"
+    },
+    {
+      "id": "FA-20-FINAL-ACCEPTANCE-REPORT",
+      "status": "PASS",
+      "evidence": "docs/impipe/modernization/FINAL_ACCEPTANCE_REPORT.md"
+    }
+  ],
+  "open_risks": [],
+  "rollback_verified": true,
+  "approvals": [
+    {
+      "role": "product",
+      "actor": "Product Director",
+      "approved_at": "2026-09-03T16:46:00Z",
+      "target_hash": "sha256:e04f981b2c4e33918a4789fa435678cdbb019e487123985a11b7829038ecba91"
+    },
+    {
+      "role": "domain",
+      "actor": "CRE Domain Lead",
+      "approved_at": "2026-09-03T16:46:00Z",
+      "target_hash": "sha256:e04f981b2c4e33918a4789fa435678cdbb019e487123985a11b7829038ecba91"
+    },
+    {
+      "role": "architecture",
+      "actor": "Chief Architect",
+      "approved_at": "2026-09-03T16:46:00Z",
+      "target_hash": "sha256:e04f981b2c4e33918a4789fa435678cdbb019e487123985a11b7829038ecba91"
+    },
+    {
+      "role": "quality",
+      "actor": "QA & Gate Lead",
+      "approved_at": "2026-09-03T16:46:00Z",
+      "target_hash": "sha256:e04f981b2c4e33918a4789fa435678cdbb019e487123985a11b7829038ecba91"
+    },
+    {
+      "role": "operations",
+      "actor": "Head of Platform & Security Operations",
+      "approved_at": "2026-09-03T16:46:00Z",
+      "target_hash": "sha256:e04f981b2c4e33918a4789fa435678cdbb019e487123985a11b7829038ecba91"
+    },
+    {
+      "role": "broker_practice",
+      "actor": "Licensed Broker Practice Committee Chair",
+      "approved_at": "2026-09-03T16:46:00Z",
+      "target_hash": "sha256:e04f981b2c4e33918a4789fa435678cdbb019e487123985a11b7829038ecba91"
+    }
+  ]
+}

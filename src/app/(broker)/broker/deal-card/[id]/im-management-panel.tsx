@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { toast } from "sonner";
 import { PptxAuditReportView, type PptxAuditData } from "@/components/im/pptx-audit-report-view";
+import { useDealcardRealtimeSync } from "@/platform/im-pipeline/realtime/use-dealcard-realtime-sync";
 
 interface ImManagementPanelProps {
   buildingId: string;
@@ -18,7 +19,12 @@ interface ImDocument {
   tier: 'basic' | 'pro';
   /** D37: 5종 발행 등급 */
   releaseTier?: 'internal_only' | 'fact_om' | 'analysis_im' | 'decision_im' | 'expert_required';
+  approval_stage?: string;
+  pptx_file_hash?: string;
+  pptx_download_url?: string;
+  status?: string;
 }
+
 
 const PRESET_SWATCHES: Record<string, { accent: string; name: string }> = {
   credeal_signature: { accent: '#6B8E00', name: 'CREDEAL Signature' },
@@ -55,6 +61,10 @@ export function ImManagementPanel({
             created_at: d.created_at,
             tier: d.body?.tier || 'basic',
             releaseTier: d.body?.releaseTier,
+            approval_stage: d.approval_stage || d.body?.approval_stage,
+            pptx_file_hash: d.pptx_file_hash || d.body?.pptx_file_hash,
+            pptx_download_url: d.pptx_download_url || d.body?.pptx_download_url,
+            status: d.status,
           })));
         }
       }
@@ -64,6 +74,15 @@ export function ImManagementPanel({
       setIsLoading(false);
     }
   };
+
+  useDealcardRealtimeSync(buildingId, {
+    onContentMutated: () => {
+      fetchDocs();
+    },
+    onApprovalChanged: () => {
+      fetchDocs();
+    },
+  });
 
   useEffect(() => {
     async function fetchPresets() {
@@ -81,6 +100,7 @@ export function ImManagementPanel({
     fetchDocs();
     fetchPresets();
   }, [buildingId]);
+
 
   const basicDoc = docs.find(d => d.tier === 'basic');
   const proDoc = docs.find(d => d.tier === 'pro');
@@ -324,11 +344,24 @@ export function ImManagementPanel({
           </div>
           <div className="text-xs font-medium">
             {basicDoc ? (
-              <span className="text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-full">✅ 생성됨 ({new Date(basicDoc.created_at).toLocaleDateString()})</span>
+              basicDoc.approval_stage === 'S70_FILE_APPROVAL' || basicDoc.status === 'published' ? (
+                <span className="text-emerald-400 bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-full font-bold">
+                  ✓ 공식 승인 완료 ({new Date(basicDoc.created_at).toLocaleDateString()})
+                </span>
+              ) : basicDoc.approval_stage === 'S60_EDITORIAL_APPROVAL' ? (
+                <span className="text-blue-400 bg-blue-500/20 border border-blue-500/40 px-2.5 py-1 rounded-full font-bold">
+                  📋 편집 승인(S60) ({new Date(basicDoc.created_at).toLocaleDateString()})
+                </span>
+              ) : (
+                <span className="text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-full">
+                  ✅ 생성됨 ({new Date(basicDoc.created_at).toLocaleDateString()})
+                </span>
+              )
             ) : (
               <span className="text-blue-500 bg-blue-500/10 px-2 py-1 rounded-full">⚡ 즉시 생성 가능</span>
             )}
           </div>
+
         </div>
         
         {basicDoc ? (

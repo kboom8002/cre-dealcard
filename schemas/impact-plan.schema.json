@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RegenerationImpactPlan",
+  "description": "CTR-010: Data contract for minimal regeneration plan preview",
+  "type": "object",
+  "required": [
+    "planId",
+    "changeEventId",
+    "changeKind",
+    "reusableStageOutputs",
+    "requiredRerunStages",
+    "invalidatedApprovalIds",
+    "estimatedDurationMs",
+    "estimatedTokenCost"
+  ],
+  "properties": {
+    "planId": { "type": "string" },
+    "changeEventId": { "type": "string" },
+    "changeKind": { "type": "string" },
+    "reusableStageOutputs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "requiredRerunStages": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "invalidatedApprovalIds": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "estimatedDurationMs": { "type": "number", "minimum": 0 },
+    "estimatedTokenCost": { "type": "number", "minimum": 0 }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://credeal.com/schemas/publication-record.schema.json",
+  "title": "PublicationRecord",
+  "description": "CTR-005: Modern IM Publication and Release Record",
+  "type": "object",
+  "required": [
+    "id",
+    "artifactRunId",
+    "channel",
+    "status",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "artifactRunId": { "type": "string", "format": "uuid" },
+    "channel": {
+      "type": "string",
+      "enum": ["dealcard", "mobile", "pptx"]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "DRAFT",
+        "MACHINE_CHECKED",
+        "HUMAN_APPROVED",
+        "PUBLISHED",
+        "STALE",
+        "WITHDRAWN",
+        "SUPERSEDED"
+      ]
+    },
+    "publicUrl": { "type": "string" },
+    "artifactFileHash": { "type": "string" },
+    "approvedApprovalId": { "type": "string", "format": "uuid" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}

@@ -59,9 +59,9 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
     return { slide, warnings, suppress: true } as any;
   }
 
-  // Optimize images (최대 4장 — 슬라이드당 4장 제한)
+  // Optimize images (최대 4장 — 슬라이드당 4장 제한, full-wide 12.13" 대응을 위해 maxWidth 2000px 적용)
   const urlsToOptimize = validPhotos.slice(0, 4).map(p => p.url);
-  const optimized = await optimizeImagesForPptx(urlsToOptimize, 4, 1600, 85);
+  const optimized = await optimizeImagesForPptx(urlsToOptimize, 4, 2000, 85);
 
   if (optimized.length === 0) {
     warnings.push('걤러리 사진 로딩 실패 — 슬라이드 억제');

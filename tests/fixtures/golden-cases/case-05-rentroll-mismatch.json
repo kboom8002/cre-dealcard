@@ -1,0 +1,19 @@
+{
+  "caseId": "case-05",
+  "title": "임대차 합계 불일치 상충 케이스",
+  "description": "원행 합계(2,500만원)와 바텀시트 총액(2,700만원)이 불일치할 때 Conflict 생성 및 차단 검증",
+  "asset": {
+    "name": "마포구 서교동 상가건물",
+    "askingPrice": 7800000000
+  },
+  "rentroll": {
+    "rawSum": 25000000,
+    "inputSum": 27000000,
+    "hasConflict": true
+  },
+  "expectedOutcome": {
+    "conflictKind": "rentroll_sum",
+    "resolutionRequired": true,
+    "gateExpected": "BLOCKER"
+  }
+}

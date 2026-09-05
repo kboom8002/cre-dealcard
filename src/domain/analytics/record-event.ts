@@ -55,13 +55,15 @@ export type MvpEventType =
   | "magazine_distributed"
   | "im_view_alert_sent"
   | "hot_lead_detected"
-  | "hot_lead_alert_sent";
+  | "hot_lead_alert_sent"
+  | "tenant_intent_created";
 
 /** Known entity types */
 export type MvpEntityType =
   | "building_ssot_lite"
   | "building_signal_card"
   | "buyer_intent_lite"
+  | "tenant_intent"
   | "owner_readiness_check"
   | "document_object"
   | "gate_request"

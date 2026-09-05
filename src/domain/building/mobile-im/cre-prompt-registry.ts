@@ -1,5 +1,3 @@
-// src/domain/building/mobile-im/cre-prompt-registry.ts
-
 export interface PromptTemplate {
   id: string;
   version: string;
@@ -10,10 +8,19 @@ export interface PromptTemplate {
 }
 
 /**
+ * Port interface for Prompt Registry (Rule 12 Domain Purity)
+ */
+export interface PromptRegistryPort {
+  getActivePrompt(slotKey: string, generationId?: string): Promise<PromptTemplate | null> | PromptTemplate | null;
+  register(slotKey: string, template: PromptTemplate): Promise<void> | void;
+  listPrompts(slotKey?: string): Promise<PromptTemplate[]> | PromptTemplate[];
+}
+
+/**
  * 프롬프트 레지스트리
  * A/B 테스트 및 섹션별 프롬프트를 중앙에서 관리합니다.
  */
-export class CrePromptRegistry {
+export class CrePromptRegistry implements PromptRegistryPort {
   private static instance: CrePromptRegistry;
   private templates: Map<string, PromptTemplate[]> = new Map();
 
@@ -135,4 +142,16 @@ Your goal is to write the Investment Thesis section for a Mobile Information Mem
 
     return activeTemplates[0];
   }
+
+  public listPrompts(slotKey?: string): PromptTemplate[] {
+    if (slotKey) {
+      return [...(this.templates.get(slotKey) || [])];
+    }
+    const all: PromptTemplate[] = [];
+    for (const templates of this.templates.values()) {
+      all.push(...templates);
+    }
+    return all;
+  }
 }
+

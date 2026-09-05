@@ -163,6 +163,44 @@
   --chart-5: 239 84% 72%;
 }
 
+/* Institutional Slate Theme Preset Parity */
+[data-theme="institutional_slate"],
+.theme-institutional-slate {
+  --background: #2B2F3E;
+  --foreground: #FFFFFF;
+  --muted: #353B4D;
+  --muted-foreground: #94A3B8;
+  --card: #232733;
+  --card-foreground: #E2E8F0;
+  --primary: #E8DEC8;
+  --primary-foreground: #1A1813;
+  --secondary: #3D4356;
+  --secondary-foreground: #F1F5F9;
+  --accent: #E8DEC8;
+  --accent-foreground: #1A1813;
+  --destructive: #F43F5E;
+  --destructive-foreground: #FFFFFF;
+  --border: #3D4356;
+  --ring: #E8DEC8;
+  --success: #10B981;
+  --warning: #F59E0B;
+
+  /* Theme-specific tokens */
+  --slate-bg: #2B2F3E;
+  --slate-card: #232733;
+  --slate-block: #1E222D;
+  --slate-border: #3D4356;
+  --slate-border-light: #4A5268;
+  --slate-ink: #FFFFFF;
+  --slate-body: #CBD5E1;
+  --slate-mute: #64748B;
+  --slate-mute2: #475569;
+  --slate-gold: #E8DEC8;
+  --slate-gold-dark: #C4B598;
+  --slate-gold-light: #F5F0E6;
+  --slate-tint: #232733;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

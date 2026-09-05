@@ -330,9 +330,26 @@ export default async function BrokerDealCardResultPage({
           initialCuriosityHook={teaser?.curiosityHook || ""}
         />
 
+        {/* 🎯 [2.5 매칭 & 임차의향 허브 바로가기] */}
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <Link
+            href={`/broker/matching?buildingId=${id}`}
+            className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-primary/20 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition-all shadow-sm active:scale-[0.99]"
+          >
+            <span>🎯 매수자 매칭 {matchCount > 0 ? `(${matchCount}건)` : ""}</span>
+          </Link>
+          <Link
+            href={`/broker/tenant-intents?buildingId=${id}`}
+            className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-blue-500/20 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-bold transition-all shadow-sm active:scale-[0.99]"
+          >
+            <span>🏢 임차의향서 매칭</span>
+          </Link>
+        </div>
+
         {/* 🏢 [3. 세부 4-Tab 영역] */}
         <div className="pt-2">
           <DealCardTabs
+
             buyersBadge={matchCount > 0 ? { count: matchCount, topGrade } : undefined}
             overviewContent={
               <div className="space-y-4 pt-2">
@@ -423,8 +440,25 @@ export default async function BrokerDealCardResultPage({
           }
           buyersContent={
             <div className="space-y-6 pt-2">
+              {/* Quick Matching Links */}
+              <div className="flex gap-2">
+                <Link
+                  href={`/broker/matching?buildingId=${id}`}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                >
+                  <span>🎯 AI 매칭 센터 전체보기</span>
+                </Link>
+                <Link
+                  href={`/broker/tenant-intents?buildingId=${id}`}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                >
+                  <span>🏢 연동 임차의향서 확인</span>
+                </Link>
+              </div>
+
               {/* ① Ideal Buyer Personas (Persona Feature promoted to top) */}
               <IdealBuyerPersonaSection
+
                 buildingId={id}
                 areaSignal={building.area_signal || ""}
                 assetType={building.asset_type || ""}

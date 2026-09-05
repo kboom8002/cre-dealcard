@@ -1,0 +1,80 @@
+{
+  "dealId": "yangpyeong-the-red",
+  "title": "더레드빌딩 매각 안내서 (양평동4가 117)",
+  "posture": "income",
+  "address": "서울특별시 영등포구 양평동4가 117, 134, 125-2",
+  "askingPriceKrw": 25000000000,
+  "landAreaM2": 518.70,
+  "grossFloorAreaM2": 2490.88,
+  "archAreaM2": 302.94,
+  "bcRat": 58.40,
+  "vlRat": 398.80,
+  "maxVlRat": 400.0,
+  "useZone": "준공업지역",
+  "floors": "지하 1층 ~ 지상 10층",
+  "structure": "철근콘크리트구조",
+  "elevatorCount": 1,
+  "parking": "총 23대 (기계식 22대 / 옥외 자주식 1대)",
+  "parkingCount": 23,
+  "completionDate": "2018-09-12",
+  "wale": 1.4,
+  "vacancyRate": 8.3,
+  "statedDepositKrw": 495000000,
+  "statedMonthlyRentKrw": 46570000,
+  "statedMgmtFeeKrw": 5760000,
+  "capRatePct": 2.24,
+  "landAppreciationRatePct": 3.8,
+  "totalReturnPct": 6.04,
+  "officialLandPricePerM2": 9484000,
+  "salesComparisonComps": [
+    {
+      "name": "양평동4가 업무시설 A",
+      "distanceM": 280,
+      "dealDate": "2024-03",
+      "landPricePerPyeongKrw": 162000000,
+      "gfaPricePerPyeongKrw": 34500000,
+      "landAreaPyeong": 142.5,
+      "gfaPyeong": 680.0
+    },
+    {
+      "name": "양평동5가 근생/업무 B",
+      "distanceM": 450,
+      "dealDate": "2023-11",
+      "landPricePerPyeongKrw": 158000000,
+      "gfaPricePerPyeongKrw": 32800000,
+      "landAreaPyeong": 165.0,
+      "gfaPyeong": 790.0
+    },
+    {
+      "name": "당산동 근생빌딩 C",
+      "distanceM": 850,
+      "dealDate": "2024-01",
+      "landPricePerPyeongKrw": 168000000,
+      "gfaPricePerPyeongKrw": 35200000,
+      "landAreaPyeong": 180.2,
+      "gfaPyeong": 890.0
+    }
+  ],
+  "incomeCapitalization": {
+    "annualGrossRentKrw": 558840000,
+    "annualMgmtFeeKrw": 69120000,
+    "annualOpexKrw": 69120000,
+    "annualNoiKrw": 558840000,
+    "marketCapRateRangePct": [2.10, 2.50],
+    "estimatedValueRangeKrw": [22353600000, 26611400000],
+    "valuationConclusion": "본건 매매가 250억 원은 인근 준공업지 실거래 밴드(평당 1.58억~1.68억) 및 수익환원 평가 밴드 내 부합"
+  },
+  "stackingPlan": [
+    { "floor": "10F", "use": "제2종근린생활시설(운동시설)", "tenant": "피트니스 스튜디오", "floorAreaM2": 206.86, "floorAreaPy": 62.58, "exclusiveAreaM2": 155.15, "exclusiveAreaPy": 46.93, "leasableAreaM2": 206.86, "leasableAreaPy": 62.58, "expiryYear": 2024, "depositKrw": 43000000, "monthlyRentKrw": 4590000, "isVacant": false },
+    { "floor": "9F", "use": "업무시설(사무소)", "tenant": "IT 개발사 / 렌탈 스튜디오", "floorAreaM2": 206.86, "floorAreaPy": 62.58, "exclusiveAreaM2": 155.15, "exclusiveAreaPy": 46.93, "leasableAreaM2": 206.86, "leasableAreaPy": 62.58, "expiryYear": 2025, "depositKrw": 50000000, "monthlyRentKrw": 4990000, "isVacant": false },
+    { "floor": "8F", "use": "업무시설(사무소)", "tenant": "미디어 콘텐츠 기업", "floorAreaM2": 206.86, "floorAreaPy": 62.58, "exclusiveAreaM2": 155.15, "exclusiveAreaPy": 46.93, "leasableAreaM2": 206.86, "leasableAreaPy": 62.58, "expiryYear": 2025, "depositKrw": 50000000, "monthlyRentKrw": 5600000, "isVacant": false },
+    { "floor": "7F", "use": "업무시설(사무소)", "tenant": "경영 컨설팅 법인", "floorAreaM2": 206.86, "floorAreaPy": 62.58, "exclusiveAreaM2": 155.15, "exclusiveAreaPy": 46.93, "leasableAreaM2": 206.86, "leasableAreaPy": 62.58, "expiryYear": 2025, "depositKrw": 50000000, "monthlyRentKrw": 5880000, "isVacant": false },
+    { "floor": "6F", "use": "업무시설(사무소)", "tenant": "설계 엔지니어링 기업", "floorAreaM2": 206.86, "floorAreaPy": 62.58, "exclusiveAreaM2": 155.15, "exclusiveAreaPy": 46.93, "leasableAreaM2": 206.86, "leasableAreaPy": 62.58, "expiryYear": 2026, "depositKrw": 40000000, "monthlyRentKrw": 4830000, "isVacant": false },
+    { "floor": "5F", "use": "업무시설(사무소)", "tenant": "소프트웨어 개발사", "floorAreaM2": 206.86, "floorAreaPy": 62.58, "exclusiveAreaM2": 155.15, "exclusiveAreaPy": 46.93, "leasableAreaM2": 206.86, "leasableAreaPy": 62.58, "expiryYear": 2024, "depositKrw": 57000000, "monthlyRentKrw": 5280000, "isVacant": false },
+    { "floor": "4F", "use": "업무시설(사무소)", "tenant": "무역 유통 법인", "floorAreaM2": 206.86, "floorAreaPy": 62.58, "exclusiveAreaM2": 155.15, "exclusiveAreaPy": 46.93, "leasableAreaM2": 206.86, "leasableAreaPy": 62.58, "expiryYear": 2024, "depositKrw": 50000000, "monthlyRentKrw": 4400000, "isVacant": false },
+    { "floor": "3F", "use": "제1종근린생활시설(의원)", "tenant": "치과의원 (메디컬)", "floorAreaM2": 206.86, "floorAreaPy": 62.58, "exclusiveAreaM2": 155.15, "exclusiveAreaPy": 46.93, "leasableAreaM2": 206.86, "leasableAreaPy": 62.58, "expiryYear": 2024, "depositKrw": 70000000, "monthlyRentKrw": 3100000, "isVacant": false },
+    { "floor": "2F", "use": "제1종근린생활시설(미용실)", "tenant": "프리미엄 헤어살롱", "floorAreaM2": 206.86, "floorAreaPy": 62.58, "exclusiveAreaM2": 155.15, "exclusiveAreaPy": 46.93, "leasableAreaM2": 206.86, "leasableAreaPy": 62.58, "expiryYear": 2026, "depositKrw": 50000000, "monthlyRentKrw": 5400000, "isVacant": false },
+    { "floor": "1F", "use": "제2종근린생활시설(부동산)", "tenant": "부동산 중개법인", "floorAreaM2": 206.86, "floorAreaPy": 62.58, "exclusiveAreaM2": 155.15, "exclusiveAreaPy": 46.93, "leasableAreaM2": 206.86, "leasableAreaPy": 62.58, "expiryYear": 2025, "depositKrw": 35000000, "monthlyRentKrw": 2500000, "isVacant": false },
+    { "floor": "B1F", "use": "제2종근린생활시설", "tenant": "공실 (리테일/스튜디오 재임대 추진)", "floorAreaM2": 422.28, "floorAreaPy": 127.74, "exclusiveAreaM2": 316.71, "exclusiveAreaPy": 95.80, "leasableAreaM2": 422.28, "leasableAreaPy": 127.74, "expiryYear": 0, "depositKrw": 0, "monthlyRentKrw": 0, "isVacant": true }
+  ]
+}

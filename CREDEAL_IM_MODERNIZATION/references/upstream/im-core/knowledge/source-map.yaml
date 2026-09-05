@@ -1,0 +1,86 @@
+meta:
+  id: im-core-source-map
+  version: 1.0.0
+  status: proposed
+  generated_at: '2026-08-31'
+sources:
+  - id: SRC-D55
+    path: docs/dharness/D55_D52_INTEGRATED_BROKER_OM_IM_WHITEPAPER.md
+    role: product_methodology
+    relevant_sections: [2, 15, 16, 17, 18, 20, 21, 22, 23, 24, 25, 28, 29, 30, 34]
+  - id: SRC-ARCH
+    path: docs/impipe/01_FULL_PIPELINE_ARCHITECTURE.md
+    role: current_pipeline
+  - id: SRC-MOBILE
+    path: docs/impipe/02_MOBILE_IM_SPEC.md
+    role: current_mobile_contract
+  - id: SRC-PPTX
+    path: docs/impipe/03_PPTX_IM_SPEC.md
+    role: current_pptx_contract
+  - id: SRC-CORE
+    path: docs/impipe/08_IM_CORE_DOMAIN_SPEC.md
+    role: current_core_contract
+  - id: SRC-D37
+    path: docs/impipe/D37_FRONTEND_AUDIT_REPORT.md
+    role: current_wiring_audit
+  - id: SRC-CLAIM-CODE
+    path: src/domain/building/im-core/claim.ts
+    role: evidence_status_contract
+  - id: SRC-RELEASE-CODE
+    path: src/domain/building/im-core/release-tier.ts
+    role: legacy_release_tier
+  - id: SRC-APPROVAL-CODE
+    path: src/app/api/broker/im-lite/[id]/approve/route.ts
+    role: current_approval_path
+  - id: SRC-WRITER-CODE
+    path: src/domain/building/mobile-im/writer.ts
+    role: current_generation_path
+  - id: SRC-HANDLER-CODE
+    path: src/app/api/broker/im-lite/generate/handler.ts
+    role: current_persistence_path
+  - id: SRC-PPTX-RENDERER
+    path: src/domain/building/mobile-im/pptx/pptx-renderer.ts
+    role: current_pptx_input
+  - id: SRC-PPTX-BINDER
+    path: src/domain/building/mobile-im/pptx/data-binder.ts
+    role: current_pptx_binding
+  - id: SRC-GATING
+    path: credeal/ssot/im.gating.yaml
+    role: generated_runtime_registry
+    owner_declared: credeal/input_spec.py
+    issue: declared_owner_missing_from_active_path
+  - id: SRC-PAGES
+    path: credeal/ssot/im.pages.yaml
+    role: current_page_registry
+  - id: SRC-INVARIANTS
+    path: credeal/ssot/im.invariants.yaml
+    role: current_invariant_registry
+  - id: SRC-LEXICON
+    path: credeal/ssot/im.lexicon.yaml
+    role: current_lexicon_registry
+  - id: SRC-BINDINGS
+    path: credeal/ssot/im.bindings.yaml
+    role: current_binding_registry
+  - id: SRC-IMAGE
+    path: credeal/ssot/im.image.yaml
+    role: current_image_registry
+  - id: SRC-PARCEL
+    path: credeal/ssot/im.parcel.yaml
+    role: current_parcel_registry
+known_mismatches:
+  - id: SM-001
+    description: D55 references im.gatespec.yaml but active registry is im.gating.yaml
+    resolution_task: IC-P0-T02
+  - id: SM-002
+    description: D55 references im.claims.yaml and im.opinion.yaml which do not exist in active registry list
+    resolution_task: IC-P1-T01
+  - id: SM-003
+    description: im.gating.yaml declared owner files are absent from active credeal path
+    resolution_task: IC-P0-T02
+  - id: SM-004
+    description: D37 wiring audit does not prove persisted claim rehydration at approval
+    resolution_task: IC-P0-T03
+  - id: SM-005
+    description: D55 pseudocode uses L1P while narrative uses L1.5
+    resolution_task: IC-P1-T01
+

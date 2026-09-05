@@ -1,0 +1,56 @@
+{
+  "phase": "CIM-M3",
+  "gate": "MG-3",
+  "target_hash": "sha256:8b64e0291e0a29d5b78f4b01e3e7f53a479a95726210f92da154c95d9852f811",
+  "completed_items": [
+    "CIM-0301",
+    "CIM-0302",
+    "CIM-0303",
+    "CIM-0304"
+  ],
+  "acceptance_results": [
+    {
+      "id": "FA-02-DEALCARD-INDEPENDENT-FLOW",
+      "status": "PASS",
+      "evidence": "src/domain/building/dealcard-publication/service.ts and dealcard-publication-flow.test.ts"
+    },
+    {
+      "id": "FA-13-BLIND-TAMPER-DEFENSE",
+      "status": "PASS",
+      "evidence": "src/domain/building/dealcard-publication/banding-engine.ts and dealcard-tamper.test.ts"
+    },
+    {
+      "id": "FA-17-LEGACY-URL-COMPAT",
+      "status": "PASS",
+      "evidence": "src/domain/building/dealcard-publication/compat-adapter.ts"
+    }
+  ],
+  "open_risks": [],
+  "rollback_verified": true,
+  "approvals": [
+    {
+      "role": "product",
+      "actor": "Product Director",
+      "approved_at": "2026-09-03T15:36:00Z",
+      "target_hash": "sha256:8b64e0291e0a29d5b78f4b01e3e7f53a479a95726210f92da154c95d9852f811"
+    },
+    {
+      "role": "domain",
+      "actor": "CRE Domain Lead",
+      "approved_at": "2026-09-03T15:36:00Z",
+      "target_hash": "sha256:8b64e0291e0a29d5b78f4b01e3e7f53a479a95726210f92da154c95d9852f811"
+    },
+    {
+      "role": "architecture",
+      "actor": "Chief Architect",
+      "approved_at": "2026-09-03T15:36:00Z",
+      "target_hash": "sha256:8b64e0291e0a29d5b78f4b01e3e7f53a479a95726210f92da154c95d9852f811"
+    },
+    {
+      "role": "quality",
+      "actor": "QA & Gate Lead",
+      "approved_at": "2026-09-03T15:36:00Z",
+      "target_hash": "sha256:8b64e0291e0a29d5b78f4b01e3e7f53a479a95726210f92da154c95d9852f811"
+    }
+  ]
+}

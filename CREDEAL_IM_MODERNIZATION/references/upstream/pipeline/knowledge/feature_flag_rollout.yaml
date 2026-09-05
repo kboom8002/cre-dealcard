@@ -1,0 +1,50 @@
+policy_version: 1.0.0
+owner: im-operations
+status: proposed_normative
+flags:
+  im_pipeline_v2_core:
+    default: false
+    scope: [case, broker, percentage]
+    controls: P00_to_P60
+  im_pipeline_v2_mobile:
+    default: false
+    scope: [case, broker, percentage]
+    requires: [im_pipeline_v2_core]
+  im_pipeline_v2_pptx_studio:
+    default: false
+    scope: [case, broker, percentage]
+    requires: [im_pipeline_v2_core]
+  im_pipeline_v2_dual_write:
+    default: true
+    scope: [environment]
+  im_pipeline_v2_public_read:
+    default: false
+    scope: [case, percentage]
+  im_pipeline_v2_pptx_download:
+    default: false
+    scope: [case, broker, percentage]
+rollout_stages:
+  - stage: R0
+    exposure_percent: 0
+    mode: shadow
+    exit_criteria: [minimum_100_runs, zero_critical_value_mismatch, all_fatal_causes_resolved]
+  - stage: R1
+    exposure_percent: 1
+    mode: internal_users
+  - stage: R2
+    exposure_percent: 10
+    mode: limited_default
+  - stage: R3
+    exposure_percent: 50
+    mode: new_pptx_download_default
+  - stage: R4
+    exposure_percent: 100
+    mode: v2_only_for_new_generation
+halt_conditions:
+  - blocked_claim_exposed_count_greater_than_0
+  - unapproved_opinion_or_photo_exposed_count_greater_than_0
+  - cross_channel_critical_value_mismatch_count_greater_than_0
+  - unrecoverable_data_loss_count_greater_than_0
+  - personal_data_masking_violation_count_greater_than_0
+rollback_target_minutes: 30
+

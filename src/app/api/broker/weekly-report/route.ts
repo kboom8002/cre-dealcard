@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
       .eq('broker_id', userId),
     // Match results (all, for grade analysis)
     supabase.from('match_results')
-      .select('id, grade, score, building_id, buyer_intent_id')
+      .select('id, grade, score, building_ssot_lite_id, buyer_intent_lite_id')
       .eq('broker_id', userId)
       .order('score', { ascending: false })
       .limit(50),
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
   const grades = { S: 0, A: 0, B: 0, C: 0 };
   const topMatches: Array<{
     id: string; grade: string; score: number;
-    building_id: string; buyer_intent_id: string;
+    building_ssot_lite_id: string; buyer_intent_lite_id: string;
   }> = [];
 
   for (const m of matchResults ?? []) {

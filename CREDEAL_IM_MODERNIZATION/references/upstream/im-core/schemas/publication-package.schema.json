@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://credeal.local/schemas/publication-package.v1.json",
+  "title": "PublicationPackage v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["packageId", "snapshotId", "packageVersion", "targetLevel", "eligibleLevels", "claimEvaluations", "proposalUnits", "risks", "ddRequests", "mediaBindings", "contentUnits", "gateReport", "policyVersions", "packageHash", "createdAt"],
+  "properties": {
+    "packageId": {"type": "string", "format": "uuid"},
+    "snapshotId": {"type": "string", "format": "uuid"},
+    "packageVersion": {"type": "string"},
+    "targetLevel": {"enum": ["L0", "L1", "L1.5", "L2", "L3", "L4"]},
+    "eligibleLevels": {"type": "array", "uniqueItems": true, "items": {"enum": ["L0", "L1", "L1.5", "L2", "L3", "L4"]}},
+    "claimEvaluations": {"type": "array", "items": {"type": "object"}},
+    "proposalUnits": {"type": "array", "items": {"$ref": "#/$defs/proposalUnit"}},
+    "risks": {"type": "array", "items": {"type": "object"}},
+    "ddRequests": {"type": "array", "items": {"type": "object"}},
+    "loiConditions": {"type": "array", "items": {"type": "object"}},
+    "mediaBindings": {"type": "array", "items": {"type": "object"}},
+    "contentUnits": {"type": "array", "items": {"$ref": "#/$defs/contentUnit"}},
+    "gateReport": {"type": "object"},
+    "policyVersions": {"type": "object"},
+    "packageHash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "createdAt": {"type": "string", "format": "date-time"}
+  },
+  "$defs": {
+    "proposalUnit": {
+      "type": "object",
+      "required": ["proposalUnitId", "brokerRawText", "publicCopy", "evidenceRefs", "buyerMeaning", "conditions", "approvalStatus"],
+      "properties": {
+        "proposalUnitId": {"type": "string"},
+        "brokerRawText": {"type": "string"},
+        "publicCopy": {"type": "string"},
+        "evidenceRefs": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "buyerMeaning": {"type": "string"},
+        "conditions": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "approvalStatus": {"enum": ["approved_for_publication"]}
+      }
+    },
+    "contentUnit": {
+      "type": "object",
+      "required": ["contentUnitId", "readerQuestion", "claimRefs", "proposalUnitRefs", "sourceNoteRefs"],
+      "properties": {
+        "contentUnitId": {"type": "string"},
+        "readerQuestion": {"type": "string"},
+        "titleCandidates": {"type": "array", "items": {"type": "string"}},
+        "claimRefs": {"type": "array", "items": {"type": "string"}},
+        "proposalUnitRefs": {"type": "array", "items": {"type": "string"}},
+        "mediaBindingRefs": {"type": "array", "items": {"type": "string"}},
+        "sourceNoteRefs": {"type": "array", "items": {"type": "string"}},
+        "nextAction": {"type": "string"}
+      }
+    }
+  }
+}
+

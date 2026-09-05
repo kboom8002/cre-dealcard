@@ -95,6 +95,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
+  // Pro IM tier gate: D-grade rentroll blocks Pro generation
+  const incomingGrade = (directData?.qualityGrade || (directData as any)?.grade) as string | undefined;
+  if (tier === 'pro' && (incomingGrade === 'D' || incomingGrade === 'C')) {
+    return NextResponse.json(
+      { error: 'Pro IM은 B등급(완성도 60%) 이상의 데이터가 필요합니다.' },
+      { status: 422 }
+    );
+  }
+
   // ── 작업 ID 생성 + DB 레코드 삽입 ──
   const jobId = `im_${buildingId}_${Date.now()}`;
   const supabase = createServiceClient();

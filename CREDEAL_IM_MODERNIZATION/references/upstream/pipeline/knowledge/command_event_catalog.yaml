@@ -1,0 +1,119 @@
+catalog_version: 1.0.0
+owner: im-pipeline
+status: proposed_normative
+commands:
+  - type: CreateCorePipelineRun
+    aggregate: pipeline_run
+    requires_idempotency_key: true
+    emits: [PipelineRunCreated, StageQueued]
+  - type: ResumePipelineRun
+    aggregate: pipeline_run
+    requires_idempotency_key: true
+    emits: [PipelineRunResumed, StageQueued]
+  - type: CancelPipelineRun
+    aggregate: pipeline_run
+    requires_idempotency_key: true
+    emits: [PipelineRunCancelled]
+  - type: CreateMobileDraft
+    aggregate: publication_project
+    requires_idempotency_key: true
+    emits: [ChannelBuildRequested, StageQueued]
+  - type: CreatePptxStudioProject
+    aggregate: publication_project
+    requires_idempotency_key: true
+    emits: [ChannelBuildRequested, StageQueued]
+  - type: UpdateChannelProject
+    aggregate: publication_project
+    requires_expected_version: true
+    emits: [ChannelProjectVersionCreated]
+  - type: ValidateChannelVersion
+    aggregate: publication_project
+    emits: [ChannelValidationCompleted]
+  - type: ApprovePublicationSubject
+    aggregate: approval
+    requires_expected_hashes: true
+    requires_idempotency_key: true
+    emits: [ApprovalGranted]
+  - type: RejectPublicationSubject
+    aggregate: approval
+    requires_expected_hashes: true
+    emits: [ApprovalRejected]
+  - type: PublishPublicationVersion
+    aggregate: distribution
+    requires_expected_hashes: true
+    emits: [PublicationPublished]
+  - type: RevokePublication
+    aggregate: distribution
+    emits: [PublicationRevoked]
+  - type: PlanRegeneration
+    aggregate: regeneration_plan
+    emits: [RegenerationPlanned]
+  - type: ExecuteRegenerationPlan
+    aggregate: regeneration_plan
+    requires_expected_version: true
+    emits: [RegenerationStarted, StageQueued]
+events:
+  - type: PipelineRunCreated
+    aggregate: pipeline_run
+    version: 1
+  - type: StageQueued
+    aggregate: stage_execution
+    version: 1
+  - type: StageLeased
+    aggregate: stage_execution
+    version: 1
+  - type: StageStarted
+    aggregate: stage_execution
+    version: 1
+  - type: StageSucceeded
+    aggregate: stage_execution
+    version: 1
+  - type: StageFailed
+    aggregate: stage_execution
+    version: 1
+  - type: StageBlocked
+    aggregate: stage_execution
+    version: 1
+  - type: ArtifactRegistered
+    aggregate: artifact
+    version: 1
+  - type: EffectiveSnapshotCreated
+    aggregate: case
+    version: 1
+  - type: ClaimEvaluationCompleted
+    aggregate: case
+    version: 1
+  - type: CoreGateCompleted
+    aggregate: case
+    version: 1
+  - type: PublicationPackageCreated
+    aggregate: case
+    version: 1
+  - type: ChannelBuildRequested
+    aggregate: publication_project
+    version: 1
+  - type: ChannelProjectVersionCreated
+    aggregate: publication_project
+    version: 1
+  - type: ChannelValidationCompleted
+    aggregate: publication_project
+    version: 1
+  - type: ApprovalGranted
+    aggregate: approval
+    version: 1
+  - type: ApprovalInvalidated
+    aggregate: approval
+    version: 1
+  - type: PublicationPublished
+    aggregate: distribution
+    version: 1
+  - type: PublicationRevoked
+    aggregate: distribution
+    version: 1
+  - type: RegenerationPlanned
+    aggregate: regeneration_plan
+    version: 1
+  - type: RegenerationStarted
+    aggregate: regeneration_plan
+    version: 1
+

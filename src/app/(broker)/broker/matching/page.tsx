@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import BrokerBottomNav from '@/components/layout/BrokerBottomNav';
 import { MatchStageBreakdown } from '@/components/matching/MatchStageBreakdown';
 import { Share, MessageSquare, Briefcase, User, Sparkles, Building2, Calendar, Users, ShieldCheck } from 'lucide-react';
 
 interface MatchResult {
+
   id: string;
   building_ssot_lite_id: string;
   buyer_intent_lite_id: string;
@@ -153,7 +155,9 @@ interface BuyerGroup {
   matches: MatchResult[];
 }
 
-export default function MatchingBoardPage() {
+function MatchingBoardContent() {
+  const searchParams = useSearchParams();
+  const buildingIdParam = searchParams?.get('buildingId');
   const [matches, setMatches] = useState<MatchResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDemo, setIsDemo] = useState(false);
@@ -218,17 +222,17 @@ export default function MatchingBoardPage() {
         });
 
         setMatches(enriched);
-        setExpandedGroupId(enriched[0]?.building_ssot_lite_id);
+        setExpandedGroupId(buildingIdParam || enriched[0]?.building_ssot_lite_id);
       } else {
         // 최종 폴백: 데모 데이터 사용
         setMatches(DEMO_MATCHES);
         setIsDemo(true);
-        setExpandedGroupId(DEMO_MATCHES[0].building_ssot_lite_id);
+        setExpandedGroupId(buildingIdParam || DEMO_MATCHES[0].building_ssot_lite_id);
       }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [buildingIdParam]);
 
   useEffect(() => {
     fetchMatches();
@@ -269,11 +273,20 @@ export default function MatchingBoardPage() {
     dMap.forEach((group) => group.matches.sort((a, b) => b.score - a.score));
     bMap.forEach((group) => group.matches.sort((a, b) => b.score - a.score));
 
+    const dealGroupList = Array.from(dMap.values());
+    if (buildingIdParam) {
+      dealGroupList.sort((a, b) => {
+        if (a.buildingId === buildingIdParam) return -1;
+        if (b.buildingId === buildingIdParam) return 1;
+        return 0;
+      });
+    }
+
     return {
-      dealGroups: Array.from(dMap.values()),
+      dealGroups: dealGroupList,
       buyerGroups: Array.from(bMap.values()),
     };
-  }, [matches]);
+  }, [matches, buildingIdParam]);
 
   // Handle Tab Switch
   const handleTabSwitch = (mode: ViewMode) => {
@@ -291,6 +304,22 @@ export default function MatchingBoardPage() {
             내 매물과 매수자를 연결하는 가장 빠른 방법
           </p>
         </div>
+
+        {/* 특정 매물 필터 배너 if buildingIdParam */}
+        {buildingIdParam && (
+          <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/10 px-3.5 py-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">🏢</span>
+              <span className="text-xs font-semibold text-primary">지정 매물 연계 AI 매칭</span>
+            </div>
+            <Link
+              href={`/broker/deal-card/${buildingIdParam}`}
+              className="text-xs font-bold text-primary hover:underline"
+            >
+              ← 딜카드로 돌아가기
+            </Link>
+          </div>
+        )}
 
         {/* 데모 배너 */}
         {isDemo && (
@@ -585,5 +614,27 @@ function MatchCard({ match, type }: { match: MatchResult, type: 'buyer' | 'deal'
         </div>
       )}
     </div>
+  );
+}
+
+export default function MatchingBoardPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex flex-col items-center min-h-screen px-4 py-8 pb-24 bg-zinc-50 dark:bg-zinc-950">
+          <div className="w-full max-w-md mx-auto space-y-5 pt-4">
+            <div className="h-10 bg-muted rounded-xl animate-pulse" />
+            <div className="h-12 bg-muted rounded-xl animate-pulse" />
+            <div className="space-y-3 pt-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-28 bg-muted rounded-xl animate-pulse" />
+              ))}
+            </div>
+          </div>
+        </main>
+      }
+    >
+      <MatchingBoardContent />
+    </Suspense>
   );
 }
