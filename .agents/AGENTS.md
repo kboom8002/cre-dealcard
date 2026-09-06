@@ -56,6 +56,7 @@
 ### 10. 면수 상한 (Page Hard Limit)
 - IM **본문** 면수 상한은 **16면**입니다 (PAGE_HARD_LIMIT=16, deck-sequencer 본문 절삭).
 - **부록**(공부발췌, 권리관계, 지적도, 상권분석)은 16면 한도에서 **제외**됩니다.
+- **Grade D는 모든 tier(basic/pro)에서 PPTX 생성이 차단됩니다** (`[G30]` throw). tier와 무관합니다.
 - 렌트롤 다단 테이블, 갤러리 다면은 데이터 양에 따라 초과 가능합니다.
 - 테스트에서 총 면수(본문+부록)를 16 이하로 단언하지 않습니다.
 <!-- END:cre-pipeline-rules -->
@@ -123,5 +124,25 @@
 ### 22. Writer 산출물 Claim 체인 영속화 (Full-Chain Claim Persistence)
 - `writer.ts`의 `FinancialCalculator`가 계산한 `claimRegistry.getAll()`은 반드시 `generateMobileIM` 리턴 객체와 DB(`document_objects.body.claims`)에 영속 저장되어 승인 게이트로 직결되어야 합니다.
 - 레거시 요약값(`ssot_summary`)에만 의존한 수화(rehydration)를 지양하고 확정된 Claim 원장을 유지합니다.
+
+### 23. Playwright E2E 서버 컴포넌트 제약 (Server Component Boundary)
+- Next.js Server Component는 서버에서 Supabase를 직접 호출하므로, `page.route()`로 모킹이 **불가능**합니다.
+- Playwright 테스트 대상은 **클라이언트 렌더링 페이지**로 한정합니다:
+  * ✅ `/broker/deal-card/new` (클라이언트 컴포넌트)
+  * ✅ `/im-lite/[id]` (Zero-DB fixture `fe5cbadd-...` 사용)
+  * ❌ `/broker/deal-card/[id]` (서버 컴포넌트 — `createServiceClient()` 호출)
+  * ❌ `/broker/im-approval/[id]` (서버 컴포넌트)
+- 서버 컴포넌트 페이지를 테스트해야 할 경우, API 레벨 또는 도메인 함수 직접 호출(vitest)을 사용합니다.
+
+### 24. Goldilocks 16면 절삭 인식 테스트 작성 (Goldilocks-Aware Assertions)
+- `deck-sequencer.ts`의 goldilocks 알고리즘은 본문 슬라이드를 `PAGE_HARD_LIMIT=16`으로 절삭합니다.
+- 테스트에서 **특정 optional 슬라이드(DCF, sensitivity, loan, rentRoll 등)가 최종 시퀀스에 존재한다고 단언하지 않습니다**.
+- Grade A vs B 비교 시 `toBeGreaterThan` 대신 `toBeGreaterThanOrEqual`을 사용합니다 (둘 다 16면으로 잘릴 수 있음).
+- Protected 슬라이드(cover, summary, closing, risk, checklist, process, thesis)만 존재 단언이 안전합니다.
+
+### 25. PPTX 렌더링 테스트 타임아웃 (PPTX Render Timeout)
+- PPTX 렌더링 테스트는 CPU 집약적이며 전체 스위트 실행 시 리소스 경합으로 지연됩니다.
+- 단일 PPTX 렌더: `30_000ms`, 5개 포스처 동시 렌더: `60_000ms` 이상 명시적 타임아웃을 설정합니다.
+- vitest의 기본 타임아웃(5s)에 의존하지 않습니다.
 <!-- END:cre-prod-web-rules -->
 
