@@ -6,8 +6,16 @@
     "resolved_address": "서울특별시 서초구 잠원동 26-14, 26-16",
     "building_name": "두원빌딩",
     "parcels": [
-      {"pnu": "1165010700100260014", "area_sqm": 511.7, "zoning": "제2종일반주거지역"},
-      {"pnu": "1165010700100260016", "area_sqm": 104.4, "zoning": "제2종일반주거지역"}
+      {
+        "pnu": "1165010700100260014",
+        "area_sqm": 511.7,
+        "zoning": "제2종일반주거지역"
+      },
+      {
+        "pnu": "1165010700100260016",
+        "area_sqm": 104.4,
+        "zoning": "제2종일반주거지역"
+      }
     ],
     "asking_price_manwon": 2422700,
     "developmentSpec": {
@@ -22,21 +30,66 @@
       "estimatedMonths": 6
     },
     "permitSpec": {
-      "permitKinds": ["건축허가", "교통영향평가"],
+      "permitKinds": [
+        "건축허가",
+        "교통영향평가"
+      ],
       "status": "pre_application",
       "estimatedMonths": 12
     },
     "floor_leases": [
-      {"floor": "1F", "tenant_name": "잠원모터스", "tenant_type": "카센터", "area_sqm": 120.0, "deposit_manwon": 3000, "rent_manwon": 250, "is_vacant": false, "lease_end": "2025-06-30", "notes": "매도인 책임명도"},
-      {"floor": "2F", "tenant_name": "동방유통", "tenant_type": "창고/사무실", "area_sqm": 180.0, "deposit_manwon": 2000, "rent_manwon": 150, "is_vacant": false, "lease_end": "2025-08-31", "notes": "매도인 책임명도"}
+      {
+        "floor": "1F",
+        "tenant_name": "잠원모터스",
+        "tenant_type": "카센터",
+        "area_sqm": 120,
+        "deposit_manwon": 3000,
+        "rent_manwon": 250,
+        "is_vacant": false,
+        "lease_end": "2025-06-30",
+        "notes": "매도인 책임명도"
+      },
+      {
+        "floor": "2F",
+        "tenant_name": "동방유통",
+        "tenant_type": "창고/사무실",
+        "area_sqm": 180,
+        "deposit_manwon": 2000,
+        "rent_manwon": 150,
+        "is_vacant": false,
+        "lease_end": "2025-08-31",
+        "notes": "매도인 책임명도"
+      }
     ],
     "photos_v2": [
-      {"url": "images/01_exterior.jpg", "category": "exterior", "isHero": true, "role": "cover", "order": 0},
-      {"url": "images/02_entrance.jpg", "category": "entrance", "isHero": false, "role": "general", "order": 1},
-      {"url": "images/03_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 2},
-      {"url": "images/04_cadastral_map.jpg", "category": "cadastral_map", "isHero": false, "role": "map", "order": 3},
-      {"url": "images/05_dev_rendering.jpg", "category": "floor_plan", "isHero": false, "role": "general", "order": 4},
-      {"url": "images/06_zoning_map.jpg", "category": "cadastral_map", "isHero": false, "role": "map", "order": 5}
+      {
+        "url": "images/01_exterior.jpg",
+        "category": "exterior",
+        "isHero": true,
+        "role": "cover",
+        "order": 0
+      },
+      {
+        "url": "images/02_entrance.jpg",
+        "category": "entrance",
+        "isHero": false,
+        "role": "general",
+        "order": 1
+      },
+      {
+        "url": "images/03_lobby.jpg",
+        "category": "lobby",
+        "isHero": false,
+        "role": "general",
+        "order": 2
+      },
+      {
+        "url": "images/05_dev_rendering.jpg",
+        "category": "floor_plan",
+        "isHero": false,
+        "role": "general",
+        "order": 3
+      }
     ]
   }
 }

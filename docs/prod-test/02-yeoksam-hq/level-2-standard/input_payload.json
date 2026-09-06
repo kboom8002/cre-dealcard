@@ -18,16 +18,65 @@
       "currentRentManwon": 3800
     },
     "floor_leases": [
-      {"floor": "B1", "tenant_name": "역삼포토랩", "tenant_type": "스튜디오/사진", "area_sqm": 115.0, "deposit_manwon": 5000, "rent_manwon": 400, "mgmt_fee_manwon": 50, "is_vacant": false, "lease_end": "2026-12-31"},
-      {"floor": "1F~6F", "tenant_name": "매도법인 본사사옥", "tenant_type": "업무시설(사옥)", "area_sqm": 540.0, "deposit_manwon": 0, "rent_manwon": 0, "mgmt_fee_manwon": 0, "is_vacant": false, "notes": "잔금일 퇴거 확약"}
+      {
+        "floor": "B1",
+        "tenant_name": "역삼포토랩",
+        "tenant_type": "스튜디오/사진",
+        "area_sqm": 115,
+        "deposit_manwon": 5000,
+        "rent_manwon": 400,
+        "mgmt_fee_manwon": 50,
+        "is_vacant": false,
+        "lease_end": "2026-12-31"
+      },
+      {
+        "floor": "1F~6F",
+        "tenant_name": "매도법인 본사사옥",
+        "tenant_type": "업무시설(사옥)",
+        "area_sqm": 540,
+        "deposit_manwon": 0,
+        "rent_manwon": 0,
+        "mgmt_fee_manwon": 0,
+        "is_vacant": false,
+        "notes": "잔금일 퇴거 확약"
+      }
     ],
     "photos_v2": [
-      {"url": "images/01_exterior.jpg", "category": "exterior", "isHero": true, "role": "cover", "order": 0},
-      {"url": "images/02_entrance.jpg", "category": "entrance", "isHero": false, "role": "general", "order": 1},
-      {"url": "images/03_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 2},
-      {"url": "images/04_cadastral_map.jpg", "category": "cadastral_map", "isHero": false, "role": "map", "order": 3},
-      {"url": "images/05_office_interior.jpg", "category": "office_interior", "isHero": false, "role": "general", "order": 4},
-      {"url": "images/06_rooftop_terrace.jpg", "category": "rooftop_terrace", "isHero": false, "role": "general", "order": 5}
+      {
+        "url": "images/01_exterior.jpg",
+        "category": "exterior",
+        "isHero": true,
+        "role": "cover",
+        "order": 0
+      },
+      {
+        "url": "images/02_entrance.jpg",
+        "category": "entrance",
+        "isHero": false,
+        "role": "general",
+        "order": 1
+      },
+      {
+        "url": "images/03_lobby.jpg",
+        "category": "lobby",
+        "isHero": false,
+        "role": "general",
+        "order": 2
+      },
+      {
+        "url": "images/05_office_interior.jpg",
+        "category": "office_interior",
+        "isHero": false,
+        "role": "general",
+        "order": 3
+      },
+      {
+        "url": "images/06_rooftop_terrace.jpg",
+        "category": "rooftop_terrace",
+        "isHero": false,
+        "role": "general",
+        "order": 4
+      }
     ]
   }
 }

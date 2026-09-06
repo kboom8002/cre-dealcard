@@ -13,24 +13,119 @@
   "loanStatus": "confirmed",
   "qualityGrade": "B",
   "photos_v2": [
-    {"url": "images/01_exterior.jpg", "category": "exterior", "isHero": true, "role": "cover", "order": 0},
-    {"url": "images/02_entrance.jpg", "category": "entrance", "isHero": false, "role": "general", "order": 1},
-    {"url": "images/03_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 2},
-    {"url": "images/04_cadastral_map.jpg", "category": "cadastral_map", "isHero": false, "role": "map", "order": 3},
-    {"url": "images/05_location_map.jpg", "category": "map", "isHero": false, "role": "map", "order": 4},
-    {"url": "images/06_parking.jpg", "category": "parking", "isHero": false, "role": "general", "order": 5}
+    {
+      "url": "images/01_exterior.jpg",
+      "category": "exterior",
+      "isHero": true,
+      "role": "cover",
+      "order": 0
+    },
+    {
+      "url": "images/02_entrance.jpg",
+      "category": "entrance",
+      "isHero": false,
+      "role": "general",
+      "order": 1
+    },
+    {
+      "url": "images/03_lobby.jpg",
+      "category": "lobby",
+      "isHero": false,
+      "role": "general",
+      "order": 2
+    },
+    {
+      "url": "images/06_parking.jpg",
+      "category": "parking",
+      "isHero": false,
+      "role": "general",
+      "order": 3
+    }
   ],
   "floor_leases": [
-    {"floor": "B1", "tenant_name": "자가운영 카페", "tenant_type": "음식점/카페", "area_sqm": 317.22, "deposit_manwon": 0, "rent_manwon": 0, "mgmt_fee_manwon": 0, "is_vacant": false},
-    {"floor": "1F", "tenant_name": "당산메디칼약국", "tenant_type": "소매점(약국)", "area_sqm": 78.39, "deposit_manwon": 6000, "rent_manwon": 183, "mgmt_fee_manwon": 30, "is_vacant": false, "lease_end": "2026-08-31"},
-    {"floor": "1F, 2F", "tenant_name": "연세이비인후과", "tenant_type": "의원", "area_sqm": 357.69, "deposit_manwon": 14000, "rent_manwon": 883, "mgmt_fee_manwon": 120, "is_vacant": false, "lease_end": "2026-08-31", "notes": "1F+2F 통합계약, 2F 금액 1F 합산 기재"},
-    {"floor": "3F", "tenant_name": "당산피트니스", "tenant_type": "운동시설(헬스)", "area_sqm": 252.09, "deposit_manwon": 5000, "rent_manwon": 455, "mgmt_fee_manwon": 60, "is_vacant": false, "lease_end": "2026-04-17"},
-    {"floor": "4F", "tenant_name": "소유자 업무공간", "tenant_type": "사무실", "area_sqm": 83.03, "deposit_manwon": 0, "rent_manwon": 0, "mgmt_fee_manwon": 0, "is_vacant": false, "notes": "자가사용"},
-    {"floor": "4F", "tenant_name": "와인앤모어", "tenant_type": "소매점(주류)", "area_sqm": 169.06, "deposit_manwon": 3000, "rent_manwon": 260, "mgmt_fee_manwon": 40, "is_vacant": false, "lease_end": "2025-04-30", "notes": "만기 경과, 묵시적 갱신 확인 필요"},
-    {"floor": "5F", "tenant_name": "서울피부과의원", "tenant_type": "의원(피부과)", "area_sqm": 183.67, "deposit_manwon": 1000, "rent_manwon": 165, "mgmt_fee_manwon": 35, "is_vacant": false, "lease_end": "2026-08-31"}
+    {
+      "floor": "B1",
+      "tenant_name": "자가운영 카페",
+      "tenant_type": "음식점/카페",
+      "area_sqm": 317.22,
+      "deposit_manwon": 0,
+      "rent_manwon": 0,
+      "mgmt_fee_manwon": 0,
+      "is_vacant": false
+    },
+    {
+      "floor": "1F",
+      "tenant_name": "당산메디칼약국",
+      "tenant_type": "소매점(약국)",
+      "area_sqm": 78.39,
+      "deposit_manwon": 6000,
+      "rent_manwon": 183,
+      "mgmt_fee_manwon": 30,
+      "is_vacant": false,
+      "lease_end": "2026-08-31"
+    },
+    {
+      "floor": "1F, 2F",
+      "tenant_name": "연세이비인후과",
+      "tenant_type": "의원",
+      "area_sqm": 357.69,
+      "deposit_manwon": 14000,
+      "rent_manwon": 883,
+      "mgmt_fee_manwon": 120,
+      "is_vacant": false,
+      "lease_end": "2026-08-31",
+      "notes": "1F+2F 통합계약, 2F 금액 1F 합산 기재"
+    },
+    {
+      "floor": "3F",
+      "tenant_name": "당산피트니스",
+      "tenant_type": "운동시설(헬스)",
+      "area_sqm": 252.09,
+      "deposit_manwon": 5000,
+      "rent_manwon": 455,
+      "mgmt_fee_manwon": 60,
+      "is_vacant": false,
+      "lease_end": "2026-04-17"
+    },
+    {
+      "floor": "4F",
+      "tenant_name": "소유자 업무공간",
+      "tenant_type": "사무실",
+      "area_sqm": 83.03,
+      "deposit_manwon": 0,
+      "rent_manwon": 0,
+      "mgmt_fee_manwon": 0,
+      "is_vacant": false,
+      "notes": "자가사용"
+    },
+    {
+      "floor": "4F",
+      "tenant_name": "와인앤모어",
+      "tenant_type": "소매점(주류)",
+      "area_sqm": 169.06,
+      "deposit_manwon": 3000,
+      "rent_manwon": 260,
+      "mgmt_fee_manwon": 40,
+      "is_vacant": false,
+      "lease_end": "2025-04-30",
+      "notes": "만기 경과, 묵시적 갱신 확인 필요"
+    },
+    {
+      "floor": "5F",
+      "tenant_name": "서울피부과의원",
+      "tenant_type": "의원(피부과)",
+      "area_sqm": 183.67,
+      "deposit_manwon": 1000,
+      "rent_manwon": 165,
+      "mgmt_fee_manwon": 35,
+      "is_vacant": false,
+      "lease_end": "2026-08-31"
+    }
   ],
   "expectedGates": {
     "blocking": [],
-    "warning": ["G40"]
+    "warning": [
+      "G40"
+    ]
   }
 }
