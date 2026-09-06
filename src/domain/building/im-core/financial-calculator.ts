@@ -216,7 +216,7 @@ export class FinancialCalculator {
         evidence: [{ sourceId: provenance, asOf: this.asOfDate }],
         provenance,
         asOf: this.asOfDate,
-        status: 'unverified',
+        status: provenance === 'assumed' ? 'unverified' : 'reconciled',
       });
       claims.push(claim);
     };

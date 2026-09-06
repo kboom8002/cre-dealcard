@@ -315,6 +315,40 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     }
   }
 
+  // ── 3. 섹션 간 교차 검증 ──
+  let crossValidationPassed = false;
+  try {
+    // L3-04: SSoT 권위 수치 앵커 보호 — LLM 결과에 의해 수치가 변조되거나 왜곡되지 않도록 검증 직전 권위값 확정 보존
+    for (const [k, v] of Object.entries(authoritativeAnchors)) {
+      if (typeof v === 'number' && !isNaN(v) && v > 0) {
+        const cur = (ctx.sectionCtx.numericalAnchors as NumericalAnchors)?.get(k);
+        if (cur === undefined || cur !== v) {
+          (ctx.sectionCtx.numericalAnchors as NumericalAnchors)?.set(k, v, 'authoritative_ssot_lock', 0);
+        }
+      }
+    }
+
+    const crossValResult = runCrossValidation(
+      sections,
+      (ctx.sectionCtx.numericalAnchors as NumericalAnchors).toCrossValidatorAnchors(),
+      ctx.sectionPlan?.posture as import("@/domain/ontology").InvestmentPosture,
+    );
+    crossValidationPassed = crossValResult.passed;
+    if (!crossValResult.passed) {
+      for (const issue of crossValResult.inconsistencies) {
+        if (issue.severity === 'critical') {
+          const idx = sections.findIndex(s => s.section_type === issue.section2.type);
+          if (idx >= 0) {
+            sections[idx].confidence = 'needs_check';
+            console.warn(`[cross-validator] Inconsistency: ${issue.field} between ${issue.section1.type} and ${issue.section2.type}`);
+          }
+        }
+      }
+    }
+  } catch {
+    // 교차 검증 실패는 무시
+  }
+
   let publishBlocked = false;
   let publishBlockReasons: string[] = [];
   try {
@@ -324,8 +358,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       address: String(ctx.assetIdentity.area_signal ?? ''),
       dataGrade: String(input.dataGrade ?? 'C'),
       // D37 P0-8: 실값 전환 — 하드코딩 해소
-      // crossValidation 결과는 이 아래 runCrossValidation 후 재설정되므로 여기선 false
-      crossValidationPassed: false,
+      crossValidationPassed: crossValidationPassed,
       // 할루시네이션: 섹션 중 하나라도 confidence='needs_check'이면 true
       hasHallucination: sections.some(s => s.confidence === 'needs_check'),
       // PII: 섹션 마크다운에 개인정보 패턴이 없는지 검사
@@ -367,38 +400,6 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     }
   } catch (e) {
     console.warn('[mobile-im] Publish gates failed:', e);
-  }
-
-  // ── 3. 섹션 간 교차 검증 ──
-  try {
-    // L3-04: SSoT 권위 수치 앵커 보호 — LLM 결과에 의해 수치가 변조되거나 왜곡되지 않도록 검증 직전 권위값 확정 보존
-    for (const [k, v] of Object.entries(authoritativeAnchors)) {
-      if (typeof v === 'number' && !isNaN(v) && v > 0) {
-        const cur = (ctx.sectionCtx.numericalAnchors as NumericalAnchors)?.get(k);
-        if (cur === undefined || cur !== v) {
-          (ctx.sectionCtx.numericalAnchors as NumericalAnchors)?.set(k, v, 'authoritative_ssot_lock', 0);
-        }
-      }
-    }
-
-    const crossValResult = runCrossValidation(
-      sections,
-      (ctx.sectionCtx.numericalAnchors as NumericalAnchors).toCrossValidatorAnchors(),
-      ctx.sectionPlan?.posture as import("@/domain/ontology").InvestmentPosture,
-    );
-    if (!crossValResult.passed) {
-      for (const issue of crossValResult.inconsistencies) {
-        if (issue.severity === 'critical') {
-          const idx = sections.findIndex(s => s.section_type === issue.section2.type);
-          if (idx >= 0) {
-            sections[idx].confidence = 'needs_check';
-            console.warn(`[cross-validator] Inconsistency: ${issue.field} between ${issue.section1.type} and ${issue.section2.type}`);
-          }
-        }
-      }
-    }
-  } catch {
-    // 교차 검증 실패는 무시
   }
 
   // ── 4. RAG 인덱싱 ──

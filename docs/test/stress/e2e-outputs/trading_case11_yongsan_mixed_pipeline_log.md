@@ -1,6 +1,6 @@
 # Pipeline Log: trading_case11_yongsan_mixed
 
-**Generated**: 2026-09-06T12:24:26.165Z
+**Generated**: 2026-09-06T12:59:51.990Z
 **Total Duration**: 0.4s
 
 ## Step-by-Step Timeline
@@ -8,10 +8,10 @@
 | # | Step | Duration | Status | Summary |
 |---|------|----------|--------|---------|
 | 1 | ① SSoT Lite 구축 | 0.00s | ✅ success | buildingId: stress-case-11 |
-| 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: trading, keys: 4 |
-| 3 | ③ IM 생성 (LLM) | 0.19s | ✅ success | ok=true, sections=9, grade=B |
+| 2 | ② 바텀시트 보강 | 0.01s | ✅ success | posture: trading, keys: 4 |
+| 3 | ③ IM 생성 (LLM) | 0.21s | ✅ success | ok=true, sections=9, grade=B |
 | 4 | ④ 중간 결과물 저장 | 0.04s | ✅ success | sections: 9 |
-| 5 | ⑤ PPTX 렌더링 | 0.17s | ✅ success | slides: 14, size: 369KB |
+| 5 | ⑤ PPTX 렌더링 | 0.18s | ✅ success | slides: 14, size: 369KB |
 
 ## Detailed Metrics
 

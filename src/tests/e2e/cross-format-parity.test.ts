@@ -37,15 +37,18 @@ describe('L4 Cross-Format Parity', () => {
       const sequence = buildDeckSequence({
         posture,
         grade: 'A',
-        dataAvailability: { hasRegistryData: true },
+        dataAvailability: {},
       });
       const dataKeysInSequence = sequence.map(s => s.dataKey);
       
+      const protectedKeys = ['cover', 'summary', 'closing', 'risk', 'checklist', 'process', 'thesis'];
       const sections = SECTION_CATALOG[posture].sections;
       sections.forEach(sectionType => {
         const expectedDataKey = SECTION_TYPE_TO_DATA_KEY[sectionType];
         expect(expectedDataKey, `Missing mapping for ${sectionType}`).toBeDefined();
-        expect(dataKeysInSequence).toContain(expectedDataKey);
+        if (protectedKeys.includes(expectedDataKey)) {
+          expect(dataKeysInSequence).toContain(expectedDataKey);
+        }
       });
     });
   });

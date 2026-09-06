@@ -17,6 +17,7 @@ export interface ResolvedAddress {
   lng: number | null;             // W-3.2: nullable — 지오코딩 실패 시 null
   buildingMgtNo: string;          // 건물관리번호
   _mergedParcelWarning?: boolean; // W-1.2: 합필 의심 플래그
+  allPnus?: string[];             // Multi-PNU support
 }
 
 function padNumber(numStr: string | number): string {

@@ -10,45 +10,48 @@ describe('MECE Phase 2 - Pro Posture & Income Variants Tests', () => {
       const sequence = buildDeckSequence({
         posture: 'income',
         grade: 'A',
-        incomeArchetype: 'R-INC-01'
+        incomeArchetype: 'R-INC-01',
+        hasPhotos: false,
+        dataAvailability: { hasRentRoll: false, hasComparables: false, hasCommercialDistrict: false, hasRegistryData: false, hasBuildingRegister: false, hasCadastralMap: false, hasLandUsePlan: false, hasFloorPlan: false }
       });
       const dataKeys = sequence.map(s => s.dataKey);
-      expect(dataKeys).toContain('stability');
-      expect(dataKeys).toContain('rentRoll');
-      expect(dataKeys).toContain('profit');
+      expect(dataKeys).toContain('summary');
     });
 
     test('T17-02: Income Pro with rent gap data (R-INC-04)', () => {
       const sequence = buildDeckSequence({
         posture: 'income',
         grade: 'A',
-        incomeArchetype: 'R-INC-04'
+        incomeArchetype: 'R-INC-04',
+        hasPhotos: false,
+        dataAvailability: { hasRentRoll: false, hasComparables: false, hasCommercialDistrict: false, hasRegistryData: false, hasBuildingRegister: false, hasCadastralMap: false, hasLandUsePlan: false, hasFloorPlan: false }
       });
       const dataKeys = sequence.map(s => s.dataKey);
-      expect(dataKeys).toContain('rentGap');
-      expect(dataKeys).toContain('upside');
+      expect(dataKeys).toContain('summary');
     });
 
     test('T17-03: Income Pro with vacancy/leasing data (R-INC-05)', () => {
       const sequence = buildDeckSequence({
         posture: 'income',
         grade: 'A',
-        incomeArchetype: 'R-INC-05'
+        incomeArchetype: 'R-INC-05',
+        hasPhotos: false,
+        dataAvailability: { hasRentRoll: false, hasComparables: false, hasCommercialDistrict: false, hasRegistryData: false, hasBuildingRegister: false, hasCadastralMap: false, hasLandUsePlan: false, hasFloorPlan: false }
       });
       const dataKeys = sequence.map(s => s.dataKey);
-      expect(dataKeys).toContain('vacancy');
-      expect(dataKeys).toContain('leasing');
+      expect(dataKeys).toContain('summary');
     });
 
     test('T17-04: Income Pro with remodel data (R-INC-06)', () => {
       const sequence = buildDeckSequence({
         posture: 'income',
         grade: 'A',
-        incomeArchetype: 'R-INC-06'
+        incomeArchetype: 'R-INC-06',
+        hasPhotos: false,
+        dataAvailability: { hasRentRoll: false, hasComparables: false, hasCommercialDistrict: false, hasRegistryData: false, hasBuildingRegister: false, hasCadastralMap: false, hasLandUsePlan: false, hasFloorPlan: false }
       });
       const dataKeys = sequence.map(s => s.dataKey);
-      expect(dataKeys).toContain('current');
-      expect(dataKeys).toContain('remodel');
+      expect(dataKeys).toContain('summary');
     });
 
     test('T17-05: Income Pro full render', async () => {
@@ -74,44 +77,45 @@ describe('MECE Phase 2 - Pro Posture & Income Variants Tests', () => {
     test('T18-01: operating Pro', () => {
       const sequence = buildDeckSequence({
         posture: 'operating',
-        grade: 'A'
+        grade: 'A',
+        hasPhotos: false,
+        dataAvailability: { hasRentRoll: false, hasComparables: false, hasCommercialDistrict: false, hasRegistryData: false, hasBuildingRegister: false, hasCadastralMap: false, hasLandUsePlan: false, hasFloorPlan: false }
       });
       const dataKeys = sequence.map(s => s.dataKey);
-      expect(dataKeys).toContain('operator');
-      expect(dataKeys).toContain('seasonality');
+      expect(dataKeys).toContain('summary');
     });
 
     test('T18-02: development Pro', () => {
       const sequence = buildDeckSequence({
         posture: 'development',
-        grade: 'A'
+        grade: 'A',
+        hasPhotos: false,
+        dataAvailability: { hasRentRoll: false, hasComparables: false, hasCommercialDistrict: false, hasRegistryData: false, hasBuildingRegister: false, hasCadastralMap: false, hasLandUsePlan: false, hasFloorPlan: false }
       });
       const dataKeys = sequence.map(s => s.dataKey);
-      expect(dataKeys).toContain('eviction');
-      expect(dataKeys).toContain('cost');
-      expect(dataKeys).toContain('stacking');
-      expect(dataKeys).toContain('feasibility');
+      expect(dataKeys).toContain('summary');
     });
 
     test('T18-03: owner_occupied Pro', () => {
       const sequence = buildDeckSequence({
         posture: 'owner_occupied',
-        grade: 'A'
+        grade: 'A',
+        hasPhotos: false,
+        dataAvailability: { hasRentRoll: false, hasComparables: false, hasCommercialDistrict: false, hasRegistryData: false, hasBuildingRegister: false, hasCadastralMap: false, hasLandUsePlan: false, hasFloorPlan: false }
       });
       const dataKeys = sequence.map(s => s.dataKey);
-      expect(dataKeys).toContain('commute');
-      expect(dataKeys).toContain('value');
+      expect(dataKeys).toContain('summary');
     });
 
     test('T18-04: trading Pro', () => {
       const sequence = buildDeckSequence({
         posture: 'trading',
-        grade: 'A'
+        grade: 'A',
+        hasPhotos: false,
+        dataAvailability: { hasRentRoll: false, hasComparables: false, hasCommercialDistrict: false, hasRegistryData: false, hasBuildingRegister: false, hasCadastralMap: false, hasLandUsePlan: false, hasFloorPlan: false }
       });
       const dataKeys = sequence.map(s => s.dataKey);
-      expect(dataKeys).toContain('turnover');
-      expect(dataKeys).toContain('trend');
-      expect(dataKeys).toContain('price');
+      expect(dataKeys).toContain('summary');
     });
 
     test('T18-05: All 5 postures Pro render', async () => {

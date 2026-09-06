@@ -1,6 +1,6 @@
 # Pipeline Log: trading_case10_seocho_old_retail
 
-**Generated**: 2026-09-06T12:24:25.757Z
+**Generated**: 2026-09-06T12:59:51.545Z
 **Total Duration**: 0.4s
 
 ## Step-by-Step Timeline
@@ -9,9 +9,9 @@
 |---|------|----------|--------|---------|
 | 1 | ① SSoT Lite 구축 | 0.01s | ✅ success | buildingId: stress-case-10 |
 | 2 | ② 바텀시트 보강 | 0.01s | ✅ success | posture: trading, keys: 6 |
-| 3 | ③ IM 생성 (LLM) | 0.20s | ✅ success | ok=true, sections=9, grade=B |
-| 4 | ④ 중간 결과물 저장 | 0.01s | ✅ success | sections: 9 |
-| 5 | ⑤ PPTX 렌더링 | 0.18s | ✅ success | slides: 14, size: 369KB |
+| 3 | ③ IM 생성 (LLM) | 0.19s | ✅ success | ok=true, sections=9, grade=B |
+| 4 | ④ 중간 결과물 저장 | 0.05s | ✅ success | sections: 9 |
+| 5 | ⑤ PPTX 렌더링 | 0.19s | ✅ success | slides: 14, size: 369KB |
 
 ## Detailed Metrics
 

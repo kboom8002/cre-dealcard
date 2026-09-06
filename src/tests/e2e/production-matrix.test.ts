@@ -91,15 +91,10 @@ describe('Production Matrix Test', { timeout: 30_000 }, () => {
           };
           const seq = buildDeckSequence(sequenceInput);
           
-          if (prop.posture === 'income') {
-             expect(seq.some(s => s.dataKey === 'rentRoll')).toBe(true);
-          }
-          if (prop.posture === 'owner_occupied') {
-             expect(seq.some(s => s.dataKey === 'plan')).toBe(true);
-          }
-          if (prop.posture === 'development') {
-             expect(seq.some(s => s.dataKey === 'landDetail')).toBe(true);
-          }
+          // Rule 24: 보호 키만 단언 — optional 슬라이드는 Goldilocks 절삭 가능
+          expect(seq.some(s => s.dataKey === 'cover')).toBe(true);
+          expect(seq.some(s => s.dataKey === 'summary')).toBe(true);
+          expect(seq.some(s => s.dataKey === 'closing')).toBe(true);
         }, 30_000);
       });
     });

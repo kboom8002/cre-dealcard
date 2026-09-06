@@ -273,8 +273,28 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
       throw new Error(`[deck-sequencer] 보호 키(${protectedSlides.length}면)가 PAGE_HARD_LIMIT(${PAGE_HARD_LIMIT})을 초과합니다`);
     }
 
-    // 비보호 면을 예산 내에서만 유지 (원래 순서 보존)
-    const keptOptional = optionalSlides.slice(0, budget);
+    const SLIDE_PRIORITY: Record<string, number> = {
+      // Priority 1 (highest): Core financial analysis — Grade A signature
+      dcf: 1, sensitivity: 1, capital: 1, totalReturn: 1,
+      // Priority 2: Key property data & posture-specific core slides
+      profit: 2, rentRoll: 2, stackingPlan: 2, stability: 2,
+      gallery: 2, gallery2: 2,
+      feasibility: 2, scale: 2, eviction: 2, cost: 2, stacking: 2,
+      kpi: 2, revenue: 2, seasonality: 2, operator: 2,
+      comps: 2, trend: 2, turnover: 2, price: 2,
+      // Priority 3: Context & supporting
+      location: 3, land: 3, building: 3,
+      // Priority 4 (lowest): Secondary items
+      loan: 4, tax: 4,
+    };
+
+    // Sort by priority, keeping original index for tie-breaking
+    const indexed = optionalSlides.map((s, i) => ({ slide: s, originalIndex: i, priority: SLIDE_PRIORITY[s.dataKey] ?? 3 }));
+    indexed.sort((a, b) => a.priority - b.priority || a.originalIndex - b.originalIndex);
+    const kept = indexed.slice(0, budget);
+    kept.sort((a, b) => a.originalIndex - b.originalIndex); // Restore presentation order
+    const keptOptional = kept.map(k => k.slide);
+
     const keptKeys = new Set([
       ...protectedSlides.map(s => s.dataKey),
       ...keptOptional.map(s => s.dataKey),

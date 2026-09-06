@@ -32,6 +32,8 @@ describe('L3: Composition & Deck Sequencing (32 cases)', () => {
         posture: 'income',
         grade: 'A',
         incomeArchetype: 'R-INC-04',
+        hasPhotos: false,
+        dataAvailability: { hasRentRoll: false, hasComparables: false, hasCommercialDistrict: false },
       });
       const slideTitles = seq.map(s => s.title);
       expect(slideTitles.some(t => t.includes('정상화') || t.includes('임대료'))).toBe(true);
@@ -42,6 +44,8 @@ describe('L3: Composition & Deck Sequencing (32 cases)', () => {
         posture: 'income',
         grade: 'A',
         incomeArchetype: 'R-INC-02',
+        hasPhotos: false,
+        dataAvailability: { hasRentRoll: false, hasComparables: false, hasCommercialDistrict: false },
       });
       const slideTitles = seq.map(s => s.title);
       expect(slideTitles.some(t => t.includes('가치 상승') || t.includes('수익 분석'))).toBe(true);

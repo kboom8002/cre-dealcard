@@ -28,6 +28,9 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   // content.sections가 배열인지 안전하게 확인
   const rawSections = Array.isArray(content?.sections) ? content.sections : [];
   const [sections, setSections] = useState<IMSection[]>(rawSections as IMSection[]);
+  const [currentApprovalHash, setCurrentApprovalHash] = useState<string>(
+    (content as any)?.approval_target_hash || (content as any)?.targetHash || ''
+  );
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState('');
   const [editableTitle, setEditableTitle] = useState(title);
@@ -79,6 +82,8 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
         }),
       });
       if (res.ok) {
+        const resData = await res.json();
+        if (resData.targetHash) setCurrentApprovalHash(resData.targetHash);
         setOgTimestamp(Date.now());
         setIsOgMetaDirty(false);
       }
@@ -106,6 +111,8 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
         }),
       });
       if (res.ok) {
+        const resData = await res.json();
+        if (resData.targetHash) setCurrentApprovalHash(resData.targetHash);
         setEditableTitle(heroTitle);
         setIsHeroDirty(false);
       }
@@ -170,7 +177,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
 
     // Auto-save to DB
     try {
-      await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
+      const res = await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -180,6 +187,10 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
           photos,
         }),
       });
+      if (res.ok) {
+        const resData = await res.json();
+        if (resData.targetHash) setCurrentApprovalHash(resData.targetHash);
+      }
     } catch (err) {
       console.error("Save failed", err);
     }
@@ -202,7 +213,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
 
     if (!isVerified) {
       try {
-        await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
+        const res = await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -211,6 +222,10 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
             photos,
           }),
         });
+        if (res.ok) {
+          const resData = await res.json();
+          if (resData.targetHash) setCurrentApprovalHash(resData.targetHash);
+        }
       } catch (err) {
         console.error("Save failed", err);
       }
@@ -228,7 +243,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
     }
     setHiddenSections(newHidden);
     try {
-      await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
+      const res = await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -237,6 +252,10 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
           photos,
         }),
       });
+      if (res.ok) {
+        const resData = await res.json();
+        if (resData.targetHash) setCurrentApprovalHash(resData.targetHash);
+      }
     } catch (err) { console.warn('[im-approval]', err); }
   }, [sections, hiddenSections, docId, photos]);
 
@@ -248,11 +267,15 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
 
   const savePhotoCaptions = async () => {
     try {
-      await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
+      const res = await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sections, photos, hidden_sections: Array.from(hiddenSections) }),
       });
+      if (res.ok) {
+        const resData = await res.json();
+        if (resData.targetHash) setCurrentApprovalHash(resData.targetHash);
+      }
     } catch (err) { console.warn('[im-approval]', err); }
   };
 
@@ -282,7 +305,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
     setActionStatus('loading');
     try {
       // Save title if changed — save-sections returns a fresh target hash
-      let approvalHash = (content as any)?.approval_target_hash || (content as any)?.targetHash;
+      let approvalHash = currentApprovalHash;
       if (editableTitle !== title) {
         const saveRes = await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
           method: 'PUT',
@@ -291,7 +314,10 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
         });
         if (saveRes.ok) {
           const saveData = await saveRes.json();
-          if (saveData.targetHash) approvalHash = saveData.targetHash;
+          if (saveData.targetHash) {
+            approvalHash = saveData.targetHash;
+            setCurrentApprovalHash(saveData.targetHash);
+          }
         }
       }
 
@@ -305,6 +331,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
         if (refreshRes.ok) {
           const refreshData = await refreshRes.json();
           approvalHash = refreshData.targetHash;
+          setCurrentApprovalHash(refreshData.targetHash);
         }
       }
 

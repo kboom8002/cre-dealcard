@@ -125,6 +125,48 @@ export async function enrichBuildingDataCore(
     if (rc.heatMethodNm) br.heatMethod = rc.heatMethodNm;
   }
 
+  // Multi-PNU secondary parcels
+  let secondaryParcels: { pnu: string; platArea: number }[] | undefined = undefined;
+  if (resolvedAddress.allPnus && resolvedAddress.allPnus.length > 1) {
+    const secondaryPnus = resolvedAddress.allPnus.slice(1);
+    secondaryParcels = [];
+    
+    await Promise.all(secondaryPnus.map(async (secPnu) => {
+      try {
+        const secSigunguCd = secPnu.substring(0, 5);
+        const secBjdongCd = secPnu.substring(5, 10);
+        const secBun = secPnu.substring(11, 15) || "0000";
+        const secJi = secPnu.substring(15, 19) || "0000";
+        
+        let secPlatArea = 0;
+        const secBr = await fetchBuildingRegister(secSigunguCd, secBjdongCd, secBun, secJi);
+        if (secBr && secBr.platArea > 0) {
+          secPlatArea = secBr.platArea;
+        } else {
+          const secLp = await fetchLandPrice(secPnu);
+          if (secLp && secLp.landArea && secLp.landArea > 0) {
+            secPlatArea = secLp.landArea;
+          }
+        }
+        
+        if (secPlatArea > 0) {
+          secondaryParcels!.push({ pnu: secPnu, platArea: secPlatArea });
+        }
+      } catch (err) {
+        console.warn(`[enrich-by-pnu] Failed to fetch data for secondary PNU ${secPnu}:`, err);
+      }
+    }));
+    
+    if (secondaryParcels.length > 0) {
+      const brData = buildingRegister as BuildingRegisterData | null;
+      if (brData) {
+        const additionalArea = secondaryParcels.reduce((sum, sp) => sum + sp.platArea, 0);
+        brData.platArea += additionalArea;
+        console.info(`[enrich-by-pnu] Added ${additionalArea}㎡ from ${secondaryParcels.length} secondary parcels. New total platArea: ${brData.platArea}㎡`);
+      }
+    }
+  }
+
   // 카카오 스태틱 맵
   if (lat && lng) {
     try {
@@ -147,6 +189,7 @@ export async function enrichBuildingDataCore(
     registryData,
     commercialDistrict,
     cadastralMapImage,
+    secondaryParcels,
     enrichedAt: new Date().toISOString(),
     errors,
   };
@@ -250,7 +293,8 @@ export async function enrichBuildingDataByPNU(
           {
             pnu: primaryPnu, legalDongCode: primaryPnu.substring(0, 10), sigunguCd: primaryPnu.substring(0, 5), bjdongCd: primaryPnu.substring(5, 10),
             bun: primaryPnu.substring(11, 15) || "0000", ji: primaryPnu.substring(15, 19) || "0000",
-            roadAddress: rawAddress, jibunAddress: rawAddress, lat: cached.latitude || 37.50085, lng: cached.longitude || 127.03698, buildingMgtNo: primaryPnu + "000000"
+            roadAddress: rawAddress, jibunAddress: rawAddress, lat: cached.latitude || 37.50085, lng: cached.longitude || 127.03698, buildingMgtNo: primaryPnu + "000000",
+            allPnus: valid19Pnus
           },
           rawAddress,
           buildingSsotLiteId,
@@ -315,6 +359,7 @@ export async function enrichBuildingDataByPNU(
     lat,
     lng,
     buildingMgtNo: primaryPnu + "000000",
+    allPnus: valid19Pnus,
   };
 
   return enrichBuildingDataCore(resolvedAddress, rawAddress, buildingSsotLiteId);

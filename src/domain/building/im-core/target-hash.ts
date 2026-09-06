@@ -36,8 +36,19 @@ export function computeTargetHash(payload: {
   releaseTier: string;
   policyVersion: string;
 }): string {
-  const canonicalStr = canonicalizeJson(payload);
+  // Strip self-referential hash fields to prevent circular poisoning
+  const cleanPayload = {
+    ...payload,
+    body: stripHashFields(payload.body),
+  };
+  const canonicalStr = canonicalizeJson(cleanPayload);
   return 'sha256:' + createHash('sha256').update(canonicalStr, 'utf-8').digest('hex');
+}
+
+function stripHashFields(obj: unknown): unknown {
+  if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+  const { targetHash, approval_target_hash, ...rest } = obj as Record<string, unknown>;
+  return rest;
 }
 
 export interface CanonicalClaimEntry {

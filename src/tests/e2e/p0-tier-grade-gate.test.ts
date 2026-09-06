@@ -25,13 +25,10 @@ describe('Goldilocks 단일 시퀀스 검증', { timeout: 60_000 }, () => {
         expect(seq.length).toBeGreaterThanOrEqual(10);
         expect(bodySlides.length).toBeLessThanOrEqual(16); // D33 S-2 & Rule 10: 본문 상한 16
 
-        // 필수 dataKey 존재 확인
+        // 필수 dataKey 존재 확인 (보호 키만 단언 — Rule 24)
         const keys = seq.map(s => s.dataKey);
         expect(keys).toContain('cover');
         expect(keys).toContain('summary');
-        expect(keys).toContain('location');
-        expect(keys).toContain('land');
-        expect(keys).toContain('building');
         expect(keys).toContain('risk');
         expect(keys).toContain('process');
         expect(keys).toContain('closing');

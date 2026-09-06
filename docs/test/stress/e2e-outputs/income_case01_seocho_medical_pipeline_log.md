@@ -1,7 +1,7 @@
 # Pipeline Log: income_case01_seocho_medical
 
-**Generated**: 2026-09-06T12:24:20.838Z
-**Total Duration**: 0.7s
+**Generated**: 2026-09-06T12:59:46.009Z
+**Total Duration**: 1.1s
 
 ## Step-by-Step Timeline
 
@@ -9,9 +9,9 @@
 |---|------|----------|--------|---------|
 | 1 | ① SSoT Lite 구축 | 0.01s | ✅ success | buildingId: stress-case-01 |
 | 2 | ② 바텀시트 보강 | 0.01s | ✅ success | posture: income, keys: 6 |
-| 3 | ③ IM 생성 (LLM) | 0.27s | ✅ success | ok=true, sections=13, grade=B |
-| 4 | ④ 중간 결과물 저장 | 0.04s | ✅ success | sections: 13 |
-| 5 | ⑤ PPTX 렌더링 | 0.32s | ✅ success | slides: 15, size: 685KB |
+| 3 | ③ IM 생성 (LLM) | 0.43s | ✅ success | ok=true, sections=13, grade=B |
+| 4 | ④ 중간 결과물 저장 | 0.09s | ✅ success | sections: 13 |
+| 5 | ⑤ PPTX 렌더링 | 0.58s | ✅ success | slides: 15, size: 685KB |
 
 ## Detailed Metrics
 
