@@ -1,7 +1,7 @@
 # Pipeline Log: owner_occupied_case05_seongsu_hq
 
-**Generated**: 2026-09-06T11:17:05.108Z
-**Total Duration**: 0.4s
+**Generated**: 2026-09-06T11:21:58.371Z
+**Total Duration**: 0.6s
 
 ## Step-by-Step Timeline
 
@@ -9,9 +9,9 @@
 |---|------|----------|--------|---------|
 | 1 | ① SSoT Lite 구축 | 0.01s | ✅ success | buildingId: stress-case-05 |
 | 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: owner_occupied, keys: 3 |
-| 3 | ③ IM 생성 (LLM) | 0.19s | ✅ success | ok=true, sections=10, grade=B |
-| 4 | ④ 중간 결과물 저장 | 0.03s | ✅ success | sections: 10 |
-| 5 | ⑤ PPTX 렌더링 | 0.22s | ✅ success | slides: 13, size: 376KB |
+| 3 | ③ IM 생성 (LLM) | 0.21s | ✅ success | ok=true, sections=10, grade=B |
+| 4 | ④ 중간 결과물 저장 | 0.05s | ✅ success | sections: 10 |
+| 5 | ⑤ PPTX 렌더링 | 0.35s | ✅ success | slides: 13, size: 376KB |
 
 ## Detailed Metrics
 

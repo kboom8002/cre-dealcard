@@ -1,17 +1,17 @@
 # Pipeline Log: income_case14_bangi_discount
 
-**Generated**: 2026-09-06T11:17:09.986Z
+**Generated**: 2026-09-06T11:22:03.000Z
 **Total Duration**: 0.5s
 
 ## Step-by-Step Timeline
 
 | # | Step | Duration | Status | Summary |
 |---|------|----------|--------|---------|
-| 1 | ① SSoT Lite 구축 | 0.02s | ✅ success | buildingId: stress-case-14 |
-| 2 | ② 바텀시트 보강 | 0.01s | ✅ success | posture: income, keys: 5 |
-| 3 | ③ IM 생성 (LLM) | 0.21s | ✅ success | ok=true, sections=13, grade=B |
-| 4 | ④ 중간 결과물 저장 | 0.02s | ✅ success | sections: 13 |
-| 5 | ⑤ PPTX 렌더링 | 0.22s | ✅ success | slides: 15, size: 409KB |
+| 1 | ① SSoT Lite 구축 | 0.01s | ✅ success | buildingId: stress-case-14 |
+| 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: income, keys: 5 |
+| 3 | ③ IM 생성 (LLM) | 0.20s | ✅ success | ok=true, sections=13, grade=B |
+| 4 | ④ 중간 결과물 저장 | 0.05s | ✅ success | sections: 13 |
+| 5 | ⑤ PPTX 렌더링 | 0.26s | ✅ success | slides: 15, size: 409KB |
 
 ## Detailed Metrics
 

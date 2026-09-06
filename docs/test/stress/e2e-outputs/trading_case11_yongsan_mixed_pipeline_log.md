@@ -1,6 +1,6 @@
 # Pipeline Log: trading_case11_yongsan_mixed
 
-**Generated**: 2026-09-06T11:17:08.263Z
+**Generated**: 2026-09-06T11:22:01.510Z
 **Total Duration**: 0.5s
 
 ## Step-by-Step Timeline
@@ -11,7 +11,7 @@
 | 2 | ② 바텀시트 보강 | 0.01s | ✅ success | posture: trading, keys: 4 |
 | 3 | ③ IM 생성 (LLM) | 0.19s | ✅ success | ok=true, sections=9, grade=B |
 | 4 | ④ 중간 결과물 저장 | 0.03s | ✅ success | sections: 9 |
-| 5 | ⑤ PPTX 렌더링 | 0.24s | ✅ success | slides: 14, size: 369KB |
+| 5 | ⑤ PPTX 렌더링 | 0.28s | ✅ success | slides: 14, size: 369KB |
 
 ## Detailed Metrics
 

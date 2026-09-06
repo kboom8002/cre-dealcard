@@ -13,7 +13,7 @@
         "source": "public_data",
         "sourceDetail": "국토교통부 건축물대장 API",
         "confidence": "confirmed",
-        "lastVerifiedAt": "2026-09-06T11:17:03.931Z"
+        "lastVerifiedAt": "2026-09-06T11:21:57.156Z"
       },
       {
         "fieldKey": "plat_area",
@@ -21,7 +21,7 @@
         "source": "public_data",
         "sourceDetail": "국토교통부 건축물대장 API",
         "confidence": "confirmed",
-        "lastVerifiedAt": "2026-09-06T11:17:03.931Z"
+        "lastVerifiedAt": "2026-09-06T11:21:57.156Z"
       }
     ],
     "min_tier": "public"
@@ -34,7 +34,6 @@
     "confidence": "inferred",
     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
     "provenance": [],
-    "judge_score": 5,
     "min_tier": "public"
   },
   {
@@ -45,6 +44,7 @@
     "confidence": "inferred",
     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
     "provenance": [],
+    "judge_score": 5,
     "min_tier": "public"
   },
   {
@@ -55,7 +55,6 @@
     "confidence": "inferred",
     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
     "provenance": [],
-    "judge_score": 5,
     "min_tier": "public"
   },
   {
@@ -82,7 +81,7 @@
         "source": "broker_input",
         "sourceDetail": "브로커 제공 실제 임대 정보",
         "confidence": "confirmed",
-        "lastVerifiedAt": "2026-09-06T11:17:03.931Z"
+        "lastVerifiedAt": "2026-09-06T11:21:57.156Z"
       },
       {
         "fieldKey": "vacancy_rate",
@@ -90,7 +89,7 @@
         "source": "ai_inferred",
         "sourceDetail": "기본값 추론",
         "confidence": "needs_check",
-        "lastVerifiedAt": "2026-09-06T11:17:03.931Z"
+        "lastVerifiedAt": "2026-09-06T11:21:57.156Z"
       }
     ],
     "judge_score": 5,
@@ -121,10 +120,9 @@
         "source": "public_data",
         "sourceDetail": "토지이용규제정보서비스(LURIS) API",
         "confidence": "confirmed",
-        "lastVerifiedAt": "2026-09-06T11:17:03.931Z"
+        "lastVerifiedAt": "2026-09-06T11:21:57.156Z"
       }
     ],
-    "judge_score": 5,
     "min_tier": "public"
   },
   {
@@ -165,7 +163,6 @@
     "confidence": "inferred",
     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
     "provenance": [],
-    "judge_score": 5,
     "min_tier": "public"
   },
   {
