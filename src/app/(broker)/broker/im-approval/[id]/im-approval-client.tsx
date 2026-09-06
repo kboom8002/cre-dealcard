@@ -281,21 +281,40 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   const handleApprove = async () => {
     setActionStatus('loading');
     try {
-      // Save title if changed
+      // Save title if changed — save-sections returns a fresh target hash
+      let approvalHash = (content as any)?.approval_target_hash || (content as any)?.targetHash;
       if (editableTitle !== title) {
-        await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
+        const saveRes = await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sections, title: editableTitle }),
         });
+        if (saveRes.ok) {
+          const saveData = await saveRes.json();
+          if (saveData.targetHash) approvalHash = saveData.targetHash;
+        }
       }
+
+      // If we still don't have a hash, fetch the latest from save-sections
+      if (!approvalHash || !approvalHash.startsWith('sha256:')) {
+        const refreshRes = await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sections, title: editableTitle }),
+        });
+        if (refreshRes.ok) {
+          const refreshData = await refreshRes.json();
+          approvalHash = refreshData.targetHash;
+        }
+      }
+
       const res = await fetch(`/api/broker/im-lite/${docId}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'approve' }),
+        body: JSON.stringify({ action: 'approve', expectedHash: approvalHash }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Unknown error');
+      if (!res.ok) throw new Error(data.error || data.message || 'Unknown error');
       setDocStatus('published');
       setResultMsg('IM이 성공적으로 공개되었습니다.');
       setActionStatus('done');

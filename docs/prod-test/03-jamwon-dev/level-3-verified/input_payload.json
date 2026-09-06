@@ -1,0 +1,70 @@
+{
+  "building_id": "PROD-TEST-JW-L3",
+  "tier": "pro",
+  "investment_posture": "development",
+  "supplemental": {
+    "resolved_address": "서울특별시 서초구 잠원동 26-14, 26-16",
+    "building_name": "두원빌딩",
+    "parcels": [
+      {"pnu": "1165010700100260014", "area_sqm": 511.7, "zoning": "제2종일반주거지역"},
+      {"pnu": "1165010700100260016", "area_sqm": 104.4, "zoning": "제2종일반주거지역"}
+    ],
+    "asking_price_manwon": 2422700,
+    "developmentSpec": {
+      "targetUse": "office",
+      "targetScalePyung": 614.01,
+      "constructionCostPerPyung": 1200,
+      "expectedSalePricePerPyung": 2200,
+      "contractorStatus": "undecided",
+      "totalCostManwon": 3320900
+    },
+    "vacateSpec": {
+      "responsibility": "seller",
+      "currentTenantCount": 2,
+      "estimatedMonths": 6,
+      "covenants": [
+        "명도 완료 기한 명기",
+        "기한 초과 시 위약 책임 및 일할 배상(일 500만원)",
+        "잔금 지급 전 명도 완료 선행 요건",
+        "명도 미완료 시 매수인 계약 해제 및 계약금 배액배상"
+      ]
+    },
+    "permitSpec": {
+      "permitKinds": ["건축허가", "교통영향평가"],
+      "status": "pre_application",
+      "estimatedMonths": 12
+    },
+    "regulation": {
+      "name": "서울시 소규모 건축물 용적률 완화 조례",
+      "startsAt": "2025-05-19",
+      "expiresAt": "2028-05-18",
+      "relaxedFarPct": 250,
+      "baseFarPct": 200
+    },
+    "floor_leases": [
+      {"floor": "6F", "tenant_type": "단독 테라스 루프탑 오피스/엔터", "area_pyung": 50.00, "area_sqm": 165.29, "rent_manwon": 900, "deposit_manwon": 10800, "is_vacant": true, "notes": "신축 후 예상 임대 계획"},
+      {"floor": "5F", "tenant_type": "전문 IT/디자인 스튜디오 오피스", "area_pyung": 60.00, "area_sqm": 198.35, "rent_manwon": 1080, "deposit_manwon": 12960, "is_vacant": true},
+      {"floor": "4F", "tenant_type": "클리닉/피부과/전문 병의원", "area_pyung": 94.67, "area_sqm": 312.96, "rent_manwon": 1704.06, "deposit_manwon": 20449, "is_vacant": true},
+      {"floor": "3F", "tenant_type": "클리닉/치과/정형외과", "area_pyung": 94.67, "area_sqm": 312.96, "rent_manwon": 1704.06, "deposit_manwon": 20449, "is_vacant": true},
+      {"floor": "2F", "tenant_type": "고급 F&B/파인다이닝/뷰티살롱", "area_pyung": 94.67, "area_sqm": 312.96, "rent_manwon": 1893.40, "deposit_manwon": 22673, "is_vacant": true, "notes": "메모 원본 기재 1,889.40 → 정밀 계산 1,893.40 (94.67×20=1,893.40, -4만원 단수 오차)"},
+      {"floor": "1F", "tenant_type": "플래그십 카페/프리미엄 베이커리/쇼룸", "area_pyung": 70.00, "area_sqm": 231.40, "rent_manwon": 1540, "deposit_manwon": 18480, "is_vacant": true},
+      {"floor": "B1", "tenant_type": "스크린골프/스튜디오/피트니스", "area_pyung": 150.00, "area_sqm": 495.87, "rent_manwon": 900, "deposit_manwon": 10800, "is_vacant": true}
+    ],
+    "pfEquityRatioSchedule": [
+      {"year": 2026, "ratio": 0.10, "required_equity_manwon": 33210},
+      {"year": 2027, "ratio": 0.15, "required_equity_manwon": 49810},
+      {"year": 2028, "ratio": 0.20, "required_equity_manwon": 66420}
+    ],
+    "photos_v2": [
+      {"url": "images/01_exterior.jpg", "category": "exterior", "isHero": true, "role": "cover", "order": 0},
+      {"url": "images/02_aerial.jpg", "category": "exterior", "isHero": false, "role": "general", "order": 1},
+      {"url": "images/03_entrance.jpg", "category": "entrance", "isHero": false, "role": "general", "order": 2},
+      {"url": "images/04_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 3}
+    ],
+    "manual_comps": [
+      {"address": "서초구 잠원동 27-1", "dealAmount": 2100000, "area": 580.0, "dealYear": 2023, "dealMonth": 6, "buildingUse": "제2종근린생활시설", "memo": "토지 평당 1.21억"},
+      {"address": "서초구 잠원동 25-3", "dealAmount": 1800000, "area": 450.0, "dealYear": 2022, "dealMonth": 12, "buildingUse": "근린생활시설", "memo": "구축 매입 후 재건축"},
+      {"address": "서초구 반포동 58-7", "dealAmount": 2600000, "area": 720.0, "dealYear": 2024, "dealMonth": 2, "buildingUse": "업무시설", "memo": "신반포역 인근 개발부지"}
+    ]
+  }
+}

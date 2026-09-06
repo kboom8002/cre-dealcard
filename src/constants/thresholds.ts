@@ -15,10 +15,10 @@ export const THRESHOLDS = {
   CAP_RATE_LOW_WARNING: 2.0,
   CAP_RATE_HIGH_WARNING: 15.0,
 
-  // Execution Timeouts (ms)
-  IM_SOFT_TIMEOUT_MS: 90_000,
-  IM_GENERATION_TIMEOUT_MS: 105_000,
-  IM_HARD_TIMEOUT_MS: 120_000,
+  // Execution Timeouts (ms) — increased to prevent section truncation on B/A-grade IMs
+  IM_SOFT_TIMEOUT_MS: 135_000,
+  IM_GENERATION_TIMEOUT_MS: 155_000,
+  IM_HARD_TIMEOUT_MS: 180_000,
 
   // Provenance Reliability Coefficients (ONTOLOGY_V0.5_SPEC §6.2)
   PROVENANCE_REGISTRY: 1.0,

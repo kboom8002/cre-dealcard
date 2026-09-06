@@ -1,16 +1,12 @@
-# Level 1 (Draft / R1) 테스트 가이드: 잠원동 242억 신축 개발부지
+# Level 1 Draft - Test Guide
 
-## 1. 테스트 목적
-- 개발형(`development`, `mode: hold`) 포스처 자산의 초기 토지 매물 메모 입력 시, 시스템이 **개발 부지 파라미터(대지 616.1평, 매입비 242.27억, 매도인 명도 책임)**를 정상 식별하는지 검증합니다.
-- 목표 용적률(targetFarPct) 미정 시 개발 규모 산출이 차단(`TARGET_FAR_NULL_BLOCKS_DEV_SCALE`)되는 도메인 안전 장치를 확인합니다.
+## Bottom Sheet Procedure
+1. Posture: `development` 선택, devMode: `hold`
+2. Address: `잠원동 26-14` 검색, PNU `1165010700100260014`, `1165010700100260016` 확인
+3. Price: `242.27억` (purchaseCost)
+4. Land: `616.10㎡` / `186.36평`
+5. Zoning: `제2종일반주거지역`
 
-## 2. 웹 UI 테스트 절차
-1. **딜카드 생성**:
-   - `/broker/deal-card/new`에서 `memo.txt` 내용으로 생성.
-2. **결과 확인**:
-   - 서초구 잠원동, 자산유형 개발부지/빌딩, 매입비 242.27억원 정상 인식 확인.
-
-## 3. 검증 체크리스트 (Expected Output)
-- [ ] **개발 포스처 인식**: `development`
-- [ ] **명도 책임 인식**: `seller` (매도인 책임명도)
-- [ ] **게이트 동작**: 목표 용적률 미지정 상태에 따른 개발 규모 확장 보류 안내
+## Expected Output
+- Grade: C
+- Negative Test: No targetUse or targetScalePyung in development spec, meaning development scale calculation will be blocked.

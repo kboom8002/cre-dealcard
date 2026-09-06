@@ -1,121 +1,39 @@
 {
-  "propertyId": "PROD-TEST-DS-L3",
-  "propertyName": "당산동 115억 근린생활시설 (완전검증 R3)",
   "posture": "income",
-  "assetType": "small_building",
-  "address": "서울특별시 영등포구 당산동5가",
-  "financial": {
-    "askingPriceKrw": 11500000000,
-    "totalDepositKrw": 290000000,
-    "monthlyRentKrw": 19460000,
-    "statedMonthlyRentKrw": 19460000,
-    "mgmtFeeKrw": 2850000,
-    "operatingExpensesKrw": 1800000,
-    "acquisitionTaxKrw": 529000000,
-    "brokerFeeKrw": 103500000,
-    "totalAcquisitionCostKrw": 12132500000,
-    "equityNoLoanKrw": 11842500000,
-    "capRateGrossPricePct": 2.03,
-    "capRateGrossNetEquityPct": 2.08,
-    "negativeLeverage": true,
-    "ltvScenarios": [
-      {
-        "ltvPct": 0,
-        "loanKrw": 0,
-        "equityKrw": 11842500000,
-        "monthlyInterestKrw": 0,
-        "monthlyNetCashKrw": 19460000,
-        "roePct": 1.97
-      },
-      {
-        "ltvPct": 40,
-        "loanKrw": 4600000000,
-        "equityKrw": 7242500000,
-        "monthlyInterestKrw": 17250000,
-        "monthlyNetCashKrw": 2210000,
-        "roePct": 0.37
-      },
-      {
-        "ltvPct": 50,
-        "loanKrw": 5750000000,
-        "equityKrw": 6092500000,
-        "monthlyInterestKrw": 21562500,
-        "monthlyNetCashKrw": -2102500,
-        "roePct": -0.41
-      }
-    ]
-  },
-  "physical": {
-    "floorsAboveGround": 5,
-    "floorsUnderGround": 1,
-    "landAreaSqm": 420.5,
-    "landAreaPyung": 127.2,
-    "grossFloorAreaSqm": 1141.15,
-    "sumLeaseAreaSqm": 1441.15,
-    "areaGapSqm": 300,
-    "totalFloorAreaPyung": 345.2,
-    "elevatorCount": 1,
-    "parkingSpaces": 5,
-    "parkingType": "자주식",
-    "zoning": "제2종일반주거지역",
-    "mainUse": "제2종근린생활시설"
-  },
-  "legalAndRisk": {
-    "ownershipType": "층별 구분등기 (소유자 2인)",
-    "twoOwnerConsentRequired": true,
-    "contractGroups": [
-      "A",
-      "B",
-      "C",
-      "D",
-      "E"
-    ],
-    "integratedContractGroup": "B",
-    "integratedFloors": [
-      "1F",
-      "2F"
-    ],
-    "totalLedgerRows": 8,
-    "liveTenantsCount": 6,
-    "selfUseUnitsCount": 2,
-    "vacantUnitsCount": 0,
-    "vacancyRatePct": 0,
-    "expiredLeases": [
-      "4F 주류판매 (만기 2025-04-30 경과)"
-    ],
-    "overTenYearsLeases": [
-      "1F 당산메디칼약국 (최초 2016-09)"
-    ]
-  },
-  "maturity": {
-    "resolution": "R3",
-    "qualityGrade": "S",
-    "isRentRollPresent": true,
-    "rentRollFile": "rentroll.xlsx",
-    "isPhotosPresent": true,
-    "photoFiles": [
-      "images/01_exterior.jpg",
-      "images/02_aerial.jpg",
-      "images/03_entrance.jpg",
-      "images/04_lobby.jpg"
-    ],
-    "missingFields": []
-  },
+  "address": "서울특별시 영등포구 당산동5가 11-47",
+  "roadAddress": "서울특별시 영등포구 영신로 259",
+  "buildingName": "호산당빌딩",
+  "pnu": "1156011500100110047",
+  "askingPrice": 11500000000,
+  "deposit": 290000000,
+  "monthlyRent": 19460000,
+  "mgmtFee": 2850000,
+  "vacancyRate": 0,
+  "loanAmount": 4600000000,
+  "loanStatus": "confirmed",
+  "qualityGrade": "A",
+  "photos_v2": [
+    {"url": "images/01_exterior.jpg", "category": "exterior", "isHero": true, "role": "cover", "order": 0},
+    {"url": "images/02_aerial.jpg", "category": "exterior", "isHero": false, "role": "general", "order": 1},
+    {"url": "images/03_entrance.jpg", "category": "entrance", "isHero": false, "role": "general", "order": 2},
+    {"url": "images/04_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 3}
+  ],
+  "floor_leases": [
+    {"floor": "B1", "tenant_name": "자가운영 카페", "tenant_type": "음식점/카페", "area_sqm": 317.22, "deposit_manwon": 0, "rent_manwon": 0, "mgmt_fee_manwon": 0, "is_vacant": false, "lease_start": "2020-05-01", "notes": "자가사용"},
+    {"floor": "1F", "tenant_name": "당산메디칼약국", "tenant_type": "소매점(약국)", "area_sqm": 78.39, "deposit_manwon": 6000, "rent_manwon": 183, "mgmt_fee_manwon": 30, "is_vacant": false, "lease_start": "2016-09-01", "lease_end": "2026-08-31", "notes": "10년 경과, 갱신요구권 만료"},
+    {"floor": "1F, 2F", "tenant_name": "연세이비인후과", "tenant_type": "의원", "area_sqm": 357.69, "deposit_manwon": 14000, "rent_manwon": 883, "mgmt_fee_manwon": 120, "is_vacant": false, "lease_start": "2021-09-01", "lease_end": "2026-08-31", "notes": "Group B 통합계약, 2F 금액 1F 합산 기재, 환산보증금 10억2300만"},
+    {"floor": "3F", "tenant_name": "당산피트니스", "tenant_type": "운동시설(헬스)", "area_sqm": 252.09, "deposit_manwon": 5000, "rent_manwon": 455, "mgmt_fee_manwon": 60, "is_vacant": false, "lease_start": "2022-04-18", "lease_end": "2026-04-17"},
+    {"floor": "4F", "tenant_name": "소유자 업무공간", "tenant_type": "사무실", "area_sqm": 83.03, "deposit_manwon": 0, "rent_manwon": 0, "mgmt_fee_manwon": 0, "is_vacant": false, "lease_start": "2020-05-01", "notes": "자가사용"},
+    {"floor": "4F", "tenant_name": "와인앤모어", "tenant_type": "소매점(주류)", "area_sqm": 169.06, "deposit_manwon": 3000, "rent_manwon": 260, "mgmt_fee_manwon": 40, "is_vacant": false, "lease_start": "2023-05-01", "lease_end": "2025-04-30", "notes": "만기 경과, 묵시적 갱신 확인 필요"},
+    {"floor": "5F", "tenant_name": "서울피부과의원", "tenant_type": "의원(피부과)", "area_sqm": 183.67, "deposit_manwon": 1000, "rent_manwon": 165, "mgmt_fee_manwon": 35, "is_vacant": false, "lease_start": "2024-09-01", "lease_end": "2026-08-31"}
+  ],
+  "manual_comps": [
+    {"address": "영등포구 당산동5가 11-48", "transaction_date": "2023-11", "price_manwon": 1200000},
+    {"address": "영등포구 당산동5가 12-10", "transaction_date": "2024-02", "price_manwon": 1150000},
+    {"address": "영등포구 당산동6가 2-1", "transaction_date": "2024-05", "price_manwon": 1300000}
+  ],
   "expectedGates": {
-    "blocking": [
-      "C19_AREA_GAP_BLOCKS_CLOSING"
-    ],
-    "warning": [
-      "G18_AREA_SUM_DISCREPANCY",
-      "G42_LEASE_EXPIRY_PAST_DUE"
-    ],
-    "passed": [
-      "G01_PRICE_VERIFIED",
-      "G02_LAND_BUILDING_MATCH",
-      "G03_INTEGRATED_CONTRACT_CONSOLIDATION",
-      "G04_SELF_USE_EXCLUDED_FROM_VACANCY",
-      "G05_NEGATIVE_LEVERAGE_DISCLOSED",
-      "G41_CO_OWNERSHIP_CONSENT_CHECKED"
-    ]
+    "blocking": ["C19"],
+    "warning": ["G40"]
   }
 }

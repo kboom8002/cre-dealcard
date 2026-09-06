@@ -42,7 +42,7 @@ export function createRetryExhaustedChecklistSection(
 }
 
 /**
- * Fallback section factory for when global kill limit (120s) is reached (D29 BL-6).
+ * Fallback section factory for when global kill limit is reached (D29 BL-6).
  */
 export function createKillLimitChecklistSection(
   sectionOrder: number,
@@ -52,7 +52,7 @@ export function createKillLimitChecklistSection(
     section_type: 'checklist' as MobileIMSectionType,
     section_order: sectionOrder,
     title: '생성 시간 초과 알림',
-    markdown: `> ⚠️ 생성 시간이 제한(120초)을 초과하여 ${discardedCount}개 섹션이 제거되었습니다.\n> 데이터를 보완한 후 재생성해 주세요.`,
+    markdown: `> ⚠️ 생성 시간이 제한을 초과하여 ${discardedCount}개 섹션이 제거되었습니다.\n> 데이터를 보완한 후 재생성해 주세요.`,
     confidence: 'needs_check',
     boundary_note: `BL-6: ${discardedCount}개 섹션 타임아웃 폐기`,
     provenance: [],

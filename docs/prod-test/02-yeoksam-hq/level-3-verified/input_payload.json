@@ -1,0 +1,45 @@
+{
+  "building_id": "PROD-TEST-YS-L3",
+  "tier": "pro",
+  "investment_posture": "owner_occupied",
+  "supplemental": {
+    "resolved_address": "서울특별시 강남구 역삼동 642-1",
+    "asking_price_manwon": 1200000,
+    "total_deposit_manwon": 5000,
+    "monthly_rent_total_krw": 4000000,
+    "mgmt_fee_total_manwon": 50,
+    "vacancy_pct": 0,
+    "loan_status": "unknown",
+    "broker_highlight": "테헤란로 배후 2023년 준공 신축급 단독사옥, 자주식 6대, 위반건축물 없음",
+    "occupancySpec": {
+      "headcount": 80,
+      "desiredFloors": "전층",
+      "areaPerHeadPyung": 3.3,
+      "currentRentManwon": 3800
+    },
+    "floor_leases": [
+      {"floor": "B1", "tenant_name": "역삼포토랩", "tenant_type": "문화시설(스튜디오)", "area_sqm": 135.20, "deposit_manwon": 5000, "rent_manwon": 400, "mgmt_fee_manwon": 50, "is_vacant": false, "lease_start": "2023-11-01", "lease_end": "2025-10-31", "notes": "임대 승계 또는 만기 퇴거 협의, 인테리어 원상복구 제소전화해 체결"},
+      {"floor": "1F", "tenant_name": "매도인 본사(단독사옥)", "tenant_type": "업무시설(로비/접견실)", "area_sqm": 98.50, "deposit_manwon": 0, "rent_manwon": 0, "mgmt_fee_manwon": 0, "is_vacant": false, "lease_start": "2023-08-01", "notes": "잔금 시점 즉시 명도"},
+      {"floor": "2F", "tenant_name": "매도인 본사", "tenant_type": "업무시설(사무실/오픈데스크)", "area_sqm": 118.40, "deposit_manwon": 0, "rent_manwon": 0, "mgmt_fee_manwon": 0, "is_vacant": false, "lease_start": "2023-08-01", "notes": "잔금 시점 즉시 명도"},
+      {"floor": "3F", "tenant_name": "매도인 본사", "tenant_type": "업무시설(회의실/세미나실)", "area_sqm": 118.40, "deposit_manwon": 0, "rent_manwon": 0, "mgmt_fee_manwon": 0, "is_vacant": false, "lease_start": "2023-08-01", "notes": "잔금 시점 즉시 명도"},
+      {"floor": "4F", "tenant_name": "매도인 본사", "tenant_type": "업무시설(연구소/개발실)", "area_sqm": 118.40, "deposit_manwon": 0, "rent_manwon": 0, "mgmt_fee_manwon": 0, "is_vacant": false, "lease_start": "2023-08-01", "notes": "잔금 시점 즉시 명도"},
+      {"floor": "5F", "tenant_name": "매도인 본사", "tenant_type": "업무시설(임원실/경영기획)", "area_sqm": 118.40, "deposit_manwon": 0, "rent_manwon": 0, "mgmt_fee_manwon": 0, "is_vacant": false, "lease_start": "2023-08-01", "notes": "잔금 시점 즉시 명도"},
+      {"floor": "6F", "tenant_name": "매도인 본사", "tenant_type": "업무시설(대표이사실/테라스)", "area_sqm": 78.60, "deposit_manwon": 0, "rent_manwon": 0, "mgmt_fee_manwon": 0, "is_vacant": false, "lease_start": "2023-08-01", "notes": "단독 옥상 테라스 정원 연결"}
+    ],
+    "photos_v2": [
+      {"url": "images/01_exterior.jpg", "category": "exterior", "isHero": true, "role": "cover", "order": 0},
+      {"url": "images/02_aerial.jpg", "category": "exterior", "isHero": false, "role": "general", "order": 1},
+      {"url": "images/03_entrance.jpg", "category": "entrance", "isHero": false, "role": "general", "order": 2},
+      {"url": "images/04_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 3}
+    ],
+    "holdingHistorySpec": {
+      "prior_deal_date": "2021-03",
+      "prior_deal_price_manwon": 578000
+    },
+    "manual_comps": [
+      {"address": "강남구 역삼동 642-2", "dealAmount": 1300000, "area": 290.0, "dealYear": 2023, "dealMonth": 1, "buildingUse": "업무시설"},
+      {"address": "강남구 역삼동 735-18", "dealAmount": 2000000, "area": 557.0, "dealYear": 2022, "dealMonth": 11, "buildingUse": "업무시설"},
+      {"address": "강남구 역삼동 823-5", "dealAmount": 850000, "area": 420.0, "dealYear": 2023, "dealMonth": 5, "buildingUse": "근린생활시설"}
+    ]
+  }
+}

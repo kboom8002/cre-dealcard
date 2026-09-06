@@ -1,42 +1,21 @@
 {
-  "propertyId": "PROD-TEST-JW-L1",
-  "propertyName": "잠원동 242억 신축부지 (초안)",
-  "posture": "development",
-  "devMode": "hold",
-  "assetType": "small_building",
-  "address": "서울특별시 서초구 잠원동",
-  "financial": {
-    "purchaseCostKrw": 24227000000,
-    "constructionCostKrw": null,
-    "contingencyKrw": null,
-    "targetFarPct": null,
-    "buildPyeong": 614.01
+  "address": "서울특별시 서초구 잠원동 26-14, 26-16",
+  "buildingName": "두원빌딩",
+  "parcels": [
+    {
+      "pnu": "1165010700100260014",
+      "areaSqm": 511.7,
+      "zoning": "제2종일반주거지역"
+    },
+    {
+      "pnu": "1165010700100260016",
+      "areaSqm": 104.4,
+      "zoning": "제2종일반주거지역"
+    }
+  ],
+  "price": {
+    "purchaseCostManwon": 2422700
   },
-  "physical": {
-    "landPyeong": 616.1,
-    "zoning": "제2종일반주거지역"
-  },
-  "vacate": {
-    "vacateResponsibility": "seller"
-  },
-  "maturity": {
-    "resolution": "R1",
-    "qualityGrade": "B",
-    "isRentRollPresent": false,
-    "isPhotosPresent": false,
-    "missingFields": [
-      "construction_cost_budget",
-      "target_far_official_plan",
-      "post_dev_stacking_plan",
-      "interim_regulation_details"
-    ]
-  },
-  "expectedGates": {
-    "blocking": [
-      "TARGET_FAR_NULL_BLOCKS_DEV_SCALE"
-    ],
-    "warning": [
-      "G39_DEVELOPMENT_BUDGET_UNFINALIZED"
-    ]
-  }
+  "qualityGrade": "C",
+  "expectedGates": ["G01", "G02", "G03"]
 }

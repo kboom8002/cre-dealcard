@@ -1,52 +1,35 @@
 {
-  "propertyId": "PROD-TEST-JW-L2",
-  "propertyName": "잠원동 242억 신축부지 (표준 R2)",
   "posture": "development",
-  "devMode": "hold",
-  "assetType": "small_building",
-  "address": "서울특별시 서초구 잠원동",
-  "financial": {
-    "purchaseCostKrw": 24227000000,
-    "constructionCostKrw": 7368000000,
-    "contingencyKrw": 500000000,
-    "subtotalCostKrw": 32095000000,
-    "acquisitionTaxKrw": 1114442000,
-    "totalCostKrw": 33209442000,
-    "monthlyRentKrw": 97175200,
-    "annualRentKrw": 1166102400,
-    "expectedDepositKrw": 1166102400,
-    "postDevYieldSubtotalPct": 3.63,
-    "postDevYieldTotalPct": 3.51
+  "address": "서울특별시 서초구 잠원동 26-14, 26-16",
+  "buildingName": "두원빌딩",
+  "parcels": [
+    {"pnu": "1165010700100260014", "areaSqm": 511.7, "zoning": "제2종일반주거지역"},
+    {"pnu": "1165010700100260016", "areaSqm": 104.4, "zoning": "제2종일반주거지역"}
+  ],
+  "askingPrice": 24227000000,
+  "qualityGrade": "B",
+  "developmentSpec": {
+    "targetUse": "office",
+    "targetScalePyung": 614.01,
+    "constructionCostPerPyung": 1200,
+    "contractorStatus": "undecided"
   },
-  "physical": {
-    "landPyeong": 616.1,
-    "buildPyeong": 614.01,
-    "floorsAboveGround": 6,
-    "floorsUnderGround": 1,
-    "zoning": "제2종일반주거지역"
+  "vacateSpec": {
+    "responsibility": "seller",
+    "currentTenantCount": 2,
+    "estimatedMonths": 6
   },
-  "vacate": {
-    "vacateResponsibility": "seller",
-    "covenantsRequired": 4
-  },
-  "maturity": {
-    "resolution": "R2",
-    "qualityGrade": "A",
-    "isRentRollPresent": true,
-    "rentRollFile": "rentroll.xlsx",
-    "isPhotosPresent": true,
-    "photoFiles": [
-      "images/01_exterior.jpg"
-    ],
-    "missingFields": [
-      "stacking_plan_row_by_row_validation",
-      "zoning_incentive_expiry_countdown"
-    ]
-  },
+  "photos_v2": [
+    {"url": "images/01_exterior.jpg", "category": "exterior", "isHero": true, "role": "cover", "order": 0},
+    {"url": "images/02_entrance.jpg", "category": "entrance", "isHero": false, "role": "general", "order": 1},
+    {"url": "images/03_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 2}
+  ],
+  "floor_leases": [
+    {"floor": "1F", "tenant_name": "잠원모터스", "tenant_type": "카센터", "area_sqm": 120.0, "deposit_manwon": 3000, "rent_manwon": 250, "is_vacant": false, "lease_end": "2025-06-30", "notes": "매도인 책임명도"},
+    {"floor": "2F", "tenant_name": "동방유통", "tenant_type": "창고/사무실", "area_sqm": 180.0, "deposit_manwon": 2000, "rent_manwon": 150, "is_vacant": false, "lease_end": "2025-08-31", "notes": "매도인 책임명도"}
+  ],
   "expectedGates": {
     "blocking": [],
-    "warning": [
-      "G40_TAX_OMISSION_CORRECTED"
-    ]
+    "warning": ["G40"]
   }
 }

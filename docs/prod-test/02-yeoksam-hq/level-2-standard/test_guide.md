@@ -1,21 +1,20 @@
-# Level 2 (Standard / R2) 테스트 가이드: 역삼동 120억 단독사옥
+# L2 Standard Test Guide: 역삼동 642-1 (사옥형)
 
-## 1. 테스트 목적
-- 사옥형 자산의 표준 매물 스펙(공부상 토지/건물 수치, 주차 6대, 승강기 1대, 화장실 9개소)과 **Excel 렌트롤(지하 스튜디오 + 지상 사옥)**, **외관 사진** 연동을 검증합니다.
-- 공시지가 대비 배수(4.39배), 총취득원가(126.60억원), LTV 40% 금융 구조화 산출을 점검합니다.
+## Procedure
+1. Posture: `owner_occupied` 선택
+2. Address: `역삼동 642-1` 검색
+3. Price: 120억 (`12000000000` 원)
+4. Deposit: B1층 보증금 5,000만원 입력
+5. Rent: B1층 임대료 400만원 입력
+6. Occupancy Spec:
+   - Target headcount: 80명
+   - Desired floors: 전층 (1F~6F)
+   - Area per head: 3.3평
+   - Current office rent: 3,800만원
+7. Loan Status: `unknown`
+8. Photos: 외부, 입구, 로비 등 3장 이상 업로드 (최소 요건 충족)
+9. Rent Roll: B1층 (스튜디오) 및 1F~6F (매도법인 사옥) 입력
 
-## 2. 웹 UI 테스트 절차
-1. **딜카드 생성**:
-   - `/broker/deal-card/new`에서 `memo.txt` 내용으로 생성.
-2. **스튜디오 임대차 및 파일 연동**:
-   - `/studio/lease`에서 `level-2-standard/rentroll.xlsx` 업로드 (지하 스튜디오 임대 400만 + 지상 사옥 540㎡ 인식 확인).
-   - `/studio/files`에서 `images/01_exterior.jpg` 업로드.
-3. **IM Lite 산출물 검수**:
-   - `/broker/buildings/[id]/im-lite`에서 사옥형 템플릿(A04 사옥 특화 레이아웃) 렌더링 확인.
-
-## 3. 검증 체크리스트 (Expected Output)
-- [ ] **임대차 롤**: 지하 스튜디오(보증금 5,000만/월 400만)와 지상 사옥(자가사용) 분리 표기
-- [ ] **취득세 및 실투자금**:
-  - 취득세 4.6% (5.52억), 중개보수 0.9% (1.08억), 총취득원가 126.60억
-  - LTV 40% 실투자금 78.60억 / 월이자 1,800만원
-- [ ] **사옥 가치 제안**: 2023년 준공으로 신축 인허가/공사 리스크 없는 즉시 사용성 강조
+## Expected Outcome
+- **Grade**: `B` 등급 부여 확인
+- 사옥형 임대 수익 계산이 B1층 부분에 대해서만 적용되는지 확인.

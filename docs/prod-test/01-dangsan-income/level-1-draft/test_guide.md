@@ -1,31 +1,21 @@
-# Level 1 (Draft / R1) 테스트 가이드: 당산동 115억 근생
+# Test Guide: Dangsan-dong (Level 1)
 
-## 1. 테스트 목적
-- 브로커가 전달한 거친 약식 메모(Rough Brief)를 웹 화면에 입력했을 때의 AI 추출 및 딜카드 생성 파이프라인 무결성을 검증합니다.
-- 세부 렌트롤 및 공부 서류가 결측된 상태(R1 해상도)에서 시스템이 안전하게 티저 및 딜카드를 생성하고 결측 경고(G35, G37)를 정상적으로 발생시키는지 점검합니다.
+## Step-by-Step Procedure
+1. Select Posture: **Income (수익형)**
+2. Address Search: Search for `당산동5가 11-47`. Verify PNU `1156011500100110047` and building name `호산당빌딩`.
+3. Financials:
+   - Asking Price: 115억 (11,500,000,000 원)
+   - Total Deposit: 2억 9,000만원 (290,000,000 원)
+   - Monthly Rent: 1,946만원 (19,460,000 원)
+4. Vacancy: Click `만실` (Full Occupancy) button.
+5. Skip optional fields:
+   - Mgmt Fee: Skip
+   - Loan: Skip
+   - Photos: Skip
+   - Rent Roll: Skip
 
-## 2. 웹 UI 테스트 절차
-1. **딜카드 생성 화면 접속**:
-   - 브라우저에서 `/broker/deal-card/new` 로 이동합니다.
-2. **메모 입력**:
-   - `memo.txt` 파일의 내용을 전체 복사하여 **'브로커 메모 입력'** 텍스트 영역에 붙여넣습니다.
-3. **공개 범위 설정**:
-   - `보안형 블라인드 딜카드 (blind)` 선택
-4. **생성 버튼 클릭**:
-   - `[딜카드 생성하기]` 버튼을 클릭합니다.
-   - 로딩 스텝이 정상적으로 진행되고 완료 후 딜카드 상세 페이지로 이동하는지 확인합니다.
-
-## 3. 검증 체크리스트 (Expected Output)
-- [ ] **슬롯 추출 정합성**:
-  - 매매가: 115억원 (11,500,000,000원)
-  - 보증금 총액: 2.9억원 (290,000,000원)
-  - 월 임대료: 1,946만원 (19,460,000원)
-  - 소재 권역: 서울 영등포구 당산동5가 (YBD 권역)
-  - 층수: 지하 1층 ~ 지상 5층
-- [ ] **성숙도 레벨 & 게이트**:
-  - 해상도: **R1 (Draft)**
-  - 산출물 적격성: **Deal Curiosity Report**, **Blind Teaser** 생성 가능
-  - IM Lite는 렌트롤 결측으로 인해 보류 또는 초안 뱃지 표시
-- [ ] **표기 원칙 준수**:
-  - 페르소나('60대 자산가' 등) 문구 일체 미노출 (Rule 1)
-  - 연 순수익률 (Cap Rate) 단순 추정 표기
+## Expected Results
+- **Quality Grade**: `C`
+- **Generated Sections**: Basic L1 sections (Address, PNU, Price only).
+- **Suppressed Sections**: Rent roll, Photos, detailed financials.
+- **Negative Test**: Attempt to upgrade to Pro tier. It should fail due to missing required data (no photos, no rent roll). G26 (min 3 photos) would normally block Pro tier.

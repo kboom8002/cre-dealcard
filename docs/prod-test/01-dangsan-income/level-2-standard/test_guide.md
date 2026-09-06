@@ -1,29 +1,22 @@
-# Level 2 (Standard / R2) 테스트 가이드: 당산동 115억 근생
+# Test Guide: Dangsan-dong (Level 2)
 
-## 1. 테스트 목적
-- 표준화된 매물 메모와 **Excel 렌트롤 파일(`rentroll.xlsx`)**, **외관 사진**을 결합하여 중개인 스튜디오에서 데이터를 연동하는 표준 워크플로우를 검증합니다.
-- 표준 렌트롤 자동 파싱, 8개 행 구획 데이터 추출, LTV 40% 대출 레버리지 분석, IM Lite 자동 생성 적격성을 점검합니다.
+## Step-by-Step Procedure
+1. Select Posture: **Income (수익형)**
+2. Address Search: Search for `당산동5가 11-47`. Verify PNU and building name `호산당빌딩`.
+3. Financials:
+   - Asking Price: 115억 (11,500,000,000 원)
+   - Total Deposit: 2억 9,000만원 (290,000,000 원)
+   - Monthly Rent: 1,946만원 (19,460,000 원)
+   - Mgmt Fee: 285만원 (2,850,000 원)
+   - Loan Amount: 46억 (4,600,000,000 원), Status: `confirmed`
+4. Vacancy: Click `만실` (Full Occupancy) button.
+5. Photos Upload: Upload 3 images (exterior, entrance, lobby). Need to add 2 more placeholders if prompt requires up to 5, but 3 satisfies minimum for Grade B.
+6. Rent Roll Upload: Upload the provided rent roll excel file (.xlsx).
 
-## 2. 웹 UI 테스트 절차
-1. **딜카드 생성**:
-   - `/broker/deal-card/new`에서 `memo.txt` 내용으로 딜카드 생성.
-2. **빌딩 스튜디오 이동**:
-   - 생성 완료 후 해당 빌딩 스튜디오(`/broker/buildings/[id]/studio`)로 이동.
-3. **임대차 롤 Excel 업로드**:
-   - 좌측 메뉴 `[임대차 롤 (Rent Roll) 상세 입력]` 클릭 (`/studio/lease`).
-   - 상단 **'엑셀/CSV 파일로 일괄 업로드'** 영역에 `level-2-standard/rentroll.xlsx` 드래그 앤 드롭.
-   - 8개 행이 자동 파싱되어 테이블에 바인딩되는지 확인 후 `[임대차 정보 저장하기]` 클릭.
-4. **외관 이미지 업로드**:
-   - 좌측 메뉴 `[증빙 서류 업로드]` 클릭 (`/studio/files`).
-   - `images/01_exterior.jpg` 업로드.
-5. **IM Lite 뷰어 확인**:
-   - 스튜디오 메인으로 돌아와 `IM Lite Draft` 뱃지 활성화 확인 후 `[IM Lite 뷰어 열기]` 실행.
-
-## 3. 검증 체크리스트 (Expected Output)
-- [ ] **Excel 파싱**: 8개 행 컬럼 자동 매핑 (층, 면적, 업종, 보증금, 월세, 관리비 등)
-- [ ] **합계 지표 검산**:
-  - 보증금 합계: 2억 9,000만원
-  - 월 임대료 합계: 1,946만원
-  - 관리비 합계: 285만원
-- [ ] **자산 등급 판정**: 등급 A / 포스처 `income`
-- [ ] **LTV 40% 시나리오**: 대출 46억, 실투자 72.43억, 월순현금 +221만원 정상 산출
+## Expected Results
+- **Quality Grade**: `B`
+- **Generated Sections**: Address, Price, Basic Rent Roll, Financial Details, Photos (3+).
+- **Expected Gates**:
+  - G04 (Address Validated) - PASS
+  - G26 (Min 3 Photos) - PASS
+  - G40 (LTV/Financial Check) - WARNING (if leverage implies negative yield or high risk)

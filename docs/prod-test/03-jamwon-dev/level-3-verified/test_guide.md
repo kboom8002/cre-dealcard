@@ -1,29 +1,18 @@
-# Level 3 (Verified / R3) 테스트 가이드: 잠원동 242억 신축 개발부지
+# Level 3 Verified - Test Guide
 
-## 1. 테스트 목적
-- 개발형(`development`, A17 아키타입) 최고 해상도(S-Grade) 데이터로 **개발 전용 16면 PPTX 자동 생성 및 투입비·규제 만료일·PF 자기자본비율 검증**을 수행합니다.
-- **핵심 실무 검증 포인트**:
-  1. 투입비 3단에 취득세(11.14억)를 합산한 총투입비 332.09억원 기준 실질 수익률(3.51%) 제시
-  2. 한시 조례(2028-05-18 만료)의 잔여일 카운트다운 및 건축 인허가 리스크 경고
-  3. PF 자기자본비율 규제(2026년 10% → 2027년 15% → 2028년 20%)에 따른 착공 지연 리스크(+16.6억/년)
-  4. 신축 임대 계획(Stacking Plan)의 2층 단수 오차(-4만원) 감지 및 매도인 명도 4대 특약 명기
+## Full Procedure
+1. Posture: `development` 선택, devMode: `hold`
+2. Address: `잠원동 26-14` 검색, PNU `1165010700100260014`, `1165010700100260016` 확인
+3. Price: `242.27억` (purchaseCost)
+4. Vacancy: `매도인 명도 100% 책임` (11 tenants)
+5. Regulation: `서울시 소규모 건축물 용적률 완화 조례` 적용
+6. Stacking Plan: 7 rows post-dev plan uploaded.
+7. Comps: 3 manual comps added.
+8. Grade: A expected.
 
-## 2. 웹 UI 테스트 절차
-1. **딜카드 생성**:
-   - `/broker/deal-card/new`에서 `memo.txt` 내용으로 생성.
-2. **스튜디오 데이터 연동**:
-   - `/studio/lease`: `level-3-verified/rentroll.xlsx`의 Stacking Plan 및 명도 현황 확인.
-   - `/studio/files`: 4종 HD 이미지 업로드.
-   - `/studio/disclosure`: 전체 정보 공개 설정.
-3. **SSoT 완결성 및 등급 확인**:
-   - 대시보드에서 SSoT 90점 이상, **등급 S** 확인.
-4. **PPTX 다운로드 및 AI 비주얼 검수**:
-   - `/broker/deal-card/[id]/pptx-editor`에서 PPTX 다운로드.
-   - 개발형 슬라이드(A17 개발 마스터플랜, 투입비 4단, Stacking Plan, PF 일정표) 렌더링 확인.
-
-## 3. 검증 체크리스트 (Expected Output)
-- [ ] **총투입비 단언**: 332.09억원 (취득세 11.14억 포함)
-- [ ] **개발 후 수익률**: 3.51% (총투입비 기준), 3.77% (보증금 차감 기준)
-- [ ] **규제 만료일**: 서울시 소규모 건축물 용적률 완화(2028-05-18 종료) 잔여일 표기
-- [ ] **PF 규제**: 연도별 자기자본 비율(10% → 15% → 20%) 표기
-- [ ] **게이트 통과**: G10~G15 개발 게이트 전원 통과 확인
+## Negative Tests
+1. 2F stacking row error (-4만원) detection
+2. Regulation expiry countdown (2028-05-18)
+3. PF equity escalation (+16.6억/year delay cost)
+4. Vacate covenant completeness check (4 items)
+5. Tax inclusion verification (취득세 11.14억 in total cost)

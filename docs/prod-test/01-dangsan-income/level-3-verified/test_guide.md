@@ -1,30 +1,29 @@
-# Level 3 (Verified / R3) 테스트 가이드: 당산동 115억 근생
+# Test Guide: Dangsan-dong (Level 3)
 
-## 1. 테스트 목적
-- 실사 완료급 S-Grade 정밀 데이터와 완전한 Excel 렌트롤, 4종 HD 이미지를 바탕으로 **16면 Full IM(PPTX) 자동 생성 및 전 게이트(G01~G45) 정밀 검증**을 수행합니다.
-- **핵심 실무 검증 포인트**:
-  1. 1F+2F 통합계약(Group B) 단일 계약 취급 및 보증금/월세 중복 누락 없는 바인딩
-  2. 자가사용 2구획(B1, 4F)이 공실률 계산에서 정상 제외(공실률 0.0%)되는지 확인
-  3. 300㎡ 면적 불일치(1,141.15㎡ vs 1,441.15㎡)에 대한 C19 블로커 및 G18 경고 플래그 발동 검증
-  4. LTV 50% 시 역레버리지(월 -210.3만원) 경고 표기 및 무차입 권고 서사 렌더링 확인
+## Step-by-Step Procedure
+1. Select Posture: **Income (수익형)**
+2. Address Search: `당산동5가 11-47`. Verify PNU and building name `호산당빌딩`.
+3. Financials:
+   - Asking Price: 115억 (11,500,000,000 원)
+   - Total Deposit: 2억 9,000만원 (290,000,000 원)
+   - Monthly Rent: 1,946만원 (19,460,000 원)
+   - Mgmt Fee: 285만원 (2,850,000 원)
+   - Loan Amount: 46억 (4,600,000,000 원), Status: `confirmed`
+4. Vacancy: Click `만실` (Full Occupancy) button. (Self-use B1 and 4F partial are counted as occupied).
+5. Photos Upload: Upload 4 images (exterior, aerial, entrance, lobby).
+6. Rent Roll Upload: Upload full rent roll with complete lease start/end dates.
+7. Manual Comps: Input 3 nearby manual comps.
 
-## 2. 웹 UI 테스트 절차
-1. **딜카드 생성**:
-   - `/broker/deal-card/new`에서 `memo.txt` 붙여넣기 후 생성.
-2. **스튜디오 전구간 데이터 확정**:
-   - `/studio/lease`: `level-3-verified/rentroll.xlsx` 업로드.
-   - `/studio/files`: `images/01_exterior.jpg` ~ `04_lobby.jpg` 4장 모두 업로드.
-   - `/studio/disclosure`: 전체 정보 정밀 공개(Full Disclosure) 설정.
-3. **SSoT 완결성 및 등급 확인**:
-   - 대시보드에서 SSoT 완결성 점수 90점 이상, **등급 S** 확인.
-4. **PPTX 다운로드 및 AI 비주얼 검수**:
-   - `/broker/deal-card/[id]/pptx-editor` 또는 다운로드 API 실행.
-   - 16면 완편 PPTX 생성 확인 (본문 16면 상한 준수, Rule 10).
-   - 좌우 비중복 렌더링(Rule 3), 한국 상업용 부동산 실무 표준 용어(Rule 2) 준수 확인.
+## Expected Results
+- **Quality Grade**: `A`
+- **Expected Gates**:
+  - G04 (Address Validated)
+  - C19 (Area Discrepancy) - Blocking check for discrepancy between 1141.15㎡ and 1441.15㎡
+  - G40 (LTV / Negative Leverage) - Warning check
 
-## 3. 검증 체크리스트 (Expected Output)
-- [ ] **통합계약 표기**: Group B(1F+2F)가 별도 합산되지 않고 1F에 통합 금액(1.4억/883만)으로 정확히 1회 계상됨
-- [ ] **공실률**: 0.0% 표기 (자가사용은 공실로 취급되지 않음)
-- [ ] **면적 정합성 경고**: 공부 1,141.15㎡ vs 실측 1,441.15㎡ 간 300㎡ 차이에 대한 주석 명시
-- [ ] **LTV 역레버리지 분석**: LTV 50% 시 월 순현금 마이너스(-210만원) 경고 박스 출력
-- [ ] **발행 게이트**: C19 블로커 및 G18 경고 확인, 4층 만기 경과 갱신 확인 사항 기재
+## Negative Test Scenarios
+1. **Area discrepancy 1141 vs 1441**: Expected cross-validation warning or C19 block.
+2. **4F lease expired (2025-04-30)**: Expected renewal risk flag because the date has passed or is imminent.
+3. **LTV 50% negative leverage**: Verify G40 warning is triggered if yield is lower than loan interest.
+4. **Group B integrated contract**: Verify no double-counting of 1F and 2F deposit/rent (14,000 / 883).
+5. **Self-use units excluded from vacancy**: Verify vacancy rate stays exactly at 0.0% even with owner-occupied units.

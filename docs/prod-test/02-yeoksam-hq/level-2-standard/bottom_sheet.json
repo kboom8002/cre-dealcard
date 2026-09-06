@@ -1,64 +1,31 @@
 {
-  "propertyId": "PROD-TEST-YS-L2",
-  "propertyName": "역삼동 120억 단독사옥 (표준 R2)",
   "posture": "owner_occupied",
-  "assetType": "office",
-  "address": "서울특별시 강남구 역삼동",
-  "financial": {
-    "askingPriceKrw": 12000000000,
-    "totalDepositKrw": 50000000,
-    "monthlyRentKrw": 4000000,
-    "mgmtFeeKrw": 500000,
-    "acquisitionTaxKrw": 552000000,
-    "brokerFeeKrw": 108000000,
-    "totalAcquisitionCostKrw": 12660000000,
-    "landPricePerPyeongKrw": 139290000,
-    "gfaPricePerPyeongKrw": 50480000,
-    "officialLandPricePerPyeongKrw": 31720000,
-    "officialLandPriceTotalKrw": 2732678000,
-    "askingToOfficialRatio": 4.39,
-    "loanAmountKrw": 4800000000,
-    "loanInterestRatePct": 4.5,
-    "equityRequiredKrw": 7860000000,
-    "monthlyInterestKrw": 18000000
+  "address": "서울특별시 강남구 역삼동 642-1",
+  "buildingName": "역삼동 단독사옥",
+  "askingPrice": 12000000000,
+  "deposit": 50000000,
+  "monthlyRent": 4000000,
+  "mgmtFee": 500000,
+  "vacancyRate": 0,
+  "loanStatus": "unknown",
+  "qualityGrade": "B",
+  "occupancySpec": {
+    "headcount": 80,
+    "desiredFloors": "전층",
+    "areaPerHeadPyung": 3.3,
+    "currentRentManwon": 3800
   },
-  "physical": {
-    "floorsAboveGround": 6,
-    "floorsUnderGround": 1,
-    "landAreaSqm": 284.8,
-    "landAreaPyung": 86.15,
-    "grossFloorAreaSqm": 785.9,
-    "totalFloorAreaPyung": 237.72,
-    "buildYear": 2023,
-    "bcrPct": 57.51,
-    "farPct": 199.75,
-    "parkingSpaces": 6,
-    "parkingType": "자주식",
-    "elevatorCount": 1,
-    "restroomsCount": 9,
-    "hvacType": "개별",
-    "orientation": "동향",
-    "roadCondition": "세로",
-    "violationBuilding": false
-  },
-  "maturity": {
-    "resolution": "R2",
-    "qualityGrade": "A",
-    "isRentRollPresent": true,
-    "rentRollFile": "rentroll.xlsx",
-    "isPhotosPresent": true,
-    "photoFiles": [
-      "images/01_exterior.jpg"
-    ],
-    "missingFields": [
-      "vacate_covenant_details",
-      "prior_deal_history_comparison"
-    ]
-  },
+  "photos_v2": [
+    {"url": "images/01_exterior.jpg", "category": "exterior", "isHero": true, "role": "cover", "order": 0},
+    {"url": "images/02_entrance.jpg", "category": "entrance", "isHero": false, "role": "general", "order": 1},
+    {"url": "images/03_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 2}
+  ],
+  "floor_leases": [
+    {"floor": "B1", "tenant_name": "역삼포토랩", "tenant_type": "스튜디오/사진", "area_sqm": 115.0, "deposit_manwon": 5000, "rent_manwon": 400, "mgmt_fee_manwon": 50, "is_vacant": false, "lease_end": "2026-12-31"},
+    {"floor": "1F~6F", "tenant_name": "매도법인 본사사옥", "tenant_type": "업무시설(사옥)", "area_sqm": 540.0, "deposit_manwon": 0, "rent_manwon": 0, "mgmt_fee_manwon": 0, "is_vacant": false, "notes": "잔금일 퇴거 확약"}
+  ],
   "expectedGates": {
     "blocking": [],
-    "warning": [
-      "G38_OWNER_OCCUPIED_VACATE_SCHEDULE_UNSET"
-    ]
+    "warning": ["G40"]
   }
 }

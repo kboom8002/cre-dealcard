@@ -1,28 +1,27 @@
-# Level 3 (Verified / R3) 테스트 가이드: 역삼동 120억 단독사옥
+# L3 Verified Test Guide: 역삼동 642-1 (사옥형)
 
-## 1. 테스트 목적
-- 최고 수준 실사 데이터(S-Grade)를 통해 **사옥형(owner_occupied) 16면 PPTX 완편 렌더링 및 사옥 전용 게이트 무결성**을 검증합니다.
-- **핵심 실무 검증 포인트**:
-  1. 사옥 단독 명칭 표기(간판 설치권) 실무 용어 표준 준수 (Rule 2)
-  2. 페르소나('법인 대표 맞춤' 등) 완전 배제된 가치 제안 서사 확인 (Rule 1)
-  3. 좌우 분할 레이아웃(A04, A05)에서 비중복 렌더링 원칙(Rule 3) 준수 확인
-  4. 과거 2021년 토지 거래(57.8억)와 신축 원가 대비 현재 호가(120억)의 밸류에이션 논리 표기
+## Procedure
+1. L2 상태에서 검증(Verified) 단계로 데이터 고도화
+2. Occupancy Spec 상세 확정:
+   - Target headcount: 80명
+   - Desired floors: 전층 (1F~6F)
+   - Area per head: 3.3평
+   - Current office rent: 3,800만원
+   - Naming Rights: `사옥 단독 명칭 표기(간판 설치권) 가능` 기재
+3. Rent Roll 상세 입력 (면적, 만기일 포함):
+   - B1: 2025-10-31 만기, 135.20㎡
+   - 1F~6F: 잔금일 퇴거 확약, 650.70㎡
+4. 매매 실거래가 비교 사례(manual_comps) 3건 등록
+5. 권리 분석(Covenants) 등록: 매도법인 즉시 퇴거 확약서, 명도 지연 일할 손해배상 특약 등
+6. 사진 4장 이상 (exterior, entrance, lobby, rooftop 등) 확인
+7. Data Availability (공적 장부) 모두 연동(true) 확인
 
-## 2. 웹 UI 테스트 절차
-1. **딜카드 생성**:
-   - `/broker/deal-card/new`에서 `memo.txt` 붙여넣기 후 생성.
-2. **스튜디오 전구간 데이터 연동**:
-   - `/studio/lease`: `level-3-verified/rentroll.xlsx` 업로드 (7개 층별 원장 완벽 인식).
-   - `/studio/files`: 4장 HD 이미지 업로드.
-   - `/studio/disclosure`: 전체 정보 정밀 공개 설정.
-3. **SSoT 완결성 및 등급 확인**:
-   - 대시보드에서 SSoT 90점 이상, **등급 S** 확인.
-4. **PPTX 다운로드 및 AI 비주얼 검수**:
-   - `/broker/deal-card/[id]/pptx-editor`에서 PPTX 다운로드.
-   - 사옥형 슬라이드 템플릿(A04~A05 사옥 스펙, 입지/접근성, 명도 일정, vsLease) 시각 무결성 확인.
+## Expected Outcome
+- **Grade**: `A` (최고 등급) 확인 (S등급은 존재하지 않음)
+- vsLease annual saving이 ~4.2억원으로 올바르게 산출되는지 확인.
 
-## 3. 검증 체크리스트 (Expected Output)
-- [ ] **표준 용어**: '사옥 단독 명칭 표기(간판 설치권)' 정확히 표기
-- [ ] **비중복 렌더링**: 좌측 영역(Value Proposition 서사)과 우측 카드(핵심 지표) 간 텍스트 중복 없음
-- [ ] **명도 확약**: 매도법인 잔금일 인도 조건 및 지하 스튜디오 만기 명도 선택권 명시
-- [ ] **발행 게이트**: 사옥 관련 게이트(G06~G09) 전원 통과 확인
+## Negative Tests
+1. **Vacate covenant not secured**: 명도(퇴거) 확약서 미징구 시 G38 경고 게이트 작동 확인.
+2. **Naming rights terminology**: '네이밍 라이츠' 대신 '사옥 단독 명칭 표기(간판 설치권)' 용어 강제 적용 확인. 위반 시 에러 표출.
+3. **vsLease comparison accuracy**: 연간 절감액 산출 로직 검증 오류 시 경고 표출.
+4. **B1 lease approaching expiry**: B1 스튜디오 만기(2025-10-31) 임박에 대한 적절한 안내 노출 확인.

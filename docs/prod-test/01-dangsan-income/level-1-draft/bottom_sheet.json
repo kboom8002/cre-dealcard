@@ -1,44 +1,16 @@
 {
-  "propertyId": "PROD-TEST-DS-L1",
-  "propertyName": "당산동 115억 근린생활시설 (초안)",
   "posture": "income",
-  "assetType": "small_building",
-  "address": "서울특별시 영등포구 당산동5가",
-  "financial": {
-    "askingPriceKrw": 11500000000,
-    "totalDepositKrw": 290000000,
-    "monthlyRentKrw": 19460000,
-    "statedMonthlyRentKrw": 19460000,
-    "mgmtFeeKrw": null,
-    "operatingExpensesKrw": null,
-    "loanAmountKrw": null,
-    "loanInterestRatePct": null
-  },
-  "physical": {
-    "floorsAboveGround": 5,
-    "floorsUnderGround": 1,
-    "landAreaSqm": null,
-    "grossFloorAreaSqm": null,
-    "totalFloorAreaPyung": null
-  },
-  "maturity": {
-    "resolution": "R1",
-    "qualityGrade": "B",
-    "isRentRollPresent": false,
-    "isPhotosPresent": false,
-    "missingFields": [
-      "tenant_detail_ledger",
-      "exact_gross_floor_area",
-      "operating_expenses",
-      "loan_condition",
-      "building_register_verification"
-    ]
-  },
+  "address": "서울특별시 영등포구 당산동5가 11-47",
+  "roadAddress": "서울특별시 영등포구 영신로 259",
+  "buildingName": "호산당빌딩",
+  "pnu": "1156011500100110047",
+  "askingPrice": 11500000000,
+  "deposit": 290000000,
+  "monthlyRent": 19460000,
+  "vacancyRate": 0,
+  "qualityGrade": "C",
   "expectedGates": {
     "blocking": [],
-    "warning": [
-      "G35_MISSING_DETAILED_RENTROLL",
-      "G37_ESTIMATED_FINANCIALS_ONLY"
-    ]
+    "warning": ["G26"]
   }
 }
