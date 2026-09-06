@@ -59,7 +59,10 @@
       {"url": "images/01_exterior.jpg", "category": "exterior", "isHero": true, "role": "cover", "order": 0},
       {"url": "images/02_aerial.jpg", "category": "exterior", "isHero": false, "role": "general", "order": 1},
       {"url": "images/03_entrance.jpg", "category": "entrance", "isHero": false, "role": "general", "order": 2},
-      {"url": "images/04_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 3}
+      {"url": "images/04_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 3},
+      {"url": "images/05_cadastral_map.jpg", "category": "cadastral_map", "isHero": false, "role": "map", "order": 4},
+      {"url": "images/06_dev_rendering.jpg", "category": "floor_plan", "isHero": false, "role": "general", "order": 5},
+      {"url": "images/07_zoning_map.jpg", "category": "cadastral_map", "isHero": false, "role": "map", "order": 6}
     ],
     "manual_comps": [
       {"address": "서초구 잠원동 27-1", "dealAmount": 2100000, "area": 580.0, "dealYear": 2023, "dealMonth": 6, "buildingUse": "제2종근린생활시설", "memo": "토지 평당 1.21억"},

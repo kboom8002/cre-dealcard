@@ -38,7 +38,10 @@
     {"url": "images/01_exterior.jpg", "category": "exterior", "isHero": true, "role": "cover", "order": 0},
     {"url": "images/02_aerial.jpg", "category": "exterior", "isHero": false, "role": "general", "order": 1},
     {"url": "images/03_entrance.jpg", "category": "entrance", "isHero": false, "role": "general", "order": 2},
-    {"url": "images/04_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 3}
+    {"url": "images/04_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 3},
+    {"url": "images/05_cadastral_map.jpg", "category": "cadastral_map", "isHero": false, "role": "map", "order": 4},
+    {"url": "images/06_dev_rendering.jpg", "category": "floor_plan", "isHero": false, "role": "general", "order": 5},
+    {"url": "images/07_zoning_map.jpg", "category": "cadastral_map", "isHero": false, "role": "map", "order": 6}
   ],
   "floor_leases": [
     {"floor": "6F", "tenant_type": "단독 테라스 루프탑 오피스/엔터", "area_pyung": 50.00, "area_sqm": 165.29, "rent_manwon": 900, "deposit_manwon": 10800, "is_vacant": true},

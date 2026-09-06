@@ -33,7 +33,10 @@
     "photos_v2": [
       {"url": "images/01_exterior.jpg", "category": "exterior", "isHero": true, "role": "cover", "order": 0},
       {"url": "images/02_entrance.jpg", "category": "entrance", "isHero": false, "role": "general", "order": 1},
-      {"url": "images/03_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 2}
+      {"url": "images/03_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 2},
+      {"url": "images/04_cadastral_map.jpg", "category": "cadastral_map", "isHero": false, "role": "map", "order": 3},
+      {"url": "images/05_dev_rendering.jpg", "category": "floor_plan", "isHero": false, "role": "general", "order": 4},
+      {"url": "images/06_zoning_map.jpg", "category": "cadastral_map", "isHero": false, "role": "map", "order": 5}
     ]
   }
 }

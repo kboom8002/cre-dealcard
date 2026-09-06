@@ -26,7 +26,13 @@
       {"url": "images/01_exterior.jpg", "category": "exterior", "isHero": true, "role": "cover", "order": 0},
       {"url": "images/02_aerial.jpg", "category": "exterior", "isHero": false, "role": "general", "order": 1},
       {"url": "images/03_entrance.jpg", "category": "entrance", "isHero": false, "role": "general", "order": 2},
-      {"url": "images/04_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 3}
+      {"url": "images/04_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 3},
+      {"url": "images/05_cadastral_map.jpg", "category": "cadastral_map", "isHero": false, "role": "map", "order": 4},
+      {"url": "images/06_location_map.jpg", "category": "map", "isHero": false, "role": "map", "order": 5},
+      {"url": "images/07_parking.jpg", "category": "parking", "isHero": false, "role": "general", "order": 6},
+      {"url": "images/08_rooftop.jpg", "category": "rooftop_terrace", "isHero": false, "role": "general", "order": 7},
+      {"url": "images/09_interior_clinic.jpg", "category": "retail_interior", "isHero": false, "role": "general", "order": 8},
+      {"url": "images/10_street_view.jpg", "category": "surrounding_street", "isHero": false, "role": "general", "order": 9}
     ],
     "manual_comps": [
       {"address": "영등포구 당산동5가 11-48", "transaction_date": "2023-11", "price_manwon": 1200000},

@@ -24,7 +24,10 @@
     "photos_v2": [
       {"url": "images/01_exterior.jpg", "category": "exterior", "isHero": true, "role": "cover", "order": 0},
       {"url": "images/02_entrance.jpg", "category": "entrance", "isHero": false, "role": "general", "order": 1},
-      {"url": "images/03_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 2}
+      {"url": "images/03_lobby.jpg", "category": "lobby", "isHero": false, "role": "general", "order": 2},
+      {"url": "images/04_cadastral_map.jpg", "category": "cadastral_map", "isHero": false, "role": "map", "order": 3},
+      {"url": "images/05_office_interior.jpg", "category": "office_interior", "isHero": false, "role": "general", "order": 4},
+      {"url": "images/06_rooftop_terrace.jpg", "category": "rooftop_terrace", "isHero": false, "role": "general", "order": 5}
     ]
   }
 }
