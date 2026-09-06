@@ -20,33 +20,87 @@ export interface MemoSlotResult {
   extractionRate: number; // % of memo text that was matched
 }
 
+// ── 한국 실무 복합 화폐(억+만+원) 파서 ──
+export function parseKoreanMoney(text: string): number {
+  if (!text) return 0;
+  const cleaned = text.replace(/,/g, '').trim();
+  let total = 0;
+
+  const eokMatch = cleaned.match(/([\d.]+)\s*억/);
+  if (eokMatch) {
+    total += parseFloat(eokMatch[1]) * 100_000_000;
+  }
+
+  const cheonmanMatch = cleaned.match(/([\d.]+)\s*천만/);
+  if (cheonmanMatch) {
+    total += parseFloat(cheonmanMatch[1]) * 10_000_000;
+  } else {
+    const manAfterEok = cleaned.match(/억\s*([\d.]+)\s*만/);
+    if (manAfterEok) {
+      total += parseFloat(manAfterEok[1]) * 10_000;
+    } else {
+      const standAloneMan = cleaned.match(/(?:^|[^\d.]|\s)([\d.]+)\s*만/);
+      if (standAloneMan && !eokMatch) {
+        total += parseFloat(standAloneMan[1]) * 10_000;
+      }
+    }
+  }
+
+  if (total === 0) {
+    const rawWon = cleaned.match(/([\d.]+)\s*원/);
+    if (rawWon) {
+      total = parseFloat(rawWon[1]);
+    } else {
+      const numOnly = parseFloat(cleaned);
+      if (!isNaN(numOnly)) total = numOnly;
+    }
+  }
+
+  return total;
+}
+
+// ── 공실률 / 만실 실무 어휘 파서 ──
+export function parseVacancy(text: string): number | null {
+  if (/(?:만실|공실\s*없(?:음|이)|공실률\s*0%|공실\s*0%)/i.test(text)) {
+    return 0.0;
+  }
+  const m = text.match(/(?:공실률|공실)[:\s]*(?:약\s*)?([\d.]+)\s*%/i);
+  if (m) {
+    const v = parseFloat(m[1]);
+    return isNaN(v) ? null : v;
+  }
+  return null;
+}
+
+type PatternType = 'number' | 'string' | 'korean_money' | 'vacancy';
+
 // ── 1순위: 총괄 지표 패턴 (총액/합계 블록 — 개별 호실보다 먼저 매칭) ──
-const SUMMARY_PATTERNS: { key: string; regex: RegExp; type: 'number' | 'string' }[] = [
-  // 보증금 총액 (다양한 한국 실무 표기 수용)
-  { key: 'totalDepositKrw', regex: /(?:보증금\s*총액|총\s*보증금|보증금\s*합계|전세금\s*총액)[:\s]*(?:약\s*)?([\d,.]+)\s*(?:억|만|원)/i, type: 'number' },
+const SUMMARY_PATTERNS: { key: string; regex: RegExp; type: PatternType }[] = [
+  // 보증금 총액 (2억 9,000만원 등 복합 단위 지원)
+  { key: 'totalDepositKrw', regex: /(?:보증금\s*총액|총\s*보증금|보증금\s*합계|전세금\s*총액)[:\s]*(?:약\s*)?((?:[\d,.]+\s*억\s*)?(?:[\d,.]+\s*천만\s*)?(?:[\d,.]+\s*만\s*)?(?:[\d,.]+\s*원)?)/i, type: 'korean_money' },
   // 월 임대수입/월세 총액
-  { key: 'monthlyRentKrw', regex: /(?:월\s*임대수입\s*총액|월\s*임대료\s*총액|월세\s*총액|총\s*월세|월\s*차임\s*합계|월\s*임대수입|임대수입\s*총액)[:\s]*(?:약\s*)?([\d,.]+)\s*(?:억|만|원)/i, type: 'number' },
+  { key: 'monthlyRentKrw', regex: /(?:월\s*임대수입\s*총액|월\s*임대료\s*총액|월세\s*총액|총\s*월세|월\s*차임\s*합계|월\s*임대수입|임대수입\s*총액)[:\s]*(?:약\s*)?((?:[\d,.]+\s*억\s*)?(?:[\d,.]+\s*만\s*)?(?:[\d,.]+\s*원)?)/i, type: 'korean_money' },
   // 매매가 (총액/합계 블록에도 가끔 등장)
-  { key: 'askingPriceKrw', regex: /(?:매매가|매각가|희망가|매가)[:\s]*(?:약\s*)?([\d,.]+)\s*(?:억|만|원)/i, type: 'number' },
+  { key: 'askingPriceKrw', regex: /(?:매매가|매각가|희망가|매가)[:\s]*(?:약\s*)?((?:[\d,.]+\s*억\s*)?(?:[\d,.]+\s*만\s*)?(?:[\d,.]+\s*원)?)/i, type: 'korean_money' },
 ];
 
 // ── 2순위: 개별 항목 패턴 (일반 매칭 — 총괄 지표 부재 시 폴백) ──
-const FALLBACK_PATTERNS: { key: string; regex: RegExp; type: 'number' | 'string' }[] = [
-  { key: 'monthlyRentKrw', regex: /(?:월세|월임대료|월차임)[:\s]*(?:약\s*)?([\d,.]+)\s*(?:만|원)/i, type: 'number' },
-  { key: 'totalDepositKrw', regex: /(?:보증금|전세금)[:\s]*(?:약\s*)?([\d,.]+)\s*(?:억|만|원)/i, type: 'number' },
+const FALLBACK_PATTERNS: { key: string; regex: RegExp; type: PatternType }[] = [
+  { key: 'monthlyRentKrw', regex: /(?:월세|월임대료|월차임)[:\s]*(?:약\s*)?((?:[\d,.]+\s*억\s*)?(?:[\d,.]+\s*만\s*)?(?:[\d,.]+\s*원)?)/i, type: 'korean_money' },
+  { key: 'totalDepositKrw', regex: /(?:보증금|전세금)[:\s]*(?:약\s*)?((?:[\d,.]+\s*억\s*)?(?:[\d,.]+\s*천만\s*)?(?:[\d,.]+\s*만\s*)?(?:[\d,.]+\s*원)?)/i, type: 'korean_money' },
 ];
 
 // ── 공통 패턴 (총괄/개별 구분 불필요한 일반 슬롯) ──
-const GENERAL_PATTERNS: { key: string; regex: RegExp; type: 'number' | 'string' }[] = [
-  { key: 'askingPriceKrw', regex: /(?:매매가|매각가|희망가|매가)[:\s]*(?:약\s*)?([\d,.]+)\s*(?:억|만|원)/i, type: 'number' },
+const GENERAL_PATTERNS: { key: string; regex: RegExp; type: PatternType }[] = [
+  { key: 'askingPriceKrw', regex: /(?:매매가|매각가|희망가|매가)[:\s]*(?:약\s*)?((?:[\d,.]+\s*억\s*)?(?:[\d,.]+\s*만\s*)?(?:[\d,.]+\s*원)?)/i, type: 'korean_money' },
   { key: 'totalFloorAreaPyung', regex: /(?:연면적|전용면적|면적)[:\s]*(?:약\s*)?([\d,.]+)\s*(평|㎡|py)/i, type: 'number' },
   { key: 'buildYear', regex: /(?:준공|건축|신축|완공)[:\s]*(\d{4})\s*(?:년)?/i, type: 'number' },
   { key: 'floorsAboveGround', regex: /(?:지상|지상층|층수)[:\s]*(\d+)\s*(?:층)/i, type: 'number' },
   { key: 'floorsUnderGround', regex: /(?:지하)[:\s]*(\d+)\s*(?:층)/i, type: 'number' },
-  { key: 'loanAmountKrw', regex: /(?:대출|근저당|융자)[:\s]*(?:약\s*)?([\d,.]+)\s*(?:억|만|원)/i, type: 'number' },
+  { key: 'loanAmountKrw', regex: /(?:대출|근저당|융자)[:\s]*(?:약\s*)?((?:[\d,.]+\s*억\s*)?(?:[\d,.]+\s*만\s*)?(?:[\d,.]+\s*원)?)/i, type: 'korean_money' },
   { key: 'address', regex: /(?:주소|소재지|위치)[:\s]*([가-힣\d\s-]+(?:동|로|길)[^\n]*)/i, type: 'string' },
   { key: 'assetType', regex: /(?:용도|건물유형|자산유형)[:\s]*([가-힣]+(?:시설|빌딩|상가|오피스|물류|창고|공장))/i, type: 'string' },
-  { key: 'vacancyRatePct', regex: /(?:공실률|공실)[:\s]*(?:약\s*)?([\d.]+)\s*%/i, type: 'number' },
+  { key: 'vacancyRatePct', regex: /(?:만실|공실\s*없(?:음|이)|공실률\s*0%|공실\s*0%|(?:공실률|공실)[:\s]*(?:약\s*)?([\d.]+)\s*%)/i, type: 'vacancy' },
   { key: 'capRatePct', regex: /(?:수익률|캡레이트|cap\s*rate)[:\s]*(?:약\s*)?([\d.]+)\s*%/i, type: 'number' },
   { key: 'roomCount', regex: /(?:객실|룸|실수)[:\s]*(\d+)\s*(?:실|룸|개)/i, type: 'number' },
   { key: 'adrManwon', regex: /(?:ADR|객단가|일평균)[:\s]*([\d,.]+)\s*(?:만|원)/i, type: 'number' },
@@ -57,8 +111,8 @@ const GENERAL_PATTERNS: { key: string; regex: RegExp; type: 'number' | 'string' 
   { key: 'farPct', regex: /(?:용적률)[:\s]*([\d.]+)\s*%/i, type: 'number' },
   { key: 'bcrPct', regex: /(?:건폐율)[:\s]*([\d.]+)\s*%/i, type: 'number' },
   { key: 'pricePerPyeongManwon', regex: /(?:평당가|평단가|평당)[:\s]*([\d,.]+)\s*(?:만|원)/i, type: 'number' },
-  { key: 'constructionCostManwon', regex: /(?:공사비|건축비|시공비)[:\s]*([\d,.]+)\s*(?:억|만|원)/i, type: 'number' },
-  { key: 'monthlyRevenueKrw', regex: /(?:월매출|월 매출|매출)[:\s]*([\d,.]+)\s*(?:억|만|원)/i, type: 'number' },
+  { key: 'constructionCostManwon', regex: /(?:공사비|건축비|시공비)[:\s]*((?:[\d,.]+\s*억\s*)?(?:[\d,.]+\s*만\s*)?(?:[\d,.]+\s*원)?)/i, type: 'korean_money' },
+  { key: 'monthlyRevenueKrw', regex: /(?:월매출|월 매출|매출)[:\s]*((?:[\d,.]+\s*억\s*)?(?:[\d,.]+\s*만\s*)?(?:[\d,.]+\s*원)?)/i, type: 'korean_money' },
   { key: 'holdingPeriodYears', regex: /(?:보유기간|보유\s*기간|보유)[:\s]*([\d.]+)\s*(?:년|개월)/i, type: 'number' },
 ];
 
@@ -80,20 +134,30 @@ function applyUnit(value: number, unit: string): number {
  */
 function matchPattern(
   text: string,
-  pattern: { key: string; regex: RegExp; type: 'number' | 'string' },
+  pattern: { key: string; regex: RegExp; type: PatternType },
 ): { slot: MappedSlot; fullMatch: string } | null {
   const match = text.match(pattern.regex);
   if (!match) return null;
 
-  const rawValue = match[1];
   let value: string | number;
   let confidence = 0.85;
 
-  if (pattern.type === 'number') {
+  if (pattern.type === 'korean_money') {
+    value = parseKoreanMoney(match[0]);
+    if (value <= 0) return null;
+    confidence = 0.95;
+  } else if (pattern.type === 'vacancy') {
+    const vac = parseVacancy(match[0]);
+    if (vac === null) return null;
+    value = vac;
+    confidence = 0.95;
+  } else if (pattern.type === 'number') {
+    const rawValue = match[1];
     const numVal = parseKoreanNumber(rawValue);
     value = applyUnit(numVal, match[0]);
     confidence = match[0].length > 5 ? 0.9 : 0.8;
   } else {
+    const rawValue = match[1];
     value = rawValue.trim();
     confidence = 0.75;
   }

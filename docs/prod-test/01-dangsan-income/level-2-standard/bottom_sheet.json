@@ -1,0 +1,57 @@
+{
+  "propertyId": "PROD-TEST-DS-L2",
+  "propertyName": "당산동 115억 근린생활시설 (표준 R2)",
+  "posture": "income",
+  "assetType": "small_building",
+  "address": "서울특별시 영등포구 당산동5가",
+  "financial": {
+    "askingPriceKrw": 11500000000,
+    "totalDepositKrw": 290000000,
+    "monthlyRentKrw": 19460000,
+    "statedMonthlyRentKrw": 19460000,
+    "mgmtFeeKrw": 2850000,
+    "operatingExpensesKrw": 1800000,
+    "acquisitionTaxKrw": 529000000,
+    "brokerFeeKrw": 103500000,
+    "totalAcquisitionCostKrw": 12132500000,
+    "loanAmountKrw": 4600000000,
+    "loanInterestRatePct": 4.5,
+    "monthlyInterestKrw": 17250000,
+    "monthlyNetCashKrw": 2210000,
+    "roePct": 0.37
+  },
+  "physical": {
+    "floorsAboveGround": 5,
+    "floorsUnderGround": 1,
+    "landAreaSqm": 420.5,
+    "grossFloorAreaSqm": 1141.15,
+    "totalFloorAreaPyung": 345.2,
+    "elevatorCount": 1,
+    "parkingSpaces": 5,
+    "parkingType": "자주식",
+    "zoning": "제2종일반주거지역",
+    "mainUse": "제2종근린생활시설"
+  },
+  "maturity": {
+    "resolution": "R2",
+    "qualityGrade": "A",
+    "isRentRollPresent": true,
+    "rentRollFile": "rentroll.xlsx",
+    "isPhotosPresent": true,
+    "photoFiles": [
+      "images/01_exterior.jpg"
+    ],
+    "missingFields": [
+      "contract_group_structure",
+      "first_contract_date_for_renewal_rights",
+      "area_reconciliation_300sqm"
+    ]
+  },
+  "expectedGates": {
+    "blocking": [],
+    "warning": [
+      "G18_AREA_SUM_DISCREPANCY",
+      "G42_LEASE_EXPIRY_PAST_DUE"
+    ]
+  }
+}

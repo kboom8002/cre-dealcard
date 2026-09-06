@@ -31,6 +31,20 @@ interface MemoResultSheetProps {
   onClose: () => void;
 }
 
+function formatKrwMoney(v: any): string {
+  const num = Number(v);
+  if (isNaN(num) || num <= 0) return "-";
+  if (num >= 100_000_000) {
+    const eok = Math.floor(num / 100_000_000);
+    const remainderMan = Math.round((num % 100_000_000) / 10_000);
+    if (remainderMan > 0) {
+      return `${eok}억 ${remainderMan.toLocaleString()}만 원`;
+    }
+    return `${eok}억 원`;
+  }
+  return `${(num / 10_000).toLocaleString()}만 원`;
+}
+
 // 슬롯 키별 친절한 한글 라벨 및 아이콘 정의
 const SLOT_META: Record<string, { label: string; icon: React.ReactNode; format: (val: any) => string }> = {
   address: {
@@ -41,14 +55,7 @@ const SLOT_META: Record<string, { label: string; icon: React.ReactNode; format: 
   askingPriceKrw: {
     label: "매매 희망가",
     icon: <CircleDollarSign className="w-3.5 h-3.5 text-emerald-500" />,
-    format: (v) => {
-      const num = Number(v);
-      if (num >= 100_000_000) {
-        const bil = (num / 100_000_000).toFixed(1).replace(/\.0$/, "");
-        return `${bil}억 원`;
-      }
-      return `${(num / 10_000).toLocaleString()}만 원`;
-    },
+    format: formatKrwMoney,
   },
   monthlyRentKrw: {
     label: "월 임대료 합계",
@@ -58,14 +65,7 @@ const SLOT_META: Record<string, { label: string; icon: React.ReactNode; format: 
   totalDepositKrw: {
     label: "보증금 합계",
     icon: <CircleDollarSign className="w-3.5 h-3.5 text-amber-500" />,
-    format: (v) => {
-      const num = Number(v);
-      if (num >= 100_000_000) {
-        const bil = (num / 100_000_000).toFixed(1).replace(/\.0$/, "");
-        return `${bil}억 원`;
-      }
-      return `${(num / 10_000).toLocaleString()}만 원`;
-    },
+    format: formatKrwMoney,
   },
   buildYear: {
     label: "준공년도",
@@ -100,7 +100,7 @@ const SLOT_META: Record<string, { label: string; icon: React.ReactNode; format: 
   vacancyRatePct: {
     label: "공실률",
     icon: <Percent className="w-3.5 h-3.5 text-rose-500" />,
-    format: (v) => `${v}%`,
+    format: (v) => (Number(v) === 0 ? "만실 (0%)" : `${v}%`),
   },
   capRatePct: {
     label: "수익률 (Cap Rate)",
@@ -110,7 +110,7 @@ const SLOT_META: Record<string, { label: string; icon: React.ReactNode; format: 
   loanAmountKrw: {
     label: "기존 융자/대출",
     icon: <CircleDollarSign className="w-3.5 h-3.5 text-neutral-500" />,
-    format: (v) => `${(Number(v) / 100_000_000).toFixed(1)}억 원`,
+    format: formatKrwMoney,
   },
 };
 
@@ -292,13 +292,13 @@ export function MemoResultSheet({ result, originalText, memoId, onClose }: MemoR
                     return (
                       <div 
                         key={slot.key}
-                        className="p-2 rounded-lg bg-neutral-50 dark:bg-neutral-900/90 border border-neutral-200/60 dark:border-neutral-800 flex flex-col justify-between"
+                        className="p-2.5 rounded-lg bg-neutral-100/90 dark:bg-neutral-800/90 border border-neutral-200 dark:border-neutral-700 flex flex-col justify-between"
                       >
-                        <div className="flex items-center space-x-1.5 text-muted-foreground text-[11px] mb-1 font-medium">
+                        <div className="flex items-center space-x-1.5 text-neutral-600 dark:text-neutral-400 text-[11px] mb-1 font-medium">
                           {meta.icon}
                           <span className="truncate">{meta.label}</span>
                         </div>
-                        <div className="text-xs sm:text-sm font-bold text-foreground truncate">
+                        <div className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-neutral-100 truncate">
                           {meta.format(slot.value)}
                         </div>
                       </div>

@@ -1,0 +1,52 @@
+{
+  "propertyId": "PROD-TEST-JW-L2",
+  "propertyName": "잠원동 242억 신축부지 (표준 R2)",
+  "posture": "development",
+  "devMode": "hold",
+  "assetType": "small_building",
+  "address": "서울특별시 서초구 잠원동",
+  "financial": {
+    "purchaseCostKrw": 24227000000,
+    "constructionCostKrw": 7368000000,
+    "contingencyKrw": 500000000,
+    "subtotalCostKrw": 32095000000,
+    "acquisitionTaxKrw": 1114442000,
+    "totalCostKrw": 33209442000,
+    "monthlyRentKrw": 97175200,
+    "annualRentKrw": 1166102400,
+    "expectedDepositKrw": 1166102400,
+    "postDevYieldSubtotalPct": 3.63,
+    "postDevYieldTotalPct": 3.51
+  },
+  "physical": {
+    "landPyeong": 616.1,
+    "buildPyeong": 614.01,
+    "floorsAboveGround": 6,
+    "floorsUnderGround": 1,
+    "zoning": "제2종일반주거지역"
+  },
+  "vacate": {
+    "vacateResponsibility": "seller",
+    "covenantsRequired": 4
+  },
+  "maturity": {
+    "resolution": "R2",
+    "qualityGrade": "A",
+    "isRentRollPresent": true,
+    "rentRollFile": "rentroll.xlsx",
+    "isPhotosPresent": true,
+    "photoFiles": [
+      "images/01_exterior.jpg"
+    ],
+    "missingFields": [
+      "stacking_plan_row_by_row_validation",
+      "zoning_incentive_expiry_countdown"
+    ]
+  },
+  "expectedGates": {
+    "blocking": [],
+    "warning": [
+      "G40_TAX_OMISSION_CORRECTED"
+    ]
+  }
+}

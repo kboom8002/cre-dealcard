@@ -172,6 +172,7 @@ export async function brokerDealCardFromMemo(
   const exactLoanAmountKrw = Number(slotMap.get('loanAmountKrw')) || null;
   const exactLandAreaPyung = Number(slotMap.get('landAreaPyung')) || null;
   const exactFloorAreaPyung = Number(slotMap.get('totalFloorAreaPyung')) || null;
+  const exactVacancyPct = slotMap.has('vacancyRatePct') ? Number(slotMap.get('vacancyRatePct')) : null;
 
   layersData.finance = {
     asking_price_krw: exactAskingPriceKrw,
@@ -182,6 +183,7 @@ export async function brokerDealCardFromMemo(
     total_deposit_manwon: exactTotalDepositKrw ? exactTotalDepositKrw / 10000 : null,
     loan_amount_krw: exactLoanAmountKrw,
     loan_amount_manwon: exactLoanAmountKrw ? exactLoanAmountKrw / 10000 : null,
+    vacancy_pct: exactVacancyPct,
   };
 
   // lease_summary: 바텀시트 prefill 및 하위 호환성을 위한 다층 바인딩
@@ -192,6 +194,7 @@ export async function brokerDealCardFromMemo(
     total_deposit_manwon: exactTotalDepositKrw ? exactTotalDepositKrw / 10000 : null,
     monthly_rent_krw: exactMonthlyRentKrw,
     monthly_rent_manwon: exactMonthlyRentKrw ? exactMonthlyRentKrw / 10000 : null,
+    vacancy_pct: exactVacancyPct,
   };
 
   if (exactLandAreaPyung) layersData.land_area_pyung = exactLandAreaPyung;

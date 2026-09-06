@@ -205,6 +205,19 @@ export function extractCleanKoreanAddress(rawText: string | null | undefined): s
 }
 
 /**
+ * 주소 문자열이 실제 상세 지번/건물번호를 포함하는지 확인합니다.
+ * "당산동5가", "역삼동" 같은 행정구역명/권역명만 있는 경우는 false를 반환합니다.
+ */
+export function hasValidBuildingNumber(addr: string | null | undefined): boolean {
+  if (!addr) return false;
+  // 행정동 구분 숫자(예: 당산동5가, 종로3가, 한강로2가)를 건물번호로 오인하지 않도록 방지
+  // 1. "동/로/길/가/리/면/읍" 뒤에 반드시 공백과 함께 지번/건물번호 숫자가 올 것
+  // 2. 또는 주소 끝부분에 공백과 함께 숫자가 올 것
+  return /(?:동|로|길|가|리|면|읍)\s+\d+(?:-\d+)?(?:번지)?(?:\s|$)/.test(addr) ||
+         /\s+\d+(?:-\d+)?(?:번지)?$/.test(addr);
+}
+
+/**
  * 주소 문자열에서 건축물대장 조회에 필요한 시군구코드/법정동코드/번/지를 추출합니다.
  *
  * 1순위: 도로명주소 API로 정확한 행정코드 획득

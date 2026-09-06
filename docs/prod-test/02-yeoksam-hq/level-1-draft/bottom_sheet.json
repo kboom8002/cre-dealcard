@@ -1,0 +1,47 @@
+{
+  "propertyId": "PROD-TEST-YS-L1",
+  "propertyName": "역삼동 120억 신축급 단독사옥 (초안)",
+  "posture": "owner_occupied",
+  "assetType": "office",
+  "address": "서울특별시 강남구 역삼동",
+  "financial": {
+    "askingPriceKrw": 12000000000,
+    "totalDepositKrw": null,
+    "monthlyRentKrw": null,
+    "mgmtFeeKrw": null,
+    "operatingExpensesKrw": null,
+    "loanAmountKrw": null,
+    "loanInterestRatePct": null
+  },
+  "physical": {
+    "floorsAboveGround": 6,
+    "floorsUnderGround": 1,
+    "landAreaSqm": 284.8,
+    "landAreaPyung": 86.15,
+    "grossFloorAreaSqm": 785.9,
+    "totalFloorAreaPyung": 237.72,
+    "buildYear": 2023,
+    "parkingSpaces": 6,
+    "parkingType": "자주식",
+    "elevatorCount": 1,
+    "zoning": "제2종일반주거지역"
+  },
+  "maturity": {
+    "resolution": "R1",
+    "qualityGrade": "B",
+    "isRentRollPresent": false,
+    "isPhotosPresent": false,
+    "missingFields": [
+      "basement_lease_contract",
+      "seller_vacate_terms",
+      "floor_by_floor_exclusive_area",
+      "vs_lease_comparison_inputs"
+    ]
+  },
+  "expectedGates": {
+    "blocking": [],
+    "warning": [
+      "G38_OWNER_OCCUPIED_VACATE_SCHEDULE_UNSET"
+    ]
+  }
+}

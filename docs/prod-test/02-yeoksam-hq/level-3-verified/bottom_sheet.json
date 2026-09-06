@@ -1,0 +1,97 @@
+{
+  "propertyId": "PROD-TEST-YS-L3",
+  "propertyName": "역삼동 120억 신축급 단독사옥 (완전검증 R3)",
+  "posture": "owner_occupied",
+  "assetType": "office",
+  "address": "서울특별시 강남구 역삼동",
+  "financial": {
+    "askingPriceKrw": 12000000000,
+    "totalDepositKrw": 50000000,
+    "monthlyRentKrw": 4000000,
+    "mgmtFeeKrw": 500000,
+    "acquisitionTaxKrw": 552000000,
+    "brokerFeeKrw": 108000000,
+    "totalAcquisitionCostKrw": 12660000000,
+    "landPricePerPyeongKrw": 139290000,
+    "gfaPricePerPyeongKrw": 50480000,
+    "priorDealPriceKrw": 5780000000,
+    "priorDealDate": "2021-03",
+    "priorDealPerPyeongKrw": 67000000,
+    "officialLandPricePerPyeongKrw": 31720000,
+    "officialLandPriceTotalKrw": 2732678000,
+    "askingToOfficialRatio": 4.39,
+    "vsLeaseAnnualSavingKrw": 420000000,
+    "ltvScenarios": [
+      {
+        "ltvPct": 0,
+        "loanKrw": 0,
+        "equityKrw": 12660000000,
+        "monthlyInterestKrw": 0
+      },
+      {
+        "ltvPct": 40,
+        "loanKrw": 4800000000,
+        "equityKrw": 7860000000,
+        "monthlyInterestKrw": 18000000
+      },
+      {
+        "ltvPct": 50,
+        "loanKrw": 6000000000,
+        "equityKrw": 6660000000,
+        "monthlyInterestKrw": 22500000
+      }
+    ]
+  },
+  "physical": {
+    "floorsAboveGround": 6,
+    "floorsUnderGround": 1,
+    "landAreaSqm": 284.8,
+    "landAreaPyung": 86.15,
+    "grossFloorAreaSqm": 785.9,
+    "totalFloorAreaPyung": 237.72,
+    "buildYear": 2023,
+    "bcrPct": 57.51,
+    "farPct": 199.75,
+    "parkingSpaces": 6,
+    "parkingType": "자주식 100%",
+    "elevatorCount": 1,
+    "restroomsCount": 9,
+    "hvacType": "개별 천장형 시스템 냉난방",
+    "orientation": "동향",
+    "roadCondition": "세로(가) 접면",
+    "violationBuilding": false
+  },
+  "covenants": {
+    "vacateResponsibility": "매도법인 책임 퇴거 및 잔금일 인도",
+    "vacateCommitmentSecured": true,
+    "basementLeaseAction": "임대승계 또는 만기(2025-10) 명도 협의 가능",
+    "namingRightsAvailable": true,
+    "namingRightsDescription": "사옥 단독 명칭 표기(간판 설치권) 및 기업 단독 브랜딩"
+  },
+  "maturity": {
+    "resolution": "R3",
+    "qualityGrade": "S",
+    "isRentRollPresent": true,
+    "rentRollFile": "rentroll.xlsx",
+    "isPhotosPresent": true,
+    "photoFiles": [
+      "images/01_exterior.jpg",
+      "images/02_aerial.jpg",
+      "images/03_entrance.jpg",
+      "images/04_lobby.jpg"
+    ],
+    "missingFields": []
+  },
+  "expectedGates": {
+    "blocking": [],
+    "warning": [],
+    "passed": [
+      "G01_PRICE_VERIFIED",
+      "G02_LAND_BUILDING_MATCH",
+      "G06_OWNER_OCCUPIED_VACATE_COVENANT_VERIFIED",
+      "G07_VS_LEASE_CALCULATION_VALID",
+      "G08_NAMING_RIGHTS_STANDARDIZED",
+      "G09_HISTORICAL_DEAL_PROVENANCE_LINKED"
+    ]
+  }
+}

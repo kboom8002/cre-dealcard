@@ -1,0 +1,121 @@
+{
+  "propertyId": "PROD-TEST-DS-L3",
+  "propertyName": "당산동 115억 근린생활시설 (완전검증 R3)",
+  "posture": "income",
+  "assetType": "small_building",
+  "address": "서울특별시 영등포구 당산동5가",
+  "financial": {
+    "askingPriceKrw": 11500000000,
+    "totalDepositKrw": 290000000,
+    "monthlyRentKrw": 19460000,
+    "statedMonthlyRentKrw": 19460000,
+    "mgmtFeeKrw": 2850000,
+    "operatingExpensesKrw": 1800000,
+    "acquisitionTaxKrw": 529000000,
+    "brokerFeeKrw": 103500000,
+    "totalAcquisitionCostKrw": 12132500000,
+    "equityNoLoanKrw": 11842500000,
+    "capRateGrossPricePct": 2.03,
+    "capRateGrossNetEquityPct": 2.08,
+    "negativeLeverage": true,
+    "ltvScenarios": [
+      {
+        "ltvPct": 0,
+        "loanKrw": 0,
+        "equityKrw": 11842500000,
+        "monthlyInterestKrw": 0,
+        "monthlyNetCashKrw": 19460000,
+        "roePct": 1.97
+      },
+      {
+        "ltvPct": 40,
+        "loanKrw": 4600000000,
+        "equityKrw": 7242500000,
+        "monthlyInterestKrw": 17250000,
+        "monthlyNetCashKrw": 2210000,
+        "roePct": 0.37
+      },
+      {
+        "ltvPct": 50,
+        "loanKrw": 5750000000,
+        "equityKrw": 6092500000,
+        "monthlyInterestKrw": 21562500,
+        "monthlyNetCashKrw": -2102500,
+        "roePct": -0.41
+      }
+    ]
+  },
+  "physical": {
+    "floorsAboveGround": 5,
+    "floorsUnderGround": 1,
+    "landAreaSqm": 420.5,
+    "landAreaPyung": 127.2,
+    "grossFloorAreaSqm": 1141.15,
+    "sumLeaseAreaSqm": 1441.15,
+    "areaGapSqm": 300,
+    "totalFloorAreaPyung": 345.2,
+    "elevatorCount": 1,
+    "parkingSpaces": 5,
+    "parkingType": "자주식",
+    "zoning": "제2종일반주거지역",
+    "mainUse": "제2종근린생활시설"
+  },
+  "legalAndRisk": {
+    "ownershipType": "층별 구분등기 (소유자 2인)",
+    "twoOwnerConsentRequired": true,
+    "contractGroups": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "integratedContractGroup": "B",
+    "integratedFloors": [
+      "1F",
+      "2F"
+    ],
+    "totalLedgerRows": 8,
+    "liveTenantsCount": 6,
+    "selfUseUnitsCount": 2,
+    "vacantUnitsCount": 0,
+    "vacancyRatePct": 0,
+    "expiredLeases": [
+      "4F 주류판매 (만기 2025-04-30 경과)"
+    ],
+    "overTenYearsLeases": [
+      "1F 당산메디칼약국 (최초 2016-09)"
+    ]
+  },
+  "maturity": {
+    "resolution": "R3",
+    "qualityGrade": "S",
+    "isRentRollPresent": true,
+    "rentRollFile": "rentroll.xlsx",
+    "isPhotosPresent": true,
+    "photoFiles": [
+      "images/01_exterior.jpg",
+      "images/02_aerial.jpg",
+      "images/03_entrance.jpg",
+      "images/04_lobby.jpg"
+    ],
+    "missingFields": []
+  },
+  "expectedGates": {
+    "blocking": [
+      "C19_AREA_GAP_BLOCKS_CLOSING"
+    ],
+    "warning": [
+      "G18_AREA_SUM_DISCREPANCY",
+      "G42_LEASE_EXPIRY_PAST_DUE"
+    ],
+    "passed": [
+      "G01_PRICE_VERIFIED",
+      "G02_LAND_BUILDING_MATCH",
+      "G03_INTEGRATED_CONTRACT_CONSOLIDATION",
+      "G04_SELF_USE_EXCLUDED_FROM_VACANCY",
+      "G05_NEGATIVE_LEVERAGE_DISCLOSED",
+      "G41_CO_OWNERSHIP_CONSENT_CHECKED"
+    ]
+  }
+}

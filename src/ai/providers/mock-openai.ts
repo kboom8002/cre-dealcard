@@ -12,6 +12,28 @@ export class MockOpenAIProvider implements LLMProvider {
     // 페르소나 프롬프트 감지: systemPrompt에 "IDEAL BUYER PERSONAS"가 포함된 경우
     const isPersonaPrompt = params.systemPrompt?.includes("IDEAL BUYER PERSONAS");
 
+    // Judge 프롬프트 감지: systemPrompt에 "LLM-as-Judge" 또는 "품질 평가"가 포함된 경우
+    const isJudgePrompt = params.systemPrompt?.includes("LLM-as-Judge") || params.systemPrompt?.includes("품질 평가");
+
+    if (isJudgePrompt) {
+      return {
+        content: JSON.stringify({
+          factual_accuracy: 4.8,
+          financial_soundness: 4.8,
+          regulatory_compliance: 4.8,
+          investor_value: 4.8,
+          data_grounding: 4.8,
+          overall: 4.8,
+          feedback: "Mock judge evaluation passed with high scores.",
+          citation_check: [],
+        }),
+        tokens: 150,
+        model,
+        provider: this.name,
+        latencyMs: Date.now() - startTime,
+      };
+    }
+
     if (isPersonaPrompt) {
       return {
         content: JSON.stringify({

@@ -21,6 +21,7 @@ import {
 } from "./bottom-sheet/sections";
 import { getInputOrder } from "./bottom-sheet/hooks/use-input-order";
 import { validateCombination } from "@/domain/ontology/asset-identity";
+import { hasValidBuildingNumber } from "@/domain/verification/address-resolver";
 
 interface ImDataBottomSheetProps {
   buildingId: string;
@@ -211,7 +212,7 @@ export function ImDataBottomSheet({
 
 
   // Address search states
-  const [searchKeyword, setSearchKeyword] = useState(initialAddress || "");
+  const [searchKeyword, setSearchKeyword] = useState(initialAddress || areaSignal || "");
   const [searchResults, setSearchResults] = useState<AddressResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
@@ -315,12 +316,9 @@ export function ImDataBottomSheet({
     }
 
     if (initialAddress) {
-      // 실제 주소인지 판별 — 숫자 포함, 동/로/길 포함, 또는 PNU가 함께 전달된 경우
-      const hasBuildingNumber = /\d+(?:-\d+)?(?:번지)?/.test(initialAddress);
-      const isReal = /[동로길읍면리]\b/.test(initialAddress)
-        || /[동로길읍면리]$/.test(initialAddress)
-        || hasBuildingNumber
-        || !!initialPnu;
+      // 실제 주소인지 판별 — 상세 지번/건물번호 필수 또는 PNU가 함께 전달된 경우
+      const hasBuildingNumber = hasValidBuildingNumber(initialAddress);
+      const isReal = hasBuildingNumber || !!initialPnu;
 
       if (isReal) {
         setAddress(initialAddress);
@@ -333,11 +331,14 @@ export function ImDataBottomSheet({
           return () => clearTimeout(timer);
         }
       } else {
-        // 권역 시그널 등 — 검색 키워드로만 설정
+        // 권역 시그널 등 — 검색 키워드로만 설정하고 실제 address는 비워둠 (사용자 검색/선택 유도)
         setSearchKeyword(initialAddress);
       }
+    } else if (areaSignal && !searchKeyword) {
+      // 주소가 없으면 권역 시그널을 검색창 초기값으로 제공
+      setSearchKeyword(areaSignal);
     }
-  }, [initialAddress, initialPnu, isOpen]);
+  }, [initialAddress, initialPnu, areaSignal, isOpen]);
 
   // v3: Auto-prefill from deal card data
   useEffect(() => {
@@ -836,7 +837,7 @@ export function ImDataBottomSheet({
             {!address && !pnu && (
               <div className="mt-1 px-3 py-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
                 <p className="text-xs text-amber-700 dark:text-amber-300">
-                  💡 주소를 입력하면 건축물대장·토지이용계획을 자동 조회하여 IM 품질이 크게 향상됩니다.
+                  💡 정확한 건물 주소를 검색하여 선택하면 건축물대장·토지이용계획을 자동 조회하여 고품질 IM이 생성됩니다.
                 </p>
               </div>
             )}

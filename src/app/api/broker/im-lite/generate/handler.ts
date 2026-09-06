@@ -18,6 +18,7 @@ import { buildAttrsFromSsotLite, buildProvenanceFromSsotLite, readWithMigration 
 import { getIMDisclaimers } from '@/domain/building/legal-copy';
 import { validateCombination } from '@/domain/ontology';
 import { hasMinimumBasicData } from '@/domain/building/mobile-im/data-quality-badge';
+import { hasValidBuildingNumber } from '@/domain/verification/address-resolver';
 
 export interface GenerateMobileIMInput {
   buildingId: string;
@@ -99,8 +100,24 @@ export async function generateMobileIMHandler(
     supplemental.vacancy_status = ssotRow.vacancy_signal;
   }
 
-  // ─── Readiness 동적 점수 계산 (주소 25, 권역 10, 매각가 20, 임대료 20, 공공데이터 15, 사진 10) ───
-  const hasExactAddr = !!(supplemental.resolved_address || supplemental.resolved_pnu || ssotRow.raw_address || ssotRow.pnu);
+  // ─── 지번/건물번호를 포함한 실제 건물 주소 또는 PNU 여부 판별 ───
+  const hasExactAddr = !!(
+    supplemental.resolved_pnu ||
+    ssotRow.pnu ||
+    (supplemental.resolved_address && hasValidBuildingNumber(supplemental.resolved_address)) ||
+    (ssotRow.raw_address && hasValidBuildingNumber(ssotRow.raw_address))
+  );
+  const hasRentRoll = Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0;
+
+  // IM 작성을 위해 정확한 주소(공적장부 조회) 또는 렌트롤이 최소 하나는 필수 (P0-6 할루시네이션 방지)
+  if (!hasExactAddr && !hasRentRoll) {
+    return {
+      ok: false,
+      error: 'IM 작성을 위해 정확한 건물 주소(건축물대장 조회용)를 검색하여 선택하거나, 스튜디오에서 렌트롤(층별 임대차 내역)을 먼저 입력해주세요.',
+      statusCode: 422,
+    };
+  }
+
   let calculatedReadiness = 0;
   if (hasExactAddr) calculatedReadiness += 25;
   if (ssotRow.area_signal) calculatedReadiness += 10;
@@ -148,8 +165,8 @@ export async function generateMobileIMHandler(
     const hasBasicData = hasMinimumBasicData({
       hasAskingPrice: !!supplemental.asking_price_manwon || !!ssotRow.price_band,
       hasMonthlyRent: !!supplemental.monthly_rent_total_krw || !!ssotRow.gross_annual_income_krw || !!ssotRow.lease_summary,
-      hasAddress: !!supplemental.resolved_address || !!ssotRow.area_signal,
-      hasPublicData: !!ssotRow.layers?.location?.pnu || !!ssotRow.pnu || true,
+      hasAddress: hasExactAddr,
+      hasPublicData: !!(supplemental.resolved_pnu || ssotRow.layers?.location?.pnu || ssotRow.pnu),
     }, posture);
 
     if (!hasBasicData) {

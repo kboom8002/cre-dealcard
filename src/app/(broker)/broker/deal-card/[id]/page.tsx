@@ -23,7 +23,7 @@ import { LiveDealCardPreviewCard } from "@/components/broker/deal-card/LiveDealC
 import { BlindDealCardPreview } from "@/components/broker/deal-card/BlindDealCardPreview";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
 import BuildingSignalEditor from "@/components/broker/deal-card/BuildingSignalEditor";
-import { extractCleanKoreanAddress } from "@/domain/verification/address-resolver";
+import { extractCleanKoreanAddress, hasValidBuildingNumber } from "@/domain/verification/address-resolver";
 
 
 export async function generateMetadata({ params }: DealCardResultPageProps): Promise<Metadata> {
@@ -197,11 +197,14 @@ export default async function BrokerDealCardResultPage({
   // building_ssot_lite에서는 raw_address, layers.location 에 저장됨
   // 양쪽 모두에서 안전하게 추출
 
-  // 실제 주소인지 판별 (권역 시그널 등 배제)
+  // 실제 주소인지 판별 (권역 시그널 등 배제, 상세 지번/건물번호 필수)
   const looksLikeRealAddress = (addr: string | null | undefined): string | null => {
     if (!addr) return null;
     if (addr.includes("권역") || addr.endsWith("권")) return null;
-    return extractCleanKoreanAddress(addr);
+    const clean = extractCleanKoreanAddress(addr);
+    if (!clean) return null;
+    if (!hasValidBuildingNumber(clean)) return null;
+    return clean;
   };
 
   const attrsAddress = bAttrs.address || bAttrs.rawAddress || bAttrs.raw_address;
@@ -215,13 +218,12 @@ export default async function BrokerDealCardResultPage({
     || looksLikeRealAddress(layers?.location?.exact_address)
     || looksLikeRealAddress(layers?.location?.address);
 
-  const cleanMemoAddress = extractCleanKoreanAddress(rawInput);
+  const cleanMemoAddress = looksLikeRealAddress(extractCleanKoreanAddress(rawInput));
 
+  // 상세 지번/건물번호가 검증된 실제 주소만 extractedAddress로 승인
+  // 단순 권역(당산동5가, 역삼동 등)은 CreateMobileImButton의 areaSignal로 이미 전달되므로 주소로 오인하지 않음
   const extractedAddress = rawAddressCandidate
     || cleanMemoAddress
-    || looksLikeRealAddress(attrsAddress)
-    || building.area_signal
-    || attrsAreaSignal
     || "";
 
   // PNU 추출: assets.pnu → attrs.pnu → layers.pnu → layers.location.pnu
@@ -254,7 +256,12 @@ export default async function BrokerDealCardResultPage({
   const totalDepositKrw = Number(leaseSum.total_deposit_krw || layersLeaseSum.total_deposit_krw || finance.total_deposit_krw || bAttrs.totalDepositKrw || 0);
   const monthlyRentKrw = Number(leaseSum.monthly_rent_krw || layersLeaseSum.monthly_rent_krw || finance.monthly_rent_krw || bAttrs.monthlyRentKrw || 0);
   const mgmtFeeKrw = Number(leaseSum.mgmt_fee_krw || finance.mgmt_fee_krw || 0);
-  const vacancyPct = Number(leaseSum.vacancy_pct || finance.vacancy_pct || bAttrs.vacancyPct || 0);
+  
+  // 0% (만실) 보존을 위해 ?? 연산자 및 숫자형 판별
+  const rawVacancyVal = leaseSum.vacancy_pct ?? layersLeaseSum.vacancy_pct ?? finance.vacancy_pct ?? bAttrs.vacancyPct;
+  const vacancyPct = typeof rawVacancyVal === 'number' && !isNaN(rawVacancyVal)
+    ? rawVacancyVal
+    : (rawVacancyVal !== undefined && rawVacancyVal !== null && rawVacancyVal !== '' && !isNaN(Number(rawVacancyVal)) ? Number(rawVacancyVal) : undefined);
   const investmentPosture = building.investment_posture || layers.investment_posture || "income";
 
   const gradeAttrs = buildAttrsFromSsotLite({
@@ -528,7 +535,7 @@ export default async function BrokerDealCardResultPage({
               prefillTotalDeposit={totalDepositKrw > 0 ? totalDepositKrw / 10000 : undefined}
               prefillMonthlyRent={monthlyRentKrw > 0 ? monthlyRentKrw / 10000 : undefined}
               prefillMgmtFee={mgmtFeeKrw > 0 ? mgmtFeeKrw / 10000 : undefined}
-              prefillVacancyPct={vacancyPct > 0 ? vacancyPct : undefined}
+              prefillVacancyPct={typeof vacancyPct === 'number' && !isNaN(vacancyPct) ? vacancyPct : undefined}
               initialInvestmentPosture={investmentPosture}
             />
             <AiMatchCtaButton buildingId={id} matchCount={matchCount} topGrade={topGrade} />
