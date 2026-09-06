@@ -141,7 +141,7 @@ export async function POST(
     const gateResult = runApprovalGate(registry, tier, {
       hasHallucination: fullDocForGate.body.hasHallucination === true,
       publishBlocked: fullDocForGate.body.gateReport?.blocked === true,
-      posture: fullDocForGate.body.ssot_summary?.posture ?? fullDocForGate.body.investment_posture ?? undefined,
+      posture: fullDocForGate.body.ssot_summary?.investment_posture ?? fullDocForGate.body.ssot_summary?.posture ?? fullDocForGate.body.investment_posture ?? fullDocForGate.body.investmentPosture ?? undefined,
     });
 
     if (!gateResult.passed) {
@@ -152,7 +152,7 @@ export async function POST(
     }
   }
 
-  const newStatus = action === 'approve' ? 'published' : 'draft';
+  const newStatus = action === 'approve' ? 'published' : 'revision_needed';
 
   const updateFields: Record<string, unknown> = {
     status: newStatus,

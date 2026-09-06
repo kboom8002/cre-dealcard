@@ -105,27 +105,54 @@ async function callAIForSegmentation(
 [문서 전문]
 ${doc.rawText.slice(0, 12000)}`;
 
-  const response = await client.chat.completions.create({
+  const requestPayload: any = {
     model,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user', content: userContent },
     ],
     response_format: { type: 'json_object' },
-    temperature: 0.2,
-  });
+  };
+  if (!model.startsWith('o1') && !model.startsWith('o3') && !model.startsWith('gpt-5')) {
+    requestPayload.temperature = 0.2;
+  }
+
+  const response = await client.chat.completions.create(requestPayload);
 
   const content = response.choices?.[0]?.message?.content;
   if (!content) {
     throw new Error('AI 응답이 비어 있습니다.');
   }
 
-  const parsed = JSON.parse(content) as AISegmentResponse;
-  if (!parsed.sections || !Array.isArray(parsed.sections)) {
-    throw new Error('AI 응답에 sections 배열이 없습니다.');
-  }
+  try {
+    let cleaned = content.trim();
+    const fenceMatch = cleaned.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/i);
+    if (fenceMatch) {
+      cleaned = fenceMatch[1].trim();
+    }
+    if (cleaned.charCodeAt(0) === 0xFEFF) cleaned = cleaned.slice(1);
+    cleaned = cleaned.replace(/,\s*([\]}])/g, "$1");
 
-  return parsed;
+    const parsed = JSON.parse(cleaned) as AISegmentResponse;
+    if (!parsed.sections || !Array.isArray(parsed.sections)) {
+      throw new Error('AI 응답에 sections 배열이 없습니다.');
+    }
+
+    return parsed;
+  } catch (parseErr) {
+    console.warn('[section-segmenter] JSON 파싱 실패, 단일 폴백 섹션 생성:', parseErr);
+    return {
+      sections: [
+        {
+          title: '전체 문서',
+          content: doc.rawText.slice(0, 3000),
+          section_type_guess: 'property_overview',
+          start_page: 1,
+          end_page: doc.metadata.pageCount || 1,
+        },
+      ],
+    };
+  }
 }
 
 // ─── 매핑 ────────────────────────────────────────────────────────────────────

@@ -370,6 +370,92 @@ Integrity mode: development
 - [ ] Studio 승인 원장에서 S60 에디토리얼 승인 및 S70 배포 릴리즈(PUBLISHED)가 정상 기록된다.
 - [ ] `verifyCrossChannelConsistency` 검증 결과 7대 핵심 지표 불일치가 0건이다.
 - [ ] E2E 회귀 테스트 스위트의 모든 테스트 케이스가 Negative Pair(Rule 7)를 포함하여 전수 통과한다.
-- [ ] `npm run build`가 오류 없이 성공한다.
+
+
+## Follow-up — 2026-09-06T06:33:01Z
+
+CRE(상업용 부동산) IM(투자설명서) 자동 생성 파이프라인의 프로덕션 웹 환경과 기존 API E2E 테스트 간 괴리에서 발생하는 잠재 결함을 5-Layer MECE 프레임워크로 전수 감사하여 모두 수정하고 빌드 통과까지 확인하는 프로젝트.
+
+Working directory: c:\Users\User\cre-dealcard
+Integrity mode: development
+
+### 배경 컨텍스트
+
+이 세션에서 프로덕션 웹 테스트를 통해 API 테스트에서는 드러나지 않던 4개의 치명적 결함을 발견하고 패치했다 (commit `1559dfa`):
+
+1. **[PATCHED] P0 approval-gate.ts**: `REQUIRED_SUBJECTS`에 `gross_yield`가 하드코딩되어 사옥형/개발형 매물 승인 영구 차단 → 포스처별 분기로 수정
+2. **[PATCHED] P1 writer.ts**: `claimRegistry.getAll()` 결과가 리턴 객체에 누락되어 DB에 claims 미저장 → `claims` + `investment_posture` 필드 추가
+3. **[PATCHED] P2 im-management-panel.tsx**: 폴링에 MAX_POLL_MS 상한 없어 무한 폴링 누수 → 5분 타임아웃 가드 추가
+4. **[PATCHED] P1 writer.ts**: LLM 재시도 루프가 `stageTimer.shouldAbortOptional()`을 확인하지 않아 타이머 잠식 → 재시도 전 타이머 가드 추가
+
+**이 4건 외에도 같은 유형의 잠재 결함이 코드베이스 곳곳에 숨어있을 수 있다.** 아래 5개 레이어별로 전수 감사하여 발견된 모든 결함을 수정하라.
+
+## Requirements
+
+### R1. [L1] 외부 공공 API 연동 장애 방어 감사
+
+`src/lib/external/` 아래 외부 API 호출 모듈(enrich-by-pnu.ts, vworld-wms-cadastral.ts, kakao-geocoder, juso-api 등)에서:
+- API 키 만료, 네트워크 타임아웃, 응답 형식 변경 시 적절한 fallback/에러 격리가 되어있는지 검증
+- 하나의 외부 API 실패가 전체 IM 생성 파이프라인을 블로킹하지 않는지 확인
+- 복수 필지(multi-PNU) 입력 시 정상 처리되는지 확인
+
+### R2. [L2] 클라이언트-서버 통신 계약 무결성 감사
+
+`src/app/(broker)/` 아래 모든 클라이언트 컴포넌트에서 `/api/broker/im-lite/*` 엔드포인트를 호출하는 모든 `fetch()` 코드를 추적하여:
+- 서버가 요구하는 필수 필드(expectedHash, buildingId 등)가 클라이언트에서 누락 없이 전송되는지 확인
+- 모든 폴링 루프에 MAX_POLL_MS 타임아웃 상한이 있는지 확인
+- 프론트엔드 타임아웃과 백엔드 타임아웃(`thresholds.ts`)이 일관되는지 확인
+- `photos_v2` 배열 전송 시 빈 URL, undefined 필터링이 되어있는지 확인
+
+### R3. [L3] IM 생성 파이프라인 런타임 안정성 감사
+
+`src/domain/building/mobile-im/writer.ts` 및 관련 파일에서:
+- 모든 재시도 루프(`MAX_RETRIES`)에서 `stageTimer` 시간 예산을 확인하는지 검증
+- LLM 응답 파싱 에러(JSON 파싱 실패, markdown 코드블록 래핑 등) 시 graceful fallback이 있는지 확인
+- `NumericalAnchors`(수치 앵커)가 LLM 출력에 의해 변조되지 않도록 방어되는지 확인
+- Stage별(1~4) 실행 시간이 전체 타이머 예산 내에서 공정하게 배분되는지 확인
+
+### R4. [L4] 비즈니스 도메인 무결성 및 승인 게이트 감사
+
+`src/domain/building/im-core/` 및 `src/domain/building/mobile-im/quality-gates-v02.ts`에서:
+- `runApprovalGate()`가 모든 5개 포스처(income, owner_occupied, development, trading, operating)에서 정상 동작하는지 확인
+- `PUBLISH_GATES` 배열에 등록된 모든 게이트가 실제 구현 파일에서 로직을 가지고 있는지 확인
+- `grade-engine.ts`에서 Grade S를 반환하는 경로가 없는지 확인 (최고 등급은 A)
+- `ClaimRegistry`가 빈 상태로 승인 게이트를 허위 통과하는 경로가 없는지 확인
+- `ReleaseTier` 5종(`internal_only`, `fact_om`, `analysis_im`, `decision_im`, `expert_required`)이 handler → DB → renderer → viewer 전구간에서 일관되는지 확인
+
+### R5. [L5] PPTX/Mobile IM 렌더링 무결성 감사
+
+`src/domain/building/mobile-im/pptx/` 아래 렌더러에서:
+- `resolvePhotos()`의 buildingId 필터링(`D33 BL-B`)이 정상 동작하여 사진이 0장으로 빠지는 엣지 케이스가 없는지 확인
+- 갤러리 플래너(`gallery-planner.ts`)가 map 카테고리 사진을 올바르게 제외하는지 확인
+- 본문 16면 Hard Limit(`deck-sequencer.ts`)이 부록을 제외하고 정확히 적용되는지 확인
+- A04/A05 좌우 분할 레이아웃에서 좌측과 우측에 동일 텍스트가 중복 렌더링되지 않는지 확인
+- 고해상도 이미지(>2MB) 입력 시 다운샘플링 또는 OOM 방지 처리가 있는지 확인
+
+## Acceptance Criteria
+
+### 빌드 무결성
+- [ ] 모든 수정 후 `npm run build` 성공 (exit code 0, 타입 에러 0건)
+- [ ] `npx tsc --noEmit` 타입 검사 통과
+
+### 감사 완전성
+- [ ] L1~L5 각 레이어별 최소 1개 이상의 파일을 실제로 코드 추적하여 감사 수행
+- [ ] 발견된 모든 결함에 대해 수정 코드를 적용하고 변경 사유를 기록
+- [ ] 기존 패치 4건(commit `1559dfa`)과 중복되는 수정이 없을 것
+
+### 기존 기능 보호
+- [ ] 기존 테스트(`src/tests/`)가 통과 상태를 유지 (신규 테스트 추가는 선택사항)
+- [ ] 기존 주석 및 문서를 불필요하게 삭제하지 않을 것
+
+### 감사 보고서
+- [ ] 각 레이어별 감사 결과를 구조화된 보고서(markdown)로 작성
+- [ ] 보고서에 결함별 심각도(P0~P3), 영향 범위, 수정 위치(파일:라인), 수정 내용을 포함
+
+### 핵심 프로젝트 규칙 준수 (AGENTS.md)
+- [ ] Rule 12: im-core 모듈이 React/Next.js/Supabase에 의존하지 않을 것
+- [ ] Rule 15: `approve/route.ts`에서 `runApprovalGate()` 우회 경로가 없을 것
+- [ ] Rule 5: 새 게이트 추가 시 `PUBLISH_GATES` 배열에 반드시 등록
+
 
 

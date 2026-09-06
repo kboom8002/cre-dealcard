@@ -1,11 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 function getApiKey() {
-  const key = process.env.SEMAS_API_KEY;
-  if (!key) {
-    console.warn("[SEMAS] SEMAS_API_KEY is not set in environment variables");
-  }
-  return key || "";
+  return process.env.SEMAS_API_KEY || "";
 }
 
 export interface CommercialDistrictAnalysis {
@@ -43,6 +39,12 @@ export async function fetchCommercialDistrictFull(
   const ldongCd = pnuToLegalDongCode(pnu);
   const districtName = DONG_NAMES[ldongCd] || "해당 상권";
   const apiKey = getApiKey();
+
+  // If apiKey is empty/unset, return null early with a debug log instead of firing 5 unauthenticated HTTP requests
+  if (!apiKey) {
+    console.debug(`[SEMAS] SEMAS_API_KEY is empty or unset; skipping unauthenticated requests for ${ldongCd}`);
+    return null;
+  }
 
   // We construct a comprehensive analysis by calling the storeListInDong API.
   // In a full implementation, we would call all 5 endpoints here.
@@ -122,15 +124,19 @@ export async function fetchCommercialDistrictFull(
       growthTrend: salesIdx > 70 ? "up" : salesIdx > 40 ? "stable" : "down",
     };
 
-    // Upsert into Supabase for caching
-    const legacyPayload = {
-      district_code: analysis.districtCode,
-      district_name: analysis.districtName,
-      sales_volume_index: (analysis.salesIndex / 10).toFixed(1), // Scale to 1-10 for legacy
-      footfall_index: (analysis.footfallDaily / 10000).toFixed(1),
-      full_analysis: analysis
-    };
-    await supabase.from("commercial_district").upsert(legacyPayload, { onConflict: "district_code" });
+    // Upsert into Supabase for caching (wrapped in try/catch so DB write failure does not crash analysis)
+    try {
+      const legacyPayload = {
+        district_code: analysis.districtCode,
+        district_name: analysis.districtName,
+        sales_volume_index: (analysis.salesIndex / 10).toFixed(1), // Scale to 1-10 for legacy
+        footfall_index: (analysis.footfallDaily / 10000).toFixed(1),
+        full_analysis: analysis
+      };
+      await supabase.from("commercial_district").upsert(legacyPayload, { onConflict: "district_code" });
+    } catch (cacheErr) {
+      console.warn(`[SEMAS] Failed to cache commercial district to Supabase for ${ldongCd}:`, cacheErr);
+    }
 
     return analysis;
   } catch (err) {

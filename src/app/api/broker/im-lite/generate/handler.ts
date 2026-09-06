@@ -404,6 +404,12 @@ export async function generateMobileIMHandler(
     firstSectionText.slice(0, 40),
   ].filter(Boolean).join(' · ');
 
+  const doc: any = (input as any)?.doc ?? (directData as any)?.doc ?? {
+    ...ssotRow,
+    ...(directData ?? {}),
+    ...(supplemental ?? {}),
+  };
+
   const imDocPayload = {
     owner_id: userId,
     source_type: "building_ssot_lite" as const,
@@ -428,6 +434,8 @@ export async function generateMobileIMHandler(
           hasPhotos: !!(supplemental.photo_urls?.length || supplemental.photos_v2?.length),
         },
         hasExpertReview: false,
+        hasAsOf: Boolean((doc as any)?.asOf || (doc as any)?.as_of || (doc as any)?.ssot_summary?.as_of),
+        hasScenario: Boolean((doc as any)?.scenario || (doc as any)?.pro_forma || (doc as any)?.ssot_summary?.has_scenario),
       }),
       investmentPosture: identity?.investmentPosture || ssotRow.investment_posture || 'income',
       // Hero/OG 메타 자동 세팅 — 브로커가 im-approval에서 수정 가능
@@ -521,6 +529,8 @@ export async function generateMobileIMHandler(
       // DCF 감응도 매트릭스 + 레버리지 자금 구조 (뷰어 DCFHeatmap/LeverageChart용)
       dcf10Year: writerResult.dcf10Year ?? undefined,
       financials: writerResult.financials ?? undefined,
+      claims: writerResult.claims ?? undefined,
+      investment_posture: writerResult.investment_posture ?? undefined,
     },
   };
 

@@ -261,8 +261,8 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   let finalBody = bodySlides;
 
   if (bodySlides.length > PAGE_RECOMMENDED) {
-    // 보호 키는 절삭에서 제외
-    const protectedKeys = new Set(['cover', 'summary', 'closing', 'risk', 'checklist', 'process', 'thesis', 'titleRights']);
+    // 보호 키는 절삭에서 제외 (titleRights는 appendix이므로 제외)
+    const protectedKeys = new Set(['cover', 'summary', 'closing', 'risk', 'checklist', 'process', 'thesis']);
     const protectedSlides = bodySlides.filter(s => protectedKeys.has(s.dataKey));
     const optionalSlides = bodySlides.filter(s => !protectedKeys.has(s.dataKey));
     const effectiveLimit = tierConfig?.maxBodyPages ?? PAGE_HARD_LIMIT;

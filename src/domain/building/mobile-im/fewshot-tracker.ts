@@ -180,7 +180,7 @@ export async function promoteToGoldenCandidate(
       posture:       posture,
       markdown:      stripMarkdown(sanitizePersona(markdown)).slice(0, 2000),
       markdown_raw:  markdown.slice(0, 4000),
-      grade:         judgeScore >= 4.5 ? 'S' : 'A',
+      grade:         'A', // DataGrade max allowed is Grade A (no Grade S)
       judge_score:   judgeScore,
       was_edited:    false,
       source_type:   'auto_candidate',  // V5: auto_approve → auto_candidate

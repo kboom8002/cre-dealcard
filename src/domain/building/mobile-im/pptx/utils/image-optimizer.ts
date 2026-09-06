@@ -22,6 +22,8 @@ export interface OptimizedImage {
   aspectRatio: number;
 }
 
+const MAX_INTAKE_BYTES = 10 * 1024 * 1024; // 10MB intake guard against serverless OOM
+
 /**
  * URL에서 이미지를 가져와 PPTX 삽입용으로 최적화
  * - 최대 1280px 리사이즈 (SOTA: 슬라이드 가로폭 이상으로 커지지 않도록)
@@ -38,12 +40,23 @@ export async function optimizeImageForPptx(
 
     if (imageUrl.startsWith('data:')) {
       const base64Data = imageUrl.split(',')[1];
+      if (base64Data && base64Data.length * 0.75 > MAX_INTAKE_BYTES) {
+        console.warn('[optimizeImageForPptx] Data URL exceeds 10MB guard, aborting to prevent OOM');
+        return null;
+      }
       inputBuffer = Buffer.from(base64Data, 'base64');
     } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
       const response = await fetch(imageUrl, {
         signal: AbortSignal.timeout(10000),
       });
       if (!response.ok) return null;
+
+      const contentLength = response.headers.get('content-length');
+      if (contentLength && parseInt(contentLength, 10) > MAX_INTAKE_BYTES) {
+        console.warn(`[optimizeImageForPptx] Content-Length (${contentLength} bytes) exceeds 10MB limit: ${imageUrl}`);
+        return null;
+      }
+
       const arrayBuffer = await response.arrayBuffer();
       inputBuffer = Buffer.from(arrayBuffer);
     } else {
@@ -62,6 +75,11 @@ export async function optimizeImageForPptx(
       } else {
         return null;
       }
+    }
+
+    if (inputBuffer.length > MAX_INTAKE_BYTES) {
+      console.warn(`[optimizeImageForPptx] Buffer size (${inputBuffer.length} bytes) exceeds 10MB limit: ${imageUrl}`);
+      return null;
     }
 
     const metadata = await sharp(inputBuffer).metadata();
@@ -101,6 +119,7 @@ export async function optimizeImageForPptx(
 
 /**
  * 여러 이미지를 병렬로 최적화 (최대 8장 — Pro 갤러리 슬라이드 대응)
+ * 서버리스 OOM 방지를 위해 동시 Sharp 디코딩 수를 최대 4개로 스로틀링합니다.
  */
 export async function optimizeImagesForPptx(
   urls: string[],
@@ -109,9 +128,16 @@ export async function optimizeImagesForPptx(
   quality = 75
 ): Promise<OptimizedImage[]> {
   const targets = urls.slice(0, maxCount);
-  const results = await Promise.allSettled(
-    targets.map(url => optimizeImageForPptx(url, maxWidth, quality))
-  );
+  const CONCURRENCY_LIMIT = 4;
+  const results: PromiseSettledResult<OptimizedImage | null>[] = [];
+
+  for (let i = 0; i < targets.length; i += CONCURRENCY_LIMIT) {
+    const chunk = targets.slice(i, i + CONCURRENCY_LIMIT);
+    const chunkResults = await Promise.allSettled(
+      chunk.map(url => optimizeImageForPptx(url, maxWidth, quality))
+    );
+    results.push(...chunkResults);
+  }
 
   return results
     .filter((r): r is PromiseFulfilledResult<OptimizedImage | null> => r.status === 'fulfilled')

@@ -89,4 +89,27 @@ describe('Numerical Anchors (S0-1)', () => {
     expect(ctxText).toContain('[확정 수치 앵커');
     expect(ctxText).toContain('askingPriceKrw: 5000000000');
   });
+
+  it('L3-04: Authoritative SSoT values cannot be overridden by subsequent stage inputs', () => {
+    const authoritative = {
+      askingPriceKrw: 12_500_000_000,
+      totalAreaSqm: 2300,
+      landAreaSqm: 650,
+      monthlyRentTotalKrw: 45_000_000,
+      totalDepositKrw: 500_000_000,
+      vacancyPct: 5.2,
+      capRateBase: 4.32,
+    };
+    const anchors = new NumericalAnchors(authoritative);
+
+    // Attempt to override with hallucinated numbers from subsequent stages
+    anchors.set('askingPriceKrw', 99_000_000_000, 'hallucinated_stage_2', 2);
+    anchors.set('totalAreaSqm', 500, 'hallucinated_stage_3', 3);
+    anchors.set('capRateBase', 8.5, 'hallucinated_stage_4', 4);
+
+    expect(anchors.get('askingPriceKrw')).toBe(12_500_000_000);
+    expect(anchors.get('totalAreaSqm')).toBe(2300);
+    expect(anchors.get('capRateBase')).toBe(4.32);
+    expect(anchors.conflictCount).toBe(3);
+  });
 });

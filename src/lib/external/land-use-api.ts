@@ -3,7 +3,7 @@
 // 1차: 브이월드(V-World) 토지특성속성조회 API
 // 2차: data.go.kr LURIS (레거시 폴백)
 import { fetchWithRetry } from './fetch-with-retry';
-import { getVWorldReferer } from './vworld-config';
+import { getVWorldApiKey, getVWorldReferer } from './vworld-config';
 
 export interface LandUsePlanData {
   zoningDistrict: string;         // 용도지역 (예: 제2종일반주거지역)
@@ -43,49 +43,55 @@ export async function fetchLandUsePlan(pnu: string): Promise<LandUsePlanData | n
   // ═══════════════════════════════════════════════════════════
   // 1차: 브이월드 토지특성속성조회 (getLandCharacteristics)
   // ═══════════════════════════════════════════════════════════
-  const vworldKey = process.env.VWORLD_API_KEY;
+  const vworldKey = getVWorldApiKey();
   if (vworldKey && vworldKey !== "") {
-    try {
-      const stdrYear = new Date().getFullYear().toString();
-      const url = `https://api.vworld.kr/ned/data/getLandCharacteristics?key=${vworldKey}&pnu=${pnu}&format=json&stdrYear=${stdrYear}&numOfRows=1&pageNo=1`;
-      const res = await fetchWithRetry(url, {
-        timeoutMs: 15_000,
-        maxRetries: 2,
-        headers: { 'Referer': getVWorldReferer() },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const items = data?.landCharacteristicss?.field;
-        const item = Array.isArray(items) ? items[0] : items;
+    const currentYear = new Date().getFullYear();
+    const yearsToTry = [currentYear.toString(), (currentYear - 1).toString()];
 
-        if (item && item.prposArea1Nm) {
-          const zoningDistrict = String(item.prposArea1Nm);
-          const zoningOverlap = item.prposArea2Nm && item.prposArea2Nm !== '지정되지않음' && item.prposArea2Nm !== '-'
-            ? [String(item.prposArea2Nm)]
-            : [];
+    for (const stdrYear of yearsToTry) {
+      try {
+        const url = `https://api.vworld.kr/ned/data/getLandCharacteristics?key=${vworldKey}&pnu=${pnu}&format=json&stdrYear=${stdrYear}&numOfRows=1&pageNo=1`;
+        const res = await fetchWithRetry(url, {
+          timeoutMs: 15_000,
+          maxRetries: 2,
+          headers: { 'Referer': getVWorldReferer() },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const items = data?.landCharacteristicss?.field;
+          const item = Array.isArray(items) ? items[0] : items;
 
-          const { coverage, far } = inferZoningLimits(zoningDistrict);
+          if (item && item.prposArea1Nm) {
+            const zoningDistrict = String(item.prposArea1Nm);
+            const zoningOverlap = item.prposArea2Nm && item.prposArea2Nm !== '지정되지않음' && item.prposArea2Nm !== '-'
+              ? [String(item.prposArea2Nm)]
+              : [];
 
-          console.log(`[land-use-api] ✅ V-World 조회 성공: ${zoningDistrict} (PNU: ${pnu})`);
-          return {
-            zoningDistrict,
-            zoningOverlap,
-            buildingCoverageMax: coverage,
-            floorAreaRatioMax: far,
-            landArea: item.lndpclAr ? parseFloat(item.lndpclAr) : undefined,
-            landShape: item.tpgrphFrmCodeNm || undefined,
-            terrain: item.tpgrphHgCodeNm || undefined,
-            roadAccess: item.roadSideCodeNm || undefined,
-            landUseSituation: item.ladUseSittnNm || undefined,
-            _source: 'vworld',
-          };
+            const { coverage, far } = inferZoningLimits(zoningDistrict);
+
+            console.log(`[land-use-api] ✅ V-World 조회 성공 (${stdrYear}): ${zoningDistrict} (PNU: ${pnu})`);
+            return {
+              zoningDistrict,
+              zoningOverlap,
+              buildingCoverageMax: coverage,
+              floorAreaRatioMax: far,
+              landArea: item.lndpclAr ? parseFloat(item.lndpclAr) : undefined,
+              landShape: item.tpgrphFrmCodeNm || undefined,
+              terrain: item.tpgrphHgCodeNm || undefined,
+              roadAccess: item.roadSideCodeNm || undefined,
+              landUseSituation: item.ladUseSittnNm || undefined,
+              _source: 'vworld',
+            };
+          } else {
+            console.info(`[land-use-api] V-World 토지특성 ${stdrYear}년 데이터 없음, 이전 연도 확인 시도`);
+          }
+        } else {
+          const body = await res.text().catch(() => '');
+          console.warn(`[land-use-api] V-World 응답 오류 (${res.status}):`, body.slice(0, 200));
         }
-      } else {
-        const body = await res.text().catch(() => '');
-        console.warn(`[land-use-api] V-World 응답 오류 (${res.status}):`, body.slice(0, 200));
+      } catch (err) {
+        console.warn(`[land-use-api] V-World 호출 실패 (${stdrYear}):`, err);
       }
-    } catch (err) {
-      console.warn("[land-use-api] V-World 호출 실패, data.go.kr 폴백 시도:", err);
     }
   }
 

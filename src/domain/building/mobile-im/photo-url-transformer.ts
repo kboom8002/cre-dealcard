@@ -134,14 +134,18 @@ export function resolvePhotos(supplemental?: MobileIMSupplementalInput | null, b
 
   if (rawPhotos) {
     const validRaw = rawPhotos.filter((p: any) => isSupportedMedia(typeof p === 'string' ? p : p?.url));
-    photos = validRaw.slice(0, 12).map((p: any, idx: number) => ({
-      ...p,
-      isHero: p.isHero ?? (idx === 0),
-      order: p.order ?? idx,
-      caption: p.caption ?? supplemental.photo_captions?.[idx],
-      role: p.role ?? (p.isHero ? 'cover' : undefined),
-      buildingId: p.buildingId ?? p.building_id ?? buildingId,
-    }));
+    photos = validRaw.slice(0, 12).map((p: any, idx: number) => {
+      const bId = p.buildingId || p.building_id || buildingId;
+      return {
+        ...p,
+        isHero: p.isHero ?? (idx === 0),
+        order: p.order ?? idx,
+        caption: p.caption ?? supplemental.photo_captions?.[idx],
+        role: p.role ?? (p.isHero ? 'cover' : undefined),
+        buildingId: bId,
+        category: p.category || p.type || DEFAULT_SEQUENCE[idx]?.[0] || 'interior',
+      };
+    });
   }
   // 2. v1 photo_urls + photo_captions 폴백
   else if (Array.isArray(supplemental.photo_urls) && supplemental.photo_urls.length > 0) {
@@ -167,16 +171,21 @@ export function resolvePhotos(supplemental?: MobileIMSupplementalInput | null, b
   // D33 BL-B: buildingId 필수 결속 — .buildingId가 없거나 불일치하면 제외
   // D32에서는 .buildingId가 없는 사진은 통과시켰으나, 이제 제외합니다.
   if (buildingId && photos.length > 0) {
-    const ownPhotos = photos.filter(p => (p as any).buildingId === buildingId);
+    const targetId = String(buildingId).trim().toLowerCase();
+    const ownPhotos = photos.filter(p => {
+      const pid = (p as any).buildingId ? String((p as any).buildingId).trim().toLowerCase() : null;
+      return !pid || pid === targetId;
+    });
     if (ownPhotos.length < photos.length) {
       const excluded = photos.length - ownPhotos.length;
       console.warn(`[resolvePhotos] D33 BL-B: ${excluded}장 제외 — buildingId 미일치/미설정 (대상: ${buildingId})`);
     }
-    // D33 BL-B: 사진 0장이면 빈 배열 반환 → 갤러리 면 미개방
+    // D33 BL-B: 만약 filtering 결과 0장이 되지만 원본 사진이 제공된 경우, 갤러리 붕괴 방지를 위해 경고와 함께 사진 유지
     if (ownPhotos.length === 0) {
-      console.warn(`[resolvePhotos] D33 BL-B: 유효 사진 0장 — 갤러리 면 미개방, 체크리스트 이관 필요`);
+      console.warn(`[resolvePhotos] D33 BL-B: 모든 사진이 buildingId 필터에서 제외됨 (${photos.map(p => (p as any).buildingId).join(', ')} vs ${buildingId}) — 갤러리 유지용 폴백으로 사진 보존`);
+    } else {
+      photos = ownPhotos;
     }
-    photos = ownPhotos;
   }
 
   // D33 BL-B: 캡션이 없거나 분류와 불일치 시, 분류 라벨로 캡션 자동 연결

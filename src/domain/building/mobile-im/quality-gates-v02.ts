@@ -90,6 +90,32 @@ export interface GateContext {
   preachyToneCount?: number;
   /** G56: 내부 시스템 규칙 노출 건수 (0이어야 통과) */
   internalRuleLeakCount?: number;
+
+  // D30 BL-4 §4.2: 신설 게이트 필드
+  /** G17: 실효 DPI 최소 72 */
+  imageDpi?: number;
+  /** G18: EXIF 좌표 일치 여부 */
+  exifMatch?: boolean;
+  /** G21: 필수 섹션 완성 여부 */
+  requiredSectionsComplete?: boolean;
+  /** G22: 면적 지표명 정확 여부 */
+  areaLabelAccurate?: boolean;
+  /** G23: 렌트롤 전량 표기 (BL-2에서 보장) */
+  rentRollFullyDisclosed?: boolean;
+  /** G24: 면 간 수치 일치 여부 */
+  crossSlideValueMatch?: boolean;
+  /** G25: LLM 안전 판정 통과 여부 */
+  llmSafetyPassed?: boolean;
+  /** G26: 등록 사진 수 (3매 이상) */
+  photoCount?: number;
+  /** G27: 임차인 마스킹 완료 여부 */
+  tenantMasked?: boolean;
+  /** G28: totalGross vs effectiveGross 면적 분리 여부 */
+  areaMetricSeparated?: boolean;
+  /** G29: 브랜드 환각 방지 확인 여부 */
+  brandHallucinationBlocked?: boolean;
+  /** G30: 가정값 ◇ 표기 확인 여부 */
+  assumptionMarked?: boolean;
 }
 
 import type { GateResultStatus } from '@/types/gate-result';
@@ -173,19 +199,19 @@ export const PUBLISH_GATES: GateDefinition[] = [
   { id: 'G08', label: '위험 표현 없음', severity: 'block', check: (ctx) => ctx.hasRiskExpression !== true },
   { id: 'G10', label: '3축 분류 확정', severity: 'block', check: (ctx) => ctx.threeAxisConfirmed === true },
   // D30 BL-4 §4.2: 신설 게이트
-  { id: 'G17', label: '실효 DPI 최소 72', severity: 'block', check: (ctx) => (ctx as any).imageDpi === undefined || (ctx as any).imageDpi >= 72 },
-  { id: 'G18', label: 'EXIF 좌표 일치', severity: 'block', check: (ctx) => (ctx as any).exifMatch !== false },
+  { id: 'G17', label: '실효 DPI 최소 72', severity: 'block', check: (ctx) => ctx.imageDpi === undefined || ctx.imageDpi >= 72 },
+  { id: 'G18', label: 'EXIF 좌표 일치', severity: 'block', check: (ctx) => ctx.exifMatch !== false },
   { id: 'G20', label: '이미지 PII 승인', severity: 'block', check: (ctx) => ctx.imagePiiConfirmed === true },
-  { id: 'G21', label: '필수 섹션 완성', severity: 'block', check: (ctx) => (ctx as any).requiredSectionsComplete !== false },
-  { id: 'G22', label: '면적 지표명 정확', severity: 'block', check: (ctx) => (ctx as any).areaLabelAccurate !== false },
-  { id: 'G23', label: '렌트롤 전량 표기', severity: 'block', check: () => true }, // BL-2에서 보장
-  { id: 'G24', label: '면 간 수치 일치', severity: 'block', check: (ctx) => ctx.crossValidationPassed === true },
-  { id: 'G25', label: 'LLM 안전 판정 통과', severity: 'block', check: (ctx) => (ctx as any).llmSafetyPassed !== false },
-  { id: 'G26', label: '최소 사진 3매', severity: 'block', check: (ctx) => (ctx as any).photoCount === undefined || (ctx as any).photoCount >= 3 },
-  { id: 'G27', label: '임차인 마스킹 완료', severity: 'block', check: (ctx) => (ctx as any).tenantMasked !== false },
-  { id: 'G28', label: '면적 totalGross vs effectiveGross 분리', severity: 'block', check: (ctx) => (ctx as any).areaMetricSeparated !== false },
-  { id: 'G29', label: '브랜드 환각 방지', severity: 'block', check: (ctx) => (ctx as any).brandHallucinationBlocked !== false },
-  { id: 'G30', label: '가정값 ◇ 표기 확인', severity: 'block', check: (ctx) => (ctx as any).assumptionMarked !== false },
+  { id: 'G21', label: '필수 섹션 완성', severity: 'block', check: (ctx) => ctx.requiredSectionsComplete !== false },
+  { id: 'G22', label: '면적 지표명 정확', severity: 'block', check: (ctx) => ctx.areaLabelAccurate !== false },
+  { id: 'G23', label: '렌트롤 전량 표기', severity: 'block', check: (ctx) => ctx.rentRollFullyDisclosed !== false },
+  { id: 'G24', label: '면 간 수치 일치', severity: 'block', check: (ctx) => (ctx.crossSlideValueMatch !== false) && (ctx.crossValidationPassed === true) },
+  { id: 'G25', label: 'LLM 안전 판정 통과', severity: 'block', check: (ctx) => ctx.llmSafetyPassed !== false },
+  { id: 'G26', label: '최소 사진 3매', severity: 'block', check: (ctx) => ctx.photoCount === undefined || ctx.photoCount >= 3 },
+  { id: 'G27', label: '임차인 마스킹 완료', severity: 'block', check: (ctx) => ctx.tenantMasked !== false },
+  { id: 'G28', label: '면적 totalGross vs effectiveGross 분리', severity: 'block', check: (ctx) => ctx.areaMetricSeparated !== false },
+  { id: 'G29', label: '브랜드 환각 방지', severity: 'block', check: (ctx) => ctx.brandHallucinationBlocked !== false },
+  { id: 'G30', label: '가정값 ◇ 표기 확인', severity: 'block', check: (ctx) => ctx.assumptionMarked !== false },
   // D31 BL-1: 지면 물리 게이트
   { id: 'G31', label: '사진 크로핑률 45% 미만', severity: 'block', check: (ctx) => (ctx.maxCropRatio ?? 0) < 0.45 },
   { id: 'G32', label: '실효 DPI 하한 충족', severity: 'block', check: (ctx) => (ctx.minEffectiveDpi ?? 150) >= 150 },

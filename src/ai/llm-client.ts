@@ -31,6 +31,8 @@ export interface CallLLMOptions {
   providers?: string[];             // fallback chain order (e.g. ['openai', 'google'])
   cacheKey?: string;               // 캐시 저장 및 복구에 사용할 고유 키
   timeoutMs?: number;              // 개별 호출 제한 시간
+  signal?: AbortSignal;            // 외부 취소 신호
+  deadlineMs?: number;             // 전체 완료 데드라인 타임스탬프
 }
 
 export async function callLLM(
@@ -41,6 +43,9 @@ export async function callLLM(
   const chain = options.providers ?? ["openai"];
   
   let lastError: any = null;
+  const startTime = Date.now();
+  const overallTimeoutMs = options.timeoutMs ?? (isTestEnv ? 4000 : 120000);
+  const deadline = options.deadlineMs ?? (startTime + overallTimeoutMs);
 
   for (const providerName of chain) {
     const provider = providerRegistry.get(providerName);
@@ -48,17 +53,35 @@ export async function callLLM(
     
     const maxAttempts = 5; // 1 initial + 4 retries (exponential backoff: 1s, 2s, 4s, 8s)
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (options.signal?.aborted) {
+        throw new Error(`[callLLM] Provider '${providerName}' call aborted by signal`);
+      }
+      if (Date.now() >= deadline) {
+        console.warn(`[callLLM] Provider '${providerName}' deadline exceeded before attempt ${attempt + 1}`);
+        break;
+      }
+
       try {
         // AbortController를 이용해 타임아웃 제한
         const controller = new AbortController();
-        const timeoutMs = options.timeoutMs ?? 120000;
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        const remainingForThisCall = Math.max(100, deadline - Date.now());
+        const callTimeout = Math.min(options.timeoutMs ?? 120000, remainingForThisCall);
+
+        let abortHandler: (() => void) | undefined;
+        if (options.signal) {
+          abortHandler = () => controller.abort();
+          options.signal.addEventListener("abort", abortHandler);
+        }
+        const timeoutId = setTimeout(() => controller.abort(), callTimeout);
 
         const result = await provider.chat({
           ...params,
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
+        if (abortHandler && options.signal) {
+          options.signal.removeEventListener("abort", abortHandler);
+        }
         
         // 호출 성공 시 캐시 키가 주어졌다면 인메모리 캐시에 적재
         if (options.cacheKey) {
@@ -68,10 +91,49 @@ export async function callLLM(
         return result;
       } catch (err: any) {
         lastError = err;
+
+        if (options.signal?.aborted) {
+          console.warn(`[callLLM] Provider '${providerName}' retry aborted by external signal`);
+          break;
+        }
+
         if (attempt < maxAttempts - 1) {
-          const delay = Math.min(1000 * Math.pow(2, attempt), 16000); // 1s, 2s, 4s, 8s, 16s cap
+          const baseDelay = isTestEnv ? 50 : 1000;
+          const maxDelay = isTestEnv ? 200 : 16000;
+          const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
+
+          const now = Date.now();
+          if (now + delay >= deadline) {
+            console.warn(`[callLLM] Remaining time budget exhausted (${deadline - now}ms < ${delay}ms delay), aborting retries for '${providerName}'`);
+            break;
+          }
+
           console.warn(`[callLLM] Provider '${providerName}' attempt ${attempt + 1}/${maxAttempts} failed: ${err.message ?? err}. Retrying in ${delay}ms...`);
-          await new Promise(r => setTimeout(r, delay));
+          
+          await new Promise<void>((resolve) => {
+            let onSleepAbort: (() => void) | undefined;
+            const sleepTimer = setTimeout(() => {
+              if (options.signal && onSleepAbort) {
+                options.signal.removeEventListener("abort", onSleepAbort);
+              }
+              resolve();
+            }, delay);
+
+            if (options.signal) {
+              onSleepAbort = () => {
+                clearTimeout(sleepTimer);
+                if (options.signal && onSleepAbort) {
+                  options.signal.removeEventListener("abort", onSleepAbort);
+                }
+                resolve();
+              };
+              options.signal.addEventListener("abort", onSleepAbort);
+            }
+          });
+
+          if (options.signal?.aborted) {
+            break;
+          }
         } else {
           console.warn(`[callLLM] Provider '${providerName}' failed after ${maxAttempts} attempts:`, err.message ?? err);
         }

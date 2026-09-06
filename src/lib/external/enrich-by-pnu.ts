@@ -20,6 +20,12 @@ const CACHE_TTL_DAYS = 30;
  * 공통 코어: ResolvedAddress가 확정된 후, 7개 API를 병렬 호출하고 캐시에 저장.
  * enrichBuildingDataByPNU와 enrichBuildingData(orchestrator) 양쪽에서 공유.
  */
+/** Checks if a given source key is marked stale in either snake_case or camelCase */
+function isSourceStale(staleSources: string[] | undefined, ...keys: string[]): boolean {
+  if (!staleSources) return false;
+  return keys.some(k => staleSources.includes(k));
+}
+
 export async function enrichBuildingDataCore(
   resolvedAddress: ResolvedAddress,
   rawAddress: string,
@@ -43,48 +49,48 @@ export async function enrichBuildingDataCore(
 
   await Promise.all([
     (async () => {
-      if (cachedData && !staleSources?.includes('buildingRegister')) { buildingRegister = cachedData.building_register; return; }
+      if (cachedData && !isSourceStale(staleSources, 'building_register', 'buildingRegister')) { buildingRegister = cachedData.building_register; return; }
       try { buildingRegister = await fetchBuildingRegister(sigunguCd, bjdongCd, bun, ji); }
       catch (e: unknown) { errors.push({ api: "building-register", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      if (cachedData && !staleSources?.includes('landPrice')) { landPrice = cachedData.official_land_price; return; }
+      if (cachedData && !isSourceStale(staleSources, 'land_price', 'land_price_vworld', 'landPrice')) { landPrice = cachedData.official_land_price; return; }
       try { landPrice = await fetchLandPrice(pnu); }
       catch (e: unknown) { errors.push({ api: "land-price", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      if (cachedData && !staleSources?.includes('landUse')) { landUsePlan = cachedData.land_use_plan; return; }
+      if (cachedData && !isSourceStale(staleSources, 'land_use_plan', 'land_use_plan_vworld', 'landUse', 'landUsePlan')) { landUsePlan = cachedData.land_use_plan; return; }
       try { landUsePlan = await fetchLandUsePlan(pnu); }
       catch (e: unknown) { errors.push({ api: "land-use", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      if (cachedData && !staleSources?.includes('comparableTransactions')) { comparableTransactions = cachedData.comparable_transactions || []; return; }
+      if (cachedData && !isSourceStale(staleSources, 'comparable_tx', 'comparableTransactions', 'comparableTx')) { comparableTransactions = cachedData.comparable_transactions || []; return; }
       try { comparableTransactions = await fetchComparableTransactions(sigunguCd); }
       catch (e: unknown) { errors.push({ api: "real-transaction", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      if (cachedData && !staleSources?.includes('locationPoi')) { locationPoi = cachedData.location_poi; return; }
+      if (cachedData && !isSourceStale(staleSources, 'location_poi', 'locationPoi')) { locationPoi = cachedData.location_poi; return; }
       try { if (lat != null && lng != null) { locationPoi = await fetchLocationPoi(lat, lng); } }
       catch (e: unknown) { errors.push({ api: "kakao-map-local", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      if (cachedData && !staleSources?.includes('registry')) { registryData = cachedData.registry_data; return; }
+      if (cachedData && !isSourceStale(staleSources, 'registry', 'registryData')) { registryData = cachedData.registry_data; return; }
       try { registryData = await fetchRegistryData(rawAddress, pnu); }
       catch (e: unknown) { errors.push({ api: "registry", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      if (cachedData && !staleSources?.includes('buildingRegister')) { return; }
+      if (cachedData && !isSourceStale(staleSources, 'building_register', 'buildingRegister', 'building_recap', 'buildingRecap')) { return; }
       try { recapData = await fetchBuildingRecap(sigunguCd, bjdongCd, bun, ji); }
       catch (e: unknown) { errors.push({ api: "building-recap", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
-      if (cachedData && !staleSources?.includes('commercialDistrict')) { commercialDistrict = cachedData.commercial_district; return; }
+      if (cachedData && !isSourceStale(staleSources, 'commercial_district', 'commercialDistrict')) { commercialDistrict = cachedData.commercial_district; return; }
       try { if (pnu) commercialDistrict = await fetchCommercialDistrictFull(createServiceClient(), pnu); }
       catch (e: unknown) { errors.push({ api: "semas-commercial", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     // 9. V-World WMS 지적도 이미지 (Phase 4)
     (async () => {
-      if (cachedData && !staleSources?.includes('cadastralMap')) { return; }
+      if (cachedData && !isSourceStale(staleSources, 'cadastral_map', 'cadastralMap')) { return; }
       try {
         if (lat != null && lng != null) {
           cadastralMapImage = await fetchCadastralMapImage(lat, lng, 800, 600, 150);
@@ -201,11 +207,26 @@ export async function enrichBuildingDataByPNU(
   rawAddress: string,
   buildingSsotLiteId: string
 ): Promise<ExternalDataEnrichmentResult | null> {
-  // 유효하지 않은 PNU(길이 불량 등) 방어 로직 추가
-  if (!pnu || pnu.length < 19) {
+  // Multi-PNU 방어: 쉼표/공백 등으로 전달된 복수 필지 PNU 처리 및 19자리 기본 PNU 안전 추출
+  if (!pnu) {
+    console.warn(`[enrich-by-pnu] Missing PNU for address ${rawAddress}`);
+    return null;
+  }
+
+  // 19자리 숫자 PNU 목록 추출
+  const pnuTokens = pnu.split(/[\s,]+/).map(s => s.trim().replace(/[^0-9]/g, '')).filter(Boolean);
+  const valid19Pnus = pnuTokens.filter(s => s.length === 19);
+  const primaryPnu = valid19Pnus[0] || (pnuTokens[0]?.length >= 19 ? pnuTokens[0].substring(0, 19) : null);
+
+  if (!primaryPnu || primaryPnu.length !== 19) {
     console.warn(`[enrich-by-pnu] Invalid PNU length: ${pnu} for address ${rawAddress}`);
     return null;
   }
+
+  if (valid19Pnus.length > 1) {
+    console.info(`[enrich-by-pnu] Multi-PNU detected: ${valid19Pnus.length} parcels. Primary: ${primaryPnu}, others: ${valid19Pnus.slice(1).join(', ')}`);
+  }
+
   // ─── 캐시 확인
   try {
     const supabase = createServiceClient();
@@ -227,9 +248,9 @@ export async function enrichBuildingDataByPNU(
         const staleSources = staleSourcesInfo.map(s => s.source);
         return await enrichBuildingDataCore(
           {
-            pnu, legalDongCode: pnu.substring(0, 10), sigunguCd: pnu.substring(0, 5), bjdongCd: pnu.substring(5, 10),
-            bun: pnu.substring(11, 15) || "0000", ji: pnu.substring(15, 19) || "0000",
-            roadAddress: rawAddress, jibunAddress: rawAddress, lat: cached.latitude || 37.50085, lng: cached.longitude || 127.03698, buildingMgtNo: pnu + "000000"
+            pnu: primaryPnu, legalDongCode: primaryPnu.substring(0, 10), sigunguCd: primaryPnu.substring(0, 5), bjdongCd: primaryPnu.substring(5, 10),
+            bun: primaryPnu.substring(11, 15) || "0000", ji: primaryPnu.substring(15, 19) || "0000",
+            roadAddress: rawAddress, jibunAddress: rawAddress, lat: cached.latitude || 37.50085, lng: cached.longitude || 127.03698, buildingMgtNo: primaryPnu + "000000"
           },
           rawAddress,
           buildingSsotLiteId,
@@ -244,11 +265,11 @@ export async function enrichBuildingDataByPNU(
   } catch { /* 캐시 조회 실패 시 정상 진행 */ }
 
   // PNU에서 주소 코드 파싱
-  const legalDongCode = pnu.substring(0, 10);
-  const sigunguCd = pnu.substring(0, 5);
-  const bjdongCd = pnu.substring(5, 10);
-  const bun = pnu.substring(11, 15) || "0000";
-  const ji = pnu.substring(15, 19) || "0000";
+  const legalDongCode = primaryPnu.substring(0, 10);
+  const sigunguCd = primaryPnu.substring(0, 5);
+  const bjdongCd = primaryPnu.substring(5, 10);
+  const bun = primaryPnu.substring(11, 15) || "0000";
+  const ji = primaryPnu.substring(15, 19) || "0000";
 
   // 좌표 해석
   let lat = 37.50085;
@@ -283,7 +304,7 @@ export async function enrichBuildingDataByPNU(
   }
 
   const resolvedAddress: ResolvedAddress = {
-    pnu,
+    pnu: primaryPnu,
     legalDongCode,
     sigunguCd,
     bjdongCd,
@@ -293,7 +314,7 @@ export async function enrichBuildingDataByPNU(
     jibunAddress: rawAddress,
     lat,
     lng,
-    buildingMgtNo: pnu + "000000",
+    buildingMgtNo: primaryPnu + "000000",
   };
 
   return enrichBuildingDataCore(resolvedAddress, rawAddress, buildingSsotLiteId);

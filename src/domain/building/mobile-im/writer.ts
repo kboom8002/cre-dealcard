@@ -75,15 +75,18 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   // ── 1. 컨텍스트 빌드 (전처리) ──
   const ctx = await buildIMContext(input);
 
-  // ── 2. 수치 앵커 초기화 (GENERATION_PERF_SPEC.md §5) ──
-  const numericalAnchors = new NumericalAnchors({
+  // ── 2. 수치 앵커 초기화 (GENERATION_PERF_SPEC.md §5, L3-04) ──
+  const authoritativeAnchors: Record<string, number> = {
     askingPriceKrw: ctx.purchasePriceKrw,
     totalAreaSqm: ctx.totalAreaSqm,
     landAreaSqm: input.external_data?.buildingRegister?.platArea ?? 0,
-    monthlyRentTotalKrw: ctx.cachedFinancials?.annualNoi?.base ? ctx.cachedFinancials.annualNoi.base / 12 : 0,
-    totalDepositKrw: ctx.cachedFinancials?.totalDepositBil ? ctx.cachedFinancials.totalDepositBil * 1e8 : 0,
+    monthlyRentTotalKrw: ctx.cachedFinancials?.annualNoi?.base ? ctx.cachedFinancials.annualNoi.base / 12 : (input.supplemental?.monthly_rent_total_krw ?? 0),
+    totalDepositKrw: ctx.cachedFinancials?.totalDepositBil ? ctx.cachedFinancials.totalDepositBil * 1e8 : (input.supplemental?.total_deposit_manwon ? input.supplemental.total_deposit_manwon * 10000 : 0),
     vacancyPct: input.supplemental?.vacancy_pct ?? 0,
-  });
+    ...(ctx.cachedFinancials?.capRate?.base ? { capRateBase: ctx.cachedFinancials.capRate.base } : {}),
+  };
+
+  const numericalAnchors = new NumericalAnchors(authoritativeAnchors);
   if (ctx.sectionCtx) {
     ctx.sectionCtx.numericalAnchors = numericalAnchors;
   }
@@ -149,9 +152,13 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
 
     if (isParallel) {
       // Stage 1: 병렬 실행 (Promise.allSettled)
+      // L3-02: Stage 1 병렬 호출에 시간 상한 가드를 적용하여 후속 스테이지(Stage 2~4) 기아 방지
+      const remainingForStage1 = stageTimer.getRemainingMs();
+      const stage1TimeoutMs = Math.max(15_000, Math.min(45_000, Math.floor(remainingForStage1 * 0.45)));
+
       const batchPromises = stageSections.map((sectionType, batchIdx) => {
         const idx = globalIndex + batchIdx;
-        return generateSingleSection(
+        const sectionPromise = generateSingleSection(
           sectionType as MobileIMSectionType,
           idx,
           ctx,
@@ -162,6 +169,22 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
           building_ssot_lite,
           { dcfEligible: input.dcfEligible, onProgress: input.onProgress },
         );
+
+        // 개별 호출에 타임아웃 가드 래핑
+        let timerId: NodeJS.Timeout;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timerId = setTimeout(() => {
+            reject(new Error(`[L3-02] Stage 1 ${sectionType} 타임아웃 (${stage1TimeoutMs}ms 초과 — 후속 스테이지 보호)`));
+          }, stage1TimeoutMs);
+        });
+
+        return Promise.race([
+          sectionPromise.then((res) => {
+            clearTimeout(timerId);
+            return res;
+          }),
+          timeoutPromise,
+        ]);
       });
 
       const results = await Promise.allSettled(batchPromises);
@@ -201,10 +224,13 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     } else {
       // Stage 2~4: 순차 실행
       for (const sectionType of stageSections) {
-        // D30 BL-7: 타임아웃 경과 시 — 템플릿 폴백 대신 확인사항 이관
-        const forceFast = isHardLimitReached || stageTimer.shouldAbortOptional();
-        if (forceFast && isHardLimitReached) {
-          // 105초 경과: 선택 섹션은 확인사항으로 이관 (D30 BL-7)
+        // D30 BL-7 / L3-01: 타임아웃 경과 시 — 템플릿 폴백 대신 확인사항 이관
+        // 시간 예산이 소진된 경우(shouldAbortOptional 또는 isHardLimitReached),
+        // generateSingleSection 호출(forceFastTemplate)로 진입하여 TIME_BUDGET_FORCE_FAST_TEMPLATE 크래시를
+        // 유발하지 않고 즉시 체크리스트 섹션으로 우아하게 폴백
+        const timeBudgetExhausted = isHardLimitReached || stageTimer.shouldAbortOptional();
+        if (timeBudgetExhausted) {
+          console.warn(`[writer] L3-01: ${sectionType} 시작 전 시간 예산 소진 확인 — 확인사항 섹션으로 우아하게 전환`);
           sections.push(createTimeoutChecklistSection(sectionType, globalIndex + 1));
           globalIndex++;
           continue;
@@ -215,9 +241,9 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         let result;
         let lastError: Error | undefined;
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-          // 재시도 전 타이머 잠식 방지: 시간 예산 초과 시 즉시 중단
-          if (attempt > 0 && stageTimer.shouldAbortOptional()) {
-            console.warn(`[writer] M-8: ${sectionType} 재시도 ${attempt}/${MAX_RETRIES} 중단 — 시간 예산 초과`);
+          // L3-01: attempt === 0을 포함하여 매 시도 시작 전 시간 예산 초과 시 즉시 중단
+          if (stageTimer.shouldAbortOptional() || stageTimer.shouldForceRender()) {
+            console.warn(`[writer] L3-01/M-8: ${sectionType} 시도 ${attempt}/${MAX_RETRIES} 중단 — 시간 예산 초과`);
             break;
           }
           try {
@@ -232,7 +258,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
               {
                 dcfEligible: input.dcfEligible,
                 onProgress: input.onProgress,
-                forceFastTemplate: forceFast,
+                forceFastTemplate: false,
               },
             );
             break; // 성공 시 루프 탈출
@@ -244,9 +270,14 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
           }
         }
         if (!result) {
-          // 모든 재시도 실패 — 확인사항 이관
-          console.error(`[writer] M-8: ${sectionType} 재시도 소진:`, lastError?.message);
-          sections.push(createRetryExhaustedChecklistSection(sectionType, globalIndex + 1, MAX_RETRIES, lastError?.message));
+          // L3-01: 시간 예산 소진인 경우 타임아웃 확인사항 생성, 그 외는 재시도 소진 확인사항 생성
+          if (stageTimer.shouldAbortOptional() || stageTimer.shouldForceRender()) {
+            console.warn(`[writer] L3-01: ${sectionType} 시간 초과로 확인사항 이관`);
+            sections.push(createTimeoutChecklistSection(sectionType, globalIndex + 1));
+          } else {
+            console.error(`[writer] M-8: ${sectionType} 재시도 소진:`, lastError?.message);
+            sections.push(createRetryExhaustedChecklistSection(sectionType, globalIndex + 1, MAX_RETRIES, lastError?.message));
+          }
           globalIndex++;
           continue;
         }
@@ -340,6 +371,16 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
 
   // ── 3. 섹션 간 교차 검증 ──
   try {
+    // L3-04: SSoT 권위 수치 앵커 보호 — LLM 결과에 의해 수치가 변조되거나 왜곡되지 않도록 검증 직전 권위값 확정 보존
+    for (const [k, v] of Object.entries(authoritativeAnchors)) {
+      if (typeof v === 'number' && !isNaN(v) && v > 0) {
+        const cur = (ctx.sectionCtx.numericalAnchors as NumericalAnchors)?.get(k);
+        if (cur === undefined || cur !== v) {
+          (ctx.sectionCtx.numericalAnchors as NumericalAnchors)?.set(k, v, 'authoritative_ssot_lock', 0);
+        }
+      }
+    }
+
     const crossValResult = runCrossValidation(
       sections,
       (ctx.sectionCtx.numericalAnchors as NumericalAnchors).toCrossValidatorAnchors(),

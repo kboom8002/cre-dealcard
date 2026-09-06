@@ -41,6 +41,10 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
         headers: { Authorization: `KakaoAK ${restKey}` },
         signal: AbortSignal.timeout(3000),
       });
+      if (!stationRes.ok) {
+        console.warn(`[kakao-map-api] Station search returned HTTP ${stationRes.status} (401/429/error)`);
+        return null;
+      }
       const stationData = await stationRes.json();
       const stations = stationData?.documents || [];
 
@@ -97,6 +101,12 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
               headers: { Authorization: `KakaoAK ${restKey}` },
               signal: AbortSignal.timeout(2000),
             });
+            if (!res.ok) {
+              if (res.status === 401 || res.status === 429) {
+                console.warn(`[kakao-map-api] POI search HTTP ${res.status} for category ${cat.key}`);
+              }
+              return;
+            }
             const data = await res.json();
             counts[cat.key] = data?.meta?.total_count || data?.documents?.length || 0;
           } catch {
@@ -120,6 +130,12 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
               headers: { Authorization: `KakaoAK ${restKey}` },
               signal: AbortSignal.timeout(2000),
             });
+            if (!res.ok) {
+              if (res.status === 401 || res.status === 429) {
+                console.warn(`[kakao-map-api] Landmark search HTTP ${res.status} for category ${lm.category}`);
+              }
+              return;
+            }
             const data = await res.json();
             const docs = data?.documents || [];
             for (const doc of docs) {

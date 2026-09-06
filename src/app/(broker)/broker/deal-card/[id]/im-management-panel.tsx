@@ -130,7 +130,8 @@ export function ImManagementPanel({
         try {
           const statusRes = await fetch(`/api/broker/im-lite/job-status?jobId=${jobId}`);
           if (!statusRes.ok) return;
-          const { status } = await statusRes.json();
+          const job = await statusRes.json();
+          const { status } = job;
           if (status === 'completed' || status === 'complete') {
             setGenerationStatus('complete');
             setGenerationProgress(100);
@@ -144,7 +145,8 @@ export function ImManagementPanel({
             setGenerationStatus('error');
             clearInterval(pollInterval);
             document.removeEventListener('visibilitychange', onVisibilityChange);
-            toast.error('IM 생성 중 오류가 발생했습니다.');
+            const errorMsg = job.result?.error || job.error || 'IM 생성 중 오류가 발생했습니다.';
+            toast.error(errorMsg);
             setTimeout(() => setGenerationStatus('idle'), 3000);
           }
         } catch { /* 네트워크 에러 — 다음 폴링에서 재시도 */ }
@@ -166,7 +168,8 @@ export function ImManagementPanel({
         try {
           const statusRes = await fetch(`/api/broker/im-lite/job-status?jobId=${jobId}`);
           if (!statusRes.ok) return;
-          const { status, progress } = await statusRes.json();
+          const job = await statusRes.json();
+          const { status, progress } = job;
           setGenerationProgress(progress || 50);
 
           if (status === 'writing') setGenerationStatus('writing');
@@ -184,7 +187,8 @@ export function ImManagementPanel({
             setGenerationStatus('error');
             clearInterval(pollInterval);
             document.removeEventListener('visibilitychange', onVisibilityChange);
-            toast.error('IM 생성 중 오류가 발생했습니다.');
+            const errorMsg = job.result?.error || job.error || 'IM 생성 중 오류가 발생했습니다.';
+            toast.error(errorMsg);
             setTimeout(() => setGenerationStatus('idle'), 3000);
           }
         } catch {

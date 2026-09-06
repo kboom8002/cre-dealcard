@@ -40,11 +40,10 @@ export function useImGenerator(options: UseImGeneratorOptions): UseImGeneratorRe
       options.onSuccess?.({ jobId });
     } catch (err) {
       console.warn('[useImGenerator]', err);
-      options.onError?.(err instanceof Error ? err : new Error(String(err)));
-    } finally {
       setIsGenerating(false);
-      setProgress(100);
+      setProgress(0);
       setGenerationStatus(null);
+      options.onError?.(err instanceof Error ? err : new Error(String(err)));
     }
   }, [options]);
 

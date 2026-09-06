@@ -11,7 +11,8 @@ import { generateMobileIMHandler } from "./handler";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 
 // IM 생성은 7섹션 AI 생성 + 외부 데이터 수집 + Judge 검증으로 60초 이상 소요 가능
-export const maxDuration = 120;
+// thresholds.ts IM_HARD_TIMEOUT_MS = 180_000 (180초)에 정렬
+export const maxDuration = 180;
 
 export async function POST(req: NextRequest) {
   const guard = await requireBroker(req);
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    buildingId = body.building_id;
+    buildingId = body.building_id || body.buildingId;
     skipApproval = body.skip_approval === true;
     directData = body.direct_data ?? null;
     identity = body.identity || {};
@@ -69,6 +70,7 @@ export async function POST(req: NextRequest) {
       resolved_address: body.resolved_address,
       resolved_pnu: body.resolved_pnu,
       photo_urls: body.photo_urls,
+      photos_v2: body.photos_v2,
       broker_highlight: body.broker_highlight,
       estimated_yield_pct: body.estimated_yield_pct,
       total_deposit_manwon: body.total_deposit_manwon,

@@ -531,6 +531,10 @@ export function ImDataBottomSheet({
         officialPricePerM2: p.officialPricePerM2 ? parseFloat(p.officialPricePerM2) : undefined,
       })) : undefined;
 
+      const validPhotoUrls = [...existingUrls, ...uploadedPhotoUrls].filter(
+        (url): url is string => typeof url === 'string' && url.trim().length > 0
+      );
+
       const requestBody = {
         building_id: buildingId,
         investment_posture: investmentPosture,
@@ -547,9 +551,9 @@ export function ImDataBottomSheet({
         resolved_pnu: pnu || undefined,
         broker_highlight: brokerHighlight || undefined,
         direct_data: Object.keys(directData).length > 0 ? directData : undefined,
-        photo_urls: [...existingUrls, ...uploadedPhotoUrls].length > 0 ? [...existingUrls, ...uploadedPhotoUrls] : undefined,
+        photo_urls: validPhotoUrls.length > 0 ? validPhotoUrls : undefined,
         photo_captions: Object.keys(photoCaptions).length > 0 ? photoCaptions : undefined,
-        photos_v2: [...existingUrls, ...uploadedPhotoUrls].map((url, idx) => ({
+        photos_v2: validPhotoUrls.length > 0 ? validPhotoUrls.map((url, idx) => ({
           url,
           category: (photoCategories[idx] || (idx === 0 ? 'exterior' : 'interior')),
           caption: photoCaptions[idx] || undefined,
@@ -558,7 +562,7 @@ export function ImDataBottomSheet({
               : idx === exteriorPhotoIndex ? 'exterior' 
               : 'general',
           order: idx,
-        })),
+        })) : undefined,
         floor_leases: floorLeases.length > 0 ? floorLeases : undefined,
         logistics,
         hospitalitySpec,

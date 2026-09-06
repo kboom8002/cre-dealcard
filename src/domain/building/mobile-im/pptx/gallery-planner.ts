@@ -76,7 +76,10 @@ export function planGallerySlides(
   posture: InvestmentPosture = 'income',
 ): GallerySlideSpec[] {
   // 1. 지도(map)는 입지 슬라이드용이므로 갤러리 슬라이드 대상에서 제외
-  const validPhotos = photos.filter(p => p.category !== 'map' && p.url);
+  const validPhotos = photos.filter(p => {
+    const isMap = p.category === 'map' || (p as any).type === 'map';
+    return !isMap && !!p.url;
+  });
 
   if (validPhotos.length === 0) {
     return [];
@@ -85,8 +88,9 @@ export function planGallerySlides(
   // 2. 사진이 1~2장뿐인 경우: 단일 슬라이드 단순 분배
   if (validPhotos.length <= 2) {
     const layout = determineLayout(validPhotos);
-    const firstGroup = CATEGORY_TO_GROUP[validPhotos[0].category];
-    const info = (firstGroup !== 'special' && GALLERY_GROUP_TITLES[firstGroup])
+    const firstCat = (validPhotos[0].category || (validPhotos[0] as any).type) as PhotoCategory;
+    const firstGroup = firstCat ? CATEGORY_TO_GROUP[firstCat] : undefined;
+    const info = (firstGroup && firstGroup !== 'special' && GALLERY_GROUP_TITLES[firstGroup])
       ? GALLERY_GROUP_TITLES[firstGroup]
       : { kicker: 'Gallery', title: '건물 사진 전경' };
 
@@ -94,7 +98,7 @@ export function planGallerySlides(
       slideIndex: 0,
       kicker: info.kicker,
       title: info.title,
-      group: firstGroup !== 'special' ? firstGroup : undefined,
+      group: firstGroup && firstGroup !== 'special' ? firstGroup : undefined,
       layout,
       photos: validPhotos,
       dataKey: 'gallery_0',
@@ -111,11 +115,15 @@ export function planGallerySlides(
   };
 
   validPhotos.forEach((p) => {
-    const g = CATEGORY_TO_GROUP[p.category];
+    const cat = (p.category || (p as any).type) as PhotoCategory;
+    if (cat === 'map') return; // 방어: map 사진은 갤러리 버킷에 절대 들어가지 않음
+    const g = cat ? CATEGORY_TO_GROUP[cat] : undefined;
     if (g && g !== 'special') {
       groupBuckets[g].push(p);
+    } else if (cat === 'exterior' || cat === 'aerial' || cat === 'entrance') {
+      groupBuckets.G1_exterior.push(p);
     } else {
-      // 카테고리 미지정이거나 special인 경우 기본 G3(실내) 또는 G1(외관)으로 할당
+      // 카테고리 미지정이거나 special인 경우 기본 G3(실내) 할당
       groupBuckets.G3_leasable.push(p);
     }
   });

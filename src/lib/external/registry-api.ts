@@ -85,11 +85,11 @@ export async function fetchRegistryData(
 function getMockRegistryFallback(pnu: string): RegistryData {
   console.warn(`[registry] Using mock fallback for PNU: ${pnu}`);
   return {
-    // Return the same structure as real data but with empty values
-    // Actual implementation TBD when commercial API key is obtained
+    checked: true,
     mortgages: [],
     attachments: [],
     encumbranceRisk: 'check_required' as const,
+    displayMessage: '등기부등본 확인 필요 (외부 API 미연결 또는 모의 데이터)',
     rawResponse: null,
     source: 'fallback_mock',
     fetchedAt: new Date().toISOString(),

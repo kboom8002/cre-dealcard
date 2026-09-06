@@ -95,7 +95,7 @@ export async function markAsGoldenIM(
         section_type: section.section_type,
         markdown:     sanitizedMarkdown.slice(0, 2000),
         markdown_raw: finalMarkdown.slice(0, 4000),
-        grade:        sectionScore >= 4.5 ? 'S' : 'A',
+        grade:        'A', // DataGrade max allowed is Grade A (no Grade S)
         judge_score:  sectionScore,
         was_edited:   !!editedVersion,
         source_type:  'auto_approve',

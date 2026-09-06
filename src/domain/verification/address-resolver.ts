@@ -386,6 +386,7 @@ export async function geocodeAddress(address: string): Promise<{ lat: number; ln
       headers: {
         Authorization: `KakaoAK ${kakaoAppKey}`,
       },
+      signal: AbortSignal.timeout(5000),
       next: { revalidate: 86400 * 30 }, // 30일 캐싱
     });
 
@@ -414,16 +415,69 @@ export async function geocodeAddress(address: string): Promise<{ lat: number; ln
 
 /**
  * Parses raw text and attempts to resolve it into single or multiple parcels.
- * Handles cases where building spans multiple parcels.
+ * Handles cases where building spans multiple parcels (e.g. "역삼동 742-1, 742-2").
  */
 export async function resolveMultiParcelAddress(address: string): Promise<ResolveResult> {
+  if (!address || !address.trim()) {
+    return { kind: 'failed', primary: null, alternatives: [] };
+  }
+
+  // Multi-parcel input parsing (e.g. "역삼동 742-1, 742-2" or "당산동5가 11-47, 11-48")
+  const segments = address.split(',').map(s => s.trim()).filter(Boolean);
+
+  if (segments.length > 1) {
+    const primaryResult = await resolveAddressToComponents(segments[0]);
+    if (!primaryResult) {
+      // Fallback: try resolving whole address string
+      const whole = await resolveAddressToComponents(address);
+      if (!whole) return { kind: 'failed', primary: null, alternatives: [] };
+      return { kind: 'exact', primary: whole, alternatives: [] };
+    }
+
+    const alternatives: AddressComponents[] = [];
+    for (let i = 1; i < segments.length; i++) {
+      const seg = segments[i];
+      // 1. Check if it's just a parcel number in the same dong: e.g. "742-2" or "11-48" or "743"
+      const parcelMatch = seg.match(/^(\d{1,4})(?:-(\d{1,4}))?$/);
+      if (parcelMatch) {
+        alternatives.push({
+          sigunguCd: primaryResult.sigunguCd,
+          bjdongCd: primaryResult.bjdongCd,
+          bun: parcelMatch[1],
+          ji: parcelMatch[2] || "0",
+        });
+      } else {
+        // 2. Try resolving as full address
+        const altResult = await resolveAddressToComponents(seg);
+        if (altResult) {
+          alternatives.push(altResult);
+        } else {
+          // 3. Extract bun-ji and inherit primary's sigunguCd/bjdongCd
+          const bunJi = extractBunJi(seg);
+          if (bunJi.bun !== "0") {
+            alternatives.push({
+              sigunguCd: primaryResult.sigunguCd,
+              bjdongCd: primaryResult.bjdongCd,
+              bun: bunJi.bun,
+              ji: bunJi.ji,
+            });
+          }
+        }
+      }
+    }
+
+    return {
+      kind: alternatives.length > 0 ? 'ambiguous' : 'exact',
+      primary: primaryResult,
+      alternatives,
+    };
+  }
+
   const result = await resolveAddressToComponents(address);
   if (!result) {
     return { kind: 'failed', primary: null, alternatives: [] };
   }
-  
-  // Here we would implement true multi-parcel discovery from Building Ledger API.
-  // For now, return exact match.
+
   return {
     kind: 'exact',
     primary: result,

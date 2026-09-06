@@ -129,14 +129,40 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
   }
 
   // ── 하단: 풀폭 투자 가치 제안 콜아웃 ──
-  // 컨텐츠에서 리드문 추출
+  // 컨텐츠에서 리드문 추출 (Rule 3: 상단 stat 카드에 사용된 라벨/값이나 불릿 항목은 배제하여 중복 나열 0건 보장)
   let leadBody = '';
   if (input.data.content) {
+    const usedStatTokens = new Set<string>();
+    for (const s of allStats) {
+      if (s.label) usedStatTokens.add(String(s.label).toLowerCase().replace(/\s+/g, ''));
+      if (s.value) usedStatTokens.add(String(s.value).toLowerCase().replace(/\s+/g, ''));
+    }
+
     const narrativeLines = String(input.data.content).split('\n')
       .map(l => l.trim())
-      .filter(l => l.length > 8 && !l.startsWith('#') && !l.startsWith('|') && !/^[-*_]{3,}$/.test(l))
+      .filter(l => {
+        if (!l || l.length <= 8) return false;
+        if (l.startsWith('#') || l.startsWith('|') || /^[-*_]{3,}$/.test(l)) return false;
+        // Key-value 불릿 라인은 stat 카드 후보이므로 리드문에서 배제
+        const kvMatch = l.match(/^[-*•·]?\s*\**([^*：:]{2,25})\**\s*[：:]\s*(.*)/);
+        if (kvMatch) {
+          const lNorm = kvMatch[1].trim().toLowerCase().replace(/\s+/g, '');
+          const vNorm = kvMatch[2].trim().toLowerCase().replace(/\s+/g, '');
+          if (usedStatTokens.has(lNorm) || usedStatTokens.has(vNorm)) return false;
+          if (l.startsWith('-') || l.startsWith('*') || l.startsWith('•') || l.startsWith('·')) return false;
+        }
+        return true;
+      })
       .map(l => stripMarkdown(l.replace(/^[>•·-]\s*/, '')))
-      .filter(Boolean);
+      .filter(l => {
+        const lNorm = l.toLowerCase().replace(/\s+/g, '');
+        for (const token of usedStatTokens) {
+          if (token.length >= 4 && (lNorm.includes(token) || token.includes(lNorm))) {
+            if (Math.abs(lNorm.length - token.length) < 6) return false;
+          }
+        }
+        return Boolean(l);
+      });
     leadBody = narrativeLines.slice(0, 2).join(' ');
   }
   // 면책 문구는 leadBody에서 제외

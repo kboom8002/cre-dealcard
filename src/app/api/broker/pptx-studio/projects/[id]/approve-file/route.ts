@@ -78,8 +78,81 @@ export async function POST(
     try {
       const { createServiceClient } = await import('@/lib/supabase/service');
       const { broadcastApprovalEvent } = await import('@/platform/im-pipeline/realtime/dealcard-sync-channel');
+      const { ClaimRegistry, runApprovalGate } = await import('@/domain/building/im-core');
       const supabase = createServiceClient();
       const dealId = project.dealId;
+
+      // Enforce Rule 15: Run approval gate before publishing document_objects
+      const { data: docData } = await supabase
+        .from('document_objects')
+        .select('id, body')
+        .or(`building_id.eq.${dealId},id.eq.${dealId}`)
+        .maybeSingle();
+
+      if (docData?.body) {
+        const tier = docData.body.releaseTier ?? 'fact_om';
+        const registry = new ClaimRegistry();
+
+        if (Array.isArray(docData.body.claims) && docData.body.claims.length > 0) {
+          for (const rawClaim of docData.body.claims) {
+            registry.register(rawClaim);
+          }
+        } else if (docData.body.ssot_summary || docData.body.sections) {
+          const ssot = docData.body.ssot_summary || {};
+          if (ssot.asking_price || ssot.price) {
+            registry.register({
+              subject: 'asking_price',
+              value: ssot.asking_price || ssot.price,
+              evidence: [],
+              provenance: 'broker',
+              asOf: new Date().toISOString(),
+              status: 'reconciled',
+            });
+          }
+          if (ssot.total_area || ssot.gross_area) {
+            registry.register({
+              subject: 'total_area',
+              value: ssot.total_area || ssot.gross_area,
+              evidence: [],
+              provenance: 'public_api',
+              asOf: new Date().toISOString(),
+              status: 'reconciled',
+            });
+          }
+          if (ssot.gross_yield || ssot.cap_rate) {
+            registry.register({
+              subject: 'gross_yield',
+              value: ssot.gross_yield || ssot.cap_rate,
+              evidence: [],
+              provenance: 'broker',
+              asOf: new Date().toISOString(),
+              status: 'reconciled',
+            });
+          }
+        }
+
+        const posture = docData.body.ssot_summary?.investment_posture
+          ?? docData.body.ssot_summary?.posture
+          ?? docData.body.investment_posture
+          ?? docData.body.investmentPosture
+          ?? undefined;
+
+        const gateResult = runApprovalGate(registry, tier, {
+          hasHallucination: docData.body.hasHallucination === true,
+          publishBlocked: docData.body.gateReport?.blocked === true,
+          posture,
+        });
+
+        if (gateResult.passed === false) {
+          return NextResponse.json(
+            {
+              error: 'Approval gate failed',
+              blockers: gateResult.blockers,
+            },
+            { status: 422 }
+          );
+        }
+      }
 
       await supabase
         .from('document_objects')

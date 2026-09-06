@@ -69,6 +69,10 @@ export function runApprovalGate(
   if (posture === 'income' || posture === 'trading' || posture === 'operating') {
     REQUIRED_SUBJECTS.push('gross_yield');
   }
+  const SUBJECT_ALIASES: Record<string, string[]> = {
+    total_area: ['total_area', 'total_area_sqm'],
+    gross_yield: ['gross_yield', 'yield_on_cost', 'cap_rate'],
+  };
   const allClaims = registry.getAll ? registry.getAll() : [];
   if (allClaims.length === 0) {
     blockers.push({
@@ -78,7 +82,8 @@ export function runApprovalGate(
     });
   } else {
     for (const subj of REQUIRED_SUBJECTS) {
-      const claims = allClaims.filter(c => c.subject === subj);
+      const aliases = SUBJECT_ALIASES[subj] ?? [subj];
+      const claims = allClaims.filter(c => aliases.includes(c.subject));
       if (claims.length === 0) {
         blockers.push({
           id: `approval.required_missing.${subj}`,

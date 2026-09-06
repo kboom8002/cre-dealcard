@@ -15,6 +15,7 @@ export async function createMobileIMAction(
     monthly_rent_total_krw?: number;
     vacancy_status?: string;
     photo_urls?: string[];
+    photos_v2?: MobileIMSupplementalInput["photos_v2"];
     broker_highlight?: string;
     estimated_yield_pct?: number;
     direct_data?: Record<string, unknown>;
@@ -46,6 +47,7 @@ export async function createMobileIMAction(
       resolved_address: options?.resolved_address,
       resolved_pnu: options?.resolved_pnu,
       photo_urls: options?.photo_urls ?? [],
+      photos_v2: options?.photos_v2,
       photo_captions: options?.photo_captions,
       broker_highlight: options?.broker_highlight,
       estimated_yield_pct: options?.estimated_yield_pct,

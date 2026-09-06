@@ -75,14 +75,14 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
     const MAX_ROWS_PER_SLIDE = 12;
     const totalRows = bodyRows.length;
     if (totalRows > MAX_ROWS_PER_SLIDE) {
-      // 분할 표기: 첫 슬라이드에만 12행, 나머지는 추가 슬라이드로
-      // 각주 유지: "전체 N건 중 M건 표시 (1/K)"
       bodyRows.length = MAX_ROWS_PER_SLIDE;
-      // 추가 슬라이드 데이터를 input.data에 기록하여 renderer가 처리
       input.data._splitOverflow = tableRows.slice(MAX_ROWS_PER_SLIDE);
       input.data._splitTotal = totalRows;
-      input.data._splitPageLabel = `(1/${Math.ceil(totalRows / MAX_ROWS_PER_SLIDE)})`;
-      warnings.push(`렌트롤 ${totalRows}행 → ${Math.ceil(totalRows / MAX_ROWS_PER_SLIDE)}면 분할`);
+      const isMultiSlide = typeof input.data.pageTotal === 'number' && input.data.pageTotal > 1;
+      input.data._splitPageLabel = isMultiSlide
+        ? `(${input.data.pageIndex || 1}/${input.data.pageTotal})`
+        : `(주요 ${MAX_ROWS_PER_SLIDE}건 발췌 / 전체 ${totalRows}건)`;
+      warnings.push(`렌트롤 ${totalRows}행 중 ${MAX_ROWS_PER_SLIDE}행 렌더링`);
     }
 
     const rowCount = bodyRows.length;
@@ -92,11 +92,15 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
     // D29 BL-2: 분할 시 각주 유지 (제거 금지)
     if (input.data.note) {
       let note = String(input.data.note).trim();
-      // 분할 렌더링 시 페이지 표시 추가
       if (input.data._splitTotal) {
-        note = `전체 ${input.data._splitTotal}건 ${input.data._splitPageLabel} ${note}`.trim();
+        const isMultiSlide = typeof input.data.pageTotal === 'number' && input.data.pageTotal > 1;
+        note = isMultiSlide
+          ? `전체 ${input.data._splitTotal}건 ${input.data._splitPageLabel} ${note}`.trim()
+          : `${input.data._splitPageLabel} ${note}`.trim();
       }
       input.data.note = note;
+    } else if (totalRows > MAX_ROWS_PER_SLIDE && !input.data.pageTotal) {
+      input.data.note = `* 지면 제약으로 상위 ${MAX_ROWS_PER_SLIDE}개 행이 표시되었습니다 (전체 ${totalRows}행 중).`;
     }
 
     L.table(slide, M, 1.80, CW, 
@@ -140,8 +144,9 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
   }
   
   // Note
-  const calculatedRh = (tableRows.length > 8 ? 0.38 : 0.48);
-  const tableEnd = 1.80 + ((Math.min(12, tableRows.length) + 1) * calculatedRh);
+  const actualRowCount = Math.min(12, tableRows.length || rowEntries.length);
+  const calculatedRh = (actualRowCount > 8 ? 0.38 : 0.48);
+  const tableEnd = 1.80 + ((actualRowCount + 1) * calculatedRh);
   if (input.data.note && !hasNoData && tableEnd + 0.10 + 0.3 <= 6.75) {
     L.note(slide, M, tableEnd + 0.10, CW, input.data.note);
   }
@@ -161,9 +166,9 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
       const coGap = 0.20;
       const coW = L.col(2, coGap);
       const x = L.colX(i, coW, coGap);
-      const calloutY = tableEnd + 0.40;
-      if (calloutY + 1.2 <= 7.0) {
-        L.callout(slide, x, calloutY, coW, 1.2, co.kind || 'info', co.title || '', co.body || '');
+      const calloutY = tableEnd + 0.35;
+      if (calloutY + 1.1 <= 6.80) {
+        L.callout(slide, x, calloutY, coW, 1.1, co.kind || 'info', co.title || '', co.body || '');
       }
     });
   }

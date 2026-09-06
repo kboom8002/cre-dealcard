@@ -107,4 +107,38 @@ describe("LLM Abstraction & Fallback Cache", () => {
     expect(fallbackResult.provider).toBe("openai");
     expect(fallbackResult.content).toContain("hello from openai");
   });
+
+  it("should abort immediately when AbortSignal is already aborted or triggers abort", async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      callLLM(
+        { systemPrompt: "sys", userPrompt: "user", model: "default" },
+        { providers: ["openai"], signal: controller.signal }
+      )
+    ).rejects.toThrow("aborted by signal");
+  });
+
+  it("should respect deadlineMs and abort retries when deadline is exceeded", async () => {
+    const slowFailingProvider: LLMProvider = {
+      name: "slow-fail",
+      async chat(): Promise<LLMChatResult> {
+        throw new Error("Temporary 503");
+      },
+    };
+    registerProvider("slow-fail", slowFailingProvider);
+
+    const start = Date.now();
+    await expect(
+      callLLM(
+        { systemPrompt: "sys", userPrompt: "user", model: "default" },
+        { providers: ["slow-fail"], deadlineMs: Date.now() + 60 }
+      )
+    ).rejects.toThrow();
+
+    const elapsed = Date.now() - start;
+    // Should terminate fast around deadline instead of sleeping 5 attempts
+    expect(elapsed).toBeLessThan(1500);
+  });
 });

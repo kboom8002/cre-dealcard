@@ -59,23 +59,30 @@ export async function enrichBuildingData(
   buildingSsotLiteId: string
 ): Promise<ExternalDataEnrichmentResult | null> {
   // ─── 캐시 확인
+  let cached: any = null;
+  let staleSources: string[] | undefined = undefined;
+
   try {
     const supabase = createServiceClient();
-    const { data: cached } = await supabase
+    const { data } = await supabase
       .from("external_data_cache")
       .select("*")
       .eq("building_ssot_lite_id", buildingSsotLiteId)
       .maybeSingle();
 
-    if (cached && cached.updated_at) {
-      const age = Date.now() - new Date(cached.updated_at).getTime();
-      const shortestTtl = Math.min(...Object.values(CACHE_TTL_BY_SOURCE));
-      const ttlMs = shortestTtl * 24 * 60 * 60 * 1000;
-      if (age < ttlMs) {
-        console.info(`[external-data] Cache hit (${Math.round(age / 86400000)}d old)`);
-        return reconstructFromCache(cached);
+    if (data && data.updated_at) {
+      cached = data;
+      const cacheAge = Date.now() - new Date(data.updated_at).getTime();
+      const staleSourcesInfo = Object.entries(CACHE_TTL_BY_SOURCE)
+        .filter(([_, ttlDays]) => cacheAge > (ttlDays as number) * 86400000)
+        .map(([source, ttlDays]) => ({ source, ttlDays, stale: true }));
+
+      if (staleSourcesInfo.length === 0) {
+        console.info(`[external-data] Cache hit (${Math.round(cacheAge / 86400000)}d old)`);
+        return reconstructFromCache(data);
       }
-      console.info(`[external-data] Cache expired (${Math.round(age / 86400000)}d)`);
+      staleSources = staleSourcesInfo.map(s => s.source);
+      console.info(`[external-data] ${staleSources.length} sources stale (${staleSources.join(', ')}), refreshing`);
     }
   } catch { /* 캐시 조회 실패 시 정상 진행 */ }
 
@@ -90,6 +97,8 @@ export async function enrichBuildingData(
   return enrichBuildingDataCore(
     resolvedAddress,
     rawAddress,
-    buildingSsotLiteId
+    buildingSsotLiteId,
+    cached,
+    staleSources
   );
 }
