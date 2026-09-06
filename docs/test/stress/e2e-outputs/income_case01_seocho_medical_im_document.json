@@ -23,7 +23,7 @@
           "source": "public_data",
           "sourceDetail": "국토교통부 건축물대장 API",
           "confidence": "confirmed",
-          "lastVerifiedAt": "2026-09-06T10:40:48.639Z"
+          "lastVerifiedAt": "2026-09-06T11:17:00.806Z"
         },
         {
           "fieldKey": "plat_area",
@@ -31,9 +31,10 @@
           "source": "public_data",
           "sourceDetail": "국토교통부 건축물대장 API",
           "confidence": "confirmed",
-          "lastVerifiedAt": "2026-09-06T10:40:48.639Z"
+          "lastVerifiedAt": "2026-09-06T11:17:00.806Z"
         }
       ],
+      "judge_score": 5,
       "min_tier": "public"
     },
     {
@@ -54,7 +55,6 @@
       "confidence": "inferred",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [],
-      "judge_score": 5,
       "min_tier": "public"
     },
     {
@@ -91,7 +91,7 @@
           "source": "broker_input",
           "sourceDetail": "브로커 제공 실제 임대 정보",
           "confidence": "confirmed",
-          "lastVerifiedAt": "2026-09-06T10:40:48.639Z"
+          "lastVerifiedAt": "2026-09-06T11:17:00.806Z"
         },
         {
           "fieldKey": "vacancy_rate",
@@ -99,7 +99,7 @@
           "source": "ai_inferred",
           "sourceDetail": "기본값 추론",
           "confidence": "needs_check",
-          "lastVerifiedAt": "2026-09-06T10:40:48.639Z"
+          "lastVerifiedAt": "2026-09-06T11:17:00.806Z"
         }
       ],
       "judge_score": 5,
@@ -113,7 +113,6 @@
       "confidence": "inferred",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [],
-      "judge_score": 5,
       "min_tier": "public"
     },
     {
@@ -130,10 +129,9 @@
           "source": "public_data",
           "sourceDetail": "토지이용규제정보서비스(LURIS) API",
           "confidence": "confirmed",
-          "lastVerifiedAt": "2026-09-06T10:40:48.639Z"
+          "lastVerifiedAt": "2026-09-06T11:17:00.806Z"
         }
       ],
-      "judge_score": 5,
       "min_tier": "public"
     },
     {
@@ -144,6 +142,7 @@
       "confidence": "inferred",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [],
+      "judge_score": 5,
       "min_tier": "public"
     },
     {
@@ -182,7 +181,7 @@
     }
   ],
   "boundary_note": "본 자료는 제공자료와 공개정보를 바탕으로 한 예비 검토 자료이며, 투자 권유, 감정평가, 법률·세무·대출 가능성 판단을 목적으로 하지 않습니다. 실제 거래 여부는 별도 실사와 전문가 검토를 통해 판단해야 합니다.",
-  "generated_at": "2026-09-06T10:40:48.884Z",
+  "generated_at": "2026-09-06T11:17:01.057Z",
   "ai_used": true,
   "readiness_score": 75,
   "ssot_summary": {
@@ -235,7 +234,7 @@
     "buildingRegisterSource": "loaded",
     "qualityGrade": "B",
     "pptxExportAllowed": true,
-    "generatedAt": "2026-09-06T10:40:48.885Z"
+    "generatedAt": "2026-09-06T11:17:01.057Z"
   },
   "heroCard": {
     "posture": "income",
@@ -279,7 +278,7 @@
   },
   "claims": [
     {
-      "id": "4addbc55-db50-4526-8aee-54b76a973149",
+      "id": "5681eed9-1a3e-4a02-9047-92444eb90d66",
       "subject": "asking_price",
       "value": 16500000000,
       "unit": "원",
@@ -296,7 +295,7 @@
       "expertRequired": false
     },
     {
-      "id": "dd88d62e-6e47-40f6-9035-24aff6550b24",
+      "id": "8d4e31fc-5208-4b42-a4db-be8bf27e2118",
       "subject": "monthly_rent_total",
       "value": 59500000,
       "unit": "원/월",
@@ -313,7 +312,7 @@
       "expertRequired": false
     },
     {
-      "id": "85f64005-92d4-4720-8b8c-058e66d7f6d2",
+      "id": "2d80edc8-2e5a-4b48-89bc-035e8d856cbd",
       "subject": "total_area_sqm",
       "value": 5000,
       "unit": "㎡",
@@ -330,7 +329,7 @@
       "expertRequired": false
     },
     {
-      "id": "b52af47e-4ad4-4f6e-88b6-84719a1253c5",
+      "id": "5f8b7699-10e0-4c69-892e-366470048a54",
       "subject": "land_area_sqm",
       "value": 1000,
       "unit": "㎡",
@@ -347,7 +346,7 @@
       "expertRequired": false
     },
     {
-      "id": "e9607c6e-87f8-42fb-bae2-c15d063056f9",
+      "id": "f0db501f-047e-482b-959a-c8c90db8b419",
       "subject": "total_deposit",
       "value": 1150000000,
       "unit": "원",
@@ -364,7 +363,7 @@
       "expertRequired": false
     },
     {
-      "id": "478629e8-e5b2-462e-b1c6-1099f910051e",
+      "id": "45690abc-ed28-4346-bfdd-c5647d0efd27",
       "subject": "loan_amount",
       "value": 8500000000,
       "unit": "원",
@@ -381,7 +380,7 @@
       "expertRequired": false
     },
     {
-      "id": "3d6f6bcc-b036-4b53-a599-72acd7e9a66b",
+      "id": "b4758bbe-e34d-459f-94dd-98b17b996313",
       "subject": "noi_base",
       "value": 549780000,
       "unit": "원",
@@ -398,16 +397,16 @@
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "88e4dfc3-3681-4fab-91ee-cec76ec8d149",
+        "id": "d679399b-644f-4390-a7b3-31603fa8ebf4",
         "formula": "annual_gross * (1 - vacancy) - opex",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "4addbc55-db50-4526-8aee-54b76a973149",
-          "monthly_rent_total": "dd88d62e-6e47-40f6-9035-24aff6550b24",
-          "total_area_sqm": "85f64005-92d4-4720-8b8c-058e66d7f6d2",
-          "land_area_sqm": "b52af47e-4ad4-4f6e-88b6-84719a1253c5",
-          "total_deposit": "e9607c6e-87f8-42fb-bae2-c15d063056f9",
-          "loan_amount": "478629e8-e5b2-462e-b1c6-1099f910051e"
+          "asking_price": "5681eed9-1a3e-4a02-9047-92444eb90d66",
+          "monthly_rent_total": "8d4e31fc-5208-4b42-a4db-be8bf27e2118",
+          "total_area_sqm": "2d80edc8-2e5a-4b48-89bc-035e8d856cbd",
+          "land_area_sqm": "5f8b7699-10e0-4c69-892e-366470048a54",
+          "total_deposit": "f0db501f-047e-482b-959a-c8c90db8b419",
+          "loan_amount": "45690abc-ed28-4346-bfdd-c5647d0efd27"
         },
         "result": 549780000,
         "basis": "NOI",
@@ -415,7 +414,7 @@
       }
     },
     {
-      "id": "a157cb07-bdaa-49c5-b0f5-052771b016a4",
+      "id": "3d012bd4-ea17-4702-bc7a-ea959e6515cb",
       "subject": "noi_best",
       "value": 599760000,
       "unit": "원",
@@ -432,23 +431,23 @@
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "08763dcf-e9b3-43f0-98de-e4994f5a8454",
+        "id": "8cbc9f37-9d9c-47ea-9021-f4fc89eb7ab7",
         "formula": "annual_gross - opex_low",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "4addbc55-db50-4526-8aee-54b76a973149",
-          "monthly_rent_total": "dd88d62e-6e47-40f6-9035-24aff6550b24",
-          "total_area_sqm": "85f64005-92d4-4720-8b8c-058e66d7f6d2",
-          "land_area_sqm": "b52af47e-4ad4-4f6e-88b6-84719a1253c5",
-          "total_deposit": "e9607c6e-87f8-42fb-bae2-c15d063056f9",
-          "loan_amount": "478629e8-e5b2-462e-b1c6-1099f910051e"
+          "asking_price": "5681eed9-1a3e-4a02-9047-92444eb90d66",
+          "monthly_rent_total": "8d4e31fc-5208-4b42-a4db-be8bf27e2118",
+          "total_area_sqm": "2d80edc8-2e5a-4b48-89bc-035e8d856cbd",
+          "land_area_sqm": "5f8b7699-10e0-4c69-892e-366470048a54",
+          "total_deposit": "f0db501f-047e-482b-959a-c8c90db8b419",
+          "loan_amount": "45690abc-ed28-4346-bfdd-c5647d0efd27"
         },
         "result": 599760000,
         "basis": "NOI"
       }
     },
     {
-      "id": "9468d1bf-49ff-4188-b1c2-f67fcd8bd5cf",
+      "id": "a2ac3ee7-ff72-4933-b77b-4bff5e57012c",
       "subject": "noi_worst",
       "value": 492660000,
       "unit": "원",
@@ -465,23 +464,23 @@
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "4a15a616-d3bd-43ff-a49b-57c42cd34c73",
+        "id": "aaeb8123-6aa2-40e0-9916-1fcc51342498",
         "formula": "annual_gross * (1 - vacancy_high) - opex_high",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "4addbc55-db50-4526-8aee-54b76a973149",
-          "monthly_rent_total": "dd88d62e-6e47-40f6-9035-24aff6550b24",
-          "total_area_sqm": "85f64005-92d4-4720-8b8c-058e66d7f6d2",
-          "land_area_sqm": "b52af47e-4ad4-4f6e-88b6-84719a1253c5",
-          "total_deposit": "e9607c6e-87f8-42fb-bae2-c15d063056f9",
-          "loan_amount": "478629e8-e5b2-462e-b1c6-1099f910051e"
+          "asking_price": "5681eed9-1a3e-4a02-9047-92444eb90d66",
+          "monthly_rent_total": "8d4e31fc-5208-4b42-a4db-be8bf27e2118",
+          "total_area_sqm": "2d80edc8-2e5a-4b48-89bc-035e8d856cbd",
+          "land_area_sqm": "5f8b7699-10e0-4c69-892e-366470048a54",
+          "total_deposit": "f0db501f-047e-482b-959a-c8c90db8b419",
+          "loan_amount": "45690abc-ed28-4346-bfdd-c5647d0efd27"
         },
         "result": 492660000,
         "basis": "NOI"
       }
     },
     {
-      "id": "8f64f162-1bf8-4b85-aa46-63972b9890b4",
+      "id": "afd717c4-dac5-414b-9833-97f8fe70e5ae",
       "subject": "cap_rate_base",
       "value": 3.33,
       "unit": "%",
@@ -498,23 +497,23 @@
       "status": "unverified",
       "expertRequired": false,
       "calculation": {
-        "id": "b9359245-2ac1-4356-a729-2a5bb6e38b48",
+        "id": "27f4e78c-ad26-4764-b6f0-80452cc58bf8",
         "formula": "noi_base / asking_price * 100",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "4addbc55-db50-4526-8aee-54b76a973149",
-          "monthly_rent_total": "dd88d62e-6e47-40f6-9035-24aff6550b24",
-          "total_area_sqm": "85f64005-92d4-4720-8b8c-058e66d7f6d2",
-          "land_area_sqm": "b52af47e-4ad4-4f6e-88b6-84719a1253c5",
-          "total_deposit": "e9607c6e-87f8-42fb-bae2-c15d063056f9",
-          "loan_amount": "478629e8-e5b2-462e-b1c6-1099f910051e"
+          "asking_price": "5681eed9-1a3e-4a02-9047-92444eb90d66",
+          "monthly_rent_total": "8d4e31fc-5208-4b42-a4db-be8bf27e2118",
+          "total_area_sqm": "2d80edc8-2e5a-4b48-89bc-035e8d856cbd",
+          "land_area_sqm": "5f8b7699-10e0-4c69-892e-366470048a54",
+          "total_deposit": "f0db501f-047e-482b-959a-c8c90db8b419",
+          "loan_amount": "45690abc-ed28-4346-bfdd-c5647d0efd27"
         },
         "result": 3.33,
         "basis": "NOI"
       }
     },
     {
-      "id": "faa0ae04-c9c5-4b7c-86d0-c853b0fb3081",
+      "id": "acc946a9-1b16-443e-896c-29068b9561b8",
       "subject": "cap_rate_best",
       "value": 3.63,
       "unit": "%",
@@ -531,23 +530,23 @@
       "status": "unverified",
       "expertRequired": false,
       "calculation": {
-        "id": "c08d53b1-7e29-4015-9a31-e3a8e2e14486",
+        "id": "d04ce547-4e89-4a32-bfaa-57bc9179697f",
         "formula": "noi_best / asking_price * 100",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "4addbc55-db50-4526-8aee-54b76a973149",
-          "monthly_rent_total": "dd88d62e-6e47-40f6-9035-24aff6550b24",
-          "total_area_sqm": "85f64005-92d4-4720-8b8c-058e66d7f6d2",
-          "land_area_sqm": "b52af47e-4ad4-4f6e-88b6-84719a1253c5",
-          "total_deposit": "e9607c6e-87f8-42fb-bae2-c15d063056f9",
-          "loan_amount": "478629e8-e5b2-462e-b1c6-1099f910051e"
+          "asking_price": "5681eed9-1a3e-4a02-9047-92444eb90d66",
+          "monthly_rent_total": "8d4e31fc-5208-4b42-a4db-be8bf27e2118",
+          "total_area_sqm": "2d80edc8-2e5a-4b48-89bc-035e8d856cbd",
+          "land_area_sqm": "5f8b7699-10e0-4c69-892e-366470048a54",
+          "total_deposit": "f0db501f-047e-482b-959a-c8c90db8b419",
+          "loan_amount": "45690abc-ed28-4346-bfdd-c5647d0efd27"
         },
         "result": 3.63,
         "basis": "NOI"
       }
     },
     {
-      "id": "607b96ef-3826-4467-aa1f-3f704ca4aab4",
+      "id": "004bf5b8-0c85-484e-bc43-45bbe2e48ea6",
       "subject": "cap_rate_worst",
       "value": 2.99,
       "unit": "%",
@@ -564,23 +563,23 @@
       "status": "unverified",
       "expertRequired": false,
       "calculation": {
-        "id": "024aaaaa-38e9-4189-910c-1745266962b3",
+        "id": "10f86418-f917-4a99-8199-93be2dc8ed13",
         "formula": "noi_worst / asking_price * 100",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "4addbc55-db50-4526-8aee-54b76a973149",
-          "monthly_rent_total": "dd88d62e-6e47-40f6-9035-24aff6550b24",
-          "total_area_sqm": "85f64005-92d4-4720-8b8c-058e66d7f6d2",
-          "land_area_sqm": "b52af47e-4ad4-4f6e-88b6-84719a1253c5",
-          "total_deposit": "e9607c6e-87f8-42fb-bae2-c15d063056f9",
-          "loan_amount": "478629e8-e5b2-462e-b1c6-1099f910051e"
+          "asking_price": "5681eed9-1a3e-4a02-9047-92444eb90d66",
+          "monthly_rent_total": "8d4e31fc-5208-4b42-a4db-be8bf27e2118",
+          "total_area_sqm": "2d80edc8-2e5a-4b48-89bc-035e8d856cbd",
+          "land_area_sqm": "5f8b7699-10e0-4c69-892e-366470048a54",
+          "total_deposit": "f0db501f-047e-482b-959a-c8c90db8b419",
+          "loan_amount": "45690abc-ed28-4346-bfdd-c5647d0efd27"
         },
         "result": 2.99,
         "basis": "NOI"
       }
     },
     {
-      "id": "75f8ca93-bff9-415d-9d31-76e0f4c39635",
+      "id": "43102d8f-11b0-4f10-a7e9-a8297ae09950",
       "subject": "irr_5y_base",
       "value": 2.4,
       "unit": "%",
@@ -597,22 +596,22 @@
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "c4728ccf-56b2-4101-9a17-5e07fd8caafc",
+        "id": "623f38cc-1ae3-4690-9919-158ff005e117",
         "formula": "irr(cfs, hold=5)",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "4addbc55-db50-4526-8aee-54b76a973149",
-          "monthly_rent_total": "dd88d62e-6e47-40f6-9035-24aff6550b24",
-          "total_area_sqm": "85f64005-92d4-4720-8b8c-058e66d7f6d2",
-          "land_area_sqm": "b52af47e-4ad4-4f6e-88b6-84719a1253c5",
-          "total_deposit": "e9607c6e-87f8-42fb-bae2-c15d063056f9",
-          "loan_amount": "478629e8-e5b2-462e-b1c6-1099f910051e"
+          "asking_price": "5681eed9-1a3e-4a02-9047-92444eb90d66",
+          "monthly_rent_total": "8d4e31fc-5208-4b42-a4db-be8bf27e2118",
+          "total_area_sqm": "2d80edc8-2e5a-4b48-89bc-035e8d856cbd",
+          "land_area_sqm": "5f8b7699-10e0-4c69-892e-366470048a54",
+          "total_deposit": "f0db501f-047e-482b-959a-c8c90db8b419",
+          "loan_amount": "45690abc-ed28-4346-bfdd-c5647d0efd27"
         },
         "result": 2.4
       }
     },
     {
-      "id": "8fca56d8-9012-4583-b91a-83694287e51c",
+      "id": "383a37d3-13e0-4924-8f60-6bc05f5e393b",
       "subject": "irr_5y_best",
       "value": 6.4,
       "unit": "%",
@@ -629,22 +628,22 @@
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "73386f66-fe41-4ce0-a1dd-be88aaf88bef",
+        "id": "89eefb17-802a-4e28-9cb7-d5d360af43c9",
         "formula": "irr(cfs_best, hold=5)",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "4addbc55-db50-4526-8aee-54b76a973149",
-          "monthly_rent_total": "dd88d62e-6e47-40f6-9035-24aff6550b24",
-          "total_area_sqm": "85f64005-92d4-4720-8b8c-058e66d7f6d2",
-          "land_area_sqm": "b52af47e-4ad4-4f6e-88b6-84719a1253c5",
-          "total_deposit": "e9607c6e-87f8-42fb-bae2-c15d063056f9",
-          "loan_amount": "478629e8-e5b2-462e-b1c6-1099f910051e"
+          "asking_price": "5681eed9-1a3e-4a02-9047-92444eb90d66",
+          "monthly_rent_total": "8d4e31fc-5208-4b42-a4db-be8bf27e2118",
+          "total_area_sqm": "2d80edc8-2e5a-4b48-89bc-035e8d856cbd",
+          "land_area_sqm": "5f8b7699-10e0-4c69-892e-366470048a54",
+          "total_deposit": "f0db501f-047e-482b-959a-c8c90db8b419",
+          "loan_amount": "45690abc-ed28-4346-bfdd-c5647d0efd27"
         },
         "result": 6.4
       }
     },
     {
-      "id": "75963133-413a-4293-b771-25138e680575",
+      "id": "d395887a-118f-4827-8853-0727af385164",
       "subject": "irr_5y_worst",
       "value": -2.9,
       "unit": "%",
@@ -661,22 +660,22 @@
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "374f0da3-6e4f-42a8-9f1f-c90d23f14b3d",
+        "id": "a5bdd419-6fb4-4acd-8860-6ba915cfdc91",
         "formula": "irr(cfs_worst, hold=5)",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "4addbc55-db50-4526-8aee-54b76a973149",
-          "monthly_rent_total": "dd88d62e-6e47-40f6-9035-24aff6550b24",
-          "total_area_sqm": "85f64005-92d4-4720-8b8c-058e66d7f6d2",
-          "land_area_sqm": "b52af47e-4ad4-4f6e-88b6-84719a1253c5",
-          "total_deposit": "e9607c6e-87f8-42fb-bae2-c15d063056f9",
-          "loan_amount": "478629e8-e5b2-462e-b1c6-1099f910051e"
+          "asking_price": "5681eed9-1a3e-4a02-9047-92444eb90d66",
+          "monthly_rent_total": "8d4e31fc-5208-4b42-a4db-be8bf27e2118",
+          "total_area_sqm": "2d80edc8-2e5a-4b48-89bc-035e8d856cbd",
+          "land_area_sqm": "5f8b7699-10e0-4c69-892e-366470048a54",
+          "total_deposit": "f0db501f-047e-482b-959a-c8c90db8b419",
+          "loan_amount": "45690abc-ed28-4346-bfdd-c5647d0efd27"
         },
         "result": -2.9
       }
     },
     {
-      "id": "4c73568d-71ea-4174-9c39-7f9637a9a250",
+      "id": "a22e152a-10bf-4124-a554-f2025ab1a600",
       "subject": "yield_on_cost",
       "value": 4.33,
       "unit": "%",
@@ -693,23 +692,23 @@
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "4000c2e0-00f6-4d0c-beed-a2aca6e79e1f",
+        "id": "91a6feab-0c73-4406-b51b-7151ac577c19",
         "formula": "annual_gross / asking_price * 100",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "4addbc55-db50-4526-8aee-54b76a973149",
-          "monthly_rent_total": "dd88d62e-6e47-40f6-9035-24aff6550b24",
-          "total_area_sqm": "85f64005-92d4-4720-8b8c-058e66d7f6d2",
-          "land_area_sqm": "b52af47e-4ad4-4f6e-88b6-84719a1253c5",
-          "total_deposit": "e9607c6e-87f8-42fb-bae2-c15d063056f9",
-          "loan_amount": "478629e8-e5b2-462e-b1c6-1099f910051e"
+          "asking_price": "5681eed9-1a3e-4a02-9047-92444eb90d66",
+          "monthly_rent_total": "8d4e31fc-5208-4b42-a4db-be8bf27e2118",
+          "total_area_sqm": "2d80edc8-2e5a-4b48-89bc-035e8d856cbd",
+          "land_area_sqm": "5f8b7699-10e0-4c69-892e-366470048a54",
+          "total_deposit": "f0db501f-047e-482b-959a-c8c90db8b419",
+          "loan_amount": "45690abc-ed28-4346-bfdd-c5647d0efd27"
         },
         "result": 4.33,
         "basis": "GPI"
       }
     },
     {
-      "id": "ef4b67a5-be02-4369-9857-85b2358c9cd9",
+      "id": "c86d8f81-b53f-4adc-b230-342afeb26f11",
       "subject": "price_per_sqm",
       "value": 3300000,
       "unit": "원/㎡",
@@ -726,22 +725,22 @@
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "c04e8504-d3a9-413a-b5d2-c3ee5b1c4dda",
+        "id": "fde9ab05-6618-4465-b7f4-3c7c78128ed5",
         "formula": "asking_price / total_area",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "4addbc55-db50-4526-8aee-54b76a973149",
-          "monthly_rent_total": "dd88d62e-6e47-40f6-9035-24aff6550b24",
-          "total_area_sqm": "85f64005-92d4-4720-8b8c-058e66d7f6d2",
-          "land_area_sqm": "b52af47e-4ad4-4f6e-88b6-84719a1253c5",
-          "total_deposit": "e9607c6e-87f8-42fb-bae2-c15d063056f9",
-          "loan_amount": "478629e8-e5b2-462e-b1c6-1099f910051e"
+          "asking_price": "5681eed9-1a3e-4a02-9047-92444eb90d66",
+          "monthly_rent_total": "8d4e31fc-5208-4b42-a4db-be8bf27e2118",
+          "total_area_sqm": "2d80edc8-2e5a-4b48-89bc-035e8d856cbd",
+          "land_area_sqm": "5f8b7699-10e0-4c69-892e-366470048a54",
+          "total_deposit": "f0db501f-047e-482b-959a-c8c90db8b419",
+          "loan_amount": "45690abc-ed28-4346-bfdd-c5647d0efd27"
         },
         "result": 3300000
       }
     },
     {
-      "id": "e3691983-7e9a-4bff-b9c8-525038e0cec8",
+      "id": "301741d6-51a0-45f6-ba05-f6ad832c61eb",
       "subject": "price_per_pyeong",
       "value": 10909074,
       "unit": "원/평",
@@ -758,22 +757,22 @@
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "0b8b9ac6-1d54-4a40-bc80-596a2e42ca5b",
+        "id": "5deef55b-5e00-4764-a54c-32cef0249bd1",
         "formula": "price_per_sqm * 3.30578",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "4addbc55-db50-4526-8aee-54b76a973149",
-          "monthly_rent_total": "dd88d62e-6e47-40f6-9035-24aff6550b24",
-          "total_area_sqm": "85f64005-92d4-4720-8b8c-058e66d7f6d2",
-          "land_area_sqm": "b52af47e-4ad4-4f6e-88b6-84719a1253c5",
-          "total_deposit": "e9607c6e-87f8-42fb-bae2-c15d063056f9",
-          "loan_amount": "478629e8-e5b2-462e-b1c6-1099f910051e"
+          "asking_price": "5681eed9-1a3e-4a02-9047-92444eb90d66",
+          "monthly_rent_total": "8d4e31fc-5208-4b42-a4db-be8bf27e2118",
+          "total_area_sqm": "2d80edc8-2e5a-4b48-89bc-035e8d856cbd",
+          "land_area_sqm": "5f8b7699-10e0-4c69-892e-366470048a54",
+          "total_deposit": "f0db501f-047e-482b-959a-c8c90db8b419",
+          "loan_amount": "45690abc-ed28-4346-bfdd-c5647d0efd27"
         },
         "result": 10909074
       }
     },
     {
-      "id": "651664f9-d097-44bf-a242-b56ddf885e22",
+      "id": "8dd91d39-c464-467c-9e80-1c30bdbb5cb4",
       "subject": "equity_required",
       "value": 77.6,
       "unit": "억원",
@@ -790,22 +789,22 @@
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "546a6fa9-a557-4efe-abcb-80385dfb75f2",
+        "id": "afe0ba1f-92be-4a1e-8697-cbeb64047740",
         "formula": "total_cost - deposit - loan",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "4addbc55-db50-4526-8aee-54b76a973149",
-          "monthly_rent_total": "dd88d62e-6e47-40f6-9035-24aff6550b24",
-          "total_area_sqm": "85f64005-92d4-4720-8b8c-058e66d7f6d2",
-          "land_area_sqm": "b52af47e-4ad4-4f6e-88b6-84719a1253c5",
-          "total_deposit": "e9607c6e-87f8-42fb-bae2-c15d063056f9",
-          "loan_amount": "478629e8-e5b2-462e-b1c6-1099f910051e"
+          "asking_price": "5681eed9-1a3e-4a02-9047-92444eb90d66",
+          "monthly_rent_total": "8d4e31fc-5208-4b42-a4db-be8bf27e2118",
+          "total_area_sqm": "2d80edc8-2e5a-4b48-89bc-035e8d856cbd",
+          "land_area_sqm": "5f8b7699-10e0-4c69-892e-366470048a54",
+          "total_deposit": "f0db501f-047e-482b-959a-c8c90db8b419",
+          "loan_amount": "45690abc-ed28-4346-bfdd-c5647d0efd27"
         },
         "result": 77.6
       }
     },
     {
-      "id": "1d158bb6-5ba1-4a7a-9935-da82323b83e5",
+      "id": "814a8616-1b6e-44e3-be36-d719e6cffe8b",
       "subject": "leveraged_yield",
       "value": 2.44,
       "unit": "%",
@@ -822,22 +821,22 @@
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "1afc6df7-74fc-47f3-ba72-6e8d318fb099",
+        "id": "a37a7502-8c0d-4f1b-8b55-b5fecafaf474",
         "formula": "(noi - interest) / equity * 100",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "4addbc55-db50-4526-8aee-54b76a973149",
-          "monthly_rent_total": "dd88d62e-6e47-40f6-9035-24aff6550b24",
-          "total_area_sqm": "85f64005-92d4-4720-8b8c-058e66d7f6d2",
-          "land_area_sqm": "b52af47e-4ad4-4f6e-88b6-84719a1253c5",
-          "total_deposit": "e9607c6e-87f8-42fb-bae2-c15d063056f9",
-          "loan_amount": "478629e8-e5b2-462e-b1c6-1099f910051e"
+          "asking_price": "5681eed9-1a3e-4a02-9047-92444eb90d66",
+          "monthly_rent_total": "8d4e31fc-5208-4b42-a4db-be8bf27e2118",
+          "total_area_sqm": "2d80edc8-2e5a-4b48-89bc-035e8d856cbd",
+          "land_area_sqm": "5f8b7699-10e0-4c69-892e-366470048a54",
+          "total_deposit": "f0db501f-047e-482b-959a-c8c90db8b419",
+          "loan_amount": "45690abc-ed28-4346-bfdd-c5647d0efd27"
         },
         "result": 2.44
       }
     },
     {
-      "id": "838dff03-16cd-4327-97e8-e7878542aa7e",
+      "id": "95a3e925-ae85-4b01-bd0f-fb4e63f6ae2c",
       "subject": "total_acquisition_cost",
       "value": 174.1,
       "unit": "억원",
@@ -854,22 +853,22 @@
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "9d23d93d-edb5-41b6-b38e-f45d527afe49",
+        "id": "ab33a0df-f12c-4bd7-83f5-6db15690ee71",
         "formula": "asking + tax + broker_fee",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "4addbc55-db50-4526-8aee-54b76a973149",
-          "monthly_rent_total": "dd88d62e-6e47-40f6-9035-24aff6550b24",
-          "total_area_sqm": "85f64005-92d4-4720-8b8c-058e66d7f6d2",
-          "land_area_sqm": "b52af47e-4ad4-4f6e-88b6-84719a1253c5",
-          "total_deposit": "e9607c6e-87f8-42fb-bae2-c15d063056f9",
-          "loan_amount": "478629e8-e5b2-462e-b1c6-1099f910051e"
+          "asking_price": "5681eed9-1a3e-4a02-9047-92444eb90d66",
+          "monthly_rent_total": "8d4e31fc-5208-4b42-a4db-be8bf27e2118",
+          "total_area_sqm": "2d80edc8-2e5a-4b48-89bc-035e8d856cbd",
+          "land_area_sqm": "5f8b7699-10e0-4c69-892e-366470048a54",
+          "total_deposit": "f0db501f-047e-482b-959a-c8c90db8b419",
+          "loan_amount": "45690abc-ed28-4346-bfdd-c5647d0efd27"
         },
         "result": 174.1
       }
     },
     {
-      "id": "2e942e65-087a-4856-813a-c20d58c4245b",
+      "id": "e7735acc-7868-44ce-9e46-0c46839b3f33",
       "subject": "negative_leverage",
       "value": 1,
       "unit": "",

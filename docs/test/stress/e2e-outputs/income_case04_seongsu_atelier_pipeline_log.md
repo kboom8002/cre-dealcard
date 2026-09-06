@@ -1,17 +1,17 @@
 # Pipeline Log: income_case04_seongsu_atelier
 
-**Generated**: 2026-09-06T10:40:52.235Z
-**Total Duration**: 0.6s
+**Generated**: 2026-09-06T11:17:04.597Z
+**Total Duration**: 0.8s
 
 ## Step-by-Step Timeline
 
 | # | Step | Duration | Status | Summary |
 |---|------|----------|--------|---------|
-| 1 | ① SSoT Lite 구축 | 0.00s | ✅ success | buildingId: stress-case-04 |
-| 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: income, keys: 4 |
-| 3 | ③ IM 생성 (LLM) | 0.24s | ✅ success | ok=true, sections=13, grade=B |
-| 4 | ④ 중간 결과물 저장 | 0.13s | ✅ success | sections: 13 |
-| 5 | ⑤ PPTX 렌더링 | 0.22s | ✅ success | slides: 15, size: 409KB |
+| 1 | ① SSoT Lite 구축 | 0.09s | ✅ success | buildingId: stress-case-04 |
+| 2 | ② 바텀시트 보강 | 0.07s | ✅ success | posture: income, keys: 4 |
+| 3 | ③ IM 생성 (LLM) | 0.27s | ✅ success | ok=true, sections=13, grade=B |
+| 4 | ④ 중간 결과물 저장 | 0.05s | ✅ success | sections: 13 |
+| 5 | ⑤ PPTX 렌더링 | 0.36s | ✅ success | slides: 15, size: 409KB |
 
 ## Detailed Metrics
 

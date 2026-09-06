@@ -1,16 +1,16 @@
 # Pipeline Log: income_case02_hongdae_fnb
 
-**Generated**: 2026-09-06T10:40:50.608Z
-**Total Duration**: 0.9s
+**Generated**: 2026-09-06T11:17:02.837Z
+**Total Duration**: 0.8s
 
 ## Step-by-Step Timeline
 
 | # | Step | Duration | Status | Summary |
 |---|------|----------|--------|---------|
-| 1 | ① SSoT Lite 구축 | 0.00s | ✅ success | buildingId: stress-case-02 |
-| 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: income, keys: 5 |
-| 3 | ③ IM 생성 (LLM) | 0.29s | ✅ success | ok=true, sections=13, grade=B |
-| 4 | ④ 중간 결과물 저장 | 0.07s | ✅ success | sections: 13 |
+| 1 | ① SSoT Lite 구축 | 0.02s | ✅ success | buildingId: stress-case-02 |
+| 2 | ② 바텀시트 보강 | 0.01s | ✅ success | posture: income, keys: 5 |
+| 3 | ③ IM 생성 (LLM) | 0.21s | ✅ success | ok=true, sections=13, grade=B |
+| 4 | ④ 중간 결과물 저장 | 0.02s | ✅ success | sections: 13 |
 | 5 | ⑤ PPTX 렌더링 | 0.56s | ✅ success | slides: 15, size: 584KB |
 
 ## Detailed Metrics

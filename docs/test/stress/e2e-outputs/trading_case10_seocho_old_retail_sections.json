@@ -13,7 +13,7 @@
         "source": "public_data",
         "sourceDetail": "국토교통부 건축물대장 API",
         "confidence": "confirmed",
-        "lastVerifiedAt": "2026-09-06T10:40:55.204Z"
+        "lastVerifiedAt": "2026-09-06T11:17:07.318Z"
       },
       {
         "fieldKey": "plat_area",
@@ -21,9 +21,10 @@
         "source": "public_data",
         "sourceDetail": "국토교통부 건축물대장 API",
         "confidence": "confirmed",
-        "lastVerifiedAt": "2026-09-06T10:40:55.204Z"
+        "lastVerifiedAt": "2026-09-06T11:17:07.318Z"
       }
     ],
+    "judge_score": 5,
     "min_tier": "public"
   },
   {
@@ -45,6 +46,7 @@
     "confidence": "inferred",
     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
     "provenance": [],
+    "judge_score": 5,
     "min_tier": "public"
   },
   {
@@ -61,7 +63,7 @@
         "source": "public_data",
         "sourceDetail": "토지이용규제정보서비스(LURIS) API",
         "confidence": "confirmed",
-        "lastVerifiedAt": "2026-09-06T10:40:55.204Z"
+        "lastVerifiedAt": "2026-09-06T11:17:07.318Z"
       }
     ],
     "judge_score": 5,
@@ -75,7 +77,6 @@
     "confidence": "inferred",
     "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
     "provenance": [],
-    "judge_score": 5,
     "min_tier": "public"
   },
   {

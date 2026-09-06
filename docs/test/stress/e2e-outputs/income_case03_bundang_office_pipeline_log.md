@@ -1,17 +1,17 @@
 # Pipeline Log: income_case03_bundang_office
 
-**Generated**: 2026-09-06T10:40:51.634Z
-**Total Duration**: 1.0s
+**Generated**: 2026-09-06T11:17:03.692Z
+**Total Duration**: 0.8s
 
 ## Step-by-Step Timeline
 
 | # | Step | Duration | Status | Summary |
 |---|------|----------|--------|---------|
-| 1 | ① SSoT Lite 구축 | 0.06s | ✅ success | buildingId: stress-case-03 |
-| 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: income, keys: 5 |
-| 3 | ③ IM 생성 (LLM) | 0.44s | ✅ success | ok=true, sections=13, grade=B |
-| 4 | ④ 중간 결과물 저장 | 0.04s | ✅ success | sections: 13 |
-| 5 | ⑤ PPTX 렌더링 | 0.48s | ✅ success | slides: 15, size: 409KB |
+| 1 | ① SSoT Lite 구축 | 0.00s | ✅ success | buildingId: stress-case-03 |
+| 2 | ② 바텀시트 보강 | 0.01s | ✅ success | posture: income, keys: 5 |
+| 3 | ③ IM 생성 (LLM) | 0.27s | ✅ success | ok=true, sections=13, grade=B |
+| 4 | ④ 중간 결과물 저장 | 0.03s | ✅ success | sections: 13 |
+| 5 | ⑤ PPTX 렌더링 | 0.51s | ✅ success | slides: 15, size: 409KB |
 
 ## Detailed Metrics
 
