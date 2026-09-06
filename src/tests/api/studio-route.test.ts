@@ -76,7 +76,7 @@ describe('v0.2 Studio API Routes', () => {
   test('POST /lease - updates lease summary and returns new completeness', async () => {
     mockBuildingData = {
       id: 'test-building-id',
-      owner_id: 'mock-user-id',
+      owner_id: '00000000-0000-0000-0000-000000000001',
       price_band: '100억',
       lease_summary: {},
       disclosure_prefs: {},
@@ -119,7 +119,7 @@ describe('v0.2 Studio API Routes', () => {
   test('POST /evidence - inserts file and updates completeness', async () => {
     mockBuildingData = {
       id: 'test-building-id',
-      owner_id: 'mock-user-id',
+      owner_id: '00000000-0000-0000-0000-000000000001',
       completeness_score: 5, // has price_band
       price_band: '100억',
     };
@@ -156,7 +156,7 @@ describe('v0.2 Studio API Routes', () => {
   test('GET /studio - fetches studio status', async () => {
     mockBuildingData = {
       id: 'test-building-id',
-      owner_id: 'mock-user-id',
+      owner_id: '00000000-0000-0000-0000-000000000001',
       completeness_score: 30,
       price_band: '100억',
       lease_summary: {},
@@ -184,7 +184,7 @@ describe('v0.2 Studio API Routes', () => {
   test('POST /disclosure - updates disclosure prefs and returns new completeness', async () => {
     mockBuildingData = {
       id: 'test-building-id',
-      owner_id: 'mock-user-id',
+      owner_id: '00000000-0000-0000-0000-000000000001',
       price_band: '100억',
       lease_summary: {},
       disclosure_prefs: {},

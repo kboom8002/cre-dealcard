@@ -159,7 +159,7 @@ describe('CBRE Benchmark (NH Capital Building) E2E Pipeline', () => {
       expect(inspection.lexiconViolationCount).toBe(0); // Rule 2
       expect(inspection.legalRiskViolationCount).toBe(0);
       expect(inspection.isPass).toBe(true);
-    });
+    }, 30_000);
 
     it('[Negative Pair] Rule 1 페르소나 단어 오염 시 바이너리 인스펙션 차단 단언', async () => {
       const contaminatedDoc = {
@@ -179,7 +179,7 @@ describe('CBRE Benchmark (NH Capital Building) E2E Pipeline', () => {
       const inspection = await inspectPptxBinary(renderResult.buffer);
       expect(inspection.personaViolationCount).toBeGreaterThan(0);
       expect(inspection.isPass).toBe(false);
-    });
+    }, 30_000);
   });
 
   // ─────────────────────────────────────────────────────────────

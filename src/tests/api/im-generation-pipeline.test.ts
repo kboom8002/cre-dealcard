@@ -12,25 +12,28 @@ vi.mock('@supabase/supabase-js', () => {
   };
 });
 
-vi.mock('@/lib/supabase/service', () => ({
-  createServiceClient: () => ({
-    from: vi.fn().mockReturnValue({
-      insert: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: { id: 'mock-doc-id' }, error: null })
-        })
-      }),
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: null, error: null })
-        })
-      })
+vi.mock('@/lib/supabase/service', () => {
+  const chain = {
+    insert: vi.fn(() => chain),
+    select: vi.fn(() => chain),
+    eq: vi.fn(() => chain),
+    gte: vi.fn(() => chain),
+    lte: vi.fn(() => chain),
+    in: vi.fn(() => chain),
+    order: vi.fn(() => chain),
+    limit: vi.fn(() => chain),
+    single: vi.fn().mockResolvedValue({ data: { id: 'mock-doc-id' }, error: null }),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+  };
+  return {
+    createServiceClient: () => ({
+      from: vi.fn().mockReturnValue(chain)
     }),
-  }),
-}));
+  };
+});
 
 vi.mock('@/ai/llm-client', () => ({
-  callLLM: vi.fn().mockResolvedValue({ content: 'Generated AI text with 확정 수익 보장' }),
+  callLLM: vi.fn().mockResolvedValue({ content: 'Generated AI text' }),
   embedText: vi.fn().mockResolvedValue([]),
 }));
 
@@ -71,7 +74,8 @@ describe('IM Generation Pipeline', () => {
       asset_type: '근생빌딩',
       price_band: '100억',
       completeness_score: 80,
-      layers: { location: { pnu: '1111' } },
+      pnu: '1111000000',
+      layers: { location: { pnu: '1111000000' } },
     };
   });
 

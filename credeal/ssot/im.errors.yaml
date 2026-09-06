@@ -453,6 +453,21 @@ gates:
     status: 등록
     owner: quality-gates-v02.ts
     note: D37 P2-3. B14→G53. permitZoneNotDisplayed !== true
+  - code: G54
+    label: 결손 변명 문구 0건
+    level: 차단
+    status: 등록요청
+    owner: quality-gates-v02.ts
+  - code: G55
+    label: AI 훈계조 문구 0건
+    level: 차단
+    status: 등록요청
+    owner: quality-gates-v02.ts
+  - code: G56
+    label: 내부 시스템 규칙 노출 0건
+    level: 차단
+    status: 등록요청
+    owner: quality-gates-v02.ts
 
   # ── QG 계열: 품질 경고 (quality-gates-v02.ts 배선) ──
   - code: QG09

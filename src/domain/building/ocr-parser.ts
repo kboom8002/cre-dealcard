@@ -52,7 +52,7 @@ export function parseDocumentOCR(
 ): OCRParseResult {
   const extractedSlots: Record<string, ParsedOCRSlot> = {};
 
-  const { sanitizedText, injectionDetected } = sanitizeMemo(rawText);
+  const { tokens, sanitizedText, injectionDetected } = sanitizeMemo(rawText);
   if (injectionDetected) {
     return {
       documentType,
@@ -63,13 +63,18 @@ export function parseDocumentOCR(
   }
 
   // Extract PNU / Address pattern
-  const addressMatch = sanitizedText.match(/(서울|경기|인천|부산|대구|광주|대전|울산|세종)\s+[가-힣A-Za-z0-9\s]+(동|가|로|길)\s+\d+(-\d+)?/);
+  const addressMatch = sanitizedText.match(/(서울|경기|인천|부산|대구|광주|대전|울산|세종)\s+[가-힣A-Za-z0-9\s]+(동|가|로|길)\s*(?:\d+(?:-\d+)?|\[ADDR_DETAIL_[A-Z]\])/);
   if (addressMatch) {
+    // desanitize to get the original address string
+    let rawAddress = addressMatch[0].trim();
+    for (const [token, original] of tokens.entries()) {
+      rawAddress = rawAddress.replaceAll(token, original);
+    }
     extractedSlots.address = {
       slotKey: 'address',
-      value: addressMatch[0].trim(),
+      value: rawAddress,
       confidence: confidenceMap?.get('address') ?? 0.92,
-      rawTextSnippet: addressMatch[0],
+      rawTextSnippet: rawAddress,
     };
   }
 

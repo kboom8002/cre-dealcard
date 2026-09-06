@@ -25,19 +25,19 @@ describe('Axis 5: Income Posture Archetype Branching (Pro Tier)', { timeout: 30_
       expectedKeywords: ['Rent Roll', '임대안정성'],
     },
     {
-      id: 'R-INC-02',
+      id: 'R-INC-04',
       name: '임대료 정상화형',
       expectedDataKeys: ['rentRoll', 'rentGap', 'upside', 'capital', 'comps'],
       expectedKeywords: ['Rent Roll', '임대료 갭', '인상 경로'],
     },
     {
-      id: 'R-INC-03',
+      id: 'R-INC-05',
       name: '공실 해소형',
       expectedDataKeys: ['rentRoll', 'vacancy', 'leasing', 'capital', 'comps'],
       expectedKeywords: ['Rent Roll', '공실 분석', '임차 유치'],
     },
     {
-      id: 'R-INC-04',
+      id: 'R-INC-06',
       name: '리모델링형',
       expectedDataKeys: ['rentRoll', 'current', 'remodel', 'capital', 'comps'],
       expectedKeywords: ['Rent Roll', '현황 분석', '리모델링'],

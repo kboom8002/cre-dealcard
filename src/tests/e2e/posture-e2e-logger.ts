@@ -90,7 +90,11 @@ export class PipelineLogger {
   /** ⑧ PPTX 바이너리 저장 (육안 검수용) */
   savePptx(buffer: Buffer): void {
     const filePath = join(OUTPUT_DIR, `${this.prefix}_basic.pptx`);
-    writeFileSync(filePath, buffer);
+    try {
+      writeFileSync(filePath, buffer);
+    } catch (e) {
+      console.warn(`Failed to write pptx: ${filePath}`, e);
+    }
   }
 
   /** ⑨ 파이프라인 타임라인 로그 (Markdown) 저장 */
@@ -130,7 +134,11 @@ export class PipelineLogger {
     }
 
     const filePath = join(OUTPUT_DIR, `${this.prefix}_pipeline_log.md`);
-    writeFileSync(filePath, lines.join('\n'), 'utf-8');
+    try {
+      writeFileSync(filePath, lines.join('\n'), 'utf-8');
+    } catch (e) {
+      console.warn(`Failed to write log file: ${filePath}`, e);
+    }
   }
 
   /** 전체 로그 배열 반환 (테스트 assertion용) */
@@ -142,6 +150,10 @@ export class PipelineLogger {
 
   private writeJson(suffix: string, data: unknown): void {
     const filePath = join(OUTPUT_DIR, `${this.prefix}_${suffix}.json`);
-    writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    try {
+      writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (e) {
+      console.warn(`Failed to write json: ${filePath}`, e);
+    }
   }
 }

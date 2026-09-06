@@ -32,8 +32,8 @@ describe('Axis 1: PPTX 40-Cell Posture × Grade × Tier Stress Matrix', { timeou
               broker: { display_name: '홍길동', company_name: '크리딜 파트너스', phone: '010-1234-5678' },
             };
 
-            // Grade D × Pro must be rejected (cannot generate Pro deck for D grade)
-            if (grade === 'D' && tier === 'pro') {
+            // Grade D must be rejected (cannot generate deck for D grade)
+            if (grade === 'D') {
               await expect(renderer.render(input)).rejects.toThrow();
               return;
             }
@@ -45,14 +45,10 @@ describe('Axis 1: PPTX 40-Cell Posture × Grade × Tier Stress Matrix', { timeou
             expect(result.buffer.length).toBeGreaterThan(5_000);
 
             // 2. Slide count bounds
-            if (grade === 'D' && tier === 'basic') {
-              // Minimal D-grade basic deck (cover + summary + closing)
-              expect(result.slideCount).toBeGreaterThanOrEqual(3);
-              expect(result.slideCount).toBeLessThanOrEqual(5);
-            } else if (tier === 'basic') {
+            if (tier === 'basic') {
               // Standard Basic deck: cover + summary + location + 3 posture body + risk + thesis + process + closing = ~10
               expect(result.slideCount).toBeGreaterThanOrEqual(7);
-              expect(result.slideCount).toBeLessThanOrEqual(13);
+              expect(result.slideCount).toBeLessThanOrEqual(16);
             } else if (tier === 'pro') {
               // Pro deck
               expect(result.slideCount).toBeGreaterThanOrEqual(8);

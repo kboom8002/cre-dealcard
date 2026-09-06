@@ -13,6 +13,9 @@ import { DEMO_MOBILE_IM_DATA, SEOCHO_MEDICAL_DEMO } from '@/lib/demo/mobile-im-d
 const SECTION_TYPE_TO_DATA_KEY: Record<string, string> = {
   property_overview: 'building',
   location_access:   'location',
+  location_analysis: 'location',
+  market_location:   'location',
+  market_analysis:   'location',
   lease_status:      'rentRoll',
   income_analysis:   'profit',
   risk_check:        'risk',
@@ -21,24 +24,40 @@ const SECTION_TYPE_TO_DATA_KEY: Record<string, string> = {
   occupancy_fit:     'plan',
   cost_comparison:   'vsLease',
   site_analysis:     'landDetail',
+  land_detail:       'land',
   development_feasibility: 'feasibility',
+  scale_plan:        'scale',
+  eviction_plan:     'eviction',
+  cost_plan:         'cost',
+  stacking_plan:     'stackingPlan',
   operation_overview: 'kpi',
   gop_analysis:      'revenue',
-  market_position:   'marketPosition',
+  market_position:   'trend',
   comparable_analysis: 'comps',
+  comparables:       'comps',
+  decision_snapshot: 'summary',
+  market_rent_gap:   'rentGap',
+  value_add_plan:    'valueAdd',
+  stabilized_scenario: 'stability',
+  evidence_status:   'checklist',
+  title_rights:      'titleRights',
+  checklist:         'checklist',
+  closing:           'closing'
 };
 
 const DATA_KEY_ARCHETYPE: Record<string, string> = {
   summary:   'A02',  location:  'A06',  land:      'A04',
   building:  'A04',  rentRoll:  'A03',  stability: 'A04',
-  profit:    'A05',  capital:   'A08',  comps:     'A03',
+  profit:    'A05',  capital:   'A16',  comps:     'A03',
   risk:      'A07',  process:   'A09',  thesis:    'A15',
   plan:      'A04',  vsLease:   'A08',  commute:   'A06',
   value:     'A04',  landDetail: 'A04', scale:      'A05',
-  eviction:  'A04',  cost:       'A08', stacking:   'A05',
+  eviction:  'A04',  cost:       'A08', stacking:   'A17',
   feasibility:'A05', kpi:        'A13', revenue:    'A05',
   seasonality:'A05', operator:   'A04', marketPosition: 'A04',
   trend:          'A05', turnover:       'A04', price:          'A04',
+  titleRights: 'A04', checklist: 'A18', rentGap: 'A05', valueAdd: 'A05',
+  stackingPlan: 'A22', closing: 'A10'
 };
 
 describe('L2 Data Contract', () => {
@@ -63,6 +82,15 @@ describe('L2 Data Contract', () => {
       const sequence = buildDeckSequence({
         posture,
         grade: 'A',
+        dataAvailability: {
+          hasLandUsePlan: true,
+          hasBuildingRegister: true,
+          hasRegistryData: true,
+          hasCadastralMap: true,
+          hasCommercialDistrict: true,
+          hasRentRoll: true,
+          hasStackingPlan: true,
+        }
       });
       const dataKeysInSequence = sequence.map(s => s.dataKey);
       

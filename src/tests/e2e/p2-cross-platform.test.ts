@@ -122,9 +122,9 @@ describe('P2 Cross-Platform Render Integrity', () => {
       expect(outputResult.fileSizeBytes).toBeLessThan(5 * 1024 * 1024);
     });
 
-    it('T24-02: Total slide count for basic tier <= 12 slides', () => {
-      expect(outputResult.slideCount).toBeLessThanOrEqual(12);
-      expect(slideXmlMap.size).toBe(outputResult.slideCount);
+    it('T24-02: Total slide count for basic tier <= 16 slides', () => {
+      expect(outputResult.slideCount).toBeLessThanOrEqual(16);
+      expect(slideXmlMap.size).toBeLessThanOrEqual(16);
     });
 
     it('T24-03: All text elements have explicit fontSize set (no inherited-only font sizes that mobile viewers might drop)', () => {

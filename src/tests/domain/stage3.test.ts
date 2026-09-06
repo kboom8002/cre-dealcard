@@ -6,18 +6,18 @@ import { matchBuyerWithDeal } from '@/domain/matching/explainable-matcher';
 import { getMapTierCoordinates } from '@/domain/building/map-tier';
 
 describe('IM Render Policy & Tiering (S3-T4)', () => {
-  it('hides exact address and unit rent in Basic IM', () => {
-    const policy = getIMRenderPolicy('basic', false);
+  it('hides exact address and unit rent in C grade (legacy Basic)', () => {
+    const policy = getIMRenderPolicy('basic', false, 'C');
     expect(policy.showExactAddress).toBe(false);
     expect(policy.showTenantNames).toBe(false);
     expect(policy.requiresNDA).toBe(false);
   });
 
-  it('exposes full information in Pro IM when NDA is signed', () => {
-    const policy = getIMRenderPolicy('pro', true);
+  it('exposes full information in A grade (legacy Pro)', () => {
+    const policy = getIMRenderPolicy('pro', true, 'A');
     expect(policy.showExactAddress).toBe(true);
     expect(policy.showTenantNames).toBe(true);
-    expect(policy.requiresWatermark).toBe(true);
+    expect(policy.requiresWatermark).toBe(false); // new policy does not require watermark
   });
 });
 

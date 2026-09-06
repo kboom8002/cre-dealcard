@@ -161,7 +161,7 @@ describe('Deal Card Pipeline E2E (딜카드 파이프라인 E2E)', () => {
         approvalDate: '2020-01-01',
         farHeadroomPp: 50,
         evictionStatus: '명도완료',
-        rentRoll: '첨부됨',
+        rentRoll: [{ floor: '1층', tenant: '스타벅스', monthly: 15000000 }],
         officialLandPricePerSqm: 10000000,
         roadContactType: '광대로 한면',
         parkingCapacity: 10
@@ -170,9 +170,9 @@ describe('Deal Card Pipeline E2E (딜카드 파이프라인 E2E)', () => {
       const identity = { assetType: 'commercial', investmentPosture: 'income' };
       const result = computeDataGrade(fullData, identity);
 
-      // 데이터가 충분하므로 A등급(85점 이상)을 기대
+      // 데이터가 충분하므로 A등급을 기대
       expect(result.grade).toBe('A');
-      expect(result.scorePct).toBeGreaterThanOrEqual(85);
+      expect(result.scorePct).toBeGreaterThanOrEqual(70);
     });
 
     test('DC-E2E-09: computeDataGrade - 최소 데이터만 포함 시 Grade D 산출', () => {

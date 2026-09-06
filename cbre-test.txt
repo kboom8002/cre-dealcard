@@ -1,0 +1,31 @@
+﻿
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.5 [39m[90mC:/Users/User/cre-dealcard[39m
+
+node.exe : [90mstderr[2m | src/tests/e2e/cbre-nh-capital-pipeline.test.ts[2m > [22m[2mCBRE Benchmark (NH Capital B
+uilding) E2E Pipeline[2m > [22m[2mG4 & Rule 6: Physical PPTX Binary Inspection & Output Assertions[2m > [22m[2m[P
+ositive] 湲곌??ъ옄???꾨씪???뚮쭏 ?뚮뜑留?臾닿껐??諛?6? 寃뚯씠??PASS ?⑥뼵
+위치 줄:1 문자:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([90mstderr[2m... 寃뚯씠??PASS ?⑥뼵:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[22m[39m[deck-sequencer] goldilocks: 蹂몃Ц 21硫???16硫??덉궘 (遺濡?0硫?遺꾨━)
+
+[90mstderr[2m | src/tests/e2e/cbre-nh-capital-pipeline.test.ts[2m > [22m[2mCBRE Benchmark (NH Capital Building) E2
+E Pipeline[2m > [22m[2mG4 & Rule 6: Physical PPTX Binary Inspection & Output Assertions[2m > [22m[2m[Negative Pai
+r] Rule 1 ?섎Ⅴ?뚮굹 ?⑥뼱 ?ㅼ뿼 ??諛붿씠?덈━ ?몄뒪?숈뀡 李⑤떒 ?⑥뼵
+[22m[39m[resolvePhotos] D33 BL-B: 1???쒖쇅 ??buildingId 誘몄씪移?誘몄꽕??(??? cbre-nh-capital-persona-test)
+[resolvePhotos] D33 BL-B: 紐⑤뱺 ?ъ쭊??buildingId ?꾪꽣?먯꽌 ?쒖쇅??(cbre-nh-capital-test vs cbre-nh-capital-persona-test) ??媛ㅻ윭由
+??좎????대갚?쇰줈 ?ъ쭊 蹂댁〈
+[deck-sequencer] goldilocks: 蹂몃Ц 21硫???16硫??덉궘 (遺濡?0硫?遺꾨━)
+
+ [32m??[39m src/tests/e2e/cbre-nh-capital-pipeline.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 5050[2mms[22m[39m
+       [33m[2m??[22m[39m [Positive] 湲곌??ъ옄???꾨씪???뚮쭏 ?뚮뜑留?臾닿껐??諛?6? 寃뚯씠??PASS ?⑥뼵 [33m 2565[2mms[22m[39m
+       [33m[2m??[22m[39m [Negative Pair] Rule 1 ?섎Ⅴ?뚮굹 ?⑥뼱 ?ㅼ뿼 ??諛붿씠?덈━ ?몄뒪?숈뀡 李⑤떒 ?⑥뼵 [33m 2444[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 19:30:02
+[2m   Duration [22m 7.87s[2m (transform 1.60s, setup 0ms, import 2.21s, tests 5.05s, environment 0ms)[22m
+

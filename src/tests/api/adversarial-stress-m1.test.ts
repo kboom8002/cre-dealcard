@@ -205,10 +205,11 @@ describe('ADVERSARIAL STRESS SUITE: Worker M1 Fixes', () => {
     it('2.1: Handler blocks Pro tier with D-grade (returns 422)', async () => {
       const res = await generateMobileIMHandler({
         buildingId: '11111111-1111-1111-1111-111111111111',
-        userId: 'mock-user-id',
+        userId: 'user',
         directData: { qualityGrade: 'D' },
-        supplemental: { resolved_address: '서울 강남구', asking_price_manwon: 1000000 },
         tier: 'pro',
+        supplemental: { resolved_address: '서울 강남구 역삼동 123-45', asking_price_manwon: 1000 },
+        identity: { investmentPosture: 'income' },
       });
       expect(res.ok).toBe(false);
       expect(res.statusCode).toBe(422);
@@ -218,10 +219,11 @@ describe('ADVERSARIAL STRESS SUITE: Worker M1 Fixes', () => {
     it('2.2: Handler blocks Pro tier with C-grade (returns 422)', async () => {
       const res = await generateMobileIMHandler({
         buildingId: '11111111-1111-1111-1111-111111111111',
-        userId: 'mock-user-id',
+        userId: 'user',
         directData: { qualityGrade: 'C' },
-        supplemental: { resolved_address: '서울 강남구', asking_price_manwon: 1000000 },
         tier: 'pro',
+        supplemental: { resolved_address: '서울 강남구 역삼동 123-45', asking_price_manwon: 1000 },
+        identity: { investmentPosture: 'income' },
       });
       expect(res.ok).toBe(false);
       expect(res.statusCode).toBe(422);
@@ -232,9 +234,10 @@ describe('ADVERSARIAL STRESS SUITE: Worker M1 Fixes', () => {
       mockBuildingData.completeness_score = 45;
       const res = await generateMobileIMHandler({
         buildingId: '11111111-1111-1111-1111-111111111111',
-        userId: 'mock-user-id',
-        supplemental: { resolved_address: '서울 강남구', asking_price_manwon: 1000000 },
+        userId: 'user',
         tier: 'pro',
+        supplemental: { resolved_address: '서울 강남구 역삼동 123-45', asking_price_manwon: 1000 },
+        identity: { investmentPosture: 'income' },
       });
       expect(res.ok).toBe(false);
       expect(res.statusCode).toBe(422);
@@ -246,7 +249,7 @@ describe('ADVERSARIAL STRESS SUITE: Worker M1 Fixes', () => {
         buildingId: '11111111-1111-1111-1111-111111111111',
         userId: 'mock-user-id',
         directData: { qualityGrade: 'B' },
-        supplemental: { resolved_address: '서울 강남구', asking_price_manwon: 1000000 },
+        supplemental: { resolved_address: '서울 강남구 123', asking_price_manwon: 1000000 },
         tier: 'pro',
       });
       expect(res.ok).toBe(true);
@@ -257,7 +260,7 @@ describe('ADVERSARIAL STRESS SUITE: Worker M1 Fixes', () => {
         buildingId: '11111111-1111-1111-1111-111111111111',
         userId: 'mock-user-id',
         directData: { qualityGrade: 'A' },
-        supplemental: { resolved_address: '서울 강남구', asking_price_manwon: 1000000 },
+        supplemental: { resolved_address: '서울 강남구 123', asking_price_manwon: 1000000 },
         tier: 'pro',
       });
       expect(res.ok).toBe(true);
@@ -268,7 +271,7 @@ describe('ADVERSARIAL STRESS SUITE: Worker M1 Fixes', () => {
         buildingId: '11111111-1111-1111-1111-111111111111',
         userId: 'mock-user-id',
         directData: { qualityGrade: 'D' },
-        supplemental: { resolved_address: '서울 강남구', asking_price_manwon: 1000000 },
+        supplemental: { resolved_address: '서울 강남구 123', asking_price_manwon: 1000000 },
         tier: 'basic',
       });
       expect(resD.ok).toBe(true);
@@ -277,7 +280,7 @@ describe('ADVERSARIAL STRESS SUITE: Worker M1 Fixes', () => {
         buildingId: '11111111-1111-1111-1111-111111111111',
         userId: 'mock-user-id',
         directData: { qualityGrade: 'C' },
-        supplemental: { resolved_address: '서울 강남구', asking_price_manwon: 1000000 },
+        supplemental: { resolved_address: '서울 강남구 123', asking_price_manwon: 1000000 },
         tier: 'basic',
       });
       expect(resC.ok).toBe(true);

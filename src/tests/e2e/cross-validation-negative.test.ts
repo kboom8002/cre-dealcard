@@ -125,6 +125,7 @@ describe('Cross-Validation Negative Cases', () => {
       buildingId: 'mock-bldg',
       userId: 'user',
       supplemental: { 
+        resolved_pnu: '1111',
         asking_price_manwon: 1000000, // 10B
         monthly_rent_total_krw: 1000000 // 1M / month -> 12M / yr. Cap rate will be ~0.1%
       },
@@ -140,6 +141,7 @@ describe('Cross-Validation Negative Cases', () => {
       buildingId: 'mock-bldg',
       userId: 'user',
       supplemental: { 
+        resolved_pnu: '1111',
         asking_price_manwon: 1000, // 10M
         monthly_rent_total_krw: 500000000 // 500M / month
       },

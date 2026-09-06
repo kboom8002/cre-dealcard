@@ -18,33 +18,33 @@ describe('MECE Phase 2 - Pro Posture & Income Variants Tests', () => {
       expect(dataKeys).toContain('profit');
     });
 
-    test('T17-02: Income Pro with rent gap data (R-INC-02)', () => {
+    test('T17-02: Income Pro with rent gap data (R-INC-04)', () => {
       const sequence = buildDeckSequence({
         posture: 'income',
         grade: 'A',
-        incomeArchetype: 'R-INC-02'
+        incomeArchetype: 'R-INC-04'
       });
       const dataKeys = sequence.map(s => s.dataKey);
       expect(dataKeys).toContain('rentGap');
       expect(dataKeys).toContain('upside');
     });
 
-    test('T17-03: Income Pro with vacancy/leasing data (R-INC-03)', () => {
+    test('T17-03: Income Pro with vacancy/leasing data (R-INC-05)', () => {
       const sequence = buildDeckSequence({
         posture: 'income',
         grade: 'A',
-        incomeArchetype: 'R-INC-03'
+        incomeArchetype: 'R-INC-05'
       });
       const dataKeys = sequence.map(s => s.dataKey);
       expect(dataKeys).toContain('vacancy');
       expect(dataKeys).toContain('leasing');
     });
 
-    test('T17-04: Income Pro with remodel data (R-INC-04)', () => {
+    test('T17-04: Income Pro with remodel data (R-INC-06)', () => {
       const sequence = buildDeckSequence({
         posture: 'income',
         grade: 'A',
-        incomeArchetype: 'R-INC-04'
+        incomeArchetype: 'R-INC-06'
       });
       const dataKeys = sequence.map(s => s.dataKey);
       expect(dataKeys).toContain('current');

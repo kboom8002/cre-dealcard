@@ -35,6 +35,16 @@ vi.mock("@/lib/supabase/service", () => {
   };
 });
 
+// Mock external government APIs to avoid network timeouts
+vi.mock("@/domain/external/gov-premium-apis", () => ({
+  fetchRentalTrend: vi.fn().mockResolvedValue({ id: 1 }),
+  fetchLandUsePlan: vi.fn().mockResolvedValue({ id: 1 }),
+  fetchRegisterSummary: vi.fn().mockResolvedValue({ ok: true }),
+  fetchEnergyRating: vi.fn().mockResolvedValue({ id: 1 }),
+  fetchCommercialDistrict: vi.fn().mockResolvedValue({ id: 1 }),
+  fetchOfficialLandPrice: vi.fn().mockResolvedValue({ price_per_sqm: 1000n })
+}));
+
 describe("CRE Premium Government APIs (A1-A6)", () => {
   test("GET /api/public/gov-data?action=verify triggers all government endpoints", async () => {
     const req = new NextRequest("http://localhost:3000/api/public/gov-data?action=verify");

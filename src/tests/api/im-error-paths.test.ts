@@ -198,6 +198,9 @@ describe('IM Error Paths API Routes', () => {
       body: JSON.stringify({
         building_id: 'd-grade-building',
         tier: 'pro',
+        resolved_address: '서울 강남구 역삼동 123-45',
+        asking_price_manwon: 1000,
+        investment_posture: 'income'
       }),
     });
     const res = await postGenerateIM(req);
@@ -210,7 +213,7 @@ describe('IM Error Paths API Routes', () => {
   test('EP07: PUT save-sections on published document returns 400', async () => {
     mockDocumentData = {
       id: 'pub-doc',
-      owner_id: 'mock-user-id',
+      owner_id: '00000000-0000-0000-0000-000000000001',
       status: 'published',
       body: {}
     };

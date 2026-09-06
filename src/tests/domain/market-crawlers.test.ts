@@ -44,6 +44,24 @@ vi.mock("@/lib/supabase/service", () => {
   };
 });
 
+// Mock external government APIs to avoid network timeouts
+vi.mock("@/domain/external/gov-premium-apis", () => ({
+  fetchRentalTrend: vi.fn().mockResolvedValue({ id: 1 }),
+  fetchEnergyRating: vi.fn().mockResolvedValue({ id: 1 }),
+  fetchCommercialDistrict: vi.fn().mockResolvedValue({ id: 1 }),
+  fetchOfficialLandPrice: vi.fn().mockResolvedValue({ price_per_sqm: 1000n })
+}));
+
+// Mock market crawlers to avoid network timeouts
+vi.mock("@/domain/external/market-crawlers", () => ({
+  crawlCreNews: vi.fn().mockResolvedValue([{ id: 1 }]),
+  ingestGlobalReports: vi.fn().mockResolvedValue([{ id: 1 }]),
+  trackSocialSentiment: vi.fn().mockResolvedValue([{ id: 1 }]),
+  trackYoutubeTrends: vi.fn().mockResolvedValue([{ id: 1 }]),
+  crawlAuctions: vi.fn().mockResolvedValue([{ id: 1 }]),
+  computeRentalMarketRates: vi.fn().mockResolvedValue([{ id: 1 }])
+}));
+
 describe("CRE External Intelligence Market Crawlers (E2-E7)", () => {
   test("GET /api/public/market-intelligence?action=crawl triggers crawlers and returns statistics", async () => {
     const req = new NextRequest("http://localhost:3000/api/public/market-intelligence?action=crawl");

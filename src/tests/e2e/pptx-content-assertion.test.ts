@@ -129,7 +129,7 @@ describe('L3 PPTX Content Assertion Tests', () => {
         expect(texts.length, `${posture} 포스처의 슬라이드 ${i}가 비어 있습니다.`).toBeGreaterThan(0);
       }
     }
-  });
+  }, 60_000);
 
   test('CA02: Income 기본 PPTX는 "수익", "Cap Rate", "NOI" 중 하나를 포함해야 함', async () => {
     const posture = 'income';

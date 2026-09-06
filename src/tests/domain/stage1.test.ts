@@ -16,7 +16,7 @@ describe('Data Grade Engine (S1-T4)', () => {
       approvalDate: '1995-05-10',
       farHeadroomPp: 55,
       evictionStatus: '명도완료',
-      rentRoll: '1층 A카페 월 800',
+      rentRoll: [{ floor: '1층', tenant: 'A카페', monthly: 8000000 }],
       officialLandPricePerSqm: 15000000,
       roadContactType: '광대로접함',
     };

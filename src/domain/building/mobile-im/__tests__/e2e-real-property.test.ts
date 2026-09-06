@@ -17,7 +17,7 @@
  * - 자가사용 ≠ 공실
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { generateMobileIM } from '@/domain/building/mobile-im/writer';
 import { computeDataGrade } from '@/domain/asset/grade-engine';
 import { runPublishGates } from '@/domain/building/mobile-im/quality-gates-v02';
@@ -84,6 +84,7 @@ describe('E2E Real Property: 양평동4가 더레드빌딩 (income)', () => {
 
       // income 포스처 필수 섹션 존재 확인
       const sectionTypes = output.sections.map((s: any) => s.section_type);
+      console.log('YP section types:', sectionTypes);
       expect(sectionTypes).toContain('property_overview');
       // checklist 또는 closing 중 하나는 있어야 함
       const hasChecklist = sectionTypes.includes('checklist');
@@ -248,6 +249,7 @@ describe('E2E Real Property: 당산동5가 근생빌딩 (income)', () => {
       expect(output.sections.length).toBeGreaterThanOrEqual(4);
 
       const sectionTypes = output.sections.map((s: any) => s.section_type);
+      console.log('DS section types:', sectionTypes);
       expect(sectionTypes).toContain('property_overview');
     }, 30000);
 
