@@ -50,11 +50,18 @@
       "order": 2
     },
     {
+      "url": "images/04_parking.jpg",
+      "category": "parking",
+      "isHero": false,
+      "role": "general",
+      "order": 3
+    },
+    {
       "url": "images/05_dev_rendering.jpg",
       "category": "floor_plan",
       "isHero": false,
       "role": "general",
-      "order": 3
+      "order": 4
     }
   ],
   "floor_leases": [

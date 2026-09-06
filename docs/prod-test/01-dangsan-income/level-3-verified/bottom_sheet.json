@@ -22,7 +22,7 @@
     },
     {
       "url": "images/02_aerial.jpg",
-      "category": "exterior",
+      "category": "aerial",
       "isHero": false,
       "role": "general",
       "order": 1
@@ -50,21 +50,21 @@
     },
     {
       "url": "images/08_rooftop.jpg",
-      "category": "rooftop_terrace",
+      "category": "rooftop",
       "isHero": false,
       "role": "general",
       "order": 5
     },
     {
       "url": "images/09_interior_clinic.jpg",
-      "category": "retail_interior",
+      "category": "interior",
       "isHero": false,
       "role": "general",
       "order": 6
     },
     {
       "url": "images/10_street_view.jpg",
-      "category": "surrounding_street",
+      "category": "surroundings",
       "isHero": false,
       "role": "general",
       "order": 7

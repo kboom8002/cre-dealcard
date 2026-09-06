@@ -113,11 +113,25 @@
         "order": 2
       },
       {
+        "url": "images/04_interior_pharmacy.jpg",
+        "category": "interior",
+        "isHero": false,
+        "role": "general",
+        "order": 3
+      },
+      {
+        "url": "images/05_interior_fitness.jpg",
+        "category": "interior",
+        "isHero": false,
+        "role": "general",
+        "order": 4
+      },
+      {
         "url": "images/06_parking.jpg",
         "category": "parking",
         "isHero": false,
         "role": "general",
-        "order": 3
+        "order": 5
       }
     ],
     "ancillary_incomes": [
