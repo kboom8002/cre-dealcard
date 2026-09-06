@@ -191,17 +191,23 @@ function renderCommonCoverContent(
   });
 
   // 대제목
-  slide.addText(input.data.title || '투자설명서', {
-    x, y: kickerY + 0.30, w: titleW, h: 0.80,
-    fontSize: 40, bold: true, color: 'FFFFFF',
+  const titleText = input.data.title || '투자설명서';
+  const titleLen = titleText.length;
+  const fontSize = titleLen > 35 ? 22 : titleLen > 28 ? 26 : titleLen > 20 ? 30 : 40;
+  const titleH = titleLen > 28 ? 1.0 : 0.80;
+
+  slide.addText(titleText, {
+    x, y: kickerY + 0.30, w: titleW, h: titleH,
+    fontSize, bold: true, color: 'FFFFFF',
     fontFace: TITLE_KR, margin: 0, align,
   });
 
   // 부제
+  const subtitleY = kickerY + 0.30 + titleH + 0.06;
   const subtitle = input.data.subtitle || input.data.assetType || '';
   if (subtitle) {
     slide.addText(subtitle, {
-      x, y: kickerY + 1.16, w: titleW, h: 0.4,
+      x, y: subtitleY, w: titleW, h: 0.4,
       fontSize: 14, color: CD.body,
       fontFace: KR, margin: 0, align,
     });

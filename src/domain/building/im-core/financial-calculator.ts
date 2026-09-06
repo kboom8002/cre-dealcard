@@ -62,6 +62,11 @@ const INCOME_CLAIM_SPECS: FinancialClaimSpec[] = [
   { subject: 'negative_leverage', unit: '', extract: o => o.negativeLeverage === true ? 1 : o.negativeLeverage === false ? 0 : null },
 ];
 
+const DEVELOPMENT_CLAIM_SPECS: FinancialClaimSpec[] = [];
+const OWNER_OCCUPIED_CLAIM_SPECS: FinancialClaimSpec[] = INCOME_CLAIM_SPECS.filter(s => ['price_per_sqm', 'price_per_pyeong'].includes(s.subject));
+const OPERATING_CLAIM_SPECS: FinancialClaimSpec[] = [];
+const TRADING_CLAIM_SPECS: FinancialClaimSpec[] = INCOME_CLAIM_SPECS.filter(s => ['price_per_sqm', 'price_per_pyeong'].includes(s.subject));
+
 const FORMULA_VERSION = 'v1.0.0';
 
 export interface FinancialCalcOutput {
@@ -234,8 +239,19 @@ export class FinancialCalculator {
   }
 
   /** 포스처별 Claim 스펙 반환 */
-  private getSpecsForPosture(_posture: string): FinancialClaimSpec[] {
-    // Phase 1: income 전용. 나머지 포스처는 P1에서 확장
-    return INCOME_CLAIM_SPECS;
+  private getSpecsForPosture(posture: string): FinancialClaimSpec[] {
+    switch (posture) {
+      case 'development':
+        return DEVELOPMENT_CLAIM_SPECS;
+      case 'owner_occupied':
+        return OWNER_OCCUPIED_CLAIM_SPECS;
+      case 'operating':
+        return OPERATING_CLAIM_SPECS;
+      case 'trading':
+        return TRADING_CLAIM_SPECS;
+      case 'income':
+      default:
+        return INCOME_CLAIM_SPECS;
+    }
   }
 }

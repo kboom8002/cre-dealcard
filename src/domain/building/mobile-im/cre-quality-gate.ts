@@ -233,7 +233,14 @@ export async function runCREQualityGate(
     );
 
     // LLM 응답 파싱
-    const parsed = JSON.parse(result.content) as Record<string, unknown>;
+    let cleanContent = result.content.trim();
+    // Strip markdown code fences
+    cleanContent = cleanContent.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/m, '').trim();
+    // Strip BOM
+    cleanContent = cleanContent.replace(/^\uFEFF/, '');
+    // Strip trailing commas before } or ]
+    cleanContent = cleanContent.replace(/,\s*([}\]])/g, '$1');
+    const parsed = JSON.parse(cleanContent) as Record<string, unknown>;
 
     // issues 배열 파싱 및 검증 — 유효하지 않은 항목은 필터링
     const rawIssues = Array.isArray(parsed.issues) ? parsed.issues : [];

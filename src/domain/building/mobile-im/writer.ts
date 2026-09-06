@@ -223,7 +223,12 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       globalIndex += stageSections.length;
     } else {
       // Stage 2~4: 순차 실행
-      for (const sectionType of stageSections) {
+      for (let sIdx = 0; sIdx < stageSections.length; sIdx++) {
+        const sectionType = stageSections[sIdx];
+        const remainingMs = stageTimer.getRemainingMs();
+        const remainingSections = stageSections.length - sIdx;
+        const perSectionTimeout = Math.min(30_000, Math.max(10_000, Math.floor(remainingMs / Math.max(remainingSections, 1))));
+
         // D30 BL-7 / L3-01: 타임아웃 경과 시 — 템플릿 폴백 대신 확인사항 이관
         // 시간 예산이 소진된 경우(shouldAbortOptional 또는 isHardLimitReached),
         // generateSingleSection 호출(forceFastTemplate)로 진입하여 TIME_BUDGET_FORCE_FAST_TEMPLATE 크래시를
@@ -259,6 +264,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
                 dcfEligible: input.dcfEligible,
                 onProgress: input.onProgress,
                 forceFastTemplate: false,
+                timeoutMs: perSectionTimeout,
               },
             );
             break; // 성공 시 루프 탈출

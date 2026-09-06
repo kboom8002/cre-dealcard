@@ -95,6 +95,15 @@ function collectElements(pres: PptxGenJS): ElementBounds[] {
         }
       }
 
+      // 텍스트 예상 높이 수집 (Gate G33)
+      const textContent = obj.text || opts.text;
+      if (opts.fontSize && typeof textContent === 'string') {
+        const charsPerLine = Math.floor((bounds.w * 72) / (opts.fontSize * 0.6)); // approx
+        const lineCount = Math.ceil(textContent.length / Math.max(charsPerLine, 1));
+        const lineHeight = (opts.fontSize / 72) * 1.3; // pt to inches with line spacing
+        bounds.textEstimatedH = lineCount * lineHeight;
+      }
+
       elements.push(bounds);
     }
   }

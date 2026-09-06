@@ -1,17 +1,17 @@
 # Pipeline Log: trading_case15_jongro_family
 
-**Generated**: 2026-09-06T12:59:54.083Z
-**Total Duration**: 0.4s
+**Generated**: 2026-09-06T13:11:49.003Z
+**Total Duration**: 0.6s
 
 ## Step-by-Step Timeline
 
 | # | Step | Duration | Status | Summary |
 |---|------|----------|--------|---------|
-| 1 | ① SSoT Lite 구축 | 0.01s | ✅ success | buildingId: stress-case-15 |
+| 1 | ① SSoT Lite 구축 | 0.00s | ✅ success | buildingId: stress-case-15 |
 | 2 | ② 바텀시트 보강 | 0.01s | ✅ success | posture: trading, keys: 5 |
-| 3 | ③ IM 생성 (LLM) | 0.17s | ✅ success | ok=true, sections=9, grade=B |
-| 4 | ④ 중간 결과물 저장 | 0.03s | ✅ success | sections: 9 |
-| 5 | ⑤ PPTX 렌더링 | 0.18s | ✅ success | slides: 14, size: 369KB |
+| 3 | ③ IM 생성 (LLM) | 0.22s | ✅ success | ok=true, sections=9, grade=B |
+| 4 | ④ 중간 결과물 저장 | 0.04s | ✅ success | sections: 9 |
+| 5 | ⑤ PPTX 렌더링 | 0.27s | ✅ success | slides: 14, size: 369KB |
 
 ## Detailed Metrics
 

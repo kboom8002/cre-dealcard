@@ -41,7 +41,7 @@ function getMockLegalDongCode(address: string): string {
 function parseJibunAddress(jibunAddr: string): { bun: string; ji: string; isMount: boolean } | null {
   if (!jibunAddr) return null;
   const isMount = /산\s*\d/.test(jibunAddr);
-  const match = jibunAddr.match(/(\d+)(?:-(\d+))?\s*$/);
+  const match = jibunAddr.match(/(\d+)(?:-(\d+))?/);
   if (!match) return null;
   return { bun: match[1], ji: match[2] || '0', isMount };
 }
@@ -137,7 +137,7 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
   const cleanAddr = rawAddress.trim();
   // W-1.3: 산지 주소 지원
   const isMount = /산\s*\d/.test(cleanAddr);
-  const jibunMatch = cleanAddr.match(/(?:동|로|길)\s+(?:산\s*)?(\d+)(?:-(\d+))?/);
+  const jibunMatch = cleanAddr.match(/(?:동\d*가?|로|길)\s+(?:산\s*)?(\d+)(?:-(\d+))?/);
 
   let bun: string = "";
   let ji: string = "0000";

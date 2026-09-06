@@ -75,11 +75,12 @@ export async function GET(
 
   // 3. Fetch broker profile
   let broker = null;
-  if (building?.owner_id) {
+  const ownerId = doc?.broker_id ?? doc?.owner_id ?? building?.owner_id;
+  if (ownerId) {
     const { data: bp } = await supabase
       .from('broker_profiles')
       .select('display_name, company_name, phone, specialty')
-      .eq('user_id', building.owner_id)
+      .eq('user_id', ownerId)
       .maybeSingle();
     broker = bp;
   }
@@ -114,7 +115,10 @@ export async function GET(
       ?? body.ssot_summary?.investment_posture
       ?? building?.investment_posture
       ?? 'income';
-    const grade = body.qualityGrade ?? body.grade ?? 'B';
+    const grade = body.dataGrade ?? body.dataCompleteness?.qualityGrade ?? body.qualityGrade ?? body.grade ?? 'B';
+    if (grade === 'D') {
+      return NextResponse.json({ error: 'Grade D documents cannot be exported to PPTX [G30]' }, { status: 422 });
+    }
     const incomeArchetype = body.incomeArchetype ?? undefined;
     const hasViolation = body.hasViolation ?? body.violationStatus === 'exists';
     const hasJointCollateral = body.hasJointCollateral ?? false;

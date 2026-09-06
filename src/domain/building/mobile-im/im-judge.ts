@@ -252,7 +252,14 @@ export async function judgeIMSection(
     );
 
     // LLM 응답 파싱
-    const parsed = JSON.parse(result.content) as Record<string, unknown>;
+    let cleanContent = result.content.trim();
+    // Strip markdown code fences
+    cleanContent = cleanContent.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/m, '').trim();
+    // Strip BOM
+    cleanContent = cleanContent.replace(/^\uFEFF/, '');
+    // Strip trailing commas before } or ]
+    cleanContent = cleanContent.replace(/,\s*([}\]])/g, '$1');
+    const parsed = JSON.parse(cleanContent) as Record<string, unknown>;
 
     const score: IMJudgeScore = {
       factual_accuracy: clampScore(parsed.factual_accuracy),

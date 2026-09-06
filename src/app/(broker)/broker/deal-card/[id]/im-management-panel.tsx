@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -49,6 +49,16 @@ export function ImManagementPanel({
     'idle' | 'analyzing' | 'writing' | 'validating' | 'complete' | 'error'
   >('idle');
   const [generationProgress, setGenerationProgress] = useState(0);
+
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const visibilityListenerRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      if (visibilityListenerRef.current) document.removeEventListener('visibilitychange', visibilityListenerRef.current);
+    };
+  }, []);
 
   const fetchDocs = async () => {
     try {
@@ -135,22 +145,27 @@ export function ImManagementPanel({
           if (status === 'completed' || status === 'complete') {
             setGenerationStatus('complete');
             setGenerationProgress(100);
-            clearInterval(pollInterval);
-            document.removeEventListener('visibilitychange', onVisibilityChange);
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            if (visibilityListenerRef.current) document.removeEventListener('visibilitychange', visibilityListenerRef.current);
+            pollIntervalRef.current = null;
+            visibilityListenerRef.current = null;
             toast.success(`${tier.toUpperCase()} IM 생성이 완료되었습니다.`);
             await fetchDocs();
             setTimeout(() => setGenerationStatus('idle'), 2500);
           }
           if (status === 'failed' || status === 'error') {
             setGenerationStatus('error');
-            clearInterval(pollInterval);
-            document.removeEventListener('visibilitychange', onVisibilityChange);
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            if (visibilityListenerRef.current) document.removeEventListener('visibilitychange', visibilityListenerRef.current);
+            pollIntervalRef.current = null;
+            visibilityListenerRef.current = null;
             const errorMsg = job.result?.error || job.error || 'IM 생성 중 오류가 발생했습니다.';
             toast.error(errorMsg);
             setTimeout(() => setGenerationStatus('idle'), 3000);
           }
         } catch { /* 네트워크 에러 — 다음 폴링에서 재시도 */ }
       };
+      visibilityListenerRef.current = onVisibilityChange;
       document.addEventListener('visibilitychange', onVisibilityChange);
 
       const MAX_POLL_MS = 300_000; // 5분 (after() 백그라운드 300s 대응)
@@ -158,8 +173,10 @@ export function ImManagementPanel({
       const pollInterval = setInterval(async () => {
         // 폴링 타임아웃 가드: 5분 초과 시 자동 종료
         if (Date.now() - pollStart > MAX_POLL_MS) {
-          clearInterval(pollInterval);
-          document.removeEventListener('visibilitychange', onVisibilityChange);
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          if (visibilityListenerRef.current) document.removeEventListener('visibilitychange', visibilityListenerRef.current);
+          pollIntervalRef.current = null;
+          visibilityListenerRef.current = null;
           setGenerationStatus('error');
           toast.error('IM 생성 시간이 초과되었습니다. 다시 시도해 주세요.');
           setTimeout(() => setGenerationStatus('idle'), 3000);
@@ -177,16 +194,20 @@ export function ImManagementPanel({
           if (status === 'completed' || status === 'complete') {
             setGenerationStatus('complete');
             setGenerationProgress(100);
-            clearInterval(pollInterval);
-            document.removeEventListener('visibilitychange', onVisibilityChange);
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            if (visibilityListenerRef.current) document.removeEventListener('visibilitychange', visibilityListenerRef.current);
+            pollIntervalRef.current = null;
+            visibilityListenerRef.current = null;
             toast.success(`${tier.toUpperCase()} IM 생성이 완료되었습니다.`);
             await fetchDocs();
             setTimeout(() => setGenerationStatus('idle'), 2500);
           }
           if (status === 'failed' || status === 'error') {
             setGenerationStatus('error');
-            clearInterval(pollInterval);
-            document.removeEventListener('visibilitychange', onVisibilityChange);
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            if (visibilityListenerRef.current) document.removeEventListener('visibilitychange', visibilityListenerRef.current);
+            pollIntervalRef.current = null;
+            visibilityListenerRef.current = null;
             const errorMsg = job.result?.error || job.error || 'IM 생성 중 오류가 발생했습니다.';
             toast.error(errorMsg);
             setTimeout(() => setGenerationStatus('idle'), 3000);
@@ -195,6 +216,7 @@ export function ImManagementPanel({
           // Keep polling
         }
       }, 2000);
+      pollIntervalRef.current = pollInterval;
     } catch {
       setGenerationStatus('error');
       toast.error('IM 생성 요청에 실패했습니다.');

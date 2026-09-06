@@ -1,17 +1,17 @@
 # Pipeline Log: owner_occupied_case06_nonhyeon_creative
 
-**Generated**: 2026-09-06T12:59:49.482Z
-**Total Duration**: 0.5s
+**Generated**: 2026-09-06T13:11:43.597Z
+**Total Duration**: 0.6s
 
 ## Step-by-Step Timeline
 
 | # | Step | Duration | Status | Summary |
 |---|------|----------|--------|---------|
-| 1 | ① SSoT Lite 구축 | 0.00s | ✅ success | buildingId: stress-case-06 |
-| 2 | ② 바텀시트 보강 | 0.00s | ✅ success | posture: owner_occupied, keys: 3 |
-| 3 | ③ IM 생성 (LLM) | 0.23s | ✅ success | ok=true, sections=10, grade=B |
-| 4 | ④ 중간 결과물 저장 | 0.07s | ✅ success | sections: 10 |
-| 5 | ⑤ PPTX 렌더링 | 0.20s | ✅ success | slides: 13, size: 376KB |
+| 1 | ① SSoT Lite 구축 | 0.02s | ✅ success | buildingId: stress-case-06 |
+| 2 | ② 바텀시트 보강 | 0.01s | ✅ success | posture: owner_occupied, keys: 3 |
+| 3 | ③ IM 생성 (LLM) | 0.25s | ✅ success | ok=true, sections=10, grade=B |
+| 4 | ④ 중간 결과물 저장 | 0.04s | ✅ success | sections: 10 |
+| 5 | ⑤ PPTX 렌더링 | 0.27s | ✅ success | slides: 13, size: 376KB |
 
 ## Detailed Metrics
 

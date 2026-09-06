@@ -50,7 +50,10 @@ export async function enrichBuildingDataCore(
   await Promise.all([
     (async () => {
       if (cachedData && !isSourceStale(staleSources, 'building_register', 'buildingRegister')) { buildingRegister = cachedData.building_register; return; }
-      try { buildingRegister = await fetchBuildingRegister(sigunguCd, bjdongCd, bun, ji); }
+      try { 
+        const platGbCd = pnu.charAt(10) === '2' ? '1' : '0';
+        buildingRegister = await fetchBuildingRegister(sigunguCd, bjdongCd, bun, ji, undefined, platGbCd); 
+      }
       catch (e: unknown) { errors.push({ api: "building-register", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     (async () => {
@@ -139,7 +142,8 @@ export async function enrichBuildingDataCore(
         const secJi = secPnu.substring(15, 19) || "0000";
         
         let secPlatArea = 0;
-        const secBr = await fetchBuildingRegister(secSigunguCd, secBjdongCd, secBun, secJi);
+        const secPlatGbCd = secPnu.charAt(10) === '2' ? '1' : '0';
+        const secBr = await fetchBuildingRegister(secSigunguCd, secBjdongCd, secBun, secJi, undefined, secPlatGbCd);
         if (secBr && secBr.platArea > 0) {
           secPlatArea = secBr.platArea;
         } else {
@@ -293,7 +297,7 @@ export async function enrichBuildingDataByPNU(
           {
             pnu: primaryPnu, legalDongCode: primaryPnu.substring(0, 10), sigunguCd: primaryPnu.substring(0, 5), bjdongCd: primaryPnu.substring(5, 10),
             bun: primaryPnu.substring(11, 15) || "0000", ji: primaryPnu.substring(15, 19) || "0000",
-            roadAddress: rawAddress, jibunAddress: rawAddress, lat: cached.latitude || 37.50085, lng: cached.longitude || 127.03698, buildingMgtNo: primaryPnu + "000000",
+            roadAddress: rawAddress, jibunAddress: rawAddress, lat: cached.latitude || null, lng: cached.longitude || null, buildingMgtNo: primaryPnu + "000000",
             allPnus: valid19Pnus
           },
           rawAddress,
@@ -316,8 +320,8 @@ export async function enrichBuildingDataByPNU(
   const ji = primaryPnu.substring(15, 19) || "0000";
 
   // 좌표 해석
-  let lat = 37.50085;
-  let lng = 127.03698;
+  let lat: number | null = null;
+  let lng: number | null = null;
   try {
     const geo = await geocodeAddress(rawAddress);
     if (geo) { lat = geo.lat; lng = geo.lng; }
@@ -331,20 +335,8 @@ export async function enrichBuildingDataByPNU(
   }
 
   function applyFallbackCoords() {
-    if (rawAddress.includes("삼성")) { lat = 37.5088; lng = 127.0631; }
-    else if (rawAddress.includes("서초")) { lat = 37.4876; lng = 127.0174; }
-    else if (rawAddress.includes("성수")) { lat = 37.5447; lng = 127.0562; }
-    else if (rawAddress.includes("마포") || rawAddress.includes("합정")) { lat = 37.5500; lng = 126.9099; }
-    else if (rawAddress.includes("천안")) { lat = 36.8151; lng = 127.1139; }
-    else if (rawAddress.includes("대전")) { lat = 36.3504; lng = 127.3845; }
-    else if (rawAddress.includes("대구")) { lat = 35.8714; lng = 128.6014; }
-    else if (rawAddress.includes("부산")) { lat = 35.1796; lng = 129.0756; }
-    else if (rawAddress.includes("광주")) { lat = 35.1595; lng = 126.8526; }
-    else if (rawAddress.includes("수원")) { lat = 37.2636; lng = 127.0286; }
-    else if (rawAddress.includes("인천")) { lat = 37.4563; lng = 126.7052; }
-    else if (rawAddress.includes("세종")) { lat = 36.4800; lng = 127.2551; }
-    else if (rawAddress.includes("울산")) { lat = 35.5384; lng = 129.3114; }
-    else if (rawAddress.includes("제주")) { lat = 33.4996; lng = 126.5312; }
+    console.warn(`[enrich-by-pnu] applyFallbackCoords called for "${rawAddress}" - arbitrary fallback coords removed`);
+    // Do NOT set arbitrary coordinates
   }
 
   const resolvedAddress: ResolvedAddress = {

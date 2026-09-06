@@ -80,11 +80,12 @@ export async function GET(
     .maybeSingle();
 
   let broker = null;
-  if (building?.owner_id) {
+  const ownerId = doc?.broker_id ?? doc?.owner_id ?? building?.owner_id;
+  if (ownerId) {
     const { data: bp } = await supabase
       .from('broker_profiles')
       .select('display_name, company_name, phone, specialty, logo_url')
-      .eq('user_id', building.owner_id)
+      .eq('user_id', ownerId)
       .maybeSingle();
     broker = bp;
   }
@@ -105,12 +106,18 @@ export async function GET(
       ?? body.ssot_summary?.investment_posture
       ?? building?.investment_posture
       ?? 'income';
+
+    const grade = body.dataGrade ?? body.dataCompleteness?.qualityGrade ?? body.qualityGrade ?? body.grade ?? 'B';
+    if (grade === 'D') {
+      return NextResponse.json({ error: 'Grade D documents cannot be exported to PPTX [G30]' }, { status: 422 });
+    }
+
     const result = await renderer.render({
       buildingId,
       // tier 폐지 — 골디락스 단일 시퀀스
       preset,
       posture,
-      grade: body.qualityGrade ?? body.grade ?? 'B',
+      grade,
       incomeArchetype: body.incomeArchetype,
       hasViolation: body.hasViolation ?? body.violationStatus === 'exists',
       hasJointCollateral: body.hasJointCollateral ?? false,

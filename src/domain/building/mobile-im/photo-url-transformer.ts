@@ -75,6 +75,7 @@ export const GALLERY_GROUP_TITLES: Record<GalleryGroup, { kicker: string; title:
 
 /** URL/파일명 패턴으로 사진 타입 자동 추론 */
 const TYPE_PATTERNS: Array<[RegExp, PhotoCategory, string]> = [
+  [/map|staticmap|kakaomap|vworld|cadastral|지적도|위치도|안내도|wms/i, 'map', '위치/지적 지도'],
   [/외관|exterior|facade|front/i,      'exterior',      '건물 외관'],
   [/항공|aerial|drone|bird/i,          'aerial',        '항공/드론뷰'],
   [/로비|lobby|entrance.*hall/i,       'lobby',         '1층 로비'],

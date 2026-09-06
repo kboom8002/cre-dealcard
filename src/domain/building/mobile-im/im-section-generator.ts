@@ -103,7 +103,7 @@ export async function generateSingleSection(
   supplemental: MobileIMSupplementalInput,
   externalData: ExternalDataSnapshot | null,
   buildingSsotLite: Record<string, unknown> | import('../building-ssot-lite.types').BuildingSSoTLite,
-  input: { dcfEligible?: boolean; onProgress?: (section: MobileIMSection) => void; forceFastTemplate?: boolean },
+  input: { dcfEligible?: boolean; onProgress?: (section: MobileIMSection) => void; forceFastTemplate?: boolean; timeoutMs?: number },
 ): Promise<SectionGenerationResult> {
   let markdown = "";
   let confidence: "confirmed" | "inferred" | "needs_check" = "inferred";
@@ -273,7 +273,7 @@ export async function generateSingleSection(
       {
         cacheKey: `mobile-im-${sectionType}-${String(ctx.buildingId ?? "")}-${String(ctx.assetIdentity.area_signal ?? "").slice(0, 20)}-${String(ctx.assetIdentity.asset_type ?? "").slice(0, 20)}`,
         // FAST_MODE: 30초, 일반: 90초 (gpt-5.6-terra 등 대형 모델 대응)
-        timeoutMs: IM_FAST_MODE ? 30000 : 90000,
+        timeoutMs: input.timeoutMs ?? (IM_FAST_MODE ? 30000 : 90000),
       },
     );
 

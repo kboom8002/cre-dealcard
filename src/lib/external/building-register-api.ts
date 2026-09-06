@@ -34,7 +34,8 @@ export async function fetchBuildingRegister(
   bjdongCd: string,
   bun: string,
   ji: string,
-  hintBuildingUse?: string
+  hintBuildingUse?: string,
+  platGbCd?: string
 ): Promise<BuildingRegisterData | null> {
   const apiKey = process.env.DATA_GO_KR_API_KEY;
 
@@ -42,7 +43,7 @@ export async function fetchBuildingRegister(
     // 두 엔드포인트 시도: HubService(신규) → v2(기존) fallback
     // numOfRows=30: 한 필지에 여러 동이 있을 수 있으므로 충분히 가져온다
     const endpoints = [
-      `https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=0&bun=${bun}&ji=${ji}&numOfRows=30&pageNo=1&_type=json`,
+      `https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&platGbCd=${platGbCd || '0'}&bun=${bun}&ji=${ji}&numOfRows=30&pageNo=1&_type=json`,
       `https://apis.data.go.kr/1613000/BldRgstService_v2/getBrTitleInfo?ServiceKey=${encodeURIComponent(apiKey)}&sigunguCd=${sigunguCd}&bjdongCd=${bjdongCd}&bun=${bun}&ji=${ji}&numOfRows=30&pageNo=1&_type=json`,
     ];
 
