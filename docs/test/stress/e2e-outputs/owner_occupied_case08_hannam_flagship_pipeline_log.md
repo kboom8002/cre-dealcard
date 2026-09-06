@@ -1,17 +1,17 @@
 # Pipeline Log: owner_occupied_case08_hannam_flagship
 
-**Generated**: 2026-09-06T13:11:44.838Z
+**Generated**: 2026-09-06T13:37:03.168Z
 **Total Duration**: 0.6s
 
 ## Step-by-Step Timeline
 
 | # | Step | Duration | Status | Summary |
 |---|------|----------|--------|---------|
-| 1 | ① SSoT Lite 구축 | 0.01s | ✅ success | buildingId: stress-case-08 |
+| 1 | ① SSoT Lite 구축 | 0.02s | ✅ success | buildingId: stress-case-08 |
 | 2 | ② 바텀시트 보강 | 0.01s | ✅ success | posture: owner_occupied, keys: 3 |
-| 3 | ③ IM 생성 (LLM) | 0.30s | ✅ success | ok=true, sections=10, grade=B |
-| 4 | ④ 중간 결과물 저장 | 0.04s | ✅ success | sections: 10 |
-| 5 | ⑤ PPTX 렌더링 | 0.21s | ✅ success | slides: 13, size: 376KB |
+| 3 | ③ IM 생성 (LLM) | 0.26s | ✅ success | ok=true, sections=10, grade=B |
+| 4 | ④ 중간 결과물 저장 | 0.05s | ✅ success | sections: 10 |
+| 5 | ⑤ PPTX 렌더링 | 0.25s | ✅ success | slides: 13, size: 376KB |
 
 ## Detailed Metrics
 

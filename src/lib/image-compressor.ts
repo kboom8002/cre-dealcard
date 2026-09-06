@@ -35,78 +35,95 @@ export async function compressImage(
     return file;
   }
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        try {
-          let { width, height } = img;
+        const attemptCompression = (targetMaxWidth: number, targetMaxHeight: number, isRetry: boolean) => {
+          try {
+            let { width, height } = img;
 
-          // If image is already smaller than max bounds and file is relatively small (< 800KB), keep it
-          if (width <= maxWidth && height <= maxHeight && file.size < 800 * 1024) {
-            resolve(file);
-            return;
-          }
+            // If image is already smaller than max bounds and file is relatively small (< 800KB), keep it
+            if (!isRetry && width <= targetMaxWidth && height <= targetMaxHeight && file.size < 800 * 1024) {
+              resolve(file);
+              return;
+            }
 
-          // Calculate new dimensions preserving aspect ratio
-          if (width > maxWidth || height > maxHeight) {
-            if (width > height) {
-              if (width > maxWidth) {
-                height = Math.round((height * maxWidth) / width);
-                width = maxWidth;
-              }
-            } else {
-              if (height > maxHeight) {
-                width = Math.round((width * maxHeight) / height);
-                height = maxHeight;
+            // Calculate new dimensions preserving aspect ratio
+            if (width > targetMaxWidth || height > targetMaxHeight) {
+              if (width > height) {
+                if (width > targetMaxWidth) {
+                  height = Math.round((height * targetMaxWidth) / width);
+                  width = targetMaxWidth;
+                }
+              } else {
+                if (height > targetMaxHeight) {
+                  width = Math.round((width * targetMaxHeight) / height);
+                  height = targetMaxHeight;
+                }
               }
             }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              throw new Error('Failed to get 2d context');
+            }
+
+            // Enable high quality rendering
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, width, height);
+
+            canvas.toBlob(
+              (blob) => {
+                if (!blob) {
+                  if (!isRetry && file.size > 4 * 1024 * 1024) {
+                    console.warn('[ImageCompressor] Canvas toBlob error, retrying with smaller dimensions');
+                    attemptCompression(1920, 1080, true);
+                  } else if (file.size > 4 * 1024 * 1024) {
+                    reject(new Error('Image too large to compress'));
+                  } else {
+                    resolve(file);
+                  }
+                  return;
+                }
+
+                // Create a new File from blob with .jpg extension
+                const newFileName = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+                const compressedFile = new File([blob], newFileName, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now(),
+                });
+
+                console.log(
+                  `[ImageCompressor] Compressed "${file.name}": ${(file.size / 1024).toFixed(0)}KB → ${(compressedFile.size / 1024).toFixed(0)}KB (${width}x${height})`
+                );
+
+                resolve(compressedFile);
+              },
+              'image/jpeg',
+              quality
+            );
+          } catch (err) {
+            console.warn('[ImageCompressor] Canvas compression error:', err);
+            if (!isRetry && file.size > 4 * 1024 * 1024) {
+              console.warn('[ImageCompressor] Retrying with smaller dimensions');
+              attemptCompression(1920, 1080, true);
+            } else if (file.size > 4 * 1024 * 1024) {
+              reject(new Error('Image too large to compress'));
+            } else {
+              resolve(file);
+            }
           }
+        };
 
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            resolve(file);
-            return;
-          }
-
-          // Enable high quality rendering
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(img, 0, 0, width, height);
-
-          canvas.toBlob(
-            (blob) => {
-              if (!blob) {
-                resolve(file);
-                return;
-              }
-
-              // Create a new File from blob with .jpg extension
-              const newFileName = file.name.replace(/\.[^.]+$/, '') + '.jpg';
-              const compressedFile = new File([blob], newFileName, {
-                type: 'image/jpeg',
-                lastModified: Date.now(),
-              });
-
-              console.log(
-                `[ImageCompressor] Compressed "${file.name}": ${(file.size / 1024).toFixed(0)}KB → ${(compressedFile.size / 1024).toFixed(0)}KB (${width}x${height})`
-              );
-
-              resolve(compressedFile);
-            },
-            'image/jpeg',
-            quality
-          );
-        } catch (err) {
-          console.warn('[ImageCompressor] Canvas compression error, using original:', err);
-          resolve(file);
-        }
+        attemptCompression(maxWidth, maxHeight, false);
       };
 
       img.onerror = () => {
@@ -161,6 +178,12 @@ export async function uploadPhotosSequentially(
     try {
       // 1. Client-side compression (resizes to max 1920px, JPEG 0.82)
       const compressedFile = await compressImage(originalFile);
+
+      const MAX_UPLOAD_SIZE = 4 * 1024 * 1024; // 4MB Vercel limit
+      if (compressedFile.size > MAX_UPLOAD_SIZE) {
+        console.error(`[ImageCompressor] File too large after compression: ${(compressedFile.size / 1024 / 1024).toFixed(1)}MB`);
+        throw new Error('이미지 용량이 너무 큽니다. 4MB 이하의 이미지를 사용해주세요.');
+      }
 
       // 2. Upload individual file
       const formData = new FormData();

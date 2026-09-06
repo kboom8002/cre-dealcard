@@ -256,13 +256,23 @@ export function bindSectionData(
 
     // income_analysis → rentGap, upside, leasing, remodel, comps 등 파생 데이터 제공
     if (sectionType === 'income_analysis') {
-      const a05Props = transformForArchetype(cleanMarkdown, tables, 'A05');
-      const a04Props = transformForArchetype(cleanMarkdown, tables, 'A04');
+      const subsections = cleanMarkdown.split(/(?=^#{2,3}\s)/m).filter(Boolean);
+      
+      const mdRentGap = subsections[0] || cleanMarkdown;
+      const mdUpside = subsections[1] || subsections[0] || cleanMarkdown;
+      const mdLeasing = subsections[2] || subsections[0] || cleanMarkdown;
+      const mdRemodel = subsections[3] || subsections[0] || cleanMarkdown;
+
+      const pRentGap = transformForArchetype(mdRentGap, tables, 'A05');
+      const pUpside = transformForArchetype(mdUpside, tables, 'A05');
+      const pLeasing = transformForArchetype(mdLeasing, tables, 'A05');
+      const pRemodel = transformForArchetype(mdRemodel, tables, 'A05');
       const a03Props = transformForArchetype(cleanMarkdown, tables, 'A03');
-      if (!result['rentGap'] || (result['rentGap'] as any)._derived) result['rentGap'] = { title: '임대료 갭', content: cleanMarkdown, tables, metrics, _derived: true, ...a05Props };
-      if (!result['upside'] || (result['upside'] as any)._derived) result['upside'] = { title: '인상 경로', content: cleanMarkdown, tables, metrics, _derived: true, ...a05Props };
-      if (!result['leasing'] || (result['leasing'] as any)._derived) result['leasing'] = { title: '임차 유치', content: cleanMarkdown, tables, metrics, _derived: true, ...a05Props };
-      if (!result['remodel'] || (result['remodel'] as any)._derived) result['remodel'] = { title: '리모델링 계획', content: cleanMarkdown, tables, metrics, _derived: true, ...a05Props };
+
+      if (!result['rentGap'] || (result['rentGap'] as any)._derived) result['rentGap'] = { title: '임대료 갭', content: mdRentGap, tables, metrics, _derived: true, ...pRentGap };
+      if (!result['upside'] || (result['upside'] as any)._derived) result['upside'] = { title: '인상 경로', content: mdUpside, tables, metrics, _derived: true, ...pUpside };
+      if (!result['leasing'] || (result['leasing'] as any)._derived) result['leasing'] = { title: '임차 유치', content: mdLeasing, tables, metrics, _derived: true, ...pLeasing };
+      if (!result['remodel'] || (result['remodel'] as any)._derived) result['remodel'] = { title: '리모델링 계획', content: mdRemodel, tables, metrics, _derived: true, ...pRemodel };
       if (!result['comps'] || (result['comps'] as any)._derived) result['comps'] = { title: '비교사례', content: cleanMarkdown, tables, metrics, _derived: true, ...a03Props };
       if (!result['farUpside'] || (result['farUpside'] as any)._derived) {
         result['farUpside'] = { title: '용적률 여유', content: cleanMarkdown, tables, metrics, _derived: true, ...buildFarUpsideProps(cleanMarkdown, tables, doc.body, building) };
@@ -975,15 +985,27 @@ function buildA04Props(tables: ParsedTable[], lines: string[]): Record<string, a
   }
   
   // 4. 서사 리드문 및 요약 불릿을 우측 하단 콜아웃으로 추출
+  const isUsedInLeftRows = (text: string) => {
+    return leftRows.some(([k, v]) => {
+      if (!k) return false;
+      const cleanK = k.replace(/\s+/g, '');
+      const cleanV = v.replace(/\s+/g, '');
+      const cleanText = text.replace(/\s+/g, '');
+      return cleanText.includes(cleanK) && (cleanV.length === 0 || cleanText.includes(cleanV));
+    });
+  };
+
   const bulletSentences = lines
     .filter(l => (l.startsWith('-') || l.startsWith('•') || l.startsWith('*')) && l.length > 10 && !l.includes('|'))
-    .map(l => stripMarkdown(l.replace(/^[-*•·]\s*/, '')));
+    .map(l => stripMarkdown(l.replace(/^[-*•·]\s*/, '')))
+    .filter(t => !isUsedInLeftRows(t));
 
   const narrativeLine = lines.find(l => {
     const t = l.trim();
     if (!t || t.length < 10) return false;
     if (t.startsWith('#') || t.startsWith('|') || t.startsWith('-') || t.startsWith('•') || t.startsWith('*') || t.startsWith('>')) return false;
     if (/^\d+[.、)]/.test(t)) return false;
+    if (isUsedInLeftRows(t)) return false;
     return true;
   });
 

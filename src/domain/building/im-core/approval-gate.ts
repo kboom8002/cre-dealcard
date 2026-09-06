@@ -98,6 +98,21 @@ export function runApprovalGate(
         });
       }
     }
+
+    // Numeric bounds validation — price and area must be positive
+    const numericSubjects = ['asking_price', 'total_area_sqm', 'land_area_sqm'];
+    for (const subj of numericSubjects) {
+      const claimsForSubj = allClaims.filter(c => c.subject === subj);
+      for (const claim of claimsForSubj) {
+        if (typeof claim.value === 'number' && claim.value <= 0) {
+          blockers.push({
+            id: `approval.invalid_value.${subj}`,
+            description: `'${subj}' 값이 0 이하입니다 (${claim.value})`,
+            severity: 'block',
+          });
+        }
+      }
+    }
   }
 
   // 3. ReleaseTier 검사

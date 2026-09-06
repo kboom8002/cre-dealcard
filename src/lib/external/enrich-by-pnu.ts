@@ -307,7 +307,15 @@ export async function enrichBuildingDataByPNU(
         );
       } else {
         console.info(`[external-data] Cache hit (${Math.round(cacheAge / 86400000)}d old)`);
-        return reconstructFromCache(cached);
+        const result = reconstructFromCache(cached);
+        if (result.cadastralMapImage === null && result.resolvedAddress?.lat != null && result.resolvedAddress?.lng != null) {
+          try {
+            result.cadastralMapImage = await fetchCadastralMapImage(result.resolvedAddress.lat, result.resolvedAddress.lng, 800, 600, 150);
+          } catch (e) {
+            console.warn("[external-data] Failed to re-fetch cadastral map on cache hit:", e);
+          }
+        }
+        return result;
       }
     }
   } catch { /* 캐시 조회 실패 시 정상 진행 */ }
@@ -384,7 +392,7 @@ export function reconstructFromCache(cached: any): ExternalDataEnrichmentResult 
     mapImageUrl,
     registryData: cached.registry_data || null,
     commercialDistrict: cached.commercial_district || null,
-    cadastralMapImage: null, // WMS 이미지는 캐시에 저장하지 않음 — 재호출 필요
+    cadastralMapImage: null, // WMS 이미지는 캐시에 저장하지 않음 — 재호출 필요. WMS image should be re-fetched by the caller if valid coordinates exist.
     enrichedAt: cached.updated_at,
     errors: cached.errors ? (typeof cached.errors === 'string' ? JSON.parse(cached.errors) : cached.errors) : [],
   };

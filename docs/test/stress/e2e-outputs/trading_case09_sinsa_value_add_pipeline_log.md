@@ -1,17 +1,17 @@
 # Pipeline Log: trading_case09_sinsa_value_add
 
-**Generated**: 2026-09-06T13:11:45.375Z
-**Total Duration**: 0.5s
+**Generated**: 2026-09-06T13:37:03.778Z
+**Total Duration**: 0.6s
 
 ## Step-by-Step Timeline
 
 | # | Step | Duration | Status | Summary |
 |---|------|----------|--------|---------|
-| 1 | ① SSoT Lite 구축 | 0.01s | ✅ success | buildingId: stress-case-09 |
+| 1 | ① SSoT Lite 구축 | 0.00s | ✅ success | buildingId: stress-case-09 |
 | 2 | ② 바텀시트 보강 | 0.01s | ✅ success | posture: trading, keys: 6 |
-| 3 | ③ IM 생성 (LLM) | 0.21s | ✅ success | ok=true, sections=9, grade=B |
-| 4 | ④ 중간 결과물 저장 | 0.06s | ✅ success | sections: 9 |
-| 5 | ⑤ PPTX 렌더링 | 0.23s | ✅ success | slides: 14, size: 369KB |
+| 3 | ③ IM 생성 (LLM) | 0.24s | ✅ success | ok=true, sections=9, grade=B |
+| 4 | ④ 중간 결과물 저장 | 0.03s | ✅ success | sections: 9 |
+| 5 | ⑤ PPTX 렌더링 | 0.32s | ✅ success | slides: 14, size: 369KB |
 
 ## Detailed Metrics
 

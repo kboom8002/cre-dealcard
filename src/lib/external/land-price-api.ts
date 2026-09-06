@@ -61,42 +61,7 @@ export async function fetchLandPrice(pnu: string): Promise<LandPriceData | null>
   // ═══════════════════════════════════════════════════════════
   // 2차: data.go.kr 개별공시지가 (레거시 폴백)
   // ═══════════════════════════════════════════════════════════
-  const apiKey = process.env.DATA_GO_KR_API_KEY;
-
-  if (apiKey && apiKey !== "") {
-    const currentYear = new Date().getFullYear();
-    const yearsToTry = [currentYear.toString(), (currentYear - 1).toString()];
-
-    for (const stdrYear of yearsToTry) {
-      try {
-        const url = `https://apis.data.go.kr/1611000/IndvdLandPriceService/getIndvdLandPriceAttr?ServiceKey=${encodeURIComponent(apiKey)}&pnu=${pnu}&stdrYear=${stdrYear}&numOfRows=1&pageNo=1&_type=json`;
-        const res = await fetchWithRetry(url, { timeoutMs: 15_000, maxRetries: 2 });
-        if (!res.ok) {
-          const body = await res.text().catch(() => '');
-          if (body.includes('NO_OPENAPI_SERVICE_ERROR') || body.includes('returnReasonCode') && body.includes('12')) {
-            console.warn('[land-price-api] ⚠ data.go.kr 개별공시지가 서비스 폐기됨. V-World API 키(VWORLD_API_KEY) 설정을 권장합니다.');
-          }
-          throw new Error(`API error ${res.status}: ${res.statusText} | ${body.slice(0, 200)}`);
-        }
-        const data = await res.json();
-
-        const item = data?.response?.body?.items?.item;
-        const targetItem = Array.isArray(item) ? item[0] : item;
-
-        if (targetItem && parseFloat(targetItem.pblntfPclnd || "0") > 0) {
-          return {
-            pricePerSqm: parseFloat(targetItem.pblntfPclnd || "0"),
-            baseYear: String(targetItem.crtrYr || stdrYear),
-            landCategory: String(targetItem.ldcgCdNm || "대"),
-            _source: 'data_go_kr',
-          };
-        }
-      } catch (err) {
-        console.warn(`[land-price-api] data.go.kr 폴백 시도 실패 (${stdrYear}):`, err);
-      }
-    }
-  }
-
+  console.warn('[land-price-api] ⚠ data.go.kr 개별공시지가 서비스 폐기됨. V-World API 키(VWORLD_API_KEY) 설정을 권장합니다. (폴백 생략)');
   return null;
 }
 

@@ -317,7 +317,10 @@ ${marketIndicators.financialsMarkdown}`;
     prompt += `\n\n## [이전 섹션 맥락 (수치 일관성 필수 유지)]
 - 주요 사실: ${sectionContext.keyFacts.join(", ")}`;
     if (sectionContext.numericalAnchors) {
-      prompt += `\n- 고정 수치: ${JSON.stringify(sectionContext.numericalAnchors)}`;
+      const anchorsObj = 'toJSON' in sectionContext.numericalAnchors && typeof sectionContext.numericalAnchors.toJSON === 'function' 
+        ? sectionContext.numericalAnchors.toJSON() 
+        : sectionContext.numericalAnchors;
+      prompt += `\n- 고정 수치: ${JSON.stringify(anchorsObj)}`;
     }
   }
 

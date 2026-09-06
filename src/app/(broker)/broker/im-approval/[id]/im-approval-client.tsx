@@ -458,11 +458,20 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
             </div>
             <div className="p-3 rounded-lg bg-neutral-950">
               <span className="text-neutral-500">Data Quality</span>
-              <p className={`text-lg font-bold ${
-                qualityBadge.tier === 'verified' ? 'text-emerald-400' :
-                qualityBadge.tier === 'partial' ? 'text-amber-400' :
-                qualityBadge.tier === 'reference' ? 'text-orange-400' : 'text-rose-400'
-              }`}>{qualityBadge.emoji} {qualityBadge.label}</p>
+              <div className="flex items-center gap-2">
+                <p className={`text-lg font-bold ${
+                  qualityBadge.tier === 'verified' ? 'text-emerald-400' :
+                  qualityBadge.tier === 'partial' ? 'text-amber-400' :
+                  qualityBadge.tier === 'reference' ? 'text-orange-400' : 'text-rose-400'
+                }`}>{qualityBadge.emoji} {qualityBadge.label}</p>
+                {(content as any)?.releaseTier && (content as any).releaseTier !== 'analysis_im' && (content as any).releaseTier !== 'decision_im' && (
+                  <div className="text-[10px] px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 font-bold whitespace-nowrap">
+                    {(content as any).releaseTier === 'internal_only' ? '⚠️ 내부 검토용' : 
+                     (content as any).releaseTier === 'fact_om' ? '📋 사실 기반 OM' :
+                     (content as any).releaseTier === 'expert_required' ? '🔍 전문가 검토 필요' : ''}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           {/* 등급 판정 체크리스트 */}

@@ -98,41 +98,6 @@ export async function fetchLandUsePlan(pnu: string): Promise<LandUsePlanData | n
   // ═══════════════════════════════════════════════════════════
   // 2차: data.go.kr LURIS (레거시 폴백)
   // ═══════════════════════════════════════════════════════════
-  const apiKey = process.env.DATA_GO_KR_API_KEY;
-
-  if (apiKey && apiKey !== "") {
-    try {
-      const url = `https://apis.data.go.kr/1611000/LandUseInfoService/getLandUseInfoAttr?ServiceKey=${encodeURIComponent(apiKey)}&pnu=${pnu}&cnflcAt=1&numOfRows=10&pageNo=1&_type=json`;
-      const res = await fetchWithRetry(url, { timeoutMs: 15_000, maxRetries: 2 });
-      if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        if (body.includes('NO_OPENAPI_SERVICE_ERROR') || body.includes('returnReasonCode') && body.includes('12')) {
-          console.warn('[land-use-api] ⚠ data.go.kr 토지이용규제 서비스 폐기됨. V-World API 키(VWORLD_API_KEY) 설정을 권장합니다.');
-        }
-        throw new Error(`API error ${res.status}: ${res.statusText} | ${body.slice(0, 200)}`);
-      }
-      const data = await res.json();
-
-      const item = data?.response?.body?.items?.item;
-      const targetItem = Array.isArray(item) ? item[0] : item;
-
-      if (targetItem) {
-        const zoningDistrict = String(targetItem.prposAreaDstrcCodeNm || "일반상업지역");
-        const zoningOverlap = targetItem.etcCodeNm ? [String(targetItem.etcCodeNm)] : [];
-
-        const apiCoverage = parseFloat(targetItem.ldCdBldgCovRt || targetItem.cnflcAt || "0");
-        const apiFloorRatio = parseFloat(targetItem.ldCdFlrArRt || targetItem.flrArRt || "0");
-
-        const { coverage: fallbackCov, far: fallbackFar } = inferZoningLimits(zoningDistrict);
-        const buildingCoverageMax = apiCoverage > 0 ? apiCoverage : fallbackCov;
-        const floorAreaRatioMax = apiFloorRatio > 0 ? apiFloorRatio : fallbackFar;
-
-        return { zoningDistrict, zoningOverlap, buildingCoverageMax, floorAreaRatioMax, _source: 'data_go_kr' };
-      }
-    } catch (err) {
-      console.warn("[land-use-api] data.go.kr 폴백도 실패:", err);
-    }
-  }
-
+  console.warn('[land-use-api] ⚠ data.go.kr 토지이용규제 서비스 폐기됨. V-World API 키(VWORLD_API_KEY) 설정을 권장합니다. (폴백 생략)');
   return null;
 }

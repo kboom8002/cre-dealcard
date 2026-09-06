@@ -12,6 +12,7 @@ import type { RegistryData } from "./registry-api";
 import type { CommercialDistrictAnalysis } from "./semas-commercial-api";
 import { createServiceClient } from "@/lib/supabase/service";
 import { reconstructFromCache, enrichBuildingDataCore } from "./enrich-by-pnu";
+import { fetchCadastralMapImage } from "./vworld-wms-cadastral";
 
 const CACHE_TTL_DAYS = 30; // default fallback
 export const CACHE_TTL_BY_SOURCE: Record<string, number> = {
@@ -24,6 +25,7 @@ export const CACHE_TTL_BY_SOURCE: Record<string, number> = {
   location_poi: 90,        // POI — quarterly
   registry: 7,             // 등기부등본 — frequent changes (ownership transfers)
   commercial_district: 60, // 상권분석 — bimonthly
+  cadastral_map: 30,       // WMS 지적도 이미지
 };
 
 /** Returns the cache TTL in days for a given data source */
@@ -79,7 +81,15 @@ export async function enrichBuildingData(
 
       if (staleSourcesInfo.length === 0) {
         console.info(`[external-data] Cache hit (${Math.round(cacheAge / 86400000)}d old)`);
-        return reconstructFromCache(data);
+        const result = reconstructFromCache(data);
+        if (result.cadastralMapImage === null && result.resolvedAddress?.lat != null && result.resolvedAddress?.lng != null) {
+          try {
+            result.cadastralMapImage = await fetchCadastralMapImage(result.resolvedAddress.lat, result.resolvedAddress.lng, 800, 600, 150);
+          } catch (e) {
+            console.warn("[external-data] Failed to re-fetch cadastral map on cache hit:", e);
+          }
+        }
+        return result;
       }
       staleSources = staleSourcesInfo.map(s => s.source);
       console.info(`[external-data] ${staleSources.length} sources stale (${staleSources.join(', ')}), refreshing`);

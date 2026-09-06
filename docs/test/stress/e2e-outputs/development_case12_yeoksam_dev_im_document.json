@@ -23,7 +23,7 @@
           "source": "public_data",
           "sourceDetail": "국토교통부 건축물대장 API",
           "confidence": "confirmed",
-          "lastVerifiedAt": "2026-09-06T13:11:46.793Z"
+          "lastVerifiedAt": "2026-09-06T13:37:05.069Z"
         },
         {
           "fieldKey": "plat_area",
@@ -31,7 +31,7 @@
           "source": "public_data",
           "sourceDetail": "국토교통부 건축물대장 API",
           "confidence": "confirmed",
-          "lastVerifiedAt": "2026-09-06T13:11:46.793Z"
+          "lastVerifiedAt": "2026-09-06T13:37:05.069Z"
         }
       ],
       "judge_score": 5,
@@ -55,6 +55,7 @@
       "confidence": "inferred",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [],
+      "judge_score": 5,
       "min_tier": "public"
     },
     {
@@ -65,7 +66,6 @@
       "confidence": "inferred",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [],
-      "judge_score": 5,
       "min_tier": "public"
     },
     {
@@ -92,7 +92,7 @@
           "source": "public_data",
           "sourceDetail": "토지이용규제정보서비스(LURIS) API",
           "confidence": "confirmed",
-          "lastVerifiedAt": "2026-09-06T13:11:46.793Z"
+          "lastVerifiedAt": "2026-09-06T13:37:05.069Z"
         }
       ],
       "min_tier": "public"
@@ -115,7 +115,6 @@
       "confidence": "inferred",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [],
-      "judge_score": 5,
       "min_tier": "public"
     },
     {
@@ -136,7 +135,6 @@
       "confidence": "inferred",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [],
-      "judge_score": 5,
       "min_tier": "public"
     },
     {
@@ -145,7 +143,7 @@
     }
   ],
   "boundary_note": "본 자료는 제공자료와 공개정보를 바탕으로 한 예비 검토 자료이며, 투자 권유, 감정평가, 법률·세무·대출 가능성 판단을 목적으로 하지 않습니다. 실제 거래 여부는 별도 실사와 전문가 검토를 통해 판단해야 합니다.",
-  "generated_at": "2026-09-06T13:11:47.038Z",
+  "generated_at": "2026-09-06T13:37:05.282Z",
   "ai_used": true,
   "readiness_score": 55,
   "ssot_summary": {
@@ -195,7 +193,7 @@
     "buildingRegisterSource": "loaded",
     "qualityGrade": "B",
     "pptxExportAllowed": true,
-    "generatedAt": "2026-09-06T13:11:47.038Z"
+    "generatedAt": "2026-09-06T13:37:05.282Z"
   },
   "heroCard": {
     "posture": "development",
@@ -239,7 +237,7 @@
   },
   "claims": [
     {
-      "id": "37e2ab03-916c-4b7c-ad99-640d8014b534",
+      "id": "693088fd-3967-4b8c-a204-95b5254493fc",
       "subject": "asking_price",
       "value": 21000000000,
       "unit": "원",
@@ -256,7 +254,7 @@
       "expertRequired": false
     },
     {
-      "id": "85789b7f-994c-4c67-943d-438adff804ef",
+      "id": "f229567b-2c55-431a-8ac2-45886290b2e9",
       "subject": "monthly_rent_total",
       "value": 0,
       "unit": "원/월",
@@ -273,7 +271,7 @@
       "expertRequired": false
     },
     {
-      "id": "a2811f2a-1f39-4c64-96e0-22f8e3fa8a3f",
+      "id": "c9429662-e96d-47f4-8a49-0187c970b2fb",
       "subject": "total_area_sqm",
       "value": 5000,
       "unit": "㎡",
@@ -290,7 +288,7 @@
       "expertRequired": false
     },
     {
-      "id": "417b6c3e-5fd4-4755-9dd2-8f9e29a1ebc0",
+      "id": "f15c49c6-3b78-44d8-b731-e05b45359575",
       "subject": "land_area_sqm",
       "value": 1000,
       "unit": "㎡",

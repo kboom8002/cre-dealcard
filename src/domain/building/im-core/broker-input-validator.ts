@@ -71,23 +71,38 @@ export function validateBrokerInput(
   const gfaAreaPyeong = input.grossFloorAreaM2 * 0.3025;
 
   // 1. 토지 평당가 검증
+  if (input.askingPriceKrw <= 0) {
+    discrepancies.push({
+      code: 'LAND_PRICE_PYEONG_DISCREPANCY',
+      severity: 'critical',
+      field: 'askingPriceKrw',
+      statedValue: input.askingPriceKrw,
+      calculatedValue: 0,
+      message: '매매가는 0보다 커야 합니다',
+      recommendation: '정확한 매매가를 입력해주세요.',
+    });
+    return { isValid: false, hasCritical: true, discrepancies };
+  }
+
   if (input.statedLandPricePerPyeongKrw && landAreaPyeong > 0) {
     const calcLandPricePyeong = Math.round(input.askingPriceKrw / landAreaPyeong);
-    const diff = Math.abs(input.statedLandPricePerPyeongKrw - calcLandPricePyeong);
-    const diffPct = (diff / calcLandPricePyeong) * 100;
+    if (calcLandPricePyeong > 0) {
+      const diff = Math.abs(input.statedLandPricePerPyeongKrw - calcLandPricePyeong);
+      const diffPct = (diff / calcLandPricePyeong) * 100;
 
-    if (diffPct > 5.0) {
-      const isCritical = diffPct > 20.0;
-      discrepancies.push({
-        code: 'LAND_PRICE_PYEONG_DISCREPANCY',
-        severity: isCritical ? 'critical' : 'warning',
-        field: 'landPricePerPyeong',
-        statedValue: input.statedLandPricePerPyeongKrw,
-        calculatedValue: calcLandPricePyeong,
-        discrepancyPct: Math.round(diffPct * 10) / 10,
-        message: `중개인 기재 토지평당가(${(input.statedLandPricePerPyeongKrw / 100000000).toFixed(2)}억/평)와 실제 계산치(${(calcLandPricePyeong / 100000000).toFixed(2)}억/평) 간 ${diffPct.toFixed(1)}% 불일치 감지`,
-        recommendation: `대지면적(${(landAreaPyeong).toFixed(1)}평) 기준 실제 토지 평당가는 ${(calcLandPricePyeong / 100000000).toFixed(2)}억 원/평입니다. (연면적 평당가와의 혼동 여부 점검 권장)`,
-      });
+      if (diffPct > 5.0) {
+        const isCritical = diffPct > 20.0;
+        discrepancies.push({
+          code: 'LAND_PRICE_PYEONG_DISCREPANCY',
+          severity: isCritical ? 'critical' : 'warning',
+          field: 'landPricePerPyeong',
+          statedValue: input.statedLandPricePerPyeongKrw,
+          calculatedValue: calcLandPricePyeong,
+          discrepancyPct: Math.round(diffPct * 10) / 10,
+          message: `중개인 기재 토지평당가(${(input.statedLandPricePerPyeongKrw / 100000000).toFixed(2)}억/평)와 실제 계산치(${(calcLandPricePyeong / 100000000).toFixed(2)}억/평) 간 ${diffPct.toFixed(1)}% 불일치 감지`,
+          recommendation: `대지면적(${(landAreaPyeong).toFixed(1)}평) 기준 실제 토지 평당가는 ${(calcLandPricePyeong / 100000000).toFixed(2)}억 원/평입니다. (연면적 평당가와의 혼동 여부 점검 권장)`,
+        });
+      }
     }
   }
 

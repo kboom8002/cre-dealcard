@@ -425,6 +425,7 @@ export async function fetchIMData(
           waccPct: document.body.financials.wacc ? parseFloat((document.body.financials.wacc * 100).toFixed(1)) : null,
         } : undefined,
         tier: document.body.tier || 'basic',
+        releaseTier: document.body.releaseTier ?? 'fact_om',
       };
     }
 

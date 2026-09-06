@@ -239,6 +239,14 @@ export function ImDataBottomSheet({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [readinessScore, setReadinessScore] = useState(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+    }
+  }, [isOpen]);
 
   // 현재 입력 상태에 따른 필수 데이터 누락 여부 동적 계산
   const computedMissingFields = React.useMemo(() => {
@@ -609,7 +617,10 @@ export function ImDataBottomSheet({
       const jobId = startData.jobId;
       if (!jobId) throw new Error("작업 ID를 받지 못했습니다");
 
-      const MAX_POLL_MS = 300_000; // 5분 (after() 백그라운드 300s 대응)
+      abortControllerRef.current = new AbortController();
+      const { signal } = abortControllerRef.current;
+
+      const MAX_POLL_MS = 190_000; // IM_HARD_TIMEOUT_MS (180s) + 10s buffer
       const POLL_INTERVAL = 3_000;
       const startTime = Date.now();
       let dotCount = 0;
@@ -620,7 +631,7 @@ export function ImDataBottomSheet({
       const onVisibilityChange = async () => {
         if (document.hidden || cancelled) return;
         try {
-          const pollRes = await fetch(`/api/broker/im-lite/job-status?jobId=${encodeURIComponent(jobId)}`);
+          const pollRes = await fetch(`/api/broker/im-lite/job-status?jobId=${encodeURIComponent(jobId)}`, { signal });
           if (!pollRes.ok) return;
           const job = await pollRes.json();
           if (job.status === "completed" && job.result) {
@@ -637,7 +648,11 @@ export function ImDataBottomSheet({
             setErrorMsg(job.result?.error ?? "IM 생성 실패");
             setProgress("");
           }
-        } catch { /* 네트워크 에러 — 다음 폴링에서 재시도 */ }
+        } catch (err: any) {
+          if (err.name !== 'AbortError') {
+            /* 네트워크 에러 — 다음 폴링에서 재시도 */
+          }
+        }
       };
       document.addEventListener("visibilitychange", onVisibilityChange);
 
@@ -651,7 +666,7 @@ export function ImDataBottomSheet({
           setProgress(`AI 분석 중${dots} (${elapsed}초 경과)`);
 
           try {
-            const pollRes = await fetch(`/api/broker/im-lite/job-status?jobId=${encodeURIComponent(jobId)}`);
+            const pollRes = await fetch(`/api/broker/im-lite/job-status?jobId=${encodeURIComponent(jobId)}`, { signal });
             if (!pollRes.ok) continue;
             const job = await pollRes.json();
 
@@ -671,7 +686,11 @@ export function ImDataBottomSheet({
               setProgress("");
               return;
             }
-          } catch {
+          } catch (err: any) {
+            if (err.name === 'AbortError') {
+              cancelled = true;
+              return;
+            }
             continue;
           }
         }
@@ -686,6 +705,10 @@ export function ImDataBottomSheet({
         document.removeEventListener("visibilitychange", onVisibilityChange);
       }
     } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log('Polling aborted on modal dismiss');
+        return;
+      }
       setState("error");
       setErrorMsg(err?.message ?? "서버 요청 실패");
       setProgress("");

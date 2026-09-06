@@ -125,4 +125,10 @@ export class NumericalAnchors {
     }
     return lines.join('\n');
   }
+
+  toJSON(): Record<string, number> {
+    const result: Record<string, number> = {};
+    this.values.forEach((entry, key) => { result[key] = entry.value; });
+    return result;
+  }
 }

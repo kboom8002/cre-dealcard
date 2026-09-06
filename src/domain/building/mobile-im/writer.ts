@@ -91,6 +91,16 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     ctx.sectionCtx.numericalAnchors = numericalAnchors;
   }
 
+  // L3-04: SSoT 권위 수치 앵커 보호 — LLM 결과에 의해 수치가 변조되거나 왜곡되지 않도록 검증 직전 권위값 확정 보존
+  for (const [k, v] of Object.entries(authoritativeAnchors)) {
+    if (typeof v === 'number' && !isNaN(v) && v > 0) {
+      const cur = (ctx.sectionCtx.numericalAnchors as NumericalAnchors)?.get(k);
+      if (cur === undefined || cur !== v) {
+        (ctx.sectionCtx.numericalAnchors as NumericalAnchors)?.set(k, v, 'authoritative_ssot_lock', 0);
+      }
+    }
+  }
+
   // ── S0. Claim 레지스트리 + 결정론적 계산 (D37 P0-2) ──
   // 계산은 여기서 1회 실행. LLM은 이후 설명만 생성.
   const claimRegistry = new ClaimRegistry();
@@ -226,8 +236,11 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       for (let sIdx = 0; sIdx < stageSections.length; sIdx++) {
         const sectionType = stageSections[sIdx];
         const remainingMs = stageTimer.getRemainingMs();
-        const remainingSections = stageSections.length - sIdx;
-        const perSectionTimeout = Math.min(30_000, Math.max(10_000, Math.floor(remainingMs / Math.max(remainingSections, 1))));
+        // Count remaining sections across all remaining stages
+        const totalRemainingSections = stagePlan.slice(stageIdx).reduce(
+          (sum, stage) => sum + stage.sections.length, 0
+        ) - sIdx;
+        const perSectionTimeout = Math.min(30_000, Math.max(10_000, Math.floor(remainingMs / Math.max(totalRemainingSections, 1))));
 
         // D30 BL-7 / L3-01: 타임아웃 경과 시 — 템플릿 폴백 대신 확인사항 이관
         // 시간 예산이 소진된 경우(shouldAbortOptional 또는 isHardLimitReached),
@@ -324,16 +337,6 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   // ── 3. 섹션 간 교차 검증 ──
   let crossValidationPassed = false;
   try {
-    // L3-04: SSoT 권위 수치 앵커 보호 — LLM 결과에 의해 수치가 변조되거나 왜곡되지 않도록 검증 직전 권위값 확정 보존
-    for (const [k, v] of Object.entries(authoritativeAnchors)) {
-      if (typeof v === 'number' && !isNaN(v) && v > 0) {
-        const cur = (ctx.sectionCtx.numericalAnchors as NumericalAnchors)?.get(k);
-        if (cur === undefined || cur !== v) {
-          (ctx.sectionCtx.numericalAnchors as NumericalAnchors)?.set(k, v, 'authoritative_ssot_lock', 0);
-        }
-      }
-    }
-
     const crossValResult = runCrossValidation(
       sections,
       (ctx.sectionCtx.numericalAnchors as NumericalAnchors).toCrossValidatorAnchors(),

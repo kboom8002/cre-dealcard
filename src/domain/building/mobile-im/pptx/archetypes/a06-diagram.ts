@@ -2,7 +2,7 @@ import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind, RowEntry } from '../imlib';
-import { fetchKakaoMapImage, type OptimizedImage, type MapPoiSpot } from '../utils/image-optimizer';
+import { fetchKakaoMapImage, optimizeImageForPptx, type OptimizedImage, type MapPoiSpot } from '../utils/image-optimizer';
 // enforceTextBudget는 data-binder에서 이미 적용되므로 여기서는 사용하지 않음
 import { stripMarkdown } from '../data-binder';
 
@@ -44,10 +44,12 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     : (typeof macroTransitRaw === 'string' ? macroTransitRaw : null);
 
   if (macroTransitImg) {
-    slide.addImage({ data: macroTransitImg, x: M, y: 1.62, w: mapW, h: 4.50 });
+    const optimizedMacro = await optimizeImageForPptx(macroTransitImg, 1200, 80);
+    slide.addImage({ data: optimizedMacro?.base64 || macroTransitImg, x: M, y: 1.62, w: mapW, h: 4.50 });
   } else if (input.data?.cadastralImage) {
     // 0-2차: 지적도 이미지가 직접 전달된 경우 (V-World WMS)
-    slide.addImage({ data: input.data.cadastralImage, x: M, y: 1.62, w: mapW, h: 4.50 });
+    const optimizedCadastral = await optimizeImageForPptx(input.data.cadastralImage, 1200, 80);
+    slide.addImage({ data: optimizedCadastral?.base64 || input.data.cadastralImage, x: M, y: 1.62, w: mapW, h: 4.50 });
   } else {
     let mapImg: OptimizedImage | null = null;
 
