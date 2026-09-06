@@ -215,6 +215,11 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         let result;
         let lastError: Error | undefined;
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+          // 재시도 전 타이머 잠식 방지: 시간 예산 초과 시 즉시 중단
+          if (attempt > 0 && stageTimer.shouldAbortOptional()) {
+            console.warn(`[writer] M-8: ${sectionType} 재시도 ${attempt}/${MAX_RETRIES} 중단 — 시간 예산 초과`);
+            break;
+          }
           try {
             result = await generateSingleSection(
               sectionType as MobileIMSectionType,
@@ -491,6 +496,8 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     ai_used: aiUsed,
     heroCard,
     photos,
+    claims: claimRegistry.getAll(),
+    investment_posture: ctx.sectionPlan.posture,
     dcf10Year: (cachedFinancials?.dcf10Year ?? undefined) as Record<string, unknown> | undefined,
     financials: cachedFinancials ? {
       equityRequired: cachedFinancials.equityRequired,

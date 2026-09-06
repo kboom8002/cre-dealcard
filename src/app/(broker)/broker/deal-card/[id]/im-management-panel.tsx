@@ -151,7 +151,18 @@ export function ImManagementPanel({
       };
       document.addEventListener('visibilitychange', onVisibilityChange);
 
+      const MAX_POLL_MS = 300_000; // 5분 (after() 백그라운드 300s 대응)
+      const pollStart = Date.now();
       const pollInterval = setInterval(async () => {
+        // 폴링 타임아웃 가드: 5분 초과 시 자동 종료
+        if (Date.now() - pollStart > MAX_POLL_MS) {
+          clearInterval(pollInterval);
+          document.removeEventListener('visibilitychange', onVisibilityChange);
+          setGenerationStatus('error');
+          toast.error('IM 생성 시간이 초과되었습니다. 다시 시도해 주세요.');
+          setTimeout(() => setGenerationStatus('idle'), 3000);
+          return;
+        }
         try {
           const statusRes = await fetch(`/api/broker/im-lite/job-status?jobId=${jobId}`);
           if (!statusRes.ok) return;

@@ -141,6 +141,7 @@ export async function POST(
     const gateResult = runApprovalGate(registry, tier, {
       hasHallucination: fullDocForGate.body.hasHallucination === true,
       publishBlocked: fullDocForGate.body.gateReport?.blocked === true,
+      posture: fullDocForGate.body.ssot_summary?.posture ?? fullDocForGate.body.investment_posture ?? undefined,
     });
 
     if (!gateResult.passed) {

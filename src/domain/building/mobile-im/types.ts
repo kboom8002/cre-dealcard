@@ -5,6 +5,7 @@
 import type { BuildingUse, AssetType, InvestmentPosture, PhotoCategory } from '@/domain/ontology';
 import type { ArchetypeCode } from './archetype-registry';
 import type { BuildingSSoTLite } from '../building-ssot-lite.types';
+import type { Claim } from '@/domain/building/im-core/claim';
 
 /** 개별 사진 메타데이터 (v0.6.0) */
 export interface PhotoMeta {
@@ -430,6 +431,10 @@ export interface MobileIMWriterOutput {
   ai_used: boolean;
   heroCard?: HeroCardData;
   photos?: Array<{ url: string; caption?: string; width?: number; height?: number }>;
+  /** D37 P0-2: ClaimRegistry 계산 결과 — 승인 게이트에서 직접 사용 */
+  claims?: Claim[];
+  /** 투자 포스처 (승인 게이트 포스처별 필수 Claim 분기용) */
+  investment_posture?: string;
   dcf10Year?: Record<string, unknown>;
   financials?: {
     equityRequired: number | null;

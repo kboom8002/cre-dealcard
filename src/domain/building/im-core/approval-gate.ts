@@ -9,6 +9,7 @@
 
 import type { ClaimRegistry } from './claim-registry';
 import type { ReleaseTier } from './release-tier';
+import type { InvestmentPosture } from '@/domain/ontology';
 
 // ── 승인 레벨 ──
 
@@ -46,6 +47,7 @@ export function runApprovalGate(
   options?: {
     hasHallucination?: boolean;
     publishBlocked?: boolean;
+    posture?: InvestmentPosture;
   },
 ): ApprovalGateResult {
   const blockers: ApprovalBlocker[] = [];
@@ -61,7 +63,12 @@ export function runApprovalGate(
   }
 
   // 2. 필수 항목 존재 및 상태 검사 (G2 해결: 빈 Registry 허위 통과 방지)
-  const REQUIRED_SUBJECTS = ['asking_price', 'total_area', 'gross_yield'];
+  // 포스처별 필수 Claim 분기: gross_yield는 수익형에서만 필수
+  const posture = options?.posture ?? 'income';
+  const REQUIRED_SUBJECTS: string[] = ['asking_price', 'total_area'];
+  if (posture === 'income' || posture === 'trading' || posture === 'operating') {
+    REQUIRED_SUBJECTS.push('gross_yield');
+  }
   const allClaims = registry.getAll ? registry.getAll() : [];
   if (allClaims.length === 0) {
     blockers.push({
