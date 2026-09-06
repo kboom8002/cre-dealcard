@@ -26,6 +26,10 @@ export interface ResolvedAddress {
   bdMgtSn: string;
   /** 우편번호 */
   zipNo: string;
+  /** 19자리 표준 PNU */
+  pnu?: string;
+  /** 건물명 */
+  bdNm?: string;
 }
 
 export interface AddressComponents {
@@ -81,67 +85,137 @@ export const FALLBACK_DONG_MAP: Record<string, { sigunguCd: string; bjdongCd: st
 const JUSO_API_URL = "https://business.juso.go.kr/addrlink/addrLinkApi.do";
 
 /**
- * 도로명주소 API로 주소를 검색합니다.
- * @param keyword 검색 키워드 (예: "역삼동 823", "테헤란로 152")
- * @param countPerPage 결과 개수 (기본 5)
+ * 다중 백엔드 주소 및 PNU 검색 (카카오 로컬 API → VWorld 2.0 API → 행안부 도로명주소 API)
+ *
+ * 1. 카카오 로컬 검색: 도로명, 지번, 건물명, 행정동/법정동 코드 및 산/번/지 기반 19자리 PNU 자동 합성
+ * 2. VWorld 2.0 검색: 국토부 공식 19자리 PNU 및 건물명 직접 반환
+ * 3. 행안부 Juso API: 표준 도로명주소 백업
  */
 export async function searchAddress(
   keyword: string,
   countPerPage = 5,
 ): Promise<ResolvedAddress[]> {
-  const confmKey = process.env.JUSO_CONFIRM_KEY;
+  const trimmed = keyword.trim();
+  if (!trimmed || trimmed.length < 2) return [];
 
-  if (!confmKey || process.env.NODE_ENV === "test") {
-    console.warn("[address-resolver] JUSO_CONFIRM_KEY is missing. Returning empty results.");
+  if (process.env.NODE_ENV === "test") {
     return [];
   }
 
-  const params = new URLSearchParams({
-    confmKey,
-    currentPage: "1",
-    countPerPage: String(countPerPage),
-    keyword,
-    resultType: "json",
-  });
-
-  try {
-    const res = await fetch(`${JUSO_API_URL}?${params}`, {
-      next: { revalidate: 86400 }, // 24h 캐시
-    });
-
-    if (!res.ok) {
-      console.error(`[address-resolver] Juso API HTTP Error: ${res.status}`);
-      return [];
-    }
-
-    const json = await res.json();
-    const results = json?.results;
-
-    const errorCode = results?.common?.errorCode;
-    const jusoList = results?.juso;
-    
-    if (errorCode !== "0" || !Array.isArray(jusoList) || jusoList.length === 0) {
-      if (errorCode && errorCode !== "0") {
-        console.warn(`[address-resolver] Juso API Error: ${errorCode} - ${results?.common?.errorMessage}`);
+  // Tier 1: 카카오 로컬 주소 검색 API (19자리 PNU 직접 합성 및 건물명 제공)
+  const kakaoKey = process.env.KAKAO_REST_API_KEY || process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+  if (kakaoKey) {
+    try {
+      const res = await fetch(`https://dapi.kakao.com/v2/local/search/address.json?size=${countPerPage}&query=${encodeURIComponent(trimmed)}`, {
+        headers: { Authorization: `KakaoAK ${kakaoKey}` },
+        next: { revalidate: 86400 },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const docs = data?.documents || [];
+        if (Array.isArray(docs) && docs.length > 0) {
+          return docs.map((doc: any) => {
+            const jibun = doc.address || {};
+            const road = doc.road_address || {};
+            let pnu = '';
+            if (jibun.b_code && jibun.main_address_no) {
+              const isSan = jibun.mountain_yn === 'Y' ? '2' : '1';
+              const bun = String(jibun.main_address_no).padStart(4, '0');
+              const ji = String(jibun.sub_address_no || '0').padStart(4, '0');
+              pnu = jibun.b_code + isSan + bun + ji;
+            }
+            return {
+              roadAddr: road.address_name || '',
+              jibunAddr: jibun.address_name || doc.address_name || '',
+              siNm: jibun.region_1depth_name || '',
+              sggNm: jibun.region_2depth_name || '',
+              emdNm: jibun.region_3depth_name || '',
+              admCd: jibun.b_code || jibun.h_code || '',
+              rnMgtSn: '',
+              bdMgtSn: pnu,
+              zipNo: road.zone_no || '',
+              pnu,
+              bdNm: road.building_name || '',
+            };
+          });
+        }
       }
-      return [];
+    } catch (err) {
+      console.warn("[address-resolver] Kakao address search failed, trying fallback:", err);
     }
-
-    return jusoList.map((j: Record<string, string>) => ({
-      roadAddr: j.roadAddr ?? "",
-      jibunAddr: j.jibunAddr ?? "",
-      siNm: j.siNm ?? "",
-      sggNm: j.sggNm ?? "",
-      emdNm: j.emdNm ?? "",
-      admCd: j.admCd ?? "",
-      rnMgtSn: j.rnMgtSn ?? "",
-      bdMgtSn: j.bdMgtSn ?? "",
-      zipNo: j.zipNo ?? "",
-    }));
-  } catch (error) {
-    console.error("[address-resolver] Failed to search address:", error);
-    return [];
   }
+
+  // Tier 2: 국토부 VWorld 2.0 검색 API (공식 19자리 PNU 직접 획득)
+  const vworldKey = process.env.VWORLD_API_KEY || process.env.NEXT_PUBLIC_VWORLD_KEY;
+  if (vworldKey) {
+    try {
+      const vworldUrl = `https://api.vworld.kr/req/search?service=search&request=search&version=2.0&crs=EPSG:4326&size=${countPerPage}&page=1&query=${encodeURIComponent(trimmed)}&type=address&category=parcel&format=json&errorformat=json&key=${vworldKey}`;
+      const res = await fetch(vworldUrl, { next: { revalidate: 86400 } });
+      if (res.ok) {
+        const json = await res.json();
+        const items = json?.response?.result?.items;
+        if (Array.isArray(items) && items.length > 0) {
+          return items.map((item: any) => {
+            const pnu = item.id || '';
+            return {
+              roadAddr: item.address?.road || '',
+              jibunAddr: item.address?.parcel || '',
+              siNm: '',
+              sggNm: '',
+              emdNm: '',
+              admCd: pnu.length >= 10 ? pnu.substring(0, 10) : '',
+              rnMgtSn: '',
+              bdMgtSn: pnu,
+              zipNo: item.address?.zipcode || '',
+              pnu,
+              bdNm: item.address?.bldnm || '',
+            };
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("[address-resolver] VWorld address search failed, trying fallback:", err);
+    }
+  }
+
+  // Tier 3: 행안부 Juso API (레거시 백업)
+  const confmKey = process.env.JUSO_CONFIRM_KEY;
+  if (confmKey) {
+    const params = new URLSearchParams({
+      confmKey,
+      currentPage: "1",
+      countPerPage: String(countPerPage),
+      keyword: trimmed,
+      resultType: "json",
+    });
+    try {
+      const res = await fetch(`${JUSO_API_URL}?${params}`, { next: { revalidate: 86400 } });
+      if (res.ok) {
+        const json = await res.json();
+        const results = json?.results;
+        const jusoList = results?.juso;
+        if (results?.common?.errorCode === "0" && Array.isArray(jusoList) && jusoList.length > 0) {
+          return jusoList.map((j: Record<string, string>) => ({
+            roadAddr: j.roadAddr ?? "",
+            jibunAddr: j.jibunAddr ?? "",
+            siNm: j.siNm ?? "",
+            sggNm: j.sggNm ?? "",
+            emdNm: j.emdNm ?? "",
+            admCd: j.admCd ?? "",
+            rnMgtSn: j.rnMgtSn ?? "",
+            bdMgtSn: j.bdMgtSn ?? "",
+            zipNo: j.zipNo ?? "",
+            pnu: j.bdMgtSn ? j.bdMgtSn.slice(0, 19) : undefined,
+            bdNm: j.bdNm ?? "",
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("[address-resolver] Juso API search failed:", error);
+    }
+  }
+
+  return [];
 }
 
 /**

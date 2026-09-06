@@ -729,8 +729,8 @@ export function ImDataBottomSheet({
     const displayAddr = result.roadAddr || result.jibunAddr || "";
     setAddress(displayAddr);
     setSearchKeyword(displayAddr);
-    // PNU: bdMgtSn(건물관리번호, 25자리) 또는 admCd(행정동코드)로 구성
-    const resolvedPnu = (result.bdMgtSn as string) || (result.admCd as string) || "";
+    // PNU: 19자리 표준 PNU 우선 추출
+    const resolvedPnu = (result.pnu as string) || (result.bdMgtSn as string) || (result.admCd as string) || "";
     setPnu(resolvedPnu);
     setShowResults(false);
     setSearchResults([]);
@@ -805,82 +805,121 @@ export function ImDataBottomSheet({
           />
 
           {/* 주소 + 월세 + 렌트롤 — Basic에도 표시 */}
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
-                  🏠 정확한 건물 주소
-                </label>
-          <div ref={dropdownAnchorRef} className="relative">
-            <div className="flex gap-2">
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchKeyword}
-                onChange={(e) => {
-                  setSearchKeyword(e.target.value);
-                  if (address) { setAddress(""); setPnu(""); }
-                }}
-                onKeyDown={handleSearchKeyDown}
-                onFocus={updateDropdownRect}
-                placeholder="동/도로명 입력 후 검색 (예: 상도동 477)"
-                className={getFieldClass('address', 'flex-1 bg-secondary/50 border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1')}
-              />
-              <button 
-                onClick={() => { updateDropdownRect(); handleAddressSearch(); }}
-                disabled={isSearching || searchKeyword.trim().length < 2}
-                className="bg-primary text-primary-foreground px-4 py-2.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 shrink-0"
-              >
-                {isSearching ? "…" : "검색"}
-              </button>
+          {/* 주소 + 월세 + 렌트롤 — Basic에도 표시 */}
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+              🏠 정확한 건물 주소
+            </label>
+            <div ref={dropdownAnchorRef} className="relative">
+              <div className="flex gap-2">
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchKeyword}
+                  onChange={(e) => {
+                    setSearchKeyword(e.target.value);
+                    if (address) { setAddress(""); setPnu(""); }
+                  }}
+                  onKeyDown={handleSearchKeyDown}
+                  onFocus={() => {
+                    if (searchResults.length > 0) setShowResults(true);
+                  }}
+                  placeholder="동/도로명 입력 후 검색 (예: 당산동5가 11-47, 영신로 259)"
+                  className={getFieldClass('address', 'flex-1 bg-secondary/50 border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1')}
+                />
+                <button 
+                  onClick={() => handleAddressSearch()}
+                  disabled={isSearching || searchKeyword.trim().length < 2}
+                  className="bg-primary text-primary-foreground px-4 py-2.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 shrink-0 flex items-center gap-1.5"
+                >
+                  {isSearching ? (
+                    <>
+                      <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      <span>검색 중</span>
+                    </>
+                  ) : "검색"}
+                </button>
+              </div>
+
+              {/* 검색 결과 드롭다운 — 인풋 바로 아래에 뜨도록 위치 (z-[100]) */}
+              {showResults && (
+                <div
+                  className="absolute left-0 right-0 top-full mt-1 bg-background border border-border rounded-xl shadow-2xl max-h-60 overflow-y-auto z-[100] divide-y divide-border/50"
+                >
+                  {isSearching && (
+                    <div className="p-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      주소 및 PNU 조회 중...
+                    </div>
+                  )}
+
+                  {!isSearching && searchResults.length > 0 && searchResults.map((result, i) => (
+                    <button
+                      key={i}
+                      onClick={() => selectAddress(result)}
+                      className="w-full text-left px-4 py-3 hover:bg-secondary/50 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-foreground truncate">
+                          {String(result.roadAddr || result.jibunAddr || "")}
+                        </p>
+                        {(result.pnu || result.bdMgtSn) ? (
+                          <span className="text-[10px] font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
+                            PNU {String(result.pnu || result.bdMgtSn).slice(0, 19)}
+                          </span>
+                        ) : null}
+                      </div>
+                      {result.jibunAddr && result.roadAddr ? (
+                        <p className="text-xs text-muted-foreground mt-0.5">지번: {String(result.jibunAddr)}</p>
+                      ) : null}
+                      {result.bdNm ? (
+                        <p className="text-xs text-blue-500 dark:text-blue-400 mt-0.5 font-medium">건물명: {String(result.bdNm)}</p>
+                      ) : null}
+                    </button>
+                  ))}
+
+                  {!isSearching && searchResults.length === 0 && (
+                    <div className="p-4 text-center text-xs text-muted-foreground">
+                      검색 결과가 없습니다. 번지(예: 당산동5가 11-47) 또는 도로명(예: 영신로 259)을 입력해 주세요.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* 주소 미입력 경고 */}
-            {!address && !pnu && (
-              <div className="mt-1 px-3 py-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-                <p className="text-xs text-amber-700 dark:text-amber-300">
-                  💡 정확한 건물 주소를 검색하여 선택하면 건축물대장·토지이용계획을 자동 조회하여 고품질 IM이 생성됩니다.
+            {/* 선택된 주소 및 PNU 확인 배지 */}
+            {address && (
+              <div className="mt-2.5 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex flex-col gap-1">
+                <div className="flex items-center justify-between flex-wrap gap-1">
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5">
+                    ✅ {address}
+                  </span>
+                  {pnu && (
+                    <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded font-semibold border border-emerald-500/30">
+                      PNU {pnu}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80">
+                  건축물대장 및 공공데이터 조회가 정상 활성화되었습니다.
                 </p>
               </div>
             )}
 
-            {/* 주소 확인 배지 */}
-            {address && (
-              <div className="mt-2 flex items-center gap-2">
-                <span className="text-xs text-emerald-500 font-medium">✅ {address}</span>
+            {/* 주소 미입력 경고 — 주소/PNU 미선택 시에만 노출 */}
+            {!address && !pnu && (
+              <div className="mt-2 px-3 py-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <p className="text-xs text-amber-700 dark:text-amber-300">
+                  💡 주소 검색 후 목록에서 건물을 선택하면 19자리 PNU와 건축물대장이 자동 연동됩니다.
+                </p>
               </div>
             )}
-
-            {/* 검색 결과 드롭다운 — 인라인 absolute로 겹침 문제 해결 */}
-            {showResults && searchResults.length > 0 && (
-              <div
-                className="absolute left-0 right-0 top-full mt-1 bg-background border border-border rounded-xl shadow-2xl max-h-52 overflow-y-auto z-50"
-              >
-                {searchResults.map((result, i) => (
-                  <button
-                    key={i}
-                    onClick={() => selectAddress(result)}
-                    className="w-full text-left px-4 py-3 hover:bg-secondary/50 border-b border-border/50 last:border-0 transition-colors"
-                  >
-                    <p className="text-sm font-medium text-foreground">{result.roadAddr || result.jibunAddr}</p>
-                    {result.jibunAddr && result.roadAddr && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{result.jibunAddr}</p>
-                    )}
-                    {result.bdNm && (
-                      <p className="text-xs text-primary/70 mt-0.5">{result.bdNm}</p>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-            {showResults && isSearching && (
-              <div className="absolute left-0 right-0 top-full mt-1 bg-background border border-border rounded-xl shadow-2xl z-50 p-4 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
-                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                검색 중...
-              </div>
-            )}
-          </div>
           </div>
 
             {/* Rent Roll Import */}
