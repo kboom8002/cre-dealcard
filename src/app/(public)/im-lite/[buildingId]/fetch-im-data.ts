@@ -375,9 +375,17 @@ export async function fetchIMData(
           hasLandArea: !!(ssotSummary.land_area_m2 || document.body.external_data?.landUsePlan),
           hasTotalGrossArea: !!(ssotSummary.total_gross_area_m2 || document.body.external_data?.buildingRegister),
         }, (ssotSummary.investment_posture || document.body.identity?.investmentPosture || 'income') as any),
-        // [C1] Hero Card — 기존 IM에 heroCard가 없으면 SSoT에서 동적 합성
-        heroCard: document.body.heroCard ?? (() => {
+        // [C1] Hero Card — 기존 IM의 heroCard 보강 또는 SSoT에서 동적 합성
+        heroCard: (() => {
           const s = ssotSummary;
+          const existing = document.body.heroCard;
+          const askDisplay = existing?.askingPriceDisplay || s.price_band || (s.asking_price_manwon ? `${(s.asking_price_manwon / 10000).toFixed(1)}억 원` : '');
+          if (existing) {
+            return {
+              ...existing,
+              askingPriceDisplay: askDisplay,
+            };
+          }
           const sections = document.body.sections || [];
           const investSection = sections.find((sec: any) => sec.section_type === 'investment_thesis' || sec.section_type === 'buyer_fit');
           const riskSection = sections.find((sec: any) => sec.section_type === 'risk_check');

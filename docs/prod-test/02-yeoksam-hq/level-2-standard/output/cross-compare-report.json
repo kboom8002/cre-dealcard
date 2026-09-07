@@ -1,0 +1,18 @@
+{
+  "pptxGrade": "unknown",
+  "viewerGrade": "unknown",
+  "gradeMatch": true,
+  "numericMatches": [
+    {
+      "field": "dummy",
+      "pptxValue": 0,
+      "viewerValue": 120,
+      "match": false
+    }
+  ],
+  "forbiddenPatterns": {
+    "pptx": 0,
+    "viewer": 0
+  },
+  "overallPass": true
+}

@@ -304,7 +304,11 @@ export class MobileImPptxRenderer {
         const autoStats: Array<{label: string; value: string; unit?: string}> = [];
         // SSoT 우선 소스
         if (ssot.price_band) autoStats.push({ label: '매각 희망가', value: ssot.price_band });
-        else if (ssot.asking_price_manwon) autoStats.push({ label: '매각 희망가', value: `${Number(ssot.asking_price_manwon).toLocaleString()}만원` });
+        else if (ssot.asking_price_manwon) {
+          const val = Number(ssot.asking_price_manwon);
+          const formatted = val >= 10000 ? `${(val / 10000).toFixed(val % 10000 === 0 ? 0 : 1)}억원` : `${val.toLocaleString()}만원`;
+          autoStats.push({ label: '매각 희망가', value: formatted });
+        }
         if (ssot.size_signal) autoStats.push({ label: '연면적', value: ssot.size_signal });
         else if (bldg.total_area_pyeong) autoStats.push({ label: '연면적', value: `${bldg.total_area_pyeong}평` });
         if (ssot.vacancy_signal) autoStats.push({ label: '공실률', value: ssot.vacancy_signal });

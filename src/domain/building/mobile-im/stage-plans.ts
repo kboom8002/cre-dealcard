@@ -91,7 +91,7 @@ export const STAGE_PLANS: Record<InvestmentPosture, SectionStage[]> = {
     {
       stage: 3,
       sections: ['risk_check', 'investment_thesis'],
-      parallel: false,
+      parallel: true,
     },
   ],
   trading: [

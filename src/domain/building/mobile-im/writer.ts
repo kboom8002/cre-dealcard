@@ -52,6 +52,7 @@ import { getActiveStagePlan } from "./stage-plans";
 import { StageTimer } from "./stage-timer";
 import { NumericalAnchors } from "./numerical-anchors";
 import { ClaimRegistry, FinancialCalculator, deriveDataAvailability } from "../im-core";
+import { calculateFinancials } from "./financials";
 
 // D37 P0-8: confidence 기반 IM Judge 점수 계산 (하드코딩 4.0 해소)
 function computeImJudgeScore(sections: MobileIMSection[]): number {
@@ -132,7 +133,24 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   // ── 3. 섹션 루프 (위상 정렬 4단계 병렬화) ──
   const sections: MobileIMSection[] = [];
   let aiUsed = false;
-  let cachedFinancials = ctx.cachedFinancials;
+  let cachedFinancials = ctx.cachedFinancials ?? (() => {
+    try {
+      return calculateFinancials({
+        posture: ctx.sectionPlan.posture as any,
+        purchasePriceKrw: ctx.purchasePriceKrw,
+        monthlyRentKrw: input.supplemental?.monthly_rent_total_krw ?? 0,
+        totalAreaSqm: ctx.totalAreaSqm,
+        platAreaSqm: input.external_data?.buildingRegister?.platArea ?? undefined,
+        vacancyRatePct: input.supplemental?.vacancy_pct ?? undefined,
+        totalDepositManwon: input.supplemental?.total_deposit_manwon ?? undefined,
+        loanAmountManwon: input.supplemental?.loan_amount_manwon ?? undefined,
+        mgmtFeeTotalManwon: input.supplemental?.mgmt_fee_total_manwon ?? undefined,
+        assetType: String(ctx.assetIdentity?.asset_type ?? ''),
+      });
+    } catch {
+      return null;
+    }
+  })();
 
   const CONCURRENCY = Number(process.env.IM_SECTION_CONCURRENCY ?? 4);
   const activeSectionPlan = ctx.sectionPlan.sections as string[];
@@ -435,7 +453,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     posture,
     assetType: String(ctx.assetIdentity.asset_type ?? ''),
     areaSignal: String(ctx.assetIdentity.area_signal ?? ''),
-    askingPriceDisplay: String(ctx.assetIdentity.price_band ?? ''),
+    askingPriceDisplay: String(ctx.assetIdentity.price_band ?? (ctx.purchasePriceKrw > 0 ? `${(ctx.purchasePriceKrw / 1e8).toFixed(1)}억 원` : '')),
     capRateBase: cachedFinancials?.capRate?.base ?? null,
     noiBaseBil: cachedFinancials?.annualNoi?.base ? parseFloat((cachedFinancials.annualNoi.base / 1e8).toFixed(1)) : null,
     keyInvestmentPoint: String(ctx.buyerFit.fit_summary ?? (() => {

@@ -1,9 +1,26 @@
 {
-  "testCase": "02-yeoksam-hq-L2",
-  "posture": "owner_occupied",
+  "id": "02-yeoksam-hq",
+  "level": "level-2-standard",
+  "phases": {
+    "phase0": "success",
+    "phase1": "success",
+    "phase2": "success",
+    "phase3": "success",
+    "phase4": "success",
+    "phase5": "success",
+    "phase6": "success"
+  },
+  "timings": {
+    "phase0": 3087,
+    "phase1": 2439,
+    "phase2": 140684,
+    "phase3": 695,
+    "phase4": 24943,
+    "phase5": 27166,
+    "phase6": 5
+  },
+  "success": true,
   "buildingId": "e8bc71d2-6caf-409e-90b3-f9c15aa161f1",
-  "docId": "4c8c7754-a7ed-4c60-9f13-a3a3b834e50d",
-  "phase1_time": "0s",
-  "phase2_time": "158.2s",
-  "timestamp": "2026-09-07T01:17:11.546Z"
+  "docId": "879fd214-3bb1-4580-985f-b55a40c31a47",
+  "totalTime": 199021
 }
