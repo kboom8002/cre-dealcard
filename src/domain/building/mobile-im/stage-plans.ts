@@ -79,12 +79,12 @@ export const STAGE_PLANS: Record<InvestmentPosture, SectionStage[]> = {
   owner_occupied: [
     {
       stage: 1,
-      sections: ['property_overview', 'location_access', 'next_steps'],
+      sections: ['property_overview', 'location_access', 'next_steps', 'cost_comparison'],
       parallel: true,
     },
     {
       stage: 2,
-      sections: ['occupancy_fit', 'cost_comparison'],
+      sections: ['occupancy_fit'],
       parallel: false,
       dependsOn: ['askingPriceKrw', 'totalAreaSqm'],
     },

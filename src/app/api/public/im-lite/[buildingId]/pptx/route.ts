@@ -115,7 +115,31 @@ export async function GET(
       ?? body.ssot_summary?.investment_posture
       ?? building?.investment_posture
       ?? 'income';
-    const grade = body.dataGrade ?? body.dataCompleteness?.qualityGrade ?? body.qualityGrade ?? body.grade ?? 'B';
+
+    // F3 fix: Grade 계산을 뷰어와 동일한 computeDataQualityBadge로 통일
+    let grade = body.dataGrade ?? body.dataCompleteness?.qualityGrade ?? body.qualityGrade ?? body.grade;
+    if (!grade) {
+      try {
+        const { computeDataQualityBadge, tierToGrade } = await import(
+          '@/domain/building/mobile-im/data-quality-badge'
+        );
+        const ssot = body.ssot_summary ?? {};
+        const badge = computeDataQualityBadge({
+          hasAddress: !!(ssot.address || ssot.raw_address || body.external_data?.address),
+          hasPublicData: !!(body.external_data?.buildingRegister || ssot.building_register_source === 'api'),
+          hasMonthlyRent: !!(ssot.monthly_rent_total_krw || body.financial?.monthlyRentKrw),
+          hasVacancy: ssot.vacancy_pct != null || !!ssot.vacancy_signal,
+          hasPhotos: !!(body.photos_v2?.length || body.photos?.length),
+          hasAskingPrice: !!(ssot.asking_price_manwon || ssot.price_band),
+          hasFloorLeases: !!(body.floor_leases?.length || body.rentRoll?.length),
+          hasTotalGrossArea: !!(ssot.total_gross_area_sqm || ssot.size_signal),
+          hasLandArea: !!(ssot.land_area_sqm),
+        }, posture as any);
+        grade = tierToGrade(badge.tier);
+      } catch {
+        grade = 'B'; // 계산 실패 시 기본값
+      }
+    }
     if (grade === 'D') {
       return NextResponse.json({ error: 'Grade D documents cannot be exported to PPTX [G30]' }, { status: 422 });
     }

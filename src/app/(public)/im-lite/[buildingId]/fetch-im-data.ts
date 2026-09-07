@@ -346,13 +346,13 @@ export async function fetchIMData(
           description: "렌트롤, 캐시플로우, 도면 등이 포함된 30페이지 분량의 Full IM은 중개인 승인 후 열람 가능합니다.",
         },
         protectedFieldsRemoved: ["상세 지번", "건물명", "소유주명"],
-        photos: document.body.photos
+        photos: (document.body.photos
           ?? (document.body.photo_urls || []).map((url: string, i: number) => ({
             url,
             type: i === 0 ? 'exterior' as const : 'interior' as const,
             label: i === 0 ? '건물 외관' : `건물 사진 ${i + 1}`,
             caption: undefined as string | undefined,
-          })),
+          }))).filter((p: any) => p?.url && (p.url.startsWith('http://') || p.url.startsWith('https://') || p.url.startsWith('/'))),
         hiddenSections: Array.isArray(document.body.hidden_sections) ? document.body.hidden_sections : [],
         coordinates: document.body.coordinates || await (async () => {
           // 좌표가 없으면 주소에서 자동 변환
@@ -538,7 +538,7 @@ export async function fetchIMData(
       description: "렌트롤, 캐시플로우, 도면 등이 포함된 30페이지 분량의 Full IM은 중개인 승인 후 열람 가능합니다.",
     },
     protectedFieldsRemoved: ssot.disclosure?.guard_checked ? ["상세 지번", "건물명", "소유주명"] : [],
-    photos: Array.isArray(layers.photos) && layers.photos.length > 0
+    photos: (Array.isArray(layers.photos) && layers.photos.length > 0
       ? layers.photos
           .filter((p: any) => p && typeof p.url === "string")
           .map((p: any) => ({ url: p.url, type: p.type || "exterior", label: p.label || "건물 사진" }))
@@ -548,7 +548,7 @@ export async function fetchIMData(
           type: i === 0 ? "exterior" : "interior",
           label: i === 0 ? "건물 외관" : `건물 사진 ${i + 1}`,
         }))
-      : [],
+      : []).filter((p: any) => p?.url && (p.url.startsWith('http://') || p.url.startsWith('https://') || p.url.startsWith('/'))),
     coordinates: layers.coordinates || undefined,
     dataQualityBadge: computeDataQualityBadge({
       hasAddress: !!(ssot.layers as any)?.asset_identity?.address || !!(ssot.layers as any)?.asset_identity?.raw_address,
