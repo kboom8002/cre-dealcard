@@ -67,3 +67,6 @@ next-env.d.ts
 /.github/workflows/harness.yml
 
 
+
+# Playwright auth state
+e2e/.auth/
