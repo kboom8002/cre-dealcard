@@ -107,7 +107,7 @@ export async function fetchCommercialDistrictFull(
 
     const analysis: CommercialDistrictAnalysis = {
       districtCode: ldongCd,
-      districtName: `${districtName} 상권`,
+      districtName: districtName.endsWith('상권') ? districtName : `${districtName} 상권`,
       storeCount,
       avgMonthlyRevenue,
       footfallDaily: 15000 + Math.round(footfallIdx * 500),

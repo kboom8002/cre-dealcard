@@ -154,11 +154,26 @@ export function bindSectionData(
       /자료\s*없음/,
     ];
     const deficiencyItems: string[] = [];
+    // D38 BL-1: 내부 dataKey → 한국어 섹션 라벨 매핑 (Rule 2 CRE 용어 준수)
+    const SECTION_LABELS: Record<string, string> = {
+      building: '자산 개요', location: '입지 분석', rentRoll: '임대차',
+      profit: '수익 분석', risk: '리스크', thesis: '투자 논거',
+      process: '거래 절차', checklist: '체크리스트',
+    };
+    const sectionLabel = SECTION_LABELS[dataKey] || dataKey;
     const mdLines = (section.markdown || '').split('\n');
     for (const line of mdLines) {
       const trimmed = line.replace(/^[>\s*#\-•·]+/, '').trim();
       if (trimmed && deficiencyPatterns.some(p => p.test(trimmed))) {
-        deficiencyItems.push(`[${dataKey}] ${trimmed}`);
+        // 테이블 행이면 파이프 분리 후 의미 있는 셀만 추출
+        let cleanItem: string;
+        if (trimmed.includes('|')) {
+          const cells = trimmed.split('|').map(c => c.trim()).filter(Boolean);
+          cleanItem = stripMarkdown(cells.join(' · '));
+        } else {
+          cleanItem = stripMarkdown(trimmed);
+        }
+        deficiencyItems.push(`[${sectionLabel}] ${cleanItem}`);
       }
     }
     if (deficiencyItems.length > 0) {
@@ -1450,6 +1465,24 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
     }
   }
 
+  // D38 BL-5: 투자 포인트 2건 미만이면 SSOT 물리 데이터 기반 보충
+  if (keyPoints.length < 2) {
+    const phys = heroCard;
+    if (phys.totalGrossAreaSqm || phys.totalAreaDisplay) {
+      const areaStr = phys.totalGrossAreaSqm
+        ? `${Number(phys.totalGrossAreaSqm).toLocaleString()}㎡`
+        : (phys.totalAreaDisplay || '');
+      keyPoints.push(`건물 규모: 연면적 ${areaStr} 규모의 ${phys.mainUseName || '상업용'} 자산`);
+    }
+    if (phys.completionDate || phys.completionYear) {
+      keyPoints.push(`건물 이력: ${phys.completionDate || phys.completionYear || ''} 준공, ${phys.structureDesc || 'RC조'} 구조`);
+    }
+    if (keyPoints.length < 2) {
+      const area = heroCard.areaSignal || '해당 권역';
+      keyPoints.push(`입지 가치: ${area} 소재 자산으로 중장기 자산 가치 검토 필요`);
+    }
+  }
+
   return {
     leadSentence: stripMarkdown(heroCard.keyInvestmentPoint || heroCard.hookText || findLeadSentence(lines.filter(l => !l.startsWith('|')))),
     metrics,
@@ -2041,7 +2074,11 @@ export function stripMarkdown(text: string): string {
     .replace(/\[이메일\s*비공개\]/g, '문의처')
     .replace(/\[연락처\s*비공개\]/g, '문의처')
     // ── 어휘 중복 정제 (예: '핵심 권역 권역' -> '핵심 권역') ──
-    .replace(/(권역|입지|상권|역세권|대로변|인프라)\s+\1/g, '$1')
+    // D38 BL-2: 3회 이상 반복도 축소 (예: '상권 상권 상권' → '상권')
+    .replace(/(권역|입지|상권|역세권|대로변|인프라)(\s+\1)+/g, '$1')
+    // D38 BL-2: 면적 중복 정제 "476㎡ (약 144평(약 476㎡))" → "476㎡ (약 144평)"
+    .replace(/(\d[\d,.]*㎡)\s*\(약\s*(\d[\d,.]*평)\s*\(약\s*\d[\d,.]*㎡\)\)/g, '$1 (약 $2)')
+    .replace(/약\s*(\d[\d,.]*평)\s*\(약\s*\d[\d,.]*㎡\)/g, '약 $1')
     // ── 문미 dangling 대시/기호 정제 ──
     .replace(/\s*[—–-]\s*$/g, '')
     // ── 연속된 마침표/구두점 정제 (예: 필요합니다.. -> 필요합니다.) ──
@@ -2577,6 +2614,8 @@ export function bindFromExternalData(
     if (cd.openRate != null) cdRows.push(['개업률', `${cd.openRate}%`]);
     if (cd.closeRate != null) cdRows.push(['폐업률', `${cd.closeRate}%`]);
 
+    // D38 BL-3: 상권 단어 중복 방어 — districtName에서 '상권' 접미사 제거 후 접합
+    const cleanDistrictName = (cd.districtName || '해당').replace(/\s*상권$/, '');
     dataMap['commercialDistrict'] = {
       title: '상권 분석',
       content: '',
@@ -2589,7 +2628,7 @@ export function bindFromExternalData(
           {
             kind: 'info',
             title: '상권 활성도 및 유동인구 특성',
-            body: `• ${cd.districtName || '해당'} 상권은 ${cd.mainIndustry || '근린생활·F&B'} 중심의 안정적 배후 수요 형성\n• 일평균 유동인구 ${cd.floatingPopulation ? Number(cd.floatingPopulation).toLocaleString() + '명' : '풍부'} 기반의 지속적 점포 매출 창출력 확보\n• 개업률(${cd.openRate ?? 2.8}%) 및 폐업률(${cd.closeRate ?? 2.1}%) 기준 상권 생존 안정성 검증`,
+            body: `• ${cleanDistrictName} 상권은 ${cd.mainIndustry || '근린생활·F&B'} 중심의 안정적 배후 수요 형성\n• 일평균 유동인구 ${cd.floatingPopulation ? Number(cd.floatingPopulation).toLocaleString() + '명' : '풍부'} 기반의 지속적 점포 매출 창출력 확보\n• 개업률(${cd.openRate ?? 2.8}%) 및 폐업률(${cd.closeRate ?? 2.1}%) 기준 상권 생존 안정성 검증`,
           },
           {
             kind: 'info',

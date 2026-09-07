@@ -6,6 +6,7 @@
 import type { ArchetypeInput, ArchetypeOutput } from './a01-cover';
 import * as L from '../imlib';
 import { C, M, CW, KR, NUM } from '../imlib';
+import { stripMarkdown } from '../data-binder';
 
 export async function buildA18Checklist(input: ArchetypeInput): Promise<ArchetypeOutput> {
   const { pres, data } = input;
@@ -19,7 +20,11 @@ export async function buildA18Checklist(input: ArchetypeInput): Promise<Archetyp
   // 항목 추출: data.checkItems 배열 우선, 없으면 markdown 텍스트 파싱
   let items: string[] = [];
   if (Array.isArray(data.checkItems) && data.checkItems.length > 0) {
-    items = data.checkItems.map((it: any) => String(it || '').trim()).filter(Boolean);
+    items = data.checkItems
+      .map((it: any) => stripMarkdown(String(it || ''))
+        .replace(/^\[[\w가-힣 ]+\]\s*/, '')  // 내부 섹션 라벨 제거
+        .trim())
+      .filter(Boolean);
   } else if (typeof data.markdown === 'string' && data.markdown.trim().length > 0) {
     items = data.markdown
       .split('\n')
@@ -32,15 +37,22 @@ export async function buildA18Checklist(input: ArchetypeInput): Promise<Archetyp
       .filter(l => l.length > 0 && !l.startsWith('#') && !l.startsWith('|'));
   }
 
+  // D38 BL-4: 항목 3건 미만이면 기본 실사 항목 보충 (빈 공간 축소)
+  const defaultCheckItems = [
+    '등기부등본 갑구/을구 권리관계 및 근저당 채권최고액 전액 말소 조건 원본 대조',
+    '임대차 원본 계약서 대조 (보증금, 월임대료, 관리비 실입금 내역 및 제소전화해조서)',
+    '건축물대장상 위반건축물 등재 여부 및 불법 증축·용도변경 이행강제금 납부 이력 점검',
+    '토지이용계획확인원상 도시계획시설 저촉, 건축선 후퇴, 지구단위계획 특별계획구역 확인',
+    '기계식 주차기 정기 안전점검 합격증, 승강기 검사필증, 소방 완비증명서 실물 실사',
+    '정화조 용량 대비 현 업종 적합성 및 하수도 원인자부담금 추가 부과 대상 여부 확인',
+  ];
   if (items.length === 0) {
-    items = [
-      '등기부등본 갑구/을구 권리관계 및 근저당 채권최고액 전액 말소 조건 원본 대조',
-      '임대차 원본 계약서 대조 (보증금, 월임대료, 관리비 실입금 내역 및 제소전화해조서)',
-      '건축물대장상 위반건축물 등재 여부 및 불법 증축·용도변경 이행강제금 납부 이력 점검',
-      '토지이용계획확인원상 도시계획시설 저촉, 건축선 후퇴, 지구단위계획 특별계획구역 확인',
-      '기계식 주차기 정기 안전점검 합격증, 승강기 검사필증, 소방 완비증명서 실물 실사',
-      '정화조 용량 대비 현 업종 적합성 및 하수도 원인자부담금 추가 부과 대상 여부 확인',
-    ];
+    items = [...defaultCheckItems];
+  } else if (items.length < 3) {
+    for (const d of defaultCheckItems) {
+      if (items.length >= 5) break;
+      if (!items.some(it => it.includes(d.slice(0, 10)))) items.push(d);
+    }
   }
 
   // 상단 서브 타이틀 (총 항목 수 요약)

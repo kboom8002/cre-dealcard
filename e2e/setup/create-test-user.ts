@@ -96,7 +96,7 @@ async function main() {
     console.log(`✅ 새 테스트 계정 생성 완료: ${userId}`);
   }
 
-  await ensureProfile(supabase, userId!);
+  await ensureProfile(supabase as any, userId!);
 
   // .env.local에 E2E 환경변수 추가
   const envPath = path.resolve(__dirname, '../../.env.local');
@@ -119,7 +119,7 @@ async function main() {
 
 async function ensureProfile(supabase: ReturnType<typeof createClient>, userId: string) {
   // Profile upsert
-  const { error: profileErr } = await supabase
+  const { error: profileErr } = await (supabase as any)
     .from('profiles')
     .upsert({ id: userId, role: 'broker', display_name: 'E2E 테스트 브로커' });
 
@@ -130,7 +130,7 @@ async function ensureProfile(supabase: ReturnType<typeof createClient>, userId: 
   }
 
   // Broker profile upsert
-  const { error: brokerErr } = await supabase
+  const { error: brokerErr } = await (supabase as any)
     .from('broker_profiles')
     .upsert({ user_id: userId }, { onConflict: 'user_id' });
 
