@@ -2604,8 +2604,10 @@ export function bindFromExternalData(
   // ── 상권 분석: SEMAS API ──
   const cd = enrichment.commercialDistrict;
   if (cd) {
+    // D38 BL-3: 상권 단어 중복 방어 — districtName에서 '상권' 접미사 제거 후 접합
+    const cleanDistrictName = (cd.districtName || '해당').replace(/\s*상권$/g, '').replace(/\s*상권$/g, '');
     const cdRows: string[][] = [];
-    if (cd.districtName) cdRows.push(['상권명', cd.districtName]);
+    if (cd.districtName) cdRows.push(['상권명', cleanDistrictName + ' 상권']);
     if (cd.districtType) cdRows.push(['상권유형', cd.districtType]);
     if (cd.mainIndustry) cdRows.push(['주요업종', cd.mainIndustry]);
     if (cd.floatingPopulation != null) cdRows.push(['유동인구', `${Number(cd.floatingPopulation).toLocaleString()}명/일`]);
@@ -2614,8 +2616,6 @@ export function bindFromExternalData(
     if (cd.openRate != null) cdRows.push(['개업률', `${cd.openRate}%`]);
     if (cd.closeRate != null) cdRows.push(['폐업률', `${cd.closeRate}%`]);
 
-    // D38 BL-3: 상권 단어 중복 방어 — districtName에서 '상권' 접미사 제거 후 접합
-    const cleanDistrictName = (cd.districtName || '해당').replace(/\s*상권$/, '');
     dataMap['commercialDistrict'] = {
       title: '상권 분석',
       content: '',
