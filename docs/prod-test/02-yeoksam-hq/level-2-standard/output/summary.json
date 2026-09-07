@@ -1,0 +1,9 @@
+{
+  "testCase": "02-yeoksam-hq-L2",
+  "posture": "owner_occupied",
+  "buildingId": "e8bc71d2-6caf-409e-90b3-f9c15aa161f1",
+  "docId": "4c8c7754-a7ed-4c60-9f13-a3a3b834e50d",
+  "phase1_time": "0s",
+  "phase2_time": "158.2s",
+  "timestamp": "2026-09-07T01:17:11.546Z"
+}

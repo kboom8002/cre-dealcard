@@ -1,0 +1,36 @@
+{
+  "ok": true,
+  "data": {
+    "buildingId": "e8bc71d2-6caf-409e-90b3-f9c15aa161f1",
+    "signalCardId": "503b7e3a-b8f7-42db-a951-0a75e2b1ba82",
+    "teaserDocId": "b7fa303e-a2a6-49e1-95d1-8293a15be0d0",
+    "hiddenFields": [
+      "exact_address",
+      "unit_rent",
+      "negotiation_memo",
+      "owner_identity",
+      "registry_detail",
+      "lease_contract_raw_text"
+    ],
+    "postureProposal": {
+      "value": "development",
+      "confidence": 0.5,
+      "reason": "복합 포스처 감지: development(4점) vs income(3점) — 브로커 확인 필요. 키워드: 용적률, 명도, 신축, 건축",
+      "secondaryPosture": "income",
+      "confirmedBy": null,
+      "confirmedAt": null
+    },
+    "askingPriceKrw": 12000000000
+  },
+  "archetypes": [
+    "STABLE_INCOME"
+  ],
+  "constraintWarnings": [
+    {
+      "ruleId": "C16",
+      "severity": "error",
+      "message": "Cap Rate 표시 시 산출 기준(basis)이 반드시 명시되어야 합니다.",
+      "field": "capRateBasis"
+    }
+  ]
+}

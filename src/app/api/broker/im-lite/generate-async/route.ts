@@ -54,7 +54,9 @@ export async function POST(req: NextRequest) {
       resolved_pnu: body.resolved_pnu,
       photo_urls: body.photo_urls,
       photo_captions: body.photo_captions,
-      photos_v2: body.photos_v2,
+      photos_v2: (body.photos_v2 || []).filter((p: any) =>
+        p?.url && (p.url.startsWith('http://') || p.url.startsWith('https://') || p.url.startsWith('/'))
+      ),
       broker_highlight: body.broker_highlight,
       estimated_yield_pct: body.estimated_yield_pct,
       total_deposit_manwon: body.total_deposit_manwon,

@@ -1,0 +1,15 @@
+{
+  "jobId": "im_e8bc71d2-6caf-409e-90b3-f9c15aa161f1_1788743666553",
+  "status": "completed",
+  "result": {
+    "url": "/im-lite/e8bc71d2-6caf-409e-90b3-f9c15aa161f1?doc=4c8c7754-a7ed-4c60-9f13-a3a3b834e50d",
+    "ai_used": true,
+    "message": "Mobile IM 생성 완료 (7섹션, AI 서사, Grade B)",
+    "im_lite_id": "4c8c7754-a7ed-4c60-9f13-a3a3b834e50d",
+    "sections_count": 7,
+    "readiness_score": 80,
+    "external_data_loaded": true
+  },
+  "created_at": "2026-09-07T01:14:26.553+00:00",
+  "completed_at": "2026-09-07T01:17:01.412+00:00"
+}
