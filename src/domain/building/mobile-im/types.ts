@@ -200,6 +200,12 @@ export interface PermitSpec {
 }
 
 export interface OccupancySpec {
+  headcount?: number;
+  targetHeadcount?: number;
+  areaPerHeadPyung?: number;
+  desiredFloors?: string;
+  currentRentManwon?: number;
+  currentRentMonthlyManwon?: number;
   monthly_revenue_manwon?: number;
 }
 
@@ -228,6 +234,15 @@ export interface MobileIMSupplementalInput {
 
   // ── 층별 임대 데이터 ──
   floor_leases?: FloorLeaseInput[];
+
+  // ── 건축물 기본 제원 정본 (공공데이터 오류 보정용) ──
+  total_gross_area_m2?: number;      // 연면적 (㎡)
+  total_gross_area_pyeong?: number;  // 연면적 (평)
+  land_area_m2?: number;             // 대지면적 (㎡)
+  land_area_pyeong?: number;         // 대지면적 (평)
+  building_name?: string;            // 건물명
+  floors_above?: number;             // 지상 층수
+  floors_below?: number;             // 지하 층수
 
   // ── 추가 금액 정보 ──
   total_deposit_manwon?: number;    // 보증금 합계 (만원)
@@ -278,6 +293,15 @@ export interface MobileIMSupplementalInput {
 
   /** Pro IM용 브로커 직접입력 유사 건물 실거래가 */
   manual_comps?: ManualComparableInput[];
+
+  /** 브로커 입력 최근접 지하철역 (Kakao API 좌표 검색 보정용) — 예: '신사역(3호선) 도보 4분' */
+  subway_info?: string;
+  /** 시장 입지 분석 데이터 (premium-template-engine 전달용) */
+  market_location?: Record<string, unknown>;
+  /** 규제 정보 (개발형) */
+  regulation?: Record<string, unknown>;
+  /** 필지 정보 (개발형) */
+  parcels?: Array<Record<string, unknown>>;
 }
 
 /** 브로커가 직접 입력한 유사 건물 실거래가 */
@@ -376,6 +400,8 @@ export interface HeroCardData {
   farHeadroom?: number | null;
   /** 예상 개발이익률 (%) */
   devProfitMarginPct?: number | null;
+  /** 개발형 Hold 모드: 연 임대수익률 (연 임대료 / 총투입비 × 100) */
+  devHoldYieldPct?: number | null;
   // ── operating 전용 ──
   /** 객단가/ADR (만원) */
   adr?: number | null;

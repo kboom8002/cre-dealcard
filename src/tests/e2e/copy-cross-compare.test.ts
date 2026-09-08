@@ -9,7 +9,21 @@ const TEST_CASES = [
     level: 'level-2-standard',
     posture: 'owner_occupied',
   },
-  // Future: add more cases
+  {
+    id: '02-yeoksam-hq',
+    level: 'level-3-verified',
+    posture: 'owner_occupied',
+  },
+  {
+    id: '01-dangsan-income',
+    level: 'level-3-verified',
+    posture: 'income',
+  },
+  {
+    id: '03-jamwon-dev',
+    level: 'level-3-verified',
+    posture: 'development',
+  },
 ];
 
 const PROD_TEST_DIR = path.resolve(__dirname, '../../../docs/prod-test');
@@ -105,12 +119,16 @@ for (const tc of TEST_CASES) {
       const allPptxText = pptxTexts;
       expect(allPptxText).not.toMatch(/(?:60대|50대|40대|70대).*(?:자산가|투자자)/);
       expect(allPptxText).not.toMatch(/(?:법인\s*대표|디벨로퍼|은퇴).*(?:맞춤|을 위한)/);
+      expect(allPptxText).not.toContain('개인 자산가');
+      expect(allPptxText).not.toContain('본문을 참조');
     });
 
     it('Persona isolation (Rule 1): Mobile IM', () => {
       if (!hasOutput) return;
       expect(viewerText).not.toMatch(/(?:60대|50대|40대|70대).*(?:자산가|투자자)/);
       expect(viewerText).not.toMatch(/(?:법인\s*대표|디벨로퍼|은퇴).*(?:맞춤|을 위한)/);
+      expect(viewerText).not.toContain('개인 자산가');
+      expect(viewerText).not.toContain('본문을 참조');
     });
 
     it('Area values present in both (no empty)', () => {

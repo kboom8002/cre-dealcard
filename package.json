@@ -15,7 +15,8 @@
     "test:api": "vitest run src/tests/api/",
     "test:smoke": "vitest run src/tests/e2e/smoke-v3.test.ts",
     "test:e2e": "npx playwright test",
-    "test:all": "vitest run && npx playwright test"
+    "test:all": "vitest run && npx playwright test",
+    "preflight": "vitest run src/tests/e2e/preflight-pipeline-audit.test.ts src/tests/e2e/copy-cross-compare.test.ts src/tests/unit/a22-stacking-plan.test.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.73",

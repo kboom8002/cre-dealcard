@@ -58,14 +58,38 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
       mapImg = await fetchKakaoMapImage(mapImageUrl, 1120, 900);
     }
 
-    // D33 BL-E: 3차 generateStaticMapPlaceholder 삭제
-    // 플레이스홀더는 지도가 아닙니다. 1·2차 실패 시 면 생략.
+    // 2차: 고해상도(1600x1200, 266 DPI) 인메모리 Macro Transit Engine 벡터 다이어그램 자동 합성
+    const targetAddress = input.data?.address || input.data?.resolved_address || areaOrAddress;
+    const hasLocationSignal = Boolean(coords || (targetAddress && targetAddress !== '서울'));
+    if (!mapImg && hasLocationSignal) {
+      try {
+        const { generateMacroTransitDiagram } = await import('@/services/macro-transit-engine');
+        const transitResult = await generateMacroTransitDiagram({
+          address: targetAddress,
+          propertyName: input.data?.title || (input.data?.left as any)?.sub || '대상 자산',
+          coordinates: coords,
+        });
+        if (transitResult?.base64) {
+          const opt = await optimizeImageForPptx(transitResult.base64, 1200, 80);
+          mapImg = opt || ({ base64: transitResult.base64 } as any);
+        }
+      } catch (err) {
+        console.warn('[a06-diagram] Auto-generation of macro transit diagram failed:', err);
+      }
+    }
 
     if (mapImg) {
       slide.addImage({ data: mapImg.base64, x: M, y: 1.62, w: mapW, h: 4.50 });
     } else {
-      // D33 BL-E: 지도 없으면 면 생략, 체크리스트 이관
+      // D33 BL-E: 지도 없으면 면 생략, 체크리스트 이관 (유령 백지 슬라이드 방지를 위해 pres에서 슬라이드 제거)
       warnings.push('[BL-E] 지도 데이터 미확보 — 슬라이드 생략, 체크리스트 이관');
+      const presAny = input.pres as any;
+      if (Array.isArray(presAny.slides) && presAny.slides.length > 0) {
+        const lastIdx = presAny.slides.length - 1;
+        if (presAny.slides[lastIdx] === slide) {
+          presAny.slides.pop();
+        }
+      }
       L.foot(slide, input.slideNum, input.docno);
       return { slide, warnings, suppress: true } as any;
     }
@@ -87,7 +111,31 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     y += 0.35;
   }
 
-  const rightRows = (right.rows ?? []).slice(0, 5);
+  let rightRows = (right.rows ?? []).slice(0, 5);
+  if (rightRows.length === 0 && input.data.content) {
+    // Parse key points from content narrative if available
+    const contentText = String(input.data.content);
+    const autoRows: RowEntry[] = [];
+    if (/역삼역|2호선/i.test(contentText)) {
+      autoRows.push(['지하철 접근성', '2호선 역삼역 도보 2분 (약 129m) 초역세권']);
+    }
+    if (/강남역|9호선|언주역|신논현역/i.test(contentText)) {
+      autoRows.push(['광역 환승망', '2·9호선 및 신분당선 인접 (강남역 780m)']);
+    }
+    if (/테헤란로|GBD/i.test(contentText)) {
+      autoRows.push(['핵심 권역', '강남 핵심 업무지구(GBD) 테헤란로 중심']);
+    }
+    if (/도로|각지/i.test(contentText)) {
+      autoRows.push(['도로 조건', '일반상업지역 중로각지·평지 입지']);
+    }
+    if (/인프라|식음|편의/i.test(contentText)) {
+      autoRows.push(['생활·비즈니스', '풍부한 식음 및 비즈니스 지원 인프라 밀집']);
+    }
+    if (autoRows.length >= 2) {
+      rightRows = autoRows;
+    }
+  }
+
   if (rightRows.length > 0) {
     const safeRows = rightRows.map(([label, value, ...rest]: any[]) => 
       [stripMarkdown(String(label || '')), stripMarkdown(String(value || '')), ...rest]

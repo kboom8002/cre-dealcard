@@ -266,7 +266,11 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     const protectedSlides = bodySlides.filter(s => protectedKeys.has(s.dataKey));
     const optionalSlides = bodySlides.filter(s => !protectedKeys.has(s.dataKey));
     const effectiveLimit = tierConfig?.maxBodyPages ?? PAGE_HARD_LIMIT;
-    const budget = effectiveLimit - protectedSlides.length;
+    // D39: 사옥형 포스처는 PAGE_HARD_LIMIT(16) 이내의 본문(15면) 전량을 보존
+    const targetLimit = (input.posture === 'owner_occupied' && effectiveLimit >= 12)
+      ? Math.min(PAGE_HARD_LIMIT, Math.max(effectiveLimit, bodySlides.length))
+      : effectiveLimit;
+    const budget = targetLimit - protectedSlides.length;
 
     if (budget < 0) {
       // 보호 키만으로도 상한 초과 — 구조 오류
@@ -274,16 +278,20 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     }
 
     const SLIDE_PRIORITY: Record<string, number> = {
-      // Priority 1 (highest): Core financial analysis — Grade A signature
-      dcf: 1, sensitivity: 1, capital: 1, totalReturn: 1,
+      // Priority 1 (highest): Core financial analysis & posture signature
+      dcf: 1, sensitivity: 1, capital: 1,
+      totalReturn: input.posture === 'owner_occupied' ? 3 : 1,
+      plan: 1, vsLease: 1, commute: 1, value: 1, // 사옥형 4대 핵심 슬라이드 Priority 1
       // Priority 2: Key property data & posture-specific core slides
       profit: 2, rentRoll: 2, stackingPlan: 2, stability: 2,
       gallery: 2, gallery2: 2,
       feasibility: 2, scale: 2, eviction: 2, cost: 2, stacking: 2,
       kpi: 2, revenue: 2, seasonality: 2, operator: 2,
       comps: 2, trend: 2, turnover: 2, price: 2,
-      // Priority 3: Context & supporting
-      location: 3, land: 3, building: 3,
+      // Priority 3: Context & supporting (사옥형에서는 실입주 핵심이므로 2 부여)
+      location: input.posture === 'owner_occupied' ? 2 : 3,
+      land: input.posture === 'owner_occupied' ? 2 : 3,
+      building: input.posture === 'owner_occupied' ? 2 : 3,
       // Priority 4 (lowest): Secondary items
       loan: 4, tax: 4,
     };

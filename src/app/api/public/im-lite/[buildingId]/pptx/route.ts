@@ -109,9 +109,11 @@ export async function GET(
       }, { status: 422 });
     }
 
-    const posture = body.investmentPosture
+    const posture = body.investment_posture
+      ?? body.investmentPosture
       ?? body.posture
       ?? body.identity?.investmentPosture
+      ?? body.identity?.investment_posture
       ?? body.ssot_summary?.investment_posture
       ?? building?.investment_posture
       ?? 'income';

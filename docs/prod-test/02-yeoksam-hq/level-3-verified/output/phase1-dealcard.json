@@ -1,0 +1,37 @@
+{
+  "ok": true,
+  "data": {
+    "buildingId": "4a6f512c-4c82-4fdd-a0b0-cbfab392f0eb",
+    "signalCardId": "20f94d5d-ceba-43d6-ba6d-9666dc3b3c83",
+    "teaserDocId": "1bb3fc2e-c402-4254-8532-fdeb00b77894",
+    "hiddenFields": [
+      "exact_address",
+      "tenant_name",
+      "unit_rent",
+      "seller_motivation",
+      "negotiation_memo",
+      "owner_identity",
+      "registry_detail",
+      "lease_contract_raw_text"
+    ],
+    "postureProposal": {
+      "value": "development",
+      "confidence": 0.95,
+      "reason": "키워드 감지: 용적률, 인허가, 명도, 신축, 건축",
+      "confirmedBy": null,
+      "confirmedAt": null
+    },
+    "askingPriceKrw": 12000000000
+  },
+  "archetypes": [
+    "STABLE_INCOME"
+  ],
+  "constraintWarnings": [
+    {
+      "ruleId": "C16",
+      "severity": "error",
+      "message": "Cap Rate 표시 시 산출 기준(basis)이 반드시 명시되어야 합니다.",
+      "field": "capRateBasis"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "02-yeoksam-hq",
+  "level": "level-3-verified",
+  "phases": {
+    "phase0": "success",
+    "phase1": "success",
+    "phase2": "success",
+    "phase3": "success",
+    "phase4": "success",
+    "phase5": "success",
+    "phase6": "success"
+  },
+  "timings": {
+    "phase0": 2127,
+    "phase1": 108055,
+    "phase2": 106316,
+    "phase3": 366,
+    "phase4": 15151,
+    "phase5": 12945,
+    "phase6": 4
+  },
+  "success": true,
+  "buildingId": "4a6f512c-4c82-4fdd-a0b0-cbfab392f0eb",
+  "docId": "92e655d5-6f83-4ee3-bae8-72371e0725dc",
+  "totalTime": 244965
+}

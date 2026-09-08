@@ -44,7 +44,7 @@ const FUNCTIONAL_REPLACEMENTS: Record<string, (match: string, ...groups: string[
 export const HARDCODED_TERM_RULES: ReplacementRule[] = [
   {
     id: 'hardcoded_pyeongToSqm',
-    pattern: /(\d+(?:\.\d+)?)\s*평(?!\(약)/g,
+    pattern: /(?<!(?:㎡|m2|m²)\s*\(?\s*(?:약\s*)?)(\d+(?:\.\d+)?)\s*평(?!\s*\(약)/gi,
     replacement: FUNCTIONAL_REPLACEMENTS['fn:pyeongToSqm'],
     category: '면적',
   },
@@ -290,6 +290,11 @@ function applyRules(text: string, rules: ReplacementRule[]): NormalizationResult
     }
   }
 
+  // 8대 금지 패턴 방어: 중복 평-제곱미터 환산 표기 자동 정제
+  result = result
+    .replace(/(\d[\d,.]*㎡)\s*\(약\s*(\d[\d,.]*평)\(약\s*[\d,.]*㎡\)\)/g, '$1 ($2)')
+    .replace(/(\d[\d,.]*㎡)\s*\(\s*(\d[\d,.]*평)\(약\s*[\d,.]*㎡\)\)/g, '$1 ($2)');
+
   return { text: result, replaced };
 }
 
@@ -343,6 +348,10 @@ export function sanitizeTextHygiene(text: string): string {
 
     // ── 문미 dangling 기호 ──
     .replace(/\s*[—–-]\s*$/gm, '')
+
+    // ── 중복 평-제곱미터 환산 표기 정제 (8대 금지 패턴 방어) ──
+    .replace(/(\d[\d,.]*㎡)\s*\(약\s*(\d[\d,.]*평)\(약\s*[\d,.]*㎡\)\)/g, '$1 ($2)')
+    .replace(/(\d[\d,.]*㎡)\s*\(\s*(\d[\d,.]*평)\(약\s*[\d,.]*㎡\)\)/g, '$1 ($2)')
 
     // ── 공백 정규화 ──
     .replace(/\s+/g, ' ')

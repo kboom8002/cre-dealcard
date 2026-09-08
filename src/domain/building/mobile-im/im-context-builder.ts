@@ -196,11 +196,31 @@ export async function buildIMContext(
     parsePriceBandKrw(assetIdentity.price_band) ||
     Number(assetIdentity.price_band_krw ?? 0);
 
-  const totalAreaForGuard =
-    (external_data?.buildingRegister?.totalArea) ??
-    Number(physicalFact.total_area_sqm ?? 0);
+  // 면적 추출: 공공데이터가 사용자 입력/메모와 2.5배 이상 괴리되면 사용자 실물 면적 우선 (단독사옥 블라인드 지번 대응)
+  const userTotalArea = supplemental.total_gross_area_m2 ||
+    (Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0
+      ? supplemental.floor_leases.reduce((sum: number, f: any) => sum + (Number(f.area_sqm) || 0), 0)
+      : null);
+  const parsedPhysicalArea = Number(physicalFact.total_area_sqm ?? 0);
+  const publicArea = Number(external_data?.buildingRegister?.totalArea || 0);
 
-  // ── value-add 사전 계산 (공실 또는 월세 데이터 있을 때) ──────────────────
+  const isSevereMismatch = publicArea > 0 && (
+    (userTotalArea && (publicArea > userTotalArea * 2.5 || publicArea < userTotalArea / 2.5)) ||
+    (parsedPhysicalArea > 0 && (publicArea > parsedPhysicalArea * 2.5 || publicArea < parsedPhysicalArea / 2.5))
+  );
+
+  const totalAreaForGuard = isSevereMismatch
+    ? (userTotalArea || parsedPhysicalArea || publicArea)
+    : (publicArea || userTotalArea || parsedPhysicalArea);
+
+  // ── 포스처 해석 (RAG 및 시스템 프롬프트 조립 전에 필요) ────────────────────────
+  const posture = (
+    (input as any).identity?.investmentPosture
+    || (input.supplemental as any)?.investmentPosture
+    || 'income'
+  ) as import('@/domain/ontology').InvestmentPosture;
+
+  // ── value-add 사전 계산 (수익형 income 포스처에서만 유효) ──────────────────
   let valueAddMarkdown: string | null = null;
   // 사용자가 바텀시트에서 명시적으로 입력한 vacancy_pct가 있으면 우선 사용
   // (메모 파싱된 vacancy_signal보다 사용자 입력이 우선)
@@ -220,7 +240,7 @@ export async function buildIMContext(
     vacancyPct = 0; // 계산 진행을 위해 0 사용하되, 로그로 명시
   }
 
-  if (supplemental.monthly_rent_total_krw && supplemental.monthly_rent_total_krw > 0 && purchasePriceForGuard > 0) {
+  if (posture === 'income' && supplemental.monthly_rent_total_krw && supplemental.monthly_rent_total_krw > 0 && purchasePriceForGuard > 0) {
     try {
       const monthlyRent = supplemental.monthly_rent_total_krw;
       const annualGross = monthlyRent * 12;
@@ -259,13 +279,6 @@ export async function buildIMContext(
       buildingAge: buildingAge > 0 ? buildingAge : undefined,
     },
   };
-
-  // ── 포스처 해석 (RAG 및 시스템 프롬프트 조립 전에 필요) ────────────────────────
-  const posture = (
-    (input as any).identity?.investmentPosture
-    || (input.supplemental as any)?.investmentPosture
-    || 'income'
-  ) as import('@/domain/ontology').InvestmentPosture;
 
   // ── RAG 컨텍스트 사전 조회 (루프 밖으로 호이스팅 — B-4 수정) ────────────
   let ragCtx = "";

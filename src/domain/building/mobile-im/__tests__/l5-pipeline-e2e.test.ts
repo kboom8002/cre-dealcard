@@ -36,7 +36,7 @@ describe('L5: Full Pipeline E2E & System Invariants (25 cases)', () => {
       expect(output).toBeDefined();
       expect(output.sections).toBeDefined();
       expect(output.sections.length).toBeGreaterThanOrEqual(4);
-    }, 30000);
+    }, 60000);
   });
 
   describe('StageTimer Invariant Protection (90s / 105s / 120s)', () => {

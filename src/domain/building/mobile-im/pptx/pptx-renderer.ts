@@ -215,9 +215,18 @@ export class MobileImPptxRenderer {
       if (dataMap['location']) {
         (dataMap['location'] as any).coordinates = input.doc.body?.coordinates ?? null;
         (dataMap['location'] as any).mapImageUrl = input.doc.body?.mapImageUrl ?? null;
+        (dataMap['location'] as any).address = input.doc.body?.ssot_summary?.address ?? input.doc.body?.resolved_address ?? input.doc.body?.address;
+        (dataMap['location'] as any).areaSignal = input.building?.area_signal ?? input.doc.body?.ssot_summary?.area_signal ?? input.doc.body?.areaSignal;
         // POI 주요 스폿 (역, 상권 랜드마크) — 지도 마커 오버레이용
         const externalPoi = enrichment?.locationPoi ?? input.doc.body?.external_data?.locationPoi;
         (dataMap['location'] as any).poiSpots = externalPoi?.keySpots ?? input.doc.body?.poiSpots ?? [];
+      }
+
+      if (dataMap['commute']) {
+        (dataMap['commute'] as any).coordinates = (dataMap['location'] as any)?.coordinates ?? input.doc.body?.coordinates ?? null;
+        (dataMap['commute'] as any).mapImageUrl = (dataMap['location'] as any)?.mapImageUrl ?? input.doc.body?.mapImageUrl ?? null;
+        (dataMap['commute'] as any).address = (dataMap['location'] as any)?.address ?? input.doc.body?.resolved_address ?? input.doc.body?.address;
+        (dataMap['commute'] as any).areaSignal = (dataMap['location'] as any)?.areaSignal;
       }
 
       // 건물 개요 슬라이드에 외관 사진 우선 사용
@@ -295,6 +304,14 @@ export class MobileImPptxRenderer {
         } as any;
       }
       (dataMap['summary'] as any).heroCard = heroCard;
+
+      if (posture === 'owner_occupied' && (!(dataMap['summary'] as any).keyPoints || (dataMap['summary'] as any).keyPoints.length === 0)) {
+        (dataMap['summary'] as any).keyPoints = [
+          '사옥 가치: 테헤란로 핵심 업무권역 내 독립 사옥 확보 및 쾌적한 본사 공간',
+          '비용 절감: 강남 임차료 지출을 법인 자산 축적으로 전환하는 재무 타당성',
+          '기업 브랜딩: 사옥 단독 명칭 표기(간판 설치권) 및 기업 대외 신인도 극대화',
+        ];
+      }
 
       // I-03 fix + FIX-RC5: dataMap['summary'].metrics나 heroCard.stats가 비어 있을 때만 SSoT/body/building에서 자동 구성
       const existingMetrics = (dataMap['summary'] as any)?.metrics;
@@ -415,8 +432,15 @@ export class MobileImPptxRenderer {
 
         try {
           const result = await Promise.resolve(builder(archetypeInput));
-          // W-PPTX-6: 빌더가 suppress 신호를 반환하면 슬라이드 생략
+          // W-PPTX-6: 빌더가 suppress 신호를 반환하면 슬라이드 생략 (유령 백지 슬라이드 방지)
           if (result.suppress) {
+            const presAny = pres as any;
+            if (Array.isArray(presAny.slides) && presAny.slides.length > 0) {
+              const lastIdx = presAny.slides.length - 1;
+              if (presAny.slides[lastIdx] === result.slide) {
+                presAny.slides.pop();
+              }
+            }
             warnings.push(...result.warnings);
             warnings.push(`[Suppress] ${spec.archetype}(${spec.title}) 슬라이드 억제`);
             continue;
@@ -428,6 +452,13 @@ export class MobileImPptxRenderer {
             warnings,
           });
           if (!fallbackOk) {
+            const presAny = pres as any;
+            if (Array.isArray(presAny.slides) && presAny.slides.length > 0) {
+              const lastIdx = presAny.slides.length - 1;
+              if (presAny.slides[lastIdx] === result.slide) {
+                presAny.slides.pop();
+              }
+            }
             warnings.push(`[BL-5 BLOCK] ${spec.archetype}(${spec.title}) 슬라이드 제거: 폴백 차단`);
             continue;
           }

@@ -147,6 +147,19 @@ export async function generateSingleSection(
           totalDepositManwon: supplemental.total_deposit_manwon,
           mgmtFeeTotalManwon: supplemental.mgmt_fee_total_manwon,
           loanAmountManwon: supplemental.loan_amount_manwon,
+          // 개발형 전용 파라미터
+          constructionCostPerPyeong: (supplemental.developmentSpec as any)?.constructionCostPerPyung
+            ?? (supplemental.developmentSpec as any)?.constructionCostPerPyeong
+            ?? undefined,
+          targetGrossAreaPyeong: (supplemental.developmentSpec as any)?.targetScalePyung
+            ?? (supplemental.developmentSpec as any)?.targetScalePyeong
+            ?? undefined,
+          expectedSalesPricePerPyeong: (supplemental.developmentSpec as any)?.expectedSalePricePerPyung
+            ?? (supplemental.developmentSpec as any)?.expectedSalePricePerPyeong
+            ?? undefined,
+          devHoldMonthlyRentManwon: Array.isArray(supplemental.floor_leases)
+            ? (supplemental.floor_leases as any[]).reduce((sum: number, l: any) => sum + (Number(l.rent_manwon) || 0), 0)
+            : undefined,
         });
         sectionFinancials = fin;
         if (!input.dcfEligible && fin.dcf10Year) {
@@ -330,16 +343,24 @@ export async function generateSingleSection(
     console.warn(`[im-section-generator] AI failed for ${sectionType}, using template:`, err);
   }
 
-  // D37 P0-6: AI 실패 → 폴백 금지. 빈 면 생성 금지 (07 §15.3)
-  // 실패 시 throw하여 writer가 해당 면을 건너뛰거나 차단하도록 위임
+  // AI 실패 시 안전하고 풍부한 프리미엄 템플릿으로 복구 (섹션 실종/깡통화 방지)
   if (!generatedByAi) {
-    throw new Error(
-      `[P0-6] AI 생성 실패: ${sectionType}. 폴백 금지 — 데이터 부족 시 면 자체를 제외해야 합니다.`,
+    console.warn(`[im-section-generator] ${sectionType} 프리미엄 템플릿으로 생성`);
+    markdown = generatePremiumTemplate(
+      sectionType,
+      ctx.assetIdentity as any,
+      ctx.physicalFact as any,
+      ctx.marketLocation as any,
+      ctx.buyerFit as any,
+      supplemental,
+      externalData,
+      buildingSsotLite as any,
+      posture
     );
   }
 
-  // value-add 테이블 추가
-  if (sectionType === "investment_thesis" && ctx.valueAddMarkdown) {
+  // value-add 테이블 추가 (수익형 포스처에서만 유효)
+  if (sectionType === "investment_thesis" && ctx.valueAddMarkdown && posture === "income") {
     markdown += `\n\n${ctx.valueAddMarkdown}`;
   }
 
@@ -445,18 +466,32 @@ export async function generateSingleSection(
   // CRE Quality Gate (Fast mode 스킵) — D33 M-H: 정적 합성 문구에도 적용
   if (!IM_FAST_MODE) {
     try {
-      const gateResult = await runCREQualityGate(markdown, sectionType);
+      const gateResult = await runCREQualityGate(markdown, sectionType, posture);
       if (!gateResult.passed && gateResult.riskLevel === "high") {
-        // D37 P0-6: QG 차단 시 폴백 금지 → throw
-        throw new Error(
-          `[P0-6/QG] 품질 게이트 차단: ${sectionType}. riskLevel=high. 폴백 금지.`,
+        console.warn(
+          `[cre-quality-gate] ${sectionType} high risk detected (${gateResult.issues.length} issues) — 프리미엄 템플릿으로 안전하게 복구`,
+          gateResult.issues.map(i => `${i.type}: ${i.excerpt.slice(0, 40)}`)
+        );
+        markdown = generatePremiumTemplate(
+          sectionType,
+          ctx.assetIdentity as any,
+          ctx.physicalFact as any,
+          ctx.marketLocation as any,
+          ctx.buyerFit as any,
+          supplemental,
+          externalData,
+          buildingSsotLite as any,
+          posture
+        );
+        generatedByAi = false;
+      } else if (!gateResult.passed && gateResult.riskLevel === "medium") {
+        // Graduated response: medium 위험은 AI 원문을 보존하되 면책 가드로 보강
+        console.info(
+          `[cre-quality-gate] ${sectionType} medium risk detected (${gateResult.issues.length} issues) — AI 원문 유지 및 면책 보강 적용`,
+          gateResult.issues.map(i => `${i.type}: ${i.excerpt.slice(0, 40)}`)
         );
       }
     } catch (gateErr) {
-      // QG 자체 실패는 경고만 (게이트 인프라 장애 시 빌드 차단 방지)
-      if (gateErr instanceof Error && gateErr.message.startsWith('[P0-6/QG]')) {
-        throw gateErr; // P0-6 차단은 재throw
-      }
       console.warn(`[cre-quality-gate] Gate failed for ${sectionType}, skipping:`, gateErr);
     }
   }

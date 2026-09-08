@@ -52,8 +52,9 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     if (rowEntries.length > 0) {
       L.rows(slide, M, 1.80, lw, rowEntries.slice(0, 10), { rh: 0.48, fs: 13.5 });
     } else {
-      L.callout(slide, M, 1.80, lw, 2.0, 'info', '건축물 물리 스펙 요약',
-        '• 상세 건물 제원은 실사 자료를 참조하시기 바랍니다\n• 건물 현황 및 규모는 첨부 대장을 기준으로 합니다\n• 건물 상태 및 설비 현황은 실사 보고서를 참조하십시오');
+      const fallbackTitle = `${input.data.title || left.sub || '세부 정보'} 요약`;
+      L.callout(slide, M, 1.80, lw, 2.0, 'info', fallbackTitle,
+        '• 상세 제원은 실사 자료 및 공부 원본을 참조하시기 바랍니다\n• 세부 현황은 첨부 공적 장부 및 현장 실사를 기준으로 합니다\n• 특이사항은 LOI 접수 후 제공되는 실사 보고서를 참조하십시오');
     }
   } else if (input.data.content) {
     const lines = String(input.data.content).split('\n')
@@ -72,12 +73,14 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     if (contentRows.length > 0) {
       L.rows(slide, M, 1.80, lw, contentRows.slice(0, 10), { rh: 0.48, fs: 13.5 });
     } else {
-      L.callout(slide, M, 1.80, lw, 2.0, 'info', '건축물 물리 스펙 요약',
-        '• 상세 건물 제원은 실사 자료를 참조하시기 바랍니다\n• 건물 현황 및 규모는 첨부 대장을 기준으로 합니다\n• 건물 상태 및 설비 현황은 실사 보고서를 참조하십시오');
+      const fallbackTitle = `${input.data.title || left.sub || '세부 정보'} 요약`;
+      L.callout(slide, M, 1.80, lw, 2.0, 'info', fallbackTitle,
+        '• 상세 제원은 실사 자료 및 공부 원본을 참조하시기 바랍니다\n• 세부 현황은 첨부 공적 장부 및 현장 실사를 기준으로 합니다\n• 특이사항은 LOI 접수 후 제공되는 실사 보고서를 참조하십시오');
     }
   } else {
-    L.callout(slide, M, 1.80, lw, 2.0, 'info', '건축물 물리 스펙 요약',
-      '• 상세 건물 제원은 실사 자료를 참조하시기 바랍니다\n• 건물 현황 및 규모는 첨부 대장을 기준으로 합니다\n• 건물 상태 및 설비 현황은 실사 보고서를 참조하십시오');
+    const fallbackTitle = `${input.data.title || left.sub || '세부 정보'} 요약`;
+    L.callout(slide, M, 1.80, lw, 2.0, 'info', fallbackTitle,
+      '• 상세 제원은 실사 자료 및 공부 원본을 참조하시기 바랍니다\n• 세부 현황은 첨부 공적 장부 및 현장 실사를 기준으로 합니다\n• 특이사항은 LOI 접수 후 제공되는 실사 보고서를 참조하십시오');
   }
   
   // Brass 수직 구분선

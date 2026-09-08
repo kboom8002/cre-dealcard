@@ -18,22 +18,34 @@ export async function buildA18Checklist(input: ArchetypeInput): Promise<Archetyp
   L.head(slide, input.slideNum, kicker, title);
 
   // 항목 추출: data.checkItems 배열 우선, 없으면 markdown 텍스트 파싱
+  const cleanItemText = (raw: string) => {
+    let s = stripMarkdown(raw).replace(/^\[[\w가-힣 ]+\]\s*/, '').trim();
+    if (s.length > 70) {
+      // 긴 문단이면 마침표 기준 첫 문장 추출
+      const firstDot = s.indexOf('. ');
+      if (firstDot > 10 && firstDot <= 65) {
+        s = s.slice(0, firstDot + 1);
+      } else {
+        s = s.slice(0, 67) + '...';
+      }
+    }
+    return s;
+  };
+
   let items: string[] = [];
   if (Array.isArray(data.checkItems) && data.checkItems.length > 0) {
     items = data.checkItems
-      .map((it: any) => stripMarkdown(String(it || ''))
-        .replace(/^\[[\w가-힣 ]+\]\s*/, '')  // 내부 섹션 라벨 제거
-        .trim())
+      .map((it: any) => cleanItemText(String(it || '')))
       .filter(Boolean);
   } else if (typeof data.markdown === 'string' && data.markdown.trim().length > 0) {
     items = data.markdown
       .split('\n')
-      .map(l => l.replace(/^[-•*◇⚠️📋🔒⏱️🔍\d.]+\s*/, '').trim())
+      .map(l => cleanItemText(l.replace(/^[-•*◇⚠️📋🔒⏱️🔍\d.]+\s*/, '')))
       .filter(l => l.length > 0 && !l.startsWith('#') && !l.startsWith('|'));
   } else if (typeof data.content === 'string' && data.content.trim().length > 0) {
     items = data.content
       .split('\n')
-      .map(l => l.replace(/^[-•*◇⚠️📋🔒⏱️🔍\d.]+\s*/, '').trim())
+      .map(l => cleanItemText(l.replace(/^[-•*◇⚠️📋🔒⏱️🔍\d.]+\s*/, '')))
       .filter(l => l.length > 0 && !l.startsWith('#') && !l.startsWith('|'));
   }
 
@@ -109,16 +121,17 @@ export async function buildA18Checklist(input: ArchetypeInput): Promise<Archetyp
       });
 
       // 본문 텍스트
+      const fs = text.length > 40 ? 9.5 : 10.5;
       slide.addText(text, {
         x: colX + 0.60,
-        y: curY + 0.12,
+        y: curY + 0.10,
         w: colW - 0.75,
-        h: itemH - 0.20,
+        h: itemH - 0.16,
         fontFace: KR,
-        fontSize: 10.5,
+        fontSize: fs,
         color: C.ink,
         valign: 'middle',
-        lineSpacingMultiple: 1.15,
+        lineSpacingMultiple: 1.10,
       });
 
       curY += itemH + 0.14;

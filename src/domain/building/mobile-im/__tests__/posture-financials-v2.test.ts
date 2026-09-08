@@ -81,6 +81,26 @@ describe('Posture Financial Strategies v2 (Phase 3-2)', () => {
       expect(result.ownVsLeaseSavingsBil).toBe(0.2);
       expect(result.occupancyCostPerPyeongMonthly).toBeGreaterThan(0);
     });
+
+    it('PF2-05b: calculates saved rent and breakeven with user currentRentManwon and default 60% LTV', () => {
+      const result = calculateFinancials({
+        posture: 'owner_occupied',
+        purchasePriceKrw: 12_000_000_000, // 120억
+        totalAreaSqm: 655,                 // 198.1평
+        currentRentManwon: 3800,           // 월 3,800만 (연 4.56억)
+        monthlyRentKrw: 4_000_000,         // 지하 1층 부가 임대수익 월 400만 (연 0.48억)
+      });
+
+      // 가상 연 임대료 = 3,800만 × 12 = 4.56억
+      // 부가 임대수익 = 400만 × 12 = 0.48억
+      // 대출(60%) = 72억, 이자(4.5%) = 3.24억
+      // 연 절감액 = (4.56억 + 0.48억) - 3.24억 = 1.8억
+      // 자기자본 = 120억 - 72억 = 48억
+      // 손익분기 = 48억 / 1.8억 = 26.666...년 -> 26.7년
+      expect(result.ownVsLeaseSavingsBil).toBe(1.8);
+      expect(result.equityRequired).toBe(48);
+      expect(result.breakevenYears).toBeCloseTo(26.7, 1);
+    });
   });
 
   describe('Operating Strategy — GOP & Margin', () => {

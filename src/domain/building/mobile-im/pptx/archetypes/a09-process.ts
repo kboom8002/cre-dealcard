@@ -23,8 +23,16 @@ export function buildA09Process(input: ArchetypeInput): ArchetypeOutput {
   const warnings: string[] = [];
   L.head(slide, input.slideNum, input.data.kicker || 'SECTION', input.data.title || '제목');
   
-  const steps = input.data.steps || [];
-  const n = Math.min(steps.length || 3, 4);
+  let steps = input.data.steps || [];
+  if (!Array.isArray(steps) || steps.length === 0) {
+    steps = [
+      { stepNum: '01', title: '관심 표명 및 상담', description: '담당 중개사를 통한 매입 의향 확인 및 기초 브리핑 자료 수령' },
+      { stepNum: '02', title: '비밀유지협약(NDA)', description: '임대차 계약서 원본, 정밀 도면, 관리비 정산서 등 상세 자료 열람' },
+      { stepNum: '03', title: '현장 실사(DD)', description: '건물 구조, 승강기·주차 설비, 누수 및 실사용 공간 직접 점검' },
+      { stepNum: '04', title: '매수의향서(LOI) 및 계약', description: '매매 대금, 잔금 일정, 명도 특약 조율 후 최종 매매계약 체결' },
+    ];
+  }
+  const n = Math.min(steps.length, 4);
   const gap = 0.4;
   const w = L.col(n, gap);
   const y = 1.72;

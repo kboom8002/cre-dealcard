@@ -457,5 +457,29 @@ Integrity mode: development
 - [ ] Rule 15: `approve/route.ts`에서 `runApprovalGate()` 우회 경로가 없을 것
 - [ ] Rule 5: 새 게이트 추가 시 `PUBLISH_GATES` 배열에 반드시 등록
 
+## 2026-09-07T11:36:06Z
 
+CRE IM 파이프라인 전 계층(외부 데이터·재무 산출·LLM/게이트·PPTX 렌더러·보안/승인 프로토콜)의 잠재 오류 소스를 MECE하게 전수 감사하고, 포스처 전반(사옥형·수익형·개발형·운영형·매매형)의 범용 신뢰성을 보장하는 자동화 회귀 방지 체계를 구축한다.
 
+Working directory: c:\Users\User\cre-dealcard
+Integrity mode: development
+
+## Requirements
+
+### R1. 5개 레이어(L1~L5) 잠재 결함 MECE 전수 감사 및 동적화
+- **L1 (데이터 수집/정본화)**: 합필·대표지번 면적 괴리 방어, 연면적 0/NaN 제수 가드, 용도지역 비표준 문자열 정규화.
+- **L2 (재무 모델링)**: 5대 포스처(income, owner_occupied, development, operating, trading)별 파라미터 결손 시 동적 기본값 및 회수기간/GOP/개발수지 산식 무결성 확보.
+- **L3 (LLM & 품질 게이트)**: `cre-quality-gate.ts`의 포스처별 전문 용어 화이트리스트 확장(개발형 PF/시공비, 운영형 GOP/RevPAR 등) 및 템플릿 폴백 완비.
+- **L4 (데이터 바인딩 & PPTX)**: `data-binder.ts`에 하드코딩된 역삼동/120억 수치·지역명 완전 동적화, `sectionType === 'investment_thesis'` 포스처 분기 정밀화, Callout kind 유효성 검증.
+- **L5 (보안/승인 프로토콜)**: 해시 바인딩 승인 프로토콜(`expectedHash`), 릴리즈 티어 5종 전구간 연결, 폴링 300초 상한 가드 점검.
+
+### R2. 포스처별 크로스 플랫폼 E2E 회귀 방지 테스트 스위트 확충
+- 기존 02-역삼(사옥형), 01-당산(수익형)에 이어 개발형/운영형/매매형 가상 픽스처 기반 교차 대조(`copy-cross-compare`) 및 PPTX 렌더링 검증 테스트 작성.
+
+## Acceptance Criteria
+
+### L1~L5 무결성 검증
+- [ ] `data-binder.ts` 내 하드코딩된 특정 건물/지역명(역삼역, 테헤란로, 120억, 48억 등) 완전 제거 및 동적 바인딩 확인
+- [ ] 5개 포스처 전체에서 `npm run build` 및 `npx tsc --noEmit` 무결성 0 Error 달성
+- [ ] `src/domain/building/mobile-im/__tests__/` 전 테스트 통과
+- [ ] 8대 금지 패턴 및 Rule 1(페르소나 격리), Rule 2(CRE 실무 용어) 위반 0건 유지

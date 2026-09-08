@@ -146,3 +146,74 @@
 - vitest의 기본 타임아웃(5s)에 의존하지 않습니다.
 <!-- END:cre-prod-web-rules -->
 
+<!-- BEGIN:cre-d39-rules -->
+# CRE IM D39 Multi-Posture & PPTX Robustness Rules (2026-09-07 교훈)
+
+### 26. 포스처별 슬라이드 바인더 완전 동적화 (Dynamic Binder Invariant)
+- `data-binder.ts` 및 슬라이드 프롭스 빌더(`buildOwnerOccupied*` 등)에 특정 매물의 수치(120억, 48억 등), 지역명(역삼역, 테헤란로 등), 또는 특정 임대 스펙을 하드코딩하는 것을 엄격히 금지합니다.
+- 모든 수치와 텍스트는 `doc.body`, `heroCard`, `assetIdentity`, `occupancySpec`, `building`에서 동적으로 산출하고, 일반화된 도심 비즈니스 권역 fallback을 사용해야 합니다.
+
+### 27. 슬라이드 아키타입 CalloutKind 무결성 (Strict CalloutKind Exhaustiveness)
+- PPTX Callout 아키타입(A04, A06, A08 등)에서 허용되는 `kind`는 오직 `info | good | warn | bad | brass` 5종뿐입니다.
+- 임의의 문자열(`surface`, `neutral`, `card` 등)을 지정하면 튜플 디스트럭처링 시 `undefined is not iterable` 런타임 예외가 발생하므로 사용을 금지합니다.
+- `imlib.ts` 및 기저 렌더러는 `colors[kind] ?? colors.info` 형태의 안전 폴백을 항상 유지해야 합니다.
+
+### 28. Quality Gate 포스처 인식 및 점진적 응답 (Posture-Aware Gate & Graduated Response)
+- `runCREQualityGate()`는 반드시 `posture` 컨텍스트를 주입받아 검사해야 합니다.
+- 5대 포스처별 표준 실무 용어(사옥형 세무/감가상각, 개발형 PF/공사비/용적률완화, 운영형 GOP/RevPAR, 매매형 시세차익/양도차익)를 화이트리스트로 보장하여 Gate 오탐으로 인한 정상 AI 카피 폐기를 방지합니다.
+- Gate 결과가 `medium` 리스크일 경우 AI 텍스트 전체를 버리지 않고, **Graduated Response**(AI 카피 유지 + 법적 면책 조항 자동 삽입)를 적용합니다.
+
+### 29. 포스처별 슬라이드 데이터 분리 및 누출 방지 (Posture Isolation in Slide Binding)
+- 포스처 전용 파생 슬라이드(사옥형 `plan`, `vsLease`, `commute`, `value` 등)는 반드시 `if (posture === 'owner_occupied')`와 같은 포스처 가드 내부에서만 바인딩되어야 합니다.
+- 공통 섹션(`investment_thesis` 등)에서 타 포스처 전용 props가 무조건 덮어씌워져 슬라이드가 누출되는 버그를 원천 차단합니다.
+
+### 30. 풀 파이프라인 E2E 테스트 타임아웃 (Full-Pipeline Test Timeout)
+- `generateMobileIM`을 실행하는 E2E 및 L5 테스트는 10개 이상의 섹션을 다단계로 생성하므로, 전체 스위트 실행 시 CPU 경합으로 지연됩니다.
+- 풀 파이프라인 테스트 케이스(`L5-YP-01`, `E2E-YP-PIPELINE` 등)는 vitest의 기본 타임아웃(5s/30s)에 의존하지 않고 명시적으로 `60_000ms` 이상의 타임아웃을 설정합니다.
+<!-- END:cre-d39-rules -->
+
+<!-- BEGIN:cre-d40-preflight-rules -->
+# CRE IM D40 Pre-flight Audit Rules (2026-09-07 D33~D39 교훈 종합)
+
+### 31. 마크다운 테이블 파싱 분리 원칙 (Adjacent Table Split Invariant)
+- `parseMarkdownTable()` 및 `parseFloorsFromMarkdown()`은 인접한 마크다운 테이블(열 수가 다른 연속 테이블)을 반드시 분리해야 합니다.
+- 새로운 헤더행(`|---|---|`) 또는 열 수 불일치 감지 시 이전 테이블을 즉시 마감합니다.
+- **위반 사례**: 당산동 2열 요약 표와 7열 렌트롤 표 병합 → LibreOffice 블록 렌더링 붕괴.
+
+### 32. 면적 추출 전용 헬퍼 의무 사용 (Dedicated Area Extractor)
+- 면적 셀 파싱 시 `replace(/[^\d.]/g, '')` 패턴을 직접 사용하지 않습니다.
+- 반드시 `extractAreaPyeong()` 전용 헬퍼를 사용하여: ① `N평` 우선 추출, ② `N㎡` 환산(×0.3025), ③ 순수 숫자만 직접 파싱합니다.
+- 단일 층 면적 상한 가드: ≤ 3,000평, 건물 총면적 상한 가드: ≤ 30,000평.
+- **위반 사례**: 당산동 `96평(약 317.4㎡)` → `96317.4`평 병합 → 연면적 100,681평 폭증.
+
+### 33. 임대면적 컬럼 오매칭 차단 (Lease Area Column Guard)
+- 테이블 헤더에서 임대면적 컬럼을 찾을 때 `h.includes('임대')`만으로 매칭하지 않습니다.
+- `임대면적`·`계약면적`·`바닥면적`만 매칭하고, `월 임대료`·`임대 만기`·`보증금`은 명시적으로 제외합니다.
+- **위반 사례**: `월 임대료` 183만원이 183평으로 역전환.
+
+### 34. 모의/더미 데이터 하드코딩 전면 금지 (Zero Hardcoded Mock Data)
+- 프로덕션 컴포넌트에 특정 매물(NH농협캐피탈, 역삼역, 테헤란로 등)의 데이터를 fallback 배열로 하드코딩하는 것을 금지합니다.
+- 실데이터가 없으면 컴포넌트를 렌더링하지 않습니다 (`return null`).
+- 페르소나(연령·계층·성별)를 외부 노출 문서에 직접 지칭하는 것을 금지합니다 (Rule 1).
+- **위반 사례**: `StackingPlanView`에 17층 NH농협캐피탈 목데이터 fallback 누출.
+
+### 35. 슬라이드 폴백 타이틀 동적화 의무 (Dynamic Fallback Title)
+- PPTX 아키타입의 폴백 타이틀에 특정 섹션명(`건축물 물리 스펙 요약` 등)을 하드코딩하지 않습니다.
+- `${input.data.title || '세부 정보'} 요약` 형태의 동적 폴백을 사용합니다.
+- **위반 사례**: 권리관계(Slide 8)에 "건축물 물리 스펙 요약" 타이틀 노출.
+
+### 36. 체크리스트 카드 텍스트 예산 (Checklist Card Budget)
+- 체크리스트 항목(A18 아키타입)은 **70자 상한**을 적용하고, 40자 초과 시 **9.5pt 가변 폰트**로 축소합니다.
+- 긴 문단에서 핵심 문장만 격리 추출하고, 60자 이상은 `slice(0, 57) + '...'`로 절삭합니다.
+- **위반 사례**: 당산동 Slide 5 체크리스트 카드 텍스트 오버플로.
+
+### 37. 회피성 문구 차단 (Evasive Phrase Ban)
+- AI 생성 카피에서 다음 패턴이 0건이어야 합니다: `본문을 참조`, `별도 안내 예정`, `추후 확인`, `상세...별첨`.
+- 모든 수치/지표는 계산된 실수치를 직접 바인딩합니다.
+- **위반 사례**: "구체적인 수치는 본문을 참조하시기 바랍니다" 회피 문구.
+
+### 38. Pre-flight Pipeline Audit 의무 실행 (Mandatory Pre-flight Audit)
+- 파이프라인 코드(data-binder, writer, quality-gate, archetype, deck-sequencer) 수정 시, 커밋 전 반드시 `npx vitest run src/tests/e2e/preflight-pipeline-audit.test.ts`를 실행하여 5대 계층 40개 사전 점검 항목을 통과해야 합니다.
+- 모든 점검 항목은 Positive/Negative Pair(Rule 7)를 포함합니다.
+<!-- END:cre-d40-preflight-rules -->
+

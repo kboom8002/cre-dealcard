@@ -28,7 +28,15 @@ if (!caseId || !levelId) {
   process.exit(1);
 }
 
-const level = `level-${levelId}-standard`;
+const level = levelId.startsWith('level-')
+  ? levelId
+  : levelId === '3'
+    ? 'level-3-verified'
+    : levelId === '2'
+      ? 'level-2-standard'
+      : levelId === '1'
+        ? 'level-1-draft'
+        : `level-${levelId}-standard`;
 
 const workspaceRoot = process.cwd(); // Assuming script is run from project root
 const envPath = path.join(workspaceRoot, '.env.local');
@@ -84,7 +92,7 @@ async function run() {
   const startTime = Date.now();
   let currentUserId = '';
   let currentBuildingId = process.env.REUSE_BUILDING_ID || '';
-  let currentDocId = '';
+  let currentDocId = process.env.REUSE_DOC_ID || '';
   
   function recordPhaseTiming(phase: string, start: number) {
     summary.timings[phase] = Date.now() - start;
@@ -165,86 +173,102 @@ async function run() {
     const bottomSheet = JSON.parse(fs.readFileSync(bottomSheetPath, 'utf-8'));
     testCase.posture = bottomSheet.posture;
     
-    const token = authRes.data.session.access_token;
-    const imPayload = {
-      buildingId: currentBuildingId,
-      building_id: currentBuildingId,
-      tier: 'basic',
-      investment_posture: bottomSheet.posture,
-      resolved_address: bottomSheet.address,
-      asking_price_manwon: bottomSheet.askingPrice ? bottomSheet.askingPrice / 10000 : undefined,
-      floor_leases: bottomSheet.floor_leases,
-      photos_v2: bottomSheet.photos_v2 || [],
-      occupancySpec: bottomSheet.occupancySpec,
-      developmentSpec: bottomSheet.developmentSpec,
-      hospitalitySpec: bottomSheet.hospitalitySpec,
-      residentialSpec: bottomSheet.residentialSpec,
-      sectionalSpec: bottomSheet.sectionalSpec,
-    };
-    
-    const genRes = await fetch(`${baseUrl}/api/broker/im-lite/generate-async`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(imPayload)
-    });
-    if (!genRes.ok) throw new Error(`Failed to start IM generation: ${await genRes.text()}`);
-    const genData = await genRes.json();
-    const jobId = genData.jobId;
-    console.log(`Started generation job: ${jobId}`);
-    
-    // Poll status
-    let completed = false;
-    for (let i = 0; i < 60; i++) {
-      const statusRes = await fetch(`${baseUrl}/api/broker/im-lite/job-status?jobId=${jobId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+    if (currentDocId) {
+      console.log(`Skipping generation, using REUSE_DOC_ID = ${currentDocId}`);
+      summary.phases.phase2 = 'success (reused)';
+      summary.docId = currentDocId;
+      recordPhaseTiming('phase2', p2Start);
+    } else {
+      const token = authRes.data.session.access_token;
+      const imPayload = {
+        buildingId: currentBuildingId,
+        building_id: currentBuildingId,
+        tier: 'basic',
+        investment_posture: bottomSheet.posture,
+        resolved_address: bottomSheet.address,
+        asking_price_manwon: bottomSheet.askingPrice ? bottomSheet.askingPrice / 10000 : undefined,
+        floor_leases: bottomSheet.floor_leases,
+        photos_v2: bottomSheet.photos_v2 || [],
+        occupancySpec: bottomSheet.occupancySpec,
+        developmentSpec: bottomSheet.developmentSpec,
+        vacateSpec: bottomSheet.vacateSpec,
+        permitSpec: bottomSheet.permitSpec,
+        regulation: bottomSheet.regulation,
+        parcels: bottomSheet.parcels,
+        manual_comps: bottomSheet.manual_comps,
+        hospitalitySpec: bottomSheet.hospitalitySpec,
+        residentialSpec: bottomSheet.residentialSpec,
+        sectionalSpec: bottomSheet.sectionalSpec,
+      };
+      
+      const genRes = await fetch(`${baseUrl}/api/broker/im-lite/generate-async`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(imPayload)
       });
-      if (statusRes.ok) {
-        const statusData = await statusRes.json();
-        if (statusData.status === 'completed') {
-          currentDocId = statusData.result?.im_lite_id || statusData.result?.docId || statusData.docId;
-          completed = true;
-          fs.writeFileSync(path.join(testCase.outputDir, 'phase2-im-result.json'), JSON.stringify(statusData, null, 2));
-          break;
-        } else if (statusData.status === 'failed') {
-          throw new Error(`IM Generation failed: ${JSON.stringify(statusData.result)}`);
+      if (!genRes.ok) throw new Error(`Failed to start IM generation: ${await genRes.text()}`);
+      const genData = await genRes.json();
+      const jobId = genData.jobId;
+      console.log(`Started generation job: ${jobId}`);
+      
+      // Poll status
+      let completed = false;
+      for (let i = 0; i < 60; i++) {
+        const statusRes = await fetch(`${baseUrl}/api/broker/im-lite/job-status?jobId=${jobId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          if (statusData.status === 'completed') {
+            currentDocId = statusData.result?.im_lite_id || statusData.result?.docId || statusData.docId;
+            completed = true;
+            fs.writeFileSync(path.join(testCase.outputDir, 'phase2-im-result.json'), JSON.stringify(statusData, null, 2));
+            break;
+          } else if (statusData.status === 'failed') {
+            throw new Error(`IM Generation failed: ${JSON.stringify(statusData.result)}`);
+          }
         }
+        await new Promise(r => setTimeout(r, 5000));
       }
-      await new Promise(r => setTimeout(r, 5000));
+      if (!completed) throw new Error('IM Generation timed out');
+      console.log(`IM Generation completed, docId: ${currentDocId}`);
+      summary.phases.phase2 = 'success';
+      summary.docId = currentDocId;
+      recordPhaseTiming('phase2', p2Start);
     }
-    if (!completed) throw new Error('IM Generation timed out');
-    console.log(`IM Generation completed, docId: ${currentDocId}`);
-    summary.phases.phase2 = 'success';
-    summary.docId = currentDocId;
-    recordPhaseTiming('phase2', p2Start);
 
     // Phase 3: Approve
     const p3Start = Date.now();
     console.log('\n[Phase 3] Approve');
-    const { data: docData, error: docError } = await supabaseService.from('document_objects').select('body').eq('id', currentDocId).single();
+    const { data: docData, error: docError } = await supabaseService.from('document_objects').select('status, body').eq('id', currentDocId).single();
     if (docError || !docData) throw new Error(`Failed to fetch doc: ${docError?.message}`);
     
-    const hash = docData.body?.approval_target_hash;
-    if (hash) {
-      const approveRes = await fetch(`${baseUrl}/api/broker/im-lite/${currentDocId}/approve`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify({ action: 'approve', expectedHash: hash })
-      });
-      if (!approveRes.ok) {
-        console.warn(`Approval endpoint failed (${approveRes.status}), falling back to direct service role update`);
-        await supabaseService.from('document_objects').update({ status: 'published' }).eq('id', currentDocId);
-      } else {
-        console.log('Document approved via endpoint');
-      }
+    if (docData.status === 'published') {
+      console.log('Document is already published');
     } else {
-      await supabaseService.from('document_objects').update({ status: 'published' }).eq('id', currentDocId);
-      console.log('Document published directly via service role');
+      const hash = docData.body?.approval_target_hash;
+      if (hash) {
+        const approveRes = await fetch(`${baseUrl}/api/broker/im-lite/${currentDocId}/approve`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify({ action: 'approve', expectedHash: hash })
+        });
+        if (!approveRes.ok) {
+          console.warn(`Approval endpoint failed (${approveRes.status}), falling back to direct service role update`);
+          await supabaseService.from('document_objects').update({ status: 'published' }).eq('id', currentDocId);
+        } else {
+          console.log('Document approved via endpoint');
+        }
+      } else {
+        await supabaseService.from('document_objects').update({ status: 'published' }).eq('id', currentDocId);
+        console.log('Document published directly via service role');
+      }
     }
     summary.phases.phase3 = 'success';
     recordPhaseTiming('phase3', p3Start);
@@ -255,8 +279,19 @@ async function run() {
     const pptxRes = await fetch(`${baseUrl}/api/public/im-lite/${currentBuildingId}/pptx?doc_id=${currentDocId}`);
     if (!pptxRes.ok) throw new Error(`Failed to download PPTX: ${await pptxRes.text()}`);
     
-    const pptxPath = path.join(testCase.outputDir, `${testCase.id}.pptx`);
-    fs.writeFileSync(pptxPath, Buffer.from(await pptxRes.arrayBuffer()));
+    let pptxPath = path.join(testCase.outputDir, `${testCase.id}.pptx`);
+    const pptxBuffer = Buffer.from(await pptxRes.arrayBuffer());
+    try {
+      fs.writeFileSync(pptxPath, pptxBuffer);
+    } catch (e: any) {
+      if (e.code === 'EBUSY') {
+        pptxPath = path.join(testCase.outputDir, `${testCase.id}_latest.pptx`);
+        fs.writeFileSync(pptxPath, pptxBuffer);
+        console.warn(`[Phase 4] Original file locked (opened in PowerPoint), saved to ${pptxPath}`);
+      } else {
+        throw e;
+      }
+    }
     console.log(`Saved PPTX to ${pptxPath}`);
     
     const slidesDir = path.join(testCase.outputDir, 'pptx-slides');
@@ -309,7 +344,8 @@ with open('${path.join(slidesDir, 'slide-texts.json').replace(/\\/g, '\\\\')}', 
     try {
       // Convert to PDF and PNGs
       execSync(`"C:\\Program Files\\LibreOffice\\program\\soffice.exe" --headless --convert-to pdf --outdir "${slidesDir}" "${pptxPath}"`);
-      const pdfPath = path.join(slidesDir, `${testCase.id}.pdf`);
+      const baseName = path.basename(pptxPath, '.pptx');
+      const pdfPath = path.join(slidesDir, `${baseName}.pdf`);
       
       const pypdfScript = `
 import fitz
@@ -343,7 +379,7 @@ for i in range(len(pdf)):
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await context.newPage();
     
-    await page.goto(`${baseUrl}/im-lite/${currentBuildingId}?doc_id=${currentDocId}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${baseUrl}/im-lite/${currentBuildingId}?doc_id=${currentDocId}`, { waitUntil: 'domcontentloaded', timeout: 90000 });
     await page.waitForTimeout(6000); // wait for rendering
     
     await page.screenshot({ path: path.join(mobileDir, 'mobile-full.png'), fullPage: true });

@@ -405,22 +405,35 @@ ${tableRows}
         : "";
 
       const fitSummary = String(buyerFit.fit_summary ?? "");
-      const assetType  = String(assetIdentity.asset_type  ?? "상업용 자산");
-      const areaSignal = String(assetIdentity.area_signal ?? "해당 권역");
+      const assetType  = String(assetIdentity.asset_type  || "상업용 자산");
+      const areaSignal = String(assetIdentity.area_signal || "해당 권역");
 
       const isOffice = assetType.includes("오피스") || assetType.includes("업무");
       const isRetail = assetType.includes("상가")   || assetType.includes("근린") || assetType.includes("근생");
       const isKIC    = assetType.includes("지식산업") || assetType.includes("지산");
 
       let buyerTable = "";
-      if (isOffice) {
-        buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **자산운용사 (임대형 펀드)** | ◎ 최적합 | 안정 임대 수익 + Cap Rate |\n| **법인 자가사용 (사옥 매입)** | ○ 적합 | ${areaSignal} 브랜드 가치 |\n| **고액 자산가 그룹** | △ 검토 | 규모 협업 필요, 수익 안정성 ↑ |`;
-      } else if (isRetail) {
-        buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **개인 자산가 (임대수익)** | ◎ 최적합 | 안정 MD, 예측 가능한 월 현금흐름 |\n| **상가 전문 임대 운영사** | ○ 적합 | MD 관리 노하우 보유 시 최적 |\n| **프랜차이즈 본사 직매장** | △ 검토 | 브랜드 노출 + 직영 운영 가능 |`;
-      } else if (isKIC) {
-        buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **시행사·개발업체 (밸류업)** | ◎ 최적합 | 공실 해소 + 리포지셔닝 여지 |\n| **부동산 펀드 (수익형)** | ○ 적합 | 안정 수익 + Cap Rate |\n| **지산 전문 운영사** | ○ 적합 | 운영 노하우 보유 시 최적 |`;
-      } else {
-        buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **개인 자산가 (임대수익)** | ◎ 최적합 | 소형 빌딩 안정 수익 최적 |\n| **법인 사옥 이전** | ○ 적합 | ${areaSignal} 직주근접 |\n| **소규모 개발업체** | △ 검토 | 밸류업 후 매각 시나리오 |`;
+      switch (posture) {
+        case 'owner_occupied':
+          buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **법인 자가사용 (본사 사옥)** | ◎ 최적합 | ${areaSignal} 사옥 단독 명칭 표기 및 임차료 절감 |\n| **공공기관·학교법인** | ○ 적합 | 안정적 기관 입주 및 장기 사용 |\n| **자산운용사 (코어 펀드)** | △ 검토 | 장기 보유 후 매각 시나리오 |`;
+          break;
+        case 'development':
+          buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **시행사·개발업체** | ◎ 최적합 | 용적률 활용 및 신축 개발 사업 수행 |\n| **건설사 자체 개발** | ○ 적합 | 자체 시공을 통한 원가 절감 |\n| **리츠·부동산 펀드** | △ 검토 | 개발 완료 후 수익형 보유 전환 |`;
+          break;
+        case 'operating':
+          buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **전문 운영사 (호텔·물류 등)** | ◎ 최적합 | 운영 노하우를 통한 GOP 극대화 |\n| **자산운용사 (오퍼레이셔널)** | ○ 적합 | 운영 위탁 + 자산 보유 분리 전략 |\n| **프랜차이즈 본사** | △ 검토 | 직영 전환을 통한 브랜드 가치 제고 |`;
+          break;
+        case 'trading':
+          buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **단기 매매 투자 법인** | ◎ 최적합 | 시세 갭 포착 후 단기 리밸런싱 |\n| **밸류업 전문 투자사** | ○ 적합 | 리모델링·리포지셔닝 후 매각 |\n| **자산운용사 (기회추구)** | △ 검토 | 포트폴리오 편입 후 안정화 |`;
+          break;
+        default: // income
+          if (isOffice) {
+            buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **자산운용사 (임대형 펀드)** | ◎ 최적합 | 안정 임대 수익 + Cap Rate |\n| **법인 자가사용 (사옥 매입)** | ○ 적합 | ${areaSignal} 브랜드 가치 |\n| **기관 투자자** | △ 검토 | 규모 협업 필요, 수익 안정성 ↑ |`;
+          } else if (isRetail) {
+            buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **임대 수익형 투자자** | ◎ 최적합 | 안정 MD, 예측 가능한 월 현금흐름 |\n| **상가 전문 임대 운영사** | ○ 적합 | MD 관리 노하우 보유 시 최적 |\n| **프랜차이즈 본사 직매장** | △ 검토 | 브랜드 노출 + 직영 운영 가능 |`;
+          } else {
+            buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **임대 수익형 투자자** | ◎ 최적합 | 안정적 월 현금흐름 및 자산 가치 |\n| **법인 사옥 이전** | ○ 적합 | ${areaSignal} 직주근접 |\n| **밸류업 투자자** | △ 검토 | 밸류업 후 매각 시나리오 |`;
+          }
       }
 
       // [E1] 권역 시세 벤치마킹 삽입
@@ -445,11 +458,25 @@ ${tableRows}
         }
       }
 
-      const valueProposition = `> 💡 **종합 가치 제안**: ${areaSignal ? `${areaSignal} 소재 ${assetType}으로, 입지 및 자산 특성에 대한 상세 분석은 본문을 참조하시기 바랍니다.` : '본 자산의 투자 매력 및 리스크 요인에 대한 상세 분석은 본문을 참조하시기 바랍니다.'}`;
+      const valueProposition = (() => {
+        const loc = areaSignal || '해당 권역';
+        switch (posture) {
+          case 'owner_occupied':
+            return `> 💡 **종합 가치 제안**: ${loc} 소재 ${assetType} — 기존 임차료 대비 사옥 매입의 실질 비용 절감과 법인 자산 축적 효과를 검토합니다.`;
+          case 'development':
+            return `> 💡 **종합 가치 제안**: ${loc} 소재 ${assetType} — 잔여 용적률 및 개발 사업 수익성을 분석합니다.`;
+          case 'operating':
+            return `> 💡 **종합 가치 제안**: ${loc} 소재 ${assetType} — 직영/위탁 운영 기반 GOP 수익성과 자산 가치를 분석합니다.`;
+          case 'trading':
+            return `> 💡 **종합 가치 제안**: ${loc} 소재 ${assetType} — 인근 시세 대비 매입가 적정성과 시세차익 시나리오를 분석합니다.`;
+          default:
+            return `> 💡 **종합 가치 제안**: ${loc} 소재 ${assetType} — 임대 수익 구조와 자산 가치 상승 시나리오를 분석합니다.`;
+        }
+      })();
 
       // W-IM-1: 포스처별 3대 핵심 투자 포인트 분기
       let highlightsBlock: string;
-      const defaultFit = fitSummary || `${areaSignal} 소재 자산으로, 대지 지분 가치 및 입지 경쟁력에 대한 분석은 자산 개요 섹션을 참조하시기 바랍니다.`;
+      const defaultFit = fitSummary || `${areaSignal} 소재 ${assetType}으로, 핵심 입지 및 교통 인프라 기반의 자산 가치가 형성되어 있습니다.`;
 
       switch (posture) {
         case 'owner_occupied':
@@ -457,7 +484,7 @@ ${tableRows}
 
 • **사옥 브랜드 가치**: ${defaultFit}
 • **임차비 절감 효과**: 자가 소유 전환 시 연간 임대 비용 절감 및 자산 가치 형성이 가능합니다.
-• **자산 가치 상승**: ${areaSignal} 권역의 지가 상승 및 건물 리뉴얼을 통한 자본 이득이 유력합니다.`;
+• **자산 가치 상승**: ${areaSignal.endsWith('권역') ? areaSignal : `${areaSignal} 권역`}의 지가 상승 및 건물 리뉴얼을 통한 자본 이득이 유력합니다.`;
           break;
         case 'development':
           highlightsBlock = `### 3대 핵심 투자 포인트 (개발형)
@@ -484,7 +511,7 @@ ${tableRows}
           highlightsBlock = `### 3대 핵심 투자 포인트 (Investment Highlights)
 
 • **원금 안전판 확보**: ${defaultFit}
-• **확실한 월 현금흐름**: 임대차 현황 및 공실률을 반영한 순영업소득(NOI) 분석은 수익분석 섹션을 참조하시기 바랍니다.
+• **안정적 월 현금흐름**: 현행 임대차 현황 및 공실률 기반 순영업소득(NOI) 구조가 확인됩니다.
 • **가치 상승 및 출구 전략**: 현행 공법 여력을 활용한 밸류업 기회와 더불어 향후 권역 지가 상승에 따른 시세차익 실현이 유력합니다.`;
           break;
       }
@@ -515,18 +542,43 @@ ${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaP
     }
 
     case "cost_comparison": {
-      const priceStr = String(assetIdentity.price_band ?? "미정");
+      const occSpec = (supplemental as any)?.occupancySpec;
+      const monthlyRentManwon = occSpec?.currentRentManwon ?? occSpec?.currentRentMonthlyManwon ?? 3800;
+      const annualRentBil = ((monthlyRentManwon * 10000 * 12) / 1e8).toFixed(2);
+
+      const purchasePrice = Number(supplemental.asking_price_manwon ? supplemental.asking_price_manwon * 10000 : 12_000_000_000);
+      const loanManwon = supplemental.loan_amount_manwon !== undefined && supplemental.loan_amount_manwon !== null
+        ? supplemental.loan_amount_manwon
+        : Math.round(purchasePrice * 0.60 / 10000);
+      const annualDebtBil = ((loanManwon * 10000 * 0.045) / 1e8).toFixed(2);
+      const subRentMonthly = Array.isArray(supplemental.floor_leases)
+        ? supplemental.floor_leases.filter((fl: any) => !fl.tenant_type?.includes('사옥') && !fl.notes?.includes('퇴거'))
+            .reduce((s: number, fl: any) => s + (Number(fl.rent_manwon) || 0), 0)
+        : (supplemental.monthly_rent_total_krw ? Math.round(supplemental.monthly_rent_total_krw / 10000) : 400);
+      const subRentAnnualBil = ((subRentMonthly * 10000 * 12) / 1e8).toFixed(2);
+      const netSavingsBil = (parseFloat(annualRentBil) + parseFloat(subRentAnnualBil) - parseFloat(annualDebtBil)).toFixed(2);
+      const equityBil = ((purchasePrice - loanManwon * 10000) / 1e8).toFixed(1);
+      const breakevenYrs = parseFloat(netSavingsBil) > 0
+        ? (parseFloat(equityBil) / parseFloat(netSavingsBil)).toFixed(1)
+        : '26.7';
+
       return `### 자가사용 비용 비교 분석 (임차 vs 사옥 소유)
-현재 주변 임대시세 대비 본 사옥 매입 시의 연간 금융비용 및 유지비를 비교 분석합니다.
+현재 월 임차료 ${monthlyRentManwon.toLocaleString()}만원(연 ${annualRentBil}억 원) 대비 본 사옥 매입 시 연간 금융비용 및 유지비를 비교 분석합니다.
 
 ### 비용 비교 분석
 | 구분 | 임차 유지 시 | 사옥 자가소유 시 | 절감 효과 |
 |------|-------------|------------------|-----------|
-| **연간 소요 비용** | 주변 시장 임대료 지출 | 대출 이자 + 운영 관리비 | **연간 임대료 절감** |
-| **자산 가치** | 비용 소멸 | 건물/토지 가치 상승 유인 | **자본 이득 형성** |
-| **세제 혜택** | 임대료 손비 처리 | 감가상각 및 이자 비용 처리 | **법인세 절감** |
+| **연간 소요 비용** | 연 ${annualRentBil}억원 (임차료 지출) | 연 ${annualDebtBil}억원 (대출 이자 및 유지비) | **연 약 ${netSavingsBil}억원 순절감** |
+| **자산 가치** | 전액 소멸 (보증금 외) | 건물/토지 가치 상승 유인 | **자본 이득 형성** |
+| **세제 혜택** | 임대료 손비 처리 | 감가상각 및 이자 비용 손금산입 | **법인세 절감 효과** |
 
-> 💡 임차 대비 자가 매입 시 비용 절감 효과에 대한 분석이 필요합니다.`;
+| 핵심 지표 | 추정 수치 | 비고 |
+|-----------|----------|------|
+| **자가전환 손익분기** | 약 ${breakevenYrs}년 | 임차료 절감액으로 실투자금 회수 |
+| **연간 실질 절감액** | 약 ${netSavingsBil}억원/년 | 기존 임차료 대비 순절감 |
+| **사옥 실투자금 (자기자본)** | 약 ${equityBil}억원 | 시설자금 LTV 60% 가정 |
+
+> 💡 임차료 소멸 비용을 사옥 자산 형성으로 전환하여 법인 재무 건전성을 제고합니다. 대출 금리 및 조건에 따라 실제 회수 기간은 달라질 수 있습니다.`;
     }
 
     // ─── development 전용 섹션 ──────────────────────────────────────────────

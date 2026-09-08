@@ -303,6 +303,73 @@ export async function generateMobileIMHandler(
     console.log('[im-handler] Merged manual comps:', manualAsComps.length, 'total:', externalData!.comparableTransactions?.length);
   }
 
+  // ─── floor_leases 기반 임대료/보증금 자동 집계 (미입력 시) ───
+  if (!supplemental.monthly_rent_total_krw && Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0) {
+    const totalRent = supplemental.floor_leases.reduce((sum: number, f: any) => sum + (Number(f.rent_manwon) || 0), 0);
+    if (totalRent > 0) supplemental.monthly_rent_total_krw = totalRent * 10000;
+  }
+  if (!supplemental.total_deposit_manwon && Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0) {
+    const totalDep = supplemental.floor_leases.reduce((sum: number, f: any) => sum + (Number(f.deposit_manwon) || 0), 0);
+    if (totalDep > 0) supplemental.total_deposit_manwon = totalDep;
+  }
+
+  // ─── 브로커 입력 지하철역 오버라이드 (Kakao API 좌표 검색 보정) ───
+  // supplemental.subway_info가 있으면 externalData.locationPoi.nearestStation 대체
+  if (supplemental.subway_info && typeof supplemental.subway_info === 'string' && externalData?.locationPoi) {
+    const stationText = supplemental.subway_info;
+    const stationNameMatch = stationText.match(/([가-힣0-9]+역)/);
+    if (stationNameMatch) {
+      (externalData.locationPoi as any).nearestStation = {
+        ...(externalData.locationPoi as any).nearestStation,
+        name: stationNameMatch[1],
+        _overriddenByBroker: true,
+      };
+      // subway_info를 marketLocation에도 전달하여 premium-template-engine에서 우선 적용
+      if (!supplemental.market_location) supplemental.market_location = {};
+      (supplemental.market_location as any).subway_info = stationText;
+    }
+  }
+
+  // ─── 공공데이터 vs 사용자 정본 면적/스펙 정합성 보정 (단독사옥 블라인드 지번 대응) ───
+  const userSpecifiedTotalArea = Number(supplemental.total_gross_area_m2 || 0)
+    || (supplemental.total_gross_area_pyeong ? Number(supplemental.total_gross_area_pyeong) / 0.3025 : 0)
+    || (Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0
+        ? supplemental.floor_leases.reduce((sum: number, f: any) => sum + (Number(f.area_sqm) || 0), 0)
+        : 0)
+    || Number((ssotRow.layers as any)?.physical?.total_area_sqm || 0);
+
+  const userSpecifiedLandArea = Number(supplemental.land_area_m2 || 0)
+    || (supplemental.land_area_pyeong ? Number(supplemental.land_area_pyeong) / 0.3025 : 0)
+    || Number((ssotRow.layers as any)?.physical?.land_area_sqm || 0);
+
+  if (externalData?.buildingRegister && userSpecifiedTotalArea > 0) {
+    const regArea = Number(externalData.buildingRegister.totalArea || 0);
+    if (regArea > 0 && (regArea > userSpecifiedTotalArea * 2.0 || regArea < userSpecifiedTotalArea / 2.0)) {
+      console.warn(`[im-handler] 공공데이터 건축물대장 면적(${regArea}㎡)이 실물 사용자 입력 면적(${userSpecifiedTotalArea}㎡)과 2배 이상 괴리 — 사용자 정본 데이터로 교정`);
+      externalData.buildingRegister.totalArea = userSpecifiedTotalArea;
+      if (userSpecifiedLandArea > 0) {
+        externalData.buildingRegister.platArea = userSpecifiedLandArea;
+      }
+      if (supplemental.building_name) {
+        externalData.buildingRegister.buildingName = supplemental.building_name;
+      } else if (externalData.buildingRegister.buildingName?.includes('현대벤쳐텔')) {
+        externalData.buildingRegister.buildingName = '사옥용 빌딩';
+      }
+      if (supplemental.floors_above) externalData.buildingRegister.groundFloors = supplemental.floors_above;
+      if (supplemental.floors_below) externalData.buildingRegister.undergroundFloors = supplemental.floors_below;
+    }
+  }
+
+  if (userSpecifiedTotalArea > 0) {
+    const userPy = (userSpecifiedTotalArea * 0.3025).toFixed(1);
+    bssotFlat.total_area_sqm = userSpecifiedTotalArea;
+    bssotFlat.total_gross_area_sqm = userSpecifiedTotalArea;
+    bssotFlat.size_signal = `${userPy}평`;
+    if (ssotRow.size_signal && (ssotRow.size_signal.includes('9,67') || ssotRow.size_signal.includes('967'))) {
+      ssotRow.size_signal = `${userPy}평`;
+    }
+  }
+
   // ─── 7섹션 AI 생성
   const writerResult = await generateMobileIM({
     building_ssot_lite: bssotFlat as any,
@@ -427,8 +494,8 @@ export async function generateMobileIMHandler(
         grade: gradeResult.grade as 'A' | 'B' | 'C' | 'D',
         posture: (identity?.investmentPosture || ssotRow.investment_posture || 'income') as any,
         dataAvailability: {
-          hasBuildingRegister: !!(externalData?.hasPublicData),
-          hasLandUsePlan: !!(externalData?.hasPublicData),
+          hasBuildingRegister: !!(externalData?.buildingRegister || externalData?.hasPublicData),
+          hasLandUsePlan: !!(externalData?.landUsePlan || externalData?.hasPublicData),
           hasRentRoll: !!(supplemental.floor_leases?.length || supplemental.monthly_rent_total_krw),
           hasComparables: !!(externalData?.comparableTransactions?.length),
           hasPhotos: !!(supplemental.photo_urls?.length || supplemental.photos_v2?.length),
@@ -438,6 +505,17 @@ export async function generateMobileIMHandler(
         hasScenario: Boolean((doc as any)?.scenario || (doc as any)?.pro_forma || (doc as any)?.ssot_summary?.has_scenario),
       }),
       investmentPosture: identity?.investmentPosture || ssotRow.investment_posture || 'income',
+      occupancySpec: supplemental.occupancySpec ?? undefined,
+      // 개발형 전용 필드 → PPTX data-binder 바인딩용 영속화
+      developmentSpec: supplemental.developmentSpec ?? undefined,
+      vacateSpec: supplemental.vacateSpec ?? undefined,
+      permitSpec: supplemental.permitSpec ?? undefined,
+      regulation: supplemental.regulation ?? undefined,
+      parcels: supplemental.parcels ?? undefined,
+      floor_leases: supplemental.floor_leases ?? undefined,
+      askingPrice: supplemental.asking_price_manwon ? supplemental.asking_price_manwon * 10000 : undefined,
+      asking_price_manwon: supplemental.asking_price_manwon ?? undefined,
+      resolved_address: supplemental.resolved_address ?? undefined,
       // Hero/OG 메타 자동 세팅 — 브로커가 im-approval에서 수정 가능
       heroTitle: autoHeroTitle,
       heroSubtitle: autoHeroSubtitle,
@@ -453,7 +531,9 @@ export async function generateMobileIMHandler(
         area_signal: ssotRow.area_signal,
         asset_type: ssotRow.asset_type,
         price_band: ssotRow.price_band,
-        size_signal: ssotRow.size_signal,
+        size_signal: userSpecifiedTotalArea > 0 ? `${(userSpecifiedTotalArea * 0.3025).toFixed(1)}평` : ssotRow.size_signal,
+        total_gross_area_sqm: userSpecifiedTotalArea > 0 ? userSpecifiedTotalArea : undefined,
+        land_area_sqm: userSpecifiedLandArea > 0 ? userSpecifiedLandArea : undefined,
         investment_posture: identity?.investmentPosture || ssotRow.investment_posture || 'income',
         vacancy_signal: supplemental.vacancy_status || (supplemental.vacancy_pct != null ? (supplemental.vacancy_pct === 0 ? '만실' : `공실률 ${supplemental.vacancy_pct}%`) : null) || ssotRow.vacancy_signal,
         vacancy_status: supplemental.vacancy_status || ssotRow.vacancy_signal,
@@ -466,6 +546,7 @@ export async function generateMobileIMHandler(
         vacancy_pct: supplemental.vacancy_pct,
         address: supplemental.resolved_address || ssotRow.raw_address || (ssotRow.layers as any)?.location?.raw_address || (ssotRow.layers as any)?.location?.address || null,
         pnu: supplemental.resolved_pnu || ssotRow.pnu || (ssotRow.layers as any)?.location?.pnu || (ssotRow.layers as any)?.pnu || null,
+        own_vs_lease_savings_bil: (writerResult.financials as any)?.ownVsLeaseSavingsBil ?? undefined,
       },
       external_data: externalData
         ? {

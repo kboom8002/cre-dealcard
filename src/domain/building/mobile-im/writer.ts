@@ -104,6 +104,18 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
 
   // ── S0. Claim 레지스트리 + 결정론적 계산 (D37 P0-2) ──
   // 계산은 여기서 1회 실행. LLM은 이후 설명만 생성.
+  const occSpec = input.supplemental?.occupancySpec;
+  const currentRentManwon = occSpec?.currentRentManwon ?? occSpec?.currentRentMonthlyManwon;
+  const selfUseAreaPyeong = (() => {
+    if (Array.isArray(input.supplemental?.floor_leases) && input.supplemental.floor_leases.length > 0) {
+      const selfUseSqm = input.supplemental.floor_leases
+        .filter((fl: any) => fl.tenant_type?.includes('사옥') || fl.notes?.includes('퇴거') || fl.tenant_name?.includes('사옥') || fl.tenantName?.includes('사옥'))
+        .reduce((sum: number, fl: any) => sum + (Number(fl.area_sqm) || 0), 0);
+      if (selfUseSqm > 0) return selfUseSqm / 3.30578;
+    }
+    return undefined;
+  })();
+
   const claimRegistry = new ClaimRegistry();
   const financialCalc = new FinancialCalculator(claimRegistry);
   const financialClaimResult = financialCalc.calculate({
@@ -118,6 +130,10 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     mgmtFeeTotalManwon: input.supplemental?.mgmt_fee_total_manwon ?? undefined,
     assetType: String(ctx.assetIdentity?.asset_type ?? ''),
     landPricePerSqm: input.external_data?.landPrice?.pricePerSqm ?? undefined,
+    occupancySpec: occSpec,
+    currentRentManwon,
+    currentRentMonthlyManwon: currentRentManwon,
+    selfUseAreaPyeong,
   });
   if (financialClaimResult.violations.length > 0) {
     console.warn('[writer] Claim violations:', financialClaimResult.violations);
@@ -146,6 +162,24 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         loanAmountManwon: input.supplemental?.loan_amount_manwon ?? undefined,
         mgmtFeeTotalManwon: input.supplemental?.mgmt_fee_total_manwon ?? undefined,
         assetType: String(ctx.assetIdentity?.asset_type ?? ''),
+        occupancySpec: occSpec,
+        currentRentManwon,
+        currentRentMonthlyManwon: currentRentManwon,
+        selfUseAreaPyeong,
+        // 개발형 전용 파라미터: developmentSpec에서 추출
+        constructionCostPerPyeong: (input.supplemental?.developmentSpec as any)?.constructionCostPerPyung
+          ?? (input.supplemental?.developmentSpec as any)?.constructionCostPerPyeong
+          ?? undefined,
+        targetGrossAreaPyeong: (input.supplemental?.developmentSpec as any)?.targetScalePyung
+          ?? (input.supplemental?.developmentSpec as any)?.targetScalePyeong
+          ?? undefined,
+        expectedSalesPricePerPyeong: (input.supplemental?.developmentSpec as any)?.expectedSalePricePerPyung
+          ?? (input.supplemental?.developmentSpec as any)?.expectedSalePricePerPyeong
+          ?? undefined,
+        // 개발형 Hold 모드: floor_leases 월 총임대수익 합산 → 연 수익률 산출
+        devHoldMonthlyRentManwon: Array.isArray(input.supplemental?.floor_leases)
+          ? (input.supplemental.floor_leases as any[]).reduce((sum: number, l: any) => sum + (Number(l.rent_manwon) || 0), 0)
+          : undefined,
       });
     } catch {
       return null;
@@ -452,16 +486,27 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   const heroCard: HeroCardData = {
     posture,
     assetType: String(ctx.assetIdentity.asset_type ?? ''),
-    areaSignal: String(ctx.assetIdentity.area_signal ?? ''),
+    areaSignal: String(ctx.assetIdentity.area_signal || ''),
     askingPriceDisplay: String(ctx.assetIdentity.price_band ?? (ctx.purchasePriceKrw > 0 ? `${(ctx.purchasePriceKrw / 1e8).toFixed(1)}억 원` : '')),
     capRateBase: cachedFinancials?.capRate?.base ?? null,
     noiBaseBil: cachedFinancials?.annualNoi?.base ? parseFloat((cachedFinancials.annualNoi.base / 1e8).toFixed(1)) : null,
     keyInvestmentPoint: String(ctx.buyerFit.fit_summary ?? (() => {
-      const areaSig = String(ctx.assetIdentity.area_signal ?? '');
+      const areaSig = String(ctx.assetIdentity.area_signal || '');
       const area = areaSig ? (areaSig.endsWith('권역') ? `${areaSig} 소재` : areaSig.endsWith('권') ? `${areaSig}역 소재` : `${areaSig} 권역 소재`) : '소재';
-      const asset = String(ctx.assetIdentity.asset_type ?? '상업용 자산');
+      const asset = String(ctx.assetIdentity.asset_type || '상업용 자산');
       const price = ctx.assetIdentity.price_band ? `, 희망가 ${ctx.assetIdentity.price_band}` : '';
-      return `${area} ${asset}${price} 투자 검토 자료입니다.`;
+      switch (posture) {
+        case 'owner_occupied':
+          return `${area} ${asset}${price} — 법인 사옥 매입 검토 자료입니다.`;
+        case 'development':
+          return `${area} ${asset}${price} — 개발 사업 타당성 검토 자료입니다.`;
+        case 'operating':
+          return `${area} ${asset}${price} — 운영 자산 투자 검토 자료입니다.`;
+        case 'trading':
+          return `${area} ${asset}${price} — 시세차익형 매매 검토 자료입니다.`;
+        default:
+          return `${area} ${asset}${price} 투자 검토 자료입니다.`;
+      }
     })()),
     keyPoints: (() => {
       const points: string[] = [];
@@ -470,11 +515,42 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       } else {
         const area = ctx.assetIdentity.area_signal || '해당 권역';
         const ask = ctx.assetIdentity.price_band || '적정가';
-        points.push(
-          `입지 가치: ${area} 소재 자산으로 중장기 자산 가치 및 안정적 수요 검토`,
-          `임대 구조: ${ask} 수준의 가격대 및 현 임대차 기반의 현금흐름 분석`,
-          `실사 점검: 계약서 및 공부 확인을 통한 권리관계·물리적 상태 정밀 진단`
-        );
+        switch (posture) {
+          case 'owner_occupied':
+            points.push(
+              `사옥 가치: ${area} 소재 단독 사옥으로 기업 브랜딩 및 자산 축적 효과`,
+              `비용 절감: 기존 임차료 대비 사옥 매입 시 실질 비용 절감 및 손익분기 분석`,
+              `실사 점검: 등기·건축물대장·시설물 상태 점검을 통한 매입 리스크 진단`
+            );
+            break;
+          case 'development':
+            points.push(
+              `개발 입지: ${area} 소재 토지로 용적률 잔여 및 개발 가능성 검토`,
+              `사업 수지: ${ask} 수준의 토지비 기반 개발 사업 수익성 분석`,
+              `인허가: 도시계획·용도지역·건폐율 등 공법 여건 사전 점검`
+            );
+            break;
+          case 'operating':
+            points.push(
+              `운영 수익: ${area} 소재 운영 자산의 GOP 마진 및 실질 영업이익 분석`,
+              `브랜드 가치: 직영 운영 또는 위탁 운영 시 자산 가치 제고 시나리오`,
+              `실사 점검: 시설물 상태·인허가·운영 계약 조건 정밀 진단`
+            );
+            break;
+          case 'trading':
+            points.push(
+              `시세 분석: ${area} 소재 자산의 인근 시세 대비 매입가 적정성 검토`,
+              `보유 전략: ${ask} 수준에서 단기 보유 후 시세차익 실현 시나리오`,
+              `실사 점검: 등기·권리관계·물리적 상태 확인을 통한 매입 리스크 진단`
+            );
+            break;
+          default: // income
+            points.push(
+              `입지 가치: ${area} 소재 자산으로 중장기 자산 가치 및 안정적 수요 검토`,
+              `임대 구조: ${ask} 수준의 가격대 및 현 임대차 기반의 현금흐름 분석`,
+              `실사 점검: 계약서 및 공부 확인을 통한 권리관계·물리적 상태 정밀 진단`
+            );
+        }
       }
       return points;
     })(),
@@ -495,6 +571,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     // 포스처 확장 지표
     landPricePerPyeong: cachedFinancials?.landPricePerPyeong ?? null,
     devProfitMarginPct: cachedFinancials?.devProfitMarginPct ?? null,
+    devHoldYieldPct: cachedFinancials?.devHoldYieldPct ?? null,
     gopMarginPct: cachedFinancials?.gopMarginPct ?? null,
     adr: cachedFinancials?.adrKrw ?? null,
     occPct: cachedFinancials?.occPct ?? null,

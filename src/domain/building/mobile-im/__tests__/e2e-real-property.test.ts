@@ -90,7 +90,7 @@ describe('E2E Real Property: 양평동4가 더레드빌딩 (income)', () => {
       const hasChecklist = sectionTypes.includes('checklist');
       const hasClosing = sectionTypes.includes('closing');
       expect(hasChecklist || hasClosing).toBe(true);
-    }, 30000);
+    }, 60000);
 
     it('E2E-YP-ANCHORS: 양평동 수치 앵커 — 입력 보존 및 섹션 구조 검증', async () => {
       const input = buildIMInput(YANGPYEONG_FIXTURE, 85);

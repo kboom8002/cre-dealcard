@@ -1033,7 +1033,7 @@ export function callout(
     bad:   [C.red,    C.redL,    C.red],
     brass: [C.brassD, C.brassT,  C.brassD],
   };
-  const [titleColor, bgColor, barColor] = colors[kind];
+  const [titleColor, bgColor, barColor] = colors[kind] ?? colors.info;
 
   // 배경
   s.addShape('roundRect' as any, {

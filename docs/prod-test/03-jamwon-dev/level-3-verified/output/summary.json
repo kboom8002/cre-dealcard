@@ -1,0 +1,26 @@
+{
+  "id": "03-jamwon-dev",
+  "level": "level-3-verified",
+  "phases": {
+    "phase0": "success",
+    "phase1": "success",
+    "phase2": "success",
+    "phase3": "success",
+    "phase4": "success",
+    "phase5": "success",
+    "phase6": "success"
+  },
+  "timings": {
+    "phase0": 10379,
+    "phase1": 0,
+    "phase2": 182147,
+    "phase3": 1379,
+    "phase4": 12096,
+    "phase5": 16600,
+    "phase6": 3
+  },
+  "success": true,
+  "buildingId": "2e96c096-d24f-405e-8a52-e6e47c05f784",
+  "docId": "60bdd248-6ca3-4b87-9638-c5e21651dbeb",
+  "totalTime": 222607
+}

@@ -1,0 +1,33 @@
+{
+  "ok": true,
+  "data": {
+    "buildingId": "2e96c096-d24f-405e-8a52-e6e47c05f784",
+    "signalCardId": "1ba8f6b9-1e63-4eb5-b683-aca1f45b5d82",
+    "teaserDocId": "231c2ab7-6961-4982-8ad6-ba3e299bf062",
+    "hiddenFields": [
+      "exact_address",
+      "unit_rent",
+      "negotiation_memo",
+      "registry_detail"
+    ],
+    "postureProposal": {
+      "value": "development",
+      "confidence": 0.95,
+      "reason": "키워드 감지: 개발, 용적률, 인허가, 명도, 신축, 건축",
+      "confirmedBy": null,
+      "confirmedAt": null
+    },
+    "askingPriceKrw": null
+  },
+  "archetypes": [
+    "STABLE_INCOME"
+  ],
+  "constraintWarnings": [
+    {
+      "ruleId": "C03",
+      "severity": "error",
+      "message": "매각 희망가는 0원보다 커야 합니다.",
+      "field": "askingPriceKrw"
+    }
+  ]
+}

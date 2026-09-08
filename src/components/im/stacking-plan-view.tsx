@@ -73,44 +73,108 @@ const CATEGORY_STYLES: Record<TenantCategory, {
   },
 };
 
+/** 면적(평) 추출 헬퍼 함수: '96평(약 317.4㎡)' 형태에서 평수를 안전하게 추출 */
+function extractAreaPyeong(text?: string): number | undefined {
+  if (!text) return undefined;
+  const clean = text.trim();
+  // 1. "96평(약 317.4㎡)" 또는 "96평"
+  const pyMatch = clean.match(/([\d,]+(?:\.\d+)?)\s*평/);
+  if (pyMatch) {
+    return parseFloat(pyMatch[1].replace(/,/g, ''));
+  }
+  // 2. "317.4㎡" 또는 "317.4m²" (평수 표기 없이 m²만 있는 경우 환산)
+  const m2Match = clean.match(/([\d,]+(?:\.\d+)?)\s*(?:㎡|m²|m2)/i);
+  if (m2Match) {
+    return Math.round(parseFloat(m2Match[1].replace(/,/g, '')) * 0.3025 * 10) / 10;
+  }
+  // 3. 순수 숫자만 있는 경우 (금액 '만', 날짜 '-' 등 혼입 제외)
+  const numMatch = clean.match(/^[\d,]+(?:\.\d+)?$/);
+  if (numMatch) {
+    return parseFloat(numMatch[0].replace(/,/g, ''));
+  }
+  return undefined;
+}
+
 /** 마크다운 테이블 파싱 보조 함수 */
 function parseFloorsFromMarkdown(markdown?: string): StackingPlanFloor[] {
   if (!markdown) return [];
   const lines = markdown.split('\n').map(l => l.trim());
-  const tableLines = lines.filter(l => l.startsWith('|') && l.endsWith('|'));
+  
+  // 파이프 기호(| ... |)를 포함하는 라인 추출 (후행 마크다운 헤더 등 혼입 방어)
+  const tableLines: string[] = [];
+  for (const l of lines) {
+    const firstPipe = l.indexOf('|');
+    const lastPipe = l.lastIndexOf('|');
+    if (firstPipe !== -1 && lastPipe > firstPipe) {
+      tableLines.push(l.substring(firstPipe, lastPipe + 1));
+    }
+  }
   if (tableLines.length < 3) return [];
 
-  const headers = tableLines[0].split('|').slice(1, -1).map(h => h.trim());
-  const floorIdx = headers.findIndex(h => h.includes('층'));
-  const useIdx = headers.findIndex(h => h.includes('용도'));
+  // '층'을 포함하는 헤더 라인 찾기
+  let headerLineIdx = -1;
+  let floorIdx = -1;
+  let headers: string[] = [];
+
+  for (let i = 0; i < tableLines.length; i++) {
+    const cells = tableLines[i].split('|').slice(1, -1).map(h => h.trim());
+    if (cells.every(c => /^[-:]+$/.test(c))) continue;
+    const idx = cells.findIndex(h => h.includes('층'));
+    if (idx !== -1) {
+      headerLineIdx = i;
+      floorIdx = idx;
+      headers = cells;
+      break;
+    }
+  }
+
+  if (headerLineIdx === -1 || floorIdx === -1) return [];
+
+  const useIdx = headers.findIndex(h => h.includes('용도') || h.includes('업종'));
   const exIdx = headers.findIndex(h => h.includes('전용'));
-  const leaseIdx = headers.findIndex(h => h.includes('임대') || h.includes('바닥'));
+  // '임대면적' 또는 '계약면적'을 찾되, '월 임대료'나 '임대 만기' 등 오매칭 방지
+  const leaseIdx = headers.findIndex(h => 
+    h.includes('임대면적') || h.includes('계약면적') || h.includes('바닥') || (h.includes('임대') && !h.includes('료') && !h.includes('만기') && !h.includes('보증금'))
+  );
   const tenantIdx = headers.findIndex(h => h.includes('입주') || h.includes('임차') || h.includes('테넌트') || h.includes('상호'));
   const expiryIdx = headers.findIndex(h => h.includes('만기'));
 
-  if (floorIdx === -1) return [];
-
   const floors: StackingPlanFloor[] = [];
-  for (let i = 2; i < tableLines.length; i++) {
-    const cells = tableLines[i].split('|').slice(1, -1).map(c => c.trim().replace(/[*_`]/g, ''));
+  let startIdx = headerLineIdx + 1;
+  if (startIdx < tableLines.length && tableLines[startIdx].split('|').slice(1, -1).every(c => /^[-:]+$/.test(c.trim()))) {
+    startIdx++;
+  }
+
+  for (let i = startIdx; i < tableLines.length; i++) {
+    const rawCells = tableLines[i].split('|').slice(1, -1);
+    // 새로운 구분선이나 다른 테이블 시작 시 중단
+    if (rawCells.every(c => /^[-:]+$/.test(c.trim()))) break;
+    const cells = rawCells.map(c => c.trim().replace(/[*_`]/g, ''));
+    if (cells.length <= floorIdx) continue;
     const floor = cells[floorIdx];
     if (!floor || floor.includes('합계') || floor.includes('층수') || floor.includes('구분')) continue;
 
-    const use = useIdx !== -1 ? cells[useIdx] : '업무시설';
-    const tenant = tenantIdx !== -1 ? cells[tenantIdx] : '-';
-    const exStr = exIdx !== -1 ? cells[exIdx].replace(/[^\d.]/g, '') : '';
-    const leaseStr = leaseIdx !== -1 ? cells[leaseIdx].replace(/[^\d.]/g, '') : '';
+    // 실제 층 표기 형태 검증 (예: B1, 1F, 1F, 2F, 2층, 지하1층 등)
+    if (!/^(?:B\d+|\d+F|\d+층|지하|\d+F\s*,\s*\d+F)/i.test(floor.trim())) {
+      continue;
+    }
+
+    const use = useIdx !== -1 ? cells[useIdx] : '근린생활시설';
+    const tenant = tenantIdx !== -1 ? cells[tenantIdx] : (useIdx !== -1 ? cells[useIdx] : '-');
+    const exclusiveAreaPy = exIdx !== -1 ? extractAreaPyeong(cells[exIdx]) : undefined;
+    const leasableAreaPy = leaseIdx !== -1 ? extractAreaPyeong(cells[leaseIdx]) : undefined;
     const expStr = expiryIdx !== -1 ? cells[expiryIdx].replace(/[^\d]/g, '') : '';
 
-    const exclusiveAreaPy = exStr ? parseFloat(exStr) : undefined;
-    const leasableAreaPy = leaseStr ? parseFloat(leaseStr) : undefined;
     let expiryYear = expStr ? parseInt(expStr, 10) : undefined;
     if (expiryYear && expiryYear < 100) expiryYear += 2000;
+    else if (expiryYear && expiryYear > 2100) {
+      expiryYear = parseInt(String(expiryYear).slice(0, 4), 10);
+    }
 
     const isSub = floor.toUpperCase().startsWith('B');
     const isParking = use.includes('주차') || tenant.includes('주차') || use.includes('기계') || tenant.includes('기계');
-    const isAnchor = tenant.includes('NH농협캐피탈') || tenant.includes('사옥') || tenant.includes('본사');
-    const isRetail = use.includes('근린') || use.includes('근생') || tenant.includes('편의점') || tenant.includes('의원') || tenant.includes('베이커리');
+    const isAnchor = tenant.includes('사옥') || tenant.includes('본사') || (exclusiveAreaPy != null && exclusiveAreaPy > 200);
+    const isRetail = use.includes('근린') || use.includes('근생') || tenant.includes('편의점') || tenant.includes('의원') || tenant.includes('베이커리') || tenant.includes('약국') || tenant.includes('카페') || tenant.includes('소매점') || tenant.includes('헬스');
     const isVacant = tenant.includes('공실') || use.includes('공실');
 
     let category: TenantCategory = 'general';
@@ -132,11 +196,11 @@ function parseFloorsFromMarkdown(markdown?: string): StackingPlanFloor[] {
       use,
       tenant,
       exclusiveAreaPy,
-      exclusiveAreaM2: exclusiveAreaPy ? exclusiveAreaPy / 0.3025 : undefined,
+      exclusiveAreaM2: exclusiveAreaPy ? Math.round((exclusiveAreaPy / 0.3025) * 10) / 10 : undefined,
       leasableAreaPy,
-      leasableAreaM2: leasableAreaPy ? leasableAreaPy / 0.3025 : undefined,
+      leasableAreaM2: leasableAreaPy ? Math.round((leasableAreaPy / 0.3025) * 10) / 10 : undefined,
       floorAreaPy: leasableAreaPy ?? exclusiveAreaPy,
-      expiryYear: expiryYear && expiryYear > 1900 ? expiryYear : undefined,
+      expiryYear: expiryYear && expiryYear > 1900 && expiryYear < 2100 ? expiryYear : undefined,
       isVacant,
       category,
       setbackRatio,
@@ -156,7 +220,7 @@ export function StackingPlanView({
   const [selectedFloor, setSelectedFloor] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<TenantCategory | 'all'>('all');
 
-  // 데이터 정규화
+  // 데이터 정규화: 실데이터 없으면 빈 배열 반환 (목데이터 누출 차단)
   const floors = useMemo(() => {
     if (propFloors && propFloors.length > 0) {
       return propFloors;
@@ -164,26 +228,7 @@ export function StackingPlanView({
     const parsed = parseFloorsFromMarkdown(rawMarkdown);
     if (parsed.length > 0) return parsed;
 
-    // 기본 NH농협캐피탈 골든 스탠다드 fallback
-    return [
-      { floor: '11F', use: '업무시설(사무소)', tenant: 'NH농협캐피탈(주)', exclusiveAreaPy: 120.94, leasableAreaPy: 241.53, expiryYear: 2026, category: 'anchor' as const, setbackRatio: 0.51, hasTerrace: true },
-      { floor: '10F', use: '업무시설(사무소)', tenant: 'NH농협캐피탈(주)', exclusiveAreaPy: 156.85, leasableAreaPy: 313.27, expiryYear: 2026, category: 'anchor' as const, setbackRatio: 0.64, hasTerrace: true },
-      { floor: '9F', use: '업무시설(사무소)', tenant: 'NH농협캐피탈(주)', exclusiveAreaPy: 276.87, leasableAreaPy: 552.94, expiryYear: 2026, category: 'anchor' as const, setbackRatio: 1.0 },
-      { floor: '8F', use: '업무시설(사무소)', tenant: 'NH농협캐피탈(주)', exclusiveAreaPy: 276.87, leasableAreaPy: 552.94, expiryYear: 2026, category: 'anchor' as const, setbackRatio: 1.0 },
-      { floor: '7F', use: '업무시설(사무소)', tenant: 'NH농협캐피탈(주)', exclusiveAreaPy: 276.87, leasableAreaPy: 552.94, expiryYear: 2026, category: 'anchor' as const, setbackRatio: 1.0 },
-      { floor: '6F', use: '업무시설(사무소)', tenant: 'NH농협캐피탈(주)', exclusiveAreaPy: 277.20, leasableAreaPy: 553.67, expiryYear: 2026, category: 'anchor' as const, setbackRatio: 1.0 },
-      { floor: '5F', use: '업무시설(사무소)', tenant: 'NH농협캐피탈(주)', exclusiveAreaPy: 277.20, leasableAreaPy: 553.67, expiryYear: 2026, category: 'anchor' as const, setbackRatio: 1.0 },
-      { floor: '4F', use: '업무시설(사무소)', tenant: '어니스트인베스트먼트 / 르그랑코리아', exclusiveAreaPy: 278.22, leasableAreaPy: 555.65, expiryYear: 2025, category: 'general' as const, setbackRatio: 1.0 },
-      { floor: '3F', use: '업무시설(사무소)', tenant: '한국휴렛팩커드 / 지앤비시스템', exclusiveAreaPy: 278.23, leasableAreaPy: 555.65, expiryYear: 2025, category: 'general' as const, setbackRatio: 1.0 },
-      { floor: '2F', use: '근생 / 업무시설', tenant: '세광그린푸드 / 오피스디포', exclusiveAreaPy: 221.52, leasableAreaPy: 426.98, expiryYear: 2027, category: 'retail' as const, setbackRatio: 0.86 },
-      { floor: '1F', use: '근린생활시설', tenant: '롤링핀 베이커리 / GS25', exclusiveAreaPy: 155.77, leasableAreaPy: 315.94, expiryYear: 2028, category: 'retail' as const, setbackRatio: 0.79 },
-      { floor: 'B1F', use: '근린생활시설', tenant: '아비쥬의원 / 수티문', exclusiveAreaPy: 318.56, leasableAreaPy: 553.24, expiryYear: 2027, category: 'retail' as const, setbackRatio: 1.34 },
-      { floor: 'B2F', use: '업무시설(서고) / 근생', tenant: 'NH농협캐피탈(서고) / 리테일', exclusiveAreaPy: 318.31, leasableAreaPy: 533.52, expiryYear: 2026, category: 'anchor' as const, setbackRatio: 1.35 },
-      { floor: 'B3F', use: '주차장', tenant: '자주식 주차장 (34대)', exclusiveAreaPy: 0, leasableAreaPy: 0, expiryYear: 0, category: 'parking' as const, setbackRatio: 1.35 },
-      { floor: 'B4F', use: '주차장', tenant: '자주식 주차장 (34대)', exclusiveAreaPy: 0, leasableAreaPy: 0, expiryYear: 0, category: 'parking' as const, setbackRatio: 1.35 },
-      { floor: 'B5F', use: '주차장', tenant: '자주식 주차장 (27대)', exclusiveAreaPy: 0, leasableAreaPy: 0, expiryYear: 0, category: 'parking' as const, setbackRatio: 1.35 },
-      { floor: 'B6F', use: '기계실 / 전기실', tenant: '중앙 제어 및 기계·전기설비', exclusiveAreaPy: 0, leasableAreaPy: 0, expiryYear: 0, category: 'parking' as const, setbackRatio: 1.15 },
-    ];
+    return [];
   }, [propFloors, rawMarkdown]);
 
   // 지상층 및 지하층 분리
@@ -198,15 +243,21 @@ export function StackingPlanView({
 
   // 요약 지표
   const summary = useMemo(() => {
-    const totalGfa = propSummary?.totalGrossAreaPy || 6261.9;
-    const exclusiveRate = propSummary?.exclusiveRatePct || 51.6;
+    const totalFromFloors = Math.round(floors.reduce((sum, f) => sum + (f.floorAreaPy || f.exclusiveAreaPy || 0), 0) * 10) / 10;
+    const totalGfa = propSummary?.totalGrossAreaPy || (totalFromFloors > 0 ? totalFromFloors : 0);
+    const exclusiveRate = propSummary?.exclusiveRatePct || 55.0;
     const wale = propSummary?.waleYears || 2.1;
     const vacancy = propSummary?.vacancyRatePct ?? 0.0;
     return { totalGfa, exclusiveRate, wale, vacancy };
-  }, [propSummary]);
+  }, [propSummary, floors]);
+
+  // 층 정보가 없으면 렌더링하지 않음 (모의 건물 누출 완전 차단)
+  if (floors.length === 0) {
+    return null;
+  }
 
   return (
-    <div className="w-full rounded-2xl bg-neutral-900 border border-neutral-800 p-4 sm:p-6 text-white space-y-6">
+    <div className="w-full rounded-2xl bg-neutral-900 border border-neutral-800 p-4 sm:p-6 text-white space-y-6 mt-3">
       {/* ── 상단 헤더 및 4대 KPI 요약 ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-4">
         <div>

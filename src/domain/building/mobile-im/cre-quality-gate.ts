@@ -115,6 +115,17 @@ function buildGateSystemPrompt(): string {
 - 주관적 가격 평가: "적정가", "~할 것으로 보인다", "향후 ~% 상승 예상", "투자 적기"
 - 행동 기준: 위반으로 플래그
 
+## 포스처별 CRE 실무 분석 예외 및 지침
+1. **사옥/자가사용형 (owner_occupied)**:
+   - 기존 임차료 지출 대비 사옥 매입 금융비용 비교, 임차료 절감액, 손익분기 기간, 사옥 전환 실질 부담 분석은 합법적인 CRE 실무 분석이며 investment_guarantee나 misleading_comparison이 아닙니다.
+   - 기업 규모(임직원 수, 필요 면적, 인당 면적 등)에 따른 공간 배분 및 통근 접근성 분석은 표준적인 사옥 평가 지표입니다.
+   - 사용자 입력(메모, 딜카드)에 명시된 기업 조건(임직원 수, 현재 임차료 지출액, 매각 희망가 등) 및 이에 기초한 산출값은 fabricated_data가 아닙니다.
+   - 단독 사옥 브랜딩, 사옥 단독 명칭 표기(간판 설치권), 강남 업무권역 인프라에 대한 객관적 설명은 정상적인 자산 가치 기술입니다.
+
+2. **일반 원칙**:
+   - 객관적 교통/인프라(역 도보 N분, 주요 도로 접면 등) 서술은 ungrounded_market_claim이 아닙니다.
+   - 조건부 검토 제안("확보하십시오", "검토가 필요합니다", "다음 단계")은 investment_guarantee가 아닙니다.
+
 ## 출력 형식 (반드시 아래 JSON 형식 준수)
 
 {
@@ -127,14 +138,17 @@ function buildGateSystemPrompt(): string {
   ]
 }
 
-위반이 없으면 빈 배열 \`{"issues": []}\` 을 반환하세요.`;
+위반이 없으면 빈 배열 {"issues": []} 을 반환하세요.`;
 }
 
 /**
  * 유저 프롬프트 — 검토 대상 마크다운과 섹션 타입 전달
  */
-function buildGateUserPrompt(markdown: string, sectionType: string): string {
-  return `## 검토 대상 섹션: ${sectionType}
+function buildGateUserPrompt(markdown: string, sectionType: string, posture?: string): string {
+  const postureNote = posture
+    ? `\n## 매물 투자 포스처: ${posture}\n포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요.`
+    : '';
+  return `## 검토 대상 섹션: ${sectionType}${postureNote}
 
 \`\`\`markdown
 ${markdown}
@@ -214,20 +228,21 @@ function isValidViolationType(type: string): type is CREViolationType {
  */
 export async function runCREQualityGate(
   markdown: string,
-  sectionType: string
+  sectionType: string,
+  posture?: string
 ): Promise<CREQualityGateResult> {
   try {
     const result = await callLLM(
       {
         systemPrompt: buildGateSystemPrompt(),
-        userPrompt: buildGateUserPrompt(markdown, sectionType),
+        userPrompt: buildGateUserPrompt(markdown, sectionType, posture),
         model: GATE_MODEL,
         responseFormat: "json_object",
         temperature: 0.0, // 안전 검증은 결정론적으로
         maxTokens: 2048,
       },
       {
-        cacheKey: `cre-quality-gate:${sectionType}`,
+        cacheKey: posture ? `cre-quality-gate:${sectionType}:${posture}` : `cre-quality-gate:${sectionType}`,
         timeoutMs: 20_000, // Gate 실패 시 템플릿 폴백 존재 → 짧게 유지
       }
     );
@@ -260,22 +275,34 @@ export async function runCREQualityGate(
       .filter((issue) => {
         const excerpt = issue.excerpt;
 
-        // 1. 일반적 입지/상권 표현 → ungrounded_market_claim 면제
+        // 1. 일반적 입지/상권/권역/교통 표현 → ungrounded_market_claim 면제
         if (issue.type === "ungrounded_market_claim") {
-          const locationWhitelist = /역세권|도보\s?\d+분|입지|상권|생활권|교통|접근성|배후수요/;
+          const locationWhitelist = /역세권|도보\s?\d+분|입지|상권|생활권|교통|접근성|배후수요|권역|인프라|테헤란로|GBD|CBD|YBD|BND|업무권역|강남|오피스|중심지|개발\s?호재|지하철|환승/;
           if (locationWhitelist.test(excerpt)) return false;
         }
 
-        // 2. 조건부/가능성 표현 → investment_guarantee 면제
+        // 2. 조건부/사옥/비용절감/전환/개발/운영 기대 표현 → investment_guarantee 면제
         if (issue.type === "investment_guarantee") {
-          const conditionalPattern = /할 수 있는|기대되는|가능성|검토|예상|구조입니다|측면에서/;
+          const conditionalPattern = /할 수 있는|기대되는|가능성|검토|예상|구조입니다|측면에서|전환|확보|절감|사옥|자가사용|활용|임차\s?(대체|비용)|자산가치|축적|대안|인수|절세|손비|세제|혜택|개발\s?이익|수익률|Cap\s?Rate|GOP|밸류업|시세차익|시나리오/;
           if (conditionalPattern.test(excerpt)) return false;
         }
 
-        // 3. 출처 명시된 데이터 → fabricated_data 면제
+        // 3. 출처 명시된 데이터 및 사용자 입력 조건/산출값 → fabricated_data 면제
         if (issue.type === "fabricated_data") {
-          const provenancePattern = /AI 추정|공공데이터|SSoT 기준|건축물대장|토지이음|공시지가|국토교통부|통상|평균|권역/;
+          const provenancePattern = /AI 추정|공공데이터|SSoT 기준|건축물대장|토지이음|공시지가|국토교통부|통상|평균|권역|임차료|임대료|인상|기회비용|3%|규모|기준|산정|기업|직원|인당|면적|월\s?\d+|배분|절감|자가사용|취득세|4\.6%|9\.4%|감가상각|법인세|세율|세제|손비|사옥|점유|용적률|건폐율|공사비|PF|GOP|RevPAR|매매가|실거래/;
           if (provenancePattern.test(excerpt)) return false;
+        }
+
+        // 4. 비용 비교/원가/시세/운영방식 비교 → misleading_comparison 면제
+        if (issue.type === "misleading_comparison") {
+          const comparisonWhitelist = /비용\s?절감|자가\s?(사용|전환)|임차\s?(대비|대체|비용)|임대\s?시세|실질\s?부담|사옥|입지|신축\s?대비|원가\s?비교|시세\s?대비|직영\s?대비/;
+          if (comparisonWhitelist.test(excerpt)) return false;
+        }
+
+        // 5. 법정 세율, 건축법, 표준 세무/비용 처리 표현 → legal_assertion 면제
+        if (issue.type === "legal_assertion") {
+          const taxWhitelist = /취득세|4\.6%|9\.4%|감가상각|손비\s?(인정|처리)|손금산입|법인세\s?(절감|절세)|이자\s?비용\s?(처리|공제)|양도세|종합부동산세|재산세|건축법|인허가|용적률\s?완화|기부채납|지구단위계획|과세특례|공동담보/;
+          if (taxWhitelist.test(excerpt)) return false;
         }
 
         return true;

@@ -36,6 +36,8 @@ export interface FinancialInputs {
   targetGrossAreaPyeong?: number;
   /** 예상 분양/매각가 (만원/평) */
   expectedSalesPricePerPyeong?: number;
+  /** Hold(보유형) 모드: 신축 후 임대 시 월 총임대수익 (만원) — floor_leases 합산 */
+  devHoldMonthlyRentManwon?: number;
 
   // ── Operating 전용 파라미터 ──
   /** 연간 총 매출 (원) */
@@ -52,6 +54,10 @@ export interface FinancialInputs {
   marketRentPerPyeongKrw?: number;
   /** 자가 사용 면적 (평) */
   selfUseAreaPyeong?: number;
+  /** 현재 임차료 지출액 (만원/월) — occupancySpec에서 전달 */
+  currentRentManwon?: number;
+  currentRentMonthlyManwon?: number;
+  occupancySpec?: import('./types').OccupancySpec;
 
   // ── Trading 전용 파라미터 ──
   /** 인근 비교 사례 평당가 (원/평) */
@@ -106,6 +112,8 @@ export interface FinancialOutputs {
   landPricePerPyeong?: number | null;
   /** 개발형: 토지비 비중 (%) */
   landCostRatioPct?: number | null;
+  /** 개발형 Hold 모드: 연 임대수익률 (연 임대료 / 총투입비 × 100) */
+  devHoldYieldPct?: number | null;
 
   /** 운영형: 연간 GOP (억원) */
   annualGopBil?: number | null;
@@ -416,9 +424,20 @@ class DevelopmentFinancialStrategy implements PostureFinancialStrategy {
     const expectedSalesRevenueKrw = targetGrossPyeong * salesPricePerPyeong * 10000;
     const expectedSalesRevenueBil = expectedSalesRevenueKrw > 0 ? parseFloat((expectedSalesRevenueKrw / 1e8).toFixed(1)) : null;
 
-    const devProfitMarginPct = (totalProjectCostKrw > 0 && expectedSalesRevenueKrw > 0)
+    // Hold 모드 분기: floor_leases 임대수익이 있으면 보유형 연 수익률 산출
+    const holdMonthlyRentManwon = inputs.devHoldMonthlyRentManwon ?? 0;
+    const holdAnnualRentKrw = holdMonthlyRentManwon * 12 * 10000;
+    const devHoldYieldPct = (holdAnnualRentKrw > 0 && totalProjectCostKrw > 0)
+      ? parseFloat(((holdAnnualRentKrw / totalProjectCostKrw) * 100).toFixed(2))
+      : null;
+
+    // 분양형 이익률 (기존 로직)
+    const saleProfitMarginPct = (totalProjectCostKrw > 0 && expectedSalesRevenueKrw > 0)
       ? parseFloat((((expectedSalesRevenueKrw - totalProjectCostKrw) / totalProjectCostKrw) * 100).toFixed(1))
       : null;
+
+    // devProfitMarginPct: hold 모드면 hold 수익률 우선, 아니면 분양 이익률
+    const devProfitMarginPct = devHoldYieldPct ?? saleProfitMarginPct;
 
     const landCostRatioPct = (totalProjectCostKrw > 0 && purchasePrice > 0)
       ? parseFloat(((purchasePrice / totalProjectCostKrw) * 100).toFixed(1))
@@ -444,7 +463,7 @@ class DevelopmentFinancialStrategy implements PostureFinancialStrategy {
       pricePerSqm,
       pricePerPyeong,
       landValueRatio: null,
-      landValueRatioNote: "개발형 자산 — 사업수지(개발이익률) 분석 적용",
+      landValueRatioNote: devHoldYieldPct ? "개발형(보유형) — 연 임대수익률 기준 분석 적용" : "개발형 자산 — 사업수지(개발이익률) 분석 적용",
       yieldOnCost: null,
       totalDepositBil: null,
       loanAmountBil,
@@ -456,11 +475,14 @@ class DevelopmentFinancialStrategy implements PostureFinancialStrategy {
       totalProjectCostBil,
       expectedSalesRevenueBil,
       devProfitMarginPct,
+      devHoldYieldPct,
       landPricePerPyeong,
       landCostRatioPct,
       regulationExpiry,
       regulationDaysLeft: regDays,
-      disclaimer: 'AI 개발 사업수지 추정값 (참고용). 공사비·인허가·분양가 변동에 따라 상이할 수 있습니다.',
+      disclaimer: devHoldYieldPct
+        ? 'AI 보유형 개발 수익률 추정값 (참고용). 임대료·공사비·인허가 변동에 따라 상이할 수 있습니다.'
+        : 'AI 개발 사업수지 추정값 (참고용). 공사비·인허가·분양가 변동에 따라 상이할 수 있습니다.',
     };
   }
 
@@ -568,13 +590,28 @@ class OwnerOccupiedFinancialStrategy implements PostureFinancialStrategy {
     const totalAreaPyeong = (inputs.totalAreaSqm || 0) / 3.30578;
     const selfUseAreaPyeong = inputs.selfUseAreaPyeong ?? (totalAreaPyeong > 0 ? totalAreaPyeong : 100);
 
-    const marketRentPerPyeong = inputs.marketRentPerPyeongKrw ?? 70000;
-    const virtualAnnualRentKrw = marketRentPerPyeong * selfUseAreaPyeong * 12;
+    // 1. 현재 임차료 지출액 우선 사용 (사용자 입력)
+    const currentRentManwon = inputs.currentRentMonthlyManwon
+      ?? inputs.currentRentManwon
+      ?? inputs.occupancySpec?.currentRentManwon
+      ?? inputs.occupancySpec?.currentRentMonthlyManwon;
+    const currentRentMonthlyKrw = currentRentManwon ? currentRentManwon * 10000 : null;
 
-    const loanKrw = (inputs.loanAmountManwon ?? 0) * 10000;
+    const marketRentPerPyeong = inputs.marketRentPerPyeongKrw ?? 70000;
+    const virtualAnnualRentKrw = currentRentMonthlyKrw
+      ? currentRentMonthlyKrw * 12
+      : marketRentPerPyeong * selfUseAreaPyeong * 12;
+    // 잔여층/지하층 임대수입 가산
+    const annualRentalIncomeKrw = (inputs.monthlyRentKrw ?? 0) * 12;
+
+    // 대출금: 명시적 입력이 있으면 사용, 0으로 명시 입력 시 0, 미입력 시 CRE 사옥 표준 LTV 60% 기본 가정
+    const defaultLtv = 0.60;
+    const loanKrw = inputs.loanAmountManwon !== undefined && inputs.loanAmountManwon !== null
+      ? inputs.loanAmountManwon * 10000
+      : Math.round(purchasePrice * defaultLtv);
     const loanRate = ASSUMPTIONS.loanRateDefault.value ?? 0.045;
     const annualDebtServiceKrw = loanKrw * loanRate;
-    const ownVsLeaseSavingsKrw = virtualAnnualRentKrw - annualDebtServiceKrw;
+    const ownVsLeaseSavingsKrw = (virtualAnnualRentKrw + annualRentalIncomeKrw) - annualDebtServiceKrw;
     const ownVsLeaseSavingsBil = parseFloat((ownVsLeaseSavingsKrw / 1e8).toFixed(1));
 
     const equityKrw = purchasePrice - loanKrw;

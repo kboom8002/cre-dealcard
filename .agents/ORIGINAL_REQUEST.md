@@ -500,3 +500,70 @@ Integrity mode: development
 ### 빌드 및 보고서 산출물
 - [ ] `docs/audit/pipeline-vulnerability-research.md` 보고서가 완성되어야 한다.
 - [ ] 전체 파이프라인의 `npm run build`가 정상적으로 통과되어야 한다 (Exit Code 0).
+
+## 2026-09-07T11:36:06Z
+
+CRE IM 파이프라인 전 계층(외부 데이터·재무 산출·LLM/게이트·PPTX 렌더러·보안/승인 프로토콜)의 잠재 오류 소스를 MECE하게 전수 감사하고, 포스처 전반(사옥형·수익형·개발형·운영형·매매형)의 범용 신뢰성을 보장하는 자동화 회귀 방지 체계를 구축한다.
+
+Working directory: c:\Users\User\cre-dealcard
+Integrity mode: development
+
+## Requirements
+
+### R1. 5개 레이어(L1~L5) 잠재 결함 MECE 전수 감사 및 동적화
+- **L1 (데이터 수집/정본화)**: 합필·대표지번 면적 괴리 방어, 연면적 0/NaN 제수 가드, 용도지역 비표준 문자열 정규화.
+- **L2 (재무 모델링)**: 5대 포스처(income, owner_occupied, development, operating, trading)별 파라미터 결손 시 동적 기본값 및 회수기간/GOP/개발수지 산식 무결성 확보.
+- **L3 (LLM & 품질 게이트)**: `cre-quality-gate.ts`의 포스처별 전문 용어 화이트리스트 확장(개발형 PF/시공비, 운영형 GOP/RevPAR 등) 및 템플릿 폴백 완비.
+- **L4 (데이터 바인딩 & PPTX)**: `data-binder.ts`에 하드코딩된 역삼동/120억 수치·지역명 완전 동적화, `sectionType === 'investment_thesis'` 포스처 분기 정밀화, Callout kind 유효성 검증.
+- **L5 (보안/승인 프로토콜)**: 해시 바인딩 승인 프로토콜(`expectedHash`), 릴리즈 티어 5종 전구간 연결, 폴링 300초 상한 가드 점검.
+
+### R2. 포스처별 크로스 플랫폼 E2E 회귀 방지 테스트 스위트 확충
+- 기존 02-역삼(사옥형), 01-당산(수익형)에 이어 개발형/운영형/매매형 가상 픽스처 기반 교차 대조(`copy-cross-compare`) 및 PPTX 렌더링 검증 테스트 작성.
+
+## Acceptance Criteria
+
+### L1~L5 무결성 검증
+- [ ] `data-binder.ts` 내 하드코딩된 특정 건물/지역명(역삼역, 테헤란로, 120억, 48억 등) 완전 제거 및 동적 바인딩 확인
+- [ ] 5개 포스처 전체에서 `npm run build` 및 `npx tsc --noEmit` 무결성 0 Error 달성
+- [ ] `src/domain/building/mobile-im/__tests__/` 전 테스트 통과
+- [ ] 8대 금지 패턴 및 Rule 1(페르소나 격리), Rule 2(CRE 실무 용어) 위반 0건 유지
+
+## 2026-09-07T12:39:34Z
+
+CRE IM 파이프라인의 과거 다수 실패 및 결함 사례(D33~D39, 역삼 사옥형, 당산 수익형 E2E 등)로부터 발생 가능한 오류를 사전에 원천 차단하기 위한 5대 계층 MECE 사전 점검 체크리스트를 도출하고, 이를 자동으로 검증하는 자동화 감사 테스트 스위트(Pre-flight Pipeline Audit Suite) 및 엔지니어링 규칙을 체계화합니다.
+
+Working directory: c:\Users\User\cre-dealcard
+Integrity mode: development
+
+## Requirements
+
+### R1. 과거 실패 기반 5대 계층 MECE 사전 점검 체크리스트 도출
+다음 5대 핵심 도메인 영역에 대해 파이프라인 변경 및 배포 전 점검해야 할 구체적인 사전 검증 항목 및 기준(임계값, 글자수 예산, 허용 타입 등)을 도출하여 문서화합니다:
+1. **데이터 파싱 및 서식 무결성**: 인접 마크다운 테이블 병합 붕괴 방지, 인라인 마크다운 헤더 혼입 격리, 단위/숫자 병합 왜곡(`96평(약 317.4㎡)` -> `96317.4` 버그 등) 방지, 전용면적 vs 임대료 컬럼 오매칭 차단
+2. **모의/더미 데이터 누출 원천 차단**: 렌트롤 파싱 실패 시 NH농협캐피탈 17층 모의 건물 누출 차단, 사옥형 등 비수익형 포스처에서 `개인 자산가 ◎ 최적합` 하드코딩 누출 차단, 슬라이드 폴백 타이틀("건축물 물리 스펙 요약") 누출 차단
+3. **5대 포스처별 수치/슬라이드 정합성**: 사옥형 `currentRentManwon` 누락 등 포스처별 필수 매개변수 유실 방지, 수익형 지표(`gross_yield`, `valueAddMarkdown`)의 비수익형 강제 침투 방어, 포스처 전용 슬라이드 격리
+4. **품질 게이트(Quality Gate) 및 카피 표준**: 표준 세무/법률 용어(`취득세 4.6%`, `감가상각`, `손비 인정`, `법인세 절감`) 오탐 방지, 회피성 문구("본문을 참조...") 차단, Rule 1(페르소나 미노출) 및 Rule 2(CRE 한국 실무 표준 용어) 준수
+5. **시각 레이아웃 및 렌더링 한도**: 카드 내 텍스트 예산 초과(체크리스트 등) 방지, PPTX CalloutKind 허용 5종(`info|good|warn|bad|brass`) 엄수, LibreOffice 변환 시 테이블 열 수 불일치 블록화 방어, Goldilocks 본문 16면 절삭 한도 준수
+
+### R2. 자동화 사전 점검 스위트(Pre-flight Audit Suite) 구현
+- 위 5대 계층의 점검 항목을 코드 레벨에서 즉각 단언할 수 있는 통합 사전 감사 테스트(`src/tests/e2e/preflight-pipeline-audit.test.ts` 등)를 구현합니다.
+- 과거 대표 결함(숫자 병합, 모의 빌딩 누출, 게이트 오탐, 카드 글자수 초과, 미지원 CalloutKind)에 대한 Positive/Negative Pair(Rule 7) 단언을 포함합니다.
+
+### R3. CI/CD 및 엔지니어링 가이드라인 통합
+- 도출된 핵심 점검 항목을 `.agents/AGENTS.md`의 CRE 파이프라인 수칙(D40+)으로 정식 등재합니다.
+- 배포 및 커밋 전 단일 명령으로 점검을 통과할 수 있도록 검증 프로토콜을 완성합니다.
+
+## Acceptance Criteria
+
+### Comprehensive Audit Rules Documentation
+- [ ] 5대 계층(파싱, 모의데이터, 포스처 정합성, 품질게이트, 시각레이아웃)의 구체적인 점검 항목과 허용/금지 기준이 명문화된 가이드 문서가 생성되어 있어야 함
+- [ ] 각 항목별 실제 실패 사례(당산동 100,681평 왜곡, Slide 3 블록화, 역삼동 72.1년 왜곡 등)와 재발 방지 대책이 명시되어 있어야 함
+
+### Automated Pre-flight Test Suite
+- [ ] 자동화 사전 점검 테스트 파일이 생성되어 `npx vitest run` 실행 시 100% 통과해야 함
+- [ ] 모든 주요 점검 대상에 대해 올바른 동작(Positive)과 결함 유발 입력(Negative Pair)이 함께 검증되어야 함
+- [ ] 8대 금지 패턴(8 forbidden patterns) 및 Rule 1, Rule 2 검증이 포함되어 있어야 함
+
+### Build & Pipeline Integrity
+- [ ] `npm run build` 실행 시 TypeScript 타입 에러 없이 성공(Exit Code 0)해야 함
+- [ ] 기존 테스트 스위트(`copy-cross-compare.test.ts`, `a22-stacking-plan.test.ts` 등)와의 충돌이나 회귀가 없어야 함

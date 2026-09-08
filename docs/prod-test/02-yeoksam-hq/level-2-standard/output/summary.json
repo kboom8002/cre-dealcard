@@ -4,23 +4,23 @@
   "phases": {
     "phase0": "success",
     "phase1": "success",
-    "phase2": "success",
+    "phase2": "success (reused)",
     "phase3": "success",
     "phase4": "success",
     "phase5": "success",
     "phase6": "success"
   },
   "timings": {
-    "phase0": 3087,
-    "phase1": 2439,
-    "phase2": 140684,
-    "phase3": 695,
-    "phase4": 24943,
-    "phase5": 27166,
+    "phase0": 4543,
+    "phase1": 0,
+    "phase2": 1,
+    "phase3": 1779,
+    "phase4": 95116,
+    "phase5": 41174,
     "phase6": 5
   },
   "success": true,
   "buildingId": "e8bc71d2-6caf-409e-90b3-f9c15aa161f1",
-  "docId": "879fd214-3bb1-4580-985f-b55a40c31a47",
-  "totalTime": 199021
+  "docId": "9c8c7bcc-29fd-45e2-8ec1-2e65a6f1bbe2",
+  "totalTime": 142620
 }

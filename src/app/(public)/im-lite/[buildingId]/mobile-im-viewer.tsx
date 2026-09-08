@@ -1678,15 +1678,13 @@ export function MobileIMViewer({ document: doc, buildingId, ssotData, docId, isB
               />
               {/* 층별 건축 입면 셋백 스태킹 플랜 인터랙티브 뷰 */}
               {(section.sectionId?.includes('lease') || (section as any).sectionType === 'lease_status' || (section as any).sectionType === 'stacking_plan' || section.sectionId?.includes('stacking')) && (
-                <div className="mt-3">
-                  <StackingPlanView
-                    stackingPlan={(doc as any).body?.stackingPlan ?? (doc as any).stackingPlan}
-                    summary={(doc as any).body?.stackingSummary}
-                    rawMarkdown={section.content || (section as any).markdown}
-                    tables={(section as any).tables}
-                    buildingName={doc.blindName || doc.fullName}
-                  />
-                </div>
+                <StackingPlanView
+                  stackingPlan={(doc as any).body?.stackingPlan ?? (doc as any).stackingPlan}
+                  summary={(doc as any).body?.stackingSummary}
+                  rawMarkdown={section.content || (section as any).markdown}
+                  tables={(section as any).tables}
+                  buildingName={doc.blindName || doc.fullName}
+                />
               )}
               {/* [C2][C4] 수익 분석 섹션 다음에 DCF 히트맵 + 레버리지 차트 삽입 */}
               {section.sectionId?.includes('income') && (

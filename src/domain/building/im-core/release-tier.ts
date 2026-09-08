@@ -94,8 +94,10 @@ export function resolveTier(input: ResolveTierInput): ReleaseTier {
     return 'internal_only';
   }
 
-  // 렌트롤/비교사례 부족 → fact_om
-  const hasAnalysisData = da.hasRentRoll === true || da.hasComparables === true;
+  // 렌트롤/비교사례 부족 → fact_om (사옥형은 자가사용 분석 기반)
+  const hasAnalysisData = posture === 'owner_occupied'
+    ? (da.hasBuildingRegister !== false || da.hasPhotos === true || da.hasComparables === true)
+    : (da.hasRentRoll === true || da.hasComparables === true);
   if (!hasAnalysisData) {
     return 'fact_om';
   }
@@ -105,8 +107,8 @@ export function resolveTier(input: ResolveTierInput): ReleaseTier {
     return 'analysis_im';
   }
 
-  // 기준일+시나리오 부족 → analysis_im
-  if (!input.hasAsOf || !input.hasScenario) {
+  // 기준일+시나리오 부족 → analysis_im (사옥형은 자가 vs 임차 비교 시나리오 내장)
+  if (posture !== 'owner_occupied' && (!input.hasAsOf || !input.hasScenario)) {
     return 'analysis_im';
   }
 

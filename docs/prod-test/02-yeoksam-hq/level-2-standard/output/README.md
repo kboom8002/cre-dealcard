@@ -1,17 +1,17 @@
 # E2E Test Report: 02-yeoksam-hq (level-2-standard)
 
 ## Status: ✅ SUCCESS
-**Total Time**: 199.0s
+**Total Time**: 142.6s
 **Building ID**: e8bc71d2-6caf-409e-90b3-f9c15aa161f1
-**Doc ID**: 879fd214-3bb1-4580-985f-b55a40c31a47
+**Doc ID**: 9c8c7bcc-29fd-45e2-8ec1-2e65a6f1bbe2
 
 ## Phases
-- **phase0**: success (3.1s)
-- **phase1**: success (2.4s)
-- **phase2**: success (140.7s)
-- **phase3**: success (0.7s)
-- **phase4**: success (24.9s)
-- **phase5**: success (27.2s)
+- **phase0**: success (4.5s)
+- **phase1**: success (N/A)
+- **phase2**: success (reused) (0.0s)
+- **phase3**: success (1.8s)
+- **phase4**: success (95.1s)
+- **phase5**: success (41.2s)
 - **phase6**: success (0.0s)
 
 ## Outputs Directory Guide
