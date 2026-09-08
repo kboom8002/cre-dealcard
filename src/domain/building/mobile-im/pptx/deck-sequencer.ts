@@ -288,10 +288,9 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
       feasibility: 2, scale: 2, eviction: 2, cost: 2, stacking: 2,
       kpi: 2, revenue: 2, seasonality: 2, operator: 2,
       comps: 2, trend: 2, turnover: 2, price: 2,
+      land: 2, building: 2, // 토지·건물 개요는 필수 물리 스펙이므로 Priority 2 보존
       // Priority 3: Context & supporting (사옥형에서는 실입주 핵심이므로 2 부여)
       location: input.posture === 'owner_occupied' ? 2 : 3,
-      land: input.posture === 'owner_occupied' ? 2 : 3,
-      building: input.posture === 'owner_occupied' ? 2 : 3,
       // Priority 4 (lowest): Secondary items
       loan: 4, tax: 4,
     };

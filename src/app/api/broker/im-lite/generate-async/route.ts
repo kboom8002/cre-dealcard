@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       photo_urls: body.photo_urls,
       photo_captions: body.photo_captions,
       photos_v2: (body.photos_v2 || []).filter((p: any) =>
-        p?.url && (p.url.startsWith('http://') || p.url.startsWith('https://') || p.url.startsWith('/'))
+        p?.url && (p.url.startsWith('http://') || p.url.startsWith('https://') || p.url.startsWith('/') || p.url.startsWith('data:'))
       ),
       broker_highlight: body.broker_highlight,
       estimated_yield_pct: body.estimated_yield_pct,

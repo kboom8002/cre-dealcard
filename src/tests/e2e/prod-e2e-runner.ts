@@ -16,11 +16,13 @@ const args = process.argv.slice(2);
 let caseId = '';
 let levelId = '';
 let baseUrl = 'http://localhost:3000';
+let preset = '';
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--case') caseId = args[++i];
   if (args[i] === '--level') levelId = args[++i];
   if (args[i] === '--base-url') baseUrl = args[++i];
+  if (args[i] === '--preset') preset = args[++i];
 }
 
 if (!caseId || !levelId) {
@@ -183,12 +185,22 @@ async function run() {
       const imPayload = {
         buildingId: currentBuildingId,
         building_id: currentBuildingId,
-        tier: 'basic',
+        tier: bottomSheet.tier || (levelId === '3' || level === 'level-3-verified' ? 'pro' : 'basic'),
         investment_posture: bottomSheet.posture,
         resolved_address: bottomSheet.address,
         asking_price_manwon: bottomSheet.askingPrice ? bottomSheet.askingPrice / 10000 : undefined,
         floor_leases: bottomSheet.floor_leases,
-        photos_v2: bottomSheet.photos_v2 || [],
+        photos_v2: (bottomSheet.photos_v2 || []).map((p: any) => {
+          if (p.url && !p.url.startsWith('http') && !p.url.startsWith('data:')) {
+            const absPath = path.resolve(testCase.dataDir, p.url);
+            if (fs.existsSync(absPath)) {
+              const ext = path.extname(absPath).slice(1) || 'jpeg';
+              const b64 = fs.readFileSync(absPath).toString('base64');
+              return { ...p, url: `data:image/${ext};base64,${b64}` };
+            }
+          }
+          return p;
+        }),
         occupancySpec: bottomSheet.occupancySpec,
         developmentSpec: bottomSheet.developmentSpec,
         vacateSpec: bottomSheet.vacateSpec,
@@ -275,8 +287,9 @@ async function run() {
 
     // Phase 4: PPTX Download + Slide Capture
     const p4Start = Date.now();
-    console.log('\n[Phase 4] PPTX Download + Slide Capture');
-    const pptxRes = await fetch(`${baseUrl}/api/public/im-lite/${currentBuildingId}/pptx?doc_id=${currentDocId}`);
+    console.log(`\n[Phase 4] PPTX Download + Slide Capture (Preset: ${preset || 'default'})`);
+    const pptxUrl = `${baseUrl}/api/public/im-lite/${currentBuildingId}/pptx?doc_id=${currentDocId}${preset ? `&preset=${preset}` : ''}`;
+    const pptxRes = await fetch(pptxUrl);
     if (!pptxRes.ok) throw new Error(`Failed to download PPTX: ${await pptxRes.text()}`);
     
     let pptxPath = path.join(testCase.outputDir, `${testCase.id}.pptx`);

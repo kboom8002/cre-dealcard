@@ -11,16 +11,16 @@
     "phase6": "success"
   },
   "timings": {
-    "phase0": 1801,
+    "phase0": 2603,
     "phase1": 0,
-    "phase2": 143937,
-    "phase3": 426,
-    "phase4": 7385,
-    "phase5": 13091,
-    "phase6": 3
+    "phase2": 170509,
+    "phase3": 655,
+    "phase4": 24365,
+    "phase5": 17475,
+    "phase6": 5
   },
   "success": true,
   "buildingId": "272472c8-ba27-4159-bf95-fcd7a326dd56",
-  "docId": "d1a21daf-923b-42b4-99f5-7277a5540068",
-  "totalTime": 166643
+  "docId": "41e5a1ce-4b2e-4afa-ae66-d2d8d7997ac4",
+  "totalTime": 215613
 }

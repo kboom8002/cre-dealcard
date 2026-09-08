@@ -1,15 +1,15 @@
 {
-  "jobId": "im_272472c8-ba27-4159-bf95-fcd7a326dd56_1788783966274",
+  "jobId": "im_272472c8-ba27-4159-bf95-fcd7a326dd56_1788842035164",
   "status": "completed",
   "result": {
-    "url": "/im-lite/272472c8-ba27-4159-bf95-fcd7a326dd56?doc=d1a21daf-923b-42b4-99f5-7277a5540068",
+    "url": "/im-lite/272472c8-ba27-4159-bf95-fcd7a326dd56?doc=41e5a1ce-4b2e-4afa-ae66-d2d8d7997ac4",
     "ai_used": true,
-    "message": "Mobile IM 생성 완료 (12섹션, AI 서사, Grade B)",
-    "im_lite_id": "d1a21daf-923b-42b4-99f5-7277a5540068",
-    "sections_count": 12,
+    "message": "Mobile IM 생성 완료 (13섹션, AI 서사, Grade B)",
+    "im_lite_id": "41e5a1ce-4b2e-4afa-ae66-d2d8d7997ac4",
+    "sections_count": 13,
     "readiness_score": 45,
     "external_data_loaded": true
   },
-  "created_at": "2026-09-07T12:26:06.276+00:00",
-  "completed_at": "2026-09-07T12:28:29.148+00:00"
+  "created_at": "2026-09-08T04:33:55.169+00:00",
+  "completed_at": "2026-09-08T04:36:38.225+00:00"
 }

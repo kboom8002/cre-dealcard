@@ -145,14 +145,15 @@ export class MobileImPptxRenderer {
         hasPhotos: resolvedPhotos.length > 0,
         gallerySpecs,
         dataAvailability: {
-          hasLandUsePlan: !!(enrichment.landUsePlan ?? externalData.hasPublicData),
+          hasLandUsePlan: !!(enrichment.landUsePlan ?? externalData.hasPublicData ?? input.doc.body?.ssot_summary?.land_area_sqm),
           hasLandPrice: !!(enrichment.landPrice),
-          hasBuildingRegister: !!(enrichment.buildingRegister ?? externalData.hasPublicData),
+          hasBuildingRegister: !!(enrichment.buildingRegister ?? externalData.hasPublicData ?? input.doc.body?.ssot_summary?.total_gross_area_sqm ?? input.doc.body?.ssot_summary?.size_signal),
           hasRegistryData: !!(enrichment.registryData),
-          hasComparables: (enrichment.comparableTransactions?.length ?? 0) > 0,
+          hasComparables: (enrichment.comparableTransactions?.length ?? 0) > 0 || ((input.doc.body as any)?.manual_comps?.length ?? 0) > 0,
           hasCommercialDistrict: !!(enrichment.commercialDistrict),
           hasCadastralMap: !!(enrichment.cadastralMapImage),
           hasFloorPlan: false,
+          hasRentRoll: !!(input.doc.body?.floor_leases?.length || input.doc.body?.ssot_summary?.monthly_rent_total_krw),
         },
         // D37 C-3: ReleaseTier 전달 → tier 기반 면 제어 활성화
         releaseTier: input.releaseTier,
@@ -179,7 +180,7 @@ export class MobileImPptxRenderer {
           ...input.doc,
           sections: input.doc.sections ?? input.doc.body?.sections ?? [],
         };
-        dataMap = bindSectionData(normalizedDoc, input.building);
+        dataMap = bindSectionData(normalizedDoc, input.building, input.preset);
       }
 
       // cover/closing 데이터 보강
@@ -423,8 +424,10 @@ export class MobileImPptxRenderer {
           data: {
             ...(dataMap[spec.dataKey] ?? {}),
             kicker: spec.kicker,
-            // cover/closing은 dataMap에 실제 제목(건물명, 마감 제목)이 있으므로 우선 사용
-            title: (dataMap[spec.dataKey] as any)?.title || spec.title,
+            // cover/closing 외에는 정형 PPTX 슬라이드 표준 제목(spec.title)을 최종 권위로 사용 (Rule 6)
+            title: (['cover', 'closing'].includes(spec.dataKey) && (dataMap[spec.dataKey] as any)?.title)
+              ? (dataMap[spec.dataKey] as any).title
+              : (spec.title || (dataMap[spec.dataKey] as any)?.title || '세부 정보'),
           },
           grade: (input.grade ?? 'B') as 'A' | 'B' | 'C',
           provenance: input.provenance ?? {},

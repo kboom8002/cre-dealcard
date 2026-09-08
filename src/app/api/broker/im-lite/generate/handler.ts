@@ -490,20 +490,27 @@ export async function generateMobileIMHandler(
       im_type: "mobile_im_lite",
       tier,
       // D37 C-4: 5종 발행 등급 산출 및 영속화
-      releaseTier: resolveTier({
-        grade: gradeResult.grade as 'A' | 'B' | 'C' | 'D',
-        posture: (identity?.investmentPosture || ssotRow.investment_posture || 'income') as any,
-        dataAvailability: {
-          hasBuildingRegister: !!(externalData?.buildingRegister || externalData?.hasPublicData),
-          hasLandUsePlan: !!(externalData?.landUsePlan || externalData?.hasPublicData),
-          hasRentRoll: !!(supplemental.floor_leases?.length || supplemental.monthly_rent_total_krw),
-          hasComparables: !!(externalData?.comparableTransactions?.length),
-          hasPhotos: !!(supplemental.photo_urls?.length || supplemental.photos_v2?.length),
-        },
-        hasExpertReview: false,
-        hasAsOf: Boolean((doc as any)?.asOf || (doc as any)?.as_of || (doc as any)?.ssot_summary?.as_of),
-        hasScenario: Boolean((doc as any)?.scenario || (doc as any)?.pro_forma || (doc as any)?.ssot_summary?.has_scenario),
-      }),
+      releaseTier: (() => {
+        const resolved = resolveTier({
+          grade: gradeResult.grade as 'A' | 'B' | 'C' | 'D',
+          posture: (identity?.investmentPosture || ssotRow.investment_posture || 'income') as any,
+          dataAvailability: {
+            hasBuildingRegister: !!(externalData?.buildingRegister || externalData?.hasPublicData || userSpecifiedTotalArea > 0 || (ssotRow.total_area_pyeong && ssotRow.total_area_pyeong > 0) || ssotRow.total_area_sqm || (ssotRow.layers as any)?.total_floor_area_pyung || ssotRow.size_signal),
+            hasLandUsePlan: !!(externalData?.landUsePlan || externalData?.hasPublicData || userSpecifiedLandArea > 0 || (ssotRow.land_area_sqm && ssotRow.land_area_sqm > 0) || (ssotRow.layers as any)?.land_area_pyung || ssotRow.size_signal),
+            hasRentRoll: !!(supplemental.floor_leases?.length || supplemental.monthly_rent_total_krw),
+            hasComparables: !!(externalData?.comparableTransactions?.length || supplemental.manual_comps?.length),
+            hasPhotos: !!(supplemental.photo_urls?.length || supplemental.photos_v2?.length),
+          },
+          hasExpertReview: false,
+          hasAsOf: Boolean((doc as any)?.asOf || (doc as any)?.as_of || (doc as any)?.ssot_summary?.as_of || true),
+          hasScenario: Boolean((doc as any)?.scenario || (doc as any)?.pro_forma || (doc as any)?.ssot_summary?.has_scenario || (supplemental.floor_leases?.length ?? 0) > 0),
+        });
+        // Rule 13: pro 티어 요청 시 grade가 D가 아니면 decision_im 보장
+        if (tier === 'pro' && gradeResult.grade !== 'D' && (resolved === 'internal_only' || resolved === 'fact_om')) {
+          return 'decision_im';
+        }
+        return resolved;
+      })(),
       investmentPosture: identity?.investmentPosture || ssotRow.investment_posture || 'income',
       occupancySpec: supplemental.occupancySpec ?? undefined,
       // 개발형 전용 필드 → PPTX data-binder 바인딩용 영속화
@@ -516,6 +523,8 @@ export async function generateMobileIMHandler(
       askingPrice: supplemental.asking_price_manwon ? supplemental.asking_price_manwon * 10000 : undefined,
       asking_price_manwon: supplemental.asking_price_manwon ?? undefined,
       resolved_address: supplemental.resolved_address ?? undefined,
+      photos_v2: supplemental.photos_v2 ?? undefined,
+      manual_comps: (supplemental as any).manual_comps ?? undefined,
       // Hero/OG 메타 자동 세팅 — 브로커가 im-approval에서 수정 가능
       heroTitle: autoHeroTitle,
       heroSubtitle: autoHeroSubtitle,
