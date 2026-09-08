@@ -215,5 +215,16 @@
 ### 38. Pre-flight Pipeline Audit 의무 실행 (Mandatory Pre-flight Audit)
 - 파이프라인 코드(data-binder, writer, quality-gate, archetype, deck-sequencer) 수정 시, 커밋 전 반드시 `npx vitest run src/tests/e2e/preflight-pipeline-audit.test.ts`를 실행하여 5대 계층 40개 사전 점검 항목을 통과해야 합니다.
 - 모든 점검 항목은 Positive/Negative Pair(Rule 7)를 포함합니다.
+
+### 39. photos_v2 URL 스킴 전구간 투과성 (Full-Chain URL Scheme Permeability)
+- `photos_v2` 배열의 URL을 필터링하는 모든 게이트(`generate-async/route.ts`, `generate/route.ts`, `im-data-bottom-sheet.tsx`)는 반드시 4가지 스킴을 허용해야 합니다: `http://`, `https://`, `/`, `data:`.
+- URL 필터에 새로운 스킴을 추가하거나 기존 스킴을 제거할 때, 파이프라인의 모든 필터 지점을 동시에 검토합니다.
+- **위반 사례**: `generate-async/route.ts`에서 `data:` URI를 필터링하여 E2E 테스트의 base64 인코딩 사진이 전량 탈락.
+
+### 40. 바이너리 에셋 JSONB 직접 저장 금지 (No Binary Blob in JSONB)
+- `document_objects.body` JSONB 컬럼에 base64 인코딩 이미지, PDF, 또는 기타 바이너리 데이터를 직접 저장하는 것을 금지합니다.
+- 바이너리 에셋은 반드시 Supabase Storage(`building_photos` 버킷 등)에 업로드하고, public URL만 JSONB에 저장합니다.
+- `handler.ts`의 `uploadDataUriPhotos()` 패턴을 참조합니다: base64 data URI 감지 → Storage 업로드 → URL 교체.
+- **위반 사례**: 8장 사진(~10MB base64)을 JSONB에 직접 저장 → Supabase `HeadersTimeoutError` → 문서 저장 실패.
 <!-- END:cre-d40-preflight-rules -->
 
