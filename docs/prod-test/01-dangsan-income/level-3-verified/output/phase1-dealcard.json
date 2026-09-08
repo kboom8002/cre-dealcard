@@ -1,36 +1,19 @@
 {
-  "ok": true,
-  "data": {
-    "buildingId": "272472c8-ba27-4159-bf95-fcd7a326dd56",
-    "signalCardId": "fa54d8be-cb1e-4b02-a3c8-04b9190d932a",
-    "teaserDocId": "819fe07a-dc6d-47b4-9900-3985bd3fa835",
-    "hiddenFields": [
-      "exact_address",
-      "tenant_name",
-      "unit_rent",
-      "negotiation_memo",
-      "owner_identity",
-      "registry_detail",
-      "lease_contract_raw_text"
-    ],
-    "postureProposal": {
-      "value": "income",
-      "confidence": 0.95,
-      "reason": "키워드 감지: 임대, 렌트, 수익률, 공실, 보증금",
-      "confirmedBy": null,
-      "confirmedAt": null
-    },
-    "askingPriceKrw": 11000000000
-  },
-  "archetypes": [
-    "STABLE_INCOME"
-  ],
-  "constraintWarnings": [
+  "ok": false,
+  "code": "DUPLICATE_BUILDING_DETECTED",
+  "message": "동일한 물건이 이미 등록되어 있습니다.",
+  "duplicates": [
     {
-      "ruleId": "C16",
-      "severity": "error",
-      "message": "Cap Rate 표시 시 산출 기준(basis)이 반드시 명시되어야 합니다.",
-      "field": "capRateBasis"
+      "existingBuildingId": "272472c8-ba27-4159-bf95-fcd7a326dd56",
+      "matchType": "jibun_exact",
+      "confidence": 0.95,
+      "summary": {
+        "areaSignal": "당산권역",
+        "assetType": "근생빌딩",
+        "priceBand": "110억대",
+        "createdAt": "2026-09-07T11:57:02.304722+00:00",
+        "status": "public_signal_ready"
+      }
     }
   ]
 }

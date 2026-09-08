@@ -54,6 +54,71 @@ export interface GenerateMobileIMResult {
   statusCode?: number;
 }
 
+/**
+ * base64 data URI 사진을 Supabase Storage에 업로드하고 public URL로 교체합니다.
+ * JSONB 컬럼에 수 MB의 base64 blob을 저장하면 HeadersTimeoutError가 발생하므로
+ * 반드시 Storage에 업로드 후 URL만 저장해야 합니다.
+ */
+async function uploadDataUriPhotos(
+  photos: any[],
+  buildingId: string,
+): Promise<any[]> {
+  if (!photos || photos.length === 0) return photos;
+
+  const hasDataUri = photos.some((p: any) => p?.url?.startsWith('data:'));
+  if (!hasDataUri) return photos; // 이미 URL인 경우 그대로 반환
+
+  const svc = createServiceClient();
+  const bucket = 'building_photos';
+
+  // Ensure bucket exists
+  try {
+    const { data: buckets } = await svc.storage.listBuckets();
+    if (!buckets?.find((b: { name: string }) => b.name === bucket)) {
+      await svc.storage.createBucket(bucket, { public: true, fileSizeLimit: 20 * 1024 * 1024 });
+    }
+  } catch (e) {
+    console.warn('[uploadDataUriPhotos] bucket check/create warning:', e);
+  }
+
+  const results = await Promise.all(
+    photos.map(async (photo: any, idx: number) => {
+      if (!photo?.url?.startsWith('data:')) return photo;
+      try {
+        // Parse data URI: data:image/jpeg;base64,<base64data>
+        const match = photo.url.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (!match) return photo;
+        const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+        const buffer = Buffer.from(match[2], 'base64');
+        const storagePath = `${buildingId}/im-photos/${Date.now()}_${idx}.${ext}`;
+
+        const { data, error } = await svc.storage
+          .from(bucket)
+          .upload(storagePath, buffer, {
+            contentType: `image/${match[1]}`,
+            upsert: true,
+          });
+
+        if (error || !data) {
+          console.warn(`[uploadDataUriPhotos] Upload failed for photo ${idx}:`, error);
+          return photo; // 업로드 실패 시 원본 유지 (PPTX renderer가 data URI도 처리 가능)
+        }
+
+        const { data: publicUrlData } = svc.storage.from(bucket).getPublicUrl(data.path);
+        if (publicUrlData?.publicUrl) {
+          return { ...photo, url: publicUrlData.publicUrl };
+        }
+        return photo;
+      } catch (err) {
+        console.warn(`[uploadDataUriPhotos] Error uploading photo ${idx}:`, err);
+        return photo;
+      }
+    }),
+  );
+
+  return results;
+}
+
 export async function generateMobileIMHandler(
   input: GenerateMobileIMInput
 ): Promise<GenerateMobileIMResult> {
@@ -477,6 +542,12 @@ export async function generateMobileIMHandler(
     ...(supplemental ?? {}),
   };
 
+  // ── base64 data URI 사진 → Supabase Storage 업로드 (JSONB 크기 초과 방지) ──
+  const uploadedPhotos = await uploadDataUriPhotos(
+    supplemental.photos_v2 ?? [],
+    buildingId,
+  );
+
   const imDocPayload = {
     owner_id: userId,
     source_type: "building_ssot_lite" as const,
@@ -523,7 +594,7 @@ export async function generateMobileIMHandler(
       askingPrice: supplemental.asking_price_manwon ? supplemental.asking_price_manwon * 10000 : undefined,
       asking_price_manwon: supplemental.asking_price_manwon ?? undefined,
       resolved_address: supplemental.resolved_address ?? undefined,
-      photos_v2: supplemental.photos_v2 ?? undefined,
+      photos_v2: uploadedPhotos.length > 0 ? uploadedPhotos : undefined,
       manual_comps: (supplemental as any).manual_comps ?? undefined,
       // Hero/OG 메타 자동 세팅 — 브로커가 im-approval에서 수정 가능
       heroTitle: autoHeroTitle,

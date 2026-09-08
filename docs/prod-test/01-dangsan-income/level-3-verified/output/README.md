@@ -1,17 +1,17 @@
 # E2E Test Report: 01-dangsan-income (level-3-verified)
 
 ## Status: ✅ SUCCESS
-**Total Time**: 215.6s
+**Total Time**: 320.4s
 **Building ID**: 272472c8-ba27-4159-bf95-fcd7a326dd56
-**Doc ID**: 41e5a1ce-4b2e-4afa-ae66-d2d8d7997ac4
+**Doc ID**: d1d9e7a9-7a86-490e-b44d-92ac6566e8ae
 
 ## Phases
-- **phase0**: success (2.6s)
-- **phase1**: success (N/A)
-- **phase2**: success (170.5s)
-- **phase3**: success (0.7s)
-- **phase4**: success (24.4s)
-- **phase5**: success (17.5s)
+- **phase0**: success (2.1s)
+- **phase1**: success (1.8s)
+- **phase2**: success (277.7s)
+- **phase3**: success (3.2s)
+- **phase4**: success (21.5s)
+- **phase5**: success (14.1s)
 - **phase6**: success (0.0s)
 
 ## Outputs Directory Guide
