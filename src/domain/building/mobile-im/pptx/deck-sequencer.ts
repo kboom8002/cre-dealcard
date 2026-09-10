@@ -119,6 +119,9 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
 
   switch (input.posture) {
     case 'income':
+      // D41 B3: Comps는 hasComparables 플래그에 의해 조건부 추가 (Rule 9)
+      const addComps = input.dataAvailability?.hasComparables === true;
+
       // §15.3 income 아키타입 분기 — D30 BL-3: CATALOG_RULES L02 정본 재배정
       switch (input.incomeArchetype) {
         case 'R-INC-02': // 가치 상승 여력형
@@ -126,28 +129,28 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
           if (addStackingPlan) sequence.push({ archetype: 'A22', kicker: 'Stacking Plan', title: '스태킹 플랜', dataKey: 'stackingPlan' });
           sequence.push({ archetype: 'A05', kicker: 'Value-Add', title: '가치 상승 실행 계획', dataKey: 'valueAdd' });
           sequence.push({ archetype: 'A04', kicker: 'FAR', title: '용적률 여유', dataKey: 'farUpside' });
-          sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
+          if (addComps) sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
         case 'R-INC-04': // 임대료 정상화형
           if (addRentRoll) sequence.push({ archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' });
           if (addStackingPlan) sequence.push({ archetype: 'A22', kicker: 'Stacking Plan', title: '스태킹 플랜', dataKey: 'stackingPlan' });
           sequence.push({ archetype: 'A05', kicker: 'Rent Gap', title: '임대료 정상화 경로', dataKey: 'rentGap' });
           sequence.push({ archetype: 'A05', kicker: 'Upside', title: '갱신 인상 시나리오', dataKey: 'upside' });
-          sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
+          if (addComps) sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
         case 'R-INC-05': // 공실 해소형
           if (addRentRoll) sequence.push({ archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' });
           if (addStackingPlan) sequence.push({ archetype: 'A22', kicker: 'Stacking Plan', title: '스태킹 플랜', dataKey: 'stackingPlan' });
           sequence.push({ archetype: 'A04', kicker: 'Vacancy', title: '공실 원인·유치 전략', dataKey: 'vacancy' });
           sequence.push({ archetype: 'A05', kicker: 'Leasing', title: '임차 유치 시나리오', dataKey: 'leasing' });
-          sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
+          if (addComps) sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
         case 'R-INC-06': // 리모델링형
           if (addRentRoll) sequence.push({ archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' });
           if (addStackingPlan) sequence.push({ archetype: 'A22', kicker: 'Stacking Plan', title: '스태킹 플랜', dataKey: 'stackingPlan' });
           sequence.push({ archetype: 'A04', kicker: 'Current', title: '현황', dataKey: 'current' });
           sequence.push({ archetype: 'A05', kicker: 'Remodel', title: '리모델링 전후 수익 비교', dataKey: 'remodel' });
-          sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
+          if (addComps) sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
         case 'R-INC-01': // 임대 안정형 (기본)
         default:
@@ -155,7 +158,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
           if (addStackingPlan) sequence.push({ archetype: 'A22', kicker: 'Stacking Plan', title: '스태킹 플랜', dataKey: 'stackingPlan' });
           sequence.push({ archetype: 'A04', kicker: 'Stability', title: '임대안정성', dataKey: 'stability' });
           sequence.push({ archetype: 'A05', kicker: 'Profit', title: '수익구조', dataKey: 'profit' });
-          sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
+          if (addComps) sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
       }
       break;

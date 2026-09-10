@@ -836,11 +836,15 @@ export function stat(
     });
   }
 
-  // 보조 텍스트
+  // 보조 텍스트 — D41 B1: 동적 y 위치 + 가변 폰트
   if (subText) {
-    s.addText(subText, {
-      x: x + 0.18, y: y + 0.86, w: w - 0.36, h: 0.36,
-      fontSize: 8.8, color: subCol, fontFace: KR, margin: 0,
+    // sub의 y를 값 상자 바닥 기준으로 동적 배치 (겹침 방지)
+    const subY = Math.max(y + 0.86, valY + Math.max(0.30, valH) + 0.02);
+    const subFontSize = subText.length > 40 ? 7.5 : 8.8;
+    const safeSubText = subText.length > 60 ? subText.slice(0, 57) + '...' : subText;
+    s.addText(safeSubText, {
+      x: x + 0.18, y: subY, w: w - 0.36, h: 0.36,
+      fontSize: subFontSize, color: subCol, fontFace: KR, margin: 0,
       lineSpacingMultiple: 1.15,
     });
   }
