@@ -138,7 +138,8 @@
 - `deck-sequencer.ts`의 goldilocks 알고리즘은 본문 슬라이드를 `PAGE_HARD_LIMIT=16`으로 절삭합니다.
 - 테스트에서 **특정 optional 슬라이드(DCF, sensitivity, loan, rentRoll 등)가 최종 시퀀스에 존재한다고 단언하지 않습니다**.
 - Grade A vs B 비교 시 `toBeGreaterThan` 대신 `toBeGreaterThanOrEqual`을 사용합니다 (둘 다 16면으로 잘릴 수 있음).
-- Protected 슬라이드(cover, summary, closing, risk, checklist, process, thesis)만 존재 단언이 안전합니다.
+- Protected 슬라이드(cover, summary, closing, risk, checklist, process, thesis, **location**)만 존재 단언이 안전합니다.
+- **지도(location) 슬라이드는 모든 포스처에서 필수**입니다. 카카오 지도 + 랜드마크 + 고해상도 렌더링은 CRE IM의 핵심 자산이므로 goldilocks 절삭 대상에서 절대 제외합니다.
 
 ### 25. PPTX 렌더링 테스트 타임아웃 (PPTX Render Timeout)
 - PPTX 렌더링 테스트는 CPU 집약적이며 전체 스위트 실행 시 리소스 경합으로 지연됩니다.
@@ -260,4 +261,16 @@
   2. fallback 사용 시 `source: 'fallback'`으로 명시하며
   3. **"API 호출 성공"이라고 보고하지 않습니다**
 - **위반 사례**: 항공사진(`02_aerial.jpg`)을 지적도로 둔갑시키고 "V-World WMS 지적도 임베딩 확인"이라고 보고.
+
+### 44. protectedKeys 단일 원천 동기화 원칙 (Protected Keys Single Source of Truth)
+- `deck-sequencer.ts`의 `protectedKeys` Set에 슬라이드를 추가/제거할 때, 이 목록을 하드코딩하고 있는 **모든 테스트 파일을 동시에 업데이트**합니다.
+- 현재 하드코딩 위치 (6곳):
+  1. `src/domain/building/mobile-im/pptx/deck-sequencer.ts` (소스)
+  2. `src/tests/e2e/cross-format-parity.test.ts`
+  3. `src/tests/e2e/income-archetype.test.ts`
+  4. `src/tests/e2e/data-contract.test.ts`
+  5. `src/tests/e2e/pipeline-vulnerability-defense.test.ts`
+  6. `src/tests/unit/pptx-studio/pptx-challenger-m34-1.test.ts`
+- `grep -r "protectedKeys" src/` 로 전체 위치를 반드시 조회한 뒤 동시 수정합니다.
+- **위반 사례**: deck-sequencer에 `location`을 추가하고 테스트 5곳을 누락 → 테스트 실패.
 <!-- END:cre-d42-e2e-rules -->
