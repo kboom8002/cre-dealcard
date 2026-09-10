@@ -74,6 +74,16 @@ export async function POST(req: NextRequest) {
       sectionalSpec: body.sectionalSpec,
       residentialSpec: body.residentialSpec,
       manual_comps: body.manual_comps,
+      // D41 Phase D: 취득 비용
+      acquisition_tax_pct: body.acquisition_tax_pct,
+      brokerage_fee_manwon: body.brokerage_fee_manwon,
+      legal_fee_manwon: body.legal_fee_manwon,
+      other_acquisition_cost_manwon: body.other_acquisition_cost_manwon,
+      // D41 Phase D: 대출 시나리오
+      ltv_pct: body.ltv_pct,
+      loan_interest_pct: body.loan_interest_pct,
+      loan_term_years: body.loan_term_years,
+      target_irr_pct: body.target_irr_pct,
     };
     hospitalitySpecInput = body.hospitalitySpec ?? null;
     loanStatusInput = body.loan_status ?? null;

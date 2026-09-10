@@ -18,6 +18,8 @@ import {
   HoldingHistorySection,
   OperatingPerfSection,
   DataGradeFooter,
+  AcquisitionCostSection,
+  LoanScenarioSection,
 } from "./bottom-sheet/sections";
 import { getInputOrder } from "./bottom-sheet/hooks/use-input-order";
 import { validateCombination } from "@/domain/ontology/asset-identity";
@@ -209,7 +211,17 @@ export function ImDataBottomSheet({
     shareRatio: string; officialPricePerM2: string;
   }>>([]);
 
+  // ── D41 Phase D: 취득 비용 ──
+  const [acquisitionTaxPct, setAcquisitionTaxPct] = useState<string>("");
+  const [brokerageFeeManwon, setBrokerageFeeManwon] = useState<string>("");
+  const [legalFeeManwon, setLegalFeeManwon] = useState<string>("");
+  const [otherAcquisitionCostManwon, setOtherAcquisitionCostManwon] = useState<string>("");
 
+  // ── D41 Phase D: 대출 시나리오 ──
+  const [ltvPct, setLtvPct] = useState<string>("");
+  const [loanInterestPct, setLoanInterestPct] = useState<string>("");
+  const [loanTermYears, setLoanTermYears] = useState<string>("");
+  const [targetIrrPct, setTargetIrrPct] = useState<string>("");
 
   // Address search states
   const [searchKeyword, setSearchKeyword] = useState(initialAddress || areaSignal || "");
@@ -595,6 +607,16 @@ export function ImDataBottomSheet({
             memo: mc.memo || undefined,
           })) : undefined,
         tier: targetTier,
+        // D41 Phase D: 취득 비용
+        acquisition_tax_pct: acquisitionTaxPct ? parseFloat(acquisitionTaxPct) : undefined,
+        brokerage_fee_manwon: brokerageFeeManwon ? parseFloat(brokerageFeeManwon) : undefined,
+        legal_fee_manwon: legalFeeManwon ? parseFloat(legalFeeManwon) : undefined,
+        other_acquisition_cost_manwon: otherAcquisitionCostManwon ? parseFloat(otherAcquisitionCostManwon) : undefined,
+        // D41 Phase D: 대출 시나리오
+        ltv_pct: ltvPct ? parseFloat(ltvPct) : undefined,
+        loan_interest_pct: loanInterestPct ? parseFloat(loanInterestPct) : undefined,
+        loan_term_years: loanTermYears ? parseInt(loanTermYears) : undefined,
+        target_irr_pct: targetIrrPct ? parseFloat(targetIrrPct) : undefined,
       };
 
       // ── 비동기 생성 ──
@@ -1808,6 +1830,30 @@ export function ImDataBottomSheet({
             transferCountIn10Y={transferCountIn10Y} setTransferCountIn10Y={setTransferCountIn10Y}
             sellerMotive={sellerMotive} setSellerMotive={setSellerMotive}
           />
+
+          {/* 💰 D41 Phase D: 취득 비용 (Pro 전용) */}
+          {stage === 'pro' && (
+            <AcquisitionCostSection
+              acquisitionTaxPct={acquisitionTaxPct} setAcquisitionTaxPct={setAcquisitionTaxPct}
+              brokerageFeeManwon={brokerageFeeManwon} setBrokerageFeeManwon={setBrokerageFeeManwon}
+              legalFeeManwon={legalFeeManwon} setLegalFeeManwon={setLegalFeeManwon}
+              otherCostManwon={otherAcquisitionCostManwon} setOtherCostManwon={setOtherAcquisitionCostManwon}
+              askingPriceManwon={askingPrice ? parseFloat(askingPrice) : null}
+            />
+          )}
+
+          {/* 🏦 D41 Phase D: 대출 시나리오 (Pro 전용) */}
+          {stage === 'pro' && (
+            <LoanScenarioSection
+              ltvPct={ltvPct} setLtvPct={setLtvPct}
+              loanInterestPct={loanInterestPct} setLoanInterestPct={setLoanInterestPct}
+              loanTermYears={loanTermYears} setLoanTermYears={setLoanTermYears}
+              targetIrrPct={targetIrrPct} setTargetIrrPct={setTargetIrrPct}
+              loanAmountManwon={loanAmount ? parseFloat(loanAmount) : null}
+              askingPriceManwon={askingPrice ? parseFloat(askingPrice) : null}
+              monthlyRentKrw={monthlyRent ? parseFloat(monthlyRent) * 10000 : null}
+            />
+          )}
 
           {/* Comment */}
           <div>

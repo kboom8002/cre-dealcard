@@ -253,6 +253,18 @@ export interface MobileIMSupplementalInput {
   asking_price_manwon?: number;     // 매매가 (만원)
   monthly_revenue_manwon?: number;
 
+  // ── D41 Phase D: 취득 비용 (PPTX IM Pro 전용) ──
+  acquisition_tax_pct?: number;           // 취득세율 (%, 기본 4.6)
+  brokerage_fee_manwon?: number;          // 중개수수료 (만원)
+  legal_fee_manwon?: number;              // 법무사비 (만원)
+  other_acquisition_cost_manwon?: number; // 기타 취득비용 (만원)
+
+  // ── D41 Phase D: 대출/수익률 시나리오 ──
+  ltv_pct?: number;                       // LTV 비율 (%)
+  loan_interest_pct?: number;             // 대출 금리 (%)
+  loan_term_years?: number;               // 대출 기간 (년)
+  target_irr_pct?: number;                // 목표 IRR (%)
+
   /** 비임대 부가수입 항목 */
   ancillary_incomes?: AncillaryIncomeItem[];
 

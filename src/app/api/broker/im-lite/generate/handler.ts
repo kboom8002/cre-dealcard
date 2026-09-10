@@ -721,6 +721,31 @@ export async function generateMobileIMHandler(
       financials: writerResult.financials ?? undefined,
       claims: writerResult.claims ?? undefined,
       investment_posture: writerResult.investment_posture ?? undefined,
+      // D41 Phase D: 취득 비용
+      acquisition_cost: supplemental.acquisition_tax_pct != null || supplemental.brokerage_fee_manwon != null ? {
+        tax_pct: supplemental.acquisition_tax_pct ?? 4.6,
+        brokerage_manwon: supplemental.brokerage_fee_manwon ?? 0,
+        legal_manwon: supplemental.legal_fee_manwon ?? 0,
+        other_manwon: supplemental.other_acquisition_cost_manwon ?? 0,
+        total_manwon: Math.round(
+          ((supplemental.asking_price_manwon ?? 0) * (supplemental.acquisition_tax_pct ?? 4.6) / 100)
+          + (supplemental.brokerage_fee_manwon ?? 0)
+          + (supplemental.legal_fee_manwon ?? 0)
+          + (supplemental.other_acquisition_cost_manwon ?? 0)
+        ),
+      } : undefined,
+      // D41 Phase D: 대출 시나리오
+      loan_scenario: supplemental.ltv_pct != null || supplemental.loan_interest_pct != null ? {
+        ltv_pct: supplemental.ltv_pct,
+        interest_pct: supplemental.loan_interest_pct ?? 4.5,
+        term_years: supplemental.loan_term_years ?? 5,
+        target_irr_pct: supplemental.target_irr_pct,
+        monthly_interest_manwon: (() => {
+          const loanAmt = supplemental.loan_amount_manwon ?? 0;
+          const rate = supplemental.loan_interest_pct ?? 4.5;
+          return loanAmt > 0 ? Math.round(loanAmt * rate / 100 / 12) : undefined;
+        })(),
+      } : undefined,
     },
   };
 
