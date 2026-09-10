@@ -1,0 +1,23 @@
+{
+  "testCase": "01-dangsan-income",
+  "level": "level-3-verified",
+  "fixture": "D41 갱신본 (취득비용+대출 시나리오 포함)",
+  "generatedAt": "2026-09-10T02:17:45.346Z",
+  "pptxSizeKB": "387.6",
+  "totalSlides": 12,
+  "checks": "11/12",
+  "acquisitionCost": {
+    "tax_pct": 4.6,
+    "brokerage_manwon": 10350,
+    "legal_manwon": 300,
+    "other_manwon": 0,
+    "total_manwon": 63550
+  },
+  "loanScenario": {
+    "ltv_pct": 40,
+    "interest_pct": 4.5,
+    "term_years": 5,
+    "target_irr_pct": 8,
+    "monthly_interest_manwon": 1725
+  }
+}
