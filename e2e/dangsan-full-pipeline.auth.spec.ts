@@ -210,6 +210,29 @@ B1~5F
     }
     await shot(page, 'pnu-selected');
 
+    // ── Step 2.5: 건물 사진 업로드 ──
+    console.log('  📸 건물 사진 업로드 시도...');
+    const testImagesDir = path.resolve(__dirname, '..', 'public', 'test-images', 'dangsan');
+    const imageFiles = ['01_exterior.jpg', '03_entrance.jpg', '04_lobby.jpg', '07_parking.jpg'];
+    const availableImages = imageFiles
+      .map(f => path.join(testImagesDir, f))
+      .filter(p => fs.existsSync(p));
+
+    if (availableImages.length > 0) {
+      // hidden file input 찾기
+      const fileInput = page.locator('input[type="file"][accept="image/*"]').first();
+      try {
+        await fileInput.setInputFiles(availableImages);
+        await page.waitForTimeout(2000); // 미리보기 생성 대기
+        console.log(`  ✅ ${availableImages.length}장 사진 업로드 완료`);
+        await shot(page, 'photos-uploaded');
+      } catch (photoErr) {
+        console.log(`  ⚠️ 사진 업로드 실패: ${photoErr}`);
+      }
+    } else {
+      console.log(`  ⚠️ 테스트 이미지 없음 (${testImagesDir})`);
+    }
+
     // ── Step 3: 필수 입력 필드 채우기 ──
     // 매매가 (askingPrice) — 이미 prefill 됐을 수 있음
     const priceInputs = page.locator('input[type="number"], input[inputmode="numeric"]');
@@ -555,6 +578,33 @@ B1~5F
       const stats = fs.statSync(pptxPath);
       console.log(`  ✅ PPTX 다운로드 완료: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
       expect(stats.size).toBeGreaterThan(100_000);
+
+      // PPTX 이미지 임베딩 검증
+      try {
+        const AdmZip = require('adm-zip');
+        const zip = new AdmZip(pptxPath);
+        const entries = zip.getEntries();
+        const mediaEntries = entries.filter((e: { entryName: string; header: { size: number } }) =>
+          /^ppt\/media\/.*\.(jpg|jpeg|png|gif|emf|wmf)$/i.test(e.entryName) && e.header.size > 0
+        );
+        const totalMediaKB = mediaEntries.reduce((sum: number, e: { header: { size: number } }) => sum + e.header.size, 0) / 1024;
+        const slideEntries = entries.filter((e: { entryName: string }) =>
+          /^ppt\/slides\/slide\d+\.xml$/.test(e.entryName)
+        );
+
+        console.log(`  📊 PPTX 슬라이드: ${slideEntries.length}면`);
+        console.log(`  📸 임베딩 이미지: ${mediaEntries.length}장 (${totalMediaKB.toFixed(1)} KB)`);
+        mediaEntries.forEach((e: { entryName: string; header: { size: number } }) =>
+          console.log(`     - ${e.entryName} (${(e.header.size / 1024).toFixed(1)} KB)`)
+        );
+
+        if (mediaEntries.length === 0) {
+          console.log('  ⚠️ PPTX에 이미지가 없습니다! 사진 업로드 또는 지도/지적도 임베딩을 확인하세요.');
+        }
+      } catch (zipErr) {
+        console.log(`  ⚠️ PPTX ZIP 분석 실패: ${zipErr}`);
+      }
+
       await shot(page, 'pptx-downloaded');
     } catch (err) {
       console.log('  ⚠️ PPTX 뷰어 버튼 미발견 — API 직접 호출 시도');
