@@ -1,29 +1,55 @@
-# Test Guide: Dangsan-dong (Level 3)
+# 당산동 수익형 근생빌딩 — Level-3 Verified 골든 테스트 가이드
 
-## Step-by-Step Procedure
-1. Select Posture: **Income (수익형)**
-2. Address Search: `당산동5가 11-47`. Verify PNU and building name `호산당빌딩`.
-3. Financials:
-   - Asking Price: 115억 (11,500,000,000 원)
-   - Total Deposit: 2억 9,000만원 (290,000,000 원)
-   - Monthly Rent: 1,946만원 (19,460,000 원)
-   - Mgmt Fee: 285만원 (2,850,000 원)
-   - Loan Amount: 46억 (4,600,000,000 원), Status: `confirmed`
-4. Vacancy: Click `만실` (Full Occupancy) button. (Self-use B1 and 4F partial are counted as occupied).
-5. Photos Upload: Upload 4 images (exterior, aerial, entrance, lobby).
-6. Rent Roll Upload: Upload full rent roll with complete lease start/end dates.
-7. Manual Comps: Input 3 nearby manual comps.
+## 테스트 개요
+- **매물**: 영등포구 당산동5가 11-47, 호산당빌딩 (115억, 수익형/income)
+- **데이터 등급**: Grade A (렌트롤 7구획 완비, 비교사례 3건, 사진 8장)
+- **PPTX 템플릿**: `commercial_visual_grid`
+- **기대 tier**: `decision_im` (Pro)
 
-## Expected Results
-- **Quality Grade**: `A`
-- **Expected Gates**:
-  - G04 (Address Validated)
-  - C19 (Area Discrepancy) - Blocking check for discrepancy between 1141.15㎡ and 1441.15㎡
-  - G40 (LTV / Negative Leverage) - Warning check
+## 바텀시트 입력 순서
 
-## Negative Test Scenarios
-1. **Area discrepancy 1141 vs 1441**: Expected cross-validation warning or C19 block.
-2. **4F lease expired (2025-04-30)**: Expected renewal risk flag because the date has passed or is imminent.
-3. **LTV 50% negative leverage**: Verify G40 warning is triggered if yield is lower than loan interest.
-4. **Group B integrated contract**: Verify no double-counting of 1F and 2F deposit/rent (14,000 / 883).
-5. **Self-use units excluded from vacancy**: Verify vacancy rate stays exactly at 0.0% even with owner-occupied units.
+### Step 1: Basic 단계
+1. 포스처: `income` (수익형)
+2. 주소 검색: `서울특별시 영등포구 당산동5가 11-47` → PNU 자동확정
+3. 월 임대료: `1,946만원` / 보증금: `2억 9,000만원`
+4. 공실률: `0%`
+5. 사진 업로드: 8장 (exterior hero + 7장 일반)
+6. 코멘트: "당산역 5분 역세권 만실 메디컬 빌딩"
+
+### Step 2: Pro 단계 (추가 입력)
+7. 매매가: `115억` (1,150,000만원)
+8. 관리비: `285만원/월`
+9. 대출: `46억` (확정, IBK기업은행)
+10. 렌트롤 입력: `floor_leases` 7구획 (rentroll.xlsx 참조)
+11. 비교사례: 3건 입력
+    - 당산동5가 11-48: 120억 / 1,320㎡ / 2023.11
+    - 당산동5가 12-10: 115억 / 1,100㎡ / 2024.02
+    - 당산동6가 2-1: 130억 / 1,580㎡ / 2024.05
+12. 부가수입: 통신안테나 연 1,200만원
+
+### Step 3: 취득비용 + 대출 시나리오 (D41 신규)
+13. 취득세율: `4.6%`
+14. 중개수수료: `10,350만원` (0.9%)
+15. 법무사비: `300만원`
+16. LTV: `40%` / 금리: `4.5%` / 기간: `5년`
+17. 목표 IRR: `8%`
+
+## 기대 검증 항목
+
+### Positive 검증
+- [ ] Quality Grade A 판정
+- [ ] PPTX 슬라이드 >= 12면 (본문)
+- [ ] Capital 슬라이드에 취득세 4.6%, 중개수수료 1.04억 표시
+- [ ] Capital 슬라이드 LTV 시나리오에 40% 포함
+- [ ] Loan 슬라이드에 DSCR, 자기자본수익률 표시
+- [ ] Profit 슬라이드에 실투자금 stat 표시 (LTV 입력했으므로)
+- [ ] Comps 슬라이드 3건 비교사례 표시
+- [ ] Gallery 사진 >= 4장
+- [ ] 역레버리지 경고: Cap Rate(2.03%) < 금리(4.5%)
+
+### Negative 검증
+- [ ] Gate C19: 연면적 불일치 (1,141 vs 1,441㎡) → blocking
+- [ ] Gate G40: 역레버리지 → warning
+- [ ] 4F 와인앤모어 만기 경과 → 갱신 확인 필요 표시
+- [ ] 자가사용 구획(B1, 4F)은 공실률 계산 제외
+- [ ] GroupB 통합계약 이중계산 방지
