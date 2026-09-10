@@ -45,9 +45,17 @@ async function run() {
       floor_leases: payload.floor_leases,
       manual_comps: payload.manual_comps,
       ancillary_incomes: payload.ancillary_incomes,
-      photos_v2: payload.photos_v2,
+      // 사진 URL을 public/test-images/dangsan/ 경로로 매핑 (image-optimizer가 로컬 파일 로드)
+      photos_v2: payload.photos_v2.map((p: any) => ({
+        ...p,
+        url: p.url.replace(/.*\/images\//, '/test-images/dangsan/'),
+      })),
       broker_highlight: payload.broker_highlight,
       subway_info: payload.subway_info,
+      // 위치 좌표 (당산동5가 11-47 실좌표)
+      coordinates: { lat: 37.5339, lng: 126.9027 },
+      resolved_address: '서울특별시 영등포구 당산동5가 11-47',
+      address: '서울특별시 영등포구 당산동5가 11-47',
       // D41 Phase D: acquisition_cost
       acquisition_cost: {
         tax_pct: payload.acquisition_tax_pct,
@@ -77,7 +85,42 @@ async function run() {
         monthly_rent_manwon: payload.monthly_rent_manwon,
       },
       enrichment: {
-        landUsePlan: { zoningName: '제2종일반주거지역', floorAreaRatioMax: 250, buildingCoverageMax: 60 },
+        landUsePlan: {
+          zoningName: '제2종일반주거지역',
+          floorAreaRatioMax: 250,
+          buildingCoverageMax: 60,
+          districtPlanName: '영등포 당산지구 지구단위계획',
+        },
+        buildingRegister: {
+          mainUse: '근린생활시설',
+          completionDate: '1998-06-15',
+          totalGrossAreaM2: 1141.15,
+          landAreaM2: 420.5,
+          floorsAbove: 5,
+          floorsBelow: 1,
+          structure: '철근콘크리트',
+          parkingCount: 8,
+        },
+        landPrice: {
+          officialLandPricePerSqm: 12_500_000,
+          assessedYear: 2025,
+        },
+        comparableTransactions: [
+          { address: '영등포구 당산동5가 11-48', dealAmount: 1200000, area: 1320, dealYear: 2023, dealMonth: 11, buildingUse: '근린생활시설', floors: 5, memo: '인접 건물' },
+          { address: '영등포구 당산동5가 12-10', dealAmount: 1150000, area: 1100, dealYear: 2024, dealMonth: 2, buildingUse: '근린생활시설', floors: 4, memo: '의원/약국 중심' },
+          { address: '영등포구 당산동6가 2-1', dealAmount: 1300000, area: 1580, dealYear: 2024, dealMonth: 5, buildingUse: '근린생활시설', floors: 6, memo: '피트니스/학원 중심' },
+        ],
+        // 지적도 이미지 (V-World WMS) — 테스트용 placeholder (외관 사진 재활용)
+        cadastralMapImage: (() => {
+          try {
+            const imgBuf = readFileSync(join(process.cwd(), 'public', 'test-images', 'dangsan', '02_aerial.jpg'));
+            return { base64: `image/jpeg;base64,${imgBuf.toString('base64')}`, source: 'vworld_wms', pnu: '1156011500100110047' };
+          } catch { return null; }
+        })(),
+      },
+      // 외부 데이터 플래그 (공공 API 자동 수집 결과 시뮬레이션)
+      external_data: {
+        hasPublicData: true,
       },
     },
     sections: [
@@ -131,10 +174,16 @@ async function run() {
   const pptxBuffer = result.buffer;
 
   // 4. Save PPTX
-  const pptxPath = join(OUTPUT_DIR, '01-dangsan-income_latest.pptx');
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const pptxPath = join(OUTPUT_DIR, `01-dangsan-income_${ts}.pptx`);
   writeFileSync(pptxPath, pptxBuffer);
   console.log(`✅ PPTX saved: ${pptxPath} (${(pptxBuffer.length / 1024).toFixed(1)} KB)`);
-  console.log(`   슬라이드: ${result.slideCount}면 / 경고: ${result.warnings.length}건\n`);
+  console.log(`   슬라이드: ${result.slideCount}면 / 경고: ${result.warnings.length}건`);
+  if (result.warnings.length > 0) {
+    console.log('   ⚠ 경고 목록:');
+    result.warnings.forEach((w: string) => console.log(`     - ${w}`));
+  }
+  console.log();
 
   // 5. Extract slide texts
   const zip = new AdmZip(pptxBuffer);
@@ -149,6 +198,11 @@ async function run() {
   });
 
   console.log(`📊 총 슬라이드: ${slideTexts.length}면\n`);
+
+  // 5-1. Check embedded images
+  const imageEntries = zip.getEntries().filter(e => /^ppt\/media\/image[-\d]+\.(jpg|jpeg|png|gif|bmp|emf|wmf)$/i.test(e.entryName));
+  const totalImageSizeKB = imageEntries.reduce((sum, e) => sum + e.header.size, 0) / 1024;
+  console.log(`📸 임베딩 이미지: ${imageEntries.length}장 (${totalImageSizeKB.toFixed(1)} KB)\n`);
 
   // 6. Verify key data points
   const allText = slideTexts.join('\n');
@@ -165,6 +219,9 @@ async function run() {
     { name: 'undefined 없음', pass: !allText.includes('undefined') },
     { name: '중개수수료', pass: /중개|보수/.test(allText) },
     { name: 'DSCR 또는 자기자본수익률', pass: /DSCR|자기자본|수익률/.test(allText) },
+    { name: '커버 이미지 임베딩 (≥1장)', pass: imageEntries.length >= 1 },
+    { name: '건물 사진 임베딩 (≥2장)', pass: imageEntries.length >= 2 },
+    { name: 'PPTX 크기 500KB+ (이미지 포함)', pass: pptxBuffer.length > 500 * 1024 },
   ];
 
   console.log('=== 산출물 검증 ===');

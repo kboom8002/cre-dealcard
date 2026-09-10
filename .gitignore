@@ -70,3 +70,6 @@ next-env.d.ts
 
 # Playwright auth state
 e2e/.auth/
+
+# Golden test timestamped PPTX outputs (large)
+docs/prod-test/**/output/01-dangsan-income_2026*.pptx
