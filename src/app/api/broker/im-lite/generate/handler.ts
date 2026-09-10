@@ -665,11 +665,30 @@ export async function generateMobileIMHandler(
             cadastralMapImage: externalData.cadastralMapImage ?? null,
           }
         : null,
-      coordinates: externalData?.resolvedAddress
-        ? { lat: externalData.resolvedAddress.lat, lng: externalData.resolvedAddress.lng }
-        : (ssotRow.layers as Record<string, any>)?.coordinates
-        ? { lat: (ssotRow.layers as Record<string, any>).coordinates.lat, lng: (ssotRow.layers as Record<string, any>).coordinates.lng }
-        : null,
+      // D41 C1: coordinates — geocoding fallback 추가
+      coordinates: await (async () => {
+        // 1차: externalData (API 조회 결과)
+        if (externalData?.resolvedAddress?.lat) {
+          return { lat: externalData.resolvedAddress.lat, lng: externalData.resolvedAddress.lng };
+        }
+        // 2차: DB layers
+        const layerCoords = (ssotRow.layers as Record<string, any>)?.coordinates;
+        if (layerCoords?.lat) {
+          return { lat: layerCoords.lat, lng: layerCoords.lng };
+        }
+        // 3차: 주소 기반 Kakao Geocoding fallback
+        const fallbackAddr = supplemental.resolved_address || ssotRow.raw_address || (ssotRow.layers as any)?.location?.raw_address;
+        if (fallbackAddr) {
+          try {
+            const { geocodeAddress } = await import('@/domain/verification/address-resolver');
+            const geo = await geocodeAddress(String(fallbackAddr));
+            if (geo) return { lat: geo.lat, lng: geo.lng };
+          } catch (e) {
+            console.warn('[im-handler] Geocoding fallback failed:', e);
+          }
+        }
+        return null;
+      })(),
       mapImageUrl: externalData?.mapImageUrl ?? null,
       photo_urls: (() => {
         const userPhotos = supplemental.photo_urls ?? [];
