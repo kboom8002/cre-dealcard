@@ -1,12 +1,18 @@
 /**
  * @file golden-dangsan-pptx-runner.ts
  * @description 갱신된 L3 fixture로 PPTX IM 생성 + 산출물 저장
+ *              카카오 Static Map API + V-World WMS 지적도 실호출 포함
  */
+import { config } from 'dotenv';
+config({ path: '.env.local' }); // API 키 로드
+
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { MobileImPptxRenderer } from '@/domain/building/mobile-im/pptx/pptx-renderer';
 import { bindSectionData } from '@/domain/building/mobile-im/pptx/data-binder';
 import { buildDeckSequence } from '@/domain/building/mobile-im/pptx/deck-sequencer';
+import { buildKakaoStaticMapUrl } from '@/lib/external/kakao-static-map';
+import { fetchCadastralMapImage } from '@/lib/external/vworld-wms-cadastral';
 import AdmZip from 'adm-zip';
 
 const FIXTURE_DIR = join(process.cwd(), 'docs', 'prod-test', '01-dangsan-income', 'level-3-verified');
@@ -27,6 +33,33 @@ async function run() {
   console.log(`   취득세: ${payload.acquisition_tax_pct}% / 중개수수료: ${(payload.brokerage_fee_manwon / 10000).toFixed(2)}억`);
   console.log(`   사진: ${payload.photos_v2.length}장 / 렌트롤: ${payload.floor_leases.length}구획`);
   console.log(`   비교사례: ${payload.manual_comps.length}건\n`);
+
+  // 1-1. 카카오 Static Map API 호출 (당산동5가 11-47 실좌표)
+  const LAT = 37.5339;
+  const LNG = 126.9027;
+  console.log('▶ [API] 카카오 Static Map 호출...');
+  const mapImageUrl = buildKakaoStaticMapUrl({ lat: LAT, lng: LNG, level: 3, width: 1280, height: 960 });
+  const isPlaceholder = mapImageUrl.includes('placehold.co');
+  console.log(`   ${isPlaceholder ? '⚠ KAKAO_REST_API_KEY 미설정 — placeholder 사용' : '✅ 카카오 지도 URL 생성 완료'}`);
+  console.log(`   URL: ${mapImageUrl.substring(0, 80)}...`);
+
+  // 1-2. V-World WMS 지적도 API 호출
+  console.log('▶ [API] V-World WMS 지적도 호출...');
+  let cadastralResult: Awaited<ReturnType<typeof fetchCadastralMapImage>> = null;
+  try {
+    cadastralResult = await fetchCadastralMapImage(LAT, LNG, 1200, 900, 200);
+    if (cadastralResult) {
+      console.log(`   ✅ 지적도 취득 성공 (${cadastralResult.buffer.length} bytes, ${cadastralResult.width}×${cadastralResult.height})`);
+      // 지적도 이미지를 output에도 저장
+      writeFileSync(join(OUTPUT_DIR, 'cadastral-map.png'), cadastralResult.buffer);
+      console.log(`   📁 cadastral-map.png 저장됨`);
+    } else {
+      console.log('   ⚠ 지적도 취득 실패 (API 키 미설정 또는 오류)');
+    }
+  } catch (err) {
+    console.log(`   ⚠ 지적도 API 오류: ${err}`);
+  }
+  console.log();
 
   // 2. Build doc body (simulating handler.ts output)
   const doc = {
@@ -52,8 +85,9 @@ async function run() {
       })),
       broker_highlight: payload.broker_highlight,
       subway_info: payload.subway_info,
-      // 위치 좌표 (당산동5가 11-47 실좌표)
-      coordinates: { lat: 37.5339, lng: 126.9027 },
+      // 위치 좌표 + 카카오 지도 URL (실 API 호출 결과)
+      coordinates: { lat: LAT, lng: LNG },
+      mapImageUrl: mapImageUrl,
       resolved_address: '서울특별시 영등포구 당산동5가 11-47',
       address: '서울특별시 영등포구 당산동5가 11-47',
       // D41 Phase D: acquisition_cost
@@ -110,13 +144,16 @@ async function run() {
           { address: '영등포구 당산동5가 12-10', dealAmount: 1150000, area: 1100, dealYear: 2024, dealMonth: 2, buildingUse: '근린생활시설', floors: 4, memo: '의원/약국 중심' },
           { address: '영등포구 당산동6가 2-1', dealAmount: 1300000, area: 1580, dealYear: 2024, dealMonth: 5, buildingUse: '근린생활시설', floors: 6, memo: '피트니스/학원 중심' },
         ],
-        // 지적도 이미지 (V-World WMS) — 테스트용 placeholder (외관 사진 재활용)
-        cadastralMapImage: (() => {
-          try {
-            const imgBuf = readFileSync(join(process.cwd(), 'public', 'test-images', 'dangsan', '02_aerial.jpg'));
-            return { base64: `image/jpeg;base64,${imgBuf.toString('base64')}`, source: 'vworld_wms', pnu: '1156011500100110047' };
-          } catch { return null; }
-        })(),
+        // 지적도 이미지 (V-World WMS 실 API 호출 결과)
+        cadastralMapImage: cadastralResult
+          ? { base64: cadastralResult.base64, source: 'vworld_wms', pnu: '1156011500100110047', width: cadastralResult.width, height: cadastralResult.height }
+          : (() => {
+              // Fallback: V-World 실패 시 항공사진을 placeholder로 사용
+              try {
+                const imgBuf = readFileSync(join(process.cwd(), 'public', 'test-images', 'dangsan', '02_aerial.jpg'));
+                return { base64: `image/jpeg;base64,${imgBuf.toString('base64')}`, source: 'fallback', pnu: '1156011500100110047' };
+              } catch { return null; }
+            })(),
       },
       // 외부 데이터 플래그 (공공 API 자동 수집 결과 시뮬레이션)
       external_data: {
