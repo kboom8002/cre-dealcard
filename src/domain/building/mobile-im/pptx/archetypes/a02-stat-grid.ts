@@ -83,12 +83,15 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   
   const startY = leadSentence ? 2.15 : 1.50;
   
+  // D41: 메트릭 수에 따라 카드 높이 조정 — 5개 이상이면 컴팩트 모드
+  const isCompact = metrics.length > 4;
+  const cardH = isCompact ? 1.10 : 1.4;
+
   if (metrics.length > 0) {
     // Stat cards
     const gap = 0.20;
     const cols = Math.max(2, Math.min(4, metrics.length));
     const cardW = L.col(cols, gap);
-    const cardH = 1.4;
     
     for (let i = 0; i < Math.min(8, metrics.length); i++) {
       const m = metrics[i];
@@ -103,7 +106,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
         String(m.value || ''),
         String(m.unit || ''),
         String(m.sub || ''),
-        { h: cardH, vs: 20 }
+        { h: cardH, vs: isCompact ? 17 : 20 }
       );
     }
   } else {
@@ -165,9 +168,18 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     );
   }
 
-  const kpiRows = Math.ceil(Math.min(8, metrics.length || 4) / (metrics.length > 4 ? 4 : Math.max(2, Math.min(4, metrics.length || 4))));
-  const kpiEndY = startY + kpiRows * (1.35 + 0.18);
-  const hlStartY = Math.max(kpiEndY + 0.15, 3.75);
+  // D41: KPI 카드 높이에 따라 하이라이트 시작 위치 동적 계산
+  const kpiRows = Math.ceil(Math.min(8, metrics.length || 4) / (Math.max(2, Math.min(4, metrics.length || 4))));
+  const kpiEndY = startY + kpiRows * (cardH + 0.18);
+  const hlStartY = Math.max(kpiEndY + 0.10, 3.50);
+
+  // D41: 남은 공간에 따라 하이라이트 행 크기 자동 조절
+  const availableH = 6.55 - hlStartY - 0.36; // 헤더(0.36) 제외
+  const numPoints = Math.min(3, keyPoints.length);
+  // 행 높이를 남은 공간에 맞춰 동적 계산 (최소 0.40, 최대 0.64)
+  const maxRowH = Math.min(0.64, availableH / numPoints - 0.06);
+  const rowH = Math.max(0.40, maxRowH);
+  const rowGap = Math.max(0.04, Math.min(0.12, (availableH - numPoints * rowH) / Math.max(1, numPoints - 1)));
 
   if (keyPoints.length > 0 && hlStartY < 5.8) {
     // 3대 핵심 투자 포인트 헤더
@@ -176,13 +188,12 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       color: C.brassD, fontFace: KR, fontSize: 12.5, bold: true, margin: 0,
     });
 
-    const numPoints = Math.min(3, keyPoints.length);
-    const rowH = 0.64;
-    const rowGap = 0.12;
+    const hlFontSize = rowH < 0.50 ? 10 : 11.5;
 
     keyPoints.slice(0, 3).forEach((pt, idx) => {
       const ry = hlStartY + 0.36 + idx * (rowH + rowGap);
-      if (ry + rowH <= 6.5) {
+      // D41: y 경계를 6.75까지 확장 (기존 6.5 → 6.75, 풋터 공간 0.25 확보)
+      if (ry + rowH <= 6.75) {
         // 배경 박스
         slide.addShape('roundRect' as any, {
           x: M, y: ry, w: CW, h: rowH,
@@ -192,22 +203,23 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
         });
 
         // 좌측 번호 태그
+        const tagH = Math.min(rowH - 0.16, 0.40);
         slide.addShape('roundRect' as any, {
-          x: M + 0.12, y: ry + 0.12, w: 0.45, h: rowH - 0.24,
+          x: M + 0.12, y: ry + (rowH - tagH) / 2, w: 0.45, h: tagH,
           rectRadius: 0.04,
           fill: { color: C.brassT },
           line: { color: C.brassL, width: 0.5 },
         });
         slide.addText(`0${idx + 1}`, {
-          x: M + 0.12, y: ry + 0.12, w: 0.45, h: rowH - 0.24,
+          x: M + 0.12, y: ry + (rowH - tagH) / 2, w: 0.45, h: tagH,
           fontSize: 10, bold: true, color: C.brassD, fontFace: NUM,
           align: 'center', valign: 'middle', margin: 0,
         });
 
         // 우측 내용 텍스트
         slide.addText(pt, {
-          x: M + 0.70, y: ry + 0.08, w: CW - 0.85, h: rowH - 0.16,
-          color: C.ink, fontFace: KR, fontSize: 11.5,
+          x: M + 0.70, y: ry + 0.04, w: CW - 0.85, h: rowH - 0.08,
+          color: C.ink, fontFace: KR, fontSize: hlFontSize,
           margin: 0, valign: 'middle',
         });
       }
