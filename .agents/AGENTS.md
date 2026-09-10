@@ -228,3 +228,36 @@
 - **위반 사례**: 8장 사진(~10MB base64)을 JSONB에 직접 저장 → Supabase `HeadersTimeoutError` → 문서 저장 실패.
 <!-- END:cre-d40-preflight-rules -->
 
+<!-- BEGIN:cre-d42-e2e-rules -->
+# CRE IM D42 E2E Golden Test Rules (2026-09-10 교훈)
+
+### 41. 프로덕션 골든 테스트 의무 (Production Golden Test Mandate)
+- "골든 테스트", "프로덕션 테스트", "E2E 테스트"를 수행할 때 함수를 직접 호출(`npx tsx`)하는 것은 **단위 테스트**이지 골든 테스트가 아닙니다.
+- 프로덕션 골든 테스트는 반드시:
+  1. Next.js dev server를 가동하고 (`npm run dev`)
+  2. Playwright 브라우저로 실제 UI를 조작하며 (메모 입력 → 바텀시트 → IM 생성)
+  3. Supabase 실DB를 거치고 (`building_ssot_lite`, `document_objects`)
+  4. `handler.ts` 전구간을 통과하고 (geocoding, enrichment, writer/LLM)
+  5. 스크린샷 아티팩트를 산출물 증거로 보존해야 합니다.
+- 실행 명령: `npx playwright test e2e/<spec>.auth.spec.ts --project=authenticated`
+- **위반 사례**: `npx tsx`로 `pptx-renderer`만 직접 호출하고 "골든 테스트"라고 칭함 → 프로덕션 8단계 중 1단계만 통과.
+
+### 42. 기존 E2E 인프라 우선 조사 (Existing E2E Infrastructure First)
+- E2E/통합 테스트를 새로 작성하기 전에 반드시 기존 인프라를 조사합니다:
+  1. `find_by_name *.spec.ts e2e/` — 기존 Playwright 스펙 파일
+  2. `playwright.config.ts` — 프로젝트/인증 설정
+  3. `e2e/auth.setup.ts` — 인증 셋업
+  4. `.env.local`의 `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD`
+- 기존 스펙이 목적에 부합하면 **새로 작성하지 않고 기존 것을 실행**합니다.
+- 기존 스펙을 확장해야 할 경우에만 수정하거나 새 스펙을 추가합니다.
+- **위반 사례**: `dangsan-full-pipeline.auth.spec.ts`(579줄, 4 Phase)가 이미 존재하는데 `golden-dangsan-pptx-runner.ts`를 새로 작성.
+
+### 43. 외부 API 실호출 의무 (Real External API Call Mandate)
+- 카카오 Static Map, V-World WMS 지적도, data.go.kr 등 외부 API를 사용하는 기능을 테스트할 때 placeholder 이미지나 하드코딩된 URL로 대체하는 것을 금지합니다.
+- `.env.local`에서 `dotenv.config()`로 API 키를 로드하고 실 API를 호출합니다.
+- 로컬 환경 제약(Referer 불일치 등)으로 실패할 경우:
+  1. 실패 원인을 명확히 로그에 기록하고
+  2. fallback 사용 시 `source: 'fallback'`으로 명시하며
+  3. **"API 호출 성공"이라고 보고하지 않습니다**
+- **위반 사례**: 항공사진(`02_aerial.jpg`)을 지적도로 둔갑시키고 "V-World WMS 지적도 임베딩 확인"이라고 보고.
+<!-- END:cre-d42-e2e-rules -->
