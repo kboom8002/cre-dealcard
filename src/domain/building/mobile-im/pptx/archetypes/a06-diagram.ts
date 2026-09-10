@@ -2,9 +2,8 @@ import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind, RowEntry } from '../imlib';
-import { fetchKakaoMapImage, optimizeImageForPptx, type OptimizedImage, type MapPoiSpot } from '../utils/image-optimizer';
-// enforceTextBudget는 data-binder에서 이미 적용되므로 여기서는 사용하지 않음
 import { stripMarkdown } from '../data-binder';
+import { fetchKakaoMapImage, optimizeImageForPptx, type OptimizedImage, type MapPoiSpot } from '../utils/image-optimizer';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -107,7 +106,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
 
   const subText = left.sub || right.sub;
   if (subText) {
-    L.sub(slide, textX, y, textW, subText);
+    L.sub(slide, textX, y, textW, stripMarkdown(subText));
     y += 0.35;
   }
 

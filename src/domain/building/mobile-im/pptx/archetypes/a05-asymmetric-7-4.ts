@@ -26,10 +26,10 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
   
   const left = input.data.left || {};
   
-  // 부제 (서브타이틀)
+  // 부제 (서브타이틀) — D41 A3: stripMarkdown 적용
   let contentY = 1.45;
   if (left.sub) {
-    L.sub(slide, M, contentY, CW, left.sub);
+    L.sub(slide, M, contentY, CW, stripMarkdown(left.sub));
     contentY = 1.90;
   }
 

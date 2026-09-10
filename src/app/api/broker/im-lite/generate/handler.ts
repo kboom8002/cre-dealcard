@@ -347,19 +347,29 @@ export async function generateMobileIMHandler(
 
   // ─── 수동 입력 실거래가 병합 (Pro IM용) ───
   if (supplemental.manual_comps?.length) {
-    const manualAsComps = supplemental.manual_comps.map((mc: any) => ({
-      address: mc.address,
-      dealAmount: mc.dealAmount * 10000,  // 만원 → 원
-      area: mc.area,
-      dealYear: mc.dealYear,
-      dealMonth: mc.dealMonth,
-      dealDay: 1,
-      pricePerSqm: (mc.dealAmount * 10000) / mc.area,
-      pricePerPyeong: ((mc.dealAmount * 10000) / mc.area) * 3.30579,
-      buildingUse: mc.buildingUse || '상업용',
-      floors: mc.floors || 0,
-      _isManual: true,
-    }));
+    const manualAsComps = supplemental.manual_comps.map((mc: any) => {
+      // D41 A2: bottom_sheet.json 스키마 호환 — price_manwon, area_sqm, transaction_date 우선
+      const priceManwon = mc.price_manwon ?? mc.dealAmount ?? 0;
+      const areaSqm = mc.area_sqm ?? mc.area ?? 0;
+      const [yr, mo] = (mc.transaction_date ?? '').split(/[-.]/).map(Number);
+      const dealYear = yr || mc.dealYear || 0;
+      const dealMonth = mo || mc.dealMonth || 0;
+      return {
+        address: mc.address,
+        dealAmount: priceManwon,  // 만원 단위 (binder가 /10000 → 억 표시)
+        area: areaSqm,
+        dealYear,
+        dealMonth,
+        dealDay: 1,
+        dealDate: mc.transaction_date ?? (dealYear ? `${dealYear}.${String(dealMonth).padStart(2, '0')}` : '-'),
+        pricePerSqm: areaSqm > 0 ? (priceManwon * 10000) / areaSqm : 0,
+        pricePerPyeong: areaSqm > 0 ? ((priceManwon * 10000) / areaSqm) * 3.30579 : 0,
+        buildingName: mc.buildingName,
+        buildingUse: mc.buildingUse || '상업용',
+        floors: mc.floors || 0,
+        _isManual: true,
+      };
+    });
     if (!externalData) externalData = {} as any;
     externalData!.comparableTransactions = [
       ...manualAsComps,

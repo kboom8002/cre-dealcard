@@ -281,6 +281,44 @@ export function bindSectionData(
     // lease_status / stacking_plan → stability, vacancy, current, stackingPlan 등에도 파생 데이터 제공
     if (sectionType === 'lease_status' || sectionType === 'stacking_plan') {
       const stabilityProps = transformForArchetype(cleanMarkdown, tables, 'A04');
+
+      // D41 A4: floor_leases 기반 공실률/임대료 직접 계산
+      const leases: any[] = doc.body?.floor_leases ?? [];
+      if (leases.length > 0) {
+        const totalSpaces = leases.length;
+        const vacantSpaces = leases.filter((l: any) => l.is_vacant === true).length;
+        const occupiedSpaces = totalSpaces - vacantSpaces;
+        const vacancyRate = totalSpaces > 0 ? ((vacantSpaces / totalSpaces) * 100).toFixed(1) : '0.0';
+        const monthlyRent = leases.reduce((sum: number, l: any) => sum + (l.rent_manwon ?? 0), 0);
+        const annualRent = monthlyRent * 12;
+
+        // stability rows에 계산된 수치 주입
+        const computedRows: [string, string][] = [
+          ['공실 현황', vacantSpaces === 0 ? `공실 없음 (${totalSpaces}구획 중 ${occupiedSpaces}구획 임대중)` : `${vacantSpaces}구획 공실 (공실률 ${vacancyRate}%)`],
+          ['월 임대료 합계', `${monthlyRent.toLocaleString()}만 원/월`],
+          ['연 임대 수입', `약 ${(annualRent / 10000).toFixed(1)}억 원/년`],
+          ['임차인 구성', leases.filter((l: any) => l.tenant_name && (l.rent_manwon ?? 0) > 0).map((l: any) => `${l.floor} ${l.tenant_name}`).join(', ')],
+        ];
+
+        if (stabilityProps.left) {
+          stabilityProps.left.rows = computedRows;
+        } else {
+          stabilityProps.left = { sub: '임대 안정성 지표 (렌트롤 기반)', rows: computedRows };
+        }
+        // 우측에 "비공개 처리" 안내 제거 — 빈 callout 대신 업종 분포 표시
+        const typeDistribution = leases.filter((l: any) => l.tenant_type).reduce((acc: Record<string, number>, l: any) => {
+          acc[l.tenant_type] = (acc[l.tenant_type] ?? 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        const distStr = Object.entries(typeDistribution).map(([type, cnt]) => `${type}: ${cnt}구획`).join(', ');
+        stabilityProps.right = {
+          sub: '업종 분포',
+          callouts: [
+            { kind: 'good', title: '임차인 구성 안정성', body: distStr || '임차인 업종 정보 없음' },
+          ],
+        };
+      }
+
       if (!result['stability'] || (result['stability'] as any)._derived) result['stability'] = { title: '임대안정성', content: cleanMarkdown, tables, metrics, _derived: true, ...stabilityProps };
       if (!result['vacancy'] || (result['vacancy'] as any)._derived) result['vacancy'] = { title: '공실 분석', content: cleanMarkdown, tables, metrics, _derived: true, ...stabilityProps };
       if (!result['current'] || (result['current'] as any)._derived) result['current'] = { title: '현황 분석', content: cleanMarkdown, tables, metrics, _derived: true, ...stabilityProps };
@@ -317,7 +355,9 @@ export function bindSectionData(
       if (!result['upside'] || (result['upside'] as any)._derived) result['upside'] = { title: '인상 경로', content: mdUpside, tables, metrics, _derived: true, ...pUpside };
       if (!result['leasing'] || (result['leasing'] as any)._derived) result['leasing'] = { title: '임차 유치', content: mdLeasing, tables, metrics, _derived: true, ...pLeasing };
       if (!result['remodel'] || (result['remodel'] as any)._derived) result['remodel'] = { title: '리모델링 계획', content: mdRemodel, tables, metrics, _derived: true, ...pRemodel };
-      if (!result['comps'] || (result['comps'] as any)._derived) result['comps'] = { title: '비교사례', content: cleanMarkdown, tables, metrics, _derived: true, ...a03Props };
+      // D41 A2b: income_analysis → comps fallback 제거
+      // 비교사례(comps) 슬라이드에 재무분석 데이터가 오염되는 버그 수정
+      // comps는 manual_comps 또는 RTMS API에서만 바인딩되어야 함
       if (!result['farUpside'] || (result['farUpside'] as any)._derived) {
         result['farUpside'] = { title: '용적률 여유', content: cleanMarkdown, tables, metrics, _derived: true, ...buildFarUpsideProps(cleanMarkdown, tables, doc.body, building) };
       }
@@ -946,7 +986,10 @@ export function buildA22Props(
   }
 
   // 5. 기준층 면적 산출 및 셋백 비율 / 카테고리 보정
-  const anchorName = body?.anchorTenant?.name || 'NH농협캐피탈';
+  // D41 A1: Rule 34 — 'NH농협캐피탈' 더미 폴백 제거, 실 데이터에서 도출
+  const anchorName = body?.anchorTenant?.name
+    || (body?.floor_leases ?? []).find((l: any) => l.tenant_name && l.rent_manwon > 0)?.tenant_name
+    || '대표 임차인';
   let stdPy = 0;
   floors.forEach(f => {
     const fNum = parseInt(f.floor.replace(/\D/g, ''), 10);
@@ -3302,94 +3345,85 @@ export function bindCorporateTemplateData(
 
 /**
  * 3. 메디컬/근생형 비주얼 (Commercial Visual Grid) 특화 바인딩
- * - 층별 업종 MD 구성 (MD Plan)
- * - 로드뷰 및 앵커 테넌트 (약국/병원/스타벅스) 카드
- * - 유동인구 및 입지 분석
+ * D41 A1: Rule 34 — 하드코딩 더미 데이터 전면 제거, floor_leases/doc.body에서 동적 도출
  */
 export function bindCommercialTemplateData(
   doc: any,
   dataMap: Record<string, SectionData> = {},
 ): Record<string, SectionData> {
-  // 1. 층별 업종 MD 구성 (MD Plan)
-  const mdHeaders = ['층수', '추천 MD 및 권장 업종', '전용면적', '예상 보증금 / 월세', '집객 및 앵커 역할'];
-  const mdRows = [
-    ['B1', 'F&B 전문식당가 / 편의시설 / 주차', '120평 (396.7㎡)', '2.0억 / 1,200만 원', '건물 상주인원 및 외부 유입 기본 집객'],
-    ['1F', '앵커 테넌트 (약국 / 스타벅스 직영 / 편의점)', '85평 (281.0㎡)', '3.5억 / 2,800만 원', '사거리 코너 전면 로드뷰 가시성 및 핵심 집객'],
-    ['2F~3F', '메디컬 클리닉 (내과 / 이비인후과 / 치과)', '180평 (595.0㎡)', '3.0억 / 2,200만 원', '1층 처방전 약국 연계 및 주기적 목적 방문'],
-    ['4F~5F', '전문학원 / 에듀 / 사무소', '180평 (595.0㎡)', '2.0억 / 1,600만 원', '안정적 장기 임차 및 목적성 체류 수요'],
-    ['6F', '피트니스 / 스카이라운지 / 루프탑', '90평 (297.5㎡)', '1.5억 / 1,000만 원', '최상층 조망 특화 및 건물 시그니처 공간'],
-  ];
+  const body = doc?.body ?? {};
+  const floorLeases: any[] = body.floor_leases ?? [];
+
+  // ── 동적 층별 MD 구성 ──
+  const mdHeaders = ['층수', '업종', '전용면적', '보증금 / 월세', '비고'];
+  const mdRows = floorLeases.length > 0
+    ? floorLeases.map((l: any) => [
+        l.floor || '-',
+        l.tenant_type || l.tenant_name || '-',
+        l.area_sqm ? `${(l.area_sqm * 0.3025).toFixed(0)}평 (${l.area_sqm}㎡)` : '-',
+        `${l.deposit_manwon ? (l.deposit_manwon / 10000).toFixed(1) + '억' : '-'} / ${l.rent_manwon ? l.rent_manwon + '만 원' : '-'}`,
+        l.notes || '',
+      ])
+    : [['데이터 없음', '-', '-', '-', '-']];
+
+  // ── 동적 앵커 테넌트 추출 ──
+  const tenantNames = floorLeases
+    .filter((l: any) => l.tenant_name && (l.rent_manwon ?? 0) > 0)
+    .sort((a: any, b: any) => (b.rent_manwon ?? 0) - (a.rent_manwon ?? 0))
+    .map((l: any) => l.tenant_name)
+    .slice(0, 3);
+  const anchorTenantsStr = tenantNames.length > 0 ? tenantNames.join(' / ') : undefined;
+
+  // ── 동적 업종 분류 ──
+  const tenantTypes = [...new Set(floorLeases.map((l: any) => l.tenant_type).filter(Boolean))];
+  const primaryUse = tenantTypes.slice(0, 2).join(' / ') || '근린생활시설';
 
   dataMap['plan'] = {
-    title: '층별 업종 MD 구성 계획 (Commercial MD Grid)',
+    title: '층별 임대 현황',
     content: '',
     tables: [{ headers: mdHeaders, rows: mdRows }],
     tableHead: mdHeaders,
     tableRows: mdRows,
     left: {
-      sub: '층별 권장 MD 및 임대 전략',
+      sub: '층별 임대 현황',
       rows: mdRows.map(r => [r[0], `${r[1]} (${r[2]})`]),
     },
     right: {
-      sub: '핵심 MD 차별화 포인트',
-      callouts: [
-        { kind: 'good', title: '앵커 테넌트 유치', body: '1층 약국 및 스타벅스 등 우량 테넌트 배치로 건물 가치 및 상권 집객력 극대화' },
-        { kind: 'info', title: '메디컬 클러스터 시너지', body: '2~3층 병의원 입점 시 1층 처방전 약국과의 유기적 시너지 창출' },
-      ],
+      sub: '임대 구성 특징',
+      callouts: anchorTenantsStr
+        ? [
+            { kind: 'good', title: '주요 임차인', body: `${anchorTenantsStr} 등 안정적 임차인 구성` },
+            { kind: 'info', title: '업종 구성', body: `${primaryUse} 중심 복합 구성` },
+          ]
+        : [{ kind: 'info', title: '임대 현황', body: '층별 임대 현황은 렌트롤을 참조하세요' }],
     },
     metrics: {
-      totalFloors: '지하 1층 ~ 지상 6층',
-      anchorTenants: '약국, 병의원, 스타벅스',
-      targetYield: '연 5.2%',
+      totalFloors: body.ssot_summary?.floors_above ? `지하 ${body.ssot_summary?.floors_below ?? 1}층 ~ 지상 ${body.ssot_summary.floors_above}층` : undefined,
+      anchorTenants: anchorTenantsStr,
+      targetYield: body.ssot_summary?.gross_yield_pct ? `연 ${body.ssot_summary.gross_yield_pct.toFixed(1)}%` : undefined,
     },
-  };
+  } as any;
 
-  // 2. 로드뷰 및 앵커 테넌트 카드 (Building / Location)
+  // 2. 입지 (기존 location 데이터 보존, 하드코딩 제거)
   dataMap['location'] = {
     ...(dataMap['location'] ?? {}),
-    title: '입지 및 유동인구 분석',
-    content: '',
-    tables: [],
-    metrics: {
-      footTraffic: '45,000명/일',
-      catchmentHousehold: '8,500세대',
-      roadAccess: '사거리 코너 전면 25m',
-    },
-    left: {
-      sub: '유동인구 및 배후 상권 특성',
-      rows: [
-        ['일평균 유동인구', '약 45,000명/일 (주중 직장인 + 주말 거주민 고른 분포)'],
-        ['핵심 보행 동선', '지하철역 출구 ↔ 버스 환승센터 ↔ 대단지 아파트 주동선'],
-        ['배후 수요 세대', '반경 500m 내 8,500세대 대단지 아파트 및 오피스 밀집'],
-        ['주요 소비 연령', '30~50대 구매력 높은 가족 단위 및 직장인 소비 집중'],
-        ['상권 집객력', '메디컬·학원 복합 클러스터 형성으로 평일/주말 연속 집객'],
-      ],
-    },
-    right: {
-      sub: '로드뷰 및 가시성 평가',
-      rows: [
-        ['전면 도로 조건', '사거리 코너 4차선 대로변 접함 (전면 폭 25m 확보)'],
-        ['횡단보도 접근성', '건물 정면 횡단보도 및 버스정류장 연접으로 보행 유입 우수'],
-        ['로드뷰 노출도', '원거리 시인성 탁월 및 간판/쇼윈도 노출 극대화'],
-        ['앵커 테넌트 적합도', '약국, 병원, 스타벅스 등 브랜드 직영점 입지 최적'],
-      ],
-      callout: {
-        kind: 'good',
-        title: '핵심 앵커 테넌트 최적 입지',
-        body: '사거리 코너 로드뷰 및 횡단보도 전면 위치로 약국, 병의원, 스타벅스 등 앵커 테넌트 입점 경쟁력 최상',
-      },
-    },
+    title: dataMap['location']?.title || '입지 분석',
+    content: dataMap['location']?.content || '',
+    tables: dataMap['location']?.tables || [],
+    metrics: dataMap['location']?.metrics || {},
   };
 
-  // Summary (A02)
+  // Summary (A02) — 동적 메트릭스
+  const askingPriceEok = (body.asking_price_manwon ?? body.ssot_summary?.asking_price_manwon ?? 0) / 10000;
+  const monthlyRentManwon = floorLeases.reduce((sum: number, l: any) => sum + (l.rent_manwon ?? 0), 0);
+  const grossYield = body.ssot_summary?.gross_yield_pct;
+
   const commercialMetrics = [
-    { label: '일평균 유동인구', value: '45,000명/일', unit: '', sub: '보행 통행량 최상' },
-    { label: '배후 세대수', value: '8,500세대', unit: '', sub: '반경 500m 주거 배후' },
-    { label: '핵심 앵커 테넌트', value: '약국 / 병원 / 스타벅스', unit: '', sub: '1F~3F 핵심 배치' },
-    { label: '로드뷰 전면 폭', value: '25m 확보', unit: '', sub: '사거리 코너 가시성' },
-    { label: '예상 연 수익률', value: '5.2%', unit: '', sub: 'MD 리밸런싱 완료 시' },
-    { label: '추천 주용도', value: '메디컬 / 근린생활시설', unit: '', sub: '복합 MD 구성' },
-  ];
+    anchorTenantsStr ? { label: '주요 임차인', value: anchorTenantsStr, unit: '', sub: '임대료 기준 상위 3인' } : null,
+    grossYield ? { label: '총 수익률', value: `${grossYield.toFixed(1)}%`, unit: '', sub: 'Gross Yield' } : null,
+    monthlyRentManwon > 0 ? { label: '월 임대료 합계', value: `${monthlyRentManwon.toLocaleString()}만 원`, unit: '', sub: '월/월' } : null,
+    { label: '추천 주용도', value: primaryUse, unit: '', sub: '업종 구성' },
+  ].filter(Boolean);
 
   dataMap['summary'] = {
     title: '핵심 투자 지표 요약 (Commercial Visual Grid)',

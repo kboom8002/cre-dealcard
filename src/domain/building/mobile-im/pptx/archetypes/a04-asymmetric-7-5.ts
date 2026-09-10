@@ -127,7 +127,7 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       sizing: { type: 'contain', w: rw, h: 3.20 },
     });
     // 우측 하단: 핵심 강점 콜아웃
-    let calloutText = right.callouts?.[0]?.body || '';
+    let calloutText = stripMarkdown(right.callouts?.[0]?.body || '');
     if (!calloutText || calloutText.length < 15) {
       const kickerLower = (input.data.kicker || '').toLowerCase();
       const titleLower = (input.data.title || '').toLowerCase();
