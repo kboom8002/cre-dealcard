@@ -1820,16 +1820,26 @@ function buildA16Props(
   const annualRentWon = monthlyRentWon * 12;
   const grossYieldPct = priceWon > 0 ? (annualRentWon / priceWon) * 100 : 4.0;
 
-  // 4. 세무/금융 산출
-  const acquisitionTax = Math.round(priceWon * 0.046); // 취득세 4.6% 법정
-  const brokerFee = Math.round(priceWon * 0.009);       // 중개보수 0.9% 한도
-  const totalAcquisitionCost = priceWon + acquisitionTax + brokerFee;
-  const standardLoanRate = 0.50; // 기본 LTV 50%
+  // 4. 세무/금융 산출 — D41 Phase D: doc.body에서 사용자 입력값 우선 적용
+  const acqCost = body?.acquisition_cost as { tax_pct?: number; brokerage_manwon?: number; legal_manwon?: number; other_manwon?: number } | undefined;
+  const loanScenario = body?.loan_scenario as { ltv_pct?: number; interest_pct?: number; term_years?: number; target_irr_pct?: number } | undefined;
+
+  const taxPct = (acqCost?.tax_pct ?? 4.6) / 100;
+  const acquisitionTax = Math.round(priceWon * taxPct);
+  const brokerFeeWon = acqCost?.brokerage_manwon != null
+    ? Math.round(acqCost.brokerage_manwon * 10000)
+    : Math.round(priceWon * 0.009);
+  const legalFeeWon = acqCost?.legal_manwon != null ? Math.round(acqCost.legal_manwon * 10000) : 0;
+  const otherCostWon = acqCost?.other_manwon != null ? Math.round(acqCost.other_manwon * 10000) : 0;
+  const totalAcquisitionCost = priceWon + acquisitionTax + brokerFeeWon + legalFeeWon + otherCostWon;
+
+  const userLtvPct = loanScenario?.ltv_pct;
+  const standardLoanRate = userLtvPct != null ? userLtvPct / 100 : 0.50;
   const loan = Math.round(priceWon * standardLoanRate);
   const equity = Math.max(0, totalAcquisitionCost - depositWon - loan);
 
-  // 5. LTV 시나리오 생성 (LTV 0%, 40%, 50%, 60%)
-  const loanInterestRate = 0.048; // 차입금리 연 4.8% 가정
+  // 5. LTV 시나리오 생성 — 사용자 입력 LTV를 중심으로 시나리오 구성
+  const loanInterestRate = (loanScenario?.interest_pct ?? 4.8) / 100;
   const ltvPctList = [0, 40, 50, 60];
   const ltvScenarios = ltvPctList.map(ltv => {
     const scLoan = Math.round(priceWon * (ltv / 100));
@@ -1855,16 +1865,23 @@ function buildA16Props(
   const isNegativeLeverage = grossYieldPct < (loanInterestRate * 100);
 
   // 하위 호환을 위한 table1, table2도 동시 제공
-  const table1Rows = [
+  const actualTaxPctLabel = ((acqCost?.tax_pct ?? 4.6)).toFixed(1);
+  const actualLtvPctLabel = userLtvPct != null ? `${userLtvPct}` : '50';
+  const totalCostPctOfPrice = priceWon > 0 ? ((totalAcquisitionCost / priceWon) * 100).toFixed(1) : '105.5';
+  const table1Rows: string[][] = [
     ['구분', '금액 (억 원)', '비율'],
     ['매매 희망가', `${(priceWon / 1e8).toFixed(1)}억`, '100.0%'],
-    ['취득세 (4.6%)', `${(acquisitionTax / 1e8).toFixed(2)}억`, '4.6%'],
-    ['중개보수 (0.9%)', `${(brokerFee / 1e8).toFixed(2)}억`, '0.9%'],
-    ['총취득원가', `${(totalAcquisitionCost / 1e8).toFixed(1)}억`, '105.5%'],
-    ['(-) 임대보증금', `${(depositWon / 1e8).toFixed(1)}억`, `${((depositWon / priceWon) * 100).toFixed(1)}%`],
-    ['(-) 담보대출 (50%)', `${(loan / 1e8).toFixed(1)}억`, '50.0%'],
-    ['실투자금 (Net Equity)', `${(equity / 1e8).toFixed(1)}억`, `${((equity / priceWon) * 100).toFixed(1)}%`],
+    ['취득세 (' + actualTaxPctLabel + '%)', `${(acquisitionTax / 1e8).toFixed(2)}억`, actualTaxPctLabel + '%'],
+    ['중개보수', `${(brokerFeeWon / 1e8).toFixed(2)}억`, `${priceWon > 0 ? ((brokerFeeWon / priceWon) * 100).toFixed(1) : '0.9'}%`],
   ];
+  if (legalFeeWon > 0) table1Rows.push(['법무사비', `${(legalFeeWon / 1e8).toFixed(2)}억`, `${((legalFeeWon / priceWon) * 100).toFixed(2)}%`]);
+  if (otherCostWon > 0) table1Rows.push(['기타 취득비용', `${(otherCostWon / 1e8).toFixed(2)}억`, `${((otherCostWon / priceWon) * 100).toFixed(2)}%`]);
+  table1Rows.push(
+    ['총취득원가', `${(totalAcquisitionCost / 1e8).toFixed(1)}억`, `${totalCostPctOfPrice}%`],
+    ['(-) 임대보증금', `${(depositWon / 1e8).toFixed(1)}억`, `${((depositWon / priceWon) * 100).toFixed(1)}%`],
+    [`(-) 담보대출 (${actualLtvPctLabel}%)`, `${(loan / 1e8).toFixed(1)}억`, `${actualLtvPctLabel}%`],
+    ['실투자금 (Net Equity)', `${(equity / 1e8).toFixed(1)}억`, `${((equity / priceWon) * 100).toFixed(1)}%`],
+  );
 
   return {
     kicker: 'CAPITAL STRUCTURE',
@@ -1872,7 +1889,9 @@ function buildA16Props(
     equityBreakdown: {
       price: priceWon,
       acquisitionTax,
-      brokerFee,
+      brokerFee: brokerFeeWon,
+      legalFee: legalFeeWon,
+      otherCost: otherCostWon,
       totalAcquisitionCost,
       deposit: depositWon,
       loan,
@@ -1885,6 +1904,8 @@ function buildA16Props(
     grossYieldPct: grossYieldPct.toFixed(2),
     ltvScenarios,
     negativeLeverage: isNegativeLeverage,
+    // D41: 사용자 입력 대출 시나리오 참조 데이터
+    loanScenarioInput: loanScenario ?? null,
     table1: { sub: '총취득원가 및 실투자금 내역', rows: table1Rows },
     table2: { sub: 'LTV별 레버리지 효과', rows: [] },
     callouts: [],
@@ -2042,6 +2063,50 @@ function buildLoanFromIncome(
   tables: ParsedTable[],
   body: Record<string, any>,
 ): Record<string, any> {
+  // D41 Phase D: 사용자 입력 loan_scenario 우선 사용
+  const ls = body?.loan_scenario as { ltv_pct?: number; interest_pct?: number; term_years?: number; target_irr_pct?: number; monthly_interest_manwon?: number } | undefined;
+  const ssot = body?.ssot_summary ?? {};
+  const askingManwon = body?.asking_price_manwon ?? ssot.asking_price_manwon ?? 0;
+  const askingBil = askingManwon > 0 ? (askingManwon / 10000).toFixed(1) : null;
+
+  if (ls && (ls.ltv_pct != null || ls.interest_pct != null)) {
+    const ltv = ls.ltv_pct ?? 50;
+    const rate = ls.interest_pct ?? 4.5;
+    const term = ls.term_years ?? 5;
+    const loanManwon = askingManwon > 0 ? Math.round(askingManwon * ltv / 100) : 0;
+    const loanBil = (loanManwon / 10000).toFixed(1);
+    const equityManwon = askingManwon > 0 ? askingManwon - loanManwon : 0;
+    const monthlyInterest = loanManwon > 0 ? Math.round(loanManwon * rate / 100 / 12) : 0;
+    const annualInterest = monthlyInterest * 12;
+    const monthlyRentManwon = body?.monthly_rent_manwon ?? ssot.monthly_rent_manwon ?? 0;
+    const annualRentManwon = monthlyRentManwon * 12;
+    const netIncomeManwon = Math.max(0, annualRentManwon - annualInterest);
+    const dscr = annualInterest > 0 ? (annualRentManwon / annualInterest).toFixed(2) : '-';
+    const equityYield = equityManwon > 0 ? ((netIncomeManwon / equityManwon) * 100).toFixed(2) : '-';
+
+    const rows: string[][] = [
+      ['항목', '값'],
+      ['매매가', askingBil ? `${askingBil}억 원` : '-'],
+      ['담보 대출 비율 (LTV)', `${ltv}%`],
+      ['대출 금액', `${loanBil}억 원`],
+      ['자기 자본', `${(equityManwon / 10000).toFixed(1)}억 원`],
+      ['대출 금리', `연 ${rate}%`],
+      ['대출 기간', `${term}년`],
+      ['월 이자 부담', `${monthlyInterest.toLocaleString()}만원`],
+      ['연 이자 부담', `${(annualInterest / 10000).toFixed(2)}억 원`],
+      ['DSCR', dscr],
+      ['자기자본수익률', `${equityYield}%`],
+    ];
+    if (ls.target_irr_pct != null) rows.push(['목표 IRR', `${ls.target_irr_pct}%`]);
+
+    return {
+      table1: { sub: '대출 구조 (사용자 입력 기준)', rows },
+      table2: { sub: '', rows: [] },
+      callouts: [],
+    };
+  }
+
+  // 기존 폴백: body.loanSimulation 또는 마크다운 파싱
   const loan = body?.loanSimulation ?? body?.loan ?? {};
   const lines = markdown.split('\n').map(l => l.trim()).filter(Boolean);
 
@@ -2423,7 +2488,7 @@ import type { IMCore, Comp } from '@/types/im-core';
  * Phase 2-3: IMCore 정형 객체로부터 PPTX 15종 아키타입 슬라이드 데이터 직접 바인딩
  * 마크다운 파싱을 거치지 않아 오차 및 분열 방지
  */
-export function bindFromIMCore(core: IMCore, templateId?: string): Record<string, SectionData> {
+export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<string, any>): Record<string, SectionData> {
   const result: Record<string, SectionData> = {};
 
   // 1. Summary (A02)
@@ -2528,16 +2593,22 @@ export function bindFromIMCore(core: IMCore, templateId?: string): Record<string
   };
 
   // 4. Profit / Income Analysis (A05)
+  // D41 B2: LTV 미입력 시 대출 관련 수치를 가림
+  const hasLoanInput = !!(body?.loan_scenario?.ltv_pct != null || body?.loan_scenario?.interest_pct != null
+    || body?.loan_amount_manwon || body?.ssot_summary?.loan_amount_manwon);
+  const profitStats: Array<{ label: string; value: string }> = [
+    { label: '매매가', value: `${askingPriceBil}억` },
+    { label: '총취득원가', value: `${(core.equity.totalAcquisitionCost / 1e8).toFixed(1)}억` },
+  ];
+  if (hasLoanInput) {
+    profitStats.push({ label: '실투자금', value: `${(core.equity.equity / 1e8).toFixed(1)}억` });
+  }
   result['profit'] = {
     title: '수익 및 투자 분석',
     content: '',
     tables: [],
     metrics: {},
-    stats: [
-      { label: '매매가', value: `${askingPriceBil}억` },
-      { label: '총취득원가', value: `${(core.equity.totalAcquisitionCost / 1e8).toFixed(1)}억` },
-      { label: '실투자금', value: `${(core.equity.equity / 1e8).toFixed(1)}억` },
-    ],
+    stats: profitStats,
   };
 
   // 5. Capital / Cost (A16 Investment Structure)
@@ -2546,7 +2617,8 @@ export function bindFromIMCore(core: IMCore, templateId?: string): Record<string
   const totalCostKrw = core.equity.totalAcquisitionCost || askingKrw * 1.055;
   const annualRentKrw = (core.anchors?.monthlyRentTotalManwon ?? 0) * 10000 * 12 || 
     (core.yields.gross_price ? askingKrw * (core.yields.gross_price.value / 100) : 0);
-  const loanRatePct = 4.5; // 기본 금리 4.5%
+  // D41: 사용자 입력 금리 우선
+  const loanRatePct = body?.loan_scenario?.interest_pct ?? 4.5;
 
   const calcLtvScenario = (ltvPct: number, note: string) => {
     const loan = askingKrw * (ltvPct / 100);
@@ -2565,17 +2637,26 @@ export function bindFromIMCore(core: IMCore, templateId?: string): Record<string
   const grossYieldPct = askingKrw > 0 ? (annualRentKrw / askingKrw) * 100 : 0;
   const isNegLev = grossYieldPct > 0 && grossYieldPct < loanRatePct;
 
+  // D41: 사용자 입력 LTV가 있으면 해당 LTV를 시나리오에 포함
+  const userLtvPctCapital = body?.loan_scenario?.ltv_pct as number | undefined;
+  const ltvScenarios = [
+    calcLtvScenario(0, '전액 자기자본 (무차입)'),
+    calcLtvScenario(40, '보수적 차입 (LTV 40%)'),
+    calcLtvScenario(50, '표준 차입 (LTV 50%)'),
+  ];
+  // 사용자 입력 LTV가 0/40/50이 아니면 추가
+  if (userLtvPctCapital != null && ![0, 40, 50].includes(userLtvPctCapital)) {
+    ltvScenarios.push(calcLtvScenario(userLtvPctCapital, `사용자 입력 (LTV ${userLtvPctCapital}%)`));
+    ltvScenarios.sort((a, b) => a.ltvPct - b.ltvPct);
+  }
+
   result['capital'] = {
     title: '투자 및 자본 조달 구조 분석',
     content: '',
     tables: [],
     metrics: {},
     equityBreakdown: core.equity,
-    ltvScenarios: [
-      calcLtvScenario(0, '전액 자기자본 (무차입)'),
-      calcLtvScenario(40, '보수적 차입 (LTV 40%)'),
-      calcLtvScenario(50, '표준 차입 (LTV 50%)'),
-    ],
+    ltvScenarios,
     negativeLeverage: isNegLev,
     negativeLeverageWarning: isNegLev
       ? `대출금리(연 ${loanRatePct}%)가 총수익률(${grossYieldPct.toFixed(2)}%)보다 높아 대출 시 자기자본수익률이 하락하는 역레버리지 구간입니다.`

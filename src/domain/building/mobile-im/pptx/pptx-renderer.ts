@@ -173,7 +173,7 @@ export class MobileImPptxRenderer {
       if (renderPath === 'imcore' && (input as any).core) {
         // Phase 2-3: IMCore 정형 객체 직접 바인딩 (마크다운 파싱 우회)
         const { bindFromIMCore } = await import('./data-binder');
-        dataMap = bindFromIMCore((input as any).core);
+        dataMap = bindFromIMCore((input as any).core, undefined, input.doc?.body);
       } else {
         // 레거시: 마크다운 파싱 기반 바인딩
         const normalizedDoc = {
