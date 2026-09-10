@@ -952,7 +952,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       expect(sequence.length).toBe(20);
 
       // 4. Protected Body Slides Invariant: None of the protected keys may be pruned
-      const protectedKeys = ['cover', 'summary', 'closing', 'risk', 'checklist', 'process', 'thesis'];
+      const protectedKeys = ['cover', 'summary', 'closing', 'risk', 'checklist', 'process', 'thesis', 'location'];
       const finalBodyKeys = bodySlides.map((s) => s.dataKey);
       for (const pk of protectedKeys) {
         expect(finalBodyKeys).toContain(pk);

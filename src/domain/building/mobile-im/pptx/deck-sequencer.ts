@@ -265,7 +265,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
 
   if (bodySlides.length > PAGE_RECOMMENDED) {
     // 보호 키는 절삭에서 제외 (titleRights는 appendix이므로 제외)
-    const protectedKeys = new Set(['cover', 'summary', 'closing', 'risk', 'checklist', 'process', 'thesis']);
+    const protectedKeys = new Set(['cover', 'summary', 'closing', 'risk', 'checklist', 'process', 'thesis', 'location']);
     const protectedSlides = bodySlides.filter(s => protectedKeys.has(s.dataKey));
     const optionalSlides = bodySlides.filter(s => !protectedKeys.has(s.dataKey));
     const effectiveLimit = tierConfig?.maxBodyPages ?? PAGE_HARD_LIMIT;
@@ -293,7 +293,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
       comps: 2, trend: 2, turnover: 2, price: 2,
       land: 2, building: 2, // 토지·건물 개요는 필수 물리 스펙이므로 Priority 2 보존
       // Priority 3: Context & supporting (사옥형에서는 실입주 핵심이므로 2 부여)
-      location: input.posture === 'owner_occupied' ? 2 : 3,
+      // location: protected (지도는 모든 포스처에서 필수 — protectedKeys에서 관리)
       // Priority 4 (lowest): Secondary items
       loan: 4, tax: 4,
     };

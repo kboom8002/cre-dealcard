@@ -56,7 +56,7 @@ describe('Axis 5: Income Posture Archetype Branching (Pro Tier)', { timeout: 30_
       });
       const dataKeysInSequence = sequence.map(s => s.dataKey);
 
-      const protectedKeys = ['cover', 'summary', 'closing', 'risk', 'checklist', 'process', 'thesis'];
+      const protectedKeys = ['cover', 'summary', 'closing', 'risk', 'checklist', 'process', 'thesis', 'location'];
       for (const expectedKey of expectedDataKeys) {
         if (protectedKeys.includes(expectedKey)) {
           expect(
