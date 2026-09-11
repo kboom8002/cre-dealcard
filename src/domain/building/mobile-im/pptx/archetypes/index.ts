@@ -17,6 +17,7 @@ import { buildA16InvestmentStructure } from './a16-investment-structure';
 import { buildA17PreCompletionMarketing } from './a17-pre-completion-marketing';
 import { buildA18Checklist } from './a18-checklist'; // D30 M-11
 import { buildA22StackingPlan } from './a22-stacking-plan';
+import { buildA23YieldFormula } from './a23-yield-formula';
 
 export * from './a01-cover'; // For Types
 export { buildA15Thesis, type ThesisPillar } from './a15-thesis';
@@ -46,6 +47,7 @@ export const SLIDE_ARCHETYPE_REGISTRY: Record<string, any> = {
   A17: buildA17PreCompletionMarketing,
   A18: buildA18Checklist, // D30 M-11
   A22: buildA22StackingPlan,
+  A23: buildA23YieldFormula, // Basic IM 투자수익률 산식
 };
 
 /** @deprecated D30 M-17: SLIDE_ARCHETYPE_REGISTRY로 개명됨 */

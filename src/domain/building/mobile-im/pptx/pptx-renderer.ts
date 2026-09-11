@@ -157,6 +157,8 @@ export class MobileImPptxRenderer {
         },
         // D37 C-3: ReleaseTier 전달 → tier 기반 면 제어 활성화
         releaseTier: input.releaseTier,
+        // Basic IM 전용 슬라이드 편성 (A23 산식 등)
+        preset: theme.presetId,
       };
 
       const sequence: SlideSpec[] = buildDeckSequence(sequenceInput);
@@ -187,6 +189,9 @@ export class MobileImPptxRenderer {
       const companyName = input.broker?.company_name ?? '';
       const docno = input.docno ?? '';
 
+      // Basic IM 프리셋: 표지 건물 사진 차단 → 추상 기하학 커버 자동 적용 (basic-im-guide.md §2 #1)
+      const isBasicPreset = theme.presetId === 'credeal_basic';
+
       dataMap['cover'] = {
         title: input.doc.title ?? '',
         content: '',
@@ -201,10 +206,10 @@ export class MobileImPptxRenderer {
         tags: [input.building?.asset_type, input.building?.price_band].filter(Boolean),
         docno,
         logoUrl: input.logoUrl,
-        coverImageUrl: heroPhoto?.url
+        coverImageUrl: isBasicPreset ? null : (heroPhoto?.url
           ?? input.doc.body?.photo_urls?.[0]
           ?? input.doc.body?.photos?.[0]?.url
-          ?? null,
+          ?? null),
       } as any;
 
       // ── 2-1. V-World / 공공 API 구조화 데이터 직접 바인딩 ──
@@ -291,6 +296,38 @@ export class MobileImPptxRenderer {
         photos: (gallerySpecs[0]?.photos || photos).filter((p: any) => !p?.url?.toLowerCase().endsWith('.wdp')),
         layout: gallerySpecs[0]?.layout,
       } as any;
+
+      // Basic IM 전용: 투자수익률 산식 슬라이드 데이터 바인딩 (basic-im-guide.md §3.3)
+      if (theme.presetId === 'credeal_basic') {
+        const ssot = input.doc.body?.ssot_summary ?? {};
+        const askManwon = Number(ssot.asking_price_manwon ?? input.doc.body?.asking_price_manwon ?? 0);
+        const depositKrw = Number(ssot.deposit_total_krw ?? 0);
+        const monthlyRentKrw = Number(ssot.monthly_rent_total_krw ?? 0);
+        const annualRentKrw = monthlyRentKrw * 12;
+        const vacPct = Number(ssot.vacancy_pct ?? 0);
+        const askKrw = askManwon * 10000;
+        const denominator = askKrw - depositKrw;
+        const capRateAsIs = denominator > 0 ? (annualRentKrw / denominator * 100) : 0;
+        // 안정화: 공실 해소 시 임대료 반영 (공실률만큼 비례 증가)
+        const capRateStabilized = vacPct > 0 && denominator > 0
+          ? ((annualRentKrw * (1 + vacPct / (100 - vacPct))) / denominator * 100)
+          : undefined;
+
+        dataMap['yieldFormula'] = {
+          title: '투자수익률 분석',
+          kicker: 'Yield',
+          content: '',
+          tables: [],
+          metrics: {},
+          annualRent: annualRentKrw,
+          totalDeposit: depositKrw,
+          askingPrice: askKrw,
+          vacancyPct: vacPct,
+          capRateAsIs,
+          capRateStabilized,
+          stabilizedAssumption: '공실층을 인근 동일 용도 시세 수준으로 임대 가정',
+        } as any;
+      }
 
       // heroCard 데이터를 summary에 매핑
       const heroCard = input.doc.body?.heroCard ?? {};

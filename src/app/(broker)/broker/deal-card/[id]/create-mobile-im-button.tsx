@@ -29,6 +29,7 @@ interface CreateMobileImButtonProps {
     confidence: number;
     reason: string;
   };
+  existingDocBody?: any;
 }
 
 export function CreateMobileImButton({
@@ -53,15 +54,16 @@ export function CreateMobileImButton({
   prefillVacancyPct,
   initialInvestmentPosture = "income",
   postureProposal,
+  existingDocBody,
 }: CreateMobileImButtonProps) {
   const [showBottomSheet, setShowBottomSheet] = useState(false);
-  const [stage, setStage] = useState<'basic'>('basic');
+  const [stage, setStage] = useState<'basic' | 'pro'>('basic');
 
   useEffect(() => {
     const handleOpen = (e: Event) => {
       const customEvent = e as CustomEvent<{ stage?: 'basic' | 'pro' }>;
       if (customEvent.detail?.stage) {
-        setStage('basic');
+        setStage(customEvent.detail.stage);
       }
       setShowBottomSheet(true);
     };
@@ -71,24 +73,21 @@ export function CreateMobileImButton({
 
   return (
     <>
-      <div className="w-full">
-        {!hasBasicIM ? (
-          <button
-            onClick={() => { setStage('basic'); setShowBottomSheet(true); }}
-            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-2 py-3 text-xs sm:text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98] w-full shadow-md shadow-blue-900/30"
-            id="cta-mobile-im-basic"
-          >
-            ⚡ IM 생성
-          </button>
-        ) : (
-          <button
-            onClick={() => { setStage('basic'); setShowBottomSheet(true); }}
-            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-2 py-3 text-xs sm:text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98] w-full shadow-md shadow-blue-900/30"
-            id="cta-mobile-im-edit"
-          >
-            📝 IM 수정
-          </button>
-        )}
+      <div className="flex w-full gap-2">
+        <button
+          onClick={() => { setStage('basic'); setShowBottomSheet(true); }}
+          className="flex-1 inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-2 py-3 text-xs sm:text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98] shadow-md shadow-blue-900/30"
+          id="cta-mobile-im-basic"
+        >
+          {!hasBasicIM ? '⚡ 기본 IM' : '📝 수정'}
+        </button>
+        <button
+          onClick={() => { setStage('pro'); setShowBottomSheet(true); }}
+          className="flex-1 inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-2 py-3 text-xs sm:text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98] shadow-md shadow-purple-900/30"
+          id="cta-mobile-im-pro"
+        >
+          🎯 전문 IM
+        </button>
       </div>
 
       <ImDataBottomSheet
@@ -116,6 +115,7 @@ export function CreateMobileImButton({
         prefillVacancyPct={prefillVacancyPct}
         initialInvestmentPosture={initialInvestmentPosture}
         postureProposal={postureProposal}
+        existingDocBody={existingDocBody}
       />
     </>
   );

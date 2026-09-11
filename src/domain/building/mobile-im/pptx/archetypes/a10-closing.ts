@@ -110,25 +110,78 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     });
   });
   
-  // ── 우측: 면책 박스 ──
+  // ── 우측: 중개사 문의처 카드 + 면책 박스 ──
   const rx = 7.10;
   const rw = 5.61;
-  
-  L.sub(slide, rx, sectionY, rw, '면책 조항', true);
+
+  // 중개사 문의처 카드 (basic-im-guide.md §2 #9)
+  const broker = input.data.brokerContact || {};
+  const hasBrokerInfo = broker.name || broker.phone || broker.company;
+  let disclaimerStartY = sectionY + 0.36;
+
+  if (hasBrokerInfo) {
+    L.sub(slide, rx, sectionY, rw, '담당 중개사', true);
+    const contactY = sectionY + 0.36;
+    const contactH = 1.10;
+
+    slide.addShape('roundRect' as any, {
+      x: rx, y: contactY, w: rw, h: contactH,
+      rectRadius: 0.04,
+      fill: { color: CD.block },
+      line: { color: C.brass, width: 0.75 },
+    });
+
+    // 이름 + 직급
+    slide.addText(`📞  ${broker.name || '[담당자명]'}  ${broker.title || ''}`, {
+      x: rx + 0.20, y: contactY + 0.08, w: rw - 0.40, h: 0.30,
+      fontFace: KR, fontSize: 11, bold: true, color: 'FFFFFF', margin: 0,
+    });
+
+    // 연락처
+    const contactLine = [
+      broker.phone ? `☎ ${broker.phone}` : '',
+      broker.email ? `✉ ${broker.email}` : '',
+    ].filter(Boolean).join('    ');
+    if (contactLine) {
+      slide.addText(contactLine, {
+        x: rx + 0.20, y: contactY + 0.38, w: rw - 0.40, h: 0.26,
+        fontFace: KR, fontSize: 9.5, color: CD.body, margin: 0,
+      });
+    }
+
+    // 법인 + 등록번호
+    const companyLine = [
+      broker.company ? `🏢 ${broker.company}` : '',
+      broker.registrationNo ? `등록번호: ${broker.registrationNo}` : '',
+    ].filter(Boolean).join('    ');
+    if (companyLine) {
+      slide.addText(companyLine, {
+        x: rx + 0.20, y: contactY + 0.64, w: rw - 0.40, h: 0.26,
+        fontFace: KR, fontSize: 9, color: CD.mute, margin: 0,
+      });
+    }
+
+    disclaimerStartY = contactY + contactH + 0.16;
+  } else {
+    disclaimerStartY = sectionY + 0.36;
+  }
+
+  // 면책 조항
+  L.sub(slide, rx, disclaimerStartY - 0.36, rw, '면책 조항', true);
   
   const disclaimerText = input.data.disclaimer || MOBILE_IM_STANDARD_DISCLAIMER;
-  const maxCardH = 6.20 - (sectionY + 0.36);
-  const cardH = Math.max(1.80, Math.min(maxCardH, 0.5 + Math.ceil(disclaimerText.length / 55) * 0.26));
+  const maxCardH = 6.20 - disclaimerStartY;
+  const cardH = Math.max(1.20, Math.min(maxCardH, 0.5 + Math.ceil(disclaimerText.length / 55) * 0.26));
 
   // 면책 배경 카드
   slide.addShape('roundRect' as any, {
-    x: rx, y: sectionY + 0.36, w: rw, h: cardH,
+    x: rx, y: disclaimerStartY, w: rw, h: cardH,
     rectRadius: 0.04,
     fill: { color: C.ink2 },
   });
   
   slide.addText(disclaimerText, {
-    x: rx + 0.20, y: sectionY + 0.48, w: rw - 0.40, h: cardH - 0.24,
+    x: rx + 0.20, y: disclaimerStartY + 0.12, w: rw - 0.40, h: cardH - 0.24,
     fontFace: KR, fontSize: 9, color: CD.mute,
     lineSpacingMultiple: 1.28, margin: 0, valign: 'top',
   });

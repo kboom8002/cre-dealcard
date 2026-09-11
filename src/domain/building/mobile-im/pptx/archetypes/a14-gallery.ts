@@ -59,9 +59,9 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
     return { slide, warnings, suppress: true } as any;
   }
 
-  // Optimize images (최대 4장 — 슬라이드당 4장 제한, full-wide 12.13" 대응을 위해 maxWidth 2000px 적용)
-  const urlsToOptimize = validPhotos.slice(0, 4).map(p => p.url);
-  const optimized = await optimizeImagesForPptx(urlsToOptimize, 4, 2000, 85);
+  // Optimize images (최대 6장 — 슬라이드당 6장 제한, full-wide 12.13" 대응을 위해 maxWidth 2000px 적용)
+  const urlsToOptimize = validPhotos.slice(0, 6).map(p => p.url);
+  const optimized = await optimizeImagesForPptx(urlsToOptimize, 6, 2000, 85);
 
   if (optimized.length === 0) {
     warnings.push('걤러리 사진 로딩 실패 — 슬라이드 억제');
@@ -77,7 +77,8 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
   const layout: GalleryLayoutType = input.data.layout || (
     count === 1 ? 'FULL_WIDE' :
     count === 2 ? 'DUAL_LANDSCAPE' :
-    count === 3 ? 'ONE_LARGE_TWO_SMALL_H' : 'GRID_2X2'
+    count === 3 ? 'ONE_LARGE_TWO_SMALL_H' :
+    count === 4 ? 'GRID_2X2' : 'GRID_2X3'
   );
 
   /** 사진 카드 렌더링 헬퍼 (이미지 + 카테고리 배지 + 캡션 바) */
@@ -165,6 +166,21 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
     if (optimized[2]) {
       renderPhotoCard(optimized[2], 2, M + leftW + gap, startY + smallH + gap, rightW, smallH);
     }
+  } else if (layout === 'GRID_2X3' || count >= 5) {
+    // 5~6장: 2열 x 3행 균등 그리드 (GRID_2X3)
+    const cols = 2;
+    const rows = 3;
+    const imgW = (CW - gap) / cols;
+    const imgH = (maxAvailableH - gap * 2) / rows;
+
+    optimized.forEach((img, i) => {
+      if (i >= 6) return;
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = M + col * (imgW + gap);
+      const y = startY + row * (imgH + gap);
+      renderPhotoCard(img, i, x, y, imgW, imgH);
+    });
   } else {
     // 4장: 2열 x 2행 균등 그리드 (GRID_2X2)
     const cols = 2;

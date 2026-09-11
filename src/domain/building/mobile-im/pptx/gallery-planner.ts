@@ -20,7 +20,8 @@ export type GalleryLayoutType =
   | 'DUAL_PORTRAIT'           // 2장 (세로형 중심): 5.9" x 4.8" 세로 정렬
   | 'ONE_LARGE_TWO_SMALL_H'   // 3장: 좌측 대형 (7.4") + 우측 상하 2소형 (4.4")
   | 'ONE_LARGE_TWO_SMALL_V'   // 3장: 상단 대형 + 하단 2소형
-  | 'GRID_2X2';               // 4장: 2열 x 2행 균등 그리드 (각 5.9" x 2.4")
+  | 'GRID_2X2'                // 4장: 2열 x 2행 균등 그리드 (각 5.9" x 2.4")
+  | 'GRID_2X3';               // 5~6장: 2열 x 3행 균등 그리드
 
 /** 개별 갤러리 슬라이드 명세 */
 export interface GallerySlideSpec {

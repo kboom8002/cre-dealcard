@@ -53,6 +53,7 @@ interface ImDataBottomSheetProps {
   targetTier?: 'basic' | 'pro' | 'internal_only' | 'fact_om' | 'analysis_im' | 'decision_im' | 'expert_required';
   /** C-2: AI 포스처 추천 */
   postureProposal?: { value: string; confidence: number; reason: string };
+  existingDocBody?: any;
 }
 
 type BottomSheetState = "idle" | "loading" | "success" | "error";
@@ -93,6 +94,7 @@ export function ImDataBottomSheet({
   initialStage,
   targetTier = 'basic',
   postureProposal,
+  existingDocBody,
 }: ImDataBottomSheetProps) {
   // D37 L-3: 5종 tier → legacy stage 변환
   const resolvedStage: 'basic' | 'pro' = initialStage || (
@@ -373,6 +375,79 @@ export function ImDataBottomSheet({
         setLoanStatus("confirmed");
       }
       if (prefillVacancyPct != null && vacancyPct === '') setVacancyPct(prefillVacancyPct);
+
+      if (initialStage === 'pro' && existingDocBody) {
+        if (existingDocBody.broker_highlight) setBrokerHighlight(existingDocBody.broker_highlight);
+        
+        // ── 물류 ──
+        if (existingDocBody.logistics) {
+          const l = existingDocBody.logistics;
+          if (l.ceiling_height_m) setCeilingHeight(String(l.ceiling_height_m));
+          if (l.dock_count) setDockCount(String(l.dock_count));
+          if (l.dock_leveler_count) setDockLevelerCount(String(l.dock_leveler_count));
+          if (l.max_vehicle_ton) setMaxVehicleTon(String(l.max_vehicle_ton));
+          if (l.floor_load_ton_m2) setFloorLoadTon(String(l.floor_load_ton_m2));
+          if (l.cold_storage_area_pyeong) setColdStorageArea(String(l.cold_storage_area_pyeong));
+          if (l.cold_storage_type) setColdStorageType(l.cold_storage_type);
+          if (l.loading_area_pyeong) setLoadingArea(String(l.loading_area_pyeong));
+          if (l.vehicle_access_type) setVehicleAccessType(l.vehicle_access_type);
+          if (l.fire_rating) setFireRating(l.fire_rating);
+          if (l.sprinkler !== undefined) setSprinkler(l.sprinkler);
+          if (l.column_span_m) setColumnSpan(l.column_span_m);
+          if (l.power_capacity_kw) setPowerCapacity(String(l.power_capacity_kw));
+          if (l.has_office_space !== undefined) setHasOfficeSpace(l.has_office_space);
+          if (l.office_area_pyeong) setOfficeArea(String(l.office_area_pyeong));
+          if (l.distance_to_ic_km) setDistanceToIc(String(l.distance_to_ic_km));
+          if (l.ic_name) setIcName(l.ic_name);
+        }
+        // ── 숙박 ──
+        if (existingDocBody.hospitalitySpec) {
+          const h = existingDocBody.hospitalitySpec;
+          if (h.totalRoomCount) setRoomCount(String(h.totalRoomCount));
+          if (h.averageDailyRate) setAverageDailyRate(String(h.averageDailyRate));
+          if (h.occupancyRate) setOccupancyRate(String(h.occupancyRate));
+          if (h.gopMargin) setGopMargin(String(h.gopMargin));
+          if (h.operatingModel) setOperatingModel(h.operatingModel);
+          if (h.operatingEntity) setOperatingEntity(h.operatingEntity);
+        }
+        // ── 개발 ──
+        if (existingDocBody.developmentSpec) {
+          const d = existingDocBody.developmentSpec;
+          if (d.targetUse) setDevTargetUse(d.targetUse);
+          if (d.targetScalePyung) setDevTargetScalePyung(String(d.targetScalePyung));
+          if (d.expectedSalePricePerPyung) setDevExpectedSalePricePerPyung(String(d.expectedSalePricePerPyung));
+          if (d.constructionCostPerPyung) setDevConstructionCostPerPyung(String(d.constructionCostPerPyung));
+          if (d.contractorStatus) setDevContractorStatus(d.contractorStatus);
+        }
+        // ── 구분소유 ──
+        if (existingDocBody.sectionalSpec) {
+          const s = existingDocBody.sectionalSpec;
+          if (s.ownerCount) setSectionalOwnerCount(String(s.ownerCount));
+          if (s.managementBody) setSectionalManagementBody(s.managementBody);
+          if (s.masterLease) setSectionalMasterLease(s.masterLease ? 'yes' : 'no');
+          if (s.landSharePct) setSectionalLandSharePct(String(s.landSharePct));
+          if (s.fullPurchase) setSectionalFullPurchase(s.fullPurchase ? 'full' : 'partial');
+        }
+        // ── 주거사양 ──
+        if (existingDocBody.residentialSpec) {
+          const r = existingDocBody.residentialSpec;
+          if (r.totalUnits) setResTotalUnits(String(r.totalUnits));
+          if (r.jeonseUnits) setResJeonseUnits(String(r.jeonseUnits));
+          if (r.monthlyUnits) setResMonthlyUnits(String(r.monthlyUnits));
+          if (r.jeonseDepositTotalManwon) setResJeonseDepositTotalManwon(String(r.jeonseDepositTotalManwon));
+          if (r.illegalExtension !== undefined) setResIllegalExtension(r.illegalExtension);
+        }
+        // ── 취득 비용 ──
+        if (existingDocBody.acquisition_tax_pct) setAcquisitionTaxPct(String(existingDocBody.acquisition_tax_pct));
+        if (existingDocBody.brokerage_fee_manwon) setBrokerageFeeManwon(String(existingDocBody.brokerage_fee_manwon));
+        if (existingDocBody.legal_fee_manwon) setLegalFeeManwon(String(existingDocBody.legal_fee_manwon));
+        if (existingDocBody.other_acquisition_cost_manwon) setOtherAcquisitionCostManwon(String(existingDocBody.other_acquisition_cost_manwon));
+        // ── 대출 시나리오 ──
+        if (existingDocBody.ltv_pct) setLtvPct(String(existingDocBody.ltv_pct));
+        if (existingDocBody.loan_interest_pct) setLoanInterestPct(String(existingDocBody.loan_interest_pct));
+        if (existingDocBody.loan_term_years) setLoanTermYears(String(existingDocBody.loan_term_years));
+        if (existingDocBody.target_irr_pct) setTargetIrrPct(String(existingDocBody.target_irr_pct));
+      }
     }
   }, [isOpen, initialStage]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -607,6 +682,7 @@ export function ImDataBottomSheet({
             memo: mc.memo || undefined,
           })) : undefined,
         tier: targetTier,
+        preset: stage === 'basic' ? 'credeal_basic' : undefined,
         // D41 Phase D: 취득 비용
         acquisition_tax_pct: acquisitionTaxPct ? parseFloat(acquisitionTaxPct) : undefined,
         brokerage_fee_manwon: brokerageFeeManwon ? parseFloat(brokerageFeeManwon) : undefined,
@@ -808,7 +884,12 @@ export function ImDataBottomSheet({
   // Pro IM은 A등급 이상에서만 가능
   const isProValid = currentDataGrade === 'A' || readinessScore >= 75;
   const hasRequiredFields = computedMissingFields.length === 0;
-  const canGenerate = stage === 'basic' ? hasRequiredFields : (isProValid && hasRequiredFields);
+  
+  // Basic: Grade D 차단 (basic-im-guide.md)
+  const canGenerateBasic = hasRequiredFields && currentDataGrade !== 'D';
+  // Pro: Grade B 이상 필요
+  const canGeneratePro = hasRequiredFields && (currentDataGrade === 'A' || currentDataGrade === 'B');
+  const canGenerate = stage === 'basic' ? canGenerateBasic : (isProValid && canGeneratePro);
 
   // Portal을 사용하여 document.body에 직접 렌더링
   // 부모 요소의 transform/filter CSS가 fixed 포지셔닝을 깨뜨리는 문제 방지
@@ -840,6 +921,24 @@ export function ImDataBottomSheet({
             <span className="text-red-500 shrink-0">⚠️</span>
             <p className="text-xs text-red-500 font-medium">
               IM 작성을 위해 필수적인 정보가 누락되었습니다. 빨간색으로 강조된 항목을 입력해주세요.
+            </p>
+          </div>
+        )}
+
+        {stage === 'basic' && currentDataGrade === 'D' && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4 flex items-start gap-2 shrink-0">
+            <span className="text-red-500 shrink-0">🚨</span>
+            <p className="text-xs text-red-500 font-bold">
+              주소와 기본 가격 정보가 필요합니다
+            </p>
+          </div>
+        )}
+
+        {stage === 'pro' && (currentDataGrade === 'C' || currentDataGrade === 'D') && (
+          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 mb-4 flex items-start gap-2 shrink-0">
+            <span className="text-yellow-500 shrink-0">⚠️</span>
+            <p className="text-xs text-yellow-600 dark:text-yellow-500 font-bold">
+              전문 IM은 B등급 이상 데이터가 필요합니다
             </p>
           </div>
         )}

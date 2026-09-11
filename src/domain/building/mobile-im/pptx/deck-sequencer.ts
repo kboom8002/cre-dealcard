@@ -62,6 +62,8 @@ export interface DeckSequenceInput {
   gallerySpecs?: GallerySlideSpec[];
   /** 동적 면 추가 판단용 외부 데이터 가용성 */
   dataAvailability?: DataAvailability;
+  /** PPTX 프리셋 ID — Basic IM 전용 슬라이드 편성 판단용 */
+  preset?: string;
 }
 
 /** 갤러리 슬라이드 목록을 SlideSpec[]으로 생성 */
@@ -160,6 +162,10 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
           sequence.push({ archetype: 'A05', kicker: 'Profit', title: '수익구조', dataKey: 'profit' });
           if (addComps) sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
+      }
+      // Basic IM 전용: 투자수익률 산식 슬라이드 (basic-im-guide.md §3.3)
+      if (input.preset === 'credeal_basic') {
+        sequence.push({ archetype: 'A23', kicker: 'Yield', title: '투자수익률 분석', dataKey: 'yieldFormula' });
       }
       break;
     case 'owner_occupied':

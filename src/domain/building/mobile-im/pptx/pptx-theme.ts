@@ -552,6 +552,55 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     layoutStyle: 'dramatic',
     companyName: '크리딜',
     companyTagline: '상업용 부동산 투자 플랫폼'
+  },
+  // Basic IM 전용 프리셋 — basic-im-guide.md §4 디자인 시스템 준수
+  credeal_basic: {
+    presetId: 'credeal_basic',
+    presetName: 'CREDEAL Basic IM (표준 매각자료)',
+    ink: '132A3A',
+    ink2: '1A3347',
+    ink3: '2B4A5E',
+    slate: '5B6B73',
+    body: '2B2B2B',
+    mute: '5B6B73',
+    mute2: '8A9AA3',
+    line: 'CBD5E0',
+    line2: 'E2E8F0',
+    bg: 'FFFFFF',
+    tint: 'F3F6F7',
+
+    accent: 'B8860B',
+    accentD: '8B6508',
+    accentL: 'C9A24B',
+    accentT: 'F6F1E4',
+
+    green: '2E6E82',
+    greenL: 'E8F4F8',
+    red: 'B05A2E',
+    redL: 'FBEFE8',
+    amber: 'B8860B',
+    amberL: 'FFF8E7',
+    blue: '2E6E82',
+    blueL: 'E8F4F8',
+    violet: '6B5B95',
+    violetL: 'F0EDF5',
+
+    darkCard: '0A1620',
+    darkBlock: '132A3A',
+    darkBorder: '2E6E82',
+    darkBody: 'E2E8F0',
+    darkMute: '8A9AA3',
+    darkFaint: '5B6B73',
+    darkAccentBg: '8B6508',
+    darkAccentBorder: 'B8860B',
+    darkAccentText: 'F6F1E4',
+
+    titleFont: 'Pretendard',
+    bodyFont: 'Pretendard',
+    coverStyle: 'institutional_masses',
+    layoutStyle: 'classic',
+    companyName: 'CRE DEAL',
+    companyTagline: 'Commercial Real Estate Intelligence'
   }
 };
 

@@ -27,6 +27,7 @@ interface ImDocument {
 
 
 const PRESET_SWATCHES: Record<string, { accent: string; name: string }> = {
+  credeal_basic: { accent: '#B8860B', name: '📋 Basic IM (표준 매각자료)' },
   credeal_signature: { accent: '#6B8E00', name: 'CREDEAL Signature' },
   golden_institutional: { accent: '#B98A2E', name: 'Golden Institutional' },
   executive_gold: { accent: '#B8862D', name: 'Executive Gold' },
@@ -129,7 +130,12 @@ export function ImManagementPanel({
       const res = await fetch('/api/broker/im-lite/generate-async', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ buildingId, tier }),
+        body: JSON.stringify({
+          buildingId,
+          tier,
+          // Basic IM: credeal_basic 프리셋 자동 적용, Pro: 사용자 선택 프리셋
+          preset: tier === 'basic' ? 'credeal_basic' : selectedPreset,
+        }),
       });
       if (!res.ok) throw new Error('Generation failed');
       const { jobId } = await res.json();
@@ -455,14 +461,25 @@ export function ImManagementPanel({
             )}
           </div>
         ) : (
-          <Button 
-            size="sm" 
-            className="mt-2 h-9 w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-sm"
-            onClick={() => handleGenerateIM('basic')}
-            disabled={generationStatus !== 'idle'}
-          >
-            {generationStatus !== 'idle' ? '⏳ IM 생성 중...' : '⚡ IM 생성하기'}
-          </Button>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <Button 
+              size="sm" 
+              className="h-9 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-sm"
+              onClick={() => handleGenerateIM('basic')}
+              disabled={generationStatus !== 'idle'}
+            >
+              {generationStatus !== 'idle' ? '⏳ 생성 중...' : '⚡ 기본 IM'}
+            </Button>
+            <Button 
+              size="sm" 
+              variant="outline"
+              className="h-9 font-bold text-xs border-amber-600/50 text-amber-700 hover:bg-amber-50"
+              onClick={() => handleGenerateIM('pro')}
+              disabled={generationStatus !== 'idle'}
+            >
+              🎯 전문 IM
+            </Button>
+          </div>
         )}
       </div>
 

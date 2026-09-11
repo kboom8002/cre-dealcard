@@ -537,6 +537,7 @@ export default async function BrokerDealCardResultPage({
               prefillMgmtFee={mgmtFeeKrw > 0 ? mgmtFeeKrw / 10000 : undefined}
               prefillVacancyPct={typeof vacancyPct === 'number' && !isNaN(vacancyPct) ? vacancyPct : undefined}
               initialInvestmentPosture={investmentPosture}
+              existingDocBody={imBody}
             />
             <AiMatchCtaButton buildingId={id} matchCount={matchCount} topGrade={topGrade} />
           </div>
