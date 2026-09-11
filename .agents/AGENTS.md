@@ -242,6 +242,10 @@
   5. 스크린샷 아티팩트를 산출물 증거로 보존해야 합니다.
 - 실행 명령: `npx playwright test e2e/<spec>.auth.spec.ts --project=authenticated`
 - **위반 사례**: `npx tsx`로 `pptx-renderer`만 직접 호출하고 "골든 테스트"라고 칭함 → 프로덕션 8단계 중 1단계만 통과.
+- **IM 생성 경로가 분기될 때(Basic/Pro, 포스처별 등) 각 경로별 독립 골든 테스트**를 작성합니다.
+  * `dangsan-full-pipeline.auth.spec.ts` — 기본 IM 생성 경로
+  * `basic-im-golden.auth.spec.ts` — Basic IM (`credeal_basic` 프리셋) 전용 경로
+- 하나의 스펙에 모든 경로를 혼재시키지 않습니다 (600줄 이상 스펙 비대화 방지).
 
 ### 42. 기존 E2E 인프라 우선 조사 (Existing E2E Infrastructure First)
 - E2E/통합 테스트를 새로 작성하기 전에 반드시 기존 인프라를 조사합니다:
@@ -274,3 +278,23 @@
 - `grep -r "protectedKeys" src/` 로 전체 위치를 반드시 조회한 뒤 동시 수정합니다.
 - **위반 사례**: deck-sequencer에 `location`을 추가하고 테스트 5곳을 누락 → 테스트 실패.
 <!-- END:cre-d42-e2e-rules -->
+
+<!-- BEGIN:cre-d43-basic-pro-rules -->
+# CRE IM D43 Basic/Pro IM & PPTX Archetype Rules (2026-09-11 교훈)
+
+### 45. imlib 헬퍼 함수 시그니처 준수 (imlib Helper Signature Compliance)
+- 새 아키타입(A01~A23+) 작성 시 `imlib.ts` 헬퍼 함수의 정확한 시그니처를 반드시 확인합니다.
+- 주요 함수 시그니처:
+  * `head(slide, pageNum: number, kicker: string, title: string)` — 라이트 슬라이드 헤더
+  * `headD(slide, pageNum: number, kicker: string, title: string)` — 다크 슬라이드 헤더
+  * `sub(slide, x: number, y: number, w: number, text: string, onDark?: boolean)` — 서브타이틀
+  * `foot(slide, page: number, docno: string, onDark?: boolean)` — 슬라이드 푸터
+- 인자 순서 혼동(docno↔pageNum)으로 인한 TS 에러가 빈번하므로 기존 아키타입(a02, a05 등)의 호출 패턴을 참조합니다.
+- **위반 사례**: A23에서 `L.foot(slide, input.docno, input.watermarkText)` 호출 → TS2345 `string is not assignable to number`.
+
+### 46. 타입 유니온 확장 시 전파 의무 (Union Type Extension Cascade)
+- 리터럴 유니온 타입(`GalleryLayoutType`, `MobileIMSectionType`, `CalloutKind`, `IncomeArchetype` 등)에 새 값을 사용하는 코드를 작성할 때, 반드시 **타입 정의 파일부터 수정**합니다.
+- 순서: ① 타입 정의 파일의 유니온에 새 리터럴 추가 → ② 사용 파일에서 새 값 참조 → ③ `npx tsc --noEmit`으로 전파 누락 확인
+- 타입 정의와 사용 파일이 다른 경우(예: `gallery-planner.ts` 타입 ↔ `a14-gallery.ts` 사용), 서브에이전트에 위임 시 **두 파일 모두**를 명시적으로 지시합니다.
+- **위반 사례**: `a14-gallery.ts`에 `GRID_2X3` 렌더링 추가 → `GalleryLayoutType` 유니온 미등록 → TS2367.
+<!-- END:cre-d43-basic-pro-rules -->
