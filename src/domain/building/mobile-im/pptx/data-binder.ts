@@ -1625,7 +1625,11 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
   const lines = markdown.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   
   const metrics: Array<{label: string; value: string; unit?: string}> = [];
-  const askPrice = heroCard.askingPriceDisplay ?? heroCard.askingPrice;
+  // F6 fix: 정확 금액 우선 — price_band("200억대")보다 실수치("230억 원")를 우선 사용
+  const ssotAskManwon = body?.ssot_summary?.asking_price_manwon;
+  const askPrice = ssotAskManwon
+    ? `${(Number(ssotAskManwon) / 10000).toLocaleString()}억 원`
+    : (heroCard.askingPrice ?? heroCard.askingPriceDisplay);
   // D33 BL-C: 함수 스코프에서 Yield 객체 선언 — 반환값으로 전달
   let summaryYield: Yield | null = null;
 
@@ -1751,26 +1755,51 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
   } else if (Array.isArray(heroCard.investmentPoints) && heroCard.investmentPoints.length > 0) {
     keyPoints.push(...heroCard.investmentPoints.map((k: string) => stripMarkdown(k)));
   } else {
-    const bullets = lines
-      .filter(l => (l.startsWith('•') || l.startsWith('-') || l.startsWith('*') || l.match(/^\d+[.、)]/)) && l.length > 10)
-      .map(l => stripMarkdown(l.replace(/^[-*•·\d.、)]\s*/, '')))
+    // F5 fix: investment_thesis 섹션 불릿을 우선 참조 (property_overview보다 투자 관점 품질이 높음)
+    const thesisSection = (body?.sections ?? []).find(
+      (s: any) => s.section_type === 'investment_thesis'
+    );
+    const thesisMarkdown = thesisSection?.markdown || thesisSection?.content || '';
+    const thesisBullets = thesisMarkdown
+      .split('\n')
+      .map((l: string) => l.trim())
+      .filter((l: string) => (l.startsWith('•') || l.startsWith('-') || l.startsWith('*') || l.match(/^\d+[.、)]/)) && l.length > 15)
+      .map((l: string) => stripMarkdown(l.replace(/^[-*•·\d.、)]\s*/, '')))
       .slice(0, 3);
-    if (bullets.length > 0) {
-      keyPoints.push(...bullets);
+
+    if (thesisBullets.length >= 2) {
+      keyPoints.push(...thesisBullets);
     } else {
+      // property_overview 불릿 fallback
+      const bullets = lines
+        .filter(l => (l.startsWith('•') || l.startsWith('-') || l.startsWith('*') || l.match(/^\d+[.、)]/)) && l.length > 10)
+        .map(l => stripMarkdown(l.replace(/^[-*•·\d.、)]\s*/, '')))
+        .slice(0, 3);
+      if (bullets.length > 0) {
+        keyPoints.push(...thesisBullets, ...bullets); // thesis 먼저, overview 보충
+      }
+    }
+
+    // 최종 합성 폴백 (3건 미만 시)
+    if (keyPoints.length < 3) {
       const area = heroCard.areaSignal || '핵심권역';
-      const ask = heroCard.priceBand || (heroCard.askingPriceManwon ? `${(heroCard.askingPriceManwon / 10000).toFixed(0)}억대` : '시장 적정가');
-      // 기존 회피성 문구를 수치 기반 구체적 문장으로 교체 (Rule 37)
+      const ask = body?.ssot_summary?.asking_price_manwon
+        ? `${(Number(body.ssot_summary.asking_price_manwon) / 10000).toLocaleString()}억 원`
+        : (heroCard.priceBand || '시장 적정가');
       const ssotKP = body?.ssot_summary ?? {};
       const vacFloors = ssotKP.vacant_floor_count ?? 0;
       const totalFloors = ssotKP.floors_above ?? 0;
       const roadInfo = ssotKP.road_condition ?? '';
       const stationMin = ssotKP.station_walk_min ?? '';
-      keyPoints.push(
-        `입지 가치: ${area} 소재${roadInfo ? `, ${roadInfo} 접면` : ''}${stationMin ? `, 역세권 도보 ${stationMin}분` : ''}`,
-        `수익 구조: 매매 ${ask}${vacFloors > 0 ? `, ${vacFloors}/${totalFloors}층 공실 — 안정화 시 수익률 상승 여력` : totalFloors > 0 ? `, ${totalFloors}층 만실 운영 중` : ''}`,
-        `실사 점검: 등기부·대장 공부 확인 및 임대차계약서 원본 대조 필요`
-      );
+      const fallbacks = [
+        `입지 가치: ${area} 소재${roadInfo ? `, ${roadInfo} 접면` : ''}${stationMin ? `, 역세권 도보 ${stationMin}분` : ''} 자산으로 중장기 가치 보존`,
+        `수익 구조: 매각가 ${ask}${vacFloors > 0 ? `, ${vacFloors}/${totalFloors}층 공실 해소 시 수익률 상승 여력` : totalFloors > 0 ? `, ${totalFloors}층 만실 운영 중` : ''}, 현 임대차 기반 현금흐름 창출`,
+        `실사 점검: 계약서 및 공부 확인을 통한 권리관계·물리적 상태 정밀 진단`
+      ];
+      for (const fb of fallbacks) {
+        if (keyPoints.length >= 3) break;
+        if (!keyPoints.some(kp => kp.startsWith(fb.substring(0, 6)))) keyPoints.push(fb);
+      }
     }
   }
 

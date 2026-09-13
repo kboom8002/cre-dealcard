@@ -92,8 +92,8 @@ export async function enrichBuildingDataCore(
       catch (e: unknown) { errors.push({ api: "semas-commercial", message: e instanceof Error ? e.message : "Unknown error" }); }
     })(),
     // 9. V-World WMS 지적도 이미지 (Phase 4)
+    // F2 fix: Rule 40에 따라 지적도 이미지는 DB에 캐싱되지 않으므로 항상 실시간 fetch
     (async () => {
-      if (cachedData && !isSourceStale(staleSources, 'cadastral_map', 'cadastralMap')) { return; }
       try {
         if (lat != null && lng != null) {
           cadastralMapImage = await fetchCadastralMapImage(lat, lng, 800, 600, 150);

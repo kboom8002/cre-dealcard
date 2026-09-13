@@ -159,13 +159,17 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   keyPoints.length = 0;
   keyPoints.push(...filteredKP);
 
-  // 기본 폴백 3대 투자 포인트
-  if (keyPoints.length === 0) {
-    keyPoints.push(
+  // 기본 폴백 3대 투자 포인트 — SPEC_TERMS 필터 후 3건 미만이면 보충
+  if (keyPoints.length < 3) {
+    const fallbackPool = [
       '입지 가치: 해당 권역 내 우수한 접근성 및 중장기 자산 가치 보존 잠재력',
       '현금흐름: 현 임대차 계약 구조를 통한 월 임대소득 창출 자산',
       '실사 점검: 상세 임대차 계약 및 공부상 권리관계 정밀 실사 권장'
-    );
+    ];
+    for (const fb of fallbackPool) {
+      if (keyPoints.length >= 3) break;
+      if (!keyPoints.some(kp => kp.startsWith(fb.substring(0, 6)))) keyPoints.push(fb);
+    }
   }
 
   // D41: KPI 카드 높이에 따라 하이라이트 시작 위치 동적 계산

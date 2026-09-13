@@ -455,8 +455,17 @@ export async function fetchKakaoMapImage(
   h = 450,
 ): Promise<OptimizedImage | null> {
   try {
-    const response = await fetch(mapUrl, { signal: AbortSignal.timeout(8000) });
-    if (!response.ok) return null;
+    const referer = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : 'http://localhost:3000';
+    const response = await fetch(mapUrl, {
+      signal: AbortSignal.timeout(8000),
+      headers: { Referer: referer },
+    });
+    if (!response.ok) {
+      console.warn(`[kakao-map] fetch failed: ${response.status} ${response.statusText}`);
+      return null;
+    }
     const arrayBuffer = await response.arrayBuffer();
     const buffer = await sharp(Buffer.from(arrayBuffer))
       .resize({ width: w, height: h, fit: 'cover' })

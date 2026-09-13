@@ -67,14 +67,20 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   // --- Render Left Panel: Stacking Plan ---
   let floors: FloorInfo[] = stackingData;
   if (floors.length === 0 && tableRows.length > 0) {
-    // Construct floors from tableRows (assuming row: [층수, 면적, 임차인, ...])
-    floors = tableRows.map((r: any[]) => ({
-      floor: String(r[0] || ''),
-      tenant: String(r[2] || ''),
-      isVacant: String(r[2] || '').includes('공실'),
-      expiryYear: String(r[5] || '').match(/202[4-9]/)?.[0],
-      area: parseFloat(String(r[1] || '').replace(/,/g, '')) || 0,
-    }));
+    // F4 fix: 첫 행의 r[0]이 층 패턴에 맞는 경우만 스태킹 플랜으로 변환
+    // ssot_summary 합성 행("월 임대료 합계" 등)이 층 이름으로 둔갑하는 시각 오염 방지
+    const FLOOR_PATTERN = /^(B?\d+F?|지상|지하|옥탑|PH|RF|\d+층)/i;
+    const firstCell = String(tableRows[0]?.[0] || '');
+    if (FLOOR_PATTERN.test(firstCell.trim())) {
+      floors = tableRows.map((r: any[]) => ({
+        floor: String(r[0] || ''),
+        tenant: String(r[2] || ''),
+        isVacant: String(r[2] || '').includes('공실'),
+        expiryYear: String(r[5] || '').match(/202[4-9]/)?.[0],
+        area: parseFloat(String(r[1] || '').replace(/,/g, '')) || 0,
+      }));
+    }
+    // 층 패턴이 아니면 floors를 빈 배열로 유지 → 좌측 스태킹 도식 생략, 우측 테이블만 렌더링
   }
 
   if (floors.length > 0) {

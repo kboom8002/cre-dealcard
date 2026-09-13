@@ -236,7 +236,15 @@ B1 138.3평 파티룸 보증금6000만 월세510만`;
         const parseBtn = page.locator('button:has-text("✨ AI 분석"), button:has-text("AI 분석")').first();
         await parseBtn.click();
         console.log('  ⏳ 렌트롤 AI 분석 요청...');
-        await page.waitForTimeout(5000);
+        // F3 fix: AI 분석 완료를 명시적으로 대기 (5초 슬립 → 완료 신호 대기)
+        try {
+          // 파싱 완료 시 테이블 행 또는 확인 메시지가 나타남
+          await page.waitForSelector('table tbody tr, [data-testid="rent-roll-preview"], text=/분석.*완료|파싱.*완료|임대차.*확인/', { timeout: 20000 });
+          console.log('  ✅ 렌트롤 AI 분석 완료 확인');
+        } catch {
+          console.log('  ⚠️ 렌트롤 AI 분석 대기 타임아웃 — 15초 폴백 대기');
+          await page.waitForTimeout(15000);
+        }
         await shot(page, 'rent-roll-parsed');
       }
     } catch (e) {

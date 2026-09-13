@@ -158,7 +158,7 @@ export class MobileImPptxRenderer {
           hasRentRoll: !!(
             input.doc.body?.floor_leases?.length 
             || input.doc.body?.ssot_summary?.monthly_rent_total_krw
-            || input.doc.body?.ssot_summary?.deposit_total_krw
+            || input.doc.body?.ssot_summary?.total_deposit_manwon
             || input.doc.sections?.some((s: any) => s.section_type === 'lease_status')
           ),
           hasStackingPlan: !!(input.doc.body?.floor_leases?.length || (input.doc.body as any)?.stackingPlan?.length),
@@ -331,7 +331,7 @@ export class MobileImPptxRenderer {
       if (theme.presetId === 'credeal_basic') {
         const ssot = input.doc.body?.ssot_summary ?? {};
         const askManwon = Number(ssot.asking_price_manwon ?? input.doc.body?.asking_price_manwon ?? 0);
-        const depositKrw = Number(ssot.deposit_total_krw ?? 0);
+        const depositKrw = Number(ssot.total_deposit_manwon ?? 0) * 10000;
         const monthlyRentKrw = Number(ssot.monthly_rent_total_krw ?? 0);
         const annualRentKrw = monthlyRentKrw * 12;
         let vacPct = Number(ssot.vacancy_pct ?? 0);
