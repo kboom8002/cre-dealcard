@@ -76,20 +76,80 @@ function buildGallerySlideSpecs(input: DeckSequenceInput): SlideSpec[] {
       dataKey: g.dataKey,
     }));
   }
-  if (input.hasPhotos) {
+  if (input.hasPhotos || input.dataAvailability?.hasPhotos) {
     return [{ archetype: 'A14', kicker: 'Gallery', title: '건물 사진', dataKey: 'gallery' }];
   }
   return [];
 }
 
-export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
+/**
+ * Basic IM (credeal_basic 프리셋) 전용 표준 9섹션 시퀀스 생성기
+ * docs/impipe/basic-im-guide.md §2 및 AGENTS.md Rule 47 준수
+ */
+function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
+  const sequence: SlideSpec[] = [];
+  const da = input.dataAvailability ?? {};
   const gallerySlides = buildGallerySlideSpecs(input);
 
+  // 1. 표지 (A01) — 건물 사진 차단, 추상 배경 (basic-im-guide §2 #1)
+  sequence.push({ archetype: 'A01', kicker: 'INVESTMENT MEMORANDUM', title: '표지', dataKey: 'cover' });
+
+  // 2. 요약 (A02) — 6대 핵심 지표 + 투자 포인트 3개 (basic-im-guide §2 #2)
+  sequence.push({ archetype: 'A02', kicker: 'Summary', title: '핵심 투자 지표 요약', dataKey: 'summary' });
+
+  // 3. 물건 개요 (A04) — 공부 정보 + 외관 사진 좌우 배치 (basic-im-guide §2 #3)
+  sequence.push({ archetype: 'A04', kicker: 'Building', title: '건물 개요', dataKey: 'building' });
+
+  // 4. 입지 정보 (A06) — 지도 + 불릿 3개 (basic-im-guide §2 #4)
+  sequence.push({ archetype: 'A06', kicker: 'Location', title: '입지 분석', dataKey: 'location' });
+
+  // 5. 토지 정보 (A04) — 형상/도로접함 + 용도지역/건폐율/용적률 (basic-im-guide §2 #5)
+  sequence.push({ archetype: 'A04', kicker: 'Land', title: '토지 현황', dataKey: 'land' });
+  // V-World WMS 지적도 이미지 가용 시 연계 배치
+  if (da.hasCadastralMap) {
+    sequence.push({ archetype: 'A06', kicker: 'Cadastral', title: '지적도', dataKey: 'cadastralMap' });
+  }
+
+  // 6. 건물 사용 현황 (렌트롤 표 + 스태킹 플랜) (basic-im-guide §2 #6)
+  const addRentRoll = da.hasRentRoll !== false;
+  const addStackingPlan = da.hasStackingPlan === true;
+  if (addRentRoll) {
+    sequence.push({ archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' });
+  }
+  if (addStackingPlan) {
+    sequence.push({ archetype: 'A22', kicker: 'Stacking Plan', title: '스태킹 플랜', dataKey: 'stackingPlan' });
+  }
+
+  // 7. 투자수익률 분석 (A23, 수익형 포스처 전용) (basic-im-guide §2 #7, §3.3)
+  if (input.posture === 'income') {
+    sequence.push({ archetype: 'A23', kicker: 'Yield', title: '투자수익률 분석', dataKey: 'yieldFormula' });
+  }
+
+  // 8. 현장 사진 (A14) — 6컷 그리드 (basic-im-guide §2 #8)
+  if (gallerySlides.length > 0) {
+    sequence.push(...gallerySlides);
+  } else if (input.hasPhotos) {
+    sequence.push({ archetype: 'A14', kicker: 'Gallery', title: '건물 사진', dataKey: 'gallery' });
+  }
+
+  // 9. 문의 및 유의사항 (A10) — 담당자 연락처 + 법적 면책조항 (basic-im-guide §2 #9)
+  sequence.push({ archetype: 'A10', kicker: 'Closing', title: '문의 및 유의사항', dataKey: 'closing', placement: 'closing' });
+
+  return sequence.filter(s => !s.suppress);
+}
+
+export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   // D29 BL-1: D등급 발행 전면 차단 (ONTOLOGY_V0.5_SPEC §6.3 — D = 발행 불가)
   if (input.grade === 'D') {
     throw new Error('[G30] D등급은 발행할 수 없습니다');
   }
 
+  // Basic IM (credeal_basic 프리셋): 전용 9섹션 시퀀스 반환 (Rule 47)
+  if (input.preset === 'credeal_basic') {
+    return buildBasicDeckSequence(input);
+  }
+
+  const gallerySlides = buildGallerySlideSpecs(input);
   const sequence: SlideSpec[] = [];
   const da = input.dataAvailability ?? {};
 
@@ -291,6 +351,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
       dcf: 1, sensitivity: 1, capital: 1,
       totalReturn: input.posture === 'owner_occupied' ? 3 : 1,
       plan: 1, vsLease: 1, commute: 1, value: 1, // 사옥형 4대 핵심 슬라이드 Priority 1
+      yieldFormula: 1, // Basic IM 투자수익률 산식 Priority 1
       // Priority 2: Key property data & posture-specific core slides
       profit: 2, rentRoll: 2, stackingPlan: 2, stability: 2,
       gallery: 2, gallery2: 2,

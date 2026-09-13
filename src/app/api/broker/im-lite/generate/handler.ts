@@ -32,6 +32,7 @@ export interface GenerateMobileIMInput {
     investmentPosture?: string;
   };
   tier?: 'basic' | 'pro';
+  preset?: string;
 }
 
 export interface GenerateMobileIMResult {
@@ -122,7 +123,7 @@ async function uploadDataUriPhotos(
 export async function generateMobileIMHandler(
   input: GenerateMobileIMInput
 ): Promise<GenerateMobileIMResult> {
-  const { buildingId, userId, supplemental, skipApproval = false, directData = null, identity, tier = 'basic' } = input;
+  const { buildingId, userId, supplemental, skipApproval = false, directData = null, identity, tier = 'basic', preset } = input;
   const supabase = createServiceClient();
 
   if (identity?.assetType && identity?.investmentPosture) {
@@ -570,6 +571,7 @@ export async function generateMobileIMHandler(
     body: {
       im_type: "mobile_im_lite",
       tier,
+      preset: preset ?? (tier === 'basic' ? 'credeal_basic' : undefined),
       // D37 C-4: 5종 발행 등급 산출 및 영속화
       releaseTier: (() => {
         const resolved = resolveTier({

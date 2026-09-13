@@ -298,3 +298,24 @@
 - 타입 정의와 사용 파일이 다른 경우(예: `gallery-planner.ts` 타입 ↔ `a14-gallery.ts` 사용), 서브에이전트에 위임 시 **두 파일 모두**를 명시적으로 지시합니다.
 - **위반 사례**: `a14-gallery.ts`에 `GRID_2X3` 렌더링 추가 → `GalleryLayoutType` 유니온 미등록 → TS2367.
 <!-- END:cre-d43-basic-pro-rules -->
+
+<!-- BEGIN:cre-d43-basic-im-ssot-rules -->
+# CRE IM D43 Basic IM SSOT Rules (2026-09-13 교훈)
+
+### 47. Basic IM 스펙 SSOT 준수 (Basic IM Guide Compliance)
+- Basic IM(`credeal_basic` 프리셋)의 슬라이드 시퀀스, 디자인 시스템, 작성 원칙은 **반드시 `docs/impipe/basic-im-guide.md`의 "표준 9단계"를 SSOT로 참조**합니다.
+- `deck-sequencer.ts`에서 `input.preset === 'credeal_basic'`인 경우, 골디락스(12~20p) 시퀀스가 아닌 **전용 9섹션 시퀀스**를 반환해야 합니다:
+  1. `cover` (A01, 표지 — 건물 사진 없음, 추상 배경)
+  2. `summary` (A02, 요약 — 6대 핵심 지표 + 투자 포인트 3개)
+  3. `building` (A04, 물건 개요 — 공부 정보 + 외관 사진 좌우 배치)
+  4. `location` (A06, 입지 정보 — 지도 + 불릿 3개)
+  5. `land` (A04, 토지 정보 — 지적도 + 용도지역/건폐율/용적률)
+  6. `rentRollStacking` (렌트롤 표 + 스태킹 플랜 — 하나의 슬라이드에 병합)
+  7. `yieldFormula` (A23, 투자수익률 분석 — As-Is + 안정화 Cap Rate)
+  8. `gallery` (A14, 현장 사진 — 6컷 그리드)
+  9. `closing` (A10, 문의 및 유의사항 — 연락처 + 면책조항)
+- **Basic IM에 포함하지 않는 슬라이드**: `capital`, `totalReturn`, `dcf`, `sensitivity`, `loan`, `tax`, `thesis`, `risk`, `checklist`, `process`, `stability`, `profit` 등 Pro IM 전용/고급 분석 슬라이드.
+- **가이드 §1 명시**: "감정평가, DCF, 민감도 분석 같은 고급 분석은 포함하지 않습니다."
+- `generate-async/route.ts`에서 `preset`을 `generateMobileIMHandler`에 반드시 전달하고 `document_objects.body.preset`에 영속화해야 합니다.
+- **위반 사례**: `yieldFormula`가 `SLIDE_PRIORITY`에 미등록 → 골디락스 절삭으로 Basic IM 핵심 슬라이드 탈락. Pro IM 슬라이드(`capital`, `totalReturn`, `thesis` 등)가 Basic IM에 혼입.
+<!-- END:cre-d43-basic-im-ssot-rules -->

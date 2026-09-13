@@ -40,7 +40,7 @@ export async function GET(
   const docId = searchParams.get('doc_id');
   /** @deprecated 골디락스 전환 후 렌더에 영향 없음 — 파일명 호환용 */
   const tier = (searchParams.get('tier') ?? 'basic') as 'basic' | 'pro';
-  const preset = searchParams.get('preset') || 'credeal_signature';
+  const presetParam = searchParams.get('preset');
 
   // Create Supabase client
   const supabase = createClient(
@@ -149,9 +149,13 @@ export async function GET(
     const hasViolation = body.hasViolation ?? body.violationStatus === 'exists';
     const hasJointCollateral = body.hasJointCollateral ?? false;
 
+    const resolvedPreset = presetParam
+      || body.preset
+      || (tier === 'basic' || body.tier === 'basic' ? 'credeal_basic' : 'credeal_signature');
+
     const result = await renderer.render({
       buildingId,
-      preset,
+      preset: resolvedPreset,
       posture,
       grade,
       incomeArchetype,

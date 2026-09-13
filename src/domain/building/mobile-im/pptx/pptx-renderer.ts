@@ -154,6 +154,7 @@ export class MobileImPptxRenderer {
           hasCadastralMap: !!(enrichment.cadastralMapImage),
           hasFloorPlan: false,
           hasRentRoll: !!(input.doc.body?.floor_leases?.length || input.doc.body?.ssot_summary?.monthly_rent_total_krw),
+          hasStackingPlan: !!(input.doc.body?.floor_leases?.length || (input.doc.body as any)?.stackingPlan?.length),
         },
         // D37 C-3: ReleaseTier 전달 → tier 기반 면 제어 활성화
         releaseTier: input.releaseTier,
@@ -415,9 +416,11 @@ export class MobileImPptxRenderer {
         if (spec.suppress) continue;
 
         const slideData = dataMap[spec.dataKey];
-        const isStaticSlide = ['cover', 'closing', 'gallery', 'summary'].includes(spec.dataKey)
+        const isStaticSlide = ['cover', 'closing', 'gallery', 'summary', 'yieldFormula', 'stackingPlan'].includes(spec.dataKey)
           || spec.dataKey.startsWith('gallery_')
-          || spec.archetype === 'A14';
+          || spec.archetype === 'A14'
+          || spec.archetype === 'A22'
+          || spec.archetype === 'A23';
         const hasContent = slideData && (
           (slideData.content && slideData.content.trim().length > 0) ||
           (slideData.tables && slideData.tables.length > 0) ||
@@ -431,6 +434,7 @@ export class MobileImPptxRenderer {
           ((slideData as any).steps?.length > 0) ||
           // D38: 고도화 아키타입 전수 콘텐츠 검사 가드 (Silent Drop 방지)
           ((slideData as any).stackingPlan && (slideData as any).stackingPlan.length > 0) ||
+          ((slideData as any).capRateAsIs != null) ||
           ((slideData as any).kpiRows && (slideData as any).kpiRows.length > 0) ||
           ((slideData as any).statCards && (slideData as any).statCards.length > 0) ||
           ((slideData as any).equityBreakdown != null) ||

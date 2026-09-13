@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
   let sectionalSpecInput: Record<string, any> | null = null;
   let residentialSpecInput: Record<string, any> | null = null;
   let investmentPostureInput: string | null = null;
+  let preset: string | undefined = undefined;
 
   try {
     const body = await req.json();
@@ -46,6 +47,7 @@ export async function POST(req: NextRequest) {
     skipApproval = body.skip_approval === true || body.skipApproval === true;
     directData = body.direct_data ?? body.directData ?? null;
     tier = body.tier || 'basic';
+    preset = body.preset || (tier === 'basic' ? 'credeal_basic' : undefined);
     supplemental = {
       monthly_rent_total_krw: body.monthly_rent_total_krw,
       vacancy_status: body.vacancy_status,
@@ -125,7 +127,7 @@ export async function POST(req: NextRequest) {
     building_id: buildingId,
     user_id: user.id,
     status: "processing",
-    input_payload: { supplemental, skipApproval, directData, tier },
+    input_payload: { supplemental, skipApproval, directData, tier, preset },
     created_at: new Date().toISOString(),
   });
 
@@ -142,6 +144,7 @@ export async function POST(req: NextRequest) {
         skipApproval,
         directData,
         tier,
+        preset,
         identity: investmentPostureInput
           ? { investmentPosture: investmentPostureInput }
           : undefined,

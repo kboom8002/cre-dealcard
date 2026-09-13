@@ -13,6 +13,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 const authFile = path.resolve(__dirname, '.auth/user.json');
 
 setup('authenticate', async ({ page }) => {
+  setup.setTimeout(120_000); // Dev 서버 콜드 스타트 및 첫 컴파일 대기
   const email = process.env.E2E_TEST_EMAIL;
   const password = process.env.E2E_TEST_PASSWORD;
 
