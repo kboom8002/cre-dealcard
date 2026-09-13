@@ -1,0 +1,293 @@
+{
+  "id": "03-jamwon-dev",
+  "name": "두원빌딩 (잠원동 개발부지)",
+  "address": "서울특별시 서초구 잠원동 26-14, 26-16",
+  "pnu": [
+    "1165010700100260014",
+    "1165010700100260016"
+  ],
+  "posture": "development",
+  "price_summary": "토지매입비 242.27억, 총투입비 332.09억, 2필지 일단지",
+  "basic_im": {
+    "memo": "서울특별시 서초구 잠원동 26-14, 26-16 (두원빌딩)\n매입비 242억 2,700만원 (토지 매입비, 평당 약 1.3억)\n대지 616.10㎡ (186.36평)\n제2종일반주거지역\n신축 개발 계획 (매도인 명도 책임)\n",
+    "bottom_sheet": {
+      "address": "서울특별시 서초구 잠원동 26-14, 26-16",
+      "buildingName": "두원빌딩",
+      "parcels": [
+        {
+          "pnu": "1165010700100260014",
+          "areaSqm": 511.7,
+          "zoning": "제2종일반주거지역"
+        },
+        {
+          "pnu": "1165010700100260016",
+          "areaSqm": 104.4,
+          "zoning": "제2종일반주거지역"
+        }
+      ],
+      "price": {
+        "purchaseCostManwon": 2422700
+      },
+      "qualityGrade": "C",
+      "expectedGates": [
+        "G01",
+        "G02",
+        "G03"
+      ]
+    },
+    "expected_grade": "C",
+    "expected_preset": "credeal_basic",
+    "can_generate": true,
+    "grade_rationale": "L1: PNU 2필지 + 토지매입가 → Grade C"
+  },
+  "pro_im": {
+    "memo": "[기관/디벨로퍼 실사 검증본 - 서초구 잠원동 신축 개발부지 SSoT]\n\n■ 사업 개요 및 부지 입지\n- 소재지: 서울특별시 서초구 잠원동 26-14, 26-16 (두원빌딩, 2필지 일단지)\n- PNU: 1165010700100260014 (26-14필지), 1165010700100260016 (26-16필지)\n- 입지: 신사역(3호선) 도보 4분, 논현역 7분, 강남대로 이면 코너, 싸리재 소공원 인접\n- 토지면적: 2,036.70㎡ (616.10평) / 용도지역: 제2종일반주거지역\n- 개발 콘셉트: 지하 1층 ~ 지상 6층 고품격 근생 및 업무 복합시설 신축 (Hold 모드)\n- 신축 연면적 계획: 지상 연면적 2,029.80㎡ (614.01평)\n- 원형 아키타입: A17 (개발형 마스터 플랜)\n\n■ 총 투입비 4단 완전 정산 (취득세 11.14억원 의무 산입)\n- ① 토지 매입비: 242.27억원\n- ② 직접 건축비: 73.68억원 (614.01평 × 평당 1,200만원 - 2026년 서울 소형 근생 통상 단가)\n- ③ 사업 예비비: 5.00억원\n  * 투입비 소계: 320.95억원\n- ④ 매입 취득세 (4.6%): 11.14억원\n  * 총 투입비 합계: 332.09억원 (매수인이 준비해야 할 실질 집행 예산)\n\n■ 한시 규제 완화 인센티브 및 만료 시한 (잔여일 관리)\n- 적용 제도: 서울시 소규모 건축물 용적률 완화 조례\n- 적용 혜택: 제2종일반주거 기준용적률 200% → 완화용적률 250% (50%p 상향 혜택)\n- 시행일: 2025-05-19 / 일몰 종료일: 2028-05-18\n- [핵심 리스크]: 규제 만료일까지 잔여 일수 관리 필수. 건축심의 및 인허가 완료가 2028-05-18 내에 완료되어야 용적률 250% 확보 가능. 미충족 시 기준 200%로 축소.\n\n■ 신축 후 층별 임대 계획 (Stacking Plan) 및 수익률 정밀 검산\n- 층별 임대 단가 및 면적:\n  * 6F: 50.00평 @ 18만원 = 900만원\n  * 5F: 60.00평 @ 18만원 = 1,080만원\n  * 4F: 94.67평 @ 18만원 = 1,704.06만원\n  * 3F: 94.67평 @ 18만원 = 1,704.06만원\n  * 2F: 94.67평 @ 20만원 = 1,889.40만원 (표기) vs 1,893.40만원 (정밀검산 -4만원 단수오차 보정)\n  * 1F: 70.00평 @ 22만원 = 1,540만원\n  * B1: 150.00평 @ 6만원 = 900만원\n- 월 총 임대료: 9,717.52만원 (연 11.66억원) / 보증금(12배수): 11.66억원\n- 개발 후 연 순수익률:\n  * 총 투입비(332.09억) 기준 실질 수익률: 3.51%\n  * 보증금 차감 실투자금 기준 수익률: 3.77%\n\n■ 금융 규제 (PF 자기자본비율 강화)\n- 2026년 착공 시 필요 자기자본: 10% (33.21억원)\n- 2027년 착공 시 필요 자기자본: 15% (49.81억원)\n- 2028년 착공 시 필요 자기자본: 20% (66.42억원)\n  * 착공 1년 지연 시 추가 자기자본 부담 +16.60억원 증가. 신속한 인허가 및 착공 구조화 필수.\n\n■ 명도 책임 및 필수 4대 계약 특약\n- 명도 주체: 매도인 100% 책임 명도\n- 필수 특약 4항:\n  1. 명도 완료 확정 기한 명기\n  2. 기한 초과 시 일할 위약금(일 500만원) 및 손해배상 산정 방식\n  3. 잔금 지급과 명도 완료의 동시이행/선행 관계 확정\n  4. 명도 미완료 시 매수인의 무조건 계약 해제권 및 계약금 배액배상\n",
+    "bottom_sheet": {
+      "posture": "development",
+      "address": "서울특별시 서초구 잠원동 26-14, 26-16",
+      "buildingName": "두원빌딩",
+      "parcels": [
+        {
+          "pnu": "1165010700100260014",
+          "areaSqm": 511.7,
+          "zoning": "제2종일반주거지역"
+        },
+        {
+          "pnu": "1165010700100260016",
+          "areaSqm": 104.4,
+          "zoning": "제2종일반주거지역"
+        }
+      ],
+      "askingPrice": 24227000000,
+      "qualityGrade": "A",
+      "developmentSpec": {
+        "targetUse": "office",
+        "targetScalePyung": 614.01,
+        "constructionCostPerPyung": 1200,
+        "expectedSalePricePerPyung": 2200,
+        "contractorStatus": "undecided",
+        "totalCostManwon": 3320900
+      },
+      "vacateSpec": {
+        "responsibility": "seller",
+        "currentTenantCount": 2,
+        "estimatedMonths": 6,
+        "covenants": [
+          "명도 완료 기한 명기",
+          "기한 초과 시 위약 책임 및 일할 배상(일 500만원)",
+          "잔금 지급 전 명도 완료 선행 요건",
+          "명도 미완료 시 매수인 계약 해제 및 계약금 배액배상"
+        ]
+      },
+      "regulation": {
+        "name": "서울시 소규모 건축물 용적률 완화 조례",
+        "startsAt": "2025-05-19",
+        "expiresAt": "2028-05-18",
+        "relaxedFarPct": 250,
+        "baseFarPct": 200
+      },
+      "photos_v2": [
+        {
+          "url": "images/01_exterior.jpg",
+          "category": "exterior",
+          "isHero": true,
+          "role": "cover",
+          "order": 0
+        },
+        {
+          "url": "images/02_aerial.jpg",
+          "category": "aerial",
+          "isHero": false,
+          "role": "general",
+          "order": 1
+        },
+        {
+          "url": "images/03_entrance.jpg",
+          "category": "entrance",
+          "isHero": false,
+          "role": "general",
+          "order": 2
+        },
+        {
+          "url": "images/04_lobby.jpg",
+          "category": "lobby",
+          "isHero": false,
+          "role": "general",
+          "order": 3
+        },
+        {
+          "url": "images/05_parking.jpg",
+          "category": "parking",
+          "isHero": false,
+          "role": "general",
+          "order": 4
+        },
+        {
+          "url": "images/06_dev_rendering.jpg",
+          "category": "floor_plan",
+          "isHero": false,
+          "role": "general",
+          "order": 5
+        },
+        {
+          "url": "images/07_surroundings.jpg",
+          "category": "surroundings",
+          "isHero": false,
+          "role": "general",
+          "order": 6
+        }
+      ],
+      "floor_leases": [
+        {
+          "floor": "6F",
+          "tenant_type": "단독 테라스 루프탑 오피스/엔터",
+          "area_pyung": 50,
+          "area_sqm": 165.29,
+          "rent_manwon": 900,
+          "deposit_manwon": 10800,
+          "is_vacant": true
+        },
+        {
+          "floor": "5F",
+          "tenant_type": "전문 IT/디자인 스튜디오 오피스",
+          "area_pyung": 60,
+          "area_sqm": 198.35,
+          "rent_manwon": 1080,
+          "deposit_manwon": 12960,
+          "is_vacant": true
+        },
+        {
+          "floor": "4F",
+          "tenant_type": "클리닉/피부과/전문 병의원",
+          "area_pyung": 94.67,
+          "area_sqm": 312.96,
+          "rent_manwon": 1704.06,
+          "deposit_manwon": 20449,
+          "is_vacant": true
+        },
+        {
+          "floor": "3F",
+          "tenant_type": "클리닉/치과/정형외과",
+          "area_pyung": 94.67,
+          "area_sqm": 312.96,
+          "rent_manwon": 1704.06,
+          "deposit_manwon": 20449,
+          "is_vacant": true
+        },
+        {
+          "floor": "2F",
+          "tenant_type": "고급 F&B/파인다이닝/뷰티살롱",
+          "area_pyung": 94.67,
+          "area_sqm": 312.96,
+          "rent_manwon": 1893.4,
+          "deposit_manwon": 22673,
+          "is_vacant": true,
+          "notes": "메모 원본 1,889.40 vs 정밀계산 1,893.40 (-4만원 단수 오차)"
+        },
+        {
+          "floor": "1F",
+          "tenant_type": "플래그십 카페/프리미엄 베이커리/쇼룸",
+          "area_pyung": 70,
+          "area_sqm": 231.4,
+          "rent_manwon": 1540,
+          "deposit_manwon": 18480,
+          "is_vacant": true
+        },
+        {
+          "floor": "B1",
+          "tenant_type": "스크린골프/스튜디오/피트니스",
+          "area_pyung": 150,
+          "area_sqm": 495.87,
+          "rent_manwon": 900,
+          "deposit_manwon": 10800,
+          "is_vacant": true
+        }
+      ],
+      "manual_comps": [
+        {
+          "address": "서초구 잠원동 27-1",
+          "transaction_date": "2023-06",
+          "price_manwon": 2100000
+        },
+        {
+          "address": "서초구 잠원동 25-3",
+          "transaction_date": "2022-12",
+          "price_manwon": 1800000
+        },
+        {
+          "address": "서초구 반포동 58-7",
+          "transaction_date": "2024-02",
+          "price_manwon": 2600000
+        }
+      ],
+      "expectedGates": {
+        "blocking": [],
+        "warning": [
+          "G40"
+        ]
+      }
+    },
+    "expected_grade": "A",
+    "expected_preset": "commercial_visual_grid",
+    "can_generate": true,
+    "grade_rationale": "L3: developmentSpec + vacateSpec + regulation + Stacking Plan 7층 + 비교사례 → Grade A"
+  },
+  "photos": [
+    {
+      "path": "/prod-test/03-jamwon-dev/images/01_exterior.jpg",
+      "category": "exterior",
+      "is_hero": true
+    },
+    {
+      "path": "/prod-test/03-jamwon-dev/images/02_aerial.jpg",
+      "category": "aerial",
+      "is_hero": false
+    },
+    {
+      "path": "/prod-test/03-jamwon-dev/images/03_entrance.jpg",
+      "category": "entrance",
+      "is_hero": false
+    },
+    {
+      "path": "/prod-test/03-jamwon-dev/images/04_lobby.jpg",
+      "category": "lobby",
+      "is_hero": false
+    },
+    {
+      "path": "/prod-test/03-jamwon-dev/images/05_parking.jpg",
+      "category": "parking",
+      "is_hero": false
+    },
+    {
+      "path": "/prod-test/03-jamwon-dev/images/06_dev_rendering.jpg",
+      "category": "floor_plan",
+      "is_hero": false
+    },
+    {
+      "path": "/prod-test/03-jamwon-dev/images/07_surroundings.jpg",
+      "category": "surroundings",
+      "is_hero": false
+    }
+  ],
+  "assertions": {
+    "positive": [
+      "PPTX 생성 성공 (>50KB)",
+      "location 슬라이드 필수 포함",
+      "developmentSpec 반영 (평당 공사비 1,200만, 총투입비 332.09억)",
+      "Stacking Plan 7층 반영 (월 총 9,717만)",
+      "regulation 카운트다운 (2028-05-18 일몰)",
+      "사진 갤러리 ≥4장"
+    ],
+    "negative": [
+      "Grade D → 생성 차단",
+      "2F 단수오차 (-4만원: 1,889.40 vs 1,893.40) 감지",
+      "조례 만료일(2028-05-18) 리스크 경고",
+      "PF 자기자본 강화 (연 +16.6억 지연비용) 경고",
+      "명도 4대 특약 필수 검증"
+    ],
+    "basic_specific": [
+      "credeal_basic 프리셋 적용",
+      "표지 사진 차단 (추상 기하학 커버)"
+    ]
+  }
+}
