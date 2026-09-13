@@ -335,7 +335,11 @@ export class MobileImPptxRenderer {
           const leases = input.doc.body.floor_leases as any[];
           const totalUnits = leases.length;
           const vacantUnits = leases.filter((l: any) => 
-            l.is_vacant === true || l.tenant === '공실' || l.tenant_name === '공실'
+            l.is_vacant === true 
+            || l.tenant === '공실' || l.tenant_name === '공실'
+            || l.tenant_type === '공실' || l.tenant_sector === '공실'
+            || (l.tenant_type?.includes?.('공실'))
+            || (l.rent_manwon === 0 && l.deposit_manwon === 0 && !l.tenant_type)
           ).length;
           if (vacantUnits > 0 && totalUnits > 0) {
             vacPct = Math.round((vacantUnits / totalUnits) * 1000) / 10;

@@ -563,7 +563,11 @@ export async function generateMobileIMHandler(
   const floorLeases = supplemental.floor_leases ?? [];
   if (floorLeases.length > 0 && supplemental.vacancy_pct == null) {
     const vacantCount = floorLeases.filter((l: any) => 
-      l.is_vacant === true || l.tenant === '공실' || l.tenant_name === '공실'
+      l.is_vacant === true 
+      || l.tenant === '공실' || l.tenant_name === '공실'
+      || l.tenant_type === '공실' || l.tenant_sector === '공실'
+      || (l.tenant_type?.includes?.('공실'))
+      || (l.rent_manwon === 0 && l.deposit_manwon === 0 && !l.tenant_type)
     ).length;
     supplemental.vacancy_pct = Math.round((vacantCount / floorLeases.length) * 1000) / 10;
   }
