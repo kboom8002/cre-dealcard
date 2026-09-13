@@ -5,7 +5,7 @@
  * Phase 1: 서초동 메모 입력 → 딜카드 생성
  * Phase 2: 바텀시트 오픈 → 포스처(임대수익) → 주소/PNU → 사진 7장 → R2 렌트롤 → Basic IM 생성 & 승인
  * Phase 3: 모바일 IM 뷰어 레이아웃 & 스태킹 플랜 검증
- * Phase 4: PPTX 다운로드 및 AdmZip 바이너리 무결성 (10~11면, 결함 0건)
+ * Phase 4: PPTX 다운로드 및 AdmZip 바이너리 무결성 + 콘텐츠 정합성 7종 단언
  * Phase 5: LibreOffice 150 DPI 고화질 슬라이드 PNG 변환 및 시각 검증
  *
  * Rule 4: AI 시각 무결성 (150 DPI PNG 캡처 및 육안 검사)
@@ -382,8 +382,8 @@ B1 138.3평 파티룸 보증금6000만 월세510만`;
     }
   });
 
-  test('Phase 4: PPTX 다운로드 & AdmZip 바이너리 무결성 검증 (Rule 47 준거)', async ({ page }) => {
-    console.log('\n🔷 Phase 4: PPTX 다운로드 & 바이너리 무결성 검증');
+  test('Phase 4: PPTX 다운로드 & AdmZip 바이너리 + 콘텐츠 정합성 검증 (Rule 47 준거)', async ({ page }) => {
+    console.log('\n🔷 Phase 4: PPTX 다운로드 & 바이너리 + 콘텐츠 정합성 검증');
 
     const idFile = path.join(SCREENSHOT_DIR, 'building-id.txt');
     const docIdFile = path.join(SCREENSHOT_DIR, 'doc-id.txt');
@@ -431,13 +431,19 @@ B1 138.3평 파티룸 보증금6000만 월세510만`;
     const slideEntries = entries.filter((e: any) => /^ppt\/slides\/slide\d+\.xml$/.test(e.entryName));
     console.log(`  📄 총 슬라이드 면수: ${slideEntries.length}면`);
 
-    // Rule 47: Basic IM은 표준 9단계 (실서초동은 부록 지적도/스태킹 포함 10~11면)
-    // 19면 골디락스가 아닌 10~12면 이내여야 함!
+    // ─── 단언 ①: 면수 (basic-im-guide §2 표준 9섹션, +지적도 optional → 9~10면) ───
     expect(slideEntries.length).toBeGreaterThanOrEqual(9);
-    expect(slideEntries.length).toBeLessThanOrEqual(13);
-    console.log('  ✅ Basic IM 9섹션 표준 면수 범위(9~13면) 부합');
+    expect(slideEntries.length).toBeLessThanOrEqual(10);
+    console.log('  ✅ Basic IM 면수 범위(9~10면) 부합');
 
-    // 4. 결함 토큰 검증
+    // ─── OpenXML 전체 텍스트 추출 헬퍼 ───
+    function extractSlideText(slideXml: string): string {
+      return slideXml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    const allSlideTexts = slideEntries.map((e: any) => extractSlideText(e.getData().toString('utf-8')));
+    const fullPptxText = allSlideTexts.join('\n');
+
+    // ─── 단언 ②: 결함 토큰 (NaN, undefined, null, [object Object]) 0건 ───
     for (const slide of slideEntries) {
       const xml = slide.getData().toString('utf-8');
       expect(xml).not.toContain('>NaN<');
@@ -447,7 +453,70 @@ B1 138.3평 파티룸 보증금6000만 월세510만`;
     }
     console.log('  ✅ OpenXML 결함 토큰 (NaN, undefined, null) 0건 검증 완료');
 
-    // 5. 미디어 이미지 검증
+    // ─── 단언 ③: 표지(Slide 1) 4요소 — 주소, 매각가, 작성일 ───
+    const slide1Text = allSlideTexts[0] || '';
+    const hasCoverAddress = /서초/.test(slide1Text);
+    const hasCoverPrice = /\d+억/.test(slide1Text) || /매각/.test(slide1Text);
+    const hasCoverDate = /2026\.\d{2}\.\d{2}/.test(slide1Text) || /2026-\d{2}-\d{2}/.test(slide1Text);
+    console.log(`  표지 주소: ${hasCoverAddress ? '✅' : '⚠️'} | 매각가: ${hasCoverPrice ? '✅' : '⚠️'} | 작성일: ${hasCoverDate ? '✅' : '⚠️'}`);
+    // soft-assert (신규 기능이므로 경고만)
+    if (!hasCoverAddress) console.log('    ⚠️ 표지에 주소 키워드("서초") 미발견');
+    if (!hasCoverPrice) console.log('    ⚠️ 표지에 매각가("N억") 미발견');
+
+    // ─── 단언 ④: 핵심 섹션 키워드 존재 (basic-im-guide §2 표준 9단계) ───
+    const sectionKeywords = [
+      { name: '요약(투자 지표)', pattern: /투자\s*지표|핵심\s*투자|Investment/ },
+      { name: '물건 개요', pattern: /물건\s*개요|건물\s*개요|건축물|Property/ },
+      { name: '입지', pattern: /입지|위치|Location/ },
+      { name: '토지', pattern: /토지|Land/ },
+      { name: '임대차', pattern: /임대차|Rent\s*Roll|렌트롤/ },
+      { name: '수익률', pattern: /수익률|Yield|Cap\s*Rate/ },
+      { name: '사진', pattern: /사진|Gallery|현장/ },
+      { name: '면책/유의', pattern: /면책|유의|문의|Disclaimer|Closing/ },
+    ];
+    let sectionHits = 0;
+    for (const kw of sectionKeywords) {
+      const found = kw.pattern.test(fullPptxText);
+      if (found) sectionHits++;
+      console.log(`  섹션 "${kw.name}": ${found ? '✅' : '❌'}`);
+    }
+    expect(sectionHits).toBeGreaterThanOrEqual(6); // 8개 중 최소 6개 발견
+    console.log(`  ✅ 핵심 섹션 ${sectionHits}/8 키워드 확인 완료`);
+
+    // ─── 단언 ⑤: 안정화 수익률 카드 존재 (C2 해소 검증) ───
+    const hasStabilized = /Stabilized|안정화/.test(fullPptxText);
+    const hasAnalystAssumption = /분석가정|분석\s*가정/.test(fullPptxText);
+    console.log(`  안정화 수익률: ${hasStabilized ? '✅' : '⚠️'} | 분석가정: ${hasAnalystAssumption ? '✅' : '⚠️'}`);
+    // 서초동 데이터에 3개층 공실이 있으므로 반드시 안정화 카드가 존재해야 함
+    expect(hasStabilized).toBe(true);
+
+    // ─── 단언 ⑥: 투자 포인트 회피성 문구 차단 (Rule 37) ───
+    const evasivePhrases = [
+      '본문을 참조', '별도 안내 예정', '추후 확인',
+      '상세.*별첨', '확인 필요',
+    ];
+    const evasiveFound: string[] = [];
+    for (const phrase of evasivePhrases) {
+      if (new RegExp(phrase).test(fullPptxText)) {
+        evasiveFound.push(phrase);
+      }
+    }
+    if (evasiveFound.length > 0) {
+      console.log(`  ⚠️ 회피성 문구 발견: ${evasiveFound.join(', ')}`);
+    } else {
+      console.log('  ✅ 회피성 문구 0건');
+    }
+    // "확인 필요"는 실사 점검 맥락에서 사용 가능하므로 soft-assert
+    const criticalEvasive = evasiveFound.filter(p => !p.includes('확인 필요'));
+    expect(criticalEvasive.length).toBe(0);
+
+    // ─── 단언 ⑦: 갤러리 슬라이드 1면 완결 (C5 해소 검증) ───
+    const gallerySlides = allSlideTexts.filter(t => /Gallery|현장\s*사진|건물\s*사진/.test(t));
+    console.log(`  📸 갤러리 슬라이드 수: ${gallerySlides.length}면`);
+    expect(gallerySlides.length).toBeLessThanOrEqual(1); // Basic IM: 최대 1면
+    console.log('  ✅ 갤러리 슬라이드 1면 이하 확인');
+
+    // ─── 미디어 이미지 검증 ───
     const mediaEntries = entries.filter((e: any) =>
       /^ppt\/media\/.*\.(jpg|jpeg|png|gif|emf|wmf)$/i.test(e.entryName) && e.header.size > 0
     );
