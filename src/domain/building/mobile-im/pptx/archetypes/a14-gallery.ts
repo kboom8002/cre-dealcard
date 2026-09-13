@@ -125,14 +125,15 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
       });
     }
 
-    // 3. 캡션 바 (하단 오버레이)
-    if (meta.caption && meta.caption.trim().length > 0) {
+    // 3. 캡션 바 (하단 오버레이) — 라벨과 완전히 동일한 텍스트이면 중복 렌더링 방지
+    const hasDistinctCaption = meta.caption && meta.caption.trim().length > 0 && meta.caption.trim() !== meta.label?.trim();
+    if (hasDistinctCaption) {
       const captionH = 0.32;
       slide.addShape('rect' as any, {
         x, y: y + h - captionH, w, h: captionH,
         fill: { color: '000000', transparency: 40 },
       });
-      slide.addText(meta.caption, {
+      slide.addText(String(meta.caption), {
         x: x + 0.12, y: y + h - captionH, w: w - 0.24, h: captionH,
         fontFace: KR, fontSize: 9, color: 'FFFFFF', // D30 m-4: 최소 캡션 9pt
         valign: 'middle', margin: 0,

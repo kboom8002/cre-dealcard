@@ -27,18 +27,19 @@ export interface ArchetypeOutput {
 
 /** institutional_masses — 우상단 매스 3개 + 황동 액센트 (golden_institutional 기본) */
 function coverInstitutionalMasses(slide: any, input: ArchetypeInput): void {
+  const isBasic = THEME_META.presetId === 'credeal_basic';
   // 매스 3개 (우상단 장식 블록)
   slide.addShape('rect' as any, {
     x: 9.05, y: 0, w: 1.55, h: 4.42,
-    fill: { color: '1A2030' },
+    fill: { color: isBasic ? '132A3A' : '1A2030' },
   });
   slide.addShape('rect' as any, {
     x: 10.70, y: 0.95, w: 1.25, h: 3.47,
-    fill: { color: '161D2B' },
+    fill: { color: isBasic ? '1A3347' : '161D2B' },
   });
   slide.addShape('rect' as any, {
     x: 12.05, y: 1.85, w: 1.28, h: 2.57,
-    fill: { color: '2E2718' },
+    fill: { color: isBasic ? '2B4A5E' : '2E2718' },
   });
 
   // 워드마크
@@ -225,7 +226,11 @@ function renderCommonCoverContent(
 
   // 태그
   let tagX = x;
-  const tags = input.data.tags || [];
+  const tags = (input.data.tags || []).filter((tag: string) => {
+    if (!tag) return false;
+    if (input.data.askingPrice && /\d+\s*억\s*대/.test(tag)) return false;
+    return true;
+  });
   const tagY = Math.max(nextY + 0.3, kickerY + 1.70);
   tags.forEach((tag: string) => {
     if (!tag) return;
@@ -277,6 +282,9 @@ function renderCommonCoverContent(
 
 export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOutput> {
   const slide = L.dark(input.pres);
+  if (THEME_META.presetId === 'credeal_basic') {
+    slide.background = { fill: '0A1620' };
+  }
   const warnings: string[] = [];
   const style = THEME_META.coverStyle;
 

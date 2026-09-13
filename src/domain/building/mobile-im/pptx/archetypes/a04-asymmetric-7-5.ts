@@ -47,14 +47,21 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
         return [k, v] as [string, string];
       }
       return [stripMarkdown(String(r[0] || '')), ''] as [string, string];
-    }) as [string, string][]).filter(([k, v]: [string, string]) => k.length > 0 && !k.includes('항목') && !k.includes('내용'));
+    }) as [string, string][]).filter(([k, v]: [string, string]) => {
+      if (!k || k.includes('항목') || k.includes('내용')) return false;
+      if (input.data.priceTable && (k.includes('매매') || k.includes('매각') || k.includes('희망가'))) return false;
+      return true;
+    });
 
+    let renderedRowCount = 0;
     if (rowEntries.length > 0) {
+      renderedRowCount = Math.min(rowEntries.length, 10);
       L.rows(slide, M, 1.80, lw, rowEntries.slice(0, 10), { rh: 0.48, fs: 13.5 });
     } else {
       const fallbackTitle = `${input.data.title || left.sub || '세부 정보'} 요약`;
       L.callout(slide, M, 1.80, lw, 2.0, 'info', fallbackTitle,
         '• 상세 제원은 실사 자료 및 공부 원본을 참조하시기 바랍니다\n• 세부 현황은 첨부 공적 장부 및 현장 실사를 기준으로 합니다\n• 특이사항은 LOI 접수 후 제공되는 실사 보고서를 참조하십시오');
+      renderedRowCount = 4;
     }
   } else if (input.data.content) {
     const lines = String(input.data.content).split('\n')
@@ -65,17 +72,24 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       const stripped = stripMarkdown(line).replace(/[`\[\]]/g, '');
       const parts = stripped.split(/[：:]/);
       if (parts.length >= 2) {
-        contentRows.push([parts[0].trim(), parts.slice(1).join(':').trim()]);
+        const k = parts[0].trim();
+        if (input.data.priceTable && (k.includes('매매') || k.includes('매각') || k.includes('희망가'))) continue;
+        contentRows.push([k, parts.slice(1).join(':').trim()]);
       } else if (stripped.startsWith('-') || stripped.startsWith('•')) {
-        contentRows.push([stripped.replace(/^[-•·]\s*/, ''), '']);
+        const k = stripped.replace(/^[-•·]\s*/, '');
+        if (input.data.priceTable && (k.includes('매매') || k.includes('매각') || k.includes('희망가'))) continue;
+        contentRows.push([k, '']);
       }
     }
+    let renderedRowCount = 0;
     if (contentRows.length > 0) {
+      renderedRowCount = Math.min(contentRows.length, 10);
       L.rows(slide, M, 1.80, lw, contentRows.slice(0, 10), { rh: 0.48, fs: 13.5 });
     } else {
       const fallbackTitle = `${input.data.title || left.sub || '세부 정보'} 요약`;
       L.callout(slide, M, 1.80, lw, 2.0, 'info', fallbackTitle,
         '• 상세 제원은 실사 자료 및 공부 원본을 참조하시기 바랍니다\n• 세부 현황은 첨부 공적 장부 및 현장 실사를 기준으로 합니다\n• 특이사항은 LOI 접수 후 제공되는 실사 보고서를 참조하십시오');
+      renderedRowCount = 4;
     }
   } else {
     const fallbackTitle = `${input.data.title || left.sub || '세부 정보'} 요약`;
@@ -84,21 +98,23 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
   }
   
   if (input.data.priceTable) {
-    const rowCount = (left.rows?.length || (input.data.content ? String(input.data.content).split('\n').filter(l => l.trim().length > 0 && !l.startsWith('#') && !l.startsWith('|')).length : 0));
-    const finalRowCount = Math.min(rowCount, 10);
-    const py = 1.80 + finalRowCount * 0.48 + 0.2;
+    const actualRows = left.rows?.length 
+      ? left.rows.filter((r: any[]) => !(r[0] && (String(r[0]).includes('매매') || String(r[0]).includes('매각') || String(r[0]).includes('희망가')))).length
+      : (input.data.content ? String(input.data.content).split('\n').filter(l => l.trim().length > 0 && !l.startsWith('#') && !l.startsWith('|') && !l.includes('매매') && !l.includes('매각')).length : 7);
+    const finalRowCount = Math.min(Math.max(actualRows, 5), 8);
+    const py = Math.min(1.80 + finalRowCount * 0.48 + 0.10, 5.80);
     slide.addShape('rect' as any, {
-      x: M, y: py, w: lw, h: 0.55,
+      x: M, y: py, w: lw, h: 0.60,
       fill: { color: 'F6F1E4' },
       line: { color: 'B8860B', width: 1.2 }
     });
     slide.addText(input.data.priceTable.label, {
-      x: M + 0.15, y: py, w: lw * 0.4, h: 0.55,
-      fontFace: KR, fontSize: 11, bold: true, color: C.ink, valign: 'middle', align: 'left', margin: 0
+      x: M + 0.20, y: py, w: lw * 0.35, h: 0.60,
+      fontFace: KR, fontSize: 12, bold: true, color: C.ink, valign: 'middle', align: 'left', margin: 0
     });
     slide.addText(input.data.priceTable.value, {
-      x: M + lw * 0.4, y: py, w: lw * 0.6 - 0.15, h: 0.55,
-      fontFace: KR, fontSize: 14, bold: true, color: C.brass, valign: 'middle', align: 'right', margin: 0
+      x: M + lw * 0.35, y: py, w: lw * 0.65 - 0.20, h: 0.60,
+      fontFace: KR, fontSize: 16, bold: true, color: C.brass, valign: 'middle', align: 'right', margin: 0
     });
   }
 

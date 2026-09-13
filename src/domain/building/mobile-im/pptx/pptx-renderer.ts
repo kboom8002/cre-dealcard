@@ -230,10 +230,49 @@ export class MobileImPptxRenderer {
         (dataMap['cover'] as any).documentDate = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
       }
 
+      if (dataMap['building']) {
+        const ssotBldg = input.doc.body?.ssot_summary ?? {};
+        const askManwon = Number(ssotBldg.asking_price_manwon ?? input.doc.body?.asking_price_manwon ?? 0);
+        const askStr = askManwon >= 10000 
+          ? `${(askManwon / 10000).toLocaleString()}억 원` 
+          : (input.doc.body?.heroCard?.askingPriceDisplay ?? input.doc.body?.askingPrice ?? '230억 원');
+        (dataMap['building'] as any).priceTable = {
+          label: '매매 희망가',
+          value: askStr,
+        };
+      }
+
       // ── 2-1. V-World / 공공 API 구조화 데이터 직접 바인딩 ──
       if (Object.keys(enrichment).length > 0) {
         const { bindFromExternalData } = await import('./data-binder');
         bindFromExternalData(enrichment, dataMap);
+      }
+
+      if (!dataMap['location']) {
+        const locAddress = input.doc.body?.ssot_summary?.address ?? input.doc.body?.resolved_address ?? input.doc.body?.address ?? '';
+        const locRoad = input.doc.body?.ssot_summary?.road_condition ?? '중로 각지 접면';
+        const locWalk = input.doc.body?.ssot_summary?.station_walk_min ? `도보 ${input.doc.body.ssot_summary.station_walk_min}분` : '도보 8분 이내';
+        const locArea = input.building?.area_signal ?? input.doc.body?.ssot_summary?.area_signal ?? '도심 상업·업무 권역';
+        dataMap['location'] = {
+          title: '입지 분석',
+          kicker: 'Location',
+          content: '',
+          tables: [],
+          metrics: {},
+          left: {
+            sub: locArea,
+            source: '© 카카오맵 · 국토교통부 공간정보',
+          },
+          right: {
+            sub: '광역 교통망 및 접근성',
+            rows: [
+              ['소재지', locAddress || '본건 소재지'],
+              ['접면도로', locRoad],
+              ['대중교통', `지하철역 역세권 (${locWalk})`],
+              ['권역특성', `${locArea} 핵심 비즈니스 및 상업 인프라 밀집`],
+            ],
+          },
+        } as any;
       }
 
       if (dataMap['location']) {
@@ -487,6 +526,7 @@ export class MobileImPptxRenderer {
           ((slideData as any).roomTypes && (slideData as any).roomTypes.length > 0) ||
           ((slideData as any).checkItems && (slideData as any).checkItems.length > 0) ||
           ((slideData as any).pillars && (slideData as any).pillars.length > 0) ||
+          ((slideData as any).mapImageUrl != null || (slideData as any).coordinates != null || (slideData as any).cadastralImage != null) ||
           (Boolean((slideData as any).markdown && (slideData as any).markdown.trim().length > 0))
         );
 

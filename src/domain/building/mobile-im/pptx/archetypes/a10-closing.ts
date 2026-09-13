@@ -161,17 +161,17 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
       });
     }
 
-    disclaimerStartY = contactY + contactH + 0.16;
+    disclaimerStartY = contactY + contactH + 0.52;
   } else {
     disclaimerStartY = sectionY + 0.36;
   }
 
   // 면책 조항
-  L.sub(slide, rx, disclaimerStartY - 0.36, rw, '면책 조항', true);
+  L.sub(slide, rx, disclaimerStartY - 0.34, rw, '면책 조항', true);
   
   const disclaimerText = input.data.disclaimer || MOBILE_IM_STANDARD_DISCLAIMER;
   const maxCardH = 6.20 - disclaimerStartY;
-  const cardH = Math.max(1.20, Math.min(maxCardH, 0.5 + Math.ceil(disclaimerText.length / 55) * 0.26));
+  const cardH = Math.max(1.10, Math.min(maxCardH, 0.45 + Math.ceil(disclaimerText.length / 55) * 0.24));
 
   // 면책 배경 카드
   slide.addShape('roundRect' as any, {

@@ -32,12 +32,23 @@ const EXPIRY_COLORS: Record<string, string> = {
 
 type FloorInfo = StackingPlanFloor & { _expiry?: string; area?: number };
 
+function parseExpiryYear(text: string): string | undefined {
+  if (!text) return undefined;
+  const m4 = text.match(/20(2[4-9])/);
+  if (m4) return `20${m4[1]}`;
+  const m2 = text.match(/['’]?\s*(2[4-9])\b/);
+  if (m2) return `20${m2[1]}`;
+  return undefined;
+}
+
 export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput {
   const warnings: string[] = [];
   
-  const stackingData = input.data.stackingPlan || input.data.rentRollFloors || [];
-  // tableRows는 data-binder가 직접 주입하거나, tables[0].rows로 전달될 수 있음
-  let tableRows = input.data.tableRows || [];
+  const data = input.data || {};
+  const stackingData = data.stackingPlan || input.data.rentRollFloors || [];
+  
+  // Rent roll table data
+  let tableRows = data.tableRows || (data.tables?.[0]?.rows) || [];
   if (tableRows.length === 0 && Array.isArray(input.data.tables)) {
     const firstTable = input.data.tables[0];
     if (firstTable?.rows?.length > 0) {
@@ -46,7 +57,8 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   }
   
   if (stackingData.length === 0 && tableRows.length === 0) {
-    return { warnings: ['렌트롤 및 스태킹 플랜 데이터 없음 — 슬라이드 생략'], suppress: true };
+    warnings.push('A24 렌트롤/스태킹 데이터 없음 — 슬라이드 억제');
+    return { slide: input.pres.addSlide(), warnings, suppress: true };
   }
 
   const slide = light(input.pres);
@@ -72,13 +84,22 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     const FLOOR_PATTERN = /^(B?\d+F?|지상|지하|옥탑|PH|RF|\d+층)/i;
     const firstCell = String(tableRows[0]?.[0] || '');
     if (FLOOR_PATTERN.test(firstCell.trim())) {
-      floors = tableRows.map((r: any[]) => ({
-        floor: String(r[0] || ''),
-        tenant: String(r[2] || ''),
-        isVacant: String(r[2] || '').includes('공실'),
-        expiryYear: String(r[5] || '').match(/202[4-9]/)?.[0],
-        area: parseFloat(String(r[1] || '').replace(/,/g, '')) || 0,
-      }));
+      floors = tableRows.map((r: any[]) => {
+        const floor = String(r[0] || '').trim();
+        const tenant = String(r[1] || '').trim();
+        const areaStr = String(r[2] || '').trim();
+        const deposit = String(r[3] || '').trim();
+        const rent = String(r[4] || '').trim();
+        const expiry = String(r[5] || '').trim();
+        const isVac = tenant.includes('공실') || floor.includes('공실');
+        return {
+          floor,
+          tenant: tenant || (isVac ? '공실' : '-'),
+          isVacant: isVac,
+          expiryYear: parseExpiryYear(expiry) || parseExpiryYear(tenant),
+          area: parseFloat(areaStr.replace(/[^0-9.]/g, '')) || 0,
+        };
+      });
     }
     // 층 패턴이 아니면 floors를 빈 배열로 유지 → 좌측 스태킹 도식 생략, 우측 테이블만 렌더링
   }
@@ -87,10 +108,10 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     // Determine colors & legends
     const usedYears = new Set<string>();
     floors.forEach(f => {
-      const match = (f.tenant || '').match(/202[4-9]/) || (f.expiryYear ? [f.expiryYear] : null);
-      if (match && !f.isVacant && !f.tenant?.includes('공실')) {
-        usedYears.add(String(match[0]));
-        f._expiry = String(match[0]);
+      const yr = f.expiryYear ? String(f.expiryYear) : parseExpiryYear(f.tenant || '');
+      if (yr && !f.isVacant && !f.tenant?.includes('공실')) {
+        usedYears.add(yr);
+        f._expiry = yr;
       }
     });
 
@@ -105,8 +126,8 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       legendX += 0.8;
     });
     // Add Vacant legend
-    slide.addShape('rect', { x: legendX, y: spY, w: 0.15, h: 0.15, fill: { color: 'EFEFEF' }, line: { dashType: 'dash', color: 'B9BDC0' } as any });
-    slide.addText('공실', { x: legendX + 0.2, y: spY, w: 0.6, h: 0.15, fontSize: 9, color: '5B6B73', fontFace: KR });
+    slide.addShape('rect', { x: legendX, y: spY, w: 0.15, h: 0.15, fill: { color: 'FBEFE8' }, line: { dashType: 'dash', color: 'B05A2E', width: 1.0 } as any });
+    slide.addText('공실', { x: legendX + 0.2, y: spY, w: 0.6, h: 0.15, fontSize: 9, color: 'B05A2E', fontFace: KR, bold: true });
 
     // Render bars (bottom to top)
     const drawAreaH = spH - 0.4;
@@ -138,10 +159,17 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     const bCount = drawFloors.filter(f => String(f.floor).toUpperCase().startsWith('B')).length;
     if (bCount > 0 && bCount < drawFloors.length) {
       const groundY = baseDrawY - (bCount * hPerFloor);
-      slide.addShape('line', { x: spX, y: groundY, w: spW, h: 0, line: { color: '5B6B73', width: 2 } });
+      slide.addShape('line', {
+        x: spX + 0.2, y: groundY, w: spW - 0.4, h: 0,
+        line: { color: 'CBD5E0', width: 1.5, dashType: 'dash' } as any
+      });
+      slide.addText('GL (지상/지하 경계)', {
+        x: spX + 0.2, y: groundY - 0.2, w: 2.0, h: 0.2,
+        fontSize: 8, color: '8A9AA3', fontFace: KR
+      });
     }
 
-    drawFloors.forEach((floor) => {
+    drawFloors.forEach(floor => {
       currentY -= hPerFloor;
       
       const isSubterranean = String(floor.floor).toUpperCase().startsWith('B');
@@ -152,7 +180,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       let fillCol = 'E2E8F0';
       const isVacant = floor.isVacant || floor.tenant?.includes('공실');
       if (isVacant) {
-        fillCol = 'EFEFEF';
+        fillCol = 'FBEFE8';
       } else if (floor._expiry && EXPIRY_COLORS[floor._expiry]) {
         fillCol = EXPIRY_COLORS[floor._expiry];
       } else if (floor.category === 'parking' || floor.tenant?.includes('주차')) {
@@ -170,7 +198,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         slide.addShape('rect', {
           x: barX, y: currentY + 0.05, w: barW, h: hPerFloor - 0.1,
           fill: { color: fillCol },
-          line: { dashType: 'dash', color: 'B9BDC0' } as any
+          line: { dashType: 'dash', color: 'B05A2E', width: 1.2 } as any
         });
       } else {
         slide.addShape('rect', {
@@ -181,16 +209,17 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       }
       
       // Tenant text
-      slide.addText(floor.tenant || '', {
+      const tenantLabel = isVacant ? '공실' : (floor.tenant || '');
+      slide.addText(tenantLabel, {
         x: barX + 0.1, y: currentY + 0.05, w: barW - 0.2, h: hPerFloor - 0.1,
-        fontSize: 10, color: '5B6B73', align: 'center', valign: 'middle', fontFace: KR
+        fontSize: 10, bold: isVacant, color: isVacant ? 'B05A2E' : '5B6B73', align: 'center', valign: 'middle', fontFace: KR
       });
     });
   }
 
   // --- Right Panel: Rent Roll Table ---
-  const HEADERS = ['층수', '면적(평)', '임차인', '보증금', '월세', '계약종료'];
-  const colW = [0.8, 1.2, 2.0, 1.3, 1.0, 1.2]; // Sum = 7.50
+  const HEADERS = ['층수', '임차인', '면적(평)', '보증금', '월세', '계약종료'];
+  const colW = [0.8, 1.8, 1.3, 1.3, 1.1, 1.2]; // Sum = 7.50
   
   if (tableRows.length > 0) {
     let rawRows = [...tableRows];

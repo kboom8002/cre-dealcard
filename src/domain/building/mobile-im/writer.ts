@@ -483,18 +483,23 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
 
   // ── 5. Hero Card 구축 ──
   const posture = ctx.sectionPlan?.posture ?? 'income';
-  const heroCard: HeroCardData = {
+    const exactPriceStr = ctx.purchasePriceKrw > 0 
+      ? `${(ctx.purchasePriceKrw / 1e8).toFixed(ctx.purchasePriceKrw % 1e8 === 0 ? 0 : 1)}억 원` 
+      : '';
+    const askDisplay = exactPriceStr || String(ctx.assetIdentity.price_band ?? '');
+
+    const heroCard: HeroCardData = {
     posture,
     assetType: String(ctx.assetIdentity.asset_type ?? ''),
     areaSignal: String(ctx.assetIdentity.area_signal || ''),
-    askingPriceDisplay: String(ctx.assetIdentity.price_band ?? (ctx.purchasePriceKrw > 0 ? `${(ctx.purchasePriceKrw / 1e8).toFixed(1)}억 원` : '')),
+    askingPriceDisplay: askDisplay,
     capRateBase: cachedFinancials?.capRate?.base ?? null,
     noiBaseBil: cachedFinancials?.annualNoi?.base ? parseFloat((cachedFinancials.annualNoi.base / 1e8).toFixed(1)) : null,
     keyInvestmentPoint: String(ctx.buyerFit.fit_summary ?? (() => {
       const areaSig = String(ctx.assetIdentity.area_signal || '');
       const area = areaSig ? (areaSig.endsWith('권역') ? `${areaSig} 소재` : areaSig.endsWith('권') ? `${areaSig}역 소재` : `${areaSig} 권역 소재`) : '소재';
       const asset = String(ctx.assetIdentity.asset_type || '상업용 자산');
-      const price = ctx.assetIdentity.price_band ? `, 희망가 ${ctx.assetIdentity.price_band}` : '';
+      const price = askDisplay ? `, 희망가 ${askDisplay}` : '';
       switch (posture) {
         case 'owner_occupied':
           return `${area} ${asset}${price} — 법인 사옥 매입 검토 자료입니다.`;
