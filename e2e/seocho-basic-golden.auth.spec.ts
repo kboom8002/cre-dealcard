@@ -521,6 +521,40 @@ B1 138.3평 파티룸 보증금6000만 월세510만`;
     const criticalEvasive = evasiveFound.filter(p => !p.includes('확인 필요'));
     expect(criticalEvasive.length).toBe(0);
 
+    // ─── 단언 ⑧: 표지 배경색 0A1620 검증 (G3, basic-im-guide §4) ───
+    const slide1Xml = slideEntries[0].getData().toString('utf-8');
+    const hasCoverBg = slide1Xml.includes('0A1620');
+    console.log(`  표지 배경색 0A1620: ${hasCoverBg ? '✅' : '⚠️'}`);
+    expect(slide1Xml).toContain('0A1620');
+
+    // ─── 단언 ⑨: 가격 밴드(N억대) 전슬라이드 미사용 (SOTA ④, Rule 52) ───
+    const hasBandPrice = /\d+억\s*대/.test(fullPptxText);
+    console.log(`  가격 밴드 차단: ${!hasBandPrice ? '✅' : '❌'}`);
+    expect(fullPptxText).not.toMatch(/\d+억\s*대/);
+
+    // ─── 단언 ⑩: INTERNAL_MONOLOGUE 누출 차단 (G2, SOTA ⑤) ───
+    const monologuePatterns = ['실사 점검:', '주의:', '검토 필요', '리스크 요인:', '내부 검토', '분석가 의견:'];
+    const monologueFound: string[] = [];
+    for (const pat of monologuePatterns) {
+      if (fullPptxText.includes(pat)) monologueFound.push(pat);
+    }
+    if (monologueFound.length > 0) {
+      console.log(`  ❌ 내적 독백 누출: ${monologueFound.join(', ')}`);
+    } else {
+      console.log('  ✅ INTERNAL_MONOLOGUE 6종 차단 확인');
+    }
+    expect(monologueFound.length).toBe(0);
+
+    // ─── 단언 ⑪: A24 공실 스타일링 FBEFE8 (G4, basic-im-guide §4) ───
+    const rentRollSlideIdx = allSlideTexts.findIndex(t => /임대차|Rent\s*Roll/.test(t));
+    if (rentRollSlideIdx >= 0) {
+      const rentRollXml = slideEntries[rentRollSlideIdx].getData().toString('utf-8');
+      const hasVacancyStyle = rentRollXml.includes('FBEFE8');
+      console.log(`  A24 공실 스타일링 FBEFE8: ${hasVacancyStyle ? '✅' : '⚠️'}`);
+      // 서초동 3개층 공실 → 공실 스타일 필수
+      expect(rentRollXml).toContain('FBEFE8');
+    }
+
     // ─── 단언 ⑦: 갤러리 슬라이드 1면 완결 (C5 해소 검증) ───
     const gallerySlides = allSlideTexts.filter(t => /Gallery|현장\s*사진|건물\s*사진/.test(t));
     console.log(`  📸 갤러리 슬라이드 수: ${gallerySlides.length}면`);

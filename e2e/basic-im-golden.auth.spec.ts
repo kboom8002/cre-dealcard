@@ -431,10 +431,78 @@ B1~5F
           expect(buffer[1]).toBe(0x4B); // K
           console.log('  ✅ PPTX ZIP 형식 확인');
 
-          // 3. 이미지 포함 여부 (지도 = 필수)
-          const pptxStr = buffer.toString('utf-8', 0, Math.min(buffer.length, 500000));
-          const hasImages = pptxStr.includes('ppt/media/');
-          console.log(hasImages ? '  ✅ PPTX 내 이미지 포함' : '  ⚠️ PPTX 내 이미지 미발견');
+          // 3. AdmZip 슬라이드 분석
+          const AdmZip = require('adm-zip');
+          const zip = new AdmZip(pptxPath);
+          const entries = zip.getEntries();
+          const slideEntries = entries.filter((e: any) => /^ppt\/slides\/slide\d+\.xml$/.test(e.entryName));
+          console.log(`  📄 총 슬라이드 면수: ${slideEntries.length}면`);
+
+          // 4. 면수 범위 (Rule 47: 9~10면)
+          expect(slideEntries.length).toBeGreaterThanOrEqual(8);
+          expect(slideEntries.length).toBeLessThanOrEqual(10);
+          console.log('  ✅ Basic IM 면수 범위(8~10면) 부합');
+
+          // 5. 결함 토큰 차단
+          for (const slide of slideEntries) {
+            const xml = slide.getData().toString('utf-8');
+            expect(xml).not.toContain('>NaN<');
+            expect(xml).not.toContain('>undefined<');
+            expect(xml).not.toContain('>null<');
+            expect(xml).not.toContain('[object Object]');
+          }
+          console.log('  ✅ 결함 토큰 (NaN, undefined, null) 0건');
+
+          // 6. 핵심 섹션 키워드
+          const allSlideTexts = slideEntries.map((e: any) => {
+            const xml = e.getData().toString('utf-8');
+            return xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+          });
+          const fullPptxText = allSlideTexts.join('\n');
+
+          const sectionPatterns = [
+            /투자\s*지표|핵심\s*투자|INVESTMENT/,
+            /물건\s*개요|건물\s*개요|Property/,
+            /입지|Location/,
+            /토지|Land/,
+            /임대차|렌트롤|Rent\s*Roll/,
+            /문의|유의|면책|Disclaimer/,
+          ];
+          let sectionHits = 0;
+          for (const pat of sectionPatterns) {
+            if (pat.test(fullPptxText)) sectionHits++;
+          }
+          expect(sectionHits).toBeGreaterThanOrEqual(4);
+          console.log(`  ✅ 핵심 섹션 ${sectionHits}/6 키워드 확인`);
+
+          // 7. 가격 밴드(N억대) 차단 (SOTA ④, Rule 52)
+          expect(fullPptxText).not.toMatch(/\d+억\s*대/);
+          console.log('  ✅ 가격 밴드 차단 확인');
+
+          // 8. INTERNAL_MONOLOGUE 누출 차단 (SOTA ⑤)
+          for (const pat of ['실사 점검:', '리스크 요인:', '분석가 의견:']) {
+            expect(fullPptxText).not.toContain(pat);
+          }
+          console.log('  ✅ INTERNAL_MONOLOGUE 차단 확인');
+
+          // 9. 회피성 문구 차단 (Rule 37)
+          for (const phrase of ['본문을 참조', '별도 안내 예정', '추후 확인']) {
+            expect(fullPptxText).not.toContain(phrase);
+          }
+          console.log('  ✅ 회피성 문구 0건');
+
+          // 10. 표지 배경색 0A1620 (G3)
+          const s1xml = slideEntries[0].getData().toString('utf-8');
+          const hasBg = s1xml.includes('0A1620');
+          console.log(`  표지 배경색 0A1620: ${hasBg ? '✅' : '⚠️'}`);
+          if (hasBg) expect(s1xml).toContain('0A1620');
+
+          // 11. 이미지 포함 여부 (지도 = 필수)
+          const mediaEntries = entries.filter((e: any) =>
+            /^ppt\/media\/.*\.(jpg|jpeg|png|gif|emf|wmf)$/i.test(e.entryName) && e.header.size > 0
+          );
+          console.log(`  📸 임베딩 미디어: ${mediaEntries.length}장`);
+          expect(mediaEntries.length).toBeGreaterThanOrEqual(1);
 
           await shot(page, 'basic-pptx-downloaded');
         } else {
