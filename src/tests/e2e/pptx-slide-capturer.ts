@@ -38,7 +38,9 @@ output_dir = os.path.normpath("${normalizedOutputDir}")
 base_name = "${baseName}"
 dpi = ${dpi}
 
-soffice_path = r"C:\\Program Files\\LibreOffice\\program\\soffice.exe"
+soffice_path = r"C:\\Program Files\\LibreOffice\\program\\soffice.com"
+if not os.path.exists(soffice_path):
+    soffice_path = r"C:\\Program Files\\LibreOffice\\program\\soffice.exe"
 if not os.path.exists(soffice_path):
     soffice_path = "soffice"
 

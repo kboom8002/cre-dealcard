@@ -15,8 +15,10 @@
 import { test, expect, type Page } from '@playwright/test';
 import * as path from 'path';
 import * as fs from 'fs';
+import { convertPptxToSlideImages } from '../src/tests/e2e/pptx-slide-capturer';
 
-const SCREENSHOT_DIR = path.resolve(__dirname, 'screenshots', 'basic-im-golden');
+const SCREENSHOT_DIR = path.resolve(__dirname, 'screenshots', 'dangsan-basic-golden');
+const VISUAL_QA_DIR = path.resolve(process.cwd(), 'docs', 'test', 'stress', 'e2e-outputs', 'visual-qa', 'dangsan-basic');
 let stepCounter = 0;
 
 function ensureDir(dir: string) {
@@ -361,22 +363,26 @@ B1~5F
     }
   });
 
-  test('Phase 3: Basic IM 뷰어 + PPTX 다운로드 검증', async ({ page }) => {
-    console.log('\n🔷 Phase 3: Basic IM 뷰어 + PPTX 다운로드');
+  test('Phase 3: 모바일 IM 뷰어 레이아웃 & 반응형 검증', async ({ page }) => {
+    console.log('\n🔷 Phase 3: 모바일 IM 뷰어 검증');
 
     const idFile = path.join(SCREENSHOT_DIR, 'building-id.txt');
+    const docIdFile = path.join(SCREENSHOT_DIR, 'doc-id.txt');
     if (!fs.existsSync(idFile)) {
       console.log('  ⚠️ building-id.txt 없음');
       test.skip();
       return;
     }
     const buildingId = fs.readFileSync(idFile, 'utf-8').trim();
+    const docId = fs.existsSync(docIdFile) ? fs.readFileSync(docIdFile, 'utf-8').trim() : '';
 
     // ── 모바일 IM 뷰어 접속 ──
-    await page.goto(`/im-lite/${buildingId}`);
+    const imUrl = docId ? `/im-lite/${buildingId}?doc=${docId}` : `/im-lite/${buildingId}`;
+    console.log(`  🔗 접속 URL: ${imUrl}`);
+    await page.goto(imUrl);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(3000);
-    await shot(page, 'basic-im-viewer');
+    await shot(page, 'basic-im-viewer-desktop');
 
     // 뷰어 콘텐츠 확인
     const viewerText = await page.textContent('body') || '';
@@ -385,137 +391,185 @@ B1~5F
       console.log(found ? `  ✅ "${kw}" 확인` : `  ⚠️ "${kw}" 미발견`);
     }
 
-    // 스크롤 캡처 (섹션 확인)
-    for (let i = 0; i < 3; i++) {
-      await page.evaluate((scrollY) => window.scrollTo(0, scrollY), (i + 1) * 800);
-      await page.waitForTimeout(500);
-      await shot(page, `basic-im-scroll-${i}`);
+    // 모바일 375x812 뷰포트 전환 및 가로 오버플로 검사
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.waitForTimeout(1000);
+
+    const hasOverflow = await page.evaluate(() =>
+      document.documentElement.scrollWidth > document.documentElement.clientWidth
+    );
+    expect(hasOverflow).toBe(false);
+    console.log('  ✅ 모바일 가로 오버플로 없음 (scrollWidth <= clientWidth)');
+
+    // 스크롤 캡처
+    const scrollH = await page.evaluate(() => document.documentElement.scrollHeight);
+    const screens = Math.min(Math.ceil(scrollH / 812), 10);
+    for (let i = 0; i < screens; i++) {
+      await page.evaluate((y) => window.scrollTo(0, y), i * 812);
+      await page.waitForTimeout(300);
+      await shot(page, `mobile-scroll-${String(i).padStart(2, '0')}`);
     }
+  });
 
-    // ── PPTX 다운로드 ──
-    console.log('  📥 PPTX 다운로드 시도...');
+  test('Phase 4: PPTX 다운로드 & AdmZip 바이너리 + 콘텐츠 정합성 검증 (Rule 47 준거)', async ({ page }) => {
+    console.log('\n🔷 Phase 4: PPTX 다운로드 & 바이너리 + 콘텐츠 정합성 검증');
 
-    // API로 직접 다운로드
+    const idFile = path.join(SCREENSHOT_DIR, 'building-id.txt');
     const docIdFile = path.join(SCREENSHOT_DIR, 'doc-id.txt');
-    let docId: string | undefined;
-    if (fs.existsSync(docIdFile)) {
-      docId = fs.readFileSync(docIdFile, 'utf-8').trim();
-    } else {
-      // docId를 API로 조회
+    const buildingId = fs.readFileSync(idFile, 'utf-8').trim();
+    let docId = fs.existsSync(docIdFile) ? fs.readFileSync(docIdFile, 'utf-8').trim() : '';
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const pptxPath = path.join(SCREENSHOT_DIR, 'dangsan-basic-im.pptx');
+
+    if (!docId) {
       try {
         const docsRes = await page.request.get(`/api/broker/im-lite/${buildingId}`);
         const docsJson = await docsRes.json();
         if (docsJson.ok && docsJson.documents?.length > 0) {
           docId = docsJson.documents[0].id;
         }
-      } catch { /* */ }
+      } catch { /* ignore */ }
     }
 
-    if (docId) {
-      try {
-        const pptxRes = await page.request.get(`/api/broker/im-lite/${docId}/pptx`);
-        if (pptxRes.ok()) {
-          const buffer = await pptxRes.body();
-          const pptxPath = path.join(SCREENSHOT_DIR, 'basic-im-output.pptx');
-          fs.writeFileSync(pptxPath, buffer);
-          const sizeKB = (buffer.length / 1024).toFixed(1);
-          console.log(`  ✅ PPTX 다운로드 완료: ${sizeKB} KB`);
+    expect(docId).toBeTruthy();
 
-          // ── Basic IM PPTX 검증 ──
-          // 1. 최소 크기 (빈 파일이 아닌지)
-          expect(buffer.length).toBeGreaterThan(50_000); // 최소 50KB
-          console.log('  ✅ PPTX 최소 크기 통과');
+    // PPTX 다운로드
+    try {
+      const imUrl = docId ? `/im-lite/${buildingId}?doc=${docId}` : `/im-lite/${buildingId}`;
+      await page.goto(imUrl);
+      await page.waitForLoadState('networkidle');
 
-          // 2. ZIP 매직 넘버 확인 (PK\x03\x04)
-          expect(buffer[0]).toBe(0x50); // P
-          expect(buffer[1]).toBe(0x4B); // K
-          console.log('  ✅ PPTX ZIP 형식 확인');
-
-          // 3. AdmZip 슬라이드 분석
-          const AdmZip = require('adm-zip');
-          const zip = new AdmZip(pptxPath);
-          const entries = zip.getEntries();
-          const slideEntries = entries.filter((e: any) => /^ppt\/slides\/slide\d+\.xml$/.test(e.entryName));
-          console.log(`  📄 총 슬라이드 면수: ${slideEntries.length}면`);
-
-          // 4. 면수 범위 (Rule 47: 9~10면)
-          expect(slideEntries.length).toBeGreaterThanOrEqual(8);
-          expect(slideEntries.length).toBeLessThanOrEqual(10);
-          console.log('  ✅ Basic IM 면수 범위(8~10면) 부합');
-
-          // 5. 결함 토큰 차단
-          for (const slide of slideEntries) {
-            const xml = slide.getData().toString('utf-8');
-            expect(xml).not.toContain('>NaN<');
-            expect(xml).not.toContain('>undefined<');
-            expect(xml).not.toContain('>null<');
-            expect(xml).not.toContain('[object Object]');
-          }
-          console.log('  ✅ 결함 토큰 (NaN, undefined, null) 0건');
-
-          // 6. 핵심 섹션 키워드
-          const allSlideTexts = slideEntries.map((e: any) => {
-            const xml = e.getData().toString('utf-8');
-            return xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-          });
-          const fullPptxText = allSlideTexts.join('\n');
-
-          const sectionPatterns = [
-            /투자\s*지표|핵심\s*투자|INVESTMENT/,
-            /물건\s*개요|건물\s*개요|Property/,
-            /입지|Location/,
-            /토지|Land/,
-            /임대차|렌트롤|Rent\s*Roll/,
-            /문의|유의|면책|Disclaimer/,
-          ];
-          let sectionHits = 0;
-          for (const pat of sectionPatterns) {
-            if (pat.test(fullPptxText)) sectionHits++;
-          }
-          expect(sectionHits).toBeGreaterThanOrEqual(4);
-          console.log(`  ✅ 핵심 섹션 ${sectionHits}/6 키워드 확인`);
-
-          // 7. 가격 밴드(N억대) 차단 (SOTA ④, Rule 52)
-          expect(fullPptxText).not.toMatch(/\d+억\s*대/);
-          console.log('  ✅ 가격 밴드 차단 확인');
-
-          // 8. INTERNAL_MONOLOGUE 누출 차단 (SOTA ⑤)
-          for (const pat of ['실사 점검:', '리스크 요인:', '분석가 의견:']) {
-            expect(fullPptxText).not.toContain(pat);
-          }
-          console.log('  ✅ INTERNAL_MONOLOGUE 차단 확인');
-
-          // 9. 회피성 문구 차단 (Rule 37)
-          for (const phrase of ['본문을 참조', '별도 안내 예정', '추후 확인']) {
-            expect(fullPptxText).not.toContain(phrase);
-          }
-          console.log('  ✅ 회피성 문구 0건');
-
-          // 10. 표지 배경색 0A1620 (G3)
-          const s1xml = slideEntries[0].getData().toString('utf-8');
-          const hasBg = s1xml.includes('0A1620');
-          console.log(`  표지 배경색 0A1620: ${hasBg ? '✅' : '⚠️'}`);
-          if (hasBg) expect(s1xml).toContain('0A1620');
-
-          // 11. 이미지 포함 여부 (지도 = 필수)
-          const mediaEntries = entries.filter((e: any) =>
-            /^ppt\/media\/.*\.(jpg|jpeg|png|gif|emf|wmf)$/i.test(e.entryName) && e.header.size > 0
-          );
-          console.log(`  📸 임베딩 미디어: ${mediaEntries.length}장`);
-          expect(mediaEntries.length).toBeGreaterThanOrEqual(1);
-
-          await shot(page, 'basic-pptx-downloaded');
-        } else {
-          console.log(`  ⚠️ PPTX 다운로드 실패: ${pptxRes.status()}`);
-          await shot(page, 'WARNING-basic-pptx-failed');
-        }
-      } catch (e) {
-        console.log('  ⚠️ PPTX 다운로드 에러:', e);
-      }
-    } else {
-      console.log('  ⚠️ docId 미확보 — PPTX 검증 생략');
+      const pptxBtn = page.locator('button:has-text("PPTX"), a:has-text("PPTX"), button:has-text("다운로드")').first();
+      await pptxBtn.waitFor({ state: 'visible', timeout: 8000 });
+      const [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 120_000 }),
+        pptxBtn.click(),
+      ]);
+      await download.saveAs(pptxPath);
+      console.log('  ✅ UI 버튼으로 PPTX 다운로드 완료');
+    } catch {
+      console.log('  ⚠️ UI 다운로드 버튼 미발견 → API 직접 호출 폴백');
+      const pptxApiUrl = `/api/public/im-lite/${buildingId}/pptx?doc_id=${docId}&tier=basic&preset=credeal_basic`;
+      const downloadPromise = page.waitForEvent('download', { timeout: 60_000 });
+      await page.goto(pptxApiUrl);
+      const download = await downloadPromise;
+      await download.saveAs(pptxPath);
+      console.log('  ✅ API 직접 호출로 PPTX 다운로드 완료');
     }
 
-    console.log('\n🏁 Basic IM 골든 테스트 완료!');
+    expect(fs.existsSync(pptxPath)).toBe(true);
+    const buffer = fs.readFileSync(pptxPath);
+    const sizeKB = (buffer.length / 1024).toFixed(1);
+    console.log(`  ✅ PPTX 파일 확인: ${sizeKB} KB`);
+
+    // ── Basic IM PPTX 검증 ──
+    // 1. 최소 크기 (50KB 이상)
+    expect(buffer.length).toBeGreaterThan(50_000);
+
+    // 2. ZIP 매직 넘버 확인 (PK\x03\x04)
+    expect(buffer[0]).toBe(0x50);
+    expect(buffer[1]).toBe(0x4B);
+
+    // 3. AdmZip 슬라이드 분석
+    const AdmZip = require('adm-zip');
+    const zip = new AdmZip(pptxPath);
+    const entries = zip.getEntries();
+    const slideEntries = entries.filter((e: any) => /^ppt\/slides\/slide\d+\.xml$/.test(e.entryName));
+    console.log(`  📄 총 슬라이드 면수: ${slideEntries.length}면`);
+
+    // 4. 면수 범위 (Rule 47: 8~10면)
+    expect(slideEntries.length).toBeGreaterThanOrEqual(8);
+    expect(slideEntries.length).toBeLessThanOrEqual(10);
+    console.log('  ✅ Basic IM 면수 범위(8~10면) 부합');
+
+    // 5. 결함 토큰 차단
+    for (const slide of slideEntries) {
+      const xml = slide.getData().toString('utf-8');
+      expect(xml).not.toContain('>NaN<');
+      expect(xml).not.toContain('>undefined<');
+      expect(xml).not.toContain('>null<');
+      expect(xml).not.toContain('[object Object]');
+    }
+    console.log('  ✅ 결함 토큰 (NaN, undefined, null) 0건');
+
+    // 6. 전체 텍스트 추출 및 핵심 섹션 키워드
+    const allSlideTexts = slideEntries.map((e: any) => {
+      const xml = e.getData().toString('utf-8');
+      return xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    });
+    const fullPptxText = allSlideTexts.join('\n');
+
+    const sectionPatterns = [
+      /투자\s*지표|핵심\s*투자|INVESTMENT/,
+      /물건\s*개요|건물\s*개요|Property/,
+      /입지|Location/,
+      /토지|Land/,
+      /임대차|렌트롤|Rent\s*Roll/,
+      /문의|유의|면책|Disclaimer/,
+    ];
+    let sectionHits = 0;
+    for (const pat of sectionPatterns) {
+      if (pat.test(fullPptxText)) sectionHits++;
+    }
+    expect(sectionHits).toBeGreaterThanOrEqual(4);
+    console.log(`  ✅ 핵심 섹션 ${sectionHits}/6 키워드 확인`);
+
+    // 7. 가격 밴드(N억대) 차단 (SOTA ④, Rule 52)
+    expect(fullPptxText).not.toMatch(/\d+억\s*대/);
+    console.log('  ✅ 가격 밴드 차단 확인');
+
+    // 8. INTERNAL_MONOLOGUE 누출 차단 (SOTA ⑤)
+    for (const pat of ['실사 점검:', '주의:', '검토 필요', '리스크 요인:', '내부 검토', '분석가 의견:']) {
+      expect(fullPptxText).not.toContain(pat);
+    }
+    console.log('  ✅ INTERNAL_MONOLOGUE 6종 차단 확인');
+
+    // 9. 회피성 문구 차단 (Rule 37)
+    for (const phrase of ['본문을 참조', '별도 안내 예정', '추후 확인']) {
+      expect(fullPptxText).not.toContain(phrase);
+    }
+    console.log('  ✅ 회피성 문구 0건');
+
+    // 10. 표지 배경색 0A1620 (G3)
+    const s1xml = slideEntries[0].getData().toString('utf-8');
+    expect(s1xml).toContain('0A1620');
+    console.log('  ✅ 표지 배경색 0A1620 확인');
+
+    // 11. 이미지 포함 여부 (지도 = 필수)
+    const mediaEntries = entries.filter((e: any) =>
+      /^ppt\/media\/.*\.(jpg|jpeg|png|gif|emf|wmf)$/i.test(e.entryName) && e.header.size > 0
+    );
+    console.log(`  📸 임베딩 미디어: ${mediaEntries.length}장`);
+    expect(mediaEntries.length).toBeGreaterThanOrEqual(1);
+
+    await shot(page, 'dangsan-basic-pptx-verified');
+  });
+
+  test('Phase 5: LibreOffice 150 DPI PNG 슬라이드 변환 및 시각 검증 (Rule 4)', async () => {
+    console.log('\n🔷 Phase 5: LibreOffice 150 DPI PNG 슬라이드 변환 및 시각 검증');
+
+    const pptxPath = path.join(SCREENSHOT_DIR, 'dangsan-basic-im.pptx');
+    expect(fs.existsSync(pptxPath)).toBe(true);
+
+    const pptxBuffer = fs.readFileSync(pptxPath);
+    ensureDir(VISUAL_QA_DIR);
+
+    console.log('  🖼️ LibreOffice + PyMuPDF로 150 DPI PNG 변환 실행...');
+    const captureResult = await convertPptxToSlideImages(pptxBuffer, VISUAL_QA_DIR, 'dangsan_basic', 150);
+
+    console.log(`  ✅ PNG 변환 완료: ${captureResult.slideCount}장 슬라이드 캡처됨`);
+    expect(captureResult.slideCount).toBeGreaterThanOrEqual(8);
+
+    for (const imgPath of captureResult.slideImages) {
+      expect(fs.existsSync(imgPath)).toBe(true);
+      const imgStats = fs.statSync(imgPath);
+      expect(imgStats.size).toBeGreaterThan(10_000);
+    }
+    console.log('  ✅ 모든 슬라이드 PNG 이미지(150 DPI) 정상 저장 확인');
+
+    captureResult.slideImages.forEach((p, idx) => {
+      console.log(`    [Slide ${idx + 1}] ${path.basename(p)} (${(fs.statSync(p).size / 1024).toFixed(1)} KB)`);
+    });
   });
 });
