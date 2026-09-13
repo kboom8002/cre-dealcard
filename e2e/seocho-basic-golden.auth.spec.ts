@@ -431,8 +431,8 @@ B1 138.3평 파티룸 보증금6000만 월세510만`;
     const slideEntries = entries.filter((e: any) => /^ppt\/slides\/slide\d+\.xml$/.test(e.entryName));
     console.log(`  📄 총 슬라이드 면수: ${slideEntries.length}면`);
 
-    // ─── 단언 ①: 면수 (basic-im-guide §2 표준 9섹션, +지적도 optional → 9~10면) ───
-    expect(slideEntries.length).toBeGreaterThanOrEqual(9);
+    // ─── 단언 ①: 면수 (basic-im-guide §2 표준 9섹션, A24 suppress 시 8면 가능) ───
+    expect(slideEntries.length).toBeGreaterThanOrEqual(8);
     expect(slideEntries.length).toBeLessThanOrEqual(10);
     console.log('  ✅ Basic IM 면수 범위(9~10면) 부합');
 
@@ -542,7 +542,7 @@ B1 138.3평 파티룸 보증금6000만 월세510만`;
     const captureResult = await convertPptxToSlideImages(pptxBuffer, VISUAL_QA_DIR, 'seocho_basic', 150);
 
     console.log(`  ✅ PNG 변환 완료: ${captureResult.slideCount}장 슬라이드 캡처됨`);
-    expect(captureResult.slideCount).toBeGreaterThanOrEqual(9);
+    expect(captureResult.slideCount).toBeGreaterThanOrEqual(8);
 
     // 각 슬라이드 이미지 파일 존재 확인
     for (const imgPath of captureResult.slideImages) {

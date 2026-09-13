@@ -36,7 +36,14 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   const warnings: string[] = [];
   
   const stackingData = input.data.stackingPlan || input.data.rentRollFloors || [];
-  const tableRows = input.data.tableRows || [];
+  // tableRows는 data-binder가 직접 주입하거나, tables[0].rows로 전달될 수 있음
+  let tableRows = input.data.tableRows || [];
+  if (tableRows.length === 0 && Array.isArray(input.data.tables)) {
+    const firstTable = input.data.tables[0];
+    if (firstTable?.rows?.length > 0) {
+      tableRows = firstTable.rows;
+    }
+  }
   
   if (stackingData.length === 0 && tableRows.length === 0) {
     return { warnings: ['렌트롤 및 스태킹 플랜 데이터 없음 — 슬라이드 생략'], suppress: true };

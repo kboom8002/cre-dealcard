@@ -155,7 +155,12 @@ export class MobileImPptxRenderer {
           hasCommercialDistrict: !!(enrichment.commercialDistrict),
           hasCadastralMap: !!(enrichment.cadastralMapImage),
           hasFloorPlan: false,
-          hasRentRoll: !!(input.doc.body?.floor_leases?.length || input.doc.body?.ssot_summary?.monthly_rent_total_krw),
+          hasRentRoll: !!(
+            input.doc.body?.floor_leases?.length 
+            || input.doc.body?.ssot_summary?.monthly_rent_total_krw
+            || input.doc.body?.ssot_summary?.deposit_total_krw
+            || input.doc.sections?.some((s: any) => s.section_type === 'lease_status')
+          ),
           hasStackingPlan: !!(input.doc.body?.floor_leases?.length || (input.doc.body as any)?.stackingPlan?.length),
         },
         // D37 C-3: ReleaseTier 전달 → tier 기반 면 제어 활성화
@@ -517,6 +522,7 @@ export class MobileImPptxRenderer {
           const result = await Promise.resolve(builder(archetypeInput));
           // W-PPTX-6: 빌더가 suppress 신호를 반환하면 슬라이드 생략 (유령 백지 슬라이드 방지)
           if (result.suppress) {
+            console.log(`[PPTX] [Suppress] ${spec.archetype}(${spec.dataKey}) — data keys: ${Object.keys(archetypeInput.data).join(', ')}, tableRows: ${(archetypeInput.data as any)?.tableRows?.length ?? 'N/A'}, tables[0].rows: ${(archetypeInput.data as any)?.tables?.[0]?.rows?.length ?? 'N/A'}, stackingPlan: ${(archetypeInput.data as any)?.stackingPlan?.length ?? 'N/A'}`);
             const presAny = pres as any;
             if (Array.isArray(presAny.slides) && presAny.slides.length > 0) {
               const lastIdx = presAny.slides.length - 1;
