@@ -319,3 +319,44 @@
 - `generate-async/route.ts`에서 `preset`을 `generateMobileIMHandler`에 반드시 전달하고 `document_objects.body.preset`에 영속화해야 합니다.
 - **위반 사례**: `yieldFormula`가 `SLIDE_PRIORITY`에 미등록 → 골디락스 절삭으로 Basic IM 핵심 슬라이드 탈락. Pro IM 슬라이드(`capital`, `totalReturn`, `thesis` 등)가 Basic IM에 혼입.
 <!-- END:cre-d43-basic-im-ssot-rules -->
+
+<!-- BEGIN:cre-d42-audit-rules -->
+# CRE IM D42 Audit Remediation Rules (2026-09-13 교훈)
+
+### 48. ssot_summary 필드명 정합성 의무 (SSOT Field Name Parity)
+- `ssot_summary` 객체의 필드를 참조할 때 추측 필드명(`deposit_total_krw` 등)을 사용하지 않습니다.
+- 반드시 `financial-calculator.ts` / `ssot-adapter.ts`의 실제 등록 필드명(`total_deposit_manwon`, `asking_price_manwon`, `monthly_rent_total_krw` 등)과 대조합니다.
+- 단위 접미사(`_manwon` = 만원, `_krw` = 원, `_pct` = 백분율)를 확인하고, 단위 변환이 필요하면 명시적으로 수행합니다: `manwon * 10000 = krw`.
+- **위반 사례**: `ssot.deposit_total_krw` → `undefined` → 보증금 0원으로 Cap Rate 산식 오류.
+
+### 49. 비캐싱 에셋의 캐시 가드 바이패스 (Cache Bypass for Non-Cacheable Assets)
+- Rule 40에 의해 DB에 캐싱되지 않는 바이너리 에셋(V-World WMS 지적도, 카카오 Static Map 이미지 등)에 대해 캐시 staleness 가드(`if (cachedData && !isSourceStale(...)) return;`)를 적용하지 않습니다.
+- 좌표가 유효하면 캐시 존재 여부와 무관하게 항상 실시간 fetch합니다.
+- `enrich-by-pnu.ts`의 각 에셋별 IIFE에서 캐시 가드를 추가할 때, 해당 에셋이 `external_data_cache` 테이블에 실제로 저장되는지 먼저 확인합니다.
+- **위반 사례**: 지적도 캐시 가드 → 캐시 히트 시 fetch 영구 스킵 → `cadastralMapImage: null` → 슬라이드 누락.
+
+### 50. 서버사이드 지도 API Referer 헤더 의무 (Server-Side Map API Referer Header)
+- Node.js 환경에서 카카오, 네이버, V-World 등 지도 API를 `fetch()`로 호출할 때 반드시 등록 도메인의 `Referer` 헤더를 포함합니다.
+- `Referer: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'`
+- 브라우저 환경과 달리 Node.js `fetch()`는 Referer를 자동 전송하지 않으며, 지도 API 서버는 Referer가 없으면 403 Forbidden을 반환합니다.
+- **위반 사례**: `fetchKakaoMapImage()` → `spi.maps.daum.net` 403 → 카카오맵 이미지 미생성 → 광역교통 다이어그램으로 강제 대체.
+
+### 51. 파생 데이터 타입 가드 의무 (Derived Data Type Guard)
+- 범용 배열(`tableRows`, `metrics`, `callouts` 등)을 도메인 구조체(층별 데이터, 임차인 정보 등)로 변환할 때 반드시 첫 행/첫 열의 타입 패턴을 검증합니다.
+- 층별 데이터: `FLOOR_PATTERN = /^(B?\d+F?|지상|지하|옥탑|PH|RF|\d+층)/i` 매칭 필수
+- 패턴 불일치 시 변환을 차단하고 빈 배열을 유지합니다 (`floors = []`).
+- **위반 사례**: ssot_summary 합성 행("월 임대료 합계", "보증금 합계")이 A24의 층 이름으로 둔갑 → 스태킹 플랜 시각 오염.
+
+### 52. 정확 금액 우선 표시 원칙 (Exact Amount Display Priority)
+- 투자자 대면 문서(IM, PPTX)에서 금액을 표시할 때 `price_band`("200억대")보다 정확 금액("230억 원")을 최우선 사용합니다.
+- 우선순위: `ssot_summary.asking_price_manwon` → `heroCard.askingPrice` → `heroCard.askingPriceDisplay` → `heroCard.priceBand`
+- `price_band`는 deal card 목록/검색용 가격대 필터로만 사용하고, IM 본문에는 정확 금액을 바인딩합니다.
+- **위반 사례**: `writer.ts`에서 `price_band ?? exact_price` 우선순위 역전 → IM 표지/요약에 "200억대" 표시 (실제 230억).
+
+### 53. Enrichment 선결 조건 검증 (Enrichment Prerequisite Check)
+- IM 생성(`handler.ts`) 시 enrichment 파이프라인을 실행하기 전에 `building_ssot_lite.layers.location`에 다음 3가지가 존재하는지 확인합니다: `pnu` (또는 `resolved_pnu`), `address` (구체적 도로명 주소), `lat/lng` (좌표).
+- 3가지 중 하나라도 없으면 `raw_input`(원본 메모)에서 주소를 재추출하여 카카오 주소 검색 API로 geocoding을 시도합니다.
+- 주소가 권역명("서초·양재권역")만 있고 정확 주소가 없으면 enrichment를 스킵하되, 로그에 `[enrichment] SKIPPED: 정확 주소/PNU/좌표 미확보`를 명시적으로 기록합니다.
+- **위반 사례**: LLM이 메모를 "서초·양재권역"으로만 요약 → PNU/좌표 null → enrichment 전체 스킵 → 카카오맵/지적도/랜드마크 전부 미생성.
+<!-- END:cre-d42-audit-rules -->
+
