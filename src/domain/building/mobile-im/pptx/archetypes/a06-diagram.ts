@@ -136,9 +136,28 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
   }
 
   if (rightRows.length > 0) {
-    const safeRows = rightRows.map(([label, value, ...rest]: any[]) => 
-      [stripMarkdown(String(label || '')), stripMarkdown(String(value || '')), ...rest]
-    ) as RowEntry[];
+    // 마크다운 헤더/링크 태그 제거 강화
+    function cleanMarkdownDeep(text: string): string {
+      return text
+        .replace(/^#{1,6}\s*/gm, '')        // ### 헤더 제거
+        .replace(/\[([^\]]*)\]/g, '$1')      // [건물] → 건물  
+        .replace(/\*\*([^*]*)\*\*/g, '$1')    // **bold** → bold
+        .replace(/\*([^*]*)\*/g, '$1')        // *italic* → italic
+        .replace(/`([^`]*)`/g, '$1')          // `code` → code
+        .trim();
+    }
+
+    const safeRows = rightRows.map(([label, value, ...rest]: any[]) => {
+      const origLabel = String(label || '');
+      const origValue = String(value || '');
+      let l = cleanMarkdownDeep(stripMarkdown(origLabel));
+      let v = cleanMarkdownDeep(stripMarkdown(origValue));
+      
+      if (origValue.length > v.length && !/[.다요음함]$/.test(v)) {
+        v += '...';
+      }
+      return [l, v, ...rest];
+    }) as RowEntry[];
     y = L.rows(slide, textX, y, textW, safeRows, { rh: 0.54, fs: 13 });
     y += 0.15;
   }

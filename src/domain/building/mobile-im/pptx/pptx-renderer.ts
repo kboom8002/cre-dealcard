@@ -53,6 +53,8 @@ export interface MobileImPptxInput {
     company_name?: string;
     phone?: string;
     specialty?: string;
+    email?: string;
+    registration_no?: string;
   };
   watermark?: {
     requesterName: string;
@@ -124,7 +126,7 @@ export class MobileImPptxRenderer {
       // ── 0. 사진 메타 도출 및 갤러리 플래닝 (v0.6.0) ──
       const posture = (input.posture ?? 'income') as InvestmentPosture;
       const resolvedPhotos = resolvePhotos(input.doc.body as any, input.buildingId);
-      const gallerySpecs = planGallerySlides(resolvedPhotos, posture);
+      const gallerySpecs = planGallerySlides(resolvedPhotos, posture, theme.presetId);
       // role 기반 이미지 선택 (사용자 지정 → isHero → 첫 번째)
       const heroPhoto = resolvedPhotos.find(p => (p as any).role === 'cover')
         || resolvedPhotos.find(p => p.isHero)
@@ -213,6 +215,16 @@ export class MobileImPptxRenderer {
           ?? null),
       } as any;
 
+      // Basic IM 표지 필수 4요소 바인딩 (basic-im-guide.md §2 #1)
+      if (isBasicPreset) {
+        const ssotCover = input.doc.body?.ssot_summary ?? {};
+        (dataMap['cover'] as any).address = ssotCover.address ?? input.doc.body?.resolved_address ?? '';
+        (dataMap['cover'] as any).askingPrice = ssotCover.asking_price_manwon 
+          ? `${(Number(ssotCover.asking_price_manwon) / 10000).toFixed(0)}억 원` 
+          : (ssotCover.price_band ?? '');
+        (dataMap['cover'] as any).documentDate = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
+      }
+
       // ── 2-1. V-World / 공공 API 구조화 데이터 직접 바인딩 ──
       if (Object.keys(enrichment).length > 0) {
         const { bindFromExternalData } = await import('./data-binder');
@@ -265,6 +277,18 @@ export class MobileImPptxRenderer {
         ],
       } as any;
 
+      // Basic IM: 클로징 타이틀 및 브로커 연락처 (basic-im-guide §2 #9)
+      if (isBasicPreset) {
+        (dataMap['closing'] as any).title = '문의 및 유의사항';
+        (dataMap['closing'] as any).brokerContact = {
+          name: input.broker?.display_name ?? '[담당자명]',
+          phone: input.broker?.phone ?? '[연락처]',
+          email: input.broker?.email ?? '',
+          company: input.broker?.company_name ?? '[중개법인명]',
+          registrationNo: input.broker?.registration_no ?? '',
+        };
+      }
+
       // ── 갤러리 데이터 (v0.6.0: 동적 멀티 슬라이드 바인딩) ──
       if (gallerySpecs.length > 0) {
         gallerySpecs.forEach((spec) => {
@@ -305,7 +329,18 @@ export class MobileImPptxRenderer {
         const depositKrw = Number(ssot.deposit_total_krw ?? 0);
         const monthlyRentKrw = Number(ssot.monthly_rent_total_krw ?? 0);
         const annualRentKrw = monthlyRentKrw * 12;
-        const vacPct = Number(ssot.vacancy_pct ?? 0);
+        let vacPct = Number(ssot.vacancy_pct ?? 0);
+        // floor_leases에서 공실률 직접 산출 (ssot_summary.vacancy_pct 미설정 방어)
+        if (vacPct === 0 && input.doc.body?.floor_leases?.length) {
+          const leases = input.doc.body.floor_leases as any[];
+          const totalUnits = leases.length;
+          const vacantUnits = leases.filter((l: any) => 
+            l.is_vacant === true || l.tenant === '공실' || l.tenant_name === '공실'
+          ).length;
+          if (vacantUnits > 0 && totalUnits > 0) {
+            vacPct = Math.round((vacantUnits / totalUnits) * 1000) / 10;
+          }
+        }
         const askKrw = askManwon * 10000;
         const denominator = askKrw - depositKrw;
         const capRateAsIs = denominator > 0 ? (annualRentKrw / denominator * 100) : 0;

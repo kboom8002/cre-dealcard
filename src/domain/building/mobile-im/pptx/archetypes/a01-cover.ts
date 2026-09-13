@@ -213,10 +213,20 @@ function renderCommonCoverContent(
     });
   }
 
+  let nextY = subtitleY + 0.4;
+  if (input.data.address) {
+    slide.addText(input.data.address, {
+      x, y: nextY, w: titleW, h: 0.3,
+      fontSize: 12, color: C.slate,
+      fontFace: KR, margin: 0, align,
+    });
+    nextY += 0.3;
+  }
+
   // 태그
   let tagX = x;
   const tags = input.data.tags || [];
-  const tagY = kickerY + 1.70;
+  const tagY = Math.max(nextY + 0.3, kickerY + 1.70);
   tags.forEach((tag: string) => {
     if (!tag) return;
     const tw = Math.max(1.2, tag.length * 0.16 + 0.4);
@@ -225,7 +235,7 @@ function renderCommonCoverContent(
   });
 
   // 강조 박스 (가격대)
-  const priceBand = input.data.priceBand || '';
+  const priceBand = input.data.askingPrice ? `매각 희망가 ${input.data.askingPrice}` : (input.data.priceBand || '');
   if (priceBand) {
     slide.addShape('roundRect' as any, {
       x, y: tagY + 0.70, w: centerAlign ? CW : Math.min(7.5, CW), h: 1.34,
@@ -250,7 +260,10 @@ function renderCommonCoverContent(
   }
 
   const broker = input.data.brokerName || '';
-  const infoText = [broker, companyName].filter(Boolean).join('  |  ');
+  let infoText = [broker, companyName].filter(Boolean).join('  |  ');
+  if (input.data.documentDate) {
+    infoText = [input.data.documentDate, infoText].filter(Boolean).join('  |  ');
+  }
   slide.addText(infoText, {
     x: M, y: 6.60, w: CW, h: 0.3,
     fontSize: 9, color: CD.faint, // D30 m-4: 최소 캡션 9pt

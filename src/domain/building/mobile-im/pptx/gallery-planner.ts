@@ -75,12 +75,32 @@ function determineLayout(photos: PhotoMeta[]): GalleryLayoutType {
 export function planGallerySlides(
   photos: PhotoMeta[],
   posture: InvestmentPosture = 'income',
+  preset?: string,
 ): GallerySlideSpec[] {
   // 1. 지도(map)는 입지 슬라이드용이므로 갤러리 슬라이드 대상에서 제외
   const validPhotos = photos.filter(p => {
     const isMap = p.category === 'map' || (p as any).type === 'map';
     return !isMap && !!p.url;
   });
+
+  // Basic IM: 최대 6컷을 1개 슬라이드에 강제 배치 (basic-im-guide.md §2 #8)
+  if (preset === 'credeal_basic') {
+    if (validPhotos.length === 0) return [];
+    const photos6 = validPhotos.slice(0, 6);
+    const layout: GalleryLayoutType = photos6.length >= 5 ? 'GRID_2X3' 
+      : photos6.length === 4 ? 'GRID_2X2'
+      : photos6.length === 3 ? 'ONE_LARGE_TWO_SMALL_H'
+      : photos6.length === 2 ? 'DUAL_LANDSCAPE'
+      : 'FULL_WIDE';
+    return [{
+      slideIndex: 0,
+      kicker: 'Gallery',
+      title: '현장 사진',
+      layout,
+      photos: photos6,
+      dataKey: 'gallery_0',
+    }];
+  }
 
   if (validPhotos.length === 0) {
     return [];

@@ -43,8 +43,12 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
     targetPhotos = rawPhotos.map(p => ({
       url: typeof p === 'string' ? p : p.url,
       caption: (p as any).caption || '',
-      label: (p as any).category ? PHOTO_CATEGORY_LABELS[(p as any).category as keyof typeof PHOTO_CATEGORY_LABELS] : undefined,
-      category: (p as any).category,
+      label: ((p as any).category && PHOTO_CATEGORY_LABELS[(p as any).category as keyof typeof PHOTO_CATEGORY_LABELS])
+        ? PHOTO_CATEGORY_LABELS[(p as any).category as keyof typeof PHOTO_CATEGORY_LABELS]
+        : ((p as any).type && PHOTO_CATEGORY_LABELS[(p as any).type as keyof typeof PHOTO_CATEGORY_LABELS])
+          ? PHOTO_CATEGORY_LABELS[(p as any).type as keyof typeof PHOTO_CATEGORY_LABELS]
+          : undefined,
+      category: (p as any).category || (p as any).type,
     }));
   } else if (photoUrls.length > 0) {
     targetPhotos = photoUrls.map(url => ({ url }));

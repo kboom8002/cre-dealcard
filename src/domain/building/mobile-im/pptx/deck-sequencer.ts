@@ -110,14 +110,11 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     sequence.push({ archetype: 'A06', kicker: 'Cadastral', title: '지적도', dataKey: 'cadastralMap' });
   }
 
-  // 6. 건물 사용 현황 (렌트롤 표 + 스태킹 플랜) (basic-im-guide §2 #6)
+  // 6. 건물 사용 현황 (렌트롤 + 스태킹 플랜 복합) (basic-im-guide §2 #6)
   const addRentRoll = da.hasRentRoll !== false;
   const addStackingPlan = da.hasStackingPlan === true;
-  if (addRentRoll) {
-    sequence.push({ archetype: 'A03', kicker: 'Rent Roll', title: '렌트롤', dataKey: 'rentRoll' });
-  }
-  if (addStackingPlan) {
-    sequence.push({ archetype: 'A22', kicker: 'Stacking Plan', title: '스태킹 플랜', dataKey: 'stackingPlan' });
+  if (addRentRoll || addStackingPlan) {
+    sequence.push({ archetype: 'A24', kicker: 'Rent Roll', title: '임대차 현황', dataKey: 'rentRoll' });
   }
 
   // 7. 투자수익률 분석 (A23, 수익형 포스처 전용) (basic-im-guide §2 #7, §3.3)

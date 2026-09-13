@@ -83,6 +83,25 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       '• 상세 제원은 실사 자료 및 공부 원본을 참조하시기 바랍니다\n• 세부 현황은 첨부 공적 장부 및 현장 실사를 기준으로 합니다\n• 특이사항은 LOI 접수 후 제공되는 실사 보고서를 참조하십시오');
   }
   
+  if (input.data.priceTable) {
+    const rowCount = (left.rows?.length || (input.data.content ? String(input.data.content).split('\n').filter(l => l.trim().length > 0 && !l.startsWith('#') && !l.startsWith('|')).length : 0));
+    const finalRowCount = Math.min(rowCount, 10);
+    const py = 1.80 + finalRowCount * 0.48 + 0.2;
+    slide.addShape('rect' as any, {
+      x: M, y: py, w: lw, h: 0.55,
+      fill: { color: 'F6F1E4' },
+      line: { color: 'B8860B', width: 1.2 }
+    });
+    slide.addText(input.data.priceTable.label, {
+      x: M + 0.15, y: py, w: lw * 0.4, h: 0.55,
+      fontFace: KR, fontSize: 11, bold: true, color: C.ink, valign: 'middle', align: 'left', margin: 0
+    });
+    slide.addText(input.data.priceTable.value, {
+      x: M + lw * 0.4, y: py, w: lw * 0.6 - 0.15, h: 0.55,
+      fontFace: KR, fontSize: 14, bold: true, color: C.brass, valign: 'middle', align: 'right', margin: 0
+    });
+  }
+
   // Brass 수직 구분선
   slide.addShape('line' as any, {
     x: M + lw + gap / 2, y: 1.50, w: 0, h: 5.2,

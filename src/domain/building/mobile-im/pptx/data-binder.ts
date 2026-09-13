@@ -1591,8 +1591,35 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
   // D33 BL-C: 함수 스코프에서 Yield 객체 선언 — 반환값으로 전달
   let summaryYield: Yield | null = null;
 
+  const isBasicIM = body?.preset === 'credeal_basic' || body?.heroCard?.preset === 'credeal_basic';
+
   // 포스처별 핵심 4지표 매핑
-  if (posture === 'income') {
+  if (posture === 'income' && isBasicIM) {
+    // basic-im-guide.md §2 #2: 핵심 숫자 스탯 6개
+    if (askPrice) metrics.push({ label: '매매 희망가', value: String(askPrice) });
+    const ssotB = body?.ssot_summary ?? {};
+    const landAreaPy = heroCard.landAreaPyeong ?? ssotB.land_area_pyeong;
+    if (landAreaPy) metrics.push({ label: '대지면적', value: `${Number(landAreaPy).toLocaleString()}평` });
+    const gfaPy = heroCard.totalGrossAreaPyeong ?? ssotB.total_gross_area_pyeong;
+    if (gfaPy) metrics.push({ label: '연면적', value: `${Number(gfaPy).toLocaleString()}평` });
+    const floorsAbove = ssotB.floors_above ?? heroCard.floorsAbove;
+    const floorsBelow = ssotB.floors_below ?? heroCard.floorsBelow;
+    if (floorsAbove) {
+      const scaleStr = floorsBelow ? `B${floorsBelow}/F${floorsAbove}` : `지상 ${floorsAbove}층`;
+      metrics.push({ label: '건축규모', value: scaleStr });
+    }
+    const yieldObj = buildYieldFromHeroCard(heroCard);
+    if (yieldObj) {
+      summaryYield = yieldObj;
+      metrics.push({ label: yieldLabel(yieldObj), value: `${yieldObj.value}%` });
+    }
+    const vacInfo = heroCard.vacancyDisplay ?? ssotB.vacancy_signal;
+    if (vacInfo) metrics.push({ label: '공실 현황', value: vacInfo });
+    // 보충: 6개 미만이면 실투자금 추가
+    if (metrics.length < 6 && heroCard.equityRequiredBil) {
+      metrics.push({ label: '실투자금', value: `약 ${heroCard.equityRequiredBil}억 원` });
+    }
+  } else if (posture === 'income') {
     if (askPrice) metrics.push({ label: '매매 희망가', value: String(askPrice) });
     if (heroCard.equityRequiredBil) metrics.push({ label: '실투자금', value: `약 ${heroCard.equityRequiredBil}억 원` });
     // D33 BL-C: 수익률 단일 객체 — 라벨은 값에서 파생, 문자열 교정 폐기
@@ -1695,10 +1722,16 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
     } else {
       const area = heroCard.areaSignal || '핵심권역';
       const ask = heroCard.priceBand || (heroCard.askingPriceManwon ? `${(heroCard.askingPriceManwon / 10000).toFixed(0)}억대` : '시장 적정가');
+      // 기존 회피성 문구를 수치 기반 구체적 문장으로 교체 (Rule 37)
+      const ssotKP = body?.ssot_summary ?? {};
+      const vacFloors = ssotKP.vacant_floor_count ?? 0;
+      const totalFloors = ssotKP.floors_above ?? 0;
+      const roadInfo = ssotKP.road_condition ?? '';
+      const stationMin = ssotKP.station_walk_min ?? '';
       keyPoints.push(
-        `입지 분석: ${area} 소재 자산의 입지 특성 및 대지 지분 가치 확인 필요`,
-        `수익 구조: 매매 ${ask} 수준 대비 임대수익 현황 분석 필요`,
-        `향후 검토: 권역 개발 동향 및 공법상 변경 가능성 확인 필요`
+        `입지 가치: ${area} 소재${roadInfo ? `, ${roadInfo} 접면` : ''}${stationMin ? `, 역세권 도보 ${stationMin}분` : ''}`,
+        `수익 구조: 매매 ${ask}${vacFloors > 0 ? `, ${vacFloors}/${totalFloors}층 공실 — 안정화 시 수익률 상승 여력` : totalFloors > 0 ? `, ${totalFloors}층 만실 운영 중` : ''}`,
+        `실사 점검: 등기부·대장 공부 확인 및 임대차계약서 원본 대조 필요`
       );
     }
   }
@@ -2571,9 +2604,33 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     },
   };
 
+  const isBasicPreset = body?.preset === 'credeal_basic';
+  if (isBasicPreset && result['building']) {
+    const bldgData = result['building'] as any;
+    const leftRows = bldgData.left?.rows ?? [];
+    const priceIdx = leftRows.findIndex((r: any[]) => 
+      r[0] && (String(r[0]).includes('매매') || String(r[0]).includes('매각') || String(r[0]).includes('희망가'))
+    );
+    if (priceIdx >= 0) {
+      const priceRow = leftRows.splice(priceIdx, 1)[0];
+      bldgData.priceTable = { label: String(priceRow[0]), value: String(priceRow[1]) };
+    }
+  }
+
   // 3. Rent Roll / Lease Status (A03)
-  const rentRollHeaders = ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
-  const rentRollRows = core.leases.map(l => [
+  const isBasicPresetForRentRoll = body?.preset === 'credeal_basic';
+  const rentRollHeaders = isBasicPresetForRentRoll 
+    ? ['층수', '면적(평)', '임차인', '보증금', '월세', '계약종료']
+    : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
+    
+  const rentRollRows = core.leases.map(l => isBasicPresetForRentRoll ? [
+    l.unitLabel,
+    l.leaseAreaSqm ? `${(l.leaseAreaSqm * 0.3025).toFixed(0)}평` : '-',
+    l.tenantBusiness ?? (l.leaseState === '공실' ? '공실' : '-'),
+    l.depositKrw ? `${Math.round(l.depositKrw / 10000).toLocaleString()}만` : '-',
+    l.monthlyRentKrw ? `${Math.round(l.monthlyRentKrw / 10000).toLocaleString()}만` : '-',
+    l.currentExpiryDate ?? '-',
+  ] : [
     l.unitLabel,
     l.tenantBusiness ?? (l.leaseState === '공실' ? '🚫 공실' : '-'),
     l.leaseAreaSqm ? `${(l.leaseAreaSqm * 0.3025).toFixed(0)}평` : '-',
@@ -2591,6 +2648,11 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     tableHead: rentRollHeaders,
     tableRows: rentRollRows,
   };
+
+  if (isBasicPresetForRentRoll && result['rentRoll'] && result['stackingPlan']) {
+    (result['rentRoll'] as any).stackingPlan = (result['stackingPlan'] as any)?.stackingPlan ?? [];
+    (result['rentRoll'] as any).stackingSummary = (result['stackingPlan'] as any)?.summary ?? {};
+  }
 
   // 4. Profit / Income Analysis (A05)
   // D41 B2: LTV 미입력 시 대출 관련 수치를 가림

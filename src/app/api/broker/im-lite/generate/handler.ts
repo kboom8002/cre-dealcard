@@ -556,8 +556,17 @@ export async function generateMobileIMHandler(
   // ── base64 data URI 사진 → Supabase Storage 업로드 (JSONB 크기 초과 방지) ──
   const uploadedPhotos = await uploadDataUriPhotos(
     supplemental.photos_v2 ?? [],
-    buildingId,
+    buildingId
   );
+
+  // floor_leases에서 공실률 직접 산출 → ssot_summary.vacancy_pct에 영속
+  const floorLeases = supplemental.floor_leases ?? [];
+  if (floorLeases.length > 0 && supplemental.vacancy_pct == null) {
+    const vacantCount = floorLeases.filter((l: any) => 
+      l.is_vacant === true || l.tenant === '공실' || l.tenant_name === '공실'
+    ).length;
+    supplemental.vacancy_pct = Math.round((vacantCount / floorLeases.length) * 1000) / 10;
+  }
 
   const imDocPayload = {
     owner_id: userId,
