@@ -334,6 +334,44 @@ export function bindSectionData(
           ...a22Props,
         };
       }
+
+      // ─── A24 rentRoll fallback: floor_leases 미영속 + 마크다운 테이블 미생성 시 ssot_summary 기반 합성 ───
+      // LLM이 서술형 텍스트만 생성하고 마크다운 테이블을 포함하지 않은 경우,
+      // A24가 suppress되지 않도록 ssot_summary와 텍스트에서 최소한의 임대차 요약 테이블을 동적으로 합성합니다.
+      // Rule 34: 특정 매물 데이터 하드코딩 금지 — 모든 수치는 ssot_summary에서 동적 산출
+      if (result['rentRoll'] && !((result['rentRoll'] as any).tableRows?.length > 0)) {
+        const ssot = doc.body?.ssot_summary ?? {};
+        const monthlyRentKrw = ssot.monthly_rent_total_krw;
+        const depositManwon = ssot.total_deposit_manwon ?? (doc.body?.total_deposit_manwon);
+        const askingManwon = ssot.asking_price_manwon ?? doc.body?.asking_price_manwon;
+        const vacancySignal = ssot.vacancy_signal || ssot.vacancy_status;
+
+        // ssot에 월세 또는 보증금 데이터가 있으면 합성 가능
+        if (monthlyRentKrw || depositManwon) {
+          const monthlyRentManwon = monthlyRentKrw ? Math.round(monthlyRentKrw / 10000) : 0;
+          const annualRentEok = monthlyRentManwon > 0 ? (monthlyRentManwon * 12 / 10000).toFixed(1) : '-';
+          const depositEok = depositManwon ? (depositManwon / 10000).toFixed(1) : '-';
+
+          // 마크다운 서술에서 공실 층수 추출 (예: "2층·4층·5층 등 총 3개 층 공실")
+          const vacantMatch = cleanMarkdown.match(/(\d+)\s*개?\s*층?\s*공실/);
+          const vacantCount = vacantMatch ? parseInt(vacantMatch[1]) : 0;
+
+          const summaryRows: string[][] = [
+            ['월 임대료 합계', `${monthlyRentManwon.toLocaleString()}만 원`, '연간', `약 ${annualRentEok}억 원`],
+            ['보증금 합계', depositManwon ? `${depositEok}억 원` : '미확인', '공실 현황', vacancySignal || `${vacantCount}개 층 공실`],
+          ];
+          if (askingManwon) {
+            summaryRows.push(['매각 희망가', `${(askingManwon / 10000).toFixed(0)}억 원`, '총보증금 대비', depositManwon && askingManwon ? `${((depositManwon / askingManwon) * 100).toFixed(1)}%` : '-']);
+          }
+
+          (result['rentRoll'] as any).tableRows = summaryRows;
+          (result['rentRoll'] as any).tableHead = ['항목', '금액', '항목', '금액'];
+          // tables 배열에도 동기화 (A24 fallback 경로용)
+          if (!(result['rentRoll'] as any).tables?.length) {
+            (result['rentRoll'] as any).tables = [{ headers: ['항목', '금액', '항목', '금액'], rows: summaryRows }];
+          }
+        }
+      }
     }
 
     // income_analysis → rentGap, upside, leasing, remodel, comps 등 파생 데이터 제공

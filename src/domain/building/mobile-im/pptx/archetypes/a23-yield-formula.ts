@@ -97,7 +97,8 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   // ── As-Is / Stabilized 2열 비교 카드 ──
   const cardY = 3.10;
   const cardH = 3.40;
-  const cardW = (CW - 0.30) / 2;
+  const hasStabilized = capRateStabilized != null && capRateStabilized > 0;
+  const cardW = hasStabilized ? (CW - 0.30) / 2 : CW;
 
   // Helper: 단일 수익률 카드
   const renderCard = (x: number, label: string, isStabilized: boolean, capRate: number) => {
@@ -156,7 +157,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     };
 
     const rentForCard = isStabilized && capRateStabilized
-      ? annualRent * (1 + vacancyPct / 100) // 안정화 추정
+      ? annualRent / (1 - vacancyPct / 100) // 안정화: 공실 해소 시 예상 임대료
       : annualRent;
 
     renderRow('연간 임대료', fmtManwon(rentForCard));

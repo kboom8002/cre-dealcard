@@ -112,23 +112,26 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
 
   let rightRows = (right.rows ?? []).slice(0, 5);
   if (rightRows.length === 0 && input.data.content) {
-    // Parse key points from content narrative if available
+    // 마크다운 콘텐츠에서 키-값 불릿을 동적 추출 (Rule 26: 특정 지역명 하드코딩 금지)
     const contentText = String(input.data.content);
     const autoRows: RowEntry[] = [];
-    if (/역삼역|2호선/i.test(contentText)) {
-      autoRows.push(['지하철 접근성', '2호선 역삼역 도보 2분 (약 129m) 초역세권']);
+    // 패턴 1: "키워드: 설명" 형태 불릿
+    const kvMatches = contentText.match(/(?:^|\n)\s*[-•*]\s*(.+?)[:：]\s*(.+)/g);
+    if (kvMatches) {
+      for (const m of kvMatches.slice(0, 5)) {
+        const parts = m.replace(/^\s*[-•*]\s*/, '').split(/[:：]\s*/);
+        if (parts.length >= 2 && parts[0].length <= 20 && parts[1].length >= 5) {
+          autoRows.push([parts[0].trim(), parts[1].trim().substring(0, 60)]);
+        }
+      }
     }
-    if (/강남역|9호선|언주역|신논현역/i.test(contentText)) {
-      autoRows.push(['광역 환승망', '2·9호선 및 신분당선 인접 (강남역 780m)']);
-    }
-    if (/테헤란로|GBD/i.test(contentText)) {
-      autoRows.push(['핵심 권역', '강남 핵심 업무지구(GBD) 테헤란로 중심']);
-    }
-    if (/도로|각지/i.test(contentText)) {
-      autoRows.push(['도로 조건', '일반상업지역 중로각지·평지 입지']);
-    }
-    if (/인프라|식음|편의/i.test(contentText)) {
-      autoRows.push(['생활·비즈니스', '풍부한 식음 및 비즈니스 지원 인프라 밀집']);
+    // 패턴 2: 키-값이 없으면 짧은 문장에서 추출
+    if (autoRows.length < 2) {
+      const sentences = contentText.split(/[.。\n]/).filter(s => s.trim().length >= 10 && s.trim().length <= 60);
+      for (const s of sentences.slice(0, 3)) {
+        const clean = s.replace(/^#{1,6}\s*/, '').replace(/\*\*/g, '').trim();
+        if (clean.length >= 10) autoRows.push(['입지 특성', clean]);
+      }
     }
     if (autoRows.length >= 2) {
       rightRows = autoRows;

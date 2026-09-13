@@ -390,9 +390,9 @@ export class MobileImPptxRenderer {
 
       if (posture === 'owner_occupied' && (!(dataMap['summary'] as any).keyPoints || (dataMap['summary'] as any).keyPoints.length === 0)) {
         (dataMap['summary'] as any).keyPoints = [
-          '사옥 가치: 테헤란로 핵심 업무권역 내 독립 사옥 확보 및 쾌적한 본사 공간',
-          '비용 절감: 강남 임차료 지출을 법인 자산 축적으로 전환하는 재무 타당성',
-          '기업 브랜딩: 사옥 단독 명칭 표기(간판 설치권) 및 기업 대외 신인도 극대화',
+          '사옥 가치: 도심 업무권역 내 독립 사옥 확보를 통한 중장기 자산 가치 확보',
+          '비용 절감: 임차료 지출을 법인 자산 축적으로 전환하는 재무 타당성 분석',
+          '기업 브랜딩: 사옥 단독 명칭 표기(간판 설치권) 및 기업 대외 신인도 제고',
         ];
       }
 
