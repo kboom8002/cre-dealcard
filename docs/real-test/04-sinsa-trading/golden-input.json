@@ -1,0 +1,81 @@
+{
+  "id": "2507-sinsa-590",
+  "name": "신사동 590 ICL빌딩 매각",
+  "address": "서울특별시 강남구 신사동 590",
+  "pnu": "1168010700105900000",
+  "posture": "trading",
+  "price_summary": {
+    "asking_price_manwon": 7600000,
+    "total_deposit_manwon": 95000,
+    "total_monthly_rent_manwon": 6462.5
+  },
+  "basic_im": {
+    "expected_grade": "C",
+    "expected_preset": "credeal_basic",
+    "can_generate": true,
+    "grade_rationale": "Grade C: 사진 5장 (외관+현장), 기본 메모, 제한된 렌트롤(면적없음) -> L1~L2 데이터",
+    "memo": "[매각 IM] 신사동 590 빌딩 (ICL 빌딩)\n압구정역 도보 7분, 강남 을지병원 사거리 인근 이면 코너 (성형/피부 메디컬 밀집).\n대지 321.2평, 연면적 1010.9평. 매각가 760억원 (토지평당 약 2.36억).\n3종일반주거, 코너 정방형.",
+    "bottom_sheet": {
+      "address": "서울특별시 강남구 신사동 590",
+      "land_area_pyeong": 321.2,
+      "gross_floor_area_pyeong": 1010.9,
+      "asking_price_manwon": 7600000,
+      "monthly_rent_manwon": 6462.5,
+      "total_deposit_manwon": 95000
+    }
+  },
+  "pro_im": {
+    "expected_grade": "B",
+    "expected_preset": "commercial_visual_grid",
+    "can_generate": true,
+    "grade_rationale": "Grade B: 비교사례(comps) 6건 포함, 사진 5건, R1 렌트롤 -> Grade A(R2)에는 미치지 못하나 비교사례가 풍부하여 Pro B등급 생성 가능",
+    "memo": "[매각 IM] 신사동 590 빌딩 매각 (ICL 빌딩)\n\n■ 입지 및 상권\n- 압구정역 도보 7분, 강남 을지병원 사거리 인근\n- 논현로 이면 코너, 성형/피부 메디컬 밀집 지역\n\n■ 물건 개요\n- 대지면적: 1,061.9㎡ (321.2평)\n- 연면적: 3,341.8㎡ (1,010.9평)\n- 지역/지구: 3종일반주거지역 (코너/정방형 부지, 기타 규제 없음)\n- 규모: B2 ~ 6F (1998년 준공)\n- 주차: 총 26대 (기계식 21대, 자주식 5대)\n\n■ 매각 조건\n- 매각가: 760억원\n- 토지평당가: 약 2.36억원/평\n- 인근 매물 호가(2.7~3.2억/평) 및 실거래가(2.3억 내외) 고려 시 경쟁력 있는 단가",
+    "bottom_sheet": {
+      "address": "서울특별시 강남구 신사동 590",
+      "land_area_pyeong": 321.2,
+      "gross_floor_area_pyeong": 1010.9,
+      "building_area_pyeong": 164.8,
+      "asking_price_manwon": 7600000,
+      "monthly_rent_manwon": 6462.5,
+      "total_deposit_manwon": 95000,
+      "completion_year": "1998",
+      "floor_leases": [
+        { "floor": "1F", "tenant_name": "이탈로모토", "deposit_manwon": 25000, "rent_manwon": 1627 },
+        { "floor": "2F", "tenant_name": "모래공장보컬아카데미", "deposit_manwon": 15000, "rent_manwon": 1150 },
+        { "floor": "3F", "tenant_name": "엑셀유학/어학", "deposit_manwon": 15000, "rent_manwon": 1575 },
+        { "floor": "4F", "tenant_name": "공실", "deposit_manwon": 0, "rent_manwon": 0 },
+        { "floor": "5F", "tenant_name": "ST성형외과", "deposit_manwon": 30000, "rent_manwon": 1330 },
+        { "floor": "6F", "tenant_name": "하우연한의원", "deposit_manwon": 10000, "rent_manwon": 780 }
+      ],
+      "manual_comps": [
+        { "address": "신사동 586-6", "land_area_pyeong": 76.7, "price_manwon": 1730000, "type": "실거래", "note": "3종일반, 근생" },
+        { "address": "신사동 559-6", "land_area_pyeong": 70.6, "price_manwon": 2000000, "type": "매물", "note": "2종일반, 근생" },
+        { "address": "신사동 558-6", "land_area_pyeong": 73.8, "price_manwon": 2200000, "type": "매물", "note": "2종일반, 근생" },
+        { "address": "신사동 588-1", "land_area_pyeong": 55.1, "price_manwon": 1750000, "type": "매물", "note": "3종일반, 오피스" },
+        { "address": "신사동 590-23", "land_area_pyeong": 145.5, "price_manwon": 4000000, "type": "매물", "note": "3종일반, 근생" },
+        { "address": "신사동 566-35", "land_area_pyeong": 65.4, "price_manwon": 1310000, "type": "실거래", "note": "2종일반, 근생" }
+      ]
+    }
+  },
+  "photos": [
+    { "path": "images/01_exterior.png", "category": "exterior", "is_hero": true },
+    { "path": "images/05_side_street.jpeg", "category": "road", "is_hero": false },
+    { "path": "images/06_main_street.jpeg", "category": "road", "is_hero": false },
+    { "path": "images/07_rear_parking.jpeg", "category": "parking", "is_hero": false },
+    { "path": "images/08_corner_rear.jpeg", "category": "exterior", "is_hero": false }
+  ],
+  "assertions": {
+    "positive": [
+      "trading posture should generate comps section",
+      "trading posture should not require full rent roll for Grade B",
+      "grade should be B+ due to rich comps data despite R1 rent roll"
+    ],
+    "negative": [
+      "should not fail due to missing area per floor in rent roll",
+      "should not crash if exact lease end dates are missing in floor_leases"
+    ],
+    "basic_specific": [
+      "credeal_basic preset should be applied for basic_im"
+    ]
+  }
+}
