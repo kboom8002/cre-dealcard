@@ -1,12 +1,6 @@
-/**
- * /api/oiticle/generate — 오이티클 생성 (admin/cron/기고)
- *
- * POST: 오이티클 생성 (AI 자동 또는 중개인/벤더 기고)
- * GET:  오이티클 목록 조회
- */
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireRole, requireBroker } from "@/lib/auth-guard";
 import {
   generateOiticle,
   generateMonthlyMarketOiticles,
@@ -35,7 +29,7 @@ export async function POST(req: NextRequest) {
   const mode = body.mode ?? "auto";
 
   try {
-    // 월간 일괄 생성
+    // 월간 일괄 생성 (CRON)
     if (mode === "monthly_batch") {
       const cronSecret = process.env.CRON_SECRET;
       const authHeader = req.headers.get("authorization");
@@ -47,22 +41,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         generated: results.length,
         oiticles: results,
-        message: `${results.length}개 월간 시세 분석 오이티클 생성 완료`,
+        message: `${results.length}건 월간 상세 분석 오이티클 생성 완료`,
       }, { status: 201 });
-    }
-
-    // 일반 사용자 인증 확인 (contribute, auto 등 LLM 호출용)
-    const supabaseClient = await createServerSupabaseClient();
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // 중개인/벤더 기고
     if (mode === "contribute") {
+      const guard = await requireBroker(req);
+      if (guard.error) return guard.error;
+
       if (!body.type || !body.title || !body.bodyMd || !body.authorId) {
         return NextResponse.json(
-          { error: "type, title, bodyMd, authorId는 필수입니다." },
+          { error: "type, title, bodyMd, authorId는 필수입니다" },
           { status: 400 },
         );
       }
@@ -83,9 +73,12 @@ export async function POST(req: NextRequest) {
       }, { status: 201 });
     }
 
-    // AI 자동 생성
+    // AI 자동 생성 (관리자 전용)
+    const guard = await requireRole(req, ["admin"]);
+    if (guard.error) return guard.error;
+
     if (!body.type) {
-      return NextResponse.json({ error: "type은 필수입니다." }, { status: 400 });
+      return NextResponse.json({ error: "type은 필수입니다" }, { status: 400 });
     }
 
     const result = await generateOiticle(supabase, {

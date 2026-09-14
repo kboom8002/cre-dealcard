@@ -1,25 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth-guard";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
 
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user?.id || "")
-      .single();
-
-    if (!profile || profile.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
+    const guard = await requireRole(req, ["admin"]);
+    if (guard.error) return guard.error;
+    const user = guard.user;
 
     // 1. Funnel Events (last 30 days)
     const { data: events, error: eventsErr } = await supabase
