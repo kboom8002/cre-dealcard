@@ -17,6 +17,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { UnifiedSearchBar } from "@/components/search/UnifiedSearchBar";
 import { BrokerResultCard } from "@/components/search/BrokerResultCard";
 import { searchResultsPage, brokerItemList } from "@/lib/schema-org";
+import { sqmToPyeong } from "@/lib/utils/area-conversion";
 
 interface SearchPageProps {
   searchParams: Promise<{
@@ -502,7 +503,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                           {r.title}
                         </h4>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {r.area_sqm ? `${Math.round(r.area_sqm / 3.3058)}평` : ""} · 보증금 {r.deposit || 0}만 / 월 {r.monthly_rent || 0}만
+                          {r.area_sqm ? `${Math.round(sqmToPyeong(r.area_sqm))}평` : ""} · 보증금 {r.deposit || 0}만 / 월 {r.monthly_rent || 0}만
                         </p>
                       </div>
                     </div>

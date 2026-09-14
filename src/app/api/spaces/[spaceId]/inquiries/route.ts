@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { PublicInquiryInputSchema } from "@/contracts/inquiry";
 import { runInquiryQualifierAgent } from "@/ai/agents/inquiry-qualifier-agent";
+import { pyeongToSqm } from "@/lib/utils/area-conversion";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -147,9 +148,9 @@ export async function POST(
               // 3. tenant_intent 자동 생성
               if (client?.id) {
                 const areaPy = requirement?.desired_area_py_min;
-                const areaSqmMin = areaPy ? areaPy * 3.3058 : null;
+                const areaSqmMin = areaPy ? pyeongToSqm(areaPy) : null;
                 const areaSqmMax = requirement?.desired_area_py_max
-                  ? requirement.desired_area_py_max * 3.3058
+                  ? pyeongToSqm(requirement.desired_area_py_max)
                   : areaSqmMin;
 
                 const { data: intent } = await supabase

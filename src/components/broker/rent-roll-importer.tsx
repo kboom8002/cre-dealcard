@@ -3,6 +3,7 @@
 import React, { useRef, useState } from "react";
 // SECURITY: xlsx@0.18.5 has known CVEs (CVE-2023-30533 Prototype Pollution) - inputs must be validated
 import * as XLSX from "xlsx";
+import { pyeongToSqm } from "@/lib/utils/area-conversion";
 
 interface RentRollImporterProps {
   hasExistingData?: boolean;
@@ -179,7 +180,7 @@ function parseRentRollData(data: any[][]): ParseResult {
       const areaNum = parseFloat(areaStr);
       if (!isNaN(areaNum)) {
         if (originalStr.includes('평') || (areaNum < 50 && areaStr.includes('.'))) {
-           areaVal = parseFloat((areaNum * 3.30578).toFixed(2));
+           areaVal = parseFloat(pyeongToSqm(areaNum).toFixed(2));
         } else {
            areaVal = areaNum;
         }

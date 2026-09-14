@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Search, Building2, Store, BarChart3, MapPin, ArrowRight, Filter, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { sqmToPyeong } from "@/lib/utils/area-conversion";
 
 type Tab = "deal" | "space" | "market" | "broker";
 type Region = string;
@@ -308,7 +309,7 @@ export default function ExploreUnifiedPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-white truncate">{r.title}</p>
                       <p className="text-[10px] text-slate-500 mt-0.5">
-                        {r.area_sqm ? `${Math.round(r.area_sqm / 3.3058)}평` : ""} · 월 {r.monthly_rent || "?"}만
+                        {r.area_sqm ? `${Math.round(sqmToPyeong(r.area_sqm))}평` : ""} · 월 {r.monthly_rent || "?"}만
                       </p>
                     </div>
                     <ArrowRight className="w-3.5 h-3.5 text-slate-600 shrink-0" />

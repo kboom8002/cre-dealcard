@@ -8,6 +8,7 @@
  */
 
 import { sanitizeMemo } from '@/ai/sanitizer/memo-sanitizer';
+import { sqmToPyeong } from '@/lib/utils/area-conversion';
 
 /**
  * Represents a single extracted slot from an OCR document.
@@ -83,7 +84,7 @@ export function parseDocumentOCR(
   if (areaMatch) {
     const num = parseFloat(areaMatch[1].replace(/,/g, ''));
     const isPyung = areaMatch[2] === '평';
-    const pyungVal = isPyung ? num : Math.round(num / 3.30578 * 10) / 10;
+    const pyungVal = isPyung ? num : Math.round(sqmToPyeong(num) * 10) / 10;
     extractedSlots.totalFloorAreaPyung = {
       slotKey: 'totalFloorAreaPyung',
       value: pyungVal,

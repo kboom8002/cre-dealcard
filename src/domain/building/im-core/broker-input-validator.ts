@@ -13,6 +13,7 @@
 import { randomUUID } from 'crypto';
 import type { ClaimRegistry } from './claim-registry';
 import type { Claim } from './claim';
+import { sqmToPyeong } from '@/lib/utils/area-conversion';
 
 export interface BrokerInputDiscrepancy {
   code: 'LAND_PRICE_PYEONG_DISCREPANCY' | 'GFA_PRICE_PYEONG_DISCREPANCY' | 'RENTROLL_SUM_MISMATCH' | 'HIGH_VACANCY_PRO_FORMA' | 'UNSUPPORTED_MEDIA_FORMAT';
@@ -67,8 +68,8 @@ export function validateBrokerInput(
   options?: { registry?: ClaimRegistry; asOf?: string }
 ): BrokerInputValidationResult {
   const discrepancies: BrokerInputDiscrepancy[] = [];
-  const landAreaPyeong = input.landAreaM2 * 0.3025;
-  const gfaAreaPyeong = input.grossFloorAreaM2 * 0.3025;
+  const landAreaPyeong = sqmToPyeong(input.landAreaM2);
+  const gfaAreaPyeong = sqmToPyeong(input.grossFloorAreaM2);
 
   // 1. 토지 평당가 검증
   if (input.askingPriceKrw <= 0) {

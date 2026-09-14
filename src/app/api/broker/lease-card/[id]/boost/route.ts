@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 import { toApiError } from "@/lib/api-error";
+import { sqmToPyeong } from "@/lib/utils/area-conversion";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -48,7 +49,7 @@ export async function POST(
 
     // 3. lease_spaces 데이터를 spaces 형식으로 변환
     const building = ls.building as { id?: string; area_signal?: string; asset_type?: string } | null;
-    const areaPy = ls.area_sqm ? Math.round(ls.area_sqm / 3.3058 * 10) / 10 : null;
+    const areaPy = ls.area_sqm ? Math.round(sqmToPyeong(ls.area_sqm) * 10) / 10 : null;
 
     const spaceTypeMap: Record<string, string> = {
       office: "오피스",

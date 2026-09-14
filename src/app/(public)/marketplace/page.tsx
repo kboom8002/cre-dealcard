@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from 'sonner';
+import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 
 interface ListedSpace {
   id: string;
@@ -204,10 +205,10 @@ export default function MarketplaceSearchPortal() {
               <input
                 type="number"
                 placeholder="면적 상관없음"
-                value={areaMin ? Math.round(parseFloat(areaMin) / 3.3058).toString() : ""}
+                value={areaMin ? Math.round(sqmToPyeong(parseFloat(areaMin))).toString() : ""}
                 onChange={(e) => {
                   const val = e.target.value;
-                  setAreaMin(val ? (parseFloat(val) * 3.3058).toString() : "");
+                  setAreaMin(val ? pyeongToSqm(parseFloat(val)).toString() : "");
                 }}
                 className="w-full bg-[#0b0f19] border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none"
               />
@@ -258,7 +259,7 @@ export default function MarketplaceSearchPortal() {
                       </div>
                       <div>
                         <span className="text-slate-600 font-medium">전용 면적:</span>{" "}
-                        {space.area_sqm ? `${Math.round(space.area_sqm / 3.3058)}평 (${space.area_sqm.toFixed(0)}㎡)` : "비공개"}
+                        {space.area_sqm ? `${Math.round(sqmToPyeong(space.area_sqm))}평 (${space.area_sqm.toFixed(0)}㎡)` : "비공개"}
                       </div>
                       <div className="col-span-2 text-primary font-bold mt-1 text-xs">
                         보증금 {space.deposit ? `${space.deposit}만` : "비공개"} / 월차임 {space.monthly_rent ? `${space.monthly_rent}만` : "비공개"}
@@ -310,7 +311,7 @@ export default function MarketplaceSearchPortal() {
                 <div>
                   <p className="text-[10px] text-slate-500 font-medium">임대 실평수</p>
                   <p className="font-semibold text-white mt-0.5">
-                    {selectedSpace.area_sqm ? `${Math.round(selectedSpace.area_sqm / 3.3058)}평 (${selectedSpace.area_sqm}㎡)` : "비공개"}
+                    {selectedSpace.area_sqm ? `${Math.round(sqmToPyeong(selectedSpace.area_sqm))}평 (${selectedSpace.area_sqm}㎡)` : "비공개"}
                   </p>
                 </div>
               </div>

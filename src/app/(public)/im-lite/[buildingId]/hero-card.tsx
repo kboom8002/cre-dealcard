@@ -1,6 +1,7 @@
 "use client";
 
 import type { HeroCardData } from "@/domain/building/mobile-im/types";
+import { formatPyeong } from "@/lib/utils/area-conversion";
 
 interface HeroCardProps {
   data: HeroCardData;
@@ -101,7 +102,7 @@ export function HeroCard({ data }: HeroCardProps) {
               <>
                 <MetricCell
                   label="건축 연면적"
-                  value={data.totalGrossAreaM2 ? `${data.totalGrossAreaM2.toLocaleString()}㎡ (${(data.totalGrossAreaM2 / 3.3058).toFixed(1)}평)` : "—"}
+                  value={data.totalGrossAreaM2 ? `${data.totalGrossAreaM2.toLocaleString()}㎡ (${formatPyeong(data.totalGrossAreaM2, 1)}평)` : "—"}
                   highlight={false}
                 />
                 <MetricCell

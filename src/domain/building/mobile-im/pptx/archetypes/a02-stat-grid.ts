@@ -2,6 +2,7 @@ import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, KR, NUM } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
+import { formatPyeong } from '@/lib/utils/area-conversion';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -76,9 +77,9 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       if (hero.capRateBase) metrics.push({ label: '연 수익률(Cap Rate, 기준: NOI)', value: `${hero.capRateBase}%` });
       if (hero.leveragedYieldPct) metrics.push({ label: '자기자본수익률', value: `${hero.leveragedYieldPct}%` });
       const landM2 = parseFloat(String(hero.landAreaM2 || '').replace(/,/g, ''));
-      if (metrics.length < 6 && !isNaN(landM2) && landM2 > 0) metrics.push({ label: '대지면적', value: `${(landM2 / 3.3058).toFixed(1)}평` });
+      if (metrics.length < 6 && !isNaN(landM2) && landM2 > 0) metrics.push({ label: '대지면적', value: `${formatPyeong(landM2, 1)}평` });
       const gfaM2 = parseFloat(String(hero.totalGrossAreaM2 || '').replace(/,/g, ''));
-      if (metrics.length < 6 && !isNaN(gfaM2) && gfaM2 > 0) metrics.push({ label: '연면적', value: `${(gfaM2 / 3.3058).toFixed(1)}평` });
+      if (metrics.length < 6 && !isNaN(gfaM2) && gfaM2 > 0) metrics.push({ label: '연면적', value: `${formatPyeong(gfaM2, 1)}평` });
       if (metrics.length < 6 && hero.zoning) metrics.push({ label: '용도지역', value: hero.zoning });
     }
   }
@@ -101,14 +102,14 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       const gfaM2 = parseFloat(String(hero.totalGrossAreaM2 || '').replace(/,/g, ''));
       const gfa = hero.totalGrossAreaPyeong
         ? `${hero.totalGrossAreaPyeong}평`
-        : (!isNaN(gfaM2) && gfaM2 > 0 ? `${(gfaM2 / 3.3058).toFixed(0)}평` : '-');
+        : (!isNaN(gfaM2) && gfaM2 > 0 ? `${formatPyeong(gfaM2, 0)}평` : '-');
       metrics.push({ label: '연면적', value: gfa });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('대지면적'))) {
       const landM2 = parseFloat(String(hero.landAreaM2 || '').replace(/,/g, ''));
       const site = hero.landAreaPyeong
         ? `${hero.landAreaPyeong}평`
-        : (!isNaN(landM2) && landM2 > 0 ? `${(landM2 / 3.3058).toFixed(0)}평` : '-');
+        : (!isNaN(landM2) && landM2 > 0 ? `${formatPyeong(landM2, 0)}평` : '-');
       metrics.push({ label: '대지면적', value: site });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('공실'))) {
@@ -226,8 +227,8 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   if (keyPoints.length < 3) {
     const area = input.data.areaSignal || input.data.heroCard?.areaSignal || '도심 비즈니스 권역';
     const capRate = hero?.capRateBase ? `${hero.capRateBase}%` : '';
-    const gfaPyeong = hero?.totalGrossAreaPyeong || (hero?.totalGrossAreaM2 ? `${(hero.totalGrossAreaM2 / 3.3058).toFixed(0)}` : '');
-    const landPyeong = hero?.landAreaPyeong || (hero?.landAreaM2 ? `${(hero.landAreaM2 / 3.3058).toFixed(0)}` : '');
+    const gfaPyeong = hero?.totalGrossAreaPyeong || (hero?.totalGrossAreaM2 ? formatPyeong(hero.totalGrossAreaM2, 0) : '');
+    const landPyeong = hero?.landAreaPyeong || (hero?.landAreaM2 ? formatPyeong(hero.landAreaM2, 0) : '');
 
     // G5 앵커: 역명 및 도보분 동적 결합
     const locPoi = input.data.enrichment?.locationPoi ?? input.data.locationPoi;

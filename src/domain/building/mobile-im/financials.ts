@@ -4,6 +4,7 @@
 
 import type { InvestmentPosture } from "@/domain/ontology";
 import { generateDCFSensitivity, calculateWACC, calculateIRR, type DCFOutputs } from "./dcf-sensitivity";
+import { sqmToPyeong, pyeongToSqm, SQM_RATIO } from "@/lib/utils/area-conversion";
 
 export interface FinancialInputs {
   posture?: InvestmentPosture;
@@ -253,7 +254,7 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
 
     const pricePerSqm = (purchasePriceKrw > 0 && totalAreaSqm && totalAreaSqm > 0)
       ? Math.round(purchasePriceKrw / totalAreaSqm) : null;
-    const pricePerPyeong = pricePerSqm ? Math.round(pricePerSqm * 3.30578) : null;
+    const pricePerPyeong = pricePerSqm ? Math.round(pricePerSqm * SQM_RATIO) : null;
 
     const landPriceTotal = platAreaSqm && landPricePerSqm ? platAreaSqm * landPricePerSqm : 0;
     const landValueRatio = (purchasePriceKrw > 0 && landPriceTotal > 0 && platAreaSqm)
@@ -409,7 +410,7 @@ class DevelopmentFinancialStrategy implements PostureFinancialStrategy {
   calculate(inputs: FinancialInputs): FinancialOutputs {
     const purchasePrice = inputs.purchasePriceKrw || 0;
     const platArea = inputs.platAreaSqm || 0;
-    const platPyeong = platArea / 3.30578;
+    const platPyeong = sqmToPyeong(platArea);
 
     const landPricePerPyeong = (purchasePrice > 0 && platPyeong > 0)
       ? Math.round((purchasePrice / 10000) / platPyeong)
@@ -449,7 +450,7 @@ class DevelopmentFinancialStrategy implements PostureFinancialStrategy {
 
     const pricePerSqm = (purchasePrice > 0 && inputs.totalAreaSqm && inputs.totalAreaSqm > 0)
       ? Math.round(purchasePrice / inputs.totalAreaSqm) : null;
-    const pricePerPyeong = pricePerSqm ? Math.round(pricePerSqm * 3.30578) : null;
+    const pricePerPyeong = pricePerSqm ? Math.round(pricePerSqm * SQM_RATIO) : null;
 
     const loanKrw = (inputs.loanAmountManwon ?? 0) * 10000;
     const loanAmountBil = loanKrw > 0 ? parseFloat((loanKrw / 1e8).toFixed(1)) : null;
@@ -532,7 +533,7 @@ class OperatingFinancialStrategy implements PostureFinancialStrategy {
 
     const pricePerSqm = (purchasePrice > 0 && inputs.totalAreaSqm && inputs.totalAreaSqm > 0)
       ? Math.round(purchasePrice / inputs.totalAreaSqm) : null;
-    const pricePerPyeong = pricePerSqm ? Math.round(pricePerSqm * 3.30578) : null;
+    const pricePerPyeong = pricePerSqm ? Math.round(pricePerSqm * SQM_RATIO) : null;
 
     const loanKrw = (inputs.loanAmountManwon ?? 0) * 10000;
     const loanAmountBil = loanKrw > 0 ? parseFloat((loanKrw / 1e8).toFixed(1)) : null;
@@ -591,7 +592,7 @@ ${rows.join('\n')}
 class OwnerOccupiedFinancialStrategy implements PostureFinancialStrategy {
   calculate(inputs: FinancialInputs): FinancialOutputs {
     const purchasePrice = inputs.purchasePriceKrw || 0;
-    const totalAreaPyeong = (inputs.totalAreaSqm || 0) / 3.30578;
+    const totalAreaPyeong = sqmToPyeong(inputs.totalAreaSqm || 0);
     const selfUseAreaPyeong = inputs.selfUseAreaPyeong ?? (totalAreaPyeong > 0 ? totalAreaPyeong : 100);
 
     // 1. 현재 임차료 지출액 우선 사용 (사용자 입력)
@@ -631,7 +632,7 @@ class OwnerOccupiedFinancialStrategy implements PostureFinancialStrategy {
 
     const pricePerSqm = (purchasePrice > 0 && inputs.totalAreaSqm && inputs.totalAreaSqm > 0)
       ? Math.round(purchasePrice / inputs.totalAreaSqm) : null;
-    const pricePerPyeong = pricePerSqm ? Math.round(pricePerSqm * 3.30578) : null;
+    const pricePerPyeong = pricePerSqm ? Math.round(pricePerSqm * SQM_RATIO) : null;
 
     const acqTaxRate = ASSUMPTIONS.acquisitionTaxRate.value ?? 0.046;
     const brokerFeeRate = ASSUMPTIONS.brokerFeeRateMax.value ?? 0.009;
@@ -695,7 +696,7 @@ class TradingFinancialStrategy implements PostureFinancialStrategy {
     
     const pricePerSqm = (purchasePrice > 0 && inputs.totalAreaSqm && inputs.totalAreaSqm > 0)
       ? Math.round(purchasePrice / inputs.totalAreaSqm) : null;
-    const pricePerPyeong = pricePerSqm ? Math.round(pricePerSqm * 3.30578) : null;
+    const pricePerPyeong = pricePerSqm ? Math.round(pricePerSqm * SQM_RATIO) : null;
 
     const comparablePricePerPyeong = inputs.comparablePricePerPyeongKrw
       ? Math.round(inputs.comparablePricePerPyeongKrw / 10000)
@@ -831,7 +832,7 @@ export function calculateDevelopmentFinancials(args: {
       regulationDaysLeft: null,
     };
   }
-  const landPyung = args.landAreaSqm / 3.305785;
+  const landPyung = sqmToPyeong(args.landAreaSqm);
   const targetGrossAreaPyeong = Math.round(landPyung * (args.targetFarPct / 100));
   const res = calculateFinancials({
     posture: 'development',
@@ -863,7 +864,7 @@ export function calculateOwnerOccupiedFinancials(args: {
   return calculateFinancials({
     posture: 'owner_occupied',
     purchasePriceKrw: args.askingPriceKrw,
-    totalAreaSqm: args.totalGrossAreaPyung * 3.305785,
+    totalAreaSqm: pyeongToSqm(args.totalGrossAreaPyung),
     selfUseAreaPyeong: args.totalGrossAreaPyung,
     loanAmountManwon: loanManwon,
     mgmtFeeTotalManwon: args.mgmtFeeTotalKrw ? Math.round(args.mgmtFeeTotalKrw / 10000) : 300,

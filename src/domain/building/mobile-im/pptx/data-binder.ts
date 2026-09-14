@@ -64,6 +64,7 @@ import {
   buildLandFromOverview,
   buildA16Props
 } from './binder/archetype-builders';
+import { formatPyeong } from '@/lib/utils/area-conversion';
 
 export {
   normalizeStationName,
@@ -486,7 +487,7 @@ export function bindSectionData(
           : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
         const rrRows = floorLeases.map((l: any) => {
           const floor = l.floor || l.unit_label || '-';
-          const areaPyeong = l.area_sqm ? `${(Number(l.area_sqm) * 0.3025).toFixed(0)}평` : (l.area_pyeong ? `${l.area_pyeong}평` : '-');
+          const areaPyeong = l.area_sqm ? `${formatPyeong(Number(l.area_sqm), 0)}평` : (l.area_pyeong ? `${l.area_pyeong}평` : '-');
           const tenant = l.tenant_name || l.tenant_type || (l.is_vacant ? '공실' : '-');
           const deposit = l.deposit_manwon ? `${Number(l.deposit_manwon).toLocaleString()}만` : '-';
           const rent = l.rent_manwon ? `${Number(l.rent_manwon).toLocaleString()}만` : (l.is_vacant ? '-' : '-');

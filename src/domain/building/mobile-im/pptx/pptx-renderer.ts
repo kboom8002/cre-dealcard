@@ -20,6 +20,7 @@ import { M, CW, KR, NUM, C, setActiveTheme, withThemeIsolation } from './imlib';
 import { validateLayout } from './layout-validator';
 import { validateYield, type Yield } from './yield-object';
 import { addFallbackContent, resetFallbackTracker, parseInlineMarkdown } from './pptx-markdown-fallback';
+import { sqmToPyeong, formatPyeong } from '@/lib/utils/area-conversion';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('pptx-renderer');
@@ -249,7 +250,7 @@ export class MobileImPptxRenderer {
         const fmtArea = (sqm: number | string | undefined) => {
           const v = Number(sqm);
           if (!v || isNaN(v)) return '-';
-          return `${v.toLocaleString()}㎡ (${(v * 0.3025).toFixed(1)}평)`;
+          return `${v.toLocaleString()}㎡ (${formatPyeong(v, 1)}평)`;
         };
 
         const leftRows: [string, string][] = [
@@ -309,7 +310,7 @@ export class MobileImPptxRenderer {
           };
 
           // 토지평당가 추가
-          const landPy = Number(ssotBldg.land_area_pyeong || 0) || (Number(ssotBldg.land_area_sqm || 0) * 0.3025);
+          const landPy = Number(ssotBldg.land_area_pyeong || 0) || sqmToPyeong(Number(ssotBldg.land_area_sqm || 0));
           if (landPy > 0 && askManwon > 0) {
             (dataMap['building'] as any).priceTable2 = {
               label: '토지평당가',

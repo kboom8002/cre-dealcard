@@ -53,6 +53,7 @@ import { StageTimer } from "./stage-timer";
 import { NumericalAnchors } from "./numerical-anchors";
 import { ClaimRegistry, FinancialCalculator, deriveDataAvailability } from "../im-core";
 import { calculateFinancials } from "./financials";
+import { sqmToPyeong } from "@/lib/utils/area-conversion";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('writer');
@@ -115,7 +116,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       const selfUseSqm = input.supplemental.floor_leases
         .filter((fl: any) => fl.tenant_type?.includes('사옥') || fl.notes?.includes('퇴거') || fl.tenant_name?.includes('사옥') || fl.tenantName?.includes('사옥'))
         .reduce((sum: number, fl: any) => sum + (Number(fl.area_sqm) || 0), 0);
-      if (selfUseSqm > 0) return selfUseSqm / 3.30578;
+      if (selfUseSqm > 0) return sqmToPyeong(selfUseSqm);
     }
     return undefined;
   })();

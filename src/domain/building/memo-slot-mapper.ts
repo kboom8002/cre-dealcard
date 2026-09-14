@@ -7,6 +7,8 @@
  * @see SDD §7 S2-T3
  */
 
+import { sqmToPyeong } from '@/lib/utils/area-conversion';
+
 export interface MappedSlot {
   key: string;
   value: string | number;
@@ -125,7 +127,7 @@ function parseKoreanNumber(raw: string): number {
 function applyUnit(value: number, unit: string): number {
   if (unit.includes('억')) return value * 100_000_000;
   if (unit.includes('만')) return value * 10_000;
-  if (unit.includes('㎡')) return Math.round(value * 0.3025 * 100) / 100; // ㎡→평
+  if (unit.includes('㎡')) return Math.round(sqmToPyeong(value) * 100) / 100; // ㎡→평
   return value;
 }
 

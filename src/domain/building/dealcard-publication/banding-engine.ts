@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { MemoObservationSet } from '../memo-intake/types';
 import { computeTargetHash } from '../im-core/target-hash';
+import { sqmToPyeong } from '@/lib/utils/area-conversion';
 
 export interface DealcardRentRollSummary {
   /** 총 호실/구획 수 (예: "총 6개 구획") */
@@ -93,7 +94,7 @@ export function bandLocation(rawLoc: string): string {
 }
 
 export function bandLandArea(sqm: number): string {
-  const pyeong = Math.round(sqm / 3.30578);
+  const pyeong = Math.round(sqmToPyeong(sqm));
   return `대지 약 ${pyeong}평 (${Math.round(sqm)}㎡)`;
 }
 

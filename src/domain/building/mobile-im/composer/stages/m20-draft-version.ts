@@ -3,6 +3,7 @@ import type { ContentSectionPlan } from './m10-content-plan';
 import { applyLexiconFilter } from '../../presentation/cre-lexicon-filter';
 import { sanitizePersonaTerms } from '../../../mobile-im-publication/builder';
 import { runRiskBoundaryCheck } from '../../guardrails';
+import { formatPyeong } from '@/lib/utils/area-conversion';
 
 export interface MobileDraftSection {
   sectionType: string;
@@ -21,8 +22,8 @@ export function executeM20DraftVersion(
   for (const item of plan) {
     if (item.sectionType === 'property_overview') {
       const askingPriceEok = (snapshot.pricing.askingPriceKrw / 100000000).toFixed(1);
-      const landPy = (snapshot.areas.landAreaTotal / 3.305785).toFixed(1);
-      const gfaPy = (snapshot.areas.grossFloorArea / 3.305785).toFixed(1);
+      const landPy = formatPyeong(snapshot.areas.landAreaTotal, 1);
+      const gfaPy = formatPyeong(snapshot.areas.grossFloorArea, 1);
 
       sections.push({
         sectionType: item.sectionType,

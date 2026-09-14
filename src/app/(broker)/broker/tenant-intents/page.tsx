@@ -4,6 +4,7 @@ import React, { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
+import { sqmToPyeong } from "@/lib/utils/area-conversion";
 
 interface TenantIntent {
   id: string;
@@ -128,7 +129,7 @@ function TenantIntentsListContent() {
                     <div>
                       <span className="text-slate-600 font-medium">희망 면적:</span>{" "}
                       {intent.area_min || intent.area_max
-                        ? `${intent.area_min ? `${Math.round(intent.area_min / 3.3058)}평` : ""} ~ ${intent.area_max ? `${Math.round(intent.area_max / 3.3058)}평` : ""}`
+                        ? `${intent.area_min ? `${Math.round(sqmToPyeong(intent.area_min))}평` : ""} ~ ${intent.area_max ? `${Math.round(sqmToPyeong(intent.area_max))}평` : ""}`
                         : "미정"}
                     </div>
                     <div className="col-span-2">

@@ -1,6 +1,7 @@
 // src/lib/external/real-transaction-api.ts
 // 국토교통부 상업업무용 부동산 매매 신고 조회 API — 주변 실거래 비교 사례
 import { fetchWithRetry } from './fetch-with-retry';
+import { SQM_RATIO } from '@/lib/utils/area-conversion';
 
 export interface ComparableTransaction {
   address: string;               // 주소
@@ -57,7 +58,7 @@ export async function fetchComparableTransactions(
 
               const area = rawArea;
               const pricePerSqm = dealAmount / area;
-              const pricePerPyeong = Math.round(pricePerSqm * 3.30578);
+              const pricePerPyeong = Math.round(pricePerSqm * SQM_RATIO);
 
               // 비정상 이상치(평당 50만원 미만 또는 평당 5억원 초과) 필터링
               if (pricePerPyeong < 500_000 || pricePerPyeong > 500_000_000) return null;

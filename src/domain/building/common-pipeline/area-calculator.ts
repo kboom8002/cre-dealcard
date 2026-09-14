@@ -8,7 +8,9 @@
  * 4. leasable_area (임대면적 / 계약면적)
  */
 
-export const SQM_PER_PYEONG = 3.305785;
+import { sqmToPyeong, SQM_RATIO } from '@/lib/utils/area-conversion';
+
+export const SQM_PER_PYEONG = SQM_RATIO;
 
 export interface AreaDenominators {
   landAreaSqm: number;
@@ -33,21 +35,21 @@ export function calculateUnitPriceMetrics(
     throw new Error('INVALID_DENOMINATOR: Land area and Gross Floor Area must be positive numbers');
   }
 
-  const landPyeong = areas.landAreaSqm / SQM_PER_PYEONG;
-  const grossPyeong = areas.grossFloorAreaSqm / SQM_PER_PYEONG;
+  const landPyeong = sqmToPyeong(areas.landAreaSqm);
+  const grossPyeong = sqmToPyeong(areas.grossFloorAreaSqm);
 
   const pricePerPyeongLand = Math.round(askingPriceKrw / landPyeong);
   const pricePerPyeongGross = Math.round(askingPriceKrw / grossPyeong);
 
   let rentPerPyeongLeasable: number | undefined;
   if (monthlyRentKrw !== undefined && areas.leasableAreaSqm && areas.leasableAreaSqm > 0) {
-    const leasablePyeong = areas.leasableAreaSqm / SQM_PER_PYEONG;
+    const leasablePyeong = sqmToPyeong(areas.leasableAreaSqm);
     rentPerPyeongLeasable = Math.round(monthlyRentKrw / leasablePyeong);
   }
 
   let rentPerPyeongExclusive: number | undefined;
   if (monthlyRentKrw !== undefined && areas.exclusiveAreaSqm && areas.exclusiveAreaSqm > 0) {
-    const exclusivePyeong = areas.exclusiveAreaSqm / SQM_PER_PYEONG;
+    const exclusivePyeong = sqmToPyeong(areas.exclusiveAreaSqm);
     rentPerPyeongExclusive = Math.round(monthlyRentKrw / exclusivePyeong);
   }
 

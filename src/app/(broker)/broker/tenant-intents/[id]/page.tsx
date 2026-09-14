@@ -3,6 +3,7 @@
 import React, { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
+import { sqmToPyeong } from "@/lib/utils/area-conversion";
 
 interface TenantIntentDetail {
   intent: {
@@ -165,7 +166,7 @@ export default function TenantIntentDetailPage({
               <p className="text-[10px] text-slate-500 font-medium">희망 전용 면적</p>
               <p className="font-semibold text-white mt-0.5">
                 {intent.area_min || intent.area_max
-                  ? `${intent.area_min ? `${Math.round(intent.area_min / 3.3058)}평` : ""} ~ ${intent.area_max ? `${Math.round(intent.area_max / 3.3058)}평` : ""}`
+                  ? `${intent.area_min ? `${Math.round(sqmToPyeong(intent.area_min))}평` : ""} ~ ${intent.area_max ? `${Math.round(sqmToPyeong(intent.area_max))}평` : ""}`
                   : "면적 상관없음"}
               </p>
             </div>
@@ -255,7 +256,7 @@ export default function TenantIntentDetailPage({
                         [{space.building?.area_signal || "권역미상"}] {space.floor ? `${space.floor} ` : ""}{space.space_type === "office" ? "오피스" : "상가"}
                       </p>
                       <p className="text-[10px] text-slate-400 mt-0.5">
-                        {space.area_sqm ? `${Math.round(space.area_sqm / 3.3058)}평 ` : ""} · 보증금 {space.deposit || 0}만 / 월 {space.monthly_rent || 0}만
+                        {space.area_sqm ? `${Math.round(sqmToPyeong(space.area_sqm))}평 ` : ""} · 보증금 {space.deposit || 0}만 / 월 {space.monthly_rent || 0}만
                       </p>
                       <p className="text-[9px] text-primary mt-1 font-medium truncate">{reasoning}</p>
                     </div>

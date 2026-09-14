@@ -11,7 +11,7 @@ import { enforceTextBudget } from "../text-budget";
 import type { IMCore, Comp } from "@/types/im-core";
 import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, findLeadSentence, extractStatMetrics, extractCallouts, extractBulletItems, extractBoldKeyValues, extractBoldValue, sanitizePersona, stripMarkdown, truncate, parseMarkdownTable, extractMetrics, buildCapitalFromIncome, buildFarUpsideProps, buildDcfFromIncome, buildSensitivityFromDcf, buildLoanFromIncome, buildTaxFromIncome, buildOwnerOccupiedPlanProps, buildOwnerOccupiedVsLeaseProps, buildOwnerOccupiedCommuteProps, buildOwnerOccupiedValueProps, buildDevelopmentLandDetailProps, buildDevelopmentScaleProps, buildDevelopmentEvictionProps, buildDevelopmentCostProps, buildDevelopmentFeasibilityProps, bindInstitutionalTemplateData, bindCorporateTemplateData, bindCommercialTemplateData, bindDevelopmentTemplateData, bindSpecializedTemplateData, transformForArchetype, buildA13Props, buildA15Props, buildA17Props, buildA22Props, buildA11Props, buildA12Props, buildA18Props, buildA02Props, buildA03Props, mergeRentRollTables, buildA04Props, buildA05Props, buildA06Props, buildA07Props, buildA08Props, buildA09Props, buildGenericProps, buildSummaryFromOverview, buildLandFromOverview, buildA16Props, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
-import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
+import { sqmToPyeong, pyeongToSqm, SQM_RATIO } from "@/lib/utils/area-conversion";
 
 /**
  * Phase 2-3: IMCore 정형 객체로부터 PPTX 15종 아키타입 슬라이드 데이터 직접 바인딩
@@ -357,7 +357,7 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
     if (lup?.landUseSituation) rows.push(['이용상황', lup.landUseSituation]);
     if (lp?.landCategory) rows.push(['지목', lp.landCategory]);
     if (lp?.pricePerSqm) {
-      const pricePerPyeong = Math.round(Number(lp.pricePerSqm) * 3.3058);
+      const pricePerPyeong = Math.round(Number(lp.pricePerSqm) * SQM_RATIO);
       rows.push(['개별공시지가', `${Number(lp.pricePerSqm).toLocaleString()}원/㎡ (${pricePerPyeong.toLocaleString()}원/평, ${lp.baseYear ?? ''}년)`]);
     }
 

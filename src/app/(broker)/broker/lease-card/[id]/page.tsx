@@ -4,6 +4,7 @@ import React, { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
+import { sqmToPyeong } from "@/lib/utils/area-conversion";
 
 interface LeaseSpaceDetail {
   space: {
@@ -300,7 +301,7 @@ export default function LeaseCardDetailPage({
                 <div>
                   <p className="text-[10px] text-slate-500 font-medium">전용 면적</p>
                   <p className="font-semibold text-white mt-0.5">
-                    {space.area_sqm ? `${space.area_sqm}㎡ (${Math.round(space.area_sqm / 3.3058)}평)` : "비공개"}
+                    {space.area_sqm ? `${space.area_sqm}㎡ (${Math.round(sqmToPyeong(space.area_sqm))}평)` : "비공개"}
                   </p>
                 </div>
                 <div>

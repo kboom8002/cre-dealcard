@@ -12,6 +12,7 @@ import { calculateWALE } from './wale-calculator';
 import { calculateBenchmarkMetrics, formatBenchmarkMarkdown } from './comparable-benchmark';
 import { computeVacancyPositioning, formatVacancyPositioningRow } from './vacancy-positioning';
 import { parsePriceBandKrw } from './im-context-builder';
+import { formatPyeong, pyeongToSqm, sqmToPyeong, SQM_RATIO, PYEONG_RATIO } from '@/lib/utils/area-conversion';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('premium-template-engine');
@@ -89,8 +90,8 @@ export function generatePremiumTemplate(
   // physicalFact 우선 및 externalData 폴백 융합
   const platAreaPyung = Number(physicalFact.plat_area_pyung || physicalFact.platAreaPyung || 0);
   const totalAreaPyung = Number(physicalFact.total_area_pyung || physicalFact.totalAreaPyung || 0);
-  const totalArea   = br?.totalArea || (totalAreaPyung > 0 ? Math.round(totalAreaPyung / 0.3025) : 0);
-  const platArea    = br?.platArea  || (platAreaPyung > 0 ? Math.round(platAreaPyung / 0.3025) : 0);
+  const totalArea   = br?.totalArea || (totalAreaPyung > 0 ? Math.round(pyeongToSqm(totalAreaPyung)) : 0);
+  const platArea    = br?.platArea  || (platAreaPyung > 0 ? Math.round(pyeongToSqm(platAreaPyung)) : 0);
   
   const floorsStr   = String(physicalFact.floors || "");
   const floorsAbove = br?.floorsAbove || (floorsStr.includes("지상") ? parseInt(floorsStr.split("지상")[1]) || 0 : 0);
@@ -111,8 +112,8 @@ export function generatePremiumTemplate(
   switch (sectionType) {
     // ─── 섹션 1: 자산 개요 ───────────────────────────────────────────────────
     case "property_overview": {
-      const totalPyeong = totalAreaPyung > 0 ? `${totalAreaPyung.toFixed(1)}평` : (totalArea > 0 ? `약 ${(totalArea * 0.3025).toFixed(0)}평` : "-");
-      const platPyeong  = platAreaPyung > 0 ? `${platAreaPyung.toFixed(1)}평` : (platArea  > 0 ? `약 ${(platArea  * 0.3025).toFixed(0)}평` : "-");
+      const totalPyeong = totalAreaPyung > 0 ? `${totalAreaPyung.toFixed(1)}평` : (totalArea > 0 ? `약 ${formatPyeong(totalArea, 0)}평` : "-");
+      const platPyeong  = platAreaPyung > 0 ? `${platAreaPyung.toFixed(1)}평` : (platArea  > 0 ? `약 ${formatPyeong(platArea, 0)}평` : "-");
       const priceStr    = String(assetIdentity.price_band ?? "가격 미정");
       const areaStr     = String(assetIdentity.area_signal ?? "비공개 권역");
       const assetType   = String(assetIdentity.asset_type  ?? "상업용 자산");
@@ -290,7 +291,7 @@ ${rentRollTable}
     // ─── 섹션 4: 수익 분석 ──────────────────────────────────────────────────
     case "income_analysis": {
       const landPricePerSqm = lp?.pricePerSqm || 0;
-      const pricePerPyeong  = landPricePerSqm > 0 ? Math.round(landPricePerSqm * 3.30578) : 0;
+      const pricePerPyeong  = landPricePerSqm > 0 ? Math.round(landPricePerSqm * SQM_RATIO) : 0;
       const yieldPct        = supplemental.estimated_yield_pct || 0;
       const annualRent      = monthlyRent > 0 ? monthlyRent * 12 : 0;
       const hasFinancials   = annualRent > 0 || yieldPct > 0 || landPricePerSqm > 0;
@@ -447,8 +448,8 @@ ${tableRows}
           const compsAsListings = validComps.map(c => ({
             source: "기타" as const,
             title: c.address,
-            priceKrw: c.pricePerPyeong * c.area / 3.30578,
-            pricePerSqmKrw: c.pricePerPyeong / 3.30578,
+            priceKrw: c.pricePerPyeong * sqmToPyeong(c.area),
+            pricePerSqmKrw: c.pricePerPyeong * PYEONG_RATIO,
             areaSqm: c.area,
             distanceKm: 0,
             listedDate: `${c.dealYear}-${String(c.dealMonth).padStart(2, '0')}-01`,
@@ -530,8 +531,8 @@ ${buyerTable}`;
 
     // ─── owner_occupied 전용 섹션 ──────────────────────────────────────────
     case "occupancy_fit": {
-      const grossPyeong = totalArea > 0 ? `약 ${(totalArea * 0.3025).toFixed(0)}평` : "미정";
-      const platPyeong  = platArea  > 0 ? `약 ${(platArea  * 0.3025).toFixed(0)}평` : "미정";
+      const grossPyeong = totalArea > 0 ? `약 ${formatPyeong(totalArea, 0)}평` : "미정";
+      const platPyeong  = platArea  > 0 ? `약 ${formatPyeong(platArea, 0)}평` : "미정";
       return `### 사옥 입주 적합성 분석
 본 자산은 **연면적 ${grossPyeong} (대지 ${platPyeong})** 규모로, 본사 사옥 및 대형 사업장 입주에 적합한 공간 스펙을 갖추고 있습니다.
 
@@ -587,7 +588,7 @@ ${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaP
 
     // ─── development 전용 섹션 ──────────────────────────────────────────────
     case "site_analysis": {
-      const platPyeong = platArea > 0 ? `약 ${(platArea * 0.3025).toFixed(0)}평` : "미정";
+      const platPyeong = platArea > 0 ? `약 ${formatPyeong(platArea, 0)}평` : "미정";
       return `### 대지 및 신축 개발 여력 분석
 본 자산은 **대지면적 ${platPyeong}**, **용도지역 ${zoningDistrict}**에 위치하여 신축 및 재건축 개발 가치가 매우 높습니다.
 

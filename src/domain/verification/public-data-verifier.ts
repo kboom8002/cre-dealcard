@@ -3,6 +3,7 @@ import {
   resolveAddressToComponents,
   type AddressComponents,
 } from "./address-resolver";
+import { pyeongToSqm } from "@/lib/utils/area-conversion";
 
 export type VerificationStatus = "pending" | "verified" | "mismatch" | "not_found" | "skipped";
 
@@ -58,9 +59,9 @@ export function extractAreaInSqm(sizeSignal: string): number | null {
   const num = parseFloat(match[1]);
   if (isNaN(num)) return null;
 
-  // '평' 단위 단어가 포함되어 있다면 평 -> ㎡ 로 환산 (1평 = 3.30578 ㎡)
+  // '평' 단위 단어가 포함되어 있다면 평 -> ㎡ 로 환산 (1평 = 1 / 0.3025 ㎡)
   if (cleaned.includes("평")) {
-    return num * 3.30578;
+    return pyeongToSqm(num);
   }
 
   return num;

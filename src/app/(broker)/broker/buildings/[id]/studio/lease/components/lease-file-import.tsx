@@ -3,6 +3,7 @@
 import React, { useRef, useState } from 'react';
 // SECURITY: xlsx@0.18.5 has known CVEs (CVE-2023-30533 Prototype Pollution) - inputs must be validated
 import * as XLSX from 'xlsx';
+import { pyeongToSqm } from '@/lib/utils/area-conversion';
 
 interface TenantRow {
   floor: string;
@@ -88,7 +89,7 @@ export function LeaseFileImport({ onImport }: LeaseFileImportProps) {
           // 일단 단순 매핑합니다.
           const isPyeong = areaKey && areaKey.includes('평');
           if (isPyeong && area_sqm > 0) {
-            area_sqm = Math.round(area_sqm * 3.3058);
+            area_sqm = Math.round(pyeongToSqm(area_sqm));
           }
 
           let tenant_type = 'office';

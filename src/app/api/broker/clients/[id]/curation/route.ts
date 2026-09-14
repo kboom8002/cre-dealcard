@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireBroker } from '@/lib/auth-guard';
+import { sqmToPyeong } from '@/lib/utils/area-conversion';
 
 export async function GET(
   req: NextRequest,
@@ -128,7 +129,7 @@ export async function GET(
         leaseResults.push({
           id: prop.id,
           floor: prop.floor,
-          area_pyeong: prop.area_sqm ? Math.round(prop.area_sqm / 3.3058) : null,
+          area_pyeong: prop.area_sqm ? Math.round(sqmToPyeong(prop.area_sqm)) : null,
           space_type: prop.space_type,
           deposit: prop.deposit,
           monthly_rent: prop.monthly_rent,

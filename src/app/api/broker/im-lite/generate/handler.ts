@@ -19,6 +19,7 @@ import { getIMDisclaimers } from '@/domain/building/legal-copy';
 import { validateCombination } from '@/domain/ontology';
 import { hasMinimumBasicData } from '@/domain/building/mobile-im/data-quality-badge';
 import { hasValidBuildingNumber } from '@/domain/verification/address-resolver';
+import { sqmToPyeong, pyeongToSqm, formatPyeong, SQM_RATIO } from '@/lib/utils/area-conversion';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('handler');
@@ -368,7 +369,7 @@ export async function generateMobileIMHandler(
         dealDay: 1,
         dealDate: mc.transaction_date ?? (dealYear ? `${dealYear}.${String(dealMonth).padStart(2, '0')}` : '-'),
         pricePerSqm: areaSqm > 0 ? (priceManwon * 10000) / areaSqm : 0,
-        pricePerPyeong: areaSqm > 0 ? ((priceManwon * 10000) / areaSqm) * 3.30579 : 0,
+        pricePerPyeong: areaSqm > 0 ? ((priceManwon * 10000) / areaSqm) * SQM_RATIO : 0,
         buildingName: mc.buildingName,
         buildingUse: mc.buildingUse || '상업용',
         floors: mc.floors || 0,
@@ -412,14 +413,14 @@ export async function generateMobileIMHandler(
 
   // ─── 공공데이터 vs 사용자 정본 면적/스펙 정합성 보정 (단독사옥 블라인드 지번 대응) ───
   const userSpecifiedTotalArea = Number(supplemental.total_gross_area_m2 || 0)
-    || (supplemental.total_gross_area_pyeong ? Number(supplemental.total_gross_area_pyeong) / 0.3025 : 0)
+    || (supplemental.total_gross_area_pyeong ? pyeongToSqm(Number(supplemental.total_gross_area_pyeong)) : 0)
     || (Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0
         ? supplemental.floor_leases.reduce((sum: number, f: any) => sum + (Number(f.area_sqm) || 0), 0)
         : 0)
     || Number((ssotRow.layers as any)?.physical?.total_area_sqm || 0);
 
   const userSpecifiedLandArea = Number(supplemental.land_area_m2 || 0)
-    || (supplemental.land_area_pyeong ? Number(supplemental.land_area_pyeong) / 0.3025 : 0)
+    || (supplemental.land_area_pyeong ? pyeongToSqm(Number(supplemental.land_area_pyeong)) : 0)
     || Number((ssotRow.layers as any)?.physical?.land_area_sqm || 0);
 
   if (externalData?.buildingRegister && userSpecifiedTotalArea > 0) {
@@ -441,7 +442,7 @@ export async function generateMobileIMHandler(
   }
 
   if (userSpecifiedTotalArea > 0) {
-    const userPy = (userSpecifiedTotalArea * 0.3025).toFixed(1);
+    const userPy = formatPyeong(userSpecifiedTotalArea, 1);
     bssotFlat.total_area_sqm = userSpecifiedTotalArea;
     bssotFlat.total_gross_area_sqm = userSpecifiedTotalArea;
     bssotFlat.size_signal = `${userPy}평`;
@@ -640,7 +641,7 @@ export async function generateMobileIMHandler(
         area_signal: ssotRow.area_signal,
         asset_type: ssotRow.asset_type,
         price_band: ssotRow.price_band,
-        size_signal: userSpecifiedTotalArea > 0 ? `${(userSpecifiedTotalArea * 0.3025).toFixed(1)}평` : ssotRow.size_signal,
+        size_signal: userSpecifiedTotalArea > 0 ? `${formatPyeong(userSpecifiedTotalArea, 1)}평` : ssotRow.size_signal,
         total_gross_area_sqm: userSpecifiedTotalArea > 0 ? userSpecifiedTotalArea : undefined,
         land_area_sqm: userSpecifiedLandArea > 0 ? userSpecifiedLandArea : undefined,
         investment_posture: identity?.investmentPosture || ssotRow.investment_posture || 'income',

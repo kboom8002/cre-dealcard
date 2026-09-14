@@ -8,6 +8,7 @@
 
 import type { FloorLeaseInput } from "./types";
 import { createServiceClient } from '@/lib/supabase/service';
+import { pyeongToSqm, formatPyeong } from '@/lib/utils/area-conversion';
 
 export interface NormalizedLease {
   floor: string;
@@ -26,7 +27,6 @@ export interface NormalizedLease {
   note?: string;
 }
 
-const PYEONG_TO_SQM = 3.30578;
 const MANWON_TO_WON = 10_000;
 
 /**
@@ -41,7 +41,7 @@ export function normalizeFloorLeases(raw: FloorLeaseInput[]): NormalizedLease[] 
     const legacyArea = (r as any).area_sqm;
     const areaSqm =
       r.area_pyeong != null
-        ? r.area_pyeong * PYEONG_TO_SQM
+        ? pyeongToSqm(r.area_pyeong)
         : typeof legacyArea === "number"
         ? legacyArea
         : 0;
@@ -99,7 +99,7 @@ export function formatRentRollMarkdown(leases: NormalizedLease[]): string {
       : l.tenantType === "food" ? "F&B"
       : l.tenantType || "근생/업무";
 
-    const areaPyeong = l.areaSqm > 0 ? `${(l.areaSqm / PYEONG_TO_SQM).toFixed(0)}평` : "-";
+    const areaPyeong = l.areaSqm > 0 ? `${formatPyeong(l.areaSqm, 0)}평` : "-";
     const depositStr = l.depositKrw > 0 ? `${Math.round(l.depositKrw / MANWON_TO_WON).toLocaleString()}만` : "-";
     const rentStr    = l.monthlyRentKrw > 0 ? `${Math.round(l.monthlyRentKrw / MANWON_TO_WON).toLocaleString()}만` : "-";
     const mgmtStr    = l.mgmtFeeKrw > 0 ? `${Math.round(l.mgmtFeeKrw / MANWON_TO_WON).toLocaleString()}만` : "-";
@@ -184,7 +184,7 @@ export async function persistLeaseUnits(
           asset_id: assetId,
           unit_label: unit.floor,
           tenant_business: unit.tenant_sector || null,
-          lease_area_sqm: unit.area_pyung ? parseFloat((unit.area_pyung * PYEONG_TO_SQM).toFixed(2)) : null,
+          lease_area_sqm: unit.area_pyung ? parseFloat(pyeongToSqm(unit.area_pyung).toFixed(2)) : null,
           deposit_krw: unit.deposit_krw || null,
           monthly_rent_krw: unit.monthly_rent_krw || null,
           mgmt_fee_krw: unit.mgmt_fee_krw || 0,

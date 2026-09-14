@@ -1,5 +1,6 @@
 
 import { createModuleLogger } from '@/lib/logger';
+import { sqmToPyeong } from '@/lib/utils/area-conversion';
 const log = createModuleLogger('cross-validator');
 
 // src/domain/building/mobile-im/cross-validator.ts
@@ -564,7 +565,7 @@ export function runCrossValidation(
     const askingPrice = anchors.askingPriceKrw;
     const totalArea = anchors.totalAreaSqm;
     if (ppPyeong && askingPrice && totalArea) {
-      const expectedPP = Math.round(askingPrice / (totalArea / 3.30578));
+      const expectedPP = Math.round(askingPrice / sqmToPyeong(totalArea));
       if (Math.abs(expectedPP - ppPyeong) / ppPyeong > 0.1) {
         inconsistencies.push({ field: 'price_per_pyeong', severity: 'warning', section1: { type: 'anchor', value: `${expectedPP}` }, section2: { type: 'validation', value: `${ppPyeong}` } });
       }

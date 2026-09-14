@@ -7,6 +7,7 @@
 // v3: DB 기반 동적 로딩 + 함수형 치환 Registry + 캐싱(5분) + hit_count 추적
 
 import { createServiceClient } from "@/lib/supabase/service";
+import { pyeongToSqm } from "@/lib/utils/area-conversion";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('terminology-normalizer');
@@ -30,7 +31,7 @@ export type ReplacementRule = {
 const FUNCTIONAL_REPLACEMENTS: Record<string, (match: string, ...groups: string[]) => string> = {
   'fn:pyeongToSqm': (_match: string, num: string) => {
     const pyeong = parseFloat(num);
-    const sqm = Math.round(pyeong * 3.3058 * 10) / 10;
+    const sqm = Math.round(pyeongToSqm(pyeong) * 10) / 10;
     return `${num}평(약 ${sqm}㎡)`;
   },
   'fn:conjugateLease': (_match: string, suffix: string) => {

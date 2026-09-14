@@ -3,6 +3,8 @@
  * @description F-1: 토지 상세 섹션 렌더러 (결정론, LLM 미사용)
  */
 
+import { formatPyeong } from '@/lib/utils/area-conversion';
+
 export interface LandDetailInput {
   parcels: Array<{
     pnu: string;
@@ -38,7 +40,7 @@ export function renderLandDetail(input: LandDetailInput): SectionOutput {
   if (input.parcels.length === 1) {
     const p = input.parcels[0];
     lines.push(`- **지목**: ${p.jimok}`);
-    lines.push(`- **대지면적**: ${p.areaM2.toLocaleString()}㎡ (${(p.areaM2 / 3.3058).toFixed(1)}평)`);
+    lines.push(`- **대지면적**: ${p.areaM2.toLocaleString()}㎡ (${formatPyeong(p.areaM2, 1)}평)`);
     if (p.officialLandPricePerM2) {
       lines.push(`- **공시지가**: ${p.officialLandPricePerM2.toLocaleString()}원/㎡`);
     }
@@ -52,7 +54,7 @@ export function renderLandDetail(input: LandDetailInput): SectionOutput {
       lines.push(`| ${p.pnu} | ${p.jimok} | ${p.areaM2.toLocaleString()} | ${(p.ownershipRatio * 100).toFixed(0)}% | ${price} |`);
     }
     lines.push(``);
-    lines.push(`> **유효 대지면적 합계: ${totalArea.toLocaleString()}㎡ (${(totalArea / 3.3058).toFixed(1)}평)**`);
+    lines.push(`> **유효 대지면적 합계: ${totalArea.toLocaleString()}㎡ (${formatPyeong(totalArea, 1)}평)**`);
   }
   
   // 용도지역 & 용적률

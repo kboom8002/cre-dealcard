@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sqmToPyeong } from "@/lib/utils/area-conversion";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('hallucination-detector');
@@ -100,7 +101,7 @@ export async function detectAnomalies(
     
     if (sizeNum !== null) {
       const isPyung = sizeStr.includes("평");
-      const sizeInPyung = isPyung ? sizeNum : sizeNum / 3.30578;
+      const sizeInPyung = isPyung ? sizeNum : sqmToPyeong(sizeNum);
       
       if (sizeInPyung < 1 || sizeInPyung > 1000000) { // 1평 미만 또는 100만평 이상
         flags.push({

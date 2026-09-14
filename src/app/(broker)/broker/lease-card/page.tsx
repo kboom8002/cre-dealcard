@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BrokerBottomNav from "@/components/layout/BrokerBottomNav";
+import { sqmToPyeong } from "@/lib/utils/area-conversion";
 
 interface LeaseSpace {
   id: string;
@@ -88,7 +89,7 @@ export default function LeaseSpacesListPage() {
         ) : spaces.length > 0 ? (
           <div className="space-y-3">
             {spaces.map((space) => {
-              const areaPy = space.area_sqm ? Math.round(space.area_sqm / 3.3058) : 0;
+              const areaPy = space.area_sqm ? Math.round(sqmToPyeong(space.area_sqm)) : 0;
               const typeLabel = space.space_type === "office" ? "📁 오피스" : space.space_type === "f_and_b" ? "☕ F&B/식음" : "🛍️ 상가/리테일";
               
               return (

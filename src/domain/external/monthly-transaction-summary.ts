@@ -4,6 +4,7 @@
  * 권역별 월간 거래 통계(거래 건수, 평균가, 전월 대비 변동률, 용도별 분포)를 집계합니다.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sqmToPyeong } from "@/lib/utils/area-conversion";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('monthly-transaction-summary');
@@ -75,9 +76,9 @@ export async function summarizeMonthlyTransactions(
       const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
       const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
 
-      // 평당가 산출 (3.3058 sqm)
+      // 평당가 산출 (0.3025)
       const pyeongPrices = validAreaRows.map((r: any) => {
-        const pyeong = r.building_area / 3.3058;
+        const pyeong = sqmToPyeong(r.building_area);
         return pyeong > 0 ? r.transaction_price / pyeong : 0;
       }).filter((p) => p > 0);
 

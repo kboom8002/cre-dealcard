@@ -1,6 +1,7 @@
 import { randomUUID, createHash } from 'crypto';
 import type { MemoObservation, MemoObservationSet } from './types';
 import { detectSensitiveSegments } from './sensitive-detector';
+import { pyeongToSqm } from '@/lib/utils/area-conversion';
 
 export function parseMemoToObservations(rawMemoText: string): MemoObservationSet {
   const observations: MemoObservation[] = [];
@@ -27,7 +28,7 @@ export function parseMemoToObservations(rawMemoText: string): MemoObservationSet
   if (landMatch) {
     const num = parseFloat(landMatch[1]);
     const unit = landMatch[2].toLowerCase();
-    const sqm = unit === '평' ? Math.round(num * 3.30578 * 10) / 10 : num;
+    const sqm = unit === '평' ? Math.round(pyeongToSqm(num) * 10) / 10 : num;
     observations.push({
       id: randomUUID(),
       sourceText: landMatch[0],
