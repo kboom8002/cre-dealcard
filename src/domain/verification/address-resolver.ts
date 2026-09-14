@@ -5,6 +5,8 @@
  * API 문서: https://business.juso.go.kr/addrlink/openApi/searchApi.do
  */
 
+import { getVWorldApiKey, getVWorldReferer } from "@/lib/external/vworld-config";
+
 // ── 타입 정의 ────────────────────────────────────────────────────────────
 
 export interface ResolvedAddress {
@@ -108,6 +110,7 @@ export async function searchAddress(
     try {
       const res = await fetch(`https://dapi.kakao.com/v2/local/search/address.json?size=${countPerPage}&query=${encodeURIComponent(trimmed)}`, {
         headers: { Authorization: `KakaoAK ${kakaoKey}` },
+        signal: AbortSignal.timeout(5000),
         next: { revalidate: 86400 },
       });
       if (res.ok) {
@@ -146,11 +149,15 @@ export async function searchAddress(
   }
 
   // Tier 2: 국토부 VWorld 2.0 검색 API (공식 19자리 PNU 직접 획득)
-  const vworldKey = process.env.VWORLD_API_KEY || process.env.NEXT_PUBLIC_VWORLD_KEY;
+  const vworldKey = getVWorldApiKey();
   if (vworldKey) {
     try {
-      const vworldUrl = `https://api.vworld.kr/req/search?service=search&request=search&version=2.0&crs=EPSG:4326&size=${countPerPage}&page=1&query=${encodeURIComponent(trimmed)}&type=address&category=parcel&format=json&errorformat=json&key=${vworldKey}`;
-      const res = await fetch(vworldUrl, { next: { revalidate: 86400 } });
+      const vworldUrl = `https://api.vworld.kr/req/search?service=search&request=search&version=2.0&crs=EPSG:4326&size=${countPerPage}&page=1&query=${encodeURIComponent(trimmed)}&type=address&category=parcel&format=json&errorformat=json&key=${vworldKey}&domain=${encodeURIComponent(getVWorldReferer())}`;
+      const res = await fetch(vworldUrl, {
+        headers: { Referer: getVWorldReferer() },
+        signal: AbortSignal.timeout(5000),
+        next: { revalidate: 86400 },
+      });
       if (res.ok) {
         const json = await res.json();
         const items = json?.response?.result?.items;
@@ -189,7 +196,10 @@ export async function searchAddress(
       resultType: "json",
     });
     try {
-      const res = await fetch(`${JUSO_API_URL}?${params}`, { next: { revalidate: 86400 } });
+      const res = await fetch(`${JUSO_API_URL}?${params}`, {
+        signal: AbortSignal.timeout(5000),
+        next: { revalidate: 86400 },
+      });
       if (res.ok) {
         const json = await res.json();
         const results = json?.results;

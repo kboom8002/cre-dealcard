@@ -224,33 +224,40 @@ function renderCommonCoverContent(
     nextY += 0.3;
   }
 
-  // 태그
+  // 태그 (최대 4개로 제한하여 경계 이탈 방지 - HP-03)
   let tagX = x;
-  const tags = (input.data.tags || []).filter((tag: string) => {
-    if (!tag) return false;
-    if (input.data.askingPrice && /\d+\s*억\s*대/.test(tag)) return false;
-    return true;
-  });
-  const tagY = Math.max(nextY + 0.3, kickerY + 1.70);
+  const rawTags = Array.isArray(input.data.tags) ? input.data.tags : [];
+  const tags = rawTags
+    .filter((tag: any) => typeof tag === 'string' && tag.trim().length > 0)
+    .filter((tag: string) => {
+      if (input.data.askingPrice && /\d+\s*억\s*대/.test(tag)) return false;
+      return true;
+    })
+    .slice(0, 4);
+
+  const tagY = Math.max(nextY + 0.25, kickerY + 1.60);
   tags.forEach((tag: string) => {
-    if (!tag) return;
-    const tw = Math.max(1.2, tag.length * 0.16 + 0.4);
-    L.tag(slide, tagX, tagY, tw, 0.34, tag, 'FFFFFF', CD.block, 10);
-    tagX += tw + 0.12;
+    const tw = Math.min(2.2, Math.max(1.1, tag.length * 0.16 + 0.4));
+    if (tagX + tw <= x + titleW) {
+      L.tag(slide, tagX, tagY, tw, 0.32, tag, 'FFFFFF', CD.block, 9.5);
+      tagX += tw + 0.10;
+    }
   });
 
-  // 강조 박스 (가격대)
+  // 강조 박스 (가격대 - HP-04: 푸터 충돌 방지 클램핑)
   const priceBand = input.data.askingPrice ? `매각 희망가 ${input.data.askingPrice}` : (input.data.priceBand || '');
   if (priceBand) {
+    const priceBoxH = 1.15;
+    const priceBoxY = Math.min(tagY + 0.55, 6.45 - priceBoxH);
     slide.addShape('roundRect' as any, {
-      x, y: tagY + 0.70, w: centerAlign ? CW : Math.min(7.5, CW), h: 1.34,
+      x, y: priceBoxY, w: centerAlign ? CW : Math.min(7.5, CW), h: priceBoxH,
       rectRadius: 0.04,
       fill: { color: CD.accentBg },
       line: { color: CD.accentBorder, width: 1 },
     });
     slide.addText(priceBand, {
-      x: x + 0.28, y: tagY + 0.92, w: (centerAlign ? CW : Math.min(7.5, CW)) - 0.56, h: 0.90,
-      fontSize: 22, bold: true, color: CD.accentText,
+      x: x + 0.28, y: priceBoxY + 0.12, w: (centerAlign ? CW : Math.min(7.5, CW)) - 0.56, h: priceBoxH - 0.24,
+      fontSize: 21, bold: true, color: CD.accentText,
       fontFace: KR, margin: 0, valign: 'middle', align,
     });
   }

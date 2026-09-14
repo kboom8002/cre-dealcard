@@ -300,6 +300,11 @@ test.describe('역삼 XLSX 렌트롤 Basic IM 골든 테스트', () => {
     await shot(page, 'im-viewer-desktop');
 
     const bodyText = await page.textContent('body') || '';
+    expect(bodyText).toContain('역삼');
+    expect(bodyText).toContain(String(EXPECTED_ASKING_PRICE));
+    expect(bodyText).not.toContain('NaN');
+    expect(bodyText).not.toContain('undefined');
+    expect(bodyText).not.toContain('[object Object]');
     for (const kw of ['역삼', String(EXPECTED_ASKING_PRICE)]) {
       if (bodyText.includes(kw)) console.log(`  ✅ "${kw}" 확인`);
       else console.log(`  ⚠️ "${kw}" 미발견`);
@@ -308,6 +313,7 @@ test.describe('역삼 XLSX 렌트롤 Basic IM 골든 테스트', () => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.waitForTimeout(1000);
     const noOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
+    expect(noOverflow).toBe(true);
     console.log(noOverflow ? '  ✅ 모바일 가로 오버플로 없음' : '  ⚠️ 모바일 가로 오버플로 발생');
 
     for (let i = 0; i < 4; i++) {
@@ -373,24 +379,28 @@ test.describe('역삼 XLSX 렌트롤 Basic IM 골든 테스트', () => {
       }
     }
     expect(downloaded).toBe(true);
-    console.log(`  ✅ PPTX: ${(fs.statSync(pptxPath).size / 1024).toFixed(1)} KB`);
+    const pptxSize = fs.statSync(pptxPath).size;
+    expect(pptxSize).toBeGreaterThan(100 * 1024);
+    console.log(`  ✅ PPTX: ${(pptxSize / 1024).toFixed(1)} KB`);
 
     const AdmZip = require('adm-zip');
     const zip = new AdmZip(pptxPath);
     const slideEntries = zip.getEntries().filter((e: any) => /ppt\/slides\/slide\d+\.xml$/.test(e.entryName));
     console.log(`  📄 슬라이드: ${slideEntries.length}면`);
-    expect(slideEntries.length).toBeGreaterThanOrEqual(8);
-    expect(slideEntries.length).toBeLessThanOrEqual(12);
+    expect(slideEntries.length).toBe(10);
 
     const fullText = slideEntries.map((e: any) => zip.readAsText(e.entryName).replace(/<[^>]+>/g, ' ')).join(' ');
 
     // 검증
-    const defects = ['NaN', 'undefined', 'null'].filter(t => fullText.includes(t));
+    const defects = ['NaN', 'undefined', 'null', '[object Object]'].filter(t => fullText.includes(t));
     expect(defects).toHaveLength(0);
     console.log(`  ✅ 결함 토큰 0건`);
 
     expect(fullText).toContain(String(EXPECTED_ASKING_PRICE));
     console.log(`  ✅ 매매가 ${EXPECTED_ASKING_PRICE}억 반영`);
+
+    expect(fullText).not.toContain('NH농협캐피탈');
+    console.log(`  ✅ 더미 테넌트(NH농협캐피탈) 누출 0건 (Rule 34)`);
 
     const evasive = ['본문을 참조', '별도 안내 예정', '추후 확인'];
     expect(evasive.filter(e => fullText.includes(e))).toHaveLength(0);

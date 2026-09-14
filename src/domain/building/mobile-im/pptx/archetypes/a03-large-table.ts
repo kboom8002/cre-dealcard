@@ -42,6 +42,9 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
   let tableRows: any[][] = input.data.tableRows || [];
   let rowEntries: [string, string][] = [];
   
+  // non-array 행 방어 (MP-06)
+  tableRows = tableRows.filter(Array.isArray);
+
   // tableHead가 비어있고 tableRows에 데이터가 있으면 첫 행을 헤더로
   if (tableHead.length === 0 && tableRows.length > 1) {
     tableHead = tableRows[0].map((c: any) => String(c || ''));
@@ -168,7 +171,8 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
       const x = L.colX(i, coW, coGap);
       const calloutY = tableEnd + 0.35;
       if (calloutY + 1.1 <= 6.80) {
-        L.callout(slide, x, calloutY, coW, 1.1, co.kind || 'info', co.title || '', co.body || '');
+        const safeKind = (['info', 'good', 'warn', 'bad', 'brass'] as const).includes(co.kind) ? co.kind : 'info';
+        L.callout(slide, x, calloutY, coW, 1.1, safeKind, co.title || '', co.body || '');
       }
     });
   }

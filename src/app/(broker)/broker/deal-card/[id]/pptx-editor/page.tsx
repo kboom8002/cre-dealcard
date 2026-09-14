@@ -44,6 +44,13 @@ export default function PptxEditorPage({ params }: { params: Promise<{ id: strin
         if (res.ok) {
           const json = await res.json();
           const b = json.data?.building || json.building;
+          const docPreset = json.data?.document?.body?.preset
+            || json.data?.latest_document?.body?.preset
+            || (json.data?.document?.body?.tier === 'basic' ? 'credeal_basic' : undefined);
+          if (docPreset && PPTX_PRESET_TEMPLATES[docPreset]) {
+            setSelectedPresetId(docPreset);
+            setTokens(PPTX_PRESET_TEMPLATES[docPreset]);
+          }
           if (b) {
             setRealBuildingId(b.id);
             setBuildingData({

@@ -67,6 +67,13 @@ export function ImManagementPanel({
       if (res.ok) {
         const data = await res.json();
         if (data.documents) {
+          if (data.documents.length > 0) {
+            const latestDoc = data.documents[0];
+            const presetFromDoc = latestDoc.body?.preset || (latestDoc.body?.tier === 'basic' ? 'credeal_basic' : undefined);
+            if (presetFromDoc) {
+              setSelectedPreset(presetFromDoc);
+            }
+          }
           setDocs(data.documents.map((d: any) => ({
             id: d.id,
             created_at: d.created_at,

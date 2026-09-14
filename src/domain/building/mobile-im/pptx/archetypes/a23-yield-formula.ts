@@ -90,13 +90,13 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     { text: `${fmtManwon(annualRent)}`, options: { color: C.brass, bold: true, fontSize: 11 } },
     { text: ` ÷ (${fmtManwon(askingPrice)} − ${fmtManwon(totalDeposit)})`, options: { color: C.mute, fontSize: 11 } },
   ], {
-    x: M + 9.0, y: formulaBoxY + 0.15, w: 3.5, h: 0.90,
+    x: M + CW - 3.10, y: formulaBoxY + 0.15, w: 2.95, h: 0.90,
     fontFace: KR, valign: 'middle', align: 'right',
   });
 
   // ── As-Is / Stabilized 2열 비교 카드 ──
   const cardY = 3.10;
-  const cardH = 3.40;
+  const cardH = 3.35;
   const hasStabilized = capRateStabilized != null && capRateStabilized > 0;
   const cardW = hasStabilized ? (CW - 0.30) / 2 : CW;
 
@@ -105,48 +105,43 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     // 카드 배경
     slide.addShape('roundRect' as any, {
       x, y: cardY, w: cardW, h: cardH,
-      fill: { color: isStabilized ? 'F6F1E4' : 'F7FAFC' },
-      line: { color: isStabilized ? C.brass : C.line, width: isStabilized ? 1.2 : 0.75 },
+      fill: { color: 'FFFFFF' },
+      line: { color: isStabilized ? C.brass : C.line, width: isStabilized ? 1.5 : 1 },
       rectRadius: 0.08,
     });
 
-    // 카드 헤더
+    // 헤더 영역
+    const badgeW = isStabilized ? 1.80 : 1.40;
+    slide.addShape('roundRect' as any, {
+      x: x + 0.20, y: cardY + 0.20, w: badgeW, h: 0.36,
+      fill: { color: isStabilized ? C.brassT : C.tint },
+      rectRadius: 0.04,
+    });
     slide.addText(label, {
-      x: x + 0.25, y: cardY + 0.15, w: cardW - 0.50, h: 0.35,
-      color: C.ink, fontFace: KR, fontSize: 14, bold: true,
+      x: x + 0.20, y: cardY + 0.20, w: badgeW, h: 0.36,
+      color: isStabilized ? C.brassD : C.ink,
+      fontFace: KR, fontSize: 10, bold: true,
+      align: 'center', valign: 'middle',
     });
 
-    // ◇ 분석가정 배지 (Stabilized만)
     if (isStabilized) {
-      slide.addShape('roundRect' as any, {
-        x: x + cardW - 1.80, y: cardY + 0.18, w: 1.50, h: 0.28,
-        fill: { color: 'F6F1E4' },
-        line: { color: C.brass, width: 0.75 },
-        rectRadius: 0.04,
-      });
       slide.addText('◇ 분석가정', {
-        x: x + cardW - 1.80, y: cardY + 0.18, w: 1.50, h: 0.28,
-        color: C.brass, fontFace: KR, fontSize: 8.5, bold: true,
-        align: 'center', valign: 'middle',
+        x: x + badgeW + 0.30, y: cardY + 0.20, w: 1.50, h: 0.36,
+        color: C.brass, fontFace: KR, fontSize: 9, italic: true,
+        valign: 'middle',
       });
     }
 
-    // 구분선
-    slide.addShape('line' as any, {
-      x: x + 0.20, y: cardY + 0.55, w: cardW - 0.40, h: 0,
-      line: { color: isStabilized ? C.brass : C.line, width: 0.75, dashType: 'dash' },
-    });
-
-    // 지표 행
-    const rowH = 0.55;
-    const labelX = x + 0.25;
+    // 세부 수치 행
+    let rowY = cardY + 0.75;
+    const rowH = 0.44;
+    const labelX = x + 0.30;
     const valueX = x + cardW - 2.30;
-    let rowY = cardY + 0.70;
 
-    const renderRow = (rowLabel: string, value: string) => {
-      slide.addText(`■  ${rowLabel}`, {
+    const renderRow = (lbl: string, value: string) => {
+      slide.addText(lbl, {
         x: labelX, y: rowY, w: 3.0, h: rowH,
-        color: C.slate, fontFace: KR, fontSize: 10.5, valign: 'middle',
+        color: C.mute, fontFace: KR, fontSize: 11, valign: 'middle',
       });
       slide.addText(value, {
         x: valueX, y: rowY, w: 2.0, h: rowH,
@@ -156,8 +151,9 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       rowY += rowH;
     };
 
+    const clampedVacPct = Math.min(99.9, Math.max(0, Number(vacancyPct) || 0));
     const rentForCard = isStabilized && capRateStabilized
-      ? annualRent / (1 - vacancyPct / 100) // 안정화: 공실 해소 시 예상 임대료
+      ? annualRent / (1 - clampedVacPct / 100) // 안정화: 공실 해소 시 예상 임대료
       : annualRent;
 
     renderRow('연간 임대료', fmtManwon(rentForCard));
@@ -165,7 +161,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     renderRow('매매가', fmtManwon(askingPrice));
 
     // Cap Rate 강조
-    rowY += 0.15;
+    rowY += 0.12;
     slide.addShape('roundRect' as any, {
       x: x + 0.20, y: rowY, w: cardW - 0.40, h: 0.65,
       fill: { color: isStabilized ? C.brass : C.ink },
@@ -175,7 +171,8 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       x: x + 0.40, y: rowY, w: 2.5, h: 0.65,
       color: 'FFFFFF', fontFace: KR, fontSize: 12, bold: true, valign: 'middle',
     });
-    slide.addText(`${capRate.toFixed(2)}%`, {
+    const numCapRate = typeof capRate === 'number' ? capRate : parseFloat(String(capRate)) || 0;
+    slide.addText(`${numCapRate.toFixed(2)}%`, {
       x: x + cardW - 2.60, y: rowY, w: 2.20, h: 0.65,
       color: 'FFFFFF', fontFace: NUM, fontSize: 22, bold: true,
       align: 'right', valign: 'middle',
@@ -196,7 +193,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   // ── 가정 설명 (하단) ──
   if (capRateStabilized != null && capRateStabilized > 0) {
     slide.addText(`가정: ${assumption}`, {
-      x: M, y: 6.70, w: CW, h: 0.30,
+      x: M, y: 6.50, w: CW, h: 0.26,
       color: C.mute, fontFace: KR, fontSize: 9, italic: true,
     });
   }

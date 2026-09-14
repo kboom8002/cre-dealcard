@@ -357,6 +357,11 @@ B1 138.3평 파티룸 보증금6000만 월세510만`;
     await shot(page, 'im-viewer-desktop');
 
     const bodyText = await page.textContent('body') || '';
+    expect(bodyText).toContain('서초');
+    expect(bodyText).toContain('230');
+    expect(bodyText).not.toContain('NaN');
+    expect(bodyText).not.toContain('undefined');
+    expect(bodyText).not.toContain('[object Object]');
     for (const kw of ['서초', 'FM', '양재', '수익']) {
       console.log(bodyText.includes(kw) ? `  ✅ 키워드 "${kw}" 존재` : `  ⚠️ 키워드 "${kw}" 미발견`);
     }
@@ -439,10 +444,9 @@ B1 138.3평 파티룸 보증금6000만 월세510만`;
     const slideEntries = entries.filter((e: any) => /^ppt\/slides\/slide\d+\.xml$/.test(e.entryName));
     console.log(`  📄 총 슬라이드 면수: ${slideEntries.length}면`);
 
-    // ─── 단언 ①: 면수 (basic-im-guide §2 표준 9섹션, A24 suppress 시 8면 가능) ───
-    expect(slideEntries.length).toBeGreaterThanOrEqual(8);
-    expect(slideEntries.length).toBeLessThanOrEqual(10);
-    console.log('  ✅ Basic IM 면수 범위(9~10면) 부합');
+    // ─── 단언 ①: 면수 (basic-im-guide §2 표준 10면) ───
+    expect(slideEntries.length).toBe(10);
+    console.log('  ✅ Basic IM 면수 (10면) 일치 확인');
 
     // ─── OpenXML 전체 텍스트 추출 헬퍼 ───
     function extractSlideText(slideXml: string): string {
@@ -460,6 +464,9 @@ B1 138.3평 파티룸 보증금6000만 월세510만`;
       expect(xml).not.toContain('[object Object]');
     }
     console.log('  ✅ OpenXML 결함 토큰 (NaN, undefined, null) 0건 검증 완료');
+
+    expect(fullPptxText).not.toContain('NH농협캐피탈');
+    console.log('  ✅ 더미 테넌트(NH농협캐피탈) 누출 0건 (Rule 34)');
 
     // ─── 단언 ③: 표지(Slide 1) 4요소 — 주소, 매각가, 작성일 ───
     const slide1Text = allSlideTexts[0] || '';

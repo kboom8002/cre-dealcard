@@ -75,8 +75,10 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       if (hero.equityRequiredBil) metrics.push({ label: '필요 실투자금', value: `약 ${hero.equityRequiredBil}억 원` });
       if (hero.capRateBase) metrics.push({ label: '연 수익률(Cap Rate, 기준: NOI)', value: `${hero.capRateBase}%` });
       if (hero.leveragedYieldPct) metrics.push({ label: '자기자본수익률', value: `${hero.leveragedYieldPct}%` });
-      if (metrics.length < 6 && hero.landAreaM2) metrics.push({ label: '대지면적', value: `${(hero.landAreaM2 / 3.3058).toFixed(1)}평` });
-      if (metrics.length < 6 && hero.totalGrossAreaM2) metrics.push({ label: '연면적', value: `${(hero.totalGrossAreaM2 / 3.3058).toFixed(1)}평` });
+      const landM2 = parseFloat(String(hero.landAreaM2 || '').replace(/,/g, ''));
+      if (metrics.length < 6 && !isNaN(landM2) && landM2 > 0) metrics.push({ label: '대지면적', value: `${(landM2 / 3.3058).toFixed(1)}평` });
+      const gfaM2 = parseFloat(String(hero.totalGrossAreaM2 || '').replace(/,/g, ''));
+      if (metrics.length < 6 && !isNaN(gfaM2) && gfaM2 > 0) metrics.push({ label: '연면적', value: `${(gfaM2 / 3.3058).toFixed(1)}평` });
       if (metrics.length < 6 && hero.zoning) metrics.push({ label: '용도지역', value: hero.zoning });
     }
   }
@@ -96,11 +98,17 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       metrics.push({ label: '실투자금', value: eq });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('연면적'))) {
-      const gfa = hero.totalGrossAreaPyeong ? `${hero.totalGrossAreaPyeong}평` : (hero.totalGrossAreaM2 ? `${(hero.totalGrossAreaM2 / 3.3058).toFixed(0)}평` : '-');
+      const gfaM2 = parseFloat(String(hero.totalGrossAreaM2 || '').replace(/,/g, ''));
+      const gfa = hero.totalGrossAreaPyeong
+        ? `${hero.totalGrossAreaPyeong}평`
+        : (!isNaN(gfaM2) && gfaM2 > 0 ? `${(gfaM2 / 3.3058).toFixed(0)}평` : '-');
       metrics.push({ label: '연면적', value: gfa });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('대지면적'))) {
-      const site = hero.landAreaPyeong ? `${hero.landAreaPyeong}평` : (hero.landAreaM2 ? `${(hero.landAreaM2 / 3.3058).toFixed(0)}평` : '-');
+      const landM2 = parseFloat(String(hero.landAreaM2 || '').replace(/,/g, ''));
+      const site = hero.landAreaPyeong
+        ? `${hero.landAreaPyeong}평`
+        : (!isNaN(landM2) && landM2 > 0 ? `${(landM2 / 3.3058).toFixed(0)}평` : '-');
       metrics.push({ label: '대지면적', value: site });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('공실'))) {
@@ -225,8 +233,12 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     const locPoi = input.data.enrichment?.locationPoi ?? input.data.locationPoi;
     const nearestSt = locPoi?.nearestStation;
     const rawSt = input.data.station_name || hero?.nearestStation || nearestSt?.name || nearestSt?.stationName || '';
-    const stationName = rawSt ? rawSt.replace(/\s*\d+호선.*$/, '').replace(/역$/, '') + '역' : '';
-    const stMin = input.data.station_walk_min ?? nearestSt?.walkMinutes ?? (nearestSt?.distanceM ? Math.max(1, Math.round(nearestSt.distanceM / 80)) : undefined);
+    const stationName = rawSt ? rawSt.replace(/\s*(?:\d+호선|신분당선|수인분당선|공항철도|경의중앙선|경춘선|GTX-?[A-Z]|우이신설선|서해선|경강선|인천\d호선).*$/i, '').replace(/\([^)]*\)$/, '').replace(/역$/, '') + '역' : '';
+    const distNum = typeof nearestSt?.distanceM === 'number'
+      ? nearestSt.distanceM
+      : parseFloat(String(nearestSt?.distanceM || '').replace(/[^\d.]/g, ''));
+    const distMin = !isNaN(distNum) && distNum > 0 ? Math.max(1, Math.round(distNum / 80)) : undefined;
+    const stMin = input.data.station_walk_min ?? nearestSt?.walkMinutes ?? distMin;
     const stationPart = stationName && stMin
       ? `${stationName} 도보 ${stMin}분 역세권`
       : stationName
@@ -292,8 +304,9 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
           align: 'center', valign: 'middle', margin: 0,
         });
 
-        // 우측 내용 텍스트
-        slide.addText(pt, {
+        // 우측 내용 텍스트 (HP-05: 62자 초과 시 절삭하여 오버플로 방지)
+        const ptText = pt.length > 62 ? pt.slice(0, 59) + '...' : pt;
+        slide.addText(ptText, {
           x: M + 0.70, y: ry + 0.04, w: CW - 0.85, h: rowH - 0.08,
           color: C.ink, fontFace: KR, fontSize: hlFontSize,
           margin: 0, valign: 'middle',
@@ -310,7 +323,8 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       const coW = L.col(2, coGap);
       const x = L.colX(i, coW, coGap);
       if (calloutY + 1.2 <= 6.5) {
-        L.callout(slide, x, calloutY, coW, 1.2, co.kind || 'info', co.title || '투자 하이라이트', co.body || '');
+        const safeKind = (['info', 'good', 'warn', 'bad', 'brass'] as const).includes(co.kind) ? co.kind : 'info';
+        L.callout(slide, x, calloutY, coW, 1.2, safeKind, co.title || '투자 하이라이트', co.body || '');
       }
     });
   }

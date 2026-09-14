@@ -31,6 +31,12 @@ export interface LocationPoiData {
 }
 
 export async function fetchLocationPoi(lat: number, lng: number): Promise<LocationPoiData | null> {
+  if (!lat || !lng || isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)
+      || lat < 33 || lat > 43 || lng < 124 || lng > 132) {
+    console.warn('[kakao-map-api] Invalid coordinates, returning null:', { lat, lng });
+    return null;
+  }
+
   const restKey = process.env.KAKAO_REST_API_KEY;
 
   if (restKey && restKey !== "") {

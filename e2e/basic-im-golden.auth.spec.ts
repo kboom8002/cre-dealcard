@@ -459,6 +459,11 @@ B1~5F
 
     // 뷰어 콘텐츠 확인
     const viewerText = await page.textContent('body') || '';
+    expect(viewerText).toContain('당산');
+    expect(viewerText).toContain('115');
+    expect(viewerText).not.toContain('NaN');
+    expect(viewerText).not.toContain('undefined');
+    expect(viewerText).not.toContain('[object Object]');
     for (const kw of ['당산', '호산당', '115']) {
       const found = viewerText.includes(kw);
       console.log(found ? `  ✅ "${kw}" 확인` : `  ⚠️ "${kw}" 미발견`);
@@ -551,10 +556,9 @@ B1~5F
     const slideEntries = entries.filter((e: any) => /^ppt\/slides\/slide\d+\.xml$/.test(e.entryName));
     console.log(`  📄 총 슬라이드 면수: ${slideEntries.length}면`);
 
-    // 4. 면수 범위 (Rule 47: 8~10면)
-    expect(slideEntries.length).toBeGreaterThanOrEqual(8);
-    expect(slideEntries.length).toBeLessThanOrEqual(10);
-    console.log('  ✅ Basic IM 면수 범위(8~10면) 부합');
+    // 4. 면수 범위 (Rule 47: 10면)
+    expect(slideEntries.length).toBe(10);
+    console.log('  ✅ Basic IM 면수 (10면) 일치 확인');
 
     // 5. 결함 토큰 차단
     for (const slide of slideEntries) {
@@ -572,6 +576,10 @@ B1~5F
       return xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     });
     const fullPptxText = allSlideTexts.join('\n');
+
+    expect(fullPptxText).not.toContain('NH농협캐피탈');
+    expect(fullPptxText).not.toContain('테헤란로');
+    console.log('  ✅ 타 매물 목데이터(NH농협캐피탈, 테헤란로) 누출 0건 (Rule 34)');
 
     const sectionPatterns = [
       /투자\s*지표|핵심\s*투자|INVESTMENT/,

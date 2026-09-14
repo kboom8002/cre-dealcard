@@ -220,10 +220,6 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
           if (addComps) sequence.push({ archetype: 'A03', kicker: 'Comps', title: '비교사례', dataKey: 'comps' });
           break;
       }
-      // Basic IM 전용: 투자수익률 산식 슬라이드 (basic-im-guide.md §3.3)
-      if (input.preset === 'credeal_basic') {
-        sequence.push({ archetype: 'A23', kicker: 'Yield', title: '투자수익률 분석', dataKey: 'yieldFormula' });
-      }
       break;
     case 'owner_occupied':
       sequence.push({ archetype: 'A04', kicker: 'Plan', title: '사용계획', dataKey: 'plan' });

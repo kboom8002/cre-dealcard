@@ -124,6 +124,10 @@ async function fetchBaseMapTile(
 ): Promise<Buffer | null> {
   const apiKey = getVWorldApiKey();
   if (!apiKey || !sharp) return null;
+  if (!lat || !lng || isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)
+      || lat < 33 || lat > 43 || lng < 124 || lng > 132) {
+    return null;
+  }
 
   try {
     // 줌 레벨 결정: radiusM ≤150 → z=17, ≤300 → z=16, else z=15
@@ -135,14 +139,23 @@ async function fetchBaseMapTile(
     const latRad = lat * Math.PI / 180;
     const centerTileY = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
 
-    // 주변 9타일(3×3) 가져오기
+    // 주변 9타일(3×3) 병렬로 가져오기 (HP-14)
     const TILE_SIZE = 256;
-    const tiles: { x: number; y: number; buf: Buffer }[] = [];
+    const tileRequests: { dx: number; dy: number; tx: number; ty: number }[] = [];
 
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
-        const tx = centerTileX + dx;
-        const ty = centerTileY + dy;
+        tileRequests.push({
+          dx,
+          dy,
+          tx: centerTileX + dx,
+          ty: centerTileY + dy,
+        });
+      }
+    }
+
+    const tileResults = await Promise.all(
+      tileRequests.map(async ({ dx, dy, tx, ty }) => {
         const url = `https://api.vworld.kr/req/wmts/1.0.0/${apiKey}/Base/${z}/${ty}/${tx}.png`;
         try {
           const res = await fetch(url, {
@@ -151,10 +164,16 @@ async function fetchBaseMapTile(
           });
           if (res.ok) {
             const ab = await res.arrayBuffer();
-            tiles.push({ x: dx + 1, y: dy + 1, buf: Buffer.from(ab) });
+            return { x: dx + 1, y: dy + 1, buf: Buffer.from(ab) };
           }
         } catch { /* 개별 타일 실패 무시 */ }
-      }
+        return null;
+      })
+    );
+
+    const tiles: { x: number; y: number; buf: Buffer }[] = [];
+    for (const t of tileResults) {
+      if (t) tiles.push(t);
     }
 
     if (tiles.length === 0) return null;
@@ -226,6 +245,11 @@ export async function fetchCadastralMapImage(
   const apiKey = getVWorldApiKey();
   if (!apiKey) {
     console.warn('[vworld-wms] VWORLD_API_KEY 미설정 — 지적도 생략');
+    return null;
+  }
+  if (!lat || !lng || isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)
+      || lat < 33 || lat > 43 || lng < 124 || lng > 132) {
+    console.warn('[vworld-wms] Invalid coordinates, skipping cadastral map:', { lat, lng });
     return null;
   }
 

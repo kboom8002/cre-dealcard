@@ -55,12 +55,13 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
 
     let renderedRowCount = 0;
     if (rowEntries.length > 0) {
-      renderedRowCount = Math.min(rowEntries.length, 10);
-      L.rows(slide, M, 1.80, lw, rowEntries.slice(0, 10), { rh: 0.48, fs: 13.5 });
+      const maxRows = input.data.priceTable ? 7 : 10;
+      renderedRowCount = Math.min(rowEntries.length, maxRows);
+      L.rows(slide, M, 1.80, lw, rowEntries.slice(0, maxRows), { rh: 0.48, fs: 13.5 });
     } else {
       const fallbackTitle = `${input.data.title || left.sub || '세부 정보'} 요약`;
       L.callout(slide, M, 1.80, lw, 2.0, 'info', fallbackTitle,
-        '• 상세 제원은 실사 자료 및 공부 원본을 참조하시기 바랍니다\n• 세부 현황은 첨부 공적 장부 및 현장 실사를 기준으로 합니다\n• 특이사항은 LOI 접수 후 제공되는 실사 보고서를 참조하십시오');
+        '• 등기부등본 갑구·을구 권리관계 확인 필요\n• 건축물대장 주요 용도 및 위반건축물 여부 확인\n• 현장 실사를 통한 물리적 하자 및 하자보수 이력 점검');
       renderedRowCount = 4;
     }
   } else if (input.data.content) {
@@ -83,18 +84,19 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     }
     let renderedRowCount = 0;
     if (contentRows.length > 0) {
-      renderedRowCount = Math.min(contentRows.length, 10);
-      L.rows(slide, M, 1.80, lw, contentRows.slice(0, 10), { rh: 0.48, fs: 13.5 });
+      const maxRows = input.data.priceTable ? 7 : 10;
+      renderedRowCount = Math.min(contentRows.length, maxRows);
+      L.rows(slide, M, 1.80, lw, contentRows.slice(0, maxRows), { rh: 0.48, fs: 13.5 });
     } else {
       const fallbackTitle = `${input.data.title || left.sub || '세부 정보'} 요약`;
       L.callout(slide, M, 1.80, lw, 2.0, 'info', fallbackTitle,
-        '• 상세 제원은 실사 자료 및 공부 원본을 참조하시기 바랍니다\n• 세부 현황은 첨부 공적 장부 및 현장 실사를 기준으로 합니다\n• 특이사항은 LOI 접수 후 제공되는 실사 보고서를 참조하십시오');
+        '• 등기부등본 갑구·을구 권리관계 확인 필요\n• 건축물대장 주요 용도 및 위반건축물 여부 확인\n• 현장 실사를 통한 물리적 하자 및 하자보수 이력 점검');
       renderedRowCount = 4;
     }
   } else {
     const fallbackTitle = `${input.data.title || left.sub || '세부 정보'} 요약`;
     L.callout(slide, M, 1.80, lw, 2.0, 'info', fallbackTitle,
-      '• 상세 제원은 실사 자료 및 공부 원본을 참조하시기 바랍니다\n• 세부 현황은 첨부 공적 장부 및 현장 실사를 기준으로 합니다\n• 특이사항은 LOI 접수 후 제공되는 실사 보고서를 참조하십시오');
+      '• 등기부등본 갑구·을구 권리관계 확인 필요\n• 건축물대장 주요 용도 및 위반건축물 여부 확인\n• 현장 실사를 통한 물리적 하자 및 하자보수 이력 점검');
   }
   
   if (input.data.priceTable) {
@@ -193,9 +195,9 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       const isLand = kickerLower.includes('land') || titleLower.includes('부지') || titleLower.includes('도로') || titleLower.includes('인허가');
 
       if (isEviction) {
-        calloutText = '• 기존 구옥 2동 소유주 직영 거주 중으로 잔금 전 전원 명도 확약 징구 완료\n• 임차인 권리금 및 명도 분쟁 리스크가 전무하여 잔금 즉시 착공 가능\n• 매수자 명도 부담 0원으로 신속한 철거 및 멸실 신고 이행';
+        calloutText = '• 매도인/임차인 명도 현황 및 퇴거 확약 조건 확인 필요\n• 임차인 권리금·명도 분쟁 리스크 사전 실사 권고\n• 명도 완료 시 즉시 철거·착공 가능 여부 일정 확인';
       } else if (isLand) {
-        calloutText = '• 북서측 8m × 6m 코너 각지 도로 접면으로 차량 진출입 및 공사 여건 우수\n• 북측 인접도로 8m 확보로 건축법상 일조권 사선제한 영향 최소화\n• 2개 필지 정형 결합 개발을 통해 대지 이용 효율 및 용적률 극대화';
+        calloutText = '• 필지 도로 접면 현황 및 차량 진출입 여건 현장 확인 필요\n• 건축법상 일조권·사선제한 영향 사전 검토 권고\n• 필지 결합 개발 시 대지 이용 효율 및 용적률 최적화 검토';
       } else {
         // D42 RCA: Rule 37 준수 — 동적 데이터 기반 텍스트 (회피성 문구 금지)
         const addr = input.data.address || input.data.resolved_address || '';
@@ -217,7 +219,8 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
         let ch = Math.max(1.8, 0.7 + Math.ceil((c.body?.length ?? 0) / 25) * 0.32);
         if (cy + ch > 6.80) ch = Math.max(1.0, 6.80 - cy);
         if (cy < 6.80) {
-          L.callout(slide, rx, cy, rw, ch, c.kind ?? 'info', c.title ?? '자산 평가 포인트', c.body ?? '');
+          const safeKind = (['info', 'good', 'warn', 'bad', 'brass'] as const).includes(c.kind) ? c.kind : 'info';
+          L.callout(slide, rx, cy, rw, ch, safeKind, c.title ?? '자산 평가 포인트', c.body ?? '');
           cy += ch + 0.22;
         }
       });
