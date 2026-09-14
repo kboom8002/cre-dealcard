@@ -83,14 +83,14 @@ describe('T19: Gallery Slides 0~12 Photos', () => {
 
   test('T19-08: Full PPTX render with 4 photos -> PPTX has gallery slide, buffer valid', async () => {
     const renderer = new MobileImPptxRenderer();
-    const doc = buildMinimalDoc();
+    const doc = buildMinimalDoc('income');
     const photos: PhotoMeta[] = Array(4).fill(null).map((_, i) => ({
       url: MOCK_IMG_URL, category: 'exterior', isHero: i === 0
     }));
     // renderer가 resolvePhotos를 통해 photos_v2를 파싱함
     (doc.body as any).photos_v2 = photos;
 
-    const result = await renderer.render({ doc,posture: 'income', grade: 'B' });
+    const result = await renderer.render({ buildingId: 'test-p2-bld', doc, posture: 'income', grade: 'B' });
     expect(result.buffer).toBeInstanceOf(Uint8Array);
     expect(result.buffer.length).toBeGreaterThan(1000);
     assertNoCorruptionStrings(result.buffer);
@@ -98,14 +98,14 @@ describe('T19: Gallery Slides 0~12 Photos', () => {
 
   test('T19-09: Gallery slides only in Pro tier (verify basic also)', async () => {
     const renderer = new MobileImPptxRenderer();
-    const doc = buildMinimalDoc();
+    const doc = buildMinimalDoc('income');
     const photos: PhotoMeta[] = Array(4).fill(null).map((_, i) => ({
       url: MOCK_IMG_URL, category: 'exterior', isHero: i === 0
     }));
     (doc.body as any).photos_v2 = photos;
 
     // basic tier에서도 사진이 있으면 갤러리가 포함되는지 (또는 에러 없이 렌더링되는지) 확인
-    const resultBasic = await renderer.render({ doc,posture: 'income', grade: 'B' });
+    const resultBasic = await renderer.render({ buildingId: 'test-p2-bld', doc, posture: 'income', grade: 'B' });
     expect(resultBasic.buffer).toBeInstanceOf(Uint8Array);
     assertNoCorruptionStrings(resultBasic.buffer);
   }, 120_000);
@@ -151,10 +151,10 @@ describe('T27: 12 Photos Simultaneous Embedding', () => {
 
   test('T27-04: Full PPTX render with 12 mock photos -> buffer > 5KB, no corruption', async () => {
     const renderer = new MobileImPptxRenderer();
-    const doc = buildMinimalDoc();
+    const doc = buildMinimalDoc('income');
     (doc.body as any).photos_v2 = diversePhotos;
 
-    const result = await renderer.render({ doc,posture: 'income', grade: 'B' });
+    const result = await renderer.render({ buildingId: 'test-p2-bld', doc, posture: 'income', grade: 'B' });
     expect(result.buffer).toBeInstanceOf(Uint8Array);
     expect(result.buffer.length).toBeGreaterThan(5000);
     assertNoCorruptionStrings(result.buffer);

@@ -201,12 +201,12 @@ async function run() {
   console.log('▶ PPTX 렌더링 시작...');
   const renderer = new MobileImPptxRenderer();
   const result = await renderer.render({
+    buildingId: 'dangsan-5ga',
     doc,
     building,
     preset: 'commercial_visual_grid',
     posture: 'income',
     grade: 'A',
-    templateId: 'commercial_visual_grid',
   });
   const pptxBuffer = result.buffer;
 

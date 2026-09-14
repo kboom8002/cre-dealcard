@@ -44,6 +44,7 @@ export interface MobileImPptxInput {
       markdown: string;
       confidence?: string;
       boundary_note?: string;
+      section_type?: string;
     }>;
   };
   building?: {

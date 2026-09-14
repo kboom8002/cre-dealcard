@@ -497,13 +497,14 @@ describe('Adversarial Challenger M12-2: Physical Integrity & Regulatory Complian
           {
             slideNumber: 1,
             title: '확정 수익 제안',
-            layoutStyle: 'split',
-            leftContent: { narrative: '매월 연 7% 확정 수익을 보장합니다.' },
+            archetype: 'A04',
+            category: 'body',
+            leftContent: { leadText: '', narrative: '매월 연 7% 확정 수익을 보장합니다.' },
             rightContent: { cards: [{ label: '예상수익', value: '확정수익 7%' }] },
           },
         ],
         pptxBuffer: buf,
-      };
+      } as any;
 
       const report = await evaluator.evaluateProfile('P-PPTX-RELEASE', 'run-hakjeong-leak', deck);
       const legalGate = report.results.find((r) => r.gateId === 'GATE-PPTX-LEGAL-SAFETY');

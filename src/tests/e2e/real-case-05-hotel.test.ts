@@ -10,7 +10,7 @@ import { runDeterministicGates } from '@/domain/building/gates/deterministic-gat
 import type { IMCore } from '@/types/im-core';
 
 describe('Real Case 05: 에이치에비뉴호텔 이대점 300억 (Operating)', () => {
-  const hotelCore: IMCore = {
+  const hotelCore: any = {
     meta: {
       assetId: 'hotel-avenue-300b',
       ontology: { buildingUse: '숙박시설', assetType: '호텔', posture: 'operating', priceBand: 'B4' },

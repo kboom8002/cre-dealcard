@@ -353,7 +353,7 @@ describe('C7: protected slides survive goldilocks', () => {
       grade: 'A',
       hasPhotos: true,
       gallerySpecs: [{
-        archetype: 'A14' as any,
+        slideIndex: 0,
         kicker: 'Gallery',
         title: '건물 사진',
         dataKey: 'gallery_0',
@@ -408,7 +408,7 @@ describe('C7: protected slides survive goldilocks', () => {
       grade: 'A',
       hasPhotos: true,
       gallerySpecs: Array.from({ length: 4 }, (_, i) => ({
-        archetype: 'A14' as any,
+        slideIndex: i,
         kicker: `Gallery ${i + 1}`,
         title: `사진 ${i + 1}`,
         dataKey: `gallery_${i}`,

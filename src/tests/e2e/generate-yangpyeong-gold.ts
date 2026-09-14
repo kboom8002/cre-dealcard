@@ -302,7 +302,7 @@ async function main() {
       commercial_analysis: 'verified_gov',
       risk_check: 'calculated',
       investment_thesis: 'ai_generated',
-    },
+    } as any,
   });
 
   console.log('[4/4] 파일 저장...');

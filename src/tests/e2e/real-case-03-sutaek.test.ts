@@ -11,7 +11,7 @@ import { runDeterministicGates } from '@/domain/building/gates/deterministic-gat
 import type { IMCore } from '@/types/im-core';
 
 describe('Real Case 03: 수택동 89억 나대지 (Development)', () => {
-  const sutaekCore: IMCore = {
+  const sutaekCore: any = {
     meta: {
       assetId: 'sutaek-89b-land',
       ontology: { buildingUse: '토지', assetType: '나대지', posture: 'development', priceBand: 'B3' },
@@ -101,7 +101,7 @@ describe('Real Case 03: 수택동 89억 나대지 (Development)', () => {
     expect(fin.targetGrossAreaPyung).toBeGreaterThan(1500);
     expect(fin.estConstructionCostBil).toBeGreaterThan(100);
     expect(fin.totalProjectCostBil).toBeGreaterThan(200);
-    expect(fin.devProfitMarginPct).toBeDefined();
+    expect((fin as any).devProfitMarginPct).toBeDefined();
   });
 
   it('bands price correctly into "80억 원대" for B2C Teaser', () => {

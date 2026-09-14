@@ -6,10 +6,8 @@ import { ARCHETYPE_REGISTRY } from '@/domain/building/mobile-im/pptx/archetypes'
 describe('fixture-sync', () => {
   it('Every dataKey used in buildDeckSequence output exists in DATA_KEY_ARCHETYPE', () => {
     const seq = buildDeckSequence ? buildDeckSequence({
-      dealProfile: {
-        priceInfo: { totalAmount: 100 },
-        buildingInfo: { gfa: 100 }
-      } as any
+      posture: 'income',
+      grade: 'A',
     }) : [];
 
     seq.forEach((slide: any) => {

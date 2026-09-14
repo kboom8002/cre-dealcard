@@ -343,7 +343,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
   // ════════════════════════════════════════════════════════════════════════════
   describe('Mission 2: Cross-Channel Consistency (7 Core Metrics)', () => {
     // Base clean document & pptx matching all 7 metrics
-    const makeBaseline = () => ({
+    const makeBaseline = (): any => ({
       webDoc: {
         title: '여의도 파이낸스타워',
         body: {
@@ -919,7 +919,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
           { kicker: 'Gallery', title: '상층부 테라스 및 조망', dataKey: 'gallery_terrace' },
           { kicker: 'Gallery', title: '지하 주차장', dataKey: 'gallery_parking' },
           { kicker: 'Gallery', title: '기계실 및 주요 설비', dataKey: 'gallery_facility' },
-        ],
+        ] as any,
         dataAvailability: {
           hasRentRoll: true,
           hasBuildingRegister: true,
@@ -974,7 +974,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
           kicker: 'Gallery',
           title: `사진 ${i + 1}`,
           dataKey: `gallery_${i + 1}`,
-        })),
+        })) as any,
         dataAvailability: {
           hasRentRoll: true,
           hasStackingPlan: true,

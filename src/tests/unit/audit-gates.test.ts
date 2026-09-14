@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { runDeterministicGates, checkQG19, checkQG18, checkCBASIS, checkQG21 } from '@/domain/building/gates/deterministic-gates';
 import type { IMCore } from '@/types/im-core';
 
-function createMockCore(overrides?: Partial<IMCore>): IMCore {
+function createMockCore(overrides?: any): any {
   return {
     meta: {
       generationId: 'gen-test-01',

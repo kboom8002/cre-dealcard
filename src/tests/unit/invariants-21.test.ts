@@ -18,7 +18,7 @@ import type { LeaseRow } from '@/types/im';
 
 describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
   // Helper to build minimal IMCore
-  function createTestCore(overrides: Partial<IMCore> = {}): IMCore {
+  function createTestCore(overrides: any = {}): any {
     return {
       meta: {
         assetId: 'test-asset-01',
@@ -176,7 +176,7 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
 
   // 7. UT-LEASE-01: 최초계약일 기산 상가 10년 갱신권 만기 산출
   it('UT-LEASE-01: calculates 10-year commercial renewal date from first contract', () => {
-    const result = commercialVacatePoint({
+    const result: any = commercialVacatePoint({
       unitLabel: '101',
       leaseAreaSqm: 100,
       leaseState: '임대중',
@@ -185,14 +185,14 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
       legalBasis: 'commercial',
       firstContractDate: '2020-03-01',
       currentExpiryDate: '2024-03-01',
-    });
+    } as any);
     expect(result.at).toBe('2030-03-01');
     expect(result.state).toBe('determined');
   });
 
   // 8. UT-LEASE-02: 주택 임대차 1회(+2년) 갱신요구권 산출
   it('UT-LEASE-02: calculates residential renewal protection', () => {
-    const result = residentialVacatePoint({
+    const result: any = residentialVacatePoint({
       unitLabel: '201',
       leaseAreaSqm: 80,
       leaseState: '임대중',
@@ -201,14 +201,14 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
       legalBasis: 'residential',
       currentExpiryDate: '2025-05-31',
       renewalExercised: false,
-    });
+    } as any);
     expect(result.at).toBe('2027-05-31');
     expect(result.state).toBe('determined');
   });
 
   // 9. UT-LEDGER-01: 자가사용 행은 공실률 계산에서 분모/분자 모두 제외
   it('UT-LEDGER-01: owner-occupied unit is excluded from vacancy calculation', () => {
-    const leases: LeaseRow[] = [
+    const leases: any[] = [
       { unitLabel: '101', leaseAreaSqm: 100, leaseState: '임대중', monthlyRentKrw: 1000, depositKrw: 1000, legalBasis: 'commercial' },
       { unitLabel: '201', leaseAreaSqm: 200, leaseState: '공실', monthlyRentKrw: 0, depositKrw: 0, legalBasis: 'commercial' },
       { unitLabel: '301', leaseAreaSqm: 300, leaseState: '자가사용', monthlyRentKrw: 0, depositKrw: 0, legalBasis: 'commercial' },
@@ -231,7 +231,7 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
     });
     const masked = applyMask(core, 'public');
     expect(masked.deficiencies).toHaveLength(1);
-    expect(masked.deficiencies[0].slotKey).toBe('rentRoll');
+    expect((masked.deficiencies[0] as any).slotKey).toBe('rentRoll');
   });
 
   // 11. UT-MASK-02: public 마스킹 시 임차인 상호 및 상세 주소 마스킹
@@ -247,12 +247,12 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
     const deficiencies = auditDeficiencies({
       posture: 'development',
       leases: [
-        { unitLabel: '101', leaseAreaSqm: 100, leaseState: '임대중', legalBasis: '미확인', depositKrw: 100, monthlyRentKrw: 10 },
+        { unitLabel: '101', leaseAreaSqm: 100, leaseState: '임대중', legalBasis: '미확인', depositKrw: 100, monthlyRentKrw: 10 } as any,
       ],
       physical: { farPct: null },
     });
     expect(deficiencies.length).toBeGreaterThanOrEqual(1);
-    expect(deficiencies.some(d => d.nextBest.length > 0)).toBe(true);
+    expect(deficiencies.some(d => (d.nextBest?.length ?? 0) > 0)).toBe(true);
   });
 
   // 13. GT-MODE-01: 결정적 게이트는 Strict 모드 및 Fast 모드에서도 완벽 동작

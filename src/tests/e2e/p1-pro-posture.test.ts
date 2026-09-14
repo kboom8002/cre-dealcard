@@ -57,6 +57,7 @@ describe('MECE Phase 2 - Pro Posture & Income Variants Tests', () => {
     test('T17-05: Income Pro full render', async () => {
       const renderer = new MobileImPptxRenderer();
       const input: MobileImPptxInput = {
+        buildingId: 'test-income-bld',
         posture: 'income',
         grade: 'A',
         building: BUILDING_META['income'],
@@ -124,6 +125,7 @@ describe('MECE Phase 2 - Pro Posture & Income Variants Tests', () => {
 
       for (const posture of postures) {
         const input: MobileImPptxInput = {
+          buildingId: `test-${posture}-bld`,
           posture,
           grade: 'A',
           building: BUILDING_META[posture],

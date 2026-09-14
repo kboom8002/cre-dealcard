@@ -9,7 +9,7 @@ import { calculateIncomeFinancials, calculateDevelopmentFinancials, calculateOwn
 import type { IMCore } from '@/types/im-core';
 
 describe('5 Real Cases E2E Gate & Pipeline Tests', () => {
-  function createBaseCore(overrides: Partial<IMCore> = {}): IMCore {
+  function createBaseCore(overrides: any = {}): any {
     return {
       meta: {
         assetId: 'case-test',

@@ -12,7 +12,9 @@ export const BUILDING_META: Record<string, { area_signal: string; asset_type: st
 };
 
 /** 포스처별 최소 유효 doc 구조 생성 */
-export function buildMinimalDoc(posture: InvestmentPosture): MobileImPptxInput['doc'] {
+export function buildMinimalDoc(posture: InvestmentPosture): MobileImPptxInput['doc'] & {
+  sections: Array<{ title: string; markdown: string; section_type?: string; confidence?: string; boundary_note?: string }>;
+} {
   const sectionMap: Record<string, Array<{ title: string; markdown: string; section_type: string }>> = {
     income: [
       { title: '물건 개요', markdown: '서초 메디컬 빌딩은 지하2층~지상7층 규모의 올근생 빌딩입니다.\n\n| 항목 | 내용 |\n|---|---|\n| 대지면적 | 142.5평 |\n| 연면적 | 620.8평 |\n| 준공 | 2017년 |', section_type: 'property_overview' },

@@ -682,8 +682,9 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
           {
             slideNumber: 1,
             title: '중복 슬라이드',
-            layoutStyle: 'split',
-            leftContent: { narrative: '본 자산은 주요 임차인별 계약 만기 분산 관리가 철저합니다.' },
+            archetype: 'A04',
+            category: 'body',
+            leftContent: { leadText: '', narrative: '본 자산은 주요 임차인별 계약 만기 분산 관리가 철저합니다.' },
             rightContent: {
               cards: [
                 { label: '핵심강점', value: '주요 임차인별 계약 만기 분산 관리' }, // >= 10 chars duplicate
@@ -691,7 +692,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
             },
           },
         ],
-      };
+      } as any;
 
       const failingReport = await evaluator.evaluateProfile('P-PPTX-PREVIEW', 'run-fail', failingDeck);
       const failingGate = failingReport.results.find((r) => r.gateId === 'GATE-PPTX-NON-DUPLICATION');
@@ -707,8 +708,9 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
           {
             slideNumber: 1,
             title: '정상 슬라이드',
-            layoutStyle: 'split',
-            leftContent: { narrative: '강남대로 오피스 밀집 권역 내 위치한 최상급 자산입니다.' },
+            archetype: 'A04',
+            category: 'body',
+            leftContent: { leadText: '', narrative: '강남대로 오피스 밀집 권역 내 위치한 최상급 자산입니다.' },
             rightContent: {
               cards: [
                 { label: '임대차현황', value: '전층 우량 법인 임대 완료' },
@@ -716,7 +718,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
             },
           },
         ],
-      };
+      } as any;
 
       const passingReport = await evaluator.evaluateProfile('P-PPTX-PREVIEW', 'run-pass', passingDeck);
       const passingGate = passingReport.results.find((r) => r.gateId === 'GATE-PPTX-NON-DUPLICATION');

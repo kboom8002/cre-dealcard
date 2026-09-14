@@ -252,13 +252,14 @@ describe('PPTX Physical Integrity & Compliance Harness M2', () => {
           {
             slideNumber: 1,
             title: '투자 개요',
-            layoutStyle: 'split',
-            leftContent: { narrative: '안정적인 임대 수익을 창출하는 역세권 빌딩' },
+            archetype: 'A04',
+            category: 'body',
+            leftContent: { leadText: '', narrative: '안정적인 임대 수익을 창출하는 역세권 빌딩' },
             rightContent: { cards: [{ label: '연 순수익률 (Cap Rate)', value: '4.5%' }] },
           },
         ],
         pptxBuffer: buf,
-      };
+      } as any;
 
       const report = await evaluator.evaluateProfile('P-PPTX-RELEASE', 'run-clean', deck);
       expect(report.blockerCount).toBe(0);
@@ -274,9 +275,9 @@ describe('PPTX Physical Integrity & Compliance Harness M2', () => {
         deckId: 'deck-persona-fail',
         bodySlideCount: 12,
         appendixSlideCount: 0,
-        slides: [{ slideNumber: 1, title: '개요', layoutStyle: 'minimal' }],
+        slides: [{ slideNumber: 1, title: '개요', archetype: 'minimal', category: 'body' }],
         pptxBuffer: buf,
-      };
+      } as any;
 
       const report = await evaluator.evaluateProfile('P-PPTX-RELEASE', 'run-persona-fail', deck);
       expect(report.blockerCount).toBeGreaterThan(0);
@@ -293,9 +294,9 @@ describe('PPTX Physical Integrity & Compliance Harness M2', () => {
         deckId: 'deck-lexicon-fail',
         bodySlideCount: 12,
         appendixSlideCount: 0,
-        slides: [{ slideNumber: 1, title: '개요', layoutStyle: 'minimal' }],
+        slides: [{ slideNumber: 1, title: '개요', archetype: 'minimal', category: 'body' }],
         pptxBuffer: buf,
-      };
+      } as any;
 
       const report = await evaluator.evaluateProfile('P-PPTX-RELEASE', 'run-lexicon-fail', deck);
       expect(report.blockerCount).toBeGreaterThan(0);
@@ -312,9 +313,9 @@ describe('PPTX Physical Integrity & Compliance Harness M2', () => {
         deckId: 'deck-legal-fail',
         bodySlideCount: 12,
         appendixSlideCount: 0,
-        slides: [{ slideNumber: 1, title: '개요', layoutStyle: 'minimal' }],
+        slides: [{ slideNumber: 1, title: '개요', archetype: 'minimal', category: 'body' }],
         pptxBuffer: buf,
-      };
+      } as any;
 
       const report = await evaluator.evaluateProfile('P-PPTX-RELEASE', 'run-legal-fail', deck);
       expect(report.blockerCount).toBeGreaterThan(0);
@@ -331,9 +332,9 @@ describe('PPTX Physical Integrity & Compliance Harness M2', () => {
         deckId: 'deck-hakjeong-profit-fail',
         bodySlideCount: 12,
         appendixSlideCount: 0,
-        slides: [{ slideNumber: 1, title: '개요', layoutStyle: 'minimal' }],
+        slides: [{ slideNumber: 1, title: '개요', archetype: 'minimal', category: 'body' }],
         pptxBuffer: buf,
-      };
+      } as any;
 
       const report = await evaluator.evaluateProfile('P-PPTX-RELEASE', 'run-hakjeong-profit-fail', deck);
       expect(report.blockerCount).toBeGreaterThan(0);
@@ -350,9 +351,9 @@ describe('PPTX Physical Integrity & Compliance Harness M2', () => {
         deckId: 'deck-bleed-fail',
         bodySlideCount: 12,
         appendixSlideCount: 0,
-        slides: [{ slideNumber: 1, title: '개요', layoutStyle: 'minimal' }],
+        slides: [{ slideNumber: 1, title: '개요', archetype: 'minimal', category: 'body' }],
         pptxBuffer: buf,
-      };
+      } as any;
 
       const report = await evaluator.evaluateProfile('P-PPTX-RELEASE', 'run-bleed-fail', deck);
       expect(report.blockerCount).toBeGreaterThan(0);

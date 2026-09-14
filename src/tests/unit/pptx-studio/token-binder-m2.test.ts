@@ -42,7 +42,7 @@ describe('TokenBinder M2 Snapshot & Null Safety Tests', () => {
         targetTier: 'effective_baseline',
         verified: true,
         sourceRef: 'calc',
-      },
+      } as any,
     },
     rentrollTier: 'standard',
   });
@@ -106,7 +106,7 @@ describe('TokenBinder M2 Snapshot & Null Safety Tests', () => {
           targetTier: 'effective_baseline',
           verified: false,
           sourceRef: 'calc',
-        },
+        } as any,
       },
       rentrollTier: 'standard',
     });

@@ -49,7 +49,7 @@ describe('Milestone 3: L1 External Public API Defense', () => {
     // official_land_price was NOT marked stale, so landPrice safely reuses cachedData
     expect(result1.landPrice?.pricePerSqm).toBe(10000000);
     // building_register WAS marked stale via snake_case, so it was refreshed from mock
-    expect(result1.buildingRegister?.bldNm).toBe('새로고침빌딩');
+    expect((result1.buildingRegister as any)?.bldNm).toBe('새로고침빌딩');
     // landUse WAS marked stale via camelCase, so it was refreshed from mock
     expect(result1.landUsePlan?.zoningDistrict).toBe('일반상업지역');
   });
@@ -234,11 +234,12 @@ describe('Milestone 5: L5 PPTX / Mobile IM Rendering Integrity', () => {
   test('DEF-06: buildDeckSequence does not include titleRights in protected body keys', () => {
     const sequence = buildDeckSequence({
       posture: 'income',
-      tier: 'analysis_im',
+      grade: 'A',
+      releaseTier: 'analysis_im',
       dataAvailability: {
         hasRentRoll: true,
         hasPhotos: true,
-        hasTitleRights: true,
+        hasRegistryData: true,
         hasCommercialDistrict: true,
       },
     });

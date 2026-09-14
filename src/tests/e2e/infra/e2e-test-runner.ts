@@ -176,7 +176,6 @@ export async function runFullPipeline(testCase: E2ETestCase, outputDir: string):
     const heroCard = imOutput.heroCard ?? {};
     const pptxInput: Partial<MobileImPptxInput> = {
       buildingId: testCase.caseName,
-as const,
       posture: testCase.posture as any,
       grade: dataGrade,
       doc: {

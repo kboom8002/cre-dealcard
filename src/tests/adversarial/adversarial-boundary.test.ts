@@ -104,9 +104,9 @@ describe('L4-PAGELIMIT: 면수 상한 16면', () => {
       posture: 'income',
       grade: 'A',
       dataAvailability: { hasRentRoll: true, hasComparables: true, hasPhotos: true, hasStackingPlan: true },
-      gallerySlides: [
-        { archetype: 'A14', kicker: 'Gallery', title: '갤러리 1', dataKey: 'gallery_0' },
-        { archetype: 'A14', kicker: 'Gallery', title: '갤러리 2', dataKey: 'gallery_1' },
+      gallerySpecs: [
+        { slideIndex: 0, layout: 'GRID_2X2', photos: [], kicker: 'Gallery', title: '갤러리 1', dataKey: 'gallery_0' },
+        { slideIndex: 1, layout: 'GRID_2X2', photos: [], kicker: 'Gallery', title: '갤러리 2', dataKey: 'gallery_1' },
       ],
     });
     const bodySlides = seq.filter(s => s.placement !== 'appendix' && s.placement !== 'closing');

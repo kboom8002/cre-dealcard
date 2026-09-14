@@ -5,6 +5,7 @@
 
 import type { InvestmentPosture } from '@/domain/ontology';
 import type { PhotoMeta } from '../types';
+export type { PhotoMeta };
 import {
   CATEGORY_TO_GROUP,
   GALLERY_GROUP_TITLES,

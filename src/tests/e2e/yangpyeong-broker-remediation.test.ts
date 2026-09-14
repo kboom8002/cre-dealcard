@@ -157,7 +157,7 @@ describe('Yangpyeong The Red Building Broker Feedback Remediation E2E Suite', ()
         defectExcuseCount: 0,
         preachyToneCount: 0,
         internalRuleLeakCount: 0,
-      };
+      } as any;
 
       const g54 = PUBLISH_GATES.find((g) => g.id === 'G54');
       const g55 = PUBLISH_GATES.find((g) => g.id === 'G55');
@@ -175,7 +175,7 @@ describe('Yangpyeong The Red Building Broker Feedback Remediation E2E Suite', ()
         defectExcuseCount: 2, // '미확보', '산출불가'
         preachyToneCount: 1,  // '판단하지 마십시오'
         internalRuleLeakCount: 1, // 'Rule 10'
-      };
+      } as any;
 
       const g54 = PUBLISH_GATES.find((g) => g.id === 'G54');
       const g55 = PUBLISH_GATES.find((g) => g.id === 'G55');
@@ -284,7 +284,7 @@ describe('Yangpyeong The Red Building Broker Feedback Remediation E2E Suite', ()
 
       // PPTX 측 오버라이드 가격을 300억으로 변조
       project.slides = [
-        { dataKey: 'overview', slideOverrides: { price: 30000000000 } },
+        { dataKey: 'overview', slideOverrides: { price: 30000000000 } } as any,
       ];
 
       const webDoc = {

@@ -12,7 +12,7 @@ import { calculate7AxisReadiness } from '@/domain/workspace/deal-readiness-7axis
 import type { IMCore } from '@/types/im-core';
 
 describe('PF-LIMIT-01: Processing Time Limit Gate', () => {
-  const dummyCore: IMCore = {
+  const dummyCore: any = {
     meta: {
       assetId: 'perf-test',
       ontology: { buildingUse: '근린생활시설', assetType: '상가건물', posture: 'income', priceBand: 'B3' },
@@ -78,20 +78,20 @@ describe('PF-LIMIT-01: Processing Time Limit Gate', () => {
       evaluateSignals({ totalViews: 25, distinctDevices: 3, publishedDays: 4 });
       calculate7AxisReadiness({
         hasBuildingRegister: true,
-        hasRegistry: true,
+        hasTitleRegistry: true,
         hasLandUsePlan: true,
         hasRentRoll: true,
         hasPhotos: true,
         hasAskingPrice: true,
-        isPriceReasonable: true,
+        isMarketComparableAligned: true,
         hasExclusiveContract: true,
-        isSellerDirectConfirmed: true,
-        hasNoEncumbrances: true,
-        hasVacatePlan: true,
-        hasNoViolations: true,
-        hasNoZoningRestrictions: true,
-        hasFeasibleFinancing: true,
-        hasDeskAppraisal: true,
+        sellerMeetingConfirmed: true,
+        hasCleanTitle: true,
+        vacatePlanEstablished: true,
+        noIllegalBuilding: true,
+        isZoningPermissible: true,
+        isLeverageViable: true,
+        hasAppraisalValue: true,
         buyerInquiryCount: 7,
       });
     }

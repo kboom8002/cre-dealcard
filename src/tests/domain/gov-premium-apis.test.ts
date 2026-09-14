@@ -42,7 +42,7 @@ vi.mock("@/domain/external/gov-premium-apis", () => ({
   fetchRegisterSummary: vi.fn().mockResolvedValue({ ok: true }),
   fetchEnergyRating: vi.fn().mockResolvedValue({ id: 1 }),
   fetchCommercialDistrict: vi.fn().mockResolvedValue({ id: 1 }),
-  fetchOfficialLandPrice: vi.fn().mockResolvedValue({ price_per_sqm: 1000n })
+  fetchOfficialLandPrice: vi.fn().mockResolvedValue({ price_per_sqm: BigInt(1000) })
 }));
 
 describe("CRE Premium Government APIs (A1-A6)", () => {

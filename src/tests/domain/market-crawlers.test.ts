@@ -49,7 +49,7 @@ vi.mock("@/domain/external/gov-premium-apis", () => ({
   fetchRentalTrend: vi.fn().mockResolvedValue({ id: 1 }),
   fetchEnergyRating: vi.fn().mockResolvedValue({ id: 1 }),
   fetchCommercialDistrict: vi.fn().mockResolvedValue({ id: 1 }),
-  fetchOfficialLandPrice: vi.fn().mockResolvedValue({ price_per_sqm: 1000n })
+  fetchOfficialLandPrice: vi.fn().mockResolvedValue({ price_per_sqm: BigInt(1000) })
 }));
 
 // Mock market crawlers to avoid network timeouts

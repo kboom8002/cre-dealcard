@@ -227,7 +227,7 @@ describe('CBRE Benchmark (NH Capital Building) E2E Pipeline', () => {
       const project = studioService.createProject('cbre-nh-capital', 'pkg-nh', validDoc.title, 'institutional_dark_gold');
       // PPTX 측 overview 슬라이드 가격을 2,500억 원으로 설정
       project.slides = [
-        { dataKey: 'overview', slideOverrides: { price: 250000000000 } }
+        { dataKey: 'overview', slideOverrides: { price: 250000000000 } } as any
       ];
 
       const tamperedReport = verifyCrossChannelConsistency({

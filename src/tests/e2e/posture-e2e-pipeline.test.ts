@@ -10,7 +10,7 @@
  * 실행: npx vitest run src/tests/e2e/posture-e2e-pipeline.test.ts --timeout 300000
  */
 
-import { describe, test, expect, beforeEach, afterAll } from 'vitest';
+import { describe, test, expect, beforeEach, afterAll, vi } from 'vitest';
 import { generateMobileIMHandler } from '@/app/api/broker/im-lite/generate/handler';
 import type { GenerateMobileIMInput, GenerateMobileIMResult } from '@/app/api/broker/im-lite/generate/handler';
 import { MobileImPptxRenderer } from '@/domain/building/mobile-im/pptx/pptx-renderer';
@@ -59,8 +59,8 @@ vi.mock('@/lib/supabase/service', () => ({
 
 let mockSsotData: any = {};
 
-vi.mock('@/lib/ssot-adapter', async (importOriginal) => {
-  const actual = await importOriginal<any>();
+vi.mock('@/lib/ssot-adapter', async (importOriginal: any) => {
+  const actual = await importOriginal();
   return {
     ...actual,
     readWithMigration: vi.fn().mockImplementation(async () => ({

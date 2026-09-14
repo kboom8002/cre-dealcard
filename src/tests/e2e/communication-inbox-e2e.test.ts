@@ -259,7 +259,7 @@ describe('Communication & Inbox Domain (소통/관리함) Tests', () => {
       // Here we just ensure the mock can simulate a safe fallback.
       vi.mocked(askAiAmbassador).mockResolvedValueOnce({
         message: { role: 'assistant', content: '해당 중개인에게 확인 후 안내해 드리겠습니다.' }
-      });
+      } as any);
 
       const response = await askAiAmbassador([{ role: 'user' as const, content: '수익률 보장되나요?' }], {} as any);
       expect((response as any).message.content).toContain('해당 중개인에게 확인 후 안내');

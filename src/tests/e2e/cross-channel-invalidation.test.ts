@@ -598,28 +598,28 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
         subject: 'land_area_pyeong',
         value: 180.3,
         unit: '평',
-        evidence: [{ sourceId: 'gov', asOf: '2026-08-31', excerpt: '토지대장' }],
-        provenance: 'public_data',
+        evidence: [{ sourceId: 'gov' as any, asOf: '2026-08-31', excerpt: '토지대장' }],
+        provenance: 'public_data' as any,
         asOf: '2026-08-31',
-        status: 'verified',
+        status: 'verified' as any,
       });
       reg1.register({
         subject: 'asking_price_eok',
         value: 230,
         unit: '억원',
-        evidence: [{ sourceId: 'broker', asOf: '2026-08-31', excerpt: '중개인 메모' }],
-        provenance: 'broker',
+        evidence: [{ sourceId: 'broker' as any, asOf: '2026-08-31', excerpt: '중개인 메모' }],
+        provenance: 'broker' as any,
         asOf: '2026-08-31',
-        status: 'unverified',
+        status: 'unverified' as any,
       });
       reg1.register({
         subject: 'cap_rate_pct',
         value: 1.15,
         unit: '%',
-        evidence: [{ sourceId: 'calc', asOf: '2026-08-31', excerpt: '순영업소득 산출' }],
-        provenance: 'derived',
+        evidence: [{ sourceId: 'calc' as any, asOf: '2026-08-31', excerpt: '순영업소득 산출' }],
+        provenance: 'derived' as any,
         asOf: '2026-08-31',
-        status: 'reconciled',
+        status: 'reconciled' as any,
       });
 
       // Shuffled insertion order
@@ -628,28 +628,28 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
         subject: 'cap_rate_pct',
         value: 1.15,
         unit: '%',
-        evidence: [{ sourceId: 'calc', asOf: '2026-08-31', excerpt: '순영업소득 산출' }],
-        provenance: 'derived',
+        evidence: [{ sourceId: 'calc' as any, asOf: '2026-08-31', excerpt: '순영업소득 산출' }],
+        provenance: 'derived' as any,
         asOf: '2026-08-31',
-        status: 'reconciled',
+        status: 'reconciled' as any,
       });
       reg2.register({
         subject: 'asking_price_eok',
         value: 230,
         unit: '억원',
-        evidence: [{ sourceId: 'broker', asOf: '2026-08-31', excerpt: '중개인 메모' }],
-        provenance: 'broker',
+        evidence: [{ sourceId: 'broker' as any, asOf: '2026-08-31', excerpt: '중개인 메모' }],
+        provenance: 'broker' as any,
         asOf: '2026-08-31',
-        status: 'unverified',
+        status: 'unverified' as any,
       });
       reg2.register({
         subject: 'land_area_pyeong',
         value: 180.3,
         unit: '평',
-        evidence: [{ sourceId: 'gov', asOf: '2026-08-31', excerpt: '토지대장' }],
-        provenance: 'public_data',
+        evidence: [{ sourceId: 'gov' as any, asOf: '2026-08-31', excerpt: '토지대장' }],
+        provenance: 'public_data' as any,
         asOf: '2026-08-31',
-        status: 'verified',
+        status: 'verified' as any,
       });
 
       const hash1 = computeDeterministicClaimsHash(reg1);
@@ -665,10 +665,10 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
         subject: 'cap_rate_pct',
         value: 1.15,
         unit: '%',
-        evidence: [{ sourceId: 'calc', asOf: '2026-08-31', excerpt: '순수익률' }],
-        provenance: 'derived',
+        evidence: [{ sourceId: 'calc' as any, asOf: '2026-08-31', excerpt: '순수익률' }],
+        provenance: 'derived' as any,
         asOf: '2026-08-31',
-        status: 'reconciled',
+        status: 'reconciled' as any,
       });
 
       const reg2 = new ClaimRegistry();
@@ -676,10 +676,10 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
         subject: 'cap_rate_pct',
         value: 1.93, // Mutated value
         unit: '%',
-        evidence: [{ sourceId: 'calc', asOf: '2026-08-31', excerpt: '순수익률' }],
-        provenance: 'derived',
+        evidence: [{ sourceId: 'calc' as any, asOf: '2026-08-31', excerpt: '순수익률' }],
+        provenance: 'derived' as any,
         asOf: '2026-08-31',
-        status: 'reconciled',
+        status: 'reconciled' as any,
       });
 
       const hash1 = computeDeterministicClaimsHash(reg1);
@@ -710,7 +710,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
         involvesTenantRelocation: true,
       };
 
-      const result = registerActionCardClaims(registry, card, '2026-08-31');
+      const result = registerActionCardClaims(registry, card as any, '2026-08-31');
 
       // 4 scenario claims + 1 premium risk claim = 5 claims
       expect(result.claims.length).toBe(5);
@@ -751,7 +751,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
         involvesTenantRelocation: false,
       };
 
-      const result = registerActionCardClaims(registry, card, '2026-08-31');
+      const result = registerActionCardClaims(registry, card as any, '2026-08-31');
       expect(result.claims.length).toBe(4);
       expect(result.cardWithClaimIds.premiumRiskClaim).toBeUndefined();
       expect(registry.getLatestBySubject('action_card_2_premium_risk')).toBeUndefined();

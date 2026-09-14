@@ -250,7 +250,7 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
         expect(plan.tableHead).toContain('층수');
         expect(plan.tableHead).toContain('추천 MD 및 권장 업종');
         expect(plan.tableRows.length).toBeGreaterThanOrEqual(5);
-        const allMdText = plan.tableRows.map(r => r.join(' ')).join(' ');
+        const allMdText = plan.tableRows.map((r: any) => r.join(' ')).join(' ');
         expect(allMdText).toContain('F&B');
         expect(allMdText).toContain('앵커 테넌트');
         expect(allMdText).toContain('메디컬 클리닉');

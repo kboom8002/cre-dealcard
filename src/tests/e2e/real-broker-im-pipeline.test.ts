@@ -608,7 +608,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
 
       const photoPath = path.resolve('docs/test/real-broker-im/sinsa-media/image9.jpeg');
       const doc = buildDocFromFixture(sinsaFixture, photoPath);
-      doc.body.enrichment.macroTransitImage = sinsaTransit;
+      (doc.body.enrichment as any).macroTransitImage = sinsaTransit;
 
       const renderer = new MobileImPptxRenderer();
       const renderResult = await renderer.render({

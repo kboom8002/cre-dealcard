@@ -15,12 +15,16 @@ describe('Stage 4: Chaos Engineering & Boundary Tests', { timeout: 30_000 }, () 
     renderer = new MobileImPptxRenderer();
   });
 
-  const getBaseInput = (posture: InvestmentPosture = 'income'): MobileImPptxInput => ({
+  const getBaseInput = (posture: InvestmentPosture = 'income'): MobileImPptxInput & {
+    doc: { title?: string; body: Record<string, any>; sections: Array<{ title: string; markdown: string; confidence?: string; boundary_note?: string; section_type?: string }> };
+    building: Record<string, any>;
+    broker: Record<string, any>;
+  } => ({
     buildingId: FIXTURE_BUILDING_ID,
     posture,
     grade: 'C',
     doc: buildMinimalDoc(posture) as any,
-    building: BUILDING_META[posture],
+    building: BUILDING_META[posture] as any,
     broker: { display_name: '테스트', company_name: '크리딜', phone: '010-0000-0000' },
   });
 

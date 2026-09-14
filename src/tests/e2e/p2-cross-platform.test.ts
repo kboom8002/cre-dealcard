@@ -25,13 +25,13 @@ describe('P2 Cross-Platform Render Integrity', () => {
     const renderer = new MobileImPptxRenderer();
     const input: MobileImPptxInput = {
       doc: buildMinimalDoc('income'),
-      building_id: 'bld-p2-test',
+      buildingId: 'bld-p2-test',
       posture: 'income',
       grade: 'A',
-      meta: {
+      building: {
         ...BUILDING_META['income'],
         building_name: 'P2 Cross-Platform Test Bldg',
-      },
+      } as any,
     };
 
     outputResult = await renderer.render(input);
