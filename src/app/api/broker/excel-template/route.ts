@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+// SECURITY: xlsx@0.18.5 has known CVEs (CVE-2023-30533 Prototype Pollution) - inputs must be validated
 import * as XLSX from "xlsx";
 
 /**

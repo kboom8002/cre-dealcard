@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+
 /**
  * GET /api/admin/hitmap
  * Retrieves functionality usage statistics (G3 Heatmap) based on activity_events
  */
 export async function GET(request: NextRequest) {
   try {
+    const supabaseClient = await createServerSupabaseClient();
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const supabase = createServiceClient();
 
     // Query all event_types and count them

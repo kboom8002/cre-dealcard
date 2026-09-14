@@ -47,8 +47,9 @@ export default async function BrokerProfilePage({ params }: PageProps) {
   if (profileId) {
     query = query.eq("id", profileId);
   } else {
-    const nameFromSlug = decodedSlug.replace(/-/g, " ");
-    query = query.or(`id.eq.${decodedSlug},display_name.ilike.%${decodedSlug}%,display_name.ilike.%${nameFromSlug}%`);
+    const safeSlug = decodedSlug.replace(/[,()"\\]/g, '');
+    const safeNameFromSlug = safeSlug.replace(/-/g, " ");
+    query = query.or(`id.eq.${safeSlug},display_name.ilike.%${safeSlug}%,display_name.ilike.%${safeNameFromSlug}%`);
   }
 
   const { data: profile } = await query.limit(1).single();

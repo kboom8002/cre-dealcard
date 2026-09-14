@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   generateOiticle,
   generateMonthlyMarketOiticles,
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     if (mode === "monthly_batch") {
       const cronSecret = process.env.CRON_SECRET;
       const authHeader = req.headers.get("authorization");
-      if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+      if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
 
@@ -48,6 +49,13 @@ export async function POST(req: NextRequest) {
         oiticles: results,
         message: `${results.length}개 월간 시세 분석 오이티클 생성 완료`,
       }, { status: 201 });
+    }
+
+    // 일반 사용자 인증 확인 (contribute, auto 등 LLM 호출용)
+    const supabaseClient = await createServerSupabaseClient();
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // 중개인/벤더 기고

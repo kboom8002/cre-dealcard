@@ -358,8 +358,8 @@ function phase7_crossValidation() {
 
   // 동일 수치 → 통과
   const sections = [
-    { section_type: 'property_overview', markdown: '매매가: 115억원\n대지 153.31평', title: '물건 개요', section_order: 1, confidence: 'high' as const, boundary_note: '', provenance: [], min_as const },
-    { section_type: 'income_analysis', markdown: '매매가: 115억원\n대지 153.31평', title: '수익분석', section_order: 2, confidence: 'high' as const, boundary_note: '', provenance: [], min_as const },
+    { section_type: 'property_overview', markdown: '매매가: 115억원\n대지 153.31평', title: '물건 개요', section_order: 1, confidence: 'high' as const, boundary_note: '', provenance: [] },
+    { section_type: 'income_analysis', markdown: '매매가: 115억원\n대지 153.31평', title: '수익분석', section_order: 2, confidence: 'high' as const, boundary_note: '', provenance: [] },
   ];
   const anchors: NumericalAnchors = {
     askingPriceKrw: 11_500_000_000,

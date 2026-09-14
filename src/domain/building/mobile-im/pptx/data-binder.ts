@@ -729,7 +729,7 @@ export function bindSectionData(
       content: '',
       checkItems: [...collectedDeficiencies],
     } as any;
-    console.warn(`[BL-6 / D38] ${collectedDeficiencies.length}건의 결손 문구를 A18 체크리스트로 이관 완료`, collectedDeficiencies);
+    log.warn({ collectedDeficiencies: collectedDeficiencies }, `[BL-6 / D38] ${collectedDeficiencies.length}건의 결손 문구를 A18 체크리스트로 이관 완료`);
   }
 
   // 4대 완성형 프라임 템플릿 특화 데이터 바인딩
@@ -2695,6 +2695,10 @@ function extractMetrics(markdown: string): Record<string, string> {
 }
 
 import type { IMCore, Comp } from '@/types/im-core';
+
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('data-binder');
+
 
 /**
  * Phase 2-3: IMCore 정형 객체로부터 PPTX 15종 아키타입 슬라이드 데이터 직접 바인딩

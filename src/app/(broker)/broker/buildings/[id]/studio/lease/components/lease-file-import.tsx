@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
+// SECURITY: xlsx@0.18.5 has known CVEs (CVE-2023-30533 Prototype Pollution) - inputs must be validated
 import * as XLSX from 'xlsx';
 
 interface TenantRow {
@@ -37,6 +38,13 @@ export function LeaseFileImport({ onImport }: LeaseFileImportProps) {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // SECURITY: Validate file size to prevent DoS attacks via malicious large xlsx files
+    if (file.size > 5 * 1024 * 1024) {
+      setError("파일 크기는 5MB를 초과할 수 없습니다.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
 
     setError(null);
 

@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const cronSecret = process.env.CRON_SECRET;
 
     // Vercel Cron 보안 검증
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 401 });
     }
 

@@ -1,7 +1,12 @@
 "use client";
 
 import { motion } from "motion/react";
-import { KpiSparkline } from "./KpiSparkline";
+import dynamic from "next/dynamic";
+
+const KpiSparkline = dynamic(() => import("./KpiSparkline").then(mod => mod.KpiSparkline), {
+  ssr: false,
+  loading: () => <div className="h-[60px] animate-pulse bg-secondary/50 rounded-md" />
+});
 import {
   Building2,
   Users,

@@ -10,6 +10,10 @@
 
 import { getVWorldApiKey, getVWorldReferer } from './vworld-config';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('vworld-wms-cadastral');
+
+
 let sharp: typeof import('sharp') | null = null;
 try { sharp = require('sharp'); } catch { /* sharp 미설치 환경 무시 */ }
 
@@ -42,13 +46,13 @@ async function fetchParcelPolygon(
       signal: AbortSignal.timeout(8_000),
     });
     if (!res.ok) {
-      console.warn(`[vworld-wfs] Data API 오류 (${res.status})`);
+      log.warn(`[vworld-wfs] Data API 오류 (${res.status})`);
       return null;
     }
     const json = await res.json();
     const features = json?.response?.result?.featureCollection?.features;
     if (!features || features.length === 0) {
-      console.warn(`[vworld-wfs] PNU ${pnu}에 해당하는 필지 없음`);
+      log.warn(`[vworld-wfs] PNU ${pnu}에 해당하는 필지 없음`);
       return null;
     }
 
@@ -65,10 +69,10 @@ async function fetchParcelPolygon(
         }
       }
     }
-    console.log(`[vworld-wfs] ✅ PNU ${pnu} 폴리곤 취득 (${rings.length}개 링, ${rings.reduce((s, r) => s + r.length, 0)}개 정점)`);
+    log.info(`[vworld-wfs] ✅ PNU ${pnu} 폴리곤 취득 (${rings.length}개 링, ${rings.reduce((s, r) => s + r.length, 0)}개 정점)`);
     return rings.length > 0 ? rings : null;
   } catch (err) {
-    console.warn('[vworld-wfs] 필지 폴리곤 취득 실패:', err);
+    log.warn({ err: err }, '[vworld-wfs] 필지 폴리곤 취득 실패:');
     return null;
   }
 }
@@ -99,7 +103,7 @@ function buildPolygonSvgOverlay(
     const svg = `<svg width="${imgW}" height="${imgH}" viewBox="0 0 ${imgW} ${imgH}" xmlns="http://www.w3.org/2000/svg">${polygonPaths.join('')}</svg>`;
     return Buffer.from(svg);
   } catch (err) {
-    console.warn('[vworld-wfs] SVG 오버레이 생성 실패:', err);
+    log.warn({ err: err }, '[vworld-wfs] SVG 오버레이 생성 실패:');
     return null;
   }
 }
@@ -215,10 +219,10 @@ async function fetchBaseMapTile(
       .png()
       .toBuffer() as Buffer;
 
-    console.log(`[vworld-wms] ✅ WMTS Base 타일 합성 완료 (${tiles.length}타일, ${result.length} bytes)`);
+    log.info(`[vworld-wms] ✅ WMTS Base 타일 합성 완료 (${tiles.length}타일, ${result.length} bytes)`);
     return result;
   } catch (err) {
-    console.warn('[vworld-wms] WMTS Base tile fetch failed:', err);
+    log.warn({ err: err }, '[vworld-wms] WMTS Base tile fetch failed:');
     return null;
   }
 }
@@ -244,12 +248,12 @@ export async function fetchCadastralMapImage(
 ): Promise<CadastralMapResult | null> {
   const apiKey = getVWorldApiKey();
   if (!apiKey) {
-    console.warn('[vworld-wms] VWORLD_API_KEY 미설정 — 지적도 생략');
+    log.warn('[vworld-wms] VWORLD_API_KEY 미설정 — 지적도 생략');
     return null;
   }
   if (!lat || !lng || isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)
       || lat < 33 || lat > 43 || lng < 124 || lng > 132) {
-    console.warn('[vworld-wms] Invalid coordinates, skipping cadastral map:', { lat, lng });
+    log.warn({ latlng: { lat, lng } }, '[vworld-wms] Invalid coordinates, skipping cadastral map:');
     return null;
   }
 
@@ -307,14 +311,14 @@ export async function fetchCadastralMapImage(
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      console.warn(`[vworld-wms] WMS 응답 오류 (${res.status}):`, text.slice(0, 200));
+      log.warn({ text: text.slice(0, 200) }, `[vworld-wms] WMS 응답 오류 (${res.status}):`);
       return null;
     }
 
     const contentType = res.headers.get('content-type') ?? '';
     if (!contentType.includes('image')) {
       const text = await res.text().catch(() => '');
-      console.warn('[vworld-wms] WMS 에러 응답:', text.slice(0, 300));
+      log.warn({ text: text.slice(0, 300) }, '[vworld-wms] WMS 에러 응답:');
       return null;
     }
 
@@ -348,7 +352,7 @@ export async function fetchCadastralMapImage(
           const svgBuf = buildPolygonSvgOverlay(rings, bboxEpsg3857, w, h);
           if (svgBuf) {
             compositeLayers.push({ input: svgBuf, blend: 'over' });
-            console.log(`[vworld-wfs] ✅ PNU ${targetPnu} 필지 하이라이트 오버레이 추가`);
+            log.info(`[vworld-wfs] ✅ PNU ${targetPnu} 필지 하이라이트 오버레이 추가`);
           }
         }
       }
@@ -360,7 +364,7 @@ export async function fetchCadastralMapImage(
           .composite(compositeLayers as any)
           .png()
           .toBuffer() as unknown as Buffer;
-        console.log(`[vworld-wms] ✅ 지적도 + Base 배경 합성 완료 (${finalBuffer.length} bytes, ${w}×${h})`);
+        log.info(`[vworld-wms] ✅ 지적도 + Base 배경 합성 완료 (${finalBuffer.length} bytes, ${w}×${h})`);
       } else {
         // 배경 없으면 연한 크림색 배경 합성
         const bgBuffer = await sharp({
@@ -371,10 +375,10 @@ export async function fetchCadastralMapImage(
           .composite(compositeLayers as any)
           .png()
           .toBuffer() as unknown as Buffer;
-        console.log(`[vworld-wms] ✅ 지적도 + 크림 배경 합성 (${finalBuffer.length} bytes, ${w}×${h})`);
+        log.info(`[vworld-wms] ✅ 지적도 + 크림 배경 합성 (${finalBuffer.length} bytes, ${w}×${h})`);
       }
     } else {
-      console.log(`[vworld-wms] ✅ 지적도 이미지 취득 성공 (sharp 미사용, ${cadastralBuffer.length} bytes, ${w}×${h})`);
+      log.info(`[vworld-wms] ✅ 지적도 이미지 취득 성공 (sharp 미사용, ${cadastralBuffer.length} bytes, ${w}×${h})`);
     }
 
     return {
@@ -386,7 +390,7 @@ export async function fetchCadastralMapImage(
       _source: 'vworld_wms',
     };
   } catch (err) {
-    console.warn('[vworld-wms] 지적도 이미지 취득 실패:', err);
+    log.warn({ err: err }, '[vworld-wms] 지적도 이미지 취득 실패:');
     return null;
   }
 }

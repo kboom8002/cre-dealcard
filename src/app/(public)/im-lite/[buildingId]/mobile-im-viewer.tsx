@@ -13,6 +13,7 @@ import { StackingPlanView } from "@/components/im/stacking-plan-view";
 import { toast } from 'sonner';
 import { DISPLAY_LABEL_MAP } from '@/domain/building/im-core';
 import { useDealcardRealtimeSync } from '@/platform/im-pipeline/realtime/use-dealcard-realtime-sync';
+import DOMPurify from 'isomorphic-dompurify';
 
 
 // 카카오 SDK 초기화 헬퍼 함수
@@ -786,22 +787,7 @@ function MarkdownRenderer({ content }: { content: string }) {
 
 function sanitizeHtml(html: string): string {
   if (!html) return html;
-  
-  let safe = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-  safe = safe.replace(/(\s)on[a-z]+\s*=\s*(['"])(?:(?!\2).)*\2/gi, '$1');
-  safe = safe.replace(/(\s)on[a-z]+\s*=\s*[^>\s]+/gi, '$1');
-  safe = safe.replace(/href\s*=\s*(['"])javascript:[^'"]*\1/gi, 'href="#"');
-  safe = safe.replace(/src\s*=\s*(['"])javascript:[^'"]*\1/gi, 'src=""');
-  
-  safe = safe.replace(/<\/?([a-z][a-z0-9]*)\b[^>]*>/gi, (match, tag) => {
-    const allowed = ['a', 'strong', 'em', 'img', 'br'];
-    if (allowed.includes(tag.toLowerCase())) {
-      return match;
-    }
-    return match.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  });
-  
-  return safe;
+  return DOMPurify.sanitize(html, { ALLOWED_TAGS: ['a', 'strong', 'em', 'img', 'br'], ALLOWED_ATTR: ['href', 'src', 'alt', 'target'] });
 }
 
 function InlineMarkdown({ text }: { text: string }) {

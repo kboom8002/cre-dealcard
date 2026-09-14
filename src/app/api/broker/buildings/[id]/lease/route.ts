@@ -12,6 +12,12 @@ import { buildAttrsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { persistLeaseUnits } from '@/domain/building/mobile-im/lease-adapter';
 import { requireBroker } from '@/lib/auth-guard';
 
+import { z } from 'zod';
+
+const postSchema = z.object({
+  tenants: z.array(z.any())
+});
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -38,15 +44,16 @@ export async function POST(
 
   let body;
   try {
-    body = await req.json();
+    const raw = await req.json();
+    body = postSchema.parse(raw);
   } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validation failed', details: e.issues }, { status: 400 });
+    }
     return NextResponse.json({ error: '잘못된 요청 형식입니다' }, { status: 400 });
   }
 
   const tenantsInput = body.tenants;
-  if (!Array.isArray(tenantsInput)) {
-    return NextResponse.json({ error: 'tenants 배열이 필요합니다' }, { status: 400 });
-  }
 
   // Normalize and calculate vacancy/WALT/income
   const normalizedSummary = buildLeaseSummaryFromInput(tenantsInput);

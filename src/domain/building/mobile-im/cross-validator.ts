@@ -1,3 +1,7 @@
+
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('cross-validator');
+
 // src/domain/building/mobile-im/cross-validator.ts
 // ──────────────────────────────────────────────────────────────────────────────
 // 섹션 간 교차 검증 — 7개 Mobile IM 섹션의 수치 일관성 검사
@@ -604,7 +608,7 @@ export function runCrossValidation(
   if (inconsistencies.length > 0) {
     const criticalCount = inconsistencies.filter((i) => i.severity === "critical").length;
     const warningCount = inconsistencies.filter((i) => i.severity === "warning").length;
-    console.warn(
+    log.warn(
       `[cross-validator] 교차 검증 결과 — ` +
         `critical: ${criticalCount}, warning: ${warningCount}, ` +
         `fields: [${inconsistencies.map((i) => i.field).join(", ")}]`

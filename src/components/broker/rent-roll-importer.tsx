@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
+// SECURITY: xlsx@0.18.5 has known CVEs (CVE-2023-30533 Prototype Pollution) - inputs must be validated
 import * as XLSX from "xlsx";
 
 interface RentRollImporterProps {
@@ -364,6 +365,14 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
     if (!file) return;
 
     if (hasExistingData && !window.confirm('기존 렌트롤 데이터가 있습니다. 새 데이터로 덮어쓰시겠습니까?')) {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    // SECURITY: Validate file size to prevent DoS attacks via malicious large xlsx files
+    if (file.size > 5 * 1024 * 1024) {
+      setIsError(true);
+      setResult("❌ 파일 크기는 5MB를 초과할 수 없습니다.");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }

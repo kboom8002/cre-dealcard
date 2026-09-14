@@ -49,31 +49,8 @@ export async function createNotification(input: CreateNotificationInput): Promis
     });
 
   if (error) {
-    // 테이블 미존재 시 자동 생성 시도
-    if (error.code === "42P01" || error.message?.includes("does not exist")) {
-      console.warn("[notification] Table not found. Creating...");
-      const created = await ensureNotificationTable(supabase);
-      if (created) {
-        // 재시도
-        const { error: retryErr } = await supabase
-          .from("in_app_notifications")
-          .insert({
-            user_id: input.user_id,
-            type: input.type,
-            title: input.title,
-            body: input.body,
-            link: input.link || null,
-            metadata: input.metadata || null,
-            is_read: false,
-          });
-        if (retryErr) {
-          console.error("[notification] Retry insert failed:", retryErr.message);
-          return false;
-        }
-        return true;
-      }
-      return false;
-    }
+    // Note: The in_app_notifications table should be created via proper Supabase migration.
+    // We no longer use exec_sql to create tables at runtime.
     console.error("[notification] Insert error:", error.message);
     return false;
   }
@@ -139,34 +116,3 @@ export async function markAllAsRead(userId: string): Promise<boolean> {
   return !error;
 }
 
-// ── 테이블 자동 생성 ──
-async function ensureNotificationTable(supabase: ReturnType<typeof createServiceClient>): Promise<boolean> {
-  try {
-    const { error } = await supabase.rpc("exec_sql", {
-      sql: `
-        CREATE TABLE IF NOT EXISTS public.in_app_notifications (
-          id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-          user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-          type text NOT NULL DEFAULT 'system',
-          title text NOT NULL,
-          body text NOT NULL,
-          link text,
-          metadata jsonb,
-          is_read boolean NOT NULL DEFAULT false,
-          read_at timestamptz,
-          created_at timestamptz NOT NULL DEFAULT now()
-        );
-        CREATE INDEX IF NOT EXISTS idx_notif_user_unread 
-          ON public.in_app_notifications(user_id, is_read) 
-          WHERE is_read = false;
-      `,
-    });
-    if (error) {
-      console.error("[notification] Table creation failed:", error.message);
-      return false;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}

@@ -49,6 +49,21 @@ export async function GET(req: NextRequest) {
 }
 
 /* ── POST: 서비스 카드 생성 ────────────────────────────────────── */
+import { z } from 'zod';
+
+const postSchema = z.object({
+  vendorId: z.string().min(1, "필수 필드가 누락되었습니다."),
+  serviceCategory: z.string().min(1, "필수 필드가 누락되었습니다."),
+  title: z.string().min(1, "필수 필드가 누락되었습니다."),
+  description: z.string().min(1, "필수 필드가 누락되었습니다."),
+  serviceRegions: z.array(z.string()).optional(),
+  targetAssets: z.array(z.string()).optional(),
+  priceRange: z.string().optional(),
+  priceUnit: z.string().optional(),
+  portfolioSummary: z.string().optional(),
+  matchConditions: z.record(z.string(), z.unknown()).optional(),
+});
+
 export async function POST(req: NextRequest) {
   const supabase = createServiceClient();
 
@@ -57,21 +72,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await req.json() as {
-    vendorId: string;
-    serviceCategory: string;
-    title: string;
-    description: string;
-    serviceRegions?: string[];
-    targetAssets?: string[];
-    priceRange?: string;
-    priceUnit?: string;
-    portfolioSummary?: string;
-    matchConditions?: Record<string, unknown>;
-  };
-
-  if (!body.vendorId || !body.title || !body.description || !body.serviceCategory) {
-    return NextResponse.json({ error: "필수 필드가 누락되었습니다." }, { status: 400 });
+  let body;
+  try {
+    const raw = await req.json();
+    body = postSchema.parse(raw);
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json({ error: "필수 필드가 누락되었습니다.", details: e.issues }, { status: 400 });
+    }
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
   // vendor tier 한도 체크

@@ -435,16 +435,22 @@ export async function getCircleMatches(circleId: string, brokerId: string, filte
 
   const result: CircleMatchWithDetail[] = [];
 
-  for (const m of matches) {
-    const [{ data: building }, { data: intent }] = await Promise.all([
-      supabase.from("building_ssot_lite").select("id, area_signal, asset_type, price_band, fit_summary").eq("id", m.building_id).maybeSingle(),
-      supabase.from("buyer_intent_lite").select("id, buyer_type, budget_display, preferred_regions, purchase_purpose").eq("id", m.buyer_intent_id).maybeSingle(),
-    ]);
+  const buildingIds = matches.map((m) => m.building_id).filter(Boolean);
+  const intentIds = matches.map((m) => m.buyer_intent_id).filter(Boolean);
 
+  const [buildingsRes, intentsRes] = await Promise.all([
+    buildingIds.length > 0 ? supabase.from("building_ssot_lite").select("id, area_signal, asset_type, price_band, fit_summary").in("id", buildingIds) : Promise.resolve({ data: [] }),
+    intentIds.length > 0 ? supabase.from("buyer_intent_lite").select("id, buyer_type, budget_display, preferred_regions, purchase_purpose").in("id", intentIds) : Promise.resolve({ data: [] }),
+  ]);
+
+  const buildingsMap = new Map((buildingsRes.data || []).map((b) => [b.id, b]));
+  const intentsMap = new Map((intentsRes.data || []).map((i) => [i.id, i]));
+
+  for (const m of matches) {
     result.push({
       ...(m as CircleMatchWithDetail),
-      building_detail: building || undefined,
-      buyer_intent_detail: intent || undefined,
+      building_detail: buildingsMap.get(m.building_id) || undefined,
+      buyer_intent_detail: intentsMap.get(m.buyer_intent_id) || undefined,
     });
   }
 

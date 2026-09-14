@@ -50,6 +50,17 @@ export async function GET(
  * POST /api/broker/deal-card/[id]/personas
  * 페르소나 데이터를 DB에 upsert합니다.
  */
+import { z } from 'zod';
+
+const postSchema = z.object({
+  personasData: z.object({
+    personas: z.array(z.any()).optional()
+  }).optional(),
+  personas: z.array(z.any()).optional(),
+  name: z.string().optional(),
+  type: z.string().optional()
+});
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -59,7 +70,16 @@ export async function POST(
     const guard = await requireBroker(req);
     if (guard.error) return guard.error;
 
-    const body = await req.json().catch(() => ({}));
+    let body;
+    try {
+      const raw = await req.json();
+      body = postSchema.parse(raw);
+    } catch (e) {
+      if (e instanceof z.ZodError) {
+        return NextResponse.json({ error: 'Validation failed', details: e.issues }, { status: 400 });
+      }
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    }
     let personasData = body.personasData;
     if (!personasData) {
       if (body.personas) {

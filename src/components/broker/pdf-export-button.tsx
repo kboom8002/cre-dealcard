@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 
 interface PdfExportButtonProps {
   targetId: string;
@@ -22,6 +20,9 @@ export function PdfExportButton({ targetId, filename = "Mobile_IM.pdf" }: PdfExp
     try {
       setIsExporting(true);
       
+      const html2canvas = (await import("html2canvas")).default;
+      const jsPDF = (await import("jspdf")).default;
+
       // html2canvas 설정: 약간의 여백과 고해상도 지원
       const canvas = await html2canvas(element, {
         scale: 2,

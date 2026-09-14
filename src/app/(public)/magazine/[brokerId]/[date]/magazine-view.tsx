@@ -13,6 +13,7 @@ import { SubscribeCard } from "@/components/magazine/SubscribeCard";
 import { FlatProfileCard } from "@/components/broker/flat-profile-card";
 import { ActionCardView } from "@/components/im/action-card-view";
 import { RoiCalculator } from "@/components/magazine/RoiCalculator";
+import DOMPurify from "isomorphic-dompurify";
 
 // ── Inline MARKET_TEMP_CONFIG (avoid server/client boundary import) ──
 const MARKET_TEMP_CONFIG: Record<string, { emoji: string; color: string; description: string }> = {
@@ -70,10 +71,13 @@ function RichBriefing({ text }: { text: string }) {
     <div className="space-y-3">
       {paras.map((para, i) => {
         const isHeading = /^[\u{1F300}-\u{1FFFF}\u{2600}-\u{27FF}]/u.test(para) || /^\*\*.*\*\*$/.test(para.trim());
-        const html = para
-          .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
-          .replace(/(\d[\d,.]+%)/g, '<span class="text-indigo-300 font-bold font-mono">$1</span>')
-          .replace(/(\d[\d,.]+억)/g, '<span class="text-emerald-300 font-bold">$1</span>');
+        const html = DOMPurify.sanitize(
+          para
+            .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
+            .replace(/(\d[\d,.]+%)/g, '<span class="text-indigo-300 font-bold font-mono">$1</span>')
+            .replace(/(\d[\d,.]+억)/g, '<span class="text-emerald-300 font-bold">$1</span>'),
+          { ALLOWED_TAGS: ['strong', 'span'], ALLOWED_ATTR: ['class'] }
+        );
         if (isHeading) return <p key={i} className="text-[14px] font-extrabold text-white leading-snug pt-1" dangerouslySetInnerHTML={{ __html: html }} />;
         return <p key={i} className="text-[12px] text-slate-300 leading-relaxed" dangerouslySetInnerHTML={{ __html: html }} />;
       })}

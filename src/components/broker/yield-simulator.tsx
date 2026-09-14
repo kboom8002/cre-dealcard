@@ -1,9 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { calculateFinancials, type FinancialInputs, type FinancialOutputs } from "@/domain/building/mobile-im/financials";
 import { calculateNOI, calculateCapRate } from '@/domain/building/financials';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
+
+// Recharts components will be imported inside the dynamically loaded component
+// To truly lazy-load, we separate the component definition and dynamically export it.
 
 export interface YieldSimulatorProps {
   initialPrice: number;
@@ -13,19 +16,26 @@ export interface YieldSimulatorProps {
   initialLoan: number;
 }
 
-export function YieldSimulator({ 
+const YieldSimulatorComponent = ({ 
   initialPrice, 
   initialRent, 
   initialDeposit, 
   initialMgmtFee, 
   initialLoan 
-}: YieldSimulatorProps) {
+}: YieldSimulatorProps) => {
   const [price, setPrice] = useState(initialPrice);
   const [rent, setRent] = useState(initialRent);
   const [deposit, setDeposit] = useState(initialDeposit);
   const [loan, setLoan] = useState(initialLoan);
 
   const [results, setResults] = useState<FinancialOutputs | null>(null);
+  
+  // Use a state to hold the dynamically loaded recharts components
+  const [Recharts, setRecharts] = useState<any>(null);
+
+  useEffect(() => {
+    import("recharts").then(mod => setRecharts(mod));
+  }, []);
 
   useEffect(() => {
     const inputs: FinancialInputs = {
@@ -38,7 +48,6 @@ export function YieldSimulator({
     };
     const outputs = calculateFinancials(inputs);
 
-    // v3 Cross-validation via centralized financials
     const v3Noi = calculateNOI(rent * 10000 * 12, 10, 5);
     const v3CapRate = calculateCapRate(v3Noi.value, price * 10000);
     if (v3CapRate.value !== null && (v3CapRate.value < 2 || v3CapRate.value > 15)) {
@@ -48,7 +57,9 @@ export function YieldSimulator({
     setResults(outputs);
   }, [price, rent, deposit, loan, initialMgmtFee]);
 
-  if (!results) return null;
+  if (!results || !Recharts) return <div className="h-48 animate-pulse bg-secondary/50 rounded-xl my-6" />;
+  
+  const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } = Recharts;
 
   return (
     <div className="bg-card border border-border rounded-xl p-4 sm:p-5 shadow-sm my-6">
@@ -161,4 +172,7 @@ export function YieldSimulator({
       </div>
     </div>
   );
-}
+};
+
+export const YieldSimulator = dynamic(() => Promise.resolve(YieldSimulatorComponent), { ssr: false });
+

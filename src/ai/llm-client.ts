@@ -2,6 +2,10 @@ import type { LLMProvider, LLMChatParams, LLMChatResult } from "./providers/type
 import { OpenAIProvider } from "./providers/openai";
 import { MockOpenAIProvider } from "./providers/mock-openai";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('llm-client');
+
+
 const providerRegistry = new Map<string, LLMProvider>();
 
 // 기본 OpenAI 제공자 등록 (환경 변수 및 테스트 모드에 따라 Mock 또는 실물 등록)
@@ -14,7 +18,7 @@ if (!hasOpenAiKey || isTestEnv) {
   try {
     providerRegistry.set("openai", new OpenAIProvider());
   } catch (err) {
-    console.warn("[llm-client] Failed to initialize OpenAIProvider, falling back to Mock:", err);
+    log.warn({ err: err }, "[llm-client] Failed to initialize OpenAIProvider, falling back to Mock:");
     providerRegistry.set("openai", new MockOpenAIProvider());
   }
 }
@@ -57,7 +61,7 @@ export async function callLLM(
         throw new Error(`[callLLM] Provider '${providerName}' call aborted by signal`);
       }
       if (Date.now() >= deadline) {
-        console.warn(`[callLLM] Provider '${providerName}' deadline exceeded before attempt ${attempt + 1}`);
+        log.warn(`[callLLM] Provider '${providerName}' deadline exceeded before attempt ${attempt + 1}`);
         break;
       }
 
@@ -93,7 +97,7 @@ export async function callLLM(
         lastError = err;
 
         if (options.signal?.aborted) {
-          console.warn(`[callLLM] Provider '${providerName}' retry aborted by external signal`);
+          log.warn(`[callLLM] Provider '${providerName}' retry aborted by external signal`);
           break;
         }
 
@@ -104,7 +108,7 @@ export async function callLLM(
           err?.error?.code === "credit_balance_exhausted";
 
         if (isPermanentQuotaError) {
-          console.warn(`[callLLM] Provider '${providerName}' quota permanently exhausted. Aborting futile retries.`);
+          log.warn(`[callLLM] Provider '${providerName}' quota permanently exhausted. Aborting futile retries.`);
           break;
         }
 
@@ -115,11 +119,11 @@ export async function callLLM(
 
           const now = Date.now();
           if (now + delay >= deadline) {
-            console.warn(`[callLLM] Remaining time budget exhausted (${deadline - now}ms < ${delay}ms delay), aborting retries for '${providerName}'`);
+            log.warn(`[callLLM] Remaining time budget exhausted (${deadline - now}ms < ${delay}ms delay), aborting retries for '${providerName}'`);
             break;
           }
 
-          console.warn(`[callLLM] Provider '${providerName}' attempt ${attempt + 1}/${maxAttempts} failed: ${err.message ?? err}. Retrying in ${delay}ms...`);
+          log.warn(`[callLLM] Provider '${providerName}' attempt ${attempt + 1}/${maxAttempts} failed: ${err.message ?? err}. Retrying in ${delay}ms...`);
           
           await new Promise<void>((resolve) => {
             let onSleepAbort: (() => void) | undefined;
@@ -146,7 +150,7 @@ export async function callLLM(
             break;
           }
         } else {
-          console.warn(`[callLLM] Provider '${providerName}' failed after ${maxAttempts} attempts:`, err.message ?? err);
+          log.warn({ messageerr: err.message ?? err }, `[callLLM] Provider '${providerName}' failed after ${maxAttempts} attempts:`);
         }
         continue; // 다음 시도 또는 다음 제공자로 폴백 진행
       }
@@ -157,7 +161,7 @@ export async function callLLM(
   if (options.cacheKey) {
     const cachedResult = inMemoryLlmCache.get(options.cacheKey);
     if (cachedResult) {
-      console.warn(`[callLLM] All providers failed. Restored successful response from in-memory cache for key: ${options.cacheKey}`);
+      log.warn(`[callLLM] All providers failed. Restored successful response from in-memory cache for key: ${options.cacheKey}`);
       return {
         ...cachedResult,
         isFromCache: true
@@ -172,7 +176,7 @@ export async function callLLM(
     lastError?.status === 429;
 
   if (isQuotaExhausted || isTestEnv) {
-    console.warn(`[callLLM] All providers failed due to quota/network. Falling back to MockOpenAIProvider: ${lastError?.message}`);
+    log.warn(`[callLLM] All providers failed due to quota/network. Falling back to MockOpenAIProvider: ${lastError?.message}`);
     const mockProvider = new MockOpenAIProvider();
     return await mockProvider.chat(params);
   }

@@ -16,6 +16,8 @@ import {
   fetchConstructionPermits,
   fetchCommercialTransactions,
 } from "@/domain/external/gov-premium-apis";
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
 
 /**
  * GET /api/cron/morning-briefing
@@ -26,7 +28,7 @@ export async function GET(request: NextRequest) {
   // Vercel Cron 인증 (CRON_SECRET 환경변수)
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -75,7 +77,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     const elapsedMs = Date.now() - startedAt;
-    console.log(`[cron/morning-briefing] Completed in ${elapsedMs}ms`);
+    log.info(`[cron/morning-briefing] Completed in ${elapsedMs}ms`);
 
     return NextResponse.json({
       success: true,
@@ -93,7 +95,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (err: unknown) {
-    console.error("[cron/morning-briefing] Error:", err);
+    log.error({ err: err }, "[cron/morning-briefing] Error:");
     return NextResponse.json({ error: err instanceof Error ? err.message : "서버 오류" }, { status: 500 });
   }
 }

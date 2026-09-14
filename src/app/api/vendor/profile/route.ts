@@ -36,28 +36,37 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ vendor: data });
 }
 
+import { z } from 'zod';
+
+const postSchema = z.object({
+  userId: z.string().min(1),
+  vendorCategory: z.string().min(1),
+  companyName: z.string().min(1),
+  companyDesc: z.string().optional(),
+  specialtyRegions: z.array(z.string()).optional(),
+  licenseNumber: z.string().optional(),
+  licenseInfo: z.string().optional(),
+  portfolioUrls: z.array(z.string()).optional(),
+});
+
 export async function POST(req: NextRequest) {
   const supabase = createServiceClient();
 
-  const body = await req.json() as {
-    userId: string;
-    vendorCategory: VendorCategory;
-    companyName: string;
-    companyDesc?: string;
-    specialtyRegions?: string[];
-    licenseNumber?: string;
-    licenseInfo?: string;
-    portfolioUrls?: string[];
-  };
-
-  if (!body.userId || !body.vendorCategory || !body.companyName) {
-    return NextResponse.json(
-      { error: "userId, vendorCategory, companyName은 필수입니다." },
-      { status: 400 }
-    );
+  let body;
+  try {
+    const raw = await req.json();
+    body = postSchema.parse(raw);
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "userId, vendorCategory, companyName은 필수입니다.", details: e.issues },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  if (!VENDOR_CATEGORY_META[body.vendorCategory]) {
+  if (!VENDOR_CATEGORY_META[body.vendorCategory as VendorCategory]) {
     return NextResponse.json({ error: "유효하지 않은 서비스 카테고리입니다." }, { status: 400 });
   }
 

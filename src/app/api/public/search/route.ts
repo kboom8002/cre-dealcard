@@ -19,6 +19,8 @@ export async function GET(req: NextRequest) {
   const page = parseInt(searchParams.get("page") ?? "1", 10);
   const limit = parseInt(searchParams.get("limit") ?? "24", 10);
 
+  const safeQ = q.replace(/[,()"\\]/g, '');
+
   const supabase = createServiceClient();
 
   try {
@@ -43,8 +45,8 @@ export async function GET(req: NextRequest) {
         }[region];
         if (regionLabel) query = query.ilike("area_signal", `%${regionLabel}%`);
       }
-      if (q) {
-        query = query.or(`area_signal.ilike.%${q}%,asset_type.ilike.%${q}%`);
+      if (safeQ) {
+        query = query.or(`area_signal.ilike.%${safeQ}%,asset_type.ilike.%${safeQ}%`);
       }
 
       // Pagination
@@ -66,8 +68,8 @@ export async function GET(req: NextRequest) {
           .order("transaction_date", { ascending: false })
           .limit(limit);
           
-        if (q) {
-          molitQuery = molitQuery.or(`address.ilike.%${q}%,district.ilike.%${q}%,dong.ilike.%${q}%,usage_type.ilike.%${q}%`);
+        if (safeQ) {
+          molitQuery = molitQuery.or(`address.ilike.%${safeQ}%,district.ilike.%${safeQ}%,dong.ilike.%${safeQ}%,usage_type.ilike.%${safeQ}%`);
         }
         
         const { data: molitData, error: molitError } = await molitQuery;
@@ -114,8 +116,8 @@ export async function GET(req: NextRequest) {
         }[region];
         if (regionLabel) query = query.ilike("area_signal", `%${regionLabel}%`);
       }
-      if (q) {
-        query = query.or(`area_signal.ilike.%${q}%,title.ilike.%${q}%,space_type.ilike.%${q}%`);
+      if (safeQ) {
+        query = query.or(`area_signal.ilike.%${safeQ}%,title.ilike.%${safeQ}%,space_type.ilike.%${safeQ}%`);
       }
 
       const from = (page - 1) * limit;

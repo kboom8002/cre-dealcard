@@ -7,7 +7,22 @@ import { createClient } from '@supabase/supabase-js';
 import { readWithMigration } from '@/lib/ssot-adapter';
 import { computeLayerScore } from '@/domain/building/layer-score-engine';
 import { recordEvent } from '@/domain/analytics/record-event';
+import { z } from 'zod';
 import { requireBroker } from '@/lib/auth-guard';
+
+const postSchema = z.object({
+  disclosurePrefs: z.object({
+    show_area_signal: z.boolean().optional(),
+    show_asset_type: z.boolean().optional(),
+    show_price_band: z.boolean().optional(),
+    show_tenant_count: z.boolean().optional(),
+    show_walt: z.boolean().optional(),
+    show_vacancy_rate: z.boolean().optional(),
+    hide_exact_address: z.boolean().optional(),
+    hide_tenant_names: z.boolean().optional(),
+    hide_unit_rent: z.boolean().optional(),
+  })
+});
 
 export async function POST(
   req: NextRequest,
@@ -36,15 +51,16 @@ export async function POST(
 
   let body;
   try {
-    body = await req.json();
+    const raw = await req.json();
+    body = postSchema.parse(raw);
   } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validation failed', details: e.issues }, { status: 400 });
+    }
     return NextResponse.json({ error: '잘못된 요청 형식입니다' }, { status: 400 });
   }
 
   const prefs = body.disclosurePrefs;
-  if (!prefs || typeof prefs !== 'object') {
-    return NextResponse.json({ error: 'disclosurePrefs 객체가 필요합니다' }, { status: 400 });
-  }
 
   // Update building_ssot_lite with new prefs
   const updatedPrefs = {

@@ -7,15 +7,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { POST as postValidate } from "@/app/api/im/validate/route";
 
+import { z } from 'zod';
+
+const postSchema = z.object({
+  investment_posture: z.string().optional(),
+  asking_price_manwon: z.any().optional(),
+  askingPrice: z.any().optional(),
+  grade: z.string().optional()
+}).passthrough();
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  let body: any = {};
+  let body;
   try {
-    body = await req.json();
-  } catch {
+    const raw = await req.json();
+    body = postSchema.parse(raw);
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validation failed', details: e.issues, canGenerate: false }, { status: 400 });
+    }
     return NextResponse.json({ error: "Invalid request body", canGenerate: false }, { status: 400 });
   }
 

@@ -54,6 +54,10 @@ import { NumericalAnchors } from "./numerical-anchors";
 import { ClaimRegistry, FinancialCalculator, deriveDataAvailability } from "../im-core";
 import { calculateFinancials } from "./financials";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('writer');
+
+
 // D37 P0-8: confidence 기반 IM Judge 점수 계산 (하드코딩 4.0 해소)
 function computeImJudgeScore(sections: MobileIMSection[]): number {
   if (sections.length === 0) return 0;
@@ -136,7 +140,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     selfUseAreaPyeong,
   });
   if (financialClaimResult.violations.length > 0) {
-    console.warn('[writer] Claim violations:', financialClaimResult.violations);
+    log.warn({ violations: financialClaimResult.violations }, '[writer] Claim violations:');
   }
 
   // ── S0b. DataAvailability 실값 파생 (D37 P0-4) ──
@@ -273,12 +277,12 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
             if (!ctx.sectionCtx.keyFacts) ctx.sectionCtx.keyFacts = [];
             ctx.sectionCtx.keyFacts.push(...newFacts);
           } catch (factErr) {
-            console.warn(`[writer] extractKeyFacts failed for section "${stageSections[ri]}", anchor propagation may be incomplete:`, factErr);
+            log.warn({ factErr: factErr }, `[writer] extractKeyFacts failed for section "${stageSections[ri]}", anchor propagation may be incomplete:`);
           }
         } else {
           // D37 P0-6: 폴백 금지 — 실패한 면은 추가하지 않음 (빈 면 금지)
           // 필수 섹션 실패는 stageTimer softLimit에서 throw됨
-          console.warn(`[writer] Stage ${currentStage.stage} section ${stageSections[ri]} failed, skipping (no fallback):`, result.reason);
+          log.warn({ reason: result.reason }, `[writer] Stage ${currentStage.stage} section ${stageSections[ri]} failed, skipping (no fallback):`);
         }
       }
 
@@ -300,7 +304,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         // 유발하지 않고 즉시 체크리스트 섹션으로 우아하게 폴백
         const timeBudgetExhausted = isHardLimitReached || stageTimer.shouldAbortOptional();
         if (timeBudgetExhausted) {
-          console.warn(`[writer] L3-01: ${sectionType} 시작 전 시간 예산 소진 확인 — 확인사항 섹션으로 우아하게 전환`);
+          log.warn(`[writer] L3-01: ${sectionType} 시작 전 시간 예산 소진 확인 — 확인사항 섹션으로 우아하게 전환`);
           sections.push(createTimeoutChecklistSection(sectionType, globalIndex + 1));
           globalIndex++;
           continue;
@@ -313,7 +317,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
           // L3-01: attempt === 0을 포함하여 매 시도 시작 전 시간 예산 초과 시 즉시 중단
           if (stageTimer.shouldAbortOptional() || stageTimer.shouldForceRender()) {
-            console.warn(`[writer] L3-01/M-8: ${sectionType} 시도 ${attempt}/${MAX_RETRIES} 중단 — 시간 예산 초과`);
+            log.warn(`[writer] L3-01/M-8: ${sectionType} 시도 ${attempt}/${MAX_RETRIES} 중단 — 시간 예산 초과`);
             break;
           }
           try {
@@ -336,17 +340,17 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
           } catch (e) {
             lastError = e instanceof Error ? e : new Error(String(e));
             if (attempt < MAX_RETRIES) {
-              console.warn(`[writer] M-8: ${sectionType} 재시도 ${attempt + 1}/${MAX_RETRIES}:`, lastError.message);
+              log.warn({ message: lastError.message }, `[writer] M-8: ${sectionType} 재시도 ${attempt + 1}/${MAX_RETRIES}:`);
             }
           }
         }
         if (!result) {
           // L3-01: 시간 예산 소진인 경우 타임아웃 확인사항 생성, 그 외는 재시도 소진 확인사항 생성
           if (stageTimer.shouldAbortOptional() || stageTimer.shouldForceRender()) {
-            console.warn(`[writer] L3-01: ${sectionType} 시간 초과로 확인사항 이관`);
+            log.warn(`[writer] L3-01: ${sectionType} 시간 초과로 확인사항 이관`);
             sections.push(createTimeoutChecklistSection(sectionType, globalIndex + 1));
           } else {
-            console.error(`[writer] M-8: ${sectionType} 재시도 소진:`, lastError?.message);
+            log.error({ message: lastError?.message }, `[writer] M-8: ${sectionType} 재시도 소진:`);
             sections.push(createRetryExhaustedChecklistSection(sectionType, globalIndex + 1, MAX_RETRIES, lastError?.message));
           }
           globalIndex++;
@@ -374,7 +378,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   // 105초 이후 생성된 섹션은 forceFastTemplate이지만,
   // 120초 도달 시에는 미완성 섹션을 전량 제거하고 체크리스트 폴백
   if (stageTimer.shouldDiscard()) {
-    console.warn('[writer] Kill limit reached — discarding incomplete sections');
+    log.warn('[writer] Kill limit reached — discarding incomplete sections');
     // 고신뢰 섹션만 유지 (needs_check 아닌 것)
     const reliable = sections.filter(s => s.confidence !== 'needs_check');
     const discarded = sections.length - reliable.length;
@@ -401,7 +405,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
           const idx = sections.findIndex(s => s.section_type === issue.section2.type);
           if (idx >= 0) {
             sections[idx].confidence = 'needs_check';
-            console.warn(`[cross-validator] Inconsistency: ${issue.field} between ${issue.section1.type} and ${issue.section2.type}`);
+            log.warn(`[cross-validator] Inconsistency: ${issue.field} between ${issue.section1.type} and ${issue.section2.type}`);
           }
         }
       }
@@ -455,12 +459,12 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     };
     const gateReport = runPublishGates(gateCtx);
     if (gateReport.blocked) {
-      console.warn('[mobile-im] Publish gates blocked:', gateReport.failedBlocks.map(g => g.id));
+      log.warn({ blocks: gateReport.failedBlocks.map(g => g.id) }, '[mobile-im] Publish gates blocked:');
       publishBlocked = true;
       publishBlockReasons = gateReport.failedBlocks.map(g => g.id);
     }
   } catch (e) {
-    console.warn('[mobile-im] Publish gates failed:', e);
+    log.warn({ e: e }, '[mobile-im] Publish gates failed:');
   }
 
   // ── 4. RAG 인덱싱 ──
@@ -478,7 +482,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       });
     }
   } catch (indexErr) {
-    console.warn("[mobile-im-writer] IM indexing failed (non-blocking):", indexErr);
+    log.warn({ indexErr: indexErr }, "[mobile-im-writer] IM indexing failed (non-blocking):");
   }
 
   // ── 5. Hero Card 구축 ──
@@ -621,7 +625,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       const { STAGE_PLANS } = await import('./stage-plans');
       const plan = STAGE_PLANS[postureKey as keyof typeof STAGE_PLANS] || STAGE_PLANS.income;
       CANONICAL_ORDER = plan.flatMap(s => s.sections);
-      console.warn(`[writer] YAML loadPageOrder failed, using STAGE_PLANS-derived order for ${postureKey}`);
+      log.warn(`[writer] YAML loadPageOrder failed, using STAGE_PLANS-derived order for ${postureKey}`);
     } catch {
       // 최종 폴백: STAGE_PLANS 로드도 실패한 극단적 경우
       CANONICAL_ORDER = [

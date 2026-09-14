@@ -52,6 +52,18 @@ export async function GET(req: NextRequest) {
 }
 
 /* ── POST: 질문 작성 (인증 필수) ────────────────────────────────── */
+import { z } from 'zod';
+
+const postSchema = z.object({
+  title: z.string().trim().min(1, "제목은 필수입니다."),
+  content: z.string().trim().min(1, "내용은 필수입니다."),
+  category: z.string().min(1, "카테고리는 필수입니다."),
+  region: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  authorId: z.string().optional(),
+  authorName: z.string().optional()
+});
+
 export async function POST(req: NextRequest) {
   const supabase = createServiceClient();
 
@@ -64,18 +76,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const body = await req.json() as {
-    title: string;
-    content: string;
-    category: string;
-    region?: string;
-    tags?: string[];
-    authorId?: string;
-    authorName?: string;
-  };
-
-  if (!body.title?.trim() || !body.content?.trim() || !body.category) {
-    return NextResponse.json({ error: "제목, 내용, 카테고리는 필수입니다." }, { status: 400 });
+  let body;
+  try {
+    const raw = await req.json();
+    body = postSchema.parse(raw);
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json({ error: "제목, 내용, 카테고리는 필수입니다.", details: e.issues }, { status: 400 });
+    }
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
   // 엔티티 추출 → 딜카드 매칭

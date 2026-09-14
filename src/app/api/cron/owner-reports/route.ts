@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   // Get all active buildings with owners
   const { data: buildings } = await supabase
     .from('building_ssot_lite')
-    .select('id, broker_id')
+    .select('*')
     .not('broker_id', 'is', null)
     .limit(50);
 
@@ -24,15 +24,7 @@ export async function GET(request: Request) {
 
   for (const building of (buildings || [])) {
     try {
-      const { data: full } = await supabase
-        .from('building_ssot_lite')
-        .select('*')
-        .eq('id', building.id)
-        .single();
-
-      if (!full) continue;
-
-      const attrs = buildAttrsFromSsotLite(full);
+      const attrs = buildAttrsFromSsotLite(building);
       await generateOwnerReport(
         building.id,
         String(attrs.ownerName || 'Owner'),

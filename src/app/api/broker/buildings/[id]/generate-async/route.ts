@@ -10,6 +10,18 @@ import { POST as postGenerateAsync } from "@/app/api/broker/im-lite/generate-asy
 
 export const maxDuration = 300;
 
+import { z } from 'zod';
+
+const postSchema = z.object({
+  tier: z.string().optional(),
+  rentroll_grade: z.string().optional(),
+  rentrollGrade: z.string().optional(),
+  grade: z.string().optional(),
+  direct_data: z.object({
+    qualityGrade: z.string().optional()
+  }).optional()
+}).passthrough();
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,10 +30,14 @@ export async function POST(
   if (guard.error) return guard.error;
 
   const { id } = await params;
-  let body: any = {};
+  let body;
   try {
-    body = await req.json();
-  } catch {
+    const raw = await req.json();
+    body = postSchema.parse(raw);
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validation failed', details: e.issues }, { status: 400 });
+    }
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 

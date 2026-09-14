@@ -28,6 +28,12 @@ export default defineConfig({
       reporter: ["text", "json-summary"],
       include: ["src/domain/**", "src/ai/schemas/**"],
       exclude: ["src/**/*.test.ts"],
+      thresholds: {
+        lines: 40,
+        functions: 35,
+        branches: 30,
+        statements: 40,
+      },
     },
   },
   resolve: {

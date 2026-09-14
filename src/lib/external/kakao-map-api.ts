@@ -1,3 +1,7 @@
+
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('kakao-map-api');
+
 // src/lib/external/kakao-map-api.ts
 // 카카오 로컬 API — 최근접 지하철역, 반경 500m POI 카운트, 주요 스폿 좌표
 
@@ -33,7 +37,7 @@ export interface LocationPoiData {
 export async function fetchLocationPoi(lat: number, lng: number): Promise<LocationPoiData | null> {
   if (!lat || !lng || isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)
       || lat < 33 || lat > 43 || lng < 124 || lng > 132) {
-    console.warn('[kakao-map-api] Invalid coordinates, returning null:', { lat, lng });
+    log.warn({ latlng: { lat, lng } }, '[kakao-map-api] Invalid coordinates, returning null:');
     return null;
   }
 
@@ -48,7 +52,7 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
         signal: AbortSignal.timeout(3000),
       });
       if (!stationRes.ok) {
-        console.warn(`[kakao-map-api] Station search returned HTTP ${stationRes.status} (401/429/error)`);
+        log.warn(`[kakao-map-api] Station search returned HTTP ${stationRes.status} (401/429/error)`);
         return null;
       }
       const stationData = await stationRes.json();
@@ -109,7 +113,7 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
             });
             if (!res.ok) {
               if (res.status === 401 || res.status === 429) {
-                console.warn(`[kakao-map-api] POI search HTTP ${res.status} for category ${cat.key}`);
+                log.warn(`[kakao-map-api] POI search HTTP ${res.status} for category ${cat.key}`);
               }
               return;
             }
@@ -138,7 +142,7 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
             });
             if (!res.ok) {
               if (res.status === 401 || res.status === 429) {
-                console.warn(`[kakao-map-api] Landmark search HTTP ${res.status} for category ${lm.category}`);
+                log.warn(`[kakao-map-api] Landmark search HTTP ${res.status} for category ${lm.category}`);
               }
               return;
             }
@@ -197,7 +201,7 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
         keySpots: uniqueSpots.slice(0, 5),
       };
     } catch (err) {
-      console.warn("[kakao-map-api] API failed, returning null to prevent hallucination:", err);
+      log.warn({ err: err }, "[kakao-map-api] API failed, returning null to prevent hallucination:");
     }
   }
 

@@ -18,6 +18,8 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number(sp.get('page') ?? '1'));
     const limit = Math.min(100, Math.max(1, Number(sp.get('limit') ?? '20')));
 
+    const safeSearch = search ? search.replace(/[,()"\\]/g, '') : '';
+
     const supabase = createServiceClient();
 
     let query = supabase
@@ -33,8 +35,8 @@ export async function GET(req: NextRequest) {
     if (isActive !== null) {
       query = query.eq('is_active', isActive === 'true');
     }
-    if (search) {
-      query = query.or(`pattern.ilike.%${search}%,replacement.ilike.%${search}%,note.ilike.%${search}%`);
+    if (safeSearch) {
+      query = query.or(`pattern.ilike.%${safeSearch}%,replacement.ilike.%${safeSearch}%,note.ilike.%${safeSearch}%`);
     }
 
     const { data, error } = await query;
@@ -51,8 +53,8 @@ export async function GET(req: NextRequest) {
     if (isActive !== null) {
       countQuery = countQuery.eq('is_active', isActive === 'true');
     }
-    if (search) {
-      countQuery = countQuery.or(`pattern.ilike.%${search}%,replacement.ilike.%${search}%,note.ilike.%${search}%`);
+    if (safeSearch) {
+      countQuery = countQuery.or(`pattern.ilike.%${safeSearch}%,replacement.ilike.%${safeSearch}%,note.ilike.%${safeSearch}%`);
     }
 
     const { count, error: countErr } = await countQuery;

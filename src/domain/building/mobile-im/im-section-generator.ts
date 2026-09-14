@@ -40,6 +40,10 @@ import type { IMGenerationContext } from "./im-context-builder";
 import { getPosturePromptOverlay } from "./posture-prompts";
 import { getModel } from "@/ai/model-selector";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('im-section-generator');
+
+
 /** AI 모델 설정 — 환경변수로 교체 가능 */
 const IM_AI_MODEL = process.env.AI_IM_MODEL || getModel("terra");
 
@@ -227,7 +231,7 @@ export async function generateSingleSection(
       sectionType,
       goldenIdsUsed: usedGoldenIds,
       hardcodedUsed: !fewShotBlock,
-    }).catch((err) => { console.warn('[im-section-generator]', err); });
+    }).catch((err) => { log.warn({ err: err }, '[im-section-generator]'); });
 
     const normalizedForProvenance: Record<string, unknown> = {
       asset_identity: ctx.assetIdentity,
@@ -295,7 +299,7 @@ export async function generateSingleSection(
       const { detectHallucination } = await import("./im-context-builder");
       const halluCheck = detectHallucination(rawText, ctx.purchasePriceKrw, ctx.totalAreaSqm);
       if (halluCheck.anomaly) {
-        console.warn(`[im-section-generator] Hallucination in ${sectionType}: ${halluCheck.reason} → template fallback`);
+        log.warn(`[im-section-generator] Hallucination in ${sectionType}: ${halluCheck.reason} → template fallback`);
       } else {
         // LLM-as-Judge
         let judgeRejected = false;
@@ -311,7 +315,7 @@ export async function generateSingleSection(
             });
             if (judgeResult) {
               finalSectionJudgeScore = judgeResult.overall;
-              updateFewShotResultScore(ctx.generationId, sectionType, judgeResult.overall).catch((err) => { console.warn('[im-section-generator]', err); });
+              updateFewShotResultScore(ctx.generationId, sectionType, judgeResult.overall).catch((err) => { log.warn({ err: err }, '[im-section-generator]'); });
               if (judgeResult.overall >= 4.5) {
                 promoteToGoldenCandidate(
                   ctx.generationId,
@@ -321,15 +325,15 @@ export async function generateSingleSection(
                   sectionType,
                   rawText,
                   judgeResult.overall,
-                ).catch((err) => { console.warn('[im-section-generator]', err); });
+                ).catch((err) => { log.warn({ err: err }, '[im-section-generator]'); });
               }
               if (judgeResult.overall < 3.0) {
-                console.warn(`[im-judge] Section ${sectionType} score ${judgeResult.overall.toFixed(1)} → template fallback`);
+                log.warn(`[im-judge] Section ${sectionType} score ${judgeResult.overall.toFixed(1)} → template fallback`);
                 judgeRejected = true;
               }
             }
           } catch (judgeErr) {
-            console.warn(`[im-judge] Judge failed for ${sectionType}, skipping:`, judgeErr);
+            log.warn({ judgeErr: judgeErr }, `[im-judge] Judge failed for ${sectionType}, skipping:`);
           }
         }
 
@@ -340,12 +344,12 @@ export async function generateSingleSection(
       }
     }
   } catch (err) {
-    console.warn(`[im-section-generator] AI failed for ${sectionType}, using template:`, err);
+    log.warn({ err: err }, `[im-section-generator] AI failed for ${sectionType}, using template:`);
   }
 
   // AI 실패 시 안전하고 풍부한 프리미엄 템플릿으로 복구 (섹션 실종/깡통화 방지)
   if (!generatedByAi) {
-    console.warn(`[im-section-generator] ${sectionType} 프리미엄 템플릿으로 생성`);
+    log.warn(`[im-section-generator] ${sectionType} 프리미엄 템플릿으로 생성`);
     markdown = generatePremiumTemplate(
       sectionType,
       ctx.assetIdentity as any,
@@ -405,7 +409,7 @@ export async function generateSingleSection(
         markdown += '\n\n' + fullRentRollBlock;
       }
     } catch (e) {
-      console.warn('[im-section-generator] Deterministic rent roll table failed:', e);
+      log.warn({ e: e }, '[im-section-generator] Deterministic rent roll table failed:');
     }
   }
 
@@ -468,9 +472,9 @@ export async function generateSingleSection(
     try {
       const gateResult = await runCREQualityGate(markdown, sectionType, posture);
       if (!gateResult.passed && gateResult.riskLevel === "high") {
-        console.warn(
-          `[cre-quality-gate] ${sectionType} high risk detected (${gateResult.issues.length} issues) — 프리미엄 템플릿으로 안전하게 복구`,
-          gateResult.issues.map(i => `${i.type}: ${i.excerpt.slice(0, 40)}`)
+        log.warn(
+          { issues: gateResult.issues.map(i => `${i.type}: ${i.excerpt.slice(0, 40)}`) },
+          `[cre-quality-gate] ${sectionType} high risk detected (${gateResult.issues.length} issues) — 프리미엄 템플릿으로 안전하게 복구`
         );
         markdown = generatePremiumTemplate(
           sectionType,
@@ -492,7 +496,7 @@ export async function generateSingleSection(
         );
       }
     } catch (gateErr) {
-      console.warn(`[cre-quality-gate] Gate failed for ${sectionType}, skipping:`, gateErr);
+      log.warn({ gateErr: gateErr }, `[cre-quality-gate] Gate failed for ${sectionType}, skipping:`);
     }
   }
 

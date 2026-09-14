@@ -3,6 +3,16 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { readWithMigration } from '@/lib/ssot-adapter';
 import { requireBroker } from '@/lib/auth-guard';
 
+import { z } from 'zod';
+
+const patchSchema = z.object({
+  source: z.literal('js-space-ai-page'),
+  leasing_signals: z.object({
+    inquiry_count: z.number().optional(),
+    top_tenant_types: z.array(z.string()).optional()
+  }).optional()
+});
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -17,10 +27,15 @@ export async function PATCH(
   }
 
   try {
-    const payload = await req.json().catch(() => ({}))
-    
-    if (payload.source !== 'js-space-ai-page') {
-      return NextResponse.json({ ok: false, error: 'Invalid source' }, { status: 400 })
+    let payload;
+    try {
+      const raw = await req.json();
+      payload = patchSchema.parse(raw);
+    } catch (e) {
+      if (e instanceof z.ZodError) {
+        return NextResponse.json({ ok: false, error: 'Validation failed', details: e.issues }, { status: 400 });
+      }
+      return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
     }
 
     const supabase = createServiceClient()

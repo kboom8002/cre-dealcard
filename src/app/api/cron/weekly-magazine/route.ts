@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   // ── Vercel Cron 인증 ──
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -56,7 +56,12 @@ export async function GET(request: NextRequest) {
   // ── 브로커별 매거진 생성 ──
   const results: { broker_id: string; slug: string; success: boolean; error?: string; distributed?: { sent: number; failed: number } }[] = [];
 
+  const startTime = Date.now();
+  const MAX_DURATION_MS = 55_000;
+
   for (const broker of brokers) {
+    if (Date.now() - startTime > MAX_DURATION_MS) break;
+
     try {
       const edition = await generateWeeklyMagazine({
         supabase,

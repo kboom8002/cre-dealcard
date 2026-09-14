@@ -12,6 +12,8 @@ export async function GET(req: NextRequest) {
   const region = searchParams.get("region") ?? "";
   const q = searchParams.get("q") ?? "";
 
+  const safeQ = q.replace(/[,()"\\]/g, '');
+
   const supabase = createServiceClient();
 
   try {
@@ -37,8 +39,8 @@ export async function GET(req: NextRequest) {
         }[region];
         if (regionLabel) query = query.ilike("area_signal", `%${regionLabel}%`);
       }
-      if (q) {
-        query = query.or(`area_signal.ilike.%${q}%,asset_type.ilike.%${q}%`);
+      if (safeQ) {
+        query = query.or(`area_signal.ilike.%${safeQ}%,asset_type.ilike.%${safeQ}%`);
       }
 
       const { data, error } = await query;
@@ -67,8 +69,8 @@ export async function GET(req: NextRequest) {
         }[region];
         if (regionLabel) query = query.ilike("area_signal", `%${regionLabel}%`);
       }
-      if (q) {
-        query = query.or(`area_signal.ilike.%${q}%,title.ilike.%${q}%,space_type.ilike.%${q}%`);
+      if (safeQ) {
+        query = query.or(`area_signal.ilike.%${safeQ}%,title.ilike.%${safeQ}%,space_type.ilike.%${safeQ}%`);
       }
 
       const { data, error } = await query;

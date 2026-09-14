@@ -15,6 +15,7 @@ import { PulseSignalRadar } from "@/components/pulse/PulseSignalRadar";
 import { useMagazineDraft } from "@/hooks/useMagazineDraft";
 import { MagazineInsightCard } from "@/components/dashboard/MagazineInsightCard";
 import { toast } from "sonner";
+import DOMPurify from "isomorphic-dompurify";
 
 // ── 타입 정의 ──────────────────────────────────────────────────────────────────
 interface Transaction { title: string; desc: string; date: string; tag: string; isMyArea?: boolean; }
@@ -51,10 +52,13 @@ function RichBriefing({ text }: { text: string }) {
         // 핵심 수치 감지
         const hasMetric = /[\d,.]+%(|[억만원])/.test(para);
 
-        const formattedText = para
-          .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
-          .replace(/(\d[\d,.]+%)/g, '<span class="text-indigo-300 font-bold font-mono">$1</span>')
-          .replace(/(\d[\d,.]+억)/g, '<span class="text-emerald-300 font-bold">$1</span>');
+        const formattedText = DOMPurify.sanitize(
+          para
+            .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
+            .replace(/(\d[\d,.]+%)/g, '<span class="text-indigo-300 font-bold font-mono">$1</span>')
+            .replace(/(\d[\d,.]+억)/g, '<span class="text-emerald-300 font-bold">$1</span>'),
+          { ALLOWED_TAGS: ['strong', 'span'], ALLOWED_ATTR: ['class'] }
+        );
 
         if (isHeading) {
           return (

@@ -11,6 +11,30 @@ import { recordEvent } from '@/domain/analytics/record-event';
 import { LayerCategory } from '@/types/database';
 import { requireBroker } from '@/lib/auth-guard';
 
+import { z } from 'zod';
+
+const postSchema = z.object({
+  fileName: z.string().optional(),
+  fileSizeBytes: z.number().optional(),
+  mimeType: z.string().optional(),
+  layerCategory: z.enum([
+    'building_register',
+    'registry_docs',
+    'land_use_plan',
+    'rent_roll',
+    'photos',
+    'floor_plan',
+    'repair_history',
+    'vacancy_docs',
+    'asking_price',
+    'disclosure_policy',
+    'other',
+  ]),
+  storageBucket: z.string(),
+  storagePath: z.string(),
+  visibility: z.string().optional(),
+});
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -38,8 +62,12 @@ export async function POST(
 
   let body;
   try {
-    body = await req.json();
+    const raw = await req.json();
+    body = postSchema.parse(raw);
   } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validation failed', details: e.issues }, { status: 400 });
+    }
     return NextResponse.json({ error: '잘못된 요청 형식입니다' }, { status: 400 });
   }
 
@@ -52,31 +80,6 @@ export async function POST(
     storagePath,
     visibility,
   } = body;
-
-  if (!layerCategory || !storagePath || !storageBucket) {
-    return NextResponse.json(
-      { error: 'layerCategory, storagePath, storageBucket은 필수 값입니다' },
-      { status: 400 },
-    );
-  }
-
-  const validCategories: LayerCategory[] = [
-    'building_register',
-    'registry_docs',
-    'land_use_plan',
-    'rent_roll',
-    'photos',
-    'floor_plan',
-    'repair_history',
-    'vacancy_docs',
-    'asking_price',
-    'disclosure_policy',
-    'other',
-  ];
-
-  if (!validCategories.includes(layerCategory)) {
-    return NextResponse.json({ error: '유효하지 않은 layerCategory입니다' }, { status: 400 });
-  }
 
   // 1. Fetch previously uploaded evidence file categories
   const { data: existingFiles } = await supabase

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from "recharts";
+import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 
 interface ABTestResult {
   variantName: string;
@@ -16,8 +16,17 @@ const mockData: ABTestResult[] = [
   { variantName: "B (AI 최적화)", totalViews: 1310, avgDurationSec: 112, conversionRatePct: 5.8, bounceRatePct: 42 },
 ];
 
-export function ABTestDashboard() {
+const ABTestDashboardComponent = () => {
   const [data] = useState<ABTestResult[]>(mockData);
+  const [Recharts, setRecharts] = useState<any>(null);
+
+  useEffect(() => {
+    import("recharts").then(mod => setRecharts(mod));
+  }, []);
+
+  if (!Recharts) return <div className="h-48 animate-pulse bg-secondary/50 rounded-xl my-6" />;
+
+  const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } = Recharts;
 
   return (
     <div className="bg-card border border-border rounded-xl p-5 shadow-sm my-6">
@@ -56,10 +65,10 @@ export function ABTestDashboard() {
               <BarChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="variantName" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                <YAxis tickFormatter={(val) => `${val}%`} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={(val: any) => `${val}%`} axisLine={false} tickLine={false} />
                 <Tooltip cursor={{ fill: '#f3f4f6' }} contentStyle={{ borderRadius: '8px' }} />
                 <Bar dataKey="conversionRatePct" name="전환율(%)" radius={[4, 4, 0, 0]} barSize={40}>
-                  {data.map((entry, index) => (
+                  {data.map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={index === 1 ? '#10b981' : '#94a3b8'} />
                   ))}
                 </Bar>
@@ -79,7 +88,7 @@ export function ABTestDashboard() {
                 <YAxis axisLine={false} tickLine={false} />
                 <Tooltip cursor={{ fill: '#f3f4f6' }} contentStyle={{ borderRadius: '8px' }} />
                 <Bar dataKey="avgDurationSec" name="체류 시간(초)" radius={[4, 4, 0, 0]} barSize={40}>
-                  {data.map((entry, index) => (
+                  {data.map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={index === 1 ? '#3b82f6' : '#94a3b8'} />
                   ))}
                 </Bar>
@@ -90,4 +99,6 @@ export function ABTestDashboard() {
       </div>
     </div>
   );
-}
+};
+
+export const ABTestDashboard = dynamic(() => Promise.resolve(ABTestDashboardComponent), { ssr: false });

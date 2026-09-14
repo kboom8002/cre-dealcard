@@ -20,6 +20,10 @@ import { validateCombination } from '@/domain/ontology';
 import { hasMinimumBasicData } from '@/domain/building/mobile-im/data-quality-badge';
 import { hasValidBuildingNumber } from '@/domain/verification/address-resolver';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('handler');
+
+
 export interface GenerateMobileIMInput {
   buildingId: string;
   userId: string;
@@ -79,7 +83,7 @@ async function uploadDataUriPhotos(
       await svc.storage.createBucket(bucket, { public: true, fileSizeLimit: 20 * 1024 * 1024 });
     }
   } catch (e) {
-    console.warn('[uploadDataUriPhotos] bucket check/create warning:', e);
+    log.warn({ e: e }, '[uploadDataUriPhotos] bucket check/create warning:');
   }
 
   const results = await Promise.all(
@@ -101,7 +105,7 @@ async function uploadDataUriPhotos(
           });
 
         if (error || !data) {
-          console.warn(`[uploadDataUriPhotos] Upload failed for photo ${idx}:`, error);
+          log.warn({ error: error }, `[uploadDataUriPhotos] Upload failed for photo ${idx}:`);
           return photo; // 업로드 실패 시 원본 유지 (PPTX renderer가 data URI도 처리 가능)
         }
 
@@ -111,7 +115,7 @@ async function uploadDataUriPhotos(
         }
         return photo;
       } catch (err) {
-        console.warn(`[uploadDataUriPhotos] Error uploading photo ${idx}:`, err);
+        log.warn({ err: err }, `[uploadDataUriPhotos] Error uploading photo ${idx}:`);
         return photo;
       }
     }),
@@ -138,7 +142,7 @@ export async function generateMobileIMHandler(
   const ssotRow = result.data as any;
 
   if (!ssotRow || Object.keys(ssotRow).length === 0) {
-    console.error("[im-handler] SSoT Error: Not found");
+    log.error("[im-handler] SSoT Error: Not found");
     return {
       ok: false,
       error: `SSoT 데이터를 찾을 수 없습니다. 딜카드를 먼저 생성해 주세요.`,
@@ -204,12 +208,12 @@ export async function generateMobileIMHandler(
     lease_summary: supplemental,
   });
   const gradeResult = computeDataGrade(gradeAttrs, gradeProvenance);
-  console.log('[im-handler] gradeResult:', gradeResult.grade, gradeResult.scorePct, 'directData present:', !!directData);
+  log.info({ grade: gradeResult.grade, scorePct: gradeResult.scorePct, directDataPresent: !!directData }, '[im-handler] gradeResult:');
 
   if (directData?.qualityGrade) {
     const rawGrade = directData.qualityGrade as string;
     gradeResult.grade = (rawGrade === 'D' ? 'C' : rawGrade) as 'A' | 'B' | 'C';
-    console.log('[im-handler] Overriding grade with directData.qualityGrade:', gradeResult.grade);
+    log.info({ grade: gradeResult.grade }, '[im-handler] Overriding grade with directData.qualityGrade:');
   }
 
   // Pro IM tier gate: requires at least B-grade (completeness >= 60%)
@@ -283,7 +287,7 @@ export async function generateMobileIMHandler(
       );
       externalDataStatus = externalData?.buildingRegister ? 'loaded' : 'partial';
     } catch (err) {
-      console.error("[im-handler] External data enrichment by PNU failed:", err);
+      log.error({ err: err }, "[im-handler] External data enrichment by PNU failed:");
       externalDataStatus = 'failed';
     }
   } else if (supplemental.resolved_address) {
@@ -291,7 +295,7 @@ export async function generateMobileIMHandler(
       externalData = await enrichBuildingData(supplemental.resolved_address, ssotRow.id);
       externalDataStatus = externalData?.buildingRegister ? 'loaded' : 'partial';
     } catch (err) {
-      console.error("[im-handler] External data enrichment by Address failed:", err);
+      log.error({ err: err }, "[im-handler] External data enrichment by Address failed:");
       externalDataStatus = 'failed';
     }
   } else {
@@ -325,7 +329,7 @@ export async function generateMobileIMHandler(
           const resolved = await searchLandmarkAddress(landmarkMatch[1]);
           if (resolved) rawAddress = resolved;
         } catch (err: any) {
-          console.warn('[im-handler] Landmark resolution failed:', err?.message);
+          log.warn({ message: err?.message }, '[im-handler] Landmark resolution failed:');
         }
       }
     }
@@ -340,7 +344,7 @@ export async function generateMobileIMHandler(
         externalData = await enrichBuildingData(rawAddress, ssotRow.id);
         externalDataStatus = externalData?.buildingRegister ? 'loaded' : 'partial';
       } catch (err) {
-        console.error("[im-handler] External data enrichment failed:", err);
+        log.error({ err: err }, "[im-handler] External data enrichment failed:");
         externalDataStatus = 'failed';
       }
     }
@@ -376,7 +380,7 @@ export async function generateMobileIMHandler(
       ...manualAsComps,
       ...(externalData!.comparableTransactions || []),
     ].slice(0, 15);
-    console.log('[im-handler] Merged manual comps:', manualAsComps.length, 'total:', externalData!.comparableTransactions?.length);
+    log.info({ manualLength: manualAsComps.length, total: externalData!.comparableTransactions?.length }, '[im-handler] Merged manual comps:');
   }
 
   // ─── floor_leases 기반 임대료/보증금 자동 집계 (미입력 시) ───
@@ -421,7 +425,7 @@ export async function generateMobileIMHandler(
   if (externalData?.buildingRegister && userSpecifiedTotalArea > 0) {
     const regArea = Number(externalData.buildingRegister.totalArea || 0);
     if (regArea > 0 && (regArea > userSpecifiedTotalArea * 2.0 || regArea < userSpecifiedTotalArea / 2.0)) {
-      console.warn(`[im-handler] 공공데이터 건축물대장 면적(${regArea}㎡)이 실물 사용자 입력 면적(${userSpecifiedTotalArea}㎡)과 2배 이상 괴리 — 사용자 정본 데이터로 교정`);
+      log.warn(`[im-handler] 공공데이터 건축물대장 면적(${regArea}㎡)이 실물 사용자 입력 면적(${userSpecifiedTotalArea}㎡)과 2배 이상 괴리 — 사용자 정본 데이터로 교정`);
       externalData.buildingRegister.totalArea = userSpecifiedTotalArea;
       if (userSpecifiedLandArea > 0) {
         externalData.buildingRegister.platArea = userSpecifiedLandArea;
@@ -699,7 +703,7 @@ export async function generateMobileIMHandler(
             const geo = await geocodeAddress(String(fallbackAddr));
             if (geo) return { lat: geo.lat, lng: geo.lng };
           } catch (e) {
-            console.warn('[im-handler] Geocoding fallback failed:', e);
+            log.warn({ e: e }, '[im-handler] Geocoding fallback failed:');
           }
         }
         return null;
@@ -773,7 +777,7 @@ export async function generateMobileIMHandler(
       .single();
 
     if (saveError) {
-      console.error("[im-handler] Save error:", saveError);
+      log.error({ saveError: saveError }, "[im-handler] Save error:");
       return {
         ok: false,
         error: `문서 저장에 실패했습니다: ${saveError.message}`,
@@ -802,11 +806,11 @@ export async function generateMobileIMHandler(
         // }
 
       } catch (bridgeErr) {
-        console.warn("[im-handler] Magazine bridge execution skipped:", bridgeErr);
+        log.warn({ bridgeErr: bridgeErr }, "[im-handler] Magazine bridge execution skipped:");
       }
     }
   } catch (err: any) {
-    console.error("[im-handler] Save failed:", err);
+    log.error({ err: err }, "[im-handler] Save failed:");
     return {
       ok: false,
       error: `문서 저장 중 오류가 발생했습니다: ${err.message}`,
