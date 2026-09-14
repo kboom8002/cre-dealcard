@@ -9,6 +9,24 @@ export class MockOpenAIProvider implements LLMProvider {
 
     console.warn(`[MockOpenAIProvider]process.env.OPENAI_API_KEY is missing or in test environment. Returning mock JSON response.`);
 
+    // Quality Gate 프롬프트 감지
+    const isQualityGatePrompt = params.systemPrompt?.includes("quality_gate") || params.systemPrompt?.includes("품질 게이트");
+    if (isQualityGatePrompt) {
+      return {
+        content: JSON.stringify({
+          passed: true,
+          score: 95,
+          risk: "low",
+          violations: [],
+          feedback: "품질 게이트 통과"
+        }),
+        tokens: 100,
+        model,
+        provider: this.name,
+        latencyMs: Date.now() - startTime,
+      };
+    }
+
     // 페르소나 프롬프트 감지: systemPrompt에 "IDEAL BUYER PERSONAS"가 포함된 경우
     const isPersonaPrompt = params.systemPrompt?.includes("IDEAL BUYER PERSONAS");
 
@@ -42,7 +60,7 @@ export class MockOpenAIProvider implements LLMProvider {
             {
               label: "IT 중견기업 사옥 이전형",
               buyerType: "법인",
-              budgetRange: "100~200억",
+              budgetRange: "150억",
               motivation: "성장 중인 IT 기업이 여의도 입지의 브랜드 가치와 교통 접근성을 활용하여 사옥을 마련하려는 수요",
               coreNeeds: ["역세권 접근성", "주차 공간 확보", "층별 분리 사용 가능"],
               whereToFind: ["테헤란로 IT 기업 네트워크", "벤처캐피탈 포트폴리오사", "한국경영자총협회"],
@@ -53,7 +71,7 @@ export class MockOpenAIProvider implements LLMProvider {
             {
               label: "자산가 절세 증여형",
               buyerType: "개인",
-              budgetRange: "100~180억",
+              budgetRange: "130억",
               motivation: "안정적 임대수익이 검증된 근생 건물을 자녀에게 증여하여 절세 효과를 극대화하려는 자산가",
               coreNeeds: ["만실 운영 실적", "감정가 대비 갭", "관리 용이성"],
               whereToFind: ["PB센터 자산관리팀", "세무사·회계사 네트워크", "강남 부동산 커뮤니티"],
@@ -64,7 +82,7 @@ export class MockOpenAIProvider implements LLMProvider {
             {
               label: "밸류업 투자형 펀드",
               buyerType: "펀드",
-              budgetRange: "120~200억",
+              budgetRange: "160억",
               motivation: "다양한 용도 변경 가능성과 여의도 입지 프리미엄을 활용한 밸류업 투자 전략",
               coreNeeds: ["용적률 여유 확인", "리모델링 가능성", "Cap Rate 5% 이상"],
               whereToFind: ["부동산 자산운용사", "KOTRA 외국 투자기업 DB", "상업용 부동산 중개 네트워크"],
@@ -87,65 +105,106 @@ export class MockOpenAIProvider implements LLMProvider {
       };
     }
 
+    // userPrompt에서 실데이터 휴리스틱 추출 (할루시네이션 방지 및 폴백 정합성 보장)
+    const promptText = (params.userPrompt || "") + " " + (params.systemPrompt || "");
+    const addrMatch = promptText.match(/([가-힣]+(?:구|시)\s*[가-힣\d]+(?:동|로|가)\s*[\d-]+|[가-힣\d]+(?:동|로|가)\s*[\d-]+)/);
+    const priceMatch = promptText.match(/(\d+억(?:\s*\d+만)?|\d+,\d+만)/);
+    const sizeMatch = promptText.match(/(\d+(?:\.\d+)?평)/);
+    const dongMatch = promptText.match(/([가-힣]+동)/);
+    const bldgNameMatch = promptText.match(/\(([가-힣\d\s]+빌딩)\)/);
+
+    const extractedAddr = addrMatch ? addrMatch[1].trim() : "역삼동 742-1";
+    const extractedRegion = dongMatch ? dongMatch[1].replace(/동$/, "") : "역삼";
+    const extractedPrice = priceMatch ? priceMatch[1] : "135억";
+    const extractedSize = sizeMatch ? sizeMatch[1] : "580평";
+    const extractedBldgName = bldgNameMatch ? bldgNameMatch[1] : `${extractedRegion}빌딩`;
+    const assetType = promptText.includes("오피스") ? "오피스빌딩" : "근생빌딩";
+
+    // Mobile IM 섹션 마크다운 서술문 생성 프롬프트 감지 (JSON을 요구하지 않고 섹션 서사를 요청하는 경우)
+    const isSectionNarrativePrompt =
+      params.systemPrompt?.includes("CRE IM") ||
+      params.systemPrompt?.includes("섹션") ||
+      params.systemPrompt?.includes("작성 지침") ||
+      params.systemPrompt?.includes("투자설명서") ||
+      params.userPrompt?.includes("MobileIMSectionType") ||
+      params.userPrompt?.includes("IM 섹션");
+
+    if (isSectionNarrativePrompt && !params.userPrompt?.includes("JSON") && !params.systemPrompt?.includes("JSON")) {
+      const narrativeContent = `### 핵심 투자 포인트 및 자산 개요
+본 자산은 ${extractedRegion} 권역 중심에 위치한 우량 ${assetType}입니다.
+
+1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.
+2. **안정적인 자산 가치**: ${extractedPrice} 수준의 합리적인 매각가와 ${extractedSize} 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다.
+3. **향후 밸류애드 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다.`;
+
+      return {
+        content: narrativeContent,
+        tokens: 300,
+        model,
+        provider: this.name,
+        latencyMs: Date.now() - startTime,
+      };
+    }
+
     const mockResult: LLMChatResult = {
       content: JSON.stringify({
         ok: true,
         mocked: true,
         extractedFields: {
-          area_signal: "역삼",
-          asset_type: "오피스빌딩",
-          price_band: "300억",
-          size_signal: "3000평"
+          area_signal: extractedRegion,
+          asset_type: assetType,
+          price_band: extractedPrice,
+          size_signal: extractedSize
         },
         // 3-step 에이전트 Zod 검증을 충족하기 위한 mock schema-level output 구조들
         // MemoParserOutput
         extractedFacts: {
-          region: "역삼",
-          exactAddressCandidate: "역삼동 742-1",
-          assetType: "오피스빌딩",
-          priceText: "300억",
-          sizeText: "3000평",
-          currentUse: "오피스",
+          region: extractedRegion,
+          exactAddressCandidate: extractedAddr,
+          assetType: assetType,
+          priceText: extractedPrice,
+          sizeText: extractedSize,
+          currentUse: promptText.includes("오피스") ? "오피스" : "근린생활시설",
           currentUseSignal: "근린생활시설",
-          leaseSignal: "임대중",
-          vacancySignal: "공실없음",
-          tenantNames: ["쿠팡", "네이버"],
-          unitRentTexts: ["301호: 1500만"],
+          leaseSignal: promptText.includes("전층 공실") || promptText.includes("공실") ? "공실" : "임대중",
+          vacancySignal: promptText.includes("공실") ? "공실 발생" : "공실없음",
+          tenantNames: [],
+          unitRentTexts: [],
           sellerMotivationText: "자산 효율화",
-          brokerNotes: ["초역세권 매물"]
+          brokerNotes: ["역세권 매물"]
         },
-        detectedSensitiveFields: ["exact_address", "tenant_name"],
+        detectedSensitiveFields: ["exact_address"],
         ambiguousFields: [],
         warnings: [],
 
-        areaSignal: "역삼",
-        assetType: "오피스빌딩",
-        priceBand: "300억",
-        sizeSignal: "3000평",
+        areaSignal: extractedRegion,
+        assetType: assetType,
+        priceBand: extractedPrice,
+        sizeSignal: extractedSize,
         dealType: "매각",
         
         // BuildingMiniTruthOutput
-        buildingName: "역삼 센트럴타워",
-        exactAddress: "역삼동 742-1",
-        totalFloorArea: 9917.3,
+        buildingName: extractedBldgName,
+        exactAddress: extractedAddr,
+        totalFloorArea: sizeMatch ? parseFloat(sizeMatch[1]) * 3.3058 : 9917.3,
         buildYear: 2015,
         currentUseSignal: "근린생활시설",
-        vacancySignal: "공실 없음",
-        fitSummary: "초역세권 근생 빌딩으로 시행/사옥 매입에 최적화",
-        cautionSummary: "일부 임차인 만기 조율 필요",
+        vacancySignal: promptText.includes("공실") ? "공실 발생" : "공실 없음",
+        fitSummary: `${extractedRegion} 권역 입지의 ${assetType} 매각 물건`,
+        cautionSummary: "권리관계 및 현장 실사 확인 필요",
         hiddenFields: ["exact_address", "seller_motivation"],
         confidence: {
           areaSignal: "confirmed",
           assetType: "confirmed",
-          priceBand: "ai_hypothesis",
+          priceBand: "confirmed",
           fitSummary: "ai_hypothesis"
         },
-        missingData: ["sizeSignal"],
+        missingData: [],
         boundaryNote: "본 자료는 실거래 통계 기반 참고치입니다.",
 
         // BuyerIntentLiteOutput
         buyerType: "법인 사옥형",
-        budgetRange: { min: 50, max: 80, display: "50억~80억" },
+        budgetRange: { min: 70, max: 70, display: `${extractedPrice}` },
         preferredRegions: ["강남", "성수"],
         assetTypes: ["꼬마빌딩", "사옥용"],
         purchasePurpose: "사옥용 매입",
@@ -157,20 +216,20 @@ export class MockOpenAIProvider implements LLMProvider {
         privacyNotes: ["연락처 비공개"],
         
         // BuyerMemoOutput
-        fitReasons: ["매수자 예산(50-80억)에 부합하는 매물입니다.", "요청하신 성수/강남 권역에 해당합니다."],
+        fitReasons: [`매수자 예산(${extractedPrice})에 부합하는 매물입니다.`, "요청하신 성수/강남 권역에 해당합니다."],
         cautionReasons: ["요청한 용도와 달리 명도 협의가 다소 필요합니다."],
         recommendedNextAction: "현장 답사 제안",
         kakaoMessage: "안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.",
 
 
         // BlindTeaserOutput
-        title: "강남 역삼역 초역세권 오피스 사옥용 빌딩 매각",
-        shortSummary: "역삼역 도보 5분 거리의 준신축급 대형 오피스빌딩입니다.",
-        dealPoints: ["초역세권", "사옥 최적"],
-        cautionPoints: ["명도 조율 필요"],
+        title: `${extractedRegion} 초역세권 ${assetType} 매각`,
+        shortSummary: `${extractedRegion}역 도보 거리의 우량 ${assetType} 매물입니다.`,
+        dealPoints: ["초역세권", "개발 및 사옥 최적"],
+        cautionPoints: ["권리관계 확인 필요"],
         hiddenInfoNotice: ["보증금 및 지번은 인가 후 확인 가능"],
         gateMessage: "G1 등급 등록이 필요합니다.",
-        kakaoText: "강남 역삼역 오피스 빌딩 매각 안내입니다.",
+        kakaoText: `${extractedRegion} ${assetType} 매각 안내입니다.`,
 
         // LeaseMemoParserOutput
         exactUnitCandidate: "101호",

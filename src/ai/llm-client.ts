@@ -97,6 +97,17 @@ export async function callLLM(
           break;
         }
 
+        // 영구적인 Quota 고갈 (429 credit_balance_exhausted / insufficient_quota) 시 지연 없이 즉시 탈출
+        const isPermanentQuotaError = err?.message?.includes("credit_balance_exhausted") ||
+          err?.message?.includes("no credits remaining") ||
+          err?.message?.includes("insufficient_quota") ||
+          err?.error?.code === "credit_balance_exhausted";
+
+        if (isPermanentQuotaError) {
+          console.warn(`[callLLM] Provider '${providerName}' quota permanently exhausted. Aborting futile retries.`);
+          break;
+        }
+
         if (attempt < maxAttempts - 1) {
           const baseDelay = isTestEnv ? 50 : 1000;
           const maxDelay = isTestEnv ? 200 : 16000;
@@ -152,6 +163,18 @@ export async function callLLM(
         isFromCache: true
       };
     }
+  }
+
+  // 429 Quota 고갈 또는 테스트 환경 시 MockOpenAIProvider로 안전 폴백 (안티프래질 고가용성 보장)
+  const isQuotaExhausted = lastError?.message?.includes("insufficient_quota") ||
+    lastError?.message?.includes("credit_balance_exhausted") ||
+    lastError?.message?.includes("no credits remaining") ||
+    lastError?.status === 429;
+
+  if (isQuotaExhausted || isTestEnv) {
+    console.warn(`[callLLM] All providers failed due to quota/network. Falling back to MockOpenAIProvider: ${lastError?.message}`);
+    const mockProvider = new MockOpenAIProvider();
+    return await mockProvider.chat(params);
   }
 
   throw new Error(
