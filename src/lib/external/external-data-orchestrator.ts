@@ -13,6 +13,9 @@ import type { CommercialDistrictAnalysis } from "./semas-commercial-api";
 import { createServiceClient } from "@/lib/supabase/service";
 import { reconstructFromCache, enrichBuildingDataCore } from "./enrich-by-pnu";
 import { fetchCadastralMapImage } from "./vworld-wms-cadastral";
+import { createModuleLogger } from "@/lib/logger";
+
+const log = createModuleLogger("external-data-orchestrator");
 
 const CACHE_TTL_DAYS = 30; // default fallback
 export const CACHE_TTL_BY_SOURCE: Record<string, number> = {
@@ -80,26 +83,26 @@ export async function enrichBuildingData(
         .map(([source, ttlDays]) => ({ source, ttlDays, stale: true }));
 
       if (staleSourcesInfo.length === 0) {
-        console.info(`[external-data] Cache hit (${Math.round(cacheAge / 86400000)}d old)`);
+        log.info(`Cache hit (${Math.round(cacheAge / 86400000)}d old)`);
         const result = reconstructFromCache(data);
         if (result.cadastralMapImage === null && result.resolvedAddress?.lat != null && result.resolvedAddress?.lng != null) {
           try {
             result.cadastralMapImage = await fetchCadastralMapImage(result.resolvedAddress.lat, result.resolvedAddress.lng, 800, 600, 150, result.resolvedAddress?.pnu);
           } catch (e) {
-            console.warn("[external-data] Failed to re-fetch cadastral map on cache hit:", e);
+            log.warn("Failed to re-fetch cadastral map on cache hit", e);
           }
         }
         return result;
       }
       staleSources = staleSourcesInfo.map(s => s.source);
-      console.info(`[external-data] ${staleSources.length} sources stale (${staleSources.join(', ')}), refreshing`);
+      log.info(`${staleSources.length} sources stale, refreshing`, { staleSources });
     }
   } catch { /* 캐시 조회 실패 시 정상 진행 */ }
 
   // ─── 주소 해석
   const resolvedAddress = await resolveAddress(rawAddress);
   if (!resolvedAddress) {
-    console.error("[external-data] Failed to resolve address:", rawAddress);
+    log.error("Failed to resolve address", { rawAddress });
     return null;
   }
 

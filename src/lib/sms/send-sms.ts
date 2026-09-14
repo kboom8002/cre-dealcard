@@ -1,3 +1,7 @@
+import { createModuleLogger } from "@/lib/logger";
+
+const log = createModuleLogger("sms-service");
+
 /**
  * SMS 전송 유틸리티
  * 
@@ -15,7 +19,7 @@ export async function sendSMS(to: string, message: string): Promise<boolean> {
 
   if (!apiKey || !apiSecret || !sender) {
     // Phase 1: SMS 인프라 미설정 → 로그만 남김
-    console.log(`[SMS Stub] To: ${normalized} | Message: ${message}`);
+    log.info(`[SMS Stub] Simulated send to ${normalized}`, { to: normalized, message });
     return true; // DB에는 저장, SMS는 skip
   }
 
@@ -38,14 +42,15 @@ export async function sendSMS(to: string, message: string): Promise<boolean> {
 
     if (!res.ok) {
       const err = await res.text();
-      console.error("[SMS] CoolSMS error:", err);
+      log.error("CoolSMS error response", { error: err, status: res.status });
       return false;
     }
 
-    console.log(`[SMS] Sent to ${normalized}`);
+    log.info("SMS sent successfully", { to: normalized });
     return true;
   } catch (err) {
-    console.error("[SMS] Failed:", err);
+    log.error("Failed to send SMS", err, { to: normalized });
     return false;
   }
 }
+

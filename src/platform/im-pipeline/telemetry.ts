@@ -4,6 +4,10 @@
  * Upstream U4 requirement: Event payload strict PII prohibition
  */
 
+import { createModuleLogger } from '@/lib/logger';
+
+const log = createModuleLogger('im-telemetry');
+
 const PII_PATTERNS = [
   /01[0-9]-?[0-9]{3,4}-?[0-9]{4}/g, // 한국 휴대전화 번호
   /\b[0-9]{6}-?[1-4][0-9]{6}\b/g,   // 주민등록번호
@@ -65,20 +69,13 @@ export class PipelineTelemetry {
   }
 
   logEvent(level: 'info' | 'warn' | 'error', message: string, payload: Record<string, unknown>): void {
-    const sanitizedPayload = sanitizePii(payload);
-    const logEntry = {
-      level,
-      message,
-      payload: sanitizedPayload,
-      timestamp: new Date().toISOString(),
-    };
-    // Structured JSON log output
+    const sanitizedPayload = sanitizePii(payload) as Record<string, unknown>;
     if (level === 'error') {
-      console.error(JSON.stringify(logEntry));
+      log.error(message, sanitizedPayload);
     } else if (level === 'warn') {
-      console.warn(JSON.stringify(logEntry));
+      log.warn(message, sanitizedPayload);
     } else {
-      console.log(JSON.stringify(logEntry));
+      log.info(message, sanitizedPayload);
     }
   }
 }

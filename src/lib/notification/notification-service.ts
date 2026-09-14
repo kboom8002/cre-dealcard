@@ -1,4 +1,7 @@
 import crypto from "crypto";
+import { createModuleLogger } from "@/lib/logger";
+
+const log = createModuleLogger("notification-service");
 
 /**
  * 통합 알림 서비스.
@@ -21,7 +24,10 @@ export async function sendKakaoAlimtalk(payload: NotificationPayload): Promise<b
 
   // 로컬 개발/테스트 시 환경변수가 없으면 시뮬레이션 로그만 남기고 성공 처리
   if (!apiKey || !apiSecret) {
-    console.log(`[Notification STUB] Alimtalk sent to ${payload.recipientPhone}: template=${payload.templateId}, vars=`, payload.variables);
+    log.info(`[Notification STUB] Alimtalk sent to ${payload.recipientPhone}`, {
+      templateId: payload.templateId,
+      variables: payload.variables,
+    });
     return true;
   }
 
@@ -89,15 +95,15 @@ export async function sendKakaoAlimtalk(payload: NotificationPayload): Promise<b
 
     if (!res.ok) {
       const err = await res.text();
-      console.error("[Notification] Solapi error response:", err);
+      log.error("Solapi error response", { error: err, status: res.status });
       return false;
     }
 
     const data = await res.json();
-    console.log(`[Notification] Solapi success: msgId=${data.groupInfo?.groupId || "unknown"}`);
+    log.info("Solapi notification sent successfully", { msgId: data.groupInfo?.groupId || "unknown" });
     return true;
   } catch (err: any) {
-    console.error("[Notification] Solapi request failed:", err.message);
+    log.error("Solapi request failed", err);
     return false;
   }
 }

@@ -7,6 +7,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { env } from '@/lib/env';
+import { createModuleLogger } from '@/lib/logger';
+
+const log = createModuleLogger('auth-guard');
 
 type AllowedRole = 'broker' | 'admin' | 'expert' | 'public_user';
 
@@ -110,7 +113,7 @@ export async function verifyAuth(req: NextRequest): Promise<AuthGuardResult> {
     profileErr = res.error;
   } else {
     // Fallback: use authenticated user's token to query own profile through RLS
-    console.warn('[auth-guard] SUPABASE_SERVICE_ROLE_KEY is not set. Using user token for profile lookup.');
+    log.warn('SUPABASE_SERVICE_ROLE_KEY is not set. Using user token for profile lookup.');
     const userClient = createClient(
       env.NEXT_PUBLIC_SUPABASE_URL,
       env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -129,7 +132,7 @@ export async function verifyAuth(req: NextRequest): Promise<AuthGuardResult> {
   }
 
   if (profileErr) {
-    console.error('[auth-guard] Profile lookup failed:', profileErr.message, '| userId:', user.id);
+    log.error('Profile lookup failed', { error: profileErr.message, userId: user.id });
   }
 
   return {
@@ -152,9 +155,11 @@ export async function requireRole(
   if (result.error) return result;
 
   if (!result.role || !allowedRoles.includes(result.role as AllowedRole)) {
-    console.warn(
-      `[auth-guard] Role check failed. userId=${result.user?.id}, actualRole=${result.role}, requiredRoles=${allowedRoles.join(',')}`,
-    );
+    log.warn('Role check failed', {
+      userId: result.user?.id,
+      actualRole: result.role,
+      requiredRoles: allowedRoles,
+    });
     return {
       ...result,
       error: NextResponse.json(
@@ -184,7 +189,10 @@ export async function requireBroker(req: NextRequest): Promise<AuthGuardResult> 
 
   // ALPHA: role이 없거나 null이면 자동으로 broker 업그레이드
   if (!result.role || !['broker', 'admin', 'public_user', 'expert'].includes(result.role)) {
-    console.warn(`[auth-guard][ALPHA] Auto-upgrading user ${result.user?.id} from role=${result.role} to broker`);
+    log.warn('[ALPHA] Auto-upgrading user to broker', {
+      userId: result.user?.id,
+      fromRole: result.role,
+    });
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const { env } = await import('@/lib/env');
     if (serviceKey && result.user?.id) {

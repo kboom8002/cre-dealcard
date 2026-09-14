@@ -1,12 +1,18 @@
 import { Resend } from "resend";
 import { buildMagazineHtml, type MagazineEmailPayload } from "@/domain/magazine/email-template";
+import { createModuleLogger } from "@/lib/logger";
+
+const log = createModuleLogger("email-service");
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 export async function sendMagazineEmail(payload: MagazineEmailPayload): Promise<boolean> {
   if (!resend) {
-    console.log(`[Email STUB] Send to ${payload.to} (${payload.subscriberName}) | Title: ${payload.magazineTitle}`);
+    log.info(`[Email STUB] Send to ${payload.to} (${payload.subscriberName})`, {
+      title: payload.magazineTitle,
+      to: payload.to,
+    });
     return true;
   }
 
@@ -22,13 +28,14 @@ export async function sendMagazineEmail(payload: MagazineEmailPayload): Promise<
     });
 
     if (error) {
-      console.error("[EmailService] Resend error:", error);
+      log.error("Resend error sending magazine email", error, { to: payload.to });
       return false;
     }
 
     return true;
   } catch (err) {
-    console.error("[EmailService] Unexpected error sending email:", err);
+    log.error("Unexpected error sending email", err, { to: payload.to });
     return false;
   }
 }
+

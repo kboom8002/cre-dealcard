@@ -1,3 +1,7 @@
+import { createModuleLogger } from "@/lib/logger";
+
+const log = createModuleLogger("naver-search");
+
 export interface NaverSearchItem {
   title: string;
   link: string;
@@ -18,7 +22,7 @@ export async function searchNaverNews(query: string, display: number = 10): Prom
   const clientSecret = process.env.NAVER_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    console.warn("NAVER_CLIENT_ID or NAVER_CLIENT_SECRET is missing. Skipping Naver News API.");
+    log.warn("NAVER_CLIENT_ID or NAVER_CLIENT_SECRET is missing. Skipping Naver News API.");
     return [];
   }
 
@@ -46,7 +50,7 @@ export async function searchNaverNews(query: string, display: number = 10): Prom
       description: item.description.replace(/<[^>]*>?/gm, '')
     }));
   } catch (error) {
-    console.error("Failed to fetch Naver News:", error);
+    log.error("Failed to fetch Naver News", error, { query });
     return [];
   }
 }

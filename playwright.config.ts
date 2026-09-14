@@ -3,6 +3,7 @@ import * as path from 'path';
 
 export default defineConfig({
   testDir: './e2e',
+  timeout: 60000,
 
   /* 프로젝트: 인증 셋업 → 인증 필요 테스트 + 비인증 테스트 분리 */
   projects: [

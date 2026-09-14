@@ -3,6 +3,9 @@
  * Source: docs/08-api-contracts.md sections 3-4
  */
 import { ZodError } from "zod/v4";
+import { createModuleLogger } from "@/lib/logger";
+
+const log = createModuleLogger("api-error");
 
 export type ApiErrorCode =
   | "VALIDATION_ERROR"
@@ -65,7 +68,11 @@ interface ApiError {
 
 export function toApiError(err: unknown): Response {
   if (err instanceof BaseApiError) {
-    console.error(`[API BaseApiError] ${err.code}: ${err.message}`);
+    if (err.status >= 500) {
+      log.error(`[API BaseApiError] ${err.code}: ${err.message}`, err, { code: err.code, status: err.status });
+    } else {
+      log.warn(`[API BaseApiError] ${err.code}: ${err.message}`, { code: err.code, status: err.status });
+    }
     return Response.json(
       {
         ok: false,
@@ -79,7 +86,7 @@ export function toApiError(err: unknown): Response {
   }
 
   if (err instanceof ZodError) {
-    console.error("[API ZodError]", JSON.stringify(err.issues, null, 2));
+    log.warn("[API ZodError] Input validation failed", { issues: err.issues });
     return Response.json(
       {
         ok: false,
@@ -101,6 +108,7 @@ export function toApiError(err: unknown): Response {
       err.name === "APIStatusError" ||
       err.name === "RateLimitError"
     ) {
+      log.error(`[API AI Error] ${err.message}`, err);
       return Response.json(
         {
           ok: false,
@@ -115,7 +123,7 @@ export function toApiError(err: unknown): Response {
     }
   }
 
-  console.error("[API Error]", err);
+  log.error("[API Unhandled Error] Internal server error", err);
   return Response.json(
     {
       ok: false,

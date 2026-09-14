@@ -5,6 +5,9 @@
  * 브로커가 대시보드에서 확인할 수 있습니다.
  */
 import { createServiceClient } from "@/lib/supabase/service";
+import { createModuleLogger } from "@/lib/logger";
+
+const log = createModuleLogger("in-app-notification");
 
 export type NotificationType =
   | "im_inquiry"       // 프라이빗 IM 신청
@@ -51,7 +54,7 @@ export async function createNotification(input: CreateNotificationInput): Promis
   if (error) {
     // Note: The in_app_notifications table should be created via proper Supabase migration.
     // We no longer use exec_sql to create tables at runtime.
-    console.error("[notification] Insert error:", error.message);
+    log.error("Failed to insert in-app notification", error, { userId: input.user_id, type: input.type });
     return false;
   }
 

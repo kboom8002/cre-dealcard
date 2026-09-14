@@ -2,6 +2,10 @@
 // 대법원 등기정보광장 API 클라이언트.
 // REGISTRY_API_KEY 환경변수가 없으면 결정적 fallback을 반환합니다.
 
+import { createModuleLogger } from '@/lib/logger';
+
+const log = createModuleLogger('registry-api');
+
 export interface RegistryMortgage {
   creditor: string;
   amount: number;
@@ -38,7 +42,7 @@ export async function fetchRegistryData(
 ): Promise<RegistryData> {
   const apiKey = process.env.REGISTRY_API_KEY;
   if (!apiKey) {
-    console.info('[registry-api] REGISTRY_API_KEY 없음. 등기 조회를 건너뜁니다.', { address });
+    log.info('REGISTRY_API_KEY is not set. Skipping registry lookup.', { address });
     return getMockRegistryFallback(_pnu || '');
   }
   try {
@@ -72,7 +76,7 @@ export async function fetchRegistryData(
     const risk = deriveRisk(active, attachments);
     return { checked: true, mortgages, attachments, encumbranceRisk: risk, displayMessage: buildMsg(risk, active, attachments) };
   } catch (err) {
-    console.error('[registry-api] API 호출 실패:', err);
+    log.error('API call failed for registry', err, { address, pnu: _pnu });
     return getMockRegistryFallback(_pnu || '');
   }
 }
@@ -83,7 +87,7 @@ export async function fetchRegistryData(
  * @see SDD S2-T2 (등기 이중화)
  */
 function getMockRegistryFallback(pnu: string): RegistryData {
-  console.warn(`[registry] Using mock fallback for PNU: ${pnu}`);
+  log.warn(`Using mock fallback for PNU: ${pnu}`, { pnu });
   return {
     checked: true,
     mortgages: [],
