@@ -349,7 +349,8 @@ test.describe('역삼 XLSX 렌트롤 Basic IM 골든 테스트', () => {
       ]);
       await dl.saveAs(pptxPath);
       downloaded = true;
-      console.log('  ✅ UI 버튼으로 PPTX 다운로드 완료');
+      fs.writeFileSync(path.join(SCREENSHOT_DIR, 'latest-pptx-path.txt'), pptxPath);
+      console.log(`  ✅ UI 버튼으로 PPTX 다운로드 완료: ${path.basename(pptxPath)}`);
     } catch {
       console.log('  ⚠️ UI 다운로드 버튼 미발견 → API 직접 호출 폴백');
     }
@@ -413,7 +414,12 @@ test.describe('역삼 XLSX 렌트롤 Basic IM 골든 테스트', () => {
   test('Phase 5: LibreOffice 150 DPI PNG 변환', async () => {
     console.log('\n🔷 Phase 5: LibreOffice PNG 변환');
     test.setTimeout(120_000);
-    const pptxPath = path.join(SCREENSHOT_DIR, 'yeoksam-xlsx-im.pptx');
+    let pptxPath = path.join(SCREENSHOT_DIR, 'yeoksam-xlsx-im.pptx');
+    const latestPathFile = path.join(SCREENSHOT_DIR, 'latest-pptx-path.txt');
+    if (fs.existsSync(latestPathFile)) {
+      const p = fs.readFileSync(latestPathFile, 'utf-8').trim();
+      if (fs.existsSync(p)) pptxPath = p;
+    }
     if (!fs.existsSync(pptxPath)) { test.skip(); return; }
 
     ensureDir(VISUAL_QA_DIR);
@@ -431,7 +437,12 @@ test.describe('역삼 XLSX 렌트롤 Basic IM 골든 테스트', () => {
   // ══════════════════════════════════════════════════════════════
   test('Phase 6: XLSX ↔ PPTX 교차 검증', async () => {
     console.log('\n🔷 Phase 6: XLSX ↔ PPTX 교차 검증');
-    const pptxPath = path.join(SCREENSHOT_DIR, 'yeoksam-xlsx-im.pptx');
+    let pptxPath = path.join(SCREENSHOT_DIR, 'yeoksam-xlsx-im.pptx');
+    const latestPathFile = path.join(SCREENSHOT_DIR, 'latest-pptx-path.txt');
+    if (fs.existsSync(latestPathFile)) {
+      const p = fs.readFileSync(latestPathFile, 'utf-8').trim();
+      if (fs.existsSync(p)) pptxPath = p;
+    }
     if (!fs.existsSync(pptxPath)) { test.skip(); return; }
 
     const XLSX = require('xlsx');

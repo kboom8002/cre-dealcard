@@ -1817,7 +1817,7 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
       const locPoi = body?.enrichment?.locationPoi ?? body?.locationPoi;
       const nearestSt = locPoi?.nearestStation;
       const rawStation = ssotKP.station_name || heroCard.nearestStation || nearestSt?.name || nearestSt?.stationName || '';
-      const stationName = rawStation ? rawStation.replace(/역.*$/, '') + '역' : '';
+      const stationName = rawStation ? rawStation.replace(/\s*\d+호선.*$/, '').replace(/역$/, '') + '역' : '';
       const stationMin = ssotKP.station_walk_min ?? nearestSt?.walkMinutes ?? (nearestSt?.distanceM ? Math.max(1, Math.round(nearestSt.distanceM / 80)) : undefined);
       const grossAreaPy = Number(heroCard.totalGrossAreaPyeong ?? ssotKP.total_gross_area_pyeong ?? 0);
       const siteAreaPy = Number(heroCard.landAreaPyeong ?? ssotKP.land_area_pyeong ?? 0);

@@ -225,7 +225,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     const locPoi = input.data.enrichment?.locationPoi ?? input.data.locationPoi;
     const nearestSt = locPoi?.nearestStation;
     const rawSt = input.data.station_name || hero?.nearestStation || nearestSt?.name || nearestSt?.stationName || '';
-    const stationName = rawSt ? rawSt.replace(/역.*$/, '') + '역' : '';
+    const stationName = rawSt ? rawSt.replace(/\s*\d+호선.*$/, '').replace(/역$/, '') + '역' : '';
     const stMin = input.data.station_walk_min ?? nearestSt?.walkMinutes ?? (nearestSt?.distanceM ? Math.max(1, Math.round(nearestSt.distanceM / 80)) : undefined);
     const stationPart = stationName && stMin
       ? `${stationName} 도보 ${stMin}분 역세권`
