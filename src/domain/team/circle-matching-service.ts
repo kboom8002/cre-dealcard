@@ -94,14 +94,16 @@ export async function runCircleAutoMatch(
       return { totalMatched: 0, sCount: 0, aCount: 0 };
     }
 
-    for (const item of sharedIntents) {
-      // Don't match self with self if not desired, or match if desired
-      const { data: intent } = await supabase
-        .from("buyer_intent_lite")
-        .select("*")
-        .eq("id", item.asset_id)
-        .maybeSingle();
+    // P2-04 Batch Query Fix
+    const intentIds = sharedIntents.map(i => i.asset_id);
+    const { data: intents } = await supabase
+      .from("buyer_intent_lite")
+      .select("*")
+      .in("id", intentIds);
+    const intentMap = new Map((intents || []).map(i => [i.id, i]));
 
+    for (const item of sharedIntents) {
+      const intent = intentMap.get(item.asset_id);
       if (!intent) continue;
 
       const matchInput: MatchInput = {
@@ -202,22 +204,27 @@ export async function runCircleAutoMatch(
       return { totalMatched: 0, sCount: 0, aCount: 0 };
     }
 
-    for (const item of sharedBuildings) {
-      const { data: building } = await supabase
-        .from("building_ssot_lite")
-        .select("*")
-        .eq("id", item.asset_id)
-        .maybeSingle();
+    // P2-04 Batch Query Fix
+    const buildingIds = sharedBuildings.map(i => i.asset_id);
+    const [{ data: buildings }, { data: cards }] = await Promise.all([
+      supabase.from("building_ssot_lite").select("*").in("id", buildingIds),
+      supabase.from("building_signal_cards").select("building_ssot_lite_id, deal_curiosity_score").in("building_ssot_lite_id", buildingIds).order("created_at", { ascending: false })
+    ]);
+    
+    const buildingMap = new Map((buildings || []).map(b => [b.id, b]));
+    const cardMap = new Map();
+    // Cards are ordered by created_at desc, so the first one we set in the map is the latest
+    if (cards) {
+      for (const card of cards.reverse()) { // reverse to let the newest overwrite the oldest, or just find the first since we already fetched it
+        cardMap.set(card.building_ssot_lite_id, card);
+      }
+    }
 
+    for (const item of sharedBuildings) {
+      const building = buildingMap.get(item.asset_id);
       if (!building) continue;
 
-      const { data: cardRow } = await supabase
-        .from("building_signal_cards")
-        .select("deal_curiosity_score")
-        .eq("building_ssot_lite_id", building.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const cardRow = cardMap.get(building.id);
 
       const matchInput: MatchInput = {
         buildingSsotLiteId: building.id,

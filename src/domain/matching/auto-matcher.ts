@@ -34,16 +34,17 @@ export async function runAutoMatch(buildingId: string, brokerId: string) {
   if (!intents || intents.length === 0) return;
 
   // 4. Run matching for each intent
-  for (const intent of intents) {
-    // Check if already matched
-    const { data: existing } = await supabase
-      .from("match_results")
-      .select("id")
-      .eq("building_ssot_lite_id", buildingId)
-      .eq("buyer_intent_lite_id", intent.id)
-      .maybeSingle();
+  // P2-04 Batch Query Fix
+  const intentIds = intents.map(i => i.id);
+  const { data: existingMatches } = await supabase
+    .from("match_results")
+    .select("buyer_intent_lite_id")
+    .eq("building_ssot_lite_id", buildingId)
+    .in("buyer_intent_lite_id", intentIds);
+  const existingMatchedIntentIds = new Set((existingMatches || []).map(m => m.buyer_intent_lite_id));
 
-    if (existing) continue;
+  for (const intent of intents) {
+    if (existingMatchedIntentIds.has(intent.id)) continue;
 
     try {
       const matchResult = await runMatchingEngine({
@@ -172,23 +173,25 @@ export async function runAutoMatchForBuyer(buyerIntentId: string, brokerId: stri
 
   if (!buildings || buildings.length === 0) return;
 
+  // P2-04 Batch Query Fix
+  const buildingIds = buildings.map(b => b.id);
+  const [{ data: existingMatches }, { data: cards }] = await Promise.all([
+    supabase.from("match_results").select("building_ssot_lite_id").eq("buyer_intent_lite_id", intent.id).in("building_ssot_lite_id", buildingIds),
+    supabase.from("building_signal_cards").select("building_ssot_lite_id, deal_curiosity_score").in("building_ssot_lite_id", buildingIds).order("created_at", { ascending: false })
+  ]);
+  
+  const existingMatchedBuildingIds = new Set((existingMatches || []).map(m => m.building_ssot_lite_id));
+  const cardMap = new Map();
+  if (cards) {
+    for (const card of cards.reverse()) {
+      cardMap.set(card.building_ssot_lite_id, card);
+    }
+  }
+
   for (const building of buildings) {
-    const { data: existing } = await supabase
-      .from("match_results")
-      .select("id")
-      .eq("building_ssot_lite_id", building.id)
-      .eq("buyer_intent_lite_id", intent.id)
-      .maybeSingle();
+    if (existingMatchedBuildingIds.has(building.id)) continue;
 
-    if (existing) continue;
-
-    const { data: cardRow } = await supabase
-      .from("building_signal_cards")
-      .select("deal_curiosity_score")
-      .eq("building_ssot_lite_id", building.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const cardRow = cardMap.get(building.id);
 
     const dealCuriosityScore = cardRow?.deal_curiosity_score ?? 50;
 

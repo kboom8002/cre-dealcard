@@ -449,23 +449,22 @@ export async function getPendingInvitations(brokerId: string): Promise<PendingIn
 
   if (!memberships || memberships.length === 0) return [];
 
+  // P2-04 Batch Query Fix
+  const circleIds = memberships.map(m => m.circle_id);
+  const inviterIds = memberships.map(m => m.invited_by).filter(Boolean) as string[];
+
+  const [{ data: circles }, { data: profiles }] = await Promise.all([
+    supabase.from("broker_circles").select("*").in("id", circleIds),
+    inviterIds.length > 0 ? supabase.from("profiles").select("display_name, company, id").in("id", inviterIds) : Promise.resolve({ data: [] })
+  ]);
+
+  const circleMap = new Map((circles || []).map(c => [c.id, c]));
+  const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+
   const result: PendingInvitation[] = [];
   for (const m of memberships) {
-    const { data: circle } = await supabase
-      .from("broker_circles")
-      .select("*")
-      .eq("id", m.circle_id)
-      .single();
-
-    let inviter = null;
-    if (m.invited_by) {
-      const { data: p } = await supabase
-        .from("profiles")
-        .select("display_name, company")
-        .eq("id", m.invited_by)
-        .maybeSingle();
-      inviter = p;
-    }
+    const circle = circleMap.get(m.circle_id);
+    let inviter = m.invited_by ? (profileMap.get(m.invited_by) || null) : null;
 
     if (circle) {
       result.push({
