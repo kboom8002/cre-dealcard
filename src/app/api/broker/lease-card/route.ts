@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireBroker } from "@/lib/auth-guard";
+import { escapeIlike } from "@/lib/utils/postgrest-escape";
 
 export async function GET(req: NextRequest) {
   const auth = await requireBroker(req);
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
     .order("created_at", { ascending: false });
 
   if (search) {
-    query = query.ilike("space_type", `%${search}%`);
+    query = query.ilike("space_type", `%${escapeIlike(search)}%`);
   }
 
   const { data: spaces, error } = await query;

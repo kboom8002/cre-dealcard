@@ -1,4 +1,6 @@
 "use client";
+import { SafeMarkdownRenderer } from "@/components/ui/safe-markdown-renderer";
+
 
 import React, { useState, useRef, useMemo, useCallback } from "react";
 import Script from "next/script";
@@ -78,8 +80,8 @@ function RichBriefing({ text }: { text: string }) {
             .replace(/(\d[\d,.]+억)/g, '<span class="text-emerald-300 font-bold">$1</span>'),
           { ALLOWED_TAGS: ['strong', 'span'], ALLOWED_ATTR: ['class'] }
         );
-        if (isHeading) return <p key={i} className="text-[14px] font-extrabold text-white leading-snug pt-1" dangerouslySetInnerHTML={{ __html: html }} />;
-        return <p key={i} className="text-[12px] text-slate-300 leading-relaxed" dangerouslySetInnerHTML={{ __html: html }} />;
+        if (isHeading) return <SafeMarkdownRenderer key={i} as="p" className="text-[14px] font-extrabold text-white leading-snug pt-1" html={html} />;
+        return <SafeMarkdownRenderer key={i} as="p" className="text-[12px] text-slate-300 leading-relaxed" html={html} />;
       })}
     </div>
   );

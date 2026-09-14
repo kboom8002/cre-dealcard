@@ -1,4 +1,6 @@
 "use client";
+import { SafeMarkdownRenderer } from "@/components/ui/safe-markdown-renderer";
+
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
@@ -804,7 +806,7 @@ function InlineMarkdown({ text }: { text: string }) {
   processed = sanitizeHtml(processed);
 
   if (processed !== text) {
-    return <span dangerouslySetInnerHTML={{ __html: processed }} />;
+    return <SafeMarkdownRenderer as="span" html={processed} />;
   }
 
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);

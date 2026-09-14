@@ -1,3 +1,4 @@
+import { SafeMarkdownRenderer } from "@/components/ui/safe-markdown-renderer";
 // @ts-nocheck DORMANT: entire file dormant
 import { redirect, notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -173,12 +174,7 @@ export default async function InsightDetailPage({ params }: { params: Params }) 
 
         {/* Body */}
         <article className="bg-[#131b2e] border border-slate-800 rounded-2xl p-6">
-          <div
-            className="prose-sm text-slate-300 leading-relaxed"
-            dangerouslySetInnerHTML={{
-              __html: `<p class="text-sm text-slate-300 leading-relaxed mb-3">${renderMarkdown(oiticle.body_md)}</p>`,
-            }}
-          />
+          <SafeMarkdownRenderer as="div" className="prose-sm text-slate-300 leading-relaxed" html={`<p class="text-sm text-slate-300 leading-relaxed mb-3">${renderMarkdown(oiticle.body_md)}</p>`} />
         </article>
 
         {/* Tags */}

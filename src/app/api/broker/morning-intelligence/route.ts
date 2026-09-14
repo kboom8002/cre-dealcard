@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { callLLM } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
+import { escapeIlike } from "@/lib/utils/postgrest-escape";
 
 // ─── 권역 매핑 ────────────────────────────────────────────────────────────────
 const REGION_MAP: Record<string, { district: string; areaSignals: string[]; pnu: string; districtCode: string }> = {
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
       // 시장 데이터
       serviceClient.from("external_news").select("title, summary, source, url, sentiment, importance_score, regions, topic").order("importance_score", { ascending: false }).order("created_at", { ascending: false }).limit(10),
       serviceClient.from("external_transactions").select("address, dong, transaction_price, usage_type, building_area, transaction_date").eq("district", district).order("transaction_date", { ascending: false }).limit(5),
-      serviceClient.from("auction_listings").select("case_number, court, address, appraised_value, minimum_bid, status, auction_date").ilike("address", `%${district}%`).limit(5),
+      serviceClient.from("auction_listings").select("case_number, court, address, appraised_value, minimum_bid, status, auction_date").ilike("address", `%${escapeIlike(district)}%`).limit(5),
       serviceClient.from("rental_market_data").select("building_type, deposit_avg, monthly_rent_avg, vacancy_rate, source").eq("region", regionKey).limit(3),
       // 한국부동산원 공식 임대동향
       serviceClient.from("rental_trend_data").select("region, quarter, vacancy_rate, rental_index").eq("region", regionKey).order("quarter", { ascending: false }).limit(1),
@@ -393,7 +394,7 @@ ${magazineSummary}
     const { data: dbPermits } = await serviceClient
       .from("construction_permits")
       .select("text, detail")
-      .ilike("text", `%${district}%`)
+      .ilike("text", `%${escapeIlike(district)}%`)
       .order("created_at", { ascending: false })
       .limit(3);
     const constructionPermits = (dbPermits || []).map(p => ({ text: p.text, detail: p.detail }));

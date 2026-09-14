@@ -7,6 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod/v4";
 import { requireBroker } from "@/lib/auth-guard";
 import { runTenantAutoMatcher } from "@/domain/matching/lease-auto-matcher";
+import { escapeIlike } from "@/lib/utils/postgrest-escape";
 
 const CreateTenantIntentSchema = z.object({
   client_id: z.string().uuid().nullable().optional(),
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
     .order("created_at", { ascending: false });
 
   if (search) {
-    query = query.ilike("business_type", `%${search}%`);
+    query = query.ilike("business_type", `%${escapeIlike(search)}%`);
   }
 
   const { data, error } = await query.limit(100);

@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod/v4';
 import { requireBroker } from '@/lib/auth-guard';
+import { escapeIlike } from "@/lib/utils/postgrest-escape";
 
 const CreateClientSchema = z.object({
   client_type: z.enum(['seller', 'buyer', 'both']),
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
     query = query.eq('tier', tier);
   }
   if (search) {
-    query = query.or(`display_name.ilike.%${search}%,company.ilike.%${search}%,phone.ilike.%${search}%`);
+    query = query.or(`display_name.ilike.%${escapeIlike(search.replace(/[,()"\\]/g, ''))}%,company.ilike.%${escapeIlike(search.replace(/[,()"\\]/g, ''))}%,phone.ilike.%${escapeIlike(search.replace(/[,()"\\]/g, ''))}%`);
   }
 
   const { data, error } = await query.limit(100);

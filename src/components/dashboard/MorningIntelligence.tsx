@@ -1,4 +1,6 @@
 "use client";
+import { SafeMarkdownRenderer } from "@/components/ui/safe-markdown-renderer";
+
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
@@ -64,8 +66,7 @@ function RichBriefing({ text }: { text: string }) {
           return (
             <div key={i} className="flex items-center gap-2 pt-1">
               <div className="h-px flex-1 bg-gradient-to-r from-indigo-500/30 to-transparent" />
-              <p className="text-[13px] font-extrabold text-white tracking-tight"
-                 dangerouslySetInnerHTML={{ __html: formattedText }} />
+              <SafeMarkdownRenderer as="p" className="text-[13px] font-extrabold text-white tracking-tight" html={formattedText} />
               <div className="h-px flex-1 bg-gradient-to-l from-indigo-500/30 to-transparent" />
             </div>
           );
@@ -74,15 +75,14 @@ function RichBriefing({ text }: { text: string }) {
           return (
             <div key={i} className="flex items-start gap-2 pl-2">
               <ChevronRight className="w-3.5 h-3.5 text-indigo-400 shrink-0 mt-0.5" />
-              <p className="text-[12px] text-slate-200 leading-relaxed"
-                 dangerouslySetInnerHTML={{ __html: formattedText }} />
+              <SafeMarkdownRenderer as="p" className="text-[12px] text-slate-200 leading-relaxed" html={formattedText} />
             </div>
           );
         }
         return (
           <p key={i}
              className={`text-[12px] leading-relaxed ${hasMetric ? "text-slate-100" : "text-slate-300"}`}
-             dangerouslySetInnerHTML={{ __html: formattedText }} />
+             ></p>
         );
       })}
     </div>

@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-guard';
 import { createServiceClient } from '@/lib/supabase/service';
+import { escapeIlike } from "@/lib/utils/postgrest-escape";
 
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number(sp.get('page') ?? '1'));
     const limit = Math.min(100, Math.max(1, Number(sp.get('limit') ?? '20')));
 
-    const safeSearch = search ? search.replace(/[,()"\\]/g, '') : '';
+    const safeSearch = search ? escapeIlike(search.replace(/[,()"\\]/g, '')) : '';
 
     const supabase = createServiceClient();
 

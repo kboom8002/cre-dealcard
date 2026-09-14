@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { escapeIlike } from "@/lib/utils/postgrest-escape";
 
 /**
  * GET /api/public/explore/search
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
   const region = searchParams.get("region") ?? "";
   const q = searchParams.get("q") ?? "";
 
-  const safeQ = q.replace(/[,()"\\]/g, '');
+  const safeQ = escapeIlike(q.replace(/[,()"\\]/g, ''));
 
   const supabase = createServiceClient();
 
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
           jongno: "종로",
           hongdae: "홍대",
         }[region];
-        if (regionLabel) query = query.ilike("area_signal", `%${regionLabel}%`);
+        if (regionLabel) query = query.ilike("area_signal", `%${escapeIlike(regionLabel)}%`);
       }
       if (safeQ) {
         query = query.or(`area_signal.ilike.%${safeQ}%,asset_type.ilike.%${safeQ}%`);
@@ -67,7 +68,7 @@ export async function GET(req: NextRequest) {
           jongno: "종로",
           hongdae: "홍대",
         }[region];
-        if (regionLabel) query = query.ilike("area_signal", `%${regionLabel}%`);
+        if (regionLabel) query = query.ilike("area_signal", `%${escapeIlike(regionLabel)}%`);
       }
       if (safeQ) {
         query = query.or(`area_signal.ilike.%${safeQ}%,title.ilike.%${safeQ}%,space_type.ilike.%${safeQ}%`);
@@ -91,7 +92,7 @@ export async function GET(req: NextRequest) {
         query = query.eq("region", region);
       }
       if (q) {
-        query = query.ilike("summary_ko", `%${q}%`);
+        query = query.ilike("summary_ko", `%${escapeIlike(q)}%`);
       }
 
       const { data, error } = await query;

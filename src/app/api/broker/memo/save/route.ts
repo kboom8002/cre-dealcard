@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { escapeIlike } from "@/lib/utils/postgrest-escape";
 
 export const dynamic = 'force-dynamic';
 
@@ -97,7 +98,7 @@ export async function GET(req: Request) {
 
     // Text search (ILIKE for simplicity)
     if (q) {
-      query = query.ilike("memo_text", `%${q}%`);
+      query = query.ilike("memo_text", `%${escapeIlike(q)}%`);
     }
 
     // Sort: pinned first, then by created_at desc
@@ -121,7 +122,7 @@ export async function GET(req: Request) {
           .order("created_at", { ascending: false });
 
         if (type) fallbackQuery = fallbackQuery.eq("routing_type", type);
-        if (q) fallbackQuery = fallbackQuery.ilike("memo_text", `%${q}%`);
+        if (q) fallbackQuery = fallbackQuery.ilike("memo_text", `%${escapeIlike(q)}%`);
 
         const { data: fbData, error: fbError } = await fallbackQuery;
         if (fbError) {
