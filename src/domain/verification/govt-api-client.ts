@@ -1,3 +1,6 @@
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('govt-api-client');
+
 /**
  * 국토교통부 건축HUB 건축물대장정보 서비스 API 클라이언트
  *
@@ -98,7 +101,7 @@ export async function fetchBuildingRegister(
 
   // API Key가 없거나 테스트인 경우 mock 데이터 반환
   if (!apiKey || process.env.NODE_ENV === "test") {
-    console.warn(
+    log.warn(
       "[govt-api-client] DATA_GO_KR_API_KEY is missing or in test environment. Returning mock data.",
     );
 
@@ -123,7 +126,7 @@ export async function fetchBuildingRegister(
     });
 
     if (!res.ok) {
-      console.error(`[govt-api-client] Govt API HTTP Error: ${res.status}`);
+      log.error(`[govt-api-client] Govt API HTTP Error: ${res.status}`);
       return { exists: false };
     }
 
@@ -132,7 +135,7 @@ export async function fetchBuildingRegister(
     // API 응답 구조: response.header.resultCode === "00" → 성공
     const resultCode = data?.response?.header?.resultCode;
     if (resultCode && resultCode !== "00") {
-      console.error(
+      log.error(
         `[govt-api-client] API Error: ${resultCode} - ${data?.response?.header?.resultMsg}`,
       );
       return { exists: false };
@@ -161,7 +164,7 @@ export async function fetchBuildingRegister(
       landArea: item.platArea ? Number(item.platArea) : undefined,
     };
   } catch (error) {
-    console.error("[govt-api-client] Failed to fetch building register:", error);
+    log.error("[govt-api-client] Failed to fetch building register:", error);
     return { exists: false };
   }
 }

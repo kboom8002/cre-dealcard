@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordEvent } from "./record-event";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('market-indicator-engine');
+
+
 export interface MarketIndicator {
   region: string;
   assetType: string;
@@ -288,7 +292,7 @@ export class MarketIndicatorEngine {
       .single();
 
     if (error) {
-      console.error("[generateSnapshot] Save failed:", error.message);
+      log.error("[generateSnapshot] Save failed:", error.message);
     } else {
       await recordEvent(this.supabase, {
         eventType: "market_indicator_computed" as any,

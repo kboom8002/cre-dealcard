@@ -69,6 +69,10 @@ export interface FinancialInputs {
 import { ASSUMPTIONS } from './assumptions';
 import { getAssumptions } from '../assumptions';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('financials');
+
+
 export interface FinancialOutputs {
   annualNoi: { best: number; base: number; worst: number };
   capRate: { best: number; base: number; worst: number } | null;
@@ -160,7 +164,7 @@ function getOpexRatio(assetType?: string): number {
   if (t.includes('병원') || t.includes('의료') || t.includes('요양')) return 0.22;
   if (t.includes('주유소') || t.includes('세차')) return 0.10;
   if (t.includes('교육') || t.includes('학원')) return 0.20;
-  console.warn(`[financials] Unknown assetType for opexRatio: "${assetType}", using default 18%`);
+  log.warn(`[financials] Unknown assetType for opexRatio: "${assetType}", using default 18%`);
   return 0.18;
 }
 

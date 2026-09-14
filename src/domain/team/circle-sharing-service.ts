@@ -2,6 +2,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { runCircleAutoMatch } from "./circle-matching-service";
 import { notifyCircleMembers } from "./circle-notification-service";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('circle-sharing-service');
+
+
 export interface SharedAssetWithDetail {
   id: string;
   circle_id: string;
@@ -66,7 +70,7 @@ export async function shareAssetToCircle(input: {
   // 3. Always-On Matching trigger (non-blocking)
   if (input.assetType === "building" || input.assetType === "buyer_intent") {
     runCircleAutoMatch(input.circleId, input.assetType, input.assetId).catch((err) =>
-      console.warn("[circle-matching] Auto match failed:", err)
+      log.warn("[circle-matching] Auto match failed:", err)
     );
   }
 
@@ -88,7 +92,7 @@ export async function shareAssetToCircle(input: {
     link: `/broker/circles/${input.circleId}`,
     type: "circle_shared",
     metadata: { asset_type: input.assetType, asset_id: input.assetId },
-  }).catch((e) => console.warn("[circle-sharing] Notify error:", e));
+  }).catch((e) => log.warn("[circle-sharing] Notify error:", e));
 
   // 5. Activity event
   await supabase.from("activity_events").insert({

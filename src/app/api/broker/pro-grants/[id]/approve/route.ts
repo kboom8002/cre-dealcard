@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { requireBroker } from '@/lib/auth-guard';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -30,7 +34,7 @@ export async function POST(
       .maybeSingle();
 
     if (error) {
-      console.error('[pro-grant] Supabase update failed:', error);
+      log.error('[pro-grant] Supabase update failed:', error);
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
@@ -40,7 +44,7 @@ export async function POST(
 
     return NextResponse.json({ ok: true, id: grantId, status: 'approved', grant });
   } catch (err) {
-    console.error('[pro-grant] Approve Error:', err);
+    log.error('[pro-grant] Approve Error:', err);
     return NextResponse.json({ ok: false, error: 'Internal error' }, { status: 500 });
   }
 }

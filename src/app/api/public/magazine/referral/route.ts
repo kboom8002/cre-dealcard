@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 /**
  * POST /api/public/magazine/referral
  * Records a referral when someone subscribes via a referral link
@@ -67,7 +71,7 @@ export async function POST(request: NextRequest) {
       nextMilestone: nextMilestone || null,
     });
   } catch (err: unknown) {
-    console.error("[api/public/magazine/referral] POST Error:", err);
+    log.error("[api/public/magazine/referral] POST Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 오류" },
       { status: 500 }
@@ -116,7 +120,7 @@ export async function GET(request: NextRequest) {
       currentMilestoneIdx: milestones.filter(m => totalReferrals >= m.count).length - 1,
     });
   } catch (err: unknown) {
-    console.error("[api/public/magazine/referral] GET Error:", err);
+    log.error("[api/public/magazine/referral] GET Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 오류" },
       { status: 500 }

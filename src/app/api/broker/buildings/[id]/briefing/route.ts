@@ -8,6 +8,10 @@ import { generateDealBriefing } from '@/domain/briefing/deal-briefing-generator'
 import { readWithMigration } from '@/lib/ssot-adapter';
 import { requireBroker } from '@/lib/auth-guard';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -34,7 +38,7 @@ export async function GET(
     const briefing = await generateDealBriefing((await params).id, user!.id);
     return NextResponse.json({ ok: true, briefing });
   } catch (err) {
-    console.error('[briefing] error', err);
+    log.error('[briefing] error', err);
     return NextResponse.json({ error: '브리핑 생성 중 오류가 발생했습니다' }, { status: 500 });
   }
 }

@@ -8,6 +8,10 @@ import { InvalidationEngine } from '@/platform/im-pipeline/regeneration/invalida
 import { broadcastDealcardMutation } from '@/platform/im-pipeline/realtime/dealcard-sync-channel';
 
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 // D37 H-3: 섹션 저장 시 수치 검증 유틸
 function validateSectionClaims(
   sections: MobileIMSection[],
@@ -217,7 +221,7 @@ export async function PUT(
       }
     }
   } catch (syncErr) {
-    console.warn('[save-sections] Forward sync to PPTX Studio failed (non-blocking):', syncErr);
+    log.warn('[save-sections] Forward sync to PPTX Studio failed (non-blocking):', syncErr);
   }
 
   // Broadcast mutation via Realtime Channel
@@ -234,7 +238,7 @@ export async function PUT(
       updatedBy: guard.user!.id,
     });
   } catch (broadcastErr) {
-    console.warn('[save-sections] Broadcast failed (non-blocking):', broadcastErr);
+    log.warn('[save-sections] Broadcast failed (non-blocking):', broadcastErr);
   }
 
   // D37 H-3: Claim 수치 검증 (non-blocking warnings)

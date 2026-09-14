@@ -8,6 +8,10 @@ import type { ParsedDocument } from "./file-parser";
 import { resolveSection, type SectionResolveResult } from "./section-alias-resolver";
 import { getModel } from "@/ai/model-selector";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('section-segmenter');
+
+
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
 export interface SegmentedSection {
@@ -71,7 +75,7 @@ export async function segmentDocument(
     const aiSections = await callAIForSegmentation(doc);
     return mapAISectionsToSegmented(aiSections);
   } catch (err) {
-    console.error('[section-segmenter] AI 세그멘테이션 실패:', err);
+    log.error('[section-segmenter] AI 세그멘테이션 실패:', err);
     // 폴백: 전체 텍스트를 property_overview로 반환
     return [{
       originalTitle: '전체 문서',
@@ -140,7 +144,7 @@ ${doc.rawText.slice(0, 12000)}`;
 
     return parsed;
   } catch (parseErr) {
-    console.warn('[section-segmenter] JSON 파싱 실패, 단일 폴백 섹션 생성:', parseErr);
+    log.warn('[section-segmenter] JSON 파싱 실패, 단일 폴백 섹션 생성:', parseErr);
     return {
       sections: [
         {

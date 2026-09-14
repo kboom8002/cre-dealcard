@@ -4,6 +4,10 @@
 
 import type { SectionContext } from "./narrative-prompt";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('im-generation-state-machine');
+
+
 // ─── IM 생성 단계 ─────────────────────────────────────────────────────────────
 
 export type IMGenStage =
@@ -79,7 +83,7 @@ export function createIMStateMachine(initialContext: SectionContext): IMStateMac
 export function transitionTo(machine: IMStateMachine, nextStage: IMGenStage): boolean {
   const allowed = machine.transitions[machine.stage];
   if (!allowed.includes(nextStage)) {
-    console.warn(
+    log.warn(
       `[im-state-machine] Invalid transition: ${machine.stage} → ${nextStage}. ` +
       `Allowed: [${allowed.join(', ')}]`
     );

@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export const dynamic = 'force-dynamic';
 
 const SCORE_DROP_THRESHOLD = 0.5;
@@ -19,7 +23,7 @@ export async function GET() {
       .not('result_judge_score', 'is', null);
 
     if (twErr) {
-      console.error('[ai-quality-monitor] Failed to query this week scores:', twErr);
+      log.error('[ai-quality-monitor] Failed to query this week scores:', twErr);
       return NextResponse.json({ ok: false, error: 'Database query failed' }, { status: 500 });
     }
 
@@ -33,7 +37,7 @@ export async function GET() {
       .not('result_judge_score', 'is', null);
 
     if (lwErr) {
-      console.error('[ai-quality-monitor] Failed to query last week scores:', lwErr);
+      log.error('[ai-quality-monitor] Failed to query last week scores:', lwErr);
       return NextResponse.json({ ok: false, error: 'Database query failed' }, { status: 500 });
     }
 
@@ -61,7 +65,7 @@ export async function GET() {
 
       if (drop >= SCORE_DROP_THRESHOLD) {
         result.alert = true;
-        console.warn(
+        log.warn(
           `[ai-quality-monitor] ⚠️ AI Judge score dropped by ${drop.toFixed(2)} ` +
           `(${lastWeekAvg.toFixed(2)} → ${thisWeekAvg.toFixed(2)})`,
         );
@@ -80,16 +84,16 @@ export async function GET() {
               }),
             });
           } catch (webhookErr) {
-            console.error('[ai-quality-monitor] Webhook notification failed:', webhookErr);
+            log.error('[ai-quality-monitor] Webhook notification failed:', webhookErr);
           }
         }
       }
     }
 
-    console.info('[ai-quality-monitor] Check completed:', result);
+    log.info('[ai-quality-monitor] Check completed:', result);
     return NextResponse.json({ ok: true, ...result }, { status: 200 });
   } catch (err) {
-    console.error('[ai-quality-monitor] Unexpected error:', err);
+    log.error('[ai-quality-monitor] Unexpected error:', err);
     return NextResponse.json({ ok: false, error: 'Internal server error' }, { status: 500 });
   }
 }

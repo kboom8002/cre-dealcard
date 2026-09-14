@@ -13,6 +13,10 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { requireBroker } from '@/lib/auth-guard';
 import { after } from "next/server";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const BuyerIntentFromMemoRequest = z.object({
   memo: z.string().min(5),
 });
@@ -43,7 +47,7 @@ export async function POST(req: Request) {
         const { runAutoMatchForBuyer } = await import("@/domain/matching/auto-matcher");
         await runAutoMatchForBuyer(result.buyerIntentId, actorId ?? "system");
       } catch (err) {
-        console.error("Background auto-match for buyer failed:", err);
+        log.error("Background auto-match for buyer failed:", err);
       }
     });
 

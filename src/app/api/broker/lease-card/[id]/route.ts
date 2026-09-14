@@ -9,6 +9,10 @@ import { z } from "zod/v4";
 import { requireBroker } from "@/lib/auth-guard";
 import { runLeaseAutoMatcher } from "@/domain/matching/lease-auto-matcher";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const UpdateLeaseSpaceSchema = z.object({
   floor: z.string().optional(),
   area_sqm: z.number().optional(),
@@ -141,7 +145,7 @@ export async function PUT(
   try {
     await runLeaseAutoMatcher(id, auth.user!.id);
   } catch (err) {
-    console.error("[LeaseCardPut] Auto-match run failed:", err);
+    log.error("[LeaseCardPut] Auto-match run failed:", err);
   }
 
   return NextResponse.json({

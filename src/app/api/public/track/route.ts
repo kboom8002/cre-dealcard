@@ -8,6 +8,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -32,7 +36,7 @@ export async function POST(req: NextRequest) {
     }).then(({ error }) => {
       if (error) {
         // §9-6: 토큰을 로그에 남기지 않음
-        console.error('[track] Insert error:', error.message);
+        log.error('[track] Insert error:', error.message);
       }
     });
 

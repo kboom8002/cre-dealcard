@@ -1,5 +1,9 @@
 import { sendKakaoAlimtalk } from '@/lib/notification/notification-service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('im-view-alert');
+
+
 /**
  * DB 클라이언트 인터페이스 (Rule 12: 도메인 계층 Supabase 직접 의존 제거)
  */
@@ -28,7 +32,7 @@ export async function checkAndSendIMViewAlert(
       .single();
 
     if (bError || !building?.owner_id) {
-      console.warn(`[IM View Alert] Building ${input.buildingId} has no owner_id`);
+      log.warn(`[IM View Alert] Building ${input.buildingId} has no owner_id`);
       return false;
     }
 
@@ -46,12 +50,12 @@ export async function checkAndSendIMViewAlert(
       .gte('created_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString());
 
     if (countError) {
-      console.error('[IM View Alert] Check history failed:', countError.message);
+      log.error('[IM View Alert] Check history failed:', countError.message);
       return false;
     }
 
     if ((count ?? 0) > 0) {
-      console.log(`[IM View Alert] Alert already sent for building ${input.buildingId} within 24 hours. Skipping.`);
+      log.info(`[IM View Alert] Alert already sent for building ${input.buildingId} within 24 hours. Skipping.`);
       return false;
     }
 
@@ -63,7 +67,7 @@ export async function checkAndSendIMViewAlert(
       .single();
 
     if (pError || !profile?.phone) {
-      console.warn(`[IM View Alert] Profile for owner ${building.owner_id} has no phone`);
+      log.warn(`[IM View Alert] Profile for owner ${building.owner_id} has no phone`);
       return false;
     }
 
@@ -102,14 +106,14 @@ export async function checkAndSendIMViewAlert(
         },
       });
       if (logError) {
-        console.error('[IM View Alert] Log event failed:', logError.message);
+        log.error('[IM View Alert] Log event failed:', logError.message);
       }
     }
 
     return sent;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[IM View Alert] Error occurred:', message);
+    log.error('[IM View Alert] Error occurred:', message);
     return false;
   }
 }

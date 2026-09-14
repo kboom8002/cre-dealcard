@@ -3,6 +3,10 @@ import { createHash } from 'node:crypto';
 import { createTeaserEvent, inferIntentFromEvents } from '@/domain/deal/teaser/teaser-insight';
 import { createServiceClient } from '@/lib/supabase/service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
@@ -36,7 +40,7 @@ export async function POST(request: Request) {
     });
 
     if (insertError) {
-      console.error('[teaser-event] Insert failed:', insertError);
+      log.error('[teaser-event] Insert failed:', insertError);
       return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 });
     }
 
@@ -73,7 +77,7 @@ export async function POST(request: Request) {
         const intents = generateAutoIntents(eventData.profile);
         
         // Example: Log or store intents
-        console.info('[teaser-event] Generated auto intents:', intents);
+        log.info('[teaser-event] Generated auto intents:', intents);
         
         return NextResponse.json({ ok: true, intents });
       }
@@ -81,7 +85,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error('[teaser-event] Error:', err);
+    log.error('[teaser-event] Error:', err);
     return NextResponse.json({ ok: false, error: 'Internal error' }, { status: 500 });
   }
 }

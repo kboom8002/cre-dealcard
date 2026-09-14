@@ -4,6 +4,10 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { sanitizePersona, stripMarkdown } from './pptx/data-binder';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('fewshot-tracker');
+
+
 export interface FewShotUsageInput {
   generationId: string;
   sectionType: string;
@@ -24,7 +28,7 @@ export async function logFewShotUsage(input: FewShotUsageInput): Promise<void> {
       hardcoded_used:  input.hardcodedUsed,
     });
   } catch (err) {
-    console.warn('[fewshot-tracker] Failed to log usage:', err);
+    log.warn('[fewshot-tracker] Failed to log usage:', err);
   }
 }
 
@@ -44,7 +48,7 @@ export async function updateFewShotResultScore(
       .eq('generation_id', generationId)
       .eq('section_type', sectionType);
   } catch (err) {
-    console.warn('[fewshot-tracker] Failed to update result score:', err);
+    log.warn('[fewshot-tracker] Failed to update result score:', err);
   }
 }
 
@@ -137,7 +141,7 @@ export async function analyzeFewShotEffectiveness(): Promise<FewShotEffectivenes
 
     return result.sort((a, b) => b.avgResultScore - a.avgResultScore);
   } catch (err) {
-    console.error('[fewshot-tracker] Failed to analyze effectiveness:', err);
+    log.error('[fewshot-tracker] Failed to analyze effectiveness:', err);
     return [];
   }
 }
@@ -188,10 +192,10 @@ export async function promoteToGoldenCandidate(
       is_active:     false,             // V5: 사람 승인 전까지 비활성
     });
 
-    console.info(`[fewshot-tracker] Golden candidate registered (pending approval): ${sectionType} of doc ${documentId} (Score: ${judgeScore})`);
+    log.info(`[fewshot-tracker] Golden candidate registered (pending approval): ${sectionType} of doc ${documentId} (Score: ${judgeScore})`);
     return true;
   } catch (err) {
-    console.warn('[fewshot-tracker] Failed to auto-promote:', err);
+    log.warn('[fewshot-tracker] Failed to auto-promote:', err);
     return false;
   }
 }

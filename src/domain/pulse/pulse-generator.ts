@@ -11,6 +11,10 @@ import { CRESignalAggregator, getWeekLabel } from "./cre-signal-aggregator";
 import type { CRESignalSnapshot } from "./cre-signal-aggregator";
 import { callLLM as centralCallLLM } from "@/ai/llm-client";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('pulse-generator');
+
+
 const REGIONS = ["gbd", "ybd", "cbd", "seongsu", "pangyo", "mapo", "jongno", "hongdae"] as const;
 
 const REGION_LABELS: Record<string, string> = {
@@ -61,7 +65,7 @@ async function callLLM(prompt: string): Promise<{
     });
     return JSON.parse(result.content);
   } catch (e) {
-    console.error("[PulseGenerator] LLM call failed, using fallback:", e);
+    log.error("[PulseGenerator] LLM call failed, using fallback:", e);
     return {
       summary: "이번 주 시장 펄스 분석이 준비되었습니다. 상세 시그널은 본문을 확인하세요.",
       keyFindings: [
@@ -123,7 +127,7 @@ export async function generateAllWeeklyPulses(
       const result = await generateWeeklyPulse(supabase, region);
       results.push({ region, ...result });
     } catch (e) {
-      console.error(`[PulseGenerator] Failed for ${region}:`, e);
+      log.error(`[PulseGenerator] Failed for ${region}:`, e);
     }
   }
 

@@ -4,6 +4,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { callLLM } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 /**
  * POST /api/broker/morning-intelligence/custom
  * 사용자 복붙 자료 1~10건 → AI 정리 → 저장
@@ -99,7 +103,7 @@ JSON 형식으로 정확히 출력:
       .single();
 
     if (error) {
-      console.error("[custom-intel] Insert error:", error);
+      log.error("[custom-intel] Insert error:", error);
       // 테이블이 없을 수 있으므로 테이블 없이도 응답 반환
       return NextResponse.json({
         success: true,
@@ -115,7 +119,7 @@ JSON 형식으로 정확히 출력:
       aiSummary,
     });
   } catch (err: unknown) {
-    console.error("[custom-intel] POST Error:", err);
+    log.error("[custom-intel] POST Error:", err);
     return NextResponse.json({ error: err instanceof Error ? err.message : "서버 오류" }, { status: 500 });
   }
 }
@@ -144,7 +148,7 @@ export async function GET() {
 
     return NextResponse.json({ success: true, items: data || [] });
   } catch (err: unknown) {
-    console.error("[custom-intel] GET Error:", err);
+    log.error("[custom-intel] GET Error:", err);
     return NextResponse.json({ error: err instanceof Error ? err.message : "서버 오류" }, { status: 500 });
   }
 }

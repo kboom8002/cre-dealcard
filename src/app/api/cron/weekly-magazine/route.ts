@@ -4,6 +4,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { generateWeeklyMagazine } from "@/domain/magazine/weekly-generator";
 import { distributeMagazine } from "@/domain/magazine/distribute-magazine";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -38,7 +42,7 @@ export async function GET(request: NextRequest) {
     .eq("subscription_active", true);
 
   if (brokersError) {
-    console.error("[cron/weekly-magazine] 브로커 조회 실패:", brokersError.message);
+    log.error("[cron/weekly-magazine] 브로커 조회 실패:", brokersError.message);
     return NextResponse.json(
       { error: brokersError.message },
       { status: 500 },
@@ -73,7 +77,7 @@ export async function GET(request: NextRequest) {
       // C2 fix: 품질 게이트 실패 시 배포 차단
       let distResult = { sent: 0, failed: 0 };
       if (edition.status === 'needs_review') {
-        console.warn(`[cron] QG 불합격 — 배포 스킵, 브로커 수동 검토 필요: ${broker.slug}`);
+        log.warn(`[cron] QG 불합격 — 배포 스킵, 브로커 수동 검토 필요: ${broker.slug}`);
       } else {
         try {
           distResult = await distributeMagazine(supabase, broker.slug, {
@@ -83,7 +87,7 @@ export async function GET(request: NextRequest) {
           });
         } catch (distErr: unknown) {
           const msg = distErr instanceof Error ? distErr.message : 'unknown';
-          console.warn(`[cron] 배포 실패 (non-blocking): ${broker.slug}`, msg);
+          log.warn(`[cron] 배포 실패 (non-blocking): ${broker.slug}`, msg);
         }
       }
 
@@ -95,7 +99,7 @@ export async function GET(request: NextRequest) {
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "알 수 없는 오류";
-      console.error(`[cron/weekly-magazine] 브로커 ${broker.slug} 실패:`, message);
+      log.error(`[cron/weekly-magazine] 브로커 ${broker.slug} 실패:`, message);
       results.push({
         broker_id: broker.user_id,
         slug: broker.slug,

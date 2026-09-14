@@ -19,6 +19,10 @@ import { runMagazineQualityGate } from './quality-gate';
 import { generateMagazineTeaserCards } from './magazine-teaser-cards';
 import { summarizeMonthlyTransactions } from '@/domain/external/monthly-transaction-summary';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('weekly-generator');
+
+
 // ── 타입 정의 ──────────────────────────────────────────────────────
 
 interface BrokerContext {
@@ -322,7 +326,7 @@ export const buildThemeOfWeek = async (
       matchedDealIds,
     };
   } catch (err) {
-    console.warn('[buildThemeOfWeek] LLM 호출 실패, 폴백 사용:', err);
+    log.warn('[buildThemeOfWeek] LLM 호출 실패, 폴백 사용:', err);
     return {
       themeTitle: `${region} 시장, 이번 주 핵심 트렌드`,
       themeBodyMd: news
@@ -412,7 +416,7 @@ const generateLLMContent = async (
       ai_briefing: parsed.ai_briefing ?? '',
     };
   } catch (err) {
-    console.warn('[generateLLMContent] LLM 호출 실패, 폴백 사용:', err);
+    log.warn('[generateLLMContent] LLM 호출 실패, 폴백 사용:', err);
     return {
       market_temp: coverData.marketTemp,
       cover_keywords: coverData.coverKeywords,
@@ -473,7 +477,7 @@ ${hobbiesStr}
 
     return res.content.trim().replace(/^["']|["']$/g, "");
   } catch (err) {
-    console.warn("[generatePersonalizedInsert] Fallback used:", err);
+    log.warn("[generatePersonalizedInsert] Fallback used:", err);
     return `${regionsStr} 권역의 ${assetsStr} 실거래 동향과 금주 시장 분석 포인트를 확인해보세요.`;
   }
 }
@@ -562,7 +566,7 @@ export const generateWeeklyMagazine = async (params: {
     const targetRegions = brokerCtx.broker.specialty_regions?.length ? brokerCtx.broker.specialty_regions : ['성수동', '강남구'];
     monthlySummary = await summarizeMonthlyTransactions(supabase as any, prevMonthStr, targetRegions);
   } catch (err) {
-    console.warn('[WeeklyGenerator] Failed to summarize monthly transactions:', err);
+    log.warn('[WeeklyGenerator] Failed to summarize monthly transactions:', err);
   }
 
   const contentPayload = {
@@ -629,7 +633,7 @@ export const generateWeeklyMagazine = async (params: {
     { news: news, transactions: transactions }
   );
   if (!qgResult.passed) {
-    console.warn(`[weekly-magazine] QG 불합격 (score: ${qgResult.score}):`, qgResult.issues.slice(0, 3));
+    log.warn(`[weekly-magazine] QG 불합격 (score: ${qgResult.score}):`, qgResult.issues.slice(0, 3));
   }
 
   const editionRow = {
@@ -679,7 +683,7 @@ export const generateWeeklyMagazine = async (params: {
       });
   } catch (issueErr) {
     // 듀얼 쓰기 실패는 non-blocking
-    console.warn('[weekly-magazine] magazine_issues 듀얼 쓰기 실패 (non-blocking):', issueErr);
+    log.warn('[weekly-magazine] magazine_issues 듀얼 쓰기 실패 (non-blocking):', issueErr);
   }
 
   return data as MagazineEdition;

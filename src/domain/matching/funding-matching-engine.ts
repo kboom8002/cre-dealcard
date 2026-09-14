@@ -1,5 +1,9 @@
 import { embedText } from "@/ai/llm-client";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('funding-matching-engine');
+
+
 export interface FundingProjectMatchInput {
   project: {
     id: string;
@@ -105,7 +109,7 @@ export async function runFundingMatchingEngine(
 
     similarity = cosineSimilarity(pEmbed, iEmbed);
   } catch (e) {
-    console.warn("[runFundingMatchingEngine] OpenAI embeddings failed, using keyword match fallback");
+    log.warn("[runFundingMatchingEngine] OpenAI embeddings failed, using keyword match fallback");
     // fallback keyword overlap
     const keywords = (project.descriptionMemo || "").split(/\s+/);
     const preferences = investor.investmentPreference.concat(investor.mustHaveCriteria);

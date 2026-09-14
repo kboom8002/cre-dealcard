@@ -6,6 +6,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -32,7 +36,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (error) {
-      console.error('[Magazine Analytics Error]', error.message);
+      log.error('[Magazine Analytics Error]', error.message);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -86,22 +90,22 @@ export async function POST(req: NextRequest) {
             .then((scoreResult) => {
               if (scoreResult.isHotLead) {
                 checkAndSendHotLeadAlert(supabase, centralBrokerId, scoreResult, visitor_id).catch((err) => {
-                  console.error('[Hot Lead Alert] Failed to send alert:', err);
+                  log.error('[Hot Lead Alert] Failed to send alert:', err);
                 });
               }
             })
             .catch((err) => {
-              console.error('[Hot Lead Alert] Scoring calculation failed:', err);
+              log.error('[Hot Lead Alert] Scoring calculation failed:', err);
             });
         }
       } catch (err) {
-        console.error('[Magazine Analytics API] Central logging error:', err);
+        log.error('[Magazine Analytics API] Central logging error:', err);
       }
     }
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {
-    console.error('[POST /api/public/magazine/analytics]', err.message);
+    log.error('[POST /api/public/magazine/analytics]', err.message);
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }

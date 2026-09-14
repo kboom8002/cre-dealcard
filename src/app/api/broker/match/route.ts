@@ -17,6 +17,10 @@ import { classifyNewBuyer } from '@/domain/prediction/buyer-clustering';
 import { requireBroker } from '@/lib/auth-guard';
 import { generatePitchSnippet, formatPitchMessage } from '@/domain/building/pitch-warmup';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const PersistedBodySchema = z.object({
   buildingId:     z.string(),
   buyerIntentId:  z.string(),
@@ -255,7 +259,7 @@ export async function POST(req: NextRequest) {
   try {
     matchResult = await runMatchingEngine(matchInput);
   } catch (err) {
-    console.error('[match] engine error', err);
+    log.error('[match] engine error', err);
     return NextResponse.json({ error: 'AI 매칭 중 오류가 발생했습니다' }, { status: 500 });
   }
 
@@ -280,7 +284,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (saveErr) {
-      console.error('[match] save error', saveErr);
+      log.error('[match] save error', saveErr);
     } else {
       savedMatch = data;
     }
@@ -361,20 +365,20 @@ export async function POST(req: NextRequest) {
     buyerIntentId,
     matchGrade: matchResult.grade,
     matchScore: matchResult.score,
-  }).catch((e) => console.warn('[graph] edge create failed', e));
+  }).catch((e) => log.warn('[graph] edge create failed', e));
 
   // G-D: Generate CasePack embedding (non-blocking)
   if (casePack) {
     const cp = casePack as unknown as { id: string };
     if (cp.id) {
       generateCasePackEmbedding(cp.id)
-        .catch((e) => console.warn('[graph] casepack embed failed', e));
+        .catch((e) => log.warn('[graph] casepack embed failed', e));
     }
   }
 
   // P-D2: Classify buyer into cluster (non-blocking)
   classifyNewBuyer(buyerIntentId)
-    .catch((e) => console.warn('[cluster] classify failed', e));
+    .catch((e) => log.warn('[cluster] classify failed', e));
 
   // Generate pitch warmup for top matches
   let pitchMessage = null;

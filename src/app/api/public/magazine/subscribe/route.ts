@@ -5,6 +5,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(req: NextRequest) {
   try {
     const { broker_id, phone, name, email, channel, source } = await req.json();
@@ -28,7 +32,7 @@ export async function POST(req: NextRequest) {
     }, { onConflict: 'broker_id,subscriber_phone' });
 
     if (error) {
-      console.error('[Magazine Subscribe Error]', error.message);
+      log.error('[Magazine Subscribe Error]', error.message);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -42,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {
-    console.error('[POST /api/public/magazine/subscribe]', err.message);
+    log.error('[POST /api/public/magazine/subscribe]', err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

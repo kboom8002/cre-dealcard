@@ -10,6 +10,10 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -62,7 +66,7 @@ export async function DELETE(
       .eq("id", id);
 
     if (hardDeleteErr) {
-      console.warn("[deal-card/delete] Hard delete failed, falling back to soft delete:", hardDeleteErr.message);
+      log.warn("[deal-card/delete] Hard delete failed, falling back to soft delete:", hardDeleteErr.message);
       // Hard delete 실패 시 soft delete 수행 (status만 갱신 — archived_at 컬럼 미존재)
       const { error: softDeleteErr } = await service
         .from("building_ssot_lite")
@@ -70,14 +74,14 @@ export async function DELETE(
         .eq("id", id);
 
       if (softDeleteErr) {
-        console.error("[deal-card/delete] Soft delete error:", softDeleteErr);
+        log.error("[deal-card/delete] Soft delete error:", softDeleteErr);
         return NextResponse.json({ error: `삭제 실패: ${softDeleteErr.message}` }, { status: 500 });
       }
     }
 
     return NextResponse.json({ ok: true, message: "딜카드가 삭제되었습니다." });
   } catch (err: any) {
-    console.error("[deal-card/delete] Unexpected error:", err);
+    log.error("[deal-card/delete] Unexpected error:", err);
     return NextResponse.json({ error: `오류가 발생했습니다: ${err.message}` }, { status: 500 });
   }
 }

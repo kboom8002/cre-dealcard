@@ -69,6 +69,10 @@ export async function dispatchEdition(
 import { createServiceClient } from '@/lib/supabase/service';
 import { sendMagazineEmail } from '@/lib/notification/email-service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('dispatcher');
+
+
 // Channel implementations
 async function sendWeeklyEmail(target: DispatchTarget, html: string): Promise<void> {
   const supabase = createServiceClient();
@@ -85,7 +89,7 @@ async function sendWeeklyEmail(target: DispatchTarget, html: string): Promise<vo
         imageUrl: '',
       });
     } catch (err) {
-      console.warn(`[rail] Failed to send email to ${target.email}:`, err);
+      log.warn(`[rail] Failed to send email to ${target.email}:`, err);
     }
   }
 
@@ -95,7 +99,7 @@ async function sendWeeklyEmail(target: DispatchTarget, html: string): Promise<vo
     edition_type: 'weekly',
     dispatched_at: new Date().toISOString(),
   });
-  if (error) console.error(`[rail] Failed to log weekly email to ${target.email}:`, error);
+  if (error) log.error(`[rail] Failed to log weekly email to ${target.email}:`, error);
 }
 
 async function sendSellerReport(target: DispatchTarget, html: string): Promise<void> {
@@ -106,7 +110,7 @@ async function sendSellerReport(target: DispatchTarget, html: string): Promise<v
     edition_type: 'seller_report',
     dispatched_at: new Date().toISOString(),
   });
-  if (error) console.error(`[rail] Failed to log seller report to ${target.email}:`, error);
+  if (error) log.error(`[rail] Failed to log seller report to ${target.email}:`, error);
 }
 
 async function sendOwnerReport(target: DispatchTarget, html: string): Promise<void> {
@@ -117,5 +121,5 @@ async function sendOwnerReport(target: DispatchTarget, html: string): Promise<vo
     edition_type: 'owner_report',
     dispatched_at: new Date().toISOString(),
   });
-  if (error) console.error(`[rail] Failed to log owner report to ${target.email}:`, error);
+  if (error) log.error(`[rail] Failed to log owner report to ${target.email}:`, error);
 }

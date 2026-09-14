@@ -1,3 +1,6 @@
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('text-budget');
+
 export const TEXT_LIMITS = {
   slideTitle: 32,
   kicker: 32,
@@ -115,7 +118,7 @@ export function enforceTextBudgetWithMeta(text: string, maxLen: number): TextBud
   const result = enforceTextBudget(text, maxLen);
   const wasTruncated = !!text && text !== result;
   if (wasTruncated) {
-    console.warn(`[text-budget] Text truncated: ${text.length} → ${result.length} chars (limit: ${maxLen})`);
+    log.warn(`[text-budget] Text truncated: ${text.length} → ${result.length} chars (limit: ${maxLen})`);
   }
   return {
     text: result,
@@ -144,7 +147,7 @@ export function validateTextBudgets(
       if (limit && text.length > limit) {
         warnings.push(`Text budget exceeded for ${type}: length ${text.length} > limit ${limit}`);
         // W-PPTX-3: 절삭 필드 경고 로그
-        console.warn(`[text-budget] Field "${type}" exceeds budget: ${text.length} > ${limit} chars`);
+        log.warn(`[text-budget] Field "${type}" exceeds budget: ${text.length} > ${limit} chars`);
       }
     }
     return warnings;
@@ -154,7 +157,7 @@ export function validateTextBudgets(
       const limitKey = key as keyof typeof TEXT_LIMITS;
       const limit = TEXT_LIMITS[limitKey];
       if (limit && value.length > limit) {
-        console.warn(`[text-budget] ${key} 초과: ${value.length}/${limit}자`);
+        log.warn(`[text-budget] ${key} 초과: ${value.length}/${limit}자`);
         if (options?.autoEnforce) {
           result[key] = enforceTextBudget(value, limit);
         }

@@ -9,6 +9,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { toApiError } from "@/lib/api-error";
 import { aggregateBrokerStats } from "@/domain/broker-card/broker-stats-aggregator";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ slug: string }> },
@@ -109,7 +113,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Public Broker Profile Route Error:", error);
+    log.error("Public Broker Profile Route Error:", error);
     return toApiError(error);
   }
 }

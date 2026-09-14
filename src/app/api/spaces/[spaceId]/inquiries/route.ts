@@ -7,6 +7,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { PublicInquiryInputSchema } from "@/contracts/inquiry";
 import { runInquiryQualifierAgent } from "@/ai/agents/inquiry-qualifier-agent";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
@@ -59,7 +63,7 @@ export async function POST(
       .single();
 
     if (insertError) {
-      console.error("[inquiries] insert error:", insertError);
+      log.error("[inquiries] insert error:", insertError);
       return NextResponse.json({ error: "문의 저장에 실패했습니다." }, { status: 500 });
     }
 
@@ -193,14 +197,14 @@ export async function POST(
                       await runLeaseAutoMatcher(ls.id, brokerId);
                     }
                   } catch (matchErr) {
-                    console.warn("[inquiries] auto-match failed:", matchErr);
+                    log.warn("[inquiries] auto-match failed:", matchErr);
                   }
                 }
               }
             }
           }
         } catch (err) {
-          console.error("[inquiries] qualification+CRM pipeline error:", err);
+          log.error("[inquiries] qualification+CRM pipeline error:", err);
         }
       })();
     }

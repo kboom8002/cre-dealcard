@@ -9,6 +9,10 @@ import { requireBroker } from "@/lib/auth-guard";
 import { runTenantAutoMatcher } from "@/domain/matching/lease-auto-matcher";
 import { escapeIlike } from "@/lib/utils/postgrest-escape";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const CreateTenantIntentSchema = z.object({
   client_id: z.string().uuid().nullable().optional(),
   business_type: z.string().min(1, "업종을 입력해주세요"),
@@ -96,7 +100,7 @@ export async function POST(req: NextRequest) {
   try {
     await runTenantAutoMatcher(data.id, auth.user!.id);
   } catch (matchErr) {
-    console.error("[TenantIntentPost] Auto-match run failed:", matchErr);
+    log.error("[TenantIntentPost] Auto-match run failed:", matchErr);
   }
 
   return NextResponse.json({

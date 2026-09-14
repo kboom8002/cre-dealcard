@@ -8,6 +8,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { createHash } from 'node:crypto';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ buildingId: string }> }
@@ -65,7 +69,7 @@ export async function POST(
           visitorHash: userAgentHash,
           referrer,
         }).catch((err) => {
-          console.error('[im-lite/view] Alert trigger error:', err);
+          log.error('[im-lite/view] Alert trigger error:', err);
         });
       }
     } else {
@@ -107,18 +111,18 @@ export async function POST(
           .then((scoreResult) => {
             if (scoreResult.isHotLead) {
               checkAndSendHotLeadAlert(supabase, brk.slug, scoreResult, userAgentHash).catch((err) => {
-                console.error('[Hot Lead Alert] Failed to send alert:', err);
+                log.error('[Hot Lead Alert] Failed to send alert:', err);
               });
             }
           })
           .catch((err) => {
-            console.error('[Hot Lead Alert] Scoring calculation failed:', err);
+            log.error('[Hot Lead Alert] Scoring calculation failed:', err);
           });
       }
     }
   } catch (err) {
     // Non-critical — tracking failure should not break the viewer
-    console.error('[im-lite/view] Failed to record view event:', err);
+    log.error('[im-lite/view] Failed to record view event:', err);
   }
 
   return NextResponse.json({ ok: true });

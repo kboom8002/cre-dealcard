@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('usage-tracker');
+
+
 export type FeatureName = 'deal_card_creation' | 'ai_matching' | 'im_generation';
 
 export interface UsageStatus {
@@ -56,7 +60,7 @@ export async function getMonthlyUsage(
         .single();
 
       if (insertError) {
-        console.error("[usage-tracker] Failed to initialize usage counter:", insertError.message);
+        log.error("[usage-tracker] Failed to initialize usage counter:", insertError.message);
       } else {
         counter = newCounter;
       }
@@ -73,7 +77,7 @@ export async function getMonthlyUsage(
     };
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
-    console.error("[usage-tracker] Unexpected error during usage fetch:", errMsg);
+    log.error("[usage-tracker] Unexpected error during usage fetch:", errMsg);
     return {
       currentCount: 0,
       maxLimit: tierLimit,
@@ -105,7 +109,7 @@ export async function incrementUsage(
     }
 
     // If RPC fails (e.g. function does not exist), fall back to select-and-upsert
-    console.warn(
+    log.warn(
       `[usage-tracker] RPC increment failed, falling back to non-atomic upsert: ${rpcError.message}`
     );
 
@@ -132,14 +136,14 @@ export async function incrementUsage(
       });
 
     if (upsertError) {
-      console.error("[usage-tracker] Failed to increment usage counter via fallback:", upsertError.message);
+      log.error("[usage-tracker] Failed to increment usage counter via fallback:", upsertError.message);
       return false;
     }
 
     return true;
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
-    console.error("[usage-tracker] Failed during incrementUsage:", errMsg);
+    log.error("[usage-tracker] Failed during incrementUsage:", errMsg);
     return false;
   }
 }

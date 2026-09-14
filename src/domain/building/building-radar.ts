@@ -18,6 +18,10 @@ import { resolveAddressToComponents } from "@/domain/verification/address-resolv
 import { fetchBuildingRegister } from "@/domain/verification/govt-api-client";
 import { getModel } from "@/ai/model-selector";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('building-radar');
+
+
 export interface BuildingRadarGenerateResult {
   buildingId: string;
   reportId: string;
@@ -152,7 +156,7 @@ export async function generateBuildingRadar(
           .eq("id", building.id);
       })
       .catch((enrichErr) => {
-        console.warn("[building-radar] Public data enrichment failed:", enrichErr);
+        log.warn("[building-radar] Public data enrichment failed:", enrichErr);
       });
   }
 

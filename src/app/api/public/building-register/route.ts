@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchBuildingRegister } from "@/domain/verification/govt-api-client";
 import { resolveAddressToComponents } from "@/domain/verification/address-resolver";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 /**
  * GET /api/public/building-register
  *
@@ -55,7 +59,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (err: unknown) {
-    console.error("[api/public/building-register] Error:", err);
+    log.error("[api/public/building-register] Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 내부 오류" },
       { status: 500 },

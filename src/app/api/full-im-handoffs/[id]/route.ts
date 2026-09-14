@@ -10,6 +10,10 @@
 import { getHandoffByToken } from "@/domain/handoff/handoff";
 import { validateInterServiceRequest } from "@/lib/inter-service-auth";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -74,7 +78,7 @@ export async function GET(
 
     return Response.json({ ok: true, data: handoff });
   } catch (err) {
-    console.error("[GET /api/full-im-handoffs/:id]", err);
+    log.error("[GET /api/full-im-handoffs/:id]", err);
     return Response.json(
       { ok: false, error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } },
       { status: 500 },

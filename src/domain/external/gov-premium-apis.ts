@@ -2,6 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { xmlText, xmlAll } from "@/lib/utils/xml-parser";
 import { fetchLandPrice } from "@/lib/external/land-price-api";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('gov-premium-apis');
+
+
 // ─── 환경변수 ───────────────────────────────────────────────────────────────────
 const MOLIT_API_KEY = process.env.MOLIT_API_KEY || process.env.DATA_GO_KR_API_KEY || "";
 const SEMAS_API_KEY = process.env.SEMAS_API_KEY || process.env.DATA_GO_KR_API_KEY || "";
@@ -21,7 +25,7 @@ export async function fetchCommercialTransactions(
   region: string,
 ): Promise<any[]> {
   if (!MOLIT_API_KEY) {
-    console.warn("[MOLIT] API key missing — skipping real transaction fetch");
+    log.warn("[MOLIT] API key missing — skipping real transaction fetch");
     return [];
   }
 
@@ -65,7 +69,7 @@ export async function fetchCommercialTransactions(
         if (!error && data) results.push(data);
       }
     } catch (err) {
-      console.warn(`[MOLIT] Region ${region}/${lawd} failed:`, err);
+      log.warn(`[MOLIT] Region ${region}/${lawd} failed:`, err);
     }
   }
   return results;
@@ -74,7 +78,7 @@ export async function fetchCommercialTransactions(
 // ─── A1b: 한국부동산원 임대동향 (공공데이터포털) ──────────────────────────────────
 export async function fetchRentalTrend(supabase: SupabaseClient, region: string): Promise<any> {
   if (!MOLIT_API_KEY) {
-    console.warn("[RentalTrend] MOLIT_API_KEY missing — skipping");
+    log.warn("[RentalTrend] MOLIT_API_KEY missing — skipping");
     return null;
   }
 
@@ -96,11 +100,11 @@ export async function fetchRentalTrend(supabase: SupabaseClient, region: string)
       return data;
     }
   } catch (err) {
-    console.warn(`[RentalTrend] ${region} API failed:`, err);
+    log.warn(`[RentalTrend] ${region} API failed:`, err);
   }
 
   // API 실패 시 null 반환 (더미 fallback 없음)
-  console.warn(`[RentalTrend] ${region} — no data available`);
+  log.warn(`[RentalTrend] ${region} — no data available`);
   return null;
 }
 
@@ -135,7 +139,7 @@ export async function fetchRegisterSummary(buildingId: string): Promise<any> {
 // https://apis.data.go.kr/1611000/BldrgEnergyRatingService/getBldrgEnergyRatingInfo
 export async function fetchEnergyRating(supabase: SupabaseClient, buildingId: string): Promise<any> {
   if (!ENERGY_API_KEY) {
-    console.warn("[EnergyRating] API key missing — skipping");
+    log.warn("[EnergyRating] API key missing — skipping");
     return null;
   }
 
@@ -161,7 +165,7 @@ export async function fetchEnergyRating(supabase: SupabaseClient, buildingId: st
     if (error) throw error;
     return data;
   } catch (err) {
-    console.warn("[EnergyRating] API failed:", err);
+    log.warn("[EnergyRating] API failed:", err);
     return null;
   }
 }
@@ -202,7 +206,7 @@ export async function fetchCommercialDistrict(supabase: SupabaseClient, district
         if (!error && data) return data;
       }
     } catch (err) {
-      console.warn(`[SEMAS] District ${districtCode} failed:`, err);
+      log.warn(`[SEMAS] District ${districtCode} failed:`, err);
     }
   }
 
@@ -219,7 +223,7 @@ export async function fetchOfficialLandPrice(supabase: SupabaseClient, pnu: stri
   const result = await fetchLandPrice(pnu);
   const pricePerSqm = result?.pricePerSqm ?? 0;
   if (!pricePerSqm) {
-    console.warn(`[OfficialLandPrice] No data for PNU ${pnu} year ${year}`);
+    log.warn(`[OfficialLandPrice] No data for PNU ${pnu} year ${year}`);
     return null;
   }
 
@@ -236,7 +240,7 @@ export async function fetchConstructionPermits(
   region: string,
 ): Promise<any[]> {
   if (!MOLIT_API_KEY) {
-    console.warn("[ConstructionPermits] MOLIT_API_KEY missing — skipping");
+    log.warn("[ConstructionPermits] MOLIT_API_KEY missing — skipping");
     return [];
   }
 
@@ -275,7 +279,7 @@ export async function fetchConstructionPermits(
       if (!error && data) results.push(data);
     }
   } catch (err) {
-    console.warn(`[ConstructionPermits] ${region} failed:`, err);
+    log.warn(`[ConstructionPermits] ${region} failed:`, err);
   }
   return results;
 }

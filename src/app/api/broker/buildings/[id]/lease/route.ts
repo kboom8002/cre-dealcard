@@ -14,6 +14,10 @@ import { requireBroker } from '@/lib/auth-guard';
 
 import { z } from 'zod';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const postSchema = z.object({
   tenants: z.array(z.any())
 });
@@ -148,10 +152,10 @@ export async function POST(
     }));
     if (leaseUnits.length > 0) {
       const persistResult = await persistLeaseUnits(id, leaseUnits);
-      console.info(`[lease] Persisted ${persistResult.inserted} units to lease_units table`);
+      log.info(`[lease] Persisted ${persistResult.inserted} units to lease_units table`);
     }
   } catch (err) {
-    console.warn('[lease] Failed to persist lease units:', err);
+    log.warn('[lease] Failed to persist lease units:', err);
   }
 
   // Record activity event

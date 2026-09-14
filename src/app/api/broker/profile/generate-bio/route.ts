@@ -11,6 +11,10 @@ import { callLLM } from '@/ai/llm-client';
 import { requireBroker } from '@/lib/auth-guard';
 import { getModel } from '@/ai/model-selector';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const GenerateBioRequest = z.object({
   name: z.string().min(1).max(30),
   company: z.string().max(50).optional(),
@@ -86,7 +90,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, bio: result.content.trim() });
   } catch (error: unknown) {
-    console.error('[profile/generate-bio] Error:', error);
+    log.error('[profile/generate-bio] Error:', error);
     const message =
       error instanceof Error ? error.message : 'AI 자기소개 생성 중 오류가 발생했습니다.';
     return NextResponse.json({ error: message }, { status: 500 });

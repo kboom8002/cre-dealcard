@@ -9,6 +9,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { createNotification } from "@/lib/notifications/in-app";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -59,9 +63,9 @@ export async function POST(req: NextRequest) {
 
     if (insertErr) {
       // 테이블이 아직 없는 경우에도 접수는 성공으로 처리 (로그 기록)
-      console.error("[im-inquiry] Insert error:", insertErr.message, insertErr.code);
+      log.error("[im-inquiry] Insert error:", insertErr.message, insertErr.code);
       if (insertErr.code === "42P01" || insertErr.message?.includes("does not exist")) {
-        console.log("[im-inquiry] Table not created yet. Logging inquiry:", {
+        log.info("[im-inquiry] Table not created yet. Logging inquiry:", {
           building_id, broker_user_id, requester_name, requester_phone: cleanPhone,
         });
         // 테이블 없어도 사용자에게는 성공 반환 + 인앱 알림 시도
@@ -115,7 +119,7 @@ export async function POST(req: NextRequest) {
       message: "프라이빗 IM 신청이 접수되었습니다. 담당 중개인이 곧 연락드리겠습니다.",
     });
   } catch (err: any) {
-    console.error("[im-inquiry] Error:", err);
+    log.error("[im-inquiry] Error:", err);
     return NextResponse.json(
       { error: "서버 오류가 발생했습니다." },
       { status: 500 }

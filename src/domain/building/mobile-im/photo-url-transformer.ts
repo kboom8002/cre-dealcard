@@ -4,6 +4,10 @@
 import type { PhotoCategory, GalleryGroup } from '@/domain/ontology';
 import type { PhotoMeta, MobileIMSupplementalInput } from './types';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('photo-url-transformer');
+
+
 export type { PhotoCategory, GalleryGroup };
 
 /** 레거시 호환용 PhotoType 별칭 */
@@ -179,11 +183,11 @@ export function resolvePhotos(supplemental?: MobileIMSupplementalInput | null, b
     });
     if (ownPhotos.length < photos.length) {
       const excluded = photos.length - ownPhotos.length;
-      console.warn(`[resolvePhotos] D33 BL-B: ${excluded}장 제외 — buildingId 미일치/미설정 (대상: ${buildingId})`);
+      log.warn(`[resolvePhotos] D33 BL-B: ${excluded}장 제외 — buildingId 미일치/미설정 (대상: ${buildingId})`);
     }
     // D33 BL-B: 만약 filtering 결과 0장이 되지만 원본 사진이 제공된 경우, 갤러리 붕괴 방지를 위해 경고와 함께 사진 유지
     if (ownPhotos.length === 0) {
-      console.warn(`[resolvePhotos] D33 BL-B: 모든 사진이 buildingId 필터에서 제외됨 (${photos.map(p => (p as any).buildingId).join(', ')} vs ${buildingId}) — 갤러리 유지용 폴백으로 사진 보존`);
+      log.warn(`[resolvePhotos] D33 BL-B: 모든 사진이 buildingId 필터에서 제외됨 (${photos.map(p => (p as any).buildingId).join(', ')} vs ${buildingId}) — 갤러리 유지용 폴백으로 사진 보존`);
     } else {
       photos = ownPhotos;
     }

@@ -24,6 +24,10 @@ import { suggestArchetype } from './archetype-registry';
  */
 import type { BuildingSSoTLite } from '../building-ssot-lite.types';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('im-context-builder');
+
+
 export function normalizeSsotLite(rawInput: BuildingSSoTLite): {
   assetIdentity: Record<string, unknown>;
   physicalFact:  Record<string, unknown>;
@@ -236,7 +240,7 @@ export async function buildIMContext(
     : vacancyStr.match(/(\d+)\s*%/) ? parseInt(vacancyStr.match(/(\d+)\s*%/)![1], 10)
     : null;
   if (vacancyPct == null) {
-    console.warn('[im-context-builder] 공실률 데이터 미확보 — 재무 추정치에 공실률 미반영');
+    log.warn('[im-context-builder] 공실률 데이터 미확보 — 재무 추정치에 공실률 미반영');
     vacancyPct = 0; // 계산 진행을 위해 0 사용하되, 로그로 명시
   }
 
@@ -252,12 +256,12 @@ export async function buildIMContext(
         purchasePriceKrw: purchasePriceForGuard,
         currentVacancyPct: vacancyPct,
         currentMonthlyRentKrw: monthlyRent,
-        totalAreaSqm: totalAreaForGuard > 0 ? totalAreaForGuard : (() => { console.warn('[im-context-builder] 연면적 데이터 미확보 — value-add 추정 정확도 저하'); return 1; })(),
+        totalAreaSqm: totalAreaForGuard > 0 ? totalAreaForGuard : (() => { log.warn('[im-context-builder] 연면적 데이터 미확보 — value-add 추정 정확도 저하'); return 1; })(),
         assetType: String(assetIdentity.asset_type ?? ""),
       });
       valueAddMarkdown = vaResult.markdownTable;
     } catch (e) {
-      console.warn("[mobile-im-writer] value-add computation failed:", e);
+      log.warn("[mobile-im-writer] value-add computation failed:", e);
     }
   }
 
@@ -292,7 +296,7 @@ export async function buildIMContext(
       posture
     );
   } catch (e) {
-    console.warn("[mobile-im-writer] RAG context failed:", e);
+    log.warn("[mobile-im-writer] RAG context failed:", e);
   }
 
   // ── 프롬프트 레지스트리 사전 선택 (루프 밖 — A/B 일관성 보장) ─────────
@@ -316,7 +320,7 @@ export async function buildIMContext(
 
   const sysPromptText = (activeSysPrompt ? activeSysPrompt.systemPrompt : buildPostureAwareSystemPrompt(posture)) + "\n" + logisticsOverlay;
   const promptVariantId = activeSysPrompt?.id ?? "default";
-  console.info(`[mobile-im-writer] Prompt variant: ${promptVariantId} (v${activeSysPrompt?.version ?? "0"}), isLogistics=${isLogistics}, posture=${posture}`);
+  log.info(`[mobile-im-writer] Prompt variant: ${promptVariantId} (v${activeSysPrompt?.version ?? "0"}), isLogistics=${isLogistics}, posture=${posture}`);
 
   // ── Hero Card용 재무 데이터 캐시 (루프 밖에서 접근) ────────────────────
   const cachedFinancials: FinancialOutputs | null = null;

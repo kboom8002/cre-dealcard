@@ -7,6 +7,10 @@ import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod/v4';
 import { runMolitETL } from '@/domain/prediction/price-prediction';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const BodySchema = z.object({
   months: z.number().min(1).max(36).default(12),
 });
@@ -30,8 +34,8 @@ export async function POST(req: NextRequest) {
 
   // Run ETL asynchronously (long running)
   runMolitETL(months)
-    .then((r) => console.log('[MOLIT ETL]', r))
-    .catch((e) => console.error('[MOLIT ETL error]', e));
+    .then((r) => log.info('[MOLIT ETL]', r))
+    .catch((e) => log.error('[MOLIT ETL error]', e));
 
   return NextResponse.json({ ok: true, message: `MOLIT ETL 시작 (${months}개월)`, note: '백그라운드 실행 중' });
 }

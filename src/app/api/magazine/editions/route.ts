@@ -4,6 +4,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { generateWeeklyMagazine } from "@/domain/magazine/weekly-generator";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -57,7 +61,7 @@ export async function GET(request: NextRequest) {
   const { data, count, error } = await query;
 
   if (error) {
-    console.error("[api/magazine/editions/GET]", error.message);
+    log.error("[api/magazine/editions/GET]", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -100,7 +104,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ edition }, { status: 201 });
   } catch (err: unknown) {
-    console.error("[api/magazine/editions/POST]", err);
+    log.error("[api/magazine/editions/POST]", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 오류" },
       { status: 500 },
@@ -182,13 +186,13 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error("[api/magazine/editions/PATCH]", error.message);
+      log.error("[api/magazine/editions/PATCH]", error.message);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ edition: data });
   } catch (err: unknown) {
-    console.error("[api/magazine/editions/PATCH]", err);
+    log.error("[api/magazine/editions/PATCH]", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 오류" },
       { status: 500 },

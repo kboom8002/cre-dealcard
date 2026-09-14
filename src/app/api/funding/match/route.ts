@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { runFundingMatchingEngine } from "@/domain/matching/funding-matching-engine";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(request: Request) {
   try {
     const supabase = await createServerSupabaseClient();
@@ -150,7 +154,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: "Missing projectId or investorProfileId" }, { status: 400 });
   } catch (error: any) {
-    console.error("[POST /api/funding/match]", error);
+    log.error("[POST /api/funding/match]", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

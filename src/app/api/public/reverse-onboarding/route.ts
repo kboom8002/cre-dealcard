@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 // 간단한 한글 억대 예산 파서 유틸리티
 function parseBudgetToNumeric(budgetText: string): { min: number; max: number } {
   const clean = budgetText.replace(/,/g, "").trim();
@@ -118,7 +122,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, buyerIntentId: buyerIntent.id });
   } catch (err: any) {
-    console.error("Reverse onboarding error:", err);
+    log.error("Reverse onboarding error:", err);
     return NextResponse.json({ ok: false, error: err.message || "서버 내부 오류" }, { status: 500 });
   }
 }

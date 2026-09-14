@@ -4,6 +4,10 @@ import { readWithMigration, buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
 import { projectToTeaser } from "@/domain/deal/teaser/teaser-projector";
 import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export const runtime = "nodejs";
 
 let fontBuffer: ArrayBuffer | null = null;
@@ -23,7 +27,7 @@ async function getFontData(): Promise<ArrayBuffer | null> {
     fontBuffer = await res.arrayBuffer();
     return fontBuffer;
   } catch (err) {
-    console.error("[OG] Pretendard font loading failed, trying fallback:", err);
+    log.error("[OG] Pretendard font loading failed, trying fallback:", err);
     return null;
   }
 }
@@ -43,7 +47,7 @@ async function getFallbackFont(): Promise<ArrayBuffer | null> {
     fallbackFontBuffer = await res.arrayBuffer();
     return fallbackFontBuffer;
   } catch (err) {
-    console.error("[OG] Fallback font loading also failed:", err);
+    log.error("[OG] Fallback font loading also failed:", err);
     return null;
   }
 }
@@ -127,7 +131,7 @@ export async function GET(
       building.price_band = building.price_band || sData.price_band;
     }
   } catch (err) {
-    console.warn("[OG/deal] Fetch error:", err);
+    log.warn("[OG/deal] Fetch error:", err);
   }
 
   const safeBuilding = building || { id: targetBuildingId };
@@ -197,7 +201,7 @@ export async function GET(
       getFallbackFont(),
     ]);
   } catch (err) {
-    console.error("Font loading failed:", err);
+    log.error("Font loading failed:", err);
   }
   
   // 폰트 우선순위: Pretendard → Noto Sans KR → sans-serif

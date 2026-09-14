@@ -8,6 +8,10 @@
 
 import { createServiceClient } from "@/lib/supabase/service";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('terminology-normalizer');
+
+
 export interface NormalizationResult {
   text: string;
   replaced: { original: string; normalized: string }[];
@@ -177,7 +181,7 @@ async function getTerminologyRules(): Promise<ReplacementRule[]> {
     cacheLoadedAt = now;
     return rules;
   } catch (err) {
-    console.warn('[terminology-normalizer] Failed to load rules from DB, using fallback:', err);
+    log.warn('[terminology-normalizer] Failed to load rules from DB, using fallback:', err);
     return HARDCODED_TERM_RULES;
   }
 }
@@ -231,7 +235,7 @@ async function flushRuleHits() {
       }
     }
   } catch (err) {
-    console.warn('[terminology-normalizer] Failed to flush rule hits:', err);
+    log.warn('[terminology-normalizer] Failed to flush rule hits:', err);
   }
 }
 

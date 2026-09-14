@@ -24,6 +24,10 @@ import { runPublishGates } from '@/domain/building/mobile-im/quality-gates-v02';
 import { YANGPYEONG_FIXTURE } from './fixtures/yangpyeong';
 import { DANGSAN_FIXTURE } from './fixtures/dangsan';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('e2e-real-property.test');
+
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // 헬퍼: MobileIMWriterInput 빌드 (L5 패턴 기반)
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -84,7 +88,7 @@ describe('E2E Real Property: 양평동4가 더레드빌딩 (income)', () => {
 
       // income 포스처 필수 섹션 존재 확인
       const sectionTypes = output.sections.map((s: any) => s.section_type);
-      console.log('YP section types:', sectionTypes);
+      log.info('YP section types:', sectionTypes);
       expect(sectionTypes).toContain('property_overview');
       // checklist 또는 closing 중 하나는 있어야 함
       const hasChecklist = sectionTypes.includes('checklist');
@@ -249,7 +253,7 @@ describe('E2E Real Property: 당산동5가 근생빌딩 (income)', () => {
       expect(output.sections.length).toBeGreaterThanOrEqual(4);
 
       const sectionTypes = output.sections.map((s: any) => s.section_type);
-      console.log('DS section types:', sectionTypes);
+      log.info('DS section types:', sectionTypes);
       expect(sectionTypes).toContain('property_overview');
     }, 30000);
 

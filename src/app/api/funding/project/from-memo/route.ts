@@ -3,6 +3,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { runFundingProjectCard } from "@/ai/agents/funding-project-card";
 import { requireBroker } from "@/lib/auth-guard";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(request: NextRequest) {
   try {
     const guard = await requireBroker(request);
@@ -55,7 +59,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error("[POST /api/funding/project/from-memo]", error);
+    log.error("[POST /api/funding/project/from-memo]", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

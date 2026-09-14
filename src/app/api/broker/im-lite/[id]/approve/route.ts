@@ -12,6 +12,10 @@ import { simulateReidentification } from '@/domain/deal/teaser/reident-simulator
 import { buildAttrsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { runApprovalGate } from '@/domain/building/im-core';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -194,10 +198,10 @@ export async function POST(
           undefined,
           fullDoc.body.judge_score,
         );
-        console.info(`[approve] Golden Set: ${goldenCount} sections registered`);
+        log.info(`[approve] Golden Set: ${goldenCount} sections registered`);
       }
     } catch (goldenErr) {
-      console.warn('[approve] Golden set registration failed (non-blocking):', goldenErr);
+      log.warn('[approve] Golden set registration failed (non-blocking):', goldenErr);
     }
   }
 

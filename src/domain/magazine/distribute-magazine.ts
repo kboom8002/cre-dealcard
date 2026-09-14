@@ -9,6 +9,10 @@ import { dispatchEdition, type DispatchTarget } from './rail/dispatcher';
 import { generatePersonalizedInsert } from './weekly-generator';
 import type { MagazineDbClient } from './types';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('distribute-magazine');
+
+
 export interface DistributeMagazineEditionInput {
   id?: string;
   title: string;
@@ -33,12 +37,12 @@ export async function distributeMagazine(
       .eq('status', 'active');
 
     if (subError) {
-      console.error('[Magazine Distribution] Failed to query subscribers:', subError.message);
+      log.error('[Magazine Distribution] Failed to query subscribers:', subError.message);
       return { sent: 0, failed: 0, kakaoSent: 0, emailSent: 0 };
     }
 
     if (!rawSubscribers || rawSubscribers.length === 0) {
-      console.log(`[Magazine Distribution] No active subscribers found for broker ${brokerId}`);
+      log.info(`[Magazine Distribution] No active subscribers found for broker ${brokerId}`);
       return { sent: 0, failed: 0, kakaoSent: 0, emailSent: 0 };
     }
 
@@ -60,7 +64,7 @@ export async function distributeMagazine(
       .maybeSingle();
 
     if (bpError) {
-      console.warn('[Magazine Distribution] Failed to query broker profile name:', bpError.message);
+      log.warn('[Magazine Distribution] Failed to query broker profile name:', bpError.message);
     }
 
     const brokerName = bp?.name || brokerId;
@@ -178,7 +182,7 @@ export async function distributeMagazine(
     });
 
     if (logError) {
-      console.error('[Magazine Distribution] Log event failed:', logError.message);
+      log.error('[Magazine Distribution] Log event failed:', logError.message);
     }
 
     // 6. Universal Dispatch Rail 로깅 연동
@@ -193,16 +197,16 @@ export async function distributeMagazine(
       const editionId = edition.id || `${brokerId}_${edition.date}`;
       await dispatchEdition('weekly', editionId, railTargets, '');
     } catch (railErr) {
-      console.warn('[Magazine Distribution] Dispatch rail recording error:', railErr);
+      log.warn('[Magazine Distribution] Dispatch rail recording error:', railErr);
     }
 
-    console.log(
+    log.info(
       `[Magazine Distribution] Finished for ${brokerId}: totalSent=${totalSent} (kakao=${kakaoSent}, email=${emailSent}), failed=${totalFailed}`
     );
 
     return { sent: totalSent, failed: totalFailed, kakaoSent, emailSent };
   } catch (err: any) {
-    console.error('[Magazine Distribution] Unexpected error occurred:', err.message);
+    log.error('[Magazine Distribution] Unexpected error occurred:', err.message);
     return { sent: 0, failed: 0, kakaoSent: 0, emailSent: 0 };
   }
 }

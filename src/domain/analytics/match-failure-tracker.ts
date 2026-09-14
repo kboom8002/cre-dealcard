@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordEvent } from "./record-event";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('match-failure-tracker');
+
+
 export interface MatchFailureInput {
   brokerId: string;
   matchResultId?: string | null;
@@ -39,7 +43,7 @@ export async function trackMatchFailure(
     .single();
 
   if (error) {
-    console.error("[trackMatchFailure] Database insert failed:", error.message);
+    log.error("[trackMatchFailure] Database insert failed:", error.message);
     return null;
   }
 

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getMarketDefaults, invalidateMarketDefaultsCache, STATIC_MARKET_DEFAULTS } from "@/domain/ontology/market-data-provider";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function GET() {
   try {
     const defaults = await getMarketDefaults();
@@ -62,7 +66,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
-      console.warn("[POST /api/admin/market-defaults] DB insert warning:", error.message);
+      log.warn("[POST /api/admin/market-defaults] DB insert warning:", error.message);
     }
 
     invalidateMarketDefaultsCache();
@@ -74,7 +78,7 @@ export async function POST(req: NextRequest) {
       data: updatedDefaults,
     });
   } catch (error: any) {
-    console.error("[POST /api/admin/market-defaults] Error:", error);
+    log.error("[POST /api/admin/market-defaults] Error:", error);
     return NextResponse.json({ error: error?.message ?? "Failed to save market defaults" }, { status: 500 });
   }
 }

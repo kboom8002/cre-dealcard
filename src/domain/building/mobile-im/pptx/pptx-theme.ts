@@ -1,3 +1,6 @@
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('pptx-theme');
+
 export interface PptxThemeTokens {
   presetId: string;
   presetName: string;
@@ -696,7 +699,7 @@ export async function getPptxThemeAsync(
         return merged;
       }
     } catch (err) {
-      console.warn('[getPptxThemeAsync] DB lookup failed, using default:', err);
+      log.warn('[getPptxThemeAsync] DB lookup failed, using default:', err);
     }
   }
 

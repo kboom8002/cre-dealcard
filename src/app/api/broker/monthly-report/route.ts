@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireBroker } from "@/lib/auth-guard";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function GET(req: NextRequest) {
   try {
     const guard = await requireBroker(req);
@@ -96,7 +100,7 @@ export async function GET(req: NextRequest) {
       }
     });
   } catch (err: any) {
-    console.error("[GET /api/broker/monthly-report]", err);
+    log.error("[GET /api/broker/monthly-report]", err);
     return NextResponse.json({ error: "월간 리포트 생성 실패" }, { status: 500 });
   }
 }

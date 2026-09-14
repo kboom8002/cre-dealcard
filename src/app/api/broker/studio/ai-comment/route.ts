@@ -3,6 +3,10 @@ import { callLLM } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
 import { requireBroker } from "@/lib/auth-guard";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(req: NextRequest) {
   // Auth guard — 미인증 요청 차단
   const auth = await requireBroker(req);
@@ -31,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, data: result.content });
   } catch (error: any) {
-    console.error("[studio/ai-comment] Error:", error);
+    log.error("[studio/ai-comment] Error:", error);
     return NextResponse.json({ error: error.message || "AI 생성 중 오류가 발생했습니다." }, { status: 500 });
   }
 }

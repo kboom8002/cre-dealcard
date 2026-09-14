@@ -8,6 +8,10 @@
 
 import { createServiceClient } from '@/lib/supabase/service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('bind');
+
+
 interface SliderEvent {
   param: string;
   value: number;
@@ -70,7 +74,7 @@ export async function bindViewerHistory(
     });
 
   if (error) {
-    console.error('[bind] Failed to insert slider condition:', error.message);
+    log.error('[bind] Failed to insert slider condition:', error.message);
     return { bound: false, conditionsCreated: 0 };
   }
 

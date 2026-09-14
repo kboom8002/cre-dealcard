@@ -1,4 +1,8 @@
 import { createServiceClient } from '@/lib/supabase/service';
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('market-data-provider');
+
+
 import {
   COMMERCIAL_MORTGAGE,
   ACQUISITION_COSTS,
@@ -128,7 +132,7 @@ export async function getMarketDefaults(): Promise<MarketDefaults> {
     cache = { data: fetched, ts: Date.now() };
     return fetched;
   } catch (err) {
-    console.warn('[market-data-provider] Failed to fetch market_defaults from DB, using fallback:', err);
+    log.warn('[market-data-provider] Failed to fetch market_defaults from DB, using fallback:', err);
     return STATIC_MARKET_DEFAULTS;
   }
 }

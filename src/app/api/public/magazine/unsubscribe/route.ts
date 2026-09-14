@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import crypto from "crypto";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 // 토큰 생성 및 검증을 위한 서명 검증 헬퍼
 function verifyUnsubscribeToken(token: string): { subscriberId: string; brokerId: string } | null {
   try {
@@ -20,7 +24,7 @@ function verifyUnsubscribeToken(token: string): { subscriberId: string; brokerId
       return { subscriberId, brokerId };
     }
   } catch (err) {
-    console.error("[Unsubscribe Token Verification] Failed:", err);
+    log.error("[Unsubscribe Token Verification] Failed:", err);
   }
   return null;
 }
@@ -120,7 +124,7 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      console.error("[Unsubscribe POST] Database update error:", error);
+      log.error("[Unsubscribe POST] Database update error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -163,7 +167,7 @@ export async function POST(request: Request) {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     });
   } catch (err: any) {
-    console.error("[Unsubscribe POST] Unexpected error:", err);
+    log.error("[Unsubscribe POST] Unexpected error:", err);
     return NextResponse.json({ error: err.message || "서버 오류가 발생했습니다." }, { status: 500 });
   }
 }

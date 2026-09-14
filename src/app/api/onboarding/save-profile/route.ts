@@ -16,6 +16,10 @@ import { verifyAuth } from '@/lib/auth-guard';
 import { toApiError } from '@/lib/api-error';
 import { createServiceClient } from '@/lib/supabase/service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 // ── Validation schema ─────────────────────────────────────────────────────────
 
 const SaveProfileRequest = z.object({
@@ -103,11 +107,11 @@ export async function POST(req: NextRequest) {
               .getPublicUrl(destPath);
             permanentPhotoUrl = urlData.publicUrl;
           } else {
-            console.warn('[save-profile] Photo copy to broker-avatars failed:', uploadErr);
+            log.warn('[save-profile] Photo copy to broker-avatars failed:', uploadErr);
           }
         }
       } catch (copyErr) {
-        console.warn('[save-profile] Photo copy error (using temp URL):', copyErr);
+        log.warn('[save-profile] Photo copy error (using temp URL):', copyErr);
       }
     }
 
@@ -172,7 +176,7 @@ export async function POST(req: NextRequest) {
         .upsert(brokerUpsertData, { onConflict: 'user_id' });
 
       if (profileErr) {
-        console.error('[save-profile] broker_profiles upsert error:', profileErr);
+        log.error('[save-profile] broker_profiles upsert error:', profileErr);
       }
     }
 
@@ -192,7 +196,7 @@ export async function POST(req: NextRequest) {
         .eq('id', user.id);
 
       if (profileUpdateErr) {
-        console.error('[save-profile] profiles update error:', profileUpdateErr);
+        log.error('[save-profile] profiles update error:', profileUpdateErr);
       }
     }
 
@@ -213,7 +217,7 @@ export async function POST(req: NextRequest) {
       .eq('session_token', body.session_token);
 
     if (updateErr) {
-      console.error('[save-profile] session update error:', updateErr);
+      log.error('[save-profile] session update error:', updateErr);
     }
 
     return Response.json({
@@ -225,7 +229,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[save-profile] Route error:', error);
+    log.error('[save-profile] Route error:', error);
     return toApiError(error);
   }
 }

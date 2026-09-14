@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -52,13 +56,13 @@ export async function PUT(
       .single();
 
     if (updateError) {
-      console.error("[PUT /api/broker/memo/[id]]", updateError);
+      log.error("[PUT /api/broker/memo/[id]]", updateError);
       return NextResponse.json({ error: "메모 수정 실패" }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true, data: updated });
   } catch (err: any) {
-    console.error("[PUT /api/broker/memo/[id]]", err);
+    log.error("[PUT /api/broker/memo/[id]]", err);
     return NextResponse.json({ error: "메모 수정 실패" }, { status: 500 });
   }
 }
@@ -113,7 +117,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    console.error("[DELETE /api/broker/memo/[id]]", err);
+    log.error("[DELETE /api/broker/memo/[id]]", err);
     return NextResponse.json({ error: "메모 삭제 실패" }, { status: 500 });
   }
 }

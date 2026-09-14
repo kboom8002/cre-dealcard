@@ -1,3 +1,6 @@
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('landmark-resolver');
+
 /**
  * landmark-resolver.ts
  * 
@@ -13,7 +16,7 @@ export async function searchLandmarkAddress(
 ): Promise<string | null> {
   const kakaoKey = process.env.KAKAO_REST_API_KEY;
   if (!kakaoKey) {
-    console.warn('[landmark-resolver] KAKAO_REST_API_KEY not configured');
+    log.warn('[landmark-resolver] KAKAO_REST_API_KEY not configured');
     return null;
   }
 
@@ -27,25 +30,25 @@ export async function searchLandmarkAddress(
       signal: AbortSignal.timeout(3000),
     });
     if (!res.ok) {
-      console.warn(`[landmark-resolver] Kakao API ${res.status} for "${landmark}"`);
+      log.warn(`[landmark-resolver] Kakao API ${res.status} for "${landmark}"`);
       return null;
     }
 
     const data = await res.json();
     const doc = data.documents?.[0];
     if (!doc) {
-      console.info(`[landmark-resolver] No results for "${landmark}"`);
+      log.info(`[landmark-resolver] No results for "${landmark}"`);
       return null;
     }
 
     // address_name (지번주소) 또는 road_address_name (도로명주소) 반환
     const result = doc.address_name || doc.road_address_name || null;
     if (result) {
-      console.info(`[landmark-resolver] "${landmark}" → "${result}"`);
+      log.info(`[landmark-resolver] "${landmark}" → "${result}"`);
     }
     return result;
   } catch (err: any) {
-    console.warn(`[landmark-resolver] Error for "${landmark}":`, err?.message);
+    log.warn(`[landmark-resolver] Error for "${landmark}":`, err?.message);
     return null;
   }
 }

@@ -12,6 +12,10 @@ import { findSimilarDeals } from '@/domain/graph/deal-semantic-search';
 import { readWithMigration } from '@/lib/ssot-adapter';
 import { requireBroker } from '@/lib/auth-guard';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -48,7 +52,7 @@ export async function GET(
     if (features) {
       conversion = await predictDealConversion(features);
       // Save snapshot async (non-blocking)
-      snapshotDealFeatures((await params).id).catch((e) => console.warn('[snapshot]', e));
+      snapshotDealFeatures((await params).id).catch((e) => log.warn('[snapshot]', e));
     }
 
     return NextResponse.json({
@@ -59,7 +63,7 @@ export async function GET(
       similarDealsMode: similarDeals.mode,
     });
   } catch (err) {
-    console.error('[conversion]', err);
+    log.error('[conversion]', err);
     return NextResponse.json({ error: '예측 중 오류가 발생했습니다' }, { status: 500 });
   }
 }

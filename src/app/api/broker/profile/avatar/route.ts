@@ -11,6 +11,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(req: NextRequest) {
   try {
     const guard = await requireBroker(req);
@@ -44,7 +48,7 @@ export async function POST(req: NextRequest) {
       });
 
     if (uploadError) {
-      console.error("[Avatar Upload Error]", uploadError);
+      log.error("[Avatar Upload Error]", uploadError);
       return NextResponse.json({ error: "업로드에 실패했습니다. (버킷이 존재하지 않을 수 있습니다.)" }, { status: 500 });
     }
 
@@ -62,7 +66,7 @@ export async function POST(req: NextRequest) {
       .eq("id", user!.id);
 
     if (profileSyncError) {
-      console.warn("[Avatar] profiles.photo_url sync failed:", profileSyncError.message);
+      log.warn("[Avatar] profiles.photo_url sync failed:", profileSyncError.message);
       // 비치명적 — 업로드 자체는 성공했으므로 계속 진행
     }
 
@@ -75,7 +79,7 @@ export async function POST(req: NextRequest) {
       );
 
     if (bpSyncError) {
-      console.warn("[Avatar] broker_profiles.photo_url sync failed:", bpSyncError.message);
+      log.warn("[Avatar] broker_profiles.photo_url sync failed:", bpSyncError.message);
     }
 
     // ─── Fix #3: Vibe AI 재분석 비동기 트리거 ────────────────
@@ -84,7 +88,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, url: publicUrl });
   } catch (err: any) {
-    console.error("[POST /api/broker/profile/avatar]", err);
+    log.error("[POST /api/broker/profile/avatar]", err);
     return NextResponse.json({ error: "서버 오류가 발생했습니다." }, { status: 500 });
   }
 }

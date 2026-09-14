@@ -1,5 +1,9 @@
 import { ParcelRef } from '../verification/address-resolver';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('cache-manager');
+
+
 export interface CachePolicy {
   ttlSeconds: number;
   strategy: 'stale-while-revalidate' | 'strict';
@@ -15,5 +19,5 @@ export const CACHE_POLICIES: Record<string, CachePolicy> = {
 
 export async function invalidateOfficialPriceBatch(parcels: ParcelRef[]): Promise<void> {
   // In a real implementation, this would clear the cache for the given parcels' official price
-  console.log(`[cache-manager] Invalidating official price cache for ${parcels.length} parcels.`);
+  log.info(`[cache-manager] Invalidating official price cache for ${parcels.length} parcels.`);
 }

@@ -13,6 +13,10 @@ import { calculateBenchmarkMetrics, formatBenchmarkMarkdown } from './comparable
 import { computeVacancyPositioning, formatVacancyPositioningRow } from './vacancy-positioning';
 import { parsePriceBandKrw } from './im-context-builder';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('premium-template-engine');
+
+
 function resolveAssetLabel(assetType?: string): string {
   if (!assetType) return '매물';
   const t = assetType.toLowerCase();
@@ -252,7 +256,7 @@ ${infra}
             rentRollTable += `\n### 임대 안정성 지표 (AI 산출)\n| 지표 | 값 | 비고 |\n|------|-----|------|\n| **WALE (임대료 가중)** | **${wale.waleByRentYears.toFixed(1)}년** | 가중평균 임대만료기간 |\n| **WALE (면적 가중)** | **${wale.waleByAreaYears.toFixed(1)}년** | 면적 기준 |\n| **12개월 내 만기 비중** | **${wale.atRiskRentPct12m.toFixed(0)}%** | ${rolloverFlag} |`;
           }
         } catch (e) {
-          console.warn("[writer] WALE/lease-adapter failed:", e);
+          log.warn("[writer] WALE/lease-adapter failed:", e);
         }
       } else if (hasTenants) {
         // legacy tenants 데이터 (어댑터 없이 간단 렌더링)
@@ -454,7 +458,7 @@ ${tableRows}
             benchmarkBlock = "\n\n" + formatBenchmarkMarkdown(metrics, compsCount);
           }
         } catch (e) {
-          console.warn("[writer] benchmark failed:", e);
+          log.warn("[writer] benchmark failed:", e);
         }
       }
 

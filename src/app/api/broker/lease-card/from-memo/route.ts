@@ -8,6 +8,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { brokerLeaseCardFromMemo } from "@/domain/lease/broker-lease-card";
 import { toApiError } from "@/lib/api-error";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const LeaseCardFromMemoRequest = z.object({
   memo: z.string().min(5),
 });
@@ -31,7 +35,7 @@ export async function POST(req: NextRequest) {
       data: result,
     });
   } catch (error) {
-    console.error("Lease Card Route Error:", error);
+    log.error("Lease Card Route Error:", error);
     return toApiError(error);
   }
 }

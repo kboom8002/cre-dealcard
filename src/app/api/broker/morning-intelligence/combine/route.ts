@@ -4,6 +4,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { callLLM } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 /**
  * POST /api/broker/morning-intelligence/combine
  * HQ 브리핑 + 마이 인텔리전스 항목을 결합하여 커스텀 브리핑 생성
@@ -134,7 +138,7 @@ JSON 형식:
       note: error ? "DB 저장 실패 — AI 결과만 반환" : undefined,
     });
   } catch (err: unknown) {
-    console.error("[combine-intel] POST Error:", err);
+    log.error("[combine-intel] POST Error:", err);
     return NextResponse.json({ error: err instanceof Error ? err.message : "서버 오류" }, { status: 500 });
   }
 }

@@ -5,6 +5,10 @@ import { readWithMigration, buildAttrsFromSsotLite } from "@/lib/ssot-adapter";
 import { projectToTeaser } from "@/domain/deal/teaser/teaser-projector";
 import { filterValidTiles } from "@/domain/teaser/filter-valid-tiles";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export const runtime = "nodejs";
 
 let fontBuffer: ArrayBuffer | null = null;
@@ -23,7 +27,7 @@ async function getFontData(): Promise<ArrayBuffer | null> {
       fontBuffer = await res.arrayBuffer();
     }
   } catch (e) {
-    console.warn("[OG/card] Font fetch failed, falling back to system fonts", e);
+    log.warn("[OG/card] Font fetch failed, falling back to system fonts", e);
   }
   return fontBuffer;
 }
@@ -69,7 +73,7 @@ export async function GET(
       building.price_band = building.price_band || sData.price_band;
     }
   } catch (e) {
-    console.warn("Data fetch warning in 1-page card generator:", e);
+    log.warn("Data fetch warning in 1-page card generator:", e);
   }
 
   const safeBuilding = building || { id, area_signal: "서울 주요 권역", asset_type: "상업용 빌딩", price_band: "가격 협의" };
@@ -106,7 +110,7 @@ export async function GET(
       color: { dark: "#0B0F14", light: "#FFFFFF" },
     });
   } catch (err) {
-    console.warn("QR generation failed, will show URL text instead", err);
+    log.warn("QR generation failed, will show URL text instead", err);
   }
 
   const fontData = await getFontData();

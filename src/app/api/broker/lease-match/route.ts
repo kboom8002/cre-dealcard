@@ -8,6 +8,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { runLeaseMatchingEngine, type LeaseSpaceMatchInput, type TenantIntentMatchInput } from "@/domain/matching/lease-matching-engine";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const PersistedLeaseSchema = z.object({
   leaseSpaceId: z.string(),
   tenantIntentId: z.string(),
@@ -207,7 +211,7 @@ export async function POST(req: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    console.error("Match Trigger Error:", error);
+    log.error("Match Trigger Error:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Matching failed" }, { status: 500 });
   }
 }

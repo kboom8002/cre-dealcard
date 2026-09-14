@@ -7,6 +7,10 @@ import { requireAdmin } from '@/lib/auth-guard';
 import { createServiceClient } from '@/lib/supabase/service';
 import { analyzeFewShotEffectiveness } from '@/domain/building/mobile-im/fewshot-tracker';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (auth.error) return auth.error;
@@ -113,7 +117,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[GET /api/admin/golden-sets/stats]', message);
+    log.error('[GET /api/admin/golden-sets/stats]', message);
     return NextResponse.json(
       { ok: false, error: message },
       { status: 500 },

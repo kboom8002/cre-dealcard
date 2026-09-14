@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 /**
  * POST /api/broker/map-capture/geocode
  * 주소 텍스트 → 카카오 Local API로 좌표 변환
@@ -60,7 +64,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ error: `'${address}' 주소를 찾을 수 없습니다.` }, { status: 404 });
   } catch (err: any) {
-    console.error('[map-capture/geocode] error:', err);
+    log.error('[map-capture/geocode] error:', err);
     return NextResponse.json({ error: '주소 검색 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

@@ -10,6 +10,10 @@ import { isFeatureEnabled } from '../building/feature-flags';
 import { lintProvenance } from '../building/provenance-lint';
 import { gradeProfile, effectiveWeights, type InvestmentPosture, type AssetType as OntologyAssetType } from '@/domain/ontology';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('grade-engine');
+
+
 // E-4: L×P 2축 등급 해상도
 export type PropertyResolution = 'P0' | 'P1' | 'P2' | 'P3';
 export type LeadResolution = 'R0' | 'R1' | 'R2' | 'R3';
@@ -264,7 +268,7 @@ export function computeDataGrade(
   if (provenanceMap) {
     const lintResult = lintProvenance(attrs, provenanceMap);
     if (lintResult.overallHealth === 'major_conflicts') {
-      console.warn('[grade-engine] Major provenance conflicts detected:', lintResult.conflicts.length);
+      log.warn('[grade-engine] Major provenance conflicts detected:', lintResult.conflicts.length);
     }
   }
 

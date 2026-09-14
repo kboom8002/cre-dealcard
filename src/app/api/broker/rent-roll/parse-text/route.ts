@@ -4,6 +4,10 @@ import { callLLM } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
 import { z } from "zod/v4";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const FloorLeaseSchema = z.object({
   floor: z.string(),
   tenant_type: z.string().optional(),
@@ -96,7 +100,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(validated);
   } catch (err: any) {
-    console.error("[rent-roll/parse-text] Error:", err);
+    log.error("[rent-roll/parse-text] Error:", err);
     return NextResponse.json(
       { error: err.message || "렌트롤 파싱에 실패했습니다." },
       { status: 400 }

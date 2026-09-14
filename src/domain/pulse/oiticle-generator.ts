@@ -14,6 +14,10 @@ import {
 } from "./oiticle-types";
 import { callLLM as centralCallLLM } from "@/ai/llm-client";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('oiticle-generator');
+
+
 // ── LLM 호출 (pulse-generator와 동일 패턴) ─────────────────────
 async function callLLM(prompt: string): Promise<string> {
   try {
@@ -26,7 +30,7 @@ async function callLLM(prompt: string): Promise<string> {
     });
     return result.content;
   } catch (e) {
-    console.error("[OiticleGenerator] LLM call failed:", e);
+    log.error("[OiticleGenerator] LLM call failed:", e);
     return "LLM 호출 중 오류가 발생하여 콘텐츠를 생성할 수 없습니다.";
   }
 }
@@ -212,7 +216,7 @@ export async function generateMonthlyMarketOiticles(
       });
       results.push(result);
     } catch (e) {
-      console.error(`[OiticleGenerator] MA for ${region} failed:`, e);
+      log.error(`[OiticleGenerator] MA for ${region} failed:`, e);
     }
   }
 

@@ -3,6 +3,10 @@ import { requireBroker } from "@/lib/auth-guard";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(req: NextRequest) {
   try {
     const guard = await requireBroker(req);
@@ -69,7 +73,7 @@ export async function POST(req: NextRequest) {
       blogCopy: defaultBlog,
     });
   } catch (err: any) {
-    console.error("[POST /api/broker/campaign]", err);
+    log.error("[POST /api/broker/campaign]", err);
     return NextResponse.json({ error: "카피 생성 중 오류가 발생했습니다." }, { status: 500 });
   }
 }

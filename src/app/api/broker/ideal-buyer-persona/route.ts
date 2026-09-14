@@ -9,6 +9,10 @@ import { runIdealBuyerPersona } from "@/ai/agents/ideal-buyer-persona";
 import { z } from "zod/v4";
 import { requireBroker } from "@/lib/auth-guard";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const RequestSchema = z.object({
   dealId: z.string().optional(),
   areaSignal: z.string().default("미확인"),
@@ -39,7 +43,7 @@ export async function POST(request: NextRequest) {
     try {
       input = RequestSchema.parse(body);
     } catch (validationError) {
-      console.error("[IdealBuyerPersona] Input validation error:", validationError);
+      log.error("[IdealBuyerPersona] Input validation error:", validationError);
       return NextResponse.json(
         { success: false, error: "매물 정보가 부족합니다. 딜카드를 먼저 생성해주세요." },
         { status: 400 },
@@ -82,7 +86,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[IdealBuyerPersona] Error:", error);
+    log.error("[IdealBuyerPersona] Error:", error);
 
     const message = error instanceof Error ? error.message : "AI 페르소나 생성 중 오류가 발생했습니다.";
 

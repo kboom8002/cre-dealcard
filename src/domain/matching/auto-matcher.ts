@@ -3,6 +3,10 @@ import { runMatchingEngine } from "@/domain/matching/matching-engine";
 import { extractMatchCasePack } from "@/domain/casepack/casepack-extractor";
 import { computePromotionScore } from "@/domain/promotion/promotion-ranker";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('auto-matcher');
+
+
 export async function runAutoMatch(buildingId: string, brokerId: string) {
   const supabase = createServiceClient();
 
@@ -128,7 +132,7 @@ export async function runAutoMatch(buildingId: string, brokerId: string) {
         }
       }
     } catch (e) {
-      console.warn(`[auto-match] Failed for intent ${intent.id}`, e);
+      log.warn(`[auto-match] Failed for intent ${intent.id}`, e);
     }
   }
 
@@ -276,7 +280,7 @@ export async function runAutoMatchForBuyer(buyerIntentId: string, brokerId: stri
         }
       }
     } catch (e) {
-      console.warn(`[auto-match] Failed for building ${building.id}`, e);
+      log.warn(`[auto-match] Failed for building ${building.id}`, e);
     }
   }
 }

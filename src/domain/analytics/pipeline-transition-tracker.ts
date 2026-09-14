@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordEvent } from "./record-event";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('pipeline-transition-tracker');
+
+
 export interface PipelineTransitionInput {
   brokerId: string;
   buildingSsotLiteId?: string | null;
@@ -37,7 +41,7 @@ export async function trackPipelineTransition(
     .single();
 
   if (error) {
-    console.error("[trackPipelineTransition] Database insert failed:", error.message);
+    log.error("[trackPipelineTransition] Database insert failed:", error.message);
     return null;
   }
 

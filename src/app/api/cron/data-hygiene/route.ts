@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
@@ -23,7 +27,7 @@ export async function GET(req: NextRequest) {
       .limit(100);
 
     if (draftErr) {
-      console.error('[data-hygiene] Failed to query stale drafts:', draftErr);
+      log.error('[data-hygiene] Failed to query stale drafts:', draftErr);
     }
     results.staleDrafts = staleDrafts?.length ?? 0;
 
@@ -44,7 +48,7 @@ export async function GET(req: NextRequest) {
         .in('id', expiredIds);
 
       if (updateErr) {
-        console.error('[data-hygiene] Failed to expire OCR records:', updateErr);
+        log.error('[data-hygiene] Failed to expire OCR records:', updateErr);
       }
       results.expiredOcrRecords = expiredIds.length;
     } else {
@@ -68,17 +72,17 @@ export async function GET(req: NextRequest) {
         .in('id', staleIds);
 
       if (deleteErr) {
-        console.error('[data-hygiene] Failed to delete stale golden sets:', deleteErr);
+        log.error('[data-hygiene] Failed to delete stale golden sets:', deleteErr);
       }
       results.deletedGoldenSets = staleIds.length;
     } else {
       results.deletedGoldenSets = 0;
     }
 
-    console.info('[data-hygiene] Completed:', results);
+    log.info('[data-hygiene] Completed:', results);
     return NextResponse.json({ status: 'ok', results });
   } catch (err) {
-    console.error('[data-hygiene] Unexpected error:', err);
+    log.error('[data-hygiene] Unexpected error:', err);
     return NextResponse.json({ status: 'error', error: 'Internal server error' }, { status: 500 });
   }
 }

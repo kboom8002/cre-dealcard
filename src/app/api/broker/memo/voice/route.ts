@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import OpenAI from "openai";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 // Edge runtime is not fully supported for node's FormData with fetch to OpenAI in some older setups,
 // but for standard App Router API, we can use nodejs runtime.
 // If needed, export const runtime = "edge";
@@ -48,7 +52,7 @@ export async function POST(req: Request) {
     });
 
   } catch (error) {
-    console.error("Voice API Error:", error);
+    log.error("Voice API Error:", error);
     return NextResponse.json(
       { ok: false, error: "Internal Server Error" },
       { status: 500 }

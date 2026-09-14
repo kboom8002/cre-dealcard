@@ -9,6 +9,10 @@ import { runLeaseBrokerDealCard } from "@/ai/agents/lease-deal-card";
 import { recordEvent } from "@/domain/analytics/record-event";
 import { getModel } from "@/ai/model-selector";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('broker-lease-card');
+
+
 export interface BrokerLeaseCardFromMemoInput {
   memo: string;
 }
@@ -188,7 +192,7 @@ export async function brokerLeaseCardFromMemo(
     const { runLeaseAutoMatcher } = await import("@/domain/matching/lease-auto-matcher");
     await runLeaseAutoMatcher(space.id, userId);
   } catch (matchErr) {
-    console.warn("[broker-lease-card] Auto-match failed", matchErr);
+    log.warn("[broker-lease-card] Auto-match failed", matchErr);
   }
 
   return {

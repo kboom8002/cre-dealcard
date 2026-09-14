@@ -19,6 +19,10 @@ import { buildAttrsFromSsotLite, readWithMigration } from '@/lib/ssot-adapter';
 import { createServiceClient } from '@/lib/supabase/service';
 import { extractSlotsFromMemo } from '@/domain/building/memo-slot-mapper';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export const maxDuration = 120;
 
 /** 한국어 가격 텍스트를 원화 숫자로 변환 (예: '120억' → 12_000_000_000) */
@@ -72,7 +76,7 @@ export async function POST(req: NextRequest) {
 
     // S2-T3: Extract structured slots from broker memo
     const memoSlots = extractSlotsFromMemo(sanitizedMemo || '');
-    console.info(`[memo-mapper] Extracted ${memoSlots.slots.length} slots (${memoSlots.extractionRate}% coverage)`);
+    log.info(`[memo-mapper] Extracted ${memoSlots.slots.length} slots (${memoSlots.extractionRate}% coverage)`);
 
     // Cold Mode pitch guard (blind visibility = no mandate)
     if (input.visibilityPreference === 'blind') {
@@ -139,7 +143,7 @@ export async function POST(req: NextRequest) {
         const { runAutoMatch } = await import("@/domain/matching/auto-matcher");
         await runAutoMatch(result.buildingId, user!.id);
       } catch (err) {
-        console.error("Background auto-match failed:", err);
+        log.error("Background auto-match failed:", err);
       }
     });
 
@@ -154,7 +158,7 @@ export async function POST(req: NextRequest) {
       constraintWarnings,
     });
   } catch (error) {
-    console.error("Deal Card Route Error:", error);
+    log.error("Deal Card Route Error:", error);
     return toApiError(error);
   }
 }

@@ -3,6 +3,10 @@ import { callLLM } from "@/ai/llm-client";
 import { trackNaverCommunity, crawlNaverCRENews } from "./naver-search";
 import { crawlYoutubeTrends } from "./youtube-crawler";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('market-crawlers');
+
+
 // ─── RSS 피드 목록: 6개 주요 경제지 부동산 섹션 ─────────────────────────────────
 const CRE_RSS_FEEDS = [
   { name: "Hankyung RE",  url: "https://www.hankyung.com/feed/realestate" },
@@ -81,7 +85,7 @@ async function fetchBigKindsNews(): Promise<{ title: string; link: string; descr
         }
       }
     } catch (err) {
-      console.warn(`[BigKinds] keyword failed:`, err);
+      log.warn(`[BigKinds] keyword failed:`, err);
     }
   }
   return results;
@@ -167,7 +171,7 @@ async function scoreNewsBatch(items: RawNewsItem[]): Promise<ScoredNews[]> {
       };
     });
   } catch (err) {
-    console.warn("[scoreNewsBatch] LLM scoring failed:", err);
+    log.warn("[scoreNewsBatch] LLM scoring failed:", err);
     return items.map(item => ({
       ...item, score: 5, regions: ["all"], topic: "market_trend", sentiment: "neutral", summary: item.description.slice(0, 150),
     }));
@@ -212,7 +216,7 @@ export async function crawlCreNews(supabase: SupabaseClient): Promise<any[]> {
         rawItems.push({ ...item, feedSource: feed.name });
       }
     } catch (err) {
-      console.warn(`[crawlCreNews] Feed ${feed.name} failed:`, err);
+      log.warn(`[crawlCreNews] Feed ${feed.name} failed:`, err);
     }
   }
 
@@ -224,7 +228,7 @@ export async function crawlCreNews(supabase: SupabaseClient): Promise<any[]> {
         rawItems.push({ ...item, feedSource: "BigKinds" });
       }
     } catch (err) {
-      console.warn("[crawlCreNews] BigKinds failed:", err);
+      log.warn("[crawlCreNews] BigKinds failed:", err);
     }
   }
 
@@ -233,7 +237,7 @@ export async function crawlCreNews(supabase: SupabaseClient): Promise<any[]> {
     const naverNews = await crawlNaverCRENews(supabase);
     results.push(...naverNews);
   } catch (err) {
-    console.warn("[crawlCreNews] Naver news failed:", err);
+    log.warn("[crawlCreNews] Naver news failed:", err);
   }
 
   // ── LLM 배치 적합성 판단 ─────────────────────────────────────────────────
@@ -270,7 +274,7 @@ export async function crawlCreNews(supabase: SupabaseClient): Promise<any[]> {
   }
 
   if (results.length === 0) {
-    console.warn("[crawlCreNews] All news sources returned empty — no dummy fallback");
+    log.warn("[crawlCreNews] All news sources returned empty — no dummy fallback");
   }
   return results;
 }
@@ -280,7 +284,7 @@ export async function ingestGlobalReports(supabase: SupabaseClient): Promise<any
   const NAVER_ID = process.env.NAVER_CLIENT_ID || "";
   const NAVER_SECRET = process.env.NAVER_CLIENT_SECRET || "";
   if (!NAVER_ID || !NAVER_SECRET) {
-    console.warn("[ingestGlobalReports] Naver API credentials missing");
+    log.warn("[ingestGlobalReports] Naver API credentials missing");
     return [];
   }
 
@@ -332,7 +336,7 @@ export async function ingestGlobalReports(supabase: SupabaseClient): Promise<any
       }
       await new Promise(r => setTimeout(r, 120));
     } catch (err) {
-      console.warn(`[ingestGlobalReports] "${keyword}" failed:`, err);
+      log.warn(`[ingestGlobalReports] "${keyword}" failed:`, err);
     }
   }
   return results;
@@ -354,7 +358,7 @@ export async function crawlAuctions(supabase: SupabaseClient): Promise<any[]> {
   const NAVER_ID = process.env.NAVER_CLIENT_ID || "";
   const NAVER_SECRET = process.env.NAVER_CLIENT_SECRET || "";
   if (!NAVER_ID || !NAVER_SECRET) {
-    console.warn("[crawlAuctions] Naver API credentials missing");
+    log.warn("[crawlAuctions] Naver API credentials missing");
     return [];
   }
 
@@ -413,7 +417,7 @@ export async function crawlAuctions(supabase: SupabaseClient): Promise<any[]> {
       }
       await new Promise(r => setTimeout(r, 120));
     } catch (err) {
-      console.warn(`[crawlAuctions] "${keyword}" failed:`, err);
+      log.warn(`[crawlAuctions] "${keyword}" failed:`, err);
     }
   }
   return results;
@@ -424,7 +428,7 @@ export async function computeRentalMarketRates(supabase: SupabaseClient): Promis
   const NAVER_ID = process.env.NAVER_CLIENT_ID || "";
   const NAVER_SECRET = process.env.NAVER_CLIENT_SECRET || "";
   if (!NAVER_ID || !NAVER_SECRET) {
-    console.warn("[computeRentalMarketRates] Naver API credentials missing");
+    log.warn("[computeRentalMarketRates] Naver API credentials missing");
     return [];
   }
 
@@ -488,7 +492,7 @@ export async function computeRentalMarketRates(supabase: SupabaseClient): Promis
       } catch { /* AI 파싱 실패 */ }
       await new Promise(r => setTimeout(r, 120));
     } catch (err) {
-      console.warn(`[computeRentalMarketRates] ${rk.region} failed:`, err);
+      log.warn(`[computeRentalMarketRates] ${rk.region} failed:`, err);
     }
   }
   return results;

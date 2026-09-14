@@ -1,3 +1,6 @@
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('nlg-mask-engine');
+
 /**
  * nlg-mask-engine.ts
  * 
@@ -104,7 +107,7 @@ export function renderMask(templateId: string, bindings: NLGMaskBinding[], optio
 }): string | null {
   const template = MASK_TEMPLATES.find(t => t.id === templateId);
   if (!template) {
-    console.warn(`[nlg-mask] Template not found: ${templateId}`);
+    log.warn(`[nlg-mask] Template not found: ${templateId}`);
     return null;
   }
 

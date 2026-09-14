@@ -5,6 +5,10 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { runLeaseMatchingEngine, type LeaseSpaceMatchInput, type TenantIntentMatchInput } from "./lease-matching-engine";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('lease-auto-matcher');
+
+
 export async function runLeaseAutoMatcher(
   leaseSpaceId: string,
   brokerId: string,
@@ -26,7 +30,7 @@ export async function runLeaseAutoMatcher(
     .single();
 
   if (spaceErr || !space) {
-    console.error("[LeaseAutoMatcher] Lease space not found", spaceErr);
+    log.error("[LeaseAutoMatcher] Lease space not found", spaceErr);
     return;
   }
 
@@ -37,7 +41,7 @@ export async function runLeaseAutoMatcher(
     .eq("broker_id", brokerId);
 
   if (intentsErr || !intents || intents.length === 0) {
-    console.log("[LeaseAutoMatcher] No active tenant intents to match");
+    log.info("[LeaseAutoMatcher] No active tenant intents to match");
     return;
   }
 
@@ -102,7 +106,7 @@ export async function runLeaseAutoMatcher(
           .eq("tenant_intent_id", intent.id);
       }
     } catch (err) {
-      console.error(`[LeaseAutoMatcher] Matching failed for intent ${intent.id}:`, err);
+      log.error(`[LeaseAutoMatcher] Matching failed for intent ${intent.id}:`, err);
     }
   }
 }
@@ -124,7 +128,7 @@ export async function runTenantAutoMatcher(
     .single();
 
   if (intentErr || !intent) {
-    console.error("[LeaseAutoMatcher] Tenant intent not found", intentErr);
+    log.error("[LeaseAutoMatcher] Tenant intent not found", intentErr);
     return;
   }
 
@@ -143,7 +147,7 @@ export async function runTenantAutoMatcher(
     .eq("status", "active");
 
   if (spacesErr || !spaces || spaces.length === 0) {
-    console.log("[LeaseAutoMatcher] No active lease spaces to match");
+    log.info("[LeaseAutoMatcher] No active lease spaces to match");
     return;
   }
 
@@ -204,7 +208,7 @@ export async function runTenantAutoMatcher(
           .eq("tenant_intent_id", intent.id);
       }
     } catch (err) {
-      console.error(`[LeaseAutoMatcher] Matching failed for space ${space.id}:`, err);
+      log.error(`[LeaseAutoMatcher] Matching failed for space ${space.id}:`, err);
     }
   }
 }

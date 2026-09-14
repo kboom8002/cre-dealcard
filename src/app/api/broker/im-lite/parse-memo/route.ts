@@ -21,6 +21,10 @@ import {
 } from "@/ai/prompts/broker-deal-card";
 import { getModel } from "@/ai/model-selector";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const VALID_POSTURES = ['income', 'development', 'operating', 'owner_occupied', 'trading'] as const;
 
 /** AUTH-03.2~03.3: 메모 파싱 결과 */
@@ -171,7 +175,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "알 수 없는 오류";
-    console.error("[parse-memo] Error:", message);
+    log.error("[parse-memo] Error:", message);
 
     const isParseError =
       (err as Error)?.name === "ZodError" ||

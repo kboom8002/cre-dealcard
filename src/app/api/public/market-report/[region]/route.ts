@@ -7,6 +7,10 @@
 import { toApiError } from "@/lib/api-error";
 import { generateMarketReport } from "@/domain/market-report/market-report-generator";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ region: string }> },
@@ -32,7 +36,7 @@ export async function GET(
       data: report,
     });
   } catch (error) {
-    console.error("Market Report Route Error:", error);
+    log.error("Market Report Route Error:", error);
     return toApiError(error);
   }
 }

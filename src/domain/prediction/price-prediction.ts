@@ -4,6 +4,10 @@
  */
 import { createServiceClient } from '@/lib/supabase/service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('price-prediction');
+
+
 const MOLIT_API_KEY = process.env.MOLIT_API_KEY || process.env.DATA_GO_KR_API_KEY || '';
 const MOLIT_BASE_URL = 'https://apis.data.go.kr/1613000/RTMSOBJSvc';
 
@@ -142,7 +146,7 @@ export async function runMolitETL(months = 12): Promise<{ fetched: number; store
         // Rate limiting
         await new Promise((r) => setTimeout(r, 100));
       } catch (e) {
-        console.warn(`[ETL] failed ${district} ${ym}:`, e);
+        log.warn(`[ETL] failed ${district} ${ym}:`, e);
       }
     }
   }

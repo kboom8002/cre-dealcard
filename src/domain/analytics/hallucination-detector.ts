@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('hallucination-detector');
+
+
 export interface AnomalyFlag {
   type: 'price_outlier' | 'size_outlier' | 'region_hallucination' | 'prompt_degradation';
   severity: 'warning' | 'critical';
@@ -147,7 +151,7 @@ export async function detectAnomalies(
       }
     }
   } catch (err: any) {
-    console.warn("[detectAnomalies] Failed to compute prompt degradation metric:", err.message);
+    log.warn("[detectAnomalies] Failed to compute prompt degradation metric:", err.message);
   }
 
   // 5. 감지된 이상 플래그 리스트가 있다면 DB `ai_runs` 레코드에 업데이트 적재
@@ -158,7 +162,7 @@ export async function detectAnomalies(
       .eq("id", aiRunId);
       
     if (updateError) {
-      console.error("[detectAnomalies] Failed to write anomaly flags to ai_runs:", updateError.message);
+      log.error("[detectAnomalies] Failed to write anomaly flags to ai_runs:", updateError.message);
     }
   }
 

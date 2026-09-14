@@ -6,6 +6,10 @@
 import { embedText } from '@/ai/llm-client';
 import { createServiceClient } from '@/lib/supabase/service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('deal-semantic-search');
+
+
 export interface SimilarDeal {
   id: string;
   task: string;
@@ -151,7 +155,7 @@ export async function backfillCasePackEmbeddings(batchSize = 20): Promise<number
       await generateCasePackEmbedding(id);
       count++;
     } catch (e) {
-      console.warn('[G-D] embedding failed for', id, e);
+      log.warn('[G-D] embedding failed for', id, e);
     }
   }
   return count;

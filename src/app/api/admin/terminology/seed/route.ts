@@ -6,6 +6,10 @@ import { requireAdmin } from '@/lib/auth-guard';
 import { createServiceClient } from '@/lib/supabase/service';
 import { HARDCODED_TERM_RULES } from '@/domain/building/mobile-im/terminology-normalizer';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (auth.error) return auth.error;
@@ -65,7 +69,7 @@ export async function POST(req: NextRequest) {
       inserted_count: data?.length || 0,
     });
   } catch (err: any) {
-    console.error('[terminology-seed-api] error:', err);
+    log.error('[terminology-seed-api] error:', err);
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }

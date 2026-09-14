@@ -7,6 +7,10 @@
 
 import { getVWorldApiKey, getVWorldReferer } from "@/lib/external/vworld-config";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('address-resolver');
+
+
 // ── 타입 정의 ────────────────────────────────────────────────────────────
 
 export interface ResolvedAddress {
@@ -144,7 +148,7 @@ export async function searchAddress(
         }
       }
     } catch (err) {
-      console.warn("[address-resolver] Kakao address search failed, trying fallback:", err);
+      log.warn("[address-resolver] Kakao address search failed, trying fallback:", err);
     }
   }
 
@@ -181,7 +185,7 @@ export async function searchAddress(
         }
       }
     } catch (err) {
-      console.warn("[address-resolver] VWorld address search failed, trying fallback:", err);
+      log.warn("[address-resolver] VWorld address search failed, trying fallback:", err);
     }
   }
 
@@ -221,7 +225,7 @@ export async function searchAddress(
         }
       }
     } catch (error) {
-      console.error("[address-resolver] Juso API search failed:", error);
+      log.error("[address-resolver] Juso API search failed:", error);
     }
   }
 
@@ -401,7 +405,7 @@ export async function geocodeAddress(address: string): Promise<{ lat: number; ln
     });
 
     if (!res.ok) {
-      console.warn(`[geocodeAddress] Kakao API HTTP Error: ${res.status}`);
+      log.warn(`[geocodeAddress] Kakao API HTTP Error: ${res.status}`);
       return null;
     }
 
@@ -418,7 +422,7 @@ export async function geocodeAddress(address: string): Promise<{ lat: number; ln
       lng: parseFloat(bestMatch.x),
     };
   } catch (error) {
-    console.error("[geocodeAddress] Failed to geocode:", error);
+    log.error("[geocodeAddress] Failed to geocode:", error);
     return null;
   }
 }

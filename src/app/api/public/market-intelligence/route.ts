@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 import {
   crawlCreNews,
   ingestGlobalReports,
@@ -89,7 +93,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (err: unknown) {
-    console.error("[api/public/market-intelligence] GET Error:", err);
+    log.error("[api/public/market-intelligence] GET Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 오류" },
       { status: 500 }

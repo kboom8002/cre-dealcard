@@ -196,10 +196,10 @@ export async function persistLeaseUnits(
 
       if (ledgerError) {
         // building_id가 없거나 에러 시 asset_id 기반 fallback 처리
-        console.warn(`[lease-adapter] lease_ledger write note: ${ledgerError.message}`);
+        log.warn(`[lease-adapter] lease_ledger write note: ${ledgerError.message}`);
       }
     } catch (e) {
-      console.warn(`[lease-adapter] lease_ledger upsert warning:`, e);
+      log.warn(`[lease-adapter] lease_ledger upsert warning:`, e);
     }
 
     // 2. Legacy / Dual mode support — LEASE_TABLE=legacy_dual일 때만 구 테이블 동시 쓰기
@@ -234,6 +234,10 @@ export async function persistLeaseUnits(
 
 import { dispatchTenancy, type TenancyResult } from '@/domain/ontology';
 import type { AssetIdentity } from './types';
+
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('lease-adapter');
+
 
 /** 호실별 법령 분기 결과 */
 export interface LeaseLegalDispatch {

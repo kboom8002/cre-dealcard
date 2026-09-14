@@ -32,11 +32,11 @@ async function retryWithBackoff<T>(
       return await fn();
     } catch (err) {
       const delay = baseDelayMs * Math.pow(2, attempt - 1);
-      console.warn(`[${label}] Attempt ${attempt}/${maxRetries} failed, retrying in ${delay}ms`, err);
+      log.warn(`[${label}] Attempt ${attempt}/${maxRetries} failed, retrying in ${delay}ms`, err);
       if (attempt < maxRetries) await new Promise(r => setTimeout(r, delay));
     }
   }
-  console.error(`[${label}] All ${maxRetries} attempts failed — recording permanent failure`);
+  log.error(`[${label}] All ${maxRetries} attempts failed — recording permanent failure`);
   return null;
 }
 import { runBrokerDealCard } from "@/ai/agents/broker-deal-card";
@@ -50,6 +50,10 @@ import { getModel } from "@/ai/model-selector";
 import { detectDuplicateBuilding, type DedupResult } from "./building-dedup";
 import { linkBuildingToCanonicalProperty } from "./canonical-property";
 import { extractSlotsFromMemo, extractPostureProposal } from "./memo-slot-mapper";
+
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('broker-deal-card');
+
 
 export interface BrokerDealCardFromMemoInput {
   memo: string;
@@ -386,7 +390,7 @@ export async function brokerDealCardFromMemo(
     const casePack = extractDealCardCasePack(aiResult, building.id, userId);
     await supabase.from("deal_casepacks").insert(casePack);
   } catch (cpErr) {
-    console.warn("[broker-deal-card] CasePack extraction failed", cpErr);
+    log.warn("[broker-deal-card] CasePack extraction failed", cpErr);
   }
 
   // 8. Initialize deal pipeline (Phase 2 ⑤)
@@ -401,7 +405,7 @@ export async function brokerDealCardFromMemo(
       },
     });
   } catch (pipeErr) {
-    console.warn("[broker-deal-card] Pipeline init failed", pipeErr);
+    log.warn("[broker-deal-card] Pipeline init failed", pipeErr);
   }
 
   // 9. Initial promotion score (Phase 1 ③)
@@ -421,7 +425,7 @@ export async function brokerDealCardFromMemo(
       })
       .eq("id", building.id);
   } catch (promoErr) {
-    console.warn("[broker-deal-card] Promotion score init failed", promoErr);
+    log.warn("[broker-deal-card] Promotion score init failed", promoErr);
   }
 
   // 11. 공공데이터 교차검증 (건축물대장 API) — W-2.1: 지수 백오프 재시도

@@ -6,6 +6,10 @@
 
 import type { CrossValidatorAnchors } from './cross-validator';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('numerical-anchors');
+
+
 export interface AnchorEntry {
   value: number;
   source: string; // 섹션 타입 또는 출처
@@ -66,7 +70,7 @@ export class NumericalAnchors {
           existing: { ...existing },
           attempted: { value, source, stage },
         });
-        console.warn(
+        log.warn(
           `[NumericalAnchors] 수치 충돌 감지 [${key}]: 기존값=${existing.value} (${existing.source}, Stage ${existing.stage}) vs 시도값=${value} (${source}, Stage ${stage})`
         );
         return; // 선행 확정값 유지

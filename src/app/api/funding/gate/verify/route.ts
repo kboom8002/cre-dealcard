@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(request: Request) {
   try {
     const supabase = await createServerSupabaseClient();
@@ -48,7 +52,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, data: profile });
   } catch (error: any) {
-    console.error("[POST /api/funding/gate/verify]", error);
+    log.error("[POST /api/funding/gate/verify]", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

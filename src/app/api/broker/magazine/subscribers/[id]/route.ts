@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 // PATCH /api/broker/magazine/subscribers/[id] - 구독자 상태 및 관심사 정보 수정
 export async function PATCH(
   req: NextRequest,
@@ -49,13 +53,13 @@ export async function PATCH(
       .single();
 
     if (error) {
-      console.error("[Subscriber PATCH] Update error:", error);
+      log.error("[Subscriber PATCH] Update error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, subscriber: data });
   } catch (err: any) {
-    console.error("[Subscriber PATCH] Unexpected error:", err);
+    log.error("[Subscriber PATCH] Unexpected error:", err);
     return NextResponse.json({ error: err.message || "서버 오류가 발생했습니다." }, { status: 500 });
   }
 }
@@ -81,13 +85,13 @@ export async function DELETE(
       .eq("broker_id", user.id); // 보안: 내 구독자만 삭제 가능
 
     if (error) {
-      console.error("[Subscriber DELETE] Delete error:", error);
+      log.error("[Subscriber DELETE] Delete error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, message: "구독자가 완전히 삭제되었습니다." });
   } catch (err: any) {
-    console.error("[Subscriber DELETE] Unexpected error:", err);
+    log.error("[Subscriber DELETE] Unexpected error:", err);
     return NextResponse.json({ error: err.message || "서버 오류가 발생했습니다." }, { status: 500 });
   }
 }

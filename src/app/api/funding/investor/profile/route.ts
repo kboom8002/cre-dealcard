@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { runInvestorProfileNormalizer } from "@/ai/agents/investor-profile-normalizer";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function GET() {
   try {
     const supabase = await createServerSupabaseClient();
@@ -24,7 +28,7 @@ export async function GET() {
       data: profile || null,
     });
   } catch (error: any) {
-    console.error("[GET /api/funding/investor/profile]", error);
+    log.error("[GET /api/funding/investor/profile]", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -77,7 +81,7 @@ export async function POST(request: Request) {
       aiParsed: !!rawMemo,
     });
   } catch (error: any) {
-    console.error("[POST /api/funding/investor/profile]", error);
+    log.error("[POST /api/funding/investor/profile]", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

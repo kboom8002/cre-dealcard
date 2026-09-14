@@ -8,6 +8,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { ReleaseTier } from '@/domain/building/im-core';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export const runtime = 'nodejs';
 export const maxDuration = 300;  // Vercel Pro — 24p Pro 덱 대응
 
@@ -194,7 +198,7 @@ export async function GET(
       });
 
     if (uploadError) {
-      console.warn('[PPTX] Storage upload failed, returning direct download:', uploadError);
+      log.warn('[PPTX] Storage upload failed, returning direct download:', uploadError);
     }
 
     // 6. Return PPTX via signed URL
@@ -231,7 +235,7 @@ export async function GET(
       },
     });
   } catch (err: any) {
-    console.error(`[PPTX ${tier}] Generation failed:`, err);
+    log.error(`[PPTX ${tier}] Generation failed:`, err);
     return NextResponse.json(
       { error: 'PPTX generation failed', message: err.message },
       { status: 500 }

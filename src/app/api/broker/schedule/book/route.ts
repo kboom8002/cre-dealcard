@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createBookingFromMatch } from "@/domain/scheduling/booking-orchestrator";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 // POST /api/broker/schedule/book - 임장 예약 슬롯 Hold 신청 (CAS 낙관적 락 패턴)
 export async function POST(request: Request) {
   try {
@@ -42,7 +46,7 @@ export async function POST(request: Request) {
       message: "슬롯 선점(Hold)이 완료되었습니다. 24시간 내에 확정해야 합니다.",
     });
   } catch (err: any) {
-    console.error("[Schedule Book POST] Unexpected error:", err);
+    log.error("[Schedule Book POST] Unexpected error:", err);
     return NextResponse.json({ error: err.message || "서버 오류가 발생했습니다." }, { status: 500 });
   }
 }

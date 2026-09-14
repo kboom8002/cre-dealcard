@@ -3,6 +3,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { callLLM } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -391,7 +395,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, data: body });
   } catch (err: unknown) {
-    console.error("[api/magazine/POST] Error:", err);
+    log.error("[api/magazine/POST] Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 오류" },
       { status: 500 }

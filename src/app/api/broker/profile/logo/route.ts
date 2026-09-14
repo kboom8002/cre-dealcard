@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 async function ensureBucket(svc: ReturnType<typeof createServiceClient>, name: string) {
   const { data: buckets } = await svc.storage.listBuckets();
   if (!buckets?.find((b: { name: string }) => b.name === name)) {
@@ -68,7 +72,7 @@ export async function POST(request: NextRequest) {
       });
 
     if (uploadError) {
-      console.error("Logo upload error:", uploadError);
+      log.error("Logo upload error:", uploadError);
       return NextResponse.json(
         { error: "Failed to upload logo" },
         { status: 500 }
@@ -88,7 +92,7 @@ export async function POST(request: NextRequest) {
       .eq("user_id", user.id);
 
     if (dbError) {
-      console.error("Logo DB update error:", dbError);
+      log.error("Logo DB update error:", dbError);
       return NextResponse.json(
         { error: "Failed to save logo URL" },
         { status: 500 }
@@ -101,7 +105,7 @@ export async function POST(request: NextRequest) {
       type,
     });
   } catch (err) {
-    console.error("Logo upload unexpected error:", err);
+    log.error("Logo upload unexpected error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -141,7 +145,7 @@ export async function DELETE(request: NextRequest) {
       .eq("user_id", user.id);
 
     if (dbError) {
-      console.error("Logo delete DB error:", dbError);
+      log.error("Logo delete DB error:", dbError);
       return NextResponse.json(
         { error: "Failed to remove logo" },
         { status: 500 }
@@ -159,7 +163,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ ok: true, type });
   } catch (err) {
-    console.error("Logo delete unexpected error:", err);
+    log.error("Logo delete unexpected error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

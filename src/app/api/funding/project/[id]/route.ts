@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getInvestorGateLevel, filterProjectByGate } from "@/domain/gate/funding-gate";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -52,7 +56,7 @@ export async function GET(
       viewerGateLevel: gateLevel,
     });
   } catch (error: any) {
-    console.error("[GET /api/funding/project/[id]]", error);
+    log.error("[GET /api/funding/project/[id]]", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -97,7 +101,7 @@ export async function PUT(
 
     return NextResponse.json({ ok: true, data: updated });
   } catch (error: any) {
-    console.error("[PUT /api/funding/project/[id]]", error);
+    log.error("[PUT /api/funding/project/[id]]", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -138,7 +142,7 @@ export async function DELETE(
 
     return NextResponse.json({ ok: true, message: "Project deleted successfully" });
   } catch (error: any) {
-    console.error("[DELETE /api/funding/project/[id]]", error);
+    log.error("[DELETE /api/funding/project/[id]]", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

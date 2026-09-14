@@ -3,6 +3,10 @@ import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { MARKET_TEMP_CONFIG, type MarketTemperature } from "@/domain/magazine/types";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export const runtime = "nodejs";
 
 const ACCENT: Record<string, string> = {
@@ -62,7 +66,7 @@ export async function GET(
       }
     }
   } catch (err) {
-    console.warn("[MagazineImage] Failed to fetch broker profile:", err);
+    log.warn("[MagazineImage] Failed to fetch broker profile:", err);
   }
 
   // 2. 에디션 조회
@@ -80,7 +84,7 @@ export async function GET(
       edition = ed;
     }
   } catch (err) {
-    console.warn("[MagazineImage] Failed to fetch edition:", err);
+    log.warn("[MagazineImage] Failed to fetch edition:", err);
   }
 
   const title = edition?.title || `${date} CRE 위클리 마켓 리포트`;

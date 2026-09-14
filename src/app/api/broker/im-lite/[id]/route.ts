@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -95,21 +99,21 @@ export async function DELETE(
       .eq('id', id);
 
     if (deleteErr) {
-      console.warn('[im-lite/delete] Hard delete failed, falling back to soft delete:', deleteErr.message);
+      log.warn('[im-lite/delete] Hard delete failed, falling back to soft delete:', deleteErr.message);
       const { error: softDeleteErr } = await service
         .from('document_objects')
         .update({ status: 'archived' })
         .eq('id', id);
 
       if (softDeleteErr) {
-        console.error('[im-lite/delete] Soft delete failed:', softDeleteErr);
+        log.error('[im-lite/delete] Soft delete failed:', softDeleteErr);
         return NextResponse.json({ error: `삭제 실패: ${softDeleteErr.message}` }, { status: 500 });
       }
     }
 
     return NextResponse.json({ ok: true, message: 'IM이 삭제되었습니다.' });
   } catch (err: any) {
-    console.error('[im-lite/delete] Unexpected error:', err);
+    log.error('[im-lite/delete] Unexpected error:', err);
     return NextResponse.json({ error: `삭제 중 오류가 발생했습니다: ${err.message}` }, { status: 500 });
   }
 }

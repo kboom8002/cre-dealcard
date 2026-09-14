@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('youtube-crawler');
+
+
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || "";
 const YT_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
 const YT_VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos";
@@ -24,7 +28,7 @@ export async function crawlYoutubeTrends(supabase: SupabaseClient): Promise<any[
   const results: any[] = [];
 
   if (!YOUTUBE_API_KEY) {
-    console.warn("[YouTube] YOUTUBE_API_KEY missing — using dummy data");
+    log.warn("[YouTube] YOUTUBE_API_KEY missing — using dummy data");
     return insertDummyVideos(supabase);
   }
 
@@ -95,7 +99,7 @@ export async function crawlYoutubeTrends(supabase: SupabaseClient): Promise<any[
         if (!error && data) results.push(data);
       }
     } catch (err) {
-      console.warn(`[YouTube] Keyword "${keyword}" failed:`, err);
+      log.warn(`[YouTube] Keyword "${keyword}" failed:`, err);
     }
   }
 
@@ -104,7 +108,7 @@ export async function crawlYoutubeTrends(supabase: SupabaseClient): Promise<any[
 }
 
 async function insertDummyVideos(_supabase: SupabaseClient): Promise<any[]> {
-  console.warn("[YouTube] No real video data available — returning empty");
+  log.warn("[YouTube] No real video data available — returning empty");
   return [];
 }
 

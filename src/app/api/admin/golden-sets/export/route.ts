@@ -12,6 +12,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-guard';
 import { createServiceClient } from '@/lib/supabase/service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const SYSTEM_PROMPT = '한국 상업용 부동산 투자설명서(IM) 전문 작성 AI입니다.';
 
 interface GoldenRow {
@@ -78,7 +82,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[GET /api/admin/golden-sets/export]', message);
+    log.error('[GET /api/admin/golden-sets/export]', message);
     return NextResponse.json(
       { ok: false, error: { code: 'INTERNAL', message } },
       { status: 500 },

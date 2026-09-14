@@ -1,6 +1,10 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { notifyMatchParties } from "./circle-notification-service";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('co-brokerage-service');
+
+
 export async function createCoBrokerageDeal(input: {
   circleMatchId: string;
   buildingId: string;
@@ -45,7 +49,7 @@ export async function createCoBrokerageDeal(input: {
     .single();
 
   if (err1) {
-    console.error("[createCoBrokerageDeal] Error creating deal1:", err1.message);
+    log.error("[createCoBrokerageDeal] Error creating deal1:", err1.message);
   }
 
   // Create pipeline deal state for buyer broker
@@ -70,7 +74,7 @@ export async function createCoBrokerageDeal(input: {
     .single();
 
   if (err2) {
-    console.error("[createCoBrokerageDeal] Error creating deal2:", err2.message);
+    log.error("[createCoBrokerageDeal] Error creating deal2:", err2.message);
   }
 
   const primaryDealId = deal1?.id || deal2?.id || "";

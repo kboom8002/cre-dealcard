@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordEvent } from "@/domain/analytics/record-event";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('gate-expiry-cron');
+
+
 export interface ExpiryCronResult {
   expiredCount: number;
   success: boolean;
@@ -26,7 +30,7 @@ export async function expireGateRequests(supabase: SupabaseClient): Promise<Expi
       .select("id, building_id, requester_id");
 
     if (updateError) {
-      console.error("[expireGateRequests] Expiry update failed:", updateError.message);
+      log.error("[expireGateRequests] Expiry update failed:", updateError.message);
       return { expiredCount: 0, success: false, error: updateError.message };
     }
 
@@ -54,7 +58,7 @@ export async function expireGateRequests(supabase: SupabaseClient): Promise<Expi
       success: true,
     };
   } catch (err: any) {
-    console.error("[expireGateRequests] Unexpected cron error:", err);
+    log.error("[expireGateRequests] Unexpected cron error:", err);
     return {
       expiredCount: 0,
       success: false,

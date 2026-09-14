@@ -8,6 +8,10 @@ import { runTenantIntentNormalizer } from "@/ai/agents/tenant-intent-normalizer"
 import { recordEvent } from "@/domain/analytics/record-event";
 import { getModel } from "@/ai/model-selector";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('tenant-intent');
+
+
 export interface CreateTenantIntentInput {
   memo: string;
   clientId?: string | null;
@@ -116,7 +120,7 @@ export async function createTenantIntentFromMemo(
     const { runTenantAutoMatcher } = await import("@/domain/matching/lease-auto-matcher");
     await runTenantAutoMatcher(tenantIntent.id, userId);
   } catch (matchErr) {
-    console.warn("[tenant-intent] Auto-match failed", matchErr);
+    log.warn("[tenant-intent] Auto-match failed", matchErr);
   }
 
   return {

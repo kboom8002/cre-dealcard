@@ -1,12 +1,16 @@
 import { createServiceClient } from '@/lib/supabase/service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('annual-batch');
+
+
 /**
  * Annual batch to refresh official prices for all assets.
  */
 export async function annualOfficialPriceRefresh(): Promise<void> {
   const supabase = createServiceClient();
   
-  console.log('Starting annual official price refresh...');
+  log.info('Starting annual official price refresh...');
   
   // Fetch deals
   const { data: deals, error } = await supabase
@@ -14,7 +18,7 @@ export async function annualOfficialPriceRefresh(): Promise<void> {
     .select('id, address');
     
   if (error) {
-    console.error('Failed to fetch deals for annual refresh:', error);
+    log.error('Failed to fetch deals for annual refresh:', error);
     throw new Error(`Failed to fetch deals: ${error.message}`);
   }
   
@@ -32,5 +36,5 @@ export async function annualOfficialPriceRefresh(): Promise<void> {
     successCount++;
   }
   
-  console.log(`Annual official price refresh completed successfully. Refreshed ${successCount} deals.`);
+  log.info(`Annual official price refresh completed successfully. Refreshed ${successCount} deals.`);
 }

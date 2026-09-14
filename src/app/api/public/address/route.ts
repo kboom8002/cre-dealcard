@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchAddress } from "@/domain/verification/address-resolver";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 /**
  * GET /api/public/address?keyword=역삼동+823
  *
@@ -21,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(results);
   } catch (err: unknown) {
-    console.error("[api/public/address] Error:", err);
+    log.error("[api/public/address] Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 내부 오류" },
       { status: 500 },

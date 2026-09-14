@@ -7,6 +7,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-guard';
 import { createServiceClient } from '@/lib/supabase/service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -31,7 +35,7 @@ export async function GET(
 
     return NextResponse.json(data);
   } catch (err: any) {
-    console.error('[terminology-detail-api] GET error:', err);
+    log.error('[terminology-detail-api] GET error:', err);
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }
@@ -70,7 +74,7 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true, data });
   } catch (err: any) {
-    console.error('[terminology-detail-api] PATCH error:', err);
+    log.error('[terminology-detail-api] PATCH error:', err);
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }
@@ -96,7 +100,7 @@ export async function DELETE(
 
     return NextResponse.json({ ok: true, message: '비활성화 완료' });
   } catch (err: any) {
-    console.error('[terminology-detail-api] DELETE error:', err);
+    log.error('[terminology-detail-api] DELETE error:', err);
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }

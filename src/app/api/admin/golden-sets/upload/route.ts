@@ -9,6 +9,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-guard';
 import { createServiceClient } from '@/lib/supabase/service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 const ALLOWED_TYPES = [
   'application/pdf',
@@ -79,7 +83,7 @@ export async function POST(req: NextRequest) {
       .from(STORAGE_BUCKET)
       .getPublicUrl(storagePath);
 
-    console.warn('[golden-sets] file-parser.ts 미연동 — 수동 섹션 파싱 필요');
+    log.warn('[golden-sets] file-parser.ts 미연동 — 수동 섹션 파싱 필요');
 
     return NextResponse.json(
       {
@@ -95,7 +99,7 @@ export async function POST(req: NextRequest) {
     );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[POST /api/admin/golden-sets/upload]', message);
+    log.error('[POST /api/admin/golden-sets/upload]', message);
     return NextResponse.json(
       { ok: false, error: { code: 'INTERNAL', message } },
       { status: 500 },

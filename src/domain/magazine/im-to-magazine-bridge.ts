@@ -7,6 +7,10 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import type { HeroCardData } from "@/domain/building/mobile-im/types";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('im-to-magazine-bridge');
+
+
 interface DealSnippet {
   buildingId: string;
   blindName: string;          // "성수 · 꼬마빌딩"
@@ -50,9 +54,9 @@ export async function extractAndAppendDealSnippet(opts: {
       p_snippet: snippet,
     });
     if (error) {
-      console.error("[im-to-magazine-bridge] RPC error:", error);
+      log.error("[im-to-magazine-bridge] RPC error:", error);
     }
   } catch (err) {
-    console.error("[im-to-magazine-bridge] Failed to call RPC:", err);
+    log.error("[im-to-magazine-bridge] Failed to call RPC:", err);
   }
 }

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function GET() {
   try {
     const supabase = await createServerSupabaseClient();
@@ -53,7 +57,7 @@ export async function GET() {
       },
     });
   } catch (error: any) {
-    console.error("[GET /api/admin/match-failures]", error);
+    log.error("[GET /api/admin/match-failures]", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

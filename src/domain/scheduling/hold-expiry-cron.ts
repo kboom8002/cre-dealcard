@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordEvent } from "@/domain/analytics/record-event";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('hold-expiry-cron');
+
+
 export interface ExpiryCronResult {
   expiredCount: number;
   success: boolean;
@@ -18,7 +22,7 @@ export async function expireHeldSlots(supabase: SupabaseClient): Promise<ExpiryC
       .limit(0);
     
     if (probeErr?.message?.includes('schema cache') || probeErr?.message?.includes('does not exist') || probeErr?.code === 'PGRST204') {
-      console.log("[expireHeldSlots] availability_slots table not yet created, skipping.");
+      log.info("[expireHeldSlots] availability_slots table not yet created, skipping.");
       return { expiredCount: 0, success: true };
     }
 
@@ -31,7 +35,7 @@ export async function expireHeldSlots(supabase: SupabaseClient): Promise<ExpiryC
       .select('id, owner_id, held_by');
 
     if (updateError) {
-      console.error("[expireHeldSlots] Expiry update failed:", updateError.message);
+      log.error("[expireHeldSlots] Expiry update failed:", updateError.message);
       return { expiredCount: 0, success: false, error: updateError.message };
     }
 
@@ -96,7 +100,7 @@ export async function expireHeldSlots(supabase: SupabaseClient): Promise<ExpiryC
       success: true,
     };
   } catch (err: any) {
-    console.error("[expireHeldSlots] Unexpected cron error:", err);
+    log.error("[expireHeldSlots] Unexpected cron error:", err);
     return {
       expiredCount: 0,
       success: false,

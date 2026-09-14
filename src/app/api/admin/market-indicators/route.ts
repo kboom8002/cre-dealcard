@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { MarketIndicatorEngine } from "@/domain/analytics/market-indicator-engine";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function GET() {
   try {
     const supabase = await createServerSupabaseClient();
@@ -30,7 +34,7 @@ export async function GET() {
       data: indicators || [],
     });
   } catch (error: any) {
-    console.error("[GET /api/admin/market-indicators]", error);
+    log.error("[GET /api/admin/market-indicators]", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -70,7 +74,7 @@ export async function POST() {
       data: computed,
     });
   } catch (error: any) {
-    console.error("[POST /api/admin/market-indicators]", error);
+    log.error("[POST /api/admin/market-indicators]", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

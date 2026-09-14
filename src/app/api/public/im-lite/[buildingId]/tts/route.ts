@@ -10,6 +10,10 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { getDemoMobileIM, type MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 // ─── Cache ─────────────────────────────────────────────────────────
 const audioCache = new Map<string, { buffer: Buffer; createdAt: number }>();
 const scriptCache = new Map<string, { script: string; createdAt: number }>();
@@ -213,7 +217,7 @@ export async function GET(
         throw new Error("Script too short");
       }
     } catch (llmError) {
-      console.warn("[TTS] LLM script generation failed, using fallback:", llmError);
+      log.warn("[TTS] LLM script generation failed, using fallback:", llmError);
       script = generateFallbackScript(doc);
       scriptSource = "fallback";
     }
@@ -246,7 +250,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("[TTS] Error generating speech:", error);
+    log.error("[TTS] Error generating speech:", error);
     return NextResponse.json(
       { error: "Failed to generate voice briefing" },
       { status: 500 },

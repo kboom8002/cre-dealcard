@@ -14,6 +14,10 @@ import { generateBrokerCard } from "@/domain/broker-card/broker-card-generator";
 import { createServiceClient } from "@/lib/supabase/service";
 
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const GenerateCardRequest = z.object({
   type: z.enum(["seller", "buyer", "tenant", "network", "owner"]),
   brokerName: z.string().min(1).max(50),
@@ -98,7 +102,7 @@ export async function POST(req: NextRequest) {
       vibeCardUrl: slug ? `/vibe-card/${slug}` : null,
     });
   } catch (error) {
-    console.error("Broker Card Generate Route Error:", error);
+    log.error("Broker Card Generate Route Error:", error);
     return toApiError(error);
   }
 }

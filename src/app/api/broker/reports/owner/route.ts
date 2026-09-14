@@ -5,6 +5,10 @@ import { buildAttrsFromSsotLite } from '@/lib/ssot-adapter';
 import { createServiceClient } from '@/lib/supabase/service';
 import { requireBroker } from '@/lib/auth-guard';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(request: NextRequest) {
   // Auth guard — 미인증 요청 차단
   const auth = await requireBroker(request);
@@ -51,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true, report });
   } catch (err) {
-    console.error('[owner-report] Error:', err);
+    log.error('[owner-report] Error:', err);
     return NextResponse.json({ ok: false, error: 'Internal error' }, { status: 500 });
   }
 }

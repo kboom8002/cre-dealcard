@@ -13,6 +13,10 @@ import type { ReleaseTier } from '../../im-core/release-tier';
 import { getTierAllowedSections } from '../../im-core/release-tier';
 
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('deck-sequencer');
+
+
 export type Grade = 'A' | 'B' | 'C' | 'D';
 // D30 BL-3/M-13: 정본 수익형 9종 전체 지원
 export type IncomeArchetype = 'R-INC-01' | 'R-INC-02' | 'R-INC-03' | 'R-INC-04' | 'R-INC-05' | 'R-INC-06' | 'R-INC-07' | 'R-INC-08' | 'R-INC-09';
@@ -373,7 +377,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     finalBody = bodySlides.filter(s => keptKeys.has(s.dataKey));
 
     if (finalBody.length < bodySlides.length) {
-      console.warn(`[deck-sequencer] goldilocks: 본문 ${bodySlides.length}면 → ${finalBody.length}면 절삭 (부록 ${appendixSlides.length}면 분리)`);
+      log.warn(`[deck-sequencer] goldilocks: 본문 ${bodySlides.length}면 → ${finalBody.length}면 절삭 (부록 ${appendixSlides.length}면 분리)`);
     }
   }
 

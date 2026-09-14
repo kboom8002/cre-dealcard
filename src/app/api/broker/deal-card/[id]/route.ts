@@ -4,6 +4,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { readWithMigration } from "@/lib/ssot-adapter";
 import { z } from "zod/v4";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const UpdateSchema = z.object({
   title: z.string().optional(),
   shortSummary: z.string().optional(),
@@ -144,7 +148,7 @@ export async function PATCH(
           .update(ssotFields)
           .eq("id", id);
         if (ssotError) {
-          console.error("[deal-card PATCH] SSoT update failed:", ssotError);
+          log.error("[deal-card PATCH] SSoT update failed:", ssotError);
         }
       }
     }
@@ -206,7 +210,7 @@ export async function DELETE(
       .eq("id", id);
 
     if (hardDeleteErr) {
-      console.warn("[deal-card/delete] Hard delete failed, fallback to soft delete:", hardDeleteErr.message);
+      log.warn("[deal-card/delete] Hard delete failed, fallback to soft delete:", hardDeleteErr.message);
       const { error: softDeleteErr } = await service
         .from("building_ssot_lite")
         .update({ status: "archived" })

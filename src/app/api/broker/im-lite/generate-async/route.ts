@@ -14,6 +14,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 import { persistLeaseUnits } from "@/domain/building/mobile-im/lease-adapter";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export const maxDuration = 300; // Vercel Pro: 최대 300초
 
 export async function POST(req: NextRequest) {
@@ -260,7 +264,7 @@ export async function POST(req: NextRequest) {
                   .eq('building_id', buildingId)
                   .is('invalidated_at', null);
                 
-                console.log(`[generate-async] Posture changed ${previousPosture} → ${investmentPostureInput}, invalidated existing IMs for ${buildingId}`);
+                log.info(`[generate-async] Posture changed ${previousPosture} → ${investmentPostureInput}, invalidated existing IMs for ${buildingId}`);
 
                 // S2-4: 포스처 결정 이력 기록
                 const { error: pdErr } = await bgSupabase.from('posture_decisions').insert({
@@ -272,7 +276,7 @@ export async function POST(req: NextRequest) {
                   confirmed_by: user,
                   changed_from: previousPosture,
                 });
-                if (pdErr) console.warn('[generate-async] posture_decisions insert failed:', pdErr.message);
+                if (pdErr) log.warn('[generate-async] posture_decisions insert failed:', pdErr.message);
               }
             }
             // 주소를 top-level raw_address 컬럼에도 역류 저장
@@ -283,7 +287,7 @@ export async function POST(req: NextRequest) {
             await bgSupabase.from("building_ssot_lite").update(updatePayload).eq("id", buildingId);
           }
         } catch (writebackErr: any) {
-          console.warn("[im-generate-async] SSoT writeback failed (non-blocking):", writebackErr?.message);
+          log.warn("[im-generate-async] SSoT writeback failed (non-blocking):", writebackErr?.message);
         }
       } else {
         await bgSupabase.from("im_generation_jobs").update({
@@ -298,7 +302,7 @@ export async function POST(req: NextRequest) {
         }).eq("id", jobId);
       }
     } catch (err: any) {
-      console.error("[im-generate-async] Error:", err);
+      log.error("[im-generate-async] Error:", err);
       await bgSupabase.from("im_generation_jobs").update({
         status: "failed",
         result: { error: err?.message ?? "Unknown error" },

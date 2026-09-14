@@ -2,6 +2,10 @@ import { sendKakaoAlimtalk } from '@/lib/notification/notification-service';
 import type { LeadScoreResult } from '../analytics/cross-channel-score';
 import type { NotificationDbClient } from './im-view-alert';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('hot-lead-alert');
+
+
 /**
  * Hot Lead 감지 시 브로커에게 카카오 알림톡 발송.
  * 조건: 리드 스코어 80+ 달성 + 24시간 내 동일 알림 미발송
@@ -23,12 +27,12 @@ export async function checkAndSendHotLeadAlert(
       .gte('created_at', new Date(Date.now() - 24 * 3600000).toISOString());
 
     if (countError) {
-      console.error('[Hot Lead Alert] Check history failed:', countError.message);
+      log.error('[Hot Lead Alert] Check history failed:', countError.message);
       return false;
     }
 
     if ((count ?? 0) > 0) {
-      console.log(`[Hot Lead Alert] Alert already sent for visitor ${visitorHash} today. Skipping.`);
+      log.info(`[Hot Lead Alert] Alert already sent for visitor ${visitorHash} today. Skipping.`);
       return false;
     }
 
@@ -40,7 +44,7 @@ export async function checkAndSendHotLeadAlert(
       .maybeSingle();
 
     if (bpError || !bp) {
-      console.warn(`[Hot Lead Alert] Broker ${brokerId} not found`);
+      log.warn(`[Hot Lead Alert] Broker ${brokerId} not found`);
       return false;
     }
 
@@ -52,7 +56,7 @@ export async function checkAndSendHotLeadAlert(
       .single();
 
     if (pError || !profile?.phone) {
-      console.warn(`[Hot Lead Alert] Broker profile ${bp.user_id} has no phone`);
+      log.warn(`[Hot Lead Alert] Broker profile ${bp.user_id} has no phone`);
       return false;
     }
 
@@ -110,14 +114,14 @@ export async function checkAndSendHotLeadAlert(
         created_at: new Date().toISOString(),
       });
       if (logError) {
-        console.error('[Hot Lead Alert] Logging event failed:', logError.message);
+        log.error('[Hot Lead Alert] Logging event failed:', logError.message);
       }
     }
 
     return sent;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[Hot Lead Alert] Error occurred:', message);
+    log.error('[Hot Lead Alert] Error occurred:', message);
     return false;
   }
 }

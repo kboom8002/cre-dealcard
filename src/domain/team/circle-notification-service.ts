@@ -1,6 +1,10 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { createNotification, type NotificationType } from "@/lib/notifications/in-app";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('circle-notification-service');
+
+
 export async function notifyCircleMembers(input: {
   circleId: string;
   excludeBrokerId?: string;
@@ -99,9 +103,9 @@ export async function notifyCircleMatch(match: {
   try {
     if (process.env.KAKAO_ALIMTALK_API_KEY) {
       // Future integration point
-      console.log('[Circle] Kakao alimtalk integration pending:', match.circleName);
+      log.info('[Circle] Kakao alimtalk integration pending:', match.circleName);
     }
   } catch (e) {
-    console.error('[Circle] Kakao notification failed:', e);
+    log.error('[Circle] Kakao notification failed:', e);
   }
 }

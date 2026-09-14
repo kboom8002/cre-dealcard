@@ -8,6 +8,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createTenantIntentFromMemo } from "@/domain/lease/tenant-intent";
 import { toApiError } from "@/lib/api-error";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const TenantIntentFromMemoRequest = z.object({
   memo: z.string().min(5),
   clientId: z.string().uuid().nullable().optional(),
@@ -35,7 +39,7 @@ export async function POST(req: NextRequest) {
       data: result,
     });
   } catch (error) {
-    console.error("Tenant Intents From Memo Error:", error);
+    log.error("Tenant Intents From Memo Error:", error);
     return toApiError(error);
   }
 }

@@ -8,6 +8,10 @@
 
 import { createServiceClient } from '@/lib/supabase/service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('telemetry');
+
+
 // ─── 결과 분류 ──────────────────────────────────────────────────
 export type GenerationOutcome =
   | 'completed'       // 정상 생성 완료
@@ -79,7 +83,7 @@ export async function withStage<T>(
   } catch (err) {
     // 에러 시에도 latency 기록 후 재throw
     const latencyMs = Math.round(performance.now() - start);
-    console.warn(`[telemetry] Stage "${stageName}" failed after ${latencyMs}ms`);
+    log.warn(`[telemetry] Stage "${stageName}" failed after ${latencyMs}ms`);
     throw err;
   }
 }
@@ -135,7 +139,7 @@ export async function recordGenerationMetric(input: GenerationMetricInput): Prom
       error_message: input.errorMessage ?? null,
     });
   } catch (err) {
-    console.error('[telemetry] Failed to record generation metric:', err);
+    log.error('[telemetry] Failed to record generation metric:', err);
   }
 }
 
@@ -165,7 +169,7 @@ export async function recordEditEvent(input: EditEventInput): Promise<void> {
       edited_by: input.editedBy ?? null,
     });
   } catch (err) {
-    console.error('[telemetry] Failed to record edit event:', err);
+    log.error('[telemetry] Failed to record edit event:', err);
   }
 }
 
@@ -195,7 +199,7 @@ export async function recordPublicApiCall(params: {
       error_msg: params.errorMsg ?? null,
     });
   } catch (err) {
-    console.error('[telemetry] Failed to record public API call:', err);
+    log.error('[telemetry] Failed to record public API call:', err);
   }
 }
 

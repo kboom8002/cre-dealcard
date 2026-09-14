@@ -4,6 +4,10 @@ import { requireBroker } from '@/lib/auth-guard';
 import { studioService } from '@/domain/building/pptx-studio/studio-service';
 import { StudioApprovalService } from '@/domain/building/pptx-studio/approval/studio-approval-service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -178,7 +182,7 @@ export async function POST(
         timestamp: new Date().toISOString(),
       });
     } catch (syncErr) {
-      console.warn('[approve-file] Sync to document_objects/broadcast failed (non-blocking):', syncErr);
+      log.warn('[approve-file] Sync to document_objects/broadcast failed (non-blocking):', syncErr);
     }
 
     return NextResponse.json({

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
@@ -158,7 +162,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err: any) {
-    console.error("[GET /api/broker/magazine/analytics]", err.message);
+    log.error("[GET /api/broker/magazine/analytics]", err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

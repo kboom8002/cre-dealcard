@@ -4,6 +4,10 @@ import { callLLM } from "@/ai/llm-client";
 import { searchNaverNews } from "@/lib/external/naver-search";
 import { getModel } from "@/ai/model-selector";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const REGION_SEARCH_QUERY: Record<string, string> = {
   seongsu: "성수 꼬마빌딩 OR 성수 상업용 부동산",
   gbd: "강남 빌딩 매매 OR 강남 오피스 임대",
@@ -91,7 +95,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString()
     });
   } catch (err: unknown) {
-    console.error("[api/pulse/morning-briefing] GET Error:", err);
+    log.error("[api/pulse/morning-briefing] GET Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 오류" },
       { status: 500 }

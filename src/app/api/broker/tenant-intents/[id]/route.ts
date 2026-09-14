@@ -9,6 +9,10 @@ import { z } from "zod/v4";
 import { requireBroker } from "@/lib/auth-guard";
 import { runTenantAutoMatcher } from "@/domain/matching/lease-auto-matcher";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const UpdateTenantIntentSchema = z.object({
   client_id: z.string().uuid().nullable().optional(),
   business_type: z.string().optional(),
@@ -129,7 +133,7 @@ export async function PUT(
   try {
     await runTenantAutoMatcher(id, auth.user!.id);
   } catch (matchErr) {
-    console.error("[TenantIntentPut] Auto-match run failed:", matchErr);
+    log.error("[TenantIntentPut] Auto-match run failed:", matchErr);
   }
 
   return NextResponse.json({

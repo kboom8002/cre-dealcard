@@ -5,6 +5,10 @@ import { callLLM } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
 import { escapeIlike } from "@/lib/utils/postgrest-escape";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 // ─── 권역 매핑 ────────────────────────────────────────────────────────────────
 const REGION_MAP: Record<string, { district: string; areaSignals: string[]; pnu: string; districtCode: string }> = {
   seongsu: {
@@ -254,7 +258,7 @@ ${magazineSummary}
             try {
               const doubleParsed = JSON.parse(aiBriefing);
               aiBriefing = doubleParsed.briefing || aiBriefing;
-            } catch (err) { console.warn('[morning-intelligence]', err); }
+            } catch (err) { log.warn('[morning-intelligence]', err); }
           }
 
           aiHotLeadScript = parsed.hot_lead_script || "";
@@ -466,7 +470,7 @@ ${magazineSummary}
       timestamp: new Date().toISOString(),
     });
   } catch (err: unknown) {
-    console.error("[api/broker/morning-intelligence] GET Error:", err);
+    log.error("[api/broker/morning-intelligence] GET Error:", err);
     return NextResponse.json({ error: err instanceof Error ? err.message : "서버 오류" }, { status: 500 });
   }
 }

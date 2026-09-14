@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 /**
  * POST /api/public/surveys
  * {
@@ -36,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, data });
   } catch (err: unknown) {
-    console.error("[api/public/surveys] POST Error:", err);
+    log.error("[api/public/surveys] POST Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 오류" },
       { status: 500 }
@@ -56,7 +60,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(data);
   } catch (err: unknown) {
-    console.error("[api/public/surveys] GET Error:", err);
+    log.error("[api/public/surveys] GET Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 오류" },
       { status: 500 }

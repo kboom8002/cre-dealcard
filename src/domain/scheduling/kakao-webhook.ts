@@ -1,5 +1,9 @@
 import { createServiceClient } from "@/lib/supabase/service";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('kakao-webhook');
+
+
 export interface KakaoWebhookPayload {
   event: "booking_hold" | "booking_confirmed" | "booking_cancelled";
   bookingId: string;
@@ -19,7 +23,7 @@ export async function sendKakaoNotification(payload: KakaoWebhookPayload) {
   });
 
   // 2. Simulate sending the message via Kakao Alimtalk API
-  console.log(`[Kakao Webhook Simulated] Sending ${payload.event} to ${payload.recipientPhone} for booking ${payload.bookingId}`);
+  log.info(`[Kakao Webhook Simulated] Sending ${payload.event} to ${payload.recipientPhone} for booking ${payload.bookingId}`);
   
   // 3. Return a success response
   return { success: true, messageId: `msg_${Math.random().toString(36).substr(2, 9)}` };

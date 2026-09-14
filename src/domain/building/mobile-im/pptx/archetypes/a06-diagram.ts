@@ -5,6 +5,10 @@ import type { ProvenanceKind, RowEntry } from '../imlib';
 import { stripMarkdown } from '../data-binder';
 import { fetchKakaoMapImage, generateStaticMapPlaceholder, optimizeImageForPptx, type OptimizedImage, type MapPoiSpot } from '../utils/image-optimizer';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('a06-diagram');
+
+
 export interface ArchetypeInput {
   pres: PptxGenJS;
   slideNum: number;
@@ -64,7 +68,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
           areaOrAddress, 1120, 900, coords, poiSpots
         );
       } catch (err) {
-        console.warn('[a06-diagram] generateStaticMapPlaceholder failed:', err);
+        log.warn('[a06-diagram] generateStaticMapPlaceholder failed:', err);
       }
     }
 
@@ -84,7 +88,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
           mapImg = opt || ({ base64: transitResult.base64 } as any);
         }
       } catch (err) {
-        console.warn('[a06-diagram] Auto-generation of macro transit diagram failed:', err);
+        log.warn('[a06-diagram] Auto-generation of macro transit diagram failed:', err);
       }
     }
 

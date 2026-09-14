@@ -8,6 +8,10 @@ import { z } from "zod/v4";
 import { createHandoff } from "@/domain/handoff/handoff";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const CreateHandoffSchema = z.object({
   source_building_ssot_lite_id: z.string().uuid(),
   source_document_ids: z.array(z.string().uuid()).optional().default([]),
@@ -61,7 +65,7 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    console.error("[POST /api/full-im-handoffs]", err);
+    log.error("[POST /api/full-im-handoffs]", err);
     return Response.json(
       { ok: false, error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } },
       { status: 500 },

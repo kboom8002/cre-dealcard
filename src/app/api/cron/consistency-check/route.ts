@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
@@ -22,7 +26,7 @@ export async function GET(req: NextRequest) {
       .limit(50);
 
     if (docErr || !recentDocs) {
-      console.error('[consistency-check] Failed to query documents:', docErr);
+      log.error('[consistency-check] Failed to query documents:', docErr);
       return NextResponse.json({ status: 'error', error: 'Document query failed' }, { status: 500 });
     }
 
@@ -67,9 +71,9 @@ export async function GET(req: NextRequest) {
     }
 
     if (drifts.length > 0) {
-      console.warn(`[consistency-check] Found ${drifts.length} drift(s):`, drifts.slice(0, 10));
+      log.warn(`[consistency-check] Found ${drifts.length} drift(s):`, drifts.slice(0, 10));
     } else {
-      console.info('[consistency-check] No drifts found.');
+      log.info('[consistency-check] No drifts found.');
     }
 
     return NextResponse.json({
@@ -79,7 +83,7 @@ export async function GET(req: NextRequest) {
       drifts: drifts.slice(0, 20),
     });
   } catch (err) {
-    console.error('[consistency-check] Unexpected error:', err);
+    log.error('[consistency-check] Unexpected error:', err);
     return NextResponse.json({ status: 'error', error: 'Internal server error' }, { status: 500 });
   }
 }

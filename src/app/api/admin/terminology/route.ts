@@ -7,6 +7,10 @@ import { requireAdmin } from '@/lib/auth-guard';
 import { createServiceClient } from '@/lib/supabase/service';
 import { escapeIlike } from "@/lib/utils/postgrest-escape";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (auth.error) return auth.error;
@@ -68,7 +72,7 @@ export async function GET(req: NextRequest) {
       limit,
     });
   } catch (err: any) {
-    console.error('[terminology-api] GET error:', err);
+    log.error('[terminology-api] GET error:', err);
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }
@@ -105,7 +109,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, data });
   } catch (err: any) {
-    console.error('[terminology-api] POST error:', err);
+    log.error('[terminology-api] POST error:', err);
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }

@@ -2,17 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireBroker } from "@/lib/auth-guard";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 async function ensureBucket(svc: ReturnType<typeof createServiceClient>, name: string) {
   try {
     const { data: buckets } = await svc.storage.listBuckets();
     if (!buckets?.find((b: { name: string }) => b.name === name)) {
       const { error } = await svc.storage.createBucket(name, { public: true, fileSizeLimit: 20 * 1024 * 1024 });
       if (error) {
-        console.error(`[ensureBucket] Failed to create bucket "${name}":`, error);
+        log.error(`[ensureBucket] Failed to create bucket "${name}":`, error);
       }
     }
   } catch (e) {
-    console.warn(`[ensureBucket] bucket check/create warning for ${name}:`, e);
+    log.warn(`[ensureBucket] bucket check/create warning for ${name}:`, e);
   }
 }
 
@@ -50,7 +54,7 @@ async function uploadFileWithRetry(
       || error?.message?.includes("502");
 
     if (isTransient && attempt < maxRetries) {
-      console.warn(`[Photo Upload] Transient error on attempt ${attempt + 1}, retrying:`, error.message);
+      log.warn(`[Photo Upload] Transient error on attempt ${attempt + 1}, retrying:`, error.message);
       await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
       continue;
     }
@@ -68,7 +72,7 @@ export async function POST(
     const { id } = await params;
     const guard = await requireBroker(request);
     if (guard.error) {
-      console.error("[Photo Upload API] Auth failed for building:", id);
+      log.error("[Photo Upload API] Auth failed for building:", id);
       return guard.error;
     }
 
@@ -87,7 +91,7 @@ export async function POST(
       return NextResponse.json({ error: "업로드할 사진 파일이 없습니다." }, { status: 400 });
     }
 
-    console.log(`[Photo Upload API] Processing ${allFiles.length} files for building ${id} by user ${guard.user?.id}`);
+    log.info(`[Photo Upload API] Processing ${allFiles.length} files for building ${id} by user ${guard.user?.id}`);
 
     const svc = createServiceClient();
     await ensureBucket(svc, "building_photos");
@@ -116,33 +120,33 @@ export async function POST(
         const safeKey = `${id}/${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${i}.${ext}`;
         const buffer = Buffer.from(await file.arrayBuffer());
 
-        console.log(`[Photo Upload API] Uploading file ${i + 1}/${allFiles.length}: ${file.name} (${(file.size / 1024).toFixed(0)}KB, ${contentType})`);
+        log.info(`[Photo Upload API] Uploading file ${i + 1}/${allFiles.length}: ${file.name} (${(file.size / 1024).toFixed(0)}KB, ${contentType})`);
 
         const result = await uploadFileWithRetry(svc, "building_photos", safeKey, buffer, contentType);
         
         if (result.url) {
           uploadedUrls.push(result.url);
         } else {
-          console.error(`[Photo Upload API] Failed: ${file.name} -> ${result.error}`);
+          log.error(`[Photo Upload API] Failed: ${file.name} -> ${result.error}`);
           errors.push(`${file.name}: ${result.error}`);
         }
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
-        console.error(`[Photo Upload API] Process error for ${file.name}:`, errMsg);
+        log.error(`[Photo Upload API] Process error for ${file.name}:`, errMsg);
         errors.push(`${file.name}: ${errMsg}`);
       }
     }
 
     if (uploadedUrls.length === 0) {
       const errorDetail = errors.join("; ");
-      console.error(`[Photo Upload API] All uploads failed for building ${id}:`, errorDetail);
+      log.error(`[Photo Upload API] All uploads failed for building ${id}:`, errorDetail);
       return NextResponse.json(
         { error: `사진 업로드 실패: ${errorDetail}`, details: errors },
         { status: 500 }
       );
     }
 
-    console.log(`[Photo Upload API] Success: ${uploadedUrls.length}/${allFiles.length} uploaded for building ${id}`);
+    log.info(`[Photo Upload API] Success: ${uploadedUrls.length}/${allFiles.length} uploaded for building ${id}`);
 
     return NextResponse.json({
       ok: true,
@@ -153,7 +157,7 @@ export async function POST(
     });
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
-    console.error("[Photo Upload API] Fatal error:", errMsg);
+    log.error("[Photo Upload API] Fatal error:", errMsg);
     return NextResponse.json(
       { error: `사진 업로드 서버 오류: ${errMsg}` },
       { status: 500 }

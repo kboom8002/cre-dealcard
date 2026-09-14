@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 import {
   fetchMolitTransactions,
   runMolitETL,
@@ -42,7 +46,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(transactions);
   } catch (err: unknown) {
-    console.error("[api/public/transactions] GET Error:", err);
+    log.error("[api/public/transactions] GET Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 내부 오류" },
       { status: 500 },
@@ -80,7 +84,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (err: unknown) {
-    console.error("[api/public/transactions] POST Error:", err);
+    log.error("[api/public/transactions] POST Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 내부 오류" },
       { status: 500 },

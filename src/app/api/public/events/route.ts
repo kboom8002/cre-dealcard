@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { recordEvent, MvpEventType, MvpEntityType } from "@/domain/analytics/record-event";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 /**
  * POST /api/public/events
  * Handles tracking of content share events (viewer interactions) AND general activity events
@@ -56,7 +60,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, data: result });
     }
   } catch (err: unknown) {
-    console.error("[api/public/events] POST Error:", err);
+    log.error("[api/public/events] POST Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 오류" },
       { status: 500 }

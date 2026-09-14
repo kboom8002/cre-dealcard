@@ -6,6 +6,10 @@
 import { stripMarkdown } from './data-binder';
 import { CW, KR, C } from './imlib';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('pptx-markdown-fallback');
+
+
 export function parseInlineMarkdown(line: string): Array<{ text: string; options?: { bold?: boolean; italic?: boolean } }> {
   const runs: Array<{ text: string; options?: { bold?: boolean; italic?: boolean } }> = [];
   const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|([^*]+))/g;
@@ -45,7 +49,7 @@ export function addFallbackContent(
   const contentHash = typeof data.content === 'string' ? data.content.trim().slice(0, 200) : '';
   if (contentHash.length > 0 && _fallbackContentHashes.has(contentHash)) {
     const dupMsg = `[BL-F G42] 폴백 중복 차단: ${meta?.archetype ?? '?'}#${meta?.slideIndex ?? '?'} — 동일 content가 이전 슬라이드에서 이미 폴백 사용됨`;
-    console.warn(dupMsg);
+    log.warn(dupMsg);
     if (meta?.warnings) meta.warnings.push(dupMsg);
     return false;
   }
@@ -73,7 +77,7 @@ export function addFallbackContent(
   const archetype = meta?.archetype ?? 'unknown';
   const slideIdx = meta?.slideIndex ?? -1;
   const fallbackMsg = `[BL-5] 폴백 발동: ${archetype} 슬라이드 #${slideIdx} — 아키타입이 본문을 렌더링하지 못해 마크다운 폴백 사용`;
-  console.warn(fallbackMsg);
+  log.warn(fallbackMsg);
   if (meta?.warnings) {
     meta.warnings.push(fallbackMsg);
     // D37 P0-6: 모든 아키타입 폴백 차단 (빈 면 금지 07 §15.3)

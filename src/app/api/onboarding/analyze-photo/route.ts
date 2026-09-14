@@ -18,6 +18,10 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { toApiError } from '@/lib/api-error';
 
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 // ── Rate limiting (simple in-memory, resets on cold start) ───────────────────
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -144,7 +148,7 @@ export async function POST(req: NextRequest) {
       });
 
     if (uploadError) {
-      console.error('[analyze-photo] Storage upload error:', uploadError);
+      log.error('[analyze-photo] Storage upload error:', uploadError);
       return Response.json(
         { ok: false, error: { code: 'INTERNAL_ERROR', message: '사진 업로드에 실패했습니다.' } },
         { status: 500 },
@@ -187,7 +191,7 @@ export async function POST(req: NextRequest) {
       });
 
     if (insertError) {
-      console.error('[analyze-photo] DB insert error:', insertError);
+      log.error('[analyze-photo] DB insert error:', insertError);
       // Non-fatal — still return results even if DB write fails
     }
 
@@ -221,7 +225,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[analyze-photo] Route error:', error);
+    log.error('[analyze-photo] Route error:', error);
     return toApiError(error);
   }
 }

@@ -2,6 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createHash } from "crypto";
 import { recordEvent } from "@/domain/analytics/record-event";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('gate-audit-logger');
+
+
 export interface LogGateAccessInput {
   gateRequestId: string;
   accessorId: string;
@@ -37,7 +41,7 @@ export async function logGateAccess(
     });
 
   if (insertError) {
-    console.error("[logGateAccess] Failed to write access log:", insertError.message);
+    log.error("[logGateAccess] Failed to write access log:", insertError.message);
     return false;
   }
 

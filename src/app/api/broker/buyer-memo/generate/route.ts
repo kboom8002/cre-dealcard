@@ -10,6 +10,10 @@ import { z } from "zod/v4";
 import { generateBuyerMemo } from "@/domain/buyer/buyer-memo";
 import { toApiError } from "@/lib/api-error";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const BuyerMemoGenerateRequest = z.object({
   buildingId:     z.string().optional(),
   buyerIntentId:  z.string().optional(),
@@ -52,7 +56,7 @@ export async function POST(req: Request) {
       cautions,
     });
   } catch (error) {
-    console.error("API Route Error:", error);
+    log.error("API Route Error:", error);
     return toApiError(error);
   }
 }

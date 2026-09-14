@@ -6,6 +6,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-guard';
 import { createServiceClient } from '@/lib/supabase/service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const SELECT_FIELDS = [
   'id', 'document_id', 'building_id', 'section_type', 'section_alias',
   'asset_type', 'price_band', 'markdown', 'judge_score', 'was_edited',
@@ -70,7 +74,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, data, total: count ?? 0, page, limit });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[GET /api/admin/golden-sets]', message);
+    log.error('[GET /api/admin/golden-sets]', message);
     return NextResponse.json(
       { ok: false, error: { code: 'INTERNAL', message } },
       { status: 500 },
@@ -144,7 +148,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, data }, { status: 201 });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[POST /api/admin/golden-sets]', message);
+    log.error('[POST /api/admin/golden-sets]', message);
     return NextResponse.json(
       { ok: false, error: { code: 'INTERNAL', message } },
       { status: 500 },

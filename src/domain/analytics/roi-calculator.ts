@@ -1,3 +1,6 @@
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('roi-calculator');
+
 ﻿import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface RoiMetrics {
@@ -122,7 +125,7 @@ export async function calculateBrokerMonthlyRoi(
       timePerFeature: TIME_SAVED,
     };
   } catch (err) {
-    console.error("[calculateBrokerMonthlyRoi] Failed to compute ROI:", err);
+    log.error("[calculateBrokerMonthlyRoi] Failed to compute ROI:", err);
     return {
       totalHoursSaved: 0,
       totalMoneySaved: 0,

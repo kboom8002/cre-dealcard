@@ -4,6 +4,10 @@ import type { MatchInput, MatchGrade } from "@/domain/matching/matching-types";
 import { notifyMatchParties } from "./circle-notification-service";
 import { createCoBrokerageDeal } from "./co-brokerage-service";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('circle-matching-service');
+
+
 export interface CircleMatchSummary {
   totalMatched: number;
   sCount: number;
@@ -176,11 +180,11 @@ export async function runCircleAutoMatch(
               body: `${res.grade}등급 매칭 (${res.score}점)이 발견되었습니다. 서클 대시보드에서 확인하세요.`,
               link: `/broker/circles/${circleId}`,
               metadata: { circle_id: circleId, grade: res.grade, score: res.score },
-            }).catch((e) => console.warn("[circle-matching] Notify failed:", e));
+            }).catch((e) => log.warn("[circle-matching] Notify failed:", e));
           }
         }
       } catch (err) {
-        console.error("[runCircleAutoMatch] Engine error:", err);
+        log.error("[runCircleAutoMatch] Engine error:", err);
       }
     }
   } else if (triggerAssetType === "buyer_intent") {
@@ -294,11 +298,11 @@ export async function runCircleAutoMatch(
               body: `${res.grade}등급 매칭 (${res.score}점)이 발견되었습니다. 서클 대시보드에서 확인하세요.`,
               link: `/broker/circles/${circleId}`,
               metadata: { circle_id: circleId, grade: res.grade, score: res.score },
-            }).catch((e) => console.warn("[circle-matching] Notify failed:", e));
+            }).catch((e) => log.warn("[circle-matching] Notify failed:", e));
           }
         }
       } catch (err) {
-        console.error("[runCircleAutoMatch] Engine error:", err);
+        log.error("[runCircleAutoMatch] Engine error:", err);
       }
     }
   }
@@ -393,7 +397,7 @@ export async function approveIdentityReveal(input: {
       buyerBrokerId: match.buyer_broker_id,
       grade: match.grade,
       score: match.score,
-    }).catch((e) => console.warn("[approveIdentityReveal] Auto co-brokerage deal creation failed:", e));
+    }).catch((e) => log.warn("[approveIdentityReveal] Auto co-brokerage deal creation failed:", e));
 
     return { bothApproved: true };
   } else {
@@ -407,7 +411,7 @@ export async function approveIdentityReveal(input: {
       body: "상대 중개사가 신원 공개를 승인했습니다. 확인 후 승인해 주세요.",
       link: `/broker/circles/${match.circle_id}`,
       metadata: { match_id: input.circleMatchId },
-    }).catch((e) => console.warn("[approveIdentityReveal] Notify counterparty failed:", e));
+    }).catch((e) => log.warn("[approveIdentityReveal] Notify counterparty failed:", e));
 
     return { bothApproved: false };
   }

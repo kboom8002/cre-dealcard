@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 /**
  * POST /api/public/magazine/poll
  * Records a subscriber's vote on a magazine poll question
@@ -47,7 +51,7 @@ export async function POST(request: NextRequest) {
     const results = await getResults(supabase, brokerId, editionDate);
     return NextResponse.json({ ok: true, results });
   } catch (err: unknown) {
-    console.error("[api/public/magazine/poll] POST Error:", err);
+    log.error("[api/public/magazine/poll] POST Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 오류" },
       { status: 500 }
@@ -76,7 +80,7 @@ export async function GET(request: NextRequest) {
     const results = await getResults(supabase, brokerId, editionDate);
     return NextResponse.json({ ok: true, results });
   } catch (err: unknown) {
-    console.error("[api/public/magazine/poll] GET Error:", err);
+    log.error("[api/public/magazine/poll] GET Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 오류" },
       { status: 500 }

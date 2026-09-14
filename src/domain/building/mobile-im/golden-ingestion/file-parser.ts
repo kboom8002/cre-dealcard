@@ -1,3 +1,6 @@
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('file-parser');
+
 // src/domain/building/mobile-im/golden-ingestion/file-parser.ts
 // PDF/PPTX 파일 파서 — IM 문서를 텍스트로 변환
 // Dynamic import로 pdf-parse / jszip 번들링 이슈 방지
@@ -64,7 +67,7 @@ export async function parsePDF(
       },
     };
   } catch (err) {
-    console.error(`[file-parser] PDF 파싱 실패 (${fileName}):`, err);
+    log.error(`[file-parser] PDF 파싱 실패 (${fileName}):`, err);
     return {
       rawText: '',
       pages: [],
@@ -142,7 +145,7 @@ export async function parsePPTX(
       },
     };
   } catch (err) {
-    console.error(`[file-parser] PPTX 파싱 실패 (${fileName}):`, err);
+    log.error(`[file-parser] PPTX 파싱 실패 (${fileName}):`, err);
     return {
       rawText: '',
       pages: [],

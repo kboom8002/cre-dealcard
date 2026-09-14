@@ -10,6 +10,10 @@
 import { createServiceClient } from '@/lib/supabase/service';
 import type { BuyerCondition } from '../distribution/types';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('condition-engine');
+
+
 export interface InsertConditionInput {
   partyId: string;
   source: 'gate_form' | 'grant_form' | 'slider' | 'broker_note';
@@ -51,7 +55,7 @@ export async function insertCondition(input: InsertConditionInput): Promise<Buye
     .single();
 
   if (error) {
-    console.error('[condition-engine] Insert failed:', error.message);
+    log.error('[condition-engine] Insert failed:', error.message);
     return null;
   }
 

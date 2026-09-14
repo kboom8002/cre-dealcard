@@ -14,6 +14,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { extractJibunKey } from "./building-dedup";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('canonical-property');
+
+
 // ── 타입 ──────────────────────────────────────────────────────────────
 
 export interface CanonicalProperty {
@@ -103,7 +107,7 @@ export async function linkBuildingToCanonicalProperty(
             .maybeSingle();
           canonicalId = raced?.id ?? null;
         } else {
-          console.warn("[canonical-property] Insert failed:", error.message);
+          log.warn("[canonical-property] Insert failed:", error.message);
           return null;
         }
       } else {
@@ -176,7 +180,7 @@ export async function getDealCardsForProperty(
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.warn("[canonical-property] Query failed:", error.message);
+    log.warn("[canonical-property] Query failed:", error.message);
     return [];
   }
 

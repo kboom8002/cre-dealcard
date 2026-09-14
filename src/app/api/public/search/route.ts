@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { escapeIlike } from "@/lib/utils/postgrest-escape";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 /**
  * GET /api/public/search
  * Unified public search API for deals, spaces, market pulse, and brokers.
@@ -294,7 +298,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ data: [], total: 0, page, limit });
   } catch (err: any) {
-    console.error("Search API Endpoint Error:", err);
+    log.error("Search API Endpoint Error:", err);
     return NextResponse.json(
       { error: err.message ?? "검색 오류" }, 
       { status: 500 }

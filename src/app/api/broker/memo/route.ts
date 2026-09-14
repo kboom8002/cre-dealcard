@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { routeMemo } from "@/ai/agents/memo-router-agent";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(req: Request) {
   try {
     const supabase = await createServerSupabaseClient();
@@ -38,7 +42,7 @@ export async function POST(req: Request) {
     if (memoError) {
       // PostgREST returns PGRST205 when table doesn't exist in schema cache
       // PostgreSQL returns 42P01 for "relation does not exist"
-      console.warn("broker_memos insert failed:", memoError.code, memoError.message);
+      log.warn("broker_memos insert failed:", memoError.code, memoError.message);
       try {
         const { data: fallbackData } = await supabase.from("activity_events").insert({
           actor_id: user.id,
@@ -47,7 +51,7 @@ export async function POST(req: Request) {
         }).select('id').single();
         if (fallbackData) memoId = fallbackData.id;
       } catch (fallbackErr) {
-        console.error("activity_events fallback also failed:", fallbackErr);
+        log.error("activity_events fallback also failed:", fallbackErr);
       }
     } else if (memoData) {
       memoId = memoData.id;
@@ -63,7 +67,7 @@ export async function POST(req: Request) {
     });
 
   } catch (error) {
-    console.error("Memo API Error:", error);
+    log.error("Memo API Error:", error);
     return NextResponse.json(
       { ok: false, error: "Internal Server Error" },
       { status: 500 }

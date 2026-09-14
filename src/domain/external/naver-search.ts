@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { callLLM } from "@/ai/llm-client";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('naver-search');
+
+
 const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID || "";
 const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET || "";
 
@@ -84,7 +88,7 @@ async function scoreSentiment(articles: NaverSearchItem[], keyword: string): Pro
 // 메인 함수: 네이버 카페 감성 분석
 export async function trackNaverCommunity(supabase: SupabaseClient): Promise<any[]> {
   if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
-    console.warn("[Naver] API credentials missing — using dummy sentiment");
+    log.warn("[Naver] API credentials missing — using dummy sentiment");
     return insertDummySentiment(supabase);
   }
 
@@ -116,7 +120,7 @@ export async function trackNaverCommunity(supabase: SupabaseClient): Promise<any
       // API Rate limit 준수 (초당 10건)
       await new Promise(r => setTimeout(r, 120));
     } catch (err) {
-      console.warn(`[Naver] Keyword "${keyword}" failed:`, err);
+      log.warn(`[Naver] Keyword "${keyword}" failed:`, err);
     }
   }
 
@@ -218,13 +222,13 @@ export async function crawlNaverCRENews(supabase: SupabaseClient): Promise<any[]
 
       await new Promise(r => setTimeout(r, 120));
     } catch (err) {
-      console.warn(`[NaverNews] "${kw.query}" failed:`, err);
+      log.warn(`[NaverNews] "${kw.query}" failed:`, err);
     }
   }
   return results;
 }
 
 async function insertDummySentiment(_supabase: SupabaseClient): Promise<any[]> {
-  console.warn("[Naver] No real sentiment data available — returning empty");
+  log.warn("[Naver] No real sentiment data available — returning empty");
   return [];
 }

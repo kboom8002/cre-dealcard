@@ -1,6 +1,10 @@
 import type { MobileIMSection } from './types';
 import { recordGenerationMetric, type GenerationOutcome } from './telemetry';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('writer-telemetry');
+
+
 export type SectionWithTelemetry = MobileIMSection & {
   _latencyMs?: number;
   _inputTokens?: number;
@@ -32,6 +36,6 @@ export function recordSectionTelemetry(params: RecordSectionTelemetryParams): vo
     outputTokens: sec._outputTokens ?? 0,
     outcome,
   }).catch((err: unknown) => {
-    console.warn(`[writer-telemetry] Failed to record metric for ${sectionType}:`, err);
+    log.warn(`[writer-telemetry] Failed to record metric for ${sectionType}:`, err);
   });
 }

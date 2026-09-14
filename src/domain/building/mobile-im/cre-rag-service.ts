@@ -1,6 +1,10 @@
 // src/domain/building/mobile-im/cre-rag-service.ts
 import { createClient } from "@supabase/supabase-js";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('cre-rag-service');
+
+
 export interface RAGDocument {
   id: string;
   building_id: string;
@@ -47,7 +51,7 @@ export async function searchSimilarIMs(
         embedding = data.data[0].embedding;
       }
     } catch (e) {
-      console.warn("Embedding generation failed:", e);
+      log.warn("Embedding generation failed:", e);
     }
   }
 
@@ -93,7 +97,7 @@ export async function searchSimilarIMs(
 
     return rerankedDocs;
   } catch (error) {
-    console.error("[CRE-RAG] Hybrid search failed:", error);
+    log.error("[CRE-RAG] Hybrid search failed:", error);
     return [];
   }
 }

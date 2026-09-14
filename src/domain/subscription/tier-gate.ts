@@ -2,6 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getMonthlyUsage, type FeatureName, type UsageStatus } from "./usage-tracker";
 import { calculateBrokerMonthlyRoi } from "../analytics/roi-calculator";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('tier-gate');
+
+
 export type SubscriptionTier = 'free' | 'pro' | 'premium';
 
 export interface TierGateResult extends UsageStatus {
@@ -64,7 +68,7 @@ export async function checkFeatureAccess(
       estimatedSavingsMoney,
     };
   } catch (err) {
-    console.error("[tier-gate] Access validation failed:", err);
+    log.error("[tier-gate] Access validation failed:", err);
     return {
       tier: 'free',
       currentCount: 0,

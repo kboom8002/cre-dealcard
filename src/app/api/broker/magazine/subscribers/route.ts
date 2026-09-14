@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getBuyerTemperature } from "@/domain/magazine/buyer-temperature";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 // GET /api/broker/magazine/subscribers - 내 구독자 목록 조회 (매수 온도 포함)
 export async function GET(request: Request) {
   try {
@@ -35,7 +39,7 @@ export async function GET(request: Request) {
       .range(offset, offset + limit - 1);
 
     if (error) {
-      console.error("[Subscribers GET] Database error:", error);
+      log.error("[Subscribers GET] Database error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -54,7 +58,7 @@ export async function GET(request: Request) {
       total: count || 0,
     });
   } catch (err: any) {
-    console.error("[Subscribers GET] Unexpected error:", err);
+    log.error("[Subscribers GET] Unexpected error:", err);
     return NextResponse.json({ error: err.message || "서버 오류가 발생했습니다." }, { status: 500 });
   }
 }
@@ -100,13 +104,13 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      console.error("[Subscribers POST] Upsert error:", error);
+      log.error("[Subscribers POST] Upsert error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, subscriber: data });
   } catch (err: any) {
-    console.error("[Subscribers POST] Unexpected error:", err);
+    log.error("[Subscribers POST] Unexpected error:", err);
     return NextResponse.json({ error: err.message || "서버 오류가 발생했습니다." }, { status: 500 });
   }
 }

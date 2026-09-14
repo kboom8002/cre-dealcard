@@ -6,6 +6,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
@@ -124,7 +128,7 @@ export async function GET(req: NextRequest) {
       data: results,
     });
   } catch (error) {
-    console.error("Public search error:", error);
+    log.error("Public search error:", error);
     return NextResponse.json({ error: "Search failed" }, { status: 500 });
   }
 }

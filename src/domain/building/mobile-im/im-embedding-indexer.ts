@@ -3,6 +3,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { MobileIMSection } from "./types";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('im-embedding-indexer');
+
+
 /**
  * IM 섹션 컨텐츠를 임베딩하여 RAG 검색을 위한 pgvector 인덱스에 저장합니다.
  */
@@ -13,7 +17,7 @@ export async function indexIMSections(
   metadata: Record<string, any>
 ) {
   if (!process.env.OPENAI_API_KEY) {
-    console.warn("[im-embedding-indexer] OPENAI_API_KEY is missing. Skipping indexing.");
+    log.warn("[im-embedding-indexer] OPENAI_API_KEY is missing. Skipping indexing.");
     return;
   }
 
@@ -50,9 +54,9 @@ export async function indexIMSections(
       }, { onConflict: "building_id" });
 
       if (error) throw error;
-      console.info(`[im-embedding-indexer] Successfully indexed IM for building ${buildingId}`);
+      log.info(`[im-embedding-indexer] Successfully indexed IM for building ${buildingId}`);
     }
   } catch (error) {
-    console.error("[im-embedding-indexer] Failed to index IM:", error);
+    log.error("[im-embedding-indexer] Failed to index IM:", error);
   }
 }

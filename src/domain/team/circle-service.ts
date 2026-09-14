@@ -2,6 +2,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { notifyCircleMembers } from "./circle-notification-service";
 import { createNotification } from "@/lib/notifications/in-app";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('circle-service');
+
+
 export interface Circle {
   id: string;
   name: string;
@@ -86,7 +90,7 @@ export async function createCircle(
     });
 
   if (memberErr) {
-    console.error("[createCircle] Add owner error:", memberErr.message);
+    log.error("[createCircle] Add owner error:", memberErr.message);
   }
 
   // 3. Activity event

@@ -7,6 +7,10 @@ import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod/v4';
 import { requireBroker } from '@/lib/auth-guard';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const ProfileUpdateSchema = z.object({
   display_name: z.string().min(1).max(50).optional(),
   phone: z.string().max(30).optional(),
@@ -196,7 +200,7 @@ export async function PUT(req: NextRequest) {
         ...profileUpdate,
       });
     if (error) {
-      console.error('[Profile PUT] profiles update error:', error);
+      log.error('[Profile PUT] profiles update error:', error);
       return NextResponse.json({ error: `기본 정보 저장 오류: ${error.message}` }, { status: 500 });
     }
   }
@@ -222,7 +226,7 @@ export async function PUT(req: NextRequest) {
         .update(brokerUpdate)
         .eq('user_id', user!.id);
       if (error) {
-        console.error('[Profile PUT] broker_profiles update error:', error);
+        log.error('[Profile PUT] broker_profiles update error:', error);
         return NextResponse.json({ error: `전문 프로필 저장 오류: ${error.message}` }, { status: 500 });
       }
     } else {
@@ -230,7 +234,7 @@ export async function PUT(req: NextRequest) {
         .from('broker_profiles')
         .insert(brokerUpdate);
       if (error) {
-        console.error('[Profile PUT] broker_profiles insert error:', error);
+        log.error('[Profile PUT] broker_profiles insert error:', error);
         return NextResponse.json({ error: `전문 프로필 생성 오류: ${error.message}` }, { status: 500 });
       }
     }

@@ -9,6 +9,10 @@
 import { callLLM } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('im-judge');
+
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 /** 5차원 + 종합 점수 결과 */
@@ -281,7 +285,7 @@ export async function judgeIMSection(
 
     // 종합 점수가 임계값 미달 시 경고 로그
     if (score.overall < OVERALL_WARN_THRESHOLD) {
-      console.warn(
+      log.warn(
         `[im-judge] ⚠️ 낮은 품질 점수 — section=${input.sectionType}, ` +
           `overall=${score.overall}, ` +
           `details={fa:${score.factual_accuracy}, fs:${score.financial_soundness}, ` +
@@ -292,7 +296,7 @@ export async function judgeIMSection(
     return score;
   } catch (error) {
     // Soft-fail: Judge 실패가 전체 IM 생성을 중단시키지 않도록 null 반환
-    console.warn(
+    log.warn(
       `[im-judge] Judge 호출 실패 (soft-fail) — section=${input.sectionType}:`,
       error instanceof Error ? error.message : error
     );

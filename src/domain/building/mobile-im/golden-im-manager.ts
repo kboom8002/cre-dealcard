@@ -7,6 +7,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import type { MobileIMSection, MobileIMSectionType } from "./types";
 import { sanitizePersona, stripMarkdown } from './pptx/data-binder';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('golden-im-manager');
+
+
 // ─── 인터페이스 ─────────────────────────────────────────────────────────────
 
 export interface GoldenIMEntry {
@@ -105,7 +109,7 @@ export async function markAsGoldenIM(
       });
       goldenCount++;
     } catch (err) {
-      console.warn(`[golden-im] Failed to upsert golden for ${section.section_type}:`, err);
+      log.warn(`[golden-im] Failed to upsert golden for ${section.section_type}:`, err);
     }
   }
 
@@ -137,7 +141,7 @@ export async function buildIMFewShotBlock(
       .eq('posture', posture);
 
     if (matchesError) {
-      console.error('[golden-im-manager] Error fetching matches:', matchesError);
+      log.error('[golden-im-manager] Error fetching matches:', matchesError);
     }
 
     let candidates = matches || [];
@@ -152,7 +156,7 @@ export async function buildIMFewShotBlock(
         .gte('judge_score', 4.0);
       
       if (fallbackError) {
-        console.error('[golden-im-manager] Error fetching fallback data:', fallbackError);
+        log.error('[golden-im-manager] Error fetching fallback data:', fallbackError);
       }
       
       if (fallbackData && fallbackData.length > 0) {
@@ -253,7 +257,7 @@ export async function buildIMFewShotBlock(
 
     return { formatted, usedIds };
   } catch (err) {
-    console.warn(`[golden-im] Failed to build few-shot block:`, err);
+    log.warn(`[golden-im] Failed to build few-shot block:`, err);
     return { formatted: '', usedIds: [] };
   }
 }
@@ -303,7 +307,7 @@ export async function exportGoldenForFinetune(
     if (format === 'jsonl') return records.map(r => JSON.stringify(r)).join('\n');
     return JSON.stringify(records, null, 2);
   } catch (err) {
-    console.warn('[golden-im] Failed to export for fine-tune:', err);
+    log.warn('[golden-im] Failed to export for fine-tune:', err);
     return '';
   }
 }
@@ -354,7 +358,7 @@ export async function createGoldenVersion(
   });
 
   if (error) {
-    console.warn('[golden-im-manager] Atomic version creation failed, falling back:', error);
+    log.warn('[golden-im-manager] Atomic version creation failed, falling back:', error);
     
     // 1. 기존 레코드 조회
     const { data: existing, error: fetchErr } = await supabase
@@ -364,7 +368,7 @@ export async function createGoldenVersion(
       .single();
 
     if (fetchErr || !existing) {
-      console.error('[golden-im-manager] Error fetching existing golden record:', fetchErr);
+      log.error('[golden-im-manager] Error fetching existing golden record:', fetchErr);
       return null;
     }
 
@@ -375,7 +379,7 @@ export async function createGoldenVersion(
       .eq('id', existingId);
 
     if (updateErr) {
-      console.error('[golden-im-manager] Error disabling previous golden version:', updateErr);
+      log.error('[golden-im-manager] Error disabling previous golden version:', updateErr);
     }
 
     // 3. 새 버전 생성
@@ -400,7 +404,7 @@ export async function createGoldenVersion(
       .single();
 
     if (insertErr) {
-      console.error('[golden-im-manager] Error creating new golden version:', insertErr);
+      log.error('[golden-im-manager] Error creating new golden version:', insertErr);
     }
 
     return newRow?.id || null;

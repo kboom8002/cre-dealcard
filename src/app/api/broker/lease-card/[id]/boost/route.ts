@@ -8,6 +8,10 @@ import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
 import { toApiError } from "@/lib/api-error";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -113,7 +117,7 @@ export async function POST(
       redirect: `/broker/leasing/${space.id}`,
     });
   } catch (error) {
-    console.error("[boost] Error:", error);
+    log.error("[boost] Error:", error);
     return toApiError(error);
   }
 }

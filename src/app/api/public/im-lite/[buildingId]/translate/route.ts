@@ -8,6 +8,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { translateIMSections, type IMLanguage } from '@/domain/building/mobile-im/translator';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const VALID_LANGUAGES: IMLanguage[] = ['en', 'zh', 'ja'];
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -98,7 +102,7 @@ export async function POST(
 
     return NextResponse.json({ ok: true, sections: translated, cached: false });
   } catch (err) {
-    console.error('[translate] Translation failed:', err);
+    log.error('[translate] Translation failed:', err);
     return NextResponse.json({ error: 'Translation failed' }, { status: 500 });
   }
 }

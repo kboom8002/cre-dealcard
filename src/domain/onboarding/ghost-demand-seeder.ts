@@ -1,5 +1,9 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('ghost-demand-seeder');
+
+
 export interface SeedingSummary {
   seededCount: number;
   buyers: Array<{ id: string; name: string; budget: string }>;
@@ -110,7 +114,7 @@ export async function seedGhostDemands(
       .single();
 
     if (dbError) {
-      console.error(`Failed to seed ghost buyer ${template.name}:`, dbError);
+      log.error(`Failed to seed ghost buyer ${template.name}:`, dbError);
       continue;
     }
 

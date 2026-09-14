@@ -3,6 +3,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 /**
  * GET /api/admin/hitmap
  * Retrieves functionality usage statistics (G3 Heatmap) based on activity_events
@@ -38,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ success: true, heatmap: formatted });
   } catch (err: unknown) {
-    console.error("[api/admin/hitmap] GET Error:", err);
+    log.error("[api/admin/hitmap] GET Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 오류" },
       { status: 500 }

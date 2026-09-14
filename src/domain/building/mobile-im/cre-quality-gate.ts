@@ -12,6 +12,10 @@
 import { callLLM } from "@/ai/llm-client";
 import { getModel } from "@/ai/model-selector";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('cre-quality-gate');
+
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 /** 위반 유형 — 5가지 CRE 특화 시맨틱 위험 */
@@ -219,7 +223,7 @@ function isValidViolationType(type: string): type is CREViolationType {
  * const gate = await runCREQualityGate(sectionMd, "investment_thesis");
  * if (!gate.passed) {
  *   // 위반 이슈 목록 확인 후 재생성 또는 수동 검토
- *   console.log(gate.issues);
+ *   log.info(gate.issues);
  * }
  * if (gate.autoDisclaimerRequired) {
  *   // 면책 문구 삽입
@@ -320,7 +324,7 @@ export async function runCREQualityGate(
 
     // 위반 탐지 시 로그
     if (issues.length > 0) {
-      console.warn(
+      log.warn(
         `[cre-quality-gate] 위반 탐지 — section=${sectionType}, ` +
           `riskLevel=${riskLevel}, issues=${issues.length}:`,
         issues.map((i) => `${i.type}: "${i.excerpt.slice(0, 50)}..."`)
@@ -335,7 +339,7 @@ export async function runCREQualityGate(
     };
   } catch (error) {
     // LLM 실패 시 안전 기본값 반환 — 파이프라인 중단 방지
-    console.warn(
+    log.warn(
       `[cre-quality-gate] LLM 호출 실패 (safe-default 반환) — section=${sectionType}:`,
       error instanceof Error ? error.message : error
     );

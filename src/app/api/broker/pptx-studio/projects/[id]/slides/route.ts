@@ -5,6 +5,10 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { computeTargetHash } from '@/domain/building/im-core';
 import { broadcastDealcardMutation } from '@/platform/im-pipeline/realtime/dealcard-sync-channel';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -167,7 +171,7 @@ export async function PATCH(
           }
         }
       } catch (reverseSyncErr) {
-        console.warn('[slides/route] Reverse sync to document_objects failed (non-blocking):', reverseSyncErr);
+        log.warn('[slides/route] Reverse sync to document_objects failed (non-blocking):', reverseSyncErr);
       }
 
       return NextResponse.json({ ok: true, project: updated });

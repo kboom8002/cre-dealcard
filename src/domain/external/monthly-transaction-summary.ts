@@ -5,6 +5,10 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('monthly-transaction-summary');
+
+
 export interface MonthlyTransactionSummary {
   yearMonth: string;
   region: string;
@@ -104,7 +108,7 @@ export async function summarizeMonthlyTransactions(
         byUsageType: byUsage,
       });
     } catch (err) {
-      console.warn(`[MonthlySummary] Error processing region ${region}:`, err);
+      log.warn(`[MonthlySummary] Error processing region ${region}:`, err);
     }
   }
 

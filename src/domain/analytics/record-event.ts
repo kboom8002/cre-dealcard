@@ -9,6 +9,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ActivityEventInsert } from "@/types/database";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('record-event');
+
+
 /** Known event types for the MVP */
 export type MvpEventType =
   | "address_submitted"
@@ -117,7 +121,7 @@ export async function recordEvent(
     .single();
 
   if (error) {
-    console.error("[recordEvent] Failed:", error.message);
+    log.error("[recordEvent] Failed:", error.message);
     return null;
   }
 

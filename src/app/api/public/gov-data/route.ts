@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 import {
   fetchRentalTrend,
   fetchLandUsePlan,
@@ -57,7 +61,7 @@ export async function GET(request: NextRequest) {
       message: "action=verify 파라미터가 필요합니다."
     });
   } catch (err: unknown) {
-    console.error("[api/public/gov-data] GET Error:", err);
+    log.error("[api/public/gov-data] GET Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "서버 오류" },
       { status: 500 }

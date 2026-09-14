@@ -9,6 +9,10 @@ import { requireBroker } from "@/lib/auth-guard";
 import { toApiError } from "@/lib/api-error";
 import { aggregateBrokerStats } from "@/domain/broker-card/broker-stats-aggregator";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function GET(req: NextRequest) {
   const guard = await requireBroker(req);
   if (guard.error) return guard.error;
@@ -22,7 +26,7 @@ export async function GET(req: NextRequest) {
       data: stats,
     });
   } catch (error) {
-    console.error("Broker Stats Route Error:", error);
+    log.error("Broker Stats Route Error:", error);
     return toApiError(error);
   }
 }

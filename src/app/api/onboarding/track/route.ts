@@ -11,6 +11,10 @@
 import { NextRequest } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -60,7 +64,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (error) {
-      console.error('[onboarding/track] DB insert error:', error);
+      log.error('[onboarding/track] DB insert error:', error);
     }
 
     // 온보딩 완료 이벤트 수신 시 onboarding_sessions.completed_at 업데이트 (안전망)
@@ -78,7 +82,7 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     // Never let analytics break the caller
-    console.error('[onboarding/track] Unexpected error:', err);
+    log.error('[onboarding/track] Unexpected error:', err);
   }
 
   return Response.json({ ok: true });

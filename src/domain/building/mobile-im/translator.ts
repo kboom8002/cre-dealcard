@@ -2,6 +2,10 @@
 // 다국어 IM 자동 번역 — GPT-4o 기반 (영어, 중국어 간체, 일본어)
 import { callLLM } from '@/ai/llm-client';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('translator');
+
+
 export type IMLanguage = 'ko' | 'en' | 'zh' | 'ja';
 
 export interface TranslationInput {
@@ -74,7 +78,7 @@ export async function translateIMSections(
       return { ...orig, title: match[1].trim(), content: match[2].trim() };
     }
     // fallback: 원본 유지 + 경고 로깅
-    console.warn(`[translator] Section ${i} (${orig.title}) translation parse failed, keeping original`);
+    log.warn(`[translator] Section ${i} (${orig.title}) translation parse failed, keeping original`);
     return orig;
   });
   return results;

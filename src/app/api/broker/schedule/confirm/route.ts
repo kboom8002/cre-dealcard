@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 // POST /api/broker/schedule/confirm - Hold 상태의 임장 예약을 최종 확정
 export async function POST(request: Request) {
   try {
@@ -48,7 +52,7 @@ export async function POST(request: Request) {
       .eq("id", bookingId);
 
     if (bookingErr) {
-      console.error("[Schedule Confirm] Booking update error:", bookingErr);
+      log.error("[Schedule Confirm] Booking update error:", bookingErr);
       return NextResponse.json({ error: bookingErr.message }, { status: 500 });
     }
 
@@ -58,7 +62,7 @@ export async function POST(request: Request) {
       .eq("id", booking.slot_id);
 
     if (slotErr) {
-      console.error("[Schedule Confirm] Slot update error:", slotErr);
+      log.error("[Schedule Confirm] Slot update error:", slotErr);
       return NextResponse.json({ error: slotErr.message }, { status: 500 });
     }
 
@@ -86,7 +90,7 @@ export async function POST(request: Request) {
         });
       }
     } catch (notifErr) {
-      console.warn("[Schedule Confirm] Notification failed:", notifErr);
+      log.warn("[Schedule Confirm] Notification failed:", notifErr);
     }
 
     return NextResponse.json({
@@ -94,7 +98,7 @@ export async function POST(request: Request) {
       message: "임장 예약이 최종 확정되었습니다.",
     });
   } catch (err: any) {
-    console.error("[Schedule Confirm POST] Unexpected error:", err);
+    log.error("[Schedule Confirm POST] Unexpected error:", err);
     return NextResponse.json({ error: err.message || "서버 오류가 발생했습니다." }, { status: 500 });
   }
 }

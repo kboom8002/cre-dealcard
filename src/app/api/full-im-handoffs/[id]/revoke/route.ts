@@ -7,6 +7,10 @@
 import { revokeHandoff } from "@/domain/handoff/handoff";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -28,7 +32,7 @@ export async function POST(
 
     return Response.json({ ok: true, data: result });
   } catch (err) {
-    console.error("[POST /api/full-im-handoffs/:id/revoke]", err);
+    log.error("[POST /api/full-im-handoffs/:id/revoke]", err);
     return Response.json(
       { ok: false, error: { code: "INTERNAL_ERROR", message: "서버 오류가 발생했습니다." } },
       { status: 500 },

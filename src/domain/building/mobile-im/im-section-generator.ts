@@ -490,7 +490,7 @@ export async function generateSingleSection(
         generatedByAi = false;
       } else if (!gateResult.passed && gateResult.riskLevel === "medium") {
         // Graduated response: medium 위험은 AI 원문을 보존하되 면책 가드로 보강
-        console.info(
+        log.info(
           `[cre-quality-gate] ${sectionType} medium risk detected (${gateResult.issues.length} issues) — AI 원문 유지 및 면책 보강 적용`,
           gateResult.issues.map(i => `${i.type}: ${i.excerpt.slice(0, 40)}`)
         );

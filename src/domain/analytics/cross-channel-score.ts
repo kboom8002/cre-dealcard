@@ -1,3 +1,6 @@
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('cross-channel-score');
+
 /**
  * DB 클라이언트 인터페이스 (Rule 12: 도메인 계층 Supabase 직접 의존 제거)
  */
@@ -57,7 +60,7 @@ export async function calculateLeadScore(
       .order('created_at', { ascending: true });
 
     if (error) {
-      console.error('[calculateLeadScore] Failed to query activity_events:', error.message);
+      log.error('[calculateLeadScore] Failed to query activity_events:', error.message);
       return { score: 0, isHotLead: false, touchpoints: [], channelCount: 0, buildingsViewed: [] };
     }
 
@@ -101,7 +104,7 @@ export async function calculateLeadScore(
     };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[calculateLeadScore] Unexpected error:', message);
+    log.error('[calculateLeadScore] Unexpected error:', message);
     return { score: 0, isHotLead: false, touchpoints: [], channelCount: 0, buildingsViewed: [] };
   }
 }

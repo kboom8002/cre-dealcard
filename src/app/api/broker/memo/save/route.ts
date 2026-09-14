@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { escapeIlike } from "@/lib/utils/postgrest-escape";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
@@ -33,7 +37,7 @@ export async function POST(req: Request) {
       .single();
 
     if (memoError) {
-      console.warn("broker_memos insert failed:", memoError.code, memoError.message);
+      log.warn("broker_memos insert failed:", memoError.code, memoError.message);
       try {
         await supabase.from("activity_events").insert({
           actor_id: user.id,
@@ -42,7 +46,7 @@ export async function POST(req: Request) {
         });
         return NextResponse.json({ ok: true, data: { fallback: true } });
       } catch (fallbackErr) {
-        console.error("activity_events fallback also failed:", fallbackErr);
+        log.error("activity_events fallback also failed:", fallbackErr);
       }
       return NextResponse.json({ ok: false, error: memoError.message }, { status: 500 });
     }
@@ -50,7 +54,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, data: { memoId: memoData.id } });
 
   } catch (error) {
-    console.error("Memo save API Error:", error);
+    log.error("Memo save API Error:", error);
     return NextResponse.json(
       { ok: false, error: "Internal Server Error" },
       { status: 500 }
@@ -109,7 +113,7 @@ export async function GET(req: Request) {
     const { data, error } = await query;
 
     if (error) {
-      console.warn("broker_memos select failed:", error.code, error.message);
+      log.warn("broker_memos select failed:", error.code, error.message);
 
       // Check if error is about missing columns (is_pinned etc.)
       if (error.message?.includes("is_pinned") || error.message?.includes("updated_at")) {

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { generateAutoIntents, type InterestProfile } from "@/domain/magazine/subscriber-profile";
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -96,7 +100,7 @@ export async function POST(
       intents: insertedIntents,
     });
   } catch (err: any) {
-    console.error("[AutoIntent POST] Unexpected error:", err);
+    log.error("[AutoIntent POST] Unexpected error:", err);
     return NextResponse.json({ error: err.message || "서버 오류가 발생했습니다." }, { status: 500 });
   }
 }

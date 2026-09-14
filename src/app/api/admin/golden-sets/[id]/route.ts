@@ -7,6 +7,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-guard';
 import { createServiceClient } from '@/lib/supabase/service';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const SELECT_FIELDS = [
   'id', 'document_id', 'building_id', 'section_type', 'section_alias',
   'asset_type', 'price_band', 'markdown', 'judge_score', 'was_edited',
@@ -43,7 +47,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ ok: true, data });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[GET /api/admin/golden-sets/[id]]', message);
+    log.error('[GET /api/admin/golden-sets/[id]]', message);
     return NextResponse.json(
       { ok: false, error: { code: 'INTERNAL', message } },
       { status: 500 },
@@ -123,7 +127,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ ok: true, data });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[PATCH /api/admin/golden-sets/[id]]', message);
+    log.error('[PATCH /api/admin/golden-sets/[id]]', message);
     return NextResponse.json(
       { ok: false, error: { code: 'INTERNAL', message } },
       { status: 500 },
@@ -149,7 +153,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ ok: true, success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[DELETE /api/admin/golden-sets/[id]]', message);
+    log.error('[DELETE /api/admin/golden-sets/[id]]', message);
     return NextResponse.json(
       { ok: false, error: { code: 'INTERNAL', message } },
       { status: 500 },

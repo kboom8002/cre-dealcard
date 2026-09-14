@@ -1,3 +1,6 @@
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('performance-budget');
+
 /**
  * @file performance-budget.ts
  * @description IM 생성 파이프라인 성능 예산 상수
@@ -32,6 +35,6 @@ export function logPerformance(stage: keyof typeof PERFORMANCE_BUDGET, elapsedMs
   const budget = PERFORMANCE_BUDGET[stage];
   const pct = Math.round((elapsedMs / budget) * 100);
   if (pct > 80) {
-    console.warn(`[perf-budget] ${stage}: ${elapsedMs}ms / ${budget}ms (${pct}%) — ⚠️ NEAR BUDGET`);
+    log.warn(`[perf-budget] ${stage}: ${elapsedMs}ms / ${budget}ms (${pct}%) — ⚠️ NEAR BUDGET`);
   }
 }

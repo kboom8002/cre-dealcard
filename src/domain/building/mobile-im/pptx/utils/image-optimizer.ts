@@ -5,6 +5,10 @@
  */
 import sharp from 'sharp';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('image-optimizer');
+
+
 export interface OptimizedImage {
   /** Buffer 직접 전달용 (PPTX 삽입 시 data: Buffer 사용) */
   buffer: Buffer;
@@ -41,7 +45,7 @@ export async function optimizeImageForPptx(
     if (imageUrl.startsWith('data:')) {
       const base64Data = imageUrl.split(',')[1];
       if (base64Data && base64Data.length * 0.75 > MAX_INTAKE_BYTES) {
-        console.warn('[optimizeImageForPptx] Data URL exceeds 10MB guard, aborting to prevent OOM');
+        log.warn('[optimizeImageForPptx] Data URL exceeds 10MB guard, aborting to prevent OOM');
         return null;
       }
       inputBuffer = Buffer.from(base64Data, 'base64');
@@ -53,7 +57,7 @@ export async function optimizeImageForPptx(
 
       const contentLength = response.headers.get('content-length');
       if (contentLength && parseInt(contentLength, 10) > MAX_INTAKE_BYTES) {
-        console.warn(`[optimizeImageForPptx] Content-Length (${contentLength} bytes) exceeds 10MB limit: ${imageUrl}`);
+        log.warn(`[optimizeImageForPptx] Content-Length (${contentLength} bytes) exceeds 10MB limit: ${imageUrl}`);
         return null;
       }
 
@@ -78,7 +82,7 @@ export async function optimizeImageForPptx(
     }
 
     if (inputBuffer.length > MAX_INTAKE_BYTES) {
-      console.warn(`[optimizeImageForPptx] Buffer size (${inputBuffer.length} bytes) exceeds 10MB limit: ${imageUrl}`);
+      log.warn(`[optimizeImageForPptx] Buffer size (${inputBuffer.length} bytes) exceeds 10MB limit: ${imageUrl}`);
       return null;
     }
 
@@ -112,7 +116,7 @@ export async function optimizeImageForPptx(
       aspectRatio: originalWidth / originalHeight,
     };
   } catch (err) {
-    console.warn('[optimizeImageForPptx] Failed:', imageUrl, err);
+    log.warn('[optimizeImageForPptx] Failed:', imageUrl, err);
     return null;
   }
 }
@@ -321,7 +325,7 @@ export async function generateStaticMapPlaceholder(
         }
       }
     } catch (err) {
-      console.warn('[generateStaticMapPlaceholder] Kakao map failed, falling back to OSM:', err);
+      log.warn('[generateStaticMapPlaceholder] Kakao map failed, falling back to OSM:', err);
     }
   }
 
@@ -429,7 +433,7 @@ export async function generateStaticMapPlaceholder(
         };
       }
     } catch (err) {
-      console.warn('[generateStaticMapPlaceholder] OSM tile compositing failed, falling back to SVG:', err);
+      log.warn('[generateStaticMapPlaceholder] OSM tile compositing failed, falling back to SVG:', err);
     }
   }
 
@@ -488,7 +492,7 @@ export async function fetchKakaoMapImage(
       headers: { Referer: referer },
     });
     if (!response.ok) {
-      console.warn(`[kakao-map] fetch failed: ${response.status} ${response.statusText}`);
+      log.warn(`[kakao-map] fetch failed: ${response.status} ${response.statusText}`);
       return null;
     }
     const arrayBuffer = await response.arrayBuffer();
@@ -507,7 +511,7 @@ export async function fetchKakaoMapImage(
       aspectRatio: w / h,
     };
   } catch (err) {
-    console.warn('[fetchKakaoMapImage] Failed:', mapUrl, err);
+    log.warn('[fetchKakaoMapImage] Failed:', mapUrl, err);
     return null;
   }
 }

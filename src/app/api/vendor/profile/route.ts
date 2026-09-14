@@ -38,6 +38,10 @@ export async function GET(req: NextRequest) {
 
 import { z } from 'zod';
 
+import { createModuleLogger } from '@/lib/logger';
+const log = createModuleLogger('route');
+
+
 const postSchema = z.object({
   userId: z.string().min(1),
   vendorCategory: z.string().min(1),
@@ -73,7 +77,7 @@ export async function POST(req: NextRequest) {
   // ── 자격증 자동 검증 (Phase 1: stub, Phase 2: 외부 API 연동) ──
   let licenseVerified = false;
   if (body.licenseNumber) {
-    console.warn('[vendor-profile] 국가자격증 정보시스템 API 미연동 — 수동 검증 필요');
+    log.warn('[vendor-profile] 국가자격증 정보시스템 API 미연동 — 수동 검증 필요');
     licenseVerified = body.licenseNumber.length >= 5;
   }
 
