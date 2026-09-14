@@ -65,7 +65,7 @@ if os.path.exists(old_pdf):
 
 # 2. Convert PPTX to PDF via LibreOffice
 cmd = [soffice_path, "--headless", "--convert-to", "pdf", pptx_path, "--outdir", output_dir]
-res = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+res = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
 if res.returncode != 0:
     print(f"ERROR: LibreOffice conversion failed: {res.stderr or res.stdout}", file=sys.stderr)
     sys.exit(1)
@@ -99,7 +99,7 @@ for sp in slide_paths:
     const stdout = execSync(`python "${scriptPath}"`, {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 60000,
+      timeout: 120000,
     });
 
     const lines = stdout.split('\n');

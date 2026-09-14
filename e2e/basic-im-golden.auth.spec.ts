@@ -457,8 +457,12 @@ B1~5F
     await page.waitForTimeout(3000);
     await shot(page, 'basic-im-viewer-desktop');
 
-    // 뷰어 콘텐츠 확인
-    const viewerText = await page.textContent('body') || '';
+    // 뷰어 콘텐츠 확인 (스크립트/스타일 태그를 제외한 실제 화면 렌더링 텍스트 검증)
+    const viewerText = await page.evaluate(() => {
+      const clone = document.body.cloneNode(true) as HTMLElement;
+      clone.querySelectorAll('script, style, noscript').forEach((el) => el.remove());
+      return clone.innerText || clone.textContent || '';
+    });
     expect(viewerText).toContain('당산');
     expect(viewerText).toContain('115');
     expect(viewerText).not.toContain('NaN');

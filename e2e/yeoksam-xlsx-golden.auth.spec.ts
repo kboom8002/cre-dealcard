@@ -299,7 +299,12 @@ test.describe('역삼 XLSX 렌트롤 Basic IM 골든 테스트', () => {
     await page.waitForTimeout(3000);
     await shot(page, 'im-viewer-desktop');
 
-    const bodyText = await page.textContent('body') || '';
+    // 뷰어 콘텐츠 확인 (스크립트/스타일 태그를 제외한 실제 화면 렌더링 텍스트 검증)
+    const bodyText = await page.evaluate(() => {
+      const clone = document.body.cloneNode(true) as HTMLElement;
+      clone.querySelectorAll('script, style, noscript').forEach((el) => el.remove());
+      return clone.innerText || clone.textContent || '';
+    });
     expect(bodyText).toContain('역삼');
     expect(bodyText).toContain(String(EXPECTED_ASKING_PRICE));
     expect(bodyText).not.toContain('NaN');

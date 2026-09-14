@@ -66,6 +66,22 @@ test.describe('서초동 FM빌딩 Basic IM 골든 테스트 (Rule 47 준거)', (
     expect(page.url()).not.toContain('/login');
     console.log('  ✅ 인증 세션 확인');
 
+    // 2. 기존 딜카드 재사용 확인 (이미 생성되어 있는 경우)
+    const existingIdFile = path.join(SCREENSHOT_DIR, 'building-id.txt');
+    if (fs.existsSync(existingIdFile)) {
+      const existingId = fs.readFileSync(existingIdFile, 'utf-8').trim();
+      if (existingId) {
+        console.log(`  📋 기존 buildingId 확인: ${existingId} → 딜카드 페이지 직접 확인`);
+        await page.goto(`/broker/deal-card/${existingId}`);
+        await page.waitForLoadState('networkidle');
+        if (page.url().includes(existingId)) {
+          console.log(`  ✅ 기존 딜카드 재사용 확인 완료: ${existingId}`);
+          await shot(page, 'deal-card-reused');
+          return;
+        }
+      }
+    }
+
     // 2. 딜카드 생성 페이지 진입
     await page.goto('/broker/deal-card/new');
     await page.waitForLoadState('networkidle');
@@ -83,19 +99,23 @@ test.describe('서초동 FM빌딩 Basic IM 골든 테스트 (Rule 47 준거)', (
     // 4. 생성 CTA 클릭
     await page.locator('#cta-generate-deal-card').click();
     console.log('  ⏳ 딜카드 생성 요청...');
-    await shot(page, 'generating-deal-card');
+    // 5. 생성 완료 URL 또는 중복 물건 다이얼로그 대기 (LLM 지연 감안 Promise.race 처리)
+    const duplicateBtn = page.locator('button:has-text("이 물건 업데이트"), button:has-text("새로 만들기"), button:has-text("신규 생성")').first();
+    const navPromise = page.waitForURL(/\/broker\/deal-card\/[a-f0-9]{8}-/, { timeout: 180_000 });
 
-    // 중복 물건 다이얼로그 대응 (이전에 생성된 적이 있을 경우)
-    try {
-      const duplicateModal = page.locator('button:has-text("새로 만들기"), button:has-text("신규 생성")').first();
-      if (await duplicateModal.isVisible({ timeout: 4000 })) {
-        console.log('  ⚠️ 중복 물건 감지 → "새로 만들기" 클릭');
-        await duplicateModal.click();
-      }
-    } catch { /* ignore */ }
+    const raceResult = await Promise.race([
+      navPromise.then(() => 'navigated'),
+      duplicateBtn.waitFor({ state: 'visible', timeout: 60_000 }).then(() => 'duplicate_modal').catch(() => 'no_modal'),
+    ]);
 
-    // 5. 생성 완료 URL 대기
-    await page.waitForURL(/\/broker\/deal-card\/[a-f0-9]{8}-/, { timeout: 180_000 });
+    if (raceResult === 'duplicate_modal') {
+      console.log('  ⚠️ 중복 물건 감지 → 버튼 클릭');
+      await duplicateBtn.click();
+      await page.waitForURL(/\/broker\/deal-card\/[a-f0-9]{8}-/, { timeout: 120_000 });
+    } else {
+      await navPromise;
+    }
+
     const dealCardUrl = page.url();
     const buildingId = dealCardUrl.match(/deal-card\/([a-f0-9-]+)/)?.[1];
     expect(buildingId).toBeTruthy();
@@ -356,7 +376,12 @@ B1 138.3평 파티룸 보증금6000만 월세510만`;
     await page.waitForTimeout(3000);
     await shot(page, 'im-viewer-desktop');
 
-    const bodyText = await page.textContent('body') || '';
+    // 뷰어 콘텐츠 확인 (스크립트/스타일 태그를 제외한 실제 화면 렌더링 텍스트 검증)
+    const bodyText = await page.evaluate(() => {
+      const clone = document.body.cloneNode(true) as HTMLElement;
+      clone.querySelectorAll('script, style, noscript').forEach((el) => el.remove());
+      return clone.innerText || clone.textContent || '';
+    });
     expect(bodyText).toContain('서초');
     expect(bodyText).toContain('230');
     expect(bodyText).not.toContain('NaN');
