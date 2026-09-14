@@ -389,3 +389,33 @@
 - 로컬 E2E 테스트에서 외부 API 실패 시 **SVG 플레이스홀더나 벡터 다이어그램으로 조용히 폴백하지 않습니다** — 최소한 `console.warn`으로 실패를 기록하고, 테스트 단언으로 폴백 여부를 검출합니다.
 - **위반 사례**: `fetchKakaoMapImage()` 404 → `generateMacroTransitDiagram()` SVG 폴백 → 사용자에게 "카카오맵이 아닌 직접 그린 지도" 표시.
 <!-- END:cre-d42-rca-rules -->
+
+<!-- BEGIN:cre-d43-golden-rules -->
+# CRE IM D43 E2E Golden Test & Resilience Rules (2026-09-14 교훈)
+
+### 57. 골든 테스트 실지번(PNU) 필수 원칙 (Golden Test Real Parcel Number Mandate)
+- E2E 골든 테스트나 프로덕션 시뮬레이션 매물 메모 작성 시 가상 지번(예: 34-82, 72-5) 사용을 엄격히 금지합니다.
+- 국토정보(V-World, Juso) 및 카카오 지도 API에 실제 등재된 **실제 필지 지번(Real Parcel Number)**을 사용해야만 PNU가 정상 확정되고 카카오 Static Map, 지적도 WMS, 건축물대장 Enrichment 파이프라인이 정상 작동합니다.
+- 검증된 테스트용 실지번 레지스트리:
+  * 마포 대흥동: `대흥동 12-41` (PNU: `1144010800100120041`)
+  * 강남 역삼동: `역삼동 832-7` (PNU: `1168010100108320007`)
+  * 용산 이태원동: `이태원동 127-1` (PNU: `1117013000101270001`)
+  * 영등포 당산동: `당산동1가 72-1` (PNU: `1156011700100720001`)
+- **위반 사례**: `이태원동 34-82` 입력 시 V-World/카카오 주소 검색 0건 → PNU 미확정 → 바텀시트 IM 생성 버튼 비활성화.
+
+### 58. LLM 쿼터 소진 즉시 탈출 및 마크다운 서사 폴백 (LLM Quota-Resilient Markdown Fallback)
+- OpenAI API 쿼터 소진(429 `credit_balance_exhausted` / `insufficient_quota`) 감지 시 30초 이상의 불필요한 지수 백오프 재시도(`MAX_RETRIES`)를 즉시 중단하고 고가용성 Mock Provider로 즉각 폴백해야 합니다.
+- Mock Provider는 단순 고정 JSON 반환에 그치지 않고, 마크다운 서사(narrative) 프롬프트 요청 시 정제된 한국어 마크다운 카피를 반환하여 PPTX 본문 슬라이드에 raw JSON 문자열이 유입되는 것을 원천 차단해야 합니다.
+- Mock 데이터 내에 Rule 52를 위반하는 가격 밴드 패턴(`display: "50억~80억"`)을 포함하지 않고 단일 확정 수치로 표기합니다.
+- **위반 사례**: Mock JSON 문자열이 03 Building 슬라이드 본문에 그대로 유입되고, 그 안의 `"50억~80억"`으로 인해 Rule 52 가격 밴드 차단 테스트 실패.
+
+### 59. 골든 테스트 하네스 공통화 및 4대 바이너리 단언 의무 (Standardized Golden Harness & 4-Fold Assertion)
+- 모든 신규 E2E 골든 테스트는 독립된 파싱/단언 코드를 중복 작성하지 않고 `e2e/helpers/golden-test-utils.ts` 공통 하네스를 의무적으로 import하여 사용합니다.
+- PPTX 다운로드 후 반드시 `analyzePptxZip`을 통해 4대 무결성 단언을 수행해야 합니다:
+  1. `assertNoPoisonTokens`: `NaN`, `undefined`, `null`, `[object Object]` 0건
+  2. `assertNoDummyData`: `NH농협캐피탈`, `테헤란로 123` 등 목데이터 누출 0건 (Rule 34)
+  3. `assertNoEvasivePhrases`: 회피성 문구 8종(`본문을 참조`, `별도 안내 예정` 등) 0건 (Rule 37)
+  4. `assertPriceBandBlocked`: `\d+억~\d+억` 등 가격 밴드 패턴 0건 (Rule 52)
+- 중복 매물 모달 감지는 `Promise.race` 기반 `handleDuplicateModal`을 사용하여 비동기 타임아웃을 방지합니다.
+<!-- END:cre-d43-golden-rules -->
+
