@@ -96,7 +96,7 @@ export async function enrichBuildingDataCore(
     (async () => {
       try {
         if (lat != null && lng != null) {
-          cadastralMapImage = await fetchCadastralMapImage(lat, lng, 800, 600, 150);
+          cadastralMapImage = await fetchCadastralMapImage(lat, lng, 800, 600, 150, pnu);
         }
       } catch (e: unknown) {
         errors.push({ api: "vworld-wms-cadastral", message: e instanceof Error ? e.message : "Unknown error" });
@@ -310,7 +310,7 @@ export async function enrichBuildingDataByPNU(
         const result = reconstructFromCache(cached);
         if (result.cadastralMapImage === null && result.resolvedAddress?.lat != null && result.resolvedAddress?.lng != null) {
           try {
-            result.cadastralMapImage = await fetchCadastralMapImage(result.resolvedAddress.lat, result.resolvedAddress.lng, 800, 600, 150);
+            result.cadastralMapImage = await fetchCadastralMapImage(result.resolvedAddress.lat, result.resolvedAddress.lng, 800, 600, 150, result.resolvedAddress?.pnu);
           } catch (e) {
             console.warn("[external-data] Failed to re-fetch cadastral map on cache hit:", e);
           }

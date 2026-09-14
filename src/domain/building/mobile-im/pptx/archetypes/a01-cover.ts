@@ -255,12 +255,12 @@ function renderCommonCoverContent(
     });
   }
 
-  // 회사명/발행 정보
+  // G-01: 중개법인명 표시 — kicker 직상단에 법인명을 눈에 띄게 배치
   const companyName = input.data.companyName || '';
   if (companyName) {
     slide.addText(companyName, {
-      x, y: kickerY - 1.36, w: 6, h: 0.24,
-      fontSize: 9.5, color: CD.faint, fontFace: KR, margin: 0,
+      x, y: kickerY - 0.36, w: titleW, h: 0.28,
+      fontSize: 11, color: CD.body, fontFace: KR, margin: 0, align,
     });
   }
 

@@ -546,7 +546,7 @@ B1 138.3평 파티룸 보증금6000만 월세510만`;
     expect(monologueFound.length).toBe(0);
 
     // ─── 단언 ⑪: A24 공실 스타일링 FBEFE8 (G4, basic-im-guide §4) ───
-    const rentRollSlideIdx = allSlideTexts.findIndex(t => /임대차|Rent\s*Roll/.test(t));
+    const rentRollSlideIdx = allSlideTexts.findIndex((t: string) => /임대차|Rent\s*Roll/.test(t));
     if (rentRollSlideIdx >= 0) {
       const rentRollXml = slideEntries[rentRollSlideIdx].getData().toString('utf-8');
       const hasVacancyStyle = rentRollXml.includes('FBEFE8');
@@ -556,7 +556,7 @@ B1 138.3평 파티룸 보증금6000만 월세510만`;
     }
 
     // ─── 단언 ⑦: 갤러리 슬라이드 1면 완결 (C5 해소 검증) ───
-    const gallerySlides = allSlideTexts.filter(t => /Gallery|현장\s*사진|건물\s*사진/.test(t));
+    const gallerySlides = allSlideTexts.filter((t: string) => /Gallery|현장\s*사진|건물\s*사진/.test(t));
     console.log(`  📸 갤러리 슬라이드 수: ${gallerySlides.length}면`);
     expect(gallerySlides.length).toBeLessThanOrEqual(1); // Basic IM: 최대 1면
     console.log('  ✅ 갤러리 슬라이드 1면 이하 확인');

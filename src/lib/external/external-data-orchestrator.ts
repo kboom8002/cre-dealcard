@@ -84,7 +84,7 @@ export async function enrichBuildingData(
         const result = reconstructFromCache(data);
         if (result.cadastralMapImage === null && result.resolvedAddress?.lat != null && result.resolvedAddress?.lng != null) {
           try {
-            result.cadastralMapImage = await fetchCadastralMapImage(result.resolvedAddress.lat, result.resolvedAddress.lng, 800, 600, 150);
+            result.cadastralMapImage = await fetchCadastralMapImage(result.resolvedAddress.lat, result.resolvedAddress.lng, 800, 600, 150, result.resolvedAddress?.pnu);
           } catch (e) {
             console.warn("[external-data] Failed to re-fetch cadastral map on cache hit:", e);
           }

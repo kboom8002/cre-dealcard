@@ -249,11 +249,15 @@ export function ImDataBottomSheet({
   const [heroPhotoIndex, setHeroPhotoIndex] = useState<number>(0);
   const [exteriorPhotoIndex, setExteriorPhotoIndex] = useState<number | null>(null);
   const [floorLeases, setFloorLeases] = useState<Array<{ floor: string; tenant_type?: string; deposit_manwon?: number; rent_manwon?: number; mgmt_fee_manwon?: number; is_vacant?: boolean; }>>([]);
+  const floorLeasesRef = useRef(floorLeases);
   const [manualComps, setManualComps] = useState<Array<{ address: string; dealAmount: string; area: string; dealYear: string; dealMonth: string; buildingUse: string; memo: string; }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [readinessScore, setReadinessScore] = useState(0);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // floorLeases 상태 → ref 동기화 (handleCreate에서 최신 값 보장)
+  useEffect(() => { floorLeasesRef.current = floorLeases; }, [floorLeases]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -658,7 +662,7 @@ export function ImDataBottomSheet({
               : 'general',
           order: idx,
         })) : undefined,
-        floor_leases: floorLeases.length > 0 ? floorLeases : undefined,
+        floor_leases: (floorLeasesRef.current.length > 0 ? floorLeasesRef.current : floorLeases.length > 0 ? floorLeases : undefined),
         logistics,
         hospitalitySpec,
         developmentSpec,
@@ -1078,7 +1082,10 @@ export function ImDataBottomSheet({
                 if (data.totalDeposit) setTotalDeposit(data.totalDeposit.toString());
                 if (data.mgmtFeeTotal) setMgmtFeeTotal(data.mgmtFeeTotal.toString());
                 setVacancyPct(data.vacancyPct);
-                setFloorLeases(data.floorLeases || []);
+                const leases = data.floorLeases || [];
+                setFloorLeases(leases);
+                floorLeasesRef.current = leases; // 즉시 ref 동기화 — React 렌더 사이클 대기 불필요
+                console.log(`[RentRollImport] onImport: ${leases.length}건 floorLeases 수신`);
               }}
             />
 

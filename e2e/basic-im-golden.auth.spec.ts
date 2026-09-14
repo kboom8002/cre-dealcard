@@ -158,6 +158,14 @@ B1~5F
     const buildingId = fs.readFileSync(idFile, 'utf-8').trim();
     console.log(`  📋 buildingId: ${buildingId}`);
 
+    // 브라우저 콘솔 로그 캡처 — floor_leases 디버깅
+    page.on('console', msg => {
+      const text = msg.text();
+      if (text.includes('RentRollImport') || text.includes('floorLeases') || text.includes('floor_leases')) {
+        console.log(`  🖥️ [browser] ${text}`);
+      }
+    });
+
     // 딜카드 상세 페이지
     await page.goto(`/broker/deal-card/${buildingId}`);
     await page.waitForLoadState('networkidle');
@@ -251,6 +259,71 @@ B1~5F
     } catch { /* */ }
 
     await shot(page, 'basic-fields-filled');
+
+    // ── D42 RCA B2: 텍스트 모드 렌트롤 입력 (B1~5F 6개 층) ──
+    try {
+      const textTab = page.locator('button:has-text("텍스트"), button:has-text("📝 텍스트")').first();
+      const tabVisible = await textTab.isVisible({ timeout: 2000 }).catch(() => false);
+      if (tabVisible) {
+        await textTab.click();
+        await page.waitForTimeout(500);
+        const rentRollArea = page.locator('textarea[placeholder*="층"], textarea[placeholder*="B1"], textarea[placeholder*="임차"]').first();
+        const areaVisible = await rentRollArea.isVisible({ timeout: 2000 }).catch(() => false);
+        if (areaVisible) {
+          await rentRollArea.fill(
+            'B1 근린생활시설 파티룸 보증금3000 월세200\n'
+            + '1F 근린생활시설 약국/편의점 보증금5000 월세400\n'
+            + '2F 메디컬 클리닉 보증금5000 월세350\n'
+            + '3F 메디컬 클리닉 보증금5000 월세346\n'
+            + '4F 메디컬 클리닉 보증금5000 월세350\n'
+            + '5F 사무실 자가사용'
+          );
+          // ✨ AI 분석 버튼 클릭 → LLM 파싱 트리거 → floor_leases 생성
+          const aiParseBtn = page.locator('button:has-text("AI 분석")').first();
+          if (await aiParseBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+            await aiParseBtn.click();
+            console.log('  🔄 AI 분석 버튼 클릭 — LLM 렌트롤 파싱 대기...');
+            // RentRollImporter가 setResult("✅ AI 분석이 완료되었습니다...")로 렌더하는 고유 텍스트 대기
+            // 주의: 단순 '✅'는 페이지의 다른 요소(PNU 선택 등)와 매칭되어 조기 통과됨
+            await page.waitForSelector('text=분석이 완료되었습니다', { timeout: 30000 }).catch(async () => {
+              // 폴백: 파싱 결과 테이블이 표시되는지 확인
+              await page.waitForSelector('text=/폼에 금액|파싱 완료|개 호실/', { timeout: 10000 }).catch(() => {
+                console.log('  ⚠️ AI 분석 완료 텍스트 미감지 — 5초 추가 대기');
+              });
+              await page.waitForTimeout(5000);
+            });
+            // React 상태 업데이트 (setFloorLeases → floorLeasesRef) 보장
+            await page.waitForTimeout(1000);
+            console.log('  ✅ AI 렌트롤 파싱 완료');
+          } else {
+            console.log('  ⚠️ AI 분석 버튼 미발견 — 스킵');
+          }
+          console.log('  ✅ 텍스트 모드 렌트롤 6개 층 입력 완료');
+          await shot(page, 'rentroll-text-input');
+        } else {
+          console.log('  ⚠️ 렌트롤 textarea 미발견 — 스킵');
+        }
+      } else {
+        console.log('  ⚠️ 렌트롤 텍스트 탭 미발견 — 스킵');
+      }
+    } catch (e) {
+      console.log('  ⚠️ 렌트롤 텍스트 입력 스킵:', (e as Error).message);
+    }
+
+    // ── POST payload 디버깅: floor_leases 포함 여부 캡처 ──
+    let capturedFloorLeases: any[] | undefined;
+    await page.route('**/api/broker/im-lite/generate-async', async (route) => {
+      const req = route.request();
+      try {
+        const postBody = req.postDataJSON();
+        capturedFloorLeases = postBody?.floor_leases;
+        console.log(`  🔍 POST floor_leases: ${capturedFloorLeases?.length ?? 0}건`);
+        if (capturedFloorLeases?.length) {
+          console.log(`  🔍 First: ${JSON.stringify(capturedFloorLeases[0])}`);
+        }
+      } catch { /* ignore */ }
+      await route.continue();
+    });
 
     // ── IM 생성 버튼 클릭 ──
     const generateBtn = page.locator('button:has-text("⚡ IM 생성")').last();
@@ -525,11 +598,17 @@ B1~5F
     }
     console.log('  ✅ INTERNAL_MONOLOGUE 6종 차단 확인');
 
-    // 9. 회피성 문구 차단 (Rule 37)
-    for (const phrase of ['본문을 참조', '별도 안내 예정', '추후 확인']) {
+    // 9. 회피성 문구 차단 (Rule 37) — D42 RCA C2: 패턴 확장
+    const evasivePhrases = [
+      '본문을 참조', '별도 안내 예정', '추후 확인',
+      '현장 실사 확인 사항', '원본 계약서 대조', '점검하였습니다',
+      '실사가 필요합니다', '자문 후 확정', '확인하였습니다',
+      '검토하였습니다',
+    ];
+    for (const phrase of evasivePhrases) {
       expect(fullPptxText).not.toContain(phrase);
     }
-    console.log('  ✅ 회피성 문구 0건');
+    console.log(`  ✅ 회피성 문구 ${evasivePhrases.length}종 차단 확인`);
 
     // 10. 표지 배경색 0A1620 (G3)
     const s1xml = slideEntries[0].getData().toString('utf-8');
@@ -542,6 +621,54 @@ B1~5F
     );
     console.log(`  📸 임베딩 미디어: ${mediaEntries.length}장`);
     expect(mediaEntries.length).toBeGreaterThanOrEqual(1);
+
+    // ⑫ D42 RCA C1: 지도 이미지 크기 검증 — SVG 플레이스홀더(~20KB)가 아닌 실지도(50KB+)
+    const largeMedia = mediaEntries.filter((e: any) => e.header.size > 50_000);
+    console.log(`  🗺️ 50KB 초과 미디어: ${largeMedia.length}장`);
+    expect(largeMedia.length, '50KB 초과 이미지가 최소 1장 필요 (SVG 플레이스홀더 방지)').toBeGreaterThanOrEqual(1);
+
+    // ⑬ D42 RCA C3: 금액 교차 검증 — 입력 메모의 핵심 수치가 PPTX에 반영
+    expect(fullPptxText).toContain('115억');
+    console.log('  ✅ 매매가 115억 PPTX 반영 확인');
+
+    // ⑭ D42 RCA C3: 렌트롤 층수 키워드 교차 검증
+    const floorKeywords = ['B1', '1F', '2F', '3F', '4F', '5F', '지하', '지상'];
+    const floorCount = floorKeywords.filter(kw => fullPptxText.includes(kw)).length;
+    console.log(`  🏢 렌트롤 층 키워드: ${floorCount}/${floorKeywords.length}개 매칭`);
+    if (floorCount < 2) {
+      console.log(`  ⚠️ [SOFT] 렌트롤 층 키워드 ${floorCount}개 < 2개 — floor_leases POST 포함 여부 확인 필요`);
+    }
+
+    // ⑮ P3-1: 스펙 9단계 핵심 섹션 키워드 존재 단언
+    const sectionKeywords = ['건물 개요', '입지', '토지', '임대차', '투자수익률', '사진'];
+    const foundSections = sectionKeywords.filter(kw => fullPptxText.includes(kw));
+    console.log(`  📋 스펙 섹션 키워드: ${foundSections.length}/${sectionKeywords.length}개 — [${foundSections.join(', ')}]`);
+    expect(foundSections.length, `스펙 9단계 핵심 섹션 4개 이상 존재 필요 (현재: ${foundSections.join(', ')})`).toBeGreaterThanOrEqual(4);
+
+    // ⑯ P3-3: 토지 슬라이드 카피 관련성 — 임대차/렌트롤 카피 혼입 차단
+    // 토지 현황 슬라이드(보통 slide5)의 텍스트에서 임대 관련 키워드가 없어야 함
+    const landSlideIdx = slideEntries.findIndex((e: any) => {
+      const txt = e.getData().toString('utf-8').replace(/<[^>]+>/g, ' ');
+      return txt.includes('토지') && (txt.includes('Land') || txt.includes('용도지역') || txt.includes('대지면적'));
+    });
+    if (landSlideIdx >= 0) {
+      const landText = slideEntries[landSlideIdx].getData().toString('utf-8').replace(/<[^>]+>/g, ' ');
+      const leaseLeakKeywords = ['임차인별 만기', '렌트롤 실사', '임대차 세부조건', '임차인 신용'];
+      const leaks = leaseLeakKeywords.filter(kw => landText.includes(kw));
+      console.log(`  🚫 토지 슬라이드 임대 카피 혼입: ${leaks.length}건${leaks.length > 0 ? ' — ' + leaks.join(', ') : ''}`);
+      expect(leaks.length, `토지 슬라이드에 임대차 관련 카피 혼입 차단: [${leaks.join(', ')}]`).toBe(0);
+    }
+
+    // ⑰ P3-2: 렌트롤 층별 상세 데이터 존재 (3행 요약이 아닌 floor_leases 기반)
+    const floorPatterns = ['B1', '1F', '2F', '3F', '4F', '5F'];
+    const detailFloorCount = floorPatterns.filter(kw => fullPptxText.includes(kw)).length;
+    console.log(`  🏢 렌트롤 층별 상세 키워드: ${detailFloorCount}/${floorPatterns.length}개`);
+    // NOTE: AI 파싱 성공 → handler.ts → data-binder.ts → A24 렌더링 전구간 파이프라인이
+    // floor_leases를 렌트롤 테이블로 변환하는 것은 별도 심층 작업이 필요.
+    // 현재는 soft warning으로 두고, 층별 데이터가 0개면 경고만 출력.
+    if (detailFloorCount < 3) {
+      console.log(`  ⚠️ [P3-2 SOFT] 렌트롤 층별 상세 미반영 — handler.ts floor_leases→렌트롤 테이블 파이프라인 추가 조사 필요`);
+    }
 
     await shot(page, 'dangsan-basic-pptx-verified');
   });

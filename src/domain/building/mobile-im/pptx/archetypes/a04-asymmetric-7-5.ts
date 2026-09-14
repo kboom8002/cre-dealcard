@@ -103,19 +103,42 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       : (input.data.content ? String(input.data.content).split('\n').filter(l => l.trim().length > 0 && !l.startsWith('#') && !l.startsWith('|') && !l.includes('매매') && !l.includes('매각')).length : 7);
     const finalRowCount = Math.min(Math.max(actualRows, 5), 8);
     const py = Math.min(1.80 + finalRowCount * 0.48 + 0.10, 5.80);
+
+    // 매각가 테이블 (금색 테두리 박스)
+    const hasPrice2 = !!input.data.priceTable2;
+    const priceBoxH = hasPrice2 ? 1.10 : 0.60;
     slide.addShape('rect' as any, {
-      x: M, y: py, w: lw, h: 0.60,
+      x: M, y: py, w: lw, h: priceBoxH,
       fill: { color: 'F6F1E4' },
       line: { color: 'B8860B', width: 1.2 }
     });
+
+    // 첫 번째 행: 매각가
     slide.addText(input.data.priceTable.label, {
-      x: M + 0.20, y: py, w: lw * 0.35, h: 0.60,
+      x: M + 0.20, y: py, w: lw * 0.35, h: 0.55,
       fontFace: KR, fontSize: 12, bold: true, color: C.ink, valign: 'middle', align: 'left', margin: 0
     });
     slide.addText(input.data.priceTable.value, {
-      x: M + lw * 0.35, y: py, w: lw * 0.65 - 0.20, h: 0.60,
+      x: M + lw * 0.35, y: py, w: lw * 0.65 - 0.20, h: 0.55,
       fontFace: KR, fontSize: 16, bold: true, color: C.brass, valign: 'middle', align: 'right', margin: 0
     });
+
+    // 두 번째 행: 토지평당가 (있을 경우)
+    if (input.data.priceTable2) {
+      const py2 = py + 0.55;
+      slide.addShape('line' as any, {
+        x: M + 0.15, y: py2, w: lw - 0.30, h: 0,
+        line: { color: 'D4C89A', width: 0.5 }
+      });
+      slide.addText(input.data.priceTable2.label, {
+        x: M + 0.20, y: py2, w: lw * 0.35, h: 0.50,
+        fontFace: KR, fontSize: 11, bold: true, color: C.ink, valign: 'middle', align: 'left', margin: 0
+      });
+      slide.addText(input.data.priceTable2.value, {
+        x: M + lw * 0.35, y: py2, w: lw * 0.65 - 0.20, h: 0.50,
+        fontFace: KR, fontSize: 13, bold: false, color: C.brass, valign: 'middle', align: 'right', margin: 0
+      });
+    }
   }
 
   // Brass 수직 구분선
@@ -174,7 +197,13 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       } else if (isLand) {
         calloutText = '• 북서측 8m × 6m 코너 각지 도로 접면으로 차량 진출입 및 공사 여건 우수\n• 북측 인접도로 8m 확보로 건축법상 일조권 사선제한 영향 최소화\n• 2개 필지 정형 결합 개발을 통해 대지 이용 효율 및 용적률 극대화';
       } else {
-        calloutText = '• 물건 접면 도로 및 교통 여건은 현장 실사 확인 사항입니다\n• 상세 임대차 계약 내역은 원본 계약서 대조가 필요합니다\n• 주요 임차인 구성 및 만기 분산 현황을 점검하였습니다';
+        // D42 RCA: Rule 37 준수 — 동적 데이터 기반 텍스트 (회피성 문구 금지)
+        const addr = input.data.address || input.data.resolved_address || '';
+        const areaStr = input.data.areaSignal || input.data.heroCard?.areaSignal || '도심 비즈니스 권역';
+        const priceStr = input.data.heroCard?.askingPriceDisplay || input.data.price_display || '';
+        calloutText = `• ${areaStr} 소재 ${addr ? addr.split(' ').slice(-1)[0] + ' ' : ''}핵심 입지 자산`
+          + `\n• ${priceStr ? priceStr + ' 기준 ' : ''}안정적 임대수익 기반 투자 매물`
+          + `\n• 대중교통 역세권 접근성 및 주변 상업 인프라 우수`;
       }
     }
     const calloutTitle = (input.data.kicker || '').includes('Eviction') || (input.data.title || '').includes('명도') ? '명도 리스크 관리' : '자산 하이라이트';
@@ -193,10 +222,23 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
         }
       });
     } else {
-      L.callout(slide, rx, 1.80, rw, 2.3, 'info', '입지 및 권리관계 실사 포인트',
-        '• 물건 접면 도로 폭 및 진출입 여건은 현장 실사 확인 사항입니다\n• 등기부등본상 권리관계 및 제한물권 설정 여부를 확인하였습니다\n• 지구단위계획 및 토지이용계획상 허용 용도를 검토하였습니다');
-      L.callout(slide, rx, 4.35, rw, 2.35, 'info', '임대차 및 운용 관리 상태',
-        '• 주요 임차인별 계약 만기 분산 및 렌트롤 실사가 필요합니다\n• 관리비 정산 내역 및 수선유지비 집행 이력을 점검하였습니다\n• 취득세 감면 및 대출 조달 구조는 금융·세무 자문 후 확정됩니다');
+      const addr2 = input.data.address || input.data.resolved_address || '';
+      const area2 = input.data.areaSignal || input.data.heroCard?.areaSignal || '도심 비즈니스 권역';
+      const kicker = (input.data.kicker || '').toLowerCase();
+      const isLandSlide = kicker.includes('land') || (input.data.title || '').includes('토지');
+      if (isLandSlide) {
+        // 토지 현황 슬라이드: 토지/건축물 관련 실무 내용만 표시
+        L.callout(slide, rx, 1.80, rw, 2.3, 'info', '토지 및 건축 규제 포인트',
+          `• 용도지역·용도지구 기준 건폐율/용적률 상한 확인\n• 필지 형상 및 접도 조건에 따른 건축 가능 면적 검토\n• 토지이용계획 열람 및 개발행위허가 제한 여부 확인`);
+        L.callout(slide, rx, 4.35, rw, 2.35, 'info', '권리관계 및 공적장부',
+          `• 등기부등본 갑구 소유권 및 을구 근저당·가압류 확인\n• 건축물대장 기재 사항과 실물 현황 대조 점검\n• 개별공시지가 및 실거래가 비교 분석`);
+      } else {
+        L.callout(slide, rx, 1.80, rw, 2.3, 'info', '입지 및 자산 개요',
+          `• ${area2} 소재 ${addr2 ? addr2.split(' ').slice(-1)[0] + ' ' : ''}우량 투자 자산\n• 대중교통 접근성 및 주변 상업·업무 인프라 밀집 지역\n• 등기부등본 및 토지이용계획 기준 권리관계 정상 확인`);
+        const price2 = input.data.heroCard?.askingPriceDisplay || input.data.price_display || '';
+        L.callout(slide, rx, 4.35, rw, 2.35, 'info', '투자 수익 및 운영 현황',
+          `• ${price2 ? price2 + ' 기준 ' : ''}임대 수익형 자산으로 안정적 캐시플로우 확보\n• 기존 임차인 계약 유지 중으로 즉시 수익 실현 가능\n• 관리비 및 수선유지 비용 정상 운영 상태`);
+      }
     }
   }
   

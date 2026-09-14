@@ -335,6 +335,30 @@ export function bindSectionData(
         };
       }
 
+      // ─── A24 rentRoll: floor_leases 기반 층별 상세 테이블 직접 빌드 (ssot_summary 합성보다 우선) ───
+      const floorLeases: any[] = doc.body?.floor_leases ?? [];
+      if (floorLeases.length > 0 && result['rentRoll']) {
+        const isBasicPreset = doc.body?.preset === 'credeal_basic';
+        const rrHeaders = isBasicPreset
+          ? ['층수', '면적(평)', '임차인', '보증금', '월세', '계약종료']
+          : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
+        const rrRows = floorLeases.map((l: any) => {
+          const floor = l.floor || l.unit_label || '-';
+          const areaPyeong = l.area_sqm ? `${(Number(l.area_sqm) * 0.3025).toFixed(0)}평` : (l.area_pyeong ? `${l.area_pyeong}평` : '-');
+          const tenant = l.tenant_name || l.tenant_type || (l.is_vacant ? '공실' : '-');
+          const deposit = l.deposit_manwon ? `${Number(l.deposit_manwon).toLocaleString()}만` : '-';
+          const rent = l.rent_manwon ? `${Number(l.rent_manwon).toLocaleString()}만` : (l.is_vacant ? '-' : '-');
+          const mgmt = l.mgmt_fee_manwon ? `${Number(l.mgmt_fee_manwon).toLocaleString()}만` : '-';
+          const expiry = l.lease_end || l.contract_end || '-';
+          return isBasicPreset
+            ? [floor, areaPyeong, tenant, deposit, rent, expiry]
+            : [floor, tenant, areaPyeong, deposit, rent, mgmt, expiry];
+        });
+        (result['rentRoll'] as any).tableHead = rrHeaders;
+        (result['rentRoll'] as any).tableRows = rrRows;
+        (result['rentRoll'] as any).tables = [{ headers: rrHeaders, rows: rrRows }];
+      }
+
       // ─── A24 rentRoll fallback: floor_leases 미영속 + 마크다운 테이블 미생성 시 ssot_summary 기반 합성 ───
       // LLM이 서술형 텍스트만 생성하고 마크다운 테이블을 포함하지 않은 경우,
       // A24가 suppress되지 않도록 ssot_summary와 텍스트에서 최소한의 임대차 요약 테이블을 동적으로 합성합니다.
@@ -1781,26 +1805,58 @@ function buildSummaryFromOverview(markdown: string, tables: ParsedTable[], body:
     }
 
     // 최종 SOTA 중개인 투자 포인트 합성 폴백 (3건 미만 시)
+    // G-03: 하드코딩 제거 → SSOT 데이터 기반 동적 생성 (Rule 26, 34 준수)
     if (keyPoints.length < 3) {
-      const area = heroCard.areaSignal || body?.ssot_summary?.area_signal || '서초·양재권역';
+      const area = heroCard.areaSignal || body?.ssot_summary?.area_signal || '해당 권역';
       const ask = body?.ssot_summary?.asking_price_manwon
         ? `${(Number(body.ssot_summary.asking_price_manwon) / 10000).toLocaleString()}억 원`
-        : (heroCard.priceBand || '230억 원');
+        : (heroCard.priceBand || '');
       const ssotKP = body?.ssot_summary ?? {};
       const vacFloors = Number(ssotKP.vacant_floor_count ?? 0);
-      const roadInfo = ssotKP.road_condition ?? '중로각지';
-      const stationMin = ssotKP.station_walk_min ?? 8;
-      const grossAreaPy = Number(heroCard.totalGrossAreaPyeong ?? ssotKP.total_gross_area_pyeong ?? 777.2);
-      const siteAreaPy = Number(heroCard.landAreaPyeong ?? ssotKP.land_area_pyeong ?? 180.3);
-      const pyeongPriceManwon = grossAreaPy > 0 ? Math.round(Number(ssotKP.asking_price_manwon || 2300000) / grossAreaPy) : 2960;
+      const roadInfo = ssotKP.road_condition || '';
+      const locPoi = body?.enrichment?.locationPoi ?? body?.locationPoi;
+      const nearestSt = locPoi?.nearestStation;
+      const rawStation = ssotKP.station_name || heroCard.nearestStation || nearestSt?.name || nearestSt?.stationName || '';
+      const stationName = rawStation ? rawStation.replace(/역.*$/, '') + '역' : '';
+      const stationMin = ssotKP.station_walk_min ?? nearestSt?.walkMinutes ?? (nearestSt?.distanceM ? Math.max(1, Math.round(nearestSt.distanceM / 80)) : undefined);
+      const grossAreaPy = Number(heroCard.totalGrossAreaPyeong ?? ssotKP.total_gross_area_pyeong ?? 0);
+      const siteAreaPy = Number(heroCard.landAreaPyeong ?? ssotKP.land_area_pyeong ?? 0);
+      const askManwon = Number(ssotKP.asking_price_manwon || 0);
+      const pyeongPriceManwon = grossAreaPy > 0 && askManwon > 0 ? Math.round(askManwon / grossAreaPy) : 0;
+      const capRate = Number(ssotKP.gross_yield ?? ssotKP.cap_rate ?? 0);
 
-      const fallbacks = [
-        `입지 가치: 양재역(3호선·신분당선) 도보 ${stationMin}분 역세권 및 ${roadInfo} 접면, ${area} 업무·상업 중심 배후 수요`,
-        vacFloors > 0
-          ? `수익 밸류애드: 매각가 ${ask}, 공실 ${vacFloors}개 층 재임대 시 연 순수익률(Cap Rate) 1.66% → 2.90%로 대폭 상승 여력`
-          : `안정적 현금흐름: 전 층 우량 임차인 만실 운영 기반의 안정적 월 임대수익 창출`,
-        `자산 희소성: 연면적 ${grossAreaPy.toFixed(0)}평(평당 약 ${pyeongPriceManwon.toLocaleString()}만 원) 및 대지 ${siteAreaPy.toFixed(0)}평 규모의 강남권 희소 단독 빌딩 매입 기회`
-      ];
+      // 입지 포인트: 역명+도보분+도로조건을 동적 합성
+      const stationPart = stationName && stationMin
+        ? `${stationName} 도보 ${stationMin}분 역세권`
+        : stationName
+          ? `${stationName} 역세권`
+          : stationMin
+            ? `지하철역 도보 ${stationMin}분 역세권`
+            : `대중교통 역세권 입지`;
+      const roadPart = roadInfo ? ` 및 ${roadInfo} 접면` : '';
+      const locationFb = `입지 가치: ${stationPart}${roadPart}, ${area} 업무·상업 중심지 배후 수요 확보`;
+
+      // 수익 포인트: 공실 유무에 따라 분기
+      let incomeFb: string;
+      if (vacFloors > 0 && capRate > 0) {
+        const stabilizedRate = capRate / (1 - (Number(ssotKP.vacancy_pct ?? 0) / 100));
+        incomeFb = `수익 안정성: 연 순수익률(Cap Rate) ${capRate.toFixed(2)}%, 공실 ${vacFloors}개 층 재임대 시 ${stabilizedRate.toFixed(2)}%로 상승 여력`;
+      } else if (capRate > 0) {
+        incomeFb = `수익 안정성: 연 순수익률(Cap Rate) ${capRate.toFixed(2)}% 기반 안정적 임대수익 자산`;
+      } else {
+        incomeFb = `안정적 현금흐름: 전 층 임차인 운영 기반의 안정적 월 임대수익 창출`;
+      }
+
+      // 자산 규모 포인트: 연면적+대지면적+평당가
+      const areaParts: string[] = [];
+      if (siteAreaPy > 0) areaParts.push(`대지 ${siteAreaPy.toFixed(0)}평`);
+      if (grossAreaPy > 0) areaParts.push(`연면적 ${grossAreaPy.toFixed(0)}평`);
+      if (pyeongPriceManwon > 0 && grossAreaPy > 0) areaParts.push(`평당 약 ${pyeongPriceManwon.toLocaleString()}만 원`);
+      const scaleFb = areaParts.length > 0
+        ? `자산 규모: ${areaParts.join('·')} 규모 단독 빌딩`
+        : `자산 규모: ${area} 소재 단독 빌딩 매입 기회`;
+
+      const fallbacks = [locationFb, incomeFb, scaleFb];
       for (const fb of fallbacks) {
         if (keyPoints.length >= 3) break;
         if (!keyPoints.some(kp => kp.startsWith(fb.substring(0, 5)))) keyPoints.push(fb);
@@ -2938,10 +2994,12 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
  *
  * @param enrichment - handler.ts에서 주입된 enrichment 객체 (ExternalDataEnrichmentResult 부분집합)
  * @param dataMap - bindSectionData가 생성한 기존 dataMap (보강, 덮어쓰기 아님 — _source가 없을 때만)
+ * @param body - (optional) doc.body for ssot_summary / heroCard fallbacks on land area, shape, road access
  */
 export function bindFromExternalData(
   enrichment: Record<string, any>,
   dataMap: Record<string, any>,
+  body?: Record<string, any>,
 ): void {
   // ── 토지 슬라이드: V-World 구조화 데이터 우선 ──
   const lup = enrichment.landUsePlan;
@@ -2955,10 +3013,33 @@ export function bindFromExternalData(
     }
     if (lup?.buildingCoverageMax) rows.push(['법정 건폐율 상한', `${lup.buildingCoverageMax}%`]);
     if (lup?.floorAreaRatioMax) rows.push(['법정 용적률 상한', `${lup.floorAreaRatioMax}%`]);
-    if (lup?.landArea) rows.push(['대지면적', `${Number(lup.landArea).toLocaleString()}㎡ (${(Number(lup.landArea) * 0.3025).toFixed(1)}평)`]);
-    if (lup?.landShape) rows.push(['필지 형상', lup.landShape]);
+
+    // G-06: 대지면적 — V-World landUsePlan → landPrice → buildingRegister.platArea → ssot_summary 순 폴백
+    const effectiveLandArea = lup?.landArea
+      ?? lp?.landArea
+      ?? enrichment.buildingRegister?.platArea
+      ?? body?.ssot_summary?.land_area_sqm
+      ?? body?.ssot_summary?.plat_area_sqm
+      ?? body?.heroCard?.landAreaM2;
+    if (effectiveLandArea && Number(effectiveLandArea) > 0) {
+      const areaSqm = Number(effectiveLandArea);
+      rows.push(['대지면적', `${areaSqm.toLocaleString()}㎡ (${(areaSqm * 0.3025).toFixed(1)}평)`]);
+    }
+
+    // G-07: 필지 형상 — V-World landUsePlan 우선, ssot_summary 폴백
+    const effectiveLandShape = lup?.landShape
+      ?? body?.ssot_summary?.land_shape
+      ?? body?.ssot_summary?.parcel_shape;
+    if (effectiveLandShape) rows.push(['필지 형상', effectiveLandShape]);
+
     if (lup?.terrain) rows.push(['지형', lup.terrain]);
-    if (lup?.roadAccess) rows.push(['도로접면', lup.roadAccess]);
+
+    // G-07: 도로접면 — V-World landUsePlan 우선, ssot_summary 폴백
+    const effectiveRoadAccess = lup?.roadAccess
+      ?? body?.ssot_summary?.road_frontage
+      ?? body?.ssot_summary?.road_condition;
+    if (effectiveRoadAccess) rows.push(['도로접면', effectiveRoadAccess]);
+
     if (lup?.landUseSituation) rows.push(['이용상황', lup.landUseSituation]);
     if (lp?.landCategory) rows.push(['지목', lp.landCategory]);
     if (lp?.pricePerSqm) {
@@ -3135,6 +3216,51 @@ export function bindFromExternalData(
       },
       _source: 'semas_api',
     };
+  }
+
+  // ── 입지 POI 구체화: locationPoi (카카오 로컬 API) ──
+  const poi = enrichment.locationPoi;
+  if (poi && !poi._isFallback && dataMap['location']) {
+    const locRight = (dataMap['location'] as any).right;
+    if (locRight?.rows) {
+      const rows: [string, string][] = locRight.rows;
+
+      // nearestStation → '대중교통' 행을 구체적인 역명+도보시간으로 교체
+      if (poi.nearestStation?.name) {
+        const stationName = poi.nearestStation.name.replace(/역$/, '') + '역';
+        const walkMin = poi.nearestStation.walkMinutes ?? Math.max(1, Math.round((poi.nearestStation.distanceM ?? 400) / 80));
+        const distM = poi.nearestStation.distanceM;
+        const concreteValue = `${stationName} 도보 ${walkMin}분` + (distM ? ` (약 ${distM}m)` : '');
+
+        const transitIdx = rows.findIndex(([label]) =>
+          label.includes('대중교통') || label.includes('지하철') || label.includes('교통')
+        );
+        if (transitIdx >= 0) {
+          rows[transitIdx] = ['대중교통', concreteValue];
+        } else {
+          // 행이 없으면 추가
+          rows.splice(1, 0, ['대중교통', concreteValue]);
+        }
+      }
+
+      // keySpots → 주요 랜드마크 행 추가 (역 제외, 최대 2개)
+      const landmarks = (poi.keySpots ?? [])
+        .filter((s: any) => s.category !== 'subway' && s.name && s.distanceM)
+        .slice(0, 2);
+      for (const lm of landmarks) {
+        const lmWalk = Math.max(1, Math.round(lm.distanceM / 80));
+        const categoryLabel: Record<string, string> = {
+          hospital: '의료시설', university: '교육시설', shopping: '상업시설', landmark: '주요시설',
+        };
+        const label = categoryLabel[lm.category] || '주요시설';
+        if (!rows.some(([, v]) => v.includes(lm.name))) {
+          rows.push([label, `${lm.name} 도보 ${lmWalk}분 (약 ${lm.distanceM}m)`]);
+        }
+      }
+
+      // 6행 제한 유지
+      locRight.rows = rows.slice(0, 6);
+    }
   }
 
   // ── 지적도: V-World WMS ──

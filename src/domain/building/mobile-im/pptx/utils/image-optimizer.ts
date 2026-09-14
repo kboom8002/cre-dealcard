@@ -249,18 +249,24 @@ export async function generateStaticMapPlaceholder(
   const safePoiSpots = (poiSpots || []).slice(0, 5);
   
   // ── 0차: 카카오 Static Map API (최우선) ──
-  if (coordinates?.lat && coordinates?.lng) {
+  // G-05: 좌표를 숫자로 강제 변환 — 문자열 '0' 등으로 인한 falsy 검사 실패 방지
+  const coordLat = coordinates ? Number(coordinates.lat) : NaN;
+  const coordLng = coordinates ? Number(coordinates.lng) : NaN;
+  const hasValidCoords = !isNaN(coordLat) && !isNaN(coordLng) && coordLat !== 0 && coordLng !== 0;
+
+  if (hasValidCoords) {
     try {
       const apiKey = process.env.KAKAO_REST_API_KEY;
       if (apiKey) {
         const baseUrl = 'https://spi.maps.daum.net/mapscms/map/staticmap.png';
         const params = new URLSearchParams({
           apikey: apiKey,
-          center: `${coordinates.lng},${coordinates.lat}`,
+          center: `${coordLng},${coordLat}`,
           level: '3',
           w: String(Math.min(w, 1800)),
           h: String(Math.min(h, 960)),
-          markers: `type:d|size:medium|${coordinates.lng},${coordinates.lat}`,
+          // G-05: size:big으로 마커 가시성 강화
+          markers: `type:d|size:big|${coordLng},${coordLat}`,
         });
         const kakaoUrl = `${baseUrl}?${params.toString()}`;
         const response = await fetch(kakaoUrl, {
@@ -270,18 +276,35 @@ export async function generateStaticMapPlaceholder(
           const arrayBuffer = await response.arrayBuffer();
           const inputBuffer = Buffer.from(arrayBuffer);
           
-          // 카카오 지도 위에 POI 마커 오버레이 (Sharp composite)
+          // 카카오 지도 위에 POI 마커 + 건물 골드 핀 오버레이 (Sharp composite)
           const kakaoW = Math.min(w, 1800);
           const kakaoH = Math.min(h, 960);
           let resized = sharp(inputBuffer).resize({ width: kakaoW, height: kakaoH, fit: 'cover' });
-          
+
+          // G-05: 건물 위치에 골드 핀 SVG 오버레이 (카카오 기본 마커와 이중 표시로 가시성 보장)
+          const goldPinSvg = Buffer.from(`
+            <svg width="40" height="50" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16 0C7.164 0 0 7.164 0 16c0 12 16 24 16 24s16-12 16-24C32 7.164 24.836 0 16 0z" fill="#B98A2E"/>
+              <circle cx="16" cy="16" r="6" fill="#10161F"/>
+            </svg>
+          `);
+          const overlays: Array<{ input: Buffer; left: number; top: number }> = [
+            {
+              input: goldPinSvg,
+              left: Math.floor(kakaoW / 2 - 20),
+              top: Math.floor(kakaoH / 2 - 40),
+            },
+          ];
+
           if (safePoiSpots.length > 0) {
             // 카카오 Static Map level 3 ≈ zoom 15 (근사치)
             const kakaoZoom = 15;
-            const poiOverlays = buildPoiOverlays(safePoiSpots, coordinates.lat, coordinates.lng, kakaoZoom, kakaoW, kakaoH);
-            if (poiOverlays.length > 0) {
-              resized = sharp(await resized.png().toBuffer()).composite(poiOverlays);
-            }
+            const poiOverlays = buildPoiOverlays(safePoiSpots, coordLat, coordLng, kakaoZoom, kakaoW, kakaoH);
+            overlays.push(...poiOverlays);
+          }
+
+          if (overlays.length > 0) {
+            resized = sharp(await resized.png().toBuffer()).composite(overlays);
           }
           
           const resizedBuffer = await resized.jpeg({ quality: 85 }).toBuffer();
@@ -303,10 +326,11 @@ export async function generateStaticMapPlaceholder(
   }
 
   // ── 1차: OpenStreetMap 정적 타일 3x3 합성 ──
-  if (coordinates?.lat && coordinates?.lng) {
+  if (hasValidCoords) {
     try {
       const zoom = 16;
-      const { lat, lng } = coordinates;
+      const lat = coordLat;
+      const lng = coordLng;
       const tileX = Math.floor(((lng + 180) / 360) * Math.pow(2, zoom));
       const tileY = Math.floor(
         ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) * Math.pow(2, zoom)
@@ -455,9 +479,10 @@ export async function fetchKakaoMapImage(
   h = 450,
 ): Promise<OptimizedImage | null> {
   try {
-    const referer = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:3000';
+    const referer = process.env.VWORLD_REFERER
+      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+      || process.env.NEXT_PUBLIC_SITE_URL
+      || 'https://cre-dealcard.vercel.app';
     const response = await fetch(mapUrl, {
       signal: AbortSignal.timeout(8000),
       headers: { Referer: referer },

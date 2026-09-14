@@ -230,29 +230,133 @@ export class MobileImPptxRenderer {
         (dataMap['cover'] as any).documentDate = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
       }
 
+      // ── Basic IM 물건 개요 (building) 슬라이드 데이터 보장 ──
+      // basic-im-guide §2 #3: 건축물대장 정보 + 외관 사진 + 매각가 좌우 배치
+      // LLM writer가 property_overview 섹션을 생성하지 않으면 dataMap['building']이 없으므로
+      // SSOT/건축물대장 데이터로 직접 폴백 바인딩
+      if (!dataMap['building'] && isBasicPreset) {
+        const ssot = input.doc.body?.ssot_summary ?? {};
+        const bldg = input.building ?? {} as any;
+        const br = enrichment?.buildingRegister ?? {} as any;
+        const heroCard = input.doc.body?.heroCard ?? {};
+
+        // 면적 포맷 헬퍼
+        const fmtArea = (sqm: number | string | undefined) => {
+          const v = Number(sqm);
+          if (!v || isNaN(v)) return '-';
+          return `${v.toLocaleString()}㎡ (${(v * 0.3025).toFixed(1)}평)`;
+        };
+
+        const leftRows: [string, string][] = [
+          ['소재지', ssot.address || bldg.address || heroCard.address || '-'],
+          ['대지면적', fmtArea(ssot.land_area_sqm || br.platArea || heroCard.landAreaM2 || bldg.land_area_sqm)],
+          ['지목', ssot.land_category || br.jimok || '-'],
+          ['지역/지구', ssot.zoning || br.useZone || bldg.use_zone || '-'],
+          ['건축면적', fmtArea(br.archArea || ssot.building_area_sqm)],
+          ['건폐율', ssot.bcr_pct ? `${ssot.bcr_pct}%` : (br.bcrPct ? `${br.bcrPct}%` : '-')],
+          ['연면적', fmtArea(ssot.total_gross_area_sqm || heroCard.totalGrossAreaSqm || bldg.total_area_sqm)],
+          ['용적률', ssot.far_pct ? `${ssot.far_pct}%` : (br.farPct ? `${br.farPct}%` : '-')],
+          ['준공시점', (() => {
+            const yr = ssot.completion_year || heroCard.completionYear || bldg.built_year || br.useAprDay;
+            if (!yr) return '-';
+            const yrNum = Number(String(yr).slice(0, 4));
+            const age = yrNum ? `(건축 후 약 ${new Date().getFullYear() - yrNum}년)` : '';
+            return `${yr} ${age}`;
+          })()],
+          ['층수', (() => {
+            const below = Number(ssot.floors_below || heroCard.floorsBelow || bldg.floors_below || br.ugrndFlrCnt || 0);
+            const above = Number(ssot.floors_above || heroCard.floorsAbove || bldg.floors_above || br.grndFlrCnt || 0);
+            if (!below && !above) return '-';
+            return `지하${below}층 ~ 지상${above}층`;
+          })()],
+          ['주차 / 승강기', (() => {
+            const park = ssot.parking_count || heroCard.parkingCount || bldg.parking_count || br.parkingCnt || '-';
+            const elev = ssot.elevator_count || heroCard.elevatorCount || bldg.elevator_count || br.rideUseLiftCnt || '-';
+            return `${park}대 / ${elev}대`;
+          })()],
+        ].filter(([, v]) => v !== '-') as [string, string][]; // 값이 없는 행 제거
+
+        dataMap['building'] = {
+          title: '물건 개요',
+          content: '',
+          tables: [],
+          metrics: {},
+          left: {
+            sub: '건축물대장·토지이용계획확인서 기준',
+            rows: leftRows,
+          },
+        } as any;
+      }
+
       if (dataMap['building']) {
         const ssotBldg = input.doc.body?.ssot_summary ?? {};
         const askManwon = Number(ssotBldg.asking_price_manwon ?? input.doc.body?.asking_price_manwon ?? 0);
-        const askStr = askManwon >= 10000 
-          ? `${(askManwon / 10000).toLocaleString()}억 원` 
-          : (input.doc.body?.heroCard?.askingPriceDisplay ?? input.doc.body?.askingPrice ?? '230억 원');
-        (dataMap['building'] as any).priceTable = {
-          label: '매매 희망가',
-          value: askStr,
-        };
+        const askFmt = (v: number) => v >= 10000
+          ? `${(v / 10000).toLocaleString()}억 원`
+          : v > 0 ? `${v.toLocaleString()}만원` : '';
+        const askStr = askFmt(askManwon) || (input.doc.body?.heroCard?.askingPriceDisplay ?? input.doc.body?.askingPrice ?? '');
+
+        // 매각가 테이블 (하단 별도 표)
+        if (askStr) {
+          (dataMap['building'] as any).priceTable = {
+            label: '매매 희망가',
+            value: `${askStr} (VAT 별도)`,
+          };
+
+          // 토지평당가 추가
+          const landPy = Number(ssotBldg.land_area_pyeong || 0) || (Number(ssotBldg.land_area_sqm || 0) * 0.3025);
+          if (landPy > 0 && askManwon > 0) {
+            (dataMap['building'] as any).priceTable2 = {
+              label: '토지평당가',
+              value: `약 ${Math.round(askManwon / landPy).toLocaleString()}만 원/평`,
+            };
+          }
+        }
       }
 
       // ── 2-1. V-World / 공공 API 구조화 데이터 직접 바인딩 ──
       if (Object.keys(enrichment).length > 0) {
         const { bindFromExternalData } = await import('./data-binder');
-        bindFromExternalData(enrichment, dataMap);
+        bindFromExternalData(enrichment, dataMap, input.doc.body);
       }
 
       if (!dataMap['location']) {
         const locAddress = input.doc.body?.ssot_summary?.address ?? input.doc.body?.resolved_address ?? input.doc.body?.address ?? '';
         const locRoad = input.doc.body?.ssot_summary?.road_condition ?? '중로 각지 접면';
-        const locWalk = input.doc.body?.ssot_summary?.station_walk_min ? `도보 ${input.doc.body.ssot_summary.station_walk_min}분` : '도보 8분 이내';
         const locArea = input.building?.area_signal ?? input.doc.body?.ssot_summary?.area_signal ?? '도심 상업·업무 권역';
+
+        // G-04: locationPoi가 있으면 구체적 역명+도보시간 사용, 없으면 ssot/일반 폴백
+        const poiData = enrichment?.locationPoi;
+        let locTransit: string;
+        if (poiData?.nearestStation?.name && !poiData._isFallback) {
+          const sName = poiData.nearestStation.name.replace(/역$/, '') + '역';
+          const wMin = poiData.nearestStation.walkMinutes ?? Math.max(1, Math.round((poiData.nearestStation.distanceM ?? 400) / 80));
+          const dM = poiData.nearestStation.distanceM;
+          locTransit = `${sName} 도보 ${wMin}분` + (dM ? ` (약 ${dM}m)` : '');
+        } else {
+          const locWalk = input.doc.body?.ssot_summary?.station_walk_min ? `도보 ${input.doc.body.ssot_summary.station_walk_min}분` : '도보 8분 이내';
+          locTransit = `지하철역 역세권 (${locWalk})`;
+        }
+
+        const locRows: [string, string][] = [
+          ['소재지', locAddress || '본건 소재지'],
+          ['접면도로', locRoad],
+          ['대중교통', locTransit],
+          ['권역특성', `${locArea} 핵심 비즈니스 및 상업 인프라 밀집`],
+        ];
+
+        // G-04: 주요 랜드마크(역 제외) 행 추가
+        if (poiData?.keySpots && !poiData._isFallback) {
+          const landmarks = poiData.keySpots
+            .filter((s: any) => s.category !== 'subway' && s.name && s.distanceM)
+            .slice(0, 2);
+          for (const lm of landmarks) {
+            const lmWalk = Math.max(1, Math.round(lm.distanceM / 80));
+            const catLabels: Record<string, string> = { hospital: '의료시설', university: '교육시설', shopping: '상업시설', landmark: '주요시설' };
+            locRows.push([catLabels[lm.category] || '주요시설', `${lm.name} 도보 ${lmWalk}분 (약 ${lm.distanceM}m)`]);
+          }
+        }
+
         dataMap['location'] = {
           title: '입지 분석',
           kicker: 'Location',
@@ -265,12 +369,7 @@ export class MobileImPptxRenderer {
           },
           right: {
             sub: '광역 교통망 및 접근성',
-            rows: [
-              ['소재지', locAddress || '본건 소재지'],
-              ['접면도로', locRoad],
-              ['대중교통', `지하철역 역세권 (${locWalk})`],
-              ['권역특성', `${locArea} 핵심 비즈니스 및 상업 인프라 밀집`],
-            ],
+            rows: locRows.slice(0, 6),
           },
         } as any;
       }
@@ -283,6 +382,12 @@ export class MobileImPptxRenderer {
         // POI 주요 스폿 (역, 상권 랜드마크) — 지도 마커 오버레이용
         const externalPoi = enrichment?.locationPoi ?? input.doc.body?.external_data?.locationPoi;
         (dataMap['location'] as any).poiSpots = externalPoi?.keySpots ?? input.doc.body?.poiSpots ?? [];
+
+        // D42 RCA → D45 수정: cadastralImage를 location에 주입하지 않음.
+        // 지적도는 'cadastralMap' 전용 dataKey/슬라이드에서만 렌더링.
+        // location 슬라이드는 카카오 Static Map + POI 마커를 사용해야 함.
+        // (a06-diagram.ts L48에서 cadastralImage가 카카오보다 높은 우선순위를 가져
+        //  입지 슬라이드에 지적도 선화가 표시되는 버그의 근본 원인이었음)
       }
 
       if (dataMap['commute']) {
@@ -426,10 +531,17 @@ export class MobileImPptxRenderer {
         } as any;
       }
       (dataMap['summary'] as any).heroCard = heroCard;
+      (dataMap['summary'] as any).ssot_summary = input.doc.body?.ssot_summary;
+      (dataMap['summary'] as any).enrichment = enrichment;
+      (dataMap['summary'] as any).station_name = input.doc.body?.ssot_summary?.station_name ?? (enrichment?.locationPoi?.nearestStation?.name);
+      (dataMap['summary'] as any).station_walk_min = input.doc.body?.ssot_summary?.station_walk_min ?? (enrichment?.locationPoi?.nearestStation?.walkMinutes);
+      (dataMap['summary'] as any).asking_price_manwon = input.doc.body?.ssot_summary?.asking_price_manwon ?? input.doc.body?.asking_price_manwon;
+      (dataMap['summary'] as any).askingPrice = (dataMap['cover'] as any)?.askingPrice ?? (dataMap['building'] as any)?.priceTable?.value;
 
       if (posture === 'owner_occupied' && (!(dataMap['summary'] as any).keyPoints || (dataMap['summary'] as any).keyPoints.length === 0)) {
+        const areaSig = input.building?.area_signal ?? input.doc.body?.ssot_summary?.area_signal ?? '도심 업무권역';
         (dataMap['summary'] as any).keyPoints = [
-          '사옥 가치: 도심 업무권역 내 독립 사옥 확보를 통한 중장기 자산 가치 확보',
+          `사옥 가치: ${areaSig} 내 독립 사옥 확보를 통한 중장기 자산 가치 확보`,
           '비용 절감: 임차료 지출을 법인 자산 축적으로 전환하는 재무 타당성 분석',
           '기업 브랜딩: 사옥 단독 명칭 표기(간판 설치권) 및 기업 대외 신인도 제고',
         ];
@@ -450,8 +562,15 @@ export class MobileImPptxRenderer {
         }
         if (ssot.size_signal) autoStats.push({ label: '연면적', value: ssot.size_signal });
         else if (bldg.total_area_pyeong) autoStats.push({ label: '연면적', value: `${bldg.total_area_pyeong}평` });
-        if (ssot.vacancy_signal) autoStats.push({ label: '공실률', value: ssot.vacancy_signal });
-        else if (ssot.vacancy_pct != null) autoStats.push({ label: '공실률', value: `${ssot.vacancy_pct}%` });
+        // G-02: 사옥형 공실률 카드 압축 — 긴 vacancy_signal 대신 간결 텍스트
+        if (posture === 'owner_occupied') {
+          const vacVal = Number(ssot.vacancy_pct ?? 0);
+          autoStats.push({ label: '공실률', value: vacVal === 0 ? '사옥 자가사용' : `${vacVal}%` });
+        } else if (ssot.vacancy_signal) {
+          autoStats.push({ label: '공실률', value: ssot.vacancy_signal });
+        } else if (ssot.vacancy_pct != null) {
+          autoStats.push({ label: '공실률', value: `${ssot.vacancy_pct}%` });
+        }
         if (input.grade) autoStats.push({ label: '데이터 등급', value: input.grade });
         if (ssot.area_signal) autoStats.push({ label: '소재지', value: ssot.area_signal });
         else if (bldg.area_signal) autoStats.push({ label: '소재지', value: bldg.area_signal });

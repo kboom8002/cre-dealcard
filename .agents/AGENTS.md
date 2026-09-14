@@ -360,3 +360,32 @@
 - **위반 사례**: LLM이 메모를 "서초·양재권역"으로만 요약 → PNU/좌표 null → enrichment 전체 스킵 → 카카오맵/지적도/랜드마크 전부 미생성.
 <!-- END:cre-d42-audit-rules -->
 
+<!-- BEGIN:cre-d42-rca-rules -->
+# CRE IM D42 RCA Rules (2026-09-14 당산동 골든 테스트 교훈)
+
+### 54. 골든 테스트 콘텐츠 품질 단언 의무 (Content Quality Assertion Mandate)
+- E2E 골든 테스트의 PPTX 검증에서 **구조적 단언(structural assertion)**만으로는 불충분합니다.
+- 반드시 다음 5종의 **콘텐츠 품질 단언(content quality assertion)**을 포함해야 합니다:
+  1. **지도 소스 검증**: 임베딩 미디어 중 50KB 초과 이미지 ≥1장 (SVG 플레이스홀더 ~20KB 방지)
+  2. **금액 교차 검증**: 입력 메모의 핵심 수치(매매가, 보증금, 월임대료)가 PPTX 텍스트에 반영
+  3. **렌트롤 완전성**: 입력한 층수 키워드가 PPTX 텍스트에 최소 2개 이상 매칭
+  4. **회피성 문구 확장 검사**: Rule 37의 4종 패턴 + `현장 실사 확인`, `원본 계약서 대조`, `점검하였습니다`, `자문 후 확정` 등 총 10종 이상
+  5. **하드코딩 폴백 수치 부재**: 다른 매물의 수치(역명, 면적, Cap Rate)가 PPTX에 혼입되지 않음
+- **위반 사례**: 당산동 E2E — 11종 구조적 단언 전부 통과했으나 5대 콘텐츠 결함 미검출.
+
+### 55. 아키타입 폴백 텍스트 Rule 37 감사 (Archetype Fallback Text Audit)
+- PPTX 아키타입(`a02-stat-grid.ts`, `a04-asymmetric-7-5.ts` 등)의 **하드코딩 폴백 텍스트**는 LLM 프롬프트 가드레일을 우회합니다.
+- 아키타입 코드의 폴백/fallback 문자열을 수정할 때 반드시:
+  1. Rule 37 회피성 문구 패턴 10종과 대조 검사
+  2. Rule 26 특정 매물 수치(역명, 면적, Cap Rate, 지역명) 하드코딩 금지 대조 검사
+  3. Rule 34 모의/더미 데이터 금지 대조 검사
+- 폴백이 불가피할 경우 `input.data.heroCard`, `input.data.areaSignal`, `input.data.address` 등 **동적 데이터에서 파생**해야 합니다.
+- 데이터가 없으면 해당 요소를 렌더링하지 않습니다 (`return null` 또는 빈 문자열).
+- **위반 사례**: A04 L177 `'현장 실사 확인 사항입니다'` 하드코딩, A02 L209 `'양재역(3호선·신분당선) 도보권'` 하드코딩.
+
+### 56. 외부 API 로컬/프로덕션 패리티 (External API Local-Production Parity)
+- 카카오 Static Map, V-World WMS 등 외부 API를 사용하는 함수는 **로컬(localhost)과 프로덕션(Vercel) 환경 모두에서 동일한 결과**를 반환해야 합니다.
+- URL re-fetch 방식(`fetchKakaoMapImage`)이 Referer 도메인 검증으로 실패할 경우, **API 키를 직접 사용하는 대체 함수**(예: `generateStaticMapPlaceholder`)를 폴백 체인에 반드시 포함합니다.
+- 로컬 E2E 테스트에서 외부 API 실패 시 **SVG 플레이스홀더나 벡터 다이어그램으로 조용히 폴백하지 않습니다** — 최소한 `console.warn`으로 실패를 기록하고, 테스트 단언으로 폴백 여부를 검출합니다.
+- **위반 사례**: `fetchKakaoMapImage()` 404 → `generateMacroTransitDiagram()` SVG 폴백 → 사용자에게 "카카오맵이 아닌 직접 그린 지도" 표시.
+<!-- END:cre-d42-rca-rules -->

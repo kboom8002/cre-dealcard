@@ -80,9 +80,9 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     align: 'center', valign: 'top',
   });
 
-  // 수치 표기 (우측)
+  // 수치 표기 (우측) — D45: 폭 확대하여 100억+ 금액 줄바꿈 방지
   const fmtManwon = (v: number) => {
-    if (v >= 100_000_000) return `${(v / 100_000_000).toFixed(1)}억원`;
+    if (v >= 10_000_000) return `${(v / 100_000_000).toFixed(1)}억원`;
     return `${Math.round(v / 10000).toLocaleString()}만원`;
   };
 
@@ -90,7 +90,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     { text: `${fmtManwon(annualRent)}`, options: { color: C.brass, bold: true, fontSize: 11 } },
     { text: ` ÷ (${fmtManwon(askingPrice)} − ${fmtManwon(totalDeposit)})`, options: { color: C.mute, fontSize: 11 } },
   ], {
-    x: M + 10.0, y: formulaBoxY + 0.15, w: 2.5, h: 0.90,
+    x: M + 9.0, y: formulaBoxY + 0.15, w: 3.5, h: 0.90,
     fontFace: KR, valign: 'middle', align: 'right',
   });
 

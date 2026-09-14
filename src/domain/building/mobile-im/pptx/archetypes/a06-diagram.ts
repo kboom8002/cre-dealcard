@@ -3,7 +3,7 @@ import * as L from '../imlib';
 import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind, RowEntry } from '../imlib';
 import { stripMarkdown } from '../data-binder';
-import { fetchKakaoMapImage, optimizeImageForPptx, type OptimizedImage, type MapPoiSpot } from '../utils/image-optimizer';
+import { fetchKakaoMapImage, generateStaticMapPlaceholder, optimizeImageForPptx, type OptimizedImage, type MapPoiSpot } from '../utils/image-optimizer';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -55,6 +55,17 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     // 1차: 이미 생성된 카카오 지도 URL 사용
     if (mapImageUrl) {
       mapImg = await fetchKakaoMapImage(mapImageUrl, 1120, 900);
+    }
+
+    // 1.5차: 카카오 Static Map API 직접 호출 (API 키 사용, Referer 불필요)
+    if (!mapImg && coords) {
+      try {
+        mapImg = await generateStaticMapPlaceholder(
+          areaOrAddress, 1120, 900, coords, poiSpots
+        );
+      } catch (err) {
+        console.warn('[a06-diagram] generateStaticMapPlaceholder failed:', err);
+      }
     }
 
     // 2차: 고해상도(1600x1200, 266 DPI) 인메모리 Macro Transit Engine 벡터 다이어그램 자동 합성

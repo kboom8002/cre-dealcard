@@ -23,8 +23,18 @@ export async function convertPptxToSlideImages(
     mkdirSync(outputDir, { recursive: true });
   }
 
-  const pptxPath = join(outputDir, `${baseName}.pptx`);
-  writeFileSync(pptxPath, pptxBuffer);
+  let pptxPath = join(outputDir, `${baseName}.pptx`);
+  try {
+    writeFileSync(pptxPath, pptxBuffer);
+  } catch (e: any) {
+    if (e?.code === 'EBUSY') {
+      // 파일이 다른 프로세스(LibreOffice 등)에 잠겨있으면 타임스탬프 추가
+      pptxPath = join(outputDir, `${baseName}_${Date.now()}.pptx`);
+      writeFileSync(pptxPath, pptxBuffer);
+    } else {
+      throw e;
+    }
+  }
 
   // Python script to invoke LibreOffice and PyMuPDF
   const normalizedPptxPath = pptxPath.replace(/\\/g, '/');
@@ -44,14 +54,23 @@ if not os.path.exists(soffice_path):
 if not os.path.exists(soffice_path):
     soffice_path = "soffice"
 
-# 1. Convert PPTX to PDF via LibreOffice
+# 1. Remove stale PDF to avoid LibreOffice lock issues
+pptx_basename = os.path.splitext(os.path.basename(pptx_path))[0]
+old_pdf = os.path.join(output_dir, f"{pptx_basename}.pdf")
+if os.path.exists(old_pdf):
+    try:
+        os.remove(old_pdf)
+    except:
+        pass
+
+# 2. Convert PPTX to PDF via LibreOffice
 cmd = [soffice_path, "--headless", "--convert-to", "pdf", pptx_path, "--outdir", output_dir]
-res = subprocess.run(cmd, capture_output=True, text=True)
+res = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 if res.returncode != 0:
     print(f"ERROR: LibreOffice conversion failed: {res.stderr or res.stdout}", file=sys.stderr)
     sys.exit(1)
 
-pdf_path = os.path.join(output_dir, f"{base_name}.pdf")
+pdf_path = os.path.join(output_dir, f"{pptx_basename}.pdf")
 if not os.path.exists(pdf_path):
     print(f"ERROR: PDF file not generated at {pdf_path}", file=sys.stderr)
     sys.exit(1)

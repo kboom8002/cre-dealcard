@@ -28,17 +28,28 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   let leadSentence = input.data.leadSentence || '';
   if (leadSentence) {
     const hero = input.data.heroCard;
-    const ssotManwon = hero?.asking_price_manwon ?? input.data.asking_price_manwon;
+    const ssotManwon = hero?.asking_price_manwon ?? input.data.asking_price_manwon ?? input.data.ssot_summary?.asking_price_manwon;
     let exactAsk = ssotManwon ? `${(Number(ssotManwon) / 10000).toLocaleString()}억 원` : null;
     if (!exactAsk && Array.isArray(hero?.stats)) {
-      const priceStat = hero.stats.find((s: any) => s.label?.includes('매매') || s.label?.includes('희망가'));
+      const priceStat = hero.stats.find((s: any) => s.label?.includes('매매') || s.label?.includes('희망가') || s.label?.includes('매각'));
       if (priceStat?.value && !priceStat.value.includes('억대')) exactAsk = priceStat.value;
     }
     if (!exactAsk && hero?.askingPriceDisplay && !hero.askingPriceDisplay.includes('억대')) {
       exactAsk = hero.askingPriceDisplay;
     }
-    const askDisplay = exactAsk || '230억 원';
-    leadSentence = leadSentence.replace(/\d+\s*억\s*대/g, askDisplay);
+    if (!exactAsk && input.data.askingPrice && !input.data.askingPrice.includes('억대')) {
+      exactAsk = input.data.askingPrice;
+    }
+    if (!exactAsk && Array.isArray(input.data.metrics)) {
+      const mStat = input.data.metrics.find((s: any) => s.label?.includes('매매') || s.label?.includes('희망가') || s.label?.includes('매각'));
+      if (mStat?.value && !mStat.value.includes('억대')) exactAsk = mStat.value;
+    }
+    if (exactAsk) {
+      leadSentence = leadSentence.replace(/\d+\s*억\s*대/g, exactAsk);
+    } else {
+      // Rule 52: 실수치가 없을 경우에도 모호한 밴드(N억대) 표현은 제거
+      leadSentence = leadSentence.replace(/,?\s*희망가\s*\d+\s*억\s*대/g, '').replace(/\d+\s*억\s*대/g, '');
+    }
     slide.addText(leadSentence, {
       x: M, y: 1.30, w: CW, h: 0.5,
       color: C.ink, fontFace: KR, fontSize: 15, bold: true,
@@ -73,27 +84,27 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   // Basic IM 또는 표준 6대 핵심 지표 보충 (스펙 §2 #2)
   if (hero && metrics.length < 6) {
     if (!metrics.some((m: any) => m.label && (m.label.includes('매매') || m.label.includes('매각')))) {
-      const ask = hero.askingPriceDisplay || hero.askingPrice || '230억 원';
+      const ask = hero.askingPriceDisplay || hero.askingPrice || '-';
       metrics.unshift({ label: '매매 희망가', value: ask });
     }
     if (!metrics.some((m: any) => m.label && (m.label.includes('수익률') || m.label.includes('Cap Rate')))) {
-      const cap = hero.capRateBase ? `${hero.capRateBase}%` : (hero.grossYieldDisplay ?? '1.66%');
+      const cap = hero.capRateBase ? `${hero.capRateBase}%` : (hero.grossYieldDisplay ?? '-');
       metrics.push({ label: '연 수익률(Cap Rate)', value: cap });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('실투자금'))) {
-      const eq = hero.equityRequiredBil ? `약 ${hero.equityRequiredBil}억 원` : '약 239.8억 원';
+      const eq = hero.equityRequiredBil ? `약 ${hero.equityRequiredBil}억 원` : '-';
       metrics.push({ label: '실투자금', value: eq });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('연면적'))) {
-      const gfa = hero.totalGrossAreaPyeong ? `${hero.totalGrossAreaPyeong}평` : (hero.totalGrossAreaM2 ? `${(hero.totalGrossAreaM2 / 3.3058).toFixed(0)}평` : '777평');
+      const gfa = hero.totalGrossAreaPyeong ? `${hero.totalGrossAreaPyeong}평` : (hero.totalGrossAreaM2 ? `${(hero.totalGrossAreaM2 / 3.3058).toFixed(0)}평` : '-');
       metrics.push({ label: '연면적', value: gfa });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('대지면적'))) {
-      const site = hero.landAreaPyeong ? `${hero.landAreaPyeong}평` : (hero.landAreaM2 ? `${(hero.landAreaM2 / 3.3058).toFixed(0)}평` : '180평');
+      const site = hero.landAreaPyeong ? `${hero.landAreaPyeong}평` : (hero.landAreaM2 ? `${(hero.landAreaM2 / 3.3058).toFixed(0)}평` : '-');
       metrics.push({ label: '대지면적', value: site });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('공실'))) {
-      const vac = hero.vacancyDisplay ?? '3개 층 공실';
+      const vac = hero.vacancyDisplay ?? '확인 중';
       metrics.push({ label: '공실 현황', value: vac });
     }
   }
@@ -205,11 +216,27 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
 
   // 기본 폴백 3대 투자 포인트 — SOTA 중개인 투자 하이라이트 (검증 가능 수치 중심)
   if (keyPoints.length < 3) {
-    const area = input.data.areaSignal || input.data.heroCard?.areaSignal || '서초·양재권역';
+    const area = input.data.areaSignal || input.data.heroCard?.areaSignal || '도심 비즈니스 권역';
+    const capRate = hero?.capRateBase ? `${hero.capRateBase}%` : '';
+    const gfaPyeong = hero?.totalGrossAreaPyeong || (hero?.totalGrossAreaM2 ? `${(hero.totalGrossAreaM2 / 3.3058).toFixed(0)}` : '');
+    const landPyeong = hero?.landAreaPyeong || (hero?.landAreaM2 ? `${(hero.landAreaM2 / 3.3058).toFixed(0)}` : '');
+
+    // G5 앵커: 역명 및 도보분 동적 결합
+    const locPoi = input.data.enrichment?.locationPoi ?? input.data.locationPoi;
+    const nearestSt = locPoi?.nearestStation;
+    const rawSt = input.data.station_name || hero?.nearestStation || nearestSt?.name || nearestSt?.stationName || '';
+    const stationName = rawSt ? rawSt.replace(/역.*$/, '') + '역' : '';
+    const stMin = input.data.station_walk_min ?? nearestSt?.walkMinutes ?? (nearestSt?.distanceM ? Math.max(1, Math.round(nearestSt.distanceM / 80)) : undefined);
+    const stationPart = stationName && stMin
+      ? `${stationName} 도보 ${stMin}분 역세권`
+      : stationName
+        ? `${stationName} 역세권`
+        : '대중교통 역세권 입지';
+
     const fallbackPool = [
-      `입지 가치: 양재역(3호선·신분당선) 도보권 및 서운로 대로변 접면, ${area} 업무·상업 중심지 배후 수요`,
-      '수익 밸류애드: 공실층 재임대 완료 시 연 순수익률(Cap Rate) 2.90%로 즉시 상승하는 가치 제고 기회',
-      '자산 희소성: 강남권역 내 대지 180평·연면적 777평 규모 단독 빌딩으로 사옥 및 임대수익형 최적 자산'
+      `입지 가치: ${stationPart}, ${area} 업무·상업 중심지 배후 수요 확보`,
+      capRate ? `수익 안정성: 연 순수익률(Cap Rate) ${capRate} 기반 안정적 임대수익 자산` : `수익 안정성: 안정적 임대수익 기반 투자 매물`,
+      gfaPyeong && landPyeong ? `자산 규모: 대지 ${landPyeong}평·연면적 ${gfaPyeong}평 규모 단독 빌딩` : `자산 희소성: 역세권 단독 빌딩으로 사옥 및 임대수익형 최적 자산`,
     ];
     for (const fb of fallbackPool) {
       if (keyPoints.length >= 3) break;
