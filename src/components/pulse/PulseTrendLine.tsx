@@ -1,23 +1,15 @@
 "use client";
 
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  ReferenceLine,
-} from "recharts";
+import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 
-interface TrendPoint {
+export interface TrendPoint {
   label: string; // e.g. "5/1"
   score: number; // 0–100
 }
 
-interface PulseTrendLineProps {
+export interface PulseTrendLineProps {
   data: TrendPoint[];
   className?: string;
   accent?: string;
@@ -26,7 +18,7 @@ interface PulseTrendLineProps {
   showGrid?: boolean;
 }
 
-export function PulseTrendLine({
+function PulseTrendLineComponent({
   data,
   className,
   accent = "hsl(217 91% 65%)",
@@ -34,6 +26,29 @@ export function PulseTrendLine({
   height = 120,
   showGrid = false,
 }: PulseTrendLineProps) {
+  const [Recharts, setRecharts] = useState<any>(null);
+
+  useEffect(() => {
+    import("recharts").then((mod) => setRecharts(mod));
+  }, []);
+
+  if (!Recharts) {
+    return (
+      <div style={{ height }} className={cn("w-full animate-pulse bg-secondary/30 rounded-lg", className)} />
+    );
+  }
+
+  const {
+    AreaChart,
+    Area,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    ResponsiveContainer,
+    Tooltip,
+    ReferenceLine,
+  } = Recharts;
+
   const gradientId = "pulse-trend-gradient";
 
   return (
@@ -88,7 +103,7 @@ export function PulseTrendLine({
           )}
 
           <Tooltip
-            content={({ active, payload }) => {
+            content={({ active, payload }: any) => {
               if (!active || !payload?.length) return null;
               const d = payload[0].payload as TrendPoint;
               return (
@@ -116,3 +131,8 @@ export function PulseTrendLine({
     </div>
   );
 }
+
+export const PulseTrendLine = dynamic(
+  () => Promise.resolve(PulseTrendLineComponent),
+  { ssr: false }
+);

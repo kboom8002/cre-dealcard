@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  LineChart,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
+import React, { useState, useEffect } from "react";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +31,14 @@ export function KpiSparkline({
   className,
   higherIsBetter = true,
 }: KpiSparklineProps) {
+  const [Recharts, setRecharts] = useState<any>(null);
+
+  useEffect(() => {
+    if (data && data.length > 0) {
+      import("recharts").then((mod) => setRecharts(mod));
+    }
+  }, [data]);
+
   const delta =
     previousValue !== undefined ? value - previousValue : undefined;
   const deltaPercent =
@@ -100,28 +103,32 @@ export function KpiSparkline({
       {/* Right: sparkline */}
       {data && data.length > 0 && (
         <div className="w-20 h-12 shrink-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (!active || !payload?.length) return null;
-                  return (
-                    <div className="rounded-md border border-white/10 bg-background/90 backdrop-blur-md px-2 py-1 text-xs shadow-elevation-2">
-                      {payload[0].value}
-                    </div>
-                  );
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke={chartColor}
-                strokeWidth={1.5}
-                dot={false}
-                activeDot={{ r: 3, strokeWidth: 0, fill: chartColor }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {Recharts ? (
+            <Recharts.ResponsiveContainer width="100%" height="100%">
+              <Recharts.LineChart data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
+                <Recharts.Tooltip
+                  content={({ active, payload }: any) => {
+                    if (!active || !payload?.length) return null;
+                    return (
+                      <div className="rounded-md border border-white/10 bg-background/90 backdrop-blur-md px-2 py-1 text-xs shadow-elevation-2">
+                        {payload[0].value}
+                      </div>
+                    );
+                  }}
+                />
+                <Recharts.Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke={chartColor}
+                  strokeWidth={1.5}
+                  dot={false}
+                  activeDot={{ r: 3, strokeWidth: 0, fill: chartColor }}
+                />
+              </Recharts.LineChart>
+            </Recharts.ResponsiveContainer>
+          ) : (
+            <div className="w-full h-full animate-pulse bg-secondary/20 rounded" />
+          )}
         </div>
       )}
     </div>

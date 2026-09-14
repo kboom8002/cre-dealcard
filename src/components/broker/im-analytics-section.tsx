@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
 
-interface AnalyticsData {
+export interface AnalyticsData {
   totalViews: number;
   uniqueViews: number;
   avgDurationSec: number;
@@ -12,9 +12,18 @@ interface AnalyticsData {
   dailyViews: { date: string; views: number }[];
 }
 
-export function ImAnalyticsSection({ buildingId }: { buildingId: string }) {
+export interface ImAnalyticsSectionProps {
+  buildingId: string;
+}
+
+function ImAnalyticsSectionComponent({ buildingId }: ImAnalyticsSectionProps) {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [Recharts, setRecharts] = useState<any>(null);
+
+  useEffect(() => {
+    import("recharts").then((mod) => setRecharts(mod));
+  }, []);
 
   useEffect(() => {
     async function fetchAnalytics() {
@@ -79,8 +88,10 @@ export function ImAnalyticsSection({ buildingId }: { buildingId: string }) {
     fetchAnalytics();
   }, [buildingId]);
 
-  if (loading) return <div className="animate-pulse h-32 bg-secondary/50 rounded-xl"></div>;
+  if (loading || !Recharts) return <div className="animate-pulse h-32 bg-secondary/50 rounded-xl"></div>;
   if (!data) return null;
+
+  const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } = Recharts;
 
   const channelData = Object.entries(data.viewsByChannel)
     .map(([name, value]) => ({ name, value }))
@@ -155,3 +166,8 @@ export function ImAnalyticsSection({ buildingId }: { buildingId: string }) {
     </div>
   );
 }
+
+export const ImAnalyticsSection = dynamic(
+  () => Promise.resolve(ImAnalyticsSectionComponent),
+  { ssr: false }
+);

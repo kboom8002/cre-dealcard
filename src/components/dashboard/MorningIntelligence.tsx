@@ -13,7 +13,6 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PulseSignalRadar } from "@/components/pulse/PulseSignalRadar";
 import { useMagazineDraft } from "@/hooks/useMagazineDraft";
 import { MagazineInsightCard } from "@/components/dashboard/MagazineInsightCard";
 import { toast } from "sonner";

@@ -1,16 +1,26 @@
 "use client";
 
-import React from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from "recharts";
+import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import type { CommercialDistrictAnalysis } from "@/lib/external/semas-commercial-api";
 
-interface CommercialDistrictChartProps {
+export interface CommercialDistrictChartProps {
   data: CommercialDistrictAnalysis | null;
 }
 
-export function CommercialDistrictChart({ data }: CommercialDistrictChartProps) {
-  if (!data) return null;
+function CommercialDistrictChartComponent({ data }: CommercialDistrictChartProps) {
+  const [Recharts, setRecharts] = useState<any>(null);
 
+  useEffect(() => {
+    import("recharts").then((mod) => setRecharts(mod));
+  }, []);
+
+  if (!data) return null;
+  if (!Recharts) {
+    return <div className="h-48 animate-pulse bg-secondary/30 rounded-xl my-6" />;
+  }
+
+  const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } = Recharts;
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
   return (
@@ -97,3 +107,8 @@ export function CommercialDistrictChart({ data }: CommercialDistrictChartProps) 
     </div>
   );
 }
+
+export const CommercialDistrictChart = dynamic(
+  () => Promise.resolve(CommercialDistrictChartComponent),
+  { ssr: false }
+);

@@ -1,23 +1,17 @@
 "use client";
 
-import {
-  RadarChart,
-  Radar,
-  PolarGrid,
-  PolarAngleAxis,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
+import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 
-interface SignalData {
+export interface SignalData {
   subject: string;
   value: number; // 0–100
   fullMark?: number;
 }
 
-interface PulseSignalRadarProps {
-  data: SignalData[];
+export interface PulseSignalRadarProps {
+  data?: SignalData[];
   className?: string;
   /** Color accent for the radar fill */
   accent?: string;
@@ -32,12 +26,25 @@ const DEFAULT_DATA: SignalData[] = [
   { subject: "파트너", value: 55 },
 ];
 
-export function PulseSignalRadar({
+function PulseSignalRadarComponent({
   data = DEFAULT_DATA,
   className,
   accent = "hsl(217 91% 65%)",
   title,
 }: PulseSignalRadarProps) {
+  const [Recharts, setRecharts] = useState<any>(null);
+
+  useEffect(() => {
+    import("recharts").then((mod) => setRecharts(mod));
+  }, []);
+
+  if (!Recharts) {
+    return (
+      <div className={cn("w-full h-[200px] animate-pulse bg-secondary/30 rounded-lg", className)} />
+    );
+  }
+
+  const { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip } = Recharts;
   return (
     <div className={cn("w-full", className)}>
       {title && (
@@ -66,7 +73,7 @@ export function PulseSignalRadar({
             }}
           />
           <Tooltip
-            content={({ active, payload }) => {
+            content={({ active, payload }: any) => {
               if (!active || !payload?.length) return null;
               const item = payload[0];
               return (
@@ -95,3 +102,8 @@ export function PulseSignalRadar({
     </div>
   );
 }
+
+export const PulseSignalRadar = dynamic(
+  () => Promise.resolve(PulseSignalRadarComponent),
+  { ssr: false }
+);
