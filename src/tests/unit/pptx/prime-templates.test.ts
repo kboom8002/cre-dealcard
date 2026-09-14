@@ -1,3 +1,4 @@
+import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 import { describe, it, expect } from 'vitest';
 import {
   PPTX_PRESET_TEMPLATES,
@@ -294,7 +295,7 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
         expect(dataMap['land']).toBeDefined();
         const land = dataMap['land'];
         expect(land.totalAreaM2).toBe(800.0);
-        expect(land.totalAreaPyeong).toBeCloseTo(800.0 * 0.3025, 1);
+        expect(land.totalAreaPyeong).toBeCloseTo(sqmToPyeong(800.0), 1);
         const lastRow = land.tableRows[land.tableRows.length - 1];
         expect(lastRow[0]).toContain('합계');
         expect(lastRow[2]).toBe('800㎡');

@@ -1,3 +1,5 @@
+import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
+
 // src/types/ontology.ts
 // 온톨로지 v0.4 3축 모델 및 가격대 밴드 정본 타입 정의
 // Spec: ONTOLOGY_V0.4_SPEC.md · API_TYPE_CONTRACT.md (D3)
@@ -130,7 +132,7 @@ export function classifyAssetType(
       return {
         assetType: 'small_building',
         confidence: 'high',
-        basis: `근린생활시설 연면적 ${(area * 0.3025).toFixed(0)}평 소형 빌딩`,
+        basis: `근린생활시설 연면적 ${(sqmToPyeong(area)).toFixed(0)}평 소형 빌딩`,
         needsConfirmation: false,
       };
     }

@@ -1,3 +1,4 @@
+import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 /**
  * @file real-broker-im-pipeline.test.ts
  * @description 실제 중개인 작성 수익형 근생 매물 2건(신사동 590, 서초동 1364-28)
@@ -359,8 +360,8 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
     it('[신사동 590][Positive Pair] 5개 GBD 비교사례 밴드(2.00억~3.18억) 및 적정 호가(2.36억), 원가법 배제 단언', () => {
       const subject = {
         askingPriceKrw: sinsaFixture.askingPriceKrw,
-        landAreaPyeong: sinsaFixture.landAreaM2 * 0.3025,
-        gfaPyeong: sinsaFixture.grossFloorAreaM2 * 0.3025,
+        landAreaPyeong: sqmToPyeong(sinsaFixture.landAreaM2),
+        gfaPyeong: sqmToPyeong(sinsaFixture.grossFloorAreaM2),
         annualGrossRentKrw: sinsaFixture.statedMonthlyRentKrw * 12,
         marketCapRateRangePct: sinsaFixture.incomeCapitalization.marketCapRateRangePct as [number, number],
       };
@@ -400,8 +401,8 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
     it('[서초동 1364-28][Positive Pair] 4개 GBD 비교사례 밴드(1.30억~1.40억) 대비 할인 호가(1.28억, -4.7%) 밸류애드 단언', () => {
       const subject = {
         askingPriceKrw: seochoFixture.askingPriceKrw,
-        landAreaPyeong: seochoFixture.landAreaM2 * 0.3025,
-        gfaPyeong: seochoFixture.grossFloorAreaM2 * 0.3025,
+        landAreaPyeong: sqmToPyeong(seochoFixture.landAreaM2),
+        gfaPyeong: sqmToPyeong(seochoFixture.grossFloorAreaM2),
         annualGrossRentKrw: seochoFixture.statedMonthlyRentKrw * 12,
         marketCapRateRangePct: seochoFixture.incomeCapitalization.marketCapRateRangePct as [number, number],
       };
@@ -454,8 +455,8 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(() => {
         calculateSalesComparison([], {
           askingPriceKrw: sinsaFixture.askingPriceKrw,
-          landAreaPyeong: sinsaFixture.landAreaM2 * 0.3025,
-          gfaPyeong: sinsaFixture.grossFloorAreaM2 * 0.3025,
+          landAreaPyeong: sqmToPyeong(sinsaFixture.landAreaM2),
+          gfaPyeong: sqmToPyeong(sinsaFixture.grossFloorAreaM2),
         });
       }).toThrowError(/최소 1건 이상의 실거래 비교사례가 필요합니다/);
 
@@ -489,8 +490,8 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
     it('[Negative Pair 3] 원가법 배제 사유 누락 또는 공백 시 거버넌스 단언 실패', () => {
       const subject = {
         askingPriceKrw: sinsaFixture.askingPriceKrw,
-        landAreaPyeong: sinsaFixture.landAreaM2 * 0.3025,
-        gfaPyeong: sinsaFixture.grossFloorAreaM2 * 0.3025,
+        landAreaPyeong: sqmToPyeong(sinsaFixture.landAreaM2),
+        gfaPyeong: sqmToPyeong(sinsaFixture.grossFloorAreaM2),
         annualGrossRentKrw: sinsaFixture.statedMonthlyRentKrw * 12,
         marketCapRateRangePct: sinsaFixture.incomeCapitalization.marketCapRateRangePct as [number, number],
       };

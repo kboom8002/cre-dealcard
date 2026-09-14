@@ -11,6 +11,7 @@ import { enforceTextBudget } from "../text-budget";
 import type { IMCore, Comp } from "@/types/im-core";
 import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, findLeadSentence, extractStatMetrics, extractCallouts, extractBulletItems, extractBoldKeyValues, extractBoldValue, sanitizePersona, stripMarkdown, truncate, parseMarkdownTable, extractMetrics, buildCapitalFromIncome, buildFarUpsideProps, buildDcfFromIncome, buildSensitivityFromDcf, buildLoanFromIncome, buildTaxFromIncome, buildOwnerOccupiedPlanProps, buildOwnerOccupiedVsLeaseProps, buildOwnerOccupiedCommuteProps, buildOwnerOccupiedValueProps, buildDevelopmentLandDetailProps, buildDevelopmentScaleProps, buildDevelopmentEvictionProps, buildDevelopmentCostProps, buildDevelopmentFeasibilityProps, bindFromIMCore, bindFromExternalData, bindFromClaimRegistry, transformForArchetype, buildA13Props, buildA15Props, buildA17Props, buildA22Props, buildA11Props, buildA12Props, buildA18Props, buildA02Props, buildA03Props, mergeRentRollTables, buildA04Props, buildA05Props, buildA06Props, buildA07Props, buildA08Props, buildA09Props, buildGenericProps, buildSummaryFromOverview, buildLandFromOverview, buildA16Props, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
+import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 
 /**
  * 1. 기관투자자 프라임 (Institutional Dark/Gold) 특화 바인딩
@@ -282,7 +283,7 @@ export function bindCommercialTemplateData(doc: any, dataMap: Record<string, Sec
             ? floorLeases.map((l: any) => [
                 l.floor || '-',
                 l.tenant_type || l.tenant_name || '-',
-                l.area_sqm ? `${(l.area_sqm * 0.3025).toFixed(0)}평 (${l.area_sqm}㎡)` : '-',
+                l.area_sqm ? `${(sqmToPyeong(l.area_sqm)).toFixed(0)}평 (${l.area_sqm}㎡)` : '-',
                 `${l.deposit_manwon ? (l.deposit_manwon / 10000).toFixed(1) + '억' : '-'} / ${l.rent_manwon ? l.rent_manwon + '만 원' : '-'}`,
                 l.notes || '',
               ])
@@ -374,13 +375,13 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
             },
           ];
     const totalAreaM2 = parcels.reduce((sum: number, p: any) => sum + Number(p.areaM2 || 0), 0);
-    const totalAreaPyeong = totalAreaM2 * 0.3025;
+    const totalAreaPyeong = sqmToPyeong(totalAreaM2);
     const parcelHeaders = ['지번 / 필지', '지목', '대지면적(㎡)', '대지면적(평)', '용도지역', '공시지가(원/㎡)'];
     const parcelRows: string[][] = parcels.map((p: any) => [
             p.lotNumber ?? p.address ?? '필지',
             p.category ?? p.landCategory ?? '대',
             Number(p.areaM2 || 0).toLocaleString() + '㎡',
-            (Number(p.areaM2 || 0) * 0.3025).toFixed(1) + '평',
+            (sqmToPyeong(Number(p.areaM2 || 0))).toFixed(1) + '평',
             p.zoning ?? '일반상업지역',
             Number(p.officialPrice ?? p.pricePerSqm ?? 0).toLocaleString() + '원',
           ]);

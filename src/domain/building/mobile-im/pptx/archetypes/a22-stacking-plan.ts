@@ -15,6 +15,7 @@ import * as L from '../imlib';
 import { C, M, CW, KR, NUM, CD } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 import type { StackingPlanFloor, StackingPlanSummary, TenantCategory } from '../../types';
+import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -177,8 +178,8 @@ export function condenseFloorsForDisplay(
             ? (parseInt(bottomFloorNum, 10) < parseInt(topFloorNum, 10) ? `${bottomFloorNum}F~${topFloorNum}F` : `${topFloorNum}F~${bottomFloorNum}F`)
             : `${bottomFloorRaw}~${topFloorRaw}`;
 
-          const totalExclusivePy = chunk.reduce((sum, f) => sum + (f.exclusiveAreaPy ?? (f.exclusiveAreaM2 ? f.exclusiveAreaM2 * 0.3025 : 0)), 0);
-          const totalLeasablePy = chunk.reduce((sum, f) => sum + (f.leasableAreaPy ?? (f.leasableAreaM2 ? f.leasableAreaM2 * 0.3025 : 0)), 0);
+          const totalExclusivePy = chunk.reduce((sum, f) => sum + (f.exclusiveAreaPy ?? (f.exclusiveAreaM2 ? sqmToPyeong(f.exclusiveAreaM2) : 0)), 0);
+          const totalLeasablePy = chunk.reduce((sum, f) => sum + (f.leasableAreaPy ?? (f.leasableAreaM2 ? sqmToPyeong(f.leasableAreaM2) : 0)), 0);
           const avgFloorAreaM2 = chunk.reduce((sum, f) => sum + (f.floorAreaM2 || 0), 0) / chunk.length;
           const allVacant = chunk.every(f => f.isVacant);
           const isAnchorChunk = anchorName && chunk.some(f => f.tenant?.includes(anchorName));
@@ -320,7 +321,7 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
   const normalizedFloors: StackingPlanFloor[] = rawFloors.map(f => {
     const floorStr = String(f?.floor || '');
     const isSub = floorStr.toUpperCase().startsWith('B');
-    const area = f.floorAreaM2 || (f.floorAreaPy ? f.floorAreaPy / 0.3025 : standardArea);
+    const area = f.floorAreaM2 || (f.floorAreaPy ? pyeongToSqm(f.floorAreaPy) : standardArea);
     const setback = f.setbackRatio ?? calculateSetbackRatio(area, standardArea, isSub);
     const category = f.category || f.tenantCategory || inferTenantCategory(f, anchorName);
     const hasTerrace = f.hasTerrace ?? (!isSub && setback < 0.70);
@@ -707,8 +708,8 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
     displayTableRows.push([
       f.floor || '-',
       f.use ? f.use.replace(/제[12]종근린생활시설/g, '근린생활').slice(0, 10) : '-',
-      f.exclusiveAreaPy != null ? f.exclusiveAreaPy.toFixed(1) : (f.exclusiveAreaM2 ? (f.exclusiveAreaM2 * 0.3025).toFixed(1) : '-'),
-      f.leasableAreaPy != null ? f.leasableAreaPy.toFixed(1) : (f.leasableAreaM2 ? (f.leasableAreaM2 * 0.3025).toFixed(1) : '-'),
+      f.exclusiveAreaPy != null ? f.exclusiveAreaPy.toFixed(1) : (f.exclusiveAreaM2 ? (sqmToPyeong(f.exclusiveAreaM2)).toFixed(1) : '-'),
+      f.leasableAreaPy != null ? f.leasableAreaPy.toFixed(1) : (f.leasableAreaM2 ? (sqmToPyeong(f.leasableAreaM2)).toFixed(1) : '-'),
       f.tenant ? f.tenant.slice(0, 18) : '-',
       f.expiryYear && f.expiryYear > 0 ? `${f.expiryYear}` : '-',
     ]);
@@ -717,7 +718,7 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
   // ── 동적 집계 계산 (Dynamic Summary Calculation) ──
   // 1) 실제 전용면적(평) 합산
   const realTotalExclusivePy = normalizedFloors.reduce((sum, f) => {
-    const py = f.exclusiveAreaPy ?? (f.exclusiveAreaM2 ? f.exclusiveAreaM2 * 0.3025 : 0);
+    const py = f.exclusiveAreaPy ?? (f.exclusiveAreaM2 ? sqmToPyeong(f.exclusiveAreaM2) : 0);
     return sum + (typeof py === 'number' && !isNaN(py) ? py : 0);
   }, 0);
   const fallbackExclusivePy = (summary as any).totalExclusiveAreaPy

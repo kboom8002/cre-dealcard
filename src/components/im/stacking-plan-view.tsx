@@ -14,6 +14,7 @@
 
 import React, { useState, useMemo } from 'react';
 import type { StackingPlanFloor, StackingPlanSummary, TenantCategory } from '@/domain/building/mobile-im/types';
+import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 
 export interface StackingPlanViewProps {
   stackingPlan?: StackingPlanFloor[];
@@ -85,7 +86,7 @@ function extractAreaPyeong(text?: string): number | undefined {
   // 2. "317.4㎡" 또는 "317.4m²" (평수 표기 없이 m²만 있는 경우 환산)
   const m2Match = clean.match(/([\d,]+(?:\.\d+)?)\s*(?:㎡|m²|m2)/i);
   if (m2Match) {
-    return Math.round(parseFloat(m2Match[1].replace(/,/g, '')) * 0.3025 * 10) / 10;
+    return Math.round(sqmToPyeong(parseFloat(m2Match[1].replace(/,/g, ''))) * 10) / 10;
   }
   // 3. 순수 숫자만 있는 경우 (금액 '만', 날짜 '-' 등 혼입 제외)
   const numMatch = clean.match(/^[\d,]+(?:\.\d+)?$/);
@@ -196,9 +197,9 @@ function parseFloorsFromMarkdown(markdown?: string): StackingPlanFloor[] {
       use,
       tenant,
       exclusiveAreaPy,
-      exclusiveAreaM2: exclusiveAreaPy ? Math.round((exclusiveAreaPy / 0.3025) * 10) / 10 : undefined,
+      exclusiveAreaM2: exclusiveAreaPy ? Math.round((pyeongToSqm(exclusiveAreaPy)) * 10) / 10 : undefined,
       leasableAreaPy,
-      leasableAreaM2: leasableAreaPy ? Math.round((leasableAreaPy / 0.3025) * 10) / 10 : undefined,
+      leasableAreaM2: leasableAreaPy ? Math.round((pyeongToSqm(leasableAreaPy)) * 10) / 10 : undefined,
       floorAreaPy: leasableAreaPy ?? exclusiveAreaPy,
       expiryYear: expiryYear && expiryYear > 1900 && expiryYear < 2100 ? expiryYear : undefined,
       isVacant,

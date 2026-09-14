@@ -11,6 +11,7 @@ import { enforceTextBudget } from "../text-budget";
 import type { IMCore, Comp } from "@/types/im-core";
 import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, findLeadSentence, extractStatMetrics, extractCallouts, extractBulletItems, extractBoldKeyValues, extractBoldValue, sanitizePersona, stripMarkdown, truncate, parseMarkdownTable, extractMetrics, buildCapitalFromIncome, buildFarUpsideProps, buildDcfFromIncome, buildSensitivityFromDcf, buildLoanFromIncome, buildTaxFromIncome, buildOwnerOccupiedPlanProps, buildOwnerOccupiedVsLeaseProps, buildOwnerOccupiedCommuteProps, buildOwnerOccupiedValueProps, buildDevelopmentLandDetailProps, buildDevelopmentScaleProps, buildDevelopmentEvictionProps, buildDevelopmentCostProps, buildDevelopmentFeasibilityProps, bindInstitutionalTemplateData, bindCorporateTemplateData, bindCommercialTemplateData, bindDevelopmentTemplateData, bindSpecializedTemplateData, bindFromIMCore, bindFromExternalData, bindFromClaimRegistry, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
+import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 
 /**
  * 아키타입별 props 변환기
@@ -197,9 +198,9 @@ export function buildA17Props(markdown: string, tables: ParsedTable[], lines: st
     const enrichment = body?.enrichment || {};
     const landPlan = enrichment?.landUsePlan || {};
     const platAreaM2 = heroCard.landAreaM2 || enrichment?.buildingRegister?.platArea || 0;
-    const platAreaPyeong = platAreaM2 ? (platAreaM2 * 0.3025).toFixed(1) : (body?.landAreaPyeong ? String(body.landAreaPyeong) : '160.0');
+    const platAreaPyeong = platAreaM2 ? (sqmToPyeong(platAreaM2)).toFixed(1) : (body?.landAreaPyeong ? String(body.landAreaPyeong) : '160.0');
     const grossAreaM2 = heroCard.grossFloorAreaM2 || enrichment?.buildingRegister?.totalArea || 0;
-    const grossAreaPyeong = grossAreaM2 ? (grossAreaM2 * 0.3025).toFixed(1) : '480.0';
+    const grossAreaPyeong = grossAreaM2 ? (sqmToPyeong(grossAreaM2)).toFixed(1) : '480.0';
     const bcrPct = landPlan.buildingCoverageMax || 50;
     const farPct = landPlan.floorAreaRatioMax || 250;
     const costBil = body?.constructionCostBil || 56.4;
@@ -262,11 +263,11 @@ export function buildA22Props(markdown: string, tables: ParsedTable[], lines: st
             use: use || '업무시설',
             tenant: tenant || '-',
             exclusiveAreaPy,
-            exclusiveAreaM2: exclusiveAreaPy ? exclusiveAreaPy / 0.3025 : undefined,
+            exclusiveAreaM2: exclusiveAreaPy ? pyeongToSqm(exclusiveAreaPy) : undefined,
             leasableAreaPy,
-            leasableAreaM2: leasableAreaPy ? leasableAreaPy / 0.3025 : undefined,
+            leasableAreaM2: leasableAreaPy ? pyeongToSqm(leasableAreaPy) : undefined,
             floorAreaPy,
-            floorAreaM2: floorAreaPy ? floorAreaPy / 0.3025 : undefined,
+            floorAreaM2: floorAreaPy ? pyeongToSqm(floorAreaPy) : undefined,
             expiryYear: expiryYear && expiryYear > 1900 ? expiryYear : undefined,
             isVacant: tenant?.includes('공실') || use?.includes('공실'),
           });
@@ -318,7 +319,7 @@ export function buildA22Props(markdown: string, tables: ParsedTable[], lines: st
 
     floors = floors.map(f => {
     const isSub = f.floor.toUpperCase().startsWith('B');
-    const area = f.floorAreaPy || (f.floorAreaM2 ? f.floorAreaM2 * 0.3025 : stdPy);
+    const area = f.floorAreaPy || (f.floorAreaM2 ? sqmToPyeong(f.floorAreaM2) : stdPy);
     const setback = f.setbackRatio ?? calculateSetbackRatio(area, stdPy, isSub);
     const category = f.category || f.tenantCategory || inferTenantCategory(f, anchorName);
     const hasTerrace = f.hasTerrace ?? (!isSub && setback < 0.70);
@@ -332,9 +333,9 @@ export function buildA22Props(markdown: string, tables: ParsedTable[], lines: st
     });
     const heroCard = body?.heroCard || {};
     const ssotSummary = body?.ssot_summary || {};
-    const totalGfaPy = heroCard.grossFloorAreaM2 ? Math.round(heroCard.grossFloorAreaM2 * 0.3025 * 10) / 10
-            : (ssotSummary.total_gross_area_sqm ? Math.round(ssotSummary.total_gross_area_sqm * 0.3025 * 10) / 10
-            : (ssotSummary.total_area ? Math.round(ssotSummary.total_area * 0.3025 * 10) / 10
+    const totalGfaPy = heroCard.grossFloorAreaM2 ? Math.round(sqmToPyeong(heroCard.grossFloorAreaM2) * 10) / 10
+            : (ssotSummary.total_gross_area_sqm ? Math.round(sqmToPyeong(ssotSummary.total_gross_area_sqm) * 10) / 10
+            : (ssotSummary.total_area ? Math.round(sqmToPyeong(ssotSummary.total_area) * 10) / 10
             : Math.round(floors.reduce((acc, f) => acc + (f.floorAreaPy || 0), 0) * 10) / 10));
     const totalExclusivePy = floors.reduce((acc, f) => acc + (f.exclusiveAreaPy || 0), 0);
     const calculatedExclusiveRate = totalGfaPy > 0 && totalExclusivePy > 0
@@ -893,12 +894,12 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
     const ssotB = body?.ssot_summary ?? {};
     const landAreaPy = heroCard.landAreaPyeong
       ?? ssotB.land_area_pyeong
-      ?? (ssotB.land_area_sqm ? Math.round(Number(ssotB.land_area_sqm) * 0.3025 * 10) / 10 : undefined)
-      ?? (ssotB.plat_area_sqm ? Math.round(Number(ssotB.plat_area_sqm) * 0.3025 * 10) / 10 : undefined);
+      ?? (ssotB.land_area_sqm ? Math.round(sqmToPyeong(Number(ssotB.land_area_sqm)) * 10) / 10 : undefined)
+      ?? (ssotB.plat_area_sqm ? Math.round(sqmToPyeong(Number(ssotB.plat_area_sqm)) * 10) / 10 : undefined);
     if (landAreaPy) metrics.push({ label: '대지면적', value: `${Number(landAreaPy).toLocaleString()}평` });
     const gfaPy = heroCard.totalGrossAreaPyeong
       ?? ssotB.total_gross_area_pyeong
-      ?? (ssotB.total_gross_area_sqm ? Math.round(Number(ssotB.total_gross_area_sqm) * 0.3025 * 10) / 10 : undefined);
+      ?? (ssotB.total_gross_area_sqm ? Math.round(sqmToPyeong(Number(ssotB.total_gross_area_sqm)) * 10) / 10 : undefined);
     if (gfaPy) metrics.push({ label: '연면적', value: `${Number(gfaPy).toLocaleString()}평` });
     const floorsAbove = ssotB.floors_above ?? heroCard.floorsAbove;
     const floorsBelow = ssotB.floors_below ?? heroCard.floorsBelow;
@@ -1048,8 +1049,8 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
       const rawStation = ssotKP.station_name || heroCard.nearestStation || nearestSt?.name || nearestSt?.stationName || '';
       const stationName = normalizeStationName(rawStation);
       const stationMin = ssotKP.station_walk_min ?? nearestSt?.walkMinutes ?? (nearestSt?.distanceM ? Math.max(1, Math.round(nearestSt.distanceM / 80)) : undefined);
-      const grossAreaPy = Number(heroCard.totalGrossAreaPyeong ?? (ssotKP.total_gross_area_sqm ? ssotKP.total_gross_area_sqm * 0.3025 : ssotKP.total_gross_area_pyeong ?? 0));
-      const siteAreaPy = Number(heroCard.landAreaPyeong ?? (ssotKP.land_area_sqm ? ssotKP.land_area_sqm * 0.3025 : ssotKP.land_area_pyeong ?? 0));
+      const grossAreaPy = Number(heroCard.totalGrossAreaPyeong ?? (ssotKP.total_gross_area_sqm ? sqmToPyeong(ssotKP.total_gross_area_sqm) : ssotKP.total_gross_area_pyeong ?? 0));
+      const siteAreaPy = Number(heroCard.landAreaPyeong ?? (ssotKP.land_area_sqm ? sqmToPyeong(ssotKP.land_area_sqm) : ssotKP.land_area_pyeong ?? 0));
       const askManwon = Number(ssotKP.asking_price_manwon || 0);
       const pyeongPriceManwon = grossAreaPy > 0 && askManwon > 0 ? Math.round(askManwon / grossAreaPy) : 0;
       const capRate = Number(ssotKP.gross_yield ?? ssotKP.cap_rate ?? 0);

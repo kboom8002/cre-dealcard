@@ -11,6 +11,7 @@ import { enforceTextBudget } from "../text-budget";
 import type { IMCore, Comp } from "@/types/im-core";
 import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, findLeadSentence, extractStatMetrics, extractCallouts, extractBulletItems, extractBoldKeyValues, extractBoldValue, sanitizePersona, stripMarkdown, truncate, parseMarkdownTable, extractMetrics, bindInstitutionalTemplateData, bindCorporateTemplateData, bindCommercialTemplateData, bindDevelopmentTemplateData, bindSpecializedTemplateData, bindFromIMCore, bindFromExternalData, bindFromClaimRegistry, transformForArchetype, buildA13Props, buildA15Props, buildA17Props, buildA22Props, buildA11Props, buildA12Props, buildA18Props, buildA02Props, buildA03Props, mergeRentRollTables, buildA04Props, buildA05Props, buildA06Props, buildA07Props, buildA08Props, buildA09Props, buildGenericProps, buildSummaryFromOverview, buildLandFromOverview, buildA16Props, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
+import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 
 export function buildCapitalFromIncome(markdown: string, tables: ParsedTable[], body?: Record<string, any>, building?: Record<string, any>): Record<string, any> {
     return buildA16Props(markdown, tables, body, building);
@@ -32,7 +33,7 @@ export function buildFarUpsideProps(markdown: string, tables: ParsedTable[], bod
     const currentBcr = bldg.building_coverage_ratio ?? bldg.bcr ?? 52;
     const landAreaP = bldg.land_area_pyung
             ?? bldg.land_area_pyeong
-            ?? (bldg.land_area_sqm ? Math.round(bldg.land_area_sqm * 0.3025 * 10) / 10 : 0);
+            ?? (bldg.land_area_sqm ? Math.round(sqmToPyeong(bldg.land_area_sqm) * 10) / 10 : 0);
     const remainingFar = Math.max(0, farMax - currentFar);
     const additionalAreaP = landAreaP > 0 ? (landAreaP * (remainingFar / 100)).toFixed(1) : '-';
     const zoning = lup.zoningName ?? lup.zoning ?? bldg.zoning ?? '일반주거지역';
@@ -258,7 +259,7 @@ export function buildOwnerOccupiedPlanProps(body: Record<string, any> = {}, buil
     const hero = body?.heroCard || {};
     const ssot = body?.ssot_summary || {};
     const grossAreaM2 = hero.grossFloorAreaM2 || ssot.total_gross_area_sqm || ssot.total_area || 0;
-    const grossAreaPy = grossAreaM2 > 0 ? (grossAreaM2 * 0.3025).toFixed(1) : '0';
+    const grossAreaPy = grossAreaM2 > 0 ? (sqmToPyeong(grossAreaM2)).toFixed(1) : '0';
     const headcount = occ.targetHeadcount || occ.headcount || (grossAreaM2 > 0 ? Math.max(10, Math.round(parseFloat(grossAreaPy) * 0.75 / 3.5)) : 50);
     const perPersonPy = headcount > 0 && parseFloat(grossAreaPy) > 0 ? (parseFloat(grossAreaPy) * 0.75 / headcount).toFixed(1) : '-';
     const areaSignal = body?.assetIdentity?.area_signal || building?.area_signal || body?.area_signal || '도심 핵심 권역';
@@ -426,7 +427,7 @@ export function buildDevelopmentLandDetailProps(body: Record<string, any> = {}, 
     const ssot = body?.ssot_summary || {};
     const areaSignal = body?.assetIdentity?.area_signal || building?.area_signal || body?.area_signal || '해당 권역';
     const totalLandSqm = parcels.reduce((sum: number, p: any) => sum + (p.areaSqm || 0), 0) || ssot.plat_area_sqm || 0;
-    const totalLandPyeong = totalLandSqm > 0 ? (totalLandSqm * 0.3025).toFixed(1) : '확인 필요';
+    const totalLandPyeong = totalLandSqm > 0 ? (sqmToPyeong(totalLandSqm)).toFixed(1) : '확인 필요';
     const zoning = parcels[0]?.zoning || ssot.zoning || hero.zoning || '확인 필요';
     const baseFar = reg.baseFarPct || 200;
     const relaxedFar = reg.relaxedFarPct || baseFar;
@@ -435,7 +436,7 @@ export function buildDevelopmentLandDetailProps(body: Record<string, any> = {}, 
             : `${baseFar}%`;
     const askPriceManwon = body?.asking_price_manwon || (body?.askingPrice ? body.askingPrice / 10000 : 0);
     const landPricePerPyeong = hero.landPricePerPyeong
-            || (askPriceManwon > 0 && totalLandSqm > 0 ? Math.round(askPriceManwon / (totalLandSqm * 0.3025)) : null);
+            || (askPriceManwon > 0 && totalLandSqm > 0 ? Math.round(askPriceManwon / (sqmToPyeong(totalLandSqm))) : null);
     const leftRows: [string, string][] = [
             ['소재지', body?.resolved_address || body?.address || '확인 필요'],
             ['용도지역', zoning],
@@ -477,7 +478,7 @@ export function buildDevelopmentScaleProps(body: Record<string, any> = {}, build
     const areaSignal = body?.assetIdentity?.area_signal || building?.area_signal || body?.area_signal || '해당 권역';
     const totalLandSqm = parcels.reduce((sum: number, p: any) => sum + (p.areaSqm || 0), 0) || body?.ssot_summary?.plat_area_sqm || 0;
     const targetScalePyeong = devSpec.targetScalePyung || devSpec.targetScalePyeong || 0;
-    const targetScaleSqm = targetScalePyeong > 0 ? (targetScalePyeong / 0.3025).toFixed(1) : '확인 필요';
+    const targetScaleSqm = targetScalePyeong > 0 ? (pyeongToSqm(targetScalePyeong)).toFixed(1) : '확인 필요';
     const targetUse = devSpec.targetUse === 'office' ? '오피스 중심 복합 임대시설'
             : devSpec.targetUse === 'residential' ? '주거시설'
             : devSpec.targetUse === 'retail' ? '상업시설'
@@ -498,7 +499,7 @@ export function buildDevelopmentScaleProps(body: Record<string, any> = {}, build
               kind: 'good' as const,
               title: '신축 규모 적정성 검토',
               body: targetScalePyeong > 0 && totalLandSqm > 0
-                ? `• 대지면적 대비 용적률 ${relaxedFar}% 적용 시 건축 가능 면적: 약 ${buildableGross}㎡\n• 목표 연면적 ${targetScalePyeong.toLocaleString()}평은 법정 한도 ${totalLandSqm > 0 ? (Number(buildableGross) * 0.3025 >= targetScalePyeong ? '이내' : '초과 — 규모 조정 필요') : '검토 중'}`
+                ? `• 대지면적 대비 용적률 ${relaxedFar}% 적용 시 건축 가능 면적: 약 ${buildableGross}㎡\n• 목표 연면적 ${targetScalePyeong.toLocaleString()}평은 법정 한도 ${totalLandSqm > 0 ? (sqmToPyeong(Number(buildableGross)) >= targetScalePyeong ? '이내' : '초과 — 규모 조정 필요') : '검토 중'}`
                 : `• ${areaSignal} 소재 토지의 용적률 ${relaxedFar}% 기준 건축 가능 면적 검토\n• 목표 용도 및 규모에 따른 인허가 가능성 사전 검증 필요`,
             },
           ];

@@ -11,6 +11,7 @@ import { enforceTextBudget } from "../text-budget";
 import type { IMCore, Comp } from "@/types/im-core";
 import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, findLeadSentence, extractStatMetrics, extractCallouts, extractBulletItems, extractBoldKeyValues, extractBoldValue, sanitizePersona, stripMarkdown, truncate, parseMarkdownTable, extractMetrics, buildCapitalFromIncome, buildFarUpsideProps, buildDcfFromIncome, buildSensitivityFromDcf, buildLoanFromIncome, buildTaxFromIncome, buildOwnerOccupiedPlanProps, buildOwnerOccupiedVsLeaseProps, buildOwnerOccupiedCommuteProps, buildOwnerOccupiedValueProps, buildDevelopmentLandDetailProps, buildDevelopmentScaleProps, buildDevelopmentEvictionProps, buildDevelopmentCostProps, buildDevelopmentFeasibilityProps, bindInstitutionalTemplateData, bindCorporateTemplateData, bindCommercialTemplateData, bindDevelopmentTemplateData, bindSpecializedTemplateData, transformForArchetype, buildA13Props, buildA15Props, buildA17Props, buildA22Props, buildA11Props, buildA12Props, buildA18Props, buildA02Props, buildA03Props, mergeRentRollTables, buildA04Props, buildA05Props, buildA06Props, buildA07Props, buildA08Props, buildA09Props, buildGenericProps, buildSummaryFromOverview, buildLandFromOverview, buildA16Props, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
+import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 
 /**
  * Phase 2-3: IMCore 정형 객체로부터 PPTX 15종 아키타입 슬라이드 데이터 직접 바인딩
@@ -72,8 +73,8 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
       sub: '기본 현황',
       rows: [
         ['소재지', core.address.raw],
-        ['대지면적', core.physical.landAreaSqm ? `${core.physical.landAreaSqm}㎡ (${(core.physical.landAreaSqm * 0.3025).toFixed(1)}평)` : '-'],
-        ['연면적(총)', core.physical.totalGrossAreaSqm ? `${core.physical.totalGrossAreaSqm}㎡ (${(core.physical.totalGrossAreaSqm * 0.3025).toFixed(1)}평)` : '-'], // D30 BL-5
+        ['대지면적', core.physical.landAreaSqm ? `${core.physical.landAreaSqm}㎡ (${(sqmToPyeong(core.physical.landAreaSqm)).toFixed(1)}평)` : '-'],
+        ['연면적(총)', core.physical.totalGrossAreaSqm ? `${core.physical.totalGrossAreaSqm}㎡ (${(sqmToPyeong(core.physical.totalGrossAreaSqm)).toFixed(1)}평)` : '-'], // D30 BL-5
         ['층수', `지하 ${core.physical.floorsBelow ?? 0}층 / 지상 ${core.physical.floorsAbove ?? 0}층`],
         ['준공연도', core.physical.completionYear ? `${core.physical.completionYear}년` : '-'],
       ],
@@ -108,7 +109,7 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
             : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
     const rentRollRows = core.leases.map(l => isBasicPresetForRentRoll ? [
             l.unitLabel,
-            l.leaseAreaSqm ? `${(l.leaseAreaSqm * 0.3025).toFixed(0)}평` : '-',
+            l.leaseAreaSqm ? `${(sqmToPyeong(l.leaseAreaSqm)).toFixed(0)}평` : '-',
             l.tenantBusiness ?? (l.leaseState === '공실' ? '공실' : '-'),
             l.depositKrw ? `${Math.round(l.depositKrw / 10000).toLocaleString()}만` : '-',
             l.monthlyRentKrw ? `${Math.round(l.monthlyRentKrw / 10000).toLocaleString()}만` : '-',
@@ -116,7 +117,7 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
           ] : [
             l.unitLabel,
             l.tenantBusiness ?? (l.leaseState === '공실' ? '🚫 공실' : '-'),
-            l.leaseAreaSqm ? `${(l.leaseAreaSqm * 0.3025).toFixed(0)}평` : '-',
+            l.leaseAreaSqm ? `${(sqmToPyeong(l.leaseAreaSqm)).toFixed(0)}평` : '-',
             l.depositKrw ? `${Math.round(l.depositKrw / 10000).toLocaleString()}만` : '-',
             l.monthlyRentKrw ? `${Math.round(l.monthlyRentKrw / 10000).toLocaleString()}만` : '-',
             l.mgmtFeeKrw ? `${Math.round(l.mgmtFeeKrw / 10000).toLocaleString()}만` : '-',
@@ -203,8 +204,8 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     tables: [],
     metrics: {},
     devMetrics: {
-      landAreaPyeong: core.physical.landAreaSqm ? (core.physical.landAreaSqm * 0.3025).toFixed(1) : '-',
-      targetGrossAreaPyeong: core.physical.totalGrossAreaSqm ? (core.physical.totalGrossAreaSqm * 0.3025).toFixed(1) : '-',
+      landAreaPyeong: core.physical.landAreaSqm ? (sqmToPyeong(core.physical.landAreaSqm)).toFixed(1) : '-',
+      targetGrossAreaPyeong: core.physical.totalGrossAreaSqm ? (sqmToPyeong(core.physical.totalGrossAreaSqm)).toFixed(1) : '-',
       expectedBcrPct: core.physical.bcrPct ?? 60,
       expectedFarPct: core.physical.farPct ?? 400,
     },
@@ -336,7 +337,7 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
       ?? body?.heroCard?.landAreaM2;
     if (effectiveLandArea && Number(effectiveLandArea) > 0) {
       const areaSqm = Number(effectiveLandArea);
-      rows.push(['대지면적', `${areaSqm.toLocaleString()}㎡ (${(areaSqm * 0.3025).toFixed(1)}평)`]);
+      rows.push(['대지면적', `${areaSqm.toLocaleString()}㎡ (${(sqmToPyeong(areaSqm)).toFixed(1)}평)`]);
     }
 
     // G-07: 필지 형상 — V-World landUsePlan 우선, ssot_summary 폴백
@@ -393,7 +394,7 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
     if (br.roofType) brRows.push(['지붕', br.roofType]);
     if (br.groundFloors != null) brRows.push(['지상 층수', `${br.groundFloors}층`]);
     if (br.undergroundFloors != null) brRows.push(['지하 층수', `${br.undergroundFloors}층`]);
-    if (br.totalArea != null) brRows.push(['연면적', `${Number(br.totalArea).toLocaleString()}㎡ (${(Number(br.totalArea) * 0.3025).toFixed(1)}평)`]);
+    if (br.totalArea != null) brRows.push(['연면적', `${Number(br.totalArea).toLocaleString()}㎡ (${(sqmToPyeong(Number(br.totalArea))).toFixed(1)}평)`]);
     if (br.archArea != null) brRows.push(['건축면적', `${Number(br.archArea).toLocaleString()}㎡`]);
     if (br.approvalDate) brRows.push(['사용승인일', br.approvalDate]);
     if (br.elevatorCount != null) brRows.push(['승강기', `${br.elevatorCount}대`]);

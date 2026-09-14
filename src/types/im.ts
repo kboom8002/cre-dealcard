@@ -4,6 +4,7 @@
 // Spec: API_TYPE_CONTRACT.md (D3)
 
 import type { Ontology, InvestmentPosture, PriceBand } from './ontology';
+import { sqmToPyeong as coreSqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 
 // ══════════════════════════════════════════════════════════════════════
 // §1. 재무 계약
@@ -146,7 +147,7 @@ export type VacateVerdict =
 /** 16. 임대면적(평) */
 export function sqmToPyeong(sqm: number | null): number | null {
   if (sqm == null || sqm <= 0) return null;
-  return parseFloat((sqm * 0.3025).toFixed(2));
+  return parseFloat((coreSqmToPyeong(sqm)).toFixed(2));
 }
 
 /** 17. 환산보증금(자동) = 보증금 + (월세 × 100) */

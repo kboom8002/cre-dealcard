@@ -1,3 +1,4 @@
+import { sqmToPyeong, pyeongToSqm } from "@/lib/utils/area-conversion";
 /**
  * @file m11-ssot-stress.test.ts
  * @description Empirical Challenger Stress Test Suite for Milestone 1:
@@ -179,8 +180,8 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
 
     const baseInput: BrokerPropertyInput = {
       askingPriceKrw: 100_000_000_000, // 1,000억 원
-      landAreaM2: 1000 / 0.3025,       // 딱 1,000평
-      grossFloorAreaM2: 3000 / 0.3025, // 딱 3,000평
+      landAreaM2: pyeongToSqm(1000),       // 딱 1,000평
+      grossFloorAreaM2: pyeongToSqm(3000), // 딱 3,000평
     };
     // Expected calculated land price: 1,000억 / 1,000평 = 100,000,000 원/평 (1.0억/평)
     const expectedLandPrice = 100_000_000;

@@ -1,3 +1,4 @@
+import { extractAreaPyeong } from "@/lib/utils/area-conversion";
 /**
  * @file preflight-pipeline-audit.test.ts
  * @description CRE IM 파이프라인 5대 계층 MECE 사전 점검 자동화 감사 스위트
@@ -72,17 +73,7 @@ describe('Layer 1: Data Parsing & Format Integrity', () => {
 
   // ── 1-2. 단위/숫자 문자열 병합 왜곡 방지 ──
   describe('1-2. Unit/Number String Concatenation Prevention', () => {
-    function extractAreaPyeong(text?: string): number | undefined {
-      if (!text) return undefined;
-      const clean = text.trim();
-      const pyMatch = clean.match(/([\d,]+(?:\.\d+)?)\s*평/);
-      if (pyMatch) return parseFloat(pyMatch[1].replace(/,/g, ''));
-      const m2Match = clean.match(/([\d,]+(?:\.\d+)?)\s*(?:㎡|m²|m2)/i);
-      if (m2Match) return Math.round(parseFloat(m2Match[1].replace(/,/g, '')) * 0.3025 * 10) / 10;
-      const numMatch = clean.match(/^[\d,]+(?:\.\d+)?$/);
-      if (numMatch) return parseFloat(numMatch[0].replace(/,/g, ''));
-      return undefined;
-    }
+    
 
     it('[Positive] "96평(약 317.4㎡)"에서 96평만 정확 추출해야 함', () => {
       expect(extractAreaPyeong('96평(약 317.4㎡)')).toBe(96);
