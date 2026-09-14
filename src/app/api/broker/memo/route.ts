@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
+import { z } from "zod/v4";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { routeMemo } from "@/ai/agents/memo-router-agent";
-
 import { createModuleLogger } from '@/lib/logger';
+
 const log = createModuleLogger('route');
 
+const RouteMemoSchema = z.object({
+  memo: z.string().min(1, "Memo is required").max(10000, "Memo cannot exceed 10,000 characters"),
+});
 
 export async function POST(req: Request) {
   try {
@@ -15,12 +19,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { memo } = body;
-
-    if (!memo || typeof memo !== "string") {
-      return NextResponse.json({ ok: false, error: "Memo is required" }, { status: 400 });
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
     }
+
+    const parsed = RouteMemoSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ ok: false, error: parsed.error.issues[0]?.message || "Memo is required" }, { status: 400 });
+    }
+
+    const { memo } = parsed.data;
 
     // AI 라우팅 실행
     const routingResult = await routeMemo(memo);

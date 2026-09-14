@@ -2,8 +2,14 @@
  * POST /api/broker/share-link/revoke — 공유 링크 폐기
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod/v4';
 import { revokeShareLink } from '@/domain/distribution/share-link-service';
 import { requireBroker } from '@/lib/auth-guard';
+
+const RevokeShareLinkSchema = z.object({
+  token: z.string().min(1, 'token is required'),
+  brokerId: z.string().min(1, 'brokerId is required'),
+});
 
 export async function POST(req: NextRequest) {
   // Auth guard — 미인증 요청 차단
@@ -11,11 +17,16 @@ export async function POST(req: NextRequest) {
   if (auth.error) return auth.error;
 
   try {
-    const { token, brokerId } = await req.json();
-
-    if (!token || !brokerId) {
-      return NextResponse.json({ error: 'token and brokerId required' }, { status: 400 });
+    const body = await req.json();
+    const parsed = RevokeShareLinkSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid revoke request', details: parsed.error.issues },
+        { status: 400 }
+      );
     }
+
+    const { token, brokerId } = parsed.data;
 
     const success = await revokeShareLink(token, brokerId);
 

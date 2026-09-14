@@ -1,12 +1,25 @@
 import { NextResponse } from "next/server";
+import { z } from "zod/v4";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { escapeIlike } from "@/lib/utils/postgrest-escape";
-
 import { createModuleLogger } from '@/lib/logger';
+
 const log = createModuleLogger('route');
 
-
 export const dynamic = 'force-dynamic';
+
+const SaveMemoSchema = z.object({
+  memoText: z.string().min(1, "Memo text is required").max(10000),
+  routingType: z.string().max(50).optional().default('general_note'),
+  routingSummary: z.string().max(2000).optional().default(''),
+});
+
+const GetMemosQuerySchema = z.object({
+  q: z.string().max(200).optional().default(''),
+  type: z.string().max(50).optional().default(''),
+  pinned: z.enum(['true', 'false', '']).optional().default(''),
+  status: z.enum(['saved', 'archived', 'converted', 'all']).optional().default('saved'),
+});
 
 export async function POST(req: Request) {
   try {
@@ -17,11 +30,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const { memoText, routingType, routingSummary } = await req.json();
-
-    if (!memoText) {
-      return NextResponse.json({ ok: false, error: "Memo text is required" }, { status: 400 });
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
     }
+
+    const parsed = SaveMemoSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ ok: false, error: parsed.error.issues[0]?.message || "Memo text is required" }, { status: 400 });
+    }
+
+    const { memoText, routingType, routingSummary } = parsed.data;
 
     // Try to insert into broker_memos. If table doesn't exist (migrations pending), fallback to activity_events
     const { data: memoData, error: memoError } = await supabase
@@ -72,10 +93,18 @@ export async function GET(req: Request) {
     }
 
     const url = new URL(req.url);
-    const q = url.searchParams.get("q")?.trim() || "";
-    const type = url.searchParams.get("type") || "";
-    const pinned = url.searchParams.get("pinned") || "";
-    const statusFilter = url.searchParams.get("status") || "saved";
+    const parsedQuery = GetMemosQuerySchema.safeParse({
+      q: url.searchParams.get("q")?.trim() || "",
+      type: url.searchParams.get("type") || "",
+      pinned: url.searchParams.get("pinned") || "",
+      status: url.searchParams.get("status") || "saved",
+    });
+
+    if (!parsedQuery.success) {
+      return NextResponse.json({ ok: false, error: "Invalid query parameters" }, { status: 400 });
+    }
+
+    const { q, type, pinned, status: statusFilter } = parsedQuery.data;
 
     // Build query
     let query = supabase
@@ -178,4 +207,3 @@ export async function GET(req: Request) {
     );
   }
 }
-

@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
+import { z } from "zod/v4";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-
 import { createModuleLogger } from '@/lib/logger';
+
 const log = createModuleLogger('route');
 
+const ConfirmBookingSchema = z.object({
+  bookingId: z.string().min(1, "bookingId가 누락되었습니다."),
+});
 
 // POST /api/broker/schedule/confirm - Hold 상태의 임장 예약을 최종 확정
 export async function POST(request: Request) {
@@ -15,12 +19,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { bookingId } = body;
-
-    if (!bookingId) {
-      return NextResponse.json({ error: "bookingId가 누락되었습니다." }, { status: 400 });
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
+
+    const parsed = ConfirmBookingSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || "bookingId가 누락되었습니다." }, { status: 400 });
+    }
+
+    const { bookingId } = parsed.data;
 
     // 1. 예약 데이터 조회 및 소유권 확인
     const { data: booking, error: getError } = await supabase

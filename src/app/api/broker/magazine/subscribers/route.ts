@@ -1,10 +1,27 @@
 import { NextResponse } from "next/server";
+import { z } from "zod/v4";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getBuyerTemperature } from "@/domain/magazine/buyer-temperature";
-
 import { createModuleLogger } from '@/lib/logger';
+
 const log = createModuleLogger('route');
 
+const GetSubscribersQuerySchema = z.object({
+  status: z.enum(['active', 'paused', 'unsubscribed']).optional(),
+  channel: z.enum(['kakao', 'email', 'both']).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+const CreateSubscriberSchema = z.object({
+  phone: z.string().min(1, "이름과 전화번호는 필수 입력 항목입니다."),
+  name: z.string().min(1, "이름과 전화번호는 필수 입력 항목입니다.").max(100),
+  email: z.string().email().optional().nullable().or(z.literal("")),
+  channel: z.enum(["kakao", "email", "both"]).default("kakao"),
+  client_id: z.string().optional().nullable(),
+  interest_tags: z.record(z.string(), z.any()).optional(),
+  interest_profile: z.record(z.string(), z.any()).optional(),
+});
 
 // GET /api/broker/magazine/subscribers - 내 구독자 목록 조회 (매수 온도 포함)
 export async function GET(request: Request) {
@@ -17,10 +34,18 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status"); // active, paused, unsubscribed
-    const channel = searchParams.get("channel"); // kakao, email, both
-    const limit = parseInt(searchParams.get("limit") || "50");
-    const offset = parseInt(searchParams.get("offset") || "0");
+    const parsedQuery = GetSubscribersQuerySchema.safeParse({
+      status: searchParams.get("status") || undefined,
+      channel: searchParams.get("channel") || undefined,
+      limit: searchParams.get("limit") || undefined,
+      offset: searchParams.get("offset") || undefined,
+    });
+
+    if (!parsedQuery.success) {
+      return NextResponse.json({ error: "잘못된 쿼리 파라미터입니다.", details: parsedQuery.error.issues }, { status: 400 });
+    }
+
+    const { status, channel, limit, offset } = parsedQuery.data;
 
     let query = supabase
       .from("magazine_subscribers")
@@ -73,13 +98,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { phone, name, email, channel, client_id, interest_tags, interest_profile } = body;
-
-    if (!phone || !name) {
-      return NextResponse.json({ error: "이름과 전화번호는 필수 입력 항목입니다." }, { status: 400 });
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
+    const parsed = CreateSubscriberSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || "이름과 전화번호는 필수 입력 항목입니다.", details: parsed.error.issues },
+        { status: 400 }
+      );
+    }
+
+    const { phone, name, email, channel, client_id, interest_tags, interest_profile } = parsed.data;
     const formattedPhone = phone.replace(/[^0-9]/g, "");
 
     const { data, error } = await supabase

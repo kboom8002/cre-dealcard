@@ -1,10 +1,19 @@
 import { NextResponse } from "next/server";
+import { z } from "zod/v4";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createBookingFromMatch } from "@/domain/scheduling/booking-orchestrator";
-
 import { createModuleLogger } from '@/lib/logger';
+
 const log = createModuleLogger('route');
 
+const BookSlotSchema = z.object({
+  slotId: z.string().min(1, "slotId is required"),
+  requesterId: z.string().min(1, "requesterId is required"),
+  gateRequestId: z.string().optional().nullable(),
+  matchResultId: z.string().optional().nullable(),
+  fitScore: z.number().optional(),
+  pricing: z.any().optional(),
+});
 
 // POST /api/broker/schedule/book - 임장 예약 슬롯 Hold 신청 (CAS 낙관적 락 패턴)
 export async function POST(request: Request) {
@@ -16,12 +25,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { slotId, requesterId, gateRequestId, matchResultId, fitScore, pricing } = body;
-
-    if (!slotId || !requesterId) {
-      return NextResponse.json({ error: "필수 파라미터가 누락되었습니다. (slotId, requesterId)" }, { status: 400 });
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
+
+    const parsed = BookSlotSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "필수 파라미터가 누락되었거나 유효하지 않습니다.", details: parsed.error.issues },
+        { status: 400 }
+      );
+    }
+
+    const { slotId, requesterId, gateRequestId, matchResultId } = parsed.data;
 
     // 오케스트레이터를 호출하여 Compare-And-Swap 방식으로 Hold 트랜잭션 수행
     const result = await createBookingFromMatch({

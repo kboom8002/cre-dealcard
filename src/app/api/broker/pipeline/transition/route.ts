@@ -4,12 +4,24 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { requireBroker } from '@/lib/auth-guard';
 import { DealStage, validateBridgeTransition } from '@/domain/pipeline/bridge-state-machine';
 
+const DEAL_STAGES = [
+  'memo_input',
+  'deal_card_created',
+  'gate_requested',
+  'im_created',
+  'buyer_meeting',
+  'loi',
+  'contract',
+  'closed',
+  'failed',
+] as const;
+
 const TransitionSchema = z.object({
   dealId: z.string().uuid(),
   buildingId: z.string().uuid(),
-  from: z.string() as z.ZodType<DealStage>,
-  to: z.string() as z.ZodType<DealStage>,
-  metadata: z.record(z.string(), z.any()),
+  from: z.enum(DEAL_STAGES),
+  to: z.enum(DEAL_STAGES),
+  metadata: z.record(z.string(), z.any()).default({}),
 });
 
 export async function POST(req: NextRequest) {

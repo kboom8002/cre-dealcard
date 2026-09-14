@@ -3,9 +3,25 @@
  * GET  /api/broker/share-link — 내 링크 목록 조회
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod/v4';
 import { createServiceClient } from '@/lib/supabase/service';
 import { createShareLink } from '@/domain/distribution/share-link-service';
 import { requireBroker } from '@/lib/auth-guard';
+
+const CreateShareLinkSchema = z.object({
+  tenantId: z.string().min(1, 'tenantId is required'),
+  dealId: z.string().min(1, 'dealId is required'),
+  dealVersion: z.number().int().positive().optional(),
+  tier: z.enum(['teaser', 'basic']),
+  brokerId: z.string().min(1, 'brokerId is required'),
+  recipientId: z.string().optional(),
+  expiresInDays: z.number().int().min(1).max(365).optional(),
+});
+
+const GetShareLinksQuerySchema = z.object({
+  brokerId: z.string().min(1, 'brokerId required'),
+  dealId: z.string().optional(),
+});
 
 export async function POST(req: NextRequest) {
   // Auth guard — 미인증 요청 차단
@@ -14,15 +30,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { tenantId, dealId, dealVersion, tier, brokerId, recipientId, expiresInDays } = body;
-
-    if (!tenantId || !dealId || !tier || !brokerId) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const parsed = CreateShareLinkSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid share link payload', details: parsed.error.issues },
+        { status: 400 }
+      );
     }
 
-    if (!['teaser', 'basic'].includes(tier)) {
-      return NextResponse.json({ error: 'Invalid tier' }, { status: 400 });
-    }
+    const { tenantId, dealId, dealVersion, tier, brokerId, recipientId, expiresInDays } = parsed.data;
 
     const link = await createShareLink({
       tenantId,
@@ -47,12 +63,19 @@ export async function GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url);
-    const brokerId = searchParams.get('brokerId');
-    const dealId = searchParams.get('dealId');
+    const parsed = GetShareLinksQuerySchema.safeParse({
+      brokerId: searchParams.get('brokerId') ?? undefined,
+      dealId: searchParams.get('dealId') ?? undefined,
+    });
 
-    if (!brokerId) {
-      return NextResponse.json({ error: 'brokerId required' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid query parameters', details: parsed.error.issues },
+        { status: 400 }
+      );
     }
+
+    const { brokerId, dealId } = parsed.data;
 
     const supabase = createServiceClient();
     let query = supabase

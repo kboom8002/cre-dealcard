@@ -1,29 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod/v4";
 import { createServiceClient } from "@/lib/supabase/service";
 import { escapeIlike } from "@/lib/utils/postgrest-escape";
-
 import { createModuleLogger } from '@/lib/logger';
+
 const log = createModuleLogger('route');
 
+const PublicSearchQuerySchema = z.object({
+  type: z.enum(['deal', 'space', 'market', 'broker']).default('deal'),
+  region: z.string().max(50).default(''),
+  q: z.string().max(100).default(''),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(24),
+});
 
 /**
  * GET /api/public/search
  * Unified public search API for deals, spaces, market pulse, and brokers.
- * Params:
- *  - type: deal | space | market | broker (default: deal)
- *  - region: gbd | ybd | cbd | seongsu | pangyo | all (default: all)
- *  - q: keyword (default: "")
- *  - page: page number (default: 1)
- *  - limit: items per page (default: 24)
  */
 export async function GET(req: NextRequest) {
-  const { searchParams } = req.nextUrl;
-  const type = searchParams.get("type") ?? "deal";
-  const region = searchParams.get("region") ?? "";
-  const q = searchParams.get("q") ?? "";
-  const page = parseInt(searchParams.get("page") ?? "1", 10);
-  const limit = parseInt(searchParams.get("limit") ?? "24", 10);
+  const parsed = PublicSearchQuerySchema.safeParse({
+    type: req.nextUrl.searchParams.get("type") ?? undefined,
+    region: req.nextUrl.searchParams.get("region") ?? undefined,
+    q: req.nextUrl.searchParams.get("q") ?? undefined,
+    page: req.nextUrl.searchParams.get("page") ?? undefined,
+    limit: req.nextUrl.searchParams.get("limit") ?? undefined,
+  });
 
+  if (!parsed.success) {
+    return NextResponse.json({ error: "잘못된 검색 파라미터입니다.", details: parsed.error.issues }, { status: 400 });
+  }
+
+  const { type, region, q, page, limit } = parsed.data;
   const safeQ = escapeIlike(q.replace(/[,()"\\]/g, ''));
 
   const supabase = createServiceClient();
