@@ -8,9 +8,16 @@ import Link from "next/link";
 import Script from "next/script";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { EditorAiAssistTab } from "@/components/magazine-editor/EditorAiAssistTab";
-import { EditorOutreachTab } from "@/components/magazine-editor/EditorOutreachTab";
-import { NewsCurationPanel } from "@/components/magazine-editor/NewsCurationPanel";
+import {
+  EditorAiAssistTab,
+  EditorOutreachTab,
+  NewsCurationPanel,
+  EditorCoverTab,
+  EditorFieldNoteTab,
+  EditorThemeDealsTab,
+  MagazinePhonePreview,
+  MagazineShareModal,
+} from "@/components/magazine-editor";
 import {
   Save,
   Eye,
@@ -826,321 +833,46 @@ function MagazineEditorInner() {
       // ━━━ 커버 탭 ━━━
       case "cover":
         return (
-          <div className="space-y-5">
-            {/* 안내 */}
-            <div className="flex items-start gap-2 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
-              <Info className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
-              <p className="text-[11px] text-indigo-200/80 leading-relaxed">
-                매거진 커버를 구성합니다. 시장 온도, 키워드, AI 브리핑을 설정하세요.
-                변경사항은 실시간으로 우측 미리보기에 반영됩니다.
-              </p>
-            </div>
-
-            {/* 시장 온도 */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-300">
-                시장 온도
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {MARKET_TEMPS.map((temp) => {
-                  const cfg = MARKET_TEMP_CONFIG[temp];
-                  const isActive = marketTemp === temp;
-                  return (
-                    <motion.button
-                      key={temp}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setMarketTemp(isActive ? null : temp)}
-                      className={`flex items-center gap-1.5 text-[11px] font-bold px-3 py-2 rounded-xl border transition-all ${
-                        isActive
-                          ? "border-white/30 bg-white/10 text-white shadow-lg"
-                          : "border-slate-700 bg-slate-800/30 text-slate-400 hover:border-slate-600"
-                      }`}
-                      style={isActive ? { borderColor: cfg.color + "60", backgroundColor: cfg.color + "18" } : {}}
-                    >
-                      <span className="text-sm">{cfg.emoji}</span>
-                      {temp}
-                    </motion.button>
-                  );
-                })}
-              </div>
-              {marketTemp && (
-                <motion.p
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-[10px] text-slate-500 leading-relaxed pl-1"
-                >
-                  {MARKET_TEMP_CONFIG[marketTemp].description}
-                </motion.p>
-              )}
-            </div>
-
-            {/* 키워드 뱃지 */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-300">
-                키워드 뱃지 (최대 3개)
-              </label>
-              <div className="flex gap-2">
-                {coverKeywords.map((kw, idx) => (
-                  <input
-                    key={idx}
-                    value={kw}
-                    onChange={(e) => updateKeyword(idx, e.target.value)}
-                    maxLength={12}
-                    className="flex-1 bg-[#0f1523] border border-slate-700 rounded-lg px-3 py-2 text-[12px] text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
-                    placeholder={`키워드 ${idx + 1}`}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* 헤드라인 */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-300">헤드라인</label>
-              <input
-                value={headline}
-                onChange={(e) => setHeadline(e.target.value)}
-                className="w-full bg-[#0f1523] border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
-                placeholder="매거진 제목을 입력하세요"
-              />
-            </div>
-
-            {/* AI 브리핑 */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-300">AI 브리핑</label>
-              <textarea
-                value={briefing}
-                onChange={(e) => setBriefing(e.target.value)}
-                className="w-full h-40 bg-[#0f1523] border border-slate-700 rounded-xl px-4 py-3 text-[13px] text-slate-300 leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none placeholder:text-slate-600"
-                placeholder="고객에게 전달할 핵심 메시지를 입력하세요"
-              />
-            </div>
-
-            {/* 커버 이미지 */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-300">
-                커버 배경 이미지
-              </label>
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-2 rounded-lg border border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition-all cursor-pointer">
-                  <Upload className="w-3.5 h-3.5" />
-                  파일 업로드
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const toastId = toast.loading("이미지 업로드 중...");
-                      try {
-                        const supabase = createClient();
-                        const fileExt = file.name.split('.').pop();
-                        const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-                        const filePath = `${Date.now()}-${fileName}`;
-                        const { error: uploadError } = await supabase.storage
-                          .from('magazine-covers')
-                          .upload(filePath, file);
-                        if (uploadError) throw uploadError;
-                        const { data: { publicUrl } } = supabase.storage
-                          .from('magazine-covers')
-                          .getPublicUrl(filePath);
-                        setCoverImageUrl(publicUrl);
-                        toast.success("업로드 완료", { id: toastId });
-                      } catch (err) {
-                        toast.error("업로드 실패", { id: toastId });
-                      }
-                    }}
-                  />
-                </label>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    const url = prompt("이미지 URL을 입력하세요:");
-                    if (url) setCoverImageUrl(url);
-                  }}
-                  className="flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-2 rounded-lg border border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition-all"
-                >
-                  <Link2 className="w-3.5 h-3.5" />
-                  URL 입력
-                </motion.button>
-                {coverImageUrl && (
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="text-[10px] text-indigo-300 truncate flex-1">
-                      {coverImageUrl}
-                    </span>
-                    <button
-                      onClick={() => setCoverImageUrl(null)}
-                      className="text-slate-500 hover:text-slate-300 flex-shrink-0"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          <EditorCoverTab
+            marketTemp={marketTemp}
+            setMarketTemp={setMarketTemp}
+            coverKeywords={coverKeywords}
+            updateKeyword={updateKeyword}
+            headline={headline}
+            setHeadline={setHeadline}
+            briefing={briefing}
+            setBriefing={setBriefing}
+            coverImageUrl={coverImageUrl}
+            setCoverImageUrl={setCoverImageUrl}
+          />
         );
 
       // ━━━ 필드노트 탭 ━━━
       case "field_note":
         return (
-          <div className="space-y-4">
-            <div className="flex items-start gap-2 p-3 bg-amber-500/8 border border-amber-500/15 rounded-xl">
-              <PenLine className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-              <p className="text-[11px] text-amber-200/80 leading-relaxed">
-                현장 전문가로서 이번 주 시장에 대한 직접 분석을 작성하세요.
-                독자들이 가장 신뢰하는 섹션입니다.
-              </p>
-            </div>
-
-            {FIELD_NOTE_FIELDS.map((field) => (
-              <div key={field.key} className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <label className="text-xs font-semibold text-slate-300">
-                    {field.label}
-                  </label>
-                  <button
-                    onClick={() =>
-                      setActiveTooltip(
-                        activeTooltip === field.key ? null : field.key
-                      )
-                    }
-                    className="text-slate-500 hover:text-slate-300 transition-colors"
-                  >
-                    <Info className="w-3 h-3" />
-                  </button>
-                </div>
-                <AnimatePresence>
-                  {activeTooltip === field.key && (
-                    <motion.p
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="text-[10px] text-slate-500 leading-relaxed pl-1 overflow-hidden"
-                    >
-                      {field.tooltip}
-                    </motion.p>
-                  )}
-                </AnimatePresence>
-                <textarea
-                  value={fieldNote[field.key]}
-                  onChange={(e) => updateFieldNote(field.key, e.target.value)}
-                  className="w-full h-20 bg-[#0f1523] border border-slate-700 rounded-xl px-4 py-3 text-[12px] text-slate-300 leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none placeholder:text-slate-600"
-                  placeholder={field.placeholder}
-                />
-              </div>
-            ))}
-          </div>
+          <EditorFieldNoteTab
+            fieldNote={fieldNote}
+            updateFieldNote={updateFieldNote}
+            activeTooltip={activeTooltip}
+            setActiveTooltip={setActiveTooltip}
+          />
         );
 
       // ━━━ 테마&매물 탭 ━━━
       case "theme_deals":
         return (
-          <div className="space-y-5">
-            {/* 테마 섹션 */}
-            <div className="space-y-3 p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
-              <div className="flex items-center gap-2">
-                <Target className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="text-xs font-bold text-slate-200">금주의 테마</span>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-semibold text-slate-400">
-                  테마 제목
-                </label>
-                <input
-                  value={themeTitle}
-                  onChange={(e) => setThemeTitle(e.target.value)}
-                  className="w-full bg-[#0f1523] border border-slate-700 rounded-lg px-3 py-2.5 text-[12px] text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
-                  placeholder="예: 강남 오피스 공실률 반전의 신호"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-semibold text-slate-400">
-                  테마 본문 (마크다운)
-                </label>
-                <textarea
-                  value={themeBodyMd}
-                  onChange={(e) => setThemeBodyMd(e.target.value)}
-                  className="w-full h-32 bg-[#0f1523] border border-slate-700 rounded-lg px-3 py-2.5 text-[12px] text-slate-300 leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all resize-none placeholder:text-slate-600 font-mono"
-                  placeholder="테마에 대한 심층 분석을 작성하세요...&#10;&#10;마크다운 형식을 지원합니다."
-                />
-              </div>
-            </div>
-
-            {/* 매물 선택 */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-semibold text-slate-300">
-                  주목 매물 ({selectedDealIds.size}/{allDeals.length})
-                </p>
-                <span className="text-[10px] text-slate-500">
-                  테마와 연계할 매물을 선택하세요
-                </span>
-              </div>
-
-              {allDeals.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-                  <Building2 className="w-8 h-8 mb-2 opacity-40" />
-                  <p className="text-xs">등록된 매물이 없습니다.</p>
-                </div>
-              ) : (
-                allDeals.map((deal: any, idx: number) => {
-                  const dealId = deal.id;
-                  const isSelected = selectedDealIds.has(dealId);
-                  return (
-                    <motion.button
-                      key={dealId ?? idx}
-                      onClick={() => toggleDeal(dealId)}
-                      whileTap={{ scale: 0.98 }}
-                      className={`w-full text-left p-3 rounded-xl border transition-all duration-200 ${
-                        isSelected
-                          ? "bg-rose-500/8 border-rose-500/25"
-                          : "bg-slate-800/20 border-slate-700/40 opacity-60"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="mt-0.5 flex-shrink-0">
-                          {isSelected ? (
-                            <Check className="w-4 h-4 text-rose-400 bg-rose-500/20 rounded-md p-0.5" />
-                          ) : (
-                            <div className="w-4 h-4 border border-slate-600 rounded-md" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-bold text-white mb-0.5 line-clamp-1">
-                            {deal.assetType || deal.asset_type || "매물"}
-                          </p>
-                          <p className="text-[10px] text-slate-500 line-clamp-1 mb-1.5">
-                            {deal.address}
-                          </p>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {(deal.areaSignal || deal.area_signal) && (
-                              <span className="text-[9px] font-medium text-slate-300 bg-slate-700/60 px-1.5 py-0.5 rounded">
-                                {deal.areaSignal || deal.area_signal}
-                              </span>
-                            )}
-                            {deal.price > 0 && (
-                              <span className="text-[10px] font-extrabold text-indigo-300">
-                                {fmt(deal.price)}
-                              </span>
-                            )}
-                            {deal.buyerInterestCount > 0 && (
-                              <span className="text-[9px] text-rose-300 bg-rose-500/12 px-1.5 py-0.5 rounded-full">
-                                관심 {deal.buyerInterestCount}명
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </motion.button>
-                  );
-                })
-              )}
-            </div>
-          </div>
+          <EditorThemeDealsTab
+            themeTitle={themeTitle}
+            setThemeTitle={setThemeTitle}
+            themeBodyMd={themeBodyMd}
+            setThemeBodyMd={setThemeBodyMd}
+            allDeals={allDeals}
+            selectedDealIds={selectedDealIds}
+            toggleDeal={toggleDeal}
+            fmt={fmt}
+          />
         );
+
 
       // ━━━ 뉴스큐레이션 탭 ━━━
       case "news":
@@ -1904,91 +1636,20 @@ function MagazineEditorInner() {
       </div>
 
       {/* ━━━ 우측 패널: 미리보기 ━━━ */}
-      <div className="flex-1 bg-slate-950 flex items-center justify-center p-4 lg:p-10 overflow-y-auto">
-        <div className="flex flex-col items-center gap-4">
-          {/* 미리보기 라벨 */}
-          <div className="flex items-center gap-2 text-slate-500">
-            <Eye className="w-3.5 h-3.5" />
-            <span className="text-[11px] font-medium">실시간 미리보기</span>
-            <ChevronRight className="w-3 h-3" />
-            <span className="text-[10px] text-slate-600">
-              iPhone 14 Pro (375×812)
-            </span>
-          </div>
-
-          {/* 폰 목업 */}
-          <div className="w-[375px] h-[812px] bg-[#0B1120] border-[8px] border-slate-900 rounded-[3rem] overflow-hidden shadow-2xl relative flex flex-col shrink-0">
-            {/* 노치 */}
-            <div className="absolute top-0 inset-x-0 h-6 bg-slate-900 rounded-b-xl z-20 mx-auto w-40" />
-
-            {/* 매거진 뷰 */}
-            <div className="flex-1 overflow-y-auto w-full no-scrollbar relative">
-              {previewData && (
-                <MagazineView
-                  data={previewData}
-                  brokerId={brokerSlug || "demo"}
-                  date={today}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      <MagazinePhonePreview
+        previewData={previewData}
+        brokerSlug={brokerSlug}
+        today={today}
+      />
 
       {/* ── 공유 모달 ── */}
-      <AnimatePresence>
-        {showShareModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              className="bg-slate-900 border border-slate-800 p-6 rounded-2xl w-full max-w-sm shadow-2xl relative"
-            >
-              <button
-                onClick={() => setShowShareModal(false)}
-                className="absolute top-4 right-4 text-slate-500 hover:text-slate-300"
-              >
-                ✕
-              </button>
+      <MagazineShareModal
+        showShareModal={showShareModal}
+        setShowShareModal={setShowShareModal}
+        handleMagazineKakaoShare={handleMagazineKakaoShare}
+        handleCopyLink={handleCopyLink}
+      />
 
-              <div className="text-center mb-6">
-                <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Check className="w-6 h-6" />
-                </div>
-                <h3 className="text-lg font-bold text-white mb-1">
-                  매거진 발행 완료!
-                </h3>
-                <p className="text-[12px] text-slate-400">
-                  고객들에게 이번 주 매거진을 공유해보세요.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <button
-                  onClick={handleMagazineKakaoShare}
-                  className="w-full flex items-center justify-center gap-2 bg-[#FEE500] hover:bg-[#FEE500]/90 text-[#3C1E1E] font-bold text-sm py-3.5 rounded-xl transition-all"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  카카오톡으로 공유
-                </button>
-                <button
-                  onClick={handleCopyLink}
-                  className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm py-3.5 rounded-xl transition-all border border-slate-700"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  링크 복사하기
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

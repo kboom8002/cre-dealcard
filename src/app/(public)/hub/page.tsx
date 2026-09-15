@@ -16,7 +16,7 @@ import {
 import { HubHeroClient } from "@/components/hub/HubHeroClient";
 import { HubCategoryGrid } from "@/components/hub/HubCategoryGrid";
 import { HubBrokerShowcase } from "@/components/hub/HubBrokerShowcase";
-import { brokerItemList } from "@/lib/schema-org";
+import { serializeJsonLd, brokerItemList } from "@/lib/schema-org";
 
 export const metadata: Metadata = {
   title: "DealCard Hub | 상업용 부동산의 새로운 기준",
@@ -295,7 +295,7 @@ export default async function HubPage() {
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(
+            __html: serializeJsonLd(
               brokerItemList(
                 data.featuredBrokers.map((b) => ({
                   id: b.slug,

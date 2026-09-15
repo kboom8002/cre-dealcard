@@ -24,7 +24,7 @@ const STAGE_COLORS: Record<string, string> = {
   closed: 'bg-primary',
 };
 
-export function PipelineSnapshot({ stages }: PipelineSnapshotProps) {
+function PipelineSnapshotBase({ stages }: PipelineSnapshotProps) {
   const total = stages.reduce((acc, s) => acc + s.count, 0);
   const totalStagnant = stages.reduce((acc, s) => acc + s.stagnant, 0);
 
@@ -68,3 +68,6 @@ export function PipelineSnapshot({ stages }: PipelineSnapshotProps) {
     </div>
   );
 }
+
+export const PipelineSnapshot = React.memo(PipelineSnapshotBase);
+

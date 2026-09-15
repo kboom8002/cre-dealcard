@@ -22,6 +22,7 @@ export interface ArchetypeInput {
 export interface ArchetypeOutput {
   slide: ReturnType<PptxGenJS['addSlide']>;
   warnings: string[];
+  suppress?: boolean;
 }
 
 export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeOutput> {
@@ -37,7 +38,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
   // ── 좌측: 지도 ──
   const coords = input.data?.coordinates ?? null;
   const mapImageUrl = input.data?.mapImageUrl ?? null;
-  const areaOrAddress = (input.data?.left as any)?.source || input.data?.areaSignal || '서울';
+  const areaOrAddress = input.data?.left?.source || input.data?.areaSignal || '서울';
   const poiSpots: MapPoiSpot[] = input.data?.poiSpots ?? [];
 
   // 0-1차: 광역 대중교통망 벡터 다이어그램 (최우선 벡터 맵)
@@ -54,7 +55,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     const optimizedCadastral = await optimizeImageForPptx(input.data.cadastralImage, 1200, 80);
     slide.addImage({ data: optimizedCadastral?.base64 || input.data.cadastralImage, x: M, y: 1.62, w: mapW, h: 4.50 });
   } else {
-    let mapImg: OptimizedImage | null = null;
+    let mapImg: { base64: string } | null = null;
 
     // 1차: 이미 생성된 카카오 지도 URL 사용
     if (mapImageUrl) {
@@ -80,12 +81,12 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
         const { generateMacroTransitDiagram } = await import('@/services/macro-transit-engine');
         const transitResult = await generateMacroTransitDiagram({
           address: targetAddress,
-          propertyName: input.data?.title || (input.data?.left as any)?.sub || '대상 자산',
+          propertyName: input.data?.title || input.data?.left?.sub || '대상 자산',
           coordinates: coords,
         });
         if (transitResult?.base64) {
           const opt = await optimizeImageForPptx(transitResult.base64, 1200, 80);
-          mapImg = opt || ({ base64: transitResult.base64 } as any);
+          mapImg = opt || { base64: transitResult.base64 };
         }
       } catch (err) {
         log.warn('[a06-diagram] Auto-generation of macro transit diagram failed:', err);
@@ -97,15 +98,14 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     } else {
       // D33 BL-E: 지도 없으면 면 생략, 체크리스트 이관 (유령 백지 슬라이드 방지를 위해 pres에서 슬라이드 제거)
       warnings.push('[BL-E] 지도 데이터 미확보 — 슬라이드 생략, 체크리스트 이관');
-      const presAny = input.pres as any;
-      if (Array.isArray(presAny.slides) && presAny.slides.length > 0) {
-        const lastIdx = presAny.slides.length - 1;
-        if (presAny.slides[lastIdx] === slide) {
-          presAny.slides.pop();
+      if (Array.isArray((input.pres as unknown as { slides: PptxGenJS.Slide[] }).slides) && (input.pres as unknown as { slides: PptxGenJS.Slide[] }).slides.length > 0) {
+        const lastIdx = (input.pres as unknown as { slides: PptxGenJS.Slide[] }).slides.length - 1;
+        if ((input.pres as unknown as { slides: PptxGenJS.Slide[] }).slides[lastIdx] === slide) {
+          (input.pres as unknown as { slides: PptxGenJS.Slide[] }).slides.pop();
         }
       }
       L.foot(slide, input.slideNum, input.docno);
-      return { slide, warnings, suppress: true } as any;
+      return { slide, warnings, suppress: true };
     }
   }
 

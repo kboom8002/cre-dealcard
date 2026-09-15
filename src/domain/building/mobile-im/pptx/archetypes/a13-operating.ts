@@ -53,7 +53,7 @@ export function buildA13Operating(input: ArchetypeInput): ArchetypeOutput {
   );
 
   // 수직 구분선
-  slide.addShape('line' as any, {
+  slide.addShape('line', {
     x: M + lw + gap / 2,
     y: 1.50,
     w: 0,

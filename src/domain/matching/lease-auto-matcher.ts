@@ -65,6 +65,9 @@ export async function runLeaseAutoMatcher(
   };
 
   // 4. Run match for each intent
+  const toUpsertMap = new Map<string, any>();
+  const toDeleteIntentIds: string[] = [];
+
   for (const intent of intents) {
     const intentInput: TenantIntentMatchInput = {
       id: intent.id,
@@ -87,26 +90,40 @@ export async function runLeaseAutoMatcher(
       });
 
       if (matchResult.stage1Passed && matchResult.grade !== "C") {
-        // Upsert matching result
-        await supabase
-          .from("lease_match_results")
-          .upsert({
-            lease_space_id: space.id,
-            tenant_intent_id: intent.id,
-            grade: matchResult.grade,
-            score: matchResult.score,
-            reasoning: matchResult.reasoning,
-          });
+        toUpsertMap.set(`${space.id}:${intent.id}`, {
+          lease_space_id: space.id,
+          tenant_intent_id: intent.id,
+          grade: matchResult.grade,
+          score: matchResult.score,
+          reasoning: matchResult.reasoning,
+        });
       } else {
-        // Delete if exists and no longer matches
-        await supabase
-          .from("lease_match_results")
-          .delete()
-          .eq("lease_space_id", space.id)
-          .eq("tenant_intent_id", intent.id);
+        toDeleteIntentIds.push(intent.id);
       }
     } catch (err) {
       log.error(`[LeaseAutoMatcher] Matching failed for intent ${intent.id}:`, err);
+    }
+  }
+
+  // 5. Batch execute upsert and delete
+  const toUpsert = Array.from(toUpsertMap.values());
+  if (toUpsert.length > 0) {
+    const { error: upsertErr } = await supabase
+      .from("lease_match_results")
+      .upsert(toUpsert, { onConflict: "lease_space_id,tenant_intent_id" });
+    if (upsertErr) {
+      log.error("[LeaseAutoMatcher] Bulk upsert failed:", upsertErr);
+    }
+  }
+
+  if (toDeleteIntentIds.length > 0) {
+    const { error: deleteErr } = await supabase
+      .from("lease_match_results")
+      .delete()
+      .eq("lease_space_id", space.id)
+      .in("tenant_intent_id", toDeleteIntentIds);
+    if (deleteErr) {
+      log.error("[LeaseAutoMatcher] Bulk delete failed:", deleteErr);
     }
   }
 }
@@ -165,6 +182,9 @@ export async function runTenantAutoMatcher(
     nice_to_have: intent.nice_to_have || [],
   };
 
+  const toUpsertMap = new Map<string, any>();
+  const toDeleteSpaceIds: string[] = [];
+
   for (const space of spaces) {
     const spaceInput: LeaseSpaceMatchInput = {
       id: space.id,
@@ -191,24 +211,40 @@ export async function runTenantAutoMatcher(
       });
 
       if (matchResult.stage1Passed && matchResult.grade !== "C") {
-        await supabase
-          .from("lease_match_results")
-          .upsert({
-            lease_space_id: space.id,
-            tenant_intent_id: intent.id,
-            grade: matchResult.grade,
-            score: matchResult.score,
-            reasoning: matchResult.reasoning,
-          });
+        toUpsertMap.set(`${space.id}:${intent.id}`, {
+          lease_space_id: space.id,
+          tenant_intent_id: intent.id,
+          grade: matchResult.grade,
+          score: matchResult.score,
+          reasoning: matchResult.reasoning,
+        });
       } else {
-        await supabase
-          .from("lease_match_results")
-          .delete()
-          .eq("lease_space_id", space.id)
-          .eq("tenant_intent_id", intent.id);
+        toDeleteSpaceIds.push(space.id);
       }
     } catch (err) {
       log.error(`[LeaseAutoMatcher] Matching failed for space ${space.id}:`, err);
+    }
+  }
+
+  // 4. Batch execute upsert and delete
+  const toUpsert = Array.from(toUpsertMap.values());
+  if (toUpsert.length > 0) {
+    const { error: upsertErr } = await supabase
+      .from("lease_match_results")
+      .upsert(toUpsert, { onConflict: "lease_space_id,tenant_intent_id" });
+    if (upsertErr) {
+      log.error("[LeaseAutoMatcher] Bulk upsert failed:", upsertErr);
+    }
+  }
+
+  if (toDeleteSpaceIds.length > 0) {
+    const { error: deleteErr } = await supabase
+      .from("lease_match_results")
+      .delete()
+      .eq("tenant_intent_id", intent.id)
+      .in("lease_space_id", toDeleteSpaceIds);
+    if (deleteErr) {
+      log.error("[LeaseAutoMatcher] Bulk delete failed:", deleteErr);
     }
   }
 }

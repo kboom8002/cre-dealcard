@@ -1,5 +1,6 @@
 "use client";
 
+import React, { memo } from "react";
 import Link from "next/link";
 
 interface Props {
@@ -31,7 +32,7 @@ function scoreColor(score: number) {
   return "text-red-400";
 }
 
-export default function PulseCard({
+function PulseCard({
   id, region, periodLabel, pulseScore, trend, summaryKo, keyFindings, seoSlug, sentimentIndex,
 }: Props) {
   const t = trendDisplay(trend);
@@ -102,3 +103,6 @@ export default function PulseCard({
     </Link>
   );
 }
+
+export default memo(PulseCard);
+

@@ -2,6 +2,9 @@
 // 국토교통부 건축물대장 API — 연면적, 대지면적, 층수, 구조, 승인일 조회
 // API 키 없거나 요청 실패 시 null 반환 (graceful degradation)
 import { fetchWithRetry } from './fetch-with-retry';
+import { createModuleLogger } from '@/lib/logger';
+
+const logger = createModuleLogger('building-register-api');
 
 export interface BuildingRegisterData {
   totalArea: number;          // 연면적 (sqm)
@@ -96,7 +99,7 @@ export async function fetchBuildingRegister(
               parseFloat(String(a.totArea || "0")) >= parseFloat(String(b.totArea || "0")) ? a : b
             );
           }
-          console.log(`[building-register-api] ${validItems.length}동 중 "${String(targetItem.mainPurpsCdNm)}" (${String(targetItem.totArea)}㎡) 선택`);
+          logger.info(`${validItems.length}동 중 "${String(targetItem.mainPurpsCdNm)}" (${String(targetItem.totArea)}㎡) 선택`);
         }
 
         return {
@@ -112,7 +115,7 @@ export async function fetchBuildingRegister(
           buildingName: String(targetItem.bldNm || ""),
         };
       } catch (err) {
-        console.warn("[building-register-api] endpoint failed, trying next:", err);
+        logger.warn("endpoint failed, trying next:", err);
       }
     }
   }
@@ -166,7 +169,7 @@ export async function fetchBuildingRecap(
           };
         }
       } catch (err) {
-        console.warn("[building-register-api] Recap endpoint failed, trying next:", err);
+        logger.warn("Recap endpoint failed, trying next", { err });
       }
     }
   }

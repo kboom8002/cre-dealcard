@@ -94,6 +94,7 @@ export async function trackNaverCommunity(supabase: SupabaseClient): Promise<any
 
   const today = new Date().toISOString().slice(0, 10);
   const results: any[] = [];
+  const recordsToInsert: any[] = [];
 
   for (const keyword of COMMUNITY_KEYWORDS.slice(0, 5)) { // 일 25,000건 제한 고려, 5개씩
     try {
@@ -106,21 +107,27 @@ export async function trackNaverCommunity(supabase: SupabaseClient): Promise<any
       for (const a of articles) if (a.cafename) cafeFreq[a.cafename] = (cafeFreq[a.cafename] || 0) + 1;
       const topCafe = Object.entries(cafeFreq).sort(([, a], [, b]) => b - a)[0]?.[0] || "네이버 카페";
 
-      const record = {
+      recordsToInsert.push({
         keyword,
         source: topCafe,
         sentiment_score: sentimentScore,
         mention_count: mentionCount * 34, // API는 10개만 반환, 실제 언급수 추정
         analysis_date: today,
-      };
-
-      const { data, error } = await supabase.from("social_sentiment").insert(record).select().single();
-      if (!error && data) results.push(data);
+      });
 
       // API Rate limit 준수 (초당 10건)
       await new Promise(r => setTimeout(r, 120));
     } catch (err) {
       log.warn(`[Naver] Keyword "${keyword}" failed:`, err);
+    }
+  }
+
+  if (recordsToInsert.length > 0) {
+    const { data, error } = await supabase.from("social_sentiment").insert(recordsToInsert).select();
+    if (!error && data) {
+      results.push(...data);
+    } else if (error) {
+      log.warn("[Naver] Bulk insert into social_sentiment failed:", error);
     }
   }
 
@@ -142,6 +149,7 @@ export async function crawlNaverCRENews(supabase: SupabaseClient): Promise<any[]
     { query: "서울시 도시계획 재개발", topic: "development", score: 6 },
   ];
   const results: any[] = [];
+  const newsMap = new Map<string, any>();
 
   for (const kw of newsKeywords) {
     try {
@@ -205,8 +213,9 @@ export async function crawlNaverCRENews(supabase: SupabaseClient): Promise<any[]
         if (/여의도|영등포|마포|YBD/.test(fullText)) regions.push("ybd");
         if (regions.length === 0) regions.push("all");
 
-        const { data, error } = await supabase.from("external_news").upsert({
-          url: item.link || item.originallink || `https://naver-news-${Date.now()}-${Math.random()}`,
+        const newsUrl = item.link || item.originallink || `https://naver-news-${Date.now()}-${Math.random()}`;
+        newsMap.set(newsUrl, {
+          url: newsUrl,
           title: `[네이버뉴스] ${title}`,
           source: "네이버뉴스",
           summary,
@@ -215,9 +224,7 @@ export async function crawlNaverCRENews(supabase: SupabaseClient): Promise<any[]
           importance_score: kw.score,
           regions,
           topic: kw.topic,
-        }, { onConflict: "url" }).select().single();
-
-        if (!error && data) results.push(data);
+        });
       }
 
       await new Promise(r => setTimeout(r, 120));
@@ -225,6 +232,20 @@ export async function crawlNaverCRENews(supabase: SupabaseClient): Promise<any[]
       log.warn(`[NaverNews] "${kw.query}" failed:`, err);
     }
   }
+
+  const newsToUpsert = Array.from(newsMap.values());
+  if (newsToUpsert.length > 0) {
+    const { data, error } = await supabase
+      .from("external_news")
+      .upsert(newsToUpsert, { onConflict: "url" })
+      .select();
+    if (!error && data) {
+      results.push(...data);
+    } else if (error) {
+      log.warn("[NaverNews] Bulk upsert into external_news failed:", error);
+    }
+  }
+
   return results;
 }
 

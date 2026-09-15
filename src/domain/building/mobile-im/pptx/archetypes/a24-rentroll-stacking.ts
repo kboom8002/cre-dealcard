@@ -145,7 +145,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       legendX += 0.8;
     });
     // Add Vacant legend
-    slide.addShape('rect', { x: legendX, y: spY, w: 0.15, h: 0.15, fill: { color: 'FBEFE8' }, line: { dashType: 'dash', color: 'B05A2E', width: 1.0 } as any });
+    slide.addShape('rect', { x: legendX, y: spY, w: 0.15, h: 0.15, fill: { color: 'FBEFE8' }, line: { dashType: 'dash' as const, color: 'B05A2E', width: 1.0 } });
     slide.addText('공실', { x: legendX + 0.2, y: spY, w: 0.6, h: 0.15, fontSize: 9, color: 'B05A2E', fontFace: KR, bold: true });
 
     // Render bars (bottom to top)
@@ -164,7 +164,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       const groundY = baseDrawY - (bCount * hPerFloor);
       slide.addShape('line', {
         x: spX + 0.2, y: groundY, w: spW - 0.4, h: 0,
-        line: { color: 'CBD5E0', width: 1.5, dashType: 'dash' } as any
+        line: { color: 'CBD5E0', width: 1.5, dashType: 'dash' as const }
       });
       slide.addText('GL (지상/지하 경계)', {
         x: spX + 0.2, y: groundY - 0.2, w: 2.0, h: 0.2,
@@ -206,7 +206,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         slide.addShape('rect', {
           x: barX, y: currentY + 0.03, w: barW, h: hPerFloor - 0.06,
           fill: { color: fillCol },
-          line: { dashType: 'dash', color: 'B05A2E', width: 1.2 } as any
+          line: { dashType: 'dash' as const, color: 'B05A2E', width: 1.2 }
         });
       } else {
         slide.addShape('rect', {

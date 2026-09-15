@@ -18,6 +18,13 @@
 const BASE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "https://credeal.net";
 
+/**
+ * Safely serialize an object for JSON-LD script tags, mitigating XSS risks.
+ */
+export function serializeJsonLd(obj: unknown): string {
+  return JSON.stringify(obj).replace(/</g, '\\u003c');
+}
+
 /* ── Types ──────────────────────────────────────────────────────── */
 
 export interface BuildingForSchema {

@@ -8,6 +8,9 @@
 
 import { createHash } from "crypto";
 import { LRUCache } from "lru-cache";
+import { createModuleLogger } from "@/lib/logger";
+
+const logger = createModuleLogger("semantic-prompt-cache");
 
 interface CacheEntry {
   response: string;
@@ -41,7 +44,7 @@ class SemanticPromptCache {
     }
     
     this.metrics.hits++;
-    console.info(`[Cache] Hit for key: ${key}`);
+    logger.info(`Hit for key: ${key}`);
     return entry.response;
   }
 
@@ -51,7 +54,7 @@ class SemanticPromptCache {
   async set(key: string, response: string, ttlSeconds: number = 3600): Promise<void> {
     this.metrics.sets++;
     this.cache.set(key, { response }, { ttl: ttlSeconds * 1000 });
-    console.info(`[Cache] Set for key: ${key}`);
+    logger.info(`Set for key: ${key}`);
   }
 
   /**
@@ -65,7 +68,7 @@ class SemanticPromptCache {
         count++;
       }
     }
-    console.info(`[Cache] Invalidated ${count} entries for section: ${sectionType}`);
+    logger.info(`Invalidated ${count} entries for section: ${sectionType}`);
   }
 
   getMetrics() {

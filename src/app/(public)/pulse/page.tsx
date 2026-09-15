@@ -7,6 +7,7 @@ import PulseCard from "@/components/pulse/PulseCard";
 import OiticleCard from "@/components/pulse/OiticleCard";
 import { OITICLE_TYPES } from "@/domain/pulse/oiticle-types";
 import type { OiticleTypeCode, OiticleAuthorType } from "@/domain/pulse/oiticle-types";
+import { serializeJsonLd } from "@/lib/schema-org";
 
 export const revalidate = 1800; // 30분
 
@@ -114,7 +115,7 @@ export default async function PulseMainPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: serializeJsonLd({
             "@context": "https://schema.org",
             "@type": "CollectionPage",
             name: "CRE 시장 인텔리전스",

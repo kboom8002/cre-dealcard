@@ -1,5 +1,4 @@
-"use client";
-
+import React, { memo } from "react";
 import Link from "next/link";
 import { OITICLE_TYPES, AUTHOR_TYPE_META } from "@/domain/pulse/oiticle-types";
 import type { OiticleTypeCode, OiticleAuthorType } from "@/domain/pulse/oiticle-types";
@@ -29,7 +28,7 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
 }
 
-export default function OiticleCard({
+function OiticleCardBase({
   id, oiticleType, title, slug, excerpt,
   authorType, authorName, regions, tags,
   views, likes, publishedAt,
@@ -86,3 +85,5 @@ export default function OiticleCard({
     </Link>
   );
 }
+
+export default memo(OiticleCardBase);

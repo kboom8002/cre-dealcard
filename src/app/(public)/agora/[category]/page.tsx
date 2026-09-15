@@ -4,7 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import AgoraThreadCard from "@/components/agora/AgoraThreadCard";
 import { CATEGORY_META } from "@/domain/agora/qis-seed-generator";
 import type { AgoraCategory } from "@/domain/agora/qis-seed-generator";
-import { faqPage } from "@/lib/schema-org";
+import { serializeJsonLd, faqPage } from "@/lib/schema-org";
 
 export const revalidate = 3600;
 
@@ -83,7 +83,7 @@ export default async function AgoraCategoryPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(faqPage(faqItems)).replace(/</g, "\\u003c"),
+          __html: serializeJsonLd(faqPage(faqItems)).replace(/</g, "\\u003c"),
         }}
       />
 

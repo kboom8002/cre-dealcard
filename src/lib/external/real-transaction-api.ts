@@ -2,6 +2,9 @@
 // 국토교통부 상업업무용 부동산 매매 신고 조회 API — 주변 실거래 비교 사례
 import { fetchWithRetry } from './fetch-with-retry';
 import { SQM_RATIO } from '@/lib/utils/area-conversion';
+import { createModuleLogger } from '@/lib/logger';
+
+const logger = createModuleLogger('real-transaction-api');
 
 export interface ComparableTransaction {
   address: string;               // 주소
@@ -87,7 +90,7 @@ export async function fetchComparableTransactions(
           allResults.push(...parsed);
         }
       } catch (err) {
-        console.warn(`[real-transaction-api] API failed for ${ym}:`, err);
+        logger.warn(`API failed for ${ym}`, { err });
       }
     }));
 

@@ -13,3 +13,6 @@ export { DataGradeFooter } from "./DataGradeFooter";
 export { PhotoApprovalSection } from "./PhotoApprovalSection"; // D30 §5
 export { AcquisitionCostSection } from "./AcquisitionCostSection"; // D41 Phase D
 export { LoanScenarioSection } from "./LoanScenarioSection"; // D41 Phase D
+export { ManualCompsSection } from "./ManualCompsSection";
+export { LoanStatusSection } from "./LoanStatusSection";
+export { AncillaryIncomeSection } from "./AncillaryIncomeSection";

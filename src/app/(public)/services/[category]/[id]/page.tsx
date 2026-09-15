@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { VENDOR_CATEGORY_META } from "@/domain/vendor/vendor-tier";
 import type { VendorCategory, VendorTier } from "@/domain/vendor/vendor-tier";
-import { breadcrumb } from "@/lib/schema-org";
+import { serializeJsonLd, breadcrumb } from "@/lib/schema-org";
 
 export const revalidate = 3600;
 
@@ -126,12 +126,12 @@ export default async function ServiceCardDetailPage({ params }: { params: Params
     <div className="min-h-screen bg-[#0b0f19] text-slate-100">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(schemaData) }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(breadcrumbSchema).replace(/</g, "\\u003c"),
+          __html: serializeJsonLd(breadcrumbSchema).replace(/</g, "\\u003c"),
         }}
       />
 

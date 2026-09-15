@@ -56,7 +56,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       color: C.ink, fontFace: KR, fontSize: 15, bold: true,
     });
     // Brass 강조선
-    slide.addShape('line' as any, {
+    slide.addShape('line', {
       x: M, y: 1.85, w: CW, h: 0,
       line: { color: C.brass, width: 1.5 },
     });
@@ -284,7 +284,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       // D41: y 경계를 6.75까지 확장 (기존 6.5 → 6.75, 풋터 공간 0.25 확보)
       if (ry + rowH <= 6.75) {
         // 배경 박스
-        slide.addShape('roundRect' as any, {
+        slide.addShape('roundRect', {
           x: M, y: ry, w: CW, h: rowH,
           rectRadius: 0.05,
           fill: { color: 'F8F9FA' },
@@ -293,7 +293,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
 
         // 좌측 번호 태그
         const tagH = Math.min(rowH - 0.16, 0.40);
-        slide.addShape('roundRect' as any, {
+        slide.addShape('roundRect', {
           x: M + 0.12, y: ry + (rowH - tagH) / 2, w: 0.45, h: tagH,
           rectRadius: 0.04,
           fill: { color: C.brassT },

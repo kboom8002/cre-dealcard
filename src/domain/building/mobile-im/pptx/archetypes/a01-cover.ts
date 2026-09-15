@@ -29,15 +29,15 @@ export interface ArchetypeOutput {
 function coverInstitutionalMasses(slide: any, input: ArchetypeInput): void {
   const isBasic = THEME_META.presetId === 'credeal_basic';
   // 매스 3개 (우상단 장식 블록)
-  slide.addShape('rect' as any, {
+  slide.addShape('rect', {
     x: 9.05, y: 0, w: 1.55, h: 4.42,
     fill: { color: isBasic ? '132A3A' : '1A2030' },
   });
-  slide.addShape('rect' as any, {
+  slide.addShape('rect', {
     x: 10.70, y: 0.95, w: 1.25, h: 3.47,
     fill: { color: isBasic ? '1A3347' : '161D2B' },
   });
-  slide.addShape('rect' as any, {
+  slide.addShape('rect', {
     x: 12.05, y: 1.85, w: 1.28, h: 2.57,
     fill: { color: isBasic ? '2B4A5E' : '2E2718' },
   });
@@ -55,20 +55,20 @@ function coverInstitutionalMasses(slide: any, input: ArchetypeInput): void {
 function coverSplit(slide: any, input: ArchetypeInput, imgAdded: boolean = false): void {
   if (!imgAdded) {
     // 우측 액센트 패널 (전체 높이)
-    slide.addShape('rect' as any, {
+    slide.addShape('rect', {
       x: 8.50, y: 0, w: 4.833, h: 7.5,
       fill: { color: C.brass },
     });
 
     // 패널 내 대각 장식
-    slide.addShape('rect' as any, {
+    slide.addShape('rect', {
       x: 9.20, y: 0.60, w: 3.60, h: 6.30,
       fill: { color: C.ink, transparency: 88 },
       rotate: 2,
     });
   } else {
     // 이미지가 있는 경우: 태그라인 가독성을 위해 하단에만 반투명 보호 밴드 배치
-    slide.addShape('rect' as any, {
+    slide.addShape('rect', {
       x: 8.50, y: 5.50, w: 4.833, h: 1.20,
       fill: { color: C.ink, transparency: 40 },
     });
@@ -92,19 +92,19 @@ function coverSplit(slide: any, input: ArchetypeInput, imgAdded: boolean = false
 /** hero_dark — 전면 다크, 골드 라인 장식, 대형 타이포 (executive_gold) */
 function coverHeroDark(slide: any, input: ArchetypeInput): void {
   // 상단 액센트 라인 (3px)
-  slide.addShape('rect' as any, {
+  slide.addShape('rect', {
     x: 0, y: 0, w: W, h: 0.05,
     fill: { color: C.brass },
   });
 
   // 하단 액센트 라인
-  slide.addShape('rect' as any, {
+  slide.addShape('rect', {
     x: 0, y: 7.45, w: W, h: 0.05,
     fill: { color: C.brass },
   });
 
   // 중앙 대형 액센트 프레임
-  slide.addShape('rect' as any, {
+  slide.addShape('rect', {
     x: M, y: 1.80, w: CW, h: 3.40,
     fill: { color: C.brass, transparency: 92 },
     line: { color: C.brass, width: 1.5 },
@@ -122,7 +122,7 @@ function coverHeroDark(slide: any, input: ArchetypeInput): void {
 /** corporate_card — 중앙 카드 위에 콘텐츠 (corporate_clean) */
 function coverCorporateCard(slide: any, input: ArchetypeInput): void {
   // 중앙 카드 배경
-  slide.addShape('roundRect' as any, {
+  slide.addShape('roundRect', {
     x: 1.50, y: 1.20, w: 10.33, h: 5.10,
     rectRadius: 0.12,
     fill: { color: CD.card },
@@ -130,7 +130,7 @@ function coverCorporateCard(slide: any, input: ArchetypeInput): void {
   });
 
   // 카드 상단 액센트 바
-  slide.addShape('rect' as any, {
+  slide.addShape('rect', {
     x: 1.50, y: 1.20, w: 10.33, h: 0.06,
     fill: { color: C.brass },
   });
@@ -147,15 +147,15 @@ function coverCorporateCard(slide: any, input: ArchetypeInput): void {
 /** obsidian_glow — 옵시디언 다크 + 글로우 원 (pro_dark_obsidian) */
 function coverObsidianGlow(slide: any, input: ArchetypeInput): void {
   // 글로우 원 (중앙 우측)
-  slide.addShape('ellipse' as any, {
+  slide.addShape('ellipse', {
     x: 7.33, y: 0.50, w: 6.00, h: 6.00,
     fill: { color: '0C2A30' },
   });
-  slide.addShape('ellipse' as any, {
+  slide.addShape('ellipse', {
     x: 9.00, y: 1.50, w: 4.00, h: 4.00,
     fill: { color: '0E3640' },
   });
-  slide.addShape('ellipse' as any, {
+  slide.addShape('ellipse', {
     x: 9.80, y: 2.30, w: 2.40, h: 2.40,
     fill: { color: '134E5E' },
   });
@@ -249,7 +249,7 @@ function renderCommonCoverContent(
   if (priceBand) {
     const priceBoxH = 1.15;
     const priceBoxY = Math.min(tagY + 0.55, 6.45 - priceBoxH);
-    slide.addShape('roundRect' as any, {
+    slide.addShape('roundRect', {
       x, y: priceBoxY, w: centerAlign ? CW : Math.min(7.5, CW), h: priceBoxH,
       rectRadius: 0.04,
       fill: { color: CD.accentBg },
@@ -336,22 +336,22 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
   // ── Step 2: Fallback decorative graphics (BEFORE text for correct z-order) ──
   if (!imgAdded && (style === 'split' || style === 'institutional_masses')) {
     // Primary panel — warm dark tone (avoids PptxGenJS transparency color shift)
-    slide.addShape('rect' as any, {
+    slide.addShape('rect', {
       x: 8.50, y: 0, w: 4.833, h: 7.5,
       fill: { color: '2A2118' },
     });
     // Accent block (upper) — subtle brass tint
-    slide.addShape('rect' as any, {
+    slide.addShape('rect', {
       x: 9.60, y: 0.80, w: 3.20, h: 2.60,
       fill: { color: '3D2E1A' },
     });
     // Accent block (lower) — slightly lighter warm tone
-    slide.addShape('rect' as any, {
+    slide.addShape('rect', {
       x: 8.90, y: 4.00, w: 3.80, h: 2.80,
       fill: { color: '33271A' },
     });
     // Thin vertical accent line in brass
-    slide.addShape('line' as any, {
+    slide.addShape('line', {
       x: 9.30, y: 0.40, w: 0, h: 6.70,
       line: { color: C.brass, width: 0.8 },
     });
@@ -359,11 +359,11 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
 
   if (!imgAdded && style === 'hero_dark') {
     // Full-width warm gradient-like layered panels
-    slide.addShape('rect' as any, {
+    slide.addShape('rect', {
       x: 0, y: 0, w: W, h: 7.5,
       fill: { color: '1A1510' },
     });
-    slide.addShape('rect' as any, {
+    slide.addShape('rect', {
       x: 2.0, y: 1.2, w: 9.333, h: 5.1,
       fill: { color: '2A2118' },
     });

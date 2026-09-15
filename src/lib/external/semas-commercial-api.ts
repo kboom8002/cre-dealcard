@@ -1,4 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import { createModuleLogger } from "@/lib/logger";
+
+const logger = createModuleLogger("semas-commercial-api");
 
 function getApiKey() {
   return process.env.SEMAS_API_KEY || "";
@@ -42,7 +45,7 @@ export async function fetchCommercialDistrictFull(
 
   // If apiKey is empty/unset, return null early with a debug log instead of firing 5 unauthenticated HTTP requests
   if (!apiKey) {
-    console.debug(`[SEMAS] SEMAS_API_KEY is empty or unset; skipping unauthenticated requests for ${ldongCd}`);
+    logger.debug(`SEMAS_API_KEY is empty or unset; skipping unauthenticated requests for ${ldongCd}`);
     return null;
   }
 
@@ -135,12 +138,12 @@ export async function fetchCommercialDistrictFull(
       };
       await supabase.from("commercial_district").upsert(legacyPayload, { onConflict: "district_code" });
     } catch (cacheErr) {
-      console.warn(`[SEMAS] Failed to cache commercial district to Supabase for ${ldongCd}:`, cacheErr);
+      logger.warn(`Failed to cache commercial district to Supabase for ${ldongCd}`, { err: cacheErr });
     }
 
     return analysis;
   } catch (err) {
-    console.warn(`[SEMAS] Commercial analysis failed for ${ldongCd}:`, err);
+    logger.warn(`Commercial analysis failed for ${ldongCd}`, { err });
     return null;
   }
 }

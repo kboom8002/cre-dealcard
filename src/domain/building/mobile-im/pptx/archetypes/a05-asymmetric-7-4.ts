@@ -34,7 +34,7 @@ export function buildA05Asymmetric74(input: ArchetypeInput): ArchetypeOutput {
   }
 
   // Brass 강조선
-  slide.addShape('line' as any, {
+  slide.addShape('line', {
     x: M, y: contentY, w: CW, h: 0,
     line: { color: C.brass, width: 1.5 },
   });

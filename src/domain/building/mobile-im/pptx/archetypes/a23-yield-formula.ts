@@ -47,7 +47,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   const formulaBoxH = 1.30;
 
   // 배경 박스
-  slide.addShape('roundRect' as any, {
+  slide.addShape('roundRect', {
     x: M, y: formulaBoxY, w: CW, h: formulaBoxH,
     fill: { color: 'F7FAFC' },
     line: { color: C.line, width: 0.75 },
@@ -68,7 +68,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   });
 
   // 분수선
-  slide.addShape('line' as any, {
+  slide.addShape('line', {
     x: M + 4.4, y: formulaBoxY + 0.60, w: 4.6, h: 0,
     line: { color: C.brass, width: 2.0 },
   });
@@ -103,7 +103,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   // Helper: 단일 수익률 카드
   const renderCard = (x: number, label: string, isStabilized: boolean, capRate: number) => {
     // 카드 배경
-    slide.addShape('roundRect' as any, {
+    slide.addShape('roundRect', {
       x, y: cardY, w: cardW, h: cardH,
       fill: { color: 'FFFFFF' },
       line: { color: isStabilized ? C.brass : C.line, width: isStabilized ? 1.5 : 1 },
@@ -112,7 +112,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
 
     // 헤더 영역
     const badgeW = isStabilized ? 1.80 : 1.40;
-    slide.addShape('roundRect' as any, {
+    slide.addShape('roundRect', {
       x: x + 0.20, y: cardY + 0.20, w: badgeW, h: 0.36,
       fill: { color: isStabilized ? C.brassT : C.tint },
       rectRadius: 0.04,
@@ -162,7 +162,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
 
     // Cap Rate 강조
     rowY += 0.12;
-    slide.addShape('roundRect' as any, {
+    slide.addShape('roundRect', {
       x: x + 0.20, y: rowY, w: cardW - 0.40, h: 0.65,
       fill: { color: isStabilized ? C.brass : C.ink },
       rectRadius: 0.06,

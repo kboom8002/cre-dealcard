@@ -70,7 +70,7 @@ export async function runCircleAutoMatch(
     // 1. Fetch trigger building
     const { data: building } = await supabase
       .from("building_ssot_lite")
-      .select("*")
+      .select("id, broker_id, owner_id, area_signal, asset_type, price_band, vacancy_signal, fit_summary, caution_summary")
       .eq("id", triggerAssetId)
       .single();
 
@@ -102,9 +102,12 @@ export async function runCircleAutoMatch(
     const intentIds = sharedIntents.map(i => i.asset_id);
     const { data: intents } = await supabase
       .from("buyer_intent_lite")
-      .select("*")
+      .select("id, broker_id, owner_id, buyer_type, budget_range, budget_display, preferred_regions, asset_types, purchase_purpose, must_have, nice_to_have, risk_tolerance, inferred_purpose, recommended_weight_profile")
       .in("id", intentIds);
     const intentMap = new Map((intents || []).map(i => [i.id, i]));
+
+    const matchesToUpsertMap = new Map<string, any>();
+    const saMatchAssetIds = new Set<string>();
 
     for (const item of sharedIntents) {
       const intent = intentMap.get(item.asset_id);
@@ -143,55 +146,68 @@ export async function runCircleAutoMatch(
         if (res.grade === "S") sCount++;
         if (res.grade === "A") aCount++;
 
-        // UPSERT match result
-        const { data: savedMatch } = await supabase
-          .from("circle_match_results")
-          .upsert({
-            circle_id: circleId,
-            building_id: triggerAssetId,
-            building_broker_id: building.broker_id || building.owner_id,
-            buyer_intent_id: intent.id,
-            buyer_broker_id: intent.broker_id || intent.owner_id,
-            grade: res.grade,
-            score: res.score,
-            stage1_passed: res.stage1Passed,
-            stage2_similarity: res.stage2Similarity,
-            stage3_score: res.stage3Score,
-            reasoning: res.reasoning,
-            purpose_weight_profile: res.purposeWeightProfile,
-          }, { onConflict: "circle_id,building_id,buyer_intent_id" })
-          .select("id")
-          .single();
+        const conflictKey = `${circleId}:${triggerAssetId}:${intent.id}`;
+        matchesToUpsertMap.set(conflictKey, {
+          circle_id: circleId,
+          building_id: triggerAssetId,
+          building_broker_id: building.broker_id || building.owner_id,
+          buyer_intent_id: intent.id,
+          buyer_broker_id: intent.broker_id || intent.owner_id,
+          grade: res.grade,
+          score: res.score,
+          stage1_passed: res.stage1Passed,
+          stage2_similarity: res.stage2Similarity,
+          stage3_score: res.stage3Score,
+          reasoning: res.reasoning,
+          purpose_weight_profile: res.purposeWeightProfile,
+        });
 
-        // Progressive Trust: Upgrade visibility on S/A match
         if (res.grade === "S" || res.grade === "A") {
+          saMatchAssetIds.add(triggerAssetId);
+          saMatchAssetIds.add(intent.id);
+        }
+      } catch (err) {
+        log.error("[runCircleAutoMatch] Engine error:", err);
+      }
+    }
+
+    if (matchesToUpsertMap.size > 0) {
+      const { data: savedMatches, error } = await supabase
+        .from("circle_match_results")
+        .upsert(Array.from(matchesToUpsertMap.values()), { onConflict: "circle_id,building_id,buyer_intent_id" })
+        .select("id, grade, score");
+
+      if (error) {
+        log.error("[runCircleAutoMatch] Bulk upsert match results failed:", error);
+      } else if (savedMatches) {
+        if (saMatchAssetIds.size > 0) {
           await supabase
             .from("circle_shared_assets")
             .update({ visibility: "basic_info" })
             .eq("circle_id", circleId)
-            .in("asset_id", [triggerAssetId, intent.id])
+            .in("asset_id", Array.from(saMatchAssetIds))
             .eq("visibility", "signal_only");
+        }
 
-          if (savedMatch) {
+        for (const match of savedMatches) {
+          if (match.grade === "S" || match.grade === "A") {
             notifyMatchParties({
-              circleMatchId: savedMatch.id,
+              circleMatchId: match.id,
               type: "circle_match",
-              title: `⚡ 서클 ${res.grade}등급 팀 매칭 발견!`,
-              body: `${res.grade}등급 매칭 (${res.score}점)이 발견되었습니다. 서클 대시보드에서 확인하세요.`,
+              title: `⚡ 서클 ${match.grade}등급 팀 매칭 발견!`,
+              body: `${match.grade}등급 매칭 (${match.score}점)이 발견되었습니다. 서클 대시보드에서 확인하세요.`,
               link: `/broker/circles/${circleId}`,
-              metadata: { circle_id: circleId, grade: res.grade, score: res.score },
+              metadata: { circle_id: circleId, grade: match.grade, score: match.score },
             }).catch((e) => log.warn("[circle-matching] Notify failed:", e));
           }
         }
-      } catch (err) {
-        log.error("[runCircleAutoMatch] Engine error:", err);
       }
     }
   } else if (triggerAssetType === "buyer_intent") {
     // 1. Fetch trigger buyer intent
     const { data: intent } = await supabase
       .from("buyer_intent_lite")
-      .select("*")
+      .select("id, broker_id, owner_id, buyer_type, budget_range, budget_display, preferred_regions, asset_types, purchase_purpose, must_have, nice_to_have, risk_tolerance, inferred_purpose, recommended_weight_profile")
       .eq("id", triggerAssetId)
       .single();
 
@@ -211,7 +227,7 @@ export async function runCircleAutoMatch(
     // P2-04 Batch Query Fix
     const buildingIds = sharedBuildings.map(i => i.asset_id);
     const [{ data: buildings }, { data: cards }] = await Promise.all([
-      supabase.from("building_ssot_lite").select("*").in("id", buildingIds),
+      supabase.from("building_ssot_lite").select("id, broker_id, owner_id, area_signal, asset_type, price_band, vacancy_signal, fit_summary, caution_summary").in("id", buildingIds),
       supabase.from("building_signal_cards").select("building_ssot_lite_id, deal_curiosity_score").in("building_ssot_lite_id", buildingIds).order("created_at", { ascending: false })
     ]);
     
@@ -223,6 +239,9 @@ export async function runCircleAutoMatch(
         cardMap.set(card.building_ssot_lite_id, card);
       }
     }
+
+    const matchesToUpsertMap = new Map<string, any>();
+    const saMatchAssetIds = new Set<string>();
 
     for (const item of sharedBuildings) {
       const building = buildingMap.get(item.asset_id);
@@ -263,46 +282,61 @@ export async function runCircleAutoMatch(
         if (res.grade === "S") sCount++;
         if (res.grade === "A") aCount++;
 
-        const { data: savedMatch } = await supabase
-          .from("circle_match_results")
-          .upsert({
-            circle_id: circleId,
-            building_id: building.id,
-            building_broker_id: building.broker_id || building.owner_id,
-            buyer_intent_id: triggerAssetId,
-            buyer_broker_id: intent.broker_id || intent.owner_id,
-            grade: res.grade,
-            score: res.score,
-            stage1_passed: res.stage1Passed,
-            stage2_similarity: res.stage2Similarity,
-            stage3_score: res.stage3Score,
-            reasoning: res.reasoning,
-            purpose_weight_profile: res.purposeWeightProfile,
-          }, { onConflict: "circle_id,building_id,buyer_intent_id" })
-          .select("id")
-          .single();
+        const conflictKey = `${circleId}:${building.id}:${triggerAssetId}`;
+        matchesToUpsertMap.set(conflictKey, {
+          circle_id: circleId,
+          building_id: building.id,
+          building_broker_id: building.broker_id || building.owner_id,
+          buyer_intent_id: triggerAssetId,
+          buyer_broker_id: intent.broker_id || intent.owner_id,
+          grade: res.grade,
+          score: res.score,
+          stage1_passed: res.stage1Passed,
+          stage2_similarity: res.stage2Similarity,
+          stage3_score: res.stage3Score,
+          reasoning: res.reasoning,
+          purpose_weight_profile: res.purposeWeightProfile,
+        });
 
         if (res.grade === "S" || res.grade === "A") {
+          saMatchAssetIds.add(building.id);
+          saMatchAssetIds.add(triggerAssetId);
+        }
+      } catch (err) {
+        log.error("[runCircleAutoMatch] Engine error:", err);
+      }
+    }
+
+    if (matchesToUpsertMap.size > 0) {
+      const { data: savedMatches, error } = await supabase
+        .from("circle_match_results")
+        .upsert(Array.from(matchesToUpsertMap.values()), { onConflict: "circle_id,building_id,buyer_intent_id" })
+        .select("id, grade, score");
+
+      if (error) {
+        log.error("[runCircleAutoMatch] Bulk upsert match results failed:", error);
+      } else if (savedMatches) {
+        if (saMatchAssetIds.size > 0) {
           await supabase
             .from("circle_shared_assets")
             .update({ visibility: "basic_info" })
             .eq("circle_id", circleId)
-            .in("asset_id", [building.id, triggerAssetId])
+            .in("asset_id", Array.from(saMatchAssetIds))
             .eq("visibility", "signal_only");
+        }
 
-          if (savedMatch) {
+        for (const match of savedMatches) {
+          if (match.grade === "S" || match.grade === "A") {
             notifyMatchParties({
-              circleMatchId: savedMatch.id,
+              circleMatchId: match.id,
               type: "circle_match",
-              title: `⚡ 서클 ${res.grade}등급 팀 매칭 발견!`,
-              body: `${res.grade}등급 매칭 (${res.score}점)이 발견되었습니다. 서클 대시보드에서 확인하세요.`,
+              title: `⚡ 서클 ${match.grade}등급 팀 매칭 발견!`,
+              body: `${match.grade}등급 매칭 (${match.score}점)이 발견되었습니다. 서클 대시보드에서 확인하세요.`,
               link: `/broker/circles/${circleId}`,
-              metadata: { circle_id: circleId, grade: res.grade, score: res.score },
+              metadata: { circle_id: circleId, grade: match.grade, score: match.score },
             }).catch((e) => log.warn("[circle-matching] Notify failed:", e));
           }
         }
-      } catch (err) {
-        log.error("[runCircleAutoMatch] Engine error:", err);
       }
     }
   }

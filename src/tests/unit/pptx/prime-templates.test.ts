@@ -228,8 +228,8 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
         // vsLease DualTable (A08)
         expect(dataMap['vsLease'].table1).toBeDefined();
         expect(dataMap['vsLease'].table2).toBeDefined();
-        expect(dataMap['vsLease'].table1.rows.length).toBeGreaterThan(3);
-        expect(dataMap['vsLease'].table2.rows.length).toBeGreaterThan(3);
+        expect(dataMap['vsLease'].table1!.rows!.length).toBeGreaterThan(3);
+        expect(dataMap['vsLease'].table2!.rows!.length).toBeGreaterThan(3);
       });
     });
 
@@ -239,16 +239,24 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
         const testDoc = {
           body: {
             title: '강남 메디컬 타워',
+            floor_leases: [
+              { floor: '1F', tenant_name: '스타벅스', tenant_type: 'F&B / 앵커 테넌트', area_sqm: 150, deposit_manwon: 5000, rent_manwon: 1200 },
+              { floor: '2F', tenant_name: '약국', tenant_type: '메디컬 클리닉', area_sqm: 120, deposit_manwon: 4000, rent_manwon: 900 },
+              { floor: '3F', tenant_name: '이비인후과', tenant_type: '메디컬 클리닉', area_sqm: 120, deposit_manwon: 4000, rent_manwon: 900 },
+              { floor: '4F', tenant_name: '전문학원', tenant_type: '전문학원', area_sqm: 130, deposit_manwon: 3000, rent_manwon: 800 },
+              { floor: '5F', tenant_name: '피트니스', tenant_type: '피트니스', area_sqm: 200, deposit_manwon: 5000, rent_manwon: 1100 },
+            ],
           },
         };
 
+        // D41 dynamic binder: tableHead has ['층수', '업종', '전용면적', '보증금 / 월세', '비고']
         const dataMap = bindCommercialTemplateData(testDoc);
 
         // Positive assertions: 층별 업종 MD 구성 (MD Plan)
         expect(dataMap['plan']).toBeDefined();
         const plan = dataMap['plan'];
         expect(plan.tableHead).toContain('층수');
-        expect(plan.tableHead).toContain('추천 MD 및 권장 업종');
+        expect(plan.tableHead).toContain('업종');
         expect(plan.tableRows.length).toBeGreaterThanOrEqual(5);
         const allMdText = plan.tableRows.map((r: any) => r.join(' ')).join(' ');
         expect(allMdText).toContain('F&B');
@@ -286,6 +294,8 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
             landCostBil: 250,
             constCostBil: 150,
             financeCostBil: 50,
+            regulationExpiry: '2028-05-18',
+            regulationDaysLeft: 630,
           },
         };
 
@@ -304,7 +314,7 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
         expect(dataMap['cost']).toBeDefined();
         const cost = dataMap['cost'];
         expect(cost.totalProjectCostBil).toBe(450); // 250 + 150 + 50
-        const t1Text = cost.table1.rows.map((r: any) => r.join(' ')).join(' ');
+        const t1Text = cost.table1!.rows!.map((r: any) => r.join(' ')).join(' ');
         expect(t1Text).toContain('1단: 토지비');
         expect(t1Text).toContain('2단: 건축공사비');
         expect(t1Text).toContain('3단: 금융/제세공과금');

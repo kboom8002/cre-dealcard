@@ -10,7 +10,7 @@ interface MatchReasonBreakdownProps {
   purposeProfile: string;
 }
 
-export function MatchReasonBreakdown({
+function MatchReasonBreakdownBase({
   stage1Passed,
   failReasons = [],
   stage2Similarity,
@@ -123,3 +123,6 @@ export function MatchReasonBreakdown({
     </div>
   );
 }
+
+export const MatchReasonBreakdown = React.memo(MatchReasonBreakdownBase);
+

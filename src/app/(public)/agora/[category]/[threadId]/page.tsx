@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import AgoraAiAnswer from "@/components/agora/AgoraAiAnswer";
-import { breadcrumb } from "@/lib/schema-org";
+import { serializeJsonLd, breadcrumb } from "@/lib/schema-org";
 import { CATEGORY_META } from "@/domain/agora/qis-seed-generator";
 import type { AgoraCategory } from "@/domain/agora/qis-seed-generator";
 
@@ -152,12 +152,12 @@ export default async function AgoraThreadPage({ params }: { params: Params }) {
     <div className="min-h-screen bg-[#0b0f19] text-slate-100">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(schemaData) }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(breadcrumbSchema).replace(/</g, "\\u003c"),
+          __html: serializeJsonLd(breadcrumbSchema).replace(/</g, "\\u003c"),
         }}
       />
 

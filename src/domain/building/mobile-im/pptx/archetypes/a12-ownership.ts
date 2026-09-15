@@ -36,7 +36,7 @@ export function buildA12Ownership(input: ArchetypeInput): ArchetypeOutput {
   callouts.forEach((co: any, i: number) => {
     if (i > 2) return;
     const cy = 1.98 + i * (1.24 + 0.14);
-    slide.addShape('rect' as any, { x: rx, y: cy, w: rw, h: 1.24, fill: { color: C.tint } });
+    slide.addShape('rect', { x: rx, y: cy, w: rw, h: 1.24, fill: { color: C.tint } });
     slide.addText(co.title || '', { x: rx+0.2, y: cy+0.2, w: rw-0.4, h: 0.3, fontFace: KR, fontSize: 11, bold: true });
   });
   

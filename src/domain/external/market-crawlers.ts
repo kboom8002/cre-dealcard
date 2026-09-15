@@ -250,27 +250,38 @@ export async function crawlCreNews(supabase: SupabaseClient): Promise<any[]> {
   const topItems = relevantItems.slice(0, 15);
 
   // ── 상위 뉴스 강화 요약 + DB 저장 ────────────────────────────────────────
+  const newsMap = new Map<string, any>();
   for (const item of topItems) {
+    if (!item.link) continue;
     // 점수 7 이상은 강화 요약, 나머지는 기본 요약
     const summary = item.score >= 7
       ? await enhancedSummarize(item.title, item.description)
       : item.summary;
 
+    newsMap.set(item.link, {
+      url: item.link,
+      title: item.feedSource === "BigKinds" ? `[BigKinds] ${item.title}` : item.title,
+      source: item.feedSource,
+      summary,
+      content: item.description.slice(0, 500),
+      sentiment: item.sentiment,
+      importance_score: item.score,
+      regions: item.regions,
+      topic: item.topic,
+    });
+  }
+
+  const newsToUpsert = Array.from(newsMap.values());
+  if (newsToUpsert.length > 0) {
     const { data, error } = await supabase
       .from("external_news")
-      .upsert({
-        url: item.link,
-        title: item.feedSource === "BigKinds" ? `[BigKinds] ${item.title}` : item.title,
-        source: item.feedSource,
-        summary,
-        content: item.description.slice(0, 500),
-        sentiment: item.sentiment,
-        importance_score: item.score,
-        regions: item.regions,
-        topic: item.topic,
-      }, { onConflict: "url" })
-      .select().single();
-    if (!error && data) results.push(data);
+      .upsert(newsToUpsert, { onConflict: "url" })
+      .select();
+    if (!error && data) {
+      results.push(...data);
+    } else if (error) {
+      log.warn("[crawlCreNews] Bulk upsert failed:", error);
+    }
   }
 
   if (results.length === 0) {
@@ -290,6 +301,7 @@ export async function ingestGlobalReports(supabase: SupabaseClient): Promise<any
 
   const keywords = ["CBRE 오피스 리포트", "쿠시먼 부동산", "부동산플래닛 거래", "알스퀘어 오피스"];
   const results: any[] = [];
+  const reportsMap = new Map<string, any>();
 
   for (const keyword of keywords) {
     try {
@@ -325,20 +337,34 @@ export async function ingestGlobalReports(supabase: SupabaseClient): Promise<any
           summary = aiRes.content.trim();
         } catch { /* */ }
 
-        const { data, error } = await supabase.from("external_reports").upsert({
+        const reportUrl = item.link || item.originallink || `https://naver-report-${Date.now()}`;
+        reportsMap.set(reportUrl, {
           institution,
           title,
-          url: item.link || item.originallink || `https://naver-report-${Date.now()}`,
+          url: reportUrl,
           summary,
           published_date: new Date().toISOString().split("T")[0],
-        }, { onConflict: "url" }).select().single();
-        if (!error && data) results.push(data);
+        });
       }
       await new Promise(r => setTimeout(r, 120));
     } catch (err) {
       log.warn(`[ingestGlobalReports] "${keyword}" failed:`, err);
     }
   }
+
+  const reportsToUpsert = Array.from(reportsMap.values());
+  if (reportsToUpsert.length > 0) {
+    const { data, error } = await supabase
+      .from("external_reports")
+      .upsert(reportsToUpsert, { onConflict: "url" })
+      .select();
+    if (!error && data) {
+      results.push(...data);
+    } else if (error) {
+      log.warn("[ingestGlobalReports] Bulk upsert failed:", error);
+    }
+  }
+
   return results;
 }
 
@@ -369,6 +395,7 @@ export async function crawlAuctions(supabase: SupabaseClient): Promise<any[]> {
     "상가 경매 유찰률",
   ];
   const results: any[] = [];
+  const auctionsMap = new Map<string, any>();
 
   for (const keyword of keywords) {
     try {
@@ -401,7 +428,7 @@ export async function crawlAuctions(supabase: SupabaseClient): Promise<any[]> {
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
             if (parsed.case_number && parsed.address) {
-              const { data, error } = await supabase.from("auction_listings").upsert({
+              auctionsMap.set(parsed.case_number, {
                 case_number: parsed.case_number,
                 court: parsed.court || "미확인",
                 address: parsed.address,
@@ -409,8 +436,7 @@ export async function crawlAuctions(supabase: SupabaseClient): Promise<any[]> {
                 minimum_bid: parsed.minimum_bid || 0,
                 status: parsed.status || "미확인",
                 auction_date: parsed.auction_date || new Date().toISOString().slice(0, 10),
-              }, { onConflict: "case_number" }).select().single();
-              if (!error && data) results.push(data);
+              });
             }
           }
         } catch { /* AI 파싱 실패 시 스킵 */ }
@@ -420,6 +446,20 @@ export async function crawlAuctions(supabase: SupabaseClient): Promise<any[]> {
       log.warn(`[crawlAuctions] "${keyword}" failed:`, err);
     }
   }
+
+  const auctionsToUpsert = Array.from(auctionsMap.values());
+  if (auctionsToUpsert.length > 0) {
+    const { data, error } = await supabase
+      .from("auction_listings")
+      .upsert(auctionsToUpsert, { onConflict: "case_number" })
+      .select();
+    if (!error && data) {
+      results.push(...data);
+    } else if (error) {
+      log.warn("[crawlAuctions] Bulk upsert failed:", error);
+    }
+  }
+
   return results;
 }
 
@@ -440,6 +480,7 @@ export async function computeRentalMarketRates(supabase: SupabaseClient): Promis
     { region: "seongsu", keyword: "성동구 근생 임대료 월세" },
   ];
   const results: any[] = [];
+  const rentalsToInsert: any[] = [];
 
   for (const rk of regionKeywords) {
     try {
@@ -478,15 +519,14 @@ export async function computeRentalMarketRates(supabase: SupabaseClient): Promis
           const parsed = JSON.parse(arrMatch[0]);
           for (const rental of parsed) {
             if (!rental.building_type) continue;
-            const { data, error } = await supabase.from("rental_market_data").insert({
+            rentalsToInsert.push({
               region: rk.region,
               building_type: rental.building_type,
               deposit_avg: rental.deposit_avg || 0,
               monthly_rent_avg: rental.monthly_rent_avg || 0,
               vacancy_rate: rental.vacancy_rate || 0,
               source: rental.source || "네이버뉴스",
-            }).select().single();
-            if (!error && data) results.push(data);
+            });
           }
         }
       } catch { /* AI 파싱 실패 */ }
@@ -495,5 +535,18 @@ export async function computeRentalMarketRates(supabase: SupabaseClient): Promis
       log.warn(`[computeRentalMarketRates] ${rk.region} failed:`, err);
     }
   }
+
+  if (rentalsToInsert.length > 0) {
+    const { data, error } = await supabase
+      .from("rental_market_data")
+      .insert(rentalsToInsert)
+      .select();
+    if (!error && data) {
+      results.push(...data);
+    } else if (error) {
+      log.warn("[computeRentalMarketRates] Bulk insert failed:", error);
+    }
+  }
+
   return results;
 }

@@ -97,7 +97,7 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
         const y = startY;
 
         // 카드 배경
-        slide.addShape('roundRect' as any, {
+        slide.addShape('roundRect', {
           x, y, w: cardW, h: cardH,
           rectRadius: 0.08,
           fill: { color: C.tint },
@@ -105,14 +105,14 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
         });
 
         // 상단 액센트 바
-        slide.addShape('rect' as any, {
+        slide.addShape('rect', {
           x, y, w: cardW, h: 0.06,
           fill: { color: C.brass },
         });
 
         // 넘버 배지
         const numText = p.number || String(idx + 1).padStart(2, '0');
-        slide.addShape('roundRect' as any, {
+        slide.addShape('roundRect', {
           x: x + 0.25, y: y + 0.30, w: 0.52, h: 0.32,
           rectRadius: 0.04,
           fill: { color: C.brassL },
@@ -131,7 +131,7 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
         });
 
         // 구분선
-        slide.addShape('line' as any, {
+        slide.addShape('line', {
           x: x + 0.25, y: y + 1.25, w: cardW - 0.50, h: 0,
           line: { color: C.line, width: 0.5 },
         });
@@ -160,7 +160,7 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
         const y = startY + row * (cardH + gapY);
 
         // 카드 배경
-        slide.addShape('roundRect' as any, {
+        slide.addShape('roundRect', {
           x, y, w: cardW, h: cardH,
           rectRadius: 0.08,
           fill: { color: C.tint },
@@ -168,14 +168,14 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
         });
 
         // 좌측 액센트 스트립
-        slide.addShape('rect' as any, {
+        slide.addShape('rect', {
           x, y, w: 0.06, h: cardH,
           fill: { color: C.brass },
         });
 
         // 상단: 넘버 배지 + 강점 타이틀
         const numText = p.number || String(idx + 1).padStart(2, '0');
-        slide.addShape('roundRect' as any, {
+        slide.addShape('roundRect', {
           x: x + 0.20, y: y + 0.18, w: 0.48, h: 0.30,
           rectRadius: 0.04,
           fill: { color: C.brassL },
@@ -230,7 +230,7 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
   }
 
   // 마무리멘트 배경 리본
-  slide.addShape('roundRect' as any, {
+  slide.addShape('roundRect', {
     x: M, y: bannerY, w: CW, h: bannerH,
     rectRadius: 0.06,
     fill: { color: C.brassT },

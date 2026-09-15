@@ -18,6 +18,8 @@ export interface PhotoMeta {
   height?: number;                       // 원본 이미지 높이 (px)
   aspectRatio?: number;                  // width / height
   order?: number;                        // 정렬 순서
+  role?: string;                         // 'cover' | 'exterior' 등 역할 태그
+  type?: string;                         // 레거시 카테고리 별칭
 }
 
 /** 3축 자산 식별자 (v0.4) */
@@ -156,6 +158,7 @@ export interface StackingPlanFloor {
 export interface StackingPlanSummary {
   totalGrossAreaPy?: number;
   totalGrossAreaM2?: number;
+  totalExclusiveAreaPy?: number;
   exclusiveRatePct?: number;
   waleYears?: number;
   vacancyRatePct?: number;

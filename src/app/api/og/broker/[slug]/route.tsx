@@ -47,7 +47,9 @@ export async function GET(
     if (profileId) {
       query = query.eq("id", profileId);
     } else {
-      query = query.or(`id.eq.${slug},display_name.ilike.${nameFromSlug}`);
+      const safeSlug = slug.replace(/[,()"\\]/g, '');
+      const safeName = nameFromSlug.replace(/[,()"\\]/g, '');
+      query = query.or(`id.eq.${safeSlug},display_name.ilike.${safeName}`);
     }
 
     const { data: profile } = await query.limit(1).single();

@@ -4,7 +4,7 @@ import { studioService } from '@/domain/building/pptx-studio/studio-service';
 
 export async function POST(req: NextRequest) {
   let brokerId = 'broker-system';
-  if (process.env.NODE_ENV !== 'test' && !req.headers.get('x-test-bypass')) {
+  if (!(process.env.NODE_ENV === 'test' && req.headers.get('x-test-bypass'))) {
     const guard = await requireBroker(req);
     if (guard.error) return guard.error;
     if (guard.user?.id) brokerId = guard.user.id;

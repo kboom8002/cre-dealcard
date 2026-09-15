@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { CRESignalSnapshot } from "@/domain/pulse/cre-signal-aggregator";
-import { breadcrumb } from "@/lib/schema-org";
+import { serializeJsonLd, breadcrumb } from "@/lib/schema-org";
 import SentimentVoteWidget from "@/components/pulse/SentimentVoteWidget";
 
 export const revalidate = 3600;
@@ -92,7 +92,7 @@ export default async function PulseDetailPage({ params }: { params: Params }) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: serializeJsonLd({
             "@context": "https://schema.org",
             "@type": "AnalysisNewsArticle",
             headline: pulse.seo_title,
@@ -105,7 +105,7 @@ export default async function PulseDetailPage({ params }: { params: Params }) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(breadcrumbSchema).replace(/</g, "\\u003c"),
+          __html: serializeJsonLd(breadcrumbSchema).replace(/</g, "\\u003c"),
         }}
       />
 

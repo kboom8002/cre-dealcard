@@ -1,5 +1,4 @@
-"use client";
-
+import React, { memo } from "react";
 import Link from "next/link";
 import { VENDOR_CATEGORY_META } from "@/domain/vendor/vendor-tier";
 import type { VendorCategory, VendorTier } from "@/domain/vendor/vendor-tier";
@@ -39,7 +38,7 @@ function renderStars(rating: number | null) {
   );
 }
 
-export default function ServiceCard({ card }: { card: ServiceCardData }) {
+function ServiceCardBase({ card }: { card: ServiceCardData }) {
   const meta = VENDOR_CATEGORY_META[card.service_category];
   const vendor = card.vendor_profiles;
   const tierLabel = vendor?.vendor_tier === "premium" ? "Premium" : vendor?.vendor_tier === "pro" ? "Pro" : null;
@@ -112,3 +111,5 @@ export default function ServiceCard({ card }: { card: ServiceCardData }) {
     </Link>
   );
 }
+
+export default memo(ServiceCardBase);

@@ -19,27 +19,6 @@ export interface BuildingRegisterData {
   elevatorCount: number; // 승강기대수
 }
 
-export async function parseBuildingRegisterPDF(file: File): Promise<BuildingRegisterData> {
+export async function parseBuildingRegisterPDF(_file: File): Promise<BuildingRegisterData> {
   throw new Error('[NOT_IMPLEMENTED] 건축물대장 OCR API 미연동 — Phase 2 구현 예정');
-  console.log(`Parsing building register PDF: ${file.name} (${file.size} bytes)`);
-
-  // 시뮬레이션 지연
-  await new Promise(resolve => setTimeout(resolve, 1500));
-
-  // Mock 데이터 반환 (실제로는 OCR 추출 텍스트를 LLM/정규식으로 파싱하여 반환)
-  return {
-    address: "서울특별시 강남구 역삼동 123-45",
-    platArea: 330.5,
-    totalArea: 1500.0,
-    buildingCoverageRatio: 59.5,
-    floorAreaRatio: 249.8,
-    mainPurpose: "업무시설",
-    approvalDate: "2015-08-20",
-    floors: {
-      underground: 2,
-      ground: 7,
-    },
-    parkingSpaces: 12,
-    elevatorCount: 1,
-  };
 }

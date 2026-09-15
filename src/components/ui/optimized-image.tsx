@@ -1,3 +1,4 @@
+import React from 'react';
 import Image from 'next/image';
 
 interface OptimizedImageProps {
@@ -9,7 +10,7 @@ interface OptimizedImageProps {
   fill?: boolean;
 }
 
-export function OptimizedImage({ src, alt, width, height, className, fill }: OptimizedImageProps) {
+function OptimizedImageBase({ src, alt, width, height, className, fill }: OptimizedImageProps) {
   if (!src) return null;
   
   // 외부 URL (Supabase Storage 등)
@@ -23,3 +24,6 @@ export function OptimizedImage({ src, alt, width, height, className, fill }: Opt
     ? <Image src={src} alt={alt} fill className={className} sizes="100vw" />
     : <Image src={src} alt={alt} width={width || 400} height={height || 300} className={className} />;
 }
+
+export const OptimizedImage = React.memo(OptimizedImageBase);
+

@@ -36,7 +36,7 @@ interface ArchetypeBadgeProps {
   size?: 'sm' | 'md';
 }
 
-export function ArchetypeBadge({ archetype, size = 'sm' }: ArchetypeBadgeProps) {
+function ArchetypeBadgeBase({ archetype, size = 'sm' }: ArchetypeBadgeProps) {
   const config = ARCHETYPE_CONFIG[archetype as DealArchetype];
   if (!config) {
     return (
@@ -55,3 +55,6 @@ export function ArchetypeBadge({ archetype, size = 'sm' }: ArchetypeBadgeProps) 
     </span>
   );
 }
+
+export const ArchetypeBadge = React.memo(ArchetypeBadgeBase);
+

@@ -31,7 +31,7 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
             { label: '실투자금', value: `${(core.equity.equity / 1e8).toFixed(1)}억 원`, sub: '대출/보증금 차감' },
           ];
     if (yieldObj) {
-    (result as any)._yield = yieldObj;
+    (result as Record<string, any>)._yield = yieldObj;
     }
 
     if (isNegLevIMCore) {
@@ -92,7 +92,7 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     };
     const isBasicPreset = body?.preset === 'credeal_basic';
     if (isBasicPreset && result['building']) {
-    const bldgData = result['building'] as any;
+    const bldgData = result['building'];
     const leftRows = bldgData.left?.rows ?? [];
     const priceIdx = leftRows.findIndex((r: any[]) => 
       r[0] && (String(r[0]).includes('매매') || String(r[0]).includes('매각') || String(r[0]).includes('희망가'))
@@ -132,8 +132,8 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     tableRows: rentRollRows,
     };
     if (isBasicPresetForRentRoll && result['rentRoll'] && result['stackingPlan']) {
-    (result['rentRoll'] as any).stackingPlan = (result['stackingPlan'] as any)?.stackingPlan ?? [];
-    (result['rentRoll'] as any).stackingSummary = (result['stackingPlan'] as any)?.summary ?? {};
+    if (result['rentRoll']) result['rentRoll'].stackingPlan = result['stackingPlan']?.stackingPlan ?? [];
+    if (result['rentRoll']) result['rentRoll'].stackingSummary = result['stackingPlan']?.summary ?? {};
     }
 
     const hasLoanInput = !!(body?.loan_scenario?.ltv_pct != null || body?.loan_scenario?.interest_pct != null
@@ -298,7 +298,8 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
       dealDate: c.dealDate,
     })),
     };
-    const activeTemplateId = templateId ?? (core as any)?.templateId ?? (core as any)?.presetId;
+    const coreObj = core as unknown as Record<string, any>;
+    const activeTemplateId = templateId ?? coreObj.templateId ?? coreObj.presetId;
     if (activeTemplateId) {
     bindSpecializedTemplateData(activeTemplateId, { body: core }, result);
     }
@@ -539,7 +540,7 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
 
     const poi = enrichment.locationPoi;
     if (poi && !poi._isFallback && dataMap['location']) {
-    const locRight = (dataMap['location'] as any).right;
+    const locRight = dataMap['location']?.right;
     if (locRight?.rows) {
       const rows: [string, string][] = locRight.rows;
 

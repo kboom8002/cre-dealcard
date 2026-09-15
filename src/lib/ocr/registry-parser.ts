@@ -20,26 +20,6 @@ export interface RegistryData {
   hasRedFlags: boolean; // 위험 요소 여부 (가압류, 경매개시 등)
 }
 
-export async function parseRealEstateRegistryPDF(file: File): Promise<RegistryData> {
+export async function parseRealEstateRegistryPDF(_file: File): Promise<RegistryData> {
   throw new Error('[NOT_IMPLEMENTED] 등기부 OCR 파싱 API 미연동 — Phase 2 구현 예정');
-  console.log(`Parsing real estate registry PDF: ${file.name} (${file.size} bytes)`);
-
-  await new Promise(resolve => setTimeout(resolve, 1500));
-
-  return {
-    address: "서울특별시 강남구 역삼동 123-45",
-    ownerName: "홍*동",
-    ownershipShare: "1/1",
-    rights: [
-      {
-        type: "근저당권",
-        creditor: "신한은행",
-        amount: 1500000000,
-        registrationDate: "2018-05-12",
-        status: "활성",
-      }
-    ],
-    totalDebtEstimated: 1500000000,
-    hasRedFlags: false,
-  };
 }

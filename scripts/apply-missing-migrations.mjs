@@ -7,8 +7,13 @@
  * Run: node scripts/apply-missing-migrations.mjs
  */
 
-const SUPABASE_URL = 'https://vwbmaulavgjwezffbxgi.supabase.co';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3Ym1hdWxhdmdqd2V6ZmZieGdpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODM3NDgzNSwiZXhwIjoyMDkzOTUwODM1fQ.icKlLmN0DsEEQbxAR7F-MN8OVlnBp4L-ONntWcGKks8';
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://vwbmaulavgjwezffbxgi.supabase.co';
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SERVICE_ROLE_KEY) {
+  console.error("Missing SUPABASE_SERVICE_ROLE_KEY in environment variables.");
+  process.exit(1);
+}
 
 // Supabase pg_sql RPC (uses Management API)
 async function execSQL(sql, label) {

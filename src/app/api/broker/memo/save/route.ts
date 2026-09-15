@@ -109,7 +109,7 @@ export async function GET(req: Request) {
     // Build query
     let query = supabase
       .from("broker_memos")
-      .select("*")
+      .select("id, user_id, memo_text, routing_type, routing_summary, status, is_pinned, tags, converted_to, updated_at, created_at")
       .eq("user_id", user.id);
 
     // Status filter (default: saved)
@@ -177,7 +177,7 @@ export async function GET(req: Request) {
       // General fallback to activity_events
       const { data: fallbackData } = await supabase
         .from("activity_events")
-        .select("*")
+        .select("id, actor_id, metadata, created_at")
         .eq("actor_id", user.id)
         .eq("event_type", "memo_saved")
         .order("created_at", { ascending: false });

@@ -1,8 +1,12 @@
-﻿export const PYEONG_RATIO = 0.3025;
+export const PYEONG_RATIO = 0.3025;
 export const SQM_RATIO = 3.305785; // 1 / 0.3025
 
 export const MAX_FLOOR_AREA_PY = 3000;
 export const MAX_BUILDING_AREA_PY = 30000;
+
+import { createModuleLogger } from '@/lib/logger';
+
+const logger = createModuleLogger('area-conversion');
 
 export function sqmToPyeong(sqm: number): number {
   return sqm * PYEONG_RATIO;
@@ -54,7 +58,7 @@ export function extractAreaPyeong(text?: string, isTotalArea: boolean = false): 
   if (result !== undefined) {
     const limit = isTotalArea ? MAX_BUILDING_AREA_PY : MAX_FLOOR_AREA_PY;
     if (result > limit) {
-      console.warn(`[Area Guard] Area ${result} exceeds limit ${limit}. Rejecting value.`);
+      logger.warn(`Area ${result} exceeds limit ${limit}. Rejecting value.`);
       return undefined;
     }
     return result;

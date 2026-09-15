@@ -40,7 +40,10 @@ export async function GET(req: NextRequest) {
     .range(offset, offset + limit - 1);
 
   if (category) query = query.eq("category", category);
-  if (region)   query = query.or(`region.eq.${region},region.is.null`);
+  if (region) {
+    const safeRegion = region.replace(/[,()"\\]/g, '');
+    query = query.or(`region.eq.${safeRegion},region.is.null`);
+  }
 
   const { data, error } = await query;
 

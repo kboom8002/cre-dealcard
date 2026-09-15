@@ -293,7 +293,7 @@ export function head(
     case 'modern': {
       const barH = sub ? 0.86 : 0.62;
       // 좌측 액센트 세로 바 - sub 유무에 맞춘 완벽한 수직 정렬
-      s.addShape('rect' as any, {
+      s.addShape('rect', {
         x: M, y: 0.42, w: 0.05, h: barH,
         fill: { color: C.brass },
       });
@@ -319,7 +319,7 @@ export function head(
     // ── executive: 중앙 정렬 + 상하 골드 라인 ──
     case 'executive': {
       // 상단 가는 라인
-      s.addShape('line' as any, {
+      s.addShape('line', {
         x: M, y: 0.38, w: CW, h: 0,
         line: { color: C.brass, width: 0.5 },
       });
@@ -336,7 +336,7 @@ export function head(
         fontFace: TITLE_KR, margin: 0, align: 'center',
       });
       // 하단 골드 라인
-      s.addShape('line' as any, {
+      s.addShape('line', {
         x: M + CW * 0.3, y: 1.20, w: CW * 0.4, h: 0,
         line: { color: C.brass, width: 1 },
       });
@@ -370,7 +370,7 @@ export function head(
         fontFace: TITLE_KR, margin: 0,
       });
       // 미니멀 구분선
-      s.addShape('line' as any, {
+      s.addShape('line', {
         x: M, y: 1.16, w: 2.5, h: 0,
         line: { color: C.brass, width: 1.5 },
       });
@@ -386,12 +386,12 @@ export function head(
     // ── dramatic: 전폭 액센트 그라데이션 스트립 ──
     case 'dramatic': {
       // 전폭 다크 스트립
-      s.addShape('rect' as any, {
+      s.addShape('rect', {
         x: 0, y: 0.30, w: W, h: 1.00,
         fill: { color: C.ink },
       });
       // 좌측 액센트 블록
-      s.addShape('rect' as any, {
+      s.addShape('rect', {
         x: 0, y: 0.30, w: 0.12, h: 1.00,
         fill: { color: C.brass },
       });
@@ -425,7 +425,7 @@ export function head(
     // ── open_frame: 미니멀 오픈 프레임 + 직각 라인 액센트 ──
     case 'open_frame': {
       if (numStr) {
-        s.addShape('rect' as any, {
+        s.addShape('rect', {
           x: M, y: 0.48, w: 0.42, h: 0.24,
           fill: { color: C.tint },
           line: { color: C.brass, width: 0.5 },
@@ -447,7 +447,7 @@ export function head(
         fontSize: 23, bold: true, color: C.ink,
         fontFace: TITLE_KR, margin: 0,
       });
-      s.addShape('line' as any, {
+      s.addShape('line', {
         x: M + 0.54, y: 1.12, w: 2.0, h: 0,
         line: { color: C.brass, width: 0.5 },
       });
@@ -465,7 +465,7 @@ export function head(
     case 'classic':
     default: {
       if (numStr) {
-        s.addShape('ellipse' as any, {
+        s.addShape('ellipse', {
           x: M, y: 0.50, w: 0.42, h: 0.42,
           fill: { color: C.brass },
         });
@@ -521,17 +521,17 @@ export function headD(
   switch (style) {
     case 'modern': {
       const barH = sub ? 0.86 : 0.62;
-      s.addShape('rect' as any, { x: M, y: 0.42, w: 0.05, h: barH, fill: { color: C.brass } });
+      s.addShape('rect', { x: M, y: 0.42, w: 0.05, h: barH, fill: { color: C.brass } });
       s.addText(`${numStr}  ${kicker}`, { x: M + 0.20, y: 0.42, w: CW - 0.20, h: 0.20, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
       s.addText(cleanTitle, { x: M + 0.20, y: 0.62, w: CW - 0.20, h: 0.42, fontSize: 22, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
       if (sub) s.addText(sub, { x: M + 0.20, y: 1.04, w: CW - 0.20, h: 0.24, fontSize: 10.5, color: CD.mute, fontFace: KR, margin: 0 });
       break;
     }
     case 'executive': {
-      s.addShape('line' as any, { x: M, y: 0.38, w: CW, h: 0, line: { color: C.brass, width: 0.5 } });
+      s.addShape('line', { x: M, y: 0.38, w: CW, h: 0, line: { color: C.brass, width: 0.5 } });
       s.addText(`${numStr}  ·  ${kicker}`, { x: M, y: 0.48, w: CW, h: 0.22, fontSize: 9, bold: true, color: C.brass, fontFace: NUM, charSpacing: 3, margin: 0, align: 'center' });
       s.addText(cleanTitle, { x: M, y: 0.68, w: CW, h: 0.46, fontSize: 26, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0, align: 'center' });
-      s.addShape('line' as any, { x: M + CW * 0.3, y: 1.20, w: CW * 0.4, h: 0, line: { color: C.brass, width: 1 } });
+      s.addShape('line', { x: M + CW * 0.3, y: 1.20, w: CW * 0.4, h: 0, line: { color: C.brass, width: 1 } });
       if (sub) s.addText(sub, { x: M, y: 1.10, w: CW, h: 0.22, fontSize: 11, color: CD.mute, fontFace: KR, margin: 0, align: 'center' });
       break;
     }
@@ -539,14 +539,14 @@ export function headD(
       if (numStr) s.addText(numStr, { x: M, y: 0.48, w: 0.36, h: 0.24, fontSize: 10, bold: true, color: CD.mute, fontFace: NUM, margin: 0 });
       s.addText(kicker, { x: M + 0.40, y: 0.48, w: CW - 0.40, h: 0.20, fontSize: 8.5, bold: true, color: CD.mute, fontFace: NUM, charSpacing: 1.5, margin: 0 });
       s.addText(cleanTitle, { x: M, y: 0.64, w: CW, h: 0.46, fontSize: 24, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
-      s.addShape('line' as any, { x: M, y: 1.16, w: 2.5, h: 0, line: { color: C.brass, width: 1.5 } });
+      s.addShape('line', { x: M, y: 1.16, w: 2.5, h: 0, line: { color: C.brass, width: 1.5 } });
       if (sub) s.addText(sub, { x: M, y: 1.08, w: CW, h: 0.22, fontSize: 10.5, color: CD.mute, fontFace: KR, margin: 0 });
       break;
     }
     case 'dramatic': {
       // Full-width dark strip + left brass accent
-      s.addShape('rect' as any, { x: 0, y: 0.30, w: W, h: 1.00, fill: { color: CD.block } });
-      s.addShape('rect' as any, { x: 0, y: 0.30, w: 0.12, h: 1.00, fill: { color: C.brass } });
+      s.addShape('rect', { x: 0, y: 0.30, w: W, h: 1.00, fill: { color: CD.block } });
+      s.addShape('rect', { x: 0, y: 0.30, w: 0.12, h: 1.00, fill: { color: C.brass } });
       if (numStr) {
         s.addText(numStr, { x: M, y: 0.36, w: 0.60, h: 0.50, fontSize: 28, bold: true, color: C.brass, fontFace: NUM, margin: 0 });
       }
@@ -556,7 +556,7 @@ export function headD(
     }
     case 'open_frame': {
       if (numStr) {
-        s.addShape('rect' as any, {
+        s.addShape('rect', {
           x: M, y: 0.46, w: 0.42, h: 0.26,
           fill: { color: CD.card },
           line: { color: C.brass, width: 0.5 },
@@ -578,7 +578,7 @@ export function headD(
         fontSize: 22, bold: true, color: 'FFFFFF',
         fontFace: TITLE_KR, margin: 0,
       });
-      s.addShape('line' as any, {
+      s.addShape('line', {
         x: M + 0.54, y: 1.12, w: 2.2, h: 0,
         line: { color: C.brass, width: 0.5 },
       });
@@ -595,7 +595,7 @@ export function headD(
     default: {
       // Original classic style (keep existing code)
       if (numStr) {
-        s.addShape('ellipse' as any, { x: M, y: 0.50, w: 0.42, h: 0.42, fill: { color: C.brass } });
+        s.addShape('ellipse', { x: M, y: 0.50, w: 0.42, h: 0.42, fill: { color: C.brass } });
         s.addText(numStr, { x: M, y: 0.50, w: 0.42, h: 0.42, align: 'center', valign: 'middle', fontSize: 13, bold: true, color: 'FFFFFF', fontFace: NUM, margin: 0 });
       }
       s.addText(kicker, { x: M + 0.62, y: 0.50, w: CW - 0.62, h: 0.20, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
@@ -625,7 +625,7 @@ export function foot(
         align: 'center', fontSize: 9, color: textColor, fontFace: KR, margin: 0,
       });
       // 하단 얇은 액센트 라인
-      s.addShape('line' as any, {
+      s.addShape('line', {
         x: M + CW * 0.35, y: 6.98, w: CW * 0.3, h: 0,
         line: { color: C.brass, width: 0.5 },
       });
@@ -633,7 +633,7 @@ export function foot(
     }
     case 'executive': {
       // 중앙 정렬 + 상단 라인
-      s.addShape('line' as any, {
+      s.addShape('line', {
         x: M, y: 6.94, w: CW, h: 0,
         line: { color: C.brass, width: 0.3 },
       });
@@ -657,11 +657,11 @@ export function foot(
     }
     case 'dramatic': {
       // 전폭 액센트 바 + 흰 텍스트
-      s.addShape('rect' as any, {
+      s.addShape('rect', {
         x: 0, y: 7.08, w: W, h: 0.42,
         fill: { color: C.ink },
       });
-      s.addShape('rect' as any, {
+      s.addShape('rect', {
         x: 0, y: 7.08, w: 0.12, h: 0.42,
         fill: { color: C.brass },
       });
@@ -676,7 +676,7 @@ export function foot(
       break;
     }
     case 'open_frame': {
-      s.addShape('line' as any, {
+      s.addShape('line', {
         x: M, y: 6.94, w: CW, h: 0,
         line: { color: C.line, width: 0.5 },
       });
@@ -792,7 +792,7 @@ export function stat(
   const subCol = opt.subCol ?? (opt.onDark ? CD.faint : C.mute);
 
   // 카드 배경
-  s.addShape('roundRect' as any, {
+  s.addShape('roundRect', {
     x, y, w, h,
     rectRadius: 0.06,
     fill: { color: fill },
@@ -923,7 +923,7 @@ export function rows(
 
     // 구분선
     if (i < list.length - 1) {
-      s.addShape('line' as any, {
+      s.addShape('line', {
         x, y: ry + rh, w, h: 0,
         line: { color: opt.onDark ? CD.border : C.line, width: 0.3 },
       });
@@ -1012,7 +1012,7 @@ export function table(
     autoPage: true,
     autoPageRepeatHeader: true,
     autoPageLineWeight: 0.5,
-  } as any);
+  });
 
   return y + (bodyRows.length + 1) * rh;
 }
@@ -1040,14 +1040,14 @@ export function callout(
   const [titleColor, bgColor, barColor] = colors[kind] ?? colors.info;
 
   // 배경
-  s.addShape('roundRect' as any, {
+  s.addShape('roundRect', {
     x, y, w, h,
     rectRadius: 0.06,
     fill: { color: bgColor },
   });
 
   // 좌측 바
-  s.addShape('rect' as any, {
+  s.addShape('rect', {
     x, y: y + 0.06, w: 0.04, h: h - 0.12,
     fill: { color: barColor },
   });
@@ -1075,19 +1075,19 @@ export function callout(
     return {
       text: cleanLine,
       options: {
-        bullet: isBullet ? { code: '2022' } : undefined,
+        bullet: isBullet ? { characterCode: '2022' } : undefined,
         fontSize: 9.3,
         color: C.body,
         fontFace: KR,
         breakLine: true,
         indentLevel: 0,
-        margin: [0, 0, 0, 0],
+        margin: [0, 0, 0, 0] as [number, number, number, number],
       }
     };
   });
 
   if (textRuns.length > 0) {
-    s.addText(textRuns as any, {
+    s.addText(textRuns, {
       x: x + 0.20, y: y + 0.36, w: w - 0.36, h: h - 0.44,
       valign: 'top', margin: 0, lineSpacingMultiple: 1.20,
     });
@@ -1103,7 +1103,7 @@ export function chip(
   opt?: { onDark?: boolean },
 ): void {
   const [label, fg, bg] = PV[kind];
-  s.addShape('roundRect' as any, {
+  s.addShape('roundRect', {
     x, y, w: 1.02, h: 0.21,
     rectRadius: 0.10,
     fill: { color: bg },
@@ -1128,7 +1128,7 @@ export function tag(
   bg: string,
   fs?: number,
 ): void {
-  s.addShape('roundRect' as any, {
+  s.addShape('roundRect', {
     x, y, w, h,
     rectRadius: h / 2,
     fill: { color: bg },
@@ -1157,12 +1157,12 @@ export function card(
   switch (style) {
     case 'modern': {
       // 직각 + 상단 액센트 바
-      s.addShape('rect' as any, {
+      s.addShape('rect', {
         x, y, w, h,
         fill: { color: fill },
         line: { color: lineCol, width: 0.3 },
       });
-      s.addShape('rect' as any, {
+      s.addShape('rect', {
         x, y, w, h: 0.04,
         fill: { color: C.brass },
       });
@@ -1170,7 +1170,7 @@ export function card(
     }
     case 'executive': {
       // 큰 라운드 + 두꺼운 보더
-      s.addShape('roundRect' as any, {
+      s.addShape('roundRect', {
         x, y, w, h,
         rectRadius: 0.10,
         fill: { color: fill },
@@ -1180,7 +1180,7 @@ export function card(
     }
     case 'minimal': {
       // 보더 없음 + 미묘한 배경
-      s.addShape('rect' as any, {
+      s.addShape('rect', {
         x, y, w, h,
         fill: { color: fill },
       });
@@ -1188,12 +1188,12 @@ export function card(
     }
     case 'dramatic': {
       // 직각 + 좌측 액센트 바
-      s.addShape('rect' as any, {
+      s.addShape('rect', {
         x, y, w, h,
         fill: { color: fill },
         line: { color: lineCol, width: 0.3 },
       });
-      s.addShape('rect' as any, {
+      s.addShape('rect', {
         x, y, w: 0.05, h,
         fill: { color: C.brass },
       });
@@ -1201,7 +1201,7 @@ export function card(
     }
     case 'open_frame': {
       // 오픈 프레임: 미니멀 직각 지오메트리 + 정밀 0.5pt 라인 프레임
-      s.addShape('rect' as any, {
+      s.addShape('rect', {
         x, y, w, h,
         fill: { color: fill },
         line: { color: lineCol, width: 0.5 },
@@ -1210,7 +1210,7 @@ export function card(
     }
     case 'classic':
     default: {
-      s.addShape('roundRect' as any, {
+      s.addShape('roundRect', {
         x, y, w, h,
         rectRadius: opt?.radius ?? 0.06,
         fill: { color: fill },
@@ -1266,7 +1266,7 @@ export function waterfall(
 
     const barColor = step.col ?? (step.v < 0 ? C.red : C.green);
 
-    s.addShape('rect' as any, {
+    s.addShape('rect', {
       x: bx + gap / 2, y: barY,
       w: barW - gap, h: barH,
       fill: { color: barColor },
@@ -1313,7 +1313,7 @@ export function stack(
     const bgColor = floor.vacant ? C.redL : C.tint;
     const borderColor = floor.vacant ? C.red : C.line;
 
-    s.addShape('rect' as any, {
+    s.addShape('rect', {
       x: x + 0.6, y: fy, w: w - 0.8, h: floorH - 0.04,
       fill: { color: bgColor },
       line: {
@@ -1360,7 +1360,7 @@ export function locmap(
   w: number,
   h: number,
 ): void {
-  s.addShape('roundRect' as any, {
+  s.addShape('roundRect', {
     x, y, w, h,
     rectRadius: 0.08,
     fill: { color: C.tint },

@@ -49,7 +49,7 @@ export function buildA09Process(input: ArchetypeInput): ArchetypeOutput {
     const cx = x + 0.24;
     const cy = y + 0.24;
     const circleSize = 0.48;
-    slide.addShape('ellipse' as any, { x: cx, y: cy, w: circleSize, h: circleSize, fill: { color: C.brass } });
+    slide.addShape('ellipse', { x: cx, y: cy, w: circleSize, h: circleSize, fill: { color: C.brass } });
     const rawNum = s.stepNum || String(i+1).padStart(2, '0');
     const numStr = rawNum.replace(/[^0-9]/g, '').padStart(2, '0').slice(0, 2);
     slide.addText(numStr, { x: cx, y: cy, w: circleSize, h: circleSize, align: 'center', valign: 'middle', fontSize: 14, bold: true, color: 'FFFFFF', fontFace: NUM, margin: 0 });
@@ -70,7 +70,7 @@ export function buildA09Process(input: ArchetypeInput): ArchetypeOutput {
     
     // Arrow between steps
     if (i < n - 1) {
-      slide.addShape('rightArrow' as any, {
+      slide.addShape('rightArrow', {
         x: x + w + 0.1,
         y: y + h / 2 - 0.15,
         w: 0.2,

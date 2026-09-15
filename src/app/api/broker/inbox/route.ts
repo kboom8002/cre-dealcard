@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
     // 열람 이벤트 조회 — actor_id가 나 자신이 아닌 것만
     const { data: viewEvents } = await supabase
       .from("activity_events")
-      .select("*")
+      .select("id, event_type, entity_id, entity_type, metadata, created_at, actor_id")
       .in("event_type", viewEventTypes)
       .neq("actor_id", userId)
       .order("created_at", { ascending: false })
@@ -183,7 +183,7 @@ export async function GET(req: NextRequest) {
   try {
     const { data: notifications } = await supabase
       .from("in_app_notifications")
-      .select("*")
+      .select("id, type, title, body, link, metadata, is_read, created_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(limit);

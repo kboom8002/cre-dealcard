@@ -11,7 +11,7 @@ interface TrustLineProps {
   isLicensed?: boolean;
 }
 
-export function TrustLine({
+function TrustLineBase({
   brokerName,
   brokerPhone,
   brokerSlug,
@@ -89,3 +89,5 @@ export function TrustLine({
     </div>
   );
 }
+
+export const TrustLine = React.memo(TrustLineBase);

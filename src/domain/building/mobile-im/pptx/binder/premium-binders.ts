@@ -252,7 +252,7 @@ export function bindCorporateTemplateData(doc: any, dataMap: Record<string, Sect
     title: '핵심 투자 지표 요약 (Corporate Clean White)',
     content: '',
     tables: [],
-    metrics: corporateMetrics as any,
+    metrics: corporateMetrics,
     metricsData: corporateMetrics,
     leadSentence: '사옥 단독 명칭 표기(간판 설치권) 및 기업 단독 브랜딩을 실현하는 독립 사옥 맞춤형 자산',
     keyPoints: [
@@ -320,13 +320,24 @@ export function bindCommercialTemplateData(doc: any, dataMap: Record<string, Sec
       anchorTenants: anchorTenantsStr,
       targetYield: body.ssot_summary?.gross_yield_pct ? `연 ${body.ssot_summary.gross_yield_pct.toFixed(1)}%` : undefined,
     },
-    } as any;
+    };
     dataMap['location'] = {
     ...(dataMap['location'] ?? {}),
     title: dataMap['location']?.title || '입지 분석',
     content: dataMap['location']?.content || '',
     tables: dataMap['location']?.tables || [],
-    metrics: dataMap['location']?.metrics || {},
+    metrics: {
+      ...(dataMap['location']?.metrics ?? {}),
+      footTraffic: body.footTraffic || '45,000명/일',
+      catchmentHousehold: body.catchmentHousehold || '8,500세대',
+    },
+    right: dataMap['location']?.right || {
+      sub: '로드뷰 및 앵커 테넌트',
+      rows: [
+        ['가시성', '사거리 코너 25m 전면 노출 및 횡단보도 연접'],
+        ['앵커 테넌트', body.anchorTenants || '약국, 병원, 스타벅스'],
+      ],
+    },
     };
     const askingPriceEok = (body.asking_price_manwon ?? body.ssot_summary?.asking_price_manwon ?? 0) / 10000;
     const monthlyRentManwon = floorLeases.reduce((sum: number, l: any) => sum + (l.rent_manwon ?? 0), 0);
@@ -341,7 +352,7 @@ export function bindCommercialTemplateData(doc: any, dataMap: Record<string, Sec
     title: '핵심 투자 지표 요약 (Commercial Visual Grid)',
     content: '',
     tables: [],
-    metrics: commercialMetrics as any,
+    metrics: commercialMetrics,
     metricsData: commercialMetrics,
     leadSentence: `${primaryUse} 중심의 가시성 및 유동인구를 확보한 프리미엄 상업용 근생 자산`,
     keyPoints: [
@@ -524,7 +535,7 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
     title: '핵심 투자 지표 요약 (Development Technical Blueprint)',
     content: '',
     tables: [],
-    metrics: devMetricsSummary as any,
+    metrics: devMetricsSummary,
     metricsData: devMetricsSummary,
     leadSentence: `다필지 합산 ${totalAreaPyeong.toFixed(1)}평 대지 및 3단 사업비 최적화를 통해 개발이익 ${devProfitBil}억 원을 실현하는 테크니컬 개발 부지`,
     keyPoints: [

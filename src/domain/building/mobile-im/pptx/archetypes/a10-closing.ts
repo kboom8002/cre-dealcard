@@ -45,14 +45,14 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     const x = L.colX(i, stepW, stepGap);
     
     // 배경
-    slide.addShape('roundRect' as any, {
+    slide.addShape('roundRect', {
       x, y: stepY, w: stepW, h: stepH,
       rectRadius: 0.04,
       fill: { color: CD.block },
     });
     
     // 번호 원
-    slide.addShape('ellipse' as any, {
+    slide.addShape('ellipse', {
       x: x + 0.12, y: stepY + 0.12, w: 0.48, h: 0.48,
       fill: { color: C.brass },
     });
@@ -91,7 +91,7 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     const by = sectionY + 0.36 + i * 0.52;
     
     // 배지 라운드 사각형
-    slide.addShape('roundRect' as any, {
+    slide.addShape('roundRect', {
       x: M, y: by, w: 1.40, h: 0.32,
       rectRadius: 0.04,
       fill: { color: CD.block },
@@ -124,7 +124,7 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     const contactY = sectionY + 0.36;
     const contactH = 1.10;
 
-    slide.addShape('roundRect' as any, {
+    slide.addShape('roundRect', {
       x: rx, y: contactY, w: rw, h: contactH,
       rectRadius: 0.04,
       fill: { color: CD.block },
@@ -174,7 +174,7 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
   const cardH = Math.max(1.10, Math.min(maxCardH, 0.45 + Math.ceil(disclaimerText.length / 55) * 0.24));
 
   // 면책 배경 카드
-  slide.addShape('roundRect' as any, {
+  slide.addShape('roundRect', {
     x: rx, y: disclaimerStartY, w: rw, h: cardH,
     rectRadius: 0.04,
     fill: { color: C.ink2 },
@@ -188,7 +188,7 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
   
   // ── 하단 푸터 바 ──
   const footerY = 6.30;
-  slide.addShape('rect' as any, {
+  slide.addShape('rect', {
     x: M, y: footerY, w: CW, h: 0.50,
     fill: { color: CD.accentBg },
   });

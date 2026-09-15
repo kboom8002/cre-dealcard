@@ -18,7 +18,7 @@ interface CircleCardProps {
   };
 }
 
-export function CircleCard({ circle }: CircleCardProps) {
+function CircleCardBase({ circle }: CircleCardProps) {
   return (
     <Link
       href={`/broker/circles/${circle.id}`}
@@ -69,3 +69,6 @@ export function CircleCard({ circle }: CircleCardProps) {
     </Link>
   );
 }
+
+export const CircleCard = React.memo(CircleCardBase);
+

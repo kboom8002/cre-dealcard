@@ -19,12 +19,16 @@ export interface MarketPriceData {
   comparables: ComparableListing[];
 }
 
+import { createModuleLogger } from "@/lib/logger";
+
+const logger = createModuleLogger("naver-realestate-api");
+
 export async function fetchComparableListings(
   address: string,
   assetType: string,
   radiusKm: number = 1.0
 ): Promise<MarketPriceData> {
-  console.log(`Fetching comparables for ${assetType} near ${address} within ${radiusKm}km`);
+  logger.info(`Fetching comparables for ${assetType} near ${address} within ${radiusKm}km`);
   
   await new Promise(resolve => setTimeout(resolve, 1000));
 

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { recordEvent } from "@/domain/analytics/record-event";
+import { recordEvents, type RecordEventInput } from "@/domain/analytics/record-event";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('hold-expiry-cron');
@@ -41,58 +41,72 @@ export async function expireHeldSlots(supabase: SupabaseClient): Promise<ExpiryC
 
     const expiredCount = expiredHolds?.length ?? 0;
 
-    // 2. 대응하는 booking을 cancelled로 변경 및 대기열 처리
+    // 2. 대응하는 booking을 cancelled로 변경 및 대기열 처리 (배치)
     if (expiredHolds && expiredCount > 0) {
-      for (const slot of expiredHolds) {
-        await supabase
-          .from('bookings')
-          .update({ status: 'cancelled', cancellation_reason: 'hold_expired' })
-          .eq('slot_id', slot.id)
-          .eq('status', 'hold');
+      const slotIds = expiredHolds.map(s => s.id);
 
-        // 대기열 우선순위 1순위 찾기
-        const { data: waitlistTop } = await supabase
-          .from('waitlist_entries')
-          .select('*')
-          .eq('slot_id', slot.id)
-          .eq('status', 'waiting')
-          .order('priority', { ascending: false })
-          .order('created_at', { ascending: true })
-          .limit(1)
-          .maybeSingle();
+      // (1) Batch cancel bookings
+      const { error: bookingErr } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled', cancellation_reason: 'hold_expired' })
+        .in('slot_id', slotIds)
+        .eq('status', 'hold');
+      if (bookingErr) {
+        log.warn("[expireHeldSlots] Batch cancel bookings error:", bookingErr.message);
+      }
 
-        if (waitlistTop) {
-          await supabase
-            .from('waitlist_entries')
-            .update({ status: 'notified', notification_sent: true })
-            .eq('id', waitlistTop.id);
+      // (2) Batch fetch waitlist entries for all slots
+      const { data: waitlistEntries, error: waitlistErr } = await supabase
+        .from('waitlist_entries')
+        .select('*')
+        .in('slot_id', slotIds)
+        .eq('status', 'waiting')
+        .order('priority', { ascending: false })
+        .order('created_at', { ascending: true });
 
-          // 이벤트 기록 (알림)
-          await recordEvent(supabase, {
-            actorId: 'system',
-            eventType: 'slot_hold_expired',
-            entityType: 'availability_slot',
-            entityId: slot.id,
-            metadata: {
-              owner_id: slot.owner_id,
-              previous_holder: slot.held_by,
-              waitlist_notified: waitlistTop.requester_id,
-            },
-          });
-        } else {
-          // 대기열이 없는 경우 단순 만료 이벤트
-          await recordEvent(supabase, {
-            actorId: 'system',
-            eventType: 'slot_hold_expired',
-            entityType: 'availability_slot',
-            entityId: slot.id,
-            metadata: {
-              owner_id: slot.owner_id,
-              previous_holder: slot.held_by,
-            },
-          });
+      if (waitlistErr) {
+        log.warn("[expireHeldSlots] Batch fetch waitlists error:", waitlistErr.message);
+      }
+
+      // Slots can have multiple waiting entries; pick top-1 per slot
+      const topWaitlistBySlot = new Map<string, any>();
+      if (waitlistEntries) {
+        for (const entry of waitlistEntries) {
+          if (!topWaitlistBySlot.has(entry.slot_id)) {
+            topWaitlistBySlot.set(entry.slot_id, entry);
+          }
         }
       }
+
+      // (3) Batch update notified waitlist entries
+      const notifiedWaitlistIds = Array.from(topWaitlistBySlot.values()).map(e => e.id);
+      if (notifiedWaitlistIds.length > 0) {
+        const { error: notifyErr } = await supabase
+          .from('waitlist_entries')
+          .update({ status: 'notified', notification_sent: true })
+          .in('id', notifiedWaitlistIds);
+        if (notifyErr) {
+          log.warn("[expireHeldSlots] Batch update waitlist error:", notifyErr.message);
+        }
+      }
+
+      // (4) Batch record events
+      const events: RecordEventInput[] = expiredHolds.map(slot => {
+        const waitlistTop = topWaitlistBySlot.get(slot.id);
+        return {
+          actorId: 'system',
+          eventType: 'slot_hold_expired',
+          entityType: 'availability_slot',
+          entityId: slot.id,
+          metadata: {
+            owner_id: slot.owner_id,
+            previous_holder: slot.held_by,
+            ...(waitlistTop ? { waitlist_notified: waitlistTop.requester_id } : {}),
+          },
+        };
+      });
+
+      await recordEvents(supabase, events);
     }
 
     return {

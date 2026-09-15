@@ -90,7 +90,7 @@ export async function buildA18Checklist(input: ArchetypeInput): Promise<Archetyp
     colItems.forEach((text, idx) => {
       const itemH = 0.95;
       // 카드 배경
-      slide.addShape('rect' as any, {
+      slide.addShape('rect', {
         x: colX,
         y: curY,
         w: colW,
@@ -100,7 +100,7 @@ export async function buildA18Checklist(input: ArchetypeInput): Promise<Archetyp
       });
 
       // 체크마크 아이콘 / 번호 박스
-      slide.addShape('rect' as any, {
+      slide.addShape('rect', {
         x: colX + 0.15,
         y: curY + 0.18,
         w: 0.35,
@@ -144,7 +144,7 @@ export async function buildA18Checklist(input: ArchetypeInput): Promise<Archetyp
   // 하단 마감 배너 (실사 가이드)
   const bannerY = 6.30;
   const bannerH = 0.65;
-  slide.addShape('rect' as any, {
+  slide.addShape('rect', {
     x: M,
     y: bannerY,
     w: CW,

@@ -13,7 +13,9 @@ import type { ResolvedAddress } from "./address-resolver";
 import { geocodeAddress } from "@/domain/verification/address-resolver";
 import { fetchCommercialDistrictFull, type CommercialDistrictAnalysis } from "./semas-commercial-api";
 import { fetchCadastralMapImage, type CadastralMapResult } from "./vworld-wms-cadastral";
+import { createModuleLogger } from "@/lib/logger";
 
+const logger = createModuleLogger("enrich-by-pnu");
 const CACHE_TTL_DAYS = 30;
 
 /**
@@ -157,7 +159,7 @@ export async function enrichBuildingDataCore(
           secondaryParcels!.push({ pnu: secPnu, platArea: secPlatArea });
         }
       } catch (err) {
-        console.warn(`[enrich-by-pnu] Failed to fetch data for secondary PNU ${secPnu}:`, err);
+        logger.warn(`Failed to fetch data for secondary PNU ${secPnu}`, { err });
       }
     }));
     
@@ -166,7 +168,7 @@ export async function enrichBuildingDataCore(
       if (brData) {
         const additionalArea = secondaryParcels.reduce((sum, sp) => sum + sp.platArea, 0);
         brData.platArea += additionalArea;
-        console.info(`[enrich-by-pnu] Added ${additionalArea}㎡ from ${secondaryParcels.length} secondary parcels. New total platArea: ${brData.platArea}㎡`);
+        logger.info(`Added ${additionalArea}㎡ from ${secondaryParcels.length} secondary parcels. New total platArea: ${brData.platArea}㎡`);
       }
     }
   }
@@ -239,7 +241,7 @@ export async function enrichBuildingDataCore(
       await supabase.from("external_data_cache").insert([cacheData]);
     }
   } catch (dbErr) {
-    console.error("[external-data] Failed to write cache to DB:", dbErr);
+    logger.error("Failed to write cache to DB", { dbErr });
   }
 
   return enrichmentResult;
@@ -256,7 +258,7 @@ export async function enrichBuildingDataByPNU(
 ): Promise<ExternalDataEnrichmentResult | null> {
   // Multi-PNU 방어: 쉼표/공백 등으로 전달된 복수 필지 PNU 처리 및 19자리 기본 PNU 안전 추출
   if (!pnu) {
-    console.warn(`[enrich-by-pnu] Missing PNU for address ${rawAddress}`);
+    logger.warn(`Missing PNU for address ${rawAddress}`);
     return null;
   }
 
@@ -266,12 +268,12 @@ export async function enrichBuildingDataByPNU(
   const primaryPnu = valid19Pnus[0] || (pnuTokens[0]?.length >= 19 ? pnuTokens[0].substring(0, 19) : null);
 
   if (!primaryPnu || primaryPnu.length !== 19) {
-    console.warn(`[enrich-by-pnu] Invalid PNU length: ${pnu} for address ${rawAddress}`);
+    logger.warn(`Invalid PNU length: ${pnu} for address ${rawAddress}`);
     return null;
   }
 
   if (valid19Pnus.length > 1) {
-    console.info(`[enrich-by-pnu] Multi-PNU detected: ${valid19Pnus.length} parcels. Primary: ${primaryPnu}, others: ${valid19Pnus.slice(1).join(', ')}`);
+    logger.info(`Multi-PNU detected: ${valid19Pnus.length} parcels. Primary: ${primaryPnu}, others: ${valid19Pnus.slice(1).join(', ')}`);
   }
 
   // ─── 캐시 확인
@@ -291,7 +293,7 @@ export async function enrichBuildingDataByPNU(
         .map(([source, ttlDays]) => ({ source, ttlDays, stale: true }));
 
       if (staleSourcesInfo.length > 0) {
-        console.info(`[enrich-by-pnu] ${staleSourcesInfo.length} sources stale:`, staleSourcesInfo.map(s => s.source).join(', '));
+        logger.info(`${staleSourcesInfo.length} sources stale: ${staleSourcesInfo.map(s => s.source).join(', ')}`);
         const staleSources = staleSourcesInfo.map(s => s.source);
         return await enrichBuildingDataCore(
           {
@@ -306,13 +308,13 @@ export async function enrichBuildingDataByPNU(
           staleSources
         );
       } else {
-        console.info(`[external-data] Cache hit (${Math.round(cacheAge / 86400000)}d old)`);
+        logger.info(`Cache hit (${Math.round(cacheAge / 86400000)}d old)`);
         const result = reconstructFromCache(cached);
         if (result.cadastralMapImage === null && result.resolvedAddress?.lat != null && result.resolvedAddress?.lng != null) {
           try {
             result.cadastralMapImage = await fetchCadastralMapImage(result.resolvedAddress.lat, result.resolvedAddress.lng, 800, 600, 150, result.resolvedAddress?.pnu);
           } catch (e) {
-            console.warn("[external-data] Failed to re-fetch cadastral map on cache hit:", e);
+            logger.warn("Failed to re-fetch cadastral map on cache hit", { err: e });
           }
         }
         return result;
@@ -334,16 +336,16 @@ export async function enrichBuildingDataByPNU(
     const geo = await geocodeAddress(rawAddress);
     if (geo) { lat = geo.lat; lng = geo.lng; }
     else {
-      console.warn(`[enrich-by-pnu] geocodeAddress returned null for "${rawAddress}" → using fallback`);
+      logger.warn(`geocodeAddress returned null for "${rawAddress}" → using fallback`);
       applyFallbackCoords();
     }
   } catch (geoErr: any) {
-    console.warn(`[enrich-by-pnu] geocodeAddress error for "${rawAddress}": ${geoErr?.message} → using fallback`);
+    logger.warn(`geocodeAddress error for "${rawAddress}": ${geoErr?.message} → using fallback`);
     applyFallbackCoords();
   }
 
   function applyFallbackCoords() {
-    console.warn(`[enrich-by-pnu] applyFallbackCoords called for "${rawAddress}" - arbitrary fallback coords removed`);
+    logger.warn(`applyFallbackCoords called for "${rawAddress}" - arbitrary fallback coords removed`);
     // Do NOT set arbitrary coordinates
   }
 

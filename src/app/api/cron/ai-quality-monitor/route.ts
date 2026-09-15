@@ -9,7 +9,12 @@ export const dynamic = 'force-dynamic';
 const SCORE_DROP_THRESHOLD = 0.5;
 const WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
 
-export async function GET() {
+export async function GET(req: Request) {
+  const authHeader = req.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const { createServiceClient } = await import('@/lib/supabase/service');
     const supabase = createServiceClient();

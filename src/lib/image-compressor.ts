@@ -5,6 +5,10 @@
  * and compresses to ~200KB–500KB JPEG to strictly avoid Vercel 4.5MB payload limit (HTTP 413).
  */
 
+import { createModuleLogger } from '@/lib/logger';
+
+const logger = createModuleLogger('image-compressor');
+
 export interface CompressionOptions {
   maxWidth?: number;
   maxHeight?: number;
@@ -84,7 +88,7 @@ export async function compressImage(
               (blob) => {
                 if (!blob) {
                   if (!isRetry && file.size > 4 * 1024 * 1024) {
-                    console.warn('[ImageCompressor] Canvas toBlob error, retrying with smaller dimensions');
+                    logger.warn('Canvas toBlob error, retrying with smaller dimensions');
                     attemptCompression(1920, 1080, true);
                   } else if (file.size > 4 * 1024 * 1024) {
                     reject(new Error('Image too large to compress'));
@@ -101,8 +105,8 @@ export async function compressImage(
                   lastModified: Date.now(),
                 });
 
-                console.log(
-                  `[ImageCompressor] Compressed "${file.name}": ${(file.size / 1024).toFixed(0)}KB → ${(compressedFile.size / 1024).toFixed(0)}KB (${width}x${height})`
+                logger.info(
+                  `Compressed "${file.name}": ${(file.size / 1024).toFixed(0)}KB → ${(compressedFile.size / 1024).toFixed(0)}KB (${width}x${height})`
                 );
 
                 resolve(compressedFile);
@@ -111,9 +115,9 @@ export async function compressImage(
               quality
             );
           } catch (err) {
-            console.warn('[ImageCompressor] Canvas compression error:', err);
+            logger.warn('Canvas compression error', { err });
             if (!isRetry && file.size > 4 * 1024 * 1024) {
-              console.warn('[ImageCompressor] Retrying with smaller dimensions');
+              logger.warn('Retrying with smaller dimensions');
               attemptCompression(1920, 1080, true);
             } else if (file.size > 4 * 1024 * 1024) {
               reject(new Error('Image too large to compress'));
@@ -127,7 +131,7 @@ export async function compressImage(
       };
 
       img.onerror = () => {
-        console.warn('[ImageCompressor] Image load error, using original:', file.name);
+        logger.warn(`Image load error, using original: ${file.name}`);
         resolve(file);
       };
 
@@ -135,7 +139,7 @@ export async function compressImage(
     };
 
     reader.onerror = () => {
-      console.warn('[ImageCompressor] FileReader error, using original:', file.name);
+      logger.warn(`FileReader error, using original: ${file.name}`);
       resolve(file);
     };
 
@@ -181,7 +185,7 @@ export async function uploadPhotosSequentially(
 
       const MAX_UPLOAD_SIZE = 4 * 1024 * 1024; // 4MB Vercel limit
       if (compressedFile.size > MAX_UPLOAD_SIZE) {
-        console.error(`[ImageCompressor] File too large after compression: ${(compressedFile.size / 1024 / 1024).toFixed(1)}MB`);
+        logger.error(`File too large after compression: ${(compressedFile.size / 1024 / 1024).toFixed(1)}MB`);
         throw new Error('이미지 용량이 너무 큽니다. 4MB 이하의 이미지를 사용해주세요.');
       }
 
@@ -201,7 +205,7 @@ export async function uploadPhotosSequentially(
           errorMsg = json.error || errorMsg;
         } catch { /* ignore */ }
         errors.push(`${originalFile.name}: ${errorMsg}`);
-        console.error(`[PhotoUpload] Upload failed for ${originalFile.name}:`, errorMsg);
+        logger.error(`Upload failed for ${originalFile.name}`, { errorMsg });
         continue;
       }
 
@@ -214,7 +218,7 @@ export async function uploadPhotosSequentially(
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       errors.push(`${originalFile.name}: ${errMsg}`);
-      console.error(`[PhotoUpload] Error uploading ${originalFile.name}:`, errMsg);
+      logger.error(`Error uploading ${originalFile.name}`, { err: errMsg });
     }
   }
 

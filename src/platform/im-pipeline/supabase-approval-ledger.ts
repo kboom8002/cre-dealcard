@@ -66,7 +66,7 @@ export class SupabaseApprovalLedgerAdapter implements ApprovalLedgerPort {
 
     const { data, error } = await this.client
       .from('approval_events')
-      .select('*')
+      .select('id, artifact_run_id, event_type, actor_id, actor_role, target_hash, harness_report_id, predecessor_approval_id, reason, expires_at, created_at')
       .eq('artifact_run_id', artifactRunId)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -94,7 +94,7 @@ export class SupabaseApprovalLedgerAdapter implements ApprovalLedgerPort {
 
     const { data, error } = await this.client
       .from('approval_events')
-      .select('*')
+      .select('id, artifact_run_id, event_type, actor_id, actor_role, target_hash, harness_report_id, predecessor_approval_id, reason, expires_at, created_at')
       .eq('artifact_run_id', artifactRunId)
       .order('created_at', { ascending: true });
 
@@ -164,7 +164,7 @@ export class SupabaseApprovalLedgerAdapter implements ApprovalLedgerPort {
 
     const { data, error } = await this.client
       .from('release_records')
-      .select('*')
+      .select('id, artifact_run_id, channel, status, public_url, artifact_file_hash, approved_approval_id, created_at, updated_at')
       .eq('id', releaseId)
       .maybeSingle();
 
@@ -188,7 +188,7 @@ export class SupabaseApprovalLedgerAdapter implements ApprovalLedgerPort {
 
     const { data, error } = await this.client
       .from('release_records')
-      .select('*')
+      .select('id, artifact_run_id, channel, status, public_url, artifact_file_hash, approved_approval_id, created_at, updated_at')
       .eq('artifact_run_id', artifactRunId)
       .order('created_at', { ascending: false })
       .limit(1)

@@ -5,6 +5,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies, headers } from "next/headers";
 import { env } from "@/lib/env";
+import { createModuleLogger } from "@/lib/logger";
+
+const logger = createModuleLogger("supabase-server");
 
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
@@ -38,9 +41,9 @@ export async function createServerSupabaseClient() {
   );
 
   if (token) {
-    console.log("[createServerSupabaseClient] Configured global auth header, length:", token.length);
+    logger.debug("Configured global auth header, length:", token.length);
   } else {
-    console.log("[createServerSupabaseClient] No token in Authorization header");
+    logger.debug("No token in Authorization header");
   }
 
   return client;

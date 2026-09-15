@@ -53,6 +53,7 @@ export interface MobileImPptxInput {
     asset_type?: string;
     price_band?: string;
     owner_id?: string;
+    [key: string]: any;
   };
   broker?: {
     display_name?: string;
@@ -75,6 +76,7 @@ export interface MobileImPptxInput {
   publishBlockReasons?: string[];
   /** D37 C-3: 5종 발행 등급 */
   releaseTier?: import('../../im-core/release-tier').ReleaseTier;
+  core?: any;
 }
 
 export interface MobileImPptxOutput {
@@ -121,7 +123,7 @@ export class MobileImPptxRenderer {
     );
 
     // G5: 커스텀 프리셋의 logo_url을 input.logoUrl에 폴백 머지
-    const resolvedLogoUrl = input.logoUrl ?? (theme as any).logoUrl;
+    const resolvedLogoUrl = input.logoUrl ?? theme.logoUrl;
     if (resolvedLogoUrl && !input.logoUrl) {
       input = { ...input, logoUrl: resolvedLogoUrl };
     }
@@ -131,14 +133,14 @@ export class MobileImPptxRenderer {
     try {
       // ── 0. 사진 메타 도출 및 갤러리 플래닝 (v0.6.0) ──
       const posture = (input.posture ?? 'income') as InvestmentPosture;
-      const resolvedPhotos = resolvePhotos(input.doc.body as any, input.buildingId);
+      const resolvedPhotos = resolvePhotos(input.doc.body, input.buildingId);
       const gallerySpecs = planGallerySlides(resolvedPhotos, posture, theme.presetId);
       // role 기반 이미지 선택 (사용자 지정 → isHero → 첫 번째)
-      const heroPhoto = resolvedPhotos.find(p => (p as any).role === 'cover')
+      const heroPhoto = resolvedPhotos.find(p => p.role === 'cover')
         || resolvedPhotos.find(p => p.isHero)
         || resolvedPhotos[0];
-      const exteriorPhoto = resolvedPhotos.find(p => (p as any).role === 'exterior')
-        || resolvedPhotos.find(p => p.category === 'exterior' || (p as any).type === 'exterior')
+      const exteriorPhoto = resolvedPhotos.find(p => p.role === 'exterior')
+        || resolvedPhotos.find(p => p.category === 'exterior' || p.type === 'exterior')
         || heroPhoto;
 
       // ── 1. 덱 시퀀스 결정 ──
@@ -157,7 +159,7 @@ export class MobileImPptxRenderer {
           hasLandPrice: !!(enrichment.landPrice),
           hasBuildingRegister: !!(enrichment.buildingRegister ?? externalData.hasPublicData ?? input.doc.body?.ssot_summary?.total_gross_area_sqm ?? input.doc.body?.ssot_summary?.size_signal),
           hasRegistryData: !!(enrichment.registryData),
-          hasComparables: (enrichment.comparableTransactions?.length ?? 0) > 0 || ((input.doc.body as any)?.manual_comps?.length ?? 0) > 0,
+          hasComparables: (enrichment.comparableTransactions?.length ?? 0) > 0 || (input.doc.body?.manual_comps?.length ?? 0) > 0,
           hasCommercialDistrict: !!(enrichment.commercialDistrict),
           hasCadastralMap: !!(enrichment.cadastralMapImage),
           hasFloorPlan: false,
@@ -167,7 +169,7 @@ export class MobileImPptxRenderer {
             || input.doc.body?.ssot_summary?.total_deposit_manwon
             || input.doc.sections?.some((s: any) => s.section_type === 'lease_status')
           ),
-          hasStackingPlan: !!(input.doc.body?.floor_leases?.length || (input.doc.body as any)?.stackingPlan?.length),
+          hasStackingPlan: !!(input.doc.body?.floor_leases?.length || input.doc.body?.stackingPlan?.length),
         },
         // D37 C-3: ReleaseTier 전달 → tier 기반 면 제어 활성화
         releaseTier: input.releaseTier,
@@ -186,10 +188,10 @@ export class MobileImPptxRenderer {
       const renderPath = process.env.RENDER_PATH ?? 'legacy_md';
       let dataMap: Record<string, import('./data-binder').SectionData>;
 
-      if (renderPath === 'imcore' && (input as any).core) {
+      if (renderPath === 'imcore' && input.core) {
         // Phase 2-3: IMCore 정형 객체 직접 바인딩 (마크다운 파싱 우회)
         const { bindFromIMCore } = await import('./data-binder');
-        dataMap = bindFromIMCore((input as any).core, undefined, input.doc?.body);
+        dataMap = bindFromIMCore(input.core, undefined, input.doc?.body);
       } else {
         // 레거시: 마크다운 파싱 기반 바인딩
         const normalizedDoc = {
@@ -217,23 +219,23 @@ export class MobileImPptxRenderer {
         areaSignal: input.building?.area_signal ?? '',
         brokerName: input.broker?.display_name ?? '',
         companyName,
-        tags: [input.building?.asset_type, input.building?.price_band].filter(Boolean),
+        tags: [input.building?.asset_type, input.building?.price_band].filter(Boolean) as string[],
         docno,
         logoUrl: input.logoUrl,
         coverImageUrl: isBasicPreset ? null : (heroPhoto?.url
           ?? input.doc.body?.photo_urls?.[0]
           ?? input.doc.body?.photos?.[0]?.url
           ?? null),
-      } as any;
+      };
 
       // Basic IM 표지 필수 4요소 바인딩 (basic-im-guide.md §2 #1)
       if (isBasicPreset) {
         const ssotCover = input.doc.body?.ssot_summary ?? {};
-        (dataMap['cover'] as any).address = ssotCover.address ?? input.doc.body?.resolved_address ?? '';
-        (dataMap['cover'] as any).askingPrice = ssotCover.asking_price_manwon 
+        dataMap['cover'].address = ssotCover.address ?? input.doc.body?.resolved_address ?? '';
+        dataMap['cover'].askingPrice = ssotCover.asking_price_manwon 
           ? `${(Number(ssotCover.asking_price_manwon) / 10000).toFixed(0)}억 원` 
           : (ssotCover.price_band ?? '');
-        (dataMap['cover'] as any).documentDate = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
+        dataMap['cover'].documentDate = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
       }
 
       // ── Basic IM 물건 개요 (building) 슬라이드 데이터 보장 ──
@@ -242,8 +244,8 @@ export class MobileImPptxRenderer {
       // SSOT/건축물대장 데이터로 직접 폴백 바인딩
       if (!dataMap['building'] && isBasicPreset) {
         const ssot = input.doc.body?.ssot_summary ?? {};
-        const bldg = input.building ?? {} as any;
-        const br = enrichment?.buildingRegister ?? {} as any;
+        const bldg = input.building ?? {};
+        const br = enrichment?.buildingRegister ?? {};
         const heroCard = input.doc.body?.heroCard ?? {};
 
         // 면적 포맷 헬퍼
@@ -291,7 +293,7 @@ export class MobileImPptxRenderer {
             sub: '건축물대장·토지이용계획확인서 기준',
             rows: leftRows,
           },
-        } as any;
+        };
       }
 
       if (dataMap['building']) {
@@ -304,7 +306,7 @@ export class MobileImPptxRenderer {
 
         // 매각가 테이블 (하단 별도 표)
         if (askStr) {
-          (dataMap['building'] as any).priceTable = {
+          dataMap['building'].priceTable = {
             label: '매매 희망가',
             value: `${askStr} (VAT 별도)`,
           };
@@ -312,7 +314,7 @@ export class MobileImPptxRenderer {
           // 토지평당가 추가
           const landPy = Number(ssotBldg.land_area_pyeong || 0) || sqmToPyeong(Number(ssotBldg.land_area_sqm || 0));
           if (landPy > 0 && askManwon > 0) {
-            (dataMap['building'] as any).priceTable2 = {
+            dataMap['building'].priceTable2 = {
               label: '토지평당가',
               value: `약 ${Math.round(askManwon / landPy).toLocaleString()}만 원/평`,
             };
@@ -377,17 +379,17 @@ export class MobileImPptxRenderer {
             sub: '광역 교통망 및 접근성',
             rows: locRows.slice(0, 6),
           },
-        } as any;
+        };
       }
 
       if (dataMap['location']) {
-        (dataMap['location'] as any).coordinates = input.doc.body?.coordinates ?? null;
-        (dataMap['location'] as any).mapImageUrl = input.doc.body?.mapImageUrl ?? null;
-        (dataMap['location'] as any).address = input.doc.body?.ssot_summary?.address ?? input.doc.body?.resolved_address ?? input.doc.body?.address;
-        (dataMap['location'] as any).areaSignal = input.building?.area_signal ?? input.doc.body?.ssot_summary?.area_signal ?? input.doc.body?.areaSignal;
+        dataMap['location'].coordinates = input.doc.body?.coordinates ?? null;
+        dataMap['location'].mapImageUrl = input.doc.body?.mapImageUrl ?? null;
+        dataMap['location'].address = input.doc.body?.ssot_summary?.address ?? input.doc.body?.resolved_address ?? input.doc.body?.address;
+        dataMap['location'].areaSignal = input.building?.area_signal ?? input.doc.body?.ssot_summary?.area_signal ?? input.doc.body?.areaSignal;
         // POI 주요 스폿 (역, 상권 랜드마크) — 지도 마커 오버레이용
         const externalPoi = enrichment?.locationPoi ?? input.doc.body?.external_data?.locationPoi;
-        (dataMap['location'] as any).poiSpots = externalPoi?.keySpots ?? input.doc.body?.poiSpots ?? [];
+        dataMap['location'].poiSpots = externalPoi?.keySpots ?? input.doc.body?.poiSpots ?? [];
 
         // D42 RCA → D45 수정: cadastralImage를 location에 주입하지 않음.
         // 지적도는 'cadastralMap' 전용 dataKey/슬라이드에서만 렌더링.
@@ -397,15 +399,15 @@ export class MobileImPptxRenderer {
       }
 
       if (dataMap['commute']) {
-        (dataMap['commute'] as any).coordinates = (dataMap['location'] as any)?.coordinates ?? input.doc.body?.coordinates ?? null;
-        (dataMap['commute'] as any).mapImageUrl = (dataMap['location'] as any)?.mapImageUrl ?? input.doc.body?.mapImageUrl ?? null;
-        (dataMap['commute'] as any).address = (dataMap['location'] as any)?.address ?? input.doc.body?.resolved_address ?? input.doc.body?.address;
-        (dataMap['commute'] as any).areaSignal = (dataMap['location'] as any)?.areaSignal;
+        dataMap['commute'].coordinates = dataMap['location']?.coordinates ?? input.doc.body?.coordinates ?? null;
+        dataMap['commute'].mapImageUrl = dataMap['location']?.mapImageUrl ?? input.doc.body?.mapImageUrl ?? null;
+        dataMap['commute'].address = dataMap['location']?.address ?? input.doc.body?.resolved_address ?? input.doc.body?.address;
+        dataMap['commute'].areaSignal = dataMap['location']?.areaSignal;
       }
 
       // 건물 개요 슬라이드에 외관 사진 우선 사용
       if (dataMap['building'] && exteriorPhoto) {
-        (dataMap['building'] as any).photoUrl = exteriorPhoto.url;
+        dataMap['building'].photoUrl = exteriorPhoto.url;
       }
 
       // 면책 조항과 provenance 배지 설명은 법적 고정 텍스트 (§10, §18)
@@ -430,12 +432,12 @@ export class MobileImPptxRenderer {
           { label: '● 중개인입력', description: '중개인 현장 조사 및 경험 기반 입력', score: '0.60' },
           { label: '◇ AI추정·가정', description: '시나리오 분석 및 AI 모델 추정', score: '0.30' },
         ],
-      } as any;
+      };
 
       // Basic IM: 클로징 타이틀 및 브로커 연락처 (basic-im-guide §2 #9)
       if (isBasicPreset) {
-        (dataMap['closing'] as any).title = '문의 및 유의사항';
-        (dataMap['closing'] as any).brokerContact = {
+        dataMap['closing'].title = '문의 및 유의사항';
+        dataMap['closing'].brokerContact = {
           name: input.broker?.display_name ?? '[담당자명]',
           phone: input.broker?.phone ?? '[연락처]',
           email: input.broker?.email ?? '',
@@ -457,7 +459,7 @@ export class MobileImPptxRenderer {
             photoUrls: spec.photos.map(p => p.url),
             layout: spec.layout,
             group: spec.group,
-          } as any;
+          };
         });
       }
 
@@ -475,7 +477,7 @@ export class MobileImPptxRenderer {
         photoUrls: (gallerySpecs[0]?.photos.map(p => p.url) || photoUrls).filter((u: string) => !u?.toLowerCase().endsWith('.wdp')),
         photos: (gallerySpecs[0]?.photos || photos).filter((p: any) => !p?.url?.toLowerCase().endsWith('.wdp')),
         layout: gallerySpecs[0]?.layout,
-      } as any;
+      };
 
       // Basic IM 전용: 투자수익률 산식 슬라이드 데이터 바인딩 (basic-im-guide.md §3.3)
       if (theme.presetId === 'credeal_basic') {
@@ -487,7 +489,7 @@ export class MobileImPptxRenderer {
         let vacPct = Number(ssot.vacancy_pct ?? 0);
         // floor_leases에서 공실률 직접 산출 (ssot_summary.vacancy_pct 미설정 방어)
         if (vacPct === 0 && input.doc.body?.floor_leases?.length) {
-          const leases = input.doc.body.floor_leases as any[];
+          const leases = (input.doc.body.floor_leases || []) as Record<string, any>[];
           const totalUnits = leases.length;
           const vacantUnits = leases.filter((l: any) => 
             l.is_vacant === true 
@@ -521,7 +523,7 @@ export class MobileImPptxRenderer {
           capRateAsIs,
           capRateStabilized,
           stabilizedAssumption: '공실층을 인근 동일 용도 시세 수준으로 임대 가정',
-        } as any;
+        };
       }
 
       // heroCard 데이터를 summary에 매핑
@@ -534,19 +536,19 @@ export class MobileImPptxRenderer {
           metrics: [],
           leadSentence: heroCard.hookText ?? '',
           callouts: [],
-        } as any;
+        };
       }
-      (dataMap['summary'] as any).heroCard = heroCard;
-      (dataMap['summary'] as any).ssot_summary = input.doc.body?.ssot_summary;
-      (dataMap['summary'] as any).enrichment = enrichment;
-      (dataMap['summary'] as any).station_name = input.doc.body?.ssot_summary?.station_name ?? (enrichment?.locationPoi?.nearestStation?.name);
-      (dataMap['summary'] as any).station_walk_min = input.doc.body?.ssot_summary?.station_walk_min ?? (enrichment?.locationPoi?.nearestStation?.walkMinutes);
-      (dataMap['summary'] as any).asking_price_manwon = input.doc.body?.ssot_summary?.asking_price_manwon ?? input.doc.body?.asking_price_manwon;
-      (dataMap['summary'] as any).askingPrice = (dataMap['cover'] as any)?.askingPrice ?? (dataMap['building'] as any)?.priceTable?.value;
+      dataMap['summary'].heroCard = heroCard;
+      dataMap['summary'].ssot_summary = input.doc.body?.ssot_summary;
+      dataMap['summary'].enrichment = enrichment;
+      dataMap['summary'].station_name = input.doc.body?.ssot_summary?.station_name ?? (enrichment?.locationPoi?.nearestStation?.name);
+      dataMap['summary'].station_walk_min = input.doc.body?.ssot_summary?.station_walk_min ?? (enrichment?.locationPoi?.nearestStation?.walkMinutes);
+      dataMap['summary'].asking_price_manwon = input.doc.body?.ssot_summary?.asking_price_manwon ?? input.doc.body?.asking_price_manwon;
+      dataMap['summary'].askingPrice = dataMap['cover']?.askingPrice ?? dataMap['building']?.priceTable?.value;
 
-      if (posture === 'owner_occupied' && (!(dataMap['summary'] as any).keyPoints || (dataMap['summary'] as any).keyPoints.length === 0)) {
+      if (posture === 'owner_occupied' && (!dataMap['summary'].keyPoints || dataMap['summary'].keyPoints.length === 0)) {
         const areaSig = input.building?.area_signal ?? input.doc.body?.ssot_summary?.area_signal ?? '도심 업무권역';
-        (dataMap['summary'] as any).keyPoints = [
+        dataMap['summary'].keyPoints = [
           `사옥 가치: ${areaSig} 내 독립 사옥 확보를 통한 중장기 자산 가치 확보`,
           '비용 절감: 임차료 지출을 법인 자산 축적으로 전환하는 재무 타당성 분석',
           '기업 브랜딩: 사옥 단독 명칭 표기(간판 설치권) 및 기업 대외 신인도 제고',
@@ -554,10 +556,10 @@ export class MobileImPptxRenderer {
       }
 
       // I-03 fix + FIX-RC5: dataMap['summary'].metrics나 heroCard.stats가 비어 있을 때만 SSoT/body/building에서 자동 구성
-      const existingMetrics = (dataMap['summary'] as any)?.metrics;
+      const existingMetrics = dataMap['summary']?.metrics;
       if ((!existingMetrics || existingMetrics.length === 0) && (!heroCard.stats || heroCard.stats.length === 0)) {
         const ssot = input.doc.body?.ssot_summary ?? {};
-        const bldg = input.building ?? {} as any;
+        const bldg = input.building ?? {};
         const autoStats: Array<{label: string; value: string; unit?: string}> = [];
         // SSoT 우선 소스
         if (ssot.price_band) autoStats.push({ label: '매각 희망가', value: ssot.price_band });
@@ -594,12 +596,12 @@ export class MobileImPptxRenderer {
           }
         }
         if (autoStats.length > 0) {
-          (dataMap['summary'] as any).metrics = autoStats;
+          dataMap['summary'].metrics = autoStats;
         }
       }
       // ── 2b. 공동담보 경고 블록 주입 (hasJointCollateral) ──
       if (input.hasJointCollateral && dataMap['risk']) {
-        const riskData = dataMap['risk'] as any;
+        const riskData = dataMap['risk'];
         if (!riskData.blocks) riskData.blocks = [];
         riskData.blocks.push({
           label: '공동담보 설정',
@@ -632,27 +634,27 @@ export class MobileImPptxRenderer {
         const hasContent = slideData && (
           (slideData.content && slideData.content.trim().length > 0) ||
           (slideData.tables && slideData.tables.length > 0) ||
-          ((slideData as any).photos && (slideData as any).photos.length > 0) ||
-          ((slideData as any).photoUrls && (slideData as any).photoUrls.length > 0) ||
+          (slideData.photos && slideData.photos.length > 0) ||
+          (slideData.photoUrls && slideData.photoUrls.length > 0) ||
           // FIX-RC4: 빈 배열 []도 truthy이므로, 배열 길이를 명시적으로 검사
-          ((slideData as any).left?.rows?.length > 0 || (slideData as any).left?.sub) ||
-          ((slideData as any).right?.stats?.length > 0 || (slideData as any).right?.callouts?.length > 0 || (slideData as any).right?.rows?.length > 0) ||
-          ((slideData as any).blocks?.length > 0) ||
-          ((slideData as any).table1?.rows?.length > 0) ||
-          ((slideData as any).steps?.length > 0) ||
+          ((slideData.left?.rows?.length ?? 0) > 0 || !!slideData.left?.sub) ||
+          ((slideData.right?.stats?.length ?? 0) > 0 || (slideData.right?.callouts?.length ?? 0) > 0 || (slideData.right?.rows?.length ?? 0) > 0) ||
+          ((slideData.blocks?.length ?? 0) > 0) ||
+          ((slideData.table1?.rows?.length ?? 0) > 0) ||
+          ((slideData.steps?.length ?? 0) > 0) ||
           // D38: 고도화 아키타입 전수 콘텐츠 검사 가드 (Silent Drop 방지)
-          ((slideData as any).stackingPlan && (slideData as any).stackingPlan.length > 0) ||
-          ((slideData as any).capRateAsIs != null) ||
-          ((slideData as any).kpiRows && (slideData as any).kpiRows.length > 0) ||
-          ((slideData as any).statCards && (slideData as any).statCards.length > 0) ||
-          ((slideData as any).equityBreakdown != null) ||
-          ((slideData as any).ltvScenarios && (slideData as any).ltvScenarios.length > 0) ||
-          ((slideData as any).ownershipRows && (slideData as any).ownershipRows.length > 0) ||
-          ((slideData as any).roomTypes && (slideData as any).roomTypes.length > 0) ||
-          ((slideData as any).checkItems && (slideData as any).checkItems.length > 0) ||
-          ((slideData as any).pillars && (slideData as any).pillars.length > 0) ||
-          ((slideData as any).mapImageUrl != null || (slideData as any).coordinates != null || (slideData as any).cadastralImage != null) ||
-          (Boolean((slideData as any).markdown && (slideData as any).markdown.trim().length > 0))
+          (slideData.stackingPlan && slideData.stackingPlan.length > 0) ||
+          (slideData.capRateAsIs != null) ||
+          ((slideData.kpiRows?.length ?? 0) > 0) ||
+          ((slideData.statCards?.length ?? 0) > 0) ||
+          (slideData.equityBreakdown != null) ||
+          ((slideData.ltvScenarios?.length ?? 0) > 0) ||
+          ((slideData.ownershipRows?.length ?? 0) > 0) ||
+          ((slideData.roomTypes?.length ?? 0) > 0) ||
+          ((slideData.checkItems?.length ?? 0) > 0) ||
+          ((slideData.pillars?.length ?? 0) > 0) ||
+          (slideData.mapImageUrl != null || slideData.coordinates != null || slideData.cadastralImage != null) ||
+          (Boolean(slideData.markdown && slideData.markdown.trim().length > 0))
         );
 
         if (!hasContent && !isStaticSlide) {
@@ -675,9 +677,9 @@ export class MobileImPptxRenderer {
             ...(dataMap[spec.dataKey] ?? {}),
             kicker: spec.kicker,
             // cover/closing 외에는 정형 PPTX 슬라이드 표준 제목(spec.title)을 최종 권위로 사용 (Rule 6)
-            title: (['cover', 'closing'].includes(spec.dataKey) && (dataMap[spec.dataKey] as any)?.title)
-              ? (dataMap[spec.dataKey] as any).title
-              : (spec.title || (dataMap[spec.dataKey] as any)?.title || '세부 정보'),
+            title: (['cover', 'closing'].includes(spec.dataKey) && dataMap[spec.dataKey]?.title)
+              ? dataMap[spec.dataKey]?.title
+              : (spec.title || dataMap[spec.dataKey]?.title || '세부 정보'),
           },
           grade: (input.grade ?? 'B') as 'A' | 'B' | 'C',
           provenance: input.provenance ?? {},
@@ -687,12 +689,11 @@ export class MobileImPptxRenderer {
           const result = await Promise.resolve(builder(archetypeInput));
           // W-PPTX-6: 빌더가 suppress 신호를 반환하면 슬라이드 생략 (유령 백지 슬라이드 방지)
           if (result.suppress) {
-            log.info(`[PPTX] [Suppress] ${spec.archetype}(${spec.dataKey}) — data keys: ${Object.keys(archetypeInput.data).join(', ')}, tableRows: ${(archetypeInput.data as any)?.tableRows?.length ?? 'N/A'}, tables[0].rows: ${(archetypeInput.data as any)?.tables?.[0]?.rows?.length ?? 'N/A'}, stackingPlan: ${(archetypeInput.data as any)?.stackingPlan?.length ?? 'N/A'}`);
-            const presAny = pres as any;
-            if (Array.isArray(presAny.slides) && presAny.slides.length > 0) {
-              const lastIdx = presAny.slides.length - 1;
-              if (presAny.slides[lastIdx] === result.slide) {
-                presAny.slides.pop();
+            log.info(`[PPTX] [Suppress] ${spec.archetype}(${spec.dataKey}) — data keys: ${Object.keys(archetypeInput.data).join(', ')}, tableRows: ${archetypeInput.data?.tableRows?.length ?? 'N/A'}, tables[0].rows: ${archetypeInput.data?.tables?.[0]?.rows?.length ?? 'N/A'}, stackingPlan: ${archetypeInput.data?.stackingPlan?.length ?? 'N/A'}`);
+            if (Array.isArray((pres as unknown as { slides: PptxGenJS.Slide[] }).slides) && (pres as unknown as { slides: PptxGenJS.Slide[] }).slides.length > 0) {
+              const lastIdx = (pres as unknown as { slides: PptxGenJS.Slide[] }).slides.length - 1;
+              if ((pres as unknown as { slides: PptxGenJS.Slide[] }).slides[lastIdx] === result.slide) {
+                (pres as unknown as { slides: PptxGenJS.Slide[] }).slides.pop();
               }
             }
             warnings.push(...result.warnings);
@@ -706,11 +707,10 @@ export class MobileImPptxRenderer {
             warnings,
           });
           if (!fallbackOk) {
-            const presAny = pres as any;
-            if (Array.isArray(presAny.slides) && presAny.slides.length > 0) {
-              const lastIdx = presAny.slides.length - 1;
-              if (presAny.slides[lastIdx] === result.slide) {
-                presAny.slides.pop();
+            if (Array.isArray((pres as unknown as { slides: PptxGenJS.Slide[] }).slides) && (pres as unknown as { slides: PptxGenJS.Slide[] }).slides.length > 0) {
+              const lastIdx = (pres as unknown as { slides: PptxGenJS.Slide[] }).slides.length - 1;
+              if ((pres as unknown as { slides: PptxGenJS.Slide[] }).slides[lastIdx] === result.slide) {
+                (pres as unknown as { slides: PptxGenJS.Slide[] }).slides.pop();
               }
             }
             warnings.push(`[BL-5 BLOCK] ${spec.archetype}(${spec.title}) 슬라이드 제거: 폴백 차단`);
@@ -757,7 +757,7 @@ export class MobileImPptxRenderer {
       }
 
       // ── 4c. 수익률 정합 검증 (D33 BL-C: G38) ──
-      const yieldObj = (dataMap as any)._yield as Yield | undefined;
+      const yieldObj = (dataMap as Record<string, any>)._yield as Yield | undefined;
       if (yieldObj && !validateYield(yieldObj)) {
         throw new Error(`[G38] 수익률 정합 위반: basis='${yieldObj.basis}'인데 deductions가 비어있습니다. NOI를 주장하면서 공제 항목이 없으면 총임대료와 구분 불가합니다.`);
       }

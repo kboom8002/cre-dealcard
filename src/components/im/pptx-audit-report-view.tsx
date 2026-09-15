@@ -18,7 +18,7 @@ export interface PptxAuditData {
   textCount?: number;
 }
 
-function ViolationRow({ text, kind }: { text: string; kind: "layout" | "standard" }) {
+const ViolationRow = React.memo(function ViolationRow({ text, kind }: { text: string; kind: "layout" | "standard" }) {
   // G코드 추출 (예: "G31: 크로핑률 55.2% ≥ 45%")
   const gateMatch = text.match(/^(G\d+|QG\d+):\s*/);
   const gateCode = gateMatch?.[1] ?? "";
@@ -39,7 +39,7 @@ function ViolationRow({ text, kind }: { text: string; kind: "layout" | "standard
       <span className={`text-xs truncate ${color}`}>{message}</span>
     </div>
   );
-}
+});
 
 export interface PptxAuditReportViewProps {
   audit: PptxAuditData;

@@ -13,7 +13,7 @@ export async function runAutoMatch(buildingId: string, brokerId: string) {
   // 1. Fetch building
   const { data: building } = await supabase
     .from("building_ssot_lite")
-    .select("*")
+    .select("id, area_signal, asset_type, price_band, vacancy_signal, fit_summary, caution_summary, vacancy_inquiry_count, vacancy_demand_verified, created_at")
     .eq("id", buildingId)
     .single();
 
@@ -33,7 +33,7 @@ export async function runAutoMatch(buildingId: string, brokerId: string) {
   // 3. Fetch all buyer intents
   const { data: intents } = await supabase
     .from("buyer_intent_lite")
-    .select("*");
+    .select("id, owner_id, buyer_type, budget_min, budget_max, budget_display, preferred_regions, asset_types, purchase_purpose, must_have, nice_to_have, risk_tolerance, normalized");
 
   if (!intents || intents.length === 0) return;
 
@@ -46,6 +46,11 @@ export async function runAutoMatch(buildingId: string, brokerId: string) {
     .eq("building_ssot_lite_id", buildingId)
     .in("buyer_intent_lite_id", intentIds);
   const existingMatchedIntentIds = new Set((existingMatches || []).map(m => m.buyer_intent_lite_id));
+
+  const pendingMatches: Array<{
+    payload: any;
+    intentId: string;
+  }> = [];
 
   for (const intent of intents) {
     if (existingMatchedIntentIds.has(intent.id)) continue;
@@ -82,10 +87,9 @@ export async function runAutoMatch(buildingId: string, brokerId: string) {
         },
       });
 
-      // Persist
-      const { data: savedMatch } = await supabase
-        .from("match_results")
-        .insert({
+      pendingMatches.push({
+        intentId: intent.id,
+        payload: {
           building_ssot_lite_id: buildingId,
           buyer_intent_lite_id: intent.id,
           broker_id: brokerId,
@@ -98,41 +102,59 @@ export async function runAutoMatch(buildingId: string, brokerId: string) {
           stage3_weights: matchResult.stage3Weights ?? {},
           reasoning: matchResult.reasoning,
           purpose_weight_profile: matchResult.purposeWeightProfile,
-        })
-        .select("id")
-        .single();
+        },
+      });
+    } catch (e) {
+      log.warn(`[auto-match] Failed for intent ${intent.id}`, e);
+    }
+  }
 
-      if (savedMatch) {
-        const casePack = extractMatchCasePack({
+  if (pendingMatches.length > 0) {
+    const { data: savedMatches, error: matchErr } = await supabase
+      .from("match_results")
+      .insert(pendingMatches.map(p => p.payload))
+      .select("id, buyer_intent_lite_id, grade, score, reasoning, purpose_weight_profile");
+
+    if (matchErr) {
+      log.error("[auto-match] Bulk insert match_results failed:", matchErr);
+    } else if (savedMatches) {
+      const casePacks = savedMatches.map(saved =>
+        extractMatchCasePack({
           buildingId,
           brokerId,
           buildingLabel: `${building.area_signal} ${building.asset_type}`,
-          matchGrade: matchResult.grade,
-          matchScore: matchResult.score,
-          reasoning: matchResult.reasoning,
-          purposeProfile: matchResult.purposeWeightProfile,
-        });
-        await supabase.from("deal_casepacks").insert(casePack);
+          matchGrade: saved.grade,
+          matchScore: saved.score,
+          reasoning: saved.reasoning,
+          purposeProfile: saved.purpose_weight_profile,
+        })
+      );
 
-        if (matchResult.grade === 'S' || matchResult.grade === 'A') {
-          await supabase.from("activity_events").insert({
-            actor_id: brokerId,
-            actor_role: 'system',
-            event_type: 'deal_card.matched',
-            entity_type: 'match_result',
-            entity_id: savedMatch.id,
-            metadata: {
-              building_id: buildingId,
-              buyer_intent_id: intent.id,
-              grade: matchResult.grade,
-              score: matchResult.score,
-              reasoning: matchResult.reasoning?.slice(0, 200),
-            },
-          });
-        }
+      const activityEvents = savedMatches
+        .filter(saved => saved.grade === 'S' || saved.grade === 'A')
+        .map(saved => ({
+          actor_id: brokerId,
+          actor_role: 'system',
+          event_type: 'deal_card.matched',
+          entity_type: 'match_result',
+          entity_id: saved.id,
+          metadata: {
+            building_id: buildingId,
+            buyer_intent_id: saved.buyer_intent_lite_id,
+            grade: saved.grade,
+            score: saved.score,
+            reasoning: saved.reasoning?.slice(0, 200),
+          },
+        }));
+
+      if (casePacks.length > 0) {
+        const { error: cpErr } = await supabase.from("deal_casepacks").insert(casePacks);
+        if (cpErr) log.error("[auto-match] Bulk insert deal_casepacks failed:", cpErr);
       }
-    } catch (e) {
-      log.warn(`[auto-match] Failed for intent ${intent.id}`, e);
+      if (activityEvents.length > 0) {
+        const { error: actErr } = await supabase.from("activity_events").insert(activityEvents);
+        if (actErr) log.error("[auto-match] Bulk insert activity_events failed:", actErr);
+      }
     }
   }
 
@@ -165,7 +187,7 @@ export async function runAutoMatchForBuyer(buyerIntentId: string, brokerId: stri
 
   const { data: intent } = await supabase
     .from("buyer_intent_lite")
-    .select("*")
+    .select("id, owner_id, buyer_type, budget_min, budget_max, budget_display, preferred_regions, asset_types, purchase_purpose, must_have, nice_to_have, risk_tolerance, normalized")
     .eq("id", buyerIntentId)
     .single();
 
@@ -173,7 +195,7 @@ export async function runAutoMatchForBuyer(buyerIntentId: string, brokerId: stri
 
   const { data: buildings } = await supabase
     .from("building_ssot_lite")
-    .select("*");
+    .select("id, area_signal, asset_type, price_band, vacancy_signal, fit_summary, caution_summary");
 
   if (!buildings || buildings.length === 0) return;
 
@@ -191,6 +213,11 @@ export async function runAutoMatchForBuyer(buyerIntentId: string, brokerId: stri
       cardMap.set(card.building_ssot_lite_id, card);
     }
   }
+
+  const pendingMatches: Array<{
+    payload: any;
+    buildingId: string;
+  }> = [];
 
   for (const building of buildings) {
     if (existingMatchedBuildingIds.has(building.id)) continue;
@@ -231,9 +258,9 @@ export async function runAutoMatchForBuyer(buyerIntentId: string, brokerId: stri
         },
       });
 
-      const { data: savedMatch } = await supabase
-        .from("match_results")
-        .insert({
+      pendingMatches.push({
+        buildingId: building.id,
+        payload: {
           building_ssot_lite_id: building.id,
           buyer_intent_lite_id: intent.id,
           broker_id: brokerId,
@@ -246,41 +273,63 @@ export async function runAutoMatchForBuyer(buyerIntentId: string, brokerId: stri
           stage3_weights: matchResult.stage3Weights ?? {},
           reasoning: matchResult.reasoning,
           purpose_weight_profile: matchResult.purposeWeightProfile,
-        })
-        .select("id")
-        .single();
-
-      if (savedMatch) {
-        const casePack = extractMatchCasePack({
-          buildingId: building.id,
-          brokerId,
-          buildingLabel: `${building.area_signal} ${building.asset_type}`,
-          matchGrade: matchResult.grade,
-          matchScore: matchResult.score,
-          reasoning: matchResult.reasoning,
-          purposeProfile: matchResult.purposeWeightProfile,
-        });
-        await supabase.from("deal_casepacks").insert(casePack);
-
-        if (matchResult.grade === 'S' || matchResult.grade === 'A') {
-          await supabase.from("activity_events").insert({
-            actor_id: brokerId,
-            actor_role: 'system',
-            event_type: 'deal_card.matched',
-            entity_type: 'match_result',
-            entity_id: savedMatch.id,
-            metadata: {
-              building_id: building.id,
-              buyer_intent_id: intent.id,
-              grade: matchResult.grade,
-              score: matchResult.score,
-              reasoning: matchResult.reasoning?.slice(0, 200),
-            },
-          });
-        }
-      }
+        },
+      });
     } catch (e) {
       log.warn(`[auto-match] Failed for building ${building.id}`, e);
+    }
+  }
+
+  if (pendingMatches.length > 0) {
+    const { data: savedMatches, error: matchErr } = await supabase
+      .from("match_results")
+      .insert(pendingMatches.map(p => p.payload))
+      .select("id, building_ssot_lite_id, grade, score, reasoning, purpose_weight_profile");
+
+    if (matchErr) {
+      log.error("[auto-match] Bulk insert match_results failed:", matchErr);
+    } else if (savedMatches) {
+      const buildingMap = new Map(buildings.map(b => [b.id, b]));
+
+      const casePacks = savedMatches.map(saved => {
+        const b = buildingMap.get(saved.building_ssot_lite_id);
+        const buildingLabel = b ? `${b.area_signal} ${b.asset_type}` : "상업용 빌딩";
+        return extractMatchCasePack({
+          buildingId: saved.building_ssot_lite_id,
+          brokerId,
+          buildingLabel,
+          matchGrade: saved.grade,
+          matchScore: saved.score,
+          reasoning: saved.reasoning,
+          purposeProfile: saved.purpose_weight_profile,
+        });
+      });
+
+      const activityEvents = savedMatches
+        .filter(saved => saved.grade === 'S' || saved.grade === 'A')
+        .map(saved => ({
+          actor_id: brokerId,
+          actor_role: 'system',
+          event_type: 'deal_card.matched',
+          entity_type: 'match_result',
+          entity_id: saved.id,
+          metadata: {
+            building_id: saved.building_ssot_lite_id,
+            buyer_intent_id: intent.id,
+            grade: saved.grade,
+            score: saved.score,
+            reasoning: saved.reasoning?.slice(0, 200),
+          },
+        }));
+
+      if (casePacks.length > 0) {
+        const { error: cpErr } = await supabase.from("deal_casepacks").insert(casePacks);
+        if (cpErr) log.error("[auto-match] Bulk insert deal_casepacks failed:", cpErr);
+      }
+      if (activityEvents.length > 0) {
+        const { error: actErr } = await supabase.from("activity_events").insert(activityEvents);
+        if (actErr) log.error("[auto-match] Bulk insert activity_events failed:", actErr);
+      }
     }
   }
 }

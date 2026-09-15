@@ -7,6 +7,9 @@
  */
 
 import { sendKakaoAlimtalk } from './notification-service';
+import { createModuleLogger } from '@/lib/logger';
+
+const logger = createModuleLogger('message-adapter');
 
 export interface MessageAdapter {
   send(msg: {
@@ -59,7 +62,7 @@ export class SolapiMessageAdapter implements MessageAdapter {
 
         // 알림톡 실패 시 LMS 폴백
         if (!success) {
-          console.log('[MessageAdapter] Alimtalk failed, falling back to LMS');
+          logger.warn('Alimtalk failed, falling back to LMS');
           success = await this.sendLms(msg.to, msg.vars);
           receiptId = `lms-fallback-${Date.now()}`;
         }
@@ -72,7 +75,7 @@ export class SolapiMessageAdapter implements MessageAdapter {
       }
       case 'email': {
         // Email sending stub — 향후 구현
-        console.log(`[MessageAdapter STUB] Email to ${msg.to}:`, msg.vars);
+        logger.info(`Email stub to ${msg.to}`, { vars: msg.vars });
         success = true;
         receiptId = `email-${Date.now()}`;
         break;

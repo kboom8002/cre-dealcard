@@ -1,4 +1,5 @@
-﻿"use client";
+"use client";
+import React, { memo } from 'react';
 import DOMPurify from 'isomorphic-dompurify';
 
 const ALLOWED_TAGS = ['a', 'strong', 'em', 'b', 'i', 'p', 'br', 'ul', 'ol', 'li',
@@ -11,7 +12,7 @@ interface SafeMarkdownRendererProps {
   as?: React.ElementType;
 }
 
-export function SafeMarkdownRenderer({ html, className, as: Component = "div" }: SafeMarkdownRendererProps) {
+function SafeMarkdownRendererBase({ html, className, as: Component = "div" }: SafeMarkdownRendererProps) {
   const clean = DOMPurify.sanitize(html, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
@@ -19,3 +20,6 @@ export function SafeMarkdownRenderer({ html, className, as: Component = "div" }:
   });
   return <Component className={className} dangerouslySetInnerHTML={{ __html: clean as string }} />;
 }
+
+export const SafeMarkdownRenderer = memo(SafeMarkdownRendererBase);
+

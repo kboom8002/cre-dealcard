@@ -1,5 +1,4 @@
-"use client";
-
+import React, { memo } from "react";
 import Link from "next/link";
 import { CATEGORY_META } from "@/domain/agora/qis-seed-generator";
 import type { AgoraCategory } from "@/domain/agora/qis-seed-generator";
@@ -39,7 +38,7 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
 }
 
-export default function AgoraThreadCard({ thread, detailUrl }: Props) {
+function AgoraThreadCardBase({ thread, detailUrl }: Props) {
   const meta = CATEGORY_META[thread.category] ?? { emoji: "💬", label: thread.category };
   const regionLabel = thread.region ? REGION_LABELS[thread.region] : null;
 
@@ -108,3 +107,5 @@ export default function AgoraThreadCard({ thread, detailUrl }: Props) {
     </Link>
   );
 }
+
+export default memo(AgoraThreadCardBase);

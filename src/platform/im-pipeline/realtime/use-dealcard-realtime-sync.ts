@@ -10,6 +10,9 @@ import {
   type SlideOverrideChangedPayload,
   type DealcardSyncEvent,
 } from './dealcard-sync-channel';
+import { createModuleLogger } from '@/lib/logger';
+
+const logger = createModuleLogger('use-dealcard-realtime-sync');
 
 export type {
   ContentMutatedPayload,
@@ -76,7 +79,7 @@ export function useDealcardRealtimeSync(
           .subscribe();
       }
     } catch (err) {
-      console.warn('[RealtimeSync] Client channel subscription error:', err);
+      logger.warn('Client channel subscription error', { err });
     }
 
     return () => {

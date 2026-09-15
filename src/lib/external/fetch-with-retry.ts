@@ -1,6 +1,10 @@
 // src/lib/external/fetch-with-retry.ts
 // data.go.kr 등 정부 API 대응 — 타임아웃 확장 + 재시도
 
+import { createModuleLogger } from "@/lib/logger";
+
+const logger = createModuleLogger("fetch-with-retry");
+
 /**
  * fetch with retry — 정부 공공데이터 API는 응답 지연이 빈번하므로
  * 타임아웃 확장 + 최대 2회 재시도 (exponential backoff) 적용.
@@ -30,7 +34,7 @@ export async function fetchWithRetry(
       if (res.status === 429 && attempt < maxRetries) {
         const retryAfter = res.headers.get('Retry-After');
         const delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : baseDelayMs * Math.pow(2, attempt);
-        console.warn(`[fetch-with-retry] 429 Rate Limited, retrying in ${delay}ms (${attempt + 1}/${maxRetries})`);
+        logger.warn(`429 Rate Limited, retrying in ${delay}ms (${attempt + 1}/${maxRetries})`);
         await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
@@ -41,7 +45,7 @@ export async function fetchWithRetry(
       // 5xx 서버 에러는 재시도 대상
       if (res.status >= 500 && attempt < maxRetries) {
         const delay = baseDelayMs * Math.pow(2, attempt);
-        console.warn(`[fetch-with-retry] ${res.status} error, retrying in ${delay}ms (${attempt + 1}/${maxRetries})`);
+        logger.warn(`${res.status} error, retrying in ${delay}ms (${attempt + 1}/${maxRetries})`);
         await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }

@@ -137,9 +137,86 @@ export interface SectionData {
   title: string;
   content: string;
   tables: ParsedTable[];
-  metrics: Record<string, string>;
+  metrics: Record<string, any>;
   confidence?: string;
   boundaryNote?: string;
+  kicker?: string;
+  subtitle?: string;
+  address?: string;
+  askingPrice?: string | number;
+  documentDate?: string;
+  areaSignal?: string;
+  assetType?: string;
+  priceBand?: string;
+  brokerName?: string;
+  companyName?: string;
+  tags?: string[];
+  docno?: string;
+  logoUrl?: string | null;
+  coverImageUrl?: string | null;
+  heroCard?: any;
+  left?: any;
+  right?: any;
+  table1?: { title?: string; sub?: string; head?: string[]; rows?: string[][] };
+  table2?: { title?: string; sub?: string; head?: string[]; rows?: string[][] };
+  tableHead?: string[];
+  tableRows?: any;
+  priceTable?: any;
+  priceTable2?: any;
+  blocks?: Array<{ label: string; value: string; description?: string }>;
+  checkItems?: string[];
+  pillars?: any[];
+  photoUrl?: string;
+  photos?: import('../types').PhotoMeta[];
+  photoUrls?: string[];
+  coordinates?: { lat: number; lng: number } | null;
+  mapImageUrl?: string | null;
+  cadastralImage?: string | null;
+  macroTransitDiagram?: any;
+  macroTransitImage?: any;
+  poiSpots?: any[];
+  stackingPlan?: any[];
+  summary?: any;
+  stackingSummary?: any;
+  totalGrossAreaPy?: number;
+  totalExclusiveAreaPy?: number;
+  exclusiveRatePct?: number;
+  waleYears?: number;
+  vacancyRatePct?: number;
+  anchorTenantName?: string;
+  anchorTenant?: any;
+  brokerContact?: any;
+  capRateAsIs?: any;
+  steps?: any[];
+  kpiRows?: any[];
+  statCards?: any[];
+  equityBreakdown?: any;
+  ltvScenarios?: any[];
+  ownershipRows?: any[];
+  roomTypes?: any[];
+  markdown?: string;
+  keyPoints?: any[];
+  leadSentence?: string;
+  callouts?: any[];
+  disclaimer?: string;
+  footerText?: string;
+  badges?: any[];
+  layout?: any;
+  group?: any;
+  annualRent?: number;
+  totalDeposit?: number;
+  vacancyPct?: number;
+  capRateStabilized?: number;
+  stabilizedAssumption?: string;
+  station_name?: string;
+  station_walk_min?: number | string;
+  asking_price_manwon?: number | string;
+  ssot_summary?: any;
+  enrichment?: any;
+  _derived?: boolean;
+  _source?: string;
+  _yield?: Yield;
+  _deficiencies?: any;
   [key: string]: any;
 }
 
@@ -265,9 +342,9 @@ export function bindSectionData(
   templateId?: string,
 ): Record<string, SectionData> {
   const result: Record<string, SectionData> = {};
-  const posture = (doc.body as any)?.investment_posture
-    || (doc.body as any)?.identity?.investmentPosture
-    || (doc.body as any)?.posture
+  const posture = doc.body?.investment_posture
+    || doc.body?.identity?.investmentPosture
+    || doc.body?.posture
     || 'income';
   // D32 BL-6: 결손 문구 수집 배열 (체크리스트 이관용)
   const collectedDeficiencies: string[] = [];
@@ -278,10 +355,11 @@ export function bindSectionData(
 
   for (const section of doc.sections) {
     // 1. section_type으로 primary dataKey 결정 (다양한 section 객체 스키마 지원)
-    const sectionType = (section as any).section_type
-      || (section as any).type
-      || (section as any).sectionType
-      || (section as any).sectionId
+    const sec = section as Record<string, any>;
+    const sectionType = sec.section_type
+      || sec.type
+      || sec.sectionType
+      || sec.sectionId
       || (
         section.title?.includes('사옥으로') ? 'occupancy_fit' :
         section.title?.includes('임차 유지') ? 'cost_comparison' :
@@ -355,7 +433,7 @@ export function bindSectionData(
     const props = transformForArchetype(cleanMarkdown, tables, archetype, doc.body);
 
     // 4. 기존 key가 없거나, 기존 key가 파생 폴백(_derived)인 경우 명시적 섹션으로 덮어씀 (중복 방지 및 명시적 섹션 우선)
-    if (!result[dataKey] || (result[dataKey] as any)._derived) {
+    if (!result[dataKey] || result[dataKey]._derived) {
       const resolvePhotoUrl = (p: any): string | null => {
         if (!p) return null;
         if (typeof p === 'string') return p;
@@ -399,12 +477,12 @@ export function bindSectionData(
         result['summary'] = { title: '핵심요약', content: '', tables: [], metrics: {}, _derived: true, ...summaryProps };
         // D33 BL-C: Yield 단일 객체를 dataMap 최상위에 주입 — 전 슬라이드 공유
         if (summaryProps._yield) {
-          (result as any)._yield = summaryProps._yield;
+          result._yield = summaryProps._yield;
         }
       }
       // V-World 데이터(_source 있음)가 없을 때만 마크다운 파싱 폴백
       const landProps = buildLandFromOverview(cleanMarkdown, tables);
-      if (!result['land'] || !(result['land'] as any)._source) {
+      if (!result['land'] || !result['land']._source) {
         result['land'] = { title: '토지', content: '', tables: [], metrics: {}, _derived: true, ...landProps };
       }
     }
@@ -412,13 +490,13 @@ export function bindSectionData(
     // income_analysis → capital, dcf, sensitivity, loan, tax에도 파생 데이터 제공
     if (sectionType === 'income_analysis') {
       const capitalProps = buildCapitalFromIncome(cleanMarkdown, tables, doc.body, building);
-      if (!result['capital'] || (result['capital'] as any)._derived) result['capital'] = { title: '자본구조', content: '', tables: [], metrics: {}, _derived: true, ...capitalProps };
+      if (!result['capital'] || result['capital']._derived) result['capital'] = { title: '자본구조', content: '', tables: [], metrics: {}, _derived: true, ...capitalProps };
 
       // Pro 전용 파생 슬라이드 데이터 바인딩
-      if (!result['dcf'] || (result['dcf'] as any)._derived) result['dcf'] = { title: 'DCF 분석', content: '', tables: [], metrics: {}, _derived: true, ...buildDcfFromIncome(cleanMarkdown, tables, doc.body) };
-      if (!result['sensitivity'] || (result['sensitivity'] as any)._derived) result['sensitivity'] = { title: '수익률 민감도', content: '', tables: [], metrics: {}, _derived: true, ...buildSensitivityFromDcf(doc.body) };
-      if (!result['loan'] || (result['loan'] as any)._derived) result['loan'] = { title: '대출 구조', content: '', tables: [], metrics: {}, _derived: true, ...buildLoanFromIncome(cleanMarkdown, tables, doc.body) };
-      if (!result['tax'] || (result['tax'] as any)._derived) result['tax'] = { title: '세금 추정', content: '', tables: [], metrics: {}, _derived: true, ...buildTaxFromIncome(doc.body) };
+      if (!result['dcf'] || result['dcf']._derived) result['dcf'] = { title: 'DCF 분석', content: '', tables: [], metrics: {}, _derived: true, ...buildDcfFromIncome(cleanMarkdown, tables, doc.body) };
+      if (!result['sensitivity'] || result['sensitivity']._derived) result['sensitivity'] = { title: '수익률 민감도', content: '', tables: [], metrics: {}, _derived: true, ...buildSensitivityFromDcf(doc.body) };
+      if (!result['loan'] || result['loan']._derived) result['loan'] = { title: '대출 구조', content: '', tables: [], metrics: {}, _derived: true, ...buildLoanFromIncome(cleanMarkdown, tables, doc.body) };
+      if (!result['tax'] || result['tax']._derived) result['tax'] = { title: '세금 추정', content: '', tables: [], metrics: {}, _derived: true, ...buildTaxFromIncome(doc.body) };
     }
 
     // lease_status / stacking_plan → stability, vacancy, current, stackingPlan 등에도 파생 데이터 제공
@@ -462,12 +540,12 @@ export function bindSectionData(
         };
       }
 
-      if (!result['stability'] || (result['stability'] as any)._derived) result['stability'] = { title: '임대안정성', content: cleanMarkdown, tables, metrics, _derived: true, ...stabilityProps };
-      if (!result['vacancy'] || (result['vacancy'] as any)._derived) result['vacancy'] = { title: '공실 분석', content: cleanMarkdown, tables, metrics, _derived: true, ...stabilityProps };
-      if (!result['current'] || (result['current'] as any)._derived) result['current'] = { title: '현황 분석', content: cleanMarkdown, tables, metrics, _derived: true, ...stabilityProps };
+      if (!result['stability'] || result['stability']._derived) result['stability'] = { title: '임대안정성', content: cleanMarkdown, tables, metrics, _derived: true, ...stabilityProps };
+      if (!result['vacancy'] || result['vacancy']._derived) result['vacancy'] = { title: '공실 분석', content: cleanMarkdown, tables, metrics, _derived: true, ...stabilityProps };
+      if (!result['current'] || result['current']._derived) result['current'] = { title: '현황 분석', content: cleanMarkdown, tables, metrics, _derived: true, ...stabilityProps };
 
       const a22Props = buildA22Props(cleanMarkdown, tables, cleanMarkdown.split('\n'), doc.body);
-      if (!result['stackingPlan'] || (result['stackingPlan'] as any)._derived) {
+      if (!result['stackingPlan'] || result['stackingPlan']._derived) {
         result['stackingPlan'] = {
           title: section.title || '스태킹 플랜',
           content: cleanMarkdown,
@@ -497,16 +575,16 @@ export function bindSectionData(
             ? [floor, areaPyeong, tenant, deposit, rent, expiry]
             : [floor, tenant, areaPyeong, deposit, rent, mgmt, expiry];
         });
-        (result['rentRoll'] as any).tableHead = rrHeaders;
-        (result['rentRoll'] as any).tableRows = rrRows;
-        (result['rentRoll'] as any).tables = [{ headers: rrHeaders, rows: rrRows }];
+        result['rentRoll'].tableHead = rrHeaders;
+        result['rentRoll'].tableRows = rrRows;
+        result['rentRoll'].tables = [{ headers: rrHeaders, rows: rrRows }];
       }
 
       // ─── A24 rentRoll fallback: floor_leases 미영속 + 마크다운 테이블 미생성 시 ssot_summary 기반 합성 ───
       // LLM이 서술형 텍스트만 생성하고 마크다운 테이블을 포함하지 않은 경우,
       // A24가 suppress되지 않도록 ssot_summary와 텍스트에서 최소한의 임대차 요약 테이블을 동적으로 합성합니다.
       // Rule 34: 특정 매물 데이터 하드코딩 금지 — 모든 수치는 ssot_summary에서 동적 산출
-      if (result['rentRoll'] && !((result['rentRoll'] as any).tableRows?.length > 0)) {
+      if (result['rentRoll'] && !(result['rentRoll'].tableRows?.length > 0)) {
         const ssot = doc.body?.ssot_summary ?? {};
         const monthlyRentKrw = ssot.monthly_rent_total_krw;
         const depositManwon = ssot.total_deposit_manwon ?? (doc.body?.total_deposit_manwon);
@@ -531,11 +609,11 @@ export function bindSectionData(
             summaryRows.push(['매각 희망가', `${(askingManwon / 10000).toFixed(0)}억 원`, '총보증금 대비', depositManwon && askingManwon ? `${((depositManwon / askingManwon) * 100).toFixed(1)}%` : '-']);
           }
 
-          (result['rentRoll'] as any).tableRows = summaryRows;
-          (result['rentRoll'] as any).tableHead = ['항목', '금액', '항목', '금액'];
+          result['rentRoll'].tableRows = summaryRows;
+          result['rentRoll'].tableHead = ['항목', '금액', '항목', '금액'];
           // tables 배열에도 동기화 (A24 fallback 경로용)
-          if (!(result['rentRoll'] as any).tables?.length) {
-            (result['rentRoll'] as any).tables = [{ headers: ['항목', '금액', '항목', '금액'], rows: summaryRows }];
+          if (!result['rentRoll'].tables?.length) {
+            result['rentRoll'].tables = [{ headers: ['항목', '금액', '항목', '금액'], rows: summaryRows }];
           }
         }
       }
@@ -556,14 +634,14 @@ export function bindSectionData(
       const pRemodel = transformForArchetype(mdRemodel, tables, 'A05');
       const a03Props = transformForArchetype(cleanMarkdown, tables, 'A03');
 
-      if (!result['rentGap'] || (result['rentGap'] as any)._derived) result['rentGap'] = { title: '임대료 갭', content: mdRentGap, tables, metrics, _derived: true, ...pRentGap };
-      if (!result['upside'] || (result['upside'] as any)._derived) result['upside'] = { title: '인상 경로', content: mdUpside, tables, metrics, _derived: true, ...pUpside };
-      if (!result['leasing'] || (result['leasing'] as any)._derived) result['leasing'] = { title: '임차 유치', content: mdLeasing, tables, metrics, _derived: true, ...pLeasing };
-      if (!result['remodel'] || (result['remodel'] as any)._derived) result['remodel'] = { title: '리모델링 계획', content: mdRemodel, tables, metrics, _derived: true, ...pRemodel };
+      if (!result['rentGap'] || result['rentGap']._derived) result['rentGap'] = { title: '임대료 갭', content: mdRentGap, tables, metrics, _derived: true, ...pRentGap };
+      if (!result['upside'] || result['upside']._derived) result['upside'] = { title: '인상 경로', content: mdUpside, tables, metrics, _derived: true, ...pUpside };
+      if (!result['leasing'] || result['leasing']._derived) result['leasing'] = { title: '임차 유치', content: mdLeasing, tables, metrics, _derived: true, ...pLeasing };
+      if (!result['remodel'] || result['remodel']._derived) result['remodel'] = { title: '리모델링 계획', content: mdRemodel, tables, metrics, _derived: true, ...pRemodel };
       // D41 A2b: income_analysis → comps fallback 제거
       // 비교사례(comps) 슬라이드에 재무분석 데이터가 오염되는 버그 수정
       // comps는 manual_comps 또는 RTMS API에서만 바인딩되어야 함
-      if (!result['farUpside'] || (result['farUpside'] as any)._derived) {
+      if (!result['farUpside'] || result['farUpside']._derived) {
         result['farUpside'] = { title: '용적률 여유', content: cleanMarkdown, tables, metrics, _derived: true, ...buildFarUpsideProps(cleanMarkdown, tables, doc.body, building) };
       }
     }
@@ -590,29 +668,29 @@ export function bindSectionData(
     // development 파생 데이터 제공 (구조화 props 빌더 — Rule 26 동적화)
     if (posture === 'development') {
       if (sectionType === 'site_analysis') {
-        if (!result['landDetail'] || (result['landDetail'] as any)._derived) {
+        if (!result['landDetail'] || result['landDetail']._derived) {
           const landDetailProps = buildDevelopmentLandDetailProps(doc.body, building);
           result['landDetail'] = { title: '토지 상세 분석', content: cleanMarkdown, tables, metrics, _derived: true, ...landDetailProps };
         }
-        if (!result['scale'] || (result['scale'] as any)._derived) {
+        if (!result['scale'] || result['scale']._derived) {
           const scaleProps = buildDevelopmentScaleProps(doc.body, building);
           result['scale'] = { title: '신축 규모 검토', content: cleanMarkdown, tables, metrics, _derived: true, ...scaleProps };
         }
-        if (!result['eviction'] || (result['eviction'] as any)._derived) {
+        if (!result['eviction'] || result['eviction']._derived) {
           const evictionProps = buildDevelopmentEvictionProps(doc.body, building);
           result['eviction'] = { title: '명도 계획', content: cleanMarkdown, tables, metrics, _derived: true, ...evictionProps };
         }
       }
       if (sectionType === 'development_feasibility') {
-        if (!result['cost'] || (result['cost'] as any)._derived) {
+        if (!result['cost'] || result['cost']._derived) {
           const costProps = buildDevelopmentCostProps(doc.body, building);
           result['cost'] = { title: '투입 비용 분석', content: cleanMarkdown, tables, metrics, _derived: true, ...costProps };
         }
-        if (!result['feasibility'] || (result['feasibility'] as any)._derived) {
+        if (!result['feasibility'] || result['feasibility']._derived) {
           const feasibilityProps = buildDevelopmentFeasibilityProps(doc.body, building);
           result['feasibility'] = { title: '사업 수지 분석', content: cleanMarkdown, tables, metrics, _derived: true, ...feasibilityProps };
         }
-        if (!result['stacking'] || (result['stacking'] as any)._derived) {
+        if (!result['stacking'] || result['stacking']._derived) {
           const stackingProps = transformForArchetype(cleanMarkdown, tables, 'A05');
           result['stacking'] = { title: '스태킹계획', content: cleanMarkdown, tables, metrics, _derived: true, ...stackingProps };
         }
@@ -674,7 +752,7 @@ export function bindSectionData(
   const isOwnerOccupied = posture === 'owner_occupied' || Boolean(doc.body?.occupancySpec);
 
   if (isOwnerOccupied) {
-    if (!result['plan'] || !((result['plan'] as any).left?.rows?.length > 0)) {
+    if (!result['plan'] || !(result['plan'].left?.rows?.length > 0)) {
       const planProps = buildOwnerOccupiedPlanProps(doc.body, building);
       result['plan'] = {
         title: '기업 사옥 적합성 및 층별 공간 배분',
@@ -691,7 +769,7 @@ export function bindSectionData(
     const stationCandidate = result['location']?.station_name || doc.body?.ssot_summary?.station_name || '인근 지하철역';
     const cleanStation = normalizeStationName(stationCandidate);
 
-    if (!result['vsLease'] || !((result['vsLease'] as any).table1?.rows?.length > 0)) {
+    if (!result['vsLease'] || !((result['vsLease']?.table1?.rows?.length ?? 0) > 0)) {
       const vsLeaseProps = buildOwnerOccupiedVsLeaseProps(doc.body, building);
       result['vsLease'] = {
         title: `${areaName} 임차 vs 단독 사옥 매입 10년 재무 비교`,
@@ -703,7 +781,7 @@ export function bindSectionData(
         ...vsLeaseProps,
       };
     }
-    if (!result['commute'] || (result['commute'] as any)._derived || !((result['commute'] as any).right?.rows?.length > 0)) {
+    if (!result['commute'] || result['commute']?._derived || !((result['commute']?.right?.rows?.length ?? 0) > 0)) {
       const commuteProps = buildOwnerOccupiedCommuteProps(doc.body, building, result['location']);
       result['commute'] = {
         title: `${areaName} 비즈니스 접근성 및 통근 환경`,
@@ -717,7 +795,7 @@ export function bindSectionData(
         ...commuteProps,
       };
     }
-    if (!result['value'] || (result['value'] as any)._derived || !((result['value'] as any).left?.rows?.length > 0)) {
+    if (!result['value'] || result['value']?._derived || !((result['value']?.left?.rows?.length ?? 0) > 0)) {
       const valueProps = buildOwnerOccupiedValueProps(doc.body, building);
       result['value'] = {
         title: `${areaName} 단독 사옥의 자산가치 및 브랜딩`,
@@ -731,7 +809,7 @@ export function bindSectionData(
     }
 
     // 사옥형 thesis 안전망
-    if (!result['thesis'] || !((result['thesis'] as any).pillars?.length > 0)) {
+    if (!result['thesis'] || !((result['thesis']?.pillars?.length ?? 0) > 0)) {
       result['thesis'] = {
         title: '핵심 투자 논거',
         kicker: 'INVESTMENT THESIS',
@@ -751,7 +829,7 @@ export function bindSectionData(
     }
 
     // 사옥형 risk 안전망
-    if (!result['risk'] || !((result['risk'] as any).blocks?.length > 0)) {
+    if (!result['risk'] || !((result['risk']?.blocks?.length ?? 0) > 0)) {
       result['risk'] = {
         title: '핵심 리스크 진단 및 대응 방안',
         kicker: 'RISK FACTORS & MITIGATION',
@@ -774,7 +852,7 @@ export function bindSectionData(
   const isDevelopment = posture === 'development' || Boolean(doc.body?.developmentSpec);
 
   if (isDevelopment) {
-    if (!result['landDetail'] || !((result['landDetail'] as any).left?.rows?.length > 0)) {
+    if (!result['landDetail'] || !((result['landDetail']?.left?.rows?.length ?? 0) > 0)) {
       const ldProps = buildDevelopmentLandDetailProps(doc.body, building);
       result['landDetail'] = {
         title: '토지 상세 분석',
@@ -783,7 +861,7 @@ export function bindSectionData(
         ...ldProps,
       };
     }
-    if (!result['scale'] || !((result['scale'] as any).left?.sub)) {
+    if (!result['scale'] || !(result['scale']?.left?.sub)) {
       const scProps = buildDevelopmentScaleProps(doc.body, building);
       result['scale'] = {
         title: '신축 규모 검토',
@@ -792,7 +870,7 @@ export function bindSectionData(
         ...scProps,
       };
     }
-    if (!result['eviction'] || !((result['eviction'] as any).left?.rows?.length > 0)) {
+    if (!result['eviction'] || !((result['eviction']?.left?.rows?.length ?? 0) > 0)) {
       const evProps = buildDevelopmentEvictionProps(doc.body, building);
       result['eviction'] = {
         title: '명도 계획 및 리스크 관리',
@@ -801,7 +879,7 @@ export function bindSectionData(
         ...evProps,
       };
     }
-    if (!result['cost'] || !((result['cost'] as any).table1?.rows?.length > 0)) {
+    if (!result['cost'] || !((result['cost']?.table1?.rows?.length ?? 0) > 0)) {
       const costProps = buildDevelopmentCostProps(doc.body, building);
       result['cost'] = {
         title: '개발 투입 비용 분석',
@@ -810,7 +888,7 @@ export function bindSectionData(
         ...costProps,
       };
     }
-    if (!result['feasibility'] || !((result['feasibility'] as any).left?.sub)) {
+    if (!result['feasibility'] || !(result['feasibility']?.left?.sub)) {
       const feasProps = buildDevelopmentFeasibilityProps(doc.body, building);
       result['feasibility'] = {
         title: '개발 사업 수지 분석',
@@ -822,7 +900,7 @@ export function bindSectionData(
   }
 
   // D32 BL-6 / D38: 결손 문구 및 실사 점검 항목을 checklist 슬롯에 온전히 주입 (A18 일원화)
-  const existingChecklist = (result['checklist'] as any)?.checkItems ?? [];
+  const existingChecklist = result['checklist']?.checkItems ?? [];
   const allCheckItems = [...existingChecklist, ...collectedDeficiencies];
 
   if (allCheckItems.length === 0) {
@@ -846,13 +924,16 @@ export function bindSectionData(
     metrics: {},
     checkItems: allCheckItems,
     _derived: true,
-  } as any;
+  };
 
   if (collectedDeficiencies.length > 0) {
     result['_deficiencies'] = {
+      title: '결손 항목',
       content: '',
+      tables: [],
+      metrics: {},
       checkItems: [...collectedDeficiencies],
-    } as any;
+    };
     log.warn({ collectedDeficiencies: collectedDeficiencies }, `[BL-6 / D38] ${collectedDeficiencies.length}건의 결손 문구를 A18 체크리스트로 이관 완료`);
   }
 

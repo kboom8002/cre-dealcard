@@ -20,6 +20,9 @@ import {
   DataGradeFooter,
   AcquisitionCostSection,
   LoanScenarioSection,
+  ManualCompsSection,
+  LoanStatusSection,
+  AncillaryIncomeSection,
 } from "./bottom-sheet/sections";
 import { getInputOrder } from "./bottom-sheet/hooks/use-input-order";
 import { validateCombination } from "@/domain/ontology/asset-identity";
@@ -659,133 +662,23 @@ export function ImDataBottomSheet({
             </div>
 
             {/* 유사 건물 실거래가 (Pro IM 전용) */}
-            {stage === 'pro' && (
-            <div className="col-span-2 rounded-xl border border-border/40 bg-secondary/10 p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-muted-foreground">📊 유사 건물 실거래가 (선택)</label>
-                {manualComps.length < 5 && (
-                  <button
-                    type="button"
-                    onClick={() => setManualComps(prev => [...prev, { address: '', dealAmount: '', area: '', dealYear: String(new Date().getFullYear()), dealMonth: String(new Date().getMonth() + 1), buildingUse: '근린생활시설', memo: '' }])}
-                    className="text-[10px] text-primary hover:text-primary/80 font-medium"
-                  >+ 사례 추가</button>
-                )}
-              </div>
-              {manualComps.length === 0 && (
-                <p className="text-[10px] text-muted-foreground/60">API 자동 조회 외에 직접 조사한 유사 실거래가를 추가하면 벤치마킹 정확도가 높아집니다.</p>
-              )}
-              {manualComps.map((comp, ci) => (
-                <div key={ci} className="rounded-lg border border-border/30 bg-background/50 p-2 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-muted-foreground">사례 {ci + 1}</span>
-                    <button type="button" onClick={() => setManualComps(prev => prev.filter((_, i) => i !== ci))} className="text-[10px] text-rose-400 hover:text-rose-300">삭제</button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <input
-                      value={comp.address}
-                      onChange={e => { const v = e.target.value; setManualComps(prev => prev.map((c, i) => i === ci ? { ...c, address: v } : c)); }}
-                      placeholder="주소 (예: 서교동 395-12)"
-                      className="col-span-2 text-[11px] px-2 py-1.5 rounded-lg border border-border/60 bg-secondary/30 text-foreground placeholder-muted-foreground/50 focus:border-primary/50 focus:outline-none"
-                    />
-                    <input
-                      type="number"
-                      value={comp.dealAmount}
-                      onChange={e => { const v = e.target.value; setManualComps(prev => prev.map((c, i) => i === ci ? { ...c, dealAmount: v } : c)); }}
-                      placeholder="거래가 (만원)"
-                      className="text-[11px] px-2 py-1.5 rounded-lg border border-border/60 bg-secondary/30 text-foreground placeholder-muted-foreground/50 focus:border-primary/50 focus:outline-none"
-                    />
-                    <input
-                      type="number"
-                      value={comp.area}
-                      onChange={e => { const v = e.target.value; setManualComps(prev => prev.map((c, i) => i === ci ? { ...c, area: v } : c)); }}
-                      placeholder="연면적 (㎡)"
-                      className="text-[11px] px-2 py-1.5 rounded-lg border border-border/60 bg-secondary/30 text-foreground placeholder-muted-foreground/50 focus:border-primary/50 focus:outline-none"
-                    />
-                    <div className="flex gap-1">
-                      <input
-                        type="number"
-                        value={comp.dealYear}
-                        onChange={e => { const v = e.target.value; setManualComps(prev => prev.map((c, i) => i === ci ? { ...c, dealYear: v } : c)); }}
-                        placeholder="년"
-                        className="w-1/2 text-[11px] px-2 py-1.5 rounded-lg border border-border/60 bg-secondary/30 text-foreground placeholder-muted-foreground/50 focus:border-primary/50 focus:outline-none"
-                      />
-                      <input
-                        type="number"
-                        value={comp.dealMonth}
-                        onChange={e => { const v = e.target.value; setManualComps(prev => prev.map((c, i) => i === ci ? { ...c, dealMonth: v } : c)); }}
-                        placeholder="월"
-                        className="w-1/2 text-[11px] px-2 py-1.5 rounded-lg border border-border/60 bg-secondary/30 text-foreground placeholder-muted-foreground/50 focus:border-primary/50 focus:outline-none"
-                      />
-                    </div>
-                    <select
-                      value={comp.buildingUse}
-                      onChange={e => { const v = e.target.value; setManualComps(prev => prev.map((c, i) => i === ci ? { ...c, buildingUse: v } : c)); }}
-                      className="text-[11px] px-2 py-1.5 rounded-lg border border-border/60 bg-secondary/30 text-foreground focus:border-primary/50 focus:outline-none"
-                    >
-                      <option value="근린생활시설">근린생활시설</option>
-                      <option value="업무시설">업무시설</option>
-                      <option value="판매시설">판매시설</option>
-                      <option value="숙박시설">숙박시설</option>
-                      <option value="공장">공장/물류</option>
-                      <option value="기타">기타</option>
-                    </select>
-                  </div>
-                </div>
-              ))}
-            </div>
-            )}
+            <ManualCompsSection
+              stage={stage}
+              manualComps={manualComps}
+              setManualComps={setManualComps}
+            />
 
             {/* Loan Amount */}
-            {stage === 'pro' && (
-            <div className="col-span-2">
-              <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
-                🏦 대출 현황
-              </label>
-              <div className="flex gap-2">
-                {[
-                  { value: 'confirmed', label: '대출 있음', icon: '💰' },
-                  { value: 'no_loan', label: '무대출 확인', icon: '✅' },
-                  { value: 'unknown', label: '미확인', icon: '❓' },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setLoanStatus(opt.value)}
-                    className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
-                      loanStatus === opt.value
-                        ? 'bg-primary/20 border-primary/50 text-primary border'
-                        : 'bg-secondary/50 border-border text-muted-foreground border hover:border-primary/40'
-                    }`}
-                  >
-                    {opt.icon} {opt.label}
-                  </button>
-                ))}
-              </div>
-              {loanStatus === 'confirmed' && (
-                <div className="relative mt-2">
-                  <input
-                    ref={loanAmountRef}
-                    type="number"
-                    inputMode="numeric"
-                    min="0"
-                    value={loanAmount}
-                    onChange={(e) => setLoanAmount(e.target.value)}
-                    onKeyDown={(e) => handleEnterKey(e, null)}
-                    placeholder="예: 100000"
-                    className="w-full bg-secondary/50 border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">만원</span>
-                </div>
-              )}
-              {loanStatus === 'unknown' && (
-                <p className="mt-2 text-[10px] text-amber-500">
-                  ⚠️ 등기부등본 미열람 — 자기자본 산출 시 대출 미반영 안내가 IM에 표시됩니다
-                </p>
-              )}
-              {prefillLoanAmount && loanAmount === String(prefillLoanAmount) && loanStatus === 'confirmed' && (
-                <span className="text-[10px] text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
-              )}
-            </div>
-            )}
+            <LoanStatusSection
+              stage={stage}
+              loanStatus={loanStatus}
+              setLoanStatus={setLoanStatus}
+              loanAmount={loanAmount}
+              setLoanAmount={setLoanAmount}
+              loanAmountRef={loanAmountRef}
+              handleEnterKey={handleEnterKey}
+              prefillLoanAmount={prefillLoanAmount}
+            />
 
             {/* 🏨 운영형 (호텔/모텔/펜션) 전용 필드 */}
             <HospitalitySpecSection
@@ -813,64 +706,11 @@ export function ImDataBottomSheet({
             />
 
             {/* 부가수입 섹션 */}
-            {stage === 'pro' && (
-            <div className="col-span-2 mt-2 border-t border-border/40 pt-4">
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-semibold text-muted-foreground">📡 비임대 부가수입</label>
-                <span className="text-[9px] text-muted-foreground/70">통신장비, 주차, 간판 등</span>
-              </div>
-              {ancillaryIncomes.map((item: any, idx: number) => (
-                <div key={idx} className="flex gap-2 mb-2">
-                  <select
-                    className="flex-1 bg-secondary/50 border border-border rounded px-2 py-1 text-xs text-foreground focus:outline-none focus:border-primary"
-                    value={item.type || 'other'}
-                    onChange={(e) => {
-                      const updated = [...ancillaryIncomes];
-                      updated[idx] = { ...item, type: e.target.value };
-                      setAncillaryIncomes(updated);
-                    }}
-                  >
-                    <option value="telecom_antenna">통신장비 임대</option>
-                    <option value="telecom_electric">통신장비 전기료</option>
-                    <option value="parking">주차 수입</option>
-                    <option value="signage">간판/광고</option>
-                    <option value="rooftop_solar">태양광</option>
-                    <option value="ev_charging">전기차 충전</option>
-                    <option value="other">기타</option>
-                  </select>
-                  <input
-                    type="number"
-                    placeholder="연간 수입(만원)"
-                    className="w-28 bg-secondary/50 border border-border rounded px-2 py-1 text-xs text-foreground text-right focus:outline-none focus:border-primary"
-                    value={item.annualAmountKrw ? Math.round(item.annualAmountKrw / 10000) : ''}
-                    onChange={(e) => {
-                      const updated = [...ancillaryIncomes];
-                      updated[idx] = { ...item, annualAmountKrw: Number(e.target.value) * 10000 };
-                      setAncillaryIncomes(updated);
-                    }}
-                  />
-                  <button
-                    onClick={() => {
-                      const updated = ancillaryIncomes.filter((_: any, i: number) => i !== idx);
-                      setAncillaryIncomes(updated);
-                    }}
-                    className="text-red-400 text-xs hover:text-red-500"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={() => {
-                  const updated = [...ancillaryIncomes, { type: 'other', label: '', annualAmountKrw: 0, provenance: 'broker_input' }];
-                  setAncillaryIncomes(updated);
-                }}
-                className="text-xs text-primary hover:text-primary/80"
-              >
-                + 부가수입 추가
-              </button>
-            </div>
-            )}
+            <AncillaryIncomeSection
+              stage={stage}
+              ancillaryIncomes={ancillaryIncomes}
+              setAncillaryIncomes={setAncillaryIncomes}
+            />
           </div>
 
           {/* Vacancy */}

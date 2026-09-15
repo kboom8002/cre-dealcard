@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
-import { realEstateAgent, breadcrumb } from "@/lib/schema-org";
+import { serializeJsonLd, realEstateAgent, breadcrumb } from "@/lib/schema-org";
 
 interface PageProps { params: Promise<{ slug: string }> }
 
@@ -91,12 +91,12 @@ export default async function BrokerProfilePage({ params }: PageProps) {
     <main className="min-h-screen bg-[#0b0f19] text-slate-100">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(schemaData) }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(breadcrumbSchema).replace(/</g, "\\u003c"),
+          __html: serializeJsonLd(breadcrumbSchema).replace(/</g, "\\u003c"),
         }}
       />
 

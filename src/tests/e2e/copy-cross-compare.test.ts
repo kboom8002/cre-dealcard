@@ -134,7 +134,7 @@ for (const tc of TEST_CASES) {
     it('Area values present in both (no empty)', () => {
       if (!hasOutput) return;
       // At least one area value should appear in both
-      const areaPattern = /[\d,]+\.?\d*\s*㎡/;
+      const areaPattern = /[\d,]+\.?\d*\s*(?:㎡|평)/;
       const allPptxText = pptxTexts;
       expect(allPptxText).toMatch(areaPattern);
       // Viewer may not always show area if sections timed out

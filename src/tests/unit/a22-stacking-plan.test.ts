@@ -240,7 +240,7 @@ describe('Archetype A22: Architectural Setback Stacking Plan', () => {
       const bound = bindSectionData(doc);
       expect(bound['stackingPlan']).toBeDefined();
       expect(bound['stackingPlan'].stackingPlan).toBeDefined();
-      expect(bound['stackingPlan'].stackingPlan.length).toBeGreaterThan(0);
+      expect(bound['stackingPlan']!.stackingPlan!.length).toBeGreaterThan(0);
     });
 
     it('[Positive] deck-sequencer에서 hasStackingPlan: true일 때 A22 슬라이드가 편성되어야 함', () => {

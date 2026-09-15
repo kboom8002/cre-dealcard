@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { faqPage } from "@/lib/schema-org";
+import { serializeJsonLd, faqPage } from "@/lib/schema-org";
 
 export const metadata: Metadata = {
   title: "상업용 부동산 가이드 & FAQ | DealCard Hub",
@@ -64,7 +64,7 @@ export default function GuidePage() {
     <main className="min-h-screen bg-[#0b0f19] text-slate-100">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(faqSchema) }}
       />
 
       <header className="sticky top-0 z-40 bg-[#0d1424]/80 backdrop-blur-md border-b border-slate-800 px-4 py-4">

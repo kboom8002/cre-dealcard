@@ -52,13 +52,13 @@ export function buildA11RoomSpec(input: ArchetypeInput): ArchetypeOutput {
   ];
   stats.slice(0, 4).forEach((st: any, i: number) => {
     const pos = statPos[i];
-    slide.addShape('rect' as any, { x: pos.x, y: pos.y, w: pos.w, h: pos.h, fill: { color: C.tint }, line: { color: C.brassL, width: 0.5 } });
+    slide.addShape('rect', { x: pos.x, y: pos.y, w: pos.w, h: pos.h, fill: { color: C.tint }, line: { color: C.brassL, width: 0.5 } });
     slide.addText(st.label, { x: pos.x + 0.1, y: pos.y + 0.12, w: pos.w - 0.2, h: 0.25, fontFace: KR, fontSize: 9.5, color: C.mute, bold: true });
     slide.addText(`${st.value}${st.unit ? ' ' + st.unit : ''}`, { x: pos.x + 0.1, y: pos.y + 0.42, w: pos.w - 0.2, h: 0.45, fontFace: NUM, fontSize: 15, bold: true, color: C.brassD });
   });
   
   if (input.data.violationNote) {
-    slide.addShape('rect' as any, { x: rx, y: 4.40, w: rw, h: 1.80, fill: { color: C.redL } });
+    slide.addShape('rect', { x: rx, y: 4.40, w: rw, h: 1.80, fill: { color: C.redL } });
     slide.addText(input.data.violationNote, { x: rx + 0.2, y: 4.55, w: rw - 0.4, h: 1.5, fontFace: KR, fontSize: 10.5, color: C.ink });
   } else {
     L.callout(slide, rx, 4.40, rw, 2.0, 'info', '운영사 및 룸 타입 구성 특징',

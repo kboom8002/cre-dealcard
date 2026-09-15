@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
-import { realEstateListing, breadcrumb } from "@/lib/schema-org";
+import { serializeJsonLd, realEstateListing, breadcrumb } from "@/lib/schema-org";
 import { readWithMigration } from "@/lib/ssot-adapter";
 
 const REGION_MAP: Record<string, string> = {
@@ -56,11 +56,11 @@ export default async function DealDetailPage({ params }: PageProps) {
       {/* Schema.org JSON-LD */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(schemaData) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c') }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbSchema).replace(/</g, '\\u003c') }}
       />
 
       {/* Header */}

@@ -3,6 +3,9 @@
 // coordinates, and building management numbers for downstream public API calls.
 
 import { FALLBACK_DONG_MAP, geocodeAddress } from "@/domain/verification/address-resolver";
+import { createModuleLogger } from "@/lib/logger";
+
+const logger = createModuleLogger("address-resolver");
 
 export interface ResolvedAddress {
   pnu: string;                    // 19자리 필지고유번호
@@ -57,9 +60,9 @@ async function geocodeWithRetry(address: string): Promise<{ lat: number; lng: nu
       if (geo) return geo;
     } catch (err) {
       if (attempt === 0) {
-        console.warn(`[address-resolver] Geocoding attempt 1 failed, retrying:`, err);
+        logger.warn("Geocoding attempt 1 failed, retrying", { err });
       } else {
-        console.warn(`[address-resolver] Geocoding failed after 2 attempts for: ${address}`);
+        logger.warn(`Geocoding failed after 2 attempts for: ${address}`);
       }
     }
   }
@@ -67,7 +70,7 @@ async function geocodeWithRetry(address: string): Promise<{ lat: number; lng: nu
   // 폴백: 로컬 좌표 캐시에서 근사치 검색
   const fallback = localFallbackGeocode(address);
   if (fallback) {
-    console.warn(`[address-resolver] API 실패, 로컬 폴백 좌표 사용: ${address}`);
+    logger.warn(`API 실패, 로컬 폴백 좌표 사용: ${address}`);
     return fallback;
   }
   
@@ -108,7 +111,7 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
         let pnu = pnuFromBdMgtSn;
         let mergedParcelWarning = false;
         if (pnuFromJibun && pnuFromBdMgtSn && pnuFromJibun !== pnuFromBdMgtSn) {
-          console.warn(`[address-resolver] 합필 의심: bdMgtSn PNU=${pnuFromBdMgtSn}, 지번 PNU=${pnuFromJibun}`);
+          logger.warn(`합필 의심: bdMgtSn PNU=${pnuFromBdMgtSn}, 지번 PNU=${pnuFromJibun}`);
           pnu = pnuFromJibun;
           mergedParcelWarning = true;
         }
@@ -129,7 +132,7 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
         };
       }
     } catch (err) {
-      console.warn("[address-resolver] Juso API error, falling back to regex parser:", err);
+      logger.warn("Juso API error, falling back to regex parser", { err });
     }
   }
 
@@ -147,7 +150,7 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
   }
 
   if (!bun) {
-    console.warn("[address-resolver] No jibun found in:", cleanAddr);
+    logger.warn(`No jibun found in: ${cleanAddr}`);
     return null;
   }
 

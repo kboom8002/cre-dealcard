@@ -71,7 +71,7 @@ export async function createCircle(
       avatar_emoji: input.avatarEmoji || "🤝",
       created_by: input.createdBy,
     })
-    .select("*")
+    .select("id, name, description, created_by, avatar_emoji, invite_code, max_members, is_active, created_at, updated_at")
     .single();
 
   if (circleErr || !circle) {
@@ -391,7 +391,7 @@ export async function getMyCircles(brokerId: string): Promise<CircleWithStats[]>
 
   const { data: circles } = await supabase
     .from("broker_circles")
-    .select("*")
+    .select("id, name, description, created_by, avatar_emoji, invite_code, max_members, is_active, created_at, updated_at")
     .in("id", circleIds)
     .eq("is_active", true)
     .order("created_at", { ascending: false });
@@ -424,7 +424,7 @@ export async function getCircleDetail(circleId: string, brokerId: string) {
 
   const { data: circle } = await supabase
     .from("broker_circles")
-    .select("*")
+    .select("id, name, description, created_by, avatar_emoji, invite_code, max_members, is_active, created_at, updated_at")
     .eq("id", circleId)
     .single();
 
@@ -432,13 +432,16 @@ export async function getCircleDetail(circleId: string, brokerId: string) {
 
   const { data: members } = await supabase
     .from("broker_circle_members")
-    .select("*, profile:profiles(display_name, company, phone)")
+    .select("id, circle_id, broker_id, role, status, invited_by, joined_at, created_at, profile:profiles(display_name, company, phone)")
     .eq("circle_id", circleId)
     .in("status", ["active", "pending"]);
 
   return {
     circle: circle as Circle,
-    members: (members || []) as CircleMember[],
+    members: ((members || []) as any[]).map((m) => ({
+      ...m,
+      profile: Array.isArray(m.profile) ? m.profile[0] : m.profile,
+    })) as CircleMember[],
   };
 }
 

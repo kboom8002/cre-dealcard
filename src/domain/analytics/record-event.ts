@@ -127,3 +127,33 @@ export async function recordEvent(
 
   return data;
 }
+
+/**
+ * Record multiple activity events in a single batch.
+ */
+export async function recordEvents(
+  supabase: SupabaseClient,
+  inputs: RecordEventInput[],
+): Promise<Array<{ id: string }>> {
+  if (!inputs || inputs.length === 0) return [];
+  const rows: ActivityEventInsert[] = inputs.map(input => ({
+    actor_id: input.actorId ?? null,
+    actor_role: input.actorRole ?? null,
+    event_type: input.eventType,
+    entity_type: input.entityType ?? null,
+    entity_id: input.entityId ?? null,
+    metadata: (input.metadata ?? {}) as any,
+  }));
+
+  const { data, error } = await supabase
+    .from("activity_events")
+    .insert(rows)
+    .select("id");
+
+  if (error) {
+    log.error("[recordEvents] Failed:", error.message);
+    return [];
+  }
+
+  return data ?? [];
+}

@@ -8,7 +8,7 @@ interface CircleBadgeProps {
   className?: string;
 }
 
-export function CircleBadge({ count, label = "팀 매칭", className = "" }: CircleBadgeProps) {
+function CircleBadgeBase({ count, label = "팀 매칭", className = "" }: CircleBadgeProps) {
   if (count <= 0) return null;
 
   return (
@@ -20,3 +20,6 @@ export function CircleBadge({ count, label = "팀 매칭", className = "" }: Cir
     </span>
   );
 }
+
+export const CircleBadge = React.memo(CircleBadgeBase);
+

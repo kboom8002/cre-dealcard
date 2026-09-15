@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { OITICLE_TYPES, AUTHOR_TYPE_META } from "@/domain/pulse/oiticle-types";
 import type { OiticleTypeCode, OiticleAuthorType } from "@/domain/pulse/oiticle-types";
-import { breadcrumb } from "@/lib/schema-org";
+import { serializeJsonLd, breadcrumb } from "@/lib/schema-org";
 
 export const revalidate = 3600;
 
@@ -117,12 +117,12 @@ export default async function InsightDetailPage({ params }: { params: Params }) 
     <div className="min-h-screen bg-[#0b0f19] text-slate-100">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(schemaData) }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(breadcrumbSchema).replace(/</g, "\\u003c"),
+          __html: serializeJsonLd(breadcrumbSchema).replace(/</g, "\\u003c"),
         }}
       />
 

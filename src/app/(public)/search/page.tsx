@@ -16,7 +16,7 @@ import {
 import { createServiceClient } from "@/lib/supabase/service";
 import { UnifiedSearchBar } from "@/components/search/UnifiedSearchBar";
 import { BrokerResultCard } from "@/components/search/BrokerResultCard";
-import { searchResultsPage, brokerItemList } from "@/lib/schema-org";
+import { serializeJsonLd, searchResultsPage, brokerItemList } from "@/lib/schema-org";
 import { sqmToPyeong } from "@/lib/utils/area-conversion";
 
 interface SearchPageProps {
@@ -364,17 +364,17 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       {/* Schema.org Structured Data */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(searchLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(searchLd) }}
       />
       {brokerLd && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(brokerLd) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(brokerLd) }}
         />
       )}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(faqLd) }}
       />
 
       {/* Hero & Search Header */}

@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import AgoraThreadCard from "@/components/agora/AgoraThreadCard";
 import { CATEGORY_META } from "@/domain/agora/qis-seed-generator";
 import type { AgoraCategory } from "@/domain/agora/qis-seed-generator";
+import { serializeJsonLd } from "@/lib/schema-org";
 
 export const revalidate = 3600;
 
@@ -61,7 +62,7 @@ export default async function AgoraMainPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: serializeJsonLd({
             "@context": "https://schema.org",
             "@type": "CollectionPage",
             name: "상업용 부동산 Q&A 아고라",

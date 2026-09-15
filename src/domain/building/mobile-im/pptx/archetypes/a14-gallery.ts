@@ -20,6 +20,7 @@ export interface ArchetypeInput {
 export interface ArchetypeOutput {
   slide: ReturnType<PptxGenJS['addSlide']>;
   warnings: string[];
+  suppress?: boolean;
 }
 
 /**
@@ -42,13 +43,13 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
   if (rawPhotos.length > 0) {
     targetPhotos = rawPhotos.map(p => ({
       url: typeof p === 'string' ? p : p.url,
-      caption: (p as any).caption || '',
-      label: ((p as any).category && PHOTO_CATEGORY_LABELS[(p as any).category as keyof typeof PHOTO_CATEGORY_LABELS])
-        ? PHOTO_CATEGORY_LABELS[(p as any).category as keyof typeof PHOTO_CATEGORY_LABELS]
-        : ((p as any).type && PHOTO_CATEGORY_LABELS[(p as any).type as keyof typeof PHOTO_CATEGORY_LABELS])
-          ? PHOTO_CATEGORY_LABELS[(p as any).type as keyof typeof PHOTO_CATEGORY_LABELS]
+      caption: p.caption || '',
+      label: (p.category && PHOTO_CATEGORY_LABELS[p.category as keyof typeof PHOTO_CATEGORY_LABELS])
+        ? PHOTO_CATEGORY_LABELS[p.category as keyof typeof PHOTO_CATEGORY_LABELS]
+        : (p.type && PHOTO_CATEGORY_LABELS[p.type as keyof typeof PHOTO_CATEGORY_LABELS])
+          ? PHOTO_CATEGORY_LABELS[p.type as keyof typeof PHOTO_CATEGORY_LABELS]
           : undefined,
-      category: (p as any).category || (p as any).type,
+      category: p.category || p.type,
     }));
   } else if (photoUrls.length > 0) {
     targetPhotos = photoUrls.map(url => ({ url }));
@@ -60,7 +61,7 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
     // W-PPTX-6: 사진 0장일 때 빈 슬라이드 대신 suppress 신호 반환
     warnings.push('갤러리 사진 없음 — 슬라이드 억제');
     L.foot(slide, input.slideNum, input.docno);
-    return { slide, warnings, suppress: true } as any;
+    return { slide, warnings, suppress: true };
   }
 
   // Optimize images (최대 6장 — 슬라이드당 6장 제한, full-wide 12.13" 대응을 위해 maxWidth 2000px 적용)
@@ -70,7 +71,7 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
   if (optimized.length === 0) {
     warnings.push('걤러리 사진 로딩 실패 — 슬라이드 억제');
     L.foot(slide, input.slideNum, input.docno);
-    return { slide, warnings, suppress: true } as any;
+    return { slide, warnings, suppress: true };
   }
 
   const count = optimized.length;
@@ -95,7 +96,7 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
     h: number,
   ) => {
     // 0. 배경 사각형 (사진 뒤 마감 — cover 크롭 경계 정리)
-    slide.addShape('roundRect' as any, {
+    slide.addShape('roundRect', {
       x, y, w, h,
       fill: { color: 'F0F0F0' },
       rectRadius: 0.06,
@@ -114,7 +115,7 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
     // 2. 카테고리 배지 (좌상단)
     if (meta.label) {
       const badgeW = Math.max(0.9, meta.label.length * 0.14 + 0.25);
-      slide.addShape('rect' as any, {
+      slide.addShape('rect', {
         x: x + 0.08, y: y + 0.08, w: badgeW, h: 0.26,
         fill: { color: '10161F', transparency: 20 },
       });
@@ -129,7 +130,7 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
     const hasDistinctCaption = meta.caption && meta.caption.trim().length > 0 && meta.caption.trim() !== meta.label?.trim();
     if (hasDistinctCaption) {
       const captionH = 0.32;
-      slide.addShape('rect' as any, {
+      slide.addShape('rect', {
         x, y: y + h - captionH, w, h: captionH,
         fill: { color: '000000', transparency: 40 },
       });

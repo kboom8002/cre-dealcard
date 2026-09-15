@@ -80,7 +80,7 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
     L.card(slide, x, y, w, h, { onDark });
 
     // 상단 브라스 강조 보더
-    slide.addShape('rect' as any, { x, y, w, h: 0.05, fill: { color: C.brass } });
+    slide.addShape('rect', { x, y, w, h: 0.05, fill: { color: C.brass } });
 
     // 1. 카테고리 헤더
     const cleanLabel = (b.label || `실사 영역 ${i + 1}`).replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '').trim();
@@ -109,7 +109,7 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
       bold: true,
       color: valColor,
       margin: 0,
-      fit: 'shrink' as any,
+      fit: 'shrink' as const,
     });
 
     // 3. 세부 불릿 본문
@@ -127,7 +127,7 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
         return {
           text: cleanLine,
           options: {
-            bullet: { code: '2022' },
+            bullet: { characterCode: '2022' },
             fontSize: descFs,
             color: descColor,
             fontFace: KR,
@@ -135,13 +135,13 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
             indentLevel: 0,
             lineSpacingMultiple: 1.25,
             paraSpaceBefore: lineIdx > 0 ? 6 : 0,
-            margin: [0, 0, 0, 0],
+            margin: [0, 0, 0, 0] as [number, number, number, number],
           },
         };
       });
 
       if (textRuns.length > 0) {
-        slide.addText(textRuns as any, {
+        slide.addText(textRuns, {
           x: x + 0.25,
           y: y + 1.05,
           w: w - 0.5,

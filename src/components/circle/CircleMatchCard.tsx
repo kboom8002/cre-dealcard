@@ -43,7 +43,7 @@ interface CircleMatchCardProps {
   isApproving?: boolean;
 }
 
-export function CircleMatchCard({
+function CircleMatchCardBase({
   match,
   currentBrokerId,
   onApprove,
@@ -178,3 +178,5 @@ export function CircleMatchCard({
     </div>
   );
 }
+
+export const CircleMatchCard = React.memo(CircleMatchCardBase);

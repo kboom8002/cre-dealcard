@@ -5,7 +5,7 @@
  * (public) route group. Wraps children in the premium dark theme.
  */
 import type { Metadata, Viewport } from "next";
-import { organization, website } from "@/lib/schema-org";
+import { serializeJsonLd, organization, website } from "@/lib/schema-org";
 import { PublicBottomNav } from "@/components/layout/PublicBottomNav";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
@@ -92,13 +92,13 @@ export default function PublicLayout({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(organization()).replace(/</g, "\\u003c"),
+          __html: serializeJsonLd(organization()).replace(/</g, "\\u003c"),
         }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(website()).replace(/</g, "\\u003c"),
+          __html: serializeJsonLd(website()).replace(/</g, "\\u003c"),
         }}
       />
 

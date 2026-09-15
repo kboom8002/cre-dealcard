@@ -15,10 +15,11 @@ export async function GET(
     const service = createServiceClient();
 
     // id can be building_id or document id
+    const safeId = id.replace(/[,()"\\]/g, '');
     const { data: docs, error } = await service
       .from('document_objects')
       .select('id, building_id, document_type, title, body, status, created_at')
-      .or(`building_id.eq.${id},id.eq.${id}`)
+      .or(`building_id.eq.${safeId},id.eq.${safeId}`)
       .in('document_type', ['im_lite', 'mobile_im', 'im_approval', 'blind_teaser'])
       .order('created_at', { ascending: false });
 

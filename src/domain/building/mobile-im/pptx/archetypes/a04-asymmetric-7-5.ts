@@ -109,7 +109,7 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     // 매각가 테이블 (금색 테두리 박스)
     const hasPrice2 = !!input.data.priceTable2;
     const priceBoxH = hasPrice2 ? 1.10 : 0.60;
-    slide.addShape('rect' as any, {
+    slide.addShape('rect', {
       x: M, y: py, w: lw, h: priceBoxH,
       fill: { color: 'F6F1E4' },
       line: { color: 'B8860B', width: 1.2 }
@@ -128,7 +128,7 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     // 두 번째 행: 토지평당가 (있을 경우)
     if (input.data.priceTable2) {
       const py2 = py + 0.55;
-      slide.addShape('line' as any, {
+      slide.addShape('line', {
         x: M + 0.15, y: py2, w: lw - 0.30, h: 0,
         line: { color: 'D4C89A', width: 0.5 }
       });
@@ -144,7 +144,7 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
   }
 
   // Brass 수직 구분선
-  slide.addShape('line' as any, {
+  slide.addShape('line', {
     x: M + lw + gap / 2, y: 1.50, w: 0, h: 5.2,
     line: { color: C.brass, width: 0.7 },
   });

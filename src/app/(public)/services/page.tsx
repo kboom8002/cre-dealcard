@@ -18,6 +18,7 @@ import {
   Star,
 } from "lucide-react";
 import { ScrollRevealList, ScrollRevealItem } from "@/components/motion/ScrollReveal";
+import { serializeJsonLd } from "@/lib/schema-org";
 
 export const revalidate = 3600;
 
@@ -98,7 +99,7 @@ export default async function ServicesPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: serializeJsonLd({
             "@context": "https://schema.org",
             "@type": "CollectionPage",
             name: "CRE 전문 서비스 파트너",

@@ -10,7 +10,7 @@ import type { GateReport, GateResult } from "@/domain/building/mobile-im/quality
  * im-management-panel에서 사용됩니다.
  */
 
-function GateRow({ result }: { result: GateResult }) {
+const GateRow = React.memo(function GateRow({ result }: { result: GateResult }) {
   const icon = result.passed ? "✅" : result.severity === "block" ? "🛑" : "⚠️";
   const color = result.passed
     ? "text-neutral-400"
@@ -43,7 +43,7 @@ function GateRow({ result }: { result: GateResult }) {
       </span>
     </div>
   );
-}
+});
 
 export interface GateReportViewProps {
   report: GateReport;

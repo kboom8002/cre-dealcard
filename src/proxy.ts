@@ -71,7 +71,7 @@ export async function proxy(request: NextRequest) {
   //    Exception: social crawlers are allowed through to read OG meta tags
   if ((isBrokerRoute || isAdminRoute) && !user) {
     const ua = (request.headers.get('user-agent') || '').toLowerCase();
-    const isSocialBot = SOCIAL_BOT_PATTERNS.some(p => ua.includes(p));
+    const isSocialBot = !isAdminRoute && SOCIAL_BOT_PATTERNS.some(p => ua.includes(p));
     const isE2ETest =
       process.env.NODE_ENV !== 'production' &&
       (request.headers.get('x-playwright-test') === 'true' || ua.includes('playwright'));

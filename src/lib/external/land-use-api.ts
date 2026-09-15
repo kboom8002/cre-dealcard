@@ -4,6 +4,9 @@
 // 2차: data.go.kr LURIS (레거시 폴백)
 import { fetchWithRetry } from './fetch-with-retry';
 import { getVWorldApiKey, getVWorldReferer } from './vworld-config';
+import { createModuleLogger } from '@/lib/logger';
+
+const logger = createModuleLogger('land-use-api');
 
 export interface LandUsePlanData {
   zoningDistrict: string;         // 용도지역 (예: 제2종일반주거지역)
@@ -69,7 +72,7 @@ export async function fetchLandUsePlan(pnu: string): Promise<LandUsePlanData | n
 
             const { coverage, far } = inferZoningLimits(zoningDistrict);
 
-            console.log(`[land-use-api] ✅ V-World 조회 성공 (${stdrYear}): ${zoningDistrict} (PNU: ${pnu})`);
+            logger.info(`V-World 조회 성공 (${stdrYear}): ${zoningDistrict} (PNU: ${pnu})`);
             return {
               zoningDistrict,
               zoningOverlap,
@@ -83,14 +86,14 @@ export async function fetchLandUsePlan(pnu: string): Promise<LandUsePlanData | n
               _source: 'vworld',
             };
           } else {
-            console.info(`[land-use-api] V-World 토지특성 ${stdrYear}년 데이터 없음, 이전 연도 확인 시도`);
+            logger.info(`V-World 토지특성 ${stdrYear}년 데이터 없음, 이전 연도 확인 시도`);
           }
         } else {
           const body = await res.text().catch(() => '');
-          console.warn(`[land-use-api] V-World 응답 오류 (${res.status}):`, body.slice(0, 200));
+          logger.warn(`V-World 응답 오류 (${res.status}): ${body.slice(0, 200)}`);
         }
       } catch (err) {
-        console.warn(`[land-use-api] V-World 호출 실패 (${stdrYear}):`, err);
+        logger.warn(`V-World 호출 실패 (${stdrYear})`, { err });
       }
     }
   }
@@ -98,6 +101,6 @@ export async function fetchLandUsePlan(pnu: string): Promise<LandUsePlanData | n
   // ═══════════════════════════════════════════════════════════
   // 2차: data.go.kr LURIS (레거시 폴백)
   // ═══════════════════════════════════════════════════════════
-  console.warn('[land-use-api] ⚠ data.go.kr 토지이용규제 서비스 폐기됨. V-World API 키(VWORLD_API_KEY) 설정을 권장합니다. (폴백 생략)');
+  logger.warn('data.go.kr 토지이용규제 서비스 폐기됨. V-World API 키(VWORLD_API_KEY) 설정을 권장합니다. (폴백 생략)');
   return null;
 }

@@ -42,6 +42,7 @@ export async function fetchCommercialTransactions(
       const xml = await res.text();
       const items = xmlAll(xml, "item");
 
+      const txMap = new Map<string, any>();
       for (const item of items) {
         const address = xmlText(item, "지번");
         const dong = xmlText(item, "법정동");
@@ -53,20 +54,29 @@ export async function fetchCommercialTransactions(
         const dealDay = xmlText(item, "일");
         const txDate = `${dealYear}-${String(dealMonth).padStart(2, "0")}-${String(dealDay).padStart(2, "0")}`;
 
+        const key = `${address}_${txDate}_${price}`;
+        txMap.set(key, {
+          address,
+          dong,
+          district: lawdCodes.includes("11680") ? "강남구" : lawdCodes.includes("11200") ? "성동구" : "영등포구",
+          usage_type: usageType || "상업용",
+          transaction_price: price,
+          building_area: area,
+          transaction_date: txDate,
+        });
+      }
+
+      const transactionsToUpsert = Array.from(txMap.values());
+      if (transactionsToUpsert.length > 0) {
         const { data, error } = await supabase
           .from("external_transactions")
-          .upsert({
-            address,
-            dong,
-            district: lawdCodes.includes("11680") ? "강남구" : lawdCodes.includes("11200") ? "성동구" : "영등포구",
-            usage_type: usageType || "상업용",
-            transaction_price: price,
-            building_area: area,
-            transaction_date: txDate,
-          }, { onConflict: "address,transaction_date,transaction_price", ignoreDuplicates: true })
-          .select().single();
+          .upsert(transactionsToUpsert, {
+            onConflict: "address,transaction_date,transaction_price",
+            ignoreDuplicates: true,
+          })
+          .select();
 
-        if (!error && data) results.push(data);
+        if (!error && data) results.push(...data);
       }
     } catch (err) {
       log.warn(`[MOLIT] Region ${region}/${lawd} failed:`, err);
@@ -259,6 +269,7 @@ export async function fetchConstructionPermits(
     const xml = await res.text();
     const items = xmlAll(xml, "item");
 
+    const permitMap = new Map<string, any>();
     for (const item of items) {
       const purposeRaw = xmlText(item, "mainPurpsCdNm") || xmlText(item, "etcPurps") || "";
       // 업무/근생 용도만 필터
@@ -270,13 +281,21 @@ export async function fetchConstructionPermits(
       const ugFloorCnt = xmlText(item, "ugrndFlrCnt") || "0";
       const detail = `${purposeRaw} | 연면적 ${totalArea.toLocaleString()}㎡ | 지하${ugFloorCnt}층~지상${floorCnt}층`;
 
-      const { data, error } = await supabase.from("construction_permits").upsert({
+      permitMap.set(text, {
         text,
         detail,
         district: regionInfo.name,
         region,
-      }, { onConflict: "text" }).select().single();
-      if (!error && data) results.push(data);
+      });
+    }
+
+    const permitsToUpsert = Array.from(permitMap.values());
+    if (permitsToUpsert.length > 0) {
+      const { data, error } = await supabase
+        .from("construction_permits")
+        .upsert(permitsToUpsert, { onConflict: "text" })
+        .select();
+      if (!error && data) results.push(...data);
     }
   } catch (err) {
     log.warn(`[ConstructionPermits] ${region} failed:`, err);

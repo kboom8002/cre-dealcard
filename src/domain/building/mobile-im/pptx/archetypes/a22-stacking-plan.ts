@@ -100,7 +100,7 @@ export function inferTenantCategory(
     return 'anchor';
   }
   if (
-    tenant.includes('nh농협캐피탈') || tenant.includes('사옥') || tenant.includes('본사') ||
+    tenant.includes('사옥') || tenant.includes('본사') ||
     tenant.includes('앵커') || use.includes('사옥')
   ) {
     return 'anchor';
@@ -110,8 +110,8 @@ export function inferTenantCategory(
   if (
     use.includes('근린생활') || use.includes('근생') || use.includes('휴게음식') || use.includes('소매') ||
     tenant.includes('편의점') || tenant.includes('카페') || tenant.includes('병원') || tenant.includes('의원') ||
-    tenant.includes('약국') || tenant.includes('식당') || tenant.includes('베이커리') || tenant.includes('gs25') ||
-    tenant.includes('롤링핀') || tenant.includes('아비쥬')
+    tenant.includes('약국') || tenant.includes('식당') || tenant.includes('베이커리') || tenant.includes('f&b') ||
+    tenant.includes('음식점') || tenant.includes('클리닉') || tenant.includes('치과')
   ) {
     return 'retail';
   }
@@ -298,7 +298,7 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
     ? input.data.stackingPlan
     : [];
 
-  const anchorName = input.data.anchorTenantName || input.data.anchorTenant?.name || 'NH농협캐피탈';
+  const anchorName = input.data.anchorTenantName || input.data.anchorTenant?.name || '주요 임차인';
 
   // 기준층 바닥면적 산출 (9F~5F 일반 기준층 평균)
   let standardArea = 0;
@@ -314,7 +314,13 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
     }
   }
   if (standardArea <= 0) {
-    standardArea = 1154.0; // fallback 표준층
+    const validAboveFloors = rawFloors.filter(f => !String(f?.floor || '').toUpperCase().startsWith('B') && (f.floorAreaM2 || f.floorAreaPy));
+    if (validAboveFloors.length > 0) {
+      const sum = validAboveFloors.reduce((acc, f) => acc + (f.floorAreaM2 || pyeongToSqm(f.floorAreaPy || 0)), 0);
+      standardArea = Math.round(sum / validAboveFloors.length);
+    } else {
+      standardArea = 1000;
+    }
   }
 
   // 층 정규화 및 카테고리/셋백 비율 할당
@@ -369,7 +375,7 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
   let legX = leftX + 0.22;
   legendItems.forEach(item => {
     const colCfg = colorMap[item.cat];
-    slide.addShape('roundRect' as any, {
+    slide.addShape('roundRect', {
       x: legX,
       y: legendY + 0.02,
       w: 0.16,
@@ -420,7 +426,7 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
     const colCfg = colorMap[floor.category ?? 'general'];
 
     // 층 바 배경
-    slide.addShape('roundRect' as any, {
+    slide.addShape('roundRect', {
       x: barX,
       y: currentBarY,
       w: barW,
@@ -504,7 +510,7 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
 
   // 2) 지표면 (GL ±0.0m) 디바이더 라인
   currentBarY += 0.03;
-  slide.addShape('line' as any, {
+  slide.addShape('line', {
     x: leftX + 0.30,
     y: currentBarY + 0.07,
     w: leftW - 0.60,
@@ -553,7 +559,7 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
     });
 
     // 지하층 바 배경
-    slide.addShape('roundRect' as any, {
+    slide.addShape('roundRect', {
       x: barX,
       y: currentBarY,
       w: barW,
@@ -634,26 +640,31 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
 
   // ── 4대 핵심 KPI 카드 ──
   const summary: StackingPlanSummary = input.data.summary || input.data.stackingSummary || {};
-  const totalGfaPy = summary.totalGrossAreaPy || input.data.totalGrossAreaPy || 6261.9;
-  const exclusiveRate = summary.exclusiveRatePct || input.data.exclusiveRatePct || 51.6;
-  const waleVal = summary.waleYears || input.data.waleYears || 2.1;
-  const vacancyVal = summary.vacancyRatePct ?? input.data.vacancyRatePct ?? 0.0;
+  const totalGfaPy = summary.totalGrossAreaPy || input.data.totalGrossAreaPy;
+  const exclusiveRate = summary.exclusiveRatePct || input.data.exclusiveRatePct;
+  const waleVal = summary.waleYears || input.data.waleYears;
+  const vacancyVal = summary.vacancyRatePct ?? input.data.vacancyRatePct;
 
   const kpiY = y + 0.46;
   const kpiH = 0.78;
   const kpiGap = 0.12;
   const kpiW = (rightW - 0.44 - kpiGap * 3) / 4; // ~1.39"
 
+  const gfaValue = totalGfaPy ? `${Number(totalGfaPy).toLocaleString(undefined, { maximumFractionDigits: 1 })}평` : '—';
+  const exclusiveValue = exclusiveRate != null ? `${exclusiveRate}%` : '—';
+  const waleValue = waleVal != null ? `${waleVal}년` : '—';
+  const vacancyValue = vacancyVal != null ? `${vacancyVal}%` : '—';
+
   const kpiData = [
-    { label: '연면적', value: `${totalGfaPy.toLocaleString()}평`, sub: '건축물대장' },
-    { label: '전용률', value: `${exclusiveRate}%`, sub: '지상 기준 78.4%' },
-    { label: 'WALE', value: `${waleVal}년`, sub: '앵커 장기 안정' },
-    { label: '공실률', value: `${vacancyVal}%`, sub: '전층 만실 운용' },
+    { label: '연면적', value: gfaValue, sub: '건축물대장' },
+    { label: '전용률', value: exclusiveValue, sub: '계약면적 대비' },
+    { label: 'WALE', value: waleValue, sub: '잔여 임대기간' },
+    { label: '공실률', value: vacancyValue, sub: (vacancyVal === 0 ? '전층 만실 운용' : (vacancyVal != null ? '일부 공실' : '—')) },
   ];
 
   kpiData.forEach((kpi, idx) => {
     const kX = rightX + 0.22 + idx * (kpiW + kpiGap);
-    slide.addShape('roundRect' as any, {
+    slide.addShape('roundRect', {
       x: kX,
       y: kpiY,
       w: kpiW,
@@ -721,8 +732,8 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
     const py = f.exclusiveAreaPy ?? (f.exclusiveAreaM2 ? sqmToPyeong(f.exclusiveAreaM2) : 0);
     return sum + (typeof py === 'number' && !isNaN(py) ? py : 0);
   }, 0);
-  const fallbackExclusivePy = (summary as any).totalExclusiveAreaPy
-    ? String((summary as any).totalExclusiveAreaPy)
+  const fallbackExclusivePy = summary.totalExclusiveAreaPy
+    ? String(summary.totalExclusiveAreaPy)
     : (summary.totalGrossAreaPy && summary.exclusiveRatePct
         ? ((summary.totalGrossAreaPy * summary.exclusiveRatePct) / 100).toFixed(1)
         : '-');
@@ -805,8 +816,9 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
   );
 
   // 하단 참고 주석
+  const buildingNote = input.data.buildingNote ? ` (${input.data.buildingNote})` : '';
   slide.addText(
-    '※ 본 제원은 건축물대장 및 임대차계약서 실측 기준이며, 10F~11F는 옥외 테라스 셋백 건축 양식이 적용되어 있습니다.',
+    `※ 본 제원은 건축물대장 및 임대차계약서 실측 기준입니다.${buildingNote}`,
     {
       x: rightX + 0.22,
       y: y + hCard - 0.32,

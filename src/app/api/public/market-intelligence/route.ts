@@ -73,12 +73,12 @@ export async function GET(request: NextRequest) {
 
     // Default: fetch consolidated dashboard view
     const [news, reports, sentiments, youtube, auctions, rentals] = await Promise.all([
-      supabase.from("external_news").select("*").order("created_at", { ascending: false }).limit(5),
-      supabase.from("external_reports").select("*").order("created_at", { ascending: false }).limit(5),
-      supabase.from("social_sentiment").select("*").order("analysis_date", { ascending: false }).limit(5),
-      supabase.from("youtube_trends").select("*").order("created_at", { ascending: false }).limit(5),
-      supabase.from("auction_listings").select("*").order("created_at", { ascending: false }).limit(5),
-      supabase.from("rental_market_data").select("*").order("updated_at", { ascending: false }).limit(5)
+      supabase.from("external_news").select("id, title, url, source, summary, sentiment, importance_score, regions, topic, created_at").order("created_at", { ascending: false }).limit(5),
+      supabase.from("external_reports").select("id, institution, title, url, summary, published_date, created_at").order("created_at", { ascending: false }).limit(5),
+      supabase.from("social_sentiment").select("id, keyword, source, sentiment_score, mention_count, analysis_date, created_at").order("analysis_date", { ascending: false }).limit(5),
+      supabase.from("youtube_trends").select("id, channel_name, video_title, video_url, view_count, published_at, created_at").order("created_at", { ascending: false }).limit(5),
+      supabase.from("auction_listings").select("id, case_number, court, address, appraised_value, minimum_bid, status, auction_date, created_at").order("created_at", { ascending: false }).limit(5),
+      supabase.from("rental_market_data").select("id, region, building_type, deposit_avg, monthly_rent_avg, vacancy_rate, source, updated_at").order("updated_at", { ascending: false }).limit(5)
     ]);
 
     return NextResponse.json({

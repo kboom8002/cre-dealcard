@@ -4,6 +4,9 @@ import { extractSlotsFromMemo } from '@/domain/building/memo-slot-mapper';
 import fs from 'fs';
 import path from 'path';
 import * as yaml from 'js-yaml';
+import { createModuleLogger } from '@/lib/logger';
+
+const logger = createModuleLogger('ssot-adapter');
 
 /**
  * @module SSoT Adapter
@@ -334,7 +337,7 @@ export async function readWithMigration(buildingId: string): Promise<{
       .maybeSingle();
 
     if (assetError) {
-      console.warn(`[ssot-adapter] Sync/migration failed for asset ${buildingId}:`, assetError.message);
+      logger.warn(`Sync/migration failed for asset ${buildingId}`, { err: assetError.message });
     } else {
       // Lazy-write to deals table
       const convertedDeal = buildDealFromSsotLite(legacyRecord);
@@ -342,7 +345,7 @@ export async function readWithMigration(buildingId: string): Promise<{
         const { error: dealError } = await supabase
           .from('deals')
           .upsert(convertedDeal, { onConflict: 'id' });
-        if (dealError) console.warn(`[ssot-adapter] Sync failed for deal ${buildingId}:`, dealError.message);
+        if (dealError) logger.warn(`Sync failed for deal ${buildingId}`, { err: dealError.message });
       }
       
       // Lazy-write to lease_units table
@@ -350,7 +353,7 @@ export async function readWithMigration(buildingId: string): Promise<{
       if (units.length > 0) {
         await supabase.from('lease_units').delete().eq('asset_id', buildingId);
         const { error: leaseError } = await supabase.from('lease_units').insert(units);
-        if (leaseError) console.warn(`[ssot-adapter] Sync failed for lease_units ${buildingId}:`, leaseError.message);
+        if (leaseError) logger.warn(`Sync failed for lease_units ${buildingId}`, { err: leaseError.message });
       }
     }
 
@@ -401,15 +404,63 @@ export async function readManyWithMigration(buildingIds: string[]): Promise<{
   results: Array<{ id: string; source: string; data: Record<string, unknown> }>;
   migratedCount: number;
 }> {
-  const results = [];
-  let migratedCount = 0;
-  
-  for (const id of buildingIds) {
-    const result = await readWithMigration(id);
-    results.push({ id, source: result.source, data: result.data });
-    if (result.migrated) migratedCount++;
+  if (!buildingIds || buildingIds.length === 0) {
+    return { results: [], migratedCount: 0 };
   }
-  
+
+  const supabase = createServiceClient();
+  const [{ data: assets }, { data: legacys }] = await Promise.all([
+    supabase.from('assets').select('*').in('id', buildingIds),
+    supabase.from('building_ssot_lite').select('*').in('id', buildingIds),
+  ]);
+
+  const assetMap = new Map((assets || []).map((a: any) => [a.id, a]));
+  const legacyMap = new Map((legacys || []).map((l: any) => [l.id, l]));
+
+  const results: Array<{ id: string; source: string; data: Record<string, unknown> }> = [];
+  let migratedCount = 0;
+
+  for (const id of buildingIds) {
+    const asset = assetMap.get(id);
+    const legacy = legacyMap.get(id);
+
+    if (asset) {
+      if (legacy) {
+        const isLegacyNewer = !!(
+          legacy.updated_at &&
+          asset.updated_at &&
+          new Date(legacy.updated_at).getTime() > new Date(asset.updated_at).getTime()
+        );
+
+        const attrs = (asset.attrs ?? {}) as Record<string, any>;
+        const keyFields = ['askingPriceKrw', 'totalFloorAreaPyung', 'landAreaPyung', 'address', 'assetType'];
+        const isMissingKeyFields =
+          !asset.attrs ||
+          typeof attrs !== 'object' ||
+          Object.keys(attrs).length === 0 ||
+          keyFields.some((k) => attrs[k] === undefined || attrs[k] === null);
+
+        if (isLegacyNewer || isMissingKeyFields) {
+          const res = await readWithMigration(id);
+          results.push({ id, source: res.source, data: res.data });
+          if (res.migrated) migratedCount++;
+          continue;
+        }
+      }
+      results.push({ id, source: 'assets', data: asset });
+      continue;
+    }
+
+    if (legacy) {
+      const res = await readWithMigration(id);
+      results.push({ id, source: res.source, data: res.data });
+      if (res.migrated) migratedCount++;
+      continue;
+    }
+
+    results.push({ id, source: 'building_ssot_lite', data: {} });
+  }
+
   return { results, migratedCount };
 }
 

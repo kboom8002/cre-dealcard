@@ -36,6 +36,10 @@ export type DealcardSyncEvent =
 
 type LocalSyncCallback = (event: DealcardSyncEvent) => void;
 
+import { createModuleLogger } from "@/lib/logger";
+
+const logger = createModuleLogger("dealcard-sync-channel");
+
 // In-process event bus for local testing and deterministic E2E assertions
 const localSubscribers = new Map<string, Set<LocalSyncCallback>>();
 
@@ -63,7 +67,7 @@ export function dispatchLocalSync(buildingId: string, event: DealcardSyncEvent):
       try {
         cb(event);
       } catch (err) {
-        console.warn('[RealtimeSync] Local listener error:', err);
+        logger.warn('Local listener error', { err });
       }
     });
   }
@@ -92,7 +96,7 @@ export async function broadcastDealcardMutation(
       payload,
     });
   } catch (err) {
-    console.warn('[RealtimeSync] Broadcast failed (non-blocking):', err);
+    logger.warn('Broadcast failed (non-blocking)', { err });
   }
 }
 
@@ -119,6 +123,6 @@ export async function broadcastApprovalEvent(
       payload,
     });
   } catch (err) {
-    console.warn('[RealtimeSync] Broadcast approval failed (non-blocking):', err);
+    logger.warn('Broadcast approval failed (non-blocking)', { err });
   }
 }
