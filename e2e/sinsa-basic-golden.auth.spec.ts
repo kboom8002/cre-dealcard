@@ -318,7 +318,8 @@ test.describe('신사동 590 ICL빌딩 Basic IM 골든 테스트 (Rule 47 준거
 
     if (latestDoc.status === 'draft') {
       console.log('  🔐 Draft 문서 승인 처리 진행...');
-      const approvalHash = latestDoc.body?.approval_target_hash || latestDoc.body?.targetHash || computeTargetHash(latestDoc.body, 'fact_om');
+      const tier = latestDoc.body?.releaseTier || 'fact_om';
+      const approvalHash = latestDoc.body?.approval_target_hash || latestDoc.body?.targetHash || computeTargetHash(latestDoc.body, tier);
       const approveRes = await page.request.post(`/api/broker/im-lite/${docId}/approve`, {
         data: { action: 'approve', expectedHash: approvalHash },
       });

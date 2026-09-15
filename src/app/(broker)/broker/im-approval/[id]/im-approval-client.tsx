@@ -341,7 +341,13 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
         body: JSON.stringify({ action: 'approve', expectedHash: approvalHash }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || data.message || 'Unknown error');
+      if (!res.ok) {
+        const errorMsg = data.error || data.message || 'Unknown error';
+        const err = new Error(errorMsg) as any;
+        err.data = data;
+        err.status = res.status;
+        throw err;
+      }
       setDocStatus('published');
       setResultMsg('IM이 성공적으로 공개되었습니다.');
       setActionStatus('done');
@@ -350,10 +356,19 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
       toast.success("🎉 모바일 투자설명서가 성공적으로 공개되었습니다!");
-    } catch (err: unknown) {
-      setResultMsg(err instanceof Error ? err.message : 'Error');
+    } catch (err: any) {
+      const errorMsg = err.message || 'Error';
+      
+      // 422 hash mismatch 시 서버의 최신 hash를 자동 채택
+      if (err.status === 422 && err.data?.serverHash) {
+        setCurrentApprovalHash(err.data.serverHash);
+        toast.error('문서가 변경되었습니다. 다시 승인 버튼을 눌러주세요.');
+      } else {
+        toast.error(errorMsg || '공개 승인 처리 중 오류가 발생했습니다.');
+      }
+      
+      setResultMsg(errorMsg);
       setActionStatus('error');
-      toast.error(err instanceof Error ? err.message : '공개 승인 처리 중 오류가 발생했습니다.');
     }
   };
 

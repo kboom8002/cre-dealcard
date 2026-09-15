@@ -335,14 +335,17 @@ B1 138.3평 파티룸 보증금6000만 월세510만`;
 
     if (latestDoc.status === 'draft') {
       console.log('  🔐 Draft 문서 승인 처리 진행...');
-      const approvalHash = latestDoc.body?.approval_target_hash || latestDoc.body?.targetHash || computeTargetHash(latestDoc.body, 'fact_om');
+      const tier = latestDoc.body?.releaseTier || 'fact_om';
+      const approvalHash = latestDoc.body?.approval_target_hash || latestDoc.body?.targetHash || computeTargetHash(latestDoc.body, tier);
       const approveRes = await page.request.post(`/api/broker/im-lite/${docId}/approve`, {
         data: { action: 'approve', expectedHash: approvalHash },
       });
       if (approveRes.ok()) {
         console.log('  ✅ 승인 API 성공 (status: published)');
       } else {
-        console.log('  ⚠️ 승인 API 422/에러 — DB service role 직접 패치 폴백');
+        const errBody = await approveRes.json().catch(() => ({}));
+        console.log(`  ⚠️ 승인 API 에러 (${approveRes.status()}):`, errBody);
+        console.log('  ⚠️ DB service role 직접 패치 폴백');
         const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
         if (serviceKey) {
           await page.request.patch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/document_objects?id=eq.${docId}`, {
@@ -527,11 +530,8 @@ B1 138.3평 파티룸 보증금6000만 월세510만`;
     const hasStabilized = /Stabilized|안정화/.test(fullPptxText);
     const hasAnalystAssumption = /분석가정|분석\s*가정/.test(fullPptxText);
     console.log(`  안정화 수익률: ${hasStabilized ? '✅' : '⚠️'} | 분석가정: ${hasAnalystAssumption ? '✅' : '⚠️'}`);
-    // 서초동 데이터에 3개층 공실이 있으므로 신규 생성 시 안정화 카드가 존재해야 함
-    // 기존 문서 재활용 시 floor_leases.is_vacant 미영속으로 인해 미생성될 수 있음 → soft-assert
-    if (!hasStabilized) {
-      console.log('    ⚠️ 안정화 수익률 카드 미생성 — 신규 문서 생성 시 재검증 필요');
-    }
+    // 서초동 데이터에 3개층 공실이 있으므로 신규 생성 시 안정화 카드가 반드시 존재해야 함
+    expect(hasStabilized).toBe(true);
 
     // ─── 단언 ⑥: 투자 포인트 회피성 문구 차단 (Rule 37) ───
     const evasivePhrases = [

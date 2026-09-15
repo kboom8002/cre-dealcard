@@ -766,8 +766,22 @@ export async function generateMobileIMHandler(
           return loanAmt > 0 ? Math.round(loanAmt * rate / 100 / 12) : undefined;
         })(),
       } : undefined,
+      approval_target_hash: undefined as string | undefined,
     },
   };
+
+  // 승인 해시 선제 계산 (Rule 20: Strict Hash-Bound Approval)
+  try {
+    const { computeTargetHash } = await import('@/domain/building/im-core/target-hash');
+    const tier = imDocPayload.body.releaseTier ?? 'fact_om';
+    imDocPayload.body.approval_target_hash = computeTargetHash({
+      body: imDocPayload.body,
+      releaseTier: tier,
+      policyVersion: '2026-08-31',
+    });
+  } catch (hashErr) {
+    log.warn({ hashErr }, '[im-handler] Failed to precompute approval_target_hash');
+  }
 
   let savedDocId = null;
   try {

@@ -111,20 +111,20 @@ export async function POST(
     } else if (fullDocForGate.body.ssot_summary || fullDocForGate.body.sections) {
       // 레거시 문서 호환: ssot_summary에서 기본 Claim 재수화
       const ssot = fullDocForGate.body.ssot_summary || {};
-      if (ssot.asking_price || ssot.price) {
+      if (ssot.asking_price || ssot.asking_price_manwon || ssot.price) {
         registry.register({
           subject: 'asking_price',
-          value: ssot.asking_price || ssot.price,
+          value: ssot.asking_price || (ssot.asking_price_manwon ? ssot.asking_price_manwon * 10000 : null) || ssot.price,
           evidence: [],
           provenance: 'broker',
           asOf: new Date().toISOString(),
           status: 'reconciled',
         });
       }
-      if (ssot.total_area || ssot.gross_area) {
+      if (ssot.total_area || ssot.total_gross_area_sqm || ssot.gross_area) {
         registry.register({
           subject: 'total_area',
-          value: ssot.total_area || ssot.gross_area,
+          value: ssot.total_area || ssot.total_gross_area_sqm || ssot.gross_area,
           evidence: [],
           provenance: 'public_api',
           asOf: new Date().toISOString(),

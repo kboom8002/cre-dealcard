@@ -120,6 +120,32 @@ export class MockOpenAIProvider implements LLMProvider {
     const extractedBldgName = bldgNameMatch ? bldgNameMatch[1] : `${extractedRegion}빌딩`;
     const assetType = promptText.includes("오피스") ? "오피스빌딩" : "근생빌딩";
 
+    // RentRoll 프롬프트 감지
+    const isRentRollPrompt = params.systemPrompt?.includes("렌트롤") || params.systemPrompt?.includes("floorLeases");
+    if (isRentRollPrompt) {
+      return {
+        content: JSON.stringify({
+          floorLeases: [
+            { floor: "6F", tenant_type: "사무실", deposit_manwon: 0, rent_manwon: 1050, mgmt_fee_manwon: 0, is_vacant: false },
+            { floor: "5F", tenant_type: "공실", deposit_manwon: 0, rent_manwon: 0, mgmt_fee_manwon: 0, is_vacant: true },
+            { floor: "4F", tenant_type: "공실", deposit_manwon: 0, rent_manwon: 0, mgmt_fee_manwon: 0, is_vacant: true },
+            { floor: "3F", tenant_type: "사무실", deposit_manwon: 10000, rent_manwon: 750, mgmt_fee_manwon: 0, is_vacant: false },
+            { floor: "2F", tenant_type: "공실", deposit_manwon: 0, rent_manwon: 0, mgmt_fee_manwon: 0, is_vacant: true },
+            { floor: "1F", tenant_type: "식당", deposit_manwon: 13000, rent_manwon: 830, mgmt_fee_manwon: 0, is_vacant: false },
+            { floor: "B1", tenant_type: "파티룸", deposit_manwon: 6000, rent_manwon: 510, mgmt_fee_manwon: 0, is_vacant: false }
+          ],
+          monthlyRent: 3140,
+          totalDeposit: 29000,
+          mgmtFeeTotal: 0,
+          vacancyPct: 42
+        }),
+        tokens: 300,
+        model,
+        provider: this.name,
+        latencyMs: Date.now() - startTime,
+      };
+    }
+
     // Mobile IM 섹션 마크다운 서술문 생성 프롬프트 감지 (JSON을 요구하지 않고 섹션 서사를 요청하는 경우)
     const isSectionNarrativePrompt =
       params.systemPrompt?.includes("CRE IM") ||

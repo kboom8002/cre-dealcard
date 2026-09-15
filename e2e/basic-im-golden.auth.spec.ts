@@ -647,9 +647,7 @@ B1~5F
     const floorKeywords = ['B1', '1F', '2F', '3F', '4F', '5F', '지하', '지상'];
     const floorCount = floorKeywords.filter(kw => fullPptxText.includes(kw)).length;
     console.log(`  🏢 렌트롤 층 키워드: ${floorCount}/${floorKeywords.length}개 매칭`);
-    if (floorCount < 2) {
-      console.log(`  ⚠️ [SOFT] 렌트롤 층 키워드 ${floorCount}개 < 2개 — floor_leases POST 포함 여부 확인 필요`);
-    }
+    expect(floorCount).toBeGreaterThanOrEqual(2);
 
     // ⑮ P3-1: 스펙 9단계 핵심 섹션 키워드 존재 단언
     const sectionKeywords = ['건물 개요', '입지', '토지', '임대차', '투자수익률', '사진'];
@@ -657,7 +655,7 @@ B1~5F
     console.log(`  📋 스펙 섹션 키워드: ${foundSections.length}/${sectionKeywords.length}개 — [${foundSections.join(', ')}]`);
     expect(foundSections.length, `스펙 9단계 핵심 섹션 4개 이상 존재 필요 (현재: ${foundSections.join(', ')})`).toBeGreaterThanOrEqual(4);
 
-    // ⑯ P3-3: 토지 슬라이드 카피 관련성 — 임대차/렌트롤 카피 혼입 차단
+    // ⑯ P3-2: 토지 슬라이드 카피 관련성 — 임대차/렌트롤 카피 혼입 차단
     // 토지 현황 슬라이드(보통 slide5)의 텍스트에서 임대 관련 키워드가 없어야 함
     const landSlideIdx = slideEntries.findIndex((e: any) => {
       const txt = e.getData().toString('utf-8').replace(/<[^>]+>/g, ' ');
@@ -675,12 +673,7 @@ B1~5F
     const floorPatterns = ['B1', '1F', '2F', '3F', '4F', '5F'];
     const detailFloorCount = floorPatterns.filter(kw => fullPptxText.includes(kw)).length;
     console.log(`  🏢 렌트롤 층별 상세 키워드: ${detailFloorCount}/${floorPatterns.length}개`);
-    // NOTE: AI 파싱 성공 → handler.ts → data-binder.ts → A24 렌더링 전구간 파이프라인이
-    // floor_leases를 렌트롤 테이블로 변환하는 것은 별도 심층 작업이 필요.
-    // 현재는 soft warning으로 두고, 층별 데이터가 0개면 경고만 출력.
-    if (detailFloorCount < 3) {
-      console.log(`  ⚠️ [P3-2 SOFT] 렌트롤 층별 상세 미반영 — handler.ts floor_leases→렌트롤 테이블 파이프라인 추가 조사 필요`);
-    }
+    expect(detailFloorCount).toBeGreaterThanOrEqual(2);
 
     await shot(page, 'dangsan-basic-pptx-verified');
   });
