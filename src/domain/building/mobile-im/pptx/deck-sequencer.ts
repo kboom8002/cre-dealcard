@@ -11,6 +11,7 @@ import type { InvestmentPosture } from '@/domain/ontology';
 import type { GallerySlideSpec } from './gallery-planner';
 import type { ReleaseTier } from '../../im-core/release-tier';
 import { getTierAllowedSections } from '../../im-core/release-tier';
+import { THRESHOLDS } from '@/constants/thresholds';
 
 
 import { createModuleLogger } from '@/lib/logger';
@@ -322,7 +323,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   const appendixSlides = active.filter(s => s.placement === 'appendix');
 
   const PAGE_RECOMMENDED = 12; // D33 S-2: 정본 §3.1 기준
-  const PAGE_HARD_LIMIT = 16;  // D33 S-2: 절대 상한 (정본 §3.1 — 기존 20 폐기)
+  const PAGE_HARD_LIMIT = THRESHOLDS.PAGE_HARD_LIMIT;  // D33 S-2: 절대 상한 (정본 §3.1 — 기존 20 폐기)
 
   let finalBody = bodySlides;
 

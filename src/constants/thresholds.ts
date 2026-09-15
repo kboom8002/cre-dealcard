@@ -5,6 +5,20 @@
  * @see AGENTS.md §8
  */
 
+import path from 'path';
+import * as yaml from 'js-yaml';
+
+function loadSsotPageLimit(): number {
+  try {
+    const fs = require('fs');
+    const yamlPath = path.resolve(process.cwd(), 'credeal/ssot/im.pages.yaml');
+    const content = yaml.load(fs.readFileSync(yamlPath, 'utf8')) as any;
+    return content?.rules?.max_pages_absolute ?? 16;
+  } catch {
+    return 16;
+  }
+}
+
 export const THRESHOLDS = {
   // Data Grade Thresholds (grade-engine)
   GRADE_D_MAX: 40,
@@ -32,7 +46,7 @@ export const THRESHOLDS = {
   PROVENANCE_ASSUMED: 0.30,
 
   // Page Limits (AGENTS.md Rule 10)
-  PAGE_HARD_LIMIT: 16,
+  PAGE_HARD_LIMIT: loadSsotPageLimit(),
 
   // E2E Test & UI Thresholds
   MIN_CONTENT_LENGTH: 500,

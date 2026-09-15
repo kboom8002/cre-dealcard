@@ -16,6 +16,14 @@ description: >-
 - Basic IM 또는 Pro IM의 릴리즈 게이트를 통과시키고 배포할 때
 - PPTX 바이너리 파싱 및 시각적 슬라이드 품질을 검증할 때
 
+## Step 0: 영향 분석 기반 선택적 E2E (Impact Analysis)
+
+불필요한 E2E(약 3~4분 소요)를 피하기 위해, 수정된 파일이 E2E 범위를 촉발하는지 판단합니다.
+
+- **파이프라인 Core 변경** (`writer.ts`, `deck-sequencer.ts`, `handler.ts` 등) → 5대 포스처 E2E 전체 실행
+- **특정 아키타입 변경** (예: `a23-yield-formula.ts`) → 해당 포스처 E2E만 실행 (`basic-im-golden`)
+- **단순 텍스트/UI 수정** → E2E 생략, `npm run preflight` 만으로 검증 완료
+
 ## 핵심 불변식 (Invariants)
 
 1. **Rule 41 (골든 테스트 ≠ 단위 테스트)**: `npx tsx`로 함수를 직접 호출하는 것은 단위 테스트. 골든 테스트는 반드시 `npm run dev` + Playwright 브라우저 + 실DB + 실UI 전구간을 거쳐야 한다.
