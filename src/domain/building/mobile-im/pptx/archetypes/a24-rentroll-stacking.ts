@@ -86,9 +86,9 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     if (FLOOR_PATTERN.test(firstCell.trim())) {
       floors = tableRows.map((r: any[]) => {
         const floor = String(r[0] || '').trim();
-        // 테이블 컬럼 순서: [층수, 면적(평), 임차인, 보증금, 월세, 계약종료]
-        const areaStr = String(r[1] || '').trim();
-        const tenant = String(r[2] || '').trim();
+        // 테이블 컬럼 순서: [층수, 임차인, 면적(평), 보증금, 월세, 계약종료] — HEADERS/data-binder와 동기화
+        const tenant = String(r[1] || '').trim();
+        const areaStr = String(r[2] || '').trim();
         const deposit = String(r[3] || '').trim();
         const rent = String(r[4] || '').trim();
         const expiry = String(r[5] || '').trim();

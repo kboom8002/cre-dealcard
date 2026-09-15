@@ -101,7 +101,7 @@ function parseRentRollData(data: any[][]): ParseResult {
   const depositIdx = findCol(["보증금", "임대보증금", "deposit"]);
   const mgmtIdx = findCol(["관리비", "공용관리비", "mgmt", "maintenance"]);
   const vacantIdx = findCol(["공실", "vacant", "empty"]);
-  const bizTypeIdx = findCol(["업종", "용도", "임차인", "tenant", "입주사"]);
+  const bizTypeIdx = findCol(['업종', '용도', '종류', '구분']);
   const floorIdx = findCol(["층", "층수", "floor", "호", "위치"]);
   const areaIdx = findCol(['면적', '전용면적', 'area', '㎡', '평']);
   const tenantNameIdx = findCol(['임차인', '입주사', 'tenant', '상호']);
@@ -160,9 +160,13 @@ function parseRentRollData(data: any[][]): ParseResult {
       const val = String(cols[vacantIdx]).toLowerCase().trim();
       isVacant = val === "y" || val === "1" || val === "공실" || val === "true" || val === "yes" || val === "●";
     } else if (bizTypeIdx >= 0) {
-      // 업종/임차인 컬럼이 비어있으면 공실로 추정
+      // 업종/용도 컬럼이 비어있거나 '공실'이면 공실로 추정
       const bizVal = String(cols[bizTypeIdx] ?? "").trim();
       if (bizVal === "" || bizVal === "-" || bizVal === "공실") isVacant = true;
+    } else if (tenantNameIdx >= 0) {
+      // bizTypeIdx가 없으면 임차인명으로 공실 판단
+      const tVal = String(cols[tenantNameIdx] ?? "").trim();
+      if (tVal === "" || tVal === "-" || tVal === "공실") isVacant = true;
     }
     if (isVacant) vacantCount++;
 

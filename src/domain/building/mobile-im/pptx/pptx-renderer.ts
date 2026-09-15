@@ -505,10 +505,15 @@ export class MobileImPptxRenderer {
         const askKrw = askManwon * 10000;
         const denominator = askKrw - depositKrw;
         const capRateAsIs = denominator > 0 ? (annualRentKrw / denominator * 100) : 0;
-        // 안정화: 공실 해소 시 임대료 반영 (공실률만큼 비례 증가)
-        const capRateStabilized = vacPct > 0 && denominator > 0
-          ? ((annualRentKrw * (1 + vacPct / (100 - vacPct))) / denominator * 100)
-          : undefined;
+        // 안정화: claims에서 pro_forma_cap_rate 우선 참조 (FinancialCalculator 산출값)
+        const docClaims = (input.doc.body?.claims ?? []) as Array<{ subject: string; value: number }>;
+        const proFormaClaim = docClaims.find(c => c.subject === 'pro_forma_cap_rate');
+        // claim이 있으면 사용, 없으면 공실률 기반 fallback 재계산
+        const capRateStabilized = proFormaClaim?.value != null && proFormaClaim.value > 0
+          ? proFormaClaim.value
+          : (vacPct > 0 && denominator > 0
+            ? ((annualRentKrw * (1 + vacPct / (100 - vacPct))) / denominator * 100)
+            : undefined);
 
         dataMap['yieldFormula'] = {
           title: '투자수익률 분석',

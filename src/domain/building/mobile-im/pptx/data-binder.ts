@@ -561,7 +561,7 @@ export function bindSectionData(
       if (floorLeases.length > 0 && result['rentRoll']) {
         const isBasicPreset = doc.body?.preset === 'credeal_basic';
         const rrHeaders = isBasicPreset
-          ? ['층수', '면적(평)', '임차인', '보증금', '월세', '계약종료']
+          ? ['층수', '임차인', '면적(평)', '보증금', '월세', '계약종료']
           : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
         const rrRows = floorLeases.map((l: any) => {
           const floor = l.floor || l.unit_label || '-';
@@ -572,7 +572,7 @@ export function bindSectionData(
           const mgmt = l.mgmt_fee_manwon ? `${Number(l.mgmt_fee_manwon).toLocaleString()}만` : '-';
           const expiry = l.lease_end || l.contract_end || '-';
           return isBasicPreset
-            ? [floor, areaPyeong, tenant, deposit, rent, expiry]
+            ? [floor, tenant, areaPyeong, deposit, rent, expiry]
             : [floor, tenant, areaPyeong, deposit, rent, mgmt, expiry];
         });
         result['rentRoll'].tableHead = rrHeaders;

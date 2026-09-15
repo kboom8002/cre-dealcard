@@ -161,10 +161,10 @@ export class FinancialCalculator {
       allViolations.push(...violations);
     }
 
-    // 3. 고공실률(≥20%)인 경우 pro_forma 클레임 자동 등록
+    // 3. 공실률(>0%)인 경우 pro_forma 클레임 자동 등록 (만실 정상화 시나리오)
     if (
       inputs.vacancyRatePct != null &&
-      inputs.vacancyRatePct >= 20.0 &&
+      inputs.vacancyRatePct > 0 &&
       inputs.purchasePriceKrw > 0 &&
       inputs.monthlyRentKrw
     ) {
