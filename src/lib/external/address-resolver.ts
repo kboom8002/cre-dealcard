@@ -23,7 +23,7 @@ export interface ResolvedAddress {
   allPnus?: string[];             // Multi-PNU support
 }
 
-function padNumber(numStr: string | number): string {
+export function padNumber(numStr: string | number): string {
   const num = parseInt(String(numStr), 10);
   if (isNaN(num)) return "0000";
   return String(num).padStart(4, "0");
@@ -41,12 +41,25 @@ function getMockLegalDongCode(address: string): string {
  * "영등포구 당산동5가 11-47" → { bun: "11", ji: "47", isMount: false }
  * "관악구 남현동 산 1-1"    → { bun: "1",  ji: "1",  isMount: true }
  */
-function parseJibunAddress(jibunAddr: string): { bun: string; ji: string; isMount: boolean } | null {
+export function parseJibunAddress(jibunAddr: string): { bun: string; ji: string; isMount: boolean } | null {
   if (!jibunAddr) return null;
   const isMount = /산\s*\d/.test(jibunAddr);
-  const match = jibunAddr.match(/(\d+)(?:-(\d+))?/);
+  // Match parcel number after dong/ri/ro/gil/san or take the trailing number block
+  const matchWithPrefix = jibunAddr.match(/(?:동\d*가?|로|길|리|읍|면)\s+(?:산\s*)?(\d+)(?:-(\d+))?/);
+  const match = matchWithPrefix || jibunAddr.match(/(?:산\s*)?(\d+)(?:-(\d+))?$/) || jibunAddr.match(/(\d+)(?:-(\d+))?/);
   if (!match) return null;
   return { bun: match[1], ji: match[2] || '0', isMount };
+}
+
+/**
+ * 쉼표 또는 공백으로 구분된 문자열에서 유효한 19자리 PNU 배열을 안전하게 추출
+ */
+export function extract19DigitPnus(pnuInput?: string | string[]): string[] {
+  if (!pnuInput) return [];
+  const rawList = Array.isArray(pnuInput) ? pnuInput : pnuInput.split(/[\s,]+/);
+  return rawList
+    .map(p => p.trim().replace(/[^0-9]/g, ''))
+    .filter(p => p.length === 19);
 }
 
 /**

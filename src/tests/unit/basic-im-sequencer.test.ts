@@ -101,4 +101,67 @@ describe('Basic IM (credeal_basic) Sequencer Unit Test (Rule 47 & basic-im-guide
     const proRentRoll = proSeq.find(s => s.dataKey === 'rentRoll');
     expect(proRentRoll?.archetype).toBe('A03');
   });
+
+  it('excludes all Pro-tier slides across all 5 postures when preset is credeal_basic', () => {
+    const postures = ['income', 'development', 'owner_occupied', 'trading', 'operating'] as const;
+    const proForbiddenKeys = [
+      'capital', 'totalReturn', 'dcf', 'sensitivity', 'loan', 'tax',
+      'thesis', 'risk', 'checklist', 'process', 'stability', 'profit',
+    ];
+
+    for (const posture of postures) {
+      const seq = buildDeckSequence({
+        posture,
+        preset: 'credeal_basic',
+        grade: 'A', // Even with Grade A, Basic IM must NOT include Pro financial slides
+        dataAvailability: {
+          hasRentRoll: true,
+          hasStackingPlan: true,
+          hasPhotos: true,
+          hasCadastralMap: true,
+        },
+      });
+
+      const keys = seq.map(s => s.dataKey);
+      for (const forbidden of proForbiddenKeys) {
+        expect(keys, `Posture ${posture} should not contain ${forbidden}`).not.toContain(forbidden);
+      }
+    }
+  });
+
+  it('development posture in Basic IM excludes yieldFormula (A23) and produces clean development deck', () => {
+    const devSeq = buildDeckSequence({
+      posture: 'development',
+      preset: 'credeal_basic',
+      grade: 'B',
+      dataAvailability: {
+        hasRentRoll: false,
+        hasPhotos: false,
+        hasCadastralMap: false,
+      },
+    });
+
+    const keys = devSeq.map(s => s.dataKey);
+    expect(keys).not.toContain('yieldFormula');
+    expect(keys).toEqual(['cover', 'summary', 'building', 'location', 'land', 'closing']);
+    expect(devSeq.length).toBe(6);
+  });
+
+  it('minimal data availability produces clean minimal sequence without orphan slides', () => {
+    const minSeq = buildDeckSequence({
+      posture: 'income',
+      preset: 'credeal_basic',
+      grade: 'C',
+      dataAvailability: {
+        hasRentRoll: false,
+        hasStackingPlan: false,
+        hasPhotos: false,
+        hasCadastralMap: false,
+      },
+    });
+
+    const keys = minSeq.map(s => s.dataKey);
+    expect(keys).toEqual(['cover', 'summary', 'building', 'location', 'land', 'yieldFormula', 'closing']);
+    expect(minSeq.length).toBe(7);
+  });
 });

@@ -20,6 +20,7 @@ import { createHash } from 'crypto';
 import * as path from 'path';
 import * as fs from 'fs';
 import { convertPptxToSlideImages } from '../src/tests/e2e/pptx-slide-capturer';
+import { handleDuplicateModal } from './helpers/golden-test-utils';
 
 function canonicalizeJson(obj: unknown): string {
   if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);
@@ -64,6 +65,22 @@ test.describe('신사동 590 ICL빌딩 Basic IM 골든 테스트 (Rule 47 준거
     expect(page.url()).not.toContain('/login');
     console.log('  ✅ 인증 세션 확인');
 
+    // 1b. 기존 딜카드 재사용 확인
+    const existingIdFile = path.join(SCREENSHOT_DIR, 'building-id.txt');
+    if (fs.existsSync(existingIdFile)) {
+      const existingId = fs.readFileSync(existingIdFile, 'utf-8').trim();
+      if (existingId) {
+        console.log(`  📋 기존 buildingId 확인: ${existingId} → 딜카드 페이지 직접 확인`);
+        await page.goto(`/broker/deal-card/${existingId}`);
+        await page.waitForLoadState('networkidle');
+        if (page.url().includes(existingId)) {
+          console.log(`  ✅ 기존 딜카드 재사용 확인 완료: ${existingId}`);
+          await shot(page, 'deal-card-reused');
+          return;
+        }
+      }
+    }
+
     // 2. 딜카드 생성 페이지 진입
     await page.goto('/broker/deal-card/new');
     await page.waitForLoadState('networkidle');
@@ -79,22 +96,14 @@ test.describe('신사동 590 ICL빌딩 Basic IM 골든 테스트 (Rule 47 준거
     await page.locator('#broker-memo-input').fill(memo);
     await shot(page, 'memo-filled');
 
-    // 4. 생성 CTA 클릭
+    // 4. 생성 CTA 클릭 & 중복 물건 다이얼로그 대응
+    const navPromise = page.waitForURL(/\/broker\/deal-card\/[a-f0-9]{8}-/, { timeout: 180_000 });
     await page.locator('#cta-generate-deal-card').click();
     console.log('  ⏳ 딜카드 생성 요청...');
     await shot(page, 'generating-deal-card');
 
-    // 중복 물건 다이얼로그 대응
-    try {
-      const duplicateModal = page.locator('button:has-text("새로 만들기"), button:has-text("신규 생성")').first();
-      if (await duplicateModal.isVisible({ timeout: 4000 })) {
-        console.log('  ⚠️ 중복 물건 감지 → "새로 만들기" 클릭');
-        await duplicateModal.click();
-      }
-    } catch { /* ignore */ }
+    await handleDuplicateModal(page, navPromise, 30_000);
 
-    // 5. 생성 완료 URL 대기
-    await page.waitForURL(/\/broker\/deal-card\/[a-f0-9]{8}-/, { timeout: 180_000 });
     const dealCardUrl = page.url();
     const buildingId = dealCardUrl.match(/deal-card\/([a-f0-9-]+)/)?.[1];
     expect(buildingId).toBeTruthy();

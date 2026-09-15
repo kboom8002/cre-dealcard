@@ -80,8 +80,14 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     align: 'center', valign: 'top',
   });
 
+  // ── 0으로 나누기 및 이상치 방어 (Division by Zero Defense) ──
+  if (askingPrice > 0 && totalDeposit >= askingPrice) {
+    warnings.push('[A23] 승계 보증금이 매매가 이상입니다 (실질 투자금 <= 0)');
+  }
+
   // 수치 표기 (우측) — D45: 폭 확대하여 100억+ 금액 줄바꿈 방지
   const fmtManwon = (v: number) => {
+    if (!isFinite(v) || isNaN(v)) return '0원';
     if (v >= 10_000_000) return `${(v / 100_000_000).toFixed(1)}억원`;
     return `${Math.round(v / 10000).toLocaleString()}만원`;
   };
@@ -152,9 +158,10 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     };
 
     const clampedVacPct = Math.min(99.9, Math.max(0, Number(vacancyPct) || 0));
-    const rentForCard = isStabilized && capRateStabilized
+    const rawRent = isStabilized && capRateStabilized
       ? annualRent / (1 - clampedVacPct / 100) // 안정화: 공실 해소 시 예상 임대료
       : annualRent;
+    const rentForCard = isFinite(rawRent) && !isNaN(rawRent) ? rawRent : 0;
 
     renderRow('연간 임대료', fmtManwon(rentForCard));
     renderRow('승계 보증금', fmtManwon(totalDeposit));
@@ -171,7 +178,8 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       x: x + 0.40, y: rowY, w: 2.5, h: 0.65,
       color: 'FFFFFF', fontFace: KR, fontSize: 12, bold: true, valign: 'middle',
     });
-    const numCapRate = typeof capRate === 'number' ? capRate : parseFloat(String(capRate)) || 0;
+    const rawCapRate = typeof capRate === 'number' ? capRate : parseFloat(String(capRate));
+    const numCapRate = isFinite(rawCapRate) && !isNaN(rawCapRate) ? rawCapRate : 0;
     slide.addText(`${numCapRate.toFixed(2)}%`, {
       x: x + cardW - 2.60, y: rowY, w: 2.20, h: 0.65,
       color: 'FFFFFF', fontFace: NUM, fontSize: 22, bold: true,

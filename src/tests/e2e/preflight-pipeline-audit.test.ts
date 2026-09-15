@@ -103,6 +103,33 @@ describe('Layer 1: Data Parsing & Format Integrity', () => {
       const buggyValue = parseFloat('96평(약 317.4㎡)'.replace(/[^\d.]/g, ''));
       expect(buggyValue).toBeGreaterThan(3000);
     });
+
+    it('[Positive] 쉼표 포함 면적 "1,234평"을 1234로 정확히 파싱해야 함', () => {
+      expect(extractAreaPyeong('1,234평')).toBe(1234);
+    });
+
+    it('[Positive] 소수점 ㎡ "596.7㎡"를 평으로 정상 환산해야 함 (약 180.5평)', () => {
+      const area = extractAreaPyeong('596.7㎡');
+      expect(area).toBeDefined();
+      expect(area!).toBeCloseTo(180.5, 1);
+    });
+
+    it('[Negative Pair] 빈 문자열 또는 undefined 입력 시 undefined를 반환해야 함', () => {
+      expect(extractAreaPyeong('')).toBeUndefined();
+      expect(extractAreaPyeong(undefined)).toBeUndefined();
+    });
+
+    it('[Positive] 건물 총면적 모드(isTotalArea=true)에서 25,000평은 정상 허용되어야 함', () => {
+      expect(extractAreaPyeong('25,000평', true)).toBe(25000);
+    });
+
+    it('[Negative Pair] 단일 층 모드에서 3,500평은 3,000평 초과로 거부되어야 함', () => {
+      expect(extractAreaPyeong('3,500평', false)).toBeUndefined();
+    });
+
+    it('[Negative Pair] 건물 총면적 모드에서 35,000평은 30,000평 초과로 거부되어야 함', () => {
+      expect(extractAreaPyeong('35,000평', true)).toBeUndefined();
+    });
   });
 
   // ── 1-3. 전용면적 vs 임대료 컬럼 오매칭 차단 ──
