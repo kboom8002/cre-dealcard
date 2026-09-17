@@ -1,0 +1,10 @@
+{
+  "resolution": "R1",
+  "posture": "development",
+  "expectedGrade": "C",
+  "expectedMinSlides": 6,
+  "expectedMaxSlides": 9,
+  "a24_should_suppress": true,
+  "a23_should_suppress": true,
+  "note": "Development R1: no rent roll, no stacking plan. Land + building basic info only."
+}

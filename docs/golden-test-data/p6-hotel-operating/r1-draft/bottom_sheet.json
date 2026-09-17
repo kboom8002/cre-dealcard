@@ -1,0 +1,13 @@
+{
+  "askingPriceManwon": 3000000,
+  "address": "서울특별시 서대문구 대현동",
+  "posture": "operating",
+  "hotel_operating": {
+    "total_rooms": 94
+  },
+  "expectedGrade": "D",
+  "expectedGates": {
+    "blocking": ["QG10"],
+    "warning": []
+  }
+}

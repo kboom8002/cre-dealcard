@@ -1,0 +1,21 @@
+{
+  "askingPriceManwon": 7600000,
+  "address": "서울특별시 강남구 신사동 590",
+  "posture": "trading",
+  "landAreaM2": 1061.9,
+  "grossFloorAreaM2": 3341.8,
+  "floorAreaRatioPct": 237.2,
+  "buildingCoverageRatioPct": 51.3,
+  "parking": 26,
+  "manual_comps": [
+    { "address": "신사동 586-6", "landAreaPyeong": 76.7, "priceManwon": 1730000, "pricePerPyeongManwon": 23000 },
+    { "address": "신사동 559-6", "landAreaPyeong": 70.6, "priceManwon": 2000000, "pricePerPyeongManwon": 28000 },
+    { "address": "신사동 558-6", "landAreaPyeong": 73.8, "priceManwon": 2200000, "pricePerPyeongManwon": 30000 },
+    { "address": "신사동 588-1", "landAreaPyeong": 55.1, "priceManwon": 1750000, "pricePerPyeongManwon": 32000 }
+  ],
+  "expectedGrade": "A",
+  "expectedGates": {
+    "blocking": [],
+    "warning": []
+  }
+}

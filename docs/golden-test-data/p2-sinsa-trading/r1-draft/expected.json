@@ -1,0 +1,8 @@
+{
+  "resolution": "R1",
+  "posture": "trading",
+  "expectedGrade": "C",
+  "expectedMinSlides": 7,
+  "expectedMaxSlides": 9,
+  "note": "R1 trading: minimal data, no comps"
+}

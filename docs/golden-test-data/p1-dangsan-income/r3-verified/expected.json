@@ -1,0 +1,13 @@
+{
+  "resolution": "R3",
+  "posture": "income",
+  "expectedGrade": "A",
+  "expectedMinSlides": 9,
+  "expectedMaxSlides": 11,
+  "expectedSlideArchetypes": ["A01", "A02", "A04", "A06", "A04", "A24", "A23", "A14", "A10"],
+  "a24_should_suppress": false,
+  "a23_should_suppress": false,
+  "expectedFloors": ["B1", "1F", "2F", "3F", "4F", "5F"],
+  "expectedKeywords": ["당산", "고은약국", "로뎀나무내과", "115억", "현실화"],
+  "note": "R3 with full data + photos: all 9 sections including gallery"
+}

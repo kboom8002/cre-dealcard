@@ -1,0 +1,10 @@
+{
+  "resolution": "R2",
+  "posture": "income",
+  "expectedGrade": "B",
+  "expectedMinSlides": 8,
+  "expectedMaxSlides": 12,
+  "multiParcel": true,
+  "parcelCount": 3,
+  "note": "Income R2: full building specs and rent roll."
+}

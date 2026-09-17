@@ -1,0 +1,13 @@
+{
+  "resolution": "R2",
+  "posture": "development",
+  "expectedGrade": "B",
+  "expectedMinSlides": 8,
+  "expectedMaxSlides": 12,
+  "multiParcel": true,
+  "parcelCount": 2,
+  "a24_should_suppress": true,
+  "a23_should_suppress": true,
+  "expectedKeywords": ["잠원동", "242억", "명도", "트리플 역세권"],
+  "note": "Development R2: current tenants with eviction plan, multi-parcel, no A24/A23"
+}

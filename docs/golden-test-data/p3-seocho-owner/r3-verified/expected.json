@@ -1,0 +1,8 @@
+{
+  "resolution": "R3",
+  "posture": "owner_occupied",
+  "expectedGrade": "A",
+  "expectedMinSlides": 7,
+  "expectedMaxSlides": 10,
+  "note": "R3 owner occupied with 3 vacant floors"
+}

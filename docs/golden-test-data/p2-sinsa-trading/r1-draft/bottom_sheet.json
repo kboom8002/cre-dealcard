@@ -1,0 +1,10 @@
+{
+  "askingPriceManwon": 7600000,
+  "address": "서울특별시 강남구 신사동 590",
+  "posture": "trading",
+  "expectedGrade": "C",
+  "expectedGates": {
+    "blocking": [],
+    "warning": ["QG02"]
+  }
+}

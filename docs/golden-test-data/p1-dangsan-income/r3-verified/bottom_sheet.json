@@ -1,0 +1,28 @@
+{
+  "askingPriceManwon": 1150000,
+  "address": "서울특별시 영등포구 당산동5가 11-47",
+  "posture": "income",
+  "landAreaM2": 506.8,
+  "grossFloorAreaM2": 1141.15,
+  "completionYear": 2002,
+  "floors": "B1~5F",
+  "parking": 8,
+  "elevator": 1,
+  "zoning": "준공업지역",
+  "photos_v2": [{ "url": "/test/dangsan-exterior.jpg", "caption": "건물 정면" }],
+  "floor_leases": [
+    { "floor": "B1", "tenant_type": "카페(자가)", "area_pyeong": 96.0, "deposit_manwon": 0, "rent_manwon": 0, "mgmt_fee_manwon": 30, "rent_type": "fixed", "lease_start": "2014-09-01", "is_vacant": false, "note": "자가사용" },
+    { "floor": "1F", "tenant_type": "약국", "area_pyeong": 23.7, "deposit_manwon": 6000, "rent_manwon": 183, "mgmt_fee_manwon": 30, "rent_type": "fixed", "lease_start": "2014-09-01", "lease_end": "2026-08-31", "note": "임대 11년 경과" },
+    { "floor": "1F", "tenant_type": "내과", "area_pyeong": 31.9, "deposit_manwon": 14000, "rent_manwon": 883, "mgmt_fee_manwon": 30, "rent_type": "fixed", "lease_start": "2014-09-01", "lease_end": "2026-08-31", "note": "로뎀나무내과 통합계약" },
+    { "floor": "2F", "tenant_type": "내과", "area_pyeong": 76.3, "deposit_manwon": 0, "rent_manwon": 0, "mgmt_fee_manwon": 30, "rent_type": "fixed", "lease_start": "2014-09-01", "lease_end": "2026-08-31", "note": "로뎀나무내과 통합계약" },
+    { "floor": "3F", "tenant_type": "헬쓰장", "area_pyeong": 76.3, "deposit_manwon": 5000, "rent_manwon": 455, "mgmt_fee_manwon": 20, "rent_type": "fixed", "lease_start": "2014-09-01", "lease_end": "2026-04-17" },
+    { "floor": "4F", "tenant_type": "와인매장", "area_pyeong": 51.1, "deposit_manwon": 3000, "rent_manwon": 260, "mgmt_fee_manwon": 20, "rent_type": "fixed", "lease_start": "2014-09-01", "lease_end": "2025-04-30" },
+    { "floor": "4F", "tenant_type": "자가", "area_pyeong": 25.1, "deposit_manwon": 0, "rent_manwon": 0, "mgmt_fee_manwon": 20, "rent_type": "fixed", "lease_start": "2014-09-01", "is_vacant": false, "note": "자가사용" },
+    { "floor": "5F", "tenant_type": "내과", "area_pyeong": 55.6, "deposit_manwon": 1000, "rent_manwon": 165, "mgmt_fee_manwon": 20, "rent_type": "fixed", "lease_start": "2014-09-01", "lease_end": "2026-08-31", "note": "로뎀나무내과 통합계약" }
+  ],
+  "expectedGrade": "A",
+  "expectedGates": {
+    "blocking": [],
+    "warning": []
+  }
+}

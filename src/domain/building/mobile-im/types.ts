@@ -128,6 +128,48 @@ export interface FloorLeaseInput {
   };
 }
 
+/** 호텔/운영형 자산 운영 데이터 */
+export interface HotelOperatingInput {
+  /** 총 객실 수 */
+  total_rooms: number;
+  /** 객실 타입별 구성 */
+  room_types?: Array<{
+    type_name: string;       // "스탠다드 더블", "디럭스 트윈" 등
+    room_count: number;
+    area_sqm?: number;
+    share_pct?: number;       // 비중 (%)
+    note?: string;
+  }>;
+  /** ADR (Average Daily Rate, 원) */
+  adr_krw?: number;
+  /** RevPAR (Revenue Per Available Room, 원) */
+  revpar_krw?: number;
+  /** 연간 가동률 (%) — 0~100 */
+  occupancy_rate_pct?: number;
+  /** 연간 GOP (Gross Operating Profit, 원) */
+  annual_gop_krw?: number;
+  /** GOP 마진율 (%) — 0~100 */
+  gop_margin_pct?: number;
+  /** 연간 총매출 (원) */
+  annual_revenue_krw?: number;
+  /** 객실 매출 (원) */
+  room_revenue_krw?: number;
+  /** 부대 매출 비중 (%) */
+  ancillary_revenue_pct?: number;
+  /** 운영사/브랜드명 */
+  operator_name?: string;
+  /** 운영 형태 */
+  operating_model?: 'direct' | 'management_contract' | 'franchise' | 'lease';
+  /** 위탁운영 계약 만료 연도 */
+  operator_contract_expiry?: string;
+  /** 관광숙박업 등급 */
+  tourism_grade?: string;
+  /** 계절성 설명 */
+  seasonality_note?: string;
+  /** 외국인 비중 (%) */
+  foreign_guest_pct?: number;
+}
+
 /** 층별 테넌트 의미 분류 카테고리 */
 export type TenantCategory = 'anchor' | 'general' | 'retail' | 'parking' | 'vacant';
 
@@ -237,6 +279,7 @@ export interface MobileIMSupplementalInput {
 
   // ── 층별 임대 데이터 ──
   floor_leases?: FloorLeaseInput[];
+  hotel_operating?: HotelOperatingInput;
 
   // ── 건축물 기본 제원 정본 (공공데이터 오류 보정용) ──
   total_gross_area_m2?: number;      // 연면적 (㎡)

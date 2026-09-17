@@ -1,0 +1,11 @@
+{
+  "resolution": "R1",
+  "posture": "income",
+  "expectedGrade": "C",
+  "expectedMinSlides": 7,
+  "expectedMaxSlides": 9,
+  "expectedSlideArchetypes": ["A01", "A02", "A04", "A06", "A04", "A10"],
+  "a24_should_suppress": true,
+  "a23_should_suppress": true,
+  "note": "R1 with no rent roll: A24 and A23 should be suppressed due to missing floor_leases"
+}

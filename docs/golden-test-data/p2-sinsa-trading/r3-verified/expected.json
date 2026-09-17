@@ -1,0 +1,8 @@
+{
+  "resolution": "R3",
+  "posture": "trading",
+  "expectedGrade": "A",
+  "expectedMinSlides": 8,
+  "expectedMaxSlides": 12,
+  "note": "R3 trading with manual comps"
+}

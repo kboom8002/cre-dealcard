@@ -1,0 +1,11 @@
+{
+  "askingPriceManwon": 890000,
+  "address": "경기도 구리시 수택동 419-19 외 2필지",
+  "posture": "development",
+  "multiParcel": true,
+  "expectedGrade": "C",
+  "expectedGates": {
+    "blocking": [],
+    "warning": ["QG27"]
+  }
+}

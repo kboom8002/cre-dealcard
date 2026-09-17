@@ -1,0 +1,8 @@
+{
+  "resolution": "R2",
+  "posture": "operating",
+  "expectedGrade": "B",
+  "expectedMinSlides": 7,
+  "expectedMaxSlides": 10,
+  "note": "R2 hotel operating"
+}

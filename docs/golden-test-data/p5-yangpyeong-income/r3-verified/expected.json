@@ -1,0 +1,11 @@
+{
+  "resolution": "R3",
+  "posture": "income",
+  "expectedGrade": "A",
+  "expectedMinSlides": 10,
+  "expectedMaxSlides": 14,
+  "multiParcel": true,
+  "parcelCount": 3,
+  "expectedKeywords": ["양평동4가", "250억", "준공업지역", "신축"],
+  "note": "Income R3: rent roll with rent_type fixed, photos_v2 included."
+}

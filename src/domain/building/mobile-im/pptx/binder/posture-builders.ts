@@ -668,3 +668,190 @@ export function buildDevelopmentFeasibilityProps(body: Record<string, any> = {},
     right: { stats, callouts },
     };
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Operating 포스처 빌더 (호텔/리조트/서비스드레지던스)
+// ═══════════════════════════════════════════════════════════════
+
+/** A13 KPI 대시보드: 객실 구성, ADR, RevPAR, OCC, GOP 마진 */
+export function buildOperatingKpiProps(
+  body: Record<string, any> = {},
+  building: any = {},
+): Record<string, any> {
+  const op = body?.hotel_operating || body?.supplemental?.hotel_operating || {};
+  const hero = body?.heroCard || {};
+  const ssot = body?.ssot_summary || {};
+  const areaSignal = body?.assetIdentity?.area_signal || building?.area_signal || '해당 권역';
+
+  const totalRooms = op.total_rooms || hero.totalRooms || ssot.total_rooms || 0;
+  const adrKrw = op.adr_krw || hero.adrKrw || 0;
+  const occPct = op.occupancy_rate_pct || hero.occRate || 0;
+  const revparKrw = op.revpar_krw || hero.revpar || (adrKrw > 0 && occPct > 0 ? Math.round(adrKrw * occPct / 100) : 0);
+  const gopMargin = op.gop_margin_pct || hero.gopMarginPct || 0;
+  const annualGopKrw = op.annual_gop_krw || 0;
+  const operatorName = op.operator_name || '';
+  const tourismGrade = op.tourism_grade || '';
+
+  const kpiRows: [string, string][] = [];
+  if (totalRooms > 0) kpiRows.push(['총 객실 수', `${totalRooms}실`]);
+  if (adrKrw > 0) kpiRows.push(['ADR (평균 객실 단가)', `${(adrKrw / 10000).toFixed(1)}만원`]);
+  if (occPct > 0) kpiRows.push(['OCC (객실 점유율)', `${occPct}%`]);
+  if (revparKrw > 0) kpiRows.push(['RevPAR (객실당 매출)', `${(revparKrw / 10000).toFixed(1)}만원`]);
+  if (gopMargin > 0) kpiRows.push(['GOP 마진율', `${gopMargin}%`]);
+  if (operatorName) kpiRows.push(['운영사/브랜드', operatorName]);
+  if (tourismGrade) kpiRows.push(['관광숙박업 등급', tourismGrade]);
+
+  // 객실 타입별 구성 추가
+  const roomTypes = op.room_types || [];
+  for (const rt of roomTypes.slice(0, 4)) {
+    if (rt.type_name && rt.room_count) {
+      kpiRows.push([rt.type_name, `${rt.room_count}실${rt.share_pct ? ` (${(rt.share_pct * 100).toFixed(0)}%)` : ''}`]);
+    }
+  }
+
+  const statCards: Array<{ label: string; value: string; unit?: string }> = [];
+  if (revparKrw > 0) statCards.push({ label: 'RevPAR', value: `${(revparKrw / 10000).toFixed(1)}`, unit: '만원' });
+  if (gopMargin > 0) statCards.push({ label: 'GOP 마진', value: `${gopMargin}`, unit: '%' });
+  if (totalRooms > 0) statCards.push({ label: '객실 수', value: `${totalRooms}`, unit: '실' });
+
+  const highlight = op.seasonality_note
+    || `${areaSignal} 소재 ${totalRooms > 0 ? totalRooms + '실 규모의 ' : ''}숙박 자산으로, 안정적 운영 성과를 기반으로 한 GOP 기반 투자 가치를 보유하고 있습니다.`;
+
+  return {
+    subtitle: `${areaSignal} 호텔 운영 핵심 지표`,
+    kpiRows,
+    statCards,
+    highlight,
+  };
+}
+
+/** A05 Revenue: 매출 구성, GOP 분석 */
+export function buildOperatingRevenueProps(
+  body: Record<string, any> = {},
+  building: any = {},
+): Record<string, any> {
+  const op = body?.hotel_operating || body?.supplemental?.hotel_operating || {};
+  const hero = body?.heroCard || {};
+  const ssot = body?.ssot_summary || {};
+  const areaSignal = body?.assetIdentity?.area_signal || building?.area_signal || '해당 권역';
+
+  const annualRevKrw = op.annual_revenue_krw || 0;
+  const roomRevKrw = op.room_revenue_krw || 0;
+  const ancillaryPct = op.ancillary_revenue_pct || 0;
+  const gopMargin = op.gop_margin_pct || hero.gopMarginPct || 0;
+  const annualGopKrw = op.annual_gop_krw || 0;
+  const askingPriceManwon = ssot.asking_price_manwon || hero.askingPriceManwon || 0;
+
+  const annualRevBil = annualRevKrw > 0 ? (annualRevKrw / 1_0000_0000).toFixed(1) : '확인 필요';
+  const gopBil = annualGopKrw > 0 ? (annualGopKrw / 1_0000_0000).toFixed(1) : '확인 필요';
+  const gopCapRate = (askingPriceManwon > 0 && annualGopKrw > 0)
+    ? ((annualGopKrw / (askingPriceManwon * 10000)) * 100).toFixed(2)
+    : '산출 중';
+
+  const stats = [
+    { label: '연간 총매출', value: typeof annualRevBil === 'string' && annualRevBil === '확인 필요' ? annualRevBil : `약 ${annualRevBil}억원` },
+    { label: '연간 GOP', value: typeof gopBil === 'string' && gopBil === '확인 필요' ? gopBil : `약 ${gopBil}억원` },
+    { label: 'GOP Cap Rate', value: typeof gopCapRate === 'string' && gopCapRate === '산출 중' ? gopCapRate : `${gopCapRate}%` },
+  ];
+
+  if (roomRevKrw > 0) {
+    stats.push({ label: '객실 매출', value: `약 ${(roomRevKrw / 1_0000_0000).toFixed(1)}억원` });
+  }
+  if (ancillaryPct > 0) {
+    stats.push({ label: '부대 매출 비중', value: `${(ancillaryPct * 100).toFixed(0)}%` });
+  }
+
+  const callouts = [
+    {
+      kind: annualGopKrw > 0 ? 'good' as const : 'info' as const,
+      title: 'GOP 기반 수익 구조',
+      body: annualGopKrw > 0
+        ? `• 연간 총매출 ${annualRevBil}억 × GOP 마진 ${gopMargin}% = GOP ${gopBil}억\n• GOP 기반 Cap Rate ${gopCapRate}%\n• NOI 기준 수익형 부동산과 직접 비교 불가 (운영 리스크 내재)`
+        : `• 운영 실적 데이터 확보 후 GOP 기반 Cap Rate 산출 필요\n• 호텔 매출은 계약이 아닌 영업 성과에 좌우됩니다`,
+    },
+  ];
+
+  return {
+    left: { sub: `${areaSignal} 호텔 수익 구조 분석`, note: `GOP Cap Rate: ${gopCapRate}%` },
+    right: { stats, callouts },
+  };
+}
+
+/** A05 Seasonality: 계절성 분석, 성수기/비수기 가동률 */
+export function buildOperatingSeasonalityProps(
+  body: Record<string, any> = {},
+  building: any = {},
+): Record<string, any> {
+  const op = body?.hotel_operating || body?.supplemental?.hotel_operating || {};
+  const areaSignal = body?.assetIdentity?.area_signal || building?.area_signal || '해당 권역';
+
+  const occPct = op.occupancy_rate_pct || 0;
+  const seasonNote = op.seasonality_note || '';
+  const foreignPct = op.foreign_guest_pct || 0;
+
+  const stats = [
+    { label: '연평균 점유율', value: occPct > 0 ? `${occPct}%` : '확인 필요' },
+  ];
+  if (foreignPct > 0) {
+    stats.push({ label: '외국인 투숙 비중', value: `약 ${foreignPct}%` });
+  }
+
+  const callouts = [
+    {
+      kind: 'info' as const,
+      title: '계절성 및 수요 변동 분석',
+      body: seasonNote
+        || `• ${areaSignal} 소재 호텔의 계절성 분석 필요\n• 성수기/비수기 OCC 변동폭 및 ADR 탄력성 검토 권장\n• 외국인 투숙 비중에 따른 환율·비자 정책 리스크 고려`,
+    },
+  ];
+
+  return {
+    left: { sub: `${areaSignal} 호텔 계절성 및 변동성 분석` },
+    right: { stats, callouts },
+  };
+}
+
+/** A04 Operator: 운영사/브랜드 현황 */
+export function buildOperatingOperatorProps(
+  body: Record<string, any> = {},
+  building: any = {},
+): Record<string, any> {
+  const op = body?.hotel_operating || body?.supplemental?.hotel_operating || {};
+  const areaSignal = body?.assetIdentity?.area_signal || building?.area_signal || '해당 권역';
+
+  const operatorName = op.operator_name || '미정';
+  const operatingModel = op.operating_model || '';
+  const contractExpiry = op.operator_contract_expiry || '';
+  const tourismGrade = op.tourism_grade || '';
+  const totalRooms = op.total_rooms || 0;
+
+  const modelLabel: Record<string, string> = {
+    direct: '직영',
+    management_contract: '위탁운영 (Management Contract)',
+    franchise: '프랜차이즈',
+    lease: '임차운영',
+  };
+
+  const table1Rows: [string, string][] = [
+    ['운영사/브랜드', operatorName],
+  ];
+  if (operatingModel) table1Rows.push(['운영 형태', modelLabel[operatingModel] || operatingModel]);
+  if (contractExpiry) table1Rows.push(['계약 만료', contractExpiry]);
+  if (tourismGrade) table1Rows.push(['관광숙박업 등급', tourismGrade]);
+  if (totalRooms > 0) table1Rows.push(['총 객실 수', `${totalRooms}실`]);
+
+  const callouts = [
+    {
+      kind: contractExpiry ? 'caution' as const : 'info' as const,
+      title: '운영사 계약 현황',
+      body: contractExpiry
+        ? `• ${operatorName} 위탁운영 계약 ${contractExpiry} 만료\n• 재계약 조건 또는 운영사 교체 리스크 검토 필요\n• 운영사 변경 시 브랜드 인지도 및 예약 채널 영향 분석 권장`
+        : `• ${operatorName} 운영 중\n• 운영 계약 조건 및 잔여 기간 확인 필요`,
+    },
+  ];
+
+  return {
+    table1: { sub: `${areaSignal} 호텔 운영사 현황`, rows: table1Rows },
+    callouts,
+  };
+}

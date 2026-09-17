@@ -17,8 +17,8 @@ const FloorLeaseSchema = z.object({
   mgmt_fee_manwon: z.number().optional(),
   is_vacant: z.boolean().optional(),
   area_sqm: z.number().optional(),
-  contract_start: z.string().optional(),
-  contract_end: z.string().optional(),
+  lease_start: z.string().optional(),
+  lease_end: z.string().optional(),
 });
 
 const ParseResultSchema = z.object({
@@ -59,8 +59,8 @@ const SYSTEM_PROMPT = `당신은 상업용 부동산 렌트롤(임대차 현황)
       "mgmt_fee_manwon": 관리비(만원, 미기재 시 0),
       "is_vacant": true/false,
       "area_sqm": 면적(㎡, 미기재 시 생략),
-      "contract_start": "계약시작일 (YYYY-MM-DD, 미기재 시 생략)",
-      "contract_end": "계약종료일 (YYYY-MM-DD, 미기재 시 생략)"
+      "lease_start": "계약시작일 (YYYY-MM-DD, 미기재 시 생략)",
+      "lease_end": "계약종료일 (YYYY-MM-DD, 미기재 시 생략)"
     }
   ],
   "monthlyRent": 총 월임대료(만원),

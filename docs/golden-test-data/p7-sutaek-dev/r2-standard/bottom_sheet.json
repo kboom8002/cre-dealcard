@@ -1,0 +1,25 @@
+{
+  "askingPriceManwon": 890000,
+  "address": "경기도 구리시 수택동 419-19 외 2필지",
+  "posture": "development",
+  "multiParcel": true,
+  "parcels": [
+    { "address": "구리시 수택동 419-19", "jibun": "대", "areaM2": 0, "zoning": "상업지역" },
+    { "address": "구리시 수택동 419-12", "jibun": "대", "areaM2": 0, "zoning": "상업지역" },
+    { "address": "구리시 수택동 419-96", "jibun": "대", "areaM2": 0, "zoning": "상업지역" }
+  ],
+  "landAreaM2": 651.2,
+  "zoning": "도시지역·상업지역",
+  "developmentSpec": {
+    "maxFAR": 1260,
+    "targetScalePyeong": 2500,
+    "use": "오피스텔/복합개발",
+    "pricePerPyeong": 4500
+  },
+  "hasRentRoll": false,
+  "expectedGrade": "B",
+  "expectedGates": {
+    "blocking": [],
+    "warning": []
+  }
+}

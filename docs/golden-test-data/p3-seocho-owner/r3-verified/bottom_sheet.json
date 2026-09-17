@@ -1,0 +1,22 @@
+{
+  "askingPriceManwon": 2300000,
+  "address": "서울특별시 서초구 서초동 1364-28",
+  "posture": "owner_occupied",
+  "landAreaM2": 596.0,
+  "grossFloorAreaM2": 2104.88,
+  "floor_leases": [
+    { "floor": "B1", "tenant_type": "파티룸", "is_vacant": false },
+    { "floor": "1F", "tenant_type": "상가", "is_vacant": false },
+    { "floor": "2F", "tenant_type": "공실", "is_vacant": true },
+    { "floor": "3F", "tenant_type": "사무실", "is_vacant": false },
+    { "floor": "4F", "tenant_type": "공실", "is_vacant": true },
+    { "floor": "5F", "tenant_type": "공실", "is_vacant": true },
+    { "floor": "6F", "tenant_type": "사무실", "is_vacant": false },
+    { "floor": "7F", "tenant_type": "사무실", "is_vacant": false }
+  ],
+  "expectedGrade": "A",
+  "expectedGates": {
+    "blocking": [],
+    "warning": []
+  }
+}

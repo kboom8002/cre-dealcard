@@ -1,0 +1,13 @@
+{
+  "resolution": "R3",
+  "posture": "development",
+  "expectedGrade": "A",
+  "expectedMinSlides": 10,
+  "expectedMaxSlides": 14,
+  "multiParcel": true,
+  "parcelCount": 2,
+  "a24_should_suppress": true,
+  "a23_should_suppress": true,
+  "expectedKeywords": ["잠원동", "242억", "명도", "신축", "스태킹", "464평"],
+  "note": "Development R3: full eviction plan + post-construction stacking plan"
+}

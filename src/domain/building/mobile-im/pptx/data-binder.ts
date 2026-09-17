@@ -27,7 +27,11 @@ import {
   buildDevelopmentScaleProps,
   buildDevelopmentEvictionProps,
   buildDevelopmentCostProps,
-  buildDevelopmentFeasibilityProps
+  buildDevelopmentFeasibilityProps,
+  buildOperatingKpiProps,
+  buildOperatingRevenueProps,
+  buildOperatingSeasonalityProps,
+  buildOperatingOperatorProps
 } from './binder/posture-builders';
 import {
   bindInstitutionalTemplateData,
@@ -697,17 +701,25 @@ export function bindSectionData(
       }
     }
 
-    // operating 파생 데이터 제공
+    // operating 파생 데이터 제공 (Sprint 0: 포스처 빌더 연결)
     if (sectionType === 'operation_overview') {
+      if (!result['kpi'] || !result['kpi']._derived) {
+        const kpiProps = buildOperatingKpiProps(doc.body, building);
+        result['kpi'] = { title: '운영 지표 (KPI)', content: cleanMarkdown, tables, metrics, _derived: true, ...kpiProps };
+      }
       if (!result['operator']) {
-        const operatorProps = transformForArchetype(cleanMarkdown, tables, 'A04');
-        result['operator'] = { title: '운영사 현황', content: cleanMarkdown, tables, metrics, ...operatorProps };
+        const operatorProps = buildOperatingOperatorProps(doc.body, building);
+        result['operator'] = { title: '운영사 현황', content: cleanMarkdown, tables, metrics, _derived: true, ...operatorProps };
       }
     }
     if (sectionType === 'gop_analysis') {
+      if (!result['revenue'] || !result['revenue']._derived) {
+        const revenueProps = buildOperatingRevenueProps(doc.body, building);
+        result['revenue'] = { title: '매출 구조 분석', content: cleanMarkdown, tables, metrics, _derived: true, ...revenueProps };
+      }
       if (!result['seasonality']) {
-        const seasonalityProps = transformForArchetype(cleanMarkdown, tables, 'A05');
-        result['seasonality'] = { title: '계절성 및 변동성', content: cleanMarkdown, tables, metrics, ...seasonalityProps };
+        const seasonalityProps = buildOperatingSeasonalityProps(doc.body, building);
+        result['seasonality'] = { title: '계절성 및 변동성', content: cleanMarkdown, tables, metrics, _derived: true, ...seasonalityProps };
       }
     }
 

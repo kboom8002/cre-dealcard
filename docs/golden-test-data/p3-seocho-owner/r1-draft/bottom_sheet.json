@@ -1,0 +1,10 @@
+{
+  "askingPriceManwon": 2300000,
+  "address": "서울특별시 서초구 서초동 1364-28",
+  "posture": "owner_occupied",
+  "expectedGrade": "C",
+  "expectedGates": {
+    "blocking": [],
+    "warning": ["QG02"]
+  }
+}

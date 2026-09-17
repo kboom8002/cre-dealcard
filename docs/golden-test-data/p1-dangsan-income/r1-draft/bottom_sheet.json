@@ -1,0 +1,10 @@
+{
+  "askingPriceManwon": 1150000,
+  "address": "서울특별시 영등포구 당산동5가 11-47",
+  "posture": "income",
+  "expectedGrade": "C",
+  "expectedGates": {
+    "blocking": [],
+    "warning": ["QG02"]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "resolution": "R1",
+  "posture": "development",
+  "expectedGrade": "C",
+  "expectedMinSlides": 6,
+  "expectedMaxSlides": 9,
+  "note": "R1 dev"
+}

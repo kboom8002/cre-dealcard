@@ -1,0 +1,11 @@
+{
+  "askingPriceManwon": 2422680,
+  "address": "서울특별시 서초구 잠원동 26-14, 16번지",
+  "posture": "development",
+  "multiParcel": true,
+  "expectedGrade": "C",
+  "expectedGates": {
+    "blocking": [],
+    "warning": ["QG27"]
+  }
+}

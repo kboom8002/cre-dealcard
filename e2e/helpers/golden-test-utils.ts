@@ -255,3 +255,74 @@ export function assertPriceBandBlocked(fullPptxText: string): void {
   }
   console.log('  ✅ 가격 밴드 차단 확인 (Rule 52)');
 }
+
+// ── 10. 콘텐츠 품질 단언 (5종) ──
+
+/** ⑤ 지도/항공뷰 이미지 50KB 이상 1장 이상 포함 */
+export function assertMapImagePresence(mediaEntries: any[]): void {
+  const largeImages = mediaEntries.filter((e: any) => {
+    const data = e.getData();
+    return data && data.length >= 50_000;
+  });
+  expect(largeImages.length).toBeGreaterThanOrEqual(1);
+  console.log(`  ✅ 50KB+ 이미지 ${largeImages.length}장 확인`);
+}
+
+/** ⑥ 매각가가 PPTX 텍스트에 실제 반영되었는지 교차 검증 */
+export function assertPriceReflected(fullPptxText: string, askingPriceManwon: number): void {
+  // 억원 단위로 변환하여 검색 (1150000만원 → 115억, 7600000만원 → 760억)
+  const priceEok = Math.round(askingPriceManwon / 10000);
+  const priceEokStr = priceEok.toLocaleString();
+  // 다양한 포맷 검색: "115억", "1,150억", "115억원", "11,500,000" 등
+  const found = fullPptxText.includes(`${priceEok}억`)
+    || fullPptxText.includes(`${priceEokStr}억`)
+    || fullPptxText.includes(`${priceEok}`)
+    || fullPptxText.includes(askingPriceManwon.toLocaleString());
+  expect(found).toBe(true);
+  console.log(`  ✅ 매각가 ${priceEok}억 PPTX 반영 확인`);
+}
+
+/** ⑦ 기대 층 키워드가 PPTX에 포함되어 있는지 검증 (R2+ 전용) */
+export function assertFloorKeywordsPresent(fullPptxText: string, expectedFloors: string[]): void {
+  if (expectedFloors.length === 0) return;
+  const missing: string[] = [];
+  for (const floor of expectedFloors) {
+    // "B1", "1F", "2F" 등이 텍스트 어딘가에 존재
+    if (!fullPptxText.includes(floor) && !fullPptxText.includes(floor.replace('F', '층'))) {
+      missing.push(floor);
+    }
+  }
+  expect(missing).toEqual([]);
+  console.log(`  ✅ 층 키워드 ${expectedFloors.length}개 전수 확인`);
+}
+
+/** ⑧ 확장 회피성 문구 12종 차단 */
+export function assertNoEvasivePhrasesExtended(fullPptxText: string): void {
+  const extendedPhrases = [
+    '본문을 참조', '별도 안내 예정', '추후 확인', '상세...별첨',
+    '추후 협의', '상세 제원은 실사 자료', '향후 공지', '별도 문의',
+    '확인 중입니다', '데이터 로딩', '미정입니다', '분석 대기',
+  ];
+  const found: string[] = [];
+  for (const phrase of extendedPhrases) {
+    if (fullPptxText.includes(phrase)) {
+      found.push(phrase);
+    }
+  }
+  expect(found).toEqual([]);
+  console.log('  ✅ 확장 회피성 문구 12종 차단 확인');
+}
+
+/** ⑨ 타 매물 하드코딩 폴백 혼입 감지 */
+export function assertNoHardcodedFallback(fullPptxText: string, expectedRegion?: string): void {
+  // 테헤란로, 역삼동 등 테스트 더미 지역이 실매물에 혼입되지 않았는지 확인
+  const dummyLocations = ['테헤란로 123', '테헤란로 456', 'NH농협캐피탈', '피카딜리빌딩'];
+  const found: string[] = [];
+  for (const loc of dummyLocations) {
+    if (fullPptxText.includes(loc)) {
+      found.push(loc);
+    }
+  }
+  expect(found).toEqual([]);
+  console.log('  ✅ 하드코딩 폴백/타매물 혼입 0건 확인');
+}

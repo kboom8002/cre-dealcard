@@ -1,0 +1,45 @@
+{
+  "askingPriceManwon": 2422680,
+  "address": "서울특별시 서초구 잠원동 26-14, 16번지",
+  "posture": "development",
+  "multiParcel": true,
+  "parcels": [
+    { "address": "잠원동 26-14", "jibun": "대", "areaM2": 511.7, "zoning": "2종일반주거", "officialPricePerM2": 48561982 },
+    { "address": "잠원동 26-16", "jibun": "대", "areaM2": 104.4, "zoning": "2종일반주거", "officialPricePerM2": 48561982 }
+  ],
+  "landAreaM2": 616.1,
+  "grossFloorAreaM2": 2032.59,
+  "completionYear": 1990,
+  "floors": "B1~5F",
+  "parking": 12,
+  "elevator": 1,
+  "zoning": "제2종일반주거지역",
+  "buildingCoverageRatio": 49.76,
+  "floorAreaRatio": 247,
+  "vacateResponsibility": "seller",
+  "floor_leases": [
+    { "floor": "B1", "tenant_type": "주점", "area_pyeong": 96.43, "deposit_manwon": 34000, "rent_manwon": 337, "mgmt_fee_manwon": 29, "lease_start": "2019-03-01", "lease_end": "2027-03-31", "note": "협의 중" },
+    { "floor": "B1", "tenant_type": "창고", "area_pyeong": 44.10, "deposit_manwon": 6000, "rent_manwon": 88, "mgmt_fee_manwon": 13, "lease_start": "2015-06-01", "lease_end": "2026-12-31", "note": "합의 완료" },
+    { "floor": "1F", "tenant_type": "소매점", "area_pyeong": 31.37, "deposit_manwon": 5000, "rent_manwon": 470, "mgmt_fee_manwon": 10, "lease_start": "2022-09-01", "lease_end": "2027-09-30", "note": "미협의" },
+    { "floor": "1F", "tenant_type": "휴게음식점", "area_pyeong": 28.15, "deposit_manwon": 8000, "rent_manwon": 350, "mgmt_fee_manwon": 8, "lease_start": "2021-01-01", "lease_end": "2026-12-31", "note": "합의 완료" },
+    { "floor": "1F", "tenant_type": "부동산중개", "area_pyeong": 9.68, "deposit_manwon": 3000, "rent_manwon": 150, "mgmt_fee_manwon": 3, "lease_start": "2023-03-01", "lease_end": "2025-02-28", "note": "만기퇴거" },
+    { "floor": "2F", "tenant_type": "일반음식점", "area_pyeong": 80.58, "deposit_manwon": 15000, "rent_manwon": 500, "mgmt_fee_manwon": 24, "lease_start": "2020-05-01", "lease_end": "2026-04-30" },
+    { "floor": "3F-1", "tenant_type": "사무소", "area_pyeong": 41.02, "deposit_manwon": 5000, "rent_manwon": 250, "mgmt_fee_manwon": 12 },
+    { "floor": "3F-2", "tenant_type": "의원", "area_pyeong": 39.55, "deposit_manwon": 7000, "rent_manwon": 300, "mgmt_fee_manwon": 12 },
+    { "floor": "4F", "tenant_type": "사무소", "area_pyeong": 80.58, "deposit_manwon": 10000, "rent_manwon": 400, "mgmt_fee_manwon": 24 },
+    { "floor": "5F-1", "tenant_type": "학원", "area_pyeong": 41.06, "deposit_manwon": 5000, "rent_manwon": 250, "mgmt_fee_manwon": 12 },
+    { "floor": "5F-2", "tenant_type": "학원", "area_pyeong": 39.52, "deposit_manwon": 5000, "rent_manwon": 240, "mgmt_fee_manwon": 12 }
+  ],
+  "developmentSpec": {
+    "targetScalePyeong": 464,
+    "expectedSalePricePerPyeong": 0,
+    "totalCostManwon": 320951,
+    "constructionCostPerPyeong": 1200,
+    "use": "근생/의원/업무시설"
+  },
+  "expectedGrade": "B",
+  "expectedGates": {
+    "blocking": [],
+    "warning": []
+  }
+}

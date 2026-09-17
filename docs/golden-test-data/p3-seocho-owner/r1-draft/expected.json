@@ -1,0 +1,8 @@
+{
+  "resolution": "R1",
+  "posture": "owner_occupied",
+  "expectedGrade": "C",
+  "expectedMinSlides": 6,
+  "expectedMaxSlides": 9,
+  "note": "R1 owner occupied: minimal data"
+}

@@ -1,0 +1,40 @@
+{
+  "askingPriceManwon": 3000000,
+  "address": "서울특별시 서대문구 대현동",
+  "posture": "operating",
+  "landAreaM2": 486.2,
+  "grossFloorAreaM2": 3842.6,
+  "completionYear": 2016,
+  "floors": "B2~12F",
+  "parking": 18,
+  "elevator": 2,
+  "zoning": "일반상업지역",
+  "hotel_operating": {
+    "total_rooms": 94,
+    "room_types": [
+      { "type_name": "스탠다드 더블", "room_count": 46, "area_sqm": 16.5, "share_pct": 0.489, "note": "주력" },
+      { "type_name": "스탠다드 트윈", "room_count": 28, "area_sqm": 18.0, "share_pct": 0.298 },
+      { "type_name": "디럭스 더블", "room_count": 14, "area_sqm": 22.0, "share_pct": 0.149 },
+      { "type_name": "스위트", "room_count": 6, "area_sqm": 33.0, "share_pct": 0.064, "note": "최상층" }
+    ],
+    "adr_krw": 95000,
+    "revpar_krw": 74100,
+    "occupancy_rate_pct": 78,
+    "annual_gop_krw": 1072372088,
+    "gop_margin_pct": 38,
+    "annual_revenue_krw": 2822031810,
+    "room_revenue_krw": 2542371000,
+    "ancillary_revenue_pct": 11,
+    "operator_name": "에이치 에비뉴",
+    "operating_model": "management_contract",
+    "operator_contract_expiry": "2029년",
+    "tourism_grade": "관광호텔업 3급",
+    "seasonality_note": "3~5월·9~11월 성수 / 1~2월 비수 (대학가 특성)",
+    "foreign_guest_pct": 45
+  },
+  "expectedGrade": "B",
+  "expectedGates": {
+    "blocking": [],
+    "warning": []
+  }
+}

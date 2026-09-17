@@ -1,0 +1,8 @@
+{
+  "resolution": "R1",
+  "posture": "income",
+  "expectedGrade": "C",
+  "expectedMinSlides": 6,
+  "expectedMaxSlides": 9,
+  "note": "Income R1: basic info only, no rent roll."
+}
