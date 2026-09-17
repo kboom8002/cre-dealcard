@@ -7,3 +7,5 @@ export { EditorThemeDealsTab } from "./EditorThemeDealsTab";
 export { MagazinePhonePreview } from "./MagazinePhonePreview";
 export { MagazineShareModal } from "./MagazineShareModal";
 export { EditorAnalyticsTab } from "./EditorAnalyticsTab";
+export { SpecialEditionModal } from "./SpecialEditionModal";
+

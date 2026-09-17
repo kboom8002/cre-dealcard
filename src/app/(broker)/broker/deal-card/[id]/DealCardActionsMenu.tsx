@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { ShareToCircleSheet } from "@/components/circle/ShareToCircleSheet";
+import { SpecialEditionModal } from "@/components/magazine-editor";
 
 import { toast } from "sonner";
 
@@ -16,6 +17,7 @@ export function DealCardActionsMenu({ buildingId }: DealCardActionsMenuProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
+  const [showSpecialModal, setShowSpecialModal] = useState(false);
   const router = useRouter();
 
   async function handleDelete() {
@@ -60,7 +62,16 @@ export function DealCardActionsMenu({ buildingId }: DealCardActionsMenuProps) {
               onClick={() => setIsOpen(false)}
             />
             {/* Dropdown */}
-            <div className="absolute right-0 top-9 z-50 w-44 rounded-xl border border-border bg-card shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="absolute right-0 top-9 z-50 w-48 rounded-xl border border-border bg-card shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setShowSpecialModal(true);
+                }}
+                className="w-full flex items-center gap-2 px-4 py-3 text-sm text-rose-400 font-bold hover:bg-rose-500/10 transition-colors text-left border-b border-border/50"
+              >
+                ⚡ 속보 매거진 발행
+              </button>
               <button
                 onClick={() => {
                   setIsOpen(false);
@@ -95,6 +106,14 @@ export function DealCardActionsMenu({ buildingId }: DealCardActionsMenuProps) {
           assetType="building"
           assetId={buildingId}
           onClose={() => setShowShareSheet(false)}
+        />
+      )}
+
+      {showSpecialModal && (
+        <SpecialEditionModal
+          buildingId={buildingId}
+          isOpen={showSpecialModal}
+          onClose={() => setShowSpecialModal(false)}
         />
       )}
 
