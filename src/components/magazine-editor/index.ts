@@ -8,4 +8,5 @@ export { MagazinePhonePreview } from "./MagazinePhonePreview";
 export { MagazineShareModal } from "./MagazineShareModal";
 export { EditorAnalyticsTab } from "./EditorAnalyticsTab";
 export { SpecialEditionModal } from "./SpecialEditionModal";
+export { MagazineQrModal } from "./MagazineQrModal";
 

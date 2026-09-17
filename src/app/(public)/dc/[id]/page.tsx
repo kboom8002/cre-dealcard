@@ -12,6 +12,7 @@ import { PostureWidget } from '@/components/teaser/PostureWidget';
 import { PublicPolicyBlock } from '@/components/teaser/PublicPolicyBlock';
 import { CTALadder } from '@/components/teaser/CTALadder';
 import { TrustLine } from '@/components/teaser/TrustLine';
+import { PoweredByBadge } from '@/components/ui/PoweredByBadge';
 
 interface PageProps { 
   params: Promise<{ id: string }>;
@@ -130,7 +131,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     || `${areaFormatted} 블라인드 매각 딜카드`;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://credeal.net';
-  const absoluteOgImage = `${siteUrl}/api/og/deal/${id}`;
+  const absoluteOgImage = `${siteUrl}/api/og/deal/${id}/kakao`;
 
   return {
     title: `${ogTitle} | 크리딜 DealCard`,
@@ -142,8 +143,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       images: [
         {
           url: absoluteOgImage,
-          width: 1200,
-          height: 630,
+          width: 800,
+          height: 400,
+          alt: ogTitle,
         }
       ],
     },
@@ -327,6 +329,9 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
               </Link>
             </div>
           </div>
+
+          {/* ⑧ Powered-by Dual Branding Badge */}
+          <PoweredByBadge variant="full" context="dealcard" buildingId={id} />
 
           {/* Legal Disclaimer */}
           <div className="text-center px-2 pt-2 pb-4">

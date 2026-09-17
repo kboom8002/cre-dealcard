@@ -18,6 +18,7 @@ import {
 import { runMagazineQualityGate } from './quality-gate';
 import { generateMagazineTeaserCards } from './magazine-teaser-cards';
 import { summarizeMonthlyTransactions } from '@/domain/external/monthly-transaction-summary';
+import { generateTaxClinicScenario } from './tax-clinic-generator';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('weekly-generator');
@@ -92,6 +93,7 @@ interface LLMGeneratedContent {
   theme_title: string;
   theme_body_md: string;
   ai_briefing: string;
+  poll?: { question: string; choices: string[] };
 }
 
 // ── 데이터 수집 ────────────────────────────────────────────────────
@@ -386,7 +388,11 @@ const generateLLMContent = async (
 {
   "ai_briefing": "주간 AI 브리핑 본문 (마크다운, 4-6문단, 각 문단 이모지 섹션 헤딩, 600-1000자)",
   "theme_title": "금주의 테마 제목 (15-25자)",
-  "theme_body_md": "테마 본문 마크다운 (500-800자)"
+  "theme_body_md": "테마 본문 마크다운 (500-800자)",
+  "poll": {
+    "question": "20자 내외의 시의성 있는 시장 질문 (예: 하반기 금리 인하 기대 속, 대표님의 매수 전략은?)",
+    "choices": ["적극 매수 검토", "시장 추가 관망", "보유 건물 매각 우선"]
+  }
 }
 
 톤앤매너:
@@ -414,6 +420,7 @@ const generateLLMContent = async (
       theme_title: parsed.theme_title ?? `${regionLabel} 주간 테마`,
       theme_body_md: parsed.theme_body_md ?? '',
       ai_briefing: parsed.ai_briefing ?? '',
+      poll: parsed.poll,
     };
   } catch (err) {
     log.warn('[generateLLMContent] LLM 호출 실패, 폴백 사용:', err);
@@ -429,6 +436,10 @@ const generateLLMContent = async (
         .slice(0, 4)
         .map((n) => `📊 **${n.title}** (${n.source})\n${n.summary}`)
         .join('\n\n'),
+      poll: {
+        question: "현재 상업용 부동산 시장, 투자 적기라고 보시나요?",
+        choices: ["적극 매수 검토", "시장 관망 중", "매도 후 현금 확보"]
+      },
     };
   }
 };
@@ -556,7 +567,7 @@ export const generateWeeklyMagazine = async (params: {
     deals.map((d: any) => ({ id: d.id, attrs: d.attrs || {} }))
   );
 
-  // 5.5. 월간 실거래 동향 집계 (매월 첫째 주 에디션 또는 요청 시)
+    // 5.5. 월간 실거래 동향 집계 (매월 첫째 주 에디션 또는 요청 시)
   let monthlySummary: any[] = [];
   try {
     const todayObj = new Date();
@@ -569,12 +580,21 @@ export const generateWeeklyMagazine = async (params: {
     log.warn('[WeeklyGenerator] Failed to summarize monthly transactions:', err);
   }
 
+  // 5.6 세대 전환 전략 (세무 클리닉) 자동 생성
+  let taxClinicScenario = null;
+  try {
+    taxClinicScenario = await generateTaxClinicScenario(pulseData?.summary_ko);
+  } catch (err) {
+    log.warn('[WeeklyGenerator] Failed to generate tax clinic scenario:', err);
+  }
+
   const contentPayload = {
     // view가 기대하는 키명: briefing, headline (ai_briefing 대신)
     briefing: briefingText,
     headline: headlineLine,
     ai_briefing: briefingText, // 하위호환
     monthlySummary,
+    tax_clinic: taxClinicScenario,
     broker: {
       name: brokerCtx.profile.display_name ?? '',
       slug: brokerCtx.broker.slug ?? brokerId,
@@ -621,6 +641,7 @@ export const generateWeeklyMagazine = async (params: {
     commercialDistrict: commercialDistrict.slice(0, 3),
     theme_title: theme.themeTitle,
     theme_body_md: theme.themeBodyMd,
+    poll: llmContent.poll,
     // C1 fix: viewer reads from content JSONB, so these must be included
     theme_asset_types: brokerCtx.broker.specialty_assets ?? [],
     featured_deal_ids: theme.matchedDealIds,

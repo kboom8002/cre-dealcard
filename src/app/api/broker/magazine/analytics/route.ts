@@ -294,6 +294,43 @@ export async function GET(req: NextRequest) {
       count,
     }));
 
+    // 8. 최신 에디션 독자 투표 결과
+    let latestPollResults = null;
+    if (editions && editions.length > 0) {
+      const latestEdition = editions[0];
+      const pollDate = latestEdition.published_at?.slice(0, 10) || latestEdition.created_at?.slice(0, 10);
+      
+      if (pollDate) {
+        const { data: votes } = await supabase
+          .from("magazine_poll_responses")
+          .select("choice")
+          .eq("broker_id", slug || user.id)
+          .eq("edition_date", pollDate);
+
+        const { data: latestFullEdition } = await supabase
+          .from("magazine_editions")
+          .select("content")
+          .eq("id", latestEdition.id)
+          .single();
+
+        const pollData = latestFullEdition?.content?.poll;
+        
+        if (pollData && pollData.choices) {
+          const total = (votes || []).length;
+          const counts: Record<number, number> = {};
+          for (const v of votes || []) {
+            counts[v.choice] = (counts[v.choice] || 0) + 1;
+          }
+          latestPollResults = {
+            question: pollData.question,
+            choices: pollData.choices,
+            total,
+            counts
+          };
+        }
+      }
+    }
+
     return NextResponse.json({
       subscriberCount: subscriberCount ?? 0,
       editions: editions ?? [],
@@ -308,6 +345,7 @@ export async function GET(req: NextRequest) {
       temperatureDistribution,
       hotLeads,
       dailyTrend,
+      latestPollResults,
     });
   } catch (err: any) {
     log.error("[GET /api/broker/magazine/analytics]", err.message);

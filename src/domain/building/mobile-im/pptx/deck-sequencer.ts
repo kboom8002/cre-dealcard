@@ -12,6 +12,12 @@ import type { GallerySlideSpec } from './gallery-planner';
 import type { ReleaseTier } from '../../im-core/release-tier';
 import { getTierAllowedSections } from '../../im-core/release-tier';
 import { THRESHOLDS } from '@/constants/thresholds';
+import {
+  buildProDeckSequence,
+  PRO_PAGE_HARD_LIMIT,
+  PRO_PAGE_MIN_LIMIT,
+  PRO_PAGE_TARGET,
+} from './pro-deck-sequencer';
 
 
 import { createModuleLogger } from '@/lib/logger';
@@ -69,6 +75,8 @@ export interface DeckSequenceInput {
   dataAvailability?: DataAvailability;
   /** PPTX 프리셋 ID — Basic IM 전용 슬라이드 편성 판단용 */
   preset?: string;
+  /** Pro IM 덱 여부 */
+  isPro?: boolean;
 }
 
 /** 갤러리 슬라이드 목록을 SlideSpec[]으로 생성 */
@@ -149,6 +157,11 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   // Basic IM (credeal_basic 프리셋): 전용 9섹션 시퀀스 반환 (Rule 47)
   if (input.preset === 'credeal_basic') {
     return buildBasicDeckSequence(input);
+  }
+
+  // Pro IM (ReleaseTier.PRO, credeal_pro preset, or isPro flag): 전용 5대 챕터 30+면 시퀀스 반환
+  if ((input as any).isPro || (input as any).proMode || input.preset === 'credeal_pro' || (input.releaseTier as string) === 'pro') {
+    return buildProDeckSequence(input);
   }
 
   const gallerySlides = buildGallerySlideSpecs(input);
@@ -393,3 +406,13 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   // 본문 + 부록 합산 반환 (부록은 본문 뒤에 배치)
   return [...finalBody, ...appendixSlides];
 }
+
+export const PAGE_HARD_LIMIT = THRESHOLDS.PAGE_HARD_LIMIT;
+
+export {
+  buildProDeckSequence,
+  PRO_PAGE_HARD_LIMIT,
+  PRO_PAGE_MIN_LIMIT,
+  PRO_PAGE_TARGET,
+} from './pro-deck-sequencer';
+

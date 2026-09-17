@@ -89,22 +89,33 @@ export async function GET(request: NextRequest) {
     const brokerId = searchParams.get("brokerId");
     const phone = searchParams.get("phone");
 
-    if (!brokerId || !phone) {
+    if (!brokerId) {
       return NextResponse.json(
-        { error: "brokerId와 phone이 필요합니다." },
+        { error: "brokerId가 필요합니다." },
         { status: 400 }
       );
     }
 
     const supabase = createServiceClient();
 
-    const { count } = await supabase
+    // 1. 브로커의 전체 추천 구독 누적 건수
+    const { count: brokerTotalCount } = await supabase
       .from("magazine_referrals")
       .select("id", { count: "exact", head: true })
-      .eq("broker_id", brokerId)
-      .eq("referrer_phone", phone);
+      .eq("broker_id", brokerId);
 
-    const totalReferrals = count || 0;
+    const totalForwardedSubscribers = brokerTotalCount || 0;
+
+    // 2. 특정 구독자(phone) 기준 통계 (선택 사항)
+    let totalReferrals = 0;
+    if (phone) {
+      const { count } = await supabase
+        .from("magazine_referrals")
+        .select("id", { count: "exact", head: true })
+        .eq("broker_id", brokerId)
+        .eq("referrer_phone", phone);
+      totalReferrals = count || 0;
+    }
 
     const milestones = [
       { count: 1, reward: "비공개 시장 분석 리포트", emoji: "📊" },
@@ -116,6 +127,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       totalReferrals,
+      totalForwardedSubscribers,
       milestones,
       currentMilestoneIdx: milestones.filter(m => totalReferrals >= m.count).length - 1,
     });

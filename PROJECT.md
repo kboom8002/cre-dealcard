@@ -1,106 +1,148 @@
-# Project: CRE Dealcard IM Modernization — Sinsa-dong 590 & Seocho-dong 1364-28 Full Pipeline Calibration
+# Project: Institutional Pro IM Investment Review Pipeline & PPTX Generation Engine
 
 ## Architecture
-- **Domain Layer (`src/domain/building/im-core/`)**:
-  - `valuation-calc.ts`: 2-Method Valuation Engine (Sales Comparison + Income Capitalization, with explicit Cost Method exclusion note).
-  - `broker-input-validator.ts`: Land price anomaly detection and high vacancy pro-forma normalization.
-  - `claim-registry.ts`, `financial-calculator.ts`, `display-label.ts`, `release-tier.ts`, `approval-gate.ts`, `korean-legal.ts`, `target-hash.ts`.
-  - `cross-channel-checker.ts`: Cross-channel numerical and physical consistency validation across 7 core metrics.
-  - `approval/ledger-service.ts`: Immutable 2-stage approval ledger (`approval_events`, `release_records`) with PostgreSQL persistence and in-memory fallback.
-- **Presentation & Rendering Engine (`src/domain/building/mobile-im/pptx/`)**:
-  - `macro-transit-engine.ts`: Sharp SVG vector generator (1600x1200 px, 266.7 DPI) with GBD sub-district routing (`GBD_SINSA`, `GBD_SEOCHO`).
-  - `data-binder.ts`: Binds SSoT, cadastral map, and `enrichment.macroTransitImage` to slide data maps; enforces 3-tier Key Facts hierarchy.
-  - `deck-sequencer.ts`: Rule 10 16-slide body hard limit (`PAGE_HARD_LIMIT=16`) + appendix separation.
-  - `pptx-theme.ts`: 5 Theme presets (`institutional_slate`, `institutional_dark_gold`, `corporate_clean_white`, `commercial_visual_grid`, `development_technical_blueprint`).
-- **Assurance & Quality Harness (`src/assurance/im-harness/`)**:
-  - `observers/pptx-binary-observer.ts`: `inspectPptxBinary` verifying 9 physical gates (Bleed 0, Residue 0, Broken 0, Rule 1 Persona 0, Rule 2 Lexicon 0, P0 Legal 0, G54 Defect Excuse 0, G55 AI Lecture 0, G56 System Rules 0) and 150+ DPI.
-  - `extract-gate-context.ts`: Extracts gate metrics including G54-G56 violation counts from slide texts.
-  - `profiles/pptx-profile.ts`: Quality gate profile evaluating all release rules.
-- **SSoT Fixtures (`docs/test/real-broker-im/`)**:
-  - `sinsa-590-fixture.json`: Single Source of Truth for 신사동 590 ICL 빌딩 (760억 원).
-  - `seocho-1364-28-fixture.json`: Single Source of Truth for 서초동 1364-28 FM 빌딩 (230억 원).
+- **Domain Layer (`src/domain/building/im-core/`, `src/domain/financial/`, `src/domain/lease/`)**:
+  - `dcf-sensitivity.ts` & `pro-financial-model.ts`: Multi-year line-item cash flow projection engine (PGI, Vacancy Allowance, EGI, OPEX Breakdown, CapEx Reserve, NOI, Debt Service, BTCF, Levered & Unlevered IRR via Newton-Raphson).
+  - 2D Sensitivity Matrix (Exit Cap Rate vs Discount Rate) and Vacancy Stress-Testing scenarios.
+  - Development Feasibility Budgeting: 5-tier budget structure (Land Acquisition & Carrying, Direct Construction Hard Costs, Indirect Soft Costs, Financing / PF Costs, Contingency Reserve).
+  - Multi-Page Institutional Tenant Roster: `InstitutionalTenantRosterItem` supporting suite numbers, lease expirations, renewal options, statutory regimes (상임법 10년), and multi-page continuation.
+  - SSoT Mathematical Consistency Gate: 6-point validator ensuring executive summary metrics match detail schedules (0.00% discrepancy).
+- **Presentation & PPTX Rendering (`src/domain/building/mobile-im/pptx/`)**:
+  - `archetypes/a25-chapter-divider.ts`: Standardized chapter cover slide with Roman numerals, chapter title, subtitle, and theme accent.
+  - `pro-deck-sequencer.ts` / `deck-sequencer.ts`: `buildProDeckSequence()` generating 30~40 structured slides across the 5 core chapters, strictly isolating Basic IM's 16-page hard limit (`PAGE_HARD_LIMIT = 16`).
+  - `data-binder.ts`: Extended data binding for 5 core chapters (Executive Summary, Asset Specs, Multi-Year DCF, Market Dynamics, Due Diligence Annexes).
+- **Quality Assurance & Verification Harness (`src/assurance/im-harness/`, `src/tests/`)**:
+  - `observers/pptx-binary-observer.ts` & `golden-test-utils.ts`: Enhanced binary inspection eliminating poison tokens (`/NaN|undefined|\bnull\b|\[object Object\]/`), evasive phrases ("추후 확인 필요", "미정", "상세 불명"), and mock data leaks.
+  - `src/tests/e2e/pro-im-golden-pipeline.test.ts`: Automated golden test spec executing end-to-end Pro IM deck generation, verifying 30+ slides, 5 core chapters, mathematical consistency, and 9-fold binary assertions.
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source | Status |
 |---|---------|-------------|-----------|--------|--------|
-| 1 | SSoT Fixture: Sinsa 590 | Create standalone `sinsa-590-fixture.json` with 4 mandatory specs & 3-tier Key Facts | M1 | Survey 1 (R1) | DONE |
-| 2 | SSoT Fixture: Seocho 1364-28 | Create standalone `seocho-1364-28-fixture.json` with 4 specs, 3-tier Key Facts & pro-forma | M1 | Survey 1 (R1) | DONE |
-| 3 | 4 Mandatory Specs Binding | Bind `archAreaM2`, `completionDate`, `parkingCount`/`parking`, `elevatorCount` in pipeline | M1 | Survey 1 (R1) | DONE |
-| 4 | 3-Tier Key Facts Hierarchy | Standardize Tier 1 (대상지), Tier 2 (토지), Tier 3 (건물) in SSoT & data binder | M1 | Survey 1 (R1) | DONE |
-| 5 | Seocho Vacancy Pro-forma Model | Codify 3 vacant floors (259.4평) normalization (1.15% -> 2.30% Cap Rate, +1.15%p upside) | M1 | Survey 1 (R1) | DONE |
-| 6 | GBD 2-Method Valuation Integration | Integrate `valuation-calc.ts` with 5 comps (Sinsa) & 4 comps (Seocho) + 2.5%~3.5% market cap rate | M2 | Survey 1 (R2) | DONE |
-| 7 | Explicit Cost Method Exclusion | Record explicit reason note (`원가법 제외: 노후도 감가 및 도심 역세권...`) in valuation reports | M2 | Survey 1 (R2) | DONE |
-| 8 | Broker Input Anomaly Validation | Assert 0 critical discrepancies for clean SSoT, and assert critical error on raw memo | M2 | Survey 1 (R2) | DONE |
-| 9 | GBD Macro Transit Sub-District Engine | Implement `GBD_SINSA` (Dosan-daero, Wirye-Sinsa) & `GBD_SEOCHO` (Yangjae, GTX-C) in `macro-transit-engine.ts` | M3 | Survey 2 (R3) | IN_PROGRESS |
-| 10 | Macro Transit Pipeline Data Binding | Bind `enrichment.macroTransitImage` to `dataMap['location']` in `data-binder.ts` | M3 | Survey 2 (R3) | IN_PROGRESS |
-| 11 | Catchment Demand Domain Isolation | Strictly isolate internal tenants to rent roll/stacking; external drivers to catchment | M3 | Survey 2 (R3) | IN_PROGRESS |
-| 12 | G54~G56 Regex Expansion | Broaden regexes in `pptx-binary-observer.ts` to detect shorthand '산출불가', '미확보', '비워둠' | M4 | Survey 2 (R4) | PLANNED |
-| 13 | Gate Metric Extraction Logic | Populate `defectExcuseCount`, `preachyToneCount`, `internalRuleLeakCount` in `extract-gate-context.ts` | M4 | Survey 2 (R4) | PLANNED |
-| 14 | Evaluator Rules in PPTX Profile | Register G54, G55, G56 evaluator rules in `src/assurance/im-harness/profiles/pptx-profile.ts` | M4 | Survey 2 (R4) | PLANNED |
-| 15 | Rule 10 Slide Limit Verification | Verify body slides <= 16 with appendix separation in `inspectPptxBinary` and test suites | M4 | Survey 2 (R4) | PLANNED |
-| 16 | S50 Gate Check Precondition Enforcement | Require `S50_GATE_CHECK` before `S60_EDITORIAL_APPROVAL` in `StudioApprovalService` & API route | M5 | Survey 3 (R5) | PLANNED |
-| 17 | Omni-Channel 7 Core Metrics Sync | Verify 0 discrepancies across title, asking_price, total_area, land_area, cap_rate, total_deposit, monthly_rent | M5 | Survey 3 (R5) | PLANNED |
-| 18 | Rule 7 Negative Pair Test Hardening | Add negative assertion pairs to `real-broker-im-pipeline.test.ts` and `pptx-publication-flow.test.ts` | M5 | Survey 3 (R5) | PLANNED |
-| 19 | Production Build & Full Pipeline Verification | Achieve clean `vitest` pass, `benchmark-real-broker-im.ts` 0 defects, and `npm run build` exit code 0 | M5 | Survey 3 (R5) | PLANNED |
+| 1 | Multi-Year DCF Cash Flow Engine | Line-item cash flow (PGI, vacancy, EGI, OPEX, CapEx, NOI, debt service, BTCF, unlevered/levered IRR) | M1 | R2, Explorer 2 | DONE |
+| 2 | 2D Sensitivity & Vacancy Stress | Exit Cap Rate vs Discount Rate matrix and vacancy stress-testing scenarios | M1 | R2, Explorer 2 | DONE |
+| 3 | 5-Tier Dev Feasibility Budget | Land acquisition, hard costs, soft costs, PF financing, contingency reserve | M1 | R2, Explorer 2 | DONE |
+| 4 | Multi-Page Tenant Roster Model | Roster with suite numbers, renewal options, statutory regimes, multi-page continuation | M1 | R2, Explorer 2 | DONE |
+| 5 | Mathematical SSoT Consistency | 6-point mathematical validation across executive summary and detail schedules | M1 | R3, Explorer 2 | DONE |
+| 6 | A25 Chapter Divider Archetype | Visual slide archetype for 5 core chapter title slides | M2 | R1, Explorer 1 | PLANNED |
+| 7 | Pro IM Deck Sequencer (30+ slides) | `buildProDeckSequence()` assembling 30~40 slides across 5 chapters while isolating Basic IM | M2 | R1, Explorer 1 | PLANNED |
+| 8 | Pro IM Data Binder Extensions | Bind DCF schedules, sensitivity tables, multi-page rosters, annexes in `data-binder.ts` | M2 | R1, Explorer 1 | PLANNED |
+| 9 | Commercial Poison & Evasion Gate | Regex-hardened poison token (`NaN`, `undefined`, `null`, `[object Object]`), evasion phrases, mock leak checks | M3 | R3, Explorer 3 | PLANNED |
+| 10 | Pro IM Automated Golden Test Spec | `src/tests/e2e/pro-im-golden-pipeline.test.ts` verifying 30+ slides, 5 chapters, mathematical consistency, binary gates | M4 | AC, Explorer 3 | PLANNED |
+| 11 | Release Gate Verification | Verify `npm run preflight` (>=108/108), `npx tsc --noEmit` (0 error), `npm run build` (clean) | M4 | AC, Explorer 3 | PLANNED |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| 1 | M1: SSoT Fixtures & 4 Building Specs | Features 1, 2, 3, 4, 5 (sinsa-590-fixture.json, seocho-1364-28-fixture.json, 4 specs, 3-tier key facts, vacancy pro-forma) | none | DONE |
-| 2 | M2: GBD 2-Method Valuation Integration | Features 6, 7, 8 (valuation-calc integration, 3~5 comps, market cap rate 2.5%~3.5%, cost method exclusion, broker input validation) | M1 | DONE |
-| 3 | M3: GBD Macro Transit Vector & Catchment Isolation | Features 9, 10, 11 (GBD sub-district engine, data-binder image binding, catchment demand isolation) | M1 | IN_PROGRESS |
-| 4 | M4: G54~G56 Governance & 9 Physical Binary Gates | Features 12, 13, 14, 15 (regex expansion, gate context extraction, profile rules, Rule 10 slide limits) | M1, M3 | PLANNED |
-| 5 | M5: Studio Approval Ledger & Omni-Channel Verification | Features 16, 17, 18, 19 (S50 gate enforcement, 7 metrics sync, Rule 7 negative pairs, test runners, production build) | M1, M2, M3, M4 | PLANNED |
+| 1 | M1: Quantitative Modeling & Tenancy Breakdown | Features 1, 2, 3, 4, 5 (Multi-year DCF, 2D sensitivity, 5-tier dev budget, multi-page tenant roster, mathematical consistency) | none | DONE |
+| 2 | M2: Pro IM Chapter Pipeline & Deck Layout | Features 6, 7, 8 (A25 Chapter Divider, Pro deck sequencer 30+ slides, data binder extensions) | M1 | PLANNED |
+| 3 | M3: Quality Assurance & Poison Prevention Gates | Feature 9 (Enhanced binary inspection, poison token regex, evasive phrase detector, mock leak guard) | M2 | PLANNED |
+| 4 | M4: Automated Golden Test Spec & Release Gates | Features 10, 11 (`pro-im-golden-pipeline.test.ts`, preflight 108/108, tsc 0 error, build clean) | M1, M2, M3 | PLANNED |
 
 ## Interface Contracts
-### 1. SSoT Fixture Schema (`docs/test/real-broker-im/*.json`)
-- `archAreaM2: number`
-- `completionDate: string` (YYYY-MM-DD)
-- `parking: string`, `parkingCount: number`
-- `elevatorCount: number`
-- `keyFacts3Tier: { tier1_subject: [string, string][]; tier2_land: [string, string][]; tier3_building: [string, string][] }`
-- `proForma?: { vacantFloorCount: number; vacantAreaPyeong: number; currentCapRatePct: number; estimatedFullOccupancyCapRatePct: number; upsideCapRatePp: number; proFormaMonthlyRentKrw: number; proFormaAnnualNoiKrw: number }`
-- `salesComparisonComps: SalesComp[]`
-- `incomeCapitalization: { marketCapRateRangePct: [number, number]; costMethodExcludedNote: string; ... }`
+### 1. Quantitative Pro IM Financial Model Contract
+- `MultiYearCashFlow`:
+  - `years: number[]` (e.g. Year 1 to 10)
+  - `pgi: number[]` (Potential Gross Income)
+  - `vacancyAllowance: number[]`
+  - `egi: number[]` (Effective Gross Income = PGI - Vacancy)
+  - `opex: { managementFee: number[]; propertyTax: number[]; insurance: number[]; maintenance: number[]; total: number[] }`
+  - `capexReserve: number[]`
+  - `noi: number[]` (Net Operating Income = EGI - OPEX - CapEx)
+  - `debtService?: { principal: number[]; interest: number[]; total: number[] }`
+  - `btcf?: number[]` (Before-Tax Cash Flow = NOI - Debt Service)
+  - `exitAssumptions: { holdingPeriodYears: number; exitCapRatePct: number; grossSalePrice: number; dispositionCosts: number; netProceeds: number }`
+  - `metrics: { unleveredIrrPct: number; leveredIrrPct?: number; initialCapRatePct: number; averageCashOnCashPct?: number }`
+- `SensitivityMatrix2D`:
+  - `exitCapRates: number[]` (rows)
+  - `discountRates: number[]` (cols)
+  - `unleveredIrrGrid: number[][]`
+  - `npvGridKrw: number[][]`
+- `DevelopmentFeasibilityBudget`:
+  - `landAcquisitionKrw: number`
+  - `hardCostsKrw: number`
+  - `softCostsKrw: number`
+  - `financingPfKrw: number`
+  - `contingencyKrw: number`
+  - `totalDevelopmentCostKrw: number`
+  - `projectedGrossRevenueKrw: number`
+  - `projectIrrPct: number`
+  - `equityIrrPct: number`
 
-### 2. GBD Macro Transit Sub-District Engine Contract (`macro-transit-engine.ts`)
-- `options.subDistrict?: 'GBD_SINSA' | 'GBD_SEOCHO' | 'GBD_TEHERAN'`
-- Detection: `/신사|도산대로|압구정|논현/` -> `GBD_SINSA`; `/서초|양재|남부순환/` -> `GBD_SEOCHO`
-- Output: 1600x1200 px, 266.7 DPI effective in 5.60" x 4.50" box (passes G32 >= 150 DPI).
-- Data Binder: `bindFromExternalData` binds `enrichment.macroTransitImage` to `dataMap['location']`.
+### 2. Multi-Page Institutional Tenant Roster Contract
+- `InstitutionalTenantRosterItem`:
+  - `floor: string`
+  - `unitNumber: string`
+  - `tenantName: string`
+  - `industry: string`
+  - `leasedAreaM2: number`
+  - `leasedAreaPyeong: number`
+  - `depositKrw: number`
+  - `monthlyRentKrw: number`
+  - `monthlyMaintenanceKrw: number`
+  - `leaseStartDate: string`
+  - `leaseEndDate: string`
+  - `renewalOption?: string`
+  - `statutoryProtection10Y: boolean`
+- Multi-page chunking: 12~14 tenants per slide, with running subtotals and Grand Total on final page.
 
-### 3. Physical Binary 9 Gates Contract (`pptx-binary-observer.ts`)
-- `issues.length === 0`
-- `placeholderResidueCount === 0`
-- `bleedCount === 0`
-- `brokenImageCount === 0`
-- `personaViolationCount === 0`
-- `lexiconViolationCount === 0`
-- `legalRiskViolationCount === 0`
-- `defectExcuseViolationCount === 0` (G54: checks shorthand '산출불가', '미확보', '비워둠')
-- `preachyViolationCount === 0` (G55: checks '표면 수익률만으로 판단하지 마십시오')
-- `internalRuleViolationCount === 0` (G56: checks 'Rule 10', '내부 시스템 규칙', 'P-PPTX-RELEASE')
-- `minEffectiveDpi >= 150`
+### 3. Chapter Structure Contract (5 Core Chapters, 30+ Slides)
+- Front Matter:
+  - Slide 1: Executive Cover (`a01-cover`)
+  - Slide 2: Table of Contents / Agenda (`a15-toc-agenda`)
+- Chapter 1: Executive Summary & Investment Thesis (min 5 slides):
+  - Slide 3: Ch.1 Divider (`a25-chapter-divider`: "I. EXECUTIVE SUMMARY & INVESTMENT THESIS")
+  - Slide 4: Key Facts & Asset Profile (`a02-key-facts`)
+  - Slide 5: Core Investment Thesis (`a15-hero-stat-trio`)
+  - Slide 6: Acquisition Highlights & Pricing Matrix (`a04-comparison-cards`)
+  - Slide 7: Location & Accessibility Overview (`a16-regional-macro-map`)
+  - Slide 8: Tenant & Cash Flow Snapshot (`a09-proforma-waterfall`)
+- Chapter 2: Detailed Asset & Building Specifications (min 6 slides):
+  - Slide 9: Ch.2 Divider (`a25-chapter-divider`: "II. DETAILED ASSET & BUILDING SPECIFICATIONS")
+  - Slide 10: Architectural & Physical Specifications (`a04-comparison-cards`)
+  - Slide 11: Zoning, Land Registry & Legal Status (`a04-comparison-cards`)
+  - Slide 12: Floor-by-Floor Stacking Plan (`a22-stacking-plan`)
+  - Slide 13: Detailed Tenant Roster - Part 1 (`a03-rentroll-breakdown`)
+  - Slide 14: Detailed Tenant Roster - Part 2 / Expiration Schedule (`a03-rentroll-breakdown`)
+  - Slide 15: Facility & MEP Systems Condition (`a14-swot-grid`)
+- Chapter 3: Comprehensive Financial Modeling (min 7 slides):
+  - Slide 16: Ch.3 Divider (`a25-chapter-divider`: "III. COMPREHENSIVE FINANCIAL MODELING")
+  - Slide 17: Multi-Year NOI / DCF Projections Schedule (`a08-table-schedule`)
+  - Slide 18: Revenue & OPEX Line-Item Breakdown (`a03-rentroll-breakdown`)
+  - Slide 19: Exit Cap Rate & DCF Valuation Matrix (`a23-dcf-valuation`)
+  - Slide 20: 2D Sensitivity Matrix: Exit Cap vs Discount Rate (`a05-split-photo-card`)
+  - Slide 21: Vacancy & Downside Stress Analysis (`a08-table-schedule`)
+  - Slide 22: Capital Structure & Debt Financing Simulation (`a08-table-schedule`)
+- Chapter 4: Market Dynamics & Comparable Transactions (min 6 slides):
+  - Slide 23: Ch.4 Divider (`a25-chapter-divider`: "IV. MARKET DYNAMICS & COMPARABLE TRANSACTIONS")
+  - Slide 24: Macro Submarket Overview (GBD/YBD/CBD) (`a05-split-photo-card`)
+  - Slide 25: Submarket Rental Rates & Vacancy Trends (`a06-quad-photo-grid`)
+  - Slide 26: Micro-Location Catchment & Transit Connectivity (`a07-trio-accent-cards`)
+  - Slide 27: Recent Comparable Asset Transactions (`a03-rentroll-breakdown`)
+  - Slide 28: Comp Valuation Multiples & Price per Pyeong Benchmarking (`a08-table-schedule`)
+- Chapter 5: Legal, Technical & Due Diligence Annexes (min 6 slides):
+  - Slide 29: Ch.5 Divider (`a25-chapter-divider`: "V. LEGAL, TECHNICAL & PHYSICAL DUE DILIGENCE ANNEXES")
+  - Slide 30: Cadastral Map & Land Boundaries (`a12-cadastral-map`)
+  - Slide 31: Title Ownership & Encumbrance Status (`a04-comparison-cards`)
+  - Slide 32: Building Code, FAR/BCR Compliance & Expansion Potential (`a18-development-feasibility`)
+  - Slide 33: Environmental & Physical Due Diligence Summary (`a18-development-feasibility`)
+  - Slide 34: Investment Committee Decision Matrix & Next Steps (`a10-disclaimer-contact`)
+- Total Slides: 34 slides (Exceeds 30+ slide requirement across all 5 core chapters).
 
-### 4. Studio Approval Precondition Contract (`studio-approval-service.ts`)
-- `approveEditorial`: Strictly requires `project.stage === 'S50_GATE_CHECK'`.
-- `approveFile`: Strictly requires `project.stage === 'S60_EDITORIAL_APPROVAL'`.
-- Transition to `PUBLISHED` generates release record with SHA-256 target hash.
-
-### 5. Cross-Channel Checker Invariants (`cross-channel-checker.ts`)
-- `title`: Trimmed match or mutual containment
-- `asking_price`: diff <= 0.1%
-- `total_area`: diff <= 0.05 ㎡
-- `land_area`: diff <= 0.05 ㎡
-- `cap_rate`: diff <= 0.05%p
-- `total_deposit`: diff <= 1 KRW
-- `monthly_rent`: diff <= 1 KRW
+### 4. Binary Assertion Gate Contract
+- 0 poison tokens: `/NaN|undefined|\bnull\b|\[object Object\]/` across all slide XMLs and inline text runs.
+- 0 evasive phrases: `/(추후\s*확인\s*필요|미정|상세\s*불명|확인\s*불가|자료\s*없음)/` in required fields.
+- 0 mock leaks: strictly no leakage of dummy NH Capital / mock tenant names when real data is present.
+- Mathematical consistency: Ch1 summary figures match Ch3 DCF schedules with 0.00% difference.
 
 ## Code Layout
-- `docs/test/real-broker-im/`: Standalone SSoT fixtures (`sinsa-590-fixture.json`, `seocho-1364-28-fixture.json`)
-- `src/domain/building/im-core/`: Pure domain logic (`valuation-calc.ts`, `broker-input-validator.ts`, `cross-channel-checker.ts`, `approval/`)
-- `src/services/macro-transit-engine.ts`: GBD transit vector engine (Sharp SVG)
-- `src/domain/building/mobile-im/pptx/`: PPTX renderer, `data-binder.ts`, `deck-sequencer.ts`, `quality-gates-v02.ts`, `extract-gate-context.ts`
-- `src/assurance/im-harness/`: `observers/pptx-binary-observer.ts`, `profiles/pptx-profile.ts`
-- `src/tests/`: E2E test suites (`real-broker-im-pipeline.test.ts`, `pptx-publication-flow.test.ts`, `cross-channel-invalidation.test.ts`)
-- `scripts/`: `benchmark-real-broker-im.ts`
+- `src/domain/building/im-core/`:
+  - `pro-financial-model.ts`: Multi-year DCF, 2D sensitivity, 5-tier dev budget, mathematical consistency gate.
+  - `pro-tenant-roster.ts`: Multi-page institutional tenant roster and expiration schedule.
+- `src/domain/building/mobile-im/pptx/`:
+  - `archetypes/a25-chapter-divider.ts`: Chapter divider visual slide archetype.
+  - `pro-deck-sequencer.ts`: Dedicated Pro IM 30+ slide sequence assembler.
+  - `data-binder.ts`: Extended data binding for Pro IM chapters.
+- `src/assurance/im-harness/`:
+  - `observers/pptx-binary-observer.ts`: Enhanced poison token & evasion phrase detection.
+- `src/tests/e2e/`:
+  - `pro-im-golden-pipeline.test.ts`: Automated Pro IM golden test spec (fast Vitest runner).

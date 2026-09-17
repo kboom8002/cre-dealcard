@@ -8,6 +8,10 @@ export const FORBIDDEN_DEFECT_EXCUSE_PATTERN = /(?:필지별\s*내역\s*미확�
 export const FORBIDDEN_PREACHY_PATTERN = /(?:표면\s*수익률만으로\s*매입\s*판단을?\s*하지\s*마십시오|오해를\s*만듭니다|시세\s*대비\s*고저를\s*말하지\s*않습니다|자료를?\s*받으면\s*무엇이\s*좋아지는가)/;
 export const FORBIDDEN_INTERNAL_RULE_PATTERN = /(?:사진\s*운용\s*원칙|EXIF|승인\s*이력\s*없는\s*사진|본\s*면\s*승인\s*—?\s*\d+개\s*영역|자료\s*등급\s*:\s*현행\s*등급|자료\s*R\d+\s*×\s*공부\s*P\d+)/;
 
+export const POISON_TOKEN_REGEX = /NaN|undefined|\bnull\b|\[object Object\]/;
+export const EVASIVE_PHRASES_PATTERN = /(?:추후\s*확인\s*필요|미정|상세\s*불명|확인\s*불가|자료\s*없음)/;
+export const MOCK_LEAK_PATTERN = /(?:NH\s*농협\s*캐피탈|NH\s*Capital|피카딜리빌딩|모의\s*건물|모의\s*테넌트)/;
+
 export interface PptxPhysicalInspectionResult {
   textOverflowCount: number;
   overlapMaxInches: number;
@@ -24,6 +28,9 @@ export interface PptxPhysicalInspectionResult {
   defectExcuseViolationCount: number;
   preachyViolationCount: number;
   internalRuleViolationCount: number;
+  evasivePhraseViolationCount: number;
+  mockLeakViolationCount: number;
+  poisonTokenViolationCount: number;
   isPass: boolean;
   issues: string[];
 }
@@ -80,6 +87,9 @@ export async function inspectPptxBinary(pptxBuffer: Buffer): Promise<PptxPhysica
   let defectExcuseViolationCount = 0;
   let preachyViolationCount = 0;
   let internalRuleViolationCount = 0;
+  let evasivePhraseViolationCount = 0;
+  let mockLeakViolationCount = 0;
+  let poisonTokenViolationCount = 0;
 
   try {
     const zip = await JSZip.loadAsync(pptxBuffer);
@@ -154,15 +164,46 @@ export async function inspectPptxBinary(pptxBuffer: Buffer): Promise<PptxPhysica
     for (const slidePath of slideFiles) {
       const xmlContent = await zip.files[slidePath].async('string');
 
-      // Check placeholder residues & corruption strings
-      if (/\{\{[^{}]+\}\}/.test(xmlContent) || />NaN</.test(xmlContent) || />undefined</.test(xmlContent) || />null</.test(xmlContent) || />\[object Object\]</.test(xmlContent)) {
-        placeholderResidueCount += 1;
-        issues.push(`${slidePath}: 미치환 자리표시자({{...}}, NaN, undefined, null) 검출`);
-      }
-
-      // Check text for Rule 1 (Persona), Rule 2 (Lexicon), P0 Legal Safety
+      // Extract text for inspection
       const allTextMatches = xmlContent.match(/<a:t[^>]*>([\s\S]*?)<\/a:t>/g) ?? [];
       const slideText = allTextMatches.map((m) => m.replace(/<[^>]+>/g, '').trim()).join(' ');
+
+      // Check raw slide XML for placeholders: {{...}} and poison tokens
+      const hasRawPlaceholder = /\{\{[^{}]+\}\}/.test(xmlContent);
+      const isPoison =
+        POISON_TOKEN_REGEX.test(slideText) ||
+        hasRawPlaceholder ||
+        />NaN<|>undefined<|>null<|>\[object Object\]</.test(xmlContent) ||
+        />[^<]*(?:NaN|undefined|\[object Object\])[^<]*</.test(xmlContent);
+
+      if (isPoison) {
+        placeholderResidueCount += 1;
+        poisonTokenViolationCount += 1;
+        const textMatch = slideText.match(POISON_TOKEN_REGEX)?.[0];
+        const placeholderMatch = xmlContent.match(/\{\{[^{}]+\}\}/)?.[0];
+        const xmlTagMatch = xmlContent.match(/>[^<]*(?:NaN|undefined|\bnull\b|\[object Object\])[^<]*</)?.[0]?.replace(/^>|<$/g, '');
+        const rawXmlToken = xmlContent.match(/>NaN<|>undefined<|>null<|>\[object Object\]</)?.[0]?.replace(/^>|<$/g, '');
+        const match = textMatch || placeholderMatch || xmlTagMatch || rawXmlToken || 'POISON_TOKEN';
+        issues.push(`${slidePath}: [포이즌 토큰] "${match}" 검출 (미치환 자리표시자)`);
+      }
+
+      // Check evasive phrases
+      if (EVASIVE_PHRASES_PATTERN.test(slideText) || EVASIVE_PHRASES_PATTERN.test(xmlContent)) {
+        evasivePhraseViolationCount += 1;
+        const match =
+          slideText.match(EVASIVE_PHRASES_PATTERN)?.[0] ||
+          xmlContent.match(EVASIVE_PHRASES_PATTERN)?.[0];
+        issues.push(`${slidePath}: [회피성 문구 위반] "${match}" 검출`);
+      }
+
+      // Check mock data leaks
+      if (MOCK_LEAK_PATTERN.test(slideText) || MOCK_LEAK_PATTERN.test(xmlContent)) {
+        mockLeakViolationCount += 1;
+        const match =
+          slideText.match(MOCK_LEAK_PATTERN)?.[0] ||
+          xmlContent.match(MOCK_LEAK_PATTERN)?.[0];
+        issues.push(`${slidePath}: [모의 데이터 누출 위반] "${match}" 검출`);
+      }
 
       if (FORBIDDEN_PERSONA_PATTERN.test(slideText)) {
         personaViolationCount += 1;
@@ -292,6 +333,9 @@ export async function inspectPptxBinary(pptxBuffer: Buffer): Promise<PptxPhysica
   const isPass =
     issues.length === 0 &&
     placeholderResidueCount === 0 &&
+    poisonTokenViolationCount === 0 &&
+    evasivePhraseViolationCount === 0 &&
+    mockLeakViolationCount === 0 &&
     bleedCount === 0 &&
     brokenImageCount === 0 &&
     personaViolationCount === 0 &&
@@ -318,6 +362,9 @@ export async function inspectPptxBinary(pptxBuffer: Buffer): Promise<PptxPhysica
     defectExcuseViolationCount,
     preachyViolationCount,
     internalRuleViolationCount,
+    evasivePhraseViolationCount,
+    mockLeakViolationCount,
+    poisonTokenViolationCount,
     isPass,
     issues,
   };

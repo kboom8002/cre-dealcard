@@ -90,7 +90,7 @@ export function LiveDealCardPreviewCard({
   // 카카오톡 공유
   const handleKakaoShare = () => {
     const finalText = (typeof window !== "undefined" && sessionStorage.getItem(`kakao_text_${buildingId}`)) || kakaoText || displayDesc;
-    const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}?t=${Date.now()}`;
+    const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}/kakao?t=${Date.now()}`;
 
     if (kakaoReady && window.Kakao?.Share) {
       try {
@@ -100,8 +100,8 @@ export function LiveDealCardPreviewCard({
             title: displayTitle,
             description: finalText.slice(0, 200),
             imageUrl: ogImageUrl,
-            imageWidth: 1200,
-            imageHeight: 630,
+            imageWidth: 800,
+            imageHeight: 400,
             link: {
               webUrl: shareUrl,
               mobileWebUrl: shareUrl,

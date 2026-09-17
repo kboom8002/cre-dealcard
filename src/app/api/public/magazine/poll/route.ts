@@ -48,6 +48,47 @@ export async function POST(request: NextRequest) {
       subscriber_phone: subscriberPhone || null,
     });
 
+    // Update subscriber profile based on vote
+    if (subscriberPhone) {
+      const { data: sub } = await supabase
+        .from("magazine_subscribers")
+        .select("id, interest_profile, segment, buyer_temperature")
+        .eq("broker_id", brokerId)
+        .eq("subscriber_phone", subscriberPhone)
+        .maybeSingle();
+
+      if (sub) {
+        // Log activity
+        await supabase.from("activity_events").insert({
+          actor_id: sub.id,
+          event_type: "poll_vote",
+          metadata: { editionDate, choice }
+        });
+
+        const currentProfile = sub.interest_profile || {};
+        // Increase engagement (+15 points equivalent -> 3 reads)
+        const readCount = (currentProfile.readArticleCount || 0) + 3;
+        
+        let newSegment = sub.segment || "investor";
+        // 1번 보기(0) 선택 시 매수 온도 승격, 3번 보기(2) 선택 시 매도/소유주로 변경
+        if (choice === 2) {
+          newSegment = "seller";
+        }
+
+        const newProfile = {
+          ...currentProfile,
+          readArticleCount: readCount,
+          lastEngagedAt: new Date().toISOString(),
+          lastVoteChoice: choice,
+        };
+
+        await supabase.from("magazine_subscribers").update({
+          interest_profile: newProfile,
+          segment: newSegment
+        }).eq("id", sub.id);
+      }
+    }
+
     const results = await getResults(supabase, brokerId, editionDate);
     return NextResponse.json({ ok: true, results });
   } catch (err: unknown) {

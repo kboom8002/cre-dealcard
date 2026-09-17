@@ -567,3 +567,68 @@ Integrity mode: development
 ### Build & Pipeline Integrity
 - [ ] `npm run build` 실행 시 TypeScript 타입 에러 없이 성공(Exit Code 0)해야 함
 - [ ] 기존 테스트 스위트(`copy-cross-compare.test.ts`, `a22-stacking-plan.test.ts` 등)와의 충돌이나 회귀가 없어야 함
+
+## 2026-09-17T05:00:28Z
+
+# Teamwork Project Prompt — Draft
+
+> Status: Ready for launch — awaiting user approval
+> Goal: Craft prompt → get user approval → delegate to teamwork_preview
+> Requested team: [Small focused team — as requested by user: 특정 컴포넌트 단위로 순차적이고 집중적인 구현 및 적대적 리뷰 수행]
+
+Use a small focused team. Build and enhance the Pro IM domain pipeline and large-scale investment review PPTX generation engine, expanding beyond Basic IM (7-10 slides) to generate institutional-grade investment memorandums (30+ slides, 5 core chapters, multi-year cash flow modeling, sensitivity analysis, tenant rosters, and due diligence annexes) with commercial-grade quality assertion gates.
+
+Working directory: c:/Users/User/cre-dealcard
+Integrity mode: development
+
+## Requirements
+
+### R1. Institutional Pro IM Chapter Pipeline & Deck Generation
+The system must generate an institutional-grade investment review presentation consisting of 30 or more structured slides organized across five core chapters:
+1. Executive Summary & Investment Thesis
+2. Detailed Asset & Building Specifications
+3. Comprehensive Financial Modeling (Multi-Year Cash Flow, Cap Rate, IRR, Sensitivity Matrix)
+4. Market Dynamics, Micro/Macro Location Analysis & Comparable Transactions
+5. Legal, Technical & Physical Due Diligence Annexes
+
+### R2. Advanced Quantitative Modeling & Tenancy Breakdown
+The pipeline must support detailed financial and tenancy inputs:
+- Multi-year NOI/DCF projections with vacancy stress-testing and exit yield assumptions.
+- Floor-by-floor and suite-by-suite tenant rosters detailing lease expiration schedules, security deposits, and renewal options.
+- Development/redevelopment feasibility budgeting when configured for development postures.
+
+### R3. Quality Assurance & Poison Prevention
+Generated presentations must comply with commercial-grade publication standards:
+- Complete elimination of poison tokens (`NaN`, `undefined`, `null`, `[object Object]`).
+- Elimination of evasive phrases or unpopulated placeholder tokens.
+- Elimination of dummy sample data leaking into production outputs.
+- Preservation of strict single-source-of-truth mathematical consistency across summary and detail slides.
+
+### R4. Asynchronous Pipeline Reliability & Status Reporting
+The engine must operate reliably in asynchronous generation workflows, providing progress tracking, error handling, and downloadable binary generation within production timeout constraints.
+
+## Verification Resources
+
+The existing codebase includes comprehensive verification harnesses that the team must execute:
+- Preflight audit: `npm run preflight`
+- TypeScript static check: `npx tsc --noEmit`
+- Production build: `npm run build`
+- Domain and E2E verification suites in `src/tests/` and `e2e/`
+
+## Acceptance Criteria
+
+### Presentation Structure & Scale
+- [ ] The generated Pro IM deck contains at least 30 valid slides properly categorized under the 5 designated chapters.
+- [ ] Slide deck conforms to institutional formatting without overlapping text elements or slide layout breakages.
+
+### Quantitative & Content Integrity
+- [ ] Financial analysis slides display mathematically consistent figures between the executive summary metrics and multi-year projection schedules.
+- [ ] Zero instances of poison tokens (`NaN`, `undefined`, `null`, `[object Object]`) appear in the generated PPTX text content.
+- [ ] Zero evasive phrases (e.g., "추후 확인 필요", "미정", "상세 불명") appear in required data fields.
+- [ ] Zero mock/dummy data placeholders leak into outputs when real asset inputs are provided.
+
+### System Verification & Build Gate
+- [ ] `npm run preflight` passes with 100% success rate (minimum 108/108 tests).
+- [ ] `npx tsc --noEmit` exits with 0 errors.
+- [ ] `npm run build` succeeds cleanly without build errors.
+- [ ] At least one automated golden test spec is added to verify end-to-end Pro IM generation and binary assertions.

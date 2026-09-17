@@ -1,0 +1,71 @@
+﻿--- a/src/tests/adversarial/m1-2-tenancy-financial-stress.test.ts
++++ b/src/tests/adversarial/m1-2-tenancy-financial-stress.test.ts
+@@ -262,7 +262,7 @@ describe('Adversarial Mathematical Consistency Gate (validateProImFinancialConsi
+   describe('Adversarial Defect 1: 1 KRW vs 1000 KRW & Broken Boolean Invariant', () => {
+-    it('empirically reveals contradictory behavior when asking price has a 1 KRW diff', () => {
++    it('verifies 1 KRW difference passes cleanly as exact match without contradiction', () => {
+       const testInput: ProImFinancialConsistencyInput = {
+         ...baseInput,
+         executiveSummary: {
+@@ -274,13 +274,13 @@ describe('Adversarial Mathematical Consistency Gate (validateProImFinancialConsi
+       const res = validateProImFinancialConsistency(testInput, 0.00);
+       const chk = res.checks.find(c => c.checkName === 'Asking Price Consistency')!;
+ 
+-      // Defect: passed is FALSE because askingPriceDiffPct > 0.00
+-      expect(chk.passed).toBe(false);
+-      // Contradiction: message says it MATCHES because askingPriceDiff <= 1 is TRUE!
++      // Remediated: passed is TRUE because askingPriceDiff <= 1 is accepted as exact match
++      expect(chk.passed).toBe(true);
++      // Consistent: message says it MATCHES
+       expect(chk.message).toBe('Executive Asking Price exactly matches Cash Flow Purchase Price.');
+-      // Overall gate fails despite message claiming exact match
+-      expect(res.passed).toBe(false);
++      // Overall gate passes
++      expect(res.passed).toBe(true);
+     });
+ 
+-    it('empirically reveals that tolerancePct > 0 is rendered useless by && askingPriceDiff <= 1', () => {
++    it('verifies that tolerancePct > 0 allows discrepancies within threshold', () => {
+       const testInput: ProImFinancialConsistencyInput = {
+         ...baseInput,
+         executiveSummary: {
+@@ -296,9 +296,9 @@ describe('Adversarial Mathematical Consistency Gate (validateProImFinancialConsi
+       // Diff % is 0.000016%, far below 0.5%
+       expect(chk.discrepancyPct).toBeLessThan(0.5);
+-      // BUT passed is FALSE because code requires && askingPriceDiff <= 1!
+-      expect(chk.passed).toBe(false);
+-      expect(res.passed).toBe(false);
++      // Remediated: passed is TRUE because tolerancePct allows 0.5%
++      expect(chk.passed).toBe(true);
++      expect(res.passed).toBe(true);
+     });
+ 
+     it('handles floating point epsilon diff (0.000001 KRW)', () => {
+@@ -321,7 +321,7 @@ describe('Adversarial Mathematical Consistency Gate (validateProImFinancialConsi
+   describe('Adversarial Defect 2: Poison Token NaN Generation on Zero Division', () => {
+-    it('empirically verifies that zero purchasePrice produces NaN poison tokens in the gate', () => {
++    it('verifies that zero purchasePrice is safely guarded without NaN poison tokens', () => {
+       const testInput: ProImFinancialConsistencyInput = {
+         ...baseInput,
+         detailSchedule: {
+@@ -337,11 +337,12 @@ describe('Adversarial Defect 2: Poison Token NaN Generation on Zero Division', () => {
+       const res = validateProImFinancialConsistency(testInput);
+       const capChk = res.checks.find(c => c.checkName === 'Initial Cap Rate Formula Consistency')!;
+ 
+-      // detailValue, discrepancyKrwOrUnit, discrepancyPct become NaN
+-      expect(Number.isNaN(capChk.detailValue)).toBe(true);
+-      expect(Number.isNaN(capChk.discrepancyKrwOrUnit)).toBe(true);
+-      expect(Number.isNaN(capChk.discrepancyPct)).toBe(true);
+-      // Message contains poison token 'NaN%'
+-      expect(capChk.message).toContain('NaN%');
+-      expect(/NaN/.test(capChk.message ?? '')).toBe(true);
++      // Remediated: detailValue defaults safely to 0.0 without NaN
++      expect(Number.isNaN(capChk.detailValue)).toBe(false);
++      expect(capChk.detailValue).toBe(0.0);
++      expect(Number.isNaN(capChk.discrepancyKrwOrUnit)).toBe(false);
++      expect(Number.isNaN(capChk.discrepancyPct)).toBe(false);
++      // Message does not contain poison token 'NaN%'
++      expect(capChk.message).not.toContain('NaN%');
++      expect(/NaN/.test(capChk.message ?? '')).toBe(false);
+     });
+   });

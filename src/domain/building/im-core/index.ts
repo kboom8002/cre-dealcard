@@ -100,4 +100,44 @@ export type {
 } from './approval/ledger-port';
 export { ApprovalLedgerService, approvalLedgerService } from './approval/ledger-service';
 
+// Pro IM 정량 재무 모델 & 민감도 분석 (Milestone 1)
+export {
+  calculateIrrNewtonRaphson,
+  generateMultiYearCashFlow,
+  generate2DSensitivityMatrix,
+  generateDevelopmentFeasibilityBudget,
+  validateProImFinancialConsistency,
+} from './pro-financial-model';
+export type {
+  MultiYearCashFlowInput,
+  MultiYearCashFlow,
+  OpexBreakdownInput,
+  OpexSchedule,
+  DebtFinancingInput,
+  DebtServiceSchedule,
+  ExitAssumptions,
+  CashFlowMetrics,
+  SensitivityMatrix2D,
+  VacancyStressScenario,
+  SensitivityAnalysisResult,
+  SensitivityOptions,
+  DevelopmentFeasibilityInput,
+  DevelopmentFeasibilityBudget,
+  DevelopmentBudgetTiers,
+  FinancialConsistencyCheckItem,
+  FinancialConsistencyValidationResult,
+  ProImFinancialConsistencyInput,
+} from './pro-financial-model';
 
+// Pro IM 렌트롤 & WALE (Milestone 1)
+export {
+  calculateTenantRosterSubtotal,
+  chunkTenantRoster,
+  calculateProWALE,
+} from './pro-tenant-roster';
+export type {
+  InstitutionalTenantRosterItem,
+  TenantRosterSubtotal,
+  TenantRosterChunk,
+  ProWaleResult,
+} from './pro-tenant-roster';

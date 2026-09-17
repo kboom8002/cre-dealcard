@@ -2,10 +2,10 @@
   "posture": "income",
   "assetType": "프라임오피스",
   "areaSignal": "분당권역",
-  "askingPriceDisplay": "320억",
+  "askingPriceDisplay": "320억 원",
   "capRateBase": 3.84,
   "noiBaseBil": 12.3,
-  "keyInvestmentPoint": "분당권역 소재 프라임오피스, 희망가 320억 투자 검토 자료입니다.",
+  "keyInvestmentPoint": "분당권역 소재 프라임오피스, 희망가 320억 원 투자 검토 자료입니다.",
   "keyPoints": [
     "입지 가치: 분당권역 소재 자산으로 중장기 자산 가치 및 안정적 수요 검토",
     "임대 구조: 320억 수준의 가격대 및 현 임대차 기반의 현금흐름 분석",
@@ -21,13 +21,14 @@
   "zoning": "일반상업지역",
   "landPricePerPyeong": null,
   "devProfitMarginPct": null,
+  "devHoldYieldPct": null,
   "gopMarginPct": null,
   "adr": null,
   "occPct": null,
   "revpar": null,
   "ownVsLeaseSavingsBil": null,
   "breakevenYears": null,
-  "pricePerPyeong": 21156992,
+  "pricePerPyeong": 21157024,
   "marketDiscountPct": null,
   "targetHprPct": null
 }

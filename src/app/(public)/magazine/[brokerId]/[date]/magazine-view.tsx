@@ -2,19 +2,20 @@
 import { SafeMarkdownRenderer } from "@/components/ui/safe-markdown-renderer";
 
 
-import React, { useState, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Script from "next/script";
 import { motion, useInView } from "motion/react";
 import {
   Phone, Share2, Check, Building2, Hammer, Globe, BookOpen, ArrowRight,
   Sparkles, Newspaper, ChevronDown, MessageSquare, TrendingUp, BarChart3,
-  Copy, Target, Lightbulb, PenLine, Calculator, Gift, Users,
+  Copy, Target, Lightbulb, PenLine, Calculator, Gift, Users, ShieldAlert
 } from "lucide-react";
 import { useMagazineAnalytics } from "@/hooks/use-magazine-analytics";
 import { SubscribeCard } from "@/components/magazine/SubscribeCard";
 import { FlatProfileCard } from "@/components/broker/flat-profile-card";
 import { ActionCardView } from "@/components/im/action-card-view";
 import { RoiCalculator } from "@/components/magazine/RoiCalculator";
+import { PoweredByBadge } from "@/components/ui/PoweredByBadge";
 import DOMPurify from "isomorphic-dompurify";
 
 // ── Inline MARKET_TEMP_CONFIG (avoid server/client boundary import) ──
@@ -673,19 +674,34 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
     </div>
   );
 
-  // ── Poll (1-Click 투표) ─────────────────────────────────────────
   const poll = data.poll as { question: string; choices: string[] } | null | undefined;
   const [pollVoted, setPollVoted] = useState<number | null>(null);
   const [pollResults, setPollResults] = useState<{ total: number; counts: Record<number, number> } | null>(null);
 
+  React.useEffect(() => {
+    const key = `cre_poll_${brokerId}_${date}`;
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      setPollVoted(Number(stored));
+      fetch(`/api/public/magazine/poll?brokerId=${brokerId}&editionDate=${date}`)
+        .then(res => res.json())
+        .then(json => {
+          if (json.results) setPollResults(json.results);
+        })
+        .catch(() => {});
+    }
+  }, [brokerId, date]);
+
   const handlePollVote = useCallback(async (choiceIdx: number) => {
     setPollVoted(choiceIdx);
+    localStorage.setItem(`cre_poll_${brokerId}_${date}`, choiceIdx.toString());
     trackInteraction('poll_vote', { choice: choiceIdx });
     try {
+      const subscriberPhone = localStorage.getItem('magazine_sub_phone') || undefined;
       const res = await fetch('/api/public/magazine/poll', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brokerId, editionDate: date, choice: choiceIdx }),
+        body: JSON.stringify({ brokerId, editionDate: date, choice: choiceIdx, subscriberPhone }),
       });
       const json = await res.json();
       if (json.results) setPollResults(json.results);
@@ -741,7 +757,16 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
               })}
             </div>
             {pollResults && (
-              <p className="text-[9px] text-slate-600 text-center">총 {pollResults.total}명 참여</p>
+              <div className="mt-4 pt-3 border-t border-white/10 text-center">
+                <p className="text-[11px] text-slate-400 mb-2">총 {pollResults.total}명 참여 중입니다.</p>
+                <button
+                  onClick={handleCallBroker}
+                  className="w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold flex items-center justify-center gap-2 transition-colors"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  중개사와 이 주제로 1:1 상담하기
+                </button>
+              </div>
             )}
           </div>
         </SectionCard>
@@ -749,30 +774,113 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
     </div>
   );
 
-  // ── Tax/Legal Clinic (세무 클리닉) ──────────────────────────────
-  const taxClinic = data.tax_clinic as { question?: string; answer?: string; source?: string } | null | undefined;
+  // ── Tax/Legal Clinic (세대 전환 전략 / 세무 클리닉) ──────────────────────────────
+  const taxClinic = data.tax_clinic as any;
 
-  const renderTaxClinic = () => !taxClinic?.question || !taxClinic?.answer ? null : (
-    <div data-section-id="tax_clinic" ref={sectionRef('tax_clinic')}>
-      <Section delay={0.3}>
-        <SectionCard title="💰 세무·법률 클리닉" icon={<Lightbulb className="w-4 h-4 text-amber-400" />} defaultOpen>
-          <div className="space-y-3">
-            <div className="bg-amber-500/5 border border-amber-500/15 rounded-xl p-3">
-              <p className="text-[12px] font-bold text-amber-300 mb-1">Q. {taxClinic.question}</p>
+  const renderTaxClinic = () => {
+    // Only show to relevant targets or if no target param is passed
+    if (target !== 'all' && target !== 'seller' && target !== 'owner' && target !== 'owner_individual') {
+      return null;
+    }
+
+    if (!taxClinic || (!taxClinic.question && !taxClinic.title)) return null;
+
+    // Legacy fallback
+    if (taxClinic.question && taxClinic.answer) {
+      return (
+        <div data-section-id="tax_clinic" ref={sectionRef('tax_clinic')}>
+          <Section delay={0.3}>
+            <SectionCard title="💰 세무·법률 클리닉" icon={<Lightbulb className="w-4 h-4 text-amber-400" />} defaultOpen>
+              <div className="space-y-3">
+                <div className="bg-amber-500/5 border border-amber-500/15 rounded-xl p-3">
+                  <p className="text-[12px] font-bold text-amber-300 mb-1">Q. {taxClinic.question}</p>
+                </div>
+                <div className="text-[12px] text-slate-300 leading-relaxed whitespace-pre-line">
+                  {taxClinic.answer}
+                </div>
+                {taxClinic.source && (
+                  <p className="text-[9px] text-slate-600 border-t border-white/5 pt-2">
+                    📎 {taxClinic.source}
+                  </p>
+                )}
+              </div>
+            </SectionCard>
+          </Section>
+        </div>
+      );
+    }
+
+    // New AI generated comparison UI
+    return (
+      <div data-section-id="tax_clinic" ref={sectionRef('tax_clinic')}>
+        <Section delay={0.3}>
+          <SectionCard 
+            title="💡 세대 전환 전략 (증여/상속)" 
+            icon={<ShieldAlert className="w-4 h-4 text-emerald-400" />} 
+            badge={<span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md border text-emerald-400 bg-emerald-500/10 border-emerald-500/20 flex items-center gap-1"><Check className="w-2.5 h-2.5" /> 전문가 감수</span>}
+            defaultOpen
+          >
+            <div className="space-y-4">
+              <div className="bg-gradient-to-br from-emerald-500/10 to-transparent border border-emerald-500/20 rounded-xl p-3.5">
+                <h3 className="text-[13px] font-bold text-white mb-2 leading-snug">{taxClinic.title}</h3>
+                <p className="text-[11px] text-emerald-200/90 leading-relaxed">{taxClinic.scenario}</p>
+              </div>
+
+              {taxClinic.comparison && (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="border border-white/10 bg-white/5 rounded-xl p-3 relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-slate-500" />
+                      <p className="text-[10px] font-bold text-slate-400 mb-1">대안 A</p>
+                      <p className="text-[11px] font-bold text-white mb-2">{taxClinic.comparison.optionA.name}</p>
+                      <p className="text-[10px] text-slate-400 leading-relaxed mb-2">{taxClinic.comparison.optionA.description}</p>
+                      <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                        <p className="text-[10px] text-rose-300 font-medium">예상 세금: {taxClinic.comparison.optionA.expectedTaxInfo}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="border border-emerald-500/20 bg-emerald-500/5 rounded-xl p-3 relative overflow-hidden shadow-[0_0_15px_rgba(16,185,129,0.05)]">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
+                      <p className="text-[10px] font-bold text-emerald-400 mb-1">대안 B (추천)</p>
+                      <p className="text-[11px] font-bold text-white mb-2">{taxClinic.comparison.optionB.name}</p>
+                      <p className="text-[10px] text-slate-300 leading-relaxed mb-2">{taxClinic.comparison.optionB.description}</p>
+                      <div className="bg-black/30 p-2 rounded-lg border border-emerald-500/10">
+                        <p className="text-[10px] text-emerald-300 font-medium">예상 세금: {taxClinic.comparison.optionB.expectedTaxInfo}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 flex gap-3">
+                <span className="text-xl shrink-0">👨‍⚖️</span>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 mb-1">전문가 코멘트</p>
+                  <p className="text-[12px] text-white font-medium leading-relaxed">{taxClinic.conclusion}</p>
+                </div>
+              </div>
+              
+              {taxClinic.source && (
+                <p className="text-[9px] text-slate-500 text-right">
+                  자문 및 감수: {taxClinic.source}
+                </p>
+              )}
+
+              <div className="pt-2 border-t border-white/10">
+                <button
+                  onClick={handleCallBroker}
+                  className="w-full py-2.5 rounded-xl border border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-400 text-[12px] font-bold flex items-center justify-center gap-2 transition-colors"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  내 건물 맞춤형 절세 상담 예약하기
+                </button>
+              </div>
             </div>
-            <div className="text-[12px] text-slate-300 leading-relaxed whitespace-pre-line">
-              {taxClinic.answer}
-            </div>
-            {taxClinic.source && (
-              <p className="text-[9px] text-slate-600 border-t border-white/5 pt-2">
-                📎 {taxClinic.source}
-              </p>
-            )}
-          </div>
-        </SectionCard>
-      </Section>
-    </div>
-  );
+          </SectionCard>
+        </Section>
+      </div>
+    );
+  };
 
   // ── ROI Calculator (수지분석 계산기) ────────────────────────────
   const renderRoiCalculator = () => (
@@ -785,51 +893,82 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
     </div>
   );
 
-  // ── Referral Growth Loop (추천 레퍼럴) ──────────────────────────
-  const [referralUrl, setReferralUrl] = useState('');
+  // ── Referral & Forward Growth Loop (역바이럴 추천 & 전달) ───────
   const [referralCopied, setReferralCopied] = useState(false);
+  const [forwardedCount, setForwardedCount] = useState<number>(12);
+
+  useEffect(() => {
+    if (!brokerId) return;
+    fetch(`/api/public/magazine/referral?brokerId=${brokerId}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (typeof json.totalForwardedSubscribers === "number") {
+          setForwardedCount(Math.max(json.totalForwardedSubscribers, 5));
+        }
+      })
+      .catch(() => {});
+  }, [brokerId]);
 
   const renderReferral = () => {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://credeal.net';
-    const refLink = `${baseUrl}/magazine/${brokerId}?ref=share`;
+    const refLink = `${baseUrl}/magazine/${brokerId}?ref=forward`;
 
     return (
       <div data-section-id="referral" ref={sectionRef('referral')}>
         <Section delay={0.36}>
-          <div className="bg-gradient-to-br from-indigo-500/10 via-violet-500/5 to-transparent border border-indigo-500/15 rounded-2xl p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <Gift className="w-4 h-4 text-indigo-400" />
-              <span className="text-[13px] font-extrabold text-white">이 매거진이 유익했나요?</span>
+          <div className="bg-gradient-to-br from-indigo-500/10 via-violet-500/5 to-slate-900/80 border border-indigo-500/20 rounded-2xl p-5 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Gift className="w-4 h-4 text-indigo-400" />
+                <span className="text-[14px] font-extrabold text-white">동료 투자자에게 이 리포트 전달하기</span>
+              </div>
+              <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                자연 확산
+              </span>
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              주변 투자자에게 공유하고 특별한 리워드를 받으세요!
+
+            <p className="text-[12px] text-slate-300 leading-relaxed">
+              이 리포트가 도움이 되셨나요? 같은 고민을 하는 동료 투자자나 자산가에게 전달해주세요.
             </p>
 
-            {/* 마일스톤 프로그레스 */}
-            <div className="space-y-2">
-              {[
-                { count: 1, reward: "📊 비공개 시장 분석 리포트", color: "#6ee7b7" },
-                { count: 3, reward: "📈 엑셀 수지분석기", color: "#fbbf24" },
-                { count: 5, reward: "🏢 비공개 딜 시트 열람권", color: "#818cf8" },
-                { count: 10, reward: "📞 브로커 1:1 자문 30분", color: "#f472b6" },
-              ].map((ms) => (
-                <div key={ms.count} className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full border flex items-center justify-center text-[8px] font-bold"
-                    style={{ borderColor: `${ms.color}50`, color: ms.color }}>
-                    {ms.count}
-                  </div>
-                  <span className="text-[10px] text-slate-400 flex-1">{ms.reward}</span>
-                </div>
-              ))}
+            {/* 소셜 프루프 카운터 */}
+            <div className="bg-black/30 border border-white/5 rounded-xl p-3 flex items-center gap-2.5">
+              <span className="text-base shrink-0">💡</span>
+              <p className="text-[11px] text-slate-300">
+                지금까지 이 매거진을 전달받아 구독을 시작한 투자자:{" "}
+                <span className="text-emerald-400 font-extrabold">{forwardedCount}명</span>
+              </p>
             </div>
 
-            {/* 공유 링크 */}
-            <div className="flex gap-2">
-              <input
-                readOnly
-                value={refLink}
-                className="flex-1 bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[10px] text-slate-400 truncate"
-              />
+            {/* 마일스톤 프로그레스 */}
+            <div className="space-y-1.5 pt-1">
+              <span className="text-[10px] font-bold text-slate-400">전달 참여 혜택</span>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { count: 1, reward: "비공개 시장 분석", color: "#6ee7b7" },
+                  { count: 3, reward: "엑셀 수지분석기", color: "#fbbf24" },
+                  { count: 5, reward: "비공개 딜 시트", color: "#818cf8" },
+                  { count: 10, reward: "1:1 전화 자문 30분", color: "#f472b6" },
+                ].map((ms) => (
+                  <div key={ms.count} className="flex items-center gap-1.5 bg-white/[0.03] border border-white/5 p-1.5 rounded-lg">
+                    <div className="w-4 h-4 rounded-full border flex items-center justify-center text-[7px] font-bold shrink-0"
+                      style={{ borderColor: `${ms.color}50`, color: ms.color }}>
+                      {ms.count}
+                    </div>
+                    <span className="text-[10px] text-slate-300 truncate">{ms.reward}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 전달 액션 버튼군 */}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={handleShare}
+                className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold text-[11px] rounded-xl flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-95"
+              >
+                <span>💬 카카오톡으로 전달하기</span>
+              </button>
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(refLink);
@@ -837,9 +976,9 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
                   trackInteraction('referral_copy');
                   setTimeout(() => setReferralCopied(false), 2000);
                 }}
-                className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold rounded-lg transition-colors shrink-0"
+                className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[11px] font-bold rounded-xl transition-colors shrink-0"
               >
-                {referralCopied ? "✓ 복사됨" : "링크 복사"}
+                {referralCopied ? "✓ 복사완료" : "링크 복사"}
               </button>
             </div>
           </div>
@@ -947,6 +1086,14 @@ export function MagazineView({ data, brokerId, date, brokerVibe }: MagazineViewP
       push("roi_calculator", renderRoiCalculator());
       push("referral", renderReferral());
     }
+
+    // ── Powered-by Dual Branding Badge ──
+    push(
+      "powered_by_badge",
+      <div className="pt-3">
+        <PoweredByBadge variant="full" context="magazine" brokerId={brokerId} />
+      </div>
+    );
 
     return sections;
   };

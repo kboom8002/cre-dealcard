@@ -2,10 +2,10 @@
   "posture": "income",
   "assetType": "근생빌딩",
   "areaSignal": "송파권역",
-  "askingPriceDisplay": "72억",
+  "askingPriceDisplay": "72억 원",
   "capRateBase": 2.82,
   "noiBaseBil": 2,
-  "keyInvestmentPoint": "송파권역 소재 근생빌딩, 희망가 72억 투자 검토 자료입니다.",
+  "keyInvestmentPoint": "송파권역 소재 근생빌딩, 희망가 72억 원 투자 검토 자료입니다.",
   "keyPoints": [
     "입지 가치: 송파권역 소재 자산으로 중장기 자산 가치 및 안정적 수요 검토",
     "임대 구조: 72억 수준의 가격대 및 현 임대차 기반의 현금흐름 분석",
@@ -21,13 +21,14 @@
   "zoning": "일반상업지역",
   "landPricePerPyeong": null,
   "devProfitMarginPct": null,
+  "devHoldYieldPct": null,
   "gopMarginPct": null,
   "adr": null,
   "occPct": null,
   "revpar": null,
   "ownVsLeaseSavingsBil": null,
   "breakevenYears": null,
-  "pricePerPyeong": 4760323,
+  "pricePerPyeong": 4760330,
   "marketDiscountPct": null,
   "targetHprPct": null
 }

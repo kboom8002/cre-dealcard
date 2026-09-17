@@ -1,0 +1,214 @@
+﻿--- a/src/domain/building/im-core/pro-financial-model.ts
++++ b/src/domain/building/im-core/pro-financial-model.ts
+@@ -639,6 +639,13 @@ export function generate2DSensitivityMatrix(
+   const modCf = generateMultiYearCashFlow({ ...baseInput, vacancyRatePct: modVacancy });
+   const sevCf = generateMultiYearCashFlow({ ...baseInput, vacancyRatePct: sevVacancy });
+ 
+   const baseY1Noi = baseCf.noi[0];
+ 
++  const calcNoiDeltaPct = (stressedNoi: number, baseNoi: number): number => {
++    const denom = Math.abs(baseNoi);
++    if (denom === 0) return 0.0;
++    const pct = Number((((stressedNoi - baseNoi) / denom) * 100).toFixed(2));
++    return Object.is(pct, -0) ? 0.0 : pct;
++  };
++
+   const vacancyStressScenarios: VacancyStressScenario[] = [
+     {
+       scenarioName: 'Base',
+@@ -653,7 +660,7 @@ export function generate2DSensitivityMatrix(
+       scenarioName: 'Moderate',
+       vacancyRatePct: modVacancy,
+       year1NoiKrw: modCf.noi[0],
+-      noiDeltaPct: Number((((modCf.noi[0] - baseY1Noi) / baseY1Noi) * 100).toFixed(2)),
++      noiDeltaPct: calcNoiDeltaPct(modCf.noi[0], baseY1Noi),
+       unleveredIrrPct: modCf.metrics.unleveredIrrPct,
+       leveredIrrPct: modCf.metrics.leveredIrrPct,
+       initialCapRatePct: modCf.metrics.initialCapRatePct,
+@@ -662,7 +669,7 @@ export function generate2DSensitivityMatrix(
+       scenarioName: 'Severe',
+       vacancyRatePct: sevVacancy,
+       year1NoiKrw: sevCf.noi[0],
+-      noiDeltaPct: Number((((sevCf.noi[0] - baseY1Noi) / baseY1Noi) * 100).toFixed(2)),
++      noiDeltaPct: calcNoiDeltaPct(sevCf.noi[0], baseY1Noi),
+       unleveredIrrPct: sevCf.metrics.unleveredIrrPct,
+       leveredIrrPct: sevCf.metrics.leveredIrrPct,
+       initialCapRatePct: sevCf.metrics.initialCapRatePct,
+@@ -877,15 +884,18 @@ export function validateProImFinancialConsistency(
+   const askingPriceDiff = Math.abs(
+     executiveSummary.askingPriceKrw - detailSchedule.cashFlowYear1.purchasePrice
+   );
+-  const askingPriceDiffPct =
+-    executiveSummary.askingPriceKrw > 0
+-      ? (askingPriceDiff / executiveSummary.askingPriceKrw) * 100
+-      : 0;
++  const askingPriceDenom = Math.abs(executiveSummary.askingPriceKrw);
++  const askingPriceDiffPct = askingPriceDenom > 0 ? (askingPriceDiff / askingPriceDenom) * 100 : 0;
++  const askingPricePassed =
++    askingPriceDiff <= 1 || (tolerancePct > 0 && askingPriceDiffPct <= tolerancePct);
+   checks.push({
+     checkName: 'Asking Price Consistency',
+     executiveValue: executiveSummary.askingPriceKrw,
+     detailValue: detailSchedule.cashFlowYear1.purchasePrice,
+     discrepancyKrwOrUnit: askingPriceDiff,
+     discrepancyPct: Number(askingPriceDiffPct.toFixed(4)),
+     tolerancePct,
+-    passed: askingPriceDiffPct <= tolerancePct && askingPriceDiff <= 1,
++    passed: askingPricePassed,
+     message:
+       askingPriceDiff <= 1
+         ? 'Executive Asking Price exactly matches Cash Flow Purchase Price.'
++        : askingPricePassed
++          ? Executive Asking Price matches Cash Flow Purchase Price within tolerance ( KRW, %).
+         : Discrepancy detected:  KRW (%),
+   });
+ 
+   // 2. Year 1 NOI Match
+   const noiDiff = Math.abs(
+     executiveSummary.year1NoiKrw - detailSchedule.cashFlowYear1.noi
+   );
+-  const noiDiffPct =
+-    executiveSummary.year1NoiKrw > 0 ? (noiDiff / executiveSummary.year1NoiKrw) * 100 : 0;
++  const noiDenom = Math.abs(executiveSummary.year1NoiKrw);
++  const noiDiffPct = noiDenom > 0 ? (noiDiff / noiDenom) * 100 : 0;
++  const noiPassed = noiDiff <= 1 || (tolerancePct > 0 && noiDiffPct <= tolerancePct);
+   checks.push({
+     checkName: 'Year 1 NOI Consistency',
+     executiveValue: executiveSummary.year1NoiKrw,
+     detailValue: detailSchedule.cashFlowYear1.noi,
+     discrepancyKrwOrUnit: noiDiff,
+     discrepancyPct: Number(noiDiffPct.toFixed(4)),
+     tolerancePct,
+-    passed: noiDiffPct <= tolerancePct && noiDiff <= 1,
++    passed: noiPassed,
+     message:
+       noiDiff <= 1
+         ? 'Executive Year 1 NOI exactly matches Cash Flow Schedule NOI.'
++        : noiPassed
++          ? Executive Year 1 NOI matches Cash Flow Schedule NOI within tolerance ( KRW, %).
+         : Discrepancy detected:  KRW (%),
+   });
+ 
+   // 3. Initial Cap Rate Consistency (within 0.01%p)
+-  const derivedCapRatePct = Number(
+-    (
+-      (detailSchedule.cashFlowYear1.noi / detailSchedule.cashFlowYear1.purchasePrice) *
+-      100
+-    ).toFixed(2)
+-  );
+-  const capRateDiffPp = Math.abs(executiveSummary.initialCapRatePct - derivedCapRatePct);
++  const purchasePrice = detailSchedule.cashFlowYear1.purchasePrice;
++  const derivedCapRatePct =
++    purchasePrice > 0
++      ? Number(((detailSchedule.cashFlowYear1.noi / purchasePrice) * 100).toFixed(2))
++      : 0.0;
++  const capRateDiffPp = Math.abs(executiveSummary.initialCapRatePct - derivedCapRatePct);
++  const safeCapRateDiff = Object.is(capRateDiffPp, -0) ? 0.0 : capRateDiffPp;
++  const capRatePassed = safeCapRateDiff <= 0.01;
+   checks.push({
+     checkName: 'Initial Cap Rate Formula Consistency',
+     executiveValue: executiveSummary.initialCapRatePct,
+     detailValue: derivedCapRatePct,
+-    discrepancyKrwOrUnit: Number(capRateDiffPp.toFixed(4)),
+-    discrepancyPct: Number(capRateDiffPp.toFixed(4)),
++    discrepancyKrwOrUnit: Number(safeCapRateDiff.toFixed(4)),
++    discrepancyPct: Number(safeCapRateDiff.toFixed(4)),
+     tolerancePct: 0.01,
+-    passed: capRateDiffPp <= 0.01,
++    passed: capRatePassed,
+     message:
+-      capRateDiffPp <= 0.01
++      capRatePassed
+         ? 'Executive Initial Cap Rate matches derived (NOI / Purchase Price) formula.'
+         : Cap rate mismatch: % vs %,
+   });
+ 
+   // 4. Total Rent Consistency: Tenant Roster Annual Rent vs Cash Flow Year 1 PGI
+   const rentDiff = Math.abs(
+     executiveSummary.totalAnnualRentKrw - detailSchedule.tenantRosterTotal.totalAnnualRent
+   );
+-  const rentDiffPct =
+-    executiveSummary.totalAnnualRentKrw > 0
+-      ? (rentDiff / executiveSummary.totalAnnualRentKrw) * 100
+-      : 0;
++  const rentDenom = Math.abs(executiveSummary.totalAnnualRentKrw);
++  const rentDiffPct = rentDenom > 0 ? (rentDiff / rentDenom) * 100 : 0;
++  const rentPassed = rentDiff <= 1 || (tolerancePct > 0 && rentDiffPct <= tolerancePct);
+   checks.push({
+     checkName: 'Tenant Roster vs Executive Total Rent Consistency',
+     executiveValue: executiveSummary.totalAnnualRentKrw,
+     detailValue: detailSchedule.tenantRosterTotal.totalAnnualRent,
+     discrepancyKrwOrUnit: rentDiff,
+     discrepancyPct: Number(rentDiffPct.toFixed(4)),
+     tolerancePct,
+-    passed: rentDiffPct <= tolerancePct && rentDiff <= 1,
++    passed: rentPassed,
+     message:
+       rentDiff <= 1
+         ? 'Executive Total Rent exactly matches Tenant Roster Annual Rent sum.'
++        : rentPassed
++          ? Executive Total Rent matches Tenant Roster Annual Rent sum within tolerance ( KRW, %).
+         : Rent mismatch:  KRW (%),
+   });
+ 
+   // 5. Total Deposit Consistency
+   const depositDiff = Math.abs(
+     executiveSummary.totalDepositKrw - detailSchedule.tenantRosterTotal.totalDeposit
+   );
+-  const depositDiffPct =
+-    executiveSummary.totalDepositKrw > 0
+-      ? (depositDiff / executiveSummary.totalDepositKrw) * 100
+-      : 0;
++  const depositDenom = Math.abs(executiveSummary.totalDepositKrw);
++  const depositDiffPct = depositDenom > 0 ? (depositDiff / depositDenom) * 100 : 0;
++  const depositPassed = depositDiff <= 1 || (tolerancePct > 0 && depositDiffPct <= tolerancePct);
+   checks.push({
+     checkName: 'Tenant Roster vs Executive Deposit Consistency',
+     executiveValue: executiveSummary.totalDepositKrw,
+     detailValue: detailSchedule.tenantRosterTotal.totalDeposit,
+     discrepancyKrwOrUnit: depositDiff,
+     discrepancyPct: Number(depositDiffPct.toFixed(4)),
+     tolerancePct,
+-    passed: depositDiffPct <= tolerancePct && depositDiff <= 1,
++    passed: depositPassed,
+     message:
+       depositDiff <= 1
+         ? 'Executive Deposit exactly matches Tenant Roster Deposit sum.'
++        : depositPassed
++          ? Executive Deposit matches Tenant Roster Deposit sum within tolerance ( KRW, %).
+         : Deposit mismatch:  KRW (%),
+   });
+ 
+   // 6. Optional: Development Budget Consistency
+   if (
+     executiveSummary.totalDevelopmentCostKrw !== undefined &&
+     detailSchedule.developmentBudgetTotalKrw !== undefined
+   ) {
+     const devDiff = Math.abs(
+       executiveSummary.totalDevelopmentCostKrw -
+         detailSchedule.developmentBudgetTotalKrw
+     );
+-    const devDiffPct =
+-      executiveSummary.totalDevelopmentCostKrw > 0
+-        ? (devDiff / executiveSummary.totalDevelopmentCostKrw) * 100
+-        : 0;
++    const devDenom = Math.abs(executiveSummary.totalDevelopmentCostKrw);
++    const devDiffPct = devDenom > 0 ? (devDiff / devDenom) * 100 : 0;
++    const devPassed = devDiff <= 1 || (tolerancePct > 0 && devDiffPct <= tolerancePct);
+     checks.push({
+       checkName: 'Development Feasibility Budget Total Consistency',
+       executiveValue: executiveSummary.totalDevelopmentCostKrw,
+       detailValue: detailSchedule.developmentBudgetTotalKrw,
+       discrepancyKrwOrUnit: devDiff,
+       discrepancyPct: Number(devDiffPct.toFixed(4)),
+       tolerancePct,
+-      passed: devDiffPct <= tolerancePct && devDiff <= 1,
++      passed: devPassed,
+       message:
+         devDiff <= 1
+           ? 'Executive Development Cost matches detailed 5-tier budget total.'
++          : devPassed
++            ? Executive Development Cost matches detailed 5-tier budget total within tolerance ( KRW, %).
+           : Development cost mismatch:  KRW,
+     });
+   }

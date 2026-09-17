@@ -1,7 +1,7 @@
 {
-  "equityRequired": 95,
+  "equityRequired": 38,
   "totalDepositBil": null,
-  "loanAmountBil": null,
+  "loanAmountBil": 57,
   "leveragedYield": null,
   "wacc": null
 }

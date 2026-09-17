@@ -19,6 +19,7 @@ import {
   FloatingActionBar,
   ShareButton,
 } from "./components";
+import { PoweredByBadge } from "@/components/ui/PoweredByBadge";
 
 interface Props {
   document: MobileIMDocument | null;
@@ -658,6 +659,9 @@ export function MobileIMViewer({
             </Link>
           </div>
         </div>
+
+        {/* ── Powered-by Dual Branding Badge ── */}
+        <PoweredByBadge variant="full" context="im" buildingId={buildingId} />
 
         {/* ── Disclaimer ── */}
         <div className="rounded-xl bg-neutral-900/50 border border-neutral-800/50 p-4 mb-4">

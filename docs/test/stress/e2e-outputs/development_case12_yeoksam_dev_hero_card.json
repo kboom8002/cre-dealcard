@@ -2,14 +2,14 @@
   "posture": "development",
   "assetType": "신축부지",
   "areaSignal": "강남권역",
-  "askingPriceDisplay": "210억",
+  "askingPriceDisplay": "210억 원",
   "capRateBase": null,
   "noiBaseBil": null,
-  "keyInvestmentPoint": "강남권역 소재 신축부지, 희망가 210억 투자 검토 자료입니다.",
+  "keyInvestmentPoint": "강남권역 소재 신축부지, 희망가 210억 원 — 개발 사업 타당성 검토 자료입니다.",
   "keyPoints": [
-    "입지 가치: 강남권역 소재 자산으로 중장기 자산 가치 및 안정적 수요 검토",
-    "임대 구조: 210억 수준의 가격대 및 현 임대차 기반의 현금흐름 분석",
-    "실사 점검: 계약서 및 공부 확인을 통한 권리관계·물리적 상태 정밀 진단"
+    "개발 입지: 강남권역 소재 토지로 용적률 잔여 및 개발 가능성 검토",
+    "사업 수지: 210억 수준의 토지비 기반 개발 사업 수익성 분석",
+    "인허가: 도시계획·용도지역·건폐율 등 공법 여건 사전 점검"
   ],
   "keyRisk": "공실률 미확인, 등기·건축물대장 현장 실사 필요. 투자 결정 전 반드시 직접 검증하시기 바랍니다.",
   "equityRequiredBil": 210,
@@ -21,13 +21,14 @@
   "zoning": "일반상업지역",
   "landPricePerPyeong": 6942,
   "devProfitMarginPct": 215.3,
+  "devHoldYieldPct": null,
   "gopMarginPct": null,
   "adr": null,
   "occPct": null,
   "revpar": null,
   "ownVsLeaseSavingsBil": null,
   "breakevenYears": null,
-  "pricePerPyeong": 13884276,
+  "pricePerPyeong": 13884297,
   "marketDiscountPct": null,
   "targetHprPct": null
 }

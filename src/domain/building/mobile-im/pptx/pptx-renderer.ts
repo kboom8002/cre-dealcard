@@ -8,7 +8,7 @@
 import PptxGenJS from 'pptxgenjs';
 import { getPptxTheme, getPptxThemeAsync, DEFAULT_PPTX_PRESET, type PptxThemeTokens, type ThemePresetDbReader } from './pptx-theme';
 import { SLIDE_ARCHETYPE_REGISTRY, type ArchetypeInput } from './archetypes';
-import { buildDeckSequence, type DeckSequenceInput, type SlideSpec, type IncomeArchetype } from './deck-sequencer';
+import { buildDeckSequence, buildProDeckSequence, type DeckSequenceInput, type SlideSpec, type IncomeArchetype } from './deck-sequencer';
 import { bindSectionData } from './data-binder';
 import { validateTextBudgets } from './text-budget';
 import type { ProvenanceKind } from './imlib';
@@ -77,6 +77,9 @@ export interface MobileImPptxInput {
   /** D37 C-3: 5종 발행 등급 */
   releaseTier?: import('../../im-core/release-tier').ReleaseTier;
   core?: any;
+  /** Pro IM 발행 모드 (30+ 슬라이드, 5대 핵심 챕터) */
+  isPro?: boolean;
+  proMode?: boolean;
 }
 
 export interface MobileImPptxOutput {
@@ -175,9 +178,13 @@ export class MobileImPptxRenderer {
         releaseTier: input.releaseTier,
         // Basic IM 전용 슬라이드 편성 (A23 산식 등)
         preset: theme.presetId,
+        isPro: input.isPro || input.proMode || (input.releaseTier as string) === 'pro',
       };
 
-      const sequence: SlideSpec[] = buildDeckSequence(sequenceInput);
+      const isProDeck = input.isPro || input.proMode || input.preset === 'credeal_pro' || (input.releaseTier as string) === 'pro';
+      const sequence: SlideSpec[] = isProDeck
+        ? buildProDeckSequence(sequenceInput)
+        : buildDeckSequence(sequenceInput);
 
       if (sequence.length === 0) {
         throw new Error('덱 시퀀스가 비어 있습니다. posture/grade 설정을 확인하세요.');
@@ -631,11 +638,13 @@ export class MobileImPptxRenderer {
         if (spec.suppress) continue;
 
         const slideData = dataMap[spec.dataKey];
-        const isStaticSlide = ['cover', 'closing', 'gallery', 'summary', 'yieldFormula', 'stackingPlan'].includes(spec.dataKey)
+        const isStaticSlide = ['cover', 'closing', 'gallery', 'summary', 'yieldFormula', 'stackingPlan', 'agenda'].includes(spec.dataKey)
           || spec.dataKey.startsWith('gallery_')
+          || spec.dataKey.includes('divider')
           || spec.archetype === 'A14'
           || spec.archetype === 'A22'
-          || spec.archetype === 'A23';
+          || spec.archetype === 'A23'
+          || spec.archetype === 'A25';
         const hasContent = slideData && (
           (slideData.content && slideData.content.trim().length > 0) ||
           (slideData.tables && slideData.tables.length > 0) ||
@@ -646,6 +655,7 @@ export class MobileImPptxRenderer {
           ((slideData.right?.stats?.length ?? 0) > 0 || (slideData.right?.callouts?.length ?? 0) > 0 || (slideData.right?.rows?.length ?? 0) > 0) ||
           ((slideData.blocks?.length ?? 0) > 0) ||
           ((slideData.table1?.rows?.length ?? 0) > 0) ||
+          ((slideData.tableRows?.length ?? 0) > 0) ||
           ((slideData.steps?.length ?? 0) > 0) ||
           // D38: 고도화 아키타입 전수 콘텐츠 검사 가드 (Silent Drop 방지)
           (slideData.stackingPlan && slideData.stackingPlan.length > 0) ||
@@ -658,6 +668,8 @@ export class MobileImPptxRenderer {
           ((slideData.roomTypes?.length ?? 0) > 0) ||
           ((slideData.checkItems?.length ?? 0) > 0) ||
           ((slideData.pillars?.length ?? 0) > 0) ||
+          ((slideData.agendaItems?.length ?? 0) > 0) ||
+          (slideData.romanNumeral != null) ||
           (slideData.mapImageUrl != null || slideData.coordinates != null || slideData.cadastralImage != null) ||
           (Boolean(slideData.markdown && slideData.markdown.trim().length > 0))
         );
@@ -823,6 +835,17 @@ export class MobileImPptxRenderer {
           (error instanceof Error ? error.message : String(error))
       );
     }
+    });
+  }
+
+  /**
+   * Renders an institutional Pro IM deck (30+ slides across 5 core chapters).
+   */
+  async renderPro(input: MobileImPptxInput): Promise<MobileImPptxOutput> {
+    return this.render({
+      ...input,
+      isPro: true,
+      preset: input.preset || 'credeal_pro',
     });
   }
 }

@@ -1,19 +1,23 @@
 {
   "im_type": "mobile_im_lite",
   "tier": "basic",
-  "releaseTier": "internal_only",
+  "preset": "credeal_basic",
+  "releaseTier": "analysis_im",
   "investmentPosture": "income",
+  "askingPrice": 32000000000,
+  "asking_price_manwon": 3200000,
+  "resolved_address": "경기도 성남시 분당구 수내동 12-4",
   "heroTitle": "분당권역 office_building 매각",
-  "heroSubtitle": "분당권역 소재, office_building, 매각 희망가 320억. {\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역",
+  "heroSubtitle": "분당권역 소재, office_building, 매각 희망가 320억. {\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"수",
   "ogTitle": "분당권역 office_building 매각",
   "ogDescription": "분당권역 · office_building · 320억 · {\"ok\":true,\"mocked\":true,\"extractedField",
-  "keyInvestmentPoint": "분당권역 소재, office_building, 매각 희망가 320억. {\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역",
+  "keyInvestmentPoint": "분당권역 소재, office_building, 매각 희망가 320억. {\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"수",
   "sections": [
     {
       "section_type": "property_overview",
       "section_order": 1,
       "title": "이 오피스, 어떤 자산인가",
-      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역삼\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"300억\",\"size_signal\":\"3000평(약 9917.4㎡)\"},\"extractedFacts\":{\"region\":\"역삼\",\"exactAddressCandidate\":\"역삼동 742-1\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"300억\",\"sizeText\":\"3000평(약 9917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[\"쿠팡\",\"네이버\"],\"unitRentTexts\":[\"301호: 1500만\"],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 도보 3분 이내 매물\"]},\"detectedSensitiveFields\":[\"exact_address\",\"tenant_name\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"역삼\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"300억\",\"sizeSignal\":\"3000평(약 9917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"역삼 [건물명 비공개]\",\"exactAddress\":\"역삼동 742-1\",\"totalFloorArea\":9917.3,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"역세권 도보 3분 이내 근생 빌딩으로 시행/사옥 매입에 최적화\",\"cautionSummary\":\"주요 임차인 만기 조율 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"ai_hypothesis\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[\"sizeSignal\"],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":50,\"max\":80,\"display\":\"50억~80억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(50-80억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"강남 역삼역 역세권 도보 3분 이내 오피스 사옥용 빌딩 매각\",\"shortSummary\":\"역삼역 도보 5분 거리의 준신축급 대형 [건물명 비공개]입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"사옥 최적\"],\"cautionPoints\":[\"명도 조율 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"강남 역삼역 오피스 빌딩 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
+      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"수내\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"320억\",\"size_signal\":\"580평(약 1917.4㎡)\"},\"extractedFacts\":{\"region\":\"수내\",\"exactAddressCandidate\":\"해당 권역\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"320억\",\"sizeText\":\"580평(약 1917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[],\"unitRentTexts\":[],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 매물\"]},\"detectedSensitiveFields\":[\"exact_address\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"수내\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"320억\",\"sizeSignal\":\"580평(약 1917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"[건물명 비공개]\",\"exactAddress\":\"분당구 수내동 12-4\",\"totalFloorArea\":1917.364,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"수내 권역 입지의 [건물명 비공개] 매각 물건\",\"cautionSummary\":\"권리관계 및 현장 실사 확인 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"confirmed\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":70,\"max\":70,\"display\":\"320억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(320억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"수내 역세권 도보 3분 이내 [건물명 비공개] 매각\",\"shortSummary\":\"수내역 도보 거리의 우량 [건물명 비공개] 매물입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"개발 및 사옥 최적\"],\"cautionPoints\":[\"권리관계 확인 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"수내 [건물명 비공개] 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
       "confidence": "confirmed",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [
@@ -23,7 +27,7 @@
           "source": "public_data",
           "sourceDetail": "국토교통부 건축물대장 API",
           "confidence": "confirmed",
-          "lastVerifiedAt": "2026-09-06T13:36:59.916Z"
+          "lastVerifiedAt": "2026-09-17T08:53:36.658Z"
         },
         {
           "fieldKey": "plat_area",
@@ -31,7 +35,7 @@
           "source": "public_data",
           "sourceDetail": "국토교통부 건축물대장 API",
           "confidence": "confirmed",
-          "lastVerifiedAt": "2026-09-06T13:36:59.916Z"
+          "lastVerifiedAt": "2026-09-17T08:53:36.658Z"
         }
       ],
       "min_tier": "public"
@@ -40,7 +44,7 @@
       "section_type": "investment_thesis",
       "section_order": 2,
       "title": "왜 지금 이 오피스을 사야 하는가",
-      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역삼\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"300억\",\"size_signal\":\"3000평(약 9917.4㎡)\"},\"extractedFacts\":{\"region\":\"역삼\",\"exactAddressCandidate\":\"역삼동 742-1\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"300억\",\"sizeText\":\"3000평(약 9917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[\"쿠팡\",\"네이버\"],\"unitRentTexts\":[\"301호: 1500만\"],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 도보 3분 이내 매물\"]},\"detectedSensitiveFields\":[\"exact_address\",\"tenant_name\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"역삼\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"300억\",\"sizeSignal\":\"3000평(약 9917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"역삼 [건물명 비공개]\",\"exactAddress\":\"역삼동 742-1\",\"totalFloorArea\":9917.3,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"역세권 도보 3분 이내 근생 빌딩으로 시행/사옥 매입에 최적화\",\"cautionSummary\":\"주요 임차인 만기 조율 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"ai_hypothesis\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[\"sizeSignal\"],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":50,\"max\":80,\"display\":\"50억~80억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(50-80억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"강남 역삼역 역세권 도보 3분 이내 오피스 사옥용 빌딩 매각\",\"shortSummary\":\"역삼역 도보 5분 거리의 준신축급 대형 [건물명 비공개]입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"사옥 최적\"],\"cautionPoints\":[\"명도 조율 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"강남 역삼역 오피스 빌딩 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"} ### 밸류업 시나리오 (AI 추정)\n| 시나리오 | NOI 개선 | 개선 Cap Rate | 투자 비용 |\n|---------|---------|-------------|--------|\n| ② 임대료 현실화 (+5%) | +약 0.65억 원 (+5%) | 4.28% | 불필요 |\n| ③ 리모델링 후 임대료 상승 | +약 1.04억 원 (+8%) | 4.41% | 약 15.00억 원 | > 밸류업 시나리오는 AI 추정이며 실제 시장 조건에 따라 다를 수 있습니다.",
+      "markdown": "### 핵심 투자 포인트 및 자산 개요\n본 자산은 부 권역 중심에 위치한 우량 [건물명 비공개]입니다. 1. **입지 가치 및 접근성**: 대중교통 및 주요 간선도로와의 우수한 연계성을 갖추고 있어 풍부한 유동인구와 배후 임대 수요를 확보하고 있습니다.\n2. **안정적인 자산 가치**: 320억 수준의 합리적인 매각가와 580평(약 1917.4㎡) 규모의 건물 물리 스펙을 기반으로 안정적인 운영이 가능합니다.\n3. **향후 밸류애드 잠재력**: 체계적인 임대 관리 및 자산 효율화를 통해 향후 중장기적인 자산 가치 상승을 기대할 수 있습니다. ### 밸류업 시나리오 (AI 추정)\n| 시나리오 | NOI 개선 | 개선 Cap Rate | 투자 비용 |\n|---------|---------|-------------|--------|\n| ② 임대료 현실화 (+5%) | +약 0.65억 원 (+5%) | 4.28% | 불필요 |\n| ③ 리모델링 후 임대료 상승 | +약 1.04억 원 (+8%) | 4.41% | 약 15.00억 원 | > 밸류업 시나리오는 AI 추정이며 실제 시장 조건에 따라 다를 수 있습니다.",
       "confidence": "inferred",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [],
@@ -50,7 +54,7 @@
       "section_type": "location_access",
       "section_order": 3,
       "title": "이 입지, 투자할 만한 곳인가",
-      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역삼\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"300억\",\"size_signal\":\"3000평(약 9917.4㎡)\"},\"extractedFacts\":{\"region\":\"역삼\",\"exactAddressCandidate\":\"역삼동 742-1\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"300억\",\"sizeText\":\"3000평(약 9917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[\"쿠팡\",\"네이버\"],\"unitRentTexts\":[\"301호: 1500만\"],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 도보 3분 이내 매물\"]},\"detectedSensitiveFields\":[\"exact_address\",\"tenant_name\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"역삼\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"300억\",\"sizeSignal\":\"3000평(약 9917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"역삼 [건물명 비공개]\",\"exactAddress\":\"역삼동 742-1\",\"totalFloorArea\":9917.3,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"역세권 도보 3분 이내 근생 빌딩으로 시행/사옥 매입에 최적화\",\"cautionSummary\":\"주요 임차인 만기 조율 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"ai_hypothesis\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[\"sizeSignal\"],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":50,\"max\":80,\"display\":\"50억~80억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(50-80억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"강남 역삼역 역세권 도보 3분 이내 오피스 사옥용 빌딩 매각\",\"shortSummary\":\"역삼역 도보 5분 거리의 준신축급 대형 [건물명 비공개]입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"사옥 최적\"],\"cautionPoints\":[\"명도 조율 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"강남 역삼역 오피스 빌딩 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
+      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"유\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"320억\",\"size_signal\":\"580평(약 1917.4㎡)\"},\"extractedFacts\":{\"region\":\"유\",\"exactAddressCandidate\":\"해당 권역\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"320억\",\"sizeText\":\"580평(약 1917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[],\"unitRentTexts\":[],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 매물\"]},\"detectedSensitiveFields\":[\"exact_address\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"유\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"320억\",\"sizeSignal\":\"580평(약 1917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"[건물명 비공개]\",\"exactAddress\":\"분당구 수내동 12-4\",\"totalFloorArea\":1917.364,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"유 권역 입지의 [건물명 비공개] 매각 물건\",\"cautionSummary\":\"권리관계 및 현장 실사 확인 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"confirmed\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":70,\"max\":70,\"display\":\"320억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(320억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"유 역세권 도보 3분 이내 [건물명 비공개] 매각\",\"shortSummary\":\"유역 도보 거리의 우량 [건물명 비공개] 매물입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"개발 및 사옥 최적\"],\"cautionPoints\":[\"권리관계 확인 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"유 [건물명 비공개] 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
       "confidence": "inferred",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [],
@@ -60,27 +64,29 @@
       "section_type": "title_rights",
       "section_order": 4,
       "title": "등기부 권리관계와 소유 구조는 어떠한가",
-      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역삼\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"300억\",\"size_signal\":\"3000평(약 9917.4㎡)\"},\"extractedFacts\":{\"region\":\"역삼\",\"exactAddressCandidate\":\"역삼동 742-1\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"300억\",\"sizeText\":\"3000평(약 9917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[\"쿠팡\",\"네이버\"],\"unitRentTexts\":[\"301호: 1500만\"],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 도보 3분 이내 매물\"]},\"detectedSensitiveFields\":[\"exact_address\",\"tenant_name\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"역삼\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"300억\",\"sizeSignal\":\"3000평(약 9917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"역삼 [건물명 비공개]\",\"exactAddress\":\"역삼동 742-1\",\"totalFloorArea\":9917.3,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"역세권 도보 3분 이내 근생 빌딩으로 시행/사옥 매입에 최적화\",\"cautionSummary\":\"주요 임차인 만기 조율 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"ai_hypothesis\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[\"sizeSignal\"],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":50,\"max\":80,\"display\":\"50억~80억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(50-80억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"강남 역삼역 역세권 도보 3분 이내 오피스 사옥용 빌딩 매각\",\"shortSummary\":\"역삼역 도보 5분 거리의 준신축급 대형 [건물명 비공개]입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"사옥 최적\"],\"cautionPoints\":[\"명도 조율 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"강남 역삼역 오피스 빌딩 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
+      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"수내\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"320억\",\"size_signal\":\"580평(약 1917.4㎡)\"},\"extractedFacts\":{\"region\":\"수내\",\"exactAddressCandidate\":\"해당 권역\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"320억\",\"sizeText\":\"580평(약 1917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[],\"unitRentTexts\":[],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 매물\"]},\"detectedSensitiveFields\":[\"exact_address\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"수내\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"320억\",\"sizeSignal\":\"580평(약 1917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"[건물명 비공개]\",\"exactAddress\":\"분당구 수내동 12-4\",\"totalFloorArea\":1917.364,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"수내 권역 입지의 [건물명 비공개] 매각 물건\",\"cautionSummary\":\"권리관계 및 현장 실사 확인 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"confirmed\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":70,\"max\":70,\"display\":\"320억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(320억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"수내 역세권 도보 3분 이내 [건물명 비공개] 매각\",\"shortSummary\":\"수내역 도보 거리의 우량 [건물명 비공개] 매물입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"개발 및 사옥 최적\"],\"cautionPoints\":[\"권리관계 확인 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"수내 [건물명 비공개] 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
       "confidence": "inferred",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [],
+      "judge_score": 5,
       "min_tier": "public"
     },
     {
       "section_type": "land_detail",
       "section_order": 5,
       "title": "토지 현황과 이용 조건은 어떠한가",
-      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역삼\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"300억\",\"size_signal\":\"3000평(약 9917.4㎡)\"},\"extractedFacts\":{\"region\":\"역삼\",\"exactAddressCandidate\":\"역삼동 742-1\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"300억\",\"sizeText\":\"3000평(약 9917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[\"쿠팡\",\"네이버\"],\"unitRentTexts\":[\"301호: 1500만\"],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 도보 3분 이내 매물\"]},\"detectedSensitiveFields\":[\"exact_address\",\"tenant_name\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"역삼\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"300억\",\"sizeSignal\":\"3000평(약 9917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"역삼 [건물명 비공개]\",\"exactAddress\":\"역삼동 742-1\",\"totalFloorArea\":9917.3,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"역세권 도보 3분 이내 근생 빌딩으로 시행/사옥 매입에 최적화\",\"cautionSummary\":\"주요 임차인 만기 조율 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"ai_hypothesis\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[\"sizeSignal\"],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":50,\"max\":80,\"display\":\"50억~80억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(50-80억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"강남 역삼역 역세권 도보 3분 이내 오피스 사옥용 빌딩 매각\",\"shortSummary\":\"역삼역 도보 5분 거리의 준신축급 대형 [건물명 비공개]입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"사옥 최적\"],\"cautionPoints\":[\"명도 조율 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"강남 역삼역 오피스 빌딩 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
+      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"수내\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"320억\",\"size_signal\":\"580평(약 1917.4㎡)\"},\"extractedFacts\":{\"region\":\"수내\",\"exactAddressCandidate\":\"해당 권역\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"320억\",\"sizeText\":\"580평(약 1917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"공실\",\"vacancySignal\":\"공실 발생\",\"tenantNames\":[],\"unitRentTexts\":[],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 매물\"]},\"detectedSensitiveFields\":[\"exact_address\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"수내\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"320억\",\"sizeSignal\":\"580평(약 1917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"[건물명 비공개]\",\"exactAddress\":\"분당구 수내동 12-4\",\"totalFloorArea\":1917.364,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 발생\",\"fitSummary\":\"수내 권역 입지의 [건물명 비공개] 매각 물건\",\"cautionSummary\":\"권리관계 및 현장 실사 확인 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"confirmed\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":70,\"max\":70,\"display\":\"320억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(320억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"수내 역세권 도보 3분 이내 [건물명 비공개] 매각\",\"shortSummary\":\"수내역 도보 거리의 우량 [건물명 비공개] 매물입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"개발 및 사옥 최적\"],\"cautionPoints\":[\"권리관계 확인 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"수내 [건물명 비공개] 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
       "confidence": "inferred",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [],
+      "judge_score": 5,
       "min_tier": "public"
     },
     {
       "section_type": "lease_status",
       "section_order": 6,
       "title": "임대 현황과 공실은 실제로 어떤가",
-      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역삼\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"300억\",\"size_signal\":\"3000평(약 9917.4㎡)\"},\"extractedFacts\":{\"region\":\"역삼\",\"exactAddressCandidate\":\"역삼동 742-1\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"300억\",\"sizeText\":\"3000평(약 9917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[\"쿠팡\",\"네이버\"],\"unitRentTexts\":[\"301호: 1500만\"],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 도보 3분 이내 매물\"]},\"detectedSensitiveFields\":[\"exact_address\",\"tenant_name\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"역삼\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"300억\",\"sizeSignal\":\"3000평(약 9917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"역삼 [건물명 비공개]\",\"exactAddress\":\"역삼동 742-1\",\"totalFloorArea\":9917.3,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"역세권 도보 3분 이내 근생 빌딩으로 시행/사옥 매입에 최적화\",\"cautionSummary\":\"주요 임차인 만기 조율 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"ai_hypothesis\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[\"sizeSignal\"],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":50,\"max\":80,\"display\":\"50억~80억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(50-80억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"강남 역삼역 역세권 도보 3분 이내 오피스 사옥용 빌딩 매각\",\"shortSummary\":\"역삼역 도보 5분 거리의 준신축급 대형 [건물명 비공개]입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"사옥 최적\"],\"cautionPoints\":[\"명도 조율 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"강남 역삼역 오피스 빌딩 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
+      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"수내\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"320억\",\"size_signal\":\"580평(약 1917.4㎡)\"},\"extractedFacts\":{\"region\":\"수내\",\"exactAddressCandidate\":\"해당 권역\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"320억\",\"sizeText\":\"580평(약 1917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"공실\",\"vacancySignal\":\"공실 발생\",\"tenantNames\":[],\"unitRentTexts\":[],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 매물\"]},\"detectedSensitiveFields\":[\"exact_address\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"수내\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"320억\",\"sizeSignal\":\"580평(약 1917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"[건물명 비공개]\",\"exactAddress\":\"분당구 수내동 12-4\",\"totalFloorArea\":1917.364,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 발생\",\"fitSummary\":\"수내 권역 입지의 [건물명 비공개] 매각 물건\",\"cautionSummary\":\"권리관계 및 현장 실사 확인 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"confirmed\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":70,\"max\":70,\"display\":\"320억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(320억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"수내 역세권 도보 3분 이내 [건물명 비공개] 매각\",\"shortSummary\":\"수내역 도보 거리의 우량 [건물명 비공개] 매물입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"개발 및 사옥 최적\"],\"cautionPoints\":[\"권리관계 확인 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"수내 [건물명 비공개] 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
       "confidence": "needs_check",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [
@@ -90,7 +96,7 @@
           "source": "broker_input",
           "sourceDetail": "브로커 제공 실제 임대 정보",
           "confidence": "confirmed",
-          "lastVerifiedAt": "2026-09-06T13:36:59.916Z"
+          "lastVerifiedAt": "2026-09-17T08:53:36.658Z"
         },
         {
           "fieldKey": "vacancy_rate",
@@ -98,26 +104,28 @@
           "source": "ai_inferred",
           "sourceDetail": "기본값 추론",
           "confidence": "needs_check",
-          "lastVerifiedAt": "2026-09-06T13:36:59.916Z"
+          "lastVerifiedAt": "2026-09-17T08:53:36.658Z"
         }
       ],
+      "judge_score": 5,
       "min_tier": "public"
     },
     {
       "section_type": "income_analysis",
       "section_order": 7,
       "title": "내 돈 넣으면 수익이 나오는 딜인가",
-      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역삼\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"300억\",\"size_signal\":\"3000평(약 9917.4㎡)\"},\"extractedFacts\":{\"region\":\"역삼\",\"exactAddressCandidate\":\"역삼동 742-1\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"300억\",\"sizeText\":\"3000평(약 9917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[\"쿠팡\",\"네이버\"],\"unitRentTexts\":[\"301호: 1500만\"],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 도보 3분 이내 매물\"]},\"detectedSensitiveFields\":[\"exact_address\",\"tenant_name\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"역삼\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"300억\",\"sizeSignal\":\"3000평(약 9917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"역삼 [건물명 비공개]\",\"exactAddress\":\"역삼동 742-1\",\"totalFloorArea\":9917.3,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"역세권 도보 3분 이내 근생 빌딩으로 시행/사옥 매입에 최적화\",\"cautionSummary\":\"주요 임차인 만기 조율 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"ai_hypothesis\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[\"sizeSignal\"],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":50,\"max\":80,\"display\":\"50억~80억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(50-80억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"강남 역삼역 역세권 도보 3분 이내 오피스 사옥용 빌딩 매각\",\"shortSummary\":\"역삼역 도보 5분 거리의 준신축급 대형 [건물명 비공개]입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"사옥 최적\"],\"cautionPoints\":[\"명도 조율 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"강남 역삼역 오피스 빌딩 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
+      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"수내\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"320억\",\"size_signal\":\"580평(약 1917.4㎡)\"},\"extractedFacts\":{\"region\":\"수내\",\"exactAddressCandidate\":\"해당 권역\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"320억\",\"sizeText\":\"580평(약 1917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"공실\",\"vacancySignal\":\"공실 발생\",\"tenantNames\":[],\"unitRentTexts\":[],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 매물\"]},\"detectedSensitiveFields\":[\"exact_address\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"수내\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"320억\",\"sizeSignal\":\"580평(약 1917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"[건물명 비공개]\",\"exactAddress\":\"분당구 수내동 12-4\",\"totalFloorArea\":1917.364,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 발생\",\"fitSummary\":\"수내 권역 입지의 [건물명 비공개] 매각 물건\",\"cautionSummary\":\"권리관계 및 현장 실사 확인 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"confirmed\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":70,\"max\":70,\"display\":\"320억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(320억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"수내 역세권 도보 3분 이내 [건물명 비공개] 매각\",\"shortSummary\":\"수내역 도보 거리의 우량 [건물명 비공개] 매물입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"개발 및 사옥 최적\"],\"cautionPoints\":[\"권리관계 확인 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"수내 [건물명 비공개] 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
       "confidence": "inferred",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [],
+      "judge_score": 5,
       "min_tier": "public"
     },
     {
       "section_type": "risk_check",
       "section_order": 8,
       "title": "리스크는 무엇이고 대응책은 있는가",
-      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역삼\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"300억\",\"size_signal\":\"3000평(약 9917.4㎡)\"},\"extractedFacts\":{\"region\":\"역삼\",\"exactAddressCandidate\":\"역삼동 742-1\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"300억\",\"sizeText\":\"3000평(약 9917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[\"쿠팡\",\"네이버\"],\"unitRentTexts\":[\"301호: 1500만\"],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 도보 3분 이내 매물\"]},\"detectedSensitiveFields\":[\"exact_address\",\"tenant_name\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"역삼\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"300억\",\"sizeSignal\":\"3000평(약 9917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"역삼 [건물명 비공개]\",\"exactAddress\":\"역삼동 742-1\",\"totalFloorArea\":9917.3,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"역세권 도보 3분 이내 근생 빌딩으로 시행/사옥 매입에 최적화\",\"cautionSummary\":\"주요 임차인 만기 조율 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"ai_hypothesis\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[\"sizeSignal\"],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":50,\"max\":80,\"display\":\"50억~80억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(50-80억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"강남 역삼역 역세권 도보 3분 이내 오피스 사옥용 빌딩 매각\",\"shortSummary\":\"역삼역 도보 5분 거리의 준신축급 대형 [건물명 비공개]입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"사옥 최적\"],\"cautionPoints\":[\"명도 조율 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"강남 역삼역 오피스 빌딩 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
+      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"수내\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"320억\",\"size_signal\":\"580평(약 1917.4㎡)\"},\"extractedFacts\":{\"region\":\"수내\",\"exactAddressCandidate\":\"해당 권역\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"320억\",\"sizeText\":\"580평(약 1917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[],\"unitRentTexts\":[],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 매물\"]},\"detectedSensitiveFields\":[\"exact_address\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"수내\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"320억\",\"sizeSignal\":\"580평(약 1917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"[건물명 비공개]\",\"exactAddress\":\"분당구 수내동 12-4\",\"totalFloorArea\":1917.364,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"수내 권역 입지의 [건물명 비공개] 매각 물건\",\"cautionSummary\":\"권리관계 및 현장 실사 확인 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"confirmed\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":70,\"max\":70,\"display\":\"320억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(320억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"수내 역세권 도보 3분 이내 [건물명 비공개] 매각\",\"shortSummary\":\"수내역 도보 거리의 우량 [건물명 비공개] 매물입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"개발 및 사옥 최적\"],\"cautionPoints\":[\"권리관계 확인 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"수내 [건물명 비공개] 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
       "confidence": "confirmed",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [
@@ -127,7 +135,7 @@
           "source": "public_data",
           "sourceDetail": "토지이용규제정보서비스(LURIS) API",
           "confidence": "confirmed",
-          "lastVerifiedAt": "2026-09-06T13:36:59.916Z"
+          "lastVerifiedAt": "2026-09-17T08:53:36.658Z"
         }
       ],
       "min_tier": "public"
@@ -136,43 +144,41 @@
       "section_type": "next_steps",
       "section_order": 9,
       "title": "검토 후 다음 단계는 무엇인가",
-      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역삼\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"300억\",\"size_signal\":\"3000평(약 9917.4㎡)\"},\"extractedFacts\":{\"region\":\"역삼\",\"exactAddressCandidate\":\"역삼동 742-1\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"300억\",\"sizeText\":\"3000평(약 9917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[\"쿠팡\",\"네이버\"],\"unitRentTexts\":[\"301호: 1500만\"],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 도보 3분 이내 매물\"]},\"detectedSensitiveFields\":[\"exact_address\",\"tenant_name\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"역삼\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"300억\",\"sizeSignal\":\"3000평(약 9917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"역삼 [건물명 비공개]\",\"exactAddress\":\"역삼동 742-1\",\"totalFloorArea\":9917.3,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"역세권 도보 3분 이내 근생 빌딩으로 시행/사옥 매입에 최적화\",\"cautionSummary\":\"주요 임차인 만기 조율 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"ai_hypothesis\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[\"sizeSignal\"],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":50,\"max\":80,\"display\":\"50억~80억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(50-80억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"강남 역삼역 역세권 도보 3분 이내 오피스 사옥용 빌딩 매각\",\"shortSummary\":\"역삼역 도보 5분 거리의 준신축급 대형 [건물명 비공개]입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"사옥 최적\"],\"cautionPoints\":[\"명도 조율 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"강남 역삼역 오피스 빌딩 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
+      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"수내\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"320억\",\"size_signal\":\"580평(약 1917.4㎡)\"},\"extractedFacts\":{\"region\":\"수내\",\"exactAddressCandidate\":\"해당 권역\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"320억\",\"sizeText\":\"580평(약 1917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[],\"unitRentTexts\":[],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 매물\"]},\"detectedSensitiveFields\":[\"exact_address\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"수내\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"320억\",\"sizeSignal\":\"580평(약 1917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"[건물명 비공개]\",\"exactAddress\":\"분당구 수내동 12-4\",\"totalFloorArea\":1917.364,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"수내 권역 입지의 [건물명 비공개] 매각 물건\",\"cautionSummary\":\"권리관계 및 현장 실사 확인 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"confirmed\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":70,\"max\":70,\"display\":\"320억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(320억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"수내 역세권 도보 3분 이내 [건물명 비공개] 매각\",\"shortSummary\":\"수내역 도보 거리의 우량 [건물명 비공개] 매물입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"개발 및 사옥 최적\"],\"cautionPoints\":[\"권리관계 확인 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"수내 [건물명 비공개] 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
       "confidence": "inferred",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [],
-      "judge_score": 5,
       "min_tier": "public"
     },
     {
       "section_type": "comparables",
       "section_order": 10,
       "title": "주변 유사 매물과의 비교",
-      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역삼\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"300억\",\"size_signal\":\"3000평(약 9917.4㎡)\"},\"extractedFacts\":{\"region\":\"역삼\",\"exactAddressCandidate\":\"역삼동 742-1\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"300억\",\"sizeText\":\"3000평(약 9917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[\"쿠팡\",\"네이버\"],\"unitRentTexts\":[\"301호: 1500만\"],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 도보 3분 이내 매물\"]},\"detectedSensitiveFields\":[\"exact_address\",\"tenant_name\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"역삼\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"300억\",\"sizeSignal\":\"3000평(약 9917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"역삼 [건물명 비공개]\",\"exactAddress\":\"역삼동 742-1\",\"totalFloorArea\":9917.3,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"역세권 도보 3분 이내 근생 빌딩으로 시행/사옥 매입에 최적화\",\"cautionSummary\":\"주요 임차인 만기 조율 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"ai_hypothesis\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[\"sizeSignal\"],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":50,\"max\":80,\"display\":\"50억~80억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(50-80억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"강남 역삼역 역세권 도보 3분 이내 오피스 사옥용 빌딩 매각\",\"shortSummary\":\"역삼역 도보 5분 거리의 준신축급 대형 [건물명 비공개]입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"사옥 최적\"],\"cautionPoints\":[\"명도 조율 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"강남 역삼역 오피스 빌딩 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
+      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"수내\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"320억\",\"size_signal\":\"580평(약 1917.4㎡)\"},\"extractedFacts\":{\"region\":\"수내\",\"exactAddressCandidate\":\"해당 권역\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"320억\",\"sizeText\":\"580평(약 1917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[],\"unitRentTexts\":[],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 매물\"]},\"detectedSensitiveFields\":[\"exact_address\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"수내\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"320억\",\"sizeSignal\":\"580평(약 1917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"[건물명 비공개]\",\"exactAddress\":\"분당구 수내동 12-4\",\"totalFloorArea\":1917.364,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"수내 권역 입지의 [건물명 비공개] 매각 물건\",\"cautionSummary\":\"권리관계 및 현장 실사 확인 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"confirmed\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":70,\"max\":70,\"display\":\"320억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(320억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"수내 역세권 도보 3분 이내 [건물명 비공개] 매각\",\"shortSummary\":\"수내역 도보 거리의 우량 [건물명 비공개] 매물입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"개발 및 사옥 최적\"],\"cautionPoints\":[\"권리관계 확인 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"수내 [건물명 비공개] 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
       "confidence": "inferred",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [],
-      "judge_score": 5,
       "min_tier": "public"
     },
     {
       "section_type": "checklist",
       "section_order": 11,
       "title": "실사 체크리스트 및 확인사항",
-      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역삼\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"300억\",\"size_signal\":\"3000평(약 9917.4㎡)\"},\"extractedFacts\":{\"region\":\"역삼\",\"exactAddressCandidate\":\"역삼동 742-1\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"300억\",\"sizeText\":\"3000평(약 9917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[\"쿠팡\",\"네이버\"],\"unitRentTexts\":[\"301호: 1500만\"],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 도보 3분 이내 매물\"]},\"detectedSensitiveFields\":[\"exact_address\",\"tenant_name\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"역삼\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"300억\",\"sizeSignal\":\"3000평(약 9917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"역삼 [건물명 비공개]\",\"exactAddress\":\"역삼동 742-1\",\"totalFloorArea\":9917.3,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"역세권 도보 3분 이내 근생 빌딩으로 시행/사옥 매입에 최적화\",\"cautionSummary\":\"주요 임차인 만기 조율 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"ai_hypothesis\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[\"sizeSignal\"],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":50,\"max\":80,\"display\":\"50억~80억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(50-80억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"강남 역삼역 역세권 도보 3분 이내 오피스 사옥용 빌딩 매각\",\"shortSummary\":\"역삼역 도보 5분 거리의 준신축급 대형 [건물명 비공개]입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"사옥 최적\"],\"cautionPoints\":[\"명도 조율 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"강남 역삼역 오피스 빌딩 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
+      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"수내\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"320억\",\"size_signal\":\"580평(약 1917.4㎡)\"},\"extractedFacts\":{\"region\":\"수내\",\"exactAddressCandidate\":\"해당 권역\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"320억\",\"sizeText\":\"580평(약 1917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[],\"unitRentTexts\":[],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 매물\"]},\"detectedSensitiveFields\":[\"exact_address\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"수내\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"320억\",\"sizeSignal\":\"580평(약 1917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"[건물명 비공개]\",\"exactAddress\":\"분당구 수내동 12-4\",\"totalFloorArea\":1917.364,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"수내 권역 입지의 [건물명 비공개] 매각 물건\",\"cautionSummary\":\"권리관계 및 현장 실사 확인 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"confirmed\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":70,\"max\":70,\"display\":\"320억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(320억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"수내 역세권 도보 3분 이내 [건물명 비공개] 매각\",\"shortSummary\":\"수내역 도보 거리의 우량 [건물명 비공개] 매물입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"개발 및 사옥 최적\"],\"cautionPoints\":[\"권리관계 확인 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"수내 [건물명 비공개] 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
       "confidence": "inferred",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [],
+      "judge_score": 5,
       "min_tier": "public"
     },
     {
       "section_type": "closing",
       "section_order": 12,
       "title": "면책조항 및 표기 기준",
-      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"역삼\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"300억\",\"size_signal\":\"3000평(약 9917.4㎡)\"},\"extractedFacts\":{\"region\":\"역삼\",\"exactAddressCandidate\":\"역삼동 742-1\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"300억\",\"sizeText\":\"3000평(약 9917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[\"쿠팡\",\"네이버\"],\"unitRentTexts\":[\"301호: 1500만\"],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 도보 3분 이내 매물\"]},\"detectedSensitiveFields\":[\"exact_address\",\"tenant_name\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"역삼\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"300억\",\"sizeSignal\":\"3000평(약 9917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"역삼 [건물명 비공개]\",\"exactAddress\":\"역삼동 742-1\",\"totalFloorArea\":9917.3,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"역세권 도보 3분 이내 근생 빌딩으로 시행/사옥 매입에 최적화\",\"cautionSummary\":\"주요 임차인 만기 조율 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"ai_hypothesis\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[\"sizeSignal\"],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":50,\"max\":80,\"display\":\"50억~80억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(50-80억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"강남 역삼역 역세권 도보 3분 이내 오피스 사옥용 빌딩 매각\",\"shortSummary\":\"역삼역 도보 5분 거리의 준신축급 대형 [건물명 비공개]입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"사옥 최적\"],\"cautionPoints\":[\"명도 조율 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"강남 역삼역 오피스 빌딩 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
+      "markdown": "{\"ok\":true,\"mocked\":true,\"extractedFields\":{\"area_signal\":\"수내\",\"asset_type\":\"[건물명 비공개]\",\"price_band\":\"320억\",\"size_signal\":\"580평(약 1917.4㎡)\"},\"extractedFacts\":{\"region\":\"수내\",\"exactAddressCandidate\":\"해당 권역\",\"assetType\":\"[건물명 비공개]\",\"priceText\":\"320억\",\"sizeText\":\"580평(약 1917.4㎡)\",\"currentUse\":\"오피스\",\"currentUseSignal\":\"근린생활시설\",\"leaseSignal\":\"임대중\",\"vacancySignal\":\"공실없음\",\"tenantNames\":[],\"unitRentTexts\":[],\"sellerMotivationText\":\"자산 효율화\",\"brokerNotes\":[\"역세권 매물\"]},\"detectedSensitiveFields\":[\"exact_address\"],\"ambiguousFields\":[],\"warnings\":[],\"areaSignal\":\"수내\",\"assetType\":\"[건물명 비공개]\",\"priceBand\":\"320억\",\"sizeSignal\":\"580평(약 1917.4㎡)\",\"dealType\":\"매각\",\"buildingName\":\"[건물명 비공개]\",\"exactAddress\":\"분당구 수내동 12-4\",\"totalFloorArea\":1917.364,\"buildYear\":2015,\"currentUseSignal\":\"근린생활시설\",\"vacancySignal\":\"공실 없음\",\"fitSummary\":\"수내 권역 입지의 [건물명 비공개] 매각 물건\",\"cautionSummary\":\"권리관계 및 현장 실사 확인 필요\",\"hiddenFields\":[\"exact_address\",\"seller_motivation\"],\"confidence\":{\"areaSignal\":\"confirmed\",\"assetType\":\"confirmed\",\"priceBand\":\"confirmed\",\"fitSummary\":\"ai_hypothesis\"},\"missingData\":[],\"boundaryNote\":\"본 자료는 실거래 통계 기반 참고치입니다.\",\"buyerType\":\"법인 사옥형\",\"budgetRange\":{\"min\":70,\"max\":70,\"display\":\"320억\"},\"preferredRegions\":[\"강남\",\"성수\"],\"assetTypes\":[\"[건물명 비공개]\",\"사옥용\"],\"purchasePurpose\":\"사옥용 매입\",\"mustHave\":[\"역세권 도보 3분 이내\",\"주차\"],\"niceToHave\":[\"테라스\",\"루프탑\"],\"riskTolerance\":\"medium\",\"financingNote\":\"자본금 50% 준비\",\"missingQuestions\":[\"구체적인 입주 시기가 언제인가요?\",\"선호하는 수익률이 있나요?\"],\"privacyNotes\":[\"연락처 비공개\"],\"fitReasons\":[\"매수자 예산(320억)에 부합하는 매물입니다.\",\"요청하신 성수/강남 권역에 해당합니다.\"],\"cautionReasons\":[\"요청한 용도와 달리 명도 협의가 다소 필요합니다.\"],\"recommendedNextAction\":\"현장 답사 제안\",\"kakaoMessage\":\"안녕하세요! 요청하신 조건에 부합하는 추천 매물이 있어 안내해 드립니다. 확인해보시고 피드백 부탁드립니다.\",\"title\":\"수내 역세권 도보 3분 이내 [건물명 비공개] 매각\",\"shortSummary\":\"수내역 도보 거리의 우량 [건물명 비공개] 매물입니다.\",\"dealPoints\":[\"역세권 도보 3분 이내\",\"개발 및 사옥 최적\"],\"cautionPoints\":[\"권리관계 확인 필요\"],\"hiddenInfoNotice\":[\"보증금 및 지번은 인가 후 확인 가능\"],\"gateMessage\":\"G1 등급 등록이 필요합니다.\",\"kakaoText\":\"수내 [건물명 비공개] 매각 안내입니다.\",\"exactUnitCandidate\":\"101호\",\"floor\":\"1층\",\"areaSqmText\":\"150㎡\",\"spaceType\":\"office\",\"depositText\":\"5000만\",\"monthlyRentText\":\"400만\",\"maintenanceFeeText\":\"50만\",\"availableFromText\":\"즉시입주\",\"leaseTermMonthsText\":\"24\",\"incentivesText\":\"렌트프리 2개월\",\"restrictions\":[],\"landlordIdentity\":\"김성수\",\"currentTenant\":\"스타트업\",\"vacancyReason\":\"이전 확장\",\"rentNegotiation\":\"협의 가능\",\"region\":\"성수동\",\"areaSqm\":150,\"deposit\":5000,\"monthlyRent\":400,\"maintenanceFee\":50,\"availableFrom\":\"즉시입주\",\"leaseTermMonths\":24,\"incentives\":{\"렌트프리(무상임대)Months\":2,\"interiorSupport\":\"일부 인테리어 지원\",\"freeRentDetail\":\"렌트프리 2개월 지원\"},\"shortSummaryLease\":\"성수역 도보 5분 거리 1층 리테일 상가 매물입니다.\"}",
       "confidence": "inferred",
       "boundary_note": "본 섹션의 내용은 예비 검토용입니다.",
       "provenance": [],
-      "judge_score": 5,
       "min_tier": "public"
     },
     {
@@ -181,7 +187,7 @@
     }
   ],
   "boundary_note": "본 자료는 제공자료와 공개정보를 바탕으로 한 예비 검토 자료이며, 투자 권유, 감정평가, 법률·세무·대출 가능성 판단을 목적으로 하지 않습니다. 실제 거래 여부는 별도 실사와 전문가 검토를 통해 판단해야 합니다.",
-  "generated_at": "2026-09-06T13:37:00.150Z",
+  "generated_at": "2026-09-17T08:53:36.918Z",
   "ai_used": true,
   "readiness_score": 75,
   "ssot_summary": {
@@ -234,16 +240,16 @@
     "buildingRegisterSource": "loaded",
     "qualityGrade": "B",
     "pptxExportAllowed": true,
-    "generatedAt": "2026-09-06T13:37:00.151Z"
+    "generatedAt": "2026-09-17T08:53:36.950Z"
   },
   "heroCard": {
     "posture": "income",
     "assetType": "프라임오피스",
     "areaSignal": "분당권역",
-    "askingPriceDisplay": "320억",
+    "askingPriceDisplay": "320억 원",
     "capRateBase": 3.84,
     "noiBaseBil": 12.3,
-    "keyInvestmentPoint": "분당권역 소재 프라임오피스, 희망가 320억 투자 검토 자료입니다.",
+    "keyInvestmentPoint": "분당권역 소재 프라임오피스, 희망가 320억 원 투자 검토 자료입니다.",
     "keyPoints": [
       "입지 가치: 분당권역 소재 자산으로 중장기 자산 가치 및 안정적 수요 검토",
       "임대 구조: 320억 수준의 가격대 및 현 임대차 기반의 현금흐름 분석",
@@ -259,13 +265,14 @@
     "zoning": "일반상업지역",
     "landPricePerPyeong": null,
     "devProfitMarginPct": null,
+    "devHoldYieldPct": null,
     "gopMarginPct": null,
     "adr": null,
     "occPct": null,
     "revpar": null,
     "ownVsLeaseSavingsBil": null,
     "breakevenYears": null,
-    "pricePerPyeong": 21156992,
+    "pricePerPyeong": 21157024,
     "marketDiscountPct": null,
     "targetHprPct": null
   },
@@ -278,135 +285,135 @@
   },
   "claims": [
     {
-      "id": "444bcc02-74ce-4ebc-a203-bb7d4f5cf7a8",
+      "id": "dd3e6bb7-c7b4-4d9f-a0d1-20e24e2ca633",
       "subject": "asking_price",
       "value": 32000000000,
       "unit": "원",
       "evidence": [
         {
           "sourceId": "broker",
-          "asOf": "2026-09-06"
+          "asOf": "2026-09-17"
         }
       ],
       "provenance": "broker",
       "displayLabel": "● 중개인 현장확인",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "reconciled",
       "expertRequired": false
     },
     {
-      "id": "892d4019-3446-4324-9349-51eb54e9ef32",
+      "id": "27624d6e-f1c1-45d6-aa4c-e06b0d7daa09",
       "subject": "monthly_rent_total",
       "value": 128000000,
       "unit": "원/월",
       "evidence": [
         {
           "sourceId": "broker",
-          "asOf": "2026-09-06"
+          "asOf": "2026-09-17"
         }
       ],
       "provenance": "broker",
       "displayLabel": "● 중개인 현장확인",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "reconciled",
       "expertRequired": false
     },
     {
-      "id": "3db631d5-9ed0-453c-bf14-91069a32486f",
+      "id": "6639a640-bc2e-4dd4-a3c8-aed550d34e1e",
       "subject": "total_area_sqm",
       "value": 5000,
       "unit": "㎡",
       "evidence": [
         {
           "sourceId": "public_api",
-          "asOf": "2026-09-06"
+          "asOf": "2026-09-17"
         }
       ],
       "provenance": "public_api",
       "displayLabel": "✓ 공부 확인",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "reconciled",
       "expertRequired": false
     },
     {
-      "id": "cd2a45b1-c2ee-4a3d-85e5-dc481aa9fb34",
+      "id": "db869327-e500-4d0a-bc07-0b0264e7d4cf",
       "subject": "land_area_sqm",
       "value": 1000,
       "unit": "㎡",
       "evidence": [
         {
           "sourceId": "public_api",
-          "asOf": "2026-09-06"
+          "asOf": "2026-09-17"
         }
       ],
       "provenance": "public_api",
       "displayLabel": "✓ 공부 확인",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "reconciled",
       "expertRequired": false
     },
     {
-      "id": "ba8306b3-5a2c-4474-aacb-9f6c492e2ecb",
+      "id": "a77fe0b3-542f-402e-a977-4bd2a754cf68",
       "subject": "total_deposit",
       "value": 22000000000,
       "unit": "원",
       "evidence": [
         {
           "sourceId": "broker",
-          "asOf": "2026-09-06"
+          "asOf": "2026-09-17"
         }
       ],
       "provenance": "broker",
       "displayLabel": "● 중개인 현장확인",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "reconciled",
       "expertRequired": false
     },
     {
-      "id": "08198ee7-f195-4c3a-9c47-aee6c622902c",
+      "id": "0b043fb9-32dc-4464-b7fc-11bc93e897ff",
       "subject": "loan_amount",
       "value": 18000000000,
       "unit": "원",
       "evidence": [
         {
           "sourceId": "broker",
-          "asOf": "2026-09-06"
+          "asOf": "2026-09-17"
         }
       ],
       "provenance": "broker",
       "displayLabel": "● 중개인 현장확인",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "reconciled",
       "expertRequired": false
     },
     {
-      "id": "50139153-ee07-4594-b73c-6d59ea3c29d0",
+      "id": "626f9a22-bb4b-4164-af7d-3011b46283b5",
       "subject": "noi_base",
       "value": 1228800000,
       "unit": "원",
       "evidence": [
         {
           "sourceId": "derived",
-          "asOf": "2026-09-06",
+          "asOf": "2026-09-17",
           "excerpt": "annual_gross * (1 - vacancy) - opex = 1228800000"
         }
       ],
       "provenance": "derived",
       "displayLabel": "= 계산값",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "d80a4c7c-05f8-4adb-a7cc-1c6891194ba2",
+        "id": "a1364cbb-e9c1-4040-93a9-8ed9c37cd47f",
         "formula": "annual_gross * (1 - vacancy) - opex",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "444bcc02-74ce-4ebc-a203-bb7d4f5cf7a8",
-          "monthly_rent_total": "892d4019-3446-4324-9349-51eb54e9ef32",
-          "total_area_sqm": "3db631d5-9ed0-453c-bf14-91069a32486f",
-          "land_area_sqm": "cd2a45b1-c2ee-4a3d-85e5-dc481aa9fb34",
-          "total_deposit": "ba8306b3-5a2c-4474-aacb-9f6c492e2ecb",
-          "loan_amount": "08198ee7-f195-4c3a-9c47-aee6c622902c"
+          "asking_price": "dd3e6bb7-c7b4-4d9f-a0d1-20e24e2ca633",
+          "monthly_rent_total": "27624d6e-f1c1-45d6-aa4c-e06b0d7daa09",
+          "total_area_sqm": "6639a640-bc2e-4dd4-a3c8-aed550d34e1e",
+          "land_area_sqm": "db869327-e500-4d0a-bc07-0b0264e7d4cf",
+          "total_deposit": "a77fe0b3-542f-402e-a977-4bd2a754cf68",
+          "loan_amount": "0b043fb9-32dc-4464-b7fc-11bc93e897ff"
         },
         "result": 1228800000,
         "basis": "NOI",
@@ -414,413 +421,414 @@
       }
     },
     {
-      "id": "0830fa40-41c1-4eab-bbbb-893cea926738",
+      "id": "9ccdbd4c-b386-4b4d-8231-931bf98b80b8",
       "subject": "noi_best",
       "value": 1336320000,
       "unit": "원",
       "evidence": [
         {
           "sourceId": "derived",
-          "asOf": "2026-09-06",
+          "asOf": "2026-09-17",
           "excerpt": "annual_gross - opex_low = 1336320000"
         }
       ],
       "provenance": "derived",
       "displayLabel": "= 계산값",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "fbc940d7-3878-48e8-a928-10af191650ec",
+        "id": "c694533d-be34-4c9b-9870-577a65ae35d1",
         "formula": "annual_gross - opex_low",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "444bcc02-74ce-4ebc-a203-bb7d4f5cf7a8",
-          "monthly_rent_total": "892d4019-3446-4324-9349-51eb54e9ef32",
-          "total_area_sqm": "3db631d5-9ed0-453c-bf14-91069a32486f",
-          "land_area_sqm": "cd2a45b1-c2ee-4a3d-85e5-dc481aa9fb34",
-          "total_deposit": "ba8306b3-5a2c-4474-aacb-9f6c492e2ecb",
-          "loan_amount": "08198ee7-f195-4c3a-9c47-aee6c622902c"
+          "asking_price": "dd3e6bb7-c7b4-4d9f-a0d1-20e24e2ca633",
+          "monthly_rent_total": "27624d6e-f1c1-45d6-aa4c-e06b0d7daa09",
+          "total_area_sqm": "6639a640-bc2e-4dd4-a3c8-aed550d34e1e",
+          "land_area_sqm": "db869327-e500-4d0a-bc07-0b0264e7d4cf",
+          "total_deposit": "a77fe0b3-542f-402e-a977-4bd2a754cf68",
+          "loan_amount": "0b043fb9-32dc-4464-b7fc-11bc93e897ff"
         },
         "result": 1336320000,
         "basis": "NOI"
       }
     },
     {
-      "id": "87512556-3f64-425c-95ab-8906c7e2d746",
+      "id": "d539dd06-2a9d-4037-a87c-00a11e60b17c",
       "subject": "noi_worst",
       "value": 1105920000,
       "unit": "원",
       "evidence": [
         {
           "sourceId": "derived",
-          "asOf": "2026-09-06",
+          "asOf": "2026-09-17",
           "excerpt": "annual_gross * (1 - vacancy_high) - opex_high = 1105920000"
         }
       ],
       "provenance": "derived",
       "displayLabel": "= 계산값",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "ecec3e41-19c6-452a-90ca-69c014d4535e",
+        "id": "12c8cdee-fe18-400f-9538-e982ead21306",
         "formula": "annual_gross * (1 - vacancy_high) - opex_high",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "444bcc02-74ce-4ebc-a203-bb7d4f5cf7a8",
-          "monthly_rent_total": "892d4019-3446-4324-9349-51eb54e9ef32",
-          "total_area_sqm": "3db631d5-9ed0-453c-bf14-91069a32486f",
-          "land_area_sqm": "cd2a45b1-c2ee-4a3d-85e5-dc481aa9fb34",
-          "total_deposit": "ba8306b3-5a2c-4474-aacb-9f6c492e2ecb",
-          "loan_amount": "08198ee7-f195-4c3a-9c47-aee6c622902c"
+          "asking_price": "dd3e6bb7-c7b4-4d9f-a0d1-20e24e2ca633",
+          "monthly_rent_total": "27624d6e-f1c1-45d6-aa4c-e06b0d7daa09",
+          "total_area_sqm": "6639a640-bc2e-4dd4-a3c8-aed550d34e1e",
+          "land_area_sqm": "db869327-e500-4d0a-bc07-0b0264e7d4cf",
+          "total_deposit": "a77fe0b3-542f-402e-a977-4bd2a754cf68",
+          "loan_amount": "0b043fb9-32dc-4464-b7fc-11bc93e897ff"
         },
         "result": 1105920000,
         "basis": "NOI"
       }
     },
     {
-      "id": "04d463eb-6916-432d-9227-1fd1b9a0c40a",
+      "id": "2b5f712c-09f1-473e-b27b-1a18722d5663",
       "subject": "cap_rate_base",
       "value": 3.84,
       "unit": "%",
       "evidence": [
         {
           "sourceId": "derived",
-          "asOf": "2026-09-06",
+          "asOf": "2026-09-17",
           "excerpt": "운영비 미입력 — 실질 NOI 산출 불가"
         }
       ],
       "provenance": "derived",
       "displayLabel": "= 계산값",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "unverified",
       "expertRequired": false,
       "calculation": {
-        "id": "e49b3ce5-9e0f-46dc-b319-1fbd33eebc64",
+        "id": "afa76222-c3aa-4ba3-84b7-f4b445831084",
         "formula": "noi_base / asking_price * 100",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "444bcc02-74ce-4ebc-a203-bb7d4f5cf7a8",
-          "monthly_rent_total": "892d4019-3446-4324-9349-51eb54e9ef32",
-          "total_area_sqm": "3db631d5-9ed0-453c-bf14-91069a32486f",
-          "land_area_sqm": "cd2a45b1-c2ee-4a3d-85e5-dc481aa9fb34",
-          "total_deposit": "ba8306b3-5a2c-4474-aacb-9f6c492e2ecb",
-          "loan_amount": "08198ee7-f195-4c3a-9c47-aee6c622902c"
+          "asking_price": "dd3e6bb7-c7b4-4d9f-a0d1-20e24e2ca633",
+          "monthly_rent_total": "27624d6e-f1c1-45d6-aa4c-e06b0d7daa09",
+          "total_area_sqm": "6639a640-bc2e-4dd4-a3c8-aed550d34e1e",
+          "land_area_sqm": "db869327-e500-4d0a-bc07-0b0264e7d4cf",
+          "total_deposit": "a77fe0b3-542f-402e-a977-4bd2a754cf68",
+          "loan_amount": "0b043fb9-32dc-4464-b7fc-11bc93e897ff"
         },
         "result": 3.84,
         "basis": "NOI"
       }
     },
     {
-      "id": "f5162cdd-99ef-4cbe-a421-9a8fa50c67a9",
+      "id": "d54f82ef-5b14-4d93-b916-1851ea16743f",
       "subject": "cap_rate_best",
       "value": 4.18,
       "unit": "%",
       "evidence": [
         {
           "sourceId": "derived",
-          "asOf": "2026-09-06",
+          "asOf": "2026-09-17",
           "excerpt": "운영비 미입력 — 실질 NOI 산출 불가"
         }
       ],
       "provenance": "derived",
       "displayLabel": "= 계산값",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "unverified",
       "expertRequired": false,
       "calculation": {
-        "id": "68186fa0-0e73-4e16-8536-e94f5774d85b",
+        "id": "ca9fd0c7-3d9b-49c6-94cc-e280228098bd",
         "formula": "noi_best / asking_price * 100",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "444bcc02-74ce-4ebc-a203-bb7d4f5cf7a8",
-          "monthly_rent_total": "892d4019-3446-4324-9349-51eb54e9ef32",
-          "total_area_sqm": "3db631d5-9ed0-453c-bf14-91069a32486f",
-          "land_area_sqm": "cd2a45b1-c2ee-4a3d-85e5-dc481aa9fb34",
-          "total_deposit": "ba8306b3-5a2c-4474-aacb-9f6c492e2ecb",
-          "loan_amount": "08198ee7-f195-4c3a-9c47-aee6c622902c"
+          "asking_price": "dd3e6bb7-c7b4-4d9f-a0d1-20e24e2ca633",
+          "monthly_rent_total": "27624d6e-f1c1-45d6-aa4c-e06b0d7daa09",
+          "total_area_sqm": "6639a640-bc2e-4dd4-a3c8-aed550d34e1e",
+          "land_area_sqm": "db869327-e500-4d0a-bc07-0b0264e7d4cf",
+          "total_deposit": "a77fe0b3-542f-402e-a977-4bd2a754cf68",
+          "loan_amount": "0b043fb9-32dc-4464-b7fc-11bc93e897ff"
         },
         "result": 4.18,
         "basis": "NOI"
       }
     },
     {
-      "id": "b54d54c2-6e3a-4f02-9d63-73b37c61ed5b",
+      "id": "b2f9a29c-b24b-4896-af25-bc41a18ee64c",
       "subject": "cap_rate_worst",
       "value": 3.46,
       "unit": "%",
       "evidence": [
         {
           "sourceId": "derived",
-          "asOf": "2026-09-06",
+          "asOf": "2026-09-17",
           "excerpt": "운영비 미입력 — 실질 NOI 산출 불가"
         }
       ],
       "provenance": "derived",
       "displayLabel": "= 계산값",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "unverified",
       "expertRequired": false,
       "calculation": {
-        "id": "561e313a-3a4c-4710-960a-199876b3383a",
+        "id": "ac31b7d4-441d-4e72-8ff4-377509123bc8",
         "formula": "noi_worst / asking_price * 100",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "444bcc02-74ce-4ebc-a203-bb7d4f5cf7a8",
-          "monthly_rent_total": "892d4019-3446-4324-9349-51eb54e9ef32",
-          "total_area_sqm": "3db631d5-9ed0-453c-bf14-91069a32486f",
-          "land_area_sqm": "cd2a45b1-c2ee-4a3d-85e5-dc481aa9fb34",
-          "total_deposit": "ba8306b3-5a2c-4474-aacb-9f6c492e2ecb",
-          "loan_amount": "08198ee7-f195-4c3a-9c47-aee6c622902c"
+          "asking_price": "dd3e6bb7-c7b4-4d9f-a0d1-20e24e2ca633",
+          "monthly_rent_total": "27624d6e-f1c1-45d6-aa4c-e06b0d7daa09",
+          "total_area_sqm": "6639a640-bc2e-4dd4-a3c8-aed550d34e1e",
+          "land_area_sqm": "db869327-e500-4d0a-bc07-0b0264e7d4cf",
+          "total_deposit": "a77fe0b3-542f-402e-a977-4bd2a754cf68",
+          "loan_amount": "0b043fb9-32dc-4464-b7fc-11bc93e897ff"
         },
         "result": 3.46,
         "basis": "NOI"
       }
     },
     {
-      "id": "15fa997f-4a83-4cab-bd00-dc4843e8fd90",
+      "id": "10071200-7e72-4f2a-8b8d-4e0132cd3581",
       "subject": "irr_5y_base",
       "value": 3.2,
       "unit": "%",
       "evidence": [
         {
           "sourceId": "derived",
-          "asOf": "2026-09-06",
+          "asOf": "2026-09-17",
           "excerpt": "irr(cfs, hold=5) = 3.2"
         }
       ],
       "provenance": "derived",
       "displayLabel": "= 계산값",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "777d8324-82ce-41a5-9d50-874453827a0e",
+        "id": "516af6db-79de-4ece-9046-48f571e04c24",
         "formula": "irr(cfs, hold=5)",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "444bcc02-74ce-4ebc-a203-bb7d4f5cf7a8",
-          "monthly_rent_total": "892d4019-3446-4324-9349-51eb54e9ef32",
-          "total_area_sqm": "3db631d5-9ed0-453c-bf14-91069a32486f",
-          "land_area_sqm": "cd2a45b1-c2ee-4a3d-85e5-dc481aa9fb34",
-          "total_deposit": "ba8306b3-5a2c-4474-aacb-9f6c492e2ecb",
-          "loan_amount": "08198ee7-f195-4c3a-9c47-aee6c622902c"
+          "asking_price": "dd3e6bb7-c7b4-4d9f-a0d1-20e24e2ca633",
+          "monthly_rent_total": "27624d6e-f1c1-45d6-aa4c-e06b0d7daa09",
+          "total_area_sqm": "6639a640-bc2e-4dd4-a3c8-aed550d34e1e",
+          "land_area_sqm": "db869327-e500-4d0a-bc07-0b0264e7d4cf",
+          "total_deposit": "a77fe0b3-542f-402e-a977-4bd2a754cf68",
+          "loan_amount": "0b043fb9-32dc-4464-b7fc-11bc93e897ff"
         },
         "result": 3.2
       }
     },
     {
-      "id": "7df724dc-2a5f-467e-a97b-bb611a112f38",
+      "id": "01bde61b-d1cb-4a4c-9a0c-99c1aa24a8f3",
       "subject": "irr_5y_best",
       "value": 7,
       "unit": "%",
       "evidence": [
         {
           "sourceId": "derived",
-          "asOf": "2026-09-06",
+          "asOf": "2026-09-17",
           "excerpt": "irr(cfs_best, hold=5) = 7"
         }
       ],
       "provenance": "derived",
       "displayLabel": "= 계산값",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "725559c7-49c7-4a37-a2ec-f5b4c9cbd6af",
+        "id": "478a2bbf-a578-4c97-ac4f-57b11796e431",
         "formula": "irr(cfs_best, hold=5)",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "444bcc02-74ce-4ebc-a203-bb7d4f5cf7a8",
-          "monthly_rent_total": "892d4019-3446-4324-9349-51eb54e9ef32",
-          "total_area_sqm": "3db631d5-9ed0-453c-bf14-91069a32486f",
-          "land_area_sqm": "cd2a45b1-c2ee-4a3d-85e5-dc481aa9fb34",
-          "total_deposit": "ba8306b3-5a2c-4474-aacb-9f6c492e2ecb",
-          "loan_amount": "08198ee7-f195-4c3a-9c47-aee6c622902c"
+          "asking_price": "dd3e6bb7-c7b4-4d9f-a0d1-20e24e2ca633",
+          "monthly_rent_total": "27624d6e-f1c1-45d6-aa4c-e06b0d7daa09",
+          "total_area_sqm": "6639a640-bc2e-4dd4-a3c8-aed550d34e1e",
+          "land_area_sqm": "db869327-e500-4d0a-bc07-0b0264e7d4cf",
+          "total_deposit": "a77fe0b3-542f-402e-a977-4bd2a754cf68",
+          "loan_amount": "0b043fb9-32dc-4464-b7fc-11bc93e897ff"
         },
         "result": 7
       }
     },
     {
-      "id": "963651ae-2601-4bf3-84b6-0b09cff36b04",
+      "id": "a70815c3-7160-4b91-a136-24131baf50a5",
       "subject": "irr_5y_worst",
       "value": -1.8,
       "unit": "%",
       "evidence": [
         {
           "sourceId": "derived",
-          "asOf": "2026-09-06",
+          "asOf": "2026-09-17",
           "excerpt": "irr(cfs_worst, hold=5) = -1.8"
         }
       ],
       "provenance": "derived",
       "displayLabel": "= 계산값",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "bb5b4811-4179-432b-b5e0-629c9b7b3d14",
+        "id": "7922d823-6f7d-4a1c-815d-d65f73564e87",
         "formula": "irr(cfs_worst, hold=5)",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "444bcc02-74ce-4ebc-a203-bb7d4f5cf7a8",
-          "monthly_rent_total": "892d4019-3446-4324-9349-51eb54e9ef32",
-          "total_area_sqm": "3db631d5-9ed0-453c-bf14-91069a32486f",
-          "land_area_sqm": "cd2a45b1-c2ee-4a3d-85e5-dc481aa9fb34",
-          "total_deposit": "ba8306b3-5a2c-4474-aacb-9f6c492e2ecb",
-          "loan_amount": "08198ee7-f195-4c3a-9c47-aee6c622902c"
+          "asking_price": "dd3e6bb7-c7b4-4d9f-a0d1-20e24e2ca633",
+          "monthly_rent_total": "27624d6e-f1c1-45d6-aa4c-e06b0d7daa09",
+          "total_area_sqm": "6639a640-bc2e-4dd4-a3c8-aed550d34e1e",
+          "land_area_sqm": "db869327-e500-4d0a-bc07-0b0264e7d4cf",
+          "total_deposit": "a77fe0b3-542f-402e-a977-4bd2a754cf68",
+          "loan_amount": "0b043fb9-32dc-4464-b7fc-11bc93e897ff"
         },
         "result": -1.8
       }
     },
     {
-      "id": "c7c77235-2bc2-412b-8b4f-77b2d6d9276d",
+      "id": "cccd12e7-3724-46e3-a355-65ddde341e62",
       "subject": "yield_on_cost",
       "value": 4.8,
       "unit": "%",
       "evidence": [
         {
           "sourceId": "derived",
-          "asOf": "2026-09-06",
+          "asOf": "2026-09-17",
           "excerpt": "annual_gross / asking_price * 100 = 4.8"
         }
       ],
       "provenance": "derived",
       "displayLabel": "= 계산값",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "32c41c97-414c-4ea1-a0d7-9ce85c0bb744",
+        "id": "a92e0279-f0a1-496b-a674-6ca83e61abb9",
         "formula": "annual_gross / asking_price * 100",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "444bcc02-74ce-4ebc-a203-bb7d4f5cf7a8",
-          "monthly_rent_total": "892d4019-3446-4324-9349-51eb54e9ef32",
-          "total_area_sqm": "3db631d5-9ed0-453c-bf14-91069a32486f",
-          "land_area_sqm": "cd2a45b1-c2ee-4a3d-85e5-dc481aa9fb34",
-          "total_deposit": "ba8306b3-5a2c-4474-aacb-9f6c492e2ecb",
-          "loan_amount": "08198ee7-f195-4c3a-9c47-aee6c622902c"
+          "asking_price": "dd3e6bb7-c7b4-4d9f-a0d1-20e24e2ca633",
+          "monthly_rent_total": "27624d6e-f1c1-45d6-aa4c-e06b0d7daa09",
+          "total_area_sqm": "6639a640-bc2e-4dd4-a3c8-aed550d34e1e",
+          "land_area_sqm": "db869327-e500-4d0a-bc07-0b0264e7d4cf",
+          "total_deposit": "a77fe0b3-542f-402e-a977-4bd2a754cf68",
+          "loan_amount": "0b043fb9-32dc-4464-b7fc-11bc93e897ff"
         },
         "result": 4.8,
         "basis": "GPI"
       }
     },
     {
-      "id": "5bdd52e5-3f3e-4dad-a342-76b5aa644f20",
+      "id": "bde7dfdd-1b5e-492d-a8b5-f2d523acdc4a",
       "subject": "price_per_sqm",
       "value": 6400000,
       "unit": "원/㎡",
       "evidence": [
         {
           "sourceId": "derived",
-          "asOf": "2026-09-06",
+          "asOf": "2026-09-17",
           "excerpt": "asking_price / total_area = 6400000"
         }
       ],
       "provenance": "derived",
       "displayLabel": "= 계산값",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "2d02a6a6-1eca-4feb-8135-98acbf6347d5",
+        "id": "d87f0a21-38f3-4833-b269-db590d44349a",
         "formula": "asking_price / total_area",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "444bcc02-74ce-4ebc-a203-bb7d4f5cf7a8",
-          "monthly_rent_total": "892d4019-3446-4324-9349-51eb54e9ef32",
-          "total_area_sqm": "3db631d5-9ed0-453c-bf14-91069a32486f",
-          "land_area_sqm": "cd2a45b1-c2ee-4a3d-85e5-dc481aa9fb34",
-          "total_deposit": "ba8306b3-5a2c-4474-aacb-9f6c492e2ecb",
-          "loan_amount": "08198ee7-f195-4c3a-9c47-aee6c622902c"
+          "asking_price": "dd3e6bb7-c7b4-4d9f-a0d1-20e24e2ca633",
+          "monthly_rent_total": "27624d6e-f1c1-45d6-aa4c-e06b0d7daa09",
+          "total_area_sqm": "6639a640-bc2e-4dd4-a3c8-aed550d34e1e",
+          "land_area_sqm": "db869327-e500-4d0a-bc07-0b0264e7d4cf",
+          "total_deposit": "a77fe0b3-542f-402e-a977-4bd2a754cf68",
+          "loan_amount": "0b043fb9-32dc-4464-b7fc-11bc93e897ff"
         },
         "result": 6400000
       }
     },
     {
-      "id": "08b8b51b-74e7-4fa6-b1a9-f242f605375f",
+      "id": "8c097fa8-29ca-45f2-bf54-563c0dfc1fe3",
       "subject": "price_per_pyeong",
-      "value": 21156992,
+      "value": 21157024,
       "unit": "원/평",
       "evidence": [
         {
           "sourceId": "derived",
-          "asOf": "2026-09-06",
-          "excerpt": "price_per_sqm * 3.30578 = 21156992"
+          "asOf": "2026-09-17",
+          "excerpt": "price_per_sqm * 3.30578 = 21157024"
         }
       ],
       "provenance": "derived",
       "displayLabel": "= 계산값",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "1faa03d0-7bc7-4739-ba2e-06807026b541",
+        "id": "49e27324-9015-4cae-8e21-0d0de5d0cfe6",
         "formula": "price_per_sqm * 3.30578",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "444bcc02-74ce-4ebc-a203-bb7d4f5cf7a8",
-          "monthly_rent_total": "892d4019-3446-4324-9349-51eb54e9ef32",
-          "total_area_sqm": "3db631d5-9ed0-453c-bf14-91069a32486f",
-          "land_area_sqm": "cd2a45b1-c2ee-4a3d-85e5-dc481aa9fb34",
-          "total_deposit": "ba8306b3-5a2c-4474-aacb-9f6c492e2ecb",
-          "loan_amount": "08198ee7-f195-4c3a-9c47-aee6c622902c"
+          "asking_price": "dd3e6bb7-c7b4-4d9f-a0d1-20e24e2ca633",
+          "monthly_rent_total": "27624d6e-f1c1-45d6-aa4c-e06b0d7daa09",
+          "total_area_sqm": "6639a640-bc2e-4dd4-a3c8-aed550d34e1e",
+          "land_area_sqm": "db869327-e500-4d0a-bc07-0b0264e7d4cf",
+          "total_deposit": "a77fe0b3-542f-402e-a977-4bd2a754cf68",
+          "loan_amount": "0b043fb9-32dc-4464-b7fc-11bc93e897ff"
         },
-        "result": 21156992
+        "result": 21157024
       }
     },
     {
-      "id": "1404aae6-237e-4139-b35e-072f0568b01f",
+      "id": "ed3346da-b639-4011-b5a2-ffd96fc428ba",
       "subject": "total_acquisition_cost",
       "value": 337.6,
       "unit": "억원",
       "evidence": [
         {
           "sourceId": "derived",
-          "asOf": "2026-09-06",
+          "asOf": "2026-09-17",
           "excerpt": "asking + tax + broker_fee = 337.6"
         }
       ],
       "provenance": "derived",
       "displayLabel": "= 계산값",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "reconciled",
       "expertRequired": false,
       "calculation": {
-        "id": "2580d492-480e-48b1-b22d-4f60d8ce98de",
+        "id": "9a0a5462-c4ba-4641-82ec-104e91757af7",
         "formula": "asking + tax + broker_fee",
         "formulaVersion": "v1.0.0",
         "inputs": {
-          "asking_price": "444bcc02-74ce-4ebc-a203-bb7d4f5cf7a8",
-          "monthly_rent_total": "892d4019-3446-4324-9349-51eb54e9ef32",
-          "total_area_sqm": "3db631d5-9ed0-453c-bf14-91069a32486f",
-          "land_area_sqm": "cd2a45b1-c2ee-4a3d-85e5-dc481aa9fb34",
-          "total_deposit": "ba8306b3-5a2c-4474-aacb-9f6c492e2ecb",
-          "loan_amount": "08198ee7-f195-4c3a-9c47-aee6c622902c"
+          "asking_price": "dd3e6bb7-c7b4-4d9f-a0d1-20e24e2ca633",
+          "monthly_rent_total": "27624d6e-f1c1-45d6-aa4c-e06b0d7daa09",
+          "total_area_sqm": "6639a640-bc2e-4dd4-a3c8-aed550d34e1e",
+          "land_area_sqm": "db869327-e500-4d0a-bc07-0b0264e7d4cf",
+          "total_deposit": "a77fe0b3-542f-402e-a977-4bd2a754cf68",
+          "loan_amount": "0b043fb9-32dc-4464-b7fc-11bc93e897ff"
         },
         "result": 337.6
       }
     },
     {
-      "id": "7e006d1a-33e1-47b1-a670-a85a970eab60",
+      "id": "b4336e65-5d85-41bf-a66f-5df0e3eb7c1a",
       "subject": "negative_leverage",
       "value": 0,
       "unit": "",
       "evidence": [
         {
           "sourceId": "derived",
-          "asOf": "2026-09-06",
+          "asOf": "2026-09-17",
           "excerpt": "negative_leverage = 0"
         }
       ],
       "provenance": "derived",
       "displayLabel": "= 계산값",
-      "asOf": "2026-09-06",
+      "asOf": "2026-09-17",
       "status": "reconciled",
       "expertRequired": false
     }
   ],
-  "investment_posture": "income"
+  "investment_posture": "income",
+  "approval_target_hash": "sha256:232796521ff38fac0191c7b209201c376dbb4ae60faa394ecf1a16da23735a26"
 }

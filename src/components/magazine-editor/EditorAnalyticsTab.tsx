@@ -62,6 +62,12 @@ interface AnalyticsData {
   hotLeads?: HotLead[];
   dailyTrend?: { date: string; count: number }[];
   editions?: any[];
+  latestPollResults?: {
+    question: string;
+    choices: string[];
+    total: number;
+    counts: Record<number, number>;
+  } | null;
 }
 
 export function EditorAnalyticsTab() {
@@ -212,6 +218,44 @@ export function EditorAnalyticsTab() {
           </p>
         </div>
       </div>
+
+      {/* ── 1.5 이번 주 독자 투표 현황 ── */}
+      {data?.latestPollResults && data.latestPollResults.choices && (
+        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+              <BarChart3 className="w-3.5 h-3.5 text-violet-400" />
+              이번 주 독자 투표 현황
+            </h4>
+            <span className="text-[10px] text-slate-500">총 {data.latestPollResults.total}명 참여</span>
+          </div>
+          <p className="text-sm font-bold text-white mb-2">{data.latestPollResults.question}</p>
+          <div className="space-y-2.5">
+            {data.latestPollResults.choices.map((choice, idx) => {
+              const count = data.latestPollResults!.counts[idx] || 0;
+              const pct = data.latestPollResults!.total > 0
+                ? Math.round((count / data.latestPollResults!.total) * 100)
+                : 0;
+              const color = ['#34d399', '#fbbf24', '#f87171'][idx] || '#94a3b8';
+
+              return (
+                <div key={idx} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-300 font-medium">{choice}</span>
+                    <span className="text-[11px] font-bold" style={{ color }}>{pct}% ({count}명)</span>
+                  </div>
+                  <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${pct}%`, background: color }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── 2. 바이어 5단계 온도 필터 바 ── */}
       <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3 space-y-2">

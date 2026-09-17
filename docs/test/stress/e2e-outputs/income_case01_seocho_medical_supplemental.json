@@ -54,5 +54,6 @@
       "deposit_manwon": 15000,
       "rent_manwon": 650
     }
-  ]
+  ],
+  "vacancy_pct": 0
 }

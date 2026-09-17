@@ -4,7 +4,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Users, Send, Building2, Link2, Share2, Search, Plus, X, ChevronRight,
   Mail, MessageCircle, Phone, Tag, Flame, Target, Trash2, RefreshCw, Filter,
+  QrCode,
 } from 'lucide-react';
+import { MagazineQrModal } from './MagazineQrModal';
 
 // ── 타입 ──
 
@@ -90,6 +92,22 @@ function SubscriberManagement() {
   const [filterChannel, setFilterChannel] = useState<string | null>(null);
   const [selectedSub, setSelectedSub] = useState<Subscriber | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [brokerSlug, setBrokerSlug] = useState('demo');
+  const [brokerName, setBrokerName] = useState('중개사');
+
+  // 브로커 프로필 조회
+  useEffect(() => {
+    fetch('/api/broker/profile')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.profile?.slug) setBrokerSlug(data.profile.slug);
+        if (data?.profile?.name || data?.profile?.display_name) {
+          setBrokerName(data.profile.name || data.profile.display_name);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchSubscribers = useCallback(async () => {
     setLoading(true);
@@ -127,9 +145,9 @@ function SubscriberManagement() {
 
   return (
     <div className="space-y-3">
-      {/* 검색 + 필터 + 추가 */}
-      <div className="flex items-center gap-2">
-        <div className="flex-1 relative">
+      {/* 검색 + 필터 + 추가 + QR코드 */}
+      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+        <div className="flex-1 min-w-[180px] relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
           <input
             type="text"
@@ -140,19 +158,36 @@ function SubscriberManagement() {
           />
         </div>
         <button
+          onClick={() => setShowQrModal(true)}
+          className="flex items-center gap-1 px-3 py-2 text-xs font-bold bg-amber-500/20 border border-amber-500/30 text-amber-300 rounded-lg hover:bg-amber-500/30 transition-colors shrink-0"
+          title="명함/전단지용 오프라인 구독 QR 코드 생성 및 다운로드"
+        >
+          <QrCode className="w-3.5 h-3.5" />
+          <span>QR 코드</span>
+        </button>
+        <button
           onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-1 px-3 py-2 text-xs font-bold bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 rounded-lg hover:bg-indigo-600/30 transition-colors"
+          className="flex items-center gap-1 px-3 py-2 text-xs font-bold bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 rounded-lg hover:bg-indigo-600/30 transition-colors shrink-0"
         >
           <Plus className="w-3.5 h-3.5" /> 추가
         </button>
         <button
           onClick={fetchSubscribers}
-          className="p-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
+          className="p-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-400 hover:text-slate-200 transition-colors shrink-0"
           title="새로고침"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
+
+      {showQrModal && (
+        <MagazineQrModal
+          brokerSlug={brokerSlug}
+          brokerName={brokerName}
+          isOpen={showQrModal}
+          onClose={() => setShowQrModal(false)}
+        />
+      )}
 
       {/* 매수 온도 필터 */}
       <div className="flex items-center gap-1.5">
