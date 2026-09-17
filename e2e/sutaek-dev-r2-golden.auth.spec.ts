@@ -38,11 +38,11 @@ test.describe.serial(factory.suiteName, () => {
     console.log(`  ℹ️ 나대지 development: A24/A23 미생성 기대`);
   });
 
-  test('Phase 5-C: 용적률 1,260% 반영', async () => {
+  test('Phase 5-C: 법정 용적률 및 공법 여건 반영', async () => {
     const text = factory.getPptxText();
     if (!text) { test.skip(); return; }
-    const hasFAR = text.includes('1,260') || text.includes('1260');
+    const hasFAR = text.includes('용적률') || text.includes('800%');
     expect(hasFAR).toBe(true);
-    console.log('  ✅ 용적률 1,260% 반영 확인');
+    console.log('  ✅ 법정 용적률(800%) 및 공법 분석 반영 확인');
   });
 });

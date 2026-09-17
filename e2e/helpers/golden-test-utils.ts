@@ -287,8 +287,17 @@ export function assertFloorKeywordsPresent(fullPptxText: string, expectedFloors:
   if (expectedFloors.length === 0) return;
   const missing: string[] = [];
   for (const floor of expectedFloors) {
-    // "B1", "1F", "2F" 등이 텍스트 어딘가에 존재
-    if (!fullPptxText.includes(floor) && !fullPptxText.includes(floor.replace('F', '층'))) {
+    // 다각도 층 표기 매칭: "B1", "지하 1층", "지하1층", "B1F", "1F", "1층", "지상 1층" 등
+    const floorNum = floor.replace(/[^\d]/g, '');
+    const variants = [
+      floor,
+      floor.replace('F', '층'),
+      floor.startsWith('B') ? `지하 ${floorNum}층` : `지상 ${floorNum}층`,
+      floor.startsWith('B') ? `지하${floorNum}층` : `지상${floorNum}층`,
+      floor.startsWith('B') ? `B${floorNum}F` : `${floorNum}F`,
+    ];
+    const found = variants.some(v => fullPptxText.includes(v));
+    if (!found) {
       missing.push(floor);
     }
   }

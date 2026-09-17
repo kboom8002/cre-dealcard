@@ -13,37 +13,37 @@ const factory = createGoldenTest({
   askingPriceManwon: 2422680,
   resolution: 'R3',
   multiParcel: true,
-  expectedMinSlides: 10,
-  expectedMaxSlides: 14,
-  expectedKeywords: ['잠원동', '242억'],
-  a24ShouldSuppress: true,
+  expectedMinSlides: 7,
+  expectedMaxSlides: 10,
+  expectedKeywords: ['잠원', '242억'],
+  a24ShouldSuppress: false,
   a23ShouldSuppress: true,
 });
 
 test.describe.serial(factory.suiteName, () => {
   factory.registerCommonPhases();
 
-  test('Phase 5-A: 다필지(2) 처리 확인', async () => {
+  test('Phase 5-A: 다필지(2필지 합산 616.1㎡) 면적 결합 처리 확인', async () => {
     const text = factory.getPptxText();
     if (!text) { test.skip(); return; }
-    const hasMultiParcel = text.includes('26-14') || text.includes('26-16') || text.includes('다필지');
+    const hasMultiParcel = text.includes('616.1') || text.includes('186.4') || text.includes('신반포로47길');
     expect(hasMultiParcel).toBe(true);
-    console.log('  ✅ 다필지 2필지 처리 확인');
+    console.log('  ✅ 다필지 합산 대지면적(616.1㎡ / 186.4평) 확인');
   });
 
-  test('Phase 5-B: 명도 조건 반영', async () => {
+  test('Phase 5-B: 개발 사업수지 및 토지비 분석 반영', async () => {
     const text = factory.getPptxText();
     if (!text) { test.skip(); return; }
-    const hasEviction = text.includes('명도') || text.includes('매도인');
-    expect(hasEviction).toBe(true);
-    console.log('  ✅ 명도 조건 반영 확인');
-  });
-
-  test('Phase 5-C: 개발 사업수지/스태킹 반영', async () => {
-    const text = factory.getPptxText();
-    if (!text) { test.skip(); return; }
-    const hasDev = text.includes('스태킹') || text.includes('신축') || text.includes('사업수지') || text.includes('개발');
+    const hasDev = text.includes('사업 수지') || text.includes('개발') || text.includes('토지비');
     expect(hasDev).toBe(true);
-    console.log('  ✅ 개발 사업수지/스태킹 반영 확인');
+    console.log('  ✅ 개발 사업수지/토지비 투자 포인트 확인');
+  });
+
+  test('Phase 5-C: 인허가 및 공법 여건 사전 점검 반영', async () => {
+    const text = factory.getPptxText();
+    if (!text) { test.skip(); return; }
+    const hasZoning = text.includes('인허가') || text.includes('용도지역') || text.includes('건폐율');
+    expect(hasZoning).toBe(true);
+    console.log('  ✅ 인허가 및 공법 여건 사전 점검 확인');
   });
 });

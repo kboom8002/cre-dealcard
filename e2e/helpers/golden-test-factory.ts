@@ -149,12 +149,12 @@ export function createGoldenTest(config: GoldenTestConfig) {
     throw new Error(`bottom_sheet.json not found in ${absDataDir}`);
   }
 
-  // Posture label mapping
+  // Posture label mapping (UI 버튼 텍스트 정합: 임대수익, 자가사용, 개발형, 운영형, 단기매매)
   const postureLabels: Record<InvestmentPosture, string[]> = {
     income: ['임대수익', '수익형'],
-    trading: ['매매차익', '트레이딩'],
-    owner_occupied: ['자가사옥', '사옥전환'],
-    development: ['개발사업', '개발형'],
+    trading: ['단기매매', '매매차익', '트레이딩'],
+    owner_occupied: ['자가사용', '사옥전환', '자가사옥'],
+    development: ['개발형', '개발사업'],
     operating: ['운영형', '호텔'],
   };
 
@@ -270,16 +270,17 @@ export function createGoldenTest(config: GoldenTestConfig) {
         if (bs.address) {
           const addrInput = page.locator('input[placeholder*="동/도로명"]').first();
           if (await addrInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-            // 주소에서 동/번지만 추출
-            const shortAddr = bs.address.replace(/^(서울특별시|서울|경기도)\s*/, '').replace(/\s*(구|시)\s*/, ' ');
-            await addrInput.fill(shortAddr);
+            // 동/로/길 + 번지 추출 (예: "대현동 56-1", "당산동5가 11-47")
+            const match = bs.address.match(/([가-힣\d]+(?:동\d*가?|로|길)\s*[\d-]+)/);
+            const searchKeyword = match ? match[1] : bs.address.replace(/^(서울특별시|서울|경기도)\s*/, '').replace(/\s*(구|시)\s*/, ' ');
+            await addrInput.fill(searchKeyword);
             await addrInput.press('Enter');
             await page.waitForTimeout(2500);
 
-            const searchResultBtn = page.locator('button:has-text("PNU")').first();
-            if (await searchResultBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+            const searchResultBtn = page.locator('div[class*="divide-y"] button, button:has-text("PNU")').first();
+            if (await searchResultBtn.isVisible({ timeout: 8000 }).catch(() => false)) {
               await searchResultBtn.click();
-              console.log('  ✅ 검색 결과 PNU 확정 완료');
+              console.log(`  ✅ 검색 결과 PNU/주소 확정 완료 (${searchKeyword})`);
             }
           }
           await page.waitForTimeout(1000);
@@ -295,27 +296,119 @@ export function createGoldenTest(config: GoldenTestConfig) {
           }
         }
 
-        // 임대료/보증금 입력 (income/operating에서)
-        if (bs.floor_leases && bs.floor_leases.length > 0 && (posture === 'income' || posture === 'operating')) {
-          const totalRent = bs.floor_leases.reduce((s: number, l: any) => s + (l.rent_manwon || 0), 0);
-          const totalDeposit = bs.floor_leases.reduce((s: number, l: any) => s + (l.deposit_manwon || 0), 0);
+        // ── 포스처별 필수 필드 입력 ──
+        if (posture === 'income') {
+          if (bs.floor_leases && bs.floor_leases.length > 0) {
+            const totalRent = bs.floor_leases.reduce((s: number, l: any) => s + (l.rent_manwon || 0), 0);
+            const totalDeposit = bs.floor_leases.reduce((s: number, l: any) => s + (l.deposit_manwon || 0), 0);
 
-          const rentInput = page.locator('input[placeholder="예: 1500"]').first();
-          if (await rentInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-            const currentVal = await rentInput.inputValue();
-            if (!currentVal && totalRent > 0) {
-              await rentInput.fill(String(totalRent));
-              console.log(`  ✅ 월 임대료 합계 ${totalRent}만원 입력`);
+            const rentInput = page.locator('input[placeholder="예: 1500"]').first();
+            if (await rentInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+              const currentVal = await rentInput.inputValue();
+              if (!currentVal && totalRent > 0) {
+                await rentInput.fill(String(totalRent));
+                console.log(`  ✅ 월 임대료 합계 ${totalRent}만원 입력`);
+              }
+            }
+
+            const depositInput = page.locator('input[placeholder="예: 30000"]').first();
+            if (await depositInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+              const currentVal = await depositInput.inputValue();
+              if (!currentVal && totalDeposit > 0) {
+                await depositInput.fill(String(totalDeposit));
+                console.log(`  ✅ 보증금 합계 ${totalDeposit}만원 입력`);
+              }
             }
           }
+        } else if (posture === 'operating') {
+          const hop = bs.hotel_operating || {};
+          const roomCount = hop.total_rooms || 94;
+          const adrManwon = hop.adr_krw ? Math.round(hop.adr_krw / 10000) : 10;
 
-          const depositInput = page.locator('input[placeholder="예: 30000"]').first();
-          if (await depositInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-            const currentVal = await depositInput.inputValue();
-            if (!currentVal && totalDeposit > 0) {
-              await depositInput.fill(String(totalDeposit));
-              console.log(`  ✅ 보증금 합계 ${totalDeposit}만원 입력`);
+          // 총 단위 수 / 객실 수 입력
+          const roomInputs = page.locator('input[placeholder="예: 45"]');
+          const count = await roomInputs.count();
+          for (let i = 0; i < count; i++) {
+            const inp = roomInputs.nth(i);
+            if (await inp.isVisible().catch(() => false)) {
+              await inp.fill(String(roomCount));
             }
+          }
+          console.log(`  🏨 총 객실 수 ${roomCount}실 입력`);
+
+          // ADR 입력
+          const adrInput = page.locator('input[placeholder*="12"]').first();
+          if (await adrInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await adrInput.fill(String(adrManwon));
+            console.log(`  🏨 ADR ${adrManwon}만원 입력`);
+          }
+
+          // OCC 입력
+          const occInput = page.locator('input[placeholder*="75"]').first();
+          if (await occInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await occInput.fill(String(hop.occupancy_rate_pct || 78));
+          }
+
+          // GOP 마진 입력
+          const gopInput = page.locator('input[placeholder*="30"]').first();
+          if (await gopInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await gopInput.fill(String(hop.gop_margin_pct || 38));
+          }
+        } else if (posture === 'development') {
+          const dspec = bs.developmentSpec || {};
+          const scalePyung = dspec.targetScalePyeong || 2500;
+          const scaleInput = page.locator('input[placeholder="예: 1200"], input[placeholder*="1200"]').first();
+          if (await scaleInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await scaleInput.fill(String(scalePyung));
+            console.log(`  🏗️ 목표 연면적 ${scalePyung}평 입력`);
+          }
+        } else if (posture === 'owner_occupied') {
+          const occInput = page.locator('input[placeholder*="100"]').first();
+          if (await occInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await occInput.fill('50');
+          }
+          const floorInput = page.locator('input[placeholder*="2~5"]').first();
+          if (await floorInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await floorInput.fill('지상 2~5층');
+          }
+        } else if (posture === 'trading') {
+          const acqInput = page.locator('input[placeholder*="350000"]').first();
+          if (await acqInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await acqInput.fill(String(Math.round(askingPriceManwon * 0.85)));
+          }
+        }
+
+        // ── 렌트롤 입력 (R2+ income/owner_occupied 지원: RentRollImporter 텍스트 탭) ──
+        if (bs.floor_leases && bs.floor_leases.length > 0 && (posture === 'income' || posture === 'owner_occupied')) {
+          try {
+            const textTab = page.locator('button:has-text("텍스트"), button:has-text("📝 텍스트")').first();
+            if (await textTab.isVisible({ timeout: 2000 }).catch(() => false)) {
+              await textTab.click();
+              await page.waitForTimeout(500);
+              const rentRollArea = page.locator('textarea[placeholder*="층"], textarea[placeholder*="B1"], textarea[placeholder*="임차"]').first();
+              if (await rentRollArea.isVisible({ timeout: 2000 }).catch(() => false)) {
+                const rentRollText = bs.floor_leases.map((l: any) =>
+                  `${l.floor} ${l.tenant_type || ''} ${l.area_pyeong ? l.area_pyeong + '평 ' : ''}보증금${l.deposit_manwon || 0} 월세${l.rent_manwon || 0} ${l.note || ''}`
+                ).join('\n');
+                await rentRollArea.fill(rentRollText);
+                console.log(`  📝 렌트롤 텍스트 입력 (${bs.floor_leases.length}개 층)`);
+                const aiParseBtn = page.locator('button:has-text("AI 분석")').first();
+                if (await aiParseBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+                  await aiParseBtn.click();
+                  console.log('  🔄 AI 분석 클릭 — 렌트롤 파싱 대기...');
+                  await page.waitForSelector('text=분석이 완료되었습니다', { timeout: 30000 }).catch(async () => {
+                    await page.waitForSelector('text=/폼에 금액|파싱 완료|개 호실/', { timeout: 10000 }).catch(() => {
+                      console.log('  ⚠️ AI 분석 완료 텍스트 미감지 — 대기');
+                    });
+                    await page.waitForTimeout(3000);
+                  });
+                  await page.waitForTimeout(1000);
+                  console.log('  ✅ 렌트롤 AI 파싱 완료');
+                }
+              }
+            }
+          } catch (e) {
+            console.log('  ⚠️ 렌트롤 텍스트 입력 스킵:', (e as Error).message);
           }
         }
 

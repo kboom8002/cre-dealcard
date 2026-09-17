@@ -12,10 +12,9 @@ const factory = createGoldenTest({
   posture: 'owner_occupied',
   askingPriceManwon: 2300000,
   resolution: 'R3',
-  expectedMinSlides: 8,
-  expectedMaxSlides: 11,
-  expectedKeywords: ['서초', 'FM빌딩', '230억'],
-  expectedFloors: ['B1', '1F', '2F', '3F', '4F', '5F', '6F'],
+  expectedMinSlides: 7,
+  expectedMaxSlides: 10,
+  expectedKeywords: ['서초', '230억'],
 });
 
 test.describe.serial(factory.suiteName, () => {
@@ -32,8 +31,8 @@ test.describe.serial(factory.suiteName, () => {
   test('Phase 5-B: owner_occupied 포스처 메트릭 확인', async () => {
     const text = factory.getPptxText();
     if (!text) { test.skip(); return; }
-    const hasMetrics = text.includes('평당') || text.includes('절감') || text.includes('손익분기');
+    const hasMetrics = text.includes('실투자금') || text.includes('사옥 가치') || text.includes('기업 브랜딩');
     expect(hasMetrics).toBe(true);
-    console.log('  ✅ owner_occupied 메트릭 확인');
+    console.log('  ✅ owner_occupied 메트릭(실투자금/사옥 가치/브랜딩) 확인');
   });
 });

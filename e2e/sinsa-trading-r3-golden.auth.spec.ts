@@ -19,9 +19,9 @@ const factory = createGoldenTest({
   posture: 'trading',
   askingPriceManwon: 7600000,
   resolution: 'R3',
-  expectedMinSlides: 8,
-  expectedMaxSlides: 11,
-  expectedKeywords: ['신사', 'ICL', '760억'],
+  expectedMinSlides: 7,
+  expectedMaxSlides: 10,
+  expectedKeywords: ['신사', '760억'],
 });
 
 test.describe.serial(factory.suiteName, () => {

@@ -150,6 +150,150 @@ export async function GET(req: NextRequest) {
       ? Math.round(((scrollCompleteCount ?? 0) / (totalViews ?? 1)) * 1000) / 10
       : 0;
 
+    // 5e. 섹션별 열람 & 체류시간 집계 (section_view)
+    const { data: sectionEvents } = await supabase
+      .from("magazine_analytics_events")
+      .select("section_id, dwell_seconds")
+      .eq("event_type", "section_view")
+      .gte("created_at", thirtyDaysAgo)
+      .in("edition_id", (editions || []).map(e => e.id))
+      .not("section_id", "is", null);
+
+    const sectionMap = new Map<string, { count: number; totalDwell: number; dwellCount: number }>();
+    (sectionEvents || []).forEach(ev => {
+      if (!ev.section_id) return;
+      const cur = sectionMap.get(ev.section_id) || { count: 0, totalDwell: 0, dwellCount: 0 };
+      cur.count += 1;
+      if (ev.dwell_seconds != null && ev.dwell_seconds > 0) {
+        cur.totalDwell += ev.dwell_seconds;
+        cur.dwellCount += 1;
+      }
+      sectionMap.set(ev.section_id, cur);
+    });
+
+    const SECTION_LABELS: Record<string, string> = {
+      cover: "커버 & 브리핑 요약",
+      ai_briefing: "AI 주간 브리핑",
+      field_note: "현장 필드노트",
+      theme_of_week: "금주의 핵심 테마",
+      featured_deals: "추천 매물 하이라이트",
+      market_data: "실거래 & 시장 데이터",
+      news_curation: "주요 CRE 뉴스",
+      tax_clinic: "세무 & 법률 클리닉",
+      auction_picks: "경매 추천 픽",
+      sentiment_index: "투자 심리 지수",
+      roi_calculator: "투자 수익률 계산기",
+      broker_profile: "브로커 프로필",
+    };
+
+    const sectionStats = Array.from(sectionMap.entries())
+      .map(([sectionId, stat]) => ({
+        sectionId,
+        label: SECTION_LABELS[sectionId] || sectionId,
+        count: stat.count,
+        avgDwellSeconds: stat.dwellCount > 0 ? Math.round(stat.totalDwell / stat.dwellCount) : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    // 6. 구독자 매수 온도 분석 & 핫리드(상위 고관여 고객) 집계
+    const { data: activeSubscribers } = await supabase
+      .from("magazine_subscribers")
+      .select("id, subscriber_name, subscriber_phone, subscriber_email, segment, channel, interest_tags, interest_profile, subscribed_at")
+      .eq("broker_id", user.id)
+      .eq("status", "active")
+      .limit(100);
+
+    const { getBuyerTemperature, TEMPERATURE_TIERS } = await import("@/domain/magazine/buyer-temperature");
+
+    // 온도별 카운트 초기화
+    const temperatureDistribution: Record<string, number> = {
+      '🔥 적극검토': 0,
+      '📈 관심': 0,
+      '⏸️ 관망': 0,
+      '❄️ 냉각': 0,
+      '⚪ 미확인': 0,
+    };
+
+    // 최근 활동 이벤트 조회 (구독자별 매핑용)
+    const { data: recentSubEvents } = await supabase
+      .from("magazine_analytics_events")
+      .select("visitor_id, event_type, section_id, dwell_seconds, created_at, metadata")
+      .gte("created_at", thirtyDaysAgo)
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    // visitor_id or metadata.subscriber_id -> events
+    const subEventMap = new Map<string, any[]>();
+    (recentSubEvents || []).forEach(ev => {
+      const subId = ev.metadata?.subscriber_id || ev.visitor_id;
+      if (!subId) return;
+      const list = subEventMap.get(subId) || [];
+      list.push(ev);
+      subEventMap.set(subId, list);
+    });
+
+    const enrichedSubscribers = (activeSubscribers || []).map(sub => {
+      const events = subEventMap.get(sub.id) || [];
+      const viewCount = events.filter(e => e.event_type === "page_view").length;
+      const lastActive = events[0]?.created_at || sub.subscribed_at;
+      const activeSections = [...new Set(events.map(e => e.section_id).filter(Boolean))];
+
+      // 크로스 채널 점수 가산: 최근 30일 내 열람 1회당 10점, 섹션 열람 5점
+      const crossScore = Math.min(100, viewCount * 12 + events.length * 4);
+      const tempConfig = getBuyerTemperature(sub.interest_profile, crossScore);
+
+      if (temperatureDistribution[tempConfig.label] !== undefined) {
+        temperatureDistribution[tempConfig.label] += 1;
+      }
+
+      return {
+        id: sub.id,
+        subscriber_name: sub.subscriber_name,
+        subscriber_phone: sub.subscriber_phone,
+        subscriber_email: sub.subscriber_email,
+        segment: sub.segment || "investor",
+        channel: sub.channel,
+        interest_tags: sub.interest_tags || {},
+        buyerTemperature: tempConfig.label,
+        temperatureConfig: tempConfig,
+        score: tempConfig.minScore + Math.min(15, viewCount * 3),
+        totalViews: viewCount,
+        lastActiveAt: lastActive,
+        recentSections: activeSections.slice(0, 3).map(sid => SECTION_LABELS[sid] || sid),
+      };
+    });
+
+    // 핫리드 (점수 및 최근 활동 기준 정렬 TOP 10)
+    const hotLeads = enrichedSubscribers
+      .sort((a, b) => b.score - a.score || new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime())
+      .slice(0, 10);
+
+    // 7. 최근 14일 일별 열람 추이
+    const dailyViewsMap = new Map<string, number>();
+    for (let d = 13; d >= 0; d--) {
+      const dateStr = new Date(Date.now() - d * 86400000).toISOString().slice(0, 10);
+      dailyViewsMap.set(dateStr, 0);
+    }
+
+    const { data: dailyViewRows } = await supabase
+      .from("magazine_analytics_events")
+      .select("created_at")
+      .eq("event_type", "page_view")
+      .gte("created_at", new Date(Date.now() - 14 * 86400000).toISOString())
+      .in("edition_id", (editions || []).map(e => e.id));
+
+    (dailyViewRows || []).forEach(r => {
+      const day = r.created_at?.slice(0, 10);
+      if (day && dailyViewsMap.has(day)) {
+        dailyViewsMap.set(day, (dailyViewsMap.get(day) || 0) + 1);
+      }
+    });
+
+    const dailyTrend = Array.from(dailyViewsMap.entries()).map(([date, count]) => ({
+      date: date.slice(5), // MM-DD
+      count,
+    }));
+
     return NextResponse.json({
       subscriberCount: subscriberCount ?? 0,
       editions: editions ?? [],
@@ -160,6 +304,10 @@ export async function GET(req: NextRequest) {
         avgDwellSeconds,
         completionRate,
       },
+      sectionStats,
+      temperatureDistribution,
+      hotLeads,
+      dailyTrend,
     });
   } catch (err: any) {
     log.error("[GET /api/broker/magazine/analytics]", err.message);
