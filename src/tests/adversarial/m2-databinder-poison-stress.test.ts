@@ -326,7 +326,7 @@ describe('Adversarial Empirical Stress Test: M2-2 Data Binder & Poison Token Ver
       expect(slideXml).not.toContain('[object Object]');
       expect(slideXml).not.toContain('undefined');
       expect(slideXml).not.toContain('NaN');
-      expect(slideXml).toContain('Ownership Structure');
+      expect(slideXml).toContain('TITLE &amp; OWNERSHIP');
     });
 
     it('[Negative Pair] Non-string matrix row representation causes "[object Object]" coercion', () => {

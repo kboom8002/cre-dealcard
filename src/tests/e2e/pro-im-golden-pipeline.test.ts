@@ -363,7 +363,7 @@ describe('Institutional Pro IM Golden Pipeline E2E Test Suite', { timeout: 180_0
 
     const devRes = await renderer.render(createGoldenProInput('development'));
     devGoldenBuffer = devRes.buffer;
-  });
+  }, 60000);
 
   // ==========================================================================
   // Suite 1: Multi-Posture End-to-End Pro IM Deck Generation

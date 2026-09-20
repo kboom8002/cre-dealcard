@@ -121,7 +121,7 @@ describe('Basic IM SOTA Render Verification Test', () => {
     // G1: 6대 핵심 지표 카드 키워드 (basic-im-guide.md §2 요약 섹션)
     expect(slideTexts[1]).toContain('요약');
     expect(slideTexts[1]).toContain('230억');
-    const statKeywords = ['매매가', 'Cap Rate'];
+    const statKeywords = ['희망가', 'Cap Rate'];
     for (const kw of statKeywords) {
       expect(slideTexts[1]).toContain(kw);
     }
@@ -150,7 +150,7 @@ describe('Basic IM SOTA Render Verification Test', () => {
     // Slide 3: Building Overview — SOTA ② 매매 희망가 별도 소표
     // ═══════════════════════════════════════════════════
     console.log('Slide 3 Text:', slideTexts[2].slice(0, 300));
-    expect(slideTexts[2]).toContain('건물 개요');
+    expect(slideTexts[2]).toContain('물건 개요');
     expect(slideTexts[2]).toContain('매매 희망가');
     expect(slideTexts[2]).toContain('230억 원');
 
@@ -158,14 +158,15 @@ describe('Basic IM SOTA Render Verification Test', () => {
     // Slide 4: Location — 입지 분석 (카카오 지도)
     // ═══════════════════════════════════════════════════
     console.log('Slide 4 Text:', slideTexts[3].slice(0, 200));
-    expect(slideTexts[3]).toContain('입지 분석');
-    expect(slideTexts[3]).toContain('소재지');
+    expect(slideTexts[3]).toContain('입지 정보');
+    expect(slideTexts[3]).toContain('입지 종합 분석');
     expect(slideTexts[3]).toContain('대중교통');
+    expect(slideTexts[3]).toContain('상권권역');
 
     // ═══════════════════════════════════════════════════
     // Slide 5: Land — 토지 현황
     // ═══════════════════════════════════════════════════
-    expect(slideTexts[4]).toContain('토지 현황');
+    expect(slideTexts[4]).toContain('토지 정보');
 
     // ═══════════════════════════════════════════════════
     // Slide 6: Cadastral Map — 지적도
@@ -177,7 +178,7 @@ describe('Basic IM SOTA Render Verification Test', () => {
     // G4: 공실 스타일링 검증 + 관리비 배제
     // ═══════════════════════════════════════════════════
     console.log('Slide 7 Text:', slideTexts[6].slice(0, 300));
-    expect(slideTexts[6]).toContain('임대차 현황');
+    expect(slideTexts[6]).toContain('렌트롤');
     expect(slideTexts[6]).toContain('공실');
 
     // G4: 공실 행 배경색 FBEFE8 (basic-im-guide.md §4 공실/경고 강조)
@@ -192,9 +193,9 @@ describe('Basic IM SOTA Render Verification Test', () => {
     // Slide 8: Yield Formula (A23)
     // ═══════════════════════════════════════════════════
     console.log('Slide 8 Text:', slideTexts[7].slice(0, 300));
-    expect(slideTexts[7]).toContain('투자수익률 분석');
+    expect(slideTexts[7]).toContain('수익률');
     expect(slideTexts[7]).toContain('1.66%');
-    expect(slideTexts[7]).toContain('2.90%');
+    expect(slideTexts[7]).toContain('2.87%');
 
     // ═══════════════════════════════════════════════════
     // Slide 9: Gallery (A14)

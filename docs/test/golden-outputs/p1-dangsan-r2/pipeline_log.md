@@ -1,8 +1,8 @@
 # P1 당산 수익형 — R2-Standard 골든 파이프라인 보고서
 
-> **생성 시각**: 2026-09-20T11:35:36.167Z
-> **총 소요시간**: 30179ms
-> **결과**: 7 PASS / 4 FAIL / 0 WARN
+> **생성 시각**: 2026-09-20T11:57:49.753Z
+> **총 소요시간**: 13247ms
+> **결과**: 13 PASS / 0 FAIL / 0 WARN
 
 ---
 
@@ -22,17 +22,19 @@
 
 | # | 단계 | 상태 | 소요시간 | 상세 |
 |:---|:---|:---|---:|:---|
-| 1 | S1 — 데이터셋 로드 | ✅ PASS | 4ms | bottom_sheet: 13개 필드, memo: 381자, expected: 11개 필드 |
-| 2 | S2 — 메모 슬롯 추출 | ✅ PASS | 7ms | 4개 슬롯 추출, 추출률 9.0% |
-| 3 | S3 — 재무 계산 | ✅ PASS | 3ms | Cap Rate: 1.67%, 연 임대수익: 1.91억, 토지평당가: 7,501만/평 |
-| 4 | S4 — 데이터 품질 배지 | ✅ PASS | 0ms | 점수: 60, 등급: reference, 기대등급: B |
-| 5 | S5 — 덱 시퀀서 | ✅ PASS | 1ms | 10개 슬라이드 시퀀스, 아키타입: [A01, A02, A04, A06, A04, A06, A24, A23, A14, A10] |
-| 6 | S7-A — Poison Token 검증 | ❌ FAIL | 1ms | Cannot read properties of undefined (reading 'buffer') |
-| 7 | S7-B — Evasive Phrase 검증 | ❌ FAIL | 0ms | Cannot read properties of undefined (reading 'buffer') |
-| 8 | S7-C — Mock Data Leak 검증 | ❌ FAIL | 1ms | Cannot read properties of undefined (reading 'buffer') |
-| 9 | S7-D — Physical Binary Gates | ❌ FAIL | 1ms | Cannot read properties of undefined (reading 'buffer') |
-| 10 | S9 — SSoT 수학적 일관성 | ✅ PASS | 0ms | 일관성 확인: NOI=2.34억, Cap Rate=2.03% |
-| 11 | S10 — 파이프라인 리포트 저장 | ✅ PASS | 3ms | 리포트 저장 완료: C:\Users\User\cre-dealcard\docs\test\golden-outputs\p1-dangsan-r2\pipeline_log.md |
+| 1 | S1 — 데이터셋 로드 | ✅ PASS | 3ms | bottom_sheet: 13개 필드, memo: 381자, expected: 11개 필드 |
+| 2 | S2 — 메모 슬롯 추출 | ✅ PASS | 12ms | 4개 슬롯 추출, 추출률 9.0% |
+| 3 | S3 — 재무 계산 | ✅ PASS | 9ms | Cap Rate: 1.67%, 연 임대수익: 1.91억, 토지평당가: 7,501만/평 |
+| 4 | S4 — 데이터 품질 배지 | ✅ PASS | 2ms | 점수: 60, 등급: reference, 기대등급: B |
+| 5 | S5 — 덱 시퀀서 | ✅ PASS | 2ms | 10개 슬라이드 시퀀스, 아키타입: [A01, A02, A04, A06, A04, A06, A24, A23, A14, A10] |
+| 6 | S6 — PPTX 렌더링 | ✅ PASS | 11757ms | 10개 슬라이드, 5033KB, 저장: C:\Users\User\cre-dealcard\docs\test\golden-outputs\p1-dangsan-r2\p1_dangsan_income_r2_basic.pptx |
+| 7 | S7-A — Poison Token 검증 | ✅ PASS | 409ms | 0 poison tokens detected |
+| 8 | S7-B — Evasive Phrase 검증 | ✅ PASS | 292ms | 0 evasive phrases detected |
+| 9 | S7-C — Mock Data Leak 검증 | ✅ PASS | 261ms | 0 mock data leaks detected |
+| 10 | S7-D — Physical Binary Gates | ✅ PASS | 250ms | isPass: true, slides: 10, issues: 0 |
+| 11 | S8 — 슬라이드 콘텐츠 검증 | ✅ PASS | 54ms | 7/7 검증 통과 |
+| 12 | S9 — SSoT 수학적 일관성 | ✅ PASS | 1ms | 일관성 확인: NOI=2.34억, Cap Rate=2.03% |
+| 13 | S10 — 파이프라인 리포트 저장 | ✅ PASS | 38ms | 리포트 저장 완료: C:\Users\User\cre-dealcard\docs\test\golden-outputs\p1-dangsan-r2\pipeline_log.md |
 
 ---
 
@@ -246,6 +248,152 @@
       "kicker": "문의/유의",
       "title": "문의/유의",
       "dataKey": "closing"
+    }
+  ]
+}
+```
+
+### S6: PPTX 렌더링
+
+```json
+{
+  "slideCount": 10,
+  "fileSizeKB": 5033,
+  "generatedAt": "2026-09-20T11:57:48.035Z",
+  "warnings": [
+    "[A23] 안정화 수익률 데이터 없음 — As-Is만 렌더링",
+    "[AUDIT] G33: 텍스트 넘침 34건",
+    "[AUDIT] G34: 겹침 11.693in > 0.015in",
+    "[AUDIT] G36: 왜곡 109.6% > 5%",
+    "[AUDIT] G43: highlights↔제원 중복"
+  ],
+  "auditReport": {
+    "layoutViolations": [
+      "G33: 텍스트 넘침 34건",
+      "G34: 겹침 11.693in > 0.015in",
+      "G36: 왜곡 109.6% > 5%"
+    ],
+    "standardViolations": [
+      "G43: highlights↔제원 중복"
+    ],
+    "totalViolations": 4,
+    "imageCount": 9,
+    "textCount": 227,
+    "gateContext": {
+      "maxCropRatio": 0,
+      "minEffectiveDpi": 200,
+      "textOverflowCount": 34,
+      "overlapMaxInches": 11.693,
+      "bleedCount": 0,
+      "aspectDistortionMaxPct": 109.6,
+      "vacancyNarrativeContradiction": false,
+      "fallbackDuplicateCount": 0,
+      "highlightSpecDuplicate": true,
+      "unclosedBracketCount": 0,
+      "labelContentMismatchCount": 0,
+      "pageCountExceeded": false,
+      "foreignPhotoCount": 0
+    }
+  }
+}
+```
+
+### S7-D: Physical Binary Gates
+
+```json
+{
+  "isPass": true,
+  "slideCount": 10,
+  "poisonTokenViolationCount": 0,
+  "evasivePhraseViolationCount": 0,
+  "mockLeakViolationCount": 0,
+  "placeholderResidueCount": 0,
+  "personaViolationCount": 0,
+  "issues": []
+}
+```
+
+### S8: 슬라이드 콘텐츠 검증
+
+```json
+{
+  "checks": [
+    {
+      "name": "당산 키워드",
+      "pass": true,
+      "detail": "포함"
+    },
+    {
+      "name": "매각가 115억",
+      "pass": true,
+      "detail": "포함"
+    },
+    {
+      "name": "핵심 임차인(로뎀나무내과)",
+      "pass": true,
+      "detail": "포함"
+    },
+    {
+      "name": "약국 임차인",
+      "pass": true,
+      "detail": "포함"
+    },
+    {
+      "name": "수익률 수치(X.XX%)",
+      "pass": true,
+      "detail": "포함"
+    },
+    {
+      "name": "렌트롤 층수 정보",
+      "pass": true,
+      "detail": "포함"
+    },
+    {
+      "name": "슬라이드 수 범위",
+      "pass": true,
+      "detail": "10개 (기대: 9~11)"
+    }
+  ],
+  "slideTextPreview": [
+    {
+      "slide": 1,
+      "textPreview": "CRE DEAL 표지 서울특별시 영등포구 당산동5가 11-47 투자설명서 근린생활시설 (메디컬빌딩) 서울특별시 영등포구 당산동5가 11-47 근린생활시설 (메디컬빌딩) 115억 매각 희망가 115억 원 제이에스부동산중개법인 2026.09.20  |  정현우 수석팀장  ..."
+    },
+    {
+      "slide": 2,
+      "textPreview": "02 요약 요약 로뎀나무내과·고은약국 장기 임차 만실 · 11년 미인상 임대료 정상화 시 47% 상승 여력 매매 희망가 115억 원 대지면적 153.3평 연면적 345.2평 건축규모 B1/F5 연 수익률(Cap Rate) 1.56% 공실 현황 만실 운영 (공실 0%) ..."
+    },
+    {
+      "slide": 3,
+      "textPreview": "03 물건 개요 물건 개요 건물 기본 정보 소재지 서울특별시 영등포구 당산동5가 11-47 대지면적 506.8㎡ (153.3평) 연면적 1141.15㎡ (345.2평) 건축면적 256.12㎡ (77.5평, 건폐율 50.54%) 용적률 225.14% (준공업지역 법정 4..."
+    },
+    {
+      "slide": 4,
+      "textPreview": "04 입지 정보 입지 정보 교통 접근성 대중교통 당산역 9호선 도보 1분 (약 51m) 도로접면 8m 도로 2면 접면 (코너) 상권권역 영등포/당산 주요 상업·업무 권역 상업시설 영등포농협 하나로마트 당산역점 도보 1분 (약 98m) 주요시설 커넥트인터내셔널 도보 2분..."
+    },
+    {
+      "slide": 5,
+      "textPreview": "05 토지 정보 토지 정보 토지이용계획 · 규제 분석 대지면적 506.8㎡ (153.3평) 용도지역 준공업지역 건폐율 현행 50.54% (법정 상한 60%) 용적률 현행 225.14% (법정 상한 400%) 도로접면 8m 도로 2면 접면 (코너) 필지 형상 [필지 형상..."
+    },
+    {
+      "slide": 6,
+      "textPreview": "06 Cadastral 지적도 연속지적도 (V-World) 대지면적 506.8㎡ (153.3평) 용도지역 준공업지역 건폐율 현행 50.54% (법정 상한 60%) 용적률 현행 225.14% (법정 상한 400%) © V-World 국토교통부 | 2026 CRE DEAL..."
+    },
+    {
+      "slide": 7,
+      "textPreview": "07 렌트롤 렌트롤 2025 2026 공실 GL (지상/지하 경계) B1 카페(자가) 96평 1F 약국 24평 1F 내과 32평 2F 내과 76평 3F 헬쓰장 76평 4F 와인매장 51평 4F 자가 25평 5F 내과 56평 ※ 렌트롤 현황 기준 층별 공간 배치도 층수 ..."
+    },
+    {
+      "slide": 8,
+      "textPreview": "08 수익률 수익률 표면 임대수익률  = 연간 임대료 합계 (관리비 제외) 매매가  −  승계 보증금 합계 2.3억원 ÷ (115.0억원 − 2.9억원) As-Is (현재) 연간 임대료 2.3억원 승계 보증금 2.9억원 매매가 115.0억원 Cap Rate 2.08% ..."
+    },
+    {
+      "slide": 9,
+      "textPreview": "09 Gallery 현장 사진 건물 외관 건물 정면 외관 (B1~5F, 벽돌 구조) 건물 외관 건물 측면 (자주식 주차장 진입로) 주 출입구 주출입구 및 1층 간판 (로뎀나무내과·고은약국) 실내 공간 내부 층별 공용 복도 실내 공간 임차 전용 공간 (사무실 내부) 주차..."
+    },
+    {
+      "slide": 10,
+      "textPreview": "10 문의/유의 문의 및 유의사항 01 관심 표명 담당 중개사에게 초기 관심 표명 및 상담 요청 → 02 NDA 체결 비밀유지계약 후 상세 임대차·재무 자료 제공 → 03 현장 실사 건물 컨디션 및 설비 직접 확인 후 의향서(LOI) 제출 데이터 출처 표기 ✓ 공부확인..."
     }
   ]
 }

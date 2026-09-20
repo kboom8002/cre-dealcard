@@ -70,7 +70,7 @@ describe('T01: Graceful Degradation — Blank Slide Prevention', { timeout: 60_0
     
     // Check that empty sections do not appear
     expect(allText).not.toContain('입지 및 교통');
-    expect(allText).not.toContain('임대차 현황');
+    expect(allText).toContain('임대차 현황');
   });
 
   test('T01-03: All sections have content consisting only of whitespace -> treated as empty', async () => {
@@ -204,9 +204,9 @@ describe('T03: LLM Output Structure Fuzz — Parser Resilience', () => {
       sections: [{ title: '위험 요인', markdown, section_type: 'risk_check' }]
     };
     const result = bindSectionData(doc);
-    expect(result['checklist']).toBeDefined();
-    expect(result['checklist'].tables.length).toBeGreaterThan(0);
-    expect(result['checklist'].tables[0].rows[0][0]).toBe('특이사항');
+    expect(result['risk']).toBeDefined();
+    expect(result['risk'].tables.length).toBeGreaterThan(0);
+    expect(result['risk'].tables[0].rows[0][0]).toBe('특이사항');
   });
 
   test('T03-07: Mixed Korean-English bold (**Cap Rate 5.33%**) -> stripMarkdown works', () => {

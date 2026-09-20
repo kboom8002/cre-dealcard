@@ -1,7 +1,7 @@
 # P1 당산 수익형 — R3-Verified PRO IM 골든 파이프라인 보고서
 
-> **생성 시각**: 2026-09-20T11:36:16.593Z
-> **총 소요시간**: 22637ms
+> **생성 시각**: 2026-09-20T11:58:06.797Z
+> **총 소요시간**: 18241ms
 > **결과**: 5 PASS / 0 FAIL / 0 WARN
 
 ---
@@ -21,11 +21,11 @@
 
 | # | 단계 | 상태 | 소요시간 | 상세 |
 |:---|:---|:---|---:|:---|
-| 1 | S1 — 데이터셋 로드 | ✅ PASS | 2ms | bottom_sheet 로드 (R3-Verified) |
-| 2 | S2 — Writer Input 구성 | ✅ PASS | 0ms | MobileIMWriterInput 생성 완료 |
-| 3 | S3 — AI 생성 엔진 (LLM) | ✅ PASS | 9684ms | 12개 섹션 생성, AI 사용 여부: true |
-| 4 | S4 — PRO PPTX 렌더링 | ✅ PASS | 8065ms | 32개 슬라이드, 1609KB, 저장 완료 |
-| 5 | S5 — 바이너리 품질 게이트 | ✅ PASS | 3059ms | PoisonTokens: OK, EvasivePhrases: OK, MockLeaks: OK, PhysicalGates: OK |
+| 1 | S1 — 데이터셋 로드 | ✅ PASS | 76ms | bottom_sheet 로드 (R3-Verified) |
+| 2 | S2 — Writer Input 구성 | ✅ PASS | 1ms | MobileIMWriterInput 생성 완료 |
+| 3 | S3 — AI 생성 엔진 (LLM) | ✅ PASS | 8651ms | 12개 섹션 생성, AI 사용 여부: true |
+| 4 | S4 — PRO PPTX 렌더링 | ✅ PASS | 3250ms | 32개 슬라이드, 1609KB, 저장 완료 |
+| 5 | S5 — 바이너리 품질 게이트 | ✅ PASS | 6010ms | PoisonTokens: OK, EvasivePhrases: OK, MockLeaks: OK, PhysicalGates: OK |
 
 ---
 
@@ -412,7 +412,7 @@
 ```json
 {
   "slideCount": 32,
-  "fileSizeBytes": 1647113,
+  "fileSizeBytes": 1647122,
   "warnings": [
     "[BL-2] 지도 좌표와 이미지 URL 모두 없음",
     "[Graceful Degradation] 상세 임대차 현황 (상층부 및 만기 스케줄) 슬라이드 억제: 바인딩할 데이터(dataKey: rentRollPart2)가 충분하지 않습니다.",

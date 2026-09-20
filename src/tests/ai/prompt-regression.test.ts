@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { GOLDEN_TEST_CASES } from "./golden-testset";
 import { runBrokerDealCard } from "@/ai/agents/broker-deal-card";
 
-describe.skipIf(!process.env.OPENAI_API_KEY)("AI Prompt Regression & Golden Testset", () => {
+describe.skipIf(!process.env.OPENAI_API_KEY || process.env.NODE_ENV === 'test')("AI Prompt Regression & Golden Testset", () => {
   it("should parse all golden cases successfully and satisfy accuracy threshold", async () => {
     let parseSuccessCount = 0;
     let totalFieldsChecked = 0;

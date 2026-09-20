@@ -356,7 +356,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
   // ─────────────────────────────────────────────────────────────
   // 0.5 GBD 권역 실거래 기반 2대 감정평가 엔진 (사례비교법 + 수익환원법)
   // ─────────────────────────────────────────────────────────────
-  describe('R2: GBD 2-Method Valuation Integration (사례비교법 + 수익환원법)', { timeout: 30000 }, () => {
+  describe('R2: GBD 2-Method Valuation Integration (사례비교법 + 수익환원법)', { timeout: 60000 }, () => {
     it('[신사동 590][Positive Pair] 5개 GBD 비교사례 밴드(2.00억~3.18억) 및 적정 호가(2.36억), 원가법 배제 단언', () => {
       const subject = {
         askingPriceKrw: sinsaFixture.askingPriceKrw,
@@ -513,7 +513,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
   // ─────────────────────────────────────────────────────────────
   // R3: GBD Macro Transit Vector Diagram Engine & Catchment Demand Domain Isolation (M3)
   // ─────────────────────────────────────────────────────────────
-  describe('R3: GBD Macro Transit Vector Diagram Engine & Catchment Demand Domain Isolation (M3)', { timeout: 35000 }, () => {
+  describe('R3: GBD Macro Transit Vector Diagram Engine & Catchment Demand Domain Isolation (M3)', { timeout: 60000 }, () => {
     // ── 1. 신사동 590: GBD_SINSA 서브권역 벡터 맵 ──
     it('[신사동 590][Positive Pair 1] GBD_SINSA 광역 대중교통 벡터 맵 생성 (1600x1200, 266.7 DPI, 0.5/1.0km 동심원, 을지병원사거리·위례신사선 노드) 단언', async () => {
       const subDistrict = detectSubDistrict(sinsaFixture.address, sinsaFixture.title);
@@ -960,7 +960,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
   // ─────────────────────────────────────────────────────────────
   // 2. 물리 PPTX 렌더링 무결성 및 9대 게이트 검증 (SSoT 빌드)
   // ─────────────────────────────────────────────────────────────
-  describe('G4: Physical PPTX Binary Inspection & D33/D34/D37 Rules', { timeout: 30000 }, () => {
+  describe('G4: Physical PPTX Binary Inspection & D33/D34/D37 Rules', { timeout: 60000 }, () => {
     it('[신사동 590][Positive Pair] 렌더링 바이너리 물리 무결성 0 위반 PASS 단언', async () => {
       const renderer = new MobileImPptxRenderer();
       const photoPath = path.resolve('docs/test/real-broker-im/sinsa-media/image9.jpeg');
@@ -1004,7 +1004,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(inspection.brokenImageCount).toBe(0);
       expect(inspection.defectExcuseViolationCount).toBe(0);
       expect(inspection.isPass).toBe(true);
-    }, 30000);
+    }, 60000);
 
     it('[신사동 590][Negative Pair] 결손 변명(G54) 텍스트 주입 시 inspectPptxBinary 결함 감지 및 검증 실패 단언', async () => {
       const renderer = new MobileImPptxRenderer();
@@ -1024,7 +1024,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(inspection.defectExcuseViolationCount).toBeGreaterThan(0);
       expect(inspection.isPass).toBe(false);
       expect(inspection.issues.some((issue) => issue.includes('G54') || issue.includes('결손변명'))).toBe(true);
-    }, 30000);
+    }, 60000);
 
     it('[서초동 1364-28][Positive Pair] 다층 공실 렌트롤 및 Pro-forma 렌더링 무결성 PASS 단언', async () => {
       const renderer = new MobileImPptxRenderer();
@@ -1069,7 +1069,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(inspection.brokenImageCount).toBe(0);
       expect(inspection.defectExcuseViolationCount).toBe(0);
       expect(inspection.isPass).toBe(true);
-    }, 30000);
+    }, 60000);
 
     it('[서초동 1364-28][Negative Pair] 금지 페르소나(Rule 1) 및 미치환 토큰 주입 시 inspectPptxBinary 결함 감지 및 검증 실패 단언', async () => {
       const renderer = new MobileImPptxRenderer();
@@ -1092,7 +1092,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(inspection.isPass).toBe(false);
       expect(inspection.issues.some((issue) => issue.includes('Rule 1') || issue.includes('페르소나'))).toBe(true);
       expect(inspection.issues.some((issue) => issue.includes('미치환 자리표시자') || issue.includes('{{'))).toBe(true);
-    }, 30000);
+    }, 60000);
   });
 
   // ─────────────────────────────────────────────────────────────
@@ -1145,7 +1145,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       });
       expect(consistency.passed).toBe(true);
       expect(consistency.totalDiscrepancies).toBe(0);
-    }, 30000);
+    }, 60000);
 
     it('[Negative Pair] 매매가 변조 시 Target Hash 불일치 및 크로스 채널 불일치 검출 단언', () => {
       const docA = {

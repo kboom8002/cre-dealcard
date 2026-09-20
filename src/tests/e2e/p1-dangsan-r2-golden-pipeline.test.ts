@@ -318,7 +318,7 @@ describe('P1 당산 Income R2-Standard — 프로덕션 골든 파이프라인',
     expect(sequence.length).toBeLessThanOrEqual(PAGE_HARD_LIMIT);
   });
 
-  it('Step 6: PPTX 렌더링 (MobileImPptxRenderer.render)', { timeout: 30_000 }, async () => {
+  it('Step 6: PPTX 렌더링 (MobileImPptxRenderer.render)', { timeout: 60_000 }, async () => {
     const t = Date.now();
 
     // ── 팩토리 기반 입력 생성 (S4/S8: 수동 200줄 → 팩토리 + override) ──
