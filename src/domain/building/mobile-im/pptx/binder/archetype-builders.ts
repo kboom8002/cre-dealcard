@@ -303,7 +303,7 @@ export function buildA22Props(markdown: string, tables: ParsedTable[], lines: st
     }
 
     const anchorName = body?.anchorTenant?.name
-            || (body?.floor_leases ?? []).find((l: any) => l.tenant_name && l.rent_manwon > 0)?.tenant_name
+            || ((body?.floor_leases ?? []).filter(Boolean) as any[]).find((l: any) => l.tenant_name && l.rent_manwon > 0)?.tenant_name
             || '대표 임차인';
     let stdPy = 0;
     floors.forEach(f => {
@@ -417,7 +417,7 @@ export function buildA18Props(markdown: string, tables: ParsedTable[], plainLine
     const items = extractBulletItems(plainLines).map(b => b.title ? `${b.title}: ${b.body}` : b.body);
     return {
     kicker: 'DUE DILIGENCE CHECKLIST',
-    title: '실사 체크리스트 및 확인 필요사항',
+    title: '실사 체크리스트 및 점검 항목',
     checkItems: items,
     markdown,
     };
@@ -883,23 +883,26 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
     const lines = markdown.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     const metrics: Array<{label: string; value: string; unit?: string}> = [];
     const ssotAskManwon = body?.ssot_summary?.asking_price_manwon;
-    const askPrice = ssotAskManwon
+    const askPrice = (ssotAskManwon && Number.isFinite(Number(ssotAskManwon)) && Number(ssotAskManwon) > 0)
             ? `${(Number(ssotAskManwon) / 10000).toLocaleString()}억 원`
             : (heroCard.askingPrice ?? heroCard.askingPriceDisplay);
     let summaryYield: Yield | null = null;
     const isBasicIM = body?.preset === 'credeal_basic' || body?.heroCard?.preset === 'credeal_basic' || body?.templateId === 'credeal_basic';
     if (posture === 'income' && isBasicIM) {
     // basic-im-guide.md §2 #2: 핵심 숫자 스탯 6개
-    if (askPrice) metrics.push({ label: '매매 희망가', value: String(askPrice) });
+    const safeAsk = (askPrice && !String(askPrice).includes('Infinity') && !String(askPrice).includes('NaN')) ? String(askPrice) : '-';
+    if (safeAsk !== '-') metrics.push({ label: '매매 희망가', value: safeAsk });
     const ssotB = body?.ssot_summary ?? {};
-    const landAreaPy = heroCard.landAreaPyeong
+    const rawLandAreaPy = heroCard.landAreaPyeong
       ?? ssotB.land_area_pyeong
       ?? (ssotB.land_area_sqm ? Math.round(sqmToPyeong(Number(ssotB.land_area_sqm)) * 10) / 10 : undefined)
       ?? (ssotB.plat_area_sqm ? Math.round(sqmToPyeong(Number(ssotB.plat_area_sqm)) * 10) / 10 : undefined);
+    const landAreaPy = Number.isFinite(Number(rawLandAreaPy)) && Number(rawLandAreaPy) > 0 ? Number(rawLandAreaPy) : undefined;
     if (landAreaPy) metrics.push({ label: '대지면적', value: `${Number(landAreaPy).toLocaleString()}평` });
-    const gfaPy = heroCard.totalGrossAreaPyeong
+    const rawGfaPy = heroCard.totalGrossAreaPyeong
       ?? ssotB.total_gross_area_pyeong
       ?? (ssotB.total_gross_area_sqm ? Math.round(sqmToPyeong(Number(ssotB.total_gross_area_sqm)) * 10) / 10 : undefined);
+    const gfaPy = Number.isFinite(Number(rawGfaPy)) && Number(rawGfaPy) > 0 ? Number(rawGfaPy) : undefined;
     if (gfaPy) metrics.push({ label: '연면적', value: `${Number(gfaPy).toLocaleString()}평` });
     const floorsAbove = ssotB.floors_above ?? heroCard.floorsAbove;
     const floorsBelow = ssotB.floors_below ?? heroCard.floorsBelow;
@@ -908,32 +911,35 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
       metrics.push({ label: '건축규모', value: scaleStr });
     }
     const yieldObj = buildYieldFromHeroCard(heroCard);
-    if (yieldObj) {
+    if (yieldObj && Number.isFinite(yieldObj.value) && yieldObj.value > 0) {
       summaryYield = yieldObj;
       metrics.push({ label: '연 수익률(Cap Rate)', value: `${yieldObj.value}%` });
     }
-    const hasAnyVacant = Array.isArray(body?.floor_leases) && body.floor_leases.some((fl: any) => fl.is_vacant || String(fl.tenant_type || '').includes('공실'));
+    const hasAnyVacant = Array.isArray(body?.floor_leases) && body.floor_leases.some((fl: any) => fl && (fl.is_vacant || String(fl.tenant_type || '').includes('공실')));
     const vacInfo = (heroCard.vacancyDisplay && heroCard.vacancyDisplay !== '확인 중')
       ? heroCard.vacancyDisplay
       : (ssotB.vacancy_signal ?? (Array.isArray(body?.floor_leases) && !hasAnyVacant ? '만실 운영 (공실 0%)' : '만실 운영'));
     if (vacInfo) metrics.push({ label: '공실 현황', value: vacInfo });
     // 보충: 6개 미만이면 실투자금 추가
-    if (metrics.length < 6 && heroCard.equityRequiredBil) {
+    if (metrics.length < 6 && heroCard.equityRequiredBil && Number.isFinite(Number(heroCard.equityRequiredBil)) && Number(heroCard.equityRequiredBil) > 0) {
       metrics.push({ label: '실투자금', value: `약 ${heroCard.equityRequiredBil}억 원` });
     }
     } else if (posture === 'income') {
-    if (askPrice) metrics.push({ label: '매매 희망가', value: String(askPrice) });
-    if (heroCard.equityRequiredBil) metrics.push({ label: '실투자금', value: `약 ${heroCard.equityRequiredBil}억 원` });
+    const safeAsk = (askPrice && !String(askPrice).includes('Infinity') && !String(askPrice).includes('NaN')) ? String(askPrice) : '-';
+    if (safeAsk !== '-') metrics.push({ label: '매매 희망가', value: safeAsk });
+    if (heroCard.equityRequiredBil && Number.isFinite(Number(heroCard.equityRequiredBil)) && Number(heroCard.equityRequiredBil) > 0) {
+      metrics.push({ label: '실투자금', value: `약 ${heroCard.equityRequiredBil}억 원` });
+    }
     // D33 BL-C: 수익률 단일 객체 — 라벨은 값에서 파생, 문자열 교정 폐기
     const yieldObj = buildYieldFromHeroCard(heroCard);
-    if (yieldObj) {
+    if (yieldObj && Number.isFinite(yieldObj.value) && yieldObj.value > 0) {
       summaryYield = yieldObj;
       metrics.push({ label: yieldLabel(yieldObj), value: `${yieldObj.value}%` });
     }
     // BL-4: 역레버리지 감지 — capRate < 조달금리(4.5% 기본)이면 ROE 단독 표시 금지 (Basic IM은 제외)
     const assumedLoanRate = heroCard.loanRatePct ?? 4.5;
-    const isNegativeLeverage = !isBasicIM && heroCard.capRateBase && heroCard.capRateBase < assumedLoanRate;
-    if (heroCard.leveragedYieldPct && !isNegativeLeverage) {
+    const isNegativeLeverage = !isBasicIM && heroCard.capRateBase && Number.isFinite(Number(heroCard.capRateBase)) && heroCard.capRateBase < assumedLoanRate;
+    if (heroCard.leveragedYieldPct && Number.isFinite(Number(heroCard.leveragedYieldPct)) && !isNegativeLeverage) {
       metrics.push({ label: '자기자본수익률', value: `${heroCard.leveragedYieldPct}%` });
     } else if (isNegativeLeverage) {
       // 역레버리지 경고: ROE 대신 경고 메시지 표시
@@ -1052,11 +1058,15 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
       const rawStation = ssotKP.station_name || heroCard.nearestStation || nearestSt?.name || nearestSt?.stationName || '';
       const stationName = normalizeStationName(rawStation);
       const stationMin = ssotKP.station_walk_min ?? nearestSt?.walkMinutes ?? (nearestSt?.distanceM ? Math.max(1, Math.round(nearestSt.distanceM / 80)) : undefined);
-      const grossAreaPy = Number(heroCard.totalGrossAreaPyeong ?? (ssotKP.total_gross_area_sqm ? sqmToPyeong(ssotKP.total_gross_area_sqm) : ssotKP.total_gross_area_pyeong ?? 0));
-      const siteAreaPy = Number(heroCard.landAreaPyeong ?? (ssotKP.land_area_sqm ? sqmToPyeong(ssotKP.land_area_sqm) : ssotKP.land_area_pyeong ?? 0));
-      const askManwon = Number(ssotKP.asking_price_manwon || 0);
+      const rawGrossAreaPy = Number(heroCard.totalGrossAreaPyeong ?? (ssotKP.total_gross_area_sqm ? sqmToPyeong(ssotKP.total_gross_area_sqm) : ssotKP.total_gross_area_pyeong ?? 0));
+      const grossAreaPy = Number.isFinite(rawGrossAreaPy) && rawGrossAreaPy > 0 ? rawGrossAreaPy : 0;
+      const rawSiteAreaPy = Number(heroCard.landAreaPyeong ?? (ssotKP.land_area_sqm ? sqmToPyeong(ssotKP.land_area_sqm) : ssotKP.land_area_pyeong ?? 0));
+      const siteAreaPy = Number.isFinite(rawSiteAreaPy) && rawSiteAreaPy > 0 ? rawSiteAreaPy : 0;
+      const rawAskManwon = Number(ssotKP.asking_price_manwon || 0);
+      const askManwon = Number.isFinite(rawAskManwon) && rawAskManwon > 0 ? rawAskManwon : 0;
       const pyeongPriceManwon = grossAreaPy > 0 && askManwon > 0 ? Math.round(askManwon / grossAreaPy) : 0;
-      const capRate = Number(ssotKP.gross_yield ?? ssotKP.cap_rate ?? 0);
+      const rawCapRate = Number(ssotKP.gross_yield ?? ssotKP.cap_rate ?? 0);
+      const capRate = Number.isFinite(rawCapRate) && rawCapRate > 0 ? rawCapRate : 0;
 
       // 입지 포인트: 역명+도보분+도로조건을 동적 합성
       const stationPart = stationName && stationMin
@@ -1071,10 +1081,11 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
 
       // 수익 포인트: 공실 유무에 따라 분기
       let incomeFb: string;
-      if (vacFloors > 0 && capRate > 0) {
-        const stabilizedRate = capRate / (1 - (Number(ssotKP.vacancy_pct ?? 0) / 100));
+      if (vacFloors > 0 && Number.isFinite(capRate) && capRate > 0) {
+        const vacPct = Number(ssotKP.vacancy_pct ?? 0);
+        const stabilizedRate = (Number.isFinite(vacPct) && vacPct < 100 && vacPct >= 0) ? (capRate / (1 - (vacPct / 100))) : capRate;
         incomeFb = `수익 안정성: 연 순수익률(Cap Rate) ${capRate.toFixed(2)}%, 공실 ${vacFloors}개 층 재임대 시 ${stabilizedRate.toFixed(2)}%로 상승 여력`;
-      } else if (capRate > 0) {
+      } else if (Number.isFinite(capRate) && capRate > 0) {
         incomeFb = `수익 안정성: 연 순수익률(Cap Rate) ${capRate.toFixed(2)}% 기반 안정적 임대수익 자산`;
       } else {
         incomeFb = `안정적 현금흐름: 전 층 임차인 운영 기반의 안정적 월 임대수익 창출`;
@@ -1082,9 +1093,9 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
 
       // 자산 규모 포인트: 연면적+대지면적+평당가
       const areaParts: string[] = [];
-      if (siteAreaPy > 0) areaParts.push(`대지 ${siteAreaPy.toFixed(0)}평`);
-      if (grossAreaPy > 0) areaParts.push(`연면적 ${grossAreaPy.toFixed(0)}평`);
-      if (pyeongPriceManwon > 0 && grossAreaPy > 0) areaParts.push(`평당 약 ${pyeongPriceManwon.toLocaleString()}만 원`);
+      if (Number.isFinite(siteAreaPy) && siteAreaPy > 0) areaParts.push(`대지 ${siteAreaPy.toFixed(0)}평`);
+      if (Number.isFinite(grossAreaPy) && grossAreaPy > 0) areaParts.push(`연면적 ${grossAreaPy.toFixed(0)}평`);
+      if (Number.isFinite(pyeongPriceManwon) && pyeongPriceManwon > 0 && grossAreaPy > 0) areaParts.push(`평당 약 ${pyeongPriceManwon.toLocaleString()}만 원`);
       const scaleFb = areaParts.length > 0
         ? `자산 규모: ${areaParts.join('·')} 규모 단독 빌딩`
         : `자산 규모: ${area} 소재 단독 빌딩 매입 기회`;

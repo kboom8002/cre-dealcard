@@ -356,7 +356,9 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
       expect(fileJson.artifactFileHash).toBe('sha256:file-binary-456');
 
       // 3. Official PPTX Download
-      const dlReq = new NextRequest(`http://localhost:3000/api/broker/pptx-studio/projects/${project.id}/download`);
+      const dlReq = new NextRequest(`http://localhost:3000/api/broker/pptx-studio/projects/${project.id}/download`, {
+        headers: { 'x-broker-id': 'test-broker', 'x-test-bypass': 'true' },
+      });
       const dlRes = await downloadPptx(dlReq, { params: Promise.resolve({ id: project.id }) });
 
       expect(dlRes.status).toBe(200);
@@ -364,6 +366,15 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
       expect(dlRes.headers.get('Content-Disposition')).toContain('.pptx');
       const blob = await dlRes.blob();
       expect(blob.size).toBeGreaterThan(1000);
+    });
+
+    it('Negative Pair: GET /api/broker/pptx-studio/projects/[id]/download rejects unauthenticated request with 401', async () => {
+      const unauthReq = new NextRequest(`http://localhost:3000/api/broker/pptx-studio/projects/any-project/download`);
+      const res = await downloadPptx(unauthReq, { params: Promise.resolve({ id: 'any-project' }) });
+      expect(res.status).toBe(401);
+      const json = await res.json();
+      expect(json.ok).toBe(false);
+      expect(json.error?.code).toBe('UNAUTHORIZED');
     });
   });
 });

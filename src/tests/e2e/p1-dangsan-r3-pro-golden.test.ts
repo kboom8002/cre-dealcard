@@ -132,7 +132,7 @@ describe('P1 당산 Income R3-Verified — PRO IM 골든 파이프라인 (실제
       } as any,
       identity: {
         investmentPosture: 'income',
-        assetType: '근린생활시설',
+        assetType: 'nbhd_building',
       },
       supplemental: {
         asking_price_manwon: bottomSheet.askingPriceManwon,

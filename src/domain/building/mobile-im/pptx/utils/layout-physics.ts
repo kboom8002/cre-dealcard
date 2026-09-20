@@ -69,8 +69,12 @@ export function fitBox(
   minDpi: number = MIN_DPI_CAPTURE,
   align: FitAlign = 'center',
 ): FitBoxResult {
-  if (imgW <= 0 || imgH <= 0 || maxW <= 0 || maxH <= 0) {
-    return { x: 0, y: 0, w: maxW, h: maxH, shrunk: false, effectiveDpi: 0, cropRatio: 0 };
+  if (
+    !Number.isFinite(imgW) || !Number.isFinite(imgH) ||
+    !Number.isFinite(maxW) || !Number.isFinite(maxH) ||
+    imgW <= 0 || imgH <= 0 || maxW <= 0 || maxH <= 0
+  ) {
+    return { x: 0, y: 0, w: Math.max(0, maxW || 0), h: Math.max(0, maxH || 0), shrunk: false, effectiveDpi: 0, cropRatio: 0 };
   }
 
   const imgAspect = imgW / imgH;
@@ -159,7 +163,11 @@ export function coverCropRatio(
   boxW: number,
   boxH: number,
 ): number {
-  if (imgW <= 0 || imgH <= 0 || boxW <= 0 || boxH <= 0) return 0;
+  if (
+    !Number.isFinite(imgW) || !Number.isFinite(imgH) ||
+    !Number.isFinite(boxW) || !Number.isFinite(boxH) ||
+    imgW <= 0 || imgH <= 0 || boxW <= 0 || boxH <= 0
+  ) return 0;
 
   const imgAspect = imgW / imgH;
   const boxAspect = boxW / boxH;
@@ -195,7 +203,7 @@ export function textH(
   fontSizePt: number,
   lineSpacing: number = 1.3,
 ): number {
-  if (!text || widthInches <= 0 || fontSizePt <= 0) return 0;
+  if (!text || !Number.isFinite(widthInches) || !Number.isFinite(fontSizePt) || widthInches <= 0 || fontSizePt <= 0) return 0;
 
   const charHeightInches = fontSizePt / 72;
 
@@ -256,25 +264,43 @@ export function gridFit(
   maxH: number,
   gap: number = 0.12,
 ): GridCell[] {
-  if (images.length === 0) return [];
-  if (images.length === 1) {
-    const box = fitBox(images[0].w, images[0].h, totalW, maxH);
+  if (!images || images.length === 0) return [];
+
+  // 0 이하 또는 비유한값인 치수를 가진 이미지를 필터링/가드
+  const safeImages = images.filter(img =>
+    img &&
+    typeof img.w === 'number' && typeof img.h === 'number' &&
+    Number.isFinite(img.w) && Number.isFinite(img.h) &&
+    img.w > 0 && img.h > 0
+  );
+  if (safeImages.length === 0) return [];
+
+  if (safeImages.length === 1) {
+    const box = fitBox(safeImages[0].w, safeImages[0].h, totalW, maxH);
     return [{ x: startX + box.x, y: startY + box.y, w: box.w, h: box.h }];
   }
 
   // 모든 이미지를 높이 1로 정규화 → 각 폭 = aspect ratio
-  const aspects = images.map(img => (img.w / img.h) || 1);
-  const totalGap = gap * (images.length - 1);
+  const aspects = safeImages.map(img => {
+    const aspect = img.w / img.h;
+    return Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
+  });
+  const totalGap = gap * (safeImages.length - 1);
 
   // 균일 높이 h 에서 총 폭 = sum(aspect_i * h) + totalGap = totalW
   // → h = (totalW - totalGap) / sum(aspect_i)
-  const sumAspects = aspects.reduce((a, b) => a + b, 0);
-  let unifiedH = (totalW - totalGap) / sumAspects;
-  unifiedH = Math.min(unifiedH, maxH);
+  const sumAspects = Math.max(0.01, aspects.reduce((a, b) => a + b, 0));
+  const availableW = Math.max(0.1, totalW - totalGap);
+  let unifiedH = availableW / sumAspects;
+  if (!Number.isFinite(unifiedH) || unifiedH <= 0) {
+    unifiedH = Math.min(maxH, 1.0);
+  } else {
+    unifiedH = Math.min(unifiedH, maxH);
+  }
 
   const cells: GridCell[] = [];
   let cx = startX;
-  for (let i = 0; i < images.length; i++) {
+  for (let i = 0; i < safeImages.length; i++) {
     const cellW = aspects[i] * unifiedH;
     cells.push({ x: cx, y: startY, w: cellW, h: unifiedH });
     cx += cellW + gap;

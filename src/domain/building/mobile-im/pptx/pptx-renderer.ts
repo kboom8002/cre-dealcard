@@ -257,9 +257,11 @@ export class MobileImPptxRenderer {
       if (isBasicPreset) {
         const ssotCover = input.doc.body?.ssot_summary ?? {};
         dataMap['cover'].address = ssotCover.address ?? input.doc.body?.resolved_address ?? '';
-        dataMap['cover'].askingPrice = ssotCover.asking_price_manwon 
-          ? `${(Number(ssotCover.asking_price_manwon) / 10000).toFixed(0)}억 원` 
-          : (ssotCover.price_band ?? '');
+        const rawCoverAsk = Number(ssotCover.asking_price_manwon);
+        const safeCoverAsk = (Number.isFinite(rawCoverAsk) && rawCoverAsk > 0)
+          ? `${(rawCoverAsk / 10000).toFixed(0)}억 원`
+          : (ssotCover.price_band && !String(ssotCover.price_band).includes('Infinity') ? ssotCover.price_band : '');
+        dataMap['cover'].askingPrice = safeCoverAsk;
         dataMap['cover'].documentDate = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
       }
 
@@ -276,7 +278,7 @@ export class MobileImPptxRenderer {
         // 면적 포맷 헬퍼
         const fmtArea = (sqm: number | string | undefined) => {
           const v = Number(sqm);
-          if (!v || isNaN(v)) return '-';
+          if (!v || isNaN(v) || !Number.isFinite(v) || v <= 0) return '-';
           return `${v.toLocaleString()}㎡ (${formatPyeong(v, 1)}평)`;
         };
 
@@ -323,11 +325,14 @@ export class MobileImPptxRenderer {
 
       if (dataMap['building']) {
         const ssotBldg = input.doc.body?.ssot_summary ?? {};
-        const askManwon = Number(ssotBldg.asking_price_manwon ?? input.doc.body?.asking_price_manwon ?? 0);
-        const askFmt = (v: number) => v >= 10000
+        const rawAskManwon = Number(ssotBldg.asking_price_manwon ?? input.doc.body?.asking_price_manwon ?? 0);
+        const askManwon = Number.isFinite(rawAskManwon) && rawAskManwon > 0 ? rawAskManwon : 0;
+        const askFmt = (v: number) => Number.isFinite(v) && v >= 10000
           ? `${(v / 10000).toLocaleString()}억 원`
-          : v > 0 ? `${v.toLocaleString()}만원` : '';
-        const askStr = askFmt(askManwon) || (input.doc.body?.heroCard?.askingPriceDisplay ?? input.doc.body?.askingPrice ?? '');
+          : (Number.isFinite(v) && v > 0) ? `${v.toLocaleString()}만원` : '';
+        const rawHeroAsk = input.doc.body?.heroCard?.askingPriceDisplay ?? input.doc.body?.askingPrice ?? '';
+        const safeHeroAsk = typeof rawHeroAsk === 'string' && !rawHeroAsk.includes('Infinity') && !rawHeroAsk.includes('NaN') ? rawHeroAsk : '';
+        const askStr = askFmt(askManwon) || safeHeroAsk;
 
         // 매각가 테이블 (하단 별도 표)
         if (askStr) {
@@ -337,12 +342,19 @@ export class MobileImPptxRenderer {
           };
 
           // 토지평당가 추가
-          const landPy = Number(ssotBldg.land_area_pyeong || 0) || sqmToPyeong(Number(ssotBldg.land_area_sqm || 0));
-          if (landPy > 0 && askManwon > 0) {
-            dataMap['building'].priceTable2 = {
-              label: '토지평당가',
-              value: `약 ${Math.round(askManwon / landPy).toLocaleString()}만 원/평`,
-            };
+          const rawLandPy = Number(ssotBldg.land_area_pyeong || 0);
+          const rawLandSqm = Number(ssotBldg.land_area_sqm || 0);
+          const landPy = (Number.isFinite(rawLandPy) && rawLandPy > 0)
+            ? rawLandPy
+            : (Number.isFinite(rawLandSqm) && rawLandSqm > 0 ? sqmToPyeong(rawLandSqm) : 0);
+          if (Number.isFinite(landPy) && landPy > 0 && Number.isFinite(askManwon) && askManwon > 0) {
+            const unitPrice = Math.round(askManwon / landPy);
+            if (Number.isFinite(unitPrice) && unitPrice > 0) {
+              dataMap['building'].priceTable2 = {
+                label: '토지평당가',
+                value: `약 ${unitPrice.toLocaleString()}만 원/평`,
+              };
+            }
           }
         }
       }
@@ -576,14 +588,16 @@ export class MobileImPptxRenderer {
         let vacPct = Number(ssot.vacancy_pct ?? 0);
         // floor_leases에서 공실률 직접 산출 (ssot_summary.vacancy_pct 미설정 방어)
         if (vacPct === 0 && input.doc.body?.floor_leases?.length) {
-          const leases = (input.doc.body.floor_leases || []) as Record<string, any>[];
+          const leases = ((input.doc.body.floor_leases || []) as Record<string, any>[]).filter(Boolean);
           const totalUnits = leases.length;
           const vacantUnits = leases.filter((l: any) => 
-            l.is_vacant === true 
-            || l.tenant === '공실' || l.tenant_name === '공실'
-            || l.tenant_type === '공실' || l.tenant_sector === '공실'
-            || (l.tenant_type?.includes?.('공실'))
-            || (l.rent_manwon === 0 && l.deposit_manwon === 0 && !l.tenant_type)
+            l && (
+              l.is_vacant === true 
+              || l.tenant === '공실' || l.tenant_name === '공실'
+              || l.tenant_type === '공실' || l.tenant_sector === '공실'
+              || (l.tenant_type?.includes?.('공실'))
+              || (l.rent_manwon === 0 && l.deposit_manwon === 0 && !l.tenant_type)
+            )
           ).length;
           if (vacantUnits > 0 && totalUnits > 0) {
             vacPct = Math.round((vacantUnits / totalUnits) * 1000) / 10;
@@ -591,16 +605,21 @@ export class MobileImPptxRenderer {
         }
         const askKrw = askManwon * 10000;
         const denominator = askKrw - depositKrw;
-        const capRateAsIs = denominator > 0 ? (annualRentKrw / denominator * 100) : 0;
+        const rawCapRateAsIs = (denominator > 0 && Number.isFinite(denominator) && Number.isFinite(annualRentKrw))
+          ? (annualRentKrw / denominator * 100)
+          : 0;
+        const capRateAsIs = Number.isFinite(rawCapRateAsIs) && rawCapRateAsIs > 0 ? rawCapRateAsIs : 0;
         // 안정화: claims에서 pro_forma_cap_rate 우선 참조 (FinancialCalculator 산출값)
         const docClaims = (input.doc.body?.claims ?? []) as Array<{ subject: string; value: number }>;
         const proFormaClaim = docClaims.find(c => c.subject === 'pro_forma_cap_rate');
         // claim이 있으면 사용, 없으면 공실률 기반 fallback 재계산
-        const capRateStabilized = proFormaClaim?.value != null && proFormaClaim.value > 0
+        const safeProForma = proFormaClaim?.value != null && Number.isFinite(proFormaClaim.value) && proFormaClaim.value > 0
           ? proFormaClaim.value
-          : (vacPct > 0 && denominator > 0
-            ? ((annualRentKrw * (1 + vacPct / (100 - vacPct))) / denominator * 100)
-            : undefined);
+          : undefined;
+        const calcStabilized = (vacPct > 0 && vacPct < 100 && denominator > 0 && Number.isFinite(denominator) && Number.isFinite(annualRentKrw))
+          ? ((annualRentKrw * (1 + vacPct / (100 - vacPct))) / denominator * 100)
+          : undefined;
+        const capRateStabilized = safeProForma ?? (calcStabilized && Number.isFinite(calcStabilized) && calcStabilized > 0 ? calcStabilized : undefined);
 
         dataMap['yieldFormula'] = {
           title: '투자수익률 분석',

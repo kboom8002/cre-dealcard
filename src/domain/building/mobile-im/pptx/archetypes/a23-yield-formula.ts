@@ -103,7 +103,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   // ── As-Is / Stabilized 2열 비교 카드 ──
   const cardY = 3.10;
   const cardH = 3.35;
-  const hasStabilized = capRateStabilized != null && capRateStabilized > 0;
+  const hasStabilized = capRateStabilized != null && Number.isFinite(capRateStabilized) && capRateStabilized > 0;
   const cardW = hasStabilized ? (CW - 0.30) / 2 : CW;
 
   // Helper: 단일 수익률 카드
@@ -178,7 +178,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       color: 'FFFFFF', fontFace: KR, fontSize: 12, bold: true, valign: 'middle',
     });
     const rawCapRate = typeof capRate === 'number' ? capRate : parseFloat(String(capRate));
-    const numCapRate = isFinite(rawCapRate) && !isNaN(rawCapRate) ? rawCapRate : 0;
+    const numCapRate = Number.isFinite(rawCapRate) && rawCapRate > 0 ? rawCapRate : 0;
     slide.addText(`${numCapRate.toFixed(2)}%`, {
       x: x + cardW - 2.60, y: rowY, w: 2.20, h: 0.65,
       color: 'FFFFFF', fontFace: NUM, fontSize: 22, bold: true,
@@ -190,7 +190,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   renderCard(M, 'As-Is (현재)', false, capRateAsIs);
 
   // Stabilized 카드 (안정화 수익률이 있을 때만)
-  if (capRateStabilized != null && capRateStabilized > 0) {
+  if (capRateStabilized != null && Number.isFinite(capRateStabilized) && capRateStabilized > 0) {
     renderCard(M + cardW + 0.30, 'Stabilized (안정화)', true, capRateStabilized);
   } else {
     // Stabilized 없으면 As-Is 카드를 넓게
@@ -198,7 +198,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   }
 
   // ── 가정 설명 (하단) ──
-  if (capRateStabilized != null && capRateStabilized > 0) {
+  if (capRateStabilized != null && Number.isFinite(capRateStabilized) && capRateStabilized > 0) {
     slide.addText(`가정: ${assumption}`, {
       x: M, y: 6.50, w: CW, h: 0.26,
       color: C.mute, fontFace: KR, fontSize: 9, italic: true,

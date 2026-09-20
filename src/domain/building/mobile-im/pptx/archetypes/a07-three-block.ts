@@ -96,8 +96,8 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
       margin: 0,
     });
 
-    // 2. 핵심 상태/요약
-    const rawVal = (b.value || '확인 필요').replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '').trim();
+    // 2. 핵심 상태/요약 (Rule 37: 회피성 문구 차단)
+    const rawVal = (b.value || '공적 장부 확인').replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '').trim();
     const valText = rawVal.slice(0, 36);
     slide.addText(valText, {
       x: x + 0.25,

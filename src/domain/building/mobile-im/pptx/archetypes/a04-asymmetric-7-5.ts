@@ -52,6 +52,7 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
   }
 
   // 좌측: rows → L.rows() (key-value 쌍)
+  let leftContentBottom = 1.80;
   if (rawSourceRows.length > 0) {
     const rowEntries: [string, string][] = (rawSourceRows.map((r: any[]) => {
       if (Array.isArray(r) && r.length >= 2) {
@@ -67,18 +68,18 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       return true;
     });
 
-    let renderedRowCount = 0;
     if (rowEntries.length > 0) {
-      const maxRows = input.data.priceTable ? 9 : 11;
-      renderedRowCount = Math.min(rowEntries.length, maxRows);
-      const rowHeight = renderedRowCount > 7 ? 0.38 : 0.46;
-      const fontSize = renderedRowCount > 7 ? 12 : 13.5;
+      const maxRows = input.data.priceTable ? (input.data.priceTable2 ? 6 : 7) : 11;
+      const count = Math.min(rowEntries.length, maxRows);
+      const rowHeight = count > 5 ? 0.36 : 0.44;
+      const fontSize = count > 5 ? 12 : 13.5;
       L.rows(slide, M, 1.80, lw, rowEntries.slice(0, maxRows), { rh: rowHeight, fs: fontSize });
+      leftContentBottom = 1.80 + count * rowHeight;
     } else {
       const fallbackTitle = `${input.data.title || left.sub || '세부 정보'} 요약`;
-      L.callout(slide, M, 1.80, lw, 2.0, 'info', fallbackTitle,
-        '• 등기부등본 갑구·을구 권리관계 확인 필요\n• 건축물대장 주요 용도 및 위반건축물 여부 확인\n• 현장 실사를 통한 물리적 하자 및 하자보수 이력 점검');
-      renderedRowCount = 4;
+      L.callout(slide, M, 1.80, lw, 1.8, 'info', fallbackTitle,
+        '• 등기부등본 갑구·을구 권리관계 공적장부 대조\n• 건축물대장 주요 용도 및 위반건축물 여부 확인\n• 현장 실사를 통한 물리적 하자 및 하자보수 이력 점검');
+      leftContentBottom = 1.80 + 1.8;
     }
   } else if (input.data.content) {
     const lines = String(input.data.content).split('\n')
@@ -98,32 +99,32 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
         contentRows.push([k, '']);
       }
     }
-    let renderedRowCount = 0;
     if (contentRows.length > 0) {
-      const maxRows = input.data.priceTable ? 7 : 10;
-      renderedRowCount = Math.min(contentRows.length, maxRows);
-      L.rows(slide, M, 1.80, lw, contentRows.slice(0, maxRows), { rh: 0.48, fs: 13.5 });
+      const maxRows = input.data.priceTable ? (input.data.priceTable2 ? 6 : 7) : 10;
+      const count = Math.min(contentRows.length, maxRows);
+      const rowHeight = count > 5 ? 0.36 : 0.42;
+      const fontSize = count > 5 ? 12 : 13.5;
+      L.rows(slide, M, 1.80, lw, contentRows.slice(0, maxRows), { rh: rowHeight, fs: fontSize });
+      leftContentBottom = 1.80 + count * rowHeight;
     } else {
       const fallbackTitle = `${input.data.title || left.sub || '세부 정보'} 요약`;
-      L.callout(slide, M, 1.80, lw, 2.0, 'info', fallbackTitle,
-        '• 등기부등본 갑구·을구 권리관계 확인 필요\n• 건축물대장 주요 용도 및 위반건축물 여부 확인\n• 현장 실사를 통한 물리적 하자 및 하자보수 이력 점검');
-      renderedRowCount = 4;
+      L.callout(slide, M, 1.80, lw, 1.8, 'info', fallbackTitle,
+        '• 등기부등본 갑구·을구 권리관계 공적장부 대조\n• 건축물대장 주요 용도 및 위반건축물 여부 확인\n• 현장 실사를 통한 물리적 하자 및 하자보수 이력 점검');
+      leftContentBottom = 1.80 + 1.8;
     }
   } else {
     const fallbackTitle = `${input.data.title || left.sub || '세부 정보'} 요약`;
-    L.callout(slide, M, 1.80, lw, 2.0, 'info', fallbackTitle,
-      '• 등기부등본 갑구·을구 권리관계 확인 필요\n• 건축물대장 주요 용도 및 위반건축물 여부 확인\n• 현장 실사를 통한 물리적 하자 및 하자보수 이력 점검');
+    L.callout(slide, M, 1.80, lw, 1.8, 'info', fallbackTitle,
+      '• 등기부등본 갑구·을구 권리관계 공적장부 대조\n• 건축물대장 주요 용도 및 위반건축물 여부 확인\n• 현장 실사를 통한 물리적 하자 및 하자보수 이력 점검');
+    leftContentBottom = 1.80 + 1.8;
   }
   
   if (input.data.priceTable) {
-    const actualRows = rawSourceRows.length > 0 ? rawSourceRows.length : (left.rows?.length ?? 5);
-    const rowH = actualRows > 7 ? 0.38 : 0.46;
-    const finalRowCount = Math.min(Math.max(actualRows, 5), 9);
-    const py = Math.min(1.80 + finalRowCount * rowH + 0.10, 5.50);
-
-    // 매각가 테이블 (금색 테두리 박스)
     const hasPrice2 = !!input.data.priceTable2;
     const priceBoxH = hasPrice2 ? 1.10 : 0.60;
+    const py = Math.min(Math.max(leftContentBottom + 0.12, 4.40), 6.75 - priceBoxH);
+
+    // 매각가 테이블 (금색 테두리 박스)
     slide.addShape('rect', {
       x: M, y: py, w: lw, h: priceBoxH,
       fill: { color: 'F6F1E4' },
@@ -267,10 +268,10 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
           `• 등기부등본 갑구 소유권 및 을구 근저당·가압류 확인\n• 건축물대장 기재 사항과 실물 현황 대조 점검\n• 개별공시지가 및 실거래가 비교 분석`);
       } else {
         L.callout(slide, rx, 1.80, rw, 2.3, 'info', '입지 및 자산 개요',
-          '• 투자 검토 대상 상업용 자산\\n• 권리관계 및 임대차 현황 실사 확인 필요\\n• 상세 인접 인프라 및 입지 환경 분석 권장');
+          '• 투자 검토 대상 상업용 자산\n• 권리관계 및 임대차 계약 구조 분석\n• 상세 인접 인프라 및 입지 환경 분석');
         const price2 = input.data.heroCard?.askingPriceDisplay || input.data.price_display || '';
         L.callout(slide, rx, 4.35, rw, 2.35, 'info', '투자 수익 및 운영 현황',
-          '• 투자 검토 대상 자산\\n• 임대차 계약 현황 및 운영비 실사 확인 필요\\n• 매입 후 운용 계획에 따른 수익성 분석 권장');
+          '• 투자 검토 대상 자산\n• 임대차 계약 조건 및 운영비 구조 분석\n• 매입 후 운용 계획에 따른 수익성 분석');
       }
     }
   }

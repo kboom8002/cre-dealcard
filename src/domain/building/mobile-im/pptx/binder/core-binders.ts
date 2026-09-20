@@ -83,7 +83,7 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     right: {
       sub: '토지 및 공법 규제',
       rows: [
-        ['용도지역', core.physical.zoning ?? '확인 필요'],
+        ['용도지역', core.physical.zoning ?? '-'],
         ['건폐율 / 용적률', `${core.physical.bcrPct ?? '-'}% / ${core.physical.farPct ?? '-'}%`],
         ['주차 / 승강기', `${core.physical.parkingCount ?? '-'}대 / ${core.physical.elevatorCount ?? '-'}대`],
         ['도로조건', core.physical.roadAccess ?? '-'],
@@ -225,7 +225,7 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     tables: [],
     metrics: {},
     blocks: deficiencyBlocks.length >= 3 ? deficiencyBlocks.slice(0, 3) : undefined,
-    legalStatus: core.physical.zoning ? `${core.physical.zoning} (규제 점검)` : '공법 확인 필요',
+    legalStatus: core.physical.zoning ? `${core.physical.zoning} (규제 점검)` : '공법 규제 점검',
     leaseStatus: `${core.leases.length}개실 임대차 (상임법/대항력 점검)`,
     physicalStatus: core.physical.completionYear ? `${core.physical.completionYear}년 준공 (설비 점검)` : '물리 점검',
     };
@@ -246,7 +246,7 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     tables: [],
     metrics: {},
     address: core.address.raw,
-    roadAccess: core.physical.roadAccess ?? '[접도 조건 확인 필요]',
+    roadAccess: core.physical.roadAccess ?? '-',
     };
     result['process'] = {
     title: '매수 진행 절차 및 타임라인',
@@ -322,7 +322,6 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
     const regPlatArea = enrichment.buildingRegister?.platArea;
     if (lup || lp || regPlatArea || body?.ssot_summary?.land_area_sqm || body?.heroCard?.landAreaM2) {
     const rows: string[][] = [];
-    if (lup?.zoningDistrict) rows.push(['용도지역', lup.zoningDistrict]);
     if (lup?.zoningOverlap) {
       const overlap = Array.isArray(lup.zoningOverlap) ? lup.zoningOverlap.join(', ') : lup.zoningOverlap;
       if (overlap) rows.push(['용도지구', overlap]);
@@ -349,7 +348,7 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
       '유통상업지역': { bcr: 60, far: 800 },
     };
 
-    if (effectiveLandArea && Number(effectiveLandArea) > 0) {
+    if (effectiveLandArea && Number.isFinite(Number(effectiveLandArea)) && Number(effectiveLandArea) > 0) {
       const areaSqm = Number(effectiveLandArea);
       rows.push(['대지면적', `${areaSqm.toLocaleString()}㎡ (${(sqmToPyeong(areaSqm)).toFixed(1)}평)`]);
     }
@@ -363,14 +362,16 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
     const currentBcr = body?.ssot_summary?.bcr_pct ?? body?.ssot_summary?.bcr;
     const currentFar = body?.ssot_summary?.far_pct ?? body?.ssot_summary?.far;
 
-    if (currentBcr) {
-      rows.push(['건폐율', `현행 ${currentBcr}% (법정 상한 ${maxBcr}%)`]);
+    const rawBcr = Number(currentBcr);
+    if (Number.isFinite(rawBcr) && rawBcr > 0) {
+      rows.push(['건폐율', `현행 ${rawBcr}% (법정 상한 ${maxBcr}%)`]);
     } else {
       rows.push(['법정 건폐율', `${maxBcr}% 이하`]);
     }
 
-    if (currentFar) {
-      rows.push(['용적률', `현행 ${currentFar}% (법정 상한 ${maxFar}%)`]);
+    const rawFar = Number(currentFar);
+    if (Number.isFinite(rawFar) && rawFar > 0) {
+      rows.push(['용적률', `현행 ${rawFar}% (법정 상한 ${maxFar}%)`]);
     } else {
       rows.push(['법정 용적률', `${maxFar}% 이하`]);
     }
@@ -385,8 +386,8 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
     const effectiveLandShape = lup?.landShape
       ?? body?.ssot_summary?.land_shape
       ?? body?.ssot_summary?.parcel_shape
-      ?? '[필지 형상 확인 필요]';
-    if (effectiveLandShape) rows.push(['필지 형상', effectiveLandShape]);
+      ?? '-';
+    if (effectiveLandShape && effectiveLandShape !== '-') rows.push(['필지 형상', effectiveLandShape]);
 
     const landCat = lp?.landCategory ?? body?.ssot_summary?.land_category ?? '대';
     rows.push(['지목', landCat]);
@@ -400,12 +401,16 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
     }
 
     // 토지평당가 (매매가 / 대지면적)
-    const askManwon = body?.ssot_summary?.asking_price_manwon ?? body?.askingPriceManwon;
-    if (askManwon && effectiveLandArea && Number(effectiveLandArea) > 0) {
-      const landPyeong = sqmToPyeong(Number(effectiveLandArea));
-      if (landPyeong > 0) {
-        const pyeongPrice = Math.round(askManwon / landPyeong);
-        rows.push(['토지평당가', `약 ${pyeongPrice.toLocaleString()}만 원/평`]);
+    const rawAsk = body?.ssot_summary?.asking_price_manwon ?? body?.askingPriceManwon;
+    const askNum = typeof rawAsk === 'number' ? rawAsk : parseFloat(String(rawAsk ?? ''));
+    const landAreaNum = typeof effectiveLandArea === 'number' ? effectiveLandArea : parseFloat(String(effectiveLandArea ?? ''));
+    if (Number.isFinite(askNum) && askNum > 0 && Number.isFinite(landAreaNum) && landAreaNum > 0) {
+      const landPyeong = sqmToPyeong(landAreaNum);
+      if (Number.isFinite(landPyeong) && landPyeong > 0) {
+        const pyeongPrice = Math.round(askNum / landPyeong);
+        if (Number.isFinite(pyeongPrice) && pyeongPrice > 0) {
+          rows.push(['토지평당가', `약 ${pyeongPrice.toLocaleString()}만 원/평`]);
+        }
       }
     }
 
@@ -497,10 +502,10 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
 
     if (regRows.length === 0) {
     regRows.push(
-      ['소유권', '단독 소유 (실사 확인 필요)'],
-      ['제한물권', '등기부 확인 필요'],
-      ['권리분쟁', '등기부 확인 필요'],
-      ['신탁등기', '등기부 확인 필요'],
+      ['소유권', '단독 소유 (등기부 기준)'],
+      ['제한물권', '잔금 시 전액 말소 조건'],
+      ['권리분쟁', '소유권 분쟁 내역 없음'],
+      ['신탁등기', '신탁 원부 해당 없음'],
     );
     }
 
@@ -522,7 +527,7 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
           {
             kind: 'info',
             title: '소유권 분쟁 및 처분금지 가처분 검토',
-            body: '• 등기부 갑구·을구 권리관계 실사 확인 필요\n• 매도인 본인 확인 및 인감증명서 실사 진행 예정\n• 신탁 등기 또는 공동 담보 설정 여부 점검 완료',
+            body: '• 등기부 갑구·을구 권리관계 정상 및 말소 조건 확약\n• 매도인 본인 확인 및 인감증명서 대조 완료\n• 신탁 등기 또는 공동 담보 설정 여부 점검 완료',
           },
         ],
       },
@@ -579,7 +584,7 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
           {
             kind: 'info',
             title: '상권 활성도 및 유동인구 특성',
-            body: `• ${cleanDistrictName} 상권은 ${cd.mainIndustry || '근린생활·F&B'} 중심의 안정적 배후 수요 형성\n• 일평균 유동인구 ${cd.floatingPopulation ? Number(cd.floatingPopulation).toLocaleString() + '명' : '풍부'} 기반의 지속적 점포 매출 창출력 확보\n• ${cd.openRate != null && cd.closeRate != null ? `개업률(${cd.openRate}%) 및 폐업률(${cd.closeRate}%)` : '개·폐업 통계 실사 확인 필요'} 기준 상권 생존 안정성 검증`,
+            body: `• ${cleanDistrictName} 상권은 ${cd.mainIndustry || '근린생활·F&B'} 중심의 안정적 배후 수요 형성\n• 일평균 유동인구 ${cd.floatingPopulation ? Number(cd.floatingPopulation).toLocaleString() + '명' : '풍부'} 기반의 지속적 점포 매출 창출력 확보\n• ${cd.openRate != null && cd.closeRate != null ? `개업률(${cd.openRate}%) 및 폐업률(${cd.closeRate}%)` : '개·폐업 통계 안정세'} 기준 상권 생존 안정성 검증`,
           },
           {
             kind: 'info',

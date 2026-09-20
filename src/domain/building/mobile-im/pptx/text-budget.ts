@@ -18,8 +18,10 @@ export const TEXT_LIMITS = {
 
 export function charsPerLine(boxWidth: number, fontSize?: number): number {
   // F3 fix: CJK 문자 너비 = 약 0.19인치 @ 10pt 맑은 고딕 (기존 0.152는 Latin 기준)
-  const cjkCoeff = 0.19 * (10 / (fontSize || 10));
-  return Math.floor((boxWidth - 0.36) / cjkCoeff);
+  const safeFontSize = typeof fontSize === 'number' && Number.isFinite(fontSize) && fontSize > 0 ? fontSize : 10;
+  const cjkCoeff = 0.19 * (10 / safeFontSize);
+  const safeBoxWidth = typeof boxWidth === 'number' && Number.isFinite(boxWidth) ? boxWidth : 1;
+  return Math.max(1, Math.floor((safeBoxWidth - 0.36) / cjkCoeff));
 }
 
 export function calcCalloutHeight(bodyText: string, boxWidth: number): number {

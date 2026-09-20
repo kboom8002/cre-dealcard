@@ -10,6 +10,7 @@
 import type PptxGenJS from 'pptxgenjs';
 import type { PptxThemeTokens } from './pptx-theme';
 import { textH as computeTextH } from './utils/layout-physics';
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 // ════════════════════════════════════════
 // §2 기하
@@ -27,15 +28,103 @@ export const col = (n: number, gap: number): number => (CW - gap * (n - 1)) / n;
 export const colX = (i: number, w: number, gap: number): number => M + i * (w + gap);
 
 // ════════════════════════════════════════
-// §3 색 팔레트 (테마 동적 주입 — setActiveTheme)
+// §10 provenance 배지 타입 선언 (테마 컨텍스트 참조용)
 // ════════════════════════════════════════
+
+// D29 M-5: 정본 9종(+1) 출처 체계 (ontology/provenance.ts 정본)
+export type ProvenanceKind =
+  | 'registry'               // S1: 등기·대장 (공적 장부)
+  | 'public_api'             // S2a: 공공 API (국토부 실거래가, 공시지가 등)
+  | 'public_api_identified'  // S2b: 공공 API + 중개인 식별 (D36 §4.3)
+  | 'broker_aug'             // S2a: 중개인 보강 (현장 실측 등)
+  | 'expert'                 // S2b: 전문가 검증 (감정평가사 등)
+  | 'ledger'                 // S2a: 원장 (임대차 계약서 원본)
+  | 'seller'                 // S3: 매도인 고지
+  | 'broker'                 // S3: 중개인 입력
+  | 'derived'                // S4: 파생 계산
+  | 'assumed';               // S5: AI 추정·가정
+
+// ════════════════════════════════════════
+// §3 색 팔레트 (테마 동적 주입 및 AsyncLocalStorage 테마 격리)
+// ════════════════════════════════════════
+
+export interface ActiveThemeContext {
+  theme: PptxThemeTokens;
+  C: Record<string, string>;
+  CD: Record<string, string>;
+  KR: string;
+  TITLE_KR: string;
+  THEME_META: {
+    coverStyle: string;
+    layoutStyle: string;
+    companyName: string;
+    companyTagline: string;
+    presetId: string;
+  };
+  PV: Record<ProvenanceKind, [string, string, string]>;
+}
+
+export const ActiveThemeStore = new AsyncLocalStorage<ActiveThemeContext>();
+
+function createThemeProxy<T extends Record<string, any>>(
+  target: T,
+  keyExtractor: (ctx: ActiveThemeContext) => T
+): T {
+  return new Proxy(target, {
+    get(t, prop, receiver) {
+      const store = ActiveThemeStore.getStore();
+      if (store && typeof prop === 'string') {
+        const storeMap = keyExtractor(store);
+        if (prop in storeMap) {
+          return storeMap[prop];
+        }
+      }
+      return Reflect.get(t, prop, receiver);
+    },
+    set(t, prop, value, receiver) {
+      const store = ActiveThemeStore.getStore();
+      if (store && typeof prop === 'string') {
+        const storeMap = keyExtractor(store);
+        (storeMap as any)[prop] = value;
+        return true;
+      }
+      return Reflect.set(t, prop, value, receiver);
+    },
+    has(t, prop) {
+      const store = ActiveThemeStore.getStore();
+      if (store && typeof prop === 'string') {
+        const storeMap = keyExtractor(store);
+        return prop in storeMap || prop in t;
+      }
+      return Reflect.has(t, prop);
+    },
+    ownKeys(t) {
+      const store = ActiveThemeStore.getStore();
+      return store ? Reflect.ownKeys(keyExtractor(store)) : Reflect.ownKeys(t);
+    },
+    getOwnPropertyDescriptor(t, prop) {
+      const store = ActiveThemeStore.getStore();
+      if (store && typeof prop === 'string') {
+        const storeMap = keyExtractor(store);
+        if (prop in storeMap) {
+          return {
+            configurable: true,
+            enumerable: true,
+            value: storeMap[prop],
+            writable: true,
+          };
+        }
+      }
+      return Reflect.getOwnPropertyDescriptor(t, prop);
+    },
+  });
+}
 
 /**
  * C: 라이트 슬라이드 색상 팔레트.
- * 기본값은 golden_institutional. setActiveTheme() 호출 시 프리셋별 값으로 교체됩니다.
- * ⚠️ 반드시 `as const` 제거 — Object.assign으로 런타임 교체 가능해야 함.
+ * 기본값은 golden_institutional. withThemeIsolation() 또는 setActiveTheme()으로 안전하게 격리/교체됩니다.
  */
-export const C: Record<string, string> = {
+const rawC: Record<string, string> = {
   // 무채 — 지배색
   ink:   '10161F',
   ink2:  '1B2531',
@@ -68,8 +157,10 @@ export const C: Record<string, string> = {
   violetL: 'EDE7F6',
 };
 
-/** 다크 슬라이드 전용 색상 — setActiveTheme()에 의해 교체 */
-export const CD: Record<string, string> = {
+export const C: Record<string, string> = createThemeProxy(rawC, ctx => ctx.C);
+
+/** 다크 슬라이드 전용 색상 — setActiveTheme() / withThemeIsolation()에 의해 교체 */
+const rawCD: Record<string, string> = {
   card:          '1B2531',
   block:         '232F3C',
   border:        '2A3644',
@@ -81,20 +172,110 @@ export const CD: Record<string, string> = {
   accentText:    'D3C6AC',
 };
 
+export const CD: Record<string, string> = createThemeProxy(rawCD, ctx => ctx.CD);
+
 // ════════════════════════════════════════
 // §4 타이포
 // ════════════════════════════════════════
 
-export let KR = '맑은 고딕';
-export let TITLE_KR = '맑은 고딕';
-export let NUM = 'Arial';
+const rawTypography: { KR: string; TITLE_KR: string } = {
+  KR: '맑은 고딕',
+  TITLE_KR: '맑은 고딕',
+};
+
+/**
+ * Typography Token Proxy:
+ * Wraps String.prototype to dynamically resolve the font family from ActiveThemeStore.
+ * Ensures concurrent requests under different themes never bleed typography settings,
+ * while remaining 100% backward-compatible with archetype call sites importing KR and TITLE_KR.
+ */
+function createTypographyProxy(
+  key: 'KR' | 'TITLE_KR',
+  fallback: string
+): string {
+  const target = Object.create(String.prototype);
+  target[Symbol.for('nodejs.util.inspect.custom')] = function (
+    _depth: number,
+    opts: any
+  ) {
+    const store = ActiveThemeStore.getStore();
+    const current = (store ? store[key] : undefined) ?? rawTypography[key] ?? fallback;
+    return opts && typeof opts.stylize === 'function'
+      ? opts.stylize(current, 'string')
+      : current;
+  };
+
+  return new Proxy(target, {
+    get(t, prop, receiver) {
+      const store = ActiveThemeStore.getStore();
+      const current = (store ? store[key] : undefined) ?? rawTypography[key] ?? fallback;
+
+      if (prop === Symbol.toPrimitive) {
+        return (_hint: string) => current;
+      }
+      if (prop === 'toString' || prop === 'valueOf') {
+        return () => current;
+      }
+      if (prop === 'toJSON') {
+        return () => current;
+      }
+      if (prop === 'length') {
+        return current.length;
+      }
+      if (typeof prop === 'string' && !isNaN(Number(prop))) {
+        return current[Number(prop)];
+      }
+      const val = (current as any)[prop];
+      if (typeof val === 'function') {
+        return val.bind(current);
+      }
+      return Reflect.get(t, prop, receiver);
+    },
+    set(_t, _prop, value) {
+      const store = ActiveThemeStore.getStore();
+      if (store) {
+        (store as any)[key] = String(value);
+        return true;
+      }
+      rawTypography[key] = String(value);
+      return true;
+    },
+    has(t, prop) {
+      const store = ActiveThemeStore.getStore();
+      const current = (store ? store[key] : undefined) ?? rawTypography[key] ?? fallback;
+      return prop in Object(current) || prop in t;
+    },
+    ownKeys(t) {
+      const store = ActiveThemeStore.getStore();
+      const current = (store ? store[key] : undefined) ?? rawTypography[key] ?? fallback;
+      return Reflect.ownKeys(Object(current));
+    },
+    getOwnPropertyDescriptor(t, prop) {
+      const store = ActiveThemeStore.getStore();
+      const current = (store ? store[key] : undefined) ?? rawTypography[key] ?? fallback;
+      if (prop === 'length') {
+        return {
+          configurable: true,
+          enumerable: false,
+          value: current.length,
+          writable: false,
+        };
+      }
+      return Reflect.getOwnPropertyDescriptor(t, prop);
+    },
+  }) as unknown as string;
+}
+
+export const KR: string = createTypographyProxy('KR', '맑은 고딕');
+export const TITLE_KR: string = createTypographyProxy('TITLE_KR', '맑은 고딕');
+export const NUM = 'Arial';
 
 // ════════════════════════════════════════
 // §3.1 테마 동적 주입
 // ════════════════════════════════════════
 
 /** 활성 테마 메타데이터 (coverStyle 등 비-색상 속성) */
-export const THEME_META: {
+const rawTHEME_META: {
   coverStyle: string;
   layoutStyle: string;
   companyName: string;
@@ -108,14 +289,113 @@ export const THEME_META: {
   presetId: 'golden_institutional',
 };
 
+export const THEME_META = createThemeProxy(rawTHEME_META, ctx => ctx.THEME_META);
+
+const rawPV: Record<ProvenanceKind, [string, string, string]> = {
+  registry:               ['✓ 등기·대장',    rawC.green,  rawC.greenL ],
+  public_api:             ['✓ 공공데이터',   rawC.green,  rawC.greenL ],
+  public_api_identified:  ['✓ 공공+중개인',  rawC.green,  rawC.greenL ],
+  broker_aug:             ['● 현장확인',     rawC.blue,   rawC.blueL  ],
+  expert:                 ['★ 전문가검증',   rawC.amber,  rawC.amberL ],
+  ledger:                 ['✓ 원장확인',     rawC.green,  rawC.greenL ],
+  seller:                 ['▲ 매도인고지',   rawC.violet, rawC.violetL],
+  broker:                 ['● 중개인입력',   rawC.blue,   rawC.blueL  ],
+  derived:                ['◈ 파생계산',     rawC.mute,   rawC.line2  ],
+  assumed:                ['◇ AI추정·가정',  rawC.mute,   rawC.line2  ],
+};
+
+export const PV: Record<ProvenanceKind, [string, string, string]> = createThemeProxy(rawPV, ctx => ctx.PV);
+
+export function buildThemeContext(theme: PptxThemeTokens): ActiveThemeContext {
+  const themeC: Record<string, string> = {
+    ink:     theme.ink,
+    ink2:    theme.ink2,
+    ink3:    theme.ink3,
+    slate:   theme.slate,
+    body:    theme.body,
+    mute:    theme.mute,
+    mute2:   theme.mute2,
+    line:    theme.line,
+    line2:   theme.line2,
+    bg:      theme.bg,
+    tint:    theme.tint,
+    brass:   theme.accent,
+    brassD:  theme.accentD,
+    brassL:  theme.accentL,
+    brassT:  theme.accentT,
+    green:   theme.green,
+    greenL:  theme.greenL,
+    red:     theme.red,
+    redL:    theme.redL,
+    amber:   theme.amber,
+    amberL:  theme.amberL,
+    blue:    theme.blue,
+    blueL:   theme.blueL,
+    violet:  theme.violet,
+    violetL: theme.violetL,
+  };
+
+  const themeCD: Record<string, string> = {
+    card:          theme.darkCard,
+    block:         theme.darkBlock,
+    border:        theme.darkBorder,
+    body:          theme.darkBody,
+    mute:          theme.darkMute,
+    faint:         theme.darkFaint,
+    accentBg:      theme.darkAccentBg,
+    accentBorder:  theme.darkAccentBorder,
+    accentText:    theme.darkAccentText,
+  };
+
+  const themeKR = theme.bodyFont || '맑은 고딕';
+  const themeTITLE_KR = theme.titleFont || themeKR;
+
+  const themeMeta = {
+    coverStyle:     theme.coverStyle,
+    layoutStyle:    theme.layoutStyle,
+    companyName:    theme.companyName,
+    companyTagline: theme.companyTagline,
+    presetId:       theme.presetId,
+  };
+
+  const themePV: Record<ProvenanceKind, [string, string, string]> = {
+    registry:               ['✓ 등기·대장',    themeC.green,  themeC.greenL ],
+    public_api:             ['✓ 공공데이터',   themeC.green,  themeC.greenL ],
+    public_api_identified:  ['✓ 공공+중개인',  themeC.green,  themeC.greenL ],
+    broker_aug:             ['● 현장확인',     themeC.blue,   themeC.blueL  ],
+    expert:                 ['★ 전문가검증',   themeC.amber,  themeC.amberL ],
+    ledger:                 ['✓ 원장확인',     themeC.green,  themeC.greenL ],
+    seller:                 ['▲ 매도인고지',   themeC.violet, themeC.violetL],
+    broker:                 ['● 중개인입력',   themeC.blue,   themeC.blueL  ],
+    derived:                ['◈ 파생계산',     themeC.mute,   themeC.line2  ],
+    assumed:                ['◇ AI추정·가정',  themeC.mute,   themeC.line2  ],
+  };
+
+  return {
+    theme,
+    C: themeC,
+    CD: themeCD,
+    KR: themeKR,
+    TITLE_KR: themeTITLE_KR,
+    THEME_META: themeMeta,
+    PV: themePV,
+  };
+}
+
 /**
  * 활성 테마를 설정합니다.
  * pptx-renderer에서 렌더링 전에 호출하면,
  * 이후 모든 아키타입/imlib 함수가 해당 프리셋의 색상을 사용합니다.
  */
 export function setActiveTheme(theme: PptxThemeTokens): void {
+  const store = ActiveThemeStore.getStore();
+  const targetC = store ? store.C : rawC;
+  const targetCD = store ? store.CD : rawCD;
+  const targetMeta = store ? store.THEME_META : rawTHEME_META;
+  const targetPV = store ? store.PV : rawPV;
+
   // ── 라이트 팔레트 ──
-  Object.assign(C, {
+  Object.assign(targetC, {
     ink:     theme.ink,
     ink2:    theme.ink2,
     ink3:    theme.ink3,
@@ -146,7 +426,7 @@ export function setActiveTheme(theme: PptxThemeTokens): void {
   });
 
   // ── 다크 팔레트 ──
-  Object.assign(CD, {
+  Object.assign(targetCD, {
     card:          theme.darkCard,
     block:         theme.darkBlock,
     border:        theme.darkBorder,
@@ -159,12 +439,19 @@ export function setActiveTheme(theme: PptxThemeTokens): void {
   });
 
   // ── 타이포 ──
-  KR = theme.bodyFont || '맑은 고딕';
-  TITLE_KR = theme.titleFont || KR;
+  const nextKR = theme.bodyFont || '맑은 고딕';
+  const nextTitleKR = theme.titleFont || nextKR;
+  if (store) {
+    store.KR = nextKR;
+    store.TITLE_KR = nextTitleKR;
+  } else {
+    rawTypography.KR = nextKR;
+    rawTypography.TITLE_KR = nextTitleKR;
+  }
   // NUM은 항상 Arial (숫자/라틴 전용)
 
   // ── 메타 ──
-  Object.assign(THEME_META, {
+  Object.assign(targetMeta, {
     coverStyle:     theme.coverStyle,
     layoutStyle:    theme.layoutStyle,
     companyName:    theme.companyName,
@@ -173,70 +460,41 @@ export function setActiveTheme(theme: PptxThemeTokens): void {
   });
 
   // ── PV (provenance 배지) 색상 갱신 — D29 M-5 정본 9종 ──
-  PV.registry   = ['✓ 등기·대장',    C.green,  C.greenL ];
-  PV.public_api = ['✓ 공공데이터',   C.green,  C.greenL ];
-  PV.broker_aug = ['● 현장확인',     C.blue,   C.blueL  ];
-  PV.expert     = ['★ 전문가검증',   C.amber,  C.amberL ];
-  PV.ledger     = ['✓ 원장확인',     C.green,  C.greenL ];
-  PV.seller     = ['▲ 매도인고지',   C.violet, C.violetL];
-  PV.broker     = ['● 중개인입력',   C.blue,   C.blueL  ];
-  PV.derived    = ['◈ 파생계산',     C.mute,   C.line2  ];
-  PV.assumed    = ['◇ AI추정·가정',  C.mute,   C.line2  ];
+  targetPV.registry              = ['✓ 등기·대장',    targetC.green,  targetC.greenL ];
+  targetPV.public_api            = ['✓ 공공데이터',   targetC.green,  targetC.greenL ];
+  targetPV.public_api_identified = ['✓ 공공+중개인',  targetC.green,  targetC.greenL ];
+  targetPV.broker_aug            = ['● 현장확인',     targetC.blue,   targetC.blueL  ];
+  targetPV.expert                = ['★ 전문가검증',   targetC.amber,  targetC.amberL ];
+  targetPV.ledger                = ['✓ 원장확인',     targetC.green,  targetC.greenL ];
+  targetPV.seller                = ['▲ 매도인고지',   targetC.violet, targetC.violetL];
+  targetPV.broker                = ['● 중개인입력',   targetC.blue,   targetC.blueL  ];
+  targetPV.derived               = ['◈ 파생계산',     targetC.mute,   targetC.line2  ];
+  targetPV.assumed               = ['◇ AI추정·가정',  targetC.mute,   targetC.line2  ];
 }
 
 /**
  * 테마 격리 래퍼: 동시 렌더링 시 테마 오염을 방지합니다.
- * setActiveTheme으로 글로벌 상태를 변경한 후, 작업 완료 시 원래 상태로 복원합니다.
+ * AsyncLocalStorage를 사용하여 비동기 실행 컨텍스트별로 테마를 완전 격리합니다.
  */
 export async function withThemeIsolation<T>(theme: PptxThemeTokens, fn: () => Promise<T>): Promise<T> {
-  const savedC = { ...C };
-  const savedCD = { ...CD };
-  const savedKR = KR;
-  const savedTITLE_KR = TITLE_KR;
-  const savedMeta = { ...THEME_META };
-  const savedPV = { ...PV };
-  try {
-    setActiveTheme(theme);
-    return await fn();
-  } finally {
-    Object.assign(C, savedC);
-    Object.assign(CD, savedCD);
-    KR = savedKR;
-    TITLE_KR = savedTITLE_KR;
-    Object.assign(THEME_META, savedMeta);
-    Object.assign(PV, savedPV);
-  }
+  const ctx = buildThemeContext(theme);
+  return ActiveThemeStore.run(ctx, fn);
 }
 
-// ════════════════════════════════════════
-// §10 provenance 배지
-// ════════════════════════════════════════
+/** 활성 테마 토큰 반환 */
+export function getActiveTheme(): PptxThemeTokens | undefined {
+  return ActiveThemeStore.getStore()?.theme;
+}
 
-// D29 M-5: 정본 9종(+1) 출처 체계 (ontology/provenance.ts 정본)
-export type ProvenanceKind =
-  | 'registry'               // S1: 등기·대장 (공적 장부)
-  | 'public_api'             // S2a: 공공 API (국토부 실거래가, 공시지가 등)
-  | 'public_api_identified'  // S2b: 공공 API + 중개인 식별 (D36 §4.3)
-  | 'broker_aug'             // S2a: 중개인 보강 (현장 실측 등)
-  | 'expert'                 // S2b: 전문가 검증 (감정평가사 등)
-  | 'ledger'                 // S2a: 원장 (임대차 계약서 원본)
-  | 'seller'                 // S3: 매도인 고지
-  | 'broker'                 // S3: 중개인 입력
-  | 'derived'                // S4: 파생 계산
-  | 'assumed';               // S5: AI 추정·가정
+/** 활성 바디 폰트 반환 */
+export function getActiveKR(): string {
+  return ActiveThemeStore.getStore()?.KR ?? rawTypography.KR;
+}
 
-export const PV: Record<ProvenanceKind, [string, string, string]> = {
-  registry:               ['✓ 등기·대장',    C.green,  C.greenL ],
-  public_api:             ['✓ 공공데이터',   C.green,  C.greenL ],
-  public_api_identified:  ['✓ 공공+중개인',  C.green,  C.greenL ],
-  broker_aug:             ['● 현장확인',     C.blue,   C.blueL  ],
-  expert:                 ['★ 전문가검증',   C.amber,  C.amberL ],
-  ledger:                 ['✓ 원장확인',     C.green,  C.greenL ],
-  seller:                 ['▲ 매도인고지',   C.violet, C.violetL],
-  broker:                 ['● 중개인입력',   C.blue,   C.blueL  ],
-  derived:                ['◈ 파생계산',     C.mute,   C.line2  ],
-  assumed:                ['◇ AI추정·가정',  C.mute,   C.line2  ],
-};
+/** 활성 타이틀 폰트 반환 */
+export function getActiveTitleKR(): string {
+  return ActiveThemeStore.getStore()?.TITLE_KR ?? rawTypography.TITLE_KR;
+}
 
 // 레거시 코드 호환 매핑
 /** @deprecated D29 M-5: 레거시 5종 → 정본 9종 */
@@ -247,6 +505,7 @@ export const LEGACY_PROVENANCE_MAP: Record<string, ProvenanceKind> = {
   brk: 'broker',
   ai: 'assumed',
 };
+
 
 // ════════════════════════════════════════
 // §8.1 구조 컴포넌트
@@ -825,16 +1084,18 @@ export function stat(
 
   // 값 — FIX-RC1: 텍스트 길이에 따른 동적 폰트 사이즈
   // 짧은 숫자(6자 이하) → 25pt, 중간(12자 이하) → 18pt, 긴 한글 → 14pt
-  const hasKoreanVal = /[\uAC00-\uD7AF]/.test(value);
+  const safeValue = value != null ? String(value) : '';
+  const hasKoreanVal = /[\uAC00-\uD7AF]/.test(safeValue);
+  const valLen = (safeValue?.length ?? 0);
   const dynamicVs = opt.vs ?? (
-    value.length <= 6 ? 25 :
-    value.length <= 12 ? 18 :
-    value.length <= 20 ? 14 : 11
+    valLen <= 6 ? 25 :
+    valLen <= 12 ? 18 :
+    valLen <= 20 ? 14 : 11
   );
   const valH = Math.min(0.44, h - (valY - y) - 0.40); // 남은 공간에 맞춤
-  s.addText(value, {
+  s.addText(safeValue || '-', {
     x: x + 0.18, y: valY, w: labelW, h: Math.max(0.30, valH),
-    fontSize: dynamicVs, bold: true, color: valCol, fontFace: hasKoreanVal ? KR : NUM, margin: 0,
+    fontSize: dynamicVs, bold: true, color: valCol, fontFace: hasKoreanVal ? (ActiveThemeStore.getStore()?.KR ?? KR) : NUM, margin: 0,
     shrinkText: true,
   });
 

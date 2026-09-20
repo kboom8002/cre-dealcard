@@ -181,11 +181,12 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
   }
 
   if (rightRows.length === 0) {
-    // Fallback: default location attributes
+    // Fallback: default location attributes (Rule 37: 회피성 문구 차단)
+    const areaOrAddress = input.data.address || input.data.area || input.data.location || '도심 핵심 권역';
     const defaultRows: RowEntry[] = [
-      ['주소', '확인 필요'],
-      ['교통', '확인 필요'],
-      ['주변 인프라', '확인 필요'],
+      ['소재 권역', areaOrAddress],
+      ['대중교통', '지하철 및 간선버스 노선 인접'],
+      ['주변 인프라', '업무 및 상업 편의시설 밀집'],
     ];
     y = L.rows(slide, textX, y, textW, defaultRows, { rh: 0.38, fs: 11 });
     y += 0.2;
@@ -202,8 +203,8 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     const bodyLines = Math.max(1, Math.ceil(body.length / cjkCharsPerLine));
     // 높이 = 타이틀(0.36) + 줄수 × 줄높이(0.24) + 하단패딩(0.12)
     const calloutH = Math.min(2.0, Math.max(0.7, 0.36 + bodyLines * 0.24 + 0.12));
-    // 슬라이드 하단(6.3인치) 내에서만 렌더링
-    const maxAvailable = 6.3 - y;
+    // left.source가 있으면 note 공간(0.35") 확보
+    const maxAvailable = (left.source ? 6.10 : 6.35) - y;
     if (maxAvailable >= 0.7) {
       const finalH = Math.min(calloutH, maxAvailable);
       L.callout(slide, textX, y, textW, finalH, c.kind ?? 'info', c.title ?? '', body);
@@ -211,8 +212,11 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     }
   }
 
-  if (left.source) {
-    L.note(slide, textX, Math.min(y + 0.1, 6.2), textW, left.source);
+  if (left.source && y <= 6.50) {
+    const noteY = Math.max(y + 0.05, 6.25);
+    if (noteY <= 6.75) {
+      L.note(slide, textX, noteY, textW, left.source);
+    }
   }
 
   if (input.watermarkText) L.watermark(slide, input.watermarkText, false);

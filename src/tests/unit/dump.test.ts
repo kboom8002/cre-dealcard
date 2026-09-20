@@ -9,6 +9,10 @@ describe('Basic IM SOTA Render Verification Test', () => {
   it('dump text', async () => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !supabaseKey) {
+      console.warn('Skipping dump test: Supabase credentials not set');
+      return;
+    }
     const s = createClient(supabaseUrl, supabaseKey);
 
     const docId = '8bc302d8-dbe0-4109-ba49-9573e8e78dc3';

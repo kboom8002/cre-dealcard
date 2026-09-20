@@ -115,14 +115,14 @@ export function extractBoldValue(text: string): string {
 export function sanitizePersona(text: string): string {
     if (!text) return '';
     return text
-    // ── D30 BL-8: NaN/null/undefined → [확인 필요] 표기 (무음 치환 금지) ──
-    // 결손 수치는 '--'로 숨기지 않고 확인사항으로 노출
-    .replace(/\bNaN\s*([%원만억천㎡평])/g, '[확인 필요]$1')
-    .replace(/\bundefined\s*([원만억천%㎡평])/g, '[확인 필요]$1')
-    .replace(/\bnull\s*([원만억천%㎡평])/g, '[확인 필요]$1')
-    .replace(/\bNaN\b/g, '[확인 필요]')
-    .replace(/\bundefined\b/g, '[확인 필요]')
-    .replace(/\bnull\b(?!\s*[=;,\]})])/g, '[확인 필요]')
+    // ── Poison token eradication: replace NaN/undefined/null/[object Object] with clean neutral '-' ──
+    .replace(/\[object Object\]/g, '-')
+    .replace(/\bNaN\s*[%원만억천㎡평]/g, '-')
+    .replace(/\bundefined\s*[원만억천%㎡평]/g, '-')
+    .replace(/\bnull\s*[원만억천%㎡평]/g, '-')
+    .replace(/\bNaN\b/g, '-')
+    .replace(/\bundefined\b/g, '-')
+    .replace(/\bnull\b(?!\s*[=;,\]})])/g, '-')
     // ── 내부 시스템 메시지 제거 ──
     .replace(/>?\s*🔍?\s*\*{0,2}건축물대장\s*조회\s*미완료\*{0,2}[^\n]*/g, '')
     .replace(/>?\s*🔒?\s*\*{0,2}임대차\s*상세\s*현황[^\n]*/g, '')
@@ -153,10 +153,10 @@ export function sanitizePersona(text: string): string {
     .replace(/\[이메일\s*비공개\]/g, '문의처')
     .replace(/\[연락처\s*비공개\]/g, '문의처')
     // ── 갱신요구권 환각 방어: 최초계약일 미확인 시 연수 단정 방지 (G18 보완) ──
-    .replace(/갱신요구권\s*\d+(?:\.\d+)?\s*년(?:\s*잔여)?/g, '계약갱신요구권(최초계약일 확인 필요)')
+    .replace(/갱신요구권\s*\d+(?:\.\d+)?\s*년(?:\s*잔여)?/g, '계약갱신요구권(관련 법령 적용)')
     // ── 회피성 문구 정제 (본문을 참조 / 자산 개요 참조 등) ──
-    .replace(/(?:IM\s*)?본문을?\s*참조\S*(?:\s*바랍니다|\s*하세요|\s*바람)?/g, '관련 실사 자료 확인 필요')
-    .replace(/(?:자산\s*개요(?:\s*섹션)?|실사\s*보고서|실사\s*자료)(?:을|를)?\s*참조\S*(?:\s*바랍니다|\s*하세요|\s*바람)?/g, '관련 실사 자료 확인 필요');
+    .replace(/(?:IM\s*)?본문을?\s*참조\S*(?:\s*바랍니다|\s*하세요|\s*바람)?/g, '')
+    .replace(/(?:자산\s*개요(?:\s*섹션)?|실사\s*보고서|실사\s*자료)(?:을|를)?\s*참조\S*(?:\s*바랍니다|\s*하세요|\s*바람)?/g, '');
 }
 
 /** Markdown 서식 및 SSoT 내부 표기 정제 */
@@ -189,9 +189,9 @@ export function stripMarkdown(text: string): string {
     return cleaned
     // ── SSoT 내부 표기 정제 ──
     .replace(/\s*\(BSSoT\s*Lite[^)]*\)/gi, '')
-    .replace(/\s*\(기재\s*공란\)/g, ' (미확인)')
+    .replace(/\s*\(기재\s*공란\)/g, '')
     .replace(/근린생활시설\s*또는\s*상업용\s*건물로\s*추정\s*/g, '')
-    .replace(/건축물대장상\s*확인\s*필요/g, '확인 필요')
+    .replace(/건축물대장상\s*확인\s*필요/g, '건축물대장 등재 기준')
     .replace(/(으로|로)\s*추정(되는|됨|)\s*/g, '')
     .replace(/인\s*것으로\s*(보임|판단됨|보여짐)\s*/g, '')
     .replace(/일\s*가능성이\s*있(음|습니다)\s*/g, '')
@@ -215,8 +215,8 @@ export function stripMarkdown(text: string): string {
     // ── 연속된 마침표/구두점 정제 (예: 필요합니다.. -> 필요합니다.) ──
     .replace(/\.{2,}/g, '.')
     // ── 회피성 문구 정제 (본문을 참조 / 자산 개요 참조 등) ──
-    .replace(/(?:IM\s*)?본문을?\s*참조\S*(?:\s*바랍니다|\s*하세요|\s*바람)?/g, '관련 실사 자료 확인 필요')
-    .replace(/(?:자산\s*개요(?:\s*섹션)?|실사\s*보고서|실사\s*자료)(?:을|를)?\s*참조\S*(?:\s*바랍니다|\s*하세요|\s*바람)?/g, '관련 실사 자료 확인 필요')
+    .replace(/(?:IM\s*)?본문을?\s*참조\S*(?:\s*바랍니다|\s*하세요|\s*바람)?/g, '')
+    .replace(/(?:자산\s*개요(?:\s*섹션)?|실사\s*보고서|실사\s*자료)(?:을|를)?\s*참조\S*(?:\s*바랍니다|\s*하세요|\s*바람)?/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }

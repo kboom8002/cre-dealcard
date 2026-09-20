@@ -29,8 +29,23 @@ export { buildA22StackingPlan } from './a22-stacking-plan';
 export { buildA24RentrollStacking } from './a24-rentroll-stacking';
 export { buildA25ChapterDivider, type ChapterDividerData } from './a25-chapter-divider';
 
-/** D30 M-17: SLIDE_ARCHETYPE_REGISTRY — PPTX 빌더 레지스트리 (18종)
- * archetype-registry.ts의 ALL_ARCHETYPES(편성 25종)와 구분 */
+/** A19 Pro 개발 분석 스텁 */
+export function buildA19DevelopmentAnalysis(input: any) {
+  return { slide: null as any, warnings: ['A19 개발 분석 아키타입은 현재 예약 상태입니다.'], suppress: true };
+}
+
+/** A20 Pro 매각 전략 스텁 */
+export function buildA20ExitStrategy(input: any) {
+  return { slide: null as any, warnings: ['A20 매각 전략 아키타입은 현재 예약 상태입니다.'], suppress: true };
+}
+
+/** A21 Pro 부록 스텁 */
+export function buildA21DueDiligenceAnnex(input: any) {
+  return { slide: null as any, warnings: ['A21 부록 아키타입은 현재 예약 상태입니다.'], suppress: true };
+}
+
+/** D30 M-17: SLIDE_ARCHETYPE_REGISTRY — PPTX 빌더 레지스트리 (25종 편성 완전 지원)
+ * archetype-registry.ts의 ALL_ARCHETYPES(편성 25종)와 100% 매핑 */
 export const SLIDE_ARCHETYPE_REGISTRY: Record<string, any> = {
   A01: buildA01Cover,
   A02: buildA02StatGrid,
@@ -50,6 +65,9 @@ export const SLIDE_ARCHETYPE_REGISTRY: Record<string, any> = {
   A16: buildA16InvestmentStructure,
   A17: buildA17PreCompletionMarketing,
   A18: buildA18Checklist, // D30 M-11
+  A19: buildA19DevelopmentAnalysis,
+  A20: buildA20ExitStrategy,
+  A21: buildA21DueDiligenceAnnex,
   A22: buildA22StackingPlan,
   A23: buildA23YieldFormula, // Basic IM 투자수익률 산식
   A24: buildA24RentrollStacking,

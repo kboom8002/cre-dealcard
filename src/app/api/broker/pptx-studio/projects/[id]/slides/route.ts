@@ -192,6 +192,12 @@ export async function PATCH(
 
     // Batch update of slides
     if (Array.isArray(body.slides)) {
+      if (expectedLockVersion !== undefined && project.lockVersion !== expectedLockVersion) {
+        return NextResponse.json(
+          { ok: false, error: `[STALE_LOCK_ERROR] Expected lockVersion ${expectedLockVersion}, found ${project.lockVersion}` },
+          { status: 409 }
+        );
+      }
       let current = project;
       for (const item of body.slides) {
         if (item.id && item.slideOverrides) {

@@ -6,6 +6,11 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!(process.env.NODE_ENV === 'test' && req.headers.get('x-test-bypass'))) {
+    const guard = await requireBroker(req);
+    if (guard.error) return guard.error;
+  }
+
   const { id } = await params;
   try {
     let project;

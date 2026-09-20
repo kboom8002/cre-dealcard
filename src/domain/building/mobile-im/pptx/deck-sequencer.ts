@@ -126,10 +126,11 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     // 렌트롤: hasRentRoll 체크
     if (slot.dataKey === 'rentRoll' && da.hasRentRoll === false) continue;
 
-    // 갤러리: gallerySlides가 있으면 그것을 사용
+    // 갤러리: gallerySlides가 있으면 그것을 사용 (Basic IM은 최대 2장 캡)
     if (slot.dataKey === 'gallery') {
       if (gallerySlides.length > 0) {
-        sequence.push(...gallerySlides);
+        const cappedGallery = gallerySlides.slice(0, 2);
+        sequence.push(...cappedGallery);
       } else if (input.hasPhotos) {
         sequence.push({ archetype: slot.archetype, kicker: 'Gallery', title: slot.label, dataKey: slot.dataKey });
       }
@@ -150,16 +151,29 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     }
   }
 
-  // B11 Fix: 루프 종료 후 바운드 체크 — BASIC_IM_BOUNDS.maxSlides 초과 시 본문 슬라이드 절삭
-  const filtered = sequence.filter(s => !s.suppress);
+  // B11 Fix: 루프 종료 후 바운드 체크 — BASIC_IM_BOUNDS.maxSlides 초과 시 비필수(갤러리/지적도) 슬라이드 우선 절삭
+  // 헌법 보호: cover, summary, building, location, land, rentRoll(A24), yieldFormula(A23), closing(A10)은 절대 pop하지 않음
+  let filtered = sequence.filter(s => !s.suppress);
   if (filtered.length > BASIC_IM_BOUNDS.maxSlides) {
-    // closing (마지막)은 보존, 중간 본문 슬라이드를 우선 제거
-    const closing = filtered.pop()!; // closing 보존
-    while (filtered.length >= BASIC_IM_BOUNDS.maxSlides) {
-      // 뒤에서 두 번째(closing 직전)부터 제거
-      filtered.pop();
+    const requiredDataKeys = new Set([
+      'cover', 'summary', 'building', 'location', 'land', 'closing',
+      ...(posture === 'income' ? ['rentRoll', 'yieldFormula'] : []),
+    ]);
+
+    while (filtered.length > BASIC_IM_BOUNDS.maxSlides) {
+      let trimIdx = -1;
+      for (let i = filtered.length - 1; i >= 0; i--) {
+        if (!requiredDataKeys.has(filtered[i].dataKey)) {
+          trimIdx = i;
+          break;
+        }
+      }
+      if (trimIdx === -1) {
+        // 더 이상 절삭 가능한 비필수 슬라이드가 없음 (보호 유지)
+        break;
+      }
+      filtered.splice(trimIdx, 1);
     }
-    filtered.push(closing);
   }
 
   return filtered;

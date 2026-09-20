@@ -632,3 +632,37 @@ The existing codebase includes comprehensive verification harnesses that the tea
 - [ ] `npx tsc --noEmit` exits with 0 errors.
 - [ ] `npm run build` succeeds cleanly without build errors.
 - [ ] At least one automated golden test spec is added to verify end-to-end Pro IM generation and binary assertions.
+
+## 2026-09-20T13:04:41Z
+
+Perform an exhaustive predictive error audit and complete zero-defect eradication across the entire Basic IM PPTX generation pipeline, implementing proactive code hardening and automated adversarial tests to guarantee bulletproof production stability.
+
+Working directory: c:\Users\User\cre-dealcard
+Integrity mode: development
+Requested team: Full multi-agent team (domain analysis, test writing, refactoring, adversarial verification)
+
+## Requirements
+
+### R1. Exhaustive Predictive Failure Mode Audit
+Conduct a systematic, multi-perspective code audit of the entire Basic IM pipeline—including data-binder, deck-sequencer, archetype renderers (A01~A24), imlib geometry, image-optimizer coordinate transformations, and Studio API routes—to uncover every conceivable latent failure mode (e.g., extreme input lengths, missing/corrupted SSOT fields, numerical under/overflows, coordinate out-of-bounds, async concurrency races).
+
+### R2. Zero-Defect Code Remediation & Defect Eradication
+Refactor and harden all identified vulnerable paths with defensive guards, fail-safe fallbacks, strict type assertions, and deterministic resource lifecycle management. Ensure no unhandled exception, ghost slide, data distortion, or visual clipping can occur under any input conditions.
+
+### R3. Adversarial Test Suite & Production Release Verification
+Construct comprehensive automated test suites (including adversarial chaos tests, fuzzing with degenerate inputs, and concurrent execution checks). Verify that the entire test suite passes and that `npm run build` succeeds cleanly with zero regressions.
+
+## Acceptance Criteria
+
+### Audit & Detection Quality
+- [ ] Every slide archetype and data binding path evaluated against edge-case matrices (empty, null, extreme strings, boundary numbers).
+- [ ] Concurrency/race conditions (theme mutations, OCC lockVersion, async asset fetching) systematically audited and safeguarded.
+
+### Hardening & Code Integrity
+- [ ] All identified latent defects resolved with clean, idiomatic code adhering to CRE DealCard agent rules.
+- [ ] No regression introduced to existing Basic or Pro IM pipeline outputs.
+
+### Verification & Release Gates
+- [ ] Automated adversarial tests pass with 100% success rate.
+- [ ] Pre-flight pipeline audits and `npm run build` pass without type errors or build failures.
+

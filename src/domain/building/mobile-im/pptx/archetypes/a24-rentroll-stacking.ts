@@ -13,12 +13,24 @@ export interface ArchetypeInput {
   data: Record<string, any>;
   grade: 'A' | 'B' | 'C';
   provenance: Record<string, ProvenanceKind>;
+  flags?: Record<string, any>;
 }
 
 export interface ArchetypeOutput {
   slide?: ReturnType<PptxGenJS['addSlide']>;
   warnings: string[];
   suppress?: boolean;
+}
+
+function isSuppressed(flags?: Record<string, any>, archetype?: string): boolean {
+  if (!flags) return false;
+  if (archetype && (flags[archetype] === false || flags[`suppress_${archetype}`] === true || flags[`hide_${archetype}`] === true)) {
+    return true;
+  }
+  if (Array.isArray(flags.suppressedArchetypes) && archetype && flags.suppressedArchetypes.includes(archetype)) {
+    return true;
+  }
+  return false;
 }
 
 const EXPIRY_HEATMAP_PALETTE: Record<string, string> = {
@@ -62,9 +74,9 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     }
   }
   
-  if (stackingData.length === 0 && tableRows.length === 0) {
+  if (isSuppressed(input.flags, 'A24') || (stackingData.length === 0 && tableRows.length === 0)) {
     warnings.push('A24 렌트롤/스태킹 데이터 없음 — 슬라이드 억제');
-    return { slide: input.pres.addSlide(), warnings, suppress: true };
+    return { warnings, suppress: true };
   }
 
   const slide = light(input.pres);

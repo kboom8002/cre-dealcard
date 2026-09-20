@@ -204,26 +204,38 @@ function renderCommonCoverContent(
   });
 
   // 부제
-  const subtitleY = kickerY + 0.30 + titleH + 0.06;
   const subtitle = input.data.subtitle || input.data.assetType || '';
+  let nextY = kickerY + 0.30 + titleH + 0.06;
   if (subtitle) {
     slide.addText(subtitle, {
-      x, y: subtitleY, w: titleW, h: 0.4,
+      x, y: nextY, w: titleW, h: 0.36,
       fontSize: 14, color: CD.body,
       fontFace: KR, margin: 0, align,
     });
+    nextY += 0.42;
+  } else {
+    nextY += 0.08;
   }
 
-  let nextY = subtitleY + 0.4;
   if (input.data.address) {
-    const addrH = (input.data.address || '').length > 28 ? 0.52 : 0.32;
-    slide.addText(input.data.address, {
+    const rawAddr = String(input.data.address).slice(0, 42);
+    const addrH = rawAddr.length > 28 ? 0.44 : 0.28;
+    slide.addText(rawAddr, {
       x, y: nextY, w: titleW, h: addrH,
       fontSize: 12, color: C.slate,
       fontFace: KR, margin: 0, align,
     });
     nextY += addrH;
   }
+
+  // 강조 박스 (가격대 - HP-04: 푸터 충돌 방지 클램핑)
+  const rawAskingPrice = input.data.askingPrice;
+  const safeAskingPrice = (rawAskingPrice && !String(rawAskingPrice).includes('Infinity') && !String(rawAskingPrice).includes('NaN')) ? rawAskingPrice : '';
+  const rawPriceBand = input.data.priceBand;
+  const safePriceBand = (rawPriceBand && !String(rawPriceBand).includes('Infinity') && !String(rawPriceBand).includes('NaN')) ? rawPriceBand : '';
+  const priceBand = safeAskingPrice ? `매각 희망가 ${safeAskingPrice}` : safePriceBand;
+  const priceBoxH = priceBand ? 1.15 : 0;
+  const maxPriceBoxBottom = 6.45;
 
   // 태그 (최대 4개로 제한하여 경계 이탈 방지 - HP-03)
   let tagX = x;
@@ -236,20 +248,25 @@ function renderCommonCoverContent(
     })
     .slice(0, 4);
 
-  const tagY = Math.max(nextY + 0.25, kickerY + 1.60);
-  tags.forEach((tag: string) => {
-    const tw = Math.min(2.2, Math.max(1.1, tag.length * 0.16 + 0.4));
-    if (tagX + tw <= x + titleW) {
-      L.tag(slide, tagX, tagY, tw, 0.32, tag, 'FFFFFF', CD.block, 9.5);
-      tagX += tw + 0.10;
-    }
-  });
+  // 태그 Y: nextY와 kickerY 기준 동적 배치, 최대 허용 상한 클램핑
+  const maxAllowedTagY = priceBand ? (maxPriceBoxBottom - priceBoxH - 0.48) : 5.50;
+  const tagY = Math.min(Math.max(nextY + 0.18, kickerY + 1.40), maxAllowedTagY);
 
-  // 강조 박스 (가격대 - HP-04: 푸터 충돌 방지 클램핑)
-  const priceBand = input.data.askingPrice ? `매각 희망가 ${input.data.askingPrice}` : (input.data.priceBand || '');
+  // 긴 제목 등으로 수직 공간이 부족하면 태그 대신 핵심 가격 박스 우선 보존
+  const canRenderTags = !priceBand || (tagY + 0.32 + 0.12 <= maxPriceBoxBottom - priceBoxH);
+  if (canRenderTags && tags.length > 0) {
+    tags.forEach((tag: string) => {
+      const tw = Math.min(2.2, Math.max(1.1, tag.length * 0.16 + 0.4));
+      if (tagX + tw <= x + titleW) {
+        L.tag(slide, tagX, tagY, tw, 0.32, tag, 'FFFFFF', CD.block, 9.5);
+        tagX += tw + 0.10;
+      }
+    });
+  }
+
   if (priceBand) {
-    const priceBoxH = 1.15;
-    const priceBoxY = Math.min(tagY + 0.55, 6.45 - priceBoxH);
+    const renderedTagBottom = (canRenderTags && tags.length > 0) ? (tagY + 0.32) : nextY;
+    const priceBoxY = Math.min(Math.max(renderedTagBottom + 0.16, 4.30), maxPriceBoxBottom - priceBoxH);
     slide.addShape('roundRect', {
       x, y: priceBoxY, w: centerAlign ? CW : Math.min(7.5, CW), h: priceBoxH,
       rectRadius: 0.04,

@@ -88,7 +88,7 @@ export async function buildA18Checklist(input: ArchetypeInput): Promise<Archetyp
   const renderItemColumn = (colItems: string[], colX: number) => {
     let curY = startY;
     colItems.forEach((text, idx) => {
-      const itemH = 0.95;
+      const itemH = 0.82;
       // 카드 배경
       slide.addShape('rect', {
         x: colX,
@@ -100,32 +100,34 @@ export async function buildA18Checklist(input: ArchetypeInput): Promise<Archetyp
       });
 
       // 체크마크 아이콘 / 번호 박스
+      const iconSize = 0.32;
+      const iconY = curY + (itemH - iconSize) / 2;
       slide.addShape('rect', {
         x: colX + 0.15,
-        y: curY + 0.18,
-        w: 0.35,
-        h: 0.35,
+        y: iconY,
+        w: iconSize,
+        h: iconSize,
         fill: { color: C.brassD },
       });
       slide.addText('✓', {
         x: colX + 0.15,
-        y: curY + 0.18,
-        w: 0.35,
-        h: 0.35,
+        y: iconY,
+        w: iconSize,
+        h: iconSize,
         fontFace: KR,
-        fontSize: 11,
+        fontSize: 10.5,
         color: 'FFFFFF',
         align: 'center',
         valign: 'middle',
         bold: true,
       });
 
-      // 본문 텍스트
+      // 본문 텍스트 (Rule 36: 체크리스트 카드 예산 준수)
       const fs = text.length > 40 ? 9.5 : 10.5;
       slide.addText(text, {
-        x: colX + 0.60,
-        y: curY + 0.10,
-        w: colW - 0.75,
+        x: colX + 0.58,
+        y: curY + 0.08,
+        w: colW - 0.72,
         h: itemH - 0.16,
         fontFace: KR,
         fontSize: fs,
@@ -134,7 +136,7 @@ export async function buildA18Checklist(input: ArchetypeInput): Promise<Archetyp
         lineSpacingMultiple: 1.10,
       });
 
-      curY += itemH + 0.14;
+      curY += itemH + 0.08;
     });
   };
 

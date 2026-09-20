@@ -52,10 +52,10 @@ export interface PhotoMeta {
 }
 
 export interface BasicImFactoryOptions {
-  /** 매물 좌표 (필수 — 카카오맵 생성에 사용) */
-  coordinates: { lat: number; lng: number };
-  /** 매물 사진 (최소 1장, 권장 6장) */
-  photos: PhotoMeta[];
+  /** 매물 좌표 (카카오맵 생성에 사용, 생략 시 bottomSheet.coordinates 활용) */
+  coordinates?: { lat: number; lng: number };
+  /** 매물 사진 (최소 1장, 권장 6장, 생략 시 bottomSheet.photos_v2 / photos 활용) */
+  photos?: PhotoMeta[];
   /** 브로커 정보 */
   broker?: {
     display_name: string;
@@ -119,10 +119,11 @@ export async function createBasicImTestInput(
   const financials = calculateFinancials(financialInput);
 
   // ── 2. Enrichment ──
+  const coords = options.coordinates ?? (bottomSheet.coordinates as { lat: number; lng: number } | undefined);
   let enrichment: Record<string, unknown> = { hasCadastralMap: false };
-  if (!options.skipEnrichment) {
+  if (!options.skipEnrichment && coords) {
     try {
-      const enrichResult = await enrichForBasicIm(options.coordinates, {
+      const enrichResult = await enrichForBasicIm(coords, {
         pnu: options.pnu,
         pnus: options.pnus,
         address: bottomSheet.address,
@@ -207,11 +208,11 @@ export async function createBasicImTestInput(
           investmentPosture: 'income',
           assetType: '근린생활시설',
         },
-        photos: options.photos,
+        photos: options.photos ?? (bottomSheet.photos_v2 as any) ?? (bottomSheet.photos as any) ?? [],
         floor_leases: floorLeases,
         ssot_summary: ssot,
         financials: financials ?? {},
-        coordinates: options.coordinates,
+        coordinates: coords,
         enrichment,
         cadastralMapImage: enrichment.cadastralMapImage,
         preset: 'credeal_basic',

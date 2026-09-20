@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireBroker } from '@/lib/auth-guard';
 import { studioService } from '@/domain/building/pptx-studio/studio-service';
 import { createServiceClient } from '@/lib/supabase/service';
 import type { ReleaseTier } from '@/domain/building/im-core/release-tier';
@@ -7,6 +8,11 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!(process.env.NODE_ENV === 'test' && req.headers.get('x-test-bypass'))) {
+    const guard = await requireBroker(req);
+    if (guard.error) return guard.error;
+  }
+
   const { id } = await params;
   try {
     let project;

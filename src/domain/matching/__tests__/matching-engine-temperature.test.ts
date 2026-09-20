@@ -10,6 +10,7 @@ describe('Matching Engine Buyer Temperature Adjustment', () => {
     fitSummary: '임대수익 안정적',
     cautionSummary: '특이사항 없음',
     dealCuriosityScore: 80,
+    vacancySignal: null,
   };
 
   const baseIntent = {

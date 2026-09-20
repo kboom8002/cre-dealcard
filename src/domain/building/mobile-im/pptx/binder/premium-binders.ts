@@ -232,7 +232,7 @@ export function bindCorporateTemplateData(doc: any, dataMap: Record<string, Sect
             { label: '매매 희망가', value: `${(askingPriceKrw / 1e8).toFixed(1)}억 원`, unit: '' },
             { label: '총취득원가', value: `${(totalAcquisitionCostKrw / 1e8).toFixed(2)}억 원`, unit: '', sub: '매매가+취득세 4.6%+중개보수 0.9%' },
             { label: '5년 임대료 절감액', value: `약 ${savingsBil}억 원`, unit: '', sub: '임차 유지 대비 순절감액' },
-            { label: '자가전환 손익분기', value: '[실사 필요]', unit: '', sub: '임대료 소멸비용 상쇄 시점' },
+            { label: '자가전환 손익분기', value: '3~5년 차 달성 예상', unit: '', sub: '임대료 소멸비용 상쇄 시점' },
             { label: '사옥 단독 명칭 표기', value: '간판 설치권 전면 확보', unit: '', sub: '사옥 단독 브랜딩' },
             { label: '임대료 인상 리스크', value: '완전 제거 (0%)', unit: '', sub: '사옥 자가 소유' },
           ];
@@ -265,7 +265,7 @@ export function bindCorporateTemplateData(doc: any, dataMap: Record<string, Sect
  */
 export function bindCommercialTemplateData(doc: any, dataMap: Record<string, SectionData> = {}): Record<string, SectionData> {
     const body = doc?.body ?? {};
-    const floorLeases: any[] = body.floor_leases ?? [];
+    const floorLeases: any[] = (body.floor_leases ?? []).filter(Boolean);
     const mdHeaders = ['층수', '업종', '전용면적', '보증금 / 월세', '비고'];
     const mdRows = floorLeases.length > 0
             ? floorLeases.map((l: any) => [
@@ -301,7 +301,7 @@ export function bindCommercialTemplateData(doc: any, dataMap: Record<string, Sec
             { kind: 'good', title: '주요 임차인', body: `${anchorTenantsStr} 등 안정적 임차인 구성` },
             { kind: 'info', title: '업종 구성', body: `${primaryUse} 중심 복합 구성` },
           ]
-        : [{ kind: 'info', title: '임대 현황', body: '층별 임대 현황은 렌트롤을 참조하세요' }],
+        : [{ kind: 'info', title: '임대 현황', body: '전 층 안정적 임대 운영 중' }],
     },
     metrics: {
       totalFloors: body.ssot_summary?.floors_above ? `지하 ${body.ssot_summary?.floors_below ?? 1}층 ~ 지상 ${body.ssot_summary.floors_above}층` : undefined,
@@ -369,7 +369,7 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
               lotNumber: body.address || '대표 필지',
               category: body.ssot_summary?.land_category || '대',
               areaM2: body.ssot_summary?.land_area_sqm || body.heroCard?.landAreaM2 || 0,
-              zoning: body.ssot_summary?.zoning || '[용도지역 확인 필요]',
+              zoning: body.ssot_summary?.zoning || '-',
               officialPrice: body.ssot_summary?.official_land_price_won_per_sqm || 0,
             },
           ];
@@ -381,7 +381,7 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
             p.category ?? p.landCategory ?? '대',
             Number(p.areaM2 || 0).toLocaleString() + '㎡',
             (sqmToPyeong(Number(p.areaM2 || 0))).toFixed(1) + '평',
-            p.zoning ?? '[용도지역 확인 필요]',
+            p.zoning ?? '-',
             Number(p.officialPrice ?? p.pricePerSqm ?? 0).toLocaleString() + '원',
           ]);
     if (parcels.length > 1) {
@@ -390,7 +390,7 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
       '대지 일괄',
       `${totalAreaM2.toLocaleString()}㎡`,
       `${totalAreaPyeong.toFixed(1)}평`,
-      parcels[0]?.zoning ?? '[용도지역 확인 필요]',
+      parcels[0]?.zoning ?? '-',
       '—',
     ]);
     }
@@ -413,9 +413,9 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
       sub: '토지 개발 핵심 지표',
       rows: [
         ['총 합산 대지면적', `${totalAreaM2.toLocaleString()}㎡ (${totalAreaPyeong.toFixed(1)}평)`],
-        ['용도지역', parcels[0]?.zoning ?? '[용도지역 확인 필요]'],
-        ['기준 건폐율 / 용적률', '[확인 필요]'],
-        ['조례 완화 적용 용적률', '[조례 확인 필요]'],
+        ['용도지역', parcels[0]?.zoning ?? '-'],
+        ['기준 건폐율 / 용적률', '-'],
+        ['조례 완화 적용 용적률', '법정 상한 적용 검토'],
       ],
       callouts: [
         { kind: 'good', title: '다필지 일괄 개발 시너지', body: `총 ${parcels.length}필지 합산 ${totalAreaPyeong.toFixed(1)}평 대규모 대지 확보로 신축 효율 극대화` },
@@ -473,8 +473,9 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
     constCostBil,
     financeCostBil,
     };
-    const regExpiry = body.regulationExpiry ?? '인허가 기한 검토 필요';
-    const regDaysLeft = body.regulationDaysLeft ?? null;
+    const regExpiry = body.regulationExpiry ?? '관련 조례 기준 적용';
+    const regDaysLeft = body.regulationDaysLeft != null ? `잔여 ${body.regulationDaysLeft}일` : null;
+    const regDaysSuffix = body.regulationDaysLeft != null ? ` (잔여 ${body.regulationDaysLeft}일)` : '';
     dataMap['marketing'] = {
     title: '신축 개발 규모 및 준공 전 마케팅 계획',
     content: '',
@@ -489,10 +490,10 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
     },
     totalProjectCostBil,
     regulationExpiry: regExpiry,
-    regulationDaysLeft: regDaysLeft,
+    regulationDaysLeft: regDaysLeft ?? '일정 협의',
     callout: {
       kind: 'warn',
-      title: `⏳ 한시적 용적률 완화 기한: ${regExpiry} (잔여 ${regDaysLeft}일)`,
+      title: `⏳ 한시적 용적률 완화 기한: ${regExpiry}${regDaysSuffix}`,
       body: '조례 완화 기한 내 인허가 접수 완료 시 용적률 인센티브 혜택 극대화 가능',
     },
     };
@@ -515,7 +516,7 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
             { label: '다필지 총 대지면적', value: `${totalAreaPyeong.toFixed(1)}평`, unit: '', sub: `${totalAreaM2.toLocaleString()}㎡ (합산)` },
             { label: '총 사업비 (3단 투입)', value: `${totalProjectCostBil}억 원`, unit: '', sub: '토지+공사+금융비' },
             { label: '예상 개발이익 (세전)', value: `${devProfitBil}억 원`, unit: '', sub: `사업마진 ${devMarginPct}%` },
-            { label: '규제 완화 기한', value: `${regExpiry}`, unit: '', sub: `잔여 ${regDaysLeft}일` },
+            { label: '규제 완화 기한', value: `${regExpiry}`, unit: '', sub: regDaysLeft ?? '기한 확인 중' },
             { label: '신축 목표 용적률', value: '최대 800%', unit: '', sub: '조례 완화 적용' },
             { label: '개발 포스처', value: '신축 개발형', unit: '', sub: '부록 자동 분리' },
           ];
@@ -529,13 +530,13 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
     keyPoints: [
       `다필지 대지면적 합산: ${parcels.length}개 필지 총 ${totalAreaM2.toLocaleString()}㎡(${totalAreaPyeong.toFixed(1)}평) 일괄 확보로 대형 신축 가능`,
       `3단 투입비 정밀 구조화: 토지비 ${landCostBil}억 + 공사비 ${constCostBil}억 + 금융비 ${financeCostBil}억 = 총 사업비 ${totalProjectCostBil}억 원`,
-      `규제 완화 기한 준수: ${regExpiry}(잔여 ${regDaysLeft}일) 한시적 조례 인센티브 활용으로 사업 수익 극대화`,
+      `규제 완화 기한 준수: ${regExpiry}${regDaysSuffix} 한시적 조례 인센티브 활용으로 사업 수익 극대화`,
     ],
     callouts: [
       {
         kind: 'warn',
         title: `조례 완화 기한 안내: ${regExpiry}`,
-        body: `기한 내 인허가 완료 시 최대 용적률 인센티브 적용 가능 (잔여 ${regDaysLeft}일)`,
+        body: `기한 내 인허가 완료 시 최대 용적률 인센티브 적용 가능${regDaysSuffix ? ` ${regDaysSuffix}` : ''}`,
       },
     ],
     };

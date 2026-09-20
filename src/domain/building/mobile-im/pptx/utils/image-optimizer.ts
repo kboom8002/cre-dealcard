@@ -198,6 +198,13 @@ function latlngToPixel(
   centerLat: number, centerLng: number,
   metersPerPx: number, imgW: number, imgH: number
 ): { px: number; py: number } {
+  if (
+    !Number.isFinite(lat) || !Number.isFinite(lng) ||
+    !Number.isFinite(centerLat) || !Number.isFinite(centerLng) ||
+    !Number.isFinite(metersPerPx) || metersPerPx <= 0
+  ) {
+    return { px: NaN, py: NaN };
+  }
   const dxMeters = (lng - centerLng) * 111320 * Math.cos(centerLat * Math.PI / 180);
   const dyMeters = (lat - centerLat) * 111320;
   const px = Math.round(imgW / 2 + dxMeters / metersPerPx);
@@ -226,10 +233,11 @@ function buildPoiOverlays(
   }
 
   for (const spot of poiSpots) {
+    if (!spot || !Number.isFinite(spot.lat) || !Number.isFinite(spot.lng)) continue;
     const { px, py } = latlngToPixel(spot.lat, spot.lng, centerLat, centerLng, metersPerPx, imgW, imgH);
     
-    // 이미지 범위 밖이면 스킵
-    if (px < 10 || px > imgW - 60 || py < 10 || py > imgH - 40) continue;
+    // 이미지 범위 밖이거나 NaN이면 스킵
+    if (!Number.isFinite(px) || !Number.isFinite(py) || px < 10 || px > imgW - 60 || py < 10 || py > imgH - 40) continue;
     
     const color = poiMarkerColor(spot.category);
     const cleanName = (spot.name || '').replace(/\s*역$/, '역').slice(0, 16);
@@ -287,6 +295,8 @@ export async function generateStaticMapPlaceholder(
   coordinates?: { lat: number; lng: number } | null,
   poiSpots?: MapPoiSpot[] | null
 ): Promise<OptimizedImage> {
+  const safeW = (typeof w === 'number' && Number.isFinite(w) && w > 0) ? Math.round(w) : 800;
+  const safeH = (typeof h === 'number' && Number.isFinite(h) && h > 0) ? Math.round(h) : 500;
   const safePoiSpots = (poiSpots || []).slice(0, 5);
   
   // ── 0차: 카카오 Static Map API (최우선) ──
@@ -314,8 +324,8 @@ export async function generateStaticMapPlaceholder(
           apikey: apiKey,
           center: `${coordLng},${coordLat}`,
           level: kakaoLevel, // level 3 (약 250m 반경) — 본건 및 인접 주요 도로명/필지 선명 노출
-          w: String(Math.min(w, 1800)),
-          h: String(Math.min(h, 960)),
+          w: String(Math.min(safeW, 1800)),
+          h: String(Math.min(safeH, 960)),
         });
         const kakaoUrl = `${baseUrl}?${params.toString()}`;
         const response = await fetch(kakaoUrl, {
@@ -326,8 +336,8 @@ export async function generateStaticMapPlaceholder(
           const inputBuffer = Buffer.from(arrayBuffer);
           
           // 카카오 지도 위에 POI 마커 + 건물 골드 핀 오버레이 (Sharp composite)
-          const kakaoW = Math.min(w, 1800);
-          const kakaoH = Math.min(h, 960);
+          const kakaoW = Math.min(safeW, 1800);
+          const kakaoH = Math.min(safeH, 960);
           let resized = sharp(inputBuffer).resize({ width: kakaoW, height: kakaoH, fit: 'cover' });
 
           const overlays: Array<{ input: Buffer; left: number; top: number }> = [];
@@ -377,8 +387,8 @@ export async function generateStaticMapPlaceholder(
           `);
           overlays.push({
             input: goldPinSvg,
-            left: Math.floor(kakaoW / 2 - 40),
-            top: Math.floor(kakaoH / 2 - 72),
+            left: Math.max(0, Math.floor(kakaoW / 2 - 40)),
+            top: Math.max(0, Math.floor(kakaoH / 2 - 72)),
           });
 
           if (overlays.length > 0) {
@@ -389,12 +399,12 @@ export async function generateStaticMapPlaceholder(
           return {
             buffer: resizedBuffer,
             base64: `image/jpeg;base64,${resizedBuffer.toString('base64')}`,
-            width: w,
-            height: h,
+            width: safeW,
+            height: safeH,
             sizeBytes: resizedBuffer.length,
-            originalWidth: w,
-            originalHeight: h,
-            aspectRatio: w / h,
+            originalWidth: safeW,
+            originalHeight: safeH,
+            aspectRatio: safeW / safeH,
           };
         }
       }
@@ -483,22 +493,29 @@ export async function generateStaticMapPlaceholder(
         const osmMeterPerPx = (40075016.686 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom + 8);
         const poiOverlays = buildPoiOverlays(safePoiSpots, lat, lng, osmMeterPerPx, compositeWidth, compositeHeight);
 
-        const targetW = Math.max(w, 1120);
-        const targetH = Math.max(h, 900);
+        const targetW = Math.max(safeW, 1120);
+        const targetH = Math.max(safeH, 900);
         
         // OSM 폴백: 종횡비 보정 후 리사이즈
-        const targetAspect = targetW / targetH; // e.g., 1120/900 = 1.244
+        const targetAspect = (Number.isFinite(targetW) && Number.isFinite(targetH) && targetH > 0)
+          ? targetW / targetH
+          : 1.244;
         const compositeSize = 768; // 3 tiles × 256px
         let cropW: number, cropH: number;
-        if (targetAspect >= 1) {
+        if (Number.isFinite(targetAspect) && targetAspect >= 1) {
           cropW = compositeSize;
           cropH = Math.round(compositeSize / targetAspect);
-        } else {
+        } else if (Number.isFinite(targetAspect) && targetAspect > 0) {
           cropH = compositeSize;
           cropW = Math.round(compositeSize * targetAspect);
+        } else {
+          cropW = compositeSize;
+          cropH = compositeSize;
         }
-        const cropL = Math.round((compositeSize - cropW) / 2);
-        const cropT = Math.round((compositeSize - cropH) / 2);
+        cropW = Math.max(1, Math.min(compositeSize, Math.round(cropW)));
+        cropH = Math.max(1, Math.min(compositeSize, Math.round(cropH)));
+        const cropL = Math.max(0, Math.min(compositeSize - cropW, Math.round((compositeSize - cropW) / 2)));
+        const cropT = Math.max(0, Math.min(compositeSize - cropH, Math.round((compositeSize - cropH) / 2)));
 
         // Stage 1: Composite overlays on full-size canvas
         const compositedBuffer = await sharp(combinedBuffer)
@@ -506,8 +523,8 @@ export async function generateStaticMapPlaceholder(
             ...poiOverlays,
             {
               input: pinSvg,
-              left: Math.floor(compositeWidth / 2 - 40),
-              top: Math.floor(compositeHeight / 2 - 72),
+              left: Math.max(0, Math.floor(compositeWidth / 2 - 40)),
+              top: Math.max(0, Math.floor(compositeHeight / 2 - 72)),
             },
           ])
           .png()
@@ -539,7 +556,7 @@ export async function generateStaticMapPlaceholder(
 
   // ── 2차: SVG 플레이스홀더 (한글 텍스트 없이 핀 및 그래픽 라인만 표시) ──
   const svg = `
-  <svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+  <svg width="${safeW}" height="${safeH}" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="mapBg" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" stop-color="#1e293b"/>
@@ -552,25 +569,25 @@ export async function generateStaticMapPlaceholder(
     <rect width="100%" height="100%" fill="url(#mapBg)"/>
     <rect width="100%" height="100%" fill="url(#grid)"/>
     
-    <path d="M 0 180 Q 300 220 ${w} 120" stroke="#2E3A4A" stroke-width="16" fill="none" opacity="0.6"/>
-    <path d="M 250 0 Q 320 250 400 ${h}" stroke="#2E3A4A" stroke-width="12" fill="none" opacity="0.6"/>
-    <path d="M 0 180 Q 300 220 ${w} 120" stroke="#B98A2E" stroke-width="3" fill="none" stroke-dasharray="8 6" opacity="0.7"/>
+    <path d="M 0 180 Q 300 220 ${safeW} 120" stroke="#2E3A4A" stroke-width="16" fill="none" opacity="0.6"/>
+    <path d="M 250 0 Q 320 250 400 ${safeH}" stroke="#2E3A4A" stroke-width="12" fill="none" opacity="0.6"/>
+    <path d="M 0 180 Q 300 220 ${safeW} 120" stroke="#B98A2E" stroke-width="3" fill="none" stroke-dasharray="8 6" opacity="0.7"/>
     
-    <circle cx="${w / 2}" cy="${h / 2}" r="32" fill="#B98A2E" opacity="0.25"/>
-    <circle cx="${w / 2}" cy="${h / 2}" r="16" fill="#B98A2E"/>
-    <circle cx="${w / 2}" cy="${h / 2}" r="6" fill="#10161F"/>
+    <circle cx="${safeW / 2}" cy="${safeH / 2}" r="32" fill="#B98A2E" opacity="0.25"/>
+    <circle cx="${safeW / 2}" cy="${safeH / 2}" r="16" fill="#B98A2E"/>
+    <circle cx="${safeW / 2}" cy="${safeH / 2}" r="6" fill="#10161F"/>
   </svg>`;
 
   const buffer = await sharp(Buffer.from(svg)).jpeg({ quality: 85 }).toBuffer();
   return {
     buffer,
     base64: `image/jpeg;base64,${buffer.toString('base64')}`,
-    width: w,
-    height: h,
+    width: safeW,
+    height: safeH,
     sizeBytes: buffer.length,
-    originalWidth: w,
-    originalHeight: h,
-    aspectRatio: w / h,
+    originalWidth: safeW,
+    originalHeight: safeH,
+    aspectRatio: safeW / safeH,
   };
 }
 
@@ -582,6 +599,8 @@ export async function fetchKakaoMapImage(
   w = 560,
   h = 450,
 ): Promise<OptimizedImage | null> {
+  const safeW = (typeof w === 'number' && Number.isFinite(w) && w > 0) ? Math.round(w) : 560;
+  const safeH = (typeof h === 'number' && Number.isFinite(h) && h > 0) ? Math.round(h) : 450;
   try {
     const referer = process.env.VWORLD_REFERER
       || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
@@ -597,18 +616,18 @@ export async function fetchKakaoMapImage(
     }
     const arrayBuffer = await response.arrayBuffer();
     const buffer = await sharp(Buffer.from(arrayBuffer))
-      .resize({ width: w, height: h, fit: 'cover' })
+      .resize({ width: safeW, height: safeH, fit: 'cover' })
       .jpeg({ quality: 85 })
       .toBuffer();
     return {
       buffer,
       base64: `image/jpeg;base64,${buffer.toString('base64')}`,
-      width: w,
-      height: h,
+      width: safeW,
+      height: safeH,
       sizeBytes: buffer.length,
-      originalWidth: w,
-      originalHeight: h,
-      aspectRatio: w / h,
+      originalWidth: safeW,
+      originalHeight: safeH,
+      aspectRatio: safeW / safeH,
     };
   } catch (err) {
     log.warn('[fetchKakaoMapImage] Failed:', mapUrl, err);

@@ -102,6 +102,26 @@ export const BASIC_IM_ALLOWED = new Set([
   'A24',  // RentrollStacking
 ] as const);
 
+/**
+ * Pro 전용 예약 아키타입 계약 (A19~A21)
+ * 미구현 상태에서 룩업 불일치 및 예외 발생을 차단하기 위한 메타데이터 정의
+ */
+export const PRO_IM_RESERVED_ARCHETYPES = {
+  A19: { id: 'A19', label: 'Pro 개발 분석', description: '개발 및 신축 수지 분석 (예약)', stub: true },
+  A20: { id: 'A20', label: 'Pro 매각 전략', description: '매각 및 엑시트 전략 (예약)', stub: true },
+  A21: { id: 'A21', label: 'Pro 부록', description: '공적 장부 및 부록 자료 (예약)', stub: true },
+} as const;
+
+export type ProReservedArchetype = keyof typeof PRO_IM_RESERVED_ARCHETYPES;
+
+/** 전체 지원 및 예약 아키타입 ID 목록 (A01~A25) */
+export const ALL_ARCHETYPE_IDS = [
+  'A01', 'A02', 'A03', 'A04', 'A05', 'A06', 'A07', 'A08', 'A09', 'A10',
+  'A11', 'A12', 'A13', 'A14', 'A15', 'A16', 'A17', 'A18',
+  'A19', 'A20', 'A21',
+  'A22', 'A23', 'A24', 'A25',
+] as const;
+
 // ═══════════════════════════════════════════════════════════════════
 // §4. Basic IM 필수 입력 타입 (컴파일타임 강제)
 // ═══════════════════════════════════════════════════════════════════

@@ -73,8 +73,10 @@ export class TokenBinder {
     for (const [subj, claim] of Object.entries(claims ?? {})) {
       if (!claim) continue;
       const formattedVal = typeof claim.value === 'number'
-        ? claim.value.toLocaleString()
-        : (claim.value !== null && claim.value !== undefined ? String(claim.value) : '-');
+        ? (Number.isNaN(claim.value) ? '-' : claim.value.toLocaleString())
+        : (claim.value && typeof claim.value === 'object'
+            ? '-'
+            : (claim.value !== null && claim.value !== undefined ? String(claim.value) : '-'));
       const unit = claim.unit ? ` ${claim.unit}` : '';
       tokenMap[`claim.${subj}`] = `${formattedVal}${unit}`;
     }

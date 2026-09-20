@@ -66,14 +66,21 @@ export function buildA16InvestmentStructure(input: ArchetypeInput): ArchetypeOut
   const loanBil = eq.loan ? (eq.loan / 1e8).toFixed(1) : (input.data.loanAmountBil ?? '-');
   const equityBil = eq.equity ? (eq.equity / 1e8).toFixed(1) : (input.data.equityRequiredBil ?? '-');
 
+  const fmtBil = (val: string | number | undefined | null): string => {
+    if (val == null || val === '-' || val === '') return '-';
+    const num = typeof val === 'number' ? val : Number(String(val).replace(/[^\d.-]/g, ''));
+    if (!Number.isFinite(num) || num <= 0) return '-';
+    return `${num.toLocaleString(undefined, { maximumFractionDigits: 2 })}억 원`;
+  };
+
   const breakdownRows: [string, string][] = [
-    ['매매 희망가 (A)', `${priceBil}억 원`],
-    ['취득세 (4.6% 법정)', `${taxBil}억 원`],
-    ['중개보수 (0.9% 한도)', `${feeBil}억 원`],
-    ['총취득원가 (A + 세/비용)', `${totalCostBil}억 원`],
-    ['(-) 임대보증금 승계', `${depositBil}억 원`],
-    ['(-) 담보대출 조달', `${loanBil}억 원`],
-    ['실투자금 (Net Equity)', `${equityBil}억 원`],
+    ['매매 희망가 (A)', fmtBil(priceBil)],
+    ['취득세 (4.6% 법정)', fmtBil(taxBil)],
+    ['중개보수 (0.9% 한도)', fmtBil(feeBil)],
+    ['총취득원가 (A + 세/비용)', fmtBil(totalCostBil)],
+    ['(-) 임대보증금 승계', fmtBil(depositBil)],
+    ['(-) 담보대출 조달', fmtBil(loanBil)],
+    ['실투자금 (Net Equity)', fmtBil(equityBil)],
   ];
 
   L.rows(slide, leftX + 0.25, y + 0.65, colW - 0.5, breakdownRows, {
@@ -110,12 +117,18 @@ export function buildA16InvestmentStructure(input: ArchetypeInput): ArchetypeOut
   ];
 
   const ltvTableHead = ['구분', '대출비율', '실투자금', '예상수익률'];
-  const ltvTableRows = ltvScenarios.map((s: any) => [
-    s.note || `LTV ${s.ltvPct}%`,
-    `${s.ltvPct}%`,
-    s.equityBil ? `${s.equityBil}억` : '-',
-    s.yieldPct ? `${s.yieldPct}%` : '-',
-  ]);
+  const ltvTableRows = ltvScenarios.map((s: any) => {
+    const eqNum = s.equityBil && s.equityBil !== '-' ? Number(String(s.equityBil).replace(/[^\d.-]/g, '')) : NaN;
+    const eqStr = Number.isFinite(eqNum) && eqNum > 0 ? `${eqNum.toLocaleString(undefined, { maximumFractionDigits: 1 })}억` : '-';
+    const yldNum = s.yieldPct && s.yieldPct !== '-' ? Number(String(s.yieldPct).replace(/[^\d.-]/g, '')) : NaN;
+    const yldStr = Number.isFinite(yldNum) && yldNum > 0 ? `${yldNum}%` : '-';
+    return [
+      s.note || `LTV ${s.ltvPct}%`,
+      `${s.ltvPct}%`,
+      eqStr,
+      yldStr,
+    ];
+  });
 
   const ltvColW = [1.6, 1.1, 1.4, 1.4];
   L.table(
@@ -156,7 +169,7 @@ export function buildA16InvestmentStructure(input: ArchetypeInput): ArchetypeOut
       warningH,
       'info',
       '💡 자본조달 가이드',
-      '• 금융기관별 감정평가액 및 LTV 한도 사전 확인 필요\n• 취득세(4.6%) 및 부대비용을 포함한 총소요자금 기반 에쿼티 조달 계획 수립 권장'
+      '• 금융기관별 감정평가액 및 LTV 한도 조건 대조\n• 취득세(4.6%) 및 부대비용을 포함한 총소요자금 기반 에쿼티 조달 계획 수립 권장'
     );
   }
 

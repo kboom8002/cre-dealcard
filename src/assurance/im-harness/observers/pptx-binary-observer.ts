@@ -4,12 +4,12 @@ import { XMLParser } from 'fast-xml-parser';
 export const FORBIDDEN_PERSONA_PATTERN = /(?:70대|60대|50대|40대|30대|20대|MZ|초보|고액|고자산|법인|개인|VIP|기관|리츠|시행사|디벨로퍼)\s*(?:자산가|투자자|대표|고객|매수자|운용사|가족)/;
 export const FORBIDDEN_LEXICON_PATTERN = /(?:캡레이트|(?<!실질\s*영업이익\s*\(?)GOP|네이밍\s*라이츠|브랜딩\s*라이츠)/;
 export const FORBIDDEN_LEGAL_RISK_PATTERN = /(?:수익(?:률)?|원금|현금흐름|배당)\s*(?:보장|확정)|(?:보장|확정)\s*(?:수익(?:률)?|원금|현금흐름|배당)|(?:매수|투자)\s*(?:추천|강력\s*추천)|(?:대출|LTV)\s*(?:확정|승인)/;
-export const FORBIDDEN_DEFECT_EXCUSE_PATTERN = /(?:필지별\s*내역\s*미확보|유효\s*(?:대지|용적률)을?\s*산출하지\s*않았습니다|비워\s*둡니다|없는\s*사진을?\s*다른\s*물건\s*사진으로\s*대체하지\s*않습니다|인근\s*비교사례는?\s*확보하지\s*않았습니다|비교사례\s*\d+건\s*이상을?\s*확보한\s*뒤|원장\s*합계\s*차이)/;
+export const FORBIDDEN_DEFECT_EXCUSE_PATTERN = /(?:필지별\s*내역\s*미확보|유효\s*(?:대지|용적률)[을를]?\s*산출하지\s*않았습니다|비워\s*둡니다|없는\s*사진[을를]?\s*다른\s*물건\s*사진으로\s*대체하지\s*않습니다|인근\s*비교사례[은는]?\s*확보하지\s*않았습니다|비교사례\s*\d+건\s*이상[을를]?\s*확보한\s*뒤|원장\s*합계\s*차이)/;
 export const FORBIDDEN_PREACHY_PATTERN = /(?:표면\s*수익률만으로\s*매입\s*판단을?\s*하지\s*마십시오|오해를\s*만듭니다|시세\s*대비\s*고저를\s*말하지\s*않습니다|자료를?\s*받으면\s*무엇이\s*좋아지는가)/;
 export const FORBIDDEN_INTERNAL_RULE_PATTERN = /(?:사진\s*운용\s*원칙|EXIF|승인\s*이력\s*없는\s*사진|본\s*면\s*승인\s*—?\s*\d+개\s*영역|자료\s*등급\s*:\s*현행\s*등급|자료\s*R\d+\s*×\s*공부\s*P\d+)/;
 
-export const POISON_TOKEN_REGEX = /NaN|undefined|\bnull\b|\[object Object\]/;
-export const EVASIVE_PHRASES_PATTERN = /(?:추후\s*확인\s*필요|미정|상세\s*불명|확인\s*불가|자료\s*없음)/;
+export const POISON_TOKEN_REGEX = /(?:-?Infinity|NaN|undefined|\bnull\b|\[object Object\])/;
+export const EVASIVE_PHRASES_PATTERN = /(?:추후\s*확인\s*필요|미정|상세\s*불명|확인\s*불가|자료\s*없음|현장\s*실사\s*확인|원본\s*계약서\s*대조|점검하였습니다|자문\s*후\s*확정|본문을\s*참조|별도\s*안내\s*예정)/;
 export const MOCK_LEAK_PATTERN = /(?:NH\s*농협\s*캐피탈|NH\s*Capital|피카딜리빌딩|모의\s*건물|모의\s*테넌트)/;
 
 export interface PptxPhysicalInspectionResult {
@@ -173,16 +173,16 @@ export async function inspectPptxBinary(pptxBuffer: Buffer): Promise<PptxPhysica
       const isPoison =
         POISON_TOKEN_REGEX.test(slideText) ||
         hasRawPlaceholder ||
-        />NaN<|>undefined<|>null<|>\[object Object\]</.test(xmlContent) ||
-        />[^<]*(?:NaN|undefined|\[object Object\])[^<]*</.test(xmlContent);
+        />NaN<|>undefined<|>null<|>\[object Object\]<|>-?Infinity</.test(xmlContent) ||
+        />[^<]*(?:NaN|undefined|\[object Object\]|-?Infinity)[^<]*</.test(xmlContent);
 
       if (isPoison) {
         placeholderResidueCount += 1;
         poisonTokenViolationCount += 1;
         const textMatch = slideText.match(POISON_TOKEN_REGEX)?.[0];
         const placeholderMatch = xmlContent.match(/\{\{[^{}]+\}\}/)?.[0];
-        const xmlTagMatch = xmlContent.match(/>[^<]*(?:NaN|undefined|\bnull\b|\[object Object\])[^<]*</)?.[0]?.replace(/^>|<$/g, '');
-        const rawXmlToken = xmlContent.match(/>NaN<|>undefined<|>null<|>\[object Object\]</)?.[0]?.replace(/^>|<$/g, '');
+        const xmlTagMatch = xmlContent.match(/>[^<]*(?:NaN|undefined|\bnull\b|\[object Object\]|-?Infinity)[^<]*</)?.[0]?.replace(/^>|<$/g, '');
+        const rawXmlToken = xmlContent.match(/>NaN<|>undefined<|>null<|>\[object Object\]<|>-?Infinity</)?.[0]?.replace(/^>|<$/g, '');
         const match = textMatch || placeholderMatch || xmlTagMatch || rawXmlToken || 'POISON_TOKEN';
         issues.push(`${slidePath}: [포이즌 토큰] "${match}" 검출 (미치환 자리표시자)`);
       }

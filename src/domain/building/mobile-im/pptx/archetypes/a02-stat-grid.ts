@@ -30,20 +30,28 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   if (leadSentence) {
     const hero = input.data.heroCard;
     const ssotManwon = hero?.asking_price_manwon ?? input.data.asking_price_manwon ?? input.data.ssot_summary?.asking_price_manwon;
-    let exactAsk = ssotManwon ? `${(Number(ssotManwon) / 10000).toLocaleString()}억 원` : null;
+    const numManwon = typeof ssotManwon === 'number'
+      ? ssotManwon
+      : (ssotManwon ? Number(String(ssotManwon).replace(/[^\d.-]/g, '')) : NaN);
+    let exactAsk = (Number.isFinite(numManwon) && numManwon > 0)
+      ? `${(numManwon / 10000).toLocaleString(undefined, { maximumFractionDigits: 1 })}억 원`
+      : null;
     if (!exactAsk && Array.isArray(hero?.stats)) {
       const priceStat = hero.stats.find((s: any) => s.label?.includes('매매') || s.label?.includes('희망가') || s.label?.includes('매각'));
-      if (priceStat?.value && !priceStat.value.includes('억대')) exactAsk = priceStat.value;
+      if (priceStat?.value && !priceStat.value.includes('억대') && !priceStat.value.includes('NaN')) exactAsk = priceStat.value;
     }
-    if (!exactAsk && hero?.askingPriceDisplay && !hero.askingPriceDisplay.includes('억대')) {
+    if (!exactAsk && hero?.askingPriceDisplay && !hero.askingPriceDisplay.includes('억대') && !hero.askingPriceDisplay.includes('NaN')) {
       exactAsk = hero.askingPriceDisplay;
     }
-    if (!exactAsk && input.data.askingPrice && !input.data.askingPrice.includes('억대')) {
+    if (!exactAsk && input.data.askingPrice && !input.data.askingPrice.includes('억대') && !input.data.askingPrice.includes('NaN')) {
       exactAsk = input.data.askingPrice;
     }
     if (!exactAsk && Array.isArray(input.data.metrics)) {
       const mStat = input.data.metrics.find((s: any) => s.label?.includes('매매') || s.label?.includes('희망가') || s.label?.includes('매각'));
-      if (mStat?.value && !mStat.value.includes('억대')) exactAsk = mStat.value;
+      if (mStat?.value && !mStat.value.includes('억대') && !mStat.value.includes('NaN')) exactAsk = mStat.value;
+    }
+    if (exactAsk && (exactAsk.includes('NaN') || exactAsk.includes('undefined') || exactAsk.includes('null'))) {
+      exactAsk = null;
     }
     if (exactAsk) {
       leadSentence = leadSentence.replace(/\d+\s*억\s*대/g, exactAsk);
@@ -72,14 +80,26 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     if (Array.isArray(hero.stats) && hero.stats.length > 0) {
       metrics = [...hero.stats];
     } else {
+      const isFinitePos = (v: any): boolean => {
+        if (v == null) return false;
+        const n = typeof v === 'number' ? v : parseFloat(String(v));
+        return Number.isFinite(n) && n > 0;
+      };
+      const isFiniteNum = (v: any): boolean => {
+        if (v == null) return false;
+        const n = typeof v === 'number' ? v : parseFloat(String(v));
+        return Number.isFinite(n);
+      };
       if (hero.askingPriceDisplay) metrics.push({ label: '매매 희망가', value: hero.askingPriceDisplay });
-      if (hero.equityRequiredBil) metrics.push({ label: '필요 실투자금', value: `약 ${hero.equityRequiredBil}억 원` });
-      if (hero.capRateBase) metrics.push({ label: '연 수익률(Cap Rate, 기준: NOI)', value: `${hero.capRateBase}%` });
-      if (hero.leveragedYieldPct) metrics.push({ label: '자기자본수익률', value: `${hero.leveragedYieldPct}%` });
+      if (isFinitePos(hero.equityRequiredBil)) metrics.push({ label: '필요 실투자금', value: `약 ${hero.equityRequiredBil}억 원` });
+      if (isFinitePos(hero.capRateBase)) metrics.push({ label: '연 수익률(Cap Rate, 기준: NOI)', value: `${hero.capRateBase}%` });
+      if (isFiniteNum(hero.leveragedYieldPct) && Number(hero.leveragedYieldPct) > -100 && Number(hero.leveragedYieldPct) < 1000) {
+        metrics.push({ label: '자기자본수익률', value: `${hero.leveragedYieldPct}%` });
+      }
       const landM2 = parseFloat(String(hero.landAreaM2 || '').replace(/,/g, ''));
-      if (metrics.length < 6 && !isNaN(landM2) && landM2 > 0) metrics.push({ label: '대지면적', value: `${formatPyeong(landM2, 1)}평` });
+      if (metrics.length < 6 && Number.isFinite(landM2) && landM2 > 0) metrics.push({ label: '대지면적', value: `${formatPyeong(landM2, 1)}평` });
       const gfaM2 = parseFloat(String(hero.totalGrossAreaM2 || '').replace(/,/g, ''));
-      if (metrics.length < 6 && !isNaN(gfaM2) && gfaM2 > 0) metrics.push({ label: '연면적', value: `${formatPyeong(gfaM2, 1)}평` });
+      if (metrics.length < 6 && Number.isFinite(gfaM2) && gfaM2 > 0) metrics.push({ label: '연면적', value: `${formatPyeong(gfaM2, 1)}평` });
       if (metrics.length < 6 && hero.zoning) metrics.push({ label: '용도지역', value: hero.zoning });
     }
   }
@@ -91,11 +111,13 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       metrics.unshift({ label: '매매 희망가', value: ask });
     }
     if (!metrics.some((m: any) => m.label && (m.label.includes('수익률') || m.label.includes('Cap Rate')))) {
-      const cap = hero.capRateBase ? `${hero.capRateBase}%` : (hero.grossYieldDisplay ?? '-');
+      const isPosCap = hero.capRateBase != null && Number.isFinite(Number(hero.capRateBase)) && Number(hero.capRateBase) > 0;
+      const cap = isPosCap ? `${hero.capRateBase}%` : (hero.grossYieldDisplay && !String(hero.grossYieldDisplay).includes('Infinity') ? hero.grossYieldDisplay : '-');
       metrics.push({ label: '연 수익률(Cap Rate)', value: cap });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('실투자금'))) {
-      const eq = hero.equityRequiredBil ? `약 ${hero.equityRequiredBil}억 원` : '-';
+      const isPosEq = hero.equityRequiredBil != null && Number.isFinite(Number(hero.equityRequiredBil)) && Number(hero.equityRequiredBil) > 0;
+      const eq = isPosEq ? `약 ${hero.equityRequiredBil}억 원` : '-';
       metrics.push({ label: '실투자금', value: eq });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('연면적'))) {
@@ -232,7 +254,8 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   // 기본 폴백 3대 투자 포인트 — SOTA 중개인 투자 하이라이트 (검증 가능 수치 중심)
   if (keyPoints.length < 3) {
     const area = input.data.areaSignal || input.data.heroCard?.areaSignal || '도심 비즈니스 권역';
-    const capRate = hero?.capRateBase ? `${hero.capRateBase}%` : '';
+    const isPosCap = hero?.capRateBase != null && Number.isFinite(Number(hero.capRateBase)) && Number(hero.capRateBase) > 0;
+    const capRate = isPosCap ? `${hero.capRateBase}%` : '';
     const gfaPyeong = hero?.totalGrossAreaPyeong || (hero?.totalGrossAreaM2 ? formatPyeong(hero.totalGrossAreaM2, 0) : '');
     const landPyeong = hero?.landAreaPyeong || (hero?.landAreaM2 ? formatPyeong(hero.landAreaM2, 0) : '');
 

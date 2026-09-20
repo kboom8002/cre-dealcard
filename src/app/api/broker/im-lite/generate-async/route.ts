@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { requireBroker } from "@/lib/auth-guard";
 import { createServiceClient } from "@/lib/supabase/service";
+import { randomUUID } from "node:crypto";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 import { persistLeaseUnits } from "@/domain/building/mobile-im/lease-adapter";
 
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 작업 ID 생성 + DB 레코드 삽입 ──
-  const jobId = `im_${buildingId}_${Date.now()}`;
+  const jobId = `im_${buildingId}_${Date.now()}_${randomUUID().slice(0, 8)}`;
   const supabase = createServiceClient();
 
   await supabase.from("im_generation_jobs").upsert({

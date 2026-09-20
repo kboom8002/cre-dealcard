@@ -50,6 +50,10 @@ export const TENANT_PALETTE_DARK: Record<TenantCategory, { fill: string; border:
   vacant:  { fill: '991B1B', border: 'EF4444', text: 'FEE2E2', label: '공실' },
 };
 
+/** Backward-compatibility aliases for test suites */
+export const SEMANTIC_COLORS = TENANT_PALETTE;
+export const SEMANTIC_COLORS_DARK = TENANT_PALETTE_DARK;
+
 /**
  * 층별 바닥면적 기준 셋백 너비 비율 계산 함수
  * - 지상층: 상층부 셋백 테라스 반영 (0.45 ~ 1.0)
@@ -811,9 +815,15 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
     }));
   });
 
-  // 표 높이 자동 스케일 (하단 각주와 겹침 및 지면 이탈 방지)
-  const maxTableH = 3.20;
-  const targetRowH = Math.min(0.24, Math.max(0.14, maxTableH / (displayTableRows.length + 1)));
+  // 표 높이 자동 스케일 (하단 각주와 겹침 및 지면 이탈 방지 — table bottom <= 6.40")
+  const maxTableBottom = 6.40;
+  const maxTableH = Math.max(0.50, maxTableBottom - tableY);
+  const totalTableRows = displayTableRows.length + 1;
+  const targetRowH = Math.min(0.24, Math.max(0.10, maxTableH / totalTableRows));
+  const effectiveRowH = (totalTableRows * targetRowH > maxTableH)
+    ? maxTableH / totalTableRows
+    : targetRowH;
+  const tableFontSize = effectiveRowH < 0.14 ? 7.5 : 8.5;
 
   L.table(
     slide,
@@ -824,9 +834,9 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
     cellData,
     tableColW,
     {
-      rh: targetRowH,
-      bfs: 8.5,
-      hfs: 8.5,
+      rh: effectiveRowH,
+      bfs: tableFontSize,
+      hfs: tableFontSize,
       onDark,
     }
   );
