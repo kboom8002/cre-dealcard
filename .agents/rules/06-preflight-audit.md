@@ -63,4 +63,18 @@
   - 설명 폴백: `'사거리 코너 25m'`, `'45,000명/일'`, `'준공업지역'`
 - **허용 패턴:** 숫자 `0`, 문자열 `'-'` 또는 `''`, 배열 `[]`, 경고 `console.warn('[module] field unavailable')`
 - **위반 사례**: `premium-binders.ts`에서 매매가 미입력 물건에 150억 폴백 → TCO/세금/대출이자가 전부 150억 기준으로 산출.
+
+### 42. Sharp 2-Stage 파이프라인 의무 (Sharp Pipeline Split)
+- Sharp에서 `.composite()` 후 `.extract()`를 연쇄하면 extract가 먼저 실행됩니다.
+- 반드시 `.toBuffer()`로 1단계(composite)를 마무리한 후 새 Sharp 인스턴스로 2단계(extract/resize)를 수행합니다.
+- `.composite()`의 `left`/`top`은 반드시 ≥ 0 (canvas-relative 좌표).
+- 음수 좌표는 libvips fatal error를 발생시킵니다.
+- **위반 사례**: 지적도 원형 오버레이 음수 좌표 → Sharp fatal crash → PPTX 생성 실패.
+
+### 43. 외부 API Graceful Degradation 의무 (API Failsafe)
+- 외부 API(V-World, Kakao, Naver, 건축물대장, JUSO) 호출은 반드시 `try/catch`로 감싸고, 실패 시 null/빈값을 반환합니다.
+- null 반환이 후속 파이프라인을 크래시시키지 않도록 각 소비처에서 null 체크합니다.
+- 다수 API를 호출할 때는 `Promise.allSettled`를 사용하여 하나의 API 실패가 나머지를 차단하지 않도록 합니다.
+- **어떤 외부 API가 죽어도 PPTX 파일은 반드시 생성되어야 합니다.**
+- **위반 사례**: Kakao 역 검색 실패 → nearestStation null → POI 전체 null → 지도 슬라이드 크래시.
 <!-- END:cre-d40-preflight-rules -->

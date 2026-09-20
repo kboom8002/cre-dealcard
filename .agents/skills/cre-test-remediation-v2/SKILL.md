@@ -65,3 +65,26 @@ graph TD
   npm run build
   ```
 - 빌드 통과 시 임시 출력 파일을 삭제하고, 일괄 커밋 및 푸시하여 Vercel 배포를 트리거합니다.
+
+## D40 추가 패턴 (2026-09-20 경험: 32건→0건)
+
+### 실패 패턴 분류표
+
+| 패턴 | 증상 | 수정 방법 |
+|:---|:---|:---|
+| **Wave 부작용** | 소스 값 변경(checked:true→false) 후 테스트 기대값 불일치 | 테스트 기대값을 새 값으로 업데이트 |
+| **레이아웃 텍스트 변경** | 슬라이드 라벨 변경(매매가→희망가) 후 텍스트 단언 실패 | `extractSlideTexts()` 출력 확인 후 기대값 반영 |
+| **타임아웃** | PPTX 렌더링 30s 초과 (특히 beforeAll 훅) | 파일별 `{ timeout: 60_000 }` 또는 `beforeAll(fn, 60_000)` |
+| **인코딩** | UTF-16LE `.test.ts` 파일 → Vite oxc parser 크래시 | UTF-8로 재인코딩 |
+| **OpenXML 인코딩** | PPTX XML에서 `&` → `&amp;` 불일치 | XML 디코딩 후 비교 또는 인코딩된 값으로 기대 |
+| **외부 API skipIf** | MockProvider가 정확도 임계값 미달 | `describe.skipIf(!process.env.API_KEY)` 래핑 |
+| **골든 데이터 가드** | 골든 데이터 디렉토리 미존재 → 크래시 | `it.skipIf(!existsSync(dataDir))` 추가 |
+
+### 서브에이전트 위생 (Rule 41-42 준수)
+
+- 서브에이전트에 vitest 실행을 위임할 때 **반드시** 출력 파이프 제한을 지시합니다:
+  ```
+  npx vitest run 2>&1 | Select-Object -Last 30
+  ```
+- `Out-File`, `>`, `>>` 로 워크스페이스에 로그를 저장하지 않습니다.
+- `git add -A` 후 `git diff --cached --stat`으로 10MB 이상 파일이 없는지 반드시 확인합니다.
