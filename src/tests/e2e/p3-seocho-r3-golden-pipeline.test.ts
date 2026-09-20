@@ -43,7 +43,7 @@ const pipelineLog: any[] = [];
 const startTime = Date.now();
 function logStep(entry: any) { pipelineLog.push(entry); }
 
-describe('P3 서초 Owner R3-Verified', () => {
+describe.skipIf(!existsSync(DATA_DIR))('P3 서초 Owner R3-Verified', () => {
   let bottomSheet: any;
   let memo: string;
   let expected: any;

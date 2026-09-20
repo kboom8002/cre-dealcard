@@ -1,7 +1,7 @@
 # P5 양평동4가 더레드빌딩 수익형 — R2-Standard 골든 파이프라인 보고서
 
-> **생성 시각**: 2026-09-20T10:07:36.277Z
-> **총 소요시간**: 10010ms
+> **생성 시각**: 2026-09-20T11:36:28.343Z
+> **총 소요시간**: 34706ms
 > **결과**: 13 PASS / 0 FAIL / 0 WARN
 > **자산명**: 더레드빌딩 (양평동4가 117, 134, 125-2번지 · 3필지 통합)
 > **매매희망가**: 250억 원 | **대지면적**: 518.7㎡ (156.9평) | **연면적**: 2,490.88㎡ (753.5평)
@@ -26,19 +26,19 @@
 
 | # | 단계 | 상태 | 소요시간 | 상세 내용 |
 |:---|:---|:---|---:|:---|
-| 1 | S1 — 데이터셋 로드 | ✅ PASS | 3ms | 매매가 250억, 3필지 통합, 12개 호실 임대차, 이미지 11장 확인 |
-| 2 | S2 — 메모 슬롯 추출 | ✅ PASS | 3ms | 3개 슬롯 추출 완료 |
-| 3 | S3 — 재무 계산 | ✅ PASS | 2ms | Cap Rate: 1.61%, 연 NOI: 4.01억, 토지평당가: 15,933만/평 |
+| 1 | S1 — 데이터셋 로드 | ✅ PASS | 5ms | 매매가 250억, 3필지 통합, 12개 호실 임대차, 이미지 11장 확인 |
+| 2 | S2 — 메모 슬롯 추출 | ✅ PASS | 4ms | 3개 슬롯 추출 완료 |
+| 3 | S3 — 재무 계산 | ✅ PASS | 3ms | Cap Rate: 1.61%, 연 NOI: 4.01억, 토지평당가: 15,933만/평 |
 | 4 | S4 — 데이터 품질 배지 | ✅ PASS | 0ms | 점수: 80점, 등급: verified (기대 등급: B) |
-| 5 | S5 — 덱 시퀀서 | ✅ PASS | 0ms | 10개 슬라이드 시퀀스 확정: [A01, A02, A04, A06, A04, A06, A24, A23, A14, A10] |
-| 6 | S6 — PPTX 렌더링 | ✅ PASS | 2545ms | 10개 슬라이드 렌더링 완료 (2667KB) → C:\Users\User\cre-dealcard\docs\test\golden-outputs\p5-yangpyeong-r2\yangpyeong_income_r2_basic_1789898848850.pptx |
-| 7 | S7-A — Poison Token 검증 | ✅ PASS | 145ms | 0 poison tokens (NaN, undefined, null, [object Object] 완전 무결) |
-| 8 | S7-B — Evasive Phrase 검증 | ✅ PASS | 111ms | 0 evasive phrases (회피성 결손 문구 배제 완결) |
-| 9 | S7-C — Mock Data Leak 검증 | ✅ PASS | 103ms | 0 mock data leaks (NH농협캐피탈, 테헤란로 123 등 가짜 데이터 누출 0건) |
-| 10 | S7-D — Physical Binary Gates | ✅ PASS | 80ms | isPass: true, slides: 10, issues: 0 |
-| 11 | S8 — 슬라이드 콘텐츠 검증 | ✅ PASS | 9ms | 8/8개 콘텐츠 단언 검증 통과 |
+| 5 | S5 — 덱 시퀀서 | ✅ PASS | 2ms | 10개 슬라이드 시퀀스 확정: [A01, A02, A04, A06, A04, A06, A24, A23, A14, A10] |
+| 6 | S6 — PPTX 렌더링 | ✅ PASS | 19036ms | 10개 슬라이드 렌더링 완료 (2667KB) → C:\Users\User\cre-dealcard\docs\test\golden-outputs\p5-yangpyeong-r2\yangpyeong_income_r2_basic_1789904172804.pptx |
+| 7 | S7-A — Poison Token 검증 | ✅ PASS | 279ms | 0 poison tokens (NaN, undefined, null, [object Object] 완전 무결) |
+| 8 | S7-B — Evasive Phrase 검증 | ✅ PASS | 240ms | 0 evasive phrases (회피성 결손 문구 배제 완결) |
+| 9 | S7-C — Mock Data Leak 검증 | ✅ PASS | 214ms | 0 mock data leaks (NH농협캐피탈, 테헤란로 123 등 가짜 데이터 누출 0건) |
+| 10 | S7-D — Physical Binary Gates | ✅ PASS | 210ms | isPass: true, slides: 10, issues: 0 |
+| 11 | S8 — 슬라이드 콘텐츠 검증 | ✅ PASS | 37ms | 8/8개 콘텐츠 단언 검증 통과 |
 | 12 | S9 — SSoT 수학적 일관성 | ✅ PASS | 0ms | 수학적 일관성 통과: 연 NOI 6.18억 원, 표면 Cap Rate 2.47% |
-| 13 | S10 — 산출물 및 육안 검수 보고서 작성 | ✅ PASS | 6967ms | 리포트 저장 완료: pipeline_log.md & slide_inspection.md (슬라이드 10면) |
+| 13 | S10 — 산출물 및 육안 검수 보고서 작성 | ✅ PASS | 14535ms | 리포트 저장 완료: pipeline_log.md & slide_inspection.md (슬라이드 10면) |
 
 ---
 
@@ -230,7 +230,7 @@
 {
   "slideCount": 10,
   "fileSizeKB": 2667,
-  "generatedAt": "2026-09-20T10:07:28.849Z",
+  "generatedAt": "2026-09-20T11:36:12.802Z",
   "warnings": [
     "Text budget exceeded for slideTitle: length 40 > limit 32",
     "[AUDIT] G33: 텍스트 넘침 38건",

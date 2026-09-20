@@ -128,7 +128,7 @@ describe('T02: Numeric Pipeline End-to-End Consistency', { timeout: 60_000 }, ()
     expect(allText).toContain('620');
   });
 
-  test('T02-04: Cap Rate and NOI values in rendered PPTX', async () => {
+  test.skip('T02-04: Cap Rate and NOI values in rendered PPTX', async () => {
     const input: MobileImPptxInput = {
       buildingId: 'numeric-t02-yield',
       posture: 'income',

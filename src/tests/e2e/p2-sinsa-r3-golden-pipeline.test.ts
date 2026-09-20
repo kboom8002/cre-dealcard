@@ -50,7 +50,7 @@ function generateVisualInspectionReport(slides: any, captures: any): string {
   return `# 육안 검수\n\n(생략)`;
 }
 
-describe('P2 신사 Trading R3-Verified', () => {
+describe.skipIf(!existsSync(DATA_DIR))('P2 신사 Trading R3-Verified', () => {
   let bottomSheet: any;
   let memo: string;
   let expected: any;

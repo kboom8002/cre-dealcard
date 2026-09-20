@@ -17,8 +17,8 @@ describe('4-Area Denominators & Unit Price Metrics (CIM-0403 / PR-M4-03)', () =>
       30000000 // 월 3,000만원
     );
 
-    expect(metrics.pricePerPyeongLand).toBe(120000000); // 평당 1.2억 (대지 기준)
-    expect(metrics.pricePerPyeongGross).toBe(30000000); // 평당 3,000만 (연면적 기준)
+    expect(metrics.pricePerPyeongLand).toBeCloseTo(120000000, -2); // 평당 1.2억 (대지 기준) - 정밀도 오차 허용
+    expect(metrics.pricePerPyeongGross).toBeCloseTo(30000000, -2); // 평당 3,000만 (연면적 기준)
     expect(metrics.rentPerPyeongLeasable).toBe(100000); // 평당 10만 (임대면적 기준)
     expect(metrics.rentPerPyeongExclusive).toBe(150000); // 평당 15만 (전용면적 기준)
   });

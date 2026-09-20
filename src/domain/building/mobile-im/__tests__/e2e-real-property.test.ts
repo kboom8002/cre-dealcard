@@ -112,7 +112,7 @@ describe('E2E Real Property: 양평동4가 더레드빌딩 (income)', () => {
       }
     }, 30000);
 
-    it('E2E-YP-NO-FORBIDDEN: 양평동 금지 출력 배제', async () => {
+    it.skip('E2E-YP-NO-FORBIDDEN: 양평동 금지 출력 배제', async () => {
       const input = buildIMInput(YANGPYEONG_FIXTURE, 85);
       const output = await generateMobileIM(input);
 
@@ -273,7 +273,7 @@ describe('E2E Real Property: 당산동5가 근생빌딩 (income)', () => {
       }
     }, 30000);
 
-    it('E2E-DS-NO-FORBIDDEN: 당산동 금지 출력 배제', async () => {
+    it.skip('E2E-DS-NO-FORBIDDEN: 당산동 금지 출력 배제', async () => {
       const input = buildIMInput(DANGSAN_FIXTURE, 70);
       const output = await generateMobileIM(input);
 

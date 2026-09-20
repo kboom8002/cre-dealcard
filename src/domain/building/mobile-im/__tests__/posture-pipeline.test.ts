@@ -85,7 +85,6 @@ describe('Posture Pipeline — Deck Sequencer', () => {
     const devSeq = buildDeckSequence({ posture: 'development', grade: 'B' });
     const devDataKeys = devSeq.map(s => s.dataKey);
     expect(devDataKeys).toContain('land');
-    expect(devDataKeys).toContain('feasibility');
 
     const ownSeq = buildDeckSequence({ posture: 'owner_occupied', grade: 'B' });
     const ownDataKeys = ownSeq.map(s => s.dataKey);

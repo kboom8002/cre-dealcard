@@ -35,7 +35,7 @@ describe('vworld-wms-cadastral', () => {
   });
 
   it('selects BONBUN layer for PNU ending with 0000', async () => {
-    const mockWmsBuffer = Buffer.from('wms-image');
+    const mockWmsBuffer = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
     const mockWfsResponse = {
       response: {
         result: {
@@ -64,7 +64,7 @@ describe('vworld-wms-cadastral', () => {
       if (url.includes('req/wmts')) {
         return Promise.resolve({
           ok: true,
-          arrayBuffer: () => Promise.resolve(Buffer.from('base-tile')),
+          arrayBuffer: () => Promise.resolve(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64')),
         });
       }
       if (url.includes('req/data')) {
@@ -88,7 +88,7 @@ describe('vworld-wms-cadastral', () => {
   });
 
   it('selects BUBUN layer for PNU not ending with 0000', async () => {
-    const mockWmsBuffer = Buffer.from('wms-image');
+    const mockWmsBuffer = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
     
     (global.fetch as any).mockImplementation((url: string) => {
       if (url.includes('req/wms')) {
@@ -121,7 +121,7 @@ describe('vworld-wms-cadastral', () => {
   it('extracts rings from MultiPolygon geometries', async () => {
     // This is tested implicitly by providing MultiPolygon geometry in the mock response and checking if it's processed correctly
     // Since fetchParcelPolygon is internal, we just verify the overall pipeline doesn't crash
-    const mockWmsBuffer = Buffer.from('wms-image');
+    const mockWmsBuffer = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
     const mockWfsResponse = {
       response: {
         result: {

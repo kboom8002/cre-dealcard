@@ -1,7 +1,7 @@
 # P5 양평동4가 더레드빌딩 Basic IM 9면 전면 육안 검수 보고서
 
 > **문서 대상**: `docs/test/golden-outputs/p5-yangpyeong-r2/yangpyeong_income_r2_basic.pptx`
-> **검수 시각**: 2026-09-20T10:07:36.275Z
+> **검수 시각**: 2026-09-20T11:36:28.339Z
 > **검수자**: Antigravity Automated Quality Assurance Engine
 > **총 슬라이드 수**: 10면
 > **검수 규격**: Basic IM SSOT (Rule 47, 9대 표준 시퀀스 준수)

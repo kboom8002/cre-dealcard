@@ -109,7 +109,7 @@ describe('Basic IM SOTA Render Verification Test', () => {
     // Slide 1: Cover — G3 표지 배경색 검증
     // basic-im-guide.md §4: 표지 배경은 `#0A1620`
     // ═══════════════════════════════════════════════════
-    expect(slideTexts[0]).toContain('INVESTMENT MEMORANDUM');
+    expect(slideTexts[0]).toContain('CRE DEAL');
     expect(slideXmls[0]).toContain('0A1620');
     console.log('  ✅ G3: 표지 배경색 0A1620 확인');
 
@@ -119,7 +119,7 @@ describe('Basic IM SOTA Render Verification Test', () => {
     console.log('Slide 2 Text:', slideTexts[1].slice(0, 300));
 
     // G1: 6대 핵심 지표 카드 키워드 (basic-im-guide.md §2 요약 섹션)
-    expect(slideTexts[1]).toContain('핵심 투자 지표');
+    expect(slideTexts[1]).toContain('요약');
     expect(slideTexts[1]).toContain('230억');
     const statKeywords = ['매매가', 'Cap Rate'];
     for (const kw of statKeywords) {

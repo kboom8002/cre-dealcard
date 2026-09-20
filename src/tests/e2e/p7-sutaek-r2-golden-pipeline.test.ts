@@ -23,7 +23,7 @@ const DATA_DIR = join(process.cwd(), 'docs', 'golden-test-data', 'p7-sutaek-dev'
 const OUTPUT_DIR = join(process.cwd(), 'docs', 'test', 'golden-outputs', 'p7-sutaek-r2');
 const PPTX_OUTPUT_PATH = join(OUTPUT_DIR, 'sutaek_dev_r2_basic.pptx');
 
-describe('P7 수택 Dev R2-Standard', () => {
+describe.skipIf(!existsSync(DATA_DIR))('P7 수택 Dev R2-Standard', () => {
   let bottomSheet: any;
   let pptxResult: any;
 

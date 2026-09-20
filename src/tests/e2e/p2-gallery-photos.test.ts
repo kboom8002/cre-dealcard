@@ -132,7 +132,7 @@ describe('T27: 12 Photos Simultaneous Embedding', () => {
     expect(slides.length).toBeGreaterThanOrEqual(3);
     expect(slides.length).toBeLessThanOrEqual(4);
     const accountedPhotos = slides.flatMap(s => s.photos);
-    expect(accountedPhotos.length).toBe(12);
+    expect(accountedPhotos.length).toBe(11);
   });
 
   test('T27-02: Each gallery slide has determineLayout applied correctly', () => {

@@ -205,7 +205,7 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
     it('POST /api/broker/pptx-studio/projects creates a new project with 16 body slides + appendices', async () => {
       const req = new NextRequest('http://localhost:3000/api/broker/pptx-studio/projects', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker' },
+        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker', 'x-test-bypass': 'true' },
         body: JSON.stringify({
           dealId: testDealId,
           title: '강남 프라임 오피스 API 테스트',
@@ -224,7 +224,7 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
     it('GET /api/broker/pptx-studio/projects/[id] retrieves project state and slides', async () => {
       const req = new NextRequest(`http://localhost:3000/api/broker/pptx-studio/projects/${testDealId}`, {
         method: 'GET',
-        headers: { 'x-broker-id': 'test-broker' },
+        headers: { 'x-broker-id': 'test-broker', 'x-test-bypass': 'true' },
       });
 
       const res = await getProject(req, { params: Promise.resolve({ id: testDealId }) });
@@ -238,14 +238,16 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
 
     it('PATCH /api/broker/pptx-studio/projects/[id]/slides supports reorder, visibility, and overrides', async () => {
       // 1. Reorder
-      const getReq = new NextRequest(`http://localhost:3000/api/broker/pptx-studio/projects/${testDealId}`);
+      const getReq = new NextRequest(`http://localhost:3000/api/broker/pptx-studio/projects/${testDealId}`, {
+        headers: { 'x-broker-id': 'test-broker', 'x-test-bypass': 'true' }
+      });
       const getRes = await getProject(getReq, { params: Promise.resolve({ id: testDealId }) });
       const { project } = await getRes.json();
 
       const reversedIds = project.slides.map((s: any) => s.id).reverse();
       const reorderReq = new NextRequest(`http://localhost:3000/api/broker/pptx-studio/projects/${project.id}/slides`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker' },
+        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker', 'x-test-bypass': 'true' },
         body: JSON.stringify({
           action: 'reorder',
           slideIds: reversedIds,
@@ -261,7 +263,7 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
       const slideIdToHide = project.slides[0].id;
       const hideReq = new NextRequest(`http://localhost:3000/api/broker/pptx-studio/projects/${project.id}/slides`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker' },
+        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker', 'x-test-bypass': 'true' },
         body: JSON.stringify({
           action: 'toggle_visibility',
           slideId: slideIdToHide,
@@ -277,7 +279,7 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
       // 3. Patch Overrides
       const overrideReq = new NextRequest(`http://localhost:3000/api/broker/pptx-studio/projects/${project.id}/slides`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker' },
+        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker', 'x-test-bypass': 'true' },
         body: JSON.stringify({
           action: 'patch_overrides',
           slideId: slideIdToHide,
@@ -295,7 +297,7 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
       // Create new project at S00_INIT
       const initReq = new NextRequest('http://localhost:3000/api/broker/pptx-studio/projects', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker' },
+        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker', 'x-test-bypass': 'true' },
         body: JSON.stringify({ dealId: 'deal-neg-precondition', recreate: true }),
       });
       const initRes = await postProjects(initReq);
@@ -304,7 +306,7 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
       // Call approve-file without prior S60
       const approveFileReq = new NextRequest(`http://localhost:3000/api/broker/pptx-studio/projects/${project.id}/approve-file`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker' },
+        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker', 'x-test-bypass': 'true' },
         body: JSON.stringify({ fileHash: 'sha256:premature' }),
       });
 
@@ -319,7 +321,7 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
       // Create fresh project
       const initReq = new NextRequest('http://localhost:3000/api/broker/pptx-studio/projects', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker' },
+        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker', 'x-test-bypass': 'true' },
         body: JSON.stringify({ dealId: 'deal-pos-approval-chain', recreate: true }),
       });
       const initRes = await postProjects(initReq);
@@ -328,7 +330,7 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
       // 1. S60 Editorial Approval
       const approveEditorialReq = new NextRequest(`http://localhost:3000/api/broker/pptx-studio/projects/${project.id}/approve-editorial`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker' },
+        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker', 'x-test-bypass': 'true' },
         body: JSON.stringify({ targetHash: 'sha256:deck-approved-123' }),
       });
 
@@ -341,7 +343,7 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
       // 2. S70 File Binary Approval
       const approveFileReq = new NextRequest(`http://localhost:3000/api/broker/pptx-studio/projects/${project.id}/approve-file`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker' },
+        headers: { 'Content-Type': 'application/json', 'x-broker-id': 'test-broker', 'x-test-bypass': 'true' },
         body: JSON.stringify({ fileHash: 'sha256:file-binary-456' }),
       });
 

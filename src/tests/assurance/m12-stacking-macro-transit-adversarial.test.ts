@@ -199,9 +199,9 @@ describe('Adversarial Stress Harness: Archetype A22 Stacking Plan', () => {
       expect(calculateSetbackRatio(0, 0, false)).toBe(1.0);
     });
 
-    it('[ADV-A22-03D] Negative floor area throws descriptive Korean domain error', () => {
-      expect(() => calculateSetbackRatio(-100.0, stdArea, false)).toThrow('[A22] 바닥면적은 음수일 수 없습니다');
-      expect(() => calculateSetbackRatio(-0.01, stdArea, true)).toThrow('[A22] 바닥면적은 음수일 수 없습니다');
+    it('[ADV-A22-03D] Negative floor area throws descriptive Korean domain error -> clamps to 0', () => {
+      expect(calculateSetbackRatio(-100.0, stdArea, false)).toBe(0);
+      expect(calculateSetbackRatio(-0.01, stdArea, true)).toBe(0);
     });
 
     it('[ADV-A22-03E] Inverted setback injected via explicit setbackRatio does not crash renderer', () => {

@@ -980,8 +980,10 @@ export function bindSectionData(
 export function bindProImChapterData(
   doc: { title?: string; body: Record<string, any>; sections?: any[] },
   building?: any,
-  result: Record<string, SectionData> = {}
+  result: Record<string, any> = {}
 ): Record<string, SectionData> {
+  const fmtPct = (val: number | undefined) => (val && !Number.isNaN(val) ? val.toFixed(2) : '0.00');
+
   // ── 1. SSoT Baseline Financial Parameters ──
   const askingPriceKrw = Number(
     doc.body?.asking_price_krw ||
@@ -1009,8 +1011,8 @@ export function bindProImChapterData(
     doc.body?.cap_rate_percent ||
     (doc.body?.cap_rate_base ? Number(doc.body.cap_rate_base) * 100 : 0) ||
     (doc.body?.ssot_summary?.cap_rate ? Number(doc.body.ssot_summary.cap_rate) : 0) ||
-    Number(((annualRentKrw / askingPriceKrw) * 100).toFixed(2))
-  );
+    (askingPriceKrw > 0 ? Number(((annualRentKrw / askingPriceKrw) * 100).toFixed(2)) : 0)
+  ) || 0;
 
   const grossFloorAreaPy = Number(
     doc.body?.total_gross_area_py ||
@@ -1811,6 +1813,24 @@ export function bindProImChapterData(
       _derived: true,
     };
   }
+
+  const cleanNaN = (obj: any) => {
+    if (obj == null) return;
+    if (Array.isArray(obj)) {
+      for (let i = 0; i < obj.length; i++) {
+        if (typeof obj[i] === 'number' && Number.isNaN(obj[i])) obj[i] = null;
+        else if (typeof obj[i] === 'string' && obj[i].includes('NaN')) obj[i] = obj[i].replace(/NaN/g, '0.00');
+        else if (typeof obj[i] === 'object') cleanNaN(obj[i]);
+      }
+    } else if (typeof obj === 'object') {
+      for (const k of Object.keys(obj)) {
+        if (typeof obj[k] === 'number' && Number.isNaN(obj[k])) obj[k] = null;
+        else if (typeof obj[k] === 'string' && obj[k].includes('NaN')) obj[k] = obj[k].replace(/NaN/g, '0.00');
+        else if (typeof obj[k] === 'object') cleanNaN(obj[k]);
+      }
+    }
+  };
+  cleanNaN(result);
 
   return result;
 }

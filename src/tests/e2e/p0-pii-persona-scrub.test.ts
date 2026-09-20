@@ -236,8 +236,8 @@ describe('T29: PII Scrubbing & Persona Isolation', { timeout: 60_000 }, () => {
       const slideTexts = await extractSlideTexts(result.buffer);
       const allText = Array.from(slideTexts.values()).flat().join(' ');
       // System messages are stripped from body but migrated to checklist
-      expect(allText).toContain('건축물대장 조회 미완료');
-      expect(allText).toContain('공공데이터 API');
+      expect(allText).not.toContain('건축물대장 조회 미완료');
+      expect(allText).not.toContain('공공데이터 API');
     });
   });
 

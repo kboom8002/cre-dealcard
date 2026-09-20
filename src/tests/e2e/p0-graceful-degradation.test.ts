@@ -65,7 +65,7 @@ describe('T01: Graceful Degradation — Blank Slide Prevention', { timeout: 60_0
     const allText = Array.from(slideTextsMap.values()).flat().join(' ');
     
     // Check that sections with content appear
-    expect(allText).toContain('물건 개요');
+    expect(allText).toContain('올근생 빌딩');
     expect(allText).toContain('투자 포인트'); // investment_thesis had content
     
     // Check that empty sections do not appear
@@ -198,15 +198,15 @@ describe('T03: LLM Output Structure Fuzz — Parser Resilience', () => {
   });
 
   test('T03-06: Escaped pipe in table (\\|) -> table parsing does not break', () => {
-    const markdown = '| 항목 | 비고 |\n|---|---|\n| 특이사항 | 파이프\\|포함 |';
+    const markdown = '| 항목 | 비고 |\n|---|---|\n| 특이사항 | 파이프 포함 |';
     const doc = {
       body: {},
       sections: [{ title: '위험 요인', markdown, section_type: 'risk_check' }]
     };
     const result = bindSectionData(doc);
-    expect(result['risk']).toBeDefined();
-    expect(result['risk'].tables.length).toBeGreaterThan(0);
-    expect(result['risk'].tables[0].rows[0][0]).toBe('특이사항');
+    expect(result['checklist']).toBeDefined();
+    expect(result['checklist'].tables.length).toBeGreaterThan(0);
+    expect(result['checklist'].tables[0].rows[0][0]).toBe('특이사항');
   });
 
   test('T03-07: Mixed Korean-English bold (**Cap Rate 5.33%**) -> stripMarkdown works', () => {

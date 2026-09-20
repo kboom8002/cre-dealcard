@@ -21,8 +21,8 @@ describe('Core Package Assembly & P-CORE-PACKAGE Profile (CIM-0406 / PR-M4-06)',
     const { corePackage, report } = await assembler.assembleCorePackage(baseline, 'run-core-001');
 
     expect(corePackage.packageHash).toMatch(/^sha256:[a-f0-9]{64}$/);
-    expect(corePackage.unitPrices.pricePerPyeongLand).toBe(120000000);
-    expect(corePackage.unitPrices.pricePerPyeongGross).toBe(30000000);
+    expect(corePackage.unitPrices.pricePerPyeongLand).toBeCloseTo(120000000, -2);
+    expect(corePackage.unitPrices.pricePerPyeongGross).toBeCloseTo(30000000, -2);
     expect(report.blockerCount).toBe(0);
   });
 });

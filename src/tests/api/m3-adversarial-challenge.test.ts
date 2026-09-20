@@ -67,8 +67,20 @@ vi.mock('@/lib/supabase/service', () => {
             }
 
             let filterId: string | null = null;
+            let filterIds: string[] | null = null;
 
             const queryBuilder: any = {
+              then: (resolve: any) => {
+                if (table === 'assets') {
+                  const data = filterIds ? filterIds.map(id => mockDb.assets.get(id)).filter(Boolean) : Array.from(mockDb.assets.values());
+                  return resolve({ data, error: null });
+                }
+                if (table === 'building_ssot_lite') {
+                  const data = filterIds ? filterIds.map(id => mockDb.building_ssot_lite.get(id)).filter(Boolean) : Array.from(mockDb.building_ssot_lite.values());
+                  return resolve({ data, error: null });
+                }
+                return resolve({ data: [], error: null });
+              },
               eq: (col: string, val: any) => {
                 if (col === 'id') filterId = val;
                 if (table === 'deal_pipeline_states') {
@@ -77,6 +89,7 @@ vi.mock('@/lib/supabase/service', () => {
                 return queryBuilder;
               },
               in: (col: string, val: any) => {
+                if (col === 'id') filterIds = val;
                 if (table === 'deal_pipeline_states') {
                   mockDb.dealPipelineFilterCalls.push({ method: 'in', column: col, value: val });
                 }

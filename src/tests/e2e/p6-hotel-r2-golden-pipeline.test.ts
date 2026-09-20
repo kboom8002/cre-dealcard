@@ -23,7 +23,7 @@ const DATA_DIR = join(process.cwd(), 'docs', 'golden-test-data', 'p6-hotel-opera
 const OUTPUT_DIR = join(process.cwd(), 'docs', 'test', 'golden-outputs', 'p6-hotel-r2');
 const PPTX_OUTPUT_PATH = join(OUTPUT_DIR, 'hotel_operating_r2_basic.pptx');
 
-describe('P6 호텔 Operating R2-Standard', () => {
+describe.skipIf(!existsSync(DATA_DIR))('P6 호텔 Operating R2-Standard', () => {
   let bottomSheet: any;
   let pptxResult: any;
 

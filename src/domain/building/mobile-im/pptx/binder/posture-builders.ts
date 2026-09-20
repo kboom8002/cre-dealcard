@@ -59,7 +59,7 @@ export function buildFarUpsideProps(markdown: string, tables: ParsedTable[], bod
         {
           kind: 'info',
           title: '수직 증축 및 공간 재배치 잠재력',
-          body: `• 법정 상한 용적률(${farMax}%) 대비 약 ${remainingFar}%p의 잔여 용적률 여유 확보\n• 상부층 1~2개 층 수직 증축(약 ${additionalAreaP}평)을 통한 유효 임대면적 극대화\n• 증축 시 임대면적 확대 효과 기대`,
+          body: `• 법정 상한 용적률(${farMax ?? '-'}%) 대비 약 ${remainingFar ?? '-'}%p의 잔여 용적률 여유 확보\n• 상부층 1~2개 층 수직 증축(약 ${additionalAreaP}평)을 통한 유효 임대면적 극대화\n• 증축 시 임대면적 확대 효과 기대`,
         },
         {
           kind: 'info',

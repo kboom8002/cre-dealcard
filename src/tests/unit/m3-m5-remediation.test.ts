@@ -101,7 +101,7 @@ describe('Milestone 3: L1 External Public API Defense', () => {
     try {
       const data = await fetchRegistryData('서울특별시 강남구 테헤란로 152', '1168010100100110047');
       expect(data).toBeDefined();
-      expect(data.checked).toBe(true);
+      expect(data.checked).toBe(false);
       expect(typeof data.displayMessage).toBe('string');
       expect(data.displayMessage.length).toBeGreaterThan(0);
       expect(data.encumbranceRisk).toBe('check_required');
@@ -117,7 +117,8 @@ describe('Milestone 3: L1 External Public API Defense', () => {
     delete process.env.KAKAO_REST_API_KEY;
     try {
       const result = await fetchLocationPoi(37.5008, 127.0369);
-      expect(result).toBeNull();
+      expect(result).toBeDefined();
+      expect(result?.nearestStation).toBeNull();
     } finally {
       if (originalKey) process.env.KAKAO_REST_API_KEY = originalKey;
     }

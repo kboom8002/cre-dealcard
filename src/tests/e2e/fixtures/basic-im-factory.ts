@@ -113,8 +113,8 @@ export async function createBasicImTestInput(
   // ── 1. 재무 계산 ──
   const financialInput: FinancialInputs = {
     purchasePriceKrw: bottomSheet.askingPriceManwon * 10000,
-    monthlyRentKrw: bottomSheet.floor_leases.reduce((sum, fl) => sum + (fl.rent_manwon || 0), 0) * 10000,
-    totalDepositManwon: bottomSheet.floor_leases.reduce((sum, fl) => sum + (fl.deposit_manwon || 0), 0),
+    monthlyRentKrw: (bottomSheet.floor_leases || []).reduce((sum, fl) => sum + (fl.rent_manwon || 0), 0) * 10000,
+    totalDepositManwon: (bottomSheet.floor_leases || []).reduce((sum, fl) => sum + (fl.deposit_manwon || 0), 0),
   };
   const financials = calculateFinancials(financialInput);
 
@@ -138,11 +138,12 @@ export async function createBasicImTestInput(
   }
 
   // ── 3. SSoT 매핑 ──
-  const totalDepositManwon = bottomSheet.floor_leases.reduce(
-    (sum, fl) => sum + (fl.deposit_manwon || 0), 0,
+  const floorLeases = bottomSheet.floor_leases || [];
+  const totalDepositManwon = floorLeases.reduce(
+    (sum, fl) => sum + (fl.deposit_manwon || 0), 0
   );
-  const monthlyRentManwon = bottomSheet.floor_leases.reduce(
-    (sum, fl) => sum + (fl.rent_manwon || 0), 0,
+  const monthlyRentManwon = floorLeases.reduce(
+    (sum, fl) => sum + (fl.rent_manwon || 0), 0
   );
 
   const ssot = {
@@ -168,7 +169,7 @@ export async function createBasicImTestInput(
     })(),
     parking_count: bottomSheet.parking,
     elevator_count: bottomSheet.elevator,
-    vacancy_pct: bottomSheet.floor_leases.length > 0 ? (bottomSheet.floor_leases.filter(fl => fl.is_vacant).length / bottomSheet.floor_leases.length * 100) : 0,
+    vacancy_pct: floorLeases.length > 0 ? (floorLeases.filter(fl => fl.is_vacant).length / floorLeases.length * 100) : 0,
     price_band: `${Math.round(bottomSheet.askingPriceManwon / 10000)}억`,
     multiParcel: !!bottomSheet.multiParcel,
     parcels: bottomSheet.parcels,
@@ -207,7 +208,7 @@ export async function createBasicImTestInput(
           assetType: '근린생활시설',
         },
         photos: options.photos,
-        floor_leases: bottomSheet.floor_leases,
+        floor_leases: floorLeases,
         ssot_summary: ssot,
         financials: financials ?? {},
         coordinates: options.coordinates,
@@ -277,10 +278,11 @@ function generateDefaultSections(
   ];
 }
 
-function generateRentRollMarkdown(leases: FloorLease[]): string {
+function generateRentRollMarkdown(leases: FloorLease[] = []): string {
+  if (!leases || leases.length === 0) return `### 임대차 현황\n정보 없음`;
   const header = '| 층 | 임차인 | 면적(평) | 보증금(만) | 월세(만) | 계약종료 |\n|:---|:---|---:|---:|---:|:---|';
   const rows = leases.map(fl =>
-    `| ${fl.floor} | ${fl.tenant_type} | ${fl.area_pyeong} | ${fl.deposit_manwon.toLocaleString()} | ${fl.rent_manwon.toLocaleString()} | ${fl.lease_end || fl.note || (fl.is_vacant ? '공실' : '')} |`
+    `| ${fl.floor} | ${fl.tenant_type} | ${fl.area_pyeong || 0} | ${(fl.deposit_manwon || 0).toLocaleString()} | ${(fl.rent_manwon || 0).toLocaleString()} | ${fl.lease_end || fl.note || (fl.is_vacant ? '공실' : '')} |`
   ).join('\n');
   return `### 층별 임대차 현황\n${header}\n${rows}`;
 }
@@ -289,5 +291,5 @@ function generateYieldMarkdown(monthlyRent: number, totalDeposit: number, asking
   const annual = monthlyRent * 12;
   const denom = askingPrice - totalDeposit;
   const capRate = denom > 0 ? (annual / denom * 100) : 0;
-  return `### 투자수익률 산출\n\n**표면 임대수익률** = 연간 임대료 ÷ (매매가 − 승계 보증금)\n= ${annual.toLocaleString()}만 ÷ (${askingPrice.toLocaleString()}만 − ${totalDeposit.toLocaleString()}만)\n= **${capRate.toFixed(2)}%**`;
+  return `### 투자수익률 연출\n\n**표면 투자수익률** = 연간 임대수익 ÷ (매매가 - 총계 보증금)\n= ${(annual || 0).toLocaleString()}만 ÷ (${(askingPrice || 0).toLocaleString()}만 - ${(totalDeposit || 0).toLocaleString()}만)\n= **${capRate.toFixed(2)}%**`;
 }

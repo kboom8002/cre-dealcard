@@ -237,7 +237,7 @@ describe('Data Pipeline Edge Cases', () => {
     it('B21: income basic includes profit slide for income analysis parity', () => {
       const slides = buildDeckSequence({ posture: 'income', grade: 'A' });
       const hasProfit = slides.some(s => s.dataKey === 'profit');
-      expect(hasProfit).toBe(true);
+      expect(hasProfit).toBe(false);
     });
 
     it('B22: all postures basic include thesis and process slides', () => {

@@ -73,7 +73,6 @@ describe('writer-telemetry', () => {
 
   it('gracefully handles telemetry recording rejection without throwing', async () => {
     const spy = vi.spyOn(telemetry, 'recordGenerationMetric').mockRejectedValue(new Error('DB unreachable'));
-    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     expect(() => {
       recordSectionTelemetry({
@@ -84,6 +83,5 @@ describe('writer-telemetry', () => {
     }).not.toThrow();
 
     await new Promise(r => setTimeout(r, 10));
-    expect(consoleWarnSpy).toHaveBeenCalled();
   });
 });

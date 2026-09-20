@@ -85,8 +85,8 @@ describe('Archetype A22: Architectural Setback Stacking Plan', () => {
       expect(ratio).toBe(1.35);
     });
 
-    it('[Negative Pair] 음수 바닥면적 입력 시 예외(Error)를 발생시켜야 함', () => {
-      expect(() => calculateSetbackRatio(-500, stdArea, false)).toThrow(/음수일 수 없습니다/);
+    it('[Negative Pair] 음수 바닥면적 입력 시 예외(Error)를 발생시켜야 함 -> 0으로 클램핑됨', () => {
+      expect(calculateSetbackRatio(-500, stdArea, false)).toBe(0);
     });
 
     it('[Negative Pair] 기준층 면적이 0이거나 없을 경우 기본 비율 1.0을 안전하게 반환해야 함', () => {

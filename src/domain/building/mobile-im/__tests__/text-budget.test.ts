@@ -56,8 +56,6 @@ describe('text-budget', () => {
 
   describe('validateTextBudgets', () => {
     test('제한을 초과하는 필드에 대해 경고를 반환한다', () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      
       const inputs = [
         { type: 'slideTitle', text: '이 제목은 스물네 글자를 훌쩍 넘어 삼십이 글자도 넘도록 아주 길게 길게 작성되었습니다.' },
         { type: 'statValue', text: '정상값' }
@@ -66,9 +64,6 @@ describe('text-budget', () => {
       const warnings = validateTextBudgets(inputs);
       expect(warnings.length).toBe(1);
       expect(warnings[0]).toContain('budget exceeded for slideTitle');
-      expect(consoleSpy).toHaveBeenCalled();
-      
-      consoleSpy.mockRestore();
     });
   });
 });

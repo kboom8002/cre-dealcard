@@ -63,7 +63,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   }
   
   // Stat grid
-  let metrics = input.data.metrics || [];
+  let metrics = Array.isArray(input.data.metrics) ? input.data.metrics : [];
 
   // 1. heroCard 데이터 우선 바인딩
   const hero = input.data.heroCard;
