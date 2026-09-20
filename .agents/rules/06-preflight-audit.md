@@ -77,4 +77,23 @@
 - 다수 API를 호출할 때는 `Promise.allSettled`를 사용하여 하나의 API 실패가 나머지를 차단하지 않도록 합니다.
 - **어떤 외부 API가 죽어도 PPTX 파일은 반드시 생성되어야 합니다.**
 - **위반 사례**: Kakao 역 검색 실패 → nearestStation null → POI 전체 null → 지도 슬라이드 크래시.
+
+### 44. 프로덕션 렌더러 의무 사용 (Production Renderer Mandate)
+- PPTX 다운로드 라우트는 반드시 `MobileImPptxRenderer.render()`를 통해 바이너리를 생성해야 합니다.
+- `new PptxGenJS()`를 직접 생성하여 텍스트를 덤프하는 것은 디버그/프로토타입 전용이며, 프로덕션 라우트에서 금지합니다.
+- Studio 다운로드, im-lite, im-pro 모든 경로에서 동일한 렌더러 파이프라인을 사용합니다.
+- **위반 사례**: basic-im-studio download route가 raw PptxGenJS로 `key: value` 회색 텍스트 덤프를 생성.
+
+### 45. 검증-선행 리소스 생성 (Validate-Before-Create)
+- 슬라이드, 오버레이, 임시 파일 등 리소스 생성은 **입력 데이터 검증 및 비동기 처리(이미지 최적화 등) 완료 후**에만 수행합니다.
+- 비동기 처리(Sharp, fetch 등)에서 예외 발생 시, 이미 생성된 리소스를 정리하거나, 생성 자체를 지연합니다.
+- **금지 패턴**: `const slide = L.light(pres); /* ... */ await riskyOp(); // 예외 시 유령 슬라이드`
+- **허용 패턴**: `const optimized = await riskyOp(); if (!optimized) return suppress; const slide = L.light(pres);`
+- **위반 사례**: a14-gallery.ts가 사진 검증 전에 슬라이드를 생성 → Sharp 예외 시 유령 백지 슬라이드 잔존.
+
+### 46. 아키타입 Allowlist 우선 원칙 (Allowlist-First Archetype Guard)
+- Basic IM 등 제한된 프리셋에서 아키타입 필터링 시, Denylist만으로는 신규 Pro 아키타입 누출을 방지할 수 없습니다.
+- **반드시 Allowlist(허용 목록)를 1차 방어**로 사용하고, Denylist는 2차 보조로 유지합니다.
+- 새 아키타입 추가 시, `BASIC_IM_ALLOWED`에 명시적으로 추가하지 않으면 자동 차단됩니다.
+- **위반 사례**: A25(ChapterDivider)가 BASIC_IM_EXCLUSION에 없어서 Basic IM에 혼입 가능.
 <!-- END:cre-d40-preflight-rules -->
