@@ -147,6 +147,9 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   const isCompact = metrics.length > 4;
   const cardH = isCompact ? 1.05 : 1.4;
 
+  // Basic IM 방어: 요약 슬라이드에서 역레버리지 경고 카드 제거 (자본구조 슬라이드 전용)
+  metrics = metrics.filter((m: any) => !String(m?.label || '').includes('역레버리지'));
+
   if (metrics.length > 0) {
     // Stat cards: 6개 지표 시 3열 x 2행 최적 배분
     const gap = 0.18;
@@ -161,8 +164,11 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       const x = L.colX(colIdx, cardW, gap);
       const y = startY + row * (cardH + gap);
       
+      // 긴 기준문구 정리: "연 수익률(Cap Rate, 기준: 총임대료 ÷ 매매가격)" → "연 수익률(Cap Rate)"
+      const cleanLabel = String(m.label || '').replace(/,\s*기준:.*?\)/, '');
+
       L.stat(slide, x, y, cardW,
-        String(m.label || ''),
+        cleanLabel,
         String(m.value || ''),
         String(m.unit || ''),
         String(m.sub || ''),
@@ -305,11 +311,12 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
           align: 'center', valign: 'middle', margin: 0,
         });
 
-        // 우측 내용 텍스트 (HP-05: 62자 초과 시 절삭하여 오버플로 방지)
-        const ptText = pt.length > 62 ? pt.slice(0, 59) + '...' : pt;
+        // 우측 내용 텍스트: 최대 95자 수용 (긴 문장은 10pt 축소)
+        const isLong = pt.length > 65;
+        const ptText = pt.length > 95 ? pt.slice(0, 92) + '...' : pt;
         slide.addText(ptText, {
           x: M + 0.70, y: ry + 0.04, w: CW - 0.85, h: rowH - 0.08,
-          color: C.ink, fontFace: KR, fontSize: hlFontSize,
+          color: C.ink, fontFace: KR, fontSize: isLong ? 10 : hlFontSize,
           margin: 0, valign: 'middle',
         });
       }

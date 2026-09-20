@@ -216,12 +216,13 @@ function renderCommonCoverContent(
 
   let nextY = subtitleY + 0.4;
   if (input.data.address) {
+    const addrH = (input.data.address || '').length > 28 ? 0.52 : 0.32;
     slide.addText(input.data.address, {
-      x, y: nextY, w: titleW, h: 0.3,
+      x, y: nextY, w: titleW, h: addrH,
       fontSize: 12, color: C.slate,
       fontFace: KR, margin: 0, align,
     });
-    nextY += 0.3;
+    nextY += addrH;
   }
 
   // 태그 (최대 4개로 제한하여 경계 이탈 방지 - HP-03)
@@ -297,39 +298,44 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
 
   // ── Step 1: Cover image attempt (determines fallback need) ──
   let imgAdded = false;
-  if (input.data?.coverImageUrl) {
-    try {
-      const img = await optimizeImageForPptx(input.data.coverImageUrl as string, 2400 /* 13.333" × 180dpi */, 85);
-      if (img) {
-        const coverStyle = input.data?.coverStyle ?? THEME_META.coverStyle;
-        if (coverStyle === 'split') {
-          slide.addImage({
-            data: img.base64,
-            x: 8.50, y: 0, w: 4.833, h: 7.5,
-            sizing: { type: 'cover', w: 4.833, h: 7.5 },
-          });
-        } else if (coverStyle === 'hero_dark') {
-          slide.addImage({
-            data: img.base64,
-            x: 0, y: 0, w: 13.333, h: 7.5,
-            sizing: { type: 'cover', w: 13.333, h: 7.5 },
-          });
-        } else {
-          slide.addImage({
-            data: img.base64,
-            x: 8.50, y: 0, w: 4.833, h: 7.5,
-            sizing: { type: 'cover', w: 4.833, h: 7.5 },
-          });
+  // Basic IM 표지: 스펙 §2 "건물 사진을 넣지 않는다" — 추상 실루엣만 사용
+  const isBasicPreset = input.data?.preset === 'credeal_basic' || input.data?.templateId === 'credeal_basic';
+  
+  if (!isBasicPreset) {
+    if (input.data?.coverImageUrl) {
+      try {
+        const img = await optimizeImageForPptx(input.data.coverImageUrl as string, 2400 /* 13.333" × 180dpi */, 85);
+        if (img) {
+          const coverStyle = input.data?.coverStyle ?? THEME_META.coverStyle;
+          if (coverStyle === 'split') {
+            slide.addImage({
+              data: img.base64,
+              x: 8.50, y: 0, w: 4.833, h: 7.5,
+              sizing: { type: 'cover', w: 4.833, h: 7.5 },
+            });
+          } else if (coverStyle === 'hero_dark') {
+            slide.addImage({
+              data: img.base64,
+              x: 0, y: 0, w: 13.333, h: 7.5,
+              sizing: { type: 'cover', w: 13.333, h: 7.5 },
+            });
+          } else {
+            slide.addImage({
+              data: img.base64,
+              x: 8.50, y: 0, w: 4.833, h: 7.5,
+              sizing: { type: 'cover', w: 4.833, h: 7.5 },
+            });
+          }
+          imgAdded = true;
+          // D31 BL-2: 표지 배경 예외 — cover-fit 허용하되 크로핑률 25% 초과 시 경고
+          const cropR = coverCropRatio(img.width, img.height, 4.833, 7.5);
+          if (cropR > CROP_WARN_THRESHOLD) {
+            warnings.push(`표지 사진 크로핑률 ${(cropR * 100).toFixed(0)}% — 25% 초과 주의`);
+          }
         }
-        imgAdded = true;
-        // D31 BL-2: 표지 배경 예외 — cover-fit 허용하되 크로핑률 25% 초과 시 경고
-        const cropR = coverCropRatio(img.width, img.height, 4.833, 7.5);
-        if (cropR > CROP_WARN_THRESHOLD) {
-          warnings.push(`표지 사진 크로핑률 ${(cropR * 100).toFixed(0)}% — 25% 초과 주의`);
-        }
+      } catch {
+        warnings.push('표지 이미지 최적화 실패, 기본 그래픽 폴백 사용');
       }
-    } catch {
-      warnings.push('표지 이미지 최적화 실패, 기본 그래픽 폴백 사용');
     }
   }
 
@@ -338,17 +344,17 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
     // Primary panel — warm dark tone (avoids PptxGenJS transparency color shift)
     slide.addShape('rect', {
       x: 8.50, y: 0, w: 4.833, h: 7.5,
-      fill: { color: '2A2118' },
+      fill: { color: '0D2233' },
     });
     // Accent block (upper) — subtle brass tint
     slide.addShape('rect', {
       x: 9.60, y: 0.80, w: 3.20, h: 2.60,
-      fill: { color: '3D2E1A' },
+      fill: { color: '1A3A4A' },
     });
     // Accent block (lower) — slightly lighter warm tone
     slide.addShape('rect', {
       x: 8.90, y: 4.00, w: 3.80, h: 2.80,
-      fill: { color: '33271A' },
+      fill: { color: '132A3A' },
     });
     // Thin vertical accent line in brass
     slide.addShape('line', {
@@ -361,11 +367,11 @@ export async function buildA01Cover(input: ArchetypeInput): Promise<ArchetypeOut
     // Full-width warm gradient-like layered panels
     slide.addShape('rect', {
       x: 0, y: 0, w: W, h: 7.5,
-      fill: { color: '1A1510' },
+      fill: { color: '0A1620' },
     });
     slide.addShape('rect', {
       x: 2.0, y: 1.2, w: 9.333, h: 5.1,
-      fill: { color: '2A2118' },
+      fill: { color: '0D2233' },
     });
   }
 

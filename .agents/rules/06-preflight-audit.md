@@ -52,4 +52,15 @@
 - 바이너리 에셋은 반드시 Supabase Storage(`building_photos` 버킷 등)에 업로드하고, public URL만 JSONB에 저장합니다.
 - `handler.ts`의 `uploadDataUriPhotos()` 패턴을 참조합니다: base64 data URI 감지 → Storage 업로드 → URL 교체.
 - **위반 사례**: 8장 사진(~10MB base64)을 JSONB에 직접 저장 → Supabase `HeadersTimeoutError` → 문서 저장 실패.
+
+### 41. 폴백값 데이터 독소 방지 (Fallback Data Poison Prevention)
+- 도메인 바인더 및 아키타입에서 데이터 누락 시 사용하는 폴백값은 반드시 **중립적**이어야 합니다.
+- **금지 패턴 (데이터 독소):**
+  - 가격 폴백: `15000000000`, `'180.0억 원'`, `56.4`
+  - 비율 폴백: `4.85`, `0.042`, `0.08`, `0.92`
+  - 임차인 폴백: `'약국, 병원, 스타벅스'`, `'현대엘리베이터'`
+  - 날짜 폴백: `'2023-01-01'`, `'2027-12-31'`
+  - 설명 폴백: `'사거리 코너 25m'`, `'45,000명/일'`, `'준공업지역'`
+- **허용 패턴:** 숫자 `0`, 문자열 `'-'` 또는 `''`, 배열 `[]`, 경고 `console.warn('[module] field unavailable')`
+- **위반 사례**: `premium-binders.ts`에서 매매가 미입력 물건에 150억 폴백 → TCO/세금/대출이자가 전부 150억 기준으로 산출.
 <!-- END:cre-d40-preflight-rules -->

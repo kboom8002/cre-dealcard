@@ -21,22 +21,28 @@ export interface ArchetypeOutput {
   suppress?: boolean;
 }
 
-const EXPIRY_COLORS: Record<string, string> = {
+const EXPIRY_HEATMAP_PALETTE: Record<string, string> = {
   '2024': 'D6C6B9',
   '2025': 'C9A9A6',
   '2026': '93B3A0',
   '2027': 'A6C1D9',
   '2028': 'C5B4E3',
   '2029': 'F2C4A2',
+  '2030': 'E8D1A7',
+  '2031': 'B8D8D8',
+  '2032': 'D4B8E0',
+  '2033': 'A8C8B8',
+  '2034': 'C8B8A8',
+  '2035': 'B8C8E0',
 };
 
 type FloorInfo = StackingPlanFloor & { _expiry?: string; area?: number };
 
 function parseExpiryYear(text: string): string | undefined {
   if (!text) return undefined;
-  const m4 = text.match(/20(2[4-9])/);
+  const m4 = text.match(/20(2[4-9]|3[0-5])/);
   if (m4) return `20${m4[1]}`;
-  const m2 = text.match(/['’]?\s*(2[4-9])\b/);
+  const m2 = text.match(/['’]?\s*(2[4-9]|3[0-5])\b/);
   if (m2) return `20${m2[1]}`;
   return undefined;
 }
@@ -106,8 +112,18 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   }
 
   if (floors.length > 0) {
-    // Condense B floors if needed (moved before legend to ensure legend reflects rendered floors)
-    let drawFloors = [...floors].reverse(); // Now bottom to top
+    // D6 Fix: 층수 표준 정규화 — 지하(B)부터 지상(1F~5F) 순서로 바닥에서 위로 정렬
+    const parseFloorNum = (fl: any): number => {
+      const s = String(fl || '').trim().toUpperCase();
+      const bMatch = s.match(/^B(\d+)/);
+      if (bMatch) return -parseInt(bMatch[1], 10);
+      const fMatch = s.match(/^(\d+)F?/);
+      if (fMatch) return parseInt(fMatch[1], 10);
+      if (s.includes('지하')) return -1;
+      if (s.includes('옥상') || s.includes('RF') || s.includes('PH')) return 99;
+      return 1;
+    };
+    let drawFloors = [...floors].sort((a, b) => parseFloorNum(a.floor) - parseFloorNum(b.floor));
     if (floors.length > 12) {
       const bFloors = drawFloors.filter(f => String(f.floor).toUpperCase().startsWith('B'));
       const aboveFloors = drawFloors.filter(f => !String(f.floor).toUpperCase().startsWith('B'));
@@ -126,8 +142,8 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     drawFloors.forEach(f => {
       const yr = f.expiryYear ? String(f.expiryYear) : parseExpiryYear(f.tenant || '');
       if (yr && !f.isVacant && !f.tenant?.includes('공실')) {
-        // G-11: EXPIRY_COLORS에 정의된 연도만 범례에 포함 — 미정의 연도는 바에서 기본 회색으로 렌더링되므로 범례 불필요
-        if (EXPIRY_COLORS[yr]) {
+        // G-11: EXPIRY_HEATMAP_PALETTE에 정의된 연도만 범례에 포함 — 미정의 연도는 바에서 기본 회색으로 렌더링되므로 범례 불필요
+        if (EXPIRY_HEATMAP_PALETTE[yr]) {
           usedYears.add(yr);
         }
         f._expiry = yr;
@@ -139,7 +155,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     // Draw legend
     let legendX = spX;
     years.forEach(year => {
-      const color = EXPIRY_COLORS[year] || 'E2E8F0';
+      const color = EXPIRY_HEATMAP_PALETTE[year] || C.line2;
       slide.addShape('rect', { x: legendX, y: spY, w: 0.15, h: 0.15, fill: { color } });
       slide.addText(year, { x: legendX + 0.2, y: spY, w: 0.6, h: 0.15, fontSize: 9, color: '5B6B73', fontFace: KR });
       legendX += 0.8;
@@ -188,8 +204,8 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       const isVacant = floor.isVacant || floor.tenant?.includes('공실');
       if (isVacant) {
         fillCol = 'FBEFE8';
-      } else if (floor._expiry && EXPIRY_COLORS[floor._expiry]) {
-        fillCol = EXPIRY_COLORS[floor._expiry];
+      } else if (floor._expiry && EXPIRY_HEATMAP_PALETTE[floor._expiry]) {
+        fillCol = EXPIRY_HEATMAP_PALETTE[floor._expiry];
       } else if (floor.category === 'parking' || floor.tenant?.includes('주차')) {
         fillCol = 'E2E8F0';
       }
@@ -198,7 +214,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       const floorLabel = String(floor.floor).replace(/층$/, '');
       slide.addText(floorLabel, {
         x: spX, y: currentY, w: 0.35, h: hPerFloor,
-        fontSize: floorFontSize, bold: true, color: '132A3A', align: 'right', valign: 'middle', fontFace: KR
+        fontSize: floorFontSize, bold: true, color: C.ink, align: 'right', valign: 'middle', fontFace: KR
       });
       
       // Bar
@@ -246,6 +262,13 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     });
   }
 
+  // 스펙 §5.2: 개략도 필수 각주
+  slide.addText('※ 렌트롤 현황 기준 층별 공간 배치도', {
+    x: spX, y: 6.65, w: spW, h: 0.25,
+    fontSize: 8.5, color: '8A8A8A', align: 'left',
+    fontFace: '맑은 고딕',
+  });
+
   // --- Right Panel: Rent Roll Table ---
   const HEADERS = ['층수', '임차인', '면적(평)', '보증금', '월세', '계약종료'];
   const colW = [0.8, 1.8, 1.3, 1.3, 1.1, 1.2]; // Sum = 7.50
@@ -261,12 +284,36 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     if (headerMatches.length >= 2) {
       rawRows.shift();
     }
+
+    // D7 Fix: 합계 행이 없으면 자동 합산 추가
+    const hasSummaryRow = rawRows.some(r => r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim())));
+    if (!hasSummaryRow && rawRows.length > 0) {
+      let totalArea = 0, totalDeposit = 0, totalRent = 0;
+      for (const r of rawRows) {
+        const a = parseFloat(String(r[2] || '').replace(/[^0-9.]/g, ''));
+        if (!isNaN(a)) totalArea += a;
+        const d = parseFloat(String(r[3] || '').replace(/[^0-9.]/g, ''));
+        if (!isNaN(d)) totalDeposit += d;
+        const rt = parseFloat(String(r[4] || '').replace(/[^0-9.]/g, ''));
+        if (!isNaN(rt)) totalRent += rt;
+      }
+      rawRows.push([
+        '합계',
+        `${rawRows.length}개 호실`,
+        totalArea > 0 ? `${totalArea.toFixed(1)}평` : '-',
+        totalDeposit > 0 ? `${Math.round(totalDeposit).toLocaleString()}만` : '-',
+        totalRent > 0 ? `${Math.round(totalRent).toLocaleString()}만` : '-',
+        '-'
+      ]);
+    }
     
     let displayRows = rawRows;
     let truncated = false;
     let totalCount = rawRows.length;
-    if (rawRows.length > 12) {
-      displayRows = rawRows.slice(0, 12);
+    if (rawRows.length > 11) {
+      const summaryRow = rawRows.find(r => r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim())));
+      displayRows = rawRows.filter(r => !r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim()))).slice(0, 10);
+      if (summaryRow) displayRows.push(summaryRow);
       truncated = true;
     }
     
@@ -276,16 +323,17 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     // Header
     tableData.push(HEADERS.map(h => ({
       text: h,
-      options: { fill: '132A3A', color: 'FFFFFF', fontSize: 10, bold: true, align: 'center' }
+      options: { fill: C.ink, color: C.bg, fontSize: 10, bold: true, align: 'center' }
     })));
     
     // Body
     displayRows.forEach((row, i) => {
       const isSummary = row.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim()));
       const isVacant = row.some((c: any) => String(c || '').includes('공실'));
+      const isSelfUse = row.some((c: any) => /자가|자가사용/.test(String(c || '')));
       
-      const fill = isSummary ? 'F1F5F9' : (isVacant ? 'FBEFE8' : (i % 2 === 0 ? 'FFFFFF' : 'F3F6F7'));
-      const color = isVacant ? 'B05A2E' : (isSummary ? '132A3A' : '2B2B2B');
+      const fill = isSummary ? C.tint : (isVacant ? 'FBEFE8' : (isSelfUse ? C.tint : (i % 2 === 0 ? C.bg : 'F3F6F7')));
+      const color = isVacant ? 'B05A2E' : (isSummary ? C.ink : (isSelfUse ? C.slate : '2B2B2B'));
       const bold = isSummary || isVacant;
       
       const mappedRow = [
@@ -308,13 +356,13 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     
     slide.addTable(tableData, {
       x: tbX, y: spY, w: tbW, colW,
-      border: { type: 'solid', color: 'DDE3E8', pt: 1 },
+      border: { type: 'solid', color: C.line, pt: 1 },
       rowH: 0.35,
       valign: 'middle'
     });
     
     if (truncated) {
-      slide.addText(`(전체 ${totalCount}건 중 12건 표시)`, {
+      slide.addText(`(전체 ${totalCount}건 중 10건 표시)`, {
         x: tbX, y: spY + (displayRows.length + 1) * 0.35 + 0.1, w: tbW, h: 0.2,
         fontSize: 9, color: '7A8794', align: 'right', fontFace: KR
       });

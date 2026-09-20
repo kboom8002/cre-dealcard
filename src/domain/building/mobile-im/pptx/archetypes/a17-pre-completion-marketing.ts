@@ -62,7 +62,7 @@ export function buildA17PreCompletionMarketing(input: ArchetypeInput): Archetype
   ];
 
   const stackingHeaders = ['층수', '권장 용도', '전용 면적', '타깃 임차'];
-  const stackingData = stackingRows.map((r: any) => [
+  const stackingData = stackingRows.slice(0, 6).map((r: any) => [
     r.floor,
     r.usage,
     r.area || `${r.areaPyeong ?? '-'}평`,
@@ -109,6 +109,7 @@ export function buildA17PreCompletionMarketing(input: ArchetypeInput): Archetype
   L.rows(slide, rightX + 0.25, y + 0.65, colW - 0.5, devSummaryRows, {
     rh: 0.48,
     fs: 11,
+    labRatio: 0.46,
     onDark,
   });
 

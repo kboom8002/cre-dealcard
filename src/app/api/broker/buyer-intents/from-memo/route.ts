@@ -19,6 +19,7 @@ const log = createModuleLogger('route');
 
 const BuyerIntentFromMemoRequest = z.object({
   memo: z.string().min(5),
+  isAsync: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -34,6 +35,45 @@ export async function POST(req: Request) {
       actorId = userAuth?.user?.id ?? null;
     } catch {
       // createClient may fail if cookies unavailable — keep null
+    }
+
+    if (input.isAsync && actorId) {
+      const jobId = crypto.randomUUID();
+      const { createServiceClient } = await import("@/lib/supabase/service");
+      const supabaseAdmin = createServiceClient();
+      
+      await supabaseAdmin.from("ai_runs").insert({
+        id: jobId,
+        user_id: actorId,
+        run_type: "buyer_intent_async_job",
+        input_ref: { memo: input.memo },
+        status: "started"
+      });
+
+      after(async () => {
+        try {
+          const result = await createBuyerIntentFromMemo(
+            { memo: input.memo },
+            actorId,
+          );
+
+          await supabaseAdmin.from("ai_runs").update({
+            status: "completed",
+            output_ref: { buyerIntentId: result.buyerIntentId }
+          }).eq("id", jobId);
+
+          const { runAutoMatchForBuyer } = await import("@/domain/matching/auto-matcher");
+          await runAutoMatchForBuyer(result.buyerIntentId, actorId ?? "system");
+        } catch (err: any) {
+          log.error("Async buyer intent creation failed:", err);
+          await supabaseAdmin.from("ai_runs").update({
+            status: "failed",
+            error: err.message || "Unknown error"
+          }).eq("id", jobId);
+        }
+      });
+
+      return Response.json({ ok: true, jobId, isAsync: true });
     }
 
     const result = await createBuyerIntentFromMemo(

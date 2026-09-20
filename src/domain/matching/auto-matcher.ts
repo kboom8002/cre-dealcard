@@ -33,7 +33,7 @@ export async function runAutoMatch(buildingId: string, brokerId: string) {
   // 3. Fetch all buyer intents
   const { data: intents } = await supabase
     .from("buyer_intent_lite")
-    .select("id, owner_id, buyer_type, budget_min, budget_max, budget_display, preferred_regions, asset_types, purchase_purpose, must_have, nice_to_have, risk_tolerance, normalized");
+    .select("id, owner_id, buyer_type, budget_min, budget_max, budget_display, preferred_regions, asset_types, purchase_purpose, must_have, nice_to_have, risk_tolerance, normalized, source");
 
   if (!intents || intents.length === 0) return;
 
@@ -84,6 +84,7 @@ export async function runAutoMatch(buildingId: string, brokerId: string) {
           riskTolerance: intent.risk_tolerance,
           inferredPurpose: intent.normalized?.inferred_purpose || "unknown",
           recommendedWeightProfile: intent.normalized?.recommended_weight_profile || "balanced",
+          buyerTemperatureScore: (intent as any).normalized?.buyer_temperature_score ?? (intent.source === 'magazine_auto_intent' ? 85 : undefined),
         },
       });
 
@@ -187,7 +188,7 @@ export async function runAutoMatchForBuyer(buyerIntentId: string, brokerId: stri
 
   const { data: intent } = await supabase
     .from("buyer_intent_lite")
-    .select("id, owner_id, buyer_type, budget_min, budget_max, budget_display, preferred_regions, asset_types, purchase_purpose, must_have, nice_to_have, risk_tolerance, normalized")
+    .select("id, owner_id, buyer_type, budget_min, budget_max, budget_display, preferred_regions, asset_types, purchase_purpose, must_have, nice_to_have, risk_tolerance, normalized, source")
     .eq("id", buyerIntentId)
     .single();
 
@@ -255,6 +256,7 @@ export async function runAutoMatchForBuyer(buyerIntentId: string, brokerId: stri
           riskTolerance: intent.risk_tolerance,
           inferredPurpose: intent.normalized?.inferred_purpose || "unknown",
           recommendedWeightProfile: intent.normalized?.recommended_weight_profile || "balanced",
+          buyerTemperatureScore: (intent as any).normalized?.buyer_temperature_score ?? (intent.source === 'magazine_auto_intent' ? 85 : undefined),
         },
       });
 

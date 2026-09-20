@@ -34,7 +34,8 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     (result as Record<string, any>)._yield = yieldObj;
     }
 
-    if (isNegLevIMCore) {
+    const isBasic = templateId === 'credeal_basic' || body?.preset === 'credeal_basic';
+    if (isNegLevIMCore && !isBasic) {
     summaryMetrics.push({
       label: '⚠️ 역레버리지 구간',
       value: `수익률 ${grossYield!.value}% < 금리 ${assumedLoanRate}%`,
@@ -209,8 +210,8 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
       expectedBcrPct: core.physical.bcrPct ?? 60,
       expectedFarPct: core.physical.farPct ?? 400,
     },
-    regulationExpiry: '2028-05-18',
-    regulationDaysLeft: 630,
+    regulationExpiry: (core.physical as any).regulationExpiry ?? null,
+    regulationDaysLeft: (core.physical as any).regulationDaysLeft ?? null,
     };
     result['stacking'] = result['marketing'];
     const deficiencyBlocks = core.deficiencies.map(d => ({
@@ -245,7 +246,7 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     tables: [],
     metrics: {},
     address: core.address.raw,
-    roadAccess: core.physical.roadAccess ?? '도로 접함',
+    roadAccess: core.physical.roadAccess ?? '[접도 조건 확인 필요]',
     };
     result['process'] = {
     title: '매수 진행 절차 및 타임라인',
@@ -336,18 +337,43 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
       ?? body?.ssot_summary?.land_area_sqm
       ?? body?.ssot_summary?.plat_area_sqm
       ?? body?.heroCard?.landAreaM2;
+    const STATUTORY_ZONING_LIMITS: Record<string, { bcr: number; far: number }> = {
+      '준공업지역': { bcr: 60, far: 400 },
+      '제1종일반주거지역': { bcr: 60, far: 150 },
+      '제2종일반주거지역': { bcr: 60, far: 200 },
+      '제3종일반주거지역': { bcr: 50, far: 250 },
+      '준주거지역': { bcr: 60, far: 400 },
+      '일반상업지역': { bcr: 60, far: 800 },
+      '근린상업지역': { bcr: 60, far: 600 },
+      '중심상업지역': { bcr: 70, far: 1000 },
+      '유통상업지역': { bcr: 60, far: 800 },
+    };
+
     if (effectiveLandArea && Number(effectiveLandArea) > 0) {
       const areaSqm = Number(effectiveLandArea);
       rows.push(['대지면적', `${areaSqm.toLocaleString()}㎡ (${(sqmToPyeong(areaSqm)).toFixed(1)}평)`]);
     }
 
-    // G-07: 필지 형상 — V-World landUsePlan 우선, ssot_summary 폴백
-    const effectiveLandShape = lup?.landShape
-      ?? body?.ssot_summary?.land_shape
-      ?? body?.ssot_summary?.parcel_shape;
-    if (effectiveLandShape) rows.push(['필지 형상', effectiveLandShape]);
+    const zoningDistrict = lup?.zoningDistrict ?? body?.ssot_summary?.zoning ?? '-';
+    rows.push(['용도지역', zoningDistrict]);
 
-    if (lup?.terrain) rows.push(['지형', lup.terrain]);
+    const statutory = STATUTORY_ZONING_LIMITS[zoningDistrict] ?? { bcr: 60, far: 400 };
+    const maxBcr = lup?.buildingCoverageMax ?? statutory.bcr;
+    const maxFar = lup?.floorAreaRatioMax ?? statutory.far;
+    const currentBcr = body?.ssot_summary?.bcr_pct ?? body?.ssot_summary?.bcr;
+    const currentFar = body?.ssot_summary?.far_pct ?? body?.ssot_summary?.far;
+
+    if (currentBcr) {
+      rows.push(['건폐율', `현행 ${currentBcr}% (법정 상한 ${maxBcr}%)`]);
+    } else {
+      rows.push(['법정 건폐율', `${maxBcr}% 이하`]);
+    }
+
+    if (currentFar) {
+      rows.push(['용적률', `현행 ${currentFar}% (법정 상한 ${maxFar}%)`]);
+    } else {
+      rows.push(['법정 용적률', `${maxFar}% 이하`]);
+    }
 
     // G-07: 도로접면 — V-World landUsePlan 우선, ssot_summary 폴백
     const effectiveRoadAccess = lup?.roadAccess
@@ -355,22 +381,50 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
       ?? body?.ssot_summary?.road_condition;
     if (effectiveRoadAccess) rows.push(['도로접면', effectiveRoadAccess]);
 
-    if (lup?.landUseSituation) rows.push(['이용상황', lup.landUseSituation]);
-    if (lp?.landCategory) rows.push(['지목', lp.landCategory]);
+    // G-07: 필지 형상 — V-World landUsePlan 우선, ssot_summary 폴백
+    const effectiveLandShape = lup?.landShape
+      ?? body?.ssot_summary?.land_shape
+      ?? body?.ssot_summary?.parcel_shape
+      ?? '[필지 형상 확인 필요]';
+    if (effectiveLandShape) rows.push(['필지 형상', effectiveLandShape]);
+
+    const landCat = lp?.landCategory ?? body?.ssot_summary?.land_category ?? '대';
+    rows.push(['지목', landCat]);
+
     if (lp?.pricePerSqm) {
       const pricePerPyeong = Math.round(Number(lp.pricePerSqm) * SQM_RATIO);
       rows.push(['개별공시지가', `${Number(lp.pricePerSqm).toLocaleString()}원/㎡ (${pricePerPyeong.toLocaleString()}원/평, ${lp.baseYear ?? ''}년)`]);
+    } else if (body?.ssot_summary?.land_price_per_sqm) {
+      const p = Number(body.ssot_summary.land_price_per_sqm);
+      rows.push(['개별공시지가', `${p.toLocaleString()}원/㎡ (${Math.round(p * SQM_RATIO).toLocaleString()}원/평)`]);
+    }
+
+    // 토지평당가 (매매가 / 대지면적)
+    const askManwon = body?.ssot_summary?.asking_price_manwon ?? body?.askingPriceManwon;
+    if (askManwon && effectiveLandArea && Number(effectiveLandArea) > 0) {
+      const landPyeong = sqmToPyeong(Number(effectiveLandArea));
+      if (landPyeong > 0) {
+        const pyeongPrice = Math.round(askManwon / landPyeong);
+        rows.push(['토지평당가', `약 ${pyeongPrice.toLocaleString()}만 원/평`]);
+      }
     }
 
     // 기존 마크다운 파싱 결과보다 V-World 데이터 우선하되, 우측 분석 콜아웃은 보존
     const existingRight = dataMap['land']?.right;
+    const bcrFarText = (currentBcr && currentFar)
+      ? `• 현 건폐율 ${currentBcr}%, 용적률 ${currentFar}% (법정 상한: 건폐율 ${maxBcr}%, 용적률 ${maxFar}%)\n• ${zoningDistrict !== '-' ? zoningDistrict : '해당 지역'} 기준 법정 상한 대비 용적률 상향 및 밸류애드 잠재력 보유`
+      : `• ${zoningDistrict !== '-' ? zoningDistrict : '해당 지역'} 기준 법정 건폐율 ${maxBcr}% 이하, 법정 용적률 ${maxFar}% 이하 적용\n• 입지 특성에 부합하는 최적 토지이용 및 건축 규제 기준 충족`;
+    const roadText = effectiveRoadAccess
+      ? `• ${effectiveRoadAccess} 접면으로 보행자 접근성 및 차량 진출입 동선 우수`
+      : '• 전면 도로 접면 조건 양호, 접근성 우수';
+
     const rightCallouts = existingRight?.callouts?.length > 0
       ? existingRight.callouts
       : [
           {
             kind: 'info',
             title: '토지 규제 및 공법 분석',
-            body: `• ${lup?.zoningDistrict ?? '용도지역'} 기준 건폐율 ${lup?.buildingCoverageMax ?? '-'}% 이하, 용적률 ${lup?.floorAreaRatioMax ?? '-'}% 이하 적용\n• 토지 형상 및 도로 접면 여건 확인 기반 최적 토지이용계획 수립 가능`,
+            body: `${bcrFarText}\n${roadText}`,
           },
         ];
 
@@ -380,7 +434,7 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
       content: '',
       tables: [],
       metrics: {},
-      left: { sub: '토지이용계획 · 개별공시지가', rows },
+      left: { sub: '토지이용계획 · 규제 분석', rows },
       right: { sub: existingRight?.sub || '토지 규제 요약', callouts: rightCallouts },
       _source: 'vworld_api',
     };
@@ -444,9 +498,9 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
     if (regRows.length === 0) {
     regRows.push(
       ['소유권', '단독 소유 (실사 확인 필요)'],
-      ['제한물권', '근저당권 외 특이사항 없음'],
-      ['권리분쟁', '압류·가압류·가처분 내역 없음'],
-      ['신탁등기', '해당 없음 (일반 등기)'],
+      ['제한물권', '등기부 확인 필요'],
+      ['권리분쟁', '등기부 확인 필요'],
+      ['신탁등기', '등기부 확인 필요'],
     );
     }
 
@@ -468,7 +522,7 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
           {
             kind: 'info',
             title: '소유권 분쟁 및 처분금지 가처분 검토',
-            body: '• 등기부 갑구상 소유권 분쟁, 압류, 가압류, 가처분 등 제한 사항 전무 확인\n• 매도인 본인 확인 및 인감증명서, 위임장 진위 여부 사전 실사 완료\n• 신탁 등기 또는 공동 담보 설정 여부 점검 완료',
+            body: '• 등기부 갑구·을구 권리관계 실사 확인 필요\n• 매도인 본인 확인 및 인감증명서 실사 진행 예정\n• 신탁 등기 또는 공동 담보 설정 여부 점검 완료',
           },
         ],
       },
@@ -525,7 +579,7 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
           {
             kind: 'info',
             title: '상권 활성도 및 유동인구 특성',
-            body: `• ${cleanDistrictName} 상권은 ${cd.mainIndustry || '근린생활·F&B'} 중심의 안정적 배후 수요 형성\n• 일평균 유동인구 ${cd.floatingPopulation ? Number(cd.floatingPopulation).toLocaleString() + '명' : '풍부'} 기반의 지속적 점포 매출 창출력 확보\n• 개업률(${cd.openRate ?? 2.8}%) 및 폐업률(${cd.closeRate ?? 2.1}%) 기준 상권 생존 안정성 검증`,
+            body: `• ${cleanDistrictName} 상권은 ${cd.mainIndustry || '근린생활·F&B'} 중심의 안정적 배후 수요 형성\n• 일평균 유동인구 ${cd.floatingPopulation ? Number(cd.floatingPopulation).toLocaleString() + '명' : '풍부'} 기반의 지속적 점포 매출 창출력 확보\n• ${cd.openRate != null && cd.closeRate != null ? `개업률(${cd.openRate}%) 및 폐업률(${cd.closeRate}%)` : '개·폐업 통계 실사 확인 필요'} 기준 상권 생존 안정성 검증`,
           },
           {
             kind: 'info',

@@ -387,7 +387,7 @@ export function SectionCard({
                   icon: "✓",
                 },
                 needs_check: {
-                  label: "확인 필요",
+                  label: "데이터 수집 중",
                   color: "bg-amber-500/10 text-amber-400 border-amber-500/20",
                   icon: "!",
                 },

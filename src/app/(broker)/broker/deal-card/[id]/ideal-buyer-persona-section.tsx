@@ -113,12 +113,47 @@ export function IdealBuyerPersonaSection({
           fitSummary: fitSummary || "분석 중",
           cautionSummary: cautionSummary || "특이사항 없음",
           curiosityScore: curiosityScore ?? 50,
+          isAsync: true,
         }),
       });
 
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json.error || "페르소나 생성에 실패했습니다.");
+      }
+
+      if (json.isAsync && json.jobId) {
+        let attempts = 0;
+        const maxAttempts = 45; // 90초 최대 대기
+        let completedData = null;
+
+        while (attempts < maxAttempts) {
+          await new Promise((r) => setTimeout(r, 2000));
+          attempts++;
+
+          try {
+            const jobRes = await fetch(`/api/broker/jobs/${json.jobId}`);
+            if (jobRes.ok) {
+              const jobJson = await jobRes.json();
+              if (jobJson.job?.status === "completed") {
+                completedData = jobJson.job.output_ref;
+                break;
+              } else if (jobJson.job?.status === "failed") {
+                throw new Error(jobJson.job?.error || "페르소나 생성에 실패했습니다.");
+              }
+            }
+          } catch (jobErr: any) {
+            if (jobErr.message && jobErr.message.includes("페르소나 생성")) {
+              throw jobErr;
+            }
+          }
+        }
+
+        if (!completedData) {
+          throw new Error("AI 처리 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.");
+        }
+
+        json.data = completedData;
       }
 
       setPersonas(json.data);

@@ -8,7 +8,7 @@
  * 좌표계: EPSG:3857 (Web Mercator)
  */
 
-import { getVWorldApiKey, getVWorldReferer } from './vworld-config';
+import { getVWorldApiKey, getVWorldReferer, getVWorldDomain } from './vworld-config';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('vworld-wms-cadastral');
@@ -36,21 +36,38 @@ async function fetchParcelPolygon(
 ): Promise<Array<[number, number][]> | null> {
   try {
     const referer = getVWorldReferer();
-    const url = `https://api.vworld.kr/req/data?service=data&request=GetFeature` +
-      `&data=LP_PA_CBND_BUBUN&key=${apiKey}&domain=${encodeURIComponent(referer)}` +
+    // PNU 부번이 0000이면 본번 필지 → BONBUN 레이어 우선
+    const isBonbun = pnu.length >= 19 && pnu.slice(15) === '0000';
+    const primaryLayer = isBonbun ? 'LP_PA_CBND_BONBUN' : 'LP_PA_CBND_BUBUN';
+    const fallbackLayer = isBonbun ? 'LP_PA_CBND_BUBUN' : 'LP_PA_CBND_BONBUN';
+
+    const buildUrl = (layer: string) => `https://api.vworld.kr/req/data?service=data&request=GetFeature` +
+      `&data=${layer}&key=${apiKey}&domain=${encodeURIComponent(getVWorldDomain())}` +
       `&format=json&geometry=true&attribute=true&crs=EPSG:4326` +
       `&attrFilter=pnu:=:${pnu}`;
 
-    const res = await fetch(url, {
+    let res = await fetch(buildUrl(primaryLayer), {
       headers: { 'Referer': referer },
       signal: AbortSignal.timeout(8_000),
     });
+    
+    let json = res.ok ? await res.json() : null;
+    let features = json?.response?.result?.featureCollection?.features;
+
+    if (!features || features.length === 0) {
+      res = await fetch(buildUrl(fallbackLayer), {
+        headers: { 'Referer': referer },
+        signal: AbortSignal.timeout(8_000),
+      });
+      json = res.ok ? await res.json() : null;
+      features = json?.response?.result?.featureCollection?.features;
+    }
+
     if (!res.ok) {
       log.warn(`[vworld-wfs] Data API 오류 (${res.status})`);
       return null;
     }
-    const json = await res.json();
-    const features = json?.response?.result?.featureCollection?.features;
+
     if (!features || features.length === 0) {
       log.warn(`[vworld-wfs] PNU ${pnu}에 해당하는 필지 없음`);
       return null;
@@ -62,10 +79,14 @@ async function fetchParcelPolygon(
       const geom = feature.geometry;
       if (!geom) continue;
       if (geom.type === 'Polygon') {
-        rings.push(geom.coordinates[0]); // 외곽 링
+        if (Array.isArray(geom.coordinates?.[0]) && geom.coordinates[0].length >= 3) {
+          rings.push(geom.coordinates[0]);
+        }
       } else if (geom.type === 'MultiPolygon') {
         for (const poly of geom.coordinates) {
-          rings.push(poly[0]);
+          if (Array.isArray(poly?.[0]) && poly[0].length >= 3) {
+            rings.push(poly[0]);
+          }
         }
       }
     }
@@ -85,8 +106,10 @@ function buildPolygonSvgOverlay(
   rings: Array<[number, number][]>,
   bboxEpsg3857: { minX: number; minY: number; maxX: number; maxY: number },
   imgW: number, imgH: number,
+  markerLabel = '★ 본건',
 ): Buffer | null {
   try {
+    log.info(`[vworld-wfs] SVG 오버레이 생성: ${rings.length}개 링, bbox=(${bboxEpsg3857.minX.toFixed(0)},${bboxEpsg3857.minY.toFixed(0)})-(${bboxEpsg3857.maxX.toFixed(0)},${bboxEpsg3857.maxY.toFixed(0)}), img=${imgW}×${imgH}, label=${markerLabel}`);
     const { minX, minY, maxX, maxY } = bboxEpsg3857;
     const polygonPaths: string[] = [];
 
@@ -97,8 +120,36 @@ function buildPolygonSvgOverlay(
         const py = ((maxY - y) / (maxY - minY)) * imgH; // y축 반전
         return `${px.toFixed(1)},${py.toFixed(1)}`;
       }).join(' ');
-      polygonPaths.push(`<polygon points="${points}" fill="rgba(184, 134, 11, 0.30)" stroke="#B8860B" stroke-width="3" stroke-linejoin="round" />`);
+
+      // 1. 외곽 흰색 테두리 (가시성 확보용)
+      polygonPaths.push(`<polygon points="${points}" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linejoin="round" />`);
+      // 2. 고대비 적색 테두리 + 반투명 적색 채우기
+      polygonPaths.push(`<polygon points="${points}" fill="rgba(220, 38, 38, 0.22)" stroke="#DC2626" stroke-width="3.5" stroke-linejoin="round" />`);
     }
+
+    // 3. 필지 중심 마커 — 폴리곤 링 정점들의 기하학적 중심(Centroid) 계산
+    let sumPx = 0, sumPy = 0, ptCount = 0;
+    for (const ring of rings) {
+      for (const [lng, lat] of ring) {
+        const { x, y } = toEpsg3857(lat, lng);
+        const px = ((x - minX) / (maxX - minX)) * imgW;
+        const py = ((maxY - y) / (maxY - minY)) * imgH;
+        sumPx += px;
+        sumPy += py;
+        ptCount++;
+      }
+    }
+    const cx = ptCount > 0 ? Number((sumPx / ptCount).toFixed(1)) : Number((imgW / 2).toFixed(1));
+    const cy = ptCount > 0 ? Number((sumPy / ptCount).toFixed(1)) : Number((imgH / 2).toFixed(1));
+    const tagW = Math.max(52, markerLabel.length * 9 + 16);
+    polygonPaths.push(`
+      <g>
+        <circle cx="${cx}" cy="${cy - 8}" r="13" fill="#DC2626" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="${cx}" y="${cy - 3}" font-size="12" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">★</text>
+        <rect x="${cx - tagW / 2}" y="${cy + 8}" width="${tagW}" height="18" rx="4" fill="#DC2626" stroke="#FFFFFF" stroke-width="1" />
+        <text x="${cx}" y="${cy + 21}" font-size="9.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">${markerLabel}</text>
+      </g>
+    `);
 
     const svg = `<svg width="${imgW}" height="${imgH}" viewBox="0 0 ${imgW} ${imgH}" xmlns="http://www.w3.org/2000/svg">${polygonPaths.join('')}</svg>`;
     return Buffer.from(svg);
@@ -237,6 +288,7 @@ async function fetchBaseMapTile(
  * @param h - 이미지 높이 (px), 기본 600
  * @param radiusM - 중심으로부터 표시 범위 (미터), 기본 150
  * @param targetPnu - G-08: 하이라이트할 대상 필지 PNU (19자리). 생략 시 하이라이트 없음.
+ * @param additionalPnus - 다필지 매물의 추가 PNU 목록 (선택)
  */
 export async function fetchCadastralMapImage(
   lat: number,
@@ -245,6 +297,7 @@ export async function fetchCadastralMapImage(
   h = 600,
   radiusM = 150,
   targetPnu?: string,
+  additionalPnus?: string[],
 ): Promise<CadastralMapResult | null> {
   const apiKey = getVWorldApiKey();
   if (!apiKey) {
@@ -258,14 +311,19 @@ export async function fetchCadastralMapImage(
   }
 
   try {
+    const allPnus = [targetPnu, ...(additionalPnus || [])].filter((p): p is string => Boolean(p && p.trim()));
+    // 다필지 매물일 경우 인접 필지가 프레임 내에 모두 노출되도록 반경 자동 보정
+    const effectiveRadiusM = allPnus.length > 1 ? Math.max(radiusM, 280) : radiusM;
+
     // ── WGS84 → EPSG:3857 변환 ──
     const center = toEpsg3857(lat, lng);
 
-    // radiusM → 3857 단위 근사 (한국 위도 33~38°에서 충분히 정밀)
+    // effectiveRadiusM → 3857 단위 근사 (한국 위도 33~38°에서 충분히 정밀)
     const cosLat = Math.cos(lat * Math.PI / 180);
     const meterToUnit = 1 / cosLat;
-    const dx = radiusM * meterToUnit;
-    const dy = radiusM * meterToUnit;
+    const aspect = w / h;  // image aspect ratio (e.g., 4:3)
+    const dy = effectiveRadiusM * meterToUnit;
+    const dx = dy * aspect;  // scale X by aspect ratio to match image dimensions
 
     const bbox = [
       Math.round(center.x - dx),
@@ -278,10 +336,10 @@ export async function fetchCadastralMapImage(
     const mPerDegLng = 111320 * cosLat;
     const mPerDegLat = 111320;
     const bboxWgs84: [number, number, number, number] = [
-      lng - radiusM / mPerDegLng,
-      lat - radiusM / mPerDegLat,
-      lng + radiusM / mPerDegLng,
-      lat + radiusM / mPerDegLat,
+      lng - effectiveRadiusM / mPerDegLng,
+      lat - effectiveRadiusM / mPerDegLat,
+      lng + effectiveRadiusM / mPerDegLng,
+      lat + effectiveRadiusM / mPerDegLat,
     ];
 
     // ── WMS GetMap 요청 (지적도 투명 PNG) ──
@@ -298,7 +356,7 @@ export async function fetchCadastralMapImage(
       FORMAT: 'image/png',
       TRANSPARENT: 'TRUE',
       KEY: apiKey,
-      DOMAIN: getVWorldReferer(),
+      DOMAIN: getVWorldDomain(),
     });
 
     const url = `https://api.vworld.kr/req/wms?${params.toString()}`;
@@ -338,21 +396,36 @@ export async function fetchCadastralMapImage(
 
     if (sharp) {
       // 배경 타일 가져오기 (실패 시 연한 크림색 폴백)
-      const baseTile = await fetchBaseMapTile(lat, lng, w, h, radiusM);
+      const baseTile = await fetchBaseMapTile(lat, lng, w, h, effectiveRadiusM);
 
       // 합성 레이어: 지적도 WMS + (선택) 필지 폴리곤 하이라이트
       const compositeLayers: Array<{ input: Buffer; blend: string }> = [
         { input: cadastralBuffer, blend: 'over' },
       ];
 
-      // G-08: 대상 필지 폴리곤 하이라이트 오버레이
-      if (targetPnu) {
-        const rings = await fetchParcelPolygon(targetPnu, apiKey);
-        if (rings) {
-          const svgBuf = buildPolygonSvgOverlay(rings, bboxEpsg3857, w, h);
+      // G-08: 대상 필지 폴리곤 하이라이트 오버레이 (다필지 지원)
+      if (allPnus.length > 0) {
+        const allRings: Array<[number, number][]> = [];
+        const results = await Promise.allSettled(
+          allPnus.map(pnu => fetchParcelPolygon(pnu, apiKey))
+        );
+        for (let i = 0; i < results.length; i++) {
+          const result = results[i];
+          const pnu = allPnus[i];
+          if (result.status === 'fulfilled' && result.value && result.value.length > 0) {
+            allRings.push(...result.value);
+            log.info(`[vworld-wfs] ✅ PNU ${pnu} 필지 폴리곤 취득 (${result.value.length}개 링)`);
+          } else {
+            log.warn(`[vworld-wfs] PNU ${pnu} 필지 폴리곤 조회 결과 없음`);
+          }
+        }
+        if (allRings.length > 0) {
+          const isMulti = allPnus.length > 1;
+          const markerLabel = isMulti ? `★ 본건 (${allPnus.length}필지)` : '★ 본건';
+          const svgBuf = buildPolygonSvgOverlay(allRings, bboxEpsg3857, w, h, markerLabel);
           if (svgBuf) {
             compositeLayers.push({ input: svgBuf, blend: 'over' });
-            log.info(`[vworld-wfs] ✅ PNU ${targetPnu} 필지 하이라이트 오버레이 추가`);
+            log.info(`[vworld-wfs] ✅ 총 ${allRings.length}개 필지 링 오버레이 추가 (${markerLabel})`);
           }
         }
       }

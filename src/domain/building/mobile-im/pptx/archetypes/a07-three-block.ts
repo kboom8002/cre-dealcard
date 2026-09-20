@@ -133,8 +133,8 @@ export function buildA07ThreeBlock(input: ArchetypeInput): ArchetypeOutput {
             fontFace: KR,
             breakLine: true,
             indentLevel: 0,
-            lineSpacingMultiple: 1.25,
-            paraSpaceBefore: lineIdx > 0 ? 6 : 0,
+            lineSpacingMultiple: 1.15,
+            paraSpaceBefore: lineIdx > 0 ? 4 : 0,
             margin: [0, 0, 0, 0] as [number, number, number, number],
           },
         };

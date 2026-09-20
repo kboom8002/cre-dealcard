@@ -47,4 +47,10 @@
 - PPTX 렌더링 테스트는 CPU 집약적이며 전체 스위트 실행 시 리소스 경합으로 지연됩니다.
 - 단일 PPTX 렌더: `30_000ms`, 5개 포스처 동시 렌더: `60_000ms` 이상 명시적 타임아웃을 설정합니다.
 - vitest의 기본 타임아웃(5s)에 의존하지 않습니다.
+
+### 26. Supabase PromiseLike 패턴 (Supabase PromiseLike Convention)
+- Supabase의 `.from().select()/update()/insert()` 체인은 `PromiseLike`를 반환하며 `.catch()`를 지원하지 않습니다.
+- **금지:** `.then().catch(errHandler)`
+- **허용:** `.then(() => {}, errHandler)` 또는 `void supabase.from(...).then()`
+- **위반 사례**: `im-pro/[grantId]/route.ts`에서 `.then().catch()` 사용 → `TS2339: Property 'catch' does not exist on type 'PromiseLike<...>'` 빌드 실패.
 <!-- END:cre-prod-web-rules -->

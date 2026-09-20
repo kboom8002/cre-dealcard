@@ -28,9 +28,9 @@ export function buildA11RoomSpec(input: ArchetypeInput): ArchetypeOutput {
   let tableEnd = 1.98;
   if (input.data.roomTypes && input.data.roomTypes.length > 0) {
     const colCount = input.data.roomTypes[0].length || 1;
-    const colW = Array(colCount).fill(7.10 / colCount);
+    const colW = colCount === 2 ? [2.20, 4.90] : Array(colCount).fill(7.10 / colCount);
     const headRow = input.data.roomTypes[0].map((c: any) => String(c?.text ?? c ?? ''));
-    const bodyRows = input.data.roomTypes.slice(1);
+    const bodyRows = input.data.roomTypes.slice(1, 12);
     tableEnd = L.table(slide, M, 1.98, 7.10, headRow, bodyRows, colW, { rh: 0.33, bfs: 10, hfs: 10 });
   }
   if (input.data.note) L.note(slide, M, tableEnd + 0.07, 7.10, input.data.note);
@@ -38,12 +38,7 @@ export function buildA11RoomSpec(input: ArchetypeInput): ArchetypeOutput {
   const rx = 8.08;
   const rw = 4.63;
   // stats (D38: 유령 사각형 방지 — 라벨 및 수치 텍스트 바인딩)
-  const stats = input.data.stats || [
-    { label: '총 객실 수', value: input.data.totalRooms ?? '28', unit: '실' },
-    { label: '평균 전용면적', value: input.data.avgRoomArea ?? '7.2', unit: '평' },
-    { label: '평균 가동률(OCC)', value: input.data.occupancyRate ?? '88.5', unit: '%' },
-    { label: '객실당 단가(ADR)', value: input.data.adr ?? '14.5', unit: '만원' },
-  ];
+  const stats = input.data.stats || [];
   const statPos = [
     { x: rx, y: 1.98, w: 2.24, h: 1.06 },
     { x: rx + 2.24 + 0.15, y: 1.98, w: 2.24, h: 1.06 },
@@ -62,7 +57,7 @@ export function buildA11RoomSpec(input: ArchetypeInput): ArchetypeOutput {
     slide.addText(input.data.violationNote, { x: rx + 0.2, y: 4.55, w: rw - 0.4, h: 1.5, fontFace: KR, fontSize: 10.5, color: C.ink });
   } else {
     L.callout(slide, rx, 4.40, rw, 2.0, 'info', '운영사 및 룸 타입 구성 특징',
-      input.data.calloutBody || '• 전 객실 독립 배관 및 개별 냉난방 완비로 쾌적한 주거/숙박 환경 제공\n• 1층 F&B 및 커뮤니티 라운지 연계를 통한 부가 수익 극대화 구조\n• 장단기 투숙객 비율 최적화(7:3)를 통한 비수기 하방 경직성 확보');
+      input.data.calloutBody || '');
   }
   
   if (input.watermarkText) L.watermark(slide, input.watermarkText, false);

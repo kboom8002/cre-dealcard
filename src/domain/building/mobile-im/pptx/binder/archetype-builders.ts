@@ -198,12 +198,12 @@ export function buildA17Props(markdown: string, tables: ParsedTable[], lines: st
     const enrichment = body?.enrichment || {};
     const landPlan = enrichment?.landUsePlan || {};
     const platAreaM2 = heroCard.landAreaM2 || enrichment?.buildingRegister?.platArea || 0;
-    const platAreaPyeong = platAreaM2 ? (sqmToPyeong(platAreaM2)).toFixed(1) : (body?.landAreaPyeong ? String(body.landAreaPyeong) : '160.0');
+    const platAreaPyeong = platAreaM2 ? (sqmToPyeong(platAreaM2)).toFixed(1) : (body?.landAreaPyeong ? String(body.landAreaPyeong) : '0');
     const grossAreaM2 = heroCard.grossFloorAreaM2 || enrichment?.buildingRegister?.totalArea || 0;
-    const grossAreaPyeong = grossAreaM2 ? (sqmToPyeong(grossAreaM2)).toFixed(1) : '480.0';
+    const grossAreaPyeong = grossAreaM2 ? (sqmToPyeong(grossAreaM2)).toFixed(1) : '0';
     const bcrPct = landPlan.buildingCoverageMax || 50;
     const farPct = landPlan.floorAreaRatioMax || 250;
-    const costBil = body?.constructionCostBil || 56.4;
+    const costBil = body?.constructionCostBil || 0;
     const devMetrics = {
             landAreaPyeong: platAreaPyeong,
             targetGrossAreaPyeong: grossAreaPyeong,
@@ -887,7 +887,7 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
             ? `${(Number(ssotAskManwon) / 10000).toLocaleString()}억 원`
             : (heroCard.askingPrice ?? heroCard.askingPriceDisplay);
     let summaryYield: Yield | null = null;
-    const isBasicIM = body?.preset === 'credeal_basic' || body?.heroCard?.preset === 'credeal_basic';
+    const isBasicIM = body?.preset === 'credeal_basic' || body?.heroCard?.preset === 'credeal_basic' || body?.templateId === 'credeal_basic';
     if (posture === 'income' && isBasicIM) {
     // basic-im-guide.md §2 #2: 핵심 숫자 스탯 6개
     if (askPrice) metrics.push({ label: '매매 희망가', value: String(askPrice) });
@@ -910,9 +910,12 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
     const yieldObj = buildYieldFromHeroCard(heroCard);
     if (yieldObj) {
       summaryYield = yieldObj;
-      metrics.push({ label: yieldLabel(yieldObj), value: `${yieldObj.value}%` });
+      metrics.push({ label: '연 수익률(Cap Rate)', value: `${yieldObj.value}%` });
     }
-    const vacInfo = heroCard.vacancyDisplay ?? ssotB.vacancy_signal;
+    const hasAnyVacant = Array.isArray(body?.floor_leases) && body.floor_leases.some((fl: any) => fl.is_vacant || String(fl.tenant_type || '').includes('공실'));
+    const vacInfo = (heroCard.vacancyDisplay && heroCard.vacancyDisplay !== '확인 중')
+      ? heroCard.vacancyDisplay
+      : (ssotB.vacancy_signal ?? (Array.isArray(body?.floor_leases) && !hasAnyVacant ? '만실 운영 (공실 0%)' : '만실 운영'));
     if (vacInfo) metrics.push({ label: '공실 현황', value: vacInfo });
     // 보충: 6개 미만이면 실투자금 추가
     if (metrics.length < 6 && heroCard.equityRequiredBil) {
@@ -927,9 +930,9 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
       summaryYield = yieldObj;
       metrics.push({ label: yieldLabel(yieldObj), value: `${yieldObj.value}%` });
     }
-    // BL-4: 역레버리지 감지 — capRate < 조달금리(4.5% 기본)이면 ROE 단독 표시 금지
+    // BL-4: 역레버리지 감지 — capRate < 조달금리(4.5% 기본)이면 ROE 단독 표시 금지 (Basic IM은 제외)
     const assumedLoanRate = heroCard.loanRatePct ?? 4.5;
-    const isNegativeLeverage = heroCard.capRateBase && heroCard.capRateBase < assumedLoanRate;
+    const isNegativeLeverage = !isBasicIM && heroCard.capRateBase && heroCard.capRateBase < assumedLoanRate;
     if (heroCard.leveragedYieldPct && !isNegativeLeverage) {
       metrics.push({ label: '자기자본수익률', value: `${heroCard.leveragedYieldPct}%` });
     } else if (isNegativeLeverage) {
@@ -1164,7 +1167,9 @@ export function buildA16Props(markdown: string, tables: ParsedTable[], body?: Re
     if (pMatch) priceWon = parseFloat(pMatch[1].replace(/,/g, '')) * 1e8;
     }
 
-    if (priceWon <= 0) priceWon = 100 * 1e8;
+    if (priceWon <= 0) {
+      console.warn('[archetype-builders] 매매 희망가 미확인 — 투자구조 슬라이드 억제');
+    }
     let depositWon = 0;
     if (body?.total_deposit_krw) {
     depositWon = Number(body.total_deposit_krw);
@@ -1182,7 +1187,7 @@ export function buildA16Props(markdown: string, tables: ParsedTable[], body?: Re
       depositWon = depMatch[0].includes('억') ? val * 1e8 : val * 10000;
     } else {
       // 일반적인 근생 보증금 (매매가의 약 5%)
-      depositWon = Math.round(priceWon * 0.05);
+      depositWon = 0; // 보증금 정보 미확인
     }
     }
 
@@ -1201,7 +1206,7 @@ export function buildA16Props(markdown: string, tables: ParsedTable[], body?: Re
       const val = parseFloat(rentMatch[1].replace(/,/g, ''));
       monthlyRentWon = rentMatch[0].includes('억') ? val * 1e8 : val * 10000;
     } else {
-      monthlyRentWon = Math.round(priceWon * 0.038 / 12);
+      monthlyRentWon = 0; // 임대료 정보 미확인
     }
     }
 
@@ -1222,6 +1227,7 @@ export function buildA16Props(markdown: string, tables: ParsedTable[], body?: Re
     const loan = Math.round(priceWon * standardLoanRate);
     const equity = Math.max(0, totalAcquisitionCost - depositWon - loan);
     const loanInterestRate = (loanScenario?.interest_pct ?? 4.8) / 100;
+    const isAssumedRate = !loanScenario?.interest_pct;
     const ltvPctList = [0, 40, 50, 60];
     const ltvScenarios = ltvPctList.map(ltv => {
             const scLoan = Math.round(priceWon * (ltv / 100));

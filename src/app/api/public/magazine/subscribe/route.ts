@@ -19,6 +19,9 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceClient();
     
+    const validSources = ['magazine', 'manual', 'vibe_card', 'im'];
+    const safeSource = validSources.includes(source) ? source : 'magazine';
+
     // upsert subscriber details
     const { error } = await supabase.from('magazine_subscribers').upsert({
       broker_id,
@@ -26,7 +29,7 @@ export async function POST(req: NextRequest) {
       subscriber_email: email ?? null,
       subscriber_name: name ?? null,
       channel: channel || 'kakao',
-      source: source || 'magazine',
+      source: safeSource,
       status: 'active',
       subscribed_at: new Date().toISOString(),
     }, { onConflict: 'broker_id,subscriber_phone' });

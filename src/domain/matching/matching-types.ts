@@ -46,6 +46,7 @@ export interface MatchInput {
     riskTolerance: string;
     inferredPurpose?: string;
     recommendedWeightProfile?: string;
+    buyerTemperatureScore?: number;
   };
 }
 

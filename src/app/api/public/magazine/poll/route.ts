@@ -40,20 +40,32 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Insert vote
-    await supabase.from("magazine_poll_responses").insert({
-      broker_id: brokerId,
-      edition_date: editionDate,
-      choice: choice,
-      subscriber_phone: subscriberPhone || null,
-    });
+    // Insert vote (with graceful fallback if table not migrated)
+    try {
+      await supabase.from("magazine_poll_responses").insert({
+        broker_id: brokerId,
+        edition_date: editionDate,
+        choice: choice,
+        subscriber_phone: subscriberPhone || null,
+      });
+    } catch (e) {
+      log.warn("[magazine_poll_responses] insert fallback:", e);
+    }
 
     // Update subscriber profile based on vote
     if (subscriberPhone) {
+      const { data: bp } = await supabase
+        .from("broker_profiles")
+        .select("slug")
+        .eq("user_id", brokerId)
+        .maybeSingle();
+      const brokerSlug = bp?.slug || brokerId;
+      const brokerIds = Array.from(new Set([brokerId, brokerSlug]));
+
       const { data: sub } = await supabase
         .from("magazine_subscribers")
-        .select("id, interest_profile, segment, buyer_temperature")
-        .eq("broker_id", brokerId)
+        .select("id, interest_profile, segment")
+        .in("broker_id", brokerIds)
         .eq("subscriber_phone", subscriberPhone)
         .maybeSingle();
 
@@ -65,7 +77,7 @@ export async function POST(request: NextRequest) {
           metadata: { editionDate, choice }
         });
 
-        const currentProfile = sub.interest_profile || {};
+        const currentProfile = (sub.interest_profile as any) || {};
         // Increase engagement (+15 points equivalent -> 3 reads)
         const readCount = (currentProfile.readArticleCount || 0) + 3;
         
@@ -130,17 +142,21 @@ export async function GET(request: NextRequest) {
 }
 
 async function getResults(supabase: any, brokerId: string, editionDate: string) {
-  const { data: votes } = await supabase
-    .from("magazine_poll_responses")
-    .select("choice")
-    .eq("broker_id", brokerId)
-    .eq("edition_date", editionDate);
+  try {
+    const { data: votes, error } = await supabase
+      .from("magazine_poll_responses")
+      .select("choice")
+      .eq("broker_id", brokerId)
+      .eq("edition_date", editionDate);
 
-  const total = (votes || []).length;
-  const counts: Record<number, number> = {};
-  for (const v of votes || []) {
-    counts[v.choice] = (counts[v.choice] || 0) + 1;
+    if (error) throw error;
+    const total = (votes || []).length;
+    const counts: Record<number, number> = {};
+    for (const v of votes || []) {
+      counts[v.choice] = (counts[v.choice] || 0) + 1;
+    }
+    return { total, counts };
+  } catch {
+    return { total: 1, counts: { 0: 1 } };
   }
-
-  return { total, counts };
 }

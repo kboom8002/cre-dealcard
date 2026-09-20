@@ -34,7 +34,8 @@ export async function searchNaverNews(query: string, display: number = 10): Prom
         "X-Naver-Client-Id": clientId,
         "X-Naver-Client-Secret": clientSecret,
       },
-      next: { revalidate: 3600 } // Cache for 1 hour
+      next: { revalidate: 3600 }, // Cache for 1 hour
+      signal: AbortSignal.timeout(10000)
     });
 
     if (!res.ok) {
@@ -42,12 +43,25 @@ export async function searchNaverNews(query: string, display: number = 10): Prom
     }
 
     const data = (await res.json()) as NaverSearchResponse;
+    if (!data.items) return [];
     
     // 네이버 API는 검색어 하이라이트를 <b> 태그로 반환하므로 제거
+    function cleanHtml(text: string): string {
+      return text
+        .replace(/<[^>]*>?/gm, '')
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&#39;|&apos;/g, "'")
+        .replace(/&nbsp;/g, ' ')
+        .trim();
+    }
+    
     return data.items.map(item => ({
       ...item,
-      title: item.title.replace(/<[^>]*>?/gm, ''),
-      description: item.description.replace(/<[^>]*>?/gm, '')
+      title: cleanHtml(item.title),
+      description: cleanHtml(item.description)
     }));
   } catch (error) {
     log.error("Failed to fetch Naver News", error, { query });

@@ -38,11 +38,16 @@ export interface AutoIntent {
 /**
  * Computes an engagement score from subscriber activity.
  */
-export function computeEngagementScore(profile: InterestProfile): number {
+export function computeEngagementScore(profile: Partial<InterestProfile>): number {
+  if (!profile || typeof profile !== 'object') return 0;
   let score = 0;
-  score += Math.min(profile.readArticleCount * 5, 50);
-  score += profile.assetTypes.length * 10;
-  score += profile.regions.length * 5;
+  const readCount = profile.readArticleCount || 0;
+  const assetTypes = Array.isArray(profile.assetTypes) ? profile.assetTypes : [];
+  const regions = Array.isArray(profile.regions) ? profile.regions : [];
+
+  score += Math.min(readCount * 5, 50);
+  score += assetTypes.length * 10;
+  score += regions.length * 5;
 
   const daysSinceLastEngagement = profile.lastEngagedAt
     ? Math.max(0, (Date.now() - new Date(profile.lastEngagedAt).getTime()) / 86400000)
@@ -56,16 +61,20 @@ export function computeEngagementScore(profile: InterestProfile): number {
 /**
  * Generates automatic buyer intent drafts from reading patterns.
  */
-export function generateAutoIntents(profile: InterestProfile): AutoIntent[] {
+export function generateAutoIntents(profile: Partial<InterestProfile>): AutoIntent[] {
   const intents: AutoIntent[] = [];
+  const assetTypes = Array.isArray(profile?.assetTypes) ? profile.assetTypes : [];
+  const regions = Array.isArray(profile?.regions) ? profile.regions : [];
+  const budgetRange = profile?.budgetRange || { min: 3000000000, max: 10000000000 };
+  const readArticleCount = profile?.readArticleCount || 0;
 
-  for (const assetType of profile.assetTypes) {
-    for (const region of profile.regions.slice(0, 2)) {
+  for (const assetType of assetTypes) {
+    for (const region of regions.slice(0, 2)) {
       intents.push({
         assetType,
         region,
-        budgetKrw: Math.round((profile.budgetRange.min + profile.budgetRange.max) / 2),
-        confidence: profile.readArticleCount > 5 ? 0.8 : 0.5,
+        budgetKrw: Math.round((budgetRange.min + budgetRange.max) / 2),
+        confidence: readArticleCount > 5 ? 0.8 : 0.5,
         source: 'reading_pattern',
       });
     }

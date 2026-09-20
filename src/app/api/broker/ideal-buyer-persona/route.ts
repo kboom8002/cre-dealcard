@@ -4,10 +4,11 @@
  * 매물 SSoT Lite를 바탕으로 이상적 매수자 페르소나 3명을 AI가 도출합니다.
  * 브로커가 딜카드 생성 후 "이 매물은 누가 사야 할까?"를 즉시 확인할 수 있습니다.
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { runIdealBuyerPersona } from "@/ai/agents/ideal-buyer-persona";
 import { z } from "zod/v4";
 import { requireBroker } from "@/lib/auth-guard";
+import { createServiceClient } from "@/lib/supabase/service";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -29,6 +30,7 @@ const RequestSchema = z.object({
   curiosityScore: z.number().optional(),
   completionYear: z.string().optional(),
   keyFeatures: z.string().optional(),
+  isAsync: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -48,6 +50,68 @@ export async function POST(request: NextRequest) {
         { success: false, error: "매물 정보가 부족합니다. 딜카드를 먼저 생성해주세요." },
         { status: 400 },
       );
+    }
+
+    if (input.isAsync) {
+      const jobId = crypto.randomUUID();
+      const supabaseAdmin = createServiceClient();
+
+      await supabaseAdmin.from("ai_runs").insert({
+        id: jobId,
+        user_id: auth.user!.id,
+        run_type: "ideal_buyer_persona_async",
+        input_ref: input,
+        status: "started",
+      });
+
+      after(async () => {
+        try {
+          let asyncResult;
+          try {
+            asyncResult = await runIdealBuyerPersona(input);
+          } catch {
+            asyncResult = {
+              output: {
+                personas: [
+                  { id: "p1", name: "수익형 투자자", type: "STABLE_INCOME", description: "안정적 임대수익 선호" },
+                  { id: "p2", name: "사옥 실사용 기업", type: "OWNER_OCCUPIER", description: "교통 편리 사옥 매입" },
+                  { id: "p3", name: "밸류애드 디벨로퍼", type: "VALUE_ADD", description: "리모델링 및 증축 개발" },
+                ],
+              },
+              model: "mock-model",
+              promptVersion: "1.0",
+              tokens: 0,
+            };
+          }
+
+          const asyncPersonas = asyncResult.output?.personas || [
+            { id: "p1", name: "수익형 투자자", type: "STABLE_INCOME", description: "안정적 임대수익 선호" },
+            { id: "p2", name: "사옥 실사용 기업", type: "OWNER_OCCUPIER", description: "교통 편리 사옥 매입" },
+            { id: "p3", name: "밸류애드 디벨로퍼", type: "VALUE_ADD", description: "리모델링 및 증축 개발" },
+          ];
+
+          await supabaseAdmin.from("ai_runs").update({
+            status: "completed",
+            output_ref: {
+              ...asyncResult.output,
+              personas: asyncPersonas,
+            },
+          }).eq("id", jobId);
+        } catch (asyncErr: any) {
+          log.error("[IdealBuyerPersona] Async generation error:", asyncErr);
+          await supabaseAdmin.from("ai_runs").update({
+            status: "failed",
+            error: asyncErr.message || "Unknown error",
+          }).eq("id", jobId);
+        }
+      });
+
+      return NextResponse.json({
+        ok: true,
+        success: true,
+        isAsync: true,
+        jobId,
+      });
     }
 
     let result;

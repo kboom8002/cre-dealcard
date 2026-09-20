@@ -63,11 +63,11 @@ export function HeroCard({ data }: HeroCardProps) {
             {data.assetType || "상업용 자산"}
           </span>
           <span className="inline-flex items-center gap-1 rounded-md bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-300">
-            📍 {data.areaSignal || "핵심 권역"}
+            <span aria-hidden="true">📍</span> {data.areaSignal || "핵심 권역"}
           </span>
           {data.askingPriceDisplay && (
             <span className="ml-auto inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-400 ring-1 ring-inset ring-emerald-500/30">
-              💰 {data.askingPriceDisplay}
+              <span aria-hidden="true">💰</span> {data.askingPriceDisplay}
             </span>
           )}
         </div>
@@ -197,7 +197,7 @@ export function HeroCard({ data }: HeroCardProps) {
         {/* Investment Point */}
         {data.keyPoints && data.keyPoints.length > 0 ? (
           <div className="mb-2 rounded-lg bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 px-4 py-3">
-            <p className="text-xs font-semibold text-blue-400 mb-2">💡 3대 핵심 투자 포인트</p>
+            <p className="text-xs font-semibold text-blue-400 mb-2"><span aria-hidden="true">💡</span> 3대 핵심 투자 포인트</p>
             <ul className="space-y-1.5 text-xs sm:text-sm text-neutral-200 leading-relaxed">
               {data.keyPoints.map((pt, idx) => (
                 <li key={idx} className="flex items-start gap-2">
@@ -209,7 +209,7 @@ export function HeroCard({ data }: HeroCardProps) {
           </div>
         ) : (
           <div className="mb-2 rounded-lg bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 px-4 py-3">
-            <p className="text-xs font-semibold text-blue-400 mb-1">💡 핵심 투자 포인트</p>
+            <p className="text-xs font-semibold text-blue-400 mb-1"><span aria-hidden="true">💡</span> 핵심 투자 포인트</p>
             <p className="text-sm sm:text-base font-medium text-neutral-200 leading-relaxed">
               {data.keyInvestmentPoint}
             </p>
@@ -219,7 +219,7 @@ export function HeroCard({ data }: HeroCardProps) {
         {/* Key Risk */}
         {data.keyRisk && (
           <div className="mb-3 rounded-lg bg-gradient-to-r from-red-500/10 to-orange-500/5 border border-red-500/20 px-4 py-3">
-            <p className="text-xs font-semibold text-red-400 mb-1">⚠️ 핵심 리스크 및 점검 사항</p>
+            <p className="text-xs font-semibold text-red-400 mb-1"><span aria-hidden="true">⚠️</span> 핵심 리스크 및 점검 사항</p>
             <p className="text-sm sm:text-base font-medium text-red-300/90 leading-relaxed">
               {data.keyRisk}
             </p>
@@ -237,14 +237,20 @@ export function HeroCard({ data }: HeroCardProps) {
                   : "bg-red-500/15 text-red-400 ring-1 ring-inset ring-red-500/30"
               }`}
             >
-              {data.dcf10YearNpvBil >= 0 ? "📈" : "📉"} 10Y NPV{" "}
+              {data.dcf10YearNpvBil >= 0 ? <span aria-hidden="true">📈</span> : <span aria-hidden="true">📉</span>} 10Y NPV{" "}
               {fmt(data.dcf10YearNpvBil, "억")}
             </span>
           )}
 
           {/* Readiness Score */}
           <div className="ml-auto flex items-center gap-2">
-            <div className="w-16 h-1.5 rounded-full bg-neutral-800 overflow-hidden">
+            <div 
+              className="w-16 h-1.5 rounded-full bg-neutral-800 overflow-hidden"
+              role="progressbar"
+              aria-valuenow={data.readinessScore}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
               <div
                 className={`h-full rounded-full transition-all ${
                   data.readinessScore >= 80

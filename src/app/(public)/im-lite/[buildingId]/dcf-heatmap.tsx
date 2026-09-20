@@ -82,7 +82,7 @@ export function DCFHeatmap({ dcfOutputs, waccBase }: DCFHeatmapProps) {
         📊 10년 DCF 민감도 분석
       </h3>
       <p className="mb-3 text-xs text-neutral-400">
-        WACC {waccPct}% 기준 | 할인율 × Exit Cap Rate
+        WACC {waccPct}% 기준 | 할인율 × 임대료 상승률
       </p>
 
       {/* 히트맵 테이블 */}
@@ -91,7 +91,7 @@ export function DCFHeatmap({ dcfOutputs, waccBase }: DCFHeatmapProps) {
           <thead>
             <tr>
               <th className="p-1 text-xs font-normal text-neutral-500">
-                할인율 ＼ Exit
+                할인율 ＼ 상승률
               </th>
               {capLabels.map((label, i) => (
                 <th

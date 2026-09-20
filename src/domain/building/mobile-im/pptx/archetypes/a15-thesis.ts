@@ -206,9 +206,11 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
 
   // 2-A: 벤치마크/별점 표 렌더링 (pillar 카드 아래, takeaway 위)
   let bmTableHeight = 0;
+  let bmY = 0;
+  let bmRows: any[] = [];
   if (hasBmTable) {
-    const bmY = startY + gridH + 0.15;
-    const bmRows = bmTable.rows.slice(0, 3); // 최대 3행 (헤더 + 2행) = 총 3행. 원래는 slice(0,4)였음
+    bmY = startY + gridH + 0.15;
+    bmRows = bmTable.rows.slice(0, 3); // 최대 3행 (헤더 + 2행) = 총 3행. 원래는 slice(0,4)였음
     const bmColCount = bmTable.headers.length;
     const bmColW = Array(bmColCount).fill(CW / bmColCount);
     const bmBodyRows = bmRows.map((r: string[]) => r.map((c: string) => ({ t: c || '' })));
@@ -223,11 +225,9 @@ export function buildA15Thesis(input: ArchetypeInput): ArchetypeOutput {
   const takeawayText = input.data.takeaway || input.data.closingRemark || input.data.leadBody ||
     '본 자산에 대한 상세 분석 및 투자 의사결정은 원본 임대차 계약서 및 공부상 권리관계 실사를 바탕으로 진행됩니다.';
 
-  let bannerY = startY + gridH + 0.20 + bmTableHeight;
-  const bannerH = 0.88;
-  if (bannerY + bannerH > 7.50) { // 혹시 모를 overflow 대비
-    bannerY = 7.50 - bannerH;
-  }
+  const tableBottom = hasBmTable ? (bmY + 0.36 * (bmRows.length + 1)) : (startY + gridH);
+  let bannerY = tableBottom + 0.15;
+  const bannerH = Math.min(0.88, Math.max(0.55, 6.85 - bannerY));
 
   // 마무리멘트 배경 리본
   slide.addShape('roundRect', {

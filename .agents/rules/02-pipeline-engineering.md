@@ -29,4 +29,10 @@
 - **Grade D는 모든 tier(basic/pro)에서 PPTX 생성이 차단됩니다** (`[G30]` throw). tier와 무관합니다.
 - 렌트롤 다단 테이블, 갤러리 다면은 데이터 양에 따라 초과 가능합니다.
 - 테스트에서 총 면수(본문+부록)를 16 이하로 단언하지 않습니다.
+
+### 11. 상수 리네임 전수 검증 (Constant Rename Full-Scan Verification)
+- 상수, 타입, 함수명을 리네임할 때는 반드시 `grep_search`로 전체 코드베이스의 참조를 확인한 후 **모든 참조를 일괄 수정**합니다.
+- 주석 내 참조, 테스트 파일 내 참조, 문자열 리터럴 내 참조(에러 메시지 등)도 모두 포함합니다.
+- 리네임 후 반드시 `npm run build`로 빌드 검증합니다.
+- **위반 사례**: `EXPIRY_COLORS` → `EXPIRY_HEATMAP_PALETTE` 리네임 시 L140 참조 누락 → `Cannot find name 'EXPIRY_COLORS'` 빌드 실패.
 <!-- END:cre-pipeline-rules -->

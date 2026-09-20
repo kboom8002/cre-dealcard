@@ -49,7 +49,7 @@ export function buildA13Operating(input: ArchetypeInput): ArchetypeOutput {
     1.35,
     'info',
     '운영 안정성 진단',
-    input.data.highlight || '안정적인 장기 임차 구조와 검증된 운영사 네트워크를 기반으로 지속 가능한 고수익 운영 성과를 확보하고 있습니다.'
+    input.data.highlight || '운영 현황 및 임대차 조건 상세 실사가 필요합니다.'
   );
 
   // 수직 구분선

@@ -22,6 +22,7 @@ describe('T09: 5-Preset Cross-Rendering Validation', { timeout: 120_000 }, () =>
   const PRESET_IDS = [
     'golden_institutional',
     'credeal_signature',
+    'credeal_basic',
     'executive_gold',
     'corporate_clean',
     'pro_dark_obsidian',

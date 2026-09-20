@@ -88,7 +88,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   // 수치 표기 (우측) — D45: 폭 확대하여 100억+ 금액 줄바꿈 방지
   const fmtManwon = (v: number) => {
     if (!isFinite(v) || isNaN(v)) return '0원';
-    if (v >= 10_000_000) return `${(v / 100_000_000).toFixed(1)}억원`;
+    if (v >= 100_000_000) return `${(v / 100_000_000).toFixed(1)}억원`;
     return `${Math.round(v / 10000).toLocaleString()}만원`;
   };
 
@@ -157,9 +157,8 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       rowY += rowH;
     };
 
-    const clampedVacPct = Math.min(99.9, Math.max(0, Number(vacancyPct) || 0));
     const rawRent = isStabilized && capRateStabilized
-      ? annualRent / (1 - clampedVacPct / 100) // 안정화: 공실 해소 시 예상 임대료
+      ? d.stabilizedRent ?? d.normalizedRent ?? ((askingPrice - totalDeposit) * (capRateStabilized / 100))
       : annualRent;
     const rentForCard = isFinite(rawRent) && !isNaN(rawRent) ? rawRent : 0;
 

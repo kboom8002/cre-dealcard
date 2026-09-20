@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -20,6 +21,16 @@ export async function PATCH(
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
 
+    const serviceClient = createServiceClient();
+    const { data: bp } = await serviceClient
+      .from("broker_profiles")
+      .select("slug")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const brokerSlug = bp?.slug || user.id;
+    const brokerIds = Array.from(new Set([user.id, brokerSlug]));
+
     const body = await req.json();
     const { status, interest_tags, interest_profile, channel, subscriber_name, subscriber_email, subscriber_phone } = body;
 
@@ -33,8 +44,12 @@ export async function PATCH(
       updateFields.unsubscribed_at = status === "unsubscribed" ? new Date().toISOString() : null;
     }
 
-    if (interest_tags !== undefined) updateFields.interest_tags = interest_tags;
-    if (interest_profile !== undefined) updateFields.interest_profile = interest_profile;
+    if (interest_profile !== undefined || interest_tags !== undefined) {
+      updateFields.interest_profile = {
+        ...(interest_profile || {}),
+        ...(interest_tags ? { tags: interest_tags } : {}),
+      };
+    }
     if (channel && ["kakao", "email", "both"].includes(channel)) updateFields.channel = channel;
     if (subscriber_name !== undefined) updateFields.subscriber_name = subscriber_name;
     if (subscriber_email !== undefined) updateFields.subscriber_email = subscriber_email;
@@ -44,11 +59,11 @@ export async function PATCH(
       return NextResponse.json({ error: "수정할 항목이 제공되지 않았습니다." }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await serviceClient
       .from("magazine_subscribers")
       .update(updateFields)
       .eq("id", id)
-      .eq("broker_id", user.id) // 보안: 내 구독자만 수정 가능
+      .in("broker_id", brokerIds)
       .select()
       .single();
 

@@ -22,9 +22,25 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceClient();
     
+    // edition_id UUID 정합성 확인 (DB 스키마가 UUID 타입인 경우 대비)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(edition_id));
+    let validEditionUuid: string | null = isUuid ? edition_id : null;
+
+    if (!validEditionUuid) {
+      const { data: ed } = await supabase
+        .from('magazine_editions')
+        .select('id')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (ed?.id) {
+        validEditionUuid = ed.id;
+      }
+    }
+
     // 1. DB 스키마에 insert (기본 분석 로그)
     const { error } = await supabase.from('magazine_analytics_events').insert({
-      edition_id,
+      edition_id: validEditionUuid,
       visitor_id: visitor_id || 'anonymous',
       event_type,
       section_id: section_id ?? null,
@@ -32,12 +48,19 @@ export async function POST(req: NextRequest) {
       target_param: target_param ?? null,
       dwell_seconds: dwell_seconds ?? null,
       scroll_pct: scroll_pct ?? null,
-      metadata: metadata ?? {},
+      metadata: {
+        ...(metadata ?? {}),
+        original_edition_id: edition_id,
+      },
     });
 
     if (error) {
-      log.error('[Magazine Analytics Error]', error.message);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      if ((error as any).code === 'PGRST205' || error.message?.includes('does not exist') || error.message?.includes('relation') || error.message?.includes('uuid')) {
+        log.warn('[Magazine Analytics] Handled DB schema/type mismatch gracefully:', error.message);
+      } else {
+        log.error('[Magazine Analytics Error]', error.message);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
     }
 
     // 2. 중앙 activity_events 테이블에 매핑 기록 (리드 스코어 산출용)

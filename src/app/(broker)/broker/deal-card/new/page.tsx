@@ -97,11 +97,11 @@ export default function BrokerDealCardNewPage() {
         body: JSON.stringify({
           memo: memo.trim(),
           visibilityPreference: "blind",
+          isAsync: true,
         }),
         signal: controller.signal,
       });
 
-      // 서버 응답이 실패인 경우 안전하게 에러 추출
       let json: any;
       try {
         json = await res.json();
@@ -114,41 +114,28 @@ export default function BrokerDealCardNewPage() {
         if (json.code === "MEMO_QUALITY_INSUFFICIENT" && json.details) {
           const missing = json.details.missingFields || [];
           const fieldLabels: Record<string, string> = {
-            location: '📍 위치(지역명, 역명, 주소) — 예: "성수동", "서초대로"',
-            asset_type: '🏢 자산 유형(오피스, 빌딩, 상가 등) — 예: "근생 건물"',
-            numeric: '💰 가격 또는 면적 수치 — 예: "80억대", "2,500평"',
-            deal_type: '📋 거래 유형(매각, 임대 등) — 예: "매매"',
+            location: '📍 위치(지역명, 역명, 주소)',
+            asset_type: '🏢 자산 유형(오피스, 빌딩, 상가 등)',
+            numeric: '💰 가격 또는 면적 수치',
+            deal_type: '📋 거래 유형(매각, 임대 등)',
           };
-          const missingGuide = missing
-            .map((f: string) => fieldLabels[f] || f)
-            .join("\n• ");
-
-          const suggestion = json.details.suggestion
-            ? `\n\n💡 AI 제안: ${json.details.suggestion}`
-            : "";
-
-          throw new Error(
-            `메모에 핵심 정보가 부족합니다.\n\n아래 항목 중 부족한 정보를 보완해주세요:\n• ${missingGuide}${suggestion}`,
-          );
+          const missingGuide = missing.map((f: string) => fieldLabels[f] || f).join("\n• ");
+          const suggestion = json.details.suggestion ? `\n\n💡 AI 제안: ${json.details.suggestion}` : "";
+          throw new Error(`메모에 핵심 정보가 부족합니다.\n\n아래 항목 중 부족한 정보를 보완해주세요:\n• ${missingGuide}${suggestion}`);
         }
-
-        // 가드레일 위반 시 상세 안내
+        // 가이드레일 위반 시 상세 안내
         if (json.code === "GUARDRAIL_VIOLATION") {
-          throw new Error(
-            `안전 가이드라인 위반: ${json.message || "매수자 보호 규정에 위배되는 내용이 포함되어 있습니다."}`,
-          );
+          throw new Error(`안전 가이드라인 위반: ${json.message || "매수자 보호 규정에 위배되는 내용이 포함되어 있습니다."}`);
         }
-
-        // ─── P0: 동일 물건 중복 감지 ───
+        // 🚨 P0: 동일 물건 중복 감지 🚨
         if (json.code === "DUPLICATE_BUILDING_DETECTED" && json.duplicates) {
           setDuplicateCandidates(json.duplicates);
           setShowDuplicateDialog(true);
           setIsLoading(false);
           clearTimeout(timeoutTimer);
           clearInterval(interval);
-          return; // 에러가 아닌 다이얼로그 표시
+          return; // 에러가 아닌 다이얼로그로 표시
         }
-
         const errMsg = typeof json.error === 'string' ? json.error
           : typeof json.message === 'string' ? json.message
           : json.error ? JSON.stringify(json.error)
@@ -156,14 +143,51 @@ export default function BrokerDealCardNewPage() {
         throw new Error(errMsg);
       }
 
-      // Success
-      setCreatedBuildingId(json.data.buildingId);
+      // 비동기 작업 폴링 처리
+      if (json.isAsync && json.jobId) {
+        const jobId = json.jobId;
+        let isCompleted = false;
+        let pollCount = 0;
+        let buildingId: string | undefined;
 
-      // Auto-navigation with seamless transition
-      const buildingId = json.data.buildingId;
-      if (buildingId) {
+        while (!isCompleted && pollCount < 45) { // 최대 45번 폴링 (약 90초)
+          await new Promise(r => setTimeout(r, 2000)); // 2초 대기
+          pollCount++;
+          
+          try {
+            const jobRes = await fetch(`/api/broker/jobs/${jobId}`, {
+              headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            const jobJson = await jobRes.json();
+            
+            if (jobJson.ok && jobJson.job) {
+              if (jobJson.job.status === "completed") {
+                buildingId = jobJson.job.output_ref?.buildingId;
+                isCompleted = true;
+                break;
+              } else if (jobJson.job.status === "failed") {
+                throw new Error(jobJson.job.error || "비동기 작업 중 오류가 발생했습니다.");
+              }
+            }
+          } catch (pollErr) {
+            console.error("Polling error:", pollErr);
+          }
+        }
+        
+        if (!isCompleted || !buildingId) {
+           throw new Error("AI 처리 시간이 오래 걸리고 있습니다. 잠시 후 딜카드 목록을 확인해주세요.");
+        }
+        
+        setCreatedBuildingId(buildingId);
         sessionStorage.setItem("deal_card_just_created", "true");
         router.push(`/broker/deal-card/${buildingId}`);
+      } else {
+        // 기존 동기 성공 로직
+        setCreatedBuildingId(json.data.buildingId);
+        if (json.data.buildingId) {
+          sessionStorage.setItem("deal_card_just_created", "true");
+          router.push(`/broker/deal-card/${json.data.buildingId}`);
+        }
       }
     } catch (err: any) {
       if (err.name === "AbortError") {

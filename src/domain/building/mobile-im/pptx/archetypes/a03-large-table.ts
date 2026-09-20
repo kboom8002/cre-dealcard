@@ -126,7 +126,7 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
       }
     }
     if (rowEntries.length > 0) {
-      L.rows(slide, M, 1.80, CW, rowEntries.slice(0, 12), { rh: 0.44, fs: 14 });
+      L.rows(slide, M, 1.80, CW, rowEntries.slice(0, 12), { rh: 0.38, fs: 14 });
     }
   }
 
@@ -172,7 +172,9 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
       const calloutY = tableEnd + 0.35;
       if (calloutY + 1.1 <= 6.80) {
         const safeKind = (['info', 'good', 'warn', 'bad', 'brass'] as const).includes(co.kind) ? co.kind : 'info';
-        L.callout(slide, x, calloutY, coW, 1.1, safeKind, co.title || '', co.body || '');
+        const cTitle = enforceTextBudget(co.title || '', 30);
+        const cBody = enforceTextBudget(co.body || '', 100);
+        L.callout(slide, x, calloutY, coW, 1.1, safeKind, cTitle, cBody);
       }
     });
   }

@@ -39,7 +39,7 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=kr`,
-      { headers: { 'User-Agent': 'credeal.net/1.0' } }
+      { headers: { 'User-Agent': 'credeal.net/1.0' }, signal: AbortSignal.timeout(8000) }
     );
     if (!res.ok) return null;
     const data = await res.json();
@@ -273,7 +273,7 @@ export async function fetchIMData(
       .from("document_objects")
       .select("body, owner_id, created_at, status, updated_at")
       .eq("building_id", buildingId)
-      .eq("document_type", "blind_teaser")
+      .in("document_type", ["mobile_im", "im_lite", "im_lite_draft", "blind_teaser"])
       .in("status", ["published", "broker_reviewed"])
       .order("created_at", { ascending: false })
       .limit(1)

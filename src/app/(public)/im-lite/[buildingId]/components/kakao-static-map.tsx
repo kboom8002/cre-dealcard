@@ -12,8 +12,8 @@ export function KakaoStaticMap({ lat, lng, name }: KakaoStaticMapProps) {
   const kakaoMapLink = `https://map.kakao.com/link/map/${encodeURIComponent(name)},${lat},${lng}`;
   const naverMapLink = `https://map.naver.com/p/search/${lat},${lng}`;
 
-  // OpenStreetMap 정적 타일 — zoom 16으로 역 출구 및 도로 상세 식별
-  const zoom = 16;
+  // OpenStreetMap 정적 타일 — zoom 14로 주변 역세권 및 간선 도로망 맥락 확보
+  const zoom = 14;
   const exactX = ((lng + 180) / 360) * Math.pow(2, zoom);
   const exactY =
     ((1 -
@@ -66,11 +66,13 @@ export function KakaoStaticMap({ lat, lng, name }: KakaoStaticMapProps) {
 
       {/* 중앙 마커 핀 — 정중앙 좌표 바로 위에 정확히 위치 */}
       <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-        <div className="relative -mt-7 filter drop-shadow-md">
-          <svg width="34" height="42" viewBox="0 0 32 40" fill="none">
+        <div className="relative -mt-8 filter drop-shadow-lg">
+          <svg width="44" height="54" viewBox="0 0 32 40" fill="none">
             <path
               d="M16 0C7.164 0 0 7.164 0 16c0 12 16 24 16 24s16-12 16-24C32 7.164 24.836 0 16 0z"
               fill="#3b82f6"
+              stroke="#FFFFFF"
+              strokeWidth="1.5"
             />
             <circle cx="16" cy="16" r="6.5" fill="white" />
             <circle cx="16" cy="16" r="3.5" fill="#1d4ed8" />

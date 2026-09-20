@@ -45,6 +45,8 @@ const BrokerDealCardFromMemoRequest = z.object({
   forceNew: z.boolean().optional(),
   /** 기존 물건 업데이트 시 해당 building ID */
   existingBuildingId: z.string().uuid().optional(),
+  /** 비동기 큐 패턴으로 실행할지 여부 */
+  isAsync: z.boolean().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -109,6 +111,57 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (input.isAsync) {
+      const jobId = crypto.randomUUID();
+      const supabase = createServiceClient();
+      
+      // Create job record
+      await supabase.from("ai_runs").insert({
+        id: jobId,
+        user_id: user!.id,
+        run_type: "deal_card_async_job",
+        input_ref: { 
+          memo: sanitizedMemo, 
+          visibilityPreference: input.visibilityPreference,
+          existingBuildingId: input.existingBuildingId,
+          forceNew: input.forceNew
+        },
+        status: "started"
+      });
+
+      after(async () => {
+        try {
+          const result = await brokerDealCardFromMemo(
+            {
+              memo: sanitizedMemo,
+              visibilityPreference: input.visibilityPreference,
+              photoUrls: input.photoUrls,
+              existingBuildingId: input.existingBuildingId,
+            },
+            user!.id,
+          );
+
+          // Update job as completed
+          await supabase.from("ai_runs").update({
+            status: "completed",
+            output_ref: { buildingId: result.buildingId }
+          }).eq("id", jobId);
+
+          // Background auto-match
+          const { runAutoMatch } = await import("@/domain/matching/auto-matcher");
+          await runAutoMatch(result.buildingId, user!.id);
+        } catch (err: any) {
+          log.error("Async deal card creation failed:", err);
+          await supabase.from("ai_runs").update({
+            status: "failed",
+            error: err.message || "Unknown error"
+          }).eq("id", jobId);
+        }
+      });
+
+      return Response.json({ ok: true, jobId, isAsync: true });
+    }
+
     const result = await brokerDealCardFromMemo(
       {
         memo: sanitizedMemo,
@@ -119,7 +172,7 @@ export async function POST(req: NextRequest) {
       user!.id,
     );
 
-    // ─── v3 Post-processing: Archetype Classification & Constraint Validation ───
+    // 🚨 v3 Post-processing: Archetype Classification & Constraint Validation 🚨
     const res = await readWithMigration(result.buildingId);
     const createdBuilding = res.data as any;
 
@@ -137,7 +190,7 @@ export async function POST(req: NextRequest) {
       constraintWarnings = constraintResult.violations || [];
     }
 
-    // 이벤트 트리거 매칭: 백그라운드에서 매칭 엔진 실행 (응답 차단 안함)
+    // 이벤트 드리븐 매칭: 백그라운드에서 매칭 엔진 실행 (응답 차단 안함)
     after(async () => {
       try {
         const { runAutoMatch } = await import("@/domain/matching/auto-matcher");
@@ -147,7 +200,7 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    // ─── v4 Price extraction from SSoT ───
+    // 🚨 v4 Price extraction from SSoT 🚨
     const priceBand = createdBuilding?.price_band || createdBuilding?.layers?.price_band || null;
     const askingPriceKrw = parsePriceKrw(priceBand);
 

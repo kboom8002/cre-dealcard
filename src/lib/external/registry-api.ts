@@ -46,7 +46,7 @@ export async function fetchRegistryData(
     return getMockRegistryFallback(_pnu || '');
   }
   try {
-    const endpoint = 'https://www.iros.go.kr/openapi/v1/registry';
+    const endpoint = 'https://www.iros.go.kr/openapi/v1/registry'; // TODO: Replace with real registry API endpoint when available
     const params = new URLSearchParams({
       serviceKey: apiKey,
       address,
@@ -89,11 +89,11 @@ export async function fetchRegistryData(
 function getMockRegistryFallback(pnu: string): RegistryData {
   log.warn(`Using mock fallback for PNU: ${pnu}`, { pnu });
   return {
-    checked: true,
+    checked: false, // API 미연동 — 등기부 조회 미수행
     mortgages: [],
     attachments: [],
     encumbranceRisk: 'check_required' as const,
-    displayMessage: '등기부등본 확인 필요 (외부 API 미연결 또는 모의 데이터)',
+    displayMessage: '등기부 조회 미연동 (외부 API 미연결 또는 모의 데이터)',
     rawResponse: null,
     source: 'fallback_mock',
     fetchedAt: new Date().toISOString(),

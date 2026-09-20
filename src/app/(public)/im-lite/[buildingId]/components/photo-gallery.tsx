@@ -41,10 +41,16 @@ export function PhotoGallery({
         : []),
     ];
     const mapItems = raw.filter((i) => i.type === "map");
+    const nonPhotoTypes = new Set(["floor_plan", "document", "business_card", "cadastral", "land_plan"]);
     const photoItems = raw
-      .filter((i) => i.type !== "map")
+      .filter(
+        (i) =>
+          i.type !== "map" &&
+          !nonPhotoTypes.has((i.type as string)?.toLowerCase() || "") &&
+          !nonPhotoTypes.has(((i as any).category as string)?.toLowerCase() || "")
+      )
       .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
-    return [...mapItems, ...photoItems.slice(0, 12)];
+    return [...mapItems, ...photoItems.slice(0, 6)];
   }, [photos, coordinates, blindName]);
 
   const totalOriginal = (photos?.length ?? 0) + (coordinates ? 1 : 0);
@@ -239,16 +245,16 @@ export function PhotoGallery({
                   />
                 </div>
               </div>
-            ) : (
+            ) : sortedItems[lightboxIdx]?.url ? (
               <Image
-                src={sortedItems[lightboxIdx]?.url || ""}
+                src={sortedItems[lightboxIdx].url}
                 alt={sortedItems[lightboxIdx]?.label || ""}
                 fill
                 className="object-contain"
                 sizes="100vw"
                 priority
               />
-            )}
+            ) : null}
           </div>
 
           {/* Caption in lightbox */}

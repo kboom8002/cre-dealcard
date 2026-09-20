@@ -33,7 +33,7 @@ function getMockLegalDongCode(address: string): string {
   for (const [key, codes] of Object.entries(FALLBACK_DONG_MAP)) {
     if (address.includes(key)) return codes.sigunguCd + codes.bjdongCd;
   }
-  return "1168010100"; // 기본 역삼동
+  return ''; // 법정동 코드 미식별 — PNU 생성 중단
 }
 
 /**
@@ -92,11 +92,13 @@ async function geocodeWithRetry(address: string): Promise<{ lat: number; lng: nu
 
 export async function resolveAddress(rawAddress: string): Promise<ResolvedAddress | null> {
   const confirmKey = process.env.JUSO_CONFIRM_KEY;
+  const cleanAddr = rawAddress.trim().replace(/\s*외\s*\d*\s*필지/g, '').trim();
 
   if (confirmKey && confirmKey !== "") {
     try {
-      const url = `https://business.juso.go.kr/addrlink/addrLinkApi.do?confmKey=${confirmKey}&currentPage=1&countPerPage=1&keyword=${encodeURIComponent(rawAddress)}&resultType=json`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      const url = `https://business.juso.go.kr/addrlink/addrLinkApi.do?confmKey=${confirmKey}&currentPage=1&countPerPage=1&keyword=${encodeURIComponent(cleanAddr)}&resultType=json`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) throw new Error('JUSO API error: ' + res.status);
       const data = await res.json();
 
       const jList = data?.results?.juso;
@@ -106,7 +108,14 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
         const jibunAddress = item.jibunAddr;
         const buildingMgtNo = item.bdMgtSn || "";
 
-        const pnuFromBdMgtSn = buildingMgtNo.substring(0, 19) || "";
+        let pnuFromBdMgtSn = buildingMgtNo.substring(0, 19) || "";
+        if (!pnuFromBdMgtSn && item.admCd) {
+          // 나대지: admCd 기반 PNU 직접 구성
+          const mtYn = item.mtYn === '1' ? '2' : '1';
+          const admPnu = String(item.admCd) + mtYn + String(item.lnbrMnnm || '0').padStart(4, '0') + String(item.lnbrSlno || '0').padStart(4, '0');
+          pnuFromBdMgtSn = admPnu;
+        }
+        
         const legalDongCode = pnuFromBdMgtSn.substring(0, 10);
         const sigunguCd = pnuFromBdMgtSn.substring(0, 5);
         const bjdongCd = pnuFromBdMgtSn.substring(5, 10);
@@ -133,7 +142,7 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
         const ji = pnu.substring(15, 19) || "0000";
 
         // W-3.2: 하드코딩 폴백 좌표 제거 — 재시도 후 null 허용
-        const geo = await geocodeWithRetry(rawAddress);
+        const geo = await geocodeWithRetry(cleanAddr);
 
         return {
           pnu, legalDongCode, sigunguCd, bjdongCd, bun, ji,
@@ -150,7 +159,6 @@ export async function resolveAddress(rawAddress: string): Promise<ResolvedAddres
   }
 
   // REGEX FALLBACK
-  const cleanAddr = rawAddress.trim();
   // W-1.3: 산지 주소 지원
   const isMount = /산\s*\d/.test(cleanAddr);
   const jibunMatch = cleanAddr.match(/(?:동\d*가?|로|길)\s+(?:산\s*)?(\d+)(?:-(\d+))?/);

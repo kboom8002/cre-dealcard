@@ -33,7 +33,7 @@ export interface ArchetypeOutput {
 }
 
 /** 의미적 컬러 매핑 (Light mode) */
-export const SEMANTIC_COLORS: Record<TenantCategory, { fill: string; border: string; text: string; label: string }> = {
+export const TENANT_PALETTE: Record<TenantCategory, { fill: string; border: string; text: string; label: string }> = {
   anchor:  { fill: '1E3A8A', border: '3B82F6', text: 'FFFFFF', label: '앵커 테넌트' },
   general: { fill: '475569', border: '64748B', text: 'FFFFFF', label: '일반 업무' },
   retail:  { fill: '0D9488', border: '14B8A6', text: 'FFFFFF', label: '리테일/근생' },
@@ -42,7 +42,7 @@ export const SEMANTIC_COLORS: Record<TenantCategory, { fill: string; border: str
 };
 
 /** 의미적 컬러 매핑 (Dark mode) */
-export const SEMANTIC_COLORS_DARK: Record<TenantCategory, { fill: string; border: string; text: string; label: string }> = {
+export const TENANT_PALETTE_DARK: Record<TenantCategory, { fill: string; border: string; text: string; label: string }> = {
   anchor:  { fill: '1E3A8A', border: 'B98A2E', text: 'E8DEC8', label: '앵커 테넌트' },
   general: { fill: '334155', border: '475569', text: 'E2E8F0', label: '일반 업무' },
   retail:  { fill: '065F46', border: '10B981', text: 'D1FAE5', label: '리테일/근생' },
@@ -61,7 +61,7 @@ export function calculateSetbackRatio(
   isSubterranean: boolean = false
 ): number {
   if (floorArea < 0) {
-    throw new Error(`[A22] 바닥면적은 음수일 수 없습니다: ${floorArea}`);
+    console.warn('[A22] Negative floor area, clamping to 0'); return 0;
   }
   if (!floorArea || !standardFloorArea || standardFloorArea <= 0) {
     return 1.0;
@@ -364,7 +364,7 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
 
   // 범례 행 (Legend Row)
   const legendY = y + 0.44;
-  const colorMap = onDark ? SEMANTIC_COLORS_DARK : SEMANTIC_COLORS;
+  const colorMap = onDark ? TENANT_PALETTE_DARK : TENANT_PALETTE;
   const legendItems: Array<{ cat: TenantCategory; label: string }> = [
     { cat: 'anchor', label: '앵커' },
     { cat: 'general', label: '일반' },
@@ -403,7 +403,14 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
   const stackAvailH = 4.38;
 
   // 지상/지하 분리 (디스플레이 층 기준)
-  const aboveFloors = displayFloors.filter(f => !String(f?.floor || '').toUpperCase().startsWith('B'));
+  // 건축 단면도 표준: 최상층이 위(Y 작음), 최하층이 아래(Y 큼)
+  const aboveFloors = displayFloors
+    .filter(f => !String(f?.floor || '').toUpperCase().startsWith('B'))
+    .sort((a, b) => {
+      const numA = parseInt(String(a?.floor || '0').replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt(String(b?.floor || '0').replace(/\D/g, ''), 10) || 0;
+      return numB - numA; // 내림차순: 5F → 4F → 3F → 2F → 1F
+    });
   const belowFloors = displayFloors.filter(f => String(f?.floor || '').toUpperCase().startsWith('B'));
 
   const totalDisplayRows = aboveFloors.length + belowFloors.length;
@@ -417,6 +424,15 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
   const maxBarWidth = 4.30;
 
   let currentBarY = stackTopY;
+
+  // 방어적 단언: 최상층이 배열 첫 번째 (건축 단면도 표준)
+  if (aboveFloors.length >= 2) {
+    const firstNum = parseInt(String(aboveFloors[0]?.floor || '0').replace(/\D/g, ''), 10) || 0;
+    const lastNum = parseInt(String(aboveFloors[aboveFloors.length - 1]?.floor || '0').replace(/\D/g, ''), 10) || 0;
+    if (firstNum > 0 && lastNum > 0 && firstNum < lastNum) {
+      warnings.push(`[A22] 스태킹 플랜 층 순서 이상: ${aboveFloors[0].floor} < ${aboveFloors[aboveFloors.length-1].floor} (최상층이 먼저 와야 함)`);
+    }
+  }
 
   // 1) 지상층 렌더링 (상층부 -> 1F)
   aboveFloors.forEach(floor => {
@@ -483,7 +499,7 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
         bold: true,
         align: 'center',
         valign: 'middle',
-        fill: { color: onDark ? '2A3644' : 'EEF2F6' },
+        fill: { color: onDark ? CD.border : C.tint },
         color: onDark ? 'FFFFFF' : C.ink,
         margin: 0,
       });
@@ -515,7 +531,7 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
     y: currentBarY + 0.07,
     w: leftW - 0.60,
     h: 0,
-    line: { color: onDark ? '64748B' : '94A3B8', width: 1.2, dashType: 'dash' },
+    line: { color: onDark ? CD.mute : C.slate, width: 1.2, dashType: 'dash' },
   });
   slide.addText('지표면 (GL ±0.0m)', {
     x: leftX + 0.35,
@@ -525,7 +541,7 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
     fontFace: KR,
     fontSize: 7.5,
     bold: true,
-    color: onDark ? 'CBD5E1' : '64748B',
+    color: onDark ? CD.mute : C.slate,
     margin: 0,
   });
   currentBarY += glLineHeight;
@@ -552,7 +568,7 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
       h: rowHeight,
       fontFace: NUM,
       fontSize: depthFontSize,
-      color: onDark ? '64748B' : '94A3B8',
+      color: onDark ? CD.mute : C.slate,
       align: 'right',
       valign: 'middle',
       margin: 0,
@@ -611,7 +627,7 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
         bold: true,
         align: 'center',
         valign: 'middle',
-        fill: { color: onDark ? '2A3644' : 'EEF2F6' },
+        fill: { color: onDark ? CD.border : C.tint },
         color: onDark ? 'FFFFFF' : C.ink,
         margin: 0,
       });
@@ -791,7 +807,7 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
       t: cellText,
       b: isTotal || cIdx === 0,
       c: isTotal ? (onDark ? C.brass : C.brassD) : (cIdx === 0 ? (onDark ? 'FFFFFF' : C.ink) : (onDark ? CD.body : C.body)),
-      fill: isTotal ? (onDark ? '232F3C' : 'F1F5F9') : undefined,
+      fill: isTotal ? (onDark ? CD.block : C.tint) : undefined,
     }));
   });
 

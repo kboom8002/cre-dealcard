@@ -803,23 +803,22 @@ export async function generateMobileIMHandler(
       
       // ── IM 저장 성공 후: 매거진 브릿지 자동 추출 ──
       try {
-        // const { extractAndAppendDealSnippet } = await import(
-        //   "@/domain/magazine/im-to-magazine-bridge"
-        // );
-        // if (writerResult.heroCard) {
-        //   await extractAndAppendDealSnippet({
-        //     userId,
-        //     buildingId,
-        //     heroCard: writerResult.heroCard,
-        //     ssot: {
-        //       area_signal: ssotRow.area_signal || undefined,
-        //       asset_type: ssotRow.asset_type || undefined,
-        //       price_band: ssotRow.price_band || undefined,
-        //     },
-        //     photoUrls: writerResult.photos?.map((p: any) => p.url),
-        //   });
-        // }
-
+        const { extractAndAppendDealSnippet } = await import(
+          "@/domain/magazine/im-to-magazine-bridge"
+        );
+        if (writerResult.heroCard) {
+          await extractAndAppendDealSnippet({
+            userId,
+            buildingId,
+            heroCard: writerResult.heroCard,
+            ssot: {
+              area_signal: ssotRow.area_signal || undefined,
+              asset_type: ssotRow.asset_type || undefined,
+              price_band: ssotRow.price_band || undefined,
+            },
+            photoUrls: writerResult.photos?.map((p: any) => p.url),
+          });
+        }
       } catch (bridgeErr) {
         log.warn({ bridgeErr: bridgeErr }, "[im-handler] Magazine bridge execution skipped:");
       }

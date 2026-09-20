@@ -603,6 +603,9 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
             holdingHistorySpec,
             operatingPerfSpec,
             parcels: parcelsData,
+            pnus: Array.isArray(parcelsData)
+              ? parcelsData.map((p: any) => p.pnu).filter((p: any): p is string => Boolean(p && typeof p === 'string' && p.trim()))
+              : undefined,
             manual_comps: manualComps.length > 0 ? manualComps
               .filter(mc => mc.address && Number(mc.dealAmount) > 0 && Number(mc.area) > 0)
               .map(mc => ({

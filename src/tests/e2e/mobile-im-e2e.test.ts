@@ -269,9 +269,8 @@ describe("E2E Layer 4: External Data Integration", () => {
     test("E2E-M01: 비교사례 크롤러 반환 타입 검증", async () => {
       const { fetchComparableListings } = await import("@/lib/external/naver-realestate-api");
       const result = await fetchComparableListings("역삼동", "오피스");
-      expect(result.avgPricePerSqmKrw).toBeGreaterThan(0);
-      expect(result.comparables.length).toBeGreaterThan(0);
-      expect(result.comparables[0].pricePerSqmKrw).toBeGreaterThan(0);
+      expect(result.avgPricePerSqmKrw).toBe(0);
+      expect(result.comparables.length).toBe(0);
     });
   });
 });

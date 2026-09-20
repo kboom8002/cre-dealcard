@@ -32,7 +32,7 @@ export async function distributeMagazine(
     // 1. 활성 구독자 조회 (전체 채널)
     const { data: rawSubscribers, error: subError } = await supabase
       .from('magazine_subscribers')
-      .select('id, subscriber_phone, subscriber_name, subscriber_email, email, segment, channel, interest_tags')
+      .select('id, subscriber_phone, subscriber_name, subscriber_email, email, segment, channel, interest_tags, client_id')
       .eq('broker_id', brokerId)
       .eq('status', 'active');
 
@@ -121,11 +121,13 @@ export async function distributeMagazine(
         batch.map(async (sub: any) => {
           const emailAddr = sub.subscriber_email || sub.email;
           let customInsert = '';
-          if (sub.interest_tags && Object.keys(sub.interest_tags).length > 0) {
+          const matchedDeals = await fetchSubscriberTopMatches(supabase, sub.client_id);
+          if ((sub.interest_tags && Object.keys(sub.interest_tags).length > 0) || matchedDeals.length > 0) {
             customInsert = await generatePersonalizedInsert(
-              sub.interest_tags,
+              sub.interest_tags || {},
               { theme_title: edition.title, ai_briefing: edition.headline },
-              []
+              [],
+              matchedDeals
             );
           }
 
@@ -208,5 +210,53 @@ export async function distributeMagazine(
   } catch (err: any) {
     log.error('[Magazine Distribution] Unexpected error occurred:', err.message);
     return { sent: 0, failed: 0, kakaoSent: 0, emailSent: 0 };
+  }
+}
+
+async function fetchSubscriberTopMatches(
+  supabase: MagazineDbClient,
+  clientId?: string | null,
+): Promise<Array<{ blindName: string; grade: string; score: number }>> {
+  if (!clientId) return [];
+  try {
+    const { data: client } = await supabase
+      .from('broker_clients')
+      .select('linked_buyer_intent_ids')
+      .eq('id', clientId)
+      .maybeSingle();
+
+    const intentIds = (client?.linked_buyer_intent_ids || []) as string[];
+    if (!intentIds || intentIds.length === 0) return [];
+
+    const { data: matches } = await supabase
+      .from('match_results')
+      .select('building_ssot_lite_id, grade, score')
+      .in('buyer_intent_lite_id', intentIds)
+      .in('grade', ['S', 'A'])
+      .order('score', { ascending: false })
+      .limit(3);
+
+    if (!matches || matches.length === 0) return [];
+
+    const buildingIds = matches.map((m: any) => m.building_ssot_lite_id);
+    const { data: buildings } = await supabase
+      .from('building_ssot_lite')
+      .select('id, area_signal, asset_type')
+      .in('id', buildingIds);
+
+    const buildingMap = new Map((buildings || []).map((b: any) => [b.id, b]));
+
+    return matches.map((m: any) => {
+      const b: any = buildingMap.get(m.building_ssot_lite_id);
+      const blindName = b ? [b.area_signal, b.asset_type].filter(Boolean).join(' · ') : '추천 매물';
+      return {
+        blindName,
+        grade: m.grade,
+        score: m.score,
+      };
+    });
+  } catch (err) {
+    log.warn('[fetchSubscriberTopMatches] Failed:', err);
+    return [];
   }
 }

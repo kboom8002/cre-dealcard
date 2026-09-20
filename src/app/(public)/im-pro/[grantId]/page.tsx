@@ -346,7 +346,11 @@ export default function ProIMViewerPage({ params }: { params: Promise<{ grantId:
               <span className="text-[9px] bg-purple-500/30 text-purple-300 px-1.5 py-0.5 rounded">PRO</span>
             </div>
             <div className="text-sm text-neutral-300 leading-relaxed whitespace-pre-wrap">
-              {data.imDocument.taxScenarios}
+              {typeof data.imDocument.taxScenarios === 'string' 
+                ? data.imDocument.taxScenarios 
+                : data.imDocument.taxScenarios 
+                  ? JSON.stringify(data.imDocument.taxScenarios, null, 2) 
+                  : null}
             </div>
           </div>
         )}
@@ -359,7 +363,11 @@ export default function ProIMViewerPage({ params }: { params: Promise<{ grantId:
               <span className="text-[9px] bg-purple-500/30 text-purple-300 px-1.5 py-0.5 rounded">PRO</span>
             </div>
             <div className="text-sm text-neutral-300 leading-relaxed whitespace-pre-wrap">
-              {data.imDocument.loanSimulation}
+              {typeof data.imDocument.loanSimulation === 'string' 
+                ? data.imDocument.loanSimulation 
+                : data.imDocument.loanSimulation 
+                  ? JSON.stringify(data.imDocument.loanSimulation, null, 2) 
+                  : null}
             </div>
           </div>
         )}
@@ -372,24 +380,43 @@ export default function ProIMViewerPage({ params }: { params: Promise<{ grantId:
               <span className="text-[9px] bg-purple-500/30 text-purple-300 px-1.5 py-0.5 rounded">PRO</span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-neutral-700 text-neutral-400">
-                    <th className="text-left py-2">Year</th>
-                    <th className="text-right py-2">NOI</th>
-                    <th className="text-right py-2">Cash Flow</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.imDocument.dcf10Year.map((row: any, i: number) => (
-                    <tr key={i} className="border-b border-neutral-800/50">
-                      <td className="py-1.5 text-white">Year {row.year}</td>
-                      <td className="py-1.5 text-right text-white">{row.noi?.toLocaleString() || '-'}</td>
-                      <td className="py-1.5 text-right text-emerald-400">{row.cash_flow?.toLocaleString() || '-'}</td>
+              {Array.isArray(data.imDocument?.dcf10Year) ? (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-neutral-700 text-neutral-400">
+                      <th className="text-left py-2">Year</th>
+                      <th className="text-right py-2">NOI</th>
+                      <th className="text-right py-2">Cash Flow</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {data.imDocument.dcf10Year.map((row: any, i: number) => (
+                      <tr key={i} className="border-b border-neutral-800/50">
+                        <td className="py-1.5 text-white">Year {row.year}</td>
+                        <td className="py-1.5 text-right text-white">{row.noi?.toLocaleString() || '-'}</td>
+                        <td className="py-1.5 text-right text-emerald-400">{row.cash_flow?.toLocaleString() || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : data.imDocument?.dcf10Year?.cashFlows ? (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-neutral-700 text-neutral-400">
+                      <th className="text-left py-2">Year</th>
+                      <th className="text-right py-2">Cash Flow</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.imDocument.dcf10Year.cashFlows.map((cf: number, i: number) => (
+                      <tr key={i} className="border-b border-neutral-800/50">
+                        <td className="py-1.5 text-white">Year {i + 1}</td>
+                        <td className="py-1.5 text-right text-emerald-400">{cf?.toLocaleString() || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : null}
             </div>
           </div>
         )}

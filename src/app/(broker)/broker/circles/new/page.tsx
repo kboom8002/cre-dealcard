@@ -88,6 +88,7 @@ export default function BrokerCircleNewPage() {
               서클 이름 <span className="text-amber-400">*</span>
             </label>
             <Input
+              name="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="예: 강남 빌딩 투자 서클, 마포 사옥 팀"
@@ -99,6 +100,7 @@ export default function BrokerCircleNewPage() {
           <div className="space-y-2">
             <label className="text-[13px] font-bold text-slate-300">서클 설명 (선택)</label>
             <Textarea
+              name="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="예: 강남권 50~100억대 근생/오피스 물건 및 사옥 수요 공동 매칭 팀"

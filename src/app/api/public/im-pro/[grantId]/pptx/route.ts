@@ -94,6 +94,22 @@ export async function GET(
     broker = bp;
   }
 
+  // 6. 다운로드 횟수 제한 (10회)
+  const MAX_DOWNLOADS = 10;
+  const { count } = await supabase
+    .from('activity_events')
+    .select('id', { count: 'exact', head: true })
+    .eq('event_type', 'im_pro_pptx_exported')
+    .eq('grant_id', grantId); // schema has grant_id column
+
+  if ((count ?? 0) >= MAX_DOWNLOADS) {
+    return NextResponse.json({
+      error: '다운로드 횟수 초과',
+      limit: MAX_DOWNLOADS,
+      used: count,
+    }, { status: 429 });
+  }
+
   // 4. Generate PPTX with watermark
   try {
     const { MobileImPptxRenderer } = await import('@/domain/building/mobile-im/pptx/pptx-renderer');
@@ -154,22 +170,6 @@ export async function GET(
         upsert: true,
       });
 
-    // 6. 다운로드 횟수 제한 (10회)
-    const MAX_DOWNLOADS = 10;
-    const { count } = await supabase
-      .from('activity_events')
-      .select('id', { count: 'exact', head: true })
-      .eq('event_type', 'im_pro_pptx_exported')
-      .eq('grant_id', grantId); // schema has grant_id column
-
-    if ((count ?? 0) >= MAX_DOWNLOADS) {
-      return NextResponse.json({
-        error: '다운로드 횟수 초과',
-        limit: MAX_DOWNLOADS,
-        used: count,
-      }, { status: 429 });
-    }
-
     // 7. Log event
     await supabase.from('activity_events').insert({
       event_type: 'im_pro_pptx_exported',
@@ -200,7 +200,7 @@ export async function GET(
   } catch (err: any) {
     log.error('[PPTX Pro] Generation failed:', err);
     return NextResponse.json(
-      { error: 'PPTX generation failed', message: err.message },
+      { error: 'PPTX generation failed' },
       { status: 500 }
     );
   }

@@ -64,20 +64,26 @@ export async function optimizeImageForPptx(
       const arrayBuffer = await response.arrayBuffer();
       inputBuffer = Buffer.from(arrayBuffer);
     } else {
-      // 로컬 파일 경로 처리 (e.g. /test-images/... or relative or absolute)
+      // 로컬 파일 경로 처리 (e.g. Windows absolute C:/..., relative, or /public/...)
       const fs = await import('fs');
       const path = await import('path');
       let localPath = imageUrl;
-      if (imageUrl.startsWith('/')) {
-        localPath = path.join(process.cwd(), 'public', imageUrl);
-      }
-      if (!fs.existsSync(localPath)) {
-        localPath = path.resolve(process.cwd(), imageUrl);
-      }
       if (fs.existsSync(localPath)) {
         inputBuffer = fs.readFileSync(localPath);
-      } else {
-        return null;
+      } else if (imageUrl.startsWith('/')) {
+        localPath = path.join(process.cwd(), 'public', imageUrl);
+        if (fs.existsSync(localPath)) {
+          inputBuffer = fs.readFileSync(localPath);
+        }
+      }
+      if (!inputBuffer!) {
+        localPath = path.resolve(process.cwd(), imageUrl);
+        if (fs.existsSync(localPath)) {
+          inputBuffer = fs.readFileSync(localPath);
+        } else {
+          log.warn(`[optimizeImageForPptx] Local image file not found: ${imageUrl}`);
+          return null;
+        }
       }
     }
 
@@ -156,7 +162,8 @@ export interface MapPoiSpot {
   name: string;
   lat: number;
   lng: number;
-  category: 'subway' | 'landmark' | 'hospital' | 'university' | 'shopping';
+  category: 'subway' | 'landmark' | 'hospital' | 'university' | 'shopping' | 'public';
+  distanceM?: number;
 }
 
 /** 카테고리별 마커 색상 */
@@ -166,6 +173,7 @@ function poiMarkerColor(category: MapPoiSpot['category']): string {
     case 'hospital': return '#EF4444';   // red
     case 'university': return '#22C55E'; // green
     case 'shopping': return '#A855F7';   // purple
+    case 'public': return '#F59E0B';     // amber
     default: return '#6B7280';           // gray
   }
 }
@@ -182,55 +190,84 @@ function poiMarkerEmoji(category: MapPoiSpot['category']): string {
 }
 
 /**
- * 위경도를 이미지 픽셀 좌표로 변환 (Mercator projection)
+ * 위경도를 이미지 픽셀 좌표로 변환 (Kakao Static Map level 기반)
+ * Kakao Level 4 ≈ 2.0 m/px, Level 6 ≈ 8.0 m/px
  */
 function latlngToPixel(
   lat: number, lng: number,
   centerLat: number, centerLng: number,
-  zoom: number, imgW: number, imgH: number
+  metersPerPx: number, imgW: number, imgH: number
 ): { px: number; py: number } {
-  const scale = Math.pow(2, zoom) * 256;
-  const worldX = ((lng + 180) / 360) * scale;
-  const worldY = ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) * scale;
-  const centerWorldX = ((centerLng + 180) / 360) * scale;
-  const centerWorldY = ((1 - Math.log(Math.tan((centerLat * Math.PI) / 180) + 1 / Math.cos((centerLat * Math.PI) / 180)) / Math.PI) / 2) * scale;
-  
-  const px = Math.round(imgW / 2 + (worldX - centerWorldX));
-  const py = Math.round(imgH / 2 + (worldY - centerWorldY));
+  const dxMeters = (lng - centerLng) * 111320 * Math.cos(centerLat * Math.PI / 180);
+  const dyMeters = (lat - centerLat) * 111320;
+  const px = Math.round(imgW / 2 + dxMeters / metersPerPx);
+  const py = Math.round(imgH / 2 - dyMeters / metersPerPx);
   return { px, py };
 }
 
 /**
  * POI 마커 SVG들을 생성하여 Sharp composite 오버레이 배열로 반환
+ * 각 랜드마크에 카테고리 심볼 + 이름 라벨 배지 추가
  */
 function buildPoiOverlays(
   poiSpots: MapPoiSpot[],
   centerLat: number, centerLng: number,
-  zoom: number, imgW: number, imgH: number
+  metersPerPx: number, imgW: number, imgH: number
 ): Array<{ input: Buffer; left: number; top: number }> {
   const overlays: Array<{ input: Buffer; left: number; top: number }> = [];
   
+  const occupiedBoxes: Array<[number, number, number, number]> = [
+    // Reserve space for center building pin
+    [Math.floor(imgW / 2 - 45), Math.floor(imgH / 2 - 75), Math.floor(imgW / 2 + 45), Math.floor(imgH / 2 + 15)]
+  ];
+
+  function boxesOverlap(a: [number,number,number,number], b: [number,number,number,number]): boolean {
+    return a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
+  }
+
   for (const spot of poiSpots) {
-    const { px, py } = latlngToPixel(spot.lat, spot.lng, centerLat, centerLng, zoom, imgW, imgH);
+    const { px, py } = latlngToPixel(spot.lat, spot.lng, centerLat, centerLng, metersPerPx, imgW, imgH);
     
     // 이미지 범위 밖이면 스킵
-    if (px < -10 || px > imgW + 10 || py < -10 || py > imgH + 10) continue;
+    if (px < 10 || px > imgW - 60 || py < 10 || py > imgH - 40) continue;
     
     const color = poiMarkerColor(spot.category);
-    const markerSize = 28;
-    
-    // POI 마커 SVG (작은 원형 마커 + 카테고리 색상)
+    const cleanName = (spot.name || '').replace(/\s*역$/, '역').slice(0, 16);
+    const textWidth = Math.max(50, cleanName.length * 13 + 18);
+    const badgeH = 32;
+    const totalW = textWidth + 42;
+    const totalH = 44;
+
+    // POI 마커 SVG (원형 카테고리 심볼 + 이름 라벨 필)
     const poiSvg = Buffer.from(`
-      <svg width="${markerSize}" height="${markerSize}" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="14" cy="14" r="12" fill="${color}" stroke="white" stroke-width="2.5" opacity="0.95"/>
-        <circle cx="14" cy="14" r="5" fill="white" opacity="0.9"/>
+      <svg width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" xmlns="http://www.w3.org/2000/svg">
+        <filter id="shadow_${spot.category}" x="-10%" y="-10%" width="120%" height="120%">
+          <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.35"/>
+        </filter>
+        <!-- 배경 라벨 필 -->
+        <g filter="url(#shadow_${spot.category})">
+          <rect x="26" y="5" width="${textWidth}" height="${badgeH}" rx="5" fill="#132A3A" opacity="0.92" stroke="#FFFFFF" stroke-width="1.2"/>
+          <text x="${26 + textWidth / 2}" y="22" font-size="13" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">${cleanName}</text>
+        </g>
+        <!-- 원형 카테고리 심볼 마커 -->
+        <g filter="url(#shadow_${spot.category})">
+          <circle cx="16" cy="18" r="16" fill="${color}" stroke="#FFFFFF" stroke-width="2.5"/>
+          <circle cx="16" cy="18" r="5" fill="#FFFFFF"/>
+        </g>
       </svg>
     `);
     
+    const left = Math.max(0, Math.min(px - 16, imgW - totalW));
+    const top = Math.max(0, Math.min(py - 18, imgH - totalH));
+
+    const poiBox: [number,number,number,number] = [left, top, left + totalW, top + totalH];
+    if (occupiedBoxes.some(ob => boxesOverlap(ob, poiBox))) continue;
+    occupiedBoxes.push(poiBox);
+
     overlays.push({
       input: poiSvg,
-      left: Math.max(0, Math.min(px - markerSize / 2, imgW - markerSize)),
-      top: Math.max(0, Math.min(py - markerSize / 2, imgH - markerSize)),
+      left,
+      top,
     });
   }
   
@@ -239,7 +276,7 @@ function buildPoiOverlays(
 
 /**
  * 건물 위치 기반 정적 지도 생성
- * 1차: coordinates가 있는 경우 OSM(OpenStreetMap) 정적 타일 3x3 합성
+ * 1차: coordinates가 있는 경우 카카오 Static Map API + POI 오버레이 (level 4)
  * 2차: 좌표가 없는 경우 dark SVG 플레이스홀더 (폰트 미의존)
  * @param poiSpots - 지도에 표시할 주요 스폿 (역, 상권 등) 최대 5개
  */
@@ -253,7 +290,6 @@ export async function generateStaticMapPlaceholder(
   const safePoiSpots = (poiSpots || []).slice(0, 5);
   
   // ── 0차: 카카오 Static Map API (최우선) ──
-  // G-05: 좌표를 숫자로 강제 변환 — 문자열 '0' 등으로 인한 falsy 검사 실패 방지
   const coordLat = coordinates ? Number(coordinates.lat) : NaN;
   const coordLng = coordinates ? Number(coordinates.lng) : NaN;
   const hasValidCoords = !isNaN(coordLat) && !isNaN(coordLng) && coordLat !== 0 && coordLng !== 0;
@@ -263,14 +299,23 @@ export async function generateStaticMapPlaceholder(
       const apiKey = process.env.KAKAO_REST_API_KEY;
       if (apiKey) {
         const baseUrl = 'https://spi.maps.daum.net/mapscms/map/staticmap.png';
+        
+        // F6: 물건 반경에 따른 동적 줌 레벨 결정 (기본 level 3 = ~1.0 m/px, 약 250m 반경 상세 뷰)
+        let kakaoLevel = '3'; // default: ~1.0 m/px, ~250m radius (상세 도로/필지/본건 식별 최적화)
+        if (safePoiSpots.length > 0) {
+          const maxDist = Math.max(...safePoiSpots.map(s => s.distanceM ?? 500));
+          if (maxDist > 2000) kakaoLevel = '6';      // ~8 m/px, ~2km radius
+          else if (maxDist > 1000) kakaoLevel = '5';  // ~4 m/px, ~1km radius
+          else if (maxDist > 500) kakaoLevel = '4';   // ~2 m/px, ~500m radius
+          // else keep level 3 for tight local cluster
+        }
+        
         const params = new URLSearchParams({
           apikey: apiKey,
           center: `${coordLng},${coordLat}`,
-          level: '3',
+          level: kakaoLevel, // level 3 (약 250m 반경) — 본건 및 인접 주요 도로명/필지 선명 노출
           w: String(Math.min(w, 1800)),
           h: String(Math.min(h, 960)),
-          // G-05: size:big으로 마커 가시성 강화
-          markers: `type:d|size:big|${coordLng},${coordLat}`,
         });
         const kakaoUrl = `${baseUrl}?${params.toString()}`;
         const response = await fetch(kakaoUrl, {
@@ -285,27 +330,54 @@ export async function generateStaticMapPlaceholder(
           const kakaoH = Math.min(h, 960);
           let resized = sharp(inputBuffer).resize({ width: kakaoW, height: kakaoH, fit: 'cover' });
 
-          // G-05: 건물 위치에 골드 핀 SVG 오버레이 (카카오 기본 마커와 이중 표시로 가시성 보장)
-          const goldPinSvg = Buffer.from(`
-            <svg width="40" height="50" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
-              <path d="M16 0C7.164 0 0 7.164 0 16c0 12 16 24 16 24s16-12 16-24C32 7.164 24.836 0 16 0z" fill="#B98A2E"/>
-              <circle cx="16" cy="16" r="6" fill="#10161F"/>
+          const overlays: Array<{ input: Buffer; left: number; top: number }> = [];
+
+          const kakaoMeterPerPxMap: Record<string, number> = { '3': 1.0, '4': 2.0, '5': 4.0, '6': 8.0, '7': 16.0 };
+
+          // 1. 도보 5분 반경 원 (약 400m 도보권역)
+          const walkRadiusMeters = 400; // 도보 5분 (80m/분 × 5분)
+          const walkRadiusPx = Math.round(walkRadiusMeters / (kakaoMeterPerPxMap[kakaoLevel] ?? 1.0));
+          const circleSvg = Buffer.from(`
+            <svg width="${kakaoW}" height="${kakaoH}" viewBox="0 0 ${kakaoW} ${kakaoH}" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="${kakaoW / 2}" cy="${kakaoH / 2}" r="${walkRadiusPx}" fill="rgba(184, 134, 11, 0.07)" stroke="#B8860B" stroke-width="1.8" stroke-dasharray="8,5"/>
+              <rect x="${kakaoW / 2 - 40}" y="${kakaoH / 2 - walkRadiusPx - 1}" width="80" height="20" rx="4" fill="#B8860B" opacity="0.9"/>
+              <text x="${kakaoW / 2}" y="${kakaoH / 2 - walkRadiusPx + 13}" font-size="11" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">도보 5분 권역</text>
             </svg>
           `);
-          const overlays: Array<{ input: Buffer; left: number; top: number }> = [
-            {
-              input: goldPinSvg,
-              left: Math.floor(kakaoW / 2 - 20),
-              top: Math.floor(kakaoH / 2 - 40),
-            },
-          ];
+          overlays.push({
+            input: circleSvg,
+            left: 0,
+            top: 0,
+          });
 
+          // 2. POI 랜드마크 마커 오버레이
           if (safePoiSpots.length > 0) {
-            // 카카오 Static Map level 3 ≈ zoom 15 (근사치)
-            const kakaoZoom = 15;
-            const poiOverlays = buildPoiOverlays(safePoiSpots, coordLat, coordLng, kakaoZoom, kakaoW, kakaoH);
+            const kakaoMeterPerPxForPoi = kakaoMeterPerPxMap[kakaoLevel] ?? 1.0;
+            const poiOverlays = buildPoiOverlays(safePoiSpots, coordLat, coordLng, kakaoMeterPerPxForPoi, kakaoW, kakaoH);
             overlays.push(...poiOverlays);
           }
+
+          // 3. 본건 위치 골드 핀 SVG 오버레이 (80×85 고대비 후광 핀)
+          const goldPinSvg = Buffer.from(`
+            <svg width="80" height="85" viewBox="0 0 80 85" xmlns="http://www.w3.org/2000/svg">
+              <filter id="goldhalo" x="-30%" y="-30%" width="160%" height="160%">
+                <feDropShadow dx="0" dy="1" stdDeviation="3.5" flood-color="#FFFFFF" flood-opacity="0.9"/>
+                <feDropShadow dx="1" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.5"/>
+              </filter>
+              <g filter="url(#goldhalo)">
+                <path d="M40 6 C27 6 16 17 16 30 C16 48 40 72 40 72 C40 72 64 48 64 30 C64 17 53 6 40 6 Z" fill="#B8860B" stroke="#FFFFFF" stroke-width="3"/>
+                <circle cx="40" cy="30" r="12" fill="#132A3A"/>
+                <text x="40" y="35" font-size="14" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">★</text>
+                <rect x="8" y="65" width="64" height="18" rx="4" fill="#132A3A" opacity="0.96" stroke="#FFFFFF" stroke-width="1"/>
+                <text x="40" y="78" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">본건 위치</text>
+              </g>
+            </svg>
+          `);
+          overlays.push({
+            input: goldPinSvg,
+            left: Math.floor(kakaoW / 2 - 40),
+            top: Math.floor(kakaoH / 2 - 72),
+          });
 
           if (overlays.length > 0) {
             resized = sharp(await resized.png().toBuffer()).composite(overlays);
@@ -332,7 +404,8 @@ export async function generateStaticMapPlaceholder(
   // ── 1차: OpenStreetMap 정적 타일 3x3 합성 ──
   if (hasValidCoords) {
     try {
-      const zoom = 16;
+      // 줌 15 (약 500m 반경): 주변 간선도로(양평로, 노들로) 및 역세권 지형 맥락 최적 노출
+      const zoom = 15;
       const lat = coordLat;
       const lng = coordLng;
       const tileX = Math.floor(((lng + 180) / 360) * Math.pow(2, zoom));
@@ -387,39 +460,64 @@ export async function generateStaticMapPlaceholder(
           .png()
           .toBuffer();
 
-        // 건물 핀 마커 SVG
+        // 건물 골드 핀 마커 SVG (80×85 고대비 백색 후광 + "본건 위치" 배지)
         const pinSvg = Buffer.from(`
-          <svg width="40" height="50" viewBox="0 0 32 40">
-            <path d="M16 0C7.164 0 0 7.164 0 16c0 12 16 24 16 24s16-12 16-24C32 7.164 24.836 0 16 0z" fill="#B98A2E"/>
-            <circle cx="16" cy="16" r="6" fill="#10161F"/>
+          <svg width="80" height="85" viewBox="0 0 80 85" xmlns="http://www.w3.org/2000/svg">
+            <filter id="osmhalo" x="-30%" y="-30%" width="160%" height="160%">
+              <feDropShadow dx="0" dy="1" stdDeviation="3.5" flood-color="#FFFFFF" flood-opacity="0.95"/>
+              <feDropShadow dx="1" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.55"/>
+            </filter>
+            <g filter="url(#osmhalo)">
+              <path d="M40 6 C27 6 16 17 16 30 C16 48 40 72 40 72 C40 72 64 48 64 30 C64 17 53 6 40 6 Z" fill="#B8860B" stroke="#FFFFFF" stroke-width="3"/>
+              <circle cx="40" cy="30" r="12" fill="#132A3A"/>
+              <text x="40" y="35" font-size="14" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">★</text>
+              <rect x="8" y="65" width="64" height="18" rx="4" fill="#132A3A" opacity="0.96" stroke="#FFFFFF" stroke-width="1"/>
+              <text x="40" y="78" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">본건 위치</text>
+            </g>
           </svg>
         `);
 
-        // POI 마커 오버레이
-        const poiOverlays = buildPoiOverlays(safePoiSpots, lat, lng, zoom, compositeWidth, compositeHeight);
+        // POI 마커 오버레이 (zoom 15의 실제 픽셀당 미터 해상도 계산)
+        const osmMeterPerPx = (40075016.686 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom + 8);
+        const poiOverlays = buildPoiOverlays(safePoiSpots, lat, lng, osmMeterPerPx, compositeWidth, compositeHeight);
 
-        const cropLeft = Math.max(0, Math.floor((compositeWidth - w) / 2));
-        const cropTop = Math.max(0, Math.floor((compositeHeight - h) / 2));
         const targetW = Math.max(w, 1120);
         const targetH = Math.max(h, 900);
-        const finalMapBuffer = await sharp(combinedBuffer)
+        
+        // OSM 폴백: 종횡비 보정 후 리사이즈
+        const targetAspect = targetW / targetH; // e.g., 1120/900 = 1.244
+        const compositeSize = 768; // 3 tiles × 256px
+        let cropW: number, cropH: number;
+        if (targetAspect >= 1) {
+          cropW = compositeSize;
+          cropH = Math.round(compositeSize / targetAspect);
+        } else {
+          cropH = compositeSize;
+          cropW = Math.round(compositeSize * targetAspect);
+        }
+        const cropL = Math.round((compositeSize - cropW) / 2);
+        const cropT = Math.round((compositeSize - cropH) / 2);
+
+        // Stage 1: Composite overlays on full-size canvas
+        const compositedBuffer = await sharp(combinedBuffer)
           .composite([
+            ...poiOverlays,
             {
               input: pinSvg,
-              left: Math.floor(compositeWidth / 2 - 20),
-              top: Math.floor(compositeHeight / 2 - 40),
+              left: Math.floor(compositeWidth / 2 - 40),
+              top: Math.floor(compositeHeight / 2 - 72),
             },
-            ...poiOverlays,
           ])
-          .extract({
-            left: cropLeft,
-            top: cropTop,
-            width: Math.min(w, compositeWidth - cropLeft),
-            height: Math.min(h, compositeHeight - cropTop),
-          })
+          .png()
+          .toBuffer();
+
+        // Stage 2: Crop and resize the composited image
+        const finalMapBuffer = await sharp(compositedBuffer)
+          .extract({ left: cropL, top: cropT, width: cropW, height: cropH })
           .resize({ width: targetW, height: targetH })
           .jpeg({ quality: 85 })
           .toBuffer();
+
 
         return {
           buffer: finalMapBuffer,

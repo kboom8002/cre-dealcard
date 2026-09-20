@@ -36,23 +36,17 @@ export function bindInstitutionalTemplateData(doc: any, dataMap: Record<string, 
     }
 
     if (leaseUnits.length === 0) {
-    leaseUnits.push(
-      { tenantName: 'F&B 아케이드', rentAmount: 24000000, areaSqm: 495.8, leaseEndDate: '2028-12-31' },
-      { tenantName: '프랜차이즈 카페/약국', rentAmount: 35000000, areaSqm: 330.5, leaseEndDate: '2029-06-30' },
-      { tenantName: '전문 메디컬 클리닉', rentAmount: 28000000, areaSqm: 412.0, leaseEndDate: '2028-09-30' },
-      { tenantName: '금융/보험 법인 지점', rentAmount: 27000000, areaSqm: 412.0, leaseEndDate: '2027-11-30' },
-      { tenantName: 'IT/소프트웨어 본사', rentAmount: 26000000, areaSqm: 412.0, leaseEndDate: '2028-03-31' },
-      { tenantName: '경영컨설팅 법인', rentAmount: 25000000, areaSqm: 412.0, leaseEndDate: '2029-01-31' },
-    );
+      // H13: 더미 임차인 주입 방지 — 데이터 부재 시 빈 상태로 진행
+      console.warn('[premium-binders] ⚠️ 임차인 데이터 미제공 — 더미 주입 방지');
     }
 
     const wale: WaleResult = calculateWALE(leaseUnits, asOfDate);
-    const askingPriceKrw = Number(body.price?.askingKrw ?? heroCard.askingPriceKrw ?? body.askingPrice ?? 18000000000);
-    const capRatePct = Number(heroCard.capRateBase ?? body.yields?.gross_price?.value ?? body.capRate ?? 4.85);
+    const askingPriceKrw = Number(body.price?.askingKrw ?? heroCard.askingPriceKrw ?? body.askingPrice ?? 0);
+    const capRatePct = Number(heroCard.capRateBase ?? body.yields?.gross_price?.value ?? body.capRate ?? 0);
     const annualRentTotal = leaseUnits.reduce((sum, u) => sum + (u.rentAmount > 0 ? u.rentAmount * 12 : 0), 0);
     const noiKrw = askingPriceKrw > 0 ? askingPriceKrw * (capRatePct / 100) : annualRentTotal * 0.92;
     const noiBil = (noiKrw / 1e8).toFixed(1);
-    const askingPriceDisplay = heroCard.askingPriceDisplay ?? (askingPriceKrw > 0 ? `${(askingPriceKrw / 1e8).toFixed(1)}억 원` : '180.0억 원');
+    const askingPriceDisplay = heroCard.askingPriceDisplay ?? (askingPriceKrw > 0 ? `${(askingPriceKrw / 1e8).toFixed(1)}억 원` : '-');
     const institutionalMetrics = [
             { label: '매매 희망가', value: askingPriceDisplay, unit: '' },
             { label: '연 순수익률 (Cap Rate)', value: `${capRatePct.toFixed(2)}%`, unit: '', sub: '순영업소득(NOI) 기준' },
@@ -73,7 +67,7 @@ export function bindInstitutionalTemplateData(doc: any, dataMap: Record<string, 
       waleArea: `${wale.waleByAreaYears.toFixed(1)}년`,
       atRisk12m: `${wale.atRiskRentPct12m.toFixed(1)}%`,
     },
-    leadSentence: heroCard.hookText ?? '우량 임차인 포트폴리오 기반 안정적 현금흐름 및 WALE 방어력이 입증된 기관급 프라임 자산',
+    leadSentence: heroCard.hookText ?? '임차 포트폴리오 기반 현금흐름 분석 대상 상업용 자산',
     metricsData: institutionalMetrics,
     keyPoints: [
       `WALE 안정성: 임대료 기준 가중평균 잔여만기 ${wale.waleByRentYears.toFixed(1)}년(면적 기준 ${wale.waleByAreaYears.toFixed(1)}년) 확보로 장기 현금흐름 안정성 견고`,
@@ -99,9 +93,9 @@ export function bindInstitutionalTemplateData(doc: any, dataMap: Record<string, 
     if (Array.isArray(rawLeases) && rawLeases.length > 0) {
     multiColRows = rawLeases.map((l: any, i: number) => {
       const unit = l.unitLabel ?? l.unit ?? `${i + 1}F`;
-      const tenant = l.tenantBusiness ?? l.tenantName ?? '우량 임차인';
+      const tenant = l.tenantBusiness ?? l.tenantName ?? '[임차인 미상]';
       const exclusiveArea = l.exclusiveAreaSqm ?? l.areaSqm ?? '-';
-      const contractArea = l.contractAreaSqm ?? (l.areaSqm ? (Number(l.areaSqm) * 1.4).toFixed(1) : '-');
+      const contractArea = l.contractAreaSqm ?? (l.areaSqm ? '-' : '-');
       const deposit = l.depositKrw ? Math.round(l.depositKrw / 10000).toLocaleString() : (l.depositManwon ? Number(l.depositManwon).toLocaleString() : '-');
       const rent = l.monthlyRentKrw ? Math.round(l.monthlyRentKrw / 10000).toLocaleString() : (l.rentAmount ? Math.round(Number(l.rentAmount) / 10000).toLocaleString() : '-');
       const mgmt = l.mgmtFeeKrw ? Math.round(l.mgmtFeeKrw / 10000).toLocaleString() : '-';
@@ -114,14 +108,8 @@ export function bindInstitutionalTemplateData(doc: any, dataMap: Record<string, 
       return [unit, tenant, String(exclusiveArea), String(contractArea), String(deposit), String(rent), String(mgmt), expiry, remaining];
     });
     } else {
-    multiColRows = [
-      ['B1', 'F&B 아케이드', '495.8', '694.1', '30,000', '2,400', '450', '2028-12-31', '2.3년'],
-      ['1F', '프랜차이즈 카페 / 약국', '330.5', '462.7', '50,000', '3,500', '600', '2029-06-30', '2.8년'],
-      ['2F', '전문 메디컬 클리닉', '412.0', '576.8', '40,000', '2,800', '520', '2028-09-30', '2.1년'],
-      ['3F', '금융/보험 법인 지점', '412.0', '576.8', '40,000', '2,700', '520', '2027-11-30', '1.2년'],
-      ['4F', 'IT/소프트웨어 본사', '412.0', '576.8', '35,000', '2,600', '520', '2028-03-31', '1.6년'],
-      ['5F', '경영컨설팅 법인', '412.0', '576.8', '35,000', '2,500', '520', '2029-01-31', '2.4년'],
-    ];
+    multiColRows = [];
+    console.warn('[premium-binders] ⚠️ 렌트롤 상세 데이터 미제공 — 더미 테이블 주입 방지');
     }
 
     dataMap['rentRoll'] = {
@@ -167,7 +155,7 @@ export function bindCorporateTemplateData(doc: any, dataMap: Record<string, Sect
             heroCard.askingPriceKrw ??
             (heroCard.askingPriceManwon ? heroCard.askingPriceManwon * 10000 : undefined) ??
             body.askingPrice ??
-            15000000000
+            0
           );
     const acqTaxRate = 0.046;
     const brokerageRate = 0.009;
@@ -244,7 +232,7 @@ export function bindCorporateTemplateData(doc: any, dataMap: Record<string, Sect
             { label: '매매 희망가', value: `${(askingPriceKrw / 1e8).toFixed(1)}억 원`, unit: '' },
             { label: '총취득원가', value: `${(totalAcquisitionCostKrw / 1e8).toFixed(2)}억 원`, unit: '', sub: '매매가+취득세 4.6%+중개보수 0.9%' },
             { label: '5년 임대료 절감액', value: `약 ${savingsBil}억 원`, unit: '', sub: '임차 유지 대비 순절감액' },
-            { label: '자가전환 손익분기', value: '약 4.2년', unit: '', sub: '임대료 소멸비용 상쇄 시점' },
+            { label: '자가전환 손익분기', value: '[실사 필요]', unit: '', sub: '임대료 소멸비용 상쇄 시점' },
             { label: '사옥 단독 명칭 표기', value: '간판 설치권 전면 확보', unit: '', sub: '사옥 단독 브랜딩' },
             { label: '임대료 인상 리스크', value: '완전 제거 (0%)', unit: '', sub: '사옥 자가 소유' },
           ];
@@ -328,14 +316,14 @@ export function bindCommercialTemplateData(doc: any, dataMap: Record<string, Sec
     tables: dataMap['location']?.tables || [],
     metrics: {
       ...(dataMap['location']?.metrics ?? {}),
-      footTraffic: body.footTraffic || '45,000명/일',
-      catchmentHousehold: body.catchmentHousehold || '8,500세대',
+      footTraffic: body.footTraffic || '-',
+      catchmentHousehold: body.catchmentHousehold || '-',
     },
     right: dataMap['location']?.right || {
       sub: '로드뷰 및 앵커 테넌트',
       rows: [
-        ['가시성', '사거리 코너 25m 전면 노출 및 횡단보도 연접'],
-        ['앵커 테넌트', body.anchorTenants || '약국, 병원, 스타벅스'],
+        ['가시성', '-'],
+        ['앵커 테넌트', body.anchorTenants || '-'],
       ],
     },
     };
@@ -381,7 +369,7 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
               lotNumber: body.address || '대표 필지',
               category: body.ssot_summary?.land_category || '대',
               areaM2: body.ssot_summary?.land_area_sqm || body.heroCard?.landAreaM2 || 0,
-              zoning: body.ssot_summary?.zoning || '일반상업지역',
+              zoning: body.ssot_summary?.zoning || '[용도지역 확인 필요]',
               officialPrice: body.ssot_summary?.official_land_price_won_per_sqm || 0,
             },
           ];
@@ -393,7 +381,7 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
             p.category ?? p.landCategory ?? '대',
             Number(p.areaM2 || 0).toLocaleString() + '㎡',
             (sqmToPyeong(Number(p.areaM2 || 0))).toFixed(1) + '평',
-            p.zoning ?? '일반상업지역',
+            p.zoning ?? '[용도지역 확인 필요]',
             Number(p.officialPrice ?? p.pricePerSqm ?? 0).toLocaleString() + '원',
           ]);
     if (parcels.length > 1) {
@@ -402,7 +390,7 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
       '대지 일괄',
       `${totalAreaM2.toLocaleString()}㎡`,
       `${totalAreaPyeong.toFixed(1)}평`,
-      parcels[0]?.zoning ?? '일반상업지역',
+      parcels[0]?.zoning ?? '[용도지역 확인 필요]',
       '—',
     ]);
     }
@@ -425,9 +413,9 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
       sub: '토지 개발 핵심 지표',
       rows: [
         ['총 합산 대지면적', `${totalAreaM2.toLocaleString()}㎡ (${totalAreaPyeong.toFixed(1)}평)`],
-        ['용도지역', parcels[0]?.zoning ?? '일반상업지역'],
-        ['기준 건폐율 / 용적률', '60% / 800%'],
-        ['조례 완화 적용 용적률', '최대 950% (인센티브 반영)'],
+        ['용도지역', parcels[0]?.zoning ?? '[용도지역 확인 필요]'],
+        ['기준 건폐율 / 용적률', '[확인 필요]'],
+        ['조례 완화 적용 용적률', '[조례 확인 필요]'],
       ],
       callouts: [
         { kind: 'good', title: '다필지 일괄 개발 시너지', body: `총 ${parcels.length}필지 합산 ${totalAreaPyeong.toFixed(1)}평 대규모 대지 확보로 신축 효율 극대화` },
@@ -438,8 +426,8 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
     };
     const defaultLandCost = (body.asking_price_manwon ? body.asking_price_manwon / 10000 : 0) || (body.ssot_summary?.asking_price_manwon ? body.ssot_summary.asking_price_manwon / 10000 : 0);
     const landCostBil = Number(body.landCostBil ?? (defaultLandCost > 0 ? Math.round(defaultLandCost) : 0));
-    const constCostBil = Number(body.constCostBil ?? (landCostBil > 0 ? Math.round(landCostBil * 0.6) : 0));
-    const financeCostBil = Number(body.financeCostBil ?? (landCostBil > 0 ? Math.round((landCostBil + constCostBil) * 0.15) : 0));
+    const constCostBil = Number(body.constCostBil ?? 0);
+    const financeCostBil = Number(body.financeCostBil ?? 0);
     const totalProjectCostBil = landCostBil + constCostBil + financeCostBil;
     const landPct = totalProjectCostBil > 0 ? ((landCostBil / totalProjectCostBil) * 100).toFixed(1) : '0.0';
     const constPct = totalProjectCostBil > 0 ? ((constCostBil / totalProjectCostBil) * 100).toFixed(1) : '0.0';
@@ -451,7 +439,7 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
             ['3단: 금융/제세공과금', 'PF/브릿지 이자 + 금융주선수수료 + 인허가 공과금/예비비', `${financeCostBil}.0억 원`, `${finPct}%`],
             ['총 투입 사업비', '사업비 합계', `${totalProjectCostBil}.0억 원`, '100.0%'],
           ];
-    const expectedExitBil = Number(body.expectedExitBil ?? Math.round(totalProjectCostBil * 1.32));
+    const expectedExitBil = Number(body.expectedExitBil ?? 0);
     const devProfitBil = expectedExitBil - totalProjectCostBil;
     const devMarginPct = totalProjectCostBil > 0 ? ((devProfitBil / totalProjectCostBil) * 100).toFixed(1) : '0.0';
     const costT2Rows = [

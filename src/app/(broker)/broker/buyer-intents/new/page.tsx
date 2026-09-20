@@ -62,7 +62,7 @@ export default function BuyerIntentNewPage() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ memo: memo.trim() }),
+        body: JSON.stringify({ memo: memo.trim(), isAsync: true }),
       });
 
       const json = await res.json();
@@ -76,8 +76,46 @@ export default function BuyerIntentNewPage() {
         throw new Error(errorMsg);
       }
 
-      clearInterval(interval);
-      router.push(`/broker/buyer-intents/${json.data.buyerIntentId}`);
+      if (json.isAsync && json.jobId) {
+        const jobId = json.jobId;
+        let isCompleted = false;
+        let pollCount = 0;
+        let buyerIntentId: string | undefined;
+
+        while (!isCompleted && pollCount < 45) { // 최대 45번 폴링 (약 90초)
+          await new Promise(r => setTimeout(r, 2000));
+          pollCount++;
+          
+          try {
+            const jobRes = await fetch(`/api/broker/jobs/${jobId}`, {
+              headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            const jobJson = await jobRes.json();
+            
+            if (jobJson.ok && jobJson.job) {
+              if (jobJson.job.status === "completed") {
+                buyerIntentId = jobJson.job.output_ref?.buyerIntentId;
+                isCompleted = true;
+                break;
+              } else if (jobJson.job.status === "failed") {
+                throw new Error(jobJson.job.error || "비동기 작업 중 오류가 발생했습니다.");
+              }
+            }
+          } catch (pollErr) {
+            console.error("Polling error:", pollErr);
+          }
+        }
+        
+        if (!isCompleted || !buyerIntentId) {
+           throw new Error("AI 처리 시간이 오래 걸리고 있습니다. 잠시 후 매수의향 목록을 확인해주세요.");
+        }
+        
+        clearInterval(interval);
+        router.push(`/broker/buyer-intents/${buyerIntentId}`);
+      } else {
+        clearInterval(interval);
+        router.push(`/broker/buyer-intents/${json.data.buyerIntentId}`);
+      }
     } catch (err) {
       clearInterval(interval);
       setError(

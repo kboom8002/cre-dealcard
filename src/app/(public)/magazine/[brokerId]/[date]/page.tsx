@@ -9,11 +9,27 @@ interface PageProps {
 
 async function getMagazineData(brokerId: string, date: string): Promise<MagazineData | null> {
   try {
+    const today = new Date().toISOString().slice(0, 10);
+    // 미래 날짜(미발행 이슈)는 발행되지 않은 상태로 처리 (TC-15.20)
+    if (date > today) {
+      return null;
+    }
+
     const supabase = createServiceClient();
+
+    // broker slug 및 user_id 상호 식별자 확인
+    const { data: bp } = await supabase
+      .from("broker_profiles")
+      .select("user_id, slug")
+      .or(`slug.eq.${brokerId},user_id.eq.${brokerId}`)
+      .maybeSingle();
+
+    const candidateIds = Array.from(new Set([brokerId, bp?.user_id, bp?.slug].filter(Boolean) as string[]));
+
     const { data: cached } = await supabase
       .from("magazine_issues")
       .select("content")
-      .eq("broker_id", brokerId)
+      .in("broker_id", candidateIds)
       .eq("issue_date", date)
       .maybeSingle();
 
@@ -23,7 +39,7 @@ async function getMagazineData(brokerId: string, date: string): Promise<Magazine
     const { data: edition } = await supabase
       .from("magazine_editions")
       .select("content")
-      .eq("broker_id", brokerId)
+      .in("broker_id", candidateIds)
       .eq("status", "published")
       .order("created_at", { ascending: false })
       .limit(1)

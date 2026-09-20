@@ -10,7 +10,7 @@ const providerRegistry = new Map<string, LLMProvider>();
 
 // 기본 OpenAI 제공자 등록 (환경 변수 및 테스트 모드에 따라 Mock 또는 실물 등록)
 const hasOpenAiKey = !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== "mock_key";
-const isTestEnv = process.env.NODE_ENV === "test";
+const isTestEnv = process.env.NODE_ENV === "test" && process.env.FORCE_REAL_LLM !== "true";
 
 if (!hasOpenAiKey || isTestEnv) {
   providerRegistry.set("openai", new MockOpenAIProvider());

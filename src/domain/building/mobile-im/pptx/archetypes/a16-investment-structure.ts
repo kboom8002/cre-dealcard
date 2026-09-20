@@ -79,6 +79,7 @@ export function buildA16InvestmentStructure(input: ArchetypeInput): ArchetypeOut
   L.rows(slide, leftX + 0.25, y + 0.65, colW - 0.5, breakdownRows, {
     rh: 0.52,
     fs: 11.5,
+    labRatio: 0.46,
     onDark,
   });
 
@@ -98,10 +99,14 @@ export function buildA16InvestmentStructure(input: ArchetypeInput): ArchetypeOut
     margin: 0,
   });
 
+  const priceNum = parseFloat(priceBil);
+  const eq40 = isNaN(priceNum) ? '-' : (priceNum * 0.6).toFixed(1);
+  const eq50 = isNaN(priceNum) ? '-' : (priceNum * 0.5).toFixed(1);
+
   const ltvScenarios = input.data.ltvScenarios || [
     { ltvPct: 0, equityBil: priceBil, yieldPct: input.data.grossYieldPct ?? null, note: '전액 자기자본' },
-    { ltvPct: 40, equityBil: (parseFloat(priceBil) * 0.6).toFixed(1), yieldPct: null, note: '보수적 차입' },
-    { ltvPct: 50, equityBil: (parseFloat(priceBil) * 0.5).toFixed(1), yieldPct: null, note: '표준 차입' },
+    { ltvPct: 40, equityBil: eq40, yieldPct: null, note: '보수적 차입' },
+    { ltvPct: 50, equityBil: eq50, yieldPct: null, note: '표준 차입' },
   ];
 
   const ltvTableHead = ['구분', '대출비율', '실투자금', '예상수익률'];

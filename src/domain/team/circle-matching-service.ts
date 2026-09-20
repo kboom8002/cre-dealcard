@@ -2,6 +2,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { runMatchingEngine } from "@/domain/matching/matching-engine";
 import type { MatchInput, MatchGrade } from "@/domain/matching/matching-types";
 import { notifyMatchParties } from "./circle-notification-service";
+import { notifyCircleMatchBulletin } from "./circle-match-notifier";
 import { createCoBrokerageDeal } from "./co-brokerage-service";
 
 import { createModuleLogger } from '@/lib/logger';
@@ -175,7 +176,7 @@ export async function runCircleAutoMatch(
       const { data: savedMatches, error } = await supabase
         .from("circle_match_results")
         .upsert(Array.from(matchesToUpsertMap.values()), { onConflict: "circle_id,building_id,buyer_intent_id" })
-        .select("id, grade, score");
+        .select("id, grade, score, building_id, buyer_intent_id, building_broker_id, buyer_broker_id");
 
       if (error) {
         log.error("[runCircleAutoMatch] Bulk upsert match results failed:", error);
@@ -199,6 +200,17 @@ export async function runCircleAutoMatch(
               link: `/broker/circles/${circleId}`,
               metadata: { circle_id: circleId, grade: match.grade, score: match.score },
             }).catch((e) => log.warn("[circle-matching] Notify failed:", e));
+
+            notifyCircleMatchBulletin({
+              circleId,
+              circleMatchId: match.id,
+              grade: match.grade,
+              score: match.score,
+              buildingId: match.building_id,
+              buyerIntentId: match.buyer_intent_id,
+              buildingBrokerId: match.building_broker_id,
+              buyerBrokerId: match.buyer_broker_id,
+            }).catch((e) => log.warn("[circle-matching] Bulletin notify failed:", e));
           }
         }
       }
@@ -311,7 +323,7 @@ export async function runCircleAutoMatch(
       const { data: savedMatches, error } = await supabase
         .from("circle_match_results")
         .upsert(Array.from(matchesToUpsertMap.values()), { onConflict: "circle_id,building_id,buyer_intent_id" })
-        .select("id, grade, score");
+        .select("id, grade, score, building_id, buyer_intent_id, building_broker_id, buyer_broker_id");
 
       if (error) {
         log.error("[runCircleAutoMatch] Bulk upsert match results failed:", error);
@@ -335,6 +347,17 @@ export async function runCircleAutoMatch(
               link: `/broker/circles/${circleId}`,
               metadata: { circle_id: circleId, grade: match.grade, score: match.score },
             }).catch((e) => log.warn("[circle-matching] Notify failed:", e));
+
+            notifyCircleMatchBulletin({
+              circleId,
+              circleMatchId: match.id,
+              grade: match.grade,
+              score: match.score,
+              buildingId: match.building_id,
+              buyerIntentId: match.buyer_intent_id,
+              buildingBrokerId: match.building_broker_id,
+              buyerBrokerId: match.buyer_broker_id,
+            }).catch((e) => log.warn("[circle-matching] Bulletin notify failed:", e));
           }
         }
       }

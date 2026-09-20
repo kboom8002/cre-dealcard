@@ -173,11 +173,11 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
       renderPhotoCard(optimized[2], 2, M + leftW + gap, startY + smallH + gap, rightW, smallH);
     }
   } else if (layout === 'GRID_2X3' || count >= 5) {
-    // 5~6장: 2열 x 3행 균등 그리드 (GRID_2X3)
-    const cols = 2;
-    const rows = 3;
-    const imgW = (CW - gap) / cols;
-    const imgH = (maxAvailableH - gap * 2) / rows;
+    // 5~6장: 3열 x 2행 균등 그리드 (스펙 §2 #8 표준: 가로세로 비 1.65:1로 사진 왜곡 방지)
+    const cols = 3;
+    const rows = 2;
+    const imgW = (CW - gap * 2) / cols;
+    const imgH = (maxAvailableH - gap) / rows;
 
     optimized.forEach((img, i) => {
       if (i >= 6) return;

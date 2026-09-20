@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import AdmZip from 'adm-zip';
@@ -26,6 +26,14 @@ import { MobileImPptxRenderer } from '../../domain/building/mobile-im/pptx/pptx-
  *  - 섹션별 키워드 (10개 슬라이드)
  */
 describe('Basic IM SOTA Render Verification Test', () => {
+  afterAll(() => {
+    try {
+      const outDir = path.resolve(process.cwd(), 'docs', 'test', 'stress', 'e2e-outputs', 'render-verification');
+      const outPath = path.join(outDir, 'seocho_basic_sota.pptx');
+      if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
+    } catch {}
+  });
+
   it('renders Basic IM with all 7 SOTA improvements and passes 26-point assertion suite', async () => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

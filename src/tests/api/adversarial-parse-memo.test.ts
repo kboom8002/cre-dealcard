@@ -363,6 +363,7 @@ describe('Adversarial Challenge 2: SSoT YAML Loader Resilience & Fallbacks', () 
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     try {
       process.chdir(originalCwd);
     } catch {}
@@ -388,8 +389,6 @@ describe('Adversarial Challenge 2: SSoT YAML Loader Resilience & Fallbacks', () 
     expect(Array.isArray(result)).toBe(true);
     // When YAML is not found, fallback to DEFAULT_CANONICAL_PAGE_ORDER
     expect(result).toEqual(DEFAULT_CANONICAL_PAGE_ORDER);
-
-    existsSpy.mockRestore();
   });
 
   it('ADV-SSOT-03: loadPageOrder handles corrupted/malformed YAML content gracefully', () => {
@@ -401,8 +400,6 @@ describe('Adversarial Challenge 2: SSoT YAML Loader Resilience & Fallbacks', () 
     expect(result).toBeDefined();
     expect(Array.isArray(result)).toBe(true);
     expect(result).toEqual(DEFAULT_CANONICAL_PAGE_ORDER);
-
-    readSpy.mockRestore();
   });
 
   it('ADV-SSOT-04: loadPageOrder handles YAML with unexpected data types (not arrays)', () => {
@@ -422,8 +419,6 @@ describe('Adversarial Challenge 2: SSoT YAML Loader Resilience & Fallbacks', () 
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
       expect(result).toEqual(DEFAULT_CANONICAL_PAGE_ORDER);
-
-      readSpy.mockRestore();
     }
   });
 
@@ -446,7 +441,5 @@ describe('Adversarial Challenge 2: SSoT YAML Loader Resilience & Fallbacks', () 
     clearPageOrderCache();
     const fallbackPages = loadPageOrder('income');
     expect(fallbackPages).toEqual(DEFAULT_CANONICAL_PAGE_ORDER);
-
-    readSpy.mockRestore();
   });
 });

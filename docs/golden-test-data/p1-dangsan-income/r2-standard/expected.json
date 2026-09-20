@@ -2,12 +2,12 @@
   "resolution": "R2",
   "posture": "income",
   "expectedGrade": "B",
-  "expectedMinSlides": 8,
-  "expectedMaxSlides": 10,
-  "expectedSlideArchetypes": ["A01", "A02", "A04", "A06", "A04", "A24", "A23", "A10"],
+  "expectedMinSlides": 9,
+  "expectedMaxSlides": 11,
+  "expectedSlideArchetypes": ["A01", "A02", "A04", "A06", "A04", "A06", "A24", "A23", "A14", "A10"],
   "a24_should_suppress": false,
   "a23_should_suppress": false,
   "expectedFloors": ["B1", "1F", "2F", "3F", "4F", "5F"],
   "expectedKeywords": ["당산", "고은약국", "로뎀나무내과", "115억"],
-  "note": "R2 with full rent roll: A24 rent roll + A23 yield formula"
+  "note": "R2 with full rent roll, real photos (6장), Kakao map + V-World cadastral: A06 location + A06 cadastral + A24 rent roll + A23 yield + A14 gallery"
 }

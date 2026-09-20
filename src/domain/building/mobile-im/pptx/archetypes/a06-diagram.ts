@@ -57,13 +57,8 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
   } else {
     let mapImg: { base64: string } | null = null;
 
-    // 1차: 이미 생성된 카카오 지도 URL 사용
-    if (mapImageUrl) {
-      mapImg = await fetchKakaoMapImage(mapImageUrl, 1120, 900);
-    }
-
-    // 1.5차: 카카오 Static Map API 직접 호출 (API 키 사용, Referer 불필요)
-    if (!mapImg && coords) {
+    // 1차: 카카오 Static Map + POI 오버레이 (최우선 — 도보 반경/랜드마크 표시)
+    if (coords) {
       try {
         mapImg = await generateStaticMapPlaceholder(
           areaOrAddress, 1120, 900, coords, poiSpots
@@ -71,6 +66,11 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
       } catch (err) {
         log.warn('[a06-diagram] generateStaticMapPlaceholder failed:', err);
       }
+    }
+
+    // 1.5차: POI 오버레이 실패 시 카카오 지도 URL 폴백
+    if (!mapImg && mapImageUrl) {
+      mapImg = await fetchKakaoMapImage(mapImageUrl, 1120, 900);
     }
 
     // 2차: 고해상도(1600x1200, 266 DPI) 인메모리 Macro Transit Engine 벡터 다이어그램 자동 합성

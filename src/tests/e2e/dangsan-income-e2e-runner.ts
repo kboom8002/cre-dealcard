@@ -367,7 +367,7 @@ ${expectedClosing}`;
       specialty: '영등포·당산 근생 및 메디컬 전문',
     },
     posture: 'income',
-    preset: 'credeal_signature',
+    preset: 'credeal_basic',
     grade: 'B',
   });
 

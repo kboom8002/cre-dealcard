@@ -86,9 +86,9 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
   const sectionY = stepY + stepH + 0.30;
   L.sub(slide, M, sectionY, 6.0, '데이터 출처 표기', true);
   
-  const badges = input.data.badges || [];
+  const badges = (input.data.badges || []).slice(0, 6);
   badges.forEach((b: any, i: number) => {
-    const by = sectionY + 0.36 + i * 0.52;
+    const by = sectionY + 0.36 + i * 0.44;
     
     // 배지 라운드 사각형
     slide.addShape('roundRect', {
@@ -132,7 +132,7 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
     });
 
     // 이름 + 직급
-    slide.addText(`📞  ${broker.name || '[담당자명]'}  ${broker.title || ''}`, {
+    slide.addText(`📞  ${broker.name || ''}  ${broker.title || ''}`, {
       x: rx + 0.20, y: contactY + 0.08, w: rw - 0.40, h: 0.30,
       fontFace: KR, fontSize: 11, bold: true, color: 'FFFFFF', margin: 0,
     });

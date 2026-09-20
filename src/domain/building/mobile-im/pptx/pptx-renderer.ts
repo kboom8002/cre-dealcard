@@ -9,6 +9,7 @@ import PptxGenJS from 'pptxgenjs';
 import { getPptxTheme, getPptxThemeAsync, DEFAULT_PPTX_PRESET, type PptxThemeTokens, type ThemePresetDbReader } from './pptx-theme';
 import { SLIDE_ARCHETYPE_REGISTRY, type ArchetypeInput } from './archetypes';
 import { buildDeckSequence, buildProDeckSequence, type DeckSequenceInput, type SlideSpec, type IncomeArchetype } from './deck-sequencer';
+import { BASIC_IM_EXCLUSION } from './basic-im-contract';
 import { bindSectionData } from './data-binder';
 import { validateTextBudgets } from './text-budget';
 import type { ProvenanceKind } from './imlib';
@@ -182,7 +183,7 @@ export class MobileImPptxRenderer {
       };
 
       const isProDeck = input.isPro || input.proMode || input.preset === 'credeal_pro' || (input.releaseTier as string) === 'pro';
-      const sequence: SlideSpec[] = isProDeck
+      let sequence: SlideSpec[] = isProDeck
         ? buildProDeckSequence(sequenceInput)
         : buildDeckSequence(sequenceInput);
 
@@ -214,6 +215,17 @@ export class MobileImPptxRenderer {
 
       // Basic IM 프리셋: 표지 건물 사진 차단 → 추상 기하학 커버 자동 적용 (basic-im-guide.md §2 #1)
       const isBasicPreset = theme.presetId === 'credeal_basic';
+
+      // S9: Basic IM 프리셋 혼입 방지 가드 (basic-im-contract.ts §3)
+      if (isBasicPreset) {
+        const forbidden: Set<string> = new Set(BASIC_IM_EXCLUSION);
+        const violations = sequence.filter(s => forbidden.has(s.archetype));
+        if (violations.length > 0) {
+          log.error(`[G-BASIC] Basic IM에 금지 아키타입 혼입: ${violations.map(v => v.archetype).join(', ')}`);
+          // 금지 아키타입을 시퀀스에서 자동 제거 (하드 에러 대신 방어적 제거)
+          sequence = sequence.filter(s => !forbidden.has(s.archetype));
+        }
+      }
 
       dataMap['cover'] = {
         title: input.doc.title ?? '',
@@ -337,8 +349,8 @@ export class MobileImPptxRenderer {
 
       if (!dataMap['location']) {
         const locAddress = input.doc.body?.ssot_summary?.address ?? input.doc.body?.resolved_address ?? input.doc.body?.address ?? '';
-        const locRoad = input.doc.body?.ssot_summary?.road_condition ?? '중로 각지 접면';
-        const locArea = input.building?.area_signal ?? input.doc.body?.ssot_summary?.area_signal ?? '도심 상업·업무 권역';
+        const locRoad = input.doc.body?.ssot_summary?.road_condition ?? '';
+        const locArea = input.building?.area_signal ?? input.doc.body?.ssot_summary?.area_signal ?? '';
 
         // G-04: locationPoi가 있으면 구체적 역명+도보시간 사용, 없으면 ssot/일반 폴백
         const poiData = enrichment?.locationPoi;
@@ -349,7 +361,7 @@ export class MobileImPptxRenderer {
           const dM = poiData.nearestStation.distanceM;
           locTransit = `${sName} 도보 ${wMin}분` + (dM ? ` (약 ${dM}m)` : '');
         } else {
-          const locWalk = input.doc.body?.ssot_summary?.station_walk_min ? `도보 ${input.doc.body.ssot_summary.station_walk_min}분` : '도보 8분 이내';
+          const locWalk = input.doc.body?.ssot_summary?.station_walk_min ? `도보 ${input.doc.body.ssot_summary.station_walk_min}분` : '인접 역세권';
           locTransit = `지하철역 역세권 (${locWalk})`;
         }
 
@@ -357,7 +369,7 @@ export class MobileImPptxRenderer {
           ['소재지', locAddress || '본건 소재지'],
           ['접면도로', locRoad],
           ['대중교통', locTransit],
-          ['권역특성', `${locArea} 핵심 비즈니스 및 상업 인프라 밀집`],
+          ['권역특성', `${locArea ? locArea + ' 주요 상업·업무 권역' : '본건 소재지 주변'}`],
         ];
 
         // G-04: 주요 랜드마크(역 제외) 행 추가
@@ -395,14 +407,64 @@ export class MobileImPptxRenderer {
         dataMap['location'].address = input.doc.body?.ssot_summary?.address ?? input.doc.body?.resolved_address ?? input.doc.body?.address;
         dataMap['location'].areaSignal = input.building?.area_signal ?? input.doc.body?.ssot_summary?.area_signal ?? input.doc.body?.areaSignal;
         // POI 주요 스폿 (역, 상권 랜드마크) — 지도 마커 오버레이용
-        const externalPoi = enrichment?.locationPoi ?? input.doc.body?.external_data?.locationPoi;
+        const externalPoi = enrichment?.locationPoi ?? input.doc.body?.external_data?.locationPoi ?? input.doc.body?.enrichment?.locationPoi;
         dataMap['location'].poiSpots = externalPoi?.keySpots ?? input.doc.body?.poiSpots ?? [];
 
-        // D42 RCA → D45 수정: cadastralImage를 location에 주입하지 않음.
-        // 지적도는 'cadastralMap' 전용 dataKey/슬라이드에서만 렌더링.
-        // location 슬라이드는 카카오 Static Map + POI 마커를 사용해야 함.
-        // (a06-diagram.ts L48에서 cadastralImage가 카카오보다 높은 우선순위를 가져
-        //  입지 슬라이드에 지적도 선화가 표시되는 버그의 근본 원인이었음)
+        // D8: 우측 입지 조건 구조화 행 — ssot/POI 데이터에서 동적 생성 (하드코딩 금지)
+        const ssot = input.doc.body?.ssot_summary ?? {};
+        const locRows: Array<[string, string]> = [];
+        const nearestSt = externalPoi?.nearestStation;
+        if (nearestSt?.name) {
+          locRows.push(['대중교통', `${nearestSt.name} 도보 ${nearestSt.walkMinutes ?? Math.round((nearestSt.distanceM ?? 400) / 80)}분 (약 ${nearestSt.distanceM ?? ''}m)`]);
+        } else if (ssot.station_walk_min) {
+          locRows.push(['대중교통', `지하철역 도보 ${ssot.station_walk_min}분 역세권`]);
+        } else {
+          locRows.push(['대중교통', '인접 지하철역 역세권 (상세 확인 필요)']);
+        }
+
+        const road = ssot.road_condition ?? input.building?.road_condition;
+        if (road) {
+          locRows.push(['도로접면', String(road)]);
+        }
+
+        const area = input.building?.area_signal ?? ssot.area_signal ?? '';
+        if (area) {
+          locRows.push(['상권권역', `${area} 주요 상업·업무 권역`]);
+        }
+
+        // 비지하철 랜드마크 행 추가
+        if (externalPoi?.keySpots && !externalPoi._isFallback) {
+          const landmarks = externalPoi.keySpots
+            .filter((s: any) => s.category !== 'subway' && s.name && s.distanceM)
+            .slice(0, 2);
+          for (const lm of landmarks) {
+            const lmWalk = Math.max(1, Math.round(lm.distanceM / 80));
+            const catLabels: Record<string, string> = { hospital: '의료시설', university: '교육시설', shopping: '상업시설', landmark: '주요시설', public: '공공기관' };
+            locRows.push([catLabels[lm.category] || '주요시설', `${lm.name} 도보 ${lmWalk}분 (약 ${lm.distanceM}m)`]);
+          }
+        }
+
+        if (!dataMap['location'].right) dataMap['location'].right = { sub: '입지 및 접근성 분석' };
+        dataMap['location'].right.rows = locRows.slice(0, 6);
+
+        // 입지 종합 분석 callout — 동적 데이터에서 생성 (하드코딩 금지)
+        const calloutBullets: string[] = [];
+        if (nearestSt?.name) {
+          calloutBullets.push(`• ${nearestSt.name} 도보 역세권으로 양호한 대중교통 접근성`);
+        }
+        if (road) {
+          calloutBullets.push(`• ${road} 접면 차량 진출입 양호`);
+        }
+        if (area) {
+          calloutBullets.push(`• ${area} 배후 상권 기반 안정적 임대 수요`);
+        }
+        if (calloutBullets.length > 0) {
+          dataMap['location'].right.callout = {
+            kind: 'info',
+            title: '입지 종합 분석',
+            body: calloutBullets.join('\n'),
+          };
+        }
       }
 
       if (dataMap['commute']) {
@@ -415,6 +477,18 @@ export class MobileImPptxRenderer {
       // 건물 개요 슬라이드에 외관 사진 우선 사용
       if (dataMap['building'] && exteriorPhoto) {
         dataMap['building'].photoUrl = exteriorPhoto.url;
+      }
+
+      // 지적도 슬라이드에 WMS 지적도 이미지 바인딩
+      if (dataMap['cadastralMap']) {
+        const cadastralImg = enrichment?.cadastralMapImage
+          ?? input.doc.body?.cadastralMapImage
+          ?? input.doc.body?.cadastralImage
+          ?? input.doc.body?.enrichment?.cadastralMapImage;
+        if (cadastralImg) {
+          dataMap['cadastralMap'].cadastralImage = cadastralImg;
+          dataMap['cadastralMap'].mapImageUrl = cadastralImg;
+        }
       }
 
       // 면책 조항과 provenance 배지 설명은 법적 고정 텍스트 (§10, §18)

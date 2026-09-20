@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { getBuyerTemperature } from "@/domain/magazine/buyer-temperature";
 import { createModuleLogger } from '@/lib/logger';
 
@@ -26,8 +27,8 @@ const CreateSubscriberSchema = z.object({
 // GET /api/broker/magazine/subscribers - 내 구독자 목록 조회 (매수 온도 포함)
 export async function GET(request: Request) {
   try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const supabaseAuth = await createServerSupabaseClient();
+    const { data: { user } } = await supabaseAuth.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
@@ -46,11 +47,22 @@ export async function GET(request: Request) {
     }
 
     const { status, channel, limit, offset } = parsedQuery.data;
+    const serviceClient = createServiceClient();
 
-    let query = supabase
+    // broker slug 조회
+    const { data: bp } = await serviceClient
+      .from("broker_profiles")
+      .select("slug")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const brokerSlug = bp?.slug || user.id;
+    const brokerIds = Array.from(new Set([user.id, brokerSlug]));
+
+    let query = serviceClient
       .from("magazine_subscribers")
       .select("*", { count: "exact" })
-      .eq("broker_id", user.id);
+      .in("broker_id", brokerIds);
 
     if (status) {
       query = query.eq("status", status);
@@ -116,11 +128,25 @@ export async function POST(request: Request) {
     const { phone, name, email, channel, client_id, interest_tags, interest_profile } = parsed.data;
     const formattedPhone = phone.replace(/[^0-9]/g, "");
 
-    const { data, error } = await supabase
+    const mergedProfile = {
+      ...(interest_profile || {}),
+      ...(interest_tags ? { tags: interest_tags } : {}),
+    };
+
+    const serviceClient = createServiceClient();
+    const { data: bp } = await serviceClient
+      .from("broker_profiles")
+      .select("slug")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const brokerSlug = bp?.slug || user.id;
+
+    const { data, error } = await serviceClient
       .from("magazine_subscribers")
       .upsert(
         {
-          broker_id: user.id,
+          broker_id: brokerSlug,
           subscriber_phone: formattedPhone,
           subscriber_name: name,
           subscriber_email: email || null,
@@ -128,8 +154,7 @@ export async function POST(request: Request) {
           status: "active",
           source: "manual",
           client_id: client_id || null,
-          interest_tags: interest_tags || {},
-          interest_profile: interest_profile || {},
+          interest_profile: mergedProfile,
           subscribed_at: new Date().toISOString(),
         },
         { onConflict: "broker_id,subscriber_phone" }

@@ -598,8 +598,8 @@ export const PPTX_PRESET_TEMPLATES: Record<string, PptxThemeTokens> = {
     darkAccentBorder: 'B8860B',
     darkAccentText: 'F6F1E4',
 
-    titleFont: 'Pretendard',
-    bodyFont: 'Pretendard',
+    titleFont: '맑은 고딕',
+    bodyFont: '맑은 고딕',
     coverStyle: 'institutional_masses',
     layoutStyle: 'classic',
     companyName: 'CRE DEAL',

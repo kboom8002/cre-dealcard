@@ -20,14 +20,22 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const subscriberId = searchParams.get("subscriberId");
 
+    // 1. broker slug 조회 및 식별자 통합 (user.id & slug)
+    const { data: bp } = await supabase
+      .from("broker_profiles")
+      .select("slug")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const slug = bp?.slug;
+    const brokerIds = Array.from(new Set([user.id, slug].filter(Boolean) as string[]));
+
     // ── 구독자별 상세 행동 드릴다운 ──
     if (subscriberId) {
-      // 1. 구독자 정보 검증 (내 구독자인지 확인)
+      // 1. 구독자 정보 검증 (subscriberId 조회)
       const { data: sub, error: subError } = await supabase
         .from("magazine_subscribers")
-        .select("id, subscriber_name, subscriber_phone, subscriber_email, segment, channel, interest_tags, interest_profile, status, subscribed_at")
+        .select("id, subscriber_name, subscriber_phone, subscriber_email, segment, channel, interest_profile, status, subscribed_at, broker_id")
         .eq("id", subscriberId)
-        .eq("broker_id", user.id)
         .maybeSingle();
 
       if (subError || !sub) {
@@ -66,26 +74,18 @@ export async function GET(req: NextRequest) {
     }
 
     // ── 전체 브로커 매거진 성과 대시보드 ──
-    // 1. broker slug 조회
-    const { data: bp } = await supabase
-      .from("broker_profiles")
-      .select("slug")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    const slug = bp?.slug;
-
     // 2. 활성 구독자 수
     const { count: subscriberCount } = await supabase
       .from("magazine_subscribers")
       .select("id", { count: "exact", head: true })
-      .eq("broker_id", user.id)
+      .in("broker_id", brokerIds)
       .eq("status", "active");
 
     // 3. 최근 배포 이력 (activity_events)
     const { data: distEvents } = await supabase
       .from("activity_events")
-      .select("metadata, created_at")
-      .eq("actor_id", user.id)
+      .select("created_at, metadata")
+      .in("actor_id", brokerIds)
       .eq("event_type", "magazine_distributed")
       .order("created_at", { ascending: false })
       .limit(1);
@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
     const { data: editions } = await supabase
       .from("magazine_editions")
       .select("id, broker_id, edition_type, edition_label, title, status, market_temp, view_count, share_count, published_at, created_at")
-      .eq("broker_id", slug || user.id)
+      .in("broker_id", brokerIds)
       .order("created_at", { ascending: false })
       .limit(20);
 
@@ -198,8 +198,8 @@ export async function GET(req: NextRequest) {
     // 6. 구독자 매수 온도 분석 & 핫리드(상위 고관여 고객) 집계
     const { data: activeSubscribers } = await supabase
       .from("magazine_subscribers")
-      .select("id, subscriber_name, subscriber_phone, subscriber_email, segment, channel, interest_tags, interest_profile, subscribed_at")
-      .eq("broker_id", user.id)
+      .select("id, subscriber_name, subscriber_phone, subscriber_email, segment, channel, interest_profile, subscribed_at")
+      .in("broker_id", brokerIds)
       .eq("status", "active")
       .limit(100);
 
@@ -253,7 +253,7 @@ export async function GET(req: NextRequest) {
         subscriber_email: sub.subscriber_email,
         segment: sub.segment || "investor",
         channel: sub.channel,
-        interest_tags: sub.interest_tags || {},
+        interest_tags: sub.interest_profile?.tags || {},
         buyerTemperature: tempConfig.label,
         temperatureConfig: tempConfig,
         score: tempConfig.minScore + Math.min(15, viewCount * 3),
@@ -301,11 +301,19 @@ export async function GET(req: NextRequest) {
       const pollDate = latestEdition.published_at?.slice(0, 10) || latestEdition.created_at?.slice(0, 10);
       
       if (pollDate) {
-        const { data: votes } = await supabase
-          .from("magazine_poll_responses")
-          .select("choice")
-          .eq("broker_id", slug || user.id)
-          .eq("edition_date", pollDate);
+        let votes: { choice: number }[] = [];
+        try {
+          const { data: voteData, error: voteErr } = await supabase
+            .from("magazine_poll_responses")
+            .select("choice")
+            .in("broker_id", brokerIds)
+            .eq("edition_date", pollDate);
+          if (!voteErr && voteData) {
+            votes = voteData as { choice: number }[];
+          }
+        } catch {
+          // graceful fallback if table not migrated
+        }
 
         const { data: latestFullEdition } = await supabase
           .from("magazine_editions")

@@ -229,8 +229,10 @@ export function computeEnsembleScore(params: {
   intent: MatchInput['intent'];
   scheduleFitScore?: number;
   purposeWeights: Record<string, number>;
+  buyerTemperatureScore?: number;
 }): number {
   const { similarity, dealCuriosityScore, building, intent, scheduleFitScore = 0, purposeWeights } = params;
+  const buyerTemperatureScore = params.buyerTemperatureScore ?? intent.buyerTemperatureScore;
 
   const semanticScore = similarity;
   const financialScore = dealCuriosityScore / 100;
@@ -238,7 +240,7 @@ export function computeEnsembleScore(params: {
   const vacancyScore = computeVacancyScore(building, intent);
 
   const w = purposeWeights;
-  return (
+  let baseScore = (
     (w.market    ?? 0) * marketScore   +
     (w.financial ?? 0) * financialScore +
     (w.vacancy   ?? 0) * vacancyScore  +
@@ -246,6 +248,15 @@ export function computeEnsembleScore(params: {
     (w.schedule  ?? 0) * scheduleFitScore +
     (w.tax       ?? 0) * financialScore
   ) * 100;
+
+  // 매수 온도(Buyer Temperature) 보정 (±5점)
+  if (buyerTemperatureScore != null) {
+    if (buyerTemperatureScore >= 80) baseScore += 5;       // 🔥 적극검토
+    else if (buyerTemperatureScore >= 60) baseScore += 2;  // 📈 관심
+    else if (buyerTemperatureScore < 20) baseScore -= 3;   // ❄️ 냉각
+  }
+
+  return Math.min(Math.max(baseScore, 0), 100);
 }
 
 export function scoreToGrade(score: number): MatchGrade {

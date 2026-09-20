@@ -42,6 +42,7 @@ export async function GET(
     phone: "010-0000-0000",
   };
 
+  let bpUserId: string | null = null;
   try {
     const { data: bp } = await supabase
       .from("broker_profiles")
@@ -50,6 +51,7 @@ export async function GET(
       .maybeSingle();
 
     if (bp) {
+      bpUserId = bp.user_id;
       const { data: profile } = await supabase
         .from("profiles")
         .select("display_name, company, phone")
@@ -72,10 +74,11 @@ export async function GET(
   // 2. 에디션 조회
   let edition: any = null;
   try {
+    const candidateIds = [brokerId, bpUserId].filter(Boolean) as string[];
     const { data: ed } = await supabase
       .from("magazine_editions")
       .select("title, market_temp, cover_keywords, content, theme_title, theme_body_md, featured_deal_ids")
-      .eq("broker_id", brokerId)
+      .in("broker_id", candidateIds)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -141,7 +144,7 @@ export async function GET(
           />
 
           {/* 1. Header (Brand & Date) */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
               <div
                 style={{
@@ -149,6 +152,7 @@ export async function GET(
                   height: "20px",
                   borderRadius: "4px",
                   background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                  display: "flex",
                 }}
               />
               <span style={{ color: "#a5b4fc", fontSize: "24px", fontWeight: 800, letterSpacing: "4px" }}>
@@ -157,6 +161,7 @@ export async function GET(
             </div>
             <div
               style={{
+                display: "flex",
                 background: "rgba(255, 255, 255, 0.06)",
                 border: "1px solid rgba(255, 255, 255, 0.12)",
                 padding: "8px 20px",
@@ -171,7 +176,7 @@ export async function GET(
           </div>
 
           {/* 2. Main Title & Temperature Badge */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "24px", marginTop: "80px", zIndex: 10 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "24px", marginTop: "80px" }}>
             <div style={{ display: "flex", gap: "14px", alignItems: "center" }}>
               <div
                 style={{
@@ -186,11 +191,12 @@ export async function GET(
               >
                 <span style={{ fontSize: "24px" }}>{tempConfig.emoji}</span>
                 <span style={{ color: tempConfig.color, fontSize: "20px", fontWeight: 800 }}>
-                  시장 온도: {marketTemp}
+                  {`시장 온도: ${marketTemp}`}
                 </span>
               </div>
               <div
                 style={{
+                  display: "flex",
                   padding: "10px 20px",
                   borderRadius: "30px",
                   background: "rgba(99,102,241,0.15)",
@@ -206,6 +212,7 @@ export async function GET(
 
             <div
               style={{
+                display: "flex",
                 fontSize: "56px",
                 fontWeight: 900,
                 lineHeight: 1.25,
@@ -222,6 +229,7 @@ export async function GET(
                 <div
                   key={i}
                   style={{
+                    display: "flex",
                     background: "rgba(255, 255, 255, 0.05)",
                     border: "1px solid rgba(255, 255, 255, 0.1)",
                     color: "#cbd5e1",
@@ -231,7 +239,7 @@ export async function GET(
                     fontWeight: 600,
                   }}
                 >
-                  #{kw}
+                  {`#${kw}`}
                 </div>
               ))}
             </div>
@@ -248,7 +256,6 @@ export async function GET(
               padding: "40px",
               marginTop: "50px",
               gap: "18px",
-              zIndex: 10,
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -259,13 +266,14 @@ export async function GET(
             </div>
             <div
               style={{
+                display: "flex",
                 fontSize: "22px",
                 lineHeight: 1.6,
                 color: "#94a3b8",
                 wordBreak: "keep-all",
               }}
             >
-              {cleanBriefing.slice(0, 240)}...
+              {`${cleanBriefing.slice(0, 240)}...`}
             </div>
           </div>
 
@@ -280,7 +288,6 @@ export async function GET(
               padding: "36px 40px",
               marginTop: "36px",
               gap: "16px",
-              zIndex: 10,
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -330,7 +337,7 @@ export async function GET(
           </div>
 
           {/* 4.5 Engagement Teasers (Poll, Tax Clinic, Calculator) */}
-          <div style={{ display: "flex", gap: "16px", marginTop: "32px", zIndex: 10 }}>
+          <div style={{ display: "flex", gap: "16px", marginTop: "32px" }}>
             {edition?.content?.poll?.question && (
               <div
                 style={{
@@ -347,7 +354,7 @@ export async function GET(
                 <span style={{ fontSize: "24px" }}>📊</span>
                 <span style={{ color: "#a78bfa", fontSize: "16px", fontWeight: 800 }}>이번 주 투표</span>
                 <span style={{ color: "#c4b5fd", fontSize: "14px", lineHeight: 1.5 }}>
-                  {String(edition.content.poll.question).slice(0, 40)}{String(edition.content.poll.question).length > 40 ? "..." : ""}
+                  {String(edition.content.poll.question).slice(0, 40) + (String(edition.content.poll.question).length > 40 ? "..." : "")}
                 </span>
               </div>
             )}
@@ -367,7 +374,7 @@ export async function GET(
                 <span style={{ fontSize: "24px" }}>💰</span>
                 <span style={{ color: "#f59e0b", fontSize: "16px", fontWeight: 800 }}>세무·법률 Q&A</span>
                 <span style={{ color: "#fbbf24", fontSize: "14px", lineHeight: 1.5 }}>
-                  {String(edition.content.tax_clinic.question).slice(0, 40)}{String(edition.content.tax_clinic.question).length > 40 ? "..." : ""}
+                  {String(edition.content.tax_clinic.question).slice(0, 40) + (String(edition.content.tax_clinic.question).length > 40 ? "..." : "")}
                 </span>
               </div>
             )}
@@ -400,7 +407,6 @@ export async function GET(
               alignItems: "center",
               borderTop: "1px solid rgba(255, 255, 255, 0.1)",
               paddingTop: "40px",
-              zIndex: 10,
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
@@ -424,8 +430,8 @@ export async function GET(
                   <span style={{ fontSize: "32px", fontWeight: 900 }}>{broker.name}</span>
                   <span style={{ fontSize: "20px", color: "#94a3b8" }}>{broker.company}</span>
                 </div>
-                <div style={{ fontSize: "18px", color: "#818cf8", fontWeight: 600 }}>
-                  📞 {broker.phone} • 1:1 전담 부동산 자문
+                <div style={{ display: "flex", fontSize: "18px", color: "#818cf8", fontWeight: 600 }}>
+                  {`📞 ${broker.phone} • 1:1 전담 부동산 자문`}
                 </div>
               </div>
             </div>
@@ -440,6 +446,7 @@ export async function GET(
             >
               <div
                 style={{
+                  display: "flex",
                   background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
                   color: "#ffffff",
                   padding: "12px 24px",
@@ -489,8 +496,8 @@ export async function GET(
               {marketTemp}
             </span>
           </div>
-          <div style={{ fontSize: "42px", fontWeight: 900, lineHeight: 1.3 }}>{title}</div>
-          <div style={{ fontSize: "18px", color: "#94a3b8" }}>{cleanBriefing.slice(0, 140)}...</div>
+          <div style={{ display: "flex", fontSize: "42px", fontWeight: 900, lineHeight: 1.3 }}>{title}</div>
+          <div style={{ display: "flex", fontSize: "18px", color: "#94a3b8" }}>{`${cleanBriefing.slice(0, 140)}...`}</div>
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "24px" }}>
@@ -498,12 +505,12 @@ export async function GET(
             <div style={{ width: "50px", height: "50px", borderRadius: "50%", background: "#6366f1", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>
               {broker.name.charAt(0)}
             </div>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: "20px" }}>{broker.name}</div>
-              <div style={{ color: "#94a3b8", fontSize: "14px" }}>{broker.company}</div>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <div style={{ display: "flex", fontWeight: 800, fontSize: "20px" }}>{broker.name}</div>
+              <div style={{ display: "flex", color: "#94a3b8", fontSize: "14px" }}>{broker.company}</div>
             </div>
           </div>
-          <div style={{ color: "#818cf8", fontSize: "16px", fontWeight: 700 }}>
+          <div style={{ display: "flex", color: "#818cf8", fontSize: "16px", fontWeight: 700 }}>
             {broker.phone}
           </div>
         </div>

@@ -53,6 +53,7 @@ describe("AI Prompt Regression & Golden Testset", () => {
         if (caseMatchRate < testCase.tolerances.fieldMatchRate) {
           console.warn(`[Regression Warning] TestCase ${testCase.id} matched ${caseMatchCount}/${checks.length} fields. Accuracy is below threshold.`);
         }
+        expect(caseMatchRate).toBeGreaterThanOrEqual(testCase.tolerances.fieldMatchRate);
       } catch (err: any) {
         console.error(`[Regression Error] TestCase ${testCase.id} failed to process:`, err.message);
         throw err;
@@ -64,5 +65,6 @@ describe("AI Prompt Regression & Golden Testset", () => {
     
     const overallAccuracy = matchingFieldsCount / totalFieldsChecked;
     console.log(`[Golden Testset Results] Overall Parsing Success: ${parseSuccessCount}/${GOLDEN_TEST_CASES.length} | Accumulated Field Accuracy: ${(overallAccuracy * 100).toFixed(1)}%`);
+    expect(overallAccuracy).toBeGreaterThanOrEqual(0.8);
   }, 180000); // 180초 (3분) 타임아웃 지정
 });

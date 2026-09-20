@@ -28,9 +28,11 @@ export function buildA08DualTable(input: ArchetypeInput): ArchetypeOutput {
   let table1End = 1.90;
   if (t1.rows && t1.rows.length > 0) {
     const colCount = t1.rows[0].length || 1;
-    const colW = Array(colCount).fill(7.30 / colCount);
+    const colW = colCount === 2 ? [2.30, 5.00] : Array(colCount).fill(7.30 / colCount);
     const headRow = t1.rows[0].map((c: any) => String(c?.text ?? c ?? ''));
-    const bodyRows = t1.rows.slice(1);
+    let bodyRows = t1.rows.slice(1);
+    const maxT1Rows = Math.floor((6.8 - 1.90) / 0.46) - 1;
+    if (bodyRows.length > maxT1Rows) bodyRows = bodyRows.slice(0, Math.max(0, maxT1Rows));
     table1End = L.table(slide, M, 1.90, 7.30, headRow, bodyRows, colW, { rh: 0.46, bfs: 13, hfs: 13 });
   }
   
@@ -38,10 +40,15 @@ export function buildA08DualTable(input: ArchetypeInput): ArchetypeOutput {
   if (t2.sub) L.sub(slide, M, table1End + 0.15, 7.30, t2.sub);
   if (t2.rows && t2.rows.length > 0) {
     const colCount = t2.rows[0].length || 1;
-    const colW = Array(colCount).fill(7.30 / colCount);
+    const colW = colCount === 2 ? [2.30, 5.00] : Array(colCount).fill(7.30 / colCount);
     const headRow = t2.rows[0].map((c: any) => String(c?.text ?? c ?? ''));
-    const bodyRows = t2.rows.slice(1);
-    L.table(slide, M, table1End + 0.15 + 0.35, 7.30, headRow, bodyRows, colW, { rh: 0.46, bfs: 13, hfs: 13 });
+    let bodyRows = t2.rows.slice(1);
+    const t2StartY = table1End + 0.15 + 0.35;
+    const maxT2Rows = Math.floor((6.8 - t2StartY) / 0.46) - 1;
+    if (bodyRows.length > maxT2Rows) bodyRows = bodyRows.slice(0, Math.max(0, maxT2Rows));
+    if (bodyRows.length > 0 || maxT2Rows >= 0) {
+      L.table(slide, M, t2StartY, 7.30, headRow, bodyRows, colW, { rh: 0.46, bfs: 13, hfs: 13 });
+    }
   }
   
   const rx = 8.20;

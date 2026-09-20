@@ -27,23 +27,23 @@ export function buildFarUpsideProps(markdown: string, tables: ParsedTable[], bod
             ...ssot,
             ...(building ?? {}),
           };
-    const farMax = lup.floorAreaRatioMax ?? lup.farMax ?? 250;
-    const bcrMax = lup.buildingCoverageMax ?? lup.bcrMax ?? 60;
-    const currentFar = bldg.floor_area_ratio ?? bldg.far ?? 180;
-    const currentBcr = bldg.building_coverage_ratio ?? bldg.bcr ?? 52;
+    const farMax = lup.floorAreaRatioMax ?? lup.farMax ?? null;
+    const bcrMax = lup.buildingCoverageMax ?? lup.bcrMax ?? null;
+    const currentFar = bldg.floor_area_ratio ?? bldg.far ?? null;
+    const currentBcr = bldg.building_coverage_ratio ?? bldg.bcr ?? null;
     const landAreaP = bldg.land_area_pyung
             ?? bldg.land_area_pyeong
             ?? (bldg.land_area_sqm ? Math.round(sqmToPyeong(bldg.land_area_sqm) * 10) / 10 : 0);
-    const remainingFar = Math.max(0, farMax - currentFar);
-    const additionalAreaP = landAreaP > 0 ? (landAreaP * (remainingFar / 100)).toFixed(1) : '-';
-    const zoning = lup.zoningName ?? lup.zoning ?? bldg.zoning ?? '일반주거지역';
+    const remainingFar = (farMax != null && currentFar != null) ? Math.max(0, farMax - currentFar) : null;
+    const additionalAreaP = landAreaP > 0 && remainingFar != null ? (landAreaP * (remainingFar / 100)).toFixed(1) : '-';
+    const zoning = lup.zoningName ?? lup.zoning ?? bldg.zoning ?? '[용도지역 확인 필요]';
     const rows: [string, string][] = [
             ['용도지역', zoning],
-            ['법정 상한 용적률', `${farMax}%`],
-            ['현재 건축 용적률', `${currentFar}%`],
-            ['잔여 용적률 여유', `+${remainingFar}%p`],
+            ['법정 상한 용적률', farMax != null ? `${farMax}%` : '-'],
+            ['현재 건축 용적률', currentFar != null ? `${currentFar}%` : '-'],
+            ['잔여 용적률 여유', remainingFar != null ? `+${remainingFar}%p` : '-'],
             ['증축 가능 연면적', additionalAreaP !== '-' ? `약 ${additionalAreaP}평` : '현황 검토 필요'],
-            ['건폐율 현황', `${currentBcr}% (법정 한도 ${bcrMax}%)`],
+            ['건폐율 현황', currentBcr != null ? `${currentBcr}% (법정 한도 ${bcrMax ?? '-'}%)` : '-'],
             ['도로 접면 현황', lup.roadAccess ?? ssot.road_condition ?? '접면 현황 검토 필요'],
           ];
     return {
@@ -59,7 +59,7 @@ export function buildFarUpsideProps(markdown: string, tables: ParsedTable[], bod
         {
           kind: 'info',
           title: '수직 증축 및 공간 재배치 잠재력',
-          body: `• 법정 상한 용적률(${farMax}%) 대비 약 ${remainingFar}%p의 잔여 용적률 여유 확보\n• 상부층 1~2개 층 수직 증축(약 ${additionalAreaP}평)을 통한 유효 임대면적 극대화\n• 증축 후 임대료 정상화 시 연간 순수익률(Cap Rate) 1.2%p 추가 상승 기대`,
+          body: `• 법정 상한 용적률(${farMax}%) 대비 약 ${remainingFar}%p의 잔여 용적률 여유 확보\n• 상부층 1~2개 층 수직 증축(약 ${additionalAreaP}평)을 통한 유효 임대면적 극대화\n• 증축 시 임대면적 확대 효과 기대`,
         },
         {
           kind: 'info',
@@ -266,7 +266,7 @@ export function buildOwnerOccupiedPlanProps(body: Record<string, any> = {}, buil
     const subleaseRow: [string, string] = occ.subleaseDesc
             ? ['지하/잔여층 활용', occ.subleaseDesc]
             : occ.hasSublease
-              ? ['지하 1층 활용', `독립 스튜디오 임대 유지 (보증금 ${occ.subleaseDepositManwon ? (occ.subleaseDepositManwon / 10000).toFixed(1) + '억' : '3,000만'} / 월 ${occ.subleaseRentManwon || 400}만 수익 창출)`]
+              ? ['지하 1층 활용', `독립 스튜디오 임대 유지 (보증금 ${occ.subleaseDepositManwon ? (occ.subleaseDepositManwon / 10000).toFixed(1) + '억' : '0'} / 월 ${occ.subleaseRentManwon || 0}만 수익 창출)`]
               : ['부속 공간 활용', '본사 회의실, 휴게실 및 공용 복합 공간으로 전용 활용'];
     const leftRows: [string, string][] = [
             ['본사 전용 층수', occ.floorsInUse || '지상 전층 독립 사옥 사용'],
@@ -275,7 +275,7 @@ export function buildOwnerOccupiedPlanProps(body: Record<string, any> = {}, buil
             ['1인당 유효 면적', perPersonPy !== '-' ? `약 ${perPersonPy}평 (오피스 표준 면적 기준 충족)` : '실사 후 부서별 배분'],
             subleaseRow,
             ['주차 및 이동', occ.parkingDesc || '자주식 주차 및 승강기 설비 완비'],
-            ['잔금 및 명도', occ.evictionPlan || '잔금일 기준 매도인 전층 즉시 퇴거 (명도 리스크 해소)'],
+            ['잔금 및 명도', occ.evictionPlan || '명도 조건 매도인 협의 및 실사 확인 필요'],
           ];
     const rightCallouts = [
             {
@@ -323,7 +323,7 @@ export function buildOwnerOccupiedVsLeaseProps(body: Record<string, any> = {}, b
     const tenYearRentTotalBil = (parseFloat(annualRentBil) * 10).toFixed(1);
     const tenYearOwnerCostBil = (parseFloat(netAnnualCostBil) * 10).toFixed(1);
     const tenYearSavingsBil = (parseFloat(tenYearRentTotalBil) - parseFloat(tenYearOwnerCostBil)).toFixed(1);
-    const futureAssetBil = (parseFloat(askPriceBil) * 1.5).toFixed(1);
+    const futureAssetBil = '[실사 필요]';
     const netWealthGainBil = (parseFloat(futureAssetBil) - parseFloat(askPriceBil) + parseFloat(tenYearSavingsBil)).toFixed(1);
     const table1Rows: string[][] = [
             ['비교 항목', `${areaSignal} 임차 유지`, `본 사옥 매입 운용 (${askPriceBil}억)`, '연간 차액 / 절감액'],
@@ -335,7 +335,7 @@ export function buildOwnerOccupiedVsLeaseProps(body: Record<string, any> = {}, b
     const table2Rows: string[][] = [
             ['구분 (10년 누적)', '임차 지속', '본 사옥 매입 보유', '비고'],
             ['10년간 순 비용 지출', `${tenYearRentTotalBil}억원 (전액 소멸)`, `${tenYearOwnerCostBil}억원 (실질 이자·비용)`, `${tenYearSavingsBil}억원 현금 유출 절감`],
-            ['10년 후 부동산 자산가치', `0원 (보증금 ${depositBil}억 원금 회수)`, `${futureAssetBil}억원 (연 4.1% 지가상승 가정)`, `${areaSignal} 토지 가치 형성`],
+            ['10년 후 부동산 자산가치', `0원 (보증금 ${depositBil}억 원금 회수)`, '[시세 전망 실사 필요]', `${areaSignal} 토지 가치 형성`],
             ['10년 후 법인 순자산 기여', `-${tenYearRentTotalBil}억원`, `+${netWealthGainBil}억원 (매각 시 세전 차익)`, '법인 재무제표 획기적 개선'],
           ];
     const callouts = [
@@ -560,7 +560,7 @@ export function buildDevelopmentCostProps(body: Record<string, any> = {}, buildi
     const askPriceManwon = body?.asking_price_manwon || (body?.askingPrice ? body.askingPrice / 10000 : 0);
     const askPriceBil = askPriceManwon > 0 ? (askPriceManwon / 10000).toFixed(1) : '확인 필요';
     const targetPyeong = devSpec.targetScalePyung || devSpec.targetScalePyeong || 0;
-    const constCostPerPyeong = devSpec.constructionCostPerPyung || devSpec.constructionCostPerPyeong || 1200;
+    const constCostPerPyeong = devSpec.constructionCostPerPyung || devSpec.constructionCostPerPyeong || 0;
     const estConstCostManwon = targetPyeong > 0 ? targetPyeong * constCostPerPyeong : 0;
     const estConstCostBil = estConstCostManwon > 0 ? (estConstCostManwon / 10000).toFixed(1) : '확인 필요';
     const totalCostManwon = devSpec.totalCostManwon || (askPriceManwon + estConstCostManwon * 1.05) || 0;
@@ -819,7 +819,7 @@ export function buildOperatingOperatorProps(
   const op = body?.hotel_operating || body?.supplemental?.hotel_operating || {};
   const areaSignal = body?.assetIdentity?.area_signal || building?.area_signal || '해당 권역';
 
-  const operatorName = op.operator_name || '미정';
+  const operatorName = op.operator_name || '운영사 협의 대상';
   const operatingModel = op.operating_model || '';
   const contractExpiry = op.operator_contract_expiry || '';
   const tourismGrade = op.tourism_grade || '';

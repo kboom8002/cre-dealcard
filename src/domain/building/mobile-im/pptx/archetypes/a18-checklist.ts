@@ -114,7 +114,7 @@ export async function buildA18Checklist(input: ArchetypeInput): Promise<Archetyp
         h: 0.35,
         fontFace: KR,
         fontSize: 11,
-        color: C.white,
+        color: 'FFFFFF',
         align: 'center',
         valign: 'middle',
         bold: true,
@@ -142,8 +142,8 @@ export async function buildA18Checklist(input: ArchetypeInput): Promise<Archetyp
   renderItemColumn(rightItems, rightX);
 
   // 하단 마감 배너 (실사 가이드)
-  const bannerY = 6.30;
-  const bannerH = 0.65;
+  const bannerY = 5.85;
+  const bannerH = 0.50;
   slide.addShape('rect', {
     x: M,
     y: bannerY,

@@ -10,7 +10,7 @@ export interface PoiSpot {
   lat: number;
   lng: number;
   distanceM: number;
-  category: 'subway' | 'landmark' | 'hospital' | 'university' | 'shopping';
+  category: 'subway' | 'landmark' | 'hospital' | 'university' | 'shopping' | 'public';
 }
 
 export interface LocationPoiData {
@@ -41,22 +41,27 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
     return null;
   }
 
-  const restKey = process.env.KAKAO_REST_API_KEY;
+  const restKey = process.env.KAKAO_REST_API_KEY || process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
 
   if (restKey && restKey !== "") {
     try {
       // ── 1. 지하철역 (1km 반경, 최대 5개) ──
-      const stationUrl = `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=SW8&y=${lat}&x=${lng}&radius=1000&sort=distance&size=5`;
-      const stationRes = await fetch(stationUrl, {
-        headers: { Authorization: `KakaoAK ${restKey}` },
-        signal: AbortSignal.timeout(3000),
-      });
-      if (!stationRes.ok) {
-        log.warn(`[kakao-map-api] Station search returned HTTP ${stationRes.status} (401/429/error)`);
-        return null;
+      const stationUrl = `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=SW8&y=${lat}&x=${lng}&radius=2000&sort=distance&size=8`;
+      let stations: any[] = [];
+      try {
+        const stationRes = await fetch(stationUrl, {
+          headers: { Authorization: `KakaoAK ${restKey}` },
+          signal: AbortSignal.timeout(3000),
+        });
+        if (!stationRes.ok) {
+          log.warn(`[kakao-map-api] Station search returned HTTP ${stationRes.status} (401/429/error)`);
+        } else {
+          const stationData = await stationRes.json();
+          stations = stationData?.documents || [];
+        }
+      } catch (err) {
+        log.warn({ err: err }, '[kakao-map-api] Station search failed:');
       }
-      const stationData = await stationRes.json();
-      const stations = stationData?.documents || [];
 
       let nearestStation: LocationPoiData['nearestStation'] = null;
       const keySpots: PoiSpot[] = [];
@@ -125,17 +130,18 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
         })
       );
 
-      // ── 3. 상권 랜드마크 (대형마트, 백화점, 대학, 병원 — 1km) ──
+      // ── 3. 상권 랜드마크 (대형마트, 백화점, 대학, 병원, 공공기관 — 2km) ──
       const landmarkCategories = [
         { code: "MT1", category: 'shopping' as const },  // 대형마트
         { code: "HP8", category: 'hospital' as const },   // 병원
         { code: "SC4", category: 'university' as const }, // 학교(대학)
+        { code: "PO3", category: 'public' as const },  // 공공기관 (구청, 시청, 경찰서 등)
       ];
 
       await Promise.all(
         landmarkCategories.map(async (lm) => {
           try {
-            const url = `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=${lm.code}&y=${lat}&x=${lng}&radius=1000&sort=distance&size=3`;
+            const url = `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=${lm.code}&y=${lat}&x=${lng}&radius=2000&sort=distance&size=8`;
             const res = await fetch(url, {
               headers: { Authorization: `KakaoAK ${restKey}` },
               signal: AbortSignal.timeout(2000),
@@ -177,20 +183,52 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
           }
         })
       );
-
       // keySpots 중복 제거 및 5개 제한 (역 우선, 거리순)
+      // ── 3.5 F5: 키워드 기반 보충 검색 (백화점, 아파트단지, 대형 상업시설) ──
+      const keywordSearchTerms = ['백화점', '아파트단지', '쇼핑몰'];
+      await Promise.all(
+        keywordSearchTerms.map(async (keyword) => {
+          try {
+            const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(keyword)}&y=${lat}&x=${lng}&radius=2000&sort=distance&size=3`;
+            const res = await fetch(url, {
+              headers: { Authorization: `KakaoAK ${restKey}` },
+              signal: AbortSignal.timeout(2000),
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            const docs = data?.documents || [];
+            for (const doc of docs) {
+              const dLat = parseFloat(doc.y);
+              const dLng = parseFloat(doc.x);
+              const distanceM = parseInt(doc.distance, 10) || 500;
+              if (!isNaN(dLat) && !isNaN(dLng) && distanceM <= 2500) {
+                keySpots.push({
+                  name: String(doc.place_name),
+                  lat: dLat,
+                  lng: dLng,
+                  distanceM,
+                  category: 'landmark' as const,
+                });
+              }
+            }
+          } catch {
+            // 키워드 검색 실패 시 무시
+          }
+        })
+      );
+
       const uniqueSpots = keySpots.reduce((acc, spot) => {
         const exists = acc.find(s => Math.abs(s.lat - spot.lat) < 0.0001 && Math.abs(s.lng - spot.lng) < 0.0001);
         if (!exists) acc.push(spot);
         return acc;
       }, [] as PoiSpot[]);
 
-      // 역 우선 정렬 후 5개 제한
-      uniqueSpots.sort((a, b) => {
-        if (a.category === 'subway' && b.category !== 'subway') return -1;
-        if (a.category !== 'subway' && b.category === 'subway') return 1;
-        return a.distanceM - b.distanceM;
-      });
+      // 카테고리 쿼터제: 지하철 max 2개 + 비지하철 min 3개 보장
+      const subways = uniqueSpots.filter(s => s.category === 'subway').slice(0, 2);
+      const others = uniqueSpots.filter(s => s.category !== 'subway')
+        .sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity))
+        .slice(0, 4);
+      const balancedSpots = [...subways, ...others].slice(0, 5);
 
       return {
         nearestStation,
@@ -198,7 +236,7 @@ export async function fetchLocationPoi(lat: number, lng: number): Promise<Locati
           subway: counts.subway, busStop: counts.busStop, cafe: counts.cafe,
           parking: counts.parking, restaurant: counts.restaurant, convenience: counts.convenience,
         },
-        keySpots: uniqueSpots.slice(0, 5),
+        keySpots: balancedSpots,
       };
     } catch (err) {
       log.warn({ err: err }, "[kakao-map-api] API failed, returning null to prevent hallucination:");

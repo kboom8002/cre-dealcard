@@ -47,7 +47,7 @@ async function run() {
   console.log('▶ [API] V-World WMS 지적도 호출...');
   let cadastralResult: Awaited<ReturnType<typeof fetchCadastralMapImage>> = null;
   try {
-    cadastralResult = await fetchCadastralMapImage(LAT, LNG, 1200, 900, 200);
+    cadastralResult = await fetchCadastralMapImage(LAT, LNG, 1200, 900, 200, '1156011500100110047');
     if (cadastralResult) {
       console.log(`   ✅ 지적도 취득 성공 (${cadastralResult.buffer.length} bytes, ${cadastralResult.width}×${cadastralResult.height})`);
       // 지적도 이미지를 output에도 저장
@@ -204,7 +204,7 @@ async function run() {
     buildingId: 'dangsan-5ga',
     doc,
     building,
-    preset: 'commercial_visual_grid',
+    preset: 'credeal_basic',
     posture: 'income',
     grade: 'A',
   });

@@ -136,6 +136,105 @@ export class PptxStudioService {
     return project;
   }
 
+  createBasicImProject(
+    buildingId: string,
+    buildingName: string,
+    docBody: Record<string, any>,
+  ): PptxProject {
+    const projectId = randomUUID();
+    const now = new Date().toISOString();
+    const title = `${buildingName} Basic IM`;
+
+    const basicImSlides: Array<{
+      layoutType: string;
+      category: 'body';
+      title: string;
+      kicker: string;
+      dataKey: string;
+    }> = [
+      { layoutType: 'A01_COVER', category: 'body', title, kicker: 'INVESTMENT MEMORANDUM', dataKey: 'cover' },
+      { layoutType: 'A02_STAT_GRID', category: 'body', title: '투자 핵심 포인트', kicker: 'KEY HIGHLIGHTS', dataKey: 'highlights' },
+      { layoutType: 'A04_ASYMMETRIC', category: 'body', title: '건물 개요 및 토지 정보', kicker: 'PROPERTY OVERVIEW', dataKey: 'overview' },
+      { layoutType: 'A06_DIAGRAM', category: 'body', title: '입지 분석', kicker: 'LOCATION ANALYSIS', dataKey: 'location' },
+      { layoutType: 'A05_LAND_INFO', category: 'body', title: '토지 정보 및 법규 검토', kicker: 'LAND & ZONING', dataKey: 'land' },
+      { layoutType: 'A14_GALLERY', category: 'body', title: '자산 사진', kicker: 'PROPERTY GALLERY', dataKey: 'gallery' },
+      { layoutType: 'A24_RENTROLL_STACKING', category: 'body', title: '렌트롤 및 스태킹 플랜', kicker: 'RENT ROLL & STACKING', dataKey: 'rentroll' },
+      { layoutType: 'A23_YIELD_FORMULA', category: 'body', title: '수익률 분석', kicker: 'YIELD ANALYSIS', dataKey: 'yield' },
+      { layoutType: 'A10_CLOSING', category: 'body', title: '담당자 정보 및 면책', kicker: 'DISCLAIMER & CONTACT', dataKey: 'closing' },
+    ];
+
+    const slides: PptxSlide[] = basicImSlides.map((spec, idx) => ({
+      id: randomUUID(),
+      projectId,
+      slideIndex: idx + 1,
+      layoutType: spec.layoutType,
+      category: spec.category,
+      title: spec.title,
+      kicker: spec.kicker,
+      dataKey: spec.dataKey,
+      contentUnitIds: [],
+      slideOverrides: {},
+      hidden: false,
+      createdAt: now,
+    }));
+
+    // Pre-populate overrides from docBody
+    if (docBody) {
+      // Cover
+      slides[0].slideOverrides = {
+        title: docBody.title || buildingName,
+        subtitle: docBody.subtitle || '',
+        date: new Date().toISOString().slice(0, 10),
+      };
+      // Highlights from heroCard
+      if (docBody.heroCard) {
+        slides[1].slideOverrides = {
+          askingPrice: docBody.heroCard.askingPriceBil || '',
+          grossYield: docBody.heroCard.capRateBase || '',
+          vacancySignal: docBody.heroCard.vacancySignal || '',
+          keyInvestmentPoint: docBody.heroCard.keyInvestmentPoint || '',
+        };
+      }
+      // Location
+      if (docBody.mapImageUrl || docBody.coordinates) {
+        slides[3].slideOverrides = {
+          mapImageUrl: docBody.mapImageUrl || '',
+          coordinates: docBody.coordinates || null,
+          address: docBody.ssot_summary?.address || docBody.address || '',
+        };
+      }
+      // Gallery photos
+      if (docBody.buildingPhotos) {
+        slides[5].slideOverrides = { photos: docBody.buildingPhotos };
+      }
+      // Broker info for closing
+      if (docBody.brokerName || docBody.brokerPhone) {
+        slides[8].slideOverrides = {
+          brokerName: docBody.brokerName || '',
+          brokerPhone: docBody.brokerPhone || '',
+          brokerCompany: docBody.brokerCompany || '',
+        };
+      }
+    }
+
+    const project: PptxProject = {
+      id: projectId,
+      dealId: buildingId,
+      packageId: `basic-im-${Date.now()}`,
+      version: 1,
+      title,
+      themeId: 'credeal_basic',
+      targetAudience: 'investor',
+      lockVersion: 1,
+      stage: 'S00_INIT',
+      slides,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.projects.set(projectId, project);
+    return project;
+  }
   getProject(projectId: string): PptxProject {
     let project = this.projects.get(projectId);
     if (!project) {

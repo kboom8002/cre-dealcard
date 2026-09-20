@@ -66,12 +66,18 @@ export async function fetchBuildingRegister(
         // ② 일치하는 동이 없으면 비주거 용도(공동주택·단독주택 제외) 중 연면적 최대 선택
         // ③ 그래도 없으면 연면적 최대 선택
         const RESIDENTIAL_USES = ['공동주택', '단독주택', '아파트', '연립주택', '다세대주택', '다가구주택'];
-        let targetItem = validItems[0];
+        
+        // 주건축물 우선 필터링
+        const primaryBuildings = validItems.filter((it: Record<string, unknown>) =>
+          String(it.mainAtchGbCd || '') === '0' || String(it.mainAtchGbCdNm || '') === '주건축물'
+        );
+        const selectionPool = primaryBuildings.length > 0 ? primaryBuildings : validItems;
+        let targetItem = selectionPool[0];
 
-        if (validItems.length > 1) {
+        if (selectionPool.length > 1) {
           // 1단계: hint 용도와 매칭
           if (hintBuildingUse) {
-            const hintMatched = validItems.filter((it: Record<string, unknown>) =>
+            const hintMatched = selectionPool.filter((it: Record<string, unknown>) =>
               String(it.mainPurpsCdNm || "").includes(hintBuildingUse) ||
               hintBuildingUse.includes(String(it.mainPurpsCdNm || ""))
             );
@@ -81,33 +87,40 @@ export async function fetchBuildingRegister(
               );
             } else {
               // 2단계: 비주거 용도 중 연면적 최대
-              const nonResidential = validItems.filter((it: Record<string, unknown>) =>
+              const nonResidential = selectionPool.filter((it: Record<string, unknown>) =>
                 !RESIDENTIAL_USES.includes(String(it.mainPurpsCdNm || ""))
               );
-              const pool = nonResidential.length > 0 ? nonResidential : validItems;
+              const pool = nonResidential.length > 0 ? nonResidential : selectionPool;
               targetItem = pool.reduce((a: Record<string, unknown>, b: Record<string, unknown>) =>
                 parseFloat(String(a.totArea || "0")) >= parseFloat(String(b.totArea || "0")) ? a : b
               );
             }
           } else {
             // hint 없으면: 비주거 중 연면적 최대 → 전체 연면적 최대
-            const nonResidential = validItems.filter((it: Record<string, unknown>) =>
+            const nonResidential = selectionPool.filter((it: Record<string, unknown>) =>
               !RESIDENTIAL_USES.includes(String(it.mainPurpsCdNm || ""))
             );
-            const pool = nonResidential.length > 0 ? nonResidential : validItems;
+            const pool = nonResidential.length > 0 ? nonResidential : selectionPool;
             targetItem = pool.reduce((a: Record<string, unknown>, b: Record<string, unknown>) =>
               parseFloat(String(a.totArea || "0")) >= parseFloat(String(b.totArea || "0")) ? a : b
             );
           }
-          logger.info(`${validItems.length}동 중 "${String(targetItem.mainPurpsCdNm)}" (${String(targetItem.totArea)}㎡) 선택`);
+          logger.info(`${selectionPool.length}동 중 "${String(targetItem.mainPurpsCdNm)}" (${String(targetItem.totArea)}㎡) 선택`);
+        }
+
+        // 대지면적 폴백: 선택 동에 0이면 다른 동에서 승계
+        let platArea = parseFloat(String(targetItem.platArea || '0'));
+        if (platArea === 0) {
+          const donor = validItems.find((it: Record<string, unknown>) => parseFloat(String(it.platArea || '0')) > 0);
+          if (donor) platArea = parseFloat(String(donor.platArea || '0'));
         }
 
         return {
           totalArea: parseFloat(String(targetItem.totArea || "0")),
-          platArea: parseFloat(String(targetItem.platArea || "0")),
-          useAprDay: String(targetItem.useAprDay || "20150601"),
-          mainPurpose: String(targetItem.mainPurpsCdNm || "업무시설"),
-          structure: String(targetItem.strctCdNm || "철근콘크리트구조"),
+          platArea: platArea,
+          useAprDay: targetItem.useAprDay ? String(targetItem.useAprDay) : '',
+          mainPurpose: targetItem.mainPurpsCdNm ? String(targetItem.mainPurpsCdNm) : '[용도 미기재]',
+          structure: targetItem.strctCdNm ? String(targetItem.strctCdNm) : '[구조 미기재]',
           floorsAbove: parseInt(String(targetItem.grndFlrCnt || "0"), 10),
           floorsBelow: parseInt(String(targetItem.ugrndFlrCnt || "0"), 10),
           bcRat: parseFloat(String(targetItem.bcRat || "0")),

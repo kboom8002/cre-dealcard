@@ -1,13 +1,12 @@
 /**
  * posture-e2e-pipeline.test.ts
- * ─────────────────────────────
- * Suite 2: 5대 포스처 대표 물건 풀 파이프라인 E2E (실제 LLM 호출)
- * + 16종 MECE 전수 회귀 테스트
+ * ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+ * Suite 2: 5?� ?�스�??�??물건 ?� ?�이?�라??E2E (?�제 LLM ?�출)
+ * + 16�?MECE ?�수 ?��? ?�스?? *
+ * �??�스?�는 generateMobileIMHandler�??�제 LLM ?�출�??�께 ?�행?�며,
+ * 중간 결과물을 PipelineLogger�??�해 docs/test/stress/e2e-outputs/???�?�합?�다.
  *
- * 각 테스트는 generateMobileIMHandler를 실제 LLM 호출과 함께 실행하며,
- * 중간 결과물을 PipelineLogger를 통해 docs/test/stress/e2e-outputs/에 저장합니다.
- *
- * 실행: npx vitest run src/tests/e2e/posture-e2e-pipeline.test.ts --timeout 300000
+ * ?�행: npx vitest run src/tests/e2e/posture-e2e-pipeline.test.ts --timeout 300000
  */
 
 import { describe, test, expect, beforeEach, afterAll, vi } from 'vitest';
@@ -23,7 +22,7 @@ import {
 } from './posture-e2e-fixtures';
 import type { InvestmentPosture } from '@/domain/ontology/enums';
 
-// ── Supabase Mock (DB 저장만 모킹, LLM은 실제 호출) ────────────────────
+// ?�?� Supabase Mock (DB ?�?�만 모킹, LLM?� ?�제 ?�출) ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
 
 let savedDocBody: any = null;
 
@@ -55,7 +54,7 @@ vi.mock('@/lib/supabase/service', () => ({
   }),
 }));
 
-// ── SSoT Mock (픽스처 데이터 주입) ──────────────────────────────────────
+// ?�?� SSoT Mock (?�스�??�이??주입) ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
 
 let mockSsotData: any = {};
 
@@ -69,12 +68,12 @@ vi.mock('@/lib/ssot-adapter', async (importOriginal: any) => {
   };
 });
 
-// 공공 데이터 보강은 실제 API를 호출하지 않고 기본값 사용
+// 공공 ?�이??보강?� ?�제 API�??�출?��? ?�고 기본�??�용
 vi.mock('@/lib/external/external-data-orchestrator', () => ({
   enrichBuildingData: vi.fn().mockResolvedValue({
     buildingRegister: { platArea: 1000, totalArea: 5000 },
     landPrice: { perSqm: 2000000 },
-    landUsePlan: { zoningDistrict: '일반상업지역' },
+    landUsePlan: { zoningDistrict: '?�반?�업지?? },
   }),
 }));
 
@@ -82,11 +81,11 @@ vi.mock('@/lib/external/enrich-by-pnu', () => ({
   enrichBuildingDataByPNU: vi.fn().mockResolvedValue({
     buildingRegister: { platArea: 1000, totalArea: 5000 },
     landPrice: { perSqm: 2000000 },
-    landUsePlan: { zoningDistrict: '일반상업지역' },
+    landUsePlan: { zoningDistrict: '?�반?�업지?? },
   }),
 }));
 
-// ── 핵심 헬퍼 ─────────────────────────────────────────────────────────────
+// ?�?� ?�심 ?�퍼 ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
 
 async function runPipelineForFixture(fixture: PostureE2EFixture): Promise<{
   result: GenerateMobileIMResult;
@@ -96,18 +95,18 @@ async function runPipelineForFixture(fixture: PostureE2EFixture): Promise<{
   const logger = new PipelineLogger(fixture.posture, fixture.caseId);
   savedDocBody = null;
 
-  // ① SSoT 입력 설정 및 로깅
+  // ??SSoT ?�력 ?�정 �?로깅
   mockSsotData = { ...fixture.ssotLite };
   logger.startStep();
   logger.saveSsotInput(fixture.ssotLite as any);
-  logger.endStep('① SSoT Lite 구축', 'success', `buildingId: ${fixture.ssotLite.id}`);
+  logger.endStep('??SSoT Lite 구축', 'success', `buildingId: ${fixture.ssotLite.id}`);
 
-  // ② 바텀시트 보강 데이터 로깅
+  // ??바�??�트 보강 ?�이??로깅
   logger.startStep();
   logger.saveSupplemental(fixture.supplemental as any);
-  logger.endStep('② 바텀시트 보강', 'success', `posture: ${fixture.posture}, keys: ${Object.keys(fixture.supplemental).length}`);
+  logger.endStep('??바�??�트 보강', 'success', `posture: ${fixture.posture}, keys: ${Object.keys(fixture.supplemental).length}`);
 
-  // ③ generateMobileIMHandler 실제 호출 (실제 LLM)
+  // ??generateMobileIMHandler ?�제 ?�출 (?�제 LLM)
   const input: GenerateMobileIMInput = {
     buildingId: fixture.ssotLite.id!,
     userId: 'e2e-test-user',
@@ -117,12 +116,12 @@ async function runPipelineForFixture(fixture: PostureE2EFixture): Promise<{
 
   logger.startStep();
   const result = await generateMobileIMHandler(input);
-  logger.endStep('③ IM 생성 (LLM)', result.ok ? 'success' : 'error',
+  logger.endStep('??IM ?�성 (LLM)', result.ok ? 'success' : 'error',
     `ok=${result.ok}, sections=${result.sections_count}, grade=${result.dataGrade}`,
     { ok: result.ok, sections_count: result.sections_count, dataGrade: result.dataGrade, ai_used: result.ai_used }
   );
 
-  // ④ 중간 결과물 로깅 (savedDocBody에서 추출)
+  // ??중간 결과�?로깅 (savedDocBody?�서 추출)
   if (savedDocBody) {
     logger.startStep();
     if (savedDocBody.sections) {
@@ -139,11 +138,10 @@ async function runPipelineForFixture(fixture: PostureE2EFixture): Promise<{
       dataCompleteness: savedDocBody.dataCompleteness,
     });
     logger.saveImDocument(savedDocBody);
-    logger.endStep('④ 중간 결과물 저장', 'success', `sections: ${savedDocBody.sections?.length ?? 0}`);
+    logger.endStep('??중간 결과�??�??, 'success', `sections: ${savedDocBody.sections?.length ?? 0}`);
   }
 
-  // ⑤ PPTX 렌더링 및 저장
-  if (result.ok && savedDocBody?.sections?.length > 0) {
+  // ??PPTX ?�더�?�??�??  if (result.ok && savedDocBody?.sections?.length > 0) {
     logger.startStep();
     try {
       const renderer = new MobileImPptxRenderer();
@@ -164,51 +162,44 @@ async function runPipelineForFixture(fixture: PostureE2EFixture): Promise<{
       };
       const pptxResult = await renderer.render(pptxInput);
       logger.savePptx(pptxResult.buffer);
-      logger.endStep('⑤ PPTX 렌더링', 'success',
+      logger.endStep('??PPTX ?�더�?, 'success',
         `slides: ${pptxResult.slideCount}, size: ${(pptxResult.fileSizeBytes / 1024).toFixed(0)}KB`,
         { slideCount: pptxResult.slideCount, fileSizeBytes: pptxResult.fileSizeBytes, warnings: pptxResult.warnings }
       );
     } catch (err) {
-      logger.endStep('⑤ PPTX 렌더링', 'error', `${err}`);
+      logger.endStep('??PPTX ?�더�?, 'error', `${err}`);
+      throw err;
     }
   }
 
-  // ⑥ 타임라인 로그 저장
-  logger.saveTimelineLog();
+  // ???�?�라??로그 ?�??  logger.saveTimelineLog();
 
   return { result, logger, docBody: savedDocBody };
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// 핵심 5종 포스처 대표 물건 풀 파이프라인 E2E
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('E2E Pipeline: 5 Postures Full Path (실제 LLM 호출)', { timeout: 300_000 }, () => {
+// ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═??// ?�심 5�??�스�??�??물건 ?� ?�이?�라??E2E
+// ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═??
+describe('E2E Pipeline: 5 Postures Full Path (?�제 LLM ?�출)', { timeout: 300_000 }, () => {
 
   beforeEach(() => {
     savedDocBody = null;
   });
 
-  // ── T1: income (서초 메디컬 빌딩) ──────────────────────────────────
-  describe('T1: income — 서초 메디컬 빌딩 (Case 01)', () => {
+  // ?�?� T1: income (?�초 메디�?빌딩) ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+  describe('T1: income ???�초 메디�?빌딩 (Case 01)', () => {
     const fixture = POSTURE_REPRESENTATIVE_FIXTURES.income;
     let pipelineResult: Awaited<ReturnType<typeof runPipelineForFixture>>;
 
-    test('T1-01: handler 정상 호출', async () => {
+    test('T1-01: handler ?�상 ?�출', async () => {
       pipelineResult = await runPipelineForFixture(fixture);
-      const isMock = process.env.NODE_ENV === "test" || !process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("mock");
-      if (isMock) {
-        expect(pipelineResult.result.ok).toBeDefined();
-      } else {
-        expect(pipelineResult.result.ok).toBe(true);
+expect(pipelineResult.result.ok).toBe(true);
         expect(pipelineResult.result.sections_count).toBeGreaterThanOrEqual(7);
-      }
     });
 
-    test('T1-02: 재무 산출 검증 (Cap Rate, NOI 범위)', () => {
+    test('T1-02: ?�무 ?�출 검�?(Cap Rate, NOI 범위)', () => {
       const heroCard = pipelineResult.docBody?.heroCard;
       if (heroCard) {
-        // Cap Rate 4~5% 범위 (165억 매입가, 연 7.14억 수익)
+        // Cap Rate 4~5% 범위 (165??매입가, ??7.14???�익)
         if (heroCard.capRateBase != null) {
           expect(heroCard.capRateBase).toBeGreaterThan(2);
           expect(heroCard.capRateBase).toBeLessThan(10);
@@ -216,7 +207,7 @@ describe('E2E Pipeline: 5 Postures Full Path (실제 LLM 호출)', { timeout: 30
       }
     });
 
-    test('T1-03: HeroCard income 4대 지표 바인딩', () => {
+    test('T1-03: HeroCard income 4?� 지??바인??, () => {
       const heroCard = pipelineResult.docBody?.heroCard;
       if (heroCard) {
         expect(heroCard.askingPriceDisplay).toBeTruthy();
@@ -224,97 +215,69 @@ describe('E2E Pipeline: 5 Postures Full Path (실제 LLM 호출)', { timeout: 30
       }
     });
 
-    test('T1-04: 7섹션 플랜 정합성', () => {
+    test('T1-04: 7?�션 ?�랜 ?�합??, () => {
       const sections = pipelineResult.docBody?.sections ?? [];
-      const isMock = process.env.NODE_ENV === "test" || !process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("mock");
-      if (isMock) {
-        expect(sections.length).toBeGreaterThanOrEqual(0);
-      } else {
-        expect(sections.length).toBeGreaterThanOrEqual(7);
-        // income 전용 섹션 타입 확인
+expect(sections.length).toBeGreaterThanOrEqual(7);
+        // income ?�용 ?�션 ?�???�인
         const types = sections.map((s: any) => s.section_type);
         expect(types).toContain('property_overview');
-      }
     });
 
-    test('T1-05: 가드레일 통과', () => {
-      // publishBlocked가 handler result에 직접 없으면 docBody에서 확인
+    test('T1-05: 가?�레???�과', () => {
+      // publishBlocked가 handler result??직접 ?�으�?docBody?�서 ?�인
       expect(pipelineResult.result.ok).toBe(true);
     });
   });
 
-  // ── T2: owner_occupied (성수 IT밸리 통사옥) ────────────────────────
-  describe('T2: owner_occupied — 성수 IT밸리 통사옥 (Case 05)', () => {
+  // ?�?� T2: owner_occupied (?�수 IT밸리 ?�사?? ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+  describe('T2: owner_occupied ???�수 IT밸리 ?�사??(Case 05)', () => {
     const fixture = POSTURE_REPRESENTATIVE_FIXTURES.owner_occupied;
 
-    test('T2-01: handler 정상 호출 + 섹션 검증', async () => {
+    test('T2-01: handler ?�상 ?�출 + ?�션 검�?, async () => {
       const { result, docBody } = await runPipelineForFixture(fixture);
-      const isMock = process.env.NODE_ENV === "test" || !process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("mock");
-      if (isMock) {
-        expect(result.ok).toBeDefined();
-      } else {
-        expect(result.ok).toBe(true);
+expect(result.ok).toBe(true);
         expect(result.sections_count).toBeGreaterThanOrEqual(7);
         const types = (docBody?.sections ?? []).map((s: any) => s.section_type);
         expect(types).toContain('property_overview');
-      }
     });
   });
 
-  // ── T3: development (역삼 테헤란로 신축부지) ───────────────────────
-  describe('T3: development — 역삼 테헤란로 신축부지 (Case 12)', () => {
+  // ?�?� T3: development (??�� ?�헤?��??�축부지) ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+  describe('T3: development ????�� ?�헤?��??�축부지 (Case 12)', () => {
     const fixture = POSTURE_REPRESENTATIVE_FIXTURES.development;
 
-    test('T3-01: handler 정상 호출 + 섹션 검증', async () => {
+    test('T3-01: handler ?�상 ?�출 + ?�션 검�?, async () => {
       const { result, docBody } = await runPipelineForFixture(fixture);
-      const isMock = process.env.NODE_ENV === "test" || !process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("mock");
-      if (isMock) {
-        expect(result.ok).toBeDefined();
-      } else {
-        expect(result.ok).toBe(true);
+expect(result.ok).toBe(true);
         expect(result.sections_count).toBeGreaterThanOrEqual(7);
-      }
     });
   });
 
-  // ── T4: operating (이천 물류센터) ──────────────────────────────────
-  describe('T4: operating — 이천 물류센터 (Case 16)', () => {
+  // ?�?� T4: operating (?�천 물류?�터) ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+  describe('T4: operating ???�천 물류?�터 (Case 16)', () => {
     const fixture = POSTURE_REPRESENTATIVE_FIXTURES.operating;
 
-    test('T4-01: handler 정상 호출 + 물류 특화 검증', async () => {
+    test('T4-01: handler ?�상 ?�출 + 물류 ?�화 검�?, async () => {
       const { result, docBody } = await runPipelineForFixture(fixture);
-      const isMock = process.env.NODE_ENV === "test" || !process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("mock");
-      if (isMock) {
-        expect(result.ok).toBeDefined();
-      } else {
-        expect(result.ok).toBe(true);
+expect(result.ok).toBe(true);
         expect(result.sections_count).toBeGreaterThanOrEqual(7);
-      }
     });
   });
 
-  // ── T5: trading (신사동 밸류애드) ──────────────────────────────────
-  describe('T5: trading — 신사동 가로수길 밸류애드 (Case 09)', () => {
+  // ?�?� T5: trading (?�사??밸류?�드) ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+  describe('T5: trading ???�사??가로수�?밸류?�드 (Case 09)', () => {
     const fixture = POSTURE_REPRESENTATIVE_FIXTURES.trading;
 
-    test('T5-01: handler 정상 호출 + 섹션 검증', async () => {
+    test('T5-01: handler ?�상 ?�출 + ?�션 검�?, async () => {
       const { result, docBody } = await runPipelineForFixture(fixture);
-      const isMock = process.env.NODE_ENV === "test" || !process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("mock");
-      if (isMock) {
-        expect(result.ok).toBeDefined();
-      } else {
-        expect(result.ok).toBe(true);
+expect(result.ok).toBe(true);
         expect(result.sections_count).toBeGreaterThanOrEqual(7);
-      }
     });
   });
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-// 16종 전수 회귀 테스트
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('16-Case MECE Regression Suite (실제 LLM 호출)', { timeout: 300_000 }, () => {
+// ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═??// 16�??�수 ?��? ?�스??// ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═??
+describe('16-Case MECE Regression Suite (?�제 LLM ?�출)', { timeout: 300_000 }, () => {
 
   beforeEach(() => {
     savedDocBody = null;
@@ -323,26 +286,22 @@ describe('16-Case MECE Regression Suite (실제 LLM 호출)', { timeout: 300_000
   for (const fixture of ALL_FIXTURES) {
     test(`${fixture.caseId}: ${fixture.description} [${fixture.posture}]`, async () => {
       const { result, logger } = await runPipelineForFixture(fixture);
-
-      const isMock = process.env.NODE_ENV === "test" || !process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("mock");
-      if (isMock) {
-        expect(result.ok).toBeDefined();
-      } else {
-        // handler 호출 성공
+// handler ?�출 ?�공
         expect(result.ok).toBe(true);
 
-        // 섹션 7개 이상 생성
+        // ?�션 7�??�상 ?�성
         expect(result.sections_count).toBeGreaterThanOrEqual(7);
 
-        // 데이터 등급 D가 아닌 것 확인 (최소 C)
+        // ?�이???�급 D가 ?�닌 �??�인 (최소 C)
         if (result.dataGrade) {
           expect(result.dataGrade).not.toBe('D');
-        }
 
-        // 파이프라인 로그에 에러 없음
+        // ?�이?�라??로그???�러 ?�음
         const errorSteps = logger.getLogs().filter(l => l.status === 'error');
         expect(errorSteps).toHaveLength(0);
       }
-    }, 60_000); // 개별 케이스 60초 타임아웃
-  }
+    }, 60_000); // 개별 케?�스 60�??�?�아??  }
 });
+
+
+

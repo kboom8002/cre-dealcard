@@ -94,9 +94,14 @@ const PPTX_PRESETS = [
     desc: "고급스러운 다크 테마",
   },
   {
-    id: "minimal_white",
-    label: "📄 미니멀 화이트",
-    desc: "심플하고 단정한 화이트",
+    id: "credeal_basic",
+    label: "📋 표준 Basic IM",
+    desc: "기본 브로커 IM 스타일",
+  },
+  {
+    id: "minimal_clean",
+    label: "📄 미니멀 클린",
+    desc: "심플하고 단정한 스타일",
   },
 ];
 
@@ -126,6 +131,7 @@ export function FloatingActionBar({
   const [isBrokerMode, setIsBrokerMode] = useState(isBroker);
   const [selectedPreset, setSelectedPreset] = useState("golden_institutional");
   const [isPresetMenuOpen, setIsPresetMenuOpen] = useState(false);
+  const [pptxLoading, setPptxLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on click outside
@@ -254,12 +260,14 @@ export function FloatingActionBar({
   };
 
   const handlePptxDownload = (presetKey?: string) => {
+    setPptxLoading(true);
     const preset = presetKey || selectedPreset;
     const targetUrl = `/api/public/im-lite/${buildingId}/pptx?preset=${preset}${
       docId ? `&doc_id=${docId}&tier=${tier}` : `&tier=${tier}`
     }`;
     window.open(targetUrl, "_blank", "noopener");
     setIsPresetMenuOpen(false);
+    setTimeout(() => setPptxLoading(false), 500);
   };
 
   const handleProRequest = async () => {
@@ -370,16 +378,17 @@ export function FloatingActionBar({
                   onClick={() => handlePptxDownload()}
                   className="flex-1 py-3 px-2 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1 truncate"
                   title="선택된 프리셋으로 PPTX 다운로드"
+                  disabled={pptxLoading}
                 >
                   <span className="truncate">
-                    📊 PPTX (
-                    {currentPresetInfo.label.split(" ")[1] || "다운로드"})
+                    {pptxLoading ? "⏳ 로딩중..." : `📊 PPTX (${currentPresetInfo.label.split(" ")[1] || "다운로드"})`}
                   </span>
                 </button>
                 <button
                   onClick={() => setIsPresetMenuOpen(!isPresetMenuOpen)}
                   className="px-2.5 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 hover:text-white border-l border-neutral-600 transition-colors flex items-center justify-center"
                   title="PPTX 템플릿 프리셋 선택"
+                  aria-expanded={isPresetMenuOpen}
                 >
                   <span
                     className={`transform transition-transform text-xs ${
@@ -443,6 +452,7 @@ export function FloatingActionBar({
             <button
               onClick={handleShare}
               title="링크 복사"
+              aria-label="링크 복사"
               className="px-3 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white text-xs font-bold rounded-xl transition-colors shrink-0"
             >
               {copied ? "✅" : "🔗"}
@@ -477,13 +487,15 @@ export function FloatingActionBar({
             <button
               onClick={() => handlePptxDownload()}
               title="PPTX 다운로드"
+              disabled={pptxLoading}
               className="px-3 py-3 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl transition-colors"
             >
-              📊 PPTX
+              {pptxLoading ? "⏳" : "📊"} PPTX
             </button>
             <button
               onClick={handleShare}
               title="공유하기"
+              aria-label="링크 복사"
               className="px-3 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white text-xs font-bold rounded-xl transition-colors"
             >
               {copied ? "✅" : "🔗"}

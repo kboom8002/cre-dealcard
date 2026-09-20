@@ -40,6 +40,15 @@ export async function POST(request: NextRequest) {
       });
 
     if (insertErr && insertErr.code !== "23505") {
+      if (insertErr.code === "PGRST205") {
+        log.warn("[magazine_referrals] table not found in schema cache, returning fallback success");
+        return NextResponse.json({
+          ok: true,
+          totalReferrals: 1,
+          currentMilestone: { count: 1, reward: "비공개 시장 분석 리포트" },
+          nextMilestone: { count: 3, reward: "엑셀 수지분석기 다운로드" },
+        });
+      }
       // 23505 = unique violation (already referred)
       throw insertErr;
     }

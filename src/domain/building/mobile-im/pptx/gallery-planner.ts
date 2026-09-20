@@ -69,6 +69,16 @@ function determineLayout(photos: PhotoMeta[]): GalleryLayoutType {
   return 'GRID_2X2';
 }
 
+/** 갤러리 슬라이드에서 제외할 비사진 카테고리 (도면/문서/명함/지도 등) */
+export const GALLERY_EXCLUDE_CATEGORIES = new Set([
+  'map',
+  'floor_plan',
+  'document',
+  'business_card',
+  'cadastral',
+  'land_plan',
+]);
+
 /**
  * 갤러리 플래너 본체:
  * PhotoMeta[]와 posture를 받아 1~4개의 GallerySlideSpec[]을 생성합니다.
@@ -78,10 +88,11 @@ export function planGallerySlides(
   posture: InvestmentPosture = 'income',
   preset?: string,
 ): GallerySlideSpec[] {
-  // 1. 지도(map)는 입지 슬라이드용이므로 갤러리 슬라이드 대상에서 제외
+  // 1. 지도, 도면, 공적장부 서류, 명함 등 비사진 에셋은 갤러리 슬라이드 대상에서 제외
   const validPhotos = photos.filter(p => {
-    const isMap = p.category === 'map' || (p as any).type === 'map';
-    return !isMap && !!p.url;
+    const cat = String(p.category || (p as any).type || '').toLowerCase();
+    const isExcluded = GALLERY_EXCLUDE_CATEGORIES.has(cat);
+    return !isExcluded && !!p.url;
   });
 
   // Basic IM: 최대 6컷을 1개 슬라이드에 강제 배치 (basic-im-guide.md §2 #8)

@@ -43,12 +43,7 @@ describe('Stage 4: Chaos Engineering & Boundary Tests', { timeout: 30_000 }, () 
     test('Negative: Fails predictably if building metadata is completely missing', async () => {
       const input = getBaseInput();
       input.building = null as any;
-      try {
-        const result = await renderer.render(input);
-        expect(result.buffer).toBeDefined();
-      } catch (e: any) {
-        expect(e).toBeDefined();
-      }
+      await expect(renderer.render(input)).rejects.toThrow();
     });
 
     // 2. No map assets
@@ -67,11 +62,7 @@ describe('Stage 4: Chaos Engineering & Boundary Tests', { timeout: 30_000 }, () 
     test('Negative: Invalid photo URL formats trigger rejection or are handled', async () => {
       const input = getBaseInput();
       input.doc.body = { photos: { invalid: 'type' } as any };
-      try {
-        await renderer.render(input);
-      } catch (e: any) {
-        expect(e).toBeDefined();
-      }
+      await expect(renderer.render(input)).rejects.toThrow();
     });
 
     // 3. Minimal data (Grade C)
@@ -102,12 +93,7 @@ describe('Stage 4: Chaos Engineering & Boundary Tests', { timeout: 30_000 }, () 
     test('Negative: Missing sections array throws predictability', async () => {
       const input = getBaseInput();
       input.doc.sections = null as any;
-      try {
-        const result = await renderer.render(input);
-        expect(result.buffer).toBeDefined();
-      } catch (e: any) {
-        expect(e).toBeDefined();
-      }
+      await expect(renderer.render(input)).rejects.toThrow();
     });
 
     // 5. Extremely long section text
@@ -122,11 +108,7 @@ describe('Stage 4: Chaos Engineering & Boundary Tests', { timeout: 30_000 }, () 
     test('Negative: Non-string markdown throws or is safely bypassed', async () => {
       const input = getBaseInput();
       input.doc.sections[0].markdown = 12345 as any;
-      try {
-        await renderer.render(input);
-      } catch (e: any) {
-        expect(e).toBeDefined();
-      }
+      await expect(renderer.render(input)).rejects.toThrow();
     });
 
     // 6. Numerical anchor mismatch
@@ -141,11 +123,7 @@ describe('Stage 4: Chaos Engineering & Boundary Tests', { timeout: 30_000 }, () 
     test('Negative: Malformed price band object throws', async () => {
       const input = getBaseInput();
       input.building.price_band = { value: 100 } as any;
-      try {
-        await renderer.render(input);
-      } catch (e: any) {
-        expect(e).toBeDefined();
-      }
+      await expect(renderer.render(input)).rejects.toThrow();
     });
 
     // 7. Unicode edge cases
@@ -159,11 +137,7 @@ describe('Stage 4: Chaos Engineering & Boundary Tests', { timeout: 30_000 }, () 
     test('Negative: Invalid control characters are rejected or handled', async () => {
       const input = getBaseInput();
       input.doc.sections[0].markdown = '건물\u0000테스트';
-      try {
-        await renderer.render(input);
-      } catch (e: any) {
-        expect(e).toBeDefined();
-      }
+      await expect(renderer.render(input)).rejects.toThrow();
     });
   });
 
@@ -179,11 +153,7 @@ describe('Stage 4: Chaos Engineering & Boundary Tests', { timeout: 30_000 }, () 
     test('Negative: Null photos array throws or handled', async () => {
       const input = getBaseInput();
       input.doc.body = { photos: null } as any;
-      try {
-        await renderer.render(input);
-      } catch (e: any) {
-        expect(e).toBeDefined();
-      }
+      await expect(renderer.render(input)).rejects.toThrow();
     });
 
     // 9. Asking price = 0
@@ -197,11 +167,7 @@ describe('Stage 4: Chaos Engineering & Boundary Tests', { timeout: 30_000 }, () 
     test('Negative: Negative asking price string handled gracefully', async () => {
       const input = getBaseInput();
       input.building.price_band = '-100억';
-      try {
-        await renderer.render(input);
-      } catch (e: any) {
-        expect(e).toBeDefined();
-      }
+      await expect(renderer.render(input)).rejects.toThrow();
     });
 
     // 10. Asking price extremely large
@@ -215,11 +181,7 @@ describe('Stage 4: Chaos Engineering & Boundary Tests', { timeout: 30_000 }, () 
     test('Negative: Unparseable extremely large price throws or handled', async () => {
       const input = getBaseInput();
       input.building.price_band = '구천구백구십구조원';
-      try {
-        await renderer.render(input);
-      } catch (e: any) {
-        expect(e).toBeDefined();
-      }
+      await expect(renderer.render(input)).rejects.toThrow();
     });
 
     // 11. 30-room rent roll
@@ -240,11 +202,7 @@ describe('Stage 4: Chaos Engineering & Boundary Tests', { timeout: 30_000 }, () 
     test('Negative: Invalid rent roll structure throws predictably', async () => {
       const input = getBaseInput();
       input.doc.body = { rentRoll: 'not-an-array' } as any;
-      try {
-        await renderer.render(input);
-      } catch (e: any) {
-        expect(e).toBeDefined();
-      }
+      await expect(renderer.render(input)).rejects.toThrow();
     });
   });
 });

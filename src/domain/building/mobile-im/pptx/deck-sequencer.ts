@@ -18,6 +18,11 @@ import {
   PRO_PAGE_MIN_LIMIT,
   PRO_PAGE_TARGET,
 } from './pro-deck-sequencer';
+import {
+  BASIC_IM_SLIDE_CONTRACT,
+  BASIC_IM_OPTIONAL_SLIDES,
+  BASIC_IM_EXCLUSION,
+} from './basic-im-contract';
 
 
 import { createModuleLogger } from '@/lib/logger';
@@ -98,52 +103,55 @@ function buildGallerySlideSpecs(input: DeckSequenceInput): SlideSpec[] {
 /**
  * Basic IM (credeal_basic 프리셋) 전용 표준 9섹션 시퀀스 생성기
  * docs/impipe/basic-im-guide.md §2 및 AGENTS.md Rule 47 준수
+ *
+ * 시퀀스는 basic-im-contract.ts의 BASIC_IM_SLIDE_CONTRACT에서 선언적으로 생성됩니다.
+ * 스펙 변경 시 계약 파일만 수정하면 됩니다.
  */
 function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
-  const sequence: SlideSpec[] = [];
   const da = input.dataAvailability ?? {};
   const gallerySlides = buildGallerySlideSpecs(input);
+  const posture = input.posture ?? 'income';
 
-  // 1. 표지 (A01) — 건물 사진 차단, 추상 배경 (basic-im-guide §2 #1)
-  sequence.push({ archetype: 'A01', kicker: 'INVESTMENT MEMORANDUM', title: '표지', dataKey: 'cover' });
+  // 계약에서 시퀀스 선언적 생성
+  const sequence: SlideSpec[] = [];
 
-  // 2. 요약 (A02) — 6대 핵심 지표 + 투자 포인트 3개 (basic-im-guide §2 #2)
-  sequence.push({ archetype: 'A02', kicker: 'Summary', title: '핵심 투자 지표 요약', dataKey: 'summary' });
+  for (const slot of BASIC_IM_SLIDE_CONTRACT) {
+    // 필수 여부 판정
+    if (slot.required === 'income' && posture !== 'income') continue;
+    if (slot.required === false) {
+      if (slot.condition === 'hasPhotos' && !input.hasPhotos && gallerySlides.length === 0) continue;
+    }
 
-  // 3. 물건 개요 (A04) — 공부 정보 + 외관 사진 좌우 배치 (basic-im-guide §2 #3)
-  sequence.push({ archetype: 'A04', kicker: 'Building', title: '건물 개요', dataKey: 'building' });
+    // 렌트롤: hasRentRoll 체크
+    if (slot.dataKey === 'rentRoll' && da.hasRentRoll === false) continue;
 
-  // 4. 입지 정보 (A06) — 지도 + 불릿 3개 (basic-im-guide §2 #4)
-  sequence.push({ archetype: 'A06', kicker: 'Location', title: '입지 분석', dataKey: 'location' });
+    // 갤러리: gallerySlides가 있으면 그것을 사용
+    if (slot.dataKey === 'gallery') {
+      if (gallerySlides.length > 0) {
+        sequence.push(...gallerySlides);
+      } else if (input.hasPhotos) {
+        sequence.push({ archetype: slot.archetype, kicker: 'Gallery', title: slot.label, dataKey: slot.dataKey });
+      }
+      continue;
+    }
 
-  // 5. 토지 정보 (A04) — 형상/도로접함 + 용도지역/건폐율/용적률 (basic-im-guide §2 #5)
-  sequence.push({ archetype: 'A04', kicker: 'Land', title: '토지 현황', dataKey: 'land' });
-  // V-World WMS 지적도 이미지 가용 시 연계 배치
-  if (da.hasCadastralMap) {
-    sequence.push({ archetype: 'A06', kicker: 'Cadastral', title: '지적도', dataKey: 'cadastralMap' });
+    sequence.push({
+      archetype: slot.archetype,
+      kicker: slot.label,
+      title: slot.label,
+      dataKey: slot.dataKey,
+    });
+
+    // 지적도: 토지(seq 5) 뒤에 조건부 삽입
+    if (slot.seq === BASIC_IM_OPTIONAL_SLIDES.cadastralMap.afterSeq && da.hasCadastralMap) {
+      // 9슬라이드 스펙 제한 초과 방지 (계약 바운더리 준수)
+      if (sequence.length >= 10) {
+        continue; // 토지 정보에 병합 간주하고 별도 슬라이드 생략
+      }
+      const cad = BASIC_IM_OPTIONAL_SLIDES.cadastralMap;
+      sequence.push({ archetype: cad.archetype, kicker: 'Cadastral', title: cad.label, dataKey: cad.dataKey });
+    }
   }
-
-  // 6. 건물 사용 현황 (렌트롤 + 스태킹 플랜 복합) (basic-im-guide §2 #6)
-  const addRentRoll = da.hasRentRoll !== false;
-  const addStackingPlan = da.hasStackingPlan === true;
-  if (addRentRoll || addStackingPlan) {
-    sequence.push({ archetype: 'A24', kicker: 'Rent Roll', title: '임대차 현황', dataKey: 'rentRoll' });
-  }
-
-  // 7. 투자수익률 분석 (A23, 수익형 포스처 전용) (basic-im-guide §2 #7, §3.3)
-  if (input.posture === 'income') {
-    sequence.push({ archetype: 'A23', kicker: 'Yield', title: '투자수익률 분석', dataKey: 'yieldFormula' });
-  }
-
-  // 8. 현장 사진 (A14) — 6컷 그리드 (basic-im-guide §2 #8)
-  if (gallerySlides.length > 0) {
-    sequence.push(...gallerySlides);
-  } else if (input.hasPhotos) {
-    sequence.push({ archetype: 'A14', kicker: 'Gallery', title: '건물 사진', dataKey: 'gallery' });
-  }
-
-  // 9. 문의 및 유의사항 (A10) — 담당자 연락처 + 법적 면책조항 (basic-im-guide §2 #9)
-  sequence.push({ archetype: 'A10', kicker: 'Closing', title: '문의 및 유의사항', dataKey: 'closing', placement: 'closing' });
 
   return sequence.filter(s => !s.suppress);
 }

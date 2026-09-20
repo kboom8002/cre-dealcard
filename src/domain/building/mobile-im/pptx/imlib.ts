@@ -17,7 +17,7 @@ import { textH as computeTextH } from './utils/layout-physics';
 
 export const W = 13.333;   // LAYOUT_WIDE 캔버스 폭
 export const H = 7.5;      // 높이
-export const M = 0.62;     // 좌우 마진
+export const M = 0.55;     // 좌우 마진
 export const CW = 12.093;  // 콘텐츠 폭 = W - M*2
 
 /** §6 컬럼 패턴 — 컬럼 폭 계산 */
@@ -856,6 +856,7 @@ export interface RowOpts {
   rh?: number;
   fs?: number;
   onDark?: boolean;
+  labRatio?: number; // 커스텀 라벨 컬럼 너비 비율 (기본: 배지 없음 0.28, 배지 있음 0.30)
 }
 
 /** §8.2 행 목록 — 반환: 다음 요소 y */
@@ -872,10 +873,11 @@ export function rows(
   const labColor = opt.onDark ? CD.mute : C.mute;
   const valColor = opt.onDark ? 'FFFFFF' : C.ink;
 
-  // F1 fix: 배지 유무에 따라 컬럼 비율 동적 분배
+  // 라벨 컬럼 비율 최적화: 기본 0.28로 축소하여 주소/긴 값 컬럼(0.72) 너비 최대 확보
   const hasBadge = list.some(r => r[2]);
-  const labW = hasBadge ? w * 0.40 : w * 0.38;
-  const valW = hasBadge ? w * 0.38 : w * 0.62;
+  const labRatio = opt.labRatio ?? (hasBadge ? 0.30 : 0.28);
+  const labW = w * labRatio;
+  const valW = hasBadge ? w * (0.78 - labRatio) : w * (1.0 - labRatio);
 
   list.forEach((row, i) => {
     const ry = y + i * rh;
@@ -886,21 +888,21 @@ export function rows(
       s.addText(label, {
         x, y: ry, w: hasBadge ? w * 0.78 : w, h: rh,
         fontSize: fs, color: opt.onDark ? 'FFFFFF' : C.ink, fontFace: KR,
-        valign: 'middle', margin: 0, lineSpacingMultiple: 1.20,
+        valign: 'middle', margin: 0, lineSpacingMultiple: 1.15,
       });
     } else {
       // 라벨
       s.addText(label, {
         x, y: ry, w: labW, h: rh,
         fontSize: fs, color: labColor, fontFace: KR,
-        valign: 'middle', margin: 0, lineSpacingMultiple: 1.20,
+        valign: 'middle', margin: 0, lineSpacingMultiple: 1.15,
       });
 
       // 값
       s.addText(value, {
         x: x + labW, y: ry, w: valW, h: rh,
         fontSize: fs, bold: true, color: valCol ?? valColor, fontFace: KR,
-        valign: 'middle', margin: 0, lineSpacingMultiple: 1.20,
+        valign: 'middle', margin: 0, lineSpacingMultiple: 1.15,
       });
     }
 
@@ -960,12 +962,12 @@ export function table(
   opt: TableOpts = {},
 ): number {
   const rh = opt.rh ?? 0.28;
-  const bfs = opt.bfs ?? 9.5;
+  const bfs = opt.bfs ?? 10;
   const hfs = opt.hfs ?? 9;
   const isDark = opt.onDark ?? false;
 
-  const headerBg = isDark ? CD.block : C.tint;
-  const headerFg = isDark ? CD.mute : C.mute;
+  const headerBg = isDark ? CD.block : C.ink;
+  const headerFg = isDark ? CD.mute : 'FFFFFF';
   const cellBg = isDark ? C.ink2 : C.bg;
   const cellFg = isDark ? CD.body : C.body;
   const borderColor = isDark ? CD.border : C.line;
@@ -1059,14 +1061,14 @@ export function callout(
     .trim();
 
   s.addText(cleanCalloutTitle, {
-    x: x + 0.20, y: y + 0.12, w: w - 0.36, h: 0.22,
+    x: x + 0.16, y: y + 0.10, w: w - 0.28, h: 0.22,
     fontSize: 10.5, bold: true, color: titleColor,
     fontFace: KR, margin: 0,
   });
 
-  // 본문 (불릿 분리 및 행잉 인덴트 렌더링)
+  // 본문 (불릿 분리 및 행잉 인덴트 렌더링 — 박스 충전율 및 불릿 간격 최적화)
   const bodyLines = (body || '').split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
-  const textRuns = bodyLines.map((line: string) => {
+  const textRuns = bodyLines.map((line: string, lineIdx: number) => {
     const cleanLine = line
       .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{FE00}-\u{FE0F}\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}🟢🔵🔶💡🚇🛣️🚗🏥🏢☕⚖️📋🔒⚠️🔍🛡️]/gu, '')
       .replace(/^[•·\-*]+\s*/, '')
@@ -1076,11 +1078,12 @@ export function callout(
       text: cleanLine,
       options: {
         bullet: isBullet ? { characterCode: '2022' } : undefined,
-        fontSize: 9.3,
+        fontSize: 9.8,
         color: C.body,
         fontFace: KR,
         breakLine: true,
         indentLevel: 0,
+        paraSpaceBefore: lineIdx > 0 ? 3 : 0,
         margin: [0, 0, 0, 0] as [number, number, number, number],
       }
     };
@@ -1088,8 +1091,8 @@ export function callout(
 
   if (textRuns.length > 0) {
     s.addText(textRuns, {
-      x: x + 0.20, y: y + 0.36, w: w - 0.36, h: h - 0.44,
-      valign: 'top', margin: 0, lineSpacingMultiple: 1.20,
+      x: x + 0.16, y: y + 0.32, w: w - 0.28, h: h - 0.36,
+      valign: 'top', margin: 0, lineSpacingMultiple: 1.08,
     });
   }
 }

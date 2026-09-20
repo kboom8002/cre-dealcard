@@ -488,8 +488,9 @@ export function bindSectionData(
 
     // property_overview → land/summary에도 파생 데이터 제공 (summary가 없을 때만)
     if (sectionType === 'property_overview') {
+      const enrichedBody = { ...doc.body, preset: templateId ?? doc.body?.preset };
       if (!result['summary']) {
-        const summaryProps = buildSummaryFromOverview(cleanMarkdown, tables, doc.body);
+        const summaryProps = buildSummaryFromOverview(cleanMarkdown, tables, enrichedBody);
         result['summary'] = { title: '핵심요약', content: '', tables: [], metrics: {}, _derived: true, ...summaryProps };
         // D33 BL-C: Yield 단일 객체를 dataMap 최상위에 주입 — 전 슬라이드 공유
         if (summaryProps._yield) {
@@ -863,7 +864,7 @@ export function bindSectionData(
         _derived: true,
         blocks: [
           { label: '명도 리스크', value: '해소 방안', description: '매도인 점유 공간 매매 잔금 시 퇴거 확약서 징구 및 명도 일정 확약 조건' },
-          { label: '권리 리스크', value: '완전 무결', description: '등기부 갑구 권리분쟁 전무, 을구 근저당 등 잔금 시 동시 변제·말소 조건' },
+          { label: '권리 리스크', value: '[실사 확인 필요]', description: '등기부 갑구 권리분쟁 전무, 을구 근저당 등 잔금 시 동시 변제·말소 조건' },
           { label: '세무 리스크', value: '사전 검토', description: '과밀억제권역 법인 사옥 취득세 요건 및 적격 분할/지점 설치 세무 자문 연계' },
           { label: '주차 리스크', value: '대응 방안', description: '건물 내 주차 가용 면수 확보 및 인근 대형 빌딩 월정기 주차 계약 연계 지원' },
         ],
@@ -987,21 +988,21 @@ export function bindProImChapterData(
     (doc.body?.asking_price_manwon ? Number(doc.body.asking_price_manwon) * 10000 : 0) ||
     (doc.body?.ssot_summary?.asking_price_manwon ? Number(doc.body.ssot_summary.asking_price_manwon) * 10000 : 0) ||
     (building?.asking_price_manwon ? Number(building.asking_price_manwon) * 10000 : 0) ||
-    25000000000
+    0
   );
 
   const annualRentKrw = Number(
     doc.body?.annual_rent_krw ||
     (doc.body?.monthly_rent_total_krw ? Number(doc.body.monthly_rent_total_krw) * 12 : 0) ||
     (doc.body?.ssot_summary?.monthly_rent_total_krw ? Number(doc.body.ssot_summary.monthly_rent_total_krw) * 12 : 0) ||
-    Math.round(askingPriceKrw * 0.042)
+    0
   );
 
   const totalDepositKrw = Number(
     doc.body?.total_deposit_krw ||
     (doc.body?.total_deposit_manwon ? Number(doc.body.total_deposit_manwon) * 10000 : 0) ||
     (doc.body?.ssot_summary?.total_deposit_manwon ? Number(doc.body.ssot_summary.total_deposit_manwon) * 10000 : 0) ||
-    Math.round(askingPriceKrw * 0.08)
+    0
   );
 
   const capRatePct = Number(
@@ -1014,13 +1015,13 @@ export function bindProImChapterData(
   const grossFloorAreaPy = Number(
     doc.body?.total_gross_area_py ||
     (doc.body?.ssot_summary?.total_gross_area_sqm ? Number((doc.body.ssot_summary.total_gross_area_sqm * 0.3025).toFixed(1)) : 0) ||
-    1250
+    0
   );
 
   const landAreaPy = Number(
     doc.body?.land_area_py ||
     (doc.body?.ssot_summary?.land_area_sqm ? Number((doc.body.ssot_summary.land_area_sqm * 0.3025).toFixed(1)) : 0) ||
-    220
+    0
   );
 
   const pricePerPyeongLand = landAreaPy > 0 ? Math.round((askingPriceKrw / 10000) / landAreaPy) : 0;
@@ -1072,25 +1073,19 @@ export function bindProImChapterData(
           depositKrw: depKrw,
           monthlyRentKrw: rentKrw,
           monthlyMaintenanceKrw: maintKrw,
-          leaseStartDate: item.leaseStartDate || item.lease_start_date || '2023-01-01',
-          leaseEndDate: item.leaseEndDate || item.lease_end_date || '2027-12-31',
+          leaseStartDate: item.leaseStartDate || item.lease_start_date || '',
+          leaseEndDate: item.leaseEndDate || item.lease_end_date || '',
           statutoryProtection10Y: Boolean(item.statutoryProtection10Y ?? item.statutory_protection_10y ?? true),
           isAnchor: Boolean(item.isAnchor ?? item.is_anchor ?? false),
         };
       })
-    : [
-        { floor: 'B1', unitNumber: 'B101호', tenantName: '프라임 피트니스', industry: '스포츠/레저', leasedAreaM2: 330.5, leasedAreaPyeong: 100.0, depositKrw: 150000000, monthlyRentKrw: 8500000, monthlyMaintenanceKrw: 2500000, leaseStartDate: '2023-01-01', leaseEndDate: '2028-12-31', statutoryProtection10Y: true },
-        { floor: '1F', unitNumber: '101호', tenantName: '스타벅스 코리아', industry: 'F&B/카페', leasedAreaM2: 247.9, leasedAreaPyeong: 75.0, depositKrw: 300000000, monthlyRentKrw: 18000000, monthlyMaintenanceKrw: 3500000, leaseStartDate: '2022-06-01', leaseEndDate: '2027-05-31', statutoryProtection10Y: true, isAnchor: true },
-        { floor: '2F', unitNumber: '201호', tenantName: '예스서울치과의원', industry: '메디컬/병원', leasedAreaM2: 297.5, leasedAreaPyeong: 90.0, depositKrw: 200000000, monthlyRentKrw: 11000000, monthlyMaintenanceKrw: 2800000, leaseStartDate: '2021-03-01', leaseEndDate: '2026-02-28', statutoryProtection10Y: true },
-        { floor: '3F', unitNumber: '301호', tenantName: '법무법인 정론', industry: '전문서비스/법률', leasedAreaM2: 314.0, leasedAreaPyeong: 95.0, depositKrw: 150000000, monthlyRentKrw: 9500000, monthlyMaintenanceKrw: 2600000, leaseStartDate: '2023-09-01', leaseEndDate: '2026-08-31', statutoryProtection10Y: true },
-        { floor: '4F', unitNumber: '401호', tenantName: '넥스트엔터테인먼트', industry: '미디어/콘텐츠', leasedAreaM2: 314.0, leasedAreaPyeong: 95.0, depositKrw: 150000000, monthlyRentKrw: 9200000, monthlyMaintenanceKrw: 2600000, leaseStartDate: '2024-02-01', leaseEndDate: '2027-01-31', statutoryProtection10Y: false },
-        { floor: '5F', unitNumber: '501호', tenantName: '클라우드소프트웨어', industry: 'IT/소프트웨어', leasedAreaM2: 314.0, leasedAreaPyeong: 95.0, depositKrw: 150000000, monthlyRentKrw: 9500000, monthlyMaintenanceKrw: 2600000, leaseStartDate: '2023-11-01', leaseEndDate: '2026-10-31', statutoryProtection10Y: false },
-        { floor: '6F', unitNumber: '601호', tenantName: '삼화회계법인', industry: '회계/세무', leasedAreaM2: 314.0, leasedAreaPyeong: 95.0, depositKrw: 150000000, monthlyRentKrw: 9500000, monthlyMaintenanceKrw: 2600000, leaseStartDate: '2022-10-01', leaseEndDate: '2027-09-30', statutoryProtection10Y: true },
-        { floor: '7F', unitNumber: '701호', tenantName: '글로벌에셋대부', industry: '금융/투자', leasedAreaM2: 314.0, leasedAreaPyeong: 95.0, depositKrw: 180000000, monthlyRentKrw: 9800000, monthlyMaintenanceKrw: 2700000, leaseStartDate: '2023-05-01', leaseEndDate: '2028-04-30', statutoryProtection10Y: true },
-      ];
+    : (() => {
+        log.warn('[data-binder] ⚠️ floor_leases 미제공 — 더미 렌트롤 주입 방지 (빈 배열 반환)');
+        return [] as typeof rawLeases;
+      })();
 
   const waleRes = calculateProWALE(rawLeases);
-  const waleYears = waleRes.waleByRentYears || 3.4;
+  const waleYears = waleRes.waleByRentYears || 0;
 
   // ── 3. Quantitative Financial Engine Execution ──
   const dcfModel = generateMultiYearCashFlow({
@@ -1382,6 +1377,7 @@ export function bindProImChapterData(
 
   // Lease Expiry Schedule Fallback when portfolio has only 1 chunk
   if (totalChunks === 1 && !result['rentRollPart2']) {
+    console.warn('[data-binder] Lease expiry schedule: no real data available');
     result['rentRollPart2'] = {
       title: '상세 임대차 현황 (Part 2: 만기 스케줄 및 WALE)',
       kicker: 'LEASE EXPIRY SCHEDULE',
@@ -1389,13 +1385,7 @@ export function bindProImChapterData(
       tables: [],
       metrics: {},
       tableHead: ['만기 연도', '해당 임차인 수', '만기 면적(평)', '만기 월세(만원)', '비중 (%)', '누적 비중 (%)'],
-      tableRows: [
-        ['2026년 만기', '3개사', '280.0', '3,000', '39.0%', '39.0%'],
-        ['2027년 만기', '2개사', '170.0', '2,720', '35.3%', '74.3%'],
-        ['2028년 만기', '2개사', '195.0', '1,830', '23.8%', '98.1%'],
-        ['2029년 이후', '1개사', '25.0', '150', '1.9%', '100.0%'],
-        ['합계 (WALE)', `${rawLeases.length}개사`, grossFloorAreaPy.toLocaleString(), Math.round(annualRentKrw / 12 / 10000).toLocaleString(), '100.0%', `WALE ${waleYears.toFixed(1)}년`],
-      ],
+      tableRows: [],
       _derived: true,
     };
   }
@@ -1408,9 +1398,9 @@ export function bindProImChapterData(
       tables: [],
       metrics: {},
       checkItems: [
-        '승강기(EV) 정기안전검사 필증 확보 및 현대엘리베이터 유지보수 계약 체결',
+        '승강기(EV) 정기안전검사 필증 확보 및 - 유지보수 계약 체결',
         '기계식 주차기 5년 주기 정밀안전진단 통과 및 의무 자주식 주차구획(2대 이상) 충족',
-        '수전설비(변압기 용량 450 kVA) 및 한국전기안전공사 정기검사 적합 판정',
+        '수전설비(-) 및 한국전기안전공사 정기검사 적합 판정',
         '소방시설 종합정밀점검·작동기능점검 필증 및 전 층 스프링클러 헤드 완비',
         '중앙/개별 냉난방 EHP·GHP 실외기 노후도 점검 및 각 실내기 냉난방 작동 상태 양호',
         '정화조 용량 대비 현 입주업종 오수발생량 적합성 및 하수도 원인자부담금 추가 과세 없음',
@@ -1612,21 +1602,21 @@ export function bindProImChapterData(
       left: {
         sub: '권역 거시 시장 오피스 수급 및 공실률 동향 분석',
         rows: [
-          ['권역 구분', '서울 핵심 도심 업무권역'],
-          ['시장 동향', '공실률 3% 미만의 타이트한 수급 여건 지속'],
-          ['임대료 상승률', '최근 3개년 연평균 4.5% 상승 추세'],
-          ['공급 전망', '향후 3개년 내 프라임 오피스 신규 공급 극히 제한적'],
+          ['권역 구분', '해당 권역'],
+          ['시장 동향', '수급 현황 확인 중'],
+          ['임대료 상승률', '추이 분석 중'],
+          ['공급 전망', '신규 공급 분석 중'],
         ],
       },
       right: {
         stats: [
-          { label: '권역 평균 공실률', value: '2.8%' },
-          { label: '평당 명목 임대료', value: '11.5만 원' },
-          { label: '평당 실질 임대료', value: '10.2만 원' },
+          { label: '권역 평균 공실률', value: '-' },
+          { label: '평당 명목 임대료', value: '-' },
+          { label: '평당 실질 임대료', value: '-' },
         ],
         callouts: [
-          { kind: 'brass', title: '견고한 임차 수요', body: 'IT, 바이오 및 금융 전문직 중심 신규 오피스 수요 지속 유입' },
-          { kind: 'info', title: '신규 공급 제한', body: '도심 핵심권역 신규 오피스 개발 부지 부족으로 임대인 우위 시장 지속' },
+          { kind: 'brass', title: '임차 수요 추이', body: '해당 권역 임차 수요 현황 데이터 확인 필요' },
+          { kind: 'info', title: '공급 동향', body: '최근 신규 오피스 공급 현황 데이터 업데이트 필요' },
         ],
       },
       _derived: true,
@@ -1643,16 +1633,16 @@ export function bindProImChapterData(
       left: {
         sub: '인근 유사 프라임 빌딩 임대료 및 공실률 벤치마크',
         rows: [
-          ['권역 A급 평균', '보증금 100만 원 / 월세 11.2만 원 / 관리비 4.2만 원'],
-          ['권역 B급 평균', '보증금 85만 원 / 월세 9.8만 원 / 관리비 3.6만 원'],
+          ['권역 A급 평균', '-'],
+          ['권역 B급 평균', '-'],
           ['대상 자산 수준', `보증금 ${Math.round(totalDepositKrw / grossFloorAreaPy / 10000).toLocaleString()}만 원 / 월세 ${Math.round(annualRentKrw / 12 / grossFloorAreaPy / 10000).toLocaleString()}만 원`],
           ['임대료 경쟁력', '인근 시세 대비 적정 수준 유지로 임차인 락인(Lock-in) 효과'],
         ],
       },
       right: {
         stats: [
-          { label: '시장 대비 월세율', value: '96%' },
-          { label: '평균 무상임대(RF)', value: '연 1.0개월' },
+          { label: '시장 대비 월세율', value: '-' },
+          { label: '평균 무상임대(RF)', value: '-' },
         ],
       },
       _derived: true,
@@ -1667,11 +1657,11 @@ export function bindProImChapterData(
       tables: [],
       metrics: {},
       blocks: [
-        { label: '지하철 도보 접근성', value: '역세권 도보 3~5분', description: '주요 간선 지하철역 인접으로 임직원 출퇴근 편의성 극대화' },
-        { label: '광역 간선도로망', value: '간선대로변 5분 진입', description: '주요 도심 고속화도로 신속 진입으로 물류 및 이동성 우수' },
-        { label: '3대 업무권역 직결', value: 'CBD·GBD·YBD 20~30분', description: '서울 주요 핵심 업무 권역으로의 대중교통 직결 환승 체계 완비' },
+        { label: '대중교통 접근성', value: '주요 지하철역 인접', description: '간선 지하철역 도보 접근 가능 (상세 확인 필요)' },
+        { label: '광역 간선도로', value: '간선도로 접근 양호', description: '주요 간선도로 접근 양호 (상세 확인 필요)' },
+        { label: '업무권역 접근', value: '주요 업무권역 접근 양호', description: '주요 업무 권역과의 대중교통 연결 양호 (상세 확인 필요)' },
       ],
-      bottomBar: { text: '※ 서울 주요 핵심 업무권역(CBD·GBD·YBD) 환승망과 직결되어 우수 인재 확보 및 비즈니스 네트워크 최적' },
+      bottomBar: { text: '※ 상기 입지 평가는 개략 분석이며, 실제 교통 소요시간 및 접근성은 현장 확인이 필요합니다' },
       _derived: true,
     };
   }
@@ -1684,13 +1674,7 @@ export function bindProImChapterData(
       tables: [],
       metrics: {},
       tableHead: ['거래 시점', '자산명', '연면적 (평)', '매매가 (억 원)', '평당가 (만 원)', 'Cap Rate'],
-      tableRows: [
-        ['2025.11', '인근 오피스빌딩 A', '1,420', '285.0', '2,007', '4.15%'],
-        ['2025.08', '대로변 상업빌딩 B', '1,150', '240.0', '2,086', '4.20%'],
-        ['2025.04', '역세권 복합빌딩 C', '1,680', '350.0', '2,083', '3.95%'],
-        ['2024.12', '코너 복합빌딩 D', '980', '190.0', '1,938', '4.35%'],
-        ['평균', '인근 실거래 4건 평균', '1,307', '266.2', '2,028', '4.16%'],
-      ],
+      tableRows: [],
       _derived: true,
     };
   }
@@ -1706,9 +1690,9 @@ export function bindProImChapterData(
         sub: '실거래 벤치마크 및 밸류에이션 배수 비교',
         rows: [
           ['구분', '인근 거래 하한', '인근 거래 평균', '인근 거래 상한', '대상 자산 (제시가)'],
-          ['연면적 평당가 (만 원)', '1,938', '2,028', '2,086', pricePerPyeongGfa.toLocaleString()],
+          ['연면적 평당가 (만 원)', '-', '-', '-', pricePerPyeongGfa.toLocaleString()],
           ['대지 평당가 (만 원)', `${Math.round(pricePerPyeongLand * 0.9).toLocaleString()}`, `${pricePerPyeongLand.toLocaleString()}`, `${Math.round(pricePerPyeongLand * 1.1).toLocaleString()}`, pricePerPyeongLand.toLocaleString()],
-          ['Cap Rate (%)', '4.35%', '4.16%', '3.95%', `${capRatePct.toFixed(2)}%`],
+          ['Cap Rate (%)', '-', '-', '-', `${capRatePct.toFixed(2)}%`],
         ],
       },
       callouts: [
@@ -1732,9 +1716,9 @@ export function bindProImChapterData(
       right: {
         rows: [
           ['대표 지번', doc.body?.address || '서울시 주요 권역'],
-          ['필지 형상', '정방형 / 세장형 (건축 효율성 우수)'],
-          ['접면 도로', '전면 20m 이상 중로 접합, 보차도 분리'],
-          ['토지이용 규제', '도시지역, 상업지역/준공업지역 (건폐율·용적률 적합)'],
+          ['필지 형상', '-'],
+          ['접면 도로', '-'],
+          ['토지이용 규제', '[토지이용계획 확인 필요]'],
         ],
       },
       _derived: true,
@@ -1751,14 +1735,14 @@ export function bindProImChapterData(
       tables: [],
       metrics: {},
       ownershipRows: [
-        ['소유권자', '단독 소유 (법인/개인)', '등기부등본 갑구 확인 완료'],
-        ['제한물권', '근저당권 채권최고액 잔액 있음', '잔금 시 전액 상환 및 말소 조건'],
-        ['임차권 등기', '해당 사항 없음 (경합 임차권 부재)', '을구 열람 결과 이상 없음'],
-        ['가압류/가처분', '등재 이력 없음 (소유권 완전성 보장)', '원인 무효 사유 부재'],
+        ['소유권자', '-', '[등기부 실사 필요]'],
+        ['제한물권', '-', '잔금 시 전액 상환 및 말소 조건'],
+        ['임차권 등기', '[임차권 등기 확인 필요]', '[을구 열람 확인 필요]'],
+        ['가압류/가처분', '-', '[가압류/가처분 확인 필요]'],
       ],
       callouts: [
-        { title: '근저당권 잔금 시 동시 말소 확약', body: '매매 잔금 시 기존 설정된 근저당권 전액 변제 및 말소 서류 동시 교부' },
-        { title: '소유권 분쟁 및 처분금지 가처분 전무', body: '등기부 갑구상 소유권 분쟁, 압류, 가압류 등 권리 제한 사항 전무 확인' },
+        { title: '[근저당권 현황 실사 필요]', body: '잔금 시 말소 조건 협의 필요' },
+        { title: '[소유권 현황 실사 필요]', body: '갑구 권리 제한 사항 실사 확인 필요' },
       ],
       _derived: true,
     };
@@ -1774,17 +1758,17 @@ export function bindProImChapterData(
       left: {
         sub: '건축관계 법규 및 건폐율·용적률 적합성 검토',
         rows: [
-          ['용도지역', doc.body?.zoning || '일반상업지역 / 준공업지역'],
-          ['법정 건폐율', '60.0% 이하 (현황 건폐율 기준 충족)'],
-          ['법정 용적률', '400.0% 이하 (기준 용적률 적합)'],
-          ['위반건축물', '건축물대장상 위반건축물 미등재 (적법 건축물)'],
-          ['정화조/소방', '오수정화시설 및 소방완비증명 정상 유지'],
+          ['용도지역', doc.body?.zoning || '[용도지역 확인 필요]'],
+          ['법정 건폐율', '[법정 건폐율 확인 필요]'],
+          ['법정 용적률', '[법정 용적률 확인 필요]'],
+          ['위반건축물', '-'],
+          ['정화조/소방', '[정화조/소방 점검 필요]'],
         ],
       },
       right: {
         stats: [
-          { label: '위반건축물', value: '0건 (적법)' },
-          { label: '승강기 검사', value: '합격' },
+          { label: '위반건축물', value: '-' },
+          { label: '승강기 검사', value: '-' },
         ],
       },
       _derived: true,
@@ -1799,12 +1783,12 @@ export function bindProImChapterData(
       tables: [],
       metrics: {},
       checkItems: [
-        '건축물 구조안전진단 이력 및 내진설계 반영 여부 점검 (양호)',
-        '옥상 방수, 외벽 석재/커튼월 코킹 노후도 및 누수 흔적 실사 (정상)',
-        '수전 용량(kVA) 및 전기실 고압차단기 교체 주기 확인 (적정)',
-        '지하 주차장 배수펌프, 집수정 가동 및 결로 방지 환기 상태 점검 (양호)',
-        '승강기 와이어로프, 제어반 및 카 도어 세이프티 센서 점검 필증 (적합)',
-        '소방 방화구획 완비, 감지기 및 유도등 점등 배터리 정상 상태 (합격)',
+        '건축물 구조안전진단 이력 및 내진설계 반영 여부 점검 [실사 필요]',
+        '옥상 방수, 외벽 석재/커튼월 코킹 노후도 및 누수 흔적 실사 [실사 필요]',
+        '수전 용량(kVA) 및 전기실 고압차단기 교체 주기 확인 [실사 필요]',
+        '지하 주차장 배수펌프, 집수정 가동 및 결로 방지 환기 상태 점검 [실사 필요]',
+        '승강기 와이어로프, 제어반 및 카 도어 세이프티 센서 점검 필증 [실사 필요]',
+        '소방 방화구획 완비, 감지기 및 유도등 점등 배터리 정상 상태 [실사 필요]',
       ],
       _derived: true,
     };

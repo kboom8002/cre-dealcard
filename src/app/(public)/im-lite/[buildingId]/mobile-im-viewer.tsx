@@ -189,7 +189,7 @@ export function MobileIMViewer({
           <h1 className="text-xl font-black text-white mb-2">IM Lite 준비 중</h1>
           <p className="text-sm text-neutral-400 leading-relaxed mb-6">
             {(ssotData?.notice as string) ??
-              "이 매물의 AI 섹션 생성 기능은 v0.4에서 제공됩니다."}
+              "이 매물의 AI 섹션 생성 기능은 준비 중입니다."}
           </p>
           <Link
             href="/hub"

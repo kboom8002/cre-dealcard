@@ -452,8 +452,18 @@ export async function generatePersonalizedInsert(
   interestTags: { regions?: string[]; assetTypes?: string[]; topics?: string[]; hobbies?: string[] },
   editionSummary: { theme_title?: string; ai_briefing?: string },
   recentNews?: Array<{ title: string; source?: string }>,
+  subscriberMatchedDeals?: Array<{
+    blindName: string;
+    grade: string;
+    score: number;
+  }>,
 ): Promise<string> {
   if (!interestTags || (!interestTags.regions?.length && !interestTags.topics?.length && !interestTags.assetTypes?.length)) {
+    if (subscriberMatchedDeals && subscriberMatchedDeals.length > 0) {
+      const topDeals = subscriberMatchedDeals.slice(0, 3);
+      const dealSummary = topDeals.map(d => `• ${d.blindName} [${d.grade}등급, ${Math.round(d.score)}점]`).join("\n");
+      return `🎯 이번 주 대표님을 위한 맞춤 추천 매물:\n${dealSummary}`;
+    }
     return "";
   }
 
@@ -486,10 +496,22 @@ ${hobbiesStr}
       maxTokens: 250,
     });
 
-    return res.content.trim().replace(/^["']|["']$/g, "");
+    let finalContent = res.content.trim().replace(/^["']|["']$/g, "");
+    if (subscriberMatchedDeals && subscriberMatchedDeals.length > 0) {
+      const topDeals = subscriberMatchedDeals.slice(0, 3);
+      const dealSummary = topDeals.map(d => `• ${d.blindName} [${d.grade}등급, ${Math.round(d.score)}점]`).join("\n");
+      finalContent += `\n\n🎯 이번 주 대표님을 위한 AI 추천 매물:\n${dealSummary}`;
+    }
+    return finalContent;
   } catch (err) {
     log.warn("[generatePersonalizedInsert] Fallback used:", err);
-    return `${regionsStr} 권역의 ${assetsStr} 실거래 동향과 금주 시장 분석 포인트를 확인해보세요.`;
+    let fallback = `${regionsStr} 권역의 ${assetsStr} 실거래 동향과 금주 시장 분석 포인트를 확인해보세요.`;
+    if (subscriberMatchedDeals && subscriberMatchedDeals.length > 0) {
+      const topDeals = subscriberMatchedDeals.slice(0, 3);
+      const dealSummary = topDeals.map(d => `• ${d.blindName} [${d.grade}등급, ${Math.round(d.score)}점]`).join("\n");
+      fallback += `\n\n🎯 이번 주 대표님을 위한 AI 추천 매물:\n${dealSummary}`;
+    }
+    return fallback;
   }
 }
 

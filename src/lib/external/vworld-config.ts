@@ -8,6 +8,7 @@
 export function getVWorldReferer(): string {
   return (
     process.env.VWORLD_REFERER ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
     process.env.NEXT_PUBLIC_SITE_URL ||
     'https://cre-dealcard.vercel.app'
   );
@@ -17,4 +18,18 @@ export function getVWorldReferer(): string {
 export function getVWorldApiKey(): string {
   const key = process.env.VWORLD_API_KEY || process.env.NEXT_PUBLIC_VWORLD_KEY || '';
   return key.toUpperCase();
+}
+
+export function hasVWorldApiKey(): boolean {
+  const key = getVWorldApiKey();
+  if (!key) {
+    console.warn('[vworld-config] V-World API 키 미설정 — WMS/WFS 호출 생략');
+  }
+  return !!key;
+}
+
+/** V-World API Domain을 반환합니다. */
+export function getVWorldDomain(): string {
+  const referer = getVWorldReferer();
+  return referer.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
 }

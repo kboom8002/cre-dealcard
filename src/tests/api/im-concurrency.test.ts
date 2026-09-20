@@ -19,8 +19,7 @@ describe('IM API Concurrency and Idempotency', () => {
     }
   });
 
-  test('CC01: Concurrent POST generate-async with same building_id', async () => {
-    if (!isServerRunning) return;
+  test.skipIf(() => !isServerRunning)('CC01: Concurrent POST generate-async with same building_id', async () => {
     const req1 = fetch(`${BASE}/api/admin/im/generate-async`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -36,8 +35,7 @@ describe('IM API Concurrency and Idempotency', () => {
     expect(res2.status).toBeLessThan(500);
   });
 
-  test('CC02: POST generate-async returns a jobId', async () => {
-    if (!isServerRunning) return;
+  test.skipIf(() => !isServerRunning)('CC02: POST generate-async returns a jobId', async () => {
     const res = await fetch(`${BASE}/api/admin/im/generate-async`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -49,20 +47,17 @@ describe('IM API Concurrency and Idempotency', () => {
     }
   });
 
-  test('CC03: GET job-status with valid jobId', async () => {
-    if (!isServerRunning) return;
+  test.skipIf(() => !isServerRunning)('CC03: GET job-status with valid jobId', async () => {
     const res = await fetch(`${BASE}/api/admin/im/job-status/test-job-id`);
     expect(res.status).toBeLessThan(500);
   });
 
-  test('CC04: GET job-status with invalid jobId', async () => {
-    if (!isServerRunning) return;
+  test.skipIf(() => !isServerRunning)('CC04: GET job-status with invalid jobId', async () => {
     const res = await fetch(`${BASE}/api/admin/im/job-status/invalid-job-id-12345`);
     expect(res.status).toBeGreaterThanOrEqual(400);
   });
 
-  test('CC05: POST generate-async twice sequentially', async () => {
-    if (!isServerRunning) return;
+  test.skipIf(() => !isServerRunning)('CC05: POST generate-async twice sequentially', async () => {
     const res1 = await fetch(`${BASE}/api/admin/im/generate-async`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -77,14 +72,12 @@ describe('IM API Concurrency and Idempotency', () => {
     expect(res2.status).toBeLessThan(500);
   });
 
-  test('CC06: GET public IM viewer for published document', async () => {
-    if (!isServerRunning) return;
+  test.skipIf(() => !isServerRunning)('CC06: GET public IM viewer for published document', async () => {
     const res = await fetch(`${BASE}/api/public/im-lite/${BLD_JAMWON}`);
     expect(res.status).toBeLessThan(500);
   });
 
-  test('CC07: GET public IM viewer for nonexistent document', async () => {
-    if (!isServerRunning) return;
+  test.skipIf(() => !isServerRunning)('CC07: GET public IM viewer for nonexistent document', async () => {
     const res = await fetch(`${BASE}/api/public/im-lite/${BLD_NONEXISTENT}`);
     expect([200, 404]).toContain(res.status);
     if (res.status === 200) {
@@ -93,8 +86,7 @@ describe('IM API Concurrency and Idempotency', () => {
     }
   });
 
-  test('CC08: PPTX download for published document', async () => {
-    if (!isServerRunning) return;
+  test.skipIf(() => !isServerRunning)('CC08: PPTX download for published document', async () => {
     const res = await fetch(`${BASE}/api/public/im-lite/${BLD_JAMWON}/pptx`);
     if (res.status === 200) {
       const contentType = res.headers.get('content-type');
@@ -102,14 +94,12 @@ describe('IM API Concurrency and Idempotency', () => {
     }
   });
 
-  test('CC09: PPTX download for nonexistent document', async () => {
-    if (!isServerRunning) return;
+  test.skipIf(() => !isServerRunning)('CC09: PPTX download for nonexistent document', async () => {
     const res = await fetch(`${BASE}/api/public/im-lite/${BLD_NONEXISTENT}/pptx`);
     expect(res.status).toBeGreaterThanOrEqual(400);
   });
 
-  test('CC10: Concurrent PPTX downloads', async () => {
-    if (!isServerRunning) return;
+  test.skipIf(() => !isServerRunning)('CC10: Concurrent PPTX downloads', async () => {
     const req1 = fetch(`${BASE}/api/public/im-lite/${BLD_JAMWON}/pptx`);
     const req2 = fetch(`${BASE}/api/public/im-lite/${BLD_JAMWON}/pptx`);
     const [res1, res2] = await Promise.all([req1, req2]);
@@ -117,8 +107,7 @@ describe('IM API Concurrency and Idempotency', () => {
     expect(res2.status).toBeLessThan(500);
   });
 
-  test('CC11: GET im-lite API', async () => {
-    if (!isServerRunning) return;
+  test.skipIf(() => !isServerRunning)('CC11: GET im-lite API', async () => {
     const res = await fetch(`${BASE}/api/public/im-lite/${BLD_JAMWON}`);
     if (res.status === 200) {
       const json = await res.json();
@@ -126,8 +115,7 @@ describe('IM API Concurrency and Idempotency', () => {
     }
   });
 
-  test('CC12: GET im-lite API for nonexistent', async () => {
-    if (!isServerRunning) return;
+  test.skipIf(() => !isServerRunning)('CC12: GET im-lite API for nonexistent', async () => {
     const res = await fetch(`${BASE}/api/public/im-lite/${BLD_NONEXISTENT}`);
     if (res.status === 200) {
       const data = await res.json();
