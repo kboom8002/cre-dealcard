@@ -207,6 +207,80 @@ export class PptxStudioService {
       if (docBody.buildingPhotos) {
         slides[5].slideOverrides = { photos: docBody.buildingPhotos };
       }
+
+      // ── B6 Fix: Pre-populate building/land/rentroll/yield from ssot_summary ──
+      const ssot = docBody.ssot_summary ?? {};
+
+      // Building overview (slides[2])
+      {
+        const overrides: Record<string, any> = {};
+        if (ssot.building_name) overrides.buildingName = ssot.building_name;
+        if (ssot.address || ssot.raw_address) overrides.address = ssot.address || ssot.raw_address;
+        if (ssot.total_gross_area_sqm) overrides.grossArea = `${Number(ssot.total_gross_area_sqm).toLocaleString()}㎡`;
+        if (ssot.total_floors || ssot.floors_above) {
+          const above = ssot.floors_above ?? ssot.total_floors ?? '';
+          const below = ssot.floors_below ?? '';
+          overrides.floors = below ? `지하 ${below}층 / 지상 ${above}층` : `${above}층`;
+        }
+        if (ssot.completion_year) overrides.completionYear = String(ssot.completion_year);
+        if (ssot.main_use || ssot.asset_type) overrides.mainUse = ssot.main_use || ssot.asset_type;
+        if (ssot.structure_type) overrides.structureType = ssot.structure_type;
+        if (ssot.rights_analysis) overrides.rightCallout = ssot.rights_analysis;
+        if (Object.keys(overrides).length > 0) {
+          slides[2].slideOverrides = overrides;
+        }
+      }
+
+      // Land info (slides[4])
+      {
+        const overrides: Record<string, any> = {};
+        if (ssot.land_area_sqm) overrides.landArea = `${Number(ssot.land_area_sqm).toLocaleString()}㎡`;
+        if (ssot.zoning) overrides.zoningInfo = ssot.zoning;
+        if (ssot.land_use_plan) overrides.landUsePlan = ssot.land_use_plan;
+        if (ssot.far_pct) overrides.farPct = `${ssot.far_pct}%`;
+        if (ssot.bcr_pct) overrides.bcrPct = `${ssot.bcr_pct}%`;
+        if (ssot.official_land_price_krw) overrides.officialLandPrice = `${(ssot.official_land_price_krw / 10000).toLocaleString()}만원/㎡`;
+        if (Object.keys(overrides).length > 0) {
+          slides[4].slideOverrides = overrides;
+        }
+      }
+
+      // Rentroll (slides[6])
+      {
+        const overrides: Record<string, any> = {};
+        const leases = docBody.floor_leases ?? docBody.rentRoll ?? ssot.floor_leases;
+        if (Array.isArray(leases) && leases.length > 0) {
+          overrides.tenantData = leases;
+        }
+        if (ssot.monthly_rent_total_krw) {
+          overrides.monthlyRentTotal = `${(ssot.monthly_rent_total_krw / 10000).toLocaleString()}만원`;
+        }
+        if (ssot.vacancy_signal || ssot.vacancy_pct != null) {
+          overrides.vacancySignal = ssot.vacancy_signal || `${ssot.vacancy_pct}%`;
+        }
+        if (ssot.occupancy_pct != null) {
+          overrides.occupancyRate = `${ssot.occupancy_pct}%`;
+        }
+        if (Object.keys(overrides).length > 0) {
+          slides[6].slideOverrides = overrides;
+        }
+      }
+
+      // Yield analysis (slides[7])
+      {
+        const overrides: Record<string, any> = {};
+        if (ssot.cap_rate_base) overrides.capRateBase = ssot.cap_rate_base;
+        if (ssot.cap_rate_stabilized) overrides.capRateStabilized = ssot.cap_rate_stabilized;
+        if (ssot.noi_krw) overrides.noiKrw = ssot.noi_krw;
+        if (ssot.asking_price_manwon) {
+          overrides.askingPrice = `${(ssot.asking_price_manwon / 10000).toLocaleString()}억원`;
+        }
+        if (ssot.price_per_pyeong) overrides.pricePerPyeong = `${Number(ssot.price_per_pyeong).toLocaleString()}만원/평`;
+        if (Object.keys(overrides).length > 0) {
+          slides[7].slideOverrides = overrides;
+        }
+      }
+
       // Broker info for closing
       if (docBody.brokerName || docBody.brokerPhone) {
         slides[8].slideOverrides = {

@@ -84,7 +84,23 @@ export const BASIC_IM_EXCLUSION = [
   'A19',  // Pro 개발 분석
   'A20',  // Pro 매각 전략
   'A21',  // Pro 부록
+  'A25',  // B8 Fix: Pro 챕터 디바이더 추가
 ] as const;
+
+/**
+ * B8 Fix: Basic IM 허용 아키타입 (Allowlist) — BASIC_IM_SLIDE_CONTRACT에서 파생
+ * 이 목록에 없는 아키타입은 Basic IM 시퀀스에서 자동 제거됩니다.
+ */
+export const BASIC_IM_ALLOWED = new Set([
+  'A01',  // Cover
+  'A02',  // StatGrid
+  'A04',  // Asymmetric75
+  'A06',  // Diagram (입지/지적도)
+  'A10',  // Closing
+  'A14',  // Gallery
+  'A23',  // YieldFormula
+  'A24',  // RentrollStacking
+] as const);
 
 // ═══════════════════════════════════════════════════════════════════
 // §4. Basic IM 필수 입력 타입 (컴파일타임 강제)

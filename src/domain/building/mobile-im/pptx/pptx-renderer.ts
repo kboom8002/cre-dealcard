@@ -9,7 +9,7 @@ import PptxGenJS from 'pptxgenjs';
 import { getPptxTheme, getPptxThemeAsync, DEFAULT_PPTX_PRESET, type PptxThemeTokens, type ThemePresetDbReader } from './pptx-theme';
 import { SLIDE_ARCHETYPE_REGISTRY, type ArchetypeInput } from './archetypes';
 import { buildDeckSequence, buildProDeckSequence, type DeckSequenceInput, type SlideSpec, type IncomeArchetype } from './deck-sequencer';
-import { BASIC_IM_EXCLUSION } from './basic-im-contract';
+import { BASIC_IM_EXCLUSION, BASIC_IM_ALLOWED } from './basic-im-contract';
 import { bindSectionData } from './data-binder';
 import { validateTextBudgets } from './text-budget';
 import type { ProvenanceKind } from './imlib';
@@ -224,6 +224,12 @@ export class MobileImPptxRenderer {
           log.error(`[G-BASIC] Basic IM에 금지 아키타입 혼입: ${violations.map(v => v.archetype).join(', ')}`);
           // 금지 아키타입을 시퀀스에서 자동 제거 (하드 에러 대신 방어적 제거)
           sequence = sequence.filter(s => !forbidden.has(s.archetype));
+        }
+        // B8 Fix: Allowlist 기반 2차 방어 — 허용 목록에 없는 아키타입도 제거
+        const allowlistViolations = sequence.filter(s => !BASIC_IM_ALLOWED.has(s.archetype as any));
+        if (allowlistViolations.length > 0) {
+          log.warn(`[G-BASIC] Basic IM Allowlist 위반 제거: ${allowlistViolations.map(v => v.archetype).join(', ')}`);
+          sequence = sequence.filter(s => BASIC_IM_ALLOWED.has(s.archetype as any));
         }
       }
 

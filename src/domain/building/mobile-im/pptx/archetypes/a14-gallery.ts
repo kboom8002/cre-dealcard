@@ -28,11 +28,9 @@ export interface ArchetypeOutput {
  * 1~4장의 사진을 최적 레이아웃(FULL_WIDE, DUAL, 1+2, GRID_2X2)으로 정밀 렌더링
  */
 export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeOutput> {
-  const slide = L.light(input.pres);
   const warnings: string[] = [];
   const kicker = input.data.kicker || 'GALLERY';
   const title = input.data.title || '건물 주요 사진';
-  L.head(slide, input.slideNum, kicker, title);
 
   const rawPhotos: PhotoMeta[] = input.data.photos || [];
   const photoUrls: string[] = input.data.photoUrls || [];
@@ -58,21 +56,30 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
   const validPhotos = targetPhotos.filter(p => !!p.url);
 
   if (validPhotos.length === 0) {
-    // W-PPTX-6: 사진 0장일 때 빈 슬라이드 대신 suppress 신호 반환
+    // W-PPTX-6: 사진 0장일 때 suppress — 슬라이드 자체를 생성하지 않음
     warnings.push('갤러리 사진 없음 — 슬라이드 억제');
-    L.foot(slide, input.slideNum, input.docno);
-    return { slide, warnings, suppress: true };
+    // B3 Fix: null slide 반환 — 슬라이드 미생성으로 유령 백지 방지
+    return { slide: null as any, warnings, suppress: true };
   }
 
-  // Optimize images (최대 6장 — 슬라이드당 6장 제한, full-wide 12.13" 대응을 위해 maxWidth 2000px 적용)
+  // B3 Fix: 이미지 최적화를 슬라이드 생성 전에 수행
   const urlsToOptimize = validPhotos.slice(0, 6).map(p => p.url);
-  const optimized = await optimizeImagesForPptx(urlsToOptimize, 6, 2000, 85);
+  let optimized: OptimizedImage[];
+  try {
+    optimized = await optimizeImagesForPptx(urlsToOptimize, 6, 2000, 85);
+  } catch (err) {
+    warnings.push(`갤러리 이미지 최적화 실패: ${err instanceof Error ? err.message : String(err)}`);
+    return { slide: null as any, warnings, suppress: true };
+  }
 
   if (optimized.length === 0) {
-    warnings.push('걤러리 사진 로딩 실패 — 슬라이드 억제');
-    L.foot(slide, input.slideNum, input.docno);
-    return { slide, warnings, suppress: true };
+    warnings.push('갤러리 사진 로딩 실패 — 슬라이드 억제');
+    return { slide: null as any, warnings, suppress: true };
   }
+
+  // 검증 통과 후에만 슬라이드 생성
+  const slide = L.light(input.pres);
+  L.head(slide, input.slideNum, kicker, title);
 
   const count = optimized.length;
   const startY = 1.35;

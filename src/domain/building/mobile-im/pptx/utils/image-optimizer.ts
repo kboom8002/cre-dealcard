@@ -336,7 +336,9 @@ export async function generateStaticMapPlaceholder(
 
           // 1. 도보 5분 반경 원 (약 400m 도보권역)
           const walkRadiusMeters = 400; // 도보 5분 (80m/분 × 5분)
-          const walkRadiusPx = Math.round(walkRadiusMeters / (kakaoMeterPerPxMap[kakaoLevel] ?? 1.0));
+          const rawWalkRadiusPx = Math.round(walkRadiusMeters / (kakaoMeterPerPxMap[kakaoLevel] ?? 1.0));
+          // B10 Fix: 반경이 캔버스를 초과하지 않도록 클램핑 (라벨 + 여백 30px 확보)
+          const walkRadiusPx = Math.min(rawWalkRadiusPx, Math.floor(kakaoH / 2 - 30));
           const circleSvg = Buffer.from(`
             <svg width="${kakaoW}" height="${kakaoH}" viewBox="0 0 ${kakaoW} ${kakaoH}" xmlns="http://www.w3.org/2000/svg">
               <circle cx="${kakaoW / 2}" cy="${kakaoH / 2}" r="${walkRadiusPx}" fill="rgba(184, 134, 11, 0.07)" stroke="#B8860B" stroke-width="1.8" stroke-dasharray="8,5"/>

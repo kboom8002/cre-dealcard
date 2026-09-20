@@ -93,6 +93,24 @@ export default function BasicImStudioPage() {
       if (data.ok) {
         setProject(data.project);
         toast.success('저장되었습니다');
+      } else if (res.status === 409) {
+        // B4 Fix: 409 자동 복구 — 서버에서 최신 프로젝트 재조회
+        toast.warning('다른 탭에서 수정이 감지되었습니다. 최신 상태를 불러옵니다.');
+        try {
+          const refreshRes = await fetch('/api/broker/basic-im-studio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ buildingId }),
+          });
+          const refreshData = await refreshRes.json();
+          if (refreshData.ok && refreshData.project) {
+            setProject(refreshData.project);
+            // 로컬 변경사항 유지 — 사용자가 재시도 가능
+            toast.info('최신 상태를 불러왔습니다. 다시 저장해 주세요.');
+          }
+        } catch {
+          toast.error('최신 상태를 불러오는데 실패했습니다. 페이지를 새로고침해 주세요.');
+        }
       } else {
         toast.error(data.error || '저장 실패');
       }
@@ -101,7 +119,7 @@ export default function BasicImStudioPage() {
     } finally {
       setSaving(false);
     }
-  }, [project]);
+  }, [project, buildingId]);
 
   // Download PPTX
   const handleDownload = useCallback(async () => {

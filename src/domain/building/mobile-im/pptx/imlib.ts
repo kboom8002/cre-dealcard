@@ -613,13 +613,17 @@ export function foot(
   docno: string,
   onDark?: boolean,
 ): void {
+  // B9 Fix: docno 안전 가드 — undefined/null → 빈 문자열
+  const safeDocno = (docno != null && docno !== 'undefined' && docno !== 'null') ? docno : '';
   const textColor = onDark ? CD.faint : C.mute;
   const style = THEME_META.layoutStyle;
 
   switch (style) {
     case 'modern': {
       // 중앙 도트 구분 + 액센트 페이지 번호
-      const footText = `${THEME_META.companyName}  ·  ${docno}  ·  ${page}`;
+      const footText = safeDocno
+        ? `${THEME_META.companyName}  ·  ${safeDocno}  ·  ${page}`
+        : `${THEME_META.companyName}  ·  ${page}`;
       s.addText(footText, {
         x: M, y: 7.02, w: CW, h: 0.22,
         align: 'center', fontSize: 9, color: textColor, fontFace: KR, margin: 0,
@@ -637,7 +641,7 @@ export function foot(
         x: M, y: 6.94, w: CW, h: 0,
         line: { color: C.brass, width: 0.3 },
       });
-      s.addText(`${docno}`, {
+      s.addText(safeDocno, {
         x: M, y: 7.00, w: CW * 0.5, h: 0.22,
         fontSize: 9, color: textColor, fontFace: KR, margin: 0,
       });
@@ -665,7 +669,7 @@ export function foot(
         x: 0, y: 7.08, w: 0.12, h: 0.42,
         fill: { color: C.brass },
       });
-      s.addText(`${docno}`, {
+      s.addText(safeDocno, {
         x: M, y: 7.12, w: 8, h: 0.20,
         fontSize: 9, color: onDark ? CD.faint : CD.mute, fontFace: KR, margin: 0,
       });
@@ -680,7 +684,10 @@ export function foot(
         x: M, y: 6.94, w: CW, h: 0,
         line: { color: C.line, width: 0.5 },
       });
-      s.addText(`${THEME_META.companyName || 'CREDEAL'}   |   ${docno}`, {
+      const openFrameText = safeDocno
+        ? `${THEME_META.companyName || 'CREDEAL'}   |   ${safeDocno}`
+        : `${THEME_META.companyName || 'CREDEAL'}`;
+      s.addText(openFrameText, {
         x: M, y: 7.00, w: 8, h: 0.22,
         fontSize: 8.5, color: textColor, fontFace: KR, margin: 0,
       });
@@ -692,7 +699,10 @@ export function foot(
     }
     case 'classic':
     default: {
-      s.addText(`${THEME_META.companyName || 'CREDEAL'}   |   ${docno}`, {
+      const classicText = safeDocno
+        ? `${THEME_META.companyName || 'CREDEAL'}   |   ${safeDocno}`
+        : `${THEME_META.companyName || 'CREDEAL'}`;
+      s.addText(classicText, {
         x: M, y: 6.98, w: 8, h: 0.24,
         fontSize: 8, color: textColor, fontFace: KR, margin: 0,
       });

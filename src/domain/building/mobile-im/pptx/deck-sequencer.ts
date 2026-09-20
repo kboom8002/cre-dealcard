@@ -22,6 +22,7 @@ import {
   BASIC_IM_SLIDE_CONTRACT,
   BASIC_IM_OPTIONAL_SLIDES,
   BASIC_IM_EXCLUSION,
+  BASIC_IM_BOUNDS,
 } from './basic-im-contract';
 
 
@@ -144,16 +145,24 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
 
     // 지적도: 토지(seq 5) 뒤에 조건부 삽입
     if (slot.seq === BASIC_IM_OPTIONAL_SLIDES.cadastralMap.afterSeq && da.hasCadastralMap) {
-      // 9슬라이드 스펙 제한 초과 방지 (계약 바운더리 준수)
-      if (sequence.length >= 10) {
-        continue; // 토지 정보에 병합 간주하고 별도 슬라이드 생략
-      }
       const cad = BASIC_IM_OPTIONAL_SLIDES.cadastralMap;
       sequence.push({ archetype: cad.archetype, kicker: 'Cadastral', title: cad.label, dataKey: cad.dataKey });
     }
   }
 
-  return sequence.filter(s => !s.suppress);
+  // B11 Fix: 루프 종료 후 바운드 체크 — BASIC_IM_BOUNDS.maxSlides 초과 시 본문 슬라이드 절삭
+  const filtered = sequence.filter(s => !s.suppress);
+  if (filtered.length > BASIC_IM_BOUNDS.maxSlides) {
+    // closing (마지막)은 보존, 중간 본문 슬라이드를 우선 제거
+    const closing = filtered.pop()!; // closing 보존
+    while (filtered.length >= BASIC_IM_BOUNDS.maxSlides) {
+      // 뒤에서 두 번째(closing 직전)부터 제거
+      filtered.pop();
+    }
+    filtered.push(closing);
+  }
+
+  return filtered;
 }
 
 export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
