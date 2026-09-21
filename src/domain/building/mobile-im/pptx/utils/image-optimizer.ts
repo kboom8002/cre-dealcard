@@ -268,8 +268,8 @@ function buildPoiOverlays(
           </g>
         </svg>
       `);
-      left = Math.max(0, Math.min(px - labelWidth / 2, imgW - totalW));
-      top = Math.max(0, Math.min(py - 15, imgH - totalH));
+      left = Math.round(Math.max(0, Math.min(px - labelWidth / 2, imgW - totalW)));
+      top = Math.round(Math.max(0, Math.min(py - 15, imgH - totalH)));
     } else {
       const textWidth = Math.max(50, cleanName.length * 13 + 18);
       const badgeH = 32;
@@ -292,8 +292,8 @@ function buildPoiOverlays(
           </g>
         </svg>
       `);
-      left = Math.max(0, Math.min(px - 16, imgW - totalW));
-      top = Math.max(0, Math.min(py - 18, imgH - totalH));
+      left = Math.round(Math.max(0, Math.min(px - 16, imgW - totalW)));
+      top = Math.round(Math.max(0, Math.min(py - 18, imgH - totalH)));
     }
 
     const poiBox: [number,number,number,number] = [left, top, left + totalW, top + totalH];
@@ -302,8 +302,8 @@ function buildPoiOverlays(
 
     overlays.push({
       input: poiSvg,
-      left,
-      top,
+      left: Math.round(left),
+      top: Math.round(top),
     });
   }
   

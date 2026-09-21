@@ -28,6 +28,7 @@ import {
   verifyMathematicalConsistency,
 } from '@/assurance/im-harness/golden-test-utils';
 import { convertPptxToSlideImages } from './pptx-slide-capturer';
+import { safeWritePptx } from './fixtures/safe-write';
 
 const DATA_DIR = join(process.cwd(), 'docs', 'golden-test-data', 'p2-sinsa-trading', 'r3-verified');
 const IMAGES_DIR = join(DATA_DIR, 'images');
@@ -133,6 +134,20 @@ async function runSinsaGoldenTest() {
   // 5. 모바일 IM: SSOT 조립 및 덱 시퀀서
   // ─────────────────────────────────────────────────────────────
   console.log('\n▶ [Step 5] 모바일 IM: 덱 시퀀서 및 SSOT 조립');
+  // 지적도 이미지 로드
+  const cadastralMapPath = join(DATA_DIR, 'images', 'cadastral_map.png');
+  const hasCadastralImage = existsSync(cadastralMapPath);
+  const cadastralMapBase64 = hasCadastralImage
+    ? `data:image/png;base64,${readFileSync(cadastralMapPath).toString('base64')}`
+    : undefined;
+
+  // 주요 POI 랜드마크 (압구정역, 신사역, 강남을지병원사거리)
+  const poiSpots = [
+    { name: '압구정역 (3호선)', lat: 37.5265, lng: 127.0285, distanceM: 450, category: 'subway' as const },
+    { name: '신사역 (3호선/신분당선)', lat: 37.5164, lng: 127.0205, distanceM: 950, category: 'subway' as const },
+    { name: '강남을지병원사거리', lat: 37.5200, lng: 127.0290, distanceM: 200, category: 'landmark' as const },
+  ];
+
   const sequence = buildDeckSequence({
     posture: 'trading',
     grade: 'A',
@@ -140,7 +155,7 @@ async function runSinsaGoldenTest() {
     preset: 'credeal_basic',
     dataAvailability: {
       hasRentRoll: true,
-      hasCadastralMap: false,
+      hasCadastralMap: hasCadastralImage,
     },
   });
 
@@ -159,6 +174,15 @@ async function runSinsaGoldenTest() {
     monthly_rent_total_krw: 64625000,
     land_area_sqm: bottomSheet.landAreaM2,
     total_gross_area_sqm: bottomSheet.grossFloorAreaM2,
+    arch_area_sqm: 544.70,
+    bcr_pct: 51.3,
+    far_pct: 237.2,
+    max_bcr_pct: 50.0,
+    max_far_pct: 250.0,
+    land_category: '대',
+    parking_detail: '자주식 5대 / 기계식 21대 (총 26대)',
+    road_condition: '논현로 이면 코너 (북측 8m, 동측 6m)',
+    area_signal: 'GBD',
     completion_year: 1998,
     zoning: '제3종일반주거지역',
     floors: '지하 2층 ~ 지상 6층',
@@ -180,6 +204,7 @@ async function runSinsaGoldenTest() {
     equityRequiredBil: (76000000000 - 950000000) / 100000000,
     leveragedYieldPct: financials?.leveragedYield ?? 0,
     posture: 'trading',
+    areaSignal: 'GBD',
     landAreaM2: bottomSheet.landAreaM2,
     totalGrossAreaM2: bottomSheet.grossFloorAreaM2,
     zoning: '제3종일반주거지역',
@@ -187,13 +212,14 @@ async function runSinsaGoldenTest() {
     vacancySignal: '4층 공실 (160평) 보유로 직접 자가사용 또는 밸류애드 리노베이션 후 신규 임대 최적',
   };
 
+  // R2 xlsx 표준 10열 렌트롤 데이터
   const floorLeases = [
-    { floor: '6F', tenant_type: '하우연한의원', area_pyeong: 120, deposit_manwon: 10000, rent_manwon: 780 },
-    { floor: '5F', tenant_type: 'ST성형외과', area_pyeong: 160, deposit_manwon: 30000, rent_manwon: 1330 },
-    { floor: '4F', tenant_type: '공실 (밸류애드 가능)', area_pyeong: 160, deposit_manwon: 0, rent_manwon: 0, is_vacant: true },
-    { floor: '3F', tenant_type: '엑셀유학', area_pyeong: 160, deposit_manwon: 15000, rent_manwon: 1575 },
-    { floor: '2F', tenant_type: '모래공장보컬학원', area_pyeong: 160, deposit_manwon: 15000, rent_manwon: 1150 },
-    { floor: '1F', tenant_type: '이탈로모토', area_pyeong: 150, deposit_manwon: 25000, rent_manwon: 1627 },
+    { floor: '6F', unit: '전층', use: '제2종근생(의원)', tenant_name: '하우연한의원', area_sqm: 360.0, deposit_manwon: 10000, rent_manwon: 780, mgmt_fee_manwon: 80, lease_end: '2027', note: '-' },
+    { floor: '5F', unit: '전층', use: '제1종근생(의원)', tenant_name: 'ST성형외과', area_sqm: 416.0, deposit_manwon: 30000, rent_manwon: 1330, mgmt_fee_manwon: 100, lease_end: '2024', note: '-' },
+    { floor: '4F', unit: '전층', use: '제2종근생(사무소)', tenant_name: '공실', area_sqm: 435.8, deposit_manwon: 0, rent_manwon: 0, mgmt_fee_manwon: 0, lease_end: '-', is_vacant: true, note: '밸류애드 리노베이션 추천' },
+    { floor: '3F', unit: '전층', use: '제2종근생(학원)', tenant_name: '엑셀유학/어학', area_sqm: 435.8, deposit_manwon: 15000, rent_manwon: 1575, mgmt_fee_manwon: 100, lease_end: '2025', note: '-' },
+    { floor: '2F', unit: '전층', use: '제2종근생(학원)', tenant_name: '모래공장보컬학원', area_sqm: 435.8, deposit_manwon: 15000, rent_manwon: 1150, mgmt_fee_manwon: 100, lease_end: '2024', note: '-' },
+    { floor: '1F', unit: '전층', use: '제1종근생(소매점)', tenant_name: '이탈로모토', area_sqm: 435.8, deposit_manwon: 25000, rent_manwon: 1627, mgmt_fee_manwon: 120, lease_end: '2030', note: '-' },
   ];
 
   const sections = [
@@ -240,6 +266,23 @@ async function runSinsaGoldenTest() {
         ssot_summary: ssot,
         financials,
         coordinates: sinsaCoords,
+        poiSpots,
+        cadastralMapImage: cadastralMapBase64,
+        cadastralImage: cadastralMapBase64,
+        enrichment: {
+          cadastralMapImage: cadastralMapBase64,
+          hasCadastralMap: hasCadastralImage,
+          locationPoi: {
+            nearestStation: {
+              name: '압구정역',
+              lat: 37.5265,
+              lng: 127.0285,
+              distanceM: 450,
+              walkMinutes: 5,
+            },
+            keySpots: poiSpots,
+          },
+        },
         keyInvestmentPoint: heroCard.keyInvestmentPoint,
         keyPoint: heroCard.keyInvestmentPoint,
         manual_comps: bottomSheet.manual_comps,
@@ -247,14 +290,18 @@ async function runSinsaGoldenTest() {
       sections,
     },
     building: {
-      area_signal: '760억',
+      area_signal: 'GBD',
       asset_type: '근린생활시설',
       price_band: '760억',
       address: bottomSheet.address,
       building_name: '신사동 590 ICL빌딩',
       bcr_pct: bottomSheet.buildingCoverageRatioPct,
       far_pct: bottomSheet.floorAreaRatioPct,
+      arch_area_sqm: 544.70,
       parking_count: bottomSheet.parking,
+      parking_detail: '자주식 5대 / 기계식 21대 (총 26대)',
+      road_condition: '논현로 이면 코너 (북측 8m, 동측 6m)',
+      land_category: '대',
       floors: '지하 2층 ~ 지상 6층',
       completion_year: 1998,
     },
@@ -275,9 +322,9 @@ async function runSinsaGoldenTest() {
   const renderer = new MobileImPptxRenderer();
   const pptxResult = await renderer.render(pptxInput);
 
-  writeFileSync(PPTX_OUTPUT_PATH, pptxResult.buffer);
+  const savedTradingPath = safeWritePptx(PPTX_OUTPUT_PATH, pptxResult.buffer);
   const fileSizeKB = Math.round(pptxResult.buffer.length / 1024);
-  console.log(`  💾 PPTX 저장 완료: ${PPTX_OUTPUT_PATH} (${fileSizeKB} KB, ${pptxResult.slideCount}면)`);
+  console.log(`  💾 PPTX 저장 완료: ${savedTradingPath} (${fileSizeKB} KB, ${pptxResult.slideCount}면)`);
 
   logStep('Step 6', 'PPTX 렌더링', 'PASS', `크기: ${fileSizeKB}KB, 면수: ${pptxResult.slideCount}면 (경고 ${pptxResult.warnings.length}건)`);
 
@@ -341,8 +388,8 @@ async function runSinsaGoldenTest() {
   };
 
   const incomePptxResult = await renderer.render(incomePptxInput);
-  writeFileSync(INCOME_PPTX_PATH, incomePptxResult.buffer);
-  console.log(`  💾 Income PPTX 저장 완료: ${INCOME_PPTX_PATH} (${Math.round(incomePptxResult.buffer.length / 1024)} KB, ${incomePptxResult.slideCount}면)`);
+  const savedIncomePath = safeWritePptx(INCOME_PPTX_PATH, incomePptxResult.buffer);
+  console.log(`  💾 Income PPTX 저장 완료: ${savedIncomePath} (${Math.round(incomePptxResult.buffer.length / 1024)} KB, ${incomePptxResult.slideCount}면)`);
 
   const incomeCaptureResult = await convertPptxToSlideImages(incomePptxResult.buffer, INCOME_CAPTURES_DIR, 'sinsa_income', 150);
   console.log(`  🖼️ Income 캡처 완료: 총 ${incomeCaptureResult.slideCount}개 슬라이드 이미지 생성됨`);
