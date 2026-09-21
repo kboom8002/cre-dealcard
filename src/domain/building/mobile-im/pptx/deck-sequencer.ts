@@ -137,6 +137,18 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
       continue;
     }
 
+    // 토지 정보 슬라이드: 지적도가 있으면 A06으로 좌측 지적도 + 우측 토지 정보 통합
+    if (slot.dataKey === 'land' && da.hasCadastralMap) {
+      sequence.push({
+        archetype: 'A06',
+        kicker: 'Land & Cadastral',
+        title: '토지 정보',
+        dataKey: 'land',
+      });
+      // 지적도가 토지에 단일 슬라이드로 통합되었으므로 중복 A06 슬라이드 미생성
+      continue;
+    }
+
     sequence.push({
       archetype: slot.archetype,
       kicker: slot.label,
@@ -144,8 +156,8 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
       dataKey: slot.dataKey,
     });
 
-    // 지적도: 토지(seq 5) 뒤에 조건부 삽입
-    if (slot.seq === BASIC_IM_OPTIONAL_SLIDES.cadastralMap.afterSeq && da.hasCadastralMap) {
+    // 지적도: land에 통합되지 않은 경우(예: 지적도만 별도 요청)에만 조건부 삽입
+    if (slot.seq === BASIC_IM_OPTIONAL_SLIDES.cadastralMap.afterSeq && da.hasCadastralMap && slot.dataKey !== 'land') {
       const cad = BASIC_IM_OPTIONAL_SLIDES.cadastralMap;
       sequence.push({ archetype: cad.archetype, kicker: 'Cadastral', title: cad.label, dataKey: cad.dataKey });
     }

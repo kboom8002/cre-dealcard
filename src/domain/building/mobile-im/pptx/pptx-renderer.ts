@@ -571,7 +571,57 @@ export class MobileImPptxRenderer {
         // 지적도를 토지 슬라이드에도 전달 (좌측 이미지 영역용)
         if (dataMap['land']) {
           dataMap['land'].cadastralImage = cadastralImg;
+          dataMap['land'].mapImageUrl = cadastralImg;
           dataMap['land'].photoUrl = cadastralImg;
+
+          // A06 호환: left.rows의 토지 제원을 right.rows로 매핑
+          const leftRows = dataMap['land'].left?.rows ?? [];
+          if (!dataMap['land'].right) dataMap['land'].right = {};
+          if (leftRows.length > 0 && (!dataMap['land'].right.rows || dataMap['land'].right.rows.length === 0)) {
+            dataMap['land'].right.rows = leftRows;
+          }
+          if (!dataMap['land'].right.sub) {
+            dataMap['land'].right.sub = '토지이용계획 · 규제 분석';
+          }
+
+          // A06 호환: right.callout 단일 객체 보장
+          if (!dataMap['land'].right.callout && dataMap['land'].right.callouts?.length > 0) {
+            const first = dataMap['land'].right.callouts[0];
+            dataMap['land'].right.callout = {
+              kind: first.kind || 'info',
+              title: first.title || '토지 규제 및 공법 분석',
+              body: first.body || '',
+            };
+          } else if (!dataMap['land'].right.callout) {
+            const ssot = input.doc.body?.ssot_summary ?? {};
+            const bcr = ssot.bcr_pct;
+            const far = ssot.far_pct;
+            const maxBcr = ssot.max_bcr_pct ?? 50;
+            const maxFar = ssot.max_far_pct ?? 250;
+            const road = ssot.road_condition ?? '';
+            const zoning = ssot.zoning ?? '';
+            const bullets: string[] = [];
+            if (bcr && far) {
+              bullets.push(`• 현 건폐율 ${bcr}%, 용적률 ${far}% (법정 상한: 건폐율 ${maxBcr}%, 용적률 ${maxFar}%)`);
+              const farGap = Number(maxFar) - Number(far);
+              if (farGap > 5) {
+                bullets.push(`• ${zoning} 기준 법정 상한 대비 용적률 ${farGap.toFixed(1)}%p 여유 — 밸류애드 잠재력`);
+              }
+            }
+            if (road) {
+              bullets.push(`• ${road} 접면 차량 진출입 및 보행자 접근성 우수`);
+            }
+            if (bullets.length > 0) {
+              dataMap['land'].right.callout = {
+                kind: 'info',
+                title: '토지 규제 및 공법 분석',
+                body: bullets.join('\n'),
+              };
+            }
+          }
+
+          if (!dataMap['land'].left) dataMap['land'].left = {};
+          dataMap['land'].left.source = '© V-World 국토교통부 | 2026';
         }
       }
 

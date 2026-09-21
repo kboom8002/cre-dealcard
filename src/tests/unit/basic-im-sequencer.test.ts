@@ -26,21 +26,20 @@ describe('Basic IM (credeal_basic) Sequencer Unit Test (Rule 47 & basic-im-guide
     expect(dataKeys[2]).toBe('building');
     // 4. 입지 정보
     expect(dataKeys[3]).toBe('location');
-    // 5. 토지 정보
+    // 5. 토지 정보 및 지적도 통합 (hasCadastralMap=true일 때 A06 복합 슬라이드로 일원화)
     expect(dataKeys[4]).toBe('land');
-    // 5b. 지적도 (hasCadastralMap=true일 때만)
-    expect(dataKeys[5]).toBe('cadastralMap');
+    expect(seq[4].archetype).toBe('A06');
     // 6. 건물 사용 현황 (A24 렌트롤+스태킹 복합 단일 슬라이드)
-    expect(dataKeys[6]).toBe('rentRoll');
+    expect(dataKeys[5]).toBe('rentRoll');
     // 7. 투자수익률 분석 (A23)
-    expect(dataKeys[7]).toBe('yieldFormula');
+    expect(dataKeys[6]).toBe('yieldFormula');
     // 8. 현장 사진 (A14)
-    expect(dataKeys[8]).toBe('gallery');
+    expect(dataKeys[7]).toBe('gallery');
     // 9. 문의 및 유의사항 (A10)
-    expect(dataKeys[9]).toBe('closing');
+    expect(dataKeys[8]).toBe('closing');
 
-    // Total: 10 slides (9 core + cadastral)
-    expect(seq.length).toBe(10);
+    // Total: 9 slides (지적도가 토지 슬라이드 좌측에 통합되어 단일 슬라이드로 완성)
+    expect(seq.length).toBe(9);
 
     // Negative: Pro-tier advanced slides must NOT be present
     expect(dataKeys).not.toContain('capital');
@@ -66,17 +65,19 @@ describe('Basic IM (credeal_basic) Sequencer Unit Test (Rule 47 & basic-im-guide
     expect(rentRollSlide?.archetype).toBe('A24');
   });
 
-  it('Basic IM produces 9-10 slides max (guide standard 9 sections + optional cadastral)', () => {
-    // With cadastral
+  it('Basic IM produces unified land slide (A06 with cadastral, A04 without cadastral)', () => {
+    // With cadastral → A06 unified
     const seqWithCadastral = buildDeckSequence(basicInput);
-    expect(seqWithCadastral.length).toBe(10);
+    expect(seqWithCadastral.length).toBe(9);
+    expect(seqWithCadastral.find(s => s.dataKey === 'land')?.archetype).toBe('A06');
 
-    // Without cadastral → 9 slides
+    // Without cadastral → A04 standard
     const seqNoCadastral = buildDeckSequence({
       ...basicInput,
       dataAvailability: { ...basicInput.dataAvailability, hasCadastralMap: false },
     });
     expect(seqNoCadastral.length).toBe(9);
+    expect(seqNoCadastral.find(s => s.dataKey === 'land')?.archetype).toBe('A04');
   });
 
   it('preserves default Pro IM sequence when preset is not credeal_basic', () => {

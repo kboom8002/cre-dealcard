@@ -125,7 +125,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     y += 0.35;
   }
 
-  let rightRows = (right.rows ?? []).slice(0, 5);
+  let rightRows = (right.rows ?? []).slice(0, 7);
   if (rightRows.length === 0 && input.data.content) {
     // 마크다운 콘텐츠에서 키-값 불릿을 동적 추출 (Rule 26: 특정 지역명 하드코딩 금지)
     const contentText = String(input.data.content);
@@ -133,7 +133,7 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     // 패턴 1: "키워드: 설명" 형태 불릿
     const kvMatches = contentText.match(/(?:^|\n)\s*[-•*]\s*(.+?)[:：]\s*(.+)/g);
     if (kvMatches) {
-      for (const m of kvMatches.slice(0, 5)) {
+      for (const m of kvMatches.slice(0, 7)) {
         const parts = m.replace(/^\s*[-•*]\s*/, '').split(/[:：]\s*/);
         if (parts.length >= 2 && parts[0].length <= 20 && parts[1].length >= 5) {
           autoRows.push([parts[0].trim(), parts[1].trim().substring(0, 60)]);
@@ -176,8 +176,21 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
       }
       return [l, v, ...rest];
     }) as RowEntry[];
-    y = L.rows(slide, textX, y, textW, safeRows, { rh: 0.54, fs: 13 });
-    y += 0.15;
+
+    const numRows = safeRows.length;
+    const hasCallout = Boolean(right.callout);
+    let rowH = 0.50;
+    let fs = 12.5;
+    if (numRows >= 6 || (numRows >= 5 && hasCallout)) {
+      rowH = 0.38;
+      fs = 11.5;
+    } else if (numRows >= 4 && hasCallout) {
+      rowH = 0.44;
+      fs = 12.0;
+    }
+
+    y = L.rows(slide, textX, y, textW, safeRows, { rh: rowH, fs });
+    y += 0.12;
   }
 
   if (rightRows.length === 0) {
