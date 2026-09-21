@@ -121,15 +121,19 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
 
     const isBasicPresetForRentRoll = body?.preset === 'credeal_basic';
     const rentRollHeaders = isBasicPresetForRentRoll 
-            ? ['층수', '면적(평)', '임차인', '보증금', '월세', '계약종료']
+            ? ['층', '호실', '용도/업종', '임차인', '전용면적(㎡)', '보증금(만원)', '월세(만원)', '관리비(만원)', '계약종료', '비고']
             : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
     const rentRollRows = core.leases.map(l => isBasicPresetForRentRoll ? [
-            l.unitLabel,
-            l.leaseAreaSqm ? `${(sqmToPyeong(l.leaseAreaSqm)).toFixed(0)}평` : '-',
-            l.tenantBusiness ?? (l.leaseState === '공실' ? '공실' : '-'),
-            l.depositKrw ? `${Math.round(l.depositKrw / 10000).toLocaleString()}만` : '-',
-            l.monthlyRentKrw ? `${Math.round(l.monthlyRentKrw / 10000).toLocaleString()}만` : '-',
+            l.unitLabel ?? '-',
+            (l as any).unitId ?? '-',
+            l.tenantBusiness ?? '-',
+            (l as any).tenantName ?? l.tenantBusiness ?? (l.leaseState === '공실' ? '공실' : '-'),
+            l.leaseAreaSqm ? l.leaseAreaSqm.toFixed(1) : '-',
+            l.depositKrw ? `${Math.round(l.depositKrw / 10000).toLocaleString()}` : '-',
+            l.monthlyRentKrw ? `${Math.round(l.monthlyRentKrw / 10000).toLocaleString()}` : '-',
+            l.mgmtFeeKrw ? `${Math.round(l.mgmtFeeKrw / 10000).toLocaleString()}` : '-',
             l.currentExpiryDate ?? '-',
+            l.leaseState === '공실' ? '공실' : ((l as any).note ?? ''),
           ] : [
             l.unitLabel,
             l.tenantBusiness ?? (l.leaseState === '공실' ? '🚫 공실' : '-'),

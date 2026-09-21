@@ -261,11 +261,47 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       const kicker = (input.data.kicker || '').toLowerCase();
       const isLandSlide = kicker.includes('land') || (input.data.title || '').includes('토지');
       if (isLandSlide) {
-        // 토지 현황 슬라이드: 토지/건축물 관련 실무 내용만 표시
-        L.callout(slide, rx, 1.80, rw, 2.3, 'info', '토지 및 건축 규제 포인트',
-          `• 용도지역·용도지구 기준 건폐율/용적률 상한 확인\n• 필지 형상 및 접도 조건에 따른 건축 가능 면적 검토\n• 토지이용계획 열람 및 개발행위허가 제한 여부 확인`);
+        // Phase 4: SSoT 데이터 기반 동적 토지 규제 콜아웃 합성
+        const ssot = input.data.ssot_summary ?? input.data.heroCard ?? {};
+        const bldg = input.data.building ?? {};
+        const bcr = Number(ssot.bcr_pct ?? bldg.bcr_pct ?? ssot.bcrPct);
+        const far = Number(ssot.far_pct ?? bldg.far_pct ?? ssot.farPct);
+        const maxBcr = Number(ssot.max_bcr_pct ?? bldg.max_bcr_pct);
+        const maxFar = Number(ssot.max_far_pct ?? bldg.max_far_pct);
+        const zoning = ssot.zoning ?? bldg.zoning ?? input.data.zoning ?? '';
+        const road = ssot.road_condition ?? bldg.road_condition ?? '';
+        const landCat = ssot.land_category ?? bldg.land_category ?? '';
+        const landM2 = Number(ssot.land_area_sqm ?? 0);
+        const landPy = landM2 > 0 ? (landM2 * 0.3025).toFixed(1) : '';
+
+        // 토지 및 건축 규제 동적 불릿
+        const regBullets: string[] = [];
+        if (Number.isFinite(bcr) && bcr > 0 && Number.isFinite(far) && far > 0) {
+          let line = `\u2022 현행 건폐율 ${bcr}%, 용적률 ${far}%`;
+          if (Number.isFinite(maxBcr) && maxBcr > 0 && Number.isFinite(maxFar) && maxFar > 0) {
+            line += ` (법정 상한: ${maxBcr}% / ${maxFar}%)`;
+            const farGap = maxFar - far;
+            if (farGap > 5) {
+              line += `\n  \u2192 용적률 ${farGap.toFixed(1)}%p 여유 \u2014 증축/리모델링 밸류애드 잠재력`;
+            }
+          }
+          regBullets.push(line);
+        }
+        if (zoning) regBullets.push(`\u2022 용도지역: ${zoning}`);
+        if (landCat) regBullets.push(`\u2022 지목: ${landCat}`);
+        if (road) regBullets.push(`\u2022 도로접면: ${road}`);
+        if (landM2 > 0 && landPy) regBullets.push(`\u2022 대지면적: ${landM2.toLocaleString()}\u33a1 (${landPy}평)`);
+        // 폴백: SSoT 데이터가 전무할 때만
+        if (regBullets.length === 0) {
+          regBullets.push('\u2022 토지이용계획 열람 및 건축 규제 확인 필요');
+        }
+
+        L.callout(slide, rx, 1.80, rw, 2.3, 'info', '토지 및 건축 규제',
+          regBullets.join('\n'));
+
+        // 권리관계 동적 불릿 (이 부분은 공적장부 API 없이는 일반적 실무 항목)
         L.callout(slide, rx, 4.35, rw, 2.35, 'info', '권리관계 및 공적장부',
-          `• 등기부등본 갑구 소유권 및 을구 근저당·가압류 확인\n• 건축물대장 기재 사항과 실물 현황 대조 점검\n• 개별공시지가 및 실거래가 비교 분석`);
+          '\u2022 등기부등본 갑구 소유권 확인\n\u2022 건축물대장 기재 사항 실물 대조\n\u2022 개별공시지가 및 실거래가 비교');
       } else {
         L.callout(slide, rx, 1.80, rw, 2.3, 'info', '입지 및 자산 개요',
           '• 투자 검토 대상 상업용 자산\n• 권리관계 및 임대차 계약 구조 분석\n• 상세 인접 인프라 및 입지 환경 분석');

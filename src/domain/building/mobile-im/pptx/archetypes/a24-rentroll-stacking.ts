@@ -83,16 +83,15 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   L.head(slide, input.slideNum, input.data.kicker || 'Rent Roll', input.data.title || '임대차 현황');
 
   // Left Panel (Stacking Plan)
-  // x=0.62, w=4.45
-  const spX = 0.62;
-  const spW = 4.45;
+  const spX = M;
+  const spW = 3.20;
   const spY = 1.8;
   const spH = 4.8;
   
   // Right Panel (Rent Roll Table)
-  // x=5.22, w=7.50
-  const tbX = 5.22;
-  const tbW = 7.50;
+  const gap = 0.35;
+  const tbX = M + spW + gap;
+  const tbW = CW - M * 2 - spW - gap;
 
   // --- Render Left Panel: Stacking Plan ---
   let floors: FloorInfo[] = stackingData;
@@ -282,8 +281,8 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   });
 
   // --- Right Panel: Rent Roll Table ---
-  const HEADERS = ['층수', '임차인', '면적(평)', '보증금', '월세', '계약종료'];
-  const colW = [0.8, 1.8, 1.3, 1.3, 1.1, 1.2]; // Sum = 7.50
+  const HEADERS = ['층', '호실', '용도/업종', '임차인', '전용면적(㎡)', '보증금(만원)', '월세(만원)', '관리비(만원)', '계약종료', '비고'];
+  const colW = [0.50, 0.50, 0.95, 1.30, 0.82, 0.82, 0.72, 0.72, 0.72, 0.55]; // Sum = 7.60
   
   if (tableRows.length > 0) {
     let rawRows = [...tableRows];
@@ -302,20 +301,24 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     if (!hasSummaryRow && rawRows.length > 0) {
       let totalArea = 0, totalDeposit = 0, totalRent = 0;
       for (const r of rawRows) {
-        const a = parseFloat(String(r[2] || '').replace(/[^0-9.]/g, ''));
+        const a = parseFloat(String(r[4] || '').replace(/[^0-9.]/g, ''));
         if (!isNaN(a)) totalArea += a;
-        const d = parseFloat(String(r[3] || '').replace(/[^0-9.]/g, ''));
+        const d = parseFloat(String(r[5] || '').replace(/[^0-9.]/g, ''));
         if (!isNaN(d)) totalDeposit += d;
-        const rt = parseFloat(String(r[4] || '').replace(/[^0-9.]/g, ''));
+        const rt = parseFloat(String(r[6] || '').replace(/[^0-9.]/g, ''));
         if (!isNaN(rt)) totalRent += rt;
       }
       rawRows.push([
         '합계',
+        '',
+        '',
         `${rawRows.length}개 호실`,
-        totalArea > 0 ? `${totalArea.toFixed(1)}평` : '-',
-        totalDeposit > 0 ? `${Math.round(totalDeposit).toLocaleString()}만` : '-',
-        totalRent > 0 ? `${Math.round(totalRent).toLocaleString()}만` : '-',
-        '-'
+        totalArea > 0 ? `${totalArea.toFixed(1)}` : '-',
+        totalDeposit > 0 ? `${Math.round(totalDeposit).toLocaleString()}` : '-',
+        totalRent > 0 ? `${Math.round(totalRent).toLocaleString()}` : '-',
+        '',
+        '',
+        ''
       ]);
     }
     
@@ -341,7 +344,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     // Body
     displayRows.forEach((row, i) => {
       const isSummary = row.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim()));
-      const isVacant = row.some((c: any) => String(c || '').includes('공실'));
+      const isVacant = String(row[3] || '').includes('공실');
       const isSelfUse = row.some((c: any) => /자가|자가사용/.test(String(c || '')));
       
       const fill = isSummary ? C.tint : (isVacant ? 'FBEFE8' : (isSelfUse ? C.tint : (i % 2 === 0 ? C.bg : 'F3F6F7')));
@@ -354,13 +357,17 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         row[2] || '',
         row[3] || '',
         row[4] || '',
-        row[5] || ''
+        row[5] || '',
+        row[6] || '',
+        row[7] || '',
+        row[8] || '',
+        row[9] || ''
       ].map((cell, cIdx) => {
         let text = String(cell).replace(/\*\*/g, '');
         if (text.length > 30) text = text.slice(0, 29) + '…';
         return {
           text,
-          options: { fill, color, fontSize: 9.5, bold, align: cIdx >= 3 && cIdx <= 4 ? 'right' : 'center', fontFace: KR }
+          options: { fill, color, fontSize: 8.5, bold, align: cIdx >= 4 && cIdx <= 7 ? 'right' : 'center', fontFace: KR }
         };
       });
       tableData.push(mappedRow);

@@ -578,7 +578,7 @@ export function bindSectionData(
       if (floorLeases.length > 0 && result['rentRoll']) {
         const isBasicPreset = doc.body?.preset === 'credeal_basic';
         const rrHeaders = isBasicPreset
-          ? ['층수', '임차인', '면적(평)', '보증금', '월세', '계약종료']
+          ? ['층', '호실', '용도/업종', '임차인', '전용면적(㎡)', '보증금(만원)', '월세(만원)', '관리비(만원)', '계약종료', '비고']
           : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
         const isFinitePos = (v: any) => v != null && Number.isFinite(Number(v)) && Number(v) > 0;
         const isFiniteNonNeg = (v: any) => v != null && Number.isFinite(Number(v)) && Number(v) >= 0;
@@ -593,7 +593,18 @@ export function bindSectionData(
           const mgmt = isFiniteNonNeg(l.mgmt_fee_manwon) ? `${Number(l.mgmt_fee_manwon).toLocaleString()}만` : '-';
           const expiry = l.lease_end || l.contract_end || '-';
           return isBasicPreset
-            ? [floor, tenant, areaPyeong, deposit, rent, expiry]
+            ? [
+                floor,
+                l.unit || l.room || '-',
+                l.use || l.tenant_type || l.business_type || '-',
+                tenant,
+                isFinitePos(l.area_sqm) ? Number(l.area_sqm).toFixed(1) : (isFinitePos(l.area_pyeong) ? (Number(l.area_pyeong) / 0.3025).toFixed(1) : '-'),
+                isFiniteNonNeg(l.deposit_manwon) ? `${Number(l.deposit_manwon).toLocaleString()}` : '-',
+                isFiniteNonNeg(l.rent_manwon) ? `${Number(l.rent_manwon).toLocaleString()}` : (l.is_vacant ? '-' : '-'),
+                isFiniteNonNeg(l.mgmt_fee_manwon) ? `${Number(l.mgmt_fee_manwon).toLocaleString()}` : '-',
+                expiry,
+                l.note || (l.is_vacant ? '공실' : '')
+              ]
             : [floor, tenant, areaPyeong, deposit, rent, mgmt, expiry];
         });
         result['rentRoll'].tableHead = rrHeaders;

@@ -549,15 +549,29 @@ export class MobileImPptxRenderer {
         dataMap['building'].photoUrl = exteriorPhoto.url;
       }
 
-      // 지적도 슬라이드에 WMS 지적도 이미지 바인딩
-      if (dataMap['cadastralMap']) {
-        const cadastralImg = enrichment?.cadastralMapImage
-          ?? input.doc.body?.cadastralMapImage
-          ?? input.doc.body?.cadastralImage
-          ?? input.doc.body?.enrichment?.cadastralMapImage;
-        if (cadastralImg) {
+      // Phase 4: SSoT 기반 토지 콜아웃 보강 — V-World 데이터 없이도 실데이터 표시
+      if (dataMap['land'] && !dataMap['land'].right?.callouts?.length) {
+        const ssot = input.doc.body?.ssot_summary ?? {};
+        const bldg = input.building ?? {};
+        dataMap['land'].ssot_summary = ssot;
+        dataMap['land'].building = bldg;
+      }
+
+      // 지적도 및 토지 슬라이드에 WMS 지적도 이미지 바인딩
+      const cadastralImg = enrichment?.cadastralMapImage
+        ?? input.doc.body?.cadastralMapImage
+        ?? input.doc.body?.cadastralImage
+        ?? input.doc.body?.enrichment?.cadastralMapImage;
+      
+      if (cadastralImg) {
+        if (dataMap['cadastralMap']) {
           dataMap['cadastralMap'].cadastralImage = cadastralImg;
           dataMap['cadastralMap'].mapImageUrl = cadastralImg;
+        }
+        // 지적도를 토지 슬라이드에도 전달 (좌측 이미지 영역용)
+        if (dataMap['land']) {
+          dataMap['land'].cadastralImage = cadastralImg;
+          dataMap['land'].photoUrl = cadastralImg;
         }
       }
 
