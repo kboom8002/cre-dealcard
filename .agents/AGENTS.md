@@ -14,8 +14,8 @@
 | [04-production-web](rules/04-production-web.md) | 17~25 | 타임아웃/해시/사진/Playwright |
 | [05-posture-isolation](rules/05-posture-isolation.md) | 26~30 | 포스처별 격리/게이트 |
 | [06-preflight-audit](rules/06-preflight-audit.md) | 31~46 | 파싱/면적/더미/문구/Sharp/API/렌더러/검증선행/Allowlist |
-| [07-basic-im-ssot](rules/07-basic-im-ssot.md) | 45~47 | Basic IM 표준/imlib |
-| [08-e2e-golden-test](rules/08-e2e-golden-test.md) | 41~44, 48~59 | 골든 E2E/감사/RCA |
+| [07-basic-im-ssot](rules/07-basic-im-ssot.md) | 45~47, 61~65 | Basic IM 표준/imlib/레이아웃/지적도/렌트롤/Sharp |
+| [08-e2e-golden-test](rules/08-e2e-golden-test.md) | 41~44, 48~60 | 골든 E2E/감사/RCA |
 | [09-subagent-hygiene](rules/09-subagent-hygiene.md) | 41~42 | 서브에이전트 위생/대형파일 금지 |
 | [10-powershell-git](rules/10-powershell-git.md) | 43~45 | PowerShell Git 규칙 |
 
