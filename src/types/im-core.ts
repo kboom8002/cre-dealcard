@@ -92,6 +92,7 @@ export interface Address {
 export interface PhysicalFacts {
   landAreaSqm: number | null;
   totalGrossAreaSqm: number | null;
+  archAreaSqm?: number | null;
   floorsAbove: number | null;
   floorsBelow: number | null;
   completionYear: number | null;
@@ -101,6 +102,7 @@ export interface PhysicalFacts {
   bcrPct: number | null;
   farPct: number | null;
   roadAccess: string | null;
+  landCategory?: string | null;
 }
 
 export interface Comp {

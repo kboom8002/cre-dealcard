@@ -194,7 +194,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
         String(m.value || ''),
         String(m.unit || ''),
         String(m.sub || ''),
-        { h: cardH, vs: isCompact ? 17 : 20 }
+        { h: cardH }
       );
     }
   } else {

@@ -69,10 +69,10 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     });
 
     if (rowEntries.length > 0) {
-      const maxRows = input.data.priceTable ? (input.data.priceTable2 ? 6 : 7) : 11;
+      const maxRows = input.data.priceTable ? (input.data.priceTable2 ? 8 : 9) : 11;
       const count = Math.min(rowEntries.length, maxRows);
-      const rowHeight = count > 5 ? 0.36 : 0.44;
-      const fontSize = count > 5 ? 12 : 13.5;
+      const rowHeight = rowEntries.length <= 6 ? 0.44 : rowEntries.length <= 9 ? 0.36 : 0.30;
+      const fontSize = rowEntries.length <= 6 ? 13.5 : rowEntries.length <= 9 ? 12 : 11;
       L.rows(slide, M, 1.80, lw, rowEntries.slice(0, maxRows), { rh: rowHeight, fs: fontSize });
       leftContentBottom = 1.80 + count * rowHeight;
     } else {
@@ -100,10 +100,10 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       }
     }
     if (contentRows.length > 0) {
-      const maxRows = input.data.priceTable ? (input.data.priceTable2 ? 6 : 7) : 10;
+      const maxRows = input.data.priceTable ? (input.data.priceTable2 ? 8 : 9) : 11;
       const count = Math.min(contentRows.length, maxRows);
-      const rowHeight = count > 5 ? 0.36 : 0.42;
-      const fontSize = count > 5 ? 12 : 13.5;
+      const rowHeight = contentRows.length <= 6 ? 0.42 : contentRows.length <= 9 ? 0.36 : 0.30;
+      const fontSize = contentRows.length <= 6 ? 13.5 : contentRows.length <= 9 ? 12 : 11;
       L.rows(slide, M, 1.80, lw, contentRows.slice(0, maxRows), { rh: rowHeight, fs: fontSize });
       leftContentBottom = 1.80 + count * rowHeight;
     } else {

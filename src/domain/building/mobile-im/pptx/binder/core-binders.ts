@@ -72,13 +72,28 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
     metrics: {},
     left: {
       sub: '기본 현황',
-      rows: [
-        ['소재지', core.address.raw],
-        ['대지면적', core.physical.landAreaSqm ? `${core.physical.landAreaSqm}㎡ (${(sqmToPyeong(core.physical.landAreaSqm)).toFixed(1)}평)` : '-'],
-        ['연면적(총)', core.physical.totalGrossAreaSqm ? `${core.physical.totalGrossAreaSqm}㎡ (${(sqmToPyeong(core.physical.totalGrossAreaSqm)).toFixed(1)}평)` : '-'], // D30 BL-5
-        ['층수', `지하 ${core.physical.floorsBelow ?? 0}층 / 지상 ${core.physical.floorsAbove ?? 0}층`],
-        ['준공연도', core.physical.completionYear ? `${core.physical.completionYear}년` : '-'],
-      ],
+      rows: (() => {
+        const rows: [string, string][] = [
+          ['소재지', core.address.raw],
+          ['대지면적', core.physical.landAreaSqm ? `${core.physical.landAreaSqm}㎡ (${(sqmToPyeong(core.physical.landAreaSqm)).toFixed(1)}평)` : '-'],
+          ['연면적(총)', core.physical.totalGrossAreaSqm ? `${core.physical.totalGrossAreaSqm}㎡ (${(sqmToPyeong(core.physical.totalGrossAreaSqm)).toFixed(1)}평)` : '-'], // D30 BL-5
+          ['층수', `지하 ${core.physical.floorsBelow ?? 0}층 / 지상 ${core.physical.floorsAbove ?? 0}층`],
+          ['준공연도', core.physical.completionYear ? `${core.physical.completionYear}년` : '-'],
+        ];
+        // Phase 2: 표준 제원 보강
+        if (core.physical?.archAreaSqm && Number.isFinite(core.physical.archAreaSqm) && core.physical.archAreaSqm > 0) {
+          const archPy = (core.physical.archAreaSqm * 0.3025).toFixed(1);
+          rows.push(['건축면적', `${core.physical.archAreaSqm.toLocaleString()}㎡ (${archPy}평)`]);
+        }
+        if (core.physical?.bcrPct && core.physical?.farPct) {
+          let bcrFarStr = `${core.physical.bcrPct}% / ${core.physical.farPct}%`;
+          rows.push(['건폐율 / 용적률', bcrFarStr]);
+        }
+        if (core.physical?.landCategory) {
+          rows.push(['지목', core.physical.landCategory]);
+        }
+        return rows;
+      })(),
     },
     right: {
       sub: '토지 및 공법 규제',

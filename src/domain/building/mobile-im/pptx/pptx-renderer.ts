@@ -325,6 +325,54 @@ export class MobileImPptxRenderer {
 
       if (dataMap['building']) {
         const ssotBldg = input.doc.body?.ssot_summary ?? {};
+        
+        // Phase 2: 포스처별 표준 제원 보강 — 누락 필드 자동 추가
+        if (dataMap['building'].left && Array.isArray(dataMap['building'].left.rows)) {
+          const bldgRows = dataMap['building'].left.rows;
+          const existingLabels = new Set(bldgRows.map((r: [string, string]) => r[0]));
+          const ssotEx = input.doc.body?.ssot_summary ?? {};
+          const bldg = input.building ?? {};
+
+          // 건축면적
+          if (!existingLabels.has('건축면적') && (ssotEx.arch_area_sqm || bldg.arch_area_sqm)) {
+            const archM2 = Number(ssotEx.arch_area_sqm || bldg.arch_area_sqm);
+            if (Number.isFinite(archM2) && archM2 > 0) {
+              const archPy = (archM2 * 0.3025).toFixed(1);
+              bldgRows.push(['건축면적', `${archM2.toLocaleString()}㎡ (${archPy}평)`]);
+            }
+          }
+
+          // 건폐율/용적률
+          if (!existingLabels.has('건폐율') && !existingLabels.has('건폐율/용적률') && !existingLabels.has('건폐율 / 용적률')) {
+            const bcr = Number(ssotEx.bcr_pct ?? bldg.bcr_pct);
+            const far = Number(ssotEx.far_pct ?? bldg.far_pct);
+            if (Number.isFinite(bcr) && Number.isFinite(far) && bcr > 0 && far > 0) {
+              let bcrFarStr = `${bcr}% / ${far}%`;
+              const maxBcr = Number(ssotEx.max_bcr_pct);
+              const maxFar = Number(ssotEx.max_far_pct);
+              if (Number.isFinite(maxBcr) && Number.isFinite(maxFar)) {
+                bcrFarStr += ` (법정 ${maxBcr}% / ${maxFar}%)`;
+              }
+              bldgRows.push(['건폐율 / 용적률', bcrFarStr]);
+            }
+          }
+
+          // 지목
+          if (!existingLabels.has('지목') && ssotEx.land_category) {
+            bldgRows.push(['지목', String(ssotEx.land_category)]);
+          }
+
+          // 주차 상세
+          if (!existingLabels.has('주차') && !existingLabels.has('주차대수') && ssotEx.parking_detail) {
+            bldgRows.push(['주차', String(ssotEx.parking_detail)]);
+          }
+
+          // 도로조건
+          if (!existingLabels.has('도로조건') && !existingLabels.has('접면도로') && (ssotEx.road_condition || bldg.road_condition)) {
+            bldgRows.push(['도로조건', String(ssotEx.road_condition || bldg.road_condition)]);
+          }
+        }
+
         const rawAskManwon = Number(ssotBldg.asking_price_manwon ?? input.doc.body?.asking_price_manwon ?? 0);
         const askManwon = Number.isFinite(rawAskManwon) && rawAskManwon > 0 ? rawAskManwon : 0;
         const askFmt = (v: number) => Number.isFinite(v) && v >= 10000
@@ -379,8 +427,8 @@ export class MobileImPptxRenderer {
           const dM = poiData.nearestStation.distanceM;
           locTransit = `${sName} 도보 ${wMin}분` + (dM ? ` (약 ${dM}m)` : '');
         } else {
-          const locWalk = input.doc.body?.ssot_summary?.station_walk_min ? `도보 ${input.doc.body.ssot_summary.station_walk_min}분` : '인접 역세권';
-          locTransit = `지하철역 역세권 (${locWalk})`;
+          const locWalk = input.doc.body?.ssot_summary?.station_walk_min;
+          locTransit = locWalk ? `지하철역 도보 ${locWalk}분 역세권` : '지하철 및 간선버스 인접';
         }
 
         const locRows: [string, string][] = [
@@ -431,13 +479,17 @@ export class MobileImPptxRenderer {
         // D8: 우측 입지 조건 구조화 행 — ssot/POI 데이터에서 동적 생성 (하드코딩 금지)
         const ssot = input.doc.body?.ssot_summary ?? {};
         const locRows: Array<[string, string]> = [];
+        const locAddress = input.doc.body?.ssot_summary?.address ?? input.doc.body?.resolved_address ?? input.doc.body?.address ?? '';
+        if (locAddress) {
+          locRows.push(['소재지', locAddress]);
+        }
         const nearestSt = externalPoi?.nearestStation;
         if (nearestSt?.name) {
           locRows.push(['대중교통', `${nearestSt.name} 도보 ${nearestSt.walkMinutes ?? Math.round((nearestSt.distanceM ?? 400) / 80)}분 (약 ${nearestSt.distanceM ?? ''}m)`]);
         } else if (ssot.station_walk_min) {
           locRows.push(['대중교통', `지하철역 도보 ${ssot.station_walk_min}분 역세권`]);
         } else {
-          locRows.push(['대중교통', '인접 지하철역 역세권 (상세 확인 필요)']);
+          locRows.push(['대중교통', '지하철 및 간선버스 인접']);
         }
 
         const road = ssot.road_condition ?? input.building?.road_condition;

@@ -240,33 +240,61 @@ function buildPoiOverlays(
     if (!Number.isFinite(px) || !Number.isFinite(py) || px < 10 || px > imgW - 60 || py < 10 || py > imgH - 40) continue;
     
     const color = poiMarkerColor(spot.category);
-    const cleanName = (spot.name || '').replace(/\s*역$/, '역').slice(0, 16);
-    const textWidth = Math.max(50, cleanName.length * 13 + 18);
-    const badgeH = 32;
-    const totalW = textWidth + 42;
-    const totalH = 44;
-
-    // POI 마커 SVG (원형 카테고리 심볼 + 이름 라벨 필)
-    const poiSvg = Buffer.from(`
-      <svg width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" xmlns="http://www.w3.org/2000/svg">
-        <filter id="shadow_${spot.category}" x="-10%" y="-10%" width="120%" height="120%">
-          <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.35"/>
-        </filter>
-        <!-- 배경 라벨 필 -->
-        <g filter="url(#shadow_${spot.category})">
-          <rect x="26" y="5" width="${textWidth}" height="${badgeH}" rx="5" fill="#132A3A" opacity="0.92" stroke="#FFFFFF" stroke-width="1.2"/>
-          <text x="${26 + textWidth / 2}" y="22" font-size="13" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">${cleanName}</text>
-        </g>
-        <!-- 원형 카테고리 심볼 마커 -->
-        <g filter="url(#shadow_${spot.category})">
-          <circle cx="16" cy="18" r="16" fill="${color}" stroke="#FFFFFF" stroke-width="2.5"/>
-          <circle cx="16" cy="18" r="5" fill="#FFFFFF"/>
-        </g>
-      </svg>
-    `);
     
-    const left = Math.max(0, Math.min(px - 16, imgW - totalW));
-    const top = Math.max(0, Math.min(py - 18, imgH - totalH));
+    let cleanName = (spot.name || '').replace(/\s*역$/, '역');
+    if (spot.category === 'subway') {
+      cleanName = cleanName.split(' ')[0];
+      if (!cleanName.endsWith('역')) cleanName += '역';
+    } else {
+      cleanName = cleanName.slice(0, 16);
+    }
+
+    let poiSvg: Buffer;
+    let totalW: number, totalH: number;
+    let left: number, top: number;
+    
+    if (spot.category === 'subway') {
+      const labelWidth = cleanName.length * 13 + 24;
+      totalW = labelWidth;
+      totalH = 32;
+      poiSvg = Buffer.from(`
+        <svg width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" xmlns="http://www.w3.org/2000/svg">
+          <filter id="shadow_${spot.category}" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.35"/>
+          </filter>
+          <g filter="url(#shadow_${spot.category})">
+            <rect x="0" y="0" width="${labelWidth}" height="30" rx="15" ry="15" fill="#FBBF24" stroke="#D97706" stroke-width="1.5"/>
+            <text x="${labelWidth / 2}" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#1E293B">${cleanName}</text>
+          </g>
+        </svg>
+      `);
+      left = Math.max(0, Math.min(px - labelWidth / 2, imgW - totalW));
+      top = Math.max(0, Math.min(py - 15, imgH - totalH));
+    } else {
+      const textWidth = Math.max(50, cleanName.length * 13 + 18);
+      const badgeH = 32;
+      totalW = textWidth + 42;
+      totalH = 44;
+      poiSvg = Buffer.from(`
+        <svg width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" xmlns="http://www.w3.org/2000/svg">
+          <filter id="shadow_${spot.category}" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.35"/>
+          </filter>
+          <!-- 배경 라벨 필 -->
+          <g filter="url(#shadow_${spot.category})">
+            <rect x="26" y="5" width="${textWidth}" height="${badgeH}" rx="5" fill="#132A3A" opacity="0.92" stroke="#FFFFFF" stroke-width="1.2"/>
+            <text x="${26 + textWidth / 2}" y="22" font-size="13" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">${cleanName}</text>
+          </g>
+          <!-- 원형 카테고리 심볼 마커 -->
+          <g filter="url(#shadow_${spot.category})">
+            <circle cx="16" cy="18" r="16" fill="${color}" stroke="#FFFFFF" stroke-width="2.5"/>
+            <circle cx="16" cy="18" r="5" fill="#FFFFFF"/>
+          </g>
+        </svg>
+      `);
+      left = Math.max(0, Math.min(px - 16, imgW - totalW));
+      top = Math.max(0, Math.min(py - 18, imgH - totalH));
+    }
 
     const poiBox: [number,number,number,number] = [left, top, left + totalW, top + totalH];
     if (occupiedBoxes.some(ob => boxesOverlap(ob, poiBox))) continue;
@@ -361,6 +389,21 @@ export async function generateStaticMapPlaceholder(
             left: 0,
             top: 0,
           });
+
+          // 1.5. Subway route dashed lines
+          if (safePoiSpots.length > 0) {
+            const kakaoMeterPerPxForPoi = kakaoMeterPerPxMap[kakaoLevel] ?? 1.0;
+            const lineSvgStr = safePoiSpots
+              .filter(s => s.category === 'subway')
+              .map(s => {
+                const { px, py } = latlngToPixel(s.lat, s.lng, coordLat, coordLng, kakaoMeterPerPxForPoi, kakaoW, kakaoH);
+                return `<line x1="${kakaoW/2}" y1="${kakaoH/2}" x2="${px}" y2="${py}" stroke="#F59E0B" stroke-width="2.5" stroke-dasharray="8,6" stroke-linecap="round"/>`;
+              }).join('');
+            if (lineSvgStr) {
+              const linesOverlay = Buffer.from(`<svg width="${kakaoW}" height="${kakaoH}" viewBox="0 0 ${kakaoW} ${kakaoH}" xmlns="http://www.w3.org/2000/svg">${lineSvgStr}</svg>`);
+              overlays.push({ input: linesOverlay, left: 0, top: 0 });
+            }
+          }
 
           // 2. POI 랜드마크 마커 오버레이
           if (safePoiSpots.length > 0) {
@@ -491,6 +534,13 @@ export async function generateStaticMapPlaceholder(
 
         // POI 마커 오버레이 (zoom 15의 실제 픽셀당 미터 해상도 계산)
         const osmMeterPerPx = (40075016.686 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom + 8);
+        const lineSvgStrOsm = safePoiSpots
+          .filter(s => s.category === 'subway')
+          .map(s => {
+            const { px, py } = latlngToPixel(s.lat, s.lng, lat, lng, osmMeterPerPx, compositeWidth, compositeHeight);
+            return `<line x1="${compositeWidth/2}" y1="${compositeHeight/2}" x2="${px}" y2="${py}" stroke="#F59E0B" stroke-width="2.5" stroke-dasharray="8,6" stroke-linecap="round"/>`;
+          }).join('');
+        const linesOverlayOsm = lineSvgStrOsm ? [{ input: Buffer.from(`<svg width="${compositeWidth}" height="${compositeHeight}" viewBox="0 0 ${compositeWidth} ${compositeHeight}" xmlns="http://www.w3.org/2000/svg">${lineSvgStrOsm}</svg>`), left: 0, top: 0 }] : [];
         const poiOverlays = buildPoiOverlays(safePoiSpots, lat, lng, osmMeterPerPx, compositeWidth, compositeHeight);
 
         const targetW = Math.max(safeW, 1120);
@@ -520,6 +570,7 @@ export async function generateStaticMapPlaceholder(
         // Stage 1: Composite overlays on full-size canvas
         const compositedBuffer = await sharp(combinedBuffer)
           .composite([
+            ...linesOverlayOsm,
             ...poiOverlays,
             {
               input: pinSvg,

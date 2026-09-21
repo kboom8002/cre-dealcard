@@ -1069,7 +1069,11 @@ export function stat(
   });
 
   // M-4: 라벨 높이를 textH()로 동적 역산 (고정 0.22→실측)
-  const labelFontSize = opt.labelFontSize ?? 9.5;
+  const labelLen = label?.length ?? 0;
+  const labelFontSize = opt.labelFontSize ?? (
+    labelLen <= 12 ? 9.5 :
+    labelLen <= 18 ? 8.5 : 7.5
+  );
   const labelW = w - 0.36;
   const labelH = Math.max(0.22, computeTextH(label, labelW, labelFontSize));
 
@@ -1088,15 +1092,16 @@ export function stat(
   const hasKoreanVal = /[\uAC00-\uD7AF]/.test(safeValue);
   const valLen = (safeValue?.length ?? 0);
   const dynamicVs = opt.vs ?? (
-    valLen <= 6 ? 25 :
-    valLen <= 12 ? 18 :
-    valLen <= 20 ? 14 : 11
+    valLen <= 6 ? 22 :
+    valLen <= 10 ? 18 :
+    valLen <= 16 ? 14 :
+    valLen <= 24 ? 12 : 10
   );
   const valH = Math.min(0.44, h - (valY - y) - 0.40); // 남은 공간에 맞춤
   s.addText(safeValue || '-', {
     x: x + 0.18, y: valY, w: labelW, h: Math.max(0.30, valH),
     fontSize: dynamicVs, bold: true, color: valCol, fontFace: hasKoreanVal ? (ActiveThemeStore.getStore()?.KR ?? KR) : NUM, margin: 0,
-    shrinkText: true,
+    shrinkText: true, lineSpacingMultiple: 1.0,
   });
 
   // 단위 (값 옆)

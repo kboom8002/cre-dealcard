@@ -99,6 +99,35 @@ const DEFAULT_BROKER = {
 };
 
 /**
+ * 주소 문자열에서 CRE 권역 시그널을 자동 추출합니다.
+ * 서울 3대 CRE 권역(GBD/CBD/YBD) 우선 매핑, 기타는 구/동 단위 추출.
+ */
+function deriveAreaSignal(address: string): string {
+  if (!address) return '도심 핵심권역';
+  const addr = address.trim();
+
+  // GBD (Gangnam Business District)
+  if (/강남구|서초구|신사동|압구정동|논현동|역삼동|삼성동|대치동|도곡동|청담동|개포동|일원동|수서동|세곡동|자곡동/.test(addr)) return 'GBD';
+  // CBD (Central Business District)
+  if (/종로구|중구|을지로|명동|광화문|서린동|수하동|남대문|무교동|다동|세종대로/.test(addr)) return 'CBD';
+  // YBD (Yeouido Business District)
+  if (/여의도|영등포구|마포구|공덕동|여의동|여의나루/.test(addr)) return 'YBD';
+
+  // 서울 기타 구
+  const guMatch = addr.match(/(\S+구)/);
+  const dongMatch = addr.match(/(\S+동)/);
+  if (guMatch && dongMatch) return `${guMatch[1]} ${dongMatch[1]}`;
+  if (guMatch) return guMatch[1];
+
+  // 수도권/지방
+  const cityMatch = addr.match(/(\S+시)\s+(\S+구)/);
+  if (cityMatch) return `${cityMatch[1]} ${cityMatch[2]}`;
+
+  // 폴백: 주소 앞 3단어
+  return addr.split(' ').slice(0, 3).join(' ');
+}
+
+/**
  * Basic IM 골든 테스트 입력 팩토리.
  *
  * 프로덕션과 동일한 데이터 흐름으로 MobileImPptxInput을 생성합니다:
@@ -223,15 +252,18 @@ export async function createBasicImTestInput(
       sections,
     },
     building: {
-      area_signal: ssot.price_band,
+      area_signal: deriveAreaSignal(bottomSheet.address),
       asset_type: '근린생활시설',
       price_band: ssot.price_band,
       address: bottomSheet.address,
       building_name: options.buildingName ?? bottomSheet.address,
       bcr_pct: options.ssotExtra?.bcr_pct,
       far_pct: options.ssotExtra?.far_pct,
+      arch_area_sqm: options.ssotExtra?.arch_area_sqm,
       structure: options.ssotExtra?.structure,
       heating: options.ssotExtra?.heating,
+      road_condition: options.ssotExtra?.road_condition,
+      parking_detail: options.ssotExtra?.parking_detail,
       ...options.buildingExtra,
     },
     broker: options.broker ?? DEFAULT_BROKER,
