@@ -115,7 +115,8 @@ export async function POST(
     .eq('id', id);
 
   if (updateErr) {
-    return NextResponse.json({ error: '공개 설정 업데이트 중 오류가 발생했습니다: ' + updateErr.message }, { status: 500 });
+    console.error('[disclosure] Update failed:', updateErr);
+    return NextResponse.json({ error: '공개 설정 업데이트에 실패했습니다.' }, { status: 500 });
   }
 
   // Record activity event

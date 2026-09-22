@@ -104,8 +104,8 @@ export async function GET(
   const { count } = await supabase
     .from('activity_events')
     .select('id', { count: 'exact', head: true })
-    .eq('event_type', 'im_pro_pptx_exported')
-    .eq('grant_id', grantId); // schema has grant_id column
+    .eq('entity_id', grantId)
+    .eq('event_type', 'im_pro_pptx_exported'); // schema has entity_id column
 
   if ((count ?? 0) >= MAX_DOWNLOADS) {
     return NextResponse.json({
@@ -178,15 +178,18 @@ export async function GET(
     // 7. Log event
     await supabase.from('activity_events').insert({
       event_type: 'im_pro_pptx_exported',
-      grant_id: grantId,
-      building_id: buildingId,
-      actor_name: grant.requester_name,
+      entity_type: 'im_pro_grant',
+      entity_id: grantId,
+      building_ssot_lite_id: buildingId,
       metadata: {
+        grant_id: grantId,
+        actor_name: grant.requester_name || '',
         exportedAt: new Date().toISOString(),
         slideCount: result.slideCount,
         fileSizeBytes: result.fileSizeBytes,
         userAgent: req.headers.get('user-agent'),
       },
+      source_app: 'web'
     });
 
     // 7. Return PPTX

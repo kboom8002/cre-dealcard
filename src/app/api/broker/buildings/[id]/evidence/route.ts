@@ -110,7 +110,8 @@ export async function POST(
     .single();
 
   if (insErr) {
-    return NextResponse.json({ error: '증빙 파일 등록 실패: ' + insErr.message }, { status: 500 });
+    console.error('[evidence] Insert failed:', insErr);
+    return NextResponse.json({ error: '증빙 파일 등록에 실패했습니다.' }, { status: 500 });
   }
 
   // 3. Recalculate completeness using computeCompletenessAfterUpload
@@ -172,8 +173,9 @@ export async function POST(
     .eq('id', id);
 
   if (updateErr) {
+    console.error('[evidence] Update failed:', updateErr);
     return NextResponse.json(
-      { error: '매물 완성도 업데이트 중 오류 발생: ' + updateErr.message },
+      { error: '매물 완성도 업데이트에 실패했습니다.' },
       { status: 500 },
     );
   }

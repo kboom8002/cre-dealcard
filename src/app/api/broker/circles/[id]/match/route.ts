@@ -56,9 +56,10 @@ export async function POST(
   }
 
   try {
-    const res = await runFullCircleMatch(id).catch(() => ({ totalMatched: 0, sCount: 0, aCount: 0 }));
+    const res = await runFullCircleMatch(id);
     return NextResponse.json({ ok: true, summary: res, matches: [] });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error(`[circle/match] Match failed for ${id}:`, err);
+    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }

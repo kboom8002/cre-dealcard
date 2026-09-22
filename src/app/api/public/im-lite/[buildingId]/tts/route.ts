@@ -72,7 +72,7 @@ async function generateBriefingScriptWithLLM(
   const sectionsText = (doc.sections || [])
     .filter((s) => !s.locked)
     .map((s) => {
-      const content = s.content.trim();
+      const content = (s.content ?? '').trim();
       if (!content || content === "데이터 없음") return null;
       return `### ${s.title}\n${content}`;
     })
@@ -87,7 +87,7 @@ async function generateBriefingScriptWithLLM(
 - 자산 유형: ${doc.assetType}
 - 매각 희망가: ${doc.priceBand}
 - 규모: ${doc.sizeSignal}
-- 담당 중개인: ${doc.broker.displayName} (${doc.broker.company})
+- 담당 중개인: ${doc.broker?.displayName ?? '담당 중개인'} (${doc.broker?.company ?? ''})
 - SSoT 완성도: ${doc.completenessScore}점/100점
 
 **섹션별 상세 데이터:**
@@ -140,7 +140,7 @@ function generateFallbackScript(doc: MobileIMDocument): string {
   }
 
   lines.push("이상 브리핑을 마치겠습니다.");
-  lines.push(`담당 중개인 ${doc.broker.displayName}에게 직접 문의도 가능합니다. 감사합니다.`);
+  lines.push(`담당 중개인 ${doc.broker?.displayName ?? '담당 중개인'}에게 직접 문의도 가능합니다. 감사합니다.`);
 
   return lines.filter((l) => l.length > 0).join(" ");
 }

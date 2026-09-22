@@ -201,7 +201,7 @@ export async function PUT(
     if (pptxProject) {
       if (newTitle) {
         pptxProject.title = newTitle;
-        const cover = pptxProject.slides.find(
+        const cover = pptxProject.slides?.find(
           (s) => s.layoutType?.includes('A01') || s.dataKey === 'cover'
         );
         if (cover) {
@@ -209,7 +209,7 @@ export async function PUT(
         }
       }
       if (heroTitle || heroSubtitle) {
-        const overview = pptxProject.slides.find(
+        const overview = pptxProject.slides?.find(
           (s) => s.layoutType?.includes('A02') || s.dataKey === 'overview'
         );
         if (overview) {

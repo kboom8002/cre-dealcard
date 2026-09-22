@@ -78,6 +78,8 @@ export async function GET(req: NextRequest) {
       headers: {
         'Content-Type': format === 'jsonl' ? 'application/x-ndjson' : 'application/json',
         'Content-Disposition': `attachment; filename="${filename}"`,
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'X-Robots-Tag': 'noindex, nofollow',
       },
     });
   } catch (err: unknown) {

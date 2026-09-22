@@ -217,7 +217,8 @@ export async function DELETE(
         .eq("id", id);
 
       if (softDeleteErr) {
-        return NextResponse.json({ error: `삭제 실패: ${softDeleteErr.message}` }, { status: 500 });
+        console.error('[deal-card] Delete failed:', softDeleteErr);
+        return NextResponse.json({ error: '삭제에 실패했습니다.' }, { status: 500 });
       }
     }
 

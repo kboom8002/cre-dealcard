@@ -92,7 +92,8 @@ export async function POST(
     .single();
 
   if (insertErr) {
-    return NextResponse.json({ error: insertErr.message }, { status: 500 });
+    console.error('[pipeline] Insert failed:', insertErr);
+    return NextResponse.json({ error: '파이프라인 상태 변경에 실패했습니다.' }, { status: 500 });
   }
 
   // Activity event

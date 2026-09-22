@@ -348,10 +348,16 @@ export async function GET(
 
   await supabase.from('activity_events').insert({
     event_type: 'im_pro_pdf_exported',
-    grant_id: grantId,
-    building_id: grant.building_id,
-    actor_name: grant.requester_name,
-    metadata: { exportedAt: new Date().toISOString(), userAgent: req.headers.get('user-agent') },
+    entity_type: 'im_pro_grant',
+    entity_id: grantId,
+    building_ssot_lite_id: grant.building_id,
+    metadata: {
+      grant_id: grantId,
+      actor_name: grant.requester_name || '',
+      exportedAt: new Date().toISOString(),
+      userAgent: req.headers.get('user-agent')
+    },
+    source_app: 'web'
   });
 
   return new NextResponse(html, {

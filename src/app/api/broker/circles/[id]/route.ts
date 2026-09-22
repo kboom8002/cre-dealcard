@@ -23,7 +23,8 @@ export async function GET(
     const detail = await getCircleDetail(id, user.id);
     return NextResponse.json(detail);
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[circles] Error:', err);
+    return NextResponse.json({ error: '요청 처리에 실패했습니다.' }, { status: 500 });
   }
 }
 
@@ -44,7 +45,8 @@ export async function PATCH(
     await updateCircle(id, user.id, body);
     return NextResponse.json({ ok: true });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[circles] Error:', err);
+    return NextResponse.json({ error: '요청 처리에 실패했습니다.' }, { status: 500 });
   }
 }
 
@@ -64,6 +66,7 @@ export async function DELETE(
     await deleteCircle(id, user.id);
     return NextResponse.json({ ok: true });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[circles] Error:', err);
+    return NextResponse.json({ error: '요청 처리에 실패했습니다.' }, { status: 500 });
   }
 }

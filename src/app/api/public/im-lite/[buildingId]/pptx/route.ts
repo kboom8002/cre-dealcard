@@ -234,6 +234,7 @@ export async function GET(
           'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(safeName)}`,
         'Cache-Control': 'no-store',
+        'X-Robots-Tag': 'noindex, nofollow',
         'X-Slide-Count': String(result.slideCount),
         'X-File-Size': String(result.fileSizeBytes),
         'X-Warnings': encodeURIComponent(JSON.stringify(result.warnings.slice(0, 10))),

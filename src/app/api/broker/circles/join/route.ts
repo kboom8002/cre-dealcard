@@ -42,7 +42,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, circleId: res.circleId });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[circles] Error:', err);
+    return NextResponse.json({ error: '요청 처리에 실패했습니다.' }, { status: 500 });
   }
 }
 
@@ -72,7 +73,8 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[circles] Error:', err);
+    return NextResponse.json({ error: '요청 처리에 실패했습니다.' }, { status: 500 });
   }
 }
 
@@ -95,6 +97,7 @@ export async function DELETE(req: NextRequest) {
     await leaveCircle(circleId, user.id);
     return NextResponse.json({ ok: true });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[circles] Error:', err);
+    return NextResponse.json({ error: '요청 처리에 실패했습니다.' }, { status: 500 });
   }
 }

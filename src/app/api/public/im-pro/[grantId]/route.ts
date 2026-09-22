@@ -72,10 +72,14 @@ export async function GET(
 
     // View count 증가 (비동기 — 응답 차단 없음)
     supabase
-      .from('im_pro_grants')
-      .update({ view_count: (grant.view_count ?? 0) + 1 })
-      .eq('id', grantId)
-      .then(() => {}, (err) => console.error('Failed to update view count:', err));
+      .from('activity_events')
+      .insert({
+        event_type: 'im_pro_viewed',
+        entity_type: 'im_pro_grant',
+        entity_id: grantId,
+        source_app: 'web'
+      })
+      .then(() => {}, (err) => console.error('Failed to insert view event:', err));
 
     return NextResponse.json({
       ok: true,

@@ -25,7 +25,8 @@ export async function GET(req: NextRequest) {
       pending_invitations: pendingInvitations,
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[circles] Error:', err);
+    return NextResponse.json({ error: '요청 처리에 실패했습니다.' }, { status: 500 });
   }
 }
 
@@ -54,6 +55,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ circle }, { status: 201 });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[circles] Error:', err);
+    return NextResponse.json({ error: '요청 처리에 실패했습니다.' }, { status: 500 });
   }
 }

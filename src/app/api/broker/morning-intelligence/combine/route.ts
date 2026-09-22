@@ -35,7 +35,9 @@ export async function POST(request: NextRequest) {
       myIntelContext?: { overallInsight: string; actionItems: string[] };
     };
 
-    if (!hqBriefingText && myIntelItems.length === 0) {
+    const safeMyIntelItems = Array.isArray(myIntelItems) ? myIntelItems : [];
+
+    if (!hqBriefingText && safeMyIntelItems.length === 0) {
       return NextResponse.json({ error: "결합할 항목을 선택해주세요." }, { status: 400 });
     }
 
@@ -46,12 +48,12 @@ export async function POST(request: NextRequest) {
       combinedInput += `[본사 브리핑 (선택 항목: ${hqSelectedSections.join(", ")})]\n${hqBriefingText}\n\n`;
     }
 
-    if (myIntelItems.length > 0 || myIntelContext?.overallInsight) {
+    if (safeMyIntelItems.length > 0 || myIntelContext?.overallInsight) {
       combinedInput += `[브로커 자체 수집 인텔리전스 (마이 인텔)]\n`;
       if (myIntelContext?.overallInsight) {
         combinedInput += `종합 인사이트: ${myIntelContext.overallInsight}\n\n`;
       }
-      myIntelItems.forEach((item, i) => {
+      safeMyIntelItems.forEach((item, i) => {
         combinedInput += `${i + 1}. ${item.summary} — ${item.implication}\n`;
       });
       if (myIntelContext?.actionItems && myIntelContext.actionItems.length > 0) {
@@ -122,10 +124,10 @@ JSON 형식:
         user_id: user.id,
         region,
         hq_items: { briefingText: hqBriefingText, sections: hqSelectedSections },
-        my_items: myIntelItems,
-        combined_briefing: result.briefing,
-        combined_action_list: result.actionList,
-        title: result.title,
+        my_items: safeMyIntelItems,
+        combined_briefing: result?.briefing ?? '',
+        combined_action_list: result?.actionList ?? [],
+        title: result?.title ?? '커스텀 브리핑',
         status: "draft",
       })
       .select()

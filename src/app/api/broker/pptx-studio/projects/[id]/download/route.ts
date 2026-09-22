@@ -136,7 +136,8 @@ export async function GET(
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'X-Robots-Tag': 'noindex, nofollow',
         'X-Slide-Count': String(result.slideCount),
         'X-Project-Stage': project.stage,
         'X-File-Size': String(result.fileSizeBytes),

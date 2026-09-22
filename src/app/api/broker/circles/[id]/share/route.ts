@@ -24,7 +24,8 @@ export async function GET(
     const shared = await getSharedAssets(id, { assetType });
     return NextResponse.json({ shared_assets: shared });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[circles] Error:', err);
+    return NextResponse.json({ error: '요청 처리에 실패했습니다.' }, { status: 500 });
   }
 }
 
@@ -57,7 +58,8 @@ export async function POST(
 
     return NextResponse.json({ ok: true, sharedAssetId: res.sharedAssetId });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[circles] Error:', err);
+    return NextResponse.json({ error: '요청 처리에 실패했습니다.' }, { status: 500 });
   }
 }
 
@@ -84,6 +86,7 @@ export async function DELETE(
     await unshareAsset(id, assetId, user.id);
     return NextResponse.json({ ok: true });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[circles] Error:', err);
+    return NextResponse.json({ error: '요청 처리에 실패했습니다.' }, { status: 500 });
   }
 }

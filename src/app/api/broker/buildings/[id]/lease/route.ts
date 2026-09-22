@@ -91,7 +91,7 @@ export async function POST(
 
   const uploadedCategories = files?.map((f: any) => f.layer_category) || [];
   
-  const rentRollChecked = uploadedCategories.includes('rent_roll') || normalizedSummary.privateLayer.tenants.length > 0;
+  const rentRollChecked = uploadedCategories.includes('rent_roll') || (normalizedSummary?.privateLayer?.tenants?.length ?? 0) > 0;
   const floorPlanChecked = uploadedCategories.includes('floor_plan') || !!building.floor_plan_url;
   const repairHistoryChecked = uploadedCategories.includes('repair_history') || 
     (building.repair_history && Object.keys(building.repair_history).length > 0);
@@ -125,7 +125,8 @@ export async function POST(
     .eq('id', id);
 
   if (updateErr) {
-    return NextResponse.json({ error: '임대차 정보 업데이트 중 오류가 발생했습니다: ' + updateErr.message }, { status: 500 });
+    console.error('[lease] Update failed:', updateErr);
+    return NextResponse.json({ error: '임대차 정보 업데이트에 실패했습니다.' }, { status: 500 });
   }
 
   // Sync to v3 assets table if it exists
@@ -166,7 +167,7 @@ export async function POST(
     entityType: 'building_ssot_lite',
     entityId: id,
     metadata: {
-      tenant_count: normalizedSummary.privateLayer.tenants.length,
+      tenant_count: (normalizedSummary?.privateLayer?.tenants?.length ?? 0),
       walt_months: normalizedSummary.privateLayer.walt_months,
       vacancy_rate: normalizedSummary.privateLayer.vacancy_rate,
       completeness_score: computedScores.total,
