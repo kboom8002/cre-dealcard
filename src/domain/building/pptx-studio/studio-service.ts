@@ -141,7 +141,7 @@ export class PptxStudioService {
     buildingName: string,
     docBody: Record<string, any>,
   ): PptxProject {
-    const projectId = randomUUID();
+    const projectId = `basic-${buildingId}`;
     const now = new Date().toISOString();
     const title = `${buildingName} Basic IM`;
 

@@ -19,21 +19,22 @@ export async function GET(
     try { project = studioService.getProject(id); }
     catch { project = studioService.findProjectByDealId(id); }
     
-    // P-C4: cold start로 in-memory 소실 시 DB에서 자동 복구
+    // P-C4: cold start로 in-memory 유실 시 DB에서 자동 복구
     if (!project) {
       try {
+        const actualId = id.replace(/^basic-/, '');
         const recoverySupabase = createServiceClient();
         const { data: recoveryDoc } = await recoverySupabase
           .from('document_objects')
           .select('id, title, body, building_id')
-          .or(`building_id.eq.${id},id.eq.${id}`)
+          .or(`building_id.eq.${actualId},id.eq.${actualId}`)
           .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser'])
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
         if (recoveryDoc?.body) {
-          project = studioService.createBasicImProject(id, recoveryDoc.title || 'Basic IM', recoveryDoc.body);
-          console.warn(`[basic-im-studio/download] P-C4: cold start 복구 — 프로젝트 재생성 (${id})`);
+          project = studioService.createBasicImProject(actualId, recoveryDoc.title || 'Basic IM', recoveryDoc.body);
+          console.warn(`[basic-im-studio/download] P-C4: cold start 복구 후 프로젝트 재생성 (${actualId})`);
         }
       } catch (recoverErr) {
         console.warn('[basic-im-studio/download] P-C4: 복구 실패:', recoverErr);
