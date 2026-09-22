@@ -14,6 +14,7 @@ const log = createModuleLogger('route');
 
 const VALID_LANGUAGES: IMLanguage[] = ['en', 'zh', 'ja'];
 
+// W-4: Vercel 서버리스에서 in-memory Map은 인스턴스 간 공유 불가. best-effort.
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
 function checkRateLimit(ip: string, limit: number, windowMs: number): boolean {

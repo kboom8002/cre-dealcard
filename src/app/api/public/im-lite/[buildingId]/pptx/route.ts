@@ -15,6 +15,8 @@ const log = createModuleLogger('route');
 export const runtime = 'nodejs';
 export const maxDuration = 300;  // Vercel Pro — 24p Pro 덱 대응
 
+// W-4: Vercel 서버리스에서 in-memory Map은 인스턴스 간 공유 불가/cold start 리셋됨.
+// 향후 Upstash Redis 등 외부 스토어로 전환 권장. 현재는 best-effort.
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 function checkRateLimit(ip: string, limit: number, windowMs: number): boolean {
   const now = Date.now();

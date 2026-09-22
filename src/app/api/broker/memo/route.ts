@@ -51,9 +51,13 @@ export async function POST(req: Request) {
       .single();
 
     if (memoError) {
-      // PostgREST returns PGRST205 when table doesn't exist in schema cache
-      // PostgreSQL returns 42P01 for "relation does not exist"
-      log.warn("broker_memos insert failed:", memoError.code, memoError.message);
+      // P-C5: broker_memos 테이블 미존재 시 graceful fallback
+      const isTableMissing = memoError.code === 'PGRST205' || memoError.code === '42P01' || memoError.message?.includes('does not exist');
+      if (isTableMissing) {
+        log.warn("[P-C5] broker_memos 테이블 미존재 — activity_events 폴백 사용. Supabase 대시보드에서 테이블 생성 필요.");
+      } else {
+        log.warn("broker_memos insert 실패:", memoError.code, memoError.message);
+      }
       try {
         const { data: fallbackData } = await supabase.from("activity_events").insert({
           actor_id: user.id,
