@@ -92,7 +92,13 @@ describe.skipIf(!existsSync(DATA_DIR))('P2 신사 Trading R3-Verified', () => {
 
   it('Step 5: 덱 시퀀서 검증', () => {
     const sequence = buildDeckSequence({ posture: 'trading', grade: 'A', hasPhotos: true, preset: 'credeal_basic', dataAvailability: {} });
-    expect(sequence.length).toBeGreaterThanOrEqual(1);
+    // expected.json 기반 바운드 단언 (m-3: 미사용 expected.json 연동)
+    expect(sequence.length).toBeGreaterThanOrEqual(expected?.expectedMinSlides ?? 7);
+    expect(sequence.length).toBeLessThanOrEqual(expected?.expectedMaxSlides ?? 11);
+    const keys = sequence.map((s: any) => s.dataKey);
+    // trading: rentRoll(A24), yieldFormula(A23) 모두 제외
+    expect(keys.includes('yieldFormula')).toBe(false);
+    expect(keys.includes('rentRoll')).toBe(false);
   });
 
   it('Step 6: PPTX 렌더링', async () => {
@@ -124,6 +130,17 @@ describe.skipIf(!existsSync(DATA_DIR))('P2 신사 Trading R3-Verified', () => {
   });
 
   it('Step 10: 고화질 슬라이드 캡처', async () => {
-    logStep({ step: 'S10', label: 'Done', status: 'PASS', durationMs: 0, detail: '' });
+    try {
+      slideCaptures = await convertPptxToSlideImages(pptxResult.buffer, CAPTURES_DIR, 'sinsa_trading');
+      expect(slideCaptures.slideCount).toBeGreaterThan(0);
+    } catch (err: any) {
+      // m-4: CI 환경 LibreOffice 미설치 시 graceful skip
+      if (err.message?.includes('LibreOffice') || err.message?.includes('soffice') || err.code === 'ENOENT') {
+        console.warn('[Step 10] LibreOffice 미설치 — 캡처 건너뜀 (CI 환경)');
+        expect(true).toBe(true);
+      } else {
+        throw err;
+      }
+    }
   });
 });

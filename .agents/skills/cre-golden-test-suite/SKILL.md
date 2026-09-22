@@ -84,8 +84,8 @@ npx playwright test e2e/<spec>.auth.spec.ts --project=authenticated
 | 수익형 (일반) | 당산동 호산당빌딩 | 당산동1가 72-1 / `1156011700100720001` | 115억 | `basic-im-golden.auth.spec.ts` |
 | 수익형 (고공실) | 역삼동 오피스 | 역삼동 832-7 / `1168010100108320007` | 135억 | `gangnam-vacancy-golden.auth.spec.ts` |
 | 개발형 (신축부지) | 대흥동 개발부지 | 대흥동 12-41 / `1144010800100120041` | 78억 | `mapo-dev-golden.auth.spec.ts` |
-| 사옥형 (자가사용) | 서초동 메디컬사옥 | 서초동 1338-20 / `1165010800113380020` | 210억 | `seocho-basic-golden.auth.spec.ts` |
-| 매매형 (시세차익) | 신사동 도산대로변 | 신사동 652-16 / `1168010700106520016` | 165억 | `sinsa-basic-golden.auth.spec.ts` |
+| **사옥형 (자가사용)** | **서초동 FM빌딩** (R3) | **서초동 1364-28 / `1165010800113640028`** | **230억** | `p3-seocho-r3-golden-pipeline.test.ts` |
+| **매매형 (시세차익)** | **신사동 ICL빌딩** (R3) | **신사동 590 / `1168010700105900000`** | **760억** | `p2-sinsa-r3-golden-pipeline.test.ts` |
 
 ## 골든 테스트 공유 하네스 (`e2e/helpers/golden-test-utils.ts`)
 
