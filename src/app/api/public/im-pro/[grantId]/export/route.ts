@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
 function buildProHtmlExport(doc: any, grant: any, options: { watermarkText: string, broker: any }): string {
-  const sectionsHtml = (doc.sections || [])
+  const sectionsHtml = (doc?.sections || [])
+    .filter(Boolean)
     .map((s: any) => `<section class="im-section">
   <h2>${escapeHtml(s.title)}</h2>
   <div class="section-content">${markdownToHtml(s.markdown)}</div>
@@ -10,7 +11,7 @@ function buildProHtmlExport(doc: any, grant: any, options: { watermarkText: stri
     .join('\n');
 
   let rentRollHtml = '';
-  if (doc.floorLeases && doc.floorLeases.length > 0) {
+  if (Array.isArray(doc?.floorLeases) && doc.floorLeases.length > 0) {
     rentRollHtml = `
       <section class="im-section">
         <h2>📋 호실별 렌트롤 (상세)</h2>
@@ -54,7 +55,7 @@ function buildProHtmlExport(doc: any, grant: any, options: { watermarkText: stri
               </tr>
             </thead>
             <tbody>
-              ${Object.entries(doc.loanSimulation).map(([key, value]) => `
+              ${Object.entries(doc?.loanSimulation || {}).map(([key, value]) => `
                 <tr>
                   <td>${escapeHtml(key)}</td>
                   <td>${escapeHtml(String(value))}</td>
@@ -81,7 +82,7 @@ function buildProHtmlExport(doc: any, grant: any, options: { watermarkText: stri
               </tr>
             </thead>
             <tbody>
-              ${Object.entries(doc.taxScenarios).map(([key, value]) => `
+              ${Object.entries(doc?.taxScenarios || {}).map(([key, value]) => `
                 <tr>
                   <td>${escapeHtml(key)}</td>
                   <td>${escapeHtml(String(value))}</td>
@@ -323,14 +324,14 @@ export async function GET(
   let brokerInfo = { displayName: '담당 중개인', company: '', phone: '' };
   if (ownerId) {
     const { data: bp } = await supabase
-      .from('broker_profiles')
-      .select('display_name, company_name, phone')
-      .eq('user_id', ownerId)
+      .from('profiles')
+      .select('display_name, company, phone')
+      .eq('id', ownerId)
       .maybeSingle();
     if (bp) {
       brokerInfo = {
         displayName: bp.display_name || '담당 중개인',
-        company: bp.company_name || '',
+        company: bp.company || '',
         phone: bp.phone || '',
       };
     }

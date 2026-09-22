@@ -10,9 +10,11 @@ export async function GET() {
   // DB 연결 확인
   try {
     const supabase = createServiceClient();
-    await supabase.from('building_ssot_lite').select('id').limit(1);
-    checks.database = 'ok';
-  } catch {
+    const { error } = await supabase.from('building_ssot_lite').select('id').limit(1);
+    checks.database = error ? 'error' : 'ok';
+    if (error) console.error('[health] DB check failed:', error);
+  } catch (err) {
+    console.error('[health] DB client failed:', err);
     checks.database = 'error';
   }
 

@@ -29,7 +29,7 @@ export default async function NDAPage({ params }: PageProps) {
   if (!requestId) {
     const { data: grant } = await supabase
       .from("im_pro_grants")
-      .select("id, deal_id, building_id, status, nda_signed_at")
+      .select("id, deal_id, status, nda_signed_at")
       .eq("id", id)
       .maybeSingle();
 

@@ -33,7 +33,7 @@ export async function createCoBrokerageDeal(input: {
     .insert({
       broker_id: input.buildingBrokerId,
       building_ssot_lite_id: input.buildingId,
-      current_stage: "buyer_meeting",
+      stage: "buyer_meeting",
       entered_at: new Date().toISOString(),
       metadata: {
         co_brokerage: true,
@@ -58,7 +58,7 @@ export async function createCoBrokerageDeal(input: {
     .insert({
       broker_id: input.buyerBrokerId,
       building_ssot_lite_id: input.buildingId,
-      current_stage: "buyer_meeting",
+      stage: "buyer_meeting",
       entered_at: new Date().toISOString(),
       metadata: {
         co_brokerage: true,

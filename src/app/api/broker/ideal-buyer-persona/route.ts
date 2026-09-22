@@ -69,26 +69,15 @@ export async function POST(request: NextRequest) {
           let asyncResult;
           try {
             asyncResult = await runIdealBuyerPersona(input);
-          } catch {
-            asyncResult = {
-              output: {
-                personas: [
-                  { id: "p1", name: "수익형 투자자", type: "STABLE_INCOME", description: "안정적 임대수익 선호" },
-                  { id: "p2", name: "사옥 실사용 기업", type: "OWNER_OCCUPIER", description: "교통 편리 사옥 매입" },
-                  { id: "p3", name: "밸류애드 디벨로퍼", type: "VALUE_ADD", description: "리모델링 및 증축 개발" },
-                ],
-              },
-              model: "mock-model",
-              promptVersion: "1.0",
-              tokens: 0,
-            };
+          } catch (err) {
+            console.error('[IdealBuyerPersona] Generation failed:', err);
+            return NextResponse.json(
+              { ok: false, error: '매수자 페르소나 생성에 실패했습니다.' },
+              { status: 500 }
+            );
           }
 
-          const asyncPersonas = asyncResult.output?.personas || [
-            { id: "p1", name: "수익형 투자자", type: "STABLE_INCOME", description: "안정적 임대수익 선호" },
-            { id: "p2", name: "사옥 실사용 기업", type: "OWNER_OCCUPIER", description: "교통 편리 사옥 매입" },
-            { id: "p3", name: "밸류애드 디벨로퍼", type: "VALUE_ADD", description: "리모델링 및 증축 개발" },
-          ];
+          const asyncPersonas = asyncResult.output?.personas;
 
           await supabaseAdmin.from("ai_runs").update({
             status: "completed",
@@ -117,26 +106,15 @@ export async function POST(request: NextRequest) {
     let result;
     try {
       result = await runIdealBuyerPersona(input);
-    } catch {
-      result = {
-        output: {
-          personas: [
-            { id: "p1", name: "수익형 투자자", type: "STABLE_INCOME", description: "안정적 임대수익 선호" },
-            { id: "p2", name: "사옥 실사용 기업", type: "OWNER_OCCUPIER", description: "교통 편리 사옥 매입" },
-            { id: "p3", name: "밸류애드 디벨로퍼", type: "VALUE_ADD", description: "리모델링 및 증축 개발" },
-          ],
-        },
-        model: "mock-model",
-        promptVersion: "1.0",
-        tokens: 0,
-      };
+    } catch (err) {
+      console.error('[IdealBuyerPersona] Generation failed:', err);
+      return NextResponse.json(
+        { ok: false, error: '매수자 페르소나 생성에 실패했습니다.' },
+        { status: 500 }
+      );
     }
 
-    const personas = result.output?.personas || [
-      { id: "p1", name: "수익형 투자자", type: "STABLE_INCOME", description: "안정적 임대수익 선호" },
-      { id: "p2", name: "사옥 실사용 기업", type: "OWNER_OCCUPIER", description: "교통 편리 사옥 매입" },
-      { id: "p3", name: "밸류애드 디벨로퍼", type: "VALUE_ADD", description: "리모델링 및 증축 개발" },
-    ];
+    const personas = result.output?.personas;
 
     return NextResponse.json({
       ok: true,

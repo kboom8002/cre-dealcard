@@ -84,11 +84,19 @@ export async function GET(
   const ownerId = doc?.broker_id ?? doc?.owner_id ?? building?.owner_id;
   if (ownerId) {
     const { data: bp } = await supabase
-      .from('broker_profiles')
-      .select('display_name, company_name, phone, specialty, logo_url')
-      .eq('user_id', ownerId)
+      .from('profiles')
+      .select('display_name, company, phone, broker_profiles(deal_specialty)')
+      .eq('id', ownerId)
       .maybeSingle();
-    broker = bp;
+    if (bp) {
+      const brokerProfile = Array.isArray(bp.broker_profiles) ? bp.broker_profiles[0] : (bp.broker_profiles as any);
+      broker = {
+        display_name: bp.display_name,
+        company_name: bp.company,
+        phone: bp.phone,
+        specialty: brokerProfile?.deal_specialty,
+      };
+    }
   }
 
   // 6. 다운로드 횟수 제한 (10회)

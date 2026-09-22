@@ -25,7 +25,12 @@ export async function GET(request: NextRequest) {
 
   if (!bookings) {
     return new NextResponse("BEGIN:VCALENDAR\nVERSION:2.0\nEND:VCALENDAR", {
-      headers: { 'Content-Type': 'text/calendar; charset=utf-8' }
+      headers: { 
+        'Content-Type': 'text/calendar; charset=utf-8',
+        'Content-Disposition': 'attachment; filename="schedule.ics"',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'X-Robots-Tag': 'noindex, nofollow'
+      }
     });
   }
 
@@ -61,7 +66,9 @@ export async function GET(request: NextRequest) {
   return new NextResponse(icsLines.join("\r\n"), {
     headers: {
       'Content-Type': 'text/calendar; charset=utf-8',
-      'Content-Disposition': 'attachment; filename="schedule.ics"'
+      'Content-Disposition': 'attachment; filename="schedule.ics"',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'X-Robots-Tag': 'noindex, nofollow'
     }
   });
 }

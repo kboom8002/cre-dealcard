@@ -98,7 +98,7 @@ export default function BehaviorFunnelPage() {
       let meetingQuery = supabase
         .from("deal_pipeline_states")
         .select("id", { count: "exact", head: true })
-        .in("current_stage", ["buyer_meeting", "loi", "contract", "closed"])
+        .in("stage", ["buyer_meeting", "loi", "contract", "closed"])
         .eq("broker_id", userId);
       if (dateFilter) meetingQuery = meetingQuery.gte("updated_at", dateFilter);
       const { count: meetingCount } = await meetingQuery;

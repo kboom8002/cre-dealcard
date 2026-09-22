@@ -840,9 +840,9 @@ export async function generateMobileIMHandler(
     url: imUrl,
     readiness_score: readiness.score,
     ai_used: writerResult.ai_used,
-    sections_count: writerResult.sections.length,
+    sections_count: writerResult.sections?.length ?? 0,
     external_data_loaded: !!externalData,
-    message: `Mobile IM 생성 완료 (${writerResult.sections.length}섹션${writerResult.ai_used ? ", AI 서사" : ", 템플릿"}, Grade ${gradeResult.grade})`,
+    message: `Mobile IM 생성 완료 (${writerResult.sections?.length ?? 0}섹션${writerResult.ai_used ? ", AI 서사" : ", 템플릿"}, Grade ${gradeResult.grade})`,
     dataGrade: gradeResult.grade,
     financialWarnings,
   };

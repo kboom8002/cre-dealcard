@@ -32,12 +32,16 @@ export async function POST(req: NextRequest) {
       buildingArea: parsed.data.buildingArea,
       builtYear: parsed.data.builtYear,
     });
-  } catch {
-    // Fallback
+  } catch (err) {
+    console.error('[PricePrediction] estimatePriceRange failed:', err);
+    return NextResponse.json(
+      { ok: false, error: '가격 예측에 실패했습니다.' },
+      { status: 500 }
+    );
   }
 
-  const minPrice = result?.min ?? result?.predictedMin ?? 8500000000;
-  const maxPrice = result?.max ?? result?.predictedMax ?? 9500000000;
+  const minPrice = result?.min ?? result?.predictedMin;
+  const maxPrice = result?.max ?? result?.predictedMax;
 
   return NextResponse.json({
     ok: true,

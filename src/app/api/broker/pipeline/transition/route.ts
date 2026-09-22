@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     // 1. Fetch current pipeline state
     const { data: currentState, error: fetchError } = await supabase
       .from('deal_pipeline_states')
-      .select('current_stage, entered_at, metadata, broker_id')
+      .select('stage, entered_at, metadata, broker_id')
       .eq('id', input.dealId)
       .single();
 
@@ -50,8 +50,8 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'Forbidden: Not your deal' }, { status: 403 });
     }
 
-    if (currentState.current_stage !== input.from) {
-      return Response.json({ error: `State mismatch. Expected ${currentState.current_stage}, got ${input.from}` }, { status: 400 });
+    if (currentState.stage !== input.from) {
+      return Response.json({ error: `State mismatch. Expected ${currentState.stage}, got ${input.from}` }, { status: 400 });
     }
 
     // Merge existing metadata with new metadata
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     const { error: updateError } = await supabase
       .from('deal_pipeline_states')
       .update({
-        current_stage: input.to,
+        stage: input.to,
         entered_at: new Date().toISOString(),
         metadata: mergedMetadata,
       })

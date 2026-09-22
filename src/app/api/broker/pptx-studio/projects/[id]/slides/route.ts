@@ -91,7 +91,7 @@ export async function PATCH(
           .maybeSingle();
 
         if (doc && doc.body) {
-          const targetSlide = updated.slides.find((s) => s.id === slideId);
+          const targetSlide = updated?.slides?.find((s: any) => s.id === slideId);
           let mutated = false;
           const docBody = { ...(doc.body as Record<string, any>) };
 

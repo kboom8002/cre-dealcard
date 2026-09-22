@@ -73,11 +73,16 @@ export async function GET(
     const brokerId = building?.broker_id || building?.created_by;
     if (brokerId) {
       const { data: pData } = await supabase
-        .from("broker_profiles")
-        .select("display_name, company_name")
+        .from("profiles")
+        .select("display_name, company")
         .eq("id", brokerId)
         .maybeSingle();
-      brokerProfile = pData;
+      if (pData) {
+        brokerProfile = {
+          ...pData,
+          company_name: pData.company
+        };
+      }
     }
   } catch (e) {
     log.warn("[OG/kakao] Data fetch warning:", e);

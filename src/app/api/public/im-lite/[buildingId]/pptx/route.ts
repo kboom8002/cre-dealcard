@@ -84,11 +84,17 @@ export async function GET(
   const ownerId = doc?.broker_id ?? doc?.owner_id ?? building?.owner_id;
   if (ownerId) {
     const { data: bp } = await supabase
-      .from('broker_profiles')
-      .select('display_name, company_name, phone, specialty')
-      .eq('user_id', ownerId)
+      .from('profiles')
+      .select('display_name, company, phone, broker_profiles(deal_specialty)')
+      .eq('id', ownerId)
       .maybeSingle();
-    broker = bp;
+    if (bp) {
+      broker = {
+        ...bp,
+        company_name: bp.company,
+        specialty: Array.isArray(bp.broker_profiles) ? bp.broker_profiles[0]?.deal_specialty : (bp.broker_profiles as any)?.deal_specialty
+      };
+    }
   }
 
   // 4. Import and run renderer

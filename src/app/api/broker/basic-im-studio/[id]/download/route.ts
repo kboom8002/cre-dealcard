@@ -49,8 +49,8 @@ export async function GET(
     const mergedBody: Record<string, any> = {
       preset: 'credeal_basic',
     };
-    for (const slide of project.slides.filter(s => !s.hidden)) {
-      if (slide.dataKey && Object.keys(slide.slideOverrides).length > 0) {
+    for (const slide of (project.slides || []).filter(s => !s?.hidden)) {
+      if (slide.dataKey && Object.keys(slide.slideOverrides || {}).length > 0) {
         mergedBody[slide.dataKey] = {
           ...(mergedBody[slide.dataKey] ?? {}),
           ...slide.slideOverrides,
@@ -86,11 +86,17 @@ export async function GET(
       const ownerId = doc?.broker_id ?? doc?.owner_id ?? building?.owner_id;
       if (ownerId) {
         const { data: bp } = await supabase
-          .from('broker_profiles')
-          .select('display_name, company_name, phone, specialty')
-          .eq('user_id', ownerId)
+          .from('profiles')
+          .select('display_name, company, phone, broker_profiles(deal_specialty)')
+          .eq('id', ownerId)
           .maybeSingle();
-        broker = bp;
+        if (bp) {
+          broker = {
+            ...bp,
+            company_name: bp.company,
+            specialty: Array.isArray(bp.broker_profiles) ? bp.broker_profiles[0]?.deal_specialty : (bp.broker_profiles as any)?.deal_specialty
+          };
+        }
       }
     } catch (err) {
       console.warn('[basic-im-studio/download] DB lookup failed, proceeding with overrides only:', err);
@@ -150,7 +156,7 @@ export async function GET(
       hasViolation: body.hasViolation ?? body.violationStatus === 'exists',
       hasJointCollateral: body.hasJointCollateral ?? false,
       releaseTier: (body.releaseTier as ReleaseTier) || 'decision_im', // W-7: 다른 라우트와 통일
-      docno: body.docno ?? `IM-${project.dealId.substring(0, 6).toUpperCase()}`,
+      docno: body.docno ?? `IM-${(project.dealId || 'UNKNOWN').substring(0, 6).toUpperCase()}`,
       doc: {
         title: project.title || doc?.title || 'Basic IM',
         body: fullBody,
@@ -172,7 +178,7 @@ export async function GET(
         'Cache-Control': 'no-store',
         'X-Slide-Count': String(result.slideCount),
         'X-File-Size': String(result.fileSizeBytes),
-        'X-Warnings': encodeURIComponent(JSON.stringify(result.warnings.slice(0, 10))),
+        'X-Warnings': encodeURIComponent(JSON.stringify((result.warnings || []).slice(0, 10))),
         'X-Audit-Violations': String(result.auditReport?.totalViolations ?? 0),
       },
     });

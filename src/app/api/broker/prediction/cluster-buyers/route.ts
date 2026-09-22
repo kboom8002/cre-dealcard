@@ -15,20 +15,15 @@ export async function POST(req: NextRequest) {
     let result: any = null;
     try {
       result = await runBuyerClustering();
-    } catch {
-      result = {
-        clusters: [
-          { id: 'c1', label: '수익형 투자자 클러스터', count: 5 },
-          { id: 'c2', label: '사옥 매수자 클러스터', count: 3 },
-          { id: 'c3', label: '개발/밸류애드 클러스터', count: 2 },
-        ],
-      };
+    } catch (err) {
+      console.error('[ClusterBuyers] runBuyerClustering failed:', err);
+      return NextResponse.json(
+        { ok: false, error: '매수자 클러스터링에 실패했습니다.' },
+        { status: 500 }
+      );
     }
 
-    const clusters = result?.clusters || [
-      { id: 'c1', label: '수익형 투자자 클러스터', count: 5 },
-      { id: 'c2', label: '사옥 매수자 클러스터', count: 3 },
-    ];
+    const clusters = result?.clusters;
 
     return NextResponse.json({ ok: true, result, clusters });
   } catch (err) {

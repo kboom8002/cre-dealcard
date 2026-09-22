@@ -34,7 +34,7 @@ export async function GET(
     const mergedBody: Record<string, any> = {
       preset: 'credeal_basic',
     };
-    for (const slide of project.slides.filter(s => !s.hidden)) {
+    for (const slide of (project.slides || []).filter(s => !s?.hidden)) {
       if (slide.dataKey && slide.slideOverrides && Object.keys(slide.slideOverrides).length > 0) {
         mergedBody[slide.dataKey] = {
           ...(mergedBody[slide.dataKey] ?? {}),
@@ -71,11 +71,17 @@ export async function GET(
       const ownerId = doc?.broker_id ?? doc?.owner_id ?? building?.owner_id;
       if (ownerId) {
         const { data: bp } = await supabase
-          .from('broker_profiles')
-          .select('display_name, company_name, phone, specialty')
-          .eq('user_id', ownerId)
+          .from('profiles')
+          .select('display_name, company, phone, broker_profiles(deal_specialty)')
+          .eq('id', ownerId)
           .maybeSingle();
-        broker = bp;
+        if (bp) {
+          broker = {
+            ...bp,
+            company_name: bp.company,
+            specialty: Array.isArray(bp.broker_profiles) ? bp.broker_profiles[0]?.deal_specialty : (bp.broker_profiles as any)?.deal_specialty
+          };
+        }
       }
     } catch (err) {
       console.warn('[pptx-studio/download] DB lookup failed, proceeding with overrides only:', err);
@@ -110,7 +116,7 @@ export async function GET(
       hasViolation: body.hasViolation ?? body.violationStatus === 'exists',
       hasJointCollateral: body.hasJointCollateral ?? false,
       releaseTier: 'basic' as ReleaseTier,
-      docno: body.docno ?? `IM-${project.dealId.substring(0, 6).toUpperCase()}`,
+      docno: body.docno ?? `IM-${(project.dealId || 'UNKNOWN').substring(0, 6).toUpperCase()}`,
       doc: {
         title: project.title || doc?.title || 'Basic IM',
         body: fullBody,
