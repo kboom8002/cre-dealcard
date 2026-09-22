@@ -144,6 +144,7 @@ export async function PUT(
       .single();
 
     if (error || !data) {
+      console.error('[broker-clients-id-put] Update error:', error);
       return NextResponse.json({ error: '수정에 실패했습니다.' }, { status: 500 });
     }
 
@@ -180,6 +181,7 @@ export async function DELETE(
       .eq('broker_id', auth.user!.id);
 
     if (error) {
+      console.error('[broker-clients-id-delete] Delete error:', error);
       return NextResponse.json({ error: '삭제에 실패했습니다.' }, { status: 500 });
     }
 

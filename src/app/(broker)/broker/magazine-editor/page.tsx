@@ -306,15 +306,23 @@ function MagazineEditorInner() {
         }
 
         // 4. 딜카드 목록
-        const { data: deals } = await supabase
+        const { data: dealsData } = await supabase
           .from("building_ssot_lite")
           .select(
-            "id, address, area_signal, asset_type, price, status, photo_urls, buyer_interest_count"
+            "id, raw_address, area_signal, asset_type, price_band, status, matched_buyer_count, layers"
           )
           .eq("owner_id", user.id)
           .in("status", ["public_signal_ready", "active"])
           .order("updated_at", { ascending: false })
           .limit(10);
+          
+        const deals = (dealsData || []).map((b: any) => ({
+          ...b,
+          address: b.raw_address,
+          price: b.price_band,
+          photo_urls: (b.layers as any)?.photos?.urls || [],
+          buyer_interest_count: b.matched_buyer_count || 0,
+        }));
 
         // 4.5. IM 브릿지 추천 매물 조회
         const { data: profileDeals } = await supabase

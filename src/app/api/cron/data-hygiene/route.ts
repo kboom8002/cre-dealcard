@@ -33,28 +33,9 @@ export async function GET(req: NextRequest) {
     results.staleDrafts = staleDrafts?.length ?? 0;
 
     // 2. pending_confirmation 상태 14일 초과 OCR 데이터 만료 처리
-    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: expiredOcr, error: ocrErr } = await supabase
-      .from('building_ssot_lite')
-      .select('id')
-      .eq('ocr_status', 'pending_confirmation')
-      .lt('updated_at', fourteenDaysAgo)
-      .limit(100);
-
-    if (!ocrErr && expiredOcr && expiredOcr.length > 0) {
-      const expiredIds = expiredOcr.map((r: { id: string }) => r.id);
-      const { error: updateErr } = await supabase
-        .from('building_ssot_lite')
-        .update({ ocr_status: 'expired' })
-        .in('id', expiredIds);
-
-      if (updateErr) {
-        log.error('[data-hygiene] Failed to expire OCR records:', updateErr);
-      }
-      results.expiredOcrRecords = expiredIds.length;
-    } else {
-      results.expiredOcrRecords = 0;
-    }
+    // TODO: ocr_status column does not exist on building_ssot_lite. 
+    // This cron job section is non-functional and should be redesigned.
+    results.expiredOcrRecords = 0;
 
     // 3. 비활성 골든셋 중 90일 이상 미사용 건 정리
     const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
@@ -84,6 +65,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ status: 'ok', results });
   } catch (err) {
     log.error('[data-hygiene] Unexpected error:', err);
+    console.error('[data-hygiene] Internal server error:', err);
     return NextResponse.json({ status: 'error', error: 'Internal server error' }, { status: 500 });
   }
 }

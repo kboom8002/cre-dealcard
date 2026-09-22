@@ -71,11 +71,20 @@ export async function POST(
       const supabase = createServiceClient();
       const dealId = project.dealId;
 
+      const { data: currentDoc } = await supabase
+        .from('document_objects')
+        .select('content')
+        .or(`building_id.eq.${dealId},id.eq.${dealId}`)
+        .maybeSingle();
+
       await supabase
         .from('document_objects')
         .update({
-          approval_stage: 'S60_EDITORIAL_APPROVAL',
-          approval_target_hash: targetHash,
+          content: {
+            ...(currentDoc?.content || {}),
+            approval_stage: 'S60_EDITORIAL_APPROVAL',
+            approval_target_hash: targetHash,
+          },
           updated_at: new Date().toISOString(),
         })
         .or(`building_id.eq.${dealId},id.eq.${dealId}`);

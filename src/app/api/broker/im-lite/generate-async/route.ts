@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
 
           const { data: existing } = await bgSupabase
             .from("building_ssot_lite")
-            .select("layers, lease_summary, investment_posture")
+            .select("layers, lease_summary")
             .eq("id", buildingId)
             .single();
 
@@ -254,9 +254,11 @@ export async function POST(req: NextRequest) {
               updated_at: new Date().toISOString(),
             };
             if (investmentPostureInput) {
-              updatePayload.investment_posture = investmentPostureInput;
+              // TODO: investment_posture does not exist on building_ssot_lite.
+              // updatePayload.investment_posture = investmentPostureInput;
               
               // C-4: 포스처 변경 시 기존 생성물 무효화
+              /*
               const previousPosture = existing.investment_posture;
               if (previousPosture && previousPosture !== investmentPostureInput) {
                 await bgSupabase
@@ -279,6 +281,7 @@ export async function POST(req: NextRequest) {
                 });
                 if (pdErr) log.warn('[generate-async] posture_decisions insert failed:', pdErr.message);
               }
+              */
             }
             // 주소를 top-level raw_address 컬럼에도 역류 저장
             if (supplemental.resolved_address) {

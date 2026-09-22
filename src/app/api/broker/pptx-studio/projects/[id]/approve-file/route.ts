@@ -158,15 +158,24 @@ export async function POST(
         }
       }
 
+      const { data: currentDoc2 } = await supabase
+        .from('document_objects')
+        .select('content')
+        .or(`building_id.eq.${dealId},id.eq.${dealId}`)
+        .maybeSingle();
+
       await supabase
         .from('document_objects')
         .update({
           status: 'published',
-          approval_stage: 'S70_FILE_APPROVAL',
-          approval_target_hash: fileHash,
-          pptx_file_hash: fileHash,
-          pptx_download_url: fileUrl,
-          approved_at: new Date().toISOString(),
+          content: {
+            ...(currentDoc2?.content || {}),
+            approval_stage: 'S70_FILE_APPROVAL',
+            approval_target_hash: fileHash,
+            pptx_file_hash: fileHash,
+            pptx_download_url: fileUrl,
+            approved_at: new Date().toISOString(),
+          },
           updated_at: new Date().toISOString(),
         })
         .or(`building_id.eq.${dealId},id.eq.${dealId}`);

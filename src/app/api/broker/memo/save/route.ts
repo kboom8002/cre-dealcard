@@ -201,6 +201,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, data });
 
   } catch (error) {
+    console.error('[memo/save] Error:', error);
     return NextResponse.json(
       { ok: false, error: "Internal Server Error" },
       { status: 500 }

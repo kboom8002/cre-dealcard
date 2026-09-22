@@ -198,12 +198,22 @@ const fetchActiveDeals = async (
   try {
     const { data } = await supabase
       .from('building_ssot_lite')
-      .select('id, address, area_signal, asset_type, price, status, photo_urls, attrs, buyer_interest_count')
+      .select('id, raw_address, area_signal, asset_type, price_band, status, matched_buyer_count, layers')
       .eq('owner_id', userId)
       .in('status', ['public_signal_ready', 'active'])
       .order('updated_at', { ascending: false })
       .limit(10);
-    return data ?? [];
+      
+    const buildings = (data || []).map((b: any) => ({
+      ...b,
+      address: b.raw_address,
+      price: b.price_band,
+      photo_urls: (b.layers as any)?.photos?.urls || [],
+      attrs: b.layers || {},
+      buyer_interest_count: b.matched_buyer_count || 0,
+    }));
+
+    return buildings;
   } catch (err) {
     console.warn('[weekly-generator] fetchActiveDeals failed:', err);
     return [];

@@ -153,7 +153,6 @@ export async function PATCH(
               .update({
                 title: doc.title,
                 body: docBody,
-                approval_target_hash: newTargetHash,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', doc.id);

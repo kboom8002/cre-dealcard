@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
 
     // Update broker_profiles
     const column = type === "company" ? "logo_company_url" : "logo_partner_url";
+    // TODO: These columns don't exist on broker_profiles. Should be migrated or stored in content JSONB.
     const { error: dbError } = await svc
       .from("broker_profiles")
       .update({ [column]: `${publicUrl}?t=${Date.now()}` })
@@ -139,6 +140,7 @@ export async function DELETE(request: NextRequest) {
 
     // Set DB column to null
     const column = type === "company" ? "logo_company_url" : "logo_partner_url";
+    // TODO: These columns don't exist on broker_profiles. Should be migrated or stored in content JSONB.
     const { error: dbError } = await svc
       .from("broker_profiles")
       .update({ [column]: null })

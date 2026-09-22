@@ -70,14 +70,22 @@ async function getActiveDeals(supabase: any, brokerId: string) {
     const { data } = await supabase
       .from("building_ssot_lite")
       .select(
-        "id, address, area_signal, asset_type, price, status, photo_urls, buyer_interest_count"
+        "id, raw_address, area_signal, asset_type, price_band, status, matched_buyer_count, layers"
       )
       .eq("owner_id", bp.user_id)
       .in("status", ["public_signal_ready", "active"])
       .order("updated_at", { ascending: false })
       .limit(5);
 
-    return data ?? [];
+    const buildings = (data || []).map((b: any) => ({
+      ...b,
+      address: b.raw_address,
+      price: b.price_band,
+      photo_urls: (b.layers as any)?.photos?.urls || [],
+      buyer_interest_count: b.matched_buyer_count || 0,
+    }));
+
+    return buildings;
   } catch {
     return [];
   }

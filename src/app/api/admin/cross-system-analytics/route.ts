@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     // 2. Full IM Handoff Statuses
     const { data: fullImHandoffs, error: fihErr } = await supabase
       .from("full_im_handoffs")
-      .select("status, count", { count: "exact" });
+      .select("status", { count: "exact", head: true });
       // actually we can't select count directly like this in single query easily without rpc
       
     // Let's do it manually since it's admin dashboard

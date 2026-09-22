@@ -64,11 +64,20 @@ export async function generateSpecialEdition(
   const brokerSlug = bp?.slug || brokerId;
 
   // 2. 매물 데이터 조회
-  const { data: building, error: bError } = await supabase
+  const { data: rawData, error: bError } = await supabase
     .from('building_ssot_lite')
-    .select('id, address, area_signal, asset_type, price, status, photo_urls, attrs, layers')
+    .select('id, raw_address, area_signal, asset_type, price_band, status, layers')
     .eq('id', buildingId)
     .single();
+    
+  const buildings = (rawData ? [rawData] : []).map(b => ({
+    ...b,
+    address: b.raw_address,
+    price: b.price_band,
+    photo_urls: (b.layers as any)?.photos?.urls || [],
+    attrs: b.layers || {},
+  }));
+  const building = buildings[0];
 
   if (bError || !building) {
     throw new Error(`매물을 찾을 수 없습니다: ${buildingId}`);

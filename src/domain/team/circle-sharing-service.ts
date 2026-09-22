@@ -200,8 +200,8 @@ export async function getMyShareableAssets(brokerId: string): Promise<ShareableA
   const supabase = createServiceClient();
 
   const [{ data: buildings }, { data: buyerIntents }, { data: sharedAssets }] = await Promise.all([
-    supabase.from("building_ssot_lite").select("id, area_signal, asset_type, price_band").eq("broker_id", brokerId).order("created_at", { ascending: false }),
-    supabase.from("buyer_intent_lite").select("id, buyer_type, budget_display, purchase_purpose").eq("broker_id", brokerId).order("created_at", { ascending: false }),
+    supabase.from("building_ssot_lite").select("id, area_signal, asset_type, price_band").eq("owner_id", brokerId).order("created_at", { ascending: false }),
+    supabase.from("buyer_intent_lite").select("id, buyer_type, budget_display, purchase_purpose").eq("owner_id", brokerId).order("created_at", { ascending: false }),
     supabase.from("circle_shared_assets").select("circle_id, asset_id").eq("broker_id", brokerId),
   ]);
 

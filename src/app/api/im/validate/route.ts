@@ -97,9 +97,10 @@ export async function POST(req: NextRequest) {
       isProEligible,
     });
   } catch (err) {
+    console.error('[im/validate] Error:', err);
     return NextResponse.json(
       { error: 'Validation failed', canGenerate: false },
-      { status: 400 },
+      { status: 500 },
     );
   }
 }

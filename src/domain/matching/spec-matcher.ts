@@ -35,7 +35,8 @@ async function matchOwn(
   // 딜 정보 조회
   const { data: deal } = await supabase
     .from('deals')
-    .select('asking_price_man, region, asset_type, purpose_tags')
+    // TODO: region, asset_type, purpose_tags are on assets table, need join
+    .select('asking_price_krw')
     .eq('id', dealId)
     .single();
 
@@ -85,11 +86,11 @@ async function matchOrg(
   // 브로커 프로필 조회
   const brokerIds = (data || []).map((r: any) => r.broker_id);
   const { data: profiles } = await supabase
-    .from('broker_profiles')
-    .select('user_id, display_name')
-    .in('user_id', brokerIds);
+    .from('profiles')
+    .select('id, display_name')
+    .in('id', brokerIds);
 
-  const nameMap = new Map((profiles || []).map((p: any) => [p.user_id, p.display_name]));
+  const nameMap = new Map((profiles || []).map((p: any) => [p.id, p.display_name]));
 
   return (data || []).map((row: any) => ({
     brokerId: row.broker_id,

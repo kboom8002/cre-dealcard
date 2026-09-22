@@ -39,8 +39,8 @@ export async function GET(req: NextRequest) {
         .select(`
           id, building_id, requester_id, requested_level, requested_fields,
           reason, status, created_at,
-          requester:profiles!gate_requests_requester_id_fkey(full_name, phone_number, email),
-          building:building_ssot_lite!gate_requests_building_id_fkey(area_signal, asset_type, address)
+          requester:profiles!gate_requests_requester_id_fkey(display_name, phone, email),
+          building:building_ssot_lite!gate_requests_building_id_fkey(area_signal, asset_type, raw_address)
         `)
         .in("building_id", buildingIds)
         .order("created_at", { ascending: false })
@@ -51,9 +51,9 @@ export async function GET(req: NextRequest) {
         type: "gate_request" as const,
         status: gr.status,
         building_id: gr.building_id,
-        building_label: gr.building?.area_signal || gr.building?.address || "매물",
-        requester_name: gr.requester?.full_name || "익명",
-        requester_phone: gr.requester?.phone_number || null,
+        building_label: gr.building?.area_signal || gr.building?.raw_address || "매물",
+        requester_name: gr.requester?.display_name || "익명",
+        requester_phone: gr.requester?.phone || null,
         requester_email: gr.requester?.email || null,
         requested_level: gr.requested_level,
         reason: gr.reason,

@@ -82,14 +82,14 @@ export async function notifyCircleMatch(match: {
   
   // 1. In-app notification
   const { data: members } = await supabase
-    .from('circle_members')
-    .select('user_id, profiles(display_name, phone)')
+    .from('broker_circle_members')
+    .select('broker_id, profiles(display_name, phone)')
     .eq('circle_id', match.circleId);
   
   if (members) {
     for (const member of members) {
       await createNotification({
-        user_id: member.user_id,
+        user_id: member.broker_id,
         type: 'circle_match' as any,
         title: `${match.circleName}에 새 매칭이 등록되었습니다`,
         body: `${match.buildingName || '새 매물'} - 매칭등급 ${match.matchGrade}`,

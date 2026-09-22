@@ -71,7 +71,7 @@ export async function runCircleAutoMatch(
     // 1. Fetch trigger building
     const { data: building } = await supabase
       .from("building_ssot_lite")
-      .select("id, broker_id, owner_id, area_signal, asset_type, price_band, vacancy_signal, fit_summary, caution_summary")
+      .select("id, owner_id, area_signal, asset_type, price_band, vacancy_signal, fit_summary, caution_summary")
       .eq("id", triggerAssetId)
       .single();
 
@@ -103,7 +103,7 @@ export async function runCircleAutoMatch(
     const intentIds = sharedIntents.map(i => i.asset_id);
     const { data: intents } = await supabase
       .from("buyer_intent_lite")
-      .select("id, broker_id, owner_id, buyer_type, budget_range, budget_display, preferred_regions, asset_types, purchase_purpose, must_have, nice_to_have, risk_tolerance, inferred_purpose, recommended_weight_profile")
+      .select("id, owner_id, buyer_type, budget_min, budget_max, budget_display, preferred_regions, asset_types, purchase_purpose, must_have, nice_to_have, risk_tolerance")
       .in("id", intentIds);
     const intentMap = new Map((intents || []).map(i => [i.id, i]));
 
@@ -117,7 +117,7 @@ export async function runCircleAutoMatch(
       const matchInput: MatchInput = {
         buildingSsotLiteId: triggerAssetId,
         buyerIntentLiteId: intent.id,
-        brokerId: building.broker_id || building.owner_id,
+        brokerId: building.owner_id,
         building: {
           areaSignal: building.area_signal || "",
           assetType: building.asset_type || "",
@@ -129,15 +129,15 @@ export async function runCircleAutoMatch(
         },
         intent: {
           buyerType: intent.buyer_type || "",
-          budgetRange: intent.budget_range || { min: null, max: null, display: intent.budget_display || "" },
+          budgetRange: { min: intent.budget_min ?? null, max: intent.budget_max ?? null, display: intent.budget_display || "" },
           preferredRegions: intent.preferred_regions || [],
           assetTypes: intent.asset_types || [],
           purchasePurpose: intent.purchase_purpose || "",
           mustHave: intent.must_have || [],
           niceToHave: intent.nice_to_have || [],
           riskTolerance: intent.risk_tolerance || "",
-          inferredPurpose: intent.inferred_purpose,
-          recommendedWeightProfile: intent.recommended_weight_profile,
+          inferredPurpose: undefined,
+          recommendedWeightProfile: undefined,
         },
       };
 
@@ -151,9 +151,9 @@ export async function runCircleAutoMatch(
         matchesToUpsertMap.set(conflictKey, {
           circle_id: circleId,
           building_id: triggerAssetId,
-          building_broker_id: building.broker_id || building.owner_id,
+          building_broker_id: building.owner_id,
           buyer_intent_id: intent.id,
-          buyer_broker_id: intent.broker_id || intent.owner_id,
+          buyer_broker_id: intent.owner_id,
           grade: res.grade,
           score: res.score,
           stage1_passed: res.stage1Passed,
@@ -219,7 +219,7 @@ export async function runCircleAutoMatch(
     // 1. Fetch trigger buyer intent
     const { data: intent } = await supabase
       .from("buyer_intent_lite")
-      .select("id, broker_id, owner_id, buyer_type, budget_range, budget_display, preferred_regions, asset_types, purchase_purpose, must_have, nice_to_have, risk_tolerance, inferred_purpose, recommended_weight_profile")
+      .select("id, owner_id, buyer_type, budget_min, budget_max, budget_display, preferred_regions, asset_types, purchase_purpose, must_have, nice_to_have, risk_tolerance")
       .eq("id", triggerAssetId)
       .single();
 
@@ -239,7 +239,7 @@ export async function runCircleAutoMatch(
     // P2-04 Batch Query Fix
     const buildingIds = sharedBuildings.map(i => i.asset_id);
     const [{ data: buildings }, { data: cards }] = await Promise.all([
-      supabase.from("building_ssot_lite").select("id, broker_id, owner_id, area_signal, asset_type, price_band, vacancy_signal, fit_summary, caution_summary").in("id", buildingIds),
+      supabase.from("building_ssot_lite").select("id, owner_id, area_signal, asset_type, price_band, vacancy_signal, fit_summary, caution_summary").in("id", buildingIds),
       supabase.from("building_signal_cards").select("building_ssot_lite_id, deal_curiosity_score").in("building_ssot_lite_id", buildingIds).order("created_at", { ascending: false })
     ]);
     
@@ -264,7 +264,7 @@ export async function runCircleAutoMatch(
       const matchInput: MatchInput = {
         buildingSsotLiteId: building.id,
         buyerIntentLiteId: triggerAssetId,
-        brokerId: building.broker_id || building.owner_id,
+        brokerId: building.owner_id,
         building: {
           areaSignal: building.area_signal || "",
           assetType: building.asset_type || "",
@@ -276,15 +276,15 @@ export async function runCircleAutoMatch(
         },
         intent: {
           buyerType: intent.buyer_type || "",
-          budgetRange: intent.budget_range || { min: null, max: null, display: intent.budget_display || "" },
+          budgetRange: { min: intent.budget_min ?? null, max: intent.budget_max ?? null, display: intent.budget_display || "" },
           preferredRegions: intent.preferred_regions || [],
           assetTypes: intent.asset_types || [],
           purchasePurpose: intent.purchase_purpose || "",
           mustHave: intent.must_have || [],
           niceToHave: intent.nice_to_have || [],
           riskTolerance: intent.risk_tolerance || "",
-          inferredPurpose: intent.inferred_purpose,
-          recommendedWeightProfile: intent.recommended_weight_profile,
+          inferredPurpose: undefined,
+          recommendedWeightProfile: undefined,
         },
       };
 
@@ -298,9 +298,9 @@ export async function runCircleAutoMatch(
         matchesToUpsertMap.set(conflictKey, {
           circle_id: circleId,
           building_id: building.id,
-          building_broker_id: building.broker_id || building.owner_id,
+          building_broker_id: building.owner_id,
           buyer_intent_id: triggerAssetId,
-          buyer_broker_id: intent.broker_id || intent.owner_id,
+          buyer_broker_id: intent.owner_id,
           grade: res.grade,
           score: res.score,
           stage1_passed: res.stage1Passed,

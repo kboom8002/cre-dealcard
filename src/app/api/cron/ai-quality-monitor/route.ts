@@ -29,6 +29,7 @@ export async function GET(req: Request) {
 
     if (twErr) {
       log.error('[ai-quality-monitor] Failed to query this week scores:', twErr);
+      console.error('[ai-quality-monitor] Database query failed (this week):', twErr);
       return NextResponse.json({ ok: false, error: 'Database query failed' }, { status: 500 });
     }
 
@@ -43,6 +44,7 @@ export async function GET(req: Request) {
 
     if (lwErr) {
       log.error('[ai-quality-monitor] Failed to query last week scores:', lwErr);
+      console.error('[ai-quality-monitor] Database query failed (last week):', lwErr);
       return NextResponse.json({ ok: false, error: 'Database query failed' }, { status: 500 });
     }
 
@@ -99,6 +101,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, ...result }, { status: 200 });
   } catch (err) {
     log.error('[ai-quality-monitor] Unexpected error:', err);
+    console.error('[ai-quality-monitor] Internal server error:', err);
     return NextResponse.json({ ok: false, error: 'Internal server error' }, { status: 500 });
   }
 }

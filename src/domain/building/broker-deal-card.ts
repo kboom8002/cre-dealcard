@@ -250,10 +250,12 @@ export async function brokerDealCardFromMemo(
 
   // 2-b. photo_urls 칼럼 동기화 (IM, 매거진, Vibe 카드 등에서 참조)
   if (input.photoUrls && input.photoUrls.length > 0) {
-    await supabase
-      .from("building_ssot_lite")
-      .update({ photo_urls: input.photoUrls })
-      .eq("id", building.id);
+    // TODO: photo_urls column does not exist on building_ssot_lite.
+    // Photos should be stored in layers.photos JSONB field.
+    // await supabase
+    //   .from("building_ssot_lite")
+    //   .update({ photo_urls: input.photoUrls })
+    //   .eq("id", building.id);
   }
 
   // 3. Create building_signal_card
@@ -439,7 +441,7 @@ export async function brokerDealCardFromMemo(
             .from("building_ssot_lite")
             .update({
               verification_status: verificationResult.status,
-              verification_result: verificationResult as unknown as Record<string, unknown>,
+              verification_details: verificationResult as unknown as Record<string, unknown>,
             })
             .eq("id", building.id);
         } else {

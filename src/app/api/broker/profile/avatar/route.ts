@@ -72,11 +72,9 @@ export async function POST(req: NextRequest) {
 
     // ─── Fix #2: broker_profiles.photo_url도 즉시 동기화 ────
     const { error: bpSyncError } = await supabase
-      .from("broker_profiles")
-      .upsert(
-        { user_id: user!.id, photo_url: publicUrl },
-        { onConflict: "user_id" }
-      );
+      .from("profiles")
+      .update({ photo_url: publicUrl })
+      .eq("id", user!.id);
 
     if (bpSyncError) {
       log.warn("[Avatar] broker_profiles.photo_url sync failed:", bpSyncError.message);
