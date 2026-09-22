@@ -69,7 +69,7 @@ async function generateBriefingScriptWithLLM(
   }
 
   // 섹션 데이터를 구조화
-  const sectionsText = doc.sections
+  const sectionsText = (doc.sections || [])
     .filter((s) => !s.locked)
     .map((s) => {
       const content = s.content.trim();
@@ -118,7 +118,7 @@ ${sectionsText}
 
 // ─── 폴백: 정규식 기반 스크립트 (LLM 실패 시) ──────────────────────
 function generateFallbackScript(doc: MobileIMDocument): string {
-  const sections = doc.sections.filter((s) => !s.locked);
+  const sections = (doc.sections || []).filter((s) => !s.locked);
   const lines: string[] = [];
 
   lines.push(

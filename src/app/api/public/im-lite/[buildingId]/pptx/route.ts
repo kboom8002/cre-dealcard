@@ -239,7 +239,7 @@ export async function GET(
   } catch (err: any) {
     log.error(`[PPTX ${tier}] Generation failed:`, err);
     return NextResponse.json(
-      { error: 'PPTX generation failed' },
+      { error: 'PPTX generation failed', details: err?.message || String(err) },
       { status: 500 }
     );
   }
