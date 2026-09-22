@@ -14,30 +14,38 @@ const IotPayloadSchema = z.object({
 })
 
 export async function POST(req: NextRequest) {
-  // API Key 인증 (IoT 디바이스 전용)
-  const apiKey = req.headers.get('x-iot-api-key')
-  if (process.env.IOT_INGEST_API_KEY && apiKey !== process.env.IOT_INGEST_API_KEY) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  try {
+    // API Key 인증 (IoT 디바이스 전용)
+    const apiKey = req.headers.get('x-iot-api-key')
+    if (process.env.IOT_INGEST_API_KEY && apiKey !== process.env.IOT_INGEST_API_KEY) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+  
+    const body = await req.json()
+    const parsed = IotPayloadSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    }
+  
+    const supabase = createServiceClient()
+    const { device_id, building_id, metrics } = parsed.data
+  
+    // 1. 원시 스트림 저장
+    await supabase.from('iot_data_stream').insert(
+      metrics.map(m => ({ building_id, device_id, ...m }))
+    )
+  
+    // 2. building_ssot_lite 집계값 업데이트
+    await syncIotAggregates(supabase, building_id)
+  
+    return NextResponse.json({ ok: true, ingested: metrics.length })
+  } catch (err) {
+    console.error('[iot-ingest] Error:', err);
+    return NextResponse.json(
+      { error: '요청 처리에 실패했습니다.' },
+      { status: 500 }
+    );
   }
-
-  const body = await req.json()
-  const parsed = IotPayloadSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
-  }
-
-  const supabase = createServiceClient()
-  const { device_id, building_id, metrics } = parsed.data
-
-  // 1. 원시 스트림 저장
-  await supabase.from('iot_data_stream').insert(
-    metrics.map(m => ({ building_id, device_id, ...m }))
-  )
-
-  // 2. building_ssot_lite 집계값 업데이트
-  await syncIotAggregates(supabase, building_id)
-
-  return NextResponse.json({ ok: true, ingested: metrics.length })
 }
 
 async function syncIotAggregates(supabase: any, buildingId: string) {

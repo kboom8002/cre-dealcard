@@ -8,18 +8,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function GET(req: NextRequest) {
-  const { searchParams, origin } = new URL(req.url);
-  const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/broker";
-
-  if (code) {
-    const supabase = await createServerSupabaseClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
+  try {
+    const { searchParams, origin } = new URL(req.url);
+    const code = searchParams.get("code");
+    const next = searchParams.get("next") ?? "/broker";
+  
+    if (code) {
+      const supabase = await createServerSupabaseClient();
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (!error) {
+        return NextResponse.redirect(`${origin}${next}`);
+      }
     }
+  
+    // 에러 시 로그인 페이지로 리다이렉트
+    return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`);
+  } catch (err) {
+    console.error('[auth-callback] Error:', err);
+    return NextResponse.json(
+      { error: '요청 처리에 실패했습니다.' },
+      { status: 500 }
+    );
   }
-
-  // 에러 시 로그인 페이지로 리다이렉트
-  return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`);
 }

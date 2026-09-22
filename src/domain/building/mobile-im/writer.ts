@@ -411,7 +411,8 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         }
       }
     }
-  } catch {
+  } catch (err) {
+    console.error('[writer] Cross-validation threw exception:', err);
     // 교차 검증 실패는 무시
   }
 

@@ -128,7 +128,8 @@ const fetchBrokerContext = async (
       .eq('status', 'public_signal_ready');
 
     return { profile, broker: bp, activeDealCount: activeDealCount ?? 0 };
-  } catch {
+  } catch (err) {
+    console.warn('[weekly-generator] fetchBrokerContext failed:', err);
     return null;
   }
 };
@@ -147,7 +148,8 @@ const fetchWeekPulse = async (
       .eq('period_label', weekLabel)
       .maybeSingle();
     return data ?? null;
-  } catch {
+  } catch (err) {
+    console.warn('[weekly-generator] fetchWeekPulse failed:', err);
     return null;
   }
 };
@@ -164,7 +166,8 @@ const fetchWeekNews = async (
       .order('created_at', { ascending: false })
       .limit(limit);
     return data ?? [];
-  } catch {
+  } catch (err) {
+    console.warn('[weekly-generator] fetchWeekNews failed:', err);
     return [];
   }
 };
@@ -182,7 +185,8 @@ const fetchWeekTransactions = async (
       .order('transaction_date', { ascending: false })
       .limit(limit);
     return data ?? [];
-  } catch {
+  } catch (err) {
+    console.warn('[weekly-generator] fetchWeekTransactions failed:', err);
     return [];
   }
 };
@@ -200,7 +204,8 @@ const fetchActiveDeals = async (
       .order('updated_at', { ascending: false })
       .limit(10);
     return data ?? [];
-  } catch {
+  } catch (err) {
+    console.warn('[weekly-generator] fetchActiveDeals failed:', err);
     return [];
   }
 };
@@ -226,7 +231,8 @@ const fetchSentimentData = async (
           )
         : 50;
     return { avgSentiment: avg, items };
-  } catch {
+  } catch (err) {
+    console.warn('[weekly-generator] fetchSentimentData failed:', err);
     return { avgSentiment: 50, items: [] };
   }
 };

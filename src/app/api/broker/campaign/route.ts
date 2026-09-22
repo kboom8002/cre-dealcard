@@ -60,8 +60,9 @@ export async function POST(req: NextRequest) {
         temperature: 0.7,
       });
       text = res.text;
-    } catch {
-      // Fallback
+    } catch (err) {
+      console.warn('[campaign] generateText failed:', err);
+      // Fallback to template
     }
 
     return NextResponse.json({

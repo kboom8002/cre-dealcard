@@ -288,8 +288,9 @@ export async function POST(req: NextRequest) {
     } else {
       savedMatch = data;
     }
-  } catch {
-    // Non-blocking in mock environments
+  } catch (err) {
+    console.warn('[match] CasePack insert failed:', err);
+    // Non-blocking
   }
 
   // Save CasePack
@@ -308,7 +309,8 @@ export async function POST(req: NextRequest) {
     if (casePack) {
       await supabase.from('deal_casepacks').insert(casePack);
     }
-  } catch {
+  } catch (err) {
+    console.warn('[match] CasePack insert failed:', err);
     // Non-blocking
   }
 
@@ -338,7 +340,8 @@ export async function POST(req: NextRequest) {
         promotion_updated_at: new Date().toISOString(),
       })
       .eq('id', buildingId);
-  } catch {
+  } catch (err) {
+    console.warn('[match] CasePack insert failed:', err);
     // Non-blocking
   }
 
@@ -355,7 +358,8 @@ export async function POST(req: NextRequest) {
         buyer_intent_id: buyerIntentId,
       },
     });
-  } catch {
+  } catch (err) {
+    console.warn('[match] CasePack insert failed:', err);
     // Non-blocking
   }
 

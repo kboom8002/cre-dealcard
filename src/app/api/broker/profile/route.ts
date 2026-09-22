@@ -167,83 +167,99 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const guard = await requireBroker(req);
-  if (guard.error) return guard.error;
-  const { user } = guard;
-
-  const json = await req.json();
-  const parsed = ProfileUpdateSchema.safeParse(json);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  }
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  );
-
-  // 1. Update profiles table
-  const profileUpdate: Record<string, unknown> = {};
-  if (parsed.data.display_name !== undefined) profileUpdate.display_name = parsed.data.display_name;
-  if (parsed.data.phone !== undefined) profileUpdate.phone = parsed.data.phone;
-  if (parsed.data.company !== undefined) profileUpdate.company = parsed.data.company;
-  if (parsed.data.tagline !== undefined) profileUpdate.tagline = parsed.data.tagline;
-  if (parsed.data.avatar_url !== undefined) profileUpdate.photo_url = parsed.data.avatar_url;
-
-  if (Object.keys(profileUpdate).length > 0) {
-    const { error } = await supabase
-      .from('profiles')
-      .upsert({
-        id: user!.id,
-        role: 'broker',
-        ...profileUpdate,
-      });
-    if (error) {
-      log.error('[Profile PUT] profiles update error:', error);
-      return NextResponse.json({ error: `기본 정보 저장 오류: ${error.message}` }, { status: 500 });
+  try {
+    const guard = await requireBroker(req);
+    if (guard.error) return guard.error;
+    const { user } = guard;
+  
+    const json = await req.json();
+    const parsed = ProfileUpdateSchema.safeParse(json);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
-  }
-
-  // 2. Upsert broker_profiles table (화이트리스트 컬럼만 전달)
-  const brokerUpdate: Record<string, unknown> = { user_id: user!.id };
-  for (const [key, value] of Object.entries(parsed.data)) {
-    if (VALID_BROKER_COLUMNS.has(key) && value !== undefined) {
-      brokerUpdate[key] = value;
-    }
-  }
-
-  if (Object.keys(brokerUpdate).length > 1) {
-    const { data: existing } = await supabase
-      .from('broker_profiles')
-      .select('user_id')
-      .eq('user_id', user!.id)
-      .maybeSingle();
-
-    if (existing) {
+  
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } },
+    );
+  
+    // 1. Update profiles table
+    const profileUpdate: Record<string, unknown> = {};
+    if (parsed.data.display_name !== undefined) profileUpdate.display_name = parsed.data.display_name;
+    if (parsed.data.phone !== undefined) profileUpdate.phone = parsed.data.phone;
+    if (parsed.data.company !== undefined) profileUpdate.company = parsed.data.company;
+    if (parsed.data.tagline !== undefined) profileUpdate.tagline = parsed.data.tagline;
+    if (parsed.data.avatar_url !== undefined) profileUpdate.photo_url = parsed.data.avatar_url;
+  
+    if (Object.keys(profileUpdate).length > 0) {
       const { error } = await supabase
-        .from('broker_profiles')
-        .update(brokerUpdate)
-        .eq('user_id', user!.id);
+        .from('profiles')
+        .upsert({
+          id: user!.id,
+          role: 'broker',
+          ...profileUpdate,
+        });
       if (error) {
-        log.error('[Profile PUT] broker_profiles update error:', error);
-        return NextResponse.json({ error: `전문 프로필 저장 오류: ${error.message}` }, { status: 500 });
-      }
-    } else {
-      const { error } = await supabase
-        .from('broker_profiles')
-        .insert(brokerUpdate);
-      if (error) {
-        log.error('[Profile PUT] broker_profiles insert error:', error);
-        return NextResponse.json({ error: `전문 프로필 생성 오류: ${error.message}` }, { status: 500 });
+        log.error('[Profile PUT] profiles update error:', error);
+        return NextResponse.json({ error: `기본 정보 저장 오류: ${error.message}` }, { status: 500 });
       }
     }
+  
+    // 2. Upsert broker_profiles table (화이트리스트 컬럼만 전달)
+    const brokerUpdate: Record<string, unknown> = { user_id: user!.id };
+    for (const [key, value] of Object.entries(parsed.data)) {
+      if (VALID_BROKER_COLUMNS.has(key) && value !== undefined) {
+        brokerUpdate[key] = value;
+      }
+    }
+  
+    if (Object.keys(brokerUpdate).length > 1) {
+      const { data: existing } = await supabase
+        .from('broker_profiles')
+        .select('user_id')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+  
+      if (existing) {
+        const { error } = await supabase
+          .from('broker_profiles')
+          .update(brokerUpdate)
+          .eq('user_id', user!.id);
+        if (error) {
+          log.error('[Profile PUT] broker_profiles update error:', error);
+          return NextResponse.json({ error: `전문 프로필 저장 오류: ${error.message}` }, { status: 500 });
+        }
+      } else {
+        const { error } = await supabase
+          .from('broker_profiles')
+          .insert(brokerUpdate);
+        if (error) {
+          log.error('[Profile PUT] broker_profiles insert error:', error);
+          return NextResponse.json({ error: `전문 프로필 생성 오류: ${error.message}` }, { status: 500 });
+        }
+      }
+    }
+  
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error('[profile-put] Error:', err);
+    return NextResponse.json(
+      { error: '요청 처리에 실패했습니다.' },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ ok: true });
 }
 
 // PATCH is an alias for PUT (for partial updates like FAQ)
 export async function PATCH(req: NextRequest) {
-  return PUT(req);
+  try {
+    return PUT(req);
+  } catch (err) {
+    console.error('[profile-patch] Error:', err);
+    return NextResponse.json(
+      { error: '요청 처리에 실패했습니다.' },
+      { status: 500 }
+    );
+  }
 }

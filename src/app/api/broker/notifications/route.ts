@@ -22,27 +22,35 @@ const NotificationsActionSchema = z.discriminatedUnion("action", [
 ]);
 
 export async function GET(req: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const parseResult = NotificationsQuerySchema.safeParse({
+      limit: req.nextUrl.searchParams.get("limit") ?? undefined,
+    });
+
+    const limit = parseResult.success ? parseResult.data.limit : 50;
+
+    const [notifications, unreadCount] = await Promise.all([
+      getNotifications(user.id, limit),
+      getUnreadCount(user.id),
+    ]);
+
+    return NextResponse.json({
+      notifications,
+      unread_count: unreadCount,
+    });
+  } catch (err) {
+    console.error('[broker-notifications-get] Error:', err);
+    return NextResponse.json(
+      { error: '요청 처리에 실패했습니다.' },
+      { status: 500 }
+    );
   }
-
-  const parseResult = NotificationsQuerySchema.safeParse({
-    limit: req.nextUrl.searchParams.get("limit") ?? undefined,
-  });
-
-  const limit = parseResult.success ? parseResult.data.limit : 50;
-
-  const [notifications, unreadCount] = await Promise.all([
-    getNotifications(user.id, limit),
-    getUnreadCount(user.id),
-  ]);
-
-  return NextResponse.json({
-    notifications,
-    unread_count: unreadCount,
-  });
 }
 
 export async function POST(req: NextRequest) {

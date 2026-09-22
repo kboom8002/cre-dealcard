@@ -92,6 +92,7 @@ export class MarketIndicatorEngine {
 
       return 55; // Core fallback
     } catch (e) {
+      console.warn('[MarketIndicatorEngine] compute failed, using baseline:', e);
       return 50; // Final fail-safe
     }
   }
@@ -136,6 +137,7 @@ export class MarketIndicatorEngine {
 
       return 40; // Default baseline supply
     } catch (e) {
+      console.warn('[MarketIndicatorEngine] compute failed, using baseline:', e);
       return 50; // Fallback
     }
   }
@@ -186,6 +188,7 @@ export class MarketIndicatorEngine {
         resistanceThresholdPct: 15.0, // 15% default threshold
       };
     } catch (e) {
+      console.warn('[MarketIndicatorEngine] compute failed, using baseline:', e);
       return { avgPriceGapPct: 8.5, resistanceThresholdPct: 15.0 };
     }
   }
@@ -232,6 +235,7 @@ export class MarketIndicatorEngine {
 
       return { avgHoldDays: 45, absorptionRate: 65 }; // Fallbacks
     } catch (e) {
+      console.warn('[MarketIndicatorEngine] compute failed, using baseline:', e);
       return { avgHoldDays: 45, absorptionRate: 65 };
     }
   }

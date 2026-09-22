@@ -16,115 +16,123 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
+  try {
+    const { id } = await params;
 
-  const guard = await requireBroker(req);
-  if (guard.error) return guard.error;
-  const { user } = guard;
+    const guard = await requireBroker(req);
+    if (guard.error) return guard.error;
+    const { user } = guard;
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  );
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } },
+    );
 
-  // Verify ownership using correct DB column owner_id
-  const result = await readWithMigration(id);
-  const building = result.data as any;
+    // Verify ownership using correct DB column owner_id
+    const result = await readWithMigration(id);
+    const building = result.data as any;
 
-  if (!building || Object.keys(building).length === 0 || building.owner_id !== user!.id) {
-    return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
-  }
+    if (!building || Object.keys(building).length === 0 || building.owner_id !== user!.id) {
+      return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 });
+    }
 
-  // Fetch uploaded evidence file categories
-  const { data: files } = await supabase
-    .from('evidence_files')
-    .select('layer_category')
-    .eq('building_id', id);
+    // Fetch uploaded evidence file categories
+    const { data: files } = await supabase
+      .from('evidence_files')
+      .select('layer_category')
+      .eq('building_id', id);
 
-  const uploadedCategories = files?.map((f: any) => f.layer_category) || [];
+    const uploadedCategories = files?.map((f: any) => f.layer_category) || [];
 
-  // Determine checklist values
-  const rentRollChecked = uploadedCategories.includes('rent_roll') || 
-    (building.lease_summary && Object.keys(building.lease_summary).length > 0 && Array.isArray((building.lease_summary as any).tenants) && (building.lease_summary as any).tenants.length > 0);
+    // Determine checklist values
+    const rentRollChecked = uploadedCategories.includes('rent_roll') || 
+      (building.lease_summary && Object.keys(building.lease_summary).length > 0 && Array.isArray((building.lease_summary as any).tenants) && (building.lease_summary as any).tenants.length > 0);
 
-  const floorPlanChecked = uploadedCategories.includes('floor_plan') || !!building.floor_plan_url;
-  const repairHistoryChecked = uploadedCategories.includes('repair_history') || 
-    (building.repair_history && Object.keys(building.repair_history).length > 0);
+    const floorPlanChecked = uploadedCategories.includes('floor_plan') || !!building.floor_plan_url;
+    const repairHistoryChecked = uploadedCategories.includes('repair_history') || 
+      (building.repair_history && Object.keys(building.repair_history).length > 0);
 
-  const disclosurePolicyChecked = uploadedCategories.includes('disclosure_policy') || 
-    (building.disclosure_prefs && Object.keys(building.disclosure_prefs).length > 0);
+    const disclosurePolicyChecked = uploadedCategories.includes('disclosure_policy') || 
+      (building.disclosure_prefs && Object.keys(building.disclosure_prefs).length > 0);
 
-  const checklist = {
-    buildingRegister: uploadedCategories.includes('building_register'),
-    registry: uploadedCategories.includes('registry_docs'),
-    landUsePlan: uploadedCategories.includes('land_use_plan'),
-    rentRoll: rentRollChecked,
-    photos: uploadedCategories.includes('photos'),
-    floorPlan: floorPlanChecked,
-    repairHistory: repairHistoryChecked,
-    vacancyStatus: uploadedCategories.includes('vacancy_docs'),
-    askingPrice: !!building.price_band,
-    disclosurePolicy: disclosurePolicyChecked,
-  };
-
-  const computedScores = computeLayerScore(checklist);
-  const eligibleOutputs = getEligibleOutputs(computedScores.total);
-
-  // ─── v3 Domain Module Integration ───
-  const attrs = buildAttrsFromSsotLite(building);
-  const provenanceMap = buildProvenanceFromSsotLite(building);
-  
-  const derived = computeDerivedFields(attrs);
-
-  // Data Grade (A~D)
-  const gradeResult = computeDataGrade(attrs, provenanceMap);
-
-  // Financial Summary (gated by grade)
-  const finInputs = buildFinancialInputsFromSsotLite(building);
-  let financialSummary = null;
-  if (finInputs.grossAnnualIncomeKrw > 0 && finInputs.askingPriceKrw > 0) {
-    const noiResult = calculateNOI(finInputs.grossAnnualIncomeKrw, finInputs.opexRatioPct, finInputs.vacancyReservePct);
-    const capRateResult = calculateCapRate(noiResult.value, finInputs.askingPriceKrw);
-    financialSummary = {
-      noi: noiResult,
-      capRate: capRateResult,
-      grade: gradeResult.grade,
-      isDcfEligible: gradeResult.grade === 'A',
+    const checklist = {
+      buildingRegister: uploadedCategories.includes('building_register'),
+      registry: uploadedCategories.includes('registry_docs'),
+      landUsePlan: uploadedCategories.includes('land_use_plan'),
+      rentRoll: rentRollChecked,
+      photos: uploadedCategories.includes('photos'),
+      floorPlan: floorPlanChecked,
+      repairHistory: repairHistoryChecked,
+      vacancyStatus: uploadedCategories.includes('vacancy_docs'),
+      askingPrice: !!building.price_band,
+      disclosurePolicy: disclosurePolicyChecked,
     };
+
+    const computedScores = computeLayerScore(checklist);
+    const eligibleOutputs = getEligibleOutputs(computedScores.total);
+
+    // ─── v3 Domain Module Integration ───
+    const attrs = buildAttrsFromSsotLite(building);
+    const provenanceMap = buildProvenanceFromSsotLite(building);
+    
+    const derived = computeDerivedFields(attrs);
+
+    // Data Grade (A~D)
+    const gradeResult = computeDataGrade(attrs, provenanceMap);
+
+    // Financial Summary (gated by grade)
+    const finInputs = buildFinancialInputsFromSsotLite(building);
+    let financialSummary = null;
+    if (finInputs.grossAnnualIncomeKrw > 0 && finInputs.askingPriceKrw > 0) {
+      const noiResult = calculateNOI(finInputs.grossAnnualIncomeKrw, finInputs.opexRatioPct, finInputs.vacancyReservePct);
+      const capRateResult = calculateCapRate(noiResult.value, finInputs.askingPriceKrw);
+      financialSummary = {
+        noi: noiResult,
+        capRate: capRateResult,
+        grade: gradeResult.grade,
+        isDcfEligible: gradeResult.grade === 'A',
+      };
+    }
+
+    // Constraint Validation (C01~C12)
+    const constraintResult = validateAssetConstraints(attrs);
+
+    // Update building_ssot_lite if there's any discrepancy
+    if (
+      building.completeness_score !== computedScores.total ||
+      JSON.stringify(building.layer_scores) !== JSON.stringify(computedScores)
+    ) {
+      await supabase
+        .from('building_ssot_lite')
+        .update({
+          completeness_score: computedScores.total,
+          layer_scores: computedScores as any,
+        })
+        .eq('id', id);
+    }
+
+    return NextResponse.json({
+      ok: true,
+      buildingId: id,
+      completenessScore: computedScores.total,
+      layerScores: computedScores,
+      checklist,
+      eligibleOutputs,
+      disclosurePrefs: building.disclosure_prefs || {},
+      leaseSummary: building.lease_summary || {},
+      // v3 Domain Module Results
+      dataGrade: gradeResult.grade,
+      gradeDetails: gradeResult,
+      financialSummary,
+      constraints: constraintResult,
+      derivedFields: derived,
+    });
+  } catch (err) {
+    console.error('[broker-buildings-id-studio-get] Error:', err);
+    return NextResponse.json(
+      { error: '요청 처리에 실패했습니다.' },
+      { status: 500 }
+    );
   }
-
-  // Constraint Validation (C01~C12)
-  const constraintResult = validateAssetConstraints(attrs);
-
-  // Update building_ssot_lite if there's any discrepancy
-  if (
-    building.completeness_score !== computedScores.total ||
-    JSON.stringify(building.layer_scores) !== JSON.stringify(computedScores)
-  ) {
-    await supabase
-      .from('building_ssot_lite')
-      .update({
-        completeness_score: computedScores.total,
-        layer_scores: computedScores as any,
-      })
-      .eq('id', id);
-  }
-
-  return NextResponse.json({
-    ok: true,
-    buildingId: id,
-    completenessScore: computedScores.total,
-    layerScores: computedScores,
-    checklist,
-    eligibleOutputs,
-    disclosurePrefs: building.disclosure_prefs || {},
-    leaseSummary: building.lease_summary || {},
-    // v3 Domain Module Results
-    dataGrade: gradeResult.grade,
-    gradeDetails: gradeResult,
-    financialSummary,
-    constraints: constraintResult,
-    derivedFields: derived,
-  });
 }

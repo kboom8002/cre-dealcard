@@ -75,19 +75,21 @@ export async function signup(
       const { createServiceClient } = await import('@/lib/supabase/service');
       const serviceClient = createServiceClient();
       
-      await serviceClient
+      const { error: pErr } = await serviceClient
         .from('profiles')
         .upsert({
           id: newUserId,
           role: 'broker',
           display_name: displayName,
         });
+      if (pErr) console.error('[Signup] profiles upsert failed:', pErr);
 
-      await serviceClient
+      const { error: bpErr } = await serviceClient
         .from('broker_profiles')
         .upsert({
           user_id: newUserId,
         }, { onConflict: 'user_id' });
+      if (bpErr) console.error('[Signup] broker_profiles upsert failed:', bpErr);
     } catch (upsertErr) {
       console.warn('[Signup] Profile upsert warning:', upsertErr);
     }

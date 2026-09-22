@@ -27,101 +27,117 @@ const BUILTIN_PRESETS = Object.values(PPTX_PRESET_TEMPLATES).map(p => ({
 }));
 
 export async function GET(req: NextRequest) {
-  const guard = await requireBroker(req);
-  if (guard.error) return guard.error;
-  const user = guard.user!;
+  try {
+    const guard = await requireBroker(req);
+    if (guard.error) return guard.error;
+    const user = guard.user!;
 
-  const includeBuiltin = req.nextUrl.searchParams.get('include_builtin') === 'true';
+    const includeBuiltin = req.nextUrl.searchParams.get('include_builtin') === 'true';
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
-  const { data: myPresets, error } = await supabase
-    .from('pptx_custom_presets')
-    .select('id, preset_name, preset_desc, cover_style, layout_style, company_name, company_tagline, logo_url, base_preset_id, is_company_default, company_id, tokens, use_count, created_at, updated_at')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  // 같은 법인 프리셋 (내 것 제외)
-  const myCompanyIds = [...new Set((myPresets ?? []).map(p => p.company_id).filter(Boolean))];
-  let companyPresets: any[] = [];
-  if (myCompanyIds.length > 0) {
-    const { data: cp } = await supabase
+    const { data: myPresets, error } = await supabase
       .from('pptx_custom_presets')
       .select('id, preset_name, preset_desc, cover_style, layout_style, company_name, company_tagline, logo_url, base_preset_id, is_company_default, company_id, tokens, use_count, created_at, updated_at')
-      .in('company_id', myCompanyIds)
-      .neq('user_id', user.id)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false });
-    companyPresets = cp ?? [];
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // 같은 법인 프리셋 (내 것 제외)
+    const myCompanyIds = [...new Set((myPresets ?? []).map(p => p.company_id).filter(Boolean))];
+    let companyPresets: any[] = [];
+    if (myCompanyIds.length > 0) {
+      const { data: cp } = await supabase
+        .from('pptx_custom_presets')
+        .select('id, preset_name, preset_desc, cover_style, layout_style, company_name, company_tagline, logo_url, base_preset_id, is_company_default, company_id, tokens, use_count, created_at, updated_at')
+        .in('company_id', myCompanyIds)
+        .neq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      companyPresets = cp ?? [];
+    }
+
+    const result: any = {
+      my_presets: myPresets ?? [],
+      company_presets: companyPresets,
+    };
+    if (includeBuiltin) result.builtin_presets = BUILTIN_PRESETS;
+
+    return NextResponse.json(result);
+  } catch (err) {
+    console.error('[broker-pptx-preset-get] Error:', err);
+    return NextResponse.json(
+      { error: '요청 처리에 실패했습니다.' },
+      { status: 500 }
+    );
   }
-
-  const result: any = {
-    my_presets: myPresets ?? [],
-    company_presets: companyPresets,
-  };
-  if (includeBuiltin) result.builtin_presets = BUILTIN_PRESETS;
-
-  return NextResponse.json(result);
 }
 
 export async function POST(req: NextRequest) {
-  const guard = await requireBroker(req);
-  if (guard.error) return guard.error;
-  const user = guard.user!;
+  try {
+    const guard = await requireBroker(req);
+    if (guard.error) return guard.error;
+    const user = guard.user!;
 
-  const body = await req.json();
-  const {
-    preset_name, preset_desc, tokens, cover_style, layout_style,
-    company_name, company_tagline, logo_url, base_preset_id, company_id,
-    is_company_default,
-  } = body;
+    const body = await req.json();
+    const {
+      preset_name, preset_desc, tokens, cover_style, layout_style,
+      company_name, company_tagline, logo_url, base_preset_id, company_id,
+      is_company_default,
+    } = body;
 
-  if (!preset_name || !tokens) {
-    return NextResponse.json({ error: 'preset_name and tokens are required' }, { status: 400 });
-  }
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-
-  // 서버에서 company_id 조회 (클라이언트 값 무시)
-  const { data: profile } = await supabase
-    .from('broker_profiles')
-    .select('company_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  const safeCompanyId = profile?.company_id ?? null;
-
-  const { data, error } = await supabase
-    .from('pptx_custom_presets')
-    .insert({
-      user_id: user.id,
-      company_id: safeCompanyId,
-      preset_name,
-      preset_desc: preset_desc ?? null,
-      tokens,
-      cover_style: cover_style ?? 'institutional_masses',
-      layout_style: layout_style ?? 'classic',
-      company_name: company_name ?? null,
-      company_tagline: company_tagline ?? null,
-      logo_url: logo_url ?? null,
-      base_preset_id: base_preset_id ?? 'golden_institutional',
-      is_company_default: is_company_default ?? false,
-    })
-    .select()
-    .single();
-
-  if (error) {
-    if (error.code === '23505') {
-      return NextResponse.json({ error: '같은 이름의 프리셋이 이미 존재합니다.' }, { status: 409 });
+    if (!preset_name || !tokens) {
+      return NextResponse.json({ error: 'preset_name and tokens are required' }, { status: 400 });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
 
-  return NextResponse.json({ preset: data }, { status: 201 });
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // 서버에서 company_id 조회 (클라이언트 값 무시)
+    const { data: profile } = await supabase
+      .from('broker_profiles')
+      .select('company_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const safeCompanyId = profile?.company_id ?? null;
+
+    const { data, error } = await supabase
+      .from('pptx_custom_presets')
+      .insert({
+        user_id: user.id,
+        company_id: safeCompanyId,
+        preset_name,
+        preset_desc: preset_desc ?? null,
+        tokens,
+        cover_style: cover_style ?? 'institutional_masses',
+        layout_style: layout_style ?? 'classic',
+        company_name: company_name ?? null,
+        company_tagline: company_tagline ?? null,
+        logo_url: logo_url ?? null,
+        base_preset_id: base_preset_id ?? 'golden_institutional',
+        is_company_default: is_company_default ?? false,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        return NextResponse.json({ error: '같은 이름의 프리셋이 이미 존재합니다.' }, { status: 409 });
+      }
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ preset: data }, { status: 201 });
+  } catch (err) {
+    console.error('[broker-pptx-preset-post] Error:', err);
+    return NextResponse.json(
+      { error: '요청 처리에 실패했습니다.' },
+      { status: 500 }
+    );
+  }
 }

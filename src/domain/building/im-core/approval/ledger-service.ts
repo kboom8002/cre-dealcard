@@ -115,7 +115,8 @@ export class ApprovalLedgerService {
     if (this.port) {
       try {
         await this.port.recordApprovalEvent(event);
-      } catch {
+      } catch (err) {
+        console.warn('[ApprovalLedger] DB record failed, fallback to memory:', err);
         // Resilient fallback to memory in offline / test environments
       }
     }
@@ -133,7 +134,8 @@ export class ApprovalLedgerService {
           }
           return dbEvent;
         }
-      } catch {
+      } catch (err) {
+        console.warn('[ApprovalLedger] DB record failed, fallback to memory:', err);
         // Resilient fallback to memory
       }
     }
@@ -149,7 +151,8 @@ export class ApprovalLedgerService {
         if (history && history.length > 0) {
           return history;
         }
-      } catch {
+      } catch (err) {
+        console.warn('[ApprovalLedger] DB record failed, fallback to memory:', err);
         // Resilient fallback to memory
       }
     }
@@ -178,7 +181,8 @@ export class ApprovalLedgerService {
     if (this.port) {
       try {
         await this.port.saveReleaseRecord(record);
-      } catch {
+      } catch (err) {
+        console.warn('[ApprovalLedger] DB record failed, fallback to memory:', err);
         // Resilient fallback to memory
       }
     }
@@ -219,7 +223,8 @@ export class ApprovalLedgerService {
           artifactFileHash,
           updatedAt: record.updatedAt,
         });
-      } catch {
+      } catch (err) {
+        console.warn('[ApprovalLedger] DB record failed, fallback to memory:', err);
         // Resilient fallback to memory
       }
     }

@@ -13,102 +13,126 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const guard = await requireBroker(req);
-  if (guard.error) return guard.error;
-  const user = guard.user!;
+  try {
+    const { id } = await params;
+    const guard = await requireBroker(req);
+    if (guard.error) return guard.error;
+    const user = guard.user!;
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
-  const { data, error } = await supabase
-    .from('pptx_custom_presets')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data) return NextResponse.json({ error: 'Preset not found' }, { status: 404 });
-
-  // 접근 권한 확인 (내 것 또는 같은 법인)
-  if (data.user_id !== user.id && !data.is_public) {
-    // 같은 법인인지 확인
-    const { data: myProfile } = await supabase
-      .from('broker_profiles')
-      .select('company_id')
-      .eq('user_id', user.id)
+    const { data, error } = await supabase
+      .from('pptx_custom_presets')
+      .select('*')
+      .eq('id', id)
       .maybeSingle();
 
-    const isSameCompany = myProfile?.company_id && myProfile.company_id === data.company_id;
-    if (!isSameCompany) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!data) return NextResponse.json({ error: 'Preset not found' }, { status: 404 });
 
-  // use_count 원자적 증가 (또는 fallback)
-  const { error: rpcError } = await supabase.rpc('increment_preset_use_count', { preset_id: id });
-  if (rpcError) {
-    await supabase.from('pptx_custom_presets')
-      .update({ use_count: (data.use_count ?? 0) + 1 })
-      .eq('id', id);
-  }
+    // 접근 권한 확인 (내 것 또는 같은 법인)
+    if (data.user_id !== user.id && !data.is_public) {
+      // 같은 법인인지 확인
+      const { data: myProfile } = await supabase
+        .from('broker_profiles')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-  return NextResponse.json({ preset: data });
+      const isSameCompany = myProfile?.company_id && myProfile.company_id === data.company_id;
+      if (!isSameCompany) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // use_count 원자적 증가 (또는 fallback)
+    const { error: rpcError } = await supabase.rpc('increment_preset_use_count', { preset_id: id });
+    if (rpcError) {
+      await supabase.from('pptx_custom_presets')
+        .update({ use_count: (data.use_count ?? 0) + 1 })
+        .eq('id', id);
+    }
+
+    return NextResponse.json({ preset: data });
+  } catch (err) {
+    console.error('[broker-pptx-preset-id-get] Error:', err);
+    return NextResponse.json(
+      { error: '요청 처리에 실패했습니다.' },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const guard = await requireBroker(req);
-  if (guard.error) return guard.error;
-  const user = guard.user!;
+  try {
+    const { id } = await params;
+    const guard = await requireBroker(req);
+    if (guard.error) return guard.error;
+    const user = guard.user!;
 
-  const body = await req.json();
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+    const body = await req.json();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
-  const { data, error } = await supabase
-    .from('pptx_custom_presets')
-    .update({
-      ...body,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id)
-    .eq('user_id', user.id)  // 내 것만 수정 가능
-    .select()
-    .single();
+    const { data, error } = await supabase
+      .from('pptx_custom_presets')
+      .update({
+        ...body,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('user_id', user.id)  // 내 것만 수정 가능
+      .select()
+      .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data) return NextResponse.json({ error: 'Not found or not authorized' }, { status: 404 });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!data) return NextResponse.json({ error: 'Not found or not authorized' }, { status: 404 });
 
-  return NextResponse.json({ preset: data });
+    return NextResponse.json({ preset: data });
+  } catch (err) {
+    console.error('[broker-pptx-preset-id-put] Error:', err);
+    return NextResponse.json(
+      { error: '요청 처리에 실패했습니다.' },
+      { status: 500 }
+    );
+  }
 }
 
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const guard = await requireBroker(req);
-  if (guard.error) return guard.error;
-  const user = guard.user!;
+  try {
+    const { id } = await params;
+    const guard = await requireBroker(req);
+    if (guard.error) return guard.error;
+    const user = guard.user!;
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
-  const { error } = await supabase
-    .from('pptx_custom_presets')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', user.id);
+    const { error } = await supabase
+      .from('pptx_custom_presets')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error('[broker-pptx-preset-id-delete] Error:', err);
+    return NextResponse.json(
+      { error: '요청 처리에 실패했습니다.' },
+      { status: 500 }
+    );
+  }
 }
