@@ -311,12 +311,30 @@ export async function GET(
     .from('document_objects')
     .select('*')
     .eq('building_id', buildingId || grant.building_id)
-    .eq('document_type', 'mobile_im_lite')
+    .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser', 'im_pro']) // P-H1: 통일 필터
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
   const bodyContent = doc?.body || {};
+
+  // P-H2: 브로커 정보 동적 조회 (하드코딩 제거)
+  const ownerId = doc?.broker_id ?? doc?.owner_id;
+  let brokerInfo = { displayName: '담당 중개인', company: '', phone: '' };
+  if (ownerId) {
+    const { data: bp } = await supabase
+      .from('broker_profiles')
+      .select('display_name, company_name, phone')
+      .eq('user_id', ownerId)
+      .maybeSingle();
+    if (bp) {
+      brokerInfo = {
+        displayName: bp.display_name || '담당 중개인',
+        company: bp.company_name || '',
+        phone: bp.phone || '',
+      };
+    }
+  }
   
   const timestamp = new Date().toISOString().slice(0, 16);
   const phoneLast4 = (grant.requester_phone || '0000').slice(-4);
@@ -324,7 +342,7 @@ export async function GET(
 
   const html = buildProHtmlExport(bodyContent, grant, {
     watermarkText,
-    broker: { displayName: '담당 중개인', company: '크리딜 파트너스', phone: '010-0000-0000' } // Should dynamically load broker info in future
+    broker: brokerInfo,
   });
 
   await supabase.from('activity_events').insert({

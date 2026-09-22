@@ -177,15 +177,23 @@ export async function GET(
   let doc: MobileIMDocument | null = getDemoMobileIM(buildingId) || null;
 
   if (!doc) {
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://credeal.net";
+    // P-C3 fix: self-fetch 대신 직접 DB 조회 (Vercel 서버리스 데드락 방지)
     try {
-      const res = await fetch(`${baseUrl}/api/public/im-lite/${buildingId}`);
-      if (res.ok) {
-        const { data } = await res.json();
-        doc = data as MobileIMDocument;
+      const { createServiceClient } = await import('@/lib/supabase/service');
+      const supabase = createServiceClient();
+      const { data: dbDoc } = await supabase
+        .from('document_objects')
+        .select('body, title')
+        .eq('building_id', buildingId)
+        .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (dbDoc?.body) {
+        doc = dbDoc.body as MobileIMDocument;
       }
     } catch {
-      // Ignore fetch error
+      // DB 조회 실패 시 무시
     }
   }
 

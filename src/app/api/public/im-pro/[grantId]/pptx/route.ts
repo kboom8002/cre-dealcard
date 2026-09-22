@@ -5,7 +5,7 @@
  * Grant 검증 + NDA 확인 + pdf_export_allowed 확인
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/service';
 import type { ReleaseTier } from '@/domain/building/im-core';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -22,10 +22,7 @@ export async function GET(
   const { grantId } = await params;
   const preset = req.nextUrl.searchParams.get('preset') || undefined;
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createServiceClient();
 
   // 1. Verify grant
   const { data: grant } = await supabase
@@ -67,7 +64,7 @@ export async function GET(
     .from('document_objects')
     .select('*')
     .eq('building_id', buildingId)
-    .in('document_type', ['mobile_im', 'im_lite_draft', 'blind_teaser'])
+    .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser', 'im_pro'])
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -134,7 +131,7 @@ export async function GET(
 
     const result = await renderer.render({
       buildingId,
-      // tier 폐지 — 골디락스 단일 시퀀스
+      isPro: true, // P-C1 fix: Pro 시퀀스(30~40면) 활성화
       preset,
       posture,
       grade,

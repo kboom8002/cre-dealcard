@@ -61,7 +61,7 @@ export async function POST(
   // Load existing document
   const { data: doc, error: docErr } = await supabase
     .from('document_objects')
-    .select('id, content, metadata')
+    .select('id, body, metadata')
     .eq('id', docId)
     .eq('building_id', buildingId)
     .maybeSingle();
@@ -77,8 +77,8 @@ export async function POST(
     return NextResponse.json({ ok: true, sections: meta[cachedKey], cached: true });
   }
 
-  // Extract sections from document content
-  const content = doc.content as Record<string, unknown>;
+  // Extract sections from document body
+  const content = doc.body as Record<string, unknown>;
   const rawSections = content?.sections as Array<{ title?: string; markdown?: string; section_type?: string }> | undefined;
   if (!rawSections || rawSections.length === 0) {
     return NextResponse.json({ error: 'No sections found in document' }, { status: 422 });
