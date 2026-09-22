@@ -142,7 +142,10 @@ async function runSeochoGoldenTest() {
   console.log('\n▶ [Step 5] 모바일 IM: 덱 시퀀서 및 SSOT 조립 (enrichment 포함)');
   let enrichment = null;
   try {
-    enrichment = await enrichForBasicIm(seochoCoords, { address: '서울특별시 서초구 서초동 1364-28' });
+    enrichment = await enrichForBasicIm(seochoCoords, {
+      address: '서울특별시 서초구 서초동 1364-28',
+      pnu: '1165010800113640028', // 서초동 1364-28 실 PNU (Rule 57/64)
+    });
     console.log(`  🔗 Enrichment API 호출 성공 (hasCadastralMap: ${enrichment.hasCadastralMap})`);
   } catch (err) {
     console.warn('  ⚠️ Enrichment API 호출 실패 (Graceful skip):', err);

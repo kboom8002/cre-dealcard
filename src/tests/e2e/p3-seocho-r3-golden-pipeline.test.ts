@@ -108,6 +108,7 @@ describe.skipIf(!existsSync(DATA_DIR))('P3 서초 Owner R3-Verified', () => {
       buildingName: 'FM빌딩',
       posture: 'owner_occupied',
       coordinates: { lat: 37.4843, lng: 127.0275 },
+      pnu: '1165010800113640028', // 서초동 1364-28 실 PNU (Rule 57/64)
       keyInvestmentPoint: '사옥 즉시 입주 가능, 임대료 절감',
       photos
     });
