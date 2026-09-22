@@ -103,13 +103,17 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     if (FLOOR_PATTERN.test(firstCell.trim())) {
       floors = tableRows.map((r: any[]) => {
         const floor = String(r[0] || '').trim();
-        // 테이블 컬럼 순서: [층수, 임차인, 면적(평), 보증금, 월세, 계약종료] — HEADERS/data-binder와 동기화
-        const tenant = String(r[1] || '').trim();
-        const areaStr = String(r[2] || '').trim();
-        const deposit = String(r[3] || '').trim();
-        const rent = String(r[4] || '').trim();
-        const expiry = String(r[5] || '').trim();
-        const isVac = tenant.includes('공실') || floor.includes('공실');
+        // D45 C-1 fix: 10열 표준 헤더 기준 인덱스 정렬
+        // ['층', '호실', '용도/업종', '임차인', '전용면적(㎡)', '보증금(만원)', '월세(만원)', '관리비(만원)', '계약종료', '비고']
+        //   r[0]   r[1]     r[2]        r[3]       r[4]           r[5]           r[6]           r[7]           r[8]      r[9]
+        const is10Col = r.length >= 8;
+        const tenant  = String(r[is10Col ? 3 : 1] || '').trim();
+        const areaStr = String(r[is10Col ? 4 : 2] || '').trim();
+        const deposit = String(r[is10Col ? 5 : 3] || '').trim();
+        const rent    = String(r[is10Col ? 6 : 4] || '').trim();
+        const expiry  = String(r[is10Col ? 8 : 5] || '').trim();
+        const remark  = String(r[is10Col ? 9 : (r.length > 6 ? 6 : -1)] || '').trim();
+        const isVac = tenant.includes('공실') || floor.includes('공실') || remark.includes('공실');
         return {
           floor,
           tenant: tenant || (isVac ? '공실' : '-'),

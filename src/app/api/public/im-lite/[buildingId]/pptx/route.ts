@@ -73,7 +73,7 @@ export async function GET(
   // 2. Fetch building info
   const { data: building } = await supabase
     .from('building_ssot_lite')
-    .select('owner_id, area_signal, asset_type, price_band, investment_posture, built_year, floors_above, floors_below, total_area_pyeong')
+    .select('owner_id, area_signal, asset_type, price_band, investment_posture, built_year, floors_above, floors_below, total_area_pyeong, pnu, address, lat, lng')
     .eq('id', buildingId)
     .maybeSingle();
 

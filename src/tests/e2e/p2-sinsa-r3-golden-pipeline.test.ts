@@ -107,8 +107,8 @@ describe.skipIf(!existsSync(DATA_DIR))('P2 신사 Trading R3-Verified', () => {
   it('Step 7-B: Evasive Phrase 검증', async () => { await assertZeroEvasivePhrases(pptxResult.buffer); });
   it('Step 7-C: Mock Data Leak 검증', async () => { await assertZeroMockLeaks(pptxResult.buffer); });
   it('Step 7-D: Physical Binary Gates 검증', async () => {
-    binaryInspection = await assertAllPhysicalBinaryGates(pptxResult.buffer).catch(() => ({ isPass: true }));
-    expect(true).toBe(true);
+    binaryInspection = await assertAllPhysicalBinaryGates(pptxResult.buffer);
+    expect(binaryInspection.isPass).toBe(true);
   });
 
   it('Step 8: 슬라이드 콘텐츠 검증', async () => {
