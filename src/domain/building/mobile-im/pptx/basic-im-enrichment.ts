@@ -48,19 +48,10 @@ export async function enrichForBasicIm(
 
   if (!pnu && options?.address) {
     try {
-      const { getVWorldApiKey, getVWorldReferer } = await import('@/lib/external/vworld-config');
-      const apiKey = getVWorldApiKey();
-      const referer = getVWorldReferer();
-      const searchAddr = encodeURIComponent(options.address);
-      const geocodeUrl = `https://api.vworld.kr/req/address?service=address&request=getcoord&version=2.0&crs=epsg:4326&address=${searchAddr}&refine=true&simple=false&format=json&type=PARCEL&key=${apiKey}`;
-      const geoRes = await fetch(geocodeUrl, { headers: { 'Referer': referer }, signal: AbortSignal.timeout(5000) });
-      if (geoRes.ok) {
-        const geoJson = await geoRes.json();
-        const result = geoJson?.response?.result;
-        if (result?.point) {
-          pnu = result.id; // V-World returns PNU as result.id
-        }
-      }
+      // D45 M-1: V-World getcoord API는 좌표만 반환하며 PNU(result.id)를 포함하지 않음.
+      // PNU는 상위 호출자가 options.pnu로 명시 전달해야 필지 경계가 그려집니다.
+      // 여기서는 PNU 없이도 지적도 WMS 타일은 정상 렌더링됨 (경계선만 미표시).
+      log.info('[enrichForBasicIm] PNU 미제공 — 주소 기반 지적도는 필지 경계선 없이 렌더링됩니다');
     } catch (err) {
       console.warn('[basic-im-enrichment] PNU auto-fetch failed:', err);
     }

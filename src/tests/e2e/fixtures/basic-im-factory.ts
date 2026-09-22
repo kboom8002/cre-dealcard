@@ -228,13 +228,13 @@ export async function createBasicImTestInput(
     buildingId: `golden-test-${Date.now()}`,
     preset: 'credeal_basic',  // 절대 다른 프리셋 불가
     posture: (options.posture as any) ?? 'income',
-    grade: 'B',
+    grade: (options as any).grade ?? (bottomSheet as any).expectedGrade ?? 'B',
     doc: {
       title: `${ssot.address} 투자설명서`,
       body: {
         heroCard,
         identity: {
-          investmentPosture: 'income',
+          investmentPosture: (options.posture as any) ?? 'income',
           assetType: '근린생활시설',
         },
         photos: options.photos ?? (bottomSheet.photos_v2 as any) ?? (bottomSheet.photos as any) ?? [],

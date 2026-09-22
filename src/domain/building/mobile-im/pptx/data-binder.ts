@@ -648,6 +648,28 @@ export function bindSectionData(
             result['rentRoll'].tables = [{ headers: ['항목', '금액', '항목', '금액'], rows: summaryRows }];
           }
         }
+        // D45 M-2: 사옥형(owner_occupied)은 월세/보증금 0이어도 공실 현황 합성
+        else if (doc.body?.identity?.investmentPosture === 'owner_occupied' || doc.body?.posture === 'owner_occupied') {
+          const vacantMatch = cleanMarkdown.match(/(\d+)\s*개?\s*층?\s*공실/);
+          const vacantCount = vacantMatch ? parseInt(vacantMatch[1]) : 0;
+          const floorLeases = doc.body?.floor_leases ?? [];
+          const totalFloors = floorLeases.length || parseInt(String(ssot.floors_above ?? 0)) || 0;
+          const occupiedFloors = totalFloors - vacantCount;
+
+          const summaryRows: string[][] = [
+            ['사용 현황', '자가 사용 (사옥)', '총 층수', `${totalFloors}개 층`],
+            ['자가 사용', `${occupiedFloors}개 층`, '공실', vacancySignal || `${vacantCount}개 층`],
+          ];
+          if (askingManwon) {
+            summaryRows.push(['매각 희망가', `${(askingManwon / 10000).toFixed(0)}억 원`, '비고', '즉시 명도 가능']);
+          }
+
+          result['rentRoll'].tableRows = summaryRows;
+          result['rentRoll'].tableHead = ['항목', '내용', '항목', '내용'];
+          if (!result['rentRoll'].tables?.length) {
+            result['rentRoll'].tables = [{ headers: ['항목', '내용', '항목', '내용'], rows: summaryRows }];
+          }
+        }
       }
     }
 

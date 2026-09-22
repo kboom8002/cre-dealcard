@@ -579,11 +579,14 @@ export class MobileImPptxRenderer {
         dataMap['land'].building = bldg;
       }
 
-      // 지적도 및 토지 슬라이드에 WMS 지적도 이미지 바인딩
-      const cadastralImg = enrichment?.cadastralMapImage
+      // D45 M-6: 객체(CadastralMapResult) 유입 시 .base64 추출 방어
+      const cadastralImgRaw = enrichment?.cadastralMapImage
         ?? input.doc.body?.cadastralMapImage
         ?? input.doc.body?.cadastralImage
         ?? input.doc.body?.enrichment?.cadastralMapImage;
+      const cadastralImg = typeof cadastralImgRaw === 'object' && cadastralImgRaw !== null
+        ? (cadastralImgRaw as any).base64 ?? null
+        : cadastralImgRaw;
       
       if (cadastralImg) {
         if (dataMap['cadastralMap']) {

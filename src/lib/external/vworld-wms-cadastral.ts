@@ -456,7 +456,7 @@ export async function fetchCadastralMapImage(
 
     return {
       buffer: finalBuffer,
-      base64: `image/png;base64,${finalBuffer.toString('base64')}`,
+      base64: `data:image/png;base64,${finalBuffer.toString('base64')}`,
       width: w,
       height: h,
       bbox: bboxWgs84,

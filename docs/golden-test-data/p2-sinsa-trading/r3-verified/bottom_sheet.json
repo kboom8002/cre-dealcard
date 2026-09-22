@@ -6,7 +6,16 @@
   "grossFloorAreaM2": 3341.8,
   "floorAreaRatioPct": 237.2,
   "buildingCoverageRatioPct": 51.3,
+  "completionYear": 1998,
+  "zoning": "제3종일반주거지역",
+  "floors": "지하 2층 ~ 지상 6층",
   "parking": 26,
+  "elevator": 1,
+  "coordinates": {
+    "lat": 37.52188,
+    "lng": 127.02984
+  },
+  "floor_leases": [],
   "manual_comps": [
     { "address": "신사동 586-6", "landAreaPyeong": 76.7, "priceManwon": 1730000, "pricePerPyeongManwon": 23000 },
     { "address": "신사동 559-6", "landAreaPyeong": 70.6, "priceManwon": 2000000, "pricePerPyeongManwon": 28000 },

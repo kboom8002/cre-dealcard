@@ -194,7 +194,7 @@ export async function enrichBuildingDataCore(
     mapImageUrl,
     registryData,
     commercialDistrict,
-    cadastralMapImage,
+    cadastralMapImage: (cadastralMapImage as any)?.base64 ?? null,
     secondaryParcels,
     enrichedAt: new Date().toISOString(),
     errors,
@@ -312,7 +312,8 @@ export async function enrichBuildingDataByPNU(
         const result = reconstructFromCache(cached);
         if (result.cadastralMapImage === null && result.resolvedAddress?.lat != null && result.resolvedAddress?.lng != null) {
           try {
-            result.cadastralMapImage = await fetchCadastralMapImage(result.resolvedAddress.lat, result.resolvedAddress.lng, 800, 600, 150, result.resolvedAddress?.pnu);
+            const cadResult = await fetchCadastralMapImage(result.resolvedAddress.lat, result.resolvedAddress.lng, 800, 600, 150, result.resolvedAddress?.pnu);
+            (result as any).cadastralMapImage = cadResult?.base64 ?? null;
           } catch (e) {
             logger.warn("Failed to re-fetch cadastral map on cache hit", { err: e });
           }
