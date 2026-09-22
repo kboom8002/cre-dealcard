@@ -1239,12 +1239,14 @@ export function ImDataBottomSheet({
               ✅ {progress}
             </button>
           ) : (
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={handleCreate}
-                disabled={state === "loading" || !canGenerate}
-                className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl py-3 text-sm font-bold shadow-md disabled:opacity-50 transition-all hover:opacity-90 active:scale-[0.98] flex items-center justify-center gap-2"
-              >
+              <div className="flex flex-col gap-2">
+                <button
+                  id="cta-generate-mobile-im"
+                  data-testid="bottom-sheet-generate-btn"
+                  onClick={handleCreate}
+                  disabled={state === "loading" || !canGenerate}
+                  className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl py-3 text-sm font-bold shadow-md disabled:opacity-50 transition-all hover:opacity-90 active:scale-[0.98] flex items-center justify-center gap-2"
+                >
                 {state === "loading" ? (
                   <>
                     <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">

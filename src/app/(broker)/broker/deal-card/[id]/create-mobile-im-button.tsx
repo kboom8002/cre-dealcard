@@ -78,6 +78,8 @@ export function CreateMobileImButton({
           onClick={() => { setStage('basic'); setShowBottomSheet(true); }}
           className="flex-1 inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-2 py-3 text-xs sm:text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98] shadow-md shadow-blue-900/30"
           id="cta-mobile-im-basic"
+          data-testid="generate-basic-im"
+          aria-label="기본 IM 생성"
         >
           {!hasBasicIM ? '⚡ 기본 IM' : '📝 수정'}
         </button>
@@ -85,6 +87,8 @@ export function CreateMobileImButton({
           onClick={() => { setStage('pro'); setShowBottomSheet(true); }}
           className="flex-1 inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-2 py-3 text-xs sm:text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98] shadow-md shadow-purple-900/30"
           id="cta-mobile-im-pro"
+          data-testid="generate-pro-im"
+          aria-label="전문 IM 생성"
         >
           🎯 전문 IM
         </button>

@@ -24,10 +24,12 @@ interface DuplicateCandidateUI {
 
 const LOADING_STEPS = [
   "메모에서 매물 핵심 정보 추출 중",
+  "지번/도로명 주소 검증 및 표준화 중",
   "권역 및 자산 개요 분석 중",
   "주소·임차인 등 민감정보 마스킹 처리 중",
   "보안형 블라인드 딜카드 생성 중",
-  "카카오톡 공유 브리핑 문구 작성 중",
+  "카카오톡 공유 브리핑 문구 생성 중",
+  "AI 최종 검수 및 마무리 중 (최대 1~2분 소요)",
 ];
 
 export default function BrokerDealCardNewPage() {
@@ -82,7 +84,7 @@ export default function BrokerDealCardNewPage() {
       setLoadingStep((prev) =>
         prev < LOADING_STEPS.length - 1 ? prev + 1 : prev,
       );
-    }, 4000);
+    }, 12000);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -224,12 +226,12 @@ export default function BrokerDealCardNewPage() {
     setAbortController(controller);
     const timeoutTimer = setTimeout(() => {
       controller.abort();
-      setError("생성 시간이 초과되었습니다.");
+      setError("생성 시간이 초과되었습니다. AI 분석 작업이 지연되고 있습니다. 딜카드 목록을 확인해주세요.");
       setIsLoading(false);
     }, 180000);
     const interval = setInterval(() => {
       setLoadingStep((prev) => prev < LOADING_STEPS.length - 1 ? prev + 1 : prev);
-    }, 4000);
+    }, 12000);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
