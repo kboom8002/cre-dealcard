@@ -19,4 +19,17 @@
 
 ### 4. AI 시각 E2E 테스트 검증 절차
 - PPTX 템플릿, 데이터 바인더, LLM 프롬프트 수정 시 `src/tests/e2e/ai-visual-e2e-runner.ts`를 실행하여 150 DPI 고화질 슬라이드 PNG 캡처 및 AI 시각 무결성(레이아웃 오버플로, 라벨 오염, 중복 텍스트 여부)을 반드시 점검합니다.
+### 5. IM 제품 계층 용어 정의 (IM Product Taxonomy)
+- 코드베이스에 `im-lite`, `Basic IM`, `mobile-im`, `Pro IM` 등이 혼재합니다. 아래 정의를 SSOT로 삼습니다.
+
+| 용어 | 정체 | 실체 |
+|:---|:---|:---|
+| **im-lite** | API 라우트/인프라 계층 이름 | `/api/public/im-lite/[buildingId]` 엔드포인트 군. Basic + Pro 양쪽 포함 |
+| **mobile-im** | 도메인 로직 폴더명 | `src/domain/building/mobile-im/`. DB `document_type: 'mobile_im'` |
+| **Basic IM** | PPTX 제품 브랜드명 (사용자 대면) | `tier=basic`, `preset: 'credeal_basic'`, 7~11면 |
+| **Pro IM** | PPTX 제품 브랜드명 (사용자 대면) | `tier=pro`, `preset: 'credeal_signature'`, 면수 무제한 |
+| **basic-im-studio** | 중개사 편집 UI 전용 API | `/api/broker/basic-im-studio/[id]/download` |
+
+- **원칙**: URL/DB 스키마에는 `im-lite` / `mobile_im`을 유지합니다. 사용자 대면 텍스트·파일명에는 `Basic IM` / `Pro IM`을 사용합니다. 코드 주석에서는 둘의 관계를 명시합니다.
+
 <!-- END:cre-im-rules -->
