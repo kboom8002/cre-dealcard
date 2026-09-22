@@ -87,12 +87,13 @@ describe.skipIf(!existsSync(DATA_DIR))('P3 서초 Owner R3-Verified', () => {
   });
 
   it('Step 5: 덱 시퀀서 검증', () => {
-    const sequence = buildDeckSequence({ posture: 'owner_occupied', preset: 'credeal_basic', grade: 'A', hasPhotos: true, dataAvailability: {} });
+    const sequence = buildDeckSequence({ posture: 'owner_occupied', preset: 'credeal_basic', grade: 'A', hasPhotos: true, dataAvailability: { hasRentRoll: true } });
     expect(sequence.length).toBeGreaterThanOrEqual(7);
-    expect(sequence.length).toBeLessThanOrEqual(10);
+    expect(sequence.length).toBeLessThanOrEqual(11);
     const keys = sequence.map(s => s.dataKey);
+    // owner_occupied: yieldFormula(A23)만 제외, rentRoll(A24)은 공실 현황으로 포함
     expect(keys.includes('yieldFormula')).toBe(false);
-    expect(keys.includes('rentRollStacking')).toBe(false);
+    expect(keys.includes('rentRoll')).toBe(true);
   });
 
   it('Step 6: PPTX 렌더링', async () => {

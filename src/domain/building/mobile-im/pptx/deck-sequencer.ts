@@ -117,8 +117,14 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   const sequence: SlideSpec[] = [];
 
   for (const slot of BASIC_IM_SLIDE_CONTRACT) {
-    // 필수 여부 판정
-    if (slot.required === 'income' && posture !== 'income') continue;
+    // 필수 여부 판정: income 전용 슬롯은 income 포스처에서만 포함
+    // 단, owner_occupied에서도 렌트롤(A24)은 hasRentRoll이면 공실 현황으로 포함 (D45)
+    if (slot.required === 'income' && posture !== 'income') {
+      const isOwnerRentRoll = posture === 'owner_occupied'
+        && slot.dataKey === 'rentRoll'
+        && da.hasRentRoll !== false;
+      if (!isOwnerRentRoll) continue;
+    }
     if (slot.required === false) {
       if (slot.condition === 'hasPhotos' && !input.hasPhotos && gallerySlides.length === 0) continue;
     }

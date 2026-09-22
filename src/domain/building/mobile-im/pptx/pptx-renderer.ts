@@ -148,7 +148,29 @@ export class MobileImPptxRenderer {
         || heroPhoto;
 
       // ── 1. 덱 시퀀스 결정 ──
-      const enrichment = input.doc.body?.enrichment ?? {};
+      let enrichment = input.doc.body?.enrichment ?? {} as any;
+
+      // D45: 좌표 있지만 지적도 미제공 시 자동 enrichment (프로덕션 폴백)
+      const coords = input.doc.body?.coordinates ?? input.doc.body?.ssot_summary?.coordinates;
+      if (coords?.lat && coords?.lng && !enrichment.cadastralMapImage) {
+        try {
+          const { enrichForBasicIm } = await import('./basic-im-enrichment');
+          const pnu = input.doc.body?.ssot_summary?.pnu
+            ?? input.doc.body?.pnu
+            ?? input.building?.pnu;
+          const pnus = input.doc.body?.ssot_summary?.pnus
+            ?? input.doc.body?.pnus;
+          const autoEnrichment = await enrichForBasicIm(coords, {
+            pnu,
+            pnus,
+            address: input.doc.body?.ssot_summary?.address ?? input.building?.address,
+          });
+          enrichment = { ...enrichment, ...autoEnrichment };
+        } catch (err) {
+          // Graceful degradation: enrichment 실패 시 기존 데이터로 진행 (Rule 43)
+          console.warn('[pptx-renderer] Auto-enrichment failed (graceful skip):', err);
+        }
+      }
       const externalData = input.doc.body?.external_data ?? {};
       const sequenceInput: DeckSequenceInput = {
         posture,

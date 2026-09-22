@@ -168,8 +168,8 @@ async function runSeochoGoldenTest() {
   });
 
   console.log(`  📋 시퀀스 생성 결과: ${sequence.length}면`);
-  if (sequence.length < 7 || sequence.length > 10) {
-    throw new Error(`슬라이드 수 초과: ${sequence.length}면 (Rule 47/BASIC_IM_BOUNDS: 7~10면)`);
+  if (sequence.length < 7 || sequence.length > 11) {
+    throw new Error(`슬라이드 수 초과: ${sequence.length}면 (Rule 47/BASIC_IM_BOUNDS: 7~11면)`);
   }
 
   const ssot = {
