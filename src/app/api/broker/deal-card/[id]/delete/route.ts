@@ -51,7 +51,7 @@ export async function DELETE(
       service.from("building_signal_cards").delete().eq("building_id", id),
       service.from("gate_requests").delete().eq("building_id", id),
       service.from("owner_readiness_checks").delete().eq("building_id", id),
-      service.from("deal_card_personas").delete().eq("building_id", id),
+      service.from("deal_card_personas").delete().eq("building_ssot_lite_id", id),
       service.from("deal_matches").delete().eq("building_id", id),
       service.from("price_predictions").delete().eq("building_id", id),
       service.from("lease_spaces").delete().eq("building_id", id),

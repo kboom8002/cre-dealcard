@@ -77,7 +77,7 @@ export async function POST(
           budget_max: budgetMaxManwon,
           budget_display: budgetDisplay,
           purchase_purpose: "임대수익 및 시세차익 (매거진 분석 기반)",
-          source: "magazine_auto_intent",
+          raw_input: "auto-generated from magazine subscription",
         })
         .select()
         .single();
