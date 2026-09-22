@@ -287,7 +287,7 @@ export async function GET(
 
   const { data: grant } = await supabase
     .from('im_pro_grants')
-    .select('*, building_id, requester_name, requester_phone, nda_signed_at, pdf_export_allowed, watermark_seed, expires_at')
+    .select('*')
     .eq('id', grantId)
     .eq('status', 'active')
     .maybeSingle();

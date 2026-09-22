@@ -190,8 +190,10 @@ export async function GET(
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(safeFilename)}`,
-        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         'X-Robots-Tag': 'noindex, nofollow',
+        'X-Slide-Count': String(result.slideCount || 0),
+        'X-File-Size': String(result.fileSizeBytes || result.buffer.byteLength),
       },
     });
   } catch (err: any) {
