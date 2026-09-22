@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { readWithMigration, buildAttrsFromSsotLite, buildProvenanceFromSsotLite } from '@/lib/ssot-adapter';
 import { computeDataGrade } from '@/domain/asset/grade-engine';
+import { getLeaseData } from '@/domain/building/lease-data-sync';
 import { BlindTeaserOutputSchema } from "@/ai/schemas/broker-deal-card";
 import Link from "next/link";
 import Image from "next/image";
@@ -246,19 +247,19 @@ export default async function BrokerDealCardResultPage({
   };
 
   // v3: 바텀시트 선제적 데이터 주입을 위한 값 추출
-  // 우선순위: building.lease_summary > layers.lease_summary > layers.finance > bAttrs
+  // W-3: getLeaseData()로 layers.lease_summary > layers.finance 일관 추출
   const finance = layers.finance || {};
-  const layersLeaseSum = layers.lease_summary || {};
+  const layersLease = getLeaseData(layers);
   const askingPriceKrw = Number(finance.asking_price_krw || building.asking_price || bAttrs.askingPriceKrw || 0);
   const loanAmountKrw = Number(finance.loan_amount_krw || building.loan_amount || bAttrs.loanAmountKrw || 0);
   
   const leaseSum = building.lease_summary || {};
-  const totalDepositKrw = Number(leaseSum.total_deposit_krw || layersLeaseSum.total_deposit_krw || finance.total_deposit_krw || bAttrs.totalDepositKrw || 0);
-  const monthlyRentKrw = Number(leaseSum.monthly_rent_krw || layersLeaseSum.monthly_rent_krw || finance.monthly_rent_krw || bAttrs.monthlyRentKrw || 0);
+  const totalDepositKrw = Number(leaseSum.total_deposit_krw || layersLease.total_deposit_krw || bAttrs.totalDepositKrw || 0);
+  const monthlyRentKrw = Number(leaseSum.monthly_rent_krw || layersLease.monthly_rent_krw || bAttrs.monthlyRentKrw || 0);
   const mgmtFeeKrw = Number(leaseSum.mgmt_fee_krw || finance.mgmt_fee_krw || 0);
   
   // 0% (만실) 보존을 위해 ?? 연산자 및 숫자형 판별
-  const rawVacancyVal = leaseSum.vacancy_pct ?? layersLeaseSum.vacancy_pct ?? finance.vacancy_pct ?? bAttrs.vacancyPct;
+  const rawVacancyVal = leaseSum.vacancy_pct ?? layersLease.vacancy_pct ?? bAttrs.vacancyPct;
   const vacancyPct = typeof rawVacancyVal === 'number' && !isNaN(rawVacancyVal)
     ? rawVacancyVal
     : (rawVacancyVal !== undefined && rawVacancyVal !== null && rawVacancyVal !== '' && !isNaN(Number(rawVacancyVal)) ? Number(rawVacancyVal) : undefined);

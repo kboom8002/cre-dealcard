@@ -8,6 +8,7 @@
  * Source: docs/08-api-contracts.md section 7
  */
 import type { InvestmentPosture } from '@/domain/ontology';
+import { syncLeaseData } from '@/domain/building/lease-data-sync';
 
 export interface PostureProposal {
   value: InvestmentPosture | null;
@@ -178,28 +179,22 @@ export async function brokerDealCardFromMemo(
   const exactFloorAreaPyung = Number(slotMap.get('totalFloorAreaPyung')) || null;
   const exactVacancyPct = slotMap.has('vacancyRatePct') ? Number(slotMap.get('vacancyRatePct')) : null;
 
+  // W-3: syncLeaseData ensures finance & lease_summary are always consistent
+  const { finance: syncedFinance, lease_summary: syncedLeaseSummary } = syncLeaseData({
+    monthly_rent_krw: exactMonthlyRentKrw,
+    total_deposit_krw: exactTotalDepositKrw,
+    vacancy_pct: exactVacancyPct,
+  });
+
   layersData.finance = {
+    ...syncedFinance,
     asking_price_krw: exactAskingPriceKrw,
     asking_price_manwon: exactAskingPriceManwon,
-    monthly_rent_krw: exactMonthlyRentKrw,
-    monthly_rent_manwon: exactMonthlyRentKrw ? exactMonthlyRentKrw / 10000 : null,
-    total_deposit_krw: exactTotalDepositKrw,
-    total_deposit_manwon: exactTotalDepositKrw ? exactTotalDepositKrw / 10000 : null,
     loan_amount_krw: exactLoanAmountKrw,
     loan_amount_manwon: exactLoanAmountKrw ? exactLoanAmountKrw / 10000 : null,
-    vacancy_pct: exactVacancyPct,
   };
 
-  // lease_summary: 바텀시트 prefill 및 하위 호환성을 위한 다층 바인딩
-  // page.tsx가 leaseSum.total_deposit_krw / leaseSum.monthly_rent_krw를 우선 참조하므로
-  // finance와 동일한 값을 lease_summary에도 병렬 저장
-  layersData.lease_summary = {
-    total_deposit_krw: exactTotalDepositKrw,
-    total_deposit_manwon: exactTotalDepositKrw ? exactTotalDepositKrw / 10000 : null,
-    monthly_rent_krw: exactMonthlyRentKrw,
-    monthly_rent_manwon: exactMonthlyRentKrw ? exactMonthlyRentKrw / 10000 : null,
-    vacancy_pct: exactVacancyPct,
-  };
+  layersData.lease_summary = { ...syncedLeaseSummary };
 
   if (exactLandAreaPyung) layersData.land_area_pyung = exactLandAreaPyung;
   if (exactFloorAreaPyung) layersData.total_floor_area_pyung = exactFloorAreaPyung;

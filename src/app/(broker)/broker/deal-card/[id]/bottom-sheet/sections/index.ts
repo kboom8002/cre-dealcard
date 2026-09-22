@@ -16,3 +16,5 @@ export { LoanScenarioSection } from "./LoanScenarioSection"; // D41 Phase D
 export { ManualCompsSection } from "./ManualCompsSection";
 export { LoanStatusSection } from "./LoanStatusSection";
 export { AncillaryIncomeSection } from "./AncillaryIncomeSection";
+export { LogisticsSpecSection } from "./LogisticsSpecSection"; // W-2
+export { VacancySection } from "./VacancySection"; // W-2

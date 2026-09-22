@@ -19,6 +19,16 @@ import { PostureSelector, HospitalitySpecSection, OwnerOccupiedSpecSection, Sect
 import { getInputOrder } from "./bottom-sheet/hooks/use-input-order";
 import { validateCombination } from "@/domain/ontology/asset-identity";
 import { hasValidBuildingNumber } from "@/domain/verification/address-resolver";
+// W-1: Posture-specific form state sub-hooks
+import {
+  useIncomeFormState,
+  useDevelopmentFormState,
+  useOwnerOccupiedFormState,
+  useOperatingFormState,
+  useTradingFormState,
+  useSpecializedFormState,
+} from "./bottom-sheet/hooks/use-posture-form-state";
+import { useLogisticsFormState } from "./bottom-sheet/hooks/use-logistics-form-state";
 
 interface ImDataBottomSheetProps {
     buildingId: string;
@@ -50,6 +60,21 @@ interface ImDataBottomSheetProps {
     existingDocBody?: any;
 }
 
+/**
+ * Main form hook for IM data bottom sheet.
+ *
+ * W-1: Posture-specific state is available as separate sub-hooks:
+ * - `useIncomeFormState()` — income posture financial fields
+ * - `useDevelopmentFormState()` — development targets, permits, vacate
+ * - `useOwnerOccupiedFormState()` — headcount, floors, rent
+ * - `useOperatingFormState()` — rooms, ADR, GOP, operations
+ * - `useTradingFormState()` — acquisition history, seller motive
+ * - `useSpecializedFormState()` — sectional, residential, pro fields
+ * - `useLogisticsFormState()` — logistics center specs
+ *
+ * These are re-exported from `./bottom-sheet/hooks/use-posture-form-state`
+ * and `./bottom-sheet/hooks/use-logistics-form-state`.
+ */
 export function useImDataForm(props: ImDataBottomSheetProps) {
     const {
       buildingId,
@@ -106,78 +131,88 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
     const [askingPrice, setAskingPrice] = useState("");
     const [vacancyPct, setVacancyPct] = useState<number | "">("");
     const [brokerHighlight, setBrokerHighlight] = useState("");
-    const [ceilingHeight, setCeilingHeight] = useState<string>("");
-    const [dockCount, setDockCount] = useState<string>("");
-    const [dockLevelerCount, setDockLevelerCount] = useState<string>("");
-    const [maxVehicleTon, setMaxVehicleTon] = useState<string>("");
-    const [floorLoadTon, setFloorLoadTon] = useState<string>("");
-    const [coldStorageArea, setColdStorageArea] = useState<string>("");
-    const [coldStorageType, setColdStorageType] = useState<string>("none");
-    const [loadingArea, setLoadingArea] = useState<string>("");
-    const [vehicleAccessType, setVehicleAccessType] = useState<string>("dock");
-    const [fireRating, setFireRating] = useState<string>("");
-    const [sprinkler, setSprinkler] = useState(false);
-    const [columnSpan, setColumnSpan] = useState<string>("");
-    const [powerCapacity, setPowerCapacity] = useState<string>("");
-    const [hasOfficeSpace, setHasOfficeSpace] = useState(false);
-    const [officeArea, setOfficeArea] = useState<string>("");
-    const [distanceToIc, setDistanceToIc] = useState<string>("");
-    const [icName, setIcName] = useState<string>("");
-    const [roomCount, setRoomCount] = useState<string>("");
-    const [averageDailyRate, setAverageDailyRate] = useState<string>("");
-    const [occupancyRate, setOccupancyRate] = useState<string>("");
-    const [gopMargin, setGopMargin] = useState<string>("");
-    const [operatingModel, setOperatingModel] = useState<string>("self");
-    const [operatingEntity, setOperatingEntity] = useState<string>("");
-    const [devTargetUse, setDevTargetUse] = useState<string>("office");
-    const [devTargetScalePyung, setDevTargetScalePyung] = useState<string>("");
-    const [devExpectedSalePricePerPyung, setDevExpectedSalePricePerPyung] = useState<string>("");
-    const [devConstructionCostPerPyung, setDevConstructionCostPerPyung] = useState<string>("750");
-    const [devContractorStatus, setDevContractorStatus] = useState<string>("undecided");
-    const [vacateResponsibility, setVacateResponsibility] = useState<string>("seller");
-    const [vacateTenantCount, setVacateTenantCount] = useState<string>("");
-    const [vacateEstimatedCostManwon, setVacateEstimatedCostManwon] = useState<string>("");
-    const [vacateEstimatedMonths, setVacateEstimatedMonths] = useState<string>("");
-    const [permitKinds, setPermitKinds] = useState<string[]>([]);
-    const [permitStatus, setPermitStatus] = useState<string>("in_progress");
-    const [permitEstimatedMonths, setPermitEstimatedMonths] = useState<string>("");
-    const [occHeadcount, setOccHeadcount] = useState<string>("");
-    const [occAreaPerHeadPyung, setOccAreaPerHeadPyung] = useState<string>("3.3");
-    const [occDesiredFloors, setOccDesiredFloors] = useState<string>("");
-    const [occCurrentRentManwon, setOccCurrentRentManwon] = useState<string>("");
-    const [sectionalOwnerCount, setSectionalOwnerCount] = useState<string>("");
-    const [sectionalManagementBody, setSectionalManagementBody] = useState<string>("unknown");
-    const [sectionalMasterLease, setSectionalMasterLease] = useState<string>("no");
-    const [jointCollateralGroup, setJointCollateralGroup] = useState<string>("");
-    const [sectionalLandSharePct, setSectionalLandSharePct] = useState<string>("100");
-    const [sectionalFullPurchase, setSectionalFullPurchase] = useState<string>("full");
-    const [resTotalUnits, setResTotalUnits] = useState<string>("");
-    const [resJeonseUnits, setResJeonseUnits] = useState<string>("");
-    const [resMonthlyUnits, setResMonthlyUnits] = useState<string>("");
-    const [resJeonseDepositTotalManwon, setResJeonseDepositTotalManwon] = useState<string>("");
-    const [resIllegalExtension, setResIllegalExtension] = useState<boolean>(false);
-    const [acquisitionDate, setAcquisitionDate] = useState<string>("");
-    const [acquisitionPriceManwon, setAcquisitionPriceManwon] = useState<string>("");
-    const [holdingMonths, setHoldingMonths] = useState<string>("");
-    const [transferCountIn10Y, setTransferCountIn10Y] = useState<string>("");
-    const [sellerMotive, setSellerMotive] = useState<string>("");
-    const [unitKind, setUnitKind] = useState<string>("room");
-    const [unitCount, setUnitCount] = useState<string>("");
-    const [licenceTransferable, setLicenceTransferable] = useState<boolean | null>(null);
-    const [annualRevenue, setAnnualRevenue] = useState<string>("");
-    const [annualGop, setAnnualGop] = useState<string>("");
+    // W-1: Logistics form state — delegated to sub-hook
+    const {
+      ceilingHeight, setCeilingHeight, dockCount, setDockCount,
+      dockLevelerCount, setDockLevelerCount, maxVehicleTon, setMaxVehicleTon,
+      floorLoadTon, setFloorLoadTon, coldStorageArea, setColdStorageArea,
+      coldStorageType, setColdStorageType, loadingArea, setLoadingArea,
+      vehicleAccessType, setVehicleAccessType, fireRating, setFireRating,
+      sprinkler, setSprinkler, columnSpan, setColumnSpan,
+      powerCapacity, setPowerCapacity, hasOfficeSpace, setHasOfficeSpace,
+      officeArea, setOfficeArea, distanceToIc, setDistanceToIc,
+      icName, setIcName,
+    } = useLogisticsFormState();
+    // W-1: Operating form state — delegated to sub-hook (single call for all fields)
+    const {
+      roomCount, setRoomCount,
+      averageDailyRate, setAverageDailyRate,
+      occupancyRate, setOccupancyRate,
+      gopMargin, setGopMargin,
+      operatingModel, setOperatingModel,
+      operatingEntity, setOperatingEntity,
+      unitKind, setUnitKind,
+      unitCount, setUnitCount,
+      licenceTransferable, setLicenceTransferable,
+      annualRevenue, setAnnualRevenue,
+      annualGop, setAnnualGop,
+    } = useOperatingFormState();
+    // W-1: Development form state — delegated to sub-hook
+    const {
+      devTargetUse, setDevTargetUse, devTargetScalePyung, setDevTargetScalePyung,
+      devExpectedSalePricePerPyung, setDevExpectedSalePricePerPyung,
+      devConstructionCostPerPyung, setDevConstructionCostPerPyung,
+      devContractorStatus, setDevContractorStatus,
+      vacateResponsibility, setVacateResponsibility,
+      vacateTenantCount, setVacateTenantCount,
+      vacateEstimatedCostManwon, setVacateEstimatedCostManwon,
+      vacateEstimatedMonths, setVacateEstimatedMonths,
+      permitKinds, setPermitKinds,
+      permitStatus, setPermitStatus,
+      permitEstimatedMonths, setPermitEstimatedMonths,
+    } = useDevelopmentFormState();
+    // W-1: Owner-occupied form state — delegated to sub-hook
+    const {
+      occHeadcount, setOccHeadcount,
+      occAreaPerHeadPyung, setOccAreaPerHeadPyung,
+      occDesiredFloors, setOccDesiredFloors,
+      occCurrentRentManwon, setOccCurrentRentManwon,
+    } = useOwnerOccupiedFormState();
+    // W-1: Specialized form state (sectional/residential/pro) — delegated to sub-hook
+    const {
+      sectionalOwnerCount, setSectionalOwnerCount,
+      sectionalManagementBody, setSectionalManagementBody,
+      sectionalMasterLease, setSectionalMasterLease,
+      jointCollateralGroup, setJointCollateralGroup,
+      sectionalLandSharePct, setSectionalLandSharePct,
+      sectionalFullPurchase, setSectionalFullPurchase,
+      resTotalUnits, setResTotalUnits,
+      resJeonseUnits, setResJeonseUnits,
+      resMonthlyUnits, setResMonthlyUnits,
+      resJeonseDepositTotalManwon, setResJeonseDepositTotalManwon,
+      resIllegalExtension, setResIllegalExtension,
+      acquisitionTaxPct, setAcquisitionTaxPct,
+      brokerageFeeManwon, setBrokerageFeeManwon,
+      legalFeeManwon, setLegalFeeManwon,
+      otherAcquisitionCostManwon, setOtherAcquisitionCostManwon,
+      ltvPct, setLtvPct,
+      loanInterestPct, setLoanInterestPct,
+      loanTermYears, setLoanTermYears,
+      targetIrrPct, setTargetIrrPct,
+    } = useSpecializedFormState();
+    // W-1: Trading form state — delegated to sub-hook
+    const {
+      acquisitionDate, setAcquisitionDate,
+      acquisitionPriceManwon, setAcquisitionPriceManwon,
+      holdingMonths, setHoldingMonths,
+      transferCountIn10Y, setTransferCountIn10Y,
+      sellerMotive, setSellerMotive,
+    } = useTradingFormState();
+
     const [parcels, setParcels] = useState<Array<{
         pnu: string; landCategory: string; areaM2: string;
         shareRatio: string; officialPricePerM2: string;
       }>>([]);
-    const [acquisitionTaxPct, setAcquisitionTaxPct] = useState<string>("");
-    const [brokerageFeeManwon, setBrokerageFeeManwon] = useState<string>("");
-    const [legalFeeManwon, setLegalFeeManwon] = useState<string>("");
-    const [otherAcquisitionCostManwon, setOtherAcquisitionCostManwon] = useState<string>("");
-    const [ltvPct, setLtvPct] = useState<string>("");
-    const [loanInterestPct, setLoanInterestPct] = useState<string>("");
-    const [loanTermYears, setLoanTermYears] = useState<string>("");
-    const [targetIrrPct, setTargetIrrPct] = useState<string>("");
     const [searchKeyword, setSearchKeyword] = useState(initialAddress || areaSignal || "");
     const [searchResults, setSearchResults] = useState<AddressResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
