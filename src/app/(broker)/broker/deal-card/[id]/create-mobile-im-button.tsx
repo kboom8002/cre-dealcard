@@ -52,7 +52,7 @@ export function CreateMobileImButton({
   prefillMonthlyRent,
   prefillMgmtFee,
   prefillVacancyPct,
-  initialInvestmentPosture = "income",
+  initialInvestmentPosture, // W-8: 기본값 제거 — 브로커 필수 선택 (S2-2)
   postureProposal,
   existingDocBody,
 }: CreateMobileImButtonProps) {

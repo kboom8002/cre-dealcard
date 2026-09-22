@@ -18,6 +18,28 @@ export async function GET(
     let project;
     try { project = studioService.getProject(id); }
     catch { project = studioService.findProjectByDealId(id); }
+    
+    // P-C4: cold start로 in-memory 소실 시 DB에서 자동 복구
+    if (!project) {
+      try {
+        const recoverySupabase = createServiceClient();
+        const { data: recoveryDoc } = await recoverySupabase
+          .from('document_objects')
+          .select('id, title, body, building_id')
+          .or(`building_id.eq.${id},id.eq.${id}`)
+          .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (recoveryDoc?.body) {
+          project = studioService.createBasicImProject(id, recoveryDoc.title || 'Basic IM', recoveryDoc.body);
+          console.warn(`[basic-im-studio/download] P-C4: cold start 복구 — 프로젝트 재생성 (${id})`);
+        }
+      } catch (recoverErr) {
+        console.warn('[basic-im-studio/download] P-C4: 복구 실패:', recoverErr);
+      }
+    }
+    
     if (!project) {
       return NextResponse.json({ ok: false, error: 'Project not found' }, { status: 404 });
     }
@@ -53,7 +75,7 @@ export async function GET(
 
       if (doc?.building_id) {
         const { data: bldg } = await supabase
-          .from('buildings')
+          .from('building_ssot_lite') // W-6: buildings → building_ssot_lite 통일
           .select('*')
           .eq('id', doc.building_id)
           .maybeSingle();
@@ -126,7 +148,7 @@ export async function GET(
       incomeArchetype: body.incomeArchetype ?? undefined,
       hasViolation: body.hasViolation ?? body.violationStatus === 'exists',
       hasJointCollateral: body.hasJointCollateral ?? false,
-      releaseTier: 'basic' as ReleaseTier,
+      releaseTier: (body.releaseTier as ReleaseTier) || 'decision_im', // W-7: 다른 라우트와 통일
       docno: body.docno ?? `IM-${project.dealId.substring(0, 6).toUpperCase()}`,
       doc: {
         title: project.title || doc?.title || 'Basic IM',
