@@ -16,8 +16,8 @@ export async function GET(
   const { id } = await params;
   try {
     let project;
-    try { project = studioService.getProject(id); }
-    catch { project = studioService.findProjectByDealId(id); }
+    try { project = await studioService.getProject(id); }
+    catch { project = await studioService.findProjectByDealId(id); }
     
     // P-C4: cold start로 in-memory 유실 시 DB에서 자동 복구
     if (!project) {
@@ -33,7 +33,7 @@ export async function GET(
           .limit(1)
           .maybeSingle();
         if (recoveryDoc?.body) {
-          project = studioService.createBasicImProject(actualId, recoveryDoc.title || 'Basic IM', recoveryDoc.body);
+          project = await studioService.createBasicImProject(actualId, recoveryDoc.title || 'Basic IM', recoveryDoc.body);
           console.warn(`[basic-im-studio/download] P-C4: cold start 복구 후 프로젝트 재생성 (${actualId})`);
         }
       } catch (recoverErr) {

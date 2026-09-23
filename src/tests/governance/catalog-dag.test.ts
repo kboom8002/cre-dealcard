@@ -21,7 +21,7 @@ describe('work_item_catalog DAG integrity test (CIM-0001 / PR-M0-01)', () => {
     'CREDEAL_IM_MODERNIZATION/knowledge/work_item_catalog.yaml'
   );
 
-  it('should load catalog and parse valid JSON/YAML', () => {
+  it('should load catalog and parse valid JSON/YAML', async () => {
     expect(fs.existsSync(catalogPath)).toBe(true);
     const raw = fs.readFileSync(catalogPath, 'utf-8');
     const catalog = JSON.parse(raw) as Catalog;
@@ -29,7 +29,7 @@ describe('work_item_catalog DAG integrity test (CIM-0001 / PR-M0-01)', () => {
     expect(catalog.items.length).toBeGreaterThanOrEqual(39);
   });
 
-  it('should contain valid requirements and valid IDs for all items', () => {
+  it('should contain valid requirements and valid IDs for all items', async () => {
     const raw = fs.readFileSync(catalogPath, 'utf-8');
     const catalog = JSON.parse(raw) as Catalog;
     const ids = new Set<string>();
@@ -46,7 +46,7 @@ describe('work_item_catalog DAG integrity test (CIM-0001 / PR-M0-01)', () => {
     }
   });
 
-  it('should have all dependencies pointing to existing work item IDs', () => {
+  it('should have all dependencies pointing to existing work item IDs', async () => {
     const raw = fs.readFileSync(catalogPath, 'utf-8');
     const catalog = JSON.parse(raw) as Catalog;
     const ids = new Set<string>(catalog.items.map((i) => i.id));
@@ -58,7 +58,7 @@ describe('work_item_catalog DAG integrity test (CIM-0001 / PR-M0-01)', () => {
     }
   });
 
-  it('should contain no cycles in the dependency graph (DAG check)', () => {
+  it('should contain no cycles in the dependency graph (DAG check)', async () => {
     const raw = fs.readFileSync(catalogPath, 'utf-8');
     const catalog = JSON.parse(raw) as Catalog;
     const adj = new Map<string, string[]>();
@@ -95,7 +95,7 @@ describe('work_item_catalog DAG integrity test (CIM-0001 / PR-M0-01)', () => {
     }
   });
 
-  it('should have no orphaned leaf nodes before M8 (all M0-M7 items must be depended on)', () => {
+  it('should have no orphaned leaf nodes before M8 (all M0-M7 items must be depended on)', async () => {
     const raw = fs.readFileSync(catalogPath, 'utf-8');
     const catalog = JSON.parse(raw) as Catalog;
     

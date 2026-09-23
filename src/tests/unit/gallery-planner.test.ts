@@ -3,7 +3,7 @@ import { planGallerySlides, GALLERY_EXCLUDE_CATEGORIES } from '@/domain/building
 import type { PhotoMeta } from '@/domain/building/mobile-im/pptx/gallery-planner';
 
 describe('gallery-planner', () => {
-  it('filters out GALLERY_EXCLUDE_CATEGORIES', () => {
+  it('filters out GALLERY_EXCLUDE_CATEGORIES', async () => {
     const photos: PhotoMeta[] = [
       { url: '1.jpg', category: 'exterior' },
       { url: '2.jpg', category: 'floor_plan' as any },
@@ -16,7 +16,7 @@ describe('gallery-planner', () => {
     expect(res[0].photos[0].url).toBe('1.jpg');
   });
 
-  it('tests 6-photo slice limit for credeal_basic preset', () => {
+  it('tests 6-photo slice limit for credeal_basic preset', async () => {
     const photos: PhotoMeta[] = Array.from({ length: 10 }, (_, i) => ({
       url: `${i}.jpg`,
       category: 'exterior',
@@ -27,12 +27,12 @@ describe('gallery-planner', () => {
     expect(res[0].photos.length).toBe(6);
   });
 
-  it('tests empty input returns empty result', () => {
+  it('tests empty input returns empty result', async () => {
     const res = planGallerySlides([], 'income');
     expect(res.length).toBe(0);
   });
 
-  it('tests hero photo deduplication logic implicitly by checking proper groupings', () => {
+  it('tests hero photo deduplication logic implicitly by checking proper groupings', async () => {
     const photos: PhotoMeta[] = [
       { url: 'hero.jpg', category: 'exterior', isHero: true },
       { url: '2.jpg', category: 'interior' },

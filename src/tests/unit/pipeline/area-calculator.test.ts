@@ -5,7 +5,7 @@ import {
 } from '@/domain/building/common-pipeline/area-calculator';
 
 describe('4-Area Denominators & Unit Price Metrics (CIM-0403 / PR-M4-03)', () => {
-  it('should accurately calculate land pyeong price and gross area pyeong price without confusion', () => {
+  it('should accurately calculate land pyeong price and gross area pyeong price without confusion', async () => {
     const metrics = calculateUnitPriceMetrics(
       12000000000, // 120억
       {
@@ -23,7 +23,7 @@ describe('4-Area Denominators & Unit Price Metrics (CIM-0403 / PR-M4-03)', () =>
     expect(metrics.rentPerPyeongExclusive).toBe(150000); // 평당 15만 (전용면적 기준)
   });
 
-  it('should enforce G37 denominator integrity and block mismatches', () => {
+  it('should enforce G37 denominator integrity and block mismatches', async () => {
     expect(validateDenominatorIntegrity('대지 평당 매매가', 'land')).toBe(true);
     expect(validateDenominatorIntegrity('연면적 평당가', 'gross_floor')).toBe(true);
     expect(validateDenominatorIntegrity('대지 평당 매매가', 'gross_floor')).toBe(false); // G37 violation!

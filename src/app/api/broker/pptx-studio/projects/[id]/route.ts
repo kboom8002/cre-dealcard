@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireBroker } from '@/lib/auth-guard';
 import { studioService } from '@/domain/building/pptx-studio/studio-service';
-import { ApprovalLedgerService } from '@/domain/building/im-core/approval/ledger-service';
+import { createPersistentApprovalLedger } from '@/platform/im-pipeline/supabase-approval-ledger';
 
 export async function GET(
   req: NextRequest,
@@ -21,15 +21,15 @@ export async function GET(
   try {
     let project;
     try {
-      project = studioService.getProject(id);
+      project = await studioService.getProject(id);
     } catch {
       // Check if id is dealId
-      project = studioService.findProjectByDealId(id);
+      project = await studioService.findProjectByDealId(id);
     }
 
     if (!project) {
       // If deal-card id was passed, initialize a default project on-demand
-      project = studioService.createProject(
+      project = await studioService.createProject(
         id,
         `pkg-${Date.now()}`,
         'CRE 투자설명서 (IM)',
@@ -37,7 +37,7 @@ export async function GET(
       );
     }
 
-    const ledger = new ApprovalLedgerService();
+    const ledger = createPersistentApprovalLedger();
     let latestApproval = null;
     let releaseRecord = null;
     try {

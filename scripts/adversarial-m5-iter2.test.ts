@@ -443,7 +443,7 @@ describe('⚔️ M5 Iteration 2 Adversarial Stress Test Suite', () => {
   // 4. Challenge: Codebase Invariants & Absence of Facades
   // ════════════════════════════════════════════════════════════════════
   describe('4. Codebase Invariants (AST / Grep Audit)', () => {
-    it('TC-CHAL-INVAR-01: Exactly ZERO occurrences of expect(true).toBe(true) in src/tests/', () => {
+    it('TC-CHAL-INVAR-01: Exactly ZERO occurrences of expect(true).toBe(true) in src/tests/', async () => {
       let count = 0;
       try {
         const out = execSync('git grep -n "expect(true).toBe(true)" src/tests/', { encoding: 'utf8' });
@@ -454,7 +454,7 @@ describe('⚔️ M5 Iteration 2 Adversarial Stress Test Suite', () => {
       expect(count).toBe(0);
     });
 
-    it('TC-CHAL-INVAR-02: Exactly ZERO occurrences of .catch(() => ({ ok: true in src/app/', () => {
+    it('TC-CHAL-INVAR-02: Exactly ZERO occurrences of .catch(() => ({ ok: true in src/app/', async () => {
       let count = 0;
       try {
         const out = execSync('git grep -n "\\.catch(() => ({ ok: true" src/app/', { encoding: 'utf8' });
@@ -465,7 +465,7 @@ describe('⚔️ M5 Iteration 2 Adversarial Stress Test Suite', () => {
       expect(count).toBe(0);
     });
 
-    it('TC-CHAL-INVAR-03: Exactly ZERO occurrences of process.env.NODE_ENV === "test" || error in src/app/api/', () => {
+    it('TC-CHAL-INVAR-03: Exactly ZERO occurrences of process.env.NODE_ENV === "test" || error in src/app/api/', async () => {
       let count = 0;
       try {
         const out = execSync('git grep -n "process.env.NODE_ENV === \'test\' || error" src/app/api/', { encoding: 'utf8' });

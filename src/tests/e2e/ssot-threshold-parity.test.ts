@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 describe('SSoT Threshold Parity (Rule 8)', () => {
-  it('PAGE_HARD_LIMIT should match credeal/ssot/im.pages.yaml', () => {
+  it('PAGE_HARD_LIMIT should match credeal/ssot/im.pages.yaml', async () => {
     const yamlPath = path.resolve(process.cwd(), 'credeal/ssot/im.pages.yaml');
     const content = yaml.load(fs.readFileSync(yamlPath, 'utf8')) as any;
     const expectedLimit = content?.rules?.max_pages_absolute ?? 16;

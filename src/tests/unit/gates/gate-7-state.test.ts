@@ -18,32 +18,32 @@ describe('7-State Gate Evaluation Model (CIM-0101 / PR-M1-01)', () => {
     durationMs: 5,
   };
 
-  it('should allow publication when BLOCKER status is PASS', () => {
+  it('should allow publication when BLOCKER status is PASS', async () => {
     const result: GateResultV2 = { ...baseGate, status: 'PASS' };
     expect(isGateBlockingPublish(result)).toBe(false);
   });
 
-  it('should block publication when BLOCKER status is FAIL', () => {
+  it('should block publication when BLOCKER status is FAIL', async () => {
     const result: GateResultV2 = { ...baseGate, status: 'FAIL', reason: '조건 위반' };
     expect(isGateBlockingPublish(result)).toBe(true);
   });
 
-  it('should block publication when BLOCKER status is NOT_RUN (Absolute Invariant #6)', () => {
+  it('should block publication when BLOCKER status is NOT_RUN (Absolute Invariant #6)', async () => {
     const result: GateResultV2 = { ...baseGate, status: 'NOT_RUN', reason: '미실행' };
     expect(isGateBlockingPublish(result)).toBe(true);
   });
 
-  it('should block publication when BLOCKER status is INDETERMINATE', () => {
+  it('should block publication when BLOCKER status is INDETERMINATE', async () => {
     const result: GateResultV2 = { ...baseGate, status: 'INDETERMINATE', reason: '데이터 모호성' };
     expect(isGateBlockingPublish(result)).toBe(true);
   });
 
-  it('should block publication when BLOCKER status is SYSTEM_ERROR', () => {
+  it('should block publication when BLOCKER status is SYSTEM_ERROR', async () => {
     const result: GateResultV2 = { ...baseGate, status: 'SYSTEM_ERROR', reason: '도구 예외 발생' };
     expect(isGateBlockingPublish(result)).toBe(true);
   });
 
-  it('should not block publication when status is WARN even if severity is WARNING', () => {
+  it('should not block publication when status is WARN even if severity is WARNING', async () => {
     const result: GateResultV2 = {
       ...baseGate,
       severity: 'WARNING',
@@ -53,7 +53,7 @@ describe('7-State Gate Evaluation Model (CIM-0101 / PR-M1-01)', () => {
     expect(isGateBlockingPublish(result)).toBe(false);
   });
 
-  it('should not block publication when status is NOT_APPLICABLE and reason is given', () => {
+  it('should not block publication when status is NOT_APPLICABLE and reason is given', async () => {
     const result: GateResultV2 = {
       ...baseGate,
       status: 'NOT_APPLICABLE',

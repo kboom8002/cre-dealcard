@@ -413,7 +413,7 @@ describe('Empirical Concurrency & Theme Isolation Suite (Challenger 2)', () => {
 describe('Empirical OCC LockVersion Serialization & Race Conditions Suite (Challenger 2)', () => {
   it('[CHALLENGE-OCC-01] High-Contention Concurrent Slides Patch: Exactly 1 Success, 9 Stale Lock Rejections (HTTP 409)', async () => {
     // Create a project in studioService
-    const project = studioService.createProject(
+    const project = await studioService.createProject(
       'deal-occ-race-1',
       'pkg-race-1',
       '경쟁 테스트 프로젝트'
@@ -464,12 +464,12 @@ describe('Empirical OCC LockVersion Serialization & Race Conditions Suite (Chall
     }
 
     // Final lockVersion must be exactly incremented by 1
-    const finalProject = studioService.getProject(project.id);
+    const finalProject = await studioService.getProject(project.id);
     expect(finalProject.lockVersion).toBe(initialLockVersion + 1);
   });
 
   it('[CHALLENGE-OCC-02] High-Contention Reorder OCC Conflict: Exactly 1 Success, 9 Rejections (HTTP 409)', async () => {
-    const project = studioService.createProject(
+    const project = await studioService.createProject(
       'deal-occ-race-2',
       'pkg-race-2',
       '재정렬 경쟁 프로젝트'
@@ -512,7 +512,7 @@ describe('Empirical OCC LockVersion Serialization & Race Conditions Suite (Chall
   });
 
   it('[CHALLENGE-OCC-03] Batch Slides Update enforces expectedLockVersion check', async () => {
-    const project = studioService.createProject(
+    const project = await studioService.createProject(
       'deal-occ-batch',
       'pkg-batch',
       '배치 업데이트 프로젝트'
@@ -549,7 +549,7 @@ describe('Empirical OCC LockVersion Serialization & Race Conditions Suite (Chall
   });
 
   it('[CHALLENGE-OCC-04] Basic IM Studio Route PATCH enforces expectedLockVersion serialization', async () => {
-    const project = studioService.createProject(
+    const project = await studioService.createProject(
       'deal-basic-studio-occ',
       'pkg-basic-occ',
       '베이직 스튜디오 OCC'
@@ -588,7 +588,7 @@ describe('Empirical OCC LockVersion Serialization & Race Conditions Suite (Chall
   });
 
   it('[CHALLENGE-OCC-05] Sequential LockVersion Chain: 10 updates execute in strict monotonic order', async () => {
-    const project = studioService.createProject(
+    const project = await studioService.createProject(
       'deal-monotonic-chain',
       'pkg-chain',
       '단조 증가 직렬화'

@@ -48,7 +48,7 @@ describe('CRE 2대 밸류에이션 엔진 (valuation-calc.ts)', () => {
   };
 
   describe('1. 사례비교법 (Sales Comparison)', () => {
-    it('[Positive] 인근 3개 실거래 비교사례 기반 적정 밴드 및 중간값 산출 단언', () => {
+    it('[Positive] 인근 3개 실거래 비교사례 기반 적정 밴드 및 중간값 산출 단언', async () => {
       const res = calculateSalesComparison(MOCK_COMPS, subject);
 
       expect(res.compCount).toBe(3);
@@ -61,7 +61,7 @@ describe('CRE 2대 밸류에이션 엔진 (valuation-calc.ts)', () => {
       expect(res.analysisNarrative).toContain('인근 3개 유사 실거래 사례');
     });
 
-    it('[Negative Pair] 비교사례가 0건이면 명시적 예외 발생 단언 (도피형 텍스트 방지)', () => {
+    it('[Negative Pair] 비교사례가 0건이면 명시적 예외 발생 단언 (도피형 텍스트 방지)', async () => {
       expect(() => {
         calculateSalesComparison([], subject);
       }).toThrowError('최소 1건 이상의 실거래 비교사례가 필요합니다');
@@ -69,7 +69,7 @@ describe('CRE 2대 밸류에이션 엔진 (valuation-calc.ts)', () => {
   });
 
   describe('2. 수익환원법 (Income Capitalization)', () => {
-    it('[Positive] 연 순영업소득(NOI)과 Cap Rate 밴드 기준 적정 자산가치 역산 단언', () => {
+    it('[Positive] 연 순영업소득(NOI)과 Cap Rate 밴드 기준 적정 자산가치 역산 단언', async () => {
       const res = calculateIncomeCapitalization({
         annualGrossRentKrw: subject.annualGrossRentKrw,
         annualMgmtFeeKrw: subject.annualMgmtFeeKrw,
@@ -87,7 +87,7 @@ describe('CRE 2대 밸류에이션 엔진 (valuation-calc.ts)', () => {
       expect(res.valuationNarrative).toContain('권역 요구 Cap Rate(2.1%~2.5%) 환원 기준');
     });
 
-    it('[Negative Pair] 유효하지 않은 Cap Rate (0 이하) 전달 시 예외 발생 단언', () => {
+    it('[Negative Pair] 유효하지 않은 Cap Rate (0 이하) 전달 시 예외 발생 단언', async () => {
       expect(() => {
         calculateIncomeCapitalization({
           annualGrossRentKrw: 500000000,
@@ -99,7 +99,7 @@ describe('CRE 2대 밸류에이션 엔진 (valuation-calc.ts)', () => {
   });
 
   describe('3. 종합 2대 밸류에이션 리포트 합성 (원가법 배제)', () => {
-    it('[Positive] 2대 방식 리포트 합성 및 원가법 배제 사유 명기 단언', () => {
+    it('[Positive] 2대 방식 리포트 합성 및 원가법 배제 사유 명기 단언', async () => {
       const report = generateCreDualValuationReport(MOCK_COMPS, subject);
 
       expect(report.salesComparison.isWithinMarketBand).toBe(true);

@@ -15,7 +15,7 @@ describe('AdaptivePhotoLayout Mode Determination (PR-B2-03 / Negative-Pair Oblig
     maskingApproved: true,
   });
 
-  it('Positive Pair: Variable photo counts map to accurate layout modes', () => {
+  it('Positive Pair: Variable photo counts map to accurate layout modes', async () => {
     expect(determinePhotoLayoutMode([dummyPhoto('1')])).toBe('single_hero');
     expect(determinePhotoLayoutMode([dummyPhoto('1'), dummyPhoto('2'), dummyPhoto('3')])).toBe(
       'tri_grid'
@@ -25,7 +25,7 @@ describe('AdaptivePhotoLayout Mode Determination (PR-B2-03 / Negative-Pair Oblig
     ).toBe('tabbed_gallery');
   });
 
-  it('Negative Pair: Zero photos safely triggers no_photos fallback mode without errors', () => {
+  it('Negative Pair: Zero photos safely triggers no_photos fallback mode without errors', async () => {
     expect(determinePhotoLayoutMode([])).toBe('no_photos');
   });
 });

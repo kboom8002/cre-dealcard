@@ -382,13 +382,13 @@ describe('Institutional Pro IM Golden Pipeline E2E Test Suite', { timeout: 180_0
       }
     );
 
-    it('enforces PRO_PAGE_TARGET = 36 and PRO_PAGE_HARD_LIMIT = 40 as constants', () => {
+    it('enforces PRO_PAGE_TARGET = 36 and PRO_PAGE_HARD_LIMIT = 40 as constants', async () => {
       expect(PRO_PAGE_MIN_LIMIT).toBe(30);
       expect(PRO_PAGE_TARGET).toBe(36);
       expect(PRO_PAGE_HARD_LIMIT).toBe(40);
     });
 
-    it('produces valid physical PPTX buffers > 50KB for all 3 postures', () => {
+    it('produces valid physical PPTX buffers > 50KB for all 3 postures', async () => {
       expect(incomeGoldenBuffer).toBeDefined();
       expect(incomeGoldenBuffer.length).toBeGreaterThan(50_000);
 
@@ -418,7 +418,7 @@ describe('Institutional Pro IM Golden Pipeline E2E Test Suite', { timeout: 180_0
   // Suite 2: Five Core Chapter Structure & Roman Numeral Sequencing
   // ==========================================================================
   describe('Suite 2: 5 Core Chapter Structure & Roman Numeral Sequencing', () => {
-    it('verifies front matter: Slide 1 is Cover (A01), Slide 2 is Agenda (A15)', () => {
+    it('verifies front matter: Slide 1 is Cover (A01), Slide 2 is Agenda (A15)', async () => {
       const seq = buildProDeckSequence({ posture: 'income', grade: 'A' });
       expect(seq[0].archetype).toBe('A01');
       expect(seq[0].dataKey).toBe('cover');
@@ -427,7 +427,7 @@ describe('Institutional Pro IM Golden Pipeline E2E Test Suite', { timeout: 180_0
       expect(seq[1].dataKey).toBe('agenda');
     });
 
-    it('contains exactly 5 Chapter Dividers (A25) in sequential order', () => {
+    it('contains exactly 5 Chapter Dividers (A25) in sequential order', async () => {
       const seq = buildProDeckSequence({ posture: 'income', grade: 'A' });
       const dividers = seq.filter((s) => s.archetype === 'A25');
 
@@ -466,7 +466,7 @@ describe('Institutional Pro IM Golden Pipeline E2E Test Suite', { timeout: 180_0
       }
     });
 
-    it('verifies end matter: final slide is Closing (A10)', () => {
+    it('verifies end matter: final slide is Closing (A10)', async () => {
       const seq = buildProDeckSequence({ posture: 'income', grade: 'A' });
       const lastSlide = seq[seq.length - 1];
       expect(lastSlide.archetype).toBe('A10');
@@ -478,7 +478,7 @@ describe('Institutional Pro IM Golden Pipeline E2E Test Suite', { timeout: 180_0
   // Suite 3: SSoT Mathematical Consistency Gate Verification
   // ==========================================================================
   describe('Suite 3: SSoT Mathematical Consistency Gate (0.00% Discrepancy Validator)', () => {
-    it('[Positive] confirms 0.00% discrepancy between Ch.1 summary and Ch.3 DCF schedules', () => {
+    it('[Positive] confirms 0.00% discrepancy between Ch.1 summary and Ch.3 DCF schedules', async () => {
       const purchasePrice = 25_000_000_000;
       const initialRent = 1_050_000_000;
       const capRatePct = 4.20;
@@ -511,7 +511,7 @@ describe('Institutional Pro IM Golden Pipeline E2E Test Suite', { timeout: 180_0
       expect(result.discrepancies).toHaveLength(0);
     });
 
-    it('[Negative Pair] flags discrepancy when Year 1 NOI differs between summary and detail', () => {
+    it('[Negative Pair] flags discrepancy when Year 1 NOI differs between summary and detail', async () => {
       const result = verifyMathematicalConsistency(
         {
           noi: 1_000_000_000,
@@ -529,7 +529,7 @@ describe('Institutional Pro IM Golden Pipeline E2E Test Suite', { timeout: 180_0
       expect(result.discrepancies[0]).toContain('NOI mismatch');
     });
 
-    it('[Negative Pair] flags discrepancy when Asking Price differs between summary and detail', () => {
+    it('[Negative Pair] flags discrepancy when Asking Price differs between summary and detail', async () => {
       const result = verifyMathematicalConsistency(
         {
           noi: 1_000_000_000,
@@ -546,7 +546,7 @@ describe('Institutional Pro IM Golden Pipeline E2E Test Suite', { timeout: 180_0
       expect(result.discrepancies.some((d) => d.includes('Price mismatch'))).toBe(true);
     });
 
-    it('[Negative Pair] flags discrepancy when initial Cap Rate violates mathematical formula', () => {
+    it('[Negative Pair] flags discrepancy when initial Cap Rate violates mathematical formula', async () => {
       const result = verifyMathematicalConsistency(
         {
           noi: 1_000_000_000,
@@ -563,7 +563,7 @@ describe('Institutional Pro IM Golden Pipeline E2E Test Suite', { timeout: 180_0
       expect(result.discrepancies.some((d) => d.includes('Cap Rate formula mismatch'))).toBe(true);
     });
 
-    it('passes comprehensive 6-point domain consistency validator for golden inputs', () => {
+    it('passes comprehensive 6-point domain consistency validator for golden inputs', async () => {
       const askingPriceKrw = 25_000_000_000;
       const annualRentKrw = 1_050_000_000;
       const totalDepositKrw = 2_000_000_000;
@@ -752,7 +752,7 @@ describe('Institutional Pro IM Golden Pipeline E2E Test Suite', { timeout: 180_0
   // Suite 6: Basic IM Isolation Verification (PAGE_HARD_LIMIT = 16)
   // ==========================================================================
   describe('Suite 6: Basic IM Isolation Verification (PAGE_HARD_LIMIT = 16 Invariant)', () => {
-    it('enforces Basic IM buildDeckSequence stays strictly <= PAGE_HARD_LIMIT (16 slides)', () => {
+    it('enforces Basic IM buildDeckSequence stays strictly <= PAGE_HARD_LIMIT (16 slides)', async () => {
       const basicSeq = buildDeckSequence({
         posture: 'income',
         grade: 'A',
@@ -763,7 +763,7 @@ describe('Institutional Pro IM Golden Pipeline E2E Test Suite', { timeout: 180_0
       expect(basicSeq.length).toBeGreaterThanOrEqual(7);
     });
 
-    it('verifies Basic IM sequence contains exactly 0 A25 Chapter Dividers and 0 Pro chapter keys', () => {
+    it('verifies Basic IM sequence contains exactly 0 A25 Chapter Dividers and 0 Pro chapter keys', async () => {
       const basicSeq = buildDeckSequence({
         posture: 'income',
         grade: 'A',
@@ -825,7 +825,7 @@ describe('Institutional Pro IM Golden Pipeline E2E Test Suite', { timeout: 180_0
       expect(hasA25).toBe(false);
     });
 
-    it('strictly forbids Grade D from publication in both Basic and Pro IM', () => {
+    it('strictly forbids Grade D from publication in both Basic and Pro IM', async () => {
       expect(() => buildDeckSequence({ posture: 'income', grade: 'D' as any })).toThrow(/G30/);
       expect(() => buildProDeckSequence({ posture: 'income', grade: 'D' as any })).toThrow(/G30/);
     });

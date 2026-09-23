@@ -370,7 +370,7 @@ describe('Adversarial Challenge 2: SSoT YAML Loader Resilience & Fallbacks', () 
     clearPageOrderCache();
   });
 
-  it('ADV-SSOT-01: resolveImPagesYamlPath when CWD is changed to non-standard dir', () => {
+  it('ADV-SSOT-01: resolveImPagesYamlPath when CWD is changed to non-standard dir', async () => {
     // Test resolveImPagesYamlPath from original cwd
     const resolvedPath = resolveImPagesYamlPath();
     expect(resolvedPath).not.toBeNull();
@@ -378,7 +378,7 @@ describe('Adversarial Challenge 2: SSoT YAML Loader Resilience & Fallbacks', () 
     expect(resolvedPath).toContain('im.pages.yaml');
   });
 
-  it('ADV-SSOT-02: loadPageOrder handles completely missing YAML with DEFAULT_CANONICAL_PAGE_ORDER fallback', () => {
+  it('ADV-SSOT-02: loadPageOrder handles completely missing YAML with DEFAULT_CANONICAL_PAGE_ORDER fallback', async () => {
     // Temporarily mock fs.existsSync or resolveImPagesYamlPath behavior
     const existsSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(false);
 
@@ -391,7 +391,7 @@ describe('Adversarial Challenge 2: SSoT YAML Loader Resilience & Fallbacks', () 
     expect(result).toEqual(DEFAULT_CANONICAL_PAGE_ORDER);
   });
 
-  it('ADV-SSOT-03: loadPageOrder handles corrupted/malformed YAML content gracefully', () => {
+  it('ADV-SSOT-03: loadPageOrder handles corrupted/malformed YAML content gracefully', async () => {
     const readSpy = vi.spyOn(fs, 'readFileSync').mockReturnValue('sequence: [corrupted yaml: {{{{ unclosed');
 
     clearPageOrderCache();
@@ -402,7 +402,7 @@ describe('Adversarial Challenge 2: SSoT YAML Loader Resilience & Fallbacks', () 
     expect(result).toEqual(DEFAULT_CANONICAL_PAGE_ORDER);
   });
 
-  it('ADV-SSOT-04: loadPageOrder handles YAML with unexpected data types (not arrays)', () => {
+  it('ADV-SSOT-04: loadPageOrder handles YAML with unexpected data types (not arrays)', async () => {
     const badYamls = [
       'sequence: "a string not an array"',
       'sequence: 12345',
@@ -422,7 +422,7 @@ describe('Adversarial Challenge 2: SSoT YAML Loader Resilience & Fallbacks', () 
     }
   });
 
-  it('ADV-SSOT-05: clearPageOrderCache properly clears cache and reloads', () => {
+  it('ADV-SSOT-05: clearPageOrderCache properly clears cache and reloads', async () => {
     // Initial load
     clearPageOrderCache();
     const pages1 = loadPageOrder('income');

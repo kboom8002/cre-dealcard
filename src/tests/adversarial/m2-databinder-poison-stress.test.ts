@@ -85,7 +85,7 @@ describe('Adversarial Empirical Stress Test: M2-2 Data Binder & Poison Token Ver
   // Dimension 1: Defect A Fix Verification (Raw WON vs Manwon in A23)
   // ==========================================================================
   describe('Dimension 1: Defect A Fix Verification (Raw WON Currency Units in A23)', () => {
-    it('[Positive] 250억원 asset must bind raw WON (25,000,000,000 KRW) to A23 slides', () => {
+    it('[Positive] 250억원 asset must bind raw WON (25,000,000,000 KRW) to A23 slides', async () => {
       const doc = {
         title: '양평동 더레드빌딩',
         body: {
@@ -175,7 +175,7 @@ describe('Adversarial Empirical Stress Test: M2-2 Data Binder & Poison Token Ver
   // Dimension 2: Defect B Fix Verification (A16 LTV Scenarios & Equity Breakdown)
   // ==========================================================================
   describe('Dimension 2: Defect B Fix Verification (A16 LTV Scenarios & Equity Breakdown)', () => {
-    it('[Positive] debt_financing has ltvPct: number for all scenarios and full equityBreakdown', () => {
+    it('[Positive] debt_financing has ltvPct: number for all scenarios and full equityBreakdown', async () => {
       const doc = {
         title: '신사동 빌딩',
         body: {
@@ -279,7 +279,7 @@ describe('Adversarial Empirical Stress Test: M2-2 Data Binder & Poison Token Ver
   // Dimension 3: Defect C Fix Verification (A12 ownership 2D string matrix string[][])
   // ==========================================================================
   describe('Dimension 3: Defect C Fix Verification (A12 ownership 2D string matrix string[][])', () => {
-    it('[Positive] ownershipRows is strictly string[][] with 0 plain objects', () => {
+    it('[Positive] ownershipRows is strictly string[][] with 0 plain objects', async () => {
       const doc = {
         title: '서초동 빌딩',
         body: {},
@@ -329,7 +329,7 @@ describe('Adversarial Empirical Stress Test: M2-2 Data Binder & Poison Token Ver
       expect(slideXml).toContain('TITLE &amp; OWNERSHIP');
     });
 
-    it('[Negative Pair] Non-string matrix row representation causes "[object Object]" coercion', () => {
+    it('[Negative Pair] Non-string matrix row representation causes "[object Object]" coercion', async () => {
       const defectiveOwnershipRows = [
         { category: '소유권자', status: '확인완료' },
       ];
@@ -346,7 +346,7 @@ describe('Adversarial Empirical Stress Test: M2-2 Data Binder & Poison Token Ver
   // Dimension 4: Defect D Fix Verification (Multi-page rent roll > 24 tenants)
   // ==========================================================================
   describe('Dimension 4: Defect D Fix Verification (Multi-Page Rent Roll > 24 Tenants)', () => {
-    it('[Positive] 8 tenants produces rentRollPart1 and rentRollPart2 (expiry fallback)', () => {
+    it('[Positive] 8 tenants produces rentRollPart1 and rentRollPart2 (expiry fallback)', async () => {
       const doc = {
         title: '표준 8개 임차인',
         body: {}, // uses default 8 tenants
@@ -358,7 +358,7 @@ describe('Adversarial Empirical Stress Test: M2-2 Data Binder & Poison Token Ver
       expect(result['rentRollPart3']).toBeUndefined();
     });
 
-    it('[Positive] 24 tenants produces rentRollPart1 and rentRollPart2', () => {
+    it('[Positive] 24 tenants produces rentRollPart1 and rentRollPart2', async () => {
       const tenants24 = Array.from({ length: 24 }, (_, i) => createMockTenant(i));
       const doc = {
         title: '24개 임차인',
@@ -374,7 +374,7 @@ describe('Adversarial Empirical Stress Test: M2-2 Data Binder & Poison Token Ver
       expect(result['rentRollPart2'].tableRows.length).toBe(14); // 12 items + 1 subtotal + 1 grand total
     });
 
-    it('[Positive] 25 tenants produces rentRollPart1, rentRollPart2, AND rentRollPart3', () => {
+    it('[Positive] 25 tenants produces rentRollPart1, rentRollPart2, AND rentRollPart3', async () => {
       const tenants25 = Array.from({ length: 25 }, (_, i) => createMockTenant(i));
       const doc = {
         title: '25개 임차인',
@@ -400,7 +400,7 @@ describe('Adversarial Empirical Stress Test: M2-2 Data Binder & Poison Token Ver
       expect(grandTotalRow[6]).toBe(expectedTotalDepositManwon.toLocaleString());
     });
 
-    it('[Positive] 36 tenants produces exactly 3 chunks of 12', () => {
+    it('[Positive] 36 tenants produces exactly 3 chunks of 12', async () => {
       const tenants36 = Array.from({ length: 36 }, (_, i) => createMockTenant(i));
       const doc = {
         title: '36개 임차인',
@@ -418,7 +418,7 @@ describe('Adversarial Empirical Stress Test: M2-2 Data Binder & Poison Token Ver
       expect(result['rentRollPart3'].tableRows.length).toBe(14); // 12 + 1 subtotal + 1 grand total
     });
 
-    it('[Positive] 48 tenants produces 4 chunks (rentRollPart1..4)', () => {
+    it('[Positive] 48 tenants produces 4 chunks (rentRollPart1..4)', async () => {
       const tenants48 = Array.from({ length: 48 }, (_, i) => createMockTenant(i));
       const doc = {
         title: '48개 임차인',
@@ -550,7 +550,7 @@ describe('Adversarial Empirical Stress Test: M2-2 Data Binder & Poison Token Ver
       });
     }
 
-    it('[Positive] Zero poison tokens across all 5 investment postures via bindSectionData', () => {
+    it('[Positive] Zero poison tokens across all 5 investment postures via bindSectionData', async () => {
       const postures: InvestmentPosture[] = ['income', 'owner_occupied', 'development', 'operating', 'trading'];
 
       for (const posture of postures) {
@@ -579,7 +579,7 @@ describe('Adversarial Empirical Stress Test: M2-2 Data Binder & Poison Token Ver
   // Dimension 6: Zero Evasive Phrases Invariant
   // ==========================================================================
   describe('Dimension 6: Zero Evasive Phrases Invariant', () => {
-    it('[Positive] Zero evasive phrases in standard Pro IM chapter data', () => {
+    it('[Positive] Zero evasive phrases in standard Pro IM chapter data', async () => {
       const doc = {
         title: '양평동 더레드빌딩',
         body: {
@@ -593,7 +593,7 @@ describe('Adversarial Empirical Stress Test: M2-2 Data Binder & Poison Token Ver
       expect(findings).toEqual([]);
     });
 
-    it('[Positive] Zero evasive phrases in empty and fallback payloads', () => {
+    it('[Positive] Zero evasive phrases in empty and fallback payloads', async () => {
       const doc = {
         title: '빈 문서',
         body: {},
@@ -604,7 +604,7 @@ describe('Adversarial Empirical Stress Test: M2-2 Data Binder & Poison Token Ver
       expect(findings).toEqual([]);
     });
 
-    it('[Negative Pair] Evasive phrase scanner detects injected banned phrases', () => {
+    it('[Negative Pair] Evasive phrase scanner detects injected banned phrases', async () => {
       const dirtyObj = {
         title: '자료 없음',
         check: '추후 확인 필요',

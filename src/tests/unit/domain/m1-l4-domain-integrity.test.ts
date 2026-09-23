@@ -6,7 +6,7 @@ import { PUBLISH_GATES, type GateContext, runPublishGates } from '@/domain/build
 
 describe('Milestone 1 L4: Business Domain & Approval Gate Integrity', () => {
   describe('L4-03: Approval Gate Subject Aliasing & Posture Routing', () => {
-    it('passes approval when claims use FinancialCalculator alias subjects: total_area_sqm and yield_on_cost', () => {
+    it('passes approval when claims use FinancialCalculator alias subjects: total_area_sqm and yield_on_cost', async () => {
       const registry = new ClaimRegistry();
       registry.register({
         subject: 'asking_price',
@@ -38,7 +38,7 @@ describe('Milestone 1 L4: Business Domain & Approval Gate Integrity', () => {
       expect(result.blockers).toEqual([]);
     });
 
-    it('passes approval when claims use cap_rate as alias for gross_yield', () => {
+    it('passes approval when claims use cap_rate as alias for gross_yield', async () => {
       const registry = new ClaimRegistry();
       registry.register({
         subject: 'asking_price',
@@ -70,7 +70,7 @@ describe('Milestone 1 L4: Business Domain & Approval Gate Integrity', () => {
       expect(result.blockers).toEqual([]);
     });
 
-    it('does NOT mandate gross_yield for owner_occupied posture deals', () => {
+    it('does NOT mandate gross_yield for owner_occupied posture deals', async () => {
       const registry = new ClaimRegistry();
       registry.register({
         subject: 'asking_price',
@@ -95,7 +95,7 @@ describe('Milestone 1 L4: Business Domain & Approval Gate Integrity', () => {
       expect(result.blockers).toEqual([]);
     });
 
-    it('does NOT mandate gross_yield for development posture deals', () => {
+    it('does NOT mandate gross_yield for development posture deals', async () => {
       const registry = new ClaimRegistry();
       registry.register({
         subject: 'asking_price',
@@ -119,7 +119,7 @@ describe('Milestone 1 L4: Business Domain & Approval Gate Integrity', () => {
       expect(result.blockers).toEqual([]);
     });
 
-    it('Negative Pair: blocks income posture when gross_yield and aliases are missing', () => {
+    it('Negative Pair: blocks income posture when gross_yield and aliases are missing', async () => {
       const registry = new ClaimRegistry();
       registry.register({
         subject: 'asking_price',
@@ -143,7 +143,7 @@ describe('Milestone 1 L4: Business Domain & Approval Gate Integrity', () => {
       expect(result.blockers.some((b) => b.id === 'approval.required_missing.gross_yield')).toBe(true);
     });
 
-    it('Negative Pair: blocks when total_area and aliases are missing', () => {
+    it('Negative Pair: blocks when total_area and aliases are missing', async () => {
       const registry = new ClaimRegistry();
       registry.register({
         subject: 'asking_price',
@@ -169,7 +169,7 @@ describe('Milestone 1 L4: Business Domain & Approval Gate Integrity', () => {
   });
 
   describe('L4-02 / L4-07: ReleaseTier Decision IM Resolution', () => {
-    it('resolves decision_im when grade is A and hasAsOf and hasScenario are true', () => {
+    it('resolves decision_im when grade is A and hasAsOf and hasScenario are true', async () => {
       const tier = resolveTier({
         grade: 'A',
         posture: 'income',
@@ -187,7 +187,7 @@ describe('Milestone 1 L4: Business Domain & Approval Gate Integrity', () => {
       expect(tier).toBe('decision_im');
     });
 
-    it('resolves decision_im when grade is B and hasAsOf and hasScenario are true', () => {
+    it('resolves decision_im when grade is B and hasAsOf and hasScenario are true', async () => {
       const tier = resolveTier({
         grade: 'B',
         posture: 'income',
@@ -205,7 +205,7 @@ describe('Milestone 1 L4: Business Domain & Approval Gate Integrity', () => {
       expect(tier).toBe('decision_im');
     });
 
-    it('Negative Pair: downgrades to analysis_im when hasAsOf is false', () => {
+    it('Negative Pair: downgrades to analysis_im when hasAsOf is false', async () => {
       const tier = resolveTier({
         grade: 'A',
         posture: 'income',
@@ -223,7 +223,7 @@ describe('Milestone 1 L4: Business Domain & Approval Gate Integrity', () => {
       expect(tier).toBe('analysis_im');
     });
 
-    it('Negative Pair: downgrades to analysis_im when hasScenario is false', () => {
+    it('Negative Pair: downgrades to analysis_im when hasScenario is false', async () => {
       const tier = resolveTier({
         grade: 'A',
         posture: 'income',
@@ -243,7 +243,7 @@ describe('Milestone 1 L4: Business Domain & Approval Gate Integrity', () => {
   });
 
   describe('L4-04: PUBLISH_GATES G17-G30 Type-Safe and Safe Handlers', () => {
-    it('G23 fails when rentRollFullyDisclosed is explicitly false', () => {
+    it('G23 fails when rentRollFullyDisclosed is explicitly false', async () => {
       const g23 = PUBLISH_GATES.find((g) => g.id === 'G23')!;
       expect(g23).toBeDefined();
       expect(g23.check({} as GateContext)).toBe(true);
@@ -251,7 +251,7 @@ describe('Milestone 1 L4: Business Domain & Approval Gate Integrity', () => {
       expect(g23.check({ rentRollFullyDisclosed: true } as GateContext)).toBe(true);
     });
 
-    it('G17 fails when imageDpi is below 72 and passes when undefined or >= 72', () => {
+    it('G17 fails when imageDpi is below 72 and passes when undefined or >= 72', async () => {
       const g17 = PUBLISH_GATES.find((g) => g.id === 'G17')!;
       expect(g17.check({} as GateContext)).toBe(true);
       expect(g17.check({ imageDpi: 50 } as GateContext)).toBe(false);
@@ -259,7 +259,7 @@ describe('Milestone 1 L4: Business Domain & Approval Gate Integrity', () => {
       expect(g17.check({ imageDpi: 150 } as GateContext)).toBe(true);
     });
 
-    it('G26 fails when photoCount is less than 3 and passes when undefined or >= 3', () => {
+    it('G26 fails when photoCount is less than 3 and passes when undefined or >= 3', async () => {
       const g26 = PUBLISH_GATES.find((g) => g.id === 'G26')!;
       expect(g26.check({} as GateContext)).toBe(true);
       expect(g26.check({ photoCount: 1 } as GateContext)).toBe(false);

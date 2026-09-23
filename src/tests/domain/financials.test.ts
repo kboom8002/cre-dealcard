@@ -8,7 +8,7 @@ import {
 import { validateAssetProvenance, attachDefaultProvenance } from '@/lib/provenance-guard';
 
 describe('Financial Engine (S0-T1 & S0-T2 & S0-T6)', () => {
-  it('correctly calculates NOI with default assumptions', () => {
+  it('correctly calculates NOI with default assumptions', async () => {
     // 100,000,000 gross income, 5% vacancy (95M EGI), 10% OPEX (9.5M) => 85.5M NOI
     const result = calculateNOI(100_000_000);
     expect(result.value).toBe(85_500_000);
@@ -16,7 +16,7 @@ describe('Financial Engine (S0-T1 & S0-T2 & S0-T6)', () => {
     expect(result.provenanceTier).toBe('ai_inferred');
   });
 
-  it('correctly calculates Cap Rate', () => {
+  it('correctly calculates Cap Rate', async () => {
     const noi = 500_000_000;
     const askingPrice = 10_000_000_000; // 100억
     const capRate = calculateCapRate(noi, askingPrice);
@@ -24,7 +24,7 @@ describe('Financial Engine (S0-T1 & S0-T2 & S0-T6)', () => {
     expect(capRate.provenanceTier).toBe('broker_input');
   });
 
-  it('gates DCF analysis by Data Grade A', () => {
+  it('gates DCF analysis by Data Grade A', async () => {
     const summaryGradeB = computeFinancialSummary({
       askingPriceKrw: 10_000_000_000,
       grossAnnualIncomeKrw: 500_000_000,
@@ -44,7 +44,7 @@ describe('Financial Engine (S0-T1 & S0-T2 & S0-T6)', () => {
 });
 
 describe('Provenance Guard (S0-T4)', () => {
-  it('passes validation when all attributes have provenance metadata', () => {
+  it('passes validation when all attributes have provenance metadata', async () => {
     const validPayload = {
       attrs: { totalFloorArea: 450, asksPrice: 5000000000 },
       provenance: {
@@ -55,7 +55,7 @@ describe('Provenance Guard (S0-T4)', () => {
     expect(() => validateAssetProvenance(validPayload)).not.toThrow();
   });
 
-  it('throws error when provenance metadata is missing for any attribute', () => {
+  it('throws error when provenance metadata is missing for any attribute', async () => {
     const invalidPayload = {
       attrs: { totalFloorArea: 450, asksPrice: 5000000000 },
       provenance: {
@@ -65,7 +65,7 @@ describe('Provenance Guard (S0-T4)', () => {
     expect(() => validateAssetProvenance(invalidPayload)).toThrow(/ProvenanceViolation/);
   });
 
-  it('attaches default provenance correctly', () => {
+  it('attaches default provenance correctly', async () => {
     const rawAttrs = { areaPyung: 120, zoning: '제3종일반주거지역' };
     const wrapped = attachDefaultProvenance(rawAttrs, 'public_data', 'MOLIT_API');
     expect(wrapped.provenance.areaPyung.tier).toBe('public_data');

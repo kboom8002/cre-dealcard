@@ -225,7 +225,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
   describe('Mission 1: institutional_slate Theme Tokens & Contrast', () => {
     const slateTheme = PPTX_PRESET_TEMPLATES.institutional_slate;
 
-    it('CH-01: Baseline institutional_slate tokens achieve 0 accessibility violations', () => {
+    it('CH-01: Baseline institutional_slate tokens achieve 0 accessibility violations', async () => {
       expect(slateTheme).toBeDefined();
       expect(slateTheme.presetId).toBe(INSTITUTIONAL_SLATE_PRESET);
       expect(CORE_PRIME_TEMPLATES).toContain(INSTITUTIONAL_SLATE_PRESET);
@@ -248,7 +248,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       expect(darkBodyRatio).toBeGreaterThanOrEqual(10.0); // ~11.83:1
     });
 
-    it('CH-02: Contrast validator catches and rejects deliberately low-contrast body text on dark bg', () => {
+    it('CH-02: Contrast validator catches and rejects deliberately low-contrast body text on dark bg', async () => {
       const adversarialTheme: PptxThemeTokens = {
         ...slateTheme,
         presetId: 'adv_bad_body',
@@ -263,7 +263,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       expect(validatePresetAccessibility(slateTheme)).toEqual([]);
     });
 
-    it('CH-03: Contrast validator catches and rejects deliberately low-contrast ink / heading text', () => {
+    it('CH-03: Contrast validator catches and rejects deliberately low-contrast ink / heading text', async () => {
       const adversarialTheme: PptxThemeTokens = {
         ...slateTheme,
         presetId: 'adv_bad_ink',
@@ -275,7 +275,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       expect(issues.some((i) => i.includes('ink(4A5268)') && i.includes('bg(2B2F3E)'))).toBe(true);
     });
 
-    it('CH-04: Contrast validator catches and rejects low-contrast accent color on dark bg', () => {
+    it('CH-04: Contrast validator catches and rejects low-contrast accent color on dark bg', async () => {
       const adversarialTheme: PptxThemeTokens = {
         ...slateTheme,
         presetId: 'adv_bad_accent',
@@ -287,7 +287,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       expect(issues.some((i) => i.includes('accent(353B4D)'))).toBe(true);
     });
 
-    it('CH-05: Contrast validator catches low-contrast darkBody text on darkCard container', () => {
+    it('CH-05: Contrast validator catches low-contrast darkBody text on darkCard container', async () => {
       const adversarialTheme: PptxThemeTokens = {
         ...slateTheme,
         presetId: 'adv_bad_dark_body',
@@ -299,7 +299,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       expect(issues.some((i) => i.includes('darkBody(2D3242)') && i.includes('darkCard(232733)'))).toBe(true);
     });
 
-    it('CH-06: Multi-token corruption injection produces multiple simultaneous violation flags', () => {
+    it('CH-06: Multi-token corruption injection produces multiple simultaneous violation flags', async () => {
       const heavilyCorruptedTheme: PptxThemeTokens = {
         ...slateTheme,
         presetId: 'adv_multi_corrupt',
@@ -317,7 +317,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       expect(issues.some((i) => i.includes('darkBody'))).toBe(true);
     });
 
-    it('CH-07: CSS custom property parsing in globals.css maintains exact slate variables & contrast', () => {
+    it('CH-07: CSS custom property parsing in globals.css maintains exact slate variables & contrast', async () => {
       const globalsCssPath = path.resolve(process.cwd(), 'src/app/globals.css');
       const cssContent = fs.readFileSync(globalsCssPath, 'utf8');
 
@@ -396,7 +396,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       },
     });
 
-    it('CH-08: Baseline matches all 7 core metrics with 0 discrepancies and passed=true', () => {
+    it('CH-08: Baseline matches all 7 core metrics with 0 discrepancies and passed=true', async () => {
       const base = makeBaseline();
       const report = verifyCrossChannelConsistency(base);
 
@@ -417,7 +417,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       expect(report.verifiedMetrics.length).toBe(7);
     });
 
-    it('CH-09: Price drift stress-test: 0.05% drift passes, 0.15% drift (> 0.1% threshold) is caught', () => {
+    it('CH-09: Price drift stress-test: 0.05% drift passes, 0.15% drift (> 0.1% threshold) is caught', async () => {
       const base = makeBaseline();
 
       // Negative pair: 0.05% sub-threshold drift is tolerated (within 0.1%)
@@ -444,7 +444,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       expect(disc?.pptxValue).toBe(advPrice);
     });
 
-    it('CH-10: Total Area drift stress-test: 0.04 ㎡ passes, 0.08 ㎡ (> 0.05 ㎡ threshold) is caught', () => {
+    it('CH-10: Total Area drift stress-test: 0.04 ㎡ passes, 0.08 ㎡ (> 0.05 ㎡ threshold) is caught', async () => {
       // Negative pair: 0.04 ㎡ drift is tolerated
       const sub = makeBaseline();
       sub.pptxProject.slides[1].slideOverrides.area = 8450.54;
@@ -464,7 +464,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       expect(disc?.message).toContain('연면적 수치 불일치');
     });
 
-    it('CH-11: Land Area drift stress-test: 0.03 ㎡ passes, 0.08 ㎡ (> 0.05 ㎡ threshold) is caught', () => {
+    it('CH-11: Land Area drift stress-test: 0.03 ㎡ passes, 0.08 ㎡ (> 0.05 ㎡ threshold) is caught', async () => {
       // Negative pair: 0.03 ㎡ drift is tolerated
       const sub = makeBaseline();
       sub.pptxProject.slides[1].slideOverrides.landArea = 1820.33;
@@ -484,7 +484,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       expect(disc?.message).toContain('대지면적 수치 불일치');
     });
 
-    it('CH-12: Cap Rate drift stress-test: 0.03 %p passes, 0.08 %p (> 0.05 %p threshold) is caught', () => {
+    it('CH-12: Cap Rate drift stress-test: 0.03 %p passes, 0.08 %p (> 0.05 %p threshold) is caught', async () => {
       // Negative pair: 0.03 %p drift is tolerated
       const sub = makeBaseline();
       sub.pptxProject.slides[1].slideOverrides.grossYield = 5.48;
@@ -506,7 +506,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       expect(disc?.message).toContain('수익률/Cap Rate 수치 불일치');
     });
 
-    it('CH-13: Deposit & Rent 1 KRW vs 2 KRW stress-test: 1 KRW passes, 2 KRW (> 1 KRW threshold) is caught', () => {
+    it('CH-13: Deposit & Rent 1 KRW vs 2 KRW stress-test: 1 KRW passes, 2 KRW (> 1 KRW threshold) is caught', async () => {
       // Negative pair: 1 KRW difference is tolerated
       const sub = makeBaseline();
       sub.pptxProject.slides[2].slideOverrides.totalDeposit = 6_000_000_001;
@@ -539,7 +539,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       expect(rentDisc?.discrepancyType).toBe('NUMERICAL_MISMATCH');
     });
 
-    it('CH-14: Title mismatch stress-test catches document title drift', () => {
+    it('CH-14: Title mismatch stress-test catches document title drift', async () => {
       const adv = makeBaseline();
       adv.pptxProject.title = '완전히 다른 빌딩 이름';
       adv.pptxProject.slides[0].title = '완전히 다른 빌딩 이름';
@@ -551,7 +551,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       expect(disc?.discrepancyType).toBe('TEXT_MISMATCH');
     });
 
-    it('CH-15: Simultaneous adversarial attack across all 7 metrics flags 100% of discrepancies (7/7)', () => {
+    it('CH-15: Simultaneous adversarial attack across all 7 metrics flags 100% of discrepancies (7/7)', async () => {
       const adv = makeBaseline();
 
       // Corrupt all 7 metrics simultaneously
@@ -883,7 +883,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
   // 4. Rule 10 Slide Limit Hardness (22 Body Slides + 4 Appendix Input)
   // ════════════════════════════════════════════════════════════════════════════
   describe('Mission 4: Rule 10 Slide Limit Hardness', () => {
-    it('CH-25: Provides deck sequence with 22 body slides and 4 appendix slides, strictly trimming body to <= 16 while preserving all 4 appendices', () => {
+    it('CH-25: Provides deck sequence with 22 body slides and 4 appendix slides, strictly trimming body to <= 16 while preserving all 4 appendices', async () => {
       // Configure input that generates exactly 22 raw body slides:
       // - cover (1)
       // - 6 gallery slides (6)
@@ -963,7 +963,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       expect(firstAppendixIndex).toBe(16);
     });
 
-    it('CH-26: Extreme over-budget scenario (28+ raw body slides) still adheres strictly to 16 body slide limit', () => {
+    it('CH-26: Extreme over-budget scenario (28+ raw body slides) still adheres strictly to 16 body slide limit', async () => {
       // Grade A with 10 gallery slides + 6 financial slides
       const input: DeckSequenceInput = {
         posture: 'income',
@@ -999,7 +999,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       expect(sequence.length).toBe(20);
     });
 
-    it('CH-27: Negative pair & boundary: Compact decks (<= 16 slides) are not pruned unnecessarily', () => {
+    it('CH-27: Negative pair & boundary: Compact decks (<= 16 slides) are not pruned unnecessarily', async () => {
       const input: DeckSequenceInput = {
         posture: 'trading',
         grade: 'C',
@@ -1018,7 +1018,7 @@ describe('Adversarial Challenger M34-1: Hardening & Stress Suite', () => {
       expect(bodySlides.length).toBeGreaterThan(0);
     });
 
-    it('CH-28: Grade D issuance hard rejection [G30] is enforced deterministically', () => {
+    it('CH-28: Grade D issuance hard rejection [G30] is enforced deterministically', async () => {
       expect(() =>
         buildDeckSequence({
           posture: 'income',

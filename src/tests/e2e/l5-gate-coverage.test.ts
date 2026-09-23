@@ -105,7 +105,7 @@ function findGate(id: string) {
 // 1. Integration: 기준 컨텍스트로 runPublishGates 전수 통과
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 describe('D45 R1 Integration: runPublishGates 전수', () => {
-  it('passing context → 모든 게이트 통과, blocked=false', () => {
+  it('passing context → 모든 게이트 통과, blocked=false', async () => {
     const ctx = createPassingContext();
     const report = runPublishGates(ctx as GateContext);
     expect(report.blocked).toBe(false);
@@ -115,7 +115,7 @@ describe('D45 R1 Integration: runPublishGates 전수', () => {
     expect(report.allPassed).toBe(true);
   });
 
-  it('negative: salePrice=0 → blocked=true (최소 G01 차단)', () => {
+  it('negative: salePrice=0 → blocked=true (최소 G01 차단)', async () => {
     const ctx = { ...createPassingContext(), salePrice: 0 };
     const report = runPublishGates(ctx as GateContext);
     expect(report.blocked).toBe(true);
@@ -217,12 +217,12 @@ describe('D45 R1: 개별 게이트 positive/negative pair', () => {
 // 3. G23 특수 케이스: 항상 통과 (negative pair 불가)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 describe('G23: 렌트롤 전량 표기 — 항상 통과 (BL-2에서 보장)', () => {
-  it('G23 check는 () => true — 빈 컨텍스트에서도 통과', () => {
+  it('G23 check는 () => true — 빈 컨텍스트에서도 통과', async () => {
     const gate = findGate('G23')!;
     expect(gate.check({} as GateContext)).toBe(true);
   });
 
-  it('G23에는 설계상 negative pair가 없음 (KNOWLEDGE_SOURCE §A6)', () => {
+  it('G23에는 설계상 negative pair가 없음 (KNOWLEDGE_SOURCE §A6)', async () => {
     // G23은 BL-2 단계에서 렌트롤 전량이 데이터로 보장되므로
     // 게이트 수준에서는 항상 true를 반환합니다.
     // "되돌렸을 때 실패하는가" — 되돌릴 수 없으므로 negative pair 면제.

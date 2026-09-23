@@ -22,7 +22,7 @@ describe('Placeholder Residue & Image PII Containment (CIM-0104 / PR-M1-04)', ()
     bleedCount: 0,
   };
 
-  it('should block publication via G07 when placeholder residue is detected (e.g. {{price}} or NaN)', () => {
+  it('should block publication via G07 when placeholder residue is detected (e.g. {{price}} or NaN)', async () => {
     const report = runPublishGates({
       ...(baseCtx as any),
       placeholderResidueCount: 2, // 2 unreplaced variables detected
@@ -35,7 +35,7 @@ describe('Placeholder Residue & Image PII Containment (CIM-0104 / PR-M1-04)', ()
     expect(report.blocked).toBe(true);
   });
 
-  it('should pass G07 when piiRemoved is true and placeholderResidueCount is 0', () => {
+  it('should pass G07 when piiRemoved is true and placeholderResidueCount is 0', async () => {
     const report = runPublishGates({
       ...(baseCtx as any),
       placeholderResidueCount: 0,
@@ -48,7 +48,7 @@ describe('Placeholder Residue & Image PII Containment (CIM-0104 / PR-M1-04)', ()
     expect(g07?.status).toBe('PASS');
   });
 
-  it('should return NOT_RUN status for G20 if approvals map is empty and images exist', () => {
+  it('should return NOT_RUN status for G20 if approvals map is empty and images exist', async () => {
     const usedImages = [
       { sha256: 'abc1234567890', slot: 'exterior' },
     ];
@@ -62,7 +62,7 @@ describe('Placeholder Residue & Image PII Containment (CIM-0104 / PR-M1-04)', ()
     expect(g20Result.failures[0].reason).toBe('마스킹 승인 필요');
   });
 
-  it('should pass G20 when valid approval records exist for all images', () => {
+  it('should pass G20 when valid approval records exist for all images', async () => {
     const sha = 'abc1234567890';
     const usedImages = [{ sha256: sha, slot: 'exterior' }];
     const approvals = new Map<string, ImageApprovalRecord>();

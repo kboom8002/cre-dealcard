@@ -102,7 +102,7 @@ describe('P1 당산 Income R3-Verified — PRO IM 골든 파이프라인 (실제
     if (!existsSync(OUTPUT_DIR)) mkdirSync(OUTPUT_DIR, { recursive: true });
   });
 
-  it('Step 1: 데이터셋 로드', () => {
+  it('Step 1: 데이터셋 로드', async () => {
     const t = Date.now();
     bottomSheet = JSON.parse(readFileSync(join(DATA_DIR, 'bottom_sheet.json'), 'utf8'));
 
@@ -113,7 +113,7 @@ describe('P1 당산 Income R3-Verified — PRO IM 골든 파이프라인 (실제
     expect(bottomSheet.posture).toBe('income');
   });
 
-  it('Step 2: Writer Input 구성', () => {
+  it('Step 2: Writer Input 구성', async () => {
     const t = Date.now();
 
     const totalDepositManwon = bottomSheet.floor_leases.reduce((sum: number, fl: any) => sum + (fl.deposit_manwon || 0), 0);
@@ -280,7 +280,7 @@ describe('P1 당산 Income R3-Verified — PRO IM 골든 파이프라인 (실제
     expect(gatesPass).toBe(true);
   });
 
-  it('Step 6: 리포트 생성', () => {
+  it('Step 6: 리포트 생성', async () => {
     const report = generatePipelineReport();
     writeFileSync(LOG_PATH, report, 'utf8');
     expect(existsSync(LOG_PATH)).toBe(true);

@@ -64,7 +64,7 @@ describe('Institutional Slate Theme Preset (#2B2F3E, #E8DEC8, open_frame)', () =
   // Suite 1: Registration, Prime List & Aliases
   // ══════════════════════════════════════════════════════════════════
   describe('Suite 1: Registration, Prime List & Aliases', () => {
-    it('P1-01: institutional_slate is registered in PPTX_PRESET_TEMPLATES', () => {
+    it('P1-01: institutional_slate is registered in PPTX_PRESET_TEMPLATES', async () => {
       // Positive assertion
       expect(slateTheme).toBeDefined();
       expect(slateTheme.presetId).toBe('institutional_slate');
@@ -74,7 +74,7 @@ describe('Institutional Slate Theme Preset (#2B2F3E, #E8DEC8, open_frame)', () =
       expect(PPTX_PRESET_TEMPLATES['institutional_magenta_neon']).toBeUndefined();
     });
 
-    it('P1-02: institutional_slate is included in CORE_PRIME_TEMPLATES and constant export', () => {
+    it('P1-02: institutional_slate is included in CORE_PRIME_TEMPLATES and constant export', async () => {
       // Positive assertion
       expect(CORE_PRIME_TEMPLATES).toContain('institutional_slate');
       expect(INSTITUTIONAL_SLATE_PRESET).toBe('institutional_slate');
@@ -83,7 +83,7 @@ describe('Institutional Slate Theme Preset (#2B2F3E, #E8DEC8, open_frame)', () =
       expect(CORE_PRIME_TEMPLATES).not.toContain('random_theme_preset_xyz');
     });
 
-    it('P1-03: getPptxTheme resolves institutional_slate directly and via aliases', () => {
+    it('P1-03: getPptxTheme resolves institutional_slate directly and via aliases', async () => {
       // Positive direct lookup
       const themeDirect = getPptxTheme('institutional_slate');
       expect(themeDirect.presetId).toBe('institutional_slate');
@@ -107,7 +107,7 @@ describe('Institutional Slate Theme Preset (#2B2F3E, #E8DEC8, open_frame)', () =
   // Suite 2: Token Schema Completeness & CMF Values
   // ══════════════════════════════════════════════════════════════════
   describe('Suite 2: Token Schema Completeness & CMF Values', () => {
-    it('P2-01: Contains all required tokens with non-empty string values', () => {
+    it('P2-01: Contains all required tokens with non-empty string values', async () => {
       const requiredKeys: (keyof PptxThemeTokens)[] = [
         'presetId', 'presetName',
         'ink', 'ink2', 'ink3', 'slate', 'body', 'mute', 'mute2', 'line', 'line2', 'bg', 'tint',
@@ -127,7 +127,7 @@ describe('Institutional Slate Theme Preset (#2B2F3E, #E8DEC8, open_frame)', () =
       expect((slateTheme as any).unknownTokenProperty).toBeUndefined();
     });
 
-    it('P2-02: Exact CMF color hex codes match institutional slate specifications', () => {
+    it('P2-02: Exact CMF color hex codes match institutional slate specifications', async () => {
       // Background & Tint
       expect(slateTheme.bg).toBe('2B2F3E');
       expect(slateTheme.tint).toBe('232733');
@@ -175,7 +175,7 @@ describe('Institutional Slate Theme Preset (#2B2F3E, #E8DEC8, open_frame)', () =
       }
     });
 
-    it('P2-03: Dark background invariant (luminance < 0.05 vs light theme luminance > 0.8)', () => {
+    it('P2-03: Dark background invariant (luminance < 0.05 vs light theme luminance > 0.8)', async () => {
       // Positive assertion: Slate theme has deep charcoal background
       const slateLum = relativeLuminance(slateTheme.bg);
       expect(slateLum).toBeLessThan(0.05);
@@ -192,7 +192,7 @@ describe('Institutional Slate Theme Preset (#2B2F3E, #E8DEC8, open_frame)', () =
   // Suite 3: WCAG AA Contrast Compliance & Mathematical Validation
   // ══════════════════════════════════════════════════════════════════
   describe('Suite 3: WCAG AA Contrast Compliance & Mathematical Validation', () => {
-    it('P3-01: Pure white ink (#FFFFFF) on slate (#2B2F3E) achieves high contrast >= 13.0:1', () => {
+    it('P3-01: Pure white ink (#FFFFFF) on slate (#2B2F3E) achieves high contrast >= 13.0:1', async () => {
       const ratio = contrastRatio(slateTheme.ink, slateTheme.bg);
       // Measured: ~13.14:1
       expect(ratio).toBeGreaterThanOrEqual(13.0);
@@ -202,7 +202,7 @@ describe('Institutional Slate Theme Preset (#2B2F3E, #E8DEC8, open_frame)', () =
       expect(badRatio).toBeLessThan(4.5);
     });
 
-    it('P3-02: Body text (#CBD5E1) on slate (#2B2F3E) satisfies WCAG AA >= 4.5:1 (achieving ~8.9:1)', () => {
+    it('P3-02: Body text (#CBD5E1) on slate (#2B2F3E) satisfies WCAG AA >= 4.5:1 (achieving ~8.9:1)', async () => {
       const ratio = contrastRatio(slateTheme.body, slateTheme.bg);
       expect(ratio).toBeGreaterThanOrEqual(4.5);
       expect(ratio).toBeGreaterThan(8.0);
@@ -212,7 +212,7 @@ describe('Institutional Slate Theme Preset (#2B2F3E, #E8DEC8, open_frame)', () =
       expect(darkBodyRatio).toBeLessThan(4.5);
     });
 
-    it('P3-03: Champagne gold accent (#E8DEC8) on slate (#2B2F3E) satisfies graphical contrast >= 3.0:1 (achieving ~9.8:1)', () => {
+    it('P3-03: Champagne gold accent (#E8DEC8) on slate (#2B2F3E) satisfies graphical contrast >= 3.0:1 (achieving ~9.8:1)', async () => {
       const ratio = contrastRatio(slateTheme.accent, slateTheme.bg);
       expect(ratio).toBeGreaterThanOrEqual(3.0);
       expect(ratio).toBeGreaterThan(9.0);
@@ -222,7 +222,7 @@ describe('Institutional Slate Theme Preset (#2B2F3E, #E8DEC8, open_frame)', () =
       expect(darkGoldRatio).toBeLessThan(3.0);
     });
 
-    it('P3-04: Mute text (#64748B) on slate (#2B2F3E) satisfies minimum readable threshold >= 2.5:1', () => {
+    it('P3-04: Mute text (#64748B) on slate (#2B2F3E) satisfies minimum readable threshold >= 2.5:1', async () => {
       const ratio = contrastRatio(slateTheme.mute, slateTheme.bg);
       expect(ratio).toBeGreaterThanOrEqual(2.5);
 
@@ -231,7 +231,7 @@ describe('Institutional Slate Theme Preset (#2B2F3E, #E8DEC8, open_frame)', () =
       expect(tooDarkMuteRatio).toBeLessThan(2.5);
     });
 
-    it('P3-05: DarkCard body (#E2E8F0) on darkCard (#232733) achieves high contrast >= 10.0:1', () => {
+    it('P3-05: DarkCard body (#E2E8F0) on darkCard (#232733) achieves high contrast >= 10.0:1', async () => {
       const ratio = contrastRatio(slateTheme.darkBody, slateTheme.darkCard);
       expect(ratio).toBeGreaterThanOrEqual(3.0);
       expect(ratio).toBeGreaterThan(10.0);
@@ -241,7 +241,7 @@ describe('Institutional Slate Theme Preset (#2B2F3E, #E8DEC8, open_frame)', () =
       expect(badCardTextRatio).toBeLessThan(3.0);
     });
 
-    it('P3-06: validatePresetAccessibility reports 0 violations for institutional_slate', () => {
+    it('P3-06: validatePresetAccessibility reports 0 violations for institutional_slate', async () => {
       // Positive assertion: 0 issues
       const issues = validatePresetAccessibility(slateTheme);
       expect(issues).toEqual([]);
@@ -379,7 +379,7 @@ describe('Institutional Slate Theme Preset (#2B2F3E, #E8DEC8, open_frame)', () =
   // Suite 5: Studio UI Presets & Web CSS Parity
   // ══════════════════════════════════════════════════════════════════
   describe('Suite 5: Studio UI Presets & Web CSS Parity', () => {
-    it('P5-01: token-editor-panel exports institutional_slate in CORE_PRIME_PRESETS and open_frame in LAYOUT_STYLE_PRESETS', () => {
+    it('P5-01: token-editor-panel exports institutional_slate in CORE_PRIME_PRESETS and open_frame in LAYOUT_STYLE_PRESETS', async () => {
       // Positive assertion: CORE_PRIME_PRESETS contains institutional_slate
       const slatePreset = CORE_PRIME_PRESETS.find(p => p.id === 'institutional_slate');
       expect(slatePreset).toBeDefined();
@@ -396,7 +396,7 @@ describe('Institutional Slate Theme Preset (#2B2F3E, #E8DEC8, open_frame)', () =
       expect(LAYOUT_STYLE_PRESETS.find(s => s.id === 'non_existent_layout_style')).toBeUndefined();
     });
 
-    it('P5-02: globals.css defines [data-theme="institutional_slate"] with exact slate and gold variables', () => {
+    it('P5-02: globals.css defines [data-theme="institutional_slate"] with exact slate and gold variables', async () => {
       const globalsCssPath = path.resolve(process.cwd(), 'src/app/globals.css');
       const cssContent = fs.readFileSync(globalsCssPath, 'utf-8');
 

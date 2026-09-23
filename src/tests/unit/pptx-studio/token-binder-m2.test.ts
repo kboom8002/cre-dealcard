@@ -47,7 +47,7 @@ describe('TokenBinder M2 Snapshot & Null Safety Tests', () => {
     rentrollTier: 'standard',
   });
 
-  it('Positive Pair: Binds all snapshot tokens accurately', () => {
+  it('Positive Pair: Binds all snapshot tokens accurately', async () => {
     const template = [
       '소재지: {{snapshot.address}}',
       '건물명: {{snapshot.building_name}}',
@@ -83,7 +83,7 @@ describe('TokenBinder M2 Snapshot & Null Safety Tests', () => {
     expect(result).toContain('Cap Rate: 4.8 %');
   });
 
-  it('Negative Pair: Missing or undefined snapshot properties gracefully format as fallback string', () => {
+  it('Negative Pair: Missing or undefined snapshot properties gracefully format as fallback string', async () => {
     const bareSnapshot = buildEffectiveSnapshot({
       dealId: 'deal-pptx-bare',
       parcels: [{ parcelId: 'p-bare', address: '', landAreaSqm: 100, status: 'SUCCESS' }],
@@ -116,7 +116,7 @@ describe('TokenBinder M2 Snapshot & Null Safety Tests', () => {
     expect(result).toBe('건물명: -, 준공: -, 클레임: -');
   });
 
-  it('Negative Pair: Unmapped token throws UNKNOWN_TOKEN_VIOLATION', () => {
+  it('Negative Pair: Unmapped token throws UNKNOWN_TOKEN_VIOLATION', async () => {
     const template = '미등록 토큰: {{snapshot.non_existent_token}}';
     expect(() => binder.bindTokens(template, pkg)).toThrowError(/UNKNOWN_TOKEN_VIOLATION/);
   });

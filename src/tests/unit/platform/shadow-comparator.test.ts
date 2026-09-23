@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { compareShadowOutputs } from '@/platform/im-pipeline/shadow-comparator';
 
 describe('Shadow Run Canary Comparator (CIM-0702 / PR-M7-02)', () => {
-  it('should report allMatch true when legacy and modern metrics align within 0.1% tolerance', () => {
+  it('should report allMatch true when legacy and modern metrics align within 0.1% tolerance', async () => {
     const legacy = {
       asking_price: 12500000000,
       total_area: 1380.2,
@@ -24,7 +24,7 @@ describe('Shadow Run Canary Comparator (CIM-0702 / PR-M7-02)', () => {
     expect(comparison.unmatchedCount).toBe(0);
   });
 
-  it('should detect numerical drift when difference exceeds tolerance', () => {
+  it('should detect numerical drift when difference exceeds tolerance', async () => {
     const legacy = {
       asking_price: 12500000000,
       gross_yield: 4.2,

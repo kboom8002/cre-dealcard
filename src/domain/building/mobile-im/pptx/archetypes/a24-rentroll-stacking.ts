@@ -285,11 +285,15 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   });
 
   // --- Right Panel: Rent Roll Table ---
-  const HEADERS = ['층', '호실', '용도/업종', '임차인', '전용면적(㎡)', '보증금(만원)', '월세(만원)', '관리비(만원)', '계약종료', '비고'];
-  const colW = [0.50, 0.50, 0.95, 1.30, 0.82, 0.82, 0.72, 0.72, 0.72, 0.55]; // Sum = 7.60
+  const HEADERS = ['층', '호실', '용도/업종', '임차인', '전용면적(㎡)', '보증금(만원)', '월세(만원)', '계약종료', '비고'];
+  const colW = [0.50, 0.50, 0.95, 1.30, 0.82, 0.82, 0.72, 0.72, 1.27]; // Sum = 7.60
   
   if (tableRows.length > 0) {
-    let rawRows = [...tableRows];
+    let rawRows = tableRows.map(row => {
+      const newRow = [...row];
+      if (newRow.length >= 10) newRow.splice(7, 1); // Remove 관리비
+      return newRow;
+    });
     
     // First row might be header — D45: '층수'/'층' 단독이 아니라 헤더 키워드 2개 이상 매칭 시에만 제거
     // B1층, 1층 등 실데이터가 '층'을 포함하므로 단순 includes('층')으로는 오탐

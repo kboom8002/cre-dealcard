@@ -4,7 +4,7 @@ import { validateAssetConstraints } from '@/domain/asset/constraint-validator';
 import { classifyDealArchetype } from '@/domain/deal/archetype-classifier';
 
 describe('Data Grade Engine (S1-T4)', () => {
-  it('computes Grade A when all required and 80%+ enhanced slots exist', () => {
+  it('computes Grade A when all required and 80%+ enhanced slots exist', async () => {
     const attrs = {
       pnu: '1120011400100450012',
       address: '서울 성동구 성수동2가 000-00',
@@ -27,7 +27,7 @@ describe('Data Grade Engine (S1-T4)', () => {
     expect(result.missingRequiredSlots.length).toBe(0);
   });
 
-  it('computes Grade D when required slots are missing', () => {
+  it('computes Grade D when required slots are missing', async () => {
     const attrs = { pnu: '1120011400100450012' };
     const result = computeDataGrade(attrs);
     expect(result.grade).toBe('D');
@@ -36,7 +36,7 @@ describe('Data Grade Engine (S1-T4)', () => {
 });
 
 describe('Constraint Validator (S1-T5)', () => {
-  it('validates zoning FAR limits (C02)', () => {
+  it('validates zoning FAR limits (C02)', async () => {
     const attrs = {
       zoningRegion: '제2종일반주거지역', // Limit 250%
       farPct: 290,
@@ -46,7 +46,7 @@ describe('Constraint Validator (S1-T5)', () => {
     expect(result.violations[0].ruleId).toBe('C02');
   });
 
-  it('flags over-leverage Warning (C12)', () => {
+  it('flags over-leverage Warning (C12)', async () => {
     const attrs = {
       askingPriceKrw: 10_000_000_000, // 100억
       loanAmountKrw: 9_000_000_000,    // 90억
@@ -58,7 +58,7 @@ describe('Constraint Validator (S1-T5)', () => {
 });
 
 describe('Archetype Classifier (S1-T6)', () => {
-  it('classifies STABLE_INCOME archetype for low vacancy newer building', () => {
+  it('classifies STABLE_INCOME archetype for low vacancy newer building', async () => {
     const attrs = {
       vacancyPct: 0,
       approvalDate: '2020-01-01',
@@ -68,7 +68,7 @@ describe('Archetype Classifier (S1-T6)', () => {
     expect(result.primaryArchetype).toBe('STABLE_INCOME');
   });
 
-  it('classifies VALUE_ADD archetype for older building with FAR headroom', () => {
+  it('classifies VALUE_ADD archetype for older building with FAR headroom', async () => {
     const attrs = {
       approvalDate: '1995-01-01', // Age ~31
       farHeadroomPp: 55,

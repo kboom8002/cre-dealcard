@@ -714,7 +714,7 @@ async function runRealDataDemonstration() {
     { num: 5, name: '을지로 95억 꼬마빌딩 (거래형 풀패키지)', data: case5Data, file: 'case-05-euljiro-trading-compact.pptx' },
   ];
 
-  const studioService = new PptxStudioService(true);
+  const studioService = new PptxStudioService();
 
   for (const c of cases) {
     console.log(`\n──────────────────────────────────────────────────────────────────────`);
@@ -724,7 +724,7 @@ async function runRealDataDemonstration() {
     console.log(`   - 인출 데이터 세트: 사진 ${c.data.doc.body.photos.length}장, 지적도 1장, 공공 대장/토지이용/공시지가 연동 완료`);
 
     // 1. Studio Project 초기화
-    const project = studioService.createProject(
+    const project = await studioService.createProject(
       c.data.dealId,
       `pkg-${c.data.dealId}`,
       c.data.title,

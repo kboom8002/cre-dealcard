@@ -6,7 +6,7 @@ import {
 } from '../../../scripts/migrate-legacy-documents';
 
 describe('Legacy Document Migration & Read Compatibility (PR-B5-03 / Negative-Pair Obligation)', () => {
-  it('Positive Pair: Legacy document with valid property summary is safely migrated to verified baseline', () => {
+  it('Positive Pair: Legacy document with valid property summary is safely migrated to verified baseline', async () => {
     const doc: LegacyDocumentObject = {
       id: 'doc-legacy-1',
       building_id: 'bldg-1',
@@ -25,7 +25,7 @@ describe('Legacy Document Migration & Read Compatibility (PR-B5-03 / Negative-Pa
     expect(result.status).toBe('migrated_verified');
   });
 
-  it('Negative Pair: Sparse record missing price is tagged legacy_unverified and read-only', () => {
+  it('Negative Pair: Sparse record missing price is tagged legacy_unverified and read-only', async () => {
     const sparseDoc: LegacyDocumentObject = {
       id: 'doc-legacy-sparse',
       building_id: 'bldg-2',

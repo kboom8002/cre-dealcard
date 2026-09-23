@@ -86,7 +86,7 @@ describe('Real Case 05: 에이치에비뉴호텔 이대점 300억 (Operating)', 
     ],
   };
 
-  it('calculates hotel operating metrics (GOP, RevPAR, GOP Cap Rate)', () => {
+  it('calculates hotel operating metrics (GOP, RevPAR, GOP Cap Rate)', async () => {
     const fin = calculateFinancials({
       posture: 'operating',
       purchasePriceKrw: 30_000_000_000,
@@ -99,12 +99,12 @@ describe('Real Case 05: 에이치에비뉴호텔 이대점 300억 (Operating)', 
     expect(fin.disclaimer).toContain('AI');
   });
 
-  it('bands price correctly into "300억 원대" and yield into "4%대 초반"', () => {
+  it('bands price correctly into "300억 원대" and yield into "4%대 초반"', async () => {
     expect(formatBandedPrice(30_000_000_000)).toBe('300억 원대');
     expect(formatBandedYield(4.25)).toBe('4%대 초반');
   });
 
-  it('passes deterministic quality gates without error on hotel asset without traditional lease rows', () => {
+  it('passes deterministic quality gates without error on hotel asset without traditional lease rows', async () => {
     const report = runDeterministicGates({ core: hotelCore });
     expect(report.allPassed).toBe(true);
     expect(report.blocked).toBe(false);

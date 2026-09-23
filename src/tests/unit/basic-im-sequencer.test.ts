@@ -14,7 +14,7 @@ describe('Basic IM (credeal_basic) Sequencer Unit Test (Rule 47 & basic-im-guide
     },
   };
 
-  it('generates the standard 9-section Basic IM sequence for income posture', () => {
+  it('generates the standard 9-section Basic IM sequence for income posture', async () => {
     const seq = buildDeckSequence(basicInput);
     const dataKeys = seq.map(s => s.dataKey);
 
@@ -58,14 +58,14 @@ describe('Basic IM (credeal_basic) Sequencer Unit Test (Rule 47 & basic-im-guide
     expect(dataKeys).not.toContain('stackingPlan');
   });
 
-  it('Basic IM rentRoll uses A24 composite archetype instead of A03', () => {
+  it('Basic IM rentRoll uses A24 composite archetype instead of A03', async () => {
     const seq = buildDeckSequence(basicInput);
     const rentRollSlide = seq.find(s => s.dataKey === 'rentRoll');
     expect(rentRollSlide).toBeDefined();
     expect(rentRollSlide?.archetype).toBe('A24');
   });
 
-  it('Basic IM produces unified land slide (A06 with cadastral, A04 without cadastral)', () => {
+  it('Basic IM produces unified land slide (A06 with cadastral, A04 without cadastral)', async () => {
     // With cadastral → A06 unified
     const seqWithCadastral = buildDeckSequence(basicInput);
     expect(seqWithCadastral.length).toBe(9);
@@ -80,7 +80,7 @@ describe('Basic IM (credeal_basic) Sequencer Unit Test (Rule 47 & basic-im-guide
     expect(seqNoCadastral.find(s => s.dataKey === 'land')?.archetype).toBe('A04');
   });
 
-  it('preserves default Pro IM sequence when preset is not credeal_basic', () => {
+  it('preserves default Pro IM sequence when preset is not credeal_basic', async () => {
     const proSeq = buildDeckSequence({
       posture: 'income',
       preset: 'commercial_visual_grid',
@@ -103,7 +103,7 @@ describe('Basic IM (credeal_basic) Sequencer Unit Test (Rule 47 & basic-im-guide
     expect(proRentRoll?.archetype).toBe('A03');
   });
 
-  it('excludes all Pro-tier slides across all 5 postures when preset is credeal_basic', () => {
+  it('excludes all Pro-tier slides across all 5 postures when preset is credeal_basic', async () => {
     const postures = ['income', 'development', 'owner_occupied', 'trading', 'operating'] as const;
     const proForbiddenKeys = [
       'capital', 'totalReturn', 'dcf', 'sensitivity', 'loan', 'tax',
@@ -130,7 +130,7 @@ describe('Basic IM (credeal_basic) Sequencer Unit Test (Rule 47 & basic-im-guide
     }
   });
 
-  it('development posture in Basic IM excludes yieldFormula (A23) and produces clean development deck', () => {
+  it('development posture in Basic IM excludes yieldFormula (A23) and produces clean development deck', async () => {
     const devSeq = buildDeckSequence({
       posture: 'development',
       preset: 'credeal_basic',
@@ -148,7 +148,7 @@ describe('Basic IM (credeal_basic) Sequencer Unit Test (Rule 47 & basic-im-guide
     expect(devSeq.length).toBe(6);
   });
 
-  it('minimal data availability produces clean minimal sequence without orphan slides', () => {
+  it('minimal data availability produces clean minimal sequence without orphan slides', async () => {
     const minSeq = buildDeckSequence({
       posture: 'income',
       preset: 'credeal_basic',

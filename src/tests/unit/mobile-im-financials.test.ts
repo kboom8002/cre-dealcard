@@ -3,7 +3,7 @@ import { calculateFinancials } from '@/domain/building/mobile-im/financials';
 import type { FinancialInputs } from '@/domain/building/mobile-im/financials';
 
 describe('mobile-im-financials', () => {
-  it('calculates NOI and Cap Rate for income posture', () => {
+  it('calculates NOI and Cap Rate for income posture', async () => {
     const inputs: FinancialInputs = {
       posture: 'income',
       purchasePriceKrw: 1000000000, // 10억
@@ -21,7 +21,7 @@ describe('mobile-im-financials', () => {
     }
   });
 
-  it('handles edge cases: 0 price', () => {
+  it('handles edge cases: 0 price', async () => {
     const inputs: FinancialInputs = {
       posture: 'income',
       purchasePriceKrw: 0,
@@ -34,7 +34,7 @@ describe('mobile-im-financials', () => {
     expect(res.pricePerPyeong).toBeNull();
   });
 
-  it('tests 5 posture variations', () => {
+  it('tests 5 posture variations', async () => {
     const inputs: FinancialInputs = {
       purchasePriceKrw: 1000000000,
       monthlyRentKrw: 5000000,

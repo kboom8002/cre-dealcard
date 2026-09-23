@@ -20,7 +20,7 @@ describe('12 Golden Test Cases Fixture Suite (CIM-0003 / PR-M0-03)', () => {
     'case-12-tamper-post-approval.json',
   ];
 
-  it('should have all 12 golden case files in place', () => {
+  it('should have all 12 golden case files in place', async () => {
     expect(fs.existsSync(fixturesDir)).toBe(true);
     for (const filename of expectedCases) {
       const filePath = path.join(fixturesDir, filename);
@@ -28,7 +28,7 @@ describe('12 Golden Test Cases Fixture Suite (CIM-0003 / PR-M0-03)', () => {
     }
   });
 
-  it('should parse each fixture as valid JSON with caseId, title, and expectedOutcome', () => {
+  it('should parse each fixture as valid JSON with caseId, title, and expectedOutcome', async () => {
     for (const filename of expectedCases) {
       const filePath = path.join(fixturesDir, filename);
       const raw = fs.readFileSync(filePath, 'utf-8');

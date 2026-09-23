@@ -48,7 +48,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
   // §1. 100% Vacancy Allowance (EGI = 0)
   // ==========================================================================
   describe('§1. 100% Vacancy Allowance (EGI = 0)', () => {
-    it('handles 100% vacancy where EGI = 0 without NaN or unhandled throws', () => {
+    it('handles 100% vacancy where EGI = 0 without NaN or unhandled throws', async () => {
       const input: MultiYearCashFlowInput = {
         ...baseStandardInput,
         vacancyRatePct: 100.0,
@@ -82,7 +82,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       expect(cf.metrics.npvKrw).toBeLessThan(0);
     });
 
-    it('handles 2D sensitivity matrix when base vacancy is 100%', () => {
+    it('handles 2D sensitivity matrix when base vacancy is 100%', async () => {
       const input: MultiYearCashFlowInput = {
         ...baseStandardInput,
         vacancyRatePct: 100.0,
@@ -110,7 +110,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       }
     });
 
-    it('checks zero NOI in sensitivity matrix (division by zero guard for noiDeltaPct)', () => {
+    it('checks zero NOI in sensitivity matrix (division by zero guard for noiDeltaPct)', async () => {
       // If initial PGI = 0 and OPEX = 0, Year 1 NOI = 0
       const zeroNoiInput: MultiYearCashFlowInput = {
         ...baseStandardInput,
@@ -141,7 +141,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
   // §2. Negative Cash Flows & Deep Losses
   // ==========================================================================
   describe('§2. Negative Cash Flows & Deep Operating Losses', () => {
-    it('handles catastrophic OPEX explosion (OPEX >> PGI)', () => {
+    it('handles catastrophic OPEX explosion (OPEX >> PGI)', async () => {
       const input: MultiYearCashFlowInput = {
         ...baseStandardInput,
         initialPgiKrw: 1_000_000_000,
@@ -162,7 +162,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       expect(cf.metrics.npvKrw).toBeLessThan(-50_000_000_000);
     });
 
-    it('handles cash flows that oscillate between positive and negative', () => {
+    it('handles cash flows that oscillate between positive and negative', async () => {
       // Year 0: -100, Year 1: +50, Year 2: -80, Year 3: +120
       const oscillatingFlows = [-100, 50, -80, 120];
       const irr = calculateIrrNewtonRaphson(oscillatingFlows);
@@ -171,7 +171,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       expect(Number.isNaN(irr!)).toBe(false);
     });
 
-    it('returns null / 0 for completely negative project where every cash flow is <= 0', () => {
+    it('returns null / 0 for completely negative project where every cash flow is <= 0', async () => {
       const allNegative = [-1000, -100, -200, -50];
       const irr = calculateIrrNewtonRaphson(allNegative);
       expect(irr).toBeNull();
@@ -182,7 +182,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
   // §3. Zero Debt vs 95% High LTV / 100% LTV Debt Service
   // ==========================================================================
   describe('§3. Zero Debt vs High LTV & Extreme Leverage', () => {
-    it('safely handles zero debt financing (undefined debtFinancing)', () => {
+    it('safely handles zero debt financing (undefined debtFinancing)', async () => {
       const input: MultiYearCashFlowInput = {
         ...baseStandardInput,
         debtFinancing: undefined,
@@ -196,7 +196,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       expect(cf.metrics.unleveredIrrPct).toBeGreaterThan(0);
     });
 
-    it('safely handles zero loan amount (loanAmountKrw = 0)', () => {
+    it('safely handles zero loan amount (loanAmountKrw = 0)', async () => {
       const input: MultiYearCashFlowInput = {
         ...baseStandardInput,
         debtFinancing: {
@@ -211,7 +211,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       expect(cf.metrics.leveredIrrPct).toBeUndefined();
     });
 
-    it('handles 95% high LTV with high interest rate (negative leverage / distress)', () => {
+    it('handles 95% high LTV with high interest rate (negative leverage / distress)', async () => {
       const input: MultiYearCashFlowInput = {
         ...baseStandardInput,
         purchasePriceKrw: 50_000_000_000,
@@ -241,7 +241,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       }
     });
 
-    it('handles 100% LTV (equityInvested = 0, potential divide-by-zero)', () => {
+    it('handles 100% LTV (equityInvested = 0, potential divide-by-zero)', async () => {
       const input: MultiYearCashFlowInput = {
         ...baseStandardInput,
         purchasePriceKrw: 50_000_000_000,
@@ -259,7 +259,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       expect(Number.isNaN(cf.metrics.leveredIrrPct ?? 0)).toBe(false);
     });
 
-    it('handles over-leveraged scenario (LTV > 100%, loan > purchase price)', () => {
+    it('handles over-leveraged scenario (LTV > 100%, loan > purchase price)', async () => {
       const input: MultiYearCashFlowInput = {
         ...baseStandardInput,
         purchasePriceKrw: 50_000_000_000,
@@ -281,7 +281,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
   // §4. Extreme Growth & Negative Rent Growth
   // ==========================================================================
   describe('§4. Extreme Growth & Negative Rent Growth', () => {
-    it('handles negative rent growth (-5% per annum prolonged market contraction)', () => {
+    it('handles negative rent growth (-5% per annum prolonged market contraction)', async () => {
       const input: MultiYearCashFlowInput = {
         ...baseStandardInput,
         rentGrowthRatePct: -5.0,
@@ -294,7 +294,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       expect(Number.isFinite(cf.metrics.unleveredIrrPct)).toBe(true);
     });
 
-    it('handles complete rent collapse (-100% rent growth or negative rate)', () => {
+    it('handles complete rent collapse (-100% rent growth or negative rate)', async () => {
       const input: MultiYearCashFlowInput = {
         ...baseStandardInput,
         rentGrowthRatePct: -50.0,
@@ -306,7 +306,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       expect(Number.isNaN(cf.metrics.npvKrw)).toBe(false);
     });
 
-    it('handles hyperinflation (rentGrowthRatePct = 50%, opexGrowth = 30%)', () => {
+    it('handles hyperinflation (rentGrowthRatePct = 50%, opexGrowth = 30%)', async () => {
       const input: MultiYearCashFlowInput = {
         ...baseStandardInput,
         rentGrowthRatePct: 50.0,
@@ -327,7 +327,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
   // §5. Extreme Exit Cap Rates (0%, 0.1%, 1%, 20%, 50%, Negative)
   // ==========================================================================
   describe('§5. Extreme Exit Cap Rates', () => {
-    it('handles ultra-low exit cap rate (1.0% and 0.5%) without overflow', () => {
+    it('handles ultra-low exit cap rate (1.0% and 0.5%) without overflow', async () => {
       const input: MultiYearCashFlowInput = {
         ...baseStandardInput,
         exitCapRatePct: 1.0,
@@ -339,7 +339,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       expect(cf.metrics.unleveredIrrPct).toBeGreaterThan(10.0);
     });
 
-    it('handles ultra-high exit cap rate (20% and 50% distressed exit)', () => {
+    it('handles ultra-high exit cap rate (20% and 50% distressed exit)', async () => {
       const input: MultiYearCashFlowInput = {
         ...baseStandardInput,
         exitCapRatePct: 20.0,
@@ -351,7 +351,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       expect(cf.metrics.unleveredIrrPct).toBeLessThan(baseStandardInput.exitCapRatePct);
     });
 
-    it('guards against zero exit cap rate (exitCapRatePct = 0) to avoid Infinity/NaN', () => {
+    it('guards against zero exit cap rate (exitCapRatePct = 0) to avoid Infinity/NaN', async () => {
       const input: MultiYearCashFlowInput = {
         ...baseStandardInput,
         exitCapRatePct: 0.0,
@@ -366,7 +366,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       expect(Number.isNaN(cf.metrics.npvKrw)).toBe(false);
     });
 
-    it('handles small exit cap rate in 2D sensitivity matrix without breaking grid dimensions', () => {
+    it('handles small exit cap rate in 2D sensitivity matrix without breaking grid dimensions', async () => {
       const input: MultiYearCashFlowInput = {
         ...baseStandardInput,
         exitCapRatePct: 0.4, // Base is 0.4% -> base - 0.5 is negative!
@@ -388,26 +388,26 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
   // §6. Newton-Raphson Solver Pathologies & Numerical Stability
   // ==========================================================================
   describe('§6. Newton-Raphson Solver Pathologies', () => {
-    it('handles zero initial cash flow: [0, 100, 100]', () => {
+    it('handles zero initial cash flow: [0, 100, 100]', async () => {
       const irr = calculateIrrNewtonRaphson([0, 100, 100]);
       // No negative cash flow -> should return null
       expect(irr).toBeNull();
     });
 
-    it('handles zero-rate cash flow: [-100, 25, 25, 25, 25] -> exactly 0.00%', () => {
+    it('handles zero-rate cash flow: [-100, 25, 25, 25, 25] -> exactly 0.00%', async () => {
       const irr = calculateIrrNewtonRaphson([-100, 25, 25, 25, 25]);
       expect(irr).not.toBeNull();
       expect(irr).toBe(0.0);
     });
 
-    it('handles negative IRR: invest 100, receive only 10, 10, 10 -> total 30 (severe loss)', () => {
+    it('handles negative IRR: invest 100, receive only 10, 10, 10 -> total 30 (severe loss)', async () => {
       const irr = calculateIrrNewtonRaphson([-100, 10, 10, 10]);
       expect(irr).not.toBeNull();
       expect(irr!).toBeLessThan(0);
       expect(Number.isFinite(irr!)).toBe(true);
     });
 
-    it('handles multiple sign changes (multiple IRR solutions): [-100, 300, -200]', () => {
+    it('handles multiple sign changes (multiple IRR solutions): [-100, 300, -200]', async () => {
       const irr = calculateIrrNewtonRaphson([-100, 300, -200]);
       // Should find one of the roots (0% or 100%) without hanging or NaN
       expect(irr).not.toBeNull();
@@ -415,7 +415,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       expect(Number.isNaN(irr!)).toBe(false);
     });
 
-    it('safely rejects NaN / Infinity inside cash flows without returning 500% bogus IRR', () => {
+    it('safely rejects NaN / Infinity inside cash flows without returning 500% bogus IRR', async () => {
       const nanFlows = [-100, NaN, 200];
       const irr = calculateIrrNewtonRaphson(nanFlows);
       // It should safely return null, NOT 500% or NaN!
@@ -426,21 +426,21 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       expect(irrInf).toBeNull();
     });
 
-    it('handles astronomical cash flows (1e15 KRW) without precision overflow', () => {
+    it('handles astronomical cash flows (1e15 KRW) without precision overflow', async () => {
       const bigFlows = [-1_000_000_000_000_000, 100_000_000_000_000, 100_000_000_000_000, 1_100_000_000_000_000];
       const irr = calculateIrrNewtonRaphson(bigFlows);
       expect(irr).not.toBeNull();
       expect(irr).toBe(10.0);
     });
 
-    it('handles minimal cash flows (1 KRW) without precision underflow', () => {
+    it('handles minimal cash flows (1 KRW) without precision underflow', async () => {
       const tinyFlows = [-100, 10, 10, 110];
       const irr = calculateIrrNewtonRaphson(tinyFlows);
       expect(irr).not.toBeNull();
       expect(irr).toBe(10.0);
     });
 
-    it('does not enter infinite loop or exceed execution budget on divergent polynomial', () => {
+    it('does not enter infinite loop or exceed execution budget on divergent polynomial', async () => {
       // Degenerate alternating cash flow designed to create zero derivative or divergence
       const degenerateFlows = [-1000, 2000, -3000, 4000, -5000];
       const start = Date.now();
@@ -458,7 +458,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
   // §7. 5-Tier Development Budget Boundary Cases
   // ==========================================================================
   describe('§7. 5-Tier Development Budget Boundary Cases', () => {
-    it('handles zero GFA (land-only feasibility)', () => {
+    it('handles zero GFA (land-only feasibility)', async () => {
       const budget = generateDevelopmentFeasibilityBudget({
         landPriceKrw: 10_000_000_000,
         targetGfaPyeong: 0, // 0 GFA
@@ -472,7 +472,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       expect(Number.isFinite(budget.projectIrrPct)).toBe(true);
     });
 
-    it('handles catastrophic development loss (projected revenue << total cost)', () => {
+    it('handles catastrophic development loss (projected revenue << total cost)', async () => {
       const budget = generateDevelopmentFeasibilityBudget({
         landPriceKrw: 20_000_000_000,
         targetGfaPyeong: 1_000,
@@ -488,7 +488,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       expect(Number.isFinite(budget.equityIrrPct)).toBe(true);
     });
 
-    it('handles 100% equity contribution (equityContributionRatioPct = 100)', () => {
+    it('handles 100% equity contribution (equityContributionRatioPct = 100)', async () => {
       const budget = generateDevelopmentFeasibilityBudget({
         landPriceKrw: 15_000_000_000,
         targetGfaPyeong: 800,
@@ -507,7 +507,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
   // §8. SSoT Mathematical Consistency Gate Boundary Stress
   // ==========================================================================
   describe('§8. SSoT Consistency Validator Boundary Stress', () => {
-    it('handles zero asking price and zero NOI without throwing', () => {
+    it('handles zero asking price and zero NOI without throwing', async () => {
       const zeroInput: ProImFinancialConsistencyInput = {
         executiveSummary: {
           askingPriceKrw: 0,
@@ -538,7 +538,7 @@ describe('Adversarial Stress Testing: Pro Financial Model', () => {
       }
     });
 
-    it('correctly reports failure when detail has value but executive has 0', () => {
+    it('correctly reports failure when detail has value but executive has 0', async () => {
       const mismatchedZeroInput: ProImFinancialConsistencyInput = {
         executiveSummary: {
           askingPriceKrw: 0,

@@ -35,7 +35,7 @@ describe('Approval Target Hash Binding & Claim Rehydration (CIM-0102 / PR-M1-02)
     ],
   };
 
-  it('should compute deterministic target hash regardless of key order', () => {
+  it('should compute deterministic target hash regardless of key order', async () => {
     const payloadA = {
       body: { b: 2, a: 1 },
       releaseTier: 'fact_om',
@@ -52,7 +52,7 @@ describe('Approval Target Hash Binding & Claim Rehydration (CIM-0102 / PR-M1-02)
     expect(hashA).toMatch(/^sha256:[a-f0-9]{64}$/);
   });
 
-  it('should fail approval when expectedHash does not match server computed hash (tamper detection)', () => {
+  it('should fail approval when expectedHash does not match server computed hash (tamper detection)', async () => {
     const expectedHash = computeTargetHash({
       body: sampleBody,
       releaseTier: 'fact_om',
@@ -78,7 +78,7 @@ describe('Approval Target Hash Binding & Claim Rehydration (CIM-0102 / PR-M1-02)
     expect(serverHash).not.toBe(expectedHash);
   });
 
-  it('should block approval if ClaimRegistry is empty (G2 fix)', () => {
+  it('should block approval if ClaimRegistry is empty (G2 fix)', async () => {
     const emptyRegistry = new ClaimRegistry();
     const result = runApprovalGate(emptyRegistry, 'fact_om');
 
@@ -86,7 +86,7 @@ describe('Approval Target Hash Binding & Claim Rehydration (CIM-0102 / PR-M1-02)
     expect(result.blockers.some((b) => b.id === 'approval.empty_registry')).toBe(true);
   });
 
-  it('should pass approval when ClaimRegistry is properly rehydrated with verified required claims', () => {
+  it('should pass approval when ClaimRegistry is properly rehydrated with verified required claims', async () => {
     const registry = new ClaimRegistry();
     for (const claim of sampleBody.claims) {
       registry.register(claim as any);

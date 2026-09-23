@@ -42,7 +42,7 @@ describe('Layer 1: Data Parsing & Format Integrity', () => {
       return tables;
     }
 
-    it('[Positive] 2열 + 7열 인접 테이블을 2개 분리 테이블로 올바르게 파싱해야 함', () => {
+    it('[Positive] 2열 + 7열 인접 테이블을 2개 분리 테이블로 올바르게 파싱해야 함', async () => {
       const md = `
 | 항목 | 내용 |
 |------|------|
@@ -59,7 +59,7 @@ describe('Layer 1: Data Parsing & Format Integrity', () => {
       expect(tables[1].length).toBeGreaterThanOrEqual(3);
     });
 
-    it('[Negative Pair] 동일 열 수의 연속 테이블은 하나의 테이블로 유지해야 함', () => {
+    it('[Negative Pair] 동일 열 수의 연속 테이블은 하나의 테이블로 유지해야 함', async () => {
       const md = `
 | 층수 | 업종 | 면적 |
 |------|------|------|
@@ -75,59 +75,59 @@ describe('Layer 1: Data Parsing & Format Integrity', () => {
   describe('1-2. Unit/Number String Concatenation Prevention', () => {
     
 
-    it('[Positive] "96평(약 317.4㎡)"에서 96평만 정확 추출해야 함', () => {
+    it('[Positive] "96평(약 317.4㎡)"에서 96평만 정확 추출해야 함', async () => {
       expect(extractAreaPyeong('96평(약 317.4㎡)')).toBe(96);
     });
 
-    it('[Positive] "317.4㎡"에서 약 96평으로 환산해야 함', () => {
+    it('[Positive] "317.4㎡"에서 약 96평으로 환산해야 함', async () => {
       const result = extractAreaPyeong('317.4㎡');
       expect(result).toBeGreaterThan(90);
       expect(result).toBeLessThan(100);
     });
 
-    it('[Negative Pair] 금액 문자열 "6,000만"은 면적으로 파싱하지 않아야 함', () => {
+    it('[Negative Pair] 금액 문자열 "6,000만"은 면적으로 파싱하지 않아야 함', async () => {
       expect(extractAreaPyeong('6,000만')).toBeUndefined();
     });
 
-    it('[Negative Pair] 날짜 문자열 "2026-08-31"은 면적으로 파싱하지 않아야 함', () => {
+    it('[Negative Pair] 날짜 문자열 "2026-08-31"은 면적으로 파싱하지 않아야 함', async () => {
       expect(extractAreaPyeong('2026-08-31')).toBeUndefined();
     });
 
-    it('[Positive] 단일 층 면적 이상치 가드: 3,000평 이하', () => {
+    it('[Positive] 단일 층 면적 이상치 가드: 3,000평 이하', async () => {
       const area = extractAreaPyeong('96평(약 317.4㎡)');
       expect(area).toBeDefined();
       expect(area!).toBeLessThanOrEqual(3000);
     });
 
-    it('[Negative Pair] 병합된 "96317.4"는 이상치로 판별되어야 함 (3,000평 초과)', () => {
+    it('[Negative Pair] 병합된 "96317.4"는 이상치로 판별되어야 함 (3,000평 초과)', async () => {
       const buggyValue = parseFloat('96평(약 317.4㎡)'.replace(/[^\d.]/g, ''));
       expect(buggyValue).toBeGreaterThan(3000);
     });
 
-    it('[Positive] 쉼표 포함 면적 "1,234평"을 1234로 정확히 파싱해야 함', () => {
+    it('[Positive] 쉼표 포함 면적 "1,234평"을 1234로 정확히 파싱해야 함', async () => {
       expect(extractAreaPyeong('1,234평')).toBe(1234);
     });
 
-    it('[Positive] 소수점 ㎡ "596.7㎡"를 평으로 정상 환산해야 함 (약 180.5평)', () => {
+    it('[Positive] 소수점 ㎡ "596.7㎡"를 평으로 정상 환산해야 함 (약 180.5평)', async () => {
       const area = extractAreaPyeong('596.7㎡');
       expect(area).toBeDefined();
       expect(area!).toBeCloseTo(180.5, 1);
     });
 
-    it('[Negative Pair] 빈 문자열 또는 undefined 입력 시 undefined를 반환해야 함', () => {
+    it('[Negative Pair] 빈 문자열 또는 undefined 입력 시 undefined를 반환해야 함', async () => {
       expect(extractAreaPyeong('')).toBeUndefined();
       expect(extractAreaPyeong(undefined)).toBeUndefined();
     });
 
-    it('[Positive] 건물 총면적 모드(isTotalArea=true)에서 25,000평은 정상 허용되어야 함', () => {
+    it('[Positive] 건물 총면적 모드(isTotalArea=true)에서 25,000평은 정상 허용되어야 함', async () => {
       expect(extractAreaPyeong('25,000평', true)).toBe(25000);
     });
 
-    it('[Negative Pair] 단일 층 모드에서 3,500평은 3,000평 초과로 거부되어야 함', () => {
+    it('[Negative Pair] 단일 층 모드에서 3,500평은 3,000평 초과로 거부되어야 함', async () => {
       expect(extractAreaPyeong('3,500평', false)).toBeUndefined();
     });
 
-    it('[Negative Pair] 건물 총면적 모드에서 35,000평은 30,000평 초과로 거부되어야 함', () => {
+    it('[Negative Pair] 건물 총면적 모드에서 35,000평은 30,000평 초과로 거부되어야 함', async () => {
       expect(extractAreaPyeong('35,000평', true)).toBeUndefined();
     });
   });
@@ -143,15 +143,15 @@ describe('Layer 1: Data Parsing & Format Integrity', () => {
       );
     }
 
-    it('[Positive] "월 임대료" 헤더는 임대면적으로 매칭되지 않아야 함', () => {
+    it('[Positive] "월 임대료" 헤더는 임대면적으로 매칭되지 않아야 함', async () => {
       expect(findLeaseAreaIdx(headers)).toBe(-1);
     });
 
-    it('[Positive] "임대면적" 헤더가 있으면 정상 매칭해야 함', () => {
+    it('[Positive] "임대면적" 헤더가 있으면 정상 매칭해야 함', async () => {
       expect(findLeaseAreaIdx(['층수', '업종', '전용면적', '임대면적', '보증금'])).toBe(3);
     });
 
-    it('[Negative Pair] "임대 만기" 헤더는 임대면적으로 매칭되지 않아야 함', () => {
+    it('[Negative Pair] "임대 만기" 헤더는 임대면적으로 매칭되지 않아야 함', async () => {
       expect(findLeaseAreaIdx(['층수', '임대 만기', '업종'])).toBe(-1);
     });
   });
@@ -171,14 +171,14 @@ describe('Layer 2: Mock Data Leakage Prevention', () => {
       /(남성|여성)\s*(투자|자산)/,
     ];
 
-    it('[Positive] 정상 투자 카피는 Rule 1 위반이 0건이어야 함', () => {
+    it('[Positive] 정상 투자 카피는 Rule 1 위반이 0건이어야 함', async () => {
       const text = '강남구 역삼동 소재 사무용빌딩 매각, 법인 자가사용 본사 사옥 최적 입지';
       for (const pat of PERSONA_FORBIDDEN) {
         expect(pat.test(text)).toBe(false);
       }
     });
 
-    it('[Negative Pair] "60대 자산가를 위한" 문구는 Rule 1 위반으로 탐지되어야 함', () => {
+    it('[Negative Pair] "60대 자산가를 위한" 문구는 Rule 1 위반으로 탐지되어야 함', async () => {
       const text = '60대 자산가를 위한 최적의 투자 매물';
       const violations = PERSONA_FORBIDDEN.filter(p => p.test(text));
       expect(violations.length).toBeGreaterThan(0);
@@ -193,14 +193,14 @@ describe('Layer 2: Mock Data Leakage Prevention', () => {
       /상세.*별첨/,
     ];
 
-    it('[Positive] 실질적 투자 카피는 회피성 문구 0건', () => {
+    it('[Positive] 실질적 투자 카피는 회피성 문구 0건', async () => {
       const text = '연면적 655㎡(198.1평), 매매 희망가 120억 원';
       for (const pat of EVASIVE_PATTERNS) {
         expect(pat.test(text)).toBe(false);
       }
     });
 
-    it('[Negative Pair] "본문을 참조하시기 바랍니다"는 회피성으로 탐지', () => {
+    it('[Negative Pair] "본문을 참조하시기 바랍니다"는 회피성으로 탐지', async () => {
       expect(EVASIVE_PATTERNS.some(p => p.test('구체적인 수치는 본문을 참조하시기 바랍니다.'))).toBe(true);
     });
   });
@@ -213,22 +213,22 @@ describe('Layer 2: Mock Data Leakage Prevention', () => {
       /NaN|undefined|null|\[object Object\]/,
     ];
 
-    it('[Positive] 정상 출력에는 금지 패턴 0건', () => {
+    it('[Positive] 정상 출력에는 금지 패턴 0건', async () => {
       const text = '영등포구 당산동5가 근생빌딩 매각, 115억 원';
       for (const pat of FORBIDDEN) {
         expect(pat.test(text)).toBe(false);
       }
     });
 
-    it('[Negative Pair] "[building]" 미치환 변수 탐지', () => {
+    it('[Negative Pair] "[building]" 미치환 변수 탐지', async () => {
       expect(/\[building\]/i.test('[building]')).toBe(true);
     });
 
-    it('[Negative Pair] "NaN" 노출 탐지', () => {
+    it('[Negative Pair] "NaN" 노출 탐지', async () => {
       expect(/NaN/.test('수익률: NaN%')).toBe(true);
     });
 
-    it('[Negative Pair] "[object Object]" 노출 탐지', () => {
+    it('[Negative Pair] "[object Object]" 노출 탐지', async () => {
       expect(/\[object Object\]/.test('[object Object]')).toBe(true);
     });
   });
@@ -249,19 +249,19 @@ describe('Layer 3: Posture-Specific Integrity', () => {
       trading: ['comparablePrice'],
     };
 
-    it('[Positive] income 포스처에 gross_yield 필수', () => {
+    it('[Positive] income 포스처에 gross_yield 필수', async () => {
       expect(POSTURE_REQUIRED['income']).toContain('gross_yield');
     });
 
-    it('[Positive] owner_occupied 포스처에 currentRentManwon 필수', () => {
+    it('[Positive] owner_occupied 포스처에 currentRentManwon 필수', async () => {
       expect(POSTURE_REQUIRED['owner_occupied']).toContain('currentRentManwon');
     });
 
-    it('[Negative Pair] owner_occupied에 gross_yield는 필수가 아님', () => {
+    it('[Negative Pair] owner_occupied에 gross_yield는 필수가 아님', async () => {
       expect(POSTURE_REQUIRED['owner_occupied']).not.toContain('gross_yield');
     });
 
-    it('[Negative Pair] income에 currentRentManwon은 필수가 아님', () => {
+    it('[Negative Pair] income에 currentRentManwon은 필수가 아님', async () => {
       expect(POSTURE_REQUIRED['income']).not.toContain('currentRentManwon');
     });
   });
@@ -269,12 +269,12 @@ describe('Layer 3: Posture-Specific Integrity', () => {
   describe('3-2. Income-Only Metric Leakage Prevention', () => {
     const INCOME_ONLY = ['공실 해소', '임대료 인상', '리포지셔닝', '렌트프리 종료'];
 
-    it('[Positive] income 카피에서 수익형 지표 정상 등장', () => {
+    it('[Positive] income 카피에서 수익형 지표 정상 등장', async () => {
       const found = INCOME_ONLY.filter(m => '공실 해소 및 임대료 인상'.includes(m));
       expect(found.length).toBeGreaterThan(0);
     });
 
-    it('[Negative Pair] owner_occupied 카피에 수익형 지표 0건', () => {
+    it('[Negative Pair] owner_occupied 카피에 수익형 지표 0건', async () => {
       const ownerText = '법인 사옥 자가사용 기업 자산 형성 및 법인세 절감';
       const leaked = INCOME_ONLY.filter(m => ownerText.includes(m));
       expect(leaked.length).toBe(0);
@@ -291,13 +291,13 @@ describe('Layer 4: Quality Gate & Copy Standards', () => {
   describe('4-1. Posture-Aware Whitelist', () => {
     const OO_WL = ['취득세', '감가상각', '손비 인정', '법인세 절감', '자본 이득', '사옥 명칭'];
 
-    it('[Positive] 사옥형 세무 용어는 화이트리스트 포함', () => {
+    it('[Positive] 사옥형 세무 용어는 화이트리스트 포함', async () => {
       expect(OO_WL).toContain('취득세');
       expect(OO_WL).toContain('감가상각');
       expect(OO_WL.length).toBeGreaterThanOrEqual(5);
     });
 
-    it('[Negative Pair] 수익형 용어는 사옥형 화이트리스트에 없음', () => {
+    it('[Negative Pair] 수익형 용어는 사옥형 화이트리스트에 없음', async () => {
       expect(OO_WL).not.toContain('Cap Rate');
       expect(OO_WL).not.toContain('NOI');
     });
@@ -309,14 +309,14 @@ describe('Layer 4: Quality Gate & Copy Standards', () => {
       { bad: /브랜딩\s*라이츠/, good: '기업 단독 브랜딩' },
     ];
 
-    it('[Positive] 올바른 CRE 용어는 위반 0건', () => {
+    it('[Positive] 올바른 CRE 용어는 위반 0건', async () => {
       const text = '사옥 단독 명칭 표기(간판 설치권) 및 기업 단독 브랜딩';
       for (const { bad } of CRE_BAD) {
         expect(bad.test(text)).toBe(false);
       }
     });
 
-    it('[Negative Pair] "네이밍 라이츠" 사용은 Rule 2 위반', () => {
+    it('[Negative Pair] "네이밍 라이츠" 사용은 Rule 2 위반', async () => {
       expect(CRE_BAD.some(({ bad }) => bad.test('네이밍 라이츠 확보'))).toBe(true);
     });
   });
@@ -335,12 +335,12 @@ describe('Layer 5: Visual Layout & Rendering Limits', () => {
       return core.length > maxChars ? core.slice(0, maxChars - 3) + '...' : core;
     }
 
-    it('[Positive] 짧은 항목은 그대로 통과 (≤ 70자)', () => {
+    it('[Positive] 짧은 항목은 그대로 통과 (≤ 70자)', async () => {
       const item = '건물 물리적 상태 · 준공연도 확인 필요';
       expect(cleanItemText(item).length).toBeLessThanOrEqual(70);
     });
 
-    it('[Negative Pair] 100자 초과 항목은 70자로 절삭 + "..."', () => {
+    it('[Negative Pair] 100자 초과 항목은 70자로 절삭 + "..."', async () => {
       const longItem = '건물 물리적 상태 · 준공연도 확인 필요, 구조 확인 필요 · 누수·균열·설비 노후 여부 현장 점검 필요하며 전체 리뉴얼 비용 산정이 요구됩니다';
       const cleaned = cleanItemText(longItem);
       expect(cleaned.length).toBeLessThanOrEqual(70);
@@ -352,23 +352,23 @@ describe('Layer 5: Visual Layout & Rendering Limits', () => {
     const ALLOWED = ['info', 'good', 'warn', 'bad', 'brass'] as const;
     const isValid = (k: string) => (ALLOWED as readonly string[]).includes(k);
 
-    it('[Positive] 허용 5종은 모두 유효', () => {
+    it('[Positive] 허용 5종은 모두 유효', async () => {
       for (const k of ALLOWED) expect(isValid(k)).toBe(true);
     });
 
-    it('[Negative Pair] "surface"는 무효', () => { expect(isValid('surface')).toBe(false); });
-    it('[Negative Pair] "neutral"은 무효', () => { expect(isValid('neutral')).toBe(false); });
-    it('[Negative Pair] "card"는 무효', () => { expect(isValid('card')).toBe(false); });
+    it('[Negative Pair] "surface"는 무효', async () => { expect(isValid('surface')).toBe(false); });
+    it('[Negative Pair] "neutral"은 무효', async () => { expect(isValid('neutral')).toBe(false); });
+    it('[Negative Pair] "card"는 무효', async () => { expect(isValid('card')).toBe(false); });
   });
 
   describe('5-3. Goldilocks Page Hard Limit', () => {
     const PAGE_HARD_LIMIT = 16;
 
-    it('[Positive] PAGE_HARD_LIMIT는 16', () => {
+    it('[Positive] PAGE_HARD_LIMIT는 16', async () => {
       expect(PAGE_HARD_LIMIT).toBe(16);
     });
 
-    it('[Negative Pair] 21면 시퀀스는 16면으로 절삭 필요', () => {
+    it('[Negative Pair] 21면 시퀀스는 16면으로 절삭 필요', async () => {
       const full = Array.from({ length: 21 }, (_, i) => `slide-${i}`);
       expect(full.length).toBeGreaterThan(PAGE_HARD_LIMIT);
     });
@@ -378,17 +378,17 @@ describe('Layer 5: Visual Layout & Rendering Limits', () => {
     const MAX_FLOOR = 3000;
     const MAX_TOTAL = 30000;
 
-    it('[Positive] 당산동 실측 436평은 정상 범위', () => {
+    it('[Positive] 당산동 실측 436평은 정상 범위', async () => {
       const total = 96 + 24 + 108 + 76 + 25 + 51 + 56;
       expect(total).toBeLessThanOrEqual(MAX_TOTAL);
       expect(Math.max(96, 108, 76, 56, 51, 25, 24)).toBeLessThanOrEqual(MAX_FLOOR);
     });
 
-    it('[Negative Pair] 병합 버그 100,681평은 이상치', () => {
+    it('[Negative Pair] 병합 버그 100,681평은 이상치', async () => {
       expect(96317.4 + 24 + 108 + 76 + 25 + 51 + 56).toBeGreaterThan(MAX_TOTAL);
     });
 
-    it('[Negative Pair] 단일 층 96,317평은 이상치', () => {
+    it('[Negative Pair] 단일 층 96,317평은 이상치', async () => {
       expect(96317.4).toBeGreaterThan(MAX_FLOOR);
     });
   });

@@ -146,7 +146,7 @@ describe('P1 당산 Income R2-Standard — 프로덕션 골든 파이프라인',
     if (!existsSync(OUTPUT_DIR)) mkdirSync(OUTPUT_DIR, { recursive: true });
   });
 
-  it('Step 1: 데이터셋 로드 (bottom_sheet.json + memo.txt + expected.json)', () => {
+  it('Step 1: 데이터셋 로드 (bottom_sheet.json + memo.txt + expected.json)', async () => {
     const t = Date.now();
 
     bottomSheet = JSON.parse(readFileSync(join(DATA_DIR, 'bottom_sheet.json'), 'utf8'));
@@ -174,7 +174,7 @@ describe('P1 당산 Income R2-Standard — 프로덕션 골든 파이프라인',
     expect(expected.posture).toBe('income');
   });
 
-  it('Step 2: 메모 슬롯 추출 (extractSlotsFromMemo)', () => {
+  it('Step 2: 메모 슬롯 추출 (extractSlotsFromMemo)', async () => {
     const t = Date.now();
 
     memoSlots = extractSlotsFromMemo(memo);
@@ -197,7 +197,7 @@ describe('P1 당산 Income R2-Standard — 프로덕션 골든 파이프라인',
     expect(memoSlots.slots?.length).toBeGreaterThan(0);
   });
 
-  it('Step 3: 재무 계산 (calculateFinancials)', () => {
+  it('Step 3: 재무 계산 (calculateFinancials)', async () => {
     const t = Date.now();
 
     // bottom_sheet에서 재무 입력 구성
@@ -246,7 +246,7 @@ describe('P1 당산 Income R2-Standard — 프로덕션 골든 파이프라인',
     expect(annualNoi).toBeGreaterThan(0);
   });
 
-  it('Step 4: 데이터 품질 배지 (computeDataQualityBadge)', () => {
+  it('Step 4: 데이터 품질 배지 (computeDataQualityBadge)', async () => {
     const t = Date.now();
 
     const inputFlags = {
@@ -284,7 +284,7 @@ describe('P1 당산 Income R2-Standard — 프로덕션 골든 파이프라인',
     expect(badge.score).toBeGreaterThan(0);
   });
 
-  it('Step 5: 덱 시퀀서 검증 (buildDeckSequence)', () => {
+  it('Step 5: 덱 시퀀서 검증 (buildDeckSequence)', async () => {
     const t = Date.now();
 
     const deckInput = {
@@ -623,7 +623,7 @@ describe('P1 당산 Income R2-Standard — 프로덕션 골든 파이프라인',
     expect(hasDangsanKeyword || hasPrice).toBe(true);
   });
 
-  it('Step 9: 수학적 일관성 검증 (SSoT Cross-Check)', () => {
+  it('Step 9: 수학적 일관성 검증 (SSoT Cross-Check)', async () => {
     const t = Date.now();
     
     const totalDepositManwon = bottomSheet.floor_leases.reduce(
@@ -686,7 +686,7 @@ describe('P1 당산 Income R2-Standard — 프로덕션 골든 파이프라인',
     expect(consistency.isConsistent).toBe(true);
   });
 
-  it('Step 10: 파이프라인 리포트 생성', () => {
+  it('Step 10: 파이프라인 리포트 생성', async () => {
     const t = Date.now();
 
     const report = generatePipelineReport();

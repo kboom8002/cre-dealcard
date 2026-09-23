@@ -5,7 +5,7 @@ import {
 } from '@/domain/building/common-pipeline/reconciliation';
 
 describe('Deterministic Discrepancy Reconciliation (CIM-0401 / PR-M4-01)', () => {
-  it('should prioritize public_registry for physical area and detect conflict if deviation > 0.5%', () => {
+  it('should prioritize public_registry for physical area and detect conflict if deviation > 0.5%', async () => {
     const result = reconcilePhysicalAttribute('total_area', [
       { source: 'broker_input', value: 1400.0, asOf: '2026-09-01' },
       { source: 'public_registry', value: 1380.0, asOf: '2026-08-30' },
@@ -17,7 +17,7 @@ describe('Deterministic Discrepancy Reconciliation (CIM-0401 / PR-M4-01)', () =>
     expect(result.conflictDetails?.diffPercent).toBeCloseTo(1.45, 1);
   });
 
-  it('should prioritize broker_input for asking price', () => {
+  it('should prioritize broker_input for asking price', async () => {
     const result = reconcileCommercialAttribute('asking_price', [
       { source: 'seller_notice', value: 13000000000, asOf: '2026-08-20' },
       { source: 'broker_input', value: 12500000000, asOf: '2026-09-01' },

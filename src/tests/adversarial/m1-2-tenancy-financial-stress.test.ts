@@ -36,7 +36,7 @@ describe('Adversarial Tenancy Chunking Boundaries', () => {
   });
 
   describe('Boundary 1: 0 Tenants (Empty Roster)', () => {
-    it('handles empty array cleanly with 1 empty chunk and defined grandTotal', () => {
+    it('handles empty array cleanly with 1 empty chunk and defined grandTotal', async () => {
       const chunks = chunkTenantRoster([]);
 
       expect(chunks).toHaveLength(1);
@@ -58,7 +58,7 @@ describe('Adversarial Tenancy Chunking Boundaries', () => {
       expect(first.grandTotal).toEqual(first.subtotal);
     });
 
-    it('handles null or undefined input safely without throwing', () => {
+    it('handles null or undefined input safely without throwing', async () => {
       const chunksNull = chunkTenantRoster(null as any);
       expect(chunksNull).toHaveLength(1);
       expect(chunksNull[0].items).toHaveLength(0);
@@ -70,7 +70,7 @@ describe('Adversarial Tenancy Chunking Boundaries', () => {
   });
 
   describe('Boundary 2: Exactly 12 Tenants (Single Slide Boundary)', () => {
-    it('produces exactly 1 slide, isFirstPage=true, isLastPage=true, with grandTotal defined', () => {
+    it('produces exactly 1 slide, isFirstPage=true, isLastPage=true, with grandTotal defined', async () => {
       const tenants12 = Array.from({ length: 12 }, (_, i) => createMockTenant(i + 1));
       const chunks = chunkTenantRoster(tenants12, 12);
 
@@ -92,7 +92,7 @@ describe('Adversarial Tenancy Chunking Boundaries', () => {
   });
 
   describe('Boundary 3: Exactly 13 Tenants (Two Slides, 1 Overflow Tenant)', () => {
-    it('produces exactly 2 slides, second slide has 1 tenant + grand total', () => {
+    it('produces exactly 2 slides, second slide has 1 tenant + grand total', async () => {
       const tenants13 = Array.from({ length: 13 }, (_, i) => createMockTenant(i + 1));
       const chunks = chunkTenantRoster(tenants13, 12);
 
@@ -127,7 +127,7 @@ describe('Adversarial Tenancy Chunking Boundaries', () => {
   });
 
   describe('Boundary 4: 50+ Tenants (Multi-Page Accumulation & Subtotal Math)', () => {
-    it('splits 55 tenants into 5 pages with precise subtotal accumulation', () => {
+    it('splits 55 tenants into 5 pages with precise subtotal accumulation', async () => {
       const tenants55 = Array.from({ length: 55 }, (_, i) => createMockTenant(i + 1));
       const chunks = chunkTenantRoster(tenants55, 12);
 
@@ -160,7 +160,7 @@ describe('Adversarial Tenancy Chunking Boundaries', () => {
       expect(grand.tenantCount).toBe(55);
     });
 
-    it('empirically reveals floating-point rounding divergence in page subtotals vs grandTotal for 50+ tenants', () => {
+    it('empirically reveals floating-point rounding divergence in page subtotals vs grandTotal for 50+ tenants', async () => {
       // 50 tenants with fractional area: 33.333 m2 each
       const fractionalTenants = Array.from({ length: 50 }, (_, i) =>
         createMockTenant(i + 1, {
@@ -191,7 +191,7 @@ describe('Adversarial Tenancy Chunking Boundaries', () => {
   });
 
   describe('Adversarial Tenancy Edge Cases', () => {
-    it('handles maxPerSlide edge cases (0, negative, larger than roster)', () => {
+    it('handles maxPerSlide edge cases (0, negative, larger than roster)', async () => {
       const tenants = Array.from({ length: 5 }, (_, i) => createMockTenant(i + 1));
 
       const chunks0 = chunkTenantRoster(tenants, 0);
@@ -205,7 +205,7 @@ describe('Adversarial Tenancy Chunking Boundaries', () => {
       expect(chunksLarge[0].items).toHaveLength(5);
     });
 
-    it('handles tenants with missing or zero numeric fields without NaN', () => {
+    it('handles tenants with missing or zero numeric fields without NaN', async () => {
       const corruptTenants: InstitutionalTenantRosterItem[] = [
         {
           floor: '1F',
@@ -259,7 +259,7 @@ describe('Adversarial Mathematical Consistency Gate (validateProImFinancialConsi
   };
 
   describe('Adversarial Defect 1: 1 KRW vs 1000 KRW & Broken Boolean Invariant', () => {
-    it('verifies 1 KRW difference passes cleanly as exact match without contradiction', () => {
+    it('verifies 1 KRW difference passes cleanly as exact match without contradiction', async () => {
       const testInput: ProImFinancialConsistencyInput = {
         ...baseInput,
         executiveSummary: {
@@ -279,7 +279,7 @@ describe('Adversarial Mathematical Consistency Gate (validateProImFinancialConsi
       expect(res.passed).toBe(true);
     });
 
-    it('verifies that tolerancePct > 0 allows discrepancies within threshold', () => {
+    it('verifies that tolerancePct > 0 allows discrepancies within threshold', async () => {
       const testInput: ProImFinancialConsistencyInput = {
         ...baseInput,
         executiveSummary: {
@@ -299,7 +299,7 @@ describe('Adversarial Mathematical Consistency Gate (validateProImFinancialConsi
       expect(res.passed).toBe(true);
     });
 
-    it('handles floating point epsilon diff (0.000001 KRW)', () => {
+    it('handles floating point epsilon diff (0.000001 KRW)', async () => {
       const testInput: ProImFinancialConsistencyInput = {
         ...baseInput,
         executiveSummary: {
@@ -318,7 +318,7 @@ describe('Adversarial Mathematical Consistency Gate (validateProImFinancialConsi
   });
 
   describe('Adversarial Defect 2: Poison Token NaN Generation on Zero Division', () => {
-    it('verifies that zero purchasePrice is safely guarded without NaN poison tokens', () => {
+    it('verifies that zero purchasePrice is safely guarded without NaN poison tokens', async () => {
       const testInput: ProImFinancialConsistencyInput = {
         ...baseInput,
         detailSchedule: {
@@ -346,7 +346,7 @@ describe('Adversarial Mathematical Consistency Gate (validateProImFinancialConsi
   });
 
   describe('Adversarial Intentional Discrepancy Detections across All Dimensions', () => {
-    it('detects intentional 1000 KRW Asking Price discrepancy', () => {
+    it('detects intentional 1000 KRW Asking Price discrepancy', async () => {
       const testInput: ProImFinancialConsistencyInput = {
         ...baseInput,
         executiveSummary: {
@@ -361,7 +361,7 @@ describe('Adversarial Mathematical Consistency Gate (validateProImFinancialConsi
       expect(res.passed).toBe(false);
     });
 
-    it('detects intentional 1000 KRW NOI discrepancy', () => {
+    it('detects intentional 1000 KRW NOI discrepancy', async () => {
       const testInput: ProImFinancialConsistencyInput = {
         ...baseInput,
         executiveSummary: {
@@ -376,7 +376,7 @@ describe('Adversarial Mathematical Consistency Gate (validateProImFinancialConsi
       expect(res.passed).toBe(false);
     });
 
-    it('detects intentional 0.05%p Cap Rate discrepancy', () => {
+    it('detects intentional 0.05%p Cap Rate discrepancy', async () => {
       const testInput: ProImFinancialConsistencyInput = {
         ...baseInput,
         executiveSummary: {
@@ -391,7 +391,7 @@ describe('Adversarial Mathematical Consistency Gate (validateProImFinancialConsi
       expect(res.passed).toBe(false);
     });
 
-    it('detects intentional 1000 KRW Total Rent discrepancy', () => {
+    it('detects intentional 1000 KRW Total Rent discrepancy', async () => {
       const testInput: ProImFinancialConsistencyInput = {
         ...baseInput,
         executiveSummary: {
@@ -406,7 +406,7 @@ describe('Adversarial Mathematical Consistency Gate (validateProImFinancialConsi
       expect(res.passed).toBe(false);
     });
 
-    it('detects intentional 1000 KRW Total Deposit discrepancy', () => {
+    it('detects intentional 1000 KRW Total Deposit discrepancy', async () => {
       const testInput: ProImFinancialConsistencyInput = {
         ...baseInput,
         executiveSummary: {
@@ -421,7 +421,7 @@ describe('Adversarial Mathematical Consistency Gate (validateProImFinancialConsi
       expect(res.passed).toBe(false);
     });
 
-    it('detects intentional 1000 KRW Development Budget discrepancy', () => {
+    it('detects intentional 1000 KRW Development Budget discrepancy', async () => {
       const testInput: ProImFinancialConsistencyInput = {
         ...baseInput,
         executiveSummary: {

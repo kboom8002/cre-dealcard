@@ -5,7 +5,7 @@ import type { RentrollUnitRow } from '@/domain/building/common-pipeline/rentroll
 describe('RentrollTierEngine (PR-B1-03 / Negative-Pair Obligation)', () => {
   const engine = new RentrollTierEngine();
 
-  it('Positive Pair: Standard rentroll with admin fee permits CapRate and NOI', () => {
+  it('Positive Pair: Standard rentroll with admin fee permits CapRate and NOI', async () => {
     const rows: RentrollUnitRow[] = [
       {
         floor: '1F',
@@ -26,7 +26,7 @@ describe('RentrollTierEngine (PR-B1-03 / Negative-Pair Obligation)', () => {
     expect(() => engine.assertMetricEligibility('cap_rate', result.tier)).not.toThrow();
   });
 
-  it('Negative Pair: Missing rentroll (none) blocks CapRate and NOI calculations', () => {
+  it('Negative Pair: Missing rentroll (none) blocks CapRate and NOI calculations', async () => {
     const result = engine.classify([], undefined);
     expect(result.tier).toBe('none');
     expect(result.allowedMetrics.length).toBe(0);

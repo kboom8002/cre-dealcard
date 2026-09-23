@@ -13,18 +13,18 @@ import type { InvestmentPosture } from '@/domain/ontology';
 
 // §1 사진 경계값 테스트
 describe('L4-PHOTO: 사진 경계값', () => {
-  it('사진 0장 → 갤러리 슬라이드 0개', () => {
+  it('사진 0장 → 갤러리 슬라이드 0개', async () => {
     const slides = planGallerySlides([]);
     expect(slides).toHaveLength(0);
   });
 
-  it('사진 1장 → 갤러리 슬라이드 1개', () => {
+  it('사진 1장 → 갤러리 슬라이드 1개', async () => {
     const photos = [{ url: '/test/01.jpg', category: 'exterior' as const, order: 0, isHero: true }];
     const slides = planGallerySlides(photos);
     expect(slides.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('사진 12장 → 갤러리 슬라이드 <= 4개', () => {
+  it('사진 12장 → 갤러리 슬라이드 <= 4개', async () => {
     const photos = Array.from({ length: 12 }, (_, i) => ({
       url: `/test/${i}.jpg`,
       category: 'interior' as const,
@@ -35,7 +35,7 @@ describe('L4-PHOTO: 사진 경계값', () => {
     expect(slides.length).toBeLessThanOrEqual(4);
   });
 
-  it('Negative: 사진 0장인데 갤러리 슬라이드가 생성되면 안 됨', () => {
+  it('Negative: 사진 0장인데 갤러리 슬라이드가 생성되면 안 됨', async () => {
     const seq = buildDeckSequence({
       posture: 'income',
       grade: 'B',
@@ -48,12 +48,12 @@ describe('L4-PHOTO: 사진 경계값', () => {
 
 // §2 Grade D PPTX 차단 (Rule 10)
 describe('L4-GRADE: Grade D PPTX 차단', () => {
-  it('Grade D → G30 throw 발생', () => {
+  it('Grade D → G30 throw 발생', async () => {
     expect(() => buildDeckSequence({ posture: 'income', grade: 'D', dataAvailability: {} }))
       .toThrow('[G30]');
   });
 
-  it('Negative: Grade A → throw 없음', () => {
+  it('Negative: Grade A → throw 없음', async () => {
     expect(() => buildDeckSequence({ posture: 'income', grade: 'A', dataAvailability: { hasRentRoll: true } }))
       .not.toThrow();
   });
@@ -61,17 +61,17 @@ describe('L4-GRADE: Grade D PPTX 차단', () => {
 
 // §3 렌트롤 경계값 (Rule 9)
 describe('L4-RENTROLL: 렌트롤 경계값', () => {
-  it('hasRentRoll=false → RentRoll suppress', () => {
+  it('hasRentRoll=false → RentRoll suppress', async () => {
     const seq = buildDeckSequence({ posture: 'income', grade: 'B', dataAvailability: { hasRentRoll: false } });
     expect(seq.some(s => s.dataKey === 'rentRoll')).toBe(false);
   });
 
-  it('hasRentRoll=true → RentRoll 포함', () => {
+  it('hasRentRoll=true → RentRoll 포함', async () => {
     const seq = buildDeckSequence({ posture: 'income', grade: 'B', dataAvailability: { hasRentRoll: true } });
     expect(seq.some(s => s.dataKey === 'rentRoll')).toBe(true);
   });
 
-  it('Negative: hasRentRoll=undefined → 기본 포함', () => {
+  it('Negative: hasRentRoll=undefined → 기본 포함', async () => {
     const seq = buildDeckSequence({ posture: 'income', grade: 'B', dataAvailability: {} });
     expect(seq.some(s => s.dataKey === 'rentRoll')).toBe(true);
   });
@@ -91,7 +91,7 @@ describe('L4-POSTURE: 5대 포스처 시퀀스 생성', () => {
     }
   }
 
-  it('Negative: 알 수 없는 포스처도 크래시 없음', () => {
+  it('Negative: 알 수 없는 포스처도 크래시 없음', async () => {
     const seq = buildDeckSequence({ posture: 'unknown' as any, grade: 'B', dataAvailability: {} });
     expect(seq.length).toBeGreaterThan(0);
   });
@@ -99,7 +99,7 @@ describe('L4-POSTURE: 5대 포스처 시퀀스 생성', () => {
 
 // §5 면수 상한 테스트 (Rule 10, Rule 24)
 describe('L4-PAGELIMIT: 면수 상한 16면', () => {
-  it('Grade A + 전체 데이터 → 본문 <= 16면', () => {
+  it('Grade A + 전체 데이터 → 본문 <= 16면', async () => {
     const seq = buildDeckSequence({
       posture: 'income',
       grade: 'A',
@@ -113,7 +113,7 @@ describe('L4-PAGELIMIT: 면수 상한 16면', () => {
     expect(bodySlides.length).toBeLessThanOrEqual(16);
   });
 
-  it('Negative: 부록은 16면 한도에서 제외', () => {
+  it('Negative: 부록은 16면 한도에서 제외', async () => {
     const seq = buildDeckSequence({ posture: 'income', grade: 'A', dataAvailability: { hasRentRoll: true } });
     const bodySlides = seq.filter(s => s.placement !== 'appendix' && s.placement !== 'closing');
     expect(bodySlides.length).toBeLessThanOrEqual(16);
@@ -122,13 +122,13 @@ describe('L4-PAGELIMIT: 면수 상한 16면', () => {
 
 // §6 취득비용/대출 시나리오 경계값 (D41-D2)
 describe('L4-ACQLOAN: 취득비용 대출 경계값', () => {
-  it('취득세율 0% → 세금 0원', () => {
+  it('취득세율 0% → 세금 0원', async () => {
     const priceWon = 100 * 1e8;
     const tax = Math.round(priceWon * (0 / 100));
     expect(tax).toBe(0);
   });
 
-  it('LTV 100% → 자기자본 최소', () => {
+  it('LTV 100% → 자기자본 최소', async () => {
     const priceWon = 100 * 1e8;
     const loan = Math.round(priceWon * 1.0);
     const total = priceWon + Math.round(priceWon * 0.046) + Math.round(priceWon * 0.009);
@@ -137,7 +137,7 @@ describe('L4-ACQLOAN: 취득비용 대출 경계값', () => {
     expect(equity).toBeLessThan(priceWon * 0.1);
   });
 
-  it('Negative: LTV 0% → 전액 자기자본', () => {
+  it('Negative: LTV 0% → 전액 자기자본', async () => {
     const priceWon = 100 * 1e8;
     const loan = 0;
     const total = priceWon + Math.round(priceWon * 0.046);
@@ -146,20 +146,20 @@ describe('L4-ACQLOAN: 취득비용 대출 경계값', () => {
     expect(equity).toBeGreaterThan(priceWon * 0.9);
   });
 
-  it('대출 금리 0% → 월 이자 0', () => {
+  it('대출 금리 0% → 월 이자 0', async () => {
     const loanManwon = 50000;
     const rate = 0;
     const interest = loanManwon > 0 ? Math.round(loanManwon * rate / 100 / 12) : 0;
     expect(interest).toBe(0);
   });
 
-  it('대출 금리 15% → 역레버리지', () => {
+  it('대출 금리 15% → 역레버리지', async () => {
     const grossYieldPct = 4.0;
     const loanRatePct = 15.0;
     expect(grossYieldPct < loanRatePct).toBe(true);
   });
 
-  it('Negative: 대출 금리 3% < Cap Rate 5% → 정상 레버리지', () => {
+  it('Negative: 대출 금리 3% < Cap Rate 5% → 정상 레버리지', async () => {
     const grossYieldPct = 5.0;
     const loanRatePct = 3.0;
     expect(grossYieldPct < loanRatePct).toBe(false);

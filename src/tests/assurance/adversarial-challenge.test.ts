@@ -20,7 +20,7 @@ describe('Adversarial Challenge & Empirical Stress Harness (Challenger M1-2)', (
   });
 
   // 2. Perturbation Boundary Stress Testing on Evidence Conflict Detector
-  it('Challenge 2A: Discrepancy boundary stress test (<=0.5% PASS vs >0.5% CONFLICT)', () => {
+  it('Challenge 2A: Discrepancy boundary stress test (<=0.5% PASS vs >0.5% CONFLICT)', async () => {
     const service = new EvidenceService();
     const dealId = 'deal-stress-boundary';
 
@@ -55,7 +55,7 @@ describe('Adversarial Challenge & Empirical Stress Harness (Challenger M1-2)', (
   });
 
   // 3. Canary / Shadow Discrepancy Parity Threshold (>0.1% causes DISCREPANCY)
-  it('Challenge 2B: Canary discrepancy oracle - any deviation > 0.10% triggers DISCREPANCY', () => {
+  it('Challenge 2B: Canary discrepancy oracle - any deviation > 0.10% triggers DISCREPANCY', async () => {
     function evaluateCanaryParity(legacyVal: number, modernVal: number): { diffPct: number; status: 'MATCH' | 'DISCREPANCY' } {
       const base = Math.min(legacyVal, modernVal);
       const diffPct = base > 0 ? (Math.abs(legacyVal - modernVal) / base) * 100 : 0;
@@ -80,7 +80,7 @@ describe('Adversarial Challenge & Empirical Stress Harness (Challenger M1-2)', (
   });
 
   // 4. Cryptographic Target Hash Perturbation Sensitivity
-  it('Challenge 2C: Any perturbation in approved data breaks SHA-256 target hash', () => {
+  it('Challenge 2C: Any perturbation in approved data breaks SHA-256 target hash', async () => {
     const originalPayload = {
       askingPriceKrw: 12500000000,
       landAreaSqm: 420.5,
@@ -117,7 +117,7 @@ describe('Adversarial Challenge & Empirical Stress Harness (Challenger M1-2)', (
   });
 
   // 5. Final Acceptance Audit (FA-01~16) Edge Cases
-  it('Challenge 3: Final Acceptance Audit edge cases - strict validator rejects bad formats & missing signers', () => {
+  it('Challenge 3: Final Acceptance Audit edge cases - strict validator rejects bad formats & missing signers', async () => {
     // Edge case 1: Bad FA ID format
     const invalidId = 'FA-1';
     expect(/^FA-\d{2}$/.test(invalidId)).toBe(false);
@@ -148,7 +148,7 @@ describe('Adversarial Challenge & Empirical Stress Harness (Challenger M1-2)', (
   });
 
   // 6. Flaw Analysis: Golden runner string mismatch analysis
-  it('Challenge 4: Audit of GoldenCaseRunner gateExpected check flaw', () => {
+  it('Challenge 4: Audit of GoldenCaseRunner gateExpected check flaw', async () => {
     const fixturesDir = path.join(process.cwd(), 'tests', 'fixtures', 'golden-cases');
     const files = fs.readdirSync(fixturesDir).filter((f) => f.endsWith('.json'));
 

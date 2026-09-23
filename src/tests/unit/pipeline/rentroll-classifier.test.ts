@@ -5,7 +5,7 @@ import {
 } from '@/domain/building/common-pipeline/rentroll-classifier';
 
 describe('Rent Roll 4-Tier Classification & Vacancy Preservation (CIM-0404 / PR-M4-04)', () => {
-  it('should correctly classify full unit level, compute physical vacancy rate, and flag owner-occupied space', () => {
+  it('should correctly classify full unit level, compute physical vacancy rate, and flag owner-occupied space', async () => {
     const rows: RentrollUnitRow[] = [
       {
         floor: 'B1',
@@ -54,7 +54,7 @@ describe('Rent Roll 4-Tier Classification & Vacancy Preservation (CIM-0404 / PR-
     expect(analysis.hasG35Discrepancy).toBe(false);
   });
 
-  it('should detect G35 discrepancy when rent sum deviates from control total by >1%', () => {
+  it('should detect G35 discrepancy when rent sum deviates from control total by >1%', async () => {
     const rows: RentrollUnitRow[] = [
       {
         floor: '1F',

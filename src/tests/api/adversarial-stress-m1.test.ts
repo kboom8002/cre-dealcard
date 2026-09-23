@@ -110,11 +110,11 @@ describe('ADVERSARIAL STRESS SUITE: Worker M1 Fixes', () => {
   describe('1. calcCalloutHeight Extreme Inputs Stress Test', () => {
     const defaultBoxWidth = 5.0;
 
-    it('1.1: Empty string returns baseline padding (0.55)', () => {
+    it('1.1: Empty string returns baseline padding (0.55)', async () => {
       expect(calcCalloutHeight('', defaultBoxWidth)).toBe(0.55);
     });
 
-    it('1.2: Whitespace-only variants return baseline padding (0.55)', () => {
+    it('1.2: Whitespace-only variants return baseline padding (0.55)', async () => {
       expect(calcCalloutHeight(' ', defaultBoxWidth)).toBe(0.55);
       expect(calcCalloutHeight('          ', defaultBoxWidth)).toBe(0.55);
       expect(calcCalloutHeight('\t', defaultBoxWidth)).toBe(0.55);
@@ -122,12 +122,12 @@ describe('ADVERSARIAL STRESS SUITE: Worker M1 Fixes', () => {
       expect(calcCalloutHeight(' \t \r\n \t\n ', defaultBoxWidth)).toBe(0.55);
     });
 
-    it('1.3: Falsy/boundary inputs return baseline padding without crashing', () => {
+    it('1.3: Falsy/boundary inputs return baseline padding without crashing', async () => {
       expect(calcCalloutHeight(null as any, defaultBoxWidth)).toBe(0.55);
       expect(calcCalloutHeight(undefined as any, defaultBoxWidth)).toBe(0.55);
     });
 
-    it('1.4: Massive single-line strings (1,000, 5,000, 10,000 chars)', () => {
+    it('1.4: Massive single-line strings (1,000, 5,000, 10,000 chars)', async () => {
       const s1000 = 'A'.repeat(1000);
       const h1000 = calcCalloutHeight(s1000, defaultBoxWidth);
       expect(Number.isFinite(h1000)).toBe(true);
@@ -144,7 +144,7 @@ describe('ADVERSARIAL STRESS SUITE: Worker M1 Fixes', () => {
       expect(h10000).toBeGreaterThan(0.55);
     });
 
-    it('1.5: Deep multiline strings (50 lines, alternating blank lines)', () => {
+    it('1.5: Deep multiline strings (50 lines, alternating blank lines)', async () => {
       const lines50 = Array.from({ length: 50 }, (_, i) => `Line ${i + 1}`).join('\n');
       const h50 = calcCalloutHeight(lines50, defaultBoxWidth);
       expect(Number.isFinite(h50)).toBe(true);
@@ -159,7 +159,7 @@ describe('ADVERSARIAL STRESS SUITE: Worker M1 Fixes', () => {
       expect(hAlt).toBeCloseTo(0.55 + 5 * 0.29, 2);
     });
 
-    it('1.6: Special characters, Korean mixed CJK, XSS payload, emojis', () => {
+    it('1.6: Special characters, Korean mixed CJK, XSS payload, emojis', async () => {
       const koreanText = '강남역 테헤란로 중심 업무지구 최상급 오피스 매물입니다. 현재 100% 임대 완료되어 공실 리스크가 매우 낮습니다.';
       const hKorean = calcCalloutHeight(koreanText, defaultBoxWidth);
       expect(Number.isFinite(hKorean)).toBe(true);
@@ -176,7 +176,7 @@ describe('ADVERSARIAL STRESS SUITE: Worker M1 Fixes', () => {
       expect(hEmoji).toBeGreaterThan(0.55);
     });
 
-    it('1.7: Varying box widths (wide vs narrow)', () => {
+    it('1.7: Varying box widths (wide vs narrow)', async () => {
       const text = 'This is a sample text for verifying wrapping behavior across widths.';
       const hNarrow = calcCalloutHeight(text, 2.0);
       const hWide = calcCalloutHeight(text, 10.0);

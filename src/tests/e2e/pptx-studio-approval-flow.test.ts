@@ -7,14 +7,14 @@ describe('PPTX Studio 2-Stage Approval E2E Flow (PR-B3-04 / Negative-Pair Obliga
   const approvalService = new StudioApprovalService();
 
   it('Positive Pair: Sequential S60 Editorial Approval -> S70 File Approval produces published release', async () => {
-    const project = studioService.createProject(
+    const project = await studioService.createProject(
       'deal-approval-e2e',
       'pkg-app-1',
       '테헤란로 프라임 오피스'
     );
 
     // Advance to preview / gate check
-    studioService.advanceStage(project.id, 'S40_PREVIEW', 1);
+    await studioService.advanceStage(project.id, 'S40_PREVIEW', 1);
 
     // Stage 1: Editorial Approval (S60)
     const editorialApproval = await approvalService.approveEditorial(
@@ -40,7 +40,7 @@ describe('PPTX Studio 2-Stage Approval E2E Flow (PR-B3-04 / Negative-Pair Obliga
   });
 
   it('Negative Pair: Direct file approval without preceding editorial approval is blocked', async () => {
-    const project = studioService.createProject(
+    const project = await studioService.createProject(
       'deal-approval-neg',
       'pkg-app-2',
       '종로 소형 근생'

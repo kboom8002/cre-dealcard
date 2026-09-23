@@ -91,7 +91,7 @@ describe('Real Case 03: 수택동 89억 나대지 (Development)', () => {
     ],
   };
 
-  it('calculates development financials accurately for 651.2 sqm commercial zoning', () => {
+  it('calculates development financials accurately for 651.2 sqm commercial zoning', async () => {
     const fin = calculateDevelopmentFinancials({
       askingPriceKrw: 8_900_000_000,
       landAreaSqm: 651.2,
@@ -104,17 +104,17 @@ describe('Real Case 03: 수택동 89억 나대지 (Development)', () => {
     expect((fin as any).devProfitMarginPct).toBeDefined();
   });
 
-  it('bands price correctly into "80억 원대" for B2C Teaser', () => {
+  it('bands price correctly into "80억 원대" for B2C Teaser', async () => {
     expect(formatBandedPrice(8_900_000_000)).toBe('80억 원대');
   });
 
-  it('passes deterministic quality gates without false positives on empty lease roll for land', () => {
+  it('passes deterministic quality gates without false positives on empty lease roll for land', async () => {
     const report = runDeterministicGates({ core: sutaekCore });
     expect(report.allPassed).toBe(true);
     expect(report.blocked).toBe(false);
   });
 
-  it('audits zero deficiencies when zoning and land area are provided for development', () => {
+  it('audits zero deficiencies when zoning and land area are provided for development', async () => {
     const defs = auditDeficiencies({
       posture: 'development',
       physical: { farPct: 800, zoning: '일반상업지역' },

@@ -169,43 +169,38 @@ describe('Basic IM SOTA Render Verification Test', () => {
     expect(slideTexts[4]).toContain('토지 정보');
 
     // ═══════════════════════════════════════════════════
-    // Slide 6: Cadastral Map — 지적도
-    // ═══════════════════════════════════════════════════
-    expect(slideTexts[5]).toContain('지적도');
-
-    // ═══════════════════════════════════════════════════
-    // Slide 7: Rent Roll + Stacking Plan (A24)
+    // Slide 6: Rent Roll + Stacking Plan (A24)
     // G4: 공실 스타일링 검증 + 관리비 배제
     // ═══════════════════════════════════════════════════
-    console.log('Slide 7 Text:', slideTexts[6].slice(0, 300));
-    expect(slideTexts[6]).toContain('렌트롤');
-    expect(slideTexts[6]).toContain('공실');
+    console.log('Slide 6 Text:', slideTexts[5].slice(0, 300));
+    expect(slideTexts[5]).toContain('렌트롤');
+    expect(slideTexts[5]).toContain('공실');
 
     // G4: 공실 행 배경색 FBEFE8 (basic-im-guide.md §4 공실/경고 강조)
-    expect(slideXmls[6]).toContain('FBEFE8');
+    expect(slideXmls[5]).toContain('FBEFE8');
     console.log('  ✅ G4: A24 공실 스타일링 FBEFE8 확인');
 
     // 관리비 배제 (basic-im-guide.md §3.1: "관리비는 넣지 않습니다")
-    expect(slideTexts[6]).not.toContain('관리비');
+    expect(slideTexts[5]).not.toContain('관리비');
     console.log('  ✅ 렌트롤 관리비 컬럼 배제 확인');
 
     // ═══════════════════════════════════════════════════
-    // Slide 8: Yield Formula (A23)
+    // Slide 7: Yield Formula (A23)
     // ═══════════════════════════════════════════════════
-    console.log('Slide 8 Text:', slideTexts[7].slice(0, 300));
-    expect(slideTexts[7]).toContain('수익률');
-    expect(slideTexts[7]).toContain('1.66%');
-    expect(slideTexts[7]).toContain('2.87%');
+    console.log('Slide 7 Text:', slideTexts[6].slice(0, 300));
+    expect(slideTexts[6]).toContain('수익률');
+    expect(slideTexts[6]).toContain('1.66%');
+    expect(slideTexts[6]).toContain('2.87%');
 
     // ═══════════════════════════════════════════════════
-    // Slide 9: Gallery (A14)
+    // Slide 8: Gallery (A14)
     // ═══════════════════════════════════════════════════
-    expect(slideTexts[8]).toContain('현장 사진');
+    expect(slideTexts[7]).toContain('현장 사진');
 
     // ═══════════════════════════════════════════════════
-    // Slide 10: Closing (A10)
+    // Slide 9: Closing (A10)
     // ═══════════════════════════════════════════════════
-    expect(slideTexts[9]).toContain('문의 및 유의사항');
+    expect(slideTexts[8]).toContain('문의 및 유의사항');
 
     console.log('\n🏁 Basic IM SOTA 렌더 정합성 26-point 단언 스위트 완료');
   }, 45_000);

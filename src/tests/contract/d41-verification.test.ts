@@ -3,7 +3,7 @@ import { buildDeckSequence, type DeckSequenceInput } from '@/domain/building/mob
 
 // 1. Summary A02: 3대 핵심 투자 포인트 공간 계산
 describe('D41: Summary 3대 핵심 투자 포인트', () => {
-  it('6개 metrics + leadSentence → 3개 포인트 모두 y 경계 내', () => {
+  it('6개 metrics + leadSentence → 3개 포인트 모두 y 경계 내', async () => {
     const metricsCount = 6;
     const startY = 2.15;
     const cardH = metricsCount > 4 ? 1.10 : 1.4;
@@ -22,7 +22,7 @@ describe('D41: Summary 3대 핵심 투자 포인트', () => {
     }
   });
 
-  it('Negative: 기존 크기(cardH=1.4, rowH=0.64)에서는 02/03 렌더링 불가', () => {
+  it('Negative: 기존 크기(cardH=1.4, rowH=0.64)에서는 02/03 렌더링 불가', async () => {
     const startY = 2.15;
     const kpiRows = Math.ceil(6 / 4);
     const kpiEndY = startY + kpiRows * (1.4 + 0.18);
@@ -34,11 +34,11 @@ describe('D41: Summary 3대 핵심 투자 포인트', () => {
 
 // 2. Comps 조건부 가드
 describe('D41: Comps hasComparables guard', () => {
-  it('Positive: hasComparables=true → Comps 포함', () => {
+  it('Positive: hasComparables=true → Comps 포함', async () => {
     const seq = buildDeckSequence({ posture: 'income', grade: 'B', dataAvailability: { hasComparables: true, hasRentRoll: true } });
     expect(seq.some(s => s.dataKey === 'comps')).toBe(true);
   });
-  it('Negative: hasComparables=false → Comps 미포함', () => {
+  it('Negative: hasComparables=false → Comps 미포함', async () => {
     const seq = buildDeckSequence({ posture: 'income', grade: 'B', dataAvailability: { hasComparables: false, hasRentRoll: true } });
     expect(seq.some(s => s.dataKey === 'comps')).toBe(false);
   });
@@ -46,11 +46,11 @@ describe('D41: Comps hasComparables guard', () => {
 
 // 3. Vacancy calc
 describe('D41: Stability vacancy calc', () => {
-  it('만실 → 공실 없음', () => {
+  it('만실 → 공실 없음', async () => {
     const leases = [{ is_vacant: false }, { is_vacant: false }, { is_vacant: false }];
     expect(leases.filter(l => l.is_vacant).length).toBe(0);
   });
-  it('1구획 공실 → 33.3%', () => {
+  it('1구획 공실 → 33.3%', async () => {
     const leases = [{ is_vacant: false }, { is_vacant: true }, { is_vacant: false }];
     const v = leases.filter(l => l.is_vacant).length;
     expect(((v / leases.length) * 100).toFixed(1)).toBe('33.3');
@@ -59,20 +59,20 @@ describe('D41: Stability vacancy calc', () => {
 
 // 4. D41-D2: Capital 슬라이드 취득비용 동적 바인딩
 describe('D41-D2: Capital slide acquisition cost binding', () => {
-  it('Positive: 사용자 입력 취득세율 12.4% → 세금 계산 정확', () => {
+  it('Positive: 사용자 입력 취득세율 12.4% → 세금 계산 정확', async () => {
     const priceWon = 100 * 1e8;
     const taxPct = 12.4;
     const acquisitionTax = Math.round(priceWon * (taxPct / 100));
     expect(acquisitionTax).toBe(12.4 * 1e8);
   });
 
-  it('Negative: 기본값 4.6% 적용 시 법인세율이 아님', () => {
+  it('Negative: 기본값 4.6% 적용 시 법인세율이 아님', async () => {
     const priceWon = 100 * 1e8;
     const defaultTax = Math.round(priceWon * 0.046);
     expect(defaultTax).not.toBe(Math.round(priceWon * 0.124));
   });
 
-  it('Positive: 법무사비·기타 비용이 총취득원가에 반영', () => {
+  it('Positive: 법무사비·기타 비용이 총취득원가에 반영', async () => {
     const priceWon = 100 * 1e8;
     const acquisitionTax = Math.round(priceWon * 0.046);
     const brokerFee = Math.round(priceWon * 0.009);
@@ -85,7 +85,7 @@ describe('D41-D2: Capital slide acquisition cost binding', () => {
 
 // 5. D41-D2: Profit 슬라이드 B2 (LTV 미입력 시 실투자금 숨김)
 describe('D41-D2: Profit slide B2 LTV guard', () => {
-  it('Positive: loan_scenario 입력 시 실투자금 표시', () => {
+  it('Positive: loan_scenario 입력 시 실투자금 표시', async () => {
     const hasLoanInput = true;
     const stats: Array<{ label: string; value: string }> = [
       { label: '매매가', value: '100억' },
@@ -96,7 +96,7 @@ describe('D41-D2: Profit slide B2 LTV guard', () => {
     expect(stats.find(s => s.label === '실투자금')).toBeDefined();
   });
 
-  it('Negative: LTV 미입력 시 실투자금 미표시', () => {
+  it('Negative: LTV 미입력 시 실투자금 미표시', async () => {
     const hasLoanInput = false;
     const stats: Array<{ label: string; value: string }> = [
       { label: '매매가', value: '100억' },
@@ -110,7 +110,7 @@ describe('D41-D2: Profit slide B2 LTV guard', () => {
 
 // 6. D41-D2: Loan 슬라이드 구조화 테이블 생성
 describe('D41-D2: Loan slide structured table', () => {
-  it('Positive: loan_scenario 입력 시 DSCR > 1.0', () => {
+  it('Positive: loan_scenario 입력 시 DSCR > 1.0', async () => {
     const askingManwon = 100 * 10000;
     const ltv = 50;
     const rate = 4.5;
@@ -124,7 +124,7 @@ describe('D41-D2: Loan slide structured table', () => {
     expect(dscr).toBeGreaterThan(1.0);
   });
 
-  it('Negative: 대출 없을 때 이자 부담 0', () => {
+  it('Negative: 대출 없을 때 이자 부담 0', async () => {
     const loanManwon = 0;
     const rate = 4.5;
     const monthlyInterest = loanManwon > 0 ? Math.round(loanManwon * rate / 100 / 12) : 0;

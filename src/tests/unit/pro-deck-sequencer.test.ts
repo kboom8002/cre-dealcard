@@ -41,7 +41,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
   // 1. Pro IM Slide Count & Page Limits
   // ==========================================================================
   describe('Slide Count & Hard Limits', () => {
-    it('generates 30+ slides meeting PRO_PAGE_MIN_LIMIT and not exceeding PRO_PAGE_HARD_LIMIT', () => {
+    it('generates 30+ slides meeting PRO_PAGE_MIN_LIMIT and not exceeding PRO_PAGE_HARD_LIMIT', async () => {
       const seq = buildProDeckSequence(defaultProInput);
 
       expect(seq.length).toBeGreaterThanOrEqual(PRO_PAGE_MIN_LIMIT);
@@ -49,7 +49,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
       expect(seq.length).toBe(36);
     });
 
-    it('enforces PRO_PAGE_HARD_LIMIT = 40 as an invariant constant', () => {
+    it('enforces PRO_PAGE_HARD_LIMIT = 40 as an invariant constant', async () => {
       expect(PRO_PAGE_HARD_LIMIT).toBe(40);
       expect(PRO_PAGE_MIN_LIMIT).toBe(30);
     });
@@ -59,7 +59,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
   // 2. 5 Core Chapters & A25 Dividers
   // ==========================================================================
   describe('5 Core Chapters Structure & A25 Dividers', () => {
-    it('contains all 5 core chapter divider slides using A25 archetype', () => {
+    it('contains all 5 core chapter divider slides using A25 archetype', async () => {
       const seq = buildProDeckSequence(defaultProInput);
 
       const dividers = seq.filter(s => s.archetype === 'A25');
@@ -81,7 +81,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
       expect(dividers[4].kicker).toBe('CHAPTER 05');
     });
 
-    it('enforces chapter slide count minimums (5, 6, 7, 6, 6)', () => {
+    it('enforces chapter slide count minimums (5, 6, 7, 6, 6)', async () => {
       const seq = buildProDeckSequence(defaultProInput);
       const dataKeys = seq.map(s => s.dataKey);
 
@@ -113,7 +113,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
       expect(ch5Count).toBeGreaterThanOrEqual(6); // Ch5: DD Annexes >= 6 (Actual: 6)
     });
 
-    it('includes essential Front Matter (Cover, Agenda) and End Matter (Closing)', () => {
+    it('includes essential Front Matter (Cover, Agenda) and End Matter (Closing)', async () => {
       const seq = buildProDeckSequence(defaultProInput);
       const dataKeys = seq.map(s => s.dataKey);
 
@@ -135,7 +135,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
   // 3. Multi-Page Tenant Roster Chunking Integration
   // ==========================================================================
   describe('Multi-Page Tenant Roster Chunking', () => {
-    it('generates standard 2-part rent roll for standard portfolios (<= 12 tenants)', () => {
+    it('generates standard 2-part rent roll for standard portfolios (<= 12 tenants)', async () => {
       const seq = buildProDeckSequence({
         ...defaultProInput,
         data: {
@@ -151,7 +151,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
       expect(keys).toContain('rentRollPart2');
     });
 
-    it('dynamically generates 3+ tenant roster slides for large tenant count (> 24 tenants)', () => {
+    it('dynamically generates 3+ tenant roster slides for large tenant count (> 24 tenants)', async () => {
       const largePortfolio: InstitutionalTenantRosterItem[] = Array.from({ length: 30 }, (_, i) => ({
         floor: `${i + 1}F`,
         unitNumber: `${i + 1}01호`,
@@ -184,7 +184,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
       expect(seq.length).toBeLessThanOrEqual(PRO_PAGE_HARD_LIMIT);
     });
 
-    it('calculates running subtotals and grand totals correctly across roster chunks', () => {
+    it('calculates running subtotals and grand totals correctly across roster chunks', async () => {
       const sampleTenants: InstitutionalTenantRosterItem[] = [
         { floor: '1F', unitNumber: '101호', tenantName: '카페', industry: 'F&B', leasedAreaM2: 100, leasedAreaPyeong: 30, depositKrw: 100000000, monthlyRentKrw: 10000000, monthlyMaintenanceKrw: 2000000, leaseStartDate: '2023-01-01', leaseEndDate: '2028-01-01', statutoryProtection10Y: true },
         { floor: '2F', unitNumber: '201호', tenantName: '학원', industry: '교육', leasedAreaM2: 200, leasedAreaPyeong: 60, depositKrw: 200000000, monthlyRentKrw: 15000000, monthlyMaintenanceKrw: 3000000, leaseStartDate: '2022-01-01', leaseEndDate: '2027-01-01', statutoryProtection10Y: true },
@@ -214,7 +214,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
   // 4. Posture Specific Variations & Development Feasibility
   // ==========================================================================
   describe('Posture Specific Variations', () => {
-    it('includes 5-Tier Development Feasibility Budget for development posture', () => {
+    it('includes 5-Tier Development Feasibility Budget for development posture', async () => {
       const devSeq = buildProDeckSequence({
         ...defaultProInput,
         posture: 'development',
@@ -227,7 +227,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
       expect(devSeq.length).toBeLessThanOrEqual(PRO_PAGE_HARD_LIMIT);
     });
 
-    it('includes Capital & Debt financing for income posture', () => {
+    it('includes Capital & Debt financing for income posture', async () => {
       const incomeSeq = buildProDeckSequence({
         ...defaultProInput,
         posture: 'income',
@@ -238,7 +238,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
       expect(keys).not.toContain('development_budget');
     });
 
-    it('generates valid 30+ slide decks across all 5 investment postures', () => {
+    it('generates valid 30+ slide decks across all 5 investment postures', async () => {
       const postures: InvestmentPosture[] = [
         'income',
         'development',
@@ -267,11 +267,11 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
   // 5. Basic IM Isolation & Immutability (Rule 47 & Milestone 2 Contract)
   // ==========================================================================
   describe('Basic IM Isolation & Immutability', () => {
-    it('strictly preserves PAGE_HARD_LIMIT = 16 for Basic IM', () => {
+    it('strictly preserves PAGE_HARD_LIMIT = 16 for Basic IM', async () => {
       expect(PAGE_HARD_LIMIT).toBe(16);
     });
 
-    it('Basic IM sequence continues to produce strictly <= 16 slides (typically 9-10)', () => {
+    it('Basic IM sequence continues to produce strictly <= 16 slides (typically 7-9)', async () => {
       const basicSeq = buildDeckSequence({
         posture: 'income',
         preset: 'credeal_basic',
@@ -285,7 +285,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
       });
 
       expect(basicSeq.length).toBeLessThanOrEqual(PAGE_HARD_LIMIT);
-      expect(basicSeq.length).toBe(10);
+      expect(basicSeq.length).toBe(9);
 
       const keys = basicSeq.map(s => s.dataKey);
       // Basic IM must NEVER contain Pro chapter dividers
@@ -302,7 +302,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
       expect(keys).not.toContain('development_budget');
     });
 
-    it('routes to Pro sequence only when isPro / proMode is requested', () => {
+    it('routes to Pro sequence only when isPro / proMode is requested', async () => {
       const proViaInput = buildDeckSequence({
         posture: 'income',
         grade: 'B',
@@ -318,7 +318,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
   // 6. A25 Chapter Divider Layout Physics & Rendering Archetype
   // ==========================================================================
   describe('A25 Chapter Divider Archetype', () => {
-    it('builds an institutional chapter divider slide within 16:9 widescreen layout bounds', () => {
+    it('builds an institutional chapter divider slide within 16:9 widescreen layout bounds', async () => {
       const addedShapes: any[] = [];
       const addedTexts: any[] = [];
 
@@ -445,7 +445,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
   // 7. Data Binder Pro IM Integration
   // ==========================================================================
   describe('Data Binder Pro IM Integration', () => {
-    it('populates all Pro chapter data keys without poison tokens', () => {
+    it('populates all Pro chapter data keys without poison tokens', async () => {
       const mockDoc = {
         title: '강남구 역삼동 프라임 오피스 타워',
         body: {
@@ -482,7 +482,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
       expect(jsonString).not.toContain('[object Object]');
     });
 
-    it('verifies Defect A fix: passes raw WON to cash_flow_snapshot and dcf_valuation', () => {
+    it('verifies Defect A fix: passes raw WON to cash_flow_snapshot and dcf_valuation', async () => {
       const askingPriceKrw = 25_000_000_000;
       const annualRentKrw = 1_050_000_000;
       const totalDepositKrw = 2_000_000_000;
@@ -505,7 +505,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
       expect(bound['dcf_valuation'].totalDeposit).toBe(totalDepositKrw);
     });
 
-    it('verifies Defect B fix: debt_financing supplies raw WON equityBreakdown and ltvPct in ltvScenarios', () => {
+    it('verifies Defect B fix: debt_financing supplies raw WON equityBreakdown and ltvPct in ltvScenarios', async () => {
       const askingPriceKrw = 25_000_000_000;
       const totalDepositKrw = 2_000_000_000;
 
@@ -537,7 +537,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
       }
     });
 
-    it('verifies Defect C fix: ownership provides ownershipRows as 2D string matrix without [object Object]', () => {
+    it('verifies Defect C fix: ownership provides ownershipRows as 2D string matrix without [object Object]', async () => {
       const bound = bindProImChapterData({
         body: {},
       }, {}, {});
@@ -557,7 +557,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
       }
     });
 
-    it('verifies Defect D fix: binds multi-page tenant rosters dynamically beyond 2 parts with running subtotals', () => {
+    it('verifies Defect D fix: binds multi-page tenant rosters dynamically beyond 2 parts with running subtotals', async () => {
       const largePortfolio: InstitutionalTenantRosterItem[] = Array.from({ length: 30 }, (_, i) => ({
         floor: `${i + 1}F`,
         unitNumber: `${i + 1}01호`,
@@ -602,7 +602,7 @@ describe('Milestone 2: Pro IM Chapter Pipeline & Deck Layout Engine Suite', () =
       expect(p3GrandTotalRow[2]).toBe('30개사');
     });
 
-    it('verifies mathematical consistency between executive summary and DCF schedule', () => {
+    it('verifies mathematical consistency between executive summary and DCF schedule', async () => {
       const askingPriceKrw = 30_000_000_000;
       const annualRentKrw = 1_500_000_000;
       const totalDepositKrw = 2_000_000_000;

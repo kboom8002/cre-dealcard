@@ -28,7 +28,7 @@ describe('P2 Accessibility Tests', () => {
   describe('T31: WCAG Color Contrast Extended', () => {
     const presets = Object.values(PPTX_PRESET_TEMPLATES);
 
-    it('T31-01: All presets - green semantic color vs bg', () => {
+    it('T31-01: All presets - green semantic color vs bg', async () => {
       for (const preset of presets) {
         const ratio = contrastRatio(preset.green, preset.bg);
         // We test the contract. Some presets might not meet 3:1 for green.
@@ -36,34 +36,34 @@ describe('P2 Accessibility Tests', () => {
       }
     });
 
-    it('T31-02: All presets - red semantic color vs bg', () => {
+    it('T31-02: All presets - red semantic color vs bg', async () => {
       for (const preset of presets) {
         const ratio = contrastRatio(preset.red, preset.bg);
         expect(ratio).toBeGreaterThan(0);
       }
     });
 
-    it('T31-03: All presets - blue semantic color vs bg', () => {
+    it('T31-03: All presets - blue semantic color vs bg', async () => {
       for (const preset of presets) {
         const ratio = contrastRatio(preset.blue, preset.bg);
         expect(ratio).toBeGreaterThan(0);
       }
     });
 
-    it('T31-04: All presets - amber semantic color vs bg', () => {
+    it('T31-04: All presets - amber semantic color vs bg', async () => {
       for (const preset of presets) {
         const ratio = contrastRatio(preset.amber, preset.bg);
         expect(ratio).toBeGreaterThan(0);
       }
     });
 
-    it('T31-05: pro_dark_obsidian - darkBody vs darkBlock ≥ 7:1', () => {
+    it('T31-05: pro_dark_obsidian - darkBody vs darkBlock ≥ 7:1', async () => {
       const darkTheme = PPTX_PRESET_TEMPLATES['pro_dark_obsidian'];
       const ratio = contrastRatio(darkTheme.darkBody, darkTheme.darkBlock);
       expect(ratio).toBeGreaterThan(0);
     });
 
-    it('T31-06: All presets - ink2 (subtitle) vs bg ≥ 4.5:1', () => {
+    it('T31-06: All presets - ink2 (subtitle) vs bg ≥ 4.5:1', async () => {
       for (const preset of presets) {
         const ratio = contrastRatio(preset.ink2, preset.bg);
         expect(ratio).toBeGreaterThan(0);
@@ -101,7 +101,7 @@ describe('P2 Accessibility Tests', () => {
       textMap = await extractSlideTexts(pptxBuffer);
     }, 120_000);
 
-    it('T32-01: Rendered PPTX slides contain <p:cNvPr elements with name attributes', () => {
+    it('T32-01: Rendered PPTX slides contain <p:cNvPr elements with name attributes', async () => {
       let foundCNvPr = false;
       for (const [slideNum, xml] of xmlMap.entries()) {
         if (xml.includes('<p:cNvPr')) {
@@ -112,26 +112,26 @@ describe('P2 Accessibility Tests', () => {
       expect(foundCNvPr).toBe(true);
     });
 
-    it('T32-02: Cover slide has title text that would be readable by screen reader', () => {
+    it('T32-02: Cover slide has title text that would be readable by screen reader', async () => {
       const coverTexts = textMap.get(1) || [];
       expect(coverTexts.length).toBeGreaterThan(0);
       const joinedText = coverTexts.join(' ');
       expect(joinedText).toContain('테스트 문서'); // From buildMinimalDoc
     });
 
-    it('T32-03: All slides have at least one text element (no blank slides)', () => {
+    it('T32-03: All slides have at least one text element (no blank slides)', async () => {
       for (const [slideNum, texts] of textMap.entries()) {
         expect(texts.length).toBeGreaterThan(0);
       }
     });
 
-    it('T32-04: Slide XML contains proper <a:t> text run elements for all content slides', () => {
+    it('T32-04: Slide XML contains proper <a:t> text run elements for all content slides', async () => {
       for (const [slideNum, xml] of xmlMap.entries()) {
         expect(xml).toContain('<a:t>');
       }
     });
 
-    it('T32-05: Image elements (if any) have description attributes', () => {
+    it('T32-05: Image elements (if any) have description attributes', async () => {
       // PptxGenJS may put descr="..." in cNvPr for images
       let foundImage = false;
       let foundDescr = false;

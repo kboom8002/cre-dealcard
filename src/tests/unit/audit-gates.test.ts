@@ -134,7 +134,7 @@ function createMockCore(overrides?: any): any {
 }
 
 describe('Audit Quality Gates (Dangsan & Yangpyeong Audit Verification)', () => {
-  it('GT-G19-01: Summary vs Ledger exact sum matching passes when equal', () => {
+  it('GT-G19-01: Summary vs Ledger exact sum matching passes when equal', async () => {
     const core = createMockCore();
     // Leases sum: Deposit = 6000만 + 14000만 + 5000만 + 3000만 + 1000만 = 29000만 (2.9억)
     // Monthly = 183만 + 883만 + 455만 + 260만 + 165만 = 1946만
@@ -142,7 +142,7 @@ describe('Audit Quality Gates (Dangsan & Yangpyeong Audit Verification)', () => 
     expect(res.passed).toBe(true);
   });
 
-  it('GT-G19-02: Summary vs Ledger sum mismatch is blocked', () => {
+  it('GT-G19-02: Summary vs Ledger sum mismatch is blocked', async () => {
     const core = createMockCore({
       equity: {
         price: 11500000000,
@@ -157,7 +157,7 @@ describe('Audit Quality Gates (Dangsan & Yangpyeong Audit Verification)', () => 
     expect(res.severity).toBe('block');
   });
 
-  it('GT-G18-01: Missing firstContractDate with renewal years text is blocked', () => {
+  it('GT-G18-01: Missing firstContractDate with renewal years text is blocked', async () => {
     const core = createMockCore();
     const snippets = [
       { type: 'lease_status', text: '401호는 갱신요구권 7년 잔여로 인해 5% 상한이 적용됩니다.' },
@@ -168,7 +168,7 @@ describe('Audit Quality Gates (Dangsan & Yangpyeong Audit Verification)', () => 
     expect(res.message).toContain('갱신요구권');
   });
 
-  it('GT-G18-02: Missing firstContractDate without renewal years text passes', () => {
+  it('GT-G18-02: Missing firstContractDate without renewal years text passes', async () => {
     const core = createMockCore();
     const snippets = [
       { type: 'lease_status', text: '호실별 임대차 계약 현황은 최초계약일 확인 필요 상태입니다.' },
@@ -177,7 +177,7 @@ describe('Audit Quality Gates (Dangsan & Yangpyeong Audit Verification)', () => 
     expect(res.passed).toBe(true);
   });
 
-  it('GT-C-BASIS-01: Gross yield labeled as Net Yield / Cap Rate is blocked', () => {
+  it('GT-C-BASIS-01: Gross yield labeled as Net Yield / Cap Rate is blocked', async () => {
     const core = createMockCore();
     const snippets = [
       { type: 'summary', text: '연 순수익률 (Cap Rate) 2.08% 달성' },
@@ -188,7 +188,7 @@ describe('Audit Quality Gates (Dangsan & Yangpyeong Audit Verification)', () => 
     expect(res.message).toContain('총수익률');
   });
 
-  it('GT-C-BASIS-02: Gross yield properly labeled as Gross / 총임대료 기준 passes', () => {
+  it('GT-C-BASIS-02: Gross yield properly labeled as Gross / 총임대료 기준 passes', async () => {
     const core = createMockCore();
     const snippets = [
       { type: 'summary', text: '연 수익률 2.08% (총임대료 ÷ (매매가 - 보증금))' },
@@ -197,7 +197,7 @@ describe('Audit Quality Gates (Dangsan & Yangpyeong Audit Verification)', () => 
     expect(res.passed).toBe(true);
   });
 
-  it('GT-G21-01: Mismatched administrative district in attached documents is blocked', () => {
+  it('GT-G21-01: Mismatched administrative district in attached documents is blocked', async () => {
     const core = createMockCore({
       attachedDocs: [
         {
@@ -214,7 +214,7 @@ describe('Audit Quality Gates (Dangsan & Yangpyeong Audit Verification)', () => 
     expect(res.message).toContain('다른 관할 공부');
   });
 
-  it('GT-G21-02: Verified matching attached documents pass', () => {
+  it('GT-G21-02: Verified matching attached documents pass', async () => {
     const core = createMockCore({
       attachedDocs: [
         {
@@ -230,7 +230,7 @@ describe('Audit Quality Gates (Dangsan & Yangpyeong Audit Verification)', () => 
     expect(res.passed).toBe(true);
   });
 
-  it('UT-ROE-01: In negative leverage regime (gross yield < loan rate), ROE decreases with leverage', () => {
+  it('UT-ROE-01: In negative leverage regime (gross yield < loan rate), ROE decreases with leverage', async () => {
     const price = 11500000000;
     const totalCost = 12132500000;
     const deposit = 290000000;

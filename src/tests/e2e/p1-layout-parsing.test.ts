@@ -7,12 +7,12 @@ import { buildMinimalDoc, extractSlideTexts, extractSlideXmls } from './pptx-tes
 describe('P1 Layout & Parsing Tests', () => {
 
   describe('T04: Markdown Parsing Edge Cases', () => {
-    it('T04-01: Nested bold (****deep****) -> stripMarkdown correctly removes', () => {
+    it('T04-01: Nested bold (****deep****) -> stripMarkdown correctly removes', async () => {
       const text = '****deep****';
       expect(stripMarkdown(text)).toBe('deep');
     });
 
-    it('T04-02: Mixed language bold key-value (**Cap Rate**: 5.33%) -> extractBoldKeyValues extracts', () => {
+    it('T04-02: Mixed language bold key-value (**Cap Rate**: 5.33%) -> extractBoldKeyValues extracts', async () => {
       const lines = ['**Cap Rate**: 5.33%'];
       const result = extractBoldKeyValues(lines);
       expect(result).toHaveLength(1);
@@ -20,7 +20,7 @@ describe('P1 Layout & Parsing Tests', () => {
       expect(result[0].value).toBe('5.33%');
     });
 
-    it('T04-03: Parentheses with colon inside bold (**월세(VAT포함)**: 1,200만) -> no false extraction', () => {
+    it('T04-03: Parentheses with colon inside bold (**월세(VAT포함)**: 1,200만) -> no false extraction', async () => {
       const lines = ['**월세(VAT포함)**: 1,200만'];
       const result = extractBoldKeyValues(lines);
       expect(result).toHaveLength(1);
@@ -28,7 +28,7 @@ describe('P1 Layout & Parsing Tests', () => {
       expect(result[0].value).toBe('1,200만');
     });
 
-    it('T04-04: Table with empty cells (| 항목 | | 값 |) -> parseMarkdownTable handles gracefully', () => {
+    it('T04-04: Table with empty cells (| 항목 | | 값 |) -> parseMarkdownTable handles gracefully', async () => {
       const markdown = `
 | 항목 | | 값 |
 |---|---|---|
@@ -40,7 +40,7 @@ describe('P1 Layout & Parsing Tests', () => {
       expect(tables[0].rows[0]).toHaveLength(3);
     });
 
-    it('T04-05: Table with only 1 column -> parseMarkdownTable returns valid structure', () => {
+    it('T04-05: Table with only 1 column -> parseMarkdownTable returns valid structure', async () => {
       const markdown = `
 | 단일 |
 |---|
@@ -53,12 +53,12 @@ describe('P1 Layout & Parsing Tests', () => {
       expect(tables[0].rows).toHaveLength(2);
     });
 
-    it('T04-06: Extremely nested markdown (> - **bold** _italic_ text) -> no crash', () => {
+    it('T04-06: Extremely nested markdown (> - **bold** _italic_ text) -> no crash', async () => {
       const text = '> - **bold** _italic_ text';
       expect(() => stripMarkdown(text)).not.toThrow();
     });
 
-    it('T04-07: Korean-English mixed colon formats', () => {
+    it('T04-07: Korean-English mixed colon formats', async () => {
       const lines = [
         '**항목1**：값1',
         '**항목2**: 값2',
@@ -93,13 +93,13 @@ describe('P1 Layout & Parsing Tests', () => {
       const texts = await extractSlideTexts(buffer);
     });
 
-    it('T06-02: 30+ char mixed Korean-English tenant name -> charsPerLine calculates correct line count', () => {
+    it('T06-02: 30+ char mixed Korean-English tenant name -> charsPerLine calculates correct line count', async () => {
       const boxWidth = 5;
       const count = charsPerLine(boxWidth);
       expect(count).toBeGreaterThan(0);
     });
 
-    it('T06-03: Section with 100% Korean characters 500+ chars -> enforceTextBudget truncates', () => {
+    it('T06-03: Section with 100% Korean characters 500+ chars -> enforceTextBudget truncates', async () => {
       const longText = '다'.repeat(500);
       const truncated = enforceTextBudget(longText, 100);
       expect(truncated.length).toBeLessThanOrEqual(100 + 3);

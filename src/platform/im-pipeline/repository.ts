@@ -162,3 +162,5 @@ export class InMemoryPipelineRepository implements PipelineRepository {
     return id ? this.envelopes.get(id) ?? null : null;
   }
 }
+
+export * from './supabase-repository';

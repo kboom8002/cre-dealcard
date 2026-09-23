@@ -139,14 +139,32 @@ vi.mock('@/lib/supabase/service', () => {
                   mockDb.documentObjectsQueriedColumns.push({ filterCol: col, filterVal: val });
                   return builder;
                 },
+                in: (col: string, vals: any[]) => {
+                  filters.push({ col, val: vals });
+                  mockDb.documentObjectsQueriedColumns.push({ filterCol: col, filterVal: vals });
+                  return builder;
+                },
                 order: () => builder,
                 limit: () => builder,
                 maybeSingle: async () => {
                   for (const [, row] of mockDb.document_objects) {
-                    const match = filters.every((f) => row[f.col] === f.val);
+                    const match = filters.every((f) => {
+                      if (Array.isArray(f.val)) return f.val.includes(row[f.col]);
+                      return row[f.col] === f.val;
+                    });
                     if (match) return { data: { ...row }, error: null };
                   }
                   return { data: null, error: null };
+                },
+                single: async () => {
+                  for (const [, row] of mockDb.document_objects) {
+                    const match = filters.every((f) => {
+                      if (Array.isArray(f.val)) return f.val.includes(row[f.col]);
+                      return row[f.col] === f.val;
+                    });
+                    if (match) return { data: { ...row }, error: null };
+                  }
+                  return { data: null, error: new Error('Document not found') };
                 },
               };
               return builder;
@@ -237,14 +255,16 @@ vi.mock('@/lib/supabase/service', () => {
         }
 
         // Default fallback builder
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({ data: null, error: null }),
-              single: async () => ({ data: null, error: null }),
-            }),
-          }),
+        const builder: any = {
+          select: () => builder,
+          eq: () => builder,
+          in: () => builder,
+          order: () => builder,
+          limit: () => builder,
+          maybeSingle: async () => ({ data: null, error: null }),
+          single: async () => ({ data: null, error: null })
         };
+        return builder;
       },
     }),
   };
@@ -286,7 +306,7 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
   // Journey 1: Teaser / Dealcard CTA Ladder Action
   // ══════════════════════════════════════════════════════════════════════════
   describe('Journey 1: Teaser CTA Ladder Navigation (Feature 14)', () => {
-    it('Positive Pair: when requireNda is true, triggers direct navigation to /nda/${buildingId}', () => {
+    it('Positive Pair: when requireNda is true, triggers direct navigation to /nda/${buildingId}', async () => {
       setupReactDispatcher(false, vi.fn());
 
       const buildingId = 'bldg-gangnam-prime-101';
@@ -318,7 +338,7 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
       expect(mockRouter.push).toHaveBeenCalledWith(`/nda/${buildingId}`);
     });
 
-    it('Negative Pair: when requireNda is false, does NOT navigate to /nda route', () => {
+    it('Negative Pair: when requireNda is false, does NOT navigate to /nda route', async () => {
       const setModalOpen = vi.fn();
       setupReactDispatcher(false, setModalOpen);
 
@@ -580,7 +600,7 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
       mockDb.document_objects.set('doc-pro-1', {
         id: 'doc-pro-1',
         building_id: buildingId,
-        document_type: 'mobile_im_lite', // Database column name is document_type
+        document_type: 'im_pro', // Database column name is document_type
         title: '선릉역 프라임 오피스빌딩 Pro IM',
         body: {
           title: '선릉역 프라임 오피스빌딩 Pro IM',
@@ -608,7 +628,7 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
       // Output assertion for Feature 18: Column query must be document_type, NOT doc_type
       expect(mockDb.documentObjectsQueriedColumns).toContainEqual({
         filterCol: 'document_type',
-        filterVal: 'mobile_im_lite',
+        filterVal: ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser', 'im_pro'],
       });
       const hasOldDocType = mockDb.documentObjectsQueriedColumns.some((q) => q.filterCol === 'doc_type');
       expect(hasOldDocType).toBe(false);
@@ -721,7 +741,7 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
       ).rejects.toThrow('NOT_FOUND');
     });
 
-    it('Positive Pair: NDASignatureForm renders input fields for name, phone, agreement checkbox, and signature', () => {
+    it('Positive Pair: NDASignatureForm renders input fields for name, phone, agreement checkbox, and signature', async () => {
       setupReactDispatcher();
       const formElement = NDASignatureForm({
         requestId: 'req-form-test',
@@ -737,7 +757,7 @@ function setupReactDispatcher(stateValue: any = false, setStateMock: any = vi.fn
       expect(formStr).toContain('checkbox-agree-terms');
     });
 
-    it('Negative Pair: NDASignatureForm displays signed message when isAlreadySigned is true', () => {
+    it('Negative Pair: NDASignatureForm displays signed message when isAlreadySigned is true', async () => {
       setupReactDispatcher();
       const formElement = NDASignatureForm({
         requestId: 'req-already-signed',

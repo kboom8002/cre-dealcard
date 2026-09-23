@@ -24,7 +24,7 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
   // Suite 1: 4 Core Prime Templates Registration & Token Schemas
   // ══════════════════════════════════════════════════════════════════
   describe('Suite 1: 4 Core Prime Templates Registration & Token Schemas', () => {
-    it('T1-01: All 4 core prime templates are registered in PPTX_PRESET_TEMPLATES', () => {
+    it('T1-01: All 4 core prime templates are registered in PPTX_PRESET_TEMPLATES', async () => {
       // Positive assertion: 4 prime templates exist
       for (const templateId of CORE_PRIME_TEMPLATES) {
         expect(PPTX_PRESET_TEMPLATES[templateId]).toBeDefined();
@@ -35,7 +35,7 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
       expect(PPTX_PRESET_TEMPLATES['non_existent_preset']).toBeUndefined();
     });
 
-    it('T1-02: Backward compatibility aliases correctly resolve to prime templates', () => {
+    it('T1-02: Backward compatibility aliases correctly resolve to prime templates', async () => {
       // Positive assertions for aliases
       expect(PRIME_TEMPLATE_ALIASES['golden_institutional']).toBe('institutional_dark_gold');
       expect(PRIME_TEMPLATE_ALIASES['corporate_clean']).toBe('corporate_clean_white');
@@ -56,7 +56,7 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
       expect(fallbackTheme.presetId).not.toBe('completely_random_unknown_preset');
     });
 
-    it('T1-03: Token schema completeness for all 4 prime templates', () => {
+    it('T1-03: Token schema completeness for all 4 prime templates', async () => {
       const requiredFields: (keyof PptxThemeTokens)[] = [
         'presetId', 'presetName',
         // 무채색
@@ -90,7 +90,7 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
       }
     });
 
-    it('T1-04: WCAG accessibility compliance for all 4 prime templates', () => {
+    it('T1-04: WCAG accessibility compliance for all 4 prime templates', async () => {
       // Positive assertion: All 4 prime templates must have 0 accessibility issues
       for (const templateId of CORE_PRIME_TEMPLATES) {
         const issues = validatePresetAccessibility(PPTX_PRESET_TEMPLATES[templateId]);
@@ -110,7 +110,7 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
       expect(badIssues.some(i => i.includes('body'))).toBe(true);
     });
 
-    it('T1-05: DEFAULT_PPTX_PRESET maintains backward compatibility with golden_institutional', () => {
+    it('T1-05: DEFAULT_PPTX_PRESET maintains backward compatibility with golden_institutional', async () => {
       expect(DEFAULT_PPTX_PRESET).toBe('golden_institutional');
       expect(getPptxTheme().presetId).toBe('golden_institutional');
       expect(getPptxTheme(undefined).presetId).toBe('golden_institutional');
@@ -123,7 +123,7 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
   describe('Suite 2: Specialized Template Data Binding Outputs', () => {
     // 2.1 Institutional Dark/Gold
     describe('2.1 Institutional Dark/Gold (WALE, Cap Rate/NOI, Multi-column Rent Roll)', () => {
-      it('computes WALE with real mathematical weighting and formats multi-column rent roll', () => {
+      it('computes WALE with real mathematical weighting and formats multi-column rent roll', async () => {
         const testDoc = {
           body: {
             askingPrice: 20000000000,
@@ -185,7 +185,7 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
 
     // 2.2 Corporate Clean White
     describe('2.2 Corporate Clean White (Rule 2 Terms, 총취득원가, vsLease TCO)', () => {
-      it('strictly enforces Rule 2 standard terms and calculates exact 총취득원가 and vsLease TCO', () => {
+      it('strictly enforces Rule 2 standard terms and calculates exact 총취득원가 and vsLease TCO', async () => {
         const askingPrice = 10000000000; // 100억
         const testDoc = {
           body: {
@@ -235,7 +235,7 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
 
     // 2.3 Commercial Visual Grid
     describe('2.3 Commercial Visual Grid (층별 MD 구성, 로드뷰 & 앵커 테넌트, 유동인구)', () => {
-      it('binds multi-floor MD configuration plan, roadview anchor card, and catchment population', () => {
+      it('binds multi-floor MD configuration plan, roadview anchor card, and catchment population', async () => {
         const testDoc = {
           body: {
             title: '강남 메디컬 타워',
@@ -283,7 +283,7 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
 
     // 2.4 Development Technical Blueprint
     describe('2.4 Development Technical Blueprint (다필지 대지면적, 3단 투입비, 규제 완화, 부록 분리)', () => {
-      it('binds multi-parcel area summation, 3-tier costs, regulation expiry, and appendix separation', () => {
+      it('binds multi-parcel area summation, 3-tier costs, regulation expiry, and appendix separation', async () => {
         const testDoc = {
           body: {
             parcels: [
@@ -322,7 +322,7 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
         expect(dataMap['marketing']).toBeDefined();
         const marketing = dataMap['marketing'];
         expect(marketing.regulationExpiry).toBe('2028-05-18');
-        expect(marketing.regulationDaysLeft).toBe(630);
+        expect(marketing.regulationDaysLeft).toBe('잔여 630일');
         expect(marketing.callout.title).toContain('한시적 용적률 완화 기한');
 
         // 신축 계획 및 지적도 부록 분리 (Rule 10 16-slide limit preservation)
@@ -336,7 +336,7 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
         expect(dataMap['cadastralMap'].placement).not.toBe('body');
       });
 
-      it('guards against division by zero and produces 0.0% instead of NaN% when project costs are 0', () => {
+      it('guards against division by zero and produces 0.0% instead of NaN% when project costs are 0', async () => {
         const zeroCostDoc = {
           title: '0원 개발부지',
           body: {
@@ -372,7 +372,7 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
 
     // 2.5 Unified Dispatcher via bindSectionData
     describe('2.5 Unified Dispatcher via bindSectionData', () => {
-      it('automatically triggers specialized binding when templateId is supplied in bindSectionData', () => {
+      it('automatically triggers specialized binding when templateId is supplied in bindSectionData', async () => {
         const doc = {
           title: '테스트 자산',
           body: {
@@ -413,7 +413,7 @@ describe('Milestone 1: 4 Core Prime Templates & Broker Custom Preset Builder', (
   // Suite 3: Broker Custom Preset Builder Contract & Token Serialization
   // ══════════════════════════════════════════════════════════════════
   describe('Suite 3: Broker Custom Preset Builder Contract & Token Serialization', () => {
-    it('T3-01: Serializes tokens to JSON matching pptx_custom_presets.tokens schema', () => {
+    it('T3-01: Serializes tokens to JSON matching pptx_custom_presets.tokens schema', async () => {
       const basePreset = PPTX_PRESET_TEMPLATES.corporate_clean_white;
       const customTokens: PptxThemeTokens = {
         ...basePreset,

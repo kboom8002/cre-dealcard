@@ -24,21 +24,11 @@ const log = createModuleLogger('route');
 
 // ── Rate limiting (simple in-memory, resets on cold start) ───────────────────
 
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+import { checkRateLimit } from '@/lib/rate-limiter';
 const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return true;
-  }
-  if (entry.count >= RATE_LIMIT_MAX) return false;
-  entry.count += 1;
-  return true;
-}
+
 
 // ── Gemini Vision analysis ───────────────────────────────────────────────────
 
@@ -98,7 +88,7 @@ export async function POST(req: NextRequest) {
     req.headers.get('x-real-ip') ??
     'unknown';
 
-  if (!checkRateLimit(ip)) {
+  if (!(await checkRateLimit(ip, 'analyze-photo', RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS))) {
     return Response.json(
       { ok: false, error: { code: 'RATE_LIMITED', message: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' } },
       { status: 429 },

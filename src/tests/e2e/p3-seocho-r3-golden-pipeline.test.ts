@@ -55,12 +55,12 @@ describe.skipIf(!existsSync(DATA_DIR))('P3 서초 Owner R3-Verified', () => {
     if (!existsSync(CAPTURES_DIR)) mkdirSync(CAPTURES_DIR, { recursive: true });
   });
 
-  it('Step 1: 데이터셋 로드', () => {
+  it('Step 1: 데이터셋 로드', async () => {
     bottomSheet = JSON.parse(readFileSync(join(DATA_DIR, 'bottom_sheet.json'), 'utf8'));
     expect(bottomSheet.posture).toBe('owner_occupied');
   });
 
-  it('Step 2: 메모 슬롯 추출', () => {
+  it('Step 2: 메모 슬롯 추출', async () => {
     memo = readFileSync(join(DATA_DIR, 'memo.txt'), 'utf8');
     const memoSlots = extractSlotsFromMemo(memo);
     expect(memoSlots.slots.length).toBeGreaterThan(0);
@@ -68,7 +68,7 @@ describe.skipIf(!existsSync(DATA_DIR))('P3 서초 Owner R3-Verified', () => {
     expect(slotMap.has('price') || slotMap.has('address')).toBe(true);
   });
 
-  it('Step 3: 재무 계산', () => {
+  it('Step 3: 재무 계산', async () => {
     const financials = calculateFinancials({
       posture: 'owner_occupied',
       purchasePriceKrw: 2300000 * 10000,
@@ -81,12 +81,12 @@ describe.skipIf(!existsSync(DATA_DIR))('P3 서초 Owner R3-Verified', () => {
     expect(financials).toBeDefined();
   });
 
-  it('Step 4: 데이터 품질 배지', () => {
+  it('Step 4: 데이터 품질 배지', async () => {
     const badge = computeDataQualityBadge({ hasMonthlyRent: false, hasVacancy: true } as any, 'owner_occupied');
     expect(badge.tier).toBeDefined();
   });
 
-  it('Step 5: 덱 시퀀서 검증', () => {
+  it('Step 5: 덱 시퀀서 검증', async () => {
     const sequence = buildDeckSequence({ posture: 'owner_occupied', preset: 'credeal_basic', grade: 'A', hasPhotos: true, dataAvailability: { hasRentRoll: true } });
     expect(sequence.length).toBeGreaterThanOrEqual(7);
     expect(sequence.length).toBeLessThanOrEqual(11);
@@ -135,7 +135,7 @@ describe.skipIf(!existsSync(DATA_DIR))('P3 서초 Owner R3-Verified', () => {
     expect(fullText.includes('FM빌딩') || fullText.includes('양재역')).toBe(true);
   });
 
-  it('Step 9: 수학적 일관성 검증', () => {
+  it('Step 9: 수학적 일관성 검증', async () => {
     // owner_occupied는 수익 데이터가 없으므로 스킵하고 슬라이드가 렌더링되었는지 확인
     expect(pptxResult.buffer.length).toBeGreaterThan(0);
   });

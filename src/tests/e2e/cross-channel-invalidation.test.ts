@@ -118,7 +118,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
   // ── Requirement 2: Web IM ↔ PPTX Studio Bidirectional Sync ──
   it('R2: Bidirectional sync updates slide overrides and reflects modifications in project state', async () => {
     const dealId = 'deal-sync-test-01';
-    const project = studioService.createProject(
+    const project = await studioService.createProject(
       dealId,
       'pkg-sync-01',
       '당산동 신축 오피스 IM',
@@ -130,9 +130,9 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
 
     // 1. Forward Sync: Broker edits title in Web IM
     const newTitle = '당산역 역세권 프리미엄 사옥 IM';
-    studioService.patchSlideOverrides(project.id, coverSlide!.id, { title: newTitle });
+    await studioService.patchSlideOverrides(project.id, coverSlide!.id, { title: newTitle });
 
-    const updatedProject = studioService.getProject(project.id);
+    const updatedProject = await studioService.getProject(project.id);
     const updatedCover = updatedProject.slides.find((s) => s.id === coverSlide!.id);
     expect(updatedCover?.title).toBe(newTitle);
 
@@ -147,9 +147,9 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
       kicker: 'VALUE-ADD THESIS',
       leadSentence: '당산역 도보 2분 거리 랜드마크 신축급 사옥',
     };
-    studioService.patchSlideOverrides(project.id, overviewSlide!.id, overridePayload);
+    await studioService.patchSlideOverrides(project.id, overviewSlide!.id, overridePayload);
 
-    const afterReverse = studioService.getProject(project.id);
+    const afterReverse = await studioService.getProject(project.id);
     const afterOverview = afterReverse.slides.find((s) => s.id === overviewSlide!.id);
     expect(afterOverview?.title).toBe(overridePayload.title);
     expect(afterOverview?.kicker).toBe(overridePayload.kicker);
@@ -160,7 +160,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
   describe('R3: 2-Stage Sequential Approval Ledger (S60 Editorial -> S70 File Binary)', () => {
     it('Negative Pair: Cannot approve S70 file binary before S60 editorial approval', async () => {
       const dealId = 'deal-approval-neg';
-      const project = studioService.createProject(dealId, 'pkg-neg', '초안 자산', 'credeal_signature');
+      const project = await studioService.createProject(dealId, 'pkg-neg', '초안 자산', 'credeal_signature');
       const approvalService = new StudioApprovalService(new ApprovalLedgerService(true));
 
       // Attempt S70 without S60 -> MUST throw PRECONDITION_FAILED
@@ -176,7 +176,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
 
     it('Positive Pair: Sequential S60 -> S70 records ledger events, publishes release, and broadcasts', async () => {
       const buildingId = 'deal-approval-pos';
-      const project = studioService.createProject(buildingId, 'pkg-pos', '정상 승인 자산', 'golden_institutional');
+      const project = await studioService.createProject(buildingId, 'pkg-pos', '정상 승인 자산', 'golden_institutional');
       const isolatedLedger = new ApprovalLedgerService(true);
       const approvalService = new StudioApprovalService(isolatedLedger);
 
@@ -189,7 +189,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
       });
 
       // Step 1: Advance to preview and approve S60
-      studioService.advanceStage(project.id, 'S40_PREVIEW');
+      await studioService.advanceStage(project.id, 'S40_PREVIEW');
       const targetHash = 'sha256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069';
       const s60Event = await approvalService.approveEditorial(project, 'broker-lead', targetHash);
 
@@ -244,7 +244,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
 
   // ── Requirement 4: Cross-Channel Data Consistency Checker ──
   describe('R4: Cross-Channel Data Consistency Checker (Web IM JSON vs PPTX Slides XML)', () => {
-    it('Positive Pair: Perfectly matching Web IM and PPTX project passes with 0 discrepancies', () => {
+    it('Positive Pair: Perfectly matching Web IM and PPTX project passes with 0 discrepancies', async () => {
       const webDoc = {
         title: '당산동 115억 상업용 빌딩',
         body: {
@@ -285,7 +285,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
       expect(report.verifiedMetrics).toContain('total_deposit');
     });
 
-    it('Negative Pair: Discrepancy in asking price and area is caught immediately', () => {
+    it('Negative Pair: Discrepancy in asking price and area is caught immediately', async () => {
       const webDoc = {
         title: '역삼동 테헤란로 사옥',
         body: {
@@ -324,7 +324,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
     });
 
     // ── Land Area Invariant Tests ──
-    it('Positive Pair: Land area matching within 0.05㎡ tolerance passes', () => {
+    it('Positive Pair: Land area matching within 0.05㎡ tolerance passes', async () => {
       const webDoc = {
         title: '신사동 빌딩',
         body: {
@@ -349,7 +349,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
       expect(report.verifiedMetrics).toContain('land_area');
     });
 
-    it('Negative Pair: Land area differing by more than 0.05㎡ is rejected', () => {
+    it('Negative Pair: Land area differing by more than 0.05㎡ is rejected', async () => {
       const webDoc = {
         title: '신사동 빌딩',
         body: {
@@ -377,7 +377,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
     });
 
     // ── Monthly Rent Invariant Tests ──
-    it('Positive Pair: Monthly rent matching within 1 KRW tolerance passes', () => {
+    it('Positive Pair: Monthly rent matching within 1 KRW tolerance passes', async () => {
       const webDoc = {
         title: '강남 빌딩',
         body: {
@@ -402,7 +402,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
       expect(report.verifiedMetrics).toContain('monthly_rent');
     });
 
-    it('Negative Pair: Monthly rent differing by more than 1 KRW is rejected', () => {
+    it('Negative Pair: Monthly rent differing by more than 1 KRW is rejected', async () => {
       const webDoc = {
         title: '강남 빌딩',
         body: {
@@ -430,7 +430,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
     });
 
     // ── Deposit Fallback Normalization Tests ──
-    it('Positive Pair: Deposit fallback normalization (ssot.deposit vs total_deposit) matches correctly', () => {
+    it('Positive Pair: Deposit fallback normalization (ssot.deposit vs total_deposit) matches correctly', async () => {
       const webDoc = {
         title: '서초 빌딩',
         body: {
@@ -592,7 +592,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
   });
 
   describe('Feature 4 & 5: Dealcard Schema Enrichment & Claims Registration E2E', () => {
-    it('Positive Pair: computeDeterministicClaimsHash is order-independent across claim insertion order', () => {
+    it('Positive Pair: computeDeterministicClaimsHash is order-independent across claim insertion order', async () => {
       const reg1 = new ClaimRegistry();
       reg1.register({
         subject: 'land_area_pyeong',
@@ -659,7 +659,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
       expect(hash1.startsWith('sha256:')).toBe(true);
     });
 
-    it('Negative Pair: computeDeterministicClaimsHash changes if any claim value is mutated', () => {
+    it('Negative Pair: computeDeterministicClaimsHash changes if any claim value is mutated', async () => {
       const reg1 = new ClaimRegistry();
       reg1.register({
         subject: 'cap_rate_pct',
@@ -688,7 +688,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
       expect(hash1).not.toBe(hash2);
     });
 
-    it('Positive Pair: registerActionCardClaims registers 4 canonical claims per scenario with derived provenance and relocation risk', () => {
+    it('Positive Pair: registerActionCardClaims registers 4 canonical claims per scenario with derived provenance and relocation risk', async () => {
       const registry = new ClaimRegistry();
       const card = {
         id: 'card-1',
@@ -731,7 +731,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
       expect(premiumClaim?.expertRequired).toBe(true);
     });
 
-    it('Negative Pair: registerActionCardClaims without relocation does not flag premium risk claim', () => {
+    it('Negative Pair: registerActionCardClaims without relocation does not flag premium risk claim', async () => {
       const registry = new ClaimRegistry();
       const card = {
         id: 'card-2',
@@ -757,7 +757,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
       expect(registry.getLatestBySubject('action_card_2_premium_risk')).toBeUndefined();
     });
 
-    it('Positive Pair: registerProFormaClaims registers stabilized yield, upside, and space metrics', () => {
+    it('Positive Pair: registerProFormaClaims registers stabilized yield, upside, and space metrics', async () => {
       const registry = new ClaimRegistry();
       const claims = registerProFormaClaims(registry, {
         currentCapRatePct: 1.15,
@@ -784,7 +784,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
       expect(noiClaim?.value).toBe(443900000);
     });
 
-    it('Positive Pair: Dealcard package with rent roll, pro-forma, and value-add renders all 3 callout boxes and valid hash', () => {
+    it('Positive Pair: Dealcard package with rent roll, pro-forma, and value-add renders all 3 callout boxes and valid hash', async () => {
       const obs = parseMemoToObservations('서초동 1364 FM빌딩 230억 대지 180평');
 
       const enrichment = {
@@ -837,7 +837,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
       expect(rendered.packageHash.startsWith('sha256:')).toBe(true);
     });
 
-    it('Negative Pair: Dealcard package without optional enrichment omits all callout boxes from rendered HTML', () => {
+    it('Negative Pair: Dealcard package without optional enrichment omits all callout boxes from rendered HTML', async () => {
       const obs = parseMemoToObservations('신사동 590 760억 대지 300평');
 
       const pkg = bandDealcardPackage(obs);

@@ -20,7 +20,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
   describe('1. TokenBinder Extreme Inputs & Determinism Stress Tests', () => {
     const binder = new TokenBinder();
 
-    it('Zero Unhandled Exceptions on completely empty package snapshot and claims', () => {
+    it('Zero Unhandled Exceptions on completely empty package snapshot and claims', async () => {
       // Pass bare empty snapshot and claims directly to stress test optional chaining
       const pkg = {
         snapshot: {},
@@ -65,7 +65,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
       expect(output).toContain('클레임 매매가: -');
     });
 
-    it('Zero Unhandled Exceptions with explicit null & undefined property values', () => {
+    it('Zero Unhandled Exceptions with explicit null & undefined property values', async () => {
       const snap = {
         dealId: null,
         parcels: null,
@@ -135,7 +135,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
       }
     });
 
-    it('Correct formatting and 0 crashes on negative prices and negative areas', () => {
+    it('Correct formatting and 0 crashes on negative prices and negative areas', async () => {
       const snap = {
         dealId: 'deal-neg',
         pricing: {
@@ -185,7 +185,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
       expect(res).toContain('수익률갭: -2.35 %');
     });
 
-    it('Correct formatting on huge numbers and boundary numerical values', () => {
+    it('Correct formatting on huge numbers and boundary numerical values', async () => {
       const snap = {
         dealId: 'deal-huge',
         pricing: {
@@ -230,7 +230,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
       expect(res).toContain('0치: 0 건');
     });
 
-    it('Resilience against special characters, regex tokens, XSS, and Unicode symbols', () => {
+    it('Resilience against special characters, regex tokens, XSS, and Unicode symbols', async () => {
       const snap = {
         dealId: 'deal-special-char-!@#$%^&*()_+',
         buildingName: '㈜현대&삼성 <script>alert("xss")</script> 🏢 🔥',
@@ -275,7 +275,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
       expect(res).toContain('정규식인젝션: $$ $& $1 $2 $\' $` \\n \\r \\t');
     });
 
-    it('100% Deterministic replacement across 100 consecutive executions', () => {
+    it('100% Deterministic replacement across 100 consecutive executions', async () => {
       const snap = {
         dealId: 'deal-det-100',
         buildingName: '테스트 타워',
@@ -299,13 +299,13 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
       }
     });
 
-    it('Throws UNKNOWN_TOKEN_VIOLATION on unmapped token', () => {
+    it('Throws UNKNOWN_TOKEN_VIOLATION on unmapped token', async () => {
       const pkg = { snapshot: {}, claims: {} } as any;
       const template = '미등록 변수: {{invalid.token_name}}';
       expect(() => binder.bindTokens(template, pkg)).toThrowError(/UNKNOWN_TOKEN_VIOLATION/);
     });
 
-    it('Throws TOKEN_BINDING_INCOMPLETE if substituted value introduces recursive template token', () => {
+    it('Throws TOKEN_BINDING_INCOMPLETE if substituted value introduces recursive template token', async () => {
       const snap = {
         dealId: 'deal-nested',
         buildingName: '타워 {{snapshot.address}} 중첩',
@@ -350,27 +350,27 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
     };
 
     describe('Negative positions', () => {
-      it('Catches negative X position (x = -0.5 in) as G35 bleed', () => {
+      it('Catches negative X position (x = -0.5 in) as G35 bleed', async () => {
         const pres = createMockPres([{ x: -0.5, y: 1.0, w: 3.0, h: 2.0 }]);
         const result = validateLayout(pres);
         expect(result.bleedCount).toBe(1);
         expect(result.violations.some((v) => v.gate === 'G35' && v.message.includes('지면 이탈'))).toBe(true);
       });
 
-      it('Catches negative Y position (y = -0.2 in) as G35 bleed', () => {
+      it('Catches negative Y position (y = -0.2 in) as G35 bleed', async () => {
         const pres = createMockPres([{ x: 1.0, y: -0.2, w: 3.0, h: 2.0 }]);
         const result = validateLayout(pres);
         expect(result.bleedCount).toBe(1);
         expect(result.violations.some((v) => v.gate === 'G35')).toBe(true);
       });
 
-      it('Passes within -0.01 in tolerance (e.g. x = -0.005 in)', () => {
+      it('Passes within -0.01 in tolerance (e.g. x = -0.005 in)', async () => {
         const pres = createMockPres([{ x: -0.005, y: 0.0, w: 5.0, h: 3.0 }]);
         const result = validateLayout(pres);
         expect(result.bleedCount).toBe(0);
       });
 
-      it('Catches negative EMU position (x = -914400 EMU)', () => {
+      it('Catches negative EMU position (x = -914400 EMU)', async () => {
         const pres = createMockPres([{ x: -914400, y: 0, w: 2.0, h: 1.0 }]);
         const result = validateLayout(pres);
         expect(result.bleedCount).toBe(1);
@@ -379,39 +379,39 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
     });
 
     describe('Values right on 13.333" x 7.5" boundary', () => {
-      it('Passes when element spans exact canvas bounds (0, 0, 13.333, 7.5)', () => {
+      it('Passes when element spans exact canvas bounds (0, 0, 13.333, 7.5)', async () => {
         const pres = createMockPres([{ x: 0, y: 0, w: 13.333, h: 7.5 }]);
         const result = validateLayout(pres);
         expect(result.bleedCount).toBe(0);
       });
 
-      it('Passes when element is positioned at right boundary (x = 10.0, w = 3.333 -> rightEdge = 13.333)', () => {
+      it('Passes when element is positioned at right boundary (x = 10.0, w = 3.333 -> rightEdge = 13.333)', async () => {
         const pres = createMockPres([{ x: 10.0, y: 0, w: 3.333, h: 7.5 }]);
         const result = validateLayout(pres);
         expect(result.bleedCount).toBe(0);
       });
 
-      it('Passes when element is positioned at bottom boundary (y = 5.0, h = 2.5 -> bottomEdge = 7.5)', () => {
+      it('Passes when element is positioned at bottom boundary (y = 5.0, h = 2.5 -> bottomEdge = 7.5)', async () => {
         const pres = createMockPres([{ x: 0, y: 5.0, w: 13.333, h: 2.5 }]);
         const result = validateLayout(pres);
         expect(result.bleedCount).toBe(0);
       });
 
-      it('Passes at exact boundary + tolerance threshold (w = 13.342 in, h = 7.509 in)', () => {
+      it('Passes at exact boundary + tolerance threshold (w = 13.342 in, h = 7.509 in)', async () => {
         // CANVAS_W + 0.01 = 13.343, CANVAS_H + 0.01 = 7.510
         const pres = createMockPres([{ x: 0, y: 0, w: 13.342, h: 7.509 }]);
         const result = validateLayout(pres);
         expect(result.bleedCount).toBe(0);
       });
 
-      it('Catches right edge bleed exceeding tolerance by 0.002 in (w = 13.345 in)', () => {
+      it('Catches right edge bleed exceeding tolerance by 0.002 in (w = 13.345 in)', async () => {
         const pres = createMockPres([{ x: 0, y: 0, w: 13.345, h: 7.5 }]);
         const result = validateLayout(pres);
         expect(result.bleedCount).toBe(1);
         expect(result.violations.some((v) => v.gate === 'G35')).toBe(true);
       });
 
-      it('Catches bottom edge bleed exceeding tolerance by 0.002 in (h = 7.512 in)', () => {
+      it('Catches bottom edge bleed exceeding tolerance by 0.002 in (h = 7.512 in)', async () => {
         const pres = createMockPres([{ x: 0, y: 0, w: 13.333, h: 7.512 }]);
         const result = validateLayout(pres);
         expect(result.bleedCount).toBe(1);
@@ -420,27 +420,27 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
     });
 
     describe('Huge EMU values and EMU normalization', () => {
-      it('Correctly normalizes full-canvas EMU width 12,192,000 EMU (13.333 in) to pass without false bleed', () => {
+      it('Correctly normalizes full-canvas EMU width 12,192,000 EMU (13.333 in) to pass without false bleed', async () => {
         // 12192000 EMU / 914400 = 13.333333 in
         const pres = createMockPres([{ x: 0, y: 0, w: 12192000, h: 6858000 }]);
         const result = validateLayout(pres);
         expect(result.bleedCount).toBe(0);
       });
 
-      it('Normalizes EMU offset and dimension: x = 914,400 EMU (1 in), w = 10,972,800 EMU (12 in) -> rightEdge = 13 in', () => {
+      it('Normalizes EMU offset and dimension: x = 914,400 EMU (1 in), w = 10,972,800 EMU (12 in) -> rightEdge = 13 in', async () => {
         const pres = createMockPres([{ x: 914400, y: 457200, w: 10972800, h: 5486400 }]);
         const result = validateLayout(pres);
         expect(result.bleedCount).toBe(0);
       });
 
-      it('Catches bleeding EMU width exceeding 16:9 canvas (12,500,000 EMU = 13.67 in)', () => {
+      it('Catches bleeding EMU width exceeding 16:9 canvas (12,500,000 EMU = 13.67 in)', async () => {
         const pres = createMockPres([{ x: 0, y: 0, w: 12500000, h: 6858000 }]);
         const result = validateLayout(pres);
         expect(result.bleedCount).toBe(1);
         expect(result.violations.some((v) => v.gate === 'G35')).toBe(true);
       });
 
-      it('Catches astronomical EMU coordinates (x = 100,000,000 EMU = 109.36 in)', () => {
+      it('Catches astronomical EMU coordinates (x = 100,000,000 EMU = 109.36 in)', async () => {
         const pres = createMockPres([{ x: 100000000, y: 0, w: 914400, h: 914400 }]);
         const result = validateLayout(pres);
         expect(result.bleedCount).toBe(1);
@@ -449,14 +449,14 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
     });
 
     describe('0-width elements', () => {
-      it('Skips element when both w === 0 and h === 0', () => {
+      it('Skips element when both w === 0 and h === 0', async () => {
         const pres = createMockPres([{ x: 0, y: 0, w: 0, h: 0 }]);
         const result = validateLayout(pres);
         expect(result.bleedCount).toBe(0);
         expect(result.violations.length).toBe(0);
       });
 
-      it('Handles vertical separator line (w = 0, h = 5.0 in) safely without division by zero', () => {
+      it('Handles vertical separator line (w = 0, h = 5.0 in) safely without division by zero', async () => {
         const pres = createMockPres([{
           type: 'shape',
           x: 6.666,
@@ -468,7 +468,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
         expect(result.bleedCount).toBe(0);
       });
 
-      it('Catches bleeding vertical separator line (w = 0, x = 14.0 in)', () => {
+      it('Catches bleeding vertical separator line (w = 0, x = 14.0 in)', async () => {
         const pres = createMockPres([{
           type: 'shape',
           x: 14.0,
@@ -481,7 +481,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
         expect(result.violations.some((v) => v.gate === 'G35')).toBe(true);
       });
 
-      it('Handles horizontal separator line (w = 8.0 in, h = 0) safely without division by zero', () => {
+      it('Handles horizontal separator line (w = 8.0 in, h = 0) safely without division by zero', async () => {
         const pres = createMockPres([{
           type: 'shape',
           x: 2.0,
@@ -493,7 +493,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
         expect(result.bleedCount).toBe(0);
       });
 
-      it('Zero-width image does not cause division by zero in DPI calculation', () => {
+      it('Zero-width image does not cause division by zero in DPI calculation', async () => {
         const pres = createMockPres([{
           type: 'image',
           x: 1.0,
@@ -528,7 +528,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
       };
     };
 
-    it('Positive Pair: Detects identical bullets across left (x < 6.8) and right (x >= 6.8)', () => {
+    it('Positive Pair: Detects identical bullets across left (x < 6.8) and right (x >= 6.8)', async () => {
       const duplicateBullet = '• 상세 건물 제원은 실사 자료를 참조하시기 바랍니다';
       const slide = createSlideWithShapes([
         {
@@ -555,7 +555,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
       expect(g43Gate?.check(gateCtx as any)).toBe(false); // Fails G43 check
     });
 
-    it('Positive Pair: Detects duplicate bullets despite differing bullet prefixes (• vs - vs ·)', () => {
+    it('Positive Pair: Detects duplicate bullets despite differing bullet prefixes (• vs - vs ·)', async () => {
       const slide = createSlideWithShapes([
         {
           name: 'left_bullet',
@@ -575,7 +575,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
       expect(gateCtx.highlightSpecDuplicate).toBe(true);
     });
 
-    it('Positive Pair: Detects long substring duplication (>= 15 chars) embedded in a narrative', () => {
+    it('Positive Pair: Detects long substring duplication (>= 15 chars) embedded in a narrative', async () => {
       const sharedFact = '등기부등본상 권리관계 및 제한물권 설정 여부를 확인하였습니다';
       const slide = createSlideWithShapes([
         {
@@ -596,7 +596,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
       expect(gateCtx.highlightSpecDuplicate).toBe(true);
     });
 
-    it('Negative Pair: Passes when left narrative and right cards contain distinct text', () => {
+    it('Negative Pair: Passes when left narrative and right cards contain distinct text', async () => {
       const slide = createSlideWithShapes([
         {
           name: 'left_callout',
@@ -608,7 +608,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
           name: 'right_callout_1',
           type: 'text',
           position: { x: 7.2, y: 1.8, cx: 5.5, cy: 2.3 },
-          text: '• 물건 접면 도로 폭 및 진출입 여건은 현장 실사 확인 사항입니다\n• 등기부등본상 권리관계 및 제한물권 설정 여부를 확인하였습니다\n• 지구단위계획 및 토지이용계획상 허용 용도를 검토하였습니다',
+          text: '• 물건 접면 도로 폭 및 진출입 여건은 공부 서류 확인 사항입니다\n• 등기부등본상 권리관계 및 제한물권 설정 여부를 확인하였습니다\n• 지구단위계획 및 토지이용계획상 허용 용도를 검토하였습니다',
         },
         {
           name: 'right_callout_2',
@@ -628,7 +628,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
       expect(g43Gate?.check(gateCtx as any)).toBe(true); // Passes G43
     });
 
-    it('Negative Pair: Does NOT falsely trigger on identical bullets when both shapes are on the left side', () => {
+    it('Negative Pair: Does NOT falsely trigger on identical bullets when both shapes are on the left side', async () => {
       const slide = createSlideWithShapes([
         {
           name: 'left_top',
@@ -649,7 +649,7 @@ describe('Adversarial Challenger M12-1: TokenBinder, Layout-Validator & Rule 3 D
       expect(gateCtx.highlightSpecDuplicate).toBe(false);
     });
 
-    it('Negative Pair: Ignores short identical metric tokens (< 10 chars) like percentages and labels', () => {
+    it('Negative Pair: Ignores short identical metric tokens (< 10 chars) like percentages and labels', async () => {
       const slide = createSlideWithShapes([
         {
           name: 'left_stat',

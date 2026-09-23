@@ -22,7 +22,7 @@ describe('PptxStudio Token Binder (PR-B3-02 / Negative-Pair Obligation)', () => 
     rentrollTier: 'standard',
   });
 
-  it('Positive Pair: Registered claim tokens resolve strictly to package-approved numbers', () => {
+  it('Positive Pair: Registered claim tokens resolve strictly to package-approved numbers', async () => {
     const template =
       '본 자산의 매매가는 {{claim.asking_price}}이며, 대지면적은 {{claim.land_area}}입니다.';
     const result = binder.bindTokens(template, pkg);
@@ -30,7 +30,7 @@ describe('PptxStudio Token Binder (PR-B3-02 / Negative-Pair Obligation)', () => 
     expect(result).toBe('본 자산의 매매가는 300억 원이며, 대지면적은 600 ㎡입니다.');
   });
 
-  it('Negative Pair: Unverified or unmapped tokens are immediately rejected', () => {
+  it('Negative Pair: Unverified or unmapped tokens are immediately rejected', async () => {
     const template = '본 자산의 예상 수익률은 {{claim.fabricated_yield}}에 달합니다.';
     expect(() => binder.bindTokens(template, pkg)).toThrowError(/UNKNOWN_TOKEN_VIOLATION/);
   });

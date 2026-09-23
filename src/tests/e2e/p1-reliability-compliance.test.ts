@@ -76,7 +76,7 @@ describe('T26: Large Memo Input', () => {
   // '가나다라마바사아자차카타파하' is 14 chars. 14 * 200 = 2800 chars.
   const longText = '가나다라마바사아자차카타파하'.repeat(200); 
   
-  it('T26-01: bindSectionData does not crash with 2800+ character markdown', () => {
+  it('T26-01: bindSectionData does not crash with 2800+ character markdown', async () => {
     const doc = buildMinimalDoc('income');
     if (doc.sections && doc.sections[0]) {
       doc.sections[0].markdown = longText;

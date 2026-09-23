@@ -45,13 +45,13 @@ describe('P2 Cross-Platform Render Integrity', () => {
   }, 120_000);
 
   describe('T22: LibreOffice Impress Compatibility', () => {
-    it('T22-01: PPTX zip contains required entries: [Content_Types].xml, ppt/presentation.xml, _rels/.rels', () => {
+    it('T22-01: PPTX zip contains required entries: [Content_Types].xml, ppt/presentation.xml, _rels/.rels', async () => {
       expect(pptxZip.file('[Content_Types].xml')).toBeTruthy();
       expect(pptxZip.file('ppt/presentation.xml')).toBeTruthy();
       expect(pptxZip.file('_rels/.rels')).toBeTruthy();
     });
 
-    it('T22-02: All slide XML files are well-formed (no unclosed tags, parseable XML)', () => {
+    it('T22-02: All slide XML files are well-formed (no unclosed tags, parseable XML)', async () => {
       // Basic well-formed checks
       expect(slideXmlMap.size).toBeGreaterThan(0);
       for (const [num, xml] of slideXmlMap.entries()) {
@@ -66,7 +66,7 @@ describe('P2 Cross-Platform Render Integrity', () => {
       }
     });
 
-    it('T22-03: No unsupported shape types that would cause rendering issues', () => {
+    it('T22-03: No unsupported shape types that would cause rendering issues', async () => {
       // Check that `prst` values in `<a:prstGeom prst="...">` are standard
       // Adding 'triangle' and others if pptxgenjs uses them, but usually it's rect/line.
       const allowedShapes = ['rect', 'roundRect', 'line', 'ellipse', 'triangle', 'rtTriangle', 'diamond'];
@@ -87,12 +87,12 @@ describe('P2 Cross-Platform Render Integrity', () => {
   });
 
   describe('T23: Google Slides Import Compatibility', () => {
-    it('T23-01: PPTX slide dimensions are 13.333 x 7.5 inches (LAYOUT_WIDE standard)', () => {
+    it('T23-01: PPTX slide dimensions are 13.333 x 7.5 inches (LAYOUT_WIDE standard)', async () => {
       // presentation.xml should have <p:sldSz cx="12192000" cy="6858000"
       expect(presentationXml).toContain('<p:sldSz cx="12192000" cy="6858000"');
     });
 
-    it('T23-02: All color values in slide XML are valid 6-digit hex (no 3-digit shortcuts, no "rgb()" format)', () => {
+    it('T23-02: All color values in slide XML are valid 6-digit hex (no 3-digit shortcuts, no "rgb()" format)', async () => {
       for (const [num, xml] of slideXmlMap.entries()) {
         const clrRegex = /<a:srgbClr val="([^"]+)"/g;
         let match;
@@ -103,7 +103,7 @@ describe('P2 Cross-Platform Render Integrity', () => {
       }
     });
 
-    it('T23-03: Font references in slide XML use standard font names (not system-specific paths)', () => {
+    it('T23-03: Font references in slide XML use standard font names (not system-specific paths)', async () => {
       for (const [num, xml] of slideXmlMap.entries()) {
         const fontRegex = /<a:(?:latin|ea|cs) typeface="([^"]+)"/g;
         let match;
@@ -118,16 +118,16 @@ describe('P2 Cross-Platform Render Integrity', () => {
   });
 
   describe('T24: Mobile PPTX Viewer Compatibility', () => {
-    it('T24-01: Total PPTX file size for basic tier < 5MB (no embedded images in test)', () => {
+    it('T24-01: Total PPTX file size for basic tier < 5MB (no embedded images in test)', async () => {
       expect(outputResult.fileSizeBytes).toBeLessThan(5 * 1024 * 1024);
     });
 
-    it('T24-02: Total slide count for basic tier <= 16 slides', () => {
+    it('T24-02: Total slide count for basic tier <= 16 slides', async () => {
       expect(outputResult.slideCount).toBeLessThanOrEqual(16);
       expect(slideXmlMap.size).toBeLessThanOrEqual(16);
     });
 
-    it('T24-03: All text elements have explicit fontSize set (no inherited-only font sizes that mobile viewers might drop)', () => {
+    it('T24-03: All text elements have explicit fontSize set (no inherited-only font sizes that mobile viewers might drop)', async () => {
       for (const [num, xml] of slideXmlMap.entries()) {
         // If slide has text runs (<a:r>), it should probably define `sz` somewhere
         if (xml.includes('<a:r>')) {

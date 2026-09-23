@@ -65,7 +65,7 @@ describe('PF-LIMIT-01: Processing Time Limit Gate', () => {
     attachedDocs: [],
   };
 
-  it('completes 100 consecutive full financial & gate evaluations in under 1 second', () => {
+  it('completes 100 consecutive full financial & gate evaluations in under 1 second', async () => {
     const start = performance.now();
     for (let i = 0; i < 100; i++) {
       calculateFinancials({
@@ -99,7 +99,7 @@ describe('PF-LIMIT-01: Processing Time Limit Gate', () => {
     expect(elapsedMs).toBeLessThan(1000); // 100회 풀 파이프라인이 1초(1000ms) 이내 완료
   });
 
-  it('verifies single deal evaluation latency is below 10ms', () => {
+  it('verifies single deal evaluation latency is below 10ms', async () => {
     const start = performance.now();
     calculateFinancials({
       posture: 'development',

@@ -1,3 +1,4 @@
+import { createServiceClient } from '@/lib/supabase/service';
 import { randomUUID } from 'crypto';
 import type { StudioStage } from './project/types';
 
@@ -44,29 +45,13 @@ export interface CreateProjectOptions {
 }
 
 export class PptxStudioService {
-  private projects: Map<string, PptxProject>;
-
-  constructor(isolatedStore?: boolean) {
-    if (isolatedStore) {
-      this.projects = new Map<string, PptxProject>();
-    } else {
-      if (!(globalThis as any).__pptxGlobalProjectsMap) {
-        (globalThis as any).__pptxGlobalProjectsMap = new Map<string, PptxProject>();
-      }
-      this.projects = (globalThis as any).__pptxGlobalProjectsMap;
-    }
-  }
-
-  /**
-   * Initialize a standard 16 body slides + appendices project satisfying Rule 10
-   */
-  createProject(
+  async createProject(
     dealId: string,
     packageId: string,
     title: string,
     themeId = 'institutional_dark_gold',
     options?: CreateProjectOptions
-  ): PptxProject {
+  ): Promise<PptxProject> {
     const projectId = randomUUID();
     const now = new Date().toISOString();
 
@@ -78,7 +63,6 @@ export class PptxStudioService {
       dataKey: string;
       contentUnitIds: string[];
     }> = [
-      // 16 Body Slides (Rule 10 Page Hard Limit)
       { layoutType: 'A01_COVER', category: 'body', title, kicker: 'INVESTMENT MEMORANDUM', dataKey: 'cover', contentUnitIds: ['cover-title', 'cover-meta'] },
       { layoutType: 'A02_OVERVIEW', category: 'body', title: '투자 하이라이트 및 자산 개요', kicker: 'EXECUTIVE SUMMARY', dataKey: 'overview', contentUnitIds: ['spec-table', 'price-card'] },
       { layoutType: 'A04_SPLIT_VALUE', category: 'body', title: '입지 및 자산 가치 제안', kicker: 'VALUE PROPOSITION', dataKey: 'thesis', contentUnitIds: ['thesis-lead', 'thesis-cards'] },
@@ -95,7 +79,6 @@ export class PptxStudioService {
       { layoutType: 'A04_TENANCY', category: 'body', title: '주요 임차인 신용도 및 만기 구조', kicker: 'TENANT CREDIT & WALE', dataKey: 'tenantCredit', contentUnitIds: ['wale-chart', 'credit-rating'] },
       { layoutType: 'A08_EXPENSE', category: 'body', title: '운영비용(OPEX) 및 순영업소득 추정', kicker: 'OPEX & NET OPERATING INCOME', dataKey: 'opex', contentUnitIds: ['opex-breakdown', 'gop-card'] },
       { layoutType: 'A10_CLOSING', category: 'body', title: '자문단 정보 및 법적 면책 고지', kicker: 'DISCLAIMER & CONTACT', dataKey: 'closing', contentUnitIds: ['advisory-team', 'legal-disclaimer'] },
-      // 4 Appendix Slides (Excluded from 16 Body Limit)
       { layoutType: 'A03_LAND_USE', category: 'appendix', title: '[부록] 토지이용계획 확인원 발췌', kicker: 'APPENDIX 01', dataKey: 'landUseAppendix', contentUnitIds: ['land-use-table'] },
       { layoutType: 'A03_BUILDING_REGISTER', category: 'appendix', title: '[부록] 일반건축물대장 총괄표', kicker: 'APPENDIX 02', dataKey: 'registerAppendix', contentUnitIds: ['register-table'] },
       { layoutType: 'A14_CADASTRAL', category: 'appendix', title: '[부록] 지적도 및 도시계획선 현황', kicker: 'APPENDIX 03', dataKey: 'cadastralAppendix', contentUnitIds: ['cadastral-map'] },
@@ -132,16 +115,16 @@ export class PptxStudioService {
       updatedAt: now,
     };
 
-    this.projects.set(projectId, project);
+    await this.saveProject(project);
     return project;
   }
 
-  createBasicImProject(
+  async createBasicImProject(
     buildingId: string,
     buildingName: string,
     docBody: Record<string, any>,
-  ): PptxProject {
-    const projectId = `basic-${buildingId}`;
+  ): Promise<PptxProject> {
+    const projectId = randomUUID();
     const now = new Date().toISOString();
     const title = `${buildingName} Basic IM`;
 
@@ -178,15 +161,12 @@ export class PptxStudioService {
       createdAt: now,
     }));
 
-    // Pre-populate overrides from docBody
     if (docBody) {
-      // Cover
       slides[0].slideOverrides = {
         title: docBody.title || buildingName,
         subtitle: docBody.subtitle || '',
         date: new Date().toISOString().slice(0, 10),
       };
-      // Highlights from heroCard
       if (docBody.heroCard) {
         slides[1].slideOverrides = {
           askingPrice: docBody.heroCard.askingPriceBil || '',
@@ -195,7 +175,6 @@ export class PptxStudioService {
           keyInvestmentPoint: docBody.heroCard.keyInvestmentPoint || '',
         };
       }
-      // Location
       if (docBody.mapImageUrl || docBody.coordinates) {
         slides[3].slideOverrides = {
           mapImageUrl: docBody.mapImageUrl || '',
@@ -203,15 +182,12 @@ export class PptxStudioService {
           address: docBody.ssot_summary?.address || docBody.address || '',
         };
       }
-      // Gallery photos
       if (docBody.buildingPhotos) {
         slides[5].slideOverrides = { photos: docBody.buildingPhotos };
       }
 
-      // ── B6 Fix: Pre-populate building/land/rentroll/yield from ssot_summary ──
       const ssot = docBody.ssot_summary ?? {};
 
-      // Building overview (slides[2])
       {
         const overrides: Record<string, any> = {};
         if (ssot.building_name) overrides.buildingName = ssot.building_name;
@@ -231,7 +207,6 @@ export class PptxStudioService {
         }
       }
 
-      // Land info (slides[4])
       {
         const overrides: Record<string, any> = {};
         if (ssot.land_area_sqm) overrides.landArea = `${Number(ssot.land_area_sqm).toLocaleString()}㎡`;
@@ -245,7 +220,6 @@ export class PptxStudioService {
         }
       }
 
-      // Rentroll (slides[6])
       {
         const overrides: Record<string, any> = {};
         const leases = docBody.floor_leases ?? docBody.rentRoll ?? ssot.floor_leases;
@@ -266,7 +240,6 @@ export class PptxStudioService {
         }
       }
 
-      // Yield analysis (slides[7])
       {
         const overrides: Record<string, any> = {};
         if (ssot.cap_rate_base) overrides.capRateBase = ssot.cap_rate_base;
@@ -281,7 +254,6 @@ export class PptxStudioService {
         }
       }
 
-      // Broker info for closing
       if (docBody.brokerName || docBody.brokerPhone) {
         slides[8].slideOverrides = {
           brokerName: docBody.brokerName || '',
@@ -306,43 +278,46 @@ export class PptxStudioService {
       updatedAt: now,
     };
 
-    this.projects.set(projectId, project);
+    await this.saveProject(project);
     return project;
   }
-  getProject(projectId: string): PptxProject {
-    let project = this.projects.get(projectId);
-    if (!project) {
-      // Fallback check by dealId
-      for (const p of this.projects.values()) {
-        if (p.dealId === projectId) {
-          project = p;
-          break;
-        }
-      }
-    }
 
-    if (!project) {
+  async getProject(projectId: string): Promise<PptxProject> {
+    const supabase = createServiceClient();
+    const { data } = await supabase
+      .from('document_objects')
+      .select('body')
+      .eq('id', projectId)
+      .in('document_type', ['im_lite_draft', 'building_snapshot_draft'])
+      .maybeSingle();
+
+    if (!data?.body) {
       throw new Error(`PPTX_PROJECT_NOT_FOUND: Project ${projectId} does not exist`);
     }
-    return project;
+    return data.body as unknown as PptxProject;
   }
 
-  findProjectByDealId(dealId: string): PptxProject | undefined {
-    for (const project of this.projects.values()) {
-      if (project.dealId === dealId) {
-        return project;
-      }
-    }
-    return undefined;
+  async findProjectByDealId(dealId: string): Promise<PptxProject | undefined> {
+    const supabase = createServiceClient();
+    const { data } = await supabase
+      .from('document_objects')
+      .select('body')
+      .eq('building_id', dealId)
+      .in('document_type', ['im_lite_draft', 'building_snapshot_draft'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return data?.body ? (data.body as unknown as PptxProject) : undefined;
   }
 
-  updateSlideLayout(
+  async updateSlideLayout(
     projectId: string,
     slideIndex: number,
     layoutType: string,
     expectedLockVersion?: number
-  ): PptxProject {
-    const project = this.getProject(projectId);
+  ): Promise<PptxProject> {
+    const project = await this.getProject(projectId);
 
     if (expectedLockVersion !== undefined && project.lockVersion !== expectedLockVersion) {
       throw new Error(
@@ -360,15 +335,16 @@ export class PptxStudioService {
     project.version += 1;
     project.updatedAt = new Date().toISOString();
 
+    await this.saveProject(project);
     return project;
   }
 
-  reorderSlides(
+  async reorderSlides(
     projectId: string,
     orderedSlideIds: string[],
     expectedLockVersion?: number
-  ): PptxProject {
-    const project = this.getProject(projectId);
+  ): Promise<PptxProject> {
+    const project = await this.getProject(projectId);
 
     if (expectedLockVersion !== undefined && project.lockVersion !== expectedLockVersion) {
       throw new Error(
@@ -379,7 +355,6 @@ export class PptxStudioService {
     const slideMap = new Map(project.slides.map((s) => [s.id, s]));
     const reordered: PptxSlide[] = [];
 
-    // Place slides in specified order
     for (const id of orderedSlideIds) {
       const slide = slideMap.get(id);
       if (slide) {
@@ -388,12 +363,10 @@ export class PptxStudioService {
       }
     }
 
-    // Append any slides that weren't in orderedSlideIds
     for (const remaining of slideMap.values()) {
       reordered.push(remaining);
     }
 
-    // Re-index sequentially starting from 1
     reordered.forEach((slide, idx) => {
       slide.slideIndex = idx + 1;
     });
@@ -403,16 +376,17 @@ export class PptxStudioService {
     project.version += 1;
     project.updatedAt = new Date().toISOString();
 
+    await this.saveProject(project);
     return project;
   }
 
-  toggleSlideVisibility(
+  async toggleSlideVisibility(
     projectId: string,
     slideId: string,
     hidden?: boolean,
     expectedLockVersion?: number
-  ): PptxProject {
-    const project = this.getProject(projectId);
+  ): Promise<PptxProject> {
+    const project = await this.getProject(projectId);
 
     if (expectedLockVersion !== undefined && project.lockVersion !== expectedLockVersion) {
       throw new Error(
@@ -430,16 +404,17 @@ export class PptxStudioService {
     project.version += 1;
     project.updatedAt = new Date().toISOString();
 
+    await this.saveProject(project);
     return project;
   }
 
-  patchSlideOverrides(
+  async patchSlideOverrides(
     projectId: string,
     slideId: string,
     overrides: Record<string, unknown>,
     expectedLockVersion?: number
-  ): PptxProject {
-    const project = this.getProject(projectId);
+  ): Promise<PptxProject> {
+    const project = await this.getProject(projectId);
 
     if (expectedLockVersion !== undefined && project.lockVersion !== expectedLockVersion) {
       throw new Error(
@@ -474,15 +449,16 @@ export class PptxStudioService {
     project.version += 1;
     project.updatedAt = new Date().toISOString();
 
+    await this.saveProject(project);
     return project;
   }
 
-  advanceStage(
+  async advanceStage(
     projectId: string,
     nextStage: StudioStage,
     expectedLockVersion?: number
-  ): PptxProject {
-    const project = this.getProject(projectId);
+  ): Promise<PptxProject> {
+    const project = await this.getProject(projectId);
 
     if (expectedLockVersion !== undefined && project.lockVersion !== expectedLockVersion) {
       throw new Error(
@@ -494,12 +470,23 @@ export class PptxStudioService {
     project.lockVersion += 1;
     project.updatedAt = new Date().toISOString();
 
+    await this.saveProject(project);
     return project;
   }
 
-  saveProject(project: PptxProject): void {
+  async saveProject(project: PptxProject): Promise<void> {
     project.updatedAt = new Date().toISOString();
-    this.projects.set(project.id, project);
+    const supabase = createServiceClient();
+    await supabase.from('document_objects').upsert({
+      id: project.id,
+      building_id: project.dealId,
+      document_type: 'im_lite_draft',
+      source_type: 'manual',
+      title: project.title,
+      body: project as any,
+      status: 'draft',
+      visibility: 'internal_only'
+    });
   }
 }
 

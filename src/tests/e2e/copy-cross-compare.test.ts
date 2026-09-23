@@ -72,17 +72,17 @@ for (const tc of TEST_CASES) {
       viewerText = fs.readFileSync(viewerTextPath, 'utf8');
     });
 
-    it('PPTX output exists', () => {
+    it('PPTX output exists', async () => {
       if (!hasOutput) return; // skip gracefully
       expect(pptxTexts.length).toBeGreaterThan(0);
     });
 
-    it('Mobile IM output exists', () => {
+    it('Mobile IM output exists', async () => {
       if (!hasOutput) return;
       expect(viewerText.length).toBeGreaterThan(50);
     });
 
-    it('8 forbidden patterns: PPTX = 0 violations', () => {
+    it('8 forbidden patterns: PPTX = 0 violations', async () => {
       if (!hasOutput) return;
       const allPptxText = pptxTexts;
       for (const pat of FORBIDDEN_PATTERNS) {
@@ -91,7 +91,7 @@ for (const tc of TEST_CASES) {
       }
     });
 
-    it('8 forbidden patterns: Mobile IM = 0 violations', () => {
+    it('8 forbidden patterns: Mobile IM = 0 violations', async () => {
       if (!hasOutput) return;
       for (const pat of FORBIDDEN_PATTERNS) {
         const matches = viewerText.match(pat);
@@ -99,7 +99,7 @@ for (const tc of TEST_CASES) {
       }
     });
 
-    it('CRE terminology (Rule 2): PPTX', () => {
+    it('CRE terminology (Rule 2): PPTX', async () => {
       if (!hasOutput) return;
       const allPptxText = pptxTexts;
       for (const term of CRE_FORBIDDEN) {
@@ -107,14 +107,14 @@ for (const tc of TEST_CASES) {
       }
     });
 
-    it('CRE terminology (Rule 2): Mobile IM', () => {
+    it('CRE terminology (Rule 2): Mobile IM', async () => {
       if (!hasOutput) return;
       for (const term of CRE_FORBIDDEN) {
         expect(viewerText).not.toMatch(term.bad);
       }
     });
 
-    it('Persona isolation (Rule 1): PPTX', () => {
+    it('Persona isolation (Rule 1): PPTX', async () => {
       if (!hasOutput) return;
       const allPptxText = pptxTexts;
       expect(allPptxText).not.toMatch(/(?:60대|50대|40대|70대).*(?:자산가|투자자)/);
@@ -123,7 +123,7 @@ for (const tc of TEST_CASES) {
       expect(allPptxText).not.toContain('본문을 참조');
     });
 
-    it('Persona isolation (Rule 1): Mobile IM', () => {
+    it('Persona isolation (Rule 1): Mobile IM', async () => {
       if (!hasOutput) return;
       expect(viewerText).not.toMatch(/(?:60대|50대|40대|70대).*(?:자산가|투자자)/);
       expect(viewerText).not.toMatch(/(?:법인\s*대표|디벨로퍼|은퇴).*(?:맞춤|을 위한)/);
@@ -131,7 +131,7 @@ for (const tc of TEST_CASES) {
       expect(viewerText).not.toContain('본문을 참조');
     });
 
-    it('Area values present in both (no empty)', () => {
+    it('Area values present in both (no empty)', async () => {
       if (!hasOutput) return;
       // At least one area value should appear in both
       const areaPattern = /[\d,]+\.?\d*\s*(?:㎡|평)/;
@@ -140,7 +140,7 @@ for (const tc of TEST_CASES) {
       // Viewer may not always show area if sections timed out
     });
 
-    it('No viewer error screen', () => {
+    it('No viewer error screen', async () => {
       if (!hasOutput) return;
       expect(viewerText).not.toContain('오류가 발생했습니다');
       expect(viewerText).not.toContain('Failed to parse src');

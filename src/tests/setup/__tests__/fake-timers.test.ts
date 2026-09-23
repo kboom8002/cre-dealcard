@@ -4,11 +4,11 @@ import { setupFakeTimers } from '../fake-timers';
 describe('setupFakeTimers Utility', () => {
   const clock = setupFakeTimers({ now: '2026-09-01T12:00:00.000Z' });
 
-  it('initializes to the configured mock timestamp', () => {
+  it('initializes to the configured mock timestamp', async () => {
     expect(new Date().toISOString()).toBe('2026-09-01T12:00:00.000Z');
   });
 
-  it('advances timers and calls scheduled callbacks', () => {
+  it('advances timers and calls scheduled callbacks', async () => {
     const fn = vi.fn();
     setTimeout(fn, 1000);
 
@@ -24,7 +24,7 @@ describe('setupFakeTimers Utility', () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it('allows overriding system time dynamically', () => {
+  it('allows overriding system time dynamically', async () => {
     clock.setDate('2027-01-01T00:00:00.000Z');
     expect(new Date().toISOString()).toBe('2027-01-01T00:00:00.000Z');
 

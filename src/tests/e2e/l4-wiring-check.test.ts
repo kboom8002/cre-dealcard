@@ -48,14 +48,14 @@ describe('D41 W1-4: 선언 ↔ 실행 대조', () => {
   // 등록 상태이면서 코드에 없는 것 = 허위신고
   const activeYamlGates = yamlGates.filter(g => g.status !== '폐기' && g.status !== '등록요청');
 
-  it('허위신고 0건 — 등록 상태의 YAML 게이트는 코드에 모두 배선되어야 합니다', () => {
+  it('허위신고 0건 — 등록 상태의 YAML 게이트는 코드에 모두 배선되어야 합니다', async () => {
     const falseAlarms = activeYamlGates
       .filter(g => !codeGateIds.has(g.code))
       .map(g => g.code);
     expect(falseAlarms, `허위신고 게이트: ${falseAlarms.join(', ')}`).toEqual([]);
   });
 
-  it('미선언 0건 — 코드의 게이트는 YAML에 모두 선언되어야 합니다', () => {
+  it('미선언 0건 — 코드의 게이트는 YAML에 모두 선언되어야 합니다', async () => {
     const yamlCodes = new Set(yamlGates.map(g => g.code));
     const undeclared = Array.from(codeGateIds)
       .filter(code => !yamlCodes.has(code));
@@ -86,7 +86,7 @@ describe('D41 W2-2: 한 코드 = 한 심각도', () => {
     }
   }
 
-  it('YAML level과 코드 severity가 일치해야 합니다', () => {
+  it('YAML level과 코드 severity가 일치해야 합니다', async () => {
     const mismatches: string[] = [];
 
     for (const g of yamlGates) {

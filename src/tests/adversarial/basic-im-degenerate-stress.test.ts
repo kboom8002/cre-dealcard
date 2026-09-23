@@ -594,7 +594,7 @@ describe('Basic IM Degenerate & Hostile Stress Suite (Challenger 1)', () => {
   // §7: Negative Pair Harness & Oracle Assertion Verification
   // ═══════════════════════════════════════════════════════════════════
   describe('§7: Negative Pair Oracle Verification (Rule 7 / Rule 54)', () => {
-    it('[CHALLENGE-ORACLE-01] POISON_TOKEN_REGEX detects NaN, undefined, null, [object Object]', () => {
+    it('[CHALLENGE-ORACLE-01] POISON_TOKEN_REGEX detects NaN, undefined, null, [object Object]', async () => {
       expect(POISON_TOKEN_REGEX.test('총 매매가: NaN억 원')).toBe(true);
       expect(POISON_TOKEN_REGEX.test('임차인: undefined')).toBe(true);
       expect(POISON_TOKEN_REGEX.test('보증금: null')).toBe(true);
@@ -605,7 +605,7 @@ describe('Basic IM Degenerate & Hostile Stress Suite (Challenger 1)', () => {
       expect(POISON_TOKEN_REGEX.test('매매가 125억 원, Cap Rate 4.6%')).toBe(false);
     });
 
-    it('[CHALLENGE-ORACLE-02] EVASIVE_PHRASES_PATTERN detects evasive excuses supported by observer', () => {
+    it('[CHALLENGE-ORACLE-02] EVASIVE_PHRASES_PATTERN detects evasive excuses supported by observer', async () => {
       expect(EVASIVE_PHRASES_PATTERN.test('추후 확인 필요')).toBe(true);
       expect(EVASIVE_PHRASES_PATTERN.test('미정')).toBe(true);
       expect(EVASIVE_PHRASES_PATTERN.test('상세 불명')).toBe(true);
@@ -616,7 +616,7 @@ describe('Basic IM Degenerate & Hostile Stress Suite (Challenger 1)', () => {
       expect(EVASIVE_PHRASES_PATTERN.test('본 자산은 테헤란로 중심에 위치합니다')).toBe(false);
     });
 
-    it('[CHALLENGE-ORACLE-03] FORBIDDEN_DEFECT_EXCUSE_PATTERN detects internal excuse leaks and exposes particle blind spot', () => {
+    it('[CHALLENGE-ORACLE-03] FORBIDDEN_DEFECT_EXCUSE_PATTERN detects internal excuse leaks and exposes particle blind spot', async () => {
       expect(FORBIDDEN_DEFECT_EXCUSE_PATTERN.test('필지별 내역 미확보')).toBe(true);
       expect(FORBIDDEN_DEFECT_EXCUSE_PATTERN.test('비워 둡니다')).toBe(true);
       expect(FORBIDDEN_DEFECT_EXCUSE_PATTERN.test('인근 비교사례는 확보하지 않았습니다')).toBe(true);

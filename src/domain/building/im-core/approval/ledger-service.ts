@@ -71,14 +71,8 @@ export class ApprovalLedgerService {
       this.events = [];
       this.releases = new Map<string, ReleaseRecord>();
     } else {
-      if (!(globalThis as any).__approvalLedgerEvents) {
-        (globalThis as any).__approvalLedgerEvents = [];
-      }
-      if (!(globalThis as any).__approvalLedgerReleases) {
-        (globalThis as any).__approvalLedgerReleases = new Map<string, ReleaseRecord>();
-      }
-      this.events = (globalThis as any).__approvalLedgerEvents;
-      this.releases = (globalThis as any).__approvalLedgerReleases;
+      this.events = [];
+      this.releases = new Map<string, ReleaseRecord>();
     }
 
     if (customPort !== undefined) {
@@ -234,7 +228,7 @@ export class ApprovalLedgerService {
 
   async getReleaseRecord(releaseId: string): Promise<ReleaseRecord | null> {
     const mem = this.releases.get(releaseId);
-    if (mem) return mem;
+    if (!this.port && mem) return mem;
 
     if (this.port) {
       try {
@@ -252,9 +246,11 @@ export class ApprovalLedgerService {
   }
 
   async getReleaseByArtifact(artifactRunId: string): Promise<ReleaseRecord | null> {
-    for (const record of this.releases.values()) {
-      if (record.artifactRunId === artifactRunId) {
-        return record;
+    if (!this.port) {
+      for (const record of this.releases.values()) {
+        if (record.artifactRunId === artifactRunId) {
+          return record;
+        }
       }
     }
 

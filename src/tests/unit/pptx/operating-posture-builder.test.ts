@@ -12,7 +12,7 @@ import {
 
 describe('Operating Posture Builder — Sprint 0', () => {
   describe('buildOperatingKpiProps', () => {
-    it('호텔 94실 데이터 → kpiRows 5행 이상, statCards 3개', () => {
+    it('호텔 94실 데이터 → kpiRows 5행 이상, statCards 3개', async () => {
       const body = {
         hotel_operating: {
           total_rooms: 94,
@@ -46,7 +46,7 @@ describe('Operating Posture Builder — Sprint 0', () => {
       expect(kpiLabels).toContain('GOP 마진율');
     });
 
-    it('RevPAR 미제공 시 ADR × OCC에서 자동 계산', () => {
+    it('RevPAR 미제공 시 ADR × OCC에서 자동 계산', async () => {
       const body = {
         hotel_operating: {
           total_rooms: 50,
@@ -63,7 +63,7 @@ describe('Operating Posture Builder — Sprint 0', () => {
       expect(revparRow![1]).toContain('8.0'); // 100000 * 80/100 = 80000 → 8.0만원
     });
 
-    it('데이터 부재 시 빈 행과 폴백 하이라이트 생성', () => {
+    it('데이터 부재 시 빈 행과 폴백 하이라이트 생성', async () => {
       const result = buildOperatingKpiProps({}, {});
 
       expect(result.kpiRows.length).toBe(0);
@@ -73,7 +73,7 @@ describe('Operating Posture Builder — Sprint 0', () => {
   });
 
   describe('buildOperatingRevenueProps', () => {
-    it('GOP 마진 + 연매출 → Cap Rate 산출', () => {
+    it('GOP 마진 + 연매출 → Cap Rate 산출', async () => {
       const body = {
         hotel_operating: {
           annual_revenue_krw: 2_822_031_810,
@@ -100,7 +100,7 @@ describe('Operating Posture Builder — Sprint 0', () => {
       expect(capRateStat!.value).toContain('3.57');
     });
 
-    it('매출 데이터 부재 시 "확인 필요" 폴백', () => {
+    it('매출 데이터 부재 시 "확인 필요" 폴백', async () => {
       const result = buildOperatingRevenueProps({}, {});
 
       expect(result.right.stats.length).toBeGreaterThanOrEqual(1);
@@ -110,7 +110,7 @@ describe('Operating Posture Builder — Sprint 0', () => {
   });
 
   describe('buildOperatingSeasonalityProps', () => {
-    it('계절성 분석 콜아웃 및 외국인 비중 반영', () => {
+    it('계절성 분석 콜아웃 및 외국인 비중 반영', async () => {
       const body = {
         hotel_operating: {
           occupancy_rate_pct: 78,
@@ -132,7 +132,7 @@ describe('Operating Posture Builder — Sprint 0', () => {
   });
 
   describe('buildOperatingOperatorProps', () => {
-    it('운영사 정보 → table1.rows + 계약 만료 경고 콜아웃', () => {
+    it('운영사 정보 → table1.rows + 계약 만료 경고 콜아웃', async () => {
       const body = {
         hotel_operating: {
           operator_name: '에이치 에비뉴',
@@ -158,7 +158,7 @@ describe('Operating Posture Builder — Sprint 0', () => {
       expect(result.callouts[0].kind).toBe('caution');
     });
 
-    it('계약 만료 미기재 시 info 콜아웃', () => {
+    it('계약 만료 미기재 시 info 콜아웃', async () => {
       const body = {
         hotel_operating: {
           operator_name: '힐튼',
@@ -172,7 +172,7 @@ describe('Operating Posture Builder — Sprint 0', () => {
   });
 
   describe('A02 Summary operating 분기 (기존 archetype-builders.ts 검증)', () => {
-    it('operating 포스처 → GOP/RevPAR 메트릭이 heroCard에서 바인딩됨', () => {
+    it('operating 포스처 → GOP/RevPAR 메트릭이 heroCard에서 바인딩됨', async () => {
       // archetype-builders.ts L962-967의 기존 로직을 검증
       const heroCard = {
         noiBaseBil: 10.7,

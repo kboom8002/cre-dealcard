@@ -436,9 +436,9 @@ export async function runCbreBenchmark() {
   // 3. Studio Project 생성
   // ─────────────────────────────────────────────────────────────
   console.log('▶ [Step 4] PptxStudioService 프로젝트 생성');
-  const studioService = new PptxStudioService(true);
+  const studioService = new PptxStudioService();
   const approvalService = new StudioApprovalService();
-  const project = studioService.createProject(
+  const project = await studioService.createProject(
     'cbre-nh-capital',
     'pkg-cbre-nh-capital',
     nhCapitalDoc.title,

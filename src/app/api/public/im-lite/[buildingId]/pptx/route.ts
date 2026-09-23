@@ -17,18 +17,7 @@ export const maxDuration = 300;  // Vercel Pro — 24p Pro 덱 대응
 
 // W-4: Vercel 서버리스에서 in-memory Map은 인스턴스 간 공유 불가/cold start 리셋됨.
 // 향후 Upstash Redis 등 외부 스토어로 전환 권장. 현재는 best-effort.
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-function checkRateLimit(ip: string, limit: number, windowMs: number): boolean {
-  const now = Date.now();
-  let record = rateLimitMap.get(ip);
-  if (!record || record.resetAt < now) {
-    record = { count: 0, resetAt: now + windowMs };
-  }
-  if (record.count >= limit) return false;
-  record.count++;
-  rateLimitMap.set(ip, record);
-  return true;
-}
+import { checkRateLimit } from '@/lib/rate-limiter';
 
 export async function GET(
   req: NextRequest,
@@ -36,7 +25,7 @@ export async function GET(
 ) {
   const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
   const rateLimit = process.env.NODE_ENV === 'development' ? 1000 : 10;
-  const isAllowed = checkRateLimit(`pptx-basic:${ip}`, rateLimit, 3600 * 1000);
+  const isAllowed = await checkRateLimit(ip, 'rate_limit', rateLimit, 3600 * 1000);
   if (!isAllowed) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
   }

@@ -36,7 +36,7 @@ vi.mock('@/ai/llm-client', () => ({
 }));
 
 describe('Feature 2: SSOT YAML Loader Verification & Path Fix', () => {
-  it('F2-01 [Positive]: credeal/ssot/im.pages.yaml exists on disk at canonical root path', () => {
+  it('F2-01 [Positive]: credeal/ssot/im.pages.yaml exists on disk at canonical root path', async () => {
     const canonicalPath = path.join(process.cwd(), 'credeal', 'ssot', 'im.pages.yaml');
     expect(fs.existsSync(canonicalPath)).toBe(true);
 
@@ -45,12 +45,12 @@ describe('Feature 2: SSOT YAML Loader Verification & Path Fix', () => {
     expect(stats.size).toBeGreaterThan(1000);
   });
 
-  it('F2-01-NEG [Negative Pair]: Non-existent legacy handover path fails exists check', () => {
+  it('F2-01-NEG [Negative Pair]: Non-existent legacy handover path fails exists check', async () => {
     const brokenPath = path.join(process.cwd(), 'CREDEAL_IM_HANDOVER_v0.5', 'credeal', 'ssot', 'im.pages.yaml');
     expect(fs.existsSync(brokenPath)).toBe(false);
   });
 
-  it('F2-02 [Positive]: loadPageOrder returns valid canonical sequence for income posture', () => {
+  it('F2-02 [Positive]: loadPageOrder returns valid canonical sequence for income posture', async () => {
     const pages = loadPageOrder('income');
     expect(Array.isArray(pages)).toBe(true);
     expect(pages.length).toBeGreaterThanOrEqual(15);
@@ -61,7 +61,7 @@ describe('Feature 2: SSOT YAML Loader Verification & Path Fix', () => {
     expect(pages).toContain('risk_check');
   });
 
-  it('F2-02-NEG [Negative Pair]: loadPageOrder handles unknown posture with deterministic default sequence', () => {
+  it('F2-02-NEG [Negative Pair]: loadPageOrder handles unknown posture with deterministic default sequence', async () => {
     const fallbackPages = loadPageOrder('unknown_speculative_posture');
     expect(Array.isArray(fallbackPages)).toBe(true);
     expect(fallbackPages.length).toBe(18);
@@ -394,7 +394,7 @@ describe('Feature 3: Memo Intake E2E & Production Assertions (/api/broker/im-lit
   // ─────────────────────────────────────────────────────────────
   // Category E: Domain Deterministic Extraction (Slot Mapper & Regex Parser)
   // ─────────────────────────────────────────────────────────────
-  it('TC-DOMAIN-01 [Positive]: Pure domain parser extracts exact numeric price and area from text', () => {
+  it('TC-DOMAIN-01 [Positive]: Pure domain parser extracts exact numeric price and area from text', async () => {
     const rawMemo = '강남구 신사동 도산대로 인근 대지 100평 근생 매매가 120억 의뢰. 보증금 총액 5억, 월세 총액 3,500만 원. 수익률 4.2%. 010-1234-5678';
     const observations = parseMemoToObservations(rawMemo);
 
@@ -416,7 +416,7 @@ describe('Feature 3: Memo Intake E2E & Production Assertions (/api/broker/im-lit
     expect(slotMap.get('monthlyRentKrw')).toBe(35_000_000);
   });
 
-  it('TC-DOMAIN-01-NEG [Negative Pair]: Unrelated conversational text extracts 0 slots and fails quality gate', () => {
+  it('TC-DOMAIN-01-NEG [Negative Pair]: Unrelated conversational text extracts 0 slots and fails quality gate', async () => {
     const unrelatedText = '오늘 날씨가 참 좋습니다. 커피 한 잔 마시며 산책하러 갑시다.';
     const quality = validateMemoQuality(unrelatedText);
     expect(quality.pass).toBe(false);

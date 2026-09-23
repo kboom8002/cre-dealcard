@@ -36,7 +36,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
   // =========================================================================
   describe('A. Boundary Cap Rates Stress (cap <= 0, cap = 0.001, cap = 15, cap = 15.001, cap > 15)', () => {
     describe('A1. Non-positive Cap Rates (cap <= 0)', () => {
-      it('should throw when capLow is 0', () => {
+      it('should throw when capLow is 0', async () => {
         expect(() => {
           calculateIncomeCapitalization({
             ...baseSubject,
@@ -45,7 +45,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         }).toThrowError('요구 Cap Rate는 0보다 커야 합니다.');
       });
 
-      it('should throw when capHigh is 0', () => {
+      it('should throw when capHigh is 0', async () => {
         expect(() => {
           calculateIncomeCapitalization({
             ...baseSubject,
@@ -54,7 +54,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         }).toThrowError('요구 Cap Rate는 0보다 커야 합니다.');
       });
 
-      it('should throw when capLow is negative (-0.001)', () => {
+      it('should throw when capLow is negative (-0.001)', async () => {
         expect(() => {
           calculateIncomeCapitalization({
             ...baseSubject,
@@ -63,7 +63,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         }).toThrowError('요구 Cap Rate는 0보다 커야 합니다.');
       });
 
-      it('should throw when both cap rates are negative (-2.0, -1.0)', () => {
+      it('should throw when both cap rates are negative (-2.0, -1.0)', async () => {
         expect(() => {
           calculateIncomeCapitalization({
             ...baseSubject,
@@ -72,7 +72,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         }).toThrowError('요구 Cap Rate는 0보다 커야 합니다.');
       });
 
-      it('should throw when capLow is Number.MIN_SAFE_INTEGER', () => {
+      it('should throw when capLow is Number.MIN_SAFE_INTEGER', async () => {
         expect(() => {
           calculateIncomeCapitalization({
             ...baseSubject,
@@ -83,7 +83,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
     });
 
     describe('A2. Micro-positive boundary (cap = 0.001)', () => {
-      it('should successfully compute fair values for extreme low cap rate 0.001%', () => {
+      it('should successfully compute fair values for extreme low cap rate 0.001%', async () => {
         const res = calculateIncomeCapitalization({
           ...baseSubject,
           marketCapRateRangePct: [0.001, 0.002],
@@ -102,7 +102,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
     });
 
     describe('A3. Exact upper boundary (cap = 15.0)', () => {
-      it('should pass cleanly when cap is exactly 15.0%', () => {
+      it('should pass cleanly when cap is exactly 15.0%', async () => {
         const res = calculateIncomeCapitalization({
           ...baseSubject,
           marketCapRateRangePct: [14.0, 15.0],
@@ -114,7 +114,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         expect(res.marketCapRateRangePct).toEqual([14.0, 15.0]);
       });
 
-      it('should pass cleanly when both caps are exactly 15.0%', () => {
+      it('should pass cleanly when both caps are exactly 15.0%', async () => {
         const res = calculateIncomeCapitalization({
           ...baseSubject,
           marketCapRateRangePct: [15.0, 15.0],
@@ -127,7 +127,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
     });
 
     describe('A4. Exceeding upper boundary (cap = 15.001 and cap > 15)', () => {
-      it('should throw when capLow is 15.001', () => {
+      it('should throw when capLow is 15.001', async () => {
         expect(() => {
           calculateIncomeCapitalization({
             ...baseSubject,
@@ -136,7 +136,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         }).toThrowError('요구 Cap Rate는 15% 이하의 정상 범위여야 합니다 (비정상 시장 수익률).');
       });
 
-      it('should throw when capHigh is 15.001 while capLow is valid', () => {
+      it('should throw when capHigh is 15.001 while capLow is valid', async () => {
         expect(() => {
           calculateIncomeCapitalization({
             ...baseSubject,
@@ -145,7 +145,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         }).toThrowError('요구 Cap Rate는 15% 이하의 정상 범위여야 합니다 (비정상 시장 수익률).');
       });
 
-      it('should throw when cap is greatly above 15% (e.g. 25%, 50%)', () => {
+      it('should throw when cap is greatly above 15% (e.g. 25%, 50%)', async () => {
         expect(() => {
           calculateIncomeCapitalization({
             ...baseSubject,
@@ -154,7 +154,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         }).toThrowError('요구 Cap Rate는 15% 이하의 정상 범위여야 합니다 (비정상 시장 수익률).');
       });
 
-      it('should throw when cap is Number.MAX_VALUE', () => {
+      it('should throw when cap is Number.MAX_VALUE', async () => {
         expect(() => {
           calculateIncomeCapitalization({
             ...baseSubject,
@@ -165,7 +165,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
     });
 
     describe('A5. Inverted Cap Rate pair normalization and extreme inputs', () => {
-      it('should correctly normalize inverted cap range [3.5, 2.5] without arithmetic failure', () => {
+      it('should correctly normalize inverted cap range [3.5, 2.5] without arithmetic failure', async () => {
         const res = calculateIncomeCapitalization({
           ...baseSubject,
           marketCapRateRangePct: [3.5, 2.5],
@@ -182,7 +182,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         expect(res.valuationNarrative).toContain('3.5%~2.5%');
       });
 
-      it('[Adversarial Edge Case] should analyze behavior when NOI is zero', () => {
+      it('[Adversarial Edge Case] should analyze behavior when NOI is zero', async () => {
         // When gross rent equals 0 or OPEX offsets all rent
         const zeroNoiInput = {
           annualGrossRentKrw: 0,
@@ -201,7 +201,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         expect(Number.isFinite(res.askingPriceVsFairValuePct)).toBe(false);
       });
 
-      it('[Adversarial Edge Case] should analyze behavior when asking price is zero', () => {
+      it('[Adversarial Edge Case] should analyze behavior when asking price is zero', async () => {
         const zeroAskingInput = {
           ...baseSubject,
           askingPriceKrw: 0,
@@ -213,7 +213,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         expect(Number.isFinite(res.impliedCapRatePct)).toBe(false);
       });
 
-      it('should handle institutional 1 trillion KRW mega-deal without overflow or precision loss', () => {
+      it('should handle institutional 1 trillion KRW mega-deal without overflow or precision loss', async () => {
         const megaDealInput = {
           annualGrossRentKrw: 35000000000, // 350억
           annualMgmtFeeKrw: 5000000000,   // 50억
@@ -236,7 +236,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
   // =========================================================================
   describe('B. Comps Array Cardinality & Integrity Stress (empty [], single-comp, massive)', () => {
     describe('B1. Empty comps array [] and falsy inputs', () => {
-      it('should throw explicit Korean domain error when comps array is empty []', () => {
+      it('should throw explicit Korean domain error when comps array is empty []', async () => {
         expect(() => {
           calculateSalesComparison([], {
             askingPriceKrw: baseSubject.askingPriceKrw,
@@ -246,7 +246,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         }).toThrowError('사례비교법 산출을 위해 최소 1건 이상의 실거래 비교사례가 필요합니다.');
       });
 
-      it('should throw explicit Korean domain error when comps is null or undefined', () => {
+      it('should throw explicit Korean domain error when comps is null or undefined', async () => {
         expect(() => {
           calculateSalesComparison(null as any, {
             askingPriceKrw: baseSubject.askingPriceKrw,
@@ -266,7 +266,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
     });
 
     describe('B2. Single-comp array handling (compCount = 1)', () => {
-      it('should compute valid single-point market band without division-by-zero or NaN', () => {
+      it('should compute valid single-point market band without division-by-zero or NaN', async () => {
         const singleCompSubject = {
           askingPriceKrw: 24000000000,
           landAreaPyeong: 150.0,
@@ -294,7 +294,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         expect(res.analysisNarrative).toContain('권역 시세 중간값 수준으로 가격 적정성 부합');
       });
 
-      it('should compute correct single-comp discount narrative when subject is below single comp', () => {
+      it('should compute correct single-comp discount narrative when subject is below single comp', async () => {
         const discountedSubject = {
           askingPriceKrw: 21000000000, // 210억 / 150평 = 1.4억/평 < 1.6억
           landAreaPyeong: 150.0,
@@ -307,7 +307,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         expect(res.analysisNarrative).toContain('인근 시세 하단(1.60억 원) 대비 약 12.5% 저렴하여 우수한 가격 경쟁력(저평가 밸류애드 메리트) 확보');
       });
 
-      it('should compute correct single-comp premium narrative when subject is above single comp', () => {
+      it('should compute correct single-comp premium narrative when subject is above single comp', async () => {
         const premiumSubject = {
           askingPriceKrw: 27000000000, // 270억 / 150평 = 1.8억/평 > 1.6억
           landAreaPyeong: 150.0,
@@ -322,7 +322,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
     });
 
     describe('B3. Stress with massive comps (1,000 comps) and identical comps', () => {
-      it('should process 1,000 comps efficiently without precision loss', () => {
+      it('should process 1,000 comps efficiently without precision loss', async () => {
         const massiveComps: SalesComp[] = [];
         for (let i = 0; i < 1000; i++) {
           massiveComps.push({
@@ -351,7 +351,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         expect(res.isWithinMarketBand).toBe(true);
       });
 
-      it('should handle multiple identical comps correctly', () => {
+      it('should handle multiple identical comps correctly', async () => {
         const identicalComps: SalesComp[] = Array(5).fill({
           name: '동일 사례',
           distanceM: 100,
@@ -403,7 +403,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
     ];
 
     describe('C1. Discount / Value-add branch (< minLandPrice)', () => {
-      it('should trigger discount value-add text when subject price is strictly below minLandPrice', () => {
+      it('should trigger discount value-add text when subject price is strictly below minLandPrice', async () => {
         const subject = {
           askingPriceKrw: 12000000000, // 1.20억/평 < 1.30억/평
           landAreaPyeong: 100,
@@ -417,7 +417,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         expect(res.analysisNarrative).toContain('저렴하여 우수한 가격 경쟁력(저평가 밸류애드 메리트) 확보');
       });
 
-      it('should verify real Seocho 1364-28 SSoT fixture triggers discount value-add narrative', () => {
+      it('should verify real Seocho 1364-28 SSoT fixture triggers discount value-add narrative', async () => {
         const comps = seochoFixture.salesComparisonComps;
         const subject = {
           askingPriceKrw: seochoFixture.askingPriceKrw,
@@ -439,7 +439,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
     });
 
     describe('C2. Premium pricing branch (> maxLandPrice)', () => {
-      it('should trigger premium text when subject price is strictly above maxLandPrice', () => {
+      it('should trigger premium text when subject price is strictly above maxLandPrice', async () => {
         const subject = {
           askingPriceKrw: 15500000000, // 1.55억/평 > 1.40억/평
           landAreaPyeong: 100,
@@ -455,7 +455,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
     });
 
     describe('C3. Fair value / middle branch (between min and max)', () => {
-      it('should trigger fair value text when subject price is inside the band', () => {
+      it('should trigger fair value text when subject price is inside the band', async () => {
         const subject = {
           askingPriceKrw: 13500000000, // 1.35억/평 (midpoint)
           landAreaPyeong: 100,
@@ -467,7 +467,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         expect(res.analysisNarrative).toContain('권역 시세 중간값 수준으로 가격 적정성 부합');
       });
 
-      it('should verify real Sinsa 590 SSoT fixture triggers fair value narrative', () => {
+      it('should verify real Sinsa 590 SSoT fixture triggers fair value narrative', async () => {
         const comps = sinsaFixture.salesComparisonComps;
         const subject = {
           askingPriceKrw: sinsaFixture.askingPriceKrw,
@@ -488,7 +488,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
     });
 
     describe('C4. Exact boundary equality behavior', () => {
-      it('should classify exact minLandPrice boundary equality as fair value (in-band)', () => {
+      it('should classify exact minLandPrice boundary equality as fair value (in-band)', async () => {
         const subjectAtMin = {
           askingPriceKrw: 13000000000, // Exactly 1.30억/평
           landAreaPyeong: 100,
@@ -501,7 +501,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
         expect(res.analysisNarrative).toContain('권역 시세 중간값 수준으로 가격 적정성 부합');
       });
 
-      it('should classify exact maxLandPrice boundary equality as fair value (in-band)', () => {
+      it('should classify exact maxLandPrice boundary equality as fair value (in-band)', async () => {
         const subjectAtMax = {
           askingPriceKrw: 14000000000, // Exactly 1.40억/평
           landAreaPyeong: 100,
@@ -520,7 +520,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
   // Category D: Cost Method Exclusion Note & Dual Report Synthesis Integrity
   // =========================================================================
   describe('D. Cost Method Exclusion Note Integrity & Dual Report Synthesis', () => {
-    it('should always bind DEFAULT_COST_METHOD_EXCLUSION_NOTE verbatim in generateCreDualValuationReport', () => {
+    it('should always bind DEFAULT_COST_METHOD_EXCLUSION_NOTE verbatim in generateCreDualValuationReport', async () => {
       const report = generateCreDualValuationReport([sampleComp], {
         ...baseSubject,
         marketCapRateRangePct: [2.5, 3.5],
@@ -532,7 +532,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
       );
     });
 
-    it('should strictly satisfy G54~G56 text governance standards on the cost exclusion note', () => {
+    it('should strictly satisfy G54~G56 text governance standards on the cost exclusion note', async () => {
       const note = DEFAULT_COST_METHOD_EXCLUSION_NOTE;
 
       // G54: No defect excuse phrases
@@ -557,7 +557,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
       expect(note).toContain('원가법 제외');
     });
 
-    it('[Negative Pair] should fail governance validation if cost method exclusion note is empty or corrupted', () => {
+    it('[Negative Pair] should fail governance validation if cost method exclusion note is empty or corrupted', async () => {
       // Simulate corrupted note cases
       const corruptedNotes = [
         '',
@@ -578,7 +578,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
       }
     });
 
-    it('should integrate end-to-end with real Sinsa 590 fixture data', () => {
+    it('should integrate end-to-end with real Sinsa 590 fixture data', async () => {
       const report = generateCreDualValuationReport(
         sinsaFixture.salesComparisonComps,
         {
@@ -597,7 +597,7 @@ describe('CRE Valuation Engine Mathematical Robustness & Boundary Stress Suite',
       expect(report.finalConclusion).toContain('적정 호가로 판정');
     });
 
-    it('should integrate end-to-end with real Seocho 1364-28 fixture data', () => {
+    it('should integrate end-to-end with real Seocho 1364-28 fixture data', async () => {
       const report = generateCreDualValuationReport(
         seochoFixture.salesComparisonComps,
         {

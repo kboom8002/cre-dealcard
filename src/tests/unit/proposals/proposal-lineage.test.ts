@@ -6,7 +6,7 @@ import {
 } from '@/domain/building/im-core/proposals/proposal-unit';
 
 describe('ProposalUnit Lineage (PR-B1-05 / Negative-Pair Obligation)', () => {
-  it('Positive Pair: 5-step proposal chain backed by evidence passes broker confirmation', () => {
+  it('Positive Pair: 5-step proposal chain backed by evidence passes broker confirmation', async () => {
     const proposal: ProposalUnit = {
       id: 'prop-1',
       dealId: 'deal-prop-pos',
@@ -24,7 +24,7 @@ describe('ProposalUnit Lineage (PR-B1-05 / Negative-Pair Obligation)', () => {
     expect(confirmed.evidenceRefs.length).toBe(2);
   });
 
-  it('Positive Pair: Proposal backed by legitimate qualitative broker observation succeeds', () => {
+  it('Positive Pair: Proposal backed by legitimate qualitative broker observation succeeds', async () => {
     const qualObs = createQualitativeObservation({
       dealId: 'deal-prop-qual',
       category: 'tenant_interview',
@@ -50,7 +50,7 @@ describe('ProposalUnit Lineage (PR-B1-05 / Negative-Pair Obligation)', () => {
     expect(confirmed.approvalState).toBe('broker_confirmed');
   });
 
-  it('Negative Pair: Unbacked proposal without evidenceRefs is blocked from publication confirmation', () => {
+  it('Negative Pair: Unbacked proposal without evidenceRefs is blocked from publication confirmation', async () => {
     const unbackedProposal: ProposalUnit = {
       id: 'prop-2',
       dealId: 'deal-prop-neg',
@@ -67,7 +67,7 @@ describe('ProposalUnit Lineage (PR-B1-05 / Negative-Pair Obligation)', () => {
     );
   });
 
-  it('Negative Pair: Illegal performance guarantee (수익률 보장) is blocked even with evidenceRefs', () => {
+  it('Negative Pair: Illegal performance guarantee (수익률 보장) is blocked even with evidenceRefs', async () => {
     const illegalProposal: ProposalUnit = {
       id: 'prop-illegal',
       dealId: 'deal-prop-illegal',
@@ -84,7 +84,7 @@ describe('ProposalUnit Lineage (PR-B1-05 / Negative-Pair Obligation)', () => {
     );
   });
 
-  it('Negative Pair: Financial yield claims without financial evidence (Semantic Mismatch) is blocked', () => {
+  it('Negative Pair: Financial yield claims without financial evidence (Semantic Mismatch) is blocked', async () => {
     const mismatchedProposal: ProposalUnit = {
       id: 'prop-mismatch',
       dealId: 'deal-prop-mismatch',

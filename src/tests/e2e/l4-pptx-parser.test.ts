@@ -117,7 +117,7 @@ describe('L4: PPTX 바이너리 파서 (D35 §4)', () => {
     });
 
     // ── negative pair: 빈 슬라이드 배열 ──
-    it('빈 슬라이드에서 위반 0을 반환한다', () => {
+    it('빈 슬라이드에서 위반 0을 반환한다', async () => {
       const ctx = extractGateContext([]);
       expect(ctx.maxCropRatio).toBe(0);
       expect(ctx.textOverflowCount).toBe(0);
@@ -148,7 +148,7 @@ describe('L4: PPTX 바이너리 파서 (D35 §4)', () => {
     });
 
     // ── negative pair: 빈 슬라이드 ──
-    it('빈 슬라이드 감사 리포트에서 위반 0을 반환한다', () => {
+    it('빈 슬라이드 감사 리포트에서 위반 0을 반환한다', async () => {
       const ctx = extractGateContext([]);
       const report = generateAuditReport([], ctx);
       expect(report.layoutViolations).toHaveLength(0);
@@ -177,7 +177,7 @@ describe('L4: PPTX 바이너리 파서 (D35 §4)', () => {
     });
 
     // ── negative pair: 빈 슬라이드는 위반 없음 ──
-    it('빈 슬라이드는 대조군 검사에서 위반 0', () => {
+    it('빈 슬라이드는 대조군 검사에서 위반 0', async () => {
       const ctx = extractGateContext([]);
       const report = generateAuditReport([], ctx);
       expect(report.layoutViolations.length + report.standardViolations.length).toBe(0);
@@ -202,7 +202,7 @@ describe('L4: PPTX 바이너리 파서 (D35 §4)', () => {
   });
 
   describe('면수 검사', () => {
-    it('파서는 면수 초과를 판정하지 않는다 (렌더러에서 제어)', () => {
+    it('파서는 면수 초과를 판정하지 않는다 (렌더러에서 제어)', async () => {
       // 부록·갤러리·렌트롤 등으로 16면 초과는 정상
       // deck-sequencer가 본문 16면을 이미 제어하므로, 파서에서 재차 차단하지 않음
       const fakeSlides: any[] = Array.from({ length: 20 }, (_, i) => ({
@@ -213,7 +213,7 @@ describe('L4: PPTX 바이너리 파서 (D35 §4)', () => {
     });
 
     // ── negative pair ──
-    it('빈 슬라이드에서도 면수 초과 없음', () => {
+    it('빈 슬라이드에서도 면수 초과 없음', async () => {
       const ctx = extractGateContext([]);
       expect(ctx.pageCountExceeded).toBe(false);
     });

@@ -195,8 +195,8 @@ export async function PUT(
   const buildingId = (doc as any).building_id || id;
   try {
     const pptxProject =
-      studioService.findProjectByDealId(buildingId) ||
-      studioService.findProjectByDealId(id);
+      await studioService.findProjectByDealId(buildingId) ||
+      await studioService.findProjectByDealId(id);
 
     if (pptxProject) {
       if (newTitle) {
@@ -205,7 +205,7 @@ export async function PUT(
           (s) => s.layoutType?.includes('A01') || s.dataKey === 'cover'
         );
         if (cover) {
-          studioService.patchSlideOverrides(pptxProject.id, cover.id, { title: newTitle });
+          await studioService.patchSlideOverrides(pptxProject.id, cover.id, { title: newTitle });
         }
       }
       if (heroTitle || heroSubtitle) {
@@ -213,7 +213,7 @@ export async function PUT(
           (s) => s.layoutType?.includes('A02') || s.dataKey === 'overview'
         );
         if (overview) {
-          studioService.patchSlideOverrides(pptxProject.id, overview.id, {
+          await studioService.patchSlideOverrides(pptxProject.id, overview.id, {
             title: heroTitle || overview.title,
             kicker: heroSubtitle || overview.kicker,
           });

@@ -6,14 +6,14 @@ import { matchBuyerWithDeal } from '@/domain/matching/explainable-matcher';
 import { getMapTierCoordinates } from '@/domain/building/map-tier';
 
 describe('IM Render Policy & Tiering (S3-T4)', () => {
-  it('hides exact address and unit rent in C grade (legacy Basic)', () => {
+  it('hides exact address and unit rent in C grade (legacy Basic)', async () => {
     const policy = getIMRenderPolicy('basic', false, 'C');
     expect(policy.showExactAddress).toBe(false);
     expect(policy.showTenantNames).toBe(false);
     expect(policy.requiresNDA).toBe(false);
   });
 
-  it('exposes full information in A grade (legacy Pro)', () => {
+  it('exposes full information in A grade (legacy Pro)', async () => {
     const policy = getIMRenderPolicy('pro', true, 'A');
     expect(policy.showExactAddress).toBe(true);
     expect(policy.showTenantNames).toBe(true);
@@ -22,7 +22,7 @@ describe('IM Render Policy & Tiering (S3-T4)', () => {
 });
 
 describe('Pro IM Watermark & NDA (S3-T5)', () => {
-  it('generates secure watermark text with requester credentials', () => {
+  it('generates secure watermark text with requester credentials', async () => {
     const watermark = generateProIMWatermark({
       requesterName: '김대표',
       requesterPhone: '01012345678',
@@ -37,7 +37,7 @@ describe('Pro IM Watermark & NDA (S3-T5)', () => {
 });
 
 describe('K-Anonymity Re-identification Simulator (S3-T9)', () => {
-  it('uses K=30 for Gangnam district and blocks if candidates < 30', () => {
+  it('uses K=30 for Gangnam district and blocks if candidates < 30', async () => {
     const result = evaluateKAnonymity({
       districtName: '강남구',
       totalCandidateCountInPublicDb: 15,
@@ -48,7 +48,7 @@ describe('K-Anonymity Re-identification Simulator (S3-T9)', () => {
     expect(result.status).toBe('blocked_reident_risk');
   });
 
-  it('passes K-anonymity check when candidate count meets K threshold', () => {
+  it('passes K-anonymity check when candidate count meets K threshold', async () => {
     const result = evaluateKAnonymity({
       districtName: '마포구',
       totalCandidateCountInPublicDb: 25,
@@ -61,7 +61,7 @@ describe('K-Anonymity Re-identification Simulator (S3-T9)', () => {
 });
 
 describe('Explainable 3-Tier Matcher (S3-T10)', () => {
-  it('matches buyer with deal and outputs score, tier, and match highlights', () => {
+  it('matches buyer with deal and outputs score, tier, and match highlights', async () => {
     const buyer = {
       maxBudgetKrw: 10_000_000_000, // 100억
       targetRegions: ['성수동'],
@@ -84,7 +84,7 @@ describe('Explainable 3-Tier Matcher (S3-T10)', () => {
     expect(result.matchHighlights.length).toBeGreaterThan(0);
   });
 
-  it('disqualifies match if hard filter budget is exceeded', () => {
+  it('disqualifies match if hard filter budget is exceeded', async () => {
     const buyer = {
       maxBudgetKrw: 5_000_000_000,
       targetRegions: ['강남구'],
@@ -105,7 +105,7 @@ describe('Explainable 3-Tier Matcher (S3-T10)', () => {
 });
 
 describe('Map Tiering (S3-T18)', () => {
-  it('applies fuzzy offset for Basic IM and exact coordinates for Pro IM', () => {
+  it('applies fuzzy offset for Basic IM and exact coordinates for Pro IM', async () => {
     const exact = { lat: 37.5445, lng: 127.0560 };
 
     const basicMap = getMapTierCoordinates(exact, 'basic', false, 'deal-seed-123');

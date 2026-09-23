@@ -30,7 +30,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
   // =========================================================================
   describe('Challenge A: 4 Mandatory Building Specs Invariants & Mutation Checks', () => {
     
-    it('[A1.1][Sinsa 590] 4대 필수 건축 제원 타입, 물리적 범위 및 무결성 단언', () => {
+    it('[A1.1][Sinsa 590] 4대 필수 건축 제원 타입, 물리적 범위 및 무결성 단언', async () => {
       // 1. 건축면적 (archAreaM2)
       expect(typeof sinsaFixture.archAreaM2).toBe('number');
       expect(Number.isFinite(sinsaFixture.archAreaM2)).toBe(true);
@@ -69,7 +69,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
       expect(sinsaFixture.elevatorCount).toBeGreaterThanOrEqual(1);
     });
 
-    it('[A1.2][Seocho 1364-28] 4대 필수 건축 제원 타입, 물리적 범위 및 무결성 단언', () => {
+    it('[A1.2][Seocho 1364-28] 4대 필수 건축 제원 타입, 물리적 범위 및 무결성 단언', async () => {
       // 1. 건축면적 (archAreaM2)
       expect(typeof seochoFixture.archAreaM2).toBe('number');
       expect(Number.isFinite(seochoFixture.archAreaM2)).toBe(true);
@@ -104,7 +104,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
       expect(seochoFixture.elevatorCount).toBe(1);
     });
 
-    it('[A1.3][3-Tier Key Facts] 4대 필수 제원과 tier3_building 간 100% 상호 바인딩 검증', () => {
+    it('[A1.3][3-Tier Key Facts] 4대 필수 제원과 tier3_building 간 100% 상호 바인딩 검증', async () => {
       // Sinsa 590
       const sinsaTier3 = new Map<string, string>(sinsaFixture.keyFacts3Tier.tier3_building);
       expect(sinsaTier3.get('건축면적')).toContain(sinsaFixture.archAreaM2.toFixed(2));
@@ -122,7 +122,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
       expect(parkingAndElevator).toContain(`${seochoFixture.elevatorCount}대`);
     });
 
-    it('[A1.4][Mutation/Rejection] 4대 제원 결손/변조 시 유효성 검증 실패 단언', () => {
+    it('[A1.4][Mutation/Rejection] 4대 제원 결손/변조 시 유효성 검증 실패 단언', async () => {
       const validateMandatorySpecs = (fixture: any) => {
         const errors: string[] = [];
         if (typeof fixture.archAreaM2 !== 'number' || fixture.archAreaM2 <= 0 || !Number.isFinite(fixture.archAreaM2)) {
@@ -187,7 +187,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
     const expectedLandPrice = 100_000_000;
 
     describe('B1: 5.0% Warning Discrepancy Boundary (4.9% vs 5.0% vs 5.1%)', () => {
-      it('statedLandPrice at +4.9% (104.9M) produces ZERO discrepancy (isValid: true, discrepancies: 0)', () => {
+      it('statedLandPrice at +4.9% (104.9M) produces ZERO discrepancy (isValid: true, discrepancies: 0)', async () => {
         const input: BrokerPropertyInput = {
           ...baseInput,
           statedLandPricePerPyeongKrw: Math.round(expectedLandPrice * 1.049), // 104,900,000
@@ -199,7 +199,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
         expect(discrepancy).toBeUndefined();
       });
 
-      it('statedLandPrice at exact 5.0% boundary (105.0M) produces ZERO discrepancy (diffPct > 5.0 is false)', () => {
+      it('statedLandPrice at exact 5.0% boundary (105.0M) produces ZERO discrepancy (diffPct > 5.0 is false)', async () => {
         const input: BrokerPropertyInput = {
           ...baseInput,
           statedLandPricePerPyeongKrw: Math.round(expectedLandPrice * 1.050), // 105,000,000
@@ -211,7 +211,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
         expect(discrepancy).toBeUndefined();
       });
 
-      it('statedLandPrice at +5.1% (105.1M) triggers WARNING discrepancy (severity: warning, isValid: true)', () => {
+      it('statedLandPrice at +5.1% (105.1M) triggers WARNING discrepancy (severity: warning, isValid: true)', async () => {
         const input: BrokerPropertyInput = {
           ...baseInput,
           statedLandPricePerPyeongKrw: Math.round(expectedLandPrice * 1.051), // 105,100,000
@@ -225,7 +225,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
         expect(discrepancy?.discrepancyPct).toBe(5.1);
       });
 
-      it('statedLandPrice at -4.9% (95.1M) produces ZERO discrepancy (negative direction check)', () => {
+      it('statedLandPrice at -4.9% (95.1M) produces ZERO discrepancy (negative direction check)', async () => {
         const input: BrokerPropertyInput = {
           ...baseInput,
           statedLandPricePerPyeongKrw: Math.round(expectedLandPrice * 0.951), // 95,100,000
@@ -236,7 +236,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
         expect(result.discrepancies.find(d => d.code === 'LAND_PRICE_PYEONG_DISCREPANCY')).toBeUndefined();
       });
 
-      it('statedLandPrice at -5.1% (94.9M) triggers WARNING discrepancy (negative direction check)', () => {
+      it('statedLandPrice at -5.1% (94.9M) triggers WARNING discrepancy (negative direction check)', async () => {
         const input: BrokerPropertyInput = {
           ...baseInput,
           statedLandPricePerPyeongKrw: Math.round(expectedLandPrice * 0.949), // 94,900,000
@@ -252,7 +252,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
     });
 
     describe('B2: 20.0% Critical Discrepancy Boundary (19.9% vs 20.0% vs 20.1%)', () => {
-      it('statedLandPrice at +19.9% (119.9M) triggers WARNING but NOT CRITICAL (isValid: true, hasCritical: false)', () => {
+      it('statedLandPrice at +19.9% (119.9M) triggers WARNING but NOT CRITICAL (isValid: true, hasCritical: false)', async () => {
         const input: BrokerPropertyInput = {
           ...baseInput,
           statedLandPricePerPyeongKrw: Math.round(expectedLandPrice * 1.199), // 119,900,000
@@ -266,7 +266,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
         expect(discrepancy?.discrepancyPct).toBe(19.9);
       });
 
-      it('statedLandPrice at exact 20.0% boundary (120.0M) triggers WARNING (diffPct > 20.0 is false, hasCritical: false)', () => {
+      it('statedLandPrice at exact 20.0% boundary (120.0M) triggers WARNING (diffPct > 20.0 is false, hasCritical: false)', async () => {
         const input: BrokerPropertyInput = {
           ...baseInput,
           statedLandPricePerPyeongKrw: Math.round(expectedLandPrice * 1.200), // 120,000,000
@@ -280,7 +280,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
         expect(discrepancy?.discrepancyPct).toBe(20.0);
       });
 
-      it('statedLandPrice at +20.1% (120.1M) triggers CRITICAL DISCREPANCY (isValid: false, hasCritical: true)', () => {
+      it('statedLandPrice at +20.1% (120.1M) triggers CRITICAL DISCREPANCY (isValid: false, hasCritical: true)', async () => {
         const input: BrokerPropertyInput = {
           ...baseInput,
           statedLandPricePerPyeongKrw: Math.round(expectedLandPrice * 1.201), // 120,100,000
@@ -294,7 +294,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
         expect(discrepancy?.discrepancyPct).toBe(20.1);
       });
 
-      it('statedLandPrice at -20.1% (79.9M) triggers CRITICAL DISCREPANCY (negative direction check)', () => {
+      it('statedLandPrice at -20.1% (79.9M) triggers CRITICAL DISCREPANCY (negative direction check)', async () => {
         const input: BrokerPropertyInput = {
           ...baseInput,
           statedLandPricePerPyeongKrw: Math.round(expectedLandPrice * 0.799), // 79,900,000
@@ -310,7 +310,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
     });
 
     describe('B3: Deposit, Monthly Rent, and Vacancy Rate Boundary Tests', () => {
-      it('Deposit sum mismatch boundary: 100,000 KRW diff passes, 100,001 KRW diff warns', () => {
+      it('Deposit sum mismatch boundary: 100,000 KRW diff passes, 100,001 KRW diff warns', async () => {
         const rentRollBase = {
           units: [
             { floor: '1F', tenant: 'A', deposit: 50_000_000, rent: 5_000_000 },
@@ -338,7 +338,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
         expect(depMismatch?.severity).toBe('warning');
       });
 
-      it('Monthly rent sum mismatch boundary: 50,000 KRW diff passes, 50,001 KRW diff warns', () => {
+      it('Monthly rent sum mismatch boundary: 50,000 KRW diff passes, 50,001 KRW diff warns', async () => {
         const rentRollBase = {
           units: [
             { floor: '1F', tenant: 'A', deposit: 50_000_000, rent: 5_000_000 },
@@ -366,7 +366,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
         expect(rentMismatch?.severity).toBe('warning');
       });
 
-      it('Vacancy rate threshold: 19.9% vacancy does not trigger, 20.0% vacancy triggers HIGH_VACANCY_PRO_FORMA', () => {
+      it('Vacancy rate threshold: 19.9% vacancy does not trigger, 20.0% vacancy triggers HIGH_VACANCY_PRO_FORMA', async () => {
         // 1. 19.9% vacancy (e.g. 199 vacant units out of 1000)
         const units199: Array<{ floor: string; tenant: string; deposit: number; rent: number; isVacant: boolean }> = [];
         for (let i = 0; i < 1000; i++) {
@@ -401,7 +401,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
   // =========================================================================
   describe('Challenge C: Pro-Forma Vacancy Normalization Financial Invariants', () => {
 
-    it('[C1.1][Seocho 1364-28 SSoT] 1.15% -> 2.30% (+1.15%p) 수학적 불변식 및 픽스처 무결성 단언', () => {
+    it('[C1.1][Seocho 1364-28 SSoT] 1.15% -> 2.30% (+1.15%p) 수학적 불변식 및 픽스처 무결성 단언', async () => {
       const pf = seochoFixture.proForma;
       expect(pf).toBeDefined();
 
@@ -442,7 +442,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
       expect(pf.upsideCapRatePp).toBe(Number((pf.estimatedFullOccupancyCapRatePct - pf.currentCapRatePct).toFixed(2)));
     });
 
-    it('[C1.2][ClaimRegistry Integration] registerProFormaClaims 1급 클레임 생성 및 도메인 정합성 단언', () => {
+    it('[C1.2][ClaimRegistry Integration] registerProFormaClaims 1급 클레임 생성 및 도메인 정합성 단언', async () => {
       const registry = new ClaimRegistry();
       const pf = seochoFixture.proForma;
 
@@ -497,7 +497,7 @@ describe('M11 Empirical Stress Test Suite — SSoT & Boundary Verification', () 
       expect(noiClaim?.unit).toBe('원');
     });
 
-    it('[C1.3][Comparative Analysis] validateBrokerInput의 보수적 기존 임대료 역산(1.93%) vs 시장 정상화(2.30%) 비교 분석 단언', () => {
+    it('[C1.3][Comparative Analysis] validateBrokerInput의 보수적 기존 임대료 역산(1.93%) vs 시장 정상화(2.30%) 비교 분석 단언', async () => {
       // 1. validateBrokerInput 실행 시 결과 확인
       const cleanInput: BrokerPropertyInput = {
         askingPriceKrw: seochoFixture.askingPriceKrw,

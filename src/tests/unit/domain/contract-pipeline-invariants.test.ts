@@ -5,7 +5,7 @@ import type { InvestmentPosture } from '@/domain/ontology/enums';
 describe('Contract-based Invariants Generator (P3-3 / P2-5)', () => {
   const postures = Object.keys(POSTURE_CONTRACTS) as InvestmentPosture[];
 
-  it('contains exactly 5 recognized investment postures', () => {
+  it('contains exactly 5 recognized investment postures', async () => {
     expect(postures).toHaveLength(5);
     expect(postures).toContain('income');
     expect(postures).toContain('owner_occupied');

@@ -45,7 +45,7 @@ import type { StackingPlanFloor } from '../../domain/building/mobile-im/types';
 describe('Adversarial Stress Harness: Archetype A22 Stacking Plan', () => {
   // ── 1. Extreme Floors: Single Floor (N=1) ──
   describe('Extreme Floor Count: N=1 (Single-Floor Asset)', () => {
-    it('[ADV-A22-01A] Single above-ground floor (1F only) renders without crash or bleed', () => {
+    it('[ADV-A22-01A] Single above-ground floor (1F only) renders without crash or bleed', async () => {
       const pres = new PptxGenJS();
       pres.layout = 'LAYOUT_WIDE'; // 13.333" x 7.5"
 
@@ -89,7 +89,7 @@ describe('Adversarial Stress Harness: Archetype A22 Stacking Plan', () => {
       expect(layout.violations.filter(v => v.gate === 'G35').length).toBe(0);
     });
 
-    it('[ADV-A22-01B] Single subterranean floor (B1F only) renders with depth label and without bleed', () => {
+    it('[ADV-A22-01B] Single subterranean floor (B1F only) renders with depth label and without bleed', async () => {
       const pres = new PptxGenJS();
       pres.layout = 'LAYOUT_WIDE';
 
@@ -126,7 +126,7 @@ describe('Adversarial Stress Harness: Archetype A22 Stacking Plan', () => {
 
   // ── 2. Extreme Floors: Ultra-High-Rise (N=50) ──
   describe('Extreme Floor Count: N=50 (Ultra-High-Rise Asset)', () => {
-    it('[ADV-A22-02] 50-floor skyscraper (1F~45F + B1F~B5F) execution & layout bleed detection', () => {
+    it('[ADV-A22-02] 50-floor skyscraper (1F~45F + B1F~B5F) execution & layout bleed detection', async () => {
       const pres = new PptxGenJS();
       pres.layout = 'LAYOUT_WIDE';
 
@@ -184,27 +184,27 @@ describe('Adversarial Stress Harness: Archetype A22 Stacking Plan', () => {
   describe('Boundary Conditions: Floor Areas & Inverted Setbacks', () => {
     const stdArea = 1000.0;
 
-    it('[ADV-A22-03A] Inverted setback (top floor area 2500 m² > standard 1000 m²) is clamped to 1.0 for above-ground', () => {
+    it('[ADV-A22-03A] Inverted setback (top floor area 2500 m² > standard 1000 m²) is clamped to 1.0 for above-ground', async () => {
       const ratio = calculateSetbackRatio(2500.0, stdArea, false);
       expect(ratio).toBe(1.0); // Clamp upper limit for above-ground floors
     });
 
-    it('[ADV-A22-03B] Subterranean expansion (floor area 2500 m² > standard 1000 m²) is clamped to 1.35', () => {
+    it('[ADV-A22-03B] Subterranean expansion (floor area 2500 m² > standard 1000 m²) is clamped to 1.35', async () => {
       const ratio = calculateSetbackRatio(2500.0, stdArea, true);
       expect(ratio).toBe(1.35); // Subterranean upper clamp
     });
 
-    it('[ADV-A22-03C] Zero floor area returns safe fallback ratio 1.0', () => {
+    it('[ADV-A22-03C] Zero floor area returns safe fallback ratio 1.0', async () => {
       expect(calculateSetbackRatio(0, stdArea, false)).toBe(1.0);
       expect(calculateSetbackRatio(0, 0, false)).toBe(1.0);
     });
 
-    it('[ADV-A22-03D] Negative floor area throws descriptive Korean domain error -> clamps to 0', () => {
+    it('[ADV-A22-03D] Negative floor area throws descriptive Korean domain error -> clamps to 0', async () => {
       expect(calculateSetbackRatio(-100.0, stdArea, false)).toBe(0);
       expect(calculateSetbackRatio(-0.01, stdArea, true)).toBe(0);
     });
 
-    it('[ADV-A22-03E] Inverted setback injected via explicit setbackRatio does not crash renderer', () => {
+    it('[ADV-A22-03E] Inverted setback injected via explicit setbackRatio does not crash renderer', async () => {
       const pres = new PptxGenJS();
       pres.layout = 'LAYOUT_WIDE';
 
@@ -234,7 +234,7 @@ describe('Adversarial Stress Harness: Archetype A22 Stacking Plan', () => {
 
   // ── 4. 100% Vacancy Asset ──
   describe('100% Vacancy Stress Case', () => {
-    it('[ADV-A22-04] 100% vacant asset correctly assigns vacant category, colors, and zero WALE', () => {
+    it('[ADV-A22-04] 100% vacant asset correctly assigns vacant category, colors, and zero WALE', async () => {
       const pres = new PptxGenJS();
       pres.layout = 'LAYOUT_WIDE';
 
@@ -278,7 +278,7 @@ describe('Adversarial Stress Harness: Archetype A22 Stacking Plan', () => {
 
   // ── 5. All-Retail MD Asset ──
   describe('All-Retail MD Asset Stress Case', () => {
-    it('[ADV-A22-05] All-retail asset assigns retail category & colors correctly', () => {
+    it('[ADV-A22-05] All-retail asset assigns retail category & colors correctly', async () => {
       const pres = new PptxGenJS();
       pres.layout = 'LAYOUT_WIDE';
 
@@ -320,7 +320,7 @@ describe('Adversarial Stress Harness: Archetype A22 Stacking Plan', () => {
 
   // ── 6. Missing Lease Fields & Extremely Long Strings ──
   describe('Missing Fields & Extremely Long String Handling', () => {
-    it('[ADV-A22-06A] Gracefully handles missing/null lease fields with standard fallbacks', () => {
+    it('[ADV-A22-06A] Gracefully handles missing/null lease fields with standard fallbacks', async () => {
       const pres = new PptxGenJS();
       pres.layout = 'LAYOUT_WIDE';
 
@@ -360,7 +360,7 @@ describe('Adversarial Stress Harness: Archetype A22 Stacking Plan', () => {
       expect(layout.bleedCount).toBe(0);
     });
 
-    it('[ADV-A22-06B] Truncates extremely long tenant names (100+ chars) preventing horizontal overflow', () => {
+    it('[ADV-A22-06B] Truncates extremely long tenant names (100+ chars) preventing horizontal overflow', async () => {
       const pres = new PptxGenJS();
       pres.layout = 'LAYOUT_WIDE';
 
@@ -394,7 +394,7 @@ describe('Adversarial Stress Harness: Archetype A22 Stacking Plan', () => {
 describe('Adversarial Stress Harness: Macro Transit Vector Engine', () => {
   // ── 1. DPI Precision Verification ──
   describe('DPI Calculations: 1600x1200 in 5.60"x4.50" Box', () => {
-    it('[ADV-MTE-01] Exactly verifies 266.7 DPI calculation math (1600x1200 px in 5.60"x4.50")', () => {
+    it('[ADV-MTE-01] Exactly verifies 266.7 DPI calculation math (1600x1200 px in 5.60"x4.50")', async () => {
       const w = 1600;
       const h = 1200;
       const boxW = 5.60;
@@ -425,7 +425,7 @@ describe('Adversarial Stress Harness: Macro Transit Vector Engine', () => {
 
   // ── 2. Extreme Aspect Ratio Target Boxes ──
   describe('Extreme Aspect Ratio Target Boxes', () => {
-    it('[ADV-MTE-02A] Ultra-wide box (12.0" x 2.0") yields 133.3 DPI and triggers G32 violation', () => {
+    it('[ADV-MTE-02A] Ultra-wide box (12.0" x 2.0") yields 133.3 DPI and triggers G32 violation', async () => {
       const dpi = calculateEffectiveDpi(1600, 1200, 12.0, 2.0);
       // dpiW = 1600 / 12.0 = 133.333..., dpiH = 1200 / 2.0 = 600.0 -> min = 133.3
       expect(dpi).toBe(133.3);
@@ -438,7 +438,7 @@ describe('Adversarial Stress Harness: Macro Transit Vector Engine', () => {
       expect(Math.round(check?.value ?? 0)).toBe(133);
     });
 
-    it('[ADV-MTE-02B] Ultra-tall box (2.0" x 10.0") yields 120.0 DPI and triggers G32 violation', () => {
+    it('[ADV-MTE-02B] Ultra-tall box (2.0" x 10.0") yields 120.0 DPI and triggers G32 violation', async () => {
       const dpi = calculateEffectiveDpi(1600, 1200, 2.0, 10.0);
       // dpiW = 1600 / 2.0 = 800.0, dpiH = 1200 / 10.0 = 120.0 -> min = 120.0
       expect(dpi).toBe(120.0);
@@ -451,7 +451,7 @@ describe('Adversarial Stress Harness: Macro Transit Vector Engine', () => {
       expect(Math.round(check?.value ?? 0)).toBe(120);
     });
 
-    it('[ADV-MTE-02C] Tiny target box (1.0" x 1.0") yields ultra-high 1200.0 DPI without overflow', () => {
+    it('[ADV-MTE-02C] Tiny target box (1.0" x 1.0") yields ultra-high 1200.0 DPI without overflow', async () => {
       const dpi = calculateEffectiveDpi(1600, 1200, 1.0, 1.0);
       expect(dpi).toBe(1200.0);
       expect(dpi).toBeGreaterThanOrEqual(180);
@@ -594,7 +594,7 @@ describe('Adversarial Stress Harness: Macro Transit Vector Engine', () => {
 });
 
 describe('Adversarial Deep Boundary & Semantic Defect Analysis', () => {
-  it('[ADV-A22-07] Empirical Floor Capacity Boundary: N=17 and N=30 both pass G35 zero bleed', () => {
+  it('[ADV-A22-07] Empirical Floor Capacity Boundary: N=17 and N=30 both pass G35 zero bleed', async () => {
     function testFloorCountBleed(n: number): number {
       const pres = new PptxGenJS();
       pres.layout = 'LAYOUT_WIDE';
@@ -628,7 +628,7 @@ describe('Adversarial Deep Boundary & Semantic Defect Analysis', () => {
     expect(bleed30).toBe(0);
   });
 
-  it('[ADV-A22-08] Empty stacking plan array ([]) renders safely with zero floor rows and 0 bleed', () => {
+  it('[ADV-A22-08] Empty stacking plan array ([]) renders safely with zero floor rows and 0 bleed', async () => {
     const pres = new PptxGenJS();
     pres.layout = 'LAYOUT_WIDE';
     const result = buildA22StackingPlan({
@@ -644,7 +644,7 @@ describe('Adversarial Deep Boundary & Semantic Defect Analysis', () => {
     expect(layout.bleedCount).toBe(0);
   });
 
-  it('[ADV-A22-09] Malformed floor object (undefined floor property) handled safely without TypeError', () => {
+  it('[ADV-A22-09] Malformed floor object (undefined floor property) handled safely without TypeError', async () => {
     const pres = new PptxGenJS();
     pres.layout = 'LAYOUT_WIDE';
     const malformed = [{ use: '오피스', tenant: '테넌트' } as any];
@@ -661,7 +661,7 @@ describe('Adversarial Deep Boundary & Semantic Defect Analysis', () => {
     }).not.toThrow();
   });
 
-  it('[ADV-A22-10] Dynamic Table Summary Row: Accurately reflects 100% vacant asset', () => {
+  it('[ADV-A22-10] Dynamic Table Summary Row: Accurately reflects 100% vacant asset', async () => {
     const pres = new PptxGenJS();
     pres.layout = 'LAYOUT_WIDE';
     const twoFloors: StackingPlanFloor[] = [

@@ -20,7 +20,7 @@ describe('04. 온톨로지·데이터 품질·크로스-시스템 통합 테스�
   // E1. SSoT 스튜디오 편집 & 등급 실시간 계산
   // ───────────────────────────────────────────────────────────────────────────
   describe('E1. SSoT 스튜디오 편집 & 등급 실시간 계산', () => {
-    it('초기 상태: 기본 슬롯 입력 시 C등급 산출', () => {
+    it('초기 상태: 기본 슬롯 입력 시 C등급 산출', async () => {
       const initialAttrs = {
         pnu: '1144010100100000000',
         address: '서울시 마포구 양화로 100',
@@ -37,7 +37,7 @@ describe('04. 온톨로지·데이터 품질·크로스-시스템 통합 테스�
       expect(result.scorePct).toBeLessThan(THRESHOLDS.GRADE_C_MAX);
     });
 
-    it('Step 1: 면적 슬롯 추가 시 점수 상승 (50+점, C등급 유지)', () => {
+    it('Step 1: 면적 슬롯 추가 시 점수 상승 (50+점, C등급 유지)', async () => {
       const step1Attrs = {
         pnu: '1144010100100000000',
         address: '서울시 마포구 양화로 100',
@@ -55,7 +55,7 @@ describe('04. 온톨로지·데이터 품질·크로스-시스템 통합 테스�
       expect(result.scorePct).toBeGreaterThanOrEqual(10);
     });
 
-    it('Step 2: 렌트롤 및 임대차 데이터 추가 시 B등급 상승 (65+점)', () => {
+    it('Step 2: 렌트롤 및 임대차 데이터 추가 시 B등급 상승 (65+점)', async () => {
       const step2Attrs = {
         pnu: '1144010100100000000',
         address: '서울시 마포구 양화로 100',
@@ -80,7 +80,7 @@ describe('04. 온톨로지·데이터 품질·크로스-시스템 통합 테스�
       expect(result.scorePct).toBeGreaterThanOrEqual(30);
     });
 
-    it('Step 3: 재무/수익 지표 추가 시 A등급 상승 (85+점, DCF 분석 가능)', () => {
+    it('Step 3: 재무/수익 지표 추가 시 A등급 상승 (85+점, DCF 분석 가능)', async () => {
       const step3Attrs = {
         pnu: '1144010100100000000',
         address: '서울시 마포구 양화로 100',
@@ -116,7 +116,7 @@ describe('04. 온톨로지·데이터 품질·크로스-시스템 통합 테스�
   // E2. 제약 조건 검증 규칙 C01~C22
   // ───────────────────────────────────────────────────────────────────────────
   describe('E2. 제약 조건 검증 규칙 C01~C22', () => {
-    it('C02: 실제 용적률이 법정 용적률을 초과할 때 warning 생성', () => {
+    it('C02: 실제 용적률이 법정 용적률을 초과할 때 warning 생성', async () => {
       const attrs = {
         zoningRegion: '제2종일반주거지역', // max 250%
         farPct: 350,
@@ -128,7 +128,7 @@ describe('04. 온톨로지·데이터 품질·크로스-시스템 통합 테스�
       expect(c02?.message).toContain('초과');
     });
 
-    it('C11: Grade가 A가 아닌 자산에서 DCF 요청 시 error 생성', () => {
+    it('C11: Grade가 A가 아닌 자산에서 DCF 요청 시 error 생성', async () => {
       const attrs = {
         dataGrade: 'B',
         dcfRequested: true,
@@ -140,7 +140,7 @@ describe('04. 온톨로지·데이터 품질·크로스-시스템 통합 테스�
       expect(res.isValid).toBe(false);
     });
 
-    it('C13: 주소 출처가 fallback이고 신뢰도가 낮은 경우 warning 생성', () => {
+    it('C13: 주소 출처가 fallback이고 신뢰도가 낮은 경우 warning 생성', async () => {
       const attrs = {
         addressSource: 'fallback',
         addressConfidence: 0.65,
@@ -151,7 +151,7 @@ describe('04. 온톨로지·데이터 품질·크로스-시스템 통합 테스�
       expect(c13?.severity).toBe('warning');
     });
 
-    it('C15: 환산보증금 계산 불일치 시 info 메시지 생성', () => {
+    it('C15: 환산보증금 계산 불일치 시 info 메시지 생성', async () => {
       const attrs = {
         totalDepositKrw: 50000000,
         monthlyRentKrw: 2000000,
@@ -163,7 +163,7 @@ describe('04. 온톨로지·데이터 품질·크로스-시스템 통합 테스�
       expect(c15?.severity).toBe('info');
     });
 
-    it('LEVERAGE (C12): 대출금+보증금이 매매가 110% 초과 시 과다 레버리지 warning 생성', () => {
+    it('LEVERAGE (C12): 대출금+보증금이 매매가 110% 초과 시 과다 레버리지 warning 생성', async () => {
       const attrs = {
         askingPriceKrw: 8000000000,
         loanAmountKrw: 6000000000,
@@ -218,14 +218,14 @@ describe('04. 온톨로지·데이터 품질·크로스-시스템 통합 테스�
   // F1. 온보딩 → 첫 딜카드 → IM → 매칭 (풀 저니 E2E)
   // ───────────────────────────────────────────────────────────────────────────
   describe('F1. 온보딩 → 첫 딜카드 → IM → 매칭 (풀 저니)', () => {
-    it('메모 입력 및 PII 마스킹 처리 확인', () => {
+    it('메모 입력 및 PII 마스킹 처리 확인', async () => {
       const rawMemo = '마포구 합정동 근생빌딩 대지 90평 연면적 350평 5층 2010년 준공 월수입 2800만원 매도호가 65억';
       const sanitized = sanitizeMemo(rawMemo);
       expect(sanitized.sanitizedText).toBeDefined();
       expect(sanitized.injectionDetected).toBe(false);
     });
 
-    it('자연어 메모에서 슬롯 파싱 확인', () => {
+    it('자연어 메모에서 슬롯 파싱 확인', async () => {
       const memo = '마포구 합정동 근생빌딩 대지 90평 연면적 350평 5층 2010년 준공 월수입 2800만원 매도호가 65억';
       const result = extractSlotsFromMemo(memo);
       expect(result.slots.length).toBeGreaterThanOrEqual(2);
@@ -237,12 +237,12 @@ describe('04. 온톨로지·데이터 품질·크로스-시스템 통합 테스�
   // F2. 구독 티어 게이트 & 사용량 추적
   // ───────────────────────────────────────────────────────────────────────────
   describe('F2. 구독 티어 게이트 & 사용량 추적', () => {
-    it('현재 빌링 월 포맷이 YYYY-MM 형식을 따르는지 확인', () => {
+    it('현재 빌링 월 포맷이 YYYY-MM 형식을 따르는지 확인', async () => {
       const month = getCurrentBillingMonth();
       expect(month).toMatch(/^\d{4}-\d{2}$/);
     });
 
-    it('Free 티어에서 미지원 기능(im_pro, pptx_preset)이 정상 정의되어 있는지 확인', () => {
+    it('Free 티어에서 미지원 기능(im_pro, pptx_preset)이 정상 정의되어 있는지 확인', async () => {
       const freeTierFeatures = ['deal_card_creation', 'ai_matching', 'im_generation'];
       expect(freeTierFeatures).toContain('im_generation');
     });

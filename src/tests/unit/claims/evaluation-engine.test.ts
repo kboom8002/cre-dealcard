@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { ClaimEvaluationEngine } from '@/domain/building/im-core/claims/evaluation-engine';
 
 describe('ClaimEvaluationEngine (PR-B1-04 / Negative-Pair Obligation)', () => {
-  it('Positive Pair: Linear formula chain evaluates deterministically and preserves lineage', () => {
+  it('Positive Pair: Linear formula chain evaluates deterministically and preserves lineage', async () => {
     const engine = new ClaimEvaluationEngine();
 
     // monthlyRent + adminFee -> grossMonthlyIncome
@@ -38,7 +38,7 @@ describe('ClaimEvaluationEngine (PR-B1-04 / Negative-Pair Obligation)', () => {
     expect(evaluated.annual_gross_income.lineage?.formulaId).toBe('F-ANNUAL-GROSS');
   });
 
-  it('Negative Pair: Circular formula dependencies are detected and blocked at registration', () => {
+  it('Negative Pair: Circular formula dependencies are detected and blocked at registration', async () => {
     const engine = new ClaimEvaluationEngine();
 
     // A depends on B

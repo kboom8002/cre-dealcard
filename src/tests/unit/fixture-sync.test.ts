@@ -4,7 +4,7 @@ import { buildDeckSequence } from '@/domain/building/mobile-im/pptx/deck-sequenc
 import { ARCHETYPE_REGISTRY } from '@/domain/building/mobile-im/pptx/archetypes';
 
 describe('fixture-sync', () => {
-  it('Every dataKey used in buildDeckSequence output exists in DATA_KEY_ARCHETYPE', () => {
+  it('Every dataKey used in buildDeckSequence output exists in DATA_KEY_ARCHETYPE', async () => {
     const seq = buildDeckSequence ? buildDeckSequence({
       posture: 'income',
       grade: 'A',
@@ -18,20 +18,20 @@ describe('fixture-sync', () => {
     });
   });
 
-  it('Every archetype value in DATA_KEY_ARCHETYPE exists in ARCHETYPE_REGISTRY', () => {
+  it('Every archetype value in DATA_KEY_ARCHETYPE exists in ARCHETYPE_REGISTRY', async () => {
     Object.values(DATA_KEY_ARCHETYPE).forEach(archetype => {
       expect(ARCHETYPE_REGISTRY).toHaveProperty(archetype as string);
     });
   });
 
-  it('Pro-derived keys are present in DATA_KEY_ARCHETYPE', () => {
+  it('Pro-derived keys are present in DATA_KEY_ARCHETYPE', async () => {
     const proKeys = ['dcf', 'sensitivity', 'totalReturn', 'loan', 'tax', 'rentGap', 'upside', 'vacancy', 'leasing', 'current', 'remodel'];
     proKeys.forEach(key => {
       expect(DATA_KEY_ARCHETYPE).toHaveProperty(key);
     });
   });
 
-  it('No duplicate archetype assignments that could cause routing confusion', () => {
+  it('No duplicate archetype assignments that could cause routing confusion', async () => {
     expect(Object.keys(DATA_KEY_ARCHETYPE).length).toBeGreaterThan(0);
   });
 });

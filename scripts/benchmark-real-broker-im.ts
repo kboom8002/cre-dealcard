@@ -348,7 +348,7 @@ export async function runRealBrokerBenchmark() {
     },
   ];
 
-  const studioService = new PptxStudioService(true);
+  const studioService = new PptxStudioService();
   const approvalService = new StudioApprovalService();
   const results = [];
 
@@ -461,7 +461,7 @@ export async function runRealBrokerBenchmark() {
     console.log(`   - Target Hash: ${targetHash}`);
 
     // 3. Studio Project 생성
-    const project = studioService.createProject(
+    const project = await studioService.createProject(
       c.dealId,
       `pkg-${c.dealId}`,
       c.doc.title,

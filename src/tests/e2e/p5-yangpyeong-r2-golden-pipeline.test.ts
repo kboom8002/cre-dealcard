@@ -154,7 +154,7 @@ describe('P5 양평동 Income R2-Standard — 프로덕션 골든 파이프라�
   // ──────────────────────────────────────────────────
   // Step 1: 데이터셋 로드
   // ──────────────────────────────────────────────────
-  it('Step 1: 데이터셋 로드 (bottom_sheet.json + memo.txt + expected.json + 11장 사진)', () => {
+  it('Step 1: 데이터셋 로드 (bottom_sheet.json + memo.txt + expected.json + 11장 사진)', async () => {
     const t = Date.now();
 
     bottomSheet = JSON.parse(readFileSync(join(DATA_DIR, 'bottom_sheet.json'), 'utf8'));
@@ -196,7 +196,7 @@ describe('P5 양평동 Income R2-Standard — 프로덕션 골든 파이프라�
   // ──────────────────────────────────────────────────
   // Step 2: 메모 슬롯 추출
   // ──────────────────────────────────────────────────
-  it('Step 2: 메모 슬롯 추출 (extractSlotsFromMemo)', () => {
+  it('Step 2: 메모 슬롯 추출 (extractSlotsFromMemo)', async () => {
     const t = Date.now();
 
     memoSlots = extractSlotsFromMemo(memo);
@@ -221,7 +221,7 @@ describe('P5 양평동 Income R2-Standard — 프로덕션 골든 파이프라�
   // ──────────────────────────────────────────────────
   // Step 3: 재무 계산
   // ──────────────────────────────────────────────────
-  it('Step 3: 재무 계산 (calculateFinancials)', () => {
+  it('Step 3: 재무 계산 (calculateFinancials)', async () => {
     const t = Date.now();
 
     const totalDepositManwon = bottomSheet.floor_leases.reduce(
@@ -272,7 +272,7 @@ describe('P5 양평동 Income R2-Standard — 프로덕션 골든 파이프라�
   // ──────────────────────────────────────────────────
   // Step 4: 데이터 품질 배지
   // ──────────────────────────────────────────────────
-  it('Step 4: 데이터 품질 배지 (computeDataQualityBadge)', () => {
+  it('Step 4: 데이터 품질 배지 (computeDataQualityBadge)', async () => {
     const t = Date.now();
 
     const inputFlags = {
@@ -313,7 +313,7 @@ describe('P5 양평동 Income R2-Standard — 프로덕션 골든 파이프라�
   // ──────────────────────────────────────────────────
   // Step 5: 덱 시퀀서 검증
   // ──────────────────────────────────────────────────
-  it('Step 5: 덱 시퀀서 검증 (buildDeckSequence)', () => {
+  it('Step 5: 덱 시퀀서 검증 (buildDeckSequence)', async () => {
     const t = Date.now();
 
     const deckInput = {
@@ -706,7 +706,7 @@ describe('P5 양평동 Income R2-Standard — 프로덕션 골든 파이프라�
   // ──────────────────────────────────────────────────
   // Step 9: 수학적 일관성 검증 (SSoT Cross-Check)
   // ──────────────────────────────────────────────────
-  it('Step 9: 수학적 일관성 검증 (SSoT Cross-Check)', () => {
+  it('Step 9: 수학적 일관성 검증 (SSoT Cross-Check)', async () => {
     const t = Date.now();
 
     const totalDepositManwon = bottomSheet.floor_leases.reduce(

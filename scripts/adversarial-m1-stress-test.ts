@@ -483,9 +483,9 @@ async function testTamperInvalidation() {
 
   const legitimateHash = computeDeterministicClaimsHash(claimReg);
   const projectId = 'proj-seocho-tamper-test';
-  const project = studioService.createProject(projectId, 'pkg-seocho-01', '서초동 FM빌딩', 'credeal_signature');
+  const project = await studioService.createProject(projectId, 'pkg-seocho-01', '서초동 FM빌딩', 'credeal_signature');
 
-  studioService.advanceStage(project.id, 'S40_PREVIEW');
+  await studioService.advanceStage(project.id, 'S40_PREVIEW');
   const s60Event = await approvalService.approveEditorial(project, 'broker-lead', legitimateHash);
 
   const fileUrl = `/api/broker/pptx-studio/projects/${project.id}/download`;

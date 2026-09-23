@@ -11,13 +11,11 @@ import OpenAI from "openai";
 import { getDemoMobileIM, type MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
 
 import { createModuleLogger } from '@/lib/logger';
+import { createServiceClient } from '@/lib/supabase/service';
 const log = createModuleLogger('route');
 
 
 // ─── Cache ─────────────────────────────────────────────────────────
-const audioCache = new Map<string, { buffer: Buffer; createdAt: number }>();
-const scriptCache = new Map<string, { script: string; createdAt: number }>();
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1시간
 
 // ─── LLM 기반 브리핑 스크립트 생성 ─────────────────────────────────
 function getBriefingSystemPrompt(lang: string) {
@@ -62,10 +60,26 @@ async function generateBriefingScriptWithLLM(
   lang: string
 ): Promise<string> {
   const cacheKey = `${doc.buildingId}_${lang}`;
-  // 캐시 확인
-  const cached = scriptCache.get(cacheKey);
-  if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) {
-    return cached.script;
+  
+  // P4 #8: Supabase DB 캐시 확인
+  const supabase = createServiceClient();
+  try {
+    const { data: cached } = await supabase
+      .from('document_objects')
+      .select('body, created_at')
+      .eq('building_id', doc.buildingId)
+      .eq('document_type', 'tts_script')
+      .eq('title', lang)
+      .maybeSingle();
+      
+    if (cached?.body && typeof cached.body === 'object' && 'script' in cached.body) {
+      const createdAt = new Date(cached.created_at).getTime();
+      if (Date.now() - createdAt < 60 * 60 * 1000) { // 1시간 TTL
+        return (cached.body as any).script;
+      }
+    }
+  } catch (err) {
+    log.warn('[TTS] Script cache read failed:', err);
   }
 
   // 섹션 데이터를 구조화
@@ -110,7 +124,17 @@ ${sectionsText}
   const script = response.choices[0]?.message?.content?.trim() ?? "";
 
   if (script.length > 50) {
-    scriptCache.set(cacheKey, { script, createdAt: Date.now() });
+    try {
+      await supabase.from('document_objects').upsert({
+        building_id: doc.buildingId,
+        document_type: 'tts_script',
+        title: lang,
+        body: { script },
+        created_at: new Date().toISOString()
+      }, { onConflict: 'building_id,document_type,title' });
+    } catch (err) {
+      log.warn('[TTS] Script cache write failed:', err);
+    }
   }
 
   return script;
@@ -158,19 +182,27 @@ export async function GET(
   const voice = VOICE_MAP[lang] || 'nova';
 
   const cacheKey = `${buildingId}_${lang}`;
+  const BUCKET_NAME = 'tts-cache';
+  const FILE_NAME = `${cacheKey}.mp3`;
+  const supabase = createServiceClient();
 
-  // 1. 오디오 캐시 확인
-  const cached = audioCache.get(cacheKey);
-  if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) {
-    return new NextResponse(new Uint8Array(cached.buffer), {
-      status: 200,
-      headers: {
-        "Content-Type": "audio/mpeg",
-        "Content-Length": String(cached.buffer.length),
-        "Cache-Control": "public, max-age=3600",
-        "X-TTS-Source": "cache",
-      },
-    });
+  // 1. 오디오 캐시 확인 (Supabase Storage)
+  try {
+    const { data: fileData, error: downloadError } = await supabase.storage.from(BUCKET_NAME).download(FILE_NAME);
+    if (fileData) {
+      const buffer = await fileData.arrayBuffer();
+      return new NextResponse(new Uint8Array(buffer), {
+        status: 200,
+        headers: {
+          "Content-Type": "audio/mpeg",
+          "Content-Length": String(buffer.byteLength),
+          "Cache-Control": "public, max-age=3600",
+          "X-TTS-Source": "cache",
+        },
+      });
+    }
+  } catch (err) {
+    log.warn('[TTS] Audio cache read failed:', err);
   }
 
   // 2. IM 데이터 로드
@@ -179,8 +211,6 @@ export async function GET(
   if (!doc) {
     // P-C3 fix: self-fetch 대신 직접 DB 조회 (Vercel 서버리스 데드락 방지)
     try {
-      const { createServiceClient } = await import('@/lib/supabase/service');
-      const supabase = createServiceClient();
       const { data: dbDoc } = await supabase
         .from('document_objects')
         .select('body, title')
@@ -243,8 +273,17 @@ export async function GET(
     const buffer = Buffer.from(arrayBuffer);
     const uint8 = new Uint8Array(arrayBuffer);
 
-    // 6. 캐시 저장
-    audioCache.set(cacheKey, { buffer, createdAt: Date.now() });
+    // 6. 캐시 저장 (Supabase Storage)
+    try {
+      // 버킷이 없을 수 있으므로 무시하고 생성 시도
+      await supabase.storage.createBucket(BUCKET_NAME, { public: false }).catch(() => {});
+      await supabase.storage.from(BUCKET_NAME).upload(FILE_NAME, buffer, {
+        contentType: 'audio/mpeg',
+        upsert: true
+      });
+    } catch (err) {
+      log.warn('[TTS] Audio cache write failed:', err);
+    }
 
     return new NextResponse(uint8, {
       status: 200,

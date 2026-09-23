@@ -16,7 +16,7 @@ describe('PublicationPackageBuilder (PR-B1-06 / Negative-Pair Obligation)', () =
     },
   });
 
-  it('Positive Pair: Qualified data builds L1.5 PublicationPackage with triple cryptographic hash', () => {
+  it('Positive Pair: Qualified data builds L1.5 PublicationPackage with triple cryptographic hash', async () => {
     const proposals: ProposalUnit[] = [
       {
         id: 'prop-1',
@@ -53,7 +53,7 @@ describe('PublicationPackageBuilder (PR-B1-06 / Negative-Pair Obligation)', () =
     expect(pkg.claimsHash).toMatch(/^sha256:[a-f0-9]{64}$/);
   });
 
-  it('Negative Pair: Disqualified attempt to build L1.5 without proposals is rejected by eligibility check', () => {
+  it('Negative Pair: Disqualified attempt to build L1.5 without proposals is rejected by eligibility check', async () => {
     expect(() =>
       builder.build({
         dealId: 'deal-pub-test',

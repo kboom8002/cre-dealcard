@@ -86,7 +86,7 @@ describe('16 Final Acceptance Criteria Audit (FA-01 ~ FA-16 / CIM-MASTER-PLAN-v2
     },
   ];
 
-  it('should verify that all 16 Canonical Acceptance Criteria (FA-01~16) are defined', () => {
+  it('should verify that all 16 Canonical Acceptance Criteria (FA-01~16) are defined', async () => {
     expect(criteria.length).toBe(16);
     criteria.forEach((c) => {
       expect(c.id).toMatch(/^FA-\d{2}$/);
@@ -95,7 +95,7 @@ describe('16 Final Acceptance Criteria Audit (FA-01 ~ FA-16 / CIM-MASTER-PLAN-v2
     });
   });
 
-  it('should verify all required governance documents (00 through 07) exist', () => {
+  it('should verify all required governance documents (00 through 07) exist', async () => {
     const docsDir = path.join(process.cwd(), 'docs', 'impipe', 'modernization');
     const requiredDocs = [
       '00_GOVERNANCE_AND_AUTHORITY.md',
@@ -114,7 +114,7 @@ describe('16 Final Acceptance Criteria Audit (FA-01 ~ FA-16 / CIM-MASTER-PLAN-v2
     }
   });
 
-  it('should verify all phase exit reports exist and have required signer approvals', () => {
+  it('should verify all phase exit reports exist and have required signer approvals', async () => {
     const phases = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8'];
     const reportsDir = path.join(process.cwd(), 'docs', 'impipe', 'modernization');
 

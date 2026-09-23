@@ -3,7 +3,7 @@ import { InMemoryPipelineRepository } from '@/platform/im-pipeline/repository';
 import { StageOrchestrator } from '@/platform/im-pipeline/orchestrator';
 
 describe('Resumable Pipeline Runtime & Checkpoint Engine (CIM-0202 / PR-M2-02)', () => {
-  it('should execute stage initially, store envelope, and complete stage run', () => {
+  it('should execute stage initially, store envelope, and complete stage run', async () => {
     return (async () => {
       const repository = new InMemoryPipelineRepository();
       const orchestrator = new StageOrchestrator(repository);
@@ -48,7 +48,7 @@ describe('Resumable Pipeline Runtime & Checkpoint Engine (CIM-0202 / PR-M2-02)',
     })();
   });
 
-  it('should skip execution on second run and reuse cached envelope (Checkpoint / Idempotency)', () => {
+  it('should skip execution on second run and reuse cached envelope (Checkpoint / Idempotency)', async () => {
     return (async () => {
       const repository = new InMemoryPipelineRepository();
       const orchestrator = new StageOrchestrator(repository);

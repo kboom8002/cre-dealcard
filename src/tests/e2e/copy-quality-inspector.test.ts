@@ -214,7 +214,7 @@ describe('D38 카피 품질 자동 검사', () => {
         console.log(`  ✓ ${tc.name}: ${slideCount}매, ${(pptxBuffer.length / 1024).toFixed(1)}KB`);
       }, 30_000);
 
-      it('OpenXML 무결성 (NaN/undefined/null 없음)', () => {
+      it('OpenXML 무결성 (NaN/undefined/null 없음)', async () => {
         const defects = checkOpenXmlIntegrity(pptxBuffer);
         if (defects.length > 0) {
           console.error(`  ❌ OpenXML 결함:`, defects);
@@ -222,7 +222,7 @@ describe('D38 카피 품질 자동 검사', () => {
         expect(defects).toHaveLength(0);
       });
 
-      it('8대 금지 패턴 0건', () => {
+      it('8대 금지 패턴 0건', async () => {
         const violations = checkForbiddenPatterns(slideTexts, true)
           .filter(v => v.category === 'FORBIDDEN');
         if (violations.length > 0) {
@@ -231,7 +231,7 @@ describe('D38 카피 품질 자동 검사', () => {
         expect(violations).toHaveLength(0);
       });
 
-      it('CRE 용어 준수 (Rule 2)', () => {
+      it('CRE 용어 준수 (Rule 2)', async () => {
         const violations = checkForbiddenPatterns(slideTexts, true)
           .filter(v => v.category === 'CRE_LEXICON');
         if (violations.length > 0) {
@@ -240,7 +240,7 @@ describe('D38 카피 품질 자동 검사', () => {
         expect(violations).toHaveLength(0);
       });
 
-      it('페르소나 격리 (Rule 1)', () => {
+      it('페르소나 격리 (Rule 1)', async () => {
         const violations = checkForbiddenPatterns(slideTexts, true)
           .filter(v => v.category === 'PERSONA_LEAK');
         if (violations.length > 0) {
@@ -249,19 +249,19 @@ describe('D38 카피 품질 자동 검사', () => {
         expect(violations).toHaveLength(0);
       });
 
-      it('면적 표기 정상 (중복 없음)', () => {
+      it('면적 표기 정상 (중복 없음)', async () => {
         const areaPattern = /(\d[\d,.]*㎡)\s*\(약\s*\d[\d,.]*평\s*\(약\s*\d[\d,.]*㎡\)\)/g;
         const matches = allText.match(areaPattern);
         expect(matches).toBeNull();
       });
 
-      it('본문 슬라이드 ≤16매 (Rule 10)', () => {
+      it('본문 슬라이드 ≤16매 (Rule 10)', async () => {
         // 부록(Records, Title, District, Cadastral)은 제외할 수 없지만,
         // 전체 슬라이드는 합리적 범위 내에 있어야 함
         expect(slideCount).toBeLessThanOrEqual(22); // 본문 16 + 부록 최대 6
       });
 
-      it('Summary 슬라이드 존재 + 콘텐츠 비어있지 않음', () => {
+      it('Summary 슬라이드 존재 + 콘텐츠 비어있지 않음', async () => {
         // Summary 슬라이드(통상 2번째)에 의미 있는 콘텐츠 존재 확인
         expect(slideTexts.length).toBeGreaterThanOrEqual(2);
         if (slideTexts.length >= 2) {
@@ -271,7 +271,7 @@ describe('D38 카피 품질 자동 검사', () => {
         }
       });
 
-      it('체크리스트 슬라이드 존재', () => {
+      it('체크리스트 슬라이드 존재', async () => {
         // 체크리스트 슬라이드 찾기
         const checklistIdx = slideTexts.findIndex(t =>
           t.includes('체크리스트') || t.includes('Checklist') || t.includes('실사') || t.includes('확인 필요사항')
@@ -280,7 +280,7 @@ describe('D38 카피 품질 자동 검사', () => {
         expect(checklistIdx).toBeGreaterThanOrEqual(0);
       });
 
-      it('Closing 슬라이드 존재 + 면책 포함', () => {
+      it('Closing 슬라이드 존재 + 면책 포함', async () => {
         const closingIdx = slideTexts.findIndex(t =>
           t.includes('면책') || t.includes('Closing') || t.includes('표기 기준') || t.includes('Process')
         );
@@ -292,7 +292,7 @@ describe('D38 카피 품질 자동 검사', () => {
         }
       });
 
-      it('상권명 중복 없음 (2회 이하)', () => {
+      it('상권명 중복 없음 (2회 이하)', async () => {
         for (let i = 0; i < slideTexts.length; i++) {
           const text = slideTexts[i];
           const doubleRepeat = text.match(/(상권|권역)\s+\1/g);

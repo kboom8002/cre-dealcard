@@ -100,14 +100,14 @@ describe('CBRE Benchmark (NH Capital Building) E2E Pipeline', () => {
   // 1. 중개인 입력 검증 및 Negative Pair 단언
   // ─────────────────────────────────────────────────────────────
   describe('G1: Broker Input Validation & Anomaly Detection', () => {
-    it('[Positive] NH농협캐피탈 정상 입력치 0 이상치 VALID 단언', () => {
+    it('[Positive] NH농협캐피탈 정상 입력치 0 이상치 VALID 단언', async () => {
       const res = validateBrokerInput(validBrokerInput);
       expect(res.isValid).toBe(true);
       expect(res.hasCritical).toBe(false);
       expect(res.discrepancies.length).toBe(0);
     });
 
-    it('[Negative Pair] 평당가 고의 왜곡 입력 시 LAND_PRICE_PYEONG_DISCREPANCY 검출 단언', () => {
+    it('[Negative Pair] 평당가 고의 왜곡 입력 시 LAND_PRICE_PYEONG_DISCREPANCY 검출 단언', async () => {
       const tamperedInput = {
         ...validBrokerInput,
         statedLandPricePerPyeongKrw: 150000000, // 4.13억 대신 1.5억 기재 (오차 대폭 초과)
@@ -120,7 +120,7 @@ describe('CBRE Benchmark (NH Capital Building) E2E Pipeline', () => {
       expect(discrepancy?.severity).toBe('critical');
     });
 
-    it('[Negative Pair] 렌트롤 합산 불일치 시 RENTROLL_SUM_MISMATCH 검출 단언', () => {
+    it('[Negative Pair] 렌트롤 합산 불일치 시 RENTROLL_SUM_MISMATCH 검출 단언', async () => {
       const tamperedRent = {
         ...validBrokerInput,
         statedMonthlyRentKrw: 700000000, // 실제 합계 5.25억 대비 7억 기재
@@ -187,9 +187,9 @@ describe('CBRE Benchmark (NH Capital Building) E2E Pipeline', () => {
   // ─────────────────────────────────────────────────────────────
   describe('G6: Cross-Channel Consistency & Studio Approval Ledger', () => {
     it('[Positive] 웹 문서 및 Studio PPTX 프로젝트 지표 100% 일치 PASS 단언', async () => {
-      const studioService = new PptxStudioService(true);
+      const studioService = new PptxStudioService();
       const approvalService = new StudioApprovalService();
-      const project = studioService.createProject('cbre-nh-capital', 'pkg-nh', validDoc.title, 'institutional_dark_gold');
+      const project = await studioService.createProject('cbre-nh-capital', 'pkg-nh', validDoc.title, 'institutional_dark_gold');
 
       const targetHash = computeTargetHash({
         body: {
@@ -222,9 +222,9 @@ describe('CBRE Benchmark (NH Capital Building) E2E Pipeline', () => {
       expect(report.totalDiscrepancies).toBe(0);
     });
 
-    it('[Negative Pair] 웹 문서와 SSoT 간 가격 불일치 시 NUMERICAL_MISMATCH 검출 단언', () => {
-      const studioService = new PptxStudioService(true);
-      const project = studioService.createProject('cbre-nh-capital', 'pkg-nh', validDoc.title, 'institutional_dark_gold');
+    it('[Negative Pair] 웹 문서와 SSoT 간 가격 불일치 시 NUMERICAL_MISMATCH 검출 단언', async () => {
+      const studioService = new PptxStudioService();
+      const project = await studioService.createProject('cbre-nh-capital', 'pkg-nh', validDoc.title, 'institutional_dark_gold');
       // PPTX 측 overview 슬라이드 가격을 2,500억 원으로 설정
       project.slides = [
         { dataKey: 'overview', slideOverrides: { price: 250000000000 } } as any

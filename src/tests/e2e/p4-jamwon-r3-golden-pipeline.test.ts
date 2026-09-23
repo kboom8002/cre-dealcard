@@ -31,15 +31,15 @@ describe('P4 잠원 Dev R3-Verified', () => {
     if (!existsSync(OUTPUT_DIR)) mkdirSync(OUTPUT_DIR, { recursive: true });
   });
 
-  it('Step 1: 데이터셋 로드', () => {
+  it('Step 1: 데이터셋 로드', async () => {
     bottomSheet = JSON.parse(readFileSync(join(DATA_DIR, 'bottom_sheet.json'), 'utf8'));
     expect(bottomSheet.posture).toBe('development');
   });
 
-  it('Step 2: 메모 슬롯 추출', () => { expect(true).toBe(true); });
-  it('Step 3: 재무 계산', () => { expect(true).toBe(true); });
-  it('Step 4: 데이터 품질 배지', () => { expect(true).toBe(true); });
-  it('Step 5: 덱 시퀀서 검증', () => { expect(true).toBe(true); });
+  it('Step 2: 메모 슬롯 추출', async () => { expect(true).toBe(true); });
+  it('Step 3: 재무 계산', async () => { expect(true).toBe(true); });
+  it('Step 4: 데이터 품질 배지', async () => { expect(true).toBe(true); });
+  it('Step 5: 덱 시퀀서 검증', async () => { expect(true).toBe(true); });
 
   it('Step 6: PPTX 렌더링', async () => {
     const pptxInput = await createBasicImTestInput(bottomSheet, { buildingName: '두원빌딩' });
@@ -61,6 +61,6 @@ describe('P4 잠원 Dev R3-Verified', () => {
     expect(fullText.includes('242')).toBe(true);
   });
 
-  it('Step 9: 수학적 일관성 검증', () => { expect(true).toBe(true); });
+  it('Step 9: 수학적 일관성 검증', async () => { expect(true).toBe(true); });
   it('Step 10: 고화질 슬라이드 캡처', async () => { expect(true).toBe(true); });
 });

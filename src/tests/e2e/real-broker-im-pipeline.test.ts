@@ -246,7 +246,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
   // 0. SSoT 픽스처 4대 필수 건축 제원 및 3단 Key Facts 정합성 검증
   // ─────────────────────────────────────────────────────────────
   describe('R1: SSoT Standalone Fixtures 4 Mandatory Specs & 3-Tier Key Facts', () => {
-    it('[신사동 590][Positive Pair] 4대 필수 건축 제원(건축면적, 사용승인일, 주차, 승강기) SSoT 완비 단언', () => {
+    it('[신사동 590][Positive Pair] 4대 필수 건축 제원(건축면적, 사용승인일, 주차, 승강기) SSoT 완비 단언', async () => {
       expect(sinsaFixture.archAreaM2).toBe(544.70);
       expect(sinsaFixture.completionDate).toBe('1998-05-15');
       expect(sinsaFixture.parkingCount).toBe(26);
@@ -255,7 +255,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(sinsaFixture.elevatorCount).toBe(1);
     });
 
-    it('[서초동 1364-28][Positive Pair] 4대 필수 건축 제원(건축면적, 사용승인일, 주차, 승강기) SSoT 완비 단언', () => {
+    it('[서초동 1364-28][Positive Pair] 4대 필수 건축 제원(건축면적, 사용승인일, 주차, 승강기) SSoT 완비 단언', async () => {
       expect(seochoFixture.archAreaM2).toBe(296.14);
       expect(seochoFixture.completionDate).toBe('1991-01-20');
       expect(seochoFixture.parkingCount).toBe(16);
@@ -263,7 +263,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(seochoFixture.elevatorCount).toBe(1);
     });
 
-    it('[신사 & 서초][Positive Pair] 3단 그룹 Key Facts 제원표(대상지/토지/건물) 계층 구조 및 필수 항목 완비 단언', () => {
+    it('[신사 & 서초][Positive Pair] 3단 그룹 Key Facts 제원표(대상지/토지/건물) 계층 구조 및 필수 항목 완비 단언', async () => {
       for (const fix of [sinsaFixture, seochoFixture]) {
         const kf = fix.keyFacts3Tier;
         expect(kf).toBeDefined();
@@ -292,7 +292,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       }
     });
 
-    it('[Negative Pair] 4대 필수 제원 누락 시 데이터 정합성 실패 단언', () => {
+    it('[Negative Pair] 4대 필수 제원 누락 시 데이터 정합성 실패 단언', async () => {
       // 1. 건축면적(archAreaM2) 및 사용승인일(completionDate) 결손 픽스처 검증
       const missingArchFixture = { ...sinsaFixture, archAreaM2: null, completionDate: '' };
       const res1 = validateBuildingSpecs(missingArchFixture);
@@ -317,7 +317,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       );
     });
 
-    it('[Negative Pair] 3단 Key Facts 계층 누락 또는 건물 제원 라벨 누락 시 실패 단언', () => {
+    it('[Negative Pair] 3단 Key Facts 계층 누락 또는 건물 제원 라벨 누락 시 실패 단언', async () => {
       // 1. Tier 3 (건물) 계층 완전 누락 픽스처 검증
       const missingTier3Fixture = {
         ...sinsaFixture,
@@ -357,7 +357,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
   // 0.5 GBD 권역 실거래 기반 2대 감정평가 엔진 (사례비교법 + 수익환원법)
   // ─────────────────────────────────────────────────────────────
   describe('R2: GBD 2-Method Valuation Integration (사례비교법 + 수익환원법)', { timeout: 60000 }, () => {
-    it('[신사동 590][Positive Pair] 5개 GBD 비교사례 밴드(2.00억~3.18억) 및 적정 호가(2.36억), 원가법 배제 단언', () => {
+    it('[신사동 590][Positive Pair] 5개 GBD 비교사례 밴드(2.00억~3.18억) 및 적정 호가(2.36억), 원가법 배제 단언', async () => {
       const subject = {
         askingPriceKrw: sinsaFixture.askingPriceKrw,
         landAreaPyeong: sqmToPyeong(sinsaFixture.landAreaM2),
@@ -398,7 +398,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(compSection?.markdown).toContain('원가법 제외');
     });
 
-    it('[서초동 1364-28][Positive Pair] 4개 GBD 비교사례 밴드(1.30억~1.40억) 대비 할인 호가(1.28억, -4.7%) 밸류애드 단언', () => {
+    it('[서초동 1364-28][Positive Pair] 4개 GBD 비교사례 밴드(1.30억~1.40억) 대비 할인 호가(1.28억, -4.7%) 밸류애드 단언', async () => {
       const subject = {
         askingPriceKrw: seochoFixture.askingPriceKrw,
         landAreaPyeong: sqmToPyeong(seochoFixture.landAreaM2),
@@ -450,7 +450,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(compSection?.markdown).toContain('원가법 제외');
     });
 
-    it('[Negative Pair 1] 비교사례 0건 전달 시 계산 거부 예외 발생 단언 및 누락 픽스처 섹션 미생성 단언', () => {
+    it('[Negative Pair 1] 비교사례 0건 전달 시 계산 거부 예외 발생 단언 및 누락 픽스처 섹션 미생성 단언', async () => {
       // 1. 빈 비교사례 배열 시 에러 단언
       expect(() => {
         calculateSalesComparison([], {
@@ -467,7 +467,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(compSection).toBeUndefined();
     });
 
-    it('[Negative Pair 2] 유효하지 않은 Cap Rate (<= 0 또는 > 15% 비정상 시장수익률) 전달 시 예외 발생 단언', () => {
+    it('[Negative Pair 2] 유효하지 않은 Cap Rate (<= 0 또는 > 15% 비정상 시장수익률) 전달 시 예외 발생 단언', async () => {
       // 1. Cap Rate 0 이하
       expect(() => {
         calculateIncomeCapitalization({
@@ -487,7 +487,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       }).toThrowError(/15%/);
     });
 
-    it('[Negative Pair 3] 원가법 배제 사유 누락 또는 공백 시 거버넌스 단언 실패', () => {
+    it('[Negative Pair 3] 원가법 배제 사유 누락 또는 공백 시 거버넌스 단언 실패', async () => {
       const subject = {
         askingPriceKrw: sinsaFixture.askingPriceKrw,
         landAreaPyeong: sqmToPyeong(sinsaFixture.landAreaM2),
@@ -623,6 +623,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       const inspection = await inspectPptxBinary(renderResult.buffer);
       expect(inspection.brokenImageCount).toBe(0);
       expect(inspection.bleedCount).toBe(0);
+      console.log('INSPECTION:', inspection);
       expect(inspection.isPass).toBe(true);
     });
 
@@ -661,7 +662,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
     });
 
     // ── 4. 배후수요 도메인 격리 ──
-    it('[배후수요 도메인 격리][Positive Pair 4] 신사 및 서초 매물: 입지/배후수요 섹션에 거시 상권/인프라 클러스터 정상 등재 단언', () => {
+    it('[배후수요 도메인 격리][Positive Pair 4] 신사 및 서초 매물: 입지/배후수요 섹션에 거시 상권/인프라 클러스터 정상 등재 단언', async () => {
       for (const fix of [sinsaFixture, seochoFixture]) {
         const doc = buildDocFromFixture(fix);
         const catchmentSections = doc.sections.filter(
@@ -673,7 +674,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       }
     });
 
-    it('[배후수요 도메인 격리][Negative Pair 4] 입지/배후수요 섹션에 내부 임차인명(하우연, ST성형외과, 이탈로모토, 파티룸 등) 0건 유출 단언 및 오염 시 감지 단언', () => {
+    it('[배후수요 도메인 격리][Negative Pair 4] 입지/배후수요 섹션에 내부 임차인명(하우연, ST성형외과, 이탈로모토, 파티룸 등) 0건 유출 단언 및 오염 시 감지 단언', async () => {
       for (const fix of [sinsaFixture, seochoFixture]) {
         const doc = buildDocFromFixture(fix);
         const inPlaceTenants = (fix.stackingPlan || [])
@@ -711,7 +712,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
     });
 
     // ── 5. 렌트롤 도메인 정합성 ──
-    it('[렌트롤 도메인 정합성][Positive Pair 5] 렌트롤 및 스태킹 플랜에 실제 입주 임차인 정보 정상 등재 단언', () => {
+    it('[렌트롤 도메인 정합성][Positive Pair 5] 렌트롤 및 스태킹 플랜에 실제 입주 임차인 정보 정상 등재 단언', async () => {
       const sinsaDoc = buildDocFromFixture(sinsaFixture);
       const rentRoll = sinsaDoc.sections.find((s: any) => s.section_type === 'lease_status');
       expect(rentRoll).toBeDefined();
@@ -726,7 +727,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(seochoRentRoll.markdown).toContain('식당');
     });
 
-    it('[렌트롤 도메인 정합성][Negative Pair 5] 렌트롤 섹션에 거시 인구통계 단어 0건 혼입 단언 및 오염 시 감지 단언', () => {
+    it('[렌트롤 도메인 정합성][Negative Pair 5] 렌트롤 섹션에 거시 인구통계 단어 0건 혼입 단언 및 오염 시 감지 단언', async () => {
       for (const fix of [sinsaFixture, seochoFixture]) {
         const doc = buildDocFromFixture(fix);
         const rentRoll = doc.sections.find((s: any) => s.section_type === 'lease_status');
@@ -749,7 +750,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
     });
 
     // ── 6. 물리 해상도 (DPI >= 150) ──
-    it('[물리 해상도][Positive Pair 6] 1600x1200 px 벡터 맵 5.60"x4.50" 박스 실효 DPI 266.7 (G32 >= 150 DPI 및 R2 >= 180 DPI 충족) 단언', () => {
+    it('[물리 해상도][Positive Pair 6] 1600x1200 px 벡터 맵 5.60"x4.50" 박스 실효 DPI 266.7 (G32 >= 150 DPI 및 R2 >= 180 DPI 충족) 단언', async () => {
       const dpi = calculateEffectiveDpi(1600, 1200, 5.60, 4.50);
       expect(dpi).toBe(266.7);
       expect(dpi).toBeGreaterThanOrEqual(180);
@@ -759,7 +760,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(g32Violation).toBeNull();
     });
 
-    it('[물리 해상도][Negative Pair 6] 저해상도(<150 DPI) 래스터 주입 시 G32 물리 게이트 감지 및 차단 단언', () => {
+    it('[물리 해상도][Negative Pair 6] 저해상도(<150 DPI) 래스터 주입 시 G32 물리 게이트 감지 및 차단 단언', async () => {
       const lowDpi = calculateEffectiveDpi(400, 300, 5.60, 4.50);
       expect(lowDpi).toBe(66.7);
       expect(lowDpi).toBeLessThan(150);
@@ -819,7 +820,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(textRight).toBeLessThanOrEqual(13.333 - 0.62);
     });
 
-    it('[지면 물리][Negative Pair 7] 슬라이드 지면 초과 좌표 전달 시 Bleed 결함 감지 단언', () => {
+    it('[지면 물리][Negative Pair 7] 슬라이드 지면 초과 좌표 전달 시 Bleed 결함 감지 단언', async () => {
       const checkBleed = (x: number, y: number, w: number, h: number, slideW = 13.333, slideH = 7.50): boolean => {
         return (x + w > slideW) || (y + h > slideH) || x < 0 || y < 0;
       };
@@ -878,7 +879,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
   // 1. 중개인 수기 입력치 이상치 감지 및 공실 정상화 분석 검증
   // ─────────────────────────────────────────────────────────────
   describe('G1 & G3: Broker Input Anomaly Detection & Pro-Forma Vacancy Normalization', () => {
-    it('[신사동 590][Positive Pair] clean SSoT 기반 입력치 검증 및 정상 통과 단언', () => {
+    it('[신사동 590][Positive Pair] clean SSoT 기반 입력치 검증 및 정상 통과 단언', async () => {
       const sinsaInput = fixtureToBrokerInput(sinsaFixture);
       const result = validateBrokerInput(sinsaInput);
 
@@ -888,7 +889,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(landDiscrepancy).toBeUndefined();
     });
 
-    it('[신사동 590][Negative Pair] 토지 평당가 20% 초과 왜곡 시 critical 이상치 감지 단언', () => {
+    it('[신사동 590][Negative Pair] 토지 평당가 20% 초과 왜곡 시 critical 이상치 감지 단언', async () => {
       const tamperedInput = fixtureToBrokerInput(sinsaFixture, { overrideLandPrice: 350000000 }); // 약 3.5억/평
       const result = validateBrokerInput(tamperedInput);
 
@@ -899,7 +900,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(landDiscrepancy?.severity).toBe('critical');
     });
 
-    it('[서초동 1364-28][Positive Pair] 정합된 SSoT 픽스처(1.28억/평) 검증 시 Critical 이상치 0건 및 Pro-forma 기회 산출', () => {
+    it('[서초동 1364-28][Positive Pair] 정합된 SSoT 픽스처(1.28억/평) 검증 시 Critical 이상치 0건 및 Pro-forma 기회 산출', async () => {
       // 1. SSoT 픽스처 자체에 정의된 시장임대료(8.5만/평) 기준 Pro-forma 모델 단언
       expect(seochoFixture.proForma).toBeDefined();
       expect(seochoFixture.proForma.vacantFloorCount).toBe(3);
@@ -923,7 +924,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(result.proFormaOpportunity?.upsideCapRatePp).toBeGreaterThan(0.7);
     });
 
-    it('[서초동 1364-28][Negative Pair] 중개인 원본 수기 오기재(7천만 vs 1.28억) 주입 시 critical 이상치 감지 단언', () => {
+    it('[서초동 1364-28][Negative Pair] 중개인 원본 수기 오기재(7천만 vs 1.28억) 주입 시 critical 이상치 감지 단언', async () => {
       const rawInput = fixtureToBrokerInput(seochoFixture, { overrideLandPrice: seochoFixture.rawBrokerStatedLandPricePerPyeongKrw });
       const result = validateBrokerInput(rawInput);
       const landDiscrepancy = result.discrepancies.find(d => d.code === 'LAND_PRICE_PYEONG_DISCREPANCY');
@@ -935,7 +936,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(landDiscrepancy?.recommendation).toContain('1.28억');
     });
 
-    it('[미디어 유효성][Positive Pair] 표준 미디어 포맷(JPG/PNG) 검증 시 이상치 0건 정상 통과 단언', () => {
+    it('[미디어 유효성][Positive Pair] 표준 미디어 포맷(JPG/PNG) 검증 시 이상치 0건 정상 통과 단언', async () => {
       const input = fixtureToBrokerInput(sinsaFixture, {
         photoUrls: ['https://example.com/photo1.jpg', 'https://example.com/photo2.png'],
       });
@@ -944,7 +945,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(wdpDiscrepancy).toBeUndefined();
     });
 
-    it('[미디어 유효성][Negative Pair] 비표준 .wdp 미디어 포맷 감지 시 경고 발행 단언', () => {
+    it('[미디어 유효성][Negative Pair] 비표준 .wdp 미디어 포맷 감지 시 경고 발행 단언', async () => {
       const input = fixtureToBrokerInput(sinsaFixture, {
         photoUrls: ['https://example.com/photo1.jpg', 'docs/test/real-broker-im/seocho-media/hdphoto1.wdp'],
       });
@@ -1003,6 +1004,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(inspection.legalRiskViolationCount).toBe(0);
       expect(inspection.brokenImageCount).toBe(0);
       expect(inspection.defectExcuseViolationCount).toBe(0);
+      console.log('INSPECTION_1007:', inspection);
       expect(inspection.isPass).toBe(true);
     }, 60000);
 
@@ -1068,6 +1070,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(inspection.legalRiskViolationCount).toBe(0);
       expect(inspection.brokenImageCount).toBe(0);
       expect(inspection.defectExcuseViolationCount).toBe(0);
+      console.log('INSPECTION_1073:', inspection);
       expect(inspection.isPass).toBe(true);
     }, 60000);
 
@@ -1113,9 +1116,9 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
         policyVersion: 'v1.0.0',
       });
 
-      const studioService = new PptxStudioService(true);
+      const studioService = new PptxStudioService();
       const approvalService = new StudioApprovalService();
-      const project = studioService.createProject(sinsaFixture.dealId, `pkg-${sinsaFixture.dealId}`, docA.title, 'commercial_visual_grid');
+      const project = await studioService.createProject(sinsaFixture.dealId, `pkg-${sinsaFixture.dealId}`, docA.title, 'commercial_visual_grid');
 
       project.stage = 'S50_GATE_CHECK';
       const editorial = await approvalService.approveEditorial(project, 'test-auditor', hashA);
@@ -1147,7 +1150,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       expect(consistency.totalDiscrepancies).toBe(0);
     }, 60000);
 
-    it('[Negative Pair] 매매가 변조 시 Target Hash 불일치 및 크로스 채널 불일치 검출 단언', () => {
+    it('[Negative Pair] 매매가 변조 시 Target Hash 불일치 및 크로스 채널 불일치 검출 단언', async () => {
       const docA = {
         title: sinsaFixture.title,
         address: sinsaFixture.address,

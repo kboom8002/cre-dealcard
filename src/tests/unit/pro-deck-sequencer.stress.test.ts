@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   buildProDeckSequence,
   PRO_PAGE_HARD_LIMIT,
@@ -61,7 +61,7 @@ describe('Adversarial Stress Test: Pro Deck Sequencer & Basic Deck Sequencer Inv
   // Section 1: Posture Diversity Stress Test
   // ==========================================================================
   describe('1. Posture Diversity Stress Test', () => {
-    it('produces >= 30 slides for EVERY posture in buildProDeckSequence', () => {
+    it('produces >= 30 slides for EVERY posture in buildProDeckSequence', async () => {
       for (const posture of ALL_POSTURES) {
         const seq = buildProDeckSequence({ posture, grade: 'B' });
 
@@ -71,7 +71,7 @@ describe('Adversarial Stress Test: Pro Deck Sequencer & Basic Deck Sequencer Inv
       }
     });
 
-    it('ensures development posture includes development feasibility budgeting', () => {
+    it('ensures development posture includes development feasibility budgeting', async () => {
       const devSeq = buildProDeckSequence({ posture: 'development', grade: 'B' });
       const devKeys = devSeq.map(s => s.dataKey);
 
@@ -85,7 +85,7 @@ describe('Adversarial Stress Test: Pro Deck Sequencer & Basic Deck Sequencer Inv
       expect(devKeys).not.toContain('debt_financing');
     });
 
-    it('ensures non-development postures include debt financing and exclude development budget', () => {
+    it('ensures non-development postures include debt financing and exclude development budget', async () => {
       const nonDevPostures = ALL_POSTURES.filter(p => p !== 'development');
 
       for (const posture of nonDevPostures) {
@@ -102,7 +102,7 @@ describe('Adversarial Stress Test: Pro Deck Sequencer & Basic Deck Sequencer Inv
       }
     });
 
-    it('verifies all 5 core chapter dividers exist for EVERY posture', () => {
+    it('verifies all 5 core chapter dividers exist for EVERY posture', async () => {
       for (const posture of ALL_POSTURES) {
         const seq = buildProDeckSequence({ posture, grade: 'B' });
         const dividers = seq.filter(s => s.archetype === 'A25');
@@ -112,7 +112,7 @@ describe('Adversarial Stress Test: Pro Deck Sequencer & Basic Deck Sequencer Inv
       }
     });
 
-    it('verifies minimum slide counts per chapter for EVERY posture', () => {
+    it('verifies minimum slide counts per chapter for EVERY posture', async () => {
       for (const posture of ALL_POSTURES) {
         const seq = buildProDeckSequence({ posture, grade: 'B' });
         const keys = seq.map(s => s.dataKey);
@@ -143,7 +143,7 @@ describe('Adversarial Stress Test: Pro Deck Sequencer & Basic Deck Sequencer Inv
   // Section 2: Strict Isolation Stress Test (Basic IM vs Pro IM)
   // ==========================================================================
   describe('2. Strict Isolation Stress Test (Basic IM)', () => {
-    it('verifies buildDeckSequence with credeal_basic produces strictly <= 16 slides (8-10 slides)', () => {
+    it('verifies buildDeckSequence with credeal_basic produces strictly <= 16 slides (7-9 slides)', async () => {
       for (const posture of ALL_POSTURES) {
         const basicSeq = buildDeckSequence({
           posture,
@@ -161,13 +161,13 @@ describe('Adversarial Stress Test: Pro Deck Sequencer & Basic Deck Sequencer Inv
         expect(basicSeq.length, `Basic IM ${posture} slide count`).toBeLessThanOrEqual(PAGE_HARD_LIMIT);
         expect(PAGE_HARD_LIMIT).toBe(16);
 
-        // Expected 8-10 slides
-        expect(basicSeq.length, `Basic IM ${posture} slide count`).toBeGreaterThanOrEqual(8);
-        expect(basicSeq.length, `Basic IM ${posture} slide count`).toBeLessThanOrEqual(10);
+        // Expected 7-9 slides
+        expect(basicSeq.length, `Basic IM ${posture} slide count`).toBeGreaterThanOrEqual(7);
+        expect(basicSeq.length, `Basic IM ${posture} slide count`).toBeLessThanOrEqual(9);
       }
     });
 
-    it('ensures Basic IM NEVER leaks any Pro IM chapter dividers or exclusive slides', () => {
+    it('ensures Basic IM NEVER leaks any Pro IM chapter dividers or exclusive slides', async () => {
       for (const posture of ALL_POSTURES) {
         const basicSeq = buildDeckSequence({
           posture,
@@ -194,7 +194,7 @@ describe('Adversarial Stress Test: Pro Deck Sequencer & Basic Deck Sequencer Inv
       }
     });
 
-    it('adversarial conflict test: preset credeal_basic takes absolute precedence over isPro/proMode', () => {
+    it('adversarial conflict test: preset credeal_basic takes absolute precedence over isPro/proMode', async () => {
       const conflictingInput: DeckSequenceInput = {
         posture: 'income',
         preset: 'credeal_basic',
@@ -210,8 +210,8 @@ describe('Adversarial Stress Test: Pro Deck Sequencer & Basic Deck Sequencer Inv
 
       const seq = buildDeckSequence(conflictingInput);
 
-      // Must strictly resolve to Basic IM (10 slides), NOT Pro IM (36 slides)
-      expect(seq.length).toBe(10);
+      // Must strictly resolve to Basic IM (9 slides), NOT Pro IM (36 slides)
+      expect(seq.length).toBe(9);
       expect(seq.length).toBeLessThanOrEqual(PAGE_HARD_LIMIT);
 
       const keys = seq.map(s => s.dataKey);
@@ -219,7 +219,7 @@ describe('Adversarial Stress Test: Pro Deck Sequencer & Basic Deck Sequencer Inv
       expect(keys).not.toContain('dcf_schedule');
     });
 
-    it('data availability exhaustion: Basic IM produces valid minimal sequence under zero data', () => {
+    it('data availability exhaustion: Basic IM produces valid minimal sequence under zero data', async () => {
       for (const posture of ALL_POSTURES) {
         const minimalSeq = buildDeckSequence({
           posture,
@@ -254,7 +254,7 @@ describe('Adversarial Stress Test: Pro Deck Sequencer & Basic Deck Sequencer Inv
   // Section 3: Boundary, Scalability & Defensive Stress Tests
   // ==========================================================================
   describe('3. Boundary, Scalability & Defensive Stress Tests', () => {
-    it('Grade D rejection (Gate G30) strictly blocks both Basic and Pro IM', () => {
+    it('Grade D rejection (Gate G30) strictly blocks both Basic and Pro IM', async () => {
       // Basic IM with Grade D
       expect(() => {
         buildDeckSequence({
@@ -278,7 +278,7 @@ describe('Adversarial Stress Test: Pro Deck Sequencer & Basic Deck Sequencer Inv
       expect(() => buildProDeckSequence({ posture: 'income', grade: 'C' })).not.toThrow();
     });
 
-    it('handles degenerate and empty inputs to buildProDeckSequence safely', () => {
+    it('handles degenerate and empty inputs to buildProDeckSequence safely', async () => {
       // No arguments
       const seqEmpty = buildProDeckSequence();
       expect(seqEmpty.length).toBe(36);
@@ -297,7 +297,7 @@ describe('Adversarial Stress Test: Pro Deck Sequencer & Basic Deck Sequencer Inv
       expect(seqUndef.length).toBe(36);
     });
 
-    it('tenant roster chunking scalability stress test: never exceeds PRO_PAGE_HARD_LIMIT (40)', () => {
+    it('tenant roster chunking scalability stress test: never exceeds PRO_PAGE_HARD_LIMIT (40)', async () => {
       const tenantCountsToTest = [0, 1, 10, 12, 13, 24, 30, 36, 48, 60, 72, 84, 120, 500];
 
       for (const count of tenantCountsToTest) {
@@ -329,7 +329,7 @@ describe('Adversarial Stress Test: Pro Deck Sequencer & Basic Deck Sequencer Inv
       }
     });
 
-    it('verifies bindProImChapterData across all 5 postures produces 0 poison tokens', () => {
+    it('verifies bindProImChapterData across all 5 postures produces 0 poison tokens', async () => {
       const mockDoc = {
         title: '신사동 프라임 빌딩',
         body: {

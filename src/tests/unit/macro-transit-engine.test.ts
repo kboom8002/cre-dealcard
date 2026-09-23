@@ -30,7 +30,7 @@ import { buildA06Diagram } from '../../domain/building/mobile-im/pptx/archetypes
 
 describe('Macro Transit Vector Diagram Engine (M2 / R2)', () => {
   describe('DPI Calculations and Thresholds', () => {
-    it('M2-DPI-01: Default 1600x1200 px in 5.60"x4.50" box achieves 266.7 DPI (exceeds 180+ DPI and passes G32)', () => {
+    it('M2-DPI-01: Default 1600x1200 px in 5.60"x4.50" box achieves 266.7 DPI (exceeds 180+ DPI and passes G32)', async () => {
       const dpi = calculateEffectiveDpi(DEFAULT_WIDTH, DEFAULT_HEIGHT, DEFAULT_TARGET_BOX.w, DEFAULT_TARGET_BOX.h);
       expect(dpi).toBe(266.7);
       expect(dpi).toBeGreaterThanOrEqual(TARGET_EFFECTIVE_DPI_R2); // 180 DPI
@@ -44,7 +44,7 @@ describe('Macro Transit Vector Diagram Engine (M2 / R2)', () => {
       expect(r2Check).toBeNull();
     });
 
-    it('M2-DPI-01-NEG: Low-resolution raster (< 150 DPI) fails G32 gate', () => {
+    it('M2-DPI-01-NEG: Low-resolution raster (< 150 DPI) fails G32 gate', async () => {
       const lowW = 600;
       const lowH = 450;
       const dpi = calculateEffectiveDpi(lowW, lowH, DEFAULT_TARGET_BOX.w, DEFAULT_TARGET_BOX.h);
@@ -198,7 +198,7 @@ describe('Macro Transit Vector Diagram Engine (M2 / R2)', () => {
       expect(svg).toContain('➔ YBD (여의도 15분)');
     });
 
-    it('M2-DIST-03: detectDistrict correctly identifies district from address keywords', () => {
+    it('M2-DIST-03: detectDistrict correctly identifies district from address keywords', async () => {
       expect(detectDistrict('서울 영등포구 여의도동 34-1')).toBe('YBD');
       expect(detectDistrict('서울 강남구 테헤란로 152')).toBe('GBD');
       expect(detectDistrict('서울 서초구 서초대로 301')).toBe('GBD');
@@ -225,7 +225,7 @@ describe('Macro Transit Vector Diagram Engine (M2 / R2)', () => {
       await expect(generateMacroTransitDiagram({ format: 'gif' as any })).rejects.toThrow('Unsupported output format');
     });
 
-    it('M2-VAL-04: Escapes XML characters in propertyName preventing injection', () => {
+    it('M2-VAL-04: Escapes XML characters in propertyName preventing injection', async () => {
       const escaped = escapeXml('Acme & Partners <Tower> "Prime" \'Asset\'');
       expect(escaped).toBe('Acme &amp; Partners &lt;Tower&gt; &quot;Prime&quot; &apos;Asset&apos;');
 
@@ -350,7 +350,7 @@ describe('Macro Transit Vector Diagram Engine (M2 / R2)', () => {
       expect(result.coreDistrictArrows).toContain('판교 (10분)');
     });
 
-    it('M3-DIST-03: detectSubDistrict auto-resolves Sinsa, Seocho, and Teheran from address keywords', () => {
+    it('M3-DIST-03: detectSubDistrict auto-resolves Sinsa, Seocho, and Teheran from address keywords', async () => {
       expect(detectSubDistrict('서울특별시 강남구 신사동 590')).toBe('GBD_SINSA');
       expect(detectSubDistrict('서울특별시 강남구 도산대로 123')).toBe('GBD_SINSA');
       expect(detectSubDistrict('서울특별시 서초구 서초동 1364-28')).toBe('GBD_SEOCHO');
@@ -358,7 +358,7 @@ describe('Macro Transit Vector Diagram Engine (M2 / R2)', () => {
       expect(detectSubDistrict('서울특별시 강남구 테헤란로 152')).toBe('GBD_TEHERAN');
     });
 
-    it('M3-DIST-03-NEG: detectSubDistrict returns undefined for non-GBD address', () => {
+    it('M3-DIST-03-NEG: detectSubDistrict returns undefined for non-GBD address', async () => {
       expect(detectSubDistrict('강원도 원주시 단계동 100')).toBeUndefined();
       expect(detectSubDistrict('서울 영등포구 여의도동 34-1')).toBeUndefined();
     });

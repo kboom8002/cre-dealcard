@@ -174,7 +174,7 @@ export async function runYangpyeongTheRedBenchmark() {
   // 5. Studio PPTX 프로젝트 및 슬라이드 데이터 바인딩
   console.log(`\n▶ [Step 5] PptxStudioService 프로젝트 생성 (Preset: institutional_slate):`);
   const studioService = new PptxStudioService();
-  const project = studioService.createProject(
+  const project = await studioService.createProject(
     'yangpyeong-the-red',
     'pkg-yp-the-red',
     fixture.title,

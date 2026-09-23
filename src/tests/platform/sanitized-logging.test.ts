@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { sanitizePii, PipelineTelemetry } from '@/platform/im-pipeline/telemetry';
 
 describe('Pipeline Telemetry & PII Sanitized Logging (CIM-0205 / PR-M2-05)', () => {
-  it('should mask phone numbers, registration numbers and sensitive keys in payloads', () => {
+  it('should mask phone numbers, registration numbers and sensitive keys in payloads', async () => {
     const rawPayload = {
       dealId: 'deal-123',
       ownerName: '홍길동',
@@ -22,7 +22,7 @@ describe('Pipeline Telemetry & PII Sanitized Logging (CIM-0205 / PR-M2-05)', () 
     expect(sanitized.memoExcerpt).toBe('소유자 연락처는 [REDACTED:PII] 이며 즉시 계약 가능함');
   });
 
-  it('should record execution duration and status metrics', () => {
+  it('should record execution duration and status metrics', async () => {
     const telemetry = new PipelineTelemetry();
 
     telemetry.recordMetric({

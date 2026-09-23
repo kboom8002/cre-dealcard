@@ -67,7 +67,7 @@ describe.skipIf(!existsSync(DATA_DIR))('P2 신사 Trading R3-Verified', () => {
     if (!existsSync(CAPTURES_DIR)) mkdirSync(CAPTURES_DIR, { recursive: true });
   });
 
-  it('Step 1: 데이터셋 로드', () => {
+  it('Step 1: 데이터셋 로드', async () => {
     bottomSheet = JSON.parse(readFileSync(join(DATA_DIR, 'bottom_sheet.json'), 'utf8'));
     memo = readFileSync(join(DATA_DIR, 'memo.txt'), 'utf8');
     expected = JSON.parse(readFileSync(join(DATA_DIR, 'expected.json'), 'utf8'));
@@ -75,22 +75,22 @@ describe.skipIf(!existsSync(DATA_DIR))('P2 신사 Trading R3-Verified', () => {
     expect(bottomSheet.posture).toBe('trading');
   });
 
-  it('Step 2: 메모 슬롯 추출', () => {
+  it('Step 2: 메모 슬롯 추출', async () => {
     memoSlots = extractSlotsFromMemo(memo);
     expect(memoSlots).toBeDefined();
   });
 
-  it('Step 3: 재무 계산', () => {
+  it('Step 3: 재무 계산', async () => {
     financials = calculateFinancials({ posture: 'trading', purchasePriceKrw: 76000000000, monthlyRentKrw: 0, totalAreaSqm: 100, platAreaSqm: 100, vacancyRatePct: 0, totalDepositManwon: 0 });
     expect(financials).toBeDefined();
   });
 
-  it('Step 4: 데이터 품질 배지', () => {
+  it('Step 4: 데이터 품질 배지', async () => {
     badge = computeDataQualityBadge({ hasAddress: true, hasPhotos: true } as any, 'trading');
     expect(badge).toBeDefined();
   });
 
-  it('Step 5: 덱 시퀀서 검증', () => {
+  it('Step 5: 덱 시퀀서 검증', async () => {
     const sequence = buildDeckSequence({ posture: 'trading', grade: 'A', hasPhotos: true, preset: 'credeal_basic', dataAvailability: {} });
     // expected.json 기반 바운드 단언 (m-3: 미사용 expected.json 연동)
     expect(sequence.length).toBeGreaterThanOrEqual(expected?.expectedMinSlides ?? 7);
@@ -124,7 +124,7 @@ describe.skipIf(!existsSync(DATA_DIR))('P2 신사 Trading R3-Verified', () => {
     expect(fullText.includes('760')).toBe(true);
   });
 
-  it('Step 9: 수학적 일관성 검증', () => {
+  it('Step 9: 수학적 일관성 검증', async () => {
     const consistency = verifyMathematicalConsistency({ noi: 0, askingPrice: 76000000000, initialCapRatePct: 0 }, { year1Noi: 0, grossSalePrice: 76000000000 });
     expect(consistency.isConsistent).toBe(true);
   });

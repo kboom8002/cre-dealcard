@@ -277,7 +277,7 @@ describe('Milestone 3: Quality Assurance & Poison Prevention Binary Gates Suite'
   });
 
   // ── Test 9: verifyMathematicalConsistency SSoT Validation ──
-  it('Test 9: verifyMathematicalConsistency enforces SSoT mathematical equality', () => {
+  it('Test 9: verifyMathematicalConsistency enforces SSoT mathematical equality', async () => {
     // 9a. Consistent inputs
     const consistent = verifyMathematicalConsistency(
       {

@@ -77,7 +77,7 @@ describe('Empirical Challenger 1: validateBuildingSpecs & buildDocFromFixture St
   // 1. Clean Fixtures Acceptance Oracle
   // =========================================================================
   describe('1. Clean Fixtures Acceptance Oracle', () => {
-    it('[Clean Oracle] sinsa-590-fixture is accepted without errors', () => {
+    it('[Clean Oracle] sinsa-590-fixture is accepted without errors', async () => {
       const res = validateBuildingSpecs(sinsaFixture);
       expect(res.isValid).toBe(true);
       expect(res.missingSpecs).toHaveLength(0);
@@ -89,7 +89,7 @@ describe('Empirical Challenger 1: validateBuildingSpecs & buildDocFromFixture St
       expect(doc.sections.find(s => s.section_type === 'property_overview')).toBeDefined();
     });
 
-    it('[Clean Oracle] seocho-1364-28-fixture is accepted without errors', () => {
+    it('[Clean Oracle] seocho-1364-28-fixture is accepted without errors', async () => {
       const res = validateBuildingSpecs(seochoFixture);
       expect(res.isValid).toBe(true);
       expect(res.missingSpecs).toHaveLength(0);
@@ -106,7 +106,7 @@ describe('Empirical Challenger 1: validateBuildingSpecs & buildDocFromFixture St
   // 2. Individual Missing Spec Mutations (4 Mandatory Specs)
   // =========================================================================
   describe('2. Individual Missing Spec Mutations', () => {
-    it('[Mutation archAreaM2] rejects null, undefined, zero, negative, non-number string', () => {
+    it('[Mutation archAreaM2] rejects null, undefined, zero, negative, non-number string', async () => {
       const testCases = [
         { val: undefined, reason: 'undefined' },
         { val: null, reason: 'null' },
@@ -129,7 +129,7 @@ describe('Empirical Challenger 1: validateBuildingSpecs & buildDocFromFixture St
       }
     });
 
-    it('[Mutation completionDate] rejects missing, empty, malformed, non-YYYY-MM-DD formats', () => {
+    it('[Mutation completionDate] rejects missing, empty, malformed, non-YYYY-MM-DD formats', async () => {
       const testCases = [
         { val: undefined, reason: 'undefined' },
         { val: null, reason: 'null' },
@@ -155,7 +155,7 @@ describe('Empirical Challenger 1: validateBuildingSpecs & buildDocFromFixture St
       }
     });
 
-    it('[Mutation parkingCount] rejects null, undefined, negative counts, non-number string, accepts 0', () => {
+    it('[Mutation parkingCount] rejects null, undefined, negative counts, non-number string, accepts 0', async () => {
       const rejectCases = [
         { val: undefined, reason: 'undefined' },
         { val: null, reason: 'null' },
@@ -183,7 +183,7 @@ describe('Empirical Challenger 1: validateBuildingSpecs & buildDocFromFixture St
       expect(resZero.missingSpecs).not.toContain('parkingCount');
     });
 
-    it('[Mutation elevatorCount] rejects null, undefined, negative counts, non-number string, accepts 0', () => {
+    it('[Mutation elevatorCount] rejects null, undefined, negative counts, non-number string, accepts 0', async () => {
       const rejectCases = [
         { val: undefined, reason: 'undefined' },
         { val: null, reason: 'null' },
@@ -216,7 +216,7 @@ describe('Empirical Challenger 1: validateBuildingSpecs & buildDocFromFixture St
   // 3. 3-Tier Key Facts Structural Mutations
   // =========================================================================
   describe('3. 3-Tier Key Facts Structural Mutations', () => {
-    it('[Mutation missing tier3_building] detects missing tier3 and drops property_overview section', () => {
+    it('[Mutation missing tier3_building] detects missing tier3 and drops property_overview section', async () => {
       const mutated = {
         ...sinsaFixture,
         keyFacts3Tier: {
@@ -239,7 +239,7 @@ describe('Empirical Challenger 1: validateBuildingSpecs & buildDocFromFixture St
         .toThrow(/Key Facts Tier 3/);
     });
 
-    it('[Mutation empty tier3_building array] detects empty tier3', () => {
+    it('[Mutation empty tier3_building array] detects empty tier3', async () => {
       const mutated = {
         ...sinsaFixture,
         keyFacts3Tier: {
@@ -256,7 +256,7 @@ describe('Empirical Challenger 1: validateBuildingSpecs & buildDocFromFixture St
       expect(doc.sections.find(s => s.section_type === 'property_overview')).toBeUndefined();
     });
 
-    it('[Mutation missing tier1_subject or tier2_land] detects missing tier and drops section', () => {
+    it('[Mutation missing tier1_subject or tier2_land] detects missing tier and drops section', async () => {
       // Missing tier1
       const noTier1 = {
         ...sinsaFixture,
@@ -320,7 +320,7 @@ describe('Empirical Challenger 1: validateBuildingSpecs & buildDocFromFixture St
       });
     });
 
-    it('[Mutation Tier 1 Labels] missing 소재지 or 매각희망가 or Cap Rate causes rejection', () => {
+    it('[Mutation Tier 1 Labels] missing 소재지 or 매각희망가 or Cap Rate causes rejection', async () => {
       for (const t1Target of ['소재지', '매각희망가', '수익률']) {
         const mutated = {
           ...sinsaFixture,
@@ -337,7 +337,7 @@ describe('Empirical Challenger 1: validateBuildingSpecs & buildDocFromFixture St
       }
     });
 
-    it('[Mutation Tier 2 Labels] missing 대지면적 or 용도지역 causes rejection', () => {
+    it('[Mutation Tier 2 Labels] missing 대지면적 or 용도지역 causes rejection', async () => {
       for (const t2Target of ['대지면적', '용도지역']) {
         const mutated = {
           ...sinsaFixture,
@@ -359,7 +359,7 @@ describe('Empirical Challenger 1: validateBuildingSpecs & buildDocFromFixture St
   // 5. Robustness against Malformed / Fuzzed Inputs
   // =========================================================================
   describe('5. Robustness against Malformed / Fuzzed Inputs', () => {
-    it('handles null, undefined, primitive, and empty object inputs without throwing unhandled exceptions', () => {
+    it('handles null, undefined, primitive, and empty object inputs without throwing unhandled exceptions', async () => {
       const malformedInputs = [
         null,
         undefined,
@@ -378,7 +378,7 @@ describe('Empirical Challenger 1: validateBuildingSpecs & buildDocFromFixture St
       }
     });
 
-    it('handles corrupted row entries in keyFacts3Tier without crashing', () => {
+    it('handles corrupted row entries in keyFacts3Tier without crashing', async () => {
       const corruptedRowsInput = {
         ...sinsaFixture,
         keyFacts3Tier: {
@@ -433,7 +433,7 @@ describe('Empirical Challenger 1: validateBuildingSpecs & buildDocFromFixture St
   // 7. Empirical Adversarial Challenge: IEEE 754 NaN & Unsafe Row Edge Cases
   // =========================================================================
   describe('7. Adversarial Challenge Findings (Bypass & Crash Risks)', () => {
-    it('[VULNERABILITY FINDING 1] IEEE 754 NaN bypasses archAreaM2 check because (NaN <= 0) is false', () => {
+    it('[VULNERABILITY FINDING 1] IEEE 754 NaN bypasses archAreaM2 check because (NaN <= 0) is false', async () => {
       // In JS: typeof NaN === 'number', NaN == null is false, and (NaN <= 0) is false!
       // Therefore, validateBuildingSpecs evaluates archAreaM2: NaN as valid!
       const nanArch = { ...sinsaFixture, archAreaM2: NaN };
@@ -443,7 +443,7 @@ describe('Empirical Challenger 1: validateBuildingSpecs & buildDocFromFixture St
       expect(res.isValid).toBe(true); // Demonstrates the gap: should ideally be false
     });
 
-    it('[VULNERABILITY FINDING 2] IEEE 754 NaN bypasses parkingCount & elevatorCount checks', () => {
+    it('[VULNERABILITY FINDING 2] IEEE 754 NaN bypasses parkingCount & elevatorCount checks', async () => {
       // Similarly, (NaN < 0) is false, so parkingCount: NaN and elevatorCount: NaN are not caught
       const nanParkingAndElevator = { ...sinsaFixture, parkingCount: NaN, elevatorCount: NaN };
       const res = validateBuildingSpecs(nanParkingAndElevator);
@@ -452,7 +452,7 @@ describe('Empirical Challenger 1: validateBuildingSpecs & buildDocFromFixture St
       expect(res.isValid).toBe(true); // Demonstrates the gap: should ideally be false
     });
 
-    it('[VULNERABILITY FINDING 3] Malformed row entry [null, ...] in tier1_subject throws unhandled TypeError on .includes', () => {
+    it('[VULNERABILITY FINDING 3] Malformed row entry [null, ...] in tier1_subject throws unhandled TypeError on .includes', async () => {
       // In tier1_subject:
       // if (!t1Labels.some((l: string) => l.includes('Cap Rate') || l.includes('수익률')))
       // If t1 contains [null, 'value'] as the FIRST or ONLY entry, l is null.

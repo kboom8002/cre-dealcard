@@ -243,14 +243,16 @@ vi.mock('@/lib/supabase/service', () => {
           };
         }
 
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({ data: null, error: null }),
-              single: async () => ({ data: null, error: null }),
-            }),
-          }),
+        const builder: any = {
+          select: () => builder,
+          eq: () => builder,
+          in: () => builder,
+          order: () => builder,
+          limit: () => builder,
+          maybeSingle: async () => ({ data: null, error: null }),
+          single: async () => ({ data: null, error: null })
         };
+        return builder;
       },
     }),
   };
@@ -627,7 +629,7 @@ describe('Empirical Adversarial Challenge Suite: Milestone M4', () => {
   // CHALLENGE 4: SSR & Client Rendering Resilience (CTALadder & /nda/[id])
   // ══════════════════════════════════════════════════════════════════════════
   describe('Challenge 4: SSR and Client Rendering Resilience', () => {
-    it('SSR 4.1: CTALadder does not crash when executed in Node/SSR environment (window undefined)', () => {
+    it('SSR 4.1: CTALadder does not crash when executed in Node/SSR environment (window undefined)', async () => {
       setupReactDispatcher(false, vi.fn());
 
       // Simulate SSR environment where window might not be standard browser window
@@ -667,7 +669,7 @@ describe('Empirical Adversarial Challenge Suite: Milestone M4', () => {
       ).rejects.toThrow('NOT_FOUND');
     });
 
-    it('Client 4.4: NDASignatureForm renders properly in both initial and already-signed states', () => {
+    it('Client 4.4: NDASignatureForm renders properly in both initial and already-signed states', async () => {
       setupReactDispatcher(false, vi.fn());
 
       // Initial state

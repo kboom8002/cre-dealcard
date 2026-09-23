@@ -106,7 +106,7 @@ describe('5 Real Cases E2E Gate & Pipeline Tests', () => {
   }
 
   // 1. G01 양평동 250억 (Income): G19 표지 월세 불일치 및 G21 미검증 문서 차단
-  it('G01 Yangpyeong (250억, Income): blocks G19 when monthly rent differs by 3.6M, blocks G21 on unverified doc', () => {
+  it('G01 Yangpyeong (250억, Income): blocks G19 when monthly rent differs by 3.6M, blocks G21 on unverified doc', async () => {
     // 표지 앵커는 4,000만원인데 원장 합계는 3,640만원 (360만원 불일치)
     const g01Core = createBaseCore({
       anchors: {
@@ -138,7 +138,7 @@ describe('5 Real Cases E2E Gate & Pipeline Tests', () => {
   });
 
   // 2. G02 당산동 115억 (Income): C19 면적 20.8% 모순 차단 & LTV 50% 역레버리지 검증
-  it('G02 Dangsan (115억, Income): blocks C19 on 20.8% area mismatch & detects negative leverage', () => {
+  it('G02 Dangsan (115억, Income): blocks C19 on 20.8% area mismatch & detects negative leverage', async () => {
     // 대장 연면적 1,000㎡ vs 호실 임대면적 합계 1,208㎡ (20.8% 초과 > 2% 허용치)
     const g02Core = createBaseCore({
       physical: {
@@ -166,7 +166,7 @@ describe('5 Real Cases E2E Gate & Pipeline Tests', () => {
   });
 
   // 3. G03 역삼동 120억 사옥 (OwnerOccupied): 사옥형 점유비용 및 자가 vs 임차 절감액 산출
-  it('G03 Yeoksam (120억, OwnerOccupied): evaluates occupancy cost and own vs lease savings', () => {
+  it('G03 Yeoksam (120억, OwnerOccupied): evaluates occupancy cost and own vs lease savings', async () => {
     const ownFin = calculateOwnerOccupiedFinancials({
       askingPriceKrw: 12_000_000_000,
       totalGrossAreaPyung: 350,
@@ -179,7 +179,7 @@ describe('5 Real Cases E2E Gate & Pipeline Tests', () => {
   });
 
   // 4. G06 잠원동 332억 (Development): 2종일반 용적률 250% 상한 및 한시 완화 기한 적용
-  it('G06 Jamwon (332억, Development): enforces 250% FAR ceiling for type-2 residential & includes acquisition tax', () => {
+  it('G06 Jamwon (332억, Development): enforces 250% FAR ceiling for type-2 residential & includes acquisition tax', async () => {
     const devFin = calculateDevelopmentFinancials({
       landAreaSqm: 660, // 200평
       askingPriceKrw: 33_200_000_000,
@@ -194,7 +194,7 @@ describe('5 Real Cases E2E Gate & Pipeline Tests', () => {
   });
 
   // 5. G07 대치동 150억 (Trading): Comps 부재 시 목표 매각가 미산출
-  it('G07 Daechi (150억, Trading): leaves target exit price null when comps are not provided', () => {
+  it('G07 Daechi (150억, Trading): leaves target exit price null when comps are not provided', async () => {
     const tradeFin = calculateTradingFinancials({
       askingPriceKrw: 15_000_000_000,
       manualComps: null, // comps 미제공

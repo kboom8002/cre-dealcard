@@ -91,7 +91,7 @@ describe('Mobile IM L1.5 Publication E2E Flow (PR-B2-04 / Negative-Pair Obligati
     expect(thesisSection?.content).not.toContain('60대 자산가');
   });
 
-  it('Negative Pair: Illegal investment guarantee (수익률 보장) is rejected during L1.5 card generation', () => {
+  it('Negative Pair: Illegal investment guarantee (수익률 보장) is rejected during L1.5 card generation', async () => {
     const proposalsWithGuarantee: ProposalUnit[] = [
       {
         id: 'prop-guarantee',

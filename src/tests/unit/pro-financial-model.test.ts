@@ -18,14 +18,14 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
   // 1. Newton-Raphson IRR Solver
   // ==========================================================================
   describe('Newton-Raphson IRR Solver', () => {
-    it('accurately solves benchmark 3-year cash flows', () => {
+    it('accurately solves benchmark 3-year cash flows', async () => {
       // Invest 1,000, receive 100, 100, 1100 -> exactly 10.00%
       const irr = calculateIrrNewtonRaphson([-1000, 100, 100, 1100]);
       expect(irr).not.toBeNull();
       expect(irr).toBe(10.0);
     });
 
-    it('accurately solves realistic commercial 10-year hold cash flows', () => {
+    it('accurately solves realistic commercial 10-year hold cash flows', async () => {
       // 50B acquisition, ~2.5B annual NOI, 60B exit proceeds
       const cashFlows = [
         -50_000_000_000,
@@ -46,7 +46,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       expect(irr!).toBeLessThan(8.0);
     });
 
-    it('gracefully returns null for invalid inputs or no sign change', () => {
+    it('gracefully returns null for invalid inputs or no sign change', async () => {
       expect(calculateIrrNewtonRaphson([])).toBeNull();
       expect(calculateIrrNewtonRaphson([-100])).toBeNull();
       expect(calculateIrrNewtonRaphson([100, 200, 300])).toBeNull(); // all positive
@@ -77,7 +77,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       },
     };
 
-    it('generates 10-year projection arrays maintaining mathematical identities', () => {
+    it('generates 10-year projection arrays maintaining mathematical identities', async () => {
       const cf = generateMultiYearCashFlow(defaultInput);
 
       expect(cf.years).toHaveLength(10);
@@ -106,7 +106,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       }
     });
 
-    it('correctly calculates terminal exit valuation and net proceeds', () => {
+    it('correctly calculates terminal exit valuation and net proceeds', async () => {
       const cf = generateMultiYearCashFlow(defaultInput);
       const exit = cf.exitAssumptions;
 
@@ -117,7 +117,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       expect(exit.netProceeds).toBe(exit.grossSalePrice - exit.dispositionCosts);
     });
 
-    it('calculates initial cap rate and positive unlevered IRR', () => {
+    it('calculates initial cap rate and positive unlevered IRR', async () => {
       const cf = generateMultiYearCashFlow(defaultInput);
       const expectedCapRate = Number(((cf.noi[0] / 50_000_000_000) * 100).toFixed(2));
 
@@ -126,7 +126,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       expect(cf.metrics.npvKrw).toBeDefined();
     });
 
-    it('models levered cash flows, debt service, and positive financial leverage', () => {
+    it('models levered cash flows, debt service, and positive financial leverage', async () => {
       const leveredInput: MultiYearCashFlowInput = {
         ...defaultInput,
         debtFinancing: {
@@ -154,7 +154,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       expect(cf.metrics.averageCashOnCashPct).toBeGreaterThan(0);
     });
 
-    it('supports fully amortizing debt schedules over holding period', () => {
+    it('supports fully amortizing debt schedules over holding period', async () => {
       const amortInput: MultiYearCashFlowInput = {
         ...defaultInput,
         debtFinancing: {
@@ -192,7 +192,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       vacancyRatePct: 3.0,
     };
 
-    it('generates a 5x5 grid of exit cap rates vs discount rates', () => {
+    it('generates a 5x5 grid of exit cap rates vs discount rates', async () => {
       const result = generate2DSensitivityMatrix(baseInput);
 
       expect(result.matrix2D.exitCapRates).toHaveLength(5);
@@ -206,7 +206,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       }
     });
 
-    it('preserves institutional monotonicity in the sensitivity matrix', () => {
+    it('preserves institutional monotonicity in the sensitivity matrix', async () => {
       const result = generate2DSensitivityMatrix(baseInput);
       const { exitCapRates, discountRates, unleveredIrrGrid, npvGridKrw } =
         result.matrix2D;
@@ -226,7 +226,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       }
     });
 
-    it('generates Base, Moderate, and Severe vacancy stress test scenarios', () => {
+    it('generates Base, Moderate, and Severe vacancy stress test scenarios', async () => {
       const result = generate2DSensitivityMatrix(baseInput);
       const scenarios = result.vacancyStressScenarios;
 
@@ -258,7 +258,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
   // 4. 5-Tier Development Feasibility Budget Engine
   // ==========================================================================
   describe('generateDevelopmentFeasibilityBudget', () => {
-    it('computes 5-tier budget with exact subtotal and total balance', () => {
+    it('computes 5-tier budget with exact subtotal and total balance', async () => {
       const budget = generateDevelopmentFeasibilityBudget({
         landPriceKrw: 20_000_000_000, // 토지대 200억
         targetGfaPyeong: 1_500, // 연면적 1,500평
@@ -313,7 +313,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       expect(budget.equityIrrPct).toBeGreaterThan(0);
     });
 
-    it('honors custom line-item overrides across tiers', () => {
+    it('honors custom line-item overrides across tiers', async () => {
       const budget = generateDevelopmentFeasibilityBudget({
         landPriceKrw: 10_000_000_000,
         targetGfaPyeong: 800,
@@ -353,7 +353,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       })
     );
 
-    it('splits 26 tenants into 3 chunks with 12 items limit', () => {
+    it('splits 26 tenants into 3 chunks with 12 items limit', async () => {
       const chunks = chunkTenantRoster(mockTenants, 12);
 
       expect(chunks).toHaveLength(3);
@@ -378,7 +378,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       expect(chunks[2].grandTotal).toBeDefined();
     });
 
-    it('verifies running subtotals sum up exactly to the grand total on the final page', () => {
+    it('verifies running subtotals sum up exactly to the grand total on the final page', async () => {
       const chunks = chunkTenantRoster(mockTenants, 12);
       const grandTotal = chunks[2].grandTotal!;
 
@@ -406,7 +406,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       expect(grandTotal.tenantCount).toBe(26);
     });
 
-    it('handles empty tenant list gracefully', () => {
+    it('handles empty tenant list gracefully', async () => {
       const chunks = chunkTenantRoster([]);
       expect(chunks).toHaveLength(1);
       expect(chunks[0].items).toHaveLength(0);
@@ -465,7 +465,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       },
     ];
 
-    it('accurately computes rent-weighted and area-weighted WALE', () => {
+    it('accurately computes rent-weighted and area-weighted WALE', async () => {
       const wale = calculateProWALE(sampleRoster, asOfDate);
 
       expect(wale.waleByRentYears).toBeGreaterThan(2.0);
@@ -478,7 +478,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       expect(wale.activeTenantCount).toBe(3);
     });
 
-    it('correctly calculates 12-month and 24-month lease expiry risk percentages', () => {
+    it('correctly calculates 12-month and 24-month lease expiry risk percentages', async () => {
       const wale = calculateProWALE(sampleRoster, asOfDate);
 
       // Only StartUp A (5M) expires within 12 months: 5M / 35M = 14.29%
@@ -488,7 +488,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       expect(wale.expiringWithin24mPct).toBe(42.86);
     });
 
-    it('handles empty or expired leases without throwing or returning NaN', () => {
+    it('handles empty or expired leases without throwing or returning NaN', async () => {
       const emptyWale = calculateProWALE([], asOfDate);
       expect(emptyWale.waleByRentYears).toBe(0);
       expect(emptyWale.waleByAreaYears).toBe(0);
@@ -544,7 +544,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       },
     };
 
-    it('passes 100% with 0 discrepancy when executive and detail schedules match exactly', () => {
+    it('passes 100% with 0 discrepancy when executive and detail schedules match exactly', async () => {
       const result = validateProImFinancialConsistency(perfectInput);
 
       expect(result.passed).toBe(true);
@@ -556,7 +556,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       });
     });
 
-    it('detects and fails on asking price discrepancy', () => {
+    it('detects and fails on asking price discrepancy', async () => {
       const corruptedInput: ProImFinancialConsistencyInput = {
         ...perfectInput,
         executiveSummary: {
@@ -577,7 +577,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       expect(askingCheck!.discrepancyKrwOrUnit).toBe(2_000_000_000);
     });
 
-    it('detects and fails on Year 1 NOI discrepancy', () => {
+    it('detects and fails on Year 1 NOI discrepancy', async () => {
       const corruptedInput: ProImFinancialConsistencyInput = {
         ...perfectInput,
         executiveSummary: {
@@ -594,7 +594,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       expect(noiCheck!.passed).toBe(false);
     });
 
-    it('detects and fails on Initial Cap Rate formula mismatch', () => {
+    it('detects and fails on Initial Cap Rate formula mismatch', async () => {
       const corruptedInput: ProImFinancialConsistencyInput = {
         ...perfectInput,
         executiveSummary: {
@@ -611,7 +611,7 @@ describe('Pro Financial Model & Tenancy Suite (Milestone 1)', () => {
       expect(capCheck!.passed).toBe(false);
     });
 
-    it('detects and fails on Tenant Roster Total Rent discrepancy', () => {
+    it('detects and fails on Tenant Roster Total Rent discrepancy', async () => {
       const corruptedInput: ProImFinancialConsistencyInput = {
         ...perfectInput,
         detailSchedule: {

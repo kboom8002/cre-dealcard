@@ -749,8 +749,8 @@ export function buildOperatingRevenueProps(
     : '산출 중';
 
   const stats = [
-    { label: '연간 총매출', value: annualRevBil !== '-' ? `약 ${annualRevBil}억원` : '-' },
-    { label: '연간 GOP', value: gopBil !== '-' ? `약 ${gopBil}억원` : '-' },
+    { label: '연간 총매출', value: annualRevBil !== '-' ? `약 ${annualRevBil}억원` : '확인 필요' },
+    { label: '연간 GOP', value: gopBil !== '-' ? `약 ${gopBil}억원` : '확인 필요' },
     { label: 'GOP Cap Rate', value: typeof gopCapRate === 'string' && gopCapRate === '산출 중' ? gopCapRate : `${gopCapRate}%` },
   ];
 

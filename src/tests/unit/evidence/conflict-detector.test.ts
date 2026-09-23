@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { EvidenceService } from '@/domain/building/im-core/evidence/evidence-service';
 
 describe('Evidence Conflict Detector (PR-B1-01 / Negative-Pair Obligation)', () => {
-  it('Positive Pair: Discrepancy <= 0.5% produces NO conflict', () => {
+  it('Positive Pair: Discrepancy <= 0.5% produces NO conflict', async () => {
     const service = new EvidenceService();
     const dealId = 'deal-evidence-pos';
 
@@ -28,7 +28,7 @@ describe('Evidence Conflict Detector (PR-B1-01 / Negative-Pair Obligation)', () 
     expect(conflicts.length).toBe(0);
   });
 
-  it('Negative Pair: Discrepancy > 0.5% triggers explicit Conflict record and requires resolution', () => {
+  it('Negative Pair: Discrepancy > 0.5% triggers explicit Conflict record and requires resolution', async () => {
     const service = new EvidenceService();
     const dealId = 'deal-evidence-neg';
 

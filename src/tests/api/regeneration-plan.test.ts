@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createRegenerationPlan } from '@/platform/im-pipeline/regeneration/planner';
 
 describe('RegenerationPlan API & Calculator (PR-B4-03 / Negative-Pair Obligation)', () => {
-  it('Positive Pair: Mobile layout change retains all upstream CORE stages as reusable', () => {
+  it('Positive Pair: Mobile layout change retains all upstream CORE stages as reusable', async () => {
     const plan = createRegenerationPlan('deal-regen-1', 'mobile_layout_changed', [
       'P10',
       'P20',
@@ -24,7 +24,7 @@ describe('RegenerationPlan API & Calculator (PR-B4-03 / Negative-Pair Obligation
     expect(plan.invalidatedApprovalIds.length).toBe(0);
   });
 
-  it('Negative Pair: Raw data change invalidates all approvals and requires full pipeline rerun', () => {
+  it('Negative Pair: Raw data change invalidates all approvals and requires full pipeline rerun', async () => {
     const plan = createRegenerationPlan('deal-regen-2', 'raw_data_update', [
       'P10',
       'P30',

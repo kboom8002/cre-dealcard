@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!recreate) {
-      const existing = studioService.findProjectByDealId(dealId);
+      const existing = await studioService.findProjectByDealId(dealId);
       if (existing) {
         return NextResponse.json({
           ok: true,
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const project = studioService.createProject(
+    const project = await studioService.createProject(
       dealId,
       packageId || `pkg-${Date.now()}`,
       title || 'CRE 투자설명서 (IM)',

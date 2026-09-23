@@ -367,7 +367,7 @@ describe('Adversarial Stress Test: Milestone 3 Quality Assurance & Poison Preven
   // Section 4: Mathematical SSoT Consistency Validator Stress Testing
   // =========================================================================
   describe('4. Mathematical SSoT Consistency Validator Stress Testing', () => {
-    it('4.1: Confirms 0.00% discrepancy for mathematically synchronized inputs', () => {
+    it('4.1: Confirms 0.00% discrepancy for mathematically synchronized inputs', async () => {
       const synchronized = verifyMathematicalConsistency(
         {
           noi: 650_000_000,
@@ -384,7 +384,7 @@ describe('Adversarial Stress Test: Milestone 3 Quality Assurance & Poison Preven
       expect(synchronized.discrepancies).toHaveLength(0);
     });
 
-    it('4.2: Tolerates minor rounding within 0.01% for financial sums and 0.05%p for Cap Rate', () => {
+    it('4.2: Tolerates minor rounding within 0.01% for financial sums and 0.05%p for Cap Rate', async () => {
       // 650,000,000 vs 650,040,000 => diff 40,000 KRW = 0.00615% <= 0.01%
       // 13,000,000,000 vs 13,000,800,000 => diff 800,000 KRW = 0.00615% <= 0.01%
       // Cap rate derived: (650M / 13B) = 5.000%, summary = 5.03% => diff 0.03%p <= 0.05%p
@@ -404,7 +404,7 @@ describe('Adversarial Stress Test: Milestone 3 Quality Assurance & Poison Preven
       expect(withinTolerance.discrepancies).toHaveLength(0);
     });
 
-    it('4.3: Catches small 0.02% NOI discrepancy exceeding the 0.01% tolerance threshold', () => {
+    it('4.3: Catches small 0.02% NOI discrepancy exceeding the 0.01% tolerance threshold', async () => {
       // 650,000,000 vs 650,130,000 => diff 130,000 KRW = 0.02% > 0.01%
       const noiMismatch = verifyMathematicalConsistency(
         {
@@ -424,7 +424,7 @@ describe('Adversarial Stress Test: Milestone 3 Quality Assurance & Poison Preven
       expect(noiMismatch.discrepancies[0]).toContain('0.02%');
     });
 
-    it('4.4: Catches small 0.02% Asking Price discrepancy exceeding the 0.01% tolerance threshold', () => {
+    it('4.4: Catches small 0.02% Asking Price discrepancy exceeding the 0.01% tolerance threshold', async () => {
       // 13,000,000,000 vs 13,002,600,000 => diff 2,600,000 KRW = 0.02% > 0.01%
       const priceMismatch = verifyMathematicalConsistency(
         {
@@ -444,7 +444,7 @@ describe('Adversarial Stress Test: Milestone 3 Quality Assurance & Poison Preven
       expect(priceMismatch.discrepancies[0]).toContain('0.02%');
     });
 
-    it('4.5: Catches Cap Rate formula mismatch when claimed rate deviates by > 0.05%p', () => {
+    it('4.5: Catches Cap Rate formula mismatch when claimed rate deviates by > 0.05%p', async () => {
       // Derived Cap Rate: 650,000,000 / 13,000,000,000 = 5.00%
       // Claimed: 5.10% (diff 0.10%p > 0.05%p)
       const capRateMismatch = verifyMathematicalConsistency(
@@ -465,7 +465,7 @@ describe('Adversarial Stress Test: Milestone 3 Quality Assurance & Poison Preven
       expect(capRateMismatch.discrepancies[0]).toContain('0.1000%p');
     });
 
-    it('4.6: Handles partial inputs gracefully without crashing', () => {
+    it('4.6: Handles partial inputs gracefully without crashing', async () => {
       // Missing detail
       const partial1 = verifyMathematicalConsistency(
         { noi: 500_000_000, askingPrice: 10_000_000_000 },
@@ -485,7 +485,7 @@ describe('Adversarial Stress Test: Milestone 3 Quality Assurance & Poison Preven
       expect(empty.isConsistent).toBe(true);
     });
 
-    it('4.7 (Adversarial Edge Case Analysis): Denominator zero edge case bypasses discrepancy detection', () => {
+    it('4.7 (Adversarial Edge Case Analysis): Denominator zero edge case bypasses discrepancy detection', async () => {
       // When summary.askingPrice === 0 and detail.grossSalePrice === 10_000_000_000:
       // denom = Math.abs(0) = 0 => diffPct = 0 => diff > 1 && diffPct > 0.01 is false!
       const zeroSummaryPrice = verifyMathematicalConsistency(

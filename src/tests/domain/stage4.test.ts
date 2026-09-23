@@ -4,13 +4,13 @@ import { evaluateBrokerGiveToGetAccess, generateCollectiveInsightSummary } from 
 import { generateCoBrokerageAgreementTemplate } from '@/domain/handoff/p2p-template';
 
 describe('Photo Auto-Classifier & Safety Guard (Stage 4 - Track MI)', () => {
-  it('classifies exterior photo and flags it as restricted for Basic IM', () => {
+  it('classifies exterior photo and flags it as restricted for Basic IM', async () => {
     const photo = classifyAssetPhoto('p-1', '성수동_건물_외관_전경.jpg');
     expect(photo.category).toBe('exterior_front');
     expect(photo.isPublicSafe).toBe(false);
   });
 
-  it('filters out exterior photos for Basic IM but retains all for Pro IM', () => {
+  it('filters out exterior photos for Basic IM but retains all for Pro IM', async () => {
     const photos = [
       classifyAssetPhoto('p-1', '외관_전경.jpg'),
       classifyAssetPhoto('p-2', '사무실_내부.jpg'),
@@ -26,13 +26,13 @@ describe('Photo Auto-Classifier & Safety Guard (Stage 4 - Track MI)', () => {
 });
 
 describe('Give-to-Get Collective Insights (Stage 4 - Track K)', () => {
-  it('grants insight access to contributing brokers', () => {
+  it('grants insight access to contributing brokers', async () => {
     const status = evaluateBrokerGiveToGetAccess(3);
     expect(status.hasAccessToInsights).toBe(true);
     expect(status.tier).toBe('contributor');
   });
 
-  it('gates statistics if N sample size is less than 5', () => {
+  it('gates statistics if N sample size is less than 5', async () => {
     const smallSample = [
       { askingVsClosingGapPct: 4.5 },
       { askingVsClosingGapPct: 5.0 },
@@ -42,7 +42,7 @@ describe('Give-to-Get Collective Insights (Stage 4 - Track K)', () => {
     expect(summary.avgAskingVsClosingGapPct).toBeNull();
   });
 
-  it('computes collective insights when sample size N >= 5', () => {
+  it('computes collective insights when sample size N >= 5', async () => {
     const sample = [
       { askingVsClosingGapPct: 5.0, falloutReason: 'loan_rejected' },
       { askingVsClosingGapPct: 4.0, falloutReason: 'price_too_high' },
@@ -58,7 +58,7 @@ describe('Give-to-Get Collective Insights (Stage 4 - Track K)', () => {
 });
 
 describe('P2P Agreement Template (Stage 4 - Track P2P)', () => {
-  it('generates co-brokerage agreement text and prohibits automated fee distribution', () => {
+  it('generates co-brokerage agreement text and prohibits automated fee distribution', async () => {
     const template = generateCoBrokerageAgreementTemplate({
       listingBrokerName: '성수부동산',
       coBrokerName: '강남부동산',

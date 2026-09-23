@@ -117,7 +117,7 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
   }
 
   // 1. UT-YIELD-01: 운영비를 모르면 NOI를 산출하지 않는다
-  it('UT-YIELD-01: does not calculate NOI when opex is null', () => {
+  it('UT-YIELD-01: does not calculate NOI when opex is null', async () => {
     const fin = calculateIncomeFinancials({
       askingPriceKrw: 10_000_000_000,
       monthlyRentTotalKrw: 40_000_000,
@@ -128,7 +128,7 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
   });
 
   // 2. TC-BASIS-01 & UT-YIELD-02: 수익률에 basis가 없으면 안 되고 gross 계열은 "순수익률" 라벨 미포함
-  it('UT-YIELD-02 & TC-BASIS-01: gross yield label must not include "순수익률"', () => {
+  it('UT-YIELD-02 & TC-BASIS-01: gross yield label must not include "순수익률"', async () => {
     const core = createTestCore();
     const grossYield = core.yields['gross_price'];
     expect(grossYield).toBeDefined();
@@ -138,7 +138,7 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
   });
 
   // 3. UT-DEV-01: 용도지역 조회 실패 시 개발 규모 미산출 & Deficiency 생성
-  it('UT-DEV-01: does not calculate dev scale when zoning is null', () => {
+  it('UT-DEV-01: does not calculate dev scale when zoning is null', async () => {
     const devFin = calculateDevelopmentFinancials({
       landAreaSqm: 500,
       askingPriceKrw: 10_000_000_000,
@@ -149,7 +149,7 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
   });
 
   // 4. UT-TRADE-01: comps 없으면 목표 매각가 미산출 (매입가 x 1.2 등 임의 추정 금지)
-  it('UT-TRADE-01: exit price is null when comps are missing', () => {
+  it('UT-TRADE-01: exit price is null when comps are missing', async () => {
     const tradeFin = calculateTradingFinancials({
       askingPriceKrw: 10_000_000_000,
       manualComps: null, // comps 부재
@@ -159,23 +159,23 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
   });
 
   // 5. UT-COMPS-01 & UT-COMPS-02: 300억 초과 구간 manual comps 강제
-  it('UT-COMPS-01: requires manual comps for price > 30 billion (B4)', () => {
+  it('UT-COMPS-01: requires manual comps for price > 30 billion (B4)', async () => {
     expect(requiresManualComps(35_000_000_000)).toBe(true);
   });
 
-  it('UT-COMPS-02: allows auto comps for price <= 30 billion (B3)', () => {
+  it('UT-COMPS-02: allows auto comps for price <= 30 billion (B3)', async () => {
     expect(requiresManualComps(15_000_000_000)).toBe(false);
   });
 
   // 6. GT-G17-01: 업종 및 상호는 원문 그대로 보존 (추론 금지)
-  it('GT-G17-01: preserves tenant name exactly without AI hallucination', () => {
+  it('GT-G17-01: preserves tenant name exactly without AI hallucination', async () => {
     const rawTenant = '스타벅스 양평점 (주)스타벅스코리아';
     const row: Partial<LeaseRow> = { tenantBusiness: rawTenant };
     expect(row.tenantBusiness).toBe(rawTenant);
   });
 
   // 7. UT-LEASE-01: 최초계약일 기산 상가 10년 갱신권 만기 산출
-  it('UT-LEASE-01: calculates 10-year commercial renewal date from first contract', () => {
+  it('UT-LEASE-01: calculates 10-year commercial renewal date from first contract', async () => {
     const result: any = commercialVacatePoint({
       unitLabel: '101',
       leaseAreaSqm: 100,
@@ -191,7 +191,7 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
   });
 
   // 8. UT-LEASE-02: 주택 임대차 1회(+2년) 갱신요구권 산출
-  it('UT-LEASE-02: calculates residential renewal protection', () => {
+  it('UT-LEASE-02: calculates residential renewal protection', async () => {
     const result: any = residentialVacatePoint({
       unitLabel: '201',
       leaseAreaSqm: 80,
@@ -207,7 +207,7 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
   });
 
   // 9. UT-LEDGER-01: 자가사용 행은 공실률 계산에서 분모/분자 모두 제외
-  it('UT-LEDGER-01: owner-occupied unit is excluded from vacancy calculation', () => {
+  it('UT-LEDGER-01: owner-occupied unit is excluded from vacancy calculation', async () => {
     const leases: any[] = [
       { unitLabel: '101', leaseAreaSqm: 100, leaseState: '임대중', monthlyRentKrw: 1000, depositKrw: 1000, legalBasis: 'commercial' },
       { unitLabel: '201', leaseAreaSqm: 200, leaseState: '공실', monthlyRentKrw: 0, depositKrw: 0, legalBasis: 'commercial' },
@@ -223,7 +223,7 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
   });
 
   // 10. UT-MASK-01: public 마스킹 시 deficiencies(확인사항)는 투명하게 보존
-  it('UT-MASK-01: deficiencies are preserved without loss in public mask', () => {
+  it('UT-MASK-01: deficiencies are preserved without loss in public mask', async () => {
     const core = createTestCore({
       deficiencies: [
         { slotKey: 'rentRoll', reason: '렌트롤 결손', severity: 'block', affects: ['CAP_DCF'], nextBest: '임대차계약서 입력' },
@@ -235,7 +235,7 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
   });
 
   // 11. UT-MASK-02: public 마스킹 시 임차인 상호 및 상세 주소 마스킹
-  it('UT-MASK-02: scrubs tenant names and street addresses in public mask', () => {
+  it('UT-MASK-02: scrubs tenant names and street addresses in public mask', async () => {
     const core = createTestCore();
     const masked = applyMask(core, 'public');
     expect(masked.address.raw).not.toContain('123-45');
@@ -243,7 +243,7 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
   });
 
   // 12. UT-DEF-01: 결손 필드 탐지 시 Deficiency 생성 및 nextBest 제공
-  it('UT-DEF-01: audits missing fields and creates deficiency with next best action', () => {
+  it('UT-DEF-01: audits missing fields and creates deficiency with next best action', async () => {
     const deficiencies = auditDeficiencies({
       posture: 'development',
       leases: [
@@ -256,7 +256,7 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
   });
 
   // 13. GT-MODE-01: 결정적 게이트는 Strict 모드 및 Fast 모드에서도 완벽 동작
-  it('GT-MODE-01: deterministic gates run consistently', () => {
+  it('GT-MODE-01: deterministic gates run consistently', async () => {
     const core = createTestCore();
     const report = runDeterministicGates({ core });
     expect(report.allPassed).toBe(true);
@@ -264,7 +264,7 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
   });
 
   // 14. RG-A03-01: 렌트롤 12행 지원 및 "외 N건은 별첨 참조" 정제
-  it('RG-A03-01: strips "외 N건은 별첨 참조" pollution', () => {
+  it('RG-A03-01: strips "외 N건은 별첨 참조" pollution', async () => {
     const rawNote = '1층 커피전문점 외 3건은 별첨 참조 // 보증금 합계 일치';
     const cleaned = rawNote.replace(/외\s*\d*건은\s*별첨\s*참조/g, '').replace(/\/\/\s*$/, '').trim();
     expect(cleaned).not.toContain('외 3건은 별첨 참조');
@@ -272,7 +272,7 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
   });
 
   // 15. RG-HERO-01: Hero 지표 밴딩 포맷 정합성
-  it('RG-HERO-01: formats banded prices and yields accurately', () => {
+  it('RG-HERO-01: formats banded prices and yields accurately', async () => {
     expect(formatBandedPrice(19_500_000_000)).toBe('190억 원대');
     expect(formatBandedPrice(8_500_000_000)).toBe('80억 원대');
     expect(formatBandedYield(4.5)).toBe('4%대 중반');
@@ -281,7 +281,7 @@ describe('21 Invariant Unit Tests (TEST_PLAN.md §2)', () => {
   });
 
   // 16. UT-CLEAN-01: Golden IM 저장 전 페르소나 및 마크다운 정제
-  it('UT-CLEAN-01: sanitizes persona and removes unwanted markdown symbols', () => {
+  it('UT-CLEAN-01: sanitizes persona and removes unwanted markdown symbols', async () => {
     const textWithPersona = '60대 자산가를 위한 고수익 상가건물 ✨';
     const sanitized = sanitizePersonaInGoldenIM(textWithPersona);
     expect(sanitized).not.toContain('60대 자산가를 위한');

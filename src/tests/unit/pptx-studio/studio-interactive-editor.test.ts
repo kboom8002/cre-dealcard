@@ -11,9 +11,9 @@ import { GET as downloadPptx } from '@/app/api/broker/pptx-studio/projects/[id]/
 
 describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration Test Suite', () => {
   describe('Domain Service: PptxStudioService', () => {
-    it('initializes project adhering to Rule 10 16-slide body hard limit and isolated appendices', () => {
-      const service = new PptxStudioService(true);
-      const project = service.createProject(
+    it('initializes project adhering to Rule 10 16-slide body hard limit and isolated appendices', async () => {
+      const service = new PptxStudioService();
+      const project = await service.createProject(
         'deal-m3-001',
         'pkg-m3-001',
         '강남 테헤란로 프라임 오피스 타워'
@@ -39,9 +39,9 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
       });
     });
 
-    it('Positive Pair: Reorders slides and re-indexes sequentially from 1', () => {
-      const service = new PptxStudioService(true);
-      const project = service.createProject('deal-m3-002', 'pkg-m3-002', '여의도 금융센터');
+    it('Positive Pair: Reorders slides and re-indexes sequentially from 1', async () => {
+      const service = new PptxStudioService();
+      const project = await service.createProject('deal-m3-002', 'pkg-m3-002', '여의도 금융센터');
 
       const originalFirstSlide = project.slides[0];
       const originalSecondSlide = project.slides[1];
@@ -53,7 +53,7 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
         ...project.slides.slice(2).map((s) => s.id),
       ];
 
-      const updated = service.reorderSlides(project.id, reorderedIds, 1);
+      const updated = await service.reorderSlides(project.id, reorderedIds, 1);
 
       expect(updated.lockVersion).toBe(2);
       expect(updated.slides[0].id).toBe(originalSecondSlide.id);
@@ -62,52 +62,52 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
       expect(updated.slides[1].slideIndex).toBe(2);
     });
 
-    it('Negative Pair: Reorder with stale lockVersion is blocked with STALE_LOCK_ERROR', () => {
-      const service = new PptxStudioService(true);
-      const project = service.createProject('deal-m3-003', 'pkg-m3-003', '판교 테크원 타워');
+    it('Negative Pair: Reorder with stale lockVersion is blocked with STALE_LOCK_ERROR', async () => {
+      const service = new PptxStudioService();
+      const project = await service.createProject('deal-m3-003', 'pkg-m3-003', '판교 테크원 타워');
 
       // First reorder advances lockVersion 1 -> 2
-      service.reorderSlides(project.id, project.slides.map((s) => s.id).reverse(), 1);
+      await service.reorderSlides(project.id, project.slides.map((s) => s.id).reverse(), 1);
 
       // Stale reorder with lockVersion 1 must fail
       expect(() => {
-        service.reorderSlides(project.id, project.slides.map((s) => s.id), 1);
+        await service.reorderSlides(project.id, project.slides.map((s) => s.id), 1);
       }).toThrowError(/STALE_LOCK_ERROR/);
     });
 
-    it('Positive Pair: Toggles slide visibility between visible and hidden', () => {
-      const service = new PptxStudioService(true);
-      const project = service.createProject('deal-m3-004', 'pkg-m3-004', '성수동 복합오피스');
+    it('Positive Pair: Toggles slide visibility between visible and hidden', async () => {
+      const service = new PptxStudioService();
+      const project = await service.createProject('deal-m3-004', 'pkg-m3-004', '성수동 복합오피스');
 
       const targetSlide = project.slides[2];
       expect(targetSlide.hidden).toBe(false);
 
       // Hide slide
-      const hidden = service.toggleSlideVisibility(project.id, targetSlide.id, true, 1);
+      const hidden = await service.toggleSlideVisibility(project.id, targetSlide.id, true, 1);
       expect(hidden.slides.find((s) => s.id === targetSlide.id)?.hidden).toBe(true);
       expect(hidden.lockVersion).toBe(2);
 
       // Unhide slide
-      const unhidden = service.toggleSlideVisibility(project.id, targetSlide.id, false, 2);
+      const unhidden = await service.toggleSlideVisibility(project.id, targetSlide.id, false, 2);
       expect(unhidden.slides.find((s) => s.id === targetSlide.id)?.hidden).toBe(false);
       expect(unhidden.lockVersion).toBe(3);
     });
 
-    it('Negative Pair: Toggling visibility of nonexistent slide throws SLIDE_NOT_FOUND', () => {
-      const service = new PptxStudioService(true);
-      const project = service.createProject('deal-m3-005', 'pkg-m3-005', '종로 타워');
+    it('Negative Pair: Toggling visibility of nonexistent slide throws SLIDE_NOT_FOUND', async () => {
+      const service = new PptxStudioService();
+      const project = await service.createProject('deal-m3-005', 'pkg-m3-005', '종로 타워');
 
       expect(() => {
-        service.toggleSlideVisibility(project.id, 'non-existent-slide-id', true, 1);
+        await service.toggleSlideVisibility(project.id, 'non-existent-slide-id', true, 1);
       }).toThrowError(/SLIDE_NOT_FOUND/);
     });
 
-    it('Positive Pair: Patches slide text overrides (title, kicker, leadSentence, price)', () => {
-      const service = new PptxStudioService(true);
-      const project = service.createProject('deal-m3-006', 'pkg-m3-006', '한남동 하이엔드');
+    it('Positive Pair: Patches slide text overrides (title, kicker, leadSentence, price)', async () => {
+      const service = new PptxStudioService();
+      const project = await service.createProject('deal-m3-006', 'pkg-m3-006', '한남동 하이엔드');
 
       const slide = project.slides[0];
-      const updated = service.patchSlideOverrides(
+      const updated = await service.patchSlideOverrides(
         project.id,
         slide.id,
         {
@@ -127,25 +127,25 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
       expect(updated.lockVersion).toBe(2);
     });
 
-    it('Negative Pair: Patching overrides on nonexistent slide throws SLIDE_NOT_FOUND', () => {
-      const service = new PptxStudioService(true);
-      const project = service.createProject('deal-m3-007', 'pkg-m3-007', '도산대로 근생');
+    it('Negative Pair: Patching overrides on nonexistent slide throws SLIDE_NOT_FOUND', async () => {
+      const service = new PptxStudioService();
+      const project = await service.createProject('deal-m3-007', 'pkg-m3-007', '도산대로 근생');
 
       expect(() => {
-        service.patchSlideOverrides(project.id, 'fake-slide-id', { title: 'Invalid' }, 1);
+        await service.patchSlideOverrides(project.id, 'fake-slide-id', { title: 'Invalid' }, 1);
       }).toThrowError(/SLIDE_NOT_FOUND/);
     });
   });
 
   describe('Sequential 2-Stage Approval (S60 Editorial -> S70 File Binary SHA-256)', () => {
     it('Positive Pair: Sequential S60 -> S70 approval flow binds immutable target and binary hashes', async () => {
-      const service = new PptxStudioService(true);
+      const service = new PptxStudioService();
       const approvalService = new StudioApprovalService();
 
-      const project = service.createProject('deal-m3-008', 'pkg-m3-008', '마포 업무빌딩');
+      const project = await service.createProject('deal-m3-008', 'pkg-m3-008', '마포 업무빌딩');
 
       // Advance to S40_PREVIEW
-      service.advanceStage(project.id, 'S40_PREVIEW', 1);
+      await service.advanceStage(project.id, 'S40_PREVIEW', 1);
       expect(project.stage).toBe('S40_PREVIEW');
 
       // Stage 1: S60 Editorial Approval
@@ -182,10 +182,10 @@ describe('PPTX Studio Interactive Editor & 2-Stage Approval Unit & Integration T
     });
 
     it('Negative Pair: Attempting S70 File Approval before S60 Editorial Approval strictly rejects with PRECONDITION_FAILED', async () => {
-      const service = new PptxStudioService(true);
+      const service = new PptxStudioService();
       const approvalService = new StudioApprovalService();
 
-      const project = service.createProject('deal-m3-009', 'pkg-m3-009', '잠실 리테일 타워');
+      const project = await service.createProject('deal-m3-009', 'pkg-m3-009', '잠실 리테일 타워');
 
       // Project is at S00_INIT without S60 approval
       await expect(

@@ -3,7 +3,7 @@ import { ClaimRegistry } from '@/domain/building/im-core/claim-registry';
 import { FinancialCalculator } from '@/domain/building/im-core/financial-calculator';
 
 describe('Financial Calculation Safeguards (CIM-0103 / PR-M1-03)', () => {
-  it('should flag violation and keep cap_rate as unverified when operating expenses are not provided', () => {
+  it('should flag violation and keep cap_rate as unverified when operating expenses are not provided', async () => {
     const registry = new ClaimRegistry();
     const calculator = new FinancialCalculator(registry, '2026-09-03');
 
@@ -23,7 +23,7 @@ describe('Financial Calculation Safeguards (CIM-0103 / PR-M1-03)', () => {
     expect(capRateClaim?.status).toBe('unverified');
   });
 
-  it('should reconcile cap_rate_base when user operating expenses are explicitly provided', () => {
+  it('should reconcile cap_rate_base when user operating expenses are explicitly provided', async () => {
     const registry = new ClaimRegistry();
     const calculator = new FinancialCalculator(registry, '2026-09-03');
 

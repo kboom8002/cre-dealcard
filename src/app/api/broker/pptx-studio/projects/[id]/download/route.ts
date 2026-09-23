@@ -18,9 +18,9 @@ export async function GET(
   try {
     let project;
     try {
-      project = studioService.getProject(projectId);
+      project = await studioService.getProject(projectId);
     } catch {
-      project = studioService.findProjectByDealId(projectId);
+      project = await studioService.findProjectByDealId(projectId);
     }
 
     if (!project) {

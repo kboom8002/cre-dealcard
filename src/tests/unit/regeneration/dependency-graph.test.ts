@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { DependencyGraph } from '@/platform/im-pipeline/regeneration/dependency-graph';
 
 describe('DependencyGraph Downstream Impact Resolution (PR-B4-01 / Negative-Pair Obligation)', () => {
-  it('Positive Pair: Changing upstream node returns exact transitive downstream dependents', () => {
+  it('Positive Pair: Changing upstream node returns exact transitive downstream dependents', async () => {
     const graph = new DependencyGraph();
 
     // Source -> Snapshot -> Package -> MobileIM & PPTX
@@ -27,7 +27,7 @@ describe('DependencyGraph Downstream Impact Resolution (PR-B4-01 / Negative-Pair
     expect(ids).not.toContain('unrelated-node');
   });
 
-  it('Negative Pair: Querying leaf node or independent branch yields zero downstream nodes', () => {
+  it('Negative Pair: Querying leaf node or independent branch yields zero downstream nodes', async () => {
     const graph = new DependencyGraph();
     graph.addNode({ id: 'mobile-leaf', type: 'mobile_section', channel: 'mobile' });
 

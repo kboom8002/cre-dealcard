@@ -34,13 +34,13 @@ export async function POST(
     const dataUrl = `data:${mimeType};base64,${base64}`;
 
     let project;
-    try { project = studioService.getProject(id); }
-    catch { project = studioService.findProjectByDealId(id); }
+    try { project = await studioService.getProject(id); }
+    catch { project = await studioService.findProjectByDealId(id); }
     if (!project) {
       return NextResponse.json({ ok: false, error: 'Project not found' }, { status: 404 });
     }
 
-    const updated = studioService.patchSlideOverrides(
+    const updated = await studioService.patchSlideOverrides(
       project.id, slideId, { [fieldName]: dataUrl }
     );
 

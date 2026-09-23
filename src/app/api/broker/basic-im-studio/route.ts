@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check for existing project
-    const existing = studioService.findProjectByDealId(buildingId);
+    const existing = await studioService.findProjectByDealId(buildingId);
     if (existing && existing.themeId === 'credeal_basic') {
       return NextResponse.json({ ok: true, project: existing, isExisting: true });
     }
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       console.warn('[basic-im-studio] Failed to fetch building data:', err);
     }
 
-    const project = studioService.createBasicImProject(buildingId, buildingName, docBody);
+    const project = await studioService.createBasicImProject(buildingId, buildingName, docBody);
     return NextResponse.json({ ok: true, project, isExisting: false }, { status: 201 });
   } catch (err: any) {
     return NextResponse.json(

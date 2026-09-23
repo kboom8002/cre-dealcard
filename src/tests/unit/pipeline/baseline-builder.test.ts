@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildEffectiveBaseline } from '@/domain/building/common-pipeline/baseline-builder';
 
 describe('Effective Baseline Builder (CIM-0402 / PR-M4-02)', () => {
-  it('should build deterministic baseline with SHA-256 baselineHash', () => {
+  it('should build deterministic baseline with SHA-256 baselineHash', async () => {
     const baseline = buildEffectiveBaseline({
       dealId: 'deal-baseline-001',
       physical: {

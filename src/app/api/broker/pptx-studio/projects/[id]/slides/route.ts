@@ -30,9 +30,9 @@ export async function PATCH(
 
     let project;
     try {
-      project = studioService.getProject(projectId);
+      project = await studioService.getProject(projectId);
     } catch {
-      project = studioService.findProjectByDealId(projectId);
+      project = await studioService.findProjectByDealId(projectId);
     }
 
     if (!project) {
@@ -52,7 +52,7 @@ export async function PATCH(
           { status: 400 }
         );
       }
-      const updated = studioService.reorderSlides(actualProjectId, slideIds, expectedLockVersion);
+      const updated = await studioService.reorderSlides(actualProjectId, slideIds, expectedLockVersion);
       return NextResponse.json({ ok: true, project: updated });
     }
 
@@ -64,7 +64,7 @@ export async function PATCH(
           { status: 400 }
         );
       }
-      const updated = studioService.toggleSlideVisibility(actualProjectId, slideId, hidden, expectedLockVersion);
+      const updated = await studioService.toggleSlideVisibility(actualProjectId, slideId, hidden, expectedLockVersion);
       return NextResponse.json({ ok: true, project: updated });
     }
 
@@ -76,7 +76,7 @@ export async function PATCH(
           { status: 400 }
         );
       }
-      const updated = studioService.patchSlideOverrides(actualProjectId, slideId, overrides, expectedLockVersion);
+      const updated = await studioService.patchSlideOverrides(actualProjectId, slideId, overrides, expectedLockVersion);
 
       // Reverse-sync to document_objects and broadcast
       try {
@@ -185,7 +185,7 @@ export async function PATCH(
           { status: 400 }
         );
       }
-      const updated = studioService.updateSlideLayout(actualProjectId, slideIndex, layoutType, expectedLockVersion);
+      const updated = await studioService.updateSlideLayout(actualProjectId, slideIndex, layoutType, expectedLockVersion);
       return NextResponse.json({ ok: true, project: updated });
     }
 
@@ -200,10 +200,10 @@ export async function PATCH(
       let current = project;
       for (const item of body.slides) {
         if (item.id && item.slideOverrides) {
-          current = studioService.patchSlideOverrides(actualProjectId, item.id, item.slideOverrides);
+          current = await studioService.patchSlideOverrides(actualProjectId, item.id, item.slideOverrides);
         }
         if (item.id && item.hidden !== undefined) {
-          current = studioService.toggleSlideVisibility(actualProjectId, item.id, item.hidden);
+          current = await studioService.toggleSlideVisibility(actualProjectId, item.id, item.hidden);
         }
       }
       return NextResponse.json({ ok: true, project: current });

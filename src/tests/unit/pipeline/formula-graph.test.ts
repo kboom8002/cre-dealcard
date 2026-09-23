@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { FormulaDependencyGraph } from '@/domain/building/common-pipeline/formula-graph';
 
 describe('Formula Dependency Graph & Confidence Propagation (CIM-0405 / PR-M4-05)', () => {
-  it('should detect cycles and throw exception when cyclic formula dependency exists', () => {
+  it('should detect cycles and throw exception when cyclic formula dependency exists', async () => {
     const graph = new FormulaDependencyGraph();
 
     // Node A depends on B, Node B depends on A (Cycle!)
@@ -25,7 +25,7 @@ describe('Formula Dependency Graph & Confidence Propagation (CIM-0405 / PR-M4-05
     ).toThrow(/CIRCULAR_FORMULA_CYCLE/);
   });
 
-  it('should propagate unverified status from upstream dependencies to downstream metrics', () => {
+  it('should propagate unverified status from upstream dependencies to downstream metrics', async () => {
     const graph = new FormulaDependencyGraph();
 
     graph.addNode({

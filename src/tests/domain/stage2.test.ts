@@ -4,7 +4,7 @@ import { recordTacitLabel } from '@/domain/tacit/tacit-label-service';
 import { computeEditDiff } from '@/domain/building/edit-diff-collector';
 
 describe('OCR Contract & Registry Parser (S2-T1)', () => {
-  it('parses address, area, and asking price from OCR text', () => {
+  it('parses address, area, and asking price from OCR text', async () => {
     const rawText = '소재지: 서울 성동구 성수동2가 000-00\n연면적: 1,157.0 ㎡\n매매가: 80억';
     const result = parseDocumentOCR(rawText, 'building_ledger');
 
@@ -13,7 +13,7 @@ describe('OCR Contract & Registry Parser (S2-T1)', () => {
     expect(result.extractedSlots.askingPriceKrw.value).toBe(8_000_000_000);
   });
 
-  it('requires human confirmation step before committing slots', () => {
+  it('requires human confirmation step before committing slots', async () => {
     const rawText = '매매가: 50억';
     const result = parseDocumentOCR(rawText, 'building_ledger');
     expect(result.status).toBe('pending_confirmation');
@@ -25,7 +25,7 @@ describe('OCR Contract & Registry Parser (S2-T1)', () => {
 });
 
 describe('Tacit Label Service (S2-T3)', () => {
-  it('records 1-tap deal loss reasons correctly', () => {
+  it('records 1-tap deal loss reasons correctly', async () => {
     const record = recordTacitLabel({
       brokerId: 'b-1',
       dealId: 'd-1',
@@ -39,7 +39,7 @@ describe('Tacit Label Service (S2-T3)', () => {
 });
 
 describe('Edit Diff Collector (S2-T4)', () => {
-  it('computes character difference count between original and edited content', () => {
+  it('computes character difference count between original and edited content', async () => {
     const payload = {
       dealId: 'd-100',
       sectionKey: 'hero',

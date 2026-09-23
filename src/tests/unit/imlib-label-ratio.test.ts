@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { rows, col, colX, CW, M, type RowEntry } from '@/domain/building/mobile-im/pptx/imlib';
 
 describe('imlib-label-ratio', () => {
-  it('tests labRatio default values', () => {
+  it('tests labRatio default values', async () => {
     // Mock Slide
     const s: any = {
       addText: vi.fn(),
@@ -32,7 +32,7 @@ describe('imlib-label-ratio', () => {
     expect(labelCall2[1].w).toBeCloseTo(3.0);
   });
 
-  it('tests custom labRatio override', () => {
+  it('tests custom labRatio override', async () => {
     const s: any = {
       addText: vi.fn(),
       addShape: vi.fn(),
@@ -49,7 +49,7 @@ describe('imlib-label-ratio', () => {
 });
 
 describe('imlib-column-distribution', () => {
-  it('tests column width distribution for 2-6 column tables', () => {
+  it('tests column width distribution for 2-6 column tables', async () => {
     const gap = 0.2;
     
     // For n=2

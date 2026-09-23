@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { parseMemoToObservations } from '@/domain/building/memo-intake/parser';
 
 describe('Memo Intake & Sensitive Segment Extraction (CIM-0301 / PR-M3-01)', () => {
-  it('should parse asking price, land area, and identify sensitive phone number and exact address', () => {
+  it('should parse asking price, land area, and identify sensitive phone number and exact address', async () => {
     const rawMemo = '영등포 당산역 인근 대지 100평 근생 120억 매각 의뢰. 당산동 123-4 위치. 담당 010-9876-5432';
     const observationSet = parseMemoToObservations(rawMemo);
 

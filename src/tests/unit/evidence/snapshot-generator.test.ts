@@ -3,7 +3,7 @@ import { buildEffectiveSnapshot } from '@/domain/building/im-core/evidence/effec
 import type { Parcel } from '@/domain/building/im-core/evidence/parcel-manager';
 
 describe('EffectiveSnapshot Generator (PR-B1-02 / Negative-Pair Obligation)', () => {
-  it('Positive Pair: Multi-parcel all successful produces validated snapshot with 4-area denominators', () => {
+  it('Positive Pair: Multi-parcel all successful produces validated snapshot with 4-area denominators', async () => {
     const parcels: Parcel[] = [
       { parcelId: 'p-1', address: '당산동 123-1', landAreaSqm: 200, status: 'SUCCESS' },
       { parcelId: 'p-2', address: '당산동 123-2', landAreaSqm: 300, status: 'SUCCESS' },
@@ -31,7 +31,7 @@ describe('EffectiveSnapshot Generator (PR-B1-02 / Negative-Pair Obligation)', ()
     expect(snapshot.unitPrices.pricePerPyeongGross).toBeGreaterThan(0);
   });
 
-  it('Negative Pair: Partial parcel failure halts snapshot synthesis to prevent area distortion', () => {
+  it('Negative Pair: Partial parcel failure halts snapshot synthesis to prevent area distortion', async () => {
     const parcels: Parcel[] = [
       { parcelId: 'p-1', address: '당산동 123-1', landAreaSqm: 200, status: 'SUCCESS' },
       {

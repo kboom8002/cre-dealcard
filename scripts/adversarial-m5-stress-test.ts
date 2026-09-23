@@ -260,7 +260,7 @@ async function runM5AdversarialChallenges() {
     actual: JSON.stringify(correctionScope.invalidatedChannels),
   });
 
-  const studio = new PptxStudioService(true);
+  const studio = new PptxStudioService();
   const ledger = new ApprovalLedgerService(true);
   const approvalService = new StudioApprovalService(ledger);
 

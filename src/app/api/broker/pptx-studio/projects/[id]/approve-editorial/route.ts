@@ -3,6 +3,7 @@ import { createHash } from 'crypto';
 import { requireBroker } from '@/lib/auth-guard';
 import { studioService } from '@/domain/building/pptx-studio/studio-service';
 import { StudioApprovalService } from '@/domain/building/pptx-studio/approval/studio-approval-service';
+import { createPersistentApprovalLedger } from '@/platform/im-pipeline/supabase-approval-ledger';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -26,9 +27,9 @@ export async function POST(
   try {
     let project;
     try {
-      project = studioService.getProject(projectId);
+      project = await studioService.getProject(projectId);
     } catch {
-      project = studioService.findProjectByDealId(projectId);
+      project = await studioService.findProjectByDealId(projectId);
     }
 
     if (!project) {
@@ -55,7 +56,7 @@ export async function POST(
       targetHash = `sha256:${createHash('sha256').update(serialized).digest('hex')}`;
     }
 
-    const approvalService = new StudioApprovalService();
+    const approvalService = new StudioApprovalService(createPersistentApprovalLedger());
     const event = await approvalService.approveEditorial(
       project,
       brokerId,

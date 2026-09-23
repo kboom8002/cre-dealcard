@@ -4,7 +4,7 @@ import { InvalidationEngine } from '@/platform/im-pipeline/regeneration/invalida
 describe('InvalidationEngine 13-Change Invariant Matrix (PR-B4-02 / Negative-Pair Obligation)', () => {
   const engine = new InvalidationEngine();
 
-  it('Positive Pair: Mobile layout change strictly isolates invalidation to mobile channel', () => {
+  it('Positive Pair: Mobile layout change strictly isolates invalidation to mobile channel', async () => {
     const scope = engine.resolveScope('mobile_layout_changed');
 
     expect(scope.invalidatedChannels).toEqual(['mobile']);
@@ -13,7 +13,7 @@ describe('InvalidationEngine 13-Change Invariant Matrix (PR-B4-02 / Negative-Pai
     expect(scope.requiresSnapshotRebuild).toBe(false);
   });
 
-  it('Negative Pair: Raw data modification causes cascading invalidation across all channels', () => {
+  it('Negative Pair: Raw data modification causes cascading invalidation across all channels', async () => {
     const scope = engine.resolveScope('raw_data_update');
 
     expect(scope.invalidatedChannels).toContain('core');

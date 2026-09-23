@@ -10,7 +10,7 @@ import type { InvestmentPosture } from '@/domain/ontology';
  */
 describe('MECE Phase 2 Gate Logic Tests', () => {
   describe('T15: DCF/Sensitivity Suppress Logic', () => {
-    it('T15-01: Grade A + Pro -> financial extension slides (capital, dcf, etc.) are attempted in sequence', () => {
+    it('T15-01: Grade A + Pro -> financial extension slides (capital, dcf, etc.) are attempted in sequence', async () => {
       const sequence = buildDeckSequence({
         posture: 'income',
         grade: 'A',
@@ -22,7 +22,7 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
       expect(sequence.length).toBeGreaterThanOrEqual(12);
     });
 
-    it('T15-02: Grade B + Pro -> DCF suppressed, Sensitivity suppressed, TotalReturn present', () => {
+    it('T15-02: Grade B + Pro -> DCF suppressed, Sensitivity suppressed, TotalReturn present', async () => {
       const sequence = buildDeckSequence({
         posture: 'income',
         grade: 'B',
@@ -35,7 +35,7 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
       expect(totalReturn).toBeDefined();
     });
 
-    it('T15-03: Grade C + Pro -> DCF, Sensitivity, TotalReturn all suppressed', () => {
+    it('T15-03: Grade C + Pro -> DCF, Sensitivity, TotalReturn all suppressed', async () => {
       const sequence = buildDeckSequence({
         posture: 'income',
         grade: 'C',
@@ -73,7 +73,7 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
   });
 
   describe('T16: Violation/Loan Conditional Slides', () => {
-    it('T16-01: hasViolation=true -> loan slide suppressed in Pro deck sequence', () => {
+    it('T16-01: hasViolation=true -> loan slide suppressed in Pro deck sequence', async () => {
       const sequence = buildDeckSequence({
         posture: 'income',
         grade: 'A',
@@ -83,7 +83,7 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
       expect(loan).toBeUndefined();
     });
 
-    it('T16-02: hasViolation=false -> Grade A sequence includes more financial slides than Grade B', () => {
+    it('T16-02: hasViolation=false -> Grade A sequence includes more financial slides than Grade B', async () => {
       const sequenceA = buildDeckSequence({
         posture: 'income',
         grade: 'A',
@@ -146,7 +146,7 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
   });
 
   describe('T20: Posture Fallback Logic', () => {
-    it('T20-01: posture=undefined -> produces non-empty sequence with common slides', () => {
+    it('T20-01: posture=undefined -> produces non-empty sequence with common slides', async () => {
       const sequence = buildDeckSequence({
         posture: undefined as any,
         grade: 'B'
@@ -178,7 +178,7 @@ describe('MECE Phase 2 Gate Logic Tests', () => {
       expect(cover).toBeDefined();
     });
 
-    it('T20-04: All 5 valid postures produce non-empty deck sequences in pro tier', () => {
+    it('T20-04: All 5 valid postures produce non-empty deck sequences in pro tier', async () => {
       const postures: InvestmentPosture[] = ['income', 'development', 'owner_occupied', 'operating', 'trading'];
       for (const p of postures) {
         const sequence = buildDeckSequence({

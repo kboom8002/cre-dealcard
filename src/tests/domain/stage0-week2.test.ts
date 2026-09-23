@@ -4,7 +4,7 @@ import { validateColdModePitchGuard, sanitizeComplianceText } from '@/domain/bui
 import { renderHeroMask, renderIncomeMask } from '@/domain/building/nlg-mask-engine';
 
 describe('RAG Hygiene Gate (S0-T3)', () => {
-  it('rejects draft documents from RAG indexing', () => {
+  it('rejects draft documents from RAG indexing', async () => {
     const result = evaluateRAGIndexingEligibility({
       id: 'im-1',
       buildingId: 'b-1',
@@ -16,7 +16,7 @@ describe('RAG Hygiene Gate (S0-T3)', () => {
     expect(result.reason).toContain('Draft documents cannot be indexed');
   });
 
-  it('approves broker-approved published documents for RAG indexing', () => {
+  it('approves broker-approved published documents for RAG indexing', async () => {
     const result = evaluateRAGIndexingEligibility({
       id: 'im-2',
       buildingId: 'b-2',
@@ -30,7 +30,7 @@ describe('RAG Hygiene Gate (S0-T3)', () => {
 });
 
 describe('Cold Mode Guardrails (S0-T5)', () => {
-  it('prohibits price opinions in Cold mode without owner mandate', () => {
+  it('prohibits price opinions in Cold mode without owner mandate', async () => {
     const result = validateColdModePitchGuard({
       mode: 'cold',
       hasOwnerMandate: false,
@@ -40,7 +40,7 @@ describe('Cold Mode Guardrails (S0-T5)', () => {
     expect(result.violations[0]).toContain('ColdModePriceOpinionViolation');
   });
 
-  it('allows Cold mode pitch without price keywords', () => {
+  it('allows Cold mode pitch without price keywords', async () => {
     const result = validateColdModePitchGuard({
       mode: 'cold',
       hasOwnerMandate: false,
@@ -49,7 +49,7 @@ describe('Cold Mode Guardrails (S0-T5)', () => {
     expect(result.passed).toBe(true);
   });
 
-  it('sanitizes non-compliant performance guarantee text', () => {
+  it('sanitizes non-compliant performance guarantee text', async () => {
     const text = '연 8% 수익률 보정 및 원금 보장 매물';
     const sanitized = sanitizeComplianceText(text);
     expect(sanitized).not.toContain('원금 보장');
@@ -58,7 +58,7 @@ describe('Cold Mode Guardrails (S0-T5)', () => {
 });
 
 describe('NLG Mask Engine Base (S0-T13)', () => {
-  it('renders Hero and Income sections using deterministic financial values', () => {
+  it('renders Hero and Income sections using deterministic financial values', async () => {
     const payload = {
       inputs: {
         askingPriceKrw: 5_000_000_000, // 50억

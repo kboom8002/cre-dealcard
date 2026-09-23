@@ -5,7 +5,7 @@ import { InMemoryPipelineRepository } from '@/platform/im-pipeline/repository';
 import { ApprovalLedgerService } from '@/domain/building/im-core/approval/ledger-service';
 
 describe('Canary Promotion & Emergency Rollback Drill (PR-B5-02 / Negative-Pair Obligation)', () => {
-  it('Positive Pair: Validated canary promotion can be instantaneously rolled back to 0%', () => {
+  it('Positive Pair: Validated canary promotion can be instantaneously rolled back to 0%', async () => {
     const canary = new CanaryController();
 
     // 1. Promote to 10%
@@ -23,7 +23,7 @@ describe('Canary Promotion & Emergency Rollback Drill (PR-B5-02 / Negative-Pair 
     expect(rollback.actionTaken).toContain('Trafffic dialed down from 10% to 0%');
   });
 
-  it('Negative Pair: Canary promotion attempt with open P0 defects is strictly blocked', () => {
+  it('Negative Pair: Canary promotion attempt with open P0 defects is strictly blocked', async () => {
     const canary = new CanaryController();
 
     expect(() =>

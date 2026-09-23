@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { applyLexiconFilter } from '@/domain/building/mobile-im/presentation/cre-lexicon-filter';
 
 describe('CRE Lexicon Filter (PR-B2-02 / Negative-Pair Obligation)', () => {
-  it('Positive Pair: Inappropriate transliterations are replaced with standard Korean CRE terms', () => {
+  it('Positive Pair: Inappropriate transliterations are replaced with standard Korean CRE terms', async () => {
     const raw = '해당 자산은 캡레이트 5.2%에 네이밍 라이츠 획득이 가능합니다.';
     const result = applyLexiconFilter(raw);
 
@@ -11,7 +11,7 @@ describe('CRE Lexicon Filter (PR-B2-02 / Negative-Pair Obligation)', () => {
     expect(result.violations.length).toBe(0);
   });
 
-  it('Negative Pair: Hollow exaggerated modifiers trigger explicit lexicon violations', () => {
+  it('Negative Pair: Hollow exaggerated modifiers trigger explicit lexicon violations', async () => {
     const raw = '압도적 입지의 프라임 빌딩으로 무조건 시세차익 가능';
     const result = applyLexiconFilter(raw);
 

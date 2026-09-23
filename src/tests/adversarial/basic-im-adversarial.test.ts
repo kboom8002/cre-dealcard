@@ -760,7 +760,7 @@ describe('Basic IM Adversarial Chaos & Fuzz Suite', () => {
       expect(result.slideCount).toBeGreaterThanOrEqual(BASIC_IM_BOUNDS.minSlides);
     });
 
-    it('[ADV-PERM-13] Non-Standard Image Protocols (javascript:, file:) are filtered out', () => {
+    it('[ADV-PERM-13] Non-Standard Image Protocols (javascript:, file:) are filtered out', async () => {
       const dirtySupplemental = {
         photos_v2: [
           { url: 'javascript:alert(1)', category: 'exterior' },
@@ -829,9 +829,9 @@ describe('Basic IM Adversarial Chaos & Fuzz Suite', () => {
       expect(C.ink).toBeDefined();
     });
 
-    it('[ADV-CONC-03] Concurrent Reorder OCC Conflict (Optimistic Concurrency Control)', () => {
-      const studioService = new PptxStudioService(true);
-      const project = studioService.createProject('deal-occ-1', 'pkg-1', '테스트 프로젝트', 'credeal_basic', {
+    it('[ADV-CONC-03] Concurrent Reorder OCC Conflict (Optimistic Concurrency Control)', async () => {
+      const studioService = new PptxStudioService();
+      const project = await studioService.createProject('deal-occ-1', 'pkg-1', '테스트 프로젝트', 'credeal_basic', {
         bodySlideCount: 5,
       });
 
@@ -839,37 +839,37 @@ describe('Basic IM Adversarial Chaos & Fuzz Suite', () => {
       const reversedIds = [...slideIds].reverse();
 
       // First reorder with expectedLockVersion = 1 succeeds
-      const updated = studioService.reorderSlides(project.id, reversedIds, 1);
+      const updated = await studioService.reorderSlides(project.id, reversedIds, 1);
       expect(updated.lockVersion).toBe(2);
 
       // Second simultaneous reorder with stale expectedLockVersion = 1 must throw STALE_LOCK_ERROR
       expect(() => {
-        studioService.reorderSlides(project.id, slideIds, 1);
+        await studioService.reorderSlides(project.id, slideIds, 1);
       }).toThrow(/STALE_LOCK_ERROR/);
     });
 
-    it('[ADV-CONC-04] Stale LockVersion Update Block rejects out-of-order writes', () => {
-      const studioService = new PptxStudioService(true);
-      const project = studioService.createProject('deal-occ-2', 'pkg-2', '테스트 프로젝트 2');
+    it('[ADV-CONC-04] Stale LockVersion Update Block rejects out-of-order writes', async () => {
+      const studioService = new PptxStudioService();
+      const project = await studioService.createProject('deal-occ-2', 'pkg-2', '테스트 프로젝트 2');
 
       // Update slide layout with valid expectedLockVersion
-      studioService.updateSlideLayout(project.id, 1, 'A01', 1);
+      await studioService.updateSlideLayout(project.id, 1, 'A01', 1);
       expect(project.lockVersion).toBe(2);
 
       // Subsequent update with stale version 1 must reject
       expect(() => {
-        studioService.updateSlideLayout(project.id, 2, 'A02', 1);
+        await studioService.updateSlideLayout(project.id, 2, 'A02', 1);
       }).toThrow(/STALE_LOCK_ERROR/);
     });
 
-    it('[ADV-CONC-05] High-Contention Sequential OCC Updates preserve serializability', () => {
-      const studioService = new PptxStudioService(true);
-      const project = studioService.createProject('deal-occ-3', 'pkg-3', '직렬성 검증 프로젝트');
+    it('[ADV-CONC-05] High-Contention Sequential OCC Updates preserve serializability', async () => {
+      const studioService = new PptxStudioService();
+      const project = await studioService.createProject('deal-occ-3', 'pkg-3', '직렬성 검증 프로젝트');
 
       let currentVersion = project.lockVersion;
       for (let i = 0; i < 5; i++) {
         const slideIds = [...project.slides.map((s) => s.id)].reverse();
-        const res = studioService.reorderSlides(project.id, slideIds, currentVersion);
+        const res = await studioService.reorderSlides(project.id, slideIds, currentVersion);
         currentVersion = res.lockVersion;
       }
 

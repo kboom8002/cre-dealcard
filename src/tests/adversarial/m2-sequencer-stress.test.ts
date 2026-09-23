@@ -59,7 +59,7 @@ describe('Adversarial Stress Test: M2 Pro Deck Sequencer & A25 Archetype', () =>
   // Dimension 1: Extreme Tenant Roster Sizes Boundary Stress
   // --------------------------------------------------------------------------
   describe('Dimension 1: Tenant Roster Boundary Stress (0, 1, 12, 13, 24, 25, 100+)', () => {
-    it('handles 0 tenants (empty roster) cleanly with standard 36 slides', () => {
+    it('handles 0 tenants (empty roster) cleanly with standard 36 slides', async () => {
       const seq = buildProDeckSequence({
         posture: 'income',
         grade: 'B',
@@ -70,7 +70,7 @@ describe('Adversarial Stress Test: M2 Pro Deck Sequencer & A25 Archetype', () =>
       expect(seq.map(s => s.dataKey)).toContain('rentRollPart2');
     });
 
-    it('handles 1 tenant (single occupant) cleanly with standard 36 slides', () => {
+    it('handles 1 tenant (single occupant) cleanly with standard 36 slides', async () => {
       const seq = buildProDeckSequence({
         posture: 'income',
         grade: 'B',
@@ -81,7 +81,7 @@ describe('Adversarial Stress Test: M2 Pro Deck Sequencer & A25 Archetype', () =>
       expect(seq.map(s => s.dataKey)).toContain('rentRollPart2');
     });
 
-    it('handles 12 tenants (single page upper bound) cleanly with standard 36 slides', () => {
+    it('handles 12 tenants (single page upper bound) cleanly with standard 36 slides', async () => {
       const seq = buildProDeckSequence({
         posture: 'income',
         grade: 'B',
@@ -92,7 +92,7 @@ describe('Adversarial Stress Test: M2 Pro Deck Sequencer & A25 Archetype', () =>
       expect(seq.map(s => s.dataKey)).toContain('rentRollPart2');
     });
 
-    it('handles 13 tenants (2-part chunking trigger) cleanly with standard 36 slides', () => {
+    it('handles 13 tenants (2-part chunking trigger) cleanly with standard 36 slides', async () => {
       const seq = buildProDeckSequence({
         posture: 'income',
         grade: 'B',
@@ -103,7 +103,7 @@ describe('Adversarial Stress Test: M2 Pro Deck Sequencer & A25 Archetype', () =>
       expect(seq.map(s => s.dataKey)).toContain('rentRollPart2');
     });
 
-    it('handles 24 tenants (2 full pages) cleanly with standard 36 slides', () => {
+    it('handles 24 tenants (2 full pages) cleanly with standard 36 slides', async () => {
       const seq = buildProDeckSequence({
         posture: 'income',
         grade: 'B',
@@ -114,7 +114,7 @@ describe('Adversarial Stress Test: M2 Pro Deck Sequencer & A25 Archetype', () =>
       expect(seq.map(s => s.dataKey)).toContain('rentRollPart2');
     });
 
-    it('handles 25 tenants (triggers 3 parts) expanding to 37 slides within limit', () => {
+    it('handles 25 tenants (triggers 3 parts) expanding to 37 slides within limit', async () => {
       const seq = buildProDeckSequence({
         posture: 'income',
         grade: 'B',
@@ -127,7 +127,7 @@ describe('Adversarial Stress Test: M2 Pro Deck Sequencer & A25 Archetype', () =>
       expect(seq.length).toBeLessThanOrEqual(PRO_PAGE_HARD_LIMIT);
     });
 
-    it('handles 100 tenants cleanly falling back to 36 slides (<= PRO_PAGE_HARD_LIMIT)', () => {
+    it('handles 100 tenants cleanly falling back to 36 slides (<= PRO_PAGE_HARD_LIMIT)', async () => {
       const seq = buildProDeckSequence({
         posture: 'income',
         grade: 'B',
@@ -137,7 +137,7 @@ describe('Adversarial Stress Test: M2 Pro Deck Sequencer & A25 Archetype', () =>
       expect(seq.length).toBeLessThanOrEqual(PRO_PAGE_HARD_LIMIT);
     });
 
-    it('handles 500 tenants (massive portfolio) cleanly falling back to 36 slides', () => {
+    it('handles 500 tenants (massive portfolio) cleanly falling back to 36 slides', async () => {
       const seq = buildProDeckSequence({
         posture: 'income',
         grade: 'B',
@@ -150,7 +150,7 @@ describe('Adversarial Stress Test: M2 Pro Deck Sequencer & A25 Archetype', () =>
     // ------------------------------------------------------------------------
     // Remediated: 73..96 tenants safely falls back to standard 2-part roster (36 slides <= 40)
     // ------------------------------------------------------------------------
-    it('73 tenants (7 chunks) safely falls back to standard 2-part rent roll (36 slides <= 40)', () => {
+    it('73 tenants (7 chunks) safely falls back to standard 2-part rent roll (36 slides <= 40)', async () => {
       const tenants73 = Array.from({ length: 73 }, (_, i) => createMockTenant(i));
       const chunks = chunkTenantRoster(tenants73, 12);
       expect(chunks.length).toBe(7);
@@ -164,7 +164,7 @@ describe('Adversarial Stress Test: M2 Pro Deck Sequencer & A25 Archetype', () =>
       expect(seq.length).toBeLessThanOrEqual(PRO_PAGE_HARD_LIMIT);
     });
 
-    it('85 tenants (8 chunks) safely falls back to standard 2-part rent roll (36 slides <= 40)', () => {
+    it('85 tenants (8 chunks) safely falls back to standard 2-part rent roll (36 slides <= 40)', async () => {
       const tenants85 = Array.from({ length: 85 }, (_, i) => createMockTenant(i));
       const chunks = chunkTenantRoster(tenants85, 12);
       expect(chunks.length).toBe(8);
@@ -218,7 +218,7 @@ describe('Adversarial Stress Test: M2 Pro Deck Sequencer & A25 Archetype', () =>
       });
     }
 
-    it('rejects publication when grade is D (G30 negative guard)', () => {
+    it('rejects publication when grade is D (G30 negative guard)', async () => {
       expect(() => {
         buildProDeckSequence({
           posture: 'income',
@@ -228,7 +228,7 @@ describe('Adversarial Stress Test: M2 Pro Deck Sequencer & A25 Archetype', () =>
       }).toThrowError(/\[G30\]/);
     });
 
-    it('handles unrecognized posture gracefully with fallback', () => {
+    it('handles unrecognized posture gracefully with fallback', async () => {
       const seq = buildProDeckSequence({
         posture: 'unrecognized_posture' as any,
         grade: 'B',
@@ -243,7 +243,7 @@ describe('Adversarial Stress Test: M2 Pro Deck Sequencer & A25 Archetype', () =>
   // Dimension 3: A25 Layout Physics & Extreme Dimensions
   // --------------------------------------------------------------------------
   describe('Dimension 3: A25 Layout Physics, Coordinate Bounds & Zero Bleed', () => {
-    it('verifies 0 bleed under extreme title and subtitle lengths', () => {
+    it('verifies 0 bleed under extreme title and subtitle lengths', async () => {
       const { pres, texts, shapes } = createMockPptxCollector();
 
       buildA25ChapterDivider({
@@ -293,7 +293,7 @@ describe('Adversarial Stress Test: M2 Pro Deck Sequencer & A25 Archetype', () =>
       }
     });
 
-    it('verifies coordinate bounds with 0 topics (default note fallback box)', () => {
+    it('verifies coordinate bounds with 0 topics (default note fallback box)', async () => {
       const { pres, texts, shapes } = createMockPptxCollector();
 
       buildA25ChapterDivider({
@@ -322,7 +322,7 @@ describe('Adversarial Stress Test: M2 Pro Deck Sequencer & A25 Archetype', () =>
       }
     });
 
-    it('verifies coordinate bounds with 12 topics (2-column layout)', () => {
+    it('verifies coordinate bounds with 12 topics (2-column layout)', async () => {
       const { pres, texts, shapes } = createMockPptxCollector();
 
       const manyTopics = Array.from({ length: 12 }, (_, i) => `Topic item ${i + 1} with description`);

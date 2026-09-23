@@ -228,7 +228,7 @@ export class MockOpenAIProvider implements LLMProvider {
         currentUseSignal: "근린생활시설",
         vacancySignal: h.promptText.includes("공실") ? "공실 발생" : "공실 없음",
         fitSummary: `${h.extractedRegion} 권역 입지의 ${h.assetType} 매각 물건`,
-        cautionSummary: "권리관계 및 현장 실사 확인 필요",
+        cautionSummary: "권리관계 및 공부 서류 검토 필요",
         hiddenFields: ["exact_address", "seller_motivation"],
         confidence: {
           areaSignal: "confirmed",
