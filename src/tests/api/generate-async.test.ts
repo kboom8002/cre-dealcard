@@ -121,7 +121,7 @@ describe('API Route - POST /api/broker/im-lite/generate-async', () => {
 
       const json = await res.json();
       expect(json.status).toBe('processing');
-      expect(json.jobId).toMatch(new RegExp(`^im_${validBuildingUuid}_\\d+$`));
+      expect(json.jobId).toMatch(new RegExp(`^im_${validBuildingUuid}_\\d+_[a-z0-9]+$`));
       expect(mockUpsert).toHaveBeenCalledTimes(1);
     });
   });
@@ -235,7 +235,7 @@ describe('API Route - POST /api/broker/im-lite/generate-async', () => {
 
       const json = await res.json();
       expect(json.status).toBe('processing');
-      expect(json.jobId).toMatch(new RegExp(`^im_${validBuildingUuid}_\\d+$`));
+      expect(json.jobId).toMatch(new RegExp(`^im_${validBuildingUuid}_\\d+_[a-z0-9]+$`));
       expect(mockUpsert).toHaveBeenCalledTimes(1);
     });
 
@@ -255,7 +255,7 @@ describe('API Route - POST /api/broker/im-lite/generate-async', () => {
 
       const json = await res.json();
       expect(json.status).toBe('processing');
-      expect(json.jobId).toMatch(new RegExp(`^im_${validBuildingUuid}_\\d+$`));
+      expect(json.jobId).toMatch(new RegExp(`^im_${validBuildingUuid}_\\d+_[a-z0-9]+$`));
       expect(mockUpsert).toHaveBeenCalledTimes(1);
     });
   });

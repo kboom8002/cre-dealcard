@@ -1,7 +1,7 @@
 # P1 당산 수익형 — R2-Standard 골든 파이프라인 보고서
 
-> **생성 시각**: 2026-09-24T11:23:04.770Z
-> **총 소요시간**: 3876ms
+> **생성 시각**: 2026-09-24T11:45:19.544Z
+> **총 소요시간**: 5061ms
 > **결과**: 13 PASS / 0 FAIL / 0 WARN
 
 ---
@@ -22,17 +22,17 @@
 
 | # | 단계 | 상태 | 소요시간 | 상세 |
 |:---|:---|:---|---:|:---|
-| 1 | S1 — 데이터셋 로드 | ✅ PASS | 7ms | bottom_sheet: 13개 필드, memo: 381자, expected: 11개 필드 |
-| 2 | S2 — 메모 슬롯 추출 | ✅ PASS | 5ms | 4개 슬롯 추출, 추출률 9.0% |
-| 3 | S3 — 재무 계산 | ✅ PASS | 1ms | Cap Rate: 1.67%, 연 임대수익: 1.91억, 토지평당가: 7,501만/평 |
+| 1 | S1 — 데이터셋 로드 | ✅ PASS | 2ms | bottom_sheet: 13개 필드, memo: 381자, expected: 11개 필드 |
+| 2 | S2 — 메모 슬롯 추출 | ✅ PASS | 4ms | 4개 슬롯 추출, 추출률 9.0% |
+| 3 | S3 — 재무 계산 | ✅ PASS | 2ms | Cap Rate: 1.67%, 연 임대수익: 1.91억, 토지평당가: 7,501만/평 |
 | 4 | S4 — 데이터 품질 배지 | ✅ PASS | 0ms | 점수: 60, 등급: reference, 기대등급: B |
-| 5 | S5 — 덱 시퀀서 | ✅ PASS | 0ms | 9개 슬라이드 시퀀스, 아키타입: [A01, A02, A04, A06, A06, A24, A23, A14, A10] |
-| 6 | S6 — PPTX 렌더링 | ✅ PASS | 3138ms | 9개 슬라이드, 4319KB, 저장: C:\Users\User\cre-dealcard\docs\test\golden-outputs\p1-dangsan-r2\p1_dangsan_income_r2_basic.pptx |
-| 7 | S7-A — Poison Token 검증 | ✅ PASS | 197ms | 0 poison tokens detected |
-| 8 | S7-B — Evasive Phrase 검증 | ✅ PASS | 152ms | 0 evasive phrases detected |
-| 9 | S7-C — Mock Data Leak 검증 | ✅ PASS | 146ms | 0 mock data leaks detected |
-| 10 | S7-D — Physical Binary Gates | ✅ PASS | 160ms | isPass: true, slides: 9, issues: 0 |
-| 11 | S8 — 슬라이드 콘텐츠 검증 | ✅ PASS | 26ms | 7/7 검증 통과 |
+| 5 | S5 — 덱 시퀀서 | ✅ PASS | 1ms | 9개 슬라이드 시퀀스, 아키타입: [A01, A02, A04, A06, A06, A24, A23, A14, A10] |
+| 6 | S6 — PPTX 렌더링 | ✅ PASS | 4389ms | 9개 슬라이드, 4319KB, 저장: C:\Users\User\cre-dealcard\docs\test\golden-outputs\p1-dangsan-r2\p1_dangsan_income_r2_basic.pptx |
+| 7 | S7-A — Poison Token 검증 | ✅ PASS | 156ms | 0 poison tokens detected |
+| 8 | S7-B — Evasive Phrase 검증 | ✅ PASS | 148ms | 0 evasive phrases detected |
+| 9 | S7-C — Mock Data Leak 검증 | ✅ PASS | 147ms | 0 mock data leaks detected |
+| 10 | S7-D — Physical Binary Gates | ✅ PASS | 153ms | isPass: true, slides: 9, issues: 0 |
+| 11 | S8 — 슬라이드 콘텐츠 검증 | ✅ PASS | 20ms | 7/7 검증 통과 |
 | 12 | S9 — SSoT 수학적 일관성 | ✅ PASS | 0ms | 일관성 확인: NOI=2.34억, Cap Rate=2.03% |
 | 13 | S10 — 파이프라인 리포트 저장 | ✅ PASS | 2ms | 리포트 저장 완료: C:\Users\User\cre-dealcard\docs\test\golden-outputs\p1-dangsan-r2\pipeline_log.md |
 
@@ -252,7 +252,7 @@
 {
   "slideCount": 9,
   "fileSizeKB": 4319,
-  "generatedAt": "2026-09-24T11:23:04.076Z",
+  "generatedAt": "2026-09-24T11:45:18.906Z",
   "warnings": [
     "[A23] 안정화 수익률 데이터 없음 — As-Is만 렌더링",
     "[AUDIT] G33: 텍스트 넘침 38건",

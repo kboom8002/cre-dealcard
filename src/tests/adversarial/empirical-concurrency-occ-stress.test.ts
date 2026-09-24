@@ -414,7 +414,7 @@ describe('Empirical OCC LockVersion Serialization & Race Conditions Suite (Chall
   it('[CHALLENGE-OCC-01] High-Contention Concurrent Slides Patch: Exactly 1 Success, 9 Stale Lock Rejections (HTTP 409)', async () => {
     // Create a project in studioService
     const project = await studioService.createProject(
-      'deal-occ-race-1',
+      'e0000000-0000-0000-0000-000000000001',
       'pkg-race-1',
       '경쟁 테스트 프로젝트'
     );
@@ -470,7 +470,7 @@ describe('Empirical OCC LockVersion Serialization & Race Conditions Suite (Chall
 
   it('[CHALLENGE-OCC-02] High-Contention Reorder OCC Conflict: Exactly 1 Success, 9 Rejections (HTTP 409)', async () => {
     const project = await studioService.createProject(
-      'deal-occ-race-2',
+      'e0000000-0000-0000-0000-000000000002',
       'pkg-race-2',
       '재정렬 경쟁 프로젝트'
     );

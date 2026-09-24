@@ -53,7 +53,7 @@ describe('CBRE Benchmark (NH Capital Building) E2E Pipeline', () => {
       title: 'NH농협캐피탈빌딩',
       askingPrice: 250000000000,
       photo_urls: [photoPath],
-      photos: [{ url: photoPath, buildingId: 'cbre-nh-capital-test' }],
+      photos: [{ url: photoPath, buildingId: 'c0000000-0000-0000-0000-000000000002' }],
       heroCard: {
         askingPriceKrw: 250000000000,
         landAreaM2: 2000.00,
@@ -139,7 +139,7 @@ describe('CBRE Benchmark (NH Capital Building) E2E Pipeline', () => {
     it('[Positive] 기관투자자 프라임 테마 렌더링 무결성 및 6대 게이트 PASS 단언', async () => {
       const renderer = new MobileImPptxRenderer();
       const renderResult = await renderer.render({
-        buildingId: 'cbre-nh-capital-test',
+        buildingId: 'c0000000-0000-0000-0000-000000000002',
         doc: validDoc as any,
         posture: 'income',
         preset: 'institutional_dark_gold',
@@ -169,7 +169,7 @@ describe('CBRE Benchmark (NH Capital Building) E2E Pipeline', () => {
 
       const renderer = new MobileImPptxRenderer();
       const renderResult = await renderer.render({
-        buildingId: 'cbre-nh-capital-persona-test',
+        buildingId: 'c0000000-0000-0000-0000-000000000003',
         doc: contaminatedDoc as any,
         posture: 'income',
         preset: 'institutional_dark_gold',
@@ -189,7 +189,7 @@ describe('CBRE Benchmark (NH Capital Building) E2E Pipeline', () => {
     it('[Positive] 웹 문서 및 Studio PPTX 프로젝트 지표 100% 일치 PASS 단언', async () => {
       const studioService = new PptxStudioService();
       const approvalService = new StudioApprovalService();
-      const project = await studioService.createProject('cbre-nh-capital', 'pkg-nh', validDoc.title, 'institutional_dark_gold');
+      const project = await studioService.createProject('c0000000-0000-0000-0000-000000000001', 'pkg-nh', validDoc.title, 'institutional_dark_gold');
 
       const targetHash = computeTargetHash({
         body: {
@@ -224,7 +224,7 @@ describe('CBRE Benchmark (NH Capital Building) E2E Pipeline', () => {
 
     it('[Negative Pair] 웹 문서와 SSoT 간 가격 불일치 시 NUMERICAL_MISMATCH 검출 단언', async () => {
       const studioService = new PptxStudioService();
-      const project = await studioService.createProject('cbre-nh-capital', 'pkg-nh', validDoc.title, 'institutional_dark_gold');
+      const project = await studioService.createProject('c0000000-0000-0000-0000-000000000001', 'pkg-nh', validDoc.title, 'institutional_dark_gold');
       // PPTX 측 overview 슬라이드 가격을 2,500억 원으로 설정
       project.slides = [
         { dataKey: 'overview', slideOverrides: { price: 250000000000 } } as any

@@ -210,7 +210,7 @@ describe('Yangpyeong The Red Building Broker Feedback Remediation E2E Suite', ()
     it('[Positive Pair] S50 -> S60 에디토리얼 승인 -> S70 배포 원장 체결 및 7대 핵심 지표 완벽 일치', async () => {
       const studioService = new PptxStudioService();
       const project = await studioService.createProject(
-        'yangpyeong-the-red',
+        'c0000000-0000-0000-0000-000000000007',
         'pkg-yp-01',
         fixture.title,
         'institutional_slate'
@@ -276,7 +276,7 @@ describe('Yangpyeong The Red Building Broker Feedback Remediation E2E Suite', ()
     it('[Negative Pair] 웹 문서와 PPTX 간 매매가 또는 보증금 변조 시 NUMERICAL_MISMATCH 검출', async () => {
       const studioService = new PptxStudioService();
       const project = await studioService.createProject(
-        'yangpyeong-the-red',
+        'c0000000-0000-0000-0000-000000000007',
         'pkg-yp-01',
         fixture.title,
         'institutional_slate'
