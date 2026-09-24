@@ -294,7 +294,7 @@ describe('API Route - POST /api/broker/im-lite/generate-async', () => {
       const json = await res.json();
       expect(json.status).toBe('processing');
       expect(json.result).toBeNull();
-      expect(json.jobId).toMatch(new RegExp(`^im_${validBuildingUuid}_\\d+$`));
+      expect(json.jobId).toMatch(new RegExp(`^im_${validBuildingUuid}_\\d+_[a-z0-9]+$`));
 
       // Rule 6: Verify DB job upsert record structure and exact values
       expect(mockFrom).toHaveBeenCalledWith('im_generation_jobs');

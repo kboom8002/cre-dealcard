@@ -288,7 +288,7 @@ export class PptxStudioService {
       .from('document_objects')
       .select('body')
       .eq('id', projectId)
-      .in('document_type', ['im_lite_draft', 'building_snapshot_draft'])
+      .in('document_type', ['im_lite_draft', 'building_snapshot_draft', 'mobile_im'])
       .maybeSingle();
 
     if (!data?.body) {
@@ -303,7 +303,7 @@ export class PptxStudioService {
       .from('document_objects')
       .select('body')
       .eq('building_id', dealId)
-      .in('document_type', ['im_lite_draft', 'building_snapshot_draft'])
+      .in('document_type', ['im_lite_draft', 'building_snapshot_draft', 'mobile_im'])
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -477,16 +477,20 @@ export class PptxStudioService {
   async saveProject(project: PptxProject): Promise<void> {
     project.updatedAt = new Date().toISOString();
     const supabase = createServiceClient();
-    await supabase.from('document_objects').upsert({
+    const { error } = await supabase.from('document_objects').upsert({
       id: project.id,
       building_id: project.dealId,
-      document_type: 'im_lite_draft',
+      document_type: 'mobile_im',
       source_type: 'manual',
       title: project.title,
       body: project as any,
       status: 'draft',
       visibility: 'internal_only'
     });
+    if (error) {
+      console.error('[studio-service] saveProject upsert failed:', error);
+      throw new Error(`Failed to save project: ${error.message}`);
+    }
   }
 }
 

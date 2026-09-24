@@ -40,8 +40,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const minPrice = result?.min ?? result?.predictedMin;
-  const maxPrice = result?.max ?? result?.predictedMax;
+  const minPrice = result?.lower80 ?? result?.min ?? result?.predictedMin ?? null;
+  const maxPrice = result?.upper80 ?? result?.max ?? result?.predictedMax ?? null;
 
   return NextResponse.json({
     ok: true,

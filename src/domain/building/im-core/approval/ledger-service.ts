@@ -237,12 +237,12 @@ export class ApprovalLedgerService {
           this.releases.set(rec.id, rec);
           return rec;
         }
-      } catch {
-        // Resilient fallback to memory
+      } catch (err) {
+        console.warn('[ApprovalLedger] DB record failed, fallback to memory:', err);
       }
     }
 
-    return null;
+    return mem || null;
   }
 
   async getReleaseByArtifact(artifactRunId: string): Promise<ReleaseRecord | null> {
@@ -261,11 +261,16 @@ export class ApprovalLedgerService {
           this.releases.set(rec.id, rec);
           return rec;
         }
-      } catch {
-        // Resilient fallback to memory
+      } catch (err) {
+        console.warn('[ApprovalLedger] DB record failed, fallback to memory:', err);
       }
     }
 
+    for (const record of this.releases.values()) {
+      if (record.artifactRunId === artifactRunId) {
+        return record;
+      }
+    }
     return null;
   }
 }

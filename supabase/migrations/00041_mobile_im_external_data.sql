@@ -52,12 +52,12 @@ CREATE INDEX IF NOT EXISTS external_data_cache_pnu_idx
 -- RLS: 서비스 롤만 접근 (외부 데이터는 민감 정보 포함 가능)
 ALTER TABLE external_data_cache ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Service role full access to external_data_cache"
-  ON external_data_cache
-  FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+-- CREATE POLICY "Service role full access to external_data_cache"
+--   ON external_data_cache
+--   FOR ALL
+--   TO service_role
+--   USING (true)
+--   WITH CHECK (true);
 
 -- ─── building_ssot_lite.raw_address 컬럼 추가 (없으면) ─────────────────────
 -- 공공데이터 호출에 사용되는 원본 주소 문자열

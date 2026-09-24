@@ -131,7 +131,7 @@ describe('AI Matching Domain E2E Tests (AI 매칭/추천)', () => {
         headers: HEADERS,
         body: JSON.stringify(payload)
       });
-      expect(res.ok).toBe(true);
+      if(!res.ok) console.log('ERROR:', await res.text()); expect(res.ok).toBe(true);
       const data = await res.json();
       expect(data).toHaveProperty('grade');
       expect(data).toHaveProperty('score');
@@ -331,7 +331,7 @@ describe('AI Matching Domain E2E Tests (AI 매칭/추천)', () => {
       const res = await fetch(`${BASE_URL}/api/broker/buyer-memo/generate`, {
         method: 'POST',
         headers: HEADERS,
-        body: JSON.stringify({ buyerId: "buyer-1", dealId: "deal-1" })
+        body: JSON.stringify({ buyerId: "b1111111-1111-1111-1111-111111111111", dealId: "8b8c93c7-b462-41d2-9dc3-bc4bc4f2b66f" })
       });
       expect(res.ok).toBe(true);
       const data = await res.json();
@@ -345,7 +345,7 @@ describe('AI Matching Domain E2E Tests (AI 매칭/추천)', () => {
       const res = await fetch(`${BASE_URL}/api/broker/campaign`, {
         method: 'POST',
         headers: HEADERS,
-        body: JSON.stringify({ dealId: "deal-1" })
+        body: JSON.stringify({ dealId: "8b8c93c7-b462-41d2-9dc3-bc4bc4f2b66f" })
       });
       expect(res.ok).toBe(true);
       const data = await res.json();
@@ -359,7 +359,7 @@ describe('AI Matching Domain E2E Tests (AI 매칭/추천)', () => {
       const res = await fetch(`${BASE_URL}/api/broker/pitch`, {
         method: 'POST',
         headers: HEADERS,
-        body: JSON.stringify({ dealId: "deal-1", targetType: "cold" })
+        body: JSON.stringify({ dealId: "8b8c93c7-b462-41d2-9dc3-bc4bc4f2b66f", targetType: "cold" })
       });
       expect(res.ok).toBe(true);
       const data = await res.json();
@@ -486,7 +486,7 @@ describe('AI Matching Domain E2E Tests (AI 매칭/추천)', () => {
       const res = await fetch(`${BASE_URL}/api/broker/prediction/price`, {
         method: 'POST',
         headers: HEADERS,
-        body: JSON.stringify({ dealId: "deal-1" })
+        body: JSON.stringify({ dealId: "8b8c93c7-b462-41d2-9dc3-bc4bc4f2b66f" })
       });
       expect(res.ok).toBe(true);
       const data = await res.json();

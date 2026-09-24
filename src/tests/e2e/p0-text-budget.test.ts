@@ -159,9 +159,9 @@ describe('T05: Text Budget Overflow', () => {
       expect(warnings[0]).toMatch(/Text budget exceeded for slideTitle/);
     });
 
-    test('T05-F03: statValue exceeding 10 chars -> returns warning', () => {
+    test('T05-F03: statValue exceeding 24 chars -> returns warning', () => {
       const warnings = validateTextBudgets([
-        { type: 'statValue', text: '12345678901' }
+        { type: 'statValue', text: '1234567890123456789012345' } // 25 chars
       ]);
       expect(warnings).toHaveLength(1);
       expect(warnings[0]).toMatch(/Text budget exceeded for statValue/);
@@ -176,7 +176,7 @@ describe('T05: Text Budget Overflow', () => {
 
     test('T05-F05: Multiple exceeded items -> returns multiple warnings', () => {
       const warnings = validateTextBudgets([
-        { type: 'statValue', text: '12345678901' },
+        { type: 'statValue', text: '1234567890123456789012345' },
         { type: 'slideTitle', text: '이것은 아주 긴 슬라이드 제목입니다. 서른 두 글자를 훌쩍 넘어가도록 작성해보겠습니다.' }
       ]);
       expect(warnings).toHaveLength(2);

@@ -1,7 +1,7 @@
 # P1 당산 수익형 — R3-Verified PRO IM 골든 파이프라인 보고서
 
-> **생성 시각**: 2026-09-23T02:52:23.136Z
-> **총 소요시간**: 50541ms
+> **생성 시각**: 2026-09-24T11:42:52.428Z
+> **총 소요시간**: 10210ms
 > **결과**: 5 PASS / 0 FAIL / 0 WARN
 
 ---
@@ -21,11 +21,11 @@
 
 | # | 단계 | 상태 | 소요시간 | 상세 |
 |:---|:---|:---|---:|:---|
-| 1 | S1 — 데이터셋 로드 | ✅ PASS | 21ms | bottom_sheet 로드 (R3-Verified) |
-| 2 | S2 — Writer Input 구성 | ✅ PASS | 1ms | MobileIMWriterInput 생성 완료 |
-| 3 | S3 — AI 생성 엔진 (LLM) | ✅ PASS | 41392ms | 12개 섹션 생성, AI 사용 여부: true |
-| 4 | S4 — PRO PPTX 렌더링 | ✅ PASS | 4368ms | 32개 슬라이드, 1611KB, 저장 완료 |
-| 5 | S5 — 바이너리 품질 게이트 | ✅ PASS | 4668ms | PoisonTokens: OK, EvasivePhrases: OK, MockLeaks: OK, PhysicalGates: OK |
+| 1 | S1 — 데이터셋 로드 | ✅ PASS | 0ms | bottom_sheet 로드 (R3-Verified) |
+| 2 | S2 — Writer Input 구성 | ✅ PASS | 0ms | MobileIMWriterInput 생성 완료 |
+| 3 | S3 — AI 생성 엔진 (LLM) | ✅ PASS | 7701ms | 12개 섹션 생성, AI 사용 여부: true |
+| 4 | S4 — PRO PPTX 렌더링 | ✅ PASS | 974ms | 32개 슬라이드, 1611KB, 저장 완료 |
+| 5 | S5 — 바이너리 품질 게이트 | ✅ PASS | 1522ms | PoisonTokens: OK, EvasivePhrases: OK, MockLeaks: OK, PhysicalGates: OK |
 
 ---
 

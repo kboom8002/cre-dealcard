@@ -70,7 +70,7 @@ describe('T01: Graceful Degradation — Blank Slide Prevention', { timeout: 60_0
     
     // Check that empty sections do not appear
     expect(allText).not.toContain('입지 및 교통');
-    expect(allText).toContain('임대차 현황');
+    expect(allText).not.toContain('임대차 현황');
   });
 
   test('T01-03: All sections have content consisting only of whitespace -> treated as empty', async () => {

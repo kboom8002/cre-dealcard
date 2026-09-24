@@ -117,7 +117,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
 
   // ── Requirement 2: Web IM ↔ PPTX Studio Bidirectional Sync ──
   it('R2: Bidirectional sync updates slide overrides and reflects modifications in project state', async () => {
-    const dealId = 'deal-sync-test-01';
+    const dealId = '8b8c93c7-b462-41d2-9dc3-bc4bc4f2b66f';
     const project = await studioService.createProject(
       dealId,
       'pkg-sync-01',
@@ -159,7 +159,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
   // ── Requirement 3: 2-Stage Approval Ledger (S60 -> S70) Binding ──
   describe('R3: 2-Stage Sequential Approval Ledger (S60 Editorial -> S70 File Binary)', () => {
     it('Negative Pair: Cannot approve S70 file binary before S60 editorial approval', async () => {
-      const dealId = 'deal-approval-neg';
+      const dealId = '8b8c93c7-b462-41d2-9dc3-bc4bc4f2b66f';
       const project = await studioService.createProject(dealId, 'pkg-neg', '초안 자산', 'credeal_signature');
       const approvalService = new StudioApprovalService(new ApprovalLedgerService(true));
 
@@ -175,7 +175,7 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
     });
 
     it('Positive Pair: Sequential S60 -> S70 records ledger events, publishes release, and broadcasts', async () => {
-      const buildingId = 'deal-approval-pos';
+      const buildingId = '8b8c93c7-b462-41d2-9dc3-bc4bc4f2b66f';
       const project = await studioService.createProject(buildingId, 'pkg-pos', '정상 승인 자산', 'golden_institutional');
       const isolatedLedger = new ApprovalLedgerService(true);
       const approvalService = new StudioApprovalService(isolatedLedger);
@@ -189,12 +189,12 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
       });
 
       // Step 1: Advance to preview and approve S60
-      await studioService.advanceStage(project.id, 'S40_PREVIEW');
+      const advancedProject = await studioService.advanceStage(project.id, 'S40_PREVIEW' as any);
       const targetHash = 'sha256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069';
-      const s60Event = await approvalService.approveEditorial(project, 'broker-lead', targetHash);
+      const s60Event = await approvalService.approveEditorial(advancedProject, 'broker-lead', targetHash);
 
-      expect(project.stage).toBe('S60_EDITORIAL_APPROVAL');
-      expect(project.editorialApprovedBy).toBe('broker-lead');
+      expect(advancedProject.stage).toBe('S60_EDITORIAL_APPROVAL');
+      expect(advancedProject.editorialApprovedBy).toBe('broker-lead');
       expect(s60Event.targetHash).toBe(targetHash);
 
       await broadcastApprovalEvent(null, {
@@ -210,15 +210,15 @@ describe('Cross-Channel Invalidation & Isolation E2E (PR-B4-04 / Negative-Pair O
       const fileHash = 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
       const fileUrl = `/api/broker/pptx-studio/projects/${project.id}/download`;
       const { fileApproval, release } = await approvalService.approveFile(
-        project,
+        advancedProject,
         fileHash,
         fileUrl,
         'broker-lead'
       );
 
-      expect(project.stage).toBe('S70_FILE_APPROVAL');
-      expect(project.fileApprovedBy).toBe('broker-lead');
-      expect(project.artifactFileHash).toBe(fileHash);
+      expect(advancedProject.stage).toBe('S70_FILE_APPROVAL');
+      expect(advancedProject.fileApprovedBy).toBe('broker-lead');
+      expect(advancedProject.artifactFileHash).toBe(fileHash);
       expect(release.status).toBe('PUBLISHED');
       expect(release.publicUrl).toBe(fileUrl);
 

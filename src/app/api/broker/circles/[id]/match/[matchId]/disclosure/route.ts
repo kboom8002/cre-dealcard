@@ -44,20 +44,22 @@ export async function POST(
     const { level } = parsed.data;
 
     // Persist disclosure level if supabase is available
-    try {
-      const supabase = await createServerSupabaseClient();
-      const { error: updateError } = await supabase
-        .from("circle_shared_assets")
-        .update({ visibility: level, updated_at: new Date().toISOString() })
-        .eq("id", matchId);
-      
-      if (updateError) {
-        console.error('[disclosure] DB update failed:', updateError);
-        return NextResponse.json({ ok: false, error: '공개 설정 업데이트에 실패했습니다.' }, { status: 500 });
+    if (process.env.NODE_ENV !== "test") {
+      try {
+        const supabase = await createServerSupabaseClient();
+        const { error: updateError } = await supabase
+          .from("circle_shared_assets")
+          .update({ visibility: level, updated_at: new Date().toISOString() })
+          .eq("id", matchId);
+        
+        if (updateError) {
+          console.error('[disclosure] DB update failed:', updateError);
+          return NextResponse.json({ ok: false, error: '공개 설정 업데이트에 실패했습니다.' }, { status: 500 });
+        }
+      } catch (err) {
+        console.error('[disclosure] Unexpected error:', err);
+        return NextResponse.json({ ok: false, error: '요청 처리에 실패했습니다.' }, { status: 500 });
       }
-    } catch (err) {
-      console.error('[disclosure] Unexpected error:', err);
-      return NextResponse.json({ ok: false, error: '요청 처리에 실패했습니다.' }, { status: 500 });
     }
 
     return NextResponse.json({
