@@ -289,7 +289,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   const colW = [0.50, 0.50, 0.95, 1.30, 0.82, 0.82, 0.72, 0.72, 1.27]; // Sum = 7.60
   
   if (tableRows.length > 0) {
-    let rawRows = tableRows.map(row => {
+    let rawRows = tableRows.map((row: any) => {
       const newRow = [...row];
       if (newRow.length >= 10) newRow.splice(7, 1); // Remove 관리비
       return newRow;
@@ -305,7 +305,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     }
 
     // D7 Fix: 합계 행이 없으면 자동 합산 추가
-    const hasSummaryRow = rawRows.some(r => r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim())));
+    const hasSummaryRow = rawRows.some((r: any) => r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim())));
     if (!hasSummaryRow && rawRows.length > 0) {
       let totalArea = 0, totalDeposit = 0, totalRent = 0;
       for (const r of rawRows) {
@@ -334,8 +334,8 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     let truncated = false;
     let totalCount = rawRows.length;
     if (rawRows.length > 11) {
-      const summaryRow = rawRows.find(r => r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim())));
-      displayRows = rawRows.filter(r => !r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim()))).slice(0, 10);
+      const summaryRow = rawRows.find((r: any) => r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim())));
+      displayRows = rawRows.filter((r: any) => !r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim()))).slice(0, 10);
       if (summaryRow) displayRows.push(summaryRow);
       truncated = true;
     }
@@ -350,7 +350,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     })));
     
     // Body
-    displayRows.forEach((row, i) => {
+    displayRows.forEach((row: any, i: number) => {
       const isSummary = row.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim()));
       const isVacant = String(row[3] || '').includes('공실');
       const isSelfUse = row.some((c: any) => /자가|자가사용/.test(String(c || '')));

@@ -264,7 +264,7 @@ async function runM5AdversarialChallenges() {
   const ledger = new ApprovalLedgerService(true);
   const approvalService = new StudioApprovalService(ledger);
 
-  const proj = studio.createProject('deal-chal-1', 'pkg-chal-1', '테스트 자산', 'commercial_visual_grid');
+  const proj = await studio.createProject('deal-chal-1', 'pkg-chal-1', '테스트 자산', 'commercial_visual_grid');
   let thrownError = '';
   try {
     await approvalService.approveFile(proj, 'sha256:dummy', '/url/test.pptx', 'broker');
@@ -282,7 +282,7 @@ async function runM5AdversarialChallenges() {
   });
 
   // Verify full sequential approval and channel status transition
-  studio.advanceStage(proj.id, 'S40_PREVIEW');
+  await studio.advanceStage(proj.id, 'S40_PREVIEW');
   const s60Event = await approvalService.approveEditorial(proj, 'auditor-1', baselineHash);
   const { fileApproval, release } = await approvalService.approveFile(proj, baselineHash, '/downloads/real.pptx', 'auditor-1');
 

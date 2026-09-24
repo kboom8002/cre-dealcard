@@ -28,8 +28,6 @@ describe('PptxStudio Project Lifecycle & Optimistic Locking (PR-B3-01 / Negative
     await service.updateSlideLayout(project.id, 1, 'A01_MODERN_COVER', 1);
 
     // Second concurrent edit attempts using old lockVersion 1
-    expect(() =>
-      await service.updateSlideLayout(project.id, 1, 'A01_CLASSIC_COVER', 1)
-    ).toThrowError(/STALE_LOCK_ERROR/);
+    await expect(service.updateSlideLayout(project.id, 1, 'A01_CLASSIC_COVER', 1)).rejects.toThrowError(/STALE_LOCK_ERROR/);
   });
 });

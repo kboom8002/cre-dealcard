@@ -843,9 +843,7 @@ describe('Basic IM Adversarial Chaos & Fuzz Suite', () => {
       expect(updated.lockVersion).toBe(2);
 
       // Second simultaneous reorder with stale expectedLockVersion = 1 must throw STALE_LOCK_ERROR
-      expect(() => {
-        await studioService.reorderSlides(project.id, slideIds, 1);
-      }).toThrow(/STALE_LOCK_ERROR/);
+      await expect(studioService.reorderSlides(project.id, slideIds, 1)).rejects.toThrow(/STALE_LOCK_ERROR/);
     });
 
     it('[ADV-CONC-04] Stale LockVersion Update Block rejects out-of-order writes', async () => {
@@ -857,9 +855,7 @@ describe('Basic IM Adversarial Chaos & Fuzz Suite', () => {
       expect(project.lockVersion).toBe(2);
 
       // Subsequent update with stale version 1 must reject
-      expect(() => {
-        await studioService.updateSlideLayout(project.id, 2, 'A02', 1);
-      }).toThrow(/STALE_LOCK_ERROR/);
+      await expect(studioService.updateSlideLayout(project.id, 2, 'A02', 1)).rejects.toThrow(/STALE_LOCK_ERROR/);
     });
 
     it('[ADV-CONC-05] High-Contention Sequential OCC Updates preserve serializability', async () => {
