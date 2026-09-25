@@ -311,6 +311,7 @@ ${rentRollTable}
             totalDepositManwon: supplemental.total_deposit_manwon,
             mgmtFeeTotalManwon: supplemental.mgmt_fee_total_manwon,
             loanAmountManwon: supplemental.loan_amount_manwon,
+            isBasicMode: !supplemental.loan_amount_manwon,
           });
           let finMd = formatFinancialsMarkdown(fin);
           if (supplemental.asking_price_manwon) {

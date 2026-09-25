@@ -167,6 +167,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         loanAmountManwon: input.supplemental?.loan_amount_manwon ?? undefined,
         mgmtFeeTotalManwon: input.supplemental?.mgmt_fee_total_manwon ?? undefined,
         assetType: String(ctx.assetIdentity?.asset_type ?? ''),
+        isBasicMode: !input.supplemental?.loan_amount_manwon,
         occupancySpec: occSpec,
         currentRentManwon,
         currentRentMonthlyManwon: currentRentManwon,
