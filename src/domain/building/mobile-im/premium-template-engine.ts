@@ -736,3 +736,51 @@ export function formatBasicIncomeMarkdown(
 ): string {
   return `### 기본 수입 분석\n| 항목 | 추정값 | 비고 |\n|------|--------|------|\n| **연 임대 수입(총액)** | **${(annualGross / 1e8).toFixed(1)}억 원** | 월세 × 12 |\n| **공실 반영 수입** | **${(effectiveGross / 1e8).toFixed(1)}억 원** | 공실률 ${vacPct}% 반영 |\n| **추정 NOI** | **${(estimatedNoi / 1e8).toFixed(1)}억 원** | 운영비 15% 추정 차감 |\n\n> 💡 매각 희망가를 추가 입력하면 Cap Rate, IRR, DCF 감응도 분석이 포함됩니다.`;
 }
+import { SectionAssembler } from './section-assembler';
+
+export function getTemplateNarrative(
+  sectionType: MobileIMSectionType,
+  assetIdentity: Record<string, unknown>,
+  physicalFact: Record<string, unknown>,
+  marketLocation: Record<string, unknown>,
+  buyerFit: Record<string, unknown>,
+  supplemental: MobileIMSupplementalInput,
+  externalData: ExternalDataSnapshot | null,
+  buildingSsotLite?: Record<string, unknown>,
+  posture?: import('@/domain/ontology').InvestmentPosture
+): string {
+  const fullText = generatePremiumTemplate(
+    sectionType, assetIdentity, physicalFact, marketLocation, buyerFit, supplemental, externalData, buildingSsotLite, posture
+  );
+
+  const noTableSections = ['investment_thesis', 'risk_check', 'buyer_persona_fit', 'risk_factors', 'location_access'];
+  if (noTableSections.includes(sectionType)) {
+    return fullText;
+  }
+
+  return SectionAssembler.extractNarrative(fullText);
+}
+
+export function getTemplateTables(
+  sectionType: MobileIMSectionType,
+  assetIdentity: Record<string, unknown>,
+  physicalFact: Record<string, unknown>,
+  marketLocation: Record<string, unknown>,
+  buyerFit: Record<string, unknown>,
+  supplemental: MobileIMSupplementalInput,
+  externalData: ExternalDataSnapshot | null,
+  buildingSsotLite?: Record<string, unknown>,
+  posture?: import('@/domain/ontology').InvestmentPosture
+): string {
+  const fullText = generatePremiumTemplate(
+    sectionType, assetIdentity, physicalFact, marketLocation, buyerFit, supplemental, externalData, buildingSsotLite, posture
+  );
+
+  const noTableSections = ['investment_thesis', 'risk_check', 'buyer_persona_fit', 'risk_factors', 'location_access'];
+  if (noTableSections.includes(sectionType)) {
+    return "";
+  }
+
+  return SectionAssembler.extractTables(fullText);
+}
+
