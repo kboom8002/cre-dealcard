@@ -197,6 +197,7 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
   const body = (signalCard?.body || {}) as Record<string, unknown>;
   const imBody = (teaserDoc?.body ?? {}) as Record<string, any>;
 
+  const dealTitle = imBody.title || (body.title as string) || (signalCard?.title as string) || '';
   const hookCopy = imBody.hookCopy || body.hookCopy || teaserView.hookCopy || `${teaserView.region || "비공개 권역"} ${safeBuilding.asset_type || "빌딩"} 매각`;
   const posture = teaserView.posture || 'income';
   const postureLabel = teaserView.postureLabel || '임대수익형';
@@ -216,6 +217,7 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
           bandedCapRate={teaserView.bandedCapRate}
           bandedArea={teaserView.bandedArea}
           vacancyLabel={teaserView.vacancyLabel}
+          title={dealTitle}
           hookCopy={hookCopy}
           posture={posture}
           postureLabel={postureLabel}
@@ -224,14 +226,6 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
         />
 
         <div className="px-4 space-y-3.5 mt-3">
-          {/* ② 핵심 하이라이트 (대출 승계 정보 포함) */}
-          <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3.5">
-            <p className="text-xs font-bold text-amber-200 flex items-start gap-2 leading-relaxed">
-              <span className="shrink-0 text-amber-400">⚡</span>
-              <span>{hookCopy || teaserView.highlightText}</span>
-            </p>
-          </div>
-
           {/* ②-b 핵심 딜포인트 (blind_teaser에서 추출) */}
           {(() => {
             const dp = Array.isArray(imBody.dealPoints) ? imBody.dealPoints.filter(Boolean) : [];

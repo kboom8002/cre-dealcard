@@ -12,7 +12,6 @@ import { DealPredictionSection } from "./deal-prediction-section";
 import { GateRequestsInbox } from "./GateRequestsInbox";
 import { DealCardPipelineContainer } from "./DealCardPipelineContainer";
 import { IdealBuyerPersonaSection } from "./ideal-buyer-persona-section";
-import { KakaoShareButton } from "./kakao-share-button";
 import { CreateMobileImButton } from "./create-mobile-im-button";
 import { AiMatchCtaButton } from "./ai-match-cta-button";
 import { ImManagementPanel } from "./im-management-panel";
@@ -510,13 +509,6 @@ export default async function BrokerDealCardResultPage({
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t border-border px-4 pt-2.5 pb-[calc(65px+env(safe-area-inset-bottom,0px))]">
         <div className="max-w-md mx-auto">
           <div className="grid grid-cols-3 gap-2">
-            <KakaoShareButton
-              text={kakaoText}
-              buildingId={id}
-              dealTitle={title}
-              brokerSlug={brokerSlug}
-              variant="compact"
-            />
             <CreateMobileImButton
               buildingId={id}
               hasBasicIM={hasBasicIM}

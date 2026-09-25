@@ -5,6 +5,7 @@ import { filterValidTiles } from '@/domain/teaser/filter-valid-tiles';
 interface TeaserHeroHeaderProps {
   archetype?: string;
   regionLabel: string;
+  title?: string;
   hookCopy?: string;
   posture?: string;
   postureLabel?: string;
@@ -19,6 +20,7 @@ interface TeaserHeroHeaderProps {
 export function TeaserHeroHeader({
   archetype,
   regionLabel,
+  title,
   hookCopy,
   posture = 'income',
   postureLabel,
@@ -88,12 +90,23 @@ export function TeaserHeroHeader({
         {renderUrgencyBadge()}
       </div>
 
-      {/* Hook Copy (High impact headline) */}
-      {hookCopy && (
+      {/* Title & Hook Copy (OG Card style: Title main, hookCopy sub) */}
+      {title ? (
+        <div className="relative z-10 space-y-1.5">
+          <h1 className="text-2xl font-bold text-white leading-snug tracking-tight font-serif drop-shadow-sm">
+            {title}
+          </h1>
+          {hookCopy && (
+            <p className="text-sm text-slate-300 leading-relaxed font-medium">
+              {hookCopy}
+            </p>
+          )}
+        </div>
+      ) : hookCopy ? (
         <h1 className="relative z-10 text-2xl font-bold text-white leading-snug tracking-tight font-serif drop-shadow-sm">
           {hookCopy}
         </h1>
-      )}
+      ) : null}
 
       {/* 4-Tile Metrics Grid with Glassmorphism */}
       {(() => {
