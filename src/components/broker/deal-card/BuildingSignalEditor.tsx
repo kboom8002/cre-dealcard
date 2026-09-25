@@ -164,7 +164,7 @@ export default function BuildingSignalEditor({
       {fitSummary && (
         <div className="text-xs text-muted-foreground pt-1 space-y-0.5">
           <div className="flex items-center gap-1">
-            <span className="font-medium text-foreground">🎯 적합 매수자</span>
+            <span className="font-medium text-foreground">🎯 핵심 투자 포인트</span>
           </div>
           <p className="leading-relaxed">{fitSummary}</p>
         </div>

@@ -55,7 +55,7 @@ export function IdealBuyerPersonaSection({
         const res = await fetch(`/api/broker/deal-card/${buildingId}/personas`);
         if (res.ok) {
           const json = await res.json();
-          if (!cancelled && json.success && json.data) {
+          if (!cancelled && json.success && json.data && !Array.isArray(json.data) && json.data.personas) {
             setPersonas(json.data);
             // Sync localStorage with DB data
             localStorage.setItem(`ideal_personas_${buildingId}`, JSON.stringify(json.data));
@@ -266,7 +266,7 @@ export function IdealBuyerPersonaSection({
 
           {/* 3 Personas */}
           <div className="space-y-4">
-            {personas.personas.map((persona, index) => {
+            {(personas.personas ?? []).map((persona, index) => {
               const style = getProfileStyle(persona.purposeProfile);
               return (
                 <div
@@ -319,7 +319,7 @@ export function IdealBuyerPersonaSection({
                   <div className="space-y-1">
                     <span className="text-[11px] text-muted-foreground font-semibold">🎯 핵심 요구사항:</span>
                     <div className="flex flex-wrap gap-1 pl-1">
-                      {persona.coreNeeds.map((need, idx) => (
+                      {(persona.coreNeeds ?? []).map((need, idx) => (
                         <span
                           key={idx}
                           className="text-[10px] bg-card border border-border/80 text-foreground px-2 py-0.5 rounded-md"
@@ -334,7 +334,7 @@ export function IdealBuyerPersonaSection({
                   <div className="text-[12px] space-y-1">
                     <span className="text-muted-foreground font-semibold">📍 발굴 및 타겟팅 경로:</span>
                     <ul className="list-disc pl-4 space-y-0.5 text-muted-foreground text-[11px]">
-                      {persona.whereToFind.map((path, idx) => (
+                      {(persona.whereToFind ?? []).map((path, idx) => (
                         <li key={idx}>{path}</li>
                       ))}
                     </ul>
@@ -389,7 +389,7 @@ export function IdealBuyerPersonaSection({
               <span>📋</span> 중개인 실행 추천 플랜
             </p>
             <ul className="space-y-1.5 pl-4 list-decimal text-xs text-muted-foreground">
-              {personas.brokerActionPlan.map((action, idx) => (
+              {(personas.brokerActionPlan ?? []).map((action, idx) => (
                 <li key={idx} className="leading-relaxed">
                   {action}
                 </li>

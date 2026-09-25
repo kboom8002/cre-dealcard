@@ -88,8 +88,8 @@ export default async function MobileIMLitePage({ params, searchParams }: Props) 
             이 물건의 Investment Memorandum은 현재 생성 중이거나
             아직 발행되지 않았습니다.
           </p>
-          <a href="/explore" className="inline-block text-sm text-primary underline">
-            다른 매물 둘러보기 →
+          <a href="/broker/buildings" className="inline-block text-sm text-primary underline cursor-pointer">
+            ← 매물 목록으로 돌아가기
           </a>
         </div>
       </main>
