@@ -531,9 +531,13 @@ export async function generateSingleSection(
   const disclosureCheck = runDisclosureGuard(markdown);
   if (disclosureCheck.status !== "pass") markdown = disclosureCheck.safe_text;
 
-  // Sanitize markdown headings that may leak from templates
-  // 줄 시작의 ### 은 section-card.tsx가 <h3>로 처리하므로 놔두고, 인라인 ###만 제거
-  markdown = markdown.replace(/(?<!^)#{1,6}\s+/gm, '');
+  // Sanitize markdown headings that may leak from AI or templates
+  // 1) 인라인 heading을 별도 줄로 분리 ("자산입니다. ### 🚇 교통" → 별도 줄)
+  markdown = markdown.replace(/([^\n])\s+(#{1,6})\s+/g, '$1\n\n$2 ');
+  // 2) 줄 시작의 # heading → bold 텍스트로 변환 (section-card가 이미 제목을 제공)
+  markdown = markdown.replace(/^#{1,6}\s+(.+)$/gm, '**$1**');
+  // 3) 잔여 #해시태그 (# 뒤 공백 없이 한글/이모지) → # 제거
+  markdown = markdown.replace(/(?:^|\s)#([가-힣\u{1F300}-\u{1FAD6}])/gmu, ' $1');
 
   // 브로커 하이라이트
   if (sectionType === "investment_thesis" && supplemental.broker_highlight) {

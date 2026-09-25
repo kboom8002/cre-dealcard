@@ -5,13 +5,17 @@ import { createHash } from 'crypto';
  * Object keys are sorted alphabetically to ensure deterministic byte representation.
  */
 export function canonicalizeJson(obj: unknown): string {
+  if (obj === undefined) return 'null'; // treat undefined same as null for JSONB parity
   if (obj === null || typeof obj !== 'object') {
     return JSON.stringify(obj);
   }
   if (Array.isArray(obj)) {
     return '[' + obj.map(canonicalizeJson).join(',') + ']';
   }
-  const keys = Object.keys(obj as Record<string, unknown>).sort();
+  // Filter out undefined values to match JSONB serialization behavior
+  const keys = Object.keys(obj as Record<string, unknown>)
+    .filter((k) => (obj as Record<string, unknown>)[k] !== undefined)
+    .sort();
   return (
     '{' +
     keys
