@@ -126,10 +126,12 @@ export async function GET(
         const { computeDataQualityBadge, tierToGrade } = await import(
           '@/domain/building/mobile-im/data-quality-badge'
         );
+        const { resolveEnrichment } = await import('@/domain/building/im-core/resolve-enrichment');
+        const enriched = resolveEnrichment(body);
         const ssot = body.ssot_summary ?? {};
         const badge = computeDataQualityBadge({
-          hasAddress: !!(ssot.address || ssot.raw_address || body.external_data?.address),
-          hasPublicData: !!(body.external_data?.buildingRegister || ssot.building_register_source === 'api'),
+          hasAddress: !!(ssot.address || ssot.raw_address || enriched.meta.address),
+          hasPublicData: !!(enriched.buildingRegister || ssot.building_register_source === 'api'),
           hasMonthlyRent: !!(ssot.monthly_rent_total_krw || body.financial?.monthlyRentKrw),
           hasVacancy: ssot.vacancy_pct != null || !!ssot.vacancy_signal,
           hasPhotos: !!(body.photos_v2?.length || body.photos?.length),
@@ -139,7 +141,8 @@ export async function GET(
           hasLandArea: !!(ssot.land_area_sqm),
         }, posture as any);
         grade = tierToGrade(badge.tier);
-      } catch {
+      } catch (e) {
+        log.error('Grade computation failed', e);
         grade = 'B'; // 계산 실패 시 기본값
       }
     }
