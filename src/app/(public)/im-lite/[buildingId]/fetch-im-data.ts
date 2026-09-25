@@ -9,6 +9,7 @@ import { readWithMigration } from "@/lib/ssot-adapter";
 import { getDemoMobileIM } from "@/lib/demo/mobile-im-demo-data";
 import { computeDataQualityBadge } from "@/domain/building/mobile-im/data-quality-badge";
 import type { MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
+import { buildKakaoStaticMapUrl } from "@/lib/external/kakao-static-map";
 
 // ─── Geocode: 주소 → 좌표 변환 (Kakao Local API, 한국 주소 정확도 높음) ────────
 async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
@@ -290,6 +291,42 @@ export async function fetchIMData(
     await injectLatestMagazine(supabase, brokerObj);
     await injectBrokerStats(supabase, brokerObj);
     const defaultBlindName = `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`;
+    
+    // Resolve coordinates & Kakao Map URL
+    const finalCoordinates = document.body.coordinates || await (async () => {
+      const addr = document.body.external_data?.address
+        || ssotSummary.address
+        || document.body.ssot_summary?.address
+        || ssotSummary.raw_address;
+      if (addr) return geocodeAddress(String(addr));
+      return undefined;
+    })();
+
+    const rawPhotos = (document.body.photos
+      ?? (document.body.photo_urls || []).map((url: string, i: number) => ({
+        url,
+        type: i === 0 ? 'exterior' as const : 'interior' as const,
+        label: i === 0 ? '건물 외관' : `건물 사진 ${i + 1}`,
+        caption: undefined as string | undefined,
+      }))).filter((p: any) => p?.url && (p.url.startsWith('http://') || p.url.startsWith('https://') || p.url.startsWith('/')));
+
+    if (finalCoordinates) {
+      const mapUrl = buildKakaoStaticMapUrl({
+        lat: finalCoordinates.lat,
+        lng: finalCoordinates.lng,
+        width: 768,
+        height: 432,
+        level: 3,
+        marker: true
+      });
+      rawPhotos.unshift({
+        url: mapUrl,
+        type: 'map',
+        label: '위치 지도',
+        order: -1
+      });
+    }
+
     return {
       buildingId,
       blindName: document.body.heroTitle || defaultBlindName,
@@ -346,23 +383,9 @@ export async function fetchIMData(
           description: "렌트롤, 캐시플로우, 도면 등이 포함된 30페이지 분량의 Full IM은 중개인 승인 후 열람 가능합니다.",
         },
         protectedFieldsRemoved: ["상세 지번", "건물명", "소유주명"],
-        photos: (document.body.photos
-          ?? (document.body.photo_urls || []).map((url: string, i: number) => ({
-            url,
-            type: i === 0 ? 'exterior' as const : 'interior' as const,
-            label: i === 0 ? '건물 외관' : `건물 사진 ${i + 1}`,
-            caption: undefined as string | undefined,
-          }))).filter((p: any) => p?.url && (p.url.startsWith('http://') || p.url.startsWith('https://') || p.url.startsWith('/'))),
+        photos: rawPhotos,
         hiddenSections: Array.isArray(document.body.hidden_sections) ? document.body.hidden_sections : [],
-        coordinates: document.body.coordinates || await (async () => {
-          // 좌표가 없으면 주소에서 자동 변환
-          const addr = document.body.external_data?.address
-            || ssotSummary.address
-            || document.body.ssot_summary?.address
-            || ssotSummary.raw_address;
-          if (addr) return geocodeAddress(String(addr));
-          return undefined;
-        })(),
+        coordinates: finalCoordinates,
         dataQualityBadge: computeDataQualityBadge({
           hasAddress: !!(document.body.external_data || ssotSummary.address || ssotSummary.raw_address),
           hasPublicData: !!(document.body.external_data?.hasPublicData || document.body.external_data?.fallbackStatus || document.body.external_data?.enrichedAt),

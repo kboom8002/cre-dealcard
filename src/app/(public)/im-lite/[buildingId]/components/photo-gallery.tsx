@@ -24,24 +24,9 @@ export function PhotoGallery({
 
   // Build and sort: map first → order-based → rest (max 12 photos)
   const sortedItems = useMemo(() => {
-    const raw = [
-      ...(photos || []),
-      ...(coordinates
-        ? [
-            {
-              url: `https://map.kakao.com/link/map/${encodeURIComponent(
-                blindName
-              )},${coordinates.lat},${coordinates.lng}`,
-              type: "map" as const,
-              label: "위치 지도",
-              caption: undefined as string | undefined,
-              order: undefined as number | undefined,
-            },
-          ]
-        : []),
-    ];
+    const raw = [...(photos || [])];
     const mapItems = raw.filter((i) => i.type === "map");
-    const nonPhotoTypes = new Set(["floor_plan", "document", "business_card", "cadastral", "land_plan"]);
+    const nonPhotoTypes = new Set(["floor_plan", "document", "business_card"]);
     const photoItems = raw
       .filter(
         (i) =>
@@ -117,6 +102,7 @@ export function PhotoGallery({
                     lat={coordinates.lat}
                     lng={coordinates.lng}
                     name={blindName}
+                    mapUrl={item.url}
                   />
                 </div>
               ) : (
