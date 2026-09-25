@@ -8,6 +8,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { readWithMigration } from "@/lib/ssot-adapter";
 import { getDemoMobileIM } from "@/lib/demo/mobile-im-demo-data";
 import { computeDataQualityBadge } from "@/domain/building/mobile-im/data-quality-badge";
+import { resolveEnrichment } from "@/domain/building/im-core/resolve-enrichment";
 import type { MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
 import { buildKakaoStaticMapUrl } from "@/lib/external/kakao-static-map";
 
@@ -292,9 +293,11 @@ export async function fetchIMData(
     await injectBrokerStats(supabase, brokerObj);
     const defaultBlindName = `${ssotSummary.area_signal || "핵심 상권"} ${ssotSummary.asset_type || "상업용 자산"}`;
     
+    const enriched = resolveEnrichment(document.body);
+
     // Resolve coordinates & Kakao Map URL
     const finalCoordinates = document.body.coordinates || await (async () => {
-      const addr = (document.body.external_data || document.body.enrichment)?.address
+      const addr = enriched.meta.address
         || ssotSummary.address
         || document.body.ssot_summary?.address
         || ssotSummary.raw_address;
@@ -387,16 +390,16 @@ export async function fetchIMData(
         hiddenSections: Array.isArray(document.body.hidden_sections) ? document.body.hidden_sections : [],
         coordinates: finalCoordinates,
         dataQualityBadge: computeDataQualityBadge({
-          hasAddress: !!((document.body.external_data || document.body.enrichment) || ssotSummary.address || ssotSummary.raw_address),
-          hasPublicData: !!((document.body.external_data || document.body.enrichment)?.hasPublicData || (document.body.external_data || document.body.enrichment)?.fallbackStatus || (document.body.external_data || document.body.enrichment)?.enrichedAt),
+          hasAddress: !!(enriched.meta.address || ssotSummary.address || ssotSummary.raw_address),
+          hasPublicData: !!(enriched.meta.hasPublicData || enriched.meta.enrichedAt),
           hasMonthlyRent: !!ssotSummary.monthly_rent_total_krw || !!ssotSummary.monthly_rent_total,
           hasVacancy: !!ssotSummary.vacancy_signal || !!ssotSummary.vacancy_pct,
           hasPhotos: (document.body.photos || document.body.photo_urls || []).length > 0,
           hasAskingPrice: !!(document.body.heroCard?.askingPriceBil || ssotSummary.asking_price_manwon),
           hasLoanAmount: !!(document.body.financials?.loanAmountBil || ssotSummary.loan_amount_manwon),
           hasFloorLeases: !!(document.body.heroCard?.waleTotalYears),
-          hasLandArea: !!(ssotSummary.land_area_m2 || (document.body.external_data || document.body.enrichment)?.landUsePlan),
-          hasTotalGrossArea: !!(ssotSummary.total_gross_area_m2 || (document.body.external_data || document.body.enrichment)?.buildingRegister),
+          hasLandArea: !!(ssotSummary.land_area_m2 || enriched.landUsePlan),
+          hasTotalGrossArea: !!(ssotSummary.total_gross_area_m2 || enriched.buildingRegister),
         }, (ssotSummary.investment_posture || document.body.identity?.investmentPosture || 'income') as any),
         // [C1] Hero Card — 기존 IM의 heroCard 보강 또는 SSoT에서 동적 합성
         heroCard: (() => {
@@ -428,9 +431,9 @@ export async function fetchIMData(
             readinessScore: document.body.readiness_score ?? 0,
             dcf10YearNpvBil: null,
             posture: s.investment_posture || document.body.identity?.investmentPosture || 'income',
-            landAreaM2: s.land_area_m2 ?? (document.body.external_data || document.body.enrichment)?.landUsePlan?.landArea ?? null,
-            totalGrossAreaM2: s.total_gross_area_m2 ?? (document.body.external_data || document.body.enrichment)?.buildingRegister?.totalArea ?? null,
-            zoning: s.zoning ?? (document.body.external_data || document.body.enrichment)?.landUsePlan?.zoningDistrict ?? null,
+            landArea: s.land_area_m2 ?? enriched.landUsePlan?.landArea ?? null,
+            totalArea: s.total_gross_area_m2 ?? enriched.buildingRegister?.totalArea ?? null,
+            zoningDistrict: s.zoning ?? enriched.landUsePlan?.zoningDistrict ?? null,
             landPricePerPyeong: s.land_price_per_pyeong ?? null,
             farHeadroom: s.far_headroom ?? null,
             devProfitMarginPct: s.dev_profit_margin_pct ?? null,

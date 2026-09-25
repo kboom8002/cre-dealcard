@@ -525,12 +525,16 @@ export interface MobileIMWriterOutput {
   /** 투자 포스처 (승인 게이트 포스처별 필수 Claim 분기용) */
   investment_posture?: string;
   dcf10Year?: Record<string, unknown>;
-  financials?: {
-    equityRequired: number | null;
-    totalDepositBil: number | null;
-    loanAmountBil: number | null;
-    leveragedYield: number | null;
-    wacc: number | null;
+  financials?: Record<string, unknown> & {
+    equityRequired?: number | null;
+    totalDepositBil?: number | null;
+    loanAmountBil?: number | null;
+    leveragedYield?: number | null;
+    wacc?: number | null;
+    // Phase 2 SSoT 확장 필드
+    grossYieldOnEquity?: number | null;
+    grossYieldStabilized?: number | null;
+    annualRentBil?: number | null;
   };
   /** Publish gate 차단 여부 */
   publishBlocked?: boolean;

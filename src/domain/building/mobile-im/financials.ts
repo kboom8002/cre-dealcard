@@ -148,6 +148,11 @@ export interface FinancialOutputs {
   /** 매매형: 목표 시세차익 (억원) */
   targetCapitalGainBil?: number | null;
   isBasicMode?: boolean;
+
+  // PPTX A23 전용: 한국식 표면 임대수익률
+  grossYieldOnEquity: number | null;
+  grossYieldStabilized: number | null;
+  annualRentBil: number | null;
 }
 
 /**
@@ -331,6 +336,19 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
       });
     }
 
+    // PPTX A23 전용: 한국식 표면 임대수익률
+    const denominatorForYield = purchasePriceKrw - depositKrw;
+    const grossYieldOnEquity = (denominatorForYield > 0 && annualGross > 0)
+      ? parseFloat(((annualGross / denominatorForYield) * 100).toFixed(2))
+      : null;
+    const stabilizedAnnualGross = vacancyRate > 0 && vacancyRate < 1
+      ? annualGross / (1 - vacancyRate)
+      : annualGross;
+    const grossYieldStabilized = (denominatorForYield > 0 && stabilizedAnnualGross > 0 && vacancyRate > 0)
+      ? parseFloat(((stabilizedAnnualGross / denominatorForYield) * 100).toFixed(2))
+      : null;
+    const annualRentBil = annualGross / 1e8;
+
     return {
       posture: 'income',
       annualNoi: { best: Math.round(noiBest), base: Math.round(noiBase), worst: Math.round(noiWorst) },
@@ -355,6 +373,9 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
       opexSource: (inputs.opexRatioPct != null || (inputs.mgmtFeeTotalManwon ?? 0) > 0) ? 'user' : 'assumed',
       disclaimer: 'AI 추정값 (참고용). 실제 수익은 임대차 조건·공실률·세금에 따라 상이합니다.',
       isBasicMode: inputs.isBasicMode,
+      grossYieldOnEquity,
+      grossYieldStabilized,
+      annualRentBil,
     };
   }
 
@@ -491,6 +512,9 @@ class DevelopmentFinancialStrategy implements PostureFinancialStrategy {
       disclaimer: devHoldYieldPct
         ? 'AI 보유형 개발 수익률 추정값 (참고용). 임대료·공사비·인허가 변동에 따라 상이할 수 있습니다.'
         : 'AI 개발 사업수지 추정값 (참고용). 공사비·인허가·분양가 변동에 따라 상이할 수 있습니다.',
+      grossYieldOnEquity: null,
+      grossYieldStabilized: null,
+      annualRentBil: null,
     };
   }
 
@@ -566,6 +590,9 @@ class OperatingFinancialStrategy implements PostureFinancialStrategy {
       revparKrw,
       gopCapRatePct,
       disclaimer: 'AI 직영 운영 지표 추정값 (참고용). 매출·가동률·운영비에 따라 변동될 수 있습니다.',
+      grossYieldOnEquity: null,
+      grossYieldStabilized: null,
+      annualRentBil: null,
     };
   }
 
@@ -667,6 +694,9 @@ class OwnerOccupiedFinancialStrategy implements PostureFinancialStrategy {
       breakevenYears,
       occupancyCostPerPyeongMonthly,
       disclaimer: 'AI 사옥용 비용비교 추정값 (참고용). 시장 임대료 및 금융 조건에 따라 상이할 수 있습니다.',
+      grossYieldOnEquity: null,
+      grossYieldStabilized: null,
+      annualRentBil: null,
     };
   }
 
@@ -739,6 +769,9 @@ class TradingFinancialStrategy implements PostureFinancialStrategy {
       targetHprPct,
       targetCapitalGainBil,
       disclaimer: 'AI 매매 시세차익 추정값 (참고용). 부동산 시장 주기 및 거래 시점에 따라 상이할 수 있습니다.',
+      grossYieldOnEquity: null,
+      grossYieldStabilized: null,
+      annualRentBil: null,
     };
   }
 

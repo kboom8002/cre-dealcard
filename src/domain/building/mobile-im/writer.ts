@@ -658,11 +658,8 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     investment_posture: ctx.sectionPlan.posture,
     dcf10Year: (cachedFinancials?.dcf10Year ?? undefined) as Record<string, unknown> | undefined,
     financials: cachedFinancials ? {
-      equityRequired: cachedFinancials.equityRequired,
-      totalDepositBil: cachedFinancials.totalDepositBil,
-      loanAmountBil: cachedFinancials.loanAmountBil,
-      leveragedYield: cachedFinancials.leveragedYield,
-      wacc: cachedFinancials.wacc,
+      ...cachedFinancials,
+      dcf10Year: undefined,
     } : undefined,
     publishBlocked,
     publishBlockReasons,
