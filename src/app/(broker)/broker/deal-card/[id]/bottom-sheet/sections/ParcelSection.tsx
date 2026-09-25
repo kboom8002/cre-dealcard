@@ -74,7 +74,9 @@ export function ParcelSection({ parcels, setParcels, ledgerTotalM2 }: ParcelSect
             </button>
           )}
           <div className="col-span-2">
-            <label className="block text-[10px] text-muted-foreground mb-1">PNU (필지고유번호)</label>
+            <label className="block text-[10px] text-muted-foreground mb-1">
+              PNU (필지고유번호) <span className="text-teal-400/80 ml-1">(상단 주소 검색 기능을 통해 복사한 PNU를 입력해주세요)</span>
+            </label>
             <input
               type="text"
               placeholder="예: 1114010100-10001-0000"

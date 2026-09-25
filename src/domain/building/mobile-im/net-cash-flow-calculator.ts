@@ -55,14 +55,9 @@ export function calculateNetCashFlow(input: NetCashFlowInput): NetCashFlowSummar
     return null;
   }
 
-  // 대출금 결정 (입력값 우선, 미입력 시 LTV 50% 가정)
-  let loanKrw = input.loanAmountKrw ?? 0;
+  // 대출금 결정 (입력값 없을 시 0원 처리)
+  let loanKrw = input.loanAmountKrw || 0;
   let isLoanEstimated = false;
-
-  if (loanKrw <= 0) {
-    loanKrw = Math.round(purchasePriceKrw * (defaultLtvPct / 100));
-    isLoanEstimated = true;
-  }
 
   // 실투자금 (내 돈) = 매매가 - 대출금 - 보증금
   const netEquityKrw = Math.max(0, purchasePriceKrw - loanKrw - totalDepositKrw);
@@ -112,21 +107,25 @@ export function calculateNetCashFlow(input: NetCashFlowInput): NetCashFlowSummar
  * 60대 투자자를 위한 직관적 3줄 요약 마크다운 생성
  */
 export function formatNetCashFlowMarkdown(s: NetCashFlowSummary): string {
-  const loanNote = s.isLoanEstimated 
-    ? ` (⚠️ 대출금 미입력 → LTV ${50}%·금리 ${s.interestRatePct}% AI 가정, 실제 조건과 다를 수 있음)` 
-    : ` (금리 ${s.interestRatePct}%)`;
+  const hasLoan = s.estimatedLoanBil > 0;
+  
+  const loanNote = hasLoan ? ` (금리 ${s.interestRatePct}%)` : '';
   const landSafetyText = s.landSafetyRatioPct !== null 
     ? `\n> 🛡️ **원금 안전판**: 토지 지분 가치 비중 **${s.landSafetyRatioPct}%**로 매입 원금의 하방 경직성을 강력하게 지지합니다.` 
     : '';
 
-  const equityLabel = s.isLoanEstimated ? '① 실투자금 (LTV 50% 차입 가정)' : '① 실투자금 (대출 반영 기준)';
+  const equityLabel = hasLoan ? '① 실투자금 (대출 반영 기준)' : '① 실투자금';
+
+  const monthlyNetDescription = hasLoan
+    ? `월 임대료(${s.monthlyRentManwon.toLocaleString()}만) - 월 이자(${s.monthlyInterestManwon.toLocaleString()}만)${loanNote}`
+    : `월 임대료(${s.monthlyRentManwon.toLocaleString()}만)`;
 
   return `### 💡 핵심 현금흐름 3줄 요약 (내 돈 & 월 순수익)
 
 | 핵심 지표 | 금액 / 수익률 | 산출 기준 |
 |:---|---:|:---|
 | **${equityLabel}** | **약 ${s.netEquityBil}억 원** | 매매가(${s.askingPriceBil}억) - 대출(${s.estimatedLoanBil}억) - 보증금(${s.totalDepositBil}억) |
-| **② 매달 통장에 꽂히는 돈** | **월 약 ${s.monthlyNetManwon.toLocaleString()}만 원** | 월 임대료(${s.monthlyRentManwon.toLocaleString()}만) - 월 이자(${s.monthlyInterestManwon.toLocaleString()}만)${loanNote} |
+| **② 매달 통장에 꽂히는 돈** | **월 약 ${s.monthlyNetManwon.toLocaleString()}만 원** | ${monthlyNetDescription} |
 | **③ 내 돈 대비 연 수익률** | **연 ${s.equityYieldPct}%** | 실투자금 대비 연 순수익(약 ${s.annualNetBil}억 원) |
 ${landSafetyText}`;
 }

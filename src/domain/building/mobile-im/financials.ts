@@ -65,6 +65,7 @@ export interface FinancialInputs {
   comparablePricePerPyeongKrw?: number;
   /** 목표 매각가 (원) */
   targetExitPriceKrw?: number;
+  isBasicMode?: boolean;
 }
 
 import { ASSUMPTIONS } from './assumptions';
@@ -146,6 +147,7 @@ export interface FinancialOutputs {
   targetHprPct?: number | null;
   /** 매매형: 목표 시세차익 (억원) */
   targetCapitalGainBil?: number | null;
+  isBasicMode?: boolean;
 }
 
 /**
@@ -352,6 +354,7 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
       negativeLeverageWarning,
       opexSource: (inputs.opexRatioPct != null || (inputs.mgmtFeeTotalManwon ?? 0) > 0) ? 'user' : 'assumed',
       disclaimer: 'AI 추정값 (참고용). 실제 수익은 임대차 조건·공실률·세금에 따라 상이합니다.',
+      isBasicMode: inputs.isBasicMode,
     };
   }
 
@@ -368,7 +371,7 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
         : 'AI 가정 운영비 기준 구간 추정';
       rows.push(`| **연 수익률 (Cap Rate)** | ${pct(f.capRate.worst)}–**${pct(f.capRate.best)}** | ${capLabel} |`);
     }
-    if (f.irr5Year) rows.push(`| **5년 보유 시 투자수익률(IRR)** | ${pct(f.irr5Year.worst)}–**${pct(f.irr5Year.best)}** | 시나리오 추정, 참고용 |`);
+    if (f.irr5Year && !f.isBasicMode) rows.push(`| **5년 보유 시 투자수익률(IRR)** | ${pct(f.irr5Year.worst)}–**${pct(f.irr5Year.best)}** | 시나리오 추정, 참고용 |`);
     if (f.yieldOnCost !== null) rows.push(`| **총 수익률(Gross Yield)** | **${pct(f.yieldOnCost)}** | 연 임대수입/매매가 (운영비 미차감) |`);
     if (f.pricePerPyeong !== null) rows.push(`| **평당 매매가** | **${f.pricePerPyeong.toLocaleString()}원/평** | 참고용 |`);
     if (f.landValueRatio !== null) rows.push(`| **땅값 비중(원금 안전판)** | **${f.landValueRatio}%** | 높을수록 원금 하방 경직성 확보 |`);
@@ -376,9 +379,9 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
     if (f.loanAmountBil !== null) rows.push(`| **선순위 대출 잔액** | **${f.loanAmountBil}억 원** | 중개인 제공 |`);
     if (f.totalAcquisitionCostBil !== null) rows.push(`| **총취득원가** | **약 ${f.totalAcquisitionCostBil}억 원** | 매매가 + 취득세(4.6%) + 중개보수(0.9%) |`);
     if (f.equityRequired !== null) rows.push(`| **실투자금(총취득원가 기준)** | **약 ${f.equityRequired}억 원** | 취득원가 - 보증금 - 대출금 |`);
-    if (f.wacc !== null) rows.push(`| **추정 자본비용(WACC)** | **${pct(f.wacc * 100)}** | LTV 및 금리 반영 |`);
-    if (f.dcf10Year) rows.push(`| **10년 현금흐름 현재가치(NPV)** | **${f.dcf10Year.npvBase > 0 ? '+' : ''}${bil(f.dcf10Year.npvBase)}** | 기준 시나리오 |`);
-    if (f.leveragedYield !== null) {
+    if (f.wacc !== null && !f.isBasicMode) rows.push(`| **추정 자본비용(WACC)** | **${pct(f.wacc * 100)}** | LTV 및 금리 반영 |`);
+    if (f.dcf10Year && !f.isBasicMode) rows.push(`| **10년 현금흐름 현재가치(NPV)** | **${f.dcf10Year.npvBase > 0 ? '+' : ''}${bil(f.dcf10Year.npvBase)}** | 기준 시나리오 |`);
+    if (f.leveragedYield !== null && !f.isBasicMode) {
       const roeLabel = f.loanAmountBil ? '대출 활용 시 연 수익률' : '무차입 기준 연 수익률';
       rows.push(`| **내 돈 대비 수익률(자기자본수익률)** | **${f.leveragedYield}%** | ${roeLabel} |`);
     }
@@ -609,11 +612,8 @@ class OwnerOccupiedFinancialStrategy implements PostureFinancialStrategy {
     // 잔여층/지하층 임대수입 가산
     const annualRentalIncomeKrw = (inputs.monthlyRentKrw ?? 0) * 12;
 
-    // 대출금: 명시적 입력이 있으면 사용, 0으로 명시 입력 시 0, 미입력 시 CRE 사옥 표준 LTV 60% 기본 가정
-    const defaultLtv = 0.60;
-    const loanKrw = inputs.loanAmountManwon !== undefined && inputs.loanAmountManwon !== null
-      ? inputs.loanAmountManwon * 10000
-      : Math.round(purchasePrice * defaultLtv);
+    // 대출금: 명시적 입력이 있으면 사용, 미입력 시 0원
+    const loanKrw = inputs.loanAmountManwon ? inputs.loanAmountManwon * 10000 : 0;
     const loanRate = ASSUMPTIONS.loanRateDefault.value ?? 0.045;
     const annualDebtServiceKrw = loanKrw * loanRate;
     const ownVsLeaseSavingsKrw = (virtualAnnualRentKrw + annualRentalIncomeKrw) - annualDebtServiceKrw;

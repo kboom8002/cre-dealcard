@@ -151,6 +151,7 @@ export async function generateSingleSection(
           totalDepositManwon: supplemental.total_deposit_manwon,
           mgmtFeeTotalManwon: supplemental.mgmt_fee_total_manwon,
           loanAmountManwon: supplemental.loan_amount_manwon,
+          isBasicMode: !supplemental.loan_amount_manwon,
           // 개발형 전용 파라미터
           constructionCostPerPyeong: (supplemental.developmentSpec as any)?.constructionCostPerPyung
             ?? (supplemental.developmentSpec as any)?.constructionCostPerPyeong
@@ -205,6 +206,32 @@ export async function generateSingleSection(
         financialsMarkdown: formatBasicIncomeMarkdown(annualGross, effectiveGross, estimatedNoi, vPct),
       };
     }
+  }
+
+  if (sectionType === 'comparables' as any) {
+    const { renderComparables } = await import('./section-renderers/comparables-renderer');
+    const compsData = ((externalData as any)?.comparableTransactions || (supplemental as any).manual_comps || []) as any[];
+    const subjectPricePerPyeong = ctx.totalAreaSqm ? ctx.purchasePriceKrw / (ctx.totalAreaSqm / 3.3058) : 0;
+    
+    const result = renderComparables({
+      subjectName: (ctx.assetIdentity as any).address || '본건',
+      subjectPricePerPyeong,
+      comparables: compsData,
+    });
+
+    const finalSection: MobileIMSection = {
+      section_type: sectionType,
+      section_order: sectionIndex + 1,
+      title: getSectionTitle(sectionType, (buildingSsotLite as any)?.asset_type as string),
+      markdown: result.markdown,
+      confidence: 'confirmed', // Fallback for deterministic
+      boundary_note: "본 섹션의 내용은 예비 검토용입니다.",
+      provenance: sectionProvenance,
+      judge_score: undefined,
+      min_tier: "public",
+    };
+    if (input.onProgress) input.onProgress(finalSection);
+    return { section: finalSection, generatedByAi: false, cachedFinancials: null };
   }
 
   // ── AI 생성 시도 ──
@@ -505,8 +532,8 @@ export async function generateSingleSection(
   if (disclosureCheck.status !== "pass") markdown = disclosureCheck.safe_text;
 
   // Sanitize markdown headings that may leak from templates
-  markdown = markdown.replace(/^#{1,6}\s+/gm, '**')  // Convert headings to bold
-    .replace(/#{1,6}\s+/g, '');  // Strip inline headings
+  // 줄 시작의 ### 은 section-card.tsx가 <h3>로 처리하므로 놔두고, 인라인 ###만 제거
+  markdown = markdown.replace(/(?<!^)#{1,6}\s+/gm, '');
 
   // 브로커 하이라이트
   if (sectionType === "investment_thesis" && supplemental.broker_highlight) {
