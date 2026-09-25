@@ -17,29 +17,10 @@ export function ScheduleSection({ buildingId }: ScheduleSectionProps) {
   useEffect(() => {
     async function fetchData() {
       try {
-        // Fetch upcoming slots
-        const { data: slots, error: slotsError } = await supabase
-          .from('availability_slots')
-          .select('id')
-          .eq('building_id', buildingId)
-          .gte('slot_date', new Date().toISOString().split('T')[0]);
-        
-        if (slotsError) throw slotsError;
-        setSlotsCount(slots?.length || 0);
-
-        // Fetch confirmed/held bookings for these slots
-        if (slots && slots.length > 0) {
-          const slotIds = slots.map((s) => s.id);
-          const { data: bookings, error: bookingsError } = await supabase
-            .from('bookings')
-            .select('id')
-            .in('slot_id', slotIds)
-            .in('status', ['hold', 'confirmed']);
-          if (bookingsError) throw bookingsError;
-          setBookingsCount(bookings?.length || 0);
-        } else {
-          setBookingsCount(0);
-        }
+        // DB tables availability_slots and bookings do not exist yet.
+        // Mock data to prevent PGRST205 errors.
+        setSlotsCount(0);
+        setBookingsCount(0);
       } catch (err) {
         console.error('[ScheduleSection] fetch error:', err);
         setSlotsCount(0);

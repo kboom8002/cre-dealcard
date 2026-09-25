@@ -45,6 +45,7 @@ export function IdealBuyerPersonaSection({
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [registeringIndex, setRegisteringIndex] = useState<number | null>(null);
   const router = useRouter();
 
   // Load from DB first, fallback to localStorage
@@ -351,8 +352,10 @@ export function IdealBuyerPersonaSection({
                   {/* 🆕 Virtual Intent Match Action */}
                   <div className="pt-2">
                     <button
+                      disabled={registeringIndex === index}
                       onClick={async () => {
                         try {
+                          setRegisteringIndex(index);
                           const virtualIntent = personaToVirtualIntent(persona, areaSignal, assetType);
                           const memoText = `[가상 페르소나 매수자] ${virtualIntent.sourcePersonaLabel}\n유형: ${virtualIntent.buyerType}\n예산: ${virtualIntent.budgetRange.display}\n선호지역: ${virtualIntent.preferredRegions.join(', ')}\n선호자산: ${virtualIntent.assetTypes.join(', ')}\n목적: ${virtualIntent.purchasePurpose}\n투자관점: ${virtualIntent.investmentPosture ?? '미지정'}\n필수조건: ${virtualIntent.mustHave.join(', ')}\n우대조건: ${virtualIntent.niceToHave.join(', ')}`;
                           const res = await fetch("/api/broker/buyer-intents/from-memo", {
@@ -371,11 +374,13 @@ export function IdealBuyerPersonaSection({
                           }
                         } catch (e) {
                           toast.error("오류가 발생했습니다.");
+                        } finally {
+                          setRegisteringIndex(null);
                         }
                       }}
-                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 py-2 px-3 text-xs font-bold hover:bg-primary/20 active:scale-[0.99] transition-all"
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 py-2 px-3 text-xs font-bold hover:bg-primary/20 active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <span>🎯 이 페르소나 매칭 검토 (가상 의향 등록)</span>
+                      <span>{registeringIndex === index ? '⏳ 등록 중...' : '🎯 이 페르소나 매칭 검토 (가상 의향 등록)'}</span>
                     </button>
                   </div>
                 </div>

@@ -12,7 +12,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const service = createServiceClient();
+    if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
+  const service = createServiceClient();
 
     // id can be building_id or document id
     const safeId = id.replace(/[,()"\\]/g, '');

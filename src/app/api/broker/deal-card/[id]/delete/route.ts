@@ -20,6 +20,7 @@ export async function DELETE(
 ) {
   const { id } = await params;
 
+  if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
   // 인증 확인
   const supabase = await createServerSupabaseClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -57,6 +58,10 @@ export async function DELETE(
       service.from("lease_spaces").delete().eq("building_id", id),
       service.from("full_im_handoffs").delete().eq("source_building_ssot_lite_id", id),
       service.from("space_ai_handoffs").delete().eq("source_building_ssot_lite_id", id),
+      service.from("match_results").delete().eq("building_id", id),
+      service.from("circle_shared_assets").delete().eq("building_id", id),
+      service.from("deal_pipeline_states").delete().eq("building_id", id),
+      service.from("deal_casepacks").delete().eq("building_id", id),
     ]);
 
     // 2. 메인 레코드 삭제 (Hard delete 시도)

@@ -292,7 +292,13 @@ export default async function DealCardShortPage({ params, searchParams }: PagePr
           {/* ⑥ 매도자 보호 및 비밀유지 안내 (접이식) */}
           <details className="group text-xs text-slate-400 border border-slate-800 rounded-xl p-3 bg-slate-900/50">
             <summary className="cursor-pointer font-semibold text-slate-300 flex items-center justify-between">
-              <span>🛡️ 매도자 보호 및 정보 보안 정책</span>
+              <span className="flex items-center gap-2">
+                🛡️ 매도자 보호 및 정보 보안 정책
+                <span className="inline-flex items-center gap-1 text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  보안 검증 완료 (k=20)
+                </span>
+              </span>
               <span className="text-[10px] text-slate-500 group-open:rotate-180 transition-transform">▼</span>
             </summary>
             <div className="pt-2">

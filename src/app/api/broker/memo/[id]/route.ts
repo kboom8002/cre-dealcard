@@ -12,7 +12,8 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const guard = await requireBroker(req);
+    if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
+  const guard = await requireBroker(req);
     if (guard.error) return guard.error;
     const { user } = guard;
 

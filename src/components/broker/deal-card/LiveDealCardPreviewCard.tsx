@@ -156,7 +156,7 @@ export function LiveDealCardPreviewCard({
           <div className="relative aspect-[1.91/1] w-full bg-neutral-900 overflow-hidden flex items-center justify-center border-b border-border/40">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={`/api/og/deal/${buildingId}/kakao?t=${ogTimestamp}`}
+              src={`/api/og/deal/${buildingId}/kakao?v=${ogTimestamp}`}
               alt="OG 공유 썸네일"
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
               key={ogTimestamp}

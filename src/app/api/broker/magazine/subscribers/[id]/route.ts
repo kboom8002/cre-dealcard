@@ -14,7 +14,8 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const supabase = await createServerSupabaseClient();
+    if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
+  const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

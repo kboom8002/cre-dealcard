@@ -24,6 +24,7 @@ export async function POST(
   if (guard.error) return guard.error;
 
   const { id } = await params;
+  if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
   let action: string;
   let brokerNotes: string | undefined;
   let expectedHash: string | undefined;
