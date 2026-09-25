@@ -53,7 +53,7 @@ export async function PATCH(
     // Fetch existing document to merge updates
     const { data: teaserDoc, error: fetchError } = await serviceClient
       .from("document_objects")
-      .select("body")
+      .select("id, body")
       .eq("building_id", id)
       .eq("document_type", "blind_teaser")
       .order("created_at", { ascending: false })
