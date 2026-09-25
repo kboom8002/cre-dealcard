@@ -136,7 +136,7 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
         slug,
         photo_url: profile.photo_url || null,
       }, { onConflict: "user_id" })
-      .then(() => {}).catch((e) => console.error('[fetch-im-data] floating promise error:', e));
+      .then(() => {}).catch((e: any) => console.error('[fetch-im-data] floating promise error:', e));
   } else if (brokerProfile && !slug) {
     // broker_profiles는 있지만 slug가 없는 경우
     const baseName = (profile?.display_name || brokerProfile?.name || ownerId.substring(0, 8)) as string;
@@ -147,7 +147,7 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
       .from("broker_profiles")
       .update({ slug })
       .eq("user_id", ownerId)
-      .then(() => {}).catch((e) => console.error('[fetch-im-data] floating promise error:', e));
+      .then(() => {}).catch((e: any) => console.error('[fetch-im-data] floating promise error:', e));
   }
 
   // profiles + broker_profiles 병합 (phone, company, tagline은 profiles에서)
