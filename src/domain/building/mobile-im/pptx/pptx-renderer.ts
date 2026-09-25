@@ -721,6 +721,11 @@ export class MobileImPptxRenderer {
 
       // Basic IM 전용: 투자수익률 산식 슬라이드 데이터 바인딩 (basic-im-guide.md §3.3)
       if (theme.presetId === 'credeal_basic') {
+        // --- SSoT 우선 참조 (Phase 2-c) ---
+        const fin = input.doc.body?.financials as Record<string, any> | undefined;
+        const hasSsotYield = fin?.grossYieldOnEquity != null && Number.isFinite(fin.grossYieldOnEquity);
+
+        // --- Fallback: 기존 자체 계산 로직 (기존 DB 문서 하위 호환) ---
         const ssot = input.doc.body?.ssot_summary ?? {};
         const askManwon = Number(ssot.asking_price_manwon ?? input.doc.body?.asking_price_manwon ?? 0);
         const depositKrw = Number(ssot.total_deposit_manwon ?? 0) * 10000;
@@ -749,7 +754,11 @@ export class MobileImPptxRenderer {
         const rawCapRateAsIs = (denominator > 0 && Number.isFinite(denominator) && Number.isFinite(annualRentKrw))
           ? (annualRentKrw / denominator * 100)
           : 0;
-        const capRateAsIs = Number.isFinite(rawCapRateAsIs) && rawCapRateAsIs > 0 ? rawCapRateAsIs : 0;
+        const fallbackCapRateAsIs = Number.isFinite(rawCapRateAsIs) && rawCapRateAsIs > 0 ? rawCapRateAsIs : 0;
+
+        // SSoT 우선, Fallback 보존
+        const capRateAsIs = hasSsotYield ? fin!.grossYieldOnEquity : fallbackCapRateAsIs;
+
         // 안정화: claims에서 pro_forma_cap_rate 우선 참조 (FinancialCalculator 산출값)
         const docClaims = (input.doc.body?.claims ?? []) as Array<{ subject: string; value: number }>;
         const proFormaClaim = docClaims.find(c => c.subject === 'pro_forma_cap_rate');
@@ -760,7 +769,12 @@ export class MobileImPptxRenderer {
         const calcStabilized = (vacPct > 0 && vacPct < 100 && denominator > 0 && Number.isFinite(denominator) && Number.isFinite(annualRentKrw))
           ? ((annualRentKrw * (1 + vacPct / (100 - vacPct))) / denominator * 100)
           : undefined;
-        const capRateStabilized = safeProForma ?? (calcStabilized && Number.isFinite(calcStabilized) && calcStabilized > 0 ? calcStabilized : undefined);
+        const fallbackStabilized = safeProForma ?? (calcStabilized && Number.isFinite(calcStabilized) && calcStabilized > 0 ? calcStabilized : undefined);
+
+        // SSoT 우선, Fallback 보존
+        const capRateStabilized = (hasSsotYield && fin?.grossYieldStabilized != null)
+          ? fin.grossYieldStabilized
+          : fallbackStabilized;
 
         dataMap['yieldFormula'] = {
           title: '투자수익률 분석',
@@ -768,7 +782,7 @@ export class MobileImPptxRenderer {
           content: '',
           tables: [],
           metrics: {},
-          annualRent: annualRentKrw,
+          annualRent: (hasSsotYield && fin?.annualRentBil) ? fin.annualRentBil * 1_0000_0000 : annualRentKrw,
           totalDeposit: depositKrw,
           askingPrice: askKrw,
           vacancyPct: vacPct,
