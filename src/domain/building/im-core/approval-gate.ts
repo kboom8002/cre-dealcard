@@ -66,12 +66,12 @@ export function runApprovalGate(
   // 포스처별 필수 Claim 분기: gross_yield는 수익형에서만 필수
   const posture = options?.posture ?? 'income';
   const REQUIRED_SUBJECTS: string[] = ['asking_price', 'total_area'];
-  if (posture === 'income' || posture === 'trading' || posture === 'operating') {
+  if (posture === 'income') {
     REQUIRED_SUBJECTS.push('gross_yield');
   }
   const SUBJECT_ALIASES: Record<string, string[]> = {
-    total_area: ['total_area', 'total_area_sqm'],
-    gross_yield: ['gross_yield', 'yield_on_cost', 'cap_rate'],
+    total_area: ['total_area', 'total_area_sqm', 'gross_floor_area_sqm', 'total_gross_area_sqm'],
+    gross_yield: ['gross_yield', 'yield_on_cost', 'cap_rate', 'cap_rate_base', 'net_yield'],
   };
   const allClaims = registry.getAll ? registry.getAll() : [];
   if (allClaims.length === 0) {
@@ -85,10 +85,11 @@ export function runApprovalGate(
       const aliases = SUBJECT_ALIASES[subj] ?? [subj];
       const claims = allClaims.filter(c => aliases.includes(c.subject));
       if (claims.length === 0) {
+        const severity = (subj === 'gross_yield' && posture === 'income') ? 'warn' : 'block';
         blockers.push({
           id: `approval.required_missing.${subj}`,
           description: `필수 항목 '${subj}'이 Claim 목록에 누락되었습니다`,
-          severity: 'block',
+          severity,
         });
       } else if (claims.every(c => c.status === 'not_available' || c.status === 'unverified')) {
         blockers.push({

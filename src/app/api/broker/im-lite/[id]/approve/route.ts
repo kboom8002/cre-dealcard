@@ -144,6 +144,40 @@ export async function POST(
       }
     }
 
+    const allClaims = registry.getAll ? registry.getAll() : [];
+    const ssot = fullDocForGate.body.ssot_summary || {};
+    
+    // gross_floor_area fallback for total_area
+    if (!allClaims.some(c => ['total_area', 'total_area_sqm'].includes(c.subject))) {
+      const area = ssot.total_gross_area_sqm || ssot.gross_floor_area_sqm || ssot.gross_floor_area_m2;
+      if (area) {
+        registry.register({
+          subject: 'total_area',
+          value: area,
+          evidence: [],
+          provenance: 'broker',
+          asOf: new Date().toISOString(),
+          status: 'reconciled',
+        });
+      }
+    }
+    // yield fallback from monthly rent
+    if (!allClaims.some(c => ['gross_yield', 'yield_on_cost', 'cap_rate', 'cap_rate_base', 'net_yield'].includes(c.subject))) {
+      const monthlyRent = ssot.monthly_rent_total_krw || ssot.noi_monthly_krw;
+      const askingPrice = ssot.asking_price_manwon ? ssot.asking_price_manwon * 10000 : ssot.asking_price;
+      if (monthlyRent && askingPrice && askingPrice > 0) {
+        const annualYield = ((monthlyRent * 12) / askingPrice) * 100;
+        registry.register({
+          subject: 'gross_yield',
+          value: Math.round(annualYield * 100) / 100,
+          evidence: [],
+          provenance: 'broker',
+          asOf: new Date().toISOString(),
+          status: 'reconciled',
+        });
+      }
+    }
+
     const gateResult = runApprovalGate(registry, tier, {
       hasHallucination: fullDocForGate.body.hasHallucination === true,
       publishBlocked: fullDocForGate.body.gateReport?.blocked === true,

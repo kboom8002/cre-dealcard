@@ -532,18 +532,27 @@ export async function generateMobileIMHandler(
   const autoHeroTitle = title;
   const priceBandLabel = ssotRow.price_band 
     || (supplemental.asking_price_manwon ? `${Math.round(supplemental.asking_price_manwon / 10000)}억 원대` : '');
-  // 부제목: 권역 + 자산유형 + 매각가 + 첫 섹션에서 핵심 문장 추출
-  const firstSectionText = writerResult.sections?.[0]?.markdown
-    ?.replace(/[#*`\n>|]/g, ' ')
-    ?.replace(/\s+/g, ' ')
-    ?.trim()
-    ?.slice(0, 60) || '';
+  // 부제목: 권역 + 자산유형 + 매각가 (첫 섹션 테이블/마크다운 오염 방지)
+  const rawLines = (writerResult.sections?.[0]?.markdown || '').split('\n');
+  const firstMeaningfulLine = rawLines.find(line => {
+    const trimmed = line.trim();
+    if (!trimmed) return false;
+    if (trimmed.startsWith('|') || trimmed.startsWith('#') || trimmed.startsWith('---')) return false;
+    if (trimmed.includes('[건물명 비공개]') || trimmed.includes('항목 내용') || trimmed.includes('항목|')) return false;
+    if (trimmed.length < 10) return false;
+    return true;
+  }) || '';
+  const firstSectionText = firstMeaningfulLine
+    .replace(/[#*`>|\[\]]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
+
   const autoHeroSubtitle = [
     areaLabel !== '소재 권역' && areaLabel !== '핵심 입지' ? `${areaLabel} 소재` : '',
     cleanAssetType !== '상업용 자산' ? cleanAssetType : '',
     priceBandLabel ? `매각 희망가 ${priceBandLabel}` : '',
-  ].filter(Boolean).join(', ') 
-    + (firstSectionText ? `. ${firstSectionText}` : '');
+  ].filter(Boolean).join(', ');
   // OG 설명: 간결한 한 줄 요약
   const autoOgDescription = [
     areaLabel !== '소재 권역' && areaLabel !== '핵심 입지' ? `${areaLabel}` : '',
@@ -565,16 +574,37 @@ export async function generateMobileIMHandler(
   );
 
   // floor_leases에서 공실률 직접 산출 → ssot_summary.vacancy_pct에 영속
+  // 자가사용(사옥, 카페 자가 등)은 만실로 처리 — 실제 사용 중이므로 공실이 아님
   const floorLeases = supplemental.floor_leases ?? [];
   if (floorLeases.length > 0 && supplemental.vacancy_pct == null) {
-    const vacantCount = floorLeases.filter((l: any) => 
+    const ownerUseKeywords = ['자가', '사옥', '자사', '본사', '직영', 'owner'];
+    const isOwnerUse = (l: any): boolean => {
+      const note = String(l.note || '').toLowerCase();
+      const tenant = String(l.tenant_type || l.tenant || '').toLowerCase();
+      return ownerUseKeywords.some(k => note.includes(k) || tenant.includes(k));
+    };
+    
+    // 자가사용 호실은 공실 계산에서 제외 (만실 처리)
+    const leasableUnits = floorLeases.filter((l: any) => !isOwnerUse(l));
+    const vacantCount = leasableUnits.filter((l: any) => 
       l.is_vacant === true 
       || l.tenant === '공실' || l.tenant_name === '공실'
       || l.tenant_type === '공실' || l.tenant_sector === '공실'
       || (l.tenant_type?.includes?.('공실'))
-      || (l.rent_manwon === 0 && l.deposit_manwon === 0 && !l.tenant_type)
+      || (l.rent_manwon === 0 && l.deposit_manwon === 0 && !l.tenant_type && !l.tenant)
     ).length;
-    supplemental.vacancy_pct = Math.round((vacantCount / floorLeases.length) * 1000) / 10;
+    
+    const denominator = leasableUnits.length || 1;
+    supplemental.vacancy_pct = Math.round((vacantCount / denominator) * 1000) / 10;
+    
+    // 자가사용 공간 정보 기록 (수익 여력 표시용)
+    const ownerUseUnits = floorLeases.filter((l: any) => isOwnerUse(l));
+    if (ownerUseUnits.length > 0) {
+      (supplemental as any).owner_use_count = ownerUseUnits.length;
+      (supplemental as any).owner_use_area_pyeong = ownerUseUnits.reduce(
+        (sum: number, l: any) => sum + (l.area_pyeong || 0), 0
+      );
+    }
   }
 
   const imDocPayload = {

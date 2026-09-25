@@ -504,6 +504,10 @@ export async function generateSingleSection(
   const disclosureCheck = runDisclosureGuard(markdown);
   if (disclosureCheck.status !== "pass") markdown = disclosureCheck.safe_text;
 
+  // Sanitize markdown headings that may leak from templates
+  markdown = markdown.replace(/^#{1,6}\s+/gm, '**')  // Convert headings to bold
+    .replace(/#{1,6}\s+/g, '');  // Strip inline headings
+
   // 브로커 하이라이트
   if (sectionType === "investment_thesis" && supplemental.broker_highlight) {
     markdown += `\n\n> **전문가 한줄 의견**: "${supplemental.broker_highlight}"`;

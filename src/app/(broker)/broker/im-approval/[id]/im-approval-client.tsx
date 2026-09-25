@@ -363,11 +363,18 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
       if (err.status === 422 && err.data?.serverHash) {
         setCurrentApprovalHash(err.data.serverHash);
         toast.error('문서가 변경되었습니다. 다시 승인 버튼을 눌러주세요.');
+      } else if (err.status === 422 && err.data?.blockers) {
+        const blockerTexts = err.data.blockers
+          .filter((b: any) => b.severity === 'block')
+          .map((b: any) => b.description)
+          .join('\n');
+        toast.error(`승인 조건 미충족:\n${blockerTexts}`);
+        setResultMsg(`승인 게이트 미통과: ${blockerTexts}`);
       } else {
         toast.error(errorMsg || '공개 승인 처리 중 오류가 발생했습니다.');
       }
       
-      setResultMsg(errorMsg);
+      if (!err.data?.blockers) setResultMsg(errorMsg);
       setActionStatus('error');
     }
   };
