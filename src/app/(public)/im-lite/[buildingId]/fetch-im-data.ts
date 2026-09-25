@@ -136,7 +136,7 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
         slug,
         photo_url: profile.photo_url || null,
       }, { onConflict: "user_id" })
-      .then(() => {});
+      .then(() => {}).catch((e) => console.error('[fetch-im-data] floating promise error:', e));
   } else if (brokerProfile && !slug) {
     // broker_profiles는 있지만 slug가 없는 경우
     const baseName = (profile?.display_name || brokerProfile?.name || ownerId.substring(0, 8)) as string;
@@ -147,7 +147,7 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
       .from("broker_profiles")
       .update({ slug })
       .eq("user_id", ownerId)
-      .then(() => {});
+      .then(() => {}).catch((e) => console.error('[fetch-im-data] floating promise error:', e));
   }
 
   // profiles + broker_profiles 병합 (phone, company, tagline은 profiles에서)
@@ -551,7 +551,7 @@ export async function fetchIMData(
           .filter((p: any) => p && typeof p.url === "string")
           .map((p: any) => ({ url: p.url, type: p.type || "exterior", label: p.label || "건물 사진" }))
       : Array.isArray(ssot.photo_urls) && ssot.photo_urls.length > 0
-      ? ssot.photo_urls.map((url: string, i: number) => ({
+      ? (ssot.photo_urls ?? []).map((url: string, i: number) => ({
           url,
           type: i === 0 ? "exterior" : "interior",
           label: i === 0 ? "건물 외관" : `건물 사진 ${i + 1}`,

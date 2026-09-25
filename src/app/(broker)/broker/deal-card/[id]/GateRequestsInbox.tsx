@@ -65,14 +65,14 @@ export function GateRequestsInbox({ buildingId }: { buildingId: string }) {
     const imUrl = `${window.location.origin}/im-lite/${buildingId}?doc=${reqId}`;
     navigator.clipboard.writeText(imUrl).then(() => {
       toast.success("모바일 IM 링크가 복사되었습니다. 매수자에게 전달하세요.");
-    });
+    }).catch((err) => { console.error("Clipboard copy failed:", err); toast.error("복사에 실패했습니다. 권한을 확인해주세요."); });
   }
 
   function handleCopyNDALink(reqId: string) {
     const ndaUrl = `${window.location.origin}/nda/${reqId}`;
     navigator.clipboard.writeText(ndaUrl).then(() => {
       toast.success("열람 링크가 복사되었습니다. 매수자에게 전달하세요.");
-    });
+    }).catch((err) => { console.error("Clipboard copy failed:", err); toast.error("복사에 실패했습니다. 권한을 확인해주세요."); });
   }
 
   if (loading) {

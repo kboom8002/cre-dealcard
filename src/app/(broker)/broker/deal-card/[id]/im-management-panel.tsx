@@ -74,7 +74,7 @@ export function ImManagementPanel({
               setSelectedPreset(presetFromDoc);
             }
           }
-          setDocs(data.documents.map((d: any) => ({
+          setDocs((data.documents || []).map((d: any) => ({
             id: d.id,
             created_at: d.created_at,
             tier: d.body?.tier || 'basic',

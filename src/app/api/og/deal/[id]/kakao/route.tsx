@@ -11,11 +11,27 @@ export const runtime = "nodejs";
 
 let fontBuffer: ArrayBuffer | null = null;
 
+let fallbackFontBuffer: ArrayBuffer | null = null;
+async function getFallbackFont(): Promise<ArrayBuffer | null> {
+  if (fallbackFontBuffer) return fallbackFontBuffer;
+  try {
+    const res = await fetch(
+      "https://cdn.jsdelivr.net/font-noto-cjk/1.004/NotoSansKR-Bold.otf"
+    );
+    if (res.ok) {
+      fallbackFontBuffer = await res.arrayBuffer();
+    }
+  } catch (e) {
+    // ignore
+  }
+  return fallbackFontBuffer;
+}
+
 async function getFontData(): Promise<ArrayBuffer | null> {
   if (fontBuffer) return fontBuffer;
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // reduced timeout for crawler
     const res = await fetch(
       "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/public/static/Pretendard-Bold.otf",
       { signal: controller.signal }
@@ -70,7 +86,7 @@ export async function GET(
     }
 
     // Try fetching broker profile if broker_id is known
-    const brokerId = building?.broker_id || building?.created_by;
+    const brokerId = building?.owner_id;
     if (brokerId) {
       const { data: pData } = await supabase
         .from("profiles")
@@ -104,11 +120,11 @@ export async function GET(
   const teaserView = projectToTeaser(attrs);
   const imBody = (teaserDoc?.body ?? {}) as Record<string, any>;
 
-  const hookCopy =
-    imBody.hookCopy || teaserView.hookCopy || `${teaserView.region} 프라임 꼬마빌딩`;
+  const regionDisplay = teaserView.region || safeBuilding.area_signal || "서울권역";
+  let hookCopy = imBody.hookCopy || teaserView.hookCopy || `${regionDisplay} 프라임 꼬마빌딩`;
   const postureLabel = teaserView.postureLabel || "임대수익형";
   const priceDisplay = teaserView.bandedPrice || safeBuilding.price_band || "가격 협의";
-  const regionDisplay = teaserView.region || safeBuilding.area_signal || "서울권역";
+  
   const assetTypeDisplay = teaserView.assetType || safeBuilding.asset_type || "근생·오피스";
   const brokerName = brokerProfile?.display_name || "담당 공인중개사";
   const brokerCompany = brokerProfile?.company_name || "CREDEAL 파트너스";
@@ -120,6 +136,7 @@ export async function GET(
   const heroTiles = filterValidTiles(rawTiles).slice(0, 2);
 
   const fontData = await getFontData();
+  const fallbackFontData = await getFallbackFont();
   const fontsList: any[] = fontData
     ? [{ name: "Pretendard", data: fontData, style: "normal", weight: 700 }]
     : [];
@@ -299,6 +316,9 @@ export async function GET(
       width: 800,
       height: 400,
       fonts: fontsList,
+      headers: {
+        "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+      },
     }
   );
 }

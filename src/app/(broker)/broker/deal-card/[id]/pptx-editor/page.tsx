@@ -262,7 +262,7 @@ export default function PptxEditorPage({ params }: { params: Promise<{ id: strin
   // Deck Sequence Reorder Handler
   const handleReorderSlides = async (reorderedSlideIds: string[]) => {
     if (!project) return;
-    const slideMap = new Map(project.slides.map((s) => [s.id, s]));
+    const slideMap = new Map((project.slides ?? []).map((s) => [s.id, s]));
     const newSlides: PptxSlide[] = [];
 
     for (const sid of reorderedSlideIds) {
@@ -301,7 +301,7 @@ export default function PptxEditorPage({ params }: { params: Promise<{ id: strin
     const targetSlide = project.slides.find((s) => s.id === slideId);
     const newHidden = !targetSlide?.hidden;
 
-    const newSlides = project.slides.map((s) =>
+    const newSlides = (project.slides ?? []).map((s) =>
       s.id === slideId ? { ...s, hidden: newHidden } : s
     );
 

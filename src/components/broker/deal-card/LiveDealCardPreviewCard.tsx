@@ -90,7 +90,7 @@ export function LiveDealCardPreviewCard({
   // 카카오톡 공유
   const handleKakaoShare = () => {
     const finalText = (typeof window !== "undefined" && sessionStorage.getItem(`kakao_text_${buildingId}`)) || kakaoText || displayDesc;
-    const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}/kakao?t=${Date.now()}`;
+    const ogImageUrl = `${siteUrl}/api/og/deal/${buildingId}/kakao`;
 
     if (kakaoReady && window.Kakao?.Share) {
       try {
@@ -156,7 +156,7 @@ export function LiveDealCardPreviewCard({
           <div className="relative aspect-[1.91/1] w-full bg-neutral-900 overflow-hidden flex items-center justify-center border-b border-border/40">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={`/api/og/deal/${buildingId}?t=${ogTimestamp}`}
+              src={`/api/og/deal/${buildingId}/kakao?t=${ogTimestamp}`}
               alt="OG 공유 썸네일"
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
               key={ogTimestamp}

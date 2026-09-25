@@ -668,13 +668,17 @@ export async function GET(
 
   const { data: doc, error } = await supabase
     .from('document_objects')
-    .select('id, title, body, created_at, owner_id')
+    .select('id, title, body, created_at, owner_id, document_type')
     .eq('id', docId)
     .eq('building_id', buildingId)
     .maybeSingle();
 
   if (error || !doc) {
     return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+  }
+
+  if (doc.document_type === 'blind_teaser' || !doc.body || !Array.isArray((doc.body as any).sections)) {
+    return NextResponse.json({ error: 'Invalid document type or corrupted IM' }, { status: 400 });
   }
 
   const { data: building } = await supabase

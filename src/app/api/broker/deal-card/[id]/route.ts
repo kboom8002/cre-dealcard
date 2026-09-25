@@ -98,8 +98,7 @@ export async function PATCH(
       const { error: updateError } = await serviceClient
         .from("document_objects")
         .update(docUpdate)
-        .eq("building_id", id)
-        .eq("document_type", "blind_teaser");
+        .eq("id", teaserDoc.id);
       if (updateError) throw updateError;
     } else {
       const { error: insertError } = await serviceClient

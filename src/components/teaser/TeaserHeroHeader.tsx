@@ -25,6 +25,10 @@ export function TeaserHeroHeader({
   posture = 'income',
   postureLabel,
   postureHeroTiles,
+  bandedPrice,
+  bandedCapRate,
+  bandedArea,
+  vacancyLabel,
   urgencyTag
 }: TeaserHeroHeaderProps) {
   // Posture별 프리미엄 추상 그라데이션 배경 테마
@@ -110,7 +114,15 @@ export function TeaserHeroHeader({
 
       {/* 4-Tile Metrics Grid with Glassmorphism */}
       {(() => {
-        const validTiles = postureHeroTiles ? filterValidTiles(postureHeroTiles) : [];
+        let validTiles = postureHeroTiles ? filterValidTiles(postureHeroTiles) : [];
+        if (validTiles.length === 0) {
+          const fallbackTiles = [];
+          if (bandedPrice) fallbackTiles.push({ emoji: "💰", label: "매각가", value: bandedPrice });
+          if (bandedCapRate) fallbackTiles.push({ emoji: "📈", label: "수익률", value: bandedCapRate });
+          if (bandedArea) fallbackTiles.push({ emoji: "📐", label: "연면적", value: bandedArea });
+          if (vacancyLabel) fallbackTiles.push({ emoji: "🏢", label: "공실", value: vacancyLabel });
+          validTiles = filterValidTiles(fallbackTiles);
+        }
         return validTiles.length > 0 ? (
           <div className="relative z-10 grid grid-cols-2 gap-2.5 pt-2">
             {validTiles.map((tile, i) => (

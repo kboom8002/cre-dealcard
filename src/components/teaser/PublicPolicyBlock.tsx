@@ -24,11 +24,19 @@ export const PublicPolicyBlock: React.FC<PublicPolicyBlockProps> = ({
       </p>
 
       {typeof candidateCount === 'number' && candidateCount > 0 && (
-        <div className="mt-2.5 pt-2 border-t border-[#252E39]/60 flex items-center justify-between text-[10.5px] text-[#6B7987]">
-          <span>권역 내 비교 후보군 {candidateCount}개 자산 검증 완료</span>
-          <span className="text-emerald-400 font-medium flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> 보안 검증됨
-          </span>
+        <div className="mt-2.5 pt-2 border-t border-[#252E39]/60 flex flex-col gap-1.5 text-[10.5px] text-[#6B7987]">
+          <div className="flex items-center justify-between">
+            <span>권역 내 비교 후보군 {candidateCount}개 자산 검증 완료 (요구기준 k={kThreshold})</span>
+            {passed ? (
+              <span className="text-emerald-400 font-medium flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> 보안 검증됨
+              </span>
+            ) : (
+              <span className="text-red-400 font-medium flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400" /> 식별 위험
+              </span>
+            )}
+          </div>
         </div>
       )}
     </div>

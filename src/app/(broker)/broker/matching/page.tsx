@@ -443,7 +443,7 @@ function MatchingBoardContent() {
                       <div className="pt-2 px-1 pb-1 flex gap-2">
                         {group.matches.some(m => m.grade === 'S' || m.grade === 'A') && (
                           <Link 
-                            href={`/buildings/${group.buildingId}/schedule`}
+                            href={`/broker/schedule?buildingId=${group.buildingId}`}
                             className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm transition-colors"
                           >
                             <Calendar className="w-3.5 h-3.5" />
@@ -597,7 +597,7 @@ function MatchCard({ match, type }: { match: MatchResult, type: 'buyer' | 'deal'
           />
           <div className="mt-3 flex justify-end gap-2">
              {(match.grade === 'S' || match.grade === 'A') && (
-                <Link href={`/buildings/${match.building_ssot_lite_id}/schedule`} className="text-[10px] px-3 py-1.5 rounded-md bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors flex items-center gap-1">
+                <Link href={`/broker/schedule?buildingId=${match.building_ssot_lite_id}`} className="text-[10px] px-3 py-1.5 rounded-md bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors flex items-center gap-1">
                   <Calendar className="w-3 h-3" /> 일정 조율
                 </Link>
              )}

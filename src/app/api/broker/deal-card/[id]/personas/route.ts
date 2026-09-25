@@ -89,9 +89,9 @@ export async function POST(
       }
     }
 
-    if (!personasData || !personasData.personas) {
+    if (!personasData || !Array.isArray(personasData.personas) || personasData.personas.length === 0) {
       return NextResponse.json(
-        { error: "personasData with personas array is required" },
+        { error: "personasData with non-empty personas array is required" },
         { status: 400 }
       );
     }

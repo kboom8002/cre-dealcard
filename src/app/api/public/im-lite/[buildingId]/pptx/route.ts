@@ -48,7 +48,7 @@ export async function GET(
     .from('document_objects')
     .select('*')
     .eq('building_id', buildingId)
-    .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft', 'blind_teaser']);
+    .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft']);
 
   if (docId) {
     docQuery = docQuery.eq('id', docId);
@@ -57,8 +57,8 @@ export async function GET(
   }
 
   const { data: doc } = await docQuery.maybeSingle();
-  if (!doc?.body) {
-    return NextResponse.json({ error: 'IM document not found' }, { status: 404 });
+  if (!doc?.body || !Array.isArray((doc.body as any).sections) || (doc.body as any).sections.length === 0) {
+    return NextResponse.json({ error: 'Valid IM document not found or document has no sections' }, { status: 404 });
   }
 
   // 2. Fetch building info

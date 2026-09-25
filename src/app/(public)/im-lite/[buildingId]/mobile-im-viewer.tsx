@@ -192,10 +192,10 @@ export function MobileIMViewer({
               "이 매물의 AI 섹션 생성 기능은 준비 중입니다."}
           </p>
           <Link
-            href="/hub"
+            href="/broker/buildings"
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-black text-sm font-bold rounded-xl hover:bg-primary/90 transition-colors"
           >
-            데모 보러가기
+            매물 관리로 돌아가기
           </Link>
         </div>
       </div>
@@ -326,7 +326,7 @@ export function MobileIMViewer({
           role="navigation"
           aria-label="IM 섹션 탐색"
         >
-          {doc.sections.map((section, i) => (
+          {(doc.sections ?? []).map((section, i) => (
             <button
               key={section.sectionId}
               onClick={() => {

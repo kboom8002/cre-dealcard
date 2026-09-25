@@ -20,7 +20,7 @@ export async function GET(
       .from('document_objects')
       .select('id, building_id, document_type, title, body, status, created_at')
       .or(`building_id.eq.${safeId},id.eq.${safeId}`)
-      .in('document_type', ['im_lite', 'mobile_im', 'im_approval'])
+      .in('document_type', ['im_lite', 'mobile_im'])
       .order('created_at', { ascending: false });
 
     if (error) {

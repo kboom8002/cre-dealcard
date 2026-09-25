@@ -43,7 +43,7 @@ export async function trackTeaserCta(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ teaserConfigId, visitorFp, eventType, eventData }),
     });
-    return res.json();
+    return await res.json();
   } catch {
     return null;
   }

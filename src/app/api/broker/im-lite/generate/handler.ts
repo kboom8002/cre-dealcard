@@ -353,7 +353,7 @@ export async function generateMobileIMHandler(
 
   // ─── 수동 입력 실거래가 병합 (Pro IM용) ───
   if (supplemental.manual_comps?.length) {
-    const manualAsComps = supplemental.manual_comps.map((mc: any) => {
+    const manualAsComps = (supplemental?.manual_comps ?? []).map((mc: any) => {
       // D41 A2: bottom_sheet.json 스키마 호환 — price_manwon, area_sqm, transaction_date 우선
       const priceManwon = mc.price_manwon ?? mc.dealAmount ?? 0;
       const areaSqm = mc.area_sqm ?? mc.area ?? 0;
@@ -582,7 +582,7 @@ export async function generateMobileIMHandler(
     source_type: "building_ssot_lite" as const,
     source_id: buildingId,
     building_id: buildingId,
-    document_type: "blind_teaser" as const,
+    document_type: "mobile_im" as const,
     visibility: "public_blind" as const,
     status: skipApproval ? "broker_reviewed" as const : "draft" as const,
     title,
