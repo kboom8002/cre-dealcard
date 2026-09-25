@@ -1,0 +1,13 @@
+{
+  "buildingId": "8f538646-4ff2-4340-9697-0a10a94214fd",
+  "timestamp": "2026-09-25T07:29:46.377Z",
+  "slideCount": 8,
+  "pptxSizeKB": 483,
+  "assertions": {
+    "D1_no_LTV": true,
+    "D4_no_WACC": true,
+    "D4_no_NPV": true,
+    "D4_no_IRR": true,
+    "has_CapRate": true
+  }
+}

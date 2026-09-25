@@ -166,14 +166,6 @@ export async function generateSingleSection(
             ? (supplemental.floor_leases as any[]).reduce((sum: number, l: any) => sum + (Number(l.rent_manwon) || 0), 0)
             : undefined,
         });
-        // D4 디버그: isBasicMode 전파 추적
-        log.info({ 
-          loanAmountManwon: supplemental.loan_amount_manwon,
-          isBasicModeInput: !supplemental.loan_amount_manwon,
-          isBasicModeOutput: fin.isBasicMode,
-          hasWacc: fin.wacc !== null,
-          hasIrr: !!fin.irr5Year,
-        }, '[D4-DEBUG] isBasicMode trace');
         sectionFinancials = fin;
         if (!input.dcfEligible && fin.dcf10Year) {
           fin.dcf10Year = undefined as any;
