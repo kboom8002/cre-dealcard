@@ -1,7 +1,152 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { checkX05 } from "@/domain/ontology/rules/parcel";
+
+interface AddressResult {
+  roadAddr?: string;
+  jibunAddr?: string;
+  bdNm?: string;
+  pnu?: string;
+  bdMgtSn?: string;
+  admCd?: string;
+}
+
+function PnuSearchInput({ value, onChange }: { value: string; onChange: (val: string) => void }) {
+  const [mode, setMode] = useState<"search" | "manual">(value ? "manual" : "search");
+  const [keyword, setKeyword] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [results, setResults] = useState<AddressResult[]>([]);
+  const [showResults, setShowResults] = useState(false);
+  const [selectedAddr, setSelectedAddr] = useState("");
+
+  const handleSearch = async () => {
+    if (!keyword.trim() || keyword.trim().length < 2) return;
+    setIsSearching(true);
+    setShowResults(true);
+    try {
+      const res = await fetch(`/api/public/address?keyword=${encodeURIComponent(keyword)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const arr = Array.isArray(data) ? data : (data.results ?? data.juso ?? []);
+        setResults(arr);
+      }
+    } catch (e) {
+      console.error(e);
+      setResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const selectAddress = (result: AddressResult) => {
+    const displayAddr = result.roadAddr || result.jibunAddr || "";
+    setSelectedAddr(displayAddr);
+    setKeyword(displayAddr);
+    const resolvedPnu = (result.pnu as string) || (result.bdMgtSn as string) || (result.admCd as string) || "";
+    onChange(resolvedPnu);
+    setShowResults(false);
+    setResults([]);
+  };
+
+  return (
+    <div className="col-span-2 flex flex-col gap-1.5">
+      <div className="flex justify-between items-end">
+        <label className="block text-[10px] text-muted-foreground">
+          PNU (필지고유번호)
+        </label>
+        <button
+          type="button"
+          onClick={() => setMode(m => m === "search" ? "manual" : "search")}
+          className="text-[10px] text-teal-400 hover:text-teal-300 font-medium"
+        >
+          {mode === "search" ? "직접 입력하기" : "주소로 검색하기"}
+        </button>
+      </div>
+
+      {mode === "search" ? (
+        <div className="relative">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={keyword}
+              onChange={e => {
+                setKeyword(e.target.value);
+                if (selectedAddr) { setSelectedAddr(""); onChange(""); }
+              }}
+              onKeyDown={e => e.key === "Enter" && handleSearch()}
+              onFocus={() => { if (results.length > 0) setShowResults(true); }}
+              placeholder="동/도로명 입력 (예: 당산동5가 11-47)"
+              className="flex-1 bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-teal-500"
+            />
+            <button 
+              type="button"
+              onClick={handleSearch}
+              disabled={isSearching || keyword.trim().length < 2}
+              className="bg-zinc-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-zinc-600 disabled:opacity-50 shrink-0"
+            >
+              {isSearching ? "검색중..." : "검색"}
+            </button>
+          </div>
+
+          {showResults && (
+            <div className="absolute left-0 right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl max-h-48 overflow-y-auto z-[100] divide-y divide-zinc-700">
+              {isSearching ? (
+                <div className="p-3 text-center text-[10px] text-zinc-400">검색 중...</div>
+              ) : results.length > 0 ? (
+                results.map((result, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => selectAddress(result)}
+                    className="w-full text-left px-3 py-2 hover:bg-zinc-700 transition-colors flex flex-col gap-0.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[11px] font-medium text-zinc-100 truncate">
+                        {result.roadAddr || result.jibunAddr}
+                      </p>
+                      {(result.pnu || result.bdMgtSn) && (
+                        <span className="text-[9px] font-mono bg-teal-500/20 text-teal-300 px-1 rounded border border-teal-500/30 shrink-0">
+                          PNU {String(result.pnu || result.bdMgtSn).slice(0, 19)}
+                        </span>
+                      )}
+                    </div>
+                    {result.jibunAddr && result.roadAddr && (
+                      <p className="text-[10px] text-zinc-400">지번: {result.jibunAddr}</p>
+                    )}
+                  </button>
+                ))
+              ) : (
+                <div className="p-3 text-center text-[10px] text-zinc-400">
+                  검색 결과가 없습니다.
+                </div>
+              )}
+            </div>
+          )}
+
+          {selectedAddr && value && (
+            <div className="mt-2 p-2 rounded bg-emerald-500/10 border border-emerald-500/30 flex flex-col gap-1">
+              <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                ✅ {selectedAddr}
+              </span>
+              <span className="text-[10px] font-mono text-emerald-300">
+                PNU: {value}
+              </span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <input
+          type="text"
+          placeholder="예: 1114010100-10001-0000"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-teal-500"
+        />
+      )}
+    </div>
+  );
+}
 
 interface ParcelEntry {
   pnu: string;
@@ -73,18 +218,10 @@ export function ParcelSection({ parcels, setParcels, ledgerTotalM2 }: ParcelSect
               ✕
             </button>
           )}
-          <div className="col-span-2">
-            <label className="block text-[10px] text-muted-foreground mb-1">
-              PNU (필지고유번호) <span className="text-teal-400/80 ml-1">(상단 주소 검색 기능을 통해 복사한 PNU를 입력해주세요)</span>
-            </label>
-            <input
-              type="text"
-              placeholder="예: 1114010100-10001-0000"
-              value={parcel.pnu}
-              onChange={(e) => updateParcel(idx, "pnu", e.target.value)}
-              className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-            />
-          </div>
+          <PnuSearchInput
+            value={parcel.pnu}
+            onChange={(val) => updateParcel(idx, "pnu", val)}
+          />
           <div>
             <label className="block text-[10px] text-muted-foreground mb-1">지목</label>
             <select

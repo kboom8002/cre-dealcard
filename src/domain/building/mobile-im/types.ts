@@ -412,6 +412,11 @@ export interface ExternalDataSnapshot {
   landUsePlan?: {
     zoningDistrict?: string; zoningOverlap?: string[];
     buildingCoverageMax?: number; floorAreaRatioMax?: number;
+    landArea?: number;            // 토지면적 (㎡)
+    landShape?: string;           // 형상
+    terrain?: string;             // 지형
+    roadAccess?: string;          // 도로접면
+    landUseSituation?: string;    // 이용상황
     _isFallback?: boolean;
   } | null;
   comparableTransactions?: Array<{

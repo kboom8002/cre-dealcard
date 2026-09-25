@@ -294,7 +294,7 @@ export async function fetchIMData(
     
     // Resolve coordinates & Kakao Map URL
     const finalCoordinates = document.body.coordinates || await (async () => {
-      const addr = document.body.external_data?.address
+      const addr = (document.body.external_data || document.body.enrichment)?.address
         || ssotSummary.address
         || document.body.ssot_summary?.address
         || ssotSummary.raw_address;
@@ -387,16 +387,16 @@ export async function fetchIMData(
         hiddenSections: Array.isArray(document.body.hidden_sections) ? document.body.hidden_sections : [],
         coordinates: finalCoordinates,
         dataQualityBadge: computeDataQualityBadge({
-          hasAddress: !!(document.body.external_data || ssotSummary.address || ssotSummary.raw_address),
-          hasPublicData: !!(document.body.external_data?.hasPublicData || document.body.external_data?.fallbackStatus || document.body.external_data?.enrichedAt),
+          hasAddress: !!((document.body.external_data || document.body.enrichment) || ssotSummary.address || ssotSummary.raw_address),
+          hasPublicData: !!((document.body.external_data || document.body.enrichment)?.hasPublicData || (document.body.external_data || document.body.enrichment)?.fallbackStatus || (document.body.external_data || document.body.enrichment)?.enrichedAt),
           hasMonthlyRent: !!ssotSummary.monthly_rent_total_krw || !!ssotSummary.monthly_rent_total,
           hasVacancy: !!ssotSummary.vacancy_signal || !!ssotSummary.vacancy_pct,
           hasPhotos: (document.body.photos || document.body.photo_urls || []).length > 0,
           hasAskingPrice: !!(document.body.heroCard?.askingPriceBil || ssotSummary.asking_price_manwon),
           hasLoanAmount: !!(document.body.financials?.loanAmountBil || ssotSummary.loan_amount_manwon),
           hasFloorLeases: !!(document.body.heroCard?.waleTotalYears),
-          hasLandArea: !!(ssotSummary.land_area_m2 || document.body.external_data?.landUsePlan),
-          hasTotalGrossArea: !!(ssotSummary.total_gross_area_m2 || document.body.external_data?.buildingRegister),
+          hasLandArea: !!(ssotSummary.land_area_m2 || (document.body.external_data || document.body.enrichment)?.landUsePlan),
+          hasTotalGrossArea: !!(ssotSummary.total_gross_area_m2 || (document.body.external_data || document.body.enrichment)?.buildingRegister),
         }, (ssotSummary.investment_posture || document.body.identity?.investmentPosture || 'income') as any),
         // [C1] Hero Card — 기존 IM의 heroCard 보강 또는 SSoT에서 동적 합성
         heroCard: (() => {
@@ -428,9 +428,9 @@ export async function fetchIMData(
             readinessScore: document.body.readiness_score ?? 0,
             dcf10YearNpvBil: null,
             posture: s.investment_posture || document.body.identity?.investmentPosture || 'income',
-            landAreaM2: s.land_area_m2 ?? document.body.external_data?.landUsePlan?.landAreaM2 ?? null,
-            totalGrossAreaM2: s.total_gross_area_m2 ?? document.body.external_data?.buildingRegister?.totalGrossAreaM2 ?? null,
-            zoning: s.zoning ?? document.body.external_data?.landUsePlan?.zoningName ?? null,
+            landAreaM2: s.land_area_m2 ?? (document.body.external_data || document.body.enrichment)?.landUsePlan?.landArea ?? null,
+            totalGrossAreaM2: s.total_gross_area_m2 ?? (document.body.external_data || document.body.enrichment)?.buildingRegister?.totalArea ?? null,
+            zoning: s.zoning ?? (document.body.external_data || document.body.enrichment)?.landUsePlan?.zoningDistrict ?? null,
             landPricePerPyeong: s.land_price_per_pyeong ?? null,
             farHeadroom: s.far_headroom ?? null,
             devProfitMarginPct: s.dev_profit_margin_pct ?? null,
