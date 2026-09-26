@@ -789,6 +789,10 @@ export class MobileImPptxRenderer {
           capRateAsIs,
           capRateStabilized,
           stabilizedAssumption: '공실층을 인근 동일 용도 시세 수준으로 임대 가정',
+          // Phase 2: 공시지가 10년 추이 (수익률 슬라이드 고도화)
+          landPriceHistory: enrichment?.landPriceHistory ?? input.doc.body?.enrichment?.landPriceHistory ?? null,
+          landAreaSqm: Number(ssot.land_area_sqm ?? 0),
+          areaSignal: input.building?.area_signal ?? ssot.area_signal ?? '',
         };
       }
 

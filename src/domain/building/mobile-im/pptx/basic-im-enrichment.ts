@@ -9,10 +9,14 @@
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('basic-im-enrichment');
 
+import type { LandPriceHistoryResult } from '@/lib/external/land-price-api';
+
 export interface EnrichmentResult {
   cadastralMapImage?: string | null;
   hasCadastralMap: boolean;
   locationPoi?: Record<string, unknown> | null;
+  /** 공시지가 10년 추이 (수익률 슬라이드용) */
+  landPriceHistory?: LandPriceHistoryResult | null;
 }
 
 /**
@@ -31,6 +35,7 @@ export async function enrichForBasicIm(
     cadastralMapImage: null,
     hasCadastralMap: false,
     locationPoi: null,
+    landPriceHistory: null,
   };
 
   if (!coordinates?.lat || !coordinates?.lng) {
@@ -48,9 +53,6 @@ export async function enrichForBasicIm(
 
   if (!pnu && options?.address) {
     try {
-      // D45 M-1: V-World getcoord API는 좌표만 반환하며 PNU(result.id)를 포함하지 않음.
-      // PNU는 상위 호출자가 options.pnu로 명시 전달해야 필지 경계가 그려집니다.
-      // 여기서는 PNU 없이도 지적도 WMS 타일은 정상 렌더링됨 (경계선만 미표시).
       log.info('[enrichForBasicIm] PNU 미제공 — 주소 기반 지적도는 필지 경계선 없이 렌더링됩니다');
     } catch (err) {
       console.warn('[basic-im-enrichment] PNU auto-fetch failed:', err);
@@ -84,6 +86,20 @@ export async function enrichForBasicIm(
     }
   } catch {
     // POI는 선택적 — 실패 시 무시
+  }
+
+  // 3. 공시지가 10년 추이 (수익률 슬라이드용) — PNU 필수
+  if (pnu) {
+    try {
+      const { fetchLandPriceHistory } = await import('@/lib/external/land-price-api');
+      const history = await fetchLandPriceHistory(pnu, 10);
+      if (history) {
+        result.landPriceHistory = history;
+        log.info(`[enrichForBasicIm] 공시지가 ${history.history.length}개년 조회 (CAGR ${history.cagrPct ?? 'N/A'}%)`);
+      }
+    } catch (err) {
+      log.warn('[enrichForBasicIm] 공시지가 추이 조회 실패 (graceful skip):', err);
+    }
   }
 
   return result;
