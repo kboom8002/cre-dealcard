@@ -20,12 +20,12 @@ export interface SectionPlan {
 // D29 m-3: land_detail/comparables 포스처별 조건부
 // D29 m-5: checklist는 next_steps 바로 앞
 export const SECTION_CATALOG: Record<InvestmentPosture, SectionPlan> = {
-  // 수익형: 12섹션
+  // 수익형: 11섹션 (Bug 2: next_steps와 closing 통합)
   income: {
     posture: 'income',
     sections: ['property_overview', 'location_access', 'title_rights', 'land_detail',
                'lease_status', 'income_analysis', 'risk_check', 'comparables',
-               'investment_thesis', 'checklist', 'next_steps', 'closing'],
+               'investment_thesis', 'checklist', 'next_steps'],
     suppress: [],
     emphasize: ['lease_status', 'income_analysis'],  // m-4: 2종
     required: ['property_overview', 'lease_status', 'income_analysis', 'checklist'],  // D30 M-14

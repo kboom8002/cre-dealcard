@@ -369,14 +369,14 @@ export async function fetchCadastralMapImage(
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      log.warn({ text: text.slice(0, 200) }, `[vworld-wms] WMS 응답 오류 (${res.status}):`);
+      log.warn({ text, url, params: Object.fromEntries(params) }, `[vworld-wms] WMS 응답 오류 (${res.status}):`);
       return null;
     }
 
     const contentType = res.headers.get('content-type') ?? '';
     if (!contentType.includes('image')) {
       const text = await res.text().catch(() => '');
-      log.warn({ text: text.slice(0, 300) }, '[vworld-wms] WMS 에러 응답:');
+      log.warn({ text, url, params: Object.fromEntries(params) }, '[vworld-wms] WMS 에러 응답:');
       return null;
     }
 

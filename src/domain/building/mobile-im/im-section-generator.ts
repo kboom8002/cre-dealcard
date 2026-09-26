@@ -538,6 +538,9 @@ export async function generateSingleSection(
   markdown = markdown.replace(/^#{1,6}\s+(.+)$/gm, '**$1**');
   // 3) 잔여 #해시태그 (# 뒤 공백 없이 한글/이모지) → # 제거
   markdown = markdown.replace(/(?:^|\s)#([가-힣\u{1F300}-\u{1FAD6}])/gmu, ' $1');
+  // 4) Bug 1: 이모지로 시작하는 문장이나 리스트 항목이 이전 줄과 붙어 나오는 현상 방지
+  // (마크다운에서는 단일 줄바꿈이 스페이스로 처리되므로 강제로 빈 줄을 삽입)
+  markdown = markdown.replace(/([^\n])\n(?=- |\* |[\u{1F300}-\u{1FAD6}])/gmu, '$1\n\n');
 
   // 브로커 하이라이트
   if (sectionType === "investment_thesis" && supplemental.broker_highlight) {

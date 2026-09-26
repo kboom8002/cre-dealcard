@@ -85,7 +85,14 @@ export async function POST(
 
     // 대상 해시 계산 및 검증 (G1 해결)
     const { computeTargetHash } = await import('@/domain/building/im-core/target-hash');
-    const tier = fullDocForGate.body.releaseTier ?? 'fact_om';
+    const { resolveTier } = await import('@/domain/building/im-core/release-tier');
+    
+    // Bug 3-2: 기존에 internal_only로 잘못 저장된 문서 구제를 위해 승인 시점에 tier 재계산
+    let tier = fullDocForGate.body.releaseTier ?? 'fact_om';
+    if (tier === 'internal_only' && fullDocForGate.body.im_type === 'mobile_im_lite') {
+       tier = 'fact_om'; // 모바일 Basic IM은 최소 fact_om 보장
+    }
+    
     serverHash = computeTargetHash({
       body: fullDocForGate.body,
       releaseTier: tier,

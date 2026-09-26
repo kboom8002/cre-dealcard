@@ -615,6 +615,28 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     }
   }
 
+  // Bug 3: 핵심 투자 포인트가 디폴트 문장으로 노출되는 현상 수정
+  // AI가 생성한 investment_thesis(투자 요약) 섹션에서 핵심 포인트를 추출하여 heroCard 업데이트
+  const thesisSection = sections.find(s => s.section_type === 'investment_thesis');
+  if (thesisSection && thesisSection.markdown) {
+    const lines = thesisSection.markdown.split('\n').map(l => l.trim()).filter(Boolean);
+    // `#` 또는 `**` 로 시작하는 제목/항목들 추출 (주로 투자 포인트)
+    const bulletPoints = lines.filter(l => (l.startsWith('-') || l.startsWith('*') || l.match(/^\d\./) || l.startsWith('**')));
+    
+    if (bulletPoints.length > 0) {
+      // 굵은 글씨나 리스트 마커 제거
+      const cleanedPoints = bulletPoints
+        .map(p => p.replace(/^[-*0-9.\s]+/, '').replace(/\*\*/g, '').trim())
+        .filter(p => p.length > 10); // 의미 있는 문장만 추출
+        
+      if (cleanedPoints.length >= 3) {
+        heroCard.keyPoints = cleanedPoints.slice(0, 3);
+        // 요약 문장: 첫 번째 핵심 문장 활용
+        heroCard.keyInvestmentPoint = cleanedPoints[0];
+      }
+    }
+  }
+
   // ── 8. 섹션 정본 순서 재정렬 (P1-2 + F-3: YAML 구동) ──
   // 실행 순서(의존성 기반 4단계)와 독자 시점 출력 순서를 분리
   let CANONICAL_ORDER: string[];

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { computeDataQualityBadge } from '@/domain/building/mobile-im/data-quality-badge';
 import { resolveEnrichment } from '@/domain/building/im-core/resolve-enrichment';
+import { buildKakaoStaticMapUrl } from '@/lib/external/kakao-static-map';
 import { toast } from 'sonner';
 
 interface IMSection {
@@ -285,6 +286,11 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   const enriched = resolveEnrichment(content || {});
   const readinessScore = (content?.readiness_score as number) ?? 0;
   
+  const coordinates = (content as any)?.coordinates;
+  const mapUrl = coordinates?.lat && coordinates?.lng 
+    ? buildKakaoStaticMapUrl({ lat: coordinates.lat, lng: coordinates.lng, width: 768, height: 320 })
+    : null;
+  
   // 정확한 주소 또는 PNU 존재 여부 (단순 권역명 area_signal은 주소로 인정하지 않음)
   const hasRealAddress = !!(
     ssotSummary?.address ||
@@ -468,6 +474,19 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
         {actionStatus === 'error' && (
           <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium">
             ❌ {resultMsg}
+          </div>
+        )}
+
+        {/* Bug 3-3: PNU 식별 시 카카오맵 렌더링 */}
+        {mapUrl && (
+          <div className="mb-8 rounded-xl overflow-hidden border border-neutral-800 relative group h-48 sm:h-64">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src={mapUrl} 
+              alt="위치 지도" 
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 border border-black/10 rounded-xl pointer-events-none" />
           </div>
         )}
 

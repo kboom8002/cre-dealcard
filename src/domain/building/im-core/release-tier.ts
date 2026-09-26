@@ -89,7 +89,9 @@ export function resolveTier(input: ResolveTierInput): ReleaseTier {
   }
 
   // 공부+사진 기본 자료 부족 → internal_only
-  const hasBasicData = da.hasBuildingRegister !== false && da.hasLandUsePlan !== false;
+  // Fix for Bug 3-2: 외부 API 중 하나(예: 지적도)만 타임아웃되어도 전체가 internal_only로 강등되어 
+  // 배포가 차단되는 문제를 막기 위해, 둘 중 하나라도 있으면 basic data로 인정하도록 완화
+  const hasBasicData = da.hasBuildingRegister !== false || da.hasLandUsePlan !== false;
   if (!hasBasicData) {
     return 'internal_only';
   }
