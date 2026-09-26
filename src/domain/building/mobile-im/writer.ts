@@ -504,20 +504,23 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     noiBaseBil: cachedFinancials?.annualNoi?.base ? parseFloat((cachedFinancials.annualNoi.base / 1e8).toFixed(1)) : null,
     keyInvestmentPoint: String(ctx.buyerFit.fit_summary ?? (() => {
       const areaSig = String(ctx.assetIdentity.area_signal || '');
-      const area = areaSig ? (areaSig.endsWith('권역') ? `${areaSig} 소재` : areaSig.endsWith('권') ? `${areaSig}역 소재` : `${areaSig} 권역 소재`) : '소재';
+      const area = areaSig || '핵심 권역';
       const asset = String(ctx.assetIdentity.asset_type || '상업용 자산');
-      const price = askDisplay ? `, 희망가 ${askDisplay}` : '';
+      const capRate = cachedFinancials?.capRate?.base;
+      const noiStr = cachedFinancials?.annualNoi?.base ? `NOI ${(cachedFinancials.annualNoi.base / 1e8).toFixed(1)}억 원` : '';
+      // Phase 3: 포스처별 SSoT 기반 의미 있는 폴백 (디폴트 "검토 자료입니다" 근절)
       switch (posture) {
         case 'owner_occupied':
-          return `${area} ${asset}${price} — 법인 사옥 매입 검토 자료입니다.`;
+          return `${area} ${asset} — 법인 사옥 매입 적합 자산${askDisplay ? ` (${askDisplay})` : ''}`;
         case 'development':
-          return `${area} ${asset}${price} — 개발 사업 타당성 검토 자료입니다.`;
+          return `${area} ${asset} — 신축 개발 사업 기회${askDisplay ? ` (토지가 ${askDisplay})` : ''}`;
         case 'operating':
-          return `${area} ${asset}${price} — 운영 자산 투자 검토 자료입니다.`;
+          return `${area} ${asset} — 직영 운영 수익 자산${askDisplay ? ` (${askDisplay})` : ''}`;
         case 'trading':
-          return `${area} ${asset}${price} — 시세차익형 매매 검토 자료입니다.`;
+          return `${area} ${asset} — 시세차익 매매 기회${askDisplay ? ` (${askDisplay})` : ''}`;
         default:
-          return `${area} ${asset}${price} 투자 검토 자료입니다.`;
+          if (capRate) return `${area} ${asset}, Cap Rate ${capRate.toFixed(1)}%${noiStr ? ` · ${noiStr}` : ''}`;
+          return `${area} ${asset} 투자 기회${askDisplay ? ` — 희망가 ${askDisplay}` : ''}`;
       }
     })()),
     keyPoints: (() => {
@@ -620,12 +623,16 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   const thesisSection = sections.find(s => s.section_type === 'investment_thesis');
   if (thesisSection && thesisSection.markdown) {
     const lines = thesisSection.markdown.split('\n').map(l => l.trim()).filter(Boolean);
-    // 불릿 포인트, 번호 목록, 볼드 텍스트 추출
-    const bulletPoints = lines.filter(l => (l.startsWith('-') || l.startsWith('*') || l.match(/^\d\./) || l.startsWith('**')));
+    // Phase 1: AI 출력 변형 모두 커버 (•, -, *, 1., 1), **, 이모지 시작)
+    const bulletPoints = lines.filter(l => (
+      l.startsWith('-') || l.startsWith('*') || l.startsWith('•') || l.startsWith('·') ||
+      l.match(/^\d[.)]\s/) || l.startsWith('**') ||
+      l.match(/^[\u{1F300}-\u{1FAFF}]/u)
+    ));
     
-    // 마커/볼드 제거하여 깨끗한 문장 추출
+    // 마커/볼드/이모지 제거하여 깨끗한 문장 추출
     const cleanedPoints = bulletPoints
-      .map(p => p.replace(/^[-*0-9.\s]+/, '').replace(/\*\*/g, '').trim())
+      .map(p => p.replace(/^[-*•·0-9.):\s]+/, '').replace(/\*\*/g, '').replace(/^[\u{1F300}-\u{1FAFF}]\s*/u, '').trim())
       .filter(p => p.length > 10);
       
     if (cleanedPoints.length > 0) {
