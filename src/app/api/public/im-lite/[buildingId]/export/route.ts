@@ -660,21 +660,36 @@ export async function GET(
   const { searchParams } = new URL(req.url);
   const docId = searchParams.get('doc_id');
 
-  if (!docId) {
-    return NextResponse.json({ error: 'doc_id is required' }, { status: 400 });
-  }
-
   const supabase = createServiceClient();
 
-  const { data: doc, error } = await supabase
-    .from('document_objects')
-    .select('id, title, body, created_at, owner_id, document_type')
-    .eq('id', docId)
-    .eq('building_id', buildingId)
-    .maybeSingle();
+  let doc: any = null;
 
-  if (error || !doc) {
-    return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+  if (docId) {
+    // doc_id 명시 시 직접 조회
+    const { data, error } = await supabase
+      .from('document_objects')
+      .select('id, title, body, created_at, owner_id, document_type')
+      .eq('id', docId)
+      .eq('building_id', buildingId)
+      .maybeSingle();
+    if (error || !data) {
+      return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+    }
+    doc = data;
+  } else {
+    // doc_id 미제공 시 최신 IM 문서 자동 검색 (PPTX 라우트와 동일 패턴)
+    const { data, error } = await supabase
+      .from('document_objects')
+      .select('id, title, body, created_at, owner_id, document_type')
+      .eq('building_id', buildingId)
+      .in('document_type', ['mobile_im', 'im_lite', 'im_lite_draft'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) {
+      return NextResponse.json({ error: 'No IM document found for this building' }, { status: 404 });
+    }
+    doc = data;
   }
 
   if (doc.document_type === 'blind_teaser' || !doc.body || !Array.isArray((doc.body as any).sections)) {
