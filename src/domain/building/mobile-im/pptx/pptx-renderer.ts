@@ -204,7 +204,12 @@ export class MobileImPptxRenderer {
         isPro: input.isPro || input.proMode || (input.releaseTier as string) === 'pro',
       };
 
-      const isProDeck = input.isPro || input.proMode || input.preset === 'credeal_pro' || (input.releaseTier as string) === 'pro';
+      // Basic IM preset이면 모든 포스처에서 Basic 시퀀스 강제 (trading/owner_occupied 포함)
+      const isBasicForced = theme.presetId === 'credeal_basic';
+      const isProDeck = !isBasicForced && (input.isPro || input.proMode || input.preset === 'credeal_pro' || (input.releaseTier as string) === 'pro');
+      if (isBasicForced) {
+        sequenceInput.isPro = false;
+      }
       let sequence: SlideSpec[] = isProDeck
         ? buildProDeckSequence(sequenceInput)
         : buildDeckSequence(sequenceInput);

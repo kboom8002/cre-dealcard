@@ -1132,10 +1132,19 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
 function MarkdownRenderer({ content }: { content: string }) {
   if (!content) return null;
 
-  // ── Pre-process: 줄바꿈이 필요한 패턴 앞에 이중 줄바꿈 보장 ──
+  // ── Pre-process: 줄바꿈이 필요한 패턴 강제 분리 ──
   let md = content;
-  // 단일 줄바꿈 → 이중 줄바꿈 (불릿, 번호, 볼드, 이모지 시작 줄 앞)
-  md = md.replace(/([^\n])\n(?=- |\* |• |· |\d+[.)]\s|\*\*|[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}])/gmu, '$1\n\n');
+
+  // Step 1: 불릿/번호 시작 패턴이 줄 중간에 있는 경우 줄바꿈 강제 삽입
+  // 예: "이전 텍스트- 불릿" → "이전 텍스트\n- 불릿"
+  // 예: "이전 텍스트• 불릿" → "이전 텍스트\n• 불릿"
+  md = md.replace(/([^\n])(?=(?:[-*•·]\s+\S|\d+[.)]\s+\S))/gm, '$1\n');
+
+  // Step 2: 볼드 제목 앞에 줄바꿈 보장 ("이전 텍스트**제목**" → "이전 텍스트\n**제목**")
+  md = md.replace(/([^\n*])(\*\*[^*]+\*\*)/g, '$1\n$2');
+
+  // Step 3: 단일 줄바꿈 → 이중 줄바꿈 (불릿, 번호, 볼드, 이모지 시작 줄 앞)
+  md = md.replace(/([^\n])\n(?=- |[*] |• |· |\d+[.)]\s|\*\*|[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}])/gmu, '$1\n\n');
 
   const lines = md.split("\n");
   const elements: React.ReactNode[] = [];
