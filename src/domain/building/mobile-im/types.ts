@@ -541,4 +541,6 @@ export interface MobileIMWriterOutput {
   /** 차단 사유 목록 */
   publishBlockReasons?: string[];
   dataFreshnessWarning?: string | null;
+  /** 서버사이드 지도/데이터 미리보기(V-World 등) */
+  enrichment?: Record<string, any>;
 }

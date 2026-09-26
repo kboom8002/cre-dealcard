@@ -314,7 +314,7 @@ export async function fetchIMData(
       }))).filter((p: any) => p?.url && (p.url.startsWith('http://') || p.url.startsWith('https://') || p.url.startsWith('/')));
 
     if (finalCoordinates) {
-      const mapUrl = buildKakaoStaticMapUrl({
+      const kakaoMapUrl = buildKakaoStaticMapUrl({
         lat: finalCoordinates.lat,
         lng: finalCoordinates.lng,
         width: 768,
@@ -322,11 +322,16 @@ export async function fetchIMData(
         level: 3,
         marker: true
       });
+      
+      const cadastralMapImage = document.body.enrichment?.cadastralMapImage;
+      
       rawPhotos.unshift({
-        url: mapUrl,
+        url: cadastralMapImage || kakaoMapUrl,
         type: 'map',
-        label: '위치 지도',
-        order: -1
+        label: cadastralMapImage ? 'V-World 지적도' : '위치 지도',
+        order: -1,
+        // 카카오맵 라이브 보기 링크용 (원본이 지적도일 때만)
+        kakaoMapUrl: cadastralMapImage ? kakaoMapUrl : undefined,
       });
     }
 

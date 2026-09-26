@@ -682,6 +682,38 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   // section_order 재부여
   sections.forEach((sec, i) => { sec.section_order = i + 1; });
 
+  // ── 9. 지도 / 정적 이미지 자동 Enrichment (Bug 2) ──
+  let enrichmentData: Record<string, any> = {};
+  try {
+    const { enrichForBasicIm } = await import('./pptx/basic-im-enrichment');
+    const coords = input.external_data?.resolvedAddress || input.building_ssot_lite?.coordinates;
+    const pnu = input.external_data?.resolvedAddress?.pnu || input.building_ssot_lite?.pnu;
+    const pnus = input.building_ssot_lite?.pnus;
+    
+    // Type-safe coordinate extraction
+    const rawLat = (coords as any)?.lat;
+    const rawLng = (coords as any)?.lng;
+    
+    if (rawLat && rawLng) {
+      const enrichmentResult = await enrichForBasicIm(
+        { lat: Number(rawLat), lng: Number(rawLng) },
+        { 
+          pnu: String(pnu || ''), 
+          pnus: Array.isArray(pnus) ? pnus : undefined, 
+          address: String(input.building_ssot_lite?.address || '') 
+        }
+      );
+      if (enrichmentResult.cadastralMapImage) {
+        enrichmentData.cadastralMapImage = enrichmentResult.cadastralMapImage;
+      }
+      if (enrichmentResult.locationPoi) {
+        enrichmentData.locationPoi = enrichmentResult.locationPoi;
+      }
+    }
+  } catch (enrichErr) {
+    log.warn('[writer] Auto-enrichment failed during generation (graceful skip):', enrichErr);
+  }
+
   return {
     sections,
     boundary_note: MOBILE_IM_STANDARD_DISCLAIMER,
@@ -699,6 +731,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     publishBlocked,
     publishBlockReasons,
     dataFreshnessWarning: getDataFreshnessWarning(input.external_data?.enrichedAt ?? input.building_ssot_lite?.updated_at),
+    enrichment: enrichmentData,
   };
 }
 
