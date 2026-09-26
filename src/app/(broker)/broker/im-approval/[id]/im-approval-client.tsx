@@ -431,6 +431,9 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
           <Link href={`/broker/deal-card/${buildingId}`} className="text-xs text-neutral-400 hover:text-white transition-colors">
             ← 딜카드
           </Link>
+          <Link href={`/broker/basic-im-studio/${buildingId}`} className="text-[10px] text-sky-400 hover:text-sky-300 bg-sky-500/10 border border-sky-500/30 px-2 py-0.5 rounded-md transition-colors whitespace-nowrap">
+            📐 Basic IM 스튜디오
+          </Link>
           <div className="flex items-center gap-2">
             {isTitleEditing ? (
               <input

@@ -442,7 +442,13 @@ export function ImManagementPanel({
                 href={`/broker/deal-card/${buildingId}/pptx-editor`}
                 className="text-[10px] text-amber-500 hover:text-amber-400 whitespace-nowrap"
               >
-                ✏️ 편집
+                ✏️ Pro 편집
+              </Link>
+              <Link 
+                href={`/broker/basic-im-studio/${buildingId}`}
+                className="text-[10px] text-sky-400 hover:text-sky-300 whitespace-nowrap"
+              >
+                📐 Basic 스튜디오
               </Link>
             </div>
             <div className="grid grid-cols-4 gap-1.5">

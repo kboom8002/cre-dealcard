@@ -236,6 +236,14 @@ export function MobileIMViewer({
           >
             <span>📊</span> 공식 검증 PPTX 다운로드
           </a>
+          {isBroker && (
+            <a
+              href={`/broker/basic-im-studio/${buildingId}`}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 text-[10px] font-bold rounded-lg border border-sky-500/40 transition-colors shrink-0"
+            >
+              <span>📐</span> Basic 스튜디오
+            </a>
+          )}
         </div>
       ) : approvalStage === "S60_EDITORIAL_APPROVAL" ? (
         <div className="bg-blue-950/70 border-b border-blue-500/30 px-4 py-2 flex items-center justify-between gap-2">
