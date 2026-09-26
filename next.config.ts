@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizeCss: true,
   },
-  serverExternalPackages: ['sharp', 'pptxgenjs', 'jszip', 'pdf-parse'],
+  serverExternalPackages: ['sharp', 'pdf-parse'],
   outputFileTracingExcludes: {
     "*": [
       "./docs/**",
