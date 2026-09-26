@@ -537,10 +537,13 @@ export async function generateSingleSection(
   // 2) 줄 시작의 # heading → bold 텍스트로 변환 (section-card가 이미 제목을 제공)
   markdown = markdown.replace(/^#{1,6}\s+(.+)$/gm, '**$1**');
   // 3) 잔여 #해시태그 (# 뒤 공백 없이 한글/이모지) → # 제거
-  markdown = markdown.replace(/(?:^|\s)#([가-힣\u{1F300}-\u{1FAD6}])/gmu, ' $1');
-  // 4) Bug 1: 이모지로 시작하는 문장이나 리스트 항목이 이전 줄과 붙어 나오는 현상 방지
-  // (마크다운에서는 단일 줄바꿈이 스페이스로 처리되므로 강제로 빈 줄을 삽입)
-  markdown = markdown.replace(/([^\n])\n(?=- |\* |[\u{1F300}-\u{1FAD6}])/gmu, '$1\n\n');
+  markdown = markdown.replace(/(?:^|\s)#([가-힣\u{1F300}-\u{1FAD6}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2702}-\u{27B0}])/gmu, ' $1');
+  // 4) Bug 4/5 근본 수정: 줄바꿈이 필요한 패턴 앞에 강제 빈 줄 삽입
+  // - 이모지로 시작하는 문장 (전체 유니코드 이모지 범위)
+  // - 리스트 항목 (-, *, 1.)
+  // - **볼드** 로 시작하는 항목
+  // (마크다운에서는 단일 줄바꿈이 스페이스로 처리되므로 이중 줄바꿈 필요)
+  markdown = markdown.replace(/([^\n])\n(?=- |\* |\d+\. |\*\*|[\u{1F300}-\u{1FAD6}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2702}-\u{27B0}\u{23E9}-\u{23F3}\u{231A}\u{231B}\u{25AA}-\u{25FE}\u{2934}\u{2935}\u{2B05}-\u{2B07}\u{2B1B}\u{2B1C}\u{2B50}\u{2B55}\u{3030}\u{303D}\u{3297}\u{3299}])/gmu, '$1\n\n');
 
   // 브로커 하이라이트
   if (sectionType === "investment_thesis" && supplemental.broker_highlight) {

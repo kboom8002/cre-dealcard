@@ -615,24 +615,30 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     }
   }
 
-  // Bug 3: 핵심 투자 포인트가 디폴트 문장으로 노출되는 현상 수정
+  // Bug 3: 핵심 투자 포인트가 디폴트 문장으로 노출되는 현상 근본 수정
   // AI가 생성한 investment_thesis(투자 요약) 섹션에서 핵심 포인트를 추출하여 heroCard 업데이트
   const thesisSection = sections.find(s => s.section_type === 'investment_thesis');
   if (thesisSection && thesisSection.markdown) {
     const lines = thesisSection.markdown.split('\n').map(l => l.trim()).filter(Boolean);
-    // `#` 또는 `**` 로 시작하는 제목/항목들 추출 (주로 투자 포인트)
+    // 불릿 포인트, 번호 목록, 볼드 텍스트 추출
     const bulletPoints = lines.filter(l => (l.startsWith('-') || l.startsWith('*') || l.match(/^\d\./) || l.startsWith('**')));
     
-    if (bulletPoints.length > 0) {
-      // 굵은 글씨나 리스트 마커 제거
-      const cleanedPoints = bulletPoints
-        .map(p => p.replace(/^[-*0-9.\s]+/, '').replace(/\*\*/g, '').trim())
-        .filter(p => p.length > 10); // 의미 있는 문장만 추출
-        
-      if (cleanedPoints.length >= 3) {
-        heroCard.keyPoints = cleanedPoints.slice(0, 3);
-        // 요약 문장: 첫 번째 핵심 문장 활용
-        heroCard.keyInvestmentPoint = cleanedPoints[0];
+    // 마커/볼드 제거하여 깨끗한 문장 추출
+    const cleanedPoints = bulletPoints
+      .map(p => p.replace(/^[-*0-9.\s]+/, '').replace(/\*\*/g, '').trim())
+      .filter(p => p.length > 10);
+      
+    if (cleanedPoints.length > 0) {
+      heroCard.keyPoints = cleanedPoints.slice(0, 3);
+      heroCard.keyInvestmentPoint = cleanedPoints[0];
+    } else {
+      // 불릿이 없는 경우: 의미 있는 첫 2~3문장을 투자 포인트로 활용
+      const meaningfulLines = lines
+        .filter(l => l.length > 15 && !l.startsWith('#'))
+        .map(l => l.replace(/\*\*/g, '').trim());
+      if (meaningfulLines.length > 0) {
+        heroCard.keyPoints = meaningfulLines.slice(0, 3);
+        heroCard.keyInvestmentPoint = meaningfulLines[0];
       }
     }
   }

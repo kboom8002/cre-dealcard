@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { computeDataQualityBadge } from '@/domain/building/mobile-im/data-quality-badge';
 import { resolveEnrichment } from '@/domain/building/im-core/resolve-enrichment';
-import { buildKakaoStaticMapUrl } from '@/lib/external/kakao-static-map';
 import { toast } from 'sonner';
 
 interface IMSection {
@@ -24,9 +23,10 @@ interface Props {
   buildingId: string;
   createdAt: string;
   posture?: string;
+  kakaoMapUrl?: string | null;
 }
 
-export function IMApprovalClient({ docId, title, content, status: initialStatus, buildingId, createdAt, posture }: Props) {
+export function IMApprovalClient({ docId, title, content, status: initialStatus, buildingId, createdAt, posture, kakaoMapUrl }: Props) {
   // content.sections가 배열인지 안전하게 확인
   const rawSections = Array.isArray(content?.sections) ? content.sections : [];
   const [sections, setSections] = useState<IMSection[]>(rawSections as IMSection[]);
@@ -62,9 +62,25 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   // Hero Content States
   const [heroTitle, setHeroTitle] = useState((content as any)?.heroTitle || title || '');
   const [heroSubtitle, setHeroSubtitle] = useState((content as any)?.heroSubtitle || '');
-  const [heroKeyPoint, setHeroKeyPoint] = useState(
-    (content as any)?.heroCard?.keyInvestmentPoint || (content as any)?.keyInvestmentPoint || ''
-  );
+  // Bug 3 클라이언트 폴백: 기존 DB 문서에 디폴트 문장이 저장된 경우,
+  // investment_thesis 섹션에서 의미 있는 첫 문장을 추출하여 대체
+  const extractedKeyPoint = (() => {
+    const raw = (content as any)?.heroCard?.keyInvestmentPoint || (content as any)?.keyInvestmentPoint || '';
+    // 디폴트 문장 패턴 감지 (area_signal + asset_type + 희망가 + 투자 검토)
+    if (raw && !raw.includes('투자 검토 자료입니다')) return raw;
+    // 디폴트이므로 investment_thesis에서 추출 시도
+    const thesisSec = rawSections.find((s: any) => s.section_type === 'investment_thesis');
+    if (thesisSec && (thesisSec as any).markdown) {
+      const lines = ((thesisSec as any).markdown as string).split('\n').map(l => l.trim()).filter(Boolean);
+      const meaningful = lines
+        .filter(l => l.length > 15 && !l.startsWith('#'))
+        .map(l => l.replace(/^[-*0-9.\s]+/, '').replace(/\*\*/g, '').trim())
+        .filter(l => l.length > 10);
+      if (meaningful.length > 0) return meaningful[0];
+    }
+    return raw;
+  })();
+  const [heroKeyPoint, setHeroKeyPoint] = useState(extractedKeyPoint);
   const [isHeroSaving, setIsHeroSaving] = useState(false);
   const [isHeroDirty, setIsHeroDirty] = useState(false);
 
@@ -286,11 +302,6 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   const enriched = resolveEnrichment(content || {});
   const readinessScore = (content?.readiness_score as number) ?? 0;
   
-  const coordinates = (content as any)?.coordinates;
-  const mapUrl = coordinates?.lat && coordinates?.lng 
-    ? buildKakaoStaticMapUrl({ lat: coordinates.lat, lng: coordinates.lng, width: 768, height: 320 })
-    : null;
-  
   // 정확한 주소 또는 PNU 존재 여부 (단순 권역명 area_signal은 주소로 인정하지 않음)
   const hasRealAddress = !!(
     ssotSummary?.address ||
@@ -478,11 +489,11 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
         )}
 
         {/* Bug 3-3: PNU 식별 시 카카오맵 렌더링 */}
-        {mapUrl && (
+        {kakaoMapUrl && (
           <div className="mb-8 rounded-xl overflow-hidden border border-neutral-800 relative group h-48 sm:h-64">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
-              src={mapUrl} 
+              src={kakaoMapUrl} 
               alt="위치 지도" 
               className="w-full h-full object-cover"
             />

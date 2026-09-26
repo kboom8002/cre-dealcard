@@ -201,23 +201,62 @@ export async function POST(
 
   const newStatus = action === 'approve' ? 'published' : 'revision_needed';
 
-  const updateFields: Record<string, unknown> = {
-    status: newStatus,
-    updated_at: new Date().toISOString(),
-  };
-
+  // Bug 1 근본 수정: approval_target_hash, approved_at은 DB 컬럼이 아니므로
+  // body JSONB 내부에 저장한다. 별도 컬럼 update는 schema cache 에러의 원인.
   if (action === 'approve' && serverHash) {
-    updateFields.approval_target_hash = serverHash;
-    updateFields.approved_at = new Date().toISOString();
-  }
+    const { data: currentDoc } = await supabase
+      .from('document_objects')
+      .select('body')
+      .eq('id', id)
+      .single();
 
-  const { error: updateErr } = await supabase
-    .from('document_objects')
-    .update(updateFields)
-    .eq('id', id);
+    if (currentDoc?.body) {
+      const updatedBody = {
+        ...currentDoc.body,
+        approval_target_hash: serverHash,
+        approved_at: new Date().toISOString(),
+        releaseTier: 'fact_om', // 승인 시 tier 확정
+      };
 
-  if (updateErr) {
-    return NextResponse.json({ error: updateErr.message }, { status: 500 });
+      const { error: bodyErr } = await supabase
+        .from('document_objects')
+        .update({
+          status: newStatus,
+          updated_at: new Date().toISOString(),
+          body: updatedBody,
+        })
+        .eq('id', id);
+
+      if (bodyErr) {
+        return NextResponse.json({ error: bodyErr.message }, { status: 500 });
+      }
+    } else {
+      // body 없는 극단적 케이스: status만 업데이트
+      const { error: updateErr } = await supabase
+        .from('document_objects')
+        .update({
+          status: newStatus,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+
+      if (updateErr) {
+        return NextResponse.json({ error: updateErr.message }, { status: 500 });
+      }
+    }
+  } else {
+    // reject 케이스
+    const { error: updateErr } = await supabase
+      .from('document_objects')
+      .update({
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+
+    if (updateErr) {
+      return NextResponse.json({ error: updateErr.message }, { status: 500 });
+    }
   }
 
   // ── Golden Set 자동 등록 (승인 시에만, non-blocking) ──

@@ -56,6 +56,14 @@ export default async function IMApprovalPage({ params }: Props) {
   const identity = bodyObj.identity as Record<string, any> | undefined;
   const posture = String(ssot?.investment_posture || identity?.investmentPosture || 'income');
 
+  // Bug 2 수정: 카카오맵 URL을 서버 컴포넌트에서 빌드 (process.env는 서버에서만 접근 가능)
+  const coordinates = (bodyObj as any)?.coordinates;
+  let kakaoMapUrl: string | null = null;
+  if (coordinates?.lat && coordinates?.lng) {
+    const { buildKakaoStaticMapUrl } = await import('@/lib/external/kakao-static-map');
+    kakaoMapUrl = buildKakaoStaticMapUrl({ lat: coordinates.lat, lng: coordinates.lng, width: 768, height: 320 });
+  }
+
   return (
     <IMApprovalClient
       docId={id}
@@ -65,6 +73,7 @@ export default async function IMApprovalPage({ params }: Props) {
       buildingId={doc.building_id ?? id}
       createdAt={doc.created_at}
       posture={posture}
+      kakaoMapUrl={kakaoMapUrl}
     />
   );
 }
