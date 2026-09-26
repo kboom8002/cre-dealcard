@@ -81,6 +81,22 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
     return raw;
   })();
   const [heroKeyPoint, setHeroKeyPoint] = useState(extractedKeyPoint);
+  // Bug 3: 3대 핵심 투자 포인트 편집 — heroCard.keyPoints에서 초기화
+  const [heroKeyPoints, setHeroKeyPoints] = useState<string[]>(() => {
+    const hc = (content as any)?.heroCard;
+    if (Array.isArray(hc?.keyPoints) && hc.keyPoints.length > 0) return [...hc.keyPoints];
+    // 폴백: investment_thesis 섹션에서 불릿 추출
+    const thesis = rawSections.find((s: any) => s.section_type === 'investment_thesis');
+    if (thesis && (thesis as any).markdown) {
+      const lines = ((thesis as any).markdown as string).split('\n').map(l => l.trim()).filter(Boolean);
+      const bullets = lines
+        .filter(l => /^[-*•·]\s|^\d+[.)]\s|^\*\*/.test(l))
+        .map(l => l.replace(/^[-*•·0-9.):\s]+/, '').replace(/\*\*/g, '').trim())
+        .filter(l => l.length > 10);
+      if (bullets.length > 0) return bullets.slice(0, 3);
+    }
+    return ['', '', ''];
+  });
   const [isHeroSaving, setIsHeroSaving] = useState(false);
   const [isHeroDirty, setIsHeroDirty] = useState(false);
 
@@ -126,6 +142,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
           heroTitle,
           heroSubtitle,
           keyInvestmentPoint: heroKeyPoint,
+          keyPoints: heroKeyPoints.filter(Boolean),
         }),
       });
       if (res.ok) {
@@ -722,6 +739,34 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                   rows={3}
                   className="w-full bg-transparent text-xs text-neutral-300 placeholder-neutral-600 outline-none resize-none leading-relaxed"
                 />
+              </div>
+            </div>
+
+            {/* 3대 핵심 투자 포인트 (개별 편집) */}
+            <div className="space-y-2">
+              <label className="text-[10px] text-neutral-500 font-semibold uppercase tracking-wider block">
+                ⭐ 3대 핵심 투자 포인트 (모바일 IM · PPTX에 동시 반영)
+              </label>
+              <div className="space-y-2">
+                {[0, 1, 2].map((idx) => (
+                  <div key={idx} className="flex items-start gap-2">
+                    <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center shrink-0 mt-1">
+                      {String(idx + 1).padStart(2, '0')}
+                    </span>
+                    <input
+                      type="text"
+                      value={heroKeyPoints[idx] || ''}
+                      onChange={(e) => {
+                        const updated = [...heroKeyPoints];
+                        updated[idx] = e.target.value;
+                        setHeroKeyPoints(updated);
+                        setIsHeroDirty(true);
+                      }}
+                      placeholder={idx === 0 ? '예: 선유도역 도보 1분 초역세권, 유동인구 풍부' : idx === 1 ? '예: Cap Rate 5.2%, 만실 운영 3년 지속' : '예: 준공업지역, 용적률 400% 개발 여력'}
+                      className="flex-1 bg-transparent border-b border-neutral-700 focus:border-primary/70 text-xs text-neutral-300 placeholder-neutral-600 pb-1 outline-none"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           </div>

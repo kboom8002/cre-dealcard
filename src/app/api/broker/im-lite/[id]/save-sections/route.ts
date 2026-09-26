@@ -69,6 +69,7 @@ export async function PUT(
   let heroTitle: string | undefined;
   let heroSubtitle: string | undefined;
   let keyInvestmentPoint: string | undefined;
+  let keyPoints: string[] | undefined;
 
   try {
     const body = await req.json();
@@ -81,6 +82,7 @@ export async function PUT(
     heroTitle = body.heroTitle;
     heroSubtitle = body.heroSubtitle;
     keyInvestmentPoint = body.keyInvestmentPoint;
+    keyPoints = Array.isArray(body.keyPoints) ? body.keyPoints.filter(Boolean) : undefined;
     if (!sections || !Array.isArray(sections)) {
       return NextResponse.json({ error: "Invalid 'sections' payload" }, { status: 400 });
     }
@@ -135,7 +137,11 @@ export async function PUT(
     ...(ogDescription !== undefined ? { ogDescription } : {}),
     ...(heroTitle !== undefined ? { heroTitle } : {}),
     ...(heroSubtitle !== undefined ? { heroSubtitle } : {}),
-    ...(keyInvestmentPoint !== undefined ? { heroCard: { ...((content as Record<string, any>).heroCard || {}), keyInvestmentPoint } } : {}),
+    ...(keyInvestmentPoint !== undefined || keyPoints !== undefined ? { heroCard: {
+      ...((content as Record<string, any>).heroCard || {}),
+      ...(keyInvestmentPoint !== undefined ? { keyInvestmentPoint } : {}),
+      ...(keyPoints !== undefined ? { keyPoints } : {}),
+    } } : {}),
   };
 
   // Compute deterministic SHA-256 target hash
