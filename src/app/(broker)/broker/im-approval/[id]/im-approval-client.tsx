@@ -505,13 +505,13 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
           </div>
         )}
 
-        {/* Bug 2: V-World 지적도 우선 렌더링 (PPTX와 동일) 및 카카오맵 스위치 */}
-        {(content as any)?.enrichment?.cadastralMapImage || kakaoMapUrl ? (
+        {/* Bug 2: 카카오 POI 지도 (PPTX 입지정보) 우선 렌더링 및 카카오맵 스위치 */}
+        {(content as any)?.enrichment?.locationMapImage || kakaoMapUrl ? (
           <div className="mb-8 rounded-xl overflow-hidden border border-neutral-800 relative group h-48 sm:h-64 bg-neutral-900 flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
-              src={(content as any)?.enrichment?.cadastralMapImage || kakaoMapUrl} 
-              alt="위치 지적도" 
+              src={(content as any)?.enrichment?.locationMapImage || kakaoMapUrl} 
+              alt="위치 지도" 
               className="w-full h-full object-cover"
             />
             
@@ -520,13 +520,13 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
             {/* 안내 배지 */}
             <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2 pointer-events-none">
               <span className="text-[10px] text-white/90 font-medium">
-                {(content as any)?.enrichment?.cadastralMapImage ? '🗺️ V-World 지적도 (PPTX 동기화)' : '🗺️ 카카오 지도'}
+                {(content as any)?.enrichment?.locationMapImage ? '🗺️ 입지 지도 (PPTX 동기화)' : '🗺️ 카카오 지도'}
               </span>
             </div>
             
-            {kakaoMapUrl && (content as any)?.enrichment?.cadastralMapImage && (
+            {kakaoMapUrl && (content as any)?.enrichment?.locationMapImage && (
               <a 
-                href={kakaoMapUrl.replace('staticmap.png', 'map.html')} // static 맵을 일반 맵 링크로 변환 시도 (실제 앱에서는 라이브 뷰어 모달을 띄움)
+                href={kakaoMapUrl.replace('staticmap.png', 'map.html')} // static 맵을 일반 맵 링크로 변환 시도
                 target="_blank"
                 rel="noreferrer"
                 className="absolute bottom-3 right-3 bg-primary text-black px-4 py-2 rounded-lg text-xs font-bold shadow-lg hover:bg-primary/90 transition-transform active:scale-95 flex items-center gap-2"

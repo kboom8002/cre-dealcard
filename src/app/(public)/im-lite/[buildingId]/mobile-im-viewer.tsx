@@ -471,6 +471,19 @@ export function MobileIMViewer({
                     buildingName={doc.blindName || doc.fullName}
                   />
                 )}
+                {/* 토지 현황 섹션 아래에 지적도 표시 */}
+                {(section.sectionId?.includes("land") || section.sectionId?.includes("site")) && (doc as any).enrichment?.cadastralMapImage && (
+                  <div className="mt-3 rounded-xl overflow-hidden border border-neutral-800 relative bg-neutral-900">
+                    <img 
+                      src={(doc as any).enrichment.cadastralMapImage} 
+                      alt="지적도" 
+                      className="w-full h-auto"
+                    />
+                    <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded border border-white/10 text-[10px] text-white/90 font-medium">
+                      🗺️ 토지 이용 계획 (V-World 지적도)
+                    </div>
+                  </div>
+                )}
                 {/* [C2][C4] 수익 분석 섹션 다음에 DCF 히트맵 + 레버리지 차트 삽입 */}
                 {section.sectionId?.includes("income") && (
                   <>

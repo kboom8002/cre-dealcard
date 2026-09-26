@@ -323,16 +323,26 @@ export async function fetchIMData(
         marker: true
       });
       
+      const locationMapImage = document.body.enrichment?.locationMapImage;
       const cadastralMapImage = document.body.enrichment?.cadastralMapImage;
       
       rawPhotos.unshift({
-        url: cadastralMapImage || kakaoMapUrl,
+        url: locationMapImage || kakaoMapUrl,
         type: 'map',
-        label: cadastralMapImage ? 'V-World 지적도' : '위치 지도',
+        label: locationMapImage ? '위치 지도 (상권/역세권)' : '위치 지도',
         order: -1,
-        // 카카오맵 라이브 보기 링크용 (원본이 지적도일 때만)
-        kakaoMapUrl: cadastralMapImage ? kakaoMapUrl : undefined,
+        kakaoMapUrl: locationMapImage ? kakaoMapUrl : undefined,
       });
+
+      // 지적도는 사진 갤러리 후순위(또는 토지현황 섹션용)로 추가
+      if (cadastralMapImage) {
+        rawPhotos.push({
+          url: cadastralMapImage,
+          type: 'cadastral',
+          label: '지적도',
+          order: 999
+        });
+      }
     }
 
     return {
@@ -348,6 +358,7 @@ export async function fetchIMData(
       ogTitle: document.body.ogTitle || null,
       ogDescription: document.body.ogDescription || null,
       heroSubtitle: document.body.heroSubtitle || null,
+      enrichment: document.body.enrichment || null,
       sections: (document.body.sections || []).map((s: any) => {
           if ("content" in s) return s;
           let icon = "📄";

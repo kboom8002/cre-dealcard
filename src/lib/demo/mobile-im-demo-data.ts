@@ -89,6 +89,7 @@ export interface MobileIMDocument {
   /** HANDOFF_REDACTION_RULES.always_remove 적용된 필드 목록 */
   protectedFieldsRemoved: string[];
   disclaimer: string;
+  enrichment?: Record<string, any> | null;
   fullImUpgradeCta: {
     enabled: boolean;
     label: string;

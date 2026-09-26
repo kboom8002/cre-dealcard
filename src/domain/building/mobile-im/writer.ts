@@ -708,6 +708,23 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
       }
       if (enrichmentResult.locationPoi) {
         enrichmentData.locationPoi = enrichmentResult.locationPoi;
+        
+        // 추가: PPTX와 동일하게 랜드마크 마커가 포함된 카카오맵 이미지 생성
+        try {
+          const { generateStaticMapPlaceholder } = await import('./pptx/utils/image-optimizer');
+          const addressOrArea = input.building_ssot_lite?.address || (input.building_ssot_lite?.ssot_summary as any)?.address || '현장';
+          const poiMap = await generateStaticMapPlaceholder(
+            String(addressOrArea),
+            1120, 900,
+            { lat: Number(rawLat), lng: Number(rawLng) },
+            (enrichmentResult.locationPoi as any).keySpots
+          );
+          if (poiMap && poiMap.base64) {
+            enrichmentData.locationMapImage = poiMap.base64;
+          }
+        } catch (mapErr) {
+          log.warn('[writer] Failed to generate POI map image:', mapErr);
+        }
       }
     }
   } catch (enrichErr) {
