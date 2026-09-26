@@ -105,7 +105,9 @@ export function DealCardEditor({
         sonnerToast.success("딜카드 문구가 성공적으로 저장되었습니다!");
         sessionStorage.setItem(`kakao_text_${buildingId}`, kakaoText);
         window.dispatchEvent(new Event(`kakao_update_${buildingId}`));
-        window.dispatchEvent(new Event(`deal_card_updated_${buildingId}`));
+        window.dispatchEvent(new CustomEvent(`deal_card_updated_${buildingId}`, {
+          detail: { ogTitle, ogDescription },
+        }));
       } else {
         const err = await res.json().catch((err) => { console.warn('[DealCardEditor]', err); return {}; });
         sonnerToast.error(err.error || "저장 실패 — 다시 시도해주세요");

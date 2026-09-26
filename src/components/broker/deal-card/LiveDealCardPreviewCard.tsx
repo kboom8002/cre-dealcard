@@ -36,11 +36,14 @@ export function LiveDealCardPreviewCard({
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [ogTimestamp, setOgTimestamp] = useState(Date.now());
   const [kakaoReady, setKakaoReady] = useState(false);
+  // OG 메타를 실시간 동기화 — 편집기 저장 시 업데이트
+  const [liveOgTitle, setLiveOgTitle] = useState(ogTitle);
+  const [liveOgDesc, setLiveOgDesc] = useState(ogDescription);
 
   const siteUrl = typeof window !== "undefined" ? window.location.origin : "https://credeal.net";
   const shareUrl = `${siteUrl}/dc/${buildingId}`;
-  const displayTitle = ogTitle || title || "블라인드 딜카드";
-  const displayDesc = ogDescription || hookCopy || summary || "AI가 분석한 상업용 부동산 투자 기회";
+  const displayTitle = liveOgTitle || title || "블라인드 딜카드";
+  const displayDesc = liveOgDesc || hookCopy || summary || "AI가 분석한 상업용 부동산 투자 기회";
 
   // Kakao SDK 초기화
   useEffect(() => {
@@ -66,10 +69,14 @@ export function LiveDealCardPreviewCard({
     document.head.appendChild(script);
   }, []);
 
-  // 외부 저장 이벤트 수신 시 OG 이미지 새로고침
+  // 외부 저장 이벤트 수신 시 OG 메타 + 이미지 새로고침
   useEffect(() => {
-    const handleUpdate = () => {
+    const handleUpdate = (e: Event) => {
       setOgTimestamp(Date.now());
+      // DealCardEditor 저장 시 커스텀 이벤트의 detail에서 OG 메타 동기화
+      const detail = (e as CustomEvent)?.detail;
+      if (detail?.ogTitle !== undefined) setLiveOgTitle(detail.ogTitle);
+      if (detail?.ogDescription !== undefined) setLiveOgDesc(detail.ogDescription);
     };
     window.addEventListener(`deal_card_updated_${buildingId}`, handleUpdate);
     return () => window.removeEventListener(`deal_card_updated_${buildingId}`, handleUpdate);
