@@ -1067,7 +1067,13 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
 
 function MarkdownRenderer({ content }: { content: string }) {
   if (!content) return null;
-  const lines = content.split("\n");
+
+  // ── Pre-process: 줄바꿈이 필요한 패턴 앞에 이중 줄바꿈 보장 ──
+  let md = content;
+  // 단일 줄바꿈 → 이중 줄바꿈 (불릿, 번호, 볼드, 이모지 시작 줄 앞)
+  md = md.replace(/([^\n])\n(?=- |\* |• |· |\d+[.)]\s|\*\*|[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}])/gmu, '$1\n\n');
+
+  const lines = md.split("\n");
   const elements: React.ReactNode[] = [];
   let tableBuffer: string[] = [];
   let inTable = false;
@@ -1108,18 +1114,30 @@ function MarkdownRenderer({ content }: { content: string }) {
           {line.slice(3)}
         </h2>,
       );
-    } else if (line.startsWith("**") && line.endsWith("**") && !line.includes(" ")) {
+    } else if (line.startsWith("**") && line.endsWith("**") && line.length > 4) {
+      // 볼드 전용 줄 — 공백 포함도 허용 (이전: !line.includes(" ")로 대부분 누락)
       flush();
       elements.push(
-        <p key={key++} className="font-bold text-white text-sm">
+        <p key={key++} className="font-bold text-white text-sm mt-2">
           {line.slice(2, -2)}
         </p>,
       );
-    } else if (line.startsWith("- ") || line.startsWith("* ")) {
+    } else if (line.startsWith("- ") || line.startsWith("* ") || line.startsWith("• ") || line.startsWith("· ")) {
+      // 불릿 리스트 — •, · 문자도 지원
       flush();
+      const text = line.replace(/^[-*•·]\s+/, '');
       elements.push(
         <li key={key++} className="text-neutral-300 text-sm leading-relaxed ml-4 list-disc">
-          <InlineMarkdown text={line.slice(2)} />
+          <InlineMarkdown text={text} />
+        </li>,
+      );
+    } else if (/^\d+[.)]\s/.test(line)) {
+      // 번호 목록 — "1. " 또는 "1) " 형식
+      flush();
+      const text = line.replace(/^\d+[.)]\s+/, '');
+      elements.push(
+        <li key={key++} className="text-neutral-300 text-sm leading-relaxed ml-4 list-decimal">
+          <InlineMarkdown text={text} />
         </li>,
       );
     } else if (line.startsWith("> ")) {
