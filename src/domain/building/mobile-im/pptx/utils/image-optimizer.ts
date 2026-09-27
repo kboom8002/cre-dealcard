@@ -254,45 +254,38 @@ function buildPoiOverlays(
     let left: number, top: number;
     
     if (spot.category === 'subway') {
-      const labelWidth = cleanName.length * 13 + 24;
-      totalW = labelWidth;
-      totalH = 32;
+      // 지하철: 노란 원형 마커 (텍스트 없음 — Vercel에 한글 폰트 없음)
+      totalW = 36;
+      totalH = 36;
       poiSvg = Buffer.from(`
         <svg width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" xmlns="http://www.w3.org/2000/svg">
           <filter id="shadow_${spot.category}" x="-10%" y="-10%" width="120%" height="120%">
             <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.35"/>
           </filter>
           <g filter="url(#shadow_${spot.category})">
-            <rect x="0" y="0" width="${labelWidth}" height="30" rx="15" ry="15" fill="#FBBF24" stroke="#D97706" stroke-width="1.5"/>
-            <text x="${labelWidth / 2}" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#1E293B">${cleanName}</text>
+            <circle cx="18" cy="18" r="15" fill="#FBBF24" stroke="#D97706" stroke-width="2"/>
+            <text x="18" y="23" text-anchor="middle" font-family="Arial" font-size="16" font-weight="bold" fill="#1E293B">S</text>
           </g>
         </svg>
       `);
-      left = Math.round(Math.max(0, Math.min(px - labelWidth / 2, imgW - totalW)));
-      top = Math.round(Math.max(0, Math.min(py - 15, imgH - totalH)));
+      left = Math.round(Math.max(0, Math.min(px - 18, imgW - totalW)));
+      top = Math.round(Math.max(0, Math.min(py - 18, imgH - totalH)));
     } else {
-      const textWidth = Math.max(50, cleanName.length * 13 + 18);
-      const badgeH = 32;
-      totalW = textWidth + 42;
-      totalH = 44;
+      // 일반 POI: 컬러 원형 마커 (텍스트 없음)
+      totalW = 36;
+      totalH = 36;
       poiSvg = Buffer.from(`
         <svg width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" xmlns="http://www.w3.org/2000/svg">
           <filter id="shadow_${spot.category}" x="-10%" y="-10%" width="120%" height="120%">
             <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.35"/>
           </filter>
-          <!-- 배경 라벨 필 -->
           <g filter="url(#shadow_${spot.category})">
-            <rect x="26" y="5" width="${textWidth}" height="${badgeH}" rx="5" fill="#132A3A" opacity="0.92" stroke="#FFFFFF" stroke-width="1.2"/>
-            <text x="${26 + textWidth / 2}" y="22" font-size="13" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">${cleanName}</text>
-          </g>
-          <!-- 원형 카테고리 심볼 마커 -->
-          <g filter="url(#shadow_${spot.category})">
-            <circle cx="16" cy="18" r="16" fill="${color}" stroke="#FFFFFF" stroke-width="2.5"/>
-            <circle cx="16" cy="18" r="5" fill="#FFFFFF"/>
+            <circle cx="18" cy="18" r="15" fill="${color}" stroke="#FFFFFF" stroke-width="2.5"/>
+            <circle cx="18" cy="18" r="5" fill="#FFFFFF"/>
           </g>
         </svg>
       `);
-      left = Math.round(Math.max(0, Math.min(px - 16, imgW - totalW)));
+      left = Math.round(Math.max(0, Math.min(px - 18, imgW - totalW)));
       top = Math.round(Math.max(0, Math.min(py - 18, imgH - totalH)));
     }
 
@@ -380,8 +373,8 @@ export async function generateStaticMapPlaceholder(
           const circleSvg = Buffer.from(`
             <svg width="${kakaoW}" height="${kakaoH}" viewBox="0 0 ${kakaoW} ${kakaoH}" xmlns="http://www.w3.org/2000/svg">
               <circle cx="${kakaoW / 2}" cy="${kakaoH / 2}" r="${walkRadiusPx}" fill="rgba(184, 134, 11, 0.07)" stroke="#B8860B" stroke-width="1.8" stroke-dasharray="8,5"/>
-              <rect x="${kakaoW / 2 - 40}" y="${kakaoH / 2 - walkRadiusPx - 1}" width="80" height="20" rx="4" fill="#B8860B" opacity="0.9"/>
-              <text x="${kakaoW / 2}" y="${kakaoH / 2 - walkRadiusPx + 13}" font-size="11" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">도보 5분 권역</text>
+              <rect x="${kakaoW / 2 - 30}" y="${kakaoH / 2 - walkRadiusPx - 1}" width="60" height="20" rx="4" fill="#B8860B" opacity="0.9"/>
+              <text x="${kakaoW / 2}" y="${kakaoH / 2 - walkRadiusPx + 13}" font-size="11" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Arial">5min</text>
             </svg>
           `);
           overlays.push({
@@ -424,7 +417,7 @@ export async function generateStaticMapPlaceholder(
                 <circle cx="40" cy="30" r="12" fill="#132A3A"/>
                 <text x="40" y="35" font-size="14" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">★</text>
                 <rect x="8" y="65" width="64" height="18" rx="4" fill="#132A3A" opacity="0.96" stroke="#FFFFFF" stroke-width="1"/>
-                <text x="40" y="78" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">본건 위치</text>
+                <text x="40" y="78" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Arial">TARGET</text>
               </g>
             </svg>
           `);

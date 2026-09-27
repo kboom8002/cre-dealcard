@@ -1100,18 +1100,12 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                 <span>📋 카카오톡 공유 링크 복사</span>
               </button>
 
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={() => setShowPublishedModal(false)}
-                  className="flex-1 py-2.5 text-xs text-neutral-400 hover:text-white transition-colors"
-                >
-                  검토 화면 계속 보기
-                </button>
+              <div className="flex justify-center pt-1">
                 <Link
-                  href={`/broker/deal-card/${buildingId}`}
-                  className="flex-1 py-2.5 text-xs text-neutral-400 hover:text-white transition-colors text-center"
+                  href="/broker/im-box"
+                  className="py-2.5 px-4 text-xs text-neutral-400 hover:text-white transition-colors text-center"
                 >
-                  딜카드 관리로 이동 →
+                  📂 IM 보관함으로 이동 →
                 </Link>
               </div>
             </div>

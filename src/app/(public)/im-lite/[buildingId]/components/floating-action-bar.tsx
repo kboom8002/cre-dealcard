@@ -129,7 +129,9 @@ export function FloatingActionBar({
   const [copied, setCopied] = useState(false);
   const [requestingPro, setRequestingPro] = useState(false);
   const [isBrokerMode, setIsBrokerMode] = useState(isBroker);
-  const [selectedPreset, setSelectedPreset] = useState("golden_institutional");
+  const [selectedPreset, setSelectedPreset] = useState(
+    tier === "basic" ? "credeal_basic" : "golden_institutional"
+  );
   const [isPresetMenuOpen, setIsPresetMenuOpen] = useState(false);
   const [pptxLoading, setPptxLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
