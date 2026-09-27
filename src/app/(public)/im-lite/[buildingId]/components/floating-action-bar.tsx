@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import type { MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
@@ -69,39 +69,46 @@ export function ShareButton({ title }: { title: string }) {
 
 const PPTX_PRESETS = [
   {
-    id: "golden_institutional",
-    label: "🏛️ 기관투자형 골드",
-    desc: "신뢰감 있는 기관 투자용",
-  },
-  {
-    id: "credeal_signature",
-    label: "💎 시그니처 모던",
-    desc: "모던 & 트렌디 스타일",
-  },
-  {
-    id: "executive_gold",
-    label: "👑 이그제큐티브 골드",
-    desc: "프리미엄 네이비 & 골드",
-  },
-  {
-    id: "corporate_clean",
-    label: "🏢 코퍼레이트 클린",
-    desc: "깔끔하고 세련된 네이비",
-  },
-  {
-    id: "pro_dark_obsidian",
-    label: "🌑 다크 옵시디언",
-    desc: "고급스러운 다크 테마",
-  },
-  {
     id: "credeal_basic",
     label: "📋 표준 Basic IM",
-    desc: "기본 브로커 IM 스타일",
+    desc: "기본 브로커 IM (9면)",
+    tier: "basic" as const,
   },
   {
     id: "minimal_clean",
     label: "📄 미니멀 클린",
     desc: "심플하고 단정한 스타일",
+    tier: "all" as const,
+  },
+  {
+    id: "corporate_clean",
+    label: "🏢 코퍼레이트 클린",
+    desc: "깔끔하고 세련된 네이비",
+    tier: "all" as const,
+  },
+  {
+    id: "golden_institutional",
+    label: "🏛️ 기관투자형 골드",
+    desc: "신뢰감 있는 기관 투자용",
+    tier: "pro" as const,
+  },
+  {
+    id: "credeal_signature",
+    label: "💎 시그니처 모던",
+    desc: "모던 & 트렌디 스타일",
+    tier: "pro" as const,
+  },
+  {
+    id: "executive_gold",
+    label: "👑 이그제큐티브 골드",
+    desc: "프리미엄 네이비 & 골드",
+    tier: "pro" as const,
+  },
+  {
+    id: "pro_dark_obsidian",
+    label: "🌑 다크 옵시디언",
+    desc: "고급스러운 다크 테마",
+    tier: "pro" as const,
   },
 ];
 
@@ -135,6 +142,12 @@ export function FloatingActionBar({
   const [isPresetMenuOpen, setIsPresetMenuOpen] = useState(false);
   const [pptxLoading, setPptxLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // IM 타입에 맞는 프리셋만 표시 (Basic IM → basic/all만, Pro IM → 전체)
+  const availablePresets = useMemo(() =>
+    PPTX_PRESETS.filter(p =>
+      tier === "basic" ? (p.tier === "basic" || p.tier === "all") : true
+    ), [tier]);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -298,7 +311,7 @@ export function FloatingActionBar({
   };
 
   const currentPresetInfo =
-    PPTX_PRESETS.find((p) => p.id === selectedPreset) || PPTX_PRESETS[0];
+    availablePresets.find((p) => p.id === selectedPreset) || availablePresets[0];
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-neutral-900/95 backdrop-blur border-t border-neutral-800 safe-area-bottom shadow-2xl">
@@ -409,10 +422,10 @@ export function FloatingActionBar({
                     <span className="text-[11px] font-bold text-neutral-400">
                       🎨 PPTX 템플릿 프리셋
                     </span>
-                    <span className="text-[9px] text-primary">6개 스타일</span>
+                    <span className="text-[9px] text-primary">{availablePresets.length}개 스타일</span>
                   </div>
                   <div className="space-y-1 max-h-60 overflow-y-auto">
-                    {PPTX_PRESETS.map((preset) => (
+                    {availablePresets.map((preset) => (
                       <button
                         key={preset.id}
                         onClick={() => {

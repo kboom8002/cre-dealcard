@@ -153,9 +153,14 @@ export async function GET(
     const hasViolation = body.hasViolation ?? body.violationStatus === 'exists';
     const hasJointCollateral = body.hasJointCollateral ?? false;
 
-    const resolvedPreset = presetParam
-      || body.preset
-      || (tier === 'basic' || body.tier === 'basic' ? 'credeal_basic' : 'credeal_signature');
+    // ── IM 타입(Basic/Pro) 결정: 문서의 tier가 유일한 권한 (프리셋으로 결정하지 않음) ──
+    const docTier = body.tier || tier; // body.tier 우선, 없으면 URL ?tier= (기본 'basic')
+    const isBasicIM = docTier === 'basic';
+
+    // 시각적 프리셋: 사용자가 선택한 프리셋을 존중하되, Basic IM이면 항상 credeal_basic 시퀀스를 사용
+    const visualPreset = presetParam || body.preset || (isBasicIM ? 'credeal_basic' : 'credeal_signature');
+    // Basic IM이면 시퀀스 결정용 프리셋은 항상 credeal_basic (시각 테마만 다를 수 있음)
+    const resolvedPreset = isBasicIM ? 'credeal_basic' : visualPreset;
 
     const result = await renderer.render({
       buildingId,
@@ -165,7 +170,7 @@ export async function GET(
       incomeArchetype,
       hasViolation,
       hasJointCollateral,
-      releaseTier: (body.releaseTier as ReleaseTier) || 'decision_im',
+      releaseTier: isBasicIM ? 'fact_om' : ((body.releaseTier as ReleaseTier) || 'decision_im'),
       docno: body.docno ?? `IM-${buildingId.substring(0, 6).toUpperCase()}`,
       doc: {
         title: doc.title || body.buildingName || 'Mobile IM',
