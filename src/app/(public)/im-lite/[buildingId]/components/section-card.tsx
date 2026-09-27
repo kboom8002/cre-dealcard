@@ -117,7 +117,11 @@ function TableFromLines({ lines }: { lines: string[] }) {
 
 export function MarkdownRenderer({ content }: { content: string }) {
   if (!content) return null;
-  const lines = content.split("\n");
+
+  // LLM 인라인 파이프 강조 제거: "| 항목 |" → "항목"
+  let md = content.replace(/^\|\s*([^|]+?)\s*\|$/gm, '$1');
+
+  const lines = md.split("\n");
   const elements: React.ReactNode[] = [];
   let tableBuffer: string[] = [];
   let inTable = false;
@@ -134,8 +138,9 @@ export function MarkdownRenderer({ content }: { content: string }) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Detect table
-    if (line.startsWith("|")) {
+    // Detect table: 최소 3개 파이프 (2열 이상)
+    const isTableRow = line.startsWith("|") && (line.match(/\|/g) || []).length >= 3;
+    if (isTableRow) {
       inTable = true;
       tableBuffer.push(line);
       continue;

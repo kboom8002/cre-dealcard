@@ -509,11 +509,17 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
         )}
 
         {/* Bug 2: 카카오 POI 지도 (PPTX 입지정보) 우선 렌더링 및 카카오맵 스위치 */}
-        {(content as any)?.enrichment?.locationMapImage || kakaoMapUrl ? (
+        {(() => {
+          // locationMapImage가 유효한지 검증 (빈 placeholder 방지)
+          const locMap = (content as any)?.enrichment?.locationMapImage;
+          const validLocMap = locMap && typeof locMap === 'string' && locMap.length > 500;
+          const mapSrc = validLocMap ? locMap : kakaoMapUrl;
+          if (!mapSrc) return null;
+          return (
           <div className="mb-8 rounded-xl overflow-hidden border border-neutral-800 relative group h-48 sm:h-64 bg-neutral-900 flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
-              src={(content as any)?.enrichment?.locationMapImage || kakaoMapUrl} 
+              src={mapSrc} 
               alt="위치 지도" 
               className="w-full h-full object-cover"
             />
@@ -523,13 +529,13 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
             {/* 안내 배지 */}
             <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2 pointer-events-none">
               <span className="text-[10px] text-white/90 font-medium">
-                {(content as any)?.enrichment?.locationMapImage ? '🗺️ 입지 지도 (PPTX 동기화)' : '🗺️ 카카오 지도'}
+                {validLocMap ? '🗺️ 입지 지도 (PPTX 동기화)' : '🗺️ 카카오 지도'}
               </span>
             </div>
             
-            {kakaoMapUrl && (content as any)?.enrichment?.locationMapImage && (
+            {kakaoMapUrl && validLocMap && (
               <a 
-                href={kakaoMapUrl.replace('staticmap.png', 'map.html')} // static 맵을 일반 맵 링크로 변환 시도
+                href={kakaoMapUrl.replace('staticmap.png', 'map.html')}
                 target="_blank"
                 rel="noreferrer"
                 className="absolute bottom-3 right-3 bg-primary text-black px-4 py-2 rounded-lg text-xs font-bold shadow-lg hover:bg-primary/90 transition-transform active:scale-95 flex items-center gap-2"
@@ -538,7 +544,8 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
               </a>
             )}
           </div>
-        ) : null}
+          );
+        })()}
 
         {/* 📊 데이터 품질 모니터링 */}
         <div className="mb-6 p-4 rounded-xl border border-neutral-800 bg-neutral-900/50">
@@ -1135,19 +1142,15 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
 function MarkdownRenderer({ content }: { content: string }) {
   if (!content) return null;
 
-  // ── Pre-process: 줄바꿈이 필요한 패턴 강제 분리 ──
+  // ── Pre-process: 줄바꿈 보정 ──
   let md = content;
 
-  // Step 1: 불릿/번호 시작 패턴이 줄 중간에 있는 경우 줄바꿈 강제 삽입
-  // 예: "이전 텍스트- 불릿" → "이전 텍스트\n- 불릿"
-  // 예: "이전 텍스트• 불릿" → "이전 텍스트\n• 불릿"
-  md = md.replace(/([^\n])(?=(?:[-*•·]\s+\S|\d+[.)]\s+\S))/gm, '$1\n');
+  // LLM이 인라인 강조용으로 사용하는 파이프 제거: "| 항목 |" → "항목"
+  // (실제 마크다운 테이블은 3+ 파이프가 있으므로 2파이프 이하만 제거)
+  md = md.replace(/^\|\s*([^|]+?)\s*\|$/gm, '$1');
 
-  // Step 2: 볼드 제목 앞에 줄바꿈 보장 ("이전 텍스트**제목**" → "이전 텍스트\n**제목**")
-  md = md.replace(/([^\n*])(\*\*[^*]+\*\*)/g, '$1\n$2');
-
-  // Step 3: 단일 줄바꿈 → 이중 줄바꿈 (불릿, 번호, 볼드, 이모지 시작 줄 앞)
-  md = md.replace(/([^\n])\n(?=- |[*] |• |· |\d+[.)]\s|\*\*|[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}])/gmu, '$1\n\n');
+  // 단일 줄바꿈 → 이중 줄바꿈 (줄의 시작이 불릿/번호/볼드/이모지인 경우만)
+  md = md.replace(/([^\n])\n(?=[-*•·] |\d+[.)]\s|\*\*[^*]|[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}])/gmu, '$1\n\n');
 
   const lines = md.split("\n");
   const elements: React.ReactNode[] = [];
@@ -1166,7 +1169,10 @@ function MarkdownRenderer({ content }: { content: string }) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    if (line.startsWith("|")) {
+    // 마크다운 테이블: | col1 | col2 | 형식 (최소 3개 파이프 = 2열 이상)
+    // 단순 인라인 파이프 (| 항목 |) 는 테이블이 아님
+    const isTableRow = line.startsWith("|") && (line.match(/\|/g) || []).length >= 3;
+    if (isTableRow) {
       inTable = true;
       tableBuffer.push(line);
       continue;

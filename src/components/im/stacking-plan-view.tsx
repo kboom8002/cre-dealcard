@@ -232,9 +232,21 @@ export function StackingPlanView({
     return [];
   }, [propFloors, rawMarkdown]);
 
-  // 지상층 및 지하층 분리
-  const aboveFloors = useMemo(() => floors.filter(f => !f.floor.toUpperCase().startsWith('B')), [floors]);
-  const belowFloors = useMemo(() => floors.filter(f => f.floor.toUpperCase().startsWith('B')), [floors]);
+  // 지상층 및 지하층 분리 + 정렬 (건물 입면: 높은 층이 위)
+  const parseFloorNum = (f: string): number => {
+    const upper = f.toUpperCase().replace(/[F층]/g, '');
+    if (upper.includes('옥상') || upper === 'R' || upper === 'PH') return 99;
+    if (upper.startsWith('B')) return -(parseInt(upper.slice(1)) || 1);
+    return parseInt(upper) || 0;
+  };
+  const aboveFloors = useMemo(() =>
+    floors.filter(f => !f.floor.toUpperCase().startsWith('B'))
+      .sort((a, b) => parseFloorNum(b.floor) - parseFloorNum(a.floor)), // 5F→4F→3F→2F→1F
+    [floors]);
+  const belowFloors = useMemo(() =>
+    floors.filter(f => f.floor.toUpperCase().startsWith('B'))
+      .sort((a, b) => parseFloorNum(b.floor) - parseFloorNum(a.floor)), // B1→B2→B3
+    [floors]);
 
   // 현재 선택된 층 정보
   const activeFloor = useMemo(() => {
