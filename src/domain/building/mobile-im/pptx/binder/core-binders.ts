@@ -662,21 +662,27 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
 
     const cadastral = enrichment.cadastralMapImage;
     if (cadastral) {
-    dataMap['cadastralMap'] = {
-      title: '지적도',
-      content: '',
-      tables: [],
-      metrics: {},
-      coordinates: null,
-      mapImageUrl: null,
-      cadastralImage: cadastral.base64 ?? cadastral,
-      left: { sub: '연속지적도 (V-World)', source: `© V-World 국토교통부 | ${new Date().getFullYear()}` },
-      right: {
-        sub: '필지 정보',
-        rows: dataMap['land']?.left?.rows?.slice(0, 4) ?? [],
-      },
-      _source: 'vworld_wms',
-    };
+      const cadBase64 = cadastral.base64 ?? cadastral;
+      dataMap['cadastralMap'] = {
+        title: '지적도',
+        content: '',
+        tables: [],
+        metrics: {},
+        coordinates: null,
+        mapImageUrl: null,
+        cadastralImage: cadBase64,
+        left: { sub: '연속지적도 (V-World)', source: `© V-World 국토교통부 | ${new Date().getFullYear()}` },
+        right: {
+          sub: '필지 정보',
+          rows: dataMap['land']?.left?.rows?.slice(0, 4) ?? [],
+        },
+        _source: 'vworld_wms',
+      };
+      
+      // Basic IM에서 land 슬라이드가 A06으로 통합될 때 지적도를 렌더링할 수 있도록 land에도 주입
+      if (dataMap['land']) {
+        dataMap['land'].cadastralImage = cadBase64;
+      }
     }
 
     const macroTransit = enrichment.macroTransitImage;

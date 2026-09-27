@@ -91,7 +91,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   // Right Panel (Rent Roll Table)
   const gap = 0.35;
   const tbX = M + spW + gap;
-  const tbW = CW - M * 2 - spW - gap;
+  const tbW = CW - spW - gap;
 
   // --- Render Left Panel: Stacking Plan ---
   let floors: FloorInfo[] = stackingData;
@@ -183,15 +183,38 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     const drawAreaH = spH - 0.4;
     const baseDrawY = spY + spH;
 
-    const hPerFloor = drawAreaH / Math.max(1, drawFloors.length);
+    // 1. 층별로 세입자 그룹화
+    interface FloorGroup {
+      floorName: string;
+      isSubterranean: boolean;
+      totalArea: number;
+      tenants: typeof drawFloors;
+    }
+    const floorGroups: FloorGroup[] = [];
+    for (const f of drawFloors) {
+      let fg = floorGroups.find(g => g.floorName === String(f.floor));
+      if (!fg) {
+        fg = {
+          floorName: String(f.floor),
+          isSubterranean: String(f.floor).toUpperCase().startsWith('B'),
+          totalArea: 0,
+          tenants: []
+        };
+        floorGroups.push(fg);
+      }
+      fg.tenants.push(f);
+      fg.totalArea += (f.area || 0);
+    }
+
+    const hPerFloor = drawAreaH / Math.max(1, floorGroups.length);
     const maxBarW = spW - 0.8;
-    const maxArea = Math.max(...drawFloors.map(f => f.area || 0), 1);  // 실제 최대면적 기준
+    const maxArea = Math.max(...floorGroups.map(g => g.totalArea), 1);  // 실제 최대면적 기준
 
     let currentY = baseDrawY;
     
     // Ground line divider if B floors exist
-    const bCount = drawFloors.filter(f => String(f.floor).toUpperCase().startsWith('B')).length;
-    if (bCount > 0 && bCount < drawFloors.length) {
+    const bCount = floorGroups.filter(g => g.isSubterranean).length;
+    if (bCount > 0 && bCount < floorGroups.length) {
       const groundY = baseDrawY - (bCount * hPerFloor);
       slide.addShape('line', {
         x: spX + 0.2, y: groundY, w: spW - 0.4, h: 0,
@@ -207,75 +230,78 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     const floorFontSize = hPerFloor >= 0.65 ? 12 : hPerFloor >= 0.50 ? 10 : 9;
     const tenantFontSize = hPerFloor >= 0.65 ? 10 : hPerFloor >= 0.50 ? 9 : 8;
 
-    drawFloors.forEach(floor => {
+    floorGroups.forEach(group => {
       currentY -= hPerFloor;
       
-      const isSubterranean = String(floor.floor).toUpperCase().startsWith('B');
-      const ratio = calculateSetbackRatio(floor.area || maxArea, maxArea, isSubterranean);
-      const barW = maxBarW * ratio;
-      const barX = spX + 0.4 + (maxBarW - barW) / 2;
-      
-      let fillCol = 'E2E8F0';
-      const isVacant = floor.isVacant || floor.tenant?.includes('공실');
-      if (isVacant) {
-        fillCol = 'FBEFE8';
-      } else if (floor._expiry && EXPIRY_HEATMAP_PALETTE[floor._expiry]) {
-        fillCol = EXPIRY_HEATMAP_PALETTE[floor._expiry];
-      } else if (floor.category === 'parking' || floor.tenant?.includes('주차')) {
-        fillCol = 'E2E8F0';
-      }
+      const ratio = calculateSetbackRatio(group.totalArea || maxArea, maxArea, group.isSubterranean);
+      const floorBarW = maxBarW * ratio;
+      const floorBarX = spX + 0.4 + (maxBarW - floorBarW) / 2;
       
       // Floor label
-      const floorLabel = String(floor.floor).replace(/층$/, '');
+      const floorLabel = String(group.floorName).replace(/층$/, '');
       slide.addText(floorLabel, {
         x: spX, y: currentY, w: 0.35, h: hPerFloor,
         fontSize: floorFontSize, bold: true, color: C.ink, align: 'right', valign: 'middle', fontFace: KR
       });
       
-      // Bar
-      if (isVacant) {
-        slide.addShape('rect', {
-          x: barX, y: currentY + 0.03, w: barW, h: hPerFloor - 0.06,
-          fill: { color: fillCol },
-          line: { dashType: 'dash' as const, color: 'B05A2E', width: 1.2 }
-        });
-      } else {
-        slide.addShape('rect', {
-          x: barX, y: currentY + 0.03, w: barW, h: hPerFloor - 0.06,
-          fill: { color: fillCol },
-          line: { color: '5B6B73', width: 1.1 }
-        });
-      }
-      
-      // Tenant text inside bar (임차인명 + 면적)
-      const isVac = isVacant;
-      const tenantName = isVac ? '공실' : (floor.tenant || '');
-      const areaLabel = floor.area ? `${Math.round(floor.area)}평` : '';
-      // 바 내부: 임차인명 (좌), 면적 (우)
-      if (barW >= 1.5) {
-        // 넓은 바: 임차인 좌정렬 + 면적 우정렬
-        slide.addText(tenantName, {
-          x: barX + 0.08, y: currentY + 0.03, w: barW * 0.6, h: hPerFloor - 0.06,
-          fontSize: tenantFontSize, bold: isVac, color: isVac ? 'B05A2E' : '3A3A3A',
-          align: 'left', valign: 'middle', fontFace: KR
-        });
-        if (areaLabel) {
-          slide.addText(areaLabel, {
-            x: barX + barW * 0.6, y: currentY + 0.03, w: barW * 0.35, h: hPerFloor - 0.06,
-            fontSize: Math.max(tenantFontSize - 1, 7), color: '8A9AA3',
-            align: 'right', valign: 'middle', fontFace: KR
+      // Render tenants horizontally
+      let currentX = floorBarX;
+      group.tenants.forEach((tenant, idx) => {
+        const tenantRatio = group.totalArea > 0 ? (tenant.area || 0) / group.totalArea : 1 / group.tenants.length;
+        const tenantW = floorBarW * tenantRatio;
+        
+        let fillCol = 'E2E8F0';
+        const isVacant = tenant.isVacant || tenant.tenant?.includes('공실');
+        if (isVacant) {
+          fillCol = 'FBEFE8';
+        } else if (tenant._expiry && EXPIRY_HEATMAP_PALETTE[tenant._expiry]) {
+          fillCol = EXPIRY_HEATMAP_PALETTE[tenant._expiry];
+        } else if (tenant.category === 'parking' || tenant.tenant?.includes('주차')) {
+          fillCol = 'E2E8F0';
+        }
+
+        // Bar
+        if (isVacant) {
+          slide.addShape('rect', {
+            x: currentX, y: currentY + 0.03, w: tenantW, h: hPerFloor - 0.06,
+            fill: { color: fillCol },
+            line: { dashType: 'dash' as const, color: 'B05A2E', width: 1.2 }
+          });
+        } else {
+          slide.addShape('rect', {
+            x: currentX, y: currentY + 0.03, w: tenantW, h: hPerFloor - 0.06,
+            fill: { color: fillCol },
+            line: { color: '5B6B73', width: 1.1 }
           });
         }
-      } else {
-        // 좁은 바: 임차인명만 중앙
-        slide.addText(tenantName, {
-          x: barX + 0.05, y: currentY + 0.03, w: barW - 0.1, h: hPerFloor - 0.06,
-          fontSize: tenantFontSize, bold: isVac, color: isVac ? 'B05A2E' : '3A3A3A',
-          align: 'center', valign: 'middle', fontFace: KR
-        });
-      }
-    });
-  }
+        
+        // Tenant text inside bar
+        const tenantName = isVacant ? '공실' : (tenant.tenant || '');
+        const areaLabel = tenant.area ? `${Math.round(tenant.area / 3.3058)}평` : '';
+        
+        if (tenantW >= 1.5) {
+          slide.addText(tenantName, {
+            x: currentX + 0.08, y: currentY + 0.03, w: tenantW * 0.6, h: hPerFloor - 0.06,
+            fontSize: tenantFontSize, bold: isVacant, color: isVacant ? 'B05A2E' : '3A3A3A',
+            align: 'left', valign: 'middle', fontFace: KR
+          });
+          if (areaLabel) {
+            slide.addText(areaLabel, {
+              x: currentX + tenantW * 0.6, y: currentY + 0.03, w: tenantW * 0.35, h: hPerFloor - 0.06,
+              fontSize: Math.max(tenantFontSize - 1, 7), color: '8A9AA3',
+              align: 'right', valign: 'middle', fontFace: KR
+            });
+          }
+        } else if (tenantW >= 0.5) {
+          slide.addText(tenantName, {
+            x: currentX + 0.02, y: currentY + 0.03, w: tenantW - 0.04, h: hPerFloor - 0.06,
+            fontSize: tenantFontSize, bold: isVacant, color: isVacant ? 'B05A2E' : '3A3A3A',
+            align: 'center', valign: 'middle', fontFace: KR
+          });
+        }
+        currentX += tenantW;
+      });
+    }
 
   // 스펙 §5.2: 개략도 필수 각주
   slide.addText('※ 렌트롤 현황 기준 층별 공간 배치도', {
@@ -333,11 +359,24 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     let displayRows = rawRows;
     let truncated = false;
     let totalCount = rawRows.length;
-    if (rawRows.length > 11) {
+    
+    // D45: Dynamic row height to fit more rows (up to 18 rows comfortably)
+    const maxRowsToFit = 18;
+    if (rawRows.length > maxRowsToFit) {
       const summaryRow = rawRows.find((r: any) => r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim())));
-      displayRows = rawRows.filter((r: any) => !r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim()))).slice(0, 10);
+      displayRows = rawRows.filter((r: any) => !r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim()))).slice(0, maxRowsToFit - 1);
       if (summaryRow) displayRows.push(summaryRow);
       truncated = true;
+    }
+    
+    // Calculate dynamic sizes
+    const totalRenderRows = displayRows.length + 1; // +1 for header
+    let dynamicRowH = 0.35;
+    let dynamicFontSize = 8.5;
+    
+    if (totalRenderRows > 12) {
+      dynamicRowH = Math.max(0.24, 4.8 / totalRenderRows);
+      dynamicFontSize = dynamicRowH >= 0.30 ? 8.5 : dynamicRowH >= 0.27 ? 8 : 7.5;
     }
     
     // Render table
@@ -346,7 +385,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     // Header
     tableData.push(HEADERS.map(h => ({
       text: h,
-      options: { fill: C.ink, color: C.bg, fontSize: 10, bold: true, align: 'center' }
+      options: { fill: C.ink, color: C.bg, fontSize: Math.max(dynamicFontSize, 9), bold: true, align: 'center' }
     })));
     
     // Body
@@ -375,7 +414,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         if (text.length > 30) text = text.slice(0, 29) + '…';
         return {
           text,
-          options: { fill, color, fontSize: 8.5, bold, align: cIdx >= 4 && cIdx <= 7 ? 'right' : 'center', fontFace: KR }
+          options: { fill, color, fontSize: dynamicFontSize, bold, align: cIdx >= 4 && cIdx <= 7 ? 'right' : 'center', fontFace: KR }
         };
       });
       tableData.push(mappedRow);
@@ -384,14 +423,14 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     slide.addTable(tableData, {
       x: tbX, y: spY, w: tbW, colW,
       border: { type: 'solid', color: C.line, pt: 1 },
-      rowH: 0.35,
+      rowH: dynamicRowH,
       valign: 'middle'
     });
     
     if (truncated) {
-      slide.addText(`(전체 ${totalCount}건 중 10건 표시)`, {
-        x: tbX, y: spY + (displayRows.length + 1) * 0.35 + 0.1, w: tbW, h: 0.2,
-        fontSize: 9, color: '7A8794', align: 'right', fontFace: KR
+      slide.addText(`(전체 ${totalCount - 1}건 중 ${maxRowsToFit - 1}건 표시)`, {
+        x: tbX, y: spY + totalRenderRows * dynamicRowH + 0.05, w: tbW, h: 0.2,
+        fontSize: Math.max(dynamicFontSize - 1, 7), color: '7A8794', align: 'right', fontFace: KR
       });
     }
   }
