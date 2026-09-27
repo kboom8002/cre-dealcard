@@ -301,7 +301,8 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         }
         currentX += tenantW;
       });
-    }
+    });
+  }
 
   // 스펙 §5.2: 개략도 필수 각주
   slide.addText('※ 렌트롤 현황 기준 층별 공간 배치도', {
