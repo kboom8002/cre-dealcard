@@ -80,4 +80,29 @@
   `층`, `임차인`, `용도`, `임대면적`, `전용면적`, `보증금`, `월임대료`, `관리비`, `월합계`, `만기일`
 - 렌트롤 + 스태킹 플랜 병합 슬라이드(`rentRollStacking`)에서 10열의 긴 테이블 너비를 충분히 확보하기 위해 스태킹 플랜 폭을 컴팩트(≤ 2.2")하게 최적화하고, 렌트롤 테이블 영역(≥ 9.0")을 보장합니다.
 - 열 너비 비례 배분과 동적 폰트 스케일링(헤더 8.5pt, 본문 7.5~8.0pt)을 적용하여 10개 열이 잘리거나 셀 내 줄바꿈으로 깨지지 않도록 레이아웃을 엄격히 통제합니다.
+
+### 66. Sharp SVG Overlay CJK Tofu 방지 원칙 (Serverless Font Invariant)
+- Vercel/Linux 서버리스 환경에는 한글/CJK 시스템 폰트가 설치되어 있지 않습니다.
+- Sharp/librsvg로 래스터화되는 SVG 템플릿(지도 핀, 지적도 마커, POI 배지 등)의 `<text>` 태그에는 한글 문자열(`본건 위치`, `★ 본건` 등)을 **절대 포함하지 않아야 합니다**.
+- SVG 내부 텍스트는 반드시 **ASCII 호환 식별자(`TARGET`, `S`, `5min`)** 또는 기호(`★`)만 허용하며, 폰트 패밀리는 `Arial`을 명시합니다.
+- 한글 텍스트 표기가 필요한 경우 비트맵 SVG 합성이 아닌, **PptxGenJS 네이티브 텍스트 셰이프** 또는 클라이언트 레이어(HTML/Canvas)에 위임해야 합니다.
+
+### 67. 외부 공공 API 도메인 및 Referer 고정 규칙 (Government API Domain & Referer Invariant)
+- V-World WMS/WFS, 국토교통부 개별공시지가 등 대한민국 공공/지리정보 API는 발급 시 사전 등록된 특정 도메인(`credeal.net` / `cre-dealcard.vercel.app`)의 `Referer` 및 `domain` 파라미터만 인증합니다.
+- Vercel 배포 시 자동 주입되는 임의 서브도메인(`process.env.VERCEL_URL`)을 Referer로 사용하면 외부 API가 403 Forbidden을 반환하여 지적도 및 10년 공시지가 조회가 영구 누락됩니다.
+- 공공 API 클라이언트(`vworld-config.ts` 등)는 `VERCEL_URL`을 절대 직접 참조하지 않고 등록된 대표 도메인(`process.env.VWORLD_REFERER || 'https://credeal.net'`)을 기본값으로 사용해야 합니다.
+
+### 68. PPTX 테이블 컬럼-데이터 1:1 일치 규칙 (OpenXML Table Cell-Header Parity)
+- PPTXGenJS 및 OpenXML 표준에서 테이블의 열 정의(`HEADERS`, `colW`) 수와 각 행(`rows[i]`)의 셀 배열 길이는 **반드시 정확히 일치**해야 합니다.
+- 9개 열 헤더에 10개 원소 배열이 전달되면 컬럼 오정렬, 텍스트 줄바꿈 및 테이블 렌더링 붕괴가 발생합니다.
+- 렌트롤 테이블 정규화 시 `splice` 등으로 관리비 열을 제거하여 9열이 된 경우, `mappedRow`와 요약 행(`합계`)도 `row[0]`부터 `row[8]`까지 정확히 9개 열만 매핑해야 합니다.
+
+### 69. Basic IM 외부 데이터 DB 영속화 원칙 (Enrichment DB Persistence First)
+- V-World 지적도 base64 이미지(`cadastralMapImage`), 10개년 공시지가(`landPriceHistory`), POI 데이터는 IM 생성(`generateMobileIM`) 시점에 즉시 수집하여 `document_objects.body.enrichment`에 영속화해야 합니다.
+- `writer.ts`에서 좌표 및 PNU 추출 시 `building_ssot_lite`의 `lat`/`lng` 및 `raw_address` 폴백 경로를 필수 연결합니다.
+- PPTX 렌더러와 웹 뷰어는 DB에 영속화된 `enrichment`를 1순위로 소비해야 하며, 실시간 외부 API 장애 상황에서도 100% 무결한 PPTX(지적도 A06 + 공시지가 차트 A23) 출력을 보장해야 합니다.
+
+### 70. 스태킹 플랜 층수 라벨 너비 및 텍스트 인체공학 (Stacking Plan Floor Label Ergonomics)
+- 좌측 스태킹 플랜의 층수 라벨은 `지하1층`, `B1~B3`, `10F` 등의 긴 텍스트가 줄바꿈되거나 바닥과 겹치지 않도록 **최소 0.50" 이상 너비(`w: 0.52`)**를 할당해야 합니다.
+- 층별 바닥면적(㎡/평) 기준 셋백 너비 비례 사각형을 렌더링하고, 바 내부 너비가 허용되는 경우 `테넌트명 (00평)` 형식으로 평수 환산값을 함께 표시합니다.
 <!-- END:cre-d44-production-quality-rules -->
