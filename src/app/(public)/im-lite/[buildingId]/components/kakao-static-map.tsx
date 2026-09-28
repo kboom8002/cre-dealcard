@@ -12,14 +12,16 @@ interface KakaoStaticMapProps {
 export function KakaoStaticMap({ lat, lng, name, mapUrl }: KakaoStaticMapProps) {
   const kakaoMapLink = `https://map.kakao.com/link/map/${encodeURIComponent(name)},${lat},${lng}`;
   const naverMapLink = `https://map.naver.com/p/search/${lat},${lng}`;
+  
+  const effectiveMapUrl = mapUrl || (lat && lng ? `/api/public/map/static?lat=${lat}&lng=${lng}&w=768&h=384` : undefined);
 
   return (
     <div className="relative w-full h-full bg-neutral-800 overflow-hidden group">
       {/* 맵 배경 이미지 (서버에서 생성된 카카오 정적 지도) */}
       <div className="absolute inset-0 pointer-events-none">
-        {mapUrl ? (
+        {effectiveMapUrl ? (
           <img
-            src={mapUrl}
+            src={effectiveMapUrl}
             alt={`${name} 위치 지도`}
             className="w-full h-full object-cover opacity-90 transition-opacity duration-300 group-hover:opacity-100"
             loading="lazy"

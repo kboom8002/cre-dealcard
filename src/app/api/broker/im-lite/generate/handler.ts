@@ -713,6 +713,7 @@ export async function generateMobileIMHandler(
             locationPoi: externalData.locationPoi ?? null,
             commercialDistrict: externalData.commercialDistrict ?? null,
             cadastralMapImage: externalData.cadastralMapImage ?? null,
+            locationMapImage: (externalData as any)?.locationMapImage ?? null,
           }
         : null,
       // D41 C1: coordinates — geocoding fallback 추가

@@ -28,6 +28,7 @@ import {
 } from "./financials";
 import { calculateNetCashFlow, formatNetCashFlowMarkdown } from "./net-cash-flow-calculator";
 import { judgeIMSection, shouldJudgeByConfidence } from "./im-judge";
+import { normalizeSectionMarkdown } from "@/lib/utils/markdown-normalizer";
 import { runCREQualityGate } from "./cre-quality-gate";
 import { extractKeyFacts, updateNumericalAnchors } from "./cross-validator";
 import { buildIMFewShotBlock } from "./golden-im-manager";
@@ -544,6 +545,9 @@ export async function generateSingleSection(
   // - **볼드** 로 시작하는 항목
   // (마크다운에서는 단일 줄바꿈이 스페이스로 처리되므로 이중 줄바꿈 필요)
   markdown = markdown.replace(/([^\n])\n(?=- |\* |\d+\. |\*\*|[\u{1F300}-\u{1FAD6}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2702}-\u{27B0}\u{23E9}-\u{23F3}\u{231A}\u{231B}\u{25AA}-\u{25FE}\u{2934}\u{2935}\u{2B05}-\u{2B07}\u{2B1B}\u{2B1C}\u{2B50}\u{2B55}\u{3030}\u{303D}\u{3297}\u{3299}])/gmu, '$1\n\n');
+
+  // 5) 인라인 뷸렛/헤더/테이블 줄바꿈 누락 완벽 정규화
+  markdown = normalizeSectionMarkdown(markdown);
 
   // 브로커 하이라이트
   if (sectionType === "investment_thesis" && supplemental.broker_highlight) {

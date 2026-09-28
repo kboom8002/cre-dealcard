@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { computeDataQualityBadge } from '@/domain/building/mobile-im/data-quality-badge';
 import { resolveEnrichment } from '@/domain/building/im-core/resolve-enrichment';
 import { toast } from 'sonner';
+import { normalizeSectionMarkdown } from '@/lib/utils/markdown-normalizer';
 
 interface IMSection {
   section_type: string;
@@ -510,40 +511,17 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
 
         {/* Bug 2: 카카오 POI 지도 (PPTX 입지정보) 우선 렌더링 및 카카오맵 스위치 */}
         {(() => {
-          // locationMapImage가 유효한지 검증 (빈 placeholder 방지)
           const locMap = (content as any)?.enrichment?.locationMapImage;
           const validLocMap = locMap && typeof locMap === 'string' && locMap.length > 500;
-          const mapSrc = validLocMap ? locMap : kakaoMapUrl;
-          if (!mapSrc) return null;
+          const initialMapSrc = validLocMap ? locMap : kakaoMapUrl;
+          if (!initialMapSrc) return null;
+
           return (
-          <div className="mb-8 rounded-xl overflow-hidden border border-neutral-800 relative group h-48 sm:h-64 bg-neutral-900 flex items-center justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img 
-              src={mapSrc} 
-              alt="위치 지도" 
-              className="w-full h-full object-cover"
+            <ApprovalMapViewer 
+              initialSrc={initialMapSrc} 
+              fallbackSrc={kakaoMapUrl} 
+              isPptxMap={validLocMap} 
             />
-            
-            <div className="absolute inset-0 border border-black/10 rounded-xl pointer-events-none" />
-            
-            {/* 안내 배지 */}
-            <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2 pointer-events-none">
-              <span className="text-[10px] text-white/90 font-medium">
-                {validLocMap ? '🗺️ 입지 지도 (PPTX 동기화)' : '🗺️ 카카오 지도'}
-              </span>
-            </div>
-            
-            {kakaoMapUrl && validLocMap && (
-              <a 
-                href={kakaoMapUrl.replace('staticmap.png', 'map.html')}
-                target="_blank"
-                rel="noreferrer"
-                className="absolute bottom-3 right-3 bg-primary text-black px-4 py-2 rounded-lg text-xs font-bold shadow-lg hover:bg-primary/90 transition-transform active:scale-95 flex items-center gap-2"
-              >
-                <span>🔍 카카오맵 보기</span>
-              </a>
-            )}
-          </div>
           );
         })()}
 
@@ -1131,13 +1109,54 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   );
 }
 
+// ─── Approval Map Viewer ─────────────────────────────────────────────────────────────
+
+function ApprovalMapViewer({ 
+  initialSrc, 
+  fallbackSrc, 
+  isPptxMap 
+}: { 
+  initialSrc: string; 
+  fallbackSrc?: string | null; 
+  isPptxMap?: boolean; 
+}) {
+  const [src, setSrc] = useState(initialSrc);
+  const [hasError, setHasError] = useState(false);
+
+  return (
+    <div className="mb-8 rounded-xl overflow-hidden border border-neutral-800 relative group h-48 sm:h-64 bg-neutral-900 flex items-center justify-center">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img 
+        src={src} 
+        alt="위치 지도" 
+        className="w-full h-full object-cover"
+        onError={() => {
+          if (!hasError && fallbackSrc && src !== fallbackSrc) {
+            setSrc(fallbackSrc);
+            setHasError(true);
+          }
+        }}
+      />
+      
+      <div className="absolute inset-0 border border-black/10 rounded-xl pointer-events-none" />
+      
+      {/* 안내 배지 */}
+      <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2 pointer-events-none">
+        <span className="text-[10px] text-white/90 font-medium">
+          {isPptxMap && !hasError ? '🗺️ 입지 지도 (PPTX 동기화)' : '🗺️ 카카오 지도'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Local Markdown Renderer ─────────────────────────────────────────────────────────
 
 function MarkdownRenderer({ content }: { content: string }) {
   if (!content) return null;
 
-  // ── Pre-process: 줄바꿈 보정 ──
-  let md = content;
+  // ── Pre-process: 인라인 뷸렛/헤더/테이블 줄바꿈 보정 ──
+  let md = normalizeSectionMarkdown(content);
 
   // LLM이 인라인 강조용으로 사용하는 파이프 제거: "| 항목 |" → "항목"
   // (실제 마크다운 테이블은 3+ 파이프가 있으므로 2파이프 이하만 제거)

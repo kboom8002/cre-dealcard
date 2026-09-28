@@ -329,27 +329,21 @@ export async function generateStaticMapPlaceholder(
     try {
       const apiKey = process.env.KAKAO_REST_API_KEY;
       if (apiKey) {
-        const baseUrl = 'https://spi.maps.daum.net/mapscms/map/staticmap.png';
-        
-        // F6: 물건 반경에 따른 동적 줌 레벨 결정 (기본 level 3 = ~1.0 m/px, 약 250m 반경 상세 뷰)
-        let kakaoLevel = '3'; // default: ~1.0 m/px, ~250m radius (상세 도로/필지/본건 식별 최적화)
+        let kakaoLevel = '3';
         if (safePoiSpots.length > 0) {
           const maxDist = Math.max(...safePoiSpots.map(s => s.distanceM ?? 500));
-          if (maxDist > 2000) kakaoLevel = '6';      // ~8 m/px, ~2km radius
-          else if (maxDist > 1000) kakaoLevel = '5';  // ~4 m/px, ~1km radius
-          else if (maxDist > 500) kakaoLevel = '4';   // ~2 m/px, ~500m radius
-          // else keep level 3 for tight local cluster
+          if (maxDist > 2000) kakaoLevel = '6';
+          else if (maxDist > 1000) kakaoLevel = '5';
+          else if (maxDist > 500) kakaoLevel = '4';
         }
-        
-        const params = new URLSearchParams({
-          apikey: apiKey,
-          center: `${coordLng},${coordLat}`,
-          level: kakaoLevel, // level 3 (약 250m 반경) — 본건 및 인접 주요 도로명/필지 선명 노출
-          w: String(Math.min(safeW, 1800)),
-          h: String(Math.min(safeH, 960)),
-        });
-        const kakaoUrl = `${baseUrl}?${params.toString()}`;
+
+        const kakaoW = Math.min(safeW, 1800);
+        const kakaoH = Math.min(safeH, 960);
+        const kakaoUrl = `https://dapi.kakao.com/v2/maps/staticmap?center=${coordLng},${coordLat}&size=${kakaoW}x${kakaoH}&level=${kakaoLevel}`;
         const response = await fetch(kakaoUrl, {
+          headers: {
+            Authorization: `KakaoAK ${apiKey}`,
+          },
           signal: AbortSignal.timeout(6000),
         });
         if (response.ok) {

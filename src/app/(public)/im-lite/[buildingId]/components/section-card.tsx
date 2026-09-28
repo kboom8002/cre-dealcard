@@ -5,6 +5,7 @@ import type { MobileIMSection } from "@/lib/demo/mobile-im-demo-data";
 import { DISPLAY_LABEL_MAP } from "@/domain/building/im-core";
 import DOMPurify from "isomorphic-dompurify";
 import { SafeMarkdownRenderer } from "@/components/ui/safe-markdown-renderer";
+import { normalizeSectionMarkdown } from "@/lib/utils/markdown-normalizer";
 
 function sanitizeHtml(html: string): string {
   if (!html) return html;
@@ -118,8 +119,11 @@ function TableFromLines({ lines }: { lines: string[] }) {
 export function MarkdownRenderer({ content }: { content: string }) {
   if (!content) return null;
 
+  // 인라인 뷸렛/헤더/테이블 줄바꿈 보정
+  let md = normalizeSectionMarkdown(content);
+
   // LLM 인라인 파이프 강조 제거: "| 항목 |" → "항목"
-  let md = content.replace(/^\|\s*([^|]+?)\s*\|$/gm, '$1');
+  md = md.replace(/^\|\s*([^|]+?)\s*\|$/gm, '$1');
 
   const lines = md.split("\n");
   const elements: React.ReactNode[] = [];

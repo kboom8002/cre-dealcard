@@ -56,12 +56,27 @@ export default async function IMApprovalPage({ params }: Props) {
   const identity = bodyObj.identity as Record<string, any> | undefined;
   const posture = String(ssot?.investment_posture || identity?.investmentPosture || 'income');
 
-  // Bug 2 수정: 카카오맵 URL을 서버 컴포넌트에서 빌드 (process.env는 서버에서만 접근 가능)
-  const coordinates = (bodyObj as any)?.coordinates;
+  // 카카오맵 URL 생성 (coordinates가 없으면 주소 기반 geocoding 시도)
+  let coordinates = (bodyObj as any)?.coordinates ?? ssot?.coordinates ?? identity?.coordinates;
+  if (!coordinates?.lat || !coordinates?.lng) {
+    const rawAddr = (ssot?.address as string) || (bodyObj as any)?.resolved_address || (ssot?.raw_address as string);
+    if (rawAddr) {
+      try {
+        const { geocodeAddress } = await import('@/domain/verification/address-resolver');
+        const geo = await geocodeAddress(rawAddr);
+        if (geo?.lat && geo?.lng) {
+          coordinates = { lat: geo.lat, lng: geo.lng };
+        }
+      } catch {
+        // geocode 실패 무시
+      }
+    }
+  }
+
   let kakaoMapUrl: string | null = null;
   if (coordinates?.lat && coordinates?.lng) {
     const { buildKakaoStaticMapUrl } = await import('@/lib/external/kakao-static-map');
-    kakaoMapUrl = buildKakaoStaticMapUrl({ lat: coordinates.lat, lng: coordinates.lng, width: 768, height: 320 });
+    kakaoMapUrl = buildKakaoStaticMapUrl({ lat: Number(coordinates.lat), lng: Number(coordinates.lng), width: 768, height: 320 });
   }
 
   return (
