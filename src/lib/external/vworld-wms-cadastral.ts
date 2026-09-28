@@ -106,10 +106,11 @@ function buildPolygonSvgOverlay(
   rings: Array<[number, number][]>,
   bboxEpsg3857: { minX: number; minY: number; maxX: number; maxY: number },
   imgW: number, imgH: number,
-  markerLabel = '★ 본건',
+  markerLabel = 'TARGET',
 ): Buffer | null {
   try {
-    log.info(`[vworld-wfs] SVG 오버레이 생성: ${rings.length}개 링, bbox=(${bboxEpsg3857.minX.toFixed(0)},${bboxEpsg3857.minY.toFixed(0)})-(${bboxEpsg3857.maxX.toFixed(0)},${bboxEpsg3857.maxY.toFixed(0)}), img=${imgW}×${imgH}, label=${markerLabel}`);
+    const safeMarkerLabel = /^[A-Za-z0-9\s★]+$/.test(markerLabel) ? markerLabel : 'TARGET';
+    log.info(`[vworld-wfs] SVG 오버레이 생성: ${rings.length}개 링, bbox=(${bboxEpsg3857.minX.toFixed(0)},${bboxEpsg3857.minY.toFixed(0)})-(${bboxEpsg3857.maxX.toFixed(0)},${bboxEpsg3857.maxY.toFixed(0)}), img=${imgW}×${imgH}, label=${safeMarkerLabel}`);
     const { minX, minY, maxX, maxY } = bboxEpsg3857;
     const polygonPaths: string[] = [];
 
@@ -141,13 +142,13 @@ function buildPolygonSvgOverlay(
     }
     const cx = ptCount > 0 ? Number((sumPx / ptCount).toFixed(1)) : Number((imgW / 2).toFixed(1));
     const cy = ptCount > 0 ? Number((sumPy / ptCount).toFixed(1)) : Number((imgH / 2).toFixed(1));
-    const tagW = Math.max(52, markerLabel.length * 9 + 16);
+    const tagW = Math.max(52, safeMarkerLabel.length * 9 + 16);
     polygonPaths.push(`
       <g>
         <circle cx="${cx}" cy="${cy - 8}" r="13" fill="#DC2626" stroke="#FFFFFF" stroke-width="2.5" />
-        <text x="${cx}" y="${cy - 3}" font-size="12" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">★</text>
+        <text x="${cx}" y="${cy - 3}" font-size="12" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Arial">★</text>
         <rect x="${cx - tagW / 2}" y="${cy + 8}" width="${tagW}" height="18" rx="4" fill="#DC2626" stroke="#FFFFFF" stroke-width="1" />
-        <text x="${cx}" y="${cy + 21}" font-size="9.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">${markerLabel}</text>
+        <text x="${cx}" y="${cy + 21}" font-size="9.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Arial">${safeMarkerLabel}</text>
       </g>
     `);
 

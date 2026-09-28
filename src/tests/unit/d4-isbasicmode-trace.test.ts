@@ -58,13 +58,13 @@ describe('D4: isBasicMode → WACC/NPV/IRR 억제 검증', () => {
   });
 
   it('!supplemental.loan_amount_manwon evaluates correctly', () => {
-    // undefined → true (Basic)
-    expect(!undefined).toBe(true);
-    // null → true (Basic)
-    expect(!null).toBe(true);
-    // 0 → true (Basic — 대출 0원)
-    expect(!0).toBe(true);
-    // 50000 → false (Pro — 대출 50억)
-    expect(!50000).toBe(false);
+    const undefVal: any = undefined;
+    const nullVal: any = null;
+    const zeroVal: any = 0;
+    const numVal: any = 50000;
+    expect(!undefVal).toBe(true);
+    expect(!nullVal).toBe(true);
+    expect(!zeroVal).toBe(true);
+    expect(!numVal).toBe(false);
   });
 });

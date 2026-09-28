@@ -62,11 +62,20 @@ export async function GET(
   }
 
   // 2. Fetch building info
-  const { data: building } = await supabase
+  const { data: buildingRow } = await supabase
     .from('building_ssot_lite')
-    .select('owner_id, area_signal, asset_type, price_band, investment_posture, built_year, floors_above, floors_below, total_area_pyeong, pnu, address, lat, lng')
+    .select('*')
     .eq('id', buildingId)
     .maybeSingle();
+
+  const building = buildingRow ? {
+    ...buildingRow,
+    address: doc.body?.ssot_summary?.address || buildingRow.raw_address,
+    pnu: doc.body?.ssot_summary?.pnu || doc.body?.pnu,
+    lat: doc.body?.coordinates?.lat || doc.body?.ssot_summary?.coordinates?.lat,
+    lng: doc.body?.coordinates?.lng || doc.body?.ssot_summary?.coordinates?.lng,
+    investment_posture: doc.body?.ssot_summary?.investment_posture || doc.body?.investmentPosture || 'income',
+  } : null;
 
   // 3. Fetch broker profile
   let broker = null;

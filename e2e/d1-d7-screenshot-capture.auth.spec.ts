@@ -356,13 +356,6 @@ B1~5F
       fs.writeFileSync(pptxPath, pptxBuffer);
       console.log(`  ✅ PPTX 다운로드 완료: ${pptxPath} (${(pptxBuffer.length / 1024).toFixed(0)} KB)`);
 
-      // PPTX 내 텍스트 추출 (JSZip 기반)
-      try {
-        const { extractSlideTexts } = await import('../src/tests/e2e/pptx-slide-capturer');
-        // extractSlideTexts가 없으면 JSZip 직접 사용
-      } catch {
-        console.log('  ⚠️ pptx-slide-capturer 미사용 — PPTX 파일만 저장');
-      }
 
       // PPTX 바이너리 텍스트 검증
       const JSZip = (await import('jszip')).default;

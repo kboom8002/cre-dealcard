@@ -150,9 +150,11 @@ export class MobileImPptxRenderer {
       // ── 1. 덱 시퀀스 결정 ──
       let enrichment = input.doc.body?.enrichment ?? {} as any;
 
-      // D45: 좌표 있지만 지적도 미제공 시 자동 enrichment (프로덕션 폴백)
-      const coords = input.doc.body?.coordinates ?? input.doc.body?.ssot_summary?.coordinates;
-      if (coords?.lat && coords?.lng && !enrichment.cadastralMapImage) {
+      // D45: 좌표 있지만 지적도 또는 공시지가 미제공 시 자동 enrichment (프로덕션 폴백)
+      const coords = input.doc.body?.coordinates 
+        ?? input.doc.body?.ssot_summary?.coordinates
+        ?? (input.building?.lat && input.building?.lng ? { lat: Number(input.building.lat), lng: Number(input.building.lng) } : undefined);
+      if (coords?.lat && coords?.lng && (!enrichment.cadastralMapImage || !enrichment.landPriceHistory)) {
         try {
           const { enrichForBasicIm } = await import('./basic-im-enrichment');
           const pnu = input.doc.body?.ssot_summary?.pnu
@@ -165,7 +167,12 @@ export class MobileImPptxRenderer {
             pnus,
             address: input.doc.body?.ssot_summary?.address ?? input.building?.address,
           });
-          enrichment = { ...enrichment, ...autoEnrichment };
+          enrichment = {
+            ...enrichment,
+            ...autoEnrichment,
+            cadastralMapImage: enrichment.cadastralMapImage || autoEnrichment.cadastralMapImage,
+            landPriceHistory: enrichment.landPriceHistory || autoEnrichment.landPriceHistory,
+          };
         } catch (err) {
           // Graceful degradation: enrichment 실패 시 기존 데이터로 진행 (Rule 43)
           console.warn('[pptx-renderer] Auto-enrichment failed (graceful skip):', err);

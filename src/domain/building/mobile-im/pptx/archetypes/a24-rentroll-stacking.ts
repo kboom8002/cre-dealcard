@@ -84,12 +84,12 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
 
   // Left Panel (Stacking Plan)
   const spX = M;
-  const spW = 3.20;
+  const spW = 3.40;
   const spY = 1.8;
   const spH = 4.8;
   
   // Right Panel (Rent Roll Table)
-  const gap = 0.35;
+  const gap = 0.30;
   const tbX = M + spW + gap;
   const tbW = CW - spW - gap;
 
@@ -207,7 +207,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     }
 
     const hPerFloor = drawAreaH / Math.max(1, floorGroups.length);
-    const maxBarW = spW - 0.8;
+    const maxBarW = spW - 0.70;
     const maxArea = Math.max(...floorGroups.map(g => g.totalArea), 1);  // 실제 최대면적 기준
 
     let currentY = baseDrawY;
@@ -235,12 +235,12 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       
       const ratio = calculateSetbackRatio(group.totalArea || maxArea, maxArea, group.isSubterranean);
       const floorBarW = maxBarW * ratio;
-      const floorBarX = spX + 0.4 + (maxBarW - floorBarW) / 2;
+      const floorBarX = spX + 0.58 + (maxBarW - floorBarW) / 2;
       
       // Floor label
       const floorLabel = String(group.floorName).replace(/층$/, '');
       slide.addText(floorLabel, {
-        x: spX, y: currentY, w: 0.35, h: hPerFloor,
+        x: spX, y: currentY, w: 0.52, h: hPerFloor,
         fontSize: floorFontSize, bold: true, color: C.ink, align: 'right', valign: 'middle', fontFace: KR
       });
       
@@ -277,25 +277,20 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         
         // Tenant text inside bar
         const tenantName = isVacant ? '공실' : (tenant.tenant || '');
-        const areaLabel = tenant.area ? `${Math.round(tenant.area / 3.3058)}평` : '';
+        const areaPyeong = tenant.area ? Math.round(tenant.area / 3.3058) : 0;
+        const areaLabel = areaPyeong > 0 ? `${areaPyeong}평` : '';
+        const combinedLabel = areaLabel ? `${tenantName} (${areaLabel})` : tenantName;
         
-        if (tenantW >= 1.5) {
-          slide.addText(tenantName, {
-            x: currentX + 0.08, y: currentY + 0.03, w: tenantW * 0.6, h: hPerFloor - 0.06,
+        if (tenantW >= 1.2) {
+          slide.addText(combinedLabel, {
+            x: currentX + 0.04, y: currentY + 0.02, w: tenantW - 0.08, h: hPerFloor - 0.04,
             fontSize: tenantFontSize, bold: isVacant, color: isVacant ? 'B05A2E' : '3A3A3A',
-            align: 'left', valign: 'middle', fontFace: KR
+            align: 'center', valign: 'middle', fontFace: KR
           });
-          if (areaLabel) {
-            slide.addText(areaLabel, {
-              x: currentX + tenantW * 0.6, y: currentY + 0.03, w: tenantW * 0.35, h: hPerFloor - 0.06,
-              fontSize: Math.max(tenantFontSize - 1, 7), color: '8A9AA3',
-              align: 'right', valign: 'middle', fontFace: KR
-            });
-          }
-        } else if (tenantW >= 0.5) {
+        } else if (tenantW >= 0.4) {
           slide.addText(tenantName, {
-            x: currentX + 0.02, y: currentY + 0.03, w: tenantW - 0.04, h: hPerFloor - 0.06,
-            fontSize: tenantFontSize, bold: isVacant, color: isVacant ? 'B05A2E' : '3A3A3A',
+            x: currentX + 0.02, y: currentY + 0.02, w: tenantW - 0.04, h: hPerFloor - 0.04,
+            fontSize: Math.max(tenantFontSize - 1, 7.5), bold: isVacant, color: isVacant ? 'B05A2E' : '3A3A3A',
             align: 'center', valign: 'middle', fontFace: KR
           });
         }
@@ -313,7 +308,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
 
   // --- Right Panel: Rent Roll Table ---
   const HEADERS = ['층', '호실', '용도/업종', '임차인', '전용면적(㎡)', '보증금(만원)', '월세(만원)', '계약종료', '비고'];
-  const colW = [0.50, 0.50, 0.95, 1.30, 0.82, 0.82, 0.72, 0.72, 1.27]; // Sum = 7.60
+  const colW = [0.55, 0.55, 1.05, 1.45, 0.95, 0.95, 0.85, 0.85, 1.23]; // Sum = 8.43 = tbW
   
   if (tableRows.length > 0) {
     let rawRows = tableRows.map((row: any) => {
@@ -351,7 +346,6 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         totalArea > 0 ? `${totalArea.toFixed(1)}` : '-',
         totalDeposit > 0 ? `${Math.round(totalDeposit).toLocaleString()}` : '-',
         totalRent > 0 ? `${Math.round(totalRent).toLocaleString()}` : '-',
-        '',
         '',
         ''
       ]);
@@ -409,7 +403,6 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         row[6] || '',
         row[7] || '',
         row[8] || '',
-        row[9] || ''
       ].map((cell, cIdx) => {
         let text = String(cell).replace(/\*\*/g, '');
         if (text.length > 30) text = text.slice(0, 29) + '…';

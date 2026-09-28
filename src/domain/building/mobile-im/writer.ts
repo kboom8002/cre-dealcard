@@ -687,12 +687,20 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   try {
     const { enrichForBasicIm } = await import('./pptx/basic-im-enrichment');
     const coords = input.external_data?.resolvedAddress || input.building_ssot_lite?.coordinates;
-    const pnu = input.external_data?.resolvedAddress?.pnu || input.building_ssot_lite?.pnu;
+    const pnu = input.external_data?.resolvedAddress?.pnu 
+      || input.building_ssot_lite?.pnu 
+      || (input.external_data as any)?.pnu;
     const pnus = input.building_ssot_lite?.pnus;
     
     // Type-safe coordinate extraction
-    const rawLat = (coords as any)?.lat;
-    const rawLng = (coords as any)?.lng;
+    const rawLat = (coords as any)?.lat ?? (input.building_ssot_lite as any)?.lat ?? (input.external_data as any)?.lat;
+    const rawLng = (coords as any)?.lng ?? (input.building_ssot_lite as any)?.lng ?? (input.external_data as any)?.lng;
+    const targetAddress = String(
+      input.building_ssot_lite?.address 
+      || input.building_ssot_lite?.raw_address 
+      || (input.external_data?.resolvedAddress as any)?.address 
+      || ''
+    );
     
     if (rawLat && rawLng) {
       const enrichmentResult = await enrichForBasicIm(
@@ -700,7 +708,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
         { 
           pnu: String(pnu || ''), 
           pnus: Array.isArray(pnus) ? pnus : undefined, 
-          address: String(input.building_ssot_lite?.address || '') 
+          address: targetAddress,
         }
       );
       if (enrichmentResult.cadastralMapImage) {

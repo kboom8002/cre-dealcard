@@ -4,13 +4,12 @@
  * - API 키: 대문자 필수 (AGENTS.md 규칙)
  */
 
-/** V-World API Referer 헤더를 반환합니다. 환경변수 우선순위: VWORLD_REFERER > NEXT_PUBLIC_SITE_URL > 프로덕션 도메인 */
+/** V-World API Referer 헤더를 반환합니다. V-World 인증은 등록된 도메인(credeal.net / cre-dealcard.vercel.app)만 허용합니다. */
 export function getVWorldReferer(): string {
   return (
     process.env.VWORLD_REFERER ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
     process.env.NEXT_PUBLIC_SITE_URL ||
-    'https://cre-dealcard.vercel.app'
+    'https://credeal.net'
   );
 }
 

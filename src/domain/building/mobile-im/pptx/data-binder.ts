@@ -592,7 +592,7 @@ export function bindSectionData(
       // ─── A24 rentRoll: floor_leases 기반 층별 상세 테이블 직접 빌드 (ssot_summary 합성보다 우선) ───
       const floorLeases: any[] = (doc.body?.floor_leases ?? []).filter(Boolean);
       if (floorLeases.length > 0 && result['rentRoll']) {
-        const isBasicPreset = doc.body?.preset === 'credeal_basic';
+        const isBasicPreset = doc.body?.preset === 'credeal_basic' || doc.body?.tier === 'basic';
         const rrHeaders = isBasicPreset
           ? ['층', '호실', '용도/업종', '임차인', '전용면적(㎡)', '보증금(만원)', '월세(만원)', '관리비(만원)', '계약종료', '비고']
           : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];

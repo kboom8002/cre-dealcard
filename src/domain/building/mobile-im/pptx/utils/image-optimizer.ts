@@ -512,9 +512,9 @@ export async function generateStaticMapPlaceholder(
             <g filter="url(#osmhalo)">
               <path d="M40 6 C27 6 16 17 16 30 C16 48 40 72 40 72 C40 72 64 48 64 30 C64 17 53 6 40 6 Z" fill="#B8860B" stroke="#FFFFFF" stroke-width="3"/>
               <circle cx="40" cy="30" r="12" fill="#132A3A"/>
-              <text x="40" y="35" font-size="14" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">★</text>
+              <text x="40" y="35" font-size="14" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Arial">★</text>
               <rect x="8" y="65" width="64" height="18" rx="4" fill="#132A3A" opacity="0.96" stroke="#FFFFFF" stroke-width="1"/>
-              <text x="40" y="78" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">본건 위치</text>
+              <text x="40" y="78" font-size="10.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Arial">TARGET</text>
             </g>
           </svg>
         `);
