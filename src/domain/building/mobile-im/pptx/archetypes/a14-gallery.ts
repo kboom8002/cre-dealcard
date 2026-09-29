@@ -1,4 +1,4 @@
-import type PptxGenJS from 'pptxgenjs';
+﻿import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
@@ -61,8 +61,7 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
     L.head(slide, input.slideNum, input.data.kicker || 'Gallery', input.data.title || '현장 사진');
     
     slide.addShape(input.pres.ShapeType.rect, { x: 0.5, y: 1.5, w: 12.33, h: 4.5, fill: { color: 'F1F5F9' }, line: { color: 'CBD5E1', width: 1, dashType: 'dash' } });
-    slide.addText('현장 사진이 아직 등록되지 않았습니다.
-추후 촬영 후 업데이트될 예정입니다.', {
+    slide.addText('현장 사진이 아직 등록되지 않았습니다.\n추후 촬영 후 업데이트될 예정입니다.', {
       x: 0.5, y: 1.5, w: 12.33, h: 4.5,
       align: 'center', valign: 'middle',
       fontSize: 16, color: '64748B', bold: true
@@ -226,3 +225,4 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
   L.foot(slide, input.slideNum, input.docno);
   return { slide, warnings };
 }
+
