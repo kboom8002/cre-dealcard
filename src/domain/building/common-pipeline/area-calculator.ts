@@ -17,6 +17,49 @@ export interface AreaDenominators {
   grossFloorAreaSqm: number;
   exclusiveAreaSqm?: number;
   leasableAreaSqm?: number;
+  // ── v0.5 신규: 공용면적 ──
+  commonAreaSqm?: number;           // 공용면적 합계
+  floorCommonAreaSqm?: number;      // 층공용
+  buildingCommonAreaSqm?: number;   // 건물공용
+  parkingCommonAreaSqm?: number;    // 주차공용
+}
+
+export interface AreaValidationResult {
+  isValid: boolean;
+  warnings: string[];
+  errors: string[];
+}
+
+export function validateAreaHierarchy(areas: AreaDenominators, ledgerExclusiveSqm?: number, totalLeasableOccupiedSqm?: number): AreaValidationResult {
+  const result: AreaValidationResult = { isValid: true, warnings: [], errors: [] };
+
+  // A01: sum(NLA) ≈ ledger exclusive area
+  if (areas.exclusiveAreaSqm && ledgerExclusiveSqm) {
+    const diff = Math.abs(areas.exclusiveAreaSqm - ledgerExclusiveSqm) / ledgerExclusiveSqm;
+    if (diff > 0.005) {
+      result.warnings.push(`[A01] 전용면적 합계(${areas.exclusiveAreaSqm})가 대장 전유면적(${ledgerExclusiveSqm})과 0.5% 이상 차이납니다.`);
+    }
+  }
+
+  // A02: GLA = NLA + CA (approximate check)
+  if (areas.exclusiveAreaSqm && areas.commonAreaSqm && areas.leasableAreaSqm) {
+    const sum = areas.exclusiveAreaSqm + areas.commonAreaSqm;
+    const diff = Math.abs(areas.leasableAreaSqm - sum) / (areas.leasableAreaSqm || 1);
+    if (diff > 0.05) { // 5% allowance for parking/other exclusions
+      result.warnings.push(`[A02] 임대면적(${areas.leasableAreaSqm})이 전용+공용(${sum})과 크게 다릅니다.`);
+    }
+  }
+
+  // A03: total leasable in rentroll == total occupied
+  if (areas.leasableAreaSqm && totalLeasableOccupiedSqm) {
+    const diff = Math.abs(areas.leasableAreaSqm - totalLeasableOccupiedSqm) / areas.leasableAreaSqm;
+    if (diff > 0.005) {
+      result.errors.push(`[A03] 건물 총 임대면적(${areas.leasableAreaSqm})과 렌트롤 총 임대가동면적(${totalLeasableOccupiedSqm})이 불일치합니다.`);
+      result.isValid = false;
+    }
+  }
+
+  return result;
 }
 
 export interface UnitPriceMetrics {

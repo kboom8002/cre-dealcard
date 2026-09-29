@@ -7,6 +7,7 @@ import { sendKakaoAlimtalk } from '@/lib/notification/notification-service';
 import { sendMagazineEmail } from '@/lib/notification/email-service';
 import { dispatchEdition, type DispatchTarget } from './rail/dispatcher';
 import { generatePersonalizedInsert } from './weekly-generator';
+import { getBrokerSubscriptionTier, type SubscriptionTier } from '@/domain/subscription/tier-gate';
 import type { MagazineDbClient } from './types';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -23,11 +24,23 @@ export interface DistributeMagazineEditionInput {
   content?: Record<string, unknown>;
 }
 
+export interface DistributeMagazineResult {
+  sent: number;
+  failed: number;
+  kakaoSent: number;
+  kakaoFailed: number;
+  kakaoSkipped: number;
+  emailSent: number;
+  emailFailed: number;
+  isPaidTier: boolean;
+  tier: SubscriptionTier;
+}
+
 export async function distributeMagazine(
   supabase: MagazineDbClient,
   brokerId: string,
   edition: DistributeMagazineEditionInput
-): Promise<{ sent: number; failed: number; kakaoSent: number; emailSent: number }> {
+): Promise<DistributeMagazineResult> {
   try {
     // 1. 활성 구독자 조회 (전체 채널)
     const { data: rawSubscribers, error: subError } = await supabase
@@ -38,12 +51,12 @@ export async function distributeMagazine(
 
     if (subError) {
       log.error('[Magazine Distribution] Failed to query subscribers:', subError.message);
-      return { sent: 0, failed: 0, kakaoSent: 0, emailSent: 0 };
+      return { sent: 0, failed: 0, kakaoSent: 0, kakaoFailed: 0, kakaoSkipped: 0, emailSent: 0, emailFailed: 0, isPaidTier: false, tier: 'free' };
     }
 
     if (!rawSubscribers || rawSubscribers.length === 0) {
       log.info(`[Magazine Distribution] No active subscribers found for broker ${brokerId}`);
-      return { sent: 0, failed: 0, kakaoSent: 0, emailSent: 0 };
+      return { sent: 0, failed: 0, kakaoSent: 0, kakaoFailed: 0, kakaoSkipped: 0, emailSent: 0, emailFailed: 0, isPaidTier: false, tier: 'free' };
     }
 
     // 2. 세그먼트 필터링 (target_segments가 'all'이 아니면 해당 자산유형 관심 구독자만 필터)
@@ -71,8 +84,15 @@ export async function distributeMagazine(
     const magazineUrl = `https://www.credeal.net/magazine/${brokerId}/${edition.date}`;
     const onePageImageUrl = `https://www.credeal.net/api/magazine/${brokerId}/${edition.date}/image?format=story`;
 
+    // 3-1. 브로커 구독 티어 확인 (Free vs Pro/Premium)
+    const { tier: subscriptionTier, isPaid: isPaidTier } = await getBrokerSubscriptionTier(
+      supabase,
+      bp?.user_id || ''
+    );
+
     let kakaoSent = 0;
     let kakaoFailed = 0;
+    let kakaoSkipped = 0;
     let emailSent = 0;
     let emailFailed = 0;
 
@@ -84,32 +104,40 @@ export async function distributeMagazine(
       (s: any) => (s.channel === 'email' || s.channel === 'both') && (s.subscriber_email || s.email)
     );
 
-    // Track 1: 카카오 알림톡 일괄 배포 발송 (병렬 5건씩 처리)
-    for (let i = 0; i < kakaoTargets.length; i += 5) {
-      const batch = kakaoTargets.slice(i, i + 5);
-      const results = await Promise.allSettled(
-        batch.map((sub: any) => {
-          const smsText = `[${brokerName}] 주간 부동산 매거진이 발행되었습니다.\n주제: ${edition.title}\n링크: ${magazineUrl}`;
-          return sendKakaoAlimtalk({
-            recipientPhone: sub.subscriber_phone!,
-            templateId: 'TPL_MAGAZINE_NEW_ISSUE',
-            variables: {
-              '#{subscriberName}': sub.subscriber_name || '투자자',
-              '#{brokerName}': brokerName,
-              '#{magazineTitle}': edition.title || `${edition.date} 주간 리포트`,
-              '#{headline}': edition.headline || '이번 주 시장 동향과 분석을 확인해보세요.',
-              '#{magazineUrl}': magazineUrl,
-            },
-            fallbackSms: smsText,
-          });
-        })
+    // Track 1: 카카오 알림톡 발송 (유료 Pro/Premium 가입 중개인만 활성화)
+    if (!isPaidTier) {
+      kakaoSkipped = kakaoTargets.length;
+      log.info(
+        `[Magazine Distribution] Broker ${brokerId} is on ${subscriptionTier} tier. Kakao Alimtalk batch skipped for ${kakaoSkipped} recipients (Pro required). Email distribution proceeded.`
       );
+    } else {
+      // Pro/Premium 티어: 알림톡 일괄 배포 발송 (병렬 5건씩 처리)
+      for (let i = 0; i < kakaoTargets.length; i += 5) {
+        const batch = kakaoTargets.slice(i, i + 5);
+        const results = await Promise.allSettled(
+          batch.map((sub: any) => {
+            const smsText = `[${brokerName}] 주간 부동산 매거진이 발행되었습니다.\n주제: ${edition.title}\n링크: ${magazineUrl}`;
+            return sendKakaoAlimtalk({
+              recipientPhone: sub.subscriber_phone!,
+              templateId: 'TPL_MAGAZINE_NEW_ISSUE',
+              variables: {
+                '#{subscriberName}': sub.subscriber_name || '투자자',
+                '#{brokerName}': brokerName,
+                '#{magazineTitle}': edition.title || `${edition.date} 주간 리포트`,
+                '#{headline}': edition.headline || '이번 주 시장 동향과 분석을 확인해보세요.',
+                '#{magazineUrl}': magazineUrl,
+              },
+              fallbackSms: smsText,
+            });
+          })
+        );
 
-      for (const r of results) {
-        if (r.status === 'fulfilled' && r.value) {
-          kakaoSent++;
-        } else {
-          kakaoFailed++;
+        for (const r of results) {
+          if (r.status === 'fulfilled' && r.value) {
+            kakaoSent++;
+          } else {
+            kakaoFailed++;
+          }
         }
       }
     }
@@ -206,10 +234,30 @@ export async function distributeMagazine(
       `[Magazine Distribution] Finished for ${brokerId}: totalSent=${totalSent} (kakao=${kakaoSent}, email=${emailSent}), failed=${totalFailed}`
     );
 
-    return { sent: totalSent, failed: totalFailed, kakaoSent, emailSent };
+    return {
+      sent: totalSent,
+      failed: totalFailed,
+      kakaoSent,
+      kakaoFailed,
+      kakaoSkipped,
+      emailSent,
+      emailFailed,
+      isPaidTier,
+      tier: subscriptionTier,
+    };
   } catch (err: any) {
     log.error('[Magazine Distribution] Unexpected error occurred:', err.message);
-    return { sent: 0, failed: 0, kakaoSent: 0, emailSent: 0 };
+    return {
+      sent: 0,
+      failed: 0,
+      kakaoSent: 0,
+      kakaoFailed: 0,
+      kakaoSkipped: 0,
+      emailSent: 0,
+      emailFailed: 0,
+      isPaidTier: false,
+      tier: 'free',
+    };
   }
 }
 

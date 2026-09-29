@@ -89,6 +89,7 @@ describe('Posture Financial Strategies v2 (Phase 3-2)', () => {
         totalAreaSqm: 655,                 // 198.1평
         currentRentManwon: 3800,           // 월 3,800만 (연 4.56억)
         monthlyRentKrw: 4_000_000,         // 지하 1층 부가 임대수익 월 400만 (연 0.48억)
+        loanAmountManwon: 720_000,         // LTV 60% = 72억
       });
 
       // 가상 연 임대료 = 3,800만 × 12 = 4.56억

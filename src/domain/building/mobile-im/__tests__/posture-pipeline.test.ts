@@ -10,7 +10,7 @@ import { bridgeDealCardToIM } from '../ssot-to-im-bridge';
 describe('Posture Pipeline — Section Catalog', () => {
   // D29 m-2: 포스처별 분화 (수익 12, 사옥 9, 개발 10, 운영 10, 매매 8)
   const EXPECTED_COUNTS: Record<string, number> = {
-    income: 12, owner_occupied: 9, development: 10, operating: 10, trading: 8,
+    income: 11, owner_occupied: 9, development: 10, operating: 10, trading: 8,
   };
 
   for (const posture of INVESTMENT_POSTURE) {

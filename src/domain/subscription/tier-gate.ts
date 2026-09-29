@@ -78,3 +78,32 @@ export async function checkFeatureAccess(
     };
   }
 }
+
+/**
+ * 브로커의 구독 티어 및 유료 활성 여부 조회 (SSOT)
+ */
+export async function getBrokerSubscriptionTier(
+  supabase: SupabaseClient | any,
+  userId: string
+): Promise<{ tier: SubscriptionTier; isPaid: boolean; status: string }> {
+  try {
+    if (!userId) {
+      return { tier: 'free', isPaid: false, status: 'none' };
+    }
+
+    const { data: sub } = await supabase
+      .from("user_subscriptions")
+      .select("tier, status")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const tier = (sub?.tier as SubscriptionTier) ?? 'free';
+    const status = sub?.status ?? 'active';
+    const isPaid = status === 'active' && (tier === 'pro' || tier === 'premium');
+
+    return { tier, isPaid, status };
+  } catch (err) {
+    log.error("[tier-gate] Failed to fetch broker subscription tier:", err);
+    return { tier: 'free', isPaid: false, status: 'error' };
+  }
+}

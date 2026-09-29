@@ -12,6 +12,7 @@ export interface RentrollUnitRow {
   tenantIndustry?: string;
   occupancyType: UnitOccupancyType;
   areaSqm: number;
+  exclusiveAreaSqm?: number;
   depositKrw: number;
   monthlyRentKrw: number;
   adminFeeKrw?: number;
@@ -22,10 +23,12 @@ export interface RentrollAnalysisResult {
   rowCount: number;
   totalDepositKrw: number;
   totalMonthlyRentKrw: number;
-  totalAreaSqm: number;
+  totalAreaSqm: number;         // leasable/contract area
+  totalExclusiveAreaSqm: number;
   vacantAreaSqm: number;
   ownerOccupiedAreaSqm: number;
   physicalVacancyRatePct: number; // 공실면적 / 전체면적
+  averageEfficiencyRatioPct?: number; // 전용면적 / 임대면적
   hasG35Discrepancy: boolean;
   discrepancyNote?: string;
 }
@@ -42,6 +45,7 @@ export function classifyAndAnalyzeRentroll(
         totalDepositKrw: controlTotals.depositKrw ?? 0,
         totalMonthlyRentKrw: controlTotals.monthlyRentKrw ?? 0,
         totalAreaSqm: 0,
+        totalExclusiveAreaSqm: 0,
         vacantAreaSqm: 0,
         ownerOccupiedAreaSqm: 0,
         physicalVacancyRatePct: 0,
@@ -54,6 +58,7 @@ export function classifyAndAnalyzeRentroll(
       totalDepositKrw: 0,
       totalMonthlyRentKrw: 0,
       totalAreaSqm: 0,
+      totalExclusiveAreaSqm: 0,
       vacantAreaSqm: 0,
       ownerOccupiedAreaSqm: 0,
       physicalVacancyRatePct: 0,
@@ -67,6 +72,7 @@ export function classifyAndAnalyzeRentroll(
   let sumDeposit = 0;
   let sumRent = 0;
   let sumArea = 0;
+  let sumExclusive = 0;
   let vacantArea = 0;
   let ownerArea = 0;
 
@@ -74,6 +80,9 @@ export function classifyAndAnalyzeRentroll(
     sumDeposit += row.depositKrw;
     sumRent += row.monthlyRentKrw;
     sumArea += row.areaSqm;
+    if (row.exclusiveAreaSqm) {
+      sumExclusive += row.exclusiveAreaSqm;
+    }
 
     if (row.occupancyType === 'vacant') {
       vacantArea += row.areaSqm;
@@ -85,6 +94,11 @@ export function classifyAndAnalyzeRentroll(
   const physicalVacancyRatePct = sumArea > 0
     ? Math.round((vacantArea / sumArea) * 1000) / 10
     : 0;
+
+  let averageEfficiencyRatioPct: number | undefined;
+  if (sumExclusive > 0 && sumArea > 0) {
+    averageEfficiencyRatioPct = Math.round((sumExclusive / sumArea) * 1000) / 10;
+  }
 
   let hasG35Discrepancy = false;
   let discrepancyNote: string | undefined;
@@ -104,9 +118,11 @@ export function classifyAndAnalyzeRentroll(
     totalDepositKrw: sumDeposit,
     totalMonthlyRentKrw: sumRent,
     totalAreaSqm: sumArea,
+    totalExclusiveAreaSqm: sumExclusive,
     vacantAreaSqm: vacantArea,
     ownerOccupiedAreaSqm: ownerArea,
     physicalVacancyRatePct,
+    averageEfficiencyRatioPct,
     hasG35Discrepancy,
     discrepancyNote,
   };

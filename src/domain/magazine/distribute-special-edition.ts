@@ -7,6 +7,7 @@
 
 import { sendKakaoAlimtalk } from '@/lib/notification/notification-service';
 import { sendMagazineEmail } from '@/lib/notification/email-service';
+import { getBrokerSubscriptionTier, type SubscriptionTier } from '@/domain/subscription/tier-gate';
 import type { MagazineDbClient, MagazineEdition } from './types';
 import { createModuleLogger } from '@/lib/logger';
 
@@ -27,7 +28,10 @@ export interface DistributionResult {
   sent: number;
   failed: number;
   kakaoSent: number;
+  kakaoSkipped?: number;
   emailSent: number;
+  isPaidTier?: boolean;
+  tier?: SubscriptionTier;
 }
 
 export async function distributeSpecialEdition(
@@ -95,8 +99,15 @@ export async function distributeSpecialEdition(
     const issueDate = (edition.published_at || new Date().toISOString()).slice(0, 10);
     const magazineUrl = `https://www.credeal.net/magazine/${brokerSlug}/${issueDate}`;
 
+    // 3-1. 브로커 구독 티어 확인 (Free vs Pro/Premium)
+    const { tier: subscriptionTier, isPaid: isPaidTier } = await getBrokerSubscriptionTier(
+      supabase,
+      bp?.user_id || brokerId
+    );
+
     let kakaoSent = 0;
     let kakaoFailed = 0;
+    let kakaoSkipped = 0;
     let emailSent = 0;
     let emailFailed = 0;
 
@@ -108,32 +119,39 @@ export async function distributeSpecialEdition(
       (s: any) => (s.channel === 'email' || s.channel === 'both') && (s.subscriber_email || s.email)
     );
 
-    // Track 1: 카카오 알림톡 긴급 속보 발송
-    for (let i = 0; i < kakaoTargets.length; i += 5) {
-      const batch = kakaoTargets.slice(i, i + 5);
-      const results = await Promise.allSettled(
-        batch.map((sub: any) => {
-          const smsText = `[단독 속보] ${brokerName} 추천 매물이 접수되었습니다.\n${headline}\n확인: ${magazineUrl}`;
-          return sendKakaoAlimtalk({
-            recipientPhone: sub.subscriber_phone!,
-            templateId: 'TPL_MAGAZINE_FLASH_ISSUE',
-            variables: {
-              '#{subscriberName}': sub.subscriber_name || '투자자',
-              '#{brokerName}': brokerName,
-              '#{magazineTitle}': `[단독 속보] ${areaSignal} ${assetType}`,
-              '#{headline}': headline,
-              '#{magazineUrl}': magazineUrl,
-            },
-            fallbackSms: smsText,
-          });
-        })
+    // Track 1: 카카오 알림톡 긴급 속보 발송 (유료 가입 브로커만 활성화)
+    if (!isPaidTier) {
+      kakaoSkipped = kakaoTargets.length;
+      log.info(
+        `[Special Distribution] Broker ${brokerId} is on ${subscriptionTier} tier. Kakao Alimtalk flash alert skipped for ${kakaoSkipped} recipients (Pro required). Email distribution proceeded.`
       );
+    } else {
+      for (let i = 0; i < kakaoTargets.length; i += 5) {
+        const batch = kakaoTargets.slice(i, i + 5);
+        const results = await Promise.allSettled(
+          batch.map((sub: any) => {
+            const smsText = `[단독 속보] ${brokerName} 추천 매물이 접수되었습니다.\n${headline}\n확인: ${magazineUrl}`;
+            return sendKakaoAlimtalk({
+              recipientPhone: sub.subscriber_phone!,
+              templateId: 'TPL_MAGAZINE_FLASH_ISSUE',
+              variables: {
+                '#{subscriberName}': sub.subscriber_name || '투자자',
+                '#{brokerName}': brokerName,
+                '#{magazineTitle}': `[단독 속보] ${areaSignal} ${assetType}`,
+                '#{headline}': headline,
+                '#{magazineUrl}': magazineUrl,
+              },
+              fallbackSms: smsText,
+            });
+          })
+        );
 
-      for (const r of results) {
-        if (r.status === 'fulfilled' && r.value) {
-          kakaoSent++;
-        } else {
-          kakaoFailed++;
+        for (const r of results) {
+          if (r.status === 'fulfilled' && r.value) {
+            kakaoSent++;
+          } else {
+            kakaoFailed++;
+          }
         }
       }
     }
@@ -200,10 +218,22 @@ export async function distributeSpecialEdition(
       sent: totalSent,
       failed: totalFailed,
       kakaoSent,
+      kakaoSkipped,
       emailSent,
+      isPaidTier,
+      tier: subscriptionTier,
     };
   } catch (err: any) {
     log.error('[Special Distribution] Failed:', err.message);
-    return { totalTargets: 0, sent: 0, failed: 0, kakaoSent: 0, emailSent: 0 };
+    return {
+      totalTargets: 0,
+      sent: 0,
+      failed: 0,
+      kakaoSent: 0,
+      kakaoSkipped: 0,
+      emailSent: 0,
+      isPaidTier: false,
+      tier: 'free',
+    };
   }
 }

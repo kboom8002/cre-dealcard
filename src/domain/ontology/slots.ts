@@ -119,6 +119,14 @@ export const SLOT_CATALOG: SlotDefinition[] = [
   { key: 'mgmtFeeType', label: '관리비 유형', type: 'enum', category: 'lease', required: false, source: 'broker', defaultProvenance: 'broker', enumFamily: 'management_fee_type', isNew: true },
   { key: 'leaseActApplication', label: '상임법 적용 범위', type: 'enum', category: 'legal', required: false, source: 'derived', defaultProvenance: 'assumed', enumFamily: 'lease_act_application', isNew: true },
 
+  // ── Area (v0.5 4대 면적 체계) (6) ──
+  { key: 'exclusiveAreaTotalSqm', label: '전용면적 합계(㎡)', type: 'number', category: 'lease', required: false, source: 'derived', defaultProvenance: 'assumed', isV4New: true },
+  { key: 'commonAreaTotalSqm', label: '공용면적 합계(㎡)', type: 'number', category: 'building', required: false, source: 'derived', defaultProvenance: 'assumed', isV4New: true },
+  { key: 'floorCommonAreaSqm', label: '층공용면적(㎡)', type: 'number', category: 'building', required: false, source: 'derived', defaultProvenance: 'assumed', isV4New: true },
+  { key: 'buildingCommonAreaSqm', label: '건물공용면적(㎡)', type: 'number', category: 'building', required: false, source: 'derived', defaultProvenance: 'assumed', isV4New: true },
+  { key: 'parkingCommonAreaSqm', label: '주차공용면적(㎡)', type: 'number', category: 'building', required: false, source: 'derived', defaultProvenance: 'assumed', isV4New: true },
+  { key: 'efficiencyRatioPct', label: '전용률(%)', type: 'number', category: 'derived', required: false, source: 'derived', defaultProvenance: 'assumed', isV4New: true },
+
   // ── Financial (7) ──
   { key: 'askingPriceKrw', label: '매각 희망가(원)', type: 'number', category: 'financial', required: true, source: 'seller', defaultProvenance: 'seller' },
   { key: 'loanAmountKrw', label: '선순위 대출금(원)', type: 'number', category: 'financial', required: false, source: 'seller', defaultProvenance: 'seller' },

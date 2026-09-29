@@ -1,3 +1,4 @@
+import { SECTION_LABELS } from '@/domain/ontology/d56-labels';
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -171,21 +172,7 @@ export async function GET(req: NextRequest) {
       sectionMap.set(ev.section_id, cur);
     });
 
-    const SECTION_LABELS: Record<string, string> = {
-      cover: "커버 & 브리핑 요약",
-      ai_briefing: "AI 주간 브리핑",
-      field_note: "현장 필드노트",
-      theme_of_week: "금주의 핵심 테마",
-      featured_deals: "추천 매물 하이라이트",
-      market_data: "실거래 & 시장 데이터",
-      news_curation: "주요 CRE 뉴스",
-      tax_clinic: "세무 & 법률 클리닉",
-      auction_picks: "경매 추천 픽",
-      sentiment_index: "투자 심리 지수",
-      roi_calculator: "투자 수익률 계산기",
-      broker_profile: "브로커 프로필",
-    };
-
+    
     const sectionStats = Array.from(sectionMap.entries())
       .map(([sectionId, stat]) => ({
         sectionId,

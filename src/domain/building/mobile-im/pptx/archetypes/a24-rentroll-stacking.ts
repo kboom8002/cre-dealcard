@@ -307,13 +307,13 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   });
 
   // --- Right Panel: Rent Roll Table ---
-  const HEADERS = ['층', '호실', '용도/업종', '임차인', '전용면적(㎡)', '보증금(만원)', '월세(만원)', '계약종료', '비고'];
-  const colW = [0.55, 0.55, 1.05, 1.45, 0.95, 0.95, 0.85, 0.85, 1.23]; // Sum = 8.43 = tbW
+  const HEADERS = ['층', '호실', '용도', '임차인', '임대(㎡)', '전용(㎡)', '전용률', '보증금', '월세', '관리비', 'NOC', '만기일'];
+  const colW = [0.45, 0.45, 0.70, 1.15, 0.70, 0.70, 0.55, 0.70, 0.70, 0.70, 0.70, 0.93]; // Sum = 8.43 = tbW
   
   if (tableRows.length > 0) {
     let rawRows = tableRows.map((row: any) => {
       const newRow = [...row];
-      if (newRow.length >= 10) newRow.splice(7, 1); // Remove 관리비
+      // Do not splice for 12 columns. Assuming tableRows provides exactly 12 columns.
       return newRow;
     });
     
@@ -329,24 +329,36 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     // D7 Fix: 합계 행이 없으면 자동 합산 추가
     const hasSummaryRow = rawRows.some((r: any) => r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim())));
     if (!hasSummaryRow && rawRows.length > 0) {
-      let totalArea = 0, totalDeposit = 0, totalRent = 0;
+      let totalArea = 0, totalExcArea = 0, totalDeposit = 0, totalRent = 0, totalMgmt = 0;
       for (const r of rawRows) {
         const a = parseFloat(String(r[4] || '').replace(/[^0-9.]/g, ''));
         if (!isNaN(a)) totalArea += a;
-        const d = parseFloat(String(r[5] || '').replace(/[^0-9.]/g, ''));
+        const e = parseFloat(String(r[5] || '').replace(/[^0-9.]/g, ''));
+        if (!isNaN(e)) totalExcArea += e;
+        const d = parseFloat(String(r[7] || '').replace(/[^0-9.]/g, ''));
         if (!isNaN(d)) totalDeposit += d;
-        const rt = parseFloat(String(r[6] || '').replace(/[^0-9.]/g, ''));
+        const rt = parseFloat(String(r[8] || '').replace(/[^0-9.]/g, ''));
         if (!isNaN(rt)) totalRent += rt;
+        const mt = parseFloat(String(r[9] || '').replace(/[^0-9.]/g, ''));
+        if (!isNaN(mt)) totalMgmt += mt;
       }
+      
+      const eff = totalArea > 0 ? `${Math.round((totalExcArea / totalArea) * 100)}%` : '-';
+      const excPyeong = totalExcArea * 0.3025;
+      const noc = excPyeong > 0 ? Math.round((totalRent + totalMgmt) / excPyeong).toLocaleString() : '-';
+
       rawRows.push([
         '합계',
         '',
         '',
         `${rawRows.length}개 호실`,
         totalArea > 0 ? `${totalArea.toFixed(1)}` : '-',
+        totalExcArea > 0 ? `${totalExcArea.toFixed(1)}` : '-',
+        eff,
         totalDeposit > 0 ? `${Math.round(totalDeposit).toLocaleString()}` : '-',
         totalRent > 0 ? `${Math.round(totalRent).toLocaleString()}` : '-',
-        '',
+        totalMgmt > 0 ? `${Math.round(totalMgmt).toLocaleString()}` : '-',
+        noc,
         ''
       ]);
     }

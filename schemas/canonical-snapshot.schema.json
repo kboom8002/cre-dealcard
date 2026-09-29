@@ -24,7 +24,11 @@
         "landAreaTotal": { "type": "number", "minimum": 0 },
         "buildingAreaTotal": { "type": "number" },
         "grossFloorArea": { "type": "number", "minimum": 0 },
-        "exclusiveLeaseArea": { "type": "number" }
+        "exclusiveLeaseArea": { "type": "number" },
+        "exclusiveAreaTotal": { "type": "number" },
+        "leasableAreaTotal": { "type": "number" },
+        "commonAreaTotal": { "type": "number" },
+        "efficiencyRatioPct": { "type": "number" }
       }
     },
     "pricing": {

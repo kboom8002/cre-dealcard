@@ -173,6 +173,8 @@ function MagazineEditorInner() {
   const [brokerSlug, setBrokerSlug] = useState<string | null>(null);
   const [magazineTitle, setMagazineTitle] = useState("");
   const [showShareModal, setShowShareModal] = useState(false);
+  const [distributionResult, setDistributionResult] = useState<any>(null);
+  const [isPaidTier, setIsPaidTier] = useState<boolean>(false);
   const [magazineData, setMagazineData] = useState<any>(null);
   const [targetSegments, setTargetSegments] = useState<string[]>(["all"]);
 
@@ -223,6 +225,19 @@ function MagazineEditorInner() {
         setBrokerSlug(slug);
         setMagazineTitle(profile?.magazine_title || "");
         if (profile?.magazine_theme_color) setThemeColor(profile.magazine_theme_color);
+
+        // 브로커 구독 티어 확인
+        try {
+          const profileApiRes = await fetch("/api/broker/profile");
+          if (profileApiRes.ok) {
+            const profileApiJson = await profileApiRes.json();
+            if (profileApiJson?.data?.subscription) {
+              setIsPaidTier(!!profileApiJson.data.subscription.isPaid);
+            }
+          }
+        } catch {
+          // ignore
+        }
 
         // 1. 최신 에디션 가져오기
         const edRes = await fetch(
@@ -709,6 +724,29 @@ function MagazineEditorInner() {
             entity_id: editionId,
             metadata: { date: new Date().toISOString().slice(0, 10) },
           });
+        }
+
+        // 4. 구독자 배포 파이프라인 호출 (Free: 이메일 우선, Pro: 알림톡 + 이메일)
+        try {
+          const distRes = await fetch("/api/broker/magazine/distribute", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              editionId,
+              title: headline,
+              headline,
+              market_temp: marketTemp,
+              date: new Date().toISOString().slice(0, 10),
+            }),
+          });
+          if (distRes.ok) {
+            const distJson = await distRes.json();
+            if (distJson?.result) {
+              setDistributionResult(distJson.result);
+            }
+          }
+        } catch (distErr) {
+          console.warn("[handlePublishAndShare] Distribute call failed:", distErr);
         }
 
         setMagazineData(previewData);
@@ -1439,6 +1477,8 @@ function MagazineEditorInner() {
         setShowShareModal={setShowShareModal}
         handleMagazineKakaoShare={handleMagazineKakaoShare}
         handleCopyLink={handleCopyLink}
+        distributionResult={distributionResult}
+        isPaidTier={isPaidTier}
       />
 
     </div>

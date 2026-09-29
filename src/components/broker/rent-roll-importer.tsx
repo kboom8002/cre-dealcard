@@ -21,6 +21,7 @@ interface RentRollImporterProps {
       mgmt_fee_manwon?: number;
       is_vacant?: boolean;
       area_sqm?: number;
+      exclusive_area_sqm?: number;
       lease_start?: string;
       lease_end?: string;
     }>;
@@ -269,6 +270,7 @@ export function RentRollImporter({ hasExistingData, onImport }: RentRollImporter
       mgmt_fee_manwon: number;
       is_vacant: boolean;
       area_sqm?: number;
+      exclusive_area_sqm?: number;
       lease_start?: string;
       lease_end?: string;
     }>;

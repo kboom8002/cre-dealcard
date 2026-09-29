@@ -127,6 +127,7 @@ export interface LeaseRow {
   // R2
   contractGroup: string | null;         // 계약그룹
   leaseAreaSqm: number | null;          // 임대면적(㎡)
+  exclusiveAreaSqm: number | null;      // 전용면적(㎡)
   legalBasis: LegalBasis | null;        // 적용법령 (상가/주택)
   mgmtFeeKrw: number | null;            // 관리비(원)
   currentStartDate: string | null;      // 현 계약 시작일 (YYYY-MM-DD)
@@ -217,6 +218,23 @@ export function contractStatus(expiryDate: string | null, asOf: Date = new Date(
 export function monthlyGross(monthlyRentKrw: number | null, mgmtFeeKrw: number | null): number | null {
   if (monthlyRentKrw == null && mgmtFeeKrw == null) return null;
   return (monthlyRentKrw ?? 0) + (mgmtFeeKrw ?? 0);
+}
+
+/** 22. 전용률(%) = 전용면적 / 임대면적 × 100 */
+export function calculateEfficiencyRatio(exclusiveAreaSqm: number | null, leaseAreaSqm: number | null): number | null {
+  if (exclusiveAreaSqm == null || leaseAreaSqm == null || leaseAreaSqm <= 0) return null;
+  return parseFloat(((exclusiveAreaSqm / leaseAreaSqm) * 100).toFixed(2));
+}
+
+/** 23. 전용평당 실질비용 (NOC) = (월임대료 + 월관리비) / 전용면적(평) */
+export function calculateNocPerExclusivePyeong(monthlyRentKrw: number | null, mgmtFeeKrw: number | null, exclusiveAreaSqm: number | null): number | null {
+  if (exclusiveAreaSqm == null || exclusiveAreaSqm <= 0) return null;
+  const excPyeong = coreSqmToPyeong(exclusiveAreaSqm);
+  if (excPyeong == null || excPyeong <= 0) return null;
+  const rent = monthlyRentKrw ?? 0;
+  const mgmt = mgmtFeeKrw ?? 0;
+  if (rent === 0 && mgmt === 0) return null;
+  return Math.round((rent + mgmt) / excPyeong);
 }
 
 // ══════════════════════════════════════════════════════════════════════

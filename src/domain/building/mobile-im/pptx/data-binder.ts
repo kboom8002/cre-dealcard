@@ -1,3 +1,4 @@
+import { SECTION_LABELS } from '@/domain/ontology/d56-labels';
 import {
   normalizeStationName,
   findLeadSentence,
@@ -419,12 +420,7 @@ export function bindSectionData(
     ];
     const deficiencyItems: string[] = [];
     // D38 BL-1: 내부 dataKey → 한국어 섹션 라벨 매핑 (Rule 2 CRE 용어 준수)
-    const SECTION_LABELS: Record<string, string> = {
-      building: '자산 개요', location: '입지 분석', rentRoll: '임대차',
-      profit: '수익 분석', risk: '리스크', thesis: '투자 논거',
-      process: '거래 절차', checklist: '체크리스트',
-    };
-    const sectionLabel = SECTION_LABELS[dataKey] || dataKey;
+        const sectionLabel = SECTION_LABELS[dataKey] || dataKey;
     const mdLines = (section.markdown || '').split('\n');
     for (const line of mdLines) {
       const trimmed = line.replace(/^[>\s*#\-•·]+/, '').trim();
@@ -594,10 +590,26 @@ export function bindSectionData(
       if (floorLeases.length > 0 && result['rentRoll']) {
         const isBasicPreset = doc.body?.preset === 'credeal_basic' || doc.body?.tier === 'basic';
         const rrHeaders = isBasicPreset
-          ? ['층', '호실', '용도/업종', '임차인', '전용면적(㎡)', '보증금(만원)', '월세(만원)', '관리비(만원)', '계약종료', '비고']
+          ? ['층', '호실', '용도', '임차인', '임대(㎡)', '전용(㎡)', '전용률', '보증금', '월세', '관리비', 'NOC', '만기일']
           : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
         const isFinitePos = (v: any) => v != null && Number.isFinite(Number(v)) && Number(v) > 0;
         const isFiniteNonNeg = (v: any) => v != null && Number.isFinite(Number(v)) && Number(v) >= 0;
+        
+        const calcNoc = (rent: any, mgmt: any, excSqm: any) => {
+          if (!isFiniteNonNeg(rent) || !isFinitePos(excSqm)) return '-';
+          const py = Number(excSqm) * 0.3025;
+          const r = Number(rent) || 0;
+          const m = isFiniteNonNeg(mgmt) ? Number(mgmt) : 0;
+          return Math.round((r + m) / py).toLocaleString();
+        };
+
+        const calcEff = (excSqm: any, leaseSqm: any) => {
+          if (isFinitePos(excSqm) && isFinitePos(leaseSqm)) {
+            return `${Math.round((Number(excSqm) / Number(leaseSqm)) * 100)}%`;
+          }
+          return '-';
+        };
+
         const rrRows = floorLeases.map((l: any) => {
           const floor = l.floor || l.unit_label || '-';
           const areaPyeong = isFinitePos(l.area_sqm)
@@ -608,18 +620,21 @@ export function bindSectionData(
           const rent = isFiniteNonNeg(l.rent_manwon) ? `${Number(l.rent_manwon).toLocaleString()}만` : (l.is_vacant ? '-' : '-');
           const mgmt = isFiniteNonNeg(l.mgmt_fee_manwon) ? `${Number(l.mgmt_fee_manwon).toLocaleString()}만` : '-';
           const expiry = l.lease_end || l.contract_end || '-';
+          
           return isBasicPreset
             ? [
                 floor,
                 l.unit || l.room || '-',
                 l.use || l.tenant_type || l.business_type || '-',
                 tenant,
-                isFinitePos(l.area_sqm) ? Number(l.area_sqm).toFixed(1) : (isFinitePos(l.area_pyeong) ? (Number(l.area_pyeong) / 0.3025).toFixed(1) : '-'),
+                isFinitePos(l.area_sqm) ? Number(l.area_sqm).toFixed(1) : '-',
+                isFinitePos(l.exclusive_area_sqm) ? Number(l.exclusive_area_sqm).toFixed(1) : (isFinitePos(l.area_sqm) ? Number(l.area_sqm).toFixed(1) : '-'), // fallback to area if exclusive is missing
+                calcEff(l.exclusive_area_sqm || l.area_sqm, l.area_sqm),
                 isFiniteNonNeg(l.deposit_manwon) ? `${Number(l.deposit_manwon).toLocaleString()}` : '-',
                 isFiniteNonNeg(l.rent_manwon) ? `${Number(l.rent_manwon).toLocaleString()}` : (l.is_vacant ? '-' : '-'),
                 isFiniteNonNeg(l.mgmt_fee_manwon) ? `${Number(l.mgmt_fee_manwon).toLocaleString()}` : '-',
-                expiry,
-                l.note || (l.is_vacant ? '공실' : '')
+                calcNoc(l.rent_manwon, l.mgmt_fee_manwon, l.exclusive_area_sqm || l.area_sqm),
+                expiry
               ]
             : [floor, tenant, areaPyeong, deposit, rent, mgmt, expiry];
         });

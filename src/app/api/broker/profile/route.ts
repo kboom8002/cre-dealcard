@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod/v4';
 import { requireBroker } from '@/lib/auth-guard';
+import { getBrokerSubscriptionTier } from '@/domain/subscription/tier-gate';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -156,12 +157,21 @@ export async function GET(req: NextRequest) {
     brokerProfile.slug = autoSlug;
   }
 
+  const { tier: subscriptionTier, isPaid: isPaidTier } = await getBrokerSubscriptionTier(
+    supabase,
+    user!.id
+  );
+
   return NextResponse.json({
     ok: true,
     data: {
       ...profile,
       broker: brokerProfile ?? null,
       email: user!.email,
+      subscription: {
+        tier: subscriptionTier,
+        isPaid: isPaidTier,
+      },
     },
   });
 }

@@ -9,13 +9,7 @@ interface IMEditorProps {
   onCancel: () => void;
 }
 
-const SECTION_LABELS: Record<string, string> = {
-  property_overview: "자산 개요",
-  income_analysis: "수익 분석",
-  risk_check: "리스크/공법 제한",
-  investment_thesis: "투자 논거 (Valuation)",
-  next_steps: "다음 단계 (Next Steps)",
-};
+import { SECTION_LABELS } from '@/domain/ontology/d56-labels';
 
 export function ImEditor({ initialSections, onSave, onCancel }: IMEditorProps) {
   const [sections, setSections] = useState<Record<string, string>>(initialSections);

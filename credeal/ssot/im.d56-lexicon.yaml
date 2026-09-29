@@ -1,0 +1,4133 @@
+meta:
+  id: im.d56-lexicon
+  version: 1
+  source: docs/D56_KOREAN_SMALL_COMMERCIAL_REAL_ESTATE_TERMINOLOGY_DICTIONARY.md
+  owner: D56
+grade_system:
+  official: 법령·공부·공공통계에 쓰이는 명칭
+  recommended: 중개 문서에 가장 자연스러운 명칭
+  conditional_expert: 투자분석·특수자산에서만 필요
+  internal_only: 자료처리·AI·발행통제에 필요
+  caution: 뜻이 여러개이거나 과장 가능성이 큰 명칭
+  field_term: 현장어
+categories:
+  A:
+    ko: 문서·중개업무·당사자
+    question: 누가 어떤 문서를 왜 만드는가
+  B:
+    ko: 거래조건·가격·대금
+    question: 무엇을 얼마에 어떤 조건으로 거래하는가
+  C:
+    ko: 대상 식별·매각범위
+    question: 정확히 어느 필지와 건물이 포함되는가
+  D:
+    ko: 토지·도시계획·도로
+    question: 토지의 법정 상태와 이용조건은 어떠한가
+  E:
+    ko: 건물·면적·시설
+    question: 건물의 물리적·공부상 상태는 어떠한가
+  F:
+    ko: 소유권·담보·법적 제한
+    question: 누가 어떤 권리를 가지며 무엇이 제한하는가
+  G:
+    ko: 임대차·점유·임대차 현황표
+    question: 누가 어느 공간을 어떤 조건으로 쓰는가
+  H:
+    ko: 임대수입·운영비
+    question: 현재 운영에서 얼마가 들어오고 나가는가
+  I:
+    ko: 수익률·투자지표
+    question: 어떤 산식으로 경제성을 판단하는가
+  J:
+    ko: 입지·상권·시장·비교사례
+    question: 주변 수요와 가격 근거는 무엇인가
+  K:
+    ko: 가치개선·개발·용도전환
+    question: 무엇을 바꾸면 가치가 달라질 수 있는가
+  L:
+    ko: 실사·협상·계약조건
+    question: 거래 전 무엇을 확인하고 조건화할 것인가
+  M:
+    ko: 자료출처·검증·불일치
+    question: 그 말은 무엇에 근거하고 얼마나 믿을 수 있는가
+  N:
+    ko: 문서작성·발행·AI 운영
+    question: 무엇을 어떤 상태에서 밖으로 내보낼 것인가
+  O:
+    ko: 특수자산·운영형 지표
+    question: 일반 임대형과 다른 자산은 무엇을 추가로 보는가
+terms:
+- id: A001
+  canonical: 매각안내서
+  grade: recommended
+  category: A
+  synonyms:
+  - OM
+  - 매물소개서
+  - 매각제안서
+  definition: 매도 대상, 가격, 공부, 현황, 임대차, 위험요인을 정리해 초기 검토와 답사를 돕는 문서
+  caution: 법정 서식인 `중개대상물 확인·설명서`를 대신하지 않음
+  external_visible: true
+- id: A002
+  canonical: 투자검토서
+  grade: recommended
+  category: A
+  synonyms:
+  - IM
+  - 투자설명서
+  definition: 가격·임대수입·시장·위험·개선방안까지 연결해 매수 검토를 지원하는 문서
+  caution: 증권의 투자설명서와 혼동될 수 있어 문서 첫머리에 부동산 매각자료임을 명시
+  external_visible: true
+- id: A003
+  canonical: 요약 매각안내서
+  grade: recommended
+  category: A
+  synonyms:
+  - 티저
+  - Teaser
+  definition: 핵심 가격·규모·입지·임대정보만 담은 짧은 자료
+  caution: 주소·임차인 정보 비공개 여부를 명시
+  external_visible: true
+- id: A004
+  canonical: 중개대상물 확인·설명서
+  grade: official
+  category: A
+  synonyms:
+  - 확인설명서
+  definition: 개업공인중개사가 법정 확인·설명사항을 적어 거래당사자에게 교부하는 서식
+  caution: 매각안내서와 별개이며, 비주거용 건축물 서식을 확인
+  external_visible: true
+- id: A005
+  canonical: 거래계약서
+  grade: official
+  category: A
+  synonyms:
+  - 매매계약서
+  - 임대차계약서
+  definition: 거래당사자, 물건, 금액, 지급, 인도, 권리이전, 특약 등을 정하는 문서
+  caution: 초안·체결본·수정본을 구분
+  external_visible: true
+- id: A006
+  canonical: 중개
+  grade: official
+  category: A
+  synonyms:
+  - 알선
+  definition: 중개대상물의 매매·교환·임대차 등 권리의 득실변경을 거래당사자 사이에서 알선하는 행위
+  caution: 감정평가·법률·세무 자문과 업무범위를 혼동하지 않음
+  external_visible: true
+- id: A007
+  canonical: 개업공인중개사
+  grade: official
+  category: A
+  synonyms:
+  - 대표 공인중개사
+  definition: 중개사무소 개설등록을 하고 중개업을 하는 자
+  caution: '`중개업자`라는 구표현보다 공식 명칭 권장'
+  external_visible: true
+- id: A008
+  canonical: 소속공인중개사
+  grade: official
+  category: A
+  synonyms:
+  - 소속 중개사
+  definition: 개업공인중개사에 소속되어 중개업무를 수행하거나 보조하는 공인중개사
+  caution: 중개보조원과 구분
+  external_visible: true
+- id: A009
+  canonical: 중개보조원
+  grade: official
+  category: A
+  synonyms:
+  - 보조원
+  definition: 공인중개사가 아니며 현장안내·일반서무 등 단순 업무를 보조하는 자
+  caution: 확인·설명 주체로 표현하지 않음
+  external_visible: true
+- id: A010
+  canonical: 중개의뢰인
+  grade: official
+  category: A
+  synonyms:
+  - 의뢰인
+  definition: 중개를 의뢰한 매도인·매수인·임대인·임차인
+  caution: 문서에서는 실제 역할을 함께 적음
+  external_visible: true
+- id: A011
+  canonical: 매도인
+  grade: official
+  category: A
+  synonyms:
+  - 소유자
+  - 매각자
+  definition: 부동산을 파는 당사자
+  caution: 등기상 소유자와 계약 당사자가 다르면 관계 확인
+  external_visible: true
+- id: A012
+  canonical: 매수인
+  grade: official
+  category: A
+  synonyms:
+  - 매입자
+  - 투자자
+  definition: 부동산을 사는 당사자
+  caution: 법인·개인·공동매수 등 주체를 구분
+  external_visible: true
+- id: A013
+  canonical: 임대인
+  grade: official
+  category: A
+  synonyms:
+  - 건물주
+  definition: 임대차 목적물을 사용·수익하게 하는 당사자
+  caution: 소유자와 항상 같다고 가정하지 않음
+  external_visible: true
+- id: A014
+  canonical: 임차인
+  grade: official
+  category: A
+  synonyms:
+  - 세입자
+  - 테넌트
+  definition: 차임 등을 지급하고 목적물을 사용하는 당사자
+  caution: 법인명·상호·실제 점유자를 구분
+  external_visible: true
+- id: A015
+  canonical: 매각주관
+  grade: recommended
+  category: A
+  synonyms:
+  - 주관사
+  definition: 매각자료·마케팅·질의·협상을 총괄하는 역할
+  caution: 독점권한 여부와 기간은 계약으로 확인
+  external_visible: true
+- id: A016
+  canonical: 공동중개
+  grade: official
+  category: A
+  synonyms:
+  - 코브로커리지
+  definition: 둘 이상의 중개사무소가 공동으로 중개하는 방식
+  caution: 역할, 고객귀속, 보수배분을 사전 합의
+  external_visible: true
+- id: A017
+  canonical: 전속중개계약
+  grade: official
+  category: A
+  synonyms:
+  - 전속매각
+  definition: 중개의뢰인이 정한 기간 동안 특정 개업공인중개사에게 전속으로 중개를 맡기는 계약
+  caution: 구두 전속 표현보다 서면계약 확인
+  external_visible: true
+- id: A018
+  canonical: 일반중개계약
+  grade: official
+  category: A
+  synonyms:
+  - 일반매물
+  definition: 복수 중개업자에게 의뢰할 수 있는 일반적인 중개계약
+  caution: 거래예정금액과 의뢰조건의 최신성 확인
+  external_visible: true
+- id: A019
+  canonical: 비밀유지약정
+  grade: recommended
+  category: A
+  synonyms:
+  - NDA
+  definition: 비공개 자료의 사용·공유 범위를 정하는 약정
+  caution: 임차인 개인정보, 계약서, 세무자료 제공 전에 체결 검토
+  external_visible: true
+- id: A020
+  canonical: 자료수령 확인서
+  grade: recommended
+  category: A
+  synonyms:
+  - 자료목록
+  definition: 매도인·중개인·전문가가 제공한 자료명과 기준일을 기록한 목록
+  caution: '`검증 완료`를 뜻하지 않음'
+  external_visible: true
+- id: B001
+  canonical: 매도 희망가
+  grade: recommended
+  category: B
+  synonyms:
+  - 호가
+  - 매매가
+  - Asking Price
+  definition: 매도인이 제시하는 희망 매각금액
+  caution: '`시세`·`가치`·`계약금액`처럼 쓰지 않음'
+  external_visible: true
+- id: B002
+  canonical: 협의가격
+  grade: recommended
+  category: B
+  synonyms:
+  - 가격협의
+  - 네고 가능
+  definition: 매도 희망가가 고정되지 않고 협의 대상임을 뜻함
+  caution: 가격이 없다는 뜻인지, 일정 범위 내 조정인지 설명
+  external_visible: true
+- id: B003
+  canonical: 제안가격
+  grade: recommended
+  category: B
+  synonyms:
+  - 오퍼가
+  - 매입희망가
+  definition: 매수인이 제안한 매입금액
+  caution: 제안일·유효기간·전제조건을 함께 기록
+  external_visible: true
+- id: B004
+  canonical: 계약금액
+  grade: official
+  category: B
+  synonyms:
+  - 매매대금
+  definition: 당사자가 계약서에서 합의한 전체 거래금액
+  caution: 부가가치세·시설·영업양수도 대금 포함 여부 구분
+  external_visible: true
+- id: B005
+  canonical: 실거래 신고금액
+  grade: official
+  category: B
+  synonyms:
+  - 실거래가
+  definition: 부동산 거래신고에 따라 신고·공개된 금액
+  caution: 공개시스템 자료는 변경·해제될 수 있으며 감정가나 현 시세가 아님
+  external_visible: true
+- id: B006
+  canonical: 감정평가액
+  grade: official
+  category: B
+  synonyms:
+  - 감정가
+  definition: 감정평가법인 등이 기준시점과 목적에 따라 평가한 가액
+  caution: 평가목적·기준시점·평가조건을 함께 적음
+  external_visible: true
+- id: B007
+  canonical: 추정가치
+  grade: conditional_expert
+  category: B
+  synonyms:
+  - 예상가치
+  - 가치추정
+  definition: 명시한 방법과 가정으로 산출한 분석상 가치
+  caution: 공인 감정평가 결과처럼 표현하지 않음
+  external_visible: true
+- id: B008
+  canonical: 토지가격
+  grade: recommended
+  category: B
+  synonyms:
+  - 땅값
+  definition: 거래금액 중 토지에 관한 가격 또는 토지 비교가격
+  caution: 건물 포함 총액과 구분; 산정근거 표시
+  external_visible: true
+- id: B009
+  canonical: 건물가격
+  grade: recommended
+  category: B
+  synonyms:
+  - 건물분
+  definition: 거래금액 중 건물에 배분한 가격
+  caution: 세무상 배분과 경제적 가치배분이 다를 수 있음
+  external_visible: true
+- id: B010
+  canonical: 부가가치세 별도
+  grade: official
+  category: B
+  synonyms:
+  - 부가세 별도
+  definition: 건물분 등에 대한 부가가치세가 표시금액에 포함되지 않았다는 뜻
+  caution: 과세대상·안분·포괄양수도 여부는 세무전문가 확인
+  external_visible: true
+- id: B011
+  canonical: 계약금
+  grade: official
+  category: B
+  synonyms:
+  - 계약보증금
+  definition: 계약 체결 때 지급하는 금액
+  caution: 임대차보증금과 구분
+  external_visible: true
+- id: B012
+  canonical: 중도금
+  grade: official
+  category: B
+  synonyms:
+  - 2차 대금
+  definition: 계약금과 잔금 사이에 지급하는 금액
+  caution: 지급조건과 권리변동 조건을 함께 적음
+  external_visible: true
+- id: B013
+  canonical: 잔금
+  grade: official
+  category: B
+  synonyms:
+  - 잔대금
+  definition: 최종 소유권 이전·인도와 연계하여 지급하는 나머지 대금
+  caution: 잔금일과 인도일이 같은지 확인
+  external_visible: true
+- id: B014
+  canonical: 거래예정금액
+  grade: official
+  category: B
+  synonyms:
+  - 예정가
+  definition: 중개계약·확인설명 단계에서 예정한 거래금액
+  caution: 최종 계약금액과 다를 수 있음
+  external_visible: true
+- id: B015
+  canonical: 평당 매도 희망가
+  grade: recommended
+  category: B
+  synonyms:
+  - 평당가
+  definition: 매도 희망가를 특정 면적의 평수로 나눈 값
+  caution: 반드시 분모를 `토지 3.3㎡당` 또는 `연면적 3.3㎡당`으로 표시
+  external_visible: true
+- id: B016
+  canonical: 토지 3.3㎡당 가격
+  grade: recommended
+  category: B
+  synonyms:
+  - 대지가
+  definition: 가격 ÷ 토지면적(평)
+  caution: 여러 필지면 포함 필지 전체 면적 기준인지 명시
+  external_visible: true
+- id: B017
+  canonical: 연면적 3.3㎡당 가격
+  grade: recommended
+  category: B
+  synonyms:
+  - 연면적 평당가
+  definition: 가격 ÷ 연면적(평)
+  caution: 공부상 연면적인지 실사용 추정면적인지 명시
+  external_visible: true
+- id: B018
+  canonical: 매각조건
+  grade: recommended
+  category: B
+  synonyms:
+  - 딜 조건
+  definition: 가격 외 인도·명도·임대차 승계·시설 포함 등을 아우르는 조건
+  caution: 한 문장으로 뭉뚱그리지 말고 항목별 표기
+  external_visible: true
+- id: B019
+  canonical: 현 상태 인도
+  grade: recommended
+  category: B
+  synonyms:
+  - As-is
+  definition: 계약 시 합의한 현재 상태로 인도하는 조건
+  caution: 하자·위반·잔존물에 대한 책임까지 자동 면제되는 것은 아님
+  external_visible: true
+- id: B020
+  canonical: 임대차 승계
+  grade: recommended
+  category: B
+  synonyms:
+  - 세입자 승계
+  definition: 매수인이 기존 임대인의 지위와 임대차관계를 이어받는 구조
+  caution: 보증금 반환채무·연체·분쟁·특약 확인
+  external_visible: true
+- id: B021
+  canonical: 명도조건부 매매
+  grade: recommended
+  category: B
+  synonyms:
+  - 명도 매매
+  definition: 특정 점유자를 퇴거시키거나 공간을 비워 인도하는 것을 조건으로 하는 매매
+  caution: 명도 주체·기한·비용·미이행 책임을 특약화
+  external_visible: true
+- id: B022
+  canonical: 포괄양수도
+  grade: conditional_expert
+  category: B
+  synonyms:
+  - 사업양수도
+  definition: 사업 관련 자산·부채 또는 지위를 포괄적으로 승계하는 거래구조
+  caution: 부동산 단순매매와 다르며 세무·법률 검토 필요
+  external_visible: true
+- id: C001
+  canonical: 소재지
+  grade: official
+  category: C
+  synonyms:
+  - 주소
+  definition: 토지·건물의 행정상 위치
+  caution: 지번주소와 도로명주소를 필요에 따라 병기
+  external_visible: true
+- id: C002
+  canonical: 지번
+  grade: official
+  category: C
+  synonyms:
+  - 번지
+  definition: 토지를 식별하는 법정 번호
+  caution: 다중 필지는 모든 본번·부번을 나열
+  external_visible: true
+- id: C003
+  canonical: 도로명주소
+  grade: official
+  category: C
+  synonyms:
+  - 신주소
+  definition: 도로명과 건물번호로 표시한 주소
+  caution: 토지 권리·공부 확인에는 지번도 필요
+  external_visible: true
+- id: C004
+  canonical: 필지
+  grade: official
+  category: C
+  synonyms:
+  - 토지 한 필
+  definition: 하나의 지번이 붙은 토지 등록단위
+  caution: 한 건물의 대지가 여러 필지일 수 있음
+  external_visible: true
+- id: C005
+  canonical: 다중 필지
+  grade: recommended
+  category: C
+  synonyms:
+  - 복수 필지
+  definition: 매각대상이 둘 이상의 필지로 이루어진 상태
+  caution: 필지별 소유자·지목·면적·권리·포함 여부를 표로 관리
+  external_visible: true
+- id: C006
+  canonical: 대표 필지
+  grade: recommended
+  category: C
+  synonyms:
+  - 대표지번
+  definition: 문서 제목·지도 검색에 대표로 쓰는 필지
+  caution: 대표 필지만 거래되는 것으로 오해되지 않게 전체 목록 병기
+  external_visible: true
+- id: C007
+  canonical: 매각대상 필지목록
+  grade: recommended
+  category: C
+  synonyms:
+  - 필지목록
+  definition: 거래에 포함되는 모든 필지의 목록
+  caution: 포함·제외·확인중 상태를 필지별 표시
+  external_visible: true
+- id: C008
+  canonical: 토지 고유번호
+  grade: official
+  category: C
+  synonyms:
+  - PNU
+  definition: 법정동코드와 지번 등으로 토지를 식별하는 고유번호
+  caution: 외부 문서에서는 지번을 주표기로, 시스템 연결키로 활용
+  external_visible: true
+- id: C009
+  canonical: 건물명
+  grade: official
+  category: C
+  synonyms:
+  - 빌딩명
+  definition: 건축물대장 또는 현장에서 쓰는 건물 명칭
+  caution: 공식 명칭인지 임의 브랜드명인지 구분
+  external_visible: true
+- id: C010
+  canonical: 동·호
+  grade: official
+  category: C
+  synonyms:
+  - 호실
+  definition: 집합건물 또는 여러 동의 세부 단위
+  caution: 전유부분과 실제 사용구획이 일치하는지 확인
+  external_visible: true
+- id: C011
+  canonical: 일반건축물
+  grade: official
+  category: C
+  synonyms:
+  - 통건물
+  definition: 구분소유가 아닌 일반 건축물대장으로 관리되는 건물
+  caution: 토지·건물 소유자가 다를 가능성 확인
+  external_visible: true
+- id: C012
+  canonical: 집합건물
+  grade: official
+  category: C
+  synonyms:
+  - 구분건물
+  definition: 여러 전유부분으로 나뉘어 구분소유되는 건물
+  caution: 표제부·전유부·대지권·관리규약을 함께 검토
+  external_visible: true
+- id: C013
+  canonical: 단일소유
+  grade: recommended
+  category: C
+  synonyms:
+  - 통소유
+  definition: 거래대상 토지·건물이 한 소유주에게 속하는 상태
+  caution: 공유지분이나 법인 소유인지 별도 확인
+  external_visible: true
+- id: C014
+  canonical: 공유
+  grade: official
+  category: C
+  synonyms:
+  - 공동소유
+  definition: 하나의 물건을 둘 이상이 지분으로 소유하는 상태
+  caution: 지분율과 전원 동의 필요 여부 확인
+  external_visible: true
+- id: C015
+  canonical: 지분매매
+  grade: official
+  category: C
+  synonyms:
+  - 지분거래
+  definition: 부동산 전체가 아닌 공유지분만 거래하는 것
+  caution: 전체 사용·처분권을 취득하는 것으로 표현하지 않음
+  external_visible: true
+- id: C016
+  canonical: 매각대상 범위
+  grade: recommended
+  category: C
+  synonyms:
+  - Asset Scope
+  definition: 필지·건물·부속시설·시설물·임대차·영업권 중 거래에 포함되는 것의 경계
+  caution: '`건물 일체` 같은 표현만 쓰지 말고 목록화'
+  external_visible: true
+- id: C017
+  canonical: 포함대상
+  grade: recommended
+  category: C
+  synonyms:
+  - 포함자산
+  definition: 매매대금에 포함되는 토지·건물·시설·권리
+  caution: 소유권과 처분권 증빙 확인
+  external_visible: true
+- id: C018
+  canonical: 제외대상
+  grade: recommended
+  category: C
+  synonyms:
+  - 제외자산
+  definition: 현장에 존재하지만 거래에서 빠지는 물건·시설·권리
+  caution: 철거·반출·원상복구 책임 표시
+  external_visible: true
+- id: C019
+  canonical: 부속토지
+  grade: official
+  category: C
+  synonyms:
+  - 부지
+  definition: 건물의 이용에 제공되는 관련 토지
+  caution: 건물 대지·주차장·통로의 권리관계 구분
+  external_visible: true
+- id: C020
+  canonical: 부속시설
+  grade: official
+  category: C
+  synonyms:
+  - 설비
+  definition: 주차장, 기계실, 승강기, 냉난방 등 건물 이용에 딸린 시설
+  caution: 소유·리스·임차·유지보수 계약 여부 확인
+  external_visible: true
+- id: D001
+  canonical: 토지대장
+  grade: official
+  category: D
+  synonyms:
+  - 토지대장등본
+  definition: 토지의 소재·지번·지목·면적·소유자 등을 등록한 지적공부
+  caution: 등기사항증명서와 소유자·면적이 다르면 불일치로 관리
+  external_visible: true
+- id: D002
+  canonical: 임야대장
+  grade: official
+  category: D
+  synonyms:
+  - 임야대장등본
+  definition: 임야의 소재·지번·지목·면적·소유자 등을 등록한 지적공부
+  caution: 지번 앞 `산` 여부를 정확히 기록
+  external_visible: true
+- id: D003
+  canonical: 지적도
+  grade: official
+  category: D
+  synonyms:
+  - 지적도면
+  definition: 토지의 경계·지번·지목 등을 나타내는 지적공부 도면
+  caution: 현장 담장·점유경계와 법적 경계가 같다고 단정하지 않음
+  external_visible: true
+- id: D004
+  canonical: 임야도
+  grade: official
+  category: D
+  synonyms:
+  - 임야도면
+  definition: 임야의 경계와 지번 등을 나타내는 지적공부 도면
+  caution: 측량성과를 대신하지 않음
+  external_visible: true
+- id: D005
+  canonical: 지목
+  grade: official
+  category: D
+  synonyms:
+  - 토지용도
+  definition: 토지대장에 등록된 토지의 주된 용도 분류
+  caution: 실제 이용상태나 용도지역과 다를 수 있음
+  external_visible: true
+- id: D006
+  canonical: 대
+  grade: official
+  category: D
+  synonyms:
+  - 대지
+  definition: 영구적 건축물의 부지 등으로 이용되는 토지의 지목
+  caution: 일상어 `대지`와 건축법상 대지 개념을 구분
+  external_visible: true
+- id: D007
+  canonical: 토지면적
+  grade: official
+  category: D
+  synonyms:
+  - 대지평수
+  definition: 토지대장 등에 등록된 필지 면적
+  caution: '`대지면적`과 다를 수 있어 출처 표기'
+  external_visible: true
+- id: D008
+  canonical: 대지면적
+  grade: official
+  category: D
+  synonyms:
+  - 사이트 면적
+  definition: 건축법상 건축할 수 있는 대지의 수평투영면적
+  caution: 도로편입·제외면적 등 산정조건 확인
+  external_visible: true
+- id: D009
+  canonical: 개별공시지가
+  grade: official
+  category: D
+  synonyms:
+  - 공시지가
+  definition: 시장·군수·구청장이 개별 토지에 공시한 ㎡당 가격
+  caution: 거래가격·시세가 아니며 기준연도 표시
+  external_visible: true
+- id: D010
+  canonical: 표준지공시지가
+  grade: official
+  category: D
+  synonyms:
+  - 표준지 가격
+  definition: 국토교통부가 표준지에 대해 공시하는 단위면적당 가격
+  caution: 개별 토지의 직접 거래가격처럼 사용하지 않음
+  external_visible: true
+- id: D011
+  canonical: 토지이용계획확인서
+  grade: official
+  category: D
+  synonyms:
+  - 토지이용계획확인원
+  - 토이계
+  definition: 지역·지구 등 지정과 행위제한 관련 사항을 확인하는 문서
+  caution: 열람 화면과 발급 확인서의 기준일·법적 효력 차이 확인
+  external_visible: true
+- id: D012
+  canonical: 지역·지구 등 지정여부
+  grade: official
+  category: D
+  synonyms:
+  - 지역지구
+  definition: 여러 법률에 따른 지정상태를 모은 항목
+  caution: 일부 지정만 발췌해 `개발 가능`으로 단정하지 않음
+  external_visible: true
+- id: D013
+  canonical: 용도지역
+  grade: official
+  category: D
+  synonyms:
+  - 지역
+  definition: 토지 이용·건축물 용도·건폐율·용적률 등을 관리하기 위한 지역 구분
+  caution: 도시지역·주거지역·상업지역 등 단계와 세분류를 정확히 표기
+  external_visible: true
+- id: D014
+  canonical: 용도지구
+  grade: official
+  category: D
+  synonyms:
+  - 지구
+  definition: 용도지역의 제한을 강화·완화하거나 경관·방재 등을 위해 정하는 지구
+  caution: 지구별 조례·행위제한 확인
+  external_visible: true
+- id: D015
+  canonical: 용도구역
+  grade: official
+  category: D
+  synonyms:
+  - 구역
+  definition: 시가지 확산 방지·개발 제한·계획적 관리 등을 위해 정하는 구역
+  caution: 용도지역과 다른 개념
+  external_visible: true
+- id: D016
+  canonical: 도시계획시설
+  grade: official
+  category: D
+  synonyms:
+  - 도계시설
+  definition: 도로·공원·학교 등 도시 기능에 필요한 기반시설로 결정된 시설
+  caution: 저촉 여부·결정고시·사업시행 상태 확인
+  external_visible: true
+- id: D017
+  canonical: 도시계획시설 저촉
+  grade: recommended
+  category: D
+  synonyms:
+  - 도로 저촉
+  - 공원 저촉
+  definition: 필지 일부 또는 전부가 도시계획시설 결정 범위에 포함된 상태
+  caution: 저촉면적과 실제 집행 여부를 구분
+  external_visible: true
+- id: D018
+  canonical: 지구단위계획구역
+  grade: official
+  category: D
+  synonyms:
+  - 지구단위
+  definition: 토지이용과 건축물 등을 구체적으로 관리하기 위한 계획구역
+  caution: 해당 지구단위계획 결정도서와 지침 확인
+  external_visible: true
+- id: D019
+  canonical: 토지거래계약 허가구역
+  grade: official
+  category: D
+  synonyms:
+  - 토지거래허가구역
+  - 토허제
+  definition: 일정 토지거래에 관할관청 허가를 요구하는 구역
+  caution: 대상자·용도·면적기준·지정기간이 수시로 달라질 수 있어 기준일 필수
+  external_visible: true
+- id: D020
+  canonical: 개발행위허가
+  grade: official
+  category: D
+  synonyms:
+  - 개발허가
+  definition: 토지 형질변경·건축물 건축 등 일정 개발행위에 필요한 허가
+  caution: 건축허가와 별도 또는 연계 절차일 수 있음
+  external_visible: true
+- id: D021
+  canonical: 접도
+  grade: recommended
+  category: D
+  synonyms:
+  - 도로 접함
+  definition: 대지가 도로에 접하는 상태
+  caution: 건축법상 도로인지, 접한 길이·너비가 얼마인지 구분
+  external_visible: true
+- id: D022
+  canonical: 건축법상 도로
+  grade: official
+  category: D
+  synonyms:
+  - 법정도로
+  definition: 건축법에서 건축허가 등의 기준이 되는 도로
+  caution: 현황도로·사도·통행로와 구분
+  external_visible: true
+- id: D023
+  canonical: 도로 너비
+  grade: recommended
+  category: D
+  synonyms:
+  - 도로폭
+  definition: 대지가 접한 도로의 폭
+  caution: 공부·지도·현장측정 중 출처를 표시
+  external_visible: true
+- id: D024
+  canonical: 접면 길이
+  grade: recommended
+  category: D
+  synonyms:
+  - 접도 길이
+  definition: 대지 경계 중 도로와 접하는 길이
+  caution: 추정값이면 도면 기준 추정임을 명시
+  external_visible: true
+- id: D025
+  canonical: 막다른 도로
+  grade: official
+  category: D
+  synonyms:
+  - 막다른길
+  definition: 한쪽 끝이 막힌 도로
+  caution: 길이별 필요 너비 등 별도 기준 검토
+  external_visible: true
+- id: D026
+  canonical: 도로 후퇴부분
+  grade: recommended
+  category: D
+  synonyms:
+  - 셋백
+  - 후퇴선
+  definition: 건축선 등으로 대지 일부를 도로 측으로 비워야 하는 부분
+  caution: 소유권 상실과 동일하지 않으며 산정면적 확인
+  external_visible: true
+- id: D027
+  canonical: 건축선
+  grade: official
+  category: D
+  synonyms:
+  - 건축한계선
+  definition: 도로와 대지의 관계 등에서 건축물을 넘어서 건축할 수 없도록 정한 선
+  caution: 지구단위계획상 건축한계선과 법정 건축선 구분
+  external_visible: true
+- id: D028
+  canonical: 맹지
+  grade: field_term
+  category: D
+  synonyms:
+  - 무접도 토지
+  definition: 통상 도로에 직접 접하지 않은 토지
+  caution: 법률상 효과를 단어 하나로 단정하지 말고 통행권·접도조건 확인
+  external_visible: true
+- id: D029
+  canonical: 일단지
+  grade: conditional_expert
+  category: D
+  synonyms:
+  - 하나의 대지
+  definition: 둘 이상의 필지를 하나의 건축대지로 취급하는 상태
+  caution: 공부·허가·현황상 범위를 반드시 확인
+  external_visible: true
+- id: E001
+  canonical: 건축물대장
+  grade: official
+  category: E
+  synonyms:
+  - 건축물관리대장
+  - 건대
+  definition: 건축물의 소재·구조·용도·면적·층수·소유자·변동 등을 기록한 공부
+  caution: 등기·현황과 불일치할 수 있음
+  external_visible: true
+- id: E002
+  canonical: 일반건축물대장
+  grade: official
+  category: E
+  synonyms:
+  - 일반대장
+  definition: 일반건축물에 관한 건축물대장
+  caution: 다중 건물이면 총괄표제부·동별 대장 확인
+  external_visible: true
+- id: E003
+  canonical: 집합건축물대장 표제부
+  grade: official
+  category: E
+  synonyms:
+  - 집합 표제부
+  definition: 집합건물 전체의 현황을 기록한 대장
+  caution: 개별 호실 권리는 전유부·등기 확인
+  external_visible: true
+- id: E004
+  canonical: 집합건축물대장 전유부
+  grade: official
+  category: E
+  synonyms:
+  - 전유부
+  definition: 집합건물 개별 전유부분의 면적·용도·소유자 등을 기록한 대장
+  caution: 실제 점포 경계와 일치 여부 확인
+  external_visible: true
+- id: E005
+  canonical: 건축물현황도
+  grade: official
+  category: E
+  synonyms:
+  - 평면도
+  - 현황도
+  definition: 건축물대장에 딸린 배치도·평면도 등
+  caution: 발급권한 제한 가능; 설계도서나 실측도와 다를 수 있음
+  external_visible: true
+- id: E006
+  canonical: 주용도
+  grade: official
+  category: E
+  synonyms:
+  - 건물용도
+  definition: 건축물대장에 기재된 건물의 주된 용도
+  caution: 층별 용도와 실제 영업업종을 구분
+  external_visible: true
+- id: E007
+  canonical: 층별 용도
+  grade: official
+  category: E
+  synonyms:
+  - 층용도
+  definition: 각 층에 허가·기재된 용도
+  caution: 실제 사용현황과 다르면 위반 가능성 검토
+  external_visible: true
+- id: E008
+  canonical: 사용현황
+  grade: recommended
+  category: E
+  synonyms:
+  - 실제용도
+  definition: 현장에서 관찰하거나 관계자가 진술한 실제 사용상태
+  caution: 공부상 용도와 분리하여 출처·확인일 표시
+  external_visible: true
+- id: E009
+  canonical: 근린생활시설
+  grade: official
+  category: E
+  synonyms:
+  - 근생
+  definition: 주민 생활에 필요한 시설군으로 건축법령상 제1종·제2종으로 나뉨
+  caution: 모든 소매·음식·사무 용도가 자동 허용되는 것은 아님
+  external_visible: true
+- id: E010
+  canonical: 업무시설
+  grade: official
+  category: E
+  synonyms:
+  - 오피스
+  definition: 사무소 등 건축법령상 업무 관련 시설
+  caution: 근린생활시설 사무소와 구분
+  external_visible: true
+- id: E011
+  canonical: 주구조
+  grade: official
+  category: E
+  synonyms:
+  - 구조
+  definition: 철근콘크리트조, 철골조 등 건축물의 주요 구조
+  caution: 약어만 쓰지 말고 건축물대장 표기를 따름
+  external_visible: true
+- id: E012
+  canonical: 지붕구조
+  grade: official
+  category: E
+  synonyms:
+  - 지붕
+  definition: 지붕의 구조·재료
+  caution: 옥상 활용 가능성과 동일하지 않음
+  external_visible: true
+- id: E013
+  canonical: 사용승인일
+  grade: official
+  category: E
+  synonyms:
+  - 준공일
+  definition: 건축물이 사용승인을 받은 날짜
+  caution: '`건축연도`·`리모델링일`과 구분; 현장어 준공일은 보조 표기 가능'
+  external_visible: true
+- id: E014
+  canonical: 건축연도
+  grade: official
+  category: E
+  synonyms:
+  - 준공연도
+  definition: 통계·자료에서 건축 시기를 연도로 표시한 값
+  caution: 정확한 날짜가 필요하면 사용승인일 사용
+  external_visible: true
+- id: E015
+  canonical: 건축면적
+  grade: official
+  category: E
+  synonyms:
+  - 바닥 건평
+  definition: 건축물 외벽 중심선 등 법정 방식으로 산정한 수평투영면적
+  caution: 1층 바닥면적과 항상 같지 않음
+  external_visible: true
+- id: E016
+  canonical: 바닥면적
+  grade: official
+  category: E
+  synonyms:
+  - 층면적
+  definition: 각 층 또는 그 일부의 수평투영면적을 법정 방식으로 산정한 면적
+  caution: 임대면적·전용면적과 구분
+  external_visible: true
+- id: E017
+  canonical: 연면적
+  grade: official
+  category: E
+  synonyms:
+  - 총면적
+  - 건물면적
+  definition: 하나의 건축물 각 층 바닥면적의 합계
+  caution: 용적률 산정용 연면적과 구분
+  external_visible: true
+- id: E018
+  canonical: 용적률 산정용 연면적
+  grade: official
+  category: E
+  synonyms:
+  - 용적률 연면적
+  definition: 지하층·일부 주차장 등 법령상 제외면적을 뺀 용적률 계산용 면적
+  caution: 건축물대장 총 연면적을 그대로 쓰지 않을 수 있음
+  external_visible: true
+- id: E019
+  canonical: 건폐율
+  grade: official
+  category: E
+  synonyms:
+  - 건폐
+  definition: 대지면적에 대한 건축면적의 비율
+  caution: 법정 허용한도와 현황 비율 구분
+  external_visible: true
+- id: E020
+  canonical: 용적률
+  grade: official
+  category: E
+  synonyms:
+  - 용적
+  definition: 대지면적에 대한 용적률 산정용 연면적의 비율
+  caution: 법정 상한·조례·지구단위계획·현황 비율을 구분
+  external_visible: true
+- id: E021
+  canonical: 법정 건폐율
+  grade: recommended
+  category: E
+  synonyms:
+  - 허용 건폐율
+  definition: 관련 법령·조례·계획에 따라 허용되는 건폐율
+  caution: 단일 숫자보다 적용근거와 전제 표시
+  external_visible: true
+- id: E022
+  canonical: 법정 용적률
+  grade: recommended
+  category: E
+  synonyms:
+  - 허용 용적률
+  definition: 관련 법령·조례·계획에 따라 허용되는 용적률
+  caution: 인센티브·도로·지구단위계획 조건 확인
+  external_visible: true
+- id: E023
+  canonical: 잔여 용적률
+  grade: conditional_expert
+  category: E
+  synonyms:
+  - 미사용 용적률
+  definition: 법정 가능 용적률과 현황 용적률의 차이를 토대로 한 잠재치
+  caution: 실제 증축 가능 면적이 아니며 구조·주차·사선·일조·인허가 검토 필요
+  external_visible: true
+- id: E024
+  canonical: 전용면적
+  grade: official
+  category: E
+  synonyms:
+  - 실면적
+  definition: 집합건물 등에서 구분소유자 또는 임차인이 독점 사용하는 부분의 면적
+  caution: 계약상 전용면적과 공부상 전유면적을 구분
+  external_visible: true
+- id: E025
+  canonical: 공용면적
+  grade: official
+  category: E
+  synonyms:
+  - 공용부
+  definition: 복도·계단·기계실 등 공동 사용 부분의 면적
+  caution: 배분기준을 표시
+  external_visible: true
+- id: E026
+  canonical: 계약면적
+  grade: recommended
+  category: E
+  synonyms:
+  - 분양면적
+  definition: 전용면적에 일정 공용면적 등을 더해 계약에 쓰는 면적
+  caution: 무엇을 더했는지 표시
+  external_visible: true
+- id: E027
+  canonical: 임대면적
+  grade: recommended
+  category: E
+  synonyms:
+  - 렌터블 면적
+  definition: 임대료 산정에 쓰는 계약상 면적
+  caution: 공부면적·전용면적과 다를 수 있어 계약서 기준 확인
+  external_visible: true
+- id: E028
+  canonical: 실사용면적
+  grade: caution
+  category: E
+  synonyms:
+  - 실평수
+  definition: 실제 사용한다고 보는 면적
+  caution: 실측인지 진술인지, 공용·무단증축 포함 여부를 명시
+  external_visible: false
+- id: E029
+  canonical: 지상층수
+  grade: official
+  category: E
+  synonyms:
+  - 지상 ○층
+  definition: 지표면 위의 층수
+  caution: 다락·옥탑·중층을 층으로 임의 계산하지 않음
+  external_visible: true
+- id: E030
+  canonical: 지하층수
+  grade: official
+  category: E
+  synonyms:
+  - 지하 ○층
+  definition: 법정 기준에 따른 지하층 수
+  caution: 반지하 등 현장 표현과 구분
+  external_visible: true
+- id: E031
+  canonical: 층고
+  grade: recommended
+  category: E
+  synonyms:
+  - 천장고
+  definition: 바닥부터 상부 구조체 또는 천장까지의 높이
+  caution: 구조층고·마감천장고 중 무엇인지 명시
+  external_visible: true
+- id: E032
+  canonical: 승강기
+  grade: official
+  category: E
+  synonyms:
+  - 엘리베이터
+  definition: 사람 또는 화물을 운반하는 설비
+  caution: 승객용·화물용·자동차용, 대수·용량·검사상태 구분
+  external_visible: true
+- id: E033
+  canonical: 주차대수
+  grade: official
+  category: E
+  synonyms:
+  - 주차
+  definition: 공부·허가 또는 현장상 주차 가능 대수
+  caution: '`공부상 ○대`, `현장 확인 ○대`로 출처 분리'
+  external_visible: true
+- id: E034
+  canonical: 기계식 주차
+  grade: official
+  category: E
+  synonyms:
+  - 기계주차
+  definition: 기계장치로 차량을 주차하는 시설
+  caution: 운행여부·차량규격·검사·관리비 확인
+  external_visible: true
+- id: E035
+  canonical: 자주식 주차
+  grade: recommended
+  category: E
+  synonyms:
+  - 자주차
+  definition: 운전자가 직접 주행해 주차하는 방식
+  caution: 통로·회전·실사용 가능 대수 확인
+  external_visible: true
+- id: E036
+  canonical: 냉난방 방식
+  grade: recommended
+  category: E
+  synonyms:
+  - 냉난방
+  definition: 개별·중앙·지역난방 등 냉난방 공급 방식
+  caution: 비용 부담주체와 운전상태 확인
+  external_visible: true
+- id: E037
+  canonical: 위반건축물
+  grade: official
+  category: E
+  synonyms:
+  - 불법건축물
+  - 위반건축
+  definition: 건축법령 위반으로 건축물대장에 표시되거나 행정상 관리되는 건축물
+  caution: '`불법` 단정 대신 위반 내용·면적·표시 여부·시정 가능성을 구분'
+  external_visible: true
+- id: E038
+  canonical: 무단증축 의심부분
+  grade: recommended
+  category: E
+  synonyms:
+  - 불법 확장
+  definition: 공부와 현황의 면적·형태가 달라 추가 확인이 필요한 부분
+  caution: 조사 전 `위반건축물`로 확정하지 않음
+  external_visible: true
+- id: E039
+  canonical: 용도변경
+  grade: official
+  category: E
+  synonyms:
+  - 용변
+  definition: 건축물의 용도를 다른 용도로 바꾸는 행위·절차
+  caution: 신고·허가·기재변경·주차 등 요건 확인
+  external_visible: true
+- id: E040
+  canonical: 대수선
+  grade: official
+  category: E
+  synonyms:
+  - 구조변경
+  definition: 주요 구조부 등에 대한 일정 범위의 수선·변경
+  caution: 일반 인테리어와 구분; 허가·신고 검토
+  external_visible: true
+- id: E041
+  canonical: 증축
+  grade: official
+  category: E
+  synonyms:
+  - 면적 증가
+  definition: 기존 건축물의 건축면적·연면적·층수·높이 등을 증가시키는 것
+  caution: 잔여 용적률만으로 가능 여부를 단정하지 않음
+  external_visible: true
+- id: E042
+  canonical: 개축
+  grade: official
+  category: E
+  synonyms:
+  - 다시 짓기
+  definition: 기존 건축물 전부 또는 일부를 철거하고 종전 규모 범위에서 다시 축조하는 것
+  caution: 신축·재축·대수선과 구분
+  external_visible: true
+- id: E043
+  canonical: 리모델링
+  grade: official
+  category: E
+  synonyms:
+  - 리뉴얼
+  definition: 건축물 노후화 억제 또는 기능 향상을 위한 대수선·증축 등의 행위
+  caution: 단순 인테리어와 법정 리모델링 개념을 구분
+  external_visible: true
+- id: F001
+  canonical: 등기사항증명서
+  grade: official
+  category: F
+  synonyms:
+  - 등기부등본
+  - 등기부
+  definition: 부동산의 표시와 소유권·담보 등 등기사항을 증명하는 문서
+  caution: 외부 문서 제목에는 공식 명칭 권장; 발급일 표시
+  external_visible: true
+- id: F002
+  canonical: 표제부
+  grade: official
+  category: F
+  synonyms:
+  - 물건표시
+  definition: 등기기록에서 토지·건물의 표시를 적은 부분
+  caution: 건축물대장과 면적·구조 불일치 확인
+  external_visible: true
+- id: F003
+  canonical: 갑구
+  grade: official
+  category: F
+  synonyms:
+  - 소유권란
+  definition: 소유권에 관한 등기사항이 기록되는 부분
+  caution: 압류·가압류·가처분·예고등기 등도 확인
+  external_visible: true
+- id: F004
+  canonical: 을구
+  grade: official
+  category: F
+  synonyms:
+  - 근저당란
+  definition: 소유권 외 권리 등이 기록되는 부분
+  caution: 근저당권뿐 아니라 전세권·지상권 등 확인
+  external_visible: true
+- id: F005
+  canonical: 소유권
+  grade: official
+  category: F
+  synonyms:
+  - 명의
+  definition: 물건을 사용·수익·처분할 수 있는 권리
+  caution: 명의신탁 등 법률문제는 전문가 검토
+  external_visible: true
+- id: F006
+  canonical: 소유권이전등기
+  grade: official
+  category: F
+  synonyms:
+  - 명의이전
+  definition: 매매 등으로 소유권이 바뀐 사실을 등기에 반영하는 것
+  caution: 계약체결만으로 등기 완료라고 표현하지 않음
+  external_visible: true
+- id: F007
+  canonical: 공유지분
+  grade: official
+  category: F
+  synonyms:
+  - 지분
+  definition: 공유자별 소유비율
+  caution: 물리적 특정 부분의 소유와 동일하지 않음
+  external_visible: true
+- id: F008
+  canonical: 대지권
+  grade: official
+  category: F
+  synonyms:
+  - 토지지분
+  definition: 집합건물 전유부분과 결합된 대지사용권이 등기된 형태
+  caution: 대지권 종류·비율·미등기 여부 확인
+  external_visible: true
+- id: F009
+  canonical: 대지사용권
+  grade: official
+  category: F
+  synonyms:
+  - 대지권
+  definition: 구분소유자가 전유부분 소유를 위해 건물 대지에 가지는 권리
+  caution: 등기된 `대지권`과 법률상 개념을 구분
+  external_visible: true
+- id: F010
+  canonical: 전유부분
+  grade: official
+  category: F
+  synonyms:
+  - 전용부분
+  definition: 구분소유권의 목적인 건물부분
+  caution: 임차인의 전용사용공간과 같은 뜻이 아님
+  external_visible: true
+- id: F011
+  canonical: 공용부분
+  grade: official
+  category: F
+  synonyms:
+  - 공용부
+  definition: 전유부분 외 공동사용되는 건물부분 등
+  caution: 임의 전용사용권이 있는지 규약·약정 확인
+  external_visible: true
+- id: F012
+  canonical: 구분소유권
+  grade: official
+  category: F
+  synonyms:
+  - 호실 소유권
+  definition: 집합건물의 독립된 전유부분을 목적으로 하는 소유권
+  caution: 물리적으로 나뉜 점포가 모두 등기상 구분소유인 것은 아님
+  external_visible: true
+- id: F013
+  canonical: 저당권
+  grade: official
+  category: F
+  synonyms:
+  - 담보권
+  definition: 채권 담보를 위해 부동산에서 우선변제를 받을 수 있는 권리
+  caution: 근저당권과 구분
+  external_visible: true
+- id: F014
+  canonical: 근저당권
+  grade: official
+  category: F
+  synonyms:
+  - 근저당
+  definition: 계속적 거래에서 일정 최고액까지 담보하는 저당권
+  caution: 실제 대출잔액과 같지 않음
+  external_visible: true
+- id: F015
+  canonical: 채권최고액
+  grade: official
+  category: F
+  synonyms:
+  - 근저당 설정액
+  definition: 근저당권이 담보하는 채권의 최고한도
+  caution: '`대출금`으로 쓰지 않음; 실제 채무잔액 별도 확인'
+  external_visible: true
+- id: F016
+  canonical: 실제 대출잔액
+  grade: recommended
+  category: F
+  synonyms:
+  - 대출잔액
+  definition: 특정 기준일 현재 남은 대출 원금 등
+  caution: 금융기관 잔액증명 등 확인 전 매도인 진술로 표시
+  external_visible: true
+- id: F017
+  canonical: 전세권
+  grade: official
+  category: F
+  synonyms:
+  - 전세권 설정
+  definition: 전세금을 지급하고 부동산을 사용·수익하며 등기한 권리
+  caution: 일반 임대차의 전세보증금과 구분
+  external_visible: true
+- id: F018
+  canonical: 임차권
+  grade: official
+  category: F
+  synonyms:
+  - 임대차 권리
+  definition: 임대차계약에 따라 목적물을 사용·수익하는 권리
+  caution: 등기 여부·대항력 등 법률효과는 별도 검토
+  external_visible: true
+- id: F019
+  canonical: 지상권
+  grade: official
+  category: F
+  synonyms:
+  - 토지사용권
+  definition: 다른 사람의 토지에 건물 등을 소유하기 위한 물권
+  caution: 존속기간·범위·지료 확인
+  external_visible: true
+- id: F020
+  canonical: 지역권
+  grade: official
+  category: F
+  synonyms:
+  - 통행지역권
+  definition: 일정 목적을 위해 다른 토지를 자기 토지 편익에 이용하는 권리
+  caution: 단순 관행상 통행과 구분
+  external_visible: true
+- id: F021
+  canonical: 가압류
+  grade: official
+  category: F
+  synonyms:
+  - 보전압류
+  definition: 금전채권 집행을 보전하기 위한 임시 처분
+  caution: 말소조건·피보전채권 확인
+  external_visible: true
+- id: F022
+  canonical: 압류
+  grade: official
+  category: F
+  synonyms:
+  - 재산압류
+  definition: 강제집행·체납처분 등을 위해 처분을 제한하는 조치
+  caution: 원인·권리자·해제조건 확인
+  external_visible: true
+- id: F023
+  canonical: 가처분
+  grade: official
+  category: F
+  synonyms:
+  - 처분금지가처분
+  definition: 권리관계 보전을 위해 처분 등을 임시 제한하는 조치
+  caution: 매매·이전 가능 여부 전문가 확인
+  external_visible: true
+- id: F024
+  canonical: 신탁등기
+  grade: official
+  category: F
+  synonyms:
+  - 신탁물건
+  definition: 소유권이 수탁자에게 이전되고 신탁관계가 등기된 상태
+  caution: 등기사항증명서만 보지 말고 신탁원부와 수탁자 동의·처분권한 확인
+  external_visible: true
+- id: F025
+  canonical: 신탁원부
+  grade: official
+  category: F
+  synonyms:
+  - 신탁계약 내용
+  definition: 신탁 목적·수익자·처분권한 등 신탁관계를 기록한 자료
+  caution: 개인정보 취급 및 최신성 유의
+  external_visible: true
+- id: F026
+  canonical: 말소조건
+  grade: recommended
+  category: F
+  synonyms:
+  - 잔금 시 말소
+  definition: 담보·압류 등 특정 권리를 거래 과정에서 없애는 조건
+  caution: 대상 권리·기한·비용·동시이행 방법을 특약화
+  external_visible: true
+- id: F027
+  canonical: 법정지상권 가능성
+  grade: conditional_expert
+  category: F
+  synonyms:
+  - 법정지상권 이슈
+  definition: 토지·건물 소유관계 변화 등으로 지상권이 성립할 가능성
+  caution: 중개인이 확정 판단하지 말고 법률검토 필요사항으로 표시
+  external_visible: true
+- id: F028
+  canonical: 유치권 주장
+  grade: official
+  category: F
+  synonyms:
+  - 유치권
+  definition: 점유자가 채권 변제를 받을 때까지 물건 반환을 거절할 권리를 주장하는 상태
+  caution: 성립 여부를 단정하지 말고 점유·채권·관련 서류 확인
+  external_visible: true
+- id: F029
+  canonical: 권리분석
+  grade: recommended
+  category: F
+  synonyms:
+  - 등기분석
+  definition: 등기·점유·계약·공법 제한을 종합해 거래 위험을 확인하는 작업
+  caution: 법률의견과 동일하지 않으며 전문가 검토 필요 범위 표시
+  external_visible: true
+- id: G001
+  canonical: 임대차 현황표
+  grade: recommended
+  category: G
+  synonyms:
+  - 렌트롤
+  - Rent Roll
+  - 임대현황
+  definition: 층·호실별 임차인, 업종, 면적, 보증금, 임대료, 관리비, 계약기간, 점유상태 등을 정리한 표
+  caution: 자료가 없는 칸을 추정으로 채우지 말고 `미제공·미확인·해당없음` 구분
+  external_visible: true
+- id: G002
+  canonical: 임대차계약서
+  grade: official
+  category: G
+  synonyms:
+  - 임대계약서
+  definition: 임대인과 임차인이 임대목적물·기간·보증금·차임·관리비·특약 등을 정한 계약서
+  caution: 원본·사본·갱신계약·변경합의서를 구분
+  external_visible: true
+- id: G003
+  canonical: 임대차 목적물
+  grade: official
+  category: G
+  synonyms:
+  - 임대공간
+  definition: 임차인이 계약에 따라 사용하는 층·호실·구획
+  caution: 공부상 호실과 현장 구획이 다를 수 있음
+  external_visible: true
+- id: G004
+  canonical: 임차구획
+  grade: recommended
+  category: G
+  synonyms:
+  - 점포
+  - 호실
+  definition: 임대차 현황표에서 한 계약 또는 점유단위로 관리하는 공간
+  caution: 한 층을 여러 구획으로 나눴다면 구획기준을 표시
+  external_visible: true
+- id: G005
+  canonical: 점유자
+  grade: official
+  category: G
+  synonyms:
+  - 사용자
+  definition: 실제로 공간을 점유·사용하는 사람 또는 법인
+  caution: 계약상 임차인·전차인·무상사용자와 구분
+  external_visible: true
+- id: G006
+  canonical: 임차업종
+  grade: recommended
+  category: G
+  synonyms:
+  - 업종
+  - 테넌트 업종
+  definition: 임차인이 영위하는 사업의 종류
+  caution: 건축물 용도와 영업 인허가 가능성을 혼동하지 않음
+  external_visible: true
+- id: G007
+  canonical: 상호
+  grade: official
+  category: G
+  synonyms:
+  - 가게명
+  definition: 영업에 사용하는 명칭
+  caution: 법인명·계약자명과 다를 수 있고 개인정보 공개범위 확인
+  external_visible: true
+- id: G008
+  canonical: 임대보증금
+  grade: official
+  category: G
+  synonyms:
+  - 보증금
+  definition: 임대차 채무를 담보하기 위해 임차인이 맡기는 금액
+  caution: 매매계약금·전세권 전세금과 구분
+  external_visible: true
+- id: G009
+  canonical: 월 기본임대료
+  grade: recommended
+  category: G
+  synonyms:
+  - 월세
+  - 월차임
+  - 임대료
+  definition: 관리비·부가가치세를 제외한 월 정액 임대료
+  caution: 부가세 포함 여부와 무상임대기간 반영 여부 표시
+  external_visible: true
+- id: G010
+  canonical: 차임
+  grade: official
+  category: G
+  synonyms:
+  - 임대료
+  - 월세
+  definition: 임차인이 사용·수익 대가로 지급하는 금전 등
+  caution: 법률·계약 문맥에 쓰고 현황표에는 `월 기본임대료` 권장
+  external_visible: true
+- id: G011
+  canonical: 월 관리비
+  grade: recommended
+  category: G
+  synonyms:
+  - 관리비
+  definition: 임차인이 임대료 외에 매월 부담하는 관리 관련 금액
+  caution: 정액·실비·전기수도 포함 여부와 부가세 구분
+  external_visible: true
+- id: G012
+  canonical: 실비정산 관리비
+  grade: recommended
+  category: G
+  synonyms:
+  - 실비관리비
+  definition: 실제 사용량·발생비용에 따라 정산하는 관리비
+  caution: 고정수입처럼 합산하지 않음
+  external_visible: true
+- id: G013
+  canonical: 공용관리비
+  grade: recommended
+  category: G
+  synonyms:
+  - CAM
+  definition: 공용공간·공용설비 유지 등에 드는 비용을 임차인에게 배분한 금액
+  caution: 배분기준과 임대인 부담분 확인
+  external_visible: true
+- id: G014
+  canonical: 부가가치세
+  grade: official
+  category: G
+  synonyms:
+  - 부가세
+  - VAT
+  definition: 재화·용역 공급에 부과되는 세금
+  caution: 임대료·관리비에 포함인지 별도인지 표시; 세무처리는 전문가 확인
+  external_visible: true
+- id: G015
+  canonical: 계약개시일
+  grade: recommended
+  category: G
+  synonyms:
+  - 입주일
+  - 시작일
+  definition: 임대차 계약기간이 시작되는 날
+  caution: 실제 입점일·임대료 발생일과 다를 수 있음
+  external_visible: true
+- id: G016
+  canonical: 계약만료일
+  grade: recommended
+  category: G
+  synonyms:
+  - 만기일
+  definition: 임대차 계약기간이 끝나는 날
+  caution: 갱신합의·묵시갱신 여부 확인
+  external_visible: true
+- id: G017
+  canonical: 임대차기간
+  grade: official
+  category: G
+  synonyms:
+  - 계약기간
+  definition: 계약개시일부터 계약만료일까지의 기간
+  caution: 최초 계약기간과 전체 존속기간 구분
+  external_visible: true
+- id: G018
+  canonical: 잔여 임대차기간
+  grade: recommended
+  category: G
+  synonyms:
+  - 잔여기간
+  definition: 기준일에서 계약만료일까지 남은 기간
+  caution: 기준일을 반드시 표시
+  external_visible: true
+- id: G019
+  canonical: 계약갱신
+  grade: official
+  category: G
+  synonyms:
+  - 재계약
+  - 연장
+  definition: 기존 임대차를 계속하도록 기간·조건을 갱신하는 것
+  caution: 신규계약·변경계약·묵시갱신을 구분
+  external_visible: true
+- id: G020
+  canonical: 계약갱신요구권
+  grade: official
+  category: G
+  synonyms:
+  - 갱신요구권
+  definition: 법정 요건 아래 임차인이 계약갱신을 요구할 수 있는 권리
+  caution: 행사 가능 여부·기간·거절사유는 개별 법률검토 필요
+  external_visible: true
+- id: G021
+  canonical: 묵시적 갱신
+  grade: official
+  category: G
+  synonyms:
+  - 자동연장
+  definition: 기간 만료 후 당사자 명시 합의 없이 법률상 또는 계약상 임대차가 이어지는 상태
+  caution: 법 적용과 계약특약을 확인
+  external_visible: true
+- id: G022
+  canonical: 임대료 인상률
+  grade: recommended
+  category: G
+  synonyms:
+  - 렌트 인상률
+  definition: 직전 임대료 대비 인상된 비율
+  caution: 계약상 인상률·실제 인상률·법정 제한을 구분
+  external_visible: true
+- id: G023
+  canonical: 임대료 인상시점
+  grade: recommended
+  category: G
+  synonyms:
+  - 인상일
+  definition: 계약에 따라 임대료가 바뀌는 날
+  caution: 산식과 적용기간 표시
+  external_visible: true
+- id: G024
+  canonical: 무상임대기간
+  grade: recommended
+  category: G
+  synonyms:
+  - 렌트프리
+  - Rent-free
+  definition: 일정 기간 기본임대료를 받지 않기로 한 조건
+  caution: 관리비 면제 여부와 회계상 평준화 여부 구분
+  external_visible: true
+- id: G025
+  canonical: 임차인 공사기간
+  grade: recommended
+  category: G
+  synonyms:
+  - 핏아웃 기간
+  definition: 임차인이 내부공사를 하는 기간
+  caution: 무상임대기간과 같지 않을 수 있음
+  external_visible: true
+- id: G026
+  canonical: 임차인 공사지원금
+  grade: conditional_expert
+  category: G
+  synonyms:
+  - TI
+  - 인테리어 지원금
+  definition: 임대인이 임차인의 내부공사 비용 일부를 지원하는 금액
+  caution: 지급조건·상각·중도해지 반환조건 확인
+  external_visible: true
+- id: G027
+  canonical: 권리금
+  grade: official
+  category: G
+  synonyms:
+  - 바닥권리금
+  - 시설권리금
+  - 영업권리금
+  definition: 영업시설·비품·거래처·신용·입지상 이점 등 유형·무형 가치의 양도 또는 이용 대가
+  caution: 건물 매매대금·임대보증금과 별도이며, 회수기회 보호 등 법률 쟁점 확인
+  external_visible: true
+- id: G028
+  canonical: 전대차
+  grade: official
+  category: G
+  synonyms:
+  - 재임대
+  - 서브리스
+  definition: 임차인이 임차 목적물 전부 또는 일부를 제3자에게 다시 임대하는 계약
+  caution: 임대인 동의·계약상 금지·전차인 현황 확인
+  external_visible: true
+- id: G029
+  canonical: 무상사용
+  grade: recommended
+  category: G
+  synonyms:
+  - 무상임대
+  definition: 대가 없이 공간을 사용하게 하는 관계
+  caution: 특수관계자 사용, 사용대차계약, 비용 부담을 확인
+  external_visible: true
+- id: G030
+  canonical: 소유자 사용
+  grade: recommended
+  category: G
+  synonyms:
+  - 자가사용
+  definition: 소유자 또는 관계회사가 직접 사용하는 공간
+  caution: 임대수입이 발생하는 임차공간으로 계산하지 않음
+  external_visible: true
+- id: G031
+  canonical: 공실
+  grade: recommended
+  category: G
+  synonyms:
+  - 빈 점포
+  definition: 임대 가능한 공간이 비어 있는 상태
+  caution: 공사중·소유자사용·임대불가면적과 구분
+  external_visible: true
+- id: G032
+  canonical: 공실면적
+  grade: recommended
+  category: G
+  synonyms:
+  - 빈 면적
+  definition: 기준일 현재 임대 가능하지만 임차되지 않은 면적
+  caution: 임대면적 기준을 명시
+  external_visible: true
+- id: G033
+  canonical: 공실률
+  grade: official
+  category: G
+  synonyms:
+  - Vacancy Rate
+  definition: 공실면적을 임대가능면적으로 나눈 비율
+  caution: 한국부동산원 통계와 개별 건물 산식이 같지 않을 수 있어 분모 표시
+  external_visible: true
+- id: G034
+  canonical: 임대가능면적
+  grade: recommended
+  category: G
+  synonyms:
+  - 임대대상면적
+  definition: 임대할 수 있는 전체 면적
+  caution: 공용부·기계실·소유자사용 면적 포함 여부 표시
+  external_visible: true
+- id: G035
+  canonical: 임대율
+  grade: recommended
+  category: G
+  synonyms:
+  - 점유율
+  definition: 임대가능면적 중 임대된 면적의 비율
+  caution: 임차계약 체결과 실제 영업·입주를 구분
+  external_visible: true
+- id: G036
+  canonical: 만실
+  grade: field_term
+  category: G
+  synonyms:
+  - 풀 임대
+  definition: 공실 없이 전부 임대됐다는 표현
+  caution: 기준일·임대가능면적·계약 및 점유 확인 없이는 사용하지 않음
+  external_visible: true
+- id: G037
+  canonical: 연체차임
+  grade: official
+  category: G
+  synonyms:
+  - 미납임대료
+  definition: 지급기일이 지났으나 받지 못한 차임
+  caution: 금액·기간·회수가능성·분쟁 여부 확인
+  external_visible: true
+- id: G038
+  canonical: 보증금 증감
+  grade: recommended
+  category: G
+  synonyms:
+  - 보증금 조정
+  definition: 갱신·변경에 따른 보증금 변화
+  caution: 현재 유효한 금액과 과거 금액 구분
+  external_visible: true
+- id: G039
+  canonical: 임대차보증금 합계
+  grade: recommended
+  category: G
+  synonyms:
+  - 총보증금
+  definition: 유효한 임대차별 보증금의 합계
+  caution: 반환채무 기준이며, 계약 누락·상계·연체를 별도 표시
+  external_visible: true
+- id: G040
+  canonical: 보증금 환산액
+  grade: conditional_expert
+  category: G
+  synonyms:
+  - 월세 환산보증금
+  definition: 차임을 일정 비율로 보증금화한 금액
+  caution: 상가임대차법상 `환산보증금`과 투자분석 환산액을 구분
+  external_visible: true
+- id: G041
+  canonical: 환산보증금
+  grade: official
+  category: G
+  synonyms:
+  - 보증금 환산
+  definition: 상가건물 임대차보호법 적용범위 등에서 보증금과 차임 환산액을 합친 법정 개념
+  caution: 적용 환산율·지역별 기준·기준일을 확인
+  external_visible: true
+- id: G042
+  canonical: 가중평균 잔여 임대차기간
+  grade: conditional_expert
+  category: G
+  synonyms:
+  - WALE
+  definition: 임대료 또는 면적 등 가중치로 계산한 평균 잔여기간
+  caution: 가중기준·기준일·제외계약을 표시; 자료 완전형에서만 권장
+  external_visible: true
+- id: G043
+  canonical: 임차인 집중도
+  grade: conditional_expert
+  category: G
+  synonyms:
+  - 테넌트 집중
+  definition: 특정 임차인이 임대수입·면적에서 차지하는 비중
+  caution: 계약자 기준인지 브랜드·계열사 기준인지 표시
+  external_visible: true
+- id: G044
+  canonical: 임차업종 구성
+  grade: recommended
+  category: G
+  synonyms:
+  - 테넌트 믹스
+  definition: 건물 내 업종의 조합과 비중
+  caution: '`우량` 같은 평가어는 근거 없이 쓰지 않음'
+  external_visible: true
+- id: G045
+  canonical: 임대차 확인수준 없음
+  grade: internal_only
+  category: G
+  synonyms:
+  - RR0
+  definition: 임대차 자료가 없어 임대 관련 외부 주장을 할 수 없는 상태
+  caution: 외부 표에는 `임대차 자료 미제공`으로 표시
+  external_visible: false
+- id: G046
+  canonical: 최소 임대차 정보
+  grade: internal_only
+  category: G
+  synonyms:
+  - RR1
+  definition: 층·호실, 점유, 보증금, 기본임대료 정도가 있는 상태
+  caution: 계약기간·관리비가 없으면 해당 분석 차단
+  external_visible: false
+- id: G047
+  canonical: 표준 임대차 정보
+  grade: internal_only
+  category: G
+  synonyms:
+  - RR2
+  definition: 최소 정보에 관리비와 주요 점유정보가 더해진 상태
+  caution: 임대수입 합계의 포함범위 표시
+  external_visible: false
+- id: G048
+  canonical: 완전 임대차 정보
+  grade: internal_only
+  category: G
+  synonyms:
+  - RR3
+  definition: 계약기간·증빙·세무계산 정보까지 갖춘 상태
+  caution: '`완전`은 영구 품질보증이 아니라 기준일 현재 필수필드 충족 의미'
+  external_visible: false
+- id: H001
+  canonical: 월 기본임대료 합계
+  grade: recommended
+  category: H
+  synonyms:
+  - 월세 합계
+  definition: 유효한 임대차의 월 기본임대료 총액
+  caution: 공실 가정, 부가세, 관리비, 무상임대기간 포함 여부 표시
+  external_visible: true
+- id: H002
+  canonical: 월 관리비 합계
+  grade: recommended
+  category: H
+  synonyms:
+  - 관리비 합계
+  definition: 정액 등 수입으로 볼 수 있는 월 관리비 총액
+  caution: 실비정산액을 고정수입처럼 합산하지 않음
+  external_visible: true
+- id: H003
+  canonical: 월 임대수입 합계
+  grade: recommended
+  category: H
+  synonyms:
+  - 월수입
+  definition: 기본임대료와 포함하기로 한 관리비 등 월 임대 관련 수입의 합계
+  caution: 구성항목을 표 하단에 명시
+  external_visible: true
+- id: H004
+  canonical: 연 기본임대료 합계
+  grade: recommended
+  category: H
+  synonyms:
+  - 연임대료
+  definition: 월 기본임대료 합계의 연간 환산 또는 실제 연간 금액
+  caution: '`월액×12`인지 실제 계약기간 합계인지 표시'
+  external_visible: true
+- id: H005
+  canonical: 총잠재임대수입
+  grade: conditional_expert
+  category: H
+  synonyms:
+  - GPI
+  - PGI
+  definition: 전 공간이 목표 임대료로 임대됐다고 가정한 총수입
+  caution: 공실·무상임대·회수불능을 반영하기 전 금액
+  external_visible: true
+- id: H006
+  canonical: 공실 및 회수손실
+  grade: conditional_expert
+  category: H
+  synonyms:
+  - Vacancy & Credit Loss
+  definition: 공실과 임대료 미회수로 예상되는 수입 감소
+  caution: 현재 사실과 분석가정을 분리
+  external_visible: true
+- id: H007
+  canonical: 유효총수입
+  grade: conditional_expert
+  category: H
+  synonyms:
+  - EGI
+  definition: 총잠재수입에서 공실·회수손실을 빼고 기타수입을 더한 금액
+  caution: 산식과 기타수입 항목 표시
+  external_visible: true
+- id: H008
+  canonical: 기타수입
+  grade: recommended
+  category: H
+  synonyms:
+  - 부대수입
+  definition: 광고판·주차·자판기·옥상통신시설 등 기본임대료 외 수입
+  caution: 계약·지급증빙·지속가능성 확인
+  external_visible: true
+- id: H009
+  canonical: 운영비
+  grade: recommended
+  category: H
+  synonyms:
+  - OPEX
+  definition: 건물 운영에 반복적으로 드는 비용
+  caution: 매수자 금융비용·법인세·감가상각 등 포함 여부 명시
+  external_visible: true
+- id: H010
+  canonical: 임대인 부담 운영비
+  grade: recommended
+  category: H
+  synonyms:
+  - 건물주 부담비
+  definition: 재산세·보험·수선·청소·공용전기 등 임대인이 부담하는 비용
+  caution: 회수 가능 관리비와 중복 차감하지 않음
+  external_visible: true
+- id: H011
+  canonical: 임차인 부담비용
+  grade: recommended
+  category: H
+  synonyms:
+  - 세입자 부담
+  definition: 전기·수도·가스·관리비·일부 수선 등 임차인이 부담하는 비용
+  caution: 계약별로 다르므로 일괄 가정하지 않음
+  external_visible: true
+- id: H012
+  canonical: 공용전기료
+  grade: recommended
+  category: H
+  synonyms:
+  - 공용 전기
+  definition: 계단·승강기·외부조명 등 공용부 전기비
+  caution: 임차인에게 전액 회수되는지 확인
+  external_visible: true
+- id: H013
+  canonical: 수도광열비
+  grade: official
+  category: H
+  synonyms:
+  - 유틸리티
+  definition: 수도·전기·가스·열 등 사용비
+  caution: 계량기 분리·정산방식 확인
+  external_visible: true
+- id: H014
+  canonical: 시설유지비
+  grade: recommended
+  category: H
+  synonyms:
+  - 유지보수비
+  definition: 승강기·소방·기계식주차 등 시설의 정기 관리비
+  caution: 일회성 대수선비와 구분
+  external_visible: true
+- id: H015
+  canonical: 수선비
+  grade: official
+  category: H
+  synonyms:
+  - 보수비
+  definition: 원상회복·기능유지를 위한 비용
+  caution: 자본적 지출과 구분 기준 표시
+  external_visible: true
+- id: H016
+  canonical: 보험료
+  grade: official
+  category: H
+  synonyms:
+  - 화재보험료
+  definition: 건물·배상책임 등 보험을 유지하는 비용
+  caution: 보험종류·보장범위·기간 확인
+  external_visible: true
+- id: H017
+  canonical: 재산세
+  grade: official
+  category: H
+  synonyms:
+  - 보유세
+  definition: 부동산 보유에 부과되는 지방세
+  caution: 도시지역분 등 포함범위와 기준연도 확인
+  external_visible: true
+- id: H018
+  canonical: 종합부동산세
+  grade: official
+  category: H
+  synonyms:
+  - 종부세
+  definition: 일정 기준을 초과하는 부동산 보유자에게 부과되는 국세
+  caution: 소유자별 과세라 개별 자산 운영비로 단순 배분 시 주의
+  external_visible: true
+- id: H019
+  canonical: 운영비 회수액
+  grade: conditional_expert
+  category: H
+  synonyms:
+  - 비용전가액
+  - Recoveries
+  definition: 임대인이 부담한 운영비 중 임차인에게 회수하는 금액
+  caution: 관리비 수입과 중복 계산 금지
+  external_visible: true
+- id: H020
+  canonical: 순영업소득
+  grade: official
+  category: H
+  synonyms:
+  - NOI
+  definition: 유효총수입에서 통상적인 운영비를 뺀 부동산 영업소득
+  caution: 이자·법인세·감가상각·자본적 지출 포함 여부를 명시; 단순 월세합계와 다름
+  external_visible: true
+- id: H021
+  canonical: 자본적 지출
+  grade: conditional_expert
+  category: H
+  synonyms:
+  - CAPEX
+  - 시설개선비
+  definition: 건물의 내용연수·가치·기능을 높이기 위한 비교적 큰 지출
+  caution: 일반 운영비와 구분; 예상액은 견적·전제 표시
+  external_visible: true
+- id: H022
+  canonical: 예비비
+  grade: recommended
+  category: H
+  synonyms:
+  - 리저브
+  definition: 향후 수선·교체·공실 등에 대비해 반영한 금액
+  caution: 현금적립인지 분석상 비용인지 구분
+  external_visible: true
+- id: H023
+  canonical: 보증금 운용수익
+  grade: conditional_expert
+  category: H
+  synonyms:
+  - 보증금 이자
+  definition: 임대보증금을 운용한다고 가정한 수익
+  caution: 법정 환산·실제 금융수익과 구분; 분석가정 명시
+  external_visible: true
+- id: H024
+  canonical: 체납관리비
+  grade: recommended
+  category: H
+  synonyms:
+  - 관리비 미납
+  definition: 지급기일이 지났으나 납부되지 않은 관리비
+  caution: 승계·회수주체·금액 확인
+  external_visible: true
+- id: H025
+  canonical: 정상화 수입
+  grade: conditional_expert
+  category: H
+  synonyms:
+  - 안정화 수입
+  definition: 공실 해소·임대료 조정 이후 안정된 상태를 가정한 수입
+  caution: 현재수입과 같은 표에서 혼용하지 않고 시나리오로 분리
+  external_visible: true
+- id: I001
+  canonical: 단순 임대수익률
+  grade: recommended
+  category: I
+  synonyms:
+  - 표면수익률
+  - Gross Yield
+  definition: '`연 기본임대료 또는 명시한 연 임대수입 ÷ (매도 희망가-승계 임대보증금)` 등 문서가 정한 단순 산식'
+  caution: 분자·분모가 업계마다 달라 반드시 식을 함께 표시
+  external_visible: true
+- id: I002
+  canonical: 매도 희망가 기준 단순수익률
+  grade: recommended
+  category: I
+  synonyms:
+  - 호가수익률
+  definition: '`연 기본임대료 ÷ 매도 희망가`'
+  caution: 보증금 차감형 수익률과 구분
+  external_visible: true
+- id: I003
+  canonical: 실투자금 기준 단순수익률
+  grade: recommended
+  category: I
+  synonyms:
+  - 실투자수익률
+  definition: '`연 임대수입 ÷ (매도 희망가-승계 보증금)`'
+  caution: 취득비·대출·운영비 미반영임을 표시; `실투자금` 이름만으로 자기자본수익률처럼 보이지 않게 함
+  external_visible: true
+- id: I004
+  canonical: 소득수익률
+  grade: official
+  category: I
+  synonyms:
+  - Income Return
+  definition: 한국부동산원 통계에서는 분기 순영업소득을 분기초 자산가치로 나눈 수익률
+  caution: 개별 매물 단순수익률과 비교할 때 기간·산식 차이 표시
+  external_visible: true
+- id: I005
+  canonical: 자본수익률
+  grade: official
+  category: I
+  synonyms:
+  - Capital Return
+  definition: 자산가치 증감분을 기초 자산가치로 나눈 수익률
+  caution: 실현된 매각차익과 같은 뜻이 아님
+  external_visible: true
+- id: I006
+  canonical: 투자수익률
+  grade: official
+  category: I
+  synonyms:
+  - Total Return
+  definition: 한국부동산원 통계에서는 소득수익률과 자본수익률의 합
+  caution: 중개자료에서 단순 임대수익률을 `투자수익률`이라 부르지 않음
+  external_visible: true
+- id: I007
+  canonical: 자본환원율
+  grade: conditional_expert
+  category: I
+  synonyms:
+  - Cap Rate
+  - 캡레이트
+  definition: '`안정화 순영업소득 ÷ 자산가치 또는 가격`'
+  caution: 순영업소득 산출이 불완전하면 사용하지 않음; 기준시점과 정상화 여부 표시
+  external_visible: true
+- id: I008
+  canonical: 내부수익률
+  grade: conditional_expert
+  category: I
+  synonyms:
+  - IRR
+  definition: 여러 기간의 현금흐름 현재가치를 0으로 만드는 할인율
+  caution: 보유기간·매각가·비용·금융·세금 가정이 필요; 중개인 단독 확정치로 제시하지 않음
+  external_visible: true
+- id: I009
+  canonical: 자기자본 현금수익률
+  grade: conditional_expert
+  category: I
+  synonyms:
+  - Cash-on-Cash
+  - CoC
+  definition: 연간 세전 현금흐름을 투입 자기자본으로 나눈 비율
+  caution: 대출조건·취득비·상환액을 포함해야 함
+  external_visible: true
+- id: I010
+  canonical: 자기자본 배수
+  grade: conditional_expert
+  category: I
+  synonyms:
+  - Equity Multiple
+  definition: 회수한 자기자본 관련 총현금흐름을 투입 자기자본으로 나눈 배수
+  caution: 시간가치를 반영하지 않으므로 내부수익률과 함께 해석
+  external_visible: true
+- id: I011
+  canonical: 담보인정비율
+  grade: official
+  category: I
+  synonyms:
+  - LTV
+  definition: 담보가치 대비 대출금 비율
+  caution: 금융기관별 담보가치와 인정기준이 다름
+  external_visible: true
+- id: I012
+  canonical: 부채상환능력비율
+  grade: conditional_expert
+  category: I
+  synonyms:
+  - DSCR
+  definition: 순영업소득 등 상환재원을 연간 원리금상환액으로 나눈 비율
+  caution: 금융기관 산식에 따라 분자가 다를 수 있음
+  external_visible: true
+- id: I013
+  canonical: 대출이자율
+  grade: official
+  category: I
+  synonyms:
+  - 금리
+  definition: 대출 원금에 적용되는 이자율
+  caution: 고정·변동, 기준금리, 가산금리, 기간 표시
+  external_visible: true
+- id: I014
+  canonical: 자기자본
+  grade: official
+  category: I
+  synonyms:
+  - 에쿼티
+  definition: 총 투자비에서 차입금 등을 제외한 투자자 투입자금
+  caution: 임대보증금 차감과 대출을 별도 표시
+  external_visible: true
+- id: I015
+  canonical: 총투자비
+  grade: recommended
+  category: I
+  synonyms:
+  - 총사업비
+  definition: 매입가격에 취득부대비·공사비·금융비용 등을 더한 총액
+  caution: 포함항목과 부가세 환급 가정 표시
+  external_visible: true
+- id: I016
+  canonical: 취득부대비
+  grade: recommended
+  category: I
+  synonyms:
+  - 클로징 비용
+  definition: 취득세·등기비·중개보수·법무비 등 취득 관련 비용
+  caution: 세율·감면·법인 여부에 따라 달라 전문가 확인
+  external_visible: true
+- id: I017
+  canonical: 손익분기 임대율
+  grade: conditional_expert
+  category: I
+  synonyms:
+  - Break-even Occupancy
+  definition: 운영비·부채상환 등을 감당하는 데 필요한 최소 임대율
+  caution: 산식·비용범위·금융조건 표시
+  external_visible: true
+- id: I018
+  canonical: 민감도 분석
+  grade: conditional_expert
+  category: I
+  synonyms:
+  - Sensitivity
+  definition: 임대료·공실·금리·매각가 등 가정 변화에 따른 결과 변화를 비교하는 분석
+  caution: 예측치가 아니라 조건별 결과표임을 명시
+  external_visible: true
+- id: I019
+  canonical: 기준 시나리오
+  grade: conditional_expert
+  category: I
+  synonyms:
+  - Base Case
+  definition: 가장 합리적이라고 정한 중심 가정 조합
+  caution: 낙관·비관 시나리오와 분리, 선택근거 표시
+  external_visible: true
+- id: I020
+  canonical: 보수 시나리오
+  grade: conditional_expert
+  category: I
+  synonyms:
+  - Downside Case
+  definition: 불리한 임대·비용·금리·매각 조건을 가정한 경우
+  caution: 극단적 공포값이 아니라 근거 있는 하방조건 사용
+  external_visible: true
+- id: I021
+  canonical: 개선 시나리오
+  grade: conditional_expert
+  category: I
+  synonyms:
+  - Upside Case
+  definition: 임대료 조정·공실 해소·시설개선 등을 전제로 한 경우
+  caution: 실행비·기간·허가·임차인 협의까지 반영
+  external_visible: true
+- id: J001
+  canonical: 입지
+  grade: recommended
+  category: J
+  synonyms:
+  - 로케이션
+  definition: 교통·도로·배후수요·상권·주변시설 등 물건 위치의 종합 조건
+  caution: '`우수한 입지` 대신 구체적인 근거를 제시'
+  external_visible: true
+- id: J002
+  canonical: 접근성
+  grade: recommended
+  category: J
+  synonyms:
+  - 교통접근성
+  definition: 대중교통·차량·보행으로 대상에 도달하기 쉬운 정도
+  caution: 직선거리와 실제 보행거리·시간을 구분
+  external_visible: true
+- id: J003
+  canonical: 역세권
+  grade: field_term
+  category: J
+  synonyms:
+  - 지하철역 인근
+  definition: 통상 철도역을 이용하기 편리한 범위
+  caution: 법정 단일거리 기준처럼 쓰지 말고 `○번 출구에서 도보경로 약 ○m`로 표시
+  external_visible: true
+- id: J004
+  canonical: 도보거리
+  grade: recommended
+  category: J
+  synonyms:
+  - 도보 ○분
+  definition: 보행경로를 따라 잰 거리
+  caution: 지도 추정인지 현장측정인지 표시; 시간은 개인차가 큼
+  external_visible: true
+- id: J005
+  canonical: 차량진입
+  grade: recommended
+  category: J
+  synonyms:
+  - 차 진입
+  definition: 차량이 대지·주차장에 들어갈 수 있는 상태
+  caution: 차량 크기·진입폭·회전·일방통행 확인
+  external_visible: true
+- id: J006
+  canonical: 가시성
+  grade: recommended
+  category: J
+  synonyms:
+  - 노출도
+  definition: 도로·보행동선에서 건물·간판이 보이는 정도
+  caution: 주관평가이면 촬영지점·도로·차폐요인을 함께 제시
+  external_visible: true
+- id: J007
+  canonical: 전면폭
+  grade: recommended
+  category: J
+  synonyms:
+  - 파사드 폭
+  definition: 도로나 주요 동선에 접해 보이는 건물 또는 대지의 폭
+  caution: 실측·도면 추정·대지 접면 중 무엇인지 표시
+  external_visible: true
+- id: J008
+  canonical: 코너 입지
+  grade: field_term
+  category: J
+  synonyms:
+  - 각지
+  - 모서리 필지
+  definition: 두 개 이상의 도로가 만나는 모서리에 접한 위치
+  caution: 양쪽 도로의 성격과 건축제한을 함께 검토
+  external_visible: true
+- id: J009
+  canonical: 배후수요
+  grade: recommended
+  category: J
+  synonyms:
+  - 배후세대
+  - 상주수요
+  definition: 주변 주거·직장·학교·관광시설 등에서 발생할 수 있는 이용수요
+  caution: 세대수·종사자수 등 자료의 범위와 기준연도 표시
+  external_visible: true
+- id: J010
+  canonical: 유동인구
+  grade: recommended
+  category: J
+  synonyms:
+  - 통행량
+  definition: 일정 지점·시간대를 이동하는 사람 수
+  caution: 통신·카드·현장계수 등 자료원과 시간대 표시
+  external_visible: true
+- id: J011
+  canonical: 상주인구
+  grade: official
+  category: J
+  synonyms:
+  - 거주인구
+  definition: 해당 지역에 상시 거주하는 인구
+  caution: 행정구역·격자·반경 등 공간범위 표시
+  external_visible: true
+- id: J012
+  canonical: 직장인구
+  grade: official
+  category: J
+  synonyms:
+  - 종사자수
+  definition: 지역 내 사업체에 종사하는 인구
+  caution: 기준연도·사업체 조사범위 표시
+  external_visible: true
+- id: J013
+  canonical: 상권
+  grade: recommended
+  category: J
+  synonyms:
+  - 상업권역
+  definition: 고객 유입과 점포 경쟁이 형성되는 공간 범위
+  caution: 행정동·반경·상권분석서비스 경계 중 무엇인지 표시
+  external_visible: true
+- id: J014
+  canonical: 주중상권
+  grade: recommended
+  category: J
+  synonyms:
+  - 오피스상권
+  definition: 평일 수요 비중이 상대적으로 큰 상권
+  caution: 시간대·요일 자료 없이 단정하지 않음
+  external_visible: true
+- id: J015
+  canonical: 주말상권
+  grade: recommended
+  category: J
+  synonyms:
+  - 여가상권
+  definition: 주말·휴일 수요 비중이 상대적으로 큰 상권
+  caution: 계절성 고려
+  external_visible: true
+- id: J016
+  canonical: 생활상권
+  grade: recommended
+  category: J
+  synonyms:
+  - 동네상권
+  definition: 인근 거주자의 일상소비 중심 상권
+  caution: 반경과 주요 업종 구성 표시
+  external_visible: true
+- id: J017
+  canonical: 목적형 상권
+  grade: recommended
+  category: J
+  synonyms:
+  - 데스티네이션 상권
+  definition: 특정 업종·시설을 찾아 방문하는 수요가 큰 상권
+  caution: 방문목적과 집객시설 근거 제시
+  external_visible: true
+- id: J018
+  canonical: 주요 집객시설
+  grade: recommended
+  category: J
+  synonyms:
+  - 앵커시설
+  definition: 유동·방문수요를 끌어들이는 역·시장·병원·학교·대형점포 등
+  caution: 대상물과 거리·연결동선·운영시간 확인
+  external_visible: true
+- id: J019
+  canonical: 공실 분포
+  grade: recommended
+  category: J
+  synonyms:
+  - 주변 공실
+  definition: 조사범위 내 빈 점포의 위치·면적·기간 분포
+  caution: 표본조사와 전수조사를 구분
+  external_visible: true
+- id: J020
+  canonical: 시장 임대료
+  grade: recommended
+  category: J
+  synonyms:
+  - 마켓렌트
+  definition: 유사 입지·용도·면적의 신규·갱신 임대차에서 관찰되는 임대료 수준
+  caution: 호가·계약가, 전용·계약면적, 관리비 포함 여부를 맞춤
+  external_visible: true
+- id: J021
+  canonical: 임대료 격차
+  grade: recommended
+  category: J
+  synonyms:
+  - 렌트 갭
+  definition: 현 임대료와 비교 가능한 시장 임대료의 차이
+  caution: 즉시 인상가능액이 아니며 법·계약·이탈위험 고려
+  external_visible: true
+- id: J022
+  canonical: 비교사례
+  grade: recommended
+  category: J
+  synonyms:
+  - 사례
+  - Comp
+  definition: 대상물과 가격·임대료 등을 비교하기 위해 선정한 유사 거래·매물
+  caution: 선정기준과 차이조정을 밝힘
+  external_visible: true
+- id: J023
+  canonical: 실거래사례
+  grade: recommended
+  category: J
+  synonyms:
+  - 거래사례
+  definition: 실제 거래신고 등으로 확인되는 거래 사례
+  caution: 해제·정정·일괄거래·특수관계 가능성과 기준일 확인
+  external_visible: true
+- id: J024
+  canonical: 매물사례
+  grade: recommended
+  category: J
+  synonyms:
+  - 호가사례
+  definition: 현재 또는 과거 시장에 제시된 매도 희망가 사례
+  caution: 실제 계약가격이 아님
+  external_visible: true
+- id: J025
+  canonical: 임대사례
+  grade: recommended
+  category: J
+  synonyms:
+  - 렌트 컴프
+  definition: 유사 공간의 임대 조건 사례
+  caution: 보증금·임대료·관리비·면적·층·계약시점을 모두 맞춰 비교
+  external_visible: true
+- id: J026
+  canonical: 비교단위
+  grade: recommended
+  category: J
+  synonyms:
+  - 단가 기준
+  definition: ㎡당·3.3㎡당·토지면적당·연면적당 등 사례 비교의 분모
+  caution: 사례 간 같은 기준 사용
+  external_visible: true
+- id: J027
+  canonical: 사례선정 기준
+  grade: recommended
+  category: J
+  synonyms:
+  - 비교조건
+  definition: 위치·용도·규모·연식·도로·거래시점 등 사례를 고른 기준
+  caution: 유리한 사례만 선택하지 않음
+  external_visible: true
+- id: J028
+  canonical: 차이조정
+  grade: conditional_expert
+  category: J
+  synonyms:
+  - 보정
+  definition: 대상과 사례의 차이를 가격·정성평가에 반영하는 절차
+  caution: 수치조정은 근거와 방법을 표시하고 감정평가처럼 표현하지 않음
+  external_visible: true
+- id: J029
+  canonical: 가격 수준 검토
+  grade: recommended
+  category: J
+  synonyms:
+  - Price Position
+  definition: 매도 희망가가 사례·수입·토지가격 등에 비추어 어디에 위치하는지 설명
+  caution: '`적정가` 단정 대신 지지근거와 반대근거를 함께 제시'
+  external_visible: true
+- id: J030
+  canonical: 시세
+  grade: caution
+  category: J
+  synonyms:
+  - 시장가
+  definition: 시장에서 통용된다고 보는 가격 수준
+  caution: 자료원·범위·시점을 특정할 수 없으면 쓰지 않음
+  external_visible: false
+- id: J031
+  canonical: 급매
+  grade: caution
+  category: J
+  synonyms:
+  - 급매물
+  definition: 통상 매도 동기나 가격 인하가 큰 매물이라는 현장 표현
+  caution: 매도인의 실제 사정과 비교근거 없이 과장 문구로 사용하지 않음
+  external_visible: false
+- id: J032
+  canonical: 저평가
+  grade: caution
+  category: J
+  synonyms:
+  - 언더밸류
+  definition: 가치보다 가격이 낮다는 평가
+  caution: 가치산정·비교근거·위험을 제시하지 못하면 사용하지 않음
+  external_visible: false
+- id: K001
+  canonical: 가치개선
+  grade: recommended
+  category: K
+  synonyms:
+  - 밸류애드
+  - Value-add
+  definition: 임대·공실·시설·운영·용도 등을 개선해 수입·경쟁력·가치를 높이는 활동
+  caution: '`가치 상승 확정`이 아니라 실행과제로 표현'
+  external_visible: true
+- id: K002
+  canonical: 임대료 조정
+  grade: recommended
+  category: K
+  synonyms:
+  - 렌트 인상
+  definition: 계약·법·시장에 맞춰 임대료를 조정하는 것
+  caution: 임차인 동의·갱신시점·공실위험·법정 제한 고려
+  external_visible: true
+- id: K003
+  canonical: 임대차 재정비
+  grade: recommended
+  category: K
+  synonyms:
+  - 리테넌팅
+  - 테넌트 교체
+  definition: 계약구조·임차업종·만기·보증금 등을 재구성하는 것
+  caution: 명도비용·공실기간·권리금·분쟁 가능성 반영
+  external_visible: true
+- id: K004
+  canonical: 공실 해소
+  grade: recommended
+  category: K
+  synonyms:
+  - 리스업
+  definition: 빈 공간에 새 임차인을 유치하는 것
+  caution: 목표임대료·중개보수·공사·무상임대기간·유치기간 반영
+  external_visible: true
+- id: K005
+  canonical: 임차업종 재구성
+  grade: recommended
+  category: K
+  synonyms:
+  - 테넌트 믹스 개선
+  definition: 상권·동선·건물 특성에 맞게 업종 조합을 바꾸는 것
+  caution: 영업 인허가·용도·배기·소방·전력 등 확인
+  external_visible: true
+- id: K006
+  canonical: 임대공간 재구획
+  grade: recommended
+  category: K
+  synonyms:
+  - 분할임대
+  - 통합임대
+  definition: 층·호실을 나누거나 합쳐 임대상품을 바꾸는 것
+  caution: 구조·피난·소방·전기·위반 여부와 공사비 검토
+  external_visible: true
+- id: K007
+  canonical: 시설개선
+  grade: recommended
+  category: K
+  synonyms:
+  - 리뉴얼
+  definition: 외관·공용부·설비·주차·승강기 등을 보완하는 것
+  caution: 개선범위·비용·공사기간·임대차 영향 표시
+  external_visible: true
+- id: K008
+  canonical: 외관개선
+  grade: recommended
+  category: K
+  synonyms:
+  - 파사드 개선
+  definition: 입면·간판·조명·출입구 등을 개선하는 것
+  caution: 옥외광고물·대수선·경관 규정 확인
+  external_visible: true
+- id: K009
+  canonical: 공용부 개선
+  grade: recommended
+  category: K
+  synonyms:
+  - 로비·계단 리뉴얼
+  definition: 로비·복도·계단·화장실 등 공동공간을 개선하는 것
+  caution: 전유·공용 권한 및 집합건물 의사결정 확인
+  external_visible: true
+- id: K010
+  canonical: 설비교체
+  grade: recommended
+  category: K
+  synonyms:
+  - 장비 교체
+  definition: 냉난방·승강기·소방·전기·급배수 설비를 교체하는 것
+  caution: 내용연수·검사·견적·운영중단 기간 검토
+  external_visible: true
+- id: K011
+  canonical: 공간활성화
+  grade: recommended
+  category: K
+  synonyms:
+  - 유휴공간 활용
+  definition: 옥상·주차·창고 등 저활용 공간의 합법적 활용도를 높이는 것
+  caution: 허가·용도·구조·안전·임대권한 확인 전 수입으로 계산하지 않음
+  external_visible: true
+- id: K012
+  canonical: 정상화
+  grade: conditional_expert
+  category: K
+  synonyms:
+  - Stabilization
+  definition: 공실·연체·비정상 임대조건 등이 일정 수준 안정된 상태에 이르는 것
+  caution: 목표상태·기간·비용·성공조건을 정의
+  external_visible: true
+- id: K013
+  canonical: 개발가능성 검토
+  grade: recommended
+  category: K
+  synonyms:
+  - 개발검토
+  definition: 법규·대지·도로·시장·사업비를 바탕으로 신축·증축 등을 검토하는 것
+  caution: 가능성 검토를 인허가 확정으로 표현하지 않음
+  external_visible: true
+- id: K014
+  canonical: 신축
+  grade: official
+  category: K
+  synonyms:
+  - 재건축
+  - 새 건축
+  definition: 건축물이 없는 대지에 새로 건축하거나 기존 건축물을 전부 철거해 새로 축조하는 것
+  caution: 재개발·재건축 정비사업과 혼동하지 않음
+  external_visible: true
+- id: K015
+  canonical: 철거 후 신축
+  grade: recommended
+  category: K
+  synonyms:
+  - 멸실 후 개발
+  definition: 기존 건물을 철거하고 새 건물을 짓는 구상
+  caution: 철거·명도·석면·폐기물·인허가·금융·공사비 반영
+  external_visible: true
+- id: K016
+  canonical: 증축 검토
+  grade: recommended
+  category: K
+  synonyms:
+  - 수직증축
+  - 수평증축
+  definition: 기존 건축물의 면적·층수·높이를 늘릴 가능성을 검토하는 것
+  caution: 구조안전·주차·피난·용적률·일조·인허가 확인
+  external_visible: true
+- id: K017
+  canonical: 용도전환
+  grade: recommended
+  category: K
+  synonyms:
+  - 컨버전
+  definition: 건축물·공간을 다른 이용목적으로 바꾸는 구상
+  caution: 법정 `용도변경` 절차와 사업적 전환을 구분
+  external_visible: true
+- id: K018
+  canonical: 개발규모 검토
+  grade: recommended
+  category: K
+  synonyms:
+  - 매스 스터디
+  definition: 법규와 대지조건을 반영해 가능한 건축 규모·형태를 검토하는 것
+  caution: 건축사 설계·허가 결과가 아닌 초기 검토임을 표시
+  external_visible: true
+- id: K019
+  canonical: 예상 연면적
+  grade: conditional_expert
+  category: K
+  synonyms:
+  - 계획 연면적
+  definition: 개발가정에 따라 산출한 건축 연면적
+  caution: 지하·주차·용적률 산정 제외면적을 분리
+  external_visible: true
+- id: K020
+  canonical: 임대가능 예상면적
+  grade: conditional_expert
+  category: K
+  synonyms:
+  - NLA
+  - 렌터블
+  definition: 개발 후 임대할 수 있다고 가정한 면적
+  caution: 효율·코어·공용부 가정과 설계근거 표시
+  external_visible: true
+- id: K021
+  canonical: 공사비
+  grade: recommended
+  category: K
+  synonyms:
+  - 건축비
+  definition: 신축·증축·시설개선에 필요한 공사 관련 비용
+  caution: 부가세·설계·감리·철거·예비비 포함 여부 표시
+  external_visible: true
+- id: K022
+  canonical: 사업비
+  grade: recommended
+  category: K
+  synonyms:
+  - 총개발비
+  definition: 토지·공사·설계·금융·세금·임대유치비 등 사업 전체 비용
+  caution: 항목·기준시점·물가상승 반영 여부 표시
+  external_visible: true
+- id: K023
+  canonical: 사업기간
+  grade: recommended
+  category: K
+  synonyms:
+  - 일정
+  definition: 명도·설계·인허가·공사·임대안정화에 걸리는 기간
+  caution: 단계별 기간과 지연요인 표시
+  external_visible: true
+- id: K024
+  canonical: 사업성 검토
+  grade: recommended
+  category: K
+  synonyms:
+  - 타당성 분석
+  definition: 수입·비용·기간·금융·위험을 종합해 사업 가능성을 검토하는 것
+  caution: 중개인 초안과 전문가 검증본을 구분
+  external_visible: true
+- id: K025
+  canonical: 최유효이용
+  grade: conditional_expert
+  category: K
+  synonyms:
+  - HBU
+  definition: 물리적·법적·경제적으로 가능하고 최대 생산성을 내는 이용에 관한 전문 판단
+  caution: 감정평가 전문개념이므로 근거 없이 마케팅 문구로 사용하지 않음
+  external_visible: true
+- id: L001
+  canonical: 실사
+  grade: recommended
+  category: L
+  synonyms:
+  - DD
+  - Due Diligence
+  definition: 매수인이 거래 전 권리·법규·물리·임대·재무·세무 등을 확인하는 절차
+  caution: 중개인의 사전 확인과 매수인·전문가의 최종 실사를 구분
+  external_visible: true
+- id: L002
+  canonical: 권리실사
+  grade: recommended
+  category: L
+  synonyms:
+  - 법률실사
+  definition: 소유권·담보·임대차·분쟁 등 법적 권리를 확인하는 실사
+  caution: 법률전문가 검토 필요범위 표시
+  external_visible: true
+- id: L003
+  canonical: 공부실사
+  grade: recommended
+  category: L
+  synonyms:
+  - 공적장부 확인
+  definition: 토지·건축·등기·토지이용계획 자료를 대조하는 절차
+  caution: 최신 발급본과 기준일 필요
+  external_visible: true
+- id: L004
+  canonical: 물리실사
+  grade: recommended
+  category: L
+  synonyms:
+  - 기술실사
+  definition: 구조·설비·하자·안전·수선비 등을 현장과 자료로 확인하는 절차
+  caution: 육안답사와 전문 기술진단을 구분
+  external_visible: true
+- id: L005
+  canonical: 임대차실사
+  grade: recommended
+  category: L
+  synonyms:
+  - 렌트롤 실사
+  definition: 계약서·입금·보증금·연체·점유·분쟁을 대조하는 절차
+  caution: 요약표만으로 완료 처리하지 않음
+  external_visible: true
+- id: L006
+  canonical: 세무실사
+  grade: recommended
+  category: L
+  synonyms:
+  - 택스 DD
+  definition: 세금 신고·체납·부가세·거래구조 등을 확인하는 절차
+  caution: 세무전문가 담당범위
+  external_visible: true
+- id: L007
+  canonical: 현장답사
+  grade: recommended
+  category: L
+  synonyms:
+  - 임장
+  - 사이트 투어
+  definition: 대상물과 주변을 직접 방문해 상태·동선·점유 등을 확인하는 것
+  caution: 답사일·확인범위·접근제한 구역 표시
+  external_visible: true
+- id: L008
+  canonical: 현장확인
+  grade: official
+  category: L
+  synonyms:
+  - 실물 확인
+  definition: 현장에서 시설·상태·경계·사용현황 등을 확인하는 행위
+  caution: 육안 확인의 한계를 표시
+  external_visible: true
+- id: L009
+  canonical: 자료요청목록
+  grade: recommended
+  category: L
+  synonyms:
+  - 요청자료
+  - DRL
+  definition: 매도인 등에게 요청할 문서·확인사항 목록
+  caution: 우선순위·요청일·수령상태·담당자 관리
+  external_visible: true
+- id: L010
+  canonical: 미확인사항
+  grade: recommended
+  category: L
+  synonyms:
+  - 확인 필요
+  definition: 현재 자료로 사실을 확정할 수 없는 사항
+  caution: 빈칸·0·없음으로 처리하지 않음
+  external_visible: true
+- id: L011
+  canonical: 추가확인사항
+  grade: recommended
+  category: L
+  synonyms:
+  - 보완사항
+  definition: 다음 단계에서 더 확인해야 할 구체적 항목
+  caution: 누가·무엇으로·언제 확인할지 적음
+  external_visible: true
+- id: L012
+  canonical: 매입의향서
+  grade: recommended
+  category: L
+  synonyms:
+  - LOI
+  definition: 매수 의향, 가격, 주요 조건, 실사·독점협상 등을 제시하는 문서
+  caution: 법적 구속력 조항과 비구속 조항을 구분
+  external_visible: true
+- id: L013
+  canonical: 인수제안서
+  grade: recommended
+  category: L
+  synonyms:
+  - 오퍼레터
+  definition: 매수조건을 제안하는 문서
+  caution: 매입의향서와 조직 내 용례를 통일
+  external_visible: true
+- id: L014
+  canonical: 우선협상권
+  grade: recommended
+  category: L
+  synonyms:
+  - 우협
+  definition: 일정 기간 우선적으로 협상할 권리
+  caution: 독점권·매수의무와 동일하지 않음
+  external_visible: true
+- id: L015
+  canonical: 독점협상기간
+  grade: recommended
+  category: L
+  synonyms:
+  - 익스클루시브 기간
+  definition: 매도인이 다른 상대와 협상을 제한하는 기간
+  caution: 시작·종료·연장·해제조건을 문서화
+  external_visible: true
+- id: L016
+  canonical: 선행조건
+  grade: official
+  category: L
+  synonyms:
+  - CP
+  definition: 잔금·거래종결 전에 충족되어야 하는 조건
+  caution: 충족주체·기한·미충족 효과 표시
+  external_visible: true
+- id: L017
+  canonical: 거래종결
+  grade: recommended
+  category: L
+  synonyms:
+  - 클로징
+  definition: 잔금지급·소유권이전·인도 등 거래가 마무리되는 절차
+  caution: 계약체결과 구분
+  external_visible: true
+- id: L018
+  canonical: 진술 및 보장
+  grade: conditional_expert
+  category: L
+  synonyms:
+  - R&W
+  definition: 당사자가 일정 사실이 진실하다고 진술하고 책임을 정하는 계약조항
+  caution: 법률전문가 작성·검토 필요
+  external_visible: true
+- id: L019
+  canonical: 손해배상
+  grade: official
+  category: L
+  synonyms:
+  - 배상
+  definition: 계약위반 등으로 생긴 손해를 배상하는 것
+  caution: 범위·상한·기간·입증책임 확인
+  external_visible: true
+- id: L020
+  canonical: 계약해제
+  grade: official
+  category: L
+  synonyms:
+  - 계약취소
+  definition: 법정 또는 약정 사유로 계약관계를 소급해 소멸시키는 것
+  caution: 해지·취소와 법적 의미가 다름
+  external_visible: true
+- id: L021
+  canonical: 계약해지
+  grade: official
+  category: L
+  synonyms:
+  - 중도종료
+  definition: 계속적 계약관계를 장래를 향해 종료하는 것
+  caution: 해제와 구분
+  external_visible: true
+- id: L022
+  canonical: 특약사항
+  grade: official
+  category: L
+  synonyms:
+  - 특약
+  definition: 표준 계약내용 외에 당사자가 별도로 합의한 조건
+  caution: 불명확한 구두합의를 모두 서면화
+  external_visible: true
+- id: L023
+  canonical: 보증금 정산
+  grade: recommended
+  category: L
+  synonyms:
+  - 보증금 승계정산
+  definition: 매매 시 임대차보증금 반환채무를 매매대금 등과 정산하는 것
+  caution: 계약별 유효보증금·상계·연체 확인
+  external_visible: true
+- id: L024
+  canonical: 임대수입 정산
+  grade: recommended
+  category: L
+  synonyms:
+  - 월세 일할정산
+  definition: 거래종결일을 기준으로 임대료·관리비 등을 배분하는 것
+  caution: 선수·연체·부가세·일할기준 확인
+  external_visible: true
+- id: L025
+  canonical: 명도
+  grade: official
+  category: L
+  synonyms:
+  - 퇴거
+  - 비우기
+  definition: 점유자가 목적물을 비워 인도하는 것
+  caution: 협의·소송·집행 가능성을 구분하고 기간 확정 금지
+  external_visible: true
+- id: L026
+  canonical: 원상회복
+  grade: official
+  category: L
+  synonyms:
+  - 원복
+  definition: 임차인이 설치·변경한 부분을 약정 상태로 되돌리는 것
+  caution: 계약특약과 현장상태 확인
+  external_visible: true
+- id: L027
+  canonical: 인도
+  grade: official
+  category: L
+  synonyms:
+  - 점유이전
+  definition: 목적물의 사실상 지배를 매수인·임차인에게 넘기는 것
+  caution: 열쇠만 넘기는지, 완전한 명도인지 구분
+  external_visible: true
+- id: M001
+  canonical: 근거자료
+  grade: recommended
+  category: M
+  synonyms:
+  - 증빙
+  - Evidence
+  definition: 문서의 사실·계산·판단을 뒷받침하는 공부·계약서·입금자료·사진·진술 등
+  caution: 자료 종류에 따라 신뢰와 허용범위가 다름
+  external_visible: true
+- id: M002
+  canonical: 자료출처
+  grade: recommended
+  category: M
+  synonyms:
+  - 출처
+  definition: 자료를 발급·작성·제공한 기관 또는 사람
+  caution: 인터넷 주소만 쓰지 말고 기관·자료명·조회일 표시
+  external_visible: true
+- id: M003
+  canonical: 기준일
+  grade: recommended
+  category: M
+  synonyms:
+  - As of date
+  definition: 값이나 상태가 유효하다고 보는 날짜
+  caution: 문서 작성일·발행일과 구분
+  external_visible: true
+- id: M004
+  canonical: 발급일
+  grade: official
+  category: M
+  synonyms:
+  - 출력일
+  definition: 공부·증명서가 발급된 날짜
+  caution: 내용의 기준일과 다를 수 있음
+  external_visible: true
+- id: M005
+  canonical: 조회일
+  grade: recommended
+  category: M
+  synonyms:
+  - 검색일
+  definition: 시스템·웹에서 자료를 확인한 날짜
+  caution: 실거래 신고·규제정보의 변동 가능성 표시
+  external_visible: true
+- id: M006
+  canonical: 제공일
+  grade: recommended
+  category: M
+  synonyms:
+  - 수령일
+  definition: 매도인·중개인 등이 자료를 제공한 날짜
+  caution: 자료 자체의 작성일과 구분
+  external_visible: true
+- id: M007
+  canonical: 원본
+  grade: official
+  category: M
+  synonyms:
+  - 원문서
+  definition: 최초 작성·발급되거나 진정성이 확인된 문서
+  caution: 전자원본과 출력물 구분
+  external_visible: true
+- id: M008
+  canonical: 사본
+  grade: official
+  category: M
+  synonyms:
+  - 복사본
+  definition: 원본을 복제한 자료
+  caution: 원본대조 여부 표시
+  external_visible: true
+- id: M009
+  canonical: 원자료값
+  grade: unknown
+  category: M
+  synonyms:
+  - Observation
+  definition: 자료에서 수정 없이 읽어 들인 값
+  caution: 계산용 확정값과 구분
+  external_visible: true
+- id: M010
+  canonical: 매도인 제공자료
+  grade: recommended
+  category: M
+  synonyms:
+  - 매도인 자료
+  definition: 매도인 또는 대리인이 제공한 표·계약·입금내역 등
+  caution: 공식 확인·제3자 검증과 동일하지 않음
+  external_visible: true
+- id: M011
+  canonical: 매도인 진술
+  grade: recommended
+  category: M
+  synonyms:
+  - 소유자 진술
+  definition: 매도인이 말하거나 서면으로 알린 내용
+  caution: 확인된 사실과 분리하고 진술일 표시
+  external_visible: true
+- id: M012
+  canonical: 중개인 현장확인
+  grade: recommended
+  category: M
+  synonyms:
+  - 임장확인
+  definition: 중개인이 현장에서 직접 관찰한 내용
+  caution: 구조안전·법적 적합성의 전문확인으로 확대하지 않음
+  external_visible: true
+- id: M013
+  canonical: 공부확인
+  grade: recommended
+  category: M
+  synonyms:
+  - 공적자료 확인
+  definition: 공적 장부·증명서에서 확인한 내용
+  caution: 현황 일치까지 의미하지 않음
+  external_visible: true
+- id: M014
+  canonical: 계약서 확인
+  grade: recommended
+  category: M
+  synonyms:
+  - 계약근거
+  definition: 임대차·매매 등 계약서에서 확인한 내용
+  caution: 변경합의·갱신·해지 여부 확인
+  external_visible: true
+- id: M015
+  canonical: 입금자료 확인
+  grade: recommended
+  category: M
+  synonyms:
+  - 통장내역 확인
+  definition: 계좌거래·세금계산서 등으로 실제 지급을 확인한 내용
+  caution: 계약상 금액과 일치 여부·개인정보 처리 주의
+  external_visible: true
+- id: M016
+  canonical: 확인됨
+  grade: recommended
+  category: M
+  synonyms:
+  - 검증
+  definition: 정한 기준에 따라 필요한 근거와 대조가 완료된 상태
+  caution: 어떤 기준과 자료로 확인했는지 추적 가능해야 함
+  external_visible: true
+- id: M017
+  canonical: 일부 확인
+  grade: recommended
+  category: M
+  synonyms:
+  - 부분확인
+  definition: 일부 요소는 확인됐으나 필수 요소가 남은 상태
+  caution: 확인된 범위와 남은 범위를 함께 표시
+  external_visible: true
+- id: M018
+  canonical: 미확인
+  grade: recommended
+  category: M
+  synonyms:
+  - 확인 안 됨
+  definition: 확인에 필요한 자료나 절차가 완료되지 않은 상태
+  caution: '`없음`이나 0으로 바꾸지 않음'
+  external_visible: true
+- id: M019
+  canonical: 미제공
+  grade: recommended
+  category: M
+  synonyms:
+  - 자료 없음
+  definition: 자료 보유자에게서 해당 자료를 받지 못한 상태
+  caution: 실제로 존재하지 않는다는 뜻이 아님
+  external_visible: true
+- id: M020
+  canonical: 해당없음
+  grade: recommended
+  category: M
+  synonyms:
+  - N/A
+  definition: 항목이 대상 자산·거래에 적용되지 않는 상태
+  caution: 미확인·미제공과 구분
+  external_visible: true
+- id: M021
+  canonical: 불일치
+  grade: recommended
+  category: M
+  synonyms:
+  - 충돌
+  - Conflict
+  definition: 둘 이상의 자료에서 같은 항목 값이 다르고 동시에 맞기 어려운 상태
+  caution: 임의로 하나를 채택하지 않음
+  external_visible: true
+- id: M022
+  canonical: 중대한 불일치
+  grade: unknown
+  category: M
+  synonyms:
+  - Critical conflict
+  definition: 가격·면적·권리·보증금 등 거래판단을 바꿀 수 있는 불일치
+  caution: 해소 전 관련 계산·발행 차단
+  external_visible: true
+- id: M023
+  canonical: 정정기록
+  grade: internal_only
+  category: M
+  synonyms:
+  - CorrectionEvent
+  definition: 불일치 해결 과정에서 값의 채택·기각·수정 사유를 남긴 기록
+  caution: 원자료를 덮어쓰지 않음
+  external_visible: false
+- id: M024
+  canonical: 유효기준본
+  grade: internal_only
+  category: M
+  synonyms:
+  - EffectiveSnapshot
+  definition: 특정 기준일과 문서 버전에서 계산에 사용하도록 승인된 값 묶음
+  caution: 새 자료 수령 시 재생성·버전관리
+  external_visible: false
+- id: M025
+  canonical: 자료 최신성
+  grade: recommended
+  category: M
+  synonyms:
+  - Freshness
+  definition: 기준일과 현재 사이의 시간차 및 변경 가능성
+  caution: 단순 날짜 경과 외 자료 특성별 유효기간 적용
+  external_visible: true
+- id: M026
+  canonical: 확인범위
+  grade: recommended
+  category: M
+  synonyms:
+  - Coverage
+  definition: 전체 필요한 항목 중 실제 확인한 범위
+  caution: 백분율만 제시하지 말고 미확인 핵심항목 표시
+  external_visible: true
+- id: M027
+  canonical: 출처이력
+  grade: internal_only
+  category: M
+  synonyms:
+  - Provenance
+  definition: 값이 어느 원자료·정정·계산을 거쳐 만들어졌는지의 이력
+  caution: AI 생성문에도 역추적 가능해야 함
+  external_visible: false
+- id: M028
+  canonical: 개인정보
+  grade: official
+  category: M
+  synonyms:
+  - PII
+  definition: 개인을 알아볼 수 있는 정보
+  caution: 외부 문서 최소수집·가림처리·접근권한 적용
+  external_visible: true
+- id: M029
+  canonical: 가림처리
+  grade: recommended
+  category: M
+  synonyms:
+  - 마스킹
+  - Redaction
+  definition: 이름·연락처·계좌 등 민감 부분을 보이지 않게 처리하는 것
+  caution: 원본 보관·권한·복원 가능성 통제
+  external_visible: true
+- id: M030
+  canonical: 자료 유의사항
+  grade: recommended
+  category: M
+  synonyms:
+  - Disclaimer
+  definition: 자료 범위·기준일·미확인사항·사용 목적을 알리는 문구
+  caution: 오류나 과장을 정당화하는 만능 면책문구로 쓰지 않음
+  external_visible: true
+- id: N001
+  canonical: 핵심 검토요약
+  grade: recommended
+  category: N
+  synonyms:
+  - Decision Snapshot
+  definition: 매수자가 먼저 볼 가격·논거·위험·조건·다음 행동 요약
+  caution: 외부 사용
+  external_visible: true
+- id: N002
+  canonical: 자료 확인현황
+  grade: recommended
+  category: N
+  synonyms:
+  - Evidence Status
+  definition: 공부·계약·진술·현장·미확인 상태 요약
+  caution: 외부 사용
+  external_visible: true
+- id: N003
+  canonical: 공부 확인내용
+  grade: recommended
+  category: N
+  synonyms:
+  - Public Records
+  definition: 토지·건물·등기·토지이용계획 확인 결과
+  caution: 외부 사용
+  external_visible: true
+- id: N004
+  canonical: 층별 구성 및 사용현황
+  grade: recommended
+  category: N
+  synonyms:
+  - Stacking/Use
+  definition: 층별 공부용도·실제사용·임차·면적 구성
+  caution: 외부 사용
+  external_visible: true
+- id: N005
+  canonical: 임대수입 산정기준
+  grade: recommended
+  category: N
+  synonyms:
+  - Income Basis
+  definition: 임대료·관리비·공실·부가세·보증금의 합산 원칙
+  caution: 외부 사용
+  external_visible: true
+- id: N006
+  canonical: 중개인 검토의견
+  grade: recommended
+  category: N
+  synonyms:
+  - Broker Lens
+  definition: 중개인이 근거와 한계를 붙여 제시하는 수익·가치개선·개발 의견
+  caution: 외부 사용, 사실표와 시각적으로 구분
+  external_visible: true
+- id: N007
+  canonical: 위험요인
+  grade: recommended
+  category: N
+  synonyms:
+  - Risk
+  definition: 가격·권리·물리·임대·개발 판단을 불리하게 만들 수 있는 요소
+  caution: 외부 사용
+  external_visible: true
+- id: N008
+  canonical: 반대근거
+  grade: recommended
+  category: N
+  synonyms:
+  - Counterpoint
+  definition: 매수 논거가 틀릴 수 있음을 보여 주는 자료·조건
+  caution: 외부 사용
+  external_visible: true
+- id: N009
+  canonical: 다음 확인사항
+  grade: recommended
+  category: N
+  synonyms:
+  - Next step
+  definition: 답사·자료수령·전문검토 등 다음 행동
+  caution: 외부 사용
+  external_visible: true
+- id: N010
+  canonical: 산출항목
+  grade: internal_only
+  category: N
+  synonyms:
+  - Claim
+  definition: 시스템이 문서에 표시하려는 사실·계산·판단 단위
+  caution: 사용자 화면에는 실제 항목명으로 표시
+  external_visible: false
+- id: N011
+  canonical: 사실항목
+  grade: internal_only
+  category: N
+  synonyms:
+  - Fact claim
+  definition: 현재 사실을 나타내는 산출항목
+  caution: 외부에서는 `확인 사실` 표기
+  external_visible: false
+- id: N012
+  canonical: 계산항목
+  grade: internal_only
+  category: N
+  synonyms:
+  - Metric claim
+  definition: 입력값과 산식으로 만든 수치
+  caution: 외부에서는 지표명과 산식 표시
+  external_visible: false
+- id: N013
+  canonical: 의견항목
+  grade: internal_only
+  category: N
+  synonyms:
+  - Opinion claim
+  definition: 중개인의 해석·권고
+  caution: 외부에서는 `중개인 의견` 표기
+  external_visible: false
+- id: N014
+  canonical: 시나리오항목
+  grade: internal_only
+  category: N
+  synonyms:
+  - Scenario claim
+  definition: 미래 가정에 따른 결과
+  caution: 외부에서는 `분석가정`과 함께 표시
+  external_visible: false
+- id: N015
+  canonical: 분석가정
+  grade: recommended
+  category: N
+  synonyms:
+  - Assumption
+  definition: 미래 분석을 위해 둔 임대료·공실·비용·기간 등의 전제
+  caution: 외부 사용, 현재 사실과 색상·표 분리
+  external_visible: true
+- id: N016
+  canonical: 발행단계
+  grade: unknown
+  category: N
+  synonyms:
+  - Release Tier
+  definition: 사실확인형·표준검토형·중개분석형·전문가협업형의 단계
+  caution: 문서 표지에는 한국어 단계명 표시
+  external_visible: true
+- id: N017
+  canonical: 자산형태
+  grade: unknown
+  category: N
+  synonyms:
+  - AssetForm
+  definition: 일반건물·집합건물·토지·운영형 등 자료구조를 결정하는 유형
+  caution: 외부에서는 실제 자산유형 사용
+  external_visible: true
+- id: N018
+  canonical: 검토관점
+  grade: unknown
+  category: N
+  synonyms:
+  - Lens
+  definition: 수익·가치개선·개발 등 문서의 주된 질문
+  caution: 외부에서는 `수익현황 검토`, `가치개선 검토`처럼 구체화
+  external_visible: true
+- id: N019
+  canonical: 거래대상 범위
+  grade: unknown
+  category: N
+  synonyms:
+  - TransactionScope
+  definition: 부동산·시설·임대차·사업 중 거래에 포함되는 범위
+  caution: 외부 사용 가능
+  external_visible: true
+- id: N020
+  canonical: 자료확인상태
+  grade: internal_only
+  category: N
+  synonyms:
+  - EvidenceProfile
+  definition: 출처·최신성·확인범위를 묶은 상태
+  caution: 외부에는 `자료 확인현황`으로 요약
+  external_visible: false
+- id: N021
+  canonical: 매수자 검토조건
+  grade: unknown
+  category: N
+  synonyms:
+  - BuyerMandate
+  definition: 매수자의 예산·지역·수익·운영·개발 조건
+  caution: 개인정보와 내부전략이므로 외부 매각자료 노출 금지
+  external_visible: true
+- id: N022
+  canonical: 내부 거래정보
+  grade: internal_only
+  category: N
+  synonyms:
+  - InternalDealContext
+  definition: 협상한도·고객관계·중개보수·민감사정 등 내부정보
+  caution: 외부 발행 금지
+  external_visible: false
+- id: N023
+  canonical: 발행검사
+  grade: internal_only
+  category: N
+  synonyms:
+  - Gate
+  definition: 필수자료·불일치·개인정보·산식·승인을 확인하는 검사
+  caution: 외부에는 검사결과를 필요할 때만 요약
+  external_visible: false
+- id: N024
+  canonical: 사용가능
+  grade: internal_only
+  category: N
+  synonyms:
+  - Allowed
+  definition: 필요한 조건을 충족해 해당 항목 사용이 가능한 상태
+  caution: 외부에는 상태표시보다 실제 내용 제시
+  external_visible: false
+- id: N025
+  canonical: 조건부 사용가능
+  grade: internal_only
+  category: N
+  synonyms:
+  - Allowed with warning
+  definition: 주의표시를 붙이면 사용할 수 있는 상태
+  caution: 주의문구 자동 동반
+  external_visible: false
+- id: N026
+  canonical: 사용차단
+  grade: internal_only
+  category: N
+  synonyms:
+  - Blocked
+  definition: 조건 미충족으로 해당 내용을 외부에 낼 수 없는 상태
+  caution: 빈칸 대신 미확인 이유를 표시할 수 있음
+  external_visible: false
+- id: N027
+  canonical: 미판정
+  grade: internal_only
+  category: N
+  synonyms:
+  - Not evaluated
+  definition: 판정규칙이 아직 실행되지 않은 상태
+  caution: '`통과`로 취급하지 않음'
+  external_visible: false
+- id: N028
+  canonical: 현 단계 미제공
+  grade: recommended
+  category: N
+  synonyms:
+  - Not available at stage
+  definition: 현재 문서 수준에서는 해당 분석을 제공하지 않는 상태
+  caution: 외부 사용 가능
+  external_visible: true
+- id: N029
+  canonical: 발행검토본
+  grade: internal_only
+  category: N
+  synonyms:
+  - Release candidate
+  definition: 최종 승인 전 모든 검사를 거치는 후보 문서
+  caution: 표지에 `외부배포 금지` 표시
+  external_visible: false
+- id: N030
+  canonical: 최종발행본
+  grade: recommended
+  category: N
+  synonyms:
+  - Final
+  definition: 승인·검사를 마치고 배포하도록 확정한 버전
+  caution: 버전·발행일·담당자 표시
+  external_visible: true
+- id: N031
+  canonical: 발행이력표
+  grade: internal_only
+  category: N
+  synonyms:
+  - PublicationManifest
+  definition: 버전·근거·검사·승인·출력파일 정보를 묶은 기록
+  caution: 내부 보관
+  external_visible: false
+- id: N032
+  canonical: 단일 정본
+  grade: internal_only
+  category: N
+  synonyms:
+  - SSOT
+  definition: 특정 항목을 최종 관리하는 기준 자료
+  caution: 중복 파일·수기 수정 방지
+  external_visible: false
+- id: N033
+  canonical: 자동작성
+  grade: recommended
+  category: N
+  synonyms:
+  - Generation
+  definition: 구조화 자료로 표·문장·차트를 만드는 과정
+  caution: 자동작성과 자동검증을 구분
+  external_visible: true
+- id: N034
+  canonical: 자동검증
+  grade: recommended
+  category: N
+  synonyms:
+  - Validation
+  definition: 자료형식·산식·불일치·발행조건을 기계적으로 확인하는 과정
+  caution: 법률·건축·세무 전문판단을 대체하지 않음
+  external_visible: true
+- id: N035
+  canonical: 사람 승인
+  grade: recommended
+  category: N
+  synonyms:
+  - Human approval
+  definition: 중개인 또는 책임자가 결과를 확인하고 발행을 승인하는 것
+  caution: 클릭만으로 끝내지 말고 주요 변경·예외를 보여 줌
+  external_visible: true
+- id: N036
+  canonical: 전문가 검토필요
+  grade: recommended
+  category: N
+  synonyms:
+  - Expert required
+  definition: 중개인 권한·자료만으로 결론내기 어려운 쟁점
+  caution: 분야·질문·필요자료를 특정
+  external_visible: true
+- id: N037
+  canonical: 확인 전 차단
+  grade: internal_only
+  category: N
+  synonyms:
+  - Fail-closed
+  definition: 필수 확인이 끝나지 않으면 해당 내용을 허용하지 않는 원칙
+  caution: 가격·권리·면적·보증금·수익률에 우선 적용
+  external_visible: false
+- id: N038
+  canonical: 병행검증
+  grade: internal_only
+  category: N
+  synonyms:
+  - Shadow evaluation
+  definition: 새 규칙 결과를 실제 발행에 반영하지 않고 기존 결과와 비교하는 시험
+  caution: 배포 전 성능·오차 확인
+  external_visible: false
+- id: N039
+  canonical: 표준시험사례
+  grade: internal_only
+  category: N
+  synonyms:
+  - Fixture
+  definition: 반복 검증에 쓰는 고정 사례와 기대결과
+  caution: 실제 개인정보 제거
+  external_visible: false
+- id: N040
+  canonical: 오류주입시험
+  grade: internal_only
+  category: N
+  synonyms:
+  - Mutation test
+  definition: 값 누락·단위오류·합계오류 등을 넣어 차단되는지 보는 시험
+  caution: 시험환경에서만 수행
+  external_visible: false
+- id: O001
+  canonical: 부동산만 거래
+  grade: recommended
+  category: O
+  synonyms:
+  - 자산거래
+  definition: 토지·건물과 관련 권리만 거래하는 구조
+  caution: 시설·영업·인허가·고용 승계 여부 명시
+  external_visible: true
+- id: O002
+  canonical: 사업 포함 거래
+  grade: recommended
+  category: O
+  synonyms:
+  - 영업양수도
+  - Going concern
+  definition: 부동산과 함께 운영사업·시설·계약 등을 거래하는 구조
+  caution: 세무·법률·회계 전문가 협업 필요
+  external_visible: true
+- id: O003
+  canonical: 객실수
+  grade: recommended
+  category: O
+  synonyms:
+  - Keys
+  definition: 숙박시설에서 판매 가능한 객실 수
+  caution: 허가·실제 운영·공사중 객실 구분
+  external_visible: true
+- id: O004
+  canonical: 객실점유율
+  grade: conditional_expert
+  category: O
+  synonyms:
+  - OCC
+  definition: 판매가능 객실 중 판매된 객실 비율
+  caution: 기간·휴업·장기투숙 처리기준 표시
+  external_visible: true
+- id: O005
+  canonical: 평균객실단가
+  grade: conditional_expert
+  category: O
+  synonyms:
+  - ADR
+  definition: 판매된 객실의 평균 판매가격
+  caution: 세금·조식·수수료 포함 여부 표시
+  external_visible: true
+- id: O006
+  canonical: 판매가능 객실당 매출
+  grade: conditional_expert
+  category: O
+  synonyms:
+  - RevPAR
+  definition: 객실매출을 판매가능 객실수로 나눈 값
+  caution: 총매출 또는 순이익 지표가 아님
+  external_visible: true
+- id: O007
+  canonical: 영업총이익
+  grade: conditional_expert
+  category: O
+  synonyms:
+  - GOP
+  definition: 운영매출에서 부서비용·미배부 운영비 등을 차감한 이익
+  caution: 회계기준·운영사 기준 확인
+  external_visible: true
+- id: O008
+  canonical: 가맹계약
+  grade: recommended
+  category: O
+  synonyms:
+  - 프랜차이즈 계약
+  definition: 브랜드·예약망·운영기준을 사용하는 계약
+  caution: 양도승인·수수료·의무공사 확인
+  external_visible: true
+- id: O009
+  canonical: 운영위탁계약
+  grade: recommended
+  category: O
+  synonyms:
+  - 위탁운영
+  definition: 소유자가 전문 운영사에 영업을 맡기는 계약
+  caution: 기간·해지·성과보수·변경지배권 확인
+  external_visible: true
+- id: O010
+  canonical: 영업허가·신고
+  grade: official
+  category: O
+  synonyms:
+  - 인허가
+  definition: 특정 업종을 운영하기 위해 필요한 허가·신고
+  caution: 부동산 소유권과 자동 승계되는지 확인
+  external_visible: true
+- id: O011
+  canonical: 시설권리
+  grade: recommended
+  category: O
+  synonyms:
+  - 비품·집기
+  definition: 영업에 사용하는 설비·가구·장비 관련 권리
+  caution: 소유·리스·담보·포함가격 확인
+  external_visible: true
+- id: O012
+  canonical: 영업권
+  grade: official
+  category: O
+  synonyms:
+  - Goodwill
+  definition: 고객관계·브랜드·초과수익력 등 사업의 무형가치
+  caution: 권리금·부동산가치와 구분; 평가전문성 필요
+  external_visible: true
+- id: O013
+  canonical: 매출
+  grade: official
+  category: O
+  synonyms:
+  - Revenue
+  definition: 일정 기간 상품·서비스 판매로 발생한 수입
+  caution: 부가세·수수료·환불·기간 기준 표시
+  external_visible: true
+- id: O014
+  canonical: 영업이익
+  grade: official
+  category: O
+  synonyms:
+  - Operating Profit
+  definition: 매출에서 영업 관련 비용을 차감한 이익
+  caution: 순영업소득(NOI)과 다른 회계·부동산 개념
+  external_visible: true
+- id: O015
+  canonical: 운영정상화
+  grade: conditional_expert
+  category: O
+  synonyms:
+  - 운영 안정화
+  definition: 가동률·인력·가격·비용이 목표 수준에 이르는 과정
+  caution: 소요기간·운영자 역량·운전자금 반영
+  external_visible: true
+- id: O016
+  canonical: 코드
+  grade: unknown
+  category: O
+  synonyms:
+  - 최종 권장 단계명
+  definition: 한 줄 정의
+  caution: null
+  external_visible: true
+- id: O017
+  canonical: L1
+  grade: unknown
+  category: O
+  synonyms:
+  - '**사실확인형 매각안내서**'
+  definition: 무엇을 얼마에 파는지와 공부·현장·현재 상태를 보여 주는 자료
+  caution: null
+  external_visible: true
+- id: O018
+  canonical: L2
+  grade: unknown
+  category: O
+  synonyms:
+  - '**표준 검토형 매각안내서**'
+  definition: 답사·자료요청·매수검토 여부를 결정할 수 있도록 임대·가격·위험을 더한 표준 자료
+  caution: null
+  external_visible: true
+- id: O019
+  canonical: L3
+  grade: unknown
+  category: O
+  synonyms:
+  - '**중개분석형 투자검토서**'
+  definition: 중개인이 근거와 한계 안에서 임대조정·가치개선·협상방안을 제시한 자료
+  caution: null
+  external_visible: true
+- id: O020
+  canonical: L4
+  grade: unknown
+  category: O
+  synonyms:
+  - '**전문가 협업형 투자검토서**'
+  definition: 법무·세무·건축·감정평가·운영 전문가 검토를 쟁점별로 반영한 자료
+  caution: null
+  external_visible: true
+- id: O021
+  canonical: 순서
+  grade: unknown
+  category: O
+  synonyms:
+  - 기존 영문 제목
+  definition: 핵심 내용
+  caution: null
+  external_visible: true
+- id: O022
+  canonical: '1'
+  grade: unknown
+  category: O
+  synonyms:
+  - Cover
+  definition: 물건명·소재지·매도 희망가·기준일
+  caution: null
+  external_visible: true
+- id: O023
+  canonical: '2'
+  grade: unknown
+  category: O
+  synonyms:
+  - Decision Snapshot
+  definition: 매수 논거·전제·위험·다음 행동
+  caution: null
+  external_visible: true
+- id: O024
+  canonical: '3'
+  grade: unknown
+  category: O
+  synonyms:
+  - Evidence Status
+  definition: 확인·진술·미확인 자료와 기준일
+  caution: null
+  external_visible: true
+- id: O025
+  canonical: '4'
+  grade: unknown
+  category: O
+  synonyms:
+  - Asset Scope
+  definition: 모든 필지·건물·시설·포함·제외대상
+  caution: null
+  external_visible: true
+- id: O026
+  canonical: '5'
+  grade: unknown
+  category: O
+  synonyms:
+  - Location & Market
+  definition: 접근·상권·수요·비교자료
+  caution: null
+  external_visible: true
+- id: O027
+  canonical: '6'
+  grade: unknown
+  category: O
+  synonyms:
+  - Public Records
+  definition: 토지·건물·등기·규제
+  caution: null
+  external_visible: true
+- id: O028
+  canonical: '7'
+  grade: unknown
+  category: O
+  synonyms:
+  - Stacking/Use
+  definition: 공부용도·실제사용·점유·면적
+  caution: null
+  external_visible: true
+- id: O029
+  canonical: '8'
+  grade: unknown
+  category: O
+  synonyms:
+  - Rent Roll
+  definition: 임차구획·보증금·임대료·관리비·기간
+  caution: null
+  external_visible: true
+- id: O030
+  canonical: '9'
+  grade: unknown
+  category: O
+  synonyms:
+  - Income Basis
+  definition: 합계 범위·산식·단순 임대수익률
+  caution: null
+  external_visible: true
+- id: O031
+  canonical: '10'
+  grade: unknown
+  category: O
+  synonyms:
+  - Price Position
+  definition: 사례·단가·수입 측면의 지지·반대근거
+  caution: null
+  external_visible: true
+- id: O032
+  canonical: '11'
+  grade: unknown
+  category: O
+  synonyms:
+  - Broker Lens
+  definition: 수익현황·가치개선·개발 중 해당 관점
+  caution: null
+  external_visible: true
+- id: O033
+  canonical: '12'
+  grade: unknown
+  category: O
+  synonyms:
+  - Risks & Counterpoints
+  definition: 판단을 바꿀 수 있는 핵심 위험
+  caution: null
+  external_visible: true
+- id: O034
+  canonical: '13'
+  grade: unknown
+  category: O
+  synonyms:
+  - DD & LOI
+  definition: 자료요청·현장확인·전문가 검토·조건화
+  caution: null
+  external_visible: true
+- id: O035
+  canonical: '14'
+  grade: unknown
+  category: O
+  synonyms:
+  - Contact & Disclosure
+  definition: 연락처·작성범위·개인정보·면책 한계
+  caution: null
+  external_visible: true

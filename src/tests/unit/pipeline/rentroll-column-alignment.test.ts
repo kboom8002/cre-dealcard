@@ -10,37 +10,47 @@
 import { describe, test, expect } from 'vitest';
 
 // A24 HEADERS 상수 — a24-rentroll-stacking.ts Line 250
-const A24_HEADERS = ['층수', '임차인', '면적(평)', '보증금', '월세', '계약종료'];
+const A24_HEADERS = ['층', '호실', '용도', '임차인', '임대(㎡)', '전용(㎡)', '전용률', '보증금', '월세', '관리비', 'NOC', '만기일'];
 
 // data-binder.ts Basic 프리셋이 생성하는 헤더/행 순서를 시뮬레이션
 function buildBasicPresetHeaders(): string[] {
-  return ['층수', '임차인', '면적(평)', '보증금', '월세', '계약종료'];
+  return ['층', '호실', '용도', '임차인', '임대(㎡)', '전용(㎡)', '전용률', '보증금', '월세', '관리비', 'NOC', '만기일'];
 }
 
 function buildBasicPresetRow(lease: {
   floor: string;
+  unit?: string;
+  use?: string;
   tenant_name?: string;
   area_sqm?: number;
+  exclusive_area_sqm?: number;
   deposit_manwon?: number;
   rent_manwon?: number;
+  mgmt_fee_manwon?: number;
   lease_end?: string;
   is_vacant?: boolean;
 }): string[] {
   const floor = lease.floor || '-';
+  const unit = lease.unit || '-';
+  const use = lease.use || '-';
   const tenant = lease.tenant_name || (lease.is_vacant ? '공실' : '-');
-  const areaPyeong = lease.area_sqm ? `${Math.round(lease.area_sqm * 0.3025)}평` : '-';
-  const deposit = lease.deposit_manwon ? `${lease.deposit_manwon.toLocaleString()}만` : '-';
-  const rent = lease.rent_manwon ? `${lease.rent_manwon.toLocaleString()}만` : '-';
+  const areaSqm = lease.area_sqm ? lease.area_sqm.toFixed(1) : '-';
+  const excSqm = lease.exclusive_area_sqm ? lease.exclusive_area_sqm.toFixed(1) : '-';
+  const eff = (lease.exclusive_area_sqm && lease.area_sqm) ? `${Math.round((lease.exclusive_area_sqm / lease.area_sqm) * 100)}%` : '-';
+  const deposit = lease.deposit_manwon ? `${lease.deposit_manwon.toLocaleString()}` : '-';
+  const rent = lease.rent_manwon ? `${lease.rent_manwon.toLocaleString()}` : '-';
+  const mgmt = lease.mgmt_fee_manwon ? `${lease.mgmt_fee_manwon.toLocaleString()}` : '-';
+  const noc = (lease.rent_manwon && lease.mgmt_fee_manwon && lease.exclusive_area_sqm) ? Math.round((lease.rent_manwon + lease.mgmt_fee_manwon) / (lease.exclusive_area_sqm * 0.3025)).toLocaleString() : '-';
   const expiry = lease.lease_end || '-';
-  // 수정 후 순서: [floor, tenant, areaPyeong, deposit, rent, expiry]
-  return [floor, tenant, areaPyeong, deposit, rent, expiry];
+  
+  return [floor, unit, use, tenant, areaSqm, excSqm, eff, deposit, rent, mgmt, noc, expiry];
 }
 
 // A24 스태킹 파서가 기대하는 컬럼 순서 시뮬레이션
 function parseStackingFromRow(r: string[]): { tenant: string; area: number } {
-  // 수정 후: r[1] = 임차인, r[2] = 면적(평) — HEADERS와 동기화
-  const tenant = String(r[1] || '').trim();
-  const areaStr = String(r[2] || '').trim();
+  const is10Col = r.length >= 8;
+  const tenant = String(r[is10Col ? 3 : 1] || '').trim();
+  const areaStr = String(r[is10Col ? 4 : 2] || '').trim();
   const area = parseFloat(areaStr.replace(/[^0-9.]/g, '')) || 0;
   return { tenant, area };
 }
@@ -62,12 +72,13 @@ describe('A24 렌트롤 컬럼 정합성', () => {
     });
 
     // 컬럼별 기대값 검증
+    // [floor, unit, use, tenant, areaSqm, excSqm, eff, deposit, rent, mgmt, noc, expiry]
     expect(row[0]).toBe('3F');           // 층수
-    expect(row[1]).toBe('스타벅스');       // 임차인 (HEADERS[1] = '임차인')
-    expect(row[2]).toMatch(/평$/);        // 면적(평) (HEADERS[2] = '면적(평)')
-    expect(row[3]).toMatch(/만$/);        // 보증금
-    expect(row[4]).toMatch(/만$/);        // 월세
-    expect(row[5]).toBe('2028-12-31');   // 계약종료
+    expect(row[3]).toBe('스타벅스');       // 임차인 (HEADERS[3] = '임차인')
+    expect(row[4]).toMatch(/^\d+(\.\d+)?$/); // 임대(㎡) (HEADERS[4] = '임대(㎡)')
+    expect(row[7]).toMatch(/^\d+/);        // 보증금
+    expect(row[8]).toMatch(/^\d+/);        // 월세
+    expect(row[11]).toBe('2028-12-31');  // 만기일
   });
 
   test('NEGATIVE: 면적 열에 한글 임차인명이 들어가지 않음', () => {
@@ -78,10 +89,10 @@ describe('A24 렌트롤 컬럼 정합성', () => {
       deposit_manwon: 5000,
       rent_manwon: 450,
     });
-    // 면적 컬럼(index 2)에 한글 임차인명(2글자 이상 연속 한글)이 있으면 안됨
-    expect(row[2]).not.toMatch(/[가-힣]{2,}/);
-    // 임차인 컬럼(index 1)에 숫자+평이 있으면 안됨
-    expect(row[1]).not.toMatch(/^\d+평$/);
+    // 면적 컬럼(index 4)에 한글 임차인명(2글자 이상 연속 한글)이 있으면 안됨
+    expect(row[4]).not.toMatch(/[가-힣]{2,}/);
+    // 임차인 컬럼(index 3)에 숫자+평이 있으면 안됨
+    expect(row[3]).not.toMatch(/^\d+평$/);
   });
 
   test('NEGATIVE: 임차인 열에 "36평" 같은 면적 문자열이 들어가지 않음', () => {
@@ -92,8 +103,8 @@ describe('A24 렌트롤 컬럼 정합성', () => {
       deposit_manwon: 5000,
       rent_manwon: 400,
     });
-    expect(row[1]).toBe('A 법무법인');
-    expect(row[1]).not.toMatch(/\d+평/);
+    expect(row[3]).toBe('A 법무법인');
+    expect(row[3]).not.toMatch(/\d+평/);
   });
 
   test('POSITIVE: 스태킹 파서가 올바른 컬럼을 참조', () => {
@@ -106,9 +117,8 @@ describe('A24 렌트롤 컬럼 정합성', () => {
     });
 
     const parsed = parseStackingFromRow(row);
-    expect(parsed.tenant).toBe('라이브펍');  // r[1] = 임차인
-    expect(parsed.area).toBeGreaterThan(0);  // r[2] = 면적(평) → 숫자 파싱 가능
-    expect(parsed.area).toBeLessThan(200);   // 합리적 범위
+    expect(parsed.tenant).toBe('라이브펍');  // r[3] = 임차인
+    expect(parsed.area).toBeGreaterThan(0);  // r[4] = 면적(㎡)
   });
 
   test('NEGATIVE: 스태킹 파서가 면적과 임차인을 뒤바꾸지 않음', () => {
@@ -134,8 +144,8 @@ describe('A24 렌트롤 컬럼 정합성', () => {
       is_vacant: true,
       area_sqm: 92.3,
     });
-    expect(row[1]).toBe('공실');          // 임차인 컬럼
-    expect(row[2]).toMatch(/평$/);        // 면적 컬럼
+    expect(row[3]).toBe('공실');          // 임차인 컬럼
+    expect(row[4]).toMatch(/^\d+(\.\d+)?$/); // 면적 컬럼
   });
 
   test('POSITIVE: Pro 프리셋은 [호실, 업종, 면적, ...] 순서 (7열)', () => {

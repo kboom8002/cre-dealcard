@@ -1,0 +1,114 @@
+meta:
+  id: im.area
+  version: 1
+  owner: CATALOG_SLOTS §2 (building/lease)
+  note: |
+    렌트롤 4대 면적 체계 SSoT.
+    연면적(GFA) → 공용면적(CA) → 임대면적(GLA) → 전용면적(NLA)의
+    포함 관계와 파생 산식을 기계 판독 가능한 형태로 정의합니다.
+
+area_hierarchy:
+  # 최상위: 연면적 (건축물대장 전체 바닥면적 합계)
+  GFA:
+    label_ko: 연면적
+    label_en: Gross Floor Area
+    source: 건축물대장 (총괄표제부/표제부)
+    unit: sqm
+    billing_use: 자산 매각/매입 평당 단가 산정
+    children:
+      - above_ground_GFA  # 지상층 연면적
+      - below_ground_GFA  # 지하층 연면적
+
+  above_ground_GFA:
+    label_ko: 지상층 연면적
+    children:
+      - NLA   # 전용면적
+      - CA    # 공용면적(지상)
+
+  below_ground_GFA:
+    label_ko: 지하층 연면적
+    includes: [기계실, 전기실, 지하주차장, MDF, 방재센터]
+
+  # 전용면적
+  NLA:
+    label_ko: 전용면적
+    label_en: Net Leasable Area / Dedicated Area
+    source: 건축물대장(전유부) + 실측 도면
+    measurement_basis: 벽체 중심선 또는 안목치수
+    billing_use: NOC 환산 비교 시 기준
+    includes_column: true  # 기둥 포함 여부는 건물마다 다르나 통상 산입
+
+  # 공용면적 (3종)
+  CA:
+    label_ko: 공용면적
+    label_en: Common Area
+    subtypes:
+      floor_common:
+        label_ko: 층공용면적
+        label_en: Floor Common
+        includes: [복도, 엘리베이터홀, 화장실, AHU실, 피난계단]
+        allocation: pro_rata_by_nla  # 전용면적 비율 안분
+      building_common:
+        label_ko: 건물공용면적
+        label_en: Building Common
+        includes: [1층 주로비, 방재센터, 관리사무소, 전기실, 기계실]
+        allocation: pro_rata_by_nla
+      parking_common:
+        label_ko: 지하/주차공용면적
+        label_en: Parking Common
+        includes: [지하주차장, 카리프트, 램프]
+        allocation: pro_rata_partial
+
+  # 임대면적 (과금 기준)
+  GLA:
+    label_ko: 임대면적
+    label_en: Gross Leasable Area / Rentable Area / 계약면적
+    source: 임대차계약서 + 관리규약
+    formula: NLA + allocated(floor_common) + allocated(building_common) + allocated(parking_common, partial)
+    billing_use: 월임대료, 관리비, 보증금 부과 기준
+    note: 렌트롤의 평당 임대료(Base Rent/py), 평당 관리비(CAM/py), 평당 보증금은 99% GLA 기준
+
+# 파생 지표
+derived_metrics:
+  efficiency_ratio:
+    label_ko: 전용률
+    formula: NLA / GLA * 100
+    unit: percent
+    benchmark:
+      CBD_prime: [50, 55]    # 서울 CBD 프라임 오피스
+      GBD_prime: [50, 55]
+      YBD_prime: [50, 55]
+      mid_slab: [60, 70]     # 판상형 중소형 빌딩
+
+  noc:
+    label_ko: 전용평당 실질비용
+    label_en: Net Occupancy Cost
+    formula: (monthlyRent + mgmtFee) / NLA_pyeong
+    unit: krw_per_exclusive_pyeong
+
+  lease_ratio:
+    label_ko: 임대화 비율
+    formula: sum(GLA) / GFA * 100
+    unit: percent
+
+# 불변식 (Invariants)
+invariants:
+  A01:
+    text: sum(호실별 전용면적) ≈ 건축물대장 전유부 면적 합 (±0.5%)
+    severity: warning
+    action: 불일치 시 리스크 섹션 주석 필수
+
+  A02:
+    text: 공용면적 안분은 전용면적 비율 기준 pro-rata 원칙
+    severity: gate
+    check: 앵커 테넌트 왜곡 여부 감지
+
+  A03:
+    text: 공실/자가사용 면적도 동일 규격(전용/임대)으로 렌트롤 포함
+    severity: gate
+    check: sum(임대면적) = 총 임대가동면적
+
+  A04:
+    text: 평↔㎡ 환산 반올림은 최종 합산 시점에 1회만 수행
+    severity: warning
+    coefficient: { pyeong_to_sqm: 3.305785, sqm_to_pyeong: 0.3025 }

@@ -89,11 +89,20 @@ export function SpecialEditionModal({
         throw new Error(result.error || '속보 발행에 실패했습니다.');
       }
 
-      toast.success(
-        autoDistribute && result.distributionResult?.sent > 0
-          ? `⚡ 속보 매거진이 발행되고 ${result.distributionResult.sent}명에게 즉시 발송되었습니다!`
-          : '⚡ 속보 매거진이 성공적으로 발행되었습니다!'
-      );
+      const dist = result.distributionResult;
+      if (autoDistribute && dist) {
+        if (dist.kakaoSkipped && dist.kakaoSkipped > 0) {
+          toast.success(
+            `⚡ 속보가 발행되어 이메일 독자(${dist.emailSent}명)에게 발송되었습니다! (카카오 알림톡 자동 발송은 Pro 전용)`
+          );
+        } else if (dist.sent > 0) {
+          toast.success(`⚡ 속보 매거진이 발행되고 ${dist.sent}명에게 즉시 발송되었습니다!`);
+        } else {
+          toast.success('⚡ 속보 매거진이 성공적으로 발행되었습니다!');
+        }
+      } else {
+        toast.success('⚡ 속보 매거진이 성공적으로 발행되었습니다!');
+      }
 
       if (onSuccess) {
         onSuccess(result.edition);
@@ -224,7 +233,7 @@ export function SpecialEditionModal({
             <div className="flex items-center justify-between p-3 rounded-xl bg-indigo-950/20 border border-indigo-500/20">
               <div className="space-y-0.5">
                 <span className="text-xs font-bold text-indigo-200 block">
-                  카카오 알림톡 & 이메일 즉시 배포
+                  독자 다이렉트 즉시 배포 (이메일 우선 / Pro 알림톡)
                 </span>
                 <span className="text-[10px] text-slate-400 block">
                   발행과 동시에 타깃 독자 {data.targetCount}명에게 다이렉트 전송
