@@ -54,6 +54,15 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     // 0-2차: 지적도 이미지가 직접 전달된 경우 (V-World WMS)
     const optimizedCadastral = await optimizeImageForPptx(input.data.cadastralImage, 1200, 80);
     slide.addImage({ data: optimizedCadastral?.base64 || input.data.cadastralImage, x: M, y: 1.62, w: mapW, h: 4.50 });
+  } else if (input.data.title?.includes('토지') || input.data.kicker?.includes('토지') || input.data.title?.includes('지적도')) {
+    // 지적도 슬라이드인데 V-World 이미지가 없는 경우 Fallback
+    slide.addShape(input.pres.ShapeType.rect, { x: M, y: 1.62, w: mapW, h: 4.50, fill: { color: 'F1F5F9' }, line: { color: 'CBD5E1', width: 1, dashType: 'dash' } });
+    slide.addText('지적도 데이터를 일시적으로 불러올 수 없습니다.\n(V-World API 연결 지연 또는 PNU 미등록)', {
+      x: M, y: 1.62, w: mapW, h: 4.50,
+      align: 'center', valign: 'middle',
+      fontSize: 14, color: '64748B', bold: true
+    });
+    warnings.push('[BL-2] 지적도 API 연동 실패로 대체 이미지 삽입됨');
   } else {
     let mapImg: { base64: string } | null = null;
 

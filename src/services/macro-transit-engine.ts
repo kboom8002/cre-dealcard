@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file macro-transit-engine.ts
  * @description Location Macro Transit Vector Diagram Engine
  *
@@ -186,7 +186,7 @@ export function generateMacroTransitSvg(options?: MacroTransitOptions): {
 
     <!-- 한강 물길 (상단 북단 인접) -->
     <path d="M 0,60 Q 300,25 550,65 T 800,45 L 800,0 L 0,0 Z" fill="#1A2D42" opacity="0.85"/>
-    <text x="400" y="32" font-family="'맑은 고딕', 'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="14" font-weight="bold" fill="#3B82F6" letter-spacing="6" opacity="0.4">H A N   R I V E R ( 한 강 )</text>
+    <text x="400" y="32" font-family="'맑은 고딕', 'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="14" font-weight="bold" fill="#3B82F6" letter-spacing="6" opacity="0.4">H A N   R I V E R </text>
 
     <!-- 올림픽대로 & 한남대교/동호대교 연결축 -->
     <path d="M 0,80 Q 400,55 800,85" stroke="#27333F" stroke-width="8" fill="none" opacity="0.6"/>
@@ -449,7 +449,7 @@ export function generateMacroTransitSvg(options?: MacroTransitOptions): {
 
     <!-- 한강 물길 (상단 북단) -->
     <path d="M 0,60 Q 300,30 550,70 T 800,50 L 800,0 L 0,0 Z" fill="#1A2D42" opacity="0.7"/>
-    <text x="400" y="35" font-family="'맑은 고딕', 'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="14" font-weight="bold" fill="#3B82F6" letter-spacing="6" opacity="0.35">H A N   R I V E R ( 한 강 )</text>
+    <text x="400" y="35" font-family="'맑은 고딕', 'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="14" font-weight="bold" fill="#3B82F6" letter-spacing="6" opacity="0.35">H A N   R I V E R </text>
 
     <!-- 올림픽대로 & 강변북로 라인 -->
     <path d="M 0,85 Q 400,60 800,90" stroke="#27333F" stroke-width="8" fill="none" opacity="0.5"/>
@@ -682,7 +682,7 @@ export function generateMacroTransitSvg(options?: MacroTransitOptions): {
 
     <!-- 한강 물길 (부드러운 곡선) -->
     <path d="M 0,110 Q 250,70 480,120 T 800,90 L 800,0 L 0,0 Z" fill="#1A2D42" opacity="0.8"/>
-    <text x="400" y="55" font-family="'맑은 고딕', 'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="16" font-weight="bold" fill="#3B82F6" letter-spacing="8" opacity="0.4">H A N   R I V E R ( 한 강 )</text>
+    <text x="400" y="55" font-family="'맑은 고딕', 'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="16" font-weight="bold" fill="#3B82F6" letter-spacing="8" opacity="0.4">H A N   R I V E R </text>
 
     <!-- 한강 주요 교량 (서강대교, 마포대교, 원효대교) -->
     <line x1="180" y1="20" x2="200" y2="150" stroke="#475569" stroke-width="4" stroke-dasharray="4,2"/>

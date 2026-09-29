@@ -1,4 +1,4 @@
-/**
+﻿/**
  * V-World API 공통 설정
  * - Referer 헤더: V-World API는 등록된 도메인의 Referer 헤더를 필수로 요구합니다.
  * - API 키: 대문자 필수 (AGENTS.md 규칙)
@@ -8,7 +8,7 @@
 export function getVWorldReferer(): string {
   return (
     process.env.VWORLD_REFERER ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
+    
     'https://credeal.net'
   );
 }

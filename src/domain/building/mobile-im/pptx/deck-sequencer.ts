@@ -126,7 +126,8 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
       if (!isOwnerRentRoll) continue;
     }
     if (slot.required === false) {
-      if (slot.condition === 'hasPhotos' && !input.hasPhotos && gallerySlides.length === 0) continue;
+      // F-04: Basic IM에서는 갤러리 슬라이드를 무조건 포함하여 9면을 보장 (사진 없으면 플레이스홀더)
+      // if (slot.condition === 'hasPhotos' && !input.hasPhotos && gallerySlides.length === 0) continue;
     }
 
     // 렌트롤: hasRentRoll 체크

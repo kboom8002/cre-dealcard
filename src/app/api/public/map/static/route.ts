@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,7 +77,7 @@ function createSvgPlaceholder(width: number, height: number, message: string): N
       <path d="M${Math.round(width / 2)} ${Math.round(height / 2 - 32)} C${Math.round(width / 2 - 10)} ${Math.round(height / 2 - 32)}, ${Math.round(width / 2 - 10)} ${Math.round(height / 2 - 16)}, ${Math.round(width / 2)} ${Math.round(height / 2 - 4)} C${Math.round(width / 2 + 10)} ${Math.round(height / 2 - 16)}, ${Math.round(width / 2 + 10)} ${Math.round(height / 2 - 32)}, ${Math.round(width / 2)} ${Math.round(height / 2 - 32)} Z" fill="#3b82f6"/>
       <circle cx="${Math.round(width / 2)}" cy="${Math.round(height / 2 - 22)}" r="4" fill="#ffffff"/>
       <text x="50%" y="${Math.round(height / 2 + 25)}" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" fill="#94a3b8" text-anchor="middle">${message}</text>
-      <text x="50%" y="${Math.round(height / 2 + 45)}" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#64748b" text-anchor="middle">카카오 지도 연동</text>
+      <text x="50%" y="${Math.round(height / 2 + 45)}" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#64748b" text-anchor="middle">MAP</text>
     </svg>
   `.trim();
 

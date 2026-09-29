@@ -17,6 +17,8 @@ export interface EnrichmentResult {
   locationPoi?: Record<string, unknown> | null;
   /** 공시지가 10년 추이 (수익률 슬라이드용) */
   landPriceHistory?: LandPriceHistoryResult | null;
+  /** 토지이용계획 (F-07) */
+  landUsePlan?: { zoningDistrict?: string; buildingCoverageMax?: number; floorAreaRatioMax?: number } | null;
 }
 
 /**
@@ -86,6 +88,19 @@ export async function enrichForBasicIm(
     }
   } catch {
     // POI는 선택적 — 실패 시 무시
+  }
+
+  // 2.5 토지이용계획 (F-07)
+  if (pnu) {
+    try {
+      const { fetchLandUsePlan } = await import('@/lib/external/land-use-api');
+      const lup = await fetchLandUsePlan(pnu);
+      if (lup && lup.zoningDistrict) {
+        result.landUsePlan = lup;
+      }
+    } catch (err) {
+      console.warn('[basic-im-enrichment] landUsePlan fetch failed:', err);
+    }
   }
 
   // 3. 공시지가 10년 추이 (수익률 슬라이드용) — PNU 필수

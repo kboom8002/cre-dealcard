@@ -1,4 +1,4 @@
-import type PptxGenJS from 'pptxgenjs';
+﻿import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, CD, KR, M, CW, light } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
@@ -248,7 +248,14 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
       let currentX = floorBarX;
       group.tenants.forEach((tenant, idx) => {
         const tenantRatio = group.totalArea > 0 ? (tenant.area || 0) / group.totalArea : 1 / group.tenants.length;
-        const tenantW = floorBarW * tenantRatio;
+        let tenantW = floorBarW * tenantRatio;
+        // F-13: 1F 다중 테넌트 시 바 폭 보장
+        if (group.tenants.length > 1) {
+          tenantW = Math.max(0.8, tenantW);
+          if (tenantW * group.tenants.length > floorBarW) {
+            tenantW = floorBarW / group.tenants.length; // 강제 균등 분할
+          }
+        }
         
         let fillCol = 'E2E8F0';
         const isVacant = tenant.isVacant || tenant.tenant?.includes('공실');
@@ -307,8 +314,8 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
   });
 
   // --- Right Panel: Rent Roll Table ---
-  const HEADERS = ['층', '호실', '용도', '임차인', '임대(㎡)', '전용(㎡)', '전용률', '보증금', '월세', '관리비', 'NOC', '만기일'];
-  const colW = [0.45, 0.45, 0.70, 1.15, 0.70, 0.70, 0.55, 0.70, 0.70, 0.70, 0.70, 0.93]; // Sum = 8.43 = tbW
+  const HEADERS = ['층', '임차인', '용도', '임대면적', '전용면적', '보증금', '월임대료', '관리비', '월합계', '만기일'];
+  const colW = [0.50, 1.10, 0.90, 0.80, 0.80, 0.80, 0.80, 0.80, 0.80, 1.33]; // Sum = 8.63
   
   if (tableRows.length > 0) {
     let rawRows = tableRows.map((row: any) => {
@@ -420,7 +427,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         if (text.length > 30) text = text.slice(0, 29) + '…';
         return {
           text,
-          options: { fill, color, fontSize: dynamicFontSize, bold, align: cIdx >= 4 && cIdx <= 7 ? 'right' : 'center', fontFace: KR }
+          options: { fill, color, fontSize: dynamicFontSize, bold, align: cIdx >= 3 && cIdx <= 8 ? 'right' : 'center', fontFace: KR }
         };
       });
       tableData.push(mappedRow);

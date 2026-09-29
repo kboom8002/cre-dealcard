@@ -1,4 +1,4 @@
-import type PptxGenJS from 'pptxgenjs';
+﻿import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, KR, NUM } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
@@ -62,10 +62,10 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   const hasLandHistory = landPriceHistory?.history?.length >= 2;
 
   // ── 좌우 패널 분할 ──
-  const leftW = hasLandHistory ? 5.60 : CW;
+  const leftW = 5.60; // F-05: 무조건 좌측 5.60 고정
   const gap = 0.40;
   const rightX = M + leftW + gap;
-  const rightW = hasLandHistory ? CW - leftW - gap : 0;
+  const rightW = CW - leftW - gap; // F-05: 우측 패널 항상 확보
 
   // ══════════════════════════════════════════════════════════════
   // 좌측 패널: 수익률 KPI 카드
@@ -149,7 +149,8 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
 
   // ── 안정화 수익률 하단 배지 (조건부) ──
   const hasStabilized = capRateStabilized != null && Number.isFinite(capRateStabilized) && capRateStabilized > 0;
-  if (hasStabilized && vacancyPct > 0) {
+  if (!hasStabilized) warnings.push('안정화 수익률 데이터 없음');
+  if (hasStabilized) {
     rowY += 0.15;
     const stabBadgeH = 0.55;
     slide.addShape('roundRect', {
@@ -158,7 +159,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       line: { color: C.brass, width: 1.0 },
       rectRadius: 0.06,
     });
-    slide.addText('◇ 공실 정상화 시', {
+    slide.addText('◇ 분석가정', {
       x: M + 0.40, y: rowY, w: 2.8, h: stabBadgeH,
       color: C.ink, fontFace: KR, fontSize: 10, bold: true, valign: 'middle',
     });
@@ -174,7 +175,26 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   // ══════════════════════════════════════════════════════════════
   // 우측 패널: 공시지가 10년 추이 바 차트
   // ══════════════════════════════════════════════════════════════
-  if (hasLandHistory) {
+  if (!hasLandHistory) {
+    const chartY = cardY;
+    const chartH = cardH;
+    
+    // 차트 배경 (회색)
+    slide.addShape('roundRect', {
+      x: rightX, y: chartY, w: rightW, h: chartH,
+      fill: { color: 'F1F5F9' },
+      line: { color: C.line, width: 1, dashType: 'dash' },
+      rectRadius: 0.08,
+    });
+    
+    // 안내 텍스트
+    slide.addText('공시지가 데이터를 일시적으로 불러올 수 없습니다.\n(국토교통부 API 연결 지연 또는 PNU 미등록)', {
+      x: rightX, y: chartY, w: rightW, h: chartH,
+      align: 'center', valign: 'middle',
+      fontSize: 14, color: '64748B', bold: true, fontFace: KR
+    });
+    warnings.push('[A23] 공시지가 API 연동 실패로 대체 이미지 삽입됨');
+  } else {
     const chartY = cardY;
     const chartH = cardH;
     const history = landPriceHistory.history;

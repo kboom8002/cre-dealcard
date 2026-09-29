@@ -47,6 +47,12 @@ const FUNCTIONAL_REPLACEMENTS: Record<string, (match: string, ...groups: string[
 // ─── 하드코딩 Fallback Rules ──────────────────────────────────────────────────
 
 export const HARDCODED_TERM_RULES: ReplacementRule[] = [
+  // F-10: D56 용어 정합
+  { id: 'd56_fully_leased', pattern: /만실/g, replacement: '임대가능면적 전부 계약 중', category: 'CRE용어' },
+  { id: 'd56_station_area', pattern: /(?<!초)역세권/g, replacement: '역세권(도보 5분 이내)', category: 'CRE용어' },
+  { id: 'd56_value_up', pattern: /밸류업/g, replacement: '가치개선(Value-add)', category: 'CRE용어' },
+  { id: 'd56_prime', pattern: /우량/g, replacement: '안정적(신용등급 우수)', category: 'CRE용어' },
+
   {
     id: 'hardcoded_pyeongToSqm',
     pattern: /(?<!(?:㎡|m2|m²)\s*\(?\s*(?:약\s*)?)(\d+(?:\.\d+)?)\s*평(?!\s*\(약)/gi,

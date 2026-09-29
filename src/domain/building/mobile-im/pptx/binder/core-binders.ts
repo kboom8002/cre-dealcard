@@ -1,4 +1,4 @@
-import { buildYieldFromHeroCard, buildYieldFromIMCore, yieldLabel, type Yield } from "../yield-object";
+﻿import { buildYieldFromHeroCard, buildYieldFromIMCore, yieldLabel, type Yield } from "../yield-object";
 import type { ClaimRegistry } from "@/domain/building/im-core/claim-registry";
 import type { PermitZoneResult } from "@/domain/building/im-core/permit-zone";
 import type { ConvertedDepositResult, EffectiveRentResult } from "@/domain/building/im-core/lease-calc";
@@ -121,19 +121,19 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
 
     const isBasicPresetForRentRoll = body?.preset === 'credeal_basic';
     const rentRollHeaders = isBasicPresetForRentRoll 
-            ? ['층', '호실', '용도/업종', '임차인', '전용면적(㎡)', '보증금(만원)', '월세(만원)', '관리비(만원)', '계약종료', '비고']
+            ? ['층', '임차인', '용도', '임대면적', '전용면적', '보증금', '월임대료', '관리비', '월합계', '만기일']
             : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
     const rentRollRows = core.leases.map(l => isBasicPresetForRentRoll ? [
             l.unitLabel ?? '-',
-            (l as any).unitId ?? '-',
-            l.tenantBusiness ?? '-',
             (l as any).tenantName ?? l.tenantBusiness ?? (l.leaseState === '공실' ? '공실' : '-'),
+            l.tenantBusiness ?? '-',
             l.leaseAreaSqm ? l.leaseAreaSqm.toFixed(1) : '-',
+            (l as any).exclusiveAreaSqm ? (l as any).exclusiveAreaSqm.toFixed(1) : (l.leaseAreaSqm ? l.leaseAreaSqm.toFixed(1) : '-'),
             l.depositKrw ? `${Math.round(l.depositKrw / 10000).toLocaleString()}` : '-',
             l.monthlyRentKrw ? `${Math.round(l.monthlyRentKrw / 10000).toLocaleString()}` : '-',
             l.mgmtFeeKrw ? `${Math.round(l.mgmtFeeKrw / 10000).toLocaleString()}` : '-',
-            l.currentExpiryDate ?? '-',
-            l.leaseState === '공실' ? '공실' : ((l as any).note ?? ''),
+            ((l.monthlyRentKrw || 0) + (l.mgmtFeeKrw || 0)) > 0 ? `${Math.round(((l.monthlyRentKrw || 0) + (l.mgmtFeeKrw || 0)) / 10000).toLocaleString()}` : '-',
+            l.currentExpiryDate ?? '-'
           ] : [
             l.unitLabel,
             l.tenantBusiness ?? (l.leaseState === '공실' ? '🚫 공실' : '-'),
@@ -372,7 +372,10 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
       rows.push(['대지면적', `${areaSqm.toLocaleString()}㎡ (${(sqmToPyeong(areaSqm)).toFixed(1)}평)`]);
     }
 
-    const zoningDistrict = lup?.zoningDistrict ?? body?.ssot_summary?.zoning ?? '-';
+    let zoningDistrict = body?.ssot_summary?.zone_type ?? body?.ssot_summary?.zoning ?? lup?.zoningDistrict ?? '-';
+    if (zoningDistrict === '확인 필요' || zoningDistrict === '정보 없음') {
+      zoningDistrict = lup?.zoningDistrict ?? '-';
+    }
     rows.push(['용도지역', zoningDistrict]);
 
     const statutory = STATUTORY_ZONING_LIMITS[zoningDistrict] ?? { bcr: 60, far: 400 };

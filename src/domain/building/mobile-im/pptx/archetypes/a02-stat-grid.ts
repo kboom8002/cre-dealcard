@@ -1,4 +1,4 @@
-import type PptxGenJS from 'pptxgenjs';
+﻿import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, KR, NUM } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
@@ -231,7 +231,8 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   }
 
   // 투자 핵심 포인트 (KPI 카드 아래 풍부한 3대 투자 포인트 렌더링)
-  const keyPoints: string[] = input.data.keyPoints || input.data.heroCard?.keyPoints || [];
+  let keyPoints: string[] = input.data.keyPoints || input.data.heroCard?.keyPoints || [];
+  keyPoints = keyPoints.flatMap(pt => String(pt).split(/\n+(?=[0-9]+[\.)]|[-•·])/)).map(s => s.trim().replace(/^([0-9]+[\.)]|[-•·])\s*/, '')).filter(Boolean);
   if (keyPoints.length === 0 && input.data.content) {
     const bullets = String(input.data.content).split('\n')
       .map((l: string) => l.trim())

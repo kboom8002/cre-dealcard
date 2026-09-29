@@ -56,10 +56,21 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
   const validPhotos = targetPhotos.filter(p => !!p.url);
 
   if (validPhotos.length === 0) {
-    // W-PPTX-6: 사진 0장일 때 suppress — 슬라이드 자체를 생성하지 않음
-    warnings.push('갤러리 사진 없음 — 슬라이드 억제');
-    // B3 Fix: null slide 반환 — 슬라이드 미생성으로 유령 백지 방지
-    return { slide: null as any, warnings, suppress: true };
+    // F-04: Basic IM 표준 9면을 보장하기 위해 갤러리 슬라이드 누락 시 플레이스홀더를 삽입
+    const slide = L.light(input.pres);
+    L.head(slide, input.slideNum, input.data.kicker || 'Gallery', input.data.title || '현장 사진');
+    
+    slide.addShape(input.pres.ShapeType.rect, { x: 0.5, y: 1.5, w: 12.33, h: 4.5, fill: { color: 'F1F5F9' }, line: { color: 'CBD5E1', width: 1, dashType: 'dash' } });
+    slide.addText('현장 사진이 아직 등록되지 않았습니다.
+추후 촬영 후 업데이트될 예정입니다.', {
+      x: 0.5, y: 1.5, w: 12.33, h: 4.5,
+      align: 'center', valign: 'middle',
+      fontSize: 16, color: '64748B', bold: true
+    });
+    
+    L.foot(slide, input.slideNum, input.docno);
+    warnings.push('갤러리 사진 없음 — 플레이스홀더 삽입');
+    return { slide, warnings };
   }
 
   // B3 Fix: 이미지 최적화를 슬라이드 생성 전에 수행
