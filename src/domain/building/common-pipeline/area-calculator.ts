@@ -34,7 +34,7 @@ export function validateAreaHierarchy(areas: AreaDenominators, ledgerExclusiveSq
   const result: AreaValidationResult = { isValid: true, warnings: [], errors: [] };
 
   // A01: sum(NLA) ≈ ledger exclusive area
-  if (areas.exclusiveAreaSqm && ledgerExclusiveSqm) {
+  if (areas.exclusiveAreaSqm && ledgerExclusiveSqm && ledgerExclusiveSqm > 0) {
     const diff = Math.abs(areas.exclusiveAreaSqm - ledgerExclusiveSqm) / ledgerExclusiveSqm;
     if (diff > 0.005) {
       result.warnings.push(`[A01] 전용면적 합계(${areas.exclusiveAreaSqm})가 대장 전유면적(${ledgerExclusiveSqm})과 0.5% 이상 차이납니다.`);
@@ -44,14 +44,15 @@ export function validateAreaHierarchy(areas: AreaDenominators, ledgerExclusiveSq
   // A02: GLA = NLA + CA (approximate check)
   if (areas.exclusiveAreaSqm && areas.commonAreaSqm && areas.leasableAreaSqm) {
     const sum = areas.exclusiveAreaSqm + areas.commonAreaSqm;
-    const diff = Math.abs(areas.leasableAreaSqm - sum) / (areas.leasableAreaSqm || 1);
+    const denom = areas.leasableAreaSqm > 0 ? areas.leasableAreaSqm : 1;
+    const diff = Math.abs(areas.leasableAreaSqm - sum) / denom;
     if (diff > 0.05) { // 5% allowance for parking/other exclusions
       result.warnings.push(`[A02] 임대면적(${areas.leasableAreaSqm})이 전용+공용(${sum})과 크게 다릅니다.`);
     }
   }
 
   // A03: total leasable in rentroll == total occupied
-  if (areas.leasableAreaSqm && totalLeasableOccupiedSqm) {
+  if (areas.leasableAreaSqm && areas.leasableAreaSqm > 0 && totalLeasableOccupiedSqm) {
     const diff = Math.abs(areas.leasableAreaSqm - totalLeasableOccupiedSqm) / areas.leasableAreaSqm;
     if (diff > 0.005) {
       result.errors.push(`[A03] 건물 총 임대면적(${areas.leasableAreaSqm})과 렌트롤 총 임대가동면적(${totalLeasableOccupiedSqm})이 불일치합니다.`);
@@ -81,19 +82,19 @@ export function calculateUnitPriceMetrics(
   const landPyeong = sqmToPyeong(areas.landAreaSqm);
   const grossPyeong = sqmToPyeong(areas.grossFloorAreaSqm);
 
-  const pricePerPyeongLand = Math.round(askingPriceKrw / landPyeong);
-  const pricePerPyeongGross = Math.round(askingPriceKrw / grossPyeong);
+  const pricePerPyeongLand = landPyeong > 0 ? Math.round(askingPriceKrw / landPyeong) : 0;
+  const pricePerPyeongGross = grossPyeong > 0 ? Math.round(askingPriceKrw / grossPyeong) : 0;
 
   let rentPerPyeongLeasable: number | undefined;
   if (monthlyRentKrw !== undefined && areas.leasableAreaSqm && areas.leasableAreaSqm > 0) {
     const leasablePyeong = sqmToPyeong(areas.leasableAreaSqm);
-    rentPerPyeongLeasable = Math.round(monthlyRentKrw / leasablePyeong);
+    rentPerPyeongLeasable = leasablePyeong > 0 ? Math.round(monthlyRentKrw / leasablePyeong) : 0;
   }
 
   let rentPerPyeongExclusive: number | undefined;
   if (monthlyRentKrw !== undefined && areas.exclusiveAreaSqm && areas.exclusiveAreaSqm > 0) {
     const exclusivePyeong = sqmToPyeong(areas.exclusiveAreaSqm);
-    rentPerPyeongExclusive = Math.round(monthlyRentKrw / exclusivePyeong);
+    rentPerPyeongExclusive = exclusivePyeong > 0 ? Math.round(monthlyRentKrw / exclusivePyeong) : 0;
   }
 
   return {

@@ -1,6 +1,6 @@
 import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
-import { C, M, CW, W, H, col, colX, KR, NUM, CD } from '../imlib';
+import { C, KR } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 
 export interface ArchetypeInput {
@@ -19,33 +19,72 @@ export interface ArchetypeOutput {
 }
 
 export function buildA12Ownership(input: ArchetypeInput): ArchetypeOutput {
-  const slide = input.pres.addSlide();
+  const slide = L.light(input.pres);
   const warnings: string[] = [];
   L.head(slide, input.slideNum, input.data.kicker || 'SECTION', input.data.title || '제목');
-  
-  slide.addText(input.data.sub ?? input.data.leftSub ?? '', { x: M, y: 1.66, w: 7.10, h: 0.3, fontFace: KR, fontSize: 14 });
-  if (input.data.ownershipRows && input.data.ownershipRows.length > 0) {
-    const limitedRows = (input.data.ownershipRows || []).slice(0, 11);
-    const colCount = limitedRows[0]?.length || 1;
-    const colW = Array(colCount).fill(7.10 / colCount);
-    slide.addTable(limitedRows, { x: M, y: 1.98, w: 7.10, colW, rowH: 0.35, fontFace: KR, fontSize: 10 });
+
+  const { left, right } = L.split2Col('60_40', 1.98, 4.5);
+
+  const subText = input.data.sub ?? input.data.leftSub ?? '';
+  if (subText) {
+    L.sub(slide, left.x, 1.66, left.w, subText);
   }
-  const actualRows = input.data.ownershipRows ? Math.min(input.data.ownershipRows.length, 11) : 0;
-  const tableEnd = 1.98 + (actualRows * 0.35);
-  slide.addText(input.data.note ?? '', { x: M, y: tableEnd + 0.07, w: 7.10, h: 0.2, fontFace: KR, fontSize: 9, color: C.mute });
-  
-  const rx = 8.08;
-  const rw = 4.63;
+
+  let tableEnd = 1.98;
+  if (input.data.ownershipRows && input.data.ownershipRows.length > 0) {
+    const rawRows = input.data.ownershipRows || [];
+    const colCount = rawRows[0]?.length || 3;
+    let headRow: string[];
+    let bodyRows: any[][];
+
+    const firstRowIsHeader = rawRows[0]?.some((c: any) => /^(?:구분|항목|권리|내용|비고)$/.test(String(c?.text ?? c ?? '').trim()));
+    if (firstRowIsHeader) {
+      headRow = rawRows[0].map((c: any) => String(c?.text ?? c ?? ''));
+      bodyRows = rawRows.slice(1, 11);
+    } else if (input.data.headers && Array.isArray(input.data.headers)) {
+      headRow = input.data.headers.map((c: any) => String(c?.text ?? c ?? ''));
+      bodyRows = rawRows.slice(0, 10);
+    } else {
+      headRow = colCount === 3
+        ? ['구분', '권리 내용', '비고']
+        : colCount === 2
+          ? ['구분', '권리 내용']
+          : Array(colCount).fill(0).map((_, idx) => `항목 ${idx + 1}`);
+      bodyRows = rawRows.slice(0, 10);
+    }
+
+    const colW = colCount === 3
+      ? [1.60, 2.30, Math.round((left.w - 1.60 - 2.30) * 1000) / 1000]
+      : Array(colCount).fill(left.w / colCount);
+
+    tableEnd = L.table(slide, left.x, 1.98, left.w, headRow, bodyRows, colW, {
+      rh: 0.35,
+      bfs: 10,
+      hfs: 10,
+    });
+  }
+
+  if (input.data.note) {
+    L.note(slide, left.x, tableEnd + 0.07, left.w, input.data.note);
+  }
+
   const callouts = input.data.callouts || [];
   callouts.forEach((co: any, i: number) => {
     if (i > 2) return;
     const cy = 1.98 + i * (1.24 + 0.14);
-    slide.addShape('rect', { x: rx, y: cy, w: rw, h: 1.24, fill: { color: C.tint } });
-    slide.addText(co.title || '', { x: rx+0.2, y: cy+0.2, w: rw-0.4, h: 0.3, fontFace: KR, fontSize: 11, bold: true });
-    slide.addText(co.body || '', { x: rx+0.2, y: cy+0.5, w: rw-0.4, h: 0.6, fontFace: KR, fontSize: 9, color: C.body, valign: 'top' });
+    L.card(slide, right.x, cy, right.w, 1.24, { fill: C.tint });
+    slide.addText(co.title || '', {
+      x: right.x + 0.2, y: cy + 0.15, w: right.w - 0.4, h: 0.3,
+      fontFace: KR, fontSize: 11, bold: true, color: C.ink,
+    });
+    slide.addText(co.body || '', {
+      x: right.x + 0.2, y: cy + 0.45, w: right.w - 0.4, h: 0.65,
+      fontFace: KR, fontSize: 9, color: C.body, valign: 'top',
+    });
   });
-  
+
   if (input.watermarkText) L.watermark(slide, input.watermarkText, false);
   L.foot(slide, input.slideNum, input.docno);
   return { slide, warnings };
 }
+

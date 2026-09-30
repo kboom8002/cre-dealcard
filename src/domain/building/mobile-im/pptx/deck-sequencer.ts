@@ -30,7 +30,8 @@ import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('deck-sequencer');
 
 
-export type Grade = 'A' | 'B' | 'C' | 'D';
+import type { Grade, DataAvailability } from '@/domain/building/im-core/data-availability';
+export type { Grade, DataAvailability };
 // D30 BL-3/M-13: 정본 수익형 9종 전체 지원
 export type IncomeArchetype = 'R-INC-01' | 'R-INC-02' | 'R-INC-03' | 'R-INC-04' | 'R-INC-05' | 'R-INC-06' | 'R-INC-07' | 'R-INC-08' | 'R-INC-09';
 
@@ -46,26 +47,6 @@ export interface SlideSpec {
   placement?: 'body' | 'appendix' | 'closing';
 }
 
-/** V-World / 공공 API 데이터 가용성 — 동적 면 추가 판단용 */
-export interface DataAvailability {
-  hasLandUsePlan?: boolean;      // V-World 토지이용계획
-  hasLandPrice?: boolean;        // V-World 공시지가
-  hasBuildingRegister?: boolean; // 건축물대장
-  hasRegistryData?: boolean;     // 등기부
-  hasComparables?: boolean;      // 실거래 비교사례
-  hasCommercialDistrict?: boolean; // 상권분석
-  hasCadastralMap?: boolean;     // 지적도 이미지
-  hasFloorPlan?: boolean;        // 층별 평면도
-  hasRentRoll?: boolean;         // D33 S-5: 렌트롤 데이터 유무
-  hasStackingPlan?: boolean;     // A22 건축 입면 셋백 스태킹 플랜 유무
-  // D37 P0-4 신설 — 실값 기반 tier 판정
-  hasOpex?: boolean;             // 운영비 실값 존재
-  hasAsOf?: boolean;             // 기준일 존재
-  hasScenario?: boolean;         // 시나리오(Base/Upside/Downside) 존재
-  hasExpertReview?: boolean;     // 전문가 검토 완료 — D36 §1.9 Screening 분기
-  hasPermitZone?: boolean;       // 토지거래허가구역 조회 결과
-  hasPhotos?: boolean;           // 건물 사진 존재 (gallery 면 결정)
-}
 
 export interface DeckSequenceInput {
   posture: InvestmentPosture;
@@ -130,15 +111,15 @@ function buildBasicDeckSequence(input: DeckSequenceInput): SlideSpec[] {
       // if (slot.condition === 'hasPhotos' && !input.hasPhotos && gallerySlides.length === 0) continue;
     }
 
-    // 렌트롤: hasRentRoll 체크
-    if (slot.dataKey === 'rentRoll' && da.hasRentRoll === false) continue;
+    // 렌트롤: M4 — Basic IM 정규 9면 보장을 위해 hasRentRoll=false라도 드롭하지 않고 실사 대체 카드 유지
+    // (slot.dataKey === 'rentRoll' retains A24 in canonical sequence)
 
-    // 갤러리: gallerySlides가 있으면 그것을 사용 (Basic IM은 최대 2장 캡)
+    // 갤러리: gallerySlides가 있으면 그것을 사용 (Basic IM은 최대 2장 캡, 사진 없어도 실사 카드로 정규 9면 보장)
     if (slot.dataKey === 'gallery') {
       if (gallerySlides.length > 0) {
         const cappedGallery = gallerySlides.slice(0, 2);
         sequence.push(...cappedGallery);
-      } else if (input.hasPhotos) {
+      } else if (posture === 'income' || input.hasPhotos || da.hasPhotos) {
         sequence.push({ archetype: slot.archetype, kicker: 'Gallery', title: slot.label, dataKey: slot.dataKey });
       }
       continue;

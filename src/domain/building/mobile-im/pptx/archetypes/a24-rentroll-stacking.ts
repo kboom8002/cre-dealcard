@@ -1,9 +1,10 @@
-﻿import type PptxGenJS from 'pptxgenjs';
+import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, CD, KR, M, CW, light } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 import { calculateSetbackRatio, inferTenantCategory } from './a22-stacking-plan';
 import type { StackingPlanFloor } from '../../types';
+import { sqmToPyeong } from '@/lib/utils/area-conversion';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -74,13 +75,33 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     }
   }
   
-  if (isSuppressed(input.flags, 'A24') || (stackingData.length === 0 && tableRows.length === 0)) {
-    warnings.push('A24 렌트롤/스태킹 데이터 없음 — 슬라이드 억제');
+  if (isSuppressed(input.flags, 'A24')) {
+    warnings.push('A24 렌트롤/스태킹 슬라이드 억제 (플래그 지정)');
     return { warnings, suppress: true };
   }
 
   const slide = light(input.pres);
   L.head(slide, input.slideNum, input.data.kicker || 'Rent Roll', input.data.title || '임대차 현황');
+
+  if (stackingData.length === 0 && tableRows.length === 0) {
+    L.fallbackCard(slide, M, 1.62, CW, 4.80, {
+      badge: '임대차 실사 안내',
+      badgeKind: 'brass',
+      title: '임대차 계약 및 렌트롤 상세 실사 프로토콜',
+      leadText: '본 자산의 세부 층별 임대차 계약 원장 및 정산 내역은 매수 의향 접수 및 비밀유지협약(NDA) 체결 후 실측 대조가 진행됩니다.',
+      checklist: [
+        '임대차 계약서 원본 전수 대조 (임대료, 관리비, 계약기간, 만기일 및 갱신 옵션)',
+        '보증금 및 월임대료 입금 금융 원장 대조·검증 (체납 내역 및 부가가치세 신고서 정합성)',
+        '특약 사항 및 렌트프리(Rent-Free), 핏아웃(Fit-out) 등 실질 유효 임대료(Net Effective Rent) 산정',
+        '상가건물 임대차보호법상 계약갱신요구권 행사 가능 여부 및 명도/재계약 리스크 검토',
+      ],
+      icon: 'document',
+    });
+    if (input.watermarkText) L.watermark(slide, input.watermarkText, false);
+    L.foot(slide, input.slideNum, input.docno);
+    warnings.push('A24 렌트롤 데이터 없음 — 임대차 실사 대체 카드 삽입');
+    return { slide, warnings };
+  }
 
   // Left Panel (Stacking Plan)
   const spX = M;
@@ -284,7 +305,7 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         
         // Tenant text inside bar
         const tenantName = isVacant ? '공실' : (tenant.tenant || '');
-        const areaPyeong = tenant.area ? Math.round(tenant.area / 3.3058) : 0;
+        const areaPyeong = tenant.area ? Math.round(sqmToPyeong(tenant.area)) : 0;
         const areaLabel = areaPyeong > 0 ? `${areaPyeong}평` : '';
         const combinedLabel = areaLabel ? `${tenantName} (${areaLabel})` : tenantName;
         
@@ -308,14 +329,16 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
 
   // 스펙 §5.2: 개략도 필수 각주
   slide.addText('※ 렌트롤 현황 기준 층별 공간 배치도', {
-    x: spX, y: 6.65, w: spW, h: 0.25,
+    x: spX, y: 6.52, w: spW, h: 0.20,
     fontSize: 8.5, color: '8A8A8A', align: 'left',
     fontFace: '맑은 고딕',
+    margin: 0,
   });
 
   // --- Right Panel: Rent Roll Table ---
   const HEADERS = ['층', '임차인', '용도', '임대면적', '전용면적', '보증금', '월임대료', '관리비', '월합계', '만기일'];
-  const colW = [0.50, 1.10, 0.90, 0.80, 0.80, 0.80, 0.80, 0.80, 0.80, 1.33]; // Sum = 8.63
+  const colW = [0.48, 1.05, 0.88, 0.78, 0.78, 0.78, 0.78, 0.78, 0.78, 1.30]; // Sum = 8.39 <= tbW (8.393)
+
   
   if (tableRows.length > 0) {
     let rawRows = tableRows.map((row: any) => {
@@ -395,12 +418,17 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     
     // Render table
     const tableData: any[][] = [];
+    const cellMargin = L.getDynamicTableMargin(dynamicRowH);
     
     // Header
-    tableData.push(HEADERS.map(h => ({
-      text: h,
-      options: { fill: C.ink, color: C.bg, fontSize: Math.max(dynamicFontSize, 9), bold: true, align: 'center' }
-    })));
+    tableData.push(HEADERS.map((h, cIdx) => {
+      const cWidth = colW[cIdx] ?? 0.8;
+      const fitted = L.fitTableCell(h, cWidth, dynamicRowH, Math.max(dynamicFontSize, 9));
+      return {
+        text: fitted.text,
+        options: { fill: C.ink, color: C.bg, fontSize: fitted.fontSize, bold: true, align: 'center', margin: cellMargin }
+      };
+    }));
     
     // Body
     displayRows.forEach((row: any, i: number) => {
@@ -422,12 +450,19 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         row[6] || '',
         row[7] || '',
         row[8] || '',
+        row[9] || '',
       ].map((cell, cIdx) => {
-        let text = String(cell).replace(/\*\*/g, '');
-        if (text.length > 30) text = text.slice(0, 29) + '…';
+        const text = String(cell).replace(/\*\*/g, '');
+        const cWidth = colW[cIdx] ?? 0.8;
+        const fitted = L.fitTableCell(text, cWidth, dynamicRowH, dynamicFontSize);
         return {
-          text,
-          options: { fill, color, fontSize: dynamicFontSize, bold, align: cIdx >= 3 && cIdx <= 8 ? 'right' : 'center', fontFace: KR }
+          text: fitted.text,
+          options: {
+            fill, color, fontSize: fitted.fontSize, bold,
+            align: cIdx >= 3 && cIdx <= 8 ? 'right' : (cIdx === 1 ? 'left' : 'center'),
+            fontFace: KR,
+            margin: cellMargin,
+          }
         };
       });
       tableData.push(mappedRow);
@@ -435,15 +470,15 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     
     slide.addTable(tableData, {
       x: tbX, y: spY, w: tbW, colW,
-      border: { type: 'solid', color: C.line, pt: 1 },
+      border: { type: 'solid', color: C.line, pt: 0.3 },
       rowH: dynamicRowH,
       valign: 'middle'
     });
     
     if (truncated) {
       slide.addText(`(전체 ${totalCount - 1}건 중 ${maxRowsToFit - 1}건 표시)`, {
-        x: tbX, y: spY + totalRenderRows * dynamicRowH + 0.05, w: tbW, h: 0.2,
-        fontSize: Math.max(dynamicFontSize - 1, 7), color: '7A8794', align: 'right', fontFace: KR
+        x: tbX, y: 6.52, w: tbW, h: 0.20,
+        fontSize: Math.max(dynamicFontSize - 1, 7), color: '7A8794', align: 'right', fontFace: KR, margin: 0
       });
     }
   }

@@ -291,9 +291,9 @@ describe('Macro Transit Vector Diagram Engine (M2 / R2)', () => {
       });
 
       expect(output.slide).toBeDefined();
-      // Without map data, slide is suppressed to transfer to checklist
-      expect((output as any).suppress).toBe(true);
-      expect(output.warnings.some((w) => w.includes('[BL-E] 지도 데이터 미확보'))).toBe(true);
+      // M4: Without map data, slide renders FallbackCard and is NOT suppressed (zero slide drop)
+      expect((output as any).suppress).toBeFalsy();
+      expect(output.warnings.some((w) => w.includes('[BL-E] 지도 미확보'))).toBe(true);
     });
   });
 

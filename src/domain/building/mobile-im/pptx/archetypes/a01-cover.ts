@@ -194,8 +194,8 @@ function renderCommonCoverContent(
   // 대제목
   const titleText = input.data.title || '투자설명서';
   const titleLen = titleText.length;
-  const fontSize = titleLen > 35 ? 22 : titleLen > 28 ? 26 : titleLen > 20 ? 30 : 40;
-  const titleH = titleLen > 28 ? 1.0 : 0.80;
+  const fontSize = titleLen > 35 ? 20 : titleLen > 28 ? 24 : titleLen > 20 ? 26 : titleLen > 14 ? 30 : 38;
+  const titleH = titleLen > 14 ? 1.15 : 0.80;
 
   slide.addText(titleText, {
     x, y: kickerY + 0.30, w: titleW, h: titleH,
@@ -295,7 +295,7 @@ function renderCommonCoverContent(
     infoText = [input.data.documentDate, infoText].filter(Boolean).join('  |  ');
   }
   slide.addText(infoText, {
-    x: M, y: 6.60, w: CW, h: 0.3,
+    x: M, y: 6.50, w: CW, h: 0.22,
     fontSize: 9, color: CD.faint, // D30 m-4: 최소 캡션 9pt
     fontFace: KR, margin: 0,
   });

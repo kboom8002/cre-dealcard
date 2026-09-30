@@ -148,7 +148,7 @@ describe('Basic IM (credeal_basic) Sequencer Unit Test (Rule 47 & basic-im-guide
     expect(devSeq.length).toBe(6);
   });
 
-  it('minimal data availability produces clean minimal sequence without orphan slides', async () => {
+  it('minimal data availability preserves canonical 9-slide sequence with fallback cards per M4', async () => {
     const minSeq = buildDeckSequence({
       posture: 'income',
       preset: 'credeal_basic',
@@ -162,7 +162,7 @@ describe('Basic IM (credeal_basic) Sequencer Unit Test (Rule 47 & basic-im-guide
     });
 
     const keys = minSeq.map(s => s.dataKey);
-    expect(keys).toEqual(['cover', 'summary', 'building', 'location', 'land', 'yieldFormula', 'closing']);
-    expect(minSeq.length).toBe(7);
+    expect(keys).toEqual(['cover', 'summary', 'building', 'location', 'land', 'rentRoll', 'yieldFormula', 'gallery', 'closing']);
+    expect(minSeq.length).toBe(9);
   });
 });

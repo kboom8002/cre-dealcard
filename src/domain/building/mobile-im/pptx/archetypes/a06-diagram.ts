@@ -56,13 +56,20 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     slide.addImage({ data: optimizedCadastral?.base64 || input.data.cadastralImage, x: M, y: 1.62, w: mapW, h: 4.50 });
   } else if (input.data.title?.includes('토지') || input.data.kicker?.includes('토지') || input.data.title?.includes('지적도')) {
     // 지적도 슬라이드인데 V-World 이미지가 없는 경우 Fallback
-    slide.addShape(input.pres.ShapeType.rect, { x: M, y: 1.62, w: mapW, h: 4.50, fill: { color: 'F1F5F9' }, line: { color: 'CBD5E1', width: 1, dashType: 'dash' } });
-    slide.addText('지적도 데이터를 일시적으로 불러올 수 없습니다.\n(V-World API 연결 지연 또는 PNU 미등록)', {
-      x: M, y: 1.62, w: mapW, h: 4.50,
-      align: 'center', valign: 'middle',
-      fontSize: 14, color: '64748B', bold: true
+    L.fallbackCard(slide, M, 1.62, mapW, 4.50, {
+      badge: '공적장부 열람 대상',
+      badgeKind: 'brass',
+      title: '지적 및 토지이용계획 열람 안내',
+      leadText: '본 자산의 지적경계 및 용도지역 지정 현황은 토지이음 및 부동산종합공부시스템 원장을 기반으로 대조·확인합니다.',
+      checklist: [
+        '토지이용계획확인원 상 용도지역·지구 행위제한 정합성 실사',
+        '지적공부(토지대장·지적도)상 지목, 면적 및 필지 경계 실측 대조',
+        '건축선 후퇴, 도로접면 조건(진입로 폭원) 및 일조사선 규제 점검',
+        '지구단위계획구역 여부 및 지자체 도시계획조례 추가 완화 가능성 검토',
+      ],
+      icon: 'map',
     });
-    warnings.push('[BL-2] 지적도 API 연동 실패로 대체 이미지 삽입됨');
+    warnings.push('[BL-2] 지적도 API 연동 실패로 대체 실사 카드 삽입됨');
   } else {
     let mapImg: { base64: string } | null = null;
 
@@ -105,16 +112,21 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
     if (mapImg) {
       slide.addImage({ data: mapImg.base64, x: M, y: 1.62, w: mapW, h: 4.50 });
     } else {
-      // D33 BL-E: 지도 없으면 면 생략, 체크리스트 이관 (유령 백지 슬라이드 방지를 위해 pres에서 슬라이드 제거)
-      warnings.push('[BL-E] 지도 데이터 미확보 — 슬라이드 생략, 체크리스트 이관');
-      if (Array.isArray((input.pres as unknown as { slides: PptxGenJS.Slide[] }).slides) && (input.pres as unknown as { slides: PptxGenJS.Slide[] }).slides.length > 0) {
-        const lastIdx = (input.pres as unknown as { slides: PptxGenJS.Slide[] }).slides.length - 1;
-        if ((input.pres as unknown as { slides: PptxGenJS.Slide[] }).slides[lastIdx] === slide) {
-          (input.pres as unknown as { slides: PptxGenJS.Slide[] }).slides.pop();
-        }
-      }
-      L.foot(slide, input.slideNum, input.docno);
-      return { slide, warnings, suppress: true };
+      // 지도 데이터 미제공 시 Macro Location Overview Fallback Card 렌더링 (슬라이드 드롭 방지)
+      L.fallbackCard(slide, M, 1.62, mapW, 4.50, {
+        badge: '권역 입지 분석',
+        badgeKind: 'info',
+        title: '교통망 및 입지 인프라 실사 안내',
+        leadText: '대상 자산의 대중교통 접근성 및 반경 1km 내 비즈니스·상업 인프라 집적도를 현장 조사 기준으로 검증합니다.',
+        checklist: [
+          '주요 간선도로 및 광역 대중교통(지하철·버스) 환승 노선 접근성 실사',
+          '도보 5분~10분 반경 유동인구 집객 동선 및 배후 수요층 집중도 평가',
+          '주변 주요 앵커 오피스 및 핵심 상업시설 인지도·집객 영향력 분석',
+          '향후 인근 도시교통계획망 신설 및 도로 확장 개발 호재 영향 점검',
+        ],
+        icon: 'map',
+      });
+      warnings.push('[BL-E] 지도 미확보 — 입지 실사 대체 카드 삽입');
     }
   }
 

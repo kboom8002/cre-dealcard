@@ -6,67 +6,13 @@ import type { InvestmentPosture } from "@/domain/ontology";
 import { generateDCFSensitivity, calculateWACC, calculateIRR, type DCFOutputs } from "./dcf-sensitivity";
 import { sqmToPyeong, pyeongToSqm, SQM_RATIO } from "@/lib/utils/area-conversion";
 
-export interface FinancialInputs {
-  posture?: InvestmentPosture;
-  monthlyRentKrw?: number;
-  purchasePriceKrw: number;
-  /** 운영비율 (%) — 미입력 시 자산 유형별 자동 산출 */
-  opexRatioPct?: number;
-  /** 보유 기간 (년) — 기본 5년 */
-  holdYears?: number;
-  /** 공실률 (%) — 기본 5% */
-  vacancyRatePct?: number;
-  /** 연 임대료 상승률 (%) — 기본 2% */
-  rentGrowthPctPerYear?: number;
-  /** ㎡당 개별공시지가 (원) */
-  landPricePerSqm?: number;
-  /** 건물 연면적 (㎡) */
-  totalAreaSqm?: number;
-  /** 대지면적 (㎡) — 대지 가치 비중 계산용 */
-  platAreaSqm?: number;
-  /** 자산 유형 — 한국어 포함 */
-  assetType?: string;
-  totalDepositManwon?: number;
-  mgmtFeeTotalManwon?: number;
-  loanAmountManwon?: number;
+import {
+  type FinancialInputs,
+  type FinancialOutputs,
+  calculateFinancials as domainCalculateFinancials,
+} from '@/domain/building/im-core/financial-calculator';
 
-  // ── Development 전용 파라미터 ──
-  /** 평당 공사비 (만원/평) */
-  constructionCostPerPyeong?: number;
-  /** 목표 연면적 (평) */
-  targetGrossAreaPyeong?: number;
-  /** 예상 분양/매각가 (만원/평) */
-  expectedSalesPricePerPyeong?: number;
-  /** Hold(보유형) 모드: 신축 후 임대 시 월 총임대수익 (만원) — floor_leases 합산 */
-  devHoldMonthlyRentManwon?: number;
-
-  // ── Operating 전용 파라미터 ──
-  /** 연간 총 매출 (원) */
-  annualRevenueKrw?: number;
-  /** GOP 마진 (%) */
-  gopMarginPct?: number;
-  /** 객단가/ADR (원) */
-  adrKrw?: number;
-  /** 가동률/OCC (%) */
-  occPct?: number;
-
-  // ── OwnerOccupied 전용 파라미터 ──
-  /** 주변 시장 평당 임대료 (원/평) */
-  marketRentPerPyeongKrw?: number;
-  /** 자가 사용 면적 (평) */
-  selfUseAreaPyeong?: number;
-  /** 현재 임차료 지출액 (만원/월) — occupancySpec에서 전달 */
-  currentRentManwon?: number;
-  currentRentMonthlyManwon?: number;
-  occupancySpec?: import('./types').OccupancySpec;
-
-  // ── Trading 전용 파라미터 ──
-  /** 인근 비교 사례 평당가 (원/평) */
-  comparablePricePerPyeongKrw?: number;
-  /** 목표 매각가 (원) */
-  targetExitPriceKrw?: number;
-  isBasicMode?: boolean;
-}
+export type { FinancialInputs, FinancialOutputs };
 
 import { ASSUMPTIONS } from './assumptions';
 import { getAssumptions } from '../assumptions';
@@ -74,86 +20,6 @@ import { getAssumptions } from '../assumptions';
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('financials');
 
-
-export interface FinancialOutputs {
-  annualNoi: { best: number; base: number; worst: number };
-  capRate: { best: number; base: number; worst: number } | null;
-  irr5Year: { best: number; base: number; worst: number } | null;
-  pricePerSqm: number | null;
-  pricePerPyeong: number | null;
-  landValueRatio: number | null;
-  landValueRatioNote: string | null;
-  yieldOnCost: number | null;
-  totalDepositBil: number | null;
-  loanAmountBil: number | null;
-  equityRequired: number | null;
-  leveragedYield: number | null;
-  dcf10Year: DCFOutputs | null;
-  wacc: number | null;
-  disclaimer: string;
-
-  // ── Phase 3 취득원가 4줄 내역 & 역레버리지 ──
-  totalAcquisitionCostBil?: number | null;
-  acquisitionTaxBil?: number | null;
-  brokerFeeBil?: number | null;
-  negativeLeverage?: boolean | null;
-  negativeLeverageWarning?: string | null;
-  /** 운영비 출처: 'user' = 사용자 입력, 'assumed' = AI 가정 */
-  opexSource?: 'user' | 'assumed';
-  regulationExpiry?: string | null;
-  regulationDaysLeft?: number | null;
-
-  // ── 포스처 확장 필드 ──
-  posture?: InvestmentPosture;
-  /** 개발형: 예상 공사비 (억원) */
-  estConstructionCostBil?: number | null;
-  constructionCostBil?: number | null;
-  /** 개발형: 예상 총 사업비 (억원) */
-  totalProjectCostBil?: number | null;
-  /** 개발형: 예상 분양/매각 수입 (억원) */
-  expectedSalesRevenueBil?: number | null;
-  /** 개발형: 개발 이익률 (%) */
-  devProfitMarginPct?: number | null;
-  /** 개발형: 평당 토지비 (만원/평) */
-  landPricePerPyeong?: number | null;
-  /** 개발형: 토지비 비중 (%) */
-  landCostRatioPct?: number | null;
-  /** 개발형 Hold 모드: 연 임대수익률 (연 임대료 / 총투입비 × 100) */
-  devHoldYieldPct?: number | null;
-
-  /** 운영형: 연간 GOP (억원) */
-  annualGopBil?: number | null;
-  /** 운영형: GOP 마진 (%) */
-  gopMarginPct?: number | null;
-  /** 운영형: 객단가/ADR (원) */
-  adrKrw?: number | null;
-  /** 운영형: 가동률/OCC (%) */
-  occPct?: number | null;
-  /** 운영형: RevPAR (원) */
-  revparKrw?: number | null;
-  /** 운영형: GOP Cap Rate (%) */
-  gopCapRatePct?: number | null;
-
-  /** 자가사용형: 가상 임대료 절감액 (억원/년) */
-  ownVsLeaseSavingsBil?: number | null;
-  /** 자가사용형: 손익분기 기간 (년) */
-  breakevenYears?: number | null;
-  /** 자가사용형: 평당 실점유 비용 (원/평/월) */
-  occupancyCostPerPyeongMonthly?: number | null;
-
-  /** 매매형: 인근 시세 대비 갭/할인율 (%) */
-  marketDiscountPct?: number | null;
-  /** 매매형: 목표 보유기간 수익률 HPR (%) */
-  targetHprPct?: number | null;
-  /** 매매형: 목표 시세차익 (억원) */
-  targetCapitalGainBil?: number | null;
-  isBasicMode?: boolean;
-
-  // PPTX A23 전용: 한국식 표면 임대수익률
-  grossYieldOnEquity: number | null;
-  grossYieldStabilized: number | null;
-  annualRentBil: number | null;
-}
 
 /**
  * 한국 CRE 시장 기준 자산 유형별 운영비율 (관리비·세금·보험·유지보수 합산)
@@ -395,7 +261,7 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
     if (f.irr5Year && !f.isBasicMode) rows.push(`| **5년 보유 시 투자수익률(IRR)** | ${pct(f.irr5Year.worst)}–**${pct(f.irr5Year.best)}** | 시나리오 추정, 참고용 |`);
     if (f.yieldOnCost !== null) rows.push(`| **총 수익률(Gross Yield)** | **${pct(f.yieldOnCost)}** | 연 임대수입/매매가 (운영비 미차감) |`);
     if (f.pricePerPyeong !== null) rows.push(`| **평당 매매가** | **${f.pricePerPyeong.toLocaleString()}원/평** | 참고용 |`);
-    if (f.landValueRatio !== null) rows.push(`| **땅값 비중(원금 안전판)** | **${f.landValueRatio}%** | 높을수록 원금 하방 경직성 확보 |`);
+    if (f.landValueRatio !== null) rows.push(`| **토지 평가액 비중** | **${f.landValueRatio}%** | 높을수록 원금 하방 경직성 확보 |`);
     if (f.totalDepositBil !== null) rows.push(`| **임대 보증금 합계** | **${f.totalDepositBil}억 원** | 중개인 제공 |`);
     if (f.loanAmountBil !== null) rows.push(`| **선순위 대출 잔액** | **${f.loanAmountBil}억 원** | 중개인 제공 |`);
     if (f.totalAcquisitionCostBil !== null) rows.push(`| **총취득원가** | **약 ${f.totalAcquisitionCostBil}억 원** | 매매가 + 취득세(4.6%) + 중개보수(0.9%) |`);
@@ -404,7 +270,7 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
     if (f.dcf10Year && !f.isBasicMode) rows.push(`| **10년 현금흐름 현재가치(NPV)** | **${f.dcf10Year.npvBase > 0 ? '+' : ''}${bil(f.dcf10Year.npvBase)}** | 기준 시나리오 |`);
     if (f.leveragedYield !== null && !f.isBasicMode) {
       const roeLabel = f.loanAmountBil ? '대출 활용 시 연 수익률' : '무차입 기준 연 수익률';
-      rows.push(`| **내 돈 대비 수익률(자기자본수익률)** | **${f.leveragedYield}%** | ${roeLabel} |`);
+      rows.push(`| **자기자본수익률(Leveraged Yield)** | **${f.leveragedYield}%** | ${roeLabel} |`);
     }
 
     if (rows.length === 0) return '';
@@ -525,7 +391,7 @@ class DevelopmentFinancialStrategy implements PostureFinancialStrategy {
     if (f.expectedSalesRevenueBil != null) rows.push(`| **예상 분양/매각 수입** | **약 ${f.expectedSalesRevenueBil}억 원** | 목표 연면적 기준 |`);
     if (f.devProfitMarginPct != null) rows.push(`| **개발 이익률 추정** | **${f.devProfitMarginPct}%** | 총 사업비 대비 이익 |`);
     if (f.landCostRatioPct != null) rows.push(`| **토지비 비중** | **${f.landCostRatioPct}%** | 총 사업비 내 비중 |`);
-    if (f.equityRequired != null) rows.push(`| **토지 매입 실투자금(내 돈)** | **약 ${f.equityRequired}억 원** | 브릿지 대출 제외 초기자금 |`);
+    if (f.equityRequired != null) rows.push(`| **토지 매입 실투자금(자기자본)** | **약 ${f.equityRequired}억 원** | 브릿지 대출 제외 초기자금 |`);
     if (f.regulationExpiry != null) rows.push(`| **한시 규제완화 기한** | **${f.regulationExpiry} (잔여 ${f.regulationDaysLeft}일)** | 서울시 소규모 신축 완화 |`);
 
     if (rows.length === 0) return '';
@@ -605,7 +471,7 @@ class OperatingFinancialStrategy implements PostureFinancialStrategy {
     if (f.occPct != null) rows.push(`| **평균 가동률(OCC)** | **${f.occPct}%** | 연간 평균 투숙률 |`);
     if (f.revparKrw != null) rows.push(`| **객실당 매출(RevPAR)** | **${f.revparKrw.toLocaleString()}원** | ADR × 가동률 |`);
     if (f.pricePerPyeong != null) rows.push(`| **평당 매매가** | **${f.pricePerPyeong.toLocaleString()}원/평** | 참고용 |`);
-    if (f.equityRequired != null) rows.push(`| **운영 인수 실투자금(내 돈)** | **약 ${f.equityRequired}억 원** | 시설자금 대출 제외 초기자금 |`);
+    if (f.equityRequired != null) rows.push(`| **운영 인수 실투자금(자기자본)** | **약 ${f.equityRequired}억 원** | 시설자금 대출 제외 초기자금 |`);
 
     if (rows.length === 0) return '';
 
@@ -706,7 +572,7 @@ class OwnerOccupiedFinancialStrategy implements PostureFinancialStrategy {
     if (f.breakevenYears != null) rows.push(`| **자가전환 손익분기** | **약 ${f.breakevenYears}년** | 임대료 절감으로 투자금 회수 |`);
     if (f.occupancyCostPerPyeongMonthly != null) rows.push(`| **실사용 평당 점유비용** | **월 ${f.occupancyCostPerPyeongMonthly.toLocaleString()}원/평** | 금융비용 + 관리비 합산 |`);
     if (f.pricePerPyeong != null) rows.push(`| **평당 매매가** | **${f.pricePerPyeong.toLocaleString()}원/평** | 사옥 자산가치 |`);
-    if (f.equityRequired != null) rows.push(`| **사옥 매입 실투자금(내 돈)** | **약 ${f.equityRequired}억 원** | 시설자금 대출 제외 초기자금 |`);
+    if (f.equityRequired != null) rows.push(`| **사옥 매입 실투자금(자기자본)** | **약 ${f.equityRequired}억 원** | 시설자금 대출 제외 초기자금 |`);
 
     if (rows.length === 0) return '';
 
@@ -781,7 +647,7 @@ class TradingFinancialStrategy implements PostureFinancialStrategy {
     if (f.marketDiscountPct != null) rows.push(`| **인근 시세 대비 할인율(저평가 갭)** | **${f.marketDiscountPct}%** | 주변 거래사례 대비 |`);
     if (f.targetCapitalGainBil != null) rows.push(`| **목표 시세차익** | **약 ${f.targetCapitalGainBil}억 원** | 목표 매각가 기준 |`);
     if (f.targetHprPct != null) rows.push(`| **자기자본 수익률(HPR)** | **${f.targetHprPct}%** | 보유기간 총수익률 |`);
-    if (f.equityRequired != null) rows.push(`| **필요 실투자금(내 돈)** | **약 ${f.equityRequired}억 원** | 초기 투입 자금 |`);
+    if (f.equityRequired != null) rows.push(`| **필요 실투자금(자기자본)** | **약 ${f.equityRequired}억 원** | 초기 투입 자금 |`);
 
     if (rows.length === 0) return '';
 
@@ -804,12 +670,10 @@ const STRATEGIES: Record<InvestmentPosture, PostureFinancialStrategy> = {
 };
 
 /**
- * 포스처별 고급 재무 지표를 계산합니다. (Strategy Pattern 적용)
+ * 포스처별 고급 재무 지표를 계산합니다. (domain im-core 위임)
  */
 export function calculateFinancials(inputs: FinancialInputs): FinancialOutputs {
-  const posture = inputs.posture ?? 'income';
-  const strategy = STRATEGIES[posture] ?? STRATEGIES.income;
-  return strategy.calculate(inputs);
+  return domainCalculateFinancials(inputs);
 }
 
 /**

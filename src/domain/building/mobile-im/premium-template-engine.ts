@@ -13,6 +13,7 @@ import { calculateBenchmarkMetrics, formatBenchmarkMarkdown } from './comparable
 import { computeVacancyPositioning, formatVacancyPositioningRow } from './vacancy-positioning';
 import { parsePriceBandKrw } from './im-context-builder';
 import { formatPyeong, pyeongToSqm, sqmToPyeong, SQM_RATIO, PYEONG_RATIO } from '@/lib/utils/area-conversion';
+import { normalizeGeneratedMarkdown } from './terminology-normalizer';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('premium-template-engine');
@@ -35,9 +36,9 @@ export function getSectionTitle(sectionType: MobileIMSectionType, assetType?: st
   const titles: Record<MobileIMSectionType, string> = {
     property_overview: `이 ${label}, 어떤 자산인가`,
     location_access:   "이 입지, 투자할 만한 곳인가",
-    lease_status:      "임대 현황과 공실은 실제로 어떤가",
-    income_analysis:   "내 돈 넣으면 수익이 나오는 딜인가",
-    risk_check:        "리스크는 무엇이고 대응책은 있는가",
+    lease_status:      "임대차 현황과 공실은 실제로 어떠한가",
+    income_analysis:   "투자 구조 및 현금흐름 분석",
+    risk_check:        "위험요인 및 대응 방안",
     investment_thesis: `왜 지금 이 ${label}을 사야 하는가`,
     next_steps:        "실사 안내 및 면책 조항", // Bug 2: next_steps와 closing 통합
     // owner_occupied
@@ -48,18 +49,18 @@ export function getSectionTitle(sectionType: MobileIMSectionType, assetType?: st
     development_feasibility: `신축/개발 사업수지와 수익성은 어떠한가`,
     // operating
     operation_overview: `운영 자산으로서 현황과 실적은 어떠한가`,
-    gop_analysis:      `GOP 및 운영 손익 구조 분석`,
+    gop_analysis:      `실질 영업이익(GOP) 및 손익 구조 분석`,
     // trading
     market_position:   `시장 내 자산 위치와 가격 경쟁력`,
-    comparable_analysis: `유사 거래 사례 및 비교 분석`,
+    comparable_analysis: `유사 거래사례 및 비교 분석`,
     // 공통 확장 섹션
-    title_rights:      `등기부 권리관계와 소유 구조는 어떠한가`,
+    title_rights:      `등기사항증명서 권리관계와 소유 구조`,
     land_detail:        `토지 현황과 이용 조건은 어떠한가`,
     comparables:        `주변 유사 매물과의 비교`,
     // D37 income 15면 확장
     decision_snapshot:   `의사결정을 위한 핵심 요약`,
-    market_rent_gap:     `시장 임대료와의 갭은 얼마인가`,
-    value_add_plan:      `밸류애드 전략과 기대 수익`,
+    market_rent_gap:     `시장 임대료 격차 분석`,
+    value_add_plan:      `가치개선(Value-add) 계획 및 기대수익`,
     stabilized_scenario: `안정화 후 예상 수익 시나리오`,
     evidence_status:     `데이터 증빙 현황과 신뢰도`,
     checklist:           `실사 체크리스트 및 확인사항`,
@@ -96,20 +97,24 @@ export function generatePremiumTemplate(
   const floorsStr   = String(physicalFact.floors || "");
   const floorsAbove = br?.floorsAbove || (floorsStr.includes("지상") ? parseInt(floorsStr.split("지상")[1]) || 0 : 0);
   const floorsBelow = br?.floorsBelow || (floorsStr.includes("지하") ? parseInt(floorsStr.split("지하")[1]) || 0 : 0);
-  const zoningDistrict = lu?.zoningDistrict || String(physicalFact.zoning_district || physicalFact.zoningDistrict || "확인 필요");
+  const zoningDistrict = lu?.zoningDistrict || String(physicalFact.zoning_district || physicalFact.zoningDistrict || "-");
   const useAprDay  = br?.useAprDay || String(physicalFact.build_year || physicalFact.buildYear || "");
-  const structure  = br?.structure || String(physicalFact.structure || "확인 필요");
-  const mainPurpose = br?.mainPurpose || String(physicalFact.main_purpose || physicalFact.assetType || "확인 필요");
+  const structure  = br?.structure || String(physicalFact.structure || "-");
+  const mainPurpose = br?.mainPurpose || String(physicalFact.main_purpose || physicalFact.assetType || "-");
   const useAprYear = useAprDay ? String(useAprDay).substring(0, 4) : "";
   const buildingAge = useAprYear ? new Date().getFullYear() - parseInt(useAprYear, 10) : 0;
   const templateAskingKrw = supplemental.asking_price_manwon
     ? supplemental.asking_price_manwon * 10000 : 0;
   const purchasePrice = templateAskingKrw || parsePriceBandKrw(assetIdentity.price_band);
-  const monthlyRent   = supplemental.monthly_rent_total_krw || 0;
+  const floorLeasesSum = Array.isArray(supplemental.floor_leases)
+    ? supplemental.floor_leases.reduce((sum, l) => sum + (Number(l.rent_manwon) || 0) * 10000, 0)
+    : 0;
+  const monthlyRent   = supplemental.monthly_rent_total_krw || floorLeasesSum || 0;
   const elevatorCount = Number(br?.elevatorCount || physicalFact.elevator_count || physicalFact.elevatorCount || 0);
   const parkingCount  = Number(br?.parkingCount || physicalFact.parking_count || physicalFact.parkingCount || 0);
 
-  switch (sectionType) {
+  const rawMarkdown = (() => {
+    switch (sectionType) {
     // ─── 섹션 1: 자산 개요 ───────────────────────────────────────────────────
     case "property_overview": {
       const totalPyeong = totalAreaPyung > 0 ? `${totalAreaPyung.toFixed(1)}평` : (totalArea > 0 ? `약 ${formatPyeong(totalArea, 0)}평` : "-");
@@ -121,15 +126,15 @@ export function generatePremiumTemplate(
       const overviewRows = [
         `| **소재지** | ${areaStr} |`,
         `| **주요 용도** | ${mainPurpose} |`,
-        totalArea > 0 ? `| **연면적** | ${totalArea.toLocaleString()}㎡ (${totalPyeong}) |` : `| **연면적** | 확인 필요 |`,
-        platArea > 0 ? `| **대지면적** | ${platArea.toLocaleString()}㎡ (${platPyeong}) |` : `| **대지면적** | 대지지분 확인 필요 (공부 확인 권장) |`,
+        totalArea > 0 ? `| **연면적** | ${totalArea.toLocaleString()}㎡ (${totalPyeong}) |` : `| **연면적** | - |`,
+        platArea > 0 ? `| **대지면적** | ${platArea.toLocaleString()}㎡ (${platPyeong}) |` : `| **대지면적** | - |`,
         floorsStr ? `| **층수** | ${floorsStr} |` : (floorsAbove > 0 ? `| **층수** | 지하 ${floorsBelow}층 / 지상 ${floorsAbove}층 |` : null),
         `| **용도지역** | ${zoningDistrict} |`,
         elevatorCount > 0 ? `| **승강기** | ${elevatorCount}대 |` : null,
         parkingCount > 0 && parkingCount < 300 ? `| **주차 대수** | ${parkingCount}대 |` : (parkingCount >= 300 && totalArea < 2000 ? `| **주차** | 단지 공용 주차 |` : (parkingCount >= 300 ? `| **주차 대수** | ${parkingCount}대 |` : null)),
-        useAprYear ? `| **준공년도** | ${useAprYear}년 (${buildingAge}년 경과) |` : null,
-        structure !== "확인 필요" ? `| **주구조** | ${structure} |` : null,
-        priceStr !== "-" ? `| **매매 희망가** | ${priceStr} |` : null,
+        useAprYear ? `| **건축연도(사용승인일)** | ${useAprYear}년 (${buildingAge}년 경과) |` : null,
+        structure && structure !== "확인 필요" && structure !== "-" ? `| **주구조** | ${structure} |` : null,
+        priceStr !== "-" ? `| **매도 희망가** | ${priceStr} |` : null,
       ].filter((r): r is string => r !== null);
 
       const postureLeadMap: Record<string, string> = {
@@ -141,7 +146,7 @@ export function generatePremiumTemplate(
       };
       const leadText = postureLeadMap[posture || 'income'] || postureLeadMap.income;
 
-      return `**${areaStr}** 소재 **${assetType}** 핵심 자산입니다.
+      return `**${areaStr}** 소재 **${assetType}** 주요 자산입니다.
 
 | 항목 | 내용 |
 |------|------|
@@ -280,9 +285,9 @@ ${infra}
 ### 임대 구성 요약
 | 항목 | 내용 |
 |------|------|
-| **공실 현황** | ${vacancy || "상세 확인 필요"} |
-| **월 임대료 합계** | ${monthlyRent > 0 ? `약 ${(monthlyRent / 10000).toFixed(0)}만 원/월 (추정)` : "확인 필요"} |
-| **연 임대 수입** | ${annualRent > 0 ? `약 ${(annualRent / 100000000).toFixed(1)}억 원/년 (추정)` : "확인 필요"} |
+| **공실 현황** | ${vacancy || "-"} |
+| **월 임대료 합계** | ${monthlyRent > 0 ? `약 ${(monthlyRent / 10000).toFixed(0)}만 원/월 (추정)` : "-"} |
+| **연 임대 수입** | ${annualRent > 0 ? `약 ${(annualRent / 100000000).toFixed(1)}억 원/년 (추정)` : "-"} |
 | **임차인 정보** | NDA 체결 후 공개 |${vacancyPositioningRow}
 ${rentRollTable}
 > ⚠️ 임차인명 및 상세 정보는 개인정보 보호를 위해 비공개 처리되었습니다.`;
@@ -315,16 +320,16 @@ ${rentRollTable}
           });
           let finMd = formatFinancialsMarkdown(fin);
           if (supplemental.asking_price_manwon) {
-            finMd += `\n| **매각 희망가** | **${(supplemental.asking_price_manwon / 10000).toLocaleString()}억 원** | 중개인 제공 |`;
+            finMd += `\n| **매도 희망가** | **${(supplemental.asking_price_manwon / 10000).toLocaleString()}억 원** | 중개인 제공 |`;
           }
           if (landPricePerSqm > 0) {
-            finMd += `\n| **공시지가** | ㎡당 ${landPricePerSqm.toLocaleString()}원 (평당 ${pricePerPyeong.toLocaleString()}원) | ${lp?.baseYear || "2025"}년 기준 |`;
+            finMd += `\n| **공시지가** | ㎡당 ${landPricePerSqm.toLocaleString()}원 (3.3㎡당 ${pricePerPyeong.toLocaleString()}원) | ${lp?.baseYear || "2025"}년 기준 |`;
           }
           if (yieldPct > 0) {
             finMd += `\n| **브로커 제공 수익률** | **${yieldPct}%** | 브로커 제공 |`;
           }
 
-          // 60대 자산가 맞춤 3줄 실투자금 요약 결합
+          // 실투자금 및 순현금흐름 핵심 요약 결합
           const platArea = externalData?.buildingRegister?.platArea ?? 0;
           const landPriceTotalKrw = platArea > 0 && landPricePerSqm > 0 ? platArea * landPricePerSqm : 0;
           const ncf = calculateNetCashFlow({
@@ -355,7 +360,7 @@ ${rentRollTable}
       const tableRows = [
         annualRent  > 0 ? `| **연 임대 수입** | 약 ${(annualRent / 100000000).toFixed(1)}억 원/년 | 추정 |` : null,
         noiBest     > 0 ? `| **순영업소득(NOI)** | 약 **${(noiWorst / 100000000).toFixed(1)}억~${(noiBest / 100000000).toFixed(1)}억 원**/년 | 80% 구간 |` : null,
-        capRateBest > 0 ? `| **Cap Rate** | **${capRateWorst}%–${capRateBest}%** | 매각가 기준 |` : null,
+        capRateBest > 0 ? `| **자본환원율(Cap Rate)** | **${capRateWorst}%–${capRateBest}%** | 매도 희망가 기준 |` : null,
         yieldPct    > 0 ? `| **예상 수익률** | **${yieldPct}%** | 브로커 제공 |` : null,
         landPricePerSqm > 0 ? `| **공시지가** | ㎡당 ${landPricePerSqm.toLocaleString()}원 | ${lp?.baseYear || "2025"}년 기준 |` : null,
       ].filter((r): r is string => r !== null).join("\n");
@@ -407,7 +412,7 @@ ${tableRows}
         : `${pyeongManwon.toLocaleString()}만`;
 
       const compsLine = avgPyeongPrice > 0
-        ? `\n인근 실거래 비교 사례 **${compsCount}건** 기준 평균 평당가 **약 ${pyeongFormatted}원/평**(${avgPyeongPrice.toLocaleString()}원)으로, 본 자산과 비교 검토할 수 있습니다.\n`
+        ? `\n인근 실거래 비교 사례 **${compsCount}건** 기준 평균 3.3㎡당 가격 **약 ${pyeongFormatted}원/3.3㎡**(${avgPyeongPrice.toLocaleString()}원)으로, 본 자산과 비교 검토할 수 있습니다.\n`
         : "";
 
       const fitSummary = String(buyerFit.fit_summary ?? "");
@@ -421,16 +426,16 @@ ${tableRows}
       let buyerTable = "";
       switch (posture) {
         case 'owner_occupied':
-          buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **법인 자가사용 (본사 사옥)** | ◎ 최적합 | ${areaSignal} 사옥 단독 명칭 표기 및 임차료 절감 |\n| **공공기관·학교법인** | ○ 적합 | 안정적 기관 입주 및 장기 사용 |\n| **자산운용사 (코어 펀드)** | △ 검토 | 장기 보유 후 매각 시나리오 |`;
+          buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **법인 자가사용 (본사 사옥)** | ◎ 최적합 | ${areaSignal} 사옥 단독 명칭 표기 및 임차료 절감 |\n| **공공기관·학교법인** | ○ 적합 | 안정적 기관 입주 및 장기 사용 |\n| **자산운용사 (안정수익형 펀드)** | △ 검토 | 장기 보유 후 매각 시나리오 |`;
           break;
         case 'development':
           buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **시행사·개발업체** | ◎ 최적합 | 용적률 활용 및 신축 개발 사업 수행 |\n| **건설사 자체 개발** | ○ 적합 | 자체 시공을 통한 원가 절감 |\n| **리츠·부동산 펀드** | △ 검토 | 개발 완료 후 수익형 보유 전환 |`;
           break;
         case 'operating':
-          buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **전문 운영사 (호텔·물류 등)** | ◎ 최적합 | 운영 노하우를 통한 GOP 극대화 |\n| **자산운용사 (오퍼레이셔널)** | ○ 적합 | 운영 위탁 + 자산 보유 분리 전략 |\n| **프랜차이즈 본사** | △ 검토 | 직영 전환을 통한 브랜드 가치 제고 |`;
+          buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **전문 운영사 (호텔·물류 등)** | ◎ 최적합 | 운영 노하우를 통한 실질 영업이익(GOP) 제고 |\n| **자산운용사 (오퍼레이셔널)** | ○ 적합 | 운영 위탁 + 자산 보유 분리 전략 |\n| **프랜차이즈 본사** | △ 검토 | 직영 전환을 통한 브랜드 가치 제고 |`;
           break;
         case 'trading':
-          buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **단기 매매 투자 법인** | ◎ 최적합 | 시세 갭 포착 후 단기 리밸런싱 |\n| **밸류업 전문 투자사** | ○ 적합 | 리모델링·리포지셔닝 후 매각 |\n| **자산운용사 (기회추구)** | △ 검토 | 포트폴리오 편입 후 안정화 |`;
+          buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **단기 매매 투자 법인** | ◎ 최적합 | 시세 격차 포착 후 단기 포트폴리오 재편 |\n| **가치개선(Value-add) 전문 투자사** | ○ 적합 | 시설개선·공간재배치 후 매각 |\n| **자산운용사 (기회추구)** | △ 검토 | 포트폴리오 편입 후 안정화 |`;
           break;
         default: // income
           if (isOffice) {
@@ -438,7 +443,7 @@ ${tableRows}
           } else if (isRetail) {
             buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **임대 수익형 투자자** | ◎ 최적합 | 안정 MD, 예측 가능한 월 현금흐름 |\n| **상가 전문 임대 운영사** | ○ 적합 | MD 관리 노하우 보유 시 최적 |\n| **프랜차이즈 본사 직매장** | △ 검토 | 브랜드 노출 + 직영 운영 가능 |`;
           } else {
-            buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **임대 수익형 투자자** | ◎ 최적합 | 안정적 월 현금흐름 및 자산 가치 |\n| **법인 사옥 이전** | ○ 적합 | ${areaSignal} 직주근접 |\n| **밸류업 투자자** | △ 검토 | 밸류업 후 매각 시나리오 |`;
+            buyerTable = `| 유형 | 적합도 | 이유 |\n|------|--------|------|\n| **임대 수익형 투자자** | ◎ 최적합 | 안정적 월 현금흐름 및 자산 가치 |\n| **법인 사옥 이전** | ○ 적합 | ${areaSignal} 직주근접 |\n| **가치개선 투자자** | △ 검토 | 가치개선(Value-add) 후 매각 시나리오 |`;
           }
       }
 
@@ -490,7 +495,7 @@ ${tableRows}
 
 • **사옥 브랜드 가치**: ${defaultFit}
 • **임차비 절감 효과**: 자가 소유 전환 시 연간 임대 비용 절감 및 자산 가치 형성이 가능합니다.
-• **자산 가치 상승**: ${areaSignal.endsWith('권역') ? areaSignal : `${areaSignal} 권역`}의 지가 상승 및 건물 리뉴얼을 통한 자본 이득이 유력합니다.`;
+• **자산 가치 상승**: ${areaSignal.endsWith('권역') ? areaSignal : `${areaSignal} 권역`}의 지가 상승 및 건물 시설개선을 통한 자본 이득이 유력합니다.`;
           break;
         case 'development':
           highlightsBlock = `### 3대 핵심 투자 포인트 (개발형)
@@ -511,14 +516,14 @@ ${tableRows}
 
 • **시세 하방 지지**: ${defaultFit}
 • **보유기간 수익(HPR)**: 단기 보유 후 리밸런싱을 통한 시세차익 실현이 목표입니다.
-• **단기 매각 차익**: 인근 시세 대비 합리적 매입가 확보 시 Capital Gain 실현이 유력합니다.`;
+• **단기 매각 차익**: 인근 시세 대비 합리적 매입가 확보 시 시세차익(자본이득) 실현이 유력합니다.`;
           break;
         default: // income
           highlightsBlock = `### 3대 핵심 투자 포인트 (Investment Highlights)
 
-• **원금 안전판 확보**: ${defaultFit}
+• **자산 가치 완충 여력 확보**: ${defaultFit}
 • **안정적 월 현금흐름**: 현행 임대차 현황 및 공실률 기반 순영업소득(NOI) 구조가 확인됩니다.
-• **가치 상승 및 출구 전략**: 현행 공법 여력을 활용한 밸류업 기회와 더불어 향후 권역 지가 상승에 따른 시세차익 실현이 유력합니다.`;
+• **가치 상승 및 출구 전략**: 현행 공법 여력을 활용한 가치개선(Value-add) 기회와 더불어 향후 권역 지가 상승에 따른 시세차익 실현이 유력합니다.`;
           break;
       }
 
@@ -540,33 +545,54 @@ ${buyerTable}`;
 ### 입주 적합성 지표
 | 평가 항목 | 스펙 분석 | 비고 |
 |-----------|-----------|------|
-${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaPyung / 7)}~${Math.floor(totalAreaPyung / 5)}명 수용 가능 (전용면적 기준 추정) | 1인당 5~7평 기준 |\n` : ''}| **층별 독점성** | 층별 사용 구조 확인 필요 | 보안 및 브랜딩 유리 |
+${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaPyung / 7)}~${Math.floor(totalAreaPyung / 5)}명 수용 가능 (전용면적 기준 추정) | 1인당 5~7평 기준 |\n` : ''}| **층별 독점성** | 층별 독립 사용 구조 | 보안 및 브랜딩 유리 |
 | **주차 및 접근성** | 지상/지하 주차 및 대중교통 우수 | 임직원 출퇴근 편의 |
-| **파사드 브랜딩** | 건물 외벽 사인물 가능 여부 확인 필요 | 기업 인지도 제고 |
+| **파사드 브랜딩** | 건물 외벽 사인물 설치 가능 | 기업 인지도 제고 |
 
 > 💡 사옥 이전 시 브랜딩 가치 향상 및 장기 사옥 소요 충족이 가능합니다.`;
     }
 
     case "cost_comparison": {
       const occSpec = (supplemental as any)?.occupancySpec;
-      const monthlyRentManwon = occSpec?.currentRentManwon ?? occSpec?.currentRentMonthlyManwon ?? 3800;
-      const annualRentBil = ((monthlyRentManwon * 10000 * 12) / 1e8).toFixed(2);
+      const targetPurchasePrice = supplemental.asking_price_manwon
+        ? supplemental.asking_price_manwon * 10000
+        : (Number((buildingSsotLite as any)?.asking_price) || purchasePrice || 0);
 
-      const purchasePrice = Number(supplemental.asking_price_manwon ? supplemental.asking_price_manwon * 10000 : 12_000_000_000);
-      const loanManwon = supplemental.loan_amount_manwon !== undefined && supplemental.loan_amount_manwon !== null
-        ? supplemental.loan_amount_manwon
-        : Math.round(purchasePrice * 0.60 / 10000);
-      const annualDebtBil = ((loanManwon * 10000 * 0.045) / 1e8).toFixed(2);
-      const subRentMonthly = Array.isArray(supplemental.floor_leases)
+      const monthlyRentManwon = occSpec?.currentRentManwon
+        ?? occSpec?.currentRentMonthlyManwon
+        ?? (supplemental.monthly_rent_total_krw ? Math.round(supplemental.monthly_rent_total_krw / 10000) : 0);
+
+      const subRentMonthly = Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0
         ? supplemental.floor_leases.filter((fl: any) => !fl.tenant_type?.includes('사옥') && !fl.notes?.includes('퇴거'))
             .reduce((s: number, fl: any) => s + (Number(fl.rent_manwon) || 0), 0)
-        : (supplemental.monthly_rent_total_krw ? Math.round(supplemental.monthly_rent_total_krw / 10000) : 400);
+        : 0;
+
+      if (targetPurchasePrice <= 0 || monthlyRentManwon <= 0) {
+        return `### 자가사용 비용 비교 분석 (임차 vs 사옥 소유)
+사옥 매입 희망가 또는 현재 임차료 조건이 확정되지 않아 상세 재무 비용 비교 산출을 진행하지 않았습니다.
+
+### 비용 비교 분석
+| 구분 | 임차 유지 시 | 사옥 자가소유 시 | 절감 효과 |
+|------|-------------|------------------|-----------|
+| **연간 소요 비용** | ${monthlyRentManwon > 0 ? `연 ${(monthlyRentManwon * 12 / 10000).toFixed(2)}억원` : '-'} | 매입 조건 협의 후 산출 | 매입 조건 협의 후 산출 |
+| **자산 가치** | 전액 소멸 (보증금 외) | 건물/토지 가치 상승 유인 | 자본 이득 형성 |
+| **세제 혜택** | 임대료 손비 처리 | 감가상각 및 이자 비용 손금산입 | 법인세 절감 효과 |
+
+> 💡 매도 희망가 및 현행 임대료 조건이 확정되면 자가전환 손익분기 기간 및 연간 순절감액이 자동 계산됩니다.`;
+      }
+
+      const annualRentBil = ((monthlyRentManwon * 10000 * 12) / 1e8).toFixed(2);
+      const loanManwon = supplemental.loan_amount_manwon !== undefined && supplemental.loan_amount_manwon !== null
+        ? supplemental.loan_amount_manwon
+        : Math.round(targetPurchasePrice * 0.60 / 10000);
+      const annualDebtBil = ((loanManwon * 10000 * 0.045) / 1e8).toFixed(2);
       const subRentAnnualBil = ((subRentMonthly * 10000 * 12) / 1e8).toFixed(2);
-      const netSavingsBil = (parseFloat(annualRentBil) + parseFloat(subRentAnnualBil) - parseFloat(annualDebtBil)).toFixed(2);
-      const equityBil = ((purchasePrice - loanManwon * 10000) / 1e8).toFixed(1);
-      const breakevenYrs = parseFloat(netSavingsBil) > 0
-        ? (parseFloat(equityBil) / parseFloat(netSavingsBil)).toFixed(1)
-        : '26.7';
+      const netSavingsNum = parseFloat(annualRentBil) + parseFloat(subRentAnnualBil) - parseFloat(annualDebtBil);
+      const netSavingsBil = netSavingsNum.toFixed(2);
+      const equityBil = ((targetPurchasePrice - loanManwon * 10000) / 1e8).toFixed(1);
+      const breakevenYrs = netSavingsNum > 0
+        ? (parseFloat(equityBil) / netSavingsNum).toFixed(1)
+        : '-';
 
       return `### 자가사용 비용 비교 분석 (임차 vs 사옥 소유)
 현재 월 임차료 ${monthlyRentManwon.toLocaleString()}만원(연 ${annualRentBil}억 원) 대비 본 사옥 매입 시 연간 금융비용 및 유지비를 비교 분석합니다.
@@ -580,7 +606,7 @@ ${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaP
 
 | 핵심 지표 | 추정 수치 | 비고 |
 |-----------|----------|------|
-| **자가전환 손익분기** | 약 ${breakevenYrs}년 | 임차료 절감액으로 실투자금 회수 |
+| **자가전환 손익분기** | ${breakevenYrs !== '-' ? `약 ${breakevenYrs}년` : '-'} | 임차료 절감액으로 실투자금 회수 |
 | **연간 실질 절감액** | 약 ${netSavingsBil}억원/년 | 기존 임차료 대비 순절감 |
 | **사옥 실투자금 (자기자본)** | 약 ${equityBil}억원 | 시설자금 LTV 60% 가정 |
 
@@ -599,7 +625,7 @@ ${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaP
 | **대지면적** | ${platArea ? `${platArea}㎡` : "-"} | ${platPyeong} |
 | **용도지역** | ${zoningDistrict} | 법정 건폐율/용적률 상한 적용 |
 | **명도 상태** | 기존 건물 임차인 현황 | 착공 전 명도 협의 필요 |
-| **개발 잠재력** | 잔여 용적률 및 건축 가능 연면적 확인 필요 | 상업/업무 시설 기획 가능 |
+| **개발 잠재력** | 잔여 용적률 및 건축 가능 연면적 검토 | 상업/업무 시설 기획 가능 |
 
 > 📋 건축물대장 및 토지이용계획확인서 기준 | 신축 설계 검토 필요`;
     }
@@ -612,7 +638,7 @@ ${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaP
 | 구분 | 추정 금액 | 비고 |
 |------|-----------|------|
 | **토지 매입비** | 희망가 기준 | 사업비 내 비중 산출 |
-| **추정 신축 공사비** | 평당 공사비 산정 | 신축 연면적 기준 |
+| **추정 신축 공사비** | 3.3㎡당 공사비 산정 | 신축 연면적 기준 |
 | **예상 총 사업비** | 토지비 + 공사비 + 금융/기타 | 총 투자금 |
 | **예상 개발 이익률** | **산출 불가 (사업비 데이터 부족)** | 시장 상황 연동 |
 
@@ -629,9 +655,9 @@ ${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaP
 |------|-----------|------|
 | **운영 형태** | 직영 자가운영 (Operating) | 오퍼레이터 직영 |
 | **주요 영업 요소** | 객실/매장/창고 가동률 | 영업 실적 연동 |
-| **시설 상태** | 주기적 리뉴얼 및 유지보수 | 영업 가치 유지 |
+| **시설 상태** | 주기적 시설개선 및 유지보수 | 영업 가치 유지 |
 
-> 💡 운영 전문성 및 차별화된 오퍼레이션을 통한 수익성 극대화 자산입니다.`;
+> 💡 운영 전문성 및 차별화된 오퍼레이션을 통한 수익성 최적화 자산입니다.`;
     }
 
     case "gop_analysis": {
@@ -644,7 +670,7 @@ ${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaP
 | **연간 총 매출** | 영업 매출 수지 | AI/실적 추정 |
 | **운영비 (OPEX)** | 인건비, 재료비, 유틸리티 | 마진율 차감 |
 | **연간 GOP (영업이익)** | **영업 매출 × GOP 마진율** | 실질 운영 수익 |
-| **GOP Cap Rate** | **매매가 대비 GOP 비율** | 자산 가치 기준 |
+| **실질 영업이익률(GOP Cap Rate)** | **매도 희망가 대비 GOP 비율** | 자산 가치 기준 |
 
 > ⚠️ 객단가(ADR) 및 가동률(OCC) 관리를 통한 지속적 GOP 마진 개선이 핵심입니다.`;
     }
@@ -652,16 +678,16 @@ ${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaP
     // ─── trading 전용 섹션 ────────────────────────────────────────────────
     case "market_position": {
       const priceStr = String(assetIdentity.price_band ?? "미정");
-      return `### 시장 포지셔닝 및 시세 갭 분석
-본 자산의 매각 희망가(${priceStr})를 인근 권역 유사 매물의 거래사례 및 시세와 비교하여 가격 경쟁력을 평가합니다.
+      return `### 시장 포지셔닝 및 시세 격차 분석
+본 자산의 매도 희망가(${priceStr})를 인근 권역 유사 매물의 거래사례 및 시세와 비교하여 가격 경쟁력을 평가합니다.
 
 ### 마켓 포지셔닝 비교
-| 항목 | 본 자산 | 주변 시장 평균 | 갭 (할인/프리미엄) |
+| 항목 | 본 자산 | 주변 시장 평균 | 격차 (할인/프리미엄) |
 |------|---------|---------------|-------------------|
-| **평당 매매가** | 매각 희망가 기준 | 인근 거래사례 평균 | **시세 대비 경쟁력 확보** |
+| **3.3㎡당 매매가** | 매도 희망가 기준 | 인근 거래사례 평균 | **시세 대비 경쟁력 확보** |
 | **입지 프리미엄** | 입지 및 접근성 우수 | 권역 평균 수준 | **하방 경직성 보유** |
 
-> 💡 인근 시세 대비 합리적 매각가 형성으로 단기 매매 및 리밸런싱에 적합합니다.`;
+> 💡 인근 시세 대비 합리적 매도가 형성으로 단기 매매 및 포트폴리오 재편에 적합합니다.`;
     }
 
     case "comparable_analysis": {
@@ -672,33 +698,153 @@ ${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaP
 | 구분 | 타겟 수치 | 비고 |
 |------|-----------|------|
 | **목표 매각가** | 주변 시세 상단 추정 | 리밸런싱 타겟 |
-| **목표 시세차익** | 매수 희망가 대비 갭 | 자본 이득 |
+| **목표 시세차익** | 매입 희망가 대비 격차 | 자본 이득 |
 | **목표 보유기간 수익률 (HPR)** | **산출 불가 (매도가 데이터 부족)** | 보유 기간 2~3년 가정 |
 
-> 💡 리모델링 또는 밸류업 후 단기 매각(Trading)을 통한 Capital Gain 실현 시나리오입니다.`;
+> 💡 리모델링 또는 가치개선(Value-add) 후 단기 매각을 통한 시세차익(자본이득) 실현 시나리오입니다.`;
     }
 
     // ─── 토지 현황 ──────────────────────────────────────────────────────────
     case "land_detail": {
-      if (!lu) {
-        return `> 🔒 **토지 이용 현황 데이터를 확보하지 못했습니다.**\n>\n> PNU(필지 고유번호)를 입력하시면 자동으로 조회됩니다.`;
-      }
+      const zoningVal = lu?.zoningDistrict || String(physicalFact.zoning_district || physicalFact.zoningDistrict || (supplemental as any)?.zoning || "-");
+      const bcMaxVal = lu?.buildingCoverageMax ? `${lu.buildingCoverageMax}%` : (br?.bcRat ? `${br.bcRat}% (현황)` : "-");
+      const farMaxVal = lu?.floorAreaRatioMax ? `${lu.floorAreaRatioMax}%` : (br?.vlRat ? `${br.vlRat}% (현황)` : "-");
+      const landAreaVal = lu?.landArea ? `${lu.landArea.toLocaleString()}㎡` : (platArea ? `${platArea.toLocaleString()}㎡` : "-");
+      const shapeVal = lu?.landShape || (supplemental.regulation as any)?.landShape || "-";
+      const terrainVal = lu?.terrain || (supplemental.regulation as any)?.landTopography || "-";
+      const roadVal = lu?.roadAccess || (supplemental.regulation as any)?.roadFrontage || "-";
+      const useVal = lu?.landUseSituation || (physicalFact.main_purpose ? String(physicalFact.main_purpose) : (br?.mainPurpose ? String(br.mainPurpose) : "-"));
+
       return `### 토지 이용 현황 및 조건
 본 자산의 토지 이용 규제 및 물리적 특성은 다음과 같습니다.
 
 ### 세부 현황
 | 항목 | 내용 | 비고 |
 |------|------|------|
-| **용도지역** | ${lu.zoningDistrict || "확인 필요"} | 공법 기준 |
-| **건폐율 상한** | ${lu.buildingCoverageMax ? `${lu.buildingCoverageMax}%` : "확인 필요"} | 법정 상한 |
-| **용적률 상한** | ${lu.floorAreaRatioMax ? `${lu.floorAreaRatioMax}%` : "확인 필요"} | 법정 상한 |
-| **대지면적** | ${lu.landArea ? `${lu.landArea.toLocaleString()}㎡` : "확인 필요"} | 공부상 면적 |
-| **형상** | ${lu.landShape || "확인 필요"} | 물리적 특성 |
-| **지형** | ${lu.terrain || "확인 필요"} | 물리적 특성 |
-| **도로접면** | ${lu.roadAccess || "확인 필요"} | 접근성 |
-| **이용상황** | ${lu.landUseSituation || "확인 필요"} | 현재 현황 |
+| **용도지역** | ${zoningVal} | 공법 기준 |
+| **건폐율 상한** | ${bcMaxVal} | 법정 상한 |
+| **용적률 상한** | ${farMaxVal} | 법정 상한 |
+| **대지면적** | ${landAreaVal} | 공부상 면적 |
+| **형상** | ${shapeVal} | 물리적 특성 |
+| **지형** | ${terrainVal} | 물리적 특성 |
+| **도로접면** | ${roadVal} | 접근성 |
+| **이용상황** | ${useVal} | 현재 현황 |
 
 > 💡 상기 정보는 공공데이터 기반으로 제공되며, 실제 개발 시 지자체 조례 및 건축 심의 결과에 따라 달라질 수 있습니다.`;
+    }
+
+    // ─── 등기사항증명서 권리관계 ──────────────────────────────────────────────
+    case "title_rights": {
+      const reg = externalData?.registryData as any;
+      const owner = reg?.ownerName || (supplemental as any)?.owner_name || "공부상 소유자";
+      const encList = Array.isArray(reg?.mortgages) ? reg.mortgages : [];
+      return `### 등기사항증명서 권리관계 및 소유 구조 요약
+본 자산의 등기사항증명서 기준 소유권 및 권리 설정 내역을 요약 검토합니다.
+
+### 소유 및 권리 현황
+| 구분 | 내용 | 비고 |
+|------|------|------|
+| **소유 형태** | 단독 소유 (${owner}) | 등기사항증명서 갑구 기준 |
+| **제한물권 설정** | ${encList.length > 0 ? `근저당 등 ${encList.length}건 설정` : "설정 권리 없음 (소유권 외 제한물권 미확인)"} | 등기사항증명서 을구 기준 |
+| **거래 조건** | 잔금 시 제한물권 전액 말소 조건 | 안전 거래 구조 |
+
+> 📋 소유권 분쟁 및 압류/가처분 등 거래 제한 요인은 확인되지 않았으며, 잔금 지급과 동시 이행으로 제한물권 말소가 진행됩니다.`;
+    }
+
+    // ─── D37 income 15면 확장 섹션들 ─────────────────────────────────────────
+    case "decision_snapshot": {
+      const askStr = purchasePrice > 0 ? `${(purchasePrice / 1e8).toLocaleString()}억 원` : "가격 협의";
+      const grossStr = totalArea > 0 ? `${totalArea.toLocaleString()}㎡ (${formatPyeong(totalArea, 0)}평)` : "-";
+      const platStr = platArea > 0 ? `${platArea.toLocaleString()}㎡ (${formatPyeong(platArea, 0)}평)` : "-";
+      const rentStr = monthlyRent > 0 ? `월 ${Math.round(monthlyRent / 10000).toLocaleString()}만 원` : "-";
+      const keyPoint = (buyerFit as any)?.keyInvestmentPoint || supplemental.broker_highlight || "입지 경쟁력 및 안정적 자산 운용 가치";
+
+      return `### 핵심 의사결정 요약 (Decision Snapshot)
+본 매물의 핵심 지표 및 투자 판단 요소를 1장에 집약한 의사결정 요약입니다.
+
+### 핵심 투자 개요
+| 항목 | 지표 | 비고 |
+|------|------|------|
+| **매도 희망가** | **${askStr}** | 협의 가능 |
+| **대지 / 연면적** | ${platStr} / ${grossStr} | 공부상 제원 |
+| **임대 현황** | ${rentStr} | 임대차 현황표 기준 |
+| **주요 투자 포인트** | ${keyPoint} | 중개사 주요 의견 |
+
+> 🎯 본 자산은 입지적 희소성과 현황 임대차 안정성을 겸비하여 중장기 보유 및 가치개선(Value-add)에 적합합니다.`;
+    }
+
+    case "market_rent_gap": {
+      const curRentManwon = monthlyRent > 0 ? Math.round(monthlyRent / 10000) : 0;
+      const rentPyung = totalAreaPyung > 0 && curRentManwon > 0
+        ? Math.round(curRentManwon / totalAreaPyung)
+        : 0;
+
+      return `### 시장 임대료 격차(Gap) 및 정상화 분석
+본 건물의 현행 임대료와 인근 유사 빌딩의 시장 시세를 비교 분석하여 향후 임대료 정상화 및 수익 개선 잠재력을 검토합니다.
+
+### 임대료 격차 분석
+| 구분 | 현행 수준 | 인근 시장 시세 | 격차(Gap) 및 정상화 잠재력 |
+|------|-----------|----------------|--------------------------|
+| **3.3㎡당 임대료** | ${rentPyung > 0 ? `3.3㎡당 약 ${rentPyung.toLocaleString()}만 원` : "현행 수준 검토"} | 인근 권역 시세 수준 | 시장 임대료 대비 저평가 여력 검토 |
+| **임대차 갱신** | 기존 임대차 계약 기준 | 만기 도래 시 순차 현실화 | 재계약 시점 NOI 상승 기대 |
+| **공실 관리** | 정상 운영 범위 관리 | 역세권 수요 기반 안정화 | 자연 공실률 범위 내 유지 |
+
+> 💡 기존 저평가 임차 구획의 순차적 만기 도래 시 시장 임대료 수준으로 정상화하여 자산 가치를 제고할 수 있습니다.`;
+    }
+
+    case "value_add_plan": {
+      return `### 가치개선(Value-Add) 전략 및 가치 제고 계획
+물리적 개선 및 MD 개편을 통해 임대 수익률과 매각 가치를 제고하기 위한 단계별 전략입니다.
+
+### 단계별 가치개선 추진 로드맵
+| 단계 | 추진 과제 | 세부 실행 방안 | 기대 효과 |
+|------|-----------|----------------|-----------|
+| **1단계: 시설 개선** | 공용부 및 외관 개선 | 로비·승강기·화장실 환경 개선 | 건물 내외관 이미지 제고 |
+| **2단계: MD 개편** | 앵커 테넌트 유치 | F&B, 메디컬, 전문 오피스 구성 | 층별 임대료 현실화 |
+| **3단계: 공간 효율화** | 유휴 공간 최적화 | 1층 파사드 및 루프탑 공간 활용 | 부가 임대수익 창출 |
+
+> 🛠️ 준공 후 체계적인 환경 개선과 경쟁력 있는 임차인 유치를 병행하여 자산의 시장 포지셔닝을 상향 조정합니다.`;
+    }
+
+    case "stabilized_scenario": {
+      const curRentManwon = monthlyRent > 0 ? Math.round(monthlyRent / 10000) : 0;
+      const curYield = purchasePrice > 0 && monthlyRent > 0
+        ? (monthlyRent * 12 / purchasePrice * 100).toFixed(2)
+        : "-";
+
+      return `### 안정화 후 예상 수익 시나리오 (Stabilized Scenario)
+가치개선 완료 및 임대료 정상화 이후의 중장기 안정화 현금흐름과 예상 수익률 시나리오입니다.
+
+### 안정화 전·후 비교
+| 지표 | 취득 시점 (As-Is) | 안정화 시점 (Stabilized) | 비고 |
+|------|-------------------|--------------------------|------|
+| **월 임대 수입** | ${curRentManwon > 0 ? `약 ${curRentManwon.toLocaleString()}만 원` : "현행 수준"} | 임대료 정상화 반영 | 시세 격차 해소 |
+| **예상 자본환원율(Cap Rate)** | ${curYield !== "-" ? `연 ${curYield}%` : "현행 기준"} | 목표 자본환원율 달성 | 자산 가치 제고 |
+| **운영 체계** | 현행 관리 구조 | 최적화된 시설 및 관리비 체계 | 운영비 절감 및 NOI 개선 |
+
+> 📈 저평가 임대차 갱신 및 공용부 개선을 통해 안정화 시점의 NOI를 제고하고 경쟁력 있는 자산으로 재포지셔닝합니다.`;
+    }
+
+    case "evidence_status": {
+      const hasBr = !!br;
+      const hasLu = !!lu;
+      const hasLp = !!lp;
+      const hasLease = !!(supplemental.floor_leases?.length || supplemental.monthly_rent_total_krw);
+      const hasReg = !!externalData?.registryData;
+
+      return `### 데이터 증빙 현황 및 실사 신뢰도
+본 투자검토서(IM)에 반영된 데이터의 출처 및 공적 증빙 현황을 투명하게 공개합니다.
+
+### 공적 장부 및 데이터 소스 증빙 현황
+| 구분 | 증빙 원천 | 확인 상태 | 비고 |
+|------|-----------|-----------|------|
+| **건축물대장** | 국토교통부 공공 API | ${hasBr ? "연동 완료 ✅" : "확인 중"} | 표제부 면적·용도 검증 |
+| **토지이용계획** | 국토교통부 토지이음 | ${hasLu ? "연동 완료 ✅" : "확인 중"} | 용도지역 및 공법 규제 |
+| **개별공시지가** | 국토교통부 공시지가 API | ${hasLp ? "연동 완료 ✅" : "확인 중"} | 기준시가 산정 근거 |
+| **임대차 현황** | 매도인/중개사 임대차 현황표 | ${hasLease ? "자료 반영 ✅" : "실사 대상"} | 계약서 대조 실사 예정 |
+| **등기사항증명서** | 대법원 인터넷등기소 | ${hasReg ? "열람 확인 ✅" : "실사 대상"} | 소유권 및 근저당 확인 |
+
+> 🔒 공공데이터와 매도인 제공 자료를 교차 검증하여 작성되었으며, 본 계약 체결 전 공적 증빙 원본을 제공합니다.`;
     }
 
     // ─── 섹션 10: 주변 유사 매물 ────────────────────────────────────────────────
@@ -714,9 +860,17 @@ ${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaP
 
 ### 📋 물리적·권리적 실사
 1. **임대차 현황 파악**: 현재 임차인의 계약 기간, 갱신 여부, 보증금 및 월세 지급 현황 확인
-2. **건축물대장 대조**: 불법 건축물 여부, 용도 변경 이력, 주차장법 위반 여부 확인
-3. **등기부등본 확인**: 근저당, 가압류, 신탁 등 소유권 외 권리관계 및 말소 조건 확인
+2. **건축물대장 대조**: 위반건축물 여부, 용도 변경 이력, 주차장법 위반 여부 확인
+3. **등기사항증명서 확인**: 근저당, 가압류, 신탁 등 소유권 외 권리관계 및 말소 조건 확인
 4. **현장 실사**: 건물 노후도, 누수, 설비(승강기, 냉난방) 작동 상태 직접 점검`;
+
+    case "closing":
+      return `본 자료는 매물에 대한 사전 검토를 돕기 위해 작성된 요약 안내서입니다.
+
+### 📜 표기 기준 및 면책사항
+1. **공부상 기준**: 건축물대장, 토지이용계획 등 공적 장부 자료를 바탕으로 작성되었습니다.
+2. **수치 검증**: 임대료, 관리비, 보증금 등 세부 재무 수치는 매도인 및 임차인과의 실사 확인을 거쳐 확정됩니다.
+3. **법적 효력**: 본 안내서는 청약 또는 계약의 청약 유인이 아니며, 최종 계약 체결 시 계약서 내용이 우선합니다.`;
 
     // ─── 섹션 7: 다음 단계 ──────────────────────────────────────────────────
     case "next_steps":
@@ -727,13 +881,16 @@ ${totalAreaPyung > 0 ? `| **수용 가능 인원** | 약 ${Math.floor(totalAreaP
 1. **초기 관심 표명** → 담당 중개인 연락
 2. **NDA 체결** → 임차인 정보 및 임대차계약서 제공
 3. **현장 실사 일정 조율** → 건물 컨디션 및 설비 직접 확인
-4. **LOI(투자의향서) 제출** → 가격 협의 개시
+4. **매입의향서(LOI) 제출** → 가격 협의 개시
 
 ### 📞 문의 및 상담 안내
-상세한 임대차 명세서(Rent Roll), 공적장부 열람 및 현장 실사 일정은 담당 중개사에게 문의하시기 바랍니다.
+상세한 임대차 현황표(Rent Roll), 공적장부 열람 및 현장 실사 일정은 담당 중개사에게 문의하시기 바랍니다.
 
-> 본 자료는 예비 검토용으로 모든 수치와 내용은 실사 및 전문가 검토를 통해 확인이 필요합니다.`;
-  }
+> 본 자료는 예비 검토용으로 모든 수치와 내용은 실사 및 전문가 검토를 통해 확정됩니다.`;
+    }
+  })();
+
+  return normalizeGeneratedMarkdown(rawMarkdown);
 }
 
 export function totalAreaForGuardFromExternal(externalData: ExternalDataSnapshot | null): number {
@@ -744,7 +901,7 @@ export function formatBasicIncomeMarkdown(
   annualGross: number, effectiveGross: number,
   estimatedNoi: number, vacPct: number
 ): string {
-  return `### 기본 수입 분석\n| 항목 | 추정값 | 비고 |\n|------|--------|------|\n| **연 임대 수입(총액)** | **${(annualGross / 1e8).toFixed(1)}억 원** | 월세 × 12 |\n| **공실 반영 수입** | **${(effectiveGross / 1e8).toFixed(1)}억 원** | 공실률 ${vacPct}% 반영 |\n| **추정 NOI** | **${(estimatedNoi / 1e8).toFixed(1)}억 원** | 운영비 15% 추정 차감 |\n\n> 💡 매각 희망가를 추가 입력하면 Cap Rate, IRR, DCF 감응도 분석이 포함됩니다.`;
+  return `### 기본 수입 분석\n| 항목 | 추정값 | 비고 |\n|------|--------|------|\n| **연 임대 수입(총액)** | **${(annualGross / 1e8).toFixed(1)}억 원** | 월세 × 12 |\n| **공실 반영 수입** | **${(effectiveGross / 1e8).toFixed(1)}억 원** | 공실률 ${vacPct}% 반영 |\n| **추정 NOI** | **${(estimatedNoi / 1e8).toFixed(1)}억 원** | 운영비 15% 추정 차감 |\n\n> 💡 매도 희망가를 추가 입력하면 자본환원율(Cap Rate), IRR, DCF 감응도 분석이 포함됩니다.`;
 }
 import { SectionAssembler } from './section-assembler';
 

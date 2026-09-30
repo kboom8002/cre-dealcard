@@ -9,7 +9,7 @@
 
 import type { ClaimRegistry } from './claim-registry';
 import type { ReleaseTier } from './release-tier';
-import type { InvestmentPosture } from '@/domain/ontology';
+import type { InvestmentPosture } from '@/domain/ontology/enums';
 
 // ── 승인 레벨 ──
 

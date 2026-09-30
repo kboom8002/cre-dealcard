@@ -9,7 +9,7 @@
  */
 import type PptxGenJS from 'pptxgenjs';
 import type { PptxThemeTokens } from './pptx-theme';
-import { textH as computeTextH } from './utils/layout-physics';
+import { textH as computeTextH, fitTextToBox, fitTableCell, getCharWidthInches, simulateTextWrap } from './layout-physics';
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 // ════════════════════════════════════════
@@ -18,8 +18,9 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 export const W = 13.333;   // LAYOUT_WIDE 캔버스 폭
 export const H = 7.5;      // 높이
-export const M = 0.55;     // 좌우 마진
-export const CW = 12.093;  // 콘텐츠 폭 = W - M*2
+export const M = 0.62;     // 좌우 표준 안전 마진 (SSoT 정본: im.budget.yaml)
+export const CW = 12.093;  // 콘텐츠 폭 = W - M*2 (13.333 - 1.24 = 12.093)
+export const SAFE_BOTTOM = 6.75; // 안전 지면 하한 (푸터 침범 차단)
 
 /** §6 컬럼 패턴 — 컬럼 폭 계산 */
 export const col = (n: number, gap: number): number => (CW - gap * (n - 1)) / n;
@@ -27,22 +28,65 @@ export const col = (n: number, gap: number): number => (CW - gap * (n - 1)) / n;
 /** §6 컬럼 패턴 — i번째 컬럼 x 좌표 */
 export const colX = (i: number, w: number, gap: number): number => M + i * (w + gap);
 
+/** §6.1 표준 2컬럼 분할 바운더리 */
+export interface TwoColBounds {
+  left: { x: number; y: number; w: number; h: number };
+  right: { x: number; y: number; w: number; h: number };
+  gap: number;
+}
+
+/**
+ * §6.2 정규 2컬럼 분할 프리셋 계산기
+ * - 60_40: lw = 7.30", gap = 0.40", rw = 4.393"
+ * - 50_50: lw = 5.846", gap = 0.40", rw = 5.847"
+ * - 45_55: lw = 5.45", gap = 0.28", rw = 6.363"
+ * - stacking: lw = 3.40", gap = 0.30", rw = 8.393"
+ */
+export function split2Col(
+  preset: '60_40' | '50_50' | '45_55' | 'stacking',
+  y: number,
+  h: number,
+  customGap?: number
+): TwoColBounds {
+  let lw = 7.30;
+  let gap = customGap ?? 0.40;
+
+  switch (preset) {
+    case '60_40':
+      lw = 7.30;
+      gap = customGap ?? 0.40;
+      break;
+    case '50_50':
+      gap = customGap ?? 0.40;
+      lw = customGap !== undefined ? Math.floor(((CW - gap) / 2) * 1000) / 1000 : 5.846;
+      break;
+    case '45_55':
+      lw = 5.45;
+      gap = customGap ?? 0.28;
+      break;
+    case 'stacking':
+      lw = 3.40;
+      gap = customGap ?? 0.30;
+      break;
+  }
+
+  const rw = Math.round((CW - lw - gap) * 1000) / 1000;
+  const left = { x: M, y, w: lw, h };
+  const right = { x: Math.round((M + lw + gap) * 1000) / 1000, y, w: rw, h };
+
+  return { left, right, gap };
+}
+
+
 // ════════════════════════════════════════
 // §10 provenance 배지 타입 선언 (테마 컨텍스트 참조용)
 // ════════════════════════════════════════
 
 // D29 M-5: 정본 9종(+1) 출처 체계 (ontology/provenance.ts 정본)
-export type ProvenanceKind =
-  | 'registry'               // S1: 등기·대장 (공적 장부)
-  | 'public_api'             // S2a: 공공 API (국토부 실거래가, 공시지가 등)
-  | 'public_api_identified'  // S2b: 공공 API + 중개인 식별 (D36 §4.3)
-  | 'broker_aug'             // S2a: 중개인 보강 (현장 실측 등)
-  | 'expert'                 // S2b: 전문가 검증 (감정평가사 등)
-  | 'ledger'                 // S2a: 원장 (임대차 계약서 원본)
-  | 'seller'                 // S3: 매도인 고지
-  | 'broker'                 // S3: 중개인 입력
-  | 'derived'                // S4: 파생 계산
-  | 'assumed';               // S5: AI 추정·가정
+import type { ProvenanceKind } from '@/domain/ontology';
+export type { ProvenanceKind };
+
+
 
 // ════════════════════════════════════════
 // §3 색 팔레트 (테마 동적 주입 및 AsyncLocalStorage 테마 격리)
@@ -138,6 +182,10 @@ const rawC: Record<string, string> = {
   bg:    'FFFFFF',
   tint:  'F5F7F9',
 
+  // 브랜드 및 네이비 테마 토큰
+  brand: '10161F',
+  navy:  '1E3A8A',
+
   // 액센트 — 프리셋에 따라 황동/네온그린/에메랄드/시안/골드
   brass:  'B98A2E',
   brassD: '8E6A20',
@@ -170,6 +218,8 @@ const rawCD: Record<string, string> = {
   accentBg:      '2A1F12',
   accentBorder:  '5C4620',
   accentText:    'D3C6AC',
+  brand:         'FFFFFF',
+  navy:          '475569',
 };
 
 export const CD: Record<string, string> = createThemeProxy(rawCD, ctx => ctx.CD);
@@ -333,6 +383,8 @@ export function buildThemeContext(theme: PptxThemeTokens): ActiveThemeContext {
     blueL:   theme.blueL,
     violet:  theme.violet,
     violetL: theme.violetL,
+    brand:   theme.ink,
+    navy:    theme.slate || '1E3A8A',
   };
 
   const themeCD: Record<string, string> = {
@@ -345,6 +397,8 @@ export function buildThemeContext(theme: PptxThemeTokens): ActiveThemeContext {
     accentBg:      theme.darkAccentBg,
     accentBorder:  theme.darkAccentBorder,
     accentText:    theme.darkAccentText,
+    brand:         'FFFFFF',
+    navy:          theme.darkBorder || '475569',
   };
 
   const themeKR = theme.bodyFont || '맑은 고딕';
@@ -407,6 +461,8 @@ export function setActiveTheme(theme: PptxThemeTokens): void {
     line2:   theme.line2,
     bg:      theme.bg,
     tint:    theme.tint,
+    brand:   theme.ink,
+    navy:    theme.slate || '1E3A8A',
     // 액센트: theme.accent → C.brass (모든 아키타입이 brass로 참조)
     brass:   theme.accent,
     brassD:  theme.accentD,
@@ -436,6 +492,8 @@ export function setActiveTheme(theme: PptxThemeTokens): void {
     accentBg:      theme.darkAccentBg,
     accentBorder:  theme.darkAccentBorder,
     accentText:    theme.darkAccentText,
+    brand:         'FFFFFF',
+    navy:          theme.darkBorder || '475569',
   });
 
   // ── 타이포 ──
@@ -527,6 +585,32 @@ export function dark(pres: PptxGenJS): Slide {
   return s;
 }
 
+/**
+ * Fits slide header title within available width using fitTextToBox.
+ * Fits down to 16pt on 1 line. If title cannot fit on 1 line, expands to 2 lines
+ * and flags isTwoLine = true so subtitle (sub) and following elements can be pushed down.
+ */
+function fitTitleHeader(cleanTitle: string, titleW: number, initialFs: number, defaultH: number = 0.42) {
+  let titleFit = fitTextToBox(cleanTitle, titleW, defaultH, {
+    minFontSize: 16,
+    maxFontSize: initialFs,
+    targetLines: 1,
+    allowTruncate: false,
+  });
+  let isTwoLine = false;
+  if (titleFit.lines.length > 1 || titleFit.requiredHeight > defaultH + 0.02) {
+    titleFit = fitTextToBox(cleanTitle, titleW, 0.85, {
+      minFontSize: 14,
+      maxFontSize: Math.min(initialFs, 18),
+      targetLines: 2,
+      allowTruncate: true,
+    });
+    isTwoLine = titleFit.lines.length > 1;
+  }
+  const titleH = isTwoLine ? Math.max(0.68, titleFit.requiredHeight) : defaultH;
+  return { titleFit, isTwoLine, titleH };
+}
+
 /** §5 밝은 슬라이드 제목 블록 — layoutStyle 분기 */
 export function head(
   s: Slide,
@@ -550,25 +634,30 @@ export function head(
   switch (style) {
     // ── modern: 좌측 액센트 세로 바 + 좌정렬 ──
     case 'modern': {
-      const barH = sub ? 0.86 : 0.62;
+      const titleW = CW - 0.20;
+      const { titleFit, isTwoLine, titleH } = fitTitleHeader(cleanTitle, titleW, 22, 0.42);
+      const titleY = 0.62;
+      const subY = isTwoLine ? Math.max(1.04, titleY + titleH + 0.04) : 1.04;
+      const barH = sub ? (subY + 0.24 - 0.42) : (titleY + titleH - 0.42);
+
       // 좌측 액센트 세로 바 - sub 유무에 맞춘 완벽한 수직 정렬
       s.addShape('rect', {
         x: M, y: 0.42, w: 0.05, h: barH,
         fill: { color: C.brass },
       });
       s.addText(`${numStr}  ${kicker}`, {
-        x: M + 0.20, y: 0.42, w: CW - 0.20, h: 0.20,
+        x: M + 0.20, y: 0.42, w: titleW, h: 0.20,
         fontSize: 9.5, bold: true, color: C.brass,
         fontFace: NUM, charSpacing: 2, margin: 0,
       });
-      s.addText(cleanTitle, {
-        x: M + 0.20, y: 0.62, w: CW - 0.20, h: 0.42,
-        fontSize: 22, bold: true, color: C.ink,
-        fontFace: TITLE_KR, margin: 0,
+      s.addText(titleFit.displayText, {
+        x: M + 0.20, y: titleY, w: titleW, h: titleH,
+        fontSize: titleFit.fontSize, bold: true, color: C.ink,
+        fontFace: TITLE_KR, margin: 0, shrinkText: true,
       });
       if (sub) {
         s.addText(sub, {
-          x: M + 0.20, y: 1.04, w: CW - 0.20, h: 0.24,
+          x: M + 0.20, y: subY, w: titleW, h: 0.24,
           fontSize: 10.5, color: C.mute, fontFace: KR, margin: 0,
         });
       }
@@ -577,6 +666,12 @@ export function head(
 
     // ── executive: 중앙 정렬 + 상하 골드 라인 ──
     case 'executive': {
+      const titleW = CW;
+      const { titleFit, isTwoLine, titleH } = fitTitleHeader(cleanTitle, titleW, 26, 0.46);
+      const titleY = 0.68;
+      const subY = isTwoLine ? Math.max(1.10, titleY + titleH + 0.04) : 1.10;
+      const goldLineY = sub ? subY + 0.26 : titleY + titleH + 0.06;
+
       // 상단 가는 라인
       s.addShape('line', {
         x: M, y: 0.38, w: CW, h: 0,
@@ -589,19 +684,19 @@ export function head(
         fontFace: NUM, charSpacing: 3, margin: 0, align: 'center',
       });
       // 중앙 정렬 title
-      s.addText(cleanTitle, {
-        x: M, y: 0.68, w: CW, h: 0.46,
-        fontSize: 26, bold: true, color: C.ink,
-        fontFace: TITLE_KR, margin: 0, align: 'center',
+      s.addText(titleFit.displayText, {
+        x: M, y: titleY, w: CW, h: titleH,
+        fontSize: titleFit.fontSize, bold: true, color: C.ink,
+        fontFace: TITLE_KR, margin: 0, align: 'center', shrinkText: true,
       });
       // 하단 골드 라인
       s.addShape('line', {
-        x: M + CW * 0.3, y: 1.20, w: CW * 0.4, h: 0,
+        x: M + CW * 0.3, y: goldLineY, w: CW * 0.4, h: 0,
         line: { color: C.brass, width: 1 },
       });
       if (sub) {
         s.addText(sub, {
-          x: M, y: 1.10, w: CW, h: 0.22,
+          x: M, y: subY, w: CW, h: 0.22,
           fontSize: 11, color: C.mute, fontFace: KR, margin: 0, align: 'center',
         });
       }
@@ -610,7 +705,12 @@ export function head(
 
     // ── minimal: 깔끔한 좌정렬 + 얇은 구분선 ──
     case 'minimal': {
-      // 작은 번호 (원 없이)
+      const titleW = CW;
+      const { titleFit, isTwoLine, titleH } = fitTitleHeader(cleanTitle, titleW, 21, 0.38);
+      const titleY = 0.72;
+      const subY = isTwoLine ? Math.max(1.08, titleY + titleH + 0.04) : 1.08;
+      const lineY = sub ? subY + 0.26 : titleY + titleH + 0.06;
+
       if (numStr) {
         s.addText(numStr, {
           x: M, y: 0.48, w: 0.36, h: 0.24,
@@ -623,19 +723,19 @@ export function head(
         fontSize: 8.5, bold: true, color: C.mute,
         fontFace: NUM, charSpacing: 1.5, margin: 0,
       });
-      s.addText(cleanTitle, {
-        x: M, y: 0.72, w: CW, h: 0.38,
-        fontSize: 21, bold: true, color: C.ink,
-        fontFace: TITLE_KR, margin: 0,
+      s.addText(titleFit.displayText, {
+        x: M, y: titleY, w: CW, h: titleH,
+        fontSize: titleFit.fontSize, bold: true, color: C.ink,
+        fontFace: TITLE_KR, margin: 0, shrinkText: true,
       });
       // 미니멀 구분선
       s.addShape('line', {
-        x: M, y: 1.16, w: 2.5, h: 0,
+        x: M, y: lineY, w: 2.5, h: 0,
         line: { color: C.brass, width: 1.5 },
       });
       if (sub) {
         s.addText(sub, {
-          x: M, y: 1.08, w: CW, h: 0.22,
+          x: M, y: subY, w: CW, h: 0.22,
           fontSize: 10.5, color: C.mute, fontFace: KR, margin: 0,
         });
       }
@@ -644,14 +744,20 @@ export function head(
 
     // ── dramatic: 전폭 액센트 그라데이션 스트립 ──
     case 'dramatic': {
+      const titleW = CW - 0.70;
+      const { titleFit, isTwoLine, titleH } = fitTitleHeader(cleanTitle, titleW, 24, 0.44);
+      const titleY = 0.58;
+      const subY = isTwoLine ? Math.max(1.02, titleY + titleH + 0.04) : 1.02;
+      const stripH = Math.max(1.00, (sub ? subY + 0.24 : titleY + titleH + 0.08) - 0.30);
+
       // 전폭 다크 스트립
       s.addShape('rect', {
-        x: 0, y: 0.30, w: W, h: 1.00,
+        x: 0, y: 0.30, w: W, h: stripH,
         fill: { color: C.ink },
       });
       // 좌측 액센트 블록
       s.addShape('rect', {
-        x: 0, y: 0.30, w: 0.12, h: 1.00,
+        x: 0, y: 0.30, w: 0.12, h: stripH,
         fill: { color: C.brass },
       });
       // 큰 번호
@@ -667,14 +773,14 @@ export function head(
         fontSize: 9, bold: true, color: C.brass,
         fontFace: NUM, charSpacing: 2.5, margin: 0,
       });
-      s.addText(cleanTitle, {
-        x: M + 0.70, y: 0.58, w: CW - 0.70, h: 0.44,
-        fontSize: 24, bold: true, color: 'FFFFFF',
-        fontFace: TITLE_KR, margin: 0,
+      s.addText(titleFit.displayText, {
+        x: M + 0.70, y: titleY, w: titleW, h: titleH,
+        fontSize: titleFit.fontSize, bold: true, color: 'FFFFFF',
+        fontFace: TITLE_KR, margin: 0, shrinkText: true,
       });
       if (sub) {
         s.addText(sub, {
-          x: M + 0.70, y: 1.02, w: CW - 0.70, h: 0.22,
+          x: M + 0.70, y: subY, w: titleW, h: 0.22,
           fontSize: 10, color: CD.mute, fontFace: KR, margin: 0,
         });
       }
@@ -683,6 +789,12 @@ export function head(
 
     // ── open_frame: 미니멀 오픈 프레임 + 직각 라인 액센트 ──
     case 'open_frame': {
+      const titleW = CW - 0.54;
+      const { titleFit, isTwoLine, titleH } = fitTitleHeader(cleanTitle, titleW, 23, 0.40);
+      const titleY = 0.70;
+      const subY = isTwoLine ? Math.max(1.05, titleY + titleH + 0.04) : 1.05;
+      const lineY = isTwoLine ? titleY + titleH + 0.04 : 1.12;
+
       if (numStr) {
         s.addShape('rect', {
           x: M, y: 0.48, w: 0.42, h: 0.24,
@@ -701,18 +813,18 @@ export function head(
         fontSize: 9.5, bold: true, color: C.brass,
         fontFace: NUM, charSpacing: 2, margin: 0,
       });
-      s.addText(cleanTitle, {
-        x: M + 0.54, y: 0.70, w: CW - 0.54, h: 0.40,
-        fontSize: 23, bold: true, color: C.ink,
-        fontFace: TITLE_KR, margin: 0,
+      s.addText(titleFit.displayText, {
+        x: M + 0.54, y: titleY, w: titleW, h: titleH,
+        fontSize: titleFit.fontSize, bold: true, color: C.ink,
+        fontFace: TITLE_KR, margin: 0, shrinkText: true,
       });
       s.addShape('line', {
-        x: M + 0.54, y: 1.12, w: 2.0, h: 0,
+        x: M + 0.54, y: lineY, w: 2.0, h: 0,
         line: { color: C.brass, width: 0.5 },
       });
       if (sub) {
         s.addText(sub, {
-          x: M + 0.54 + 2.15, y: 1.05, w: CW - 0.54 - 2.15, h: 0.24,
+          x: M + 0.54 + 2.15, y: isTwoLine ? lineY - 0.05 : 1.05, w: CW - 0.54 - 2.15, h: 0.24,
           fontSize: 10.5, color: C.mute,
           fontFace: KR, margin: 0,
         });
@@ -723,6 +835,11 @@ export function head(
     // ── classic: 황동 원 + 좌정렬 (기본값) ──
     case 'classic':
     default: {
+      const titleW = CW - 0.62;
+      const { titleFit, isTwoLine, titleH } = fitTitleHeader(cleanTitle, titleW, 23, 0.40);
+      const titleY = 0.70;
+      const subY = isTwoLine ? Math.max(1.10, titleY + titleH + 0.04) : 1.10;
+
       if (numStr) {
         s.addShape('ellipse', {
           x: M, y: 0.50, w: 0.42, h: 0.42,
@@ -740,14 +857,14 @@ export function head(
         fontSize: 9.5, bold: true, color: C.brass,
         fontFace: NUM, charSpacing: 2, margin: 0,
       });
-      s.addText(cleanTitle, {
-        x: M + 0.62, y: 0.70, w: CW - 0.62, h: 0.40,
-        fontSize: 23, bold: true, color: C.ink,
-        fontFace: TITLE_KR, margin: 0,
+      s.addText(titleFit.displayText, {
+        x: M + 0.62, y: titleY, w: titleW, h: titleH,
+        fontSize: titleFit.fontSize, bold: true, color: C.ink,
+        fontFace: TITLE_KR, margin: 0, shrinkText: true,
       });
       if (sub) {
         s.addText(sub, {
-          x: M + 0.62, y: 1.10, w: CW - 0.62, h: 0.26,
+          x: M + 0.62, y: subY, w: titleW, h: 0.26,
           fontSize: 11, color: C.mute,
           fontFace: KR, margin: 0,
         });
@@ -779,41 +896,70 @@ export function headD(
 
   switch (style) {
     case 'modern': {
-      const barH = sub ? 0.86 : 0.62;
+      const titleW = CW - 0.20;
+      const { titleFit, isTwoLine, titleH } = fitTitleHeader(cleanTitle, titleW, 22, 0.42);
+      const titleY = 0.62;
+      const subY = isTwoLine ? Math.max(1.04, titleY + titleH + 0.04) : 1.04;
+      const barH = sub ? (subY + 0.24 - 0.42) : (titleY + titleH - 0.42);
+
       s.addShape('rect', { x: M, y: 0.42, w: 0.05, h: barH, fill: { color: C.brass } });
-      s.addText(`${numStr}  ${kicker}`, { x: M + 0.20, y: 0.42, w: CW - 0.20, h: 0.20, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
-      s.addText(cleanTitle, { x: M + 0.20, y: 0.62, w: CW - 0.20, h: 0.42, fontSize: 22, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
-      if (sub) s.addText(sub, { x: M + 0.20, y: 1.04, w: CW - 0.20, h: 0.24, fontSize: 10.5, color: CD.mute, fontFace: KR, margin: 0 });
+      s.addText(`${numStr}  ${kicker}`, { x: M + 0.20, y: 0.42, w: titleW, h: 0.20, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
+      s.addText(titleFit.displayText, { x: M + 0.20, y: titleY, w: titleW, h: titleH, fontSize: titleFit.fontSize, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0, shrinkText: true });
+      if (sub) s.addText(sub, { x: M + 0.20, y: subY, w: titleW, h: 0.24, fontSize: 10.5, color: CD.mute, fontFace: KR, margin: 0 });
       break;
     }
     case 'executive': {
+      const titleW = CW;
+      const { titleFit, isTwoLine, titleH } = fitTitleHeader(cleanTitle, titleW, 26, 0.46);
+      const titleY = 0.68;
+      const subY = isTwoLine ? Math.max(1.10, titleY + titleH + 0.04) : 1.10;
+      const goldLineY = sub ? subY + 0.26 : titleY + titleH + 0.06;
+
       s.addShape('line', { x: M, y: 0.38, w: CW, h: 0, line: { color: C.brass, width: 0.5 } });
       s.addText(`${numStr}  ·  ${kicker}`, { x: M, y: 0.48, w: CW, h: 0.22, fontSize: 9, bold: true, color: C.brass, fontFace: NUM, charSpacing: 3, margin: 0, align: 'center' });
-      s.addText(cleanTitle, { x: M, y: 0.68, w: CW, h: 0.46, fontSize: 26, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0, align: 'center' });
-      s.addShape('line', { x: M + CW * 0.3, y: 1.20, w: CW * 0.4, h: 0, line: { color: C.brass, width: 1 } });
-      if (sub) s.addText(sub, { x: M, y: 1.10, w: CW, h: 0.22, fontSize: 11, color: CD.mute, fontFace: KR, margin: 0, align: 'center' });
+      s.addText(titleFit.displayText, { x: M, y: titleY, w: CW, h: titleH, fontSize: titleFit.fontSize, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0, align: 'center', shrinkText: true });
+      s.addShape('line', { x: M + CW * 0.3, y: goldLineY, w: CW * 0.4, h: 0, line: { color: C.brass, width: 1 } });
+      if (sub) s.addText(sub, { x: M, y: subY, w: CW, h: 0.22, fontSize: 11, color: CD.mute, fontFace: KR, margin: 0, align: 'center' });
       break;
     }
     case 'minimal': {
+      const titleW = CW;
+      const { titleFit, isTwoLine, titleH } = fitTitleHeader(cleanTitle, titleW, 24, 0.46);
+      const titleY = 0.64;
+      const subY = isTwoLine ? Math.max(1.08, titleY + titleH + 0.04) : 1.08;
+      const lineY = sub ? subY + 0.26 : titleY + titleH + 0.06;
+
       if (numStr) s.addText(numStr, { x: M, y: 0.48, w: 0.36, h: 0.24, fontSize: 10, bold: true, color: CD.mute, fontFace: NUM, margin: 0 });
       s.addText(kicker, { x: M + 0.40, y: 0.48, w: CW - 0.40, h: 0.20, fontSize: 8.5, bold: true, color: CD.mute, fontFace: NUM, charSpacing: 1.5, margin: 0 });
-      s.addText(cleanTitle, { x: M, y: 0.64, w: CW, h: 0.46, fontSize: 24, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
-      s.addShape('line', { x: M, y: 1.16, w: 2.5, h: 0, line: { color: C.brass, width: 1.5 } });
-      if (sub) s.addText(sub, { x: M, y: 1.08, w: CW, h: 0.22, fontSize: 10.5, color: CD.mute, fontFace: KR, margin: 0 });
+      s.addText(titleFit.displayText, { x: M, y: titleY, w: CW, h: titleH, fontSize: titleFit.fontSize, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0, shrinkText: true });
+      s.addShape('line', { x: M, y: lineY, w: 2.5, h: 0, line: { color: C.brass, width: 1.5 } });
+      if (sub) s.addText(sub, { x: M, y: subY, w: CW, h: 0.22, fontSize: 10.5, color: CD.mute, fontFace: KR, margin: 0 });
       break;
     }
     case 'dramatic': {
-      // Full-width dark strip + left brass accent
-      s.addShape('rect', { x: 0, y: 0.30, w: W, h: 1.00, fill: { color: CD.block } });
-      s.addShape('rect', { x: 0, y: 0.30, w: 0.12, h: 1.00, fill: { color: C.brass } });
+      const titleW = CW - 0.70;
+      const { titleFit, isTwoLine, titleH } = fitTitleHeader(cleanTitle, titleW, 24, 0.44);
+      const titleY = 0.58;
+      const subY = isTwoLine ? Math.max(1.02, titleY + titleH + 0.04) : 1.02;
+      const stripH = Math.max(1.00, (sub ? subY + 0.24 : titleY + titleH + 0.08) - 0.30);
+
+      s.addShape('rect', { x: 0, y: 0.30, w: W, h: stripH, fill: { color: CD.block } });
+      s.addShape('rect', { x: 0, y: 0.30, w: 0.12, h: stripH, fill: { color: C.brass } });
       if (numStr) {
         s.addText(numStr, { x: M, y: 0.36, w: 0.60, h: 0.50, fontSize: 28, bold: true, color: C.brass, fontFace: NUM, margin: 0 });
       }
       s.addText(kicker, { x: M + 0.70, y: 0.36, w: CW - 0.70, h: 0.22, fontSize: 9, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2.5, margin: 0 });
-      s.addText(cleanTitle, { x: M + 0.70, y: 0.58, w: CW - 0.70, h: 0.44, fontSize: 24, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
+      s.addText(titleFit.displayText, { x: M + 0.70, y: titleY, w: titleW, h: titleH, fontSize: titleFit.fontSize, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0, shrinkText: true });
+      if (sub) s.addText(sub, { x: M + 0.70, y: subY, w: titleW, h: 0.22, fontSize: 10, color: CD.mute, fontFace: KR, margin: 0 });
       break;
     }
     case 'open_frame': {
+      const titleW = CW - 0.54;
+      const { titleFit, isTwoLine, titleH } = fitTitleHeader(cleanTitle, titleW, 22, 0.42);
+      const titleY = 0.68;
+      const subY = isTwoLine ? Math.max(1.05, titleY + titleH + 0.04) : 1.05;
+      const lineY = isTwoLine ? titleY + titleH + 0.04 : 1.12;
+
       if (numStr) {
         s.addShape('rect', {
           x: M, y: 0.46, w: 0.42, h: 0.26,
@@ -832,18 +978,18 @@ export function headD(
         fontSize: 9.5, bold: true, color: C.brass,
         fontFace: NUM, charSpacing: 2, margin: 0,
       });
-      s.addText(cleanTitle, {
-        x: M + 0.54, y: 0.68, w: CW - 0.54, h: 0.42,
-        fontSize: 22, bold: true, color: 'FFFFFF',
-        fontFace: TITLE_KR, margin: 0,
+      s.addText(titleFit.displayText, {
+        x: M + 0.54, y: titleY, w: titleW, h: titleH,
+        fontSize: titleFit.fontSize, bold: true, color: 'FFFFFF',
+        fontFace: TITLE_KR, margin: 0, shrinkText: true,
       });
       s.addShape('line', {
-        x: M + 0.54, y: 1.12, w: 2.2, h: 0,
+        x: M + 0.54, y: lineY, w: 2.2, h: 0,
         line: { color: C.brass, width: 0.5 },
       });
       if (sub) {
         s.addText(sub, {
-          x: M + 0.54 + 2.35, y: 1.05, w: CW - 0.54 - 2.35, h: 0.24,
+          x: M + 0.54 + 2.35, y: isTwoLine ? lineY - 0.05 : 1.05, w: CW - 0.54 - 2.35, h: 0.24,
           fontSize: 10.5, color: CD.mute,
           fontFace: KR, margin: 0,
         });
@@ -852,14 +998,18 @@ export function headD(
     }
     case 'classic':
     default: {
-      // Original classic style (keep existing code)
+      const titleW = CW - 0.62;
+      const { titleFit, isTwoLine, titleH } = fitTitleHeader(cleanTitle, titleW, 24, 0.46);
+      const titleY = 0.72;
+      const subY = isTwoLine ? Math.max(1.10, titleY + titleH + 0.04) : 1.10;
+
       if (numStr) {
         s.addShape('ellipse', { x: M, y: 0.50, w: 0.42, h: 0.42, fill: { color: C.brass } });
         s.addText(numStr, { x: M, y: 0.50, w: 0.42, h: 0.42, align: 'center', valign: 'middle', fontSize: 13, bold: true, color: 'FFFFFF', fontFace: NUM, margin: 0 });
       }
       s.addText(kicker, { x: M + 0.62, y: 0.50, w: CW - 0.62, h: 0.20, fontSize: 9.5, bold: true, color: C.brass, fontFace: NUM, charSpacing: 2, margin: 0 });
-      s.addText(cleanTitle, { x: M + 0.62, y: 0.72, w: CW - 0.62, h: 0.46, fontSize: 24, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0 });
-      if (sub) s.addText(sub, { x: M + 0.62, y: 1.10, w: CW - 0.62, h: 0.26, fontSize: 11, color: CD.mute, fontFace: KR, margin: 0 });
+      s.addText(titleFit.displayText, { x: M + 0.62, y: titleY, w: titleW, h: titleH, fontSize: titleFit.fontSize, bold: true, color: 'FFFFFF', fontFace: TITLE_KR, margin: 0, shrinkText: true });
+      if (sub) s.addText(sub, { x: M + 0.62, y: subY, w: titleW, h: 0.26, fontSize: 11, color: CD.mute, fontFace: KR, margin: 0 });
       break;
     }
   }
@@ -1068,39 +1218,43 @@ export function stat(
     line: { color: lineCol, width: 0.5 },
   });
 
-  // M-4: 라벨 높이를 textH()로 동적 역산 (고정 0.22→실측)
+  // Dynamic label font fitting
   const labelLen = label?.length ?? 0;
-  const labelFontSize = opt.labelFontSize ?? (
-    labelLen <= 12 ? 9.5 :
-    labelLen <= 18 ? 8.5 : 7.5
-  );
   const labelW = w - 0.36;
-  const labelH = Math.max(0.22, computeTextH(label, labelW, labelFontSize));
+  const labelFit = fitTextToBox(label, labelW, 0.44, {
+    minFontSize: 7.5,
+    maxFontSize: opt.labelFontSize ?? (labelLen <= 12 ? 9.5 : labelLen <= 18 ? 8.5 : 7.5),
+    targetLines: 2,
+    lineSpacingMultiple: 1.15,
+  });
+  const labelH = Math.max(0.22, labelFit.requiredHeight);
 
   // 라벨
-  s.addText(label, {
+  s.addText(labelFit.displayText, {
     x: x + 0.18, y: y + 0.14, w: labelW, h: labelH,
-    fontSize: labelFontSize, color: labCol, fontFace: KR, margin: 0,
+    fontSize: labelFit.fontSize, color: labCol, fontFace: KR, margin: 0,
+    shrinkText: true,
   });
 
   // M-5: 값 상자를 라벨 높이 아래에서 시작 (겹침 방지)
   const valY = y + 0.14 + labelH + 0.02;
 
-  // 값 — FIX-RC1: 텍스트 길이에 따른 동적 폰트 사이즈
-  // 짧은 숫자(6자 이하) → 25pt, 중간(12자 이하) → 18pt, 긴 한글 → 14pt
+  // 값 — Dynamic font fitting
   const safeValue = value != null ? String(value) : '';
   const hasKoreanVal = /[\uAC00-\uD7AF]/.test(safeValue);
-  const valLen = (safeValue?.length ?? 0);
-  const dynamicVs = opt.vs ?? (
-    valLen <= 6 ? 22 :
-    valLen <= 10 ? 18 :
-    valLen <= 16 ? 14 :
-    valLen <= 24 ? 12 : 10
-  );
-  const valH = Math.min(0.44, h - (valY - y) - 0.40); // 남은 공간에 맞춤
-  s.addText(safeValue || '-', {
-    x: x + 0.18, y: valY, w: labelW, h: Math.max(0.30, valH),
-    fontSize: dynamicVs, bold: true, color: valCol, fontFace: hasKoreanVal ? (ActiveThemeStore.getStore()?.KR ?? KR) : NUM, margin: 0,
+  const baseVs = opt.vs ?? 22;
+  const valFit = fitTextToBox(safeValue || '-', labelW, 0.44, {
+    minFontSize: 10,
+    maxFontSize: baseVs,
+    targetLines: 1,
+    lineSpacingMultiple: 1.0,
+  });
+  const valH = Math.max(0.30, Math.min(0.44, valFit.requiredHeight > 0 ? valFit.requiredHeight : 0.36));
+
+  s.addText(valFit.displayText || '-', {
+    x: x + 0.18, y: valY, w: labelW, h: valH,
+    fontSize: valFit.fontSize, bold: true, color: valCol,
+    fontFace: hasKoreanVal ? (ActiveThemeStore.getStore()?.KR ?? KR) : NUM, margin: 0,
     shrinkText: true, lineSpacingMultiple: 1.0,
   });
 
@@ -1112,16 +1266,22 @@ export function stat(
     });
   }
 
-  // 보조 텍스트 — D41 B1: 동적 y 위치 + 가변 폰트
+  // 보조 텍스트 — Dynamic subText Y position offset
   if (subText) {
-    // sub의 y를 값 상자 바닥 기준으로 동적 배치 (겹침 방지)
-    const subY = Math.max(y + 0.86, valY + Math.max(0.30, valH) + 0.02);
-    const subFontSize = subText.length > 40 ? 7.5 : 8.8;
-    const safeSubText = subText.length > 60 ? subText.slice(0, 57) + '...' : subText;
-    s.addText(safeSubText, {
-      x: x + 0.18, y: subY, w: w - 0.36, h: 0.36,
-      fontSize: subFontSize, color: subCol, fontFace: KR, margin: 0,
+    const subY = Math.max(y + 0.86, valY + valH + 0.02);
+    const availableSubH = Math.max(0.24, h - (subY - y) - 0.04);
+    const subFit = fitTextToBox(subText, w - 0.36, availableSubH, {
+      minFontSize: 7.0,
+      maxFontSize: 8.8,
+      targetLines: 2,
       lineSpacingMultiple: 1.15,
+      allowTruncate: true,
+    });
+    s.addText(subFit.displayText, {
+      x: x + 0.18, y: subY, w: w - 0.36, h: availableSubH,
+      fontSize: subFit.fontSize, color: subCol, fontFace: KR, margin: 0,
+      lineSpacingMultiple: 1.15,
+      shrinkText: true,
     });
   }
 }
@@ -1155,30 +1315,54 @@ export function rows(
   const labW = w * labRatio;
   const valW = hasBadge ? w * (0.78 - labRatio) : w * (1.0 - labRatio);
 
+  let currentY = y;
+
   list.forEach((row, i) => {
-    const ry = y + i * rh;
+    const ry = currentY;
     const [label, value, badge, valCol] = row;
 
     // 값이 없는 단일 텍스트/불릿 행인 경우 전체 너비(w) 사용
     if (!value || value.trim() === '') {
-      s.addText(label, {
-        x, y: ry, w: hasBadge ? w * 0.78 : w, h: rh,
-        fontSize: fs, color: opt.onDark ? 'FFFFFF' : C.ink, fontFace: KR,
+      const labelW = hasBadge ? w * 0.78 : w;
+      const labelFit = fitTextToBox(label, labelW - 0.05, rh, {
+        minFontSize: 8.5,
+        maxFontSize: fs,
+        targetLines: 1,
+        allowTruncate: true,
+      });
+      s.addText(labelFit.displayText, {
+        x, y: ry, w: labelW, h: rh,
+        fontSize: labelFit.fontSize, color: opt.onDark ? 'FFFFFF' : C.ink, fontFace: KR,
         valign: 'middle', margin: 0, lineSpacingMultiple: 1.15,
+        shrinkText: true,
       });
     } else {
       // 라벨
-      s.addText(label, {
+      const labelFit = fitTextToBox(label, labW - 0.05, rh, {
+        minFontSize: 8.5,
+        maxFontSize: fs,
+        targetLines: 1,
+        allowTruncate: true,
+      });
+      s.addText(labelFit.displayText, {
         x, y: ry, w: labW, h: rh,
-        fontSize: fs, color: labColor, fontFace: KR,
+        fontSize: labelFit.fontSize, color: labColor, fontFace: KR,
         valign: 'middle', margin: 0, lineSpacingMultiple: 1.15,
+        shrinkText: true,
       });
 
-      // 값
-      s.addText(value, {
+      // 값 — Dynamic font fitting
+      const valFit = fitTextToBox(value, valW - 0.05, rh, {
+        minFontSize: 8.0,
+        maxFontSize: fs,
+        targetLines: 1,
+        allowTruncate: true,
+      });
+      s.addText(valFit.displayText, {
         x: x + labW, y: ry, w: valW, h: rh,
-        fontSize: fs, bold: true, color: valCol ?? valColor, fontFace: KR,
+        fontSize: valFit.fontSize, bold: true, color: valCol ?? valColor, fontFace: KR,
         valign: 'middle', margin: 0, lineSpacingMultiple: 1.15,
+        shrinkText: true,
       });
     }
 
@@ -1206,9 +1390,11 @@ export function rows(
         line: { color: opt.onDark ? CD.border : C.line, width: 0.3 },
       });
     }
+
+    currentY += rh;
   });
 
-  return y + list.length * rh;
+  return currentY;
 }
 
 export type CellValue = string | {
@@ -1217,6 +1403,9 @@ export type CellValue = string | {
   c?: string;
   fill?: string;
   num?: boolean;
+  align?: 'left' | 'center' | 'right';
+  valign?: 'top' | 'middle' | 'bottom';
+  margin?: [number, number, number, number];
 };
 
 export interface TableOpts {
@@ -1224,9 +1413,162 @@ export interface TableOpts {
   bfs?: number;  // body font size
   hfs?: number;  // header font size
   onDark?: boolean;
+  colAlign?: ('left' | 'center' | 'right')[];
+  autoPage?: boolean;
+  summaryRowIndex?: number;
+  borderPt?: number;
 }
 
-/** §8.2 표 — 반환: 표 하단 y */
+export type StyledTableOpts = TableOpts;
+
+/** 동적 셀 패딩 스케일링: 행 높이에 맞춰 여백 자동 조절 (텍스트 수직 클리핑 방지) */
+export function getDynamicTableMargin(rowH: number): [number, number, number, number] {
+  if (rowH < 0.16) {
+    return [1, 2, 1, 2];
+  }
+  if (rowH < 0.22) {
+    return [1.5, 3, 1.5, 3];
+  }
+  return [2, 4, 2, 4];
+}
+
+/** 요약/합계 행 판정 (합계, 소계, 총계 등 키워드 감지) */
+export function isSummaryRow(
+  row: CellValue[],
+  rIdx: number,
+  totalRows: number,
+  optSummaryIndex?: number
+): boolean {
+  if (optSummaryIndex !== undefined) {
+    return rIdx === optSummaryIndex;
+  }
+  const summaryKeywords = ['합계', '소계', '총계', '계', '총합', '총액', '소 합계', '총 합계'];
+  const summaryEnRegex = /^(?:Total|Subtotal|Sum)\b/i;
+  return row.some(cell => {
+    const raw = typeof cell === 'string' ? cell : (cell?.t ?? '');
+    const clean = raw.trim().replace(/\*\*/g, '');
+    return summaryKeywords.some(k => (
+      clean === k ||
+      clean.startsWith(k + ' ') ||
+      clean.startsWith(k + ':') ||
+      clean.startsWith(k + '：') ||
+      clean.startsWith(k + '(') ||
+      clean.startsWith(k + '[')
+    )) || summaryEnRegex.test(clean);
+  });
+}
+
+/**
+ * §8.2 스타일 표 (L.styledTable)
+ * - 컬럼별 정렬(colAlign) 지원 (금액/면적 우측, 코드/날짜 중앙, 명칭 좌측)
+ * - 행 높이에 따른 동적 패딩 (rh < 0.16" -> [1,2,1,2], rh < 0.22" -> [1.5,3,1.5,3], 기타 -> [2,4,2,4])
+ * - 0.3pt 표준 테두리 (C.line / CD.border)
+ * - 합계/요약 행 감지 및 하이라이트 (#F1F5F9 / #2A303C, bold, 상단 0.5pt 테두리)
+ * - 모든 셀 fitTableCell 통과로 행 높이 팽창 방지
+ */
+export function styledTable(
+  s: Slide,
+  x: number,
+  y: number,
+  w: number,
+  headRow: string[],
+  bodyRows: CellValue[][],
+  colW: number[],
+  opt: StyledTableOpts = {},
+): number {
+  const rh = opt.rh ?? 0.28;
+  const bfs = opt.bfs ?? 10;
+  const hfs = opt.hfs ?? 9;
+  const isDark = opt.onDark ?? false;
+  const cellMargin = getDynamicTableMargin(rh);
+
+  const headerBg = isDark ? CD.block : C.ink;
+  const headerFg = isDark ? CD.mute : 'FFFFFF';
+  const cellBg = isDark ? C.ink2 : C.bg;
+  const cellFg = isDark ? CD.body : C.body;
+  const borderColor = isDark ? CD.border : C.line;
+  const borderPt = opt.borderPt ?? 0.3;
+
+  const regularBorder = { type: 'solid' as const, pt: borderPt, color: borderColor };
+  const summaryBorder: [any, any, any, any] = [
+    { type: 'solid', pt: 0.5, color: borderColor },
+    { type: 'solid', pt: borderPt, color: borderColor },
+    { type: 'solid', pt: borderPt, color: borderColor },
+    { type: 'solid', pt: borderPt, color: borderColor },
+  ];
+
+  const tableRows: any[][] = [];
+
+  // 헤더
+  if (headRow && headRow.length > 0) {
+    tableRows.push(headRow.map((h, cIdx) => {
+      const cWidth = colW[cIdx] ?? (w / Math.max(1, headRow.length));
+      const cleanHeader = String(h || '').replace(/\*\*/g, '');
+      const fitted = fitTableCell(cleanHeader, cWidth, rh, hfs);
+      const align = opt.colAlign ? opt.colAlign[cIdx] : undefined;
+      return {
+        text: fitted.text,
+        options: {
+          fontSize: fitted.fontSize, bold: true, color: headerFg, fontFace: KR,
+          fill: { color: headerBg },
+          border: regularBorder,
+          valign: 'middle' as const, margin: cellMargin,
+          ...(align ? { align } : {}),
+        },
+      };
+    }));
+  }
+
+  // 본문
+  const totalRows = bodyRows.length;
+  bodyRows.forEach((row, rIdx) => {
+    const isSummary = isSummaryRow(row, rIdx, totalRows, opt.summaryRowIndex);
+    tableRows.push(row.map((cell, cIdx) => {
+      const isStr = typeof cell === 'string';
+      const rawText = isStr ? cell : cell.t;
+      const cleanText = String(rawText || '').replace(/\*\*/g, '');
+      const isBold = isSummary || (isStr ? cIdx === 0 : (cell.b ?? cIdx === 0));
+      const color = isStr
+        ? (isSummary ? (isDark ? CD.body : C.ink) : (cIdx === 0 ? (isDark ? 'FFFFFF' : C.ink) : cellFg))
+        : (cell.c ?? (isSummary ? (isDark ? CD.body : C.ink) : (cIdx === 0 ? (isDark ? 'FFFFFF' : C.ink) : cellFg)));
+      const defaultBg = rIdx % 2 === 0 ? cellBg : (isDark ? CD.block : C.tint);
+      let fillColor = isStr ? defaultBg : (cell.fill ?? defaultBg);
+      if (isSummary) {
+        fillColor = (!isStr && cell.fill && cell.fill !== 'F1F5F9' && cell.fill !== '#F1F5F9')
+          ? cell.fill
+          : (isDark ? '2A303C' : 'F1F5F9');
+      }
+      const ff = (isStr ? false : cell.num) ? NUM : KR;
+
+      const cWidth = colW[cIdx] ?? (w / Math.max(1, row.length));
+      const fitted = fitTableCell(cleanText, cWidth, rh, bfs);
+      const cellAlign = (!isStr && cell.align) ? cell.align : (opt.colAlign ? opt.colAlign[cIdx] : undefined);
+      const cellMarginToUse = (!isStr && cell.margin) ? cell.margin : cellMargin;
+
+      return {
+        text: fitted.text,
+        options: {
+          fontSize: fitted.fontSize, bold: isBold, color, fontFace: ff,
+          fill: { color: fillColor.replace(/^#/, '') },
+          border: isSummary ? summaryBorder : regularBorder,
+          valign: 'middle' as const, margin: cellMarginToUse,
+          ...(cellAlign ? { align: cellAlign } : {}),
+        },
+      };
+    }));
+  });
+
+  s.addTable(tableRows, {
+    x, y, w, colW, rowH: rh,
+    autoPage: opt.autoPage ?? true,
+    autoPageRepeatHeader: true,
+    autoPageLineWeight: 0.5,
+  });
+
+  return y + (bodyRows.length + (headRow && headRow.length > 0 ? 1 : 0)) * rh;
+}
+
+/** §8.2 표 — 레거시 호환 래퍼 */
 export function table(
   s: Slide,
   x: number,
@@ -1237,62 +1579,7 @@ export function table(
   colW: number[],
   opt: TableOpts = {},
 ): number {
-  const rh = opt.rh ?? 0.28;
-  const bfs = opt.bfs ?? 10;
-  const hfs = opt.hfs ?? 9;
-  const isDark = opt.onDark ?? false;
-
-  const headerBg = isDark ? CD.block : C.ink;
-  const headerFg = isDark ? CD.mute : 'FFFFFF';
-  const cellBg = isDark ? C.ink2 : C.bg;
-  const cellFg = isDark ? CD.body : C.body;
-  const borderColor = isDark ? CD.border : C.line;
-
-  const tableRows: any[][] = [];
-
-  // 헤더
-  tableRows.push(headRow.map(h => ({
-    text: h,
-    options: {
-      fontSize: hfs, bold: true, color: headerFg, fontFace: KR,
-      fill: { color: headerBg },
-      border: { type: 'solid' as const, pt: 0.3, color: borderColor },
-      valign: 'middle' as const, margin: [2, 4, 2, 4],
-    },
-  })));
-
-  // 본문
-  bodyRows.forEach((row, rIdx) => {
-    tableRows.push(row.map((cell, cIdx) => {
-      const isStr = typeof cell === 'string';
-      const text = isStr ? cell : cell.t;
-      const isBold = isStr ? cIdx === 0 : (cell.b ?? cIdx === 0);
-      const color = isStr ? (cIdx === 0 ? (isDark ? 'FFFFFF' : C.ink) : cellFg) : (cell.c ?? cellFg);
-      const fillColor = isStr
-        ? (rIdx % 2 === 0 ? cellBg : (isDark ? CD.block : C.tint))
-        : (cell.fill ?? (rIdx % 2 === 0 ? cellBg : (isDark ? CD.block : C.tint)));
-      const ff = (isStr ? false : cell.num) ? NUM : KR;
-
-      return {
-        text,
-        options: {
-          fontSize: bfs, bold: isBold, color, fontFace: ff,
-          fill: { color: fillColor },
-          border: { type: 'solid' as const, pt: 0.3, color: borderColor },
-          valign: 'middle' as const, margin: [2, 4, 2, 4],
-        },
-      };
-    }));
-  });
-
-  s.addTable(tableRows, {
-    x, y, w, colW, rowH: rh,
-    autoPage: true,
-    autoPageRepeatHeader: true,
-    autoPageLineWeight: 0.5,
-  });
-
-  return y + (bodyRows.length + 1) * rh;
+  return styledTable(s, x, y, w, headRow, bodyRows, colW, opt);
 }
 
 export type CalloutKind = 'info' | 'good' | 'warn' | 'bad' | 'brass';
@@ -1652,6 +1939,132 @@ export function locmap(
   });
 }
 
+export interface FallbackCardOpts {
+  badge: string;            // e.g. '공적장부 열람 대상', '현장 실사 예정', '임대차 실사 안내'
+  badgeKind?: CalloutKind;  // 'info' | 'brass' | 'warn'
+  title: string;            // Component heading
+  leadText: string;         // Explanatory sentence (NO defensive excuses)
+  checklist: string[];      // 3~4 actionable due-diligence bullet points
+  onDark?: boolean;
+  icon?: 'map' | 'photo' | 'chart' | 'document' | 'building';
+}
+
+/**
+ * §8.5 제도권 실사 대체 UI 카드 (L.fallbackCard)
+ * - 데이터 결손 시 기술적 변명(Rule G54) 대신 구조화된 실사/검증 프로토콜을 렌더링
+ * - 0.5pt 미세 테두리와 테마 틴트 배경, 상태 배지, 리드문, 체크리스트 제공
+ * - 바운딩 박스(x, y, w, h) 내 완벽한 여백 물리 보장 (지면 이탈/블리드 0건)
+ */
+export function fallbackCard(
+  s: any,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  opts: FallbackCardOpts,
+): void {
+  const isDark = opts.onDark ?? false;
+  const bgCol = isDark ? CD.block : C.tint;
+  const borderCol = isDark ? CD.border : C.line;
+
+  // 1. 외곽 컨테이너
+  s.addShape('roundRect', {
+    x, y, w, h,
+    rectRadius: 0.06,
+    fill: { color: bgCol },
+    line: { color: borderCol, width: 0.5 },
+  });
+
+  const padX = Math.min(0.28, w * 0.05);
+  const padY = Math.min(0.24, h * 0.06);
+  const innerW = w - padX * 2;
+
+  // 2. 상태 배지 알약
+  const kind = opts.badgeKind ?? 'brass';
+  const badgeColors: Record<CalloutKind, [string, string, string]> = {
+    info:  [C.blue,   C.blueL,   C.blue],
+    good:  [C.green,  C.greenL,  C.green],
+    warn:  [C.amber,  C.amberL,  C.amber],
+    bad:   [C.red,    C.redL,    C.red],
+    brass: [C.brassD, C.brassT,  C.brassD],
+  };
+  const [badgeFg, badgeBg, badgeLine] = badgeColors[kind] ?? badgeColors.brass;
+
+  const rawBadge = (opts.badge || '실사 확인 안내').replace(/^\[\s*|\s*\]$/g, '').trim();
+  const badgeText = `[ ${rawBadge} ]`;
+  const badgeW = Math.min(innerW * 0.6, Math.max(1.30, rawBadge.length * 0.13 + 0.40));
+  const badgeH = 0.24;
+
+  s.addShape('roundRect', {
+    x: x + padX, y: y + padY, w: badgeW, h: badgeH,
+    rectRadius: 0.12,
+    fill: { color: badgeBg },
+    line: { color: badgeLine, width: 0.5 },
+  });
+
+  s.addText(badgeText, {
+    x: x + padX, y: y + padY, w: badgeW, h: badgeH,
+    align: 'center', valign: 'middle',
+    fontSize: 8.5, bold: true, color: badgeFg,
+    fontFace: KR, margin: 0,
+  });
+
+  // 3. 타이틀
+  const titleY = y + padY + badgeH + 0.08;
+  const titleH = 0.30;
+  const cleanTitle = (opts.title || '').trim();
+  s.addText(cleanTitle, {
+    x: x + padX, y: titleY, w: innerW, h: titleH,
+    fontSize: 12, bold: true, color: isDark ? 'FFFFFF' : C.ink,
+    fontFace: TITLE_KR, margin: 0, valign: 'middle',
+  });
+
+  // 4. 설명 리드문
+  const leadY = titleY + titleH + 0.04;
+  const leadH = Math.min(0.50, Math.max(0.30, h * 0.10));
+  const cleanLead = (opts.leadText || '').trim();
+  s.addText(cleanLead, {
+    x: x + padX, y: leadY, w: innerW, h: leadH,
+    fontSize: 9.5, color: isDark ? CD.mute : C.slate,
+    fontFace: KR, margin: 0, valign: 'top', lineSpacingMultiple: 1.15,
+  });
+
+  // 5. 구분선
+  const divY = leadY + leadH + 0.06;
+  s.addShape('line', {
+    x: x + padX, y: divY, w: innerW, h: 0,
+    line: { color: borderCol, width: 0.4 },
+  });
+
+  // 6. 실사 점검 체크리스트
+  const listStartY = divY + 0.10;
+  const listAvailH = Math.max(0.5, (y + h) - listStartY - padY);
+  const items = (opts.checklist || []).slice(0, 4);
+  const numItems = Math.max(1, items.length);
+  const itemSlotH = listAvailH / numItems;
+
+  items.forEach((itemText, i) => {
+    const itemY = listStartY + i * itemSlotH;
+    const cleanItem = String(itemText || '').replace(/^[•·\-*✓\s]+/, '').trim();
+
+    // 불릿 마커
+    s.addShape('rect', {
+      x: x + padX + 0.04, y: itemY + 0.06, w: 0.07, h: 0.07,
+      fill: { color: C.brass },
+    });
+
+    // 항목 텍스트
+    const textW = innerW - 0.24;
+    const itemBoxH = Math.max(0.22, itemSlotH - 0.04);
+    s.addText(cleanItem, {
+      x: x + padX + 0.18, y: itemY, w: textW, h: itemBoxH,
+      fontSize: 9.2, color: isDark ? CD.body : C.body,
+      fontFace: KR, margin: 0, valign: 'top', lineSpacingMultiple: 1.12,
+    });
+  });
+}
+
+
 // ════════════════════════════════════════
 // §8.4 차트 옵션
 // ════════════════════════════════════════
@@ -1676,6 +2089,5 @@ export function chartOpts(overrides?: Record<string, any>): Record<string, any> 
 }
 
 // ════════════════════════════════════════
-// §9 D31 BL-3: 텍스트 높이 자동 계산 (layout-physics 재수출)
-// ════════════════════════════════════════
-export { textH, fitBox, gridFit } from './utils/layout-physics';
+export { textH, fitBox, gridFit, fitTextToBox, fitTableCell, getCharWidthInches, simulateTextWrap } from './layout-physics';
+export type { FitTextOptions, FitTextResult } from './layout-physics';

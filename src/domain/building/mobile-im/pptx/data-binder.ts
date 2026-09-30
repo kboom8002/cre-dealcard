@@ -1115,8 +1115,8 @@ export function bindProImChapterData(
           { label: 'WALE (가중만기)', value: `${waleYears.toFixed(1)}년` },
         ],
         callouts: [
-          { kind: 'brass', title: '안정적 임대 수익', body: '우량 임차인 포트폴리오 기반 안정적 현금흐름 창출' },
-          { kind: 'good', title: '밸류애드 업사이드', body: '임대차 정상화 및 리노베이션을 통한 자본수익(Capital Gain) 극대화' },
+          { kind: 'brass', title: '안정적 임대 수익', body: '안정적 임차인(우수 신용도) 포트폴리오 기반 안정적 현금흐름 창출' },
+          { kind: 'good', title: '가치개선 업사이드', body: '임대차 정상화 및 리노베이션을 통한 자본수익(Capital Gain) 제고' },
         ],
       },
       _derived: true,

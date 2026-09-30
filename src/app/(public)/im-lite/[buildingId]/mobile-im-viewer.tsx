@@ -74,9 +74,13 @@ export function MobileIMViewer({
     },
   });
 
-  const [openSections, setOpenSections] = useState<Set<string>>(
-    new Set(["01_overview"]) // First section open by default
-  );
+  const [openSections, setOpenSections] = useState<Set<string>>(() => {
+    const initial = new Set(["property_overview", "01_overview"]);
+    if (doc?.sections?.[0]?.sectionId) {
+      initial.add(doc.sections[0].sectionId);
+    }
+    return initial;
+  });
   // [D1] 현재 화면에 보이는 섹션 인덱스
   const [activeSection, setActiveSection] = useState(0);
   // [D4] 언어 전환 (영문 1-Pager)
@@ -202,7 +206,16 @@ export function MobileIMViewer({
     );
   }
 
-  const unlockedCount = doc.sections.filter((s) => !s.locked).length;
+  const unlockedCount = useMemo(() => {
+    return doc?.sections ? doc.sections.filter((s) => !s.locked).length : 0;
+  }, [doc?.sections]);
+
+  const visibleSections = useMemo(() => {
+    if (!doc?.sections) return [];
+    const hidden = (doc as any).hiddenSections;
+    if (!Array.isArray(hidden) || hidden.length === 0) return doc.sections;
+    return doc.sections.filter((s: MobileIMSection) => !hidden.includes(s.sectionId));
+  }, [doc?.sections, (doc as any)?.hiddenSections]);
 
   return (
     <div className="min-h-screen bg-neutral-950">
@@ -446,12 +459,7 @@ export function MobileIMViewer({
 
         {/* ── Section Cards ── */}
         <div className="space-y-3 mb-8">
-          {doc.sections
-            .filter(
-              (s: MobileIMSection) =>
-                !(doc as any).hiddenSections?.includes(s.sectionId)
-            )
-            .map((section: MobileIMSection, index: number) => (
+          {visibleSections.map((section: MobileIMSection, index: number) => (
               <div
                 key={section.sectionId}
                 data-section-id={section.sectionId}
@@ -492,8 +500,8 @@ export function MobileIMViewer({
                     </div>
                   </div>
                 )}
-                {/* [C2][C4] 수익 분석 섹션 다음에 DCF 히트맵 + 레버리지 차트 삽입 */}
-                {section.sectionId?.includes("income") && (
+                {/* [C2][C4] 수익 분석 섹션 다음에 DCF 히트맵 + 레버리지 차트 삽입 (잠금 해제 시에만 노출) */}
+                {section.sectionId?.includes("income") && !section.locked && (
                   <>
                     {doc.tier !== "basic" &&
                       doc.dcf10Year &&

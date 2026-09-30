@@ -1,11 +1,10 @@
 /**
  * @file net-cash-flow-calculator.ts
- * @description 60대 자산가 페르소나를 위한 직관적인 실투자금 & 월 순수익 계산기
+ * @description 전문 투자자를 위한 직관적인 실투자금 & 월 순현금흐름 계산기
  * 
- * "내 돈 얼마 들어가서, 매달 순수하게 얼마 나오는가?"
- * 3줄 핵심 요약:
- * 1. 실투자금(내 돈) = 매매가 - 대출금 - 보증금
- * 2. 월 순수익(통장 입금) = 월 임대료 - 월 대출이자
+ * 실투자금(자기자본) 및 월 순현금흐름 산출:
+ * 1. 실투자금(자기자본) = 매매가 - 대출금 - 보증금
+ * 2. 월 순현금흐름 = 월 임대료 - 월 대출이자
  * 3. 자기자본수익률 = (연 순수익 / 실투자금) × 100
  */
 
@@ -23,7 +22,7 @@ export interface NetCashFlowSummary {
   askingPriceBil: number;           // 매매가 (억원)
   estimatedLoanBil: number;         // 대출금 (억원)
   totalDepositBil: number;          // 보증금 (억원)
-  netEquityBil: number;             // 실투자금(내 돈) (억원)
+  netEquityBil: number;             // 실투자금(자기자본) (억원)
 
   monthlyRentManwon: number;        // 월 임대료 (만원)
   monthlyInterestManwon: number;    // 월 대출이자 (만원)
@@ -33,13 +32,13 @@ export interface NetCashFlowSummary {
   equityYieldPct: number;           // 자기자본수익률 (%)
   grossYieldPct: number;            // 총 수익률(Cap Rate 기준) (%)
 
-  landSafetyRatioPct: number | null;// 토지 지분 가치 비중(원금 안전판) (%)
+  landSafetyRatioPct: number | null;// 토지 지분 가치 비중(토지 평가액 비중) (%)
   interestRatePct: number;          // 적용 금리 (%)
   isLoanEstimated: boolean;         // 대출금이 AI 추정인지 여부
 }
 
 /**
- * 60대 투자자를 위한 실투자금 및 월 순수익 핵심 3줄 지표를 계산합니다.
+ * 투자자를 위한 실투자금 및 월 순현금흐름 핵심 3줄 지표를 계산합니다.
  */
 export function calculateNetCashFlow(input: NetCashFlowInput): NetCashFlowSummary | null {
   const {
@@ -59,7 +58,7 @@ export function calculateNetCashFlow(input: NetCashFlowInput): NetCashFlowSummar
   let loanKrw = input.loanAmountKrw || 0;
   let isLoanEstimated = false;
 
-  // 실투자금 (내 돈) = 매매가 - 대출금 - 보증금
+  // 실투자금 (자기자본) = 매매가 - 대출금 - 보증금
   const netEquityKrw = Math.max(0, purchasePriceKrw - loanKrw - totalDepositKrw);
 
   // 월 대출이자 (만원) = 대출금 × (금리 / 12)
@@ -78,7 +77,7 @@ export function calculateNetCashFlow(input: NetCashFlowInput): NetCashFlowSummar
   // 총 수익률 (Gross Yield, %)
   const grossYieldPct = parseFloat(((monthlyRentKrw * 12 / purchasePriceKrw) * 100).toFixed(2));
 
-  // 토지 안전판 비율 (공시지가 토지가치 / 매매가)
+  // 토지 평가액 비중 (공시지가 토지가치 / 매매가)
   const landSafetyRatioPct = (purchasePriceKrw > 0 && landPriceTotalKrw > 0)
     ? parseFloat(((landPriceTotalKrw / purchasePriceKrw) * 100).toFixed(1))
     : null;
@@ -104,14 +103,14 @@ export function calculateNetCashFlow(input: NetCashFlowInput): NetCashFlowSummar
 }
 
 /**
- * 60대 투자자를 위한 직관적 3줄 요약 마크다운 생성
+ * 투자자를 위한 직관적 3줄 요약 마크다운 생성
  */
 export function formatNetCashFlowMarkdown(s: NetCashFlowSummary): string {
   const hasLoan = s.estimatedLoanBil > 0;
   
   const loanNote = hasLoan ? ` (금리 ${s.interestRatePct}%)` : '';
   const landSafetyText = s.landSafetyRatioPct !== null 
-    ? `\n> 🛡️ **원금 안전판**: 토지 지분 가치 비중 **${s.landSafetyRatioPct}%**로 매입 원금의 하방 경직성을 강력하게 지지합니다.` 
+    ? `\n> 🛡️ **하방 안정성(토지 평가액 비중)**: 토지 지분 가치 비중 **${s.landSafetyRatioPct}%**로 매입 원금의 하방 경직성을 강력하게 지지합니다.` 
     : '';
 
   const equityLabel = hasLoan ? '① 실투자금 (대출 반영 기준)' : '① 실투자금';
@@ -120,12 +119,12 @@ export function formatNetCashFlowMarkdown(s: NetCashFlowSummary): string {
     ? `월 임대료(${s.monthlyRentManwon.toLocaleString()}만) - 월 이자(${s.monthlyInterestManwon.toLocaleString()}만)${loanNote}`
     : `월 임대료(${s.monthlyRentManwon.toLocaleString()}만)`;
 
-  return `### 💡 핵심 현금흐름 3줄 요약 (내 돈 & 월 순수익)
+  return `### 💡 핵심 현금흐름 3줄 요약 (자기자본 & 월 순수익)
 
 | 핵심 지표 | 금액 / 수익률 | 산출 기준 |
 |:---|---:|:---|
 | **${equityLabel}** | **약 ${s.netEquityBil}억 원** | 매매가(${s.askingPriceBil}억) - 대출(${s.estimatedLoanBil}억) - 보증금(${s.totalDepositBil}억) |
-| **② 매달 통장에 꽂히는 돈** | **월 약 ${s.monthlyNetManwon.toLocaleString()}만 원** | ${monthlyNetDescription} |
-| **③ 내 돈 대비 연 수익률** | **연 ${s.equityYieldPct}%** | 실투자금 대비 연 순수익(약 ${s.annualNetBil}억 원) |
+| **② 월 순현금흐름(Net Cash Flow)** | **월 약 ${s.monthlyNetManwon.toLocaleString()}만 원** | ${monthlyNetDescription} |
+| **③ 자기자본 대비 연 수익률** | **연 ${s.equityYieldPct}%** | 실투자금 대비 연 순수익(약 ${s.annualNetBil}억 원) |
 ${landSafetyText}`;
 }

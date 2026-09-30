@@ -14,7 +14,7 @@ import {
   validateClaim,
   DISPLAY_LABELS,
 } from './claim';
-import type { ProvenanceKind } from '../mobile-im/pptx/imlib';
+import type { ProvenanceKind } from '@/domain/ontology/provenance';
 import type { Calculation } from './calculation';
 
 // ── Conflict ──

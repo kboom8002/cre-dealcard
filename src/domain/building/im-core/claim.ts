@@ -8,8 +8,11 @@
  * @see docs/impipe/IM_BROKER_SPEC_UPGRADE.md §1.2, §1.5
  */
 
-import type { ProvenanceKind } from '../mobile-im/pptx/imlib';
+import type { ProvenanceKind } from '@/domain/ontology/provenance';
 import type { Calculation } from './calculation';
+
+export type { ProvenanceKind };
+
 
 // ── Claim 상태 ──
 

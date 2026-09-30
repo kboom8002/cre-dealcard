@@ -236,16 +236,19 @@ describe('Adversarial Stress Test: Pro Deck Sequencer & Basic Deck Sequencer Inv
           },
         });
 
-        // Without rentroll, cadastral, photos:
-        // income has yieldFormula (7 slides), non-income has no yieldFormula (6 slides)
+        // M4 Fallback Architecture:
+        // income posture preserves canonical 9 slides with fallback slots
+        // non-income postures produce minimal 6 slides
+        const expectedCount = posture === 'income' ? 9 : 6;
+        expect(minimalSeq.length).toBe(expectedCount);
         expect(minimalSeq.length).toBeLessThanOrEqual(PAGE_HARD_LIMIT);
-        expect(minimalSeq.length).toBeGreaterThanOrEqual(6);
-        expect(minimalSeq.length).toBeLessThanOrEqual(7);
 
         const keys = minimalSeq.map(s => s.dataKey);
         expect(keys).not.toContain('cadastralMap');
-        expect(keys).not.toContain('gallery');
-        expect(keys).not.toContain('rentRoll');
+        if (posture !== 'income') {
+          expect(keys).not.toContain('gallery');
+          expect(keys).not.toContain('rentRoll');
+        }
       }
     });
   });

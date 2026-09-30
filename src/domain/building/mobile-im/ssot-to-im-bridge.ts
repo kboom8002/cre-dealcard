@@ -81,16 +81,19 @@ export function bridgeDealCardToIM(
   posture: InvestmentPosture = 'income'
 ): DealCardToIMBridgeOutput {
   const { ssot, teaserView, blindTeaser } = input;
-  const layers = ssot.layers || {};
-  const lease = ssot.lease_summary || {};
+  const layers = ssot?.layers || {};
+  const lease = ssot?.lease_summary || {};
 
   // Extract address from layers
   const address = layers.location?.address || layers.location?.neighborhood || undefined;
   const pnu = layers.location?.pnu || undefined;
 
-  // Extract financial data from lease_summary
-  const monthlyRent = lease.monthly_rent_total_krw 
-    ? Math.round(lease.monthly_rent_total_krw / 10000)
+  // Extract financial data from lease_summary (preserve exact KRW precision)
+  const monthlyRentTotalKrw = lease.monthly_rent_total_krw != null
+    ? Number(lease.monthly_rent_total_krw)
+    : undefined;
+  const monthlyRent = monthlyRentTotalKrw != null
+    ? Math.round(monthlyRentTotalKrw / 10000)
     : undefined;
   const totalDeposit = lease.total_deposit_manwon || undefined;
   const mgmtFeeTotal = lease.mgmt_fee_total_manwon || undefined;
@@ -105,30 +108,54 @@ export function bridgeDealCardToIM(
     : undefined;
 
   // Broker highlight from blindTeaser or fit_summary — sanitize & humanize
-  const rawHighlight = blindTeaser?.hookCopy || ssot.fit_summary || undefined;
+  const rawHighlight = blindTeaser?.hookCopy || ssot?.fit_summary || undefined;
   const brokerHighlight = rawHighlight
     ? humanizeGuardrailTokensForView(sanitizeTextHygiene(rawHighlight), 'institutional')
     : undefined;
 
   // Caution summary — sanitize & humanize
-  const rawCaution = ssot.caution_summary || undefined;
+  const rawCaution = ssot?.caution_summary || undefined;
   const cautionSummary = rawCaution
     ? humanizeGuardrailTokensForView(sanitizeTextHygiene(rawCaution), 'institutional')
     : undefined;
 
   // Bridge ancillary incomes from SSoT
-  const ancillaryIncomes = ssot.ancillary_incomes || undefined;
+  const ancillaryIncomes = ssot?.ancillary_incomes || undefined;
 
   // Bridge floor leases (including variable rent types)
-  const floorLeases = ssot.floor_leases || undefined;
+  const floorLeases = ssot?.floor_leases || undefined;
+
+  // ── R1: Map 8 Missing Domain Layers from SSoT ──
+  const hotelOperating = ssot?.layers?.hotel_operating || ssot?.layers?.hotel || (ssot as any)?.hotel_operating || undefined;
+  const developmentSpec = ssot?.layers?.developmentSpec || ssot?.layers?.development || (ssot as any)?.developmentSpec || undefined;
+  const occupancySpec = ssot?.layers?.occupancySpec || ssot?.layers?.occupancy || (ssot as any)?.occupancySpec || undefined;
+  const logistics = ssot?.layers?.logistics || (ssot as any)?.logistics || undefined;
+  const manualComps = ssot?.layers?.manual_comps || ssot?.layers?.comparables || (ssot as any)?.manual_comps || undefined;
+  const acquisitionTaxPct = ssot?.layers?.financial?.acquisition_tax_pct ?? (ssot as any)?.acquisition_tax_pct ?? undefined;
+  const brokerageFeeManwon = ssot?.layers?.financial?.brokerage_fee_manwon ?? (ssot as any)?.brokerage_fee_manwon ?? undefined;
+  const ltvPct = ssot?.layers?.financial?.ltv_pct ?? (ssot as any)?.ltv_pct ?? undefined;
+
+  // Additional physical & financial layers
+  const totalGrossAreaM2 = layers.physical?.total_area_sqm ?? (ssot as any)?.total_area ?? (ssot as any)?.total_gross_area_m2 ?? undefined;
+  const landAreaM2 = layers.physical?.plat_area_sqm ?? (ssot as any)?.plat_area ?? (ssot as any)?.land_area_m2 ?? undefined;
+  const buildingName = layers.physical?.building_name ?? (ssot as any)?.building_name ?? undefined;
+  const floorsAbove = layers.physical?.floors_above ?? (ssot as any)?.floors_above ?? undefined;
+  const floorsBelow = layers.physical?.floors_below ?? (ssot as any)?.floors_below ?? undefined;
+  const regulation = layers.regulation ?? (ssot as any)?.regulation ?? undefined;
+  const parcels = layers.parcels ?? (ssot as any)?.parcels ?? undefined;
+  const legalFeeManwon = ssot?.layers?.financial?.legal_fee_manwon ?? (ssot as any)?.legal_fee_manwon ?? undefined;
+  const otherAcquisitionCostManwon = ssot?.layers?.financial?.other_acquisition_cost_manwon ?? (ssot as any)?.other_acquisition_cost_manwon ?? undefined;
+  const loanInterestPct = ssot?.layers?.financial?.loan_interest_pct ?? (ssot as any)?.loan_interest_pct ?? undefined;
+  const loanTermYears = ssot?.layers?.financial?.loan_term_years ?? (ssot as any)?.loan_term_years ?? undefined;
+  const targetIrrPct = ssot?.layers?.financial?.target_irr_pct ?? (ssot as any)?.target_irr_pct ?? undefined;
 
   // Build supplemental
   const supplemental: Partial<MobileIMSupplementalInput> = {
     resolved_address: address,
     resolved_pnu: pnu,
-    vacancy_status: ssot.vacancy_signal || teaserView?.vacancyLabel || undefined,
+    vacancy_status: ssot?.vacancy_signal || teaserView?.vacancyLabel || undefined,
     vacancy_pct: vacancyPct,
-    monthly_rent_total_krw: monthlyRent ? monthlyRent * 10000 : undefined,
+    monthly_rent_total_krw: monthlyRentTotalKrw,
     total_deposit_manwon: totalDeposit,
     mgmt_fee_total_manwon: mgmtFeeTotal,
     loan_amount_manwon: loanAmount,
@@ -138,6 +165,28 @@ export function bridgeDealCardToIM(
     ancillary_incomes: ancillaryIncomes,
     floor_leases: floorLeases,
     monthly_revenue_manwon: monthlyRevenue,
+    // 8 mapped domain layers
+    hotel_operating: hotelOperating,
+    developmentSpec,
+    occupancySpec,
+    logistics,
+    manual_comps: manualComps,
+    acquisition_tax_pct: acquisitionTaxPct,
+    brokerage_fee_manwon: brokerageFeeManwon,
+    ltv_pct: ltvPct,
+    // Physical & financial details
+    total_gross_area_m2: totalGrossAreaM2,
+    land_area_m2: landAreaM2,
+    building_name: buildingName,
+    floors_above: floorsAbove,
+    floors_below: floorsBelow,
+    regulation,
+    parcels,
+    legal_fee_manwon: legalFeeManwon,
+    other_acquisition_cost_manwon: otherAcquisitionCostManwon,
+    loan_interest_pct: loanInterestPct,
+    loan_term_years: loanTermYears,
+    target_irr_pct: targetIrrPct,
   };
 
   // Determine grade-up items (Posture별 최적화)

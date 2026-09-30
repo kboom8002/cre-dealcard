@@ -127,7 +127,7 @@ export interface LeaseRow {
   // R2
   contractGroup: string | null;         // 계약그룹
   leaseAreaSqm: number | null;          // 임대면적(㎡)
-  exclusiveAreaSqm: number | null;      // 전용면적(㎡)
+  exclusiveAreaSqm?: number | null;     // 전용면적(㎡)
   legalBasis: LegalBasis | null;        // 적용법령 (상가/주택)
   mgmtFeeKrw: number | null;            // 관리비(원)
   currentStartDate: string | null;      // 현 계약 시작일 (YYYY-MM-DD)

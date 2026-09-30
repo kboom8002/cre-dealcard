@@ -9,8 +9,13 @@ import { readWithMigration } from "@/lib/ssot-adapter";
 import { getDemoMobileIM } from "@/lib/demo/mobile-im-demo-data";
 import { computeDataQualityBadge } from "@/domain/building/mobile-im/data-quality-badge";
 import { resolveEnrichment } from "@/domain/building/im-core/resolve-enrichment";
+import { getTierAllowedSections, TIER_CONFIG, type ReleaseTier } from "@/domain/building/im-core/release-tier";
 import type { MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
 import { buildKakaoStaticMapUrl } from "@/lib/external/kakao-static-map";
+
+function isValidKoreanCoord(lat: number, lng: number): boolean {
+  return Number.isFinite(lat) && Number.isFinite(lng) && lat >= 33.0 && lat <= 43.0 && lng >= 124.0 && lng <= 132.0;
+}
 
 // ─── Geocode: 주소 → 좌표 변환 (Kakao Local API, 한국 주소 정확도 높음) ────────
 async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
@@ -24,7 +29,11 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
       );
       const data = await res.json();
       if (data.documents?.[0]) {
-        return { lat: parseFloat(data.documents[0].y), lng: parseFloat(data.documents[0].x) };
+        const lat = parseFloat(data.documents[0].y);
+        const lng = parseFloat(data.documents[0].x);
+        if (isValidKoreanCoord(lat, lng)) {
+          return { lat, lng };
+        }
       }
       // 주소 검색 실패 시 키워드 검색 fallback
       const res2 = await fetch(
@@ -33,7 +42,11 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
       );
       const data2 = await res2.json();
       if (data2.documents?.[0]) {
-        return { lat: parseFloat(data2.documents[0].y), lng: parseFloat(data2.documents[0].x) };
+        const lat = parseFloat(data2.documents[0].y);
+        const lng = parseFloat(data2.documents[0].x);
+        if (isValidKoreanCoord(lat, lng)) {
+          return { lat, lng };
+        }
       }
     } catch (err) { console.warn('[fetch-im-data]', err); }
   }
@@ -46,7 +59,11 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
     if (!res.ok) return null;
     const data = await res.json();
     if (data?.[0]?.lat && data?.[0]?.lon) {
-      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      const lat = parseFloat(data[0].lat);
+      const lng = parseFloat(data[0].lon);
+      if (isValidKoreanCoord(lat, lng)) {
+        return { lat, lng };
+      }
     }
   } catch (err) { console.warn('[fetch-im-data]', err); }
   return null;
@@ -130,7 +147,7 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
     slug = `${slugBase}-${ownerId.substring(0, 6)}`;
     
     // broker_profiles 자동 생성 (비블로킹)
-    supabase
+    void supabase
       .from("broker_profiles")
       .upsert({
         user_id: ownerId,
@@ -138,18 +155,24 @@ async function fetchBrokerProfile(supabase: any, ownerId: string) {
         slug,
         photo_url: profile.photo_url || null,
       }, { onConflict: "user_id" })
-      .then(() => {}).catch((e: any) => console.error('[fetch-im-data] floating promise error:', e));
+      .then(
+        () => {},
+        (e: any) => console.error('[fetch-im-data] broker_profiles upsert failed:', e)
+      );
   } else if (brokerProfile && !slug) {
     // broker_profiles는 있지만 slug가 없는 경우
     const baseName = (profile?.display_name || brokerProfile?.name || ownerId.substring(0, 8)) as string;
     const slugBase = baseName.toLowerCase().replace(/[^a-z0-9\uAC00-\uD7A3]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
     slug = `${slugBase}-${ownerId.substring(0, 6)}`;
     
-    supabase
+    void supabase
       .from("broker_profiles")
       .update({ slug })
       .eq("user_id", ownerId)
-      .then(() => {}).catch((e: any) => console.error('[fetch-im-data] floating promise error:', e));
+      .then(
+        () => {},
+        (e: any) => console.error('[fetch-im-data] broker_profiles slug update failed:', e)
+      );
   }
 
   // profiles + broker_profiles 병합 (phone, company, tagline은 profiles에서)
@@ -360,7 +383,12 @@ export async function fetchIMData(
       heroSubtitle: document.body.heroSubtitle || null,
       enrichment: document.body.enrichment || null,
       sections: (document.body.sections || []).map((s: any) => {
-          if ("content" in s) return s;
+          if ("content" in s) {
+            if (s.locked) {
+              return { ...s, content: "", boundaryNote: undefined, provenance: [] };
+            }
+            return s;
+          }
           let icon = "📄";
           if (s.section_type === "overview" || s.section_type === "property_overview") icon = "🏢";
           if (s.section_type === "location" || s.section_type === "location_access") icon = "📍";
@@ -379,17 +407,37 @@ export async function fetchIMData(
           if (s.section_type === "market_position") icon = "🏷️";
           if (s.section_type === "comparable_analysis") icon = "📐";
 
+          const isSectionLocked = (() => {
+            if (s.locked != null) return Boolean(s.locked);
+            const tier = (document.body.releaseTier || document.body.release_tier || document.tier) as ReleaseTier | undefined;
+            if (tier) {
+              const allowed = TIER_CONFIG[tier as ReleaseTier] ?? TIER_CONFIG.pro;
+              if (s.section_type === 'income_analysis' && !allowed.allowFinancials) return true;
+              if (s.section_type === 'stabilized_scenario' && !allowed.allowScenario) return true;
+              if (s.section_type === 'value_add_plan' && !allowed.allowValueAdd) return true;
+              if (s.section_type === 'market_rent_gap' && !allowed.allowRentGap) return true;
+            }
+            if (s.min_tier === 'premium' && document.body.tier === 'basic') return true;
+            if (s.min_tier === 'grade_a' && (document.body.dataGrade === 'B' || document.body.dataGrade === 'C')) return true;
+            return false;
+          })();
+
+          const lockedReason = isSectionLocked
+            ? (s.lockedReason || (s.min_tier === 'grade_a' ? 'A등급 데이터 필요' : '상세 열람 권한 필요 (Full IM 요청)'))
+            : undefined;
+
           return {
             sectionId: s.section_type || `section_${s.section_order}`,
             title: s.title || "섹션",
             icon,
-            content: s.markdown || "",
+            content: isSectionLocked ? "" : (s.markdown || ""),
             dataSource: s.confidence === "inferred" ? "AI 분석" : "SSoT 데이터",
             aiRole: s.confidence === "inferred" ? "ai_generated" : "auto",
             confidence: s.confidence,
-            locked: false,
-            boundaryNote: s.boundary_note,
-            provenance: s.provenance || [],
+            locked: isSectionLocked,
+            lockedReason,
+            boundaryNote: isSectionLocked ? undefined : s.boundary_note,
+            provenance: isSectionLocked ? [] : (s.provenance || []),
           };
         }),
         generatedAt: document.body.generated_at || document.created_at || new Date().toISOString(),
@@ -465,15 +513,24 @@ export async function fetchIMData(
           };
         })(),
         // [C2] DCF 10년 민감도
-        dcf10Year: document.body.dcf10Year ?? undefined,
+        dcf10Year: (() => {
+          const docTier = (document.body.releaseTier || document.body.release_tier || document.tier) as ReleaseTier | undefined;
+          const allowed = docTier ? (TIER_CONFIG[docTier] ?? TIER_CONFIG.pro) : TIER_CONFIG.pro;
+          return allowed.allowFinancials ? (document.body.dcf10Year ?? undefined) : undefined;
+        })(),
         // [C4] 레버리지 자금 구조
-        financials: document.body.financials ? {
-          equityRequiredBil: document.body.financials.equityRequired ?? null,
-          totalDepositBil: document.body.financials.totalDepositBil ?? null,
-          loanAmountBil: document.body.financials.loanAmountBil ?? null,
-          leveragedYieldPct: document.body.financials.leveragedYield ?? null,
-          waccPct: document.body.financials.wacc ? parseFloat((document.body.financials.wacc * 100).toFixed(1)) : null,
-        } : undefined,
+        financials: (() => {
+          const docTier = (document.body.releaseTier || document.body.release_tier || document.tier) as ReleaseTier | undefined;
+          const allowed = docTier ? (TIER_CONFIG[docTier] ?? TIER_CONFIG.pro) : TIER_CONFIG.pro;
+          if (!allowed.allowFinancials || !document.body.financials) return undefined;
+          return {
+            equityRequiredBil: document.body.financials.equityRequired ?? null,
+            totalDepositBil: document.body.financials.totalDepositBil ?? null,
+            loanAmountBil: document.body.financials.loanAmountBil ?? null,
+            leveragedYieldPct: document.body.financials.leveragedYield ?? null,
+            waccPct: document.body.financials.wacc ? parseFloat((document.body.financials.wacc * 100).toFixed(1)) : null,
+          };
+        })(),
         tier: document.body.tier || 'basic',
         releaseTier: document.body.releaseTier ?? 'fact_om',
       };

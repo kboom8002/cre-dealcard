@@ -1,4 +1,4 @@
-﻿import type PptxGenJS from 'pptxgenjs';
+import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, KR, NUM } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
@@ -27,6 +27,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   
   // Lead sentence
   let leadSentence = input.data.leadSentence || '';
+  let startY = 1.50;
   if (leadSentence) {
     const hero = input.data.heroCard;
     const ssotManwon = hero?.asking_price_manwon ?? input.data.asking_price_manwon ?? input.data.ssot_summary?.asking_price_manwon;
@@ -59,15 +60,21 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       // Rule 52: 실수치가 없을 경우에도 모호한 밴드(N억대) 표현은 제거
       leadSentence = leadSentence.replace(/,?\s*희망가\s*\d+\s*억\s*대/g, '').replace(/\d+\s*억\s*대/g, '');
     }
-    slide.addText(leadSentence, {
-      x: M, y: 1.30, w: CW, h: 0.5,
-      color: C.ink, fontFace: KR, fontSize: 15, bold: true,
+
+    const leadFit = L.fitTextToBox(leadSentence, CW, 0.50, { minFontSize: 12, maxFontSize: 15, targetLines: 2 });
+    slide.addText(leadFit.displayText, {
+      x: M, y: 1.30, w: CW, h: leadFit.requiredHeight,
+      color: C.ink, fontFace: KR, fontSize: leadFit.fontSize, bold: true,
+      shrinkText: true,
+      margin: 0,
     });
     // Brass 강조선
+    const lineY = 1.30 + leadFit.requiredHeight + 0.08;
     slide.addShape('line', {
-      x: M, y: 1.85, w: CW, h: 0,
+      x: M, y: lineY, w: CW, h: 0,
       line: { color: C.brass, width: 1.5 },
     });
+    startY = lineY + 0.15;
   }
   
   // Stat grid
@@ -162,8 +169,6 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       }
     }
   }
-  
-  const startY = leadSentence ? 2.15 : 1.50;
   
   // D41: 메트릭 수에 따라 카드 높이 조정 — 5개 이상이면 컴팩트 모드
   const isCompact = metrics.length > 4;

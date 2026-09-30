@@ -71,7 +71,7 @@ export function bindInstitutionalTemplateData(doc: any, dataMap: Record<string, 
     metricsData: institutionalMetrics,
     keyPoints: [
       `WALE 안정성: 임대료 기준 가중평균 잔여만기 ${wale.waleByRentYears.toFixed(1)}년(면적 기준 ${wale.waleByAreaYears.toFixed(1)}년) 확보로 장기 현금흐름 안정성 견고`,
-      `순영업소득(NOI) 가치: 연간 실질 순영업소득 ${noiBil}억 원(Cap Rate ${capRatePct.toFixed(2)}%) 달성 및 우량 임차인 위주의 안정적 임대차 구성`,
+      `순영업소득(NOI) 가치: 연간 실질 순영업소득 ${noiBil}억 원(Cap Rate ${capRatePct.toFixed(2)}%) 달성 및 안정적 임차인(우수 신용도) 위주의 임대차 구성`,
       `렌트롤 다단 리스크 관리: 12개월 내 만기도래 비중 ${wale.atRiskRentPct12m.toFixed(1)}% 선제적 테넌트 리텐션 대응 가능`,
     ],
     callouts: [
@@ -344,7 +344,7 @@ export function bindCommercialTemplateData(doc: any, dataMap: Record<string, Sec
     metricsData: commercialMetrics,
     leadSentence: `${primaryUse} 중심의 가시성 및 유동인구를 확보한 프리미엄 상업용 근생 자산`,
     keyPoints: [
-      `층별 업종 MD 최적화: ${primaryUse} 중심의 업종 배치 및 테넌트 집객력 극대화`,
+      `층별 업종 MD 최적화: ${primaryUse} 중심의 업종 배치 및 테넌트 집객력 제고`,
       '가시성 및 접근성: 전면 도로 노출 및 유동인구 유입에 유리한 근린 상권 입지',
       anchorTenantsStr ? `주요 임차인 확보: ${anchorTenantsStr} 등 안정적인 임대 수익 기반 형성` : '안정적 임대 수익 기반의 다용도 상업용 자산',
     ],
@@ -418,7 +418,7 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
         ['조례 완화 적용 용적률', '법정 상한 적용 검토'],
       ],
       callouts: [
-        { kind: 'good', title: '다필지 일괄 개발 시너지', body: `총 ${parcels.length}필지 합산 ${totalAreaPyeong.toFixed(1)}평 대규모 대지 확보로 신축 효율 극대화` },
+        { kind: 'good', title: '다필지 일괄 개발 시너지', body: `총 ${parcels.length}필지 합산 ${totalAreaPyeong.toFixed(1)}평 대규모 대지 확보로 신축 효율 최적화` },
       ],
     },
     totalAreaM2,
@@ -494,7 +494,7 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
     callout: {
       kind: 'warn',
       title: `⏳ 한시적 용적률 완화 기한: ${regExpiry}${regDaysSuffix}`,
-      body: '조례 완화 기한 내 인허가 접수 완료 시 용적률 인센티브 혜택 극대화 가능',
+      body: '조례 완화 기한 내 인허가 접수 완료 시 용적률 인센티브 혜택 최적화 가능',
     },
     };
     dataMap['stacking'] = dataMap['marketing'];
@@ -530,7 +530,7 @@ export function bindDevelopmentTemplateData(doc: any, dataMap: Record<string, Se
     keyPoints: [
       `다필지 대지면적 합산: ${parcels.length}개 필지 총 ${totalAreaM2.toLocaleString()}㎡(${totalAreaPyeong.toFixed(1)}평) 일괄 확보로 대형 신축 가능`,
       `3단 투입비 정밀 구조화: 토지비 ${landCostBil}억 + 공사비 ${constCostBil}억 + 금융비 ${financeCostBil}억 = 총 사업비 ${totalProjectCostBil}억 원`,
-      `규제 완화 기한 준수: ${regExpiry}${regDaysSuffix} 한시적 조례 인센티브 활용으로 사업 수익 극대화`,
+      `규제 완화 기한 준수: ${regExpiry}${regDaysSuffix} 한시적 조례 인센티브 활용으로 사업 수익성 제고`,
     ],
     callouts: [
       {

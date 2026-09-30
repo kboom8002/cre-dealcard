@@ -10,7 +10,7 @@ export const FORBIDDEN_INTERNAL_RULE_PATTERN = /(?:사진\s*운용\s*원칙|EXIF
 
 export const POISON_TOKEN_REGEX = /(?:-?Infinity|NaN|undefined|\bnull\b|\[object Object\])/;
 export const EVASIVE_PHRASES_PATTERN = /(?:추후\s*확인\s*필요|미정|상세\s*불명|확인\s*불가|자료\s*없음|현장\s*실사\s*확인|원본\s*계약서\s*대조|점검하였습니다|자문\s*후\s*확정|본문을\s*참조|별도\s*안내\s*예정)/;
-export const MOCK_LEAK_PATTERN = /(?:NH\s*농협\s*캐피탈|NH\s*Capital|피카딜리빌딩|모의\s*건물|모의\s*테넌트)/;
+export const MOCK_LEAK_PATTERN = /(?:NH\s*농협\s*캐피탈|NH\s*Capital|피카딜리빌딩|(?<!규)모의\s*건물|모의\s*테넌트)/;
 
 export interface PptxPhysicalInspectionResult {
   textOverflowCount: number;

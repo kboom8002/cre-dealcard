@@ -26,6 +26,20 @@ export type ProvenanceTier =
   // 하위 호환 별칭 (v0.2/v0.4 레거시)
   | 'public';
 
+/** ProvenanceKind — 출처 10종 체계 (ONTOLOGY_V0.5_SPEC §5.2 정본) */
+export type ProvenanceKind =
+  | 'registry'               // S1: 등기·대장 (공적 장부)
+  | 'public_api'             // S2a: 공공 API (국토부 실거래가, 공시지가 등)
+  | 'public_api_identified'  // S2b: 공공 API + 중개인 식별 (D36 §4.3)
+  | 'broker_aug'             // S2a: 중개인 보강 (현장 실측 등)
+  | 'expert'                 // S2b: 전문가 검증 (감정평가사 등)
+  | 'ledger'                 // S2a: 원장 (임대차 계약서 원본)
+  | 'seller'                 // S3: 매도인 고지
+  | 'broker'                 // S3: 중개인 입력
+  | 'derived'                // S4: 파생 계산
+  | 'assumed';               // S5: AI 추정·가정
+
+
 // ── SourceTier 6단 표시 체계 (ONTOLOGY_V0.5_SPEC §5.2) ── (B-2)
 export type SourceTier = 'S1' | 'S2a' | 'S2b' | 'S3' | 'S4' | 'S5';
 

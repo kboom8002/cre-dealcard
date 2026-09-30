@@ -1,4 +1,4 @@
-﻿import type PptxGenJS from 'pptxgenjs';
+import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
 import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
@@ -55,36 +55,45 @@ export async function buildA14Gallery(input: ArchetypeInput): Promise<ArchetypeO
 
   const validPhotos = targetPhotos.filter(p => !!p.url);
 
-  if (validPhotos.length === 0) {
-    // F-04: Basic IM 표준 9면을 보장하기 위해 갤러리 슬라이드 누락 시 플레이스홀더를 삽입
+  const renderFallbackGallery = (): ArchetypeOutput => {
     const slide = L.light(input.pres);
     L.head(slide, input.slideNum, input.data.kicker || 'Gallery', input.data.title || '현장 사진');
-    
-    slide.addShape(input.pres.ShapeType.rect, { x: 0.5, y: 1.5, w: 12.33, h: 4.5, fill: { color: 'F1F5F9' }, line: { color: 'CBD5E1', width: 1, dashType: 'dash' } });
-    slide.addText('현장 사진이 아직 등록되지 않았습니다.\n추후 촬영 후 업데이트될 예정입니다.', {
-      x: 0.5, y: 1.5, w: 12.33, h: 4.5,
-      align: 'center', valign: 'middle',
-      fontSize: 16, color: '64748B', bold: true
+    L.fallbackCard(slide, M, 1.50, CW, 5.00, {
+      badge: '현장 실사 예정',
+      badgeKind: 'info',
+      title: '건축물 현황 및 물리적 실사 점검 안내',
+      leadText: '본 자산의 내·외관 상태 및 주요 설비 사양은 매수 실사 절차 진행 시 현장 방문 조사를 통해 상세 확인 및 촬영이 진행됩니다.',
+      checklist: [
+        '외관 파사드 마감재 보존 상태 및 균열·누수 흔적 정밀 점검',
+        '승강기, 기계식 주차설비, 수배전반 등 핵심 설비 내구연한 및 정기검사 이력',
+        '옥상 방수 상태, 지하층 결로/누수 여부 및 공용부(계단실·화장실) 관리 컨디션',
+        '법정 주차대수 확보 여부, 주차장 진입로 회전반경 및 층고 실측 검증',
+      ],
+      icon: 'building',
     });
-    
+    if (input.watermarkText) L.watermark(slide, input.watermarkText, false);
     L.foot(slide, input.slideNum, input.docno);
-    warnings.push('갤러리 사진 없음 — 플레이스홀더 삽입');
     return { slide, warnings };
+  };
+
+  if (validPhotos.length === 0) {
+    warnings.push('갤러리 사진 없음 — 건축물 현황 실사 대체 카드 삽입');
+    return renderFallbackGallery();
   }
 
   // B3 Fix: 이미지 최적화를 슬라이드 생성 전에 수행
   const urlsToOptimize = validPhotos.slice(0, 6).map(p => p.url);
-  let optimized: OptimizedImage[];
+  let optimized: OptimizedImage[] = [];
   try {
     optimized = await optimizeImagesForPptx(urlsToOptimize, 6, 2000, 85);
   } catch (err) {
     warnings.push(`갤러리 이미지 최적화 실패: ${err instanceof Error ? err.message : String(err)}`);
-    return { slide: null as any, warnings, suppress: true };
+    return renderFallbackGallery();
   }
 
   if (optimized.length === 0) {
-    warnings.push('갤러리 사진 로딩 실패 — 슬라이드 억제');
-    return { slide: null as any, warnings, suppress: true };
+    warnings.push('갤러리 사진 로딩 실패 — 건축물 현황 실사 대체 카드 삽입');
+    return renderFallbackGallery();
   }
 
   // 검증 통과 후에만 슬라이드 생성

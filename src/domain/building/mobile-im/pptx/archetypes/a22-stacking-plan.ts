@@ -41,12 +41,12 @@ export const TENANT_PALETTE: Record<TenantCategory, { fill: string; border: stri
   vacant:  { fill: 'EF4444', border: 'F87171', text: 'FFFFFF', label: '공실' },
 };
 
-/** 의미적 컬러 매핑 (Dark mode) */
+/** 의미적 컬러 매핑 (Dark mode) — WCAG >= 3.0:1 그래픽 요소 대비 준수 */
 export const TENANT_PALETTE_DARK: Record<TenantCategory, { fill: string; border: string; text: string; label: string }> = {
   anchor:  { fill: '1E3A8A', border: 'B98A2E', text: 'E8DEC8', label: '앵커 테넌트' },
-  general: { fill: '334155', border: '475569', text: 'E2E8F0', label: '일반 업무' },
+  general: { fill: '334155', border: '64748B', text: 'E2E8F0', label: '일반 업무' },
   retail:  { fill: '065F46', border: '10B981', text: 'D1FAE5', label: '리테일/근생' },
-  parking: { fill: '1E293B', border: '334155', text: '94A3B8', label: '주차/기계' },
+  parking: { fill: '2D3748', border: '64748B', text: 'E2E8F0', label: '주차/기계' },
   vacant:  { fill: '991B1B', border: 'EF4444', text: 'FEE2E2', label: '공실' },
 };
 
@@ -805,16 +805,6 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
     waleVal > 0 ? `WALE ${waleVal}년` : '-',
   ]);
 
-  const cellData = displayTableRows.map((row, rIdx) => {
-    const isTotal = rIdx === displayTableRows.length - 1;
-    return row.map((cellText, cIdx) => ({
-      t: cellText,
-      b: isTotal || cIdx === 0,
-      c: isTotal ? (onDark ? C.brass : C.brassD) : (cIdx === 0 ? (onDark ? 'FFFFFF' : C.ink) : (onDark ? CD.body : C.body)),
-      fill: isTotal ? (onDark ? CD.block : C.tint) : undefined,
-    }));
-  });
-
   // 표 높이 자동 스케일 (하단 각주와 겹침 및 지면 이탈 방지 — table bottom <= 6.40")
   const maxTableBottom = 6.40;
   const maxTableH = Math.max(0.50, maxTableBottom - tableY);
@@ -825,7 +815,30 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
     : targetRowH;
   const tableFontSize = effectiveRowH < 0.14 ? 7.5 : 8.5;
 
-  L.table(
+  const cellData = displayTableRows.map((row, rIdx) => {
+    const isTotal = rIdx === displayTableRows.length - 1;
+    return row.map((cellText, cIdx) => {
+      const colWidth = tableColW[cIdx] ?? 1.0;
+      const fitted = L.fitTableCell(cellText, colWidth, effectiveRowH, tableFontSize);
+      return {
+        t: fitted.text,
+        b: isTotal || cIdx === 0,
+        c: isTotal ? (onDark ? C.brass : C.brassD) : (cIdx === 0 ? (onDark ? 'FFFFFF' : C.ink) : (onDark ? CD.body : C.body)),
+        fill: isTotal ? (onDark ? CD.block : C.tint) : undefined,
+      };
+    });
+  });
+
+  const colAlign: ('left' | 'center' | 'right')[] = [
+    'center', // 층수
+    'left',   // 주용도
+    'right',  // 전용(평)
+    'right',  // 임대(평)
+    'left',   // 주요 입주사
+    'center', // 만기
+  ];
+
+  L.styledTable(
     slide,
     rightX + 0.22,
     tableY,
@@ -838,6 +851,7 @@ export function buildA22StackingPlan(input: ArchetypeInput): ArchetypeOutput {
       bfs: tableFontSize,
       hfs: tableFontSize,
       onDark,
+      colAlign,
     }
   );
 

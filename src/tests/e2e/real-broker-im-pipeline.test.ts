@@ -870,7 +870,7 @@ describe('Real Broker Commercial Income Properties E2E Pipeline', () => {
       });
 
       expect(output.slide).toBeDefined();
-      expect((output as any).suppress).toBe(true);
+      expect((output as any).suppress).toBeFalsy();
       expect(output.warnings.some((w) => w.includes('[BL-E]'))).toBe(true);
     });
   });

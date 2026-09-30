@@ -7,7 +7,7 @@
  * @see docs/impipe/D37_P1P2_IMPLEMENTATION_PLAN.md §P1-5
  */
 
-import type { ProvenanceKind } from '../mobile-im/pptx/imlib';
+import type { ProvenanceKind } from '@/domain/ontology/provenance';
 import type { ClaimStatus } from './claim';
 
 // ── 8종 책임 표시 매핑 (07 §2.4) ──

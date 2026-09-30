@@ -18,8 +18,8 @@
  * @see docs/impipe/IM_BROKER_SPEC_UPGRADE.md §4.1
  */
 
-import type { InvestmentPosture } from '@/domain/ontology';
-import type { DataAvailability, Grade } from '../mobile-im/pptx/deck-sequencer';
+import type { InvestmentPosture } from '@/domain/ontology/enums';
+import type { DataAvailability, Grade } from './data-availability';
 
 // ── ReleaseTier 정의 ──
 
@@ -125,27 +125,29 @@ export function resolveTier(input: ResolveTierInput): ReleaseTier {
 
 // ── Tier별 면 구성 가이드 ──
 
-/**
- * tier에 따라 개방 가능한 면 카테고리를 반환합니다.
- * deck-sequencer에서 면 구성 시 이 정보를 사용합니다.
- */
-export function getTierAllowedSections(tier: ReleaseTier): {
+export interface TierAllowedSections {
   allowFinancials: boolean;
   allowScenario: boolean;
   allowValueAdd: boolean;
   allowRentGap: boolean;
   maxBodyPages: number;
-} {
-  switch (tier) {
-    case 'internal_only':
-      return { allowFinancials: false, allowScenario: false, allowValueAdd: false, allowRentGap: false, maxBodyPages: 8 };
-    case 'fact_om':
-      return { allowFinancials: false, allowScenario: false, allowValueAdd: false, allowRentGap: false, maxBodyPages: 12 };
-    case 'analysis_im':
-      return { allowFinancials: true, allowScenario: false, allowValueAdd: true, allowRentGap: true, maxBodyPages: 15 };
-    case 'decision_im':
-      return { allowFinancials: true, allowScenario: true, allowValueAdd: true, allowRentGap: true, maxBodyPages: 16 };
-    case 'expert_required':
-      return { allowFinancials: false, allowScenario: false, allowValueAdd: false, allowRentGap: false, maxBodyPages: 10 };
-  }
 }
+
+export const TIER_CONFIG: Record<string, TierAllowedSections> = {
+  internal_only:   { allowFinancials: false, allowScenario: false, allowValueAdd: false, allowRentGap: false, maxBodyPages: 8 },
+  fact_om:         { allowFinancials: false, allowScenario: false, allowValueAdd: false, allowRentGap: false, maxBodyPages: 12 },
+  analysis_im:     { allowFinancials: true, allowScenario: false, allowValueAdd: true, allowRentGap: true, maxBodyPages: 15 },
+  decision_im:     { allowFinancials: true, allowScenario: true, allowValueAdd: true, allowRentGap: true, maxBodyPages: 16 },
+  expert_required: { allowFinancials: false, allowScenario: false, allowValueAdd: false, allowRentGap: false, maxBodyPages: 10 },
+  basic:           { allowFinancials: true, allowScenario: false, allowValueAdd: false, allowRentGap: false, maxBodyPages: 12 },
+  pro:             { allowFinancials: true, allowScenario: true, allowValueAdd: true, allowRentGap: true, maxBodyPages: 16 },
+};
+
+/**
+ * tier에 따라 개방 가능한 면 카테고리를 반환합니다.
+ * deck-sequencer에서 면 구성 시 이 정보를 사용합니다.
+ */
+export function getTierAllowedSections(tier: ReleaseTier | string): TierAllowedSections {
+  return TIER_CONFIG[tier] ?? TIER_CONFIG.pro;
+}
+

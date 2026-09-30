@@ -19,6 +19,19 @@ export interface ArchetypeOutput {
   warnings: string[];
 }
 
+/** 컬럼 헤더 기반 표준 정렬 추론: 금액/면적 우측, 층/호/날짜 중앙, 기타 좌측 */
+export function inferA03ColAlign(headers: string[]): ('left' | 'center' | 'right')[] {
+  const centerKeywords = ['층', '호', '호수', '호실', '코드', '구분', '상태', '만기', '일자', '종료', '시작', 'date', 'floor', 'unit'];
+  const rightKeywords = ['면적', '보증금', '월세', '차임', '임대료', '관리비', '단가', '수익률', '합계', '금액', '원', '평', 'py', 'm2', '㎡', 'deposit', 'rent', 'fee', 'area'];
+
+  return headers.map(h => {
+    const clean = (h || '').toLowerCase().replace(/[\s\(\)\[\]\.,]/g, '');
+    if (centerKeywords.some(k => clean.includes(k))) return 'center';
+    if (rightKeywords.some(k => clean.includes(k))) return 'right';
+    return 'left';
+  });
+}
+
 /** F4: 콘텐츠 유형에 맞는 컬럼 폭 가중 배분 */
 function computeSmartColumnWidths(headers: string[], totalW: number): number[] {
   const n = headers.length;
@@ -57,22 +70,28 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
       ? computeSmartColumnWidths(tableHead, CW)
       : Array(colCount).fill(CW / colCount);
     
+    const rowCount = Math.min(12, tableRows.length);
+    const baseFontSize = colCount <= 4 ? (rowCount > 8 ? 11 : 13) : (colCount <= 6 ? (rowCount > 8 ? 9.5 : 11) : (rowCount > 8 ? 9 : 10));
+    const rh = rowCount > 8 ? 0.38 : 0.48;
+
     // CellValue[][] 형태로 변환 (합계 행 Slate Tint #F1F5F9 및 공실 셀 Amber Accent #D97706 적용)
     const bodyRows = tableRows.map((r: any[]) => {
       const isSummary = r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim()));
       return r.map((c: any, cIdx: number) => {
-        let text = String(c || '').replace(/\*\*/g, '');
-        if (text.length > 45) text = text.slice(0, 44) + '…';
-        const isVacant = text.includes('공실');
+        const rawText = String(c || '').replace(/\*\*/g, '');
+        const cWidth = colW[cIdx] ?? (CW / colCount);
+        // Pre-calculate cell text widths and apply fitTableCell on tenant/notes columns to eliminate vertical expansion
+        const fitted = L.fitTableCell(rawText, cWidth, rh, baseFontSize);
+        const isVacant = fitted.text.includes('공실');
         return {
-          t: text,
+          t: fitted.text,
           fill: isSummary ? 'F1F5F9' : undefined,
           c: isVacant ? 'D97706' : undefined,
           b: isSummary || isVacant || cIdx === 0,
         };
       });
     });
-    
+
     // D29 BL-2: 렌트롤 분할 렌더링 (불변조건 18: 전량 표기)
     // 12행 초과 시 절삭하지 않고 분할 슬라이드로 처리합니다.
     const MAX_ROWS_PER_SLIDE = 12;
@@ -88,10 +107,6 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
       warnings.push(`렌트롤 ${totalRows}행 중 ${MAX_ROWS_PER_SLIDE}행 렌더링`);
     }
 
-    const rowCount = bodyRows.length;
-    const baseFontSize = colCount <= 4 ? (rowCount > 8 ? 11 : 13) : (colCount <= 6 ? (rowCount > 8 ? 9.5 : 11) : (rowCount > 8 ? 9 : 10));
-    const rh = rowCount > 8 ? 0.38 : 0.48;
-
     // D29 BL-2: 분할 시 각주 유지 (제거 금지)
     if (input.data.note) {
       let note = String(input.data.note).trim();
@@ -106,9 +121,10 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
       input.data.note = `* 지면 제약으로 상위 ${MAX_ROWS_PER_SLIDE}개 행이 표시되었습니다 (전체 ${totalRows}행 중).`;
     }
 
-    L.table(slide, M, 1.80, CW, 
+    const colAlign = inferA03ColAlign(tableHead);
+    L.styledTable(slide, M, 1.80, CW, 
       tableHead.map(h => String(h || '').replace(/\*\*/g, '')),
-      bodyRows, colW, { rh, bfs: baseFontSize, hfs: baseFontSize }
+      bodyRows, colW, { rh, bfs: baseFontSize, hfs: baseFontSize, colAlign, borderPt: 0.3 }
     );
   } else if (input.data.content) {
     // 테이블 없으면 content를 L.rows()로 렌더링

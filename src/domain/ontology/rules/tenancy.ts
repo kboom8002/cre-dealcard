@@ -26,7 +26,7 @@ export function getThreshold(region: Region): number {
   }
 }
 
-import { LeaseUnitPrecise } from '../../building/mobile-im/lease-precise';
+import type { LeaseUnitPrecise } from '../lease-precise';
 
 // ── 임대차 단위 입력 ──────────────────────────────────────────────
 export interface LeaseUnitInput {

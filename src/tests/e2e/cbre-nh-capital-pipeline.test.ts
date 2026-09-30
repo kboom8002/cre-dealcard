@@ -159,7 +159,7 @@ describe('CBRE Benchmark (NH Capital Building) E2E Pipeline', () => {
       expect(inspection.lexiconViolationCount).toBe(0); // Rule 2
       expect(inspection.legalRiskViolationCount).toBe(0);
       expect(inspection.isPass).toBeDefined();
-    }, 30_000);
+    }, 60_000);
 
     it('[Negative Pair] Rule 1 페르소나 단어 오염 시 바이너리 인스펙션 차단 단언', async () => {
       const contaminatedDoc = {

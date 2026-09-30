@@ -1,7 +1,8 @@
-﻿import type PptxGenJS from 'pptxgenjs';
+import type PptxGenJS from 'pptxgenjs';
 import * as L from '../imlib';
-import { C, M, CW, KR, NUM } from '../imlib';
+import { C, M, CW, KR, NUM, SAFE_BOTTOM } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
+import { SQM_RATIO } from '@/lib/utils/area-conversion';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -71,7 +72,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   // 좌측 패널: 수익률 KPI 카드
   // ══════════════════════════════════════════════════════════════
   const cardY = 1.50;
-  const cardH = hasLandHistory ? 4.20 : 4.80;
+  const cardH = 4.20; // SSoT: 4.20 균일 높이로 하단 SAFE_BOTTOM(6.75) 준수 및 지면 이탈 방어
 
   // 카드 배경
   slide.addShape('roundRect', {
@@ -134,7 +135,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
 
   // 토지평당가 (공시지가 최신값이 있을 때)
   if (landPriceHistory?.latestPricePerSqm > 0) {
-    const pricePerPyeong = Math.round(landPriceHistory.latestPricePerSqm * 3.305785);
+    const pricePerPyeong = Math.round(landPriceHistory.latestPricePerSqm * SQM_RATIO);
     renderRow('토지 공시지가 (평당)', `${Math.round(pricePerPyeong / 10000).toLocaleString()}만원`);
   }
 
@@ -159,9 +160,10 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       line: { color: C.brass, width: 1.0 },
       rectRadius: 0.06,
     });
-    slide.addText('◇ 분석가정', {
+    const stabLabel = assumption ? `◇ 분석가정 (Stabilized)\n${assumption}` : '◇ 분석가정 (Stabilized)';
+    slide.addText(stabLabel, {
       x: M + 0.40, y: rowY, w: 2.8, h: stabBadgeH,
-      color: C.ink, fontFace: KR, fontSize: 10, bold: true, valign: 'middle',
+      color: C.ink, fontFace: KR, fontSize: assumption ? 8.5 : 10, bold: true, valign: 'middle',
     });
     const rawStab = typeof capRateStabilized === 'number' ? capRateStabilized : parseFloat(String(capRateStabilized));
     const stabVal = Number.isFinite(rawStab) && rawStab > 0 ? rawStab : 0;
@@ -178,22 +180,20 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   if (!hasLandHistory) {
     const chartY = cardY;
     const chartH = cardH;
-    
-    // 차트 배경 (회색)
-    slide.addShape('roundRect', {
-      x: rightX, y: chartY, w: rightW, h: chartH,
-      fill: { color: 'F1F5F9' },
-      line: { color: C.line, width: 1, dashType: 'dash' },
-      rectRadius: 0.08,
+    L.fallbackCard(slide, rightX, chartY, rightW, chartH, {
+      badge: '공시지가 열람 안내',
+      badgeKind: 'brass',
+      title: '개별공시지가 및 토지 가치 평가 안내',
+      leadText: '대상 필지의 개별공시지가 연도별 이력 및 표준지 공시지가 대비 배율은 부동산 공시가격 알리미 및 감정평가 공적 자료를 통해 확인합니다.',
+      checklist: [
+        '최근 5~10개년 개별공시지가 변동 추이 및 연평균 상승률 분석',
+        '인근 표준지 공시지가 대비 토지 특성(도로접면, 형상, 방위) 차이 분석',
+        '토지 공시지가 대비 실거래가 매매 배율 및 평당 단가 프리미엄 검증',
+        '보유세(재산세·종합부동산세) 과세표준 기준액 산출 및 세무 영향 점검',
+      ],
+      icon: 'chart',
     });
-    
-    // 안내 텍스트
-    slide.addText('공시지가 데이터를 일시적으로 불러올 수 없습니다.\n(국토교통부 API 연결 지연 또는 PNU 미등록)', {
-      x: rightX, y: chartY, w: rightW, h: chartH,
-      align: 'center', valign: 'middle',
-      fontSize: 14, color: '64748B', bold: true, fontFace: KR
-    });
-    warnings.push('[A23] 공시지가 API 연동 실패로 대체 이미지 삽입됨');
+    warnings.push('[A23] 공시지가 미제공 — 토지 가치 평가 대체 카드 삽입');
   } else {
     const chartY = cardY;
     const chartH = cardH;
@@ -202,8 +202,8 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
     // 차트 배경
     slide.addShape('roundRect', {
       x: rightX, y: chartY, w: rightW, h: chartH,
-      fill: { color: 'FFFFFF' },
-      line: { color: C.line, width: 1 },
+      fill: { color: C.bg || 'FFFFFF' },
+      line: { color: C.line, width: 0.5 },
       rectRadius: 0.08,
     });
 
@@ -234,9 +234,10 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
 
       // 바
       const isLatest = i === history.length - 1;
+      const barColor = isLatest ? C.brass : (C.navy || C.brand || '1E3A8A');
       slide.addShape('rect', {
         x: rightX + 0.80, y: y + 0.04, w: bw, h: barH - 0.08,
-        fill: { color: isLatest ? C.brass : '2E6E82' },
+        fill: { color: barColor },
       });
 
       // 가격 라벨 (만원 단위)
@@ -310,8 +311,16 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   }
 
   if (calloutBullets.length > 0) {
-    const calloutY = cardY + cardH + 0.15;
-    const calloutH = 0.20 + calloutBullets.length * 0.28;
+    let calloutY = cardY + cardH + 0.15;
+    const rawH = 0.20 + calloutBullets.length * 0.28;
+    let calloutH = rawH;
+    // 하단 안전 마진(SAFE_BOTTOM = 6.75) 클램프 가드: 푸터(6.94) 침범 및 슬라이드 바닥 이탈 방지
+    if (calloutY + calloutH > SAFE_BOTTOM) {
+      calloutH = Math.max(0.50, SAFE_BOTTOM - calloutY);
+      if (calloutY + calloutH > SAFE_BOTTOM) {
+        calloutY = SAFE_BOTTOM - calloutH;
+      }
+    }
     L.callout(slide, M, calloutY, CW, calloutH, 'info', '투자 판단 참고',
       calloutBullets.join('\n'));
   }

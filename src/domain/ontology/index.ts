@@ -34,6 +34,7 @@
 // ── Provenance ──
 export {
   type ProvenanceTier,
+  type ProvenanceKind,
   type ProvenanceMeta,
   type CompositionKind,
   type ProvenanceInput,
@@ -209,6 +210,12 @@ export {
   getScenarioRequiredMetrics,
   CAP_RATE_DISPLAY_LABELS,
 } from './value-metrics';
+
+// ── Lease Precise ──
+export {
+  type LeaseUnitPrecise,
+  type LeaseDerivedMetrics,
+} from './lease-precise';
 
 // ── Rules: Tenancy Commercial (T-C-01~06) ──
 export {

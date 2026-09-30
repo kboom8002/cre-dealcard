@@ -68,9 +68,9 @@ describe('T01: Graceful Degradation — Blank Slide Prevention', { timeout: 60_0
     expect(allText).toContain('올근생 빌딩');
     expect(allText).toContain('투자 포인트'); // investment_thesis had content
     
-    // Check that empty sections do not appear
+    // Check that empty sections do not appear, and missing rent roll renders due diligence card
     expect(allText).not.toContain('입지 및 교통');
-    expect(allText).not.toContain('임대차 현황');
+    expect(allText).toContain('임대차 현황 데이터 준비 중');
   });
 
   test('T01-03: All sections have content consisting only of whitespace -> treated as empty', async () => {

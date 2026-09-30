@@ -47,11 +47,51 @@ const FUNCTIONAL_REPLACEMENTS: Record<string, (match: string, ...groups: string[
 // ─── 하드코딩 Fallback Rules ──────────────────────────────────────────────────
 
 export const HARDCODED_TERM_RULES: ReplacementRule[] = [
-  // F-10: D56 용어 정합
+  // F-10: D56 용어 정합 및 금지어/과장표현/페르소나 정제
   { id: 'd56_fully_leased', pattern: /만실/g, replacement: '임대가능면적 전부 계약 중', category: 'CRE용어' },
-  { id: 'd56_station_area', pattern: /(?<!초)역세권/g, replacement: '역세권(도보 5분 이내)', category: 'CRE용어' },
-  { id: 'd56_value_up', pattern: /밸류업/g, replacement: '가치개선(Value-add)', category: 'CRE용어' },
-  { id: 'd56_prime', pattern: /우량/g, replacement: '안정적(신용등급 우수)', category: 'CRE용어' },
+  { id: 'd56_super_station', pattern: /초역세권/g, replacement: '역세권 도보권', category: 'CRE용어' },
+  { id: 'd56_station_area', pattern: /(?<!초)역세권(?!\s*(?:\([^)]*도보|도보권|도보))/g, replacement: '역세권(도보 5분 이내)', category: 'CRE용어' },
+  { id: 'd56_value_up', pattern: /밸류업|밸류애드/g, replacement: '가치개선(Value-add)', category: 'CRE용어' },
+
+  // Rule 1: 페르소나 직접 지칭 금지 (Implicit Persona Principle)
+  { id: 'd56_persona_succession', pattern: /(?:자녀\s*세대\s*)?가업\s*승계(?:\s*용|\s*자산(?:\s*기반)?|\s*핵심(?:\s*자산화)?|\s*목적)?/g, replacement: '중장기 기업 자산 확보', category: '페르소나' },
+  { id: 'd56_persona_60s', pattern: /60대\s*자산가(?:를\s*위한|용|맞춤)?/g, replacement: '전문 투자자', category: '페르소나' },
+  { id: 'd56_persona_retired', pattern: /은퇴\s*자산가(?:를\s*위한|용|맞춤)?/g, replacement: '수익형 투자자', category: '페르소나' },
+  { id: 'd56_persona_beginner', pattern: /초보\s*투자자용/g, replacement: '투자 검토용', category: '페르소나' },
+  { id: 'd56_persona_corp_rep', pattern: /법인\s*대표\s*맞춤/g, replacement: '법인 실수요자 맞춤', category: '페르소나' },
+
+  // D56 어휘 정합: 비전문 은어 및 B2C 퇴보 표현 정제
+  { id: 'd56_my_money_yield', pattern: /내\s*돈\s*대비(?:\s*연\s*)?\s*수익률(?:\s*\(자기자본수익률\))?/g, replacement: '자기자본수익률(Leveraged Yield)', category: 'CRE용어' },
+  { id: 'd56_my_money', pattern: /내\s*돈/g, replacement: '자기자본(Equity)', category: 'CRE용어' },
+  { id: 'd56_downside_buffer', pattern: /땅값\s*비중\(원금\s*안전판\)|원금\s*안전판|\(안전판\)|(?<!하방\s*)안전판/g, replacement: '토지 평가액 기반 하방 안정성', category: 'CRE용어' },
+  { id: 'd56_land_ratio', pattern: /땅값\s*비중/g, replacement: '토지 평가액 비중', category: 'CRE용어' },
+  { id: 'd56_tenant_colloquial', pattern: /(?<!임차인\()세입자(?!\))/g, replacement: '임차인', category: 'CRE용어' },
+  { id: 'd56_landlord_colloquial', pattern: /집주인|건물주/g, replacement: '소유자/임대인', category: 'CRE용어' },
+  { id: 'd56_tenant_eng', pattern: /(?<!\()테넌트(?!\))/g, replacement: '임차인(Tenant)', category: 'CRE용어' },
+  { id: 'd56_rent_roll_eng', pattern: /(?<!\()렌트롤(?!\))/g, replacement: '임대차 현황표(Rent Roll)', category: '임대' },
+  { id: 'd56_rent_roll_kr', pattern: /임대차\s*명세서/g, replacement: '임대차 현황표', category: '임대' },
+  { id: 'd56_registry_doc', pattern: /등기부등본|등기부(?!상)/g, replacement: '등기사항증명서', category: '공부' },
+  { id: 'd56_registry_basis', pattern: /등기부상/g, replacement: '등기사항증명서상', category: '공부' },
+  { id: 'd56_build_year', pattern: /준공년도/g, replacement: '건축연도', category: '건물' },
+  { id: 'd56_asking_price_term', pattern: /매매\s*희망가|매각\s*희망가/g, replacement: '매도 희망가', category: '거래' },
+  { id: 'd56_asking_price_num', pattern: /매매가(?=\s*[\d,]+억|\s*협의)/g, replacement: '매도 희망가', category: '거래' },
+  { id: 'd56_price_per_pyeong', pattern: /평당가/g, replacement: '3.3㎡당 가격', category: '가격' },
+  { id: 'd56_loi', pattern: /투자의향서(?!\s*\(LOI\))/g, replacement: '매입의향서(LOI)', category: '거래' },
+  { id: 'd56_illegal_building_exact', pattern: /불법\s*건축물/g, replacement: '위반건축물', category: '법률' },
+  { id: 'd56_renewal', pattern: /리뉴얼/g, replacement: '시설개선', category: '건물상태' },
+
+  // D56 금지어/과장표현 필터
+  { id: 'd56_prime_tenant', pattern: /우량\s*임차인/g, replacement: '안정적 임차인(우수 신용도)', category: 'CRE용어' },
+  { id: 'd56_prime_tenant_eng', pattern: /우량\s*테넌트/g, replacement: '안정적 임차인(우수 신용도)', category: 'CRE용어' },
+  { id: 'd56_prime_asset', pattern: /우량\s*자산/g, replacement: '안정적 자산', category: 'CRE용어' },
+  { id: 'd56_prime_property', pattern: /우량\s*부동산/g, replacement: '상업용 부동산', category: 'CRE용어' },
+  { id: 'd56_prime', pattern: /(?<!신용등급\s*)우량/g, replacement: '안정적', category: 'CRE용어' },
+  { id: 'd56_maximize_profit', pattern: /(수익(?:성)?|가치|마진|효율(?:성)?)\s*극대화/g, replacement: '$1 제고', category: '과장표현' },
+  { id: 'd56_maximize_general', pattern: /극대화/g, replacement: '최적화', category: '과장표현' },
+  { id: 'd56_safety_margin', pattern: /안전\s*마진/g, replacement: '가격 완충 여력', category: '과장표현' },
+  { id: 'd56_guaranteed_safety', pattern: /안전\s*보장/g, replacement: '하방 위험 관리', category: '과장표현' },
+  { id: 'd56_sure_profit', pattern: /확실한\s*수익/g, replacement: '예상 현금흐름', category: '과장표현' },
+  { id: 'd56_no_risk', pattern: /리스크\s*없음/g, replacement: '위험요인 통제 가능', category: '과장표현' },
 
   {
     id: 'hardcoded_pyeongToSqm',
@@ -84,7 +124,7 @@ export const HARDCODED_TERM_RULES: ReplacementRule[] = [
   { id: 'hardcoded_monthly_rent', pattern: /달세/g, replacement: '월 임대료', category: '임대' },
   { id: 'hardcoded_lease_handover', pattern: /임대차\s*승계/g, replacement: '기존 임대차계약 포괄 승계', category: '거래' },
   { id: 'hardcoded_credit_safe', pattern: /연체\s*(안\s*하는|적은|없는)/g, replacement: '신용 안정성이 높은', category: '신용' },
-  { id: 'hardcoded_prime_tenant', pattern: /돈\s*잘\s*내는\s*임차인/g, replacement: '우량 임차인(Prime Tenant)', category: '신용' },
+  { id: 'hardcoded_prime_tenant', pattern: /돈\s*잘\s*내는\s*임차인/g, replacement: '안정적 임차인(우수 신용도)', category: '신용' },
   { id: 'hardcoded_discount_deal', pattern: /급매/g, replacement: '시세 대비 할인 매각', category: '거래' },
   { id: 'hardcoded_nego', pattern: /네고\s*(가능|여지|있)/g, replacement: '가격 협상 $1', category: '거래' },
   { id: 'hardcoded_albakgi', pattern: /알박기/g, replacement: '잔존 권리관계', category: '거래' },
@@ -100,11 +140,11 @@ export const HARDCODED_TERM_RULES: ReplacementRule[] = [
   { id: 'hardcoded_illegal_building', pattern: /위반\s*건축/g, replacement: '건축법 위반 사항', category: '법률' },
   { id: 'hardcoded_illegal_expansion', pattern: /불법\s*증축/g, replacement: '무허가 증축(건축법 위반)', category: '법률' },
   { id: 'hardcoded_jeonse_right', pattern: /전세권\s*설정/g, replacement: '전세권 등기 설정', category: '법률' },
-  { id: 'hardcoded_ads_best', pattern: /최고의|제일\s*좋은/g, replacement: '우수한', category: '홍보' },
+  { id: 'hardcoded_ads_best', pattern: /최고의|제일\s*좋은/g, replacement: '경쟁력 있는', category: '홍보' },
   { id: 'hardcoded_ads_awesome', pattern: /대박|놀라운|완벽한/g, replacement: '주목할 만한', category: '홍보' },
   { id: 'hardcoded_profitable', pattern: /돈\s*되는/g, replacement: '수익성이 있는', category: '투자' },
-  { id: 'hardcoded_goldmine', pattern: /노다지/g, replacement: '수익률 우수 자산', category: '투자' },
-  { id: 'hardcoded_premium_asset', pattern: /알짜/g, replacement: '핵심 우량 자산', category: '투자' },
+  { id: 'hardcoded_goldmine', pattern: /노다지/g, replacement: '수익성 양호 자산', category: '투자' },
+  { id: 'hardcoded_premium_asset', pattern: /알짜/g, replacement: '투자 선호 자산', category: '투자' },
   { id: 'hardcoded_attractive_deal', pattern: /꿀\s*매물/g, replacement: '투자 매력도가 높은 매물', category: '투자' },
   { id: 'hardcoded_rising_area', pattern: /뜨는\s*동네/g, replacement: '신흥 상권', category: '투자' },
   { id: 'hardcoded_hotplace', pattern: /핫\s*플레이스/g, replacement: '상권 활성화 지역', category: '투자' },
@@ -121,12 +161,11 @@ export const HARDCODED_TERM_RULES: ReplacementRule[] = [
   { id: 'd32_gop_kr', pattern: /(?<![실질\s])GOP(?!\s*마진)/g, replacement: '실질 영업이익(GOP)', category: 'CRE용어' },
   { id: 'd32_ti_raw', pattern: /(?<!\()TI(?!\)|\s*\/)/g, replacement: '인테리어 지원금(TI)', category: 'CRE용어' },
   { id: 'd32_rent_free', pattern: /(?<!\()Rent\s*Free(?!\))/gi, replacement: '렌트프리(무상임대)', category: 'CRE용어' },
-  { id: 'd32_my_money', pattern: /내\s*돈/g, replacement: '실투자금', category: 'CRE용어' },
+  { id: 'd32_my_money', pattern: /내\s*돈/g, replacement: '자기자본(Equity)', category: 'CRE용어' },
   // D33 M-B: 누락 CRE 용어 추가
   { id: 'd33_noi_standalone', pattern: /(?<![순\s])NOI(?!\s*기준|\s*\()/g, replacement: '순영업소득(NOI)', category: 'CRE용어' },
   { id: 'd33_cap_rate_en', pattern: /(?<![연\s])Cap\s*Rate(?!\s*[,(])/gi, replacement: '연 순수익률(Cap Rate)', category: 'CRE용어' },
   { id: 'd33_nnn_lease', pattern: /NNN\s*리스/g, replacement: '삼중순임대(NNN Lease)', category: 'CRE용어' },
-  { id: 'd33_super_station', pattern: /초역세권/g, replacement: '역세권 도보 3분 이내', category: 'CRE용어' },
   { id: 'd33_sublease', pattern: /전대차/g, replacement: '전대(轉貸)임대차', category: 'CRE용어' },
   { id: 'd33_ltv_raw', pattern: /(?<!\()LTV(?!\))/g, replacement: '담보인정비율(LTV)', category: 'CRE용어' },
   { id: 'd33_dscr_raw', pattern: /(?<!\()DSCR(?!\))/g, replacement: '원리금상환비율(DSCR)', category: 'CRE용어' },
@@ -357,6 +396,20 @@ export function sanitizeTextHygiene(text: string): string {
     // ── 어휘 중복 정제 ──
     .replace(/(권역|입지|상권|역세권|대로변|인프라|교통|접근성)\s+\1/g, '$1')
 
+    // ── 페르소나 및 비표준 구어체 정제 (Rule 1 & Rule 2) ──
+    .replace(/(?:자녀\s*세대\s*)?가업\s*승계(?:\s*용|\s*자산(?:\s*기반)?|\s*핵심(?:\s*자산화)?|\s*목적)?/g, '중장기 기업 자산 확보')
+    .replace(/(?:60대|은퇴)\s*자산가(?:를\s*위한|용|맞춤)?/g, '전문 투자자')
+    .replace(/초보\s*투자자용/g, '투자 검토용')
+    .replace(/법인\s*대표\s*맞춤/g, '법인 실수요자 맞춤')
+    .replace(/내\s*돈\s*대비(?:\s*연\s*)?\s*수익률(?:\s*\(자기자본수익률\))?/g, '자기자본수익률(Leveraged Yield)')
+    .replace(/내\s*돈\s*대비/g, '자기자본 대비')
+    .replace(/내\s*돈/g, '자기자본')
+    .replace(/원금\s*안전판/g, '하방 안정성')
+    .replace(/땅값\s*비중/g, '토지 평가액 비중')
+    .replace(/우량\s*테넌트/g, '안정적 임차인')
+    .replace(/우량\s*임차인/g, '안정적 임차인')
+    .replace(/수익성\s*극대화/g, '수익성 제고')
+
     // ── 문미 dangling 기호 ──
     .replace(/\s*[—–-]\s*$/gm, '')
 
@@ -367,6 +420,15 @@ export function sanitizeTextHygiene(text: string): string {
     // ── 공백 정규화 ──
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * 생성된 섹션 마크다운 전체에 대해 D56 정규화 및 잔여 금지어/비표준어를 일괄 정제합니다.
+ */
+export function normalizeGeneratedMarkdown(markdown: string): string {
+  if (!markdown) return '';
+  const result = normalizeTerminology(markdown);
+  return result.text;
 }
 
 /**
@@ -382,3 +444,4 @@ export function sanitizeRecordTextFields<T extends Record<string, unknown>>(reco
   }
   return result;
 }
+

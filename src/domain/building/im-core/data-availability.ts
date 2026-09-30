@@ -7,7 +7,29 @@
  * @see docs/impipe/D37_P0_IMPLEMENTATION_PLAN.md §P0-4, §P0-5
  */
 
-import type { DataAvailability } from '../mobile-im/pptx/deck-sequencer';
+export type Grade = 'A' | 'B' | 'C' | 'D';
+
+/** V-World / 공공 API 데이터 가용성 — 동적 면 추가 및 발행 등급 판단용 */
+export interface DataAvailability {
+  hasLandUsePlan?: boolean;      // V-World 토지이용계획
+  hasLandPrice?: boolean;        // V-World 공시지가
+  hasBuildingRegister?: boolean; // 건축물대장
+  hasRegistryData?: boolean;     // 등기부
+  hasComparables?: boolean;      // 실거래 비교사례
+  hasCommercialDistrict?: boolean; // 상권분석
+  hasCadastralMap?: boolean;     // 지적도 이미지
+  hasFloorPlan?: boolean;        // 층별 평면도
+  hasRentRoll?: boolean;         // D33 S-5: 렌트롤 데이터 유무
+  hasStackingPlan?: boolean;     // A22 건축 입면 셋백 스태킹 플랜 유무
+  // D37 P0-4 신설 — 실값 기반 tier 판정
+  hasOpex?: boolean;             // 운영비 실값 존재
+  hasAsOf?: boolean;             // 기준일 존재
+  hasScenario?: boolean;         // 시나리오(Base/Upside/Downside) 존재
+  hasExpertReview?: boolean;     // 전문가 검토 완료 — D36 §1.9 Screening 분기
+  hasPermitZone?: boolean;       // 토지거래허가구역 조회 결과
+  hasPhotos?: boolean;           // 건물 사진 존재 (gallery 면 결정)
+}
+
 
 // ── P0-4: DA 실값 검사 ──
 

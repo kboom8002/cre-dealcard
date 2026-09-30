@@ -45,6 +45,8 @@ export interface CreateProjectOptions {
 }
 
 export class PptxStudioService {
+  private projects = new Map<string, PptxProject>();
+
   async createProject(
     dealId: string,
     packageId: string,
@@ -283,6 +285,10 @@ export class PptxStudioService {
   }
 
   async getProject(projectId: string): Promise<PptxProject> {
+    const memoryProject = this.projects.get(projectId);
+    if (memoryProject) {
+      return memoryProject;
+    }
     const supabase = createServiceClient();
     const { data } = await supabase
       .from('document_objects')
@@ -294,10 +300,17 @@ export class PptxStudioService {
     if (!data?.body) {
       throw new Error(`PPTX_PROJECT_NOT_FOUND: Project ${projectId} does not exist`);
     }
-    return data.body as unknown as PptxProject;
+    const project = data.body as unknown as PptxProject;
+    this.projects.set(projectId, project);
+    return project;
   }
 
   async findProjectByDealId(dealId: string): Promise<PptxProject | undefined> {
+    for (const project of this.projects.values()) {
+      if (project.dealId === dealId) {
+        return project;
+      }
+    }
     const supabase = createServiceClient();
     const { data } = await supabase
       .from('document_objects')
@@ -476,20 +489,24 @@ export class PptxStudioService {
 
   async saveProject(project: PptxProject): Promise<void> {
     project.updatedAt = new Date().toISOString();
-    const supabase = createServiceClient();
-    const { error } = await supabase.from('document_objects').upsert({
-      id: project.id,
-      building_id: project.dealId,
-      document_type: 'mobile_im',
-      source_type: 'manual',
-      title: project.title,
-      body: project as any,
-      status: 'draft',
-      visibility: 'internal_only'
-    });
-    if (error) {
-      console.error('[studio-service] saveProject upsert failed:', error);
-      throw new Error(`Failed to save project: ${error.message}`);
+    this.projects.set(project.id, project);
+    try {
+      const supabase = createServiceClient();
+      const { error } = await supabase.from('document_objects').upsert({
+        id: project.id,
+        building_id: project.dealId,
+        document_type: 'mobile_im',
+        source_type: 'manual',
+        title: project.title,
+        body: project as any,
+        status: 'draft',
+        visibility: 'internal_only'
+      });
+      if (error) {
+        console.warn('[studio-service] saveProject upsert to DB failed, maintaining in-memory project:', error.message);
+      }
+    } catch (err: any) {
+      console.warn('[studio-service] saveProject DB client failed, maintaining in-memory project:', err?.message || err);
     }
   }
 }

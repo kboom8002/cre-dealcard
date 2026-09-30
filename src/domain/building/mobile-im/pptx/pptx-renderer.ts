@@ -908,12 +908,14 @@ export class MobileImPptxRenderer {
         if (spec.suppress) continue;
 
         const slideData = dataMap[spec.dataKey];
-        const isStaticSlide = ['cover', 'closing', 'gallery', 'summary', 'yieldFormula', 'stackingPlan', 'agenda'].includes(spec.dataKey)
+        const isStaticSlide = ['cover', 'closing', 'gallery', 'summary', 'yieldFormula', 'stackingPlan', 'agenda', 'rentRoll', 'land', 'location'].includes(spec.dataKey)
           || spec.dataKey.startsWith('gallery_')
           || spec.dataKey.includes('divider')
+          || spec.archetype === 'A06'
           || spec.archetype === 'A14'
           || spec.archetype === 'A22'
           || spec.archetype === 'A23'
+          || spec.archetype === 'A24'
           || spec.archetype === 'A25';
         const hasContent = slideData && (
           (slideData.content && slideData.content.trim().length > 0) ||
@@ -975,17 +977,22 @@ export class MobileImPptxRenderer {
         try {
           const result = await Promise.resolve(builder(archetypeInput));
           // W-PPTX-6: 빌더가 suppress 신호를 반환하면 슬라이드 생략 (유령 백지 슬라이드 방지)
+          // M4: Basic IM 9면 계약 준수 — A24/rentRoll 및 canonical 기본 슬라이드는 pop/drop 방지
           if (result.suppress) {
-            log.info(`[PPTX] [Suppress] ${spec.archetype}(${spec.dataKey}) — data keys: ${Object.keys(archetypeInput.data).join(', ')}, tableRows: ${archetypeInput.data?.tableRows?.length ?? 'N/A'}, tables[0].rows: ${archetypeInput.data?.tables?.[0]?.rows?.length ?? 'N/A'}, stackingPlan: ${archetypeInput.data?.stackingPlan?.length ?? 'N/A'}`);
-            if (Array.isArray((pres as unknown as { slides: PptxGenJS.Slide[] }).slides) && (pres as unknown as { slides: PptxGenJS.Slide[] }).slides.length > 0) {
-              const lastIdx = (pres as unknown as { slides: PptxGenJS.Slide[] }).slides.length - 1;
-              if ((pres as unknown as { slides: PptxGenJS.Slide[] }).slides[lastIdx] === result.slide) {
-                (pres as unknown as { slides: PptxGenJS.Slide[] }).slides.pop();
+            if (spec.archetype === 'A24' || spec.dataKey === 'rentRoll' || (isBasicPreset && ['A06', 'A14', 'A23', 'A24'].includes(spec.archetype))) {
+              log.warn(`[PPTX] [Suppress Prevented] ${spec.archetype}(${spec.dataKey}) — canonical basic slide preserved`);
+            } else {
+              log.info(`[PPTX] [Suppress] ${spec.archetype}(${spec.dataKey}) — data keys: ${Object.keys(archetypeInput.data).join(', ')}, tableRows: ${archetypeInput.data?.tableRows?.length ?? 'N/A'}, tables[0].rows: ${archetypeInput.data?.tables?.[0]?.rows?.length ?? 'N/A'}, stackingPlan: ${archetypeInput.data?.stackingPlan?.length ?? 'N/A'}`);
+              if (Array.isArray((pres as unknown as { slides: PptxGenJS.Slide[] }).slides) && (pres as unknown as { slides: PptxGenJS.Slide[] }).slides.length > 0) {
+                const lastIdx = (pres as unknown as { slides: PptxGenJS.Slide[] }).slides.length - 1;
+                if ((pres as unknown as { slides: PptxGenJS.Slide[] }).slides[lastIdx] === result.slide) {
+                  (pres as unknown as { slides: PptxGenJS.Slide[] }).slides.pop();
+                }
               }
+              warnings.push(...result.warnings);
+              warnings.push(`[Suppress] ${spec.archetype}(${spec.title}) 슬라이드 억제`);
+              continue;
             }
-            warnings.push(...result.warnings);
-            warnings.push(`[Suppress] ${spec.archetype}(${spec.title}) 슬라이드 억제`);
-            continue;
           }
           // W-PPTX-1: addFallbackContent가 false 반환 시 슬라이드 차단 (A03 BLOCK 등)
           const fallbackOk = addFallbackContent(result.slide, archetypeInput.data, theme, {

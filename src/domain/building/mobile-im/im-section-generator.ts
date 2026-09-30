@@ -40,6 +40,7 @@ import { normalizeFloorLeases, formatRentRollMarkdown, formatRentRollSummary } f
 import type { IMGenerationContext } from "./im-context-builder";
 import { getPosturePromptOverlay } from "./posture-prompts";
 import { getModel } from "@/ai/model-selector";
+import { sqmToPyeong } from "@/lib/utils/area-conversion";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('im-section-generator');
@@ -118,13 +119,25 @@ export async function generateSingleSection(
 
   const sectionProvenance = getSectionProvenance(sectionType, ctx.provenanceMap);
 
+  // Backfill monthly_rent_total_krw from floor_leases if empty
+  if (!supplemental.monthly_rent_total_krw && Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0) {
+    const floorSum = supplemental.floor_leases.reduce((sum: number, l: any) => sum + (Number(l.rent_manwon) || 0) * 10000, 0);
+    if (floorSum > 0) {
+      supplemental.monthly_rent_total_krw = floorSum;
+    }
+  }
+
   // ── 포스처별 재무 계산 라우팅 ──
   let sectionMarketIndicators: MarketIndicators | undefined;
   const posture = (ctx.sectionPlan?.posture ?? 'income') as any;
   const shouldCalculateFinancials = (() => {
     switch (posture) {
       case 'income':
-        return sectionType === "income_analysis" && !!supplemental.monthly_rent_total_krw;
+        return sectionType === "income_analysis" && (
+          !!supplemental.monthly_rent_total_krw ||
+          (Array.isArray(supplemental.floor_leases) && supplemental.floor_leases.length > 0) ||
+          !!ctx.cachedFinancials
+        );
       case 'development':
         return sectionType === "development_feasibility";
       case 'operating':
@@ -139,11 +152,21 @@ export async function generateSingleSection(
   })();
 
   if (shouldCalculateFinancials) {
-    if (ctx.purchasePriceKrw > 0) {
+    if (ctx.cachedFinancials) {
+      sectionFinancials = ctx.cachedFinancials;
+      sectionMarketIndicators = {
+        financialsMarkdown: formatFinancialsMarkdown(ctx.cachedFinancials),
+      };
+    } else if (ctx.purchasePriceKrw > 0) {
       try {
+        const effectiveMonthlyRentKrw = supplemental.monthly_rent_total_krw
+          || (Array.isArray(supplemental.floor_leases)
+              ? supplemental.floor_leases.reduce((sum: number, l: any) => sum + (Number(l.rent_manwon) || 0) * 10000, 0)
+              : 0);
+
         const fin = calculateFinancials({
           posture,
-          monthlyRentKrw: supplemental.monthly_rent_total_krw ?? 0,
+          monthlyRentKrw: effectiveMonthlyRentKrw,
           purchasePriceKrw: ctx.purchasePriceKrw,
           landPricePerSqm: externalData?.landPrice?.pricePerSqm,
           totalAreaSqm: ctx.totalAreaSqm || undefined,
@@ -174,15 +197,15 @@ export async function generateSingleSection(
 
         let finMd = formatFinancialsMarkdown(fin);
 
-        // 60대 자산가 페르소나: income 포스처 시 실투자금 & 월 순수익 3줄 요약 상단 자동 결합
-        if (posture === 'income' && supplemental.monthly_rent_total_krw && ctx.purchasePriceKrw > 0) {
+        // income 포스처 시 실투자금 & 월 순수익 요약 상단 자동 결합
+        if (posture === 'income' && effectiveMonthlyRentKrw > 0 && ctx.purchasePriceKrw > 0) {
           const platArea = externalData?.buildingRegister?.platArea ?? 0;
           const landPriceSqm = externalData?.landPrice?.pricePerSqm ?? 0;
           const landPriceTotalKrw = platArea > 0 && landPriceSqm > 0 ? platArea * landPriceSqm : 0;
 
           const ncf = calculateNetCashFlow({
             purchasePriceKrw: ctx.purchasePriceKrw,
-            monthlyRentKrw: supplemental.monthly_rent_total_krw,
+            monthlyRentKrw: effectiveMonthlyRentKrw,
             totalDepositKrw: supplemental.total_deposit_manwon ? supplemental.total_deposit_manwon * 10000 : 0,
             loanAmountKrw: supplemental.loan_amount_manwon ? supplemental.loan_amount_manwon * 10000 : 0,
             landPriceTotalKrw,
@@ -197,8 +220,11 @@ export async function generateSingleSection(
       } catch {
         // 무시
       }
-    } else {
-      const mRent = supplemental.monthly_rent_total_krw ?? 0;
+    } else if (posture === 'income') {
+      const mRent = supplemental.monthly_rent_total_krw
+        || (Array.isArray(supplemental.floor_leases)
+            ? supplemental.floor_leases.reduce((sum: number, l: any) => sum + (Number(l.rent_manwon) || 0) * 10000, 0)
+            : 0);
       const annualGross = mRent * 12;
       const vPct = supplemental.vacancy_pct ?? ctx.vacancyPct;
       const effectiveGross = annualGross * (1 - vPct / 100);
@@ -209,10 +235,11 @@ export async function generateSingleSection(
     }
   }
 
-  if (sectionType === 'comparables' as any) {
+  if (sectionType === 'comparables') {
     const { renderComparables } = await import('./section-renderers/comparables-renderer');
     const compsData = ((externalData as any)?.comparableTransactions || (supplemental as any).manual_comps || []) as any[];
-    const subjectPricePerPyeong = ctx.totalAreaSqm ? ctx.purchasePriceKrw / (ctx.totalAreaSqm / 3.3058) : 0;
+    const pyeong = ctx.totalAreaSqm ? sqmToPyeong(ctx.totalAreaSqm) : 0;
+    const subjectPricePerPyeong = pyeong > 0 ? Math.round(ctx.purchasePriceKrw / pyeong) : 0;
     
     const result = renderComparables({
       subjectName: (ctx.assetIdentity as any).address || '본건',
@@ -226,6 +253,161 @@ export async function generateSingleSection(
       title: getSectionTitle(sectionType, (buildingSsotLite as any)?.asset_type as string),
       markdown: result.markdown,
       confidence: 'confirmed', // Fallback for deterministic
+      boundary_note: "본 섹션의 내용은 예비 검토용입니다.",
+      provenance: sectionProvenance,
+      judge_score: undefined,
+      min_tier: "public",
+    };
+    if (input.onProgress) input.onProgress(finalSection);
+    return { section: finalSection, generatedByAi: false, cachedFinancials: null };
+  }
+
+  if (sectionType === 'title_rights') {
+    const { renderTitleRights } = await import('./section-renderers/title-rights-renderer');
+    const reg = (externalData?.registryData || (supplemental as any)?.registryData) as any;
+
+    const owners: Array<{ name: string; shareRatio: number }> = [];
+    if (Array.isArray((supplemental as any)?.owners) && (supplemental as any).owners.length > 0) {
+      owners.push(...(supplemental as any).owners);
+    } else if (reg?.ownerName) {
+      owners.push({ name: String(reg.ownerName), shareRatio: 1 });
+    } else if ((supplemental as any)?.owner_name) {
+      owners.push({ name: String((supplemental as any).owner_name), shareRatio: 1 });
+    }
+
+    const encumbrances: Array<{
+      type: string;
+      creditor: string;
+      amountKrw?: number;
+      registeredDate?: string;
+    }> = [];
+
+    if (Array.isArray((supplemental as any)?.encumbrances) && (supplemental as any).encumbrances.length > 0) {
+      encumbrances.push(...(supplemental as any).encumbrances);
+    } else {
+      if (Array.isArray(reg?.mortgages)) {
+        for (const m of reg.mortgages) {
+          encumbrances.push({
+            type: '근저당권',
+            creditor: m.creditor || '채권자',
+            amountKrw: m.amount != null ? Number(m.amount) : (m.amountKrw != null ? Number(m.amountKrw) : undefined),
+            registeredDate: m.registeredDate,
+          });
+        }
+      }
+      if (Array.isArray(reg?.attachments)) {
+        for (const a of reg.attachments) {
+          encumbrances.push({
+            type: a.type || '가압류',
+            creditor: a.creditor || a.claimant || '채권자',
+            amountKrw: a.amount != null ? Number(a.amount) : undefined,
+            registeredDate: a.registeredDate,
+          });
+        }
+      }
+      if (Array.isArray(reg?.encumbrances)) {
+        for (const e of reg.encumbrances) {
+          encumbrances.push({
+            type: e.type || '제한물권',
+            creditor: e.creditor || e.description || '-',
+            amountKrw: e.amountKrw != null ? Number(e.amountKrw) : (e.amount != null ? Number(e.amount) : undefined),
+            registeredDate: e.registeredDate,
+          });
+        }
+      }
+    }
+
+    const restrictions: string[] = [];
+    if (Array.isArray((supplemental as any)?.restrictions)) {
+      restrictions.push(...(supplemental as any).restrictions);
+    } else if (Array.isArray(reg?.restrictions)) {
+      restrictions.push(...reg.restrictions);
+    }
+
+    const result = renderTitleRights({
+      owners,
+      encumbrances: encumbrances as any,
+      restrictions,
+    });
+
+    const finalSection: MobileIMSection = {
+      section_type: sectionType,
+      section_order: sectionIndex + 1,
+      title: getSectionTitle(sectionType, (buildingSsotLite as any)?.asset_type as string),
+      markdown: result.markdown,
+      confidence: 'confirmed',
+      boundary_note: "본 섹션의 내용은 예비 검토용입니다.",
+      provenance: sectionProvenance,
+      judge_score: undefined,
+      min_tier: "public",
+    };
+    if (input.onProgress) input.onProgress(finalSection);
+    return { section: finalSection, generatedByAi: false, cachedFinancials: null };
+  }
+
+  if (sectionType === 'land_detail') {
+    const { renderLandDetail } = await import('./section-renderers/land-detail-renderer');
+    const lu = externalData?.landUsePlan;
+    const br = externalData?.buildingRegister;
+    const lp = externalData?.landPrice;
+
+    const parcels: Array<{
+      pnu: string;
+      jimok: string;
+      areaM2: number;
+      ownershipRatio: number;
+      officialLandPricePerM2?: number;
+    }> = [];
+
+    if (Array.isArray(supplemental.parcels) && supplemental.parcels.length > 0) {
+      for (const p of supplemental.parcels) {
+        parcels.push({
+          pnu: String(p.pnu || supplemental.resolved_pnu || externalData?.resolvedAddress?.pnu || '-'),
+          jimok: String(p.jimok || '대'),
+          areaM2: Number(p.areaM2 || p.area_m2 || (ctx.physicalFact as any)?.plat_area_sqm || (ctx.physicalFact as any)?.platAreaSqm || (ctx as any)?.landAreaM2 || (ctx as any)?.platAreaSqm || br?.platArea || 0),
+          ownershipRatio: Number(p.ownershipRatio || p.ownership_ratio || 1),
+          officialLandPricePerM2: Number(p.officialLandPricePerM2 || lp?.pricePerSqm || 0) || undefined,
+        });
+      }
+    } else {
+      const areaM2 = (ctx.physicalFact as any)?.plat_area_sqm || (ctx.physicalFact as any)?.platAreaSqm || (ctx as any)?.landAreaM2 || (ctx as any)?.platAreaSqm || br?.platArea || (supplemental.land_area_m2 ?? 0);
+      const pnu = supplemental.resolved_pnu || externalData?.resolvedAddress?.pnu || '';
+      if (areaM2 > 0 || pnu) {
+        parcels.push({
+          pnu: pnu || '1100000000',
+          jimok: String((supplemental as any)?.jimok || '대'),
+          areaM2: areaM2 || 0,
+          ownershipRatio: 1,
+          officialLandPricePerM2: lp?.pricePerSqm || undefined,
+        });
+      }
+    }
+
+    const zoning = lu?.zoningDistrict || String((ctx.assetIdentity as any)?.zoning || (buildingSsotLite as any)?.physicalFact?.zoning_district || (buildingSsotLite as any)?.physicalFact?.zoningDistrict || (supplemental as any)?.zoning || '-');
+    const buildingCoverageRatio = br?.bcRat || (supplemental.regulation as any)?.bcRat || lu?.buildingCoverageMax || undefined;
+    const floorAreaRatio = br?.vlRat || (supplemental.regulation as any)?.vlRat || undefined;
+    const maxFar = lu?.floorAreaRatioMax || (supplemental.regulation as any)?.maxFar || undefined;
+    const landShape = lu?.landShape || (supplemental.regulation as any)?.landShape || undefined;
+    const landTopography = lu?.terrain || (supplemental.regulation as any)?.landTopography || undefined;
+    const roadFrontage = lu?.roadAccess || (supplemental.regulation as any)?.roadFrontage || undefined;
+
+    const result = renderLandDetail({
+      parcels,
+      zoning,
+      buildingCoverageRatio,
+      floorAreaRatio,
+      maxFar,
+      landShape,
+      landTopography,
+      roadFrontage,
+    });
+
+    const finalSection: MobileIMSection = {
+      section_type: sectionType,
+      section_order: sectionIndex + 1,
+      title: getSectionTitle(sectionType, (buildingSsotLite as any)?.asset_type as string),
+      markdown: result.markdown,
+      confidence: 'confirmed',
       boundary_note: "본 섹션의 내용은 예비 검토용입니다.",
       provenance: sectionProvenance,
       judge_score: undefined,

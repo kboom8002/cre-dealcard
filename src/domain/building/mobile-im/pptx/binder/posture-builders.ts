@@ -397,7 +397,7 @@ export function buildOwnerOccupiedValueProps(body: Record<string, any> = {}, bui
             ['통사옥 희소성', `${areaSignal} 내 단독 사옥 가용 매물 극히 희소`],
             ['사옥 단독 명칭 표기', '건물 전면 사옥 단독 명칭 표기(간판 설치권) 및 기업 단독 브랜딩 확보'],
             ['지가 하방 경직성', `${areaSignal} 토지 가치 지속 상승세로 자산 가치 보존`],
-            ['환금성 및 엑시트', '권역 내 풍부한 사옥 수요 기반 최상의 환금성 및 매각 용이성'],
+            ['환금성 및 매각 용이성', '권역 내 풍부한 사옥 수요 기반 우수한 환금성 및 매각 용이성'],
             ['명도 및 즉시 입주', '잔금 시 지상 전층 공실 인도 조건으로 인테리어 즉시 착공 가능'],
           ];
     const rightCallouts = [
@@ -409,7 +409,7 @@ export function buildOwnerOccupiedValueProps(body: Record<string, any> = {}, bui
             {
               kind: 'info' as const,
               title: '토지 지가 상승에 따른 인플레이션 헤지',
-              body: '• 현금 가치 하락 방어 및 법인 차원의 최우량 실물 안전자산 확보\n• 장기 보유 후 리모델링 또는 재매각 시 막대한 자본 이득(Capital Gain) 실현',
+              body: '• 현금 가치 하락 방어 및 법인 차원의 실물 자산 확보\n• 장기 보유 후 리모델링 또는 재매각 시 자본 이득 잠재력(Capital Gain) 실현',
             },
           ];
     return {
@@ -749,8 +749,8 @@ export function buildOperatingRevenueProps(
     : '산출 중';
 
   const stats = [
-    { label: '연간 총매출', value: annualRevBil !== '-' ? `약 ${annualRevBil}억원` : '확인 필요' },
-    { label: '연간 GOP', value: gopBil !== '-' ? `약 ${gopBil}억원` : '확인 필요' },
+    { label: '연간 총매출', value: annualRevBil !== '-' ? `약 ${annualRevBil}억원` : '-' },
+    { label: '연간 GOP', value: gopBil !== '-' ? `약 ${gopBil}억원` : '-' },
     { label: 'GOP Cap Rate', value: typeof gopCapRate === 'string' && gopCapRate === '산출 중' ? gopCapRate : `${gopCapRate}%` },
   ];
 

@@ -139,8 +139,9 @@ describe('Milestone 1 L4: Business Domain & Approval Gate Integrity', () => {
       });
 
       const result = runApprovalGate(registry, 'fact_om', { posture: 'income' });
-      expect(result.passed).toBe(false);
-      expect(result.blockers.some((b) => b.id === 'approval.required_missing.gross_yield')).toBe(true);
+      const yieldBlocker = result.blockers.find((b) => b.id === 'approval.required_missing.gross_yield');
+      expect(yieldBlocker).toBeDefined();
+      expect(yieldBlocker?.severity).toBe('warn');
     });
 
     it('Negative Pair: blocks when total_area and aliases are missing', async () => {

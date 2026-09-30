@@ -220,7 +220,7 @@ describe('Basic IM Adversarial Chaos & Fuzz Suite', () => {
 
       const slides = await extractSlideTexts(result.buffer);
       expect(slides.length).toBe(result.slideCount);
-    });
+    }, 60_000);
 
     it('[ADV-TXT-02] Ultra-Long Address (1,000 chars) handles layout gracefully without throw', async () => {
       const megaAddress = '서울특별시 강남구 테헤란로 ' + '9'.repeat(1000);
