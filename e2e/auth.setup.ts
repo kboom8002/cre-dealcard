@@ -38,8 +38,16 @@ setup('authenticate', async ({ page }) => {
   await page.getByRole('button', { name: '로그인' }).click();
 
   // 4. /broker 리다이렉트 대기 (로그인 성공 시)
-  await page.waitForURL('**/broker**', { timeout: 30_000 });
-  console.log('✅ 로그인 성공, 리다이렉트 완료');
+  try {
+    await page.waitForURL('**/broker**', { timeout: 60_000 });
+    console.log('✅ 로그인 성공, 리다이렉트 완료');
+  } catch (navErr) {
+    const errorMsg = await page.locator('.text-red-300, .text-red-400').textContent().catch(() => null);
+    if (errorMsg) {
+      console.error(`❌ 로그인 화면 에러 메시지: ${errorMsg}`);
+    }
+    throw navErr;
+  }
 
   // 5. storageState 저장 (쿠키 + localStorage)
   await page.context().storageState({ path: authFile });

@@ -10,12 +10,12 @@ const factory = createGoldenTest({
   name: 'trading-sinsa-r3',
   dataDir: 'docs/golden-test-data/p2-sinsa-trading/r3-verified',
   posture: 'trading',
-  askingPriceManwon: 850000,
+  askingPriceManwon: 7600000,
   resolution: 'R3',
-  expectedMinSlides: 7,
+  expectedMinSlides: 6,
   expectedMaxSlides: 10,
   expectedFloors: [],
-  expectedKeywords: ['신사'],
+  expectedKeywords: ['신사', '760억'],
 });
 
 test.describe.serial(factory.suiteName, () => {

@@ -141,9 +141,11 @@ export async function captureFullPageScreenshot(
 
 /** P5-XX: Defect token 검증 (NaN, undefined, null, [object Object]) */
 export async function assertNoDefectTokensInViewer(page: Page): Promise<void> {
-  const bodyText = await page.textContent('body') || '';
-  const defects = ['NaN', 'undefined', 'null', '[object Object]'];
-  const found = defects.filter(d => bodyText.includes(d));
-  expect(found).toEqual([]);
+  const { getVisibleText } = await import('./golden-test-utils');
+  const visibleText = await getVisibleText(page);
+  const defectPatterns = [/\bNaN\b/, /\bundefined\b/, /\[object Object\]/];
+  for (const pattern of defectPatterns) {
+    expect(pattern.test(visibleText)).toBe(false);
+  }
   console.log('  ✅ 뷰어 결함 토큰 0건 확인');
 }

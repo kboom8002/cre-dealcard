@@ -10,12 +10,12 @@ const factory = createGoldenTest({
   name: 'income-yangpyeong-r3',
   dataDir: 'docs/golden-test-data/p5-yangpyeong-income/r3-verified',
   posture: 'income',
-  askingPriceManwon: 990000,
+  askingPriceManwon: 2500000,
   resolution: 'R3',
   expectedMinSlides: 8,
   expectedMaxSlides: 12,
   expectedFloors: ['B1', '1F', '2F', '3F', '4F'],
-  expectedKeywords: ['양평'],
+  expectedKeywords: ['양평', '250억'],
 });
 
 test.describe.serial(factory.suiteName, () => {

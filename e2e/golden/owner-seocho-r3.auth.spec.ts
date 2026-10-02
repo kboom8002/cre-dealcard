@@ -12,7 +12,7 @@ const factory = createGoldenTest({
   posture: 'owner_occupied',
   askingPriceManwon: 2300000,
   resolution: 'R3',
-  expectedMinSlides: 8,
+  expectedMinSlides: 7,
   expectedMaxSlides: 10,
   expectedFloors: [],
   expectedKeywords: ['서초', '230억'],

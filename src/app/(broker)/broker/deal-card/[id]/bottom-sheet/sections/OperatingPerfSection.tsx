@@ -50,7 +50,7 @@ export function OperatingPerfSection({
 }: OperatingPerfSectionProps) {
   if (investmentPosture !== "operating") return null;
 
-  const isHotel = ["hotel", "resort", "motel", "pension", "guest_house"].some(
+  const isHotel = !assetType || unitKind === "room" || ["hotel", "resort", "motel", "pension", "guest_house"].some(
     (t) => assetType?.toLowerCase().includes(t) || assetType?.includes("호텔")
   );
 

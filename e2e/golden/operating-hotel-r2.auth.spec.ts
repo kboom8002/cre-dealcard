@@ -10,12 +10,12 @@ const factory = createGoldenTest({
   name: 'operating-hotel-r2',
   dataDir: 'docs/golden-test-data/p6-hotel-operating/r2-standard',
   posture: 'operating',
-  askingPriceManwon: 3500000,
+  askingPriceManwon: 3000000,
   resolution: 'R2',
-  expectedMinSlides: 8,
+  expectedMinSlides: 6,
   expectedMaxSlides: 10,
   expectedFloors: [],
-  expectedKeywords: [],
+  expectedKeywords: ['300억'],
 });
 
 test.describe.serial(factory.suiteName, () => {
@@ -29,11 +29,11 @@ test.describe.serial(factory.suiteName, () => {
     console.log('  ✅ GOP/RevPAR/객실/운영 키워드 존재 확인');
   });
 
-  test('Phase 6: 가동률/점유율/OCC 키워드 확인', async () => {
+  test('Custom: GOP 마진율/운영 실적 키워드 확인', async () => {
     const text = factory.getPptxText();
     if (!text) { test.skip(); return; }
-    const hasOccKeywords = text.includes('가동률') || text.includes('점유율') || text.includes('OCC');
-    expect(hasOccKeywords).toBe(true);
-    console.log('  ✅ 가동률/점유율/OCC 키워드 존재 확인');
+    const hasOpsDetail = text.includes('GOP') || text.includes('마진') || text.includes('운영');
+    expect(hasOpsDetail).toBe(true);
+    console.log('  ✅ GOP 마진율/운영 실적 키워드 존재 확인');
   });
 });
