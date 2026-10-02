@@ -4,9 +4,18 @@
   "posture": "income",
   "multiParcel": true,
   "parcels": [
-    { "address": "양평동4가 117", "jibun": "대" },
-    { "address": "양평동4가 134", "jibun": "대" },
-    { "address": "양평동4가 125-2", "jibun": "대" }
+    {
+      "address": "양평동4가 117",
+      "jibun": "대"
+    },
+    {
+      "address": "양평동4가 134",
+      "jibun": "대"
+    },
+    {
+      "address": "양평동4가 125-2",
+      "jibun": "대"
+    }
   ],
   "landAreaM2": 518.7,
   "grossFloorAreaM2": 2490.88,
@@ -18,22 +27,224 @@
   "buildingCoverageRatio": 58.4,
   "floorAreaRatio": 398.8,
   "floor_leases": [
-    { "floor": "B1", "tenant_type": "(공실)", "area_pyeong": 127.7, "deposit_manwon": 0, "rent_manwon": 0, "is_vacant": true },
-    { "floor": "1F", "tenant_type": "카페(스타벅스)", "area_pyeong": 55.0, "deposit_manwon": 7600, "rent_manwon": 715, "mgmt_fee_manwon": 57, "lease_start": "2018-11-01", "lease_end": "2026-11-30" },
-    { "floor": "2F", "tenant_type": "디자인 스튜디오", "area_pyeong": 63.4, "deposit_manwon": 5400, "rent_manwon": 507, "mgmt_fee_manwon": 66, "lease_start": "2019-03-01", "lease_end": "2027-03-31" },
-    { "floor": "3F", "tenant_type": "IT 기업", "area_pyeong": 63.4, "deposit_manwon": 5000, "rent_manwon": 480, "mgmt_fee_manwon": 66, "lease_start": "2020-01-01", "lease_end": "2027-12-31" },
-    { "floor": "4F", "tenant_type": "마케팅 에이전시", "area_pyeong": 63.4, "deposit_manwon": 5200, "rent_manwon": 495, "mgmt_fee_manwon": 66, "lease_start": "2019-06-01", "lease_end": "2026-05-31" },
-    { "floor": "5F", "tenant_type": "법률사무소", "area_pyeong": 63.4, "deposit_manwon": 5500, "rent_manwon": 510, "mgmt_fee_manwon": 66, "lease_start": "2020-09-01", "lease_end": "2027-08-31" },
-    { "floor": "6F", "tenant_type": "회계법인", "area_pyeong": 63.4, "deposit_manwon": 5300, "rent_manwon": 500, "mgmt_fee_manwon": 66, "lease_start": "2021-01-01", "lease_end": "2027-12-31" },
-    { "floor": "7F", "tenant_type": "교육기관", "area_pyeong": 63.4, "deposit_manwon": 4800, "rent_manwon": 470, "mgmt_fee_manwon": 66, "lease_start": "2021-07-01", "lease_end": "2027-06-30" },
-    { "floor": "8F", "tenant_type": "핀테크 스타트업", "area_pyeong": 63.4, "deposit_manwon": 5000, "rent_manwon": 485, "mgmt_fee_manwon": 66, "lease_start": "2022-03-01", "lease_end": "2028-02-28" },
-    { "floor": "9F-A", "tenant_type": "컨설팅", "area_pyeong": 32.0, "deposit_manwon": 2500, "rent_manwon": 250, "mgmt_fee_manwon": 33, "lease_start": "2023-01-01", "lease_end": "2028-12-31", "note": "분할임대" },
-    { "floor": "9F-B", "tenant_type": "세무사", "area_pyeong": 31.4, "deposit_manwon": 2400, "rent_manwon": 245, "mgmt_fee_manwon": 33, "lease_start": "2023-06-01", "lease_end": "2028-05-31", "note": "분할임대" },
-    { "floor": "10F", "tenant_type": "건축설계사무소", "area_pyeong": 63.4, "deposit_manwon": 5000, "rent_manwon": 490, "mgmt_fee_manwon": 66, "lease_start": "2019-09-01", "lease_end": "2026-08-31" }
+    {
+      "floor": "B1",
+      "tenant_type": "(공실)",
+      "area_pyeong": 127.7,
+      "deposit_manwon": 0,
+      "rent_manwon": 0,
+      "is_vacant": true
+    },
+    {
+      "floor": "1F",
+      "tenant_type": "카페(스타벅스)",
+      "area_pyeong": 55,
+      "deposit_manwon": 7600,
+      "rent_manwon": 715,
+      "mgmt_fee_manwon": 57,
+      "lease_start": "2018-11-01",
+      "lease_end": "2026-11-30"
+    },
+    {
+      "floor": "2F",
+      "tenant_type": "디자인 스튜디오",
+      "area_pyeong": 63.4,
+      "deposit_manwon": 5400,
+      "rent_manwon": 507,
+      "mgmt_fee_manwon": 66,
+      "lease_start": "2019-03-01",
+      "lease_end": "2027-03-31"
+    },
+    {
+      "floor": "3F",
+      "tenant_type": "IT 기업",
+      "area_pyeong": 63.4,
+      "deposit_manwon": 5000,
+      "rent_manwon": 480,
+      "mgmt_fee_manwon": 66,
+      "lease_start": "2020-01-01",
+      "lease_end": "2027-12-31"
+    },
+    {
+      "floor": "4F",
+      "tenant_type": "마케팅 에이전시",
+      "area_pyeong": 63.4,
+      "deposit_manwon": 5200,
+      "rent_manwon": 495,
+      "mgmt_fee_manwon": 66,
+      "lease_start": "2019-06-01",
+      "lease_end": "2026-05-31"
+    },
+    {
+      "floor": "5F",
+      "tenant_type": "법률사무소",
+      "area_pyeong": 63.4,
+      "deposit_manwon": 5500,
+      "rent_manwon": 510,
+      "mgmt_fee_manwon": 66,
+      "lease_start": "2020-09-01",
+      "lease_end": "2027-08-31"
+    },
+    {
+      "floor": "6F",
+      "tenant_type": "회계법인",
+      "area_pyeong": 63.4,
+      "deposit_manwon": 5300,
+      "rent_manwon": 500,
+      "mgmt_fee_manwon": 66,
+      "lease_start": "2021-01-01",
+      "lease_end": "2027-12-31"
+    },
+    {
+      "floor": "7F",
+      "tenant_type": "교육기관",
+      "area_pyeong": 63.4,
+      "deposit_manwon": 4800,
+      "rent_manwon": 470,
+      "mgmt_fee_manwon": 66,
+      "lease_start": "2021-07-01",
+      "lease_end": "2027-06-30"
+    },
+    {
+      "floor": "8F",
+      "tenant_type": "핀테크 스타트업",
+      "area_pyeong": 63.4,
+      "deposit_manwon": 5000,
+      "rent_manwon": 485,
+      "mgmt_fee_manwon": 66,
+      "lease_start": "2022-03-01",
+      "lease_end": "2028-02-28"
+    },
+    {
+      "floor": "9F-A",
+      "tenant_type": "컨설팅",
+      "area_pyeong": 32,
+      "deposit_manwon": 2500,
+      "rent_manwon": 250,
+      "mgmt_fee_manwon": 33,
+      "lease_start": "2023-01-01",
+      "lease_end": "2028-12-31",
+      "note": "분할임대"
+    },
+    {
+      "floor": "9F-B",
+      "tenant_type": "세무사",
+      "area_pyeong": 31.4,
+      "deposit_manwon": 2400,
+      "rent_manwon": 245,
+      "mgmt_fee_manwon": 33,
+      "lease_start": "2023-06-01",
+      "lease_end": "2028-05-31",
+      "note": "분할임대"
+    },
+    {
+      "floor": "10F",
+      "tenant_type": "건축설계사무소",
+      "area_pyeong": 63.4,
+      "deposit_manwon": 5000,
+      "rent_manwon": 490,
+      "mgmt_fee_manwon": 66,
+      "lease_start": "2019-09-01",
+      "lease_end": "2026-08-31"
+    }
   ],
   "expectedGrade": "B",
   "expectedGates": {
     "blocking": [],
     "warning": []
-  }
+  },
+  "photo_urls": [
+    "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_01.png",
+    "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_02.png",
+    "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_03.png",
+    "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_04.png",
+    "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_05.png",
+    "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_06.jpeg",
+    "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_07.png",
+    "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_08.jpeg",
+    "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_09.png",
+    "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_10.png"
+  ],
+  "photos_v2": [
+    {
+      "url": "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_01.png",
+      "category": "exterior",
+      "caption": "건물 외관 전경",
+      "isHero": true,
+      "role": "cover",
+      "order": 0
+    },
+    {
+      "url": "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_02.png",
+      "category": "surroundings",
+      "caption": "주변 도로 및 접근로",
+      "isHero": false,
+      "role": "exterior",
+      "order": 1
+    },
+    {
+      "url": "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_03.png",
+      "category": "lobby",
+      "caption": "1층 로비 및 공용부",
+      "isHero": false,
+      "role": "general",
+      "order": 2
+    },
+    {
+      "url": "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_04.png",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 3
+    },
+    {
+      "url": "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_05.png",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 4
+    },
+    {
+      "url": "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_06.jpeg",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 5
+    },
+    {
+      "url": "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_07.png",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 6
+    },
+    {
+      "url": "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_08.jpeg",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 7
+    },
+    {
+      "url": "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_09.png",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 8
+    },
+    {
+      "url": "docs/golden-test-data/p5-yangpyeong-income/r2-standard/images/image_10.png",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 9
+    }
+  ]
 }

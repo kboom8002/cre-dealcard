@@ -17,14 +17,92 @@
   },
   "floor_leases": [],
   "manual_comps": [
-    { "address": "신사동 586-6", "landAreaPyeong": 76.7, "priceManwon": 1730000, "pricePerPyeongManwon": 23000 },
-    { "address": "신사동 559-6", "landAreaPyeong": 70.6, "priceManwon": 2000000, "pricePerPyeongManwon": 28000 },
-    { "address": "신사동 558-6", "landAreaPyeong": 73.8, "priceManwon": 2200000, "pricePerPyeongManwon": 30000 },
-    { "address": "신사동 588-1", "landAreaPyeong": 55.1, "priceManwon": 1750000, "pricePerPyeongManwon": 32000 }
+    {
+      "address": "신사동 586-6",
+      "landAreaPyeong": 76.7,
+      "priceManwon": 1730000,
+      "pricePerPyeongManwon": 23000
+    },
+    {
+      "address": "신사동 559-6",
+      "landAreaPyeong": 70.6,
+      "priceManwon": 2000000,
+      "pricePerPyeongManwon": 28000
+    },
+    {
+      "address": "신사동 558-6",
+      "landAreaPyeong": 73.8,
+      "priceManwon": 2200000,
+      "pricePerPyeongManwon": 30000
+    },
+    {
+      "address": "신사동 588-1",
+      "landAreaPyeong": 55.1,
+      "priceManwon": 1750000,
+      "pricePerPyeongManwon": 32000
+    }
   ],
   "expectedGrade": "A",
   "expectedGates": {
     "blocking": [],
     "warning": []
-  }
+  },
+  "photo_urls": [
+    "docs/golden-test-data/p2-sinsa-trading/r3-verified/images/image_01.jpeg",
+    "docs/golden-test-data/p2-sinsa-trading/r3-verified/images/image_03.jpeg",
+    "docs/golden-test-data/p2-sinsa-trading/r3-verified/images/image_04.jpeg",
+    "docs/golden-test-data/p2-sinsa-trading/r3-verified/images/image_05.jpeg",
+    "docs/golden-test-data/p2-sinsa-trading/r3-verified/images/image_06.png",
+    "docs/golden-test-data/p2-sinsa-trading/r3-verified/images/cadastral_map.png"
+  ],
+  "photos_v2": [
+    {
+      "url": "docs/golden-test-data/p2-sinsa-trading/r3-verified/images/image_01.jpeg",
+      "category": "exterior",
+      "caption": "건물 외관 전경",
+      "isHero": true,
+      "role": "cover",
+      "order": 0
+    },
+    {
+      "url": "docs/golden-test-data/p2-sinsa-trading/r3-verified/images/image_03.jpeg",
+      "category": "surroundings",
+      "caption": "주변 도로 및 접근로",
+      "isHero": false,
+      "role": "exterior",
+      "order": 1
+    },
+    {
+      "url": "docs/golden-test-data/p2-sinsa-trading/r3-verified/images/image_04.jpeg",
+      "category": "lobby",
+      "caption": "1층 로비 및 공용부",
+      "isHero": false,
+      "role": "general",
+      "order": 2
+    },
+    {
+      "url": "docs/golden-test-data/p2-sinsa-trading/r3-verified/images/image_05.jpeg",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 3
+    },
+    {
+      "url": "docs/golden-test-data/p2-sinsa-trading/r3-verified/images/image_06.png",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 4
+    },
+    {
+      "url": "docs/golden-test-data/p2-sinsa-trading/r3-verified/images/cadastral_map.png",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 5
+    }
+  ]
 }

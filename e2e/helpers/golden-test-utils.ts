@@ -155,12 +155,33 @@ export async function approveDocument(
 
 // ── 7. PPTX 다운로드 (UI 버튼 + API 직접 호출 폴백) ──
 
+async function safeSaveDownload(download: any, targetPath: string): Promise<string> {
+  const dir = path.dirname(targetPath);
+  ensureDir(dir);
+  try {
+    if (fs.existsSync(targetPath)) {
+      try { fs.unlinkSync(targetPath); } catch {}
+    }
+    await download.saveAs(targetPath);
+    return targetPath;
+  } catch (err: any) {
+    if (err?.code === 'EBUSY' || err?.message?.includes('EBUSY')) {
+      const fallbackPath = targetPath.replace(/\.pptx$/, `_${Date.now()}.pptx`);
+      console.log(`  ⚠️ EBUSY 감지: 대체 파일명으로 저장 -> ${path.basename(fallbackPath)}`);
+      await download.saveAs(fallbackPath);
+      return fallbackPath;
+    }
+    throw err;
+  }
+}
+
 export async function downloadPptx(
   page: Page,
   buildingId: string,
   docId: string,
   targetPptxPath: string
-): Promise<void> {
+): Promise<string> {
+  let savedPath = targetPptxPath;
   try {
     const imUrl = docId ? `/im-lite/${buildingId}?doc=${docId}` : `/im-lite/${buildingId}`;
     await page.goto(imUrl);
@@ -172,17 +193,23 @@ export async function downloadPptx(
       page.waitForEvent('download', { timeout: 120_000 }),
       pptxBtn.click(),
     ]);
-    await download.saveAs(targetPptxPath);
+    savedPath = await safeSaveDownload(download, targetPptxPath);
     console.log('  ✅ UI 버튼으로 PPTX 다운로드 완료');
   } catch {
     console.log('  ⚠️ UI 다운로드 버튼 미발견 → API 직접 호출 폴백');
     const pptxApiUrl = `/api/public/im-lite/${buildingId}/pptx?tier=basic`;
-    const downloadPromise = page.waitForEvent('download', { timeout: 60_000 });
-    await page.goto(pptxApiUrl);
-    const download = await downloadPromise;
-    await download.saveAs(targetPptxPath);
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 60_000 }),
+      page.goto(pptxApiUrl).catch((err: any) => {
+        if (!err.message?.includes('Download is starting') && !err.message?.includes('net::ERR_ABORTED')) {
+          throw err;
+        }
+      }),
+    ]);
+    savedPath = await safeSaveDownload(download, targetPptxPath);
     console.log('  ✅ API 직접 호출로 PPTX 다운로드 완료');
   }
+  return savedPath;
 }
 
 // ── 8. AdmZip 바이너리 파싱 및 텍스트 추출 ──
@@ -334,4 +361,50 @@ export function assertNoHardcodedFallback(fullPptxText: string, expectedRegion?:
   }
   expect(found).toEqual([]);
   console.log('  ✅ 하드코딩 폴백/타매물 혼입 0건 확인');
+}
+
+/** ⑩ 물건 개요(A04) 슬라이드 내 대표 건물 사진 삽입 검증 */
+export function assertOverviewPhotoPresence(slideEntries: any[]): void {
+  let overviewSlideFound = false;
+  let hasImage = false;
+
+  for (const slide of slideEntries) {
+    const xml = slide.getData().toString('utf-8');
+    const isOverview = xml.includes('물건 개요') || xml.includes('건축물 개요') || xml.includes('물건개요') || xml.includes('OVERVIEW') || xml.includes('건축물 개요 및 물리');
+    if (isOverview) {
+      overviewSlideFound = true;
+      if (xml.includes('r:embed') || xml.includes('a:blip') || xml.includes('<p:pic>')) {
+        hasImage = true;
+      }
+      break;
+    }
+  }
+
+  if (overviewSlideFound) {
+    expect(hasImage).toBe(true);
+    console.log('  ✅ 물건 개요 슬라이드 대표 이미지 임베드 확인');
+  } else {
+    console.log('  ⚠️ 물건 개요 슬라이드 미발견 (포스처에 따라 상이할 수 있음)');
+  }
+}
+
+/** ⑪ A14 갤러리 슬라이드 존재 및 이미지 삽입 검증 */
+export function assertGallerySlidePresence(slideEntries: any[]): void {
+  let gallerySlideFound = false;
+  let imageCount = 0;
+
+  for (const slide of slideEntries) {
+    const xml = slide.getData().toString('utf-8');
+    const isGallery = /gallery|갤러리|현장\s*사진|건물\s*사진|외관\s*및/i.test(xml);
+    if (isGallery) {
+      gallerySlideFound = true;
+      const blipMatches = xml.match(/<a:blip\b|r:embed="rId/g);
+      imageCount = blipMatches ? blipMatches.length : 0;
+      break;
+    }
+  }
+
+  expect(gallerySlideFound).toBe(true);
+  expect(imageCount).toBeGreaterThanOrEqual(1);
+  console.log(`  ✅ 갤러리 슬라이드 존재 확인 (이미지 ${imageCount}개 임베드)`);
 }

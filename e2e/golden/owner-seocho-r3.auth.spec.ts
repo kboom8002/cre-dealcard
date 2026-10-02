@@ -13,7 +13,7 @@ const factory = createGoldenTest({
   askingPriceManwon: 2300000,
   resolution: 'R3',
   expectedMinSlides: 7,
-  expectedMaxSlides: 10,
+  expectedMaxSlides: 12,
   expectedFloors: [],
   expectedKeywords: ['서초', '230억'],
 });

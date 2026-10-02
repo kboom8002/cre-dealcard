@@ -38,6 +38,8 @@ import {
   assertFloorKeywordsPresent,
   assertNoEvasivePhrasesExtended,
   assertNoHardcodedFallback,
+  assertOverviewPhotoPresence,
+  assertGallerySlidePresence,
 } from './golden-test-utils';
 
 // ── Types ──
@@ -231,9 +233,9 @@ export function createGoldenTest(config: GoldenTestConfig) {
         if (!fs.existsSync(idFile)) { test.skip(); return; }
         state.buildingId = fs.readFileSync(idFile, 'utf-8').trim();
 
-        // 기존 docId 재사용
+        // 기존 docId 재사용 (REUSE_DOC_ID=1 환경변수 지정 시에만 재사용, 기본은 신규 생성)
         const existingDocFile = path.join(screenshotDir, 'doc-id.txt');
-        if (fs.existsSync(existingDocFile)) {
+        if (process.env.REUSE_DOC_ID === '1' && fs.existsSync(existingDocFile)) {
           const existingDocId = fs.readFileSync(existingDocFile, 'utf-8').trim();
           if (existingDocId) {
             state.docId = existingDocId;
@@ -241,6 +243,27 @@ export function createGoldenTest(config: GoldenTestConfig) {
             return;
           }
         }
+
+        // 📸 사진 에셋 자동 주입을 위한 generate-async 요청 가로채기
+        const bs = loadBottomSheet();
+        await page.route('**/api/broker/im-lite/generate-async', async (route) => {
+          const req = route.request();
+          try {
+            const postData = req.postDataJSON() || {};
+            if (bs.photo_urls && Array.isArray(bs.photo_urls) && bs.photo_urls.length > 0) {
+              postData.photo_urls = bs.photo_urls;
+            }
+            if (bs.photos_v2 && Array.isArray(bs.photos_v2) && bs.photos_v2.length > 0) {
+              postData.photos_v2 = bs.photos_v2;
+            }
+            await route.continue({
+              postData: JSON.stringify(postData),
+            });
+            console.log(`  📸 E2E 가로채기: 사진 에셋 ${postData.photo_urls?.length || 0}장 주입 완료`);
+          } catch (err) {
+            await route.continue();
+          }
+        });
 
         await page.goto(`/broker/deal-card/${state.buildingId}`);
         await page.waitForLoadState('networkidle');
@@ -266,7 +289,6 @@ export function createGoldenTest(config: GoldenTestConfig) {
         }
 
         // 주소 검색 (bottom_sheet에서 address 추출)
-        const bs = loadBottomSheet();
         if (bs.address) {
           const addrInput = page.locator('input[placeholder*="동/도로명"]').first();
           if (await addrInput.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -445,8 +467,8 @@ export function createGoldenTest(config: GoldenTestConfig) {
         state.buildingId = fs.readFileSync(idFile, 'utf-8').trim();
         state.docId = fs.readFileSync(docFile, 'utf-8').trim();
 
-        state.pptxPath = path.join(screenshotDir, `${name}.pptx`);
-        await downloadPptx(page, state.buildingId, state.docId, state.pptxPath);
+        const defaultPath = path.join(screenshotDir, `${name}.pptx`);
+        state.pptxPath = await downloadPptx(page, state.buildingId, state.docId, defaultPath);
         expect(fs.existsSync(state.pptxPath)).toBe(true);
 
         const analysis = analyzePptxZip(state.pptxPath);
@@ -484,7 +506,7 @@ export function createGoldenTest(config: GoldenTestConfig) {
         assertNoEvasivePhrases(state.fullPptxText);
         assertPriceBandBlocked(state.fullPptxText);
 
-        // 5종 콘텐츠 단언
+        // 7종 콘텐츠 및 이미지 단언
         if (state.mediaEntries.length > 0) {
           assertMapImagePresence(state.mediaEntries);
         }
@@ -494,6 +516,8 @@ export function createGoldenTest(config: GoldenTestConfig) {
         }
         assertNoEvasivePhrasesExtended(state.fullPptxText);
         assertNoHardcodedFallback(state.fullPptxText);
+        assertOverviewPhotoPresence(state.slideEntries);
+        assertGallerySlidePresence(state.slideEntries);
 
         // 키워드 검증
         for (const kw of expectedKeywords) {
@@ -501,7 +525,7 @@ export function createGoldenTest(config: GoldenTestConfig) {
           console.log(`  ✅ 키워드 "${kw}" 확인`);
         }
 
-        console.log(`\n  🎉 ${name}: 9종 단언 전부 통과!`);
+        console.log(`\n  🎉 ${name}: 11종 품질 단언 전부 통과!`);
       });
     },
 

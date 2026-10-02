@@ -2,27 +2,180 @@
   "askingPriceManwon": 2300000,
   "address": "서울특별시 서초구 서초동 1364-28",
   "posture": "owner_occupied",
-  "landAreaM2": 596.0,
+  "landAreaM2": 596,
   "grossFloorAreaM2": 2104.88,
   "completionYear": 2005,
   "zoning": "제3종일반주거지역",
   "floors": "지하 1층 ~ 지상 7층",
   "parking": 20,
   "elevator": 1,
-  "coordinates": { "lat": 37.4843, "lng": 127.0275 },
+  "coordinates": {
+    "lat": 37.4843,
+    "lng": 127.0275
+  },
   "floor_leases": [
-    { "floor": "B1", "tenant_type": "파티룸", "area_pyeong": 0, "deposit_manwon": 0, "rent_manwon": 0, "is_vacant": false },
-    { "floor": "1F", "tenant_type": "상가", "area_pyeong": 0, "deposit_manwon": 0, "rent_manwon": 0, "is_vacant": false },
-    { "floor": "2F", "tenant_type": "공실", "area_pyeong": 0, "deposit_manwon": 0, "rent_manwon": 0, "is_vacant": true },
-    { "floor": "3F", "tenant_type": "사무실", "area_pyeong": 0, "deposit_manwon": 0, "rent_manwon": 0, "is_vacant": false },
-    { "floor": "4F", "tenant_type": "공실", "area_pyeong": 0, "deposit_manwon": 0, "rent_manwon": 0, "is_vacant": true },
-    { "floor": "5F", "tenant_type": "공실", "area_pyeong": 0, "deposit_manwon": 0, "rent_manwon": 0, "is_vacant": true },
-    { "floor": "6F", "tenant_type": "사무실", "area_pyeong": 0, "deposit_manwon": 0, "rent_manwon": 0, "is_vacant": false },
-    { "floor": "7F", "tenant_type": "사무실", "area_pyeong": 0, "deposit_manwon": 0, "rent_manwon": 0, "is_vacant": false }
+    {
+      "floor": "B1",
+      "tenant_type": "파티룸",
+      "area_pyeong": 0,
+      "deposit_manwon": 0,
+      "rent_manwon": 0,
+      "is_vacant": false
+    },
+    {
+      "floor": "1F",
+      "tenant_type": "상가",
+      "area_pyeong": 0,
+      "deposit_manwon": 0,
+      "rent_manwon": 0,
+      "is_vacant": false
+    },
+    {
+      "floor": "2F",
+      "tenant_type": "공실",
+      "area_pyeong": 0,
+      "deposit_manwon": 0,
+      "rent_manwon": 0,
+      "is_vacant": true
+    },
+    {
+      "floor": "3F",
+      "tenant_type": "사무실",
+      "area_pyeong": 0,
+      "deposit_manwon": 0,
+      "rent_manwon": 0,
+      "is_vacant": false
+    },
+    {
+      "floor": "4F",
+      "tenant_type": "공실",
+      "area_pyeong": 0,
+      "deposit_manwon": 0,
+      "rent_manwon": 0,
+      "is_vacant": true
+    },
+    {
+      "floor": "5F",
+      "tenant_type": "공실",
+      "area_pyeong": 0,
+      "deposit_manwon": 0,
+      "rent_manwon": 0,
+      "is_vacant": true
+    },
+    {
+      "floor": "6F",
+      "tenant_type": "사무실",
+      "area_pyeong": 0,
+      "deposit_manwon": 0,
+      "rent_manwon": 0,
+      "is_vacant": false
+    },
+    {
+      "floor": "7F",
+      "tenant_type": "사무실",
+      "area_pyeong": 0,
+      "deposit_manwon": 0,
+      "rent_manwon": 0,
+      "is_vacant": false
+    }
   ],
   "expectedGrade": "A",
   "expectedGates": {
     "blocking": [],
     "warning": []
-  }
+  },
+  "photo_urls": [
+    "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_01.jpeg",
+    "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_02.jpeg",
+    "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_03.jpeg",
+    "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_04.jpeg",
+    "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_05.jpeg",
+    "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_06.jpeg",
+    "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_07.jpeg",
+    "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_08.png",
+    "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_09.jpg",
+    "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_10.png"
+  ],
+  "photos_v2": [
+    {
+      "url": "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_01.jpeg",
+      "category": "exterior",
+      "caption": "건물 외관 전경",
+      "isHero": true,
+      "role": "cover",
+      "order": 0
+    },
+    {
+      "url": "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_02.jpeg",
+      "category": "surroundings",
+      "caption": "주변 도로 및 접근로",
+      "isHero": false,
+      "role": "exterior",
+      "order": 1
+    },
+    {
+      "url": "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_03.jpeg",
+      "category": "lobby",
+      "caption": "1층 로비 및 공용부",
+      "isHero": false,
+      "role": "general",
+      "order": 2
+    },
+    {
+      "url": "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_04.jpeg",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 3
+    },
+    {
+      "url": "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_05.jpeg",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 4
+    },
+    {
+      "url": "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_06.jpeg",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 5
+    },
+    {
+      "url": "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_07.jpeg",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 6
+    },
+    {
+      "url": "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_08.png",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 7
+    },
+    {
+      "url": "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_09.jpg",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 8
+    },
+    {
+      "url": "docs/golden-test-data/p3-seocho-owner/r3-verified/images/image_10.png",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 9
+    }
+  ]
 }

@@ -12,10 +12,32 @@
   "hotel_operating": {
     "total_rooms": 94,
     "room_types": [
-      { "type_name": "스탠다드 더블", "room_count": 46, "area_sqm": 16.5, "share_pct": 0.489, "note": "주력" },
-      { "type_name": "스탠다드 트윈", "room_count": 28, "area_sqm": 18.0, "share_pct": 0.298 },
-      { "type_name": "디럭스 더블", "room_count": 14, "area_sqm": 22.0, "share_pct": 0.149 },
-      { "type_name": "스위트", "room_count": 6, "area_sqm": 33.0, "share_pct": 0.064, "note": "최상층" }
+      {
+        "type_name": "스탠다드 더블",
+        "room_count": 46,
+        "area_sqm": 16.5,
+        "share_pct": 0.489,
+        "note": "주력"
+      },
+      {
+        "type_name": "스탠다드 트윈",
+        "room_count": 28,
+        "area_sqm": 18,
+        "share_pct": 0.298
+      },
+      {
+        "type_name": "디럭스 더블",
+        "room_count": 14,
+        "area_sqm": 22,
+        "share_pct": 0.149
+      },
+      {
+        "type_name": "스위트",
+        "room_count": 6,
+        "area_sqm": 33,
+        "share_pct": 0.064,
+        "note": "최상층"
+      }
     ],
     "adr_krw": 95000,
     "revpar_krw": 74100,
@@ -36,5 +58,54 @@
   "expectedGates": {
     "blocking": [],
     "warning": []
-  }
+  },
+  "photo_urls": [
+    "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_01.png",
+    "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_02.png",
+    "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_03.jpeg",
+    "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_04.png",
+    "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_05.png"
+  ],
+  "photos_v2": [
+    {
+      "url": "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_01.png",
+      "category": "exterior",
+      "caption": "건물 외관 전경",
+      "isHero": true,
+      "role": "cover",
+      "order": 0
+    },
+    {
+      "url": "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_02.png",
+      "category": "surroundings",
+      "caption": "주변 도로 및 접근로",
+      "isHero": false,
+      "role": "exterior",
+      "order": 1
+    },
+    {
+      "url": "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_03.jpeg",
+      "category": "lobby",
+      "caption": "1층 로비 및 공용부",
+      "isHero": false,
+      "role": "general",
+      "order": 2
+    },
+    {
+      "url": "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_04.png",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 3
+    },
+    {
+      "url": "docs/golden-test-data/p6-hotel-operating/r2-standard/images/image_05.png",
+      "category": "interior",
+      "caption": "실내 전용 공간",
+      "isHero": false,
+      "role": "general",
+      "order": 4
+    }
+  ]
 }
