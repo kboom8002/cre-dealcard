@@ -250,8 +250,15 @@ ${mission}
 ${JSON.stringify(bssotLite, null, 2)}`;
 
   if (externalData) {
+    // ⚠️ [D-TOKEN-BLOAT-FIX] 바이너리 이미지 필드 제거 — Base64 PNG/Buffer가
+    // JSON.stringify로 직렬화되면 요청당 ~200K 토큰이 낭비됨 (실측 $15~18/IM → $0.25/IM)
+    const {
+      cadastralMapImage, mapImageUrl, buffer,
+      staticMapImage, mapImage, thumbnailImage,
+      ...safeExternalData
+    } = (externalData as any) ?? {};
     prompt += `\n\n## [공공 데이터 & 마켓 현황]
-${JSON.stringify(externalData, null, 2)}`;
+${JSON.stringify(safeExternalData, null, 2)}`;
   } else {
     prompt += `\n\n## [공공 데이터 현황]
 공적장부(건축물대장, 토지이용계획)를 조회하지 못했습니다.
@@ -262,8 +269,14 @@ ${JSON.stringify(externalData, null, 2)}`;
   }
 
   if (supplemental) {
+    // ⚠️ [D-TOKEN-BLOAT-FIX] 사진 Base64 data URI 제거 — 업로드 전 raw 이미지가
+    // 포함되면 사진당 ~150K~800K 토큰 낭비
+    const {
+      photos_v2, photo_urls, photo_captions, photoUrl, photos,
+      ...safeSupplemental
+    } = (supplemental as any) ?? {};
     prompt += `\n\n## [추가 수집 데이터]
-${JSON.stringify(supplemental, null, 2)}`;
+${JSON.stringify(safeSupplemental, null, 2)}`;
   }
 
   if (marketIndicators?.financialsMarkdown) {

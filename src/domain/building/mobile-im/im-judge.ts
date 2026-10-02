@@ -138,6 +138,17 @@ function buildJudgeSystemPrompt(posture?: import('@/domain/ontology').Investment
  * 유저 프롬프트 구성 — 생성된 마크다운과 원본 데이터를 함께 제공
  */
 function buildJudgeUserPrompt(input: IMJudgeInput): string {
+  // ⚠️ [D-TOKEN-BLOAT-FIX] 바이너리 이미지 필드 제거
+  const {
+    cadastralMapImage, mapImageUrl, buffer,
+    staticMapImage, mapImage, thumbnailImage,
+    ...safeExternalData
+  } = (input.externalData as any) ?? {};
+  const {
+    photos_v2, photo_urls, photo_captions, photoUrl, photos,
+    ...safeSupplementalData
+  } = (input.supplementalData as any) ?? {};
+
   const parts: string[] = [
     `## 평가 대상 섹션: ${input.sectionType}`,
     "",
@@ -153,7 +164,7 @@ function buildJudgeUserPrompt(input: IMJudgeInput): string {
     "",
     "### 보조 입력 데이터",
     "```json",
-    JSON.stringify(input.supplementalData, null, 2),
+    JSON.stringify(safeSupplementalData, null, 2),
     "```",
   ];
 
@@ -163,7 +174,7 @@ function buildJudgeUserPrompt(input: IMJudgeInput): string {
       "",
       "### 외부 공공데이터",
       "```json",
-      JSON.stringify(input.externalData, null, 2),
+      JSON.stringify(safeExternalData, null, 2),
       "```"
     );
   }

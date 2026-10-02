@@ -451,6 +451,17 @@ export async function generateMobileIMHandler(
     }
   }
 
+  // ── [D-TOKEN-BLOAT-FIX] base64 data URI 사진 → Supabase Storage 업로드
+  // generateMobileIM 전에 실행해야 supplemental.photos_v2에 짧은 URL만 전달됨
+  // (이전: line 571에서 사후 업로드 → Base64가 프롬프트에 주입되어 건당 ~200K 토큰 낭비)
+  const uploadedPhotos = await uploadDataUriPhotos(
+    supplemental.photos_v2 ?? [],
+    buildingId
+  );
+  if (uploadedPhotos.length > 0) {
+    supplemental.photos_v2 = uploadedPhotos;
+  }
+
   // ─── 7섹션 AI 생성
   const writerResult = await generateMobileIM({
     building_ssot_lite: bssotFlat as any,
@@ -567,11 +578,8 @@ export async function generateMobileIMHandler(
     ...(supplemental ?? {}),
   };
 
-  // ── base64 data URI 사진 → Supabase Storage 업로드 (JSONB 크기 초과 방지) ──
-  const uploadedPhotos = await uploadDataUriPhotos(
-    supplemental.photos_v2 ?? [],
-    buildingId
-  );
+
+  // [D-TOKEN-BLOAT-FIX] uploadDataUriPhotos는 line 453에서 generateMobileIM 전에 실행됨 (기존 중복 제거)
 
   // floor_leases에서 공실률 직접 산출 → ssot_summary.vacancy_pct에 영속
   // 자가사용(사옥, 카페 자가 등)은 만실로 처리 — 실제 사용 중이므로 공실이 아님
