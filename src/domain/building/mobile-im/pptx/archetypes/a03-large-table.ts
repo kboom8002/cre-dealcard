@@ -128,9 +128,12 @@ export function buildA03LargeTable(input: ArchetypeInput): ArchetypeOutput {
     );
   } else if (input.data.content) {
     // 테이블 없으면 content를 L.rows()로 렌더링
-    const lines = String(input.data.content).split('\n')
+    // D-JSON-LEAK: content가 JSON 리터럴이면 렌더링하지 않음
+    const rawContent = String(input.data.content).trim();
+    const isJsonLeak = /^\{["\s]/.test(rawContent) && /"[^"]+"\s*:/.test(rawContent);
+    const lines = isJsonLeak ? [] : rawContent.split('\n')
       .map((l: string) => l.trim())
-      .filter((l: string) => l.length > 5 && !l.startsWith('#'));
+      .filter((l: string) => l.length > 5 && !l.startsWith('#') && !(/"[^"]+"\s*:/.test(l) && /^\{/.test(l)));
     for (const line of lines) {
       const stripped = line.replace(/\*\*(.*?)\*\*/g, '$1').replace(/[|`\[\]]/g, '').trim();
       if (!stripped) continue;

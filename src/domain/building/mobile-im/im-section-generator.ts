@@ -45,6 +45,66 @@ import { sqmToPyeong } from "@/lib/utils/area-conversion";
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('im-section-generator');
 
+/**
+ * D-JSON-LEAK: AI 출력 마크다운에서 JSON 리터럴 리크를 탐지하고 제거.
+ *
+ * AI(LLM)가 프롬프트에 주입된 building SSoT, 외부 데이터, 메모 파싱 결과 등의
+ * JSON.stringify 출력을 마크다운 본문에 그대로 포함시키는 경우를 방어합니다.
+ *
+ * 탐지 기준:
+ * 1. `{"key":...}` 또는 `[{"key":...}]` 패턴의 JSON 오브젝트/배열 리터럴
+ * 2. "mocked", "extractedFields", "extractedFacts", "ok" 등 API 응답 키워드 포함
+ * 3. 80자 이상의 JSON 블록 (단순 인라인 참조가 아닌 실제 데이터 덤프)
+ */
+function stripJsonLeaks(markdown: string, sectionType: string): string {
+  const lines = markdown.split('\n');
+  let cleaned = false;
+  const resultLines: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+
+    // JSON 오브젝트 리터럴 시작 감지: {"key": ... 패턴
+    if (/^\{["\s]/.test(trimmed) && /"[^"]+"\s*:/.test(trimmed) && trimmed.length > 80) {
+      // API 응답 키워드가 포함되어 있으면 확실한 JSON 리크
+      const isApiLeak = /(?:"mocked"|"extractedFields"|"extractedFacts"|"ok"\s*:\s*true|"priceText"|"sizeText"|"area_signal"|"asset_type")/.test(trimmed);
+      // 또는 일반적인 긴 JSON 오브젝트 (중첩 구조 포함)
+      const isLongJson = trimmed.length > 120 && (trimmed.includes('":"') || trimmed.includes('": "'));
+
+      if (isApiLeak || isLongJson) {
+        // JSON 블록이 여러 줄에 걸쳐 있을 수 있으므로, 중괄호 균형을 추적
+        let depth = 0;
+        let j = i;
+        for (; j < lines.length; j++) {
+          for (const ch of lines[j]) {
+            if (ch === '{') depth++;
+            else if (ch === '}') depth--;
+          }
+          if (depth <= 0) break;
+        }
+        // JSON 블록 전체를 건너뜀
+        log.warn(`[D-JSON-LEAK] ${sectionType}: Stripped ${j - i + 1} line(s) of leaked JSON (starts with: ${trimmed.slice(0, 60)}...)`);
+        i = j;
+        cleaned = true;
+        continue;
+      }
+    }
+
+    resultLines.push(lines[i]);
+  }
+
+  if (cleaned) {
+    const result = resultLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    // 전체 내용이 JSON이었다면(빈 결과) 경고 로그
+    if (result.length < 30) {
+      log.error(`[D-JSON-LEAK] ${sectionType}: Nearly all content was JSON — template fallback needed`);
+    }
+    return result;
+  }
+
+  return markdown;
+}
+
 
 /** AI 모델 설정 — 환경변수로 교체 가능 */
 const IM_AI_MODEL = process.env.AI_IM_MODEL || getModel("terra");
@@ -573,6 +633,12 @@ export async function generateSingleSection(
     );
   }
 
+  // ── JSON 리크 방어 가드 (D-JSON-LEAK) ──
+  // AI가 프롬프트에 주입된 JSON 데이터(SSoT, 외부 데이터, 메모 파싱 결과 등)를
+  // 마크다운 본문에 그대로 포함시키는 환각을 탐지하고 제거합니다.
+  // 근본 원인: narrative-prompt.ts line 250에서 JSON.stringify(bssotLite)를 프롬프트에 전달,
+  // LLM이 이를 "데이터"가 아닌 "콘텐츠"로 오인하여 출력에 포함시키는 경우 발생.
+  markdown = stripJsonLeaks(markdown, sectionType);
   // value-add 테이블 추가 (수익형 포스처에서만 유효)
   if (sectionType === "investment_thesis" && ctx.valueAddMarkdown && posture === "income") {
     markdown += `\n\n${ctx.valueAddMarkdown}`;

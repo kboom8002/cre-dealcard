@@ -27,6 +27,10 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   
   // Lead sentence
   let leadSentence = input.data.leadSentence || '';
+  // D-JSON-LEAK: leadSentence가 JSON 리터럴이면 비움 (AI 환각 최종 방어)
+  if (leadSentence && /^\{["\s]/.test(leadSentence.trim()) && /"[^"]+"\s*:/.test(leadSentence)) {
+    leadSentence = '';
+  }
   let startY = 1.50;
   if (leadSentence) {
     const hero = input.data.heroCard;
@@ -207,7 +211,8 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     if (input.data.content) {
       const lines = String(input.data.content).split('\n')
         .map((l: string) => l.trim())
-        .filter((l: string) => l.length > 5 && !l.startsWith('#') && !l.startsWith('|'));
+        .filter((l: string) => l.length > 5 && !l.startsWith('#') && !l.startsWith('|')
+          && !(/"[^"]+"\s*:/.test(l) && /^\{/.test(l))); // D-JSON-LEAK
       const rowEntries: [string, string][] = lines.slice(0, 10).map((l: string) => {
         const stripped = l.replace(/\*\*(.*?)\*\*/g, '$1').replace(/[`\[\]]/g, '');
         return [stripped, ''] as [string, string];
@@ -238,6 +243,8 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   // 투자 핵심 포인트 (KPI 카드 아래 풍부한 3대 투자 포인트 렌더링)
   let keyPoints: string[] = input.data.keyPoints || input.data.heroCard?.keyPoints || [];
   keyPoints = keyPoints.flatMap(pt => String(pt).split(/\n+(?=[0-9]+[\.)]|[-•·])/)).map(s => s.trim().replace(/^([0-9]+[\.)]|[-•·])\s*/, '')).filter(Boolean);
+  // D-JSON-LEAK: keyPoints에서 JSON 리터럴 제거
+  keyPoints = keyPoints.filter(pt => !/^\{["\s]/.test(pt.trim()) || !/"[^"]+"\s*:/.test(pt));
   if (keyPoints.length === 0 && input.data.content) {
     const bullets = String(input.data.content).split('\n')
       .map((l: string) => l.trim())

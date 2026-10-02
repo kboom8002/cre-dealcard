@@ -25,9 +25,26 @@ export function normalizeStationName(raw: string): string {
 export function findLeadSentence(lines: string[]): string {
     const lead = lines.find(l => 
             !l.startsWith('#') && !l.startsWith('|') && !l.startsWith('-') && 
-            !l.startsWith('>') && !/^\d+\./.test(l) && l.length > 10
+            !l.startsWith('>') && !/^\d+\./.test(l) && l.length > 10 &&
+            !looksLikeJsonLiteral(l)
           );
     return stripMarkdown(lead || '');
+}
+
+/**
+ * JSON 오브젝트/배열 리터럴로 보이는 텍스트인지 판별.
+ * AI가 프롬프트 컨텍스트(building SSoT, memo parsing 결과 등)를
+ * 마크다운 본문에 그대로 포함시킨 경우를 탐지합니다.
+ */
+export function looksLikeJsonLiteral(text: string): boolean {
+    const t = text.trim();
+    // {"key":... 또는 [{"key":... 패턴
+    if (/^\{["\s]/.test(t) || /^\[\s*\{/.test(t)) {
+        // 간단한 {key: value} 스타일 한국어 표현은 허용 (예: {서울 강남구})
+        // JSON 키 패턴: "key": 가 존재하면 JSON으로 판정
+        if (/"[^"]+"\s*:/.test(t)) return true;
+    }
+    return false;
 }
 
 export function extractStatMetrics(tables: ParsedTable[], lines: string[]): Array<{label: string; value: string; unit?: string}> {

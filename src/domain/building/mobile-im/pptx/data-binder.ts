@@ -450,7 +450,25 @@ export function bindSectionData(
     }
 
     // 페르소나/시스템 메시지 사전 제거 (markdown 구조 보존)
-    const cleanMarkdown = sanitizePersona(section.markdown);
+    let cleanMarkdown = sanitizePersona(section.markdown);
+
+    // D-JSON-LEAK: AI가 프롬프트 컨텍스트 JSON을 마크다운에 그대로 출력한 경우 제거
+    // 예: {"ok":true,"mocked":true,"extractedFields":{...}} 형태의 API 응답 원문 리크
+    if (cleanMarkdown && /^\{["\s]/.test(cleanMarkdown.trim()) && /"[^"]+"\s*:/.test(cleanMarkdown)) {
+      // 마크다운 전체가 JSON이면 빈 문자열로 (이후 폴백 처리에 위임)
+      const trimmed = cleanMarkdown.trim();
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        console.warn(`[D-JSON-LEAK] Section content is raw JSON — cleared`, { dataKey, sectionType });
+        cleanMarkdown = '';
+      } else {
+        // 마크다운 내 JSON 블록만 줄 단위로 제거
+        const filteredLines = cleanMarkdown.split('\n').filter(line => {
+          const t = line.trim();
+          return !(t.length > 80 && /^\{["\s]/.test(t) && /"[^"]+"\s*:/.test(t));
+        });
+        cleanMarkdown = filteredLines.join('\n');
+      }
+    }
 
     // 3. 테이블/메트릭 기본 파싱
     const tables = parseMarkdownTable(cleanMarkdown);

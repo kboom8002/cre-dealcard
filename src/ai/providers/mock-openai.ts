@@ -11,7 +11,8 @@ function extractHeuristics(params: LLMChatParams) {
   const addrMatch = promptText.match(/([가-힣]+(?:구|시)\s*[가-힣\d]+(?:동|로|가)\s*[\d-]+|[가-힣\d]+(?:동|로|가)\s*[\d-]+)/);
   const priceMatch = promptText.match(/(\d+억(?:\s*\d+만)?|\d+,\d+만)/);
   const sizeMatch = promptText.match(/(\d+(?:\.\d+)?평)/);
-  const dongMatch = promptText.match(/([가-힣]+동)/);
+  // D-JSON-LEAK: '부동산', '공동', '활동', '자동', '변동' 등 일반 명사 '동'을 배제
+  const dongMatch = promptText.match(/(?<![부공활자변이운])([가-힣]{2,4}동)(?=\s|\d|$|,|\.)/);
   const bldgNameMatch = promptText.match(/\(([가-힣\d\s]+빌딩)\)/);
 
   return {
@@ -144,7 +145,10 @@ export const MOCK_DISPATCH_REGISTRY: MockRegistryEntry[] = [
   },
   {
     name: 'section_narrative',
-    match: (s, u) => (s.includes("CRE IM") || s.includes("섹션") || s.includes("작성 지침") || s.includes("투자설명서") || u.includes("MobileIMSectionType") || u.includes("IM 섹션")) && !u.includes("JSON") && !s.includes("JSON"),
+    // D-JSON-LEAK fix: narrative-prompt.ts가 JSON.stringify(bssotLite)를 프롬프트에 포함하므로
+    // u.includes("JSON")은 항상 true → 기존 !u.includes("JSON") 조건이 IM 섹션 매칭을 차단했음
+    // responseFormat 기반으로 JSON 응답 요청과 서사 텍스트 요청을 구분
+    match: (s, u) => (s.includes("CRE IM") || s.includes("섹션") || s.includes("작성 지침") || s.includes("투자설명서") || u.includes("MobileIMSectionType") || u.includes("IM 섹션") || u.includes("[섹션 작성 미션")),
     respond: (params, startTime, model) => {
       const h = extractHeuristics(params);
       const narrativeContent = `### 핵심 투자 포인트 및 자산 개요
@@ -183,6 +187,20 @@ export class MockOpenAIProvider implements LLMProvider {
     }
 
     const h = extractHeuristics(params);
+
+    // D-JSON-LEAK 방어: IM 섹션 서사 요청이 디스패치에 실패한 경우에도 JSON 대신 서사 텍스트 반환
+    const isLikelyIMSection = usr.includes("[섹션 작성 미션") || usr.includes("기본 건물 데이터 (SSoT)") || usr.includes("섹션을 작성해 주세요");
+    if (isLikelyIMSection) {
+      console.warn(`[MockOpenAIProvider] IM section request fell through to fallback — returning narrative text instead of JSON`);
+      return {
+        content: `### 자산 개요\n본 자산은 ${h.extractedRegion} 권역에 위치한 ${h.assetType}으로, 매각 희망가 ${h.extractedPrice} 수준입니다.\n\n1. **입지 가치**: 대중교통 연계성과 주변 인프라가 양호하여 안정적인 임대 수요를 기대할 수 있습니다.\n2. **자산 스펙**: ${h.extractedSize} 규모의 물리적 스펙으로 합리적인 운영 효율을 갖추고 있습니다.\n3. **투자 잠재력**: 체계적인 자산 관리를 통해 중장기적 가치 상승이 가능합니다.`,
+        tokens: 200,
+        model,
+        provider: "openai",
+        latencyMs: Date.now() - startTime,
+      };
+    }
+
     const mockResult: LLMChatResult = {
       content: JSON.stringify({
         ok: true,

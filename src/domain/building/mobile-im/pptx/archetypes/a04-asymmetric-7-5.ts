@@ -84,7 +84,8 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
   } else if (input.data.content) {
     const lines = String(input.data.content).split('\n')
       .map((l: string) => l.trim())
-      .filter((l: string) => l.length > 0 && !l.startsWith('#') && !l.startsWith('|'));
+      .filter((l: string) => l.length > 0 && !l.startsWith('#') && !l.startsWith('|')
+        && !(/^\{["\s]/.test(l) && /"[^"]+"\s*:/.test(l))); // D-JSON-LEAK
     const contentRows: [string, string][] = [];
     for (const line of lines) {
       const stripped = stripMarkdown(line).replace(/[`\[\]]/g, '');
