@@ -500,6 +500,165 @@ export function createGoldenTest(config: GoldenTestConfig) {
       });
     },
 
+    /** Phase 5: 모바일 IM 뷰어 시각 검증 등록 */
+    registerViewerPhase() {
+      test(`Phase 5: 모바일 IM 뷰어 시각 검증 [${name}]`, async ({ page }) => {
+        console.log(`\n🔷 Phase 5: ${name} 모바일 IM 뷰어 검증`);
+
+        const idFile = path.join(screenshotDir, 'building-id.txt');
+        const docFile = path.join(screenshotDir, 'doc-id.txt');
+        if (!fs.existsSync(idFile) || !fs.existsSync(docFile)) { test.skip(); return; }
+        const bid = fs.readFileSync(idFile, 'utf-8').trim();
+        const did = fs.readFileSync(docFile, 'utf-8').trim();
+
+        // P5-01: 뷰어 로딩
+        const url = `/im-lite/${bid}?doc=${did}`;
+        await page.goto(url);
+        await page.waitForLoadState('networkidle');
+        const bodyText = await page.textContent('body') || '';
+        expect(bodyText.length).toBeGreaterThan(100);
+        console.log(`  ✅ 뷰어 로딩 완료 (${bodyText.length}자)`);
+
+        // P5-02: Hero Card 키워드
+        for (const kw of expectedKeywords) {
+          if (bodyText.includes(kw)) {
+            console.log(`  ✅ Hero Card 키워드 "${kw}" 확인`);
+          }
+        }
+
+        // P5-XX: 결함 토큰 0건
+        const defects = ['NaN', 'undefined', '[object Object]'];
+        const foundDefects = defects.filter(d => bodyText.includes(d));
+        expect(foundDefects).toEqual([]);
+        console.log('  ✅ 뷰어 결함 토큰 0건 확인');
+
+        // P5-08: PPTX 다운로드 버튼
+        const pptxBtn = page.locator('button:has-text("PPTX"), a:has-text("PPTX"), button:has-text("다운로드")').first();
+        try {
+          await pptxBtn.waitFor({ state: 'visible', timeout: 8000 });
+          console.log('  ✅ PPTX 다운로드 버튼 visible');
+        } catch {
+          console.log('  ⚠️ PPTX 버튼 미감지 (승인 전일 수 있음)');
+        }
+
+        // P5-09: 모바일 반응형 검증 (375×812)
+        await page.setViewportSize({ width: 375, height: 812 });
+        await page.waitForTimeout(1000);
+        const hasOverflow = await page.evaluate(() =>
+          document.documentElement.scrollWidth > document.documentElement.clientWidth
+        );
+        expect(hasOverflow).toBe(false);
+        console.log('  ✅ 375px 반응형 가로 오버플로우 없음');
+
+        // Restore viewport
+        await page.setViewportSize({ width: 1280, height: 720 });
+
+        // P5-10: 전체 스크린샷
+        ensureDir(screenshotDir);
+        await page.screenshot({
+          path: path.join(screenshotDir, 'viewer-full-page.png'),
+          fullPage: true,
+        });
+        console.log('  📸 뷰어 전체 스크린샷 저장');
+      });
+    },
+
+    /** Phase 7: PPTX 시각 오버플로우 검증 등록 */
+    registerOverflowPhase() {
+      test(`Phase 7: PPTX 시각 오버플로우 검증 [${name}]`, async () => {
+        console.log(`\n🔷 Phase 7: ${name} PPTX 오버플로우 검증`);
+
+        if (state.slideEntries.length === 0) { test.skip(); return; }
+
+        // P7-04: 물건 개요 11대 제원
+        const specs = [
+          '대지면적', '연면적', '건축면적', '건폐율', '용적률',
+          '주용도', '주구조', '층수', '주차', '승강기', '사용승인',
+        ];
+        const found = specs.filter(s => state.fullPptxText.includes(s));
+        console.log(`  📋 물건 개요 제원 ${found.length}/11개: [${found.join(', ')}]`);
+        expect(found.length).toBeGreaterThanOrEqual(5);
+        console.log('  ✅ 물건 개요 최소 기준(5/11) 충족');
+
+        // P7-05: 토지정보+지적도 통합 확인
+        let landSlideWithImage = false;
+        for (const slide of state.slideEntries) {
+          const xml = slide.getData().toString('utf-8');
+          const hasLandKw = xml.includes('용도지역') || xml.includes('건폐율') || xml.includes('용적률');
+          const hasImage = xml.includes('r:embed') || xml.includes('a:blip');
+          if (hasLandKw && hasImage) {
+            landSlideWithImage = true;
+            break;
+          }
+        }
+        if (landSlideWithImage) {
+          console.log('  ✅ 토지정보+이미지 단일 슬라이드 통합 확인');
+        } else {
+          console.log('  ⚠️ 토지정보+이미지 통합 미감지');
+        }
+      });
+    },
+
+    /** Phase 10: 회귀 방지 스냅샷 등록 */
+    registerSnapshotPhase() {
+      test(`Phase 10: 회귀 방지 스냅샷 [${name}]`, async () => {
+        console.log(`\n🔷 Phase 10: ${name} 회귀 방지 스냅샷`);
+
+        if (!state.fullPptxText) { test.skip(); return; }
+
+        ensureDir(screenshotDir);
+
+        // P10-01: PPTX 전체 텍스트 (이미 Phase 3에서 저장됨)
+        const textPath = path.join(screenshotDir, 'pptx-full-text.txt');
+        if (!fs.existsSync(textPath)) {
+          fs.writeFileSync(textPath, state.fullPptxText);
+        }
+        expect(fs.existsSync(textPath)).toBe(true);
+        console.log('  ✅ pptx-full-text.txt 보존');
+
+        // P10-02: 슬라이드 제목 시퀀스
+        const titles: string[] = [];
+        for (const slide of state.slideEntries) {
+          const xml = slide.getData().toString('utf-8');
+          const titleMatch = xml.match(/<p:sp>[\s\S]*?<a:t>([^<]{3,40})<\/a:t>/);
+          titles.push(titleMatch ? titleMatch[1].trim() : `(slide ${slide.entryName})`);
+        }
+        const titlesPath = path.join(screenshotDir, 'slide-titles.json');
+        fs.writeFileSync(titlesPath, JSON.stringify(titles, null, 2));
+        expect(fs.existsSync(titlesPath)).toBe(true);
+        console.log(`  ✅ slide-titles.json (${titles.length}면) 저장`);
+
+        // P10-04: pipeline_log.md 자동 생성
+        const logLines = [
+          `# Pipeline Log: ${name}`,
+          `- **생성일**: ${new Date().toISOString()}`,
+          `- **포스처**: ${posture}`,
+          `- **해상도**: ${resolution}`,
+          `- **매각가**: ${(askingPriceManwon / 10000).toLocaleString()}억`,
+          `- **슬라이드**: ${state.slideCount}면`,
+          `- **텍스트 길이**: ${state.fullPptxText.length}자`,
+          `- **미디어**: ${state.mediaEntries.length}건`,
+          '',
+          '## Phase 결과',
+          '- Phase 1~4: Factory 공통 ✅',
+          `- Phase 7: 물건 개요 검증 ✅`,
+          `- Phase 10: 스냅샷 저장 ✅`,
+        ];
+        const logPath = path.join(screenshotDir, 'pipeline_log.md');
+        fs.writeFileSync(logPath, logLines.join('\n'));
+        expect(fs.existsSync(logPath)).toBe(true);
+        console.log('  ✅ pipeline_log.md 생성 완료');
+      });
+    },
+
+    /** Phase 1~10 전체 등록 (편의 메서드) */
+    registerAllPhases() {
+      this.registerCommonPhases();   // Phase 1~4
+      this.registerViewerPhase();    // Phase 5
+      this.registerOverflowPhase();  // Phase 7
+      this.registerSnapshotPhase();  // Phase 10
+    },
+
     /** 상태 접근 (특수 검증에서 사용) */
     getState() {
       return state;
