@@ -18,5 +18,6 @@
 | [08-e2e-golden-test](rules/08-e2e-golden-test.md) | 41~44, 48~60 | 골든 E2E/감사/RCA |
 | [09-subagent-hygiene](rules/09-subagent-hygiene.md) | 41~42 | 서브에이전트 위생/대형파일 금지 |
 | [10-powershell-git](rules/10-powershell-git.md) | 43~45 | PowerShell Git 규칙 |
+| [11-prompt-hygiene-cost](rules/11-prompt-hygiene-cost.md) | 46~48 | 프롬프트 위생/바이너리 제거/비용 실측 |
 
 > **Note to Agents**: This hub replaces the monolithic AGENTS.md. When you need specific rules, use the `view_file` tool to read the appropriate module in `.agents/rules/`.
