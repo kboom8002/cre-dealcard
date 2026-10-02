@@ -19,9 +19,11 @@ const factory = createGoldenTest({
 });
 
 test.describe.serial(factory.suiteName, () => {
-  factory.registerCommonPhases();
+  factory.registerAllPhases();
 
-  test('Phase 5: 수익형 A23 수익률 분석 슬라이드 존재', async () => {
+  // ── 포스처 특수 검증 ──
+
+  test('Custom: A23 수익률 분석 슬라이드 존재', async () => {
     const text = factory.getPptxText();
     if (!text) { test.skip(); return; }
     const hasYield = text.includes('수익률') || text.includes('Cap Rate') || text.includes('NOI');
@@ -29,18 +31,11 @@ test.describe.serial(factory.suiteName, () => {
     console.log('  ✅ A23 수익률 슬라이드 존재 확인');
   });
 
-  test('Phase 6: A24 렌트롤 층 키워드 교차 검증', async () => {
+  test('Custom: A24 렌트롤 층 키워드 교차 검증', async () => {
     const text = factory.getPptxText();
     if (!text) { test.skip(); return; }
     const hasRentRoll = text.includes('임대') || text.includes('보증금') || text.includes('월세');
     expect(hasRentRoll).toBe(true);
     console.log('  ✅ A24 렌트롤 슬라이드 존재 확인');
-  });
-
-  test('Phase 7: 매각가 115억 교차 검증', async () => {
-    const text = factory.getPptxText();
-    if (!text) { test.skip(); return; }
-    expect(text.includes('115')).toBe(true);
-    console.log('  ✅ 매각가 115억 반영 확인');
   });
 });

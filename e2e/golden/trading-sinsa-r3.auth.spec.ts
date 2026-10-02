@@ -19,7 +19,7 @@ const factory = createGoldenTest({
 });
 
 test.describe.serial(factory.suiteName, () => {
-  factory.registerCommonPhases();
+  factory.registerAllPhases();
 
   test('Phase 5: 시세/매매/양도 키워드 확인', async () => {
     const text = factory.getPptxText();

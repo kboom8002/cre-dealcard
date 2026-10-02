@@ -19,7 +19,7 @@ const factory = createGoldenTest({
 });
 
 test.describe.serial(factory.suiteName, () => {
-  factory.registerCommonPhases();
+  factory.registerAllPhases();
 
   test('Phase 5: 자가/사옥/전환 키워드 확인', async () => {
     const text = factory.getPptxText();

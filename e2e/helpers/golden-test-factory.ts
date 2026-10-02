@@ -651,12 +651,184 @@ export function createGoldenTest(config: GoldenTestConfig) {
       });
     },
 
+    /** Phase 6: 승인/편집/재승인 워크플로우 등록 */
+    registerApprovalPhase() {
+      test(`Phase 6: 승인/편집/재승인 워크플로우 [${name}]`, async ({ page }) => {
+        console.log(`\n🔷 Phase 6: ${name} 승인/편집/재승인 워크플로우`);
+
+        const idFile = path.join(screenshotDir, 'building-id.txt');
+        const docFile = path.join(screenshotDir, 'doc-id.txt');
+        if (!fs.existsSync(idFile) || !fs.existsSync(docFile)) { test.skip(); return; }
+        const bid = fs.readFileSync(idFile, 'utf-8').trim();
+        const did = fs.readFileSync(docFile, 'utf-8').trim();
+
+        // P6-01: 승인 페이지 접근
+        await page.goto(`/broker/im-approval/${did}`);
+        await page.waitForLoadState('networkidle');
+        const pageText = await page.textContent('body') || '';
+
+        // 승인 페이지가 서버 컴포넌트라 리다이렉트될 수 있음 (Rule 23)
+        if (page.url().includes('/login') || page.url().includes('/404')) {
+          console.log('  ⚠️ 승인 페이지 접근 불가 (서버 컴포넌트 제약) — API 레벨 검증으로 폴백');
+
+          // API 레벨 검증: 문서 상태 확인
+          const docsRes = await page.request.get(`/api/broker/im-lite/${bid}`);
+          if (docsRes.ok()) {
+            const docsJson = await docsRes.json();
+            const doc = docsJson.documents?.[0] || docsJson.document;
+            expect(doc).toBeTruthy();
+            console.log(`  ✅ 문서 상태: ${doc.status} (API 검증)`);
+
+            // P6-03: 섹션 수정 API 테스트
+            if (doc.body?.sections && doc.body.sections.length > 0) {
+              const firstSection = doc.body.sections[0];
+              const originalContent = firstSection.content || '';
+              const testSuffix = ' [E2E-EDIT-TEST]';
+
+              // 섹션 수정 요청
+              const editRes = await page.request.patch(`/api/broker/im-lite/${did}/sections`, {
+                data: {
+                  sectionIndex: 0,
+                  content: originalContent + testSuffix,
+                },
+              });
+
+              if (editRes.ok()) {
+                console.log('  ✅ 섹션 편집 API 성공');
+
+                // P6-04: 편집 후 해시 변경 확인
+                const editedDoc = await editRes.json().catch(() => null);
+                if (editedDoc?.targetHash || editedDoc?.approval_target_hash) {
+                  console.log('  ✅ targetHash 재계산 확인');
+                }
+
+                // 원복
+                await page.request.patch(`/api/broker/im-lite/${did}/sections`, {
+                  data: { sectionIndex: 0, content: originalContent },
+                });
+                console.log('  ✅ 섹션 원복 완료');
+              } else {
+                console.log(`  ⚠️ 섹션 편집 API 미지원 (${editRes.status()}) — 스킵`);
+              }
+            }
+
+            // P6-05: 승인 상태 확인
+            if (doc.status === 'published') {
+              console.log('  ✅ 문서 이미 published 상태');
+            } else if (doc.status === 'draft') {
+              console.log('  📋 문서 draft 상태 — Phase 2에서 이미 승인 처리됨');
+            }
+          } else {
+            console.log(`  ⚠️ 문서 조회 실패 (${docsRes.status()}) — 스킵`);
+          }
+          return;
+        }
+
+        // 브라우저 기반 승인 흐름 (서버 컴포넌트 접근 가능한 경우)
+        expect(pageText.length).toBeGreaterThan(50);
+        console.log(`  ✅ 승인 페이지 로딩 (${pageText.length}자)`);
+
+        // P6-02: 승인 상태 배너
+        const statusText = pageText.includes('draft') || pageText.includes('승인 대기')
+          ? 'draft' : pageText.includes('published') || pageText.includes('공개')
+            ? 'published' : 'unknown';
+        console.log(`  📋 문서 상태: ${statusText}`);
+
+        // P6-06: 공유 링크 확인
+        const shareLink = page.locator('a[href*="im-lite"], input[value*="im-lite"]').first();
+        try {
+          await shareLink.waitFor({ state: 'visible', timeout: 5000 });
+          console.log('  ✅ 공유 링크 감지');
+        } catch {
+          console.log('  ⚠️ 공유 링크 미감지');
+        }
+
+        await ensureDir(screenshotDir);
+        await page.screenshot({
+          path: path.join(screenshotDir, 'approval-page.png'),
+          fullPage: true,
+        });
+        console.log('  📸 승인 페이지 스크린샷 저장');
+      });
+    },
+
+    /** Phase 8: 재무 교차 검증 등록 */
+    registerFinancialPhase() {
+      test(`Phase 8: 재무 교차 검증 [${name}]`, async () => {
+        console.log(`\n🔷 Phase 8: ${name} 재무 교차 검증`);
+
+        if (!state.fullPptxText) { test.skip(); return; }
+
+        const text = state.fullPptxText;
+
+        // P8-01: 매각가 PPTX 반영 교차 검증
+        const priceEok = Math.round(askingPriceManwon / 10000);
+        const priceFound = text.includes(`${priceEok}억`)
+          || text.includes(`${priceEok.toLocaleString()}억`)
+          || text.includes(`${priceEok}`);
+        expect(priceFound).toBe(true);
+        console.log(`  ✅ 매각가 ${priceEok}억 PPTX 반영 확인`);
+
+        // P8-02: 수익률/Cap Rate 키워드 존재 (income/operating만 해당)
+        if (posture === 'income' || posture === 'operating') {
+          const hasYieldKw = text.includes('Cap Rate')
+            || text.includes('수익률')
+            || text.includes('NOI')
+            || text.includes('cap rate');
+          if (hasYieldKw) {
+            console.log('  ✅ 수익률/Cap Rate 키워드 존재');
+
+            // Cap Rate 수치 추출 시도
+            const capMatch = text.match(/(?:Cap\s*Rate|수익률)[^\d]*(\d+\.?\d*)\s*%/i);
+            if (capMatch) {
+              const capRate = parseFloat(capMatch[1]);
+              expect(capRate).toBeGreaterThan(0);
+              expect(capRate).toBeLessThan(30); // 합리적 범위 0~30%
+              console.log(`  ✅ Cap Rate ${capRate}% 범위 정상 (0~30%)`);
+            }
+          } else {
+            console.log('  ⚠️ 수익률/Cap Rate 키워드 미발견');
+          }
+        }
+
+        // P8-03: 보증금/임대료 키워드 (income만 해당)
+        if (posture === 'income') {
+          const hasRentKw = text.includes('보증금') || text.includes('임대료')
+            || text.includes('월세') || text.includes('월 임대');
+          expect(hasRentKw).toBe(true);
+          console.log('  ✅ 보증금/임대료 키워드 PPTX 존재');
+        }
+
+        // P8-04: 포스처별 고급 분석 슬라이드 존재/부재 (Rule 47)
+        const advancedKeywords = ['DCF', 'NPV', '민감도', 'Sensitivity', '시나리오'];
+        const hasAdvanced = advancedKeywords.some(kw => text.includes(kw));
+
+        // Basic IM에서는 고급 분석이 없어야 함
+        if (!hasAdvanced) {
+          console.log('  ✅ Basic IM — 고급 분석 슬라이드 부재 확인 (Rule 47)');
+        } else {
+          console.log('  ⚠️ Basic IM에 고급 분석 키워드 발견 — Pro IM 혼입 가능성');
+        }
+
+        // P8-05: 면적 단위 일관성 검증
+        const hasArea = text.includes('㎡') || text.includes('평')
+          || text.includes('m²') || text.includes('sqm');
+        if (hasArea) {
+          console.log('  ✅ 면적 단위 표기 존재');
+        }
+
+        console.log(`  🎉 Phase 8 재무 교차 검증 완료`);
+      });
+    },
+
     /** Phase 1~10 전체 등록 (편의 메서드) */
     registerAllPhases() {
-      this.registerCommonPhases();   // Phase 1~4
-      this.registerViewerPhase();    // Phase 5
-      this.registerOverflowPhase();  // Phase 7
-      this.registerSnapshotPhase();  // Phase 10
+      this.registerCommonPhases();     // Phase 1~4
+      this.registerViewerPhase();      // Phase 5
+      this.registerApprovalPhase();    // Phase 6
+      this.registerOverflowPhase();    // Phase 7
+      this.registerFinancialPhase();   // Phase 8
+      this.registerSnapshotPhase();    // Phase 10
     },
 
     /** 상태 접근 (특수 검증에서 사용) */

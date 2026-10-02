@@ -19,7 +19,7 @@ const factory = createGoldenTest({
 });
 
 test.describe.serial(factory.suiteName, () => {
-  factory.registerCommonPhases();
+  factory.registerAllPhases();
 
   test('Phase 5: 수익형 A23 수익률 분석 슬라이드 존재', async () => {
     const text = factory.getPptxText();
