@@ -177,7 +177,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
     } else if (
       line.startsWith("**") &&
       line.endsWith("**") &&
-      !line.includes(" ")
+      line.length > 4
     ) {
       flush();
       elements.push(

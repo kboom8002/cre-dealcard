@@ -367,7 +367,7 @@ export function StackingPlanView({
 
           <div className="w-full flex flex-col items-center space-y-1 py-1 max-w-[480px]">
             {/* 1) 지상층 렌더링 */}
-            {aboveFloors.map(floor => {
+            {aboveFloors.map((floor, fIdx) => {
               const category = floor.category || 'general';
               const style = CATEGORY_STYLES[category];
               const isSelected = selectedFloor === floor.floor;
@@ -376,7 +376,7 @@ export function StackingPlanView({
 
               return (
                 <div
-                  key={floor.floor}
+                  key={`${floor.floor}-${fIdx}`}
                   className="w-full flex items-center justify-center relative group"
                 >
                   <button
@@ -434,7 +434,7 @@ export function StackingPlanView({
 
                 return (
                   <div
-                    key={floor.floor}
+                    key={`${floor.floor}-b${bIdx}`}
                     className="w-full flex items-center justify-center relative group"
                   >
                     {/* 지하 심도 지표 */}
@@ -559,11 +559,11 @@ export function StackingPlanView({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-800/60 font-mono text-[11px]">
-                  {floors.map(f => {
+                  {floors.map((f, tIdx) => {
                     const isSelected = selectedFloor === f.floor;
                     return (
                       <tr
-                        key={f.floor}
+                        key={`${f.floor}-${tIdx}`}
                         onClick={() => setSelectedFloor(isSelected ? null : f.floor)}
                         className={`cursor-pointer transition-colors ${
                           isSelected ? 'bg-amber-500/20 text-white font-bold' : 'hover:bg-neutral-800/50 text-neutral-300'

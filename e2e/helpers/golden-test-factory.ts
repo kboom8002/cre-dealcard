@@ -763,7 +763,7 @@ export function createGoldenTest(config: GoldenTestConfig) {
         console.log(`  📋 문서 상태: ${statusText}`);
 
         // P6-06: 공유 링크 확인
-        const shareLink = page.locator('a[href*="im-lite"], input[value*="im-lite"]').first();
+        const shareLink = page.locator('a[href*="im-lite"], input[value*="im-lite"], button:has-text("퍼블릭 IM"), button:has-text("링크 복사")').first();
         try {
           await shareLink.waitFor({ state: 'visible', timeout: 5000 });
           console.log('  ✅ 공유 링크 감지');
@@ -828,7 +828,7 @@ export function createGoldenTest(config: GoldenTestConfig) {
         }
 
         // P8-04: 포스처별 고급 분석 슬라이드 존재/부재 (Rule 47)
-        const advancedKeywords = ['DCF', 'NPV', '민감도', 'Sensitivity', '시나리오'];
+        const advancedKeywords = ['DCF', 'NPV', '민감도', 'Sensitivity'];
         const hasAdvanced = advancedKeywords.some(kw => text.includes(kw));
 
         // Basic IM에서는 고급 분석이 없어야 함

@@ -924,8 +924,8 @@ export function bindProImChapterData(
           depositKrw: depKrw,
           monthlyRentKrw: rentKrw,
           monthlyMaintenanceKrw: maintKrw,
-          leaseStartDate: item.leaseStartDate || item.lease_start_date || '',
-          leaseEndDate: item.leaseEndDate || item.lease_end_date || '',
+          leaseStartDate: item.leaseStartDate || item.lease_start_date || item.lease_start || '',
+          leaseEndDate: item.leaseEndDate || item.lease_end_date || item.lease_end || '',
           statutoryProtection10Y: Boolean(item.statutoryProtection10Y ?? item.statutory_protection_10y ?? true),
           isAnchor: Boolean(item.isAnchor ?? item.is_anchor ?? false),
         };

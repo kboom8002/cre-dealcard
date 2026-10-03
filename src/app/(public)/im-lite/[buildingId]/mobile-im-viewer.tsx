@@ -141,6 +141,7 @@ export function MobileIMViewer({
       body: JSON.stringify({ section_viewed: null }),
       signal: controller.signal,
     }).catch((err) => {
+      if (err.name === 'AbortError') return;
       console.warn("[mobile-im-viewer]", err);
     });
     return () => controller.abort();
