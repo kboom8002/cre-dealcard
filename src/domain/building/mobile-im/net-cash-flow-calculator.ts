@@ -123,6 +123,13 @@ export function formatNetCashFlowMarkdown(s: NetCashFlowSummary): string {
   const monthlyNetDescription = hasLoan
     ? `월 임대료(${s.monthlyRentManwon.toLocaleString()}만) - 월 이자(${s.monthlyInterestManwon.toLocaleString()}만)${loanNote}`
     : `월 임대료(${s.monthlyRentManwon.toLocaleString()}만)`;
+  // ③ 분자 = annualNet (대출 시 이자 차감 후) — 라벨·산출 기준을 분자와 일치시킨다.
+  const yieldLabel = hasLoan
+    ? '③ 임대수익률 (순투자금 대비·이자 차감 후·운영비 차감 전)'
+    : '③ 임대수익률 (순투자금 대비·운영비 차감 전)';
+  const yieldBasis = hasLoan
+    ? `연 임대수입−이자(약 ${s.annualNetBil}억 원) ÷ 순투자금`
+    : `연 임대수입(약 ${s.annualNetBil}억 원) ÷ 순투자금`;
 
   return `### 💡 투자금 · 월 임대수입 3줄 요약 (순투자금 기준)
 
@@ -130,6 +137,6 @@ export function formatNetCashFlowMarkdown(s: NetCashFlowSummary): string {
 |:---|---:|:---|
 | **${equityLabel}** | **약 ${s.netEquityBil}억 원** | 매매가(${s.askingPriceBil}억) - 보증금(${s.totalDepositBil}억) - 대출(${s.estimatedLoanBil}억), 취득비용 제외 |
 | **${monthlyLabel}** | **월 약 ${s.monthlyNetManwon.toLocaleString()}만 원** | ${monthlyNetDescription} |
-| **③ 임대수익률 (순투자금 대비·운영비 차감 전)** | **연 ${s.equityYieldPct}%** | 연 임대수입(약 ${s.annualNetBil}억 원) ÷ 순투자금 |
+| **${yieldLabel}** | **연 ${s.equityYieldPct}%** | ${yieldBasis} |
 ${landSafetyText}`;
 }

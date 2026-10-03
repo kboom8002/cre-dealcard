@@ -913,7 +913,7 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
     const yieldObj = buildYieldFromHeroCard(heroCard);
     if (yieldObj && Number.isFinite(yieldObj.value) && yieldObj.value > 0) {
       summaryYield = yieldObj;
-      metrics.push({ label: '연 수익률(Cap Rate)', value: `${yieldObj.value}%` });
+      metrics.push({ label: yieldLabel(yieldObj), value: `${yieldObj.value}%` });
     }
     const hasAnyVacant = Array.isArray(body?.floor_leases) && body.floor_leases.some((fl: any) => fl && (fl.is_vacant || String(fl.tenant_type || '').includes('공실')));
     const vacInfo = (heroCard.vacancyDisplay && heroCard.vacancyDisplay !== '확인 중')
@@ -945,7 +945,7 @@ export function buildSummaryFromOverview(markdown: string, tables: ParsedTable[]
       // 역레버리지 경고: ROE 대신 경고 메시지 표시
       metrics.push({
         label: '⚠️ 역레버리지 구간',
-        value: `수익률 ${heroCard.capRateBase}% < 금리 ${assumedLoanRate}%`,
+        value: `Cap Rate ${heroCard.capRateBase}% < 금리 ${assumedLoanRate}%`,
       });
     }
     } else if (posture === 'owner_occupied') {

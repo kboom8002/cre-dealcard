@@ -19,6 +19,31 @@ export interface ArchetypeOutput {
   warnings: string[];
 }
 
+const abbrBasis = (raw: string): string => {
+  const s = raw.trim();
+  if (/순영업소득|NOI/.test(s)) return 'NOI';
+  if (/유효총소득|EGI/.test(s)) return '유효총소득';
+  if (/총임대료|GPI/.test(s)) return '총임대료';
+  if (/보증금/.test(s)) return '매매가−보증금';
+  if (/매매가/.test(s)) return '매매가';
+  return s;
+};
+
+/**
+ * Wave 9.3 (b안): 요약 카드 라벨에 산출 기준을 짧게 병기한다.
+ * - "연 순수익률(Cap Rate, 기준: 순영업소득 ÷ 매매가격)" → "Cap Rate (NOI÷매매가)"
+ * - "연 수익률(Cap Rate, 기준: NOI)" → "Cap Rate (NOI÷매매가)"
+ * - "실투자금" / "필요 실투자금" → "실투자금 (취득비용 포함)"
+ */
+export function normalizeSummaryLabel(label: string): string {
+  const full = label.match(/Cap Rate,\s*기준:\s*([^÷)]+?)\s*÷\s*([^)]+?)\)/);
+  if (full) return `Cap Rate (${abbrBasis(full[1])}÷${abbrBasis(full[2])})`;
+  const numOnly = label.match(/Cap Rate,\s*기준:\s*([^)]+?)\)/);
+  if (numOnly) return `Cap Rate (${abbrBasis(numOnly[1])}÷매매가)`;
+  if (/^\s*(필요\s*)?실투자금\s*$/.test(label)) return '실투자금 (취득비용 포함)';
+  return label.replace(/,\s*기준:.*?\)/, ')');
+}
+
 export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
   const slide = L.light(input.pres);
   const warnings: string[] = [];
@@ -124,7 +149,8 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
     if (!metrics.some((m: any) => m.label && (m.label.includes('수익률') || m.label.includes('Cap Rate')))) {
       const isPosCap = hero.capRateBase != null && Number.isFinite(Number(hero.capRateBase)) && Number(hero.capRateBase) > 0;
       const cap = isPosCap ? `${hero.capRateBase}%` : (hero.grossYieldDisplay && !String(hero.grossYieldDisplay).includes('Infinity') ? hero.grossYieldDisplay : '-');
-      metrics.push({ label: '연 수익률(Cap Rate)', value: cap });
+      // capRateBase = NOI(base) ÷ 매매가 (FinancialCalculator). grossYieldDisplay는 기준 불명 → 일반 라벨
+      metrics.push({ label: isPosCap ? 'Cap Rate (NOI÷매매가)' : '연 수익률', value: cap });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('실투자금'))) {
       const isPosEq = hero.equityRequiredBil != null && Number.isFinite(Number(hero.equityRequiredBil)) && Number(hero.equityRequiredBil) > 0;
@@ -146,7 +172,7 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       metrics.push({ label: '대지면적', value: site });
     }
     if (!metrics.some((m: any) => m.label && m.label.includes('공실'))) {
-      const vac = hero.vacancyDisplay ?? '확인 중';
+      const vac = hero.vacancyDisplay && hero.vacancyDisplay !== '확인 중' ? hero.vacancyDisplay : '-';
       metrics.push({ label: '공실 현황', value: vac });
     }
   }
@@ -195,8 +221,10 @@ export function buildA02StatGrid(input: ArchetypeInput): ArchetypeOutput {
       const x = L.colX(colIdx, cardW, gap);
       const y = startY + row * (cardH + gap);
       
-      // 긴 기준문구 정리: "연 수익률(Cap Rate, 기준: 총임대료 ÷ 매매가격)" → "연 수익률(Cap Rate)"
-      const cleanLabel = String(m.label || '').replace(/,\s*기준:.*?\)/, '');
+      // Wave 9.3 (b안): 요약 카드 라벨에 산출 기준을 짧게 병기
+      //   "연 순수익률(Cap Rate, 기준: 순영업소득 ÷ 매매가격)" → "Cap Rate (NOI÷매매가)"
+      //   "실투자금" → "실투자금 (취득비용 포함)" (equityRequiredBil = 총취득원가 − 보증금 − 대출)
+      const cleanLabel = normalizeSummaryLabel(String(m.label || ''));
 
       L.stat(slide, x, y, cardW,
         cleanLabel,

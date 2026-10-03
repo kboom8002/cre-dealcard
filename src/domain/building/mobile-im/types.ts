@@ -443,13 +443,19 @@ export interface HeroCardData {
   assetType: string;
   areaSignal: string;
   askingPriceDisplay: string;   // e.g. "120억 원"
-  capRateBase: number | null;   // % (e.g. 4.2)
+  capRateBase: number | null;   // % (e.g. 4.2) — FinancialCalculator: NOI(base) ÷ 매매가
   noiBaseBil: number | null;    // 억원
+  /** capRateBase 산출 기준 (G38: 'NOI'이면 noiDeductions 1건 이상 필수). 미지정 시 소비자는 GPI로 간주 */
+  yieldBasis?: 'NOI' | 'GPI';
+  /** NOI 산출 시 총임대료에서 공제된 항목 (원) */
+  noiDeductions?: Array<{ name: string; amount: number }>;
   keyInvestmentPoint: string;   // 핵심 투자 포인트 1줄
   keyPoints?: string[];         // 3대 핵심 투자 포인트 불릿 목록
   keyRisk: string;              // 핵심 리스크 1줄
   equityRequiredBil: number | null; // 자기자본 소요 (억원)
-  leveragedYieldPct: number | null; // 레버리지 수익률 (%)
+  leveragedYieldPct: number | null; // 레버리지 수익률 (%) — (NOI − 대출이자) ÷ 순투자금
+  /** 대출 반영 여부 (true면 leveragedYieldPct 분자에 이자 차감) */
+  hasLoan?: boolean;
   readinessScore: number;       // SSoT 완성도 (0-100)
   dcf10YearNpvBil: number | null; // 10년 DCF NPV (억원)
   posture?: string;

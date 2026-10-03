@@ -108,12 +108,15 @@ export function generateInvestorCopyBlock(params: InvestorCopyParams): InvestorC
         ? `월 약 ${Math.round(financials.annualNoi.base / 12 / 10000).toLocaleString()}만원` 
         : '안정적 월 임대료';
 
+      // leveragedYield = (NOI − 대출이자) ÷ 순투자금 — 대출 없으면 이자 0
+      const roeBasis = (financials?.loanAmountBil ?? 0) > 0 ? '(NOI−이자)÷순투자금' : 'NOI÷순투자금';
+
       return {
         headline: `${areaSignal} 안정 임대수익형 자산 (매도 희망가 ${priceBand})`,
         investmentPoints: [
           landRatio !== null ? `토지 평가액 비중 ${landRatio}% 수준으로 토지 평가액 기반 하방 안정성 확보` : null,
           `임차인(Tenant) 분산 기반 공실 위험 완화 및 ${monthlyNet} 수준의 안정적 월 현금흐름`,
-          leveragedYield !== null ? `선순위 대출 및 임대보증금 레버리지 활용 시 자기자본수익률(NOI÷순투자금) ${leveragedYield}% 추정` : null,
+          leveragedYield !== null ? `선순위 대출 및 임대보증금 레버리지 활용 시 자기자본수익률(${roeBasis}) ${leveragedYield}% 추정` : null,
         ].filter(Boolean) as [string, string, string],
         keyRisk: vacancyPct && vacancyPct > 10 
           ? `일부 공실(${vacancyPct}%) 발생 → 전속 MD 개편 및 렌트프리(무상임대) 협의를 통해 임대 안정화 추진` 
@@ -122,7 +125,7 @@ export function generateInvestorCopyBlock(params: InvestorCopyParams): InvestorC
           // Wave 9.3 (b안): 지표마다 산출 기준을 병기 — 실투자금(취득비용 포함) / 순투자금(매매가−보증금−대출)
           totalInvestment: `실투자금(취득비용 포함) ${equityReq}`,
           monthlyCashFlow: `순영업소득(NOI) ${monthlyNet}`,
-          annualReturn: leveragedYield !== null ? `자기자본수익률(NOI÷순투자금) ${leveragedYield}%` : '자기자본수익률 -',
+          annualReturn: leveragedYield !== null ? `자기자본수익률(${roeBasis}) ${leveragedYield}%` : '자기자본수익률 -',
         },
       };
     }

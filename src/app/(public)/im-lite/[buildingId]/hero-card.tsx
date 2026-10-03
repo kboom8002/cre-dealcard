@@ -185,7 +185,7 @@ export function HeroCard({ data }: HeroCardProps) {
                   highlight={data.capRateBase !== null && data.capRateBase >= 3.5}
                 />
                 <MetricCell
-                  label="자기자본수익률 (NOI÷순투자금)"
+                  label={data.hasLoan ? "자기자본수익률 ((NOI−이자)÷순투자금)" : "자기자본수익률 (NOI÷순투자금)"}
                   value={fmt(data.leveragedYieldPct, "%")}
                   highlight={data.leveragedYieldPct !== null && data.leveragedYieldPct >= 5}
                 />

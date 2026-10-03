@@ -94,12 +94,13 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   const rawCap = typeof capRateAsIs === 'number' ? capRateAsIs : parseFloat(String(capRateAsIs));
   const numCapRate = Number.isFinite(rawCap) && rawCap > 0 ? rawCap : 0;
 
-  // Wave 9.3 (b안): 값 = 연 임대수입 ÷ 순투자금(매매가−보증금) — 요약 슬라이드의 Cap Rate(NOI÷매매가)와 구분되도록 기준 병기
+  // Wave 9.3 (b안): 값 = 연 임대수입 ÷ (매매가−보증금) — 요약 슬라이드의 Cap Rate(NOI÷매매가)와 구분되도록 기준 병기.
+  //   모바일 '순투자금'은 대출까지 차감(매매가−보증금−대출)하므로, 대출 유무와 무관하게 정확하도록 A23은 공식으로 표기한다.
   slide.addText([
     { text: '임대수익률', options: { fontSize: 16, bold: true, breakLine: true } },
-    { text: '순투자금 대비 · 운영비 차감 전', options: { fontSize: 9, bold: false } },
+    { text: '(매매가−보증금) 대비 · 운영비 차감 전', options: { fontSize: 9, bold: false } },
   ], {
-    x: M + 0.50, y: yieldBgY, w: 2.6, h: yieldBgH,
+    x: M + 0.50, y: yieldBgY, w: 3.0, h: yieldBgH,
     color: 'FFFFFF', fontFace: KR, valign: 'middle',
   });
   slide.addText(`${numCapRate.toFixed(2)}%`, {
@@ -135,7 +136,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   renderRow('연간 임대수입', fmtManwon(annualRent));
   renderRow('승계 보증금', fmtManwon(totalDeposit));
   renderRow('매매가', fmtManwon(askingPrice));
-  renderRow('순투자금 (매매가−보증금)', fmtManwon(netInvestment), true);
+  renderRow('보증금 차감 매입가 (매매가−보증금)', fmtManwon(netInvestment), true);
 
   // 토지평당가 (공시지가 최신값이 있을 때)
   if (landPriceHistory?.latestPricePerSqm > 0) {
@@ -164,9 +165,10 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
       line: { color: C.brass, width: 1.0 },
       rectRadius: 0.06,
     });
-    const stabLabel = assumption ? `◇ 분석가정 (Stabilized)\n${assumption}` : '◇ 분석가정 (Stabilized)';
+    const stabTitle = '◇ 분석가정 · 안정화 임대수익률 (Stabilized)';
+    const stabLabel = assumption ? `${stabTitle}\n${assumption}` : stabTitle;
     slide.addText(stabLabel, {
-      x: M + 0.40, y: rowY, w: 2.8, h: stabBadgeH,
+      x: M + 0.40, y: rowY, w: 3.6, h: stabBadgeH,
       color: C.ink, fontFace: KR, fontSize: assumption ? 8.5 : 10, bold: true, valign: 'middle',
     });
     const rawStab = typeof capRateStabilized === 'number' ? capRateStabilized : parseFloat(String(capRateStabilized));
@@ -288,11 +290,11 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   // 수익률 비교 (서울 소형빌딩 평균 4.5~5.5% 기준)
   if (numCapRate > 0) {
     if (numCapRate >= 6.0) {
-      calloutBullets.push(`• 수익률 ${numCapRate.toFixed(1)}%는 서울 소형빌딩 시장 평균(4.5~5.5%) 대비 양호한 수준`);
+      calloutBullets.push(`• 임대수익률 ${numCapRate.toFixed(1)}%는 서울 소형빌딩 시장 평균(4.5~5.5%) 대비 양호한 수준`);
     } else if (numCapRate >= 4.5) {
-      calloutBullets.push(`• 수익률 ${numCapRate.toFixed(1)}%는 서울 소형빌딩 시장 평균 수준`);
+      calloutBullets.push(`• 임대수익률 ${numCapRate.toFixed(1)}%는 서울 소형빌딩 시장 평균 수준`);
     } else {
-      calloutBullets.push(`• 수익률 ${numCapRate.toFixed(1)}%는 시장 평균 하회 — 토지가치 상승 또는 리모델링 후 임대료 증대 가능성 검토 필요`);
+      calloutBullets.push(`• 임대수익률 ${numCapRate.toFixed(1)}%는 시장 평균 하회 — 토지가치 상승 또는 리모델링 후 임대료 증대 가능성 검토 필요`);
     }
   }
 

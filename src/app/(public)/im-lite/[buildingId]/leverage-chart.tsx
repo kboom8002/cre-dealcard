@@ -181,7 +181,7 @@ export function LeverageChart({
             자기자본수익률 {leveragedYieldPct.toFixed(1)}%
           </span>
           <span className="text-xs text-neutral-600">
-            NOI ÷ 순투자금(매매가−보증금−대출)
+            {loanBil > 0 ? "(NOI−이자)" : "NOI"} ÷ 순투자금(매매가−보증금−대출)
           </span>
         </div>
       )}

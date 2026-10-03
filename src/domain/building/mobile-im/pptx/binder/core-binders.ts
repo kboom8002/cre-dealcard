@@ -1,4 +1,4 @@
-﻿import { buildYieldFromHeroCard, buildYieldFromIMCore, yieldLabel, type Yield } from "../yield-object";
+import { buildYieldFromHeroCard, buildYieldFromIMCore, yieldLabel, type Yield } from "../yield-object";
 import type { ClaimRegistry } from "@/domain/building/im-core/claim-registry";
 import type { PermitZoneResult } from "@/domain/building/im-core/permit-zone";
 import type { ConvertedDepositResult, EffectiveRentResult } from "@/domain/building/im-core/lease-calc";
@@ -345,16 +345,19 @@ export function bindFromExternalData(enrichment: Record<string, any>, dataMap: R
       const overlap = Array.isArray(lup.zoningOverlap) ? lup.zoningOverlap.join(', ') : lup.zoningOverlap;
       if (overlap) rows.push(['용도지구', overlap]);
     }
-    if (lup?.buildingCoverageMax) rows.push(['법정 건폐율 상한', `${lup.buildingCoverageMax}%`]);
-    if (lup?.floorAreaRatioMax) rows.push(['법정 용적률 상한', `${lup.floorAreaRatioMax}%`]);
+    // Rule 4 비중복: 법정 건폐율·용적률 상한은 아래 '건폐율/용적률' 행에 이미 병기되므로 별도 행을 만들지 않는다.
 
-    // G-06: 대지면적 — V-World landUsePlan → landPrice → buildingRegister.platArea → ssot_summary 순 폴백
-    const effectiveLandArea = lup?.landArea
-      ?? lp?.landArea
-      ?? regPlatArea
-      ?? body?.ssot_summary?.land_area_sqm
-      ?? body?.ssot_summary?.plat_area_sqm
-      ?? body?.heroCard?.landAreaM2;
+    // G-06 → Wave 9.3: 대지면적 — 물건 개요(A04 building)와 동일 우선순위로 단일화.
+    //   V-World landUsePlan/landPrice.landArea는 '대표 필지' 1개 면적이라 다필지 대지(예: 117번지 외 2필지)에서 과소 표기됨
+    //   → SSoT/건축물대장 대지면적 우선, V-World는 최후 폴백.
+    const effectiveLandArea = [
+      body?.ssot_summary?.land_area_sqm,
+      regPlatArea,
+      body?.ssot_summary?.plat_area_sqm,
+      body?.heroCard?.landAreaM2,
+      lup?.landArea,
+      lp?.landArea,
+    ].map(v => Number(v)).find(n => Number.isFinite(n) && n > 0);
     const STATUTORY_ZONING_LIMITS: Record<string, { bcr: number; far: number }> = {
       '준공업지역': { bcr: 60, far: 400 },
       '제1종일반주거지역': { bcr: 60, far: 150 },

@@ -502,6 +502,16 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     askingPriceDisplay: askDisplay,
     capRateBase: cachedFinancials?.capRate?.base ?? null,
     noiBaseBil: cachedFinancials?.annualNoi?.base ? parseFloat((cachedFinancials.annualNoi.base / 1e8).toFixed(1)) : null,
+    // Wave 9.3 (b안): capRate.base = NOI(base) ÷ 매매가 → 라벨이 산출 경로와 일치하도록 기준·공제항목 기록 (G38)
+    ...(() => {
+      const grossKrw = Number((cachedFinancials as any)?.annualRentBil ?? 0) * 1e8;
+      const noiKrw = Number(cachedFinancials?.annualNoi?.base ?? 0);
+      const deduction = Math.round(grossKrw - noiKrw);
+      if (cachedFinancials?.capRate?.base && grossKrw > 0 && noiKrw > 0 && deduction > 0) {
+        return { yieldBasis: 'NOI' as const, noiDeductions: [{ name: '공실·운영비', amount: deduction }] };
+      }
+      return {};
+    })(),
     keyInvestmentPoint: String(ctx.buyerFit.fit_summary ?? (() => {
       const areaSig = String(ctx.assetIdentity.area_signal || '');
       const area = areaSig || '핵심 권역';
@@ -583,6 +593,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     })()),
     equityRequiredBil: cachedFinancials?.equityRequired ?? null,
     leveragedYieldPct: cachedFinancials?.leveragedYield ?? null,
+    hasLoan: Number((cachedFinancials as any)?.loanAmountBil ?? 0) > 0,
     readinessScore: input.readiness.score,
     dcf10YearNpvBil: cachedFinancials?.dcf10Year?.npvBase ? parseFloat((cachedFinancials.dcf10Year.npvBase / 1e8).toFixed(1)) : null,
     landAreaM2: input.external_data?.buildingRegister?.platArea ?? null,
