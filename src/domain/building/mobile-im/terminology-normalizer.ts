@@ -137,7 +137,7 @@ export const HARDCODED_TERM_RULES: ReplacementRule[] = [
   { id: 'hardcoded_remodeled', pattern: /리모(한|됨|된)/g, replacement: '리모델링 완료', category: '건물상태' },
   { id: 'hardcoded_senior_debt', pattern: /근저당\s*많/g, replacement: '선순위 채권 부담이 큰', category: '법률' },
   { id: 'hardcoded_has_debt', pattern: /빚\s*(많|있)/g, replacement: '금융 부채가 존재하는', category: '법률' },
-  { id: 'hardcoded_illegal_building', pattern: /위반\s*건축/g, replacement: '건축법 위반 사항', category: '법률' },
+  { id: 'hardcoded_illegal_building', pattern: /위반\s*건축(?!물)/g, replacement: '건축법 위반 사항', category: '법률' },
   { id: 'hardcoded_illegal_expansion', pattern: /불법\s*증축/g, replacement: '무허가 증축(건축법 위반)', category: '법률' },
   { id: 'hardcoded_jeonse_right', pattern: /전세권\s*설정/g, replacement: '전세권 등기 설정', category: '법률' },
   { id: 'hardcoded_ads_best', pattern: /최고의|제일\s*좋은/g, replacement: '경쟁력 있는', category: '홍보' },

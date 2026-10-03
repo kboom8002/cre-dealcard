@@ -319,14 +319,30 @@ ${rentRollTable}
             isBasicMode: !supplemental.loan_amount_manwon,
           });
           let finMd = formatFinancialsMarkdown(fin);
+          // Wave 9.2: formatFinancialsMarkdown은 "> ⚠️ 면책" 인용구로 끝나므로,
+          // 추가 행을 단순 append 하면 표가 아닌 인용구 뒤에 고아 행으로 붙는다 → 인용구 앞에 삽입
+          const extraRows: string[] = [];
           if (supplemental.asking_price_manwon) {
-            finMd += `\n| **매도 희망가** | **${(supplemental.asking_price_manwon / 10000).toLocaleString()}억 원** | 중개인 제공 |`;
+            extraRows.push(`| **매도 희망가** | **${(supplemental.asking_price_manwon / 10000).toLocaleString()}억 원** | 중개인 제공 |`);
           }
           if (landPricePerSqm > 0) {
-            finMd += `\n| **공시지가** | ㎡당 ${landPricePerSqm.toLocaleString()}원 (3.3㎡당 ${pricePerPyeong.toLocaleString()}원) | ${lp?.baseYear || "2025"}년 기준 |`;
+            extraRows.push(`| **공시지가** | ㎡당 ${landPricePerSqm.toLocaleString()}원 (3.3㎡당 ${pricePerPyeong.toLocaleString()}원) | ${lp?.baseYear || "2025"}년 기준 |`);
           }
           if (yieldPct > 0) {
-            finMd += `\n| **브로커 제공 수익률** | **${yieldPct}%** | 브로커 제공 |`;
+            extraRows.push(`| **브로커 제공 수익률** | **${yieldPct}%** | 브로커 제공 |`);
+          }
+          if (extraRows.length > 0) {
+            const lines = finMd.replace(/\s+$/, '').split('\n');
+            let lastRowIdx = -1;
+            for (let i = lines.length - 1; i >= 0; i--) {
+              if (/^\s*\|.*\|\s*$/.test(lines[i])) { lastRowIdx = i; break; }
+            }
+            if (lastRowIdx >= 0) {
+              lines.splice(lastRowIdx + 1, 0, ...extraRows);
+              finMd = lines.join('\n');
+            } else {
+              finMd += '\n' + extraRows.join('\n');
+            }
           }
 
           // 실투자금 및 순현금흐름 핵심 요약 결합

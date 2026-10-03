@@ -237,8 +237,9 @@ const PROTECTED_FIELD_DETECTORS: ProtectedFieldDetector[] = [
   {
     field: "unit_rent",
     patterns: [
-      /월세\s*\d+만\s*원/,
-      /보증금\s*\d+억/,
+      // Wave 9.2: 금액 전체(억·만·원)를 소비 — 부분 치환 시 "…(NDA)3,700만원" 잔여 파편 발생 방지
+      /월세\s*[\d,]+만\s*원/,
+      /보증금\s*[\d,]+억(?:\s*[\d,]+만)?\s*원?/,
       /\d+호\s*[가-힣]*\s*\d+만\s*원/,
     ],
     publicBlocked: true,

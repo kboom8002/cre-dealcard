@@ -172,7 +172,6 @@ function parseFloorsFromMarkdown(markdown?: string): StackingPlanFloor[] {
       expiryYear = parseInt(String(expiryYear).slice(0, 4), 10);
     }
 
-    const isSub = floor.toUpperCase().startsWith('B');
     const isParking = use.includes('주차') || tenant.includes('주차') || use.includes('기계') || tenant.includes('기계');
     const isAnchor = tenant.includes('사옥') || tenant.includes('본사') || (exclusiveAreaPy != null && exclusiveAreaPy > 200);
     const isRetail = use.includes('근린') || use.includes('근생') || tenant.includes('편의점') || tenant.includes('의원') || tenant.includes('베이커리') || tenant.includes('약국') || tenant.includes('카페') || tenant.includes('소매점') || tenant.includes('헬스');
@@ -184,13 +183,9 @@ function parseFloorsFromMarkdown(markdown?: string): StackingPlanFloor[] {
     else if (isAnchor) category = 'anchor';
     else if (isRetail) category = 'retail';
 
-    // 셋백 비율 계산
-    let setbackRatio = 1.0;
-    if (floor === '11F') setbackRatio = 0.51;
-    else if (floor === '10F') setbackRatio = 0.64;
-    else if (floor === '2F') setbackRatio = 0.86;
-    else if (floor === '1F') setbackRatio = 0.79;
-    else if (isSub) setbackRatio = floor === 'B6F' ? 1.15 : 1.34;
+    // Wave 9.2 / Rule 34: 특정 픽스처(NH 사옥)의 셋백 형상(10F·11F 테라스, 1F·2F 축소, B6F 심도)을
+    // 모든 매물에 적용하던 하드코딩 제거 — 실측 형상 데이터가 없으므로 균일 폭으로 도식화
+    const setbackRatio = 1.0;
 
     floors.push({
       floor,
@@ -205,7 +200,7 @@ function parseFloorsFromMarkdown(markdown?: string): StackingPlanFloor[] {
       isVacant,
       category,
       setbackRatio,
-      hasTerrace: floor === '11F' || floor === '10F',
+      hasTerrace: false,
     });
   }
 
@@ -254,14 +249,37 @@ export function StackingPlanView({
     return floors.find(f => f.floor === selectedFloor) || null;
   }, [floors, selectedFloor]);
 
-  // 요약 지표
+  // 요약 지표 (Wave 9.2 / Rule 34: 픽스처 하드코딩 폴백 제거 — 실데이터에서 산출하거나 null)
   const summary = useMemo(() => {
-    const totalFromFloors = Math.round(floors.reduce((sum, f) => sum + (f.floorAreaPy || f.exclusiveAreaPy || 0), 0) * 10) / 10;
-    const totalGfa = propSummary?.totalGrossAreaPy || (totalFromFloors > 0 ? totalFromFloors : 0);
-    const exclusiveRate = propSummary?.exclusiveRatePct || 55.0;
-    const wale = propSummary?.waleYears || 2.1;
-    const vacancy = propSummary?.vacancyRatePct ?? 0.0;
-    return { totalGfa, exclusiveRate, wale, vacancy };
+    const areaOf = (f: StackingPlanFloor) => f.floorAreaPy || f.exclusiveAreaPy || 0;
+    const totalFromFloors = Math.round(floors.reduce((sum, f) => sum + areaOf(f), 0) * 10) / 10;
+    const gfaFromSummary = propSummary?.totalGrossAreaPy;
+    const totalGfa = gfaFromSummary || (totalFromFloors > 0 ? totalFromFloors : 0);
+    const gfaIsRegister = !!gfaFromSummary;
+
+    const exclusiveRate: number | null = propSummary?.exclusiveRatePct ?? null;
+
+    // WALE: 만기연도가 있는 임대 층의 면적 가중 잔여기간
+    let wale: number | null = propSummary?.waleYears ?? null;
+    if (wale == null) {
+      const nowYear = new Date().getFullYear();
+      const leased = floors.filter(f => !f.isVacant && f.expiryYear && areaOf(f) > 0);
+      const w = leased.reduce((s, f) => s + areaOf(f), 0);
+      if (w > 0) {
+        wale = Math.round((leased.reduce((s, f) => s + Math.max(0, (f.expiryYear as number) - nowYear) * areaOf(f), 0) / w) * 10) / 10;
+      }
+    }
+
+    // 공실률: 면적 기준 (공실 면적 / 렌트롤 면적 합계)
+    const vacantFloors = floors.filter(f => f.isVacant);
+    let vacancy: number | null = propSummary?.vacancyRatePct ?? null;
+    if (vacancy == null && totalFromFloors > 0) {
+      const vacantArea = vacantFloors.reduce((s, f) => s + areaOf(f), 0);
+      vacancy = Math.round((vacantArea / totalFromFloors) * 1000) / 10;
+    }
+    const unitVacancyPct = floors.length > 0 ? Math.round((vacantFloors.length / floors.length) * 1000) / 10 : null;
+
+    return { totalGfa, gfaIsRegister, exclusiveRate, wale, vacancy, vacantCount: vacantFloors.length, unitVacancyPct };
   }, [propSummary, floors]);
 
   // 층 정보가 없으면 렌더링하지 않음 (모의 건물 누출 완전 차단)
@@ -279,11 +297,11 @@ export function StackingPlanView({
               ARCHITECTURAL STACKING
             </span>
             <h3 className="text-base sm:text-lg font-black text-white">
-              {buildingName ? `${buildingName} ` : ''}건축 입면 셋백 스태킹 플랜
+              {buildingName ? `${buildingName} ` : ''}층별 스태킹 플랜
             </h3>
           </div>
           <p className="text-xs text-neutral-400 mt-1">
-            상층부 테라스 후퇴(Setback) 및 지하층 굴착 심도 단면 실루엣 실측 렌트롤
+            렌트롤 기준 층별 임차 구성 · 만기 · 공실 현황
           </p>
         </div>
 
@@ -323,32 +341,38 @@ export function StackingPlanView({
       {/* ── 4대 핵심 KPI 카드 ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
         <div className="rounded-xl bg-neutral-950/60 border border-neutral-800 p-3">
-          <p className="text-[11px] font-medium text-neutral-400">연면적</p>
+          <p className="text-[11px] font-medium text-neutral-400">{summary.gfaIsRegister ? '연면적' : '임대면적 합계'}</p>
           <p className="text-base sm:text-lg font-black text-white mt-0.5">
             {summary.totalGfa.toLocaleString()} <span className="text-xs font-normal text-neutral-400">평</span>
           </p>
-          <p className="text-[10px] text-neutral-500 mt-0.5">건축물대장 기준</p>
+          <p className="text-[10px] text-neutral-500 mt-0.5">{summary.gfaIsRegister ? '건축물대장 기준' : `렌트롤 ${floors.length}개 구획 합산`}</p>
         </div>
         <div className="rounded-xl bg-neutral-950/60 border border-neutral-800 p-3">
           <p className="text-[11px] font-medium text-neutral-400">전용률</p>
           <p className="text-base sm:text-lg font-black text-white mt-0.5">
-            {summary.exclusiveRate} <span className="text-xs font-normal text-neutral-400">%</span>
+            {summary.exclusiveRate != null ? <>{summary.exclusiveRate} <span className="text-xs font-normal text-neutral-400">%</span></> : '-'}
           </p>
-          <p className="text-[10px] text-neutral-500 mt-0.5">지상 78.4% 수준</p>
+          <p className="text-[10px] text-neutral-500 mt-0.5">{summary.exclusiveRate != null ? '전용/임대 면적 기준' : '공용면적 자료 없음'}</p>
         </div>
         <div className="rounded-xl bg-neutral-950/60 border border-neutral-800 p-3">
           <p className="text-[11px] font-medium text-neutral-400">WALE (잔여 임대)</p>
           <p className="text-base sm:text-lg font-black text-amber-400 mt-0.5">
-            {summary.wale} <span className="text-xs font-normal text-neutral-400">년</span>
+            {summary.wale != null ? <>{summary.wale} <span className="text-xs font-normal text-neutral-400">년</span></> : '-'}
           </p>
-          <p className="text-[10px] text-neutral-500 mt-0.5">앵커사 만기 2026년</p>
+          <p className="text-[10px] text-neutral-500 mt-0.5">{summary.wale != null ? '면적 가중 · 만기연도 기준' : '렌트롤 만기 정보 없음'}</p>
         </div>
         <div className="rounded-xl bg-neutral-950/60 border border-neutral-800 p-3">
           <p className="text-[11px] font-medium text-neutral-400">공실률</p>
-          <p className="text-base sm:text-lg font-black text-emerald-400 mt-0.5">
-            {summary.vacancy} <span className="text-xs font-normal text-neutral-400">%</span>
+          <p className={`text-base sm:text-lg font-black mt-0.5 ${summary.vacancy ? 'text-red-400' : 'text-emerald-400'}`}>
+            {summary.vacancy != null ? <>{summary.vacancy} <span className="text-xs font-normal text-neutral-400">%</span></> : '-'}
           </p>
-          <p className="text-[10px] text-neutral-500 mt-0.5">전층 만실 운용</p>
+          <p className="text-[10px] text-neutral-500 mt-0.5">
+            {summary.vacancy == null
+              ? '면적 자료 없음'
+              : summary.vacantCount === 0
+                ? '전 구획 임대 중'
+                : `면적 기준 · 공실 ${summary.vacantCount}/${floors.length}구획(${summary.unitVacancyPct}%)`}
+          </p>
         </div>
       </div>
 
@@ -430,17 +454,19 @@ export function StackingPlanView({
                 const isSelected = selectedFloor === floor.floor;
                 const isDimmed = filterCategory !== 'all' && filterCategory !== category;
                 const widthPct = Math.min(100, Math.max(75, Math.round((floor.setbackRatio ?? 1.25) * 75)));
-                const depth = floor.depthMeters ?? ((bIdx + 1) * -3.5);
+                const depth = floor.depthMeters ?? null; // Rule 34: 층당 -3.5m 추정치 표시 제거
 
                 return (
                   <div
                     key={`${floor.floor}-b${bIdx}`}
                     className="w-full flex items-center justify-center relative group"
                   >
-                    {/* 지하 심도 지표 */}
-                    <span className="absolute left-1 text-[9px] text-neutral-500 font-mono hidden sm:inline-block">
-                      {depth}m
-                    </span>
+                    {/* 지하 심도 지표 (실데이터 있을 때만) */}
+                    {depth != null && (
+                      <span className="absolute left-1 text-[9px] text-neutral-500 font-mono hidden sm:inline-block">
+                        {depth}m
+                      </span>
+                    )}
 
                     <button
                       onClick={() => setSelectedFloor(isSelected ? null : floor.floor)}
@@ -591,7 +617,7 @@ export function StackingPlanView({
       <div className="text-[11px] text-neutral-500 leading-relaxed border-t border-neutral-800 pt-3 flex items-start gap-1.5">
         <span className="text-amber-500 shrink-0">※</span>
         <span>
-          본 스태킹 플랜은 건축물대장 및 실측 임대차계약서 기준이며, 10F~11F는 일조권 및 도로사선 후퇴(Setback)에 따른 옥외 테라스 구조가 적용되어 있습니다.
+          본 스태킹 플랜은 중개인 제공 렌트롤 기준이며, 단면 형상은 층 구성을 보여주는 도식으로 실제 건축 형태와 다를 수 있습니다.
         </span>
       </div>
     </div>

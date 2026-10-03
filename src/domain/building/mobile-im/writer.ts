@@ -571,7 +571,12 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     })(),
     keyRisk: String(ctx.buyerFit.caution_summary ?? (() => {
       const parts: string[] = [];
-      if (!ctx.assetIdentity.vacancy_signal) parts.push('공실률 미확인');
+      // Wave 9.2: 렌트롤(floor_leases)·supplemental 공실 데이터가 있으면 '미확인'으로 표기하지 않음
+      const hasVacancyData = !!ctx.assetIdentity.vacancy_signal
+        || input.supplemental?.vacancy_pct != null
+        || !!input.supplemental?.vacancy_status
+        || (Array.isArray(input.supplemental?.floor_leases) && input.supplemental.floor_leases.length > 0);
+      if (!hasVacancyData) parts.push('공실률 미확인');
       if (!ctx.assetIdentity.price_band) parts.push('매각가 미공개');
       parts.push('등기·건축물대장 현장 실사 필요');
       return parts.join(', ') + '. 투자 결정 전 반드시 직접 검증하시기 바랍니다.';

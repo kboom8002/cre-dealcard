@@ -9,6 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeSectionMarkdown } from '@/lib/utils/markdown-normalizer';
 import { normalizeTerminology } from '@/domain/building/mobile-im/terminology-normalizer';
+import { runDisclosureGuard } from '@/domain/building/mobile-im/guardrails';
 
 const OVERVIEW_RAW =
   '**양평** 소재 **[건물명 비공개]** 주요 자산입니다. | 항목 | 내용 |\n|------|------|\n| **소재지** | 양평 |\n| **주요 용도** | 업무시설 |\n| **매도 희망가** | 250억 | > 본 매물은 양평 입지의 안정적 임대 수익형 자산입니다.';
@@ -89,5 +90,73 @@ describe('normalizeSectionMarkdown — 가운뎃점(·) 오분리 방지', () =>
     const out = lines(normalizeSectionMarkdown('요약입니다. · 역세권 입지 · 신축급 건물'));
     expect(out[0]).toBe('요약입니다.');
     expect(out[1]).toBe('· 역세권 입지 · 신축급 건물');
+  });
+});
+
+// ─── Wave 9.2: 2차 골든 실행(doc 6c14d338) 원문 기반 ───────────────────────────
+
+const OVERVIEW_RAW_2 =
+  '**자산 개요** **핵심 한줄 정의: 선유도역 도보 2분, 2018년 준공의 지하 1층~지상 10층 업무시설([건물명 비공개])입니다.** 서울 영등포구 양평로에 위치합니다. 선유도역 도보 2분 입지를 바탕으로 안정적인 오피스 임차수요 확보가 기대됩니다. > **자산 하이라이트**: • 선유도역 도보 2분의 역세권 도보권 접근성 • 2018년 준공, B1~10F의 753.3평(약 2490.2㎡) 업무시설';
+
+const LEASE_RAW_2 =
+  '**층별 임대 현황**\n| 층수 | 업종 | 전용면적 |\n|------|------|----------|\n| B1 | 🚫 공실 | 128평 |\n| 10F | 건축설계사무소 | 63평 | **임대차 종합 요약**\n| 구분 | 지표 분석 | 비고 |\n|------|-----------|------|\n| **공실 현황** | 8.3% | 공실 1실 |';
+
+describe('normalizeSectionMarkdown — Wave 9.2 (Q1/T3/H2)', () => {
+  it('Q1: 문장 끝 뒤에 붙은 인용구를 독립 줄로 분리한다', () => {
+    const out = lines(normalizeSectionMarkdown(OVERVIEW_RAW_2));
+    expect(out).toContain('> **자산 하이라이트**:');
+    expect(out.some(l => /기대됩니다\.\s*>/.test(l))).toBe(false);
+    expect(out).toContain('• 선유도역 도보 2분의 역세권 도보권 접근성');
+  });
+
+  it('H2: 줄 머리 짧은 볼드 라벨과 볼드 문장을 분리한다', () => {
+    const out = lines(normalizeSectionMarkdown(OVERVIEW_RAW_2));
+    expect(out[0]).toBe('**자산 개요**');
+    expect(out[1].startsWith('**핵심 한줄 정의:')).toBe(true);
+  });
+
+  it('H2 negative: 볼드 명사 + 평문("**양평** 소재")과 조사로 끝나는 볼드는 분리하지 않는다', () => {
+    const src1 = '**양평** 소재 **[건물명 비공개]** 주요 자산입니다.';
+    expect(normalizeSectionMarkdown(src1)).toBe(src1);
+    const src2 = '**본 자산은** **역세권 도보 2분 입지의 업무시설입니다.**';
+    expect(normalizeSectionMarkdown(src2)).toBe(src2);
+  });
+
+  it('T3: 표 마지막 행 뒤 볼드 소제목을 분리하고, 규칙 7이 재접착하지 않는다', () => {
+    const out = lines(normalizeSectionMarkdown(LEASE_RAW_2));
+    expect(out).toContain('| 10F | 건축설계사무소 | 63평 |');
+    expect(out).toContain('**임대차 종합 요약**');
+    const idx = out.indexOf('**임대차 종합 요약**');
+    expect(out[idx + 1]).toBe('| 구분 | 지표 분석 | 비고 |');
+  });
+
+  it('규칙 7 positive: 셀 조각 "|\\n\\n**항목** |"은 여전히 재결합한다', () => {
+    const out = normalizeSectionMarkdown('| 구분 |\n\n**항목** | 값 |');
+    expect(out).toBe('| 구분 | **항목** | 값 |');
+  });
+
+  it('멱등성 (Wave 9.2 픽스처)', () => {
+    for (const raw of [OVERVIEW_RAW_2, LEASE_RAW_2]) {
+      const once = normalizeSectionMarkdown(raw);
+      expect(normalizeSectionMarkdown(once)).toBe(once);
+    }
+  });
+});
+
+describe('Wave 9.2 — 용어/마스킹 파편 방지', () => {
+  it('"위반건축물"(법정 용어)을 "건축법 위반 사항물"로 훼손하지 않는다', () => {
+    const { text } = normalizeTerminology('건축물대장상 위반건축물 여부를 확인합니다.');
+    expect(text).not.toContain('사항물');
+    expect(text).toContain('위반건축물');
+  });
+
+  it('"위반 건축"(구어)은 여전히 정규화된다', () => {
+    expect(normalizeTerminology('위반 건축 이력 있음').text).toContain('건축법 위반 사항');
+  });
+
+  it('보증금 마스킹 시 금액 파편("3,700만원")이 남지 않는다', () => {
+    const { safe_text } = runDisclosureGuard('기존 임차인의 보증금 5억 3,700만원 및 대항력을 확인합니다.');
+    expect(safe_text).not.toMatch(/\]\s*3,700만/);
+    expect(safe_text).not.toContain('3,700만원');
   });
 });
