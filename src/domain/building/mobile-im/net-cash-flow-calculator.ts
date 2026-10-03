@@ -113,18 +113,23 @@ export function formatNetCashFlowMarkdown(s: NetCashFlowSummary): string {
     ? `\n> 🛡️ **하방 안정성(토지 평가액 비중)**: 토지 지분 가치 비중 **${s.landSafetyRatioPct}%**로 매입 원금의 하방 경직성을 강력하게 지지합니다.` 
     : '';
 
-  const equityLabel = hasLoan ? '① 실투자금 (대출 반영 기준)' : '① 실투자금';
+  // Wave 9.3 (b안): 같은 IM 안의 '실투자금(취득비용 포함)'·'자기자본수익률(NOI÷순투자금)'과 구분되도록
+  // 이 표의 모든 지표는 산출 기준(순투자금 / 운영비 차감 전)을 이름에 병기한다. 수치 자체는 변경 없음.
+  const equityLabel = '① 순투자금 (매매가−보증금−대출)';
 
+  const monthlyLabel = hasLoan
+    ? '② 월 임대수입 (이자 차감·운영비 차감 전)'
+    : '② 월 임대수입 (운영비 차감 전)';
   const monthlyNetDescription = hasLoan
     ? `월 임대료(${s.monthlyRentManwon.toLocaleString()}만) - 월 이자(${s.monthlyInterestManwon.toLocaleString()}만)${loanNote}`
     : `월 임대료(${s.monthlyRentManwon.toLocaleString()}만)`;
 
-  return `### 💡 핵심 현금흐름 3줄 요약 (자기자본 & 월 순수익)
+  return `### 💡 투자금 · 월 임대수입 3줄 요약 (순투자금 기준)
 
 | 핵심 지표 | 금액 / 수익률 | 산출 기준 |
 |:---|---:|:---|
-| **${equityLabel}** | **약 ${s.netEquityBil}억 원** | 매매가(${s.askingPriceBil}억) - 대출(${s.estimatedLoanBil}억) - 보증금(${s.totalDepositBil}억) |
-| **② 월 순현금흐름(Net Cash Flow)** | **월 약 ${s.monthlyNetManwon.toLocaleString()}만 원** | ${monthlyNetDescription} |
-| **③ 자기자본 대비 연 수익률** | **연 ${s.equityYieldPct}%** | 실투자금 대비 연 순수익(약 ${s.annualNetBil}억 원) |
+| **${equityLabel}** | **약 ${s.netEquityBil}억 원** | 매매가(${s.askingPriceBil}억) - 보증금(${s.totalDepositBil}억) - 대출(${s.estimatedLoanBil}억), 취득비용 제외 |
+| **${monthlyLabel}** | **월 약 ${s.monthlyNetManwon.toLocaleString()}만 원** | ${monthlyNetDescription} |
+| **③ 임대수익률 (순투자금 대비·운영비 차감 전)** | **연 ${s.equityYieldPct}%** | 연 임대수입(약 ${s.annualNetBil}억 원) ÷ 순투자금 |
 ${landSafetyText}`;
 }

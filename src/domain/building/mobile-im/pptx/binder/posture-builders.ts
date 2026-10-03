@@ -637,8 +637,8 @@ export function buildDevelopmentFeasibilityProps(body: Record<string, any> = {},
     profitNote = `분양수입 ${(saleRevenueManwon / 10000).toFixed(1)}억 - 총투입비 ${totalCostBil}억`;
     } else {
     profitLabel = '개발이익률';
-    profitValue = hero.devProfitMarginPct != null ? `${hero.devProfitMarginPct}%` : '산출 중';
-    profitNote = '분양가 또는 임대료 확정 후 정밀 산출 기준';
+    profitValue = hero.devProfitMarginPct != null ? `${hero.devProfitMarginPct}%` : '-'; // Wave 9.3: '산출 중' 회피 문구 제거
+    profitNote = hero.devProfitMarginPct != null ? '분양가 또는 임대료 확정 후 정밀 산출 기준' : '미제공 항목: 목표 분양가 또는 층별 임대료';
     }
 
     const stats = [
@@ -739,19 +739,23 @@ export function buildOperatingRevenueProps(
   const roomRevKrw = op.room_revenue_krw || 0;
   const ancillaryPct = op.ancillary_revenue_pct || 0;
   const gopMargin = op.gop_margin_pct || hero.gopMarginPct || 0;
-  const annualGopKrw = op.annual_gop_krw || 0;
+  // GOP 직접값이 없으면 매출 × GOP 마진으로 산출 (둘 다 실데이터일 때만)
+  const gopDerived = !op.annual_gop_krw && annualRevKrw > 0 && gopMargin > 0;
+  const annualGopKrw = op.annual_gop_krw || (gopDerived ? Math.round(annualRevKrw * gopMargin / 100) : 0);
   const askingPriceManwon = ssot.asking_price_manwon || hero.askingPriceManwon || 0;
 
-  const annualRevBil = annualRevKrw > 0 ? (annualRevKrw / 1_0000_0000).toFixed(1) : '-';
-  const gopBil = annualGopKrw > 0 ? (annualGopKrw / 1_0000_0000).toFixed(1) : '-';
-  const gopCapRate = (askingPriceManwon > 0 && annualGopKrw > 0)
+  const annualRevBil = annualRevKrw > 0 ? (annualRevKrw / 1_0000_0000).toFixed(1) : null;
+  const gopBil = annualGopKrw > 0 ? (annualGopKrw / 1_0000_0000).toFixed(1) : null;
+  // Wave 9.3: 데이터 부재 시 '산출 중' 회피 문구 + 단위(%) 오접착("산출 중%") 제거 → null 후 '-' 표기
+  const gopCapRate: string | null = (askingPriceManwon > 0 && annualGopKrw > 0)
     ? ((annualGopKrw / (askingPriceManwon * 10000)) * 100).toFixed(2)
-    : '산출 중';
+    : null;
+  const capRateText = gopCapRate != null ? `${gopCapRate}%` : '-';
 
   const stats = [
-    { label: '연간 총매출', value: annualRevBil !== '-' ? `약 ${annualRevBil}억원` : '-' },
-    { label: '연간 GOP', value: gopBil !== '-' ? `약 ${gopBil}억원` : '-' },
-    { label: 'GOP Cap Rate', value: typeof gopCapRate === 'string' && gopCapRate === '산출 중' ? gopCapRate : `${gopCapRate}%` },
+    { label: '연간 총매출', value: annualRevBil != null ? `약 ${annualRevBil}억원` : '-' },
+    { label: gopDerived ? '연간 GOP (매출×마진)' : '연간 GOP', value: gopBil != null ? `약 ${gopBil}억원` : '-' },
+    { label: 'GOP Cap Rate', value: capRateText },
   ];
 
   if (roomRevKrw > 0) {
@@ -761,18 +765,23 @@ export function buildOperatingRevenueProps(
     stats.push({ label: '부대 매출 비중', value: `${(ancillaryPct * 100).toFixed(0)}%` });
   }
 
+  const missing: string[] = [];
+  if (annualRevKrw <= 0) missing.push('연간 매출');
+  if (annualGopKrw <= 0 && gopMargin <= 0) missing.push('GOP(또는 GOP 마진)');
+  if (askingPriceManwon <= 0) missing.push('매각 희망가');
+
   const callouts = [
     {
       kind: annualGopKrw > 0 ? 'good' as const : 'info' as const,
       title: 'GOP 기반 수익 구조',
       body: annualGopKrw > 0
-        ? `• 연간 총매출 ${annualRevBil}억 × GOP 마진 ${gopMargin}% = GOP ${gopBil}억\n• GOP 기반 Cap Rate ${gopCapRate}%\n• NOI 기준 수익형 부동산과 직접 비교 불가 (운영 리스크 내재)`
-        : `• 운영 실적 데이터 기반 GOP Cap Rate 산출\n• 호텔 매출은 계약이 아닌 영업 성과에 좌우됩니다`,
+        ? `• ${annualRevBil != null && gopMargin > 0 ? `연간 총매출 ${annualRevBil}억 × GOP 마진 ${gopMargin}% = ` : ''}GOP ${gopBil}억\n• GOP 기반 Cap Rate ${capRateText}\n• NOI 기준 수익형 부동산과 직접 비교 불가 (운영 리스크 내재)`
+        : `• 미제공 항목: ${missing.join(', ')} — 운영 실적(P&L) 제출 시 GOP Cap Rate 산출\n• 호텔 매출은 계약이 아닌 영업 성과에 좌우됩니다`,
     },
   ];
 
   return {
-    left: { sub: `${areaSignal} 호텔 수익 구조 분석`, note: `GOP Cap Rate: ${gopCapRate}%` },
+    left: { sub: `${areaSignal} 호텔 수익 구조 분석`, note: `GOP Cap Rate: ${capRateText}` },
     right: { stats, callouts },
   };
 }

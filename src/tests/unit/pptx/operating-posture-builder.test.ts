@@ -100,12 +100,32 @@ describe('Operating Posture Builder — Sprint 0', () => {
       expect(capRateStat!.value).toContain('3.57');
     });
 
-    it('매출 데이터 부재 시 "확인 필요" 폴백', async () => {
+    it('매출 데이터 부재 시 "-" 폴백 (회피 문구·단위 오접착 금지)', async () => {
       const result = buildOperatingRevenueProps({}, {});
 
       expect(result.right.stats.length).toBeGreaterThanOrEqual(1);
       const revStat = result.right.stats.find((s: any) => s.label.includes('총매출'));
-      expect(revStat?.value).toContain('확인 필요');
+      expect(revStat?.value).toBe('-');
+      const capStat = result.right.stats.find((s: any) => s.label.includes('Cap Rate'));
+      expect(capStat?.value).toBe('-');
+      // Negative pair: 이전 결함 "GOP Cap Rate: 산출 중%"
+      const allText = JSON.stringify(result);
+      expect(allText).not.toContain('산출 중');
+      expect(allText).not.toContain('확인 필요');
+      expect(result.left.note).toBe('GOP Cap Rate: -');
+      expect(result.right.callouts[0].body).toContain('미제공 항목');
+    });
+
+    it('GOP 직접값 없이 매출 + GOP 마진만 있으면 GOP를 산출한다', async () => {
+      const result = buildOperatingRevenueProps({
+        hotel_operating: { annual_revenue_krw: 2_000_000_000, gop_margin_pct: 40 },
+        ssot_summary: { asking_price_manwon: 2_000_000 }, // 200억
+      }, {});
+      const gopStat = result.right.stats.find((s: any) => s.label.includes('GOP') && !s.label.includes('Cap'));
+      expect(gopStat?.label).toContain('매출×마진');
+      expect(gopStat?.value).toBe('약 8.0억원');
+      const capStat = result.right.stats.find((s: any) => s.label.includes('Cap Rate'));
+      expect(capStat?.value).toBe('4.00%'); // 8억 / 200억
     });
   });
 

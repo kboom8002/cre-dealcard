@@ -265,7 +265,7 @@ class IncomeFinancialStrategy implements PostureFinancialStrategy {
     if (f.totalDepositBil !== null) rows.push(`| **임대 보증금 합계** | **${f.totalDepositBil}억 원** | 중개인 제공 |`);
     if (f.loanAmountBil !== null) rows.push(`| **선순위 대출 잔액** | **${f.loanAmountBil}억 원** | 중개인 제공 |`);
     if (f.totalAcquisitionCostBil !== null) rows.push(`| **총취득원가** | **약 ${f.totalAcquisitionCostBil}억 원** | 매매가 + 취득세(4.6%) + 중개보수(0.9%) |`);
-    if (f.equityRequired !== null) rows.push(`| **실투자금(총취득원가 기준)** | **약 ${f.equityRequired}억 원** | 취득원가 - 보증금 - 대출금 |`);
+    if (f.equityRequired !== null) rows.push(`| **실투자금(취득비용 포함)** | **약 ${f.equityRequired}억 원** | 총취득원가 - 보증금 - 대출금 |`);
     if (f.wacc !== null && !f.isBasicMode) rows.push(`| **추정 자본비용(WACC)** | **${pct(f.wacc * 100)}** | LTV 및 금리 반영 |`);
     if (f.dcf10Year && !f.isBasicMode) rows.push(`| **10년 현금흐름 현재가치(NPV)** | **${f.dcf10Year.npvBase > 0 ? '+' : ''}${bil(f.dcf10Year.npvBase)}** | 기준 시나리오 |`);
     if (f.leveragedYield !== null && !f.isBasicMode) {

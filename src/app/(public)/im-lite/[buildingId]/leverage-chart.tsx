@@ -43,7 +43,7 @@ export function LeverageChart({
     () =>
       [
         {
-          label: "자기자본",
+          label: "실투자금(취득비용 포함)",
           value: equityBil,
           color: "#0ea5e9", // sky-500
           tailwind: "bg-sky-500",
@@ -137,7 +137,7 @@ export function LeverageChart({
               fill="#a3a3a3"
               fontSize="8"
             >
-              매각가
+              총취득원가
             </text>
             <text
               x={CENTER}
@@ -178,10 +178,10 @@ export function LeverageChart({
       {leveragedYieldPct !== null && (
         <div className="mt-3 flex items-center gap-2">
           <span className="inline-flex items-center rounded-full bg-sky-900/40 px-2.5 py-0.5 text-[11px] font-medium text-sky-300">
-            레버리지 수익률 {leveragedYieldPct.toFixed(1)}%
+            자기자본수익률 {leveragedYieldPct.toFixed(1)}%
           </span>
           <span className="text-xs text-neutral-600">
-            NOI ÷ 자기자본
+            NOI ÷ 순투자금(매매가−보증금−대출)
           </span>
         </div>
       )}

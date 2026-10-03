@@ -175,17 +175,17 @@ export function HeroCard({ data }: HeroCardProps) {
                   highlight={true}
                 />
                 <MetricCell
-                  label="실투자금(내 돈)"
+                  label="실투자금 (취득비용 포함)"
                   value={fmt(data.equityRequiredBil, "억")}
                   highlight={false}
                 />
                 <MetricCell
-                  label="연 수익률 (총임대료)"
+                  label="Cap Rate (NOI÷매매가)"
                   value={fmt(data.capRateBase, "%")}
                   highlight={data.capRateBase !== null && data.capRateBase >= 3.5}
                 />
                 <MetricCell
-                  label="자기자본수익률 (ROE)"
+                  label="자기자본수익률 (NOI÷순투자금)"
                   value={fmt(data.leveragedYieldPct, "%")}
                   highlight={data.leveragedYieldPct !== null && data.leveragedYieldPct >= 5}
                 />

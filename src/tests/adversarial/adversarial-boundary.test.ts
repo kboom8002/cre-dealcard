@@ -71,9 +71,9 @@ describe('L4-RENTROLL: 렌트롤 경계값', () => {
     expect(seq.some(s => s.dataKey === 'rentRoll')).toBe(true);
   });
 
-  it('Negative: hasRentRoll=undefined → 기본 포함', async () => {
+  it('Negative: hasRentRoll=undefined → RentRoll suppress (D15, Rule 34 빈 슬라이드 방지)', async () => {
     const seq = buildDeckSequence({ posture: 'income', grade: 'B', dataAvailability: {} });
-    expect(seq.some(s => s.dataKey === 'rentRoll')).toBe(true);
+    expect(seq.some(s => s.dataKey === 'rentRoll')).toBe(false);
   });
 });
 

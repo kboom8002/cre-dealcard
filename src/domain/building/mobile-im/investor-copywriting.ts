@@ -113,15 +113,16 @@ export function generateInvestorCopyBlock(params: InvestorCopyParams): InvestorC
         investmentPoints: [
           landRatio !== null ? `토지 평가액 비중 ${landRatio}% 수준으로 토지 평가액 기반 하방 안정성 확보` : null,
           `임차인(Tenant) 분산 기반 공실 위험 완화 및 ${monthlyNet} 수준의 안정적 월 현금흐름`,
-          leveragedYield !== null ? `선순위 대출 및 임대보증금 레버리지 활용 시 자기자본수익률(자기자본 대비 연 수익률) ${leveragedYield}% 추정` : null,
+          leveragedYield !== null ? `선순위 대출 및 임대보증금 레버리지 활용 시 자기자본수익률(NOI÷순투자금) ${leveragedYield}% 추정` : null,
         ].filter(Boolean) as [string, string, string],
         keyRisk: vacancyPct && vacancyPct > 10 
           ? `일부 공실(${vacancyPct}%) 발생 → 전속 MD 개편 및 렌트프리(무상임대) 협의를 통해 임대 안정화 추진` 
           : '향후 금리 변동 위험 → 고정금리 대출 승계 및 임대료 물가연동 인상 조항 검토 권장',
         cashFlowSummary: {
-          totalInvestment: `실투자금(자기자본) ${equityReq}`,
-          monthlyCashFlow: `월 순수입 ${monthlyNet}`,
-          annualReturn: `자기자본수익률 ${leveragedYield}%`,
+          // Wave 9.3 (b안): 지표마다 산출 기준을 병기 — 실투자금(취득비용 포함) / 순투자금(매매가−보증금−대출)
+          totalInvestment: `실투자금(취득비용 포함) ${equityReq}`,
+          monthlyCashFlow: `순영업소득(NOI) ${monthlyNet}`,
+          annualReturn: leveragedYield !== null ? `자기자본수익률(NOI÷순투자금) ${leveragedYield}%` : '자기자본수익률 -',
         },
       };
     }

@@ -94,9 +94,13 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   const rawCap = typeof capRateAsIs === 'number' ? capRateAsIs : parseFloat(String(capRateAsIs));
   const numCapRate = Number.isFinite(rawCap) && rawCap > 0 ? rawCap : 0;
 
-  slide.addText('수익률', {
-    x: M + 0.50, y: yieldBgY, w: 2.5, h: yieldBgH,
-    color: 'FFFFFF', fontFace: KR, fontSize: 16, bold: true, valign: 'middle',
+  // Wave 9.3 (b안): 값 = 연 임대수입 ÷ 순투자금(매매가−보증금) — 요약 슬라이드의 Cap Rate(NOI÷매매가)와 구분되도록 기준 병기
+  slide.addText([
+    { text: '임대수익률', options: { fontSize: 16, bold: true, breakLine: true } },
+    { text: '순투자금 대비 · 운영비 차감 전', options: { fontSize: 9, bold: false } },
+  ], {
+    x: M + 0.50, y: yieldBgY, w: 2.6, h: yieldBgH,
+    color: 'FFFFFF', fontFace: KR, valign: 'middle',
   });
   slide.addText(`${numCapRate.toFixed(2)}%`, {
     x: M + leftW - 3.50, y: yieldBgY, w: 3.00, h: yieldBgH,
@@ -131,7 +135,7 @@ export function buildA23YieldFormula(input: ArchetypeInput): ArchetypeOutput {
   renderRow('연간 임대수입', fmtManwon(annualRent));
   renderRow('승계 보증금', fmtManwon(totalDeposit));
   renderRow('매매가', fmtManwon(askingPrice));
-  renderRow('순투자금 (매매가 − 보증금)', fmtManwon(netInvestment), true);
+  renderRow('순투자금 (매매가−보증금)', fmtManwon(netInvestment), true);
 
   // 토지평당가 (공시지가 최신값이 있을 때)
   if (landPriceHistory?.latestPricePerSqm > 0) {

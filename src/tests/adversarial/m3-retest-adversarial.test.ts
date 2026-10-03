@@ -247,7 +247,7 @@ describe('Milestone 3 Remediation Retest: Adversarial Challenge', () => {
       expect(result.section.markdown).not.toContain('🔒 **임대 현황 데이터 확보 후 수익 분석이 제공됩니다.**');
 
       // Must contain rendered financial calculations
-      expect(result.section.markdown).toContain('실투자금 대비 연 순수익(약 4.08억 원)');
+      expect(result.section.markdown).toContain('연 임대수입(약 4.08억 원) ÷ 순투자금');
       expect(result.section.markdown).toContain('총 수익률(Gross Yield)');
     });
 
@@ -271,7 +271,7 @@ describe('Milestone 3 Remediation Retest: Adversarial Challenge', () => {
       );
 
       expect(templateMd).not.toContain('🔒 **임대 현황 데이터 확보 후 수익 분석이 제공됩니다.**');
-      expect(templateMd).toContain('실투자금 대비 연 순수익(약 3.6억 원)');
+      expect(templateMd).toContain('연 임대수입(약 3.6억 원) ÷ 순투자금');
     });
 
     it('gracefully emits locked message when both root rent and floor_leases are missing', () => {

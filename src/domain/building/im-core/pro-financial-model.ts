@@ -560,7 +560,10 @@ export function generateMultiYearCashFlow(input: MultiYearCashFlowInput): MultiY
         : 0.0;
   }
 
-  const initialCapRatePct = Number(((noi[0] / purchasePriceKrw) * 100).toFixed(2));
+  // Wave 9.3: 매매가 0 → 0/0=NaN 이 SSoT 정합성 검증("NaN% vs 0%") 오탐을 유발 — 검증측 유도식과 동일하게 가드
+  const initialCapRatePct = purchasePriceKrw > 0
+    ? Number(((noi[0] / purchasePriceKrw) * 100).toFixed(2))
+    : 0.0;
 
   return {
     years,

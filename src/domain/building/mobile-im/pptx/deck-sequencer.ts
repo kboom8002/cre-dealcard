@@ -220,7 +220,8 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
   sequence.push({ archetype: 'A04', kicker: 'Building', title: '건물 개요', dataKey: 'building' });
 
   // ── 포스처별 본문 슬라이드 ──
-  // D34 T3-RR-01: rentRoll은 hasRentRoll !== false 일 때만 추가
+  // D34 T3-RR-01 → D15(92d04c2): rentRoll은 hasRentRoll === true 일 때만 추가
+  //   (undefined = 데이터 미확인 → 빈 렌트롤 슬라이드 방지, Rule 34. 프로덕션 생산자는 항상 boolean 명시)
   const addRentRoll = input.dataAvailability?.hasRentRoll === true;
   // A22 건축 입면 셋백 스태킹 플랜: hasStackingPlan 유무에 따라 추가
   const addStackingPlan = input.dataAvailability?.hasStackingPlan === true;

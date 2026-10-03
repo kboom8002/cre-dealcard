@@ -234,13 +234,25 @@ describe('Data Pipeline Edge Cases', () => {
       expect(slides.length).toBeLessThanOrEqual(24);
     });
 
-    it('B21: income basic includes profit slide for income analysis parity', () => {
+    it('B21: goldilocks(프리셋 없음) income includes profit slide for income analysis parity', () => {
       const slides = buildDeckSequence({ posture: 'income', grade: 'A' });
       const hasProfit = slides.some(s => s.dataKey === 'profit');
-      expect(hasProfit).toBe(false);
+      expect(hasProfit).toBe(true);
     });
 
-    it('B22: all postures basic include thesis and process slides', () => {
+    it('B21b: credeal_basic(Rule 47) excludes profit/Pro-only slides and keeps yieldFormula', () => {
+      const PRO_ONLY = ['capital', 'totalReturn', 'dcf', 'sensitivity', 'loan', 'tax', 'thesis', 'risk', 'checklist', 'process', 'stability', 'profit'];
+      const postures = ['income', 'owner_occupied', 'development', 'operating', 'trading'] as const;
+      for (const posture of postures) {
+        const slides = buildDeckSequence({ posture, grade: 'A', preset: 'credeal_basic', dataAvailability: { hasRentRoll: true } });
+        const leaked = slides.filter(s => PRO_ONLY.includes(s.dataKey)).map(s => s.dataKey);
+        expect(leaked, `${posture}: ${leaked.join(',')}`).toEqual([]);
+      }
+      const income = buildDeckSequence({ posture: 'income', grade: 'A', preset: 'credeal_basic', dataAvailability: { hasRentRoll: true } });
+      expect(income.some(s => s.dataKey === 'yieldFormula')).toBe(true);
+    });
+
+    it('B22: all postures goldilocks(프리셋 없음) include thesis and process slides', () => {
       const postures = ['income', 'owner_occupied', 'development', 'operating', 'trading'] as const;
       for (const posture of postures) {
         const slides = buildDeckSequence({ posture, grade: 'A' });

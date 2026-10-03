@@ -48,7 +48,9 @@ describe('Mobile IM D1-D7 L1 (Domain Unit) Tests', () => {
       const markdown = formatNetCashFlowMarkdown(summary);
       expect(markdown).not.toContain('대출 이자');
       expect(markdown).not.toContain('대출 반영 기준');
-      expect(markdown).toContain('① 실투자금');
+      expect(markdown).toContain('① 순투자금 (매매가−보증금−대출)');
+      expect(markdown).not.toContain('① 실투자금'); // b안: 실투자금은 취득비용 포함 수치 전용
+      expect(markdown).toContain('임대수익률 (순투자금 대비·운영비 차감 전)');
       expect(markdown).toContain('월 임대료(3,000만)');
     });
 
