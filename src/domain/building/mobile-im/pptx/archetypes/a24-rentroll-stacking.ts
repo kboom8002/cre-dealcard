@@ -127,14 +127,13 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         // D45 C-1 fix: 10열 표준 헤더 기준 인덱스 정렬
         // ['층', '호실', '용도/업종', '임차인', '전용면적(㎡)', '보증금(만원)', '월세(만원)', '관리비(만원)', '계약종료', '비고']
         //   r[0]   r[1]     r[2]        r[3]       r[4]           r[5]           r[6]           r[7]           r[8]      r[9]
-        const is10Col = r.length >= 8;
-        const tenant  = String(r[is10Col ? 3 : 1] || '').trim();
-        const areaStr = String(r[is10Col ? 4 : 2] || '').trim();
-        const deposit = String(r[is10Col ? 5 : 3] || '').trim();
-        const rent    = String(r[is10Col ? 6 : 4] || '').trim();
-        const expiry  = String(r[is10Col ? 8 : 5] || '').trim();
-        const remark  = String(r[is10Col ? 9 : (r.length > 6 ? 6 : -1)] || '').trim();
-        const isVac = tenant.includes('공실') || floor.includes('공실') || remark.includes('공실');
+        const is12Col = r.length >= 12;
+        const tenant  = String(r[is12Col ? 3 : 1] || '').trim();
+        const areaStr = String(r[is12Col ? 4 : 3] || '').trim();
+        const deposit = String(r[is12Col ? 7 : 5] || '').trim();
+        const rent    = String(r[is12Col ? 8 : 6] || '').trim();
+        const expiry  = String(r[is12Col ? 11 : 9] || '').trim();
+        const isVac = tenant.includes('공실') || floor.includes('공실');
         return {
           floor,
           tenant: tenant || (isVac ? '공실' : '-'),
@@ -238,12 +237,12 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     if (bCount > 0 && bCount < floorGroups.length) {
       const groundY = baseDrawY - (bCount * hPerFloor);
       slide.addShape('line', {
-        x: spX + 0.2, y: groundY, w: spW - 0.4, h: 0,
-        line: { color: 'CBD5E0', width: 1.5, dashType: 'dash' as const }
+        x: spX + 0.55, y: groundY, w: spW - 0.65, h: 0,
+        line: { color: '94A3B8', width: 1.5, dashType: 'dash' as const }
       });
-      slide.addText('GL (지상/지하 경계)', {
-        x: spX + 0.2, y: groundY - 0.2, w: 2.0, h: 0.2,
-        fontSize: 8, color: '8A9AA3', fontFace: KR
+      slide.addText('GL', {
+        x: spX, y: groundY - 0.12, w: 0.50, h: 0.24,
+        fontSize: 7.5, color: '64748B', fontFace: KR, align: 'right', valign: 'middle', bold: true
       });
     }
 
@@ -309,11 +308,11 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
         const areaLabel = areaPyeong > 0 ? `${areaPyeong}평` : '';
         const combinedLabel = areaLabel ? `${tenantName} (${areaLabel})` : tenantName;
         
-        if (tenantW >= 1.2) {
+        if (tenantW >= 0.8) {
           slide.addText(combinedLabel, {
             x: currentX + 0.04, y: currentY + 0.02, w: tenantW - 0.08, h: hPerFloor - 0.04,
             fontSize: tenantFontSize, bold: isVacant, color: isVacant ? 'B05A2E' : '3A3A3A',
-            align: 'center', valign: 'middle', fontFace: KR
+            align: 'center', valign: 'middle', fontFace: KR, shrinkText: true
           });
         } else if (tenantW >= 0.4) {
           slide.addText(tenantName, {
@@ -359,37 +358,35 @@ export function buildA24RentrollStacking(input: ArchetypeInput): ArchetypeOutput
     // D7 Fix: 합계 행이 없으면 자동 합산 추가
     const hasSummaryRow = rawRows.some((r: any) => r.some((c: any) => /^(?:합계|계|총합|총액)\b/.test(String(c || '').trim())));
     if (!hasSummaryRow && rawRows.length > 0) {
-      let totalArea = 0, totalExcArea = 0, totalDeposit = 0, totalRent = 0, totalMgmt = 0;
+      let totalArea = 0, totalExcArea = 0, totalDeposit = 0, totalRent = 0, totalMgmt = 0, totalMonth = 0;
       for (const r of rawRows) {
-        const a = parseFloat(String(r[4] || '').replace(/[^0-9.]/g, ''));
+        const a = parseFloat(String(r[3] || '').replace(/[^0-9.]/g, ''));
         if (!isNaN(a)) totalArea += a;
-        const e = parseFloat(String(r[5] || '').replace(/[^0-9.]/g, ''));
+        const e = parseFloat(String(r[4] || '').replace(/[^0-9.]/g, ''));
         if (!isNaN(e)) totalExcArea += e;
-        const d = parseFloat(String(r[7] || '').replace(/[^0-9.]/g, ''));
+        const d = parseFloat(String(r[5] || '').replace(/[^0-9.]/g, ''));
         if (!isNaN(d)) totalDeposit += d;
-        const rt = parseFloat(String(r[8] || '').replace(/[^0-9.]/g, ''));
+        const rt = parseFloat(String(r[6] || '').replace(/[^0-9.]/g, ''));
         if (!isNaN(rt)) totalRent += rt;
-        const mt = parseFloat(String(r[9] || '').replace(/[^0-9.]/g, ''));
+        const mt = parseFloat(String(r[7] || '').replace(/[^0-9.]/g, ''));
         if (!isNaN(mt)) totalMgmt += mt;
+        const tot = parseFloat(String(r[8] || '').replace(/[^0-9.]/g, ''));
+        if (!isNaN(tot)) totalMonth += tot;
       }
       
-      const eff = totalArea > 0 ? `${Math.round((totalExcArea / totalArea) * 100)}%` : '-';
-      const excPyeong = totalExcArea * 0.3025;
-      const noc = excPyeong > 0 ? Math.round((totalRent + totalMgmt) / excPyeong).toLocaleString() : '-';
+      const totalMonthlySum = (totalMonth > 0 ? totalMonth : (totalRent + totalMgmt));
 
       rawRows.push([
         '합계',
-        '',
-        '',
         `${rawRows.length}개 호실`,
+        '-',
         totalArea > 0 ? `${totalArea.toFixed(1)}` : '-',
         totalExcArea > 0 ? `${totalExcArea.toFixed(1)}` : '-',
-        eff,
         totalDeposit > 0 ? `${Math.round(totalDeposit).toLocaleString()}` : '-',
         totalRent > 0 ? `${Math.round(totalRent).toLocaleString()}` : '-',
         totalMgmt > 0 ? `${Math.round(totalMgmt).toLocaleString()}` : '-',
-        noc,
-        ''
+        totalMonthlySum > 0 ? `${Math.round(totalMonthlySum).toLocaleString()}` : '-',
+        '-'
       ]);
     }
     

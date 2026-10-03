@@ -709,6 +709,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
           pnu: String(pnu || ''), 
           pnus: Array.isArray(pnus) ? pnus : undefined, 
           address: targetAddress,
+          landAreaSqm: Number(input.building_ssot_lite?.land_area_sqm ?? input.external_data?.buildingRegister?.platArea ?? 0),
         }
       );
       if (enrichmentResult.cadastralMapImage) {

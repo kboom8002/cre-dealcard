@@ -111,6 +111,48 @@ export async function buildA06Diagram(input: ArchetypeInput): Promise<ArchetypeO
 
     if (mapImg) {
       slide.addImage({ data: mapImg.base64, x: M, y: 1.62, w: mapW, h: 4.50 });
+
+      // [Rule 66 준수] 입지 지도 한글 오버레이 및 범례 (PptxGenJS 네이티브 셰이프로 서버리스 CJK 폰트 두부 원천 방지)
+      const isLocationSlide = Boolean(
+        input.data.title?.includes('입지') ||
+        input.data.kicker?.includes('입지') ||
+        input.data.kicker?.includes('Location') ||
+        input.data.kicker?.includes('SECTION')
+      );
+      if (isLocationSlide) {
+        // 1. 좌측 하단 반투명 범례 카드 (도보 권역 및 대상지 안내)
+        slide.addShape('roundRect', {
+          x: M + 0.15, y: 1.62 + 4.50 - 0.45, w: 3.50, h: 0.35,
+          fill: { color: 'FFFFFF', transparency: 10 },
+          line: { color: 'CBD5E1', width: 0.8 },
+          rectRadius: 0.04
+        });
+        slide.addText([
+          { text: '★ ', options: { color: 'B8860B', fontSize: 9, bold: true } },
+          { text: '대상 자산(본건)   ', options: { color: '1E293B', fontSize: 8.5, bold: true } },
+          { text: '╌ ', options: { color: 'B8860B', fontSize: 10, bold: true } },
+          { text: '도보 5분 반경 (약 400m)', options: { color: '475569', fontSize: 8.5 } }
+        ], {
+          x: M + 0.20, y: 1.62 + 4.50 - 0.43, w: 3.40, h: 0.30,
+          fontFace: KR, valign: 'middle'
+        });
+
+        // 2. 지도 중심부 핀 라벨 한글 뱃지 ('★ 본건')
+        const pinBadgeW = 0.90;
+        const pinBadgeH = 0.24;
+        const pinBadgeX = M + (mapW - pinBadgeW) / 2;
+        const pinBadgeY = 1.62 + (4.50 / 2) + 0.22;
+        slide.addShape('roundRect', {
+          x: pinBadgeX, y: pinBadgeY, w: pinBadgeW, h: pinBadgeH,
+          fill: { color: '132A3A' },
+          line: { color: 'FFFFFF', width: 1 },
+          rectRadius: 0.04
+        });
+        slide.addText('★ 본건', {
+          x: pinBadgeX, y: pinBadgeY, w: pinBadgeW, h: pinBadgeH,
+          fontSize: 9, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle', fontFace: KR
+        });
+      }
     } else {
       // 지도 데이터 미제공 시 Macro Location Overview Fallback Card 렌더링 (슬라이드 드롭 방지)
       L.fallbackCard(slide, M, 1.62, mapW, 4.50, {

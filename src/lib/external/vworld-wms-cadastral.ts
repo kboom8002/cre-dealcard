@@ -420,6 +420,22 @@ export async function fetchCadastralMapImage(
             log.warn(`[vworld-wfs] PNU ${pnu} 필지 폴리곤 조회 결과 없음`);
           }
         }
+        if (allRings.length === 0) {
+          log.info(`[vworld-wfs] WFS 폴리곤 응답 없음 — 중심 좌표(${lat}, ${lng}) 기반 적응형 필지 경계선 폴백 생성`);
+          const cosL = Math.cos(lat * Math.PI / 180);
+          const mPerDegLat = 111320;
+          const mPerDegLng = 111320 * cosL;
+          const halfM = Math.max(10, Math.min(25, effectiveRadiusM * 0.25));
+          const dLat = halfM / mPerDegLat;
+          const dLng = halfM / mPerDegLng;
+          allRings.push([
+            [lng - dLng, lat - dLat],
+            [lng + dLng, lat - dLat],
+            [lng + dLng, lat + dLat],
+            [lng - dLng, lat + dLat],
+            [lng - dLng, lat - dLat],
+          ]);
+        }
         if (allRings.length > 0) {
           const isMulti = allPnus.length > 1;
           const markerLabel = isMulti ? `★ 본건 (${allPnus.length}필지)` : '★ 본건';

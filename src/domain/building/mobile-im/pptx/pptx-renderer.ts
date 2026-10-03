@@ -166,6 +166,7 @@ export class MobileImPptxRenderer {
             pnu,
             pnus,
             address: input.doc.body?.ssot_summary?.address ?? input.building?.address,
+            landAreaSqm: Number(input.doc.body?.ssot_summary?.land_area_sqm ?? input.building?.land_area_sqm ?? 0),
           });
           enrichment = {
             ...enrichment,

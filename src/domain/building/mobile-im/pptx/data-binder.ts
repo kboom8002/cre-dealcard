@@ -608,50 +608,44 @@ export function bindSectionData(
       if (floorLeases.length > 0 && result['rentRoll']) {
         const isBasicPreset = doc.body?.preset === 'credeal_basic' || doc.body?.tier === 'basic';
         const rrHeaders = isBasicPreset
-          ? ['층', '호실', '용도', '임차인', '임대(㎡)', '전용(㎡)', '전용률', '보증금', '월세', '관리비', 'NOC', '만기일']
+          ? ['층', '임차인', '용도', '임대면적', '전용면적', '보증금', '월임대료', '관리비', '월합계', '만기일']
           : ['호실', '업종', '면적', '보증금', '월세', '관리비', '만기일'];
         const isFinitePos = (v: any) => v != null && Number.isFinite(Number(v)) && Number(v) > 0;
         const isFiniteNonNeg = (v: any) => v != null && Number.isFinite(Number(v)) && Number(v) >= 0;
-        
-        const calcNoc = (rent: any, mgmt: any, excSqm: any) => {
-          if (!isFiniteNonNeg(rent) || !isFinitePos(excSqm)) return '-';
-          const py = Number(excSqm) * 0.3025;
-          const r = Number(rent) || 0;
-          const m = isFiniteNonNeg(mgmt) ? Number(mgmt) : 0;
-          return Math.round((r + m) / py).toLocaleString();
-        };
-
-        const calcEff = (excSqm: any, leaseSqm: any) => {
-          if (isFinitePos(excSqm) && isFinitePos(leaseSqm)) {
-            return `${Math.round((Number(excSqm) / Number(leaseSqm)) * 100)}%`;
-          }
-          return '-';
-        };
 
         const rrRows = floorLeases.map((l: any) => {
           const floor = l.floor || l.unit_label || '-';
           const areaPyeong = isFinitePos(l.area_sqm)
             ? `${formatPyeong(Number(l.area_sqm), 1)}평`
             : (isFinitePos(l.area_pyeong) ? `${l.area_pyeong}평` : '-');
-          const tenant = l.tenant_name || l.tenant || l.tenant_type || (l.is_vacant ? '공실' : '-');
-          const deposit = isFiniteNonNeg(l.deposit_manwon) ? `${Number(l.deposit_manwon).toLocaleString()}만` : '-';
-          const rent = isFiniteNonNeg(l.rent_manwon) ? `${Number(l.rent_manwon).toLocaleString()}만` : (l.is_vacant ? '-' : '-');
-          const mgmt = isFiniteNonNeg(l.mgmt_fee_manwon) ? `${Number(l.mgmt_fee_manwon).toLocaleString()}만` : '-';
+          const tenant = l.tenant_name || l.tenant || (l.is_vacant ? '공실' : (l.tenant_type || '-'));
+          const use = l.use || l.tenant_type || l.business_type || (l.is_vacant ? '공실' : '-');
+          const deposit = isFiniteNonNeg(l.deposit_manwon) ? `${Number(l.deposit_manwon).toLocaleString()}` : '-';
+          const rent = isFiniteNonNeg(l.rent_manwon) ? `${Number(l.rent_manwon).toLocaleString()}` : (l.is_vacant ? '-' : '-');
+          const mgmt = isFiniteNonNeg(l.mgmt_fee_manwon) ? `${Number(l.mgmt_fee_manwon).toLocaleString()}` : '-';
+          const rentN = Number(l.rent_manwon) || 0;
+          const mgmtN = Number(l.mgmt_fee_manwon) || 0;
+          const totalMonth = (rentN + mgmtN) > 0 ? (rentN + mgmtN).toLocaleString() : (rent !== '-' ? rent : '-');
           const expiry = l.lease_end || l.contract_end || '-';
+
+          const areaSqmStr = isFinitePos(l.area_sqm)
+            ? Number(l.area_sqm).toFixed(1)
+            : (isFinitePos(l.area_pyeong) ? (Number(l.area_pyeong) / 0.3025).toFixed(1) : '-');
+          const excSqmStr = isFinitePos(l.exclusive_area_sqm)
+            ? Number(l.exclusive_area_sqm).toFixed(1)
+            : (isFinitePos(l.exclusive_area_pyeong) ? (Number(l.exclusive_area_pyeong) / 0.3025).toFixed(1) : areaSqmStr);
           
           return isBasicPreset
             ? [
                 floor,
-                l.unit || l.room || '-',
-                l.use || l.tenant_type || l.business_type || '-',
                 tenant,
-                isFinitePos(l.area_sqm) ? Number(l.area_sqm).toFixed(1) : '-',
-                isFinitePos(l.exclusive_area_sqm) ? Number(l.exclusive_area_sqm).toFixed(1) : (isFinitePos(l.area_sqm) ? Number(l.area_sqm).toFixed(1) : '-'), // fallback to area if exclusive is missing
-                calcEff(l.exclusive_area_sqm || l.area_sqm, l.area_sqm),
-                isFiniteNonNeg(l.deposit_manwon) ? `${Number(l.deposit_manwon).toLocaleString()}` : '-',
-                isFiniteNonNeg(l.rent_manwon) ? `${Number(l.rent_manwon).toLocaleString()}` : (l.is_vacant ? '-' : '-'),
-                isFiniteNonNeg(l.mgmt_fee_manwon) ? `${Number(l.mgmt_fee_manwon).toLocaleString()}` : '-',
-                calcNoc(l.rent_manwon, l.mgmt_fee_manwon, l.exclusive_area_sqm || l.area_sqm),
+                use,
+                areaSqmStr,
+                excSqmStr,
+                deposit,
+                rent,
+                mgmt,
+                totalMonth,
                 expiry
               ]
             : [floor, tenant, areaPyeong, deposit, rent, mgmt, expiry];

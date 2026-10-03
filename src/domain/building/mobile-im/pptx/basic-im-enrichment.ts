@@ -31,7 +31,7 @@ export interface EnrichmentResult {
  */
 export async function enrichForBasicIm(
   coordinates: { lat: number; lng: number },
-  options?: { pnu?: string; pnus?: string[]; address?: string },
+  options?: { pnu?: string; pnus?: string[]; address?: string; landAreaSqm?: number },
 ): Promise<EnrichmentResult> {
   const result: EnrichmentResult = {
     cadastralMapImage: null,
@@ -53,20 +53,32 @@ export async function enrichForBasicIm(
   }
   const additionalPnus = pnus.length > 1 ? pnus.filter(p => p !== pnu) : undefined;
 
+  // PNU가 없는 경우 주소로부터 PNU 자동 조회
   if (!pnu && options?.address) {
     try {
-      log.info('[enrichForBasicIm] PNU 미제공 — 주소 기반 지적도는 필지 경계선 없이 렌더링됩니다');
+      const { resolveAddress } = await import('@/lib/external/address-resolver');
+      const resolved = await resolveAddress(options.address);
+      if (resolved?.pnu) {
+        pnu = resolved.pnu;
+        log.info(`[enrichForBasicIm] 주소로부터 PNU 자동 조회 성공: ${pnu} (${options.address})`);
+      }
     } catch (err) {
       console.warn('[basic-im-enrichment] PNU auto-fetch failed:', err);
     }
   }
+
+  // 대지면적 기반 적응형 줌 반경 산출 (필지가 지면의 10% 이상, 15~25%를 채우도록 확대)
+  const landArea = options?.landAreaSqm || 500;
+  const parcelSide = Math.sqrt(Number(landArea) || 500);
+  const adaptiveRadiusM = Math.max(45, Math.min(150, Math.round(parcelSide * 2.5)));
+  log.info(`[enrichForBasicIm] 지적도 적응형 반경 산출: ${landArea}㎡ → ${adaptiveRadiusM}m (PNU: ${pnu || '없음'})`);
 
   try {
     const { fetchCadastralMapImage } = await import('@/lib/external/vworld-wms-cadastral');
     const cadastral = await fetchCadastralMapImage(
       coordinates.lat,
       coordinates.lng,
-      1120, 840, 150,
+      1120, 840, adaptiveRadiusM,
       pnu,
       additionalPnus,
     );
