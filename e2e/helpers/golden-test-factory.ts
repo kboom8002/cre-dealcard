@@ -37,6 +37,7 @@ import {
   assertPriceReflected,
   assertFloorKeywordsPresent,
   assertNoEvasivePhrasesExtended,
+  assertOutputInvariants,
   assertNoHardcodedFallback,
   assertOverviewPhotoPresence,
   assertGallerySlidePresence,
@@ -513,6 +514,7 @@ export function createGoldenTest(config: GoldenTestConfig) {
           assertFloorKeywordsPresent(state.fullPptxText, expectedFloors);
         }
         assertNoEvasivePhrasesExtended(state.fullPptxText);
+        assertOutputInvariants(state.fullPptxText.split('\n')); // 슬라이드 단위 (fullPptxText = 슬라이드별 개행 결합)
         assertNoHardcodedFallback(state.fullPptxText);
         assertOverviewPhotoPresence(state.slideEntries);
         assertGallerySlidePresence(state.slideEntries);

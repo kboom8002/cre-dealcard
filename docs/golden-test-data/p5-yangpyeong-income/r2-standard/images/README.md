@@ -1,18 +1,17 @@
-# 양평동 오피스빌딩 — r2-standard 이미지 폴더
+# p5 양평동 골든 사진 (r3-verified)
 
-이 폴더에 해당 매물의 원본 사진을 저장합니다.
+실물 촬영본 5장입니다(사용자 제공). 스톡/타 매물/제3자 로고/개인정보 이미지는 사용하지 않습니다 (Rule 34).
 
-## 사진 카테고리
-
-| 카테고리 | 파일명 규칙 | 설명 |
+| 파일 | 카테고리 | 비고 |
 |:---|:---|:---|
-| 외관 | exterior_01.jpg | 건물 외관 정면 |
-| 외관 | exterior_02.jpg | 건물 외관 측면 |
-| 1층 | floor_1f_01.jpg | 1층 매장 전경 |
-| 로비 | lobby_01.jpg | 로비/입구 |
-| 옥상 | rooftop_01.jpg | 옥상 전경 |
-| 주변 | surroundings_01.jpg | 주변 거리뷰 |
+| `images/image_01.jpg` | `exterior` | 건물 외관, `role: cover` · `isHero` (표지에는 건물 사진을 넣지 않음, 개요 슬라이드용) |
+| `images/image_02.jpg` | `lobby` | 1층 로비 |
+| `images/image_03.jpg` | `elevator` | 엘리베이터홀 |
+| `images/image_04.jpg` | `parking` | 주차장 |
+| `images/image_05.jpg` | `surroundings` | 주변 도로/환경 |
+| `source-docs/image_07.png` | (문서) | 임대현황표, `excluded: true` |
+| `source-docs/image_09.png` | (문서) | 렌트롤 표, `excluded: true` |
+| `source-docs/image_02.png` `image_05.png` `image_11.png` | (문서) | 위치/대장/토지이용계획 캡처. 업로드 문서 분류 테스트용 |
 
-> **현재 상태**: 외관 사진 2장 (R3-Verified에 URL 포함)
-
-> **참고**: 인간 테스터는 실제 현장 촬영 사진 또는 로드뷰 캡처 이미지를 이 폴더에 추가해주세요.
+> 분류(`category`)는 `bottom_sheet.json`의 `photos_v2`에 기록되어 있으며 중개인 편집 화면의 사진 유형 태깅과 같은 값입니다.
+> 사진을 추가/교체할 때는 반드시 실물 촬영본만 사용하고 `photos_v2`와 `photo_urls`를 함께 갱신하세요.

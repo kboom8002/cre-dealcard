@@ -3,6 +3,7 @@
  * @description CRE IM 프로덕션 E2E 골든 테스트 공통 유틸리티
  */
 
+import { checkOutputInvariants, errorsOf, formatViolations } from '../../src/domain/building/mobile-im/quality/output-invariants';
 import { type Page, expect } from '@playwright/test';
 import { createHash } from 'crypto';
 import * as path from 'path';
@@ -281,6 +282,13 @@ export function assertPriceBandBlocked(fullPptxText: string): void {
     expect(fullPptxText).not.toMatch(pat);
   }
   console.log('  ✅ 가격 밴드 차단 확인 (Rule 52)');
+}
+
+/** ⑩ H1 출력 불변식 (플레이스홀더/회피문구/수치잔재/JSON·마크다운 유출/목데이터) - 슬라이드 단위 error 0건 */
+export function assertOutputInvariants(allSlideTexts: string[]): void {
+  const errors = errorsOf(checkOutputInvariants(allSlideTexts, { skipDuplicateSentence: true }));
+  expect(formatViolations(errors)).toBe('OK');
+  console.log('  ✅ H1 출력 불변식 위반 0건 (placeholder/evasive/numeric/leak/mock)');
 }
 
 // ── 10. 콘텐츠 품질 단언 (5종) ──

@@ -1116,6 +1116,21 @@ export class MobileImPptxRenderer {
         }
       }
 
+      // ── 6b. H1 출력 불변식 감사 (경고 모드: 렌더 비차단, 위반은 warnings + 로그로 노출) ──
+      try {
+        const { auditPptxBufferInvariants } = await import('../quality/pptx-invariant-audit');
+        const h1 = await auditPptxBufferInvariants(buffer);
+        for (const v of h1.violations) {
+          warnings.push(`[H1:${v.id}] slide ${v.unit + 1}: ${v.sample}`);
+        }
+        const h1Errors = h1.violations.filter(v => v.severity === 'error');
+        if (h1Errors.length > 0) {
+          console.warn(`[PPTX-H1] 출력 불변식 위반 ${h1Errors.length}건`, h1Errors.slice(0, 10));
+        }
+      } catch (h1Err) {
+        warnings.push(`[H1] 불변식 감사 실패: ${h1Err instanceof Error ? h1Err.message : String(h1Err)}`);
+      }
+
       return {
         buffer,
         slideCount: slides.length,

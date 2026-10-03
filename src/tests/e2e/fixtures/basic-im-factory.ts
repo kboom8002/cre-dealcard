@@ -9,6 +9,7 @@
  * - 프리셋 credeal_basic 강제
  */
 import { join } from 'path';
+import type { PhotoCategory } from '@/domain/ontology';
 import type { MobileImPptxInput } from '@/domain/building/mobile-im/pptx/pptx-renderer';
 import { calculateFinancials, type FinancialInputs } from '@/domain/building/mobile-im/financials';
 import { enrichForBasicIm } from '@/domain/building/mobile-im/pptx/basic-im-enrichment';
@@ -45,7 +46,7 @@ export interface FloorLease {
 
 export interface PhotoMeta {
   url: string;
-  category: 'exterior' | 'entrance' | 'interior' | 'parking' | 'rooftop' | 'other';
+  category: PhotoCategory | 'other';
   caption?: string;
   isHero?: boolean;
   role?: string;

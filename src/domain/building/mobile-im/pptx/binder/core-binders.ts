@@ -12,15 +12,7 @@ import type { IMCore, Comp } from "@/types/im-core";
 import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, findLeadSentence, extractStatMetrics, extractCallouts, extractBulletItems, extractBoldKeyValues, extractBoldValue, sanitizePersona, stripMarkdown, truncate, parseMarkdownTable, extractMetrics, buildCapitalFromIncome, buildFarUpsideProps, buildDcfFromIncome, buildSensitivityFromDcf, buildLoanFromIncome, buildTaxFromIncome, buildOwnerOccupiedPlanProps, buildOwnerOccupiedVsLeaseProps, buildOwnerOccupiedCommuteProps, buildOwnerOccupiedValueProps, buildDevelopmentLandDetailProps, buildDevelopmentScaleProps, buildDevelopmentEvictionProps, buildDevelopmentCostProps, buildDevelopmentFeasibilityProps, bindInstitutionalTemplateData, bindCorporateTemplateData, bindCommercialTemplateData, bindDevelopmentTemplateData, bindSpecializedTemplateData, transformForArchetype, buildA13Props, buildA15Props, buildA17Props, buildA22Props, buildA11Props, buildA12Props, buildA18Props, buildA02Props, buildA03Props, mergeRentRollTables, buildA04Props, buildA05Props, buildA06Props, buildA07Props, buildA08Props, buildA09Props, buildGenericProps, buildSummaryFromOverview, buildLandFromOverview, buildA16Props, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
 import { sqmToPyeong, pyeongToSqm, SQM_RATIO } from "@/lib/utils/area-conversion";
-
-/** 'A / B' 쌍 표기 — 부재 값은 단위 없이 '-', 둘 다 부재면 '-' ('-% / -%', '-대 / -대' 방지, Rule 37) */
-function pairOrDash(a: unknown, b: unknown, unit: string): string {
-  const fmt = (v: unknown) => (v === null || v === undefined || v === '' || (typeof v === 'number' && !Number.isFinite(v)) ? null : `${v}${unit}`);
-  const fa = fmt(a);
-  const fb = fmt(b);
-  if (!fa && !fb) return '-';
-  return `${fa ?? '-'} / ${fb ?? '-'}`;
-}
+import { pairOrDash } from "@/lib/format/safe-number";
 
 /**
  * Phase 2-3: IMCore 정형 객체로부터 PPTX 15종 아키타입 슬라이드 데이터 직접 바인딩

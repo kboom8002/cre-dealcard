@@ -190,7 +190,7 @@ describe('P5 양평동 Income R2-Standard — 프로덕션 골든 파이프라�
     expect(bottomSheet.floor_leases).toHaveLength(12);
     expect(memo.length).toBeGreaterThan(30);
     expect(expected.posture).toBe('income');
-    expect(imageFiles.length).toBeGreaterThanOrEqual(6);
+    expect(imageFiles.length).toBeGreaterThanOrEqual(5);
   });
 
   // ──────────────────────────────────────────────────
@@ -358,14 +358,13 @@ describe('P5 양평동 Income R2-Standard — 프로덕션 골든 파이프라�
   it('Step 6: PPTX 렌더링 (MobileImPptxRenderer.render with credeal_basic)', { timeout: 45_000 }, async () => {
     const t = Date.now();
 
-    // 사진 6장 이상 구성 (실제 golden-test-data 이미지 활용)
+    // 실사진 5장 (사용자 제공 실물 촬영본, p5 images/)
     const photos = [
-      { url: join(IMAGES_DIR, 'image_01.png').replace(/\\/g, '/'), category: 'exterior' as const, caption: '더레드빌딩 전면 외관 (B1~10F 대로변 코너)', isHero: true, role: 'exterior' },
-      { url: join(IMAGES_DIR, 'image_02.png').replace(/\\/g, '/'), category: 'exterior' as const, caption: '건물 측면 및 보행자 접근로' },
-      { url: join(IMAGES_DIR, 'image_03.png').replace(/\\/g, '/'), category: 'entrance' as const, caption: '1층 주출입구 및 접근 동선' },
-      { url: join(IMAGES_DIR, 'image_04.png').replace(/\\/g, '/'), category: 'exterior' as const, caption: '건물 측후면 및 주차타워 진입로' },
-      { url: join(IMAGES_DIR, 'image_05.png').replace(/\\/g, '/'), category: 'exterior' as const, caption: '건물 전경 및 주변 가로 환경' },
-      { url: join(IMAGES_DIR, 'image_06.jpeg').replace(/\\/g, '/'), category: 'parking' as const, caption: '자주식 및 기계식 주차타워 (총 23대)' },
+      { url: join(IMAGES_DIR, 'image_01.jpg').replace(/\\/g, '/'), category: 'exterior' as const, caption: '건물 외관', isHero: true, role: 'exterior' },
+      { url: join(IMAGES_DIR, 'image_02.jpg').replace(/\\/g, '/'), category: 'lobby' as const, caption: '1층 로비' },
+      { url: join(IMAGES_DIR, 'image_03.jpg').replace(/\\/g, '/'), category: 'elevator' as const, caption: '엘리베이터홀' },
+      { url: join(IMAGES_DIR, 'image_04.jpg').replace(/\\/g, '/'), category: 'parking' as const, caption: '주차장' },
+      { url: join(IMAGES_DIR, 'image_05.jpg').replace(/\\/g, '/'), category: 'surroundings' as const, caption: '주변 도로/환경' },
     ];
 
     const pptxInput = await createBasicImTestInput(bottomSheet, {
