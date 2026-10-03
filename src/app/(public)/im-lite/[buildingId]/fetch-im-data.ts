@@ -12,6 +12,7 @@ import { resolveEnrichment } from "@/domain/building/im-core/resolve-enrichment"
 import { getTierAllowedSections, TIER_CONFIG, type ReleaseTier } from "@/domain/building/im-core/release-tier";
 import type { MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
 import { buildKakaoStaticMapUrl } from "@/lib/external/kakao-static-map";
+import { normalizeSectionMarkdown } from "@/lib/utils/markdown-normalizer";
 
 function isValidKoreanCoord(lat: number, lng: number): boolean {
   return Number.isFinite(lat) && Number.isFinite(lng) && lat >= 33.0 && lat <= 43.0 && lng >= 124.0 && lng <= 132.0;
@@ -471,25 +472,67 @@ export async function fetchIMData(
           const existing = document.body.heroCard;
           const askDisplay = existing?.askingPriceDisplay || s.price_band || (s.asking_price_manwon ? `${(s.asking_price_manwon / 10000).toFixed(1)}억 원` : '');
           if (existing) {
+            // D39: existing.keyPoints에 마크다운 표(|)나 거대 블록이 유출되었는지 필터링
+            let cleanedExistingPoints = existing.keyPoints;
+            if (Array.isArray(cleanedExistingPoints) && cleanedExistingPoints.length > 0) {
+              cleanedExistingPoints = cleanedExistingPoints
+                .filter((p: string) => typeof p === 'string' && !p.startsWith('|') && !p.startsWith('>') && !p.includes('종합 가치 제안'))
+                .map((p: string) => p.replace(/\*\*/g, '').trim())
+                .filter((p: string) => p.length > 8);
+              if (cleanedExistingPoints.length === 0) cleanedExistingPoints = undefined;
+            }
             return {
               ...existing,
               askingPriceDisplay: askDisplay,
+              ...(cleanedExistingPoints ? { keyPoints: cleanedExistingPoints } : {}),
             };
           }
           const sections = document.body.sections || [];
           const investSection = sections.find((sec: any) => sec.section_type === 'investment_thesis' || sec.section_type === 'buyer_fit');
           const riskSection = sections.find((sec: any) => sec.section_type === 'risk_check');
           const finSection = sections.find((sec: any) => sec.section_type === 'income_analysis');
-          // Extract first sentence from section markdown as summary
-          const firstLine = (md: string | undefined) => md?.split('\n').find(l => l.trim().length > 10)?.replace(/^[#*\-\s>]+/, '').trim() || '';
+
+          // Extract clean bullet points for heroCard
+          const extractPoints = (md: string | undefined): string[] => {
+            if (!md) return [];
+            const normalized = normalizeSectionMarkdown(md);
+            const lines = normalized.split('\n').map(l => l.trim()).filter(Boolean);
+            const bullets = lines
+              .filter(l => !l.startsWith('|') && !l.startsWith('>') && !l.startsWith('#') && (
+                l.startsWith('-') || l.startsWith('*') || l.startsWith('•') || l.startsWith('·') ||
+                l.match(/^\d[.)]\s/) || l.startsWith('**') ||
+                l.match(/^[\u{1F300}-\u{1FAFF}]/u)
+              ))
+              .map(p => p.replace(/^[-*•·0-9.):\s]+/, '').replace(/\*\*/g, '').replace(/^[\u{1F300}-\u{1FAFF}]\s*/u, '').trim())
+              .filter(p => p.length > 8 && !p.startsWith('|') && !p.startsWith('>') && !p.includes('종합 가치 제안'));
+            return bullets.slice(0, 3);
+          };
+
+          const keyPoints = extractPoints(investSection?.markdown);
+          const firstMeaningful = (md: string | undefined) => {
+            if (!md) return '';
+            const normalized = normalizeSectionMarkdown(md);
+            const lines = normalized.split('\n').map(l => l.trim()).filter(l => l.length > 10 && !l.startsWith('#') && !l.startsWith('|'));
+            const first = lines[0]?.replace(/^[#*\-\s>•·\d.]+/, '').trim() || '';
+            if (first.length > 180) {
+              const sentenceEnd = first.search(/[.?!](?:\s|$)/);
+              if (sentenceEnd > 20 && sentenceEnd < 200) {
+                return first.slice(0, sentenceEnd + 1);
+              }
+              return first.slice(0, 160) + '...';
+            }
+            return first;
+          };
+
           return {
             assetType: s.asset_type || '상업용 자산',
             areaSignal: s.area_signal || '',
             askingPriceDisplay: s.price_band || (s.asking_price_manwon ? `${(s.asking_price_manwon / 10000).toFixed(1)}억 원` : ''),
             capRateBase: null,
             noiBaseBil: null,
-            keyInvestmentPoint: firstLine(investSection?.markdown) || s.fit_summary || '해당 권역 핵심 입지 및 우량 자산 가치 보유 물건',
-            keyRisk: firstLine(riskSection?.markdown) || s.caution_summary || '계약 전 법률·세무·물리적 실사를 통한 리스크 확인 권장',
+            keyPoints: keyPoints.length > 0 ? keyPoints : undefined,
+            keyInvestmentPoint: keyPoints[0] || firstMeaningful(investSection?.markdown) || s.fit_summary || '해당 권역 핵심 입지 및 우량 자산 가치 보유 물건',
+            keyRisk: firstMeaningful(riskSection?.markdown) || s.caution_summary || '계약 전 법률·세무·물리적 실사를 통한 리스크 확인 권장',
             equityRequiredBil: null,
             leveragedYieldPct: null,
             readinessScore: document.body.readiness_score ?? 0,

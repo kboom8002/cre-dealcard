@@ -622,26 +622,32 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
   // AI가 생성한 investment_thesis(투자 요약) 섹션에서 핵심 포인트를 추출하여 heroCard 업데이트
   const thesisSection = sections.find(s => s.section_type === 'investment_thesis');
   if (thesisSection && thesisSection.markdown) {
-    const lines = thesisSection.markdown.split('\n').map(l => l.trim()).filter(Boolean);
-    // Phase 1: AI 출력 변형 모두 커버 (•, -, *, 1., 1), **, 이모지 시작)
+    const { normalizeSectionMarkdown } = await import('@/lib/utils/markdown-normalizer');
+    const normalized = normalizeSectionMarkdown(thesisSection.markdown);
+    const lines = normalized.split('\n').map(l => l.trim()).filter(Boolean);
+    // Phase 1: 불릿 포인트 추출 (•, -, *, 1., 1), **, 이모지 시작)
+    // 표 행(|) 및 인용구(>)로 시작하는 헤더는 엄격히 배제
     const bulletPoints = lines.filter(l => (
-      l.startsWith('-') || l.startsWith('*') || l.startsWith('•') || l.startsWith('·') ||
-      l.match(/^\d[.)]\s/) || l.startsWith('**') ||
-      l.match(/^[\u{1F300}-\u{1FAFF}]/u)
+      !l.startsWith('|') && !l.startsWith('>') && !l.startsWith('#') &&
+      (
+        l.startsWith('-') || l.startsWith('*') || l.startsWith('•') || l.startsWith('·') ||
+        l.match(/^\d[.)]\s/) || l.startsWith('**') ||
+        l.match(/^[\u{1F300}-\u{1FAFF}]/u)
+      )
     ));
     
     // 마커/볼드/이모지 제거하여 깨끗한 문장 추출
     const cleanedPoints = bulletPoints
       .map(p => p.replace(/^[-*•·0-9.):\s]+/, '').replace(/\*\*/g, '').replace(/^[\u{1F300}-\u{1FAFF}]\s*/u, '').trim())
-      .filter(p => p.length > 10);
+      .filter(p => p.length > 8 && !p.startsWith('|') && !p.startsWith('>') && !p.includes('종합 가치 제안'));
       
     if (cleanedPoints.length > 0) {
       heroCard.keyPoints = cleanedPoints.slice(0, 3);
       heroCard.keyInvestmentPoint = cleanedPoints[0];
     } else {
-      // 불릿이 없는 경우: 의미 있는 첫 2~3문장을 투자 포인트로 활용
+      // 불릿이 없는 경우: 표와 인용구를 제외한 의미 있는 첫 2~3문장을 투자 포인트로 활용
       const meaningfulLines = lines
-        .filter(l => l.length > 15 && !l.startsWith('#'))
+        .filter(l => l.length > 15 && !l.startsWith('#') && !l.startsWith('|') && !l.startsWith('>') && !l.includes('종합 가치 제안'))
         .map(l => l.replace(/\*\*/g, '').trim());
       if (meaningfulLines.length > 0) {
         heroCard.keyPoints = meaningfulLines.slice(0, 3);
