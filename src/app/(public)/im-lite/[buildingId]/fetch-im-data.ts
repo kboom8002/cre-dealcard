@@ -451,7 +451,7 @@ export async function fetchIMData(
           label: "상세 투자설명서(IM) 요청",
           description: "렌트롤, 캐시플로우, 도면 등이 포함된 30페이지 분량의 Full IM은 중개인 승인 후 열람 가능합니다.",
         },
-        protectedFieldsRemoved: ["상세 지번", "건물명", "소유주명"],
+        protectedFieldsRemoved: ["상세 지번", "소유주명"],
         photos: rawPhotos,
         hiddenSections: Array.isArray(document.body.hidden_sections) ? document.body.hidden_sections : [],
         coordinates: finalCoordinates,
@@ -688,7 +688,7 @@ export async function fetchIMData(
       label: "상세 투자설명서(IM) 요청",
       description: "렌트롤, 캐시플로우, 도면 등이 포함된 30페이지 분량의 Full IM은 중개인 승인 후 열람 가능합니다.",
     },
-    protectedFieldsRemoved: ssot.disclosure?.guard_checked ? ["상세 지번", "건물명", "소유주명"] : [],
+    protectedFieldsRemoved: ssot.disclosure?.guard_checked ? ["상세 지번", "소유주명"] : [],
     photos: (Array.isArray(layers.photos) && layers.photos.length > 0
       ? layers.photos
           .filter((p: any) => p && typeof p.url === "string")

@@ -257,15 +257,8 @@ const PROTECTED_FIELD_DETECTORS: ProtectedFieldDetector[] = [
     publicBlocked: true,
     replacement: "[내부 협상 메모 비공개]",
   },
-  // D33 M-C: 건물명 마스킹 — 표지·본문에서 특정 건물명 노출 방지
-  {
-    field: "building_name",
-    patterns: [
-      /(?:더\s*)?[가-힣A-Za-z0-9]+(?:빌딩|타워|오피스텔|센터|플라자|스퀘어|파크|몰|아파트)/g,
-    ],
-    publicBlocked: false, // 건물명은 기본적으로 허용 — 워터마크 모드에서만 차단
-    replacement: "[건물명 비공개]",
-  },
+  // 건물명은 공개 정보 — 마스킹하지 않음 (2026-10 정책 확정).
+  // 구 D33 M-C 패턴(/…빌딩|타워|…/)은 '오피스빌딩' 같은 자산유형까지 '[건물명 비공개]'로 치환하는 오탐을 유발해 제거.
 ];
 
 export interface DisclosureGuardResult {
@@ -420,6 +413,8 @@ const TOKEN_HUMANIZATION: Record<string, Record<OutputChannel, string>> = {
   '[임대수익 존재, 상세 내용 비공개]': { public: '임대 수익 발생 확인', institutional: '임대 수익 존재 (NDA)', internal: '(비공개)' },
   '[매도자 사정 비공개]':     { public: '매도 사유 비공개', institutional: '매도 사유 비공개', internal: '(비공개)' },
   '[내부 협상 메모 비공개]':  { public: '',              institutional: '',           internal: '(비공개)' },
+  // 레거시: 건물명 마스킹 폐지(건물명 공개) — 잔존 토큰은 '본 자산'으로 자연화 (받침 有 → 으로/은/이 조사와 호환)
+  '[건물명 비공개]':          { public: '본 자산',       institutional: '본 자산',    internal: '본 자산' },
 };
 
 /** 한국어 조사 보존형 치환 패턴 (토큰 뒤 조사 연결 처리) */
