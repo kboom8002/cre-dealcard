@@ -158,13 +158,14 @@ export const HARDCODED_TERM_RULES: ReplacementRule[] = [
   { id: 'd32_naming_rights', pattern: /네이밍\s*라이츠/g, replacement: '사옥 단독 명칭 표기(간판 설치권)', category: 'CRE용어' },
   { id: 'd32_branding_rights', pattern: /브랜딩\s*라이츠/g, replacement: '기업 단독 브랜딩', category: 'CRE용어' },
   { id: 'd32_cap_rate_kr', pattern: /캡레이트/g, replacement: '연 순수익률(Cap Rate)', category: 'CRE용어' },
-  { id: 'd32_gop_kr', pattern: /(?<![실질\s])GOP(?!\s*마진)/g, replacement: '실질 영업이익(GOP)', category: 'CRE용어' },
+  { id: 'd32_gop_kr', pattern: /(?<![실질\s(])GOP(?!\s*마진)/g, replacement: '실질 영업이익(GOP)', category: 'CRE용어' },
   { id: 'd32_ti_raw', pattern: /(?<!\()TI(?!\)|\s*\/)/g, replacement: '인테리어 지원금(TI)', category: 'CRE용어' },
   { id: 'd32_rent_free', pattern: /(?<!\()Rent\s*Free(?!\))/gi, replacement: '렌트프리(무상임대)', category: 'CRE용어' },
   { id: 'd32_my_money', pattern: /내\s*돈/g, replacement: '자기자본(Equity)', category: 'CRE용어' },
   // D33 M-B: 누락 CRE 용어 추가
-  { id: 'd33_noi_standalone', pattern: /(?<![순\s])NOI(?!\s*기준|\s*\()/g, replacement: '순영업소득(NOI)', category: 'CRE용어' },
-  { id: 'd33_cap_rate_en', pattern: /(?<![연\s])Cap\s*Rate(?!\s*[,(])/gi, replacement: '연 순수익률(Cap Rate)', category: 'CRE용어' },
+  // 괄호 안에 이미 있는 용어("순영업소득(NOI)")는 재치환하지 않음 — 이중 래핑 방지
+  { id: 'd33_noi_standalone', pattern: /(?<![순\s(])NOI(?!\s*기준|\s*\()/g, replacement: '순영업소득(NOI)', category: 'CRE용어' },
+  { id: 'd33_cap_rate_en', pattern: /(?<![연\s(])Cap\s*Rate(?!\s*[,(])/gi, replacement: '연 순수익률(Cap Rate)', category: 'CRE용어' },
   { id: 'd33_nnn_lease', pattern: /NNN\s*리스/g, replacement: '삼중순임대(NNN Lease)', category: 'CRE용어' },
   { id: 'd33_sublease', pattern: /전대차/g, replacement: '전대(轉貸)임대차', category: 'CRE용어' },
   { id: 'd33_ltv_raw', pattern: /(?<!\()LTV(?!\))/g, replacement: '담보인정비율(LTV)', category: 'CRE용어' },

@@ -498,7 +498,7 @@ export async function fetchIMData(
             const normalized = normalizeSectionMarkdown(md);
             const lines = normalized.split('\n').map(l => l.trim()).filter(Boolean);
             const bullets = lines
-              .filter(l => !l.startsWith('|') && !l.startsWith('>') && !l.startsWith('#') && (
+              .filter(l => !l.startsWith('|') && !l.startsWith('>') && !l.startsWith('#') && !/^\*\*[^*]+\*\*[:：]?$/.test(l) && (
                 l.startsWith('-') || l.startsWith('*') || l.startsWith('•') || l.startsWith('·') ||
                 l.match(/^\d[.)]\s/) || l.startsWith('**') ||
                 l.match(/^[\u{1F300}-\u{1FAFF}]/u)

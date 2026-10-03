@@ -629,6 +629,7 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     // 표 행(|) 및 인용구(>)로 시작하는 헤더는 엄격히 배제
     const bulletPoints = lines.filter(l => (
       !l.startsWith('|') && !l.startsWith('>') && !l.startsWith('#') &&
+      !/^\*\*[^*]+\*\*[:：]?$/.test(l) && // 볼드 단독 줄 = 소제목 (투자 포인트 아님)
       (
         l.startsWith('-') || l.startsWith('*') || l.startsWith('•') || l.startsWith('·') ||
         l.match(/^\d[.)]\s/) || l.startsWith('**') ||
