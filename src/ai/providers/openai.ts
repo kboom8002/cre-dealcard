@@ -18,7 +18,7 @@ export class OpenAIProvider implements LLMProvider {
     const model = params.model || "gpt-5.6-terra";
     console.log("[OpenAIProvider] model is:", model);
 
-    try {
+    const attemptChat = async () => {
       const response = await this.openai.chat.completions.create(
         {
           model,
@@ -34,10 +34,22 @@ export class OpenAIProvider implements LLMProvider {
           signal: params.signal,
         }
       );
+      return response;
+    };
 
-      const content = response.choices[0]?.message?.content;
+    try {
+      let response = await attemptChat();
+      let content = response.choices[0]?.message?.content;
+
+      // D12: 빈 응답 시 1회 재시도 (transient empty response 복구)
       if (!content) {
-        throw new Error("OpenAI returned an empty response");
+        console.warn("[OpenAIProvider] Empty response, retrying once...");
+        response = await attemptChat();
+        content = response.choices[0]?.message?.content;
+      }
+
+      if (!content) {
+        throw new Error("OpenAI returned an empty response after retry");
       }
 
       return {

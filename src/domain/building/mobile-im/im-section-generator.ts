@@ -771,8 +771,9 @@ export async function generateSingleSection(
   const riskCheck = runRiskBoundaryCheck(markdown, sectionType);
   if (riskCheck.safe_text) markdown = riskCheck.safe_text;
 
-  // CRE Quality Gate (Fast mode 스킵) — D33 M-H: 정적 합성 문구에도 적용
-  if (!IM_FAST_MODE) {
+  // CRE Quality Gate (Fast mode 스킵, 고점수 judge 통과 섹션도 스킵)
+  // D33 M-H: 정적 합성 문구에도 적용하되, judge ≥4.0 이면 이미 검증된 것으로 간주하여 Gate 호출 생략
+  if (!IM_FAST_MODE && !(finalSectionJudgeScore !== undefined && finalSectionJudgeScore >= 4.0)) {
     try {
       const gateResult = await runCREQualityGate(markdown, sectionType, posture);
       if (!gateResult.passed && gateResult.riskLevel === "high") {
@@ -802,6 +803,8 @@ export async function generateSingleSection(
     } catch (gateErr) {
       log.warn({ gateErr: gateErr }, `[cre-quality-gate] Gate failed for ${sectionType}, skipping:`);
     }
+  } else if (finalSectionJudgeScore !== undefined && finalSectionJudgeScore >= 4.0) {
+    log.info(`[cre-quality-gate] ${sectionType} skipped (judge score ${finalSectionJudgeScore.toFixed(1)} ≥ 4.0)`);
   }
 
   // Disclosure Guard

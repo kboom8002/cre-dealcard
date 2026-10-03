@@ -300,11 +300,10 @@ export class MobileImPptxRenderer {
         dataMap['cover'].documentDate = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
       }
 
-      // ── Basic IM 물건 개요 (building) 슬라이드 데이터 보장 ──
-      // basic-im-guide §2 #3: 건축물대장 정보 + 외관 사진 + 매각가 좌우 배치
-      // LLM writer가 property_overview 섹션을 생성하지 않으면 dataMap['building']이 없으므로
-      // SSOT/건축물대장 데이터로 직접 폴백 바인딩
-      if (!dataMap['building'] && isBasicPreset) {
+      // ── Basic IM 물건 개요 (building) 슬라이드 데이터 보강 ──
+      // D07: LLM이 building 섹션을 생성하더라도 스펙이 불완전할 수 있으므로
+      // enrichment/SSoT/건축물대장에서 11대 제원을 항상 구성하고 누락분을 병합
+      if (isBasicPreset) {
         const ssot = input.doc.body?.ssot_summary ?? {};
         const bldg = input.building ?? {};
         const br = enrichment?.buildingRegister ?? {};
@@ -317,7 +316,7 @@ export class MobileImPptxRenderer {
           return `${v.toLocaleString()}㎡ (${formatPyeong(v, 1)}평)`;
         };
 
-        const leftRows: [string, string][] = [
+        const enrichedRows: [string, string][] = [
           ['소재지', ssot.address || bldg.address || heroCard.address || '-'],
           ['대지면적', fmtArea(ssot.land_area_sqm || br.platArea || heroCard.landAreaM2 || bldg.land_area_sqm)],
           ['지목', ssot.land_category || br.jimok || '-'],
@@ -346,16 +345,33 @@ export class MobileImPptxRenderer {
           })()],
         ].filter(([, v]) => v !== '-') as [string, string][]; // 값이 없는 행 제거
 
-        dataMap['building'] = {
-          title: '물건 개요',
-          content: '',
-          tables: [],
-          metrics: {},
-          left: {
+        if (!dataMap['building']) {
+          // LLM이 building 섹션을 생성하지 않은 경우: 전체 신규 생성
+          dataMap['building'] = {
+            title: '물건 개요',
+            content: '',
+            tables: [],
+            metrics: {},
+            left: {
+              sub: '건축물대장·토지이용계획확인서 기준',
+              rows: enrichedRows,
+            },
+          };
+        } else if (dataMap['building'].left?.rows) {
+          // LLM이 building 섹션을 생성한 경우: 누락 스펙 병합
+          const existingKeys = new Set(dataMap['building'].left.rows.map(([k]: [string, string]) => k));
+          for (const [key, val] of enrichedRows) {
+            if (!existingKeys.has(key)) {
+              dataMap['building'].left.rows.push([key, val]);
+            }
+          }
+        } else {
+          // left.rows가 없는 경우: enrichment rows로 대체
+          dataMap['building'].left = {
             sub: '건축물대장·토지이용계획확인서 기준',
-            rows: leftRows,
-          },
-        };
+            rows: enrichedRows,
+          };
+        }
       }
 
       if (dataMap['building']) {
