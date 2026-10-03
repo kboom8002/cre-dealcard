@@ -631,7 +631,7 @@ export function bindSectionData(
         const rrRows = floorLeases.map((l: any) => {
           const floor = l.floor || l.unit_label || '-';
           const areaPyeong = isFinitePos(l.area_sqm)
-            ? `${formatPyeong(Number(l.area_sqm), 0)}평`
+            ? `${formatPyeong(Number(l.area_sqm), 1)}평`
             : (isFinitePos(l.area_pyeong) ? `${l.area_pyeong}평` : '-');
           const tenant = l.tenant_name || l.tenant || l.tenant_type || (l.is_vacant ? '공실' : '-');
           const deposit = isFiniteNonNeg(l.deposit_manwon) ? `${Number(l.deposit_manwon).toLocaleString()}만` : '-';
@@ -675,8 +675,8 @@ export function bindSectionData(
         // ssot에 월세 또는 보증금 데이터가 있으면 합성 가능
         if (monthlyRentKrw || depositManwon) {
           const monthlyRentManwon = monthlyRentKrw ? Math.round(monthlyRentKrw / 10000) : 0;
-          const annualRentEok = monthlyRentManwon > 0 ? (monthlyRentManwon * 12 / 10000).toFixed(1) : '-';
-          const depositEok = depositManwon ? (depositManwon / 10000).toFixed(1) : '-';
+          const annualRentEok = monthlyRentKrw ? Number((monthlyRentKrw * 12 / 100000000).toFixed(2)) : '-';
+          const depositEok = depositManwon ? Number((depositManwon / 10000).toFixed(2)) : '-';
 
           // 마크다운 서술에서 공실 층수 추출 (예: "2층·4층·5층 등 총 3개 층 공실")
           const vacantMatch = cleanMarkdown.match(/(\d+)\s*개?\s*층?\s*공실/);
@@ -687,7 +687,7 @@ export function bindSectionData(
             ['보증금 합계', depositManwon ? `${depositEok}억 원` : '미확인', '공실 현황', vacancySignal || `${vacantCount}개 층 공실`],
           ];
           if (askingManwon) {
-            summaryRows.push(['매각 희망가', `${(askingManwon / 10000).toFixed(0)}억 원`, '총보증금 대비', depositManwon && askingManwon ? `${((depositManwon / askingManwon) * 100).toFixed(1)}%` : '-']);
+            summaryRows.push(['매각 희망가', `${Number((askingManwon / 10000).toFixed(2))}억 원`, '총보증금 대비', depositManwon && askingManwon ? `${((depositManwon / askingManwon) * 100).toFixed(1)}%` : '-']);
           }
 
           result['rentRoll'].tableRows = summaryRows;
@@ -710,7 +710,7 @@ export function bindSectionData(
             ['자가 사용', `${occupiedFloors}개 층`, '공실', vacancySignal || `${vacantCount}개 층`],
           ];
           if (askingManwon) {
-            summaryRows.push(['매각 희망가', `${(askingManwon / 10000).toFixed(0)}억 원`, '비고', '즉시 명도 가능']);
+            summaryRows.push(['매각 희망가', `${Number((askingManwon / 10000).toFixed(2))}억 원`, '비고', '즉시 명도 가능']);
           }
 
           result['rentRoll'].tableRows = summaryRows;

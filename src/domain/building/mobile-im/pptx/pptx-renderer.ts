@@ -293,7 +293,7 @@ export class MobileImPptxRenderer {
         dataMap['cover'].address = ssotCover.address ?? input.doc.body?.resolved_address ?? '';
         const rawCoverAsk = Number(ssotCover.asking_price_manwon);
         const safeCoverAsk = (Number.isFinite(rawCoverAsk) && rawCoverAsk > 0)
-          ? `${(rawCoverAsk / 10000).toFixed(0)}억 원`
+          ? `${Number((rawCoverAsk / 10000).toFixed(2))}억 원`
           : (ssotCover.price_band && !String(ssotCover.price_band).includes('Infinity') ? ssotCover.price_band : '');
         dataMap['cover'].askingPrice = safeCoverAsk;
         dataMap['cover'].documentDate = new Date().toISOString().slice(0, 10).replace(/-/g, '.');

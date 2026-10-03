@@ -639,6 +639,21 @@ export async function generateSingleSection(
   // 근본 원인: narrative-prompt.ts line 250에서 JSON.stringify(bssotLite)를 프롬프트에 전달,
   // LLM이 이를 "데이터"가 아닌 "콘텐츠"로 오인하여 출력에 포함시키는 경우 발생.
   markdown = stripJsonLeaks(markdown, sectionType);
+  if (generatedByAi && markdown.trim().length < 30) {
+    log.warn(`[im-section-generator] ${sectionType} stripJsonLeaks 후 내용 소실. 프리미엄 템플릿으로 복구합니다.`);
+    generatedByAi = false;
+    markdown = generatePremiumTemplate(
+      sectionType,
+      ctx.assetIdentity as any,
+      ctx.physicalFact as any,
+      ctx.marketLocation as any,
+      ctx.buyerFit as any,
+      supplemental,
+      externalData,
+      buildingSsotLite as any,
+      posture
+    );
+  }
   // value-add 테이블 추가 (수익형 포스처에서만 유효)
   if (sectionType === "investment_thesis" && ctx.valueAddMarkdown && posture === "income") {
     markdown += `\n\n${ctx.valueAddMarkdown}`;

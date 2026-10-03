@@ -221,7 +221,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
 
   // ── 포스처별 본문 슬라이드 ──
   // D34 T3-RR-01: rentRoll은 hasRentRoll !== false 일 때만 추가
-  const addRentRoll = input.dataAvailability?.hasRentRoll !== false;
+  const addRentRoll = input.dataAvailability?.hasRentRoll === true;
   // A22 건축 입면 셋백 스태킹 플랜: hasStackingPlan 유무에 따라 추가
   const addStackingPlan = input.dataAvailability?.hasStackingPlan === true;
 
@@ -311,7 +311,7 @@ export function buildDeckSequence(input: DeckSequenceInput): SlideSpec[] {
     ? getTierAllowedSections(input.releaseTier)
     : { allowFinancials: true, allowScenario: true, allowValueAdd: true, allowRentGap: true, maxBodyPages: 16 };
 
-  if (tierConfig.allowFinancials) {
+  if (tierConfig.allowFinancials && input.posture === 'income') {
     if (input.grade === 'A') {
       // A등급: 자본구조 + DCF + 민감도 + 총수익률 + 대출 + 세금
       sequence.push({ archetype: 'A16', kicker: 'Capital', title: '자본구조', dataKey: 'capital' });

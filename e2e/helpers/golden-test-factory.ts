@@ -507,9 +507,7 @@ export function createGoldenTest(config: GoldenTestConfig) {
         assertPriceBandBlocked(state.fullPptxText);
 
         // 7종 콘텐츠 및 이미지 단언
-        if (state.mediaEntries.length > 0) {
-          assertMapImagePresence(state.mediaEntries);
-        }
+        assertMapImagePresence(state.mediaEntries);
         assertPriceReflected(state.fullPptxText, askingPriceManwon);
         if (expectedFloors.length > 0) {
           assertFloorKeywordsPresent(state.fullPptxText, expectedFloors);

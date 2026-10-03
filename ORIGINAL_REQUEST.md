@@ -548,3 +548,76 @@ The existing codebase includes comprehensive verification harnesses that the tea
 - [ ] `npx tsc --noEmit` exits with 0 errors.
 - [ ] `npm run build` succeeds cleanly without build errors.
 - [ ] At least one automated golden test spec is added to verify end-to-end Pro IM generation and binary assertions.
+
+## 2026-09-29T03:22:36Z
+
+# Teamwork Project Prompt — Draft
+
+> Status: Ready for launch — awaiting user approval
+> Goal: Craft prompt → get user approval → delegate to teamwork_preview
+> Requested team: Full team (대규모 개편)
+
+PPTX Basic IM 파이프라인의 지면 품질(렌더링 완성도, 가독성, 데이터 시각화, 대체 UI 등)을 상용화 수준으로 한 단계 더 포괄적으로 고도화합니다.
+
+Working directory: c:\Users\User\cre-dealcard
+Integrity mode: development (자유로운 방식 허용)
+
+## Requirements
+
+### R1. 레이아웃 및 여백 최적화
+전체 슬라이드에 걸쳐 컴포넌트 간의 간격과 정렬을 일관되게 조정하여 시각적 안정감을 확보해야 합니다. 슬라이드 여백(Margin)과 패딩(Padding) 규격을 통일합니다.
+
+### R2. 텍스트 렌더링 및 오버플로우 방지
+텍스트가 할당된 영역(도형, 표 셀 등)을 벗어나지 않도록 폰트 크기를 동적으로 조절하거나 적절히 줄바꿈 처리해야 합니다.
+
+### R3. 데이터 시각화 및 테이블 품질 강화
+표(Table)의 셀 패딩과 테두리 스타일을 일관성 있게 개선하고, 차트 및 데이터 인포그래픽의 배색과 가독성을 높여야 합니다.
+
+### R4. 데이터 누락 예외(Edge Case) 대응
+주요 데이터(지도, 차트 데이터 등)가 누락되더라도 레이아웃이 붕괴되거나 어색한 공백으로 남지 않도록, 디자인적으로 완성도 있는 대체(Fallback) UI를 적용해야 합니다.
+
+## Acceptance Criteria
+
+### 1. 코드 안정성 (Regression 방지)
+- [ ] `npm run test` 실행 시, 기존의 모든 Unit 및 E2E 테스트를 오류 없이 통과해야 합니다.
+
+### 2. 구조 및 시각적 무결성 검증 (객관적 단언)
+- [ ] 파이썬 스크립트(`python-pptx`)나 별도의 독립된 분석 툴을 작성/활용하여, 생성된 PPTX 내의 핵심 텍스트가 컨테이너를 벗어나는 오버플로우(Overflow) 현상이 없는지 객관적으로 검증해야 합니다.
+- [ ] 데이터가 누락된 모의 입력(Mock Input)으로 PPTX를 생성했을 때, 해당 영역에 빈 공간 대신 대체(Fallback) UI 컴포넌트가 정상적으로 렌더링되는지 프로그래밍 방식으로 확인(Assert)해야 합니다.
+
+## 2026-09-29T12:07:41Z
+
+# Teamwork Project Prompt — Draft
+
+> Status: Ready for launch — awaiting user approval
+> Goal: Craft prompt → get user approval → delegate to teamwork_preview
+> Requested team: Full team (포괄적 전수 점검)
+
+im-core 도메인 데이터가 모바일 IM의 각 섹션 콘텐츠로 매핑/생성되는 로직을 전수 점검합니다. 데이터 정합성 보장, 텍스트 카피 고품질화, 결측치 방어, 아키텍처 경계 강화를 통해 콘텐츠 파이프라인을 상용화 수준으로 고도화합니다.
+
+Working directory: c:\Users\User\cre-dealcard
+Integrity mode: development (자유로운 방식 허용)
+
+## Requirements
+
+### R1. 데이터 정합성 전수 점검
+im-core의 원본 데이터가 모바일 IM 렌더링 바인더 모델로 전달될 때 누락되거나 왜곡되는 부분이 없는지 전체 섹션 생성기를 꼼꼼히 점검하고 매핑 오류를 바로잡아야 합니다.
+
+### R2. 텍스트 카피 고품질화 및 D56 사전 연동
+단순한 기계적 문장 결합을 넘어 실무 전문 용어로 매끄럽게 다듬고, 최근 제정된 D56 용어 사전(Terminology Dictionary)의 기준이 텍스트 생성 로직 전반에 깊고 일관되게 반영되도록 품질을 높여야 합니다.
+
+### R3. 결측치(Missing Data) 도메인 방어 로직 강화
+원본 데이터가 비어있거나 불완전할 때 뷰(View) 렌더러 단에서 방어하는 것에 그치지 않고, im-core 내부 데이터 바인딩 계층에서 우아하게 기본값을 제공하거나 예외를 핸들링하는 로직을 견고하게 구축해야 합니다.
+
+### R4. 아키텍처 경계 강화 (관심사 분리)
+모바일 IM(뷰 계층) 코드가 im-core(도메인 계층)의 비즈니스 로직을 침범하여 역참조하지 않도록 의존성을 정리하고, 아키텍처 경계(Rule 12 등)를 명확히 분리해야 합니다.
+
+## Acceptance Criteria
+
+### 1. 코드 안정성 (Regression 방지)
+- [ ] 작업 완료 후 `npm run test` 실행 시, 기존 골든 파이프라인(E2E)과 유닛 테스트를 어떠한 오류 없이 100% 통과해야 합니다.
+
+### 2. 정합성 및 아키텍처 무결성 검증 (객관적 단언)
+- [ ] 입력된 원본 도메인 데이터와 최종 생성된 섹션 콘텐츠(문자열/구조)가 완벽히 일치하는지 교차 대조하는 새로운 '단언(Assert) 테스트' 또는 스크립트를 작성하여 데이터 유실이 없음을 증명해야 합니다.
+- [ ] 정적 분석 도구(또는 의존성 검사 스크립트)를 가동하여, 뷰 계층이 도메인 계층을 역으로 오염시키는 아키텍처 위반(역참조) 사례가 '0건'임을 기계적으로 확인하고 단언해야 합니다.
+

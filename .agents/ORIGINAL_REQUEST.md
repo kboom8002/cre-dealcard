@@ -666,3 +666,38 @@ Construct comprehensive automated test suites (including adversarial chaos tests
 - [ ] Automated adversarial tests pass with 100% success rate.
 - [ ] Pre-flight pipeline audits and `npm run build` pass without type errors or build failures.
 
+## 2026-09-29T03:22:36Z
+
+# Teamwork Project Prompt — Draft
+
+> Status: Ready for launch — awaiting user approval
+> Goal: Craft prompt → get user approval → delegate to teamwork_preview
+> Requested team: Full team (대규모 개편)
+
+PPTX Basic IM 파이프라인의 지면 품질(렌더링 완성도, 가독성, 데이터 시각화, 대체 UI 등)을 상용화 수준으로 한 단계 더 포괄적으로 고도화합니다.
+
+Working directory: c:\Users\User\cre-dealcard
+Integrity mode: development (자유로운 방식 허용)
+
+## Requirements
+
+### R1. 레이아웃 및 여백 최적화
+전체 슬라이드에 걸쳐 컴포넌트 간의 간격과 정렬을 일관되게 조정하여 시각적 안정감을 확보해야 합니다. 슬라이드 여백(Margin)과 패딩(Padding) 규격을 통일합니다.
+
+### R2. 텍스트 렌더링 및 오버플로우 방지
+텍스트가 할당된 영역(도형, 표 셀 등)을 벗어나지 않도록 폰트 크기를 동적으로 조절하거나 적절히 줄바꿈 처리해야 합니다.
+
+### R3. 데이터 시각화 및 테이블 품질 강화
+표(Table)의 셀 패딩과 테두리 스타일을 일관성 있게 개선하고, 차트 및 데이터 인포그래픽의 배색과 가독성을 높여야 합니다.
+
+### R4. 데이터 누락 예외(Edge Case) 대응
+주요 데이터(지도, 차트 데이터 등)가 누락되더라도 레이아웃이 붕괴되거나 어색한 공백으로 남지 않도록, 디자인적으로 완성도 있는 대체(Fallback) UI를 적용해야 합니다.
+
+## Acceptance Criteria
+
+### 1. 코드 안정성 (Regression 방지)
+- [ ] `npm run test` 실행 시, 기존의 모든 Unit 및 E2E 테스트를 오류 없이 통과해야 합니다.
+
+### 2. 구조 및 시각적 무결성 검증 (객관적 단언)
+- [ ] 파이썬 스크립트(`python-pptx`)나 별도의 독립된 분석 툴을 작성/활용하여, 생성된 PPTX 내의 핵심 텍스트가 컨테이너를 벗어나는 오버플로우(Overflow) 현상이 없는지 객관적으로 검증해야 합니다.
+- [ ] 데이터가 누락된 모의 입력(Mock Input)으로 PPTX를 생성했을 때, 해당 영역에 빈 공간 대신 대체(Fallback) UI 컴포넌트가 정상적으로 렌더링되는지 프로그래밍 방식으로 확인(Assert)해야 합니다.

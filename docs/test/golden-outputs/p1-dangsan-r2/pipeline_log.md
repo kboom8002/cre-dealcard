@@ -1,7 +1,7 @@
 # P1 당산 수익형 — R2-Standard 골든 파이프라인 보고서
 
-> **생성 시각**: 2026-09-29T01:49:24.560Z
-> **총 소요시간**: 27164ms
+> **생성 시각**: 2026-10-02T04:23:56.425Z
+> **총 소요시간**: 34346ms
 > **결과**: 13 PASS / 0 FAIL / 0 WARN
 
 ---
@@ -22,19 +22,19 @@
 
 | # | 단계 | 상태 | 소요시간 | 상세 |
 |:---|:---|:---|---:|:---|
-| 1 | S1 — 데이터셋 로드 | ✅ PASS | 5ms | bottom_sheet: 13개 필드, memo: 381자, expected: 11개 필드 |
-| 2 | S2 — 메모 슬롯 추출 | ✅ PASS | 6ms | 4개 슬롯 추출, 추출률 9.0% |
-| 3 | S3 — 재무 계산 | ✅ PASS | 6ms | Cap Rate: 1.67%, 연 임대수익: 1.91억, 토지평당가: 7,501만/평 |
+| 1 | S1 — 데이터셋 로드 | ✅ PASS | 7ms | bottom_sheet: 13개 필드, memo: 381자, expected: 11개 필드 |
+| 2 | S2 — 메모 슬롯 추출 | ✅ PASS | 7ms | 4개 슬롯 추출, 추출률 9.0% |
+| 3 | S3 — 재무 계산 | ✅ PASS | 4ms | Cap Rate: 1.67%, 연 임대수익: 1.91억, 토지평당가: 7,501만/평 |
 | 4 | S4 — 데이터 품질 배지 | ✅ PASS | 0ms | 점수: 60, 등급: reference, 기대등급: B |
 | 5 | S5 — 덱 시퀀서 | ✅ PASS | 2ms | 9개 슬라이드 시퀀스, 아키타입: [A01, A02, A04, A06, A06, A24, A23, A14, A10] |
-| 6 | S6 — PPTX 렌더링 | ✅ PASS | 25524ms | 9개 슬라이드, 4271KB, 저장: C:\Users\User\cre-dealcard\docs\test\golden-outputs\p1-dangsan-r2\p1_dangsan_income_r2_basic.pptx |
-| 7 | S7-A — Poison Token 검증 | ✅ PASS | 366ms | 0 poison tokens detected |
-| 8 | S7-B — Evasive Phrase 검증 | ✅ PASS | 322ms | 0 evasive phrases detected |
-| 9 | S7-C — Mock Data Leak 검증 | ✅ PASS | 391ms | 0 mock data leaks detected |
-| 10 | S7-D — Physical Binary Gates | ✅ PASS | 274ms | isPass: true, slides: 9, issues: 0 |
-| 11 | S8 — 슬라이드 콘텐츠 검증 | ✅ PASS | 34ms | 7/7 검증 통과 |
-| 12 | S9 — SSoT 수학적 일관성 | ✅ PASS | 0ms | 일관성 확인: NOI=2.34억, Cap Rate=2.03% |
-| 13 | S10 — 파이프라인 리포트 저장 | ✅ PASS | 4ms | 리포트 저장 완료: C:\Users\User\cre-dealcard\docs\test\golden-outputs\p1-dangsan-r2\pipeline_log.md |
+| 6 | S6 — PPTX 렌더링 | ✅ PASS | 31267ms | 9개 슬라이드, 4290KB, 저장: C:\Users\User\cre-dealcard\docs\test\golden-outputs\p1-dangsan-r2\p1_dangsan_income_r2_basic.pptx |
+| 7 | S7-A — Poison Token 검증 | ✅ PASS | 409ms | 0 poison tokens detected |
+| 8 | S7-B — Evasive Phrase 검증 | ✅ PASS | 697ms | 0 evasive phrases detected |
+| 9 | S7-C — Mock Data Leak 검증 | ✅ PASS | 569ms | 0 mock data leaks detected |
+| 10 | S7-D — Physical Binary Gates | ✅ PASS | 714ms | isPass: true, slides: 9, issues: 0 |
+| 11 | S8 — 슬라이드 콘텐츠 검증 | ✅ PASS | 87ms | 7/7 검증 통과 |
+| 12 | S9 — SSoT 수학적 일관성 | ✅ PASS | 1ms | 일관성 확인: NOI=2.34억, Cap Rate=2.03% |
+| 13 | S10 — 파이프라인 리포트 저장 | ✅ PASS | 244ms | 리포트 저장 완료: C:\Users\User\cre-dealcard\docs\test\golden-outputs\p1-dangsan-r2\pipeline_log.md |
 
 ---
 
@@ -251,17 +251,18 @@
 ```json
 {
   "slideCount": 9,
-  "fileSizeKB": 4271,
-  "generatedAt": "2026-09-29T01:49:23.150Z",
+  "fileSizeKB": 4290,
+  "generatedAt": "2026-10-02T04:23:53.350Z",
   "warnings": [
-    "[AUDIT] G33: 텍스트 넘침 36건",
+    "[A23] 공시지가 미제공 — 토지 가치 평가 대체 카드 삽입",
+    "[AUDIT] G33: 텍스트 넘침 37건",
     "[AUDIT] G34: 겹침 11.813in > 0.015in",
     "[AUDIT] G36: 왜곡 109.6% > 5%",
     "[AUDIT] G43: highlights↔제원 중복"
   ],
   "auditReport": {
     "layoutViolations": [
-      "G33: 텍스트 넘침 36건",
+      "G33: 텍스트 넘침 37건",
       "G34: 겹침 11.813in > 0.015in",
       "G36: 왜곡 109.6% > 5%"
     ],
@@ -270,11 +271,11 @@
     ],
     "totalViolations": 4,
     "imageCount": 9,
-    "textCount": 198,
+    "textCount": 207,
     "gateContext": {
       "maxCropRatio": 0,
       "minEffectiveDpi": 200,
-      "textOverflowCount": 36,
+      "textOverflowCount": 37,
       "overlapMaxInches": 11.813,
       "bleedCount": 0,
       "aspectDistortionMaxPct": 109.6,
@@ -349,7 +350,7 @@
   "slideTextPreview": [
     {
       "slide": 1,
-      "textPreview": "CRE DEAL 표지 서울특별시 영등포구 당산동5가 11-47 투자설명서 근린생활시설 (메디컬빌딩) 서울특별시 영등포구 당산동5가 11-47 근린생활시설 (메디컬빌딩) 115억 매각 희망가 115억 원 제이에스부동산중개법인 2026.09.29  |  정현우 수석팀장  ..."
+      "textPreview": "CRE DEAL 표지 서울특별시 영등포구 당산동5가 11-47 투자설명서 근린생활시설 (메디컬빌딩) 서울특별시 영등포구 당산동5가 11-47 근린생활시설 (메디컬빌딩) 115억 매각 희망가 115억 원 제이에스부동산중개법인 2026.10.02  |  정현우 수석팀장  ..."
     },
     {
       "slide": 2,
@@ -369,11 +370,11 @@
     },
     {
       "slide": 6,
-      "textPreview": "06 렌트롤 렌트롤 공실 GL (지상/지하 경계) B1 카페(자가) 1F 약국 내과 2F 내과 3F 헬쓰장 4F 와인매장 자가 5F 내과 ※ 렌트롤 현황 기준 층별 공간 배치도 층 호실 용도 임차인 임대(㎡) 전용(㎡) 전용률 보증금 월세 관리비 NOC 만기일 B1 -..."
+      "textPreview": "06 렌트롤 렌트롤 공실 GL (지상/지하 경계) B1 카페(자가) 1F 약국 내과 2F 내과 3F 헬쓰장 4F 와인매장 자가 5F 내과 ※ 렌트롤 현황 기준 층별 공간 배치도 층 임차인 용도 임대면적 전용면적 보증금 월임대료 관리비 월합계 만기일 B1 - 카페(자가)..."
     },
     {
       "slide": 7,
-      "textPreview": "07 수익률 수익률 수익률 2.08% 연간 임대수입 2.3억원 승계 보증금 2.9억원 매매가 115.0억원 순투자금 (매매가 − 보증금) 112.1억원 투자 판단 참고 수익률 2.1%는 시장 평균 하회 — 토지가치 상승 또는 리모델링 후 임대료 증대 가능성 검토 필요 ..."
+      "textPreview": "07 수익률 수익률 수익률 2.08% 연간 임대수입 2.3억원 승계 보증금 2.9억원 매매가 115.0억원 순투자금 (매매가 − 보증금) 112.1억원 ◇ 분석가정 (Stabilized) 공실층을 인근 동일 용도 시세 수준으로 임대 가정 2.19% [ 공시지가 열람 안..."
     },
     {
       "slide": 8,

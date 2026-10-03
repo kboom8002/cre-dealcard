@@ -1,7 +1,7 @@
 # P5 양평동4가 더레드빌딩 수익형 — R2-Standard 골든 파이프라인 보고서
 
-> **생성 시각**: 2026-09-29T01:49:35.897Z
-> **총 소요시간**: 73799ms
+> **생성 시각**: 2026-10-02T04:25:35.230Z
+> **총 소요시간**: 133108ms
 > **결과**: 13 PASS / 0 FAIL / 0 WARN
 > **자산명**: 더레드빌딩 (양평동4가 117, 134, 125-2번지 · 3필지 통합)
 > **매매희망가**: 250억 원 | **대지면적**: 518.7㎡ (156.9평) | **연면적**: 2,490.88㎡ (753.5평)
@@ -26,19 +26,19 @@
 
 | # | 단계 | 상태 | 소요시간 | 상세 내용 |
 |:---|:---|:---|---:|:---|
-| 1 | S1 — 데이터셋 로드 | ✅ PASS | 4ms | 매매가 250억, 3필지 통합, 12개 호실 임대차, 이미지 11장 확인 |
-| 2 | S2 — 메모 슬롯 추출 | ✅ PASS | 3ms | 3개 슬롯 추출 완료 |
-| 3 | S3 — 재무 계산 | ✅ PASS | 1ms | Cap Rate: 1.61%, 연 NOI: 4.01억, 토지평당가: 15,933만/평 |
+| 1 | S1 — 데이터셋 로드 | ✅ PASS | 8ms | 매매가 250억, 3필지 통합, 12개 호실 임대차, 이미지 11장 확인 |
+| 2 | S2 — 메모 슬롯 추출 | ✅ PASS | 6ms | 3개 슬롯 추출 완료 |
+| 3 | S3 — 재무 계산 | ✅ PASS | 5ms | Cap Rate: 1.61%, 연 NOI: 4.01억, 토지평당가: 15,933만/평 |
 | 4 | S4 — 데이터 품질 배지 | ✅ PASS | 0ms | 점수: 80점, 등급: verified (기대 등급: B) |
-| 5 | S5 — 덱 시퀀서 | ✅ PASS | 1ms | 9개 슬라이드 시퀀스 확정: [A01, A02, A04, A06, A06, A24, A23, A14, A10] |
-| 6 | S6 — PPTX 렌더링 | ✅ PASS | 29952ms | 9개 슬라이드 렌더링 완료 (1835KB) → C:\Users\User\cre-dealcard\docs\test\golden-outputs\p5-yangpyeong-r2\yangpyeong_income_r2_basic.pptx |
-| 7 | S7-A — Poison Token 검증 | ✅ PASS | 338ms | 0 poison tokens (NaN, undefined, null, [object Object] 완전 무결) |
-| 8 | S7-B — Evasive Phrase 검증 | ✅ PASS | 357ms | 0 evasive phrases (회피성 결손 문구 배제 완결) |
-| 9 | S7-C — Mock Data Leak 검증 | ✅ PASS | 310ms | 0 mock data leaks (NH농협캐피탈, 테헤란로 123 등 가짜 데이터 누출 0건) |
-| 10 | S7-D — Physical Binary Gates | ✅ PASS | 297ms | isPass: true, slides: 9, issues: 0 |
-| 11 | S8 — 슬라이드 콘텐츠 검증 | ✅ PASS | 26ms | 8/8개 콘텐츠 단언 검증 통과 |
-| 12 | S9 — SSoT 수학적 일관성 | ✅ PASS | 1ms | 수학적 일관성 통과: 연 NOI 6.18억 원, 표면 Cap Rate 2.47% |
-| 13 | S10 — 산출물 및 육안 검수 보고서 작성 | ✅ PASS | 42450ms | 리포트 저장 완료: pipeline_log.md & slide_inspection.md (슬라이드 9면) |
+| 5 | S5 — 덱 시퀀서 | ✅ PASS | 3ms | 9개 슬라이드 시퀀스 확정: [A01, A02, A04, A06, A06, A24, A23, A14, A10] |
+| 6 | S6 — PPTX 렌더링 | ✅ PASS | 28543ms | 9개 슬라이드 렌더링 완료 (1864KB) → C:\Users\User\cre-dealcard\docs\test\golden-outputs\p5-yangpyeong-r2\yangpyeong_income_r2_basic.pptx |
+| 7 | S7-A — Poison Token 검증 | ✅ PASS | 554ms | 0 poison tokens (NaN, undefined, null, [object Object] 완전 무결) |
+| 8 | S7-B — Evasive Phrase 검증 | ✅ PASS | 572ms | 0 evasive phrases (회피성 결손 문구 배제 완결) |
+| 9 | S7-C — Mock Data Leak 검증 | ✅ PASS | 616ms | 0 mock data leaks (NH농협캐피탈, 테헤란로 123 등 가짜 데이터 누출 0건) |
+| 10 | S7-D — Physical Binary Gates | ✅ PASS | 584ms | isPass: true, slides: 9, issues: 0 |
+| 11 | S8 — 슬라이드 콘텐츠 검증 | ✅ PASS | 54ms | 8/8개 콘텐츠 단언 검증 통과 |
+| 12 | S9 — SSoT 수학적 일관성 | ✅ PASS | 2ms | 수학적 일관성 통과: 연 NOI 6.18억 원, 표면 Cap Rate 2.47% |
+| 13 | S10 — 산출물 및 육안 검수 보고서 작성 | ✅ PASS | 101971ms | 리포트 저장 완료: pipeline_log.md & slide_inspection.md (슬라이드 9면) |
 
 ---
 
@@ -222,9 +222,10 @@
 ```json
 {
   "slideCount": 9,
-  "fileSizeKB": 1835,
-  "generatedAt": "2026-09-29T01:48:52.097Z",
+  "fileSizeKB": 1864,
+  "generatedAt": "2026-10-02T04:23:50.836Z",
   "warnings": [
+    "[A23] 공시지가 미제공 — 토지 가치 평가 대체 카드 삽입",
     "Text budget exceeded for slideTitle: length 40 > limit 32",
     "[AUDIT] G33: 텍스트 넘침 37건",
     "[AUDIT] G34: 겹침 11.813in > 0.015in",
@@ -323,7 +324,7 @@
     },
     {
       "slide": 7,
-      "textPreview": "07 수익률 수익률 수익률 2.52% 연간 임대수입 6.2억원 승계 보증금 5.4억원 매매가 250.0억원 순투자금 (매매가 − 보증금) 244.6억원 ◇ 공실 정상화 시 2.66% 투자 판단 참고 수익률 2.5%는 시장 평균 하회 — 토지가치 상승 또는 리모델링 후 ..."
+      "textPreview": "07 수익률 수익률 수익률 2.52% 연간 임대수입 6.2억원 승계 보증금 5.4억원 매매가 250.0억원 순투자금 (매매가 − 보증금) 244.6억원 ◇ 분석가정 (Stabilized) 공실층을 인근 동일 용도 시세 수준으로 임대 가정 2.66% [ 공시지가 열람 안..."
     },
     {
       "slide": 8,

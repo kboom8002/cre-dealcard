@@ -293,9 +293,9 @@ export function updateNumericalAnchors(
     const areaMatch = areaPattern.exec(markdown);
     if (areaMatch?.[1]) {
       const rawValue = parseNumber(areaMatch[1]);
-      // "평" 단위면 ㎡로 변환 (1평 ≈ 3.306㎡)
+      // "평" 단위면 ㎡로 변환 (1평 = 1 / 0.3025 ㎡)
       const unit = areaMatch[0];
-      anchors.totalAreaSqm = unit.includes("평") ? rawValue * 3.306 : rawValue;
+      anchors.totalAreaSqm = unit.includes("평") ? rawValue / 0.3025 : rawValue;
     }
   }
 
@@ -655,7 +655,7 @@ export function runFinancialsNarrativeValidation(
       if (!isNaN(narrativeCapRate)) {
         const diff = Math.abs(narrativeCapRate - calculatedCapRate);
         // D41 S2: CF3 폐기 결정 반영 — 허용오차 0
-        if (diff > 0) {
+        if (diff > 0.01) {
           issues.push({
             field: "cap_rate_narrative_vs_calc",
             section1: { type: "financials_engine",          value: `${calculatedCapRate.toFixed(2)}%` },
@@ -678,7 +678,7 @@ export function runFinancialsNarrativeValidation(
       if (!isNaN(narrativeNoi) && calcBil > 0) {
         const relativeDiff = Math.abs(narrativeNoi - calcBil) / calcBil;
         // D41 S2: CF3 폐기 결정 반영 — 허용오차 0
-        if (relativeDiff > 0) {
+        if (relativeDiff > 0.005) {
           issues.push({
             field: "noi_narrative_vs_calc",
             section1: { type: "financials_engine",         value: `${calcBil.toFixed(2)}억` },

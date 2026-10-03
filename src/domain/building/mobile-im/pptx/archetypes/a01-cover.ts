@@ -200,7 +200,7 @@ function renderCommonCoverContent(
   slide.addText(titleText, {
     x, y: kickerY + 0.30, w: titleW, h: titleH,
     fontSize, bold: true, color: 'FFFFFF',
-    fontFace: TITLE_KR, margin: 0, align,
+    fontFace: TITLE_KR, margin: 0, align, shrinkText: true, lineSpacingMultiple: 1.0,
   });
 
   // 부제
@@ -223,7 +223,7 @@ function renderCommonCoverContent(
     slide.addText(rawAddr, {
       x, y: nextY, w: titleW, h: addrH,
       fontSize: 12, color: C.slate,
-      fontFace: KR, margin: 0, align,
+      fontFace: KR, margin: 0, align, shrinkText: true,
     });
     nextY += addrH;
   }
