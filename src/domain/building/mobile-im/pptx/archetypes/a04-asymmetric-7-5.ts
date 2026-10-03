@@ -208,7 +208,7 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
     slide.addImage({
       data: photoImg.base64,
       x: rx, y: 1.80, w: rw, h: 3.20,
-      sizing: { type: 'contain', w: rw, h: 3.20 },
+      sizing: { type: 'cover', w: rw, h: 3.20 },
     });
     // 우측 하단: 핵심 강점 콜아웃
     let calloutText = stripMarkdown(right.callouts?.[0]?.body || '');

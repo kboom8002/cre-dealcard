@@ -257,8 +257,23 @@ ${JSON.stringify(bssotLite, null, 2)}`;
       staticMapImage, mapImage, thumbnailImage,
       ...safeExternalData
     } = (externalData as any) ?? {};
+    
+    // [D09] 프롬프트 필드 슬라이싱: 섹션과 무관한 대용량 배열 제거
+    const slicedExternal = { ...safeExternalData };
+    if (!['location_analysis', 'property_overview', 'location'].includes(sectionType)) {
+      delete slicedExternal.poi;
+    }
+    if (!['building_overview', 'property_overview', 'building'].includes(sectionType)) {
+      if (slicedExternal.buildingRegister) {
+        delete (slicedExternal.buildingRegister as any).floors;
+      }
+    }
+    if (!['land_detail', 'land'].includes(sectionType)) {
+      delete slicedExternal.landPriceHistory;
+    }
+
     prompt += `\n\n## [공공 데이터 & 마켓 현황]
-${JSON.stringify(safeExternalData, null, 2)}`;
+${JSON.stringify(slicedExternal, null, 2)}`;
   } else {
     prompt += `\n\n## [공공 데이터 현황]
 공적장부(건축물대장, 토지이용계획)를 조회하지 못했습니다.
@@ -269,14 +284,23 @@ ${JSON.stringify(safeExternalData, null, 2)}`;
   }
 
   if (supplemental) {
-    // ⚠️ [D-TOKEN-BLOAT-FIX] 사진 Base64 data URI 제거 — 업로드 전 raw 이미지가
-    // 포함되면 사진당 ~150K~800K 토큰 낭비
+    // ⚠️ [D-TOKEN-BLOAT-FIX] 사진 Base64 data URI 제거
     const {
       photos_v2, photo_urls, photo_captions, photoUrl, photos,
       ...safeSupplemental
     } = (supplemental as any) ?? {};
+    
+    // [D09] 프롬프트 필드 슬라이싱: 섹션과 무관한 대용량 배열 제거
+    const slicedSupp = { ...safeSupplemental };
+    if (!['lease_status', 'income_analysis', 'rentRollStacking'].includes(sectionType)) {
+      delete slicedSupp.floor_leases;
+    }
+    if (!['investment_thesis', 'comparable_analysis'].includes(sectionType)) {
+      delete slicedSupp.comparables;
+    }
+
     prompt += `\n\n## [추가 수집 데이터]
-${JSON.stringify(safeSupplemental, null, 2)}`;
+${JSON.stringify(slicedSupp, null, 2)}`;
   }
 
   if (marketIndicators?.financialsMarkdown) {

@@ -564,6 +564,19 @@ export async function generateSingleSection(
       },
     );
 
+    // [H05] 토큰 텔레메트리 연동 (비동기 DB 로깅)
+    import("../../../ai/cost-tracker").then(mod => {
+      mod.logGenerationCost({
+        buildingId: String(ctx.buildingId ?? "unknown"),
+        brokerId: "system",
+        modelName: IM_AI_MODEL,
+        sectionType,
+        inputTokens: Math.round(result.tokens * 0.8),
+        outputTokens: Math.round(result.tokens * 0.2),
+        jobId: ctx.generationId
+      }).catch(() => {});
+    }).catch(() => {});
+
     const rawText = result.content.trim();
     if (rawText.length > 120) {
       const { detectHallucination } = await import("./im-context-builder");

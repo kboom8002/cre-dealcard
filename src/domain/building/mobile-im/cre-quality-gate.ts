@@ -52,7 +52,7 @@ export interface CREQualityGateResult {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 /** Quality Gate 모델 — IM Judge와 동일 모델 사용 */
-const GATE_MODEL = process.env.AI_IM_MODEL || getModel("terra");
+const GATE_MODEL = process.env.AI_IM_MODEL || getModel("luna");
 
 /**
  * D30 BL-6: LLM 실패 시 Fail-Closed

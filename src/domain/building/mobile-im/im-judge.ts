@@ -56,7 +56,7 @@ export interface IMJudgeInput {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 /** 평가 모델 — 환경변수로 오버라이드 가능 */
-const JUDGE_MODEL = process.env.AI_IM_MODEL || getModel("terra");
+const JUDGE_MODEL = process.env.AI_IM_MODEL || getModel("luna");
 
 /** 5차원 가중치 — 규제 준수와 사실 정확성에 높은 비중 */
 const DIMENSION_WEIGHTS: Record<keyof Omit<IMJudgeScore, "overall" | "feedback" | "citation_check">, number> = {
@@ -149,6 +149,27 @@ function buildJudgeUserPrompt(input: IMJudgeInput): string {
     ...safeSupplementalData
   } = (input.supplementalData as any) ?? {};
 
+  const slicedExternal = { ...safeExternalData };
+  if (!['location_analysis', 'property_overview', 'location'].includes(input.sectionType)) {
+    delete slicedExternal.poi;
+  }
+  if (!['building_overview', 'property_overview', 'building'].includes(input.sectionType)) {
+    if (slicedExternal.buildingRegister) {
+      delete (slicedExternal.buildingRegister as any).floors;
+    }
+  }
+  if (!['land_detail', 'land'].includes(input.sectionType)) {
+    delete slicedExternal.landPriceHistory;
+  }
+
+  const slicedSupp = { ...safeSupplementalData };
+  if (!['lease_status', 'income_analysis', 'rentRollStacking'].includes(input.sectionType)) {
+    delete slicedSupp.floor_leases;
+  }
+  if (!['investment_thesis', 'comparable_analysis'].includes(input.sectionType)) {
+    delete slicedSupp.comparables;
+  }
+
   const parts: string[] = [
     `## 평가 대상 섹션: ${input.sectionType}`,
     "",
@@ -164,7 +185,7 @@ function buildJudgeUserPrompt(input: IMJudgeInput): string {
     "",
     "### 보조 입력 데이터",
     "```json",
-    JSON.stringify(safeSupplementalData, null, 2),
+    JSON.stringify(slicedSupp, null, 2),
     "```",
   ];
 
@@ -174,7 +195,7 @@ function buildJudgeUserPrompt(input: IMJudgeInput): string {
       "",
       "### 외부 공공데이터",
       "```json",
-      JSON.stringify(safeExternalData, null, 2),
+      JSON.stringify(slicedExternal, null, 2),
       "```"
     );
   }
