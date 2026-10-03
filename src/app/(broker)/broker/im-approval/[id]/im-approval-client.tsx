@@ -7,6 +7,23 @@ import { computeDataQualityBadge } from '@/domain/building/mobile-im/data-qualit
 import { resolveEnrichment } from '@/domain/building/im-core/resolve-enrichment';
 import { toast } from 'sonner';
 import { normalizeSectionMarkdown } from '@/lib/utils/markdown-normalizer';
+import { PHOTO_CATEGORY_LABELS } from '@/domain/building/mobile-im/photo-url-transformer';
+
+/** 중개인 태깅용 사진 유형 (시스템 전용 'map'·'hero' 제외 15종) */
+const TAGGABLE_PHOTO_CATEGORIES = (Object.keys(PHOTO_CATEGORY_LABELS) as Array<keyof typeof PHOTO_CATEGORY_LABELS>)
+  .filter((c) => c !== 'map' && c !== 'hero');
+
+type EditablePhoto = {
+  url: string;
+  caption?: string;
+  order?: number;
+  category?: string;
+  type?: string;
+  label?: string;
+  role?: string;
+  isHero?: boolean;
+  excluded?: boolean;
+};
 
 interface IMSection {
   section_type: string;
@@ -178,7 +195,7 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
   // 사진 캡션
-  const [photos, setPhotos] = useState<Array<{ url: string; caption?: string; order?: number }>>(
+  const [photos, setPhotos] = useState<EditablePhoto[]>(
     Array.isArray(content?.photos)
       ? (content.photos as any[])
       : Array.isArray(content?.photo_urls)
@@ -301,18 +318,39 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
     setPhotos(newPhotos);
   };
 
-  const savePhotoCaptions = async () => {
+  // nextPhotos: setState 직후 저장 시 클로저의 stale photos 대신 갱신 배열을 전달 (토글 저장 누락 버그 수정)
+  const savePhotoCaptions = async (nextPhotos?: EditablePhoto[]) => {
+    const payloadPhotos = Array.isArray(nextPhotos) ? nextPhotos : photos;
     try {
       const res = await fetch(`/api/broker/im-lite/${docId}/save-sections`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sections, photos, hidden_sections: Array.from(hiddenSections) }),
+        body: JSON.stringify({ sections, photos: payloadPhotos, hidden_sections: Array.from(hiddenSections) }),
       });
       if (res.ok) {
         const resData = await res.json();
         if (resData.targetHash) setCurrentApprovalHash(resData.targetHash);
+      } else {
+        toast.error('사진 정보 저장 실패');
       }
     } catch (err) { console.warn('[im-approval]', err); }
+  };
+
+  /** 사진 메타 패치 + 즉시 저장 */
+  const patchPhoto = (idx: number, patch: Partial<EditablePhoto>) => {
+    const updated = photos.map((p, j) => (j === idx ? { ...p, ...patch } : p));
+    setPhotos(updated);
+    void savePhotoCaptions(updated);
+  };
+
+  /** 사진 유형 변경 — category/type/label 동기화, 캡션이 비었거나 기존 유형 라벨이면 새 라벨로 교체 */
+  const setPhotoCategory = (idx: number, category: string) => {
+    const p = photos[idx];
+    const newLabel = PHOTO_CATEGORY_LABELS[category as keyof typeof PHOTO_CATEGORY_LABELS] ?? category;
+    const prevCat = p.category || p.type;
+    const prevLabel = prevCat ? PHOTO_CATEGORY_LABELS[prevCat as keyof typeof PHOTO_CATEGORY_LABELS] : undefined;
+    const keepCaption = p.caption && p.caption.trim() && p.caption !== prevLabel;
+    patchPhoto(idx, { category, type: category, label: newLabel, caption: keepCaption ? p.caption : newLabel });
   };
 
   // 데이터 품질 계산
@@ -583,43 +621,60 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
         {/* 사진 프리뷰 + 캡션 편집 */}
         {photos.length > 0 && (
           <div className="mb-4">
-            <h3 className="text-xs font-semibold text-neutral-400 mb-2">📷 사진 ({photos.length}장) — 캡션을 입력하면 공개 IM에 표시됩니다</h3>
+            <h3 className="text-xs font-semibold text-neutral-400 mb-1">📷 사진 ({photos.filter(p => !p.excluded).length}/{photos.length}장 사용) — 유형·캡션을 지정하면 모바일 IM·PPTX에 반영됩니다</h3>
+            <p className="text-[10px] text-neutral-600 mb-2">도면·서류·명함·무관 이미지는 <b className="text-neutral-400">🚫 제외</b>로 지정하면 공개 IM과 PPTX에서 빠집니다.</p>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {photos.map((photo, i) => (
-                  <div key={i} className="space-y-1">
+                {photos.map((photo, i) => {
+                  const cat = photo.category || photo.type || '';
+                  return (
+                  <div key={i} className={`space-y-1 ${photo.excluded ? 'opacity-40' : ''}`}>
                     <div 
                       className="w-full aspect-square rounded-lg overflow-hidden border border-neutral-800 bg-neutral-900 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all relative"
                       onClick={() => setLightboxIdx(i)}
                     >
                       <img src={photo.url} alt={photo.caption || `사진 ${i+1}`} className="w-full h-full object-cover" />
-                      {(photo as any).role === 'cover' && (
+                      {photo.excluded ? (
+                        <span className="absolute top-1 left-1 bg-rose-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold">🚫 IM 제외</span>
+                      ) : photo.role === 'cover' ? (
                         <span className="absolute top-1 left-1 bg-amber-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold">📌 대표</span>
-                      )}
-                      {(photo as any).role === 'exterior' && (
+                      ) : photo.role === 'exterior' ? (
                         <span className="absolute top-1 left-1 bg-blue-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold">🏢 외관</span>
-                      )}
+                      ) : null}
                     </div>
+                    <select
+                      value={TAGGABLE_PHOTO_CATEGORIES.includes(cat as any) ? cat : ''}
+                      onChange={(e) => { if (e.target.value) setPhotoCategory(i, e.target.value); }}
+                      disabled={!!photo.excluded}
+                      aria-label={`사진 ${i+1} 유형`}
+                      className="w-full text-[10px] bg-neutral-950 border border-neutral-800 rounded px-1 py-1 text-neutral-300 focus:outline-none focus:border-primary/50 disabled:opacity-50"
+                    >
+                      <option value="">유형 선택</option>
+                      {TAGGABLE_PHOTO_CATEGORIES.map((c) => (
+                        <option key={c} value={c}>{PHOTO_CATEGORY_LABELS[c]}</option>
+                      ))}
+                    </select>
                     <input
                       value={photo.caption || ''}
                       onChange={(e) => updatePhotoCaption(i, e.target.value)}
-                      onBlur={savePhotoCaptions}
+                      onBlur={() => { void savePhotoCaptions(); }}
                       placeholder={`사진 ${i+1} 캡션`}
                       className="w-full text-[10px] bg-neutral-950 border border-neutral-800 rounded px-1.5 py-1 text-neutral-300 placeholder-neutral-600 focus:outline-none focus:border-primary/50"
                     />
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 flex-wrap">
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); 
                           const updated = photos.map((p, j) => ({
                             ...p,
-                            role: j === i ? 'cover' : ((p as any).role === 'cover' ? 'general' : (p as any).role),
+                            role: j === i ? 'cover' : (p.role === 'cover' ? 'general' : p.role),
                             isHero: j === i,
+                            ...(j === i ? { excluded: false } : {}),
                           }));
-                          setPhotos(updated as any);
-                          savePhotoCaptions();
+                          setPhotos(updated);
+                          void savePhotoCaptions(updated);
                         }}
                         className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium transition-colors ${
-                          (photo as any).role === 'cover' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-neutral-800 text-neutral-500 hover:text-neutral-300'
+                          photo.role === 'cover' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-neutral-800 text-neutral-500 hover:text-neutral-300'
                         }`}
                       >📌 대표</button>
                       <button
@@ -627,18 +682,33 @@ export function IMApprovalClient({ docId, title, content, status: initialStatus,
                         onClick={(e) => { e.stopPropagation();
                           const updated = photos.map((p, j) => ({
                             ...p,
-                            role: j === i ? ((p as any).role === 'exterior' ? 'general' : 'exterior') : ((p as any).role === 'exterior' ? 'general' : (p as any).role),
+                            role: j === i ? (p.role === 'exterior' ? 'general' : 'exterior') : (p.role === 'exterior' ? 'general' : p.role),
+                            ...(j === i && p.role !== 'exterior' ? { excluded: false, category: 'exterior', type: 'exterior' } : {}),
                           }));
-                          setPhotos(updated as any);
-                          savePhotoCaptions();
+                          setPhotos(updated);
+                          void savePhotoCaptions(updated);
                         }}
                         className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium transition-colors ${
-                          (photo as any).role === 'exterior' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-neutral-800 text-neutral-500 hover:text-neutral-300'
+                          photo.role === 'exterior' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-neutral-800 text-neutral-500 hover:text-neutral-300'
                         }`}
                       >🏢 외관</button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation();
+                          const willExclude = !photo.excluded;
+                          // 제외 시 대표/외관 역할 해제 (제외 자산이 표지·개요 사진으로 쓰이지 않도록)
+                          patchPhoto(i, willExclude
+                            ? { excluded: true, role: 'general', isHero: false }
+                            : { excluded: false });
+                        }}
+                        className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium transition-colors ${
+                          photo.excluded ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-neutral-800 text-neutral-500 hover:text-neutral-300'
+                        }`}
+                      >🚫 제외</button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* 라이트박스 오버레이 */}

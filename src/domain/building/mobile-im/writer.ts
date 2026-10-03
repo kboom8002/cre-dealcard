@@ -620,10 +620,12 @@ export async function generateMobileIM(input: MobileIMWriterInput): Promise<Mobi
     ? resolvedPhotoMetas.map(p => ({
         url: p.url,
         type: p.category,
+        category: p.category,
         label: PHOTO_CATEGORY_LABELS[p.category] || '건물 사진',
         caption: p.caption,
         order: p.order,
         isHero: p.isHero,
+        ...(p.role ? { role: p.role } : {}),
       }))
     : undefined;
 

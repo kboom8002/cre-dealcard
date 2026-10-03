@@ -15,7 +15,7 @@ import { validateTextBudgets } from './text-budget';
 import type { ProvenanceKind } from './imlib';
 import type { InvestmentPosture } from '@/domain/ontology';
 import { resolvePhotos } from '../photo-url-transformer';
-import { planGallerySlides, type GallerySlideSpec } from './gallery-planner';
+import { planGallerySlides, GALLERY_EXCLUDE_CATEGORIES, type GallerySlideSpec } from './gallery-planner';
 
 import { M, CW, KR, NUM, C, setActiveTheme, withThemeIsolation } from './imlib';
 import { validateLayout } from './layout-validator';
@@ -339,9 +339,10 @@ export class MobileImPptxRenderer {
             return `지하${below}층 ~ 지상${above}층`;
           })()],
           ['주차 / 승강기', (() => {
-            const park = ssot.parking_count || heroCard.parkingCount || bldg.parking_count || br.parkingCnt || '-';
-            const elev = ssot.elevator_count || heroCard.elevatorCount || bldg.elevator_count || br.rideUseLiftCnt || '-';
-            return `${park}대 / ${elev}대`;
+            const park = ssot.parking_count || heroCard.parkingCount || bldg.parking_count || br.parkingCnt;
+            const elev = ssot.elevator_count || heroCard.elevatorCount || bldg.elevator_count || br.rideUseLiftCnt;
+            if (!park && !elev) return '-'; // 둘 다 부재 → 행 제거 ('-대 / -대' 방지, Rule 37)
+            return `${park ? `${park}대` : '-'} / ${elev ? `${elev}대` : '-'}`;
           })()],
         ].filter(([, v]) => v !== '-') as [string, string][]; // 값이 없는 행 제거
 
@@ -706,12 +707,13 @@ export class MobileImPptxRenderer {
       // Basic IM: 클로징 타이틀 및 브로커 연락처 (basic-im-guide §2 #9)
       if (isBasicPreset) {
         dataMap['closing'].title = '문의 및 유의사항';
+        // 실제 DB 값만 사용 — 부재 필드는 '' → A10이 해당 행 생략 (Rule 34/37: 더미 플레이스홀더 금지)
         dataMap['closing'].brokerContact = {
-          name: input.broker?.display_name ?? '[담당자명]',
-          phone: input.broker?.phone ?? '[연락처]',
-          email: input.broker?.email ?? '',
-          company: input.broker?.company_name ?? '[중개법인명]',
-          registrationNo: input.broker?.registration_no ?? '',
+          name: input.broker?.display_name?.trim() || '',
+          phone: input.broker?.phone?.trim() || '',
+          email: input.broker?.email?.trim() || '',
+          company: input.broker?.company_name?.trim() || '',
+          registrationNo: input.broker?.registration_no?.trim() || '',
         };
       }
 
@@ -736,14 +738,16 @@ export class MobileImPptxRenderer {
       const rawPhotoUrls = input.doc.body?.photo_urls ?? [];
       const rawPhotos = input.doc.body?.photos ?? [];
       const photoUrls = rawPhotoUrls.filter((u: string) => typeof u === 'string' && !u.toLowerCase().endsWith('.wdp'));
-      const photos = rawPhotos.filter((p: any) => typeof p?.url === 'string' && !p.url.toLowerCase().endsWith('.wdp'));
+      const photos = rawPhotos.filter((p: any) => typeof p?.url === 'string' && !p.url.toLowerCase().endsWith('.wdp')
+        && p.excluded !== true
+        && !GALLERY_EXCLUDE_CATEGORIES.has(String(p.category || p.type || '').toLowerCase()));
       dataMap['gallery'] = {
         title: gallerySpecs[0]?.title || '건물 사진',
         kicker: gallerySpecs[0]?.kicker || 'GALLERY',
         content: '',
         tables: [],
         metrics: {},
-        photoUrls: (gallerySpecs[0]?.photos.map(p => p.url) || photoUrls).filter((u: string) => !u?.toLowerCase().endsWith('.wdp')),
+        photoUrls: (gallerySpecs[0]?.photos.map(p => p.url) || (rawPhotos.length > 0 ? photos.map((p: any) => p.url) : photoUrls)).filter((u: string) => !u?.toLowerCase().endsWith('.wdp')),
         photos: (gallerySpecs[0]?.photos || photos).filter((p: any) => !p?.url?.toLowerCase().endsWith('.wdp')),
         layout: gallerySpecs[0]?.layout,
       };

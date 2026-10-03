@@ -131,11 +131,14 @@ export async function buildA10Closing(input: ArchetypeInput): Promise<ArchetypeO
       line: { color: C.brass, width: 0.75 },
     });
 
-    // 이름 + 직급
-    slide.addText(`📞  ${broker.name || ''}  ${broker.title || ''}`, {
-      x: rx + 0.20, y: contactY + 0.08, w: rw - 0.40, h: 0.30,
-      fontFace: KR, fontSize: 11, bold: true, color: 'FFFFFF', margin: 0,
-    });
+    // 이름 + 직급 (부재 필드 생략 — 📞 아이콘은 실제 전화번호 행에만)
+    const nameLine = [broker.name, broker.title].filter((s: unknown) => typeof s === 'string' && s.trim()).join('  ');
+    if (nameLine) {
+      slide.addText(nameLine, {
+        x: rx + 0.20, y: contactY + 0.08, w: rw - 0.40, h: 0.30,
+        fontFace: KR, fontSize: 11, bold: true, color: 'FFFFFF', margin: 0,
+      });
+    }
 
     // 연락처
     const contactLine = [

@@ -126,6 +126,24 @@ export async function PUT(
   }
 
   const content = (doc.body as Record<string, unknown>) || {};
+
+  // 중개인 사진 태깅(유형/역할/캡션/제외)을 photos_v2에도 동기화.
+  // resolvePhotos(PPTX)는 photos_v2를 photos보다 우선하므로, 미동기화 시 승인 화면 편집이 PPTX에 반영되지 않음.
+  const syncedPhotosV2 = (() => {
+    const v2 = (content as Record<string, any>).photos_v2;
+    if (photos === undefined || !Array.isArray(v2) || v2.length === 0) return undefined;
+    const editedByUrl = new Map(photos.filter((p: any) => p?.url).map((p: any) => [p.url, p]));
+    const TAG_KEYS = ['category', 'type', 'label', 'caption', 'role', 'isHero', 'excluded', 'order'] as const;
+    return v2.map((item: any) => {
+      const url = typeof item === 'string' ? item : item?.url;
+      const edited: any = url ? editedByUrl.get(url) : undefined;
+      if (!edited) return item;
+      const base = typeof item === 'string' ? { url: item } : item;
+      const patch: Record<string, unknown> = {};
+      for (const k of TAG_KEYS) if (edited[k] !== undefined) patch[k] = edited[k];
+      return { ...base, ...patch };
+    });
+  })();
   
   const updatedContent: Record<string, any> = {
     ...content,
@@ -133,6 +151,7 @@ export async function PUT(
     ...(newTitle ? { title: newTitle } : {}),
     ...(hiddenSections !== undefined ? { hidden_sections: hiddenSections } : {}),
     ...(photos !== undefined ? { photos } : {}),
+    ...(syncedPhotosV2 !== undefined ? { photos_v2: syncedPhotosV2 } : {}),
     ...(ogTitle !== undefined ? { ogTitle } : {}),
     ...(ogDescription !== undefined ? { ogDescription } : {}),
     ...(heroTitle !== undefined ? { heroTitle } : {}),

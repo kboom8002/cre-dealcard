@@ -138,7 +138,9 @@ export function resolvePhotos(supplemental?: MobileIMSupplementalInput | null, b
       : null;
 
   if (rawPhotos) {
-    const validRaw = rawPhotos.filter((p: any) => isSupportedMedia(typeof p === 'string' ? p : p?.url));
+    const validRaw = rawPhotos.filter((p: any) =>
+      isSupportedMedia(typeof p === 'string' ? p : p?.url)
+      && !(p && typeof p === 'object' && p.excluded === true)); // 중개인 'IM 제외' 지정 자산 제거
     photos = validRaw.slice(0, 12).map((p: any, idx: number) => {
       const bId = p.buildingId || p.building_id || buildingId;
       return {

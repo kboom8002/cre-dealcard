@@ -20,6 +20,7 @@ export interface PhotoMeta {
   order?: number;                        // 정렬 순서
   role?: string;                         // 'cover' | 'exterior' 등 역할 태그
   type?: string;                         // 레거시 카테고리 별칭
+  excluded?: boolean;                    // 중개인 지정 'IM 제외' (서류·명함·무관 이미지) — 뷰어/PPTX 전 경로에서 제외
 }
 
 /** 3축 자산 식별자 (v0.4) */

@@ -80,24 +80,10 @@ export async function GET(
     .eq('id', buildingId)
     .maybeSingle();
 
-  let broker = null;
+  // 브로커 연락처 SSoT resolver — 실제 DB 값만, 부재 시 생략
   const ownerId = doc?.broker_id ?? doc?.owner_id ?? building?.owner_id;
-  if (ownerId) {
-    const { data: bp } = await supabase
-      .from('profiles')
-      .select('display_name, company, phone, broker_profiles(deal_specialty)')
-      .eq('id', ownerId)
-      .maybeSingle();
-    if (bp) {
-      const brokerProfile = Array.isArray(bp.broker_profiles) ? bp.broker_profiles[0] : (bp.broker_profiles as any);
-      broker = {
-        display_name: bp.display_name,
-        company_name: bp.company,
-        phone: bp.phone,
-        specialty: brokerProfile?.deal_specialty,
-      };
-    }
-  }
+  const { fetchBrokerContact, toPptxBrokerInput } = await import('@/domain/broker/broker-contact');
+  const broker = toPptxBrokerInput(await fetchBrokerContact(supabase, ownerId)) ?? null;
 
   // 6. 다운로드 횟수 제한 (10회)
   const MAX_DOWNLOADS = 10;

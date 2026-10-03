@@ -36,76 +36,16 @@
       "order": 0
     },
     {
-      "url": "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_02.png",
-      "category": "surroundings",
-      "caption": "주변 도로 및 접근로",
-      "isHero": false,
-      "role": "exterior",
+      "url": "docs/golden-test-data/p5-yangpyeong-income/r3-verified/source-docs/image_07.png",
+      "caption": "층별 현황표 (서류)",
+      "excluded": true,
       "order": 1
     },
     {
-      "url": "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_03.png",
-      "category": "lobby",
-      "caption": "1층 로비 및 공용부",
-      "isHero": false,
-      "role": "general",
+      "url": "docs/golden-test-data/p5-yangpyeong-income/r3-verified/source-docs/image_09.png",
+      "caption": "렌트롤 표 (서류)",
+      "excluded": true,
       "order": 2
-    },
-    {
-      "url": "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_04.png",
-      "category": "interior",
-      "caption": "실내 전용 공간",
-      "isHero": false,
-      "role": "general",
-      "order": 3
-    },
-    {
-      "url": "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_05.png",
-      "category": "interior",
-      "caption": "실내 전용 공간",
-      "isHero": false,
-      "role": "general",
-      "order": 4
-    },
-    {
-      "url": "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_06.jpeg",
-      "category": "interior",
-      "caption": "실내 전용 공간",
-      "isHero": false,
-      "role": "general",
-      "order": 5
-    },
-    {
-      "url": "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_07.png",
-      "category": "interior",
-      "caption": "실내 전용 공간",
-      "isHero": false,
-      "role": "general",
-      "order": 6
-    },
-    {
-      "url": "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_08.jpeg",
-      "category": "interior",
-      "caption": "실내 전용 공간",
-      "isHero": false,
-      "role": "general",
-      "order": 7
-    },
-    {
-      "url": "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_09.png",
-      "category": "interior",
-      "caption": "실내 전용 공간",
-      "isHero": false,
-      "role": "general",
-      "order": 8
-    },
-    {
-      "url": "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_10.png",
-      "category": "interior",
-      "caption": "실내 전용 공간",
-      "isHero": false,
-      "role": "general",
-      "order": 9
     }
   ],
   "floor_leases": [
@@ -248,15 +188,6 @@
     "warning": []
   },
   "photo_urls": [
-    "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_01.png",
-    "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_02.png",
-    "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_03.png",
-    "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_04.png",
-    "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_05.png",
-    "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_06.jpeg",
-    "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_07.png",
-    "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_08.jpeg",
-    "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_09.png",
-    "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_10.png"
+    "docs/golden-test-data/p5-yangpyeong-income/r3-verified/images/image_01.png"
   ]
 }

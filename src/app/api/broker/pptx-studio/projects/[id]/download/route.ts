@@ -69,20 +69,9 @@ export async function GET(
       }
 
       const ownerId = doc?.broker_id ?? doc?.owner_id ?? building?.owner_id;
-      if (ownerId) {
-        const { data: bp } = await supabase
-          .from('profiles')
-          .select('display_name, company, phone, broker_profiles(deal_specialty)')
-          .eq('id', ownerId)
-          .maybeSingle();
-        if (bp) {
-          broker = {
-            ...bp,
-            company_name: bp.company,
-            specialty: Array.isArray(bp.broker_profiles) ? bp.broker_profiles[0]?.deal_specialty : (bp.broker_profiles as any)?.deal_specialty
-          };
-        }
-      }
+      // 브로커 연락처 SSoT resolver — 실제 DB 값만, 부재 시 생략
+      const { fetchBrokerContact, toPptxBrokerInput } = await import('@/domain/broker/broker-contact');
+      broker = toPptxBrokerInput(await fetchBrokerContact(supabase, ownerId)) ?? null;
     } catch (err) {
       console.warn('[pptx-studio/download] DB lookup failed, proceeding with overrides only:', err);
     }

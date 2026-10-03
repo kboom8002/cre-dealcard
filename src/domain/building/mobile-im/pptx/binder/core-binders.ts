@@ -13,6 +13,15 @@ import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, findLeadSentence, extractStatMetrics, extractCallouts, extractBulletItems, extractBoldKeyValues, extractBoldValue, sanitizePersona, stripMarkdown, truncate, parseMarkdownTable, extractMetrics, buildCapitalFromIncome, buildFarUpsideProps, buildDcfFromIncome, buildSensitivityFromDcf, buildLoanFromIncome, buildTaxFromIncome, buildOwnerOccupiedPlanProps, buildOwnerOccupiedVsLeaseProps, buildOwnerOccupiedCommuteProps, buildOwnerOccupiedValueProps, buildDevelopmentLandDetailProps, buildDevelopmentScaleProps, buildDevelopmentEvictionProps, buildDevelopmentCostProps, buildDevelopmentFeasibilityProps, bindInstitutionalTemplateData, bindCorporateTemplateData, bindCommercialTemplateData, bindDevelopmentTemplateData, bindSpecializedTemplateData, transformForArchetype, buildA13Props, buildA15Props, buildA17Props, buildA22Props, buildA11Props, buildA12Props, buildA18Props, buildA02Props, buildA03Props, mergeRentRollTables, buildA04Props, buildA05Props, buildA06Props, buildA07Props, buildA08Props, buildA09Props, buildGenericProps, buildSummaryFromOverview, buildLandFromOverview, buildA16Props, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
 import { sqmToPyeong, pyeongToSqm, SQM_RATIO } from "@/lib/utils/area-conversion";
 
+/** 'A / B' 쌍 표기 — 부재 값은 단위 없이 '-', 둘 다 부재면 '-' ('-% / -%', '-대 / -대' 방지, Rule 37) */
+function pairOrDash(a: unknown, b: unknown, unit: string): string {
+  const fmt = (v: unknown) => (v === null || v === undefined || v === '' || (typeof v === 'number' && !Number.isFinite(v)) ? null : `${v}${unit}`);
+  const fa = fmt(a);
+  const fb = fmt(b);
+  if (!fa && !fb) return '-';
+  return `${fa ?? '-'} / ${fb ?? '-'}`;
+}
+
 /**
  * Phase 2-3: IMCore 정형 객체로부터 PPTX 15종 아키타입 슬라이드 데이터 직접 바인딩
  * 마크다운 파싱을 거치지 않아 오차 및 분열 방지
@@ -99,8 +108,8 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
       sub: '토지 및 공법 규제',
       rows: [
         ['용도지역', core.physical.zoning ?? '-'],
-        ['건폐율 / 용적률', `${core.physical.bcrPct ?? '-'}% / ${core.physical.farPct ?? '-'}%`],
-        ['주차 / 승강기', `${core.physical.parkingCount ?? '-'}대 / ${core.physical.elevatorCount ?? '-'}대`],
+        ['건폐율 / 용적률', pairOrDash(core.physical.bcrPct, core.physical.farPct, '%')],
+        ['주차 / 승강기', pairOrDash(core.physical.parkingCount, core.physical.elevatorCount, '대')],
         ['도로조건', core.physical.roadAccess ?? '-'],
       ],
       callouts: core.deficiencies.filter(d => d.affects.includes('dev_feasibility')).map(d => d.label),

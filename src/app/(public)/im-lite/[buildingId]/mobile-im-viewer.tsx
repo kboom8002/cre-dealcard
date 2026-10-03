@@ -635,17 +635,21 @@ export function MobileIMViewer({
                 <p className="font-bold text-white text-base">
                   {doc.broker.displayName}
                 </p>
-                <p className="text-sm text-neutral-400 truncate">
-                  {doc.broker.company}
-                </p>
+                {doc.broker.company && (
+                  <p className="text-sm text-neutral-400 truncate">
+                    {doc.broker.company}
+                  </p>
+                )}
               </div>
             </div>
-            <a
-              href={`tel:${doc.broker.phone}`}
-              className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-medium rounded-xl transition-colors"
-            >
-              📞 전화 상담
-            </a>
+            {doc.broker.phone && (
+              <a
+                href={`tel:${doc.broker.phone}`}
+                className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-medium rounded-xl transition-colors"
+              >
+                📞 전화 상담
+              </a>
+            )}
           </div>
         )}
 

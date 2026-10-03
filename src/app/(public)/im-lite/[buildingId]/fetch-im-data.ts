@@ -75,7 +75,7 @@ function buildBrokerObject(profile: any) {
     return {
       userId: "system",
       displayName: "담당 중개인",
-      company: "크리딜 파트너스",
+      company: "",
       phone: "",
       tagline: "",
       photoUrl: "/default-avatar.png",
@@ -98,7 +98,7 @@ function buildBrokerObject(profile: any) {
   return {
     userId: profile.id || profile.user_id || "system",
     displayName: profile.display_name || profile.name || "담당 중개인",
-    company: profile.company || "크리딜 부동산중개법인",
+    company: profile.company || "", // 실제 DB 값만 (가공 상호 폴백 금지 — Rule 34)
     phone: profile.phone || "",
     tagline: profile.tagline || "",
     photoUrl: profile.photo_url || "/default-avatar.png",
@@ -335,7 +335,8 @@ export async function fetchIMData(
         type: i === 0 ? 'exterior' as const : 'interior' as const,
         label: i === 0 ? '건물 외관' : `건물 사진 ${i + 1}`,
         caption: undefined as string | undefined,
-      }))).filter((p: any) => p?.url && (p.url.startsWith('http://') || p.url.startsWith('https://') || p.url.startsWith('/')));
+      }))).filter((p: any) => p?.url && p.excluded !== true // 중개인 'IM 제외' 지정 자산 제거 (PPTX resolvePhotos와 동일)
+        && (p.url.startsWith('http://') || p.url.startsWith('https://') || p.url.startsWith('/')));
 
     if (finalCoordinates) {
       const kakaoMapUrl = buildKakaoStaticMapUrl({
