@@ -88,6 +88,10 @@ export async function PUT(
     }
 
     for (const sec of sections) {
+      // 레거시 호환: section_type 없이 저장된 '면책 조항' 섹션은 disclaimer 로 보정 (미보정 시 모든 저장이 400)
+      if (!sec.section_type && typeof (sec as any).title === 'string' && /면책/.test((sec as any).title)) {
+        (sec as any).section_type = 'disclaimer';
+      }
       if (!sec.section_type || typeof (sec as any).markdown !== 'string') {
         return NextResponse.json({ error: "Invalid section structure" }, { status: 400 });
       }
@@ -207,7 +211,7 @@ export async function PUT(
     .update({
       ...(newTitle ? { title: newTitle } : {}),
       body: updatedContent,
-      approval_target_hash: newTargetHash,
+      // approval_target_hash 는 DB 컬럼이 아님 → body(JSONB) 내부(updatedContent.approval_target_hash)에만 저장 (approve/route.ts 참고)
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);

@@ -1,0 +1,14 @@
+{
+ "key": "252e87c661dc10e8299722d5f8847acedb6c3278",
+ "recordedAt": "2026-10-04T00:33:20.682Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: lease_status ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 현재 **공실률 8.33%**로, B1층(422.",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"전문서비스·IT·교육·디자인 등 다양한 업종의 사무실 임차인 분산이 현금흐름 안정성에 기여합니다.\",\n      \"suggestion\": \"업종이 여러 분야로 구성되어 있다는 객관적 사실만 기재하고, 현금흐름 안정성에 대한 단정은 삭제하거나 위험요인과 함께 조건부로 표현하세요. 예: \\\"임차인 업종은 전문서비스·IT·교육·디자인 등으로 구성되어 있으며, 실제 현금흐름 안정성은 임대차 유지 여부, 공실 기간 및 임차인 신용도에 따라 달라질 수 있습니다.\\\"\"\n    }\n  ]\n}",
+  "tokens": 2527,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 10266
+ }
+}

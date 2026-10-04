@@ -501,6 +501,7 @@ export async function generateMobileIMHandler(
   const disclaimers = getIMDisclaimers('basic');
   if (writerResult.sections) {
     writerResult.sections.push({
+      section_type: 'disclaimer',
       title: '면책 조항',
       markdown: disclaimers
     } as any);

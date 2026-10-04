@@ -1,6 +1,7 @@
 import type { LLMProvider, LLMChatParams, LLMChatResult } from "./providers/types";
 import { OpenAIProvider } from "./providers/openai";
 import { MockOpenAIProvider } from "./providers/mock-openai";
+import { RecordReplayProvider, resolveLLMMode } from "./providers/record-replay";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('llm-client');
@@ -21,6 +22,14 @@ if (!hasOpenAiKey || isTestEnv) {
     log.warn({ err: err }, "[llm-client] Failed to initialize OpenAIProvider, falling back to Mock:");
     providerRegistry.set("openai", new MockOpenAIProvider());
   }
+}
+
+// H4: LLM_MODE=record|replay 이면 녹화/재생 래퍼로 교체 (결정론적 E2E/CI). 기본 live 는 동작 변경 없음.
+const llmMode = resolveLLMMode();
+if (llmMode !== "live") {
+  const inner = llmMode === "record" ? (providerRegistry.get("openai") ?? null) : null;
+  providerRegistry.set("openai", new RecordReplayProvider(inner, llmMode));
+  log.warn(`[llm-client] LLM_MODE=${llmMode} — RecordReplayProvider 활성`);
 }
 
 // 추가 제공자 등록용 헬퍼
@@ -95,6 +104,11 @@ export async function callLLM(
         return result;
       } catch (err: any) {
         lastError = err;
+
+        // H4: 재생 모드 미스는 재시도·Mock 폴백 없이 즉시 실패 (녹화본 누락을 숨기지 않는다)
+        if (err?.name === "LLMReplayMissError") throw err;
+        // H4: 녹화 당시 최종 실패였던 호출은 재시도(백오프) 없이 같은 최종 처리 경로로 진행
+        if (err?.name === "LLMReplayedFailure") break;
 
         if (options.signal?.aborted) {
           log.warn(`[callLLM] Provider '${providerName}' retry aborted by external signal`);
