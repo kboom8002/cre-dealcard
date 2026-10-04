@@ -291,6 +291,10 @@ export function ImDataBottomSheet({
       setLoanInterestPct,
       loanTermYears,
       setLoanTermYears,
+       brokerParkingCount,
+       setBrokerParkingCount,
+       brokerElevatorCount,
+       setBrokerElevatorCount,
       targetIrrPct,
       setTargetIrrPct,
       brokerHighlight,
@@ -662,6 +666,50 @@ export function ImDataBottomSheet({
                 <span className="text-[10px] text-blue-400 mt-1 block">📋 딜카드에서 자동 입력</span>
               )}
             </div>
+
+            {/* 주차 / 승강기 대수 (선택) — 건축물대장 값이 우선, 대장 값이 없을 때만 보완 (D4) */}
+            <details className="rounded-lg border border-border bg-secondary/20 px-3 py-2">
+              <summary className="cursor-pointer select-none text-xs font-semibold text-muted-foreground">
+                주차 · 승강기 대수 (선택)
+              </summary>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">주차 대수</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      max="9999"
+                      step="1"
+                      value={brokerParkingCount}
+                      onChange={(e) => setBrokerParkingCount(e.target.value)}
+                      placeholder="예: 14"
+                      className="w-full bg-secondary/50 border border-border rounded-lg pl-3 pr-8 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:border-primary focus:ring-primary"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">대</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">승강기 대수</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      max="9999"
+                      step="1"
+                      value={brokerElevatorCount}
+                      onChange={(e) => setBrokerElevatorCount(e.target.value)}
+                      placeholder="예: 1"
+                      className="w-full bg-secondary/50 border border-border rounded-lg pl-3 pr-8 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:border-primary focus:ring-primary"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">대</span>
+                  </div>
+                </div>
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">건축물대장 값이 있으면 대장 값이 우선 적용됩니다</p>
+            </details>
 
             {/* 유사 건물 실거래가 (Pro IM 전용) */}
             <ManualCompsSection

@@ -1,0 +1,14 @@
+{
+ "key": "e694fbd9873d6a388d0e5fb8eef9489599a9a1fc",
+ "recordedAt": "2026-10-04T02:02:19.483Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: cost_comparison ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 사옥 매입가는 약 230억 원",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"AI 추정 기준 인근 임차 대비 연간 약 5.3억 원의 임대료 절감 효과가 기대됩니다 ... 임대료가 매년 3% 상승하고 ... 손익분기점은 약 43년으로 추정됩니다.\",\n      \"suggestion\": \"현재 임대차계약서, 실제 임대료·보증금, 금융조건 및 산출식을 제시하고, 근거가 확인되지 않은 AI 추정치는 삭제하거나 ‘검토용 가정’으로 명확히 표시하세요.\"\n    },\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"서초권 최근 업무시설 거래 사례의 평당 약 3,734만 원\",\n      \"suggestion\": \"거래일, 대상 자산, 연면적, 거래금액, 출처 등 검증 가능한 거래사례 정보를 제시하세요. 확인되지 않은 수치는 삭제하거나 구체적 수치 없이 참고 가능성만 언급하세요.\"\n    },\n    {\n      \"type\": \"misleading_comparison\",\n      \"excerpt\": \"매입가는 연면적 기준 평당 약 3,612만 원으로, 서초권 최근 업무시설 거래 사례의 평당 약 3,734만 원과 비교 시 유사한 수준이며\",\n      \"suggestion\": \"비교 대상의 위치, 용도, 연면적, 준공연도, 거래시점, 권리관계 및 거래 출처를 명시하고, 검증 전에는 ‘유사한 수준’이라는 평가를 삭제하거나 단순 수치 비교로 제한하세요.\"\n    }\n  ]\n}",
+  "tokens": 2727,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 16469
+ }
+}

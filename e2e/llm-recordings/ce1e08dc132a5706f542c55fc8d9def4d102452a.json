@@ -1,0 +1,14 @@
+{
+ "key": "ce1e08dc132a5706f542c55fc8d9def4d102452a",
+ "recordedAt": "2026-10-04T02:02:16.460Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: location_access ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown ## 입지 분석 **양재역 ",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"fabricated_data\",\n      \"excerpt\": \"인근에는 음식점 269개, 카페 95개 등 ... 일평균 유동인구 약 6.5만 명\",\n      \"suggestion\": \"공공데이터, 상권분석 보고서 또는 조사 기준일·범위를 명시하고 출처를 인용하세요. 검증 가능한 근거가 없으면 구체적 수치를 삭제하거나 '현장 확인이 필요합니다'로 수정하세요.\"\n    },\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"상권 배후는 근린생활시설의 활용성과 자산가치 방어에 긍정적입니다 ... 실사용 가치와 향후 임대·매각 시 입지 프리미엄을 함께 기대할 수 있는 자산입니다.\",\n      \"suggestion\": \"자산가치 상승 또는 방어를 암시하는 표현을 삭제하고, '근린생활시설 활용 가능성은 관련 인허가·수요 검토가 필요합니다'처럼 조건부·중립적으로 작성하세요.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"서초·양재 생활권의 교통 접근성 및 업무 수요를 기반으로\",\n      \"suggestion\": \"업무 수요를 언급하려면 공실률, 임대수요 또는 유동인구 관련 공공데이터·시장보고서의 출처와 기준시점을 제시하세요. 근거가 없으면 '업무 수요에 대한 별도 확인이 필요합니다'로 수정하세요.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"자산가치 방어에 긍정적입니다 ... 향후 임대·매각 시 입지 프리미엄을 함께 기대할 수 있는 자산입니다.\",\n      \"suggestion\": \"가격·가치 전망이나 프리미엄에 대한 평가를 삭제하고, 확인 가능한 입지 사실인 역과의 거리, 교통수단, 주변 시설 현황만 기술하세요.\"\n    }\n  ]\n}",
+  "tokens": 2302,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 11756
+ }
+}

@@ -13,6 +13,7 @@ import { createModuleLogger } from "@/lib/logger";
 import { SectionData, ParsedTable, DATA_KEY_ARCHETYPE, normalizeStationName, findLeadSentence, extractStatMetrics, extractCallouts, extractBulletItems, extractBoldKeyValues, extractBoldValue, sanitizePersona, stripMarkdown, truncate, parseMarkdownTable, extractMetrics, buildCapitalFromIncome, buildFarUpsideProps, buildDcfFromIncome, buildSensitivityFromDcf, buildLoanFromIncome, buildTaxFromIncome, buildOwnerOccupiedPlanProps, buildOwnerOccupiedVsLeaseProps, buildOwnerOccupiedCommuteProps, buildOwnerOccupiedValueProps, buildDevelopmentLandDetailProps, buildDevelopmentScaleProps, buildDevelopmentEvictionProps, buildDevelopmentCostProps, buildDevelopmentFeasibilityProps, bindInstitutionalTemplateData, bindCorporateTemplateData, bindCommercialTemplateData, bindDevelopmentTemplateData, bindSpecializedTemplateData, transformForArchetype, buildA13Props, buildA15Props, buildA17Props, buildA22Props, buildA11Props, buildA12Props, buildA18Props, buildA02Props, buildA03Props, mergeRentRollTables, buildA04Props, buildA05Props, buildA06Props, buildA07Props, buildA08Props, buildA09Props, buildGenericProps, buildSummaryFromOverview, buildLandFromOverview, buildA16Props, CRE_LEXICON_REPLACEMENTS } from "../data-binder";
 import { sqmToPyeong, pyeongToSqm, SQM_RATIO } from "@/lib/utils/area-conversion";
 import { pairOrDash } from "@/lib/format/safe-number";
+import { resolvePhysicalSpecs } from "../../resolve-physical-specs";
 
 /**
  * Phase 2-3: IMCore 정형 객체로부터 PPTX 15종 아키타입 슬라이드 데이터 직접 바인딩
@@ -66,6 +67,17 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
       ? `대출금리(연 ${assumedLoanRate}%)가 총수익률(${grossYield!.value}%)보다 높아 대출 시 자기자본수익률이 하락하는 역레버리지 구간입니다.`
       : null,
     };
+    // D4: 주차/승강기 — 건축물대장 값 우선, 비어 있을 때만 중개인 입력(body.broker_physical_inputs)으로 보완
+    const resolvedSpecs = resolvePhysicalSpecs({
+      register: {
+        parkingCount: core.physical.parkingCount || body?.enrichment?.buildingRegister?.parkingCount,
+        elevatorCount: core.physical.elevatorCount || body?.enrichment?.buildingRegister?.elevatorCount,
+      },
+      broker: {
+        parkingCount: body?.broker_physical_inputs?.parking_count,
+        elevatorCount: body?.broker_physical_inputs?.elevator_count,
+      },
+    });
     result['building'] = {
     title: '건축물 및 토지 개요',
     content: '',
@@ -101,7 +113,7 @@ export function bindFromIMCore(core: IMCore, templateId?: string, body?: Record<
       rows: [
         ['용도지역', core.physical.zoning ?? '-'],
         ['건폐율 / 용적률', pairOrDash(core.physical.bcrPct, core.physical.farPct, '%')],
-        ['주차 / 승강기', pairOrDash(core.physical.parkingCount, core.physical.elevatorCount, '대')],
+        ['주차 / 승강기', pairOrDash(resolvedSpecs.parkingCount, resolvedSpecs.elevatorCount, '대')],
         ['도로조건', core.physical.roadAccess ?? '-'],
       ],
       callouts: core.deficiencies.filter(d => d.affects.includes('dev_feasibility')).map(d => d.label),

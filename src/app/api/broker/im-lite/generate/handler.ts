@@ -19,6 +19,7 @@ import { getIMDisclaimers } from '@/domain/building/legal-copy';
 import { validateCombination } from '@/domain/ontology';
 import { hasMinimumBasicData } from '@/domain/building/mobile-im/data-quality-badge';
 import { hasValidBuildingNumber } from '@/domain/verification/address-resolver';
+import { resolvePhysicalSpecs } from '@/domain/building/mobile-im/resolve-physical-specs';
 import { sqmToPyeong, pyeongToSqm, formatPyeong, SQM_RATIO } from '@/lib/utils/area-conversion';
 
 import { createModuleLogger } from '@/lib/logger';
@@ -616,6 +617,15 @@ export async function generateMobileIMHandler(
     }
   }
 
+  // D4: 중개인 입력 주차/승강기 대수 — 렌더 단계에서 건축물대장 값이 없을 때만 fallback으로 사용
+  const brokerSsotInputs = ((ssotRow.layers as any)?.broker_inputs ?? {}) as Record<string, unknown>;
+  const brokerPhysical = resolvePhysicalSpecs({
+    broker: {
+      parkingCount: supplemental.parking_count ?? brokerSsotInputs.parking_count,
+      elevatorCount: supplemental.elevator_count ?? brokerSsotInputs.elevator_count,
+    },
+  });
+
   const imDocPayload = {
     owner_id: userId,
     source_type: "building_ssot_lite" as const,
@@ -663,6 +673,9 @@ export async function generateMobileIMHandler(
       askingPrice: supplemental.asking_price_manwon ? supplemental.asking_price_manwon * 10000 : undefined,
       asking_price_manwon: supplemental.asking_price_manwon ?? undefined,
       resolved_address: supplemental.resolved_address ?? undefined,
+      broker_physical_inputs: (brokerPhysical.parkingCount !== undefined || brokerPhysical.elevatorCount !== undefined)
+        ? { parking_count: brokerPhysical.parkingCount, elevator_count: brokerPhysical.elevatorCount }
+        : undefined,
       photos_v2: uploadedPhotos.length > 0 ? uploadedPhotos : undefined,
       manual_comps: (supplemental as any).manual_comps ?? undefined,
       // Hero/OG 메타 자동 세팅 — 브로커가 im-approval에서 수정 가능

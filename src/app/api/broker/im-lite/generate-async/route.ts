@@ -14,6 +14,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { randomUUID } from "node:crypto";
 import type { MobileIMSupplementalInput } from "@/domain/building/mobile-im/types";
 import { persistLeaseUnits } from "@/domain/building/mobile-im/lease-adapter";
+import { parseBrokerCount } from "@/domain/building/mobile-im/resolve-physical-specs";
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('route');
@@ -108,6 +109,14 @@ export async function POST(req: NextRequest) {
     sectionalSpecInput = body.sectionalSpec ?? null;
     residentialSpecInput = body.residentialSpec ?? null;
     investmentPostureInput = body.investment_posture ?? null;
+
+    // D4: 주차/승강기 대수 (선택) — 빈 값은 무시, 음수/소수/9999 초과는 400
+    const parkingParsed = parseBrokerCount(body.parking_count, '주차 대수');
+    if (!parkingParsed.ok) return NextResponse.json({ error: parkingParsed.error }, { status: 400 });
+    const elevatorParsed = parseBrokerCount(body.elevator_count, '승강기 대수');
+    if (!elevatorParsed.ok) return NextResponse.json({ error: elevatorParsed.error }, { status: 400 });
+    if (parkingParsed.value !== undefined) supplemental.parking_count = parkingParsed.value;
+    if (elevatorParsed.value !== undefined) supplemental.elevator_count = elevatorParsed.value;
 
     if (!buildingId) {
       return NextResponse.json({ error: "building_id is required" }, { status: 400 });
@@ -237,6 +246,14 @@ export async function POST(req: NextRequest) {
             layersPatch.pack_slots = packSlotsPatch;
 
             if (supplemental.broker_highlight) layersPatch.broker_highlight = supplemental.broker_highlight;
+            // D4: 중개인 입력 주차/승강기 대수 — layers.physical(대장 유래)과 분리 저장, 해석은 resolvePhysicalSpecs
+            if (supplemental.parking_count != null || supplemental.elevator_count != null) {
+              layersPatch.broker_inputs = {
+                ...(existingLayers.broker_inputs ?? {}),
+                ...(supplemental.parking_count != null ? { parking_count: supplemental.parking_count } : {}),
+                ...(supplemental.elevator_count != null ? { elevator_count: supplemental.elevator_count } : {}),
+              };
+            }
             if (supplemental.photo_urls?.length) layersPatch.photos = supplemental.photo_urls;
             if (supplemental.resolved_address) {
               layersPatch.location = { ...(existingLayers.location ?? {}), address: supplemental.resolved_address };

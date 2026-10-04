@@ -1,0 +1,14 @@
+{
+ "key": "3148ff2c8af09bb45b217afa8b9a11f7c9441d72",
+ "recordedAt": "2026-10-04T02:12:52.685Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: investment_thesis ## 매물 투자 포스처: operating 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown • **실질 영업이익(GOP)**:",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"높은 GOP 환원율(GOP Cap Rate)을 목표로 할 수 있습니다 ... 자산의 안정성과 성장성을 겸비한 상업용 부동산입니다.\",\n      \"suggestion\": \"높은 수익성이나 안정성·성장성을 단정적으로 암시하지 말고, 임대차 조건·운영비·공실률·시장 임대료 확인 후 GOP 및 환원율을 산출하는 조건부 분석으로 수정하십시오.\"\n    },\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"일평균 유동인구 6.5만 명을 기반으로\",\n      \"suggestion\": \"유동인구 수치의 조사기관, 조사 시점, 조사 범위 및 산출 방법을 명시하거나, 출처를 확인할 수 없는 경우 해당 수치를 삭제하고 현장 검증 필요 사항으로 표현하십시오.\"\n    },\n    {\n      \"type\": \"price_opinion_prohibition\",\n      \"excerpt\": \"자산가치 방어 ... 자산 경쟁력 방어가 가능합니다.\",\n      \"suggestion\": \"자산가치나 경쟁력의 방어 가능성을 주관적으로 평가하지 말고, 용적률·건폐율·주차·승강기 등 확인 가능한 물리적·법적 조건만 기재한 뒤 향후 가치 영향은 별도 검토 사항으로 처리하십시오.\"\n    }\n  ]\n}",
+  "tokens": 2664,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 14550
+ }
+}

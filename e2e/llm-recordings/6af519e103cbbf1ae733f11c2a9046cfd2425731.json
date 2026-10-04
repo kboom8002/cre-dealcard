@@ -1,0 +1,14 @@
+{
+ "key": "6af519e103cbbf1ae733f11c2a9046cfd2425731",
+ "recordedAt": "2026-10-04T02:02:35.523Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: occupancy_fit ## 매물 투자 포스처: owner_occupied 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown 연면적 2,104.88㎡ (637",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"ungrounded_market_claim\",\n      \"excerpt\": \"국내 오피스 통상 전용률 60~75%를 적용하면\",\n      \"suggestion\": \"적용한 전용률의 출처(공공기관 또는 신뢰할 수 있는 시장 보고서)를 명시하거나, 특정 시장 통계가 아닌 분석 가정임을 밝혀 '전용률을 60~75%로 가정하면'으로 수정하세요.\"\n    }\n  ]\n}",
+  "tokens": 1952,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 8990
+ }
+}

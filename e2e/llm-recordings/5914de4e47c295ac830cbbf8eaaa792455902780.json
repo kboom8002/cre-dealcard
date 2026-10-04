@@ -1,0 +1,14 @@
+{
+ "key": "5914de4e47c295ac830cbbf8eaaa792455902780",
+ "recordedAt": "2026-10-04T01:30:28.015Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "json_object",
+ "promptPreview": "## 검토 대상 섹션: lease_status ## 매물 투자 포스처: income 포스처별 CRE 실무 분석 예외 지침을 엄격히 적용하세요. ```markdown ## 임대차 현황 현재 **공실률 8.33%**",
+ "result": {
+  "content": "{\n  \"issues\": [\n    {\n      \"type\": \"investment_guarantee\",\n      \"excerpt\": \"현재 공실인 B1층은 신규 임차 유치를 통한 추가 임대수익 창출 여지를 보유하며 공실 해소 시 현금흐름의 상향 가능성을 제공합니다.\",\n      \"suggestion\": \"추가 임대수익이나 현금흐름 개선을 암시하는 표현을 사실 중심으로 완화하십시오. 예: “B1층은 현재 공실이며, 향후 임차인 유치 여부에 따라 임대수익 변동이 발생할 수 있습니다.”\"\n    }\n  ]\n}",
+  "tokens": 2605,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 5582
+ }
+}

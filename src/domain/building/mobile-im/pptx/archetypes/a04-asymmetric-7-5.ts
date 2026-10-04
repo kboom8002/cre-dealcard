@@ -4,6 +4,7 @@ import { C, M, CW, KR } from '../imlib';
 import type { ProvenanceKind } from '../imlib';
 import { stripMarkdown } from '../data-binder';
 import { optimizeImageForPptx, type OptimizedImage } from '../utils/image-optimizer';
+import { prioritizeSpecRows } from '../spec-row-priority';
 
 export interface ArchetypeInput {
   pres: PptxGenJS;
@@ -73,7 +74,7 @@ export async function buildA04Asymmetric75(input: ArchetypeInput): Promise<Arche
       const count = Math.min(rowEntries.length, maxRows);
       const rowHeight = rowEntries.length <= 6 ? 0.44 : rowEntries.length <= 9 ? 0.36 : 0.30;
       const fontSize = rowEntries.length <= 6 ? 13.5 : rowEntries.length <= 9 ? 12 : 11;
-      L.rows(slide, M, 1.80, lw, rowEntries.slice(0, maxRows), { rh: rowHeight, fs: fontSize });
+      L.rows(slide, M, 1.80, lw, prioritizeSpecRows(rowEntries, maxRows), { rh: rowHeight, fs: fontSize });
       leftContentBottom = 1.80 + count * rowHeight;
     } else {
       const fallbackTitle = `${input.data.title || left.sub || '세부 정보'} 요약`;

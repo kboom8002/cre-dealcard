@@ -1,14 +1,14 @@
 {
  "key": "a273d076f210a3dcdaa422e16b56192caf664015",
- "recordedAt": "2026-10-04T00:32:31.642Z",
+ "recordedAt": "2026-10-04T01:29:47.962Z",
  "model": "gpt-5.6-luna",
  "responseFormat": "text",
  "promptPreview": "B1 (공실) 127.7평 보증금0 월세0 1F 카페(스타벅스) 55평 보증금7600 월세715 2F 디자인 스튜디오 63.4평 보증금5400 월세507 3F IT 기업 63.4평 보증금5000 월세480 4",
  "result": {
   "content": "{\n  \"floorLeases\": [\n    {\n      \"floor\": \"B1\",\n      \"tenant_type\": \"공실\",\n      \"deposit_manwon\": 0,\n      \"rent_manwon\": 0,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": true,\n      \"area_sqm\": 422.15\n    },\n    {\n      \"floor\": \"1F\",\n      \"tenant_type\": \"카페\",\n      \"tenant_name\": \"스타벅스\",\n      \"deposit_manwon\": 7600,\n      \"rent_manwon\": 715,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": false,\n      \"area_sqm\": 181.82\n    },\n    {\n      \"floor\": \"2F\",\n      \"tenant_type\": \"디자인 스튜디오\",\n      \"deposit_manwon\": 5400,\n      \"rent_manwon\": 507,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": false,\n      \"area_sqm\": 209.59\n    },\n    {\n      \"floor\": \"3F\",\n      \"tenant_type\": \"IT 기업\",\n      \"deposit_manwon\": 5000,\n      \"rent_manwon\": 480,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": false,\n      \"area_sqm\": 209.59\n    },\n    {\n      \"floor\": \"4F\",\n      \"tenant_type\": \"마케팅 에이전시\",\n      \"deposit_manwon\": 5200,\n      \"rent_manwon\": 495,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": false,\n      \"area_sqm\": 209.59\n    },\n    {\n      \"floor\": \"5F\",\n      \"tenant_type\": \"법률사무소\",\n      \"deposit_manwon\": 5500,\n      \"rent_manwon\": 510,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": false,\n      \"area_sqm\": 209.59\n    },\n    {\n      \"floor\": \"6F\",\n      \"tenant_type\": \"회계법인\",\n      \"deposit_manwon\": 5300,\n      \"rent_manwon\": 500,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": false,\n      \"area_sqm\": 209.59\n    },\n    {\n      \"floor\": \"7F\",\n      \"tenant_type\": \"교육기관\",\n      \"deposit_manwon\": 4800,\n      \"rent_manwon\": 470,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": false,\n      \"area_sqm\": 209.59\n    },\n    {\n      \"floor\": \"8F\",\n      \"tenant_type\": \"핀테크 스타트업\",\n      \"deposit_manwon\": 5000,\n      \"rent_manwon\": 485,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": false,\n      \"area_sqm\": 209.59\n    },\n    {\n      \"floor\": \"9F-A\",\n      \"tenant_type\": \"컨설팅\",\n      \"deposit_manwon\": 2500,\n      \"rent_manwon\": 250,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": false,\n      \"area_sqm\": 105.79\n    },\n    {\n      \"floor\": \"9F-B\",\n      \"tenant_type\": \"세무사\",\n      \"deposit_manwon\": 2400,\n      \"rent_manwon\": 245,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": false,\n      \"area_sqm\": 103.8\n    },\n    {\n      \"floor\": \"10F\",\n      \"tenant_type\": \"건축설계사무소\",\n      \"deposit_manwon\": 5000,\n      \"rent_manwon\": 490,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": false,\n      \"area_sqm\": 209.59\n    }\n  ],\n  \"monthlyRent\": 5147,\n  \"totalDeposit\": 53700,\n  \"mgmtFeeTotal\": 0,\n  \"vacancyPct\": 8.33\n}",
-  "tokens": 2295,
+  "tokens": 2255,
   "model": "gpt-5.6-luna",
   "provider": "openai",
-  "latencyMs": 11659
+  "latencyMs": 11258
  }
 }

@@ -1,0 +1,14 @@
+{
+ "key": "1e6ef240db84026ed99861e4458792ad32cd7495",
+ "recordedAt": "2026-10-04T01:54:54.895Z",
+ "model": "gpt-5.6-luna",
+ "responseFormat": "text",
+ "promptPreview": "B1 카페(자가) 96평 보증금0 월세0 자가사용 1F 약국 23.7평 보증금6000 월세183 임대 11년 경과 1F 내과 31.9평 보증금14000 월세883 로뎀나무내과 통합계약 2F 내과 76.3평 보증금0 ",
+ "result": {
+  "content": "{\n  \"floorLeases\": [\n    {\n      \"floor\": \"B1\",\n      \"tenant_type\": \"카페\",\n      \"area_sqm\": 317.36,\n      \"deposit_manwon\": 0,\n      \"rent_manwon\": 0,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": true\n    },\n    {\n      \"floor\": \"1F\",\n      \"tenant_type\": \"약국\",\n      \"area_sqm\": 78.35,\n      \"deposit_manwon\": 6000,\n      \"rent_manwon\": 183,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": false\n    },\n    {\n      \"floor\": \"1F\",\n      \"tenant_type\": \"내과\",\n      \"tenant_name\": \"로뎀나무내과\",\n      \"area_sqm\": 105.46,\n      \"deposit_manwon\": 14000,\n      \"rent_manwon\": 883,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": false\n    },\n    {\n      \"floor\": \"2F\",\n      \"tenant_type\": \"내과\",\n      \"tenant_name\": \"로뎀나무내과\",\n      \"area_sqm\": 252.23,\n      \"deposit_manwon\": 0,\n      \"rent_manwon\": 0,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": true\n    },\n    {\n      \"floor\": \"3F\",\n      \"tenant_type\": \"헬쓰장\",\n      \"area_sqm\": 252.23,\n      \"deposit_manwon\": 5000,\n      \"rent_manwon\": 455,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": false\n    },\n    {\n      \"floor\": \"4F\",\n      \"tenant_type\": \"와인매장\",\n      \"area_sqm\": 168.93,\n      \"deposit_manwon\": 3000,\n      \"rent_manwon\": 260,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": false\n    },\n    {\n      \"floor\": \"4F\",\n      \"tenant_type\": \"자가\",\n      \"area_sqm\": 82.98,\n      \"deposit_manwon\": 0,\n      \"rent_manwon\": 0,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": true\n    },\n    {\n      \"floor\": \"5F\",\n      \"tenant_type\": \"내과\",\n      \"tenant_name\": \"로뎀나무내과\",\n      \"area_sqm\": 183.8,\n      \"deposit_manwon\": 1000,\n      \"rent_manwon\": 165,\n      \"mgmt_fee_manwon\": 0,\n      \"is_vacant\": false\n    }\n  ],\n  \"monthlyRent\": 1946,\n  \"totalDeposit\": 29000,\n  \"mgmtFeeTotal\": 0,\n  \"vacancyPct\": 37.5\n}",
+  "tokens": 1964,
+  "model": "gpt-5.6-luna",
+  "provider": "openai",
+  "latencyMs": 9558
+ }
+}

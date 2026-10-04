@@ -417,6 +417,16 @@ const TOKEN_HUMANIZATION: Record<string, Record<OutputChannel, string>> = {
   '[건물명 비공개]':          { public: '본 자산',       institutional: '본 자산',    internal: '본 자산' },
 };
 
+/**
+ * 레거시 저장 문서의 '[건물명 비공개]' 마스크를 읽기 시점에 '본 자산'으로 치환한다 (D5).
+ * 건물명 공개 정책 이후 생성기는 이 토큰을 내보내지 않지만, 저장된 구 문서에는 남아 있다.
+ * 저장 데이터(및 승인 해시)는 변경하지 않는다.
+ */
+export function stripLegacyNameMask(text: string | null | undefined): string {
+  if (!text) return text ?? '';
+  return text.replaceAll('[건물명 비공개]', '본 자산');
+}
+
 /** 한국어 조사 보존형 치환 패턴 (토큰 뒤 조사 연결 처리) */
 const KOREAN_PARTICLE_RULES: Array<{
   pattern: RegExp;

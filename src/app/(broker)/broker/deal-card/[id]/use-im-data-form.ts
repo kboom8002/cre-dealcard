@@ -19,6 +19,7 @@ import { PostureSelector, HospitalitySpecSection, OwnerOccupiedSpecSection, Sect
 import { getInputOrder } from "./bottom-sheet/hooks/use-input-order";
 import { validateCombination } from "@/domain/ontology/asset-identity";
 import { hasValidBuildingNumber } from "@/domain/verification/address-resolver";
+import { parseBrokerCount } from "@/domain/building/mobile-im/resolve-physical-specs";
 // W-1: Posture-specific form state sub-hooks
 import {
   useIncomeFormState,
@@ -130,6 +131,9 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
     const [ancillaryIncomes, setAncillaryIncomes] = useState<any[]>([]);
     const [askingPrice, setAskingPrice] = useState("");
     const [vacancyPct, setVacancyPct] = useState<number | "">("");
+    // D4: 주차/승강기 대수 (선택) — 건축물대장 값이 없을 때만 fallback으로 사용됨
+    const [brokerParkingCount, setBrokerParkingCount] = useState("");
+    const [brokerElevatorCount, setBrokerElevatorCount] = useState("");
     const [brokerHighlight, setBrokerHighlight] = useState("");
     // W-1: Logistics form state — delegated to sub-hook
     const {
@@ -349,6 +353,11 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
             setLoanStatus("confirmed");
           }
           if (prefillVacancyPct != null && vacancyPct === '') setVacancyPct(prefillVacancyPct);
+          if (existingDocBody?.broker_physical_inputs) {
+            const bp = existingDocBody.broker_physical_inputs;
+            if (bp.parking_count != null && !brokerParkingCount) setBrokerParkingCount(String(bp.parking_count));
+            if (bp.elevator_count != null && !brokerElevatorCount) setBrokerElevatorCount(String(bp.elevator_count));
+          }
 
           if (initialStage === 'pro' && existingDocBody) {
             if (existingDocBody.broker_highlight) setBrokerHighlight(existingDocBody.broker_highlight);
@@ -598,6 +607,12 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
             (url): url is string => typeof url === 'string' && url.trim().length > 0
           );
 
+          // D4: 주차/승강기 대수 검증 (빈 값 → undefined, 음수/소수/9999 초과 → 오류)
+          const parkingParsed = parseBrokerCount(brokerParkingCount, '주차 대수');
+          if (!parkingParsed.ok) throw new Error(parkingParsed.error);
+          const elevatorParsed = parseBrokerCount(brokerElevatorCount, '승강기 대수');
+          if (!elevatorParsed.ok) throw new Error(elevatorParsed.error);
+
           const requestBody = {
             building_id: buildingId,
             investment_posture: investmentPosture,
@@ -610,6 +625,8 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
             loan_status: loanStatus,
             ancillary_incomes: ancillaryIncomes.length > 0 ? ancillaryIncomes : undefined,
             asking_price_manwon: askingPrice ? Number(askingPrice) : undefined,
+            parking_count: parkingParsed.value,
+            elevator_count: elevatorParsed.value,
             resolved_address: address || undefined,
             resolved_pnu: pnu || undefined,
             broker_highlight: brokerHighlight || undefined,
@@ -890,6 +907,10 @@ export function useImDataForm(props: ImDataBottomSheetProps) {
       askingPriceRef,
       setAskingPrice,
       askingPrice,
+      brokerParkingCount,
+      setBrokerParkingCount,
+      brokerElevatorCount,
+      setBrokerElevatorCount,
       loanAmountRef,
       manualComps,
       setManualComps,

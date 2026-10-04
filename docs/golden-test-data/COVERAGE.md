@@ -5,17 +5,19 @@
 
 | 물건 | 포스처 | 라운드 | images/ 파일 수 | 골든 E2E 스펙 | LLM 녹화(replay) |
 |:---|:---|:---|---:|:---|:---:|
-| p1 당산 | income | r1 / r2 / r3 | 22 / 22 / 22 | `income-dangsan-r3` | ❌ |
-| p2 신사 | trading | r1 / r3 | 13 / 7 | `trading-sinsa-r3` | ❌ |
-| p3 서초 | owner | r1 / r3 | 13 / 13 | `owner-seocho-r3` | ❌ |
-| p4 잠원 | development | r1 / r2 / r3 | 39 / 39 / 39 | `development-jamwon-r3` | ❌ |
+| p1 당산 | income | r1 / r2 / r3 | 22 / 22 / 22 | `income-dangsan-r3` | ✅ |
+| p2 신사 | trading | r1 / r3 | 13 / 7 | `trading-sinsa-r3` | ✅ |
+| p3 서초 | owner | r1 / r3 | 13 / 13 | `owner-seocho-r3` | ✅ |
+| p4 잠원 | development | r1 / r2 / r3 | 39 / 39 / 39 | `development-jamwon-r3` | ✅ |
 | p5 양평 | income | r1 / r2 / r3 | 2 / 6 / 6 | `income-yangpyeong-r3` | ✅ |
-| p6 호텔 | operating | r1 / r2 | 6 / 6 | `operating-hotel-r2` | ❌ |
-| p7 수택 | development | r1 / r2 | 21 / 21 | `development-sutaek-r2` | ❌ |
+| p6 호텔 | operating | r1 / r2 | 6 / 6 | `operating-hotel-r2` | ✅ |
+| p7 수택 | development | r1 / r2 | 21 / 21 | `development-sutaek-r2` | ✅ |
 
 ## 알려진 공백 (정직하게)
 
-- **녹화/재생은 p5 r3 하나뿐**. 나머지 6개 스펙은 아직 `LLM_MODE=record` 로 녹화되지 않았다 → 여전히 live LLM(또는 Mock 폴백) 의존.
+- **녹화/재생은 7개 골든 스펙 전부 완료**(2026-10-04). 전체 replay 76/76 통과, 8.9분(live 대비 약 1/3), flaky 0. 단 **프롬프트·파이프라인을 바꾸면 해당 녹화는 무효**가 되므로(LLM_REPLAY_MISS) 재녹화·커밋이 필요하다.
+- **replay 는 반드시 `--workers=1`**. 병렬 실행 시 dev 서버 과부하로 전부 실패한 사례가 있다.
+- **dev 서버(3000 포트) 잔존 주의**: 이전 실행이 남긴 서버가 있으면 LLM_MODE 가 적용되지 않는다(Playwright `reuseExistingServer`). 실행 전 포트를 확인할 것.
 - **시각 회귀 베이스라인은 p5 하나뿐** (`docs/visual-baselines/p5-yangpyeong`). 렌더는 Windows + PowerPoint COM 전용.
 - **에디터 UI E2E(사진 태깅)는 p5 골든 문서 1건 대상**. 사진이 0~2장인 문서, 20장 이상 문서는 미검증.
 - **포스처 커버**: owner / trading / operating 은 r3(혹은 r2) 1개 라운드만 E2E 가 있다. development 는 2건, income 은 2건.

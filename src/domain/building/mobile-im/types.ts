@@ -298,6 +298,10 @@ export interface MobileIMSupplementalInput {
   opex_total_krw?: number;          // 연간 실측 운영비 (원)
   loan_bank?: string;               // 융자 은행
   asking_price_manwon?: number;     // 매매가 (만원)
+  /** 중개인 입력 주차 대수 (선택; 건축물대장 값이 없을 때만 fallback — resolvePhysicalSpecs) */
+  parking_count?: number;
+  /** 중개인 입력 승강기 대수 (선택; 건축물대장 값이 없을 때만 fallback — resolvePhysicalSpecs) */
+  elevator_count?: number;
   monthly_revenue_manwon?: number;
 
   // ── D41 Phase D: 취득 비용 (PPTX IM Pro 전용) ──

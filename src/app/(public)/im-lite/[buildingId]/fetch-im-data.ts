@@ -9,6 +9,7 @@ import { readWithMigration } from "@/lib/ssot-adapter";
 import { getDemoMobileIM } from "@/lib/demo/mobile-im-demo-data";
 import { computeDataQualityBadge } from "@/domain/building/mobile-im/data-quality-badge";
 import { resolveEnrichment } from "@/domain/building/im-core/resolve-enrichment";
+import { stripLegacyNameMask } from "@/domain/building/mobile-im/guardrails";
 import { getTierAllowedSections, TIER_CONFIG, type ReleaseTier } from "@/domain/building/im-core/release-tier";
 import type { MobileIMDocument } from "@/lib/demo/mobile-im-demo-data";
 import { buildKakaoStaticMapUrl } from "@/lib/external/kakao-static-map";
@@ -389,7 +390,7 @@ export async function fetchIMData(
             if (s.locked) {
               return { ...s, content: "", boundaryNote: undefined, provenance: [] };
             }
-            return s;
+            return { ...s, content: stripLegacyNameMask(s.content) };
           }
           let icon = "📄";
           if (s.section_type === "overview" || s.section_type === "property_overview") icon = "🏢";
@@ -432,7 +433,7 @@ export async function fetchIMData(
             sectionId: s.section_type || `section_${s.section_order}`,
             title: s.title || "섹션",
             icon,
-            content: isSectionLocked ? "" : (s.markdown || ""),
+            content: isSectionLocked ? "" : stripLegacyNameMask(s.markdown || ""),
             dataSource: s.confidence === "inferred" ? "AI 분석" : "SSoT 데이터",
             aiRole: s.confidence === "inferred" ? "ai_generated" : "auto",
             confidence: s.confidence,

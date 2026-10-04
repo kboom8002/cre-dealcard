@@ -319,6 +319,20 @@ export function createGoldenTest(config: GoldenTestConfig) {
           }
         }
 
+        // D4: 중개인 주차/승강기 대수 (선택 입력) — 골든 픽스처의 parking/elevator 를 실제 UI 로 입력
+        {
+          const specDetails = page.locator('details', { hasText: '주차 · 승강기 대수' }).first();
+          const hasPark = Number.isInteger(bs.parking) && bs.parking > 0;
+          const hasElev = Number.isInteger(bs.elevator) && bs.elevator > 0;
+          if ((hasPark || hasElev) && await specDetails.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await specDetails.locator('summary').click();
+            const nums = specDetails.locator('input[type="number"]');
+            if (hasPark) await nums.nth(0).fill(String(bs.parking));
+            if (hasElev) await nums.nth(1).fill(String(bs.elevator));
+            console.log(`  ✅ 중개인 주차/승강기 입력: ${hasPark ? bs.parking : '-'}대 / ${hasElev ? bs.elevator : '-'}대`);
+          }
+        }
+
         // ── 포스처별 필수 필드 입력 ──
         if (posture === 'income') {
           if (bs.floor_leases && bs.floor_leases.length > 0) {
@@ -510,6 +524,13 @@ export function createGoldenTest(config: GoldenTestConfig) {
         // 7종 콘텐츠 및 이미지 단언
         assertMapImagePresence(state.mediaEntries);
         assertPriceReflected(state.fullPptxText, askingPriceManwon);
+        // D4: 바텀시트 주차/승강기(선택 입력)가 물건 개요에 '주차 / 승강기 N대 / M대' 로 반영되어야 함
+        {
+          const bsSpec = loadBottomSheet();
+          if (Number.isInteger(bsSpec.parking) && bsSpec.parking > 0) {
+            expect(state.fullPptxText, '물건 개요에 주차/승강기 행 누락').toMatch(/주차\s*\/\s*승강기[\s\S]{0,40}\d+\s*대/);
+          }
+        }
         if (expectedFloors.length > 0) {
           assertFloorKeywordsPresent(state.fullPptxText, expectedFloors);
         }

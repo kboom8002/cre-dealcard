@@ -22,6 +22,7 @@ import { validateLayout } from './layout-validator';
 import { validateYield, type Yield } from './yield-object';
 import { addFallbackContent, resetFallbackTracker, parseInlineMarkdown } from './pptx-markdown-fallback';
 import { sqmToPyeong, formatPyeong } from '@/lib/utils/area-conversion';
+import { resolvePhysicalSpecs } from '../resolve-physical-specs';
 
 import { createModuleLogger } from '@/lib/logger';
 const log = createModuleLogger('pptx-renderer');
@@ -330,7 +331,8 @@ export class MobileImPptxRenderer {
             if (!yr) return '-';
             const yrNum = Number(String(yr).slice(0, 4));
             const age = yrNum ? `(건축 후 약 ${new Date().getFullYear() - yrNum}년)` : '';
-            return `${yr} ${age}`;
+            const ymd = /^\d{8}$/.test(String(yr)) ? `${String(yr).slice(0, 4)}년 ${Number(String(yr).slice(4, 6))}월` : String(yr);
+            return `${ymd} ${age}`;
           })()],
           ['층수', (() => {
             const below = Number(ssot.floors_below || heroCard.floorsBelow || bldg.floors_below || br.ugrndFlrCnt || 0);
@@ -339,8 +341,17 @@ export class MobileImPptxRenderer {
             return `지하${below}층 ~ 지상${above}층`;
           })()],
           ['주차 / 승강기', (() => {
-            const park = ssot.parking_count || heroCard.parkingCount || bldg.parking_count || br.parkingCnt;
-            const elev = ssot.elevator_count || heroCard.elevatorCount || bldg.elevator_count || br.rideUseLiftCnt;
+            // D4: 건축물대장(br) 값 우선 → 기존 SSoT/hero/bldg 체인 → 중개인 입력(fallback). 전부 없으면 undefined → '-'
+            const brokerSpecs = input.doc.body?.broker_physical_inputs;
+            const resolvedSpecs = resolvePhysicalSpecs({
+              register: {
+                parkingCount: br.parkingCount || ssot.parking_count || heroCard.parkingCount || bldg.parking_count || br.parkingCnt,
+                elevatorCount: br.elevatorCount || ssot.elevator_count || heroCard.elevatorCount || bldg.elevator_count || br.rideUseLiftCnt,
+              },
+              broker: { parkingCount: brokerSpecs?.parking_count, elevatorCount: brokerSpecs?.elevator_count },
+            });
+            const park = resolvedSpecs.parkingCount;
+            const elev = resolvedSpecs.elevatorCount;
             if (!park && !elev) return '-'; // 둘 다 부재 → 행 제거 ('-대 / -대' 방지, Rule 37)
             return `${park ? `${park}대` : '-'} / ${elev ? `${elev}대` : '-'}`;
           })()],
@@ -360,10 +371,29 @@ export class MobileImPptxRenderer {
           };
         } else if (dataMap['building'].left?.rows) {
           // LLM이 building 섹션을 생성한 경우: 누락 스펙 병합
-          const existingKeys = new Set(dataMap['building'].left.rows.map(([k]: [string, string]) => k));
+          const specGroup = (k: string): string => {
+            const c = String(k).replace(/\s+/g, '');
+            if (/준공|사용승인|건축연도/.test(c)) return '#준공';
+            if (/용도지역|지역\/지구|지역지구/.test(c)) return '#용도지역';
+            if (/층수|건축규모/.test(c)) return '#층수';
+            if (/주차|승강기|엘리베이터/.test(c)) return '#주차승강기';
+            return c;
+          };
+          // Rule 4: 같은 제원이 다른 라벨(예: 건축연도(사용승인일) vs 준공시점)로 이중 렌더되지 않도록 그룹 단위로 중복 제거
+          const existingKeys = new Set(dataMap['building'].left.rows.map(([k]: [string, string]) => specGroup(k)));
           for (const [key, val] of enrichedRows) {
-            if (!existingKeys.has(key)) {
+            if (!existingKeys.has(specGroup(key))) {
               dataMap['building'].left.rows.push([key, val]);
+            }
+          }
+          // 소재지는 SSoT 주소(다필지 표기 포함)를 정본으로 하고 항상 첫 행에 둔다 (LLM 이 도로명 주소 등으로 바꿔 쓰는 것 방지)
+          {
+            const rows: any[] = dataMap['building'].left.rows;
+            const ssotAddr = enrichedRows.find(([k]) => k === '소재지')?.[1];
+            const addrIdx = rows.findIndex((r: any[]) => String(r?.[0] ?? '').replace(/\s+/g, '') === '소재지');
+            if (addrIdx >= 0) {
+              if (ssotAddr && ssotAddr !== '-') rows[addrIdx] = [rows[addrIdx][0], ssotAddr];
+              if (addrIdx > 0) rows.unshift(rows.splice(addrIdx, 1)[0]);
             }
           }
         } else {
@@ -1116,20 +1146,30 @@ export class MobileImPptxRenderer {
         }
       }
 
-      // ── 6b. H1 출력 불변식 감사 (경고 모드: 렌더 비차단, 위반은 warnings + 로그로 노출) ──
+      // ── 6b. H1 출력 불변식 감사 (D3) ──
+      // 기본: warn 모드(렌더 비차단, warnings + 구조화 로그 텔레메트리).
+      // IM_INVARIANT_MODE=block 이면 error 위반 시 렌더를 실패시켜 결함 산출물의 다운로드를 차단한다.
+      let h1BlockMessage: string | null = null;
       try {
         const { auditPptxBufferInvariants } = await import('../quality/pptx-invariant-audit');
+        const { resolveInvariantMode, summarizeViolations } = await import('../quality/invariant-telemetry');
         const h1 = await auditPptxBufferInvariants(buffer);
         for (const v of h1.violations) {
           warnings.push(`[H1:${v.id}] slide ${v.unit + 1}: ${v.sample}`);
         }
         const h1Errors = h1.violations.filter(v => v.severity === 'error');
-        if (h1Errors.length > 0) {
-          console.warn(`[PPTX-H1] 출력 불변식 위반 ${h1Errors.length}건`, h1Errors.slice(0, 10));
+        const mode = resolveInvariantMode();
+        if (h1.violations.length > 0) {
+          // 텔레메트리: 로그 집계 쿼리용 구조화 이벤트
+          console.warn('[PPTX-H1] ' + JSON.stringify({ event: 'im_invariant_violation', mode, isPro: !!input.isPro, slideCount: h1.slideCount, ...summarizeViolations(h1.violations) }));
+        }
+        if (h1Errors.length > 0 && mode === 'block') {
+          h1BlockMessage = `H1 출력 불변식 위반 ${h1Errors.length}건으로 PPTX 생성을 차단했습니다: ` + h1Errors.slice(0, 3).map(v => `${v.id}@slide${v.unit + 1}`).join(', ');
         }
       } catch (h1Err) {
         warnings.push(`[H1] 불변식 감사 실패: ${h1Err instanceof Error ? h1Err.message : String(h1Err)}`);
       }
+      if (h1BlockMessage) throw new Error(h1BlockMessage);
 
       return {
         buffer,

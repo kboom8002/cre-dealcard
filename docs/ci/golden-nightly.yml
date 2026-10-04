@@ -1,0 +1,63 @@
+name: Golden E2E (nightly)
+
+# D2: 골든 E2E 를 LLM 녹화/재생으로 결정론화하여 야간 실행.
+#  - 평일 새벽: replay (LLM 비용 0, 비결정성 제거) -> 회귀 감지
+#  - 수동 실행(workflow_dispatch): mode=live 로 실제 OpenAI 호출 (녹화 갱신/드리프트 점검)
+# 주의: 이 워크플로우는 저장소 시크릿이 필요하며(아래 env) 로컬에서만 검증되었다. 최초 실행 결과를 확인할 것.
+
+on:
+  schedule:
+    - cron: '0 18 * * 0-4'   # UTC 18:00 = KST 03:00 (월~금 새벽)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'LLM 모드 (replay | live | record)'
+        required: false
+        default: 'replay'
+
+jobs:
+  golden:
+    name: Golden E2E (${{ github.event.inputs.mode || 'replay' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      LLM_MODE: ${{ github.event.inputs.mode || 'replay' }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      PLAYWRIGHT_JSON_OUTPUT_NAME: docs/test/pw-report.json
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      # 7개 골든 스펙 전부 녹화됨(e2e/llm-recordings). 개발 서버 1대를 공유하므로 반드시 --workers=1
+      # (병렬 실행 시 dev 서버가 과부하되어 chrome-error 로 전부 실패한 사례가 있음).
+      # 프롬프트/파이프라인이 바뀌면 replay 가 LLM_REPLAY_MISS 로 실패한다 -> mode=record 로 갱신 후 커밋.
+      - name: Golden E2E
+        run: npx playwright test e2e/golden e2e/editor --workers=1 --reporter=json,list
+      - name: Flaky / quarantine report
+        if: always()
+        run: node scripts/flaky-report.mjs docs/test/pw-report.json
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-report-${{ env.LLM_MODE }}
+          path: |
+            docs/test/pw-report.json
+            docs/test/flaky-history.json
+            test-results/
+          retention-days: 14

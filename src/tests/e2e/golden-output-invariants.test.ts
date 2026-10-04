@@ -37,9 +37,9 @@ const files = collectPptx(OUT_DIR);
 
 /**
  * 알려진 미해결 결함 (Basic IM 범위 밖). 수정되면 it.fails 가 실패하여 이 목록에서 제거하도록 유도한다.
- * - p1-dangsan-r3-pro: Pro IM 10p에 mock LLM 응답 JSON({"ok":true,"mocked":true,...})이 노출됨 (D-JSON-LEAK 잔존 경로)
+ * - (현재 없음) p1-dangsan-r3-pro 10p 의 mock JSON 유출은 stripJsonLeaks 4중 방어 이전에 생성된 stale 산출물이었고, 재생성 후 해소 확인 (2026-10-04).
  */
-const KNOWN_ISSUES = ['p1_dangsan_income_r3_pro.pptx'];
+const KNOWN_ISSUES: string[] = [];
 
 
 describe('H1 게이트: 골든 PPTX 산출물 출력 불변식', () => {
